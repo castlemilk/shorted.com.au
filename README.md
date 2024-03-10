@@ -24,11 +24,12 @@ basic dashboarding platform for viewing short positions on ASX
 
 ### MVP
 
-[ ] sync data to local machine
-[ ] basic notebook for exploring data
-[ ] normalise appropriately and index into blob store (S3, cloud storage)
-[ ] investigate options for serving time series data
-[ ] sync data from s3 into hot store
+[x] sync data to local machine
+[x] basic notebook for exploring data
+[x] normalise appropriately and index into blob store (S3, cloud storage)
+[x] investigate options for serving time series data
+[x] sync data from s3 into hot store
+
 [ ] backend to serve hot store data
 [ ] api for top 10 shorts
 [ ] investigate process for fetching ABN metadata ( at least top ten)
