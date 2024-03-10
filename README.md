@@ -22,6 +22,21 @@ basic dashboarding platform for viewing short positions on ASX
 
 
 
+### MVP
+
+[ ] sync data to local machine
+[ ] basic notebook for exploring data
+[ ] normalise appropriately and index into blob store (S3, cloud storage)
+[ ] investigate options for serving time series data
+[ ] sync data from s3 into hot store
+[ ] backend to serve hot store data
+[ ] api for top 10 shorts
+[ ] investigate process for fetching ABN metadata ( at least top ten)
+[ ] frontend to render top 10 shorts
+
+
+
+
 ## Tech Stack
 
 This is a T3 Stack project bootstrapped with create-t3-app.

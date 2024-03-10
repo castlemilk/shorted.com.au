@@ -1,9 +1,11 @@
 import axios from "axios";
 import fs from "fs";
-import path from "path";
 import { SingleBar, Presets } from "cli-progress";
 
-const DATA_FOLDER = path.join(__dirname, "data");
+import path from "path";
+import { exit } from "process";
+const __dirname = path.resolve();
+const DATA_FOLDER = path.join(__dirname, "notebooks/data");
 const DATA_URL =
   "https://download.asic.gov.au/short-selling/short-selling-data.json";
 const BASE_URL = "https://download.asic.gov.au/short-selling/";
@@ -38,27 +40,31 @@ const isDownloaded = (fileName: string): boolean => {
 // Download file function with progress bar update
 const downloadFile = async (url: string, fileName: string) => {
   if (isDownloaded(fileName)) {
-    console.log(`File ${fileName} already downloaded.`);
+    // console.log(`File ${fileName} already downloaded.`);
     progressBar.increment();
     return;
   }
 
   try {
-    const response = await axios.get(url);
+    const response = await axios.get(url, { responseType: "stream" });
 
     const filePath = path.join(DATA_FOLDER, fileName);
     response.data.pipe(fs.createWriteStream(filePath));
     response.data.on("close", () => {
-      console.log(`Downloaded file ${fileName}`);
+      //   console.log(`Downloaded file ${fileName}`);
       progressBar.increment();
       return;
     });
   } catch (error) {
-    console.error(`Error downloading file ${fileName}:`, error);
+    // console.error(`Error downloading file ${fileName}:`, error);
     progressBar.increment();
     return;
   }
 };
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 // Main function to fetch data and manage downloads with progress bar
 export const fetchDataAndDownload = async () => {
@@ -80,6 +86,7 @@ export const fetchDataAndDownload = async () => {
         concurrentDownloads.slice(i, i + MAX_CONCURRENT).map((fn) => {
           fn();
           count += 1;
+          sleep(50);
         }),
       );
     }
@@ -95,4 +102,5 @@ export const fetchDataAndDownload = async () => {
 };
 
 // Run the main function
-// fetchDataAndDownload();
+fetchDataAndDownload();
+exit(0)

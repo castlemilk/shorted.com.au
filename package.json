@@ -3,13 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "moduleResolution": "Node",
   "scripts": {
     "build": "next build",
     "dev": "next dev",
     "lint": "next lint",
     "start": "next start",
     "test": "jest",
-    "sync-short-data": "node ./scripts/sync-short-data.ts"
+    "sync-short-data": "node --loader ts-node/esm scripts/sync-short-data.ts"
   },
   "jest": {
     "preset": "ts-jest",
@@ -65,6 +66,7 @@
     "prettier-plugin-tailwindcss": "^0.5.7",
     "tailwindcss": "^3.3.5",
     "ts-jest": "^29.1.2",
+    "tsx": "^4.7.1",
     "typescript": "^5.1.6"
   },
   "ct3aMetadata": {
