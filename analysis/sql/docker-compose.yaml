@@ -27,7 +27,23 @@ services:
         - grafana_data:/var/lib/grafana
         - ./grafana/provisioning:/etc/grafana/provisioning  # Mount provisioning files
         - ./grafana/dashboards:/var/lib/grafana/dashboards  # Optional: Mount a directory for dashboards
-
+  prometheus:
+    image: prom/prometheus-linux-arm64:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus/prometheus.yaml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - postgres_exporter
+  postgres_exporter:
+    image: wrouesnel/postgres_exporter
+    container_name: postgres_exporter
+    environment:
+      DATA_SOURCE_NAME: postgresql://admin:password@postgres:5432/shorts?sslmode=disable
+    depends_on:
+      - postgres
 volumes:
   my_db_data:
   grafana_data:
+  prometheus_data:
