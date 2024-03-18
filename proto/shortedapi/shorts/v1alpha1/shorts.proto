@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package shorts.v1alpha1;
 
-option go_package = "github.com/castlemilk/shorted/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1";
+option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1";
 
 import "google/api/annotations.proto";
 import "protoc-gen-openapiv2/options/annotations.proto";
@@ -10,17 +10,17 @@ import "stocks/v1alpha1/stocks.proto";
 
 service ShortedStocksService {
   // Shows top 10 short positions on the ASX over different periods of time.
-  rpc Top10 (Top10Request) returns (Top10Response);
+  rpc GetTopShorts (GetTopShortsRequest) returns (GetTopShortsResponse);
   // Provides an overview of a specific stock based on PRODUCT_CODE.
-  rpc GetStock (StockSummaryRequest) returns (stocks.v1alpha1.Stock);
+  rpc GetStock (GetStockRequest) returns (stocks.v1alpha1.Stock);
   // Provides a more in-depth breakdown of a particular stock's metadata.
-  rpc GetStockDetails (StockDetailsRequest) returns (stocks.v1alpha1.StockDetails);
+  rpc GetStockDetails (GetStockDetailsRequest) returns (stocks.v1alpha1.StockDetails);
   // fetch time series data for a specific stock
   rpc GetStockData (GetStockDataRequest) returns (stocks.v1alpha1.TimeSeriesData);
 }
 
 // Request for Top10 RPC, specifying the period of time.
-message Top10Request {
+message GetTopShortsRequest {
   enum Period {
     MONTH_1 = 0;
     MONTH_3 = 1;
@@ -28,20 +28,21 @@ message Top10Request {
     YEAR_1 = 3;
   }
   Period period = 1;
+  int32 limit = 2;
 }
 
 // Response for Top10 RPC, including time series data for each of the top 10 short positions.
-message Top10Response {
+message GetTopShortsResponse {
   repeated stocks.v1alpha1.TimeSeriesData time_series = 1;
 }
 
 // Request for GetStockSummary RPC, specifying the product code.
-message StockSummaryRequest {
+message GetStockRequest {
   string product_code = 1;
 }
 
 // Request for GetStockDetails RPC, specifying the product code.
-message StockDetailsRequest {
+message GetStockDetailsRequest {
   string product_code = 1;
 }
 

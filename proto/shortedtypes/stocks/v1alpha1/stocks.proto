@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package stocks.v1alpha1;
 
-option go_package = "github.com/castlemilk/shorted/services/gen/proto/go/stocks/v1alpha1;stocksv1alpha1";
+option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1;stocksv1alpha1";
 
 import "google/protobuf/timestamp.proto";
 
