@@ -2,6 +2,8 @@ BASE_URL := http://localhost:8080
 
 run.shorts:
 	go run shorts/cmd/server/main.go
+build.shorts:
+	docker buildx build --platform linux/amd64 -f shorts/cmd/server/Dockerfile -t shorts:latest .
 test.gettopshorts:
 	curl \
     --header "Content-Type: application/json" \
