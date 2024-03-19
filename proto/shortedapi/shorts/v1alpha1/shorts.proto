@@ -21,13 +21,7 @@ service ShortedStocksService {
 
 // Request for Top10 RPC, specifying the period of time.
 message GetTopShortsRequest {
-  enum Period {
-    MONTH_1 = 0;
-    MONTH_3 = 1;
-    MONTH_6 = 2;
-    YEAR_1 = 3;
-  }
-  Period period = 1;
+  string period = 1;
   int32 limit = 2;
 }
 
