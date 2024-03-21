@@ -13,7 +13,7 @@ type postgresStore struct {
 // newPostgresStore initializes a new store with a PostgreSQL backend.
 func newPostgresStore(config Config) Store {
 	db := pg.Connect(&pg.Options{
-		Addr:     config.PostgresAddr, // Assumes Addr is in the form "host:port"
+		Addr:     config.PostgresAddress, // Assumes Addr is in the form "host:port"
 		User:     config.PostgresUser,
 		Password: config.PostgresPassword,
 		Database: config.PostgresDatabase,
