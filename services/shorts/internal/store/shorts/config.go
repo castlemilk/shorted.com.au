@@ -23,7 +23,7 @@ type Config struct {
 const (
 	defaultDynamoDBRegion   = "ap-southeast-1"
 	defaultDynamoDBTable    = "Users"
-	defaultPostgresAddr     = "localhost:5432"
+	defaultPostgresAddr     = "postgres:5432"
 	defaultPostgresUser     = "admin"
 	defaultPostgresDatabase = "shorts"
 	defaultPostgresPassword = "password"

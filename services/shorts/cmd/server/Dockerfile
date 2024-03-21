@@ -1,5 +1,5 @@
 # Step 1: Build the application in a full Go environment
-FROM golang:1.20-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.20-alpine AS builder
 
 # Install git.
 # Git is required for fetching the dependencies.
@@ -20,15 +20,15 @@ COPY gen ./gen
 COPY pkg ./pkg
 
 COPY shorts ./shorts
+ARG TARGETOS TARGETARCH
 
 # Build the Go app
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o shorts ./shorts/cmd/server/main.go
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o shorts-server ./shorts/cmd/server/main.go
 
 # Step 2: Use a minimal runtime environment
 FROM scratch
 
 # Copy the Pre-built binary file from the previous stage. 
-COPY --from=builder /app/shorts .
-
+COPY --from=builder /app/shorts-server ./shorts-server
 # Command to run the executable
-CMD ["./shorts"]
+CMD ["./shorts-server"]

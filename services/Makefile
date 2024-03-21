@@ -3,7 +3,10 @@ BASE_URL := http://localhost:8080
 run.shorts:
 	go run shorts/cmd/server/main.go
 build.shorts:
-	docker buildx build --platform linux/amd64 -f shorts/cmd/server/Dockerfile -t shorts:latest .
+	docker buildx build --progress=plain --platform linux/amd64,darwin/arm64,linux/arm64/v8 -f shorts/cmd/server/Dockerfile -t shorts:latest .
+	docker buildx build --load -f shorts/cmd/server/Dockerfile -t shorts:latest .
+run.docker.shorts:
+	docker run --link postgres --net sql_default -p 8080:8080 shorts:latest 
 test.gettopshorts:
 	curl \
     --header "Content-Type: application/json" \
