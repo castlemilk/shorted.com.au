@@ -31,7 +31,7 @@ func Env(v *viper.Viper, cfgPrefix, envPrefix string) {
 	_ = v.BindEnv(fmt.Sprintf("%s.port", cfgPrefix), fmt.Sprintf("%s_PORT", envPrefix))
 	_ = v.BindEnv(fmt.Sprintf("%s.insecure", cfgPrefix), fmt.Sprintf("%s_INSECURE", envPrefix))
 	_ = v.BindEnv(fmt.Sprintf("%s.store.backend", cfgPrefix), fmt.Sprintf("%s_STORE_BACKEND", envPrefix))
-	_ = v.BindEnv(fmt.Sprintf("%s.store.postgres_host", cfgPrefix), fmt.Sprintf("%s_STORE_POSTGRES_HOST", envPrefix))
+	_ = v.BindEnv(fmt.Sprintf("%s.store.postgres_address", cfgPrefix), fmt.Sprintf("%s_STORE_POSTGRES_ADDRESS", envPrefix))
 	_ = v.BindEnv(fmt.Sprintf("%s.store.postgres_username", cfgPrefix), fmt.Sprintf("%s_STORE_POSTGRES_USERNAME", envPrefix))
 	_ = v.BindEnv(fmt.Sprintf("%s.store.postgres_password", cfgPrefix), fmt.Sprintf("%s_STORE_POSTGRES_PASSWORD", envPrefix))
 	_ = v.BindEnv(fmt.Sprintf("%s.store.postgres_database", cfgPrefix), fmt.Sprintf("%s_STORE_POSTGRES_DATABASE", envPrefix))
@@ -39,5 +39,5 @@ func Env(v *viper.Viper, cfgPrefix, envPrefix string) {
 
 func Flags(f *flag.FlagSet, prefix string) {
 	f.IntP(fmt.Sprintf("%s.port", prefix), "p", defaultPort, "default port agent will listen on")
-	f.StringP(fmt.Sprintf("%s.store.postgres_host", prefix), "e", "", "postgres hostname")
+	f.StringP(fmt.Sprintf("%s.store.postgres_address", prefix), "e", "", "postgres address")
 }

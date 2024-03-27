@@ -11,6 +11,14 @@ plugins:
     out: ../services/gen/proto/go
     opt:
       - paths=source_relative
+  # This will invoke protoc-gen-es and write output to src/gen
+  - name: es
+    out: ../web/src/gen
+    opt: target=ts
+    # This will invoke protoc-gen-connect-query
+  - name: connect-query
+    out: ../web/src/gen
+    opt: target=ts
   # - plugin: buf.build/grpc/python:v1.59.1
   #   out: ../services/gen/proto/python
   # - plugin: buf.build/protocolbuffers/python
