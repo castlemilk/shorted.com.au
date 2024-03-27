@@ -30,10 +30,13 @@ basic dashboarding platform for viewing short positions on ASX
 [x] investigate options for serving time series data
 [x] sync data from s3 into hot store
 
-[ ] backend to serve hot store data
-[ ] api for top 10 shorts
+[x] backend to serve hot store data
+[x] api for top 10 shorts
 [ ] investigate process for fetching ABN metadata ( at least top ten)
 [ ] frontend to render top 10 shorts
+[ ] how to do annonamous auth?
+[ ] CI/CD pipeline for build and deployment to cloud run and whatever FE hosting (next?)
+[ ] db hosting (looking at superbase LGTM)
 
 
 ### Milestone 1
