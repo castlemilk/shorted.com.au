@@ -6,12 +6,16 @@ spec:
   template:
     spec:
       containers:
-      - image: asia.gcr.io/shorted-dev-aba5688f/shorted/shorts:v0.1.3
+      - image: australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/shorts:v0.1.9-25-gabcd183
         env:
         - name: APP_STORE_POSTGRES_ADDRESS
-          value: aws-0-ap-southeast-2.pooler.supabase.com:6543
+          value: aws-0-ap-southeast-2.pooler.supabase.com:5432
         - name: APP_STORE_POSTGRES_DATABASE
           value: postgres
         - name: APP_STORE_POSTGRES_USERNAME
           value: postgres.xivfykscsdagwsreyqgf
         - name: APP_STORE_POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: latest 
+              name: APP_STORE_POSTGRES_PASSWORD

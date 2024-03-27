@@ -4,7 +4,14 @@
  */
 await import("./src/env.js");
 
+import packageInfo from "./package.json" assert { type: "json" };;
+
+const { version } = packageInfo;
 /** @type {import("next").NextConfig} */
-const config = {};
+const config = {
+  publicRuntimeConfig: {
+    version,
+  },
+};
 
 export default config;

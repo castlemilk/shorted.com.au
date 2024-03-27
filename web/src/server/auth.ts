@@ -67,8 +67,8 @@ export const authOptions: NextAuthOptions = {
   },
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_ID?.toString() || "",
-      clientSecret: process.env.GOOGLE_SECRET?.toString() || "",
+      clientId: process.env.GOOGLE_ID?.toString() ?? "",
+      clientSecret: process.env.GOOGLE_SECRET?.toString() ?? "",
     }),
   ],
   adapter: FirestoreAdapter(firestore),
