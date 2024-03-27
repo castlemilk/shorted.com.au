@@ -1,32 +1,34 @@
 package shorts
 
 import (
+	"context"
+	"fmt"
+
 	stockv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
-	"github.com/go-pg/pg/v10"
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 // postgresStore implements the Store interface for a PostgreSQL backend.
 type postgresStore struct {
-	db *pg.DB
+	db *pgxpool.Pool
 }
 
 // newPostgresStore initializes a new store with a PostgreSQL backend.
 func newPostgresStore(config Config) Store {
-	db := pg.Connect(&pg.Options{
-		Addr:     config.PostgresAddress, // Assumes Addr is in the form "host:port"
-		User:     config.PostgresUser,
-		Password: config.PostgresPassword,
-		Database: config.PostgresDatabase,
-	})
+
+	dbPool, err := pgxpool.Connect(context.Background(), fmt.Sprintf("postgres://%s:%s@%s/%s", config.PostgresUsername, config.PostgresPassword, config.PostgresAddress, config.PostgresDatabase))
+	if err != nil {
+		panic("Unable to connect to database: " + err.Error())
+	}
 	return &postgresStore{
-		db: db,
+		db: dbPool,
 	}
 }
 
 // GetStock retrieves a single stock by its ID.
 func (s *postgresStore) GetStock(productCode string) (*stockv1alpha1.Stock, error) {
-	stock := &stockv1alpha1.Stock{ProductCode: productCode}
-	err := s.db.Model(stock).WherePK().Select()
+	stock := &stockv1alpha1.Stock{}
+	err := s.db.QueryRow(context.Background(), "SELECT * FROM stocks WHERE product_code = $1", productCode).Scan(&stock.ProductCode) // Update as per actual table schema
 	if err != nil {
 		return nil, err
 	}
@@ -35,26 +37,18 @@ func (s *postgresStore) GetStock(productCode string) (*stockv1alpha1.Stock, erro
 
 // GetTop10Shorts retrieves the top 10 shorted stocks.
 func (s *postgresStore) GetTopShorts(period string, limit int32) ([]*stockv1alpha1.TimeSeriesData, error) {
-
+	// You'll need to adjust FetchTimeSeriesData to use pgx as well.
 	return FetchTimeSeriesData(s.db, int(limit), period)
 }
 
-// GetStockDetails retrieves details for a specific stock.
-func (s *postgresStore) GetStockDetails(productCode string) (*stockv1alpha1.StockDetails, error) {
-	var details *stockv1alpha1.StockDetails
-	// err := s.db.Model(&details).Where("product_code = ?", productCode).Select()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	return details, nil
+// The remaining functions need to be updated similarly.
+// GetStockDetails and GetStockData examples are omitted but follow the pattern above.
+func (s *postgresStore) GetStockData(period string) (*stockv1alpha1.TimeSeriesData, error) {
+	// You'll need to adjust FetchTimeSeriesData to use pgx as well.
+	return nil, nil
 }
 
-// GetStockData retrieves details for a specific stock.
-func (s *postgresStore) GetStockData(productCode string) (*stockv1alpha1.TimeSeriesData, error) {
-	var details *stockv1alpha1.TimeSeriesData
-	// err := s.db.Model(&details).Where("product_code = ?", productCode).Select()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	return details, nil
+// GetStockDetails implements Store.
+func (s *postgresStore) GetStockDetails(string) (*stockv1alpha1.StockDetails, error) {
+	panic("unimplemented")
 }

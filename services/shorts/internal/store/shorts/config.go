@@ -15,7 +15,7 @@ type Config struct {
 	DynamoDBTable    string         `json:"dynamodb_table"   yaml:"dynamodb_table"  mapstructure:"dynamodb_table"`
 	DynamoDBEndpoint string         `json:"dynamodb_endpoint" yaml:"dynamodb_endpoint" mapstructure:"dynamodb_endpoint"`
 	PostgresAddress  string         `json:"postgres_address"    yaml:"postgres_address"    mapstructure:"postgres_address"`
-	PostgresUser     string         `json:"postgres_user"    yaml:"postgres_user"    mapstructure:"postgres_user"`
+	PostgresUsername string         `json:"postgres_username"    yaml:"postgres_username"    mapstructure:"postgres_username"`
 	PostgresPassword string         `json:"postgres_password" yaml:"postgres_password" mapstructure:"postgres_password"`
 	PostgresDatabase string         `json:"postgres_database" yaml:"postgres_database" mapstructure:"postgres_database"`
 }
@@ -24,7 +24,7 @@ const (
 	defaultDynamoDBRegion   = "ap-southeast-1"
 	defaultDynamoDBTable    = "Users"
 	defaultPostgresAddress  = "localhost:5432"
-	defaultPostgresUser     = "admin"
+	defaultPostgresUsername = "admin"
 	defaultPostgresDatabase = "shorts"
 	defaultPostgresPassword = "password"
 )
@@ -33,7 +33,7 @@ func DefaultPostgresConfig() Config {
 	return Config{
 		StorageBackend:   PostgresStore,
 		PostgresAddress:  defaultPostgresAddress,
-		PostgresUser:     defaultPostgresUser,
+		PostgresUsername: defaultPostgresUsername,
 		PostgresDatabase: defaultPostgresDatabase,
 		PostgresPassword: defaultPostgresPassword,
 	}

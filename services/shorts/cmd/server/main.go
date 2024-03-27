@@ -35,20 +35,20 @@ func main() {
 		log.Errorf("error setting up health server: %v", err)
 		os.Exit(1)
 	}
-	opsMux := http.NewServeMux()
-	opsAddr := fmt.Sprintf(":%d", cfg.OpsSpec.Port)
-	opsServer := &http.Server{
-		Addr:    opsAddr,
-		Handler: opsMux,
-	}
-	registerOps(cfg, opsMux, healthServer)
+	// opsMux := http.NewServeMux()
+	// opsAddr := fmt.Sprintf(":%d", cfg.OpsSpec.Port)
+	// opsServer := &http.Server{
+	// 	Addr:    opsAddr,
+	// 	Handler: opsMux,
+	// }
+	// registerOps(cfg, opsMux, healthServer)
 	s, err := shorts.New(ctx, cfg.AppSpec)
 	g, gCtx := errgroup.WithContext(ctx)
 	healthServer.SetAlive(true)
-	g.Go(func() error {
-		log.Infof("starting ops server at %s", opsAddr)
-		return opsServer.ListenAndServe()
-	})
+	// g.Go(func() error {
+	// 	log.Infof("starting ops server at %s", opsAddr)
+	// 	return opsServer.ListenAndServe()
+	// })
 	serverAddr := fmt.Sprintf(":%d", cfg.AppSpec.Port)
 	g.Go(func() error {
 		log.Infof("starting server server at %s", serverAddr)
