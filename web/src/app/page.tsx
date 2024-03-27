@@ -62,9 +62,9 @@ const components: { title: string; href: string; description: string }[] = [
 
 const Page: React.FC = () => {
   return (
-    <div className="mr-4 hidden md:flex">
+    <div className="p-10 mr-10 hidden md:flex">
       <Link href="/" className="mr-6 flex items-center space-x-2">
-        <Icons.logo className="h-6 w-6" />
+        <Icons.logo className="h-12 w-12" />
         <span className="hidden font-bold sm:inline-block">
           {siteConfig.name}
         </span>
