@@ -14,11 +14,22 @@ plugins:
   # This will invoke protoc-gen-es and write output to src/gen
   - name: es
     out: ../web/src/gen
-    opt: target=ts
+    opt:
+      - target=ts
+      - import_extension=none
+
+    # This will invoke protoc-gen-connect-query
+  - name: connect-es
+    out: ../web/src/gen
+    opt:
+      - target=ts
+      - import_extension=none
     # This will invoke protoc-gen-connect-query
   - name: connect-query
     out: ../web/src/gen
-    opt: target=ts
+    opt:
+      - target=ts
+      - import_extension=none
   # - plugin: buf.build/grpc/python:v1.59.1
   #   out: ../services/gen/proto/python
   # - plugin: buf.build/protocolbuffers/python

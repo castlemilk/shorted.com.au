@@ -5,6 +5,9 @@ import { Inter as FontSans } from "next/font/google"
 
 import { cn } from "../@/lib/utils"
 import { NextAuthProvider } from "./next-auth-provider";
+import { createConnectTransport } from "@connectrpc/connect-web";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { TransportProvider } from "@connectrpc/connect-query";
 
 export const fontSans = FontSans({
   subsets: ["latin"],
@@ -17,6 +20,7 @@ export const metadata = {
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
+
 export default function RootLayout({
   children,
 }: {
@@ -27,7 +31,15 @@ export default function RootLayout({
       <body className={cn(
           "min-h-screen bg-background font-sans antialiased",
           fontSans.variable
-        )}><NextAuthProvider>{children}</NextAuthProvider></body>
+        )}>
+          {/* <NextAuthProvider> */}
+            {/* <TransportProvider transport={finalTransport}> */}
+              {/* <QueryClientProvider client={queryClient}> */}
+                {children}
+              {/* </QueryClientProvider> */}
+            {/* </TransportProvider> */}
+          {/* </NextAuthProvider> */}
+      </body>
     </html>
   );
 }

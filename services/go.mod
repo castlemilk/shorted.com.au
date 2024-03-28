@@ -4,16 +4,17 @@ go 1.20
 
 require (
 	connectrpc.com/connect v1.15.0
+	connectrpc.com/cors v0.1.0
 	github.com/aws/aws-lambda-go v1.46.0
 	github.com/awslabs/aws-lambda-go-api-proxy v0.16.1
 	github.com/bufbuild/connect-go v1.10.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
-	github.com/go-pg/pg/v10 v10.12.0
 	github.com/go-playground/validator/v10 v10.19.0
 	github.com/google/uuid v1.6.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.1
 	github.com/jackc/pgx/v4 v4.18.3
 	github.com/mitchellh/mapstructure v1.5.0
+	github.com/rs/cors v1.10.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
 	go.uber.org/zap v1.27.0
@@ -63,15 +64,7 @@ require (
 
 require (
 	github.com/brianvoe/gofakeit/v6 v6.28.0
-	github.com/go-pg/zerochecker v0.2.0 // indirect
-	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/stretchr/testify v1.9.0
-	github.com/tmthrgd/go-hex v0.0.0-20190904060850-447a3041c3bc // indirect
-	github.com/vmihailenco/bufpool v0.1.11 // indirect
-	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
-	github.com/vmihailenco/tagparser v0.1.2 // indirect
-	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	golang.org/x/crypto v0.20.0 // indirect
 	golang.org/x/sys v0.17.0 // indirect
-	mellium.im/sasl v0.3.1 // indirect
 )
