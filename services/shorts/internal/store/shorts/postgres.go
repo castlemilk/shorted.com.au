@@ -16,7 +16,7 @@ type postgresStore struct {
 // newPostgresStore initializes a new store with a PostgreSQL backend.
 func newPostgresStore(config Config) Store {
 
-	dbPool, err := pgxpool.Connect(context.Background(), fmt.Sprintf("postgres://%s:%s@%s/%s", config.PostgresUsername, config.PostgresPassword, config.PostgresAddress, config.PostgresDatabase))
+	dbPool, err := pgxpool.Connect(context.Background(), fmt.Sprintf("postgres://%s:%s@%s/%s?pgbouncer=true&connection_limit=1", config.PostgresUsername, config.PostgresPassword, config.PostgresAddress, config.PostgresDatabase))
 	if err != nil {
 		panic("Unable to connect to database: " + err.Error())
 	}
