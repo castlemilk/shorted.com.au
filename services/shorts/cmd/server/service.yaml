@@ -6,10 +6,10 @@ spec:
   template:
     spec:
       containers:
-      - image: asia.gcr.io/shorted-dev-aba5688f/shorted/shorts:v0.1.4
+      - image: asia.gcr.io/shorted-dev-aba5688f/shorted/shorts:v0.1.6
         env:
         - name: APP_STORE_POSTGRES_ADDRESS
-          value: aws-0-ap-southeast-2.pooler.supabase.com:6543
+          value: aws-0-ap-southeast-2.pooler.supabase.com:5432
         - name: APP_STORE_POSTGRES_DATABASE
           value: postgres
         - name: APP_STORE_POSTGRES_USERNAME
