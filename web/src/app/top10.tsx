@@ -10,7 +10,7 @@ export const Top10Chart: FC<{ data: PlainMessage<TimeSeriesData>[] }> = ({ data 
         <div>
             <h1>Top 10</h1>
             <ul>
-                {data.map((stock: any) => (
+                {data.map((stock: PlainMessage<TimeSeriesData>) => (
                     <li key={stock.productCode}>{stock.productCode}</li>
                 ))}
             </ul>
