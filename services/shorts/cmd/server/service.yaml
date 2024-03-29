@@ -6,7 +6,7 @@ spec:
   template:
     spec:
       containers:
-      - image: asia.gcr.io/shorted-dev-aba5688f/shorted/shorts:v0.1.6
+      - image: asia.gcr.io/shorted-dev-aba5688f/shorted/shorts:v0.1.8
         env:
         - name: APP_STORE_POSTGRES_ADDRESS
           value: aws-0-ap-southeast-2.pooler.supabase.com:5432
