@@ -42,7 +42,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv
 	SELECT "PRODUCT", "PRODUCT_CODE"
 	FROM shorts
 	WHERE "DATE" > CURRENT_DATE - INTERVAL '%s'
-	GROUP BY "PRODUCT_CODE"
+	GROUP BY "PRODUCT", "PRODUCT_CODE"
 	ORDER BY MAX("PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") DESC
 	LIMIT $1`, interval)
 
@@ -58,7 +58,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv
 	for rows.Next() {
 		var productCode, productName string
 		// Adjust your SQL query to also select the product name
-		if err := rows.Scan(&productCode, &productName); err != nil {
+		if err := rows.Scan(&productName, &productCode); err != nil {
 			return nil, err
 		}
 		top10Shorts = append(top10Shorts, productCode)

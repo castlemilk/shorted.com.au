@@ -22,7 +22,8 @@ run.docker.shorts.superbase:
 		-e APP_STORE_POSTGRES_PASSWORD=6tOCck692RrQJzXL \
 	 --link postgres --net sql_default -p 8080:8080 asia.gcr.io/shorted-dev-aba5688f/shorted/shorts:${SHORTS_VERSION}
 deploy.gcr.shorts:
-	VERSION=${SHORTS_VERSION} envsubst < shorts/cmd/server/service.template.yaml > shorts/cmd/server/service.yaml && gcloud run services replace shorts/cmd/server/service.yaml
+	VERSION=${SHORTS_VERSION} envsubst < shorts/cmd/server/service.template.yaml > shorts/cmd/server/service.yaml && \
+	gcloud run services replace shorts/cmd/server/service.yaml --region australia-southeast2
 
 test.gettopshorts:
 	curl \
