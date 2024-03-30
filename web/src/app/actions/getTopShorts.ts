@@ -14,7 +14,7 @@ export const getTopShortsData = async (period: string, limit: number) => {
   });
   const client = createPromiseClient(ShortedStocksService, transport);
 
-  const response = await client.getTopShorts({ period: "3m", limit: 10 });
+  const response = await client.getTopShorts({ period, limit });
 
   return toPlainMessage(response);
 };
