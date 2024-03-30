@@ -10,6 +10,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 import { Button } from "@/components/ui/button";
 
 import {
@@ -26,6 +34,8 @@ import {
   TimeSeriesData,
   TimeSeriesPoint,
 } from "~/gen/stocks/v1alpha1/stocks_pb";
+import { Label } from "~/@/components/ui/label";
+import { getTopShortsData } from "./actions/getTopShorts";
 /**
  * TopShortsChart
  * Responsible for rendering a stylish chart in d3 which shows the top x short positions for period y
@@ -51,43 +61,58 @@ interface TopShortsProps {
 }
 
 export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
+  const [period, setPeriod] = useState<string>("3m");
+  const [limit, setLimit] = useState<number>(10);
+
+  useEffect(() => {
+    console.log("fetching data, for period: ", period, "limit: ", limit)
+    // fetch data
+    const data = getTopShortsData(period, limit);
+    data.then((data) => {
+      return setShortsData(data.timeSeries);
+    });
+  }, [period, limit]);
+
   const [shortsData, setShortsData] = useState<
     PlainMessage<TimeSeriesData>[] | null
   >(initialShortsData);
   return (
     <div className="p-5">
       <div className="flex flex-row-reverse m-2">
-        <div className="p-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">time</Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem>7d</DropdownMenuItem>
-              <DropdownMenuItem>1m</DropdownMenuItem>
-              <DropdownMenuItem>3m</DropdownMenuItem>
-              <DropdownMenuItem>6m</DropdownMenuItem>
-              <DropdownMenuItem>2y</DropdownMenuItem>
-              <DropdownMenuItem>5y</DropdownMenuItem>
-              <DropdownMenuItem>max</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <div className="p-2 w-48">
+          <Label htmlFor="area">Time</Label>
+          <Select onValueChange={(e) => setPeriod(e)} defaultValue={"3m"}>
+            <SelectTrigger id="area">
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="3m">3 months</SelectItem>
+              <SelectItem value="6m">6 months</SelectItem>
+              <SelectItem value="1y">1 year</SelectItem>
+              <SelectItem value="2y">2 year</SelectItem>
+              <SelectItem value="5y">5 year</SelectItem>
+              <SelectItem value="max">max</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-        <div className="p-2">
-          <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-              <Button variant="outline">limit</Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem>5</DropdownMenuItem>
-              <DropdownMenuItem>10</DropdownMenuItem>
-              <DropdownMenuItem>20</DropdownMenuItem>
-              <DropdownMenuItem>40</DropdownMenuItem>
-              <DropdownMenuItem>50</DropdownMenuItem>
-              <DropdownMenuItem>80</DropdownMenuItem>
-              <DropdownMenuItem>max</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <div className="p-2 w-48">
+          <Label htmlFor="area">limit</Label>
+          <Select
+            onValueChange={(e) => setLimit(Number(e))}
+            defaultValue={"10"}
+          >
+            <SelectTrigger id="area">
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="5">5</SelectItem>
+              <SelectItem value="10">10</SelectItem>
+              <SelectItem value="20">20</SelectItem>
+              <SelectItem value="40">40</SelectItem>
+              <SelectItem value="80">80</SelectItem>
+              <SelectItem value="max">max</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
       <div>
@@ -96,15 +121,18 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
             return (
               <div key={data.productCode}>
                 <Card>
-                  <CardHeader>
-                    <CardTitle>{data.productCode}</CardTitle>
-                    <CardDescription>
-                      {data.name}
-                    </CardDescription>
+                  <CardHeader className="grid grid-cols-3 items-start gap-4 space-y-0">
+                    <div className="col-span-2 space-y-1">
+                      <CardTitle>{data.productCode}</CardTitle>
+                      <CardDescription>{data.name}</CardDescription>
+                      <CardContent>
+                        <p>Card Content</p>
+                      </CardContent>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      sparkline goes here
+                    </div>
                   </CardHeader>
-                  <CardContent>
-                    <p>Card Content</p>
-                  </CardContent>
                 </Card>
               </div>
             );
