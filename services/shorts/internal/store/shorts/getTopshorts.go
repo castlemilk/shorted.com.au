@@ -39,7 +39,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv
 	interval := periodToInterval(period)
 	// Fetch top product codes
 	topCodesQuery := fmt.Sprintf(`
-	SELECT "PRODUCT_CODE"
+	SELECT "PRODUCT", "PRODUCT_CODE"
 	FROM shorts
 	WHERE "DATE" > CURRENT_DATE - INTERVAL '%s'
 	GROUP BY "PRODUCT_CODE"
