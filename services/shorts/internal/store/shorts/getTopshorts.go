@@ -37,7 +37,6 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv
 
 	ctx := context.Background()
 	interval := periodToInterval(period)
-
 	// Fetch top product codes
 	topCodesQuery := fmt.Sprintf(`
 	SELECT "PRODUCT_CODE"
@@ -54,12 +53,16 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv
 	defer rows.Close()
 
 	top10Shorts := make([]string, 0)
+	productNames := make(map[string]string)
+
 	for rows.Next() {
-		var productCode string
-		if err := rows.Scan(&productCode); err != nil {
+		var productCode, productName string
+		// Adjust your SQL query to also select the product name
+		if err := rows.Scan(&productCode, &productName); err != nil {
 			return nil, err
 		}
 		top10Shorts = append(top10Shorts, productCode)
+		productNames[productCode] = productName // Store the name associated with the product code
 	}
 	if rows.Err() != nil {
 		return nil, rows.Err()
@@ -100,6 +103,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv
 
 		tsData := &stocksv1alpha1.TimeSeriesData{
 			ProductCode: productCode,
+			Name: productNames[productCode],
 			Points:      points,
 		}
 		timeSeriesDataSlice = append(timeSeriesDataSlice, tsData)

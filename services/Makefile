@@ -1,5 +1,5 @@
 BASE_URL := http://localhost:8080
-SHORTS_VERSION := v0.1.8
+SHORTS_VERSION := 
 
 run.shorts:
 	go run shorts/cmd/server/main.go

@@ -89,9 +89,14 @@ export class TimeSeriesData extends Message<TimeSeriesData> {
   productCode = "";
 
   /**
+   * @generated from field: string name = 3;
+   */
+  name = "";
+
+  /**
    * The time series points.
    *
-   * @generated from field: repeated stocks.v1alpha1.TimeSeriesPoint points = 2;
+   * @generated from field: repeated stocks.v1alpha1.TimeSeriesPoint points = 10;
    */
   points: TimeSeriesPoint[] = [];
 
@@ -104,7 +109,8 @@ export class TimeSeriesData extends Message<TimeSeriesData> {
   static readonly typeName = "stocks.v1alpha1.TimeSeriesData";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "product_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 2, name: "points", kind: "message", T: TimeSeriesPoint, repeated: true },
+    { no: 3, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 10, name: "points", kind: "message", T: TimeSeriesPoint, repeated: true },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): TimeSeriesData {
