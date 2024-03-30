@@ -1,5 +1,5 @@
 BASE_URL := http://localhost:8080
-SHORTS_VERSION := 
+SHORTS_VERSION := `git describe --tags --always --dirty`
 
 run.shorts:
 	go run shorts/cmd/server/main.go
