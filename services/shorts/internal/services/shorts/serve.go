@@ -17,7 +17,7 @@ import (
 // withCORS adds CORS support to a Connect HTTP handler.
 func withCORS(h http.Handler) http.Handler {
     middleware := cors.New(cors.Options{
-        AllowedOrigins: []string{"http://localhost:3000", "https://*.vercel.app", "https://*.shorted.com.au", "https://shorted.com.au"},
+        AllowedOrigins: []string{"http://localhost:3000", "http://localhost:3001", "https://*.vercel.app", "https://*.shorted.com.au", "https://shorted.com.au"},
         AllowedMethods: connectcors.AllowedMethods(),
         AllowedHeaders: connectcors.AllowedHeaders(),
         ExposedHeaders: connectcors.ExposedHeaders(),
