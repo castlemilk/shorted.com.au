@@ -1,7 +1,6 @@
 import React from "react";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
-import { TopShorts } from "./topShorts";
-
+import { TopShorts } from "./topShortsView/topShorts";
 
 const Page = async () => {
   const data = await getTopShortsData("3m", 10);

@@ -35,7 +35,10 @@ import {
   TimeSeriesPoint,
 } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { Label } from "~/@/components/ui/label";
-import { getTopShortsData } from "./actions/getTopShorts";
+import { getTopShortsData } from "../actions/getTopShorts";
+import Sparkline from "./components/sparkline";
+import { DataTable } from "./components/data-table";
+import { columns } from "./components/columns";
 /**
  * TopShortsChart
  * Responsible for rendering a stylish chart in d3 which shows the top x short positions for period y
@@ -65,7 +68,7 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
   const [limit, setLimit] = useState<number>(10);
 
   useEffect(() => {
-    console.log("fetching data, for period: ", period, "limit: ", limit)
+    console.log("fetching data, for period: ", period, "limit: ", limit);
     // fetch data
     const data = getTopShortsData(period, limit);
     data.then((data) => {
@@ -96,7 +99,7 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
           </Select>
         </div>
         <div className="p-2 w-48">
-          <Label htmlFor="area">limit</Label>
+          <Label htmlFor="area">Limit</Label>
           <Select
             onValueChange={(e) => setLimit(Number(e))}
             defaultValue={"10"}
@@ -117,26 +120,27 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
       </div>
       <div>
         {shortsData ? (
-          shortsData.map((data) => {
-            return (
-              <div key={data.productCode}>
-                <Card>
-                  <CardHeader className="grid grid-cols-3 items-start gap-4 space-y-0">
-                    <div className="col-span-2 space-y-1">
-                      <CardTitle>{data.productCode}</CardTitle>
-                      <CardDescription>{data.name}</CardDescription>
-                      <CardContent>
-                        <p>Card Content</p>
-                      </CardContent>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      sparkline goes here
-                    </div>
-                  </CardHeader>
-                </Card>
-              </div>
-            );
-          })
+          // shortsData.map((data) => {
+          //   return (
+          //     <div key={data.productCode}>
+          //       <Card>
+          //         <CardHeader className="grid grid-cols-3 items-start gap-4 space-y-0">
+          //           <div className="col-span-2 space-y-1">
+          //             <CardTitle>{data.productCode}</CardTitle>
+          //             <CardDescription>{data.name}</CardDescription>
+          //             <CardContent>
+          //               <p>Card Content</p>
+          //             </CardContent>
+          //           </div>
+          //           <div className="flex items-center space-x-1 justify-center">
+          //             <Sparkline data={data} />
+          //           </div>
+          //         </CardHeader>
+          //       </Card>
+          //     </div>
+          //   );
+          // })
+          <DataTable data={shortsData} columns={columns}/>
         ) : (
           <div>Loading...</div>
         )}
