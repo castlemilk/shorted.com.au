@@ -111,8 +111,8 @@ const Sparkline: React.FC<SparklineProps> = ({ data }) => {
       .curve(d3.curveMonotoneX);
     svg
       .append("rect") // Append a rectangle over the entire graph to capture mouse movements
-      .attr("width", width)
-      .attr("height", height)
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
       .attr("fill", "transparent")
       .on("mouseover", () => {
         setTooltip({ ...tooltip, visible: true }); // Show tooltip when mouse is over the chart
