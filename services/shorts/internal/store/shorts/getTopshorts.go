@@ -76,19 +76,25 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv
 		FROM shorts
 		WHERE "PRODUCT_CODE" = $1
 		AND "DATE" > CURRENT_DATE - INTERVAL '%s'
+		AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
+		AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
 		ORDER BY "DATE" ASC`, interval)
-
+	
 		rows, err := db.Query(ctx, query, productCode)
 		if err != nil {
 			return nil, err
 		}
-
+	
 		var points []*stocksv1alpha1.TimeSeriesPoint
 		for rows.Next() {
 			var date pgtype.Timestamp
 			var percent pgtype.Float8
 			if err := rows.Scan(&date, &percent); err != nil {
 				return nil, err
+			}
+			// Skip if the date or percent is null
+			if date.Status != pgtype.Present || percent.Status != pgtype.Present {
+				continue
 			}
 			point := &stocksv1alpha1.TimeSeriesPoint{
 				Timestamp:     timestamppb.New(date.Time),
@@ -100,13 +106,16 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv
 			return nil, rows.Err()
 		}
 		rows.Close()
-
-		tsData := &stocksv1alpha1.TimeSeriesData{
-			ProductCode: productCode,
-			Name: productNames[productCode],
-			Points:      points,
+	
+		// Only add this product's time series data if it has at least 10 data points
+		if len(points) >= 1 {
+			tsData := &stocksv1alpha1.TimeSeriesData{
+				ProductCode: productCode,
+				Name:        productNames[productCode],
+				Points:      points,
+			}
+			timeSeriesDataSlice = append(timeSeriesDataSlice, tsData)
 		}
-		timeSeriesDataSlice = append(timeSeriesDataSlice, tsData)
 	}
 
 	return timeSeriesDataSlice, nil
