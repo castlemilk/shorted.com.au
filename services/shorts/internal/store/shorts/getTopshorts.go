@@ -3,9 +3,9 @@ package shorts
 import (
 	"context"
 	"fmt"
-	"time"
 
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -20,7 +20,7 @@ func periodToInterval(period string) string {
 	case "6m":
 		return "6 month"
 	case "1y":
-		return "12 month"
+		return "1 year"
 	case "2y":
 		return "2 year"
 	default:
@@ -85,14 +85,14 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv
 
 		var points []*stocksv1alpha1.TimeSeriesPoint
 		for rows.Next() {
-			var date time.Time
-			var percent float64
+			var date pgtype.Timestamp
+			var percent pgtype.Float8
 			if err := rows.Scan(&date, &percent); err != nil {
 				return nil, err
 			}
 			point := &stocksv1alpha1.TimeSeriesPoint{
-				Timestamp:     timestamppb.New(date),
-				ShortPosition: percent,
+				Timestamp:     timestamppb.New(date.Time),
+				ShortPosition: percent.Float,
 			}
 			points = append(points, point)
 		}
