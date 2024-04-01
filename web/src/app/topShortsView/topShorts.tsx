@@ -1,15 +1,6 @@
 "use client";
 
-import React, { FC, useEffect, useRef, useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-
+import React, { type FC, useEffect, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -18,25 +9,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import { Button } from "@/components/ui/button";
-
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import * as d3 from "d3";
-import { PlainMessage } from "@bufbuild/protobuf";
-import {
-  TimeSeriesData,
-  TimeSeriesPoint,
-} from "~/gen/stocks/v1alpha1/stocks_pb";
+import { type PlainMessage } from "@bufbuild/protobuf";
+import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { Label } from "~/@/components/ui/label";
 import { getTopShortsData } from "../actions/getTopShorts";
-import Sparkline from "./components/sparkline";
 import { DataTable } from "./components/data-table";
 import { columns } from "./components/columns";
 /**
@@ -71,9 +47,13 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
     console.log("fetching data, for period: ", period, "limit: ", limit);
     // fetch data
     const data = getTopShortsData(period, limit);
-    data.then((data) => {
-      return setShortsData(data.timeSeries);
-    });
+    data
+      .then((data) => {
+        return setShortsData(data.timeSeries);
+      })
+      .catch((e) => {
+        console.error("Error fetching data: ", e);
+      });
   }, [period, limit]);
 
   const [shortsData, setShortsData] = useState<
@@ -140,7 +120,7 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
           //     </div>
           //   );
           // })
-          <DataTable data={shortsData} columns={columns}/>
+          <DataTable data={shortsData} columns={columns} />
         ) : (
           <div>Loading...</div>
         )}
