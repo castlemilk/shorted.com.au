@@ -1,17 +1,11 @@
 "use client";
 
-import { ColumnDef, flexRender } from "@tanstack/react-table";
-
-import { Badge } from "@/components/ui/badge";
-
-import { priorities, statuses } from "../data/data";
-import { DataTableColumnHeader } from "./data-table-column-header";
+import { type ColumnDef, flexRender } from "@tanstack/react-table";
 import { DataTableColumnDisplayHeader } from "./data-table-column-display-header";
-import { PlainMessage } from "@bufbuild/protobuf";
-import { TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
+import { type PlainMessage } from "@bufbuild/protobuf";
+import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -40,15 +34,22 @@ export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
   },
   {
     id: "shorted",
-    header: ({ table }) => <div>Short %</div>,
-    cell: ({ row }) => <div>{row.original.points.at(-1)?.shortPosition}</div>,
+    header: ({}) => <div>Short</div>,
+    cell: ({ row }) => (
+      <div className="flex items-end">
+        <div className="text-3xl font-bold">
+          {row.original.points.at(-1)?.shortPosition.toFixed(1)}
+        </div>
+        <div className="text-lg ">%</div>
+      </div>
+    ),
     enableSorting: false,
     enableHiding: false,
   },
   {
     id: "sparkline",
-    header: ({ table }) => <div>last 6 months</div>,
-    cell: ({ row }) => flexRender(Sparkline, {data: row.original}),
+    header: ({}) => <div>last 6 months</div>,
+    cell: ({ row }) => flexRender(Sparkline, { data: row.original }),
     enableSorting: false,
     enableHiding: false,
   },

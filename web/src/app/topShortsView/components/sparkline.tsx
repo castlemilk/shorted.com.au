@@ -1,16 +1,10 @@
 import React, { useRef, useEffect, useState } from "react";
 import * as d3 from "d3";
 import {
-  TimeSeriesData,
-  TimeSeriesPoint,
+  type TimeSeriesData,
+  type TimeSeriesPoint,
 } from "~/gen/stocks/v1alpha1/stocks_pb";
-import { PlainMessage, Timestamp } from "@bufbuild/protobuf";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { type PlainMessage, Timestamp } from "@bufbuild/protobuf";
 import {
   Card,
   CardDescription,
@@ -25,30 +19,39 @@ interface SparklineProps {
 interface TooltipState {
   visible: boolean;
   shortPosition: number;
-  timestamp: Timestamp;
+  timestamp: PlainMessage<Timestamp> | undefined;
   x: number;
   y: number;
   pastMidpoint: boolean; // Add this to your state
 }
 
-const findClosestPoint = (mouseX, dataPoints, xScale) => {
-  // Convert the mouseX position back to the data space
+const findClosestPoint = (
+  mouseX: number,
+  dataPoints: PlainMessage<TimeSeriesPoint>[],
+  xScale: d3.ScaleTime<number, number, never>,
+) => {
   const date = xScale.invert(mouseX - 20);
+  // Convert the mouseX position back to the data space
+  const bisectDate = (data: TimeSeriesPoint[], targetDate: Date) =>
+    d3
+      .bisector(
+        (d: TimeSeriesPoint) =>
+          new Date(d.timestamp ? Number(d.timestamp.seconds) * 1000 : 0),
+      )
+      .left(data, targetDate, 1);
 
-  // Find the closest date in the data array
-  const bisectDate = d3.bisector((d: TimeSeriesPoint) => 
-    new Date(d.timestamp ? Number(d.timestamp.seconds) * 1000 : 0)
-  ).left;
-  const index = bisectDate(dataPoints, date, 1);
+  const index = bisectDate(dataPoints as TimeSeriesPoint[], date);
 
-  // Find the two data points closest to the mouse position
-  const d0 = dataPoints[index - 1];
-  const d1 = dataPoints[index];
+  const d0: PlainMessage<TimeSeriesPoint> | undefined = dataPoints[index - 1];
+  const d1: PlainMessage<TimeSeriesPoint> | undefined = dataPoints[index];
 
   // Compare which one is closer to the mouse position
-  return (d1 && d0) && (date - d0.timestamp) > (d1.timestamp - date) ? d1 : d0;
+  return d1 &&
+    d0 &&
+    Number(date) - Number(d0?.timestamp) > Number(d1?.timestamp) - Number(date)
+    ? d1
+    : d0;
 };
-
 
 const Sparkline: React.FC<SparklineProps> = ({ data }) => {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -92,7 +95,7 @@ const Sparkline: React.FC<SparklineProps> = ({ data }) => {
 
     const yScale = d3
       .scaleLinear()
-      .domain([0, d3.max(data.points, (d) => d.shortPosition ?? 0) as number])
+      .domain([0, d3.max(data.points, (d) => d.shortPosition ?? 0)!])
       .range([height, 0]);
 
     // Append a circle that moves along the line as you hover over the chart
@@ -121,9 +124,12 @@ const Sparkline: React.FC<SparklineProps> = ({ data }) => {
         setTooltip({ ...tooltip, visible: false }); // Hide tooltip when mouse is out
         hoverCircle.style("opacity", 0); // Hide the hover circle
       })
-      .on("mousemove", (event) => {
+      .on("mousemove", (event: MouseEvent) => {
         const mouseX = d3.pointer(event, this)[0]; // Get the mouse x position within the chart
         const closestPoint = findClosestPoint(mouseX, data.points, xScale);
+        if (closestPoint === undefined) {
+          return;
+        }
         const svgRect = svgRef?.current?.getBoundingClientRect();
         const midpoint = width / 2; // Midpoint of the chart
         // Determine whether the mouse is before or past the midpoint
@@ -134,11 +140,11 @@ const Sparkline: React.FC<SparklineProps> = ({ data }) => {
         const tooltipOffsetY = -130; // Vertical offset to position the tooltip above the cursor
 
         // Calculate the tooltip position
-        const tooltipX = pastMidpoint
+        const tooltipX: number = pastMidpoint
           ? event.clientX - tooltipOffsetX // If past midpoint, position to the left of the cursor
           : event.clientX + tooltipOffsetX; // If before midpoint, position to the right of the cursor
 
-        const tooltipY = event.clientY + tooltipOffsetY;
+        const tooltipY: number = event.clientY + tooltipOffsetY;
         // Update the position and visibility of the hover circle
         hoverCircle
           .attr(
@@ -164,11 +170,11 @@ const Sparkline: React.FC<SparklineProps> = ({ data }) => {
       });
     svg
       .append("path")
-      .datum(data.points)
+      .datum(data.points as TimeSeriesPoint[]) // Cast data.points to TimeSeriesPoint[]
       .attr("fill", "none")
       .attr("stroke", "blue")
       .attr("stroke-width", 2)
-      .attr("d", lineGenerator as any)
+      .attr("d", lineGenerator)
       .attr("transform", `translate(${margin.left},${margin.top})`);
     svg
       .selectAll(".data-point")
