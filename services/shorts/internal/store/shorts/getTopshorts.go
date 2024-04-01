@@ -16,15 +16,15 @@ func periodToInterval(period string) string {
 	case "1m":
 		return "1 month"
 	case "3m":
-		return "3 months"
+		return "3 month"
 	case "6m":
-		return "6 months"
+		return "6 month"
 	case "1y":
-		return "1 year"
+		return "12 month"
 	case "2y":
-		return "2 years"
+		return "2 year"
 	default:
-		return "6 months"
+		return "6 month"
 	}
 }
 
