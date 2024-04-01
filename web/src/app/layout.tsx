@@ -4,10 +4,6 @@ import { Inter as FontSans } from "next/font/google"
 
 
 import { cn } from "../@/lib/utils"
-import { NextAuthProvider } from "./next-auth-provider";
-import { createConnectTransport } from "@connectrpc/connect-web";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { TransportProvider } from "@connectrpc/connect-query";
 
 const fontSans = FontSans({
   subsets: ["latin"],
