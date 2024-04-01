@@ -19,7 +19,9 @@ message Stock {
 // TimeSeriesData represents time series data for a stock.
 message TimeSeriesData {
   string product_code = 1;                        // The stock code.
-  repeated TimeSeriesPoint points = 2;            // The time series points.
+  string name = 3;
+  repeated TimeSeriesPoint points = 10;            // The time series points.
+
 }
   
 // TimeSeriesPoint represents a single point in time for the time series data.
