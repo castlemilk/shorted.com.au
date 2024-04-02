@@ -218,7 +218,7 @@ const Sparkline: React.FC<SparklineProps> = ({ data }) => {
         >
           <Card>
             <CardHeader className="text-xs m-2 p-0">
-              <CardTitle className="text-xs">
+              <CardTitle className="text-xs" suppressHydrationWarning={true}>
                 {new Date(
                   tooltip.timestamp
                     ? Number(tooltip.timestamp.seconds) * 1000
