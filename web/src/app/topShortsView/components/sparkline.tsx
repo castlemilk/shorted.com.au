@@ -187,19 +187,6 @@ const Sparkline: React.FC<SparklineProps> = ({ data }) => {
       .attr("cy", (d) => yScale(d.shortPosition))
       .attr("r", 4)
       .attr("fill", "transparent");
-    // .on("mouseover", (event, d) => {
-    //   const svgRect = svgRef.current?.getBoundingClientRect(); // Get the bounding box of the SVG element
-    //   const [x, y] = d3.pointer(event); // Get the coordinates relative to the SVG element
-    //   setTooltip({
-    //     visible: true,
-    //     content: `Short Position: ${d.shortPosition}%`,
-    //     x: (svgRect?.left ?? 0) + x,
-    //     y: (svgRect?.top ?? 0) + y,
-    //   });
-    // })
-    // .on("mouseout", () => {
-    //   setTooltip({ ...tooltip, visible: false });
-    // });
   }, [data]);
   return (
     <>
