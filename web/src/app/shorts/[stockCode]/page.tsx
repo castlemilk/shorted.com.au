@@ -1,7 +1,6 @@
 import { IdCardIcon } from "@radix-ui/react-icons";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,

@@ -3,7 +3,7 @@ import "~/styles/globals.css";
 import { Inter as FontSans } from "next/font/google";
 
 import { cn } from "../@/lib/utils";
-import { Viewport } from "next";
+import { type Viewport } from "next";
 import { ThemeProvider } from "~/@/components/providers";
 import { ThemeSwitcher } from "~/@/components/theme-switcher";
 import SiteHeader from "~/@/components/ui/site-header";

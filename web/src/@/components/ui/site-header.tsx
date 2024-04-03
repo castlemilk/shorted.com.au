@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { type FC } from "react";
 import { MainNav } from "./main-nav";
 import { ModeToggle } from "./mode-toggle";
 
