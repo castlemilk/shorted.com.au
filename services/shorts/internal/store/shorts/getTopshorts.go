@@ -113,6 +113,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv
 				ProductCode: productCode,
 				Name:        productNames[productCode],
 				Points:      points,
+				LatestShortPosition: points[len(points)-1].ShortPosition,
 			}
 			timeSeriesDataSlice = append(timeSeriesDataSlice, tsData)
 		}

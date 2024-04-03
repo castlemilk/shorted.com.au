@@ -1,6 +1,6 @@
 "use client";
 
-import { type ColumnDef, flexRender } from "@tanstack/react-table";
+import { type ColumnDef, flexRender, SortingFn } from "@tanstack/react-table";
 import { DataTableColumnDisplayHeader } from "./data-table-column-display-header";
 import { type PlainMessage } from "@bufbuild/protobuf";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
@@ -11,6 +11,8 @@ import {
   CardTitle,
 } from "~/@/components/ui/card";
 import Sparkline from "./sparkline";
+import { Button } from "~/@/components/ui/button";
+import { ArrowUpDown } from "lucide-react";
 
 export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
   {
@@ -34,16 +36,27 @@ export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
   },
   {
     id: "shorted",
-    header: ({}) => <div>Short</div>,
+    accessorKey: "shorted",
+    header: ({ column }) => {
+      return (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+        >
+          Short
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      );
+    },
     cell: ({ row }) => (
       <div className="flex items-end">
         <div className="text-3xl font-bold">
-          {row.original.points.at(-1)?.shortPosition.toFixed(1)}
+          {row.original.latestShortPosition.toFixed(2)}
         </div>
         <div className="text-lg ">%</div>
       </div>
     ),
-    enableSorting: false,
+    enableSorting: true,
     enableHiding: false,
   },
   {
