@@ -39,3 +39,9 @@ test.gettopshorts:
     --header "Content-Type: application/json" \
 	--data '{"period": "1y", "limit": 10}' \
     $(BASE_URL)/shorts.v1alpha1.ShortedStocksService/GetTopShorts -v
+
+test.getstock:
+	curl \
+    --header "Content-Type: application/json" \
+	--data '{"productCode": "BBFD"}' \
+    $(BASE_URL)/shorts.v1alpha1.ShortedStocksService/GetStock -v

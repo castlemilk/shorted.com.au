@@ -94,6 +94,13 @@ export class TimeSeriesData extends Message<TimeSeriesData> {
   name = "";
 
   /**
+   * The latest short position.
+   *
+   * @generated from field: double latest_short_position = 4;
+   */
+  latestShortPosition = 0;
+
+  /**
    * The time series points.
    *
    * @generated from field: repeated stocks.v1alpha1.TimeSeriesPoint points = 10;
@@ -110,6 +117,7 @@ export class TimeSeriesData extends Message<TimeSeriesData> {
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "product_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "latest_short_position", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
     { no: 10, name: "points", kind: "message", T: TimeSeriesPoint, repeated: true },
   ]);
 

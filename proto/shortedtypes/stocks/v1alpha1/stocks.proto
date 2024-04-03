@@ -20,6 +20,7 @@ message Stock {
 message TimeSeriesData {
   string product_code = 1;                        // The stock code.
   string name = 3;
+  double latest_short_position = 4;                // The latest short position.
   repeated TimeSeriesPoint points = 10;            // The time series points.
 
 }

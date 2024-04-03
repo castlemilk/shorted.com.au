@@ -29,19 +29,20 @@ func (s *ShortsServer) GetTopShorts(ctx context.Context, req *connect.Request[sh
 }
 
 func (s *ShortsServer) GetStock(ctx context.Context, req *connect.Request[shortsv1alpha1.GetStockRequest]) (*connect.Response[stocksv1alpha1.Stock], error) {
-	log.Infof("update user")
+	log.Infof("get stock")
 	stock, err := s.store.GetStock(req.Msg.ProductCode)
 	if err != nil {
-		return &connect.Response[stocksv1alpha1.Stock]{}, fmt.Errorf("error get product, id: %s", req.Msg.ProductCode)
+		log.Errorf("error get stock, id: %s, err: %+v", req.Msg.ProductCode, err)
+		return &connect.Response[stocksv1alpha1.Stock]{}, fmt.Errorf("error get stock, id: %s", req.Msg.ProductCode)
 	}
 	return connect.NewResponse(stock), nil
 }
 
 func (s *ShortsServer) GetStockData(ctx context.Context, req *connect.Request[shortsv1alpha1.GetStockDataRequest]) (*connect.Response[stocksv1alpha1.TimeSeriesData], error) {
-	log.Infof("update user")
+	log.Infof("get stock data")
 	stock, err := s.store.GetStockData(req.Msg.ProductCode)
 	if err != nil {
-		return &connect.Response[stocksv1alpha1.TimeSeriesData]{}, fmt.Errorf("error get product, id: %s", req.Msg.ProductCode)
+		return &connect.Response[stocksv1alpha1.TimeSeriesData]{}, fmt.Errorf("error get stock data, id: %s", req.Msg.ProductCode)
 	}
 	return connect.NewResponse(stock), nil
 }

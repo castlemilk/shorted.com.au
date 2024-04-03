@@ -98,33 +98,31 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
           </Select>
         </div>
       </div>
-      <div>
-        {shortsData ? (
-          // shortsData.map((data) => {
-          //   return (
-          //     <div key={data.productCode}>
-          //       <Card>
-          //         <CardHeader className="grid grid-cols-3 items-start gap-4 space-y-0">
-          //           <div className="col-span-2 space-y-1">
-          //             <CardTitle>{data.productCode}</CardTitle>
-          //             <CardDescription>{data.name}</CardDescription>
-          //             <CardContent>
-          //               <p>Card Content</p>
-          //             </CardContent>
-          //           </div>
-          //           <div className="flex items-center space-x-1 justify-center">
-          //             <Sparkline data={data} />
-          //           </div>
-          //         </CardHeader>
-          //       </Card>
-          //     </div>
-          //   );
-          // })
-          <DataTable data={shortsData} columns={columns} />
-        ) : (
-          <div>Loading...</div>
-        )}
-      </div>
+      {shortsData ? (
+        // shortsData.map((data) => {
+        //   return (
+        //     <div key={data.productCode}>
+        //       <Card>
+        //         <CardHeader className="grid grid-cols-3 items-start gap-4 space-y-0">
+        //           <div className="col-span-2 space-y-1">
+        //             <CardTitle>{data.productCode}</CardTitle>
+        //             <CardDescription>{data.name}</CardDescription>
+        //             <CardContent>
+        //               <p>Card Content</p>
+        //             </CardContent>
+        //           </div>
+        //           <div className="flex items-center space-x-1 justify-center">
+        //             <Sparkline data={data} />
+        //           </div>
+        //         </CardHeader>
+        //       </Card>
+        //     </div>
+        //   );
+        // })
+        <DataTable data={shortsData} columns={columns} />
+      ) : (
+        <div>Loading...</div>
+      )}
     </div>
   );
 };

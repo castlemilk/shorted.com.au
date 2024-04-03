@@ -6,6 +6,7 @@ const Page = async () => {
   const data = await getTopShortsData("3m", 10);
   return (
     <>
+
       <TopShorts initialShortsData={data.timeSeries} />
     </>
   );

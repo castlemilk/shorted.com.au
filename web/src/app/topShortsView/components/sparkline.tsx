@@ -56,7 +56,7 @@ const findClosestPoint = (
 const Sparkline: React.FC<SparklineProps> = ({ data }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [tooltip, setTooltip] = useState<TooltipState>({
-    visible: true,
+    visible: false,
     shortPosition: 0,
     timestamp: new Timestamp(),
     x: 0,
@@ -187,19 +187,6 @@ const Sparkline: React.FC<SparklineProps> = ({ data }) => {
       .attr("cy", (d) => yScale(d.shortPosition))
       .attr("r", 4)
       .attr("fill", "transparent");
-    // .on("mouseover", (event, d) => {
-    //   const svgRect = svgRef.current?.getBoundingClientRect(); // Get the bounding box of the SVG element
-    //   const [x, y] = d3.pointer(event); // Get the coordinates relative to the SVG element
-    //   setTooltip({
-    //     visible: true,
-    //     content: `Short Position: ${d.shortPosition}%`,
-    //     x: (svgRect?.left ?? 0) + x,
-    //     y: (svgRect?.top ?? 0) + y,
-    //   });
-    // })
-    // .on("mouseout", () => {
-    //   setTooltip({ ...tooltip, visible: false });
-    // });
   }, [data]);
   return (
     <>
@@ -218,7 +205,7 @@ const Sparkline: React.FC<SparklineProps> = ({ data }) => {
         >
           <Card>
             <CardHeader className="text-xs m-2 p-0">
-              <CardTitle className="text-xs">
+              <CardTitle className="text-xs" suppressHydrationWarning={true}>
                 {new Date(
                   tooltip.timestamp
                     ? Number(tooltip.timestamp.seconds) * 1000
