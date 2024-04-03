@@ -1,6 +1,8 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
+
 import {
   type ColumnDef,
   type ColumnFiltersState,
@@ -41,6 +43,7 @@ export function DataTable<TData, TValue>({
     [],
   );
   const [sorting, setSorting] = React.useState<SortingState>([]);
+  const router = useRouter();
 
   const table = useReactTable({
     data,
@@ -66,7 +69,6 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="space-y-4">
-      <>TODO: Add Search</>
       <div className="rounded-md border">
         <Table>
           <TableHeader>
@@ -92,6 +94,11 @@ export function DataTable<TData, TValue>({
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
+                  onClick={() =>
+                    router.push(
+                      `/shorts/${(row.original as { productCode: string }).productCode}`,
+                    )
+                  }
                   data-state={row.getIsSelected() && "selected"}
                 >
                   {row.getVisibleCells().map((cell) => (
