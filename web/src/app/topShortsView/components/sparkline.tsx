@@ -56,7 +56,7 @@ const findClosestPoint = (
 const Sparkline: React.FC<SparklineProps> = ({ data }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [tooltip, setTooltip] = useState<TooltipState>({
-    visible: true,
+    visible: false,
     shortPosition: 0,
     timestamp: new Timestamp(),
     x: 0,
