@@ -31,11 +31,13 @@ func (s *postgresStore) GetStock(productCode string) (*stockv1alpha1.Stock, erro
 	rows, _ := s.db.Query(context.Background(), 
 	`
 SELECT "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentageShorted,
-	   "PRODUCT_CODE" as productCode,
-	   "PRODUCT" as name, 
-	   "TOTAL_PRODUCT_IN_ISSUE" as totalProductInIssue, 
-	   "REPORTED_SHORT_POSITIONS" as reportedShortPositions
-	   FROM shorts WHERE "PRODUCT_CODE" = $1 LIMIT 1`, productCode)
+	"PRODUCT_CODE" as productCode,
+	"PRODUCT" as name, 
+	"TOTAL_PRODUCT_IN_ISSUE" as totalProductInIssue, 
+	"REPORTED_SHORT_POSITIONS" as reportedShortPositions
+FROM shorts WHERE "PRODUCT_CODE" = $1 
+ORDER BY "DATE" DESC LIMIT 1`, 
+	   productCode)
 	stock, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[stockv1alpha1.Stock]) // Update as per actual table schema
 	if err != nil {
 		return nil, err
