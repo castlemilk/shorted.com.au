@@ -36,7 +36,7 @@ export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
   },
   {
     id: "shorted",
-    accessorKey: "shorted",
+    accessorKey: "latestShortPosition",
     header: ({ column }) => {
       return (
         <Button
