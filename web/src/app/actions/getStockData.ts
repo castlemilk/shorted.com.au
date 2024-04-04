@@ -6,6 +6,8 @@ import { type TimeSeriesData} from "~/gen/stocks/v1alpha1/stocks_pb";
 
 export const getStockData = async (
   productCode: string,
+  interval: string,
+  
 ): Promise<PlainMessage<TimeSeriesData>> => {
   const transport = createConnectTransport({
     // All transports accept a custom fetch implementation.

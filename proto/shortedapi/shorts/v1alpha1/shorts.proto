@@ -44,5 +44,4 @@ message GetStockDetailsRequest {
 message GetStockDataRequest {
   string product_code = 1;
   string period = 2;
-  int32 limit = 3;
 }
