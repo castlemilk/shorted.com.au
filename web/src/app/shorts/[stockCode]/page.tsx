@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { getStock } from "~/app/actions/getStock";
 import Chart from "~/@/components/ui/chart";
 import { getStockData } from "~/app/actions/getStockData";
+import { Suspense } from "react";
 
 const Page = async ({ params }: { params: { stockCode: string } }) => {
   const stockDetails = await getStock(params.stockCode);
@@ -64,7 +65,9 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
           </div>
         </div>
         <div className="grid gap-4 lg:col-span-2">
-          <Chart data={stockData} />
+          <Suspense fallback={<div>Loading...</div>}>
+            <Chart data={stockData} />
+          </Suspense>
         </div>
       </main>
     </div>
