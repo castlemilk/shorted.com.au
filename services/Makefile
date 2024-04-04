@@ -49,6 +49,6 @@ test.getstock:
 test.getstockdata:
 	curl \
     --header "Content-Type: application/json" \
-	--data '{"productCode": "PLS", "period": "1y", "limit": 10}' \
+	--data '{"productCode": "PLS", "period": "3m"}' \
     $(BASE_URL)/shorts.v1alpha1.ShortedStocksService/GetStockData -v
 	
