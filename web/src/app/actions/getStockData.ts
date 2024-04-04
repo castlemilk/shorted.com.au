@@ -2,12 +2,11 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createPromiseClient } from "@connectrpc/connect";
 import { type PlainMessage, toPlainMessage } from "@bufbuild/protobuf";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_connect";
-import { type TimeSeriesData} from "~/gen/stocks/v1alpha1/stocks_pb";
+import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 
 export const getStockData = async (
   productCode: string,
-  interval: string,
-  
+  period: string,
 ): Promise<PlainMessage<TimeSeriesData>> => {
   const transport = createConnectTransport({
     // All transports accept a custom fetch implementation.
@@ -18,7 +17,6 @@ export const getStockData = async (
   });
   const client = createPromiseClient(ShortedStocksService, transport);
 
-  const response = await client.getStockData({ productCode });
-  console.log(response)
+  const response = await client.getStockData({ productCode, period });
   return toPlainMessage(response);
 };
