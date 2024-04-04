@@ -1,4 +1,4 @@
-'use client';
+"use client";
 import React, { useRef, useEffect, useState } from "react";
 import * as d3 from "d3";
 import {
@@ -70,8 +70,8 @@ const Chart: React.FC<SparklineProps> = ({ data }) => {
     }
 
     const margin = { top: 20, right: 20, bottom: 20, left: 20 };
-    const width = 250 - margin.left - margin.right;
-    const height = 100 - margin.top - margin.bottom;
+    const width = 700 - margin.left - margin.right;
+    const height = 300 - margin.top - margin.bottom;
 
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove(); // Clear previous SVG content
