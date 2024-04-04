@@ -56,7 +56,7 @@ func (s *postgresStore) GetTopShorts(period string, limit int32) ([]*stockv1alph
 
 // The remaining functions need to be updated similarly.
 // GetStockDetails and GetStockData examples are omitted but follow the pattern above.
-func (s *postgresStore) GetStockData(productCode, period string, limit int32) (*stockv1alpha1.TimeSeriesData, error) {
+func (s *postgresStore) GetStockData(productCode, period string) (*stockv1alpha1.TimeSeriesData, error) {
 	// You'll need to adjust FetchTimeSeriesData to use pgx as well.
 	query := fmt.Sprintf(`
 		SELECT "DATE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
