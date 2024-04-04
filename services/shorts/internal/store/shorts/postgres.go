@@ -65,7 +65,7 @@ func (s *postgresStore) GetStockData(productCode, period string) (*stockv1alpha1
 		AND "DATE" > CURRENT_DATE - INTERVAL '%s'
 		AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
 		AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
-		ORDER BY "DATE" ASC`, period)
+		ORDER BY "DATE" ASC`, periodToInterval(period))
 	
 		rows, err := s.db.Query(context.Background(), query, productCode)
 		if err != nil {
