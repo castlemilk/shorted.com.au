@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	stockv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // postgresStore implements the Store interface for a PostgreSQL backend.
@@ -53,8 +56,52 @@ func (s *postgresStore) GetTopShorts(period string, limit int32) ([]*stockv1alph
 
 // The remaining functions need to be updated similarly.
 // GetStockDetails and GetStockData examples are omitted but follow the pattern above.
-func (s *postgresStore) GetStockData(period string) (*stockv1alpha1.TimeSeriesData, error) {
+func (s *postgresStore) GetStockData(productCode, period string, limit int32) (*stockv1alpha1.TimeSeriesData, error) {
 	// You'll need to adjust FetchTimeSeriesData to use pgx as well.
+	query := fmt.Sprintf(`
+		SELECT "DATE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
+		FROM shorts
+		WHERE "PRODUCT_CODE" = $1
+		AND "DATE" > CURRENT_DATE - INTERVAL '%s'
+		AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
+		AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+		ORDER BY "DATE" ASC`, period)
+	
+		rows, err := s.db.Query(context.Background(), query, productCode)
+		if err != nil {
+			return nil, err
+		}
+	
+		var points []*stocksv1alpha1.TimeSeriesPoint
+		for rows.Next() {
+			var date pgtype.Timestamp
+			var percent pgtype.Float8
+			if err := rows.Scan(&date, &percent); err != nil {
+				return nil, err
+			}
+			// Skip if the date or percent is null
+			if date.Status != pgtype.Present || percent.Status != pgtype.Present {
+				continue
+			}
+			point := &stocksv1alpha1.TimeSeriesPoint{
+				Timestamp:     timestamppb.New(date.Time),
+				ShortPosition: percent.Float,
+			}
+			points = append(points, point)
+		}
+		if rows.Err() != nil {
+			return nil, rows.Err()
+		}
+		rows.Close()
+	
+		// Only add this product's time series data if it has at least 10 data points
+		if len(points) >= 1 {
+			return &stocksv1alpha1.TimeSeriesData{
+				ProductCode: productCode,
+				Points:      points,
+				LatestShortPosition: points[len(points)-1].ShortPosition,
+			}, nil
+		}
 	return nil, nil
 }
 
