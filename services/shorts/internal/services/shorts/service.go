@@ -40,9 +40,10 @@ func (s *ShortsServer) GetStock(ctx context.Context, req *connect.Request[shorts
 
 func (s *ShortsServer) GetStockData(ctx context.Context, req *connect.Request[shortsv1alpha1.GetStockDataRequest]) (*connect.Response[stocksv1alpha1.TimeSeriesData], error) {
 	log.Infof("get stock data")
-	stock, err := s.store.GetStockData(req.Msg.ProductCode)
+	stock, err := s.store.GetStockData(req.Msg.ProductCode, req.Msg.Period)
 	if err != nil {
-		return &connect.Response[stocksv1alpha1.TimeSeriesData]{}, fmt.Errorf("error get stock data, id: %s", req.Msg.ProductCode)
+		log.Errorf("error get stock data, id: %s, err: %+v", req.Msg.ProductCode, err)
+		return &connect.Response[stocksv1alpha1.TimeSeriesData]{}, fmt.Errorf("error get stock data, id: %s, err: %+v", req.Msg.ProductCode, err)
 	}
 	return connect.NewResponse(stock), nil
 }
