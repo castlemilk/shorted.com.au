@@ -99,6 +99,20 @@ const Chart: React.FC<SparklineProps> = ({ data }) => {
       .domain([0, d3.max(data.points, (d) => d.shortPosition ?? 0)!])
       .range([height, 0]);
 
+
+     // Define the axes
+    const xAxis = d3.axisBottom(xScale).ticks(5); // Adjust tick count as needed
+    const yAxis = d3.axisLeft(yScale).ticks(5); // Adjust tick count as needed
+
+    // Append x-axis
+    g.append("g")
+        .attr("transform", `translate(0,${height})`)
+        .call(xAxis);
+
+    // Append y-axis
+    g.append("g")
+    .call(yAxis);
+
     // Append a circle that moves along the line as you hover over the chart
     const hoverCircle = g
       .append("circle")
@@ -138,7 +152,7 @@ const Chart: React.FC<SparklineProps> = ({ data }) => {
 
         // Calculate offsets to position the tooltip left or right of the cursor
         const tooltipOffsetX = pastMidpoint ? 50 : -100; // Horizontal offset from the cursor
-        const tooltipOffsetY = -130; // Vertical offset to position the tooltip above the cursor
+        const tooltipOffsetY = 50; // Vertical offset to position the tooltip above the cursor
 
         // Calculate the tooltip position
         const tooltipX: number = pastMidpoint
