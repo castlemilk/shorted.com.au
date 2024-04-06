@@ -43,4 +43,5 @@ message GetStockDetailsRequest {
 // Request for GetStockDataRequest RPC, specifying the product code.
 message GetStockDataRequest {
   string product_code = 1;
+  string period = 2;
 }
