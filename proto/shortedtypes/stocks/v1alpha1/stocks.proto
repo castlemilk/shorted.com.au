@@ -31,9 +31,29 @@ message TimeSeriesPoint {
   double short_position = 2;                      // The short position at this point in time.
 }
 
+/**
+Table "public.metadata"
+      Column       | Type | Collation | Nullable | Default 
+-------------------+------+-----------+----------+---------
+ company_name      | text |           |          | 
+ address           | text |           |          | 
+ summary           | text |           |          | 
+ details           | text |           |          | 
+ website           | text |           |          | 
+ stock_code        | text |           |          | 
+ links             | text |           |          | 
+ images            | text |           |          | 
+ company_logo_link | text |           |          | 
+ gcsUrl            | text |           |          | 
+*/
 message StockDetails {
   string product_code = 1;
-  string name = 2;
+  string company_name = 2;
+  string address = 3;
+  string summary = 4;
+  string details = 5;
+  string website = 6;
+  string gcs_url = 7;
   string description = 3;
   string sector = 7;
   TimeSeriesData time_series_data = 4;
