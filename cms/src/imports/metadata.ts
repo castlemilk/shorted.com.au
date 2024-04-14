@@ -5,6 +5,10 @@ import payload from "payload";
 import { Metadata } from "../payload-types";
 import buildConfig from "../payload.config";
 
+function isNumeric(n) {
+  return !isNaN(parseFloat(n)) && isFinite(n);
+}
+
 dotenv.config();
 payload.init({
   config: buildConfig,
@@ -40,7 +44,8 @@ payload.init({
           };
           try {
             // eslint-disable-next-line no-await-in-loop
-            await payload.create({
+
+            const createPayload = {
               collection: "metadata",
               overrideAccess: true,
               locale: "en",
@@ -48,17 +53,44 @@ payload.init({
               // If creating verification-enabled auth doc,
               // you can optionally disable the email that is auto-sent
               disableVerificationEmail: true,
-
               data,
-            });
-            console.log("created: ", data.stock_code);
+            };
+            const mediaCreatePayload = {
+              collection: "media",
+              overrideAccess: true,
+              locale: "en",
+              showHiddenFields: false,
+              // If creating verification-enabled auth doc,
+              // you can optionally disable the email that is auto-sent
+              disableVerificationEmail: true,
+              data: { alt: source.company_name },
+            };
+            if (
+              source.company_logo_link &&
+              source.company_logo_link != "Not Found"
+            ) {
+              createPayload.filePath = path.resolve(
+                __dirname,
+                `../../../analysis/data/images/${
+                  isNumeric(source.stock_code.at(0))
+                    ? "NUM"
+                    : source.stock_code.at(0).toUpperCase()
+                }/${source.stock_code}/${source.stock_code}.png`
+              );
+              mediaCreatePayload.filePath = createPayload.filePath;
+            }
+
+            const resp = await payload.create(createPayload);
+            // await payload.create(mediaCreatePayload);
+            console.log("created: ", resp);
+            // break;
           } catch (e) {
-            console.log(payload.config.collections);
             console.log(data);
             console.log(e);
             // eslint-disable-next-line no-continue
             console.log("skip: ", data.stock_code);
             // eslint-disable-next-line no-continue
+            // break;
             continue;
           }
           console.log("DONE");

@@ -2,12 +2,22 @@ import { CollectionConfig } from "payload/types";
 
 const Metadata: CollectionConfig = {
   slug: "metadata",
+  upload: {
+    // TODO(bebsworth): apply fix when https://github.com/payloadcms/payload/issues/4422 is resolved
+    staticURL: "https://storage.googleapis.com/shorted-company-logos",
+  },
   admin: {
     useAsTitle: "stock_code",
-    defaultColumns: ["stock_code", "company_name", "website", "Ccmpany_logo_link"],
+    defaultColumns: [
+      "stock_code",
+      "company_name",
+      "website",
+      "Company_logo_link",
+      "logoImage",
+    ],
     pagination: {
       defaultLimit: 50,
-    }
+    },
   },
   fields: [
     {
@@ -59,6 +69,11 @@ const Metadata: CollectionConfig = {
     {
       name: "company_logo_link",
       type: "text",
+    },
+    {
+      name: "logoImage",
+      type: "upload",
+      relationTo: "media",
     },
   ],
 };
