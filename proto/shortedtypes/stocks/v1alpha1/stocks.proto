@@ -49,12 +49,10 @@ Table "public.metadata"
 message StockDetails {
   string product_code = 1;
   string company_name = 2;
-  string address = 3;
-  string summary = 4;
-  string details = 5;
-  string website = 6;
-  string gcs_url = 7;
-  string description = 3;
-  string sector = 7;
-  TimeSeriesData time_series_data = 4;
+  string industry = 3;
+  string address = 4;
+  string summary = 5;
+  string details = 6;
+  string website = 7;
+  string gcs_url = 8;
 }

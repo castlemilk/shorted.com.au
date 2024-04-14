@@ -122,6 +122,24 @@ Table "public.metadata"
  company_logo_link | text |           |          | 
  gcsUrl            | text |           |          | 
 */
-func (s *postgresStore) GetStockDetails(string) (*stockv1alpha1.StockDetails, error) {
-	query := fmt.Sprintf(`select * from metadata where stock_code = $1`)
+func (s *postgresStore) GetStockDetails(stockCode string) (*stockv1alpha1.StockDetails, error) {
+	query := `select 
+		stock_code as ProductCode,
+		company_name as CompanyName,
+		address as Address,
+		industry as Industry,
+		summary as Summary,
+		details as Details,
+		website as Website,
+		"gcsUrl" as GcsUrl
+		from metadata 
+		where stock_code = $1
+		LIMIT 1`
+
+	rows, _ := s.db.Query(context.Background(), query, stockCode)
+	stock, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[stockv1alpha1.StockDetails]) // Update as per actual table schema
+	if err != nil {
+		return nil, err
+	}
+	return &stock, nil
 }
