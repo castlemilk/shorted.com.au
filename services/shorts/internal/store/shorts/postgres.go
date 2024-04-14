@@ -95,7 +95,7 @@ func (s *postgresStore) GetStockData(productCode, period string) (*stockv1alpha1
 		rows.Close()
 	
 		// Only add this product's time series data if it has at least 10 data points
-		if len(points) >= 1 {
+		if len(points) >= 10 {
 			return &stocksv1alpha1.TimeSeriesData{
 				ProductCode: productCode,
 				Points:      points,
