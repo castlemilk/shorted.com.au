@@ -188,6 +188,21 @@ export class TimeSeriesPoint extends Message<TimeSeriesPoint> {
 }
 
 /**
+ * *
+ * Table "public.metadata"
+ * Column       | Type | Collation | Nullable | Default 
+ * -------------------+------+-----------+----------+---------
+ * company_name      | text |           |          | 
+ * address           | text |           |          | 
+ * summary           | text |           |          | 
+ * details           | text |           |          | 
+ * website           | text |           |          | 
+ * stock_code        | text |           |          | 
+ * links             | text |           |          | 
+ * images            | text |           |          | 
+ * company_logo_link | text |           |          | 
+ * gcsUrl            | text |           |          | 
+ *
  * @generated from message stocks.v1alpha1.StockDetails
  */
 export class StockDetails extends Message<StockDetails> {
@@ -197,24 +212,39 @@ export class StockDetails extends Message<StockDetails> {
   productCode = "";
 
   /**
-   * @generated from field: string name = 2;
+   * @generated from field: string company_name = 2;
    */
-  name = "";
+  companyName = "";
 
   /**
-   * @generated from field: string description = 3;
+   * @generated from field: string industry = 3;
    */
-  description = "";
+  industry = "";
 
   /**
-   * @generated from field: string sector = 7;
+   * @generated from field: string address = 4;
    */
-  sector = "";
+  address = "";
 
   /**
-   * @generated from field: stocks.v1alpha1.TimeSeriesData time_series_data = 4;
+   * @generated from field: string summary = 5;
    */
-  timeSeriesData?: TimeSeriesData;
+  summary = "";
+
+  /**
+   * @generated from field: string details = 6;
+   */
+  details = "";
+
+  /**
+   * @generated from field: string website = 7;
+   */
+  website = "";
+
+  /**
+   * @generated from field: string gcs_url = 8;
+   */
+  gcsUrl = "";
 
   constructor(data?: PartialMessage<StockDetails>) {
     super();
@@ -225,10 +255,13 @@ export class StockDetails extends Message<StockDetails> {
   static readonly typeName = "stocks.v1alpha1.StockDetails";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "product_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 2, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 3, name: "description", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 7, name: "sector", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 4, name: "time_series_data", kind: "message", T: TimeSeriesData },
+    { no: 2, name: "company_name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "industry", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "address", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "summary", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "details", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 7, name: "website", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 8, name: "gcs_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): StockDetails {
