@@ -108,7 +108,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv
 		rows.Close()
 	
 		// Only add this product's time series data if it has at least 10 data points
-		if len(points) >= 1 {
+		if len(points) >= 10 {
 			tsData := &stocksv1alpha1.TimeSeriesData{
 				ProductCode: productCode,
 				Name:        productNames[productCode],
