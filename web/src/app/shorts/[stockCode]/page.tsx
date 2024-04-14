@@ -10,10 +10,12 @@ import { getStock } from "~/app/actions/getStock";
 import Chart from "~/@/components/ui/chart";
 import { getStockData } from "~/app/actions/getStockData";
 import { Suspense } from "react";
+import { getStockDetails } from "~/app/actions/getStockDetails";
 // import { Suspense } from "react";
 
 const Page = async ({ params }: { params: { stockCode: string } }) => {
-  const stockDetails = await getStock(params.stockCode);
+  const stock = await getStock(params.stockCode);
+  const stockDetails = await getStockDetails(params.stockCode);
   const stockData = await getStockData(params.stockCode, "6m");
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -29,12 +31,15 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
                   <div className="">
                     <CardTitle className="flex">{params.stockCode}</CardTitle>
                     <CardTitle className="flex text-lg font-semibold">
-                      {stockDetails.name}
+                      {stockDetails.companyName}
+                    </CardTitle>
+                    <CardTitle className="flex text-lg font-semibold">
+                      {stockDetails.industry}
                     </CardTitle>
                   </div>
                 </div>
                 <CardDescription className="flex text-sm">
-                  Company description goes here
+                  {stockDetails.summary}
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -46,20 +51,20 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
                 <CardTitle>
                   <div className="flex">
                     <div className="text-3xl font-bold">
-                      {stockDetails.percentageShorted}
+                      {stock.percentageShorted}
                     </div>
                     <div className="text-lg ">%</div>
                   </div>
                 </CardTitle>
                 <CardDescription>
                   Reported short positions:
-                  {stockDetails.reportedShortPositions}
+                  {stock.reportedShortPositions}
                 </CardDescription>
                 <CardDescription>
-                  Total shares on issue: {stockDetails.totalProductInIssue}
+                  Total shares on issue: {stock.totalProductInIssue}
                 </CardDescription>
                 <CardDescription>
-                  <Progress value={stockDetails.percentageShorted} />
+                  <Progress value={stock.percentageShorted} />
                 </CardDescription>
               </CardHeader>
             </Card>

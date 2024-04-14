@@ -7,6 +7,9 @@ export interface Metadata {
   id: string;
   stock_code: string;
   company_name: string;
+  industry: string;
+  market_cap: string;
+  listing_date: string;
   address: string;
   summary: string;
   details: string;

@@ -46,6 +46,13 @@ test.getstock:
 	--data '{"productCode": "BBFD"}' \
     $(BASE_URL)/shorts.v1alpha1.ShortedStocksService/GetStock -v
 
+test.getstockdetails:
+	curl \
+    --header "Content-Type: application/json" \
+	--data '{"productCode": "PLS"}' \
+    $(BASE_URL)/shorts.v1alpha1.ShortedStocksService/GetStockDetails -v
+
+
 test.getstockdata:
 	curl \
     --header "Content-Type: application/json" \

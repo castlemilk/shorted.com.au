@@ -31,6 +31,18 @@ const Metadata: CollectionConfig = {
       required: true,
     },
     {
+      name: "industry",
+      type: "text",
+    },
+    {
+      name: "market_cap",
+      type: "number",
+    },
+    {
+      name: "listing_date",
+      type: "text",
+    },
+    {
       name: "details",
       type: "textarea",
     },
