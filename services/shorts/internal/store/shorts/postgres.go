@@ -106,6 +106,22 @@ func (s *postgresStore) GetStockData(productCode, period string) (*stockv1alpha1
 }
 
 // GetStockDetails implements Store.
+// fetch the stock metadata following the schema:
+/**
+Table "public.metadata"
+      Column       | Type | Collation | Nullable | Default 
+-------------------+------+-----------+----------+---------
+ company_name      | text |           |          | 
+ address           | text |           |          | 
+ summary           | text |           |          | 
+ details           | text |           |          | 
+ website           | text |           |          | 
+ stock_code        | text |           |          | 
+ links             | text |           |          | 
+ images            | text |           |          | 
+ company_logo_link | text |           |          | 
+ gcsUrl            | text |           |          | 
+*/
 func (s *postgresStore) GetStockDetails(string) (*stockv1alpha1.StockDetails, error) {
-	panic("unimplemented")
+	query := fmt.Sprintf(`select * from metadata where stock_code = $1`)
 }
