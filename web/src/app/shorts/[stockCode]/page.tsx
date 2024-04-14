@@ -28,7 +28,7 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
               <CardHeader className="pb-3">
                 <div className="flex">
                   <div className="mr-4">
-                    {stockDetails.gcsUrl ? <Image width={70} height={80} src={stockDetails.gcsUrl as string} alt={"company-logo"}/> : <IdCardIcon height={50} width={50} />}
+                    {stockDetails.gcsUrl ? <Image width={70} height={80} src={stockDetails.gcsUrl} alt={"company-logo"}/> : <IdCardIcon height={50} width={50} />}
                   </div>
                   <div className="">
                     <CardTitle className="flex">{params.stockCode}</CardTitle>
