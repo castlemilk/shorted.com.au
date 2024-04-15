@@ -35,6 +35,7 @@ export default buildConfig({
           fs: false,
           path: false,
           os: false,
+          crypto: false,
         },
       };
       return config;
@@ -65,16 +66,16 @@ export default buildConfig({
     payloadCloud(),
     cloudStorage({
       collections: {
-        media: {
-          adapter: adapter, // see docs for the adapter you want to use
-          disablePayloadAccessControl: true,
-          prefix: "media",
-          generateFileURL: (file) => {
-            return `https://storage.googleapis.com/${
-              process.env.GCS_BUCKET || "shorted-company-logos"
-            }/media/${file.filename}`;
-          },
-        },
+        // media: {
+        //   adapter: adapter, // see docs for the adapter you want to use
+        //   disablePayloadAccessControl: true,
+        //   prefix: "media",
+        //   generateFileURL: (file) => {
+        //     return `https://storage.googleapis.com/${
+        //       process.env.GCS_BUCKET || "shorted-company-logos"
+        //     }/media/${file.filename}`;
+        //   },
+        // },
         metadata: {
           adapter: adapter, // see docs for the adapter you want to use
           disablePayloadAccessControl: true,
