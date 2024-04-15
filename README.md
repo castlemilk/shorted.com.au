@@ -36,28 +36,34 @@ basic dashboarding platform for viewing short positions on ASX
 [x] frontend to render top 10 shorts
 [x] CI/CD pipeline for build and deployment to cloud run and whatever FE hosting (next?)
 [x] db hosting (looking at superbase LGTM)
+# week 1
 [ ] cron-job to pull latest shorts
 [ ] chart styling x,y axis
 [ ] more company info/metadata rendered
 [ ] company image tuning
+# week 2
 [ ] company image on dark mode 
 [ ] query maths for top x tuned - show more sensible values for larger windows
 [ ] collect company socials (twitter, instagram, linkedin etc.)
 [ ] link to google finance/yahoo finance
 [ ] default logo when no image found
+# week 3
 [ ] company summary/description tuning
 [ ] show company website
 [ ] show company references
 [ ] show company directors
 [ ] loading & data fetch optmisations/caching
 [ ] loading animations & lazy loading / suspense for concurrent fetches
+# week 4
 [ ] add google analytics or alternative
 [ ] security (anon auth/ratelimiting)
 [ ] fix top navbar on wide screen to float max right/left
 [ ] update period title value dynamically based off selected value
 [ ] time series rollup algoritm
+# week 5
 [ ] clearer animation that table is clickable]
 [ ] gamify sentiment view somehow? poo vs rocket, gague view etc
+[ ] add additional items here as working...
 
 ### Milestone 1
 
