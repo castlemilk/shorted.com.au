@@ -138,12 +138,7 @@ def write_short_data_to_postgres(df, table_name, connection_string):
     engine = create_engine(connection_string)
     df.to_sql(table_name, engine, if_exists='replace', index=False)
 
-
 app = FastAPI()
-
-
-
-
 
 @app.post("/process")
 async def process_full_workflow():

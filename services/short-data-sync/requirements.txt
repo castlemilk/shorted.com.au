@@ -6,3 +6,6 @@ dask
 sqlalchemy
 tqdm
 chardet
+dask-expr
+pandas
+psycopg2
