@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+httpx
+pandas
+dask
+sqlalchemy
+tqdm
+chardet
