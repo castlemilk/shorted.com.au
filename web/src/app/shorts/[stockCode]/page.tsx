@@ -1,5 +1,5 @@
 import { IdCardIcon } from "@radix-ui/react-icons";
-import Image from 'next/image'
+import Image from "next/image";
 import {
   Card,
   CardDescription,
@@ -9,10 +9,12 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { getStock } from "~/app/actions/getStock";
 import Chart from "~/@/components/ui/chart";
+import ParentSize from "@visx/responsive/lib/components/ParentSize";
 import { getStockData } from "~/app/actions/getStockData";
 import { Suspense } from "react";
 import { getStockDetails } from "~/app/actions/getStockDetails";
 import { Badge } from "~/@/components/ui/badge";
+import BrushChart from "~/@/components/ui/brushChart";
 // import { Suspense } from "react";
 
 const Page = async ({ params }: { params: { stockCode: string } }) => {
@@ -28,7 +30,16 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
               <CardHeader className="pb-3">
                 <div className="flex">
                   <div className="mr-4">
-                    {stockDetails.gcsUrl ? <Image width={70} height={80} src={stockDetails.gcsUrl} alt={"company-logo"}/> : <IdCardIcon height={50} width={50} />}
+                    {stockDetails.gcsUrl ? (
+                      <Image
+                        width={70}
+                        height={80}
+                        src={stockDetails.gcsUrl}
+                        alt={"company-logo"}
+                      />
+                    ) : (
+                      <IdCardIcon height={50} width={50} />
+                    )}
                   </div>
                   <div className="">
                     <CardTitle className="flex">{params.stockCode}</CardTitle>
@@ -37,7 +48,6 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
                     </CardTitle>
                     <CardTitle className="flex text-lg font-semibold">
                       <Badge>{stockDetails.industry}</Badge>
-                      
                     </CardTitle>
                   </div>
                 </div>

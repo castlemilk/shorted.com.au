@@ -1,7 +1,7 @@
 BASE_URL := http://localhost:8080
 SHORTS_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/shorts
 SHORTS_VERSION := `git describe --tags --always --dirty`
-SHORTS_SYNC_IMAGE = australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/short-data-sync
+SHORTS_SYNC_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/short-data-sync
 
 gcloud.init:
 	gcloud artifacts repositories create shorted \
@@ -14,7 +14,7 @@ gcloud.init:
 run.shorts:
 	go run shorts/cmd/server/main.go
 build.short-data-sync:
-	cd short-data-sync; docker buildx build --push --progress=plain --platform linux/amd64,linux/arm64/v8 -f Dockerfile -t ${SHORTS_SYNC_IMAGE}:latest .
+	cd short-data-sync; docker buildx build --push --progress=plain --platform linux/amd64,linux/arm64 -f Dockerfile -t ${SHORTS_SYNC_IMAGE}:latest .
 build.shorts:
 	docker buildx build --push --progress=plain --platform linux/amd64,darwin/arm64,linux/arm64/v8 -f shorts/cmd/server/Dockerfile -t ${SHORTS_IMAGE}:${SHORTS_VERSION} .
 	# docker buildx build --load -f shorts/cmd/server/Dockerfile -t ${SHORTS_IMAGE}:${SHORTS_VERSION} .
@@ -22,6 +22,11 @@ gcr.init:
 	gcloud auth configure-docker asia.gcr.io
 gcr.push:
 	docker push ${SHORTS_IMAGE}:${SHORTS_VERSION}
+
+run.docker.shorts-data-sync.local:
+	docker run \
+		-e DATABASE_URL=postgres://admin:password@postgres:5432/shorts \
+	 --link postgres --net sql_default -p 8080:8080 ${SHORTS_SYNC_IMAGE}:latest
 run.docker.shorts.local:
 	docker run \
 		-e APP_STORE_POSTGRES_ADDRESS=postgres:5432 \
