@@ -6,20 +6,6 @@
 
 basic dashboarding platform for viewing short positions on ASX
 
-## Backlog
-
-### frontend
-
-- [] top shorts
-
-### backend
-
-- [] sync short data
-
-### misc
-
-- [] index and build business metadata of ASX stocks
-
 
 
 ### MVP
