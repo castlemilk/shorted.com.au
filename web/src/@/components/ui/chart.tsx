@@ -55,7 +55,19 @@ const Chart = ({ stockCode, initialData }: ChartProps) => {
       </div>
       <ParentSize>
         {({ width }) => (
-          <BrushChart ref={chartRef} data={data} width={width} height={400} />
+          <BrushChart
+            ref={chartRef}
+            data={data}
+            width={width}
+            height={400}
+            tooltipOpen={false}
+            // eslint-disable-next-line @typescript-eslint/no-empty-function
+            updateTooltip={() => {}}
+            // eslint-disable-next-line @typescript-eslint/no-empty-function
+            showTooltip={() => {}}
+            // eslint-disable-next-line @typescript-eslint/no-empty-function
+            hideTooltip={() => {}}
+          />
         )}
       </ParentSize>
     </div>

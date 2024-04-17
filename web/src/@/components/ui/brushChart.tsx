@@ -28,18 +28,15 @@ import {
 } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { type PlainMessage } from "@bufbuild/protobuf";
 import {
-  useTooltip,
-  useTooltipInPortal,
   TooltipWithBounds,
   defaultStyles,
   Tooltip,
   withTooltip,
 } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
-import { EventType } from "@visx/event/lib/types";
 import { Line } from "@visx/shape";
 import { timeFormat } from "@visx/vendor/d3-time-format";
-import { WithTooltipProvidedProps } from "@visx/tooltip/lib/enhancers/withTooltip";
+import { type WithTooltipProvidedProps } from "@visx/tooltip/lib/enhancers/withTooltip";
 type TooltipData = PlainMessage<TimeSeriesPoint> | null;
 // Initialize some variables
 const brushMargin = { top: 10, bottom: 15, left: 50, right: 20 };
