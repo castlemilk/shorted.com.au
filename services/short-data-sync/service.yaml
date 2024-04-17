@@ -1,12 +1,12 @@
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
-  name: shorts
+  name: shorts-data-sync
 spec:
   template:
     spec:
       containers:
-      - image: australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/short-data-sync:v0.2.0-6-g5d099a8e-dirty
+      - image: australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/short-data-sync:v0.2.0-7-g58de8122-dirty
         env:
         - name: DATABASE_URL
           valueFrom:

@@ -30,7 +30,7 @@ const getDate = (d: PlainMessage<TimeSeriesPoint>) =>
 const getStockValue = (d: PlainMessage<TimeSeriesPoint>) =>
   d.shortPosition ?? 0;
 
-export default function AreaChart({
+const AreaChart = ({
   data,
   gradientColor,
   width,
@@ -43,6 +43,10 @@ export default function AreaChart({
   top,
   left,
   children,
+  onTouchStart,
+  onTouchMove,
+  onMouseMove,
+  onMouseLeave,
 }: {
   data: PlainMessage<TimeSeriesPoint>[];
   gradientColor: string;
@@ -56,7 +60,11 @@ export default function AreaChart({
   top?: number;
   left?: number;
   children?: React.ReactNode;
-}) {
+  onTouchStart?: (event: React.TouchEvent<SVGRectElement>) => void;
+  onTouchMove?: (event: React.TouchEvent<SVGRectElement>) => void;
+  onMouseMove?: (event: React.MouseEvent<SVGRectElement>) => void;
+  onMouseLeave?: () => void;
+}) => {
   if (width < 10) return null;
   return (
     <Group left={left ?? margin.left} top={top ?? margin.top}>
@@ -76,6 +84,10 @@ export default function AreaChart({
         stroke="url(#gradient)"
         fill="url(#gradient)"
         curve={curveMonotoneX}
+        onMouseMove={onMouseMove}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onMouseLeave={onMouseLeave}
       />
       {!hideBottomAxis && (
         <AxisBottom
@@ -99,4 +111,6 @@ export default function AreaChart({
       {children}
     </Group>
   );
-}
+};
+
+export default AreaChart;

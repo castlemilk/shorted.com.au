@@ -3,7 +3,7 @@ import ParentSize from "@visx/responsive/lib/components/ParentSize";
 import BrushChart from "./brushChart";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { type PlainMessage } from "@bufbuild/protobuf";
-import { use, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { getStockData } from "~/app/actions/getStockData";
 import { Button } from "./button";
@@ -18,7 +18,6 @@ const Chart = ({ stockCode, initialData }: ChartProps) => {
   const chartRef = useRef<{ clear: () => void; reset: () => void }>(null);
   const [data, setData] = useState<PlainMessage<TimeSeriesData>>(initialData);
   useEffect(() => {
-    console.log("Fetching data");
     getStockData(stockCode, period)
       .then((data) => setData(data))
       .catch(console.error);
@@ -29,7 +28,6 @@ const Chart = ({ stockCode, initialData }: ChartProps) => {
   const handleResetClick = () => {
     chartRef?.current?.reset();
   };
-  console.log(data);
   return (
     <div>
       <div className="flex flex-row-reverse">
