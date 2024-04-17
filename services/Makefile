@@ -25,23 +25,28 @@ gcr.push:
 
 run.docker.shorts-data-sync.local:
 	docker run \
-		-e DATABASE_URL=postgres://admin:password@postgres:5432/shorts \
+		-e DATABASE_URL=postgresql://admin:password@postgres:5432/shorts \
+		-v $(PWD)/../analysis/data/shorts/:/app/data/shorts/ \
 	 --link postgres --net sql_default -p 8080:8080 ${SHORTS_SYNC_IMAGE}:latest
 run.docker.shorts.local:
 	docker run \
 		-e APP_STORE_POSTGRES_ADDRESS=postgres:5432 \
-	 --link postgres --net sql_default -p 8080:8080 shorts:latest 
+	 --link postgres --net sql_default -p 8080:8080 --name sync-service shorts:latest 
 run.docker.shorts.superbase:
 	docker run \
 		-e APP_STORE_POSTGRES_ADDRESS=aws-0-ap-southeast-2.pooler.supabase.com:6543 \
 		-e APP_STORE_POSTGRES_DATABASE=postgres \
 		-e APP_STORE_POSTGRES_USERNAME=postgres.xivfykscsdagwsreyqgf \
 		-e APP_STORE_POSTGRES_PASSWORD=6tOCck692RrQJzXL \
-	 --link postgres --net sql_default -p 8080:8080 ${SHORTS_IMAGE}:${SHORTS_VERSION}
+	 --link postgres --net sql_default -p 8080:8080 --name shorts-service ${SHORTS_IMAGE}:${SHORTS_VERSION}
 deploy.gcr.shorts:
 	VERSION=${SHORTS_VERSION} IMAGE_NAME=${SHORTS_IMAGE} envsubst < shorts/cmd/server/service.template.yaml > shorts/cmd/server/service.yaml && \
 	gcloud run services replace shorts/cmd/server/service.yaml --region australia-southeast2
 
+deploy.gcr.shorts-data-sync:
+	VERSION=${SHORTS_VERSION} IMAGE_NAME=${SHORTS_SYNC_IMAGE} envsubst < short-data-sync/service.template.yaml > short-data-sync/service.yaml && \
+	gcloud run services replace short-data-sync/service.yaml --region australia-southeast2
+	
 test.gettopshorts:
 	curl \
     --header "Content-Type: application/json" \
