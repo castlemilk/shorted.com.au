@@ -9,13 +9,10 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { getStock } from "~/app/actions/getStock";
 import Chart from "~/@/components/ui/chart";
-import ParentSize from "@visx/responsive/lib/components/ParentSize";
 import { getStockData } from "~/app/actions/getStockData";
 import { Suspense } from "react";
 import { getStockDetails } from "~/app/actions/getStockDetails";
 import { Badge } from "~/@/components/ui/badge";
-import BrushChart from "~/@/components/ui/brushChart";
-// import { Suspense } from "react";
 
 const Page = async ({ params }: { params: { stockCode: string } }) => {
   const stock = await getStock(params.stockCode);
@@ -84,11 +81,11 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
           </div>
         </div>
         <div className="grid auto-rows-max items-start gap-4 lg:col-span-2">
-          <Card>
+          <div>
             <Suspense fallback={<div>Loading...</div>}>
-              <Chart data={stockData} />
+              <Chart stockCode={params.stockCode} initialData={stockData} />
             </Suspense>
-          </Card>
+          </div>
         </div>
       </main>
     </div>

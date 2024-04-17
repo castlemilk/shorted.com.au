@@ -27,6 +27,7 @@ basic dashboarding platform for viewing short positions on ASX
 [ ] chart styling x,y axis
 [ ] more company info/metadata rendered
 [ ] company image tuning
+[ ] set max to do the longest window of timeseries data possible
 # week 2
 [ ] company image on dark mode 
 [ ] query maths for top x tuned - show more sensible values for larger windows
