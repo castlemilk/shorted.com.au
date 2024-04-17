@@ -8,7 +8,7 @@ import { type TimeSeriesPoint } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { type PlainMessage } from "@bufbuild/protobuf";
 
 // Initialize some variables
-const axisColor = "#fff";
+const axisColor = "hsl(var(--foreground))";
 const axisBottomTickLabelProps = {
   textAnchor: "middle" as const,
   fontFamily: "Arial",
@@ -26,7 +26,7 @@ const axisLeftTickLabelProps = {
 };
 
 const getDate = (d: PlainMessage<TimeSeriesPoint>) =>
-  new Date(Number(d.timestamp?.seconds)) ?? new Date();
+  new Date(Number(d.timestamp?.seconds) * 1000) ?? new Date();
 const getStockValue = (d: PlainMessage<TimeSeriesPoint>) =>
   d.shortPosition ?? 0;
 
