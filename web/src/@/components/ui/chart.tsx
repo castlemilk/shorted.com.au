@@ -1,6 +1,6 @@
 "use client";
 import ParentSize from "@visx/responsive/lib/components/ParentSize";
-import BrushChart from "./brushChart";
+import BrushChart, { type HandleBrushClearAndReset } from "./brushChart";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { type PlainMessage } from "@bufbuild/protobuf";
 import { useEffect, useRef, useState } from "react";
@@ -15,7 +15,7 @@ export type ChartProps = {
 };
 const Chart = ({ stockCode, initialData }: ChartProps) => {
   const [period, setPeriod] = useState<string>(INITIAL_PERIOD);
-  const chartRef = useRef<{ clear: () => void; reset: () => void }>(null);
+  const chartRef = useRef<HandleBrushClearAndReset>(null);
   const [data, setData] = useState<PlainMessage<TimeSeriesData>>(initialData);
   useEffect(() => {
     getStockData(stockCode, period)
@@ -55,12 +55,7 @@ const Chart = ({ stockCode, initialData }: ChartProps) => {
       </div>
       <ParentSize>
         {({ width }) => (
-          <BrushChart
-            ref={chartRef}
-            data={data}
-            width={width}
-            height={400}
-          />
+          <BrushChart ref={chartRef} data={data} width={width} height={400} />
         )}
       </ParentSize>
     </div>
