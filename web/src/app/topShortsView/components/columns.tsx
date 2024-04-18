@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/@/components/ui/card";
-import Sparkline from "./sparkline";
+import Sparkline from "./sparkline-v2";
 import { Button } from "~/@/components/ui/button";
 import { ArrowUpDown } from "lucide-react";
 

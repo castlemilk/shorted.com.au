@@ -23,11 +23,11 @@ basic dashboarding platform for viewing short positions on ASX
 [x] CI/CD pipeline for build and deployment to cloud run and whatever FE hosting (next?)
 [x] db hosting (looking at superbase LGTM)
 # week 1
-[ ] cron-job to pull latest shorts
-[ ] chart styling x,y axis
+[x] cron-job to pull latest shorts
+[x] chart styling x,y axis
 [ ] more company info/metadata rendered
 [ ] company image tuning
-[ ] set max to do the longest window of timeseries data possible
+[x] set max to do the longest window of timeseries data possible
 # week 2
 [ ] company image on dark mode 
 [ ] query maths for top x tuned - show more sensible values for larger windows
