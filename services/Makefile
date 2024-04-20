@@ -50,8 +50,8 @@ deploy.gcr.shorts-data-sync:
 test.gettopshorts:
 	curl \
     --header "Content-Type: application/json" \
-	--data '{"period": "1y", "limit": 10}' \
-    $(BASE_URL)/shorts.v1alpha1.ShortedStocksService/GetTopShorts -v
+	--data '{"period": "1m", "limit": 10}' \
+    $(BASE_URL)/shorts.v1alpha1.ShortedStocksService/GetTopShorts -v | jq -r
 
 test.getstock:
 	curl \
@@ -69,6 +69,6 @@ test.getstockdetails:
 test.getstockdata:
 	curl \
     --header "Content-Type: application/json" \
-	--data '{"productCode": "PLS", "period": "3m"}' \
+	--data '{"productCode": "PLS", "period": "1y"}' \
     $(BASE_URL)/shorts.v1alpha1.ShortedStocksService/GetStockData -v
 	
