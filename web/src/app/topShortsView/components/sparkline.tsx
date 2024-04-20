@@ -1,5 +1,6 @@
 import { type PlainMessage } from "@bufbuild/protobuf";
 import { timeFormat } from "@visx/vendor/d3-time-format";
+
 import { LineSeries, XYChart, Tooltip } from "@visx/xychart";
 import ParentSize from "@visx/responsive/lib/components/ParentSize";
 import { GlyphCircle, GlyphDot } from "@visx/glyph";
@@ -9,6 +10,7 @@ import {
 } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { scaleTime, scaleLinear } from "@visx/scale";
 import { min, extent, max } from "@visx/vendor/d3-array";
+import { Circle } from "lucide-react";
 
 const accessors = {
   xAccessor: (d: PlainMessage<TimeSeriesPoint> | undefined) =>
@@ -26,7 +28,8 @@ interface SparklineProps {
   data: PlainMessage<TimeSeriesData>;
   margin?: { top: number; right: number; bottom: number; left: number };
 }
-const secondaryColor = `hls(var(--secondary))`;
+const secondaryColor = "hls(var(--secondary))";
+const strokeColor = "var(--line-stroke)";
 const redColor = `var(--red)`;
 const greenColor = `var(--green)`;
 
@@ -41,16 +44,15 @@ const Chart = ({ width, height, margin, data }: SparklineProps) => {
     return <div>Loading or no data available...</div>;
   }
 
-  const minValue = min(points, (d) => d.y);
-  const maxValue = max(points, (d) => d.y);
-  const minData = points.find((p) => p.y === minValue);
-  const maxData = points.find((p) => p.y === maxValue);
-
   const xScale = scaleTime<number>({
     domain: extent(points, (d) => d.x),
   });
   const yScale = scaleLinear<number>({
-    domain: [0, maxValue],
+    domain: [
+      0,
+      (data.max as PlainMessage<TimeSeriesPoint> | undefined)?.shortPosition ??
+        0,
+    ],
   });
 
   // bounds
@@ -59,13 +61,6 @@ const Chart = ({ width, height, margin, data }: SparklineProps) => {
   // update scale range to match bounds
   xScale.range([0, innerWidth]);
   yScale.range([innerHeight, 0]);
-
-  console.log("minValue", minValue);
-  console.log("minData", minData);
-  console.log("maxValue", maxValue);
-  console.log("maxData", maxData);
-  console.log("xScale:min", xScale(minData.x));
-  console.log("yScale:min", yScale(minData.y));
   return (
     <XYChart
       height={height}
@@ -74,18 +69,24 @@ const Chart = ({ width, height, margin, data }: SparklineProps) => {
       xScale={{ type: "time" }}
       yScale={{ type: "linear" }}
     >
-      <LineSeries dataKey="Shorts" data={data.points} {...accessors} />
+      <LineSeries
+        stroke={strokeColor}
+        strokeWidth={1.5}
+        dataKey="Shorts"
+        data={data.points}
+        {...accessors}
+      />
       <GlyphCircle
         className="min-glyph"
-        left={xScale(minData.x) + margin?.left}
-        top={yScale(minData.y) + margin?.top}
-        fill={redColor}
+        left={xScale(accessors.xAccessor(data.min)) + margin?.left}
+        top={yScale(accessors.yAccessor(data.min)) + margin?.top}
+        fill={greenColor}
       />
       <GlyphCircle
         className="max-glyph"
-        left={xScale(maxData.x) + margin?.left}
-        top={yScale(maxData.y) + margin?.top}
-        fill={greenColor}
+        left={xScale(accessors.xAccessor(data.max)) + margin?.left}
+        top={yScale(accessors.yAccessor(data.max)) + margin?.top}
+        fill={redColor}
       />
       <Tooltip
         snapTooltipToDatumX
@@ -105,8 +106,8 @@ const Chart = ({ width, height, margin, data }: SparklineProps) => {
 
 const SparkLine = ({ data }: { data: PlainMessage<TimeSeriesData> }) => {
   return (
-    <div>
-      <ParentSize>
+    <div className="grid grid-cols-4 min-w-0">
+      <ParentSize className="grid col-span-3 min-w-0">
         {({ width }) => (
           <Chart
             width={width}
@@ -116,6 +117,16 @@ const SparkLine = ({ data }: { data: PlainMessage<TimeSeriesData> }) => {
           />
         )}
       </ParentSize>
+      <div className="max-w-40">
+        <div className="flex ml-4 p-1 items-center text-xs text-gray-400 overflow-hidden whitespace-nowrap">
+          <Circle strokeWidth={0} size={10} fill={greenColor} />
+          <p className="pl-1">{`Min: ${data.min?.shortPosition.toFixed(2)}%`}</p>
+        </div>
+        <div className="flex  ml-4  p-1 items-center text-xs text-gray-400 overflow-hidden whitespace-nowrap">
+          <Circle strokeWidth={0} size={10} fill={redColor} />
+          <p className="pl-1">{`Max: ${data.max?.shortPosition.toFixed(2)}%`}</p>
+        </div>
+      </div>
     </div>
   );
 };

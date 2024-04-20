@@ -14,7 +14,7 @@ import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { Label } from "~/@/components/ui/label";
 import { getTopShortsData } from "../actions/getTopShorts";
 import { DataTable } from "./components/data-table";
-import { columns } from "./components/columns";
+import { columns, getColumns } from "./components/columns";
 /**
  * TopShortsChart
  * Responsible for rendering a stylish chart in d3 which shows the top x short positions for period y
@@ -119,7 +119,7 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
         //     </div>
         //   );
         // })
-        <DataTable data={shortsData} columns={columns} />
+        <DataTable data={shortsData} columns={getColumns(period)} />
       ) : (
         <div>Loading...</div>
       )}
