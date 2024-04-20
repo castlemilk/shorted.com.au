@@ -1,4 +1,5 @@
 import { IdCardIcon } from "@radix-ui/react-icons";
+import Image from "next/image";
 import {
   Card,
   CardDescription,
@@ -10,12 +11,13 @@ import { getStock } from "~/app/actions/getStock";
 import Chart from "~/@/components/ui/chart";
 import { getStockData } from "~/app/actions/getStockData";
 import { Suspense } from "react";
-// import { Suspense } from "react";
+import { getStockDetails } from "~/app/actions/getStockDetails";
+import { Badge } from "~/@/components/ui/badge";
 
 const Page = async ({ params }: { params: { stockCode: string } }) => {
-  const stockDetails = await getStock(params.stockCode);
+  const stock = await getStock(params.stockCode);
+  const stockDetails = await getStockDetails(params.stockCode);
   const stockData = await getStockData(params.stockCode, "6m");
-  console.log(stockData);
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <main className="grid auto-rows-min flex-1 items-start gap-4 mt-5 p-4 sm:px-6 sm:py-0 md:gap-8 lg:grid-cols-3 xl:grid-cols-3">
@@ -25,17 +27,29 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
               <CardHeader className="pb-3">
                 <div className="flex">
                   <div className="mr-4">
-                    <IdCardIcon height={50} width={50} />
+                    {stockDetails.gcsUrl ? (
+                      <Image
+                        width={70}
+                        height={80}
+                        src={stockDetails.gcsUrl}
+                        alt={"company-logo"}
+                      />
+                    ) : (
+                      <IdCardIcon height={50} width={50} />
+                    )}
                   </div>
                   <div className="">
                     <CardTitle className="flex">{params.stockCode}</CardTitle>
                     <CardTitle className="flex text-lg font-semibold">
-                      {stockDetails.name}
+                      {stockDetails.companyName}
+                    </CardTitle>
+                    <CardTitle className="flex text-lg font-semibold">
+                      <Badge>{stockDetails.industry}</Badge>
                     </CardTitle>
                   </div>
                 </div>
                 <CardDescription className="flex text-sm">
-                  Company description goes here
+                  {stockDetails.summary}
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -44,34 +58,34 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
             <Card className="sm:col-span-4">
               <CardHeader className="pb-3">
                 <CardTitle className="flex">Short Position</CardTitle>
-                <CardDescription>
+                <CardTitle>
                   <div className="flex">
-                    <div className="text-3xl font-bold text-black">
-                      {stockDetails.percentageShorted}
+                    <div className="text-3xl font-bold">
+                      {stock.percentageShorted}
                     </div>
                     <div className="text-lg ">%</div>
                   </div>
-                </CardDescription>
+                </CardTitle>
                 <CardDescription>
                   Reported short positions:
-                  {stockDetails.reportedShortPositions}
+                  {stock.reportedShortPositions}
                 </CardDescription>
                 <CardDescription>
-                  Total shares on issue: {stockDetails.totalProductInIssue}
+                  Total shares on issue: {stock.totalProductInIssue}
                 </CardDescription>
                 <CardDescription>
-                  <Progress value={stockDetails.percentageShorted} />
+                  <Progress value={stock.percentageShorted} />
                 </CardDescription>
               </CardHeader>
             </Card>
           </div>
         </div>
         <div className="grid auto-rows-max items-start gap-4 lg:col-span-2">
-          <Card>
+          <div>
             <Suspense fallback={<div>Loading...</div>}>
-              <Chart data={stockData} />
+              <Chart stockCode={params.stockCode} initialData={stockData} />
             </Suspense>
-          </Card>
+          </div>
         </div>
       </main>
     </div>

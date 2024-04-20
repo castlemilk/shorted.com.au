@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+httpx
+pandas
+dask
+sqlalchemy
+tqdm
+chardet
+dask-expr
+pandas
+psycopg2
