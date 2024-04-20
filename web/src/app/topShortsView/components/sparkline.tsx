@@ -43,23 +43,24 @@ const Chart = ({ width, height, margin, data }: SparklineProps) => {
     return <div>Loading or no data available...</div>;
   }
 
-  const xScale = scaleTime<number>({
-    domain: extent(data.points, (d) => accessors.xAccessor(d)),
-  });
-  const yScale = scaleLinear<number>({
-    domain: [0, accessors.yAccessor(data.max) ?? 0],
-  });
-
   const marginTop = margin?.top ?? 0;
   const marginLeft = margin?.left ?? 0;
   const marginRight = margin?.right ?? 0;
   const marginBottom = margin?.bottom ?? 0;
+
+  const xScale = scaleTime<number>().domain(
+    extent(data.points, accessors.xAccessor) as [Date, Date],
+  );
+  const yScale = scaleLinear<number>({
+    domain: [0, accessors.yAccessor(data.max) ?? 0],
+  });
 
   // bounds
   const innerWidth = width - marginLeft - marginRight;
   const innerHeight = height - marginTop - marginBottom;
   // update scale range to match bounds
   xScale.range([0, innerWidth]);
+  // xScale.range([xScale(accessors.xAccessor(data.points[0])), xScale(accessors.xAccessor(data.points[data.points.length - 1]))]);
   yScale.range([innerHeight, 0]);
   return (
     <XYChart
