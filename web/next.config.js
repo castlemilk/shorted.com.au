@@ -4,7 +4,25 @@
  */
 await import("./src/env.js");
 
-/** @type {import("next").NextConfig} */
-const config = {};
+import packageInfo from "./package.json" assert { type: "json" };
 
-export default config;
+const { version } = packageInfo;
+/** @type {import("next").NextConfig} */
+const config = {
+  publicRuntimeConfig: {
+    version,
+  },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "storage.googleapis.com",
+        port: "",
+        pathname: "**",
+      },
+    ],
+  },
+};
+
+
+export default config

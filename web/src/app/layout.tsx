@@ -7,6 +7,7 @@ import { type Viewport } from "next";
 import { ThemeProvider } from "~/@/components/providers";
 import { ThemeSwitcher } from "~/@/components/theme-switcher";
 import SiteHeader from "~/@/components/ui/site-header";
+import SiteFooter from "~/@/components/ui/site-footer";
 
 const fontSans = FontSans({
   subsets: ["latin"],
@@ -56,6 +57,7 @@ export default function RootLayout({
           {/* <NextAuthProvider> */}
           {children}
           {/* </NextAuthProvider> */}
+          <SiteFooter />
           <ThemeSwitcher />
         </ThemeProvider>
       </body>
