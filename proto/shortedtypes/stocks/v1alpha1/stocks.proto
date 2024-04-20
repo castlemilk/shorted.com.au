@@ -22,6 +22,8 @@ message TimeSeriesData {
   string name = 3;
   double latest_short_position = 4;                // The latest short position.
   repeated TimeSeriesPoint points = 10;            // The time series points.
+  TimeSeriesPoint max = 11;                        // The maximum short position in the range
+  TimeSeriesPoint min = 12;                        // The minimum short position in the range
 
 }
   

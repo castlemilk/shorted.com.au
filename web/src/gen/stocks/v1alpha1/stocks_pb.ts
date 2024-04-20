@@ -107,6 +107,20 @@ export class TimeSeriesData extends Message<TimeSeriesData> {
    */
   points: TimeSeriesPoint[] = [];
 
+  /**
+   * The maximum short position in the range
+   *
+   * @generated from field: stocks.v1alpha1.TimeSeriesPoint max = 11;
+   */
+  max?: TimeSeriesPoint;
+
+  /**
+   * The minimum short position in the range
+   *
+   * @generated from field: stocks.v1alpha1.TimeSeriesPoint min = 12;
+   */
+  min?: TimeSeriesPoint;
+
   constructor(data?: PartialMessage<TimeSeriesData>) {
     super();
     proto3.util.initPartial(data, this);
@@ -119,6 +133,8 @@ export class TimeSeriesData extends Message<TimeSeriesData> {
     { no: 3, name: "name", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 4, name: "latest_short_position", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
     { no: 10, name: "points", kind: "message", T: TimeSeriesPoint, repeated: true },
+    { no: 11, name: "max", kind: "message", T: TimeSeriesPoint },
+    { no: 12, name: "min", kind: "message", T: TimeSeriesPoint },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): TimeSeriesData {
