@@ -95,7 +95,7 @@ func (s *postgresStore) GetStockData(productCode, period string) (*stockv1alpha1
 		rows.Close()
 	
 		// Only add this product's time series data if it has at least 10 data points
-		if len(points) >= 1 {
+		if len(points) >= 10 {
 			return &stocksv1alpha1.TimeSeriesData{
 				ProductCode: productCode,
 				Points:      points,
@@ -106,6 +106,40 @@ func (s *postgresStore) GetStockData(productCode, period string) (*stockv1alpha1
 }
 
 // GetStockDetails implements Store.
-func (s *postgresStore) GetStockDetails(string) (*stockv1alpha1.StockDetails, error) {
-	panic("unimplemented")
+// fetch the stock metadata following the schema:
+/**
+Table "public.metadata"
+      Column       | Type | Collation | Nullable | Default 
+-------------------+------+-----------+----------+---------
+ company_name      | text |           |          | 
+ address           | text |           |          | 
+ summary           | text |           |          | 
+ details           | text |           |          | 
+ website           | text |           |          | 
+ stock_code        | text |           |          | 
+ links             | text |           |          | 
+ images            | text |           |          | 
+ company_logo_link | text |           |          | 
+ gcsUrl            | text |           |          | 
+*/
+func (s *postgresStore) GetStockDetails(stockCode string) (*stockv1alpha1.StockDetails, error) {
+	query := `select 
+		stock_code as ProductCode,
+		company_name as CompanyName,
+		address as Address,
+		industry as Industry,
+		summary as Summary,
+		details as Details,
+		website as Website,
+		"gcsUrl" as GcsUrl
+		from metadata 
+		where stock_code = $1
+		LIMIT 1`
+
+	rows, _ := s.db.Query(context.Background(), query, stockCode)
+	stock, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[stockv1alpha1.StockDetails]) // Update as per actual table schema
+	if err != nil {
+		return nil, err
+	}
+	return &stock, nil
 }

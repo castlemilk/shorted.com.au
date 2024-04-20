@@ -1,0 +1,11 @@
+{
+    "company_name": "ZINC OF IRELAND NL",
+    "address": "Suite B9, 431 Roberts Road, SUBIACO, WA, AUSTRALIA, 6008",
+    "summary": "Zinc and Gold Exploration",
+    "details": "Zinc and Gold Exploration",
+    "website": "https://www.zincofireland.com.au",
+    "stock_code": "ZMI",
+    "links": "['/', '/', '#', '/about-us/vision-values', '/about-us/company-overview', '/about-us/directors-management', '/about-us/corporate-directory', '/about-us/corporate-governance', '/ireland', '/australia', '#', '/investors/asx-announcement-archive', '/investors/annual-report-archive', '/investors/investor-presentations-archive', '/contact-us', '/about-us/company-overview', '/index.php/investors/asx-announcement-archive', '/index.php/investors/investor-presentations-archive', '/privacy-policy', '/disclaimer', 'http://www.eggdesign.com.au']",
+    "images": "/images/required-imgs/zmi-logo.png, /images/headers/Drill_rig_stock_edit.jpg, /templates/custom/images/asx-icon.png",
+    "company_logo_link": "https://www.zincofireland.com.au/images/required-imgs/zmi-logo.png"
+}

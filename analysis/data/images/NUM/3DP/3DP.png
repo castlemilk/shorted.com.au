@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en-US" >
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- WP_HEAD() START -->
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css?family=Roboto:600,|Roboto:600," >
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:600,|Roboto:600,">
+<meta name='robots' content='index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1' />
+
+	<!-- This site is optimized with the Yoast SEO plugin v22.4 - https://yoast.com/wordpress/plugins/seo/ -->
+	<title>Pointerra3D - The world&#039;s fastest true end-to-end 3D data solution</title>
+	<meta name="description" content="Simply faster. Pointerra 3D&#039;s AI algorithms bring a new standard of speed, smarts, scale and on-demand access to the long-standing problem of working with 3D data." />
+	<link rel="canonical" href="https://www.pointerra.com/" />
+	<meta property="og:locale" content="en_US" />
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="Pointerra3D - The world&#039;s fastest true end-to-end 3D data solution" />
+	<meta property="og:description" content="Simply faster. Pointerra 3D&#039;s AI algorithms bring a new standard of speed, smarts, scale and on-demand access to the long-standing problem of working with 3D data." />
+	<meta property="og:url" content="https://www.pointerra.com/" />
+	<meta property="og:site_name" content="Pointerra3D" />
+	<meta property="article:modified_time" content="2023-11-21T13:39:24+00:00" />
+	<meta property="og:image" content="https://www.pointerra.com/wp-content/uploads/2022/04/blue-single-arrow-down.svg" />
+	<meta name="twitter:card" content="summary_large_image" />
+	<script type="application/ld+json" class="yoast-schema-graph">{"@context":"https://schema.org","@graph":[{"@type":"WebPage","@id":"https://www.pointerra.com/","url":"https://www.pointerra.com/","name":"Pointerra3D - The world&#039;s fastest true end-to-end 3D data solution","isPartOf":{"@id":"https://www.pointerra.com/#website"},"about":{"@id":"https://www.pointerra.com/#organization"},"primaryImageOfPage":{"@id":"https://www.pointerra.com/#primaryimage"},"image":{"@id":"https://www.pointerra.com/#primaryimage"},"thumbnailUrl":"https://www.pointerra.com/wp-content/uploads/2022/04/blue-single-arrow-down.svg","datePublished":"2021-11-20T05:58:44+00:00","dateModified":"2023-11-21T13:39:24+00:00","description":"Simply faster. Pointerra 3D's AI algorithms bring a new standard of speed, smarts, scale and on-demand access to the long-standing problem of working with 3D data.","breadcrumb":{"@id":"https://www.pointerra.com/#breadcrumb"},"inLanguage":"en-US","potentialAction":[{"@type":"ReadAction","target":["https://www.pointerra.com/"]}]},{"@type":"ImageObject","inLanguage":"en-US","@id":"https://www.pointerra.com/#primaryimage","url":"https://www.pointerra.com/wp-content/uploads/2022/04/blue-single-arrow-down.svg","contentUrl":"https://www.pointerra.com/wp-content/uploads/2022/04/blue-single-arrow-down.svg","width":170,"height":100},{"@type":"BreadcrumbList","@id":"https://www.pointerra.com/#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"Home"}]},{"@type":"WebSite","@id":"https://www.pointerra.com/#website","url":"https://www.pointerra.com/","name":"Pointerra3D","description":"The world&#039;s fastest true end-to-end 3D data solution","publisher":{"@id":"https://www.pointerra.com/#organization"},"potentialAction":[{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://www.pointerra.com/?s={search_term_string}"},"query-input":"required name=search_term_string"}],"inLanguage":"en-US"},{"@type":"Organization","@id":"https://www.pointerra.com/#organization","name":"Pointerra3D","url":"https://www.pointerra.com/","logo":{"@type":"ImageObject","inLanguage":"en-US","@id":"https://www.pointerra.com/#/schema/logo/image/","url":"https://www.pointerra.com/wp-content/uploads/2021/11/favicon.png","contentUrl":"https://www.pointerra.com/wp-content/uploads/2021/11/favicon.png","width":331,"height":330,"caption":"Pointerra3D"},"image":{"@id":"https://www.pointerra.com/#/schema/logo/image/"}}]}</script>
+	<meta name="google-site-verification" content="oDgVRA8qSfC0BlS0ZINj7ZWIf6V8gE6SghPDyYE8gQc" />
+	<!-- / Yoast SEO plugin. -->
+
+
+<link rel='stylesheet' id='elegant-custom-fonts-css' href='//www.pointerra.com/wp-content/uploads/elegant-custom-fonts/ecf.css?ver=6.5.2' type='text/css' media='all' />
+<link rel='stylesheet' id='wp-block-library-css' href='https://www.pointerra.com/wp-includes/css/dist/block-library/style.min.css?ver=6.5.2' type='text/css' media='all' />
+<link rel='stylesheet' id='acf-share-price-style-css' href='https://www.pointerra.com/wp-content/plugins/dorado-asx/blocks/share-price/style.css?ver=6.5.2' type='text/css' media='all' />
+<style id='classic-theme-styles-inline-css' type='text/css'>
+/*! This file is auto-generated */
+.wp-block-button__link{color:#fff;background-color:#32373c;border-radius:9999px;box-shadow:none;text-decoration:none;padding:calc(.667em + 2px) calc(1.333em + 2px);font-size:1.125em}.wp-block-file__button{background:#32373c;color:#fff;text-decoration:none}
+</style>
+<style id='global-styles-inline-css' type='text/css'>
+body{--wp--preset--color--black: #000000;--wp--preset--color--cyan-bluish-gray: #abb8c3;--wp--preset--color--white: #fff;--wp--preset--color--pale-pink: #f78da7;--wp--preset--color--vivid-red: #cf2e2e;--wp--preset--color--luminous-vivid-orange: #ff6900;--wp--preset--color--luminous-vivid-amber: #fcb900;--wp--preset--color--light-green-cyan: #7bdcb5;--wp--preset--color--vivid-green-cyan: #00d084;--wp--preset--color--pale-cyan-blue: #8ed1fc;--wp--preset--color--vivid-cyan-blue: #0693e3;--wp--preset--color--vivid-purple: #9b51e0;--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple: linear-gradient(135deg,rgba(6,147,227,1) 0%,rgb(155,81,224) 100%);--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan: linear-gradient(135deg,rgb(122,220,180) 0%,rgb(0,208,130) 100%);--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange: linear-gradient(135deg,rgba(252,185,0,1) 0%,rgba(255,105,0,1) 100%);--wp--preset--gradient--luminous-vivid-orange-to-vivid-red: linear-gradient(135deg,rgba(255,105,0,1) 0%,rgb(207,46,46) 100%);--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray: linear-gradient(135deg,rgb(238,238,238) 0%,rgb(169,184,195) 100%);--wp--preset--gradient--cool-to-warm-spectrum: linear-gradient(135deg,rgb(74,234,220) 0%,rgb(151,120,209) 20%,rgb(207,42,186) 40%,rgb(238,44,130) 60%,rgb(251,105,98) 80%,rgb(254,248,76) 100%);--wp--preset--gradient--blush-light-purple: linear-gradient(135deg,rgb(255,206,236) 0%,rgb(152,150,240) 100%);--wp--preset--gradient--blush-bordeaux: linear-gradient(135deg,rgb(254,205,165) 0%,rgb(254,45,45) 50%,rgb(107,0,62) 100%);--wp--preset--gradient--luminous-dusk: linear-gradient(135deg,rgb(255,203,112) 0%,rgb(199,81,192) 50%,rgb(65,88,208) 100%);--wp--preset--gradient--pale-ocean: linear-gradient(135deg,rgb(255,245,203) 0%,rgb(182,227,212) 50%,rgb(51,167,181) 100%);--wp--preset--gradient--electric-grass: linear-gradient(135deg,rgb(202,248,128) 0%,rgb(113,206,126) 100%);--wp--preset--gradient--midnight: linear-gradient(135deg,rgb(2,3,129) 0%,rgb(40,116,252) 100%);--wp--preset--font-size--small: 13px;--wp--preset--font-size--medium: 20px;--wp--preset--font-size--large: 36px;--wp--preset--font-size--x-large: 42px;--wp--preset--font-size--wpdc-small: 14px;--wp--preset--font-size--wpdc-medium: 20px;--wp--preset--font-size--wpdc-large: 26px;--wp--preset--font-size--wpdc-extra-large: 36px;--wp--preset--spacing--20: 0.44rem;--wp--preset--spacing--30: 0.67rem;--wp--preset--spacing--40: 1rem;--wp--preset--spacing--50: 1.5rem;--wp--preset--spacing--60: 2.25rem;--wp--preset--spacing--70: 3.38rem;--wp--preset--spacing--80: 5.06rem;--wp--preset--shadow--natural: 6px 6px 9px rgba(0, 0, 0, 0.2);--wp--preset--shadow--deep: 12px 12px 50px rgba(0, 0, 0, 0.4);--wp--preset--shadow--sharp: 6px 6px 0px rgba(0, 0, 0, 0.2);--wp--preset--shadow--outlined: 6px 6px 0px -3px rgba(255, 255, 255, 1), 6px 6px rgba(0, 0, 0, 1);--wp--preset--shadow--crisp: 6px 6px 0px rgba(0, 0, 0, 1);}:where(.is-layout-flex){gap: 0.5em;}:where(.is-layout-grid){gap: 0.5em;}body .is-layout-flow > .alignleft{float: left;margin-inline-start: 0;margin-inline-end: 2em;}body .is-layout-flow > .alignright{float: right;margin-inline-start: 2em;margin-inline-end: 0;}body .is-layout-flow > .aligncenter{margin-left: auto !important;margin-right: auto !important;}body .is-layout-constrained > .alignleft{float: left;margin-inline-start: 0;margin-inline-end: 2em;}body .is-layout-constrained > .alignright{float: right;margin-inline-start: 2em;margin-inline-end: 0;}body .is-layout-constrained > .aligncenter{margin-left: auto !important;margin-right: auto !important;}body .is-layout-constrained > :where(:not(.alignleft):not(.alignright):not(.alignfull)){max-width: var(--wp--style--global--content-size);margin-left: auto !important;margin-right: auto !important;}body .is-layout-constrained > .alignwide{max-width: var(--wp--style--global--wide-size);}body .is-layout-flex{display: flex;}body .is-layout-flex{flex-wrap: wrap;align-items: center;}body .is-layout-flex > *{margin: 0;}body .is-layout-grid{display: grid;}body .is-layout-grid > *{margin: 0;}:where(.wp-block-columns.is-layout-flex){gap: 2em;}:where(.wp-block-columns.is-layout-grid){gap: 2em;}:where(.wp-block-post-template.is-layout-flex){gap: 1.25em;}:where(.wp-block-post-template.is-layout-grid){gap: 1.25em;}.has-black-color{color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-color{color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-color{color: var(--wp--preset--color--white) !important;}.has-pale-pink-color{color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-color{color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-color{color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-color{color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-color{color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-color{color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-color{color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-color{color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-color{color: var(--wp--preset--color--vivid-purple) !important;}.has-black-background-color{background-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-background-color{background-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-background-color{background-color: var(--wp--preset--color--white) !important;}.has-pale-pink-background-color{background-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-background-color{background-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-background-color{background-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-background-color{background-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-background-color{background-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-background-color{background-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-background-color{background-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-background-color{background-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-background-color{background-color: var(--wp--preset--color--vivid-purple) !important;}.has-black-border-color{border-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-border-color{border-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-border-color{border-color: var(--wp--preset--color--white) !important;}.has-pale-pink-border-color{border-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-border-color{border-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-border-color{border-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-border-color{border-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-border-color{border-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-border-color{border-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-border-color{border-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-border-color{border-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-border-color{border-color: var(--wp--preset--color--vivid-purple) !important;}.has-vivid-cyan-blue-to-vivid-purple-gradient-background{background: var(--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple) !important;}.has-light-green-cyan-to-vivid-green-cyan-gradient-background{background: var(--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan) !important;}.has-luminous-vivid-amber-to-luminous-vivid-orange-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange) !important;}.has-luminous-vivid-orange-to-vivid-red-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-orange-to-vivid-red) !important;}.has-very-light-gray-to-cyan-bluish-gray-gradient-background{background: var(--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray) !important;}.has-cool-to-warm-spectrum-gradient-background{background: var(--wp--preset--gradient--cool-to-warm-spectrum) !important;}.has-blush-light-purple-gradient-background{background: var(--wp--preset--gradient--blush-light-purple) !important;}.has-blush-bordeaux-gradient-background{background: var(--wp--preset--gradient--blush-bordeaux) !important;}.has-luminous-dusk-gradient-background{background: var(--wp--preset--gradient--luminous-dusk) !important;}.has-pale-ocean-gradient-background{background: var(--wp--preset--gradient--pale-ocean) !important;}.has-electric-grass-gradient-background{background: var(--wp--preset--gradient--electric-grass) !important;}.has-midnight-gradient-background{background: var(--wp--preset--gradient--midnight) !important;}.has-small-font-size{font-size: var(--wp--preset--font-size--small) !important;}.has-medium-font-size{font-size: var(--wp--preset--font-size--medium) !important;}.has-large-font-size{font-size: var(--wp--preset--font-size--large) !important;}.has-x-large-font-size{font-size: var(--wp--preset--font-size--x-large) !important;}
+.wp-block-navigation a:where(:not(.wp-element-button)){color: inherit;}
+:where(.wp-block-post-template.is-layout-flex){gap: 1.25em;}:where(.wp-block-post-template.is-layout-grid){gap: 1.25em;}
+:where(.wp-block-columns.is-layout-flex){gap: 2em;}:where(.wp-block-columns.is-layout-grid){gap: 2em;}
+.wp-block-pullquote{font-size: 1.5em;line-height: 1.6;}
+</style>
+<link rel='stylesheet' id='contact-form-7-css' href='https://www.pointerra.com/wp-content/plugins/contact-form-7/includes/css/styles.css?ver=5.9.3' type='text/css' media='all' />
+<link rel='stylesheet' id='dorado-asx-styles-css' href='https://www.pointerra.com/wp-content/plugins/dorado-asx/css/dorado-asx-styles.css?ver=1.0' type='text/css' media='all' />
+<link rel='stylesheet' id='oxygen-aos-css' href='https://www.pointerra.com/wp-content/plugins/oxygen/component-framework/vendor/aos/aos.css?ver=6.5.2' type='text/css' media='all' />
+<link rel='stylesheet' id='oxygen-css' href='https://www.pointerra.com/wp-content/plugins/oxygen/component-framework/oxygen.css?ver=4.8.1' type='text/css' media='all' />
+<link rel='stylesheet' id='site-styles-css' href='https://www.pointerra.com/wp-content/plugins/pointerra-3d/css/site-styles.css?ver=2.0' type='text/css' media='all' />
+<link rel='stylesheet' id='fancybox-css' href='https://www.pointerra.com/wp-content/plugins/pointerra-3d/css/jquery.fancybox.min.css?ver=1.0' type='text/css' media='all' />
+<link rel='stylesheet' id='slick-css' href='https://www.pointerra.com/wp-content/plugins/pointerra-3d/css/slick.css?ver=1.0' type='text/css' media='all' />
+<link rel='stylesheet' id='slick-theme-css' href='https://www.pointerra.com/wp-content/plugins/pointerra-3d/css/slick-theme.css?ver=1.0' type='text/css' media='all' />
+<link rel='stylesheet' id='wpcf7-redirect-script-frontend-css' href='https://www.pointerra.com/wp-content/plugins/wpcf7-redirect/build/css/wpcf7-redirect-frontend.min.css?ver=1.1' type='text/css' media='all' />
+<script type="text/javascript" src="https://www.pointerra.com/wp-content/plugins/dorado-asx/blocks/share-price/share-price.js?ver=6.5.2" id="acf-share-price-script-js"></script>
+<script type="text/javascript" id="breeze-prefetch-js-extra">
+/* <![CDATA[ */
+var breeze_prefetch = {"local_url":"https:\/\/www.pointerra.com","ignore_remote_prefetch":"1","ignore_list":["\/wp-admin\/"]};
+/* ]]> */
+</script>
+<script type="text/javascript" src="https://www.pointerra.com/wp-content/plugins/breeze/assets/js/js-front-end/breeze-prefetch-links.min.js?ver=2.1.6" id="breeze-prefetch-js"></script>
+<script type="text/javascript" src="https://www.pointerra.com/wp-includes/js/jquery/jquery.min.js?ver=3.7.1" id="jquery-core-js"></script>
+<script type="text/javascript" src="https://www.pointerra.com/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1" id="jquery-migrate-js"></script>
+<script type="text/javascript" src="https://www.pointerra.com/wp-content/plugins/oxygen/component-framework/vendor/aos/aos.js?ver=1" id="oxygen-aos-js"></script>
+<link rel="https://api.w.org/" href="https://www.pointerra.com/wp-json/" /><link rel="alternate" type="application/json" href="https://www.pointerra.com/wp-json/wp/v2/pages/26" /><link rel="EditURI" type="application/rsd+xml" title="RSD" href="https://www.pointerra.com/xmlrpc.php?rsd" />
+<meta name="generator" content="WordPress 6.5.2" />
+<link rel='shortlink' href='https://www.pointerra.com/' />
+<link rel="alternate" type="application/json+oembed" href="https://www.pointerra.com/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fwww.pointerra.com%2F" />
+<link rel="alternate" type="text/xml+oembed" href="https://www.pointerra.com/wp-json/oembed/1.0/embed?url=https%3A%2F%2Fwww.pointerra.com%2F&#038;format=xml" />
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-NWT8VFQ');</script>
+<!-- End Google Tag Manager -->
+
+<!-- Global site tag (gtag.js) - Google Ads: 10824819435 -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-10824819435"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'AW-10824819435');
+</script><style id="bec-color-style" type="text/css">
+/* Block Editor Colors generated css */
+:root {
+--bec-color-dark: #283036;
+--bec-color-mining: #d67540;
+--bec-color-utilities: #07ad58;
+--bec-color-aec: #da4252;
+--bec-color-survey: #d2be2a;
+--bec-color-transport: #8a8c8e;
+--bec-color-light-grey: #dfdfdf;
+--bec-color-mid-grey: #979797;
+--bec-color-dark-grey: #707070;
+--bec-color-light-blue: #2faed4;
+--bec-color-mid-blue: #688db4;
+--bec-color-blue: #1f73b8;
+--bec-color-dark-blue: #034889;
+--bec-color-defence: #628d61;
+}
+
+:root .has-dark-color {
+	color: var(--bec-color-dark, #283036) !important;
+}
+:root .has-dark-background-color {
+	background-color: var(--bec-color-dark, #283036) !important;
+}
+
+:root .has-mining-color {
+	color: var(--bec-color-mining, #d67540) !important;
+}
+:root .has-mining-background-color {
+	background-color: var(--bec-color-mining, #d67540) !important;
+}
+
+:root .has-utilities-color {
+	color: var(--bec-color-utilities, #07ad58) !important;
+}
+:root .has-utilities-background-color {
+	background-color: var(--bec-color-utilities, #07ad58) !important;
+}
+
+:root .has-aec-color {
+	color: var(--bec-color-aec, #da4252) !important;
+}
+:root .has-aec-background-color {
+	background-color: var(--bec-color-aec, #da4252) !important;
+}
+
+:root .has-survey-color {
+	color: var(--bec-color-survey, #d2be2a) !important;
+}
+:root .has-survey-background-color {
+	background-color: var(--bec-color-survey, #d2be2a) !important;
+}
+
+:root .has-transport-color {
+	color: var(--bec-color-transport, #8a8c8e) !important;
+}
+:root .has-transport-background-color {
+	background-color: var(--bec-color-transport, #8a8c8e) !important;
+}
+
+:root .has-light-grey-color {
+	color: var(--bec-color-light-grey, #dfdfdf) !important;
+}
+:root .has-light-grey-background-color {
+	background-color: var(--bec-color-light-grey, #dfdfdf) !important;
+}
+
+:root .has-mid-grey-color {
+	color: var(--bec-color-mid-grey, #979797) !important;
+}
+:root .has-mid-grey-background-color {
+	background-color: var(--bec-color-mid-grey, #979797) !important;
+}
+
+:root .has-dark-grey-color {
+	color: var(--bec-color-dark-grey, #707070) !important;
+}
+:root .has-dark-grey-background-color {
+	background-color: var(--bec-color-dark-grey, #707070) !important;
+}
+
+:root .has-light-blue-color {
+	color: var(--bec-color-light-blue, #2faed4) !important;
+}
+:root .has-light-blue-background-color {
+	background-color: var(--bec-color-light-blue, #2faed4) !important;
+}
+
+:root .has-mid-blue-color {
+	color: var(--bec-color-mid-blue, #688db4) !important;
+}
+:root .has-mid-blue-background-color {
+	background-color: var(--bec-color-mid-blue, #688db4) !important;
+}
+
+:root .has-blue-color {
+	color: var(--bec-color-blue, #1f73b8) !important;
+}
+:root .has-blue-background-color {
+	background-color: var(--bec-color-blue, #1f73b8) !important;
+}
+
+:root .has-dark-blue-color {
+	color: var(--bec-color-dark-blue, #034889) !important;
+}
+:root .has-dark-blue-background-color {
+	background-color: var(--bec-color-dark-blue, #034889) !important;
+}
+
+:root .has-defence-color {
+	color: var(--bec-color-defence, #628d61) !important;
+}
+:root .has-defence-background-color {
+	background-color: var(--bec-color-defence, #628d61) !important;
+}
+        </style><link rel="icon" href="https://www.pointerra.com/wp-content/uploads/2021/11/favicon-150x150.png" sizes="32x32" />
+<link rel="icon" href="https://www.pointerra.com/wp-content/uploads/2021/11/favicon-300x300.png" sizes="192x192" />
+<link rel="apple-touch-icon" href="https://www.pointerra.com/wp-content/uploads/2021/11/favicon-300x300.png" />
+<meta name="msapplication-TileImage" content="https://www.pointerra.com/wp-content/uploads/2021/11/favicon-300x300.png" />
+<style type="text/css">:root { --asx-primary:  #1f73b8; }:root { --asx-secondary:  #979797; }:root { --asx-latest-link:  #2faed4; }:root { --asx-share-price:  #ffffff; }</style><link rel='stylesheet' id='oxygen-cache-186-css' href='//www.pointerra.com/wp-content/uploads/oxygen/css/186.css?cache=1693961093&#038;ver=6.5.2' type='text/css' media='all' />
+<link rel='stylesheet' id='oxygen-cache-66-css' href='//www.pointerra.com/wp-content/uploads/oxygen/css/66.css?cache=1693961326&#038;ver=6.5.2' type='text/css' media='all' />
+<link rel='stylesheet' id='oxygen-cache-1245-css' href='//www.pointerra.com/wp-content/uploads/oxygen/css/1245.css?cache=1693961089&#038;ver=6.5.2' type='text/css' media='all' />
+<link rel='stylesheet' id='oxygen-universal-styles-css' href='//www.pointerra.com/wp-content/uploads/oxygen/css/universal.css?cache=1700564675&#038;ver=6.5.2' type='text/css' media='all' />
+<!-- END OF WP_HEAD() -->
+</head>
+<body class="home page-template-default page page-id-26  wp-embed-responsive oxygen-body" >
+
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NWT8VFQ"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+<!-- Fraud Blocker Tracker -->
+<script type="text/javascript">
+  (function () {
+    var s = document.createElement("script"),
+      h = document.head;
+    s.async = 1;
+    s.src = "https://monitor.fraudblocker.com/fbt.js?sid=zQ4BHlEzBuB6ym4O7a17L";
+    h.appendChild(s);
+  })();
+</script>
+<noscript>
+<a href="https://fraudblocker.com" rel="nofollow">
+<img class="br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://monitor.fraudblocker.com/fbt.gif?sid=zQ4BHlEzBuB6ym4O7a17L"  alt="Fraud Blocker" />
+</a>
+</noscript>
+<!-- End Fraud Blocker Tracker -->
+
+
+						<div id="div_block-1-66" class="ct-div-block top-link-bar investor-link desktop" ><a id="link-57-66" class="ct-link top-link" href="https://www.pointerra.com/investors/investor-centre/"   ><div id="text_block-58-66" class="ct-text-block" >Investor Centre</div><div id="fancy_icon-60-66" class="ct-fancy-icon top-link-icon" ><svg id="svg-fancy_icon-60-66"><use xlink:href="#FontAwesomeicon-chevron-right"></use></svg></div></a></div><header id="section-2-66" class=" ct-section site-header" ><div class="ct-section-inner-wrap"><a id="link-8-66" class="ct-link" href="https://www.pointerra.com/"   ><img  class="ct-image header-logo br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/11/Pointerra-Logo-2021-FINAL_3D-FullColour-Reversed.svg" id="image-7-66" alt=""  /></a><div id="div_block-106-66" class="ct-div-block desktop-mega-menu-wrap desktop" ><div id="div_block-64-66" class="ct-div-block" ><div id="code_block-65-66" class="ct-code-block" ><!--
+To add additional Mega Menus, duplicate both the Mega Menu Link and Mega Menu Wrapper elements.
+On the new Mega Menu Link and Mega Menu Wrapper elements, change the megamenu-link-id attribute
+to a matching value (e.g. 2 instead of 1) to link them.
+
+To add a close icon for mobile devices, add the .oxel_megamenu__close-icon to any element in
+the Mega Menu.
+--></div><a id="link-66-66" class="ct-link oxel_megamenu_parent" href="https://www.pointerra.com/"    megamenu-link-id=""><div id="text_block-67-66" class="ct-text-block oxel_megamenu_parent__title" >Home</div></a><a id="link-107-66" class="ct-link oxel_megamenu_parent" href="https://www.pointerra.com/product/"    megamenu-link-id="1"><div id="text_block-108-66" class="ct-text-block oxel_megamenu_parent__title" >Product</div></a><div id="div_block-68-66" class="ct-div-block oxel_megamenu__wrapper oxel_megamenu__wrapper--hidden"  megamenu-link-id="1"><div id="div_block-200-66" class="ct-div-block full-width-mega-menu-wrap simple-links-mega-dropown" ><div id="new_columns-164-66" class="ct-new-columns mega-menu-columns" ><div id="div_block-165-66" class="ct-div-block menu-column" ><div id="text_block-169-66" class="ct-text-block mega-menu-text" >Pointerra's patented cloud-deployed technology and Al-driven algorithms bring a new standard of speed, smarts, scale and on-demand access to the long-standing problem of being able to rapidly convert massive 3D datasets into analytics and insights that provide definitive answers using digital twins to manage the physical world.</div></div><div id="div_block-166-66" class="ct-div-block menu-column" ><img  class="ct-image product-logo br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/06/3dp-core.png" id="image-171-66" alt=""   data-brsrcset="https://www.pointerra.com/wp-content/uploads/2022/06/3dp-core.png 312w, https://www.pointerra.com/wp-content/uploads/2022/06/3dp-core-300x125.png 300w" data-brsizes="(max-width: 312px) 100vw, 312px" /><div id="text_block-172-66" class="ct-text-block product-desc" >Pointerra3D CORE is the baseline platform access and 3D data workflow offering.</div><a id="link_text-174-66" class="ct-link-text product-btn" href="https://www.pointerra.com/product/core/"   >More</a></div><div id="div_block-167-66" class="ct-div-block menu-column" ><img  class="ct-image product-logo br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/06/3dp-analytics.png" id="image-202-66" alt=""   data-brsrcset="https://www.pointerra.com/wp-content/uploads/2022/06/3dp-analytics.png 333w, https://www.pointerra.com/wp-content/uploads/2022/06/3dp-analytics-300x117.png 300w" data-brsizes="(max-width: 333px) 100vw, 333px" /><div id="text_block-206-66" class="ct-text-block product-desc" >Pointerra3D ANALYTICS creates a digital twin to enable intelligent analysis of physical assets.</div><a id="link_text-210-66" class="ct-link-text product-btn" href="https://www.pointerra.com/product/analytics/"   >More</a></div><div id="div_block-168-66" class="ct-div-block menu-column" ><img  class="ct-image product-logo br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/06/3dp-answers.png" id="image-201-66" alt=""   data-brsrcset="https://www.pointerra.com/wp-content/uploads/2022/06/3dp-answers.png 314w, https://www.pointerra.com/wp-content/uploads/2022/06/3dp-answers-300x124.png 300w" data-brsizes="(max-width: 314px) 100vw, 314px" /><div id="text_block-205-66" class="ct-text-block product-desc" >Pointerra3D ANSWERS delivers the predictive insights that enable definitive answers to physical asset management questions.</div><a id="link_text-209-66" class="ct-link-text product-btn" href="https://www.pointerra.com/product/answers/"   >More</a></div></div></div></div><a id="link-109-66" class="ct-link oxel_megamenu_parent" href="#" target="_self"   megamenu-link-id="2"><div id="text_block-110-66" class="ct-text-block " >Industries</div></a><div id="div_block-117-66" class="ct-div-block oxel_megamenu__wrapper oxel_megamenu__wrapper--hidden"  megamenu-link-id="2"><div id="div_block-214-66" class="ct-div-block simple-links-mega-dropown full-width-mega-menu-wrap" ><div id="div_block-224-66" class="ct-div-block industry-mega-menu-columns" ><div id="div_block-226-66" class="ct-div-block menu-column large-menu-col" ><div id="text_block-227-66" class="ct-text-block mega-menu-text" >Whether it&rsquo;s as simple as streamlining your data management and delivery workflows or building an integrated digital twin to drive asset management outcomes, Pointerra3D has you covered.</div></div><div id="div_block-230-66" class="ct-div-block menu-column" ><a id="link_text-154-66" class="ct-link-text mega-menu-text-link" href="https://www.pointerra.com/industries/survey-mapping/"   >Survey &amp; Mapping</a><div id="text_block-231-66" class="ct-text-block product-desc" >Shift the focus from manual desktop tasks to high-value client service and new business development.<br></div><a id="link_text-233-66" class="ct-link-text product-btn" href="https://www.pointerra.com/industries/survey-mapping/"   >More</a></div><div id="div_block-237-66" class="ct-div-block menu-column" ><a id="link_text-155-66" class="ct-link-text mega-menu-text-link" href="https://www.pointerra.com/industries/aec/"   >AEC</a><div id="text_block-239-66" class="ct-text-block product-desc" >Track progress, monitor design versus build, avoid project delays, mitigate risks and keep costs in check.<br></div><a id="link_text-240-66" class="ct-link-text product-btn" href="https://www.pointerra.com/industries/aec/"   >More</a></div><div id="div_block-241-66" class="ct-div-block menu-column" ><a id="link_text-157-66" class="ct-link-text mega-menu-text-link" href="https://www.pointerra.com/industries/utilities/"   >Utilities</a><div id="text_block-243-66" class="ct-text-block product-desc" >Inspect and analyze 3D virtualized assets in real-time across your organization.<br></div><a id="link_text-244-66" class="ct-link-text product-btn" href="https://www.pointerra.com/industries/utilities/"   >More</a></div><div id="div_block-245-66" class="ct-div-block menu-column" ><a id="link_text-188-66" class="ct-link-text mega-menu-text-link" href="https://www.pointerra.com/industries/transport/"   >Transport</a><div id="text_block-247-66" class="ct-text-block product-desc" >Proactive issue identification to support preventative maintenance programs and early-stage issue identification.<br></div><a id="link_text-248-66" class="ct-link-text product-btn" href="https://www.pointerra.com/industries/transport/"   >More</a></div><div id="div_block-249-66" class="ct-div-block menu-column" ><a id="link_text-189-66" class="ct-link-text mega-menu-text-link" href="https://www.pointerra.com/industries/mining-oil-gas/"   >Mining, Oil &amp; Gas</a><div id="text_block-251-66" class="ct-text-block product-desc" >Improve operational productivity and ESG outcomes, while mitigating risks and costs throughout your operation.<br></div><a id="link_text-252-66" class="ct-link-text product-btn" href="https://www.pointerra.com/industries/mining-oil-gas/"   >More</a></div><div id="div_block-257-66" class="ct-div-block menu-column" ><a id="link_text-190-66" class="ct-link-text mega-menu-text-link" href="https://www.pointerra.com/industries/defense-intelligence/"   >Defence &amp; Intelligence</a><div id="text_block-259-66" class="ct-text-block product-desc" >Execute rapid operational assessments based on highly accurate 3D data and analytics.<br></div><a id="link_text-260-66" class="ct-link-text product-btn" href="https://www.pointerra.com/industries/defense-intelligence/"   >More</a></div></div></div></div><a id="link-114-66" class="ct-link oxel_megamenu_parent" href="#" target="_self"   megamenu-link-id="3"><div id="text_block-115-66" class="ct-text-block oxel_megamenu_parent__title" >About</div></a><div id="div_block-195-66" class="ct-div-block oxel_megamenu__wrapper oxel_megamenu__wrapper--hidden"  megamenu-link-id="3"><div id="div_block-222-66" class="ct-div-block simple-links-mega-dropown full-width-mega-menu-wrap" ><div id="div_block-262-66" class="ct-div-block industry-mega-menu-columns" ><div id="div_block-263-66" class="ct-div-block menu-column large-menu-col" ><div id="text_block-264-66" class="ct-text-block mega-menu-text" >Pointerra3D is a true end-to-end solution that stores, processes, manages, analyzes, extracts, visualizes and shares the key insights from massive 3D data at a new level of speed, smarts and scale.</div></div><div id="div_block-265-66" class="ct-div-block menu-column" ><a id="link_text-196-66" class="ct-link-text mega-menu-text-link" href="https://www.pointerra.com/about/"   >About Pointerra3D</a><div id="text_block-267-66" class="ct-text-block product-desc" >Our team of experts has been building enterprise software for a long time.<br></div><a id="link_text-268-66" class="ct-link-text product-btn" href="https://www.pointerra.com/about/"   >More</a></div><div id="div_block-269-66" class="ct-div-block menu-column" ><a id="link_text-197-66" class="ct-link-text mega-menu-text-link" href="/digital-twins/"   >Digital Twins</a><div id="text_block-271-66" class="ct-text-block product-desc" >Create a virtual representation of an asset that uses simulation, machine learning and reasoning to help decision-making.<br></div><a id="link_text-272-66" class="ct-link-text product-btn" href="https://www.pointerra.com/digital-twins/"   >More</a></div><div id="div_block-273-66" class="ct-div-block menu-column" ><a id="link_text-198-66" class="ct-link-text mega-menu-text-link" href="https://www.pointerra.com/careers/"   >Careers</a><div id="text_block-275-66" class="ct-text-block product-desc" >We are always on the lookout for highly qualified, motivated and exceptional people.<br></div><a id="link_text-276-66" class="ct-link-text product-btn" href="https://www.pointerra.com/careers/"   >More</a></div></div></div></div><a id="link-278-66" class="ct-link oxel_megamenu_parent" href="https://www.pointerra.com/blog/"    megamenu-link-id=""><div id="text_block-279-66" class="ct-text-block oxel_megamenu_parent__title" >Blog</div></a><a id="link-161-66" class="ct-link oxel_megamenu_parent" href="https://www.pointerra.com/contact/"    megamenu-link-id=""><div id="text_block-162-66" class="ct-text-block oxel_megamenu_parent__title" >Contact</div></a></div></div>
+		<div id="-pro-menu-62-66" class="oxy-pro-menu header-nav mobile " ><div class="oxy-pro-menu-mobile-open-icon  oxy-pro-menu-off-canvas-trigger oxy-pro-menu-off-canvas-left" data-off-canvas-alignment="left"><svg id="-pro-menu-62-66-open-icon"><use xlink:href="#FontAwesomeicon-bars"></use></svg></div>
+
+                
+        <div class="oxy-pro-menu-container  oxy-pro-menu-dropdown-links-visible-on-mobile oxy-pro-menu-dropdown-links-toggle oxy-pro-menu-show-dropdown" data-aos-duration="200" 
+
+             data-oxy-pro-menu-dropdown-animation="fade"
+             data-oxy-pro-menu-dropdown-animation-duration="0.2"
+             data-entire-parent-toggles-dropdown="false"
+
+             
+                          data-oxy-pro-menu-dropdown-animation-duration="0.1"
+             
+                          data-oxy-pro-menu-dropdown-links-on-mobile="toggle">
+             
+            <div class="menu-mobile-menu-container"><ul id="menu-mobile-menu" class="oxy-pro-menu-list"><li id="menu-item-1207" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-home current-menu-item page_item page-item-26 current_page_item menu-item-1207"><a href="https://www.pointerra.com/" aria-current="page">Home</a></li>
+<li id="menu-item-1208" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-has-children menu-item-1208"><a href="https://www.pointerra.com/product/">Product</a>
+<ul class="sub-menu">
+	<li id="menu-item-1209" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1209"><a href="https://www.pointerra.com/product/core/">Core</a></li>
+	<li id="menu-item-1210" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1210"><a href="https://www.pointerra.com/product/analytics/">Analytics</a></li>
+	<li id="menu-item-1211" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1211"><a href="https://www.pointerra.com/product/answers/">Answers</a></li>
+</ul>
+</li>
+<li id="menu-item-1298" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children menu-item-1298"><a href="#">Industries</a>
+<ul class="sub-menu">
+	<li id="menu-item-1213" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1213"><a href="https://www.pointerra.com/industries/survey-mapping/">Survey &#038; Mapping</a></li>
+	<li id="menu-item-1214" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1214"><a href="https://www.pointerra.com/industries/aec/">AEC</a></li>
+	<li id="menu-item-1215" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1215"><a href="https://www.pointerra.com/industries/utilities/">Utilities</a></li>
+	<li id="menu-item-1216" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1216"><a href="https://www.pointerra.com/industries/transport/">Transport</a></li>
+	<li id="menu-item-1217" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1217"><a href="https://www.pointerra.com/industries/mining-oil-gas/">Mining, Oil &#038; Gas</a></li>
+	<li id="menu-item-1218" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1218"><a href="https://www.pointerra.com/industries/defense-intelligence/">Defense &#038; Intelligence</a></li>
+	<li id="menu-item-1688" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1688"><a href="https://www.pointerra.com/digital-twins/">Digital Twins</a></li>
+</ul>
+</li>
+<li id="menu-item-1219" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1219"><a href="https://www.pointerra.com/about/">About Pointerra3D</a></li>
+<li id="menu-item-1220" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1220"><a href="https://www.pointerra.com/contact/">Contact</a></li>
+<li id="menu-item-1221" class="header-btn solid-btn menu-item menu-item-type-custom menu-item-object-custom menu-item-1221"><a href="https://app.pointerra.io/tryit">Try It</a></li>
+<li id="menu-item-1222" class="header-btn menu-item menu-item-type-custom menu-item-object-custom menu-item-1222"><a href="https://app.pointerra.io/accounts/login/">Login</a></li>
+<li id="menu-item-1223" class="mobile-section-link menu-item menu-item-type-post_type menu-item-object-investor_page menu-item-1223"><a href="https://www.pointerra.com/investors/investor-centre/">Investor Centre</a></li>
+</ul></div>
+            <div class="oxy-pro-menu-mobile-close-icon"><svg id="svg--pro-menu-62-66"><use xlink:href="#FontAwesomeicon-close"></use></svg></div>
+
+        </div>
+
+        </div>
+
+		<script type="text/javascript">
+			jQuery('#-pro-menu-62-66 .oxy-pro-menu-show-dropdown .menu-item-has-children > a', 'body').each(function(){
+                jQuery(this).append('<div class="oxy-pro-menu-dropdown-icon-click-area"><svg class="oxy-pro-menu-dropdown-icon"><use xlink:href="#FontAwesomeicon-chevron-down"></use></svg></div>');
+            });
+            jQuery('#-pro-menu-62-66 .oxy-pro-menu-show-dropdown .menu-item:not(.menu-item-has-children) > a', 'body').each(function(){
+                jQuery(this).append('<div class="oxy-pro-menu-dropdown-icon-click-area"></div>');
+            });			</script><div id="div_block-13-66" class="ct-div-block action-items desktop" ><a id="link_text-55-66" class="ct-link-text header-btn solid-btn app-conversion" href="https://www.pointerra.com/try-it/"   >Try It</a><a id="link_text-56-66" class="ct-link-text header-btn" href="https://app.pointerra.io/accounts/login/" target="_blank"  >Login</a></div></div></header><main id="section-54-66" class=" ct-section page-main" ><div class="ct-section-inner-wrap"><section id="section-2-1245" class=" ct-section home-hero alignfull" ><div class="ct-section-inner-wrap"><div id="code_block-57-1245" class="ct-code-block hero-background-slider-container code-block" >	<div class="hero-background-slider">
+			<div class="background-image-slide-wpra">
+									<img class="background-image br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%201920%201035'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/06/p3d-generic.jpg" width="1920" height="1035"   alt="" decoding="async" loading="lazy" data-brsrcset="https://www.pointerra.com/wp-content/uploads/2022/06/p3d-generic.jpg 1920w, https://www.pointerra.com/wp-content/uploads/2022/06/p3d-generic-300x162.jpg 300w, https://www.pointerra.com/wp-content/uploads/2022/06/p3d-generic-1024x552.jpg 1024w, https://www.pointerra.com/wp-content/uploads/2022/06/p3d-generic-768x414.jpg 768w, https://www.pointerra.com/wp-content/uploads/2022/06/p3d-generic-1536x828.jpg 1536w" data-brsizes="(max-width: 1920px) 100vw, 1920px" />			
+		</div>
+			<div class="background-image-slide-wpra">
+									<img class="background-image br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%201920%201035'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/06/p3d-mining.jpg" width="1920" height="1035"   alt="" decoding="async" loading="lazy" data-brsrcset="https://www.pointerra.com/wp-content/uploads/2022/06/p3d-mining.jpg 1920w, https://www.pointerra.com/wp-content/uploads/2022/06/p3d-mining-300x162.jpg 300w, https://www.pointerra.com/wp-content/uploads/2022/06/p3d-mining-1024x552.jpg 1024w, https://www.pointerra.com/wp-content/uploads/2022/06/p3d-mining-768x414.jpg 768w, https://www.pointerra.com/wp-content/uploads/2022/06/p3d-mining-1536x828.jpg 1536w" data-brsizes="(max-width: 1920px) 100vw, 1920px" />			
+		</div>
+			<div class="background-image-slide-wpra">
+									<img class="background-image br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%201920%201035'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/06/p3d-utilities.jpg" width="1920" height="1035"   alt="" decoding="async" loading="lazy" data-brsrcset="https://www.pointerra.com/wp-content/uploads/2022/06/p3d-utilities.jpg 1920w, https://www.pointerra.com/wp-content/uploads/2022/06/p3d-utilities-300x162.jpg 300w, https://www.pointerra.com/wp-content/uploads/2022/06/p3d-utilities-1024x552.jpg 1024w, https://www.pointerra.com/wp-content/uploads/2022/06/p3d-utilities-768x414.jpg 768w, https://www.pointerra.com/wp-content/uploads/2022/06/p3d-utilities-1536x828.jpg 1536w" data-brsizes="(max-width: 1920px) 100vw, 1920px" />			
+		</div>
+			<div class="background-image-slide-wpra">
+									<img class="background-image br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%201920%201035'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/06/p3d-aec.jpg" width="1920" height="1035"   alt="" decoding="async" loading="lazy" data-brsrcset="https://www.pointerra.com/wp-content/uploads/2022/06/p3d-aec.jpg 1920w, https://www.pointerra.com/wp-content/uploads/2022/06/p3d-aec-300x162.jpg 300w, https://www.pointerra.com/wp-content/uploads/2022/06/p3d-aec-1024x552.jpg 1024w, https://www.pointerra.com/wp-content/uploads/2022/06/p3d-aec-768x414.jpg 768w, https://www.pointerra.com/wp-content/uploads/2022/06/p3d-aec-1536x828.jpg 1536w" data-brsizes="(max-width: 1920px) 100vw, 1920px" />			
+		</div>
+		</div>
+</div><div id="div_block-18-1245" class="ct-div-block home-hero-main" ><div id="div_block-24-1245" class="ct-div-block" ><h1 id="headline-20-1245" class="ct-headline home-hero-title">The world's fastest true<br>end-to-end <span id="span-23-1245" class="ct-span text-blue-bg" >digital twin</span> solution<br><b>Simply <i>faster</i>.</b></h1><a id="link_text-8-1245" class="ct-link-text home-hero-btn app-conversion" href="https://www.pointerra.com/try-it/"   >TRY Pointerra3D NOW</a></div><div id="code_block-59-1245" class="ct-code-block code-block" >	<div class="hero-image-slider">
+			<div class="image-slide">
+							<img class="hero-slide-image br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20701%20399'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/06/Perth-Stadium-1.png" width="701" height="399"   alt="" decoding="async" loading="lazy" data-brsrcset="https://www.pointerra.com/wp-content/uploads/2022/06/Perth-Stadium-1.png 701w, https://www.pointerra.com/wp-content/uploads/2022/06/Perth-Stadium-1-300x171.png 300w" data-brsizes="(max-width: 701px) 100vw, 701px" />		</div>
+			<div class="image-slide">
+							<img class="hero-slide-image br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20768%20363'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/12/Resources-01-768x363.jpg" width="768" height="363"   alt="" decoding="async" loading="lazy" data-brsrcset="https://www.pointerra.com/wp-content/uploads/2021/12/Resources-01-768x363.jpg 768w, https://www.pointerra.com/wp-content/uploads/2021/12/Resources-01-300x142.jpg 300w, https://www.pointerra.com/wp-content/uploads/2021/12/Resources-01.jpg 1000w" data-brsizes="(max-width: 768px) 100vw, 768px" />		</div>
+			<div class="image-slide">
+							<img class="hero-slide-image br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20768%20474'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/06/Utilities-768x474.png" width="768" height="474"   alt="" decoding="async" loading="lazy" data-brsrcset="https://www.pointerra.com/wp-content/uploads/2022/06/Utilities-768x474.png 768w, https://www.pointerra.com/wp-content/uploads/2022/06/Utilities-300x185.png 300w, https://www.pointerra.com/wp-content/uploads/2022/06/Utilities.png 780w" data-brsizes="(max-width: 768px) 100vw, 768px" />		</div>
+			<div class="image-slide">
+							<img class="hero-slide-image br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20768%20425'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/12/architecture-engineering-construction-768x425.jpg" width="768" height="425"   alt="" decoding="async" loading="lazy" data-brsrcset="https://www.pointerra.com/wp-content/uploads/2021/12/architecture-engineering-construction-768x425.jpg 768w, https://www.pointerra.com/wp-content/uploads/2021/12/architecture-engineering-construction-300x166.jpg 300w, https://www.pointerra.com/wp-content/uploads/2021/12/architecture-engineering-construction-1024x567.jpg 1024w, https://www.pointerra.com/wp-content/uploads/2021/12/architecture-engineering-construction.jpg 1200w" data-brsizes="(max-width: 768px) 100vw, 768px" />		</div>
+		</div>
+</div></div><div id="div_block-11-1245" class="ct-div-block home-hero-features" ><div id="text_block-12-1245" class="ct-text-block feature-point" >Enterprise level lidar point cloud processing &amp; visualisation software</div><div id="text_block-14-1245" class="ct-text-block feature-point" >Transform massive 3D data sets into actionable insights &amp; answers</div><div id="text_block-15-1245" class="ct-text-block feature-point" >Reduce OPEX &amp; CAPEX by creating &amp; monitoring digital twins of physical assets</div></div></div></section><div id='inner_content-3-1245' class='ct-inner-content'>
+<div style="height:50px" aria-hidden="true" class="wp-block-spacer"></div>
+
+
+
+<figure class="wp-block-image size-full is-resized"><img class="wp-image-1338 br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20170%20100'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/04/blue-single-arrow-down.svg" decoding="async" width="170" height="100"  alt=""  style="width:43px;height:25px"/></figure>
+
+
+
+<div class="wp-block-media-text alignwide has-media-on-the-right is-stacked-on-mobile" style="grid-template-columns:auto 29%"><div class="wp-block-media-text__content">
+<p class="has-dark-color has-text-color has-wpdc-large-font-size" style="font-style:normal;font-weight:300"><strong>Pointerra3D's</strong> AI algorithms bring a new standard of speed, smarts, scale and on-demand access to the long-standing problem of working with 3D data.</p>
+
+
+
+<p style="font-style:normal;font-weight:200"><strong>Pointerra's</strong> patented cloud-deployed technology and Al-driven algorithms bring a new standard of speed, smarts, scale and on-demand access to the long-standing problem of being able to rapidly convert massive 3D point clouds and datasets into analytics and insights that provide definitive answers using digital twins to manage the physical world.</p>
+</div><figure class="wp-block-media-text__media"><img class="wp-image-1669 size-full br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20545%20528'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/06/pointerra3d-image1.png" fetchpriority="high" decoding="async" width="545" height="528"  alt=""  data-brsrcset="https://www.pointerra.com/wp-content/uploads/2022/06/pointerra3d-image1.png 545w, https://www.pointerra.com/wp-content/uploads/2022/06/pointerra3d-image1-300x291.png 300w" data-brsizes="(max-width: 545px) 100vw, 545px" /></figure></div>
+
+
+
+<div style="height:50px" aria-hidden="true" class="wp-block-spacer"></div>
+
+
+
+<figure class="wp-block-embed is-type-video is-provider-youtube wp-block-embed-youtube wp-embed-aspect-16-9 wp-has-aspect-ratio"><div class="wp-block-embed__wrapper">
+<iframe title="Pointerra3D: Transforming Data into Insight for Professionals" width="500" height="281" src="https://www.youtube.com/embed/7dv4WJeWhI8?feature=oembed" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+</div></figure>
+
+
+
+<div style="height:100px" aria-hidden="true" class="wp-block-spacer"></div>
+
+
+
+<div class="wp-block-columns is-layout-flex wp-container-core-columns-is-layout-1 wp-block-columns-is-layout-flex">
+<div class="wp-block-column is-layout-flow wp-block-column-is-layout-flow">
+<p class="push-bottom has-wpdc-large-font-size" style="font-style:normal;font-weight:200">Tailored</p>
+
+
+
+<h2 class="wp-block-heading push-top has-dark-color has-text-color" style="font-size:60px;font-style:normal;font-weight:200;letter-spacing:-1px">Industry solutions</h2>
+
+
+
+<p style="font-style:normal;font-weight:200"><strong>Pointerra's </strong>patented cloud-deployed technology and Al-driven algorithms bring a new standard of speed, smarts, scale and on-demand access to the long-standing problem of being able to rapidly convert massive 3D datasets into analytics and insights that provide definitive answers using digital twins to manage the physical world.</p>
+</div>
+
+
+
+<div class="wp-block-column is-layout-flow wp-block-column-is-layout-flow"><div id="div_block-2-266" class="ct-div-block industry-solutions-block" ><a id="link_text-12-273" class="ct-link-text industry-link" href="https://www.pointerra.com/industries/survey-mapping/"   >Survey &amp; Mapping</a><a id="link_text-26-273" class="ct-link-text industry-link" href="https://www.pointerra.com/industries/aec/"   >AEC</a><a id="link_text-27-273" class="ct-link-text industry-link" href="https://www.pointerra.com/industries/utilities/"   >Utilties</a><a id="link_text-28-273" class="ct-link-text industry-link" href="https://www.pointerra.com/industries/transport/"   >Transport</a><a id="link_text-29-273" class="ct-link-text industry-link" href="https://www.pointerra.com/industries/mining-oil-gas/"   >MIning, Oil &amp; Gas</a><a id="link_text-30-273" class="ct-link-text industry-link" href="https://www.pointerra.com/industries/defence-intelligence/"   >Defense &amp; Intelligence</a></div></div>
+</div>
+
+
+
+<div style="height:50px" aria-hidden="true" class="wp-block-spacer"></div>
+
+
+
+<figure class="wp-block-image size-full is-resized"><img class="wp-image-1338 br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20170%20100'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/04/blue-single-arrow-down.svg" decoding="async" width="170" height="100"  alt=""  style="width:43px;height:25px"/></figure>
+
+
+
+<div class="wp-block-media-text is-stacked-on-mobile is-vertically-aligned-center"><figure class="wp-block-media-text__media"><img class="wp-image-1671 size-full br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20774%20419'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/06/pointerra3d-image2.png" loading="lazy" decoding="async" width="774" height="419"  alt=""  data-brsrcset="https://www.pointerra.com/wp-content/uploads/2022/06/pointerra3d-image2.png 774w, https://www.pointerra.com/wp-content/uploads/2022/06/pointerra3d-image2-300x162.png 300w, https://www.pointerra.com/wp-content/uploads/2022/06/pointerra3d-image2-768x416.png 768w" data-brsizes="(max-width: 774px) 100vw, 774px" /></figure><div class="wp-block-media-text__content">
+<p class="push-bottom has-wpdc-large-font-size" style="font-style:normal;font-weight:200">Pointerra3D</p>
+
+
+
+<h2 class="wp-block-heading push-top has-dark-color has-text-color" style="font-size:60px;font-style:normal;font-weight:300;letter-spacing:-1px">Digital twins</h2>
+
+
+
+<p style="font-style:normal;font-weight:200">With <strong>Pointerra3D, </strong>you can create a virtual representation of an asset that uses simulation, machine learning and reasoning to help decision-making.</p>
+
+
+
+<div class="wp-block-buttons is-layout-flex wp-block-buttons-is-layout-flex">
+<div class="wp-block-button is-style-fill"><a class="wp-block-button__link has-white-color has-text-color has-background wp-element-button" href="/digital-twins" style="background:linear-gradient(135deg,rgb(13,116,185) 0%,rgb(0,174,212) 100%)">More info on digital twins</a></div>
+</div>
+</div></div>
+
+
+
+<div style="height:50px" aria-hidden="true" class="wp-block-spacer"></div>
+
+
+
+<div class="wp-block-group"><div class="wp-block-group__inner-container is-layout-flow wp-block-group-is-layout-flow">
+<div class="wp-block-columns is-layout-flex wp-container-core-columns-is-layout-2 wp-block-columns-is-layout-flex">
+<div class="wp-block-column is-layout-flow wp-block-column-is-layout-flow" style="flex-basis:33.33%">
+<figure class="wp-block-image alignwide size-full"><img class="wp-image-1346 br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20561%20546'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/04/pointerra-pyramid-V2-NoBack-e1655100776532.png" loading="lazy" decoding="async" width="561" height="546"  alt=""  data-brsrcset="https://www.pointerra.com/wp-content/uploads/2022/04/pointerra-pyramid-V2-NoBack-e1655100776532.png 561w, https://www.pointerra.com/wp-content/uploads/2022/04/pointerra-pyramid-V2-NoBack-e1655100776532-300x292.png 300w" data-brsizes="(max-width: 561px) 100vw, 561px" /></figure>
+</div>
+
+
+
+<div class="wp-block-column is-vertically-aligned-center is-layout-flow wp-block-column-is-layout-flow" style="flex-basis:66.66%">
+<p class="has-wpdc-large-font-size" style="font-style:normal;font-weight:200"><strong>Pointerra3D</strong> has three components, each with a different suite of features and capabilities. Depending on the specific requirements of your company, we can offer the full stack of <strong><a href="https://www.pointerra.com/product/core/" data-type="page" data-id="48">Core</a></strong>, <strong><a href="https://www.pointerra.com/product/analytics/" data-type="page" data-id="49">Analytics</a></strong> and <strong><a href="https://www.pointerra.com/product/answers/" data-type="page" data-id="50">Answers</a></strong> or just the <strong><a href="https://www.pointerra.com/product/core/" data-type="page" data-id="48">Core</a></strong> and <strong><a href="https://www.pointerra.com/product/analytics/" data-type="page" data-id="49">Analytics</a></strong> bundle.</p>
+
+
+
+<div style="height:40px" aria-hidden="true" class="wp-block-spacer"></div>
+
+
+
+<div class="wp-block-buttons is-layout-flex wp-block-buttons-is-layout-flex">
+<div class="wp-block-button fade-in is-style-fill"><a class="wp-block-button__link has-white-color has-text-color has-background wp-element-button" href="https://www.pointerra.com/product/" style="background:linear-gradient(135deg,rgb(13,116,185) 2%,rgb(0,174,212) 100%)">More info about the components</a></div>
+</div>
+</div>
+</div>
+</div></div>
+
+
+
+<div class="wp-block-columns is-layout-flex wp-container-core-columns-is-layout-3 wp-block-columns-is-layout-flex">
+<div class="wp-block-column is-layout-flow wp-block-column-is-layout-flow" style="flex-basis:33.33%"><div class="wp-block-image">
+<figure class="aligncenter size-thumbnail is-resized"><img class="wp-image-1338 br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20170%20100'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/04/blue-single-arrow-down.svg" loading="lazy" decoding="async" width="170" height="100"  alt=""  style="width:85px;height:50px"/></figure></div></div>
+
+
+
+<div class="wp-block-column is-layout-flow wp-block-column-is-layout-flow" style="flex-basis:66.66%"></div>
+</div>
+
+
+
+<div style="height:50px" aria-hidden="true" class="wp-block-spacer"></div>
+
+
+
+<div class="wp-block-group has-white-background-color has-background"><div class="wp-block-group__inner-container is-layout-flow wp-block-group-is-layout-flow">
+<div class="wp-block-columns is-layout-flex wp-container-core-columns-is-layout-4 wp-block-columns-is-layout-flex">
+<div class="wp-block-column is-layout-flow wp-block-column-is-layout-flow" style="flex-basis:25%">
+<div class="wp-block-group has-dark-background-color has-background"><div class="wp-block-group__inner-container is-layout-flow wp-block-group-is-layout-flow">
+<figure class="wp-block-image size-full is-resized"><img class="wp-image-1844 br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20312%20130'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/06/3dp-core.png" loading="lazy" decoding="async" width="312" height="130"  alt=""  style="width:156px;height:65px" data-brsrcset="https://www.pointerra.com/wp-content/uploads/2022/06/3dp-core.png 312w, https://www.pointerra.com/wp-content/uploads/2022/06/3dp-core-300x125.png 300w" data-brsizes="(max-width: 312px) 100vw, 312px" /></figure>
+</div></div>
+</div>
+
+
+
+<div class="wp-block-column is-vertically-aligned-center is-layout-flow wp-block-column-is-layout-flow" style="flex-basis:50%">
+<p class="has-wpdc-medium-font-size" style="font-style:normal;font-weight:200"><strong>Pointerra3D CORE</strong> is the baseline platform access and 3D data workflow offering.</p>
+</div>
+
+
+
+<div class="wp-block-column is-vertically-aligned-center is-layout-flow wp-block-column-is-layout-flow" style="flex-basis:25%">
+<div class="wp-block-buttons is-horizontal is-layout-flex wp-block-buttons-is-layout-flex">
+<div class="wp-block-button"><a class="wp-block-button__link has-white-color has-text-color has-background wp-element-button" href="https://www.pointerra.com/product/core/" style="background:linear-gradient(135deg,rgb(13,116,185) 0%,rgb(0,174,212) 100%)">More Info</a></div>
+</div>
+</div>
+</div>
+</div></div>
+
+
+
+<hr class="wp-block-separator has-text-color has-light-grey-color has-alpha-channel-opacity has-light-grey-background-color has-background is-style-wide"/>
+
+
+
+<div class="wp-block-group has-white-background-color has-background"><div class="wp-block-group__inner-container is-layout-flow wp-block-group-is-layout-flow">
+<div class="wp-block-columns is-layout-flex wp-container-core-columns-is-layout-5 wp-block-columns-is-layout-flex">
+<div class="wp-block-column is-layout-flow wp-block-column-is-layout-flow" style="flex-basis:25%">
+<div class="wp-block-group has-dark-blue-background-color has-background"><div class="wp-block-group__inner-container is-layout-flow wp-block-group-is-layout-flow">
+<figure class="wp-block-image size-full is-resized"><img class="wp-image-1845 br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20333%20130'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/06/3dp-analytics.png" loading="lazy" decoding="async" width="333" height="130"  alt=""  style="width:167px;height:65px" data-brsrcset="https://www.pointerra.com/wp-content/uploads/2022/06/3dp-analytics.png 333w, https://www.pointerra.com/wp-content/uploads/2022/06/3dp-analytics-300x117.png 300w" data-brsizes="(max-width: 333px) 100vw, 333px" /></figure>
+</div></div>
+</div>
+
+
+
+<div class="wp-block-column is-vertically-aligned-center is-layout-flow wp-block-column-is-layout-flow" style="flex-basis:50%">
+<p class="has-wpdc-medium-font-size" style="font-style:normal;font-weight:200"><strong>Pointerra3D ANALYTICS </strong>creates a digital twin to enable intelligent analysis of physical assets.</p>
+</div>
+
+
+
+<div class="wp-block-column is-vertically-aligned-center is-layout-flow wp-block-column-is-layout-flow" style="flex-basis:25%">
+<div class="wp-block-buttons is-horizontal is-layout-flex wp-block-buttons-is-layout-flex">
+<div class="wp-block-button"><a class="wp-block-button__link has-white-color has-text-color has-background wp-element-button" href="https://www.pointerra.com/product/analytics/" style="background:linear-gradient(135deg,rgb(13,116,185) 0%,rgb(0,174,212) 100%)">More Info</a></div>
+</div>
+</div>
+</div>
+</div></div>
+
+
+
+<hr class="wp-block-separator has-text-color has-light-grey-color has-alpha-channel-opacity has-light-grey-background-color has-background is-style-wide"/>
+
+
+
+<div class="wp-block-group has-white-background-color has-background"><div class="wp-block-group__inner-container is-layout-flow wp-block-group-is-layout-flow">
+<div class="wp-block-columns is-layout-flex wp-container-core-columns-is-layout-6 wp-block-columns-is-layout-flex">
+<div class="wp-block-column is-layout-flow wp-block-column-is-layout-flow" style="flex-basis:25%">
+<div class="wp-block-group has-light-blue-background-color has-background"><div class="wp-block-group__inner-container is-layout-flow wp-block-group-is-layout-flow">
+<figure class="wp-block-image size-full is-resized"><img class="wp-image-1846 br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20314%20130'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/06/3dp-answers.png" loading="lazy" decoding="async" width="314" height="130"  alt=""  style="width:157px;height:65px" data-brsrcset="https://www.pointerra.com/wp-content/uploads/2022/06/3dp-answers.png 314w, https://www.pointerra.com/wp-content/uploads/2022/06/3dp-answers-300x124.png 300w" data-brsizes="(max-width: 314px) 100vw, 314px" /></figure>
+</div></div>
+</div>
+
+
+
+<div class="wp-block-column is-vertically-aligned-center is-layout-flow wp-block-column-is-layout-flow" style="flex-basis:50%">
+<p class="has-wpdc-medium-font-size" style="font-style:normal;font-weight:200"><strong>Pointerra3D ANSWERS </strong>delivers the predictive insights that enable definitive answers to physical asset management questions.</p>
+</div>
+
+
+
+<div class="wp-block-column is-vertically-aligned-center is-layout-flow wp-block-column-is-layout-flow" style="flex-basis:25%">
+<div class="wp-block-buttons is-horizontal is-layout-flex wp-block-buttons-is-layout-flex">
+<div class="wp-block-button"><a class="wp-block-button__link has-white-color has-text-color has-background wp-element-button" href="https://www.pointerra.com/product/answers/" style="background:linear-gradient(135deg,rgb(13,116,185) 0%,rgb(0,174,212) 100%)">More Info</a></div>
+</div>
+</div>
+</div>
+</div></div>
+
+
+
+<div style="height:50px" aria-hidden="true" class="wp-block-spacer"></div>
+
+
+
+<div class="wp-block-cover alignfull is-light has-parallax"><span aria-hidden="true" class="wp-block-cover__background has-light-blue-background-color has-background-dim-0 has-background-dim"></span><div role="img" class="wp-block-cover__image-background wp-image-1643 has-parallax" style="background-position:50% 50%;background-image:url(https://www.pointerra.com/wp-content/uploads/2022/06/p3d-aec.jpg)"></div><div class="wp-block-cover__inner-container is-layout-flow wp-block-cover-is-layout-flow">
+<p class="has-text-align-left has-white-color has-text-color" style="font-size:40px;font-style:normal;font-weight:200">Whether it&rsquo;s as simple as streamlining your data management and delivery workflows or building an integrated digital twin to drive asset management outcomes...</p>
+
+
+
+<p class="has-text-align-right has-white-color has-text-color" style="font-size:44px;font-style:normal;font-weight:400">...<strong>Pointerra3D </strong>has you covered.</p>
+</div></div>
+
+
+
+<div style="height:50px" aria-hidden="true" class="wp-block-spacer"></div>
+
+
+<div class="wp-block-image">
+<figure class="aligncenter size-full is-resized"><img class="wp-image-1338 br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20170%20100'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/04/blue-single-arrow-down.svg" decoding="async" width="170" height="100"  alt=""  style="width:43px;height:25px"/></figure></div>
+
+
+<p class="has-text-align-center push-bottom has-wpdc-large-font-size" style="font-style:normal;font-weight:200">Maximizing your ROI</p>
+
+
+
+<h2 class="wp-block-heading has-text-align-center push-top" style="font-size:60px;font-style:normal;font-weight:300;letter-spacing:-1px">Proven benefits</h2>
+
+
+<section id="section-1-215" class=" ct-section benefits-section alignfull" ><div class="ct-section-inner-wrap"><div id="div_block-6-215" class="ct-div-block benefits-table" ><div id="div_block-7-215" class="ct-div-block benefit" ><img class="ct-image benefit-icon br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/11/Group-34.svg" decoding="async"  id="image-8-215" alt=""  /><div id="text_block-9-215" class="ct-text-block benefit-text" >Create and Maintain Digital Twins</div></div><div id="div_block-11-215" class="ct-div-block benefit" ><img class="ct-image benefit-icon br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/11/Group-45.svg" decoding="async"  id="image-12-215" alt=""  /><div id="text_block-13-215" class="ct-text-block benefit-text" >Exploit Full Data Values</div></div><div id="div_block-14-215" class="ct-div-block benefit" ><img class="ct-image benefit-icon br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/11/Group-39.svg" decoding="async"  id="image-15-215" alt=""  /><div id="text_block-16-215" class="ct-text-block benefit-text" >ESG Improvements</div></div><div id="div_block-17-215" class="ct-div-block benefit" ><img class="ct-image benefit-icon br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/11/Group-38.svg" decoding="async"  id="image-18-215" alt=""  /><div id="text_block-19-215" class="ct-text-block benefit-text" >Virtualize Inspections</div></div><div id="div_block-20-215" class="ct-div-block benefit" ><img class="ct-image benefit-icon br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/11/Group-34.svg" decoding="async"  id="image-21-215" alt=""  /><div id="text_block-22-215" class="ct-text-block benefit-text" >Secure Data Assets</div></div><div id="div_block-23-215" class="ct-div-block benefit" ><img class="ct-image benefit-icon br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/11/Group-40.svg" decoding="async"  id="image-24-215" alt=""  /><div id="text_block-25-215" class="ct-text-block benefit-text" >Shrink Workflows</div></div><div id="div_block-26-215" class="ct-div-block benefit" ><img class="ct-image benefit-icon br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/11/Group-42.svg" decoding="async"  id="image-27-215" alt=""  /><div id="text_block-28-215" class="ct-text-block benefit-text" >Parameterize Risk</div></div><div id="div_block-29-215" class="ct-div-block benefit" ><img class="ct-image benefit-icon br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/11/Group-44.svg" decoding="async"  id="image-30-215" alt=""  /><div id="text_block-31-215" class="ct-text-block benefit-text" >Predict Future Performance</div></div><div id="div_block-32-215" class="ct-div-block benefit" ><img class="ct-image benefit-icon br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/11/Group-35.svg" decoding="async"  id="image-33-215" alt=""  /><div id="text_block-34-215" class="ct-text-block benefit-text" >Optimize OPEX &amp; CAPEX</div></div><div id="div_block-35-215" class="ct-div-block benefit" ><img class="ct-image benefit-icon br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/11/Group-43.svg" decoding="async"  id="image-36-215" alt=""  /><div id="text_block-37-215" class="ct-text-block benefit-text" >Visualize Performance</div></div><div id="div_block-38-215" class="ct-div-block benefit" ><img class="ct-image benefit-icon br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/11/Group-36.svg" decoding="async"  id="image-39-215" alt=""  /><div id="text_block-40-215" class="ct-text-block benefit-text" >Real-Time Reliability Metrics</div></div><div id="div_block-41-215" class="ct-div-block benefit" ><img class="ct-image benefit-icon br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/11/Group-37.svg" decoding="async"  id="image-42-215" alt=""  /><div id="text_block-43-215" class="ct-text-block benefit-text" >Remote Inspection &amp; Management</div></div></div></div></section>
+
+
+<div style="height:50px" aria-hidden="true" class="wp-block-spacer"></div>
+
+
+
+<h4 class="wp-block-heading has-dark-color has-text-color" style="font-size:50px;font-style:normal;font-weight:200">Our clients</h4>
+
+
+<div id="div_block-1-1364" class="ct-div-block brand-logos" ><img class="ct-image logos-arrow br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/12/blue-arrows-right.svg" decoding="async"  id="image-2-1364" alt=""  /><img class="ct-image brand-logo br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/12/jacobs-logo.png" decoding="async"  id="image-3-1364" alt=""  /><img class="ct-image brand-logo br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/12/1200px-Florida_Power__Light_Logo.svg.png" decoding="async"  id="image-4-1364" alt=""  /><img class="ct-image brand-logo br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/04/anglo-american-footer-logo.svg" decoding="async"  id="image-5-1364" alt=""  /><img class="ct-image brand-logo br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/04/c56cb374-ece5-11ea-9d59-06765ea3034e.png" decoding="async"  id="image-6-1364" alt=""  /><img class="ct-image brand-logo br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/04/SydneyTrains.webp" decoding="async"  id="image-7-1364" alt=""  /></div>
+
+
+<div style="height:50px" aria-hidden="true" class="wp-block-spacer"></div>
+
+
+
+<div class="wp-block-media-text has-media-on-the-right is-stacked-on-mobile is-vertically-aligned-center" style="grid-template-columns:auto 42%"><figure class="wp-block-media-text__media"><img class="wp-image-805 size-full br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%201024%20683'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/11/AdobeStock_300643010-1-1024x683.jpeg" loading="lazy" decoding="async" width="1024" height="683"  alt="3D data city visualization"  data-brsrcset="https://www.pointerra.com/wp-content/uploads/2021/11/AdobeStock_300643010-1-1024x683.jpeg 1024w, https://www.pointerra.com/wp-content/uploads/2021/11/AdobeStock_300643010-1-300x200.jpeg 300w, https://www.pointerra.com/wp-content/uploads/2021/11/AdobeStock_300643010-1-768x512.jpeg 768w, https://www.pointerra.com/wp-content/uploads/2021/11/AdobeStock_300643010-1-1536x1024.jpeg 1536w, https://www.pointerra.com/wp-content/uploads/2021/11/AdobeStock_300643010-1.jpeg 1920w" data-brsizes="(max-width: 1024px) 100vw, 1024px" /></figure><div class="wp-block-media-text__content">
+<div style="height:10px" aria-hidden="true" class="wp-block-spacer"></div>
+
+
+
+<figure class="wp-block-image size-large is-resized"><img class="wp-image-1338 br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2051%2030'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2022/04/blue-single-arrow-down.svg" loading="lazy" decoding="async"  alt=""  width="51" height="30"/></figure>
+
+
+
+<h2 class="has-dark-color has-text-color wp-block-heading" id="schedule-a-demo" style="font-size:55px;font-style:normal;font-weight:200">Schedule a demo</h2>
+
+
+
+<p> If you want one of our experts to help you bring a new standard of speed, smarts, scale and on-demand access to your 3D data, schedule a demo. </p>
+
+
+
+<div class="wp-block-buttons is-layout-flex wp-block-buttons-is-layout-flex">
+<div class="wp-block-button fade-in is-style-fill"><a class="wp-block-button__link has-white-color has-text-color has-background" href="/contact" style="background:linear-gradient(135deg,rgb(13,116,185) 0%,rgb(0,174,212) 100%)">Schedule a demo</a></div>
+</div>
+
+
+
+<p></p>
+</div></div>
+
+
+
+<div style="height:100px" aria-hidden="true" class="wp-block-spacer"></div>
+
+
+
+<div style="height:65px" aria-hidden="true" class="wp-block-spacer"></div>
+</div></div></main><footer id="section-5-66" class=" ct-section site-footer" ><div class="ct-section-inner-wrap"><div id="div_block-32-186" class="ct-div-block footer-columns-wrapper" ><div id="div_block-17-66" class="ct-div-block footer-col logo-footer-col" ><img  class="ct-image footer-logo br-lazy" src="data:image/svg+xml;utf8,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E" data-breeze="https://www.pointerra.com/wp-content/uploads/2021/11/pointerra-iconArtboard-22@2x.png" id="image-23-66" alt=""  /><div id="_social_icons-24-66" class="oxy-social-icons" ><a href='https://twitter.com/3DPointerra' target='_blank' class='oxy-social-icons-twitter'><svg><title>Visit our Twitter</title><use xlink:href='#oxy-social-icons-icon-twitter-blank'></use></svg></a><a href='https://www.linkedin.com/company/pointerra' target='_blank' class='oxy-social-icons-linkedin'><svg><title>Visit our LinkedIn</title><use xlink:href='#oxy-social-icons-icon-linkedin-blank'></use></svg></a><a href='https://www.youtube.com/channel/UCc2xjgjbTgmk4T_oNFRvzNg' target='_blank' class='oxy-social-icons-youtube'><svg><title>Visit our YouTube channel</title><use xlink:href='#oxy-social-icons-icon-youtube-blank'></use></svg></a></div></div><div id="div_block-18-66" class="ct-div-block footer-col" ><h4 id="headline-32-66" class="ct-headline footer-header">Product</h4><a id="link_text-34-66" class="ct-link-text footer-link" href="https://www.pointerra.com/product/core/"   >Core</a><a id="link_text-35-66" class="ct-link-text footer-link" href="https://www.pointerra.com/product/analytics/"   >Analytics</a><a id="link_text-37-66" class="ct-link-text footer-link" href="https://www.pointerra.com/product/answers/"   >Answers</a></div><div id="div_block-38-66" class="ct-div-block footer-col" ><h4 id="headline-39-66" class="ct-headline footer-header">Industries</h4><a id="link_text-40-66" class="ct-link-text footer-link" href="https://www.pointerra.com/industries/survey-mapping/"   >Survey &amp; Mapping</a><a id="link_text-41-66" class="ct-link-text footer-link" href="https://www.pointerra.com/industries/aec/"   >AEC</a><a id="link_text-42-66" class="ct-link-text footer-link" href="https://www.pointerra.com/industries/utilities/"   >Utilities</a><a id="link_text-46-66" class="ct-link-text footer-link" href="https://www.pointerra.com/industries/transport/"   >Transport</a><a id="link_text-48-66" class="ct-link-text footer-link" href="https://www.pointerra.com/industries/mining-oil-gas/"   >Mining, Oil &amp; Gas</a><a id="link_text-49-66" class="ct-link-text footer-link" href="https://www.pointerra.com/industries/defense-intelligence/"   >Defense &amp; Intelligence</a></div><div id="div_block-34-186" class="ct-div-block footer-divider" ></div><div id="div_block-20-66" class="ct-div-block footer-col" ><h4 id="headline-53-66" class="ct-headline footer-header white-header">Australia</h4><div id="code_block-22-186" class="ct-code-block footer-text" ><p>Level 2, 27 Railway Road Subiaco<br />
+6008 Western Australia</p>
+<p><a href="tel:+618 6323 6100">+618 6323 6100</a><br />
+<a href="mailto:info@pointerra.com">info@pointerra.com</a></p>
+</div></div><div id="div_block-23-186" class="ct-div-block footer-col" ><h4 id="headline-24-186" class="ct-headline footer-header white-header">United States</h4><div id="code_block-25-186" class="ct-code-block footer-text" ><p>44679 Endicott Drive<br />
+Suite 300 - 565<br />
+Ashburn, VA 20147</p>
+<p><a href="tel:+1-571-528-8799">+1 571-528-8799</a><br />
+<a href="mailto:info@pointerra.com">info@pointerra.com</a></p>
+</div></div><div id="div_block-36-186" class="ct-div-block footer-divider" ></div><div id="div_block-22-66" class="ct-div-block footer-col" ><h4 id="headline-27-186" class="ct-headline footer-header white-header">Get the latest<br>Pointerra<span id="span-29-186" class="ct-span light-blue-tet" >3D</span> news</h4><div id="shortcode-33-186" class="ct-shortcode shortcode-container" >
+<div class="wpcf7 no-js" id="wpcf7-f278-o1" lang="en-US" dir="ltr">
+<div class="screen-reader-response"><p role="status" aria-live="polite" aria-atomic="true"></p> <ul></ul></div>
+<form action="/#wpcf7-f278-o1" method="post" class="wpcf7-form init" aria-label="Contact form" novalidate="novalidate" data-status="init">
+<div style="display: none;">
+<input type="hidden" name="_wpcf7" value="278" />
+<input type="hidden" name="_wpcf7_version" value="5.9.3" />
+<input type="hidden" name="_wpcf7_locale" value="en_US" />
+<input type="hidden" name="_wpcf7_unit_tag" value="wpcf7-f278-o1" />
+<input type="hidden" name="_wpcf7_container_post" value="0" />
+<input type="hidden" name="_wpcf7_posted_data_hash" value="" />
+<input type="hidden" name="_wpcf7_recaptcha_response" value="" />
+</div>
+<span class="wpcf7-form-control-wrap" data-name="subscribe-email"><input size="40" class="wpcf7-form-control wpcf7-email wpcf7-validates-as-required wpcf7-text wpcf7-validates-as-email" aria-required="true" aria-invalid="false" placeholder="Email address" value="" type="email" name="subscribe-email" /></span>
+<input class="wpcf7-form-control wpcf7-submit has-spinner" type="submit" value="Subscribe" /><div class="wpcf7-response-output" aria-hidden="true"></div>
+</form>
+</div>
+</div></div></div><div id="text_block-31-186" class="ct-text-block footer-legal" >&copy; 2022 Pointerra | <a href="/privacy-policy/">Privacy</a> | <a href="/legal/">Legal</a></div></div></footer>	<!-- WP_FOOTER -->
+<script>
+function gtag_report_conversion(url) {
+  var callback = function () {
+    if (typeof(url) != 'undefined') {
+      window.location = url;
+    }
+  };
+  gtag('event', 'conversion', {
+      'send_to': 'AW-10824819435/we11CN6ClYoDEOvF1qko',
+      'event_callback': callback
+  });
+  return false;
+}
+const appConversion = document.querySelectorAll('.app-conversion');
+	if ( appConversion != null ) {
+		for ( const convertLink of appConversion ) {
+			convertLink.addEventListener('click', function() {
+				const convertHref = convertLink.href;
+				gtag_report_conversion( convertHref );
+			});
+		}
+	}
+</script><style>.ct-FontAwesomeicon-close{width:0.78571428571429em}</style>
+<style>.ct-FontAwesomeicon-chevron-right{width:0.67857142857143em}</style>
+<style>.ct-FontAwesomeicon-bars{width:0.85714285714286em}</style>
+<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" style="position: absolute; width: 0; height: 0; overflow: hidden;" version="1.1"><defs><symbol id="FontAwesomeicon-close" viewBox="0 0 22 28"><title>close</title><path d="M20.281 20.656c0 0.391-0.156 0.781-0.438 1.062l-2.125 2.125c-0.281 0.281-0.672 0.438-1.062 0.438s-0.781-0.156-1.062-0.438l-4.594-4.594-4.594 4.594c-0.281 0.281-0.672 0.438-1.062 0.438s-0.781-0.156-1.062-0.438l-2.125-2.125c-0.281-0.281-0.438-0.672-0.438-1.062s0.156-0.781 0.438-1.062l4.594-4.594-4.594-4.594c-0.281-0.281-0.438-0.672-0.438-1.062s0.156-0.781 0.438-1.062l2.125-2.125c0.281-0.281 0.672-0.438 1.062-0.438s0.781 0.156 1.062 0.438l4.594 4.594 4.594-4.594c0.281-0.281 0.672-0.438 1.062-0.438s0.781 0.156 1.062 0.438l2.125 2.125c0.281 0.281 0.438 0.672 0.438 1.062s-0.156 0.781-0.438 1.062l-4.594 4.594 4.594 4.594c0.281 0.281 0.438 0.672 0.438 1.062z"/></symbol><symbol id="FontAwesomeicon-chevron-right" viewBox="0 0 19 28"><title>chevron-right</title><path d="M17.297 13.703l-11.594 11.594c-0.391 0.391-1.016 0.391-1.406 0l-2.594-2.594c-0.391-0.391-0.391-1.016 0-1.406l8.297-8.297-8.297-8.297c-0.391-0.391-0.391-1.016 0-1.406l2.594-2.594c0.391-0.391 1.016-0.391 1.406 0l11.594 11.594c0.391 0.391 0.391 1.016 0 1.406z"/></symbol><symbol id="FontAwesomeicon-chevron-down" viewBox="0 0 28 28"><title>chevron-down</title><path d="M26.297 12.625l-11.594 11.578c-0.391 0.391-1.016 0.391-1.406 0l-11.594-11.578c-0.391-0.391-0.391-1.031 0-1.422l2.594-2.578c0.391-0.391 1.016-0.391 1.406 0l8.297 8.297 8.297-8.297c0.391-0.391 1.016-0.391 1.406 0l2.594 2.578c0.391 0.391 0.391 1.031 0 1.422z"/></symbol><symbol id="FontAwesomeicon-bars" viewBox="0 0 24 28"><title>bars</title><path d="M24 21v2c0 0.547-0.453 1-1 1h-22c-0.547 0-1-0.453-1-1v-2c0-0.547 0.453-1 1-1h22c0.547 0 1 0.453 1 1zM24 13v2c0 0.547-0.453 1-1 1h-22c-0.547 0-1-0.453-1-1v-2c0-0.547 0.453-1 1-1h22c0.547 0 1 0.453 1 1zM24 5v2c0 0.547-0.453 1-1 1h-22c-0.547 0-1-0.453-1-1v-2c0-0.547 0.453-1 1-1h22c0.547 0 1 0.453 1 1z"/></symbol></defs></svg>
+        <script type="text/javascript">
+
+            function oxygen_init_pro_menu() {
+                jQuery('.oxy-pro-menu-container').each(function(){
+                    
+                    // dropdowns
+                    var menu = jQuery(this),
+                        animation = menu.data('oxy-pro-menu-dropdown-animation'),
+                        animationDuration = menu.data('oxy-pro-menu-dropdown-animation-duration');
+                    
+                    jQuery('.sub-menu', menu).attr('data-aos',animation);
+                    jQuery('.sub-menu', menu).attr('data-aos-duration',animationDuration*1000);
+
+                    oxygen_offcanvas_menu_init(menu);
+                    jQuery(window).resize(function(){
+                        oxygen_offcanvas_menu_init(menu);
+                    });
+
+                    // let certain CSS rules know menu being initialized
+                    // "10" timeout is extra just in case, "0" would be enough
+                    setTimeout(function() {menu.addClass('oxy-pro-menu-init');}, 10);
+                });
+            }
+
+            jQuery(document).ready(oxygen_init_pro_menu);
+            document.addEventListener('oxygen-ajax-element-loaded', oxygen_init_pro_menu, false);
+            
+            let proMenuMouseDown = false;
+
+            jQuery(".oxygen-body")
+            .on("mousedown", '.oxy-pro-menu-show-dropdown:not(.oxy-pro-menu-open-container) .menu-item-has-children', function(e) {
+                proMenuMouseDown = true;
+            })
+
+            .on("mouseup", '.oxy-pro-menu-show-dropdown:not(.oxy-pro-menu-open-container) .menu-item-has-children', function(e) {
+                proMenuMouseDown = false;
+            })
+
+            .on('mouseenter focusin', '.oxy-pro-menu-show-dropdown:not(.oxy-pro-menu-open-container) .menu-item-has-children', function(e) {
+                if( proMenuMouseDown ) return;
+                
+                var subMenu = jQuery(this).children('.sub-menu');
+                subMenu.addClass('aos-animate oxy-pro-menu-dropdown-animating').removeClass('sub-menu-left');
+
+                var duration = jQuery(this).parents('.oxy-pro-menu-container').data('oxy-pro-menu-dropdown-animation-duration');
+
+                setTimeout(function() {subMenu.removeClass('oxy-pro-menu-dropdown-animating')}, duration*1000);
+
+                var offset = subMenu.offset(),
+                    width = subMenu.width(),
+                    docWidth = jQuery(window).width();
+
+                    if (offset.left+width > docWidth) {
+                        subMenu.addClass('sub-menu-left');
+                    }
+            })
+            
+            .on('mouseleave focusout', '.oxy-pro-menu-show-dropdown .menu-item-has-children', function( e ) {
+                if( jQuery(this).is(':hover') ) return;
+
+                jQuery(this).children('.sub-menu').removeClass('aos-animate');
+
+                var subMenu = jQuery(this).children('.sub-menu');
+                //subMenu.addClass('oxy-pro-menu-dropdown-animating-out');
+
+                var duration = jQuery(this).parents('.oxy-pro-menu-container').data('oxy-pro-menu-dropdown-animation-duration');
+                setTimeout(function() {subMenu.removeClass('oxy-pro-menu-dropdown-animating-out')}, duration*1000);
+            })
+
+            // open icon click
+            .on('click', '.oxy-pro-menu-mobile-open-icon', function() {    
+                var menu = jQuery(this).parents('.oxy-pro-menu');
+                // off canvas
+                if (jQuery(this).hasClass('oxy-pro-menu-off-canvas-trigger')) {
+                    oxygen_offcanvas_menu_run(menu);
+                }
+                // regular
+                else {
+                    menu.addClass('oxy-pro-menu-open');
+                    jQuery(this).siblings('.oxy-pro-menu-container').addClass('oxy-pro-menu-open-container');
+                    jQuery('body').addClass('oxy-nav-menu-prevent-overflow');
+                    jQuery('html').addClass('oxy-nav-menu-prevent-overflow');
+                    
+                    oxygen_pro_menu_set_static_width(menu);
+                }
+                // remove animation and collapse
+                jQuery('.sub-menu', menu).attr('data-aos','');
+                jQuery('.oxy-pro-menu-dropdown-toggle .sub-menu', menu).slideUp(0);
+            });
+
+            function oxygen_pro_menu_set_static_width(menu) {
+                var menuItemWidth = jQuery(".oxy-pro-menu-list > .menu-item", menu).width();
+                jQuery(".oxy-pro-menu-open-container > div:first-child, .oxy-pro-menu-off-canvas-container > div:first-child", menu).width(menuItemWidth);
+            }
+
+            function oxygen_pro_menu_unset_static_width(menu) {
+                jQuery(".oxy-pro-menu-container > div:first-child", menu).width("");
+            }
+
+            // close icon click
+            jQuery('body').on('click', '.oxy-pro-menu-mobile-close-icon', function(e) {
+                
+                var menu = jQuery(this).parents('.oxy-pro-menu');
+
+                menu.removeClass('oxy-pro-menu-open');
+                jQuery(this).parents('.oxy-pro-menu-container').removeClass('oxy-pro-menu-open-container');
+                jQuery('.oxy-nav-menu-prevent-overflow').removeClass('oxy-nav-menu-prevent-overflow');
+
+                if (jQuery(this).parent('.oxy-pro-menu-container').hasClass('oxy-pro-menu-off-canvas-container')) {
+                    oxygen_offcanvas_menu_run(menu);
+                }
+
+                oxygen_pro_menu_unset_static_width(menu);
+            });
+
+            // dropdown toggle icon click
+            jQuery('body').on(
+                'touchstart click', 
+                '.oxy-pro-menu-dropdown-links-toggle.oxy-pro-menu-off-canvas-container .menu-item-has-children > a > .oxy-pro-menu-dropdown-icon-click-area,'+
+                '.oxy-pro-menu-dropdown-links-toggle.oxy-pro-menu-open-container .menu-item-has-children > a > .oxy-pro-menu-dropdown-icon-click-area', 
+                function(e) {
+                    e.preventDefault();
+
+                    // fix for iOS false triggering submenu clicks
+                    jQuery('.sub-menu').css('pointer-events', 'none');
+                    setTimeout( function() {
+                        jQuery('.sub-menu').css('pointer-events', 'initial');
+                    }, 500);
+
+                    // workaround to stop click event from triggering after touchstart
+                    if (window.oxygenProMenuIconTouched === true) {
+                        window.oxygenProMenuIconTouched = false;
+                        return;
+                    }
+                    if (e.type==='touchstart') {
+                        window.oxygenProMenuIconTouched = true;
+                    }
+                    oxygen_pro_menu_toggle_dropdown(this);
+                }
+            );
+
+            function oxygen_pro_menu_toggle_dropdown(trigger) {
+
+                var duration = jQuery(trigger).parents('.oxy-pro-menu-container').data('oxy-pro-menu-dropdown-animation-duration');
+
+                jQuery(trigger).closest('.menu-item-has-children').children('.sub-menu').slideToggle({
+                    start: function () {
+                        jQuery(this).css({
+                            display: "flex"
+                        })
+                    },
+                    duration: duration*1000
+                });
+            }
+                    
+            // fullscreen menu link click
+            var selector = '.oxy-pro-menu-open .menu-item a';
+            jQuery('body').on('click', selector, function(event){
+                
+                if (jQuery(event.target).closest('.oxy-pro-menu-dropdown-icon-click-area').length > 0) {
+                    // toggle icon clicked, no need to hide the menu
+                    return;
+                }
+                else if ((jQuery(this).attr("href") === "#" || jQuery(this).closest(".oxy-pro-menu-container").data("entire-parent-toggles-dropdown")) && 
+                         jQuery(this).parent().hasClass('menu-item-has-children')) {
+                    // empty href don't lead anywhere, treat it as toggle trigger
+                    oxygen_pro_menu_toggle_dropdown(event.target);
+                    // keep anchor links behavior as is, and prevent regular links from page reload
+                    if (jQuery(this).attr("href").indexOf("#")!==0) {
+                        return false;
+                    }
+                }
+
+                // hide the menu and follow the anchor
+                if (jQuery(this).attr("href").indexOf("#")===0) {
+                    jQuery('.oxy-pro-menu-open').removeClass('oxy-pro-menu-open');
+                    jQuery('.oxy-pro-menu-open-container').removeClass('oxy-pro-menu-open-container');
+                    jQuery('.oxy-nav-menu-prevent-overflow').removeClass('oxy-nav-menu-prevent-overflow');
+                }
+
+            });
+
+            // off-canvas menu link click
+            var selector = '.oxy-pro-menu-off-canvas .menu-item a';
+            jQuery('body').on('click', selector, function(event){
+                if (jQuery(event.target).closest('.oxy-pro-menu-dropdown-icon-click-area').length > 0) {
+                    // toggle icon clicked, no need to trigger it 
+                    return;
+                }
+                else if ((jQuery(this).attr("href") === "#" || jQuery(this).closest(".oxy-pro-menu-container").data("entire-parent-toggles-dropdown")) && 
+                    jQuery(this).parent().hasClass('menu-item-has-children')) {
+                    // empty href don't lead anywhere, treat it as toggle trigger
+                    oxygen_pro_menu_toggle_dropdown(event.target);
+                    // keep anchor links behavior as is, and prevent regular links from page reload
+                    if (jQuery(this).attr("href").indexOf("#")!==0) {
+                        return false;
+                    }
+                }
+            });
+
+            // off canvas
+            function oxygen_offcanvas_menu_init(menu) {
+
+                // only init off-canvas animation if trigger icon is visible i.e. mobile menu in action
+                var offCanvasActive = jQuery(menu).siblings('.oxy-pro-menu-off-canvas-trigger').css('display');
+                if (offCanvasActive!=='none') {
+                    var animation = menu.data('oxy-pro-menu-off-canvas-animation');
+                    setTimeout(function() {menu.attr('data-aos', animation);}, 10);
+                }
+                else {
+                    // remove AOS
+                    menu.attr('data-aos', '');
+                };
+            }
+            
+            function oxygen_offcanvas_menu_run(menu) {
+
+                var container = menu.find(".oxy-pro-menu-container");
+                
+                if (!container.attr('data-aos')) {
+                    // initialize animation
+                    setTimeout(function() {oxygen_offcanvas_menu_toggle(menu, container)}, 0);
+                }
+                else {
+                    oxygen_offcanvas_menu_toggle(menu, container);
+                }
+            }
+
+            var oxygen_offcanvas_menu_toggle_in_progress = false;
+
+            function oxygen_offcanvas_menu_toggle(menu, container) {
+
+                if (oxygen_offcanvas_menu_toggle_in_progress) {
+                    return;
+                }
+
+                container.toggleClass('aos-animate');
+
+                if (container.hasClass('oxy-pro-menu-off-canvas-container')) {
+                    
+                    oxygen_offcanvas_menu_toggle_in_progress = true;
+                    
+                    var animation = container.data('oxy-pro-menu-off-canvas-animation'),
+                        timeout = container.data('aos-duration');
+
+                    if (!animation){
+                        timeout = 0;
+                    }
+
+                    setTimeout(function() {
+                        container.removeClass('oxy-pro-menu-off-canvas-container')
+                        menu.removeClass('oxy-pro-menu-off-canvas');
+                        oxygen_offcanvas_menu_toggle_in_progress = false;
+                    }, timeout);
+                }
+                else {
+                    container.addClass('oxy-pro-menu-off-canvas-container');
+                    menu.addClass('oxy-pro-menu-off-canvas');
+                    oxygen_pro_menu_set_static_width(menu);
+                }
+            }
+        </script>
+
+    
+		<svg style="position: absolute; width: 0; height: 0; overflow: hidden;" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+		   <defs>
+		      <symbol id="oxy-social-icons-icon-linkedin" viewBox="0 0 32 32">
+		         <title>linkedin</title>
+		         <path d="M12 12h5.535v2.837h0.079c0.77-1.381 2.655-2.837 5.464-2.837 5.842 0 6.922 3.637 6.922 8.367v9.633h-5.769v-8.54c0-2.037-0.042-4.657-3.001-4.657-3.005 0-3.463 2.218-3.463 4.509v8.688h-5.767v-18z"></path>
+		         <path d="M2 12h6v18h-6v-18z"></path>
+		         <path d="M8 7c0 1.657-1.343 3-3 3s-3-1.343-3-3c0-1.657 1.343-3 3-3s3 1.343 3 3z"></path>
+		      </symbol>
+		      <symbol id="oxy-social-icons-icon-facebook" viewBox="0 0 32 32">
+		         <title>facebook</title>
+		         <path d="M19 6h5v-6h-5c-3.86 0-7 3.14-7 7v3h-4v6h4v16h6v-16h5l1-6h-6v-3c0-0.542 0.458-1 1-1z"></path>
+		      </symbol>
+		      <symbol id="oxy-social-icons-icon-pinterest" viewBox="0 0 32 32">
+		         <title>pinterest</title>
+		         <path d="M16 2.138c-7.656 0-13.863 6.206-13.863 13.863 0 5.875 3.656 10.887 8.813 12.906-0.119-1.094-0.231-2.781 0.050-3.975 0.25-1.081 1.625-6.887 1.625-6.887s-0.412-0.831-0.412-2.056c0-1.925 1.119-3.369 2.506-3.369 1.181 0 1.756 0.887 1.756 1.95 0 1.188-0.756 2.969-1.15 4.613-0.331 1.381 0.688 2.506 2.050 2.506 2.462 0 4.356-2.6 4.356-6.35 0-3.319-2.387-5.638-5.787-5.638-3.944 0-6.256 2.956-6.256 6.019 0 1.194 0.456 2.469 1.031 3.163 0.113 0.137 0.131 0.256 0.094 0.4-0.106 0.438-0.338 1.381-0.387 1.575-0.063 0.256-0.2 0.306-0.463 0.188-1.731-0.806-2.813-3.337-2.813-5.369 0-4.375 3.175-8.387 9.156-8.387 4.806 0 8.544 3.425 8.544 8.006 0 4.775-3.012 8.625-7.194 8.625-1.406 0-2.725-0.731-3.175-1.594 0 0-0.694 2.644-0.863 3.294-0.313 1.206-1.156 2.712-1.725 3.631 1.3 0.4 2.675 0.619 4.106 0.619 7.656 0 13.863-6.206 13.863-13.863 0-7.662-6.206-13.869-13.863-13.869z"></path>
+		      </symbol>
+		      <symbol id="oxy-social-icons-icon-youtube" viewBox="0 0 32 32">
+		         <title>youtube</title>
+		         <path d="M31.681 9.6c0 0-0.313-2.206-1.275-3.175-1.219-1.275-2.581-1.281-3.206-1.356-4.475-0.325-11.194-0.325-11.194-0.325h-0.012c0 0-6.719 0-11.194 0.325-0.625 0.075-1.987 0.081-3.206 1.356-0.963 0.969-1.269 3.175-1.269 3.175s-0.319 2.588-0.319 5.181v2.425c0 2.587 0.319 5.181 0.319 5.181s0.313 2.206 1.269 3.175c1.219 1.275 2.819 1.231 3.531 1.369 2.563 0.244 10.881 0.319 10.881 0.319s6.725-0.012 11.2-0.331c0.625-0.075 1.988-0.081 3.206-1.356 0.962-0.969 1.275-3.175 1.275-3.175s0.319-2.587 0.319-5.181v-2.425c-0.006-2.588-0.325-5.181-0.325-5.181zM12.694 20.15v-8.994l8.644 4.513-8.644 4.481z"></path>
+		      </symbol>
+		      <symbol id="oxy-social-icons-icon-rss" viewBox="0 0 32 32">
+		         <title>rss</title>
+		         <path d="M4.259 23.467c-2.35 0-4.259 1.917-4.259 4.252 0 2.349 1.909 4.244 4.259 4.244 2.358 0 4.265-1.895 4.265-4.244-0-2.336-1.907-4.252-4.265-4.252zM0.005 10.873v6.133c3.993 0 7.749 1.562 10.577 4.391 2.825 2.822 4.384 6.595 4.384 10.603h6.16c-0-11.651-9.478-21.127-21.121-21.127zM0.012 0v6.136c14.243 0 25.836 11.604 25.836 25.864h6.152c0-17.64-14.352-32-31.988-32z"></path>
+		      </symbol>
+		      <symbol id="oxy-social-icons-icon-twitter" viewBox="0 0 32 32">
+		         <title>twitter</title>
+		         <path d="M32 7.075c-1.175 0.525-2.444 0.875-3.769 1.031 1.356-0.813 2.394-2.1 2.887-3.631-1.269 0.75-2.675 1.3-4.169 1.594-1.2-1.275-2.906-2.069-4.794-2.069-3.625 0-6.563 2.938-6.563 6.563 0 0.512 0.056 1.012 0.169 1.494-5.456-0.275-10.294-2.888-13.531-6.862-0.563 0.969-0.887 2.1-0.887 3.3 0 2.275 1.156 4.287 2.919 5.463-1.075-0.031-2.087-0.331-2.975-0.819 0 0.025 0 0.056 0 0.081 0 3.181 2.263 5.838 5.269 6.437-0.55 0.15-1.131 0.231-1.731 0.231-0.425 0-0.831-0.044-1.237-0.119 0.838 2.606 3.263 4.506 6.131 4.563-2.25 1.762-5.075 2.813-8.156 2.813-0.531 0-1.050-0.031-1.569-0.094 2.913 1.869 6.362 2.95 10.069 2.95 12.075 0 18.681-10.006 18.681-18.681 0-0.287-0.006-0.569-0.019-0.85 1.281-0.919 2.394-2.075 3.275-3.394z"></path>
+		      </symbol>
+		      <symbol id="oxy-social-icons-icon-instagram" viewBox="0 0 32 32">
+		         <title>instagram</title>
+		         <path d="M16 2.881c4.275 0 4.781 0.019 6.462 0.094 1.563 0.069 2.406 0.331 2.969 0.55 0.744 0.288 1.281 0.638 1.837 1.194 0.563 0.563 0.906 1.094 1.2 1.838 0.219 0.563 0.481 1.412 0.55 2.969 0.075 1.688 0.094 2.194 0.094 6.463s-0.019 4.781-0.094 6.463c-0.069 1.563-0.331 2.406-0.55 2.969-0.288 0.744-0.637 1.281-1.194 1.837-0.563 0.563-1.094 0.906-1.837 1.2-0.563 0.219-1.413 0.481-2.969 0.55-1.688 0.075-2.194 0.094-6.463 0.094s-4.781-0.019-6.463-0.094c-1.563-0.069-2.406-0.331-2.969-0.55-0.744-0.288-1.281-0.637-1.838-1.194-0.563-0.563-0.906-1.094-1.2-1.837-0.219-0.563-0.481-1.413-0.55-2.969-0.075-1.688-0.094-2.194-0.094-6.463s0.019-4.781 0.094-6.463c0.069-1.563 0.331-2.406 0.55-2.969 0.288-0.744 0.638-1.281 1.194-1.838 0.563-0.563 1.094-0.906 1.838-1.2 0.563-0.219 1.412-0.481 2.969-0.55 1.681-0.075 2.188-0.094 6.463-0.094zM16 0c-4.344 0-4.887 0.019-6.594 0.094-1.7 0.075-2.869 0.35-3.881 0.744-1.056 0.412-1.95 0.956-2.837 1.85-0.894 0.888-1.438 1.781-1.85 2.831-0.394 1.019-0.669 2.181-0.744 3.881-0.075 1.713-0.094 2.256-0.094 6.6s0.019 4.887 0.094 6.594c0.075 1.7 0.35 2.869 0.744 3.881 0.413 1.056 0.956 1.95 1.85 2.837 0.887 0.887 1.781 1.438 2.831 1.844 1.019 0.394 2.181 0.669 3.881 0.744 1.706 0.075 2.25 0.094 6.594 0.094s4.888-0.019 6.594-0.094c1.7-0.075 2.869-0.35 3.881-0.744 1.050-0.406 1.944-0.956 2.831-1.844s1.438-1.781 1.844-2.831c0.394-1.019 0.669-2.181 0.744-3.881 0.075-1.706 0.094-2.25 0.094-6.594s-0.019-4.887-0.094-6.594c-0.075-1.7-0.35-2.869-0.744-3.881-0.394-1.063-0.938-1.956-1.831-2.844-0.887-0.887-1.781-1.438-2.831-1.844-1.019-0.394-2.181-0.669-3.881-0.744-1.712-0.081-2.256-0.1-6.6-0.1v0z"></path>
+		         <path d="M16 7.781c-4.537 0-8.219 3.681-8.219 8.219s3.681 8.219 8.219 8.219 8.219-3.681 8.219-8.219c0-4.537-3.681-8.219-8.219-8.219zM16 21.331c-2.944 0-5.331-2.387-5.331-5.331s2.387-5.331 5.331-5.331c2.944 0 5.331 2.387 5.331 5.331s-2.387 5.331-5.331 5.331z"></path>
+		         <path d="M26.462 7.456c0 1.060-0.859 1.919-1.919 1.919s-1.919-0.859-1.919-1.919c0-1.060 0.859-1.919 1.919-1.919s1.919 0.859 1.919 1.919z"></path>
+		      </symbol>
+		      <symbol id="oxy-social-icons-icon-facebook-blank" viewBox="0 0 32 32">
+		         <title>facebook-blank</title>
+		         <path d="M29 0h-26c-1.65 0-3 1.35-3 3v26c0 1.65 1.35 3 3 3h13v-14h-4v-4h4v-2c0-3.306 2.694-6 6-6h4v4h-4c-1.1 0-2 0.9-2 2v2h6l-1 4h-5v14h9c1.65 0 3-1.35 3-3v-26c0-1.65-1.35-3-3-3z"></path>
+		      </symbol>
+		      <symbol id="oxy-social-icons-icon-rss-blank" viewBox="0 0 32 32">
+		         <title>rss-blank</title>
+		         <path d="M29 0h-26c-1.65 0-3 1.35-3 3v26c0 1.65 1.35 3 3 3h26c1.65 0 3-1.35 3-3v-26c0-1.65-1.35-3-3-3zM8.719 25.975c-1.5 0-2.719-1.206-2.719-2.706 0-1.488 1.219-2.712 2.719-2.712 1.506 0 2.719 1.225 2.719 2.712 0 1.5-1.219 2.706-2.719 2.706zM15.544 26c0-2.556-0.994-4.962-2.794-6.762-1.806-1.806-4.2-2.8-6.75-2.8v-3.912c7.425 0 13.475 6.044 13.475 13.475h-3.931zM22.488 26c0-9.094-7.394-16.5-16.481-16.5v-3.912c11.25 0 20.406 9.162 20.406 20.413h-3.925z"></path>
+		      </symbol>
+		      <symbol id="oxy-social-icons-icon-linkedin-blank" viewBox="0 0 32 32">
+		         <title>linkedin-blank</title>
+		         <path d="M29 0h-26c-1.65 0-3 1.35-3 3v26c0 1.65 1.35 3 3 3h26c1.65 0 3-1.35 3-3v-26c0-1.65-1.35-3-3-3zM12 26h-4v-14h4v14zM10 10c-1.106 0-2-0.894-2-2s0.894-2 2-2c1.106 0 2 0.894 2 2s-0.894 2-2 2zM26 26h-4v-8c0-1.106-0.894-2-2-2s-2 0.894-2 2v8h-4v-14h4v2.481c0.825-1.131 2.087-2.481 3.5-2.481 2.488 0 4.5 2.238 4.5 5v9z"></path>
+		      </symbol>
+		      <symbol id="oxy-social-icons-icon-pinterest-blank" viewBox="0 0 32 32">
+		         <title>pinterest</title>
+		         <path d="M16 2.138c-7.656 0-13.863 6.206-13.863 13.863 0 5.875 3.656 10.887 8.813 12.906-0.119-1.094-0.231-2.781 0.050-3.975 0.25-1.081 1.625-6.887 1.625-6.887s-0.412-0.831-0.412-2.056c0-1.925 1.119-3.369 2.506-3.369 1.181 0 1.756 0.887 1.756 1.95 0 1.188-0.756 2.969-1.15 4.613-0.331 1.381 0.688 2.506 2.050 2.506 2.462 0 4.356-2.6 4.356-6.35 0-3.319-2.387-5.638-5.787-5.638-3.944 0-6.256 2.956-6.256 6.019 0 1.194 0.456 2.469 1.031 3.163 0.113 0.137 0.131 0.256 0.094 0.4-0.106 0.438-0.338 1.381-0.387 1.575-0.063 0.256-0.2 0.306-0.463 0.188-1.731-0.806-2.813-3.337-2.813-5.369 0-4.375 3.175-8.387 9.156-8.387 4.806 0 8.544 3.425 8.544 8.006 0 4.775-3.012 8.625-7.194 8.625-1.406 0-2.725-0.731-3.175-1.594 0 0-0.694 2.644-0.863 3.294-0.313 1.206-1.156 2.712-1.725 3.631 1.3 0.4 2.675 0.619 4.106 0.619 7.656 0 13.863-6.206 13.863-13.863 0-7.662-6.206-13.869-13.863-13.869z"></path>
+		      </symbol>
+		      <symbol id="oxy-social-icons-icon-youtube-blank" viewBox="0 0 32 32">
+		         <title>youtube</title>
+		         <path d="M31.681 9.6c0 0-0.313-2.206-1.275-3.175-1.219-1.275-2.581-1.281-3.206-1.356-4.475-0.325-11.194-0.325-11.194-0.325h-0.012c0 0-6.719 0-11.194 0.325-0.625 0.075-1.987 0.081-3.206 1.356-0.963 0.969-1.269 3.175-1.269 3.175s-0.319 2.588-0.319 5.181v2.425c0 2.587 0.319 5.181 0.319 5.181s0.313 2.206 1.269 3.175c1.219 1.275 2.819 1.231 3.531 1.369 2.563 0.244 10.881 0.319 10.881 0.319s6.725-0.012 11.2-0.331c0.625-0.075 1.988-0.081 3.206-1.356 0.962-0.969 1.275-3.175 1.275-3.175s0.319-2.587 0.319-5.181v-2.425c-0.006-2.588-0.325-5.181-0.325-5.181zM12.694 20.15v-8.994l8.644 4.513-8.644 4.481z"></path>
+		      </symbol>
+		      <symbol id="oxy-social-icons-icon-twitter-blank" viewBox="0 0 32 32">
+		         <title>twitter</title>
+		         <path d="M32 7.075c-1.175 0.525-2.444 0.875-3.769 1.031 1.356-0.813 2.394-2.1 2.887-3.631-1.269 0.75-2.675 1.3-4.169 1.594-1.2-1.275-2.906-2.069-4.794-2.069-3.625 0-6.563 2.938-6.563 6.563 0 0.512 0.056 1.012 0.169 1.494-5.456-0.275-10.294-2.888-13.531-6.862-0.563 0.969-0.887 2.1-0.887 3.3 0 2.275 1.156 4.287 2.919 5.463-1.075-0.031-2.087-0.331-2.975-0.819 0 0.025 0 0.056 0 0.081 0 3.181 2.263 5.838 5.269 6.437-0.55 0.15-1.131 0.231-1.731 0.231-0.425 0-0.831-0.044-1.237-0.119 0.838 2.606 3.263 4.506 6.131 4.563-2.25 1.762-5.075 2.813-8.156 2.813-0.531 0-1.050-0.031-1.569-0.094 2.913 1.869 6.362 2.95 10.069 2.95 12.075 0 18.681-10.006 18.681-18.681 0-0.287-0.006-0.569-0.019-0.85 1.281-0.919 2.394-2.075 3.275-3.394z"></path>
+		      </symbol>
+		      <symbol id="oxy-social-icons-icon-instagram-blank" viewBox="0 0 32 32">
+		         <title>instagram</title>
+		         <path d="M16 2.881c4.275 0 4.781 0.019 6.462 0.094 1.563 0.069 2.406 0.331 2.969 0.55 0.744 0.288 1.281 0.638 1.837 1.194 0.563 0.563 0.906 1.094 1.2 1.838 0.219 0.563 0.481 1.412 0.55 2.969 0.075 1.688 0.094 2.194 0.094 6.463s-0.019 4.781-0.094 6.463c-0.069 1.563-0.331 2.406-0.55 2.969-0.288 0.744-0.637 1.281-1.194 1.837-0.563 0.563-1.094 0.906-1.837 1.2-0.563 0.219-1.413 0.481-2.969 0.55-1.688 0.075-2.194 0.094-6.463 0.094s-4.781-0.019-6.463-0.094c-1.563-0.069-2.406-0.331-2.969-0.55-0.744-0.288-1.281-0.637-1.838-1.194-0.563-0.563-0.906-1.094-1.2-1.837-0.219-0.563-0.481-1.413-0.55-2.969-0.075-1.688-0.094-2.194-0.094-6.463s0.019-4.781 0.094-6.463c0.069-1.563 0.331-2.406 0.55-2.969 0.288-0.744 0.638-1.281 1.194-1.838 0.563-0.563 1.094-0.906 1.838-1.2 0.563-0.219 1.412-0.481 2.969-0.55 1.681-0.075 2.188-0.094 6.463-0.094zM16 0c-4.344 0-4.887 0.019-6.594 0.094-1.7 0.075-2.869 0.35-3.881 0.744-1.056 0.412-1.95 0.956-2.837 1.85-0.894 0.888-1.438 1.781-1.85 2.831-0.394 1.019-0.669 2.181-0.744 3.881-0.075 1.713-0.094 2.256-0.094 6.6s0.019 4.887 0.094 6.594c0.075 1.7 0.35 2.869 0.744 3.881 0.413 1.056 0.956 1.95 1.85 2.837 0.887 0.887 1.781 1.438 2.831 1.844 1.019 0.394 2.181 0.669 3.881 0.744 1.706 0.075 2.25 0.094 6.594 0.094s4.888-0.019 6.594-0.094c1.7-0.075 2.869-0.35 3.881-0.744 1.050-0.406 1.944-0.956 2.831-1.844s1.438-1.781 1.844-2.831c0.394-1.019 0.669-2.181 0.744-3.881 0.075-1.706 0.094-2.25 0.094-6.594s-0.019-4.887-0.094-6.594c-0.075-1.7-0.35-2.869-0.744-3.881-0.394-1.063-0.938-1.956-1.831-2.844-0.887-0.887-1.781-1.438-2.831-1.844-1.019-0.394-2.181-0.669-3.881-0.744-1.712-0.081-2.256-0.1-6.6-0.1v0z"></path>
+		         <path d="M16 7.781c-4.537 0-8.219 3.681-8.219 8.219s3.681 8.219 8.219 8.219 8.219-3.681 8.219-8.219c0-4.537-3.681-8.219-8.219-8.219zM16 21.331c-2.944 0-5.331-2.387-5.331-5.331s2.387-5.331 5.331-5.331c2.944 0 5.331 2.387 5.331 5.331s-2.387 5.331-5.331 5.331z"></path>
+		         <path d="M26.462 7.456c0 1.060-0.859 1.919-1.919 1.919s-1.919-0.859-1.919-1.919c0-1.060 0.859-1.919 1.919-1.919s1.919 0.859 1.919 1.919z"></path>
+		      </symbol>
+		   </defs>
+		</svg>
+	
+	<style id='core-block-supports-inline-css' type='text/css'>
+.wp-container-core-columns-is-layout-1.wp-container-core-columns-is-layout-1{flex-wrap:nowrap;}.wp-container-core-columns-is-layout-2.wp-container-core-columns-is-layout-2{flex-wrap:nowrap;}.wp-container-core-columns-is-layout-3.wp-container-core-columns-is-layout-3{flex-wrap:nowrap;}.wp-container-core-columns-is-layout-4.wp-container-core-columns-is-layout-4{flex-wrap:nowrap;}.wp-container-core-columns-is-layout-5.wp-container-core-columns-is-layout-5{flex-wrap:nowrap;}.wp-container-core-columns-is-layout-6.wp-container-core-columns-is-layout-6{flex-wrap:nowrap;}
+</style>
+<script type="text/javascript" src="https://www.pointerra.com/wp-content/plugins/contact-form-7/includes/swv/js/index.js?ver=5.9.3" id="swv-js"></script>
+<script type="text/javascript" id="contact-form-7-js-extra">
+/* <![CDATA[ */
+var wpcf7 = {"api":{"root":"https:\/\/www.pointerra.com\/wp-json\/","namespace":"contact-form-7\/v1"},"cached":"1"};
+/* ]]> */
+</script>
+<script type="text/javascript" src="https://www.pointerra.com/wp-content/plugins/contact-form-7/includes/js/index.js?ver=5.9.3" id="contact-form-7-js"></script>
+<script type="text/javascript" src="https://www.pointerra.com/wp-content/plugins/dorado-asx/js/custom.js?ver=1.0" id="dorado-asx-scripts-js"></script>
+<script type="text/javascript" src="https://www.pointerra.com/wp-content/plugins/dorado-asx//blocks/share-price/share-price.js?ver=1.0" id="share-price-js"></script>
+<script type="text/javascript" src="https://www.pointerra.com/wp-content/plugins/pointerra-3d/js/jquery.fancybox.min.js?ver=1.0" id="dorado-fancybox-js"></script>
+<script type="text/javascript" src="https://www.pointerra.com/wp-content/plugins/pointerra-3d/js/slick.min.js?ver=1.0" id="dorado-slick-js"></script>
+<script type="text/javascript" src="https://www.pointerra.com/wp-content/plugins/pointerra-3d/js/custom.js?ver=1.0" id="custom-js"></script>
+<script type="text/javascript" id="wpcf7-redirect-script-js-extra">
+/* <![CDATA[ */
+var wpcf7r = {"ajax_url":"https:\/\/www.pointerra.com\/wp-admin\/admin-ajax.php"};
+/* ]]> */
+</script>
+<script type="text/javascript" src="https://www.pointerra.com/wp-content/plugins/wpcf7-redirect/build/js/wpcf7r-fe.js?ver=1.1" id="wpcf7-redirect-script-js"></script>
+<script type="text/javascript" src="https://www.pointerra.com/wp-content/plugins/breeze/assets/js/js-front-end/breeze-lazy-load.min.js?ver=2.1.6" id="breeze-lazy-js"></script>
+<script type="text/javascript" src="https://www.pointerra.com/wp-content/plugins/page-links-to/dist/new-tab.js?ver=3.3.7" id="page-links-to-js"></script>
+<script type="text/javascript" src="https://www.google.com/recaptcha/api.js?render=6LdQmN0mAAAAAP8JqqjTh307NSdyyuaYwGuOqn8C&amp;ver=3.0" id="google-recaptcha-js"></script>
+<script type="text/javascript" src="https://www.pointerra.com/wp-includes/js/dist/vendor/wp-polyfill-inert.min.js?ver=3.1.2" id="wp-polyfill-inert-js"></script>
+<script type="text/javascript" src="https://www.pointerra.com/wp-includes/js/dist/vendor/regenerator-runtime.min.js?ver=0.14.0" id="regenerator-runtime-js"></script>
+<script type="text/javascript" src="https://www.pointerra.com/wp-includes/js/dist/vendor/wp-polyfill.min.js?ver=3.15.0" id="wp-polyfill-js"></script>
+<script type="text/javascript" id="wpcf7-recaptcha-js-extra">
+/* <![CDATA[ */
+var wpcf7_recaptcha = {"sitekey":"6LdQmN0mAAAAAP8JqqjTh307NSdyyuaYwGuOqn8C","actions":{"homepage":"homepage","contactform":"contactform"}};
+/* ]]> */
+</script>
+<script type="text/javascript" src="https://www.pointerra.com/wp-content/plugins/contact-form-7/modules/recaptcha/index.js?ver=5.9.3" id="wpcf7-recaptcha-js"></script>
+<script type="text/javascript" id="ct-footer-js">jQuery('.asx-box').attr({'data-aos-enable': 'true','data-aos': 'fade',});jQuery('.poi-text').attr({'data-aos-enable': 'true','data-aos-duration': '300','data-aos-delay': '0','data-aos': 'fade','data-aos-easing': 'ease-in',});jQuery('.benefit').attr({'data-aos-enable': 'true','data-aos-duration': '300','data-aos': 'fade','data-aos-delay': '100',});jQuery('.feature-1').attr({'data-aos-enable': 'true','data-aos': 'fade','data-aos-delay': '100','data-aos-duration': '300',});jQuery('.feature-2').attr({'data-aos-enable': 'true','data-aos': 'fade','data-aos-delay': '200','data-aos-duration': '300',});jQuery('.feature-3').attr({'data-aos-enable': 'true','data-aos': 'fade','data-aos-delay': '300','data-aos-duration': '300',});jQuery('.fade-in').attr({'data-aos-enable': 'true','data-aos': 'fade','data-aos-duration': '300','data-aos-delay': '50','data-aos-easing': 'ease-in',});
+	  	AOS.init({
+	  				duration: 300,
+			  		  		easing: 'ease-out',
+			  		  			  	delay: 80,
+			  			  	once: true,
+			  		  			  	type: 'fade',
+					  			})
+		
+				jQuery('body').addClass('oxygen-aos-enabled');
+		
+				jQuery(document).ready( function() {
+			AOS.refresh();
+		})
+		
+	</script><script type="text/javascript" id="ct_code_block_js_100065">jQuery(document).ready( function() {
+  
+    var activeMegaMenu = '';
+    
+    if(window.angular) { 
+      return; 
+    }
+    
+    jQuery('.oxel_megamenu__wrapper').css({
+      'position': 'absolute',
+      'left': 0,
+      'right': 0
+    });
+  
+    jQuery('[megamenu-link-id]').on('mouseover focusin', function() {
+      
+      if( !jQuery(this).hasClass('oxel_megamenu__wrapper') ) {
+        
+      activeMegaMenu = jQuery(this).attr('megamenu-link-id');
+        
+      var bottom = jQuery(this).offset().top + jQuery(this).outerHeight(true) - 30;
+         var targetContainer = jQuery(".oxel_megamenu__wrapper[megamenu-link-id='" + activeMegaMenu + "']");
+      targetContainer.css('top', bottom);
+      targetContainer.removeClass('oxel_megamenu__wrapper--hidden');
+      
+        }
+      
+    });
+    
+    jQuery('[megamenu-link-id]').mouseleave( function(e) {
+      
+      if( e.relatedTarget.closest('[megamenu-link-id]') != null && e.relatedTarget.closest('[megamenu-link-id]').getAttribute('megamenu-link-id') != activeMegaMenu ) {
+      
+        var targetContainer = jQuery(".oxel_megamenu__wrapper[megamenu-link-id='" + activeMegaMenu + "']");
+      
+      targetContainer.addClass('oxel_megamenu__wrapper--hidden');
+        
+      } else if( e.relatedTarget.closest('[megamenu-link-id]') == null ) {
+        var targetContainer = jQuery(".oxel_megamenu__wrapper[megamenu-link-id='" + activeMegaMenu + "']");
+      
+        targetContainer.addClass('oxel_megamenu__wrapper--hidden');
+      }
+      
+    });
+    
+    jQuery('.oxel_megamenu__wrapper').focusin( function() {
+      
+      jQuery(this).removeClass('oxel_megamenu__wrapper--hidden');
+      
+    })
+    
+    jQuery('.oxel_megamenu__wrapper').focusout( function() {
+      
+      jQuery(this).addClass('oxel_megamenu__wrapper--hidden');
+      
+    })
+    
+  });
+  
+  jQuery('.oxel_megamenu__close-icon').click( function() {
+    
+    jQuery(this).closest('.oxel_megamenu__wrapper').addClass('oxel_megamenu__wrapper--hidden');
+    
+  })</script>
+<style type="text/css" id="ct_code_block_css_100065">/* Show the hidden menu in the builder. */
+body.ng-scope .oxel_megamenu__wrapper--hidden {
+opacity: 1;
+pointer-events: initial;
+transform: translateY(0px);
+}</style>
+<!-- /WP_FOOTER --> 
+</body>
+</html>
+
+<!-- Cache served by breeze CACHE - Last modified: Thu, 11 Apr 2024 04:07:42 GMT -->

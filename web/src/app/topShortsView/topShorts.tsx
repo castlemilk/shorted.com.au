@@ -14,7 +14,7 @@ import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { Label } from "~/@/components/ui/label";
 import { getTopShortsData } from "../actions/getTopShorts";
 import { DataTable } from "./components/data-table";
-import { columns } from "./components/columns";
+import { getColumns } from "./components/columns";
 /**
  * TopShortsChart
  * Responsible for rendering a stylish chart in d3 which shows the top x short positions for period y
@@ -99,27 +99,7 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
         </div>
       </div>
       {shortsData ? (
-        // shortsData.map((data) => {
-        //   return (
-        //     <div key={data.productCode}>
-        //       <Card>
-        //         <CardHeader className="grid grid-cols-3 items-start gap-4 space-y-0">
-        //           <div className="col-span-2 space-y-1">
-        //             <CardTitle>{data.productCode}</CardTitle>
-        //             <CardDescription>{data.name}</CardDescription>
-        //             <CardContent>
-        //               <p>Card Content</p>
-        //             </CardContent>
-        //           </div>
-        //           <div className="flex items-center space-x-1 justify-center">
-        //             <Sparkline data={data} />
-        //           </div>
-        //         </CardHeader>
-        //       </Card>
-        //     </div>
-        //   );
-        // })
-        <DataTable data={shortsData} columns={columns} />
+        <DataTable data={shortsData} columns={getColumns(period)} />
       ) : (
         <div>Loading...</div>
       )}

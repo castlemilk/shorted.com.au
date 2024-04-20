@@ -47,3 +47,13 @@ func (s *ShortsServer) GetStockData(ctx context.Context, req *connect.Request[sh
 	}
 	return connect.NewResponse(stock), nil
 }
+
+func (s *ShortsServer) GetStockDetails(ctx context.Context, req *connect.Request[shortsv1alpha1.GetStockDetailsRequest]) (*connect.Response[stocksv1alpha1.StockDetails], error) {
+	log.Infof("get stock data")
+	stock, err := s.store.GetStockDetails(req.Msg.ProductCode)
+	if err != nil {
+		log.Errorf("error get stock data, id: %s, err: %+v", req.Msg.ProductCode, err)
+		return &connect.Response[stocksv1alpha1.StockDetails]{}, fmt.Errorf("error get stock details, id: %s, err: %+v", req.Msg.ProductCode, err)
+	}
+	return connect.NewResponse(stock), nil
+}

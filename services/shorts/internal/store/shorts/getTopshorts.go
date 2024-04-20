@@ -23,6 +23,8 @@ func periodToInterval(period string) string {
 		return "1 year"
 	case "2y":
 		return "2 year"
+	case "max":
+		return "10 year"
 	default:
 		return "6 month"
 	}
@@ -86,6 +88,8 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv
 		}
 	
 		var points []*stocksv1alpha1.TimeSeriesPoint
+		var minShort, maxShort *stocksv1alpha1.TimeSeriesPoint
+		minShort, maxShort = &stocksv1alpha1.TimeSeriesPoint{ShortPosition: -1}, &stocksv1alpha1.TimeSeriesPoint{ShortPosition: -1}
 		for rows.Next() {
 			var date pgtype.Timestamp
 			var percent pgtype.Float8
@@ -96,11 +100,18 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv
 			if date.Status != pgtype.Present || percent.Status != pgtype.Present {
 				continue
 			}
+			shortPosition := percent.Float
 			point := &stocksv1alpha1.TimeSeriesPoint{
 				Timestamp:     timestamppb.New(date.Time),
-				ShortPosition: percent.Float,
+				ShortPosition: shortPosition,
 			}
 			points = append(points, point)
+			if minShort.ShortPosition == -1 || shortPosition < minShort.ShortPosition {
+				minShort = point
+			}
+			if maxShort.ShortPosition == -1 || shortPosition > maxShort.ShortPosition {
+				maxShort = point
+			}
 		}
 		if rows.Err() != nil {
 			return nil, rows.Err()
@@ -108,12 +119,14 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv
 		rows.Close()
 	
 		// Only add this product's time series data if it has at least 10 data points
-		if len(points) >= 1 {
+		if len(points) >= 10 {
 			tsData := &stocksv1alpha1.TimeSeriesData{
 				ProductCode: productCode,
 				Name:        productNames[productCode],
 				Points:      points,
 				LatestShortPosition: points[len(points)-1].ShortPosition,
+				Max: maxShort,
+				Min: minShort,
 			}
 			timeSeriesDataSlice = append(timeSeriesDataSlice, tsData)
 		}

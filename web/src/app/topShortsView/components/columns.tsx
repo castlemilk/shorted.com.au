@@ -143,3 +143,80 @@ export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
   //     cell: ({ row }) => <DataTableRowActions row={row} />,
   //   },
 ];
+
+export const getColumns = (
+  period: string,
+): ColumnDef<PlainMessage<TimeSeriesData>>[] => {
+  return [
+    {
+      id: "name",
+      accessorKey: "productCode",
+      header: ({ column }) => (
+        <DataTableColumnDisplayHeader column={column} title="Name" />
+      ),
+      cell: ({ row }) => {
+        return (
+          <Card className="border-hidden bg-transparent shadow-none">
+            <CardHeader>
+              <CardTitle>{row.original.productCode}</CardTitle>
+              <CardDescription>{row.original.name}</CardDescription>
+            </CardHeader>
+          </Card>
+        );
+      },
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
+      id: "shorted",
+      accessorKey: "latestShortPosition",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Short
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
+      cell: ({ row }) => (
+        <div className="flex items-end">
+          <div className="text-3xl font-bold">
+            {row.original.latestShortPosition.toFixed(2)}
+          </div>
+          <div className="text-lg ">%</div>
+        </div>
+      ),
+      enableSorting: true,
+      enableHiding: false,
+    },
+    {
+      id: "sparkline",
+      header: ({}) => <div>{`Last ${getPeriodString(period)}`}</div>,
+      cell: ({ row }) => flexRender(Sparkline, { data: row.original }),
+      enableSorting: false,
+      enableHiding: false,
+    },
+  ];
+};
+
+const getPeriodString = (period: string) => {
+  switch (period) {
+    case "1m":
+      return "1 month";
+    case "3m":
+      return "3 months";
+    case "6m":
+      return "6 months";
+    case "1y":
+      return "1 year";
+    case "2y":
+      return "2 years";
+    case "max":
+      return "maximum windoww";
+    default:
+      return "6 months";
+  }
+};

@@ -6,20 +6,6 @@
 
 basic dashboarding platform for viewing short positions on ASX
 
-## Backlog
-
-### frontend
-
-- [] top shorts
-
-### backend
-
-- [] sync short data
-
-### misc
-
-- [] index and build business metadata of ASX stocks
-
 
 
 ### MVP
@@ -32,23 +18,68 @@ basic dashboarding platform for viewing short positions on ASX
 
 [x] backend to serve hot store data
 [x] api for top 10 shorts
-[ ] investigate process for fetching ABN metadata ( at least top ten)
-[ ] frontend to render top 10 shorts
-[ ] how to do annonamous auth?
-[ ] CI/CD pipeline for build and deployment to cloud run and whatever FE hosting (next?)
-[ ] db hosting (looking at superbase LGTM)
+[x] investigate process for fetching ABN metadata ( at least top ten)
+[x] frontend to render top 10 shorts
+[x] CI/CD pipeline for build and deployment to cloud run and whatever FE hosting (next?)
+[x] db hosting (looking at superbase LGTM)
+# week 1
+[x] cron-job to pull latest shorts
+[x] chart styling x,y axis
+[ ] more company info/metadata rendered
+[ ] company image tuning
+[x] set max to do the longest window of timeseries data possible
+# week 2
+[ ] company image on dark mode 
+[ ] query maths for top x tuned - show more sensible values for larger windows
+[ ] collect company socials (twitter, instagram, linkedin etc.)
+[ ] link to google finance/yahoo finance
+[ ] default logo when no image found
+# week 3
+[ ] company summary/description tuning
+[ ] show company website
+[ ] show company references
+[ ] show company directors
+[ ] loading & data fetch optmisations/caching
+[ ] loading animations & lazy loading / suspense for concurrent fetches
+# week 4
+[ ] add google analytics or alternative
+[ ] security (anon auth/ratelimiting)
+[ ] fix top navbar on wide screen to float max right/left
+[ ] update period title value dynamically based off selected value
+[ ] time series rollup algoritm
+# week 5
+[ ] clearer animation that table is clickable]
+[ ] gamify sentiment view somehow? poo vs rocket, gague view etc
+[ ] add additional items here as working...
 
 
+# new items
+[x] fix chart resize/shrinking on topShort view - seems to be an issue with parent div? https://github.com/airbnb/visx/issues/1014
 ### Milestone 1
 
-[ ] company metadata ingestion and real-time sentiment analysis API + view
-  [ ] company index
-  [ ] scraping service
+[x] company metadata ingestion and real-time sentiment analysis API + view
+  [x] company index
+  [x] scraping service
   [ ] sentiment engine
   [ ] company metadata collector (financial reports, company announcements, )
+[ ] social engagement via twitter for new short positions
+[ ] automated alerts for short positions?
+[ ] auth/login
 [ ] commentary and/or forum support
 [ ] stock data ingestion? yahoo finance? historical data?
+[ ] stocks enriched with additional tags for rendering
 
+### Milsstone 2
+
+[ ] notification subscriptions
+[ ] API as a service
+[ ] news aggregation view
+[ ] more advanced dynamic content collection per-stock (likely focus on top-x) gathering things like financial reports etc
+[ ] further enhanced content management solution (payloadCMS) deploy & monitise somehow?
+[ ] shorted bot - RAG + LLM wrapper around stocks
+[ ] elastic search for stocks
+[ ] user customised dashboard (my stocks, favourites etc.)
+[ ] enhanced comments/forum solution
 
 
 

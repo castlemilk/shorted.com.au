@@ -1,0 +1,15 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: shorts-data-sync
+spec:
+  template:
+    spec:
+      containers:
+      - image: ${IMAGE_NAME}:${VERSION}
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              key: latest 
+              name: DATABASE_URL
