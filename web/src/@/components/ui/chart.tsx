@@ -29,7 +29,7 @@ const Chart = ({ stockCode, initialData }: ChartProps) => {
     chartRef?.current?.reset();
   };
   return (
-    <div>
+    <div className="grid">
       <div className="flex flex-row-reverse">
         <div className="flex">
           <Button className="mr-1" size="sm" onClick={handleClearClick}>
@@ -53,7 +53,7 @@ const Chart = ({ stockCode, initialData }: ChartProps) => {
           </ToggleGroup>
         </div>
       </div>
-      <ParentSize>
+      <ParentSize className="min-w-0">
         {({ width }) => (
           <BrushChart ref={chartRef} data={data} width={width} height={400} />
         )}

@@ -99,6 +99,7 @@ export function DataTable<TData, TValue>({
                       `/shorts/${(row.original as { productCode: string }).productCode}`,
                     )
                   }
+                  className="cursor-pointer"
                   data-state={row.getIsSelected() && "selected"}
                 >
                   {row.getVisibleCells().map((cell) => (
