@@ -52,6 +52,9 @@ basic dashboarding platform for viewing short positions on ASX
 [ ] gamify sentiment view somehow? poo vs rocket, gague view etc
 [ ] add additional items here as working...
 
+
+# new items
+[x] fix chart resize/shrinking on topShort view - seems to be an issue with parent div? https://github.com/airbnb/visx/issues/1014
 ### Milestone 1
 
 [x] company metadata ingestion and real-time sentiment analysis API + view
