@@ -5,6 +5,12 @@ const Metadata: CollectionConfig = {
   upload: {
     // TODO(bebsworth): apply fix when https://github.com/payloadcms/payload/issues/4422 is resolved
     staticURL: "https://storage.googleapis.com/shorted-company-logos",
+    externalFileHeaderFilter: (headers: Record<string, string>) => {
+      return {
+        "content-type": headers["content-type"],
+        "content-length": headers["content-length"],
+      } as Record<string, string>;
+    },
   },
   admin: {
     useAsTitle: "stock_code",

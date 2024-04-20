@@ -9,3 +9,4 @@ chardet
 dask-expr
 pandas
 psycopg2
+google-cloud-storage

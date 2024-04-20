@@ -17,4 +17,4 @@ EXPOSE 8080
 ENV NAME World
 
 # Run app.py when the container launches
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+ENTRYPOINT ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
