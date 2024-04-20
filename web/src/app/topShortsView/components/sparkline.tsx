@@ -3,13 +3,13 @@ import { timeFormat } from "@visx/vendor/d3-time-format";
 
 import { LineSeries, XYChart, Tooltip } from "@visx/xychart";
 import ParentSize from "@visx/responsive/lib/components/ParentSize";
-import { GlyphCircle, GlyphDot } from "@visx/glyph";
+import { GlyphCircle } from "@visx/glyph";
 import {
-  type TimeSeriesData,
   type TimeSeriesPoint,
+  type TimeSeriesData,
 } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { scaleTime, scaleLinear } from "@visx/scale";
-import { min, extent, max } from "@visx/vendor/d3-array";
+import { extent } from "@visx/vendor/d3-array";
 import { Circle } from "lucide-react";
 
 const accessors = {
@@ -28,36 +28,36 @@ interface SparklineProps {
   data: PlainMessage<TimeSeriesData>;
   margin?: { top: number; right: number; bottom: number; left: number };
 }
-const secondaryColor = "hls(var(--secondary))";
 const strokeColor = "var(--line-stroke)";
 const redColor = `var(--red)`;
 const greenColor = `var(--green)`;
 
 const Chart = ({ width, height, margin, data }: SparklineProps) => {
-  const points = data.points.map((point) => ({
-    x: accessors.xAccessor(point),
-    y: accessors.yAccessor(point),
-  }));
+  // const points = data.points.map((point) => ({
+  //   x: accessors.xAccessor(point),
+  //   y: accessors.yAccessor(point),
+  // }));
 
   // Ensure data for scales is valid
-  if (points.length === 0) {
+  if (data.points.length === 0) {
     return <div>Loading or no data available...</div>;
   }
 
   const xScale = scaleTime<number>({
-    domain: extent(points, (d) => d.x),
+    domain: extent(data.points, (d) => accessors.xAccessor(d)),
   });
   const yScale = scaleLinear<number>({
-    domain: [
-      0,
-      (data.max as PlainMessage<TimeSeriesPoint> | undefined)?.shortPosition ??
-        0,
-    ],
+    domain: [0, accessors.yAccessor(data.max) ?? 0],
   });
 
+  const marginTop = margin?.top ?? 0;
+  const marginLeft = margin?.left ?? 0;
+  const marginRight = margin?.right ?? 0;
+  const marginBottom = margin?.bottom ?? 0;
+
   // bounds
-  const innerWidth = width - (margin?.left ?? 0) - (margin?.right ?? 0);
-  const innerHeight = height - (margin?.top ?? 0) - (margin?.bottom ?? 0);
+  const innerWidth = width - marginLeft - marginRight;
+  const innerHeight = height - marginTop - marginBottom;
   // update scale range to match bounds
   xScale.range([0, innerWidth]);
   yScale.range([innerHeight, 0]);
@@ -78,14 +78,14 @@ const Chart = ({ width, height, margin, data }: SparklineProps) => {
       />
       <GlyphCircle
         className="min-glyph"
-        left={xScale(accessors.xAccessor(data.min)) + margin?.left}
-        top={yScale(accessors.yAccessor(data.min)) + margin?.top}
+        left={xScale(accessors.xAccessor(data.min)) + marginLeft}
+        top={yScale(accessors.yAccessor(data.min)) + marginTop}
         fill={greenColor}
       />
       <GlyphCircle
         className="max-glyph"
-        left={xScale(accessors.xAccessor(data.max)) + margin?.left}
-        top={yScale(accessors.yAccessor(data.max)) + margin?.top}
+        left={xScale(accessors.xAccessor(data.max)) + marginLeft}
+        top={yScale(accessors.yAccessor(data.max)) + marginTop}
         fill={redColor}
       />
       <Tooltip
@@ -93,10 +93,10 @@ const Chart = ({ width, height, margin, data }: SparklineProps) => {
         snapTooltipToDatumY
         showVerticalCrosshair
         showSeriesGlyphs
-        renderTooltip={({ tooltipData, colorScale }) => (
+        renderTooltip={({ tooltipData }) => (
           <div>
-            <div>{`${formatDate(accessors.xAccessor(tooltipData.nearestDatum.datum))}`}</div>
-            <div>{`${accessors.yAccessor(tooltipData.nearestDatum.datum).toFixed(2)}%`}</div>
+            <div>{`${formatDate(accessors.xAccessor(tooltipData?.nearestDatum?.datum as TimeSeriesPoint))}`}</div>
+            <div>{`${accessors.yAccessor(tooltipData?.nearestDatum?.datum as TimeSeriesPoint).toFixed(2)}%`}</div>
           </div>
         )}
       />
