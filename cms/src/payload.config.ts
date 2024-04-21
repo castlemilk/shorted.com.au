@@ -20,6 +20,8 @@ const adapter = gcsAdapter({
     // credentials: JSON.parse(process.env.GCS_CREDENTIALS || '{}'), // this env variable will have stringify version of your credentials.json file
   },
   bucket: process.env.GCS_BUCKET || "shorted-company-logos",
+  acl: "Public",
+
 });
 
 const m = path.resolve(__dirname, "./emptyModuleMock.js");
@@ -78,6 +80,7 @@ export default buildConfig({
         // },
         metadata: {
           adapter: adapter, // see docs for the adapter you want to use
+          
           disablePayloadAccessControl: true,
           prefix: "logos",
           generateFileURL: (file) => {
