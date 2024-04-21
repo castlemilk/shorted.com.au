@@ -13,6 +13,18 @@ import { getStockData } from "~/app/actions/getStockData";
 import { Suspense } from "react";
 import { getStockDetails } from "~/app/actions/getStockDetails";
 import { Badge } from "~/@/components/ui/badge";
+import { Link as LinkIcon } from "lucide-react";
+import Link from "next/link";
+export async function generateMetadata({
+  params,
+}: {
+  params: { stockCode: string };
+}) {
+  return {
+    title: params.stockCode,
+    describe: "shorted",
+  };
+}
 
 const Page = async ({ params }: { params: { stockCode: string } }) => {
   const stock = await getStock(params.stockCode);
@@ -50,6 +62,10 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
                 </div>
                 <CardDescription className="flex text-sm">
                   {stockDetails.summary}
+                </CardDescription>
+                <CardDescription className="flex text-sm">
+                  <LinkIcon size={"20"} className="mr-2"/>
+                  <Link href={stockDetails.website}><p className="text-blue-600">{stockDetails.website}</p></Link>
                 </CardDescription>
               </CardHeader>
             </Card>
