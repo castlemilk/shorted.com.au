@@ -26,7 +26,6 @@ basic dashboarding platform for viewing short positions on ASX
 [x] cron-job to pull latest shorts
 [x] chart styling x,y axis
 [ ] more company info/metadata rendered
-[ ] company image tuning
 [x] set max to do the longest window of timeseries data possible
 # week 2
 [ ] company image on dark mode 
@@ -55,6 +54,9 @@ basic dashboarding platform for viewing short positions on ASX
 
 # new items
 [x] fix chart resize/shrinking on topShort view - seems to be an issue with parent div? https://github.com/airbnb/visx/issues/1014
+[ ] fix media upload in payloadCMS when fix released in https://github.com/payloadcms/payload/issues/4422 or https://github.com/payloadcms/payload/issues/4421#issuecomment-1864867979 or https://github.com/payloadcms/payload/issues/5159
+[ ] company image tuning - will push out to manual data entry job with payloadCMS fix above
+[ ] industry/sector treemap - https://airbnb.io/visx/treemap
 ### Milestone 1
 
 [x] company metadata ingestion and real-time sentiment analysis API + view
