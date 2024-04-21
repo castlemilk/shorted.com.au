@@ -25,7 +25,7 @@ basic dashboarding platform for viewing short positions on ASX
 # week 1
 [x] cron-job to pull latest shorts
 [x] chart styling x,y axis
-[ ] more company info/metadata rendered
+[x] more company info/metadata rendered
 [x] set max to do the longest window of timeseries data possible
 # week 2
 [ ] company image on dark mode 
@@ -35,19 +35,16 @@ basic dashboarding platform for viewing short positions on ASX
 [ ] default logo when no image found
 # week 3
 [ ] company summary/description tuning
-[ ] show company website
 [ ] show company references
 [ ] show company directors
 [ ] loading & data fetch optmisations/caching
 [ ] loading animations & lazy loading / suspense for concurrent fetches
 # week 4
-[ ] add google analytics or alternative
 [ ] security (anon auth/ratelimiting)
 [ ] fix top navbar on wide screen to float max right/left
 [ ] update period title value dynamically based off selected value
 [ ] time series rollup algoritm
 # week 5
-[ ] clearer animation that table is clickable]
 [ ] gamify sentiment view somehow? poo vs rocket, gague view etc
 [ ] add additional items here as working...
 
@@ -57,6 +54,16 @@ basic dashboarding platform for viewing short positions on ASX
 [ ] fix media upload in payloadCMS when fix released in https://github.com/payloadcms/payload/issues/4422 or https://github.com/payloadcms/payload/issues/4421#issuecomment-1864867979 or https://github.com/payloadcms/payload/issues/5159
 [ ] company image tuning - will push out to manual data entry job with payloadCMS fix above
 [ ] industry/sector treemap - https://airbnb.io/visx/treemap
+[ ] more mobile friendly top short view (show min/max next to current?)
+
+
+## data entry pipeline
+
+[ ] deploy playloadCMS
+[ ] add valid user/login
+[ ] test integration with supabase as backend
+[ ] test integration with GCP as backend store
+[ ] validate data entry flow ASX Code --> edit image --> add links (socials, investory page) --> get ChatGPT description and add to details
 ### Milestone 1
 
 [x] company metadata ingestion and real-time sentiment analysis API + view
