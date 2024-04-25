@@ -46,8 +46,6 @@ basic dashboarding platform for viewing short positions on ASX
 
 [ ] query maths for top x tuned - show more sensible values for larger windows
 
-[ ] collect company socials (twitter, instagram, linkedin etc.)
-
 [ ] link to google finance/yahoo finance
 
 [ ] default logo when no image found
@@ -104,6 +102,7 @@ basic dashboarding platform for viewing short positions on ASX
 
 [ ] validate data entry flow ASX Code --> edit image --> add links (socials, investory page) --> get ChatGPT description and add to details
 
+[ ] collect company socials (twitter, instagram, linkedin etc.)
 ### Milestone 1
 
 [x] company metadata ingestion and real-time sentiment analysis API + view
