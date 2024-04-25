@@ -2,6 +2,7 @@ import { IdCardIcon } from "@radix-ui/react-icons";
 import Image from "next/image";
 import {
   Card,
+  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -63,10 +64,12 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
                 <CardDescription className="flex text-sm">
                   {stockDetails.summary}
                 </CardDescription>
-                <CardDescription className="flex text-sm">
-                  <LinkIcon size={"20"} className="mr-2"/>
-                  <Link href={stockDetails.website}><p className="text-blue-600">{stockDetails.website}</p></Link>
-                </CardDescription>
+                <CardContent className="flex text-sm">
+                  <LinkIcon size={"20"} className="mr-2" />
+                  <Link href={stockDetails.website}>
+                    <p className="text-blue-600">{stockDetails.website}</p>
+                  </Link>
+                </CardContent>
               </CardHeader>
             </Card>
           </div>
@@ -89,9 +92,9 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
                 <CardDescription>
                   Total shares on issue: {stock.totalProductInIssue}
                 </CardDescription>
-                <CardDescription>
+                <CardContent>
                   <Progress value={stock.percentageShorted} />
-                </CardDescription>
+                </CardContent>
               </CardHeader>
             </Card>
           </div>

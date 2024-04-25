@@ -28,12 +28,15 @@ import {
 } from "~/@/components/ui/table";
 
 interface DataTableProps<TData, TValue> {
+  loading: boolean;
   columns: ColumnDef<TData, TValue>[];
+  period: string;
   data: TData[];
 }
 
 export function DataTable<TData, TValue>({
   columns,
+  period,
   data,
 }: DataTableProps<TData, TValue>) {
   const [rowSelection, setRowSelection] = React.useState({});
@@ -80,7 +83,9 @@ export function DataTable<TData, TValue>({
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
+                            header.id == "sparkline"
+                              ? ({}) => <div>{`Last ${period}`}</div>
+                              : header.column.columnDef.header,
                             header.getContext(),
                           )}
                     </TableHead>
