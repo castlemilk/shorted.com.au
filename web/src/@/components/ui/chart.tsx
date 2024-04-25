@@ -23,6 +23,8 @@ const Chart = ({ stockCode, initialData }: ChartProps) => {
       .catch(console.error);
   }, [period]);
   const handleClearClick = () => {
+    console.log("clear");
+    console.log(chartRef);
     chartRef?.current?.clear();
   };
   const handleResetClick = () => {

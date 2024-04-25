@@ -14,7 +14,7 @@ import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { Label } from "~/@/components/ui/label";
 import { getTopShortsData } from "../actions/getTopShorts";
 import { DataTable } from "./components/data-table";
-import { getColumns } from "./components/columns";
+import { columns } from "./components/columns";
 /**
  * TopShortsChart
  * Responsible for rendering a stylish chart in d3 which shows the top x short positions for period y
@@ -35,12 +35,32 @@ import { getColumns } from "./components/columns";
  * @returns a styled chart showing the top x short positions for period y
  */
 
+const getPeriodString = (period: string) => {
+  switch (period) {
+    case "1m":
+      return "1 month";
+    case "3m":
+      return "3 months";
+    case "6m":
+      return "6 months";
+    case "1y":
+      return "1 year";
+    case "2y":
+      return "2 years";
+    case "max":
+      return "maximum windoww";
+    default:
+      return "6 months";
+  }
+};
+
 interface TopShortsProps {
   initialShortsData: PlainMessage<TimeSeriesData>[]; // Data for multiple series
 }
 
 export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
   const [period, setPeriod] = useState<string>("3m");
+  const [loading, setLoading] = useState<boolean>(false);
   const [limit, setLimit] = useState<number>(10);
 
   useEffect(() => {
@@ -64,7 +84,13 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
       <div className="flex flex-row-reverse m-2">
         <div className="p-2 w-48">
           <Label htmlFor="area">Time</Label>
-          <Select onValueChange={(e) => setPeriod(e)} defaultValue={"3m"}>
+          <Select
+            onValueChange={(e) => {
+              setPeriod(e);
+              setLoading(true);
+            }}
+            defaultValue={"3m"}
+          >
             <SelectTrigger id="area">
               <SelectValue placeholder="Select" />
             </SelectTrigger>
@@ -99,7 +125,12 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
         </div>
       </div>
       {shortsData ? (
-        <DataTable data={shortsData} columns={getColumns(period)} />
+        <DataTable
+          loading={loading}
+          data={shortsData}
+          columns={columns}
+          period={getPeriodString(period)}
+        />
       ) : (
         <div>Loading...</div>
       )}
