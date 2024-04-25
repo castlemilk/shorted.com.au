@@ -8,6 +8,7 @@ import React, {
   useImperativeHandle,
   useCallback,
   type RefAttributes,
+  type RefObject,
 } from "react";
 import { scaleTime, scaleLinear } from "@visx/scale";
 import { Brush } from "@visx/brush";
@@ -72,8 +73,7 @@ const bisectDate = bisector<TooltipData, Date>(
 const formatDate = timeFormat("%b %d, '%y");
 
 export type HandleBrushClearAndReset = { clear: () => void; reset: () => void };
-type BrushChartProps = BrushProps &
-  RefAttributes<HandleBrushClearAndReset>;
+type BrushChartProps = BrushProps & RefAttributes<HandleBrushClearAndReset>;
 export type BrushProps = {
   width: number;
   height: number;
@@ -198,6 +198,7 @@ const BrushChart = withTooltip<BrushChartProps, TooltipData>(
       useImperativeHandle(ref, () => ({
         // event handlers
         clear() {
+          console.log("clear inside brushChart");
           handleClearClick();
         },
         reset() {

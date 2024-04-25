@@ -10,7 +10,7 @@ import {
 } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { scaleTime, scaleLinear } from "@visx/scale";
 import { extent } from "@visx/vendor/d3-array";
-import { Circle } from "lucide-react";
+import { Suspense } from "react";
 
 const accessors = {
   xAccessor: (d: PlainMessage<TimeSeriesPoint> | undefined) =>
@@ -33,12 +33,6 @@ const redColor = `var(--red)`;
 const greenColor = `var(--green)`;
 
 const Chart = ({ width, height, margin, data }: SparklineProps) => {
-  // const points = data.points.map((point) => ({
-  //   x: accessors.xAccessor(point),
-  //   y: accessors.yAccessor(point),
-  // }));
-
-  // Ensure data for scales is valid
   if (data.points.length === 0) {
     return <div>Loading or no data available...</div>;
   }
@@ -107,28 +101,20 @@ const Chart = ({ width, height, margin, data }: SparklineProps) => {
 
 const SparkLine = ({ data }: { data: PlainMessage<TimeSeriesData> }) => {
   return (
-    <div className="grid grid-cols-4 min-w-0">
-      <ParentSize className="grid col-span-3 min-w-0">
-        {({ width }) => (
-          <Chart
-            width={width}
-            height={150}
-            data={data}
-            margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
-          />
-        )}
-      </ParentSize>
-      <div className="max-w-40">
-        <div className="flex ml-4 p-1 items-center text-xs text-gray-400 overflow-hidden whitespace-nowrap">
-          <Circle strokeWidth={0} size={10} fill={greenColor} />
-          <p className="pl-1">{`Min: ${data.min?.shortPosition.toFixed(2)}%`}</p>
-        </div>
-        <div className="flex  ml-4  p-1 items-center text-xs text-gray-400 overflow-hidden whitespace-nowrap">
-          <Circle strokeWidth={0} size={10} fill={redColor} />
-          <p className="pl-1">{`Max: ${data.max?.shortPosition.toFixed(2)}%`}</p>
-        </div>
+    <Suspense fallback={<div>Loading...</div>}>
+      <div className="min-w-30">
+        <ParentSize debounceTime={300} className="min-w-30">
+          {({ width }) => (
+            <Chart
+              width={width}
+              height={150}
+              data={data}
+              margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
+            />
+          )}
+        </ParentSize>
       </div>
-    </div>
+    </Suspense>
   );
 };
 
