@@ -137,6 +137,7 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stockv1alpha1.StockD
 		LIMIT 1`
 
 	rows, _ := s.db.Query(context.Background(), query, stockCode)
+	
 	stock, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[stockv1alpha1.StockDetails]) // Update as per actual table schema
 	if err != nil {
 		return nil, err

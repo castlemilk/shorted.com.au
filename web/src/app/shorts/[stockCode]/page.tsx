@@ -2,6 +2,7 @@ import { IdCardIcon } from "@radix-ui/react-icons";
 import Image from "next/image";
 import {
   Card,
+  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -39,7 +40,7 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
               <CardHeader className="pb-3">
                 <div className="flex">
                   <div className="mr-4">
-                    {stockDetails.gcsUrl ? (
+                    {stockDetails?.gcsUrl ? (
                       <Image
                         width={70}
                         height={80}
@@ -53,20 +54,24 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
                   <div className="">
                     <CardTitle className="flex">{params.stockCode}</CardTitle>
                     <CardTitle className="flex text-lg font-semibold">
-                      {stockDetails.companyName}
+                      {stockDetails?.companyName ?? stock.name}
                     </CardTitle>
                     <CardTitle className="flex text-lg font-semibold">
-                      <Badge>{stockDetails.industry}</Badge>
+                      <Badge>{stockDetails?.industry}</Badge>
                     </CardTitle>
                   </div>
                 </div>
                 <CardDescription className="flex text-sm">
-                  {stockDetails.summary}
+                  {stockDetails?.summary}
                 </CardDescription>
-                <CardDescription className="flex text-sm">
-                  <LinkIcon size={"20"} className="mr-2"/>
-                  <Link href={stockDetails.website}><p className="text-blue-600">{stockDetails.website}</p></Link>
-                </CardDescription>
+                {stockDetails?.website && (
+                  <CardContent className="flex text-sm">
+                    <LinkIcon size={"20"} className="mr-2" />
+                    <Link href={stockDetails?.website}>
+                      <p className="text-blue-600">{stockDetails?.website}</p>
+                    </Link>
+                  </CardContent>
+                )}
               </CardHeader>
             </Card>
           </div>
@@ -89,9 +94,9 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
                 <CardDescription>
                   Total shares on issue: {stock.totalProductInIssue}
                 </CardDescription>
-                <CardDescription>
+                <CardContent>
                   <Progress value={stock.percentageShorted} />
-                </CardDescription>
+                </CardContent>
               </CardHeader>
             </Card>
           </div>

@@ -13,10 +13,11 @@ export const getStockData = async (
     fetch,
     // With Svelte's custom fetch function, we could alternatively
     // use a relative base URL here.
-    baseUrl: "https://shorts-ak2zgjnhlq-km.a.run.app",
+    baseUrl: process.env.SHORTS_SERVICE_ENDPOINT ?? 'http://localhost:8080'
   });
   const client = createPromiseClient(ShortedStocksService, transport);
-
+  console.log(period)
   const response = await client.getStockData({ productCode, period });
+  console.log(response)
   return toPlainMessage(response);
 };

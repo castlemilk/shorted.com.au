@@ -12,7 +12,12 @@ import {
 } from "~/@/components/ui/card";
 import Sparkline from "./sparkline";
 import { Button } from "~/@/components/ui/button";
-import { ArrowUpDown } from "lucide-react";
+import { ArrowUpDown, Circle } from "lucide-react";
+import { useMemo } from "react";
+import { Badge } from "~/@/components/ui/badge";
+
+const redColor = `var(--red)`;
+const greenColor = `var(--green)`;
 
 export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
   {
@@ -49,11 +54,23 @@ export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
       );
     },
     cell: ({ row }) => (
-      <div className="flex items-end">
-        <div className="text-3xl font-bold">
-          {row.original.latestShortPosition.toFixed(2)}
+      <div className="grid w-m-60">
+        <div className="">
+          <Badge className="flex mb-1 mr-1 p-0 pl-1 items-center text-xs text-nowrap">
+            <Circle strokeWidth={0} size={10} fill={greenColor} />
+            <p className="pl-1">{`Min: ${row.original.min?.shortPosition.toFixed(2)}`}</p>
+          </Badge>
+          <Badge className="flex mr-1 p-0 pl-1 items-center text-xs text-nowrap">
+            <Circle strokeWidth={0} size={10} fill={redColor} />
+            <p className="pl-1">{`Max: ${row.original.max?.shortPosition.toFixed(2)}`}</p>
+          </Badge>
         </div>
-        <div className="text-lg ">%</div>
+        <div className="flex items-end">
+          <div className="text-3xl font-bold">
+            {row.original.latestShortPosition.toFixed(2)}
+          </div>
+          <div className="text-lg ">%</div>
+        </div>
       </div>
     ),
     enableSorting: true,
@@ -62,7 +79,11 @@ export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
   {
     id: "sparkline",
     header: ({}) => <div>last 6 months</div>,
-    cell: ({ row }) => flexRender(Sparkline, { data: row.original }),
+    cell: ({ row }) =>
+      flexRender(Sparkline, {
+        data: row.original,
+        key: `${row.id}-sparkline-chart`,
+      }),
     enableSorting: false,
     enableHiding: false,
   },
@@ -147,59 +168,83 @@ export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
 export const getColumns = (
   period: string,
 ): ColumnDef<PlainMessage<TimeSeriesData>>[] => {
-  return [
-    {
-      id: "name",
-      accessorKey: "productCode",
-      header: ({ column }) => (
-        <DataTableColumnDisplayHeader column={column} title="Name" />
-      ),
-      cell: ({ row }) => {
-        return (
-          <Card className="border-hidden bg-transparent shadow-none">
-            <CardHeader>
-              <CardTitle>{row.original.productCode}</CardTitle>
-              <CardDescription>{row.original.name}</CardDescription>
-            </CardHeader>
-          </Card>
-        );
+  return useMemo(
+    () => [
+      {
+        id: "name",
+        accessorKey: "productCode",
+        header: ({ column }) => (
+          <DataTableColumnDisplayHeader column={column} title="Name" />
+        ),
+        cell: ({ row }) => {
+          return (
+            <Card className="border-hidden bg-transparent shadow-none">
+              <CardHeader>
+                <CardTitle>{row.original.productCode}</CardTitle>
+                <CardDescription>{row.original.name}</CardDescription>
+              </CardHeader>
+            </Card>
+          );
+        },
+        enableSorting: false,
+        enableHiding: false,
       },
-      enableSorting: false,
-      enableHiding: false,
-    },
-    {
-      id: "shorted",
-      accessorKey: "latestShortPosition",
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-          >
-            Short
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        );
-      },
-      cell: ({ row }) => (
-        <div className="flex items-end">
-          <div className="text-3xl font-bold">
-            {row.original.latestShortPosition.toFixed(2)}
+      {
+        id: "shorted",
+        accessorKey: "latestShortPosition",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() =>
+                column.toggleSorting(column.getIsSorted() === "asc")
+              }
+            >
+              Short
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
+
+        cell: ({ row }) => (
+          <div className="flex">
+            <div className="max-w-40">
+              <div className="flex ml-4 p-1 items-center text-xs text-gray-400 ">
+                <Circle strokeWidth={0} size={10} fill={greenColor} />
+                <p className="pl-1">{`Min: ${row.original.min?.shortPosition.toFixed(2)}%`}</p>
+              </div>
+              <div className="flex  ml-4  p-1 items-center text-xs text-gray-400 o">
+                <Circle strokeWidth={0} size={10} fill={redColor} />
+                <p className="pl-1">{`Max: ${row.original.max?.shortPosition.toFixed(2)}%`}</p>
+              </div>
+            </div>
+            <div className="flex items-end">
+              <div className="text-3xl font-bold">
+                {row.original.latestShortPosition.toFixed(2)}
+              </div>
+              <div className="text-lg ">%</div>
+            </div>
           </div>
-          <div className="text-lg ">%</div>
-        </div>
-      ),
-      enableSorting: true,
-      enableHiding: false,
-    },
-    {
-      id: "sparkline",
-      header: ({}) => <div>{`Last ${getPeriodString(period)}`}</div>,
-      cell: ({ row }) => flexRender(Sparkline, { data: row.original }),
-      enableSorting: false,
-      enableHiding: false,
-    },
-  ];
+        ),
+        enableSorting: true,
+        enableHiding: false,
+      },
+      {
+        id: "sparkline",
+        header: ({}) => <div>{`Last ${getPeriodString(period)}`}</div>,
+        cell: ({ row, cell }) =>
+          flexRender(Sparkline, {
+            data: row.original,
+            width: cell.column.getSize(),
+            key: `${row.id}-sparkline-${period}`,
+          }),
+        enableSorting: false,
+        enableHiding: false,
+        width: 150,
+      },
+    ],
+    [period],
+  );
 };
 
 const getPeriodString = (period: string) => {
