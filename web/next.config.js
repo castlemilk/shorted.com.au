@@ -11,6 +11,7 @@ const { version } = packageInfo;
 const config = {
   publicRuntimeConfig: {
     version,
+    shortsUrl: process.env.SHORTS_SERVICE_ENDPOINT ?? "http://localhost:8080",
   },
   images: {
     remotePatterns: [
