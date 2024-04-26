@@ -16,7 +16,8 @@ export const getStockData = async (
     baseUrl: process.env.SHORTS_SERVICE_ENDPOINT ?? 'http://localhost:8080'
   });
   const client = createPromiseClient(ShortedStocksService, transport);
-
+  console.log(period)
   const response = await client.getStockData({ productCode, period });
+  console.log(response)
   return toPlainMessage(response);
 };
