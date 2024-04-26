@@ -102,8 +102,8 @@ const Chart = ({ width, height, margin, data }: SparklineProps) => {
 const SparkLine = ({ data }: { data: PlainMessage<TimeSeriesData> }) => {
   return (
     <Suspense fallback={<div>Loading...</div>}>
-      <div className="min-w-30">
-        <ParentSize debounceTime={300} className="min-w-30">
+      <div className="grid min-w-0">
+        <ParentSize debounceTime={10} className="min-w-0">
           {({ width }) => (
             <Chart
               width={width}

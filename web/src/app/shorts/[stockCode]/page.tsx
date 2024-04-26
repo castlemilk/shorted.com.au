@@ -40,7 +40,7 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
               <CardHeader className="pb-3">
                 <div className="flex">
                   <div className="mr-4">
-                    {stockDetails.gcsUrl ? (
+                    {stockDetails?.gcsUrl ? (
                       <Image
                         width={70}
                         height={80}
@@ -54,22 +54,24 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
                   <div className="">
                     <CardTitle className="flex">{params.stockCode}</CardTitle>
                     <CardTitle className="flex text-lg font-semibold">
-                      {stockDetails.companyName}
+                      {stockDetails?.companyName ?? stock.name}
                     </CardTitle>
                     <CardTitle className="flex text-lg font-semibold">
-                      <Badge>{stockDetails.industry}</Badge>
+                      <Badge>{stockDetails?.industry}</Badge>
                     </CardTitle>
                   </div>
                 </div>
                 <CardDescription className="flex text-sm">
-                  {stockDetails.summary}
+                  {stockDetails?.summary}
                 </CardDescription>
-                <CardContent className="flex text-sm">
-                  <LinkIcon size={"20"} className="mr-2" />
-                  <Link href={stockDetails.website}>
-                    <p className="text-blue-600">{stockDetails.website}</p>
-                  </Link>
-                </CardContent>
+                {stockDetails?.website && (
+                  <CardContent className="flex text-sm">
+                    <LinkIcon size={"20"} className="mr-2" />
+                    <Link href={stockDetails?.website}>
+                      <p className="text-blue-600">{stockDetails?.website}</p>
+                    </Link>
+                  </CardContent>
+                )}
               </CardHeader>
             </Card>
           </div>
