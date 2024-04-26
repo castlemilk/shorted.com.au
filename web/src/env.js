@@ -23,6 +23,7 @@ export const env = createEnv({
     ),
     GOOGLE_ID: z.string(),
     GOOGLE_SECRET: z.string(),
+    SHORTS_SERVICE_ENDPOINT: z.string(),
   },
 
   /**
@@ -44,6 +45,7 @@ export const env = createEnv({
     NEXTAUTH_URL: process.env.NEXTAUTH_URL,
     GOOGLE_ID: process.env.GOOGLE_ID,
     GOOGLE_SECRET: process.env.GOOGLE_SECRET,
+    SHORTS_SERVICE_ENDPOINT: process.env.SHORTS_SERVICE_ENDPOINT ?? 'http://localhost:8080',
     // NEXT_PUBLIC_CLIENTVAR: process.env.NEXT_PUBLIC_CLIENTVAR,
   },
   /**

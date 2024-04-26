@@ -9,7 +9,7 @@ export const getTopShortsData = async (period: string, limit: number) => {
     fetch,
     // With Svelte's custom fetch function, we could alternatively
     // use a relative base URL here.
-    baseUrl: "https://shorts-ak2zgjnhlq-km.a.run.app",
+    baseUrl: process.env.SHORTS_SERVICE_ENDPOINT ?? 'http://localhost:8080'
   });
   const client = createPromiseClient(ShortedStocksService, transport);
 
