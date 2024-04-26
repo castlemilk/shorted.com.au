@@ -42,7 +42,7 @@ func (s *ShortsServer) GetStockData(ctx context.Context, req *connect.Request[sh
 	log.Infof("get stock data")
 	stock, err := s.store.GetStockData(req.Msg.ProductCode, req.Msg.Period)
 	if err != nil {
-		log.Errorf("error get stock data, id: %s, err: %+v", req.Msg.ProductCode, err)
+		log.Errorf("error get stock data, product_code: %s, period: %s err: %+v", req.Msg.ProductCode,req.Msg.Period, err)
 		return &connect.Response[stocksv1alpha1.TimeSeriesData]{}, fmt.Errorf("error get stock data, id: %s, err: %+v", req.Msg.ProductCode, err)
 	}
 	return connect.NewResponse(stock), nil
@@ -53,7 +53,7 @@ func (s *ShortsServer) GetStockDetails(ctx context.Context, req *connect.Request
 	stock, err := s.store.GetStockDetails(req.Msg.ProductCode)
 	if err != nil {
 		log.Errorf("error get stock data, id: %s, err: %+v", req.Msg.ProductCode, err)
-		return &connect.Response[stocksv1alpha1.StockDetails]{}, fmt.Errorf("error get stock details, id: %s, err: %+v", req.Msg.ProductCode, err)
+		return &connect.Response[stocksv1alpha1.StockDetails]{}, connect.NewError(connect.Code(codes.NotFound), err)
 	}
 	return connect.NewResponse(stock), nil
 }
