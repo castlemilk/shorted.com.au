@@ -44,7 +44,7 @@ basic dashboarding platform for viewing short positions on ASX
 # week 2
 [ ] company image on dark mode
 
-[ ] query maths for top x tuned - show more sensible values for larger windows
+[x] query maths for top x tuned - show more sensible values for larger windows
 
 [ ] link to google finance/yahoo finance
 
