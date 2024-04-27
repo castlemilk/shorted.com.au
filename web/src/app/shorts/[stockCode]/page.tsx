@@ -2,19 +2,17 @@ import { IdCardIcon } from "@radix-ui/react-icons";
 import Image from "next/image";
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "~/@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { getStock } from "~/app/actions/getStock";
 import Chart from "~/@/components/ui/chart";
 import { getStockData } from "~/app/actions/getStockData";
 import { Suspense } from "react";
 import { getStockDetails } from "~/app/actions/getStockDetails";
 import { Badge } from "~/@/components/ui/badge";
-import { Link as LinkIcon, PanelTopIcon } from "lucide-react";
+import { PanelTopIcon } from "lucide-react";
 import Link from "next/link";
 import { Separator } from "~/@/components/ui/separator";
 import { formatNumber } from "~/@/lib/utils";
@@ -121,7 +119,9 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
                       <div className="flex self-center p-2">
                         <PanelTopIcon size={10} />
                       </div>
-                      <p className="uppercase font-semibold content-center">website</p>
+                      <p className="uppercase font-semibold content-center">
+                        website
+                      </p>
                     </div>
                     <span className="flex items-end content-center p-2 ">
                       <Link href={stockDetails?.website}>
