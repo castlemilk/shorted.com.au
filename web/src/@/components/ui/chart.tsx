@@ -3,10 +3,11 @@ import ParentSize from "@visx/responsive/lib/components/ParentSize";
 import BrushChart, { type HandleBrushClearAndReset } from "./brushChart";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { type PlainMessage } from "@bufbuild/protobuf";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { getStockData } from "~/app/actions/getStockData";
 import { Button } from "./button";
+import { Skeleton } from "./skeleton";
 
 const INITIAL_PERIOD = "6m";
 export type ChartProps = {
@@ -17,9 +18,14 @@ const Chart = ({ stockCode, initialData }: ChartProps) => {
   const [period, setPeriod] = useState<string>(INITIAL_PERIOD);
   const chartRef = useRef<HandleBrushClearAndReset>(null);
   const [data, setData] = useState<PlainMessage<TimeSeriesData>>(initialData);
+  const [loading, setLoading] = useState<boolean>(false);
   useEffect(() => {
+    setLoading(true);
     getStockData(stockCode, period)
-      .then((data) => setData(data))
+      .then((data) => {
+        setData(data);
+        setLoading(false);
+      })
       .catch(console.error);
   }, [period]);
   const handleClearClick = () => {
@@ -53,13 +59,24 @@ const Chart = ({ stockCode, initialData }: ChartProps) => {
           </ToggleGroup>
         </div>
       </div>
-      <ParentSize className="min-w-0">
-        {({ width }) => (
-          <BrushChart ref={chartRef} data={data} width={width} height={400} />
-        )}
-      </ParentSize>
+      <Suspense fallback={<ChartLoadingPlaceholder />}>
+        <ParentSize className="min-w-0">
+          {({ width }) => (
+            <BrushChart ref={chartRef} data={data} width={width} height={400} />
+          )}
+        </ParentSize>
+      </Suspense>
     </div>
   );
 };
 
+const ChartLoadingPlaceholder = () => (
+  <div className="flex flex-col space-y-3">
+    <Skeleton className="h-[125px] w-[250px] rounded-xl" />
+    <div className="space-y-2">
+      <Skeleton className="h-4 w-[250px]" />
+      <Skeleton className="h-4 w-[200px]" />
+    </div>
+  </div>
+);
 export default Chart;

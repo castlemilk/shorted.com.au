@@ -14,8 +14,10 @@ import { getStockData } from "~/app/actions/getStockData";
 import { Suspense } from "react";
 import { getStockDetails } from "~/app/actions/getStockDetails";
 import { Badge } from "~/@/components/ui/badge";
-import { Link as LinkIcon } from "lucide-react";
+import { Link as LinkIcon, PanelTopIcon } from "lucide-react";
 import Link from "next/link";
+import { Separator } from "~/@/components/ui/separator";
+import { formatNumber } from "~/@/lib/utils";
 export async function generateMetadata({
   params,
 }: {
@@ -64,40 +66,71 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
                 <CardDescription className="flex text-sm">
                   {stockDetails?.summary}
                 </CardDescription>
-                {stockDetails?.website && (
-                  <CardContent className="flex text-sm">
-                    <LinkIcon size={"20"} className="mr-2" />
-                    <Link href={stockDetails?.website}>
-                      <p className="text-blue-600">{stockDetails?.website}</p>
-                    </Link>
-                  </CardContent>
-                )}
               </CardHeader>
             </Card>
           </div>
           <div className="grid gap-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4">
             <Card className="sm:col-span-4">
               <CardHeader className="pb-3">
-                <CardTitle className="flex">Short Position</CardTitle>
-                <CardTitle>
-                  <div className="flex">
-                    <div className="text-3xl font-bold">
-                      {stock.percentageShorted}
-                    </div>
-                    <div className="text-lg ">%</div>
+                <CardTitle className="flex">Shorted</CardTitle>
+                <Separator />
+                <CardDescription>
+                  <div className="flex align-middle justify-between">
+                    <span className="flex justify-center uppercase font-semibold">
+                      short percentage
+                    </span>
+                    <span className="flex items-end">
+                      {stock.percentageShorted.toFixed(2)}
+                      <div className="flex">
+                        <p>%</p>
+                      </div>
+                    </span>
                   </div>
-                </CardTitle>
-                <CardDescription>
-                  Reported short positions:
-                  {stock.reportedShortPositions}
                 </CardDescription>
+                <Separator />
                 <CardDescription>
-                  Total shares on issue: {stock.totalProductInIssue}
+                  <div className="flex align-middle justify-between">
+                    <span className="uppercase font-semibold">
+                      reported short positions
+                    </span>
+                    <span>{formatNumber(stock.reportedShortPositions)}</span>
+                  </div>
                 </CardDescription>
-                <CardContent>
-                  <Progress value={stock.percentageShorted} />
-                </CardContent>
+                <Separator />
+                <CardDescription>
+                  <div className="flex align-middle justify-between">
+                    <span className="uppercase font-semibold">
+                      total shares on issue
+                    </span>
+                    <span>{formatNumber(stock.totalProductInIssue, 3)}</span>
+                  </div>
+                </CardDescription>
               </CardHeader>
+            </Card>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4">
+            <Card className="sm:col-span-4">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex">About</CardTitle>
+              </CardHeader>
+              <Separator />
+              {stockDetails?.website && (
+                <CardDescription>
+                  <div className="flex content-center justify-between">
+                    <div className="flex content-center">
+                      <div className="flex self-center p-2">
+                        <PanelTopIcon size={10} />
+                      </div>
+                      <p className="uppercase font-semibold content-center">website</p>
+                    </div>
+                    <span className="flex items-end content-center p-2 ">
+                      <Link href={stockDetails?.website}>
+                        <p className="text-blue-600">{stockDetails?.website}</p>
+                      </Link>
+                    </span>
+                  </div>
+                </CardDescription>
+              )}
             </Card>
           </div>
         </div>
