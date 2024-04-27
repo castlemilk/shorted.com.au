@@ -90,7 +90,6 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
     },
     innerRef,
   ) => {
-    if (width < 10) return null;
     const { containerRef, containerBounds } = useTooltipInPortal({
       scroll: true,
       detectBounds: true,
@@ -259,6 +258,8 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
         brushRef.current.updateBrush(updater);
       }
     };
+
+    if (width < 10) return null;
 
     return (
       <div ref={containerRef}>
