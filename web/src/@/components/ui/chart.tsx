@@ -18,13 +18,10 @@ const Chart = ({ stockCode, initialData }: ChartProps) => {
   const [period, setPeriod] = useState<string>(INITIAL_PERIOD);
   const chartRef = useRef<HandleBrushClearAndReset>(null);
   const [data, setData] = useState<PlainMessage<TimeSeriesData>>(initialData);
-  const [loading, setLoading] = useState<boolean>(false);
   useEffect(() => {
-    setLoading(true);
     getStockData(stockCode, period)
       .then((data) => {
         setData(data);
-        setLoading(false);
       })
       .catch(console.error);
   }, [period]);
