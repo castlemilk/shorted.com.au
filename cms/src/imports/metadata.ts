@@ -50,6 +50,7 @@ payload.init({
           // you can optionally disable the email that is auto-sent
           disableVerificationEmail: true,
           data,
+          filePath: null,
         };
         const mediaCreatePayload = {
           collection: "media",
@@ -60,6 +61,7 @@ payload.init({
           // you can optionally disable the email that is auto-sent
           disableVerificationEmail: true,
           data: { alt: source.company_name },
+          filePath: null,
         };
         if (
           source.company_logo_link &&
