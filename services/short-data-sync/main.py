@@ -396,3 +396,9 @@ if __name__ == "__main__":
             "shorts",
             os.environ.get("DATABASE_URL"),
         )
+        print(f"Workflow completed successfully. added ${len(processed_data)} records.")
+        exit(0)
+    else:
+        print("No new files to process.")
+        exit(0)
+    
