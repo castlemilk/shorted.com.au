@@ -2,6 +2,7 @@ import { IdCardIcon } from "@radix-ui/react-icons";
 import Image from "next/image";
 import {
   Card,
+  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -12,7 +13,7 @@ import { getStockData } from "~/app/actions/getStockData";
 import { Suspense } from "react";
 import { getStockDetails } from "~/app/actions/getStockDetails";
 import { Badge } from "~/@/components/ui/badge";
-import { PanelTopIcon } from "lucide-react";
+import { LineChartIcon, PanelTopIcon } from "lucide-react";
 import Link from "next/link";
 import { Separator } from "~/@/components/ui/separator";
 import { formatNumber } from "~/@/lib/utils";
@@ -61,7 +62,7 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
                     </CardTitle>
                   </div>
                 </div>
-                <CardDescription className="flex text-sm">
+                <CardDescription className="flex text-xs">
                   {stockDetails?.summary}
                 </CardDescription>
               </CardHeader>
@@ -72,7 +73,7 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
               <CardHeader className="pb-3">
                 <CardTitle className="flex">Shorted</CardTitle>
                 <Separator />
-                <CardDescription>
+                <CardContent className="p-0 text-xs">
                   <div className="flex align-middle justify-between">
                     <span className="flex justify-center uppercase font-semibold">
                       short percentage
@@ -84,25 +85,25 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
                       </div>
                     </span>
                   </div>
-                </CardDescription>
+                </CardContent>
                 <Separator />
-                <CardDescription>
+                <CardContent className="p-0 text-xs">
                   <div className="flex align-middle justify-between">
                     <span className="uppercase font-semibold">
                       reported short positions
                     </span>
                     <span>{formatNumber(stock.reportedShortPositions)}</span>
                   </div>
-                </CardDescription>
+                </CardContent>
                 <Separator />
-                <CardDescription>
+                <CardContent className="p-0 text-xs">
                   <div className="flex align-middle justify-between">
                     <span className="uppercase font-semibold">
                       total shares on issue
                     </span>
                     <span>{formatNumber(stock.totalProductInIssue, 3)}</span>
                   </div>
-                </CardDescription>
+                </CardContent>
               </CardHeader>
             </Card>
           </div>
@@ -113,23 +114,28 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
               </CardHeader>
               <Separator />
               {stockDetails?.website && (
-                <CardDescription>
-                  <div className="flex content-center justify-between">
-                    <div className="flex content-center">
-                      <div className="flex self-center p-2">
-                        <PanelTopIcon size={10} />
+                <>
+                  <CardContent className="p-0">
+                    <div className="flex content-center justify-between">
+                      <div className="flex content-center">
+                        <div className="flex self-center p-2">
+                          <PanelTopIcon size={10} />
+                        </div>
+                        <p className="uppercase font-semibold content-center text-xs">
+                          website
+                        </p>
                       </div>
-                      <p className="uppercase font-semibold content-center">
-                        website
-                      </p>
+                      <span className="flex items-end content-center p-2 text-xs">
+                        <Link href={stockDetails?.website}>
+                          <p className="text-blue-600">
+                            {stockDetails?.website.split(/www.|\:\/\//).at(-1)}
+                          </p>
+                        </Link>
+                      </span>
                     </div>
-                    <span className="flex items-end content-center p-2 ">
-                      <Link href={stockDetails?.website}>
-                        <p className="text-blue-600">{stockDetails?.website}</p>
-                      </Link>
-                    </span>
-                  </div>
-                </CardDescription>
+                  </CardContent>
+                  <Separator />
+                </>
               )}
             </Card>
           </div>

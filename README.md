@@ -46,16 +46,16 @@ basic dashboarding platform for viewing short positions on ASX
 
 [x] query maths for top x tuned - show more sensible values for larger windows
 
-[ ] link to google finance/yahoo finance
+[x] default logo when no image found
 
-[ ] default logo when no image found
+[ ] show company directors
+   1. add company leaders to metadata API
+   2. render in about section 
 
 # week 3
 [ ] company summary/description tuning
 
 [ ] show company references
-
-[ ] show company directors
 
 [ ] loading & data fetch optmisations/caching
 
@@ -63,6 +63,10 @@ basic dashboarding platform for viewing short positions on ASX
 
 # week 4
 [ ] security (anon auth/ratelimiting)
+  - https://cloud.google.com/iam/docs/create-short-lived-credentials-direct
+  - https://developers.google.com/identity/protocols/oauth2/service-account#jwt-auth
+  - https://cloud.google.com/run/docs/authenticating/service-to-service
+  - https://cloud.google.com/run/docs/authenticating/service-to-service#use_a_downloaded_service_account_key_from_outside
 
 [ ] fix top navbar on wide screen to float max right/left
 
@@ -103,6 +107,7 @@ basic dashboarding platform for viewing short positions on ASX
 [ ] validate data entry flow ASX Code --> edit image --> add links (socials, investory page) --> get ChatGPT description and add to details
 
 [ ] collect company socials (twitter, instagram, linkedin etc.)
+   [ ] add social section and also link to google finance/yahoo finance
 ### Milestone 1
 
 [x] company metadata ingestion and real-time sentiment analysis API + view
