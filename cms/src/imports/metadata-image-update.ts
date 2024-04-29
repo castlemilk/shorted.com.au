@@ -99,6 +99,7 @@ payload.init({
             id: result["docs"][0]["id"],
             overwriteExistingFiles: true,
             data: {},
+            filePath: null,
           };
 
           updatePayload.filePath = imagePath ? imagePath : null;
