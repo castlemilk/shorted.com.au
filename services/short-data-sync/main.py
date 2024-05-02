@@ -299,7 +299,7 @@ def process_short_data_into_dataframe():
     if len(csv_files) == 0:
         return None
     delayed_readings = [
-        dask.delayed(read_csv_from_disk)(bucket, file, expected_schema)
+        dask.delayed(read_csv_from_disk)(file, expected_schema)
         for file in csv_files
     ]
     # Use the defined schema to create the meta DataFrame for Dask
