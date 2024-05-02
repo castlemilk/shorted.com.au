@@ -39,6 +39,15 @@ run.docker.shorts-data-sync.local:
 		-v $(PWD)/short-data-sync/shorted-dev-aba5688f-06b39f2f41fc.json:/app/shorted-dev-aba5688f-06b39f2f41fc.json \
 	 --link postgres --net sql_default -p 8080:8080  ${SHORTS_SYNC_IMAGE}:${SHORTS_VERSION}
 
+run.docker.shorts-data-sync.supabase:
+	docker run \
+		-e DATABASE_URL=${DATABASE_URL} \
+		-e GOOGLE_APPLICATION_CREDENTIALS=/app/shorted-dev-aba5688f-c627abe05e3d.json \
+		-v $(PWD)/../analysis/data/shorts/:/app/data/shorts/ \
+		-v $(PWD)/short-data-sync/shorted-dev-aba5688f-c627abe05e3d.json:/app/shorted-dev-aba5688f-c627abe05e3d.json \
+		--entrypoint python \
+		${SHORTS_SYNC_IMAGE}:${SHORTS_VERSION} main.py
+
 run.docker.shorts.local:
 	docker run \
 		-e APP_STORE_POSTGRES_ADDRESS=postgres:5432 \
