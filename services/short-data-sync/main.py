@@ -389,7 +389,7 @@ if __name__ == "__main__":
 
     # Process the data into a DataFrame
     processed_data = process_short_data_into_dataframe()
-    if processed_data:
+    if len(processed_data) > 0:
         # Write the DataFrame to PostgreSQL
         write_short_data_to_postgres(
             processed_data,
