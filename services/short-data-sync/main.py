@@ -19,7 +19,7 @@ if not os.path.exists(SHORTS_DATA_DIRECTORY):
 # URLs for fetching the JSON data and the base URL for downloads
 data_url = "https://download.asic.gov.au/short-selling/short-selling-data.json"
 base_url = "https://download.asic.gov.au/short-selling/"
-
+TABLE_NAME="shorts"
 # GCS bucket and directory settings
 BUCKET_NAME = "shorted-short-selling-data"
 GCS_FOLDER = "data/shorts"
@@ -350,7 +350,7 @@ async def process_full_workflow():
         # Write the DataFrame to PostgreSQL
         write_short_data_to_postgres(
             df,
-            "company-metadata",
+            TABLE_NAME,
             os.environ.get(
                 "DATABASE_URL", "postgresql://admin:password@localhost:5432/shorts"
             ),
@@ -393,7 +393,7 @@ if __name__ == "__main__":
         # Write the DataFrame to PostgreSQL
         write_short_data_to_postgres(
             processed_data,
-            "company-metadata",
+            TABLE_NAME,
             os.environ.get("DATABASE_URL"),
         )
         print(f"Workflow completed successfully. added ${len(processed_data)} records.")
