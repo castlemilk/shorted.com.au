@@ -132,7 +132,7 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stockv1alpha1.StockD
 		details as Details,
 		website as Website,
 		"gcsUrl" as GcsUrl
-		from metadata 
+		from "company-metadata" 
 		where stock_code = $1
 		LIMIT 1`
 
