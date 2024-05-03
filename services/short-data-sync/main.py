@@ -350,7 +350,7 @@ async def process_full_workflow():
         # Write the DataFrame to PostgreSQL
         write_short_data_to_postgres(
             df,
-            "shorts",
+            "company-metadata",
             os.environ.get(
                 "DATABASE_URL", "postgresql://admin:password@localhost:5432/shorts"
             ),
@@ -393,7 +393,7 @@ if __name__ == "__main__":
         # Write the DataFrame to PostgreSQL
         write_short_data_to_postgres(
             processed_data,
-            "shorts",
+            "company-metadata",
             os.environ.get("DATABASE_URL"),
         )
         print(f"Workflow completed successfully. added ${len(processed_data)} records.")
