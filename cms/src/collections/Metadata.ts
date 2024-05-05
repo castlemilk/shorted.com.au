@@ -34,6 +34,30 @@ const Metadata: CollectionConfig = {
       required: true,
     },
     {
+      name: "people",
+      type: "array",
+      fields: [
+        {
+          name: "name",
+          type: "text",
+        },
+        {
+          name: "role",
+          type: "text",
+        },
+        {
+          name: "links",
+          type: "array",
+          fields: [
+            {
+              name: "link",
+              type: "text",
+            },
+          ],
+        },
+      ],
+    },
+    {
       name: "industry",
       type: "text",
     },
