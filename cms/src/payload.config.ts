@@ -93,7 +93,6 @@ export default buildConfig({
     }),
   ],
   db: postgresAdapter({
-    schemaName: "payloadcms",
     pool: {
       connectionString: process.env.DATABASE_URI,
     },
