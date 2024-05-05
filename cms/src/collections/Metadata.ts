@@ -6,8 +6,7 @@ const Metadata: CollectionConfig = {
     // TODO(bebsworth): apply fix when https://github.com/payloadcms/payload/issues/4422 is resolved
     staticURL: "https://storage.googleapis.com/shorted-company-logos",
     externalFileHeaderFilter: (headers: Record<string, string>) => {
-      return {
-      } as Record<string, string>;
+      return {} as Record<string, string>;
     },
   },
   admin: {
@@ -33,6 +32,30 @@ const Metadata: CollectionConfig = {
       name: "company_name",
       type: "text",
       required: true,
+    },
+    {
+      name: "people",
+      type: "array",
+      fields: [
+        {
+          name: "name",
+          type: "text",
+        },
+        {
+          name: "role",
+          type: "text",
+        },
+        {
+          name: "links",
+          type: "array",
+          fields: [
+            {
+              name: "link",
+              type: "text",
+            },
+          ],
+        },
+      ],
     },
     {
       name: "industry",

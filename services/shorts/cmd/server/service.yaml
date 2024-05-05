@@ -6,7 +6,7 @@ spec:
   template:
     spec:
       containers:
-      - image: australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/shorts:v0.2.2-15-gb73d26b0
+      - image: australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/shorts:v0.2.2-25-gbd57fdd1
         env:
         - name: APP_STORE_POSTGRES_ADDRESS
           value: aws-0-ap-southeast-2.pooler.supabase.com:5432
