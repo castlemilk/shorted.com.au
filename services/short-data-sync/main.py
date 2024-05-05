@@ -19,7 +19,7 @@ if not os.path.exists(SHORTS_DATA_DIRECTORY):
 # URLs for fetching the JSON data and the base URL for downloads
 data_url = "https://download.asic.gov.au/short-selling/short-selling-data.json"
 base_url = "https://download.asic.gov.au/short-selling/"
-
+TABLE_NAME="shorts"
 # GCS bucket and directory settings
 BUCKET_NAME = "shorted-short-selling-data"
 GCS_FOLDER = "data/shorts"
@@ -299,7 +299,7 @@ def process_short_data_into_dataframe():
     if len(csv_files) == 0:
         return None
     delayed_readings = [
-        dask.delayed(read_csv_from_disk)(bucket, file, expected_schema)
+        dask.delayed(read_csv_from_disk)(file, expected_schema)
         for file in csv_files
     ]
     # Use the defined schema to create the meta DataFrame for Dask
@@ -350,7 +350,7 @@ async def process_full_workflow():
         # Write the DataFrame to PostgreSQL
         write_short_data_to_postgres(
             df,
-            "shorts",
+            TABLE_NAME,
             os.environ.get(
                 "DATABASE_URL", "postgresql://admin:password@localhost:5432/shorts"
             ),
@@ -389,11 +389,11 @@ if __name__ == "__main__":
 
     # Process the data into a DataFrame
     processed_data = process_short_data_into_dataframe()
-    if processed_data:
+    if len(processed_data) > 0:
         # Write the DataFrame to PostgreSQL
         write_short_data_to_postgres(
             processed_data,
-            "shorts",
+            TABLE_NAME,
             os.environ.get("DATABASE_URL"),
         )
         print(f"Workflow completed successfully. added ${len(processed_data)} records.")

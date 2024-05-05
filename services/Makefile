@@ -1,4 +1,5 @@
 BASE_URL := http://localhost:8080
+GOOGLE_APPLICATION_CREDENTIALS := shorted-dev-aba5688f-c627abe05e3d.json
 SHORTS_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/shorts
 SHORTS_VERSION := `git describe --tags --always --dirty`
 SHORTS_SYNC_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/short-data-sync
@@ -26,18 +27,35 @@ gcr.push:
 run.docker.shorts-data-sync.local.standalone:
 	docker run \
 		-e DATABASE_URL=postgresql://admin:password@postgres:5432/shorts \
-		-e GOOGLE_APPLICATION_CREDENTIALS=/app/shorted-dev-aba5688f-06b39f2f41fc.json \
+		-e GOOGLE_APPLICATION_CREDENTIALS=/app/${GOOGLE_APPLICATION_CREDENTIALS} \
 		-v $(PWD)/../analysis/data/shorts/:/app/data/shorts/ \
-		-v $(PWD)/short-data-sync/shorted-dev-aba5688f-06b39f2f41fc.json:/app/shorted-dev-aba5688f-06b39f2f41fc.json \
+		-v $(PWD)/short-data-sync/${GOOGLE_APPLICATION_CREDENTIALS}:/app/${GOOGLE_APPLICATION_CREDENTIALS} \
 	 --link postgres -it --net sql_default -p 8080:8080 --entrypoint "python" ${SHORTS_SYNC_IMAGE}:${SHORTS_VERSION} main.py
 
 run.docker.shorts-data-sync.local:
 	docker run \
 		-e DATABASE_URL=postgresql://admin:password@postgres:5432/shorts \
-		-e GOOGLE_APPLICATION_CREDENTIALS=/app/shorted-dev-aba5688f-06b39f2f41fc.json \
+		-e GOOGLE_APPLICATION_CREDENTIALS=/app/${GOOGLE_APPLICATION_CREDENTIALS} \
 		-v $(PWD)/../analysis/data/shorts/:/app/data/shorts/ \
-		-v $(PWD)/short-data-sync/shorted-dev-aba5688f-06b39f2f41fc.json:/app/shorted-dev-aba5688f-06b39f2f41fc.json \
+		-v $(PWD)/short-data-sync/${GOOGLE_APPLICATION_CREDENTIALS}:/app/${GOOGLE_APPLICATION_CREDENTIALS} \
 	 --link postgres --net sql_default -p 8080:8080  ${SHORTS_SYNC_IMAGE}:${SHORTS_VERSION}
+
+run.docker.shorts-data-sync.local.job:
+	docker run \
+		-e DATABASE_URL=postgresql://admin:password@postgres:5432/shorts \
+		-e GOOGLE_APPLICATION_CREDENTIALS=/app/${GOOGLE_APPLICATION_CREDENTIALS} \
+		-v $(PWD)/../analysis/data/shorts/:/app/data/shorts/ \
+		-v $(PWD)/short-data-sync/${GOOGLE_APPLICATION_CREDENTIALS}:/app/${GOOGLE_APPLICATION_CREDENTIALS} \
+	 --link postgres --net sql_default --entrypoint python ${SHORTS_SYNC_IMAGE}:${SHORTS_VERSION} main.py
+
+run.docker.shorts-data-sync.supabase.job:
+	docker run \
+		-e DATABASE_URL=${DATABASE_URL} \
+		-e GOOGLE_APPLICATION_CREDENTIALS=/app/shorted-dev-aba5688f-c627abe05e3d.json \
+		-v $(PWD)/../analysis/data/shorts/:/app/data/shorts/ \
+		-v $(PWD)/short-data-sync/shorted-dev-aba5688f-c627abe05e3d.json:/app/shorted-dev-aba5688f-c627abe05e3d.json \
+		--entrypoint python \
+		${SHORTS_SYNC_IMAGE}:${SHORTS_VERSION} main.py
 
 run.docker.shorts.local:
 	docker run \
