@@ -23,6 +23,11 @@ export class GetTopShortsRequest extends Message<GetTopShortsRequest> {
    */
   limit = 0;
 
+  /**
+   * @generated from field: int32 offset = 3;
+   */
+  offset = 0;
+
   constructor(data?: PartialMessage<GetTopShortsRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -33,6 +38,7 @@ export class GetTopShortsRequest extends Message<GetTopShortsRequest> {
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "period", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "limit", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 3, name: "offset", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetTopShortsRequest {
@@ -63,6 +69,11 @@ export class GetTopShortsResponse extends Message<GetTopShortsResponse> {
    */
   timeSeries: TimeSeriesData[] = [];
 
+  /**
+   * @generated from field: int32 offset = 2;
+   */
+  offset = 0;
+
   constructor(data?: PartialMessage<GetTopShortsResponse>) {
     super();
     proto3.util.initPartial(data, this);
@@ -72,6 +83,7 @@ export class GetTopShortsResponse extends Message<GetTopShortsResponse> {
   static readonly typeName = "shorts.v1alpha1.GetTopShortsResponse";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "time_series", kind: "message", T: TimeSeriesData, repeated: true },
+    { no: 2, name: "offset", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetTopShortsResponse {

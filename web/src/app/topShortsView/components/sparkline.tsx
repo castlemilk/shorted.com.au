@@ -10,7 +10,6 @@ import {
 } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { scaleTime, scaleLinear } from "@visx/scale";
 import { extent } from "@visx/vendor/d3-array";
-import { Suspense } from "react";
 
 const accessors = {
   xAccessor: (d: PlainMessage<TimeSeriesPoint> | undefined) =>
@@ -101,20 +100,20 @@ const Chart = ({ width, height, margin, data }: SparklineProps) => {
 
 const SparkLine = ({ data }: { data: PlainMessage<TimeSeriesData> }) => {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
-      <div className="grid min-w-0">
-        <ParentSize debounceTime={10} className="min-w-0">
-          {({ width }) => (
+    <div className="min-w-[150px]">
+      <ParentSize debounceTime={10} className="min-w-[150px]">
+        {({ width }) => {
+          return (
             <Chart
               width={width}
               height={150}
               data={data}
               margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
             />
-          )}
-        </ParentSize>
-      </div>
-    </Suspense>
+          );
+        }}
+      </ParentSize>
+    </div>
   );
 };
 

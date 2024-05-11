@@ -17,15 +17,15 @@ import (
 var _ shortsv1alpha1connect.ShortedStocksServiceHandler = (*ShortsServer)(nil)
 
 func (s *ShortsServer) GetTopShorts(ctx context.Context, req *connect.Request[shortsv1alpha1.GetTopShortsRequest]) (*connect.Response[shortsv1alpha1.GetTopShortsResponse], error) {
-	log.Infof("get top shorts, period: %s, limit: %d", req.Msg.GetPeriod(), req.Msg.Limit)
-	result, err := s.store.GetTopShorts(req.Msg.GetPeriod(), req.Msg.GetLimit())
+	log.Infof("get top shorts, period: %s, limit: %d, offset: %d", req.Msg.GetPeriod(), req.Msg.Limit, req.Msg.Offset)
+	result, offset, err := s.store.GetTopShorts(req.Msg.GetPeriod(), req.Msg.GetLimit(), req.Msg.Offset)
 	for _, tsData := range result {
 		fmt.Printf("Product Code: %s, Number of Points: %d\n", tsData.ProductCode, len(tsData.Points))
 	}
 	if err != nil {
 		return &connect.Response[shortsv1alpha1.GetTopShortsResponse]{}, status.Errorf(codes.NotFound, "error getting top stocks, period: %s, err: %+v", req.Msg.Period, err)
 	}
-	return connect.NewResponse(&shortsv1alpha1.GetTopShortsResponse{TimeSeries: result}), nil
+	return connect.NewResponse(&shortsv1alpha1.GetTopShortsResponse{TimeSeries: result, Offset: int32(offset)}), nil
 }
 
 func (s *ShortsServer) GetStock(ctx context.Context, req *connect.Request[shortsv1alpha1.GetStockRequest]) (*connect.Response[stocksv1alpha1.Stock], error) {

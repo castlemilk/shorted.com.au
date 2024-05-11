@@ -31,15 +31,18 @@ func periodToInterval(period string) string {
 }
 
 // FetchTimeSeriesData retrieves time series data for the top N products with the highest short positions,
-// over a specified period.
-func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv1alpha1.TimeSeriesData, error) {
+// over a specified period, starting from the given offset for infinite scrolling.
+func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
 	if limit <= 0 {
 		limit = 10 // Default to 10 if a non-positive limit is provided
+	}
+	if offset < 0 {
+		offset = 0 // Start at the beginning if a negative offset is given
 	}
 
 	ctx := context.Background()
 	interval := periodToInterval(period)
-	// Fetch top product codes
+	// Fetch top product codes with pagination
 	topCodesQuery := fmt.Sprintf(`
 	SELECT "PRODUCT", "PRODUCT_CODE"
 	FROM shorts
@@ -50,33 +53,32 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv
 		COUNT(*) > 10
 	ORDER BY 
 		MAX("PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") DESC
-	LIMIT $1`, interval)
+	LIMIT $1 OFFSET $2`, interval)
 
-	rows, err := db.Query(ctx, topCodesQuery, limit)
+	rows, err := db.Query(ctx, topCodesQuery, limit, offset)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
-	top10Shorts := make([]string, 0)
 	productNames := make(map[string]string)
+	topShorts := make([]string, 0)
 
 	for rows.Next() {
 		var productCode, productName string
-		// Adjust your SQL query to also select the product name
 		if err := rows.Scan(&productName, &productCode); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
-		top10Shorts = append(top10Shorts, productCode)
-		productNames[productCode] = productName // Store the name associated with the product code
+		topShorts = append(topShorts, productCode)
+		productNames[productCode] = productName
 	}
 	if rows.Err() != nil {
-		return nil, rows.Err()
+		return nil, 0, rows.Err()
 	}
 
 	// Prepare to fetch time series data for each product code
 	var timeSeriesDataSlice []*stocksv1alpha1.TimeSeriesData
-	for _, productCode := range top10Shorts {
+	for _, productCode := range topShorts {
 		query := fmt.Sprintf(`
 		SELECT "DATE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
 		FROM shorts
@@ -85,12 +87,12 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv
 			AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
 			AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
 		ORDER BY "DATE" ASC`, interval)
-	
+
 		rows, err := db.Query(ctx, query, productCode)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
-	
+
 		var points []*stocksv1alpha1.TimeSeriesPoint
 		var minShort, maxShort *stocksv1alpha1.TimeSeriesPoint
 		minShort, maxShort = &stocksv1alpha1.TimeSeriesPoint{ShortPosition: -1}, &stocksv1alpha1.TimeSeriesPoint{ShortPosition: -1}
@@ -98,9 +100,8 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv
 			var date pgtype.Timestamp
 			var percent pgtype.Float8
 			if err := rows.Scan(&date, &percent); err != nil {
-				return nil, err
+				return nil, 0, err
 			}
-			// Skip if the date or percent is null
 			if date.Status != pgtype.Present || percent.Status != pgtype.Present {
 				continue
 			}
@@ -118,11 +119,10 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv
 			}
 		}
 		if rows.Err() != nil {
-			return nil, rows.Err()
+			return nil, 0, rows.Err()
 		}
 		rows.Close()
-	
-		// Only add this product's time series data if it has at least 10 data points
+
 		if len(points) >= 10 {
 			tsData := &stocksv1alpha1.TimeSeriesData{
 				ProductCode: productCode,
@@ -136,5 +136,8 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit int, period string) ([]*stocksv
 		}
 	}
 
-	return timeSeriesDataSlice, nil
+	// Calculate the new offset for subsequent queries
+	newOffset := offset + len(topShorts)
+
+	return timeSeriesDataSlice, newOffset, nil
 }
