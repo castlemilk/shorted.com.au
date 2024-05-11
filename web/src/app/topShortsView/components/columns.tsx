@@ -235,12 +235,10 @@ export const getColumns = (
         cell: ({ row, cell }) =>
           flexRender(Sparkline, {
             data: row.original,
-            width: cell.column.getSize(),
             key: `${row.id}-sparkline-${period}`,
           }),
         enableSorting: false,
         enableHiding: false,
-        width: 150,
       },
     ],
     [period],

@@ -3,7 +3,7 @@ import { createPromiseClient } from "@connectrpc/connect";
 import { toPlainMessage } from "@bufbuild/protobuf";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_connect";
 
-export const getTopShortsData = async (period: string, limit: number) => {
+export const getTopShortsData = async (period: string, limit: number, offset: number) => {
   const transport = createConnectTransport({
     // All transports accept a custom fetch implementation.
     fetch,
@@ -15,7 +15,7 @@ export const getTopShortsData = async (period: string, limit: number) => {
   });
   const client = createPromiseClient(ShortedStocksService, transport);
 
-  const response = await client.getTopShorts({ period, limit });
+  const response = await client.getTopShorts({ period, limit, offset });
 
   return toPlainMessage(response);
 };

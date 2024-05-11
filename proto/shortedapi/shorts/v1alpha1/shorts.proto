@@ -23,11 +23,13 @@ service ShortedStocksService {
 message GetTopShortsRequest {
   string period = 1;
   int32 limit = 2;
+  int32 offset = 3;
 }
 
 // Response for Top10 RPC, including time series data for each of the top 10 short positions.
 message GetTopShortsResponse {
   repeated stocks.v1alpha1.TimeSeriesData time_series = 1;
+  int32 offset = 2;
 }
 
 // Request for GetStockSummary RPC, specifying the product code.

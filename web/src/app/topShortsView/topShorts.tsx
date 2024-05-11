@@ -1,39 +1,13 @@
 "use client";
 
-import React, { type FC, useEffect, useState } from "react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-
+import React, { type FC, useEffect, useState, useCallback } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { type PlainMessage } from "@bufbuild/protobuf";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { Label } from "~/@/components/ui/label";
 import { getTopShortsData } from "../actions/getTopShorts";
 import { DataTable } from "./components/data-table";
 import { columns } from "./components/columns";
-/**
- * TopShortsChart
- * Responsible for rendering a stylish chart in d3 which shows the top x short positions for period y
- * the number of short positions to show (x) should be configurable
- * the period (y) should be configurable
- * @param data - the data to render, formatted as a PlainMessage<TimeSeriesData>[]
- *               where TimeSeriesData is the data for a single stock with the format:
- *              {
- *                 productCode: string,
- *                 points: TimeSeriesPoint[]
- *              }
- *            where TimeSeriesPoint is the data for a single point in time with the format:
- *             {
- *                timestamp: Timestamp,
- *               shortPosition: number
- *              }
- *
- * @returns a styled chart showing the top x short positions for period y
- */
 
 const getPeriodString = (period: string) => {
   switch (period) {
@@ -48,7 +22,7 @@ const getPeriodString = (period: string) => {
     case "2y":
       return "2 years";
     case "max":
-      return "maximum windoww";
+      return "maximum window";
     default:
       return "6 months";
   }
@@ -62,35 +36,40 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
   const [period, setPeriod] = useState<string>("3m");
   const [loading, setLoading] = useState<boolean>(false);
   const [limit, setLimit] = useState<number>(10);
+  const [offset, setOffset] = useState<number>(1); // Added offset state
+  const [shortsData, setShortsData] = useState<PlainMessage<TimeSeriesData>[] | null>(initialShortsData);
 
-  useEffect(() => {
-    console.log("fetching data, for period: ", period, "limit: ", limit);
-    // fetch data
-    const data = getTopShortsData(period, limit);
-    data
-      .then((data) => {
-        return setShortsData(data.timeSeries);
-      })
-      .catch((e) => {
-        console.error("Error fetching data: ", e);
-      });
-  }, [period, limit]);
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const newData = await getTopShortsData(period, limit, offset);
+      setShortsData((prev) => [...(prev ?? []), ...newData.timeSeries]);
+      setOffset((prevOffset) => prevOffset + limit); // Increment offset
+    } catch (e) {
+      console.error("Error fetching data: ", e);
+    } finally {
+      setLoading(false);
+    }
+  }, [period, limit, offset]);
 
-  const [shortsData, setShortsData] = useState<
-    PlainMessage<TimeSeriesData>[] | null
-  >(initialShortsData);
+  // useEffect(() => {
+  //   const loadData = async () => {
+  //     await fetchData(); // Trigger data fetch initially or when period/limit changes
+  //   };
+
+  //   loadData();
+
+  //   return () => {
+  //     // Cleanup function
+  //   };
+  // }, [period, limit]);
+
   return (
     <div className="p-5">
       <div className="flex flex-row-reverse m-2">
         <div className="p-2 w-48">
           <Label htmlFor="area">Time</Label>
-          <Select
-            onValueChange={(e) => {
-              setPeriod(e);
-              setLoading(true);
-            }}
-            defaultValue={"3m"}
-          >
+          <Select onValueChange={(e) => setPeriod(e)} defaultValue={"3m"}>
             <SelectTrigger id="area">
               <SelectValue placeholder="Select" />
             </SelectTrigger>
@@ -98,18 +77,15 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
               <SelectItem value="3m">3 months</SelectItem>
               <SelectItem value="6m">6 months</SelectItem>
               <SelectItem value="1y">1 year</SelectItem>
-              <SelectItem value="2y">2 year</SelectItem>
-              <SelectItem value="5y">5 year</SelectItem>
+              <SelectItem value="2y">2 years</SelectItem>
+              <SelectItem value="5y">5 years</SelectItem>
               <SelectItem value="max">max</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="p-2 w-48">
           <Label htmlFor="area">Limit</Label>
-          <Select
-            onValueChange={(e) => setLimit(Number(e))}
-            defaultValue={"10"}
-          >
+          <Select onValueChange={(e) => setLimit(Number(e))} defaultValue={"10"}>
             <SelectTrigger id="area">
               <SelectValue placeholder="Select" />
             </SelectTrigger>
@@ -125,12 +101,7 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
         </div>
       </div>
       {shortsData ? (
-        <DataTable
-          loading={loading}
-          data={shortsData}
-          columns={columns}
-          period={getPeriodString(period)}
-        />
+        <DataTable loading={loading} data={shortsData} columns={columns} period={getPeriodString(period)} fetchMore={fetchData} />
       ) : (
         <div>Loading...</div>
       )}
