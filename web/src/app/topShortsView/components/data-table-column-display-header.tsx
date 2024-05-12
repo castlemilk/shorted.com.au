@@ -11,5 +11,6 @@ export function DataTableColumnDisplayHeader<TData, TValue>({
   title,
   className,
 }: DataTableColumnHeaderProps<TData, TValue>) {
+  console.log(className)
   return <div className={cn(className)}>{title}</div>;
 }
