@@ -59,7 +59,21 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
     } finally {
       setLoading(false);
     }
-  }, [period, limit, offset]);
+  }, [limit, offset]);
+
+  useEffect(() => {
+    console.log("getting new data for period:", period);
+    setLoading(true);
+    getTopShortsData(period, offset, 0)
+      .then((data) => {
+        setShortsData(data.timeSeries);
+        setLoading(false);
+      })
+      .catch((e) => {
+        console.error("Error fetching data: ", e);
+        setLoading(false);
+      });
+  }, [period]);
 
   // useEffect(() => {
   //   const loadData = async () => {
