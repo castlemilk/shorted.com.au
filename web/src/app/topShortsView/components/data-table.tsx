@@ -126,7 +126,6 @@ export function DataTable<TData, TValue>({
   React.useEffect(() => {
     fetchMoreOnBottomReached(parentRef.current);
   }, [fetchMoreOnBottomReached]);
-  console.log(fetchedData);
   return (
     <div >
       <div
