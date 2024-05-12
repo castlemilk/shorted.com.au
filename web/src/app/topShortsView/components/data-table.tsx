@@ -53,7 +53,7 @@ export function DataTable<TData, TValue>({
   const router = useRouter();
   const totalRowsMax = 100;
 
-  const fetchedData = React.useMemo(() => data, [data]) ;
+  const fetchedData = React.useMemo(() => data, [data]);
   const table = useReactTable({
     data: fetchedData,
     columns,
@@ -64,13 +64,17 @@ export function DataTable<TData, TValue>({
       columnFilters,
     },
     enableRowSelection: true,
-    onRowSelectionChange: setRowSelection,
+    columnResizeMode: 'onChange',
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    defaultColumn: {
+      minSize: 100,
+      maxSize: 300,
+    }
   });
 
   const parentRef = React.useRef<HTMLDivElement>(null);
@@ -120,31 +124,52 @@ export function DataTable<TData, TValue>({
   );
 
   React.useEffect(() => {
-    fetchMoreOnBottomReached(parentRef.current)
-  }, [fetchMoreOnBottomReached])
-  console.log(fetchedData)
+    fetchMoreOnBottomReached(parentRef.current);
+  }, [fetchMoreOnBottomReached]);
+  console.log(fetchedData);
   return (
-    <div className="space-y-4">
-      <div>total results: {fetchedData.length}</div>
-      <div>total results: {rows.length}</div>
-      <div>virtualizer results: {rowVirtualizer.getVirtualItems().length}</div>
+    <div >
       <div
         ref={parentRef}
         onScroll={(e) => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
-        className="rounded-md border max-w-full overflow-auto h-[500px]"
+        style={{
+          position: "relative", //needed for sticky header
+          height: "700px", //should be a fixed height
+          width: "500px"
+        }}
+        className="rounded-md border overflow-y-auto"
       >
-        <Table>
-          <TableHeader>
+        <Table style={{ display: "grid" }}>
+          <TableHeader
+            style={{
+              display: "grid",
+              position: 'sticky',
+              top: 0,
+              zIndex: 1,
+            }}
+          >
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow
+                key={headerGroup.id}
+                style={{ display: "flex", width: '100%', }}
+              >
                 {headerGroup.headers.map((header) => {
                   return (
-                    <TableHead key={header.id} colSpan={header.colSpan}>
+                    <TableHead
+                      key={header.id}
+                      colSpan={header.colSpan}
+                      style={{
+                        display: "flex",
+                        width: header.getSize(),
+                      }}
+                    >
                       {header.isPlaceholder
                         ? null
                         : flexRender(
                             header.id == "sparkline"
-                              ? ({}) => <div>{`Last ${period}`}</div>
+                              ? ({}) => (
+                                  <div className="self-center">{`Last ${period}`}</div>
+                                )
                               : header.column.columnDef.header,
                             header.getContext(),
                           )}
@@ -171,12 +196,18 @@ export function DataTable<TData, TValue>({
                         `/shorts/${(row.original as { productCode: string }).productCode}`,
                       )
                     }
-                    className="absolute w-full cursor-pointer min-w-0"
-                    style={{ transform: `translateY(${virtualRow.start}px)` }}
+                    className="flex absolute cursor-pointer"
+                    style={{ transform: `translateY(${virtualRow.start}px)`, width: '100%'}}
                     data-state={row.getIsSelected() && "selected"}
                   >
                     {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id} className="min-w-0">
+                      <TableCell
+                        key={cell.id}
+                        style={{
+                          display: "flex",
+                          width: cell.column.getSize(),
+                        }}
+                      >
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext(),
