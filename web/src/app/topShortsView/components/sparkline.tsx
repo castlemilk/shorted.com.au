@@ -83,12 +83,13 @@ const Chart = ({ width, height, margin, data }: SparklineProps) => {
         fill={redColor}
       />
       <Tooltip
+        className="overflow-hidden"
         snapTooltipToDatumX
         snapTooltipToDatumY
         showVerticalCrosshair
         showSeriesGlyphs
         renderTooltip={({ tooltipData }) => (
-          <div>
+          <div className="overflow-hidden">
             <div>{`${formatDate(accessors.xAccessor(tooltipData?.nearestDatum?.datum as TimeSeriesPoint))}`}</div>
             <div>{`${accessors.yAccessor(tooltipData?.nearestDatum?.datum as TimeSeriesPoint).toFixed(2)}%`}</div>
           </div>
@@ -101,18 +102,12 @@ const Chart = ({ width, height, margin, data }: SparklineProps) => {
 const SparkLine = ({ data }: { data: PlainMessage<TimeSeriesData> }) => {
   return (
     <div className="min-w-[150px]">
-      <ParentSize debounceTime={10} className="min-w-[150px]">
-        {({ width }) => {
-          return (
-            <Chart
-              width={width}
-              height={150}
-              data={data}
-              margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
-            />
-          );
-        }}
-      </ParentSize>
+      <Chart
+        width={150}
+        height={150}
+        data={data}
+        margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
+      />
     </div>
   );
 };
