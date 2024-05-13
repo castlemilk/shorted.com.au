@@ -4,7 +4,7 @@ import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { TopShorts } from "./topShortsView/topShorts";
 
 const Page = async () => {
-  const data = await getTopShortsData("3m", 10);
+  const data = await getTopShortsData("3m", 10, 0);
   return (
     <>
       <GoogleAnalytics gaId="G-X85RLQ4N2N" />
