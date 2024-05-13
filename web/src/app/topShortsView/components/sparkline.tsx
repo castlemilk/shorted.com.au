@@ -2,7 +2,6 @@ import { type PlainMessage } from "@bufbuild/protobuf";
 import { timeFormat } from "@visx/vendor/d3-time-format";
 
 import { LineSeries, XYChart, Tooltip } from "@visx/xychart";
-import ParentSize from "@visx/responsive/lib/components/ParentSize";
 import { GlyphCircle } from "@visx/glyph";
 import {
   type TimeSeriesPoint,
