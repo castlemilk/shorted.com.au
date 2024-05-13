@@ -39,10 +39,11 @@ interface TopShortsProps {
   initialShortsData: PlainMessage<TimeSeriesData>[]; // Data for multiple series
 }
 
+const LOAD_CHUNK_SIZE = 10;
+
 export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
   const [period, setPeriod] = useState<string>("3m");
   const [loading, setLoading] = useState<boolean>(false);
-  const [limit, setLimit] = useState<number>(10);
   const [offset, setOffset] = useState<number>(1); // Added offset state
   const [shortsData, setShortsData] = useState<
     PlainMessage<TimeSeriesData>[] | null
@@ -51,18 +52,17 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const newData = await getTopShortsData(period, limit, offset);
+      const newData = await getTopShortsData(period, LOAD_CHUNK_SIZE, offset);
       setShortsData((prev) => [...(prev ?? []), ...newData.timeSeries]);
-      setOffset((prevOffset) => prevOffset + limit); // Increment offset
+      setOffset((prevOffset) => prevOffset + LOAD_CHUNK_SIZE); // Increment offset
     } catch (e) {
       console.error("Error fetching data: ", e);
     } finally {
       setLoading(false);
     }
-  }, [limit, offset]);
+  }, [offset]);
 
   useEffect(() => {
-    console.log("getting new data for period:", period);
     setLoading(true);
     getTopShortsData(period, offset, 0)
       .then((data) => {
@@ -74,18 +74,6 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
         setLoading(false);
       });
   }, [period]);
-
-  // useEffect(() => {
-  //   const loadData = async () => {
-  //     await fetchData(); // Trigger data fetch initially or when period/limit changes
-  //   };
-
-  //   loadData();
-
-  //   return () => {
-  //     // Cleanup function
-  //   };
-  // }, [period, limit]);
 
   return (
     <Card className="m-3 w-[500px]">

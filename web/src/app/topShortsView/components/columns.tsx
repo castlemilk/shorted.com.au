@@ -13,7 +13,6 @@ import {
 import Sparkline from "./sparkline";
 import { Button } from "~/@/components/ui/button";
 import { ArrowUpDown, Circle } from "lucide-react";
-import { useMemo } from "react";
 import { Badge } from "~/@/components/ui/badge";
 
 const redColor = `var(--red)`;
@@ -24,7 +23,11 @@ export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
     id: "name",
     accessorKey: "productCode",
     header: ({ column }) => (
-      <DataTableColumnDisplayHeader className="self-center" column={column} title="Name" />
+      <DataTableColumnDisplayHeader
+        className="self-center"
+        column={column}
+        title="Name"
+      />
     ),
     cell: ({ row }) => {
       return (
