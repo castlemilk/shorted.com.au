@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { type VirtualItem, useVirtualizer } from "@tanstack/react-virtual";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import {
   type ColumnDef,
   type ColumnFiltersState,
@@ -10,13 +10,9 @@ import {
   type VisibilityState,
   flexRender,
   getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
   getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
-  type Row,
 } from "@tanstack/react-table";
 
 import {
@@ -43,7 +39,6 @@ export function DataTable<TData, TValue>({
   fetchMore,
   loading,
 }: DataTableProps<TData, TValue>) {
-  const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -60,11 +55,10 @@ export function DataTable<TData, TValue>({
     state: {
       sorting,
       columnVisibility,
-      rowSelection,
       columnFilters,
     },
     enableRowSelection: true,
-    columnResizeMode: 'onChange',
+    columnResizeMode: "onChange",
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
@@ -74,7 +68,7 @@ export function DataTable<TData, TValue>({
     defaultColumn: {
       minSize: 100,
       maxSize: 300,
-    }
+    },
   });
 
   const parentRef = React.useRef<HTMLDivElement>(null);
@@ -90,21 +84,6 @@ export function DataTable<TData, TValue>({
         : undefined,
     overscan: 1, // Adjust the overscan value based on data fetching requirements.
   });
-  // console.log("total items: ", rowVirtualizer.getTotalSize());
-  // console.log("total items: ", rowVirtualizer.getVirtualItems());
-  // Check if we are near the end and trigger the data fetch.
-
-  // React.useEffect(() => {
-  //   const virtualItems: VirtualItem[] = rowVirtualizer.getVirtualItems();
-  //   if (virtualItems.length === 0) return;
-
-  //   // Get the last virtualized row.
-  //   const lastItem = virtualItems[virtualItems.length - 1];
-  //   if (!lastItem) return;
-  //   if (lastItem.index >= data.length - 1 && !loading) {
-  //     fetchMore(); // Trigger more data fetching.
-  //   }
-  // }, [rowVirtualizer.getVirtualItems(), data.length, loading]);
 
   const fetchMoreOnBottomReached = React.useCallback(
     (containerRefElement?: HTMLDivElement | null) => {
@@ -127,14 +106,14 @@ export function DataTable<TData, TValue>({
     fetchMoreOnBottomReached(parentRef.current);
   }, [fetchMoreOnBottomReached]);
   return (
-    <div >
+    <div>
       <div
         ref={parentRef}
         onScroll={(e) => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
         style={{
           position: "relative", //needed for sticky header
           height: "700px", //should be a fixed height
-          width: "500px"
+          width: "500px",
         }}
         className="rounded-md border overflow-y-auto"
       >
@@ -142,7 +121,7 @@ export function DataTable<TData, TValue>({
           <TableHeader
             style={{
               display: "grid",
-              position: 'sticky',
+              position: "sticky",
               top: 0,
               zIndex: 1,
             }}
@@ -150,7 +129,7 @@ export function DataTable<TData, TValue>({
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow
                 key={headerGroup.id}
-                style={{ display: "flex", width: '100%', }}
+                style={{ display: "flex", width: "100%" }}
               >
                 {headerGroup.headers.map((header) => {
                   return (
@@ -196,7 +175,10 @@ export function DataTable<TData, TValue>({
                       )
                     }
                     className="flex absolute cursor-pointer"
-                    style={{ transform: `translateY(${virtualRow.start}px)`, width: '100%'}}
+                    style={{
+                      transform: `translateY(${virtualRow.start}px)`,
+                      width: "100%",
+                    }}
                     data-state={row.getIsSelected() && "selected"}
                   >
                     {row.getVisibleCells().map((cell) => (
