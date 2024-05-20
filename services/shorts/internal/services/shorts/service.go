@@ -57,3 +57,13 @@ func (s *ShortsServer) GetStockDetails(ctx context.Context, req *connect.Request
 	}
 	return connect.NewResponse(stock), nil
 }
+
+func (s *ShortsServer) GetIndustryTreeMap(ctx context.Context, req *connect.Request[shortsv1alpha1.GetIndustryTreeMapRequest]) (*connect.Response[stocksv1alpha1.IndustryTreeMap], error) {
+	log.Infof("get heatmap data")
+	stock, err := s.store.GetIndustryTreeMap(req.Msg.Limit, req.Msg.Period)
+	if err != nil {
+		log.Errorf("error get heatmap data, limit: %d, period: %d, err: %+v", req.Msg.Limit, req.Msg.Period, err)
+		return &connect.Response[stocksv1alpha1.IndustryTreeMap]{}, connect.NewError(connect.Code(codes.NotFound), err)
+	}
+	return connect.NewResponse(stock), nil
+}

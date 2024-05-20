@@ -144,3 +144,8 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stockv1alpha1.StockD
 	}
 	return &stock, nil
 }
+
+// GetHeatmapData retrieves the top shorted stocks by industry.
+func (s *postgresStore) GetIndustryTreeMap(limit int32, period string) (*stockv1alpha1.IndustryTreeMap, error) {
+	return FetchTreeMapData(s.db, limit, period)
+}

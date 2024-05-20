@@ -104,4 +104,11 @@ test.getstockdata:
     --header "Content-Type: application/json" \
 	--data '{"productCode": "GLDN", "period": "1m"}' \
     $(BASE_URL)/shorts.v1alpha1.ShortedStocksService/GetStockData -v
-	
+
+
+test.gettreemap:
+	curl \
+    --header "Content-Type: application/json" \
+	--data '{"period": "3m", "limit": "10"}' \
+    $(BASE_URL)/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap -v
+		
