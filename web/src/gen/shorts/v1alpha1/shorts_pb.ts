@@ -8,6 +8,30 @@ import { Message, proto3 } from "@bufbuild/protobuf";
 import { TimeSeriesData } from "../../stocks/v1alpha1/stocks_pb";
 
 /**
+ * @generated from enum shorts.v1alpha1.ViewMode
+ */
+export enum ViewMode {
+  /**
+   * return the current/latest short positions
+   *
+   * @generated from enum value: CURRENT_CHANGE = 0;
+   */
+  CURRENT_CHANGE = 0,
+
+  /**
+   * return the percentage change in short positions
+   *
+   * @generated from enum value: PERCENTAGE_CHANGE = 1;
+   */
+  PERCENTAGE_CHANGE = 1,
+}
+// Retrieve enum metadata with: proto3.getEnumType(ViewMode)
+proto3.util.setEnumType(ViewMode, "shorts.v1alpha1.ViewMode", [
+  { no: 0, name: "CURRENT_CHANGE" },
+  { no: 1, name: "PERCENTAGE_CHANGE" },
+]);
+
+/**
  * Request for Top10 RPC, specifying the period of time.
  *
  * @generated from message shorts.v1alpha1.GetTopShortsRequest
@@ -78,6 +102,11 @@ export class GetIndustryTreeMapRequest extends Message<GetIndustryTreeMapRequest
    */
   limit = 0;
 
+  /**
+   * @generated from field: shorts.v1alpha1.ViewMode view_mode = 3;
+   */
+  viewMode = ViewMode.CURRENT_CHANGE;
+
   constructor(data?: PartialMessage<GetIndustryTreeMapRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -88,6 +117,7 @@ export class GetIndustryTreeMapRequest extends Message<GetIndustryTreeMapRequest
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "period", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "limit", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 3, name: "view_mode", kind: "enum", T: proto3.getEnumType(ViewMode) },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetIndustryTreeMapRequest {

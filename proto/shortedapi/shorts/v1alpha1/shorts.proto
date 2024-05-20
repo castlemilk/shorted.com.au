@@ -34,6 +34,15 @@ message GetIndustryTreeMapRequest {
   string period = 1;
   // number of stocks to return for each parent
   int32 limit = 2;
+  
+  ViewMode view_mode = 3;
+}
+
+enum ViewMode {
+   // return the current/latest short positions
+   CURRENT_CHANGE = 0;
+   // return the percentage change in short positions
+   PERCENTAGE_CHANGE = 1;
 }
 
 // Response for Top10 RPC, including time series data for each of the top 10 short positions.

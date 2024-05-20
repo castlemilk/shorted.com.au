@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -59,18 +60,89 @@ rget | Description
  gcsUrl            | text |           |          |         | extended |             |              |
 
 */
-
-
-
-func FetchTreeMapData(db *pgxpool.Pool, limit int32, period string) (*stocksv1alpha1.IndustryTreeMap, error) {
-	ctx := context.Background()
-	interval := periodToInterval(period)
-	// SQL query to join shorts and company-metadata tables
-	query := fmt.Sprintf(`
-	WITH max_short_positions AS (
+var (
+	percentageChangeQuery = `
+	WITH period_data AS (
 		SELECT 
 			"PRODUCT_CODE",
-			MAX("PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") AS max_short_position
+			"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS",
+			"DATE",
+			ROW_NUMBER() OVER (PARTITION BY "PRODUCT_CODE" ORDER BY "DATE" DESC) AS rnk_desc,
+			ROW_NUMBER() OVER (PARTITION BY "PRODUCT_CODE" ORDER BY "DATE" ASC) AS rnk_asc
+		FROM 
+			public.shorts
+		WHERE 
+			"DATE" >= NOW() - INTERVAL '%s'
+	),
+	latest_data AS (
+		-- Extract the most recent short position for each product
+		SELECT 
+			"PRODUCT_CODE",
+			"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" AS latest_short_position
+		FROM 
+			period_data
+		WHERE 
+			rnk_desc = 1
+	),
+	earliest_data AS (
+		-- Extract the oldest short position within the period for each product
+		SELECT 
+			"PRODUCT_CODE",
+			"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" AS earliest_short_position
+		FROM 
+			period_data
+		WHERE 
+			rnk_asc = 1
+	),
+	percentage_change AS (
+		-- Calculate the percentage change between the latest and earliest short positions
+		SELECT 
+			ld."PRODUCT_CODE",
+			ld.latest_short_position,
+			ed.earliest_short_position,
+			CASE
+				WHEN ed.earliest_short_position = 0 THEN NULL
+				ELSE ((ld.latest_short_position - ed.earliest_short_position) / ed.earliest_short_position) * 100
+			END AS percentage_change
+		FROM 
+			latest_data ld
+		JOIN 
+			earliest_data ed
+		ON 
+			ld."PRODUCT_CODE" = ed."PRODUCT_CODE"
+	),
+	ranked_stocks AS (
+		-- Rank the stocks by percentage change within each industry
+		SELECT 
+			cm.industry,
+			pc."PRODUCT_CODE",
+			pc.percentage_change,
+			ROW_NUMBER() OVER (PARTITION BY cm.industry ORDER BY pc.percentage_change DESC) AS rank
+		FROM 
+			percentage_change pc
+		JOIN 
+			public."company-metadata" cm
+		ON 
+			pc."PRODUCT_CODE" = cm.stock_code
+	)
+	-- Select the top N stocks by percentage change for each industry
+	SELECT 
+		industry,
+		"PRODUCT_CODE",
+		percentage_change
+	FROM 
+		ranked_stocks
+	WHERE 
+		rank <= $1
+	ORDER BY 
+		industry,
+		percentage_change DESC;
+	`
+
+	currentShortsQuery = `WITH latest_short_positions AS (
+		SELECT 
+			"PRODUCT_CODE",
+			MAX("DATE") AS max_date
 		FROM 
 			public.shorts
 		WHERE 
@@ -78,31 +150,55 @@ func FetchTreeMapData(db *pgxpool.Pool, limit int32, period string) (*stocksv1al
 		GROUP BY 
 			"PRODUCT_CODE"
 	),
+	current_short_positions AS (
+		SELECT 
+			lsp."PRODUCT_CODE",
+			s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" AS current_short_position
+		FROM 
+			latest_short_positions lsp
+		JOIN 
+			public.shorts s
+		ON 
+			lsp."PRODUCT_CODE" = s."PRODUCT_CODE" AND lsp.max_date = s."DATE"
+	),
 	ranked_stocks AS (
 		SELECT 
 			cm.industry,
-			msp."PRODUCT_CODE",
-			msp.max_short_position,
-			ROW_NUMBER() OVER (PARTITION BY cm.industry ORDER BY msp.max_short_position DESC) AS rank
+			csp."PRODUCT_CODE",
+			csp.current_short_position,
+			ROW_NUMBER() OVER (PARTITION BY cm.industry ORDER BY csp.current_short_position DESC) AS rank
 		FROM 
-			max_short_positions msp
+			current_short_positions csp
 		JOIN 
 			public."company-metadata" cm
 		ON 
-			msp."PRODUCT_CODE" = cm.stock_code
+			csp."PRODUCT_CODE" = cm.stock_code
 	)
 	SELECT 
 		industry,
 		"PRODUCT_CODE",
-		max_short_position
+		current_short_position
 	FROM 
 		ranked_stocks
 	WHERE 
 		rank <= $1
 	ORDER BY 
 		industry,
-		max_short_position DESC
-	`, interval)
+		current_short_position DESC;`
+)
+
+
+func FetchTreeMapData(db *pgxpool.Pool, limit int32, period string, viewMode string) (*stocksv1alpha1.IndustryTreeMap, error) {
+	ctx := context.Background()
+	var query string
+	interval := periodToInterval(period)
+	// SQL query to join shorts and company-metadata tables
+	switch viewMode {
+		case shortsv1alpha1.ViewMode_CURRENT_CHANGE.String():
+			query = fmt.Sprintf(currentShortsQuery, interval)
+		case shortsv1alpha1.ViewMode_PERCENTAGE_CHANGE.String():
+			query = fmt.Sprintf(percentageChangeQuery, interval)
+	}
 
 	rows, err := db.Query(ctx, query, limit)
 	if err != nil {
