@@ -59,6 +59,55 @@ export class GetTopShortsRequest extends Message<GetTopShortsRequest> {
 }
 
 /**
+ * Request for Top10 RPC, specifying the period of time.
+ *
+ * @generated from message shorts.v1alpha1.GetIndustryTreeMapRequest
+ */
+export class GetIndustryTreeMapRequest extends Message<GetIndustryTreeMapRequest> {
+  /**
+   * time over which to look at the max value
+   *
+   * @generated from field: string period = 1;
+   */
+  period = "";
+
+  /**
+   * number of stocks to return for each parent
+   *
+   * @generated from field: int32 limit = 2;
+   */
+  limit = 0;
+
+  constructor(data?: PartialMessage<GetIndustryTreeMapRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "shorts.v1alpha1.GetIndustryTreeMapRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "period", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "limit", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetIndustryTreeMapRequest {
+    return new GetIndustryTreeMapRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetIndustryTreeMapRequest {
+    return new GetIndustryTreeMapRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetIndustryTreeMapRequest {
+    return new GetIndustryTreeMapRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetIndustryTreeMapRequest | PlainMessage<GetIndustryTreeMapRequest> | undefined, b: GetIndustryTreeMapRequest | PlainMessage<GetIndustryTreeMapRequest> | undefined): boolean {
+    return proto3.util.equals(GetIndustryTreeMapRequest, a, b);
+  }
+}
+
+/**
  * Response for Top10 RPC, including time series data for each of the top 10 short positions.
  *
  * @generated from message shorts.v1alpha1.GetTopShortsResponse
