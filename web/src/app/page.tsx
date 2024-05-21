@@ -2,14 +2,19 @@ import React from "react";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { TopShorts } from "./topShortsView/topShorts";
+import { getIndustryTreeMap } from "./actions/getIndustryTreeMap";
+import { IndustryTreeMapView } from "./treemap/treeMap";
+import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
 
 const Page = async () => {
-  const data = await getTopShortsData("3m", 10);
+  const data = await getTopShortsData("3m", 10, 0);
+  const treeMapData = await getIndustryTreeMap("3m", 10, ViewMode.CURRENT_CHANGE)
   return (
     <>
       <GoogleAnalytics gaId="G-X85RLQ4N2N" />
-      <div>
+      <div className="flex">
         <TopShorts initialShortsData={data.timeSeries} />
+        <IndustryTreeMapView initialTreeMapData={treeMapData} />
       </div>
     </>
   );

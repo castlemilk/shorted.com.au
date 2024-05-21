@@ -58,3 +58,16 @@ message StockDetails {
   string website = 7;
   string gcs_url = 8;
 }
+
+
+message IndustryTreeMap {
+  // indstries that a stock will belond to
+  repeated string industries = 1;
+  repeated TreemapShortPosition stocks = 2;
+}
+
+message TreemapShortPosition {
+  string industry = 1;
+  string product_code = 2;
+  double short_position = 3;
+}

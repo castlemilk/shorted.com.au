@@ -8,6 +8,30 @@ import { Message, proto3 } from "@bufbuild/protobuf";
 import { TimeSeriesData } from "../../stocks/v1alpha1/stocks_pb";
 
 /**
+ * @generated from enum shorts.v1alpha1.ViewMode
+ */
+export enum ViewMode {
+  /**
+   * return the current/latest short positions
+   *
+   * @generated from enum value: CURRENT_CHANGE = 0;
+   */
+  CURRENT_CHANGE = 0,
+
+  /**
+   * return the percentage change in short positions
+   *
+   * @generated from enum value: PERCENTAGE_CHANGE = 1;
+   */
+  PERCENTAGE_CHANGE = 1,
+}
+// Retrieve enum metadata with: proto3.getEnumType(ViewMode)
+proto3.util.setEnumType(ViewMode, "shorts.v1alpha1.ViewMode", [
+  { no: 0, name: "CURRENT_CHANGE" },
+  { no: 1, name: "PERCENTAGE_CHANGE" },
+]);
+
+/**
  * Request for Top10 RPC, specifying the period of time.
  *
  * @generated from message shorts.v1alpha1.GetTopShortsRequest
@@ -23,6 +47,11 @@ export class GetTopShortsRequest extends Message<GetTopShortsRequest> {
    */
   limit = 0;
 
+  /**
+   * @generated from field: int32 offset = 3;
+   */
+  offset = 0;
+
   constructor(data?: PartialMessage<GetTopShortsRequest>) {
     super();
     proto3.util.initPartial(data, this);
@@ -33,6 +62,7 @@ export class GetTopShortsRequest extends Message<GetTopShortsRequest> {
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "period", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 2, name: "limit", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 3, name: "offset", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetTopShortsRequest {
@@ -53,6 +83,61 @@ export class GetTopShortsRequest extends Message<GetTopShortsRequest> {
 }
 
 /**
+ * Request for Top10 RPC, specifying the period of time.
+ *
+ * @generated from message shorts.v1alpha1.GetIndustryTreeMapRequest
+ */
+export class GetIndustryTreeMapRequest extends Message<GetIndustryTreeMapRequest> {
+  /**
+   * time over which to look at the max value
+   *
+   * @generated from field: string period = 1;
+   */
+  period = "";
+
+  /**
+   * number of stocks to return for each parent
+   *
+   * @generated from field: int32 limit = 2;
+   */
+  limit = 0;
+
+  /**
+   * @generated from field: shorts.v1alpha1.ViewMode view_mode = 3;
+   */
+  viewMode = ViewMode.CURRENT_CHANGE;
+
+  constructor(data?: PartialMessage<GetIndustryTreeMapRequest>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "shorts.v1alpha1.GetIndustryTreeMapRequest";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "period", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "limit", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
+    { no: 3, name: "view_mode", kind: "enum", T: proto3.getEnumType(ViewMode) },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetIndustryTreeMapRequest {
+    return new GetIndustryTreeMapRequest().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): GetIndustryTreeMapRequest {
+    return new GetIndustryTreeMapRequest().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): GetIndustryTreeMapRequest {
+    return new GetIndustryTreeMapRequest().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: GetIndustryTreeMapRequest | PlainMessage<GetIndustryTreeMapRequest> | undefined, b: GetIndustryTreeMapRequest | PlainMessage<GetIndustryTreeMapRequest> | undefined): boolean {
+    return proto3.util.equals(GetIndustryTreeMapRequest, a, b);
+  }
+}
+
+/**
  * Response for Top10 RPC, including time series data for each of the top 10 short positions.
  *
  * @generated from message shorts.v1alpha1.GetTopShortsResponse
@@ -63,6 +148,11 @@ export class GetTopShortsResponse extends Message<GetTopShortsResponse> {
    */
   timeSeries: TimeSeriesData[] = [];
 
+  /**
+   * @generated from field: int32 offset = 2;
+   */
+  offset = 0;
+
   constructor(data?: PartialMessage<GetTopShortsResponse>) {
     super();
     proto3.util.initPartial(data, this);
@@ -72,6 +162,7 @@ export class GetTopShortsResponse extends Message<GetTopShortsResponse> {
   static readonly typeName = "shorts.v1alpha1.GetTopShortsResponse";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "time_series", kind: "message", T: TimeSeriesData, repeated: true },
+    { no: 2, name: "offset", kind: "scalar", T: 5 /* ScalarType.INT32 */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): GetTopShortsResponse {
