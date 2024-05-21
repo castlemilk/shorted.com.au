@@ -23,6 +23,7 @@ import {
 } from "@visx/hierarchy/lib/types";
 import { useRouter } from "next/navigation";
 import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { Skeleton } from "@/components/ui/skeleton"
 
 // const getPeriodString = (period: string) => {
 //   switch (period) {
@@ -187,7 +188,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
         </div>
       </div>
       {loading ? (
-        <div>loading...</div>
+        <div><Skeleton className="h-[700px] w-full rounded-xl" /></div>
       ) : (
         <ParentSize>
           {({ width }) => (
