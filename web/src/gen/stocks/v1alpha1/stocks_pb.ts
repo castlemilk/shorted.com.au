@@ -297,3 +297,97 @@ export class StockDetails extends Message<StockDetails> {
   }
 }
 
+/**
+ * @generated from message stocks.v1alpha1.IndustryTreeMap
+ */
+export class IndustryTreeMap extends Message<IndustryTreeMap> {
+  /**
+   * indstries that a stock will belond to
+   *
+   * @generated from field: repeated string industries = 1;
+   */
+  industries: string[] = [];
+
+  /**
+   * @generated from field: repeated stocks.v1alpha1.TreemapShortPosition stocks = 2;
+   */
+  stocks: TreemapShortPosition[] = [];
+
+  constructor(data?: PartialMessage<IndustryTreeMap>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "stocks.v1alpha1.IndustryTreeMap";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "industries", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
+    { no: 2, name: "stocks", kind: "message", T: TreemapShortPosition, repeated: true },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): IndustryTreeMap {
+    return new IndustryTreeMap().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): IndustryTreeMap {
+    return new IndustryTreeMap().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): IndustryTreeMap {
+    return new IndustryTreeMap().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: IndustryTreeMap | PlainMessage<IndustryTreeMap> | undefined, b: IndustryTreeMap | PlainMessage<IndustryTreeMap> | undefined): boolean {
+    return proto3.util.equals(IndustryTreeMap, a, b);
+  }
+}
+
+/**
+ * @generated from message stocks.v1alpha1.TreemapShortPosition
+ */
+export class TreemapShortPosition extends Message<TreemapShortPosition> {
+  /**
+   * @generated from field: string industry = 1;
+   */
+  industry = "";
+
+  /**
+   * @generated from field: string product_code = 2;
+   */
+  productCode = "";
+
+  /**
+   * @generated from field: double short_position = 3;
+   */
+  shortPosition = 0;
+
+  constructor(data?: PartialMessage<TreemapShortPosition>) {
+    super();
+    proto3.util.initPartial(data, this);
+  }
+
+  static readonly runtime: typeof proto3 = proto3;
+  static readonly typeName = "stocks.v1alpha1.TreemapShortPosition";
+  static readonly fields: FieldList = proto3.util.newFieldList(() => [
+    { no: 1, name: "industry", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 2, name: "product_code", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 3, name: "short_position", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
+  ]);
+
+  static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): TreemapShortPosition {
+    return new TreemapShortPosition().fromBinary(bytes, options);
+  }
+
+  static fromJson(jsonValue: JsonValue, options?: Partial<JsonReadOptions>): TreemapShortPosition {
+    return new TreemapShortPosition().fromJson(jsonValue, options);
+  }
+
+  static fromJsonString(jsonString: string, options?: Partial<JsonReadOptions>): TreemapShortPosition {
+    return new TreemapShortPosition().fromJsonString(jsonString, options);
+  }
+
+  static equals(a: TreemapShortPosition | PlainMessage<TreemapShortPosition> | undefined, b: TreemapShortPosition | PlainMessage<TreemapShortPosition> | undefined): boolean {
+    return proto3.util.equals(TreemapShortPosition, a, b);
+  }
+}
+

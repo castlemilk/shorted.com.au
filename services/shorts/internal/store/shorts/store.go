@@ -6,9 +6,10 @@ import (
 
 type Store interface {
 	GetStock(string) (*stockv1alpha1.Stock, error)
-	GetTopShorts(string, int32) ([]*stockv1alpha1.TimeSeriesData, error)
+	GetTopShorts(string, int32, int32) ([]*stockv1alpha1.TimeSeriesData, int, error)
 	GetStockDetails(string) (*stockv1alpha1.StockDetails, error)
 	GetStockData(string, string) (*stockv1alpha1.TimeSeriesData, error)
+	GetIndustryTreeMap(int32, string, string) (*stockv1alpha1.IndustryTreeMap, error)
 }
 
 func NewStore(config Config) Store {

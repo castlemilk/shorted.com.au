@@ -3,9 +3,9 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetTopShortsRequest, GetTopShortsResponse } from "./shorts_pb";
+import { GetIndustryTreeMapRequest, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetTopShortsRequest, GetTopShortsResponse } from "./shorts_pb";
 import { MethodKind } from "@bufbuild/protobuf";
-import { Stock, StockDetails, TimeSeriesData } from "../../stocks/v1alpha1/stocks_pb";
+import { IndustryTreeMap, Stock, StockDetails, TimeSeriesData } from "../../stocks/v1alpha1/stocks_pb";
 
 /**
  * @generated from service shorts.v1alpha1.ShortedStocksService
@@ -22,6 +22,15 @@ export const ShortedStocksService = {
       name: "GetTopShorts",
       I: GetTopShortsRequest,
       O: GetTopShortsResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap
+     */
+    getIndustryTreeMap: {
+      name: "GetIndustryTreeMap",
+      I: GetIndustryTreeMapRequest,
+      O: IndustryTreeMap,
       kind: MethodKind.Unary,
     },
     /**

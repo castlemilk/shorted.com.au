@@ -17,15 +17,15 @@ import (
 var _ shortsv1alpha1connect.ShortedStocksServiceHandler = (*ShortsServer)(nil)
 
 func (s *ShortsServer) GetTopShorts(ctx context.Context, req *connect.Request[shortsv1alpha1.GetTopShortsRequest]) (*connect.Response[shortsv1alpha1.GetTopShortsResponse], error) {
-	log.Infof("get top shorts, period: %s, limit: %d", req.Msg.GetPeriod(), req.Msg.Limit)
-	result, err := s.store.GetTopShorts(req.Msg.GetPeriod(), req.Msg.GetLimit())
+	log.Infof("get top shorts, period: %s, limit: %d, offset: %d", req.Msg.GetPeriod(), req.Msg.Limit, req.Msg.Offset)
+	result, offset, err := s.store.GetTopShorts(req.Msg.GetPeriod(), req.Msg.GetLimit(), req.Msg.Offset)
 	for _, tsData := range result {
 		fmt.Printf("Product Code: %s, Number of Points: %d\n", tsData.ProductCode, len(tsData.Points))
 	}
 	if err != nil {
 		return &connect.Response[shortsv1alpha1.GetTopShortsResponse]{}, status.Errorf(codes.NotFound, "error getting top stocks, period: %s, err: %+v", req.Msg.Period, err)
 	}
-	return connect.NewResponse(&shortsv1alpha1.GetTopShortsResponse{TimeSeries: result}), nil
+	return connect.NewResponse(&shortsv1alpha1.GetTopShortsResponse{TimeSeries: result, Offset: int32(offset)}), nil
 }
 
 func (s *ShortsServer) GetStock(ctx context.Context, req *connect.Request[shortsv1alpha1.GetStockRequest]) (*connect.Response[stocksv1alpha1.Stock], error) {
@@ -54,6 +54,16 @@ func (s *ShortsServer) GetStockDetails(ctx context.Context, req *connect.Request
 	if err != nil {
 		log.Errorf("error get stock data, id: %s, err: %+v", req.Msg.ProductCode, err)
 		return &connect.Response[stocksv1alpha1.StockDetails]{}, connect.NewError(connect.Code(codes.NotFound), err)
+	}
+	return connect.NewResponse(stock), nil
+}
+
+func (s *ShortsServer) GetIndustryTreeMap(ctx context.Context, req *connect.Request[shortsv1alpha1.GetIndustryTreeMapRequest]) (*connect.Response[stocksv1alpha1.IndustryTreeMap], error) {
+	log.Infof("get industry tree map data, limit: %d, period: %d, viewMode: %s", req.Msg.Limit, req.Msg.Period, req.Msg.ViewMode.String())
+	stock, err := s.store.GetIndustryTreeMap(req.Msg.Limit, req.Msg.Period, req.Msg.ViewMode.String())
+	if err != nil {
+		log.Errorf("error get heatmap data, limit: %d, period: %d, err: %+v", req.Msg.Limit, req.Msg.Period, err)
+		return &connect.Response[stocksv1alpha1.IndustryTreeMap]{}, connect.NewError(connect.Code(codes.NotFound), err)
 	}
 	return connect.NewResponse(stock), nil
 }

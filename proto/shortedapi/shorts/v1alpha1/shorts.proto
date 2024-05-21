@@ -11,6 +11,8 @@ import "stocks/v1alpha1/stocks.proto";
 service ShortedStocksService {
   // Shows top 10 short positions on the ASX over different periods of time.
   rpc GetTopShorts (GetTopShortsRequest) returns (GetTopShortsResponse);
+
+  rpc GetIndustryTreeMap(GetIndustryTreeMapRequest) returns (stocks.v1alpha1.IndustryTreeMap);
   // Provides an overview of a specific stock based on PRODUCT_CODE.
   rpc GetStock (GetStockRequest) returns (stocks.v1alpha1.Stock);
   // Provides a more in-depth breakdown of a particular stock's metadata.
@@ -23,11 +25,30 @@ service ShortedStocksService {
 message GetTopShortsRequest {
   string period = 1;
   int32 limit = 2;
+  int32 offset = 3;
+}
+
+// Request for Top10 RPC, specifying the period of time.
+message GetIndustryTreeMapRequest {
+  // time over which to look at the max value
+  string period = 1;
+  // number of stocks to return for each parent
+  int32 limit = 2;
+  
+  ViewMode view_mode = 3;
+}
+
+enum ViewMode {
+   // return the current/latest short positions
+   CURRENT_CHANGE = 0;
+   // return the percentage change in short positions
+   PERCENTAGE_CHANGE = 1;
 }
 
 // Response for Top10 RPC, including time series data for each of the top 10 short positions.
 message GetTopShortsResponse {
   repeated stocks.v1alpha1.TimeSeriesData time_series = 1;
+  int32 offset = 2;
 }
 
 // Request for GetStockSummary RPC, specifying the product code.
