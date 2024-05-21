@@ -1,9 +1,15 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createPromiseClient } from "@connectrpc/connect";
-import { toPlainMessage } from "@bufbuild/protobuf";
+import { type PlainMessage, toPlainMessage } from "@bufbuild/protobuf";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_connect";
+import { type IndustryTreeMap } from "~/gen/stocks/v1alpha1/stocks_pb";
+import { type ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
 
-export const getTopShortsData = async (period: string, limit: number, offset: number) => {
+export const getIndustryTreeMap = async (
+  period: string,
+  limit: number,
+  viewMode: ViewMode,
+): Promise<PlainMessage<IndustryTreeMap>> => {
   const transport = createConnectTransport({
     // All transports accept a custom fetch implementation.
     fetch,
@@ -15,7 +21,7 @@ export const getTopShortsData = async (period: string, limit: number, offset: nu
   });
   const client = createPromiseClient(ShortedStocksService, transport);
 
-  const response = await client.getTopShorts({ period, limit, offset });
+  const response = await client.getIndustryTreeMap({ period, limit, viewMode });
 
   return toPlainMessage(response);
 };

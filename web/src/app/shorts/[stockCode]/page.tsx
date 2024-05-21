@@ -13,7 +13,7 @@ import { getStockData } from "~/app/actions/getStockData";
 import { Suspense } from "react";
 import { getStockDetails } from "~/app/actions/getStockDetails";
 import { Badge } from "~/@/components/ui/badge";
-import { LineChartIcon, PanelTopIcon } from "lucide-react";
+import { PanelTopIcon } from "lucide-react";
 import Link from "next/link";
 import { Separator } from "~/@/components/ui/separator";
 import { formatNumber } from "~/@/lib/utils";

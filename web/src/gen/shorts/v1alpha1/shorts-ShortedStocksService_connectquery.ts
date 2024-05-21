@@ -4,8 +4,8 @@
 // @ts-nocheck
 
 import { MethodKind } from "@bufbuild/protobuf";
-import { GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetTopShortsRequest, GetTopShortsResponse } from "./shorts_pb";
-import { Stock, StockDetails, TimeSeriesData } from "../../stocks/v1alpha1/stocks_pb";
+import { GetIndustryTreeMapRequest, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetTopShortsRequest, GetTopShortsResponse } from "./shorts_pb";
+import { IndustryTreeMap, Stock, StockDetails, TimeSeriesData } from "../../stocks/v1alpha1/stocks_pb";
 
 /**
  * Shows top 10 short positions on the ASX over different periods of time.
@@ -18,6 +18,20 @@ export const getTopShorts = {
   kind: MethodKind.Unary,
   I: GetTopShortsRequest,
   O: GetTopShortsResponse,
+  service: {
+    typeName: "shorts.v1alpha1.ShortedStocksService"
+  }
+} as const;
+
+/**
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap
+ */
+export const getIndustryTreeMap = {
+  localName: "getIndustryTreeMap",
+  name: "GetIndustryTreeMap",
+  kind: MethodKind.Unary,
+  I: GetIndustryTreeMapRequest,
+  O: IndustryTreeMap,
   service: {
     typeName: "shorts.v1alpha1.ShortedStocksService"
   }
