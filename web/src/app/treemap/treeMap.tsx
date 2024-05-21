@@ -188,7 +188,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
         </div>
       </div>
       {loading ? (
-        <div><Skeleton className="h-[700px] w-full rounded-xl" /></div>
+        <div className="p-2"><Skeleton className="h-[700px] w-full rounded-xl" /></div>
       ) : (
         <ParentSize>
           {({ width }) => (
