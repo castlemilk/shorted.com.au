@@ -257,7 +257,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                                     fontSize={10}
                                     textAnchor="middle"
                                     pointerEvents="none"
-                                    fill="#fff"
+                                    fill="hsl(var(--foreground))"
                                   >
                                     {node.data.id}
                                   </text>
@@ -287,7 +287,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                                 fontSize={12}
                                 textAnchor="start"
                                 pointerEvents="none"
-                                fill="#000"
+                                fill="hsl(var(--foreground))"
                               >
                                 {`${node.data.id?.substring(0, nodeWidth / 10)}${(node.data.id?.length ?? 0) > nodeWidth / 10 ? "..." : ""}`}
                               </text>
