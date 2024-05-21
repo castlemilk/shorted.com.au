@@ -68,7 +68,7 @@ basic dashboarding platform for viewing short positions on ASX
   - https://cloud.google.com/run/docs/authenticating/service-to-service
   - https://cloud.google.com/run/docs/authenticating/service-to-service#use_a_downloaded_service_account_key_from_outside
 
-[ ] fix top navbar on wide screen to float max right/left
+[x] fix top navbar on wide screen to float max right/left
 
 [ ] update period title value dynamically based off selected value
 
