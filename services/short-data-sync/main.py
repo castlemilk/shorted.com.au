@@ -319,11 +319,17 @@ def write_short_data_to_postgres(df, table_name, connection_string):
     Write the short selling data to a PostgreSQL database.
     """
     from sqlalchemy import create_engine
+    def chunker(seq, size):
+        return (seq[pos:pos + size] for pos in range(0, len(seq), size))
 
     engine = create_engine(connection_string)
-    df.to_sql(table_name, engine, if_exists="replace", index=False)
-
-
+    chunksize = int(len(df) / 30)
+    with tqdm(total=len(df)) as pbar:
+        for i, df in enumerate(chunker(df, chunksize)):
+            replace = "replace" if i == 0 else "append"
+            df.to_sql(table_name, engine, if_exists=replace, index=False) 
+            pbar.update(chunksize)
+            tqdm._instances.clear()
 app = FastAPI()
 # Initialize an HTTP client
 client = httpx.Client()
