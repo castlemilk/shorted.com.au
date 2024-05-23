@@ -326,8 +326,7 @@ def write_short_data_to_postgres(df, table_name, connection_string):
     chunksize = int(len(df) / 30)
     with tqdm(total=len(df)) as pbar:
         for i, df in enumerate(chunker(df, chunksize)):
-            replace = "replace" if i == 0 else "append"
-            df.to_sql(table_name, engine, if_exists=replace, index=False) 
+            df.to_sql(table_name, engine, if_exists="append", index=False) 
             pbar.update(chunksize)
             tqdm._instances.clear()
 app = FastAPI()
@@ -395,7 +394,7 @@ if __name__ == "__main__":
 
     # Process the data into a DataFrame
     processed_data = process_short_data_into_dataframe()
-    if len(processed_data) > 0:
+    if processed_data and len(processed_data) > 0:
         # Write the DataFrame to PostgreSQL
         write_short_data_to_postgres(
             processed_data,
