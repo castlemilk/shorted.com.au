@@ -4,8 +4,9 @@ import { type PlainMessage, toPlainMessage } from "@bufbuild/protobuf";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_connect";
 import { type IndustryTreeMap } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { type ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { cache } from "react";
 
-export const getIndustryTreeMap = async (
+export const getIndustryTreeMap = cache(async (
   period: string,
   limit: number,
   viewMode: ViewMode,
@@ -24,4 +25,4 @@ export const getIndustryTreeMap = async (
   const response = await client.getIndustryTreeMap({ period, limit, viewMode });
 
   return toPlainMessage(response);
-};
+});
