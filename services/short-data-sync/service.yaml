@@ -6,7 +6,7 @@ spec:
   template:
     spec:
       containers:
-      - image: australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/short-data-sync:v0.2.2-22-gbc8ea229-dirty
+      - image: australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/short-data-sync:v0.2.2-45-g8373e2ed-dirty
         env:
         - name: DATABASE_URL
           valueFrom:

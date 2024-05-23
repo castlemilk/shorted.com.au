@@ -95,6 +95,7 @@ export function DataTable<TData, TValue>({
           !loading &&
           data.length < totalRowsMax
         ) {
+          console.log("fetchMoreOnBottomReached", scrollHeight, scrollTop, clientHeight, "loading", loading, "data.length", data.length, "totalRowsMax", totalRowsMax);
           fetchMore();
         }
       }
@@ -102,9 +103,9 @@ export function DataTable<TData, TValue>({
     [loading, fetchMore],
   );
 
-  React.useEffect(() => {
-    fetchMoreOnBottomReached(parentRef.current);
-  }, [fetchMoreOnBottomReached]);
+  // React.useEffect(() => {
+  //   fetchMoreOnBottomReached(parentRef.current);
+  // }, [fetchMoreOnBottomReached]);
   return (
     <div>
       <div
@@ -114,8 +115,10 @@ export function DataTable<TData, TValue>({
           position: "relative", //needed for sticky header
           height: "700px", //should be a fixed height
           width: "500px",
+          overflowY: "auto",
+          borderWidth: "1px",
+          borderStyle: "solid",
         }}
-        className="rounded-md border overflow-y-auto"
       >
         <Table style={{ display: "grid" }}>
           <TableHeader

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { type FC, useEffect, useState } from "react";
+import React, { type FC, useEffect, useState, Suspense, useRef } from "react";
 import {
   Select,
   SelectContent,
@@ -23,7 +23,7 @@ import {
 } from "@visx/hierarchy/lib/types";
 import { useRouter } from "next/navigation";
 import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { Skeleton } from "@/components/ui/skeleton"
+import { Skeleton } from "@/components/ui/skeleton";
 
 // const getPeriodString = (period: string) => {
 //   switch (period) {
@@ -59,6 +59,7 @@ const PADDING = 5;
 export const IndustryTreeMapView: FC<TreeMapProps> = ({
   initialTreeMapData,
 }) => {
+  const firstUpdate = useRef(true);
   const router = useRouter();
   const [period, setPeriod] = useState<string>("3m");
   const [loading, setLoading] = useState<boolean>(false);
@@ -74,6 +75,10 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
   }>({ visible: false, x: 0, y: 0, content: "" });
 
   useEffect(() => {
+    if (firstUpdate.current) {
+      firstUpdate.current = false;
+      return;
+    }
     setLoading(true);
     getIndustryTreeMap(period, 10, viewMode)
       .then((data) => {
@@ -177,7 +182,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ViewMode.CURRENT_CHANGE.toString()}>
-                  Current Change
+                  Latest
                 </SelectItem>
                 <SelectItem value={ViewMode.PERCENTAGE_CHANGE.toString()}>
                   Percentage Change
@@ -187,9 +192,13 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
           </div>
         </div>
       </div>
-      {loading ? (
-        <div className="p-2"><Skeleton className="h-[700px] w-full rounded-xl" /></div>
-      ) : (
+      <Suspense
+        fallback={
+          <div className="p-2">
+            <Skeleton className="h-[700px] w-full rounded-xl" />
+          </div>
+        }
+      >
         <ParentSize>
           {({ width }) => (
             <div style={{ position: "relative" }}>
@@ -320,7 +329,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
             </div>
           )}
         </ParentSize>
-      )}
+      </Suspense>
     </Card>
   );
 };
