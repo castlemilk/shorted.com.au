@@ -27,7 +27,7 @@ export async function generateMetadata({
     describe: "shorted",
   };
 }
-
+export const revalidate = 60; // revalidate the data at most every minute
 const Page = async ({ params }: { params: { stockCode: string } }) => {
   const stock = await getStock(params.stockCode);
   const stockDetails = await getStockDetails(params.stockCode);

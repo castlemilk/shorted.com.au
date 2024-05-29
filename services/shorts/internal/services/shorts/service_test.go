@@ -1,4 +1,4 @@
-package shorts 
+package shorts
 
 import (
 	"github.com/stretchr/testify/mock"

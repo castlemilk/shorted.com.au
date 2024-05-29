@@ -6,7 +6,7 @@ import (
 
 	connectcors "connectrpc.com/cors"
 	"github.com/rs/cors"
-    
+
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
@@ -16,13 +16,13 @@ import (
 
 // withCORS adds CORS support to a Connect HTTP handler.
 func withCORS(h http.Handler) http.Handler {
-    middleware := cors.New(cors.Options{
-        AllowedOrigins: []string{"http://localhost:3000", "http://localhost:3001", "https://*.vercel.app", "https://*.shorted.com.au", "https://shorted.com.au"},
-        AllowedMethods: connectcors.AllowedMethods(),
-        AllowedHeaders: connectcors.AllowedHeaders(),
-        ExposedHeaders: connectcors.ExposedHeaders(),
-    })
-    return middleware.Handler(h)
+	middleware := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000", "http://localhost:3001", "https://*.vercel.app", "https://*.shorted.com.au", "https://shorted.com.au"},
+		AllowedMethods:   connectcors.AllowedMethods(),
+		AllowedHeaders:   append([]string{"Authorization"}, connectcors.AllowedHeaders()...),
+		ExposedHeaders:   connectcors.ExposedHeaders(),
+	})
+	return middleware.Handler(h)
 }
 
 func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address string) error {
@@ -31,6 +31,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	path, handler := shortsv1alpha1connect.NewShortedStocksServiceHandler(s)
 
 	handler = withCORS(handler)
+	handler = AuthMiddleware(handler)
 	mux.Handle(path, handler)
 	return http.ListenAndServe(
 		address,
