@@ -7,7 +7,6 @@ import React, {
   useCallback,
   Suspense,
   useRef,
-  useLayoutEffect,
 } from "react";
 import {
   Select,
@@ -46,11 +45,12 @@ const getPeriodString = (period: string) => {
 
 interface TopShortsProps {
   initialShortsData: PlainMessage<TimeSeriesData>[]; // Data for multiple series
+  token?: string;
 }
 
 const LOAD_CHUNK_SIZE = 10;
 
-export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
+export const TopShorts: FC<TopShortsProps> = ({ initialShortsData, token }) => {
   const [period, setPeriod] = useState<string>("3m");
   const [loading, setLoading] = useState<boolean>(false);
   const [offset, setOffset] = useState<number>(0); // Added offset state
@@ -64,6 +64,7 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
         period,
         LOAD_CHUNK_SIZE,
         LOAD_CHUNK_SIZE + offset,
+        token
       );
       setShortsData((prev) => [...(prev ?? []), ...newData.timeSeries]);
       setOffset((prevOffset) => prevOffset + LOAD_CHUNK_SIZE); // Increment offset
@@ -80,7 +81,7 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
       return;
     }
     setLoading(true);
-    getTopShortsData(period, Math.max(LOAD_CHUNK_SIZE, offset), 0)
+    getTopShortsData(period, Math.max(LOAD_CHUNK_SIZE, offset), 0, token)
       .then((data) => {
         setShortsData(data.timeSeries);
         setLoading(false);
@@ -137,7 +138,7 @@ const loadingPlaceholder = (
       <div className="h-[700px]">
         {Array.from({ length: 10 }).map((_, i) => (
           <div className="m-3">
-            <Skeleton className="h-[186px] w-full rounded-xl"></Skeleton>
+            <Skeleton key={i} className="h-[186px] w-full rounded-xl"></Skeleton>
           </div>
         ))}
       </div>

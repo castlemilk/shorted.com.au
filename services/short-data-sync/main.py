@@ -394,7 +394,12 @@ if __name__ == "__main__":
 
     # Process the data into a DataFrame
     processed_data = process_short_data_into_dataframe()
-    if processed_data and len(processed_data) > 0:
+
+    if processed_data == None:
+        print("No new files to process.")
+        exit(0)
+    
+    if not processed_data.empty:
         # Write the DataFrame to PostgreSQL
         write_short_data_to_postgres(
             processed_data,

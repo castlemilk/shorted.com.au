@@ -9,9 +9,9 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/awslabs/aws-lambda-go-api-proxy/handlerfunc"
 	managementpb "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
+	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	"github.com/castlemilk/shorted.com.au/services/shorts/cmd/server/config"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts"
-	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 )
 
 var (
