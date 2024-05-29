@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "google-auth-library": "^9.10.0",
-    "googleapis": "^137.1.0"
-  }
-}
