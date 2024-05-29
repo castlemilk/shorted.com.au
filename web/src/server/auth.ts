@@ -83,7 +83,6 @@ export const authOptions: NextAuthOptions = {
         const auth = getAuth(firestore);
         const user = await signInAnonymously(auth);
         const token = await user.user.getIdToken();
-        console.log("generated access token: ", token);
         return {
           id: "annonymous",
           name: "annonymous",

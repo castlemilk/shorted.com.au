@@ -49,7 +49,6 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		token, err := firebaseClient.VerifyIDToken(ctx, idToken)
 		if err == nil {
 			// Token is a valid Firebase ID token
-			log.Infof("Firebase ID token verified: %v\n", token)
 			ctx := context.WithValue(r.Context(), "user", token.Claims)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
