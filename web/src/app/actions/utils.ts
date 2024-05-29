@@ -5,6 +5,11 @@ async function getServerAccessToken() {
     }
     const { GoogleAuth } = await import('google-auth-library');
     const auth = new GoogleAuth({
+        projectId: process.env.GOOGLE_PROJECT_ID,
+        credentials: {
+            client_email: process.env.GOOGLE_CLIENT_EMAIL,
+            private_key: process.env.GOOGLE_PRIVATE_KEY,
+        },
     });
   
     const client = await auth.getIdTokenClient('shorted-service');
