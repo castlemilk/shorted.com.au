@@ -3,6 +3,8 @@ async function getServerAccessToken() {
     if (typeof window !== 'undefined') {
       throw new Error('getServerAccessToken should only be called on the server');
     }
+
+    const publicKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/gm, '\n')
     const { GoogleAuth } = await import('google-auth-library');
     const auth = new GoogleAuth({
         projectId: process.env.GOOGLE_PROJECT_ID,
@@ -11,6 +13,8 @@ async function getServerAccessToken() {
             private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/gm, '\n'),
         },
     });
+
+    console.log(publicKey)
   
     const client = await auth.getIdTokenClient('shorted-service');
     const tokenResponse = await client.idTokenProvider.fetchIdToken('shorted-service');
