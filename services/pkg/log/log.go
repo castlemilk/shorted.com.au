@@ -59,7 +59,7 @@ func Errorf(template string, args ...interface{}) {
 }
 
 func Debugf(template string, args ...interface{}) {
-	zap.S().Errorf(template, args...)
+	zap.S().Debugf(template, args...)
 }
 
 func Fatal(msg interface{}) {
