@@ -14,8 +14,6 @@ async function getServerAccessToken() {
         },
     });
 
-    console.log(publicKey)
-  
     const client = await auth.getIdTokenClient('shorted-service');
     const tokenResponse = await client.idTokenProvider.fetchIdToken('shorted-service');
     if (!tokenResponse) {
