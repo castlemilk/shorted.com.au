@@ -55,11 +55,12 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		log.Infof("Token is not a Firebase token: %v\n", err)
-
+		audience := "shorted-dev-aba5688f"
 		// If not a Firebase token, validate as a Google service account token
-		payload, err := idtoken.Validate(ctx, idToken, "shorted-dev-aba5688f")
+		payload, err := idtoken.Validate(ctx, idToken, audience)
 		if err != nil {
-			log.Errorf("Error verifying ID token: %v\n", err)
+			log.Errorf("Error verifying ID token: %v\n, audience: %s", err, audience)
+			log.Errorf("Token: %s\n", idToken)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
