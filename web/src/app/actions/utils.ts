@@ -3,19 +3,18 @@ async function getServerAccessToken() {
     if (typeof window !== 'undefined') {
       throw new Error('getServerAccessToken should only be called on the server');
     }
-
-    const publicKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/gm, '\n')
+    const projectId = process.env.GOOGLE_PROJECT_ID ?? 'shorted-dev-aba5688f'
     const { GoogleAuth } = await import('google-auth-library');
     const auth = new GoogleAuth({
-        projectId: process.env.GOOGLE_PROJECT_ID,
+        projectId: projectId,
         credentials: {
             client_email: process.env.GOOGLE_CLIENT_EMAIL,
             private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/gm, '\n'),
         },
     });
 
-    const client = await auth.getIdTokenClient('shorted-service');
-    const tokenResponse = await client.idTokenProvider.fetchIdToken('shorted-service');
+    const client = await auth.getIdTokenClient(projectId);
+    const tokenResponse = await client.idTokenProvider.fetchIdToken(projectId);
     if (!tokenResponse) {
       throw new Error('Failed to obtain ID token');
     }
