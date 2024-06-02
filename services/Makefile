@@ -1,5 +1,5 @@
 BASE_URL := http://localhost:8080
-GOOGLE_APPLICATION_CREDENTIALS := shorted-dev-aba5688f-05053ea36fe7.json
+GOOGLE_APPLICATION_CREDENTIALS := shorted-dev-aba5688f-4a322ff163b9.json
 SHORTS_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/shorts
 SHORTS_VERSION := `git describe --tags --always --dirty`
 SHORTS_SYNC_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/short-data-sync
