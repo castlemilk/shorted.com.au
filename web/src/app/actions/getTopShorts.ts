@@ -11,7 +11,6 @@ export const getTopShortsData = async (
   token?: string,
 ) => {
   const authHeader = await getAuthorizationHeader(new Headers(), token);
-  console.log(authHeader, token);
   const transport = createConnectTransport({
     // All transports accept a custom fetch implementation.
     // fetch,
