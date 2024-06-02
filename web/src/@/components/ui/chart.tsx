@@ -13,13 +13,14 @@ const INITIAL_PERIOD = "6m";
 export type ChartProps = {
   stockCode: string;
   initialData: PlainMessage<TimeSeriesData>;
+  token?: string;
 };
-const Chart = ({ stockCode, initialData }: ChartProps) => {
+const Chart = ({ stockCode, initialData, token }: ChartProps) => {
   const [period, setPeriod] = useState<string>(INITIAL_PERIOD);
   const chartRef = useRef<HandleBrushClearAndReset>(null);
   const [data, setData] = useState<PlainMessage<TimeSeriesData>>(initialData);
   useEffect(() => {
-    getStockData(stockCode, period)
+    getStockData(stockCode, period, token)
       .then((data) => {
         setData(data);
       })
