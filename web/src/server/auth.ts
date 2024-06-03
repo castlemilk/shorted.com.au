@@ -109,6 +109,6 @@ export const getServerAuthSession = () => getServerSession(authOptions);
 export const getIdToken = async (): Promise<string> => {
   const auth = getAuth(firestore);
   const user = await signInAnonymously(auth);
-  const token = await user.user.getIdToken()
+  const token = await user.user.getIdToken();
   return token;
 }
