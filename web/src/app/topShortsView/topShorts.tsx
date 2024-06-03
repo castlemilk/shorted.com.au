@@ -45,12 +45,11 @@ const getPeriodString = (period: string) => {
 
 interface TopShortsProps {
   initialShortsData: PlainMessage<TimeSeriesData>[]; // Data for multiple series
-  token?: string;
 }
 
 const LOAD_CHUNK_SIZE = 10;
 
-export const TopShorts: FC<TopShortsProps> = ({ initialShortsData, token }) => {
+export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
   const [period, setPeriod] = useState<string>("3m");
   const [loading, setLoading] = useState<boolean>(false);
   const [offset, setOffset] = useState<number>(0); // Added offset state
@@ -63,8 +62,7 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData, token }) => {
       const newData = await getTopShortsData(
         period,
         LOAD_CHUNK_SIZE,
-        LOAD_CHUNK_SIZE + offset,
-        token
+        LOAD_CHUNK_SIZE + offset
       );
       setShortsData((prev) => [...(prev ?? []), ...newData.timeSeries]);
       setOffset((prevOffset) => prevOffset + LOAD_CHUNK_SIZE); // Increment offset
@@ -81,7 +79,7 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData, token }) => {
       return;
     }
     setLoading(true);
-    getTopShortsData(period, Math.max(LOAD_CHUNK_SIZE, offset), 0, token)
+    getTopShortsData(period, Math.max(LOAD_CHUNK_SIZE, offset), 0)
       .then((data) => {
         setShortsData(data.timeSeries);
         setLoading(false);

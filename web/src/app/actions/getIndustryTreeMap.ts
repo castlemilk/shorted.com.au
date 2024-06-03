@@ -5,25 +5,23 @@ import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_connect";
 import { type IndustryTreeMap } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { type ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { cache } from "react";
-import { getAuthorizationHeader } from "./utils";
 
 export const getIndustryTreeMap = cache(
   async (
     period: string,
     limit: number,
     viewMode: ViewMode,
-    token?: string,
   ): Promise<PlainMessage<IndustryTreeMap>> => {
-    const authHeader = await getAuthorizationHeader(new Headers(), token);
     const transport = createConnectTransport({
       // All transports accept a custom fetch implementation.
-      fetch: (input, init: RequestInit | undefined) => {
-        if (init?.headers) {
-          const headers = init.headers as Headers;
-          headers.set('Authorization', authHeader.get('Authorization') ?? '');
-        }
-        return fetch(input, init);
-      },
+      fetch,
+    //   fetch: (input, init: RequestInit | undefined) => {
+    //     if (init?.headers) {
+    //       const headers = init.headers as Headers;
+    //       headers.set('Authorization', authHeader.get('Authorization') ?? '');
+    //     }
+    //     return fetch(input, init);
+    //   },
       // With Svelte's custom fetch function, we could alternatively
       // use a relative base URL here.
       baseUrl:

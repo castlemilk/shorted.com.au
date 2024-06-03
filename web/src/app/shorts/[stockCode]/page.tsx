@@ -30,10 +30,10 @@ export async function generateMetadata({
 }
 export const revalidate = 60; // revalidate the data at most every minute
 const Page = async ({ params }: { params: { stockCode: string} }) => {
-  const token = await getIdToken()
-  const stock = await getStock(params.stockCode, token);
-  const stockDetails = await getStockDetails(params.stockCode, token);
-  const stockData = await getStockData(params.stockCode, "6m", token);
+  // const token = await getIdToken()
+  const stock = await getStock(params.stockCode);
+  const stockDetails = await getStockDetails(params.stockCode);
+  const stockData = await getStockData(params.stockCode, "6m");
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <main className="grid auto-rows-min flex-1 items-start gap-4 mt-5 p-4 sm:px-6 sm:py-0 md:gap-8 lg:grid-cols-3 xl:grid-cols-3">
@@ -145,7 +145,7 @@ const Page = async ({ params }: { params: { stockCode: string} }) => {
         <div className="grid auto-rows-max items-start gap-4 lg:col-span-2">
           <div>
             <Suspense fallback={<div>Loading...</div>}>
-              <Chart stockCode={params.stockCode} initialData={stockData} token={token}/>
+              <Chart stockCode={params.stockCode} initialData={stockData}/>
             </Suspense>
           </div>
         </div>
