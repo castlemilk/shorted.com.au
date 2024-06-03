@@ -1,5 +1,5 @@
 BASE_URL := http://localhost:8080
-GOOGLE_APPLICATION_CREDENTIALS := shorted-dev-aba5688f-c627abe05e3d.json
+GOOGLE_APPLICATION_CREDENTIALS := shorted-dev-aba5688f-4a322ff163b9.json
 SHORTS_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/shorts
 SHORTS_VERSION := `git describe --tags --always --dirty`
 SHORTS_SYNC_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/short-data-sync
@@ -14,7 +14,7 @@ gcloud.init:
     --async
 
 run.shorts:
-	go run shorts/cmd/server/main.go
+	GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS} go run shorts/cmd/server/main.go 
 build.short-data-sync:
 	cd short-data-sync; docker buildx build --push --progress=plain --platform linux/amd64,linux/arm64 -f Dockerfile -t ${SHORTS_SYNC_IMAGE}:latest -t ${SHORTS_SYNC_IMAGE}:${SHORTS_VERSION} .
 build.shorts:

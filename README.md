@@ -67,6 +67,7 @@ basic dashboarding platform for viewing short positions on ASX
   - https://developers.google.com/identity/protocols/oauth2/service-account#jwt-auth
   - https://cloud.google.com/run/docs/authenticating/service-to-service
   - https://cloud.google.com/run/docs/authenticating/service-to-service#use_a_downloaded_service_account_key_from_outside
+  - https://github.com/nextauthjs/next-auth/issues/6649
 
 [x] fix top navbar on wide screen to float max right/left
 

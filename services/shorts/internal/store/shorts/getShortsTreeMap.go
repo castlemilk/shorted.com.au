@@ -9,56 +9,63 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-/**
+/*
+*
 FetchTreeMapData retrieves heatmap data for the top N products (limit) with the highest short positions for the period specified.
 These short positions will be grouped by industry sector and the percentage of total product in issue reported as short positions and have the following structure
 according to thhe proto definition:
-message IndustryTreeMap {
-  // indstries that a stock will belond to
-  repeated string industries = 1;
-  repeated TreemapShortPosition stocks = 2;
-}
 
-message TreemapShortPosition {
-  string industry = 1;
-  string product_code = 2;
-  double short_position = 3;
-}
+	message IndustryTreeMap {
+	  // indstries that a stock will belond to
+	  repeated string industries = 1;
+	  repeated TreemapShortPosition stocks = 2;
+	}
+
+	message TreemapShortPosition {
+	  string industry = 1;
+	  string product_code = 2;
+	  double short_position = 3;
+	}
 
 This has to be done using a join between the short position data and the company metadata tables to get the industry sector for each product code.
 The short position data is stored in the 'shorts' table with the following schema:
 Table "public.shorts"
-                            Column                             |            Type             | Collation | Nullable | Default | Storage  | Compression | Stats target | Description
+
+	Column                             |            Type             | Collation | Nullable | Default | Storage  | Compression | Stats target | Description
+
 ---------------------------------------------------------------+-----------------------------+-----------+----------+---------+----------+-------------+--------------+-------------
- DATE                                                          | timestamp without time zone |           |          |         | plain    |             |              |
- PRODUCT                                                       | text                        |           |          |         | extended |             |              |
- PRODUCT_CODE                                                  | text                        |           |          |         | extended |             |              |
- REPORTED_SHORT_POSITIONS                                      | double precision            |           |          |         | plain    |             |              |
- TOTAL_PRODUCT_IN_ISSUE                                        | double precision            |           |          |         | plain    |             |              |
- PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS | double precision            |           |          |         | plain    |             |              |
+
+	DATE                                                          | timestamp without time zone |           |          |         | plain    |             |              |
+	PRODUCT                                                       | text                        |           |          |         | extended |             |              |
+	PRODUCT_CODE                                                  | text                        |           |          |         | extended |             |              |
+	REPORTED_SHORT_POSITIONS                                      | double precision            |           |          |         | plain    |             |              |
+	TOTAL_PRODUCT_IN_ISSUE                                        | double precision            |           |          |         | plain    |             |              |
+	PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS | double precision            |           |          |         | plain    |             |              |
 
 The company metadata is stored in the 'companies' table with the following schema:
 
 Table "public.company-metadata"
-      Column       | Type | Collation | Nullable | Default | Storage  | Compression | Stats ta
+
+	Column       | Type | Collation | Nullable | Default | Storage  | Compression | Stats ta
+
 rget | Description
 -------------------+------+-----------+----------+---------+----------+-------------+---------
 -----+-------------
- Company name      | text |           |          |         | extended |             |              |
- industry          | text |           |          |         | extended |             |              |
- listing_date      | text |           |          |         | extended |             |              |
- market_cap        | text |           |          |         | extended |             |              |
- company_name      | text |           |          |         | extended |             |              |
- address           | text |           |          |         | extended |             |              |
- summary           | text |           |          |         | extended |             |              |
- details           | text |           |          |         | extended |             |              |
- website           | text |           |          |         | extended |             |              |
- stock_code        | text |           |          |         | extended |             |              |
- links             | text |           |          |         | extended |             |              |
- images            | text |           |          |         | extended |             |              |
- company_logo_link | text |           |          |         | extended |             |              |
- gcsUrl            | text |           |          |         | extended |             |              |
 
+	Company name      | text |           |          |         | extended |             |              |
+	industry          | text |           |          |         | extended |             |              |
+	listing_date      | text |           |          |         | extended |             |              |
+	market_cap        | text |           |          |         | extended |             |              |
+	company_name      | text |           |          |         | extended |             |              |
+	address           | text |           |          |         | extended |             |              |
+	summary           | text |           |          |         | extended |             |              |
+	details           | text |           |          |         | extended |             |              |
+	website           | text |           |          |         | extended |             |              |
+	stock_code        | text |           |          |         | extended |             |              |
+	links             | text |           |          |         | extended |             |              |
+	images            | text |           |          |         | extended |             |              |
+	company_logo_link | text |           |          |         | extended |             |              |
+	gcsUrl            | text |           |          |         | extended |             |              |
 */
 var (
 	percentageChangeQuery = `
@@ -187,17 +194,16 @@ var (
 		current_short_position DESC;`
 )
 
-
 func FetchTreeMapData(db *pgxpool.Pool, limit int32, period string, viewMode string) (*stocksv1alpha1.IndustryTreeMap, error) {
 	ctx := context.Background()
 	var query string
 	interval := periodToInterval(period)
 	// SQL query to join shorts and company-metadata tables
 	switch viewMode {
-		case shortsv1alpha1.ViewMode_CURRENT_CHANGE.String():
-			query = fmt.Sprintf(currentShortsQuery, interval)
-		case shortsv1alpha1.ViewMode_PERCENTAGE_CHANGE.String():
-			query = fmt.Sprintf(percentageChangeQuery, interval)
+	case shortsv1alpha1.ViewMode_CURRENT_CHANGE.String():
+		query = fmt.Sprintf(currentShortsQuery, interval)
+	case shortsv1alpha1.ViewMode_PERCENTAGE_CHANGE.String():
+		query = fmt.Sprintf(percentageChangeQuery, interval)
 	}
 
 	rows, err := db.Query(ctx, query, limit)
