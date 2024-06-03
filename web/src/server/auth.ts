@@ -3,14 +3,13 @@ import {
   type DefaultSession,
   type NextAuthOptions,
 } from "next-auth";
-import GoogleProvider from "next-auth/providers/google";
-import { FirestoreAdapter } from "@next-auth/firebase-adapter";
-
+import CredentialsProvider from "next-auth/providers/credentials";
 import { initializeApp } from "firebase/app";
 import "firebase/firestore";
 
 import { env } from "~/env";
 import { getFirestore } from "firebase/firestore";
+import { getAuth, signInAnonymously } from "firebase/auth";
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -35,17 +34,17 @@ getFirestore(firestore);
  */
 declare module "next-auth" {
   interface Session extends DefaultSession {
-    user: {
-      id: string;
-      // ...other properties
-      // role: UserRole;
-    } & DefaultSession["user"];
+    accessToken?: string;
+    user: User & DefaultSession["user"];
   }
 
-  // interface User {
-  //   // ...other properties
-  //   // role: UserRole;
-  // }
+  interface User {
+    id: string;
+    name: string;
+    email: string;
+    image: string;
+    accessToken?: string;
+  }
 }
 
 /**
@@ -55,23 +54,46 @@ declare module "next-auth" {
  */
 export const authOptions: NextAuthOptions = {
   callbacks: {
-    session: ({ session, token }) => {
-      console.log("callback: ", session, token);
-      return {
-        ...session,
-        user: {
-          ...session.user,
-        },
-      };
+    async jwt({ token, user}) {
+      if (user) {
+        token.accessToken = user.accessToken;
+      }
+      return token;
     },
+    session: ({ session }) => {
+      return session
+      // return {
+      //   ...session,
+      //   user: {
+      //     ...session.user,
+      //     accessToken: token.accessToken,
+      //   },
+      // };
+    },
+
+  },
+  session: {
+    strategy: "jwt",
   },
   providers: [
-    GoogleProvider({
-      clientId: process.env.GOOGLE_ID?.toString() ?? "",
-      clientSecret: process.env.GOOGLE_SECRET?.toString() ?? "",
-    }),
+    CredentialsProvider({
+      name: "annonymous",
+      credentials: {},
+      async authorize() {
+        const auth = getAuth(firestore);
+        const user = await signInAnonymously(auth);
+        const token = await user.user.getIdToken();
+        return {
+          id: "annonymous",
+          name: "annonymous",
+          email: "annonymous",
+          image: "", // Add the missing 'image' property
+          accessToken: token,
+        };
+      },
+    })
   ],
-  adapter: FirestoreAdapter(firestore),
+  // adapter: FirestoreAdapter(firestore),
   debug: env.NODE_ENV === "development",
 };
 
@@ -81,3 +103,12 @@ export const authOptions: NextAuthOptions = {
  * @see https://next-auth.js.org/configuration/nextjs
  */
 export const getServerAuthSession = () => getServerSession(authOptions);
+
+
+
+export const getIdToken = async (): Promise<string> => {
+  const auth = getAuth(firestore);
+  const user = await signInAnonymously(auth);
+  const token = await user.user.getIdToken();
+  return token;
+}

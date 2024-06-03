@@ -7,7 +7,6 @@ import React, {
   useCallback,
   Suspense,
   useRef,
-  useLayoutEffect,
 } from "react";
 import {
   Select,
@@ -63,7 +62,7 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
       const newData = await getTopShortsData(
         period,
         LOAD_CHUNK_SIZE,
-        LOAD_CHUNK_SIZE + offset,
+        LOAD_CHUNK_SIZE + offset
       );
       setShortsData((prev) => [...(prev ?? []), ...newData.timeSeries]);
       setOffset((prevOffset) => prevOffset + LOAD_CHUNK_SIZE); // Increment offset
@@ -137,7 +136,7 @@ const loadingPlaceholder = (
       <div className="h-[700px]">
         {Array.from({ length: 10 }).map((_, i) => (
           <div className="m-3">
-            <Skeleton className="h-[186px] w-full rounded-xl"></Skeleton>
+            <Skeleton key={i} className="h-[186px] w-full rounded-xl"></Skeleton>
           </div>
         ))}
       </div>
