@@ -31,7 +31,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	path, handler := shortsv1alpha1connect.NewShortedStocksServiceHandler(s)
 
 	handler = withCORS(handler)
-	handler = AuthMiddleware(handler)
+	// handler = AuthMiddleware(handler)
 	mux.Handle(path, handler)
 	return http.ListenAndServe(
 		address,

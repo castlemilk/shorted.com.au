@@ -4,22 +4,20 @@ import { type PlainMessage, toPlainMessage } from "@bufbuild/protobuf";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_connect";
 import { type StockDetails } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { cache } from "react";
-import { getAuthorizationHeader } from "./utils";
 
 export const getStockDetails = cache(async (
   productCode: string,
-  token?: string,
 ): Promise<PlainMessage<StockDetails> | undefined> => {
-  const authHeader = await getAuthorizationHeader(new Headers(), token);
   const transport = createConnectTransport({
     // All transports accept a custom fetch implementation.
-    fetch: (input, init: RequestInit | undefined) => {
-      if (init?.headers) {
-        const headers = init.headers as Headers;
-        headers.set("Authorization", authHeader.get("Authorization") ?? "");
-      }
-      return fetch(input, init);
-    },
+    fetch,
+    // fetch: (input, init: RequestInit | undefined) => {
+    //   if (init?.headers) {
+    //     const headers = init.headers as Headers;
+    //     headers.set("Authorization", authHeader.get("Authorization") ?? "");
+    //   }
+    //   return fetch(input, init);
+    // },
     baseUrl:
       process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
       "http://localhost:8080",

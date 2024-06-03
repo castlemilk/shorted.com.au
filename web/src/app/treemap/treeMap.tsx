@@ -27,7 +27,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 interface TreeMapProps {
   initialTreeMapData: PlainMessage<IndustryTreeMap>;
-  token?: string;
 }
 
 interface TreeMapDatum {
@@ -40,7 +39,6 @@ const PADDING = 5;
 
 export const IndustryTreeMapView: FC<TreeMapProps> = ({
   initialTreeMapData,
-  token,
 }) => {
   const firstUpdate = useRef(true);
   const router = useRouter();
@@ -61,7 +59,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
       firstUpdate.current = false;
       return;
     }
-    getIndustryTreeMap(period, 10, viewMode, token)
+    getIndustryTreeMap(period, 10, viewMode)
       .then((data) => {
         setTreeMapData(data);
       })
