@@ -1,3 +1,4 @@
+import { getIdToken } from '~/server/auth';
 
 async function getServerAccessToken() {
     if (typeof window !== 'undefined') {
@@ -31,7 +32,27 @@ async function getServerAccessToken() {
     }
 
     if (authToken) {
+        // Check if the token is expired
+        const isTokenExpired = await checkIfTokenExpired(authToken);
+        
+        if (isTokenExpired) {
+            // Token is expired, get a new token
+            authToken = await getIdToken();
+        }
         headers.set("Authorization", `Bearer ${authToken}`);
     }
     return headers;
+};
+
+// Helper function to check if the token is expired
+const checkIfTokenExpired = async (token: string): Promise<boolean> => {
+    try {
+        const { exp } = JSON.parse(atob(token.split('.')[1]));
+        // Token expiration time is in seconds, convert to milliseconds
+        const now = Date.now() / 1000;
+        return exp < now;
+    } catch (error) {
+        // If there's an error decoding the token, assume it's expired
+        return true;
+    }
 };
