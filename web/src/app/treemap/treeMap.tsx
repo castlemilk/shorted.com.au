@@ -25,25 +25,6 @@ import { useRouter } from "next/navigation";
 import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { Skeleton } from "@/components/ui/skeleton";
 
-// const getPeriodString = (period: string) => {
-//   switch (period) {
-//     case "1m":
-//       return "1 month";
-//     case "3m":
-//       return "3 months";
-//     case "6m":
-//       return "6 months";
-//     case "1y":
-//       return "1 year";
-//     case "2y":
-//       return "2 years";
-//     case "max":
-//       return "maximum window";
-//     default:
-//       return "6 months";
-//   }
-// };
-
 interface TreeMapProps {
   initialTreeMapData: PlainMessage<IndustryTreeMap>;
 }
@@ -62,7 +43,6 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
   const firstUpdate = useRef(true);
   const router = useRouter();
   const [period, setPeriod] = useState<string>("3m");
-  const [loading, setLoading] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.CURRENT_CHANGE);
   const [treeMapData, setTreeMapData] =
     useState<PlainMessage<IndustryTreeMap> | null>(initialTreeMapData);
@@ -79,15 +59,12 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
       firstUpdate.current = false;
       return;
     }
-    setLoading(true);
     getIndustryTreeMap(period, 10, viewMode)
       .then((data) => {
         setTreeMapData(data);
-        setLoading(false);
       })
       .catch((e) => {
         console.error("Error fetching data: ", e);
-        setLoading(false);
       });
   }, [period, viewMode]);
 

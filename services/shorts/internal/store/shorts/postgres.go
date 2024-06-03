@@ -31,16 +31,16 @@ func newPostgresStore(config Config) Store {
 
 // GetStock retrieves a single stock by its ID.
 func (s *postgresStore) GetStock(productCode string) (*stockv1alpha1.Stock, error) {
-	rows, _ := s.db.Query(context.Background(), 
-	`
+	rows, _ := s.db.Query(context.Background(),
+		`
 SELECT "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentageShorted,
 	"PRODUCT_CODE" as productCode,
 	"PRODUCT" as name, 
 	"TOTAL_PRODUCT_IN_ISSUE" as totalProductInIssue, 
 	"REPORTED_SHORT_POSITIONS" as reportedShortPositions
 FROM shorts WHERE "PRODUCT_CODE" = $1 
-ORDER BY "DATE" DESC LIMIT 1`, 
-	   productCode)
+ORDER BY "DATE" DESC LIMIT 1`,
+		productCode)
 	stock, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[stockv1alpha1.Stock]) // Update as per actual table schema
 	if err != nil {
 		return nil, err
@@ -66,42 +66,42 @@ func (s *postgresStore) GetStockData(productCode, period string) (*stockv1alpha1
 		AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
 		AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
 		ORDER BY "DATE" ASC`, periodToInterval(period))
-	
-		rows, err := s.db.Query(context.Background(), query, productCode)
-		if err != nil {
+
+	rows, err := s.db.Query(context.Background(), query, productCode)
+	if err != nil {
+		return nil, err
+	}
+
+	var points []*stocksv1alpha1.TimeSeriesPoint
+	for rows.Next() {
+		var date pgtype.Timestamp
+		var percent pgtype.Float8
+		if err := rows.Scan(&date, &percent); err != nil {
 			return nil, err
 		}
-	
-		var points []*stocksv1alpha1.TimeSeriesPoint
-		for rows.Next() {
-			var date pgtype.Timestamp
-			var percent pgtype.Float8
-			if err := rows.Scan(&date, &percent); err != nil {
-				return nil, err
-			}
-			// Skip if the date or percent is null
-			if date.Status != pgtype.Present || percent.Status != pgtype.Present {
-				continue
-			}
-			point := &stocksv1alpha1.TimeSeriesPoint{
-				Timestamp:     timestamppb.New(date.Time),
-				ShortPosition: percent.Float,
-			}
-			points = append(points, point)
+		// Skip if the date or percent is null
+		if date.Status != pgtype.Present || percent.Status != pgtype.Present {
+			continue
 		}
-		if rows.Err() != nil {
-			return nil, rows.Err()
+		point := &stocksv1alpha1.TimeSeriesPoint{
+			Timestamp:     timestamppb.New(date.Time),
+			ShortPosition: percent.Float,
 		}
-		rows.Close()
-	
-		// Only add this product's time series data if it has at least 10 data points
-		if len(points) >= 10 {
-			return &stocksv1alpha1.TimeSeriesData{
-				ProductCode: productCode,
-				Points:      points,
-				LatestShortPosition: points[len(points)-1].ShortPosition,
-			}, nil
-		}
+		points = append(points, point)
+	}
+	if rows.Err() != nil {
+		return nil, rows.Err()
+	}
+	rows.Close()
+
+	// Only add this product's time series data if it has at least 10 data points
+	if len(points) >= 10 {
+		return &stocksv1alpha1.TimeSeriesData{
+			ProductCode:         productCode,
+			Points:              points,
+			LatestShortPosition: points[len(points)-1].ShortPosition,
+		}, nil
+	}
 	return nil, nil
 }
 
@@ -109,18 +109,18 @@ func (s *postgresStore) GetStockData(productCode, period string) (*stockv1alpha1
 // fetch the stock metadata following the schema:
 /**
 Table "public.metadata"
-      Column       | Type | Collation | Nullable | Default 
+      Column       | Type | Collation | Nullable | Default
 -------------------+------+-----------+----------+---------
- company_name      | text |           |          | 
- address           | text |           |          | 
- summary           | text |           |          | 
- details           | text |           |          | 
- website           | text |           |          | 
- stock_code        | text |           |          | 
- links             | text |           |          | 
- images            | text |           |          | 
- company_logo_link | text |           |          | 
- gcsUrl            | text |           |          | 
+ company_name      | text |           |          |
+ address           | text |           |          |
+ summary           | text |           |          |
+ details           | text |           |          |
+ website           | text |           |          |
+ stock_code        | text |           |          |
+ links             | text |           |          |
+ images            | text |           |          |
+ company_logo_link | text |           |          |
+ gcsUrl            | text |           |          |
 */
 func (s *postgresStore) GetStockDetails(stockCode string) (*stockv1alpha1.StockDetails, error) {
 	query := `select 
@@ -137,7 +137,7 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stockv1alpha1.StockD
 		LIMIT 1`
 
 	rows, _ := s.db.Query(context.Background(), query, stockCode)
-	
+
 	stock, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[stockv1alpha1.StockDetails]) // Update as per actual table schema
 	if err != nil {
 		return nil, err

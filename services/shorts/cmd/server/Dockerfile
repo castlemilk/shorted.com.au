@@ -27,7 +27,7 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o shorts-server ./
 
 # Step 2: Use a minimal runtime environment
 FROM scratch
-
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 # Copy the Pre-built binary file from the previous stage. 
 COPY --from=builder /app/shorts-server ./shorts-server
 # Command to run the executable
