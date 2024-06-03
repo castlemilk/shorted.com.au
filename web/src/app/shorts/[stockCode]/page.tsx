@@ -17,7 +17,6 @@ import { PanelTopIcon } from "lucide-react";
 import Link from "next/link";
 import { Separator } from "~/@/components/ui/separator";
 import { formatNumber } from "~/@/lib/utils";
-import { getIdToken } from "~/server/auth";
 export async function generateMetadata({
   params,
 }: {
