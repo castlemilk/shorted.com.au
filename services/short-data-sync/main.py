@@ -119,32 +119,6 @@ def upload_file_to_gcs(bucket, url, file_name, progress_bar) -> bool:
         progress_bar.update(1)
         return False
 
-
-def download_records_gcs(short_selling_data):
-    """Download the short selling data from the ASIC website."""
-    print("Downloading files to GCS...")
-    storage_client = storage.Client()
-    bucket = storage_client.bucket(BUCKET_NAME)
-    index = load_index_file(bucket)
-    print(f"Index file loaded with {len(index)} records.")
-    print(index.head())
-    records_to_download = [
-        record
-        for record in short_selling_data
-        if generate_download_url(record).split("/")[-1] not in index["filename"].values
-    ]
-    progress_bar = tqdm(total=len(records_to_download))
-    downloaded_files = []
-    for record in records_to_download:
-        url = generate_download_url(record)
-        file_name = url.split("/")[-1]
-        downloaded = upload_file_to_gcs(bucket, url, file_name, progress_bar)
-        if downloaded:
-            downloaded_files.append(file_name)
-    update_index_file(bucket, downloaded_files)
-    progress_bar.close()
-
-
 def read_csv_from_disk(file_path, expected_schema: dict):
     """
     Read an individual short data report for a given day in CSV format and normalises to the defined schema.
@@ -205,20 +179,22 @@ def download_records_gcs(short_selling_data):
     bucket = storage_client.bucket(BUCKET_NAME)
     index = load_index_file(bucket)
     print(f"Index file loaded with {len(index)} records.")
-    print(index.head())
+    print(index.tail())
     records_to_download = [
         record
         for record in short_selling_data
-        if generate_download_url(record).split("/")[-1] not in index["filename"].values
+        # if generate_download_url(record).split("/")[-1] not in index["filename"].values
     ]
     progress_bar = tqdm(total=len(records_to_download))
     downloaded_files = []
     for record in records_to_download:
         url = generate_download_url(record)
         file_name = url.split("/")[-1]
-        downloaded = upload_file_to_gcs(bucket, url, file_name, progress_bar)
-        if downloaded:
-            downloaded_files.append(file_name)
+        file_path = os.path.join(SHORTS_DATA_DIRECTORY, file_name)
+        download_file(url, file_path, progress_bar=progress_bar)
+        # downloaded = upload_file_to_gcs(bucket, url, file_name, progress_bar)
+        # if downloaded:
+        #     downloaded_files.append(file_name)
     update_index_file(bucket, downloaded_files)
     progress_bar.close()
 
@@ -395,20 +371,18 @@ if __name__ == "__main__":
     # Process the data into a DataFrame
     processed_data = process_short_data_into_dataframe()
 
-    if processed_data == None:
-        print("No new files to process.")
-        exit(0)
-    
-    if not processed_data.empty:
-        # Write the DataFrame to PostgreSQL
-        write_short_data_to_postgres(
-            processed_data,
-            TABLE_NAME,
-            os.environ.get("DATABASE_URL"),
-        )
-        print(f"Workflow completed successfully. added ${len(processed_data)} records.")
-        exit(0)
-    else:
-        print("No new files to process.")
-        exit(0)
-    
+    # if processed_data is None:
+    #     print("No new files to process.")
+    #     exit(0)
+    # if not processed_data.empty:
+    #     # Write the DataFrame to PostgreSQL
+    #     write_short_data_to_postgres(
+    #         processed_data,
+    #         TABLE_NAME,
+    #         os.environ.get("DATABASE_URL"),
+    #     )
+    #     print(f"Workflow completed successfully. added ${len(processed_data)} records.")
+    #     exit(0)
+    # else:
+    #     print("No new files to process.")
+    #     exit(0)
