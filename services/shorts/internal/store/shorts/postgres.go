@@ -6,6 +6,7 @@ import (
 
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	stockv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -54,23 +55,43 @@ func (s *postgresStore) GetTopShorts(period string, limit int32, offset int32) (
 	return FetchTimeSeriesData(s.db, int(limit), int(offset), period)
 }
 
-// The remaining functions need to be updated similarly.
-// GetStockDetails and GetStockData examples are omitted but follow the pattern above.
+// GetStockData retrieves the time series data for a single stock, downsampling it for performance.
 func (s *postgresStore) GetStockData(productCode, period string) (*stockv1alpha1.TimeSeriesData, error) {
-	// You'll need to adjust FetchTimeSeriesData to use pgx as well.
+	// Define the interval for downsampling (e.g., 'day', 'week', 'month')
+	var interval string
+	switch period {
+	case "1d":
+		interval = "hour"
+	case "1w":
+		interval = "day"
+	case "1m":
+		interval = "hour"
+	case "3m":
+		interval = "day"
+	case "6m":
+		interval = "week"
+	case "1y":
+		interval = "month"
+	default:
+		interval = "day"
+	}
+
 	query := fmt.Sprintf(`
-		SELECT "DATE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
+		SELECT date_trunc('%s', "DATE") as interval_start, 
+		       AVG("PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") as avg_percent
 		FROM shorts
 		WHERE "PRODUCT_CODE" = $1
-		AND "DATE" > CURRENT_DATE - INTERVAL '%s'
-		AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
-		AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
-		ORDER BY "DATE" ASC`, periodToInterval(period))
-
+		  AND "DATE" > CURRENT_DATE - INTERVAL '%s'
+		  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
+		  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+		GROUP BY interval_start
+		ORDER BY interval_start ASC`, interval, periodToInterval(period))
+	log.Infof("Generated Query: %s", query)
 	rows, err := s.db.Query(context.Background(), query, productCode)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	var points []*stocksv1alpha1.TimeSeriesPoint
 	for rows.Next() {
@@ -92,7 +113,6 @@ func (s *postgresStore) GetStockData(productCode, period string) (*stockv1alpha1
 	if rows.Err() != nil {
 		return nil, rows.Err()
 	}
-	rows.Close()
 
 	// Only add this product's time series data if it has at least 10 data points
 	if len(points) >= 10 {
@@ -104,6 +124,9 @@ func (s *postgresStore) GetStockData(productCode, period string) (*stockv1alpha1
 	}
 	return nil, nil
 }
+
+
+
 
 // GetStockDetails implements Store.
 // fetch the stock metadata following the schema:

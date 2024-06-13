@@ -3,10 +3,9 @@ import Image from "next/image";
 import { getStockDetails } from "~/app/actions/getStockDetails";
 import { Card, CardHeader, CardTitle, CardDescription } from "./card";
 import { Badge } from "./badge";
-import { Suspense } from "react";
 import { Skeleton } from "./skeleton";
 
-const placeHolder = (
+export const CompanyProfilePlaceholder = () => (
     <Card className="sm:col-span-4">
         <CardHeader className="pb-3">
         <div className="flex">
@@ -35,7 +34,6 @@ const placeHolder = (
 const CompanyProfile = async ({ stockCode}: { stockCode: string}) => {
     const stockDetails = await getStockDetails(stockCode);
     return (
-        <Suspense fallback={placeHolder}>
         <Card className="sm:col-span-4">
               <CardHeader className="pb-3">
                 <div className="flex">
@@ -66,7 +64,6 @@ const CompanyProfile = async ({ stockCode}: { stockCode: string}) => {
                 </CardDescription>
               </CardHeader>
             </Card>
-            </Suspense>
     )
 }
 
