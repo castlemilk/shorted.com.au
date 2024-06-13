@@ -8,7 +8,7 @@ spec:
       template:
         spec:
           containers:
-          - image: australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/short-data-sync:v0.2.2-48-geecb6ed5-dirty
+          - image: australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/short-data-sync:v0.2.2-68-gcda605d6
             command: python
             args:
               - main.py
