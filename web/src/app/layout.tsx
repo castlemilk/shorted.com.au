@@ -22,8 +22,10 @@ export const metadata = {
     "Australian Short Positions",
     "Share Market Short Positions",
     "shorted",
+    "shorts",
+    "bearish stocks on the ASX",
   ],
-  description: "Check whos caught with their pants down",
+  description: "Discover the most shorted stocks on the ASX.",
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 

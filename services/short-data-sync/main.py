@@ -65,7 +65,6 @@ def download_file(url, file_path, progress_bar):
     """Download a file from a given URL to a specified path."""
     if not os.path.exists(file_path):
         with client.stream("GET", url) as response:
-            print("streaming: ", url)
             response.raise_for_status()
             with open(file_path, "wb") as f:
                 for chunk in response.iter_bytes(chunk_size=8192):
@@ -103,12 +102,12 @@ def upload_file_to_gcs(bucket, url, file_name, progress_bar) -> bool:
     """Download a file from a given URL to GCS if it does not already exist."""
 
     index_df = load_index_file(bucket)
-    # if not gcs_file_exists(bucket, blob_name):
-    if file_name not in index_df.index:
+    if file_name not in index_df.index and not gcs_file_exists(bucket, f"{GCS_FOLDER}/{file_name}"):
         blob = bucket.blob(f"{GCS_FOLDER}/{file_name}")
         with client.stream("GET", url) as response:
             response.raise_for_status()
             blob.upload_from_string(response.read())
+            print(f"Uploaded {file_name} to GCS.")
             with open(os.path.join(SHORTS_DATA_DIRECTORY, file_name), "wb") as f:
                 for chunk in response.iter_bytes(chunk_size=8192):
                     f.write(chunk)
@@ -118,32 +117,6 @@ def upload_file_to_gcs(bucket, url, file_name, progress_bar) -> bool:
     else:
         progress_bar.update(1)
         return False
-
-
-def download_records_gcs(short_selling_data):
-    """Download the short selling data from the ASIC website."""
-    print("Downloading files to GCS...")
-    storage_client = storage.Client()
-    bucket = storage_client.bucket(BUCKET_NAME)
-    index = load_index_file(bucket)
-    print(f"Index file loaded with {len(index)} records.")
-    print(index.head())
-    records_to_download = [
-        record
-        for record in short_selling_data
-        if generate_download_url(record).split("/")[-1] not in index["filename"].values
-    ]
-    progress_bar = tqdm(total=len(records_to_download))
-    downloaded_files = []
-    for record in records_to_download:
-        url = generate_download_url(record)
-        file_name = url.split("/")[-1]
-        downloaded = upload_file_to_gcs(bucket, url, file_name, progress_bar)
-        if downloaded:
-            downloaded_files.append(file_name)
-    update_index_file(bucket, downloaded_files)
-    progress_bar.close()
-
 
 def read_csv_from_disk(file_path, expected_schema: dict):
     """
@@ -205,7 +178,7 @@ def download_records_gcs(short_selling_data):
     bucket = storage_client.bucket(BUCKET_NAME)
     index = load_index_file(bucket)
     print(f"Index file loaded with {len(index)} records.")
-    print(index.head())
+    print(index.tail())
     records_to_download = [
         record
         for record in short_selling_data
@@ -395,10 +368,9 @@ if __name__ == "__main__":
     # Process the data into a DataFrame
     processed_data = process_short_data_into_dataframe()
 
-    if processed_data == None:
+    if processed_data is None:
         print("No new files to process.")
         exit(0)
-    
     if not processed_data.empty:
         # Write the DataFrame to PostgreSQL
         write_short_data_to_postgres(
@@ -411,4 +383,3 @@ if __name__ == "__main__":
     else:
         print("No new files to process.")
         exit(0)
-    
