@@ -1,7 +1,9 @@
 import Chart from "~/@/components/ui/chart";
-import CompanyProfile from "~/@/components/ui/companyProfile";
-import CompanyStats from "~/@/components/ui/companyStats";
-import CompanyInfo from "~/@/components/ui/companyInfo";
+import CompanyProfile, {
+  CompanyProfilePlaceholder,
+} from "~/@/components/ui/companyProfile";
+import CompanyStats, { CompanyStatsPlaceholder } from "~/@/components/ui/companyStats";
+import CompanyInfo, { CompanyInfoPlaceholder } from "~/@/components/ui/companyInfo";
 import { Suspense } from "react";
 export async function generateMetadata({
   params,
@@ -20,18 +22,18 @@ const Page = async ({ params }: { params: { stockCode: string } }) => {
       <main className="grid auto-rows-min flex-1 items-start gap-4 mt-5 p-4 sm:px-6 sm:py-0 md:gap-8 lg:grid-cols-3 xl:grid-cols-3">
         <div className="grid items-start gap-4 md:gap-8 lg:col-span-1">
           <div className="grid  gap-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4">
-            <Suspense fallback={<div>loading...</div>}>
-            <CompanyProfile stockCode={params.stockCode} />
+            <Suspense fallback={<CompanyProfilePlaceholder />}>
+              <CompanyProfile stockCode={params.stockCode} />
             </Suspense>
           </div>
           <div className="grid gap-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4">
-          <Suspense fallback={<div>loading...</div>}>
-            <CompanyStats stockCode={params.stockCode} />
+            <Suspense fallback={<CompanyStatsPlaceholder />}>
+              <CompanyStats stockCode={params.stockCode} />
             </Suspense>
           </div>
           <div className="grid gap-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4">
-          <Suspense fallback={<div>loading...</div>}>
-            <CompanyInfo stockCode={params.stockCode} />
+            <Suspense fallback={<CompanyInfoPlaceholder />}>
+              <CompanyInfo stockCode={params.stockCode} />
             </Suspense>
           </div>
         </div>

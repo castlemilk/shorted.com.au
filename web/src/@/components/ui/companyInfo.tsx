@@ -3,31 +3,30 @@ import { Card, CardContent, CardHeader, CardTitle } from "./card";
 import { PanelTopIcon } from "lucide-react";
 import Link from "next/link";
 import { Separator } from "./separator";
-import { Suspense } from "react";
 import { Skeleton } from "./skeleton";
 
-const placeHolder = (
+export const CompanyInfoPlaceholder = () => (
   <Card className="sm:col-span-4">
     <CardHeader className="pb-3">
       <CardTitle className="flex">About</CardTitle>
       <Separator />
-    
-    <CardContent className="p-0">
-      <div className="flex content-center justify-between">
-        <div className="flex content-center">
-          <div className="flex self-center p-2">
-            <PanelTopIcon size={10} />
+
+      <CardContent className="p-0">
+        <div className="flex content-center justify-between">
+          <div className="flex content-center">
+            <div className="flex self-center p-2">
+              <PanelTopIcon size={10} />
+            </div>
+            <p className="uppercase font-semibold content-center text-xs">
+              website
+            </p>
           </div>
-          <p className="uppercase font-semibold content-center text-xs">
-            website
-          </p>
+          <span className="flex items-end content-center p-2 text-xs">
+            <Skeleton className="w-[200px] h-[16px]" />
+          </span>
         </div>
-        <span className="flex items-end content-center p-2 text-xs">
-          <Skeleton className="w-[200px] h-[16px]" />
-        </span>
-      </div>
-    </CardContent>
-    <Separator />
+      </CardContent>
+      <Separator />
     </CardHeader>
   </Card>
 );
@@ -35,11 +34,10 @@ const placeHolder = (
 const companyInfo = async ({ stockCode }: { stockCode: string }) => {
   const stockDetails = await getStockDetails(stockCode);
   return (
-    <Suspense fallback={placeHolder}>
-      <Card className="sm:col-span-4">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex">About</CardTitle>
-        
+    <Card className="sm:col-span-4">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex">About</CardTitle>
+
         <Separator />
         {stockDetails?.website && (
           <>
@@ -65,9 +63,8 @@ const companyInfo = async ({ stockCode }: { stockCode: string }) => {
             <Separator />
           </>
         )}
-        </CardHeader>
-      </Card>
-    </Suspense>
+      </CardHeader>
+    </Card>
   );
 };
 
