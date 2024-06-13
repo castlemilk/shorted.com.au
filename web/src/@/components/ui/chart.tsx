@@ -26,7 +26,7 @@ const Chart = ({ stockCode }: ChartProps) => {
   };
 
   return (
-    <Suspense fallback={<ChartLoadingPlaceholder />}>
+    <Suspense fallback={<ChartLoadingPlaceholder withMenu={true} />}>
       <div className="grid">
         <div className="flex flex-row-reverse">
           <div className="flex">
@@ -53,7 +53,7 @@ const Chart = ({ stockCode }: ChartProps) => {
         </div>
 
         {(loading || data == null)  ? (
-          <ChartLoadingPlaceholder />
+          <ChartLoadingPlaceholder withMenu={false} />
         ) : error ? (
           <div>Error loading data</div>
         ) : (
@@ -68,9 +68,9 @@ const Chart = ({ stockCode }: ChartProps) => {
   );
 };
 
-const ChartLoadingPlaceholder = () => (
+const ChartLoadingPlaceholder = ({ withMenu }: { withMenu: boolean }) => (
   <div className="grid">
-    <div className="flex flex-row-reverse">
+    {withMenu ? <div className="flex flex-row-reverse">
       <div className="flex">
         <Skeleton className="h-[40px] w-[60px] ml-2" />
         <Skeleton className="h-[40px] w-[60px] ml-2" />
@@ -78,7 +78,7 @@ const ChartLoadingPlaceholder = () => (
       <div>
         <Skeleton className="h-[40px] w-[300px]" />
       </div>
-    </div>
+    </div> : null}
     <div>
       <Skeleton className="h-[400px] w-full mt-2" />
     </div>
