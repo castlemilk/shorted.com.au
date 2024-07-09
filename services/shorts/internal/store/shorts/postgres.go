@@ -61,17 +61,19 @@ func (s *postgresStore) GetStockData(productCode, period string) (*stockv1alpha1
 	var interval string
 	switch period {
 	case "1d":
-		interval = "hour"
+		interval = "day"
 	case "1w":
 		interval = "day"
 	case "1m":
-		interval = "hour"
+		interval = "day"
 	case "3m":
 		interval = "day"
 	case "6m":
+		interval = "day"
+	case "1y", "2y":
+		interval = "day"
+	case "max":
 		interval = "week"
-	case "1y":
-		interval = "month"
 	default:
 		interval = "day"
 	}
