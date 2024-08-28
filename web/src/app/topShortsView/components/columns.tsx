@@ -18,20 +18,28 @@ import { Badge } from "~/@/components/ui/badge";
 const redColor = `var(--red)`;
 const greenColor = `var(--green)`;
 
+const truncateValue = (value: number, maxLength: number) => {
+  const formatted = value.toFixed(2);
+  if (formatted.length <= maxLength) return formatted;
+  if (maxLength < 4) return '...';
+  return value.toFixed(0) + (value.toFixed(0).length > maxLength - 1 ? '...' : '');
+};
+
 export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
   {
     id: "name",
     accessorKey: "productCode",
     header: ({ column }) => (
       <DataTableColumnDisplayHeader
-        className="self-center"
+        className="self-center h-full flex items-center" // Added classes
         column={column}
+        style={{ width: `${column.getSize()}px` }}
         title="Name"
       />
     ),
     cell: ({ row }) => {
       return (
-        <Card className="border-hidden bg-transparent shadow-none">
+        <Card className="border-hidden bg-transparent shadow-none ">
           <CardHeader>
             <CardTitle>{row.original.productCode}</CardTitle>
             <CardDescription>{row.original.name}</CardDescription>
@@ -47,33 +55,37 @@ export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
     accessorKey: "latestShortPosition",
     header: ({ column }) => {
       return (
-        <Button
-          variant="ghost"
-          className="self-center"
-          onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-        >
-          Short
-          <ArrowUpDown className="ml-2 h-4 w-4" />
-        </Button>
+        <div className="h-full flex items-center justify-center"> {/* Added wrapper div */}
+          <Button
+            variant="ghost"
+            className="self-center"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Short
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
       );
     },
     cell: ({ row }) => (
-      <div className="self-center w-m-60">
-        <div className="">
-          <Badge className="flex mb-1 mr-1 p-0 pl-1 items-center text-xs text-nowrap">
-            <Circle strokeWidth={0} size={10} fill={greenColor} />
-            <p className="pl-1">{`Min: ${row.original.min?.shortPosition.toFixed(2)}`}</p>
-          </Badge>
-          <Badge className="flex mr-1 p-0 pl-1 items-center text-xs text-nowrap">
-            <Circle strokeWidth={0} size={10} fill={redColor} />
-            <p className="pl-1">{`Max: ${row.original.max?.shortPosition.toFixed(2)}`}</p>
-          </Badge>
-        </div>
-        <div className="flex items-end">
-          <div className="text-3xl font-bold">
-            {row.original.latestShortPosition.toFixed(2)}
+      <div className="flex items-center justify-center h-full">
+        <div className="flex flex-col items-center">
+          <div className="flex flex-col mb-2">
+            <Badge className="flex mb-1 p-0 pl-1 items-center text-xs w-[85px] truncate">
+              <Circle strokeWidth={0} size={10} fill={greenColor} />
+              <p className="pl-1">{`Min: ${truncateValue(row.original.min?.shortPosition ?? 0, 5)}`}</p>
+            </Badge>
+            <Badge className="flex p-0 pl-1 items-center text-xs w-[85px] truncate">
+              <Circle strokeWidth={0} size={10} fill={redColor} />
+              <p className="pl-1">{`Max: ${truncateValue(row.original.max?.shortPosition ?? 0, 5)}`}</p>
+            </Badge>
           </div>
-          <div className="text-lg ">%</div>
+          <div className="flex items-end">
+            <div className="text-3xl font-bold">
+              {truncateValue(row.original.latestShortPosition, 6)}
+            </div>
+            <div className="text-lg ">%</div>
+          </div>
         </div>
       </div>
     ),
@@ -82,13 +94,18 @@ export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
   },
   {
     id: "sparkline",
-    header: ({}) => <div className="self-center">last 6 months</div>,
-    cell: ({ row }) =>
-      flexRender(Sparkline, {
-        data: row.original,
-        key: `${row.id}-sparkline-chart`,
-      }),
+    header: ({}) => (
+      <div className="h-full flex items-center justify-center">
+        last 6 months
+      </div>
+    ),
+    cell: ({ row }) => (
+      <div className="w-full h-full flex items-center justify-center">
+        <Sparkline data={row.original} />
+      </div>
+    ),
     enableSorting: false,
     enableHiding: false,
+    size: 200,
   },
 ];
