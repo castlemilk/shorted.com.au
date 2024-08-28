@@ -219,11 +219,11 @@ export function DataTable<TData, TValue>({
                       transform: `translateY(${virtualRow.start}px)`,
                     }}
                   >
-                    <TableCell colSpan={columns.length} className="p-0">
+                    <TableCell colSpan={columns.length} className="p-0 justify-center self-center flex">
                       <Button
                         onClick={handleLoadMore}
                         disabled={isFetching}
-                        className="w-full my-4"
+                        className="w-full my-4 w-24"
                       >
                         {isFetching ? "Loading..." : "Load More"}
                       </Button>
