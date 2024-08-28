@@ -15,9 +15,13 @@ const Page = async () => {
   return (
     <>
       <GoogleAnalytics gaId="G-X85RLQ4N2N" />
-      <div className="flex">
-        <TopShorts initialShortsData={data.timeSeries} />
-        <IndustryTreeMapView initialTreeMapData={treeMapData} />
+      <div className="flex flex-col lg:flex-row">
+        <div className="lg:w-2/5">
+          <TopShorts initialShortsData={data.timeSeries} />
+        </div>
+        <div className="lg:w-3/5">
+          <IndustryTreeMapView initialTreeMapData={treeMapData} />
+        </div>
       </div>
     </>
   );
