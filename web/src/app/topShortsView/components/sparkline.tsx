@@ -1,14 +1,13 @@
 import { type PlainMessage } from "@bufbuild/protobuf";
 import { timeFormat } from "@visx/vendor/d3-time-format";
 
-import { LineSeries, XYChart, Tooltip } from "@visx/xychart";
+import { LineSeries, XYChart, Tooltip, GlyphSeries } from "@visx/xychart";
 import { GlyphCircle } from "@visx/glyph";
 import {
   type TimeSeriesPoint,
   type TimeSeriesData,
 } from "~/gen/stocks/v1alpha1/stocks_pb";
-import { scaleTime, scaleLinear } from "@visx/scale";
-import { extent } from "@visx/vendor/d3-array";
+import { ParentSize } from "@visx/responsive";
 
 const accessors = {
   xAccessor: (d: PlainMessage<TimeSeriesPoint> | undefined) =>
@@ -35,64 +34,86 @@ const Chart = ({ width, height, margin, data }: SparklineProps) => {
     return <div>Loading or no data available...</div>;
   }
 
-  const marginTop = margin?.top ?? 0;
-  const marginLeft = margin?.left ?? 0;
-  const marginRight = margin?.right ?? 0;
-  const marginBottom = margin?.bottom ?? 0;
-
-  const xScale = scaleTime<number>().domain(
-    extent(data.points, accessors.xAccessor) as [Date, Date],
-  );
-  const yScale = scaleLinear<number>({
-    domain: [0, accessors.yAccessor(data.max) ?? 0],
-  });
-
-  // bounds
-  const innerWidth = width - marginLeft - marginRight;
-  const innerHeight = height - marginTop - marginBottom;
-  // update scale range to match bounds
-  xScale.range([0, innerWidth]);
-  // xScale.range([xScale(accessors.xAccessor(data.points[0])), xScale(accessors.xAccessor(data.points[data.points.length - 1]))]);
-  yScale.range([innerHeight, 0]);
   return (
     <XYChart
-      height={height}
       width={width}
+      height={height}
       margin={margin}
       xScale={{ type: "time" }}
       yScale={{ type: "linear" }}
     >
       <LineSeries
-        stroke={strokeColor}
-        strokeWidth={1.5}
         dataKey="Shorts"
         data={data.points}
         {...accessors}
+        stroke={strokeColor}
+        strokeWidth={1.5}
       />
-      <GlyphCircle
-        className="min-glyph"
-        left={xScale(accessors.xAccessor(data.min)) + marginLeft}
-        top={yScale(accessors.yAccessor(data.min)) + marginTop}
-        fill={greenColor}
-      />
-      <GlyphCircle
-        className="max-glyph"
-        left={xScale(accessors.xAccessor(data.max)) + marginLeft}
-        top={yScale(accessors.yAccessor(data.max)) + marginTop}
-        fill={redColor}
-      />
+      {/* Remove the GlyphSeries for regular points */}
+      {data.min && (
+        <GlyphSeries
+          dataKey="Min"
+          data={[data.min]}
+          {...accessors}
+          renderGlyph={({ x, y }) => (
+            <GlyphCircle
+              left={x}
+              top={y}
+              size={20}
+              fill={greenColor}
+              stroke={greenColor}
+            />
+          )}
+        />
+      )}
+      {data.max && (
+        <GlyphSeries
+          dataKey="Max"
+          data={[data.max]}
+          {...accessors}
+          renderGlyph={({ x, y }) => (
+            <GlyphCircle
+              left={x}
+              top={y}
+              size={20}
+              fill={redColor}
+              stroke={redColor}
+            />
+          )}
+        />
+      )}
       <Tooltip
-        className="overflow-hidden"
         snapTooltipToDatumX
         snapTooltipToDatumY
-        showVerticalCrosshair
         showSeriesGlyphs
-        renderTooltip={({ tooltipData }) => (
-          <div className="overflow-hidden">
-            <div>{`${formatDate(accessors.xAccessor(tooltipData?.nearestDatum?.datum as TimeSeriesPoint))}`}</div>
-            <div>{`${accessors.yAccessor(tooltipData?.nearestDatum?.datum as TimeSeriesPoint).toFixed(2)}%`}</div>
-          </div>
-        )}
+        renderGlyph={({ x, y, datum }) => {
+          const isMin = datum === data.min;
+          const isMax = datum === data.max;
+          return (
+            <g>
+              <circle
+                cx={x}
+                cy={y}
+                r={3}
+                fill={isMin ? greenColor : isMax ? redColor : strokeColor}
+                strokeWidth={0}
+              />
+            </g>
+          );
+        }}
+        renderTooltip={({ tooltipData }) => {
+          const datum = tooltipData?.nearestDatum?.datum as TimeSeriesPoint;
+          return (
+            <>
+              <div style={{ fontWeight: "600" }}>
+                {formatDate(accessors.xAccessor(datum))}
+              </div>
+              <div
+                style={{ color: "#2563EB" }}
+              >{`${accessors.yAccessor(datum).toFixed(2)}%`}</div>
+            </>
+          );
+        }}
       />
     </XYChart>
   );
@@ -100,13 +121,17 @@ const Chart = ({ width, height, margin, data }: SparklineProps) => {
 
 const SparkLine = ({ data }: { data: PlainMessage<TimeSeriesData> }) => {
   return (
-    <div className="min-w-[150px]">
-      <Chart
-        width={150}
-        height={150}
-        data={data}
-        margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
-      />
+    <div className="w-full h-[150px]">
+      <ParentSize>
+        {({ width, height }) => (
+          <Chart
+            width={Math.max(width, 100)}
+            height={Math.max(height, 100)}
+            data={data}
+            margin={{ top: 5, right: 5, bottom: 5, left: 5 }}
+          />
+        )}
+      </ParentSize>
     </div>
   );
 };

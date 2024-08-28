@@ -62,16 +62,16 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
       const newData = await getTopShortsData(
         period,
         LOAD_CHUNK_SIZE,
-        LOAD_CHUNK_SIZE + offset
+        LOAD_CHUNK_SIZE + offset,
       );
       setShortsData((prev) => [...(prev ?? []), ...newData.timeSeries]);
-      setOffset((prevOffset) => prevOffset + LOAD_CHUNK_SIZE); // Increment offset
+      setOffset((prevOffset) => prevOffset + LOAD_CHUNK_SIZE);
     } catch (e) {
       console.error("Error fetching data: ", e);
     } finally {
       setLoading(false);
     }
-  }, [offset]);
+  }, [offset, period]); // Add period to the dependency array
 
   useEffect(() => {
     if (firstUpdate.current) {
@@ -79,7 +79,8 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
       return;
     }
     setLoading(true);
-    getTopShortsData(period, Math.max(LOAD_CHUNK_SIZE, offset), 0)
+    setOffset(0); // Reset offset when period changes
+    getTopShortsData(period, LOAD_CHUNK_SIZE, 0)
       .then((data) => {
         setShortsData(data.timeSeries);
         setLoading(false);
@@ -92,7 +93,7 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
 
   return (
     <Suspense fallback={loadingPlaceholder}>
-      <Card className="m-3 w-[500px]">
+      <Card className="m-2">
         <div className="flex align-middle justify-between">
           <CardTitle className="self-center m-5">Top Shorts</CardTitle>
           <div className="flex flex-row-reverse m-2">
@@ -135,8 +136,11 @@ const loadingPlaceholder = (
       </div>
       <div className="h-[700px]">
         {Array.from({ length: 10 }).map((_, i) => (
-          <div className="m-3">
-            <Skeleton key={i} className="h-[186px] w-full rounded-xl"></Skeleton>
+          <div className="m-3" key={i}>
+            <Skeleton
+              key={i}
+              className="h-[186px] w-full rounded-xl"
+            ></Skeleton>
           </div>
         ))}
       </div>

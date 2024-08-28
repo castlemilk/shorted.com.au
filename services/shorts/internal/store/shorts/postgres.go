@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
-	stockv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v5"
@@ -31,7 +30,7 @@ func newPostgresStore(config Config) Store {
 }
 
 // GetStock retrieves a single stock by its ID.
-func (s *postgresStore) GetStock(productCode string) (*stockv1alpha1.Stock, error) {
+func (s *postgresStore) GetStock(productCode string) (*stocksv1alpha1.Stock, error) {
 	rows, _ := s.db.Query(context.Background(),
 		`
 SELECT "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentageShorted,
@@ -42,7 +41,7 @@ SELECT "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percen
 FROM shorts WHERE "PRODUCT_CODE" = $1 
 ORDER BY "DATE" DESC LIMIT 1`,
 		productCode)
-	stock, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[stockv1alpha1.Stock]) // Update as per actual table schema
+	stock, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[stocksv1alpha1.Stock]) // Update as per actual table schema
 	if err != nil {
 		return nil, err
 	}
@@ -50,13 +49,13 @@ ORDER BY "DATE" DESC LIMIT 1`,
 }
 
 // GetTop10Shorts retrieves the top 10 shorted stocks.
-func (s *postgresStore) GetTopShorts(period string, limit int32, offset int32) ([]*stockv1alpha1.TimeSeriesData, int, error) {
+func (s *postgresStore) GetTopShorts(period string, limit int32, offset int32) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
 	// You'll need to adjust FetchTimeSeriesData to use pgx as well.
 	return FetchTimeSeriesData(s.db, int(limit), int(offset), period)
 }
 
 // GetStockData retrieves the time series data for a single stock, downsampling it for performance.
-func (s *postgresStore) GetStockData(productCode, period string) (*stockv1alpha1.TimeSeriesData, error) {
+func (s *postgresStore) GetStockData(productCode, period string) (*stocksv1alpha1.TimeSeriesData, error) {
 	// Define the interval for downsampling (e.g., 'day', 'week', 'month')
 	var interval string
 	switch period {
@@ -147,7 +146,7 @@ Table "public.metadata"
  company_logo_link | text |           |          |
  gcsUrl            | text |           |          |
 */
-func (s *postgresStore) GetStockDetails(stockCode string) (*stockv1alpha1.StockDetails, error) {
+func (s *postgresStore) GetStockDetails(stockCode string) (*stocksv1alpha1.StockDetails, error) {
 	query := `select 
 		stock_code as ProductCode,
 		company_name as CompanyName,
@@ -163,7 +162,7 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stockv1alpha1.StockD
 
 	rows, _ := s.db.Query(context.Background(), query, stockCode)
 
-	stock, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[stockv1alpha1.StockDetails]) // Update as per actual table schema
+	stock, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[stocksv1alpha1.StockDetails]) // Update as per actual table schema
 	if err != nil {
 		return nil, err
 	}
@@ -171,6 +170,6 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stockv1alpha1.StockD
 }
 
 // GetHeatmapData retrieves the top shorted stocks by industry.
-func (s *postgresStore) GetIndustryTreeMap(limit int32, period string, viewMode string) (*stockv1alpha1.IndustryTreeMap, error) {
+func (s *postgresStore) GetIndustryTreeMap(limit int32, period string, viewMode string) (*stocksv1alpha1.IndustryTreeMap, error) {
 	return FetchTreeMapData(s.db, limit, period, viewMode)
 }
