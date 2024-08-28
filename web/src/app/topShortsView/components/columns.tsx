@@ -1,6 +1,6 @@
 "use client";
 
-import { type ColumnDef, flexRender } from "@tanstack/react-table";
+import { type ColumnDef } from "@tanstack/react-table";
 import { DataTableColumnDisplayHeader } from "./data-table-column-display-header";
 import { type PlainMessage } from "@bufbuild/protobuf";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
