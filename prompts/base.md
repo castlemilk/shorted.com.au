@@ -1,0 +1,6 @@
+- think step by step
+- don't make assumptions
+- don't hallucinate
+- propose updates that are aligned with the existing code presented
+- don't make up code
+- contextualise your answers using technologies to tailwindcss, react, nextjs, typescript, visx, shadcn
