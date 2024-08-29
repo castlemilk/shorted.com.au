@@ -31,7 +31,7 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   period: string;
   data: TData[];
-  fetchMore: () => void;
+  fetchMore: () => Promise<void>;
 }
 
 export function DataTable<TData, TValue>({
@@ -42,10 +42,10 @@ export function DataTable<TData, TValue>({
   loading,
 }: DataTableProps<TData, TValue>) {
   const [localData, setLocalData] = React.useState(data);
-  const [isLoading, setIsLoading] = React.useState(loading);
+  const [,setIsLoading] = React.useState(loading);
   const [isLargeScreen, setIsLargeScreen] = React.useState(false);
   const [showLoadMore, setShowLoadMore] = React.useState(false);
-  const [isFetching, setIsFetching] = React.useState(false);
+  const [,setIsFetching] = React.useState(false);
   const fetchingRef = React.useRef(false);
   const totalRowsMax = 100; // Define this constant or make it a prop
 
@@ -78,7 +78,6 @@ export function DataTable<TData, TValue>({
   );
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const router = useRouter();
-  const [loadMoreRef, setLoadMoreRef] = React.useState<HTMLButtonElement | null>(null);
 
   const table = useReactTable({
     data: localData,
@@ -111,7 +110,12 @@ export function DataTable<TData, TValue>({
         if (!fetchingRef.current && localData.length < totalRowsMax) {
           fetchingRef.current = true;
           setIsFetching(true);
-          fetchMore();
+          fetchMore().catch((error) => {
+            console.error('Error fetching more data:', error);
+          }).finally(() => {
+            fetchingRef.current = false;
+            setIsFetching(false);
+          });
         }
       }, 200),
     [fetchMore, localData.length, totalRowsMax]
@@ -156,17 +160,22 @@ export function DataTable<TData, TValue>({
     rowVirtualizer.measure();
   }, [localData, rowVirtualizer]);
 
-  React.useEffect(() => {
-    console.log("Data updated:", data.length);
-  }, [data]);
+  const [isLoadingMore, setIsLoadingMore] = React.useState(false);
 
   const handleLoadMore = React.useCallback(() => {
-    if (!fetchingRef.current) {
+    if (!fetchingRef.current && !isLoadingMore) {
       fetchingRef.current = true;
-      setIsFetching(true);
-      fetchMore();
+      setIsLoadingMore(true);
+      fetchMore()
+        .catch((error) => {
+          console.error('Error fetching more data:', error);
+        })
+        .finally(() => {
+          setIsLoadingMore(false);
+          fetchingRef.current = false;
+        });
     }
-  }, [fetchMore]); // Make sure fetchMore is in the dependency array
+  }, [fetchMore, isLoadingMore]);
 
   return (
     <div className="h-[700px] w-full flex flex-col">
@@ -222,10 +231,10 @@ export function DataTable<TData, TValue>({
                     <TableCell colSpan={columns.length} className="p-0 justify-center self-center flex">
                       <Button
                         onClick={handleLoadMore}
-                        disabled={isFetching}
-                        className="w-full my-4 w-24"
+                        disabled={isLoadingMore}
+                        className="my-4 w-24"
                       >
-                        {isFetching ? "Loading..." : "Load More"}
+                        {isLoadingMore ? "Loading..." : "Load More"}
                       </Button>
                     </TableCell>
                   </TableRow>
