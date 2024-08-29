@@ -28,7 +28,7 @@ import {
     className,
   }: DataTableColumnHeaderProps<TData, TValue>) {
     if (!column.getCanSort()) {
-      return <div className={cn(className)}>{title}</div>
+      return <div className={cn("flex items-center", className)}>{title}</div>
     }
   
     return (
@@ -38,15 +38,15 @@ import {
             <Button
               variant="ghost"
               size="sm"
-              className="-ml-3 h-8 data-[state=open]:bg-accent"
+              className="-ml-3 h-8 data-[state=open]:bg-accent flex items-center"
             >
-              <span>{title}</span>
+              <span className="mr-2">{title}</span>
               {column.getIsSorted() === "desc" ? (
-                <ArrowDownIcon className="ml-2 h-4 w-4" />
+                <ArrowDownIcon className="h-4 w-4" />
               ) : column.getIsSorted() === "asc" ? (
-                <ArrowUpIcon className="ml-2 h-4 w-4" />
+                <ArrowUpIcon className="h-4 w-4" />
               ) : (
-                <CaretSortIcon className="ml-2 h-4 w-4" />
+                <CaretSortIcon className="h-4 w-4" />
               )}
             </Button>
           </DropdownMenuTrigger>
