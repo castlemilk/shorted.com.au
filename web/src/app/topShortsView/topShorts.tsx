@@ -7,6 +7,7 @@ import React, {
   useCallback,
   Suspense,
   useRef,
+  useTransition,
 } from "react";
 import {
   Select,
@@ -56,16 +57,20 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
   const [shortsData, setShortsData] =
     useState<PlainMessage<TimeSeriesData>[]>(initialShortsData);
   const firstUpdate = useRef(true);
+  const [isPending, startTransition] = useTransition();
+
   const fetchMoreData = useCallback(async () => {
     setLoading(true);
     try {
-      const newData = await getTopShortsData(
-        period,
-        LOAD_CHUNK_SIZE,
-        LOAD_CHUNK_SIZE + offset,
-      );
-      setShortsData((prev) => [...(prev ?? []), ...newData.timeSeries]);
-      setOffset((prevOffset) => prevOffset + LOAD_CHUNK_SIZE);
+      startTransition(async () => {
+        const newData = await getTopShortsData(
+          period,
+          LOAD_CHUNK_SIZE,
+          LOAD_CHUNK_SIZE + offset,
+        );
+        setShortsData((prev) => [...(prev ?? []), ...newData.timeSeries]);
+        setOffset((prevOffset) => prevOffset + LOAD_CHUNK_SIZE);
+      });
     } catch (e) {
       console.error("Error fetching data: ", e);
     } finally {
@@ -80,15 +85,16 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
     }
     setLoading(true);
     setOffset(0); // Reset offset when period changes
-    getTopShortsData(period, LOAD_CHUNK_SIZE, 0)
-      .then((data) => {
+    startTransition(async () => {
+      try {
+        const data = await getTopShortsData(period, LOAD_CHUNK_SIZE, 0);
         setShortsData(data.timeSeries);
-        setLoading(false);
-      })
-      .catch((e) => {
+      } catch (e) {
         console.error("Error fetching data: ", e);
+      } finally {
         setLoading(false);
-      });
+      }
+    });
   }, [period]);
 
   return (

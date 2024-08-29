@@ -7,11 +7,12 @@ import { IndustryTreeMapView } from "./treemap/treeMap";
 import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
 // import { getIdToken } from "~/server/auth";
 
-export const revalidate = 60 // revalidate the data at most every minute 
+export const revalidate = 300 // revalidate the data at most every 5 minutes
+
 const Page = async () => {
-  // const token = await getIdToken()
   const data = await getTopShortsData("3m", 10, 0);
   const treeMapData = await getIndustryTreeMap("3m", 10, ViewMode.CURRENT_CHANGE)
+  
   return (
     <>
       <GoogleAnalytics gaId="G-X85RLQ4N2N" />
