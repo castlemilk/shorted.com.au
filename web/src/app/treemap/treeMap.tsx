@@ -126,7 +126,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
   };
 
   return (
-    <Card className="m-3 w-full">
+    <Card className="m-2 w-full">
       <div className="flex align-middle justify-between">
         <CardTitle className="self-center m-5">Industry Tree Map</CardTitle>
         <div className="flex flex-row-reverse m-2">
