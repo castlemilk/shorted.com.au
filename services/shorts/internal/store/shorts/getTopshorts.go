@@ -39,23 +39,32 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 	if offset < 0 {
 		offset = 0 // Start at the beginning if a negative offset is given
 	}
-
+	
 	ctx := context.Background()
+	connection, err := db.Acquire(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer connection.Release()
+
 	interval := periodToInterval(period)
-	// Fetch top product codes with pagination
+	
+	// Optimized query for top product codes
 	topCodesQuery := fmt.Sprintf(`
+	WITH latest_shorts AS (
+	    SELECT "PRODUCT_CODE", "PRODUCT", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS",
+	           ROW_NUMBER() OVER (PARTITION BY "PRODUCT_CODE" ORDER BY "DATE" DESC) as rn
+	    FROM shorts
+	    WHERE "DATE" > CURRENT_DATE - INTERVAL '%s'
+	      AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+	)
 	SELECT "PRODUCT", "PRODUCT_CODE"
-	FROM shorts
-	WHERE "DATE" > CURRENT_DATE - INTERVAL '%s'
-	GROUP BY 
-		"PRODUCT", "PRODUCT_CODE"
-	HAVING
-		COUNT(*) > 10
-	ORDER BY 
-		MAX("PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") DESC
+	FROM latest_shorts
+	WHERE rn = 1
+	ORDER BY "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC
 	LIMIT $1 OFFSET $2`, interval)
 
-	rows, err := db.Query(ctx, topCodesQuery, limit, offset)
+	rows, err := connection.Query(ctx, topCodesQuery, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -76,68 +85,75 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 		return nil, 0, rows.Err()
 	}
 
-	// Prepare to fetch time series data for each product code
-	var timeSeriesDataSlice []*stocksv1alpha1.TimeSeriesData
-	for _, productCode := range topShorts {
-		query := fmt.Sprintf(`
-		SELECT "DATE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
-		FROM shorts
-		WHERE "PRODUCT_CODE" = $1
-			AND "DATE" > CURRENT_DATE - INTERVAL '%s'
-			AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
-			AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
-		ORDER BY "DATE" ASC`, interval)
+	// Optimized query for time series data without downsampling
+	timeSeriesQuery := fmt.Sprintf(`
+	SELECT 
+	    "PRODUCT_CODE",
+	    "DATE",
+	    "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" AS "PERCENT"
+	FROM shorts
+	WHERE "PRODUCT_CODE" = ANY($1)
+	    AND "DATE" > CURRENT_DATE - INTERVAL '%s'
+	    AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+	ORDER BY "PRODUCT_CODE", "DATE" ASC`, interval)
 
-		rows, err := db.Query(ctx, query, productCode)
-		if err != nil {
+	rows, err = connection.Query(ctx, timeSeriesQuery, topShorts)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	timeSeriesMap := make(map[string][]*stocksv1alpha1.TimeSeriesPoint)
+	minMaxMap := make(map[string]*struct{min, max *stocksv1alpha1.TimeSeriesPoint})
+
+	for rows.Next() {
+		var productCode string
+		var date pgtype.Timestamp
+		var percent pgtype.Float8
+		if err := rows.Scan(&productCode, &date, &percent); err != nil {
 			return nil, 0, err
 		}
-
-		var points []*stocksv1alpha1.TimeSeriesPoint
-		var minShort, maxShort *stocksv1alpha1.TimeSeriesPoint
-		minShort, maxShort = &stocksv1alpha1.TimeSeriesPoint{ShortPosition: -1}, &stocksv1alpha1.TimeSeriesPoint{ShortPosition: -1}
-		for rows.Next() {
-			var date pgtype.Timestamp
-			var percent pgtype.Float8
-			if err := rows.Scan(&date, &percent); err != nil {
-				return nil, 0, err
-			}
-			if date.Status != pgtype.Present || percent.Status != pgtype.Present {
-				continue
-			}
-			shortPosition := percent.Float
-			point := &stocksv1alpha1.TimeSeriesPoint{
-				Timestamp:     timestamppb.New(date.Time),
-				ShortPosition: shortPosition,
-			}
-			points = append(points, point)
-			if minShort.ShortPosition == -1 || shortPosition < minShort.ShortPosition {
-				minShort = point
-			}
-			if maxShort.ShortPosition == -1 || shortPosition > maxShort.ShortPosition {
-				maxShort = point
-			}
+		if date.Status != pgtype.Present || percent.Status != pgtype.Present {
+			continue
 		}
-		if rows.Err() != nil {
-			return nil, 0, rows.Err()
+		shortPosition := percent.Float
+		point := &stocksv1alpha1.TimeSeriesPoint{
+			Timestamp:     timestamppb.New(date.Time),
+			ShortPosition: shortPosition,
 		}
-		rows.Close()
-
-		if len(points) >= 10 {
-			tsData := &stocksv1alpha1.TimeSeriesData{
-				ProductCode:         productCode,
-				Name:                productNames[productCode],
-				Points:              points,
-				LatestShortPosition: points[len(points)-1].ShortPosition,
-				Max:                 maxShort,
-				Min:                 minShort,
+		timeSeriesMap[productCode] = append(timeSeriesMap[productCode], point)
+		
+		if minMax, ok := minMaxMap[productCode]; !ok {
+			minMaxMap[productCode] = &struct{min, max *stocksv1alpha1.TimeSeriesPoint}{point, point}
+		} else {
+			if shortPosition < minMax.min.ShortPosition {
+				minMax.min = point
 			}
-			timeSeriesDataSlice = append(timeSeriesDataSlice, tsData)
+			if shortPosition > minMax.max.ShortPosition {
+				minMax.max = point
+			}
 		}
 	}
 
 	// Calculate the new offset for subsequent queries
 	newOffset := offset + len(topShorts)
+
+	timeSeriesDataSlice := make([]*stocksv1alpha1.TimeSeriesData, 0)
+	for _, productCode := range topShorts {
+		points := timeSeriesMap[productCode]
+		if len(points) >= 10 {
+			minMax := minMaxMap[productCode]
+			tsData := &stocksv1alpha1.TimeSeriesData{
+				ProductCode:         productCode,
+				Name:                productNames[productCode],
+				Points:              points,
+				LatestShortPosition: points[len(points)-1].ShortPosition,
+				Max:                 minMax.max,
+				Min:                 minMax.min,
+			}
+			timeSeriesDataSlice = append(timeSeriesDataSlice, tsData)
+		}
+	}
 
 	return timeSeriesDataSlice, newOffset, nil
 }
