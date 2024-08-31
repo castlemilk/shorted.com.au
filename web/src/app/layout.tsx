@@ -16,6 +16,7 @@ const fontSans = FontSans({
 
 export const metadata = {
   title: "Shorted",
+  description: "Discover the most shorted stocks on the ASX.",
   keywords: [
     "ASX",
     "Australian Stock Exchange",
@@ -25,7 +26,27 @@ export const metadata = {
     "shorts",
     "bearish stocks on the ASX",
   ],
-  description: "Discover the most shorted stocks on the ASX.",
+  openGraph: {
+    title: "Shorted",
+    description: "Discover the most shorted stocks on the ASX.",
+    url: "https://shorted.com.au",
+    siteName: "Shorted",
+    images: [
+      {
+        url: "https://shorted.com.au/logo.png", // Replace with your actual image URL
+        width: 1200,
+        height: 630,
+      },
+    ],
+    locale: "en_AU",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Shorted",
+    description: "Discover the most shorted stocks on the ASX.",
+    images: ["https://shorted.com.au/logo.png"], // Replace with your actual image URL
+  },
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
