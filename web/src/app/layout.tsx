@@ -25,6 +25,13 @@ export const metadata = {
     "shorted",
     "shorts",
     "bearish stocks on the ASX",
+    "bear market",
+    "bearish stocks",
+    "bearish",
+    "shorting stocks",
+    "short stocks",
+    "short positions",
+    "short interest",
   ],
   openGraph: {
     title: "Shorted",
