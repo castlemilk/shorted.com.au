@@ -30,7 +30,7 @@
       "@/components/*": ["./src/@/components/*"],
       "@/registry/*": ["./src/@/registry/*"],
       "@/registry/new-york/ui/*": ["./src/@/registry/new-york/ui/*"],
-      "@styles/*": ["./styles/*"],
+      "@/styles/*": ["./src/styles/*"],
       "@/lib/*": ["./src/@/lib/*"],
       "@/config/*": ["./src/@/config/*"],
       "@/types/*": ["./src/@/types/*"],
