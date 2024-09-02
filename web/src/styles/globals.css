@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -27,6 +29,7 @@
     --red: #e5484d;
     --green: #30a46c;
     --line-stroke: #3E63DD;
+    --font-sans: 'Inter', sans-serif;
   }
 
   .dark {
@@ -61,5 +64,6 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
   }
 }
