@@ -71,6 +71,7 @@
     "d3": "^7.9.0",
     "date-fns": "^3.3.1",
     "firebase": "^10.7.0",
+    "gray-matter": "^4.0.3",
     "jest-when": "^3.6.0",
     "jotai": "^2.7.2",
     "lucide-react": "^0.294.0",
@@ -81,6 +82,8 @@
     "react-dom": "18.2.0",
     "react-hook-form": "^7.51.2",
     "react-spring": "^9.7.3",
+    "remark": "^15.0.1",
+    "remark-html": "^16.0.1",
     "tailwind-merge": "^2.1.0",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^3.22.4"
