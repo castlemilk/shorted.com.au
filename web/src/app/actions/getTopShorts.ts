@@ -1,15 +1,13 @@
-import { unstable_noStore as noStore } from "next/cache";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createPromiseClient } from "@connectrpc/connect";
 import { toPlainMessage } from "@bufbuild/protobuf";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_connect";
-export const getTopShortsData = async (
+import { cache } from "react";
+export const getTopShortsData = cache(async (
   period: string,
   limit: number,
   offset: number,
 ) => {
-  // This tells Next.js not to cache this function
-  noStore();
 
   const transport = createConnectTransport({
     // All transports accept a custom fetch implementation.
@@ -29,4 +27,4 @@ export const getTopShortsData = async (
   const client = createPromiseClient(ShortedStocksService, transport);
   const response = await client.getTopShorts({ period, limit, offset });
   return toPlainMessage(response);
-};
+});
