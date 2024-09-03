@@ -210,6 +210,7 @@ export function DataTable<TData, TValue>({
             ))}
           </TableHeader>
           <TableBody
+            className="relative"
             style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
           >
             {rows.length === 0 ? (
