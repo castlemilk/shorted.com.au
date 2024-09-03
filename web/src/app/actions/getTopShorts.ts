@@ -2,8 +2,8 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createPromiseClient } from "@connectrpc/connect";
 import { toPlainMessage } from "@bufbuild/protobuf";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_connect";
-
-export const getTopShortsData = async (
+import { cache } from "react";
+export const getTopShortsData = cache(async (
   period: string,
   limit: number,
   offset: number,
@@ -26,4 +26,4 @@ export const getTopShortsData = async (
   const response = await client.getTopShorts({ period, limit, offset });
 
   return toPlainMessage(response);
-};
+});
