@@ -2,12 +2,13 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createPromiseClient } from "@connectrpc/connect";
 import { toPlainMessage } from "@bufbuild/protobuf";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_connect";
-
-export const getTopShortsData = async (
+import { cache } from "react";
+export const getTopShortsData = cache(async (
   period: string,
   limit: number,
   offset: number,
 ) => {
+
   const transport = createConnectTransport({
     // All transports accept a custom fetch implementation.
     fetch,
@@ -22,8 +23,8 @@ export const getTopShortsData = async (
       process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
       "http://localhost:8080",
   });
+
   const client = createPromiseClient(ShortedStocksService, transport);
   const response = await client.getTopShorts({ period, limit, offset });
-
   return toPlainMessage(response);
-};
+});

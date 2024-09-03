@@ -49,9 +49,12 @@ export function DataTable<TData, TValue>({
   const fetchingRef = React.useRef(false);
   const totalRowsMax = 100; // Define this constant or make it a prop
 
+  const [isMobile, setIsMobile] = React.useState(false);
+
   React.useEffect(() => {
     const checkScreenSize = () => {
       setIsLargeScreen(window.innerWidth >= 1024);
+      setIsMobile(window.innerWidth < 768); // Consider screens smaller than 768px as mobile
     };
 
     checkScreenSize();
@@ -210,53 +213,25 @@ export function DataTable<TData, TValue>({
             ))}
           </TableHeader>
           <TableBody
-            className="relative"
             style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
           >
-            {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-              if (virtualRow.index >= rows.length && showLoadMore) {
-                return (
-                  <TableRow
-                    key="load-more"
-                    ref={(node) => rowVirtualizer.measureElement(node)}
-                    data-index={rows.length}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      transform: `translateY(${virtualRow.start}px)`,
-                    }}
-                  >
-                    <TableCell colSpan={columns.length} className="p-0 justify-center self-center flex">
-                      <Button
-                        onClick={handleLoadMore}
-                        disabled={isLoadingMore}
-                        className="my-4 w-24"
-                      >
-                        {isLoadingMore ? "Loading..." : "Load More"}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              }
-
-              const row = rows[virtualRow.index]!;
-              return (
+            {rows.length === 0 ? (
+              <TableRow className="w-full">
+                <TableCell colSpan={columns.length} className="h-[100px] flex justify-center items-center text-center">
+                  <p>No data found, try a different time</p>
+                </TableCell>
+              </TableRow>
+            ) : isMobile ? (
+              // Regular scrollable list for mobile
+              rows.map((row) => (
                 <TableRow
-                  data-index={virtualRow.index}
-                  ref={(node) => rowVirtualizer.measureElement(node)}
                   key={row.id}
                   onClick={() =>
                     router.push(
                       `/shorts/${(row.original as { productCode: string }).productCode}`,
                     )
                   }
-                  className="flex absolute w-full cursor-pointer"
-                  style={{
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                  data-state={row.getIsSelected() && "selected"}
+                  className="flex w-full cursor-pointer"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
@@ -270,11 +245,79 @@ export function DataTable<TData, TValue>({
                     </TableCell>
                   ))}
                 </TableRow>
-              );
-            })}
+              ))
+            ) : (
+              // Virtualized table for larger screens
+              rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                if (virtualRow.index >= rows.length && showLoadMore) {
+                  return (
+                    <TableRow
+                      key="load-more"
+                      ref={(node) => rowVirtualizer.measureElement(node)}
+                      data-index={rows.length}
+                      className="flex justify-center items-center absolute w-full cursor-pointer"
+                      style={{
+                        width: '100%',
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                    >
+                      <TableCell colSpan={columns.length} className="p-0 justify-center self-center flex">
+                        <Button
+                          onClick={handleLoadMore}
+                          disabled={isLoadingMore}
+                          className="my-4 w-24"
+                        >
+                          {isLoadingMore ? "Loading..." : "Load More"}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                }
+
+                const row = rows[virtualRow.index]!;
+                return (
+                  <TableRow
+                    data-index={virtualRow.index}
+                    ref={(node) => rowVirtualizer.measureElement(node)}
+                    key={row.id}
+                    onClick={() =>
+                      router.push(
+                        `/shorts/${(row.original as { productCode: string }).productCode}`,
+                      )
+                    }
+                    className="flex absolute w-full cursor-pointer"
+                    style={{
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                    data-state={row.getIsSelected() && "selected"}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className="flex-1 min-w-[100px] max-w-[400px]"
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })
+            )}
           </TableBody>
         </Table>
       </div>
+      {isMobile && showLoadMore && rows.length > 0 && (
+        <Button
+          onClick={handleLoadMore}
+          disabled={isLoadingMore}
+          className="my-4 w-full"
+        >
+          {isLoadingMore ? "Loading..." : "Load More"}
+        </Button>
+      )}
     </div>
   );
 }
