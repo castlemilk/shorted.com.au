@@ -51,7 +51,7 @@ export function DataTable<TData, TValue>({
 
   React.useEffect(() => {
     const checkScreenSize = () => {
-      setIsLargeScreen(window.innerWidth >= 1024);
+      setIsLargeScreen(window.innerWidth >= 768); // Changed from 1024 to 768
     };
 
     checkScreenSize();
@@ -178,7 +178,7 @@ export function DataTable<TData, TValue>({
   }, [fetchMore, isLoadingMore]);
 
   return (
-    <div className="h-[700px] w-full flex flex-col">
+    <div className="w-full flex flex-col" style={{ height: 'calc(100vh - 100px)' }}> {/* Adjusted height */}
       <div
         ref={parentRef}
         className="flex-grow overflow-auto"
@@ -187,12 +187,12 @@ export function DataTable<TData, TValue>({
         <Table className="w-full">
           <TableHeader className="sticky top-0 z-10 bg-background">
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id} className="flex">
+              <TableRow key={headerGroup.id} className="flex flex-wrap"> {/* Added flex-wrap */}
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
                     colSpan={header.colSpan}
-                    className="flex-1 min-w-[100px] max-w-[400px]"
+                    className="flex-1 min-w-[150px] p-2" {/* Adjusted min-width and added padding */}
                   >
                     {header.isPlaceholder
                       ? null
@@ -252,7 +252,7 @@ export function DataTable<TData, TValue>({
                       `/shorts/${(row.original as { productCode: string }).productCode}`,
                     )
                   }
-                  className="flex absolute w-full cursor-pointer"
+                  className="flex flex-wrap absolute w-full cursor-pointer" {/* Added flex-wrap */}
                   style={{
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
@@ -261,7 +261,7 @@ export function DataTable<TData, TValue>({
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className="flex-1 min-w-[100px] max-w-[400px]"
+                      className="flex-1 min-w-[150px] p-2" {/* Adjusted min-width and added padding */}
                     >
                       {flexRender(
                         cell.column.columnDef.cell,
