@@ -30,17 +30,18 @@
       "@/components/*": ["./src/@/components/*"],
       "@/registry/*": ["./src/@/registry/*"],
       "@/registry/new-york/ui/*": ["./src/@/registry/new-york/ui/*"],
-      "@styles/*": ["./styles/*"],
+      "@/styles/*": ["./src/styles/*"],
       "@/lib/*": ["./src/@/lib/*"],
       "@/config/*": ["./src/@/config/*"],
       "@/types/*": ["./src/@/types/*"],
       "@/hooks/*": ["./src/@/hooks/*"],
+      "@/interfaces/*": ["./src/@/interfaces/*"]
     }
   },
   "ts-node": {
     "esm": true,
-    "experimentalSpecifierResolution": "node",
-},
+    "experimentalSpecifierResolution": "node"
+  },
   "include": [
     ".eslintrc.cjs",
     "next-env.d.ts",
