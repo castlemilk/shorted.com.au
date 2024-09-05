@@ -262,7 +262,7 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
     if (width < 10) return null;
 
     return (
-      <div ref={containerRef}>
+      <div ref={containerRef} style={{ position: 'relative' }}>
         <svg width={width} height={height}>
           <LinearGradient
             id={GRADIENT_ID}
@@ -330,7 +330,7 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
               useWindowMoveEvents
               renderBrushHandle={(props) => <BrushHandle {...props} />}
             />
-          </AreaChart>
+          </AreaChart >
           {tooltipData && (
             <g>
               <Line
@@ -368,28 +368,31 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
           )}
         </svg>
         {tooltipData && (
-          <div>
+          <>
             <TooltipWithBounds
               key={Math.random()}
-              top={containerBounds.top + (tooltipTop ?? 0) - 0}
-              left={containerBounds.left + (tooltipLeft ?? 0)}
-              style={tooltipStyles}
+              top={tooltipTop}
+              left={tooltipLeft}
+              style={{
+                ...tooltipStyles,
+              }}
             >
               <p>{`${getStockValue(tooltipData).toFixed(3)}%`}</p>
             </TooltipWithBounds>
             <Tooltip
-              top={containerBounds.bottom + margin.top - 130}
-              left={containerBounds.left + tooltipLeft}
+              top={yMax + margin.top}
+              left={tooltipLeft}
               style={{
                 ...defaultStyles,
+                position: 'absolute',
                 minWidth: 72,
-                textAlign: "center",
-                transform: "translateX(-50%)",
+                textAlign: 'center',
+                transform: 'translateX(-50%)',
               }}
             >
               {formatDate(getDate(tooltipData))}
             </Tooltip>
-          </div>
+          </>
         )}
       </div>
     );

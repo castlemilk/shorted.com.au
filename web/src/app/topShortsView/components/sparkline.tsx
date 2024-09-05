@@ -34,13 +34,23 @@ const Chart = ({ width, height, margin, data }: SparklineProps) => {
     return <div>Loading or no data available...</div>;
   }
 
+  // Calculate the min and max values
+  const minY = Math.min(...data.points.map(accessors.yAccessor));
+  const maxY = Math.max(...data.points.map(accessors.yAccessor));
+
+  // Calculate the padding (e.g., 10% of the range)
+  const padding = (maxY - minY) * 0.1;
+
   return (
     <XYChart
       width={width}
       height={height}
-      margin={margin}
+      margin={{ top: 40, right: 10, bottom: 20, left: 10 }}
       xScale={{ type: "time" }}
-      yScale={{ type: "linear" }}
+      yScale={{ 
+        type: "linear",
+        domain: [minY - padding, maxY + padding]
+      }}
     >
       <LineSeries
         dataKey="Shorts"
