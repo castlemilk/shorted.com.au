@@ -195,7 +195,7 @@ export function DataTable<TData, TValue>({
                   <TableHead
                     key={header.id}
                     colSpan={header.colSpan}
-                    className="flex-1 min-w-0 p-2 text-xs"
+                    className="flex-1 min-w-0 p-2 text-xs text-center"
                   >
                     {header.isPlaceholder
                       ? null
@@ -228,12 +228,12 @@ export function DataTable<TData, TValue>({
                       `/shorts/${(row.original as { productCode: string }).productCode}`,
                     )
                   }
-                  className="flex w-full cursor-pointer"
+                  className="flex w-full cursor-pointer items-center"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className="flex-1 min-w-0 p-2 text-xs overflow-hidden"
+                      className="flex-1 min-w-0 p-2 text-sm overflow-hidden items-center"
                     >
                       <div className="truncate">
                         {flexRender(

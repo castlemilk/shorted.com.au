@@ -19,7 +19,7 @@ const axisBottomTickLabelProps = {
 const axisLeftTickLabelProps = {
   dx: "-0.25em",
   dy: "0.25em",
-  fontFamily: "Arial",
+  fontFamily: "inherit",
   fontSize: 10,
   textAnchor: "end" as const,
   fill: axisColor,
@@ -96,7 +96,11 @@ const AreaChart = ({
           numTicks={width > 520 ? 10 : 5}
           stroke={axisColor}
           tickStroke={axisColor}
-          tickLabelProps={axisBottomTickLabelProps}
+          tickLabelProps={() => ({
+            ...axisBottomTickLabelProps,
+            transform: `translate(0, -10px)`, // Slight upward adjustment
+          })}
+          hideTicks
         />
       )}
       {!hideLeftAxis && (
@@ -106,6 +110,8 @@ const AreaChart = ({
           stroke={axisColor}
           tickStroke={axisColor}
           tickLabelProps={axisLeftTickLabelProps}
+          tickLength={4}
+          hideTicks
         />
       )}
       {children}
