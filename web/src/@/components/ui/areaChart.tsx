@@ -8,7 +8,7 @@ import { type TimeSeriesPoint } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { type PlainMessage } from "@bufbuild/protobuf";
 
 // Initialize some variables
-const axisColor = "hsl(var(--foreground))";
+const axisColor = "hsl(var(--primary))";
 const axisBottomTickLabelProps = {
   textAnchor: "middle" as const,
   fontFamily: "Arial",
@@ -19,7 +19,7 @@ const axisBottomTickLabelProps = {
 const axisLeftTickLabelProps = {
   dx: "-0.25em",
   dy: "0.25em",
-  fontFamily: "Arial",
+  fontFamily: "inherit",
   fontSize: 10,
   textAnchor: "end" as const,
   fill: axisColor,
@@ -68,19 +68,24 @@ const AreaChart = ({
   if (width < 10) return null;
   return (
     <Group left={left ?? margin.left} top={top ?? margin.top}>
-      <LinearGradient
-        id="gradient"
-        from={gradientColor}
-        fromOpacity={1}
-        to={gradientColor}
-        toOpacity={0.2}
-      />
+      <defs>
+        <filter id="area-shadow" x="-10%" y="-10%" width="120%" height="120%">
+          <feDropShadow dx="2" dy="2" stdDeviation="3" floodOpacity="0.2" />
+        </filter>
+        <LinearGradient
+          id="gradient"
+          from={gradientColor}
+          fromOpacity={1}
+          to={gradientColor}
+          toOpacity={0.2}
+        />
+      </defs>
       <AreaClosed<PlainMessage<TimeSeriesPoint>>
         data={data}
         x={(d) => xScale(getDate(d)) ?? 0}
         y={(d) => yScale(getStockValue(d)) ?? 0}
         yScale={yScale}
-        strokeWidth={1}
+        strokeWidth={2}
         stroke="url(#gradient)"
         fill="url(#gradient)"
         curve={curveMonotoneX}
@@ -88,6 +93,7 @@ const AreaChart = ({
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onMouseLeave={onMouseLeave}
+        filter="url(#area-shadow)"
       />
       {!hideBottomAxis && (
         <AxisBottom
@@ -96,7 +102,11 @@ const AreaChart = ({
           numTicks={width > 520 ? 10 : 5}
           stroke={axisColor}
           tickStroke={axisColor}
-          tickLabelProps={axisBottomTickLabelProps}
+          tickLabelProps={() => ({
+            ...axisBottomTickLabelProps,
+            transform: `translate(0, -10px)`, // Slight upward adjustment
+          })}
+          hideTicks
         />
       )}
       {!hideLeftAxis && (
@@ -106,6 +116,8 @@ const AreaChart = ({
           stroke={axisColor}
           tickStroke={axisColor}
           tickLabelProps={axisLeftTickLabelProps}
+          tickLength={4}
+          hideTicks
         />
       )}
       {children}

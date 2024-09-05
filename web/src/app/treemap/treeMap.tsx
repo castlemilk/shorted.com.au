@@ -129,9 +129,28 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
     <Card className="m-2 w-full">
       <div className="flex align-middle justify-between">
         <CardTitle className="self-center m-5">Industry Tree Map</CardTitle>
-        <div className="flex flex-row-reverse m-2">
-          {viewMode === ViewMode.PERCENTAGE_CHANGE ? (
-            <div className="w-48 pl-3">
+        <div className="flex flex-col sm:flex-row m-2 gap-2">
+          <div className="w-48">
+            <Label htmlFor="viewMode">View Mode</Label>
+            <Select
+              onValueChange={(e) => setViewMode(parseInt(e, 10))}
+              defaultValue={ViewMode.CURRENT_CHANGE.toString()}
+            >
+              <SelectTrigger id="viewMode">
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ViewMode.CURRENT_CHANGE.toString()}>
+                  Latest
+                </SelectItem>
+                <SelectItem value={ViewMode.PERCENTAGE_CHANGE.toString()}>
+                  Percentage Change
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {viewMode === ViewMode.PERCENTAGE_CHANGE && (
+            <div className="w-48">
               <Label htmlFor="period">Time</Label>
               <Select onValueChange={(e) => setPeriod(e)} defaultValue={"3m"}>
                 <SelectTrigger id="period">
@@ -147,26 +166,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                 </SelectContent>
               </Select>
             </div>
-          ) : null}
-          <div className="w-48">
-            <Label htmlFor="period">View Mode</Label>
-            <Select
-              onValueChange={(e) => setViewMode(parseInt(e, 10))}
-              defaultValue={ViewMode.CURRENT_CHANGE.toString()}
-            >
-              <SelectTrigger id="period">
-                <SelectValue placeholder="Select" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ViewMode.CURRENT_CHANGE.toString()}>
-                  Latest
-                </SelectItem>
-                <SelectItem value={ViewMode.PERCENTAGE_CHANGE.toString()}>
-                  Percentage Change
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          )}
         </div>
       </div>
       <Suspense

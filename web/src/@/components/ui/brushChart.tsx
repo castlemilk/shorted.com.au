@@ -37,6 +37,7 @@ import {
 import { localPoint } from "@visx/event";
 import { Line } from "@visx/shape";
 import { timeFormat } from "@visx/vendor/d3-time-format";
+import { cn } from "~/@/lib/utils";
 type TooltipData = PlainMessage<TimeSeriesPoint> | null;
 // Initialize some variables
 const brushMargin = { top: 10, bottom: 15, left: 50, right: 20 };
@@ -262,7 +263,7 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
     if (width < 10) return null;
 
     return (
-      <div ref={containerRef}>
+      <div ref={containerRef} style={{ position: "relative" }}>
         <svg width={width} height={height}>
           <LinearGradient
             id={GRADIENT_ID}
@@ -368,28 +369,28 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
           )}
         </svg>
         {tooltipData && (
-          <div>
+          <>
             <TooltipWithBounds
               key={Math.random()}
-              top={containerBounds.top + (tooltipTop ?? 0) - 0}
-              left={containerBounds.left + (tooltipLeft ?? 0)}
-              style={tooltipStyles}
-            >
-              <p>{`${getStockValue(tooltipData).toFixed(3)}%`}</p>
-            </TooltipWithBounds>
-            <Tooltip
-              top={containerBounds.bottom + margin.top - 130}
-              left={containerBounds.left + tooltipLeft}
+              top={tooltipTop}
+              left={tooltipLeft}
               style={{
-                ...defaultStyles,
-                minWidth: 72,
-                textAlign: "center",
-                transform: "translateX(-50%)",
+                ...tooltipStyles,
+                borderRadius: '8px',
+                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                padding: '12px',
               }}
             >
-              {formatDate(getDate(tooltipData))}
-            </Tooltip>
-          </div>
+              <div className="flex flex-col gap-1">
+                <p className="text-[color:hsl(var(--foreground))] text-sm font-bold">
+                  {formatDate(getDate(tooltipData))}
+                </p>
+                <p className="text-[color:hsl(var(--primary))] text-lg font-semibold">
+                  {`${getStockValue(tooltipData).toFixed(3)}%`}
+                </p>
+              </div>
+            </TooltipWithBounds>
+          </>
         )}
       </div>
     );
