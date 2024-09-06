@@ -290,7 +290,6 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
             hideBottomAxis={compact}
             data={filteredStock}
             width={width}
-            height={topChartHeight}
             margin={{ ...margin, bottom: isMobile ? margin.bottom : topChartBottomMargin }}
             yMax={topChartHeight - margin.top - (isMobile ? margin.bottom : topChartBottomMargin)}
             xScale={dateScale}
