@@ -38,6 +38,8 @@ import { localPoint } from "@visx/event";
 import { Line } from "@visx/shape";
 import { timeFormat } from "@visx/vendor/d3-time-format";
 import { cn } from "~/@/lib/utils";
+import useWindowSize from '@/hooks/use-window-size';
+
 type TooltipData = PlainMessage<TimeSeriesPoint> | null;
 // Initialize some variables
 const brushMargin = { top: 10, bottom: 15, left: 50, right: 20 };
@@ -91,6 +93,9 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
     },
     innerRef,
   ) => {
+    const { width: windowWidth } = useWindowSize();
+    const isMobile = windowWidth ? windowWidth <= 768 : false;
+
     const { containerRef, containerBounds } = useTooltipInPortal({
       scroll: true,
       detectBounds: true,
@@ -126,8 +131,8 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
     const topChartBottomMargin = compact
       ? chartSeparation / 2
       : chartSeparation + 10;
-    const topChartHeight = 0.8 * innerHeight - topChartBottomMargin;
-    const bottomChartHeight = innerHeight - topChartHeight - chartSeparation;
+    const topChartHeight = isMobile ? innerHeight - 40 : 0.8 * innerHeight - topChartBottomMargin;
+    const bottomChartHeight = isMobile ? 0 : innerHeight - topChartHeight - chartSeparation;
 
     // bounds
     const xMax = Math.max(width - margin.left - margin.right, 0);
@@ -282,9 +287,9 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
           />
           <AreaChart
             hideBottomAxis={compact}
-            data={filteredStock}
+            data={isMobile ? data.points : filteredStock}
             width={width}
-            margin={{ ...margin, bottom: topChartBottomMargin }}
+            margin={{ ...margin, bottom: isMobile ? 40 : topChartBottomMargin }}
             yMax={yMax}
             xScale={dateScale}
             yScale={stockScale}
@@ -294,44 +299,46 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
             onMouseMove={handePointerMove}
             onMouseLeave={() => hideTooltip()}
           />
-          <AreaChart
-            hideBottomAxis
-            hideLeftAxis
-            data={data.points}
-            width={width}
-            yMax={yBrushMax}
-            xScale={brushDateScale}
-            yScale={brushStockScale}
-            margin={brushMargin}
-            top={topChartHeight + topChartBottomMargin + margin.top}
-            gradientColor={background2}
-          >
-            <PatternLines
-              id={PATTERN_ID}
-              height={8}
-              width={8}
-              stroke={accentColor}
-              strokeWidth={1}
-              orientation={["diagonal"]}
-            />
-            <Brush
+          {!isMobile && (
+            <AreaChart
+              hideBottomAxis
+              hideLeftAxis
+              data={data.points}
+              width={width}
+              yMax={yBrushMax}
               xScale={brushDateScale}
               yScale={brushStockScale}
-              width={xBrushMax}
-              height={yBrushMax}
               margin={brushMargin}
-              handleSize={8}
-              innerRef={brushRef}
-              resizeTriggerAreas={["left", "right"]}
-              brushDirection="horizontal"
-              initialBrushPosition={initialBrushPosition}
-              onChange={onBrushChange}
-              onClick={() => setFilteredStock(data.points)}
-              selectedBoxStyle={selectedBrushStyle}
-              useWindowMoveEvents
-              renderBrushHandle={(props) => <BrushHandle {...props} />}
-            />
-          </AreaChart>
+              top={topChartHeight + topChartBottomMargin + margin.top}
+              gradientColor={background2}
+            >
+              <PatternLines
+                id={PATTERN_ID}
+                height={8}
+                width={8}
+                stroke={accentColor}
+                strokeWidth={1}
+                orientation={["diagonal"]}
+              />
+              <Brush
+                xScale={brushDateScale}
+                yScale={brushStockScale}
+                width={xBrushMax}
+                height={yBrushMax}
+                margin={brushMargin}
+                handleSize={8}
+                innerRef={brushRef}
+                resizeTriggerAreas={["left", "right"]}
+                brushDirection="horizontal"
+                initialBrushPosition={initialBrushPosition}
+                onChange={onBrushChange}
+                onClick={() => setFilteredStock(data.points)}
+                selectedBoxStyle={selectedBrushStyle}
+                useWindowMoveEvents
+                renderBrushHandle={(props) => <BrushHandle {...props} />}
+              />
+            </AreaChart>
+          )}
           {tooltipData && (
             <g>
               <Line
