@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Group } from "@visx/group";
 import { AreaClosed } from "@visx/shape";
 import { AxisLeft, AxisBottom, type AxisScale } from "@visx/axis";
@@ -65,63 +65,85 @@ const AreaChart = ({
   onMouseMove?: (event: React.MouseEvent<SVGRectElement>) => void;
   onMouseLeave?: () => void;
 }) => {
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const preventDefault = (e: TouchEvent) => {
+      e.preventDefault();
+    };
+
+    svg.addEventListener('touchstart', preventDefault, { passive: false });
+    svg.addEventListener('touchmove', preventDefault, { passive: false });
+
+    return () => {
+      svg.removeEventListener('touchstart', preventDefault);
+      svg.removeEventListener('touchmove', preventDefault);
+    };
+  }, []);
+
   if (width < 10) return null;
+
   return (
-    <Group left={left ?? margin.left} top={top ?? margin.top}>
-      <defs>
-        <filter id="area-shadow" x="-10%" y="-10%" width="120%" height="120%">
-          <feDropShadow dx="2" dy="2" stdDeviation="3" floodOpacity="0.2" />
-        </filter>
-        <LinearGradient
-          id="gradient"
-          from={gradientColor}
-          fromOpacity={1}
-          to={gradientColor}
-          toOpacity={0.2}
+    <svg ref={svgRef} width={width} height={yMax + margin.top + margin.bottom}>
+      <Group left={left ?? margin.left} top={top ?? margin.top}>
+        <defs>
+          <filter id="area-shadow" x="-10%" y="-10%" width="120%" height="120%">
+            <feDropShadow dx="2" dy="2" stdDeviation="3" floodOpacity="0.2" />
+          </filter>
+          <LinearGradient
+            id="gradient"
+            from={gradientColor}
+            fromOpacity={1}
+            to={gradientColor}
+            toOpacity={0.2}
+          />
+        </defs>
+        <AreaClosed<PlainMessage<TimeSeriesPoint>>
+          data={data}
+          x={(d) => xScale(getDate(d)) ?? 0}
+          y={(d) => yScale(getStockValue(d)) ?? 0}
+          yScale={yScale}
+          strokeWidth={2}
+          stroke="url(#gradient)"
+          fill="url(#gradient)"
+          curve={curveMonotoneX}
+          onMouseMove={onMouseMove}
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onMouseLeave={onMouseLeave}
+          filter="url(#area-shadow)"
         />
-      </defs>
-      <AreaClosed<PlainMessage<TimeSeriesPoint>>
-        data={data}
-        x={(d) => xScale(getDate(d)) ?? 0}
-        y={(d) => yScale(getStockValue(d)) ?? 0}
-        yScale={yScale}
-        strokeWidth={2}
-        stroke="url(#gradient)"
-        fill="url(#gradient)"
-        curve={curveMonotoneX}
-        onMouseMove={onMouseMove}
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onMouseLeave={onMouseLeave}
-        filter="url(#area-shadow)"
-      />
-      {!hideBottomAxis && (
-        <AxisBottom
-          top={yMax}
-          scale={xScale}
-          numTicks={width > 520 ? 10 : 5}
-          stroke={axisColor}
-          tickStroke={axisColor}
-          tickLabelProps={() => ({
-            ...axisBottomTickLabelProps,
-            transform: `translate(0, -10px)`, // Slight upward adjustment
-          })}
-          hideTicks
-        />
-      )}
-      {!hideLeftAxis && (
-        <AxisLeft
-          scale={yScale}
-          numTicks={5}
-          stroke={axisColor}
-          tickStroke={axisColor}
-          tickLabelProps={axisLeftTickLabelProps}
-          tickLength={4}
-          hideTicks
-        />
-      )}
-      {children}
-    </Group>
+        {!hideBottomAxis && (
+          <AxisBottom
+            top={yMax}
+            scale={xScale}
+            numTicks={width > 520 ? 10 : 5}
+            stroke={axisColor}
+            tickStroke={axisColor}
+            tickLabelProps={() => ({
+              ...axisBottomTickLabelProps,
+              transform: `translate(0, -10px)`, // Slight upward adjustment
+            })}
+            hideTicks
+          />
+        )}
+        {!hideLeftAxis && (
+          <AxisLeft
+            scale={yScale}
+            numTicks={5}
+            stroke={axisColor}
+            tickStroke={axisColor}
+            tickLabelProps={axisLeftTickLabelProps}
+            tickLength={4}
+            hideTicks
+          />
+        )}
+        {children}
+      </Group>
+    </svg>
   );
 };
 
