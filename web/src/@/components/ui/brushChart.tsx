@@ -30,15 +30,13 @@ import { type PlainMessage } from "@bufbuild/protobuf";
 import {
   TooltipWithBounds,
   defaultStyles,
-  Tooltip,
   useTooltip,
   useTooltipInPortal,
 } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
 import { Line } from "@visx/shape";
 import { timeFormat } from "@visx/vendor/d3-time-format";
-import { cn } from "~/@/lib/utils";
-import useWindowSize from '@/hooks/use-window-size';
+import useWindowSize from "@/hooks/use-window-size";
 
 type TooltipData = PlainMessage<TimeSeriesPoint> | null;
 // Initialize some variables
@@ -94,7 +92,7 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
     innerRef,
   ) => {
     const { width: windowWidth } = useWindowSize();
-    const isMobile = windowWidth ? windowWidth <= 768 : false;
+    const isMobile = windowWidth ? windowWidth <= 500 : false;
 
     const { containerRef, containerBounds } = useTooltipInPortal({
       scroll: true,
@@ -131,8 +129,11 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
     const topChartBottomMargin = compact
       ? chartSeparation / 2
       : chartSeparation + 10;
-    const topChartHeight = isMobile ? innerHeight - 40 : 0.8 * innerHeight - topChartBottomMargin;
+    const topChartHeight = isMobile ? innerHeight : 0.8 * innerHeight - topChartBottomMargin;
     const bottomChartHeight = isMobile ? 0 : innerHeight - topChartHeight - chartSeparation;
+
+    // Adjust the SVG height based on whether we're showing the brush or not
+    const svgHeight = isMobile ? topChartHeight + margin.top + margin.bottom : height;
 
     // bounds
     const xMax = Math.max(width - margin.left - margin.right, 0);
@@ -269,7 +270,7 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
 
     return (
       <div ref={containerRef} style={{ position: "relative" }}>
-        <svg width={width} height={height}>
+        <svg width={width} height={svgHeight}>
           <LinearGradient
             id={GRADIENT_ID}
             from={background}
@@ -281,16 +282,17 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
             x={0}
             y={0}
             width={width}
-            height={height}
+            height={svgHeight}
             fill={`url(#${GRADIENT_ID})`}
             rx={14}
           />
           <AreaChart
             hideBottomAxis={compact}
-            data={isMobile ? data.points : filteredStock}
+            data={filteredStock}
             width={width}
-            margin={{ ...margin, bottom: isMobile ? 40 : topChartBottomMargin }}
-            yMax={yMax}
+            height={topChartHeight}
+            margin={{ ...margin, bottom: isMobile ? margin.bottom : topChartBottomMargin }}
+            yMax={topChartHeight - margin.top - (isMobile ? margin.bottom : topChartBottomMargin)}
             xScale={dateScale}
             yScale={stockScale}
             gradientColor={background2}
@@ -300,44 +302,45 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
             onMouseLeave={() => hideTooltip()}
           />
           {!isMobile && (
-            <AreaChart
-              hideBottomAxis
-              hideLeftAxis
-              data={data.points}
-              width={width}
-              yMax={yBrushMax}
-              xScale={brushDateScale}
-              yScale={brushStockScale}
-              margin={brushMargin}
-              top={topChartHeight + topChartBottomMargin + margin.top}
-              gradientColor={background2}
-            >
-              <PatternLines
-                id={PATTERN_ID}
-                height={8}
-                width={8}
-                stroke={accentColor}
-                strokeWidth={1}
-                orientation={["diagonal"]}
-              />
-              <Brush
+            <g transform={`translate(0, ${topChartHeight + topChartBottomMargin + margin.top})`}>
+              <AreaChart
+                hideBottomAxis
+                hideLeftAxis
+                data={data.points}
+                width={width}
+                yMax={yBrushMax}
                 xScale={brushDateScale}
                 yScale={brushStockScale}
-                width={xBrushMax}
-                height={yBrushMax}
                 margin={brushMargin}
-                handleSize={8}
-                innerRef={brushRef}
-                resizeTriggerAreas={["left", "right"]}
-                brushDirection="horizontal"
-                initialBrushPosition={initialBrushPosition}
-                onChange={onBrushChange}
-                onClick={() => setFilteredStock(data.points)}
-                selectedBoxStyle={selectedBrushStyle}
-                useWindowMoveEvents
-                renderBrushHandle={(props) => <BrushHandle {...props} />}
-              />
-            </AreaChart>
+                gradientColor={background2}
+              >
+                <PatternLines
+                  id={PATTERN_ID}
+                  height={8}
+                  width={8}
+                  stroke={accentColor}
+                  strokeWidth={1}
+                  orientation={["diagonal"]}
+                />
+                <Brush
+                  xScale={brushDateScale}
+                  yScale={brushStockScale}
+                  width={xBrushMax}
+                  height={yBrushMax}
+                  margin={brushMargin}
+                  handleSize={8}
+                  innerRef={brushRef}
+                  resizeTriggerAreas={["left", "right"]}
+                  brushDirection="horizontal"
+                  initialBrushPosition={initialBrushPosition}
+                  onChange={onBrushChange}
+                  onClick={() => setFilteredStock(data.points)}
+                  selectedBoxStyle={selectedBrushStyle}
+                  useWindowMoveEvents
+                  renderBrushHandle={(props) => <BrushHandle {...props} />}
+                />
+              </AreaChart>
+            </g>
           )}
           {tooltipData && (
             <g>
@@ -383,9 +386,9 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
               left={tooltipLeft}
               style={{
                 ...tooltipStyles,
-                borderRadius: '8px',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                padding: '12px',
+                borderRadius: "8px",
+                boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+                padding: "12px",
               }}
             >
               <div className="flex flex-col gap-1">
