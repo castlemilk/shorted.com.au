@@ -29,7 +29,7 @@ const strokeColor = "var(--line-stroke)";
 const redColor = `var(--red)`;
 const greenColor = `var(--green)`;
 
-const Chart = ({ width, height, margin, data }: SparklineProps) => {
+const Chart = ({ width, height, data }: SparklineProps) => {
   if (data.points.length === 0) {
     return <div>Loading or no data available...</div>;
   }
@@ -138,7 +138,6 @@ const SparkLine = ({ data }: { data: PlainMessage<TimeSeriesData> }) => {
             width={Math.max(width, 100)}
             height={Math.max(height, 100)}
             data={data}
-            margin={{ top: 5, right: 5, bottom: 5, left: 5 }}
           />
         )}
       </ParentSize>
