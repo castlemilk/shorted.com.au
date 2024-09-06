@@ -24,7 +24,7 @@ import {
   TableRow,
 } from "~/@/components/ui/table";
 import { Button } from "~/@/components/ui/button";
-import { debounce } from 'lodash';
+import { debounce } from "lodash";
 
 interface DataTableProps<TData, TValue> {
   loading: boolean;
@@ -42,25 +42,22 @@ export function DataTable<TData, TValue>({
   loading,
 }: DataTableProps<TData, TValue>) {
   const [localData, setLocalData] = React.useState(data);
-  const [,setIsLoading] = React.useState(loading);
+  const [, setIsLoading] = React.useState(loading);
   const [isLargeScreen, setIsLargeScreen] = React.useState(false);
   const [showLoadMore, setShowLoadMore] = React.useState(false);
-  const [,setIsFetching] = React.useState(false);
+  const [, setIsFetching] = React.useState(false);
   const fetchingRef = React.useRef(false);
   const totalRowsMax = 100; // Define this constant or make it a prop
-
-  const [isMobile, setIsMobile] = React.useState(false);
 
   React.useEffect(() => {
     const checkScreenSize = () => {
       setIsLargeScreen(window.innerWidth >= 1024);
-      setIsMobile(window.innerWidth < 768); // Consider screens smaller than 768px as mobile
     };
 
     checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
+    window.addEventListener("resize", checkScreenSize);
 
-    return () => window.removeEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener("resize", checkScreenSize);
   }, []);
 
   React.useEffect(() => {
@@ -113,15 +110,17 @@ export function DataTable<TData, TValue>({
         if (!fetchingRef.current && localData.length < totalRowsMax) {
           fetchingRef.current = true;
           setIsFetching(true);
-          fetchMore().catch((error) => {
-            console.error('Error fetching more data:', error);
-          }).finally(() => {
-            fetchingRef.current = false;
-            setIsFetching(false);
-          });
+          fetchMore()
+            .catch((error) => {
+              console.error("Error fetching more data:", error);
+            })
+            .finally(() => {
+              fetchingRef.current = false;
+              setIsFetching(false);
+            });
         }
       }, 200),
-    [fetchMore, localData.length, totalRowsMax]
+    [fetchMore, localData.length, totalRowsMax],
   );
 
   const fetchMoreOnBottomReached = React.useCallback(
@@ -133,16 +132,16 @@ export function DataTable<TData, TValue>({
         }
       }
     },
-    [debouncedFetchMore, isLargeScreen]
+    [debouncedFetchMore, isLargeScreen],
   );
 
   React.useEffect(() => {
     const currentRef = parentRef.current;
     if (currentRef && isLargeScreen) {
       const scrollHandler = () => fetchMoreOnBottomReached(currentRef);
-      currentRef.addEventListener('scroll', scrollHandler);
+      currentRef.addEventListener("scroll", scrollHandler);
       return () => {
-        currentRef.removeEventListener('scroll', scrollHandler);
+        currentRef.removeEventListener("scroll", scrollHandler);
       };
     }
   }, [fetchMoreOnBottomReached, isLargeScreen]);
@@ -171,7 +170,7 @@ export function DataTable<TData, TValue>({
       setIsLoadingMore(true);
       fetchMore()
         .catch((error) => {
-          console.error('Error fetching more data:', error);
+          console.error("Error fetching more data:", error);
         })
         .finally(() => {
           setIsLoadingMore(false);
@@ -215,7 +214,10 @@ export function DataTable<TData, TValue>({
           <TableBody>
             {rows.length === 0 ? (
               <TableRow className="w-full">
-                <TableCell colSpan={columns.length} className="h-[100px] flex justify-center items-center text-center">
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-[100px] flex justify-center items-center text-center"
+                >
                   <p>No data found, try a different time</p>
                 </TableCell>
               </TableRow>
@@ -261,5 +263,3 @@ export function DataTable<TData, TValue>({
     </div>
   );
 }
-
-
