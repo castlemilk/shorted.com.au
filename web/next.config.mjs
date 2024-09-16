@@ -9,7 +9,6 @@ import packageInfo from "./package.json" assert { type: "json" };
 const { version } = packageInfo;
 /** @type {import("next").NextConfig} */
 const config = {
-  webpack5: true,
   webpack: (config) => {
     config.resolve.fallback = {
       fs: false,
@@ -24,6 +23,7 @@ const config = {
     version,
     shortsUrl: process.env.SHORTS_SERVICE_ENDPOINT ?? "http://localhost:8080",
   },
+  // Optionally, add any other Next.js config below
   images: {
     remotePatterns: [
       {
@@ -36,5 +36,20 @@ const config = {
   },
 };
 
+import nextMDX from '@next/mdx'
 
-export default config
+const withMDX = nextMDX({
+  extension: /\.mdx|.md?$/,
+  options: {
+    rehypePlugins: [],
+  },
+})
+
+export default withMDX({
+  ...config,
+  pageExtensions: ['js', 'jsx', 'mdx','md', 'ts', 'tsx'],
+  reactStrictMode: true,
+  images: {
+    domains: ["localhost", "shorted.com.au"],
+  },
+})
