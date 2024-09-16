@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package register.v1;
+
+option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/register/v1;registerv1";
+
+import "google/api/annotations.proto";
+
+service RegisterService {
+  // Register an email address to receive updates.
+  rpc RegisterEmail (RegisterEmailRequest) returns (RegisterEmailResponse);
+}
+
+message RegisterEmailRequest {
+    string email = 1;
+}
+
+message RegisterEmailResponse {
+    bool success = 1;
+}
