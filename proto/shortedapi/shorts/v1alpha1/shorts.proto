@@ -5,7 +5,6 @@ package shorts.v1alpha1;
 option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1";
 
 import "google/api/annotations.proto";
-import "protoc-gen-openapiv2/options/annotations.proto";
 import "stocks/v1alpha1/stocks.proto";
 
 service ShortedStocksService {
