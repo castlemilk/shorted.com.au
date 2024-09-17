@@ -4,9 +4,9 @@
  */
 await import("./src/env.js");
 
-import packageInfo from "./package.json" assert { type: "json" };
+import packageJson from './package.json' with { type: 'json' };
 
-const { version } = packageInfo;
+const { version } = packageJson;
 /** @type {import("next").NextConfig} */
 const config = {
   webpack: (config) => {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 
+	"github.com/castlemilk/shorted.com.au/services/gen/proto/go/register/v1/registerv1connect"
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -28,11 +29,13 @@ func withCORS(h http.Handler) http.Handler {
 func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address string) error {
 
 	mux := http.NewServeMux()
-	path, handler := shortsv1alpha1connect.NewShortedStocksServiceHandler(s)
-
-	handler = withCORS(handler)
+	shortsPath, shortsHandler := shortsv1alpha1connect.NewShortedStocksServiceHandler(s)
+	registerPath, registerHandler := registerv1connect.NewRegisterServiceHandler(s.registerServer)
+	shortsHandler = withCORS(shortsHandler)
+	registerHandler = withCORS(registerHandler)
 	// handler = AuthMiddleware(handler)
-	mux.Handle(path, handler)
+	mux.Handle(shortsPath, shortsHandler)
+	mux.Handle(registerPath, registerHandler)
 	return http.ListenAndServe(
 		address,
 		// Use h2c so we can serve HTTP/2 without TLS.
