@@ -3,24 +3,9 @@ import { HeroPost } from "@/components/ui/hero-post";
 import { Intro } from "@/components/ui/intro";
 import { MoreStories } from "@/components/ui/more-stories";
 import { getAllPosts } from "@/lib/api";
-import { MDXRemote, type MDXRemoteSerializeResult } from "next-mdx-remote/rsc";
+import { MDXRemote } from "next-mdx-remote/rsc";
 import { useMDXComponents } from "@/app/mdx-components";
-
-interface Author {
-  name: string;
-  picture: string;
-}
-
-interface Post {
-  title: string;
-  coverImage: string;
-  date: string;
-  author: Author;
-  slug: string;
-  excerpt: string;
-  content: string;
-  serializedContent?: MDXRemoteSerializeResult;
-}
+import { type Post } from "@/interfaces/post";
 
 // Remove the components object, as we'll use the global MDX components
 
@@ -28,6 +13,7 @@ export default async function Index() {
   const allPosts: Post[] = getAllPosts();
   const heroPost = allPosts[0];
   const morePosts = allPosts.slice(1);
+
   const components = useMDXComponents({});
 
   return (
@@ -43,7 +29,9 @@ export default async function Index() {
             slug={heroPost.slug}
             excerpt={heroPost.excerpt}
           >
-            <MDXRemote source={heroPost.content} components={components} />
+            <div className="max-w-2xl mx-auto custom-mdx-content">
+              <MDXRemote source={heroPost.content} components={components} />
+            </div>
           </HeroPost>
         )}
         {morePosts.length > 0 && <MoreStories posts={morePosts} />}
