@@ -1,14 +1,11 @@
 import { notFound } from "next/navigation";
 import { getAllPosts, getPostBySlug } from "@/lib/api";
 import { CMS_NAME } from "@/lib/constants";
-import { serialize } from "next-mdx-remote/serialize"; // Add this import
 import Container from "@/components/ui/container";
-import { PostBody } from "@/components/ui/post-body";
 import { PostHeader } from "@/components/ui/post-header";
-import { Metadata } from "next";
+import { type Metadata } from "next";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import { useMDXComponents } from "@/app/mdx-components";
-import Image from "next/image";
 
 interface Params {
   params: {
@@ -23,7 +20,7 @@ export default async function Post({ params }: Params) {
     return notFound();
   }
 
-  const components = useMDXComponents();
+  const components = useMDXComponents({});
 
   return (
     <main>
@@ -36,9 +33,9 @@ export default async function Post({ params }: Params) {
             author={post.author}
           />
           <div className="max-w-2xl mx-auto custom-mdx-content">
-            <MDXRemote 
-              source={post.content} 
-              components={components} 
+            <MDXRemote
+              source={post.content}
+              components={components}
               options={{
                 parseFrontmatter: false,
                 mdxOptions: {

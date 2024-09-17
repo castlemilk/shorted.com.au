@@ -1,4 +1,5 @@
 import "~/styles/globals.css";
+import "prismjs/themes/prism-tomorrow.css"; // Import the Prism CSS theme
 
 import { Inter as FontSans } from "next/font/google";
 

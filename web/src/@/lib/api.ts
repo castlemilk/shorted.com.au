@@ -29,10 +29,10 @@ export function getAllPosts(): Post[] {
       const { data, content } = matter(fileContents);
 
       return {
-        ...data,
+        ...(data as Omit<Post, "slug" | "content">),
         content,
         slug: fileName.replace(/\.(mdx?)$/i, ""),
-      };
+      } as Post;
     });
 
   return allPosts;

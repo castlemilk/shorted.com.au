@@ -1,7 +1,6 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
 
 @layer base {
@@ -78,4 +77,32 @@
 .custom-mdx-content .image-wrapper {
   width: 80%;
   margin: 2rem auto;
+}
+
+.custom-mdx-content {
+  @apply text-lg leading-relaxed;
+}
+
+.custom-mdx-content p,
+.custom-mdx-content ul,
+.custom-mdx-content ol,
+.custom-mdx-content blockquote {
+  @apply my-6;
+}
+
+.custom-mdx-content h2 {
+  @apply text-3xl mt-12 mb-4 leading-snug;
+}
+
+.custom-mdx-content h3 {
+  @apply text-2xl mt-8 mb-4 leading-snug;
+}
+
+/* Add this for code blocks */
+.custom-mdx-content pre {
+  @apply my-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-x-auto;
+}
+
+.custom-mdx-content code {
+  @apply font-mono text-sm;
 }
