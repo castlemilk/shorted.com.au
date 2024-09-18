@@ -4,7 +4,6 @@ import { ModeToggle } from "./mode-toggle";
 const items = [
   { title: "about", href: "/about" },
   { title: "blog", href: "/blog" },
-  { title: "roadmap", href: "/roadmap" },
 ];
 const SiteHeader: FC = () => {
   return (
