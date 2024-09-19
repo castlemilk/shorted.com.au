@@ -3,6 +3,7 @@ package register
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"connectrpc.com/connect"
 	valid "github.com/asaskevich/govalidator"
@@ -22,6 +23,11 @@ func (s *RegisterServer) RegisterEmail(ctx context.Context, req *connect.Request
 	}
 	err := s.store.RegisterEmail(req.Msg.Email)
 	if err != nil {
+		// check if error is a unique constraint violation
+		if strings.Contains(err.Error(), "duplicate key value") {
+			return nil, connect.NewError(connect.CodeAlreadyExists, err)
+		}
+		log.Errorf("error registering email: %v, error: %v", req.Msg.Email, err)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&registerv1.RegisterEmailResponse{
