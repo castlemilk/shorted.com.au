@@ -175,7 +175,7 @@ func (s *postgresStore) GetIndustryTreeMap(limit int32, period string, viewMode 
 }
 
 func (s *postgresStore) RegisterEmail(email string) error {
-	query := `insert into "email-subscriptions" (email) values ($1)`
+	query := `insert into "subscriptions" (email) values ($1)`
 	_, err := s.db.Exec(context.Background(), query, email)
 	return err
 }
