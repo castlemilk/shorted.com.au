@@ -173,3 +173,9 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stocksv1alpha1.Stock
 func (s *postgresStore) GetIndustryTreeMap(limit int32, period string, viewMode string) (*stocksv1alpha1.IndustryTreeMap, error) {
 	return FetchTreeMapData(s.db, limit, period, viewMode)
 }
+
+func (s *postgresStore) RegisterEmail(email string) error {
+	query := `insert into "subscriptions" (email) values ($1)`
+	_, err := s.db.Exec(context.Background(), query, email)
+	return err
+}

@@ -35,7 +35,8 @@
       "@/config/*": ["./src/@/config/*"],
       "@/types/*": ["./src/@/types/*"],
       "@/hooks/*": ["./src/@/hooks/*"],
-      "@/interfaces/*": ["./src/@/interfaces/*"]
+      "@/interfaces/*": ["./src/@/interfaces/*"],
+      "@/app/*": ["./src/app/*"]
     }
   },
   "ts-node": {
@@ -50,6 +51,6 @@
     "**/*.cjs",
     "**/*.js",
     ".next/types/**/*.ts"
-  ],
+, "next.config.mjs"  ],
   "exclude": ["node_modules"]
 }
