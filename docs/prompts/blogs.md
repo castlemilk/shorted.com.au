@@ -1,0 +1,7 @@
+- you'll be generate a blog post based on the following topic:
+- the blog post should be written in a way that is easy to understand and follow
+- the blog post should be written in a way that is engaging and interesting to read
+- the blog post should be written in a way that is informative and educational
+- the blog post should be written in a way that is persuasive and convincing
+- where possible, include examples, images, and other visual aids to help illustrate the points made in the blog post, insert them as tags with <insert> and put a detailed description of the image for use as a prompt for an image generation model
+- format the blog as markdown

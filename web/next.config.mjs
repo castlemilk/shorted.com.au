@@ -4,12 +4,11 @@
  */
 await import("./src/env.js");
 
-import packageInfo from "./package.json" assert { type: "json" };
+import packageJson from './package.json' with { type: 'json' };
 
-const { version } = packageInfo;
+const { version } = packageJson;
 /** @type {import("next").NextConfig} */
 const config = {
-  webpack5: true,
   webpack: (config) => {
     config.resolve.fallback = {
       fs: false,
@@ -24,6 +23,7 @@ const config = {
     version,
     shortsUrl: process.env.SHORTS_SERVICE_ENDPOINT ?? "http://localhost:8080",
   },
+  // Optionally, add any other Next.js config below
   images: {
     remotePatterns: [
       {
@@ -36,5 +36,20 @@ const config = {
   },
 };
 
+import nextMDX from '@next/mdx'
+import rehypePrismPlus from 'rehype-prism-plus';
+const withMDX = nextMDX({
+  extension: /\.mdx|.md?$/,
+  options: {
+    rehypePlugins: [rehypePrismPlus],
+  },
+})
 
-export default config
+export default withMDX({
+  ...config,
+  pageExtensions: ['js', 'jsx', 'mdx','md', 'ts', 'tsx'],
+  reactStrictMode: true,
+  images: {
+    domains: ["localhost", "shorted.com.au"],
+  },
+})

@@ -1,12 +1,17 @@
-import { type Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getAllPosts, getPostBySlug } from "@/lib/api";
 import { CMS_NAME } from "@/lib/constants";
-import markdownToHtml from "@/lib/markdownToHtml";
-import Alert from "@/components/ui/alert";
 import Container from "@/components/ui/container";
-import { PostBody } from "@/components/ui/post-body";
 import { PostHeader } from "@/components/ui/post-header";
+import { type Metadata } from "next";
+import { MDXRemote } from "next-mdx-remote/rsc";
+import { useMDXComponents } from "@/app/mdx-components";
+
+interface Params {
+  params: {
+    slug: string;
+  };
+}
 
 export default async function Post({ params }: Params) {
   const post = getPostBySlug(params.slug);
@@ -15,11 +20,10 @@ export default async function Post({ params }: Params) {
     return notFound();
   }
 
-  const content = await markdownToHtml(post.content || "");
+  const components = useMDXComponents({});
 
   return (
     <main>
-      <Alert preview={post.preview} />
       <Container>
         <article className="mb-32">
           <PostHeader
@@ -28,18 +32,24 @@ export default async function Post({ params }: Params) {
             date={post.date}
             author={post.author}
           />
-          <PostBody content={content} />
+          <div className="max-w-2xl mx-auto custom-mdx-content">
+            <MDXRemote
+              source={post.content}
+              components={components}
+              options={{
+                parseFrontmatter: false,
+                mdxOptions: {
+                  remarkPlugins: [],
+                  rehypePlugins: [],
+                },
+              }}
+            />
+          </div>
         </article>
       </Container>
     </main>
   );
 }
-
-type Params = {
-  params: {
-    slug: string;
-  };
-};
 
 export function generateMetadata({ params }: Params): Metadata {
   const post = getPostBySlug(params.slug);
