@@ -11,7 +11,7 @@ const RegisterEmail = () => {
   const [isValid, setIsValid] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<
-    "idle" | "success" | "error"
+    "idle" | "success" | "error" | "exists"
   >("idle");
 
   const validateEmail = (input: string) => {
@@ -34,7 +34,11 @@ const RegisterEmail = () => {
       await registerEmail(email);
       setSubmitStatus("success");
     } catch (error) {
-      setSubmitStatus("error");
+      if (error instanceof Error && "code" in error && error.code === 6) {
+        setSubmitStatus("exists");
+      } else {
+        setSubmitStatus("error");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -97,6 +101,13 @@ const RegisterEmail = () => {
         <Alert variant="destructive" className="bg-red-800 text-white">
           <AlertDescription>
             An error occurred. Please try again.
+          </AlertDescription>
+        </Alert>
+      )}
+      {submitStatus === "exists" && (
+        <Alert variant="destructive" className="bg-yellow-800 text-white">
+          <AlertDescription>
+            This email address is already subscribed!
           </AlertDescription>
         </Alert>
       )}
