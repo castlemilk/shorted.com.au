@@ -1,7 +1,6 @@
 // renders the tree component with the roadmap data
 
 import Tree from "@/components/tree/tree";
-import { PersonIcon } from "@radix-ui/react-icons";
 import {
   ActivityIcon,
   AreaChart,
@@ -9,12 +8,10 @@ import {
   ComputerIcon,
   ImageIcon,
   LineChartIcon,
-  LucidePictureInPicture,
   NewspaperIcon,
   PaperclipIcon,
   RssIcon,
   UserRoundIcon,
-  ViewIcon,
 } from "lucide-react";
 import Image from "next/image";
 import Container from "~/@/components/ui/container";
@@ -41,7 +38,7 @@ const roadmapData = {
   id: "1",
   name: "Shorted",
   imageComponent: <CustomImage />,
-  status: "DONE", // Add this line
+  status: "DONE" as const, // Add 'as const' here
   children: [
     {
       id: "1.1",
@@ -52,7 +49,7 @@ const roadmapData = {
           <LineChartIcon className="w-6 h-6" />
         </CircleWrapper>
       ),
-      status: "DONE", // Add this line
+      status: "DONE" as const, // Add 'as const' here
       children: [
         {
           id: "1.1.1",

@@ -1,4 +1,5 @@
 import type { MDXComponents } from "mdx/types";
+import Info from "~/@/components/ui/info";
 import RegisterEmail from "~/@/components/ui/register-email";
 
 export function useMDXComponents(components: MDXComponents): MDXComponents {
@@ -27,6 +28,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     th: (props) => <th className="px-4 py-2 text-left" {...props} />,
     td: (props) => <td className="px-4 py-2 text-left" {...props} />,
     RegisterEmail: (props) => <RegisterEmail {...props} />,
+    Info: (props) => <Info {...props} />,
     ...components,
   };
 }
