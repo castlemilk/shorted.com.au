@@ -13,5 +13,6 @@ export const registerEmail = cache(async (email: string) => {
 
   const client = createPromiseClient(RegisterService, transport);
   const response = await client.registerEmail({ email });
+
   return toPlainMessage(response);
 });
