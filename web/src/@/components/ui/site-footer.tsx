@@ -2,7 +2,7 @@ import { siteConfig } from "@/config/site";
 import { Badge } from "@/components/ui/badge";
 import getConfig from "next/config";
 import Link from "next/link";
-import { RouteIcon } from "lucide-react";
+import { File, RouteIcon } from "lucide-react";
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
 const { publicRuntimeConfig }: { publicRuntimeConfig: Record<string, string> } =
@@ -26,8 +26,16 @@ const SiteFooter = () => {
         <div className="flex items-center gap-2">
           <Badge variant="secondary">{publicRuntimeConfig?.version}</Badge>
           <Link href="/roadmap">
-            
-            <Badge variant="secondary"><RouteIcon className="w-3 h-3 mr-1" />roadmap</Badge>
+            <Badge variant="secondary">
+              <RouteIcon className="w-3 h-3 mr-1" />
+              roadmap
+            </Badge>
+          </Link>
+          <Link href="/terms">
+            <Badge variant="secondary">
+              <File className="w-3 h-3 mr-1" />
+              terms
+            </Badge>
           </Link>
         </div>
       </div>

@@ -4,7 +4,7 @@
  */
 await import("./src/env.js");
 
-import packageJson from './package.json' with { type: 'json' };
+import packageJson from "./package.json" with { type: "json" };
 
 const { version } = packageJson;
 /** @type {import("next").NextConfig} */
@@ -36,21 +36,21 @@ const config = {
   },
 };
 
-import nextMDX from '@next/mdx'
-import rehypePrismPlus from 'rehype-prism-plus';
+import nextMDX from "@next/mdx";
+import rehypePrismPlus from "rehype-prism-plus";
 const withMDX = nextMDX({
   extension: /\.mdx|.md?$/,
   options: {
     rehypePlugins: [rehypePrismPlus],
   },
-})
+});
 
 export default withMDX({
   ...config,
-  pageExtensions: ['js', 'jsx', 'mdx','md', 'ts', 'tsx'],
+  pageExtensions: ["js", "jsx", "mdx", "md", "ts", "tsx"],
   reactStrictMode: true,
   images: {
     ...config.images,
     domains: ["localhost", "shorted.com.au", "storage.googleapis.com"],
   },
-})
+});
