@@ -50,6 +50,7 @@ export default withMDX({
   pageExtensions: ['js', 'jsx', 'mdx','md', 'ts', 'tsx'],
   reactStrictMode: true,
   images: {
+    ...config.images,
     domains: ["localhost", "shorted.com.au"],
   },
 })
