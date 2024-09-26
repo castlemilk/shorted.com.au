@@ -5,10 +5,16 @@ package register.v1;
 option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/register/v1;registerv1";
 
 import "google/api/annotations.proto";
+import "gnostic/openapi/v3/annotations.proto";
 
 service RegisterService {
   // Register an email address to receive updates.
-  rpc RegisterEmail (RegisterEmailRequest) returns (RegisterEmailResponse);
+  rpc RegisterEmail (RegisterEmailRequest) returns (RegisterEmailResponse) {
+    option (gnostic.openapi.v3.operation) = {
+      deprecated: false,
+      description: "Register an email address to receive updates",
+    };
+  };
 }
 
 message RegisterEmailRequest {

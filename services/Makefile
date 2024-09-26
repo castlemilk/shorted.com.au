@@ -118,4 +118,6 @@ test.gettreemap:
     --header "Content-Type: application/json" \
 	--data '{"period": "3m", "limit": "10"}' \
     $(BASE_URL)/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap -v
-		
+
+generate.statik:
+	statik -src=../api/schema -f -include=openapi.yaml -dest=./shorts/internal/api/schema

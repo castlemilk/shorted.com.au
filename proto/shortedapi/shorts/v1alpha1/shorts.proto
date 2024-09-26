@@ -19,8 +19,8 @@ option (gnostic.openapi.v3.document) = {
       email: "help@shorted.com.au"
     }
     license: {
-      name: "MIT License"
-      url: "https://github.com/castlemilk/shorted.com.au"
+      name: "Proprietary license"
+      url: "https://shorted.com.au/terms"
     }
   }
   servers: {
