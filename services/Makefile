@@ -87,6 +87,12 @@ test.gettopshorts:
 	--data '{"period": "1m", "limit": 10}' \
     $(BASE_URL)/shorts.v1alpha1.ShortedStocksService/GetTopShorts -v | jq -r
 
+test.gettopshorts.rest:
+	curl \
+    --header "Content-Type: application/json" \
+	--data '{"period": "1m", "limit": 10}' \
+    $(BASE_URL)/v1/topShorts -v | jq -r
+
 test.getstock:
 	curl \
     --header "Content-Type: application/json" \

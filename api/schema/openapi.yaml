@@ -1,0 +1,586 @@
+openapi: 3.1.0
+info:
+  title: Shorted API
+  description: Shorted API's
+  contact:
+    name: Ben Ebsworth
+    url: shorted.com.au
+    email: help@shorted.com.au
+  license:
+    name: MIT License
+    url: https://github.com/castlemilk/shorted.com.au
+  version: v1
+servers:
+  - url: https://api.shorted.com.au
+paths:
+  /register.v1.RegisterService/RegisterEmail:
+    post:
+      tags:
+        - register.v1.RegisterService
+      summary: RegisterEmail
+      description: Register an email address to receive updates.
+      operationId: register.v1.RegisterService.RegisterEmail
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/register.v1.RegisterEmailRequest'
+        required: true
+      responses:
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/connect.error'
+        "200":
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/register.v1.RegisterEmailResponse'
+  /shorts.v1alpha1.ShortedStocksService/GetTopShorts:
+    post:
+      tags:
+        - shorts.v1alpha1.ShortedStocksService
+      summary: GetTopShorts
+      description: Get the top shorts for a given period
+      operationId: shorts.v1alpha1.ShortedStocksService.GetTopShorts
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetTopShortsRequest'
+        required: true
+      responses:
+        "400":
+          description: Bad Request
+        "200":
+          description: OK
+      security:
+        - BasicAuth: []
+  /shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap:
+    post:
+      tags:
+        - shorts.v1alpha1.ShortedStocksService
+      summary: GetIndustryTreeMap
+      description: Get the industry treemap for a given period
+      operationId: shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetIndustryTreeMapRequest'
+        required: true
+      responses:
+        "400":
+          description: Bad Request
+        "200":
+          description: OK
+      security:
+        - BasicAuth: []
+  /shorts.v1alpha1.ShortedStocksService/GetStock:
+    post:
+      tags:
+        - shorts.v1alpha1.ShortedStocksService
+      summary: GetStock
+      description: Get the stock summary for a given stock
+      operationId: shorts.v1alpha1.ShortedStocksService.GetStock
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetStockRequest'
+        required: true
+      responses:
+        "400":
+          description: Bad Request
+        "200":
+          description: OK
+      security:
+        - BasicAuth: []
+  /shorts.v1alpha1.ShortedStocksService/GetStockDetails:
+    post:
+      tags:
+        - shorts.v1alpha1.ShortedStocksService
+      summary: GetStockDetails
+      description: Get the stock details for a given stock
+      operationId: shorts.v1alpha1.ShortedStocksService.GetStockDetails
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetStockDetailsRequest'
+        required: true
+      responses:
+        "400":
+          description: Bad Request
+        "200":
+          description: OK
+      security:
+        - BasicAuth: []
+  /shorts.v1alpha1.ShortedStocksService/GetStockData:
+    post:
+      tags:
+        - shorts.v1alpha1.ShortedStocksService
+      summary: GetStockData
+      description: Get the stock data for a given stock
+      operationId: shorts.v1alpha1.ShortedStocksService.GetStockData
+      parameters:
+        - name: Connect-Protocol-Version
+          in: header
+          required: true
+          schema:
+            $ref: '#/components/schemas/connect-protocol-version'
+        - name: Connect-Timeout-Ms
+          in: header
+          schema:
+            $ref: '#/components/schemas/connect-timeout-header'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/shorts.v1alpha1.GetStockDataRequest'
+        required: true
+      responses:
+        "400":
+          description: Bad Request
+        "200":
+          description: OK
+components:
+  schemas:
+    register.v1.RegisterEmailRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          title: email
+      title: RegisterEmailRequest
+      additionalProperties: false
+    register.v1.RegisterEmailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          title: success
+      title: RegisterEmailResponse
+      additionalProperties: false
+    connect-protocol-version:
+      type: number
+      title: Connect-Protocol-Version
+      enum:
+        - 1
+      description: Define the version of the Connect protocol
+      const: 1
+    connect-timeout-header:
+      type: number
+      title: Connect-Timeout-Ms
+      description: Define the timeout, in ms
+    connect.error:
+      type: object
+      properties:
+        code:
+          type: string
+          examples:
+            - CodeNotFound
+          enum:
+            - CodeCanceled
+            - CodeUnknown
+            - CodeInvalidArgument
+            - CodeDeadlineExceeded
+            - CodeNotFound
+            - CodeAlreadyExists
+            - CodePermissionDenied
+            - CodeResourceExhausted
+            - CodeFailedPrecondition
+            - CodeAborted
+            - CodeOutOfRange
+            - CodeInternal
+            - CodeUnavailable
+            - CodeDataLoss
+            - CodeUnauthenticated
+          description: The status code, which should be an enum value of [google.rpc.Code][google.rpc.Code].
+        message:
+          type: string
+          description: A developer-facing error message, which should be in English. Any user-facing error message should be localized and sent in the [google.rpc.Status.details][google.rpc.Status.details] field, or localized by the client.
+        detail:
+          $ref: '#/components/schemas/google.protobuf.Any'
+      title: Connect Error
+      additionalProperties: true
+      description: 'Error type returned by Connect: https://connectrpc.com/docs/go/errors/#http-representation'
+    google.protobuf.Any:
+      type: object
+      properties:
+        type:
+          type: string
+        value:
+          type: string
+          format: binary
+        debug:
+          type: object
+          additionalProperties: true
+      additionalProperties: true
+      description: Contains an arbitrary serialized message along with a @type that describes the type of the serialized message.
+    google.protobuf.Timestamp:
+      type: string
+      format: date-time
+      description: |-
+        A Timestamp represents a point in time independent of any time zone or local
+         calendar, encoded as a count of seconds and fractions of seconds at
+         nanosecond resolution. The count is relative to an epoch at UTC midnight on
+         January 1, 1970, in the proleptic Gregorian calendar which extends the
+         Gregorian calendar backwards to year one.
+
+         All minutes are 60 seconds long. Leap seconds are "smeared" so that no leap
+         second table is needed for interpretation, using a [24-hour linear
+         smear](https://developers.google.com/time/smear).
+
+         The range is from 0001-01-01T00:00:00Z to 9999-12-31T23:59:59.999999999Z. By
+         restricting to that range, we ensure that we can convert to and from [RFC
+         3339](https://www.ietf.org/rfc/rfc3339.txt) date strings.
+
+         # Examples
+
+         Example 1: Compute Timestamp from POSIX `time()`.
+
+             Timestamp timestamp;
+             timestamp.set_seconds(time(NULL));
+             timestamp.set_nanos(0);
+
+         Example 2: Compute Timestamp from POSIX `gettimeofday()`.
+
+             struct timeval tv;
+             gettimeofday(&tv, NULL);
+
+             Timestamp timestamp;
+             timestamp.set_seconds(tv.tv_sec);
+             timestamp.set_nanos(tv.tv_usec * 1000);
+
+         Example 3: Compute Timestamp from Win32 `GetSystemTimeAsFileTime()`.
+
+             FILETIME ft;
+             GetSystemTimeAsFileTime(&ft);
+             UINT64 ticks = (((UINT64)ft.dwHighDateTime) << 32) | ft.dwLowDateTime;
+
+             // A Windows tick is 100 nanoseconds. Windows epoch 1601-01-01T00:00:00Z
+             // is 11644473600 seconds before Unix epoch 1970-01-01T00:00:00Z.
+             Timestamp timestamp;
+             timestamp.set_seconds((INT64) ((ticks / 10000000) - 11644473600LL));
+             timestamp.set_nanos((INT32) ((ticks % 10000000) * 100));
+
+         Example 4: Compute Timestamp from Java `System.currentTimeMillis()`.
+
+             long millis = System.currentTimeMillis();
+
+             Timestamp timestamp = Timestamp.newBuilder().setSeconds(millis / 1000)
+                 .setNanos((int) ((millis % 1000) * 1000000)).build();
+
+
+         Example 5: Compute Timestamp from Java `Instant.now()`.
+
+             Instant now = Instant.now();
+
+             Timestamp timestamp =
+                 Timestamp.newBuilder().setSeconds(now.getEpochSecond())
+                     .setNanos(now.getNano()).build();
+
+
+         Example 6: Compute Timestamp from current time in Python.
+
+             timestamp = Timestamp()
+             timestamp.GetCurrentTime()
+
+         # JSON Mapping
+
+         In JSON format, the Timestamp type is encoded as a string in the
+         [RFC 3339](https://www.ietf.org/rfc/rfc3339.txt) format. That is, the
+         format is "{year}-{month}-{day}T{hour}:{min}:{sec}[.{frac_sec}]Z"
+         where {year} is always expressed using four digits while {month}, {day},
+         {hour}, {min}, and {sec} are zero-padded to two digits each. The fractional
+         seconds, which can go up to 9 digits (i.e. up to 1 nanosecond resolution),
+         are optional. The "Z" suffix indicates the timezone ("UTC"); the timezone
+         is required. A proto3 JSON serializer should always use UTC (as indicated by
+         "Z") when printing the Timestamp type and a proto3 JSON parser should be
+         able to accept both UTC and other timezones (as indicated by an offset).
+
+         For example, "2017-01-15T01:30:15.01Z" encodes 15.01 seconds past
+         01:30 UTC on January 15, 2017.
+
+         In JavaScript, one can convert a Date object to this format using the
+         standard
+         [toISOString()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/toISOString)
+         method. In Python, a standard `datetime.datetime` object can be converted
+         to this format using
+         [`strftime`](https://docs.python.org/2/library/time.html#time.strftime) with
+         the time format spec '%Y-%m-%dT%H:%M:%S.%fZ'. Likewise, in Java, one can use
+         the Joda Time's [`ISODateTimeFormat.dateTime()`](
+         http://www.joda.org/joda-time/apidocs/org/joda/time/format/ISODateTimeFormat.html#dateTime%2D%2D
+         ) to obtain a formatter capable of generating timestamps in this format.
+    stocks.v1alpha1.IndustryTreeMap:
+      type: object
+      properties:
+        industries:
+          type: array
+          items:
+            type: string
+          title: industries
+          description: indstries that a stock will belond to
+        stocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/stocks.v1alpha1.TreemapShortPosition'
+          title: stocks
+      title: IndustryTreeMap
+      additionalProperties: false
+    stocks.v1alpha1.Stock:
+      type: object
+      properties:
+        productCode:
+          type: string
+          title: product_code
+          description: The stock code, e.g., "CBA", "ZIP", "PLS".
+        name:
+          type: string
+          title: name
+          description: The full name of the stock.
+        totalProductInIssue:
+          type: number
+          title: total_product_in_issue
+        reportedShortPositions:
+          type: number
+          title: reported_short_positions
+        percentageShorted:
+          type: number
+          title: percentage_shorted
+          description: 'TODO(castlemilk): add more metadata here as needed'
+      title: Stock
+      additionalProperties: false
+      description: A Stock represents a single stock's metadata.
+    stocks.v1alpha1.StockDetails:
+      type: object
+      properties:
+        productCode:
+          type: string
+          title: product_code
+        companyName:
+          type: string
+          title: company_name
+        industry:
+          type: string
+          title: industry
+        address:
+          type: string
+          title: address
+        summary:
+          type: string
+          title: summary
+        details:
+          type: string
+          title: details
+        website:
+          type: string
+          title: website
+        gcsUrl:
+          type: string
+          title: gcs_url
+      title: StockDetails
+      additionalProperties: false
+      description: "*\nTable \"public.metadata\"\nColumn       | Type | Collation | Nullable | Default \n-------------------+------+-----------+----------+---------\ncompany_name      | text |           |          | \naddress           | text |           |          | \nsummary           | text |           |          | \ndetails           | text |           |          | \nwebsite           | text |           |          | \nstock_code        | text |           |          | \nlinks             | text |           |          | \nimages            | text |           |          | \ncompany_logo_link | text |           |          | \ngcsUrl            | text |           |          |"
+    stocks.v1alpha1.TimeSeriesData:
+      type: object
+      properties:
+        productCode:
+          type: string
+          title: product_code
+          description: The stock code.
+        name:
+          type: string
+          title: name
+        latestShortPosition:
+          oneOf:
+            - type: string
+            - type: number
+          title: latest_short_position
+          description: The latest short position.
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/stocks.v1alpha1.TimeSeriesPoint'
+          title: points
+          description: The time series points.
+        max:
+          $ref: '#/components/schemas/stocks.v1alpha1.TimeSeriesPoint'
+        min:
+          $ref: '#/components/schemas/stocks.v1alpha1.TimeSeriesPoint'
+      title: TimeSeriesData
+      additionalProperties: false
+      description: TimeSeriesData represents time series data for a stock.
+    stocks.v1alpha1.TimeSeriesPoint:
+      type: object
+      properties:
+        timestamp:
+          $ref: '#/components/schemas/google.protobuf.Timestamp'
+        shortPosition:
+          oneOf:
+            - type: string
+            - type: number
+          title: short_position
+          description: The short position at this point in time.
+      title: TimeSeriesPoint
+      additionalProperties: false
+      description: TimeSeriesPoint represents a single point in time for the time series data.
+    stocks.v1alpha1.TreemapShortPosition:
+      type: object
+      properties:
+        industry:
+          type: string
+          title: industry
+        productCode:
+          type: string
+          title: product_code
+        shortPosition:
+          oneOf:
+            - type: string
+            - type: number
+          title: short_position
+      title: TreemapShortPosition
+      additionalProperties: false
+    shorts.v1alpha1.ViewMode:
+      type: string
+      title: ViewMode
+      enum:
+        - CURRENT_CHANGE
+        - PERCENTAGE_CHANGE
+    shorts.v1alpha1.GetIndustryTreeMapRequest:
+      type: object
+      properties:
+        period:
+          type: string
+          title: period
+          description: time over which to look at the max value
+        limit:
+          type: integer
+          title: limit
+          description: number of stocks to return for each parent
+        viewMode:
+          $ref: '#/components/schemas/shorts.v1alpha1.ViewMode'
+      title: GetIndustryTreeMapRequest
+      additionalProperties: false
+      description: Request for Top10 RPC, specifying the period of time.
+    shorts.v1alpha1.GetStockDataRequest:
+      type: object
+      properties:
+        productCode:
+          type: string
+          title: product_code
+        period:
+          type: string
+          title: period
+      title: GetStockDataRequest
+      additionalProperties: false
+      description: Request for GetStockDataRequest RPC, specifying the product code.
+    shorts.v1alpha1.GetStockDetailsRequest:
+      type: object
+      properties:
+        productCode:
+          type: string
+          title: product_code
+      title: GetStockDetailsRequest
+      additionalProperties: false
+      description: Request for GetStockDetails RPC, specifying the product code.
+    shorts.v1alpha1.GetStockRequest:
+      type: object
+      properties:
+        productCode:
+          type: string
+          title: product_code
+      title: GetStockRequest
+      additionalProperties: false
+      description: Request for GetStockSummary RPC, specifying the product code.
+    shorts.v1alpha1.GetTopShortsRequest:
+      type: object
+      properties:
+        period:
+          type: string
+          title: period
+        limit:
+          type: integer
+          title: limit
+        offset:
+          type: integer
+          title: offset
+      title: GetTopShortsRequest
+      additionalProperties: false
+      description: Request for Top10 RPC, specifying the period of time.
+    shorts.v1alpha1.GetTopShortsResponse:
+      type: object
+      properties:
+        timeSeries:
+          type: array
+          items:
+            $ref: '#/components/schemas/stocks.v1alpha1.TimeSeriesData'
+          title: time_series
+        offset:
+          type: integer
+          title: offset
+      title: GetTopShortsResponse
+      additionalProperties: false
+      description: Response for Top10 RPC, including time series data for each of the top 10 short positions.
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+security: []
+tags:
+  - name: register.v1.RegisterService
+  - name: shorts.v1alpha1.ShortedStocksService

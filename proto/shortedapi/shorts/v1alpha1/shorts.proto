@@ -5,19 +5,220 @@ package shorts.v1alpha1;
 option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1";
 
 import "google/api/annotations.proto";
+import "gnostic/openapi/v3/annotations.proto";
+import "google/api/client.proto";
 import "stocks/v1alpha1/stocks.proto";
-
+option (gnostic.openapi.v3.document) = {
+  info: {
+    title: "Shorted API"
+    version: "v1"
+    description: "Shorted API's"
+    contact: {
+      name: "Ben Ebsworth"
+      url: "shorted.com.au"
+      email: "help@shorted.com.au"
+    }
+    license: {
+      name: "MIT License"
+      url: "https://github.com/castlemilk/shorted.com.au"
+    }
+  }
+  servers: {
+    url: "https://api.shorted.com.au"
+  }
+  components: {
+    security_schemes: {
+      additional_properties: [
+        {
+          name: "BasicAuth"
+          value: {
+            security_scheme: {
+              type: "http"
+              scheme: "basic"
+            }
+          }
+        }
+      ]
+    }
+  }
+};
 service ShortedStocksService {
+  option (google.api.default_host) = "api.shorted.com.au";
+  
   // Shows top 10 short positions on the ASX over different periods of time.
-  rpc GetTopShorts (GetTopShortsRequest) returns (GetTopShortsResponse);
+  rpc GetTopShorts (GetTopShortsRequest) returns (GetTopShortsResponse) {
+    option (google.api.method_signature) = "period,limit,offset";
+    option (gnostic.openapi.v3.operation) = {
+      deprecated: false,
+      description: "Get the top shorts for a given period",
+      responses: {
+        response_or_reference: {
+          name: "400"
+          value: {
+            response: {
+              description: "Bad Request"
+            }
+          }
+        },
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "OK"
+            }
+          }
+        }, 
+      },
+      security: [
+        {
+          additional_properties: [
+            {
+              name: "BasicAuth";
+              value: {
+                value: []
+              }
+            }
+          ]
+        }
+      ]
+    };
+  }
 
-  rpc GetIndustryTreeMap(GetIndustryTreeMapRequest) returns (stocks.v1alpha1.IndustryTreeMap);
+  rpc GetIndustryTreeMap(GetIndustryTreeMapRequest) returns (stocks.v1alpha1.IndustryTreeMap) {
+    option (gnostic.openapi.v3.operation) = {
+      deprecated: false,
+      description: "Get the industry treemap for a given period",
+      responses: {
+        response_or_reference: {
+          name: "400"
+          value: {
+            response: {
+              description: "Bad Request"
+            }
+          }
+        },
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "OK"
+            }
+          }
+        }, 
+      },
+      security: [
+        {
+          additional_properties: [
+            {
+              name: "BasicAuth";
+              value: {
+                value: []
+              }
+            }
+          ]
+        }
+      ]
+    };
+  }
   // Provides an overview of a specific stock based on PRODUCT_CODE.
-  rpc GetStock (GetStockRequest) returns (stocks.v1alpha1.Stock);
+  rpc GetStock (GetStockRequest) returns (stocks.v1alpha1.Stock) {
+    option (gnostic.openapi.v3.operation) = {
+      deprecated: false,
+      description: "Get the stock summary for a given stock",
+      responses: {
+        response_or_reference: {
+          name: "400"
+          value: {
+            response: {
+              description: "Bad Request"
+            }
+          }
+        },
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "OK"
+            }
+          }
+        } 
+      },
+      security: [
+        {
+          additional_properties: [
+            {
+              name: "BasicAuth";
+              value: {
+                value: []
+              }
+            }
+          ]
+        }
+      ]
+    };
+  }
   // Provides a more in-depth breakdown of a particular stock's metadata.
-  rpc GetStockDetails (GetStockDetailsRequest) returns (stocks.v1alpha1.StockDetails);
+  rpc GetStockDetails (GetStockDetailsRequest) returns (stocks.v1alpha1.StockDetails) {
+    option (gnostic.openapi.v3.operation) = {
+      deprecated: false,
+      description: "Get the stock details for a given stock",
+      responses: {
+        response_or_reference: {
+          name: "400"
+          value: {
+            response: {
+              description: "Bad Request"
+            }
+          }
+        },
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "OK"
+            }
+          }
+        } 
+      },
+      security: [
+        {
+          additional_properties: [
+            {
+              name: "BasicAuth";
+              value: {
+                value: []
+              }
+            }
+          ]
+        }
+      ]
+    };
+  }
   // fetch time series data for a specific stock
-  rpc GetStockData (GetStockDataRequest) returns (stocks.v1alpha1.TimeSeriesData);
+  rpc GetStockData (GetStockDataRequest) returns (stocks.v1alpha1.TimeSeriesData) {
+    option (gnostic.openapi.v3.operation) = {
+      deprecated: false,
+      description: "Get the stock data for a given stock",
+      responses: {
+        response_or_reference: {
+          name: "400"
+          value: {
+            response: {
+              description: "Bad Request"
+            }
+          }
+        },
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "OK"
+            }
+          }
+        } 
+      },
+    };
+  }
 }
 
 // Request for Top10 RPC, specifying the period of time.

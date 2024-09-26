@@ -1,0 +1,24 @@
+version: v2
+modules:
+  - path: shortedapi
+    name: buf.build/castlemilk/shortedapi
+  - path: shortedtypes
+deps:
+  - buf.build/googleapis/googleapis
+  - buf.build/grpc-ecosystem/grpc-gateway
+  - buf.build/protocolbuffers/wellknowntypes:v21.12
+  - buf.build/gnostic/gnostic
+  - buf.build/bufbuild/protovalidate
+lint:
+  use:
+    - DEFAULT
+  except:
+    - FIELD_NOT_REQUIRED
+    - PACKAGE_NO_IMPORT_CYCLE
+  disallow_comment_ignores: true
+breaking:
+  use:
+    - FILE
+  except:
+    - EXTENSION_NO_DELETE
+    - FIELD_SAME_DEFAULT
