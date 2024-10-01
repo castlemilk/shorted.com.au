@@ -51,6 +51,6 @@ export default withMDX({
   reactStrictMode: true,
   images: {
     ...config.images,
-    domains: ["localhost", "shorted.com.au", "storage.googleapis.com"],
+    domains: ["localhost", "shorted.com.au", "storage.googleapis.com", "lh3.googleusercontent.com"],
   },
 });

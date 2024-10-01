@@ -72,11 +72,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={fontSans.variable}>
-      <body
-        className={cn(
-          "min-h-screen bg-background font-sans antialiased"
-        )}
-      >
+      <body className={cn("min-h-screen bg-background font-sans antialiased")}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -84,9 +80,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <SiteHeader />
-          {/* <NextAuthProvider> */}
           {children}
-          {/* </NextAuthProvider> */}
           <SiteFooter />
           <ThemeSwitcher />
         </ThemeProvider>
