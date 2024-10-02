@@ -19,7 +19,7 @@ export const UserAuthNav = async () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-12 w-12 rounded-full p-0">
+        <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
           <Avatar
             name={session?.user?.name ?? "User"}
             picture={session?.user?.image ?? "/default-avatar.png"}
@@ -27,17 +27,15 @@ export const UserAuthNav = async () => {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
-        <DropdownMenuItem className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">
-              {session?.user?.name}
-            </p>
-            <p className="text-xs leading-none text-muted-foreground">
-              {session?.user?.email}
-            </p>
-          </div>
-        </DropdownMenuItem>
-        <DropdownMenuItem>
+        <div className="flex flex-col space-y-1 p-2">
+          <p className="text-sm font-medium leading-none">
+            {session?.user?.name}
+          </p>
+          <p className="text-xs leading-none text-muted-foreground">
+            {session?.user?.email}
+          </p>
+        </div>
+        <DropdownMenuItem className="p-0 focus:bg-accent">
           <SignOut />
         </DropdownMenuItem>
       </DropdownMenuContent>
