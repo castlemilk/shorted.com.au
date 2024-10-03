@@ -29,4 +29,5 @@ plugins:
     opt:
       - allow-get
       - with-streaming
+      - base=../api/schema/base.yaml
       - path=openapi.yaml
