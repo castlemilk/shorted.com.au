@@ -1,17 +1,16 @@
 openapi: 3.1.0
 info:
+  x-logo:
+    url: https://shorted.com.au/logo.png
   title: Shorted API
   description: Shorted API's
   contact:
-    name: Ben Ebsworth
     url: shorted.com.au
     email: help@shorted.com.au
   license:
-    name: MIT License
-    url: https://github.com/castlemilk/shorted.com.au
+    name: Proprietary license
+    url: https://shorted.com.au/terms
   version: v1
-servers:
-  - url: https://api.shorted.com.au
 paths:
   /register.v1.RegisterService/RegisterEmail:
     post:
@@ -197,6 +196,8 @@ paths:
           description: Bad Request
         "200":
           description: OK
+servers:
+  - url: https://api.shorted.com.au
 components:
   schemas:
     register.v1.RegisterEmailRequest:
@@ -577,9 +578,9 @@ components:
       additionalProperties: false
       description: Response for Top10 RPC, including time series data for each of the top 10 short positions.
   securitySchemes:
-    BasicAuth:
+    AuthToken:
       type: http
-      scheme: basic
+      scheme: bearer
 security: []
 tags:
   - name: register.v1.RegisterService

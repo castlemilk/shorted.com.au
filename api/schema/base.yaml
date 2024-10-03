@@ -1,0 +1,14 @@
+openapi: 3.1.0
+info:
+  x-logo:
+    url: https://shorted.com.au/logo.png
+paths:
+  /register.v1.RegisterService/RegisterEmail:
+    summary: Register an email address to receive updateszzzzzzz
+    post:
+      tags:
+        - register.v1.RegisterServicezzzzzz
+  /shorts.v1alpha1.ShortedStocksService/GetTopShorts:
+    post:
+      tags:
+        - shorts.v1alpha1.ShortedStocksServicezzzzzz

@@ -29,11 +29,7 @@ const Page: React.FC = () => {
     fetchData();
   }, []);
 
-  return data ? (
-    <RedocStandalone spec={data} />
-  ) : (
-    <div>Error loading API documentation</div>
-  );
+  return data ? <RedocStandalone spec={data} /> : <div>loading ...</div>;
 };
 
 export default Page;
