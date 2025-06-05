@@ -8,7 +8,7 @@ export const registerEmail = cache(async (email: string) => {
     fetch,
     baseUrl:
       process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-      "http://localhost:8080",
+      "http://localhost:9091",
   });
 
   const client = createPromiseClient(RegisterService, transport);

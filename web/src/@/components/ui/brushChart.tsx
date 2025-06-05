@@ -60,13 +60,26 @@ const tooltipStyles = {
 };
 
 // accessors
-const getDate = (d: PlainMessage<TimeSeriesPoint> | undefined) =>
-  d ? new Date(Number(d.timestamp?.seconds) * 1000) : new Date();
+const getDate = (d: PlainMessage<TimeSeriesPoint> | undefined) => {
+  if (!d || !d.timestamp) return new Date();
+  // Handle both string timestamps (from JSON) and Timestamp objects
+  if (typeof d.timestamp === 'string') {
+    return new Date(d.timestamp);
+  }
+  // Handle protobuf Timestamp object format
+  return new Date(Number(d.timestamp.seconds) * 1000);
+};
 const getStockValue = (d: PlainMessage<TimeSeriesPoint> | undefined) =>
   d ? d.shortPosition ?? 0 : 0;
 // eslint-disable-next-line @typescript-eslint/unbound-method
 const bisectDate = bisector<TooltipData, Date>(
-  (d) => new Date(Number(d?.timestamp?.seconds) * 1000),
+  (d) => {
+    if (!d || !d.timestamp) return new Date();
+    if (typeof d.timestamp === 'string') {
+      return new Date(d.timestamp);
+    }
+    return new Date(Number(d.timestamp.seconds) * 1000);
+  },
 ).left;
 
 const formatDate = timeFormat("%b %d, '%y");

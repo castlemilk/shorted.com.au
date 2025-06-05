@@ -17,6 +17,17 @@ import Credentials from "next-auth/providers/credentials";
 
 import { firestore } from "~/app/lib/firestore";
 
+// TODO: Implement these auth functions
+function saltAndHashPassword(password: string): string {
+  // Stub implementation - replace with actual hashing
+  return password;
+}
+
+async function getUserFromDb(_email: string, _passwordHash: string) {
+  // Stub implementation - replace with actual database lookup
+  return null;
+}
+
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
  * object and keep type safety.
@@ -53,13 +64,17 @@ export const authOptions = {
         password: {},
       },
       authorize: async (credentials) => {
+        if (!credentials?.email || !credentials?.password) {
+          return null;
+        }
+
         let user = null;
 
         // logic to salt and hash password
-        const pwHash = saltAndHashPassword(credentials.password);
+        const pwHash = saltAndHashPassword(credentials.password as string);
 
         // logic to verify if the user exists
-        user = await getUserFromDb(credentials.email, pwHash);
+        user = await getUserFromDb(credentials.email as string, pwHash);
 
         if (!user) {
           // No user found, so this is their first attempt to login

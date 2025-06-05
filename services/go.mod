@@ -8,11 +8,9 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 	github.com/aws/aws-lambda-go v1.46.0
 	github.com/awslabs/aws-lambda-go-api-proxy v0.16.1
-	github.com/bufbuild/connect-go v1.10.0
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-playground/validator/v10 v10.19.0
 	github.com/google/gnostic v0.7.0
-	github.com/google/uuid v1.6.0
 	github.com/jackc/pgtype v1.14.0
 	github.com/jackc/pgx/v5 v5.5.5
 	github.com/mitchellh/mapstructure v1.5.0
@@ -20,9 +18,11 @@ require (
 	github.com/rs/cors v1.10.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
+	go.uber.org/mock v0.5.2
 	go.uber.org/zap v1.27.0
 	golang.org/x/net v0.25.0
 	golang.org/x/sync v0.7.0
+	golang.org/x/text v0.15.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20240506185236-b8a5c65736ae
 	google.golang.org/grpc v1.63.2
 	google.golang.org/protobuf v1.34.1
@@ -50,6 +50,7 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/gnostic-models v0.6.9-0.20230804172637-c7be7c783f49 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.4 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -79,7 +80,6 @@ require (
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/exp v0.0.0-20240112132812-db7319d0e0e3 // indirect
 	golang.org/x/oauth2 v0.20.0 // indirect
-	golang.org/x/text v0.15.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20240401170217-c3f982113cda // indirect

@@ -4,7 +4,7 @@ const Page = () => {
   return (
     <div>
       <h1>Terms of Service</h1>
-      <p>Last updated: [Insert Date]</p>
+      <p>Last updated: 12 October 2024</p>
 
       <h2>1. Introduction</h2>
       <p>

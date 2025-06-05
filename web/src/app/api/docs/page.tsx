@@ -7,7 +7,7 @@ import yaml from "js-yaml";
 type OpenAPISpec = Record<string, unknown>;
 
 const Page: React.FC = () => {
-  const [data, setData] = useState(null);
+  const [data, setData] = useState<OpenAPISpec | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -15,7 +15,7 @@ const Page: React.FC = () => {
         const response = await fetch(
           `${
             process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-            "http://localhost:8080"
+            "http://localhost:9091"
           }/api/docs/openapi.yaml`,
         );
         const yamlText = await response.text();
@@ -26,7 +26,7 @@ const Page: React.FC = () => {
       }
     };
 
-    fetchData();
+    void fetchData();
   }, []);
 
   return data ? <RedocStandalone spec={data} /> : <div>loading ...</div>;

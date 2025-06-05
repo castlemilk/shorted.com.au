@@ -2,3 +2,15 @@
 venv
 .vscode
 shorted-dev*.json
+
+# Test results
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# Coverage reports
+coverage/
+*.lcov
+coverage.out
+coverage.html

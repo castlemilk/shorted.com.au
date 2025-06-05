@@ -9,6 +9,7 @@ import packageJson from "./package.json" with { type: "json" };
 const { version } = packageJson;
 /** @type {import("next").NextConfig} */
 const config = {
+  output: 'standalone', // Enable standalone mode for Docker
   webpack: (config) => {
     config.resolve.fallback = {
       fs: false,
@@ -21,7 +22,7 @@ const config = {
   },
   publicRuntimeConfig: {
     version,
-    shortsUrl: process.env.SHORTS_SERVICE_ENDPOINT ?? "http://localhost:8080",
+    shortsUrl: process.env.SHORTS_SERVICE_ENDPOINT ?? "http://localhost:9091",
   },
   // Optionally, add any other Next.js config below
   images: {

@@ -1,12 +1,110 @@
 # Shorted.com.au
 
-<img src="./public/logo.png" alt="logo" width="200" />
+A comprehensive platform for tracking short selling positions in the Australian stock market.
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 18+ and npm
+- Go 1.21+
+- Docker and Docker Compose
+
+### Development Setup
+
+1. **Install dependencies:**
+
+```bash
+make install
+```
+
+2. **Start development environment:**
+
+```bash
+make dev
+```
+
+This will start:
+
+- PostgreSQL database at localhost:5432
+- Frontend at http://localhost:3020
+- Backend at http://localhost:9091
+
+Press `Ctrl+C` to stop all services.
+
+### Individual Services
+
+You can also start services individually:
+
+```bash
+make dev-db         # Start database only
+make dev-frontend   # Start frontend only (requires database)
+make dev-backend    # Start backend only (requires database)
+make dev-stop       # Stop all services
+```
+
+### Database Setup
+
+The PostgreSQL database is automatically initialized with:
+
+- Required table schemas (`shorts`, `company-metadata`, `subscriptions`)
+- Performance indexes
+- Sample data for development
+
+Database credentials:
+
+- Host: localhost:5438
+- Database: shorts
+- Username: admin
+- Password: password
+
+## Testing
+
+```bash
+make test              # Run all tests
+make test-frontend     # Frontend tests only
+make test-backend      # Backend tests only
+make test-integration  # Full-stack integration tests
+```
+
+## Architecture
+
+- **Frontend**: Next.js with TypeScript, TailwindCSS
+- **Backend**: Go with gRPC/Connect-RPC
+- **Database**: PostgreSQL
+- **Data Source**: ASIC daily CSV files
+
+## Contributing
+
+1. Run tests: `make test`
+2. Check formatting: `make lint`
+3. Pre-commit checks: `make pre-commit`
 
 ## Overview
 
-basic dashboarding platform for viewing short positions on ASX
+Basic dashboarding platform for viewing short positions on ASX.
 
+### Other Commands
 
+```bash
+# Run all tests
+make test
+
+# Run frontend only
+make dev-frontend
+
+# Run backend only
+make dev-backend
+
+# Build the application
+make build
+
+# Run linting
+make lint
+
+# Format code
+make format
+```
 
 ### MVP
 
@@ -33,6 +131,7 @@ basic dashboarding platform for viewing short positions on ASX
 [x] db hosting (looking at superbase LGTM)
 
 # week 1
+
 [x] cron-job to pull latest shorts
 
 [x] chart styling x,y axis
@@ -42,6 +141,7 @@ basic dashboarding platform for viewing short positions on ASX
 [x] set max to do the longest window of timeseries data possible
 
 # week 2
+
 [ ] company image on dark mode
 
 [x] query maths for top x tuned - show more sensible values for larger windows
@@ -49,10 +149,12 @@ basic dashboarding platform for viewing short positions on ASX
 [x] default logo when no image found
 
 [ ] show company directors
-   1. add company leaders to metadata API
-   2. render in about section 
+
+1.  add company leaders to metadata API
+2.  render in about section
 
 # week 3
+
 [ ] company summary/description tuning
 
 [ ] show company references
@@ -62,12 +164,14 @@ basic dashboarding platform for viewing short positions on ASX
 [ ] loading animations & lazy loading / suspense for concurrent fetches
 
 # week 4
+
 [ ] security (anon auth/ratelimiting)
-  - https://cloud.google.com/iam/docs/create-short-lived-credentials-direct
-  - https://developers.google.com/identity/protocols/oauth2/service-account#jwt-auth
-  - https://cloud.google.com/run/docs/authenticating/service-to-service
-  - https://cloud.google.com/run/docs/authenticating/service-to-service#use_a_downloaded_service_account_key_from_outside
-  - https://github.com/nextauthjs/next-auth/issues/6649
+
+- https://cloud.google.com/iam/docs/create-short-lived-credentials-direct
+- https://developers.google.com/identity/protocols/oauth2/service-account#jwt-auth
+- https://cloud.google.com/run/docs/authenticating/service-to-service
+- https://cloud.google.com/run/docs/authenticating/service-to-service#use_a_downloaded_service_account_key_from_outside
+- https://github.com/nextauthjs/next-auth/issues/6649
 
 [x] fix top navbar on wide screen to float max right/left
 
@@ -81,7 +185,6 @@ basic dashboarding platform for viewing short positions on ASX
 
 [ ] add additional items here as working...
 
-
 # new items
 
 [x] fix chart resize/shrinking on topShort view - seems to be an issue with parent div? https://github.com/airbnb/visx/issues/1014
@@ -93,7 +196,6 @@ basic dashboarding platform for viewing short positions on ASX
 [ ] industry/sector treemap - https://airbnb.io/visx/treemap
 
 [ ] more mobile friendly top short view (show min/max next to current?)
-
 
 ## data entry pipeline
 
@@ -108,18 +210,19 @@ basic dashboarding platform for viewing short positions on ASX
 [ ] validate data entry flow ASX Code --> edit image --> add links (socials, investory page) --> get ChatGPT description and add to details
 
 [ ] collect company socials (twitter, instagram, linkedin etc.)
-   [ ] add social section and also link to google finance/yahoo finance
+[ ] add social section and also link to google finance/yahoo finance
+
 ### Milestone 1
 
 [x] company metadata ingestion and real-time sentiment analysis API + view
 
-  [x] company index
+[x] company index
 
-  [x] scraping service
+[x] scraping service
 
-  [ ] sentiment engine
+[ ] sentiment engine
 
-  [ ] company metadata collector (financial reports, company announcements, )
+[ ] company metadata collector (financial reports, company announcements, )
 
 [ ] social engagement via twitter for new short positions
 
@@ -153,9 +256,6 @@ basic dashboarding platform for viewing short positions on ASX
 
 [ ] enhanced comments/forum solution
 
-
-
-
 ## Tech Stack
 
 This is a T3 Stack project bootstrapped with create-t3-app.
@@ -176,7 +276,6 @@ To learn more about the [T3 Stack](https://create.t3.gg/), take a look at the fo
 - [Learn the T3 Stack](https://create.t3.gg/en/faq#what-learning-resources-are-currently-available) — Check out these awesome tutorials
 
 You can check out the [create-t3-app GitHub repository](https://github.com/t3-oss/create-t3-app) — your feedback and contributions are welcome!
-
 
 ### References
 

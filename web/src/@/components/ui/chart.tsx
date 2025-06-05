@@ -2,7 +2,7 @@
 import ParentSize from "@visx/responsive/lib/components/ParentSize";
 import BrushChart, { type HandleBrushClearAndReset } from "./brushChart";
 import { Suspense, useRef, useState } from "react";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ToggleGroup, ToggleGroupItem } from "./toggle-group";
 import { Button } from "./button";
 import { Skeleton } from "./skeleton";
 import { useStockData } from "./../../hooks/use-stock-data"; // Custom hook
@@ -40,6 +40,7 @@ const Chart = ({ stockCode }: ChartProps) => {
           <div>
             <ToggleGroup
               type="single"
+              value={period}
               onValueChange={(v: string) => setPeriod(v)}
             >
               <ToggleGroupItem value="1m">1M</ToggleGroupItem>
@@ -52,10 +53,14 @@ const Chart = ({ stockCode }: ChartProps) => {
           </div>
         </div>
 
-        {(loading || data == null)  ? (
+        {loading ? (
           <ChartLoadingPlaceholder withMenu={false} />
         ) : error ? (
-          <div>Error loading data</div>
+          <div>Error loading data: {error.message}</div>
+        ) : data == null || !data.points || data.points.length === 0 ? (
+          <div className="flex items-center justify-center h-[400px] text-muted-foreground">
+            <p>No short position data available for {stockCode} in the selected period</p>
+          </div>
         ) : (
           <ParentSize className="min-w-0">
             {({ width }) => (

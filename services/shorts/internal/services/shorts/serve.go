@@ -22,7 +22,7 @@ import (
 // withCORS adds CORS support to a Connect HTTP handler.
 func withCORS(h http.Handler) http.Handler {
 	middleware := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3000", "http://localhost:3001", "https://*.vercel.app", "https://*.shorted.com.au", "https://shorted.com.au"},
+		AllowedOrigins:   []string{"http://localhost:3000", "http://localhost:3001", "http://localhost:3020", "https://*.vercel.app", "https://*.shorted.com.au", "https://shorted.com.au"},
 		AllowedMethods:   connectcors.AllowedMethods(),
 		AllowedHeaders:   append([]string{"Authorization"}, connectcors.AllowedHeaders()...),
 		ExposedHeaders:   connectcors.ExposedHeaders(),
@@ -40,6 +40,12 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// handler = AuthMiddleware(handler)
 	mux.Handle(shortsPath, shortsHandler)
 	mux.Handle(registerPath, registerHandler)
+	
+	// Add health check endpoint
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
 
 	// Add statik file server
 	statikFS, err := fs.New()

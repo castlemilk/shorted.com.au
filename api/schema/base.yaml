@@ -4,10 +4,14 @@ info:
     url: https://shorted.com.au/logo.png
 paths:
   /register.v1.RegisterService/RegisterEmail:
-    summary: Register an email address to receive updateszzzzzzz
     post:
-      tags:
-        - register.v1.RegisterServicezzzzzz
+      x-code-samples:
+        - language: shell
+          label: RegisterEmail
+          source: |
+            curl -X POST https://api.shorted.com.au/register.v1.RegisterService/RegisterEmail \
+            -H "Content-Type: application/json" \
+            -d '{"email": "user@example.com"}'
   /shorts.v1alpha1.ShortedStocksService/GetTopShorts:
     post:
       tags:

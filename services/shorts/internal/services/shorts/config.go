@@ -10,13 +10,13 @@ import (
 
 type Config struct {
 	Insecure          bool          `json:"insecure"         yaml:"insecure"       mapstructure:"insecure"`
-	Port              int           `json:"port"             yaml:"port"           mapstructure:"port" validate:"gte=8000"`
+	Port              int           `json:"port"             yaml:"port"           mapstructure:"port" validate:"gte=1024"`
 	ShortsStoreConfig shorts.Config `json:"store" yaml:"store" mapstructure:"store"`
 }
 
 const (
 	defaultInsecure = true
-	defaultPort     = 8080
+	defaultPort     = 9091
 )
 
 func DefaultConfig() Config {
@@ -38,6 +38,6 @@ func Env(v *viper.Viper, cfgPrefix, envPrefix string) {
 }
 
 func Flags(f *flag.FlagSet, prefix string) {
-	f.IntP(fmt.Sprintf("%s.port", prefix), "p", defaultPort, "default port agent will listen on")
+	f.IntP(fmt.Sprintf("%s.port", prefix), "p", defaultPort, "default port service will listen on")
 	f.StringP(fmt.Sprintf("%s.store.postgres_address", prefix), "e", "", "postgres address")
 }

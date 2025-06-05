@@ -5,6 +5,7 @@ import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_connect";
 import { type IndustryTreeMap } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { type ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { cache } from "react";
+import { formatPeriodForAPI } from "~/lib/period-utils";
 
 export const getIndustryTreeMap = cache(
   async (
@@ -15,23 +16,23 @@ export const getIndustryTreeMap = cache(
     const transport = createConnectTransport({
       // All transports accept a custom fetch implementation.
       fetch,
-    //   fetch: (input, init: RequestInit | undefined) => {
-    //     if (init?.headers) {
-    //       const headers = init.headers as Headers;
-    //       headers.set('Authorization', authHeader.get('Authorization') ?? '');
-    //     }
-    //     return fetch(input, init);
-    //   },
+      //   fetch: (input, init: RequestInit | undefined) => {
+      //     if (init?.headers) {
+      //       const headers = init.headers as Headers;
+      //       headers.set('Authorization', authHeader.get('Authorization') ?? '');
+      //     }
+      //     return fetch(input, init);
+      //   },
       // With Svelte's custom fetch function, we could alternatively
       // use a relative base URL here.
       baseUrl:
         process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-        "http://localhost:8080",
+        "http://localhost:9091",
     });
     const client = createPromiseClient(ShortedStocksService, transport);
 
     const response = await client.getIndustryTreeMap({
-      period,
+      period: formatPeriodForAPI(period),
       limit,
       viewMode,
     });

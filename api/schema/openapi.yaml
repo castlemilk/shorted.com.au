@@ -14,11 +14,17 @@ info:
 paths:
   /register.v1.RegisterService/RegisterEmail:
     post:
+      x-code-samples:
+        - language: shell
+          label: RegisterEmail
+          source: |
+            curl -X POST https://api.shorted.com.au/register.v1.RegisterService/RegisterEmail \
+            -H "Content-Type: application/json" \
+            -d '{"email": "user@example.com"}'
       tags:
         - register.v1.RegisterService
       summary: RegisterEmail
       description: Register an email address to receive updates
-      operationId: register.v1.RegisterService.RegisterEmail
       parameters:
         - name: Connect-Protocol-Version
           in: header
@@ -35,26 +41,13 @@ paths:
             schema:
               $ref: '#/components/schemas/register.v1.RegisterEmailRequest'
         required: true
-      responses:
-        default:
-          description: Error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/connect.error'
-        "200":
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/register.v1.RegisterEmailResponse'
   /shorts.v1alpha1.ShortedStocksService/GetTopShorts:
     post:
       tags:
+        - shorts.v1alpha1.ShortedStocksServicezzzzzz
         - shorts.v1alpha1.ShortedStocksService
       summary: GetTopShorts
       description: Get the top shorts for a given period
-      operationId: shorts.v1alpha1.ShortedStocksService.GetTopShorts
       parameters:
         - name: Connect-Protocol-Version
           in: header
@@ -71,13 +64,6 @@ paths:
             schema:
               $ref: '#/components/schemas/shorts.v1alpha1.GetTopShortsRequest'
         required: true
-      responses:
-        "400":
-          description: Bad Request
-        "200":
-          description: OK
-      security:
-        - BasicAuth: []
   /shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap:
     post:
       tags:
@@ -460,9 +446,15 @@ components:
           title: points
           description: The time series points.
         max:
-          $ref: '#/components/schemas/stocks.v1alpha1.TimeSeriesPoint'
+          allOf:
+            - title: max
+              description: The maximum short position in the range
+            - $ref: '#/components/schemas/stocks.v1alpha1.TimeSeriesPoint'
         min:
-          $ref: '#/components/schemas/stocks.v1alpha1.TimeSeriesPoint'
+          allOf:
+            - title: min
+              description: The minimum short position in the range
+            - $ref: '#/components/schemas/stocks.v1alpha1.TimeSeriesPoint'
       title: TimeSeriesData
       additionalProperties: false
       description: TimeSeriesData represents time series data for a stock.
@@ -470,7 +462,10 @@ components:
       type: object
       properties:
         timestamp:
-          $ref: '#/components/schemas/google.protobuf.Timestamp'
+          allOf:
+            - title: timestamp
+              description: The point in time.
+            - $ref: '#/components/schemas/google.protobuf.Timestamp'
         shortPosition:
           oneOf:
             - type: string
@@ -514,7 +509,9 @@ components:
           title: limit
           description: number of stocks to return for each parent
         viewMode:
-          $ref: '#/components/schemas/shorts.v1alpha1.ViewMode'
+          allOf:
+            - title: view_mode
+            - $ref: '#/components/schemas/shorts.v1alpha1.ViewMode'
       title: GetIndustryTreeMapRequest
       additionalProperties: false
       description: Request for Top10 RPC, specifying the period of time.

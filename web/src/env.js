@@ -51,7 +51,7 @@ export const env = createEnv({
     AUTH_FIREBASE_PRIVATE_KEY: process.env.AUTH_FIREBASE_PRIVATE_KEY,
     AUTH_GOOGLE_ID: process.env.AUTH_GOOGLE_ID,
     AUTH_GOOGLE_SECRET: process.env.AUTH_GOOGLE_SECRET,
-    SHORTS_SERVICE_ENDPOINT: process.env.SHORTS_SERVICE_ENDPOINT ?? 'http://localhost:8080',
+    SHORTS_SERVICE_ENDPOINT: process.env.SHORTS_SERVICE_ENDPOINT ?? 'http://localhost:9091',
     // NEXT_PUBLIC_CLIENTVAR: process.env.NEXT_PUBLIC_CLIENTVAR,
   },
   /**

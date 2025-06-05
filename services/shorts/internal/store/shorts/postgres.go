@@ -84,7 +84,6 @@ func (s *postgresStore) GetStockData(productCode, period string) (*stocksv1alpha
 		WHERE "PRODUCT_CODE" = $1
 		  AND "DATE" > CURRENT_DATE - INTERVAL '%s'
 		  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
-		  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
 		GROUP BY interval_start
 		ORDER BY interval_start ASC`, interval, periodToInterval(period))
 	log.Infof("Generated Query: %s", query)
@@ -115,15 +114,20 @@ func (s *postgresStore) GetStockData(productCode, period string) (*stocksv1alpha
 		return nil, rows.Err()
 	}
 
-	// Only add this product's time series data if it has at least 10 data points
-	if len(points) >= 10 {
+	// Return time series data even if there are fewer than 10 points
+	if len(points) > 0 {
 		return &stocksv1alpha1.TimeSeriesData{
 			ProductCode:         productCode,
 			Points:              points,
 			LatestShortPosition: points[len(points)-1].ShortPosition,
 		}, nil
 	}
-	return nil, nil
+	// Return empty time series data if no points found
+	return &stocksv1alpha1.TimeSeriesData{
+		ProductCode:         productCode,
+		Points:              []*stocksv1alpha1.TimeSeriesPoint{},
+		LatestShortPosition: 0,
+	}, nil
 }
 
 

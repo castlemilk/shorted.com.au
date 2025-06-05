@@ -22,7 +22,7 @@ export const getStock = cache(async (
     // use a relative base URL here.
     baseUrl:
       process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-      "http://localhost:8080",
+      "http://localhost:9091",
   });
   const client = createPromiseClient(ShortedStocksService, transport);
 
