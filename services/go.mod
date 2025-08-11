@@ -15,7 +15,7 @@ require (
 	github.com/jackc/pgx/v5 v5.5.5
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/rakyll/statik v0.1.7
-	github.com/rs/cors v1.10.1
+	github.com/rs/cors v1.11.1
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
 	go.uber.org/mock v0.5.2

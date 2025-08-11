@@ -14,3 +14,7 @@ coverage/
 *.lcov
 coverage.out
 coverage.html
+# Environment variables
+.env
+.env.local
+.env.*.local

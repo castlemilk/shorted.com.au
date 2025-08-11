@@ -1,4 +1,4 @@
-import { vi } from '@jest/globals';
+const vi = { fn: jest.fn };
 
 // Mock Connect RPC types
 export interface MockRequest<T> {

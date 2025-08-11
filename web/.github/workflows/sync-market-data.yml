@@ -1,0 +1,222 @@
+name: Sync Market Data (Stock Prices)
+
+on:
+  schedule:
+    # Run at 6 PM AEST (8 AM UTC) every weekday
+    # ASX closes at 4:10 PM AEST, this gives buffer for settlement
+    - cron: '0 8 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Number of days to sync'
+        required: false
+        default: '1'
+        type: choice
+        options:
+          - '1'
+          - '7'
+          - '30'
+          - '90'
+      mode:
+        description: 'Sync mode'
+        required: false
+        default: 'update'
+        type: choice
+        options:
+          - 'update'
+          - 'backfill'
+
+jobs:
+  sync-stock-prices:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install Python dependencies
+        working-directory: ./services/stock-price-ingestion
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'web/package-lock.json'
+      
+      - name: Install Node dependencies
+        working-directory: ./web
+        run: npm ci --legacy-peer-deps
+      
+      - name: Sync market data
+        working-directory: ./web
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          DAYS="${{ github.event.inputs.days || '1' }}"
+          MODE="${{ github.event.inputs.mode || 'update' }}"
+          
+          echo "📈 Syncing market data"
+          echo "   Days: $DAYS"
+          echo "   Mode: $MODE"
+          
+          if [ "$MODE" = "backfill" ]; then
+            npm run db:sync-market -- --backfill --days $DAYS
+          else
+            npm run db:sync-market -- --days $DAYS
+          fi
+      
+      - name: Verify data quality
+        working-directory: ./web
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          # Check for data quality issues
+          node -e "
+          const { createClient } = require('@supabase/supabase-js');
+          const client = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_ROLE_KEY
+          );
+          
+          async function checkDataQuality() {
+            const today = new Date().toISOString().split('T')[0];
+            
+            // Check for anomalies
+            const { data: anomalies } = await client
+              .from('stock_data_quality')
+              .select('*')
+              .eq('date', today)
+              .eq('anomaly_detected', true);
+            
+            if (anomalies && anomalies.length > 0) {
+              console.log('⚠️  Data quality issues detected:');
+              anomalies.forEach(a => {
+                console.log(\`   - \${a.stock_code}: \${JSON.stringify(a.anomaly_details)}\`);
+              });
+            } else {
+              console.log('✅ No data quality issues detected');
+            }
+            
+            // Check record count
+            const { count } = await client
+              .from('stock_prices')
+              .select('*', { count: 'exact', head: true })
+              .eq('date', today);
+            
+            console.log(\`📊 Records synced today: \${count || 0}\`);
+          }
+          
+          checkDataQuality().catch(console.error);
+          "
+      
+      - name: Send notification on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Market Data Sync Failed - ${new Date().toISOString().split('T')[0]}`,
+              body: `The automated market data sync workflow failed.\n\nWorkflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}\n\nPlease investigate and run manual sync if needed:\n\`\`\`bash\nnpm run db:sync-market -- --days 1\n\`\`\``,
+              labels: ['bug', 'data-sync', 'market-data']
+            });
+            console.log(`Created issue #${issue.data.number}`);
+
+  # Validate data completeness
+  validate-data:
+    needs: sync-stock-prices
+    runs-on: ubuntu-latest
+    if: success()
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'web/package-lock.json'
+      
+      - name: Install dependencies
+        working-directory: ./web
+        run: npm ci --legacy-peer-deps
+      
+      - name: Validate data completeness
+        working-directory: ./web
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          node -e "
+          const { createClient } = require('@supabase/supabase-js');
+          const client = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_ROLE_KEY
+          );
+          
+          async function validateData() {
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            // Skip weekends
+            if (yesterday.getDay() === 0 || yesterday.getDay() === 6) {
+              console.log('⚠️  Yesterday was weekend, skipping validation');
+              return;
+            }
+            
+            const dateStr = yesterday.toISOString().split('T')[0];
+            
+            // Get expected stocks
+            const { data: stocks } = await client
+              .from('company-metadata')
+              .select('stock_code');
+            
+            const expectedCount = stocks ? stocks.length : 0;
+            
+            // Get actual records
+            const { count: actualCount } = await client
+              .from('stock_prices')
+              .select('*', { count: 'exact', head: true })
+              .eq('date', dateStr);
+            
+            const completeness = expectedCount > 0 
+              ? ((actualCount || 0) / expectedCount * 100).toFixed(1)
+              : 0;
+            
+            console.log('📊 Data Validation Results:');
+            console.log(\`   Date: \${dateStr}\`);
+            console.log(\`   Expected stocks: \${expectedCount}\`);
+            console.log(\`   Actual records: \${actualCount || 0}\`);
+            console.log(\`   Completeness: \${completeness}%\`);
+            
+            if (completeness < 80) {
+              console.error('❌ Data completeness below threshold (80%)');
+              process.exit(1);
+            }
+          }
+          
+          validateData().catch(err => {
+            console.error('Validation failed:', err);
+            process.exit(1);
+          });
+          "

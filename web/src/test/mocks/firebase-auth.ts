@@ -1,4 +1,4 @@
-import { vi } from '@jest/globals';
+const vi = { fn: jest.fn };
 
 // Mock Firebase Auth types
 export interface MockUser {
@@ -19,7 +19,7 @@ export const mockSignInWithEmailAndPassword = vi.fn(
     const user: MockUser = {
       uid: 'test-uid-123',
       email,
-      displayName: email.split('@')[0],
+      displayName: email.split('@')[0] ?? null,
       photoURL: null,
       emailVerified: true,
     };

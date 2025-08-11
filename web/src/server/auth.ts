@@ -1,7 +1,8 @@
-import NextAuth from "next-auth";
+import NextAuth, { type Session, type User } from "next-auth";
 import { FirestoreAdapter } from "@auth/firebase-adapter";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
+import { type AdapterUser } from "next-auth/adapters";
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -34,20 +35,16 @@ async function getUserFromDb(_email: string, _passwordHash: string) {
  *
  * @see https://next-auth.js.org/getting-started/typescript#module-augmentation
  */
-// declare module "next-auth" {
-//   interface Session extends DefaultSession {
-//     accessToken?: string;
-//     user: User & DefaultSession["user"];
-//   }
-
-//   interface User {
-//     id: string;
-//     name: string;
-//     email: string;
-//     image: string;
-//     accessToken?: string;
-//   }
-// }
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      name?: string | null;
+      email?: string | null;
+      image?: string | null;
+    }
+  }
+}
 
 /**
  * Options for NextAuth.js used to configure adapters, providers, callbacks, etc.
@@ -87,11 +84,22 @@ export const authOptions = {
       },
     }),
     Google({
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      clientId: process.env.AUTH_GOOGLE_ID,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET,
     }),
   ],
   adapter: FirestoreAdapter(firestore),
+  callbacks: {
+    session: ({ session, user }: { session: Session; user: User | AdapterUser }) => {
+      return {
+        ...session,
+        user: {
+          ...session.user,
+          id: user.id,
+        },
+      };
+    },
+  },
   debug: process.env.NODE_ENV === "development",
 };
 

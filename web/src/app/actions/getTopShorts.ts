@@ -4,6 +4,7 @@ import { toPlainMessage } from "@bufbuild/protobuf";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_connect";
 import { cache } from "react";
 import { formatPeriodForAPI } from "~/lib/period-utils";
+import { SHORTS_API_URL } from "./config";
 
 export const getTopShortsData = cache(
   async (period: string, limit: number, offset: number) => {
@@ -19,7 +20,7 @@ export const getTopShortsData = cache(
       // },
       baseUrl:
         process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-        "http://localhost:9091",
+        SHORTS_API_URL,
     });
 
     const client = createPromiseClient(ShortedStocksService, transport);

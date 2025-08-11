@@ -77,6 +77,162 @@ jest.mock('@connectrpc/connect-web', () => ({
   createConnectTransport: jest.fn(() => ({})),
 }));
 
+// Mock NextAuth
+jest.mock('next-auth', () => ({
+  __esModule: true,
+  default: jest.fn(() => ({
+    handlers: jest.fn(),
+    signIn: jest.fn(),
+    signOut: jest.fn(),
+    auth: jest.fn(),
+  })),
+  getServerSession: jest.fn(),
+}));
+
+jest.mock('next-auth/providers/google', () => ({
+  __esModule: true,
+  default: jest.fn(() => ({
+    id: 'google',
+    name: 'Google',
+    type: 'oauth',
+  })),
+}));
+
+jest.mock('next-auth/providers/credentials', () => ({
+  __esModule: true,
+  default: jest.fn(() => ({
+    id: 'credentials',
+    name: 'credentials',
+    type: 'credentials',
+  })),
+}));
+
+// Mock Firebase adapter - handled via moduleNameMapper
+
+// @/auth mock is handled via moduleNameMapper
+
+// Mock Firebase admin
+jest.mock('firebase-admin', () => ({
+  __esModule: true,
+  default: {
+    credential: {
+      cert: jest.fn(() => ({})),
+    },
+    apps: [],
+    initializeApp: jest.fn(() => ({})),
+  },
+  credential: {
+    cert: jest.fn(() => ({})),
+  },
+}));
+
+// Mock Firebase admin/firestore
+jest.mock('firebase-admin/firestore', () => ({
+  __esModule: true,
+  default: jest.fn(() => ({})),
+  getFirestore: jest.fn(() => ({})),
+}));
+
+// Mock UI components
+jest.mock('@/components/ui/button', () => ({
+  __esModule: true,
+  Button: jest.fn(({ children, onClick, className, ...props }) => {
+    const React = require('react');
+    return React.createElement('button', {
+      onClick,
+      className,
+      ...props
+    }, children);
+  }),
+  buttonVariants: jest.fn(),
+}));
+
+jest.mock('@/components/ui/card', () => ({
+  __esModule: true,
+  Card: jest.fn(({ children, className }) => {
+    const React = require('react');
+    return React.createElement('div', { className }, children);
+  }),
+}));
+
+jest.mock('lucide-react', () => ({
+  AlertCircle: jest.fn(({ className }) => {
+    const React = require('react');
+    return React.createElement('div', { className: `alert-circle ${className}` });
+  }),
+  RefreshCw: jest.fn(({ className }) => {
+    const React = require('react');
+    return React.createElement('div', { className: `refresh-cw ${className}` });
+  }),
+  Plus: jest.fn(({ className }) => {
+    const React = require('react');
+    return React.createElement('div', { className: `plus ${className}` });
+  }),
+  X: jest.fn(({ className }) => {
+    const React = require('react');
+    return React.createElement('div', { className: `x ${className}` });
+  }),
+}));
+
+// Mock Login Prompt Banner
+jest.mock('@/components/ui/login-prompt-banner', () => ({
+  __esModule: true,
+  LoginPromptBanner: jest.fn(() => {
+    const React = require('react');
+    return React.createElement('div', { 'data-testid': 'login-prompt-banner' }, 'Login Prompt');
+  }),
+}));
+
+// Mock utils
+jest.mock('@/lib/utils', () => ({
+  cn: jest.fn((...args) => args.filter(Boolean).join(' ')),
+}));
+
+// Mock d3 modules
+jest.mock('d3-array', () => ({
+  bisector: jest.fn(() => ({
+    left: jest.fn(),
+    right: jest.fn(),
+  })),
+  extent: jest.fn(),
+  max: jest.fn(),
+  min: jest.fn(),
+}));
+
+jest.mock('d3-scale', () => ({
+  scaleLinear: jest.fn(() => ({
+    domain: jest.fn().mockReturnThis(),
+    range: jest.fn().mockReturnThis(),
+    invert: jest.fn(),
+  })),
+  scaleTime: jest.fn(() => ({
+    domain: jest.fn().mockReturnThis(),
+    range: jest.fn().mockReturnThis(),
+    invert: jest.fn(),
+  })),
+}));
+
+// Mock visx modules
+jest.mock('@visx/gradient', () => ({
+  LinearGradient: jest.fn(() => null),
+}));
+
+jest.mock('@visx/event', () => ({
+  localPoint: jest.fn(() => ({ x: 0, y: 0 })),
+}));
+
+jest.mock('@visx/tooltip', () => ({
+  Tooltip: jest.fn(() => null),
+  TooltipWithBounds: jest.fn(() => null),
+  useTooltip: jest.fn(() => ({
+    tooltipData: null,
+    tooltipLeft: 0,
+    tooltipTop: 0,
+    showTooltip: jest.fn(),
+    hideTooltip: jest.fn(),
+  })),
+}));
+
 // Mock common actions
 jest.mock('~/app/actions/getStockData', () => ({
   getStockData: jest.fn().mockResolvedValue({

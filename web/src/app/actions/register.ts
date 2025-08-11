@@ -4,11 +4,12 @@ import { toPlainMessage } from "@bufbuild/protobuf";
 import { RegisterService } from "~/gen/register/v1/register_connect";
 import { cache } from "react";
 export const registerEmail = cache(async (email: string) => {
+import { SHORTS_API_URL } from "./config";
   const transport = createConnectTransport({
     fetch,
     baseUrl:
       process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-      "http://localhost:9091",
+      SHORTS_API_URL,
   });
 
   const client = createPromiseClient(RegisterService, transport);

@@ -1,0 +1,271 @@
+name: Preview Deployment
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: '20'
+  GO_VERSION: '1.21'
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: australia-southeast2
+  ARTIFACT_REGISTRY: australia-southeast2-docker.pkg.dev
+  PR_NUMBER: ${{ github.event.pull_request.number }}
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+  deployments: write
+
+jobs:
+  build-and-preview:
+    runs-on: ubuntu-latest
+    environment:
+      name: preview-pr-${{ github.event.pull_request.number }}
+      url: ${{ steps.vercel.outputs.preview_url }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Create deployment
+      id: deployment
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const deployment = await github.rest.repos.createDeployment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: context.payload.pull_request.head.sha,
+            environment: `preview-pr-${context.payload.pull_request.number}`,
+            required_contexts: [],
+            auto_merge: false,
+            transient_environment: true,
+            production_environment: false,
+            description: `Preview deployment for PR #${context.payload.pull_request.number}`
+          });
+          return deployment.data.id;
+
+    - name: Set deployment status to in progress
+      uses: actions/github-script@v7
+      with:
+        script: |
+          await github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: ${{ steps.deployment.outputs.result }},
+            state: 'in_progress',
+            environment_url: `https://pr-${{ env.PR_NUMBER }}.shorted.vercel.app`,
+            description: 'Deployment in progress...'
+          });
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: web/package-lock.json
+
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache-dependency-path: services/go.sum
+
+    - name: Authenticate to Google Cloud
+      id: auth
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ secrets.WIP_PROVIDER }}
+        service_account: ${{ secrets.SA_EMAIL }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Configure Docker for Artifact Registry
+      run: |
+        gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
+
+    - name: Build and push Docker images
+      run: |
+        # Build and push Shorts Service
+        cd services/shorts
+        docker build -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/shorts:pr-${{ env.PR_NUMBER }} .
+        docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/shorts:pr-${{ env.PR_NUMBER }}
+        
+        # Build and push Market Data Service
+        cd ../market-data
+        docker build -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/market-data:pr-${{ env.PR_NUMBER }} .
+        docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/market-data:pr-${{ env.PR_NUMBER }}
+
+    - name: Deploy preview services to Cloud Run
+      id: deploy-services
+      run: |
+        # Deploy Shorts Service
+        gcloud run deploy shorts-service-pr-${{ env.PR_NUMBER }} \
+          --image ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/shorts:pr-${{ env.PR_NUMBER }} \
+          --region ${{ env.GCP_REGION }} \
+          --platform managed \
+          --allow-unauthenticated \
+          --port 9091 \
+          --memory 256Mi \
+          --cpu 1 \
+          --min-instances 0 \
+          --max-instances 2 \
+          --set-env-vars="DATABASE_URL=${{ secrets.DATABASE_URL }}" \
+          --set-env-vars="ENVIRONMENT=preview" \
+          --labels="pr=${{ env.PR_NUMBER }},type=preview" \
+          --tag pr-${{ env.PR_NUMBER }}
+        
+        # Deploy Market Data Service
+        gcloud run deploy market-data-service-pr-${{ env.PR_NUMBER }} \
+          --image ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/market-data:pr-${{ env.PR_NUMBER }} \
+          --region ${{ env.GCP_REGION }} \
+          --platform managed \
+          --allow-unauthenticated \
+          --port 8090 \
+          --memory 256Mi \
+          --cpu 1 \
+          --min-instances 0 \
+          --max-instances 2 \
+          --set-env-vars="DATABASE_URL=${{ secrets.DATABASE_URL }}" \
+          --set-env-vars="ENVIRONMENT=preview" \
+          --labels="pr=${{ env.PR_NUMBER }},type=preview" \
+          --tag pr-${{ env.PR_NUMBER }}
+        
+        # Get service URLs
+        SHORTS_URL=$(gcloud run services describe shorts-service-pr-${{ env.PR_NUMBER }} \
+          --region ${{ env.GCP_REGION }} --format 'value(status.url)')
+        MARKET_DATA_URL=$(gcloud run services describe market-data-service-pr-${{ env.PR_NUMBER }} \
+          --region ${{ env.GCP_REGION }} --format 'value(status.url)')
+        
+        echo "shorts_url=$SHORTS_URL" >> $GITHUB_OUTPUT
+        echo "market_data_url=$MARKET_DATA_URL" >> $GITHUB_OUTPUT
+
+    - name: Deploy preview to Vercel
+      id: vercel
+      env:
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+        VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      run: |
+        cd web
+        
+        # Install Vercel CLI
+        npm i -g vercel
+        
+        # Deploy preview with custom alias
+        DEPLOYMENT_URL=$(vercel deploy --token=$VERCEL_TOKEN \
+          --env NEXT_PUBLIC_API_URL=${{ steps.deploy-services.outputs.shorts_url }} \
+          --env NEXT_PUBLIC_MARKET_DATA_URL=${{ steps.deploy-services.outputs.market_data_url }} \
+          --env DATABASE_URL=${{ secrets.DATABASE_URL }} \
+          --env NEXTAUTH_URL=https://pr-${{ env.PR_NUMBER }}.shorted.vercel.app \
+          --env NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }} \
+          --env NEXT_PUBLIC_ENVIRONMENT=preview \
+          --meta gitCommitSha=${{ github.event.pull_request.head.sha }} \
+          --meta gitCommitRef=${{ github.event.pull_request.head.ref }} \
+          --meta gitPullRequestId=${{ env.PR_NUMBER }})
+        
+        # Set custom alias for the preview
+        vercel alias set $DEPLOYMENT_URL pr-${{ env.PR_NUMBER }}.shorted.vercel.app --token=$VERCEL_TOKEN
+        
+        echo "preview_url=https://pr-${{ env.PR_NUMBER }}.shorted.vercel.app" >> $GITHUB_OUTPUT
+        echo "deployment_url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+
+    - name: Run smoke tests on preview
+      run: |
+        # Wait for services to be ready
+        sleep 10
+        
+        # Test backend services
+        curl -f ${{ steps.deploy-services.outputs.shorts_url }}/health || exit 1
+        curl -f ${{ steps.deploy-services.outputs.market_data_url }}/health || exit 1
+        
+        # Test frontend
+        curl -f ${{ steps.vercel.outputs.preview_url }} || exit 1
+        
+        echo "✅ Preview deployment is healthy!"
+
+    - name: Update deployment status
+      if: always()
+      uses: actions/github-script@v7
+      with:
+        script: |
+          await github.rest.repos.createDeploymentStatus({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            deployment_id: ${{ steps.deployment.outputs.result }},
+            state: '${{ job.status }}' === 'success' ? 'success' : 'failure',
+            environment_url: '${{ steps.vercel.outputs.preview_url }}',
+            description: '${{ job.status }}' === 'success' ? 'Preview deployment ready!' : 'Deployment failed'
+          });
+
+    - name: Comment on PR
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const body = `## 🚀 Preview Deployment Ready!
+          
+          Your preview environment has been deployed:
+          
+          | Service | URL |
+          |---------|-----|
+          | **Frontend** | ${{ steps.vercel.outputs.preview_url }} |
+          | **Shorts API** | ${{ steps.deploy-services.outputs.shorts_url }} |
+          | **Market Data API** | ${{ steps.deploy-services.outputs.market_data_url }} |
+          
+          ### 📊 Preview Details
+          - **Environment**: \`preview-pr-${{ env.PR_NUMBER }}\`
+          - **Commit**: \`${{ github.event.pull_request.head.sha }}\`
+          - **Branch**: \`${{ github.event.pull_request.head.ref }}\`
+          
+          ### 🧪 Test the Preview
+          1. Visit the [preview site](${{ steps.vercel.outputs.preview_url }})
+          2. Test your changes
+          3. Check the [API health](${{ steps.deploy-services.outputs.shorts_url }}/health)
+          
+          ---
+          *This preview will be automatically cleaned up when the PR is closed.*`;
+          
+          // Find existing comment
+          const comments = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.payload.pull_request.number
+          });
+          
+          const botComment = comments.data.find(comment => 
+            comment.user.type === 'Bot' && 
+            comment.body.includes('Preview Deployment Ready')
+          );
+          
+          if (botComment) {
+            // Update existing comment
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body: body
+            });
+          } else {
+            // Create new comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              body: body
+            });
+          }
+
+    - name: Add preview labels
+      uses: actions/github-script@v7
+      with:
+        script: |
+          await github.rest.issues.addLabels({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.payload.pull_request.number,
+            labels: ['preview-deployed']
+          });

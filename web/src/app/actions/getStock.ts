@@ -4,6 +4,7 @@ import { type PlainMessage, toPlainMessage } from "@bufbuild/protobuf";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_connect";
 import { type Stock } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { cache } from "react";
+import { SHORTS_API_URL } from "./config";
 
 export const getStock = cache(async (
   productCode: string,
@@ -20,9 +21,7 @@ export const getStock = cache(async (
     // },
     // With Svelte's custom fetch function, we could alternatively\
     // use a relative base URL here.
-    baseUrl:
-      process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-      "http://localhost:9091",
+    baseUrl: SHORTS_API_URL,
   });
   const client = createPromiseClient(ShortedStocksService, transport);
 

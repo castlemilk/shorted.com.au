@@ -7,7 +7,7 @@ import { Button } from "./button";
 import { Skeleton } from "./skeleton";
 import { useStockData } from "./../../hooks/use-stock-data"; // Custom hook
 
-const INITIAL_PERIOD = "6m";
+const INITIAL_PERIOD = "5y";
 export type ChartProps = {
   stockCode: string;
 };
@@ -48,6 +48,8 @@ const Chart = ({ stockCode }: ChartProps) => {
               <ToggleGroupItem value="6m">6M</ToggleGroupItem>
               <ToggleGroupItem value="1y">1Y</ToggleGroupItem>
               <ToggleGroupItem value="2y">2Y</ToggleGroupItem>
+              <ToggleGroupItem value="5y">5Y</ToggleGroupItem>
+              <ToggleGroupItem value="10y">10Y</ToggleGroupItem>
               <ToggleGroupItem value="max">max</ToggleGroupItem>
             </ToggleGroup>
           </div>
@@ -57,7 +59,7 @@ const Chart = ({ stockCode }: ChartProps) => {
           <ChartLoadingPlaceholder withMenu={false} />
         ) : error ? (
           <div>Error loading data: {error.message}</div>
-        ) : data == null || !data.points || data.points.length === 0 ? (
+        ) : !data?.points || data.points.length === 0 ? (
           <div className="flex items-center justify-center h-[400px] text-muted-foreground">
             <p>No short position data available for {stockCode} in the selected period</p>
           </div>

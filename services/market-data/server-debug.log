@@ -1,0 +1,7 @@
+2025/08/05 23:55:15 🚀 Market Data Service starting on port 8090
+2025/08/05 23:55:15 📊 Health check: http://localhost:8090/health
+2025/08/05 23:55:15 💾 Database: localhost:5438/shorts
+2025/08/06 19:00:51 🚀 Market Data Service starting on port 8090
+2025/08/06 19:00:51 📊 Health check: http://localhost:8090/health
+2025/08/06 19:00:51 💾 Database: localhost:5438/shorts
+signal: killed

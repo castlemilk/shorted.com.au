@@ -1,0 +1,194 @@
+/**
+ * Integration tests for watchlist widget
+ * Tests the watchlist widget functionality and hooks
+ */
+
+import React from 'react';
+import { render, screen, waitFor, act } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { WatchlistWidget } from '@/components/widgets/watchlist-widget';
+
+// Mock the stock data service
+jest.mock('@/lib/stock-data-service', () => ({
+  getMultipleStockQuotes: jest.fn(),
+  getHistoricalData: jest.fn(),
+}));
+
+const mockGetMultipleStockQuotes = require('@/lib/stock-data-service').getMultipleStockQuotes;
+const mockGetHistoricalData = require('@/lib/stock-data-service').getHistoricalData;
+
+describe('Watchlist Widget Integration', () => {
+  beforeEach(() => {
+    // Reset mocks
+    jest.clearAllMocks();
+    
+    // Setup default mock responses
+    mockGetMultipleStockQuotes.mockResolvedValue(
+      new Map([
+        ['CBA', {
+          symbol: 'CBA',
+          price: 97.50,
+          change: 2.00,
+          changePercent: 2.09,
+          previousClose: 95.50,
+          volume: 1234567
+        }],
+        ['BHP', {
+          symbol: 'BHP',
+          price: 44.30,
+          change: 2.00,
+          changePercent: 4.73,
+          previousClose: 42.30,
+          volume: 2345678
+        }]
+      ])
+    );
+    
+    mockGetHistoricalData.mockResolvedValue([
+      {
+        date: '2024-08-01',
+        open: 95.00,
+        high: 98.00,
+        low: 94.50,
+        close: 97.50,
+        volume: 1234567,
+        adjustedClose: 97.50
+      }
+    ]);
+  });
+
+  it('should render watchlist with default stocks', async () => {
+    const config = { settings: {} };
+    
+    await act(async () => {
+      render(<WatchlistWidget config={config} />);
+    });
+
+    // Wait for loading to complete
+    await waitFor(() => {
+      expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+    });
+
+    // Check if default stocks are rendered
+    expect(screen.getByText('CBA')).toBeInTheDocument();
+    expect(screen.getByText('BHP')).toBeInTheDocument();
+  });
+
+  it('should handle adding new stocks', async () => {
+    const user = userEvent.setup();
+    const config = { settings: { watchlist: ['CBA'] } };
+    
+    await act(async () => {
+      render(<WatchlistWidget config={config} />);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+    });
+
+    // Click add button
+    const addButton = screen.getByRole('button', { name: /plus/i });
+    await user.click(addButton);
+
+    // Type new stock code
+    const input = screen.getByPlaceholderText('Stock code (e.g., CBA)');
+    await user.type(input, 'BHP');
+
+    // Click add
+    const submitButton = screen.getByRole('button', { name: 'Add' });
+    await user.click(submitButton);
+
+    // Verify the stock was added (this would trigger a re-render with new data)
+    await waitFor(() => {
+      expect(mockGetMultipleStockQuotes).toHaveBeenCalledWith(['CBA', 'BHP']);
+    });
+  });
+
+  it('should handle removing stocks', async () => {
+    const user = userEvent.setup();
+    const config = { settings: { watchlist: ['CBA', 'BHP'] } };
+    
+    await act(async () => {
+      render(<WatchlistWidget config={config} />);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+    });
+
+    // Find and click remove button for CBA
+    const removeButtons = screen.getAllByRole('button', { name: /x/i });
+    await user.click(removeButtons[0]);
+
+    // Verify the stock was removed (this would trigger a re-render with fewer stocks)
+    await waitFor(() => {
+      expect(mockGetMultipleStockQuotes).toHaveBeenCalledWith(['BHP']);
+    });
+  });
+
+  it('should handle different time intervals', async () => {
+    const user = userEvent.setup();
+    const config = { settings: { watchlist: ['CBA'] } };
+    
+    await act(async () => {
+      render(<WatchlistWidget config={config} />);
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+    });
+
+    // Find and change time interval
+    const selectTrigger = screen.getByRole('combobox');
+    await user.click(selectTrigger);
+
+    const weekOption = screen.getByText('1W');
+    await user.click(weekOption);
+
+    // Verify historical data was fetched with correct period
+    await waitFor(() => {
+      expect(mockGetHistoricalData).toHaveBeenCalledWith('CBA', '1w');
+    });
+  });
+
+  it('should handle API errors gracefully', async () => {
+    // Mock API error
+    mockGetMultipleStockQuotes.mockRejectedValue(new Error('API Error'));
+    mockGetHistoricalData.mockRejectedValue(new Error('API Error'));
+
+    const config = { settings: { watchlist: ['CBA'] } };
+    
+    await act(async () => {
+      render(<WatchlistWidget config={config} />);
+    });
+
+    // Should still render without crashing
+    await waitFor(() => {
+      expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+    });
+
+    // Should show the stock code even if data failed to load
+    expect(screen.getByText('CBA')).toBeInTheDocument();
+  });
+
+  it('should not render more hooks than previous render', async () => {
+    const config = { settings: { watchlist: ['CBA'] } };
+    
+    // First render
+    const { rerender } = render(<WatchlistWidget config={config} />);
+    
+    await waitFor(() => {
+      expect(screen.queryByText('Loading...')).not.toBeInTheDocument();
+    });
+
+    // Re-render with same props - should not cause hooks error
+    rerender(<WatchlistWidget config={config} />);
+    
+    // Re-render with different watchlist
+    const newConfig = { settings: { watchlist: ['CBA', 'BHP'] } };
+    rerender(<WatchlistWidget config={newConfig} />);
+
+    // Should not throw hooks error
+    expect(screen.getByText('CBA')).toBeInTheDocument();
+  });
+});

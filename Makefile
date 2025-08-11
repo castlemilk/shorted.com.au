@@ -1,7 +1,7 @@
 # Shorted.com.au Root Makefile
 # Orchestrates testing and building for both frontend and backend
 
-.PHONY: help test test-frontend test-backend test-coverage test-watch test-integration test-stack-up test-stack-down install clean build dev dev-script dev-frontend dev-backend lint format populate-data populate-data-quick
+.PHONY: help test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down install clean build dev dev-script dev-frontend dev-backend lint format populate-data populate-data-quick
 
 # Default target
 help:
@@ -12,6 +12,9 @@ help:
 	@echo "  test-coverage - Run all tests with coverage reporting"
 	@echo "  test-watch    - Run frontend tests in watch mode"
 	@echo "  test-integration - Run full-stack integration tests"
+	@echo "  test-e2e      - Run E2E tests with all dependencies"
+	@echo "  test-e2e-ui   - Run E2E tests in Playwright UI mode"
+	@echo "  test-e2e-headed - Run E2E tests in headed browser mode"
 	@echo "  test-stack-up - Start test environment"
 	@echo "  test-stack-down - Stop test environment"
 	@echo "  install       - Install all dependencies"
@@ -51,6 +54,19 @@ test-backend-coverage:
 test-watch:
 	@echo "👀 Running frontend tests in watch mode..."
 	@cd web && npm run test:watch
+
+# E2E Test commands
+test-e2e:
+	@echo "🎭 Running E2E tests with all dependencies..."
+	@./scripts/e2e-test-runner.sh
+
+test-e2e-ui:
+	@echo "🎭 Running E2E tests in UI mode..."
+	@./scripts/e2e-test-runner.sh --ui
+
+test-e2e-headed:
+	@echo "🎭 Running E2E tests in headed mode..."
+	@./scripts/e2e-test-runner.sh --headed
 
 # Installation commands
 install: install-frontend install-backend
@@ -148,6 +164,26 @@ populate-data-quick: dev-db ## Populate database using existing CSV files (no do
 	@echo "📊 Quick populating database from existing files..."
 	@cd services && make populate-data-quick
 
+populate-stock-data: dev-db ## Populate database with historical stock price data
+	@echo "📊 Populating database with historical stock price data..."
+	@cd services/stock-price-ingestion && python populate_historical_data.py
+
+populate-stock-data-full: dev-db ## Populate database with full historical stock data (5 years)
+	@echo "📊 Populating database with 5 years of stock price data..."
+	@cd services/stock-price-ingestion && python populate_historical_data.py --start-date $$(date -d "5 years ago" +%Y-%m-%d)
+
+populate-stock-data-custom: dev-db ## Populate with custom stocks and date range
+	@echo "📊 Usage: make populate-stock-data-custom STOCKS=CBA,BHP,CSL START=2022-01-01 END=2024-01-01"
+	@cd services/stock-price-ingestion && python populate_historical_data.py --stocks $(STOCKS) --start-date $(START) --end-date $(END)
+
+demo-stock-data: ## Demo: Test stock data fetching with progress bar (no database required)
+	@echo "📊 Running stock data fetching demo..."
+	@cd services/stock-price-ingestion && source venv/bin/activate && python demo_populate.py
+
+demo-stock-data-custom: ## Demo: Test custom stocks and date range
+	@echo "📊 Usage: make demo-stock-data-custom STOCKS=CBA,BHP,CSL START=2025-07-01"
+	@cd services/stock-price-ingestion && source venv/bin/activate && python demo_populate.py --stocks $(STOCKS) --start-date $(START)
+
 # Linting commands
 lint: lint-frontend lint-backend
 
@@ -181,6 +217,19 @@ pre-commit: format lint test
 test-shorts:
 	@echo "🧪 Running shorts service tests..."
 	@cd services && make test.shorts
+
+# Validation commands
+test-validation: test-backend-validation test-data-validation
+	@echo "✅ All validation tests completed"
+
+test-backend-validation:
+	@echo "🧪 Running backend validation tests..."
+	@cd services && go test -v ./shorts/internal/services/shorts -run TestValidate
+	@cd services && go test -v ./market-data -run TestValidate
+
+test-data-validation:
+	@echo "🧪 Running data validation tests..."
+	@cd services/stock-price-ingestion && python -m pytest test_data_validation.py -v
 
 # Integration testing commands
 test-integration: test-stack-up

@@ -1,0 +1,194 @@
+name: Deploy Stock Price Ingestion Service
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'services/stock-price-ingestion/**'
+      - '.github/workflows/deploy-stock-price-ingestion.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  PROJECT_ID: shorted-dev-aba5688f
+  REGION: australia-southeast2
+  SERVICE_NAME: stock-price-ingestion
+  REPOSITORY: shorted
+  IMAGE: australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/stock-price-ingestion
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+      
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+      
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(git describe --tags --always --dirty)
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "📦 Version: ${VERSION}"
+      
+      - name: Build Docker image
+        working-directory: services/stock-price-ingestion
+        run: |
+          docker build \
+            --tag ${{ env.IMAGE }}:${{ steps.version.outputs.VERSION }} \
+            --tag ${{ env.IMAGE }}:latest \
+            --platform linux/amd64 \
+            .
+      
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.IMAGE }}:${{ steps.version.outputs.VERSION }}
+          docker push ${{ env.IMAGE }}:latest
+      
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image ${{ env.IMAGE }}:${{ steps.version.outputs.VERSION }} \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --memory 1Gi \
+            --cpu 1 \
+            --timeout 600 \
+            --max-instances 10 \
+            --min-instances 0 \
+            --allow-unauthenticated \
+            --set-secrets="DATABASE_URL=DATABASE_URL:latest" \
+            --set-env-vars="ENVIRONMENT=production,GCP_PROJECT=${{ env.PROJECT_ID }}"
+      
+      - name: Get Service URL
+        id: service-url
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region ${{ env.REGION }} \
+            --format 'value(status.url)')
+          echo "SERVICE_URL=${SERVICE_URL}" >> $GITHUB_OUTPUT
+          echo "🚀 Service deployed at: ${SERVICE_URL}"
+      
+      - name: Set up Cloud Scheduler
+        if: github.ref == 'refs/heads/main'
+        run: |
+          SERVICE_URL="${{ steps.service-url.outputs.SERVICE_URL }}"
+          
+          # Create or update daily sync job (6 PM AEST / 8 AM UTC)
+          gcloud scheduler jobs create http stock-price-daily-sync \
+            --location=${{ env.REGION }} \
+            --schedule="0 8 * * 1-5" \
+            --time-zone="UTC" \
+            --uri="${SERVICE_URL}/sync-all" \
+            --http-method=POST \
+            --headers="Content-Type=application/json" \
+            --message-body='{}' \
+            --max-retry-attempts=3 \
+            --max-backoff=1h \
+            --description="Daily sync of ASX stock prices from Yahoo Finance" \
+            2>/dev/null || \
+          gcloud scheduler jobs update http stock-price-daily-sync \
+            --location=${{ env.REGION }} \
+            --schedule="0 8 * * 1-5" \
+            --time-zone="UTC" \
+            --uri="${SERVICE_URL}/sync-all" \
+            --http-method=POST \
+            --headers="Content-Type=application/json" \
+            --message-body='{}' \
+            --max-retry-attempts=3 \
+            --max-backoff=1h
+          
+          # Create or update weekly comprehensive sync job
+          gcloud scheduler jobs create http stock-price-weekly-sync \
+            --location=${{ env.REGION }} \
+            --schedule="0 10 * * 0" \
+            --time-zone="UTC" \
+            --uri="${SERVICE_URL}/sync" \
+            --http-method=POST \
+            --headers="Content-Type=application/json" \
+            --message-body='{"days_back": 7, "mode": "backfill"}' \
+            --max-retry-attempts=2 \
+            --max-backoff=2h \
+            --description="Weekly comprehensive sync of stock prices" \
+            2>/dev/null || \
+          gcloud scheduler jobs update http stock-price-weekly-sync \
+            --location=${{ env.REGION }} \
+            --schedule="0 10 * * 0" \
+            --time-zone="UTC" \
+            --uri="${SERVICE_URL}/sync" \
+            --http-method=POST \
+            --headers="Content-Type=application/json" \
+            --message-body='{"days_back": 7, "mode": "backfill"}' \
+            --max-retry-attempts=2 \
+            --max-backoff=2h
+          
+          echo "⏰ Cloud Scheduler jobs configured"
+      
+      - name: Health Check
+        run: |
+          SERVICE_URL="${{ steps.service-url.outputs.SERVICE_URL }}"
+          echo "🏥 Checking service health..."
+          
+          for i in {1..10}; do
+            if curl -f "${SERVICE_URL}/health" > /dev/null 2>&1; then
+              echo "✅ Service is healthy"
+              curl -s "${SERVICE_URL}/health" | jq .
+              break
+            else
+              echo "⏳ Waiting for service to be ready... (attempt $i/10)"
+              sleep 5
+            fi
+          done
+      
+      - name: Test Manual Sync (Dry Run)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          SERVICE_URL="${{ steps.service-url.outputs.SERVICE_URL }}"
+          echo "🧪 Testing sync endpoint (dry run)..."
+          
+          curl -X POST "${SERVICE_URL}/sync" \
+            -H "Content-Type: application/json" \
+            -d '{"symbols": ["CBA.AX"], "days_back": 1, "mode": "update"}' \
+            -w "\nHTTP Status: %{http_code}\n" \
+            | jq .
+      
+      - name: Deployment Summary
+        run: |
+          echo "📋 Deployment Summary"
+          echo "===================="
+          echo "Service: ${{ env.SERVICE_NAME }}"
+          echo "Version: ${{ steps.version.outputs.VERSION }}"
+          echo "Region: ${{ env.REGION }}"
+          echo "URL: ${{ steps.service-url.outputs.SERVICE_URL }}"
+          echo "Health: ${{ steps.service-url.outputs.SERVICE_URL }}/health"
+          echo "Docs: ${{ steps.service-url.outputs.SERVICE_URL }}/docs"
+          echo ""
+          echo "Scheduler Jobs:"
+          gcloud scheduler jobs list --location=${{ env.REGION }} | grep stock-price || true

@@ -1,0 +1,21 @@
+User-agent: *
+Allow: /
+
+# Block admin and private areas
+Disallow: /api/
+Disallow: /admin/
+Disallow: /_next/
+Disallow: /dashboard/
+
+# Allow important pages
+Allow: /
+Allow: /about
+Allow: /blog
+Allow: /shorts/
+Allow: /terms
+
+# Sitemap location
+Sitemap: https://shorted.com.au/sitemap.xml
+
+# Crawl delay to be respectful
+Crawl-delay: 1 

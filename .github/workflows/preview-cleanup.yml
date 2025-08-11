@@ -1,0 +1,118 @@
+name: Preview Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main, develop]
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: australia-southeast2
+  PR_NUMBER: ${{ github.event.pull_request.number }}
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      id: auth
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ secrets.WIP_PROVIDER }}
+        service_account: ${{ secrets.SA_EMAIL }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Delete Cloud Run preview services
+      continue-on-error: true
+      run: |
+        echo "🧹 Cleaning up Cloud Run services for PR #${{ env.PR_NUMBER }}..."
+        
+        # Delete Shorts Service
+        gcloud run services delete shorts-service-pr-${{ env.PR_NUMBER }} \
+          --region ${{ env.GCP_REGION }} \
+          --quiet || echo "Shorts service not found or already deleted"
+        
+        # Delete Market Data Service
+        gcloud run services delete market-data-service-pr-${{ env.PR_NUMBER }} \
+          --region ${{ env.GCP_REGION }} \
+          --quiet || echo "Market data service not found or already deleted"
+        
+        echo "✅ Cloud Run services cleaned up"
+
+    - name: Clean up Docker images
+      continue-on-error: true
+      run: |
+        echo "🧹 Cleaning up Docker images for PR #${{ env.PR_NUMBER }}..."
+        
+        # Delete tagged images from Artifact Registry
+        gcloud artifacts docker images delete \
+          ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/shorts:pr-${{ env.PR_NUMBER }} \
+          --quiet || echo "Shorts image not found"
+        
+        gcloud artifacts docker images delete \
+          ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/market-data:pr-${{ env.PR_NUMBER }} \
+          --quiet || echo "Market data image not found"
+        
+        echo "✅ Docker images cleaned up"
+
+    - name: Remove Vercel preview alias
+      continue-on-error: true
+      env:
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      run: |
+        echo "🧹 Removing Vercel preview alias..."
+        
+        # Install Vercel CLI
+        npm i -g vercel
+        
+        # Remove the alias (Vercel will handle the actual deployment cleanup)
+        vercel alias rm pr-${{ env.PR_NUMBER }}.shorted.vercel.app --token=$VERCEL_TOKEN --yes || echo "Alias not found or already removed"
+        
+        echo "✅ Vercel alias removed"
+
+    - name: Comment on PR
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const body = `## 🧹 Preview Environment Cleaned Up
+          
+          The preview environment for PR #${{ env.PR_NUMBER }} has been removed:
+          
+          - ✅ Cloud Run services deleted
+          - ✅ Docker images cleaned up
+          - ✅ Vercel preview alias removed
+          
+          Thank you for your contribution! 🎉`;
+          
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.payload.pull_request.number,
+            body: body
+          });
+
+    - name: Remove preview label
+      uses: actions/github-script@v7
+      with:
+        script: |
+          try {
+            await github.rest.issues.removeLabel({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.pull_request.number,
+              name: 'preview-deployed'
+            });
+          } catch (error) {
+            console.log('Label not found or already removed');
+          }

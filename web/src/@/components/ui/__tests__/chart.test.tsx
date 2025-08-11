@@ -31,7 +31,7 @@ jest.mock('../brushChart', () => ({
     return (
       <div data-testid="brush-chart">
         <div>Period: {period}</div>
-        <div>Data points: {data?.length || 0}</div>
+        <div>Data points: {data?.points?.length || 0}</div>
       </div>
     );
   }),
@@ -77,7 +77,12 @@ describe('Chart Component', () => {
     clearMock.mockClear();
     resetMock.mockClear();
     mockUseStockData.mockReturnValue({
-      data: mockData,
+      data: {
+        points: mockData,
+        productCode: 'CBA',
+        max: 12.1,
+        min: 10.5,
+      },
       loading: false,
       error: null,
     } as any);
@@ -112,8 +117,8 @@ describe('Chart Component', () => {
 
     render(<Chart stockCode="CBA" />);
     
-    // Should show skeleton when there's an error (fallback state)
-    expect(screen.getByTestId('skeleton')).toBeInTheDocument();
+    // Should show error message
+    expect(screen.getByText('Error loading data: Failed to fetch data')).toBeInTheDocument();
   });
 
   it('renders period toggle buttons', () => {
@@ -177,14 +182,19 @@ describe('Chart Component', () => {
 
   it('handles empty data gracefully', () => {
     mockUseStockData.mockReturnValue({
-      data: [],
+      data: {
+        points: [],
+        productCode: 'CBA',
+        max: null,
+        min: null,
+      },
       loading: false,
       error: null,
     } as any);
 
     render(<Chart stockCode="CBA" />);
     
-    expect(screen.getByText('Data points: 0')).toBeInTheDocument();
+    expect(screen.getByText('No short position data available for CBA in the selected period')).toBeInTheDocument();
   });
 
   it('updates when stock code changes', () => {

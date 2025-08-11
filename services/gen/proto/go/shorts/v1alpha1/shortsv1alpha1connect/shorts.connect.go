@@ -51,16 +51,6 @@ const (
 	ShortedStocksServiceGetStockDataProcedure = "/shorts.v1alpha1.ShortedStocksService/GetStockData"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	shortedStocksServiceServiceDescriptor                  = v1alpha1.File_shorts_v1alpha1_shorts_proto.Services().ByName("ShortedStocksService")
-	shortedStocksServiceGetTopShortsMethodDescriptor       = shortedStocksServiceServiceDescriptor.Methods().ByName("GetTopShorts")
-	shortedStocksServiceGetIndustryTreeMapMethodDescriptor = shortedStocksServiceServiceDescriptor.Methods().ByName("GetIndustryTreeMap")
-	shortedStocksServiceGetStockMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStock")
-	shortedStocksServiceGetStockDetailsMethodDescriptor    = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockDetails")
-	shortedStocksServiceGetStockDataMethodDescriptor       = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockData")
-)
-
 // ShortedStocksServiceClient is a client for the shorts.v1alpha1.ShortedStocksService service.
 type ShortedStocksServiceClient interface {
 	// Shows top 10 short positions on the ASX over different periods of time.
@@ -83,35 +73,36 @@ type ShortedStocksServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) ShortedStocksServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	shortedStocksServiceMethods := v1alpha1.File_shorts_v1alpha1_shorts_proto.Services().ByName("ShortedStocksService").Methods()
 	return &shortedStocksServiceClient{
 		getTopShorts: connect.NewClient[v1alpha1.GetTopShortsRequest, v1alpha1.GetTopShortsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetTopShortsProcedure,
-			connect.WithSchema(shortedStocksServiceGetTopShortsMethodDescriptor),
+			connect.WithSchema(shortedStocksServiceMethods.ByName("GetTopShorts")),
 			connect.WithClientOptions(opts...),
 		),
 		getIndustryTreeMap: connect.NewClient[v1alpha1.GetIndustryTreeMapRequest, v1alpha11.IndustryTreeMap](
 			httpClient,
 			baseURL+ShortedStocksServiceGetIndustryTreeMapProcedure,
-			connect.WithSchema(shortedStocksServiceGetIndustryTreeMapMethodDescriptor),
+			connect.WithSchema(shortedStocksServiceMethods.ByName("GetIndustryTreeMap")),
 			connect.WithClientOptions(opts...),
 		),
 		getStock: connect.NewClient[v1alpha1.GetStockRequest, v1alpha11.Stock](
 			httpClient,
 			baseURL+ShortedStocksServiceGetStockProcedure,
-			connect.WithSchema(shortedStocksServiceGetStockMethodDescriptor),
+			connect.WithSchema(shortedStocksServiceMethods.ByName("GetStock")),
 			connect.WithClientOptions(opts...),
 		),
 		getStockDetails: connect.NewClient[v1alpha1.GetStockDetailsRequest, v1alpha11.StockDetails](
 			httpClient,
 			baseURL+ShortedStocksServiceGetStockDetailsProcedure,
-			connect.WithSchema(shortedStocksServiceGetStockDetailsMethodDescriptor),
+			connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockDetails")),
 			connect.WithClientOptions(opts...),
 		),
 		getStockData: connect.NewClient[v1alpha1.GetStockDataRequest, v1alpha11.TimeSeriesData](
 			httpClient,
 			baseURL+ShortedStocksServiceGetStockDataProcedure,
-			connect.WithSchema(shortedStocksServiceGetStockDataMethodDescriptor),
+			connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockData")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -171,34 +162,35 @@ type ShortedStocksServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	shortedStocksServiceMethods := v1alpha1.File_shorts_v1alpha1_shorts_proto.Services().ByName("ShortedStocksService").Methods()
 	shortedStocksServiceGetTopShortsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetTopShortsProcedure,
 		svc.GetTopShorts,
-		connect.WithSchema(shortedStocksServiceGetTopShortsMethodDescriptor),
+		connect.WithSchema(shortedStocksServiceMethods.ByName("GetTopShorts")),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetIndustryTreeMapHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetIndustryTreeMapProcedure,
 		svc.GetIndustryTreeMap,
-		connect.WithSchema(shortedStocksServiceGetIndustryTreeMapMethodDescriptor),
+		connect.WithSchema(shortedStocksServiceMethods.ByName("GetIndustryTreeMap")),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetStockHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetStockProcedure,
 		svc.GetStock,
-		connect.WithSchema(shortedStocksServiceGetStockMethodDescriptor),
+		connect.WithSchema(shortedStocksServiceMethods.ByName("GetStock")),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetStockDetailsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetStockDetailsProcedure,
 		svc.GetStockDetails,
-		connect.WithSchema(shortedStocksServiceGetStockDetailsMethodDescriptor),
+		connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockDetails")),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetStockDataHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetStockDataProcedure,
 		svc.GetStockData,
-		connect.WithSchema(shortedStocksServiceGetStockDataMethodDescriptor),
+		connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockData")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/shorts.v1alpha1.ShortedStocksService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

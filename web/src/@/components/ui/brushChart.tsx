@@ -61,7 +61,7 @@ const tooltipStyles = {
 
 // accessors
 const getDate = (d: PlainMessage<TimeSeriesPoint> | undefined) => {
-  if (!d || !d.timestamp) return new Date();
+  if (!d?.timestamp) return new Date();
   // Handle both string timestamps (from JSON) and Timestamp objects
   if (typeof d.timestamp === 'string') {
     return new Date(d.timestamp);
@@ -74,7 +74,7 @@ const getStockValue = (d: PlainMessage<TimeSeriesPoint> | undefined) =>
 // eslint-disable-next-line @typescript-eslint/unbound-method
 const bisectDate = bisector<TooltipData, Date>(
   (d) => {
-    if (!d || !d.timestamp) return new Date();
+    if (!d?.timestamp) return new Date();
     if (typeof d.timestamp === 'string') {
       return new Date(d.timestamp);
     }
