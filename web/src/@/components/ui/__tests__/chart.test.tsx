@@ -177,7 +177,7 @@ describe('Chart Component', () => {
   it('passes stock code to data hook', () => {
     render(<Chart stockCode="ZIP" />);
     
-    expect(mockUseStockData).toHaveBeenCalledWith('ZIP', '6m');
+    expect(mockUseStockData).toHaveBeenCalledWith('ZIP', '5y');
   });
 
   it('handles empty data gracefully', () => {
@@ -200,10 +200,10 @@ describe('Chart Component', () => {
   it('updates when stock code changes', () => {
     const { rerender } = render(<Chart stockCode="CBA" />);
     
-    expect(mockUseStockData).toHaveBeenCalledWith('CBA', '6m');
+    expect(mockUseStockData).toHaveBeenCalledWith('CBA', '5y');
     
     rerender(<Chart stockCode="ZIP" />);
     
-    expect(mockUseStockData).toHaveBeenCalledWith('ZIP', '6m');
+    expect(mockUseStockData).toHaveBeenCalledWith('ZIP', '5y');
   });
 });
