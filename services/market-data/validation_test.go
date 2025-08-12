@@ -146,7 +146,7 @@ func TestValidateGetHistoricalPricesRequest(t *testing.T) {
 			name: "invalid period",
 			request: &marketdatav1.GetHistoricalPricesRequest{
 				StockCode: "CBA",
-				Period:    "5y",
+				Period:    "7d",
 			},
 			expectError: true,
 			errorMsg:    "invalid period",

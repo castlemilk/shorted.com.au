@@ -159,7 +159,7 @@
     "next-themes": "^0.3.0",
     "prismjs": "^1.29.0",
     "react": "^18.3.1",
-    "react-dom": "18.2.0",
+    "react-dom": "^18.3.1",
     "react-grid-layout": "^1.5.1",
     "react-hook-form": "^7.51.2",
     "react-spring": "^9.7.3",
