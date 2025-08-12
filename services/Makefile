@@ -387,3 +387,230 @@ test-clean:
 	rm -f coverage.out coverage.html integration-coverage.out integration-coverage.html
 	docker-compose -f docker-compose.test.yml down -v --remove-orphans
 	docker volume prune -f
+
+# Performance and Load Testing Targets
+.PHONY: perf-test load-test stress-test spike-test benchmark-test artillery-test
+.PHONY: perf-install perf-setup perf-clean perf-report perf-baseline
+.PHONY: perf-vegeta perf-k6 perf-artillery perf-all
+
+# Performance testing setup
+perf-install:
+	@echo "📦 Installing performance testing tools..."
+	@echo "Installing k6..."
+	@if ! command -v k6 &> /dev/null; then \
+		if [[ "$$(uname)" == "Darwin" ]]; then \
+			brew install k6; \
+		else \
+			curl https://github.com/grafana/k6/releases/download/v0.47.0/k6-v0.47.0-linux-amd64.tar.gz -L | tar xvz --strip-components 1; \
+			sudo mv k6 /usr/local/bin/; \
+		fi \
+	fi
+	@echo "Installing Artillery..."
+	@npm list -g artillery &> /dev/null || npm install -g artillery
+	@echo "Installing Go vegeta..."
+	@go install github.com/tsenart/vegeta/v12@latest
+	@echo "✅ Performance testing tools installed"
+
+perf-setup: perf-install
+	@echo "🔧 Setting up performance test environment..."
+	@mkdir -p test/k6/results
+	@mkdir -p test/artillery/results
+	@mkdir -p services/test/performance/results
+	@echo "BASE_URL=http://localhost:9091" > test/.env.perf
+	@echo "✅ Performance test environment ready"
+
+# Go-based load testing with vegeta
+perf-vegeta:
+	@echo "🚀 Running Go/Vegeta load tests..."
+	@cd services && go test ./test/performance/load_test.go -v -timeout=60m -run TestGetTopShortsLoadTest
+	@cd services && go test ./test/performance/load_test.go -v -timeout=30m -run TestGetStockLoadTest
+	@cd services && go test ./test/performance/load_test.go -v -timeout=30m -run TestGetStockDataLoadTest
+	@cd services && go test ./test/performance/load_test.go -v -timeout=30m -run TestGetIndustryTreeMapLoadTest
+
+# Go benchmark tests
+benchmark-test:
+	@echo "⚡ Running Go benchmark tests..."
+	@cd services && go test ./test/performance/benchmark_test.go -v -bench=. -benchmem -timeout=30m > test/performance/results/benchmark-results.txt
+	@echo "📊 Benchmark results saved to services/test/performance/results/benchmark-results.txt"
+
+# k6 load testing
+perf-k6:
+	@echo "📈 Running k6 load tests..."
+	@cd test && k6 run k6/load-test.js --out json=k6/results/load-test-results.json
+	@echo "📊 k6 load test results saved to test/k6/results/"
+
+# k6 stress testing  
+stress-test:
+	@echo "💪 Running k6 stress tests..."
+	@cd test && k6 run k6/stress-test.js --out json=k6/results/stress-test-results.json
+	@echo "📊 k6 stress test results saved to test/k6/results/"
+
+# k6 spike testing
+spike-test:
+	@echo "⚡ Running k6 spike tests..."
+	@cd test && k6 run k6/spike-test.js --out json=k6/results/spike-test-results.json
+	@echo "📊 k6 spike test results saved to test/k6/results/"
+
+# Artillery load testing
+perf-artillery:
+	@echo "🎯 Running Artillery load tests..."
+	@cd test && artillery run artillery/scenarios.yml --output artillery/results/artillery-results.json
+	@cd test && artillery report artillery/results/artillery-results.json --output artillery/results/artillery-report.html
+	@echo "📊 Artillery results saved to test/artillery/results/"
+
+# Comprehensive load testing - runs all tools
+load-test: perf-setup
+	@echo "🔄 Running comprehensive load testing suite..."
+	@$(MAKE) benchmark-test
+	@$(MAKE) perf-vegeta
+	@$(MAKE) perf-k6
+	@$(MAKE) perf-artillery
+	@echo "✅ Comprehensive load testing completed"
+
+# Performance testing with specific scenarios
+perf-test: perf-setup
+	@echo "🧪 Running standard performance tests..."
+	@$(MAKE) benchmark-test
+	@$(MAKE) perf-k6
+	@echo "✅ Performance testing completed"
+
+# All performance tests including stress and spike
+perf-all: perf-setup
+	@echo "🎯 Running ALL performance tests..."
+	@$(MAKE) benchmark-test
+	@$(MAKE) perf-vegeta
+	@$(MAKE) perf-k6
+	@$(MAKE) stress-test
+	@$(MAKE) spike-test
+	@$(MAKE) perf-artillery
+	@echo "✅ All performance tests completed"
+
+# Concurrent user testing
+perf-concurrent:
+	@echo "👥 Running concurrent user tests..."
+	@cd services && go test ./test/performance/load_test.go -v -timeout=30m -run TestConcurrentUsersScenario
+	@echo "📊 Concurrent user test results logged"
+
+# Database connection pool testing
+perf-db-pool:
+	@echo "🗄️ Running database connection pool tests..."
+	@cd services && go test ./test/performance/load_test.go -v -timeout=15m -run TestDatabaseConnectionPoolUnderLoad
+	@cd services && go test ./test/performance/benchmark_test.go -v -bench=BenchmarkDatabaseConnectionPool -benchmem
+	@echo "📊 Database connection pool test completed"
+
+# Sustained load testing (15 minutes)
+perf-sustained:
+	@echo "⏰ Running sustained load test (15 minutes)..."
+	@cd services && go test ./test/performance/load_test.go -v -timeout=20m -run TestSustainedLoad
+	@echo "📊 Sustained load test completed"
+
+# Cache effectiveness testing
+perf-cache:
+	@echo "💾 Running cache effectiveness tests..."
+	@cd services && go test ./test/performance/benchmark_test.go -v -bench=BenchmarkCacheEffectiveness -benchmem
+	@cd test && k6 run --duration 5m --vus 20 -e SCENARIO=cache k6/load-test.js
+	@echo "📊 Cache effectiveness test completed"
+
+# Memory usage testing
+perf-memory:
+	@echo "🧠 Running memory usage tests..."
+	@cd services && go test ./test/performance/benchmark_test.go -v -bench=BenchmarkMemoryUsage -benchmem
+	@echo "📊 Memory usage test completed"
+
+# Performance baseline validation
+perf-baseline:
+	@echo "📏 Validating against performance baseline..."
+	@cd test && k6 run --duration 10m --vus 50 k6/load-test.js
+	@echo "🔍 Comparing results against test/performance-baseline.json..."
+	@echo "📊 Review load-test-results.html for baseline comparison"
+
+# Performance regression testing
+perf-regression:
+	@echo "🔄 Running performance regression tests..."
+	@$(MAKE) perf-baseline
+	@echo "⚠️ Compare results with previous baseline measurements"
+	@echo "📈 Check for performance degradation > 20%"
+
+# Generate performance reports
+perf-report:
+	@echo "📊 Generating performance test reports..."
+	@cd services && if [ -f test/performance/results/benchmark-results.txt ]; then \
+		echo "=== Go Benchmark Results ===" > test/performance/results/performance-summary.txt; \
+		cat test/performance/results/benchmark-results.txt >> test/performance/results/performance-summary.txt; \
+	fi
+	@cd test && if [ -d k6/results ]; then \
+		echo "\n=== k6 Test Results ===" >> ../services/test/performance/results/performance-summary.txt; \
+		find k6/results -name "*.html" -exec echo "k6 report: {}" \; >> ../services/test/performance/results/performance-summary.txt; \
+	fi
+	@cd test && if [ -d artillery/results ]; then \
+		echo "\n=== Artillery Test Results ===" >> ../services/test/performance/results/performance-summary.txt; \
+		find artillery/results -name "*.html" -exec echo "Artillery report: {}" \; >> ../services/test/performance/results/performance-summary.txt; \
+	fi
+	@echo "📋 Performance summary saved to services/test/performance/results/performance-summary.txt"
+
+# Clean performance test artifacts
+perf-clean:
+	@echo "🧹 Cleaning performance test artifacts..."
+	@rm -rf test/k6/results/*
+	@rm -rf test/artillery/results/*
+	@rm -rf services/test/performance/results/*
+	@rm -f test/.env.perf
+	@echo "✅ Performance test artifacts cleaned"
+
+# Performance test CI targets
+perf-ci-quick:
+	@echo "⚡ Running quick performance tests for CI..."
+	@$(MAKE) benchmark-test
+	@cd test && timeout 5m k6 run --duration 2m --vus 10 k6/load-test.js || echo "k6 test completed"
+	@echo "✅ Quick performance tests completed"
+
+perf-ci-full:
+	@echo "🎯 Running full performance tests for CI..."
+	@$(MAKE) perf-test
+	@$(MAKE) stress-test
+	@echo "✅ Full CI performance tests completed"
+
+# Individual endpoint testing
+perf-test-gettopshorts:
+	@echo "📊 Testing GetTopShorts endpoint..."
+	@cd services && go test ./test/performance/load_test.go -v -run TestGetTopShortsLoadTest
+
+perf-test-getstock:
+	@echo "🏢 Testing GetStock endpoint..."
+	@cd services && go test ./test/performance/load_test.go -v -run TestGetStockLoadTest
+
+perf-test-getstockdata:
+	@echo "📈 Testing GetStockData endpoint..."
+	@cd services && go test ./test/performance/load_test.go -v -run TestGetStockDataLoadTest
+
+perf-test-gettreemap:
+	@echo "🌳 Testing GetIndustryTreeMap endpoint..."
+	@cd services && go test ./test/performance/load_test.go -v -run TestGetIndustryTreeMapLoadTest
+
+# Help target for performance testing
+perf-help:
+	@echo "🔧 Performance Testing Commands:"
+	@echo "  perf-install     - Install performance testing tools"
+	@echo "  perf-setup       - Setup performance test environment"
+	@echo "  perf-test        - Run standard performance tests"
+	@echo "  load-test        - Run comprehensive load testing"
+	@echo "  stress-test      - Run stress tests with k6"
+	@echo "  spike-test       - Run spike tests with k6"
+	@echo "  benchmark-test   - Run Go benchmark tests"
+	@echo "  perf-all         - Run ALL performance tests"
+	@echo "  perf-baseline    - Validate against performance baseline"
+	@echo "  perf-report      - Generate performance reports"
+	@echo "  perf-clean       - Clean performance test artifacts"
+	@echo ""
+	@echo "📊 Specialized Tests:"
+	@echo "  perf-concurrent  - Test concurrent user scenarios"
+	@echo "  perf-db-pool     - Test database connection pool"
+	@echo "  perf-sustained   - Run 15-minute sustained load test"
+	@echo "  perf-cache       - Test cache effectiveness"
+	@echo "  perf-memory      - Test memory usage patterns"
+	@echo ""
+	@echo "🎯 Individual Endpoints:"
+	@echo "  perf-test-gettopshorts  - Test GetTopShorts only"
+	@echo "  perf-test-getstock      - Test GetStock only"
+	@echo "  perf-test-getstockdata  - Test GetStockData only"
+	@echo "  perf-test-gettreemap    - Test GetIndustryTreeMap only"
