@@ -49,6 +49,7 @@
     ],
     "moduleNameMapper": {
       "^@/auth$": "<rootDir>/src/test/__mocks__/@/auth.js",
+      "^@/lib/utils$": "<rootDir>/src/@/lib/utils.ts",
       "^@/(.*)$": "<rootDir>/src/@/$1",
       "^~/(.*)$": "<rootDir>/src/$1"
     },

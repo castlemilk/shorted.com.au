@@ -54,10 +54,15 @@ func setupBenchmark() error {
 	testStore = shortsstore.New(storeConfig)
 	
 	// Initialize server (this would normally be done with proper config)
+	ctx := context.Background()
 	serverConfig := shorts.Config{
 		// Add any required config here
 	}
-	testServer = shorts.New(serverConfig, testStore)
+	var err error
+	testServer, err = shorts.New(ctx, serverConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create server: %v", err)
+	}
 	
 	return nil
 }
