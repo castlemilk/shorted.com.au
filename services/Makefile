@@ -295,7 +295,9 @@ history.stock-data.status:
 		"SELECT stock_code, COUNT(*) as records FROM stock_prices GROUP BY stock_code ORDER BY records DESC LIMIT 10" 2>/dev/null
 
 # Test commands
-.PHONY: test test.coverage test.shorts test.integration bench
+.PHONY: test test.coverage test.shorts test.integration test.integration.local test.integration.docker bench
+.PHONY: test-stack-up test-stack-down test-stack-status test-stack-logs
+.PHONY: test-integration test-e2e test-all-integration
 
 test:
 	go test ./... -v
@@ -310,5 +312,78 @@ test.shorts:
 test.integration:
 	go test ./... -v -tags=integration
 
+# New integration test targets using testcontainers
+test.integration.local:
+	@echo "🧪 Running integration tests with testcontainers..."
+	go test ./test/integration/... -v -timeout=10m
+
+test.integration.docker:
+	@echo "🐳 Running integration tests in Docker environment..."
+	docker-compose -f docker-compose.test.yml up --build --abort-on-container-exit test-runner
+
+# Test stack management
+test-stack-up:
+	@echo "🚀 Starting test environment..."
+	docker-compose -f docker-compose.test.yml up -d postgres-test redis-test
+	@echo "⏳ Waiting for services to be ready..."
+	@sleep 10
+	@echo "✅ Test stack is ready!"
+
+test-stack-down:
+	@echo "🛑 Stopping test environment..."
+	docker-compose -f docker-compose.test.yml down -v
+
+test-stack-status:
+	@echo "📊 Test environment status:"
+	docker-compose -f docker-compose.test.yml ps
+
+test-stack-logs:
+	@echo "📋 Test environment logs:"
+	docker-compose -f docker-compose.test.yml logs -f
+
+# Migration targets for test database
+test-migrate-up:
+	@echo "🚀 Running test database migrations..."
+	docker-compose -f docker-compose.test.yml up migrate-test
+
+test-migrate-reset:
+	@echo "♻️ Resetting test database..."
+	docker-compose -f docker-compose.test.yml down -v postgres-test
+	docker-compose -f docker-compose.test.yml up -d postgres-test
+	@sleep 5
+	$(MAKE) test-migrate-up
+
+# Combined integration test targets
+test-integration: test.integration.local
+
+test-e2e:
+	@echo "🌐 Running end-to-end tests..."
+	$(MAKE) test-stack-up
+	@sleep 5
+	$(MAKE) test.integration.docker
+	$(MAKE) test-stack-down
+
+test-all-integration:
+	@echo "🔬 Running all integration tests..."
+	@echo "1. Local testcontainers tests..."
+	$(MAKE) test.integration.local
+	@echo "2. Docker environment tests..."
+	$(MAKE) test.integration.docker
+
+# Benchmarks
 bench:
 	go test ./... -bench=. -benchmem
+
+# Test coverage with integration tests
+test.coverage.integration:
+	@echo "📊 Running integration tests with coverage..."
+	go test ./test/integration/... -v -timeout=10m -coverprofile=integration-coverage.out
+	go tool cover -html=integration-coverage.out -o integration-coverage.html
+	@echo "📈 Integration test coverage report generated: integration-coverage.html"
+
+# Clean test artifacts
+test-clean:
+	@echo "🧹 Cleaning test artifacts..."
+	rm -f coverage.out coverage.html integration-coverage.out integration-coverage.html
+	docker-compose -f docker-compose.test.yml down -v --remove-orphans
+	docker volume prune -f

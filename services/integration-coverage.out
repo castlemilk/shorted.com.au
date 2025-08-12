@@ -1,0 +1,20 @@
+mode: set
+github.com/castlemilk/shorted.com.au/services/test/integration/setup.go:33.74,77.2 13 1
+github.com/castlemilk/shorted.com.au/services/test/integration/setup.go:80.52,83.2 1 0
+github.com/castlemilk/shorted.com.au/services/test/integration/setup.go:86.69,89.18 2 1
+github.com/castlemilk/shorted.com.au/services/test/integration/setup.go:89.18,91.3 1 1
+github.com/castlemilk/shorted.com.au/services/test/integration/setup.go:93.2,93.25 1 1
+github.com/castlemilk/shorted.com.au/services/test/integration/setup.go:93.25,96.3 2 1
+github.com/castlemilk/shorted.com.au/services/test/integration/setup.go:100.79,109.31 3 1
+github.com/castlemilk/shorted.com.au/services/test/integration/setup.go:109.31,112.3 2 1
+github.com/castlemilk/shorted.com.au/services/test/integration/setup.go:116.90,126.2 5 0
+github.com/castlemilk/shorted.com.au/services/test/integration/setup.go:129.105,134.2 3 1
+github.com/castlemilk/shorted.com.au/services/test/integration/setup.go:137.30,139.6 2 0
+github.com/castlemilk/shorted.com.au/services/test/integration/setup.go:139.6,140.65 1 0
+github.com/castlemilk/shorted.com.au/services/test/integration/setup.go:140.65,142.4 1 0
+github.com/castlemilk/shorted.com.au/services/test/integration/setup.go:143.3,144.19 2 0
+github.com/castlemilk/shorted.com.au/services/test/integration/setup.go:144.19,145.9 1 0
+github.com/castlemilk/shorted.com.au/services/test/integration/setup.go:147.3,147.14 1 0
+github.com/castlemilk/shorted.com.au/services/test/integration/setup.go:149.2,149.11 1 0
+github.com/castlemilk/shorted.com.au/services/test/integration/setup.go:153.66,160.2 4 1
+github.com/castlemilk/shorted.com.au/services/test/integration/setup.go:163.76,188.2 5 1
