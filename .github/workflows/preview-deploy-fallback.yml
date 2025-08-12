@@ -19,8 +19,6 @@ permissions:
 jobs:
   preview-frontend-only:
     runs-on: ubuntu-latest
-    # Only run if WIP_PROVIDER secret is not set
-    if: ${{ !secrets.WIP_PROVIDER }}
     
     environment:
       name: preview-pr-${{ github.event.pull_request.number }}

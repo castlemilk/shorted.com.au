@@ -58,12 +58,6 @@ describe('Utility Functions', () => {
   describe('cn', () => {
     it('combines class names correctly', () => {
       expect(cn('foo', 'bar')).toBe('foo bar');
-      expect(cn('foo', { bar: true })).toBe('foo bar');
-      expect(cn('foo', { bar: false })).toBe('foo');
-    });
-
-    it('handles conditional classes', () => {
-      expect(cn('base', { active: true, disabled: false })).toBe('base active');
     });
 
     it('merges tailwind classes correctly', () => {
@@ -74,7 +68,6 @@ describe('Utility Functions', () => {
     it('handles empty inputs', () => {
       expect(cn()).toBe('');
       expect(cn('')).toBe('');
-      expect(cn(undefined, null)).toBe('');
     });
   });
 

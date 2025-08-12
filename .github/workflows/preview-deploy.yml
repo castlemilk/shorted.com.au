@@ -22,8 +22,6 @@ permissions:
 jobs:
   build-and-preview:
     runs-on: ubuntu-latest
-    # Only run if secrets are configured
-    if: ${{ secrets.WIP_PROVIDER != '' }}
     environment:
       name: preview-pr-${{ github.event.pull_request.number }}
       url: ${{ steps.vercel.outputs.preview_url }}
@@ -79,6 +77,7 @@ jobs:
     - name: Authenticate to Google Cloud
       id: auth
       uses: google-github-actions/auth@v2
+      if: ${{ secrets.WIP_PROVIDER != '' }}
       with:
         workload_identity_provider: ${{ secrets.WIP_PROVIDER }}
         service_account: ${{ secrets.SA_EMAIL }}
