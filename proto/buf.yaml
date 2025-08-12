@@ -1,3 +1,8 @@
-# Dummy buf.yaml to prevent Vercel build failures
+# Minimal buf.yaml to satisfy Vercel build
 version: v1
-EOF < /dev/null
+breaking:
+  use:
+    - FILE
+lint:
+  use:
+    - DEFAULT
