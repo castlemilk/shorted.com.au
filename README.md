@@ -281,3 +281,4 @@ You can check out the [create-t3-app GitHub repository](https://github.com/t3-os
 
 [1] nextjs + connect-query + connect-web - https://github.com/connectrpc/examples-es/tree/main/nextjs
 [1.1] https://connectrpc.com/docs/web/ssr
+# Force CI run
