@@ -171,7 +171,7 @@ describe('Chart Component', () => {
   it('uses correct initial period', () => {
     render(<Chart stockCode="CBA" />);
     
-    expect(mockUseStockData).toHaveBeenCalledWith('CBA', '6m');
+    expect(mockUseStockData).toHaveBeenCalledWith('CBA', '5y');
   });
 
   it('passes stock code to data hook', () => {

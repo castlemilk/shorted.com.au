@@ -6,7 +6,6 @@
   "moduleResolution": "Node",
   "scripts": {
     "build": "next build",
-    "vercel-build": "next build",
     "dev": "APP_VERSION=`git describe --tags --always --dirty` next dev -p 3020",
     "bump-version": "./scripts/bump-version.sh",
     "lint": "next lint",
