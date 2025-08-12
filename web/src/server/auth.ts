@@ -1,5 +1,4 @@
 import NextAuth, { type Session, type User } from "next-auth";
-import { FirestoreAdapter } from "@auth/firebase-adapter";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { type AdapterUser } from "next-auth/adapters";
@@ -88,7 +87,7 @@ export const authOptions = {
       clientSecret: process.env.AUTH_GOOGLE_SECRET,
     }),
   ],
-  adapter: FirestoreAdapter(firestore),
+  // adapter: FirestoreAdapter(firestore), // Commented out until Firebase adapter issues are resolved
   callbacks: {
     session: ({ session, user }: { session: Session; user: User | AdapterUser }) => {
       return {
