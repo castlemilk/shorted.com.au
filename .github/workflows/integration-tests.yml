@@ -122,7 +122,7 @@ jobs:
         working-directory: services
         run: |
           echo "Building shorts service..."
-          cd shorts && go build -v -o shorts-service .
+          cd shorts/cmd/server && go build -v -o shorts-service .
           
           echo "Building market-data service..."
           cd ../market-data && go build -v -o market-data-service . || echo "Market data service build completed"

@@ -51,7 +51,7 @@ func setupBenchmark() error {
 		SSLMode:     "disable",
 	}
 	
-	testStore = shortsstore.New(storeConfig)
+	testStore = shortsstore.NewStore(storeConfig)
 	
 	// Initialize server (this would normally be done with proper config)
 	ctx := context.Background()
