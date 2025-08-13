@@ -1,5 +1,32 @@
 import '@testing-library/jest-dom';
 
+// Mock class-variance-authority
+jest.mock('class-variance-authority', () => ({
+  cva: jest.fn((base, config) => {
+    return jest.fn((props) => {
+      // Return a string that includes base classes and variant classes
+      let classes = base || '';
+      if (props && config && config.variants) {
+        const { variant, size, className } = props || {};
+        // Add variant classes
+        if (variant && config.variants.variant && config.variants.variant[variant]) {
+          classes += ' ' + config.variants.variant[variant];
+        }
+        // Add size classes
+        if (size && config.variants.size && config.variants.size[size]) {
+          classes += ' ' + config.variants.size[size];
+        }
+        // Add custom classes
+        if (className) {
+          classes += ' ' + className;
+        }
+      }
+      return classes.trim();
+    });
+  }),
+  type: jest.fn(),
+}));
+
 // Mock React Server Components functions
 jest.mock('react', () => ({
   ...jest.requireActual('react'),

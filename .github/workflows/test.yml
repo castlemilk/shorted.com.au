@@ -216,7 +216,17 @@ jobs:
         cd ../services && go mod download
     
     - name: Build frontend
-      run: cd web && SKIP_ENV_VALIDATION=true npm run build
+      env:
+        SKIP_ENV_VALIDATION: true
+        NEXTAUTH_SECRET: test-secret
+        NEXTAUTH_URL: http://localhost:3000
+        AUTH_FIREBASE_PROJECT_ID: test-project
+        AUTH_FIREBASE_CLIENT_EMAIL: test@test.com
+        AUTH_FIREBASE_PRIVATE_KEY: test-key
+        AUTH_GOOGLE_ID: test-id
+        AUTH_GOOGLE_SECRET: test-secret
+        SHORTS_SERVICE_ENDPOINT: http://localhost:9091
+      run: cd web && npm run build
     
     - name: Build backend
       run: cd services && go build -o shorts-service ./shorts/cmd/server/main.go

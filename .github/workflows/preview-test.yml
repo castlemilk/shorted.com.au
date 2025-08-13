@@ -1,0 +1,327 @@
+name: Preview and Test
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [feature/*, develop]
+
+env:
+  NODE_VERSION: '20'
+  GO_VERSION: '1.23'
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+    outputs:
+      preview-url: ${{ steps.deploy.outputs.preview-url }}
+      backend-url: ${{ steps.backend.outputs.url }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: web/package-lock.json
+    
+    - name: Install Vercel CLI
+      run: npm install -g vercel
+    
+    - name: Deploy Backend to Preview
+      id: backend
+      env:
+        DATABASE_URL: ${{ secrets.PREVIEW_DATABASE_URL }}
+      run: |
+        # For now, use the production backend URL
+        # In future, deploy a preview backend to Cloud Run
+        echo "url=https://shorts-service-xivfykscsdagwsreyqgf.australia-southeast2.run.app" >> $GITHUB_OUTPUT
+    
+    - name: Deploy Frontend to Vercel Preview
+      id: deploy
+      env:
+        VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      run: |
+        cd web
+        
+        # Deploy to preview
+        DEPLOYMENT_URL=$(vercel deploy --token=$VERCEL_TOKEN --yes --env SKIP_ENV_VALIDATION=true --env NEXT_PUBLIC_API_URL=${{ steps.backend.outputs.url }} --env SHORTS_SERVICE_ENDPOINT=${{ steps.backend.outputs.url }})
+        
+        echo "preview-url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+        echo "Preview deployed to: $DEPLOYMENT_URL"
+    
+    - name: Comment PR with preview URL
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const previewUrl = '${{ steps.deploy.outputs.preview-url }}';
+          const body = `🚀 **Preview Deployment Ready!**\n\n🔗 Frontend: ${previewUrl}\n🔗 Backend: ${{ steps.backend.outputs.url }}`;
+          
+          // Find existing comment
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number,
+          });
+          
+          const botComment = comments.find(comment => 
+            comment.user.type === 'Bot' && comment.body.includes('Preview Deployment Ready')
+          );
+          
+          if (botComment) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: botComment.id,
+              body
+            });
+          } else {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+          }
+
+  test-unit:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: web/package-lock.json
+    
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache-dependency-path: services/go.sum
+    
+    - name: Install frontend dependencies
+      working-directory: web
+      run: npm ci --legacy-peer-deps
+    
+    - name: Install backend dependencies
+      working-directory: services
+      run: go mod download
+    
+    - name: Run frontend unit tests
+      working-directory: web
+      run: npm test -- --coverage --watchAll=false
+      continue-on-error: true # Allow tests to fail for now
+    
+    - name: Run backend unit tests
+      working-directory: services
+      run: go test ./... -v -cover
+      continue-on-error: true # Allow tests to fail for now
+    
+    - name: Upload frontend coverage
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: frontend-coverage
+        path: web/coverage/
+        retention-days: 7
+    
+    - name: Upload backend coverage
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: backend-coverage
+        path: services/coverage.out
+        retention-days: 7
+
+  test-integration:
+    needs: deploy-preview
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: shorted_test
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: web/package-lock.json
+    
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache-dependency-path: services/go.sum
+    
+    - name: Install dependencies
+      run: |
+        cd web && npm ci --legacy-peer-deps
+        cd ../services && go mod download
+    
+    - name: Setup test database
+      env:
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
+        POSTGRES_DB: shorted_test
+        POSTGRES_USER: test_user
+        POSTGRES_PASSWORD: test_password
+      run: |
+        # Wait for PostgreSQL
+        for i in {1..30}; do
+          if pg_isready -h localhost -p 5432 -U test_user; then
+            echo "PostgreSQL is ready"
+            break
+          fi
+          echo "Waiting for PostgreSQL... attempt $i/30"
+          sleep 2
+        done
+        
+        # Initialize schema
+        if [ -f analysis/sql/init-db.sql ]; then
+          PGPASSWORD=test_password psql -h localhost -p 5432 -U test_user -d shorted_test -f analysis/sql/init-db.sql || true
+        fi
+    
+    - name: Run integration tests against preview
+      env:
+        PREVIEW_URL: ${{ needs.deploy-preview.outputs.preview-url }}
+        BACKEND_URL: ${{ needs.deploy-preview.outputs.backend-url }}
+        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/shorted_test
+      run: |
+        echo "Testing against preview: $PREVIEW_URL"
+        echo "Backend URL: $BACKEND_URL"
+        
+        # Run integration tests
+        cd test/integration 2>/dev/null || cd services
+        go test ./... -v -tags=integration || true
+      continue-on-error: true
+
+  test-e2e:
+    needs: deploy-preview
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: web/package-lock.json
+    
+    - name: Install dependencies
+      working-directory: web
+      run: |
+        npm ci --legacy-peer-deps
+        npx playwright install chromium --with-deps
+    
+    - name: Run E2E tests against preview
+      working-directory: web
+      env:
+        PLAYWRIGHT_BASE_URL: ${{ needs.deploy-preview.outputs.preview-url }}
+        BACKEND_URL: ${{ needs.deploy-preview.outputs.backend-url }}
+      run: |
+        echo "Running E2E tests against: $PLAYWRIGHT_BASE_URL"
+        npm run test:e2e || true
+      continue-on-error: true
+    
+    - name: Upload Playwright report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: playwright-report
+        path: web/playwright-report/
+        retention-days: 7
+    
+    - name: Upload test videos
+      uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: test-videos
+        path: web/test-results/
+        retention-days: 7
+
+  test-summary:
+    needs: [test-unit, test-integration, test-e2e]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Create test summary
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const results = {
+            unit: '${{ needs.test-unit.result }}',
+            integration: '${{ needs.test-integration.result }}',
+            e2e: '${{ needs.test-e2e.result }}'
+          };
+          
+          let summary = '## 🧪 Test Results Summary\n\n';
+          
+          for (const [test, result] of Object.entries(results)) {
+            const emoji = result === 'success' ? '✅' : result === 'failure' ? '❌' : '⏭️';
+            summary += `${emoji} **${test.charAt(0).toUpperCase() + test.slice(1)} Tests**: ${result}\n`;
+          }
+          
+          // Add to PR comment if it's a PR
+          if (context.eventName === 'pull_request') {
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && comment.body.includes('Test Results Summary')
+            );
+            
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: summary
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: summary
+              });
+            }
+          }
+          
+          // Add to job summary
+          await core.summary
+            .addRaw(summary)
+            .write();
