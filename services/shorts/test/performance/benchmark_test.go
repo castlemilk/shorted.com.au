@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
@@ -19,7 +18,7 @@ import (
 
 var (
 	testDB     *sql.DB
-	testStore  shorts.Store
+	testStore  shortsstore.Store
 	testServer *shorts.ShortsServer
 )
 
@@ -43,12 +42,11 @@ func setupBenchmark() error {
 	
 	// Initialize store
 	storeConfig := shortsstore.Config{
-		Address:     "localhost:5432",
-		Username:    "admin", 
-		Password:    "password",
-		Database:    "shorts",
-		MaxConnections: 20,
-		SSLMode:     "disable",
+		StorageBackend:   shortsstore.StorageBackend("postgres"),
+		PostgresAddress:  "localhost:5432",
+		PostgresUsername: "admin", 
+		PostgresPassword: "password",
+		PostgresDatabase: "shorts",
 	}
 	
 	testStore = shortsstore.NewStore(storeConfig)
@@ -58,7 +56,6 @@ func setupBenchmark() error {
 	serverConfig := shorts.Config{
 		// Add any required config here
 	}
-	var err error
 	testServer, err = shorts.New(ctx, serverConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create server: %v", err)
@@ -475,7 +472,7 @@ func BenchmarkMemoryUsage(b *testing.B) {
 			
 			// Access response data
 			if resp.Msg != nil && len(resp.Msg.Points) > 0 {
-				_ = resp.Msg.Points[0].Date
+				_ = resp.Msg.Points[0].Timestamp
 			}
 		}
 	})
