@@ -125,7 +125,7 @@ jobs:
           cd shorts/cmd/server && go build -v -o shorts-service .
           
           echo "Building market-data service..."
-          cd ../market-data && go build -v -o market-data-service . || echo "Market data service build completed"
+          cd ../../market-data && go build -v -o market-data-service . || echo "Market data service build completed"
 
       - name: Run API Integration Tests
         if: matrix.test-suite == 'api' || matrix.test-suite == 'full-stack'
