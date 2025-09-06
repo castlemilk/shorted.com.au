@@ -4,7 +4,9 @@
   "outputDirectory": ".next",
   "devCommand": "npm run dev",
   "installCommand": "npm install --legacy-peer-deps",
-  "regions": ["syd1"],
+  "regions": [
+    "syd1"
+  ],
   "functions": {
     "src/app/api/**/*.ts": {
       "maxDuration": 30
@@ -14,13 +16,7 @@
     "NEXT_PUBLIC_ENVIRONMENT": "production"
   },
   "build": {
-    "env": {
-      "NEXT_PUBLIC_API_URL": "@api_url",
-      "NEXT_PUBLIC_MARKET_DATA_URL": "@market_data_url",
-      "DATABASE_URL": "@database_url",
-      "NEXTAUTH_SECRET": "@nextauth_secret",
-      "NEXTAUTH_URL": "@nextauth_url"
-    }
+    "env": {}
   },
   "github": {
     "enabled": true,
