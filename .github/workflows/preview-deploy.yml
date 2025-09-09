@@ -157,23 +157,23 @@ jobs:
           # Install Vercel CLI
           npm i -g vercel
 
-          # Deploy preview with custom alias
-          DEPLOYMENT_URL=$(vercel deploy --token=$VERCEL_TOKEN \
-            --env NEXT_PUBLIC_API_URL=${{ steps.deploy-services.outputs.shorts_url }} \
-            --env NEXT_PUBLIC_MARKET_DATA_URL=${{ steps.deploy-services.outputs.market_data_url }} \
-            --env DATABASE_URL=${{ secrets.DATABASE_URL }} \
-            --env NEXTAUTH_URL=https://pr-${{ env.PR_NUMBER }}.shorted.vercel.app \
-            --env NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }} \
-            --env NEXT_PUBLIC_ENVIRONMENT=preview \
-            --env AUTH_FIREBASE_PROJECT_ID=${{ secrets.AUTH_FIREBASE_PROJECT_ID }} \
-            --env AUTH_FIREBASE_CLIENT_EMAIL=${{ secrets.AUTH_FIREBASE_CLIENT_EMAIL }} \
-            --env AUTH_FIREBASE_PRIVATE_KEY=${{ secrets.AUTH_FIREBASE_PRIVATE_KEY }} \
-            --env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }} \
-            --env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }} \
-            --env SHORTS_SERVICE_ENDPOINT=${{ steps.deploy-services.outputs.shorts_url }} \
-            --meta gitCommitSha=${{ github.event.pull_request.head.sha }} \
-            --meta gitCommitRef=${{ github.event.pull_request.head.ref }} \
-            --meta gitPullRequestId=${{ env.PR_NUMBER }})
+           # Deploy preview with custom alias
+           DEPLOYMENT_URL=$(vercel deploy --token=$VERCEL_TOKEN \
+             --env NEXT_PUBLIC_API_URL=${{ steps.deploy-services.outputs.shorts_url }} \
+             --env NEXT_PUBLIC_MARKET_DATA_URL=${{ steps.deploy-services.outputs.market_data_url }} \
+             --env DATABASE_URL=${{ secrets.DATABASE_URL }} \
+             --env NEXTAUTH_URL=https://pr-${{ env.PR_NUMBER }}.shorted.vercel.app \
+             --env NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }} \
+             --env NEXT_PUBLIC_ENVIRONMENT=preview \
+             --env AUTH_FIREBASE_PROJECT_ID=${{ secrets.AUTH_FIREBASE_PROJECT_ID }} \
+             --env AUTH_FIREBASE_CLIENT_EMAIL=${{ secrets.AUTH_FIREBASE_CLIENT_EMAIL }} \
+             --env AUTH_FIREBASE_PRIVATE_KEY=${{ secrets.AUTH_FIREBASE_PRIVATE_KEY }} \
+             --env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }} \
+             --env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }} \
+             --env SHORTS_SERVICE_ENDPOINT=${{ steps.deploy-services.outputs.shorts_url }} \
+             --meta gitCommitSha=${{ github.event.pull_request.head.sha }} \
+             --meta gitCommitRef=${{ github.event.pull_request.head.ref }} \
+             --meta gitPullRequestId=${{ env.PR_NUMBER }})
 
           # Set custom alias for the preview
           vercel alias set $DEPLOYMENT_URL pr-${{ env.PR_NUMBER }}.shorted.vercel.app --token=$VERCEL_TOKEN

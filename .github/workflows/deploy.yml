@@ -178,19 +178,19 @@ jobs:
           # Install Vercel CLI
           npm i -g vercel
 
-          # Deploy to Vercel with environment variables
-          vercel --prod --token=$VERCEL_TOKEN \
-            --env NEXT_PUBLIC_API_URL=${{ steps.urls.outputs.shorts_url }} \
-            --env NEXT_PUBLIC_MARKET_DATA_URL=${{ steps.urls.outputs.market_data_url }} \
-            --env DATABASE_URL=${{ secrets.DATABASE_URL }} \
-            --env NEXTAUTH_URL=https://shorted.com.au \
-            --env NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }} \
-            --env AUTH_FIREBASE_PROJECT_ID=${{ secrets.AUTH_FIREBASE_PROJECT_ID }} \
-            --env AUTH_FIREBASE_CLIENT_EMAIL=${{ secrets.AUTH_FIREBASE_CLIENT_EMAIL }} \
-            --env AUTH_FIREBASE_PRIVATE_KEY=${{ secrets.AUTH_FIREBASE_PRIVATE_KEY }} \
-            --env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }} \
-            --env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }} \
-            --env SHORTS_SERVICE_ENDPOINT=${{ steps.urls.outputs.shorts_url }}
+           # Deploy to Vercel with environment variables
+           vercel --prod --token=$VERCEL_TOKEN \
+             --env NEXT_PUBLIC_API_URL=${{ steps.urls.outputs.shorts_url }} \
+             --env NEXT_PUBLIC_MARKET_DATA_URL=${{ steps.urls.outputs.market_data_url }} \
+             --env DATABASE_URL=${{ secrets.DATABASE_URL }} \
+             --env NEXTAUTH_URL=https://shorted.com.au \
+             --env NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }} \
+             --env AUTH_FIREBASE_PROJECT_ID=${{ secrets.AUTH_FIREBASE_PROJECT_ID }} \
+             --env AUTH_FIREBASE_CLIENT_EMAIL=${{ secrets.AUTH_FIREBASE_CLIENT_EMAIL }} \
+             --env AUTH_FIREBASE_PRIVATE_KEY=${{ secrets.AUTH_FIREBASE_PRIVATE_KEY }} \
+             --env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }} \
+             --env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }} \
+             --env SHORTS_SERVICE_ENDPOINT=${{ steps.urls.outputs.shorts_url }}
 
       - name: Run Smoke Tests
         run: |
