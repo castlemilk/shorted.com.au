@@ -8,14 +8,14 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/awslabs/aws-lambda-go-api-proxy/handlerfunc"
-	managementpb "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
+	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	"github.com/castlemilk/shorted.com.au/services/shorts/cmd/server/config"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts"
 )
 
 var (
-	server  *user.ManagementServer
+	server  *shorts.ShortsServer
 	adapter *handlerfunc.HandlerFuncAdapter
 )
 
@@ -34,13 +34,13 @@ func init() {
 		logger.Errorf("error loading config, error: %+v", err)
 	}
 	ctx := context.Background()
-	server, err = user.New(ctx, cfg.AppSpec)
+	server, err = shorts.New(ctx, cfg.AppSpec)
 
 	if err != nil {
-		logger.Errorf("error initiatilising user store, error: %+v", err)
+		logger.Errorf("error initiatilising shorts server, error: %+v", err)
 	}
 	mux := http.NewServeMux()
-	path, handler := managementpb.NewUserManagementServiceHandler(server)
+	path, handler := shortsv1alpha1connect.NewShortedStocksServiceHandler(server)
 	mux.Handle(path, handler)
 	registerOps(cfg, mux)
 	adapter = handlerfunc.New(mux.ServeHTTP)

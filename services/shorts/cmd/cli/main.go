@@ -11,11 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bufbuild/connect-go"
+	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
 	"github.com/dgrijalva/jwt-go"
-	"github.com/google/uuid"
 )
 
 const (
@@ -90,8 +89,6 @@ func exchangeJWTForToken(signedJWT string) (string, error) {
 }
 
 func main() {
-	uuid := uuid.New().String()
-
 	// Step 1: Load JSON credentials from environment variable
 	credsEnv := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
 	if credsEnv == "" {

@@ -1,11 +1,11 @@
 import axios from "axios";
-import fs from "fs";
+import * as fs from "fs";
 import { SingleBar, Presets } from "cli-progress";
 
-import path from "path";
+import * as path from "path";
 import { exit } from "process";
-const __dirname = path.resolve();
-const DATA_FOLDER = path.join(__dirname, "notebooks/data");
+const scriptDir = path.resolve();
+const DATA_FOLDER = path.join(scriptDir, "notebooks/data");
 const DATA_URL =
   "https://download.asic.gov.au/short-selling/short-selling-data.json";
 const BASE_URL = "https://download.asic.gov.au/short-selling/";
@@ -101,6 +101,8 @@ export const fetchDataAndDownload = async () => {
   }
 };
 
-// Run the main function
-fetchDataAndDownload();
-exit(0)
+// Run the main function only if this file is executed directly
+if (require.main === module) {
+  fetchDataAndDownload();
+  exit(0);
+}

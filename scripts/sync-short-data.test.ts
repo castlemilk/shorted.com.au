@@ -1,9 +1,9 @@
 import axios from "axios";
-import fs from "fs";
+import * as fs from "fs";
 import * as script from "./sync-short-data"; // Update the import path as necessary
-import path from "path";
+import * as path from "path";
 import { when } from "jest-when";
-import stream from "stream";
+import * as stream from "stream";
 // Mock data
 const mockData = [
   { date: 20240129, version: "001" },
