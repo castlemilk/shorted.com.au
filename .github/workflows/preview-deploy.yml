@@ -7,7 +7,7 @@ on:
 
 env:
   NODE_VERSION: "20"
-  GO_VERSION: "1.21"
+  GO_VERSION: "1.22"
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   GCP_REGION: australia-southeast2
   ARTIFACT_REGISTRY: australia-southeast2-docker.pkg.dev
@@ -91,14 +91,14 @@ jobs:
 
       - name: Build and push Docker images
         run: |
+          cd services
+          
           # Build and push Shorts Service
-          cd services/shorts
-          docker build -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/shorts:pr-${{ env.PR_NUMBER }} .
+          docker build -f shorts/Dockerfile -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/shorts:pr-${{ env.PR_NUMBER }} .
           docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/shorts:pr-${{ env.PR_NUMBER }}
 
           # Build and push Market Data Service
-          cd ../market-data
-          docker build -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/market-data:pr-${{ env.PR_NUMBER }} .
+          docker build -f market-data/Dockerfile -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/market-data:pr-${{ env.PR_NUMBER }} .
           docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/market-data:pr-${{ env.PR_NUMBER }}
 
       - name: Deploy preview services to Cloud Run

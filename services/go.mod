@@ -1,6 +1,6 @@
 module github.com/castlemilk/shorted.com.au/services
 
-go 1.23
+go 1.22
 
 require (
 	connectrpc.com/connect v1.15.0

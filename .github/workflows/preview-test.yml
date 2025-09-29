@@ -8,7 +8,7 @@ on:
 
 env:
   NODE_VERSION: '20'
-  GO_VERSION: '1.23'
+  GO_VERSION: '1.22'
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
   VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 

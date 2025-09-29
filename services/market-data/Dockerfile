@@ -7,17 +7,17 @@ RUN apk add --no-cache git
 # Set working directory
 WORKDIR /app
 
-# Copy go mod files
-COPY ../go.mod ../go.sum ./
+# Copy go mod files from services directory
+COPY go.mod go.sum ./
 
 # Download dependencies
 RUN go mod download
 
-# Copy source code
+# Copy entire services directory
 COPY . .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o market-data-service main.go validation.go
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o market-data-service ./market-data
 
 # Runtime stage
 FROM alpine:latest
