@@ -329,20 +329,20 @@ jobs:
             PGPASSWORD=test_password psql -h localhost -p 5432 -U test_user -d shorted_test -f analysis/sql/init-db.sql || true
           fi
 
-       - name: Run integration tests against preview
-         env:
-           SHORTS_URL: ${{ needs.deploy-backend.outputs.shorts-url }}
-           MARKET_DATA_URL: ${{ needs.deploy-backend.outputs.market-data-url }}
-           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/shorted_test
-         run: |
-           echo "Testing against backend services:"
-           echo "Shorts URL: $SHORTS_URL"
-           echo "Market Data URL: $MARKET_DATA_URL"
+      - name: Run integration tests against preview
+        env:
+          SHORTS_URL: ${{ needs.deploy-backend.outputs.shorts-url }}
+          MARKET_DATA_URL: ${{ needs.deploy-backend.outputs.market-data-url }}
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/shorted_test
+        run: |
+          echo "Testing against backend services:"
+          echo "Shorts URL: $SHORTS_URL"
+          echo "Market Data URL: $MARKET_DATA_URL"
 
-           # Run integration tests
-           cd test/integration 2>/dev/null || cd services
-           go test ./... -v -tags=integration || true
-         continue-on-error: true
+          # Run integration tests
+          cd test/integration 2>/dev/null || cd services
+          go test ./... -v -tags=integration || true
+        continue-on-error: true
 
   test-e2e:
     needs: [check-secrets, deploy-backend]
