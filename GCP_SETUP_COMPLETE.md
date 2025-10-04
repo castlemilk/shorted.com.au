@@ -5,13 +5,12 @@
 Using Application Default Credentials (ADC), Terraform successfully created:
 
 ### ✅ GCP Resources
+
 1. **Workload Identity Pool** (`github-pool`)
    - Allows GitHub Actions to authenticate to GCP without service account keys
-   
 2. **Workload Identity Provider** (`github-provider`)
    - OIDC provider for GitHub Actions
    - Restricted to repository owner: `benebsworth`
-   
 3. **Service Account** (`github-actions-sa`)
    - Email: `github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com`
    - Roles:
@@ -20,10 +19,10 @@ Using Application Default Credentials (ADC), Terraform successfully created:
      - `roles/storage.admin` - Manage storage
      - `roles/iam.serviceAccountUser` - Act as service account
      - `roles/iam.workloadIdentityUser` - Use workload identity
-   
 4. **Enabled APIs**
+
    - Cloud Run
-   - Artifact Registry  
+   - Artifact Registry
    - IAM
    - IAM Credentials
    - Cloud Resource Manager
@@ -39,18 +38,18 @@ All secrets needed for backend deployment are now set:
 gh secret list
 ```
 
-| Secret | Value | Status |
-|--------|-------|--------|
-| `WIP_PROVIDER` | projects/234770780438/locations/global/workloadIdentityPools/github-pool/providers/github-provider | ✅ |
-| `SA_EMAIL` | github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com | ✅ |
-| `GCP_PROJECT_ID` | shorted-dev-aba5688f | ✅ |
-| `NEXTAUTH_SECRET` | *** | ✅ |
-| `AUTH_GOOGLE_ID` | *** | ✅ |
-| `AUTH_GOOGLE_SECRET` | *** | ✅ |
-| `AUTH_FIREBASE_PROJECT_ID` | *** | ✅ |
-| `AUTH_FIREBASE_CLIENT_EMAIL` | *** | ✅ |
-| `AUTH_FIREBASE_PRIVATE_KEY` | *** | ✅ |
-| `DATABASE_URL` | ⚠️ **NEEDS TO BE SET** | ⚠️ |
+| Secret                       | Value                                                                                              | Status |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- | ------ |
+| `WIP_PROVIDER`               | projects/234770780438/locations/global/workloadIdentityPools/github-pool/providers/github-provider | ✅     |
+| `SA_EMAIL`                   | github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com                                     | ✅     |
+| `GCP_PROJECT_ID`             | shorted-dev-aba5688f                                                                               | ✅     |
+| `NEXTAUTH_SECRET`            | \*\*\*                                                                                             | ✅     |
+| `AUTH_GOOGLE_ID`             | \*\*\*                                                                                             | ✅     |
+| `AUTH_GOOGLE_SECRET`         | \*\*\*                                                                                             | ✅     |
+| `AUTH_FIREBASE_PROJECT_ID`   | \*\*\*                                                                                             | ✅     |
+| `AUTH_FIREBASE_CLIENT_EMAIL` | \*\*\*                                                                                             | ✅     |
+| `AUTH_FIREBASE_PRIVATE_KEY`  | \*\*\*                                                                                             | ✅     |
+| `DATABASE_URL`               | ⚠️ **NEEDS TO BE SET**                                                                             | ⚠️     |
 
 ## ⚠️ One More Secret Needed
 
@@ -68,11 +67,13 @@ gh secret set DATABASE_URL --body="postgresql://postgres.[ref]:[password]@aws-0-
 ### When You Push to a PR:
 
 1. **Frontend** ✅
+
    - Vercel automatically deploys via GitHub integration
    - No manual deployment needed
    - Preview URL posted by Vercel bot
 
 2. **Backend** ✅ (once DATABASE_URL is set)
+
    - GitHub Actions authenticates to GCP via Workload Identity
    - Builds Docker images for:
      - `shorts-service-pr-{NUMBER}`
@@ -82,6 +83,7 @@ gh secret set DATABASE_URL --body="postgresql://postgres.[ref]:[password]@aws-0-
    - URLs posted in PR comment
 
 3. **Tests** ✅
+
    - Unit tests run
    - Integration tests run against preview backend
    - E2E tests (currently disabled - needs Vercel URL detection)
@@ -107,17 +109,20 @@ graph LR
 ## Testing the Setup
 
 ### Option 1: Push an empty commit
+
 ```bash
 git commit --allow-empty -m "Test preview deployment with backend"
 git push
 ```
 
 ### Option 2: Watch existing workflow
+
 ```bash
 gh run watch
 ```
 
 ### Option 3: View PR
+
 ```bash
 gh pr view 44 --web
 ```
@@ -139,17 +144,20 @@ gh pr view 44 --web
 ### If backend deployment fails:
 
 1. **Check secrets are set**:
+
    ```bash
    gh secret list
    ```
 
 2. **Check workflow logs**:
+
    ```bash
    gh run list --workflow=preview-test.yml --limit 1
    gh run view --log
    ```
 
 3. **Verify GCP authentication**:
+
    - Go to GCP Console → IAM & Admin → Workload Identity Pools
    - Should see `github-pool` with `github-provider`
 
@@ -163,11 +171,13 @@ gh pr view 44 --web
 ## Cost Estimate
 
 Per-PR backend deployment costs:
+
 - **Cloud Run**: $0.10-0.50 per PR (scales to zero when idle)
 - **Artifact Registry**: ~$0.10/GB/month for Docker images
 - **Total**: ~$1-5/month for active development
 
 Cost optimizations enabled:
+
 - Min instances: 0 (scales to zero)
 - Max instances: 2 (prevents runaway costs)
 - Auto cleanup on PR close
@@ -189,10 +199,10 @@ Cost optimizations enabled:
 ## Summary
 
 🎉 **You're all set!** Once you add `DATABASE_URL`, every PR will automatically get:
+
 - ✅ Per-PR backend services on Cloud Run
-- ✅ Frontend preview on Vercel  
+- ✅ Frontend preview on Vercel
 - ✅ Automated testing
 - ✅ Automatic cleanup
 
 The pipeline is now fully operational with secure, keyless authentication to GCP! 🚀
-
