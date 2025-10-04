@@ -1,9 +1,9 @@
-name: Preview Deployment
+name: Preview Deployment (Deprecated)
 
+# This workflow has been replaced by preview-test.yml
+# Keeping for reference only - it will not run
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    branches: [main, develop]
+  workflow_dispatch:
 
 env:
   NODE_VERSION: "20"
