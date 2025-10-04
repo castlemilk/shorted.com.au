@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	<link rel="profile" href="http://gmpg.org/xfn/11">
+	<meta name='robots' content='noindex, nofollow' />
+
+            <script data-no-defer="1" data-ezscrex="false" data-cfasync="false" data-pagespeed-no-defer data-cookieconsent="ignore">
+                var ctPublicFunctions = {"_ajax_nonce":"bf783894ba","_rest_nonce":"6e868a9706","_ajax_url":"\/wp-admin\/admin-ajax.php","_rest_url":"https:\/\/gqg.com\/wp-json\/","data__cookies_type":"none","data__ajax_type":"admin_ajax","text__wait_for_decoding":"Decoding the contact data, let us a few seconds to finish. Anti-Spam by CleanTalk","cookiePrefix":"","wprocket_detected":false}
+            </script>
+        
+            <script data-no-defer="1" data-ezscrex="false" data-cfasync="false" data-pagespeed-no-defer data-cookieconsent="ignore">
+                var ctPublic = {"_ajax_nonce":"bf783894ba","settings__forms__check_internal":"0","settings__forms__check_external":"0","settings__forms__search_test":"1","blog_home":"https:\/\/gqg.com\/","pixel__setting":"0","pixel__enabled":false,"pixel__url":null,"data__email_check_before_post":"1","data__cookies_type":"none","data__key_is_ok":true,"data__visible_fields_required":true,"data__to_local_storage":{"apbct_cookies_test":"%7B%22cookies_names%22%3A%5B%22apbct_timestamp%22%2C%22apbct_site_landing_ts%22%5D%2C%22check_value%22%3A%22d264caefa916f3231c1864ab6a68eb48%22%7D","apbct_site_landing_ts":"1712978285","apbct_urls":"{\"gqg.com\/wp-content\/uploads\/2021\/10\/cropped-GQG-Partners-HUD-01.jpg\":[1712978285]}"},"wl_brandname":"Anti-Spam by CleanTalk","wl_brandname_short":"CleanTalk","ct_checkjs_key":880102225,"emailEncoderPassKey":"1a82820acb4e1d2505c229cab3f21bf4"}
+            </script>
+        
+	<!-- This site is optimized with the Yoast SEO Premium plugin v22.4 (Yoast SEO v22.4) - https://yoast.com/wordpress/plugins/seo/ -->
+	<title>Page not found | GQG Partners</title>
+	<meta property="og:locale" content="en_US" />
+	<meta property="og:title" content="Page not found | GQG Partners" />
+	<meta property="og:site_name" content="GQG Partners" />
+	<script type="application/ld+json" class="yoast-schema-graph">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"https://gqg.com/#website","url":"https://gqg.com/","name":"GQG Partners","description":"","publisher":{"@id":"https://gqg.com/#organization"},"potentialAction":[{"@type":"SearchAction","target":{"@type":"EntryPoint","urlTemplate":"https://gqg.com/?s={search_term_string}"},"query-input":"required name=search_term_string"}],"inLanguage":"en-US"},{"@type":"Organization","@id":"https://gqg.com/#organization","name":"GQG Partners LLC.","alternateName":"GQG","url":"https://gqg.com/","logo":{"@type":"ImageObject","inLanguage":"en-US","@id":"https://gqg.com/#/schema/logo/image/","url":"https://gqg.com/content/2023/08/GQG-Logo-White@2x.png","contentUrl":"https://gqg.com/content/2023/08/GQG-Logo-White@2x.png","width":196,"height":116,"caption":"GQG Partners LLC."},"image":{"@id":"https://gqg.com/#/schema/logo/image/"},"sameAs":["https://www.facebook.com/GQGPartnersLLC","https://www.instagram.com/gqgpartners/","https://www.linkedin.com/company/gqgpartners","https://twitter.com/GQGPartners"]}]}</script>
+	<!-- / Yoast SEO Premium plugin. -->
+
+
+<link rel='dns-prefetch' href='//d3js.org' />
+<link rel='dns-prefetch' href='//cdn.jsdelivr.net' />
+<link rel='dns-prefetch' href='//cdnjs.cloudflare.com' />
+<link rel='dns-prefetch' href='//code.jquery.com' />
+<link rel='dns-prefetch' href='//fonts.googleapis.com' />
+<link rel="alternate" type="application/rss+xml" title="GQG Partners &raquo; Feed" href="https://gqg.com/feed/" />
+<link rel="alternate" type="application/rss+xml" title="GQG Partners &raquo; Comments Feed" href="https://gqg.com/comments/feed/" />
+<script>
+window._wpemojiSettings = {"baseUrl":"https:\/\/s.w.org\/images\/core\/emoji\/15.0.3\/72x72\/","ext":".png","svgUrl":"https:\/\/s.w.org\/images\/core\/emoji\/15.0.3\/svg\/","svgExt":".svg","source":{"concatemoji":"https:\/\/gqg.com\/wp-includes\/js\/wp-emoji-release.min.js?ver=a6754dcd684552bd079fd2bba0c633b3"}};
+/*! This file is auto-generated */
+!function(i,n){var o,s,e;function c(e){try{var t={supportTests:e,timestamp:(new Date).valueOf()};sessionStorage.setItem(o,JSON.stringify(t))}catch(e){}}function p(e,t,n){e.clearRect(0,0,e.canvas.width,e.canvas.height),e.fillText(t,0,0);var t=new Uint32Array(e.getImageData(0,0,e.canvas.width,e.canvas.height).data),r=(e.clearRect(0,0,e.canvas.width,e.canvas.height),e.fillText(n,0,0),new Uint32Array(e.getImageData(0,0,e.canvas.width,e.canvas.height).data));return t.every(function(e,t){return e===r[t]})}function u(e,t,n){switch(t){case"flag":return n(e,"\ud83c\udff3\ufe0f\u200d\u26a7\ufe0f","\ud83c\udff3\ufe0f\u200b\u26a7\ufe0f")?!1:!n(e,"\ud83c\uddfa\ud83c\uddf3","\ud83c\uddfa\u200b\ud83c\uddf3")&&!n(e,"\ud83c\udff4\udb40\udc67\udb40\udc62\udb40\udc65\udb40\udc6e\udb40\udc67\udb40\udc7f","\ud83c\udff4\u200b\udb40\udc67\u200b\udb40\udc62\u200b\udb40\udc65\u200b\udb40\udc6e\u200b\udb40\udc67\u200b\udb40\udc7f");case"emoji":return!n(e,"\ud83d\udc26\u200d\u2b1b","\ud83d\udc26\u200b\u2b1b")}return!1}function f(e,t,n){var r="undefined"!=typeof WorkerGlobalScope&&self instanceof WorkerGlobalScope?new OffscreenCanvas(300,150):i.createElement("canvas"),a=r.getContext("2d",{willReadFrequently:!0}),o=(a.textBaseline="top",a.font="600 32px Arial",{});return e.forEach(function(e){o[e]=t(a,e,n)}),o}function t(e){var t=i.createElement("script");t.src=e,t.defer=!0,i.head.appendChild(t)}"undefined"!=typeof Promise&&(o="wpEmojiSettingsSupports",s=["flag","emoji"],n.supports={everything:!0,everythingExceptFlag:!0},e=new Promise(function(e){i.addEventListener("DOMContentLoaded",e,{once:!0})}),new Promise(function(t){var n=function(){try{var e=JSON.parse(sessionStorage.getItem(o));if("object"==typeof e&&"number"==typeof e.timestamp&&(new Date).valueOf()<e.timestamp+604800&&"object"==typeof e.supportTests)return e.supportTests}catch(e){}return null}();if(!n){if("undefined"!=typeof Worker&&"undefined"!=typeof OffscreenCanvas&&"undefined"!=typeof URL&&URL.createObjectURL&&"undefined"!=typeof Blob)try{var e="postMessage("+f.toString()+"("+[JSON.stringify(s),u.toString(),p.toString()].join(",")+"));",r=new Blob([e],{type:"text/javascript"}),a=new Worker(URL.createObjectURL(r),{name:"wpTestEmojiSupports"});return void(a.onmessage=function(e){c(n=e.data),a.terminate(),t(n)})}catch(e){}c(n=f(s,u,p))}t(n)}).then(function(e){for(var t in e)n.supports[t]=e[t],n.supports.everything=n.supports.everything&&n.supports[t],"flag"!==t&&(n.supports.everythingExceptFlag=n.supports.everythingExceptFlag&&n.supports[t]);n.supports.everythingExceptFlag=n.supports.everythingExceptFlag&&!n.supports.flag,n.DOMReady=!1,n.readyCallback=function(){n.DOMReady=!0}}).then(function(){return e}).then(function(){var e;n.supports.everything||(n.readyCallback(),(e=n.source||{}).concatemoji?t(e.concatemoji):e.wpemoji&&e.twemoji&&(t(e.twemoji),t(e.wpemoji)))}))}((window,document),window._wpemojiSettings);
+</script>
+<style id='wp-emoji-styles-inline-css'>
+
+	img.wp-smiley, img.emoji {
+		display: inline !important;
+		border: none !important;
+		box-shadow: none !important;
+		height: 1em !important;
+		width: 1em !important;
+		margin: 0 0.07em !important;
+		vertical-align: -0.1em !important;
+		background: none !important;
+		padding: 0 !important;
+	}
+</style>
+<link rel='stylesheet' id='wp-block-library-css' href='https://gqg.com/wp-includes/css/dist/block-library/style.min.css?ver=a6754dcd684552bd079fd2bba0c633b3' media='all' />
+<style id='global-styles-inline-css'>
+body{--wp--preset--color--black: #000000;--wp--preset--color--cyan-bluish-gray: #abb8c3;--wp--preset--color--white: #ffffff;--wp--preset--color--pale-pink: #f78da7;--wp--preset--color--vivid-red: #cf2e2e;--wp--preset--color--luminous-vivid-orange: #ff6900;--wp--preset--color--luminous-vivid-amber: #fcb900;--wp--preset--color--light-green-cyan: #7bdcb5;--wp--preset--color--vivid-green-cyan: #00d084;--wp--preset--color--pale-cyan-blue: #8ed1fc;--wp--preset--color--vivid-cyan-blue: #0693e3;--wp--preset--color--vivid-purple: #9b51e0;--wp--preset--color--yellow: #EDAC33;--wp--preset--color--dark-yellow: #CE8C12;--wp--preset--color--grey-blue: #618494;--wp--preset--color--dark-grey: #15171A;--wp--preset--color--milk-white: #f8f9f4;--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple: linear-gradient(135deg,rgba(6,147,227,1) 0%,rgb(155,81,224) 100%);--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan: linear-gradient(135deg,rgb(122,220,180) 0%,rgb(0,208,130) 100%);--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange: linear-gradient(135deg,rgba(252,185,0,1) 0%,rgba(255,105,0,1) 100%);--wp--preset--gradient--luminous-vivid-orange-to-vivid-red: linear-gradient(135deg,rgba(255,105,0,1) 0%,rgb(207,46,46) 100%);--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray: linear-gradient(135deg,rgb(238,238,238) 0%,rgb(169,184,195) 100%);--wp--preset--gradient--cool-to-warm-spectrum: linear-gradient(135deg,rgb(74,234,220) 0%,rgb(151,120,209) 20%,rgb(207,42,186) 40%,rgb(238,44,130) 60%,rgb(251,105,98) 80%,rgb(254,248,76) 100%);--wp--preset--gradient--blush-light-purple: linear-gradient(135deg,rgb(255,206,236) 0%,rgb(152,150,240) 100%);--wp--preset--gradient--blush-bordeaux: linear-gradient(135deg,rgb(254,205,165) 0%,rgb(254,45,45) 50%,rgb(107,0,62) 100%);--wp--preset--gradient--luminous-dusk: linear-gradient(135deg,rgb(255,203,112) 0%,rgb(199,81,192) 50%,rgb(65,88,208) 100%);--wp--preset--gradient--pale-ocean: linear-gradient(135deg,rgb(255,245,203) 0%,rgb(182,227,212) 50%,rgb(51,167,181) 100%);--wp--preset--gradient--electric-grass: linear-gradient(135deg,rgb(202,248,128) 0%,rgb(113,206,126) 100%);--wp--preset--gradient--midnight: linear-gradient(135deg,rgb(2,3,129) 0%,rgb(40,116,252) 100%);--wp--preset--font-size--small: 13px;--wp--preset--font-size--medium: 20px;--wp--preset--font-size--large: 36px;--wp--preset--font-size--x-large: 42px;--wp--preset--spacing--20: 0.44rem;--wp--preset--spacing--30: 0.67rem;--wp--preset--spacing--40: 1rem;--wp--preset--spacing--50: 1.5rem;--wp--preset--spacing--60: 2.25rem;--wp--preset--spacing--70: 3.38rem;--wp--preset--spacing--80: 5.06rem;--wp--preset--shadow--natural: 6px 6px 9px rgba(0, 0, 0, 0.2);--wp--preset--shadow--deep: 12px 12px 50px rgba(0, 0, 0, 0.4);--wp--preset--shadow--sharp: 6px 6px 0px rgba(0, 0, 0, 0.2);--wp--preset--shadow--outlined: 6px 6px 0px -3px rgba(255, 255, 255, 1), 6px 6px rgba(0, 0, 0, 1);--wp--preset--shadow--crisp: 6px 6px 0px rgba(0, 0, 0, 1);}body { margin: 0; }.wp-site-blocks > .alignleft { float: left; margin-right: 2em; }.wp-site-blocks > .alignright { float: right; margin-left: 2em; }.wp-site-blocks > .aligncenter { justify-content: center; margin-left: auto; margin-right: auto; }:where(.is-layout-flex){gap: 0.5em;}:where(.is-layout-grid){gap: 0.5em;}body .is-layout-flow > .alignleft{float: left;margin-inline-start: 0;margin-inline-end: 2em;}body .is-layout-flow > .alignright{float: right;margin-inline-start: 2em;margin-inline-end: 0;}body .is-layout-flow > .aligncenter{margin-left: auto !important;margin-right: auto !important;}body .is-layout-constrained > .alignleft{float: left;margin-inline-start: 0;margin-inline-end: 2em;}body .is-layout-constrained > .alignright{float: right;margin-inline-start: 2em;margin-inline-end: 0;}body .is-layout-constrained > .aligncenter{margin-left: auto !important;margin-right: auto !important;}body .is-layout-constrained > :where(:not(.alignleft):not(.alignright):not(.alignfull)){max-width: var(--wp--style--global--content-size);margin-left: auto !important;margin-right: auto !important;}body .is-layout-constrained > .alignwide{max-width: var(--wp--style--global--wide-size);}body .is-layout-flex{display: flex;}body .is-layout-flex{flex-wrap: wrap;align-items: center;}body .is-layout-flex > *{margin: 0;}body .is-layout-grid{display: grid;}body .is-layout-grid > *{margin: 0;}body{padding-top: 0px;padding-right: 0px;padding-bottom: 0px;padding-left: 0px;}a:where(:not(.wp-element-button)){text-decoration: underline;}.wp-element-button, .wp-block-button__link{background-color: #32373c;border-width: 0;color: #fff;font-family: inherit;font-size: inherit;line-height: inherit;padding: calc(0.667em + 2px) calc(1.333em + 2px);text-decoration: none;}.has-black-color{color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-color{color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-color{color: var(--wp--preset--color--white) !important;}.has-pale-pink-color{color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-color{color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-color{color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-color{color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-color{color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-color{color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-color{color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-color{color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-color{color: var(--wp--preset--color--vivid-purple) !important;}.has-yellow-color{color: var(--wp--preset--color--yellow) !important;}.has-dark-yellow-color{color: var(--wp--preset--color--dark-yellow) !important;}.has-grey-blue-color{color: var(--wp--preset--color--grey-blue) !important;}.has-dark-grey-color{color: var(--wp--preset--color--dark-grey) !important;}.has-milk-white-color{color: var(--wp--preset--color--milk-white) !important;}.has-black-background-color{background-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-background-color{background-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-background-color{background-color: var(--wp--preset--color--white) !important;}.has-pale-pink-background-color{background-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-background-color{background-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-background-color{background-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-background-color{background-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-background-color{background-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-background-color{background-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-background-color{background-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-background-color{background-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-background-color{background-color: var(--wp--preset--color--vivid-purple) !important;}.has-yellow-background-color{background-color: var(--wp--preset--color--yellow) !important;}.has-dark-yellow-background-color{background-color: var(--wp--preset--color--dark-yellow) !important;}.has-grey-blue-background-color{background-color: var(--wp--preset--color--grey-blue) !important;}.has-dark-grey-background-color{background-color: var(--wp--preset--color--dark-grey) !important;}.has-milk-white-background-color{background-color: var(--wp--preset--color--milk-white) !important;}.has-black-border-color{border-color: var(--wp--preset--color--black) !important;}.has-cyan-bluish-gray-border-color{border-color: var(--wp--preset--color--cyan-bluish-gray) !important;}.has-white-border-color{border-color: var(--wp--preset--color--white) !important;}.has-pale-pink-border-color{border-color: var(--wp--preset--color--pale-pink) !important;}.has-vivid-red-border-color{border-color: var(--wp--preset--color--vivid-red) !important;}.has-luminous-vivid-orange-border-color{border-color: var(--wp--preset--color--luminous-vivid-orange) !important;}.has-luminous-vivid-amber-border-color{border-color: var(--wp--preset--color--luminous-vivid-amber) !important;}.has-light-green-cyan-border-color{border-color: var(--wp--preset--color--light-green-cyan) !important;}.has-vivid-green-cyan-border-color{border-color: var(--wp--preset--color--vivid-green-cyan) !important;}.has-pale-cyan-blue-border-color{border-color: var(--wp--preset--color--pale-cyan-blue) !important;}.has-vivid-cyan-blue-border-color{border-color: var(--wp--preset--color--vivid-cyan-blue) !important;}.has-vivid-purple-border-color{border-color: var(--wp--preset--color--vivid-purple) !important;}.has-yellow-border-color{border-color: var(--wp--preset--color--yellow) !important;}.has-dark-yellow-border-color{border-color: var(--wp--preset--color--dark-yellow) !important;}.has-grey-blue-border-color{border-color: var(--wp--preset--color--grey-blue) !important;}.has-dark-grey-border-color{border-color: var(--wp--preset--color--dark-grey) !important;}.has-milk-white-border-color{border-color: var(--wp--preset--color--milk-white) !important;}.has-vivid-cyan-blue-to-vivid-purple-gradient-background{background: var(--wp--preset--gradient--vivid-cyan-blue-to-vivid-purple) !important;}.has-light-green-cyan-to-vivid-green-cyan-gradient-background{background: var(--wp--preset--gradient--light-green-cyan-to-vivid-green-cyan) !important;}.has-luminous-vivid-amber-to-luminous-vivid-orange-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-amber-to-luminous-vivid-orange) !important;}.has-luminous-vivid-orange-to-vivid-red-gradient-background{background: var(--wp--preset--gradient--luminous-vivid-orange-to-vivid-red) !important;}.has-very-light-gray-to-cyan-bluish-gray-gradient-background{background: var(--wp--preset--gradient--very-light-gray-to-cyan-bluish-gray) !important;}.has-cool-to-warm-spectrum-gradient-background{background: var(--wp--preset--gradient--cool-to-warm-spectrum) !important;}.has-blush-light-purple-gradient-background{background: var(--wp--preset--gradient--blush-light-purple) !important;}.has-blush-bordeaux-gradient-background{background: var(--wp--preset--gradient--blush-bordeaux) !important;}.has-luminous-dusk-gradient-background{background: var(--wp--preset--gradient--luminous-dusk) !important;}.has-pale-ocean-gradient-background{background: var(--wp--preset--gradient--pale-ocean) !important;}.has-electric-grass-gradient-background{background: var(--wp--preset--gradient--electric-grass) !important;}.has-midnight-gradient-background{background: var(--wp--preset--gradient--midnight) !important;}.has-small-font-size{font-size: var(--wp--preset--font-size--small) !important;}.has-medium-font-size{font-size: var(--wp--preset--font-size--medium) !important;}.has-large-font-size{font-size: var(--wp--preset--font-size--large) !important;}.has-x-large-font-size{font-size: var(--wp--preset--font-size--x-large) !important;}
+.wp-block-navigation a:where(:not(.wp-element-button)){color: inherit;}
+:where(.wp-block-post-template.is-layout-flex){gap: 1.25em;}:where(.wp-block-post-template.is-layout-grid){gap: 1.25em;}
+:where(.wp-block-columns.is-layout-flex){gap: 2em;}:where(.wp-block-columns.is-layout-grid){gap: 2em;}
+.wp-block-pullquote{font-size: 1.5em;line-height: 1.6;}
+</style>
+<link rel='stylesheet' id='ct_public_css-css' href='https://gqg.com/wp-content/plugins/cleantalk-spam-protect/css/cleantalk-public.min.css?ver=6.30' media='all' />
+<link rel='stylesheet' id='select2css-css' href='//cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css?ver=a6754dcd684552bd079fd2bba0c633b3' media='all' />
+<link rel='stylesheet' id='slick-slider-css-css' href='https://cdnjs.cloudflare.com/ajax/libs/slick-carousel/1.5.8/slick.min.css?ver=a6754dcd684552bd079fd2bba0c633b3' media='all' />
+<link rel='stylesheet' id='google-fonts-pt-sans-css' href='https://fonts.googleapis.com/css2?family=PT+Serif%3Aital%2Cwght%400%2C400%3B0%2C700%3B1%2C400%3B1%2C700&#038;display=swap&#038;ver=a6754dcd684552bd079fd2bba0c633b3' media='all' />
+<link rel='stylesheet' id='jquery-ui-css-css' href='https://code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.css?ver=a6754dcd684552bd079fd2bba0c633b3' media='all' />
+<link rel='stylesheet' id='child-understrap-styles-css' href='https://gqg.com/wp-content/themes/gqg-com/child-theme.min.css?ver=1.2.0.1712935349' media='all' />
+<script src="https://gqg.com/wp-includes/js/jquery/jquery.min.js?ver=3.7.1" id="jquery-core-js"></script>
+<script src="https://gqg.com/wp-includes/js/jquery/jquery-migrate.min.js?ver=3.4.1" id="jquery-migrate-js"></script>
+<script data-pagespeed-no-defer src="https://gqg.com/wp-content/plugins/cleantalk-spam-protect/js/apbct-public-bundle.min.js?ver=6.30" id="ct_public_functions-js"></script>
+<script src="https://gqg.com/wp-content/themes/gqg-com/src/js/components/performance-chart.js?ver=a6754dcd684552bd079fd2bba0c633b3" id="gqg-performance-js"></script>
+<script src="https://d3js.org/d3.v4.js?ver=a6754dcd684552bd079fd2bba0c633b3" integrity="sha256-j2LsvgOlQFIb2Mphb+tX7d5pNmFdpsJU+s5GNo3z63g=" crossorigin="anonymous" type="text/javascript"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js?ver=a6754dcd684552bd079fd2bba0c633b3" integrity="sha256-9yRP/2EFlblE92vzCA10469Ctd0jT48HnmmMw5rJZrA=" crossorigin="anonymous" type="text/javascript"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/slick-carousel/1.8.1/slick.min.js?ver=a6754dcd684552bd079fd2bba0c633b3" integrity="sha256-DHF4zGyjT7GOMPBwpeehwoey18z8uiz98G4PRu2lV0A=" crossorigin="anonymous" type="text/javascript"></script>
+<script src="https://gqg.com/wp-content/themes/gqg-com/js/locked-content.js?ver=a6754dcd684552bd079fd2bba0c633b3" id="locked-content-js"></script>
+<script src="https://gqg.com/wp-content/themes/gqg-com/src/js/site/cookies.js?ver=a6754dcd684552bd079fd2bba0c633b3" id="gqg-cookies-js"></script>
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js?ver=a6754dcd684552bd079fd2bba0c633b3" id="jquery-ui-js"></script>
+<script src="https://gqg.com/wp-content/themes/gqg-com/src/js/components/marketo-forms.js?ver=1.0.1" id="marketo-forms-js" defer data-wp-strategy="defer"></script>
+<script id="ajax-script-js-before">
+myVariables = {"ajaxUrl":"https:\/\/gqg.com\/wp-admin\/admin-ajax.php"}
+</script>
+<script src="https://gqg.com/wp-content/themes/gqg-com/js/ajax.js?ver=a6754dcd684552bd079fd2bba0c633b3" id="ajax-script-js"></script>
+<link rel="https://api.w.org/" href="https://gqg.com/wp-json/" /><link rel="EditURI" type="application/rsd+xml" title="RSD" href="https://gqg.com/xmlrpc.php?rsd" />
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="GQG Partners - ">
+<meta name="generator" content="Elementor 3.20.3; features: e_optimized_assets_loading, e_optimized_css_loading, additional_custom_breakpoints, block_editor_assets_optimize, e_image_loading_optimization; settings: css_print_method-external, google_font-enabled, font_display-swap">
+<link rel="icon" href="https://gqg.com/content/2023/08/favicon-150x150.png" sizes="32x32" />
+<link rel="icon" href="https://gqg.com/content/2023/08/favicon-700x700.png" sizes="192x192" />
+<link rel="apple-touch-icon" href="https://gqg.com/content/2023/08/favicon-700x700.png" />
+<meta name="msapplication-TileImage" content="https://gqg.com/content/2023/08/favicon-700x700.png" />
+</head>
+
+<body class="error404 wp-custom-logo wp-embed-responsive group-blog hfeed understrap-no-sidebar anonymous elementor-default elementor-kit-376" itemscope itemtype="http://schema.org/WebSite">
+<div id="preloader" style="display:none;">
+    <div class="preloader">
+    <div class="box"></div>
+    <div class="box"></div>
+    <div class="box"></div>
+    <div class="box"></div>
+</div></div>
+<div class="site" id="page">
+
+
+
+	<!-- ******************* The Navbar Area ******************* -->
+	<header class="header">
+
+		<a class="skip-link visually-hidden-focusable" href="#content">
+			Skip to content		</a>
+		
+<div id="top-bar" class="">
+            <div id="pre-nav" class="pre-nav widget-area" role="complementary">
+            <div><div id="choose-roleblock_2adefd01700c83de57c9831c676ed63f" class="block block-choose-role anonymous">
+    <div class="dark-bg">
+        <div class="container">
+            <div class="d-flex align-items-center">
+                <button id="choose-role-toggle-button" type="button" class="page-link "
+                        data-bs-toggle="collapse" href="#choose-role" role="button" aria-expanded="true"
+                        aria-controls="choose-role">
+                                        <span class="location" style="display:none;"></span>
+                    <span class="investor-type">Please choose your role</span> <i class="fa fa-chevron-up"></i>
+                </button>
+                <div class="flex-grow-1">
+                </div>
+                <div class="content"><ul id="menu-top-bar-menu" class="top-bar-nav"><li id="menu-item-6313" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-6313"><a href="https://investors.gqg.com/">ASX Shareholder Centre</a></li>
+</ul></div>            </div>
+        </div>
+    </div>
+    <div id="choose-role" class="container collapse show">
+        <form id="choose-role-form" class="choose-role-form choose-role">
+            <div class="row">
+                <div class="col-md-7 col-investor-type">
+                    <h4 class="fw-medium">Investor Type</h4>
+                    <div class="d-flex">
+                        <div class="form-group investor-type">
+                            <div class="select-arrow-triangle grey">
+                                <select id="investor_type" name="investor_type" placeholder="Select your Type"
+                                        class="investor_type form-control arrow grey select2" required>
+                                    <option value="" class="select-default">Select Your Type</option>
+                                                                                                                        <option value="42">Institutional Investors</option>
+                                                                                    <option value="44">Financial Intermediaries</option>
+                                                                                    <option value="46">Retail Individuals</option>
+                                                                                                            </select>
+                            </div>
+                        </div>
+                        <button id="choose-role-btn" type="submit" class="choose-role-btn btn btn-dark" formnovalidate="formnovalidate">Confirm</button>
+                    </div>
+                </div>
+                <div class="col-md-5 mt-4 mt-md-0">
+                    <h4 class="fw-medium">Location</h4>
+                    <div class="form-group ">
+                        <div class="select-arrow-triangle grey">
+                            <select id="location" name="location" placeholder="Location"
+                                    class="location form-control arrow grey select2" required>
+                                <option value="" class="select-default">Select</option>
+                                                                                                        <option value="96">Australia</option>
+                                                                                                        <option value="52">Austria</option>
+                                                                                                        <option value="238">Belgium</option>
+                                                                                                        <option value="49">Denmark</option>
+                                                                                                        <option value="47">Finland</option>
+                                                                                                        <option value="45">France</option>
+                                                                                                        <option value="50">Germany</option>
+                                                                                                        <option value="43">Iceland</option>
+                                                                                                        <option value="169">Ireland</option>
+                                                                                                        <option value="41">Italy</option>
+                                                                                                        <option value="33">Luxembourg</option>
+                                                                                                        <option value="37">Netherlands</option>
+                                                                                                        <option value="133">New Zealand</option>
+                                                                                                        <option value="35">Norway</option>
+                                                                                                        <option value="53">Singapore</option>
+                                                                                                        <option value="48">Spain</option>
+                                                                                                        <option value="31">Sweden</option>
+                                                                                                        <option value="51">Switzerland</option>
+                                                                                                        <option value="134">United Kingdom</option>
+                                                                                                        <option value="136">United States</option>
+                                                                                                        <option value="132">Rest of the World</option>
+                                                                                                                                                                                                                                                </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div></div>        </div>
+        <nav class="navbar d-block navbar-expand-md dark-bg" aria-labelledby="main-nav-label">
+
+        <h2 id="main-nav-label" class="screen-reader-text">
+            Main Navigation        </h2>
+
+        <div id="main-nav-container" class="container">
+            <!-- Your site title as branding in the menu -->
+            <div class="logo-container">
+                <a href="https://gqg.com/" class="navbar-brand custom-logo-link" rel="home"><img width="196" height="116" class="img-fluid" alt="GQG Partners" decoding="async" data-src="https://gqg.com/content/2023/08/GQG-Logo-White@2x.png" /></a>            </div>
+
+
+            <!-- end custom logo -->
+            
+            <button
+                    class="navbar-toggler  d-md-none"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#navbarNavDropdown"
+                    aria-controls="navbarNavDropdown"
+                    aria-expanded="false"
+                    aria-label="Toggle navigation"
+            >
+                <div id="explore-hamburger">
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="x-button x-right"></div>
+                    <div class="x-button x-left"></div>
+                </div>
+            </button>
+            <div id="navbarNavDropdown" class="collapse navbar-collapse">
+                <div class="navbar-container">
+                <ul id="main-menu" class="navbar-nav"><li itemscope="itemscope" itemtype="https://www.schema.org/SiteNavigationElement" id="menu-item-1025" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1025 nav-item"><a title="Approach" href="https://gqg.com/approach/" class="nav-link" data-menu-id="1025">Approach</a></li>
+<li itemscope="itemscope" itemtype="https://www.schema.org/SiteNavigationElement" id="menu-item-4650" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children dropdown menu-item-4650 nav-item expanded collapsed_menu"><a title="Insights" href="/insights/" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" class="dropdown-toggle nav-link" id="menu-item-dropdown-4650" data-menu-id="4650">Insights</a><span class="mobile-dropdown d-md-none"><svg width="10" height="14" viewBox="0 0 10 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 13L8 7L0.999999 1" stroke="white" stroke-width="2" stroke-linecap="round"/></svg></span>
+<ul class="dropdown-menu" aria-labelledby="menu-item-dropdown-4650" >
+	<li itemscope="itemscope" itemtype="https://www.schema.org/SiteNavigationElement" id="menu-item-4811" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-4811 nav-item"><a title="GQG Research" href="/insights/?category=GQG%20Research" class="dropdown-item" data-menu-id="4811">GQG Research</a></li>
+	<li itemscope="itemscope" itemtype="https://www.schema.org/SiteNavigationElement" id="menu-item-4813" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-4813 nav-item"><a title="Webcasts" href="/insights/?category=Webcasts" class="dropdown-item" data-menu-id="4813">Webcasts</a></li>
+	<li itemscope="itemscope" itemtype="https://www.schema.org/SiteNavigationElement" id="menu-item-4814" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-4814 nav-item"><a title="In the News" href="/insights/?category=In%20the%20News" class="dropdown-item" data-menu-id="4814">In the News</a></li>
+</ul>
+</li>
+<li itemscope="itemscope" itemtype="https://www.schema.org/SiteNavigationElement" id="menu-item-1026" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-has-children dropdown menu-item-1026 nav-item expanded collapsed_menu"><a title="About Us" href="https://gqg.com/about/" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" class="dropdown-toggle nav-link" id="menu-item-dropdown-1026" data-menu-id="1026">About Us</a><span class="mobile-dropdown d-md-none"><svg width="10" height="14" viewBox="0 0 10 14" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 13L8 7L0.999999 1" stroke="white" stroke-width="2" stroke-linecap="round"/></svg></span>
+<ul class="dropdown-menu" aria-labelledby="menu-item-dropdown-1026" >
+	<li itemscope="itemscope" itemtype="https://www.schema.org/SiteNavigationElement" id="menu-item-1664" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1664 nav-item"><a title="Community" href="https://gqg.com/community/" class="dropdown-item" data-menu-id="1664">Community</a></li>
+	<li itemscope="itemscope" itemtype="https://www.schema.org/SiteNavigationElement" id="menu-item-5573" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-5573 nav-item"><a title="Press Releases" href="/press-releases/" class="dropdown-item" data-menu-id="5573">Press Releases</a></li>
+	<li itemscope="itemscope" itemtype="https://www.schema.org/SiteNavigationElement" id="menu-item-1668" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1668 nav-item"><a title="Careers" href="https://gqg.com/careers/" class="dropdown-item" data-menu-id="1668">Careers</a></li>
+</ul>
+</li>
+<li itemscope="itemscope" itemtype="https://www.schema.org/SiteNavigationElement" id="menu-item-1566" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1566 nav-item"><a title="Contact Us" href="https://gqg.com/contact-us/" class="nav-link" data-menu-id="1566">Contact Us</a></li>
+</ul>                    <ul id="menu-top-bar-menu-1" class="top-bar-nav-mobile d-md-none"><li class="menu-item menu-item-type-custom menu-item-object-custom menu-item-6313"><a href="https://investors.gqg.com/">ASX Shareholder Centre</a></li>
+</ul>                </div>
+
+                <ul class="last-items d-md-none">
+<li>Investor:&nbsp;<span>Choose</span><span class="ms-auto btn arrow-right-lg"></span></li>
+<li>Location:&nbsp;<span>Choose</span><span class="ms-auto btn arrow-right-lg"></span></li>
+</ul>            </div>
+        </div><!-- .container(-fluid) -->
+
+    </nav><!-- .site-navigation -->
+</div>
+
+	</header><!-- #wrapper-navbar -->
+
+<div class="wrapper node-type-policy container" id="no-title-page-wrapper">
+
+    <div class=" policy-container" id="content">
+        <div class="">
+
+            <div class="content-area" id="primary">
+
+                <main class="site-main" id="main" role="main">
+
+                   <h2 class="no-underline">404</h2>
+                        <p>We can't seem to find the page you're looking for.</p>
+                        <p>Return to the <a href="https://gqg.com">home page.</p>
+
+                </main>
+
+            </div><!-- #primary -->
+
+        </div><!-- .row -->
+
+    </div><!-- #content -->
+
+</div><!-- #no-title-page-wrapper -->
+
+
+
+<div class="dark-bg footer wrapper" id="wrapper-footer">
+
+    <div class="container ">
+        <div id="footer_navigation" class="footer_navigation row section-padding pb-0">
+            <div class="left-column col-lg-3 d-flex flex-column px-0 px-md-2">
+                                    <div id="left-footer" class="left-footer widget-area" role="complementary">
+                        <div>
+<h4 class="wp-block-heading has-white-color has-text-color">Global Quality Growth</h4>
+</div><div>
+<div class="wp-block-buttons is-layout-flex wp-block-buttons-is-layout-flex">
+<div class="wp-block-button mt-2 btn-primary"><a class="wp-block-button__link wp-element-button" href="/contact-us">Contact us</a></div>
+</div>
+</div>                    </div>
+                                <div class="d-none d-lg-block mt-auto">
+                    
+<div class="social-icons">
+    <a href="https://www.linkedin.com/company/gqgpartners/">
+        <span class="fa-brands fa-linkedin"></span>
+    </a>
+    <a href="https://twitter.com/gqgpartners">
+        <span class="x-twitter">
+            <svg width="1200" height="1227" viewBox="0 0 1200 1227" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M714.163 519.284L1160.89 0H1055.03L667.137 450.887L357.328 0H0L468.492 681.821L0 1226.37H105.866L515.491 750.218L842.672 1226.37H1200L714.137 519.284H714.163ZM569.165 687.828L521.697 619.934L144.011 79.6944H306.615L611.412 515.685L658.88 583.579L1055.08 1150.3H892.476L569.165 687.854V687.828Z" fill="white"/>
+            </svg>
+        </span>
+    </a>
+    <a href="https://www.facebook.com/gqgpartners/">
+        <span class="fa-brands fa-facebook-f"></span>
+    </a>
+    <a href="https://instagram.com/gqgpartners">
+        <span class="fa-brands fa-instagram"></span>
+    </a>
+</div>
+                </div>
+            </div>
+            <div class="col-lg-9 px-0">
+                <div>
+                                            <div id="footer-1" class="footer-1 widget-area" role="complementary">
+                            <div>
+<div class="wp-block-columns is-layout-flex wp-container-core-columns-is-layout-1 wp-block-columns-is-layout-flex">
+<div class="wp-block-column is-layout-flow wp-block-column-is-layout-flow"><div class="widget widget_nav_menu"></div></div>
+
+
+
+<div class="wp-block-column is-layout-flow wp-block-column-is-layout-flow"><div class="widget widget_nav_menu"></div>
+
+<div class="widget widget_nav_menu"></div>
+
+<div class="widget widget_nav_menu"></div></div>
+
+
+
+<div class="wp-block-column is-layout-flow wp-block-column-is-layout-flow"><div class="widget widget_nav_menu"><div class="menu-footer-approach-container"><ul id="menu-footer-approach" class="menu"><li id="menu-item-1724" class="h2 menu-item menu-item-type-post_type menu-item-object-page menu-item-1724"><a href="https://gqg.com/approach/">Approach</a></li>
+</ul></div></div>
+
+<div class="widget widget_nav_menu"><div class="menu-footer-about-container"><ul id="menu-footer-about" class="menu"><li id="menu-item-1729" class="h2 menu-item menu-item-type-post_type menu-item-object-page menu-item-1729"><a href="https://gqg.com/about/">About Us</a></li>
+<li id="menu-item-1732" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1732"><a href="https://gqg.com/community/">Community</a></li>
+<li id="menu-item-5574" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-5574"><a href="/press-releases/">Press Releases</a></li>
+<li id="menu-item-1731" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-1731"><a href="https://gqg.com/careers/">Careers</a></li>
+</ul></div></div>
+
+<div class="widget widget_nav_menu"><div class="menu-footer-insights-container"><ul id="menu-footer-insights" class="menu"><li id="menu-item-4865" class="h2 menu-item menu-item-type-custom menu-item-object-custom menu-item-has-children menu-item-4865 expanded collapsed_menu"><a href="/insights/">Insights</a>
+<ul class="sub-menu">
+	<li id="menu-item-4861" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-4861"><a href="/insights/?category=GQG%20Research">GQG Research</a></li>
+	<li id="menu-item-4863" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-4863"><a href="/insights/?category=Webcasts">Webcasts</a></li>
+	<li id="menu-item-4864" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-4864"><a href="/insights/?category=In%20the%20News">In the News</a></li>
+</ul>
+</li>
+</ul></div></div>
+
+<div class="widget widget_nav_menu"><div class="menu-footer-contact-container"><ul id="menu-footer-contact" class="menu"><li id="menu-item-1736" class="h2 menu-item menu-item-type-post_type menu-item-object-page menu-item-1736"><a href="https://gqg.com/contact-us/">Contact Us</a></li>
+</ul></div></div></div>
+</div>
+</div>                        </div>
+                                                                                <div class="d-lg-none">
+                        
+<div class="social-icons">
+    <a href="https://www.linkedin.com/company/gqgpartners/">
+        <span class="fa-brands fa-linkedin"></span>
+    </a>
+    <a href="https://twitter.com/gqgpartners">
+        <span class="x-twitter">
+            <svg width="1200" height="1227" viewBox="0 0 1200 1227" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M714.163 519.284L1160.89 0H1055.03L667.137 450.887L357.328 0H0L468.492 681.821L0 1226.37H105.866L515.491 750.218L842.672 1226.37H1200L714.137 519.284H714.163ZM569.165 687.828L521.697 619.934L144.011 79.6944H306.615L611.412 515.685L658.88 583.579L1055.08 1150.3H892.476L569.165 687.854V687.828Z" fill="white"/>
+            </svg>
+        </span>
+    </a>
+    <a href="https://www.facebook.com/gqgpartners/">
+        <span class="fa-brands fa-facebook-f"></span>
+    </a>
+    <a href="https://instagram.com/gqgpartners">
+        <span class="fa-brands fa-instagram"></span>
+    </a>
+</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+
+            <div class="col-lg-12">
+
+                
+<footer class="site-footer" id="colophon">
+    <div id="bottom-footer" class="clearfix">
+            <div class="inside-container">
+                <div id="footer-logo" class="mb-4 mb-xl-0">
+                    <a href="https://gqg.com/" class="navbar-brand custom-logo-link" rel="home"><img width="196" height="116" class="img-fluid" alt="GQG Partners" decoding="async" data-src="https://gqg.com/content/2023/08/GQG-Logo-White@2x.png" /></a>                </div>
+                                    <div id="footer-bottom-menu" class="footer-bottom-menu content widget-area w-100" role="complementary">
+                        <div class="menu-footer-bottom-disclaimers-container"><ul id="menu-footer-bottom-disclaimers" class="menu"><li id="menu-item-336" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-336"><a href="https://gqg.com/site-map/">Site Map</a></li>
+<li id="menu-item-337" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-337"><a href="/privacy-policy#DoNotSellMyPersonalInformation">Do Not Sell Or Share My Personal Information</a></li>
+<li id="menu-item-330" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-privacy-policy menu-item-330"><a rel="privacy-policy" href="https://gqg.com/privacy-policy/">Privacy Policy</a></li>
+<li id="menu-item-326" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-326"><a href="https://gqg.com/gdpr-privacy-policy/">GDPR Privacy Policy</a></li>
+<li id="menu-item-15664" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-15664"><a href="https://gqg.com/adgm-privacy-policy/">ADGM Privacy Policy</a></li>
+<li id="menu-item-327" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-327"><a href="https://gqg.com/cookie-policy/">Cookie Policy</a></li>
+<li id="menu-item-335" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-335"><a href="/wp-content/uploads/2024/04/GQG-Partners-LLC-Form-CRS-Dated-03.28.2024.pdf">Form CRS</a></li>
+<li id="menu-item-329" class="menu-item menu-item-type-post_type menu-item-object-page menu-item-329"><a href="https://gqg.com/terms-use/">Terms of Use</a></li>
+<li id="menu-item-13776" class="menu-item menu-item-type-custom menu-item-object-custom menu-item-13776"><a href="https://gqg.com/wp-content/uploads/2023/12/GQG-GLBA-Notice.pdf">U.S. Financial Privacy Policy</a></li>
+</ul></div>                    </div>
+                            </div>
+    </div>
+            <div id="footer-bottom" class="footer-bottom widget-area" role="complementary">
+            <div>
+<div id="disclaimer-block_9566f708be61ca40969e43a95cea8faa"
+     class="block block-disclaimer node node-footer-disclaimer contextual-links-region content-wrapper clearfix">
+    <div id="disclaimer" class="container">
+        <div class="column column-1 field-name-field-column">
+                    </div>
+            </div>
+</div></div><div>
+<div id="disclaimer-block_906a1abdecb40ce966bef352964ff92a"
+     class="block block-disclaimer node node-footer-disclaimer contextual-links-region content-wrapper clearfix">
+    <div id="disclaimer" class="container">
+        <div class="column column-1 field-name-field-column">
+            
+
+<p>GQG Partners LLC (“GQG”) is registered as an investment adviser with the U.S. Securities and Exchange Commission. Please see GQG’s Form ADV Part 2, which is available upon request, for more information about GQG.</p>
+
+
+
+<p>The information provided on this website has not been audited; does not constitute investment advice; is not a recommendation to follow any strategy or allocation; should not be substituted for the exercise of one’s own judgement; and no investment decision should be made based upon it. In addition, neither is it a recommendation, offer, or solicitation to sell or buy any security or to purchase of shares in any fund or establish any separately managed account. It should not be assumed that investments made in the future will be profitable or will equal the performance of any securities discussed herein. This website reflects the views of GQG as of a particular time; these views may change without notice. Any forward-looking statements or forecasts are based upon assumptions and actual results may vary. GQG provides this website and its content for informational purposes only. While GQG has gathered the information in good faith from sources it deems to be reliable, GQG does not represent or warrant that any information, without limitation, is accurate, reliable, or complete, and it should not be relied upon as such.</p>
+
+
+
+<p>Before making any investment decision, you should seek expert, professional advice, including tax advice, and obtain information regarding the legal, fiscal, regulatory, and foreign currency requirements for any investment according to the law of your home country, place of residence, or current abode.</p>
+
+
+
+<p>Any account or fund advised by GQG involves significant risks and is appropriate&nbsp;only for those persons who can bear the economic risk of the complete loss of their investment. There is no assurance that any account or fund will achieve its investment objective. Accounts and funds are subject to price volatility and the value of a portfolio will change as the prices of investments go up or down. Before investing in any strategy, you should consider the risks of the strategy as well as whether the strategy is appropriate based upon your investment objective(s) and risk tolerance. There may be additional risks associated with international and emerging markets investing involving foreign, economic, political, monetary, and/or legal factors. International investing is not for everyone. You can lose money by investing in securities.</p>
+
+
+
+<p>GQG Partners LLC is a wholly owned subsidiary of GQG Partners Inc., a Delaware corporation that is listed on the Australian Securities Exchange.</p>
+
+
+
+<p>GQG Partners (UK) Limited is an appointed representative of Sapia Partners LLP (FRN 550103) which is authorised and regulated by the Financial Conduct Authority.</p>
+
+
+
+<p>GQG Partners (Australia) Pty Ltd. ACN 626 132 572, holds an Australian financial services license (AFSL) No. 515673, pursuant to section 913B of the Corporations Act 2001 (Cth) (Corporations Act).</p>
+
+
+
+<p>© 2024 GQG Partners. All Rights Reserved.</p>
+
+        </div>
+            </div>
+</div></div>        </div>
+    </footer> </div>
+
+        </div><!--col end -->
+    </div><!-- row end -->
+
+</div><!-- container end -->
+
+</div><!-- wrapper end -->
+
+</div><!-- #page we need this extra closing tag here -->
+
+<div class="cookie-acceptance">
+    <div class="container">
+        <div class="d-md-flex align-items-center gap-4">
+            <div class="row">
+                <p>We use essential cookies on our website to help keep it secure, make sure it works properly and comply with obligations that apply to us.</p>
+<p>&nbsp;</p>
+<p>Where permitted by applicable law, we also use cookies to count visitors to our website. Otherwise, we ask for your consent to use optional cookies that help us provide information that’s more relevant for you, to contact you, and tailor the adverts we show on other websites.</p>
+<p>&nbsp;</p>
+<p>For more information about the cookies we use and to change your mind at any time, see our <a href="https://gqg.com/cookie-policy/">Cookie Policy</a>.</p>
+            </div>
+
+           <div class="d-flex flex-lg-row align-items-center gap-1 gap-md-4 mt-4 mt-lg-0 space-between">
+               <button id="accept-all-cookies" class="btn btn-primary btn-sm">Accept All Cookies</button>
+               <button id="decline-optional-cookies" class="page-link">Decline Optional Cookies</button>
+           </div>
+        </div>
+    </div>
+</div>
+<div id="identify-modal" class="modal modal-xl" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header dark-bg font-secondary">
+                <h1 class="modal-title">
+                    Identify your investor type                </h1>
+                <a href="#" class="close btn page-link" data-bs-dismiss="modal" aria-label="Close">
+                    <svg width="27" height="27" viewBox="0 0 27 27" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M26.9755 1.77705L25.1939 0L13.4877 11.6778L1.78153 0L0 1.77705L11.7063 13.4549L0 25.1328L1.78153 26.9098L13.4877 15.232L25.1939 26.9098L26.9755 25.1328L15.2692 13.4549L26.9755 1.77705Z" fill="white"/>
+                    </svg>
+                </a>
+            </div>
+            <div class="modal-body">
+                <div class="content">
+                                        <form id="choose-role-form-modal" class="choose-role-form">
+                        <div class="row">
+                            <div class="col-md-7 col-investor-type">
+                                <h5 class="fw-semibold">Investor Type</h5>
+                                <div  class="d-flex">
+                                    <div class="form-group investor-type">
+                                        <div class="select-arrow-triangle grey">
+                                            <select id="investor_type_modal" name="investor_type_modal" placeholder="Select your Type" class="investor_type form-control arrow grey select2" required>
+                                                <option value="" class="select-default">Select Your Type</option>
+                                                                                                    <option value="42">Institutional Investors</option>
+                                                                                                    <option value="44">Financial Intermediaries</option>
+                                                                                                    <option value="46">Retail Individuals</option>
+                                                                                            </select>
+                                        </div>
+                                    </div>
+                                    <button id="choose-role-btn" type="submit" class="choose-role-btn btn btn-dark" formnovalidate="formnovalidate">Confirm</button>
+                                </div>
+                            </div>
+                            <div class="col-md-5 mt-4 mt-md-0">
+                                <h5 class="fw-semibold">Location</h5>
+                                <div class="form-group ">
+                                    <div class="select-arrow-triangle grey">
+                                        <select id="location_modal" name="location_modal" placeholder="Location" class="location form-control arrow grey select2" required>
+                                            <option value="" class="select-default">Select</option>
+                                                                                                                                            <option value="96">Australia</option>
+                                                                                                                                            <option value="52">Austria</option>
+                                                                                                                                            <option value="238">Belgium</option>
+                                                                                                                                            <option value="49">Denmark</option>
+                                                                                                                                            <option value="47">Finland</option>
+                                                                                                                                            <option value="45">France</option>
+                                                                                                                                            <option value="50">Germany</option>
+                                                                                                                                            <option value="43">Iceland</option>
+                                                                                                                                            <option value="169">Ireland</option>
+                                                                                                                                            <option value="41">Italy</option>
+                                                                                                                                            <option value="33">Luxembourg</option>
+                                                                                                                                            <option value="37">Netherlands</option>
+                                                                                                                                            <option value="133">New Zealand</option>
+                                                                                                                                            <option value="35">Norway</option>
+                                                                                                                                            <option value="53">Singapore</option>
+                                                                                                                                            <option value="48">Spain</option>
+                                                                                                                                            <option value="31">Sweden</option>
+                                                                                                                                            <option value="51">Switzerland</option>
+                                                                                                                                            <option value="134">United Kingdom</option>
+                                                                                                                                            <option value="136">United States</option>
+                                                                                                                                            <option value="132">Rest of the World</option>
+                                                                                                                                                                                                                                                                                                                                    </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer border-0 pb-0">
+                </div>
+            </div>
+        </div>
+    </div>
+</div><div id="modal" class="modal modal-xl" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+
+        <div class="modal-content">
+            <div class="modal-header dark-bg font-secondary">
+                <h1 class="modal-title"></h1>
+                <a href="#" class="close btn page-link" data-bs-dismiss="modal" aria-label="Close">
+                    <svg width="27" height="27" viewBox="0 0 27 27" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M26.9755 1.77705L25.1939 0L13.4877 11.6778L1.78153 0L0 1.77705L11.7063 13.4549L0 25.1328L1.78153 26.9098L13.4877 15.232L25.1939 26.9098L26.9755 25.1328L15.2692 13.4549L26.9755 1.77705Z" fill="white"/>
+                    </svg>
+                </a>
+            </div>
+            <div class="modal-body">
+                <div class="content">
+                </div>
+                <div class="modal-footer border-0 pb-0">
+                </div>
+            </div>
+        </div>
+    </div>
+</div> </div>
+
+<!-- Google Tag Manager (GTM) -->
+    <script> var gtm_id = "GTM-WHVMF2CD";</script>
+    <!-- End Google Tag Manager --><style id='core-block-supports-inline-css'>
+.wp-container-core-columns-is-layout-1.wp-container-core-columns-is-layout-1{flex-wrap:nowrap;}
+</style>
+<script src="https://gqg.com/wp-content/themes/gqg-com/js/child-theme.min.js?ver=1.2.0.1712935356" id="child-understrap-scripts-js"></script>
+
+ </div>
+
+</body>
+
+</html>
+
