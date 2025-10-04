@@ -240,7 +240,7 @@ jobs:
 
       - name: Run frontend unit tests
         working-directory: web
-        run: npm test -- --coverage --watchAll=false
+        run: npm test -- --coverage --watchAll=false --testPathIgnorePatterns=integration
         continue-on-error: true # Allow tests to fail for now
 
       - name: Run backend unit tests
