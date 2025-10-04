@@ -14,7 +14,29 @@ coverage/
 *.lcov
 coverage.out
 coverage.html
+
 # Environment variables
 .env
 .env.local
 .env.*.local
+
+# Terraform
+terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform/
+.terraform.lock.hcl
+
+# Binaries
+docker-credential-*
+shorts-service
+market-data-service
+services/bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Environment files (use .env.example instead)
+services/.env
