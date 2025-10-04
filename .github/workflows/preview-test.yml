@@ -368,9 +368,9 @@ jobs:
           npm ci --legacy-peer-deps
           npx playwright install chromium --with-deps
 
-       - name: Note about E2E tests
-         run: |
-           echo "⚠️ E2E tests are currently disabled in this workflow"
+      - name: Note about E2E tests
+        run: |
+          echo "⚠️ E2E tests are currently disabled in this workflow"
            echo "Vercel auto-deploys the frontend, but we need to wait for and get the preview URL"
            echo "E2E tests should be run after Vercel deployment completes"
            echo ""
