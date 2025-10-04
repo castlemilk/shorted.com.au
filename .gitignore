@@ -40,3 +40,9 @@ services/bin/
 
 # Environment files (use .env.example instead)
 services/.env
+
+# Analysis data (large files should be stored externally)
+analysis/data/images/
+analysis/data/asx-company-images/
+analysis/data/*.csv.tar.gz
+analysis/data/business_names_*.csv
