@@ -1,6 +1,6 @@
 module github.com/castlemilk/shorted.com.au/services
 
-go 1.23
+go 1.22
 
 require (
 	connectrpc.com/connect v1.15.0
@@ -20,7 +20,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
 	github.com/tsenart/vegeta/v12 v12.12.0
-	go.uber.org/mock v0.5.2
+	go.uber.org/mock v0.4.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/net v0.27.0
 	golang.org/x/sync v0.7.0

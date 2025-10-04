@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"sync"
@@ -292,7 +291,6 @@ func runConcurrentUserScenario(t *testing.T, config TestConfig, userCount int, d
 					
 					// Random endpoint selection with weighted probability
 					endpointIdx := userID % len(endpoints)
-					start := time.Now()
 					latency, err := endpoints[endpointIdx]()
 					
 					mu.Lock()

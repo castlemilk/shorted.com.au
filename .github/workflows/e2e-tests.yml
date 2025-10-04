@@ -9,7 +9,7 @@ on:
 
 env:
   NODE_VERSION: '20'
-  GO_VERSION: '1.21'
+  GO_VERSION: '1.22'
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
   SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
   SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -50,10 +50,9 @@ jobs:
 
     - name: Build backend services
       run: |
-        cd services/shorts
-        go build -o shorts-service .
-        cd ../market-data
-        go build -o market-data-service .
+        cd services
+        go build -o shorts-service ./shorts/cmd/server
+        go build -o market-data-service ./market-data
 
     - name: Run E2E tests
       run: |
@@ -97,14 +96,14 @@ jobs:
 
     - name: Build and push Docker images
       run: |
+        cd services
+        
         # Build shorts service
-        cd services/shorts
-        docker build -t australia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/shorted/shorts:${{ github.sha }} .
+        docker build -f shorts/Dockerfile -t australia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/shorted/shorts:${{ github.sha }} .
         docker push australia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/shorted/shorts:${{ github.sha }}
         
         # Build market data service
-        cd ../market-data
-        docker build -t australia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/shorted/market-data:${{ github.sha }} .
+        docker build -f market-data/Dockerfile -t australia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/shorted/market-data:${{ github.sha }} .
         docker push australia-southeast2-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/shorted/market-data:${{ github.sha }}
 
     - name: Deploy to Cloud Run
