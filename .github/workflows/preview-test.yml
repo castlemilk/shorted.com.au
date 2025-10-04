@@ -143,13 +143,13 @@ jobs:
           echo "Shorts Service: $SHORTS_URL"
           echo "Market Data Service: $MARKET_DATA_URL"
 
-       - name: Summary
-         run: |
-           echo "✅ Backend services deployed successfully for PR #${{ env.PR_NUMBER }}"
-           echo "Shorts Service: ${{ steps.deploy-services.outputs.shorts-url }}"
-           echo "Market Data Service: ${{ steps.deploy-services.outputs.market-data-url }}"
-           echo ""
-           echo "Note: Vercel will automatically deploy the frontend via GitHub integration"
+      - name: Summary
+        run: |
+          echo "✅ Backend services deployed successfully for PR #${{ env.PR_NUMBER }}"
+          echo "Shorts Service: ${{ steps.deploy-services.outputs.shorts-url }}"
+          echo "Market Data Service: ${{ steps.deploy-services.outputs.market-data-url }}"
+          echo ""
+          echo "Note: Vercel will automatically deploy the frontend via GitHub integration"
 
   comment-deployment:
     needs: [check-secrets, deploy-backend]
