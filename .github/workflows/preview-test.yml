@@ -372,7 +372,7 @@ jobs:
           echo "Shorts API: $SHORTS_SERVICE_URL"
           echo "Market Data API: $MARKET_DATA_SERVICE_URL"
           echo ""
-          
+
           # Test Shorts Service Health
           echo "Testing Shorts Service health..."
           SHORTS_HEALTH=$(curl -f -s "$SHORTS_SERVICE_URL/health" || echo "FAILED")
@@ -382,7 +382,7 @@ jobs:
             echo "❌ Shorts service health check failed"
             exit 1
           fi
-          
+
           # Test Market Data Service Health
           echo ""
           echo "Testing Market Data Service health..."
@@ -393,19 +393,32 @@ jobs:
             echo "❌ Market Data service health check failed"
             exit 1
           fi
-          
-          # Test actual API endpoints (basic smoke tests)
+
+          # Test actual API endpoints (Connect RPC smoke tests)
           echo ""
           echo "Running API smoke tests..."
           
-          # Test GetTopShorts endpoint
+          # Test GetTopShorts endpoint with Connect RPC format
           echo "Testing GetTopShorts API..."
-          if curl -f -s "$SHORTS_SERVICE_URL/shorts.v1alpha1.ShortedStocksService/GetTopShorts" \
+          RESPONSE=$(curl -s -X POST "$SHORTS_SERVICE_URL/shorts.v1alpha1.ShortedStocksService/GetTopShorts" \
             -H "Content-Type: application/json" \
-            -d '{"limit":10}' > /dev/null 2>&1; then
-            echo "✅ GetTopShorts API responding"
+            -d '{"period":"1M","limit":5,"offset":0}')
+          
+          if echo "$RESPONSE" | grep -q "timeSeries\|time_series"; then
+            echo "✅ GetTopShorts API responding with data"
           else
-            echo "⚠️ GetTopShorts API test skipped (might need specific format)"
+            echo "⚠️ GetTopShorts API response: $RESPONSE"
+            echo "Note: May need data in database or different format"
+          fi
+          
+          # Test GetStock endpoint
+          echo "Testing GetStock API..."
+          if curl -f -s -X POST "$SHORTS_SERVICE_URL/shorts.v1alpha1.ShortedStocksService/GetStock" \
+            -H "Content-Type: application/json" \
+            -d '{"productCode":"CBA"}' > /dev/null 2>&1; then
+            echo "✅ GetStock API responding"
+          else
+            echo "⚠️ GetStock API might need data (expected for empty database)"
           fi
           
           echo ""
