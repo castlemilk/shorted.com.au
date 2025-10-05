@@ -165,7 +165,7 @@ jobs:
             const marketDataUrl = '${{ needs.deploy-backend.outputs.market-data-url }}';
 
             let body = '## 🚀 Preview Deployment\n\n';
-            
+
             body += '### Frontend\n\n';
             body += '✅ **Vercel** will automatically deploy the frontend via GitHub integration\n';
             body += 'Check the Vercel bot comment below for the preview URL\n\n';
@@ -380,7 +380,6 @@ jobs:
            echo "3. Use Vercel API to query deployment status"
            echo ""
            echo "For now, manually test the preview URL posted by Vercel bot"
-
 
   test-summary:
     needs: [test-unit, test-integration, test-e2e]
