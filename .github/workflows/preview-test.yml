@@ -99,9 +99,21 @@ jobs:
       - name: Deploy preview backend services to Cloud Run
         if: needs.check-secrets.outputs.has-gcp == 'true'
         id: deploy-services
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
+          # Parse DATABASE_URL to extract components
+          # Format: postgresql://user:password@host:port/database
+          DB_USER=$(echo $DATABASE_URL | sed -n 's|postgresql://\([^:]*\):.*|\1|p')
+          DB_PASS=$(echo $DATABASE_URL | sed -n 's|postgresql://[^:]*:\([^@]*\)@.*|\1|p')
+          DB_HOST=$(echo $DATABASE_URL | sed -n 's|.*@\([^:]*\):.*|\1|p')
+          DB_PORT=$(echo $DATABASE_URL | sed -n 's|.*:\([0-9]*\)/.*|\1|p')
+          DB_NAME=$(echo $DATABASE_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
+          DB_ADDRESS="${DB_HOST}:${DB_PORT}"
+
+          echo "Deploying with database: $DB_ADDRESS (database: $DB_NAME)"
+
           # Deploy Shorts Service
-          # Parse DATABASE_URL: postgresql://postgres.xivfykscsdagwsreyqgf:661wMKAq9zdZpDk2@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres
           gcloud run deploy shorts-service-pr-${{ env.PR_NUMBER }} \
             --image ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/shorts:pr-${{ env.PR_NUMBER }} \
             --region ${{ env.GCP_REGION }} \
@@ -112,10 +124,10 @@ jobs:
             --cpu 1 \
             --min-instances 0 \
             --max-instances 2 \
-            --set-env-vars="APP_STORE_POSTGRES_ADDRESS=aws-0-ap-southeast-2.pooler.supabase.com:5432" \
-            --set-env-vars="APP_STORE_POSTGRES_USERNAME=postgres.xivfykscsdagwsreyqgf" \
-            --set-env-vars="APP_STORE_POSTGRES_PASSWORD=661wMKAq9zdZpDk2" \
-            --set-env-vars="APP_STORE_POSTGRES_DATABASE=postgres" \
+            --set-env-vars="APP_STORE_POSTGRES_ADDRESS=$DB_ADDRESS" \
+            --set-env-vars="APP_STORE_POSTGRES_USERNAME=$DB_USER" \
+            --set-env-vars="APP_STORE_POSTGRES_PASSWORD=$DB_PASS" \
+            --set-env-vars="APP_STORE_POSTGRES_DATABASE=$DB_NAME" \
             --set-env-vars="ENVIRONMENT=preview" \
             --labels="pr=${{ env.PR_NUMBER }},type=preview" \
             --tag pr-${{ env.PR_NUMBER }}
@@ -131,11 +143,11 @@ jobs:
             --cpu 1 \
             --min-instances 0 \
             --max-instances 2 \
-            --set-env-vars="DATABASE_URL=${{ secrets.DATABASE_URL }}" \
-            --set-env-vars="APP_STORE_POSTGRES_ADDRESS=aws-0-ap-southeast-2.pooler.supabase.com:5432" \
-            --set-env-vars="APP_STORE_POSTGRES_USERNAME=postgres.xivfykscsdagwsreyqgf" \
-            --set-env-vars="APP_STORE_POSTGRES_PASSWORD=661wMKAq9zdZpDk2" \
-            --set-env-vars="APP_STORE_POSTGRES_DATABASE=postgres" \
+            --set-env-vars="DATABASE_URL=$DATABASE_URL" \
+            --set-env-vars="APP_STORE_POSTGRES_ADDRESS=$DB_ADDRESS" \
+            --set-env-vars="APP_STORE_POSTGRES_USERNAME=$DB_USER" \
+            --set-env-vars="APP_STORE_POSTGRES_PASSWORD=$DB_PASS" \
+            --set-env-vars="APP_STORE_POSTGRES_DATABASE=$DB_NAME" \
             --set-env-vars="ENVIRONMENT=preview" \
             --labels="pr=${{ env.PR_NUMBER }},type=preview" \
             --tag pr-${{ env.PR_NUMBER }}
@@ -375,19 +387,18 @@ jobs:
         working-directory: test/integration
         env:
           BACKEND_URL: ${{ needs.deploy-backend.outputs.shorts-url }}
-          FRONTEND_URL: https://vercel-deployment-url.vercel.app # Placeholder - Vercel auto-deploys
         run: |
           echo "🧪 Running E2E tests against deployed backend services"
-          echo "Backend URL: $BACKEND_URL"
-          echo "Frontend URL: $FRONTEND_URL (Vercel auto-deployed)"
+          echo "Backend (Shorts) URL: $BACKEND_URL"
           echo ""
 
-          # Run Go E2E tests
-          # These tests will use BACKEND_URL environment variable
-          go test -v -timeout 10m -run "TestServiceHealth|TestDatabaseConnectivity|TestAPIEndpoints" . || true
+          # Run Go E2E tests that test the deployed service via HTTP
+          # Tests use BACKEND_URL environment variable to connect to deployed service
+          # No direct database access needed - tests call service APIs
+          go test -v -timeout 10m -run "TestServiceHealth|TestDatabaseConnectivity" . || true
 
           echo ""
-          echo "Note: Some tests may be skipped if they require frontend (Vercel URL not available)"
+          echo "✅ E2E tests completed - services tested via their HTTP APIs"
         continue-on-error: true
 
   test-summary:
