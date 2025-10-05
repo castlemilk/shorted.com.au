@@ -392,12 +392,12 @@ jobs:
           echo "🧪 Running E2E tests against deployed backend services"
           echo "Backend (Shorts) URL: $BACKEND_URL"
           echo ""
-          
+
           # Run Go E2E tests that test the deployed service via HTTP
           # Skip tests that require frontend since Vercel URL not available in workflow
           # Focus on backend API tests: TestAPIEndpoints, TestDatabaseConnectivity
           go test -v -timeout 10m -run "TestAPIEndpoints|TestDatabaseConnectivity" . || true
-          
+
           echo ""
           echo "✅ E2E API tests completed - backend service validated successfully"
           echo "Note: Frontend tests skipped (Vercel deploys automatically but URL not available in workflow)"
