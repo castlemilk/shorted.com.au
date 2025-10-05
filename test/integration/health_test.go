@@ -3,6 +3,7 @@ package integration
 import (
 	"fmt"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
@@ -10,12 +11,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	backendURL  = "http://localhost:8081"
-	frontendURL = "http://localhost:3001"
+var (
+	backendURL  = getEnv("BACKEND_URL", "http://localhost:8081")
+	frontendURL = getEnv("FRONTEND_URL", "http://localhost:3001")
 	maxRetries  = 30
 	retryDelay  = 2 * time.Second
 )
+
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
 
 func TestServiceHealth(t *testing.T) {
 	tests := []struct {
