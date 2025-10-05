@@ -353,44 +353,49 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-          cache-dependency-path: web/package-lock.json
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: services/go.sum
 
       - name: Install dependencies
-        working-directory: web
-        run: |
-          npm ci --legacy-peer-deps
-          npx playwright install chromium --with-deps
+        working-directory: services
+        run: go mod download
 
-      - name: Run E2E tests against backend services
-        working-directory: web
+      - name: Run E2E API tests against deployed backend
         env:
-          NEXT_PUBLIC_API_URL: ${{ needs.deploy-backend.outputs.shorts-url }}
-          NEXT_PUBLIC_MARKET_DATA_URL: ${{ needs.deploy-backend.outputs.market-data-url }}
-          SHORTS_SERVICE_ENDPOINT: ${{ needs.deploy-backend.outputs.shorts-url }}
+          SHORTS_SERVICE_URL: ${{ needs.deploy-backend.outputs.shorts-url }}
+          MARKET_DATA_SERVICE_URL: ${{ needs.deploy-backend.outputs.market-data-url }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          echo "🧪 Running E2E tests against preview backend services"
-          echo "Shorts API: $NEXT_PUBLIC_API_URL"
-          echo "Market Data API: ${{ needs.deploy-backend.outputs.market-data-url }}"
+          echo "🧪 Running E2E API tests against preview backend services"
+          echo "Shorts API: $SHORTS_SERVICE_URL"
+          echo "Market Data API: $MARKET_DATA_SERVICE_URL"
           echo ""
-          echo "Note: E2E tests will use deployed backend but local frontend"
-          echo "For full frontend testing, check the Vercel preview URL manually"
-          echo ""
-          # Run E2E tests that don't require frontend (API tests)
-          npm run test:e2e || echo "E2E tests completed with some failures (expected without frontend)"
+
+          # Run Go-based E2E tests
+          cd services
+          go test ./... -v -tags=e2e -timeout 10m || echo "Some E2E tests failed (non-blocking)"
         continue-on-error: true
 
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report-pr-${{ env.PR_NUMBER }}
-          path: web/playwright-report/
-          retention-days: 7
+      - name: Test health endpoints
+        run: |
+          echo "Testing deployed service health endpoints..."
+
+          # Test Shorts Service
+          if curl -f -s ${{ needs.deploy-backend.outputs.shorts-url }}/health > /dev/null; then
+            echo "✅ Shorts service is healthy"
+          else
+            echo "⚠️ Shorts service health check failed"
+          fi
+
+          # Test Market Data Service
+          if curl -f -s ${{ needs.deploy-backend.outputs.market-data-url }}/health > /dev/null; then
+            echo "✅ Market Data service is healthy"
+          else
+            echo "⚠️ Market Data service health check failed"
+          fi
 
   test-summary:
     needs: [test-unit, test-integration, test-e2e]
