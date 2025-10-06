@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -114,41 +115,74 @@ func startShortsService() error {
 	// Path to the shorts service main.go
 	serviceDir := "../../services"
 	
+	// Create log file for service output to avoid I/O blocking
+	logFile, err := os.Create(filepath.Join(serviceDir, "shorts-test.log"))
+	if err != nil {
+		return fmt.Errorf("failed to create log file: %w", err)
+	}
+	
 	shortsServiceCmd = exec.Command("go", "run", "shorts/cmd/server/main.go")
 	shortsServiceCmd.Dir = serviceDir
-	shortsServiceCmd.Stdout = os.Stdout
-	shortsServiceCmd.Stderr = os.Stderr
+	shortsServiceCmd.Stdout = logFile
+	shortsServiceCmd.Stderr = logFile
 	shortsServiceCmd.Env = os.Environ()
 
 	if err := shortsServiceCmd.Start(); err != nil {
+		logFile.Close()
 		return fmt.Errorf("failed to start service: %w", err)
 	}
 
 	// Wait for service to be ready by checking health endpoint
 	fmt.Printf("  Waiting for service to be ready on port %s...\n", shortsServicePort)
-	// Give it a moment to start
-	time.Sleep(2 * time.Second)
+	client := &http.Client{Timeout: 2 * time.Second}
+	for i := 0; i < 30; i++ {
+		resp, err := client.Get(fmt.Sprintf("http://localhost:%s/health", shortsServicePort))
+		if err == nil && resp != nil {
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				fmt.Printf("✅ Shorts service ready on port %s\n", shortsServicePort)
+				return nil
+			}
+		}
+		time.Sleep(1 * time.Second)
+	}
 	
-	fmt.Printf("✅ Shorts service process started (health checks will validate readiness)\n")
-	return nil
+	return fmt.Errorf("service did not become healthy after 30 seconds")
 }
 
 func cleanup(ctx context.Context) {
-	// Stop shorts service
+	// Stop shorts service gracefully
 	if shortsServiceCmd != nil && shortsServiceCmd.Process != nil {
 		fmt.Println("  Stopping shorts service...")
-		_ = shortsServiceCmd.Process.Kill()
-		_ = shortsServiceCmd.Wait()
+		// Send SIGTERM for graceful shutdown
+		_ = shortsServiceCmd.Process.Signal(os.Interrupt)
+		// Wait a moment for graceful shutdown
+		done := make(chan error)
+		go func() {
+			done <- shortsServiceCmd.Wait()
+		}()
+		select {
+		case <-done:
+			// Graceful shutdown completed
+		case <-time.After(5 * time.Second):
+			// Force kill if not shutdown in 5 seconds
+			_ = shortsServiceCmd.Process.Kill()
+			<-done
+		}
 	}
 
 	// Stop PostgreSQL container
 	if postgresContainer != nil {
 		fmt.Println("  Stopping PostgreSQL container...")
-		if err := postgresContainer.Terminate(ctx); err != nil {
+		terminateCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		if err := postgresContainer.Terminate(terminateCtx); err != nil {
 			fmt.Printf("  Warning: Failed to terminate PostgreSQL container: %v\n", err)
 		}
 	}
 
+	// Small delay to ensure all I/O is flushed
+	time.Sleep(500 * time.Millisecond)
 	fmt.Println("✅ Cleanup complete")
 }
 

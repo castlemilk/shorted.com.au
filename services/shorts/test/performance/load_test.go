@@ -7,17 +7,153 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/tsenart/vegeta/v12/lib"
+	"github.com/testcontainers/testcontainers-go"
+	"github.com/testcontainers/testcontainers-go/modules/postgres"
+	"github.com/testcontainers/testcontainers-go/wait"
+	vegeta "github.com/tsenart/vegeta/lib"
 )
 
 const (
 	defaultBaseURL = "http://localhost:9091"
 	contentType    = "application/json"
 )
+
+var (
+	postgresContainer *postgres.PostgresContainer
+	shortsServiceCmd  *exec.Cmd
+	serviceReady      bool
+)
+
+// TestMain sets up the service for performance tests
+func TestMain(m *testing.M) {
+	// Performance tests are opt-in via environment variable
+	if os.Getenv("RUN_PERFORMANCE_TESTS") == "" {
+		fmt.Println("⏩ Skipping performance tests (set RUN_PERFORMANCE_TESTS=1 to enable)")
+		fmt.Println("   Performance tests require service setup and take several minutes to run")
+		os.Exit(0)
+	}
+
+	ctx := context.Background()
+
+	// Check if service is already running
+	fmt.Println("🔍 Checking if service is already running...")
+	if checkServiceHealth() {
+		fmt.Println("✅ Service already running at localhost:9091")
+		serviceReady = true
+		os.Exit(m.Run())
+	}
+
+	fmt.Println("🚀 Setting up performance test environment (this may take a minute)...")
+	
+	// Start PostgreSQL container
+	fmt.Println("  📦 Starting PostgreSQL container...")
+	var err error
+	postgresContainer, err = postgres.Run(ctx,
+		"postgres:15-alpine",
+		postgres.WithDatabase("shorts_test"),
+		postgres.WithUsername("test_user"),
+		postgres.WithPassword("test_password"),
+		testcontainers.WithWaitStrategy(
+			wait.ForLog("database system is ready to accept connections").
+				WithOccurrence(2).
+				WithStartupTimeout(60*time.Second),
+		),
+	)
+	if err != nil {
+		fmt.Printf("❌ Failed to start PostgreSQL: %v\n", err)
+		fmt.Println("⚠️  Performance tests will be skipped")
+		os.Exit(0)
+	}
+
+	// Get database connection details
+	host, _ := postgresContainer.Host(ctx)
+	port, _ := postgresContainer.MappedPort(ctx, "5432")
+	fmt.Printf("  ✅ PostgreSQL ready at %s:%s\n", host, port.Port())
+
+	// Initialize schema
+	fmt.Println("  📝 Loading database schema...")
+	schemaPath := filepath.Join("../../../analysis/sql/init-db.sql")
+	schemaSQL, err := os.ReadFile(schemaPath)
+	if err == nil {
+		postgresContainer.Exec(ctx, []string{"psql", "-U", "test_user", "-d", "shorts_test", "-c", string(schemaSQL)})
+		fmt.Println("  ✅ Schema loaded")
+	}
+
+	// Set environment variables
+	os.Setenv("APP_STORE_POSTGRES_ADDRESS", fmt.Sprintf("%s:%s", host, port.Port()))
+	os.Setenv("APP_STORE_POSTGRES_DATABASE", "shorts_test")
+	os.Setenv("APP_STORE_POSTGRES_USERNAME", "test_user")
+	os.Setenv("APP_STORE_POSTGRES_PASSWORD", "test_password")
+
+	// Start shorts service
+	fmt.Println("  🚀 Starting shorts service...")
+	shortsServiceCmd = exec.Command("go", "run", "../../cmd/server/main.go")
+	shortsServiceCmd.Stdout = os.Stdout
+	shortsServiceCmd.Stderr = os.Stderr
+	shortsServiceCmd.Env = os.Environ()
+
+	if err := shortsServiceCmd.Start(); err != nil {
+		fmt.Printf("❌ Failed to start service: %v\n", err)
+		cleanup(ctx)
+		os.Exit(0)
+	}
+
+	// Wait for service to be ready
+	fmt.Println("  ⏳ Waiting for service to be ready...")
+	serviceReady = waitForService(30)
+	if !serviceReady {
+		fmt.Println("❌ Service not ready after 30 seconds")
+		cleanup(ctx)
+		os.Exit(0)
+	}
+
+	fmt.Println("✅ Performance test environment ready!")
+	fmt.Println("")
+
+	// Run tests
+	code := m.Run()
+
+	// Cleanup
+	fmt.Println("\n🧹 Cleaning up performance test environment...")
+	cleanup(ctx)
+	os.Exit(code)
+}
+
+func checkServiceHealth() bool {
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get("http://localhost:9091/health")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
+}
+
+func waitForService(maxAttempts int) bool {
+	for i := 0; i < maxAttempts; i++ {
+		if checkServiceHealth() {
+			return true
+		}
+		time.Sleep(1 * time.Second)
+	}
+	return false
+}
+
+func cleanup(ctx context.Context) {
+	if shortsServiceCmd != nil && shortsServiceCmd.Process != nil {
+		shortsServiceCmd.Process.Kill()
+		shortsServiceCmd.Wait()
+	}
+	if postgresContainer != nil {
+		postgresContainer.Terminate(ctx)
+	}
+}
 
 // TestConfig holds configuration for performance tests
 type TestConfig struct {
@@ -122,6 +258,9 @@ func runVegetaAttack(t *testing.T, config TestConfig, test EndpointTest, rate ui
 
 // TestGetTopShortsLoadTest performs load testing on GetTopShorts endpoint
 func TestGetTopShortsLoadTest(t *testing.T) {
+	if !serviceReady {
+		t.Skip("Service not available, skipping load test")
+	}
 	config := getConfig()
 	
 	payload := map[string]interface{}{
@@ -168,6 +307,9 @@ func TestGetTopShortsLoadTest(t *testing.T) {
 
 // TestGetStockLoadTest performs load testing on GetStock endpoint
 func TestGetStockLoadTest(t *testing.T) {
+	if !serviceReady {
+		t.Skip("Service not available, skipping load test")
+	}
 	config := getConfig()
 	
 	// Test with different stock codes
@@ -196,6 +338,9 @@ func TestGetStockLoadTest(t *testing.T) {
 
 // TestGetStockDataLoadTest performs load testing on GetStockData endpoint
 func TestGetStockDataLoadTest(t *testing.T) {
+	if !serviceReady {
+		t.Skip("Service not available, skipping load test")
+	}
 	config := getConfig()
 	
 	periods := []string{"1w", "1m", "3m", "6m", "1y"}
@@ -224,6 +369,9 @@ func TestGetStockDataLoadTest(t *testing.T) {
 
 // TestGetIndustryTreeMapLoadTest performs load testing on GetIndustryTreeMap endpoint
 func TestGetIndustryTreeMapLoadTest(t *testing.T) {
+	if !serviceReady {
+		t.Skip("Service not available, skipping load test")
+	}
 	config := getConfig()
 	
 	payload := map[string]interface{}{
@@ -247,6 +395,9 @@ func TestGetIndustryTreeMapLoadTest(t *testing.T) {
 
 // TestConcurrentUsersScenario simulates real user behavior with mixed endpoint calls
 func TestConcurrentUsersScenario(t *testing.T) {
+	if !serviceReady {
+		t.Skip("Service not available, skipping load test")
+	}
 	config := getConfig()
 	userCounts := []int{10, 50, 100, 200}
 	
@@ -458,6 +609,9 @@ func saveResults(t *testing.T, testName string, metrics []PerformanceMetrics) {
 
 // TestDatabaseConnectionPoolUnderLoad tests database connection pool behavior under load
 func TestDatabaseConnectionPoolUnderLoad(t *testing.T) {
+	if !serviceReady {
+		t.Skip("Service not available, skipping load test")
+	}
 	config := getConfig()
 	
 	// Test with high concurrency to stress connection pool
@@ -491,6 +645,9 @@ func TestDatabaseConnectionPoolUnderLoad(t *testing.T) {
 
 // TestSustainedLoad runs a sustained load test for 15 minutes
 func TestSustainedLoad(t *testing.T) {
+	if !serviceReady {
+		t.Skip("Service not available, skipping load test")
+	}
 	if testing.Short() {
 		t.Skip("Skipping sustained load test in short mode")
 	}
