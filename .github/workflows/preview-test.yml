@@ -232,7 +232,12 @@ jobs:
 
   test-unit:
     runs-on: ubuntu-latest
-
+    
+    services:
+      docker:
+        image: docker:24-dind
+        options: --privileged
+        
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -263,11 +268,21 @@ jobs:
         run: npm test -- --coverage --watchAll=false --testPathIgnorePatterns=integration
         continue-on-error: true # Allow tests to fail for now
 
+      - name: Setup Docker for testcontainers
+        run: |
+          # Ensure Docker is available for testcontainers
+          docker info
+          docker ps
+
       - name: Run backend unit tests
         working-directory: services
+        env:
+          DOCKER_HOST: unix:///var/run/docker.sock
+          TESTCONTAINERS_RYUK_DISABLED: true
         run: |
-          # Exclude performance/load tests that require running services
-          go test $(go list ./... | grep -v '/test/performance') -v -cover
+          # Run all tests including performance tests
+          # Docker-in-docker is available via services
+          go test ./... -v -cover -timeout 15m
         continue-on-error: true # Allow tests to fail for now
 
       - name: Upload frontend coverage
