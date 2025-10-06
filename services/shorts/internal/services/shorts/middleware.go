@@ -3,21 +3,31 @@ package shorts
 import (
 	"context"
 	"net/http"
+	"sync"
 
 	firebase "firebase.google.com/go"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	"google.golang.org/api/idtoken"
 )
 
-var firebaseApp *firebase.App
+var (
+	firebaseApp     *firebase.App
+	firebaseAppOnce sync.Once
+	firebaseAppErr  error
+)
 
-func init() {
-	ctx := context.Background()
-	app, err := firebase.NewApp(ctx, nil)
-	if err != nil {
-		log.Fatalf("error initializing app: %v\n", err)
-	}
-	firebaseApp = app
+// initFirebase initializes Firebase lazily when auth is actually needed
+func initFirebase() (*firebase.App, error) {
+	firebaseAppOnce.Do(func() {
+		ctx := context.Background()
+		firebaseApp, firebaseAppErr = firebase.NewApp(ctx, nil)
+		if firebaseAppErr != nil {
+			log.Errorf("error initializing Firebase app: %v", firebaseAppErr)
+		} else {
+			log.Infof("Firebase app initialized successfully")
+		}
+	})
+	return firebaseApp, firebaseAppErr
 }
 
 // Middleware to verify the ID token
@@ -38,8 +48,16 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		idToken := authHeader[len("Bearer "):]
 		ctx := context.Background()
 
+		// Lazily initialize Firebase only when authentication is needed
+		app, err := initFirebase()
+		if err != nil {
+			log.Errorf("Error initializing Firebase: %v\n", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
 		// First, try to validate as a Firebase ID token
-		firebaseClient, err := firebaseApp.Auth(ctx)
+		firebaseClient, err := app.Auth(ctx)
 		if err != nil {
 			log.Errorf("Error getting Firebase Auth client: %v\n", err)
 			http.Error(w, "Internal server error", http.StatusInternalServerError)

@@ -297,7 +297,7 @@ history.stock-data.status:
 # Test commands
 .PHONY: test test.coverage test.shorts test.integration test.integration.local test.integration.docker bench
 .PHONY: test-stack-up test-stack-down test-stack-status test-stack-logs
-.PHONY: test-integration test-e2e test-all-integration
+.PHONY: test-integration test-e2e test-all-integration test-integration-local test-integration-ci
 
 test:
 	go test ./... -v
@@ -311,6 +311,34 @@ test.shorts:
 
 test.integration:
 	go test ./... -v -tags=integration
+
+# Integration tests - LOCAL development (fully self-contained with testcontainers)
+test-integration-local:
+	@echo "🧪 Running integration tests..."
+	@echo "  📦 Testcontainers will automatically:"
+	@echo "    - Start PostgreSQL container"
+	@echo "    - Start shorts service"
+	@echo "    - Run all tests"
+	@echo "    - Clean up everything"
+	@echo ""
+	@$(MAKE) clean.shorts
+	@cd ../test/integration && go test -v -timeout=20m ./...
+	@echo ""
+
+# Integration tests - CI (expects BACKEND_URL to be set)
+test-integration-ci:
+	@echo "🧪 Running integration tests against deployed service..."
+	@if [ -z "$$BACKEND_URL" ]; then \
+		echo "❌ BACKEND_URL not set"; \
+		echo "Set BACKEND_URL to your deployed service URL"; \
+		exit 1; \
+	fi
+	@echo "Testing against: $$BACKEND_URL"
+	@echo "Checking service health..."
+	@curl -f "$$BACKEND_URL/health" || (echo "❌ Backend health check failed" && exit 1)
+	@echo "✅ Backend is healthy"
+	@echo ""
+	@cd ../test/integration && go test -v -timeout=10m ./...
 
 # New integration test targets using testcontainers
 test.integration.local:

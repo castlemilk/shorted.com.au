@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	backendURL  = getEnv("BACKEND_URL", "http://localhost:8081")
+	backendURL  = getEnv("BACKEND_URL", "http://localhost:9091")
 	frontendURL = getEnv("FRONTEND_URL", "http://localhost:3001")
 	maxRetries  = 30
 	retryDelay  = 2 * time.Second
