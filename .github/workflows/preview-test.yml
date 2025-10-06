@@ -232,12 +232,12 @@ jobs:
 
   test-unit:
     runs-on: ubuntu-latest
-    
+
     services:
       docker:
         image: docker:24-dind
         options: --privileged
-        
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -306,79 +306,54 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
 
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_DB: shorted_test
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_password
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-          cache-dependency-path: web/package-lock.json
 
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: services/go.sum
+          cache-dependency-path: |
+            services/go.sum
+            test/integration/go.sum
 
-      - name: Install dependencies
+      - name: Install test dependencies
         run: |
-          cd web && npm ci --legacy-peer-deps
-          cd ../services && go mod download
+          cd test/integration
+          go mod download
 
-      - name: Setup test database
-        env:
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: 5432
-          POSTGRES_DB: shorted_test
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_password
+      - name: Verify Docker is available
         run: |
-          # Wait for PostgreSQL
-          for i in {1..30}; do
-            if pg_isready -h localhost -p 5432 -U test_user; then
-              echo "PostgreSQL is ready"
-              break
-            fi
-            echo "Waiting for PostgreSQL... attempt $i/30"
-            sleep 2
-          done
+          docker version
+          docker info
 
-          # Initialize schema
-          if [ -f analysis/sql/init-db.sql ]; then
-            PGPASSWORD=test_password psql -h localhost -p 5432 -U test_user -d shorted_test -f analysis/sql/init-db.sql || true
-          fi
-
-      - name: Run integration tests against preview
+      - name: Run integration tests (testcontainers)
+        if: needs.check-secrets.outputs.has-gcp == 'true' && needs.deploy-backend.outputs.shorts-url != ''
         env:
+          BACKEND_URL: ${{ needs.deploy-backend.outputs.shorts-url }}
           SHORTS_URL: ${{ needs.deploy-backend.outputs.shorts-url }}
           MARKET_DATA_URL: ${{ needs.deploy-backend.outputs.market-data-url }}
-          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/shorted_test
         run: |
-          echo "Testing against backend services:"
+          echo "🧪 Running integration tests against deployed preview..."
+          echo "Backend URL: $BACKEND_URL"
           echo "Shorts URL: $SHORTS_URL"
           echo "Market Data URL: $MARKET_DATA_URL"
+          echo ""
 
-          # Run integration tests
-          cd test/integration 2>/dev/null || cd services
-          go test ./... -v -tags=integration || true
+          cd services
+          make test-integration-ci
+        continue-on-error: true
+
+      - name: Run integration tests (local with testcontainers)
+        if: needs.check-secrets.outputs.has-gcp != 'true' || needs.deploy-backend.outputs.shorts-url == ''
+        run: |
+          echo "🧪 Running integration tests with local testcontainers setup..."
+          echo "  📦 Testcontainers will start PostgreSQL and shorts service"
+          echo ""
+
+          cd services
+          make test-integration-local
         continue-on-error: true
 
   test-e2e:

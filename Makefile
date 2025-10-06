@@ -11,6 +11,7 @@ help:
 	@echo "  test-backend  - Run backend tests only"
 	@echo "  test-coverage - Run all tests with coverage reporting"
 	@echo "  test-watch    - Run frontend tests in watch mode"
+	@echo "  test-integration-local - Run integration tests with local backend (self-contained)"
 	@echo "  test-integration - Run full-stack integration tests"
 	@echo "  test-e2e      - Run E2E tests with all dependencies"
 	@echo "  test-e2e-ui   - Run E2E tests in Playwright UI mode"
@@ -232,6 +233,10 @@ test-data-validation:
 	@cd services/stock-price-ingestion && python -m pytest test_data_validation.py -v
 
 # Integration testing commands
+test-integration-local:
+	@echo "🧪 Running integration tests with local backend..."
+	@cd services && make test-integration-local
+
 test-integration: test-stack-up
 	@echo "🧪 Running full-stack integration tests..."
 	@sleep 15  # Give services time to start and be ready
