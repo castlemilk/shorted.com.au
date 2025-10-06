@@ -1,0 +1,68 @@
+config: {AppSpec:{Insecure:true Port:9091 ShortsStoreConfig:{StorageBackend:postgres DynamoDBRegion: DynamoDBTable: DynamoDBEndpoint: PostgresAddress:localhost:61286 PostgresUsername:test_user PostgresPassword:test_password PostgresDatabase:shorts_test}} OpsSpec:{Version:dev Commit:dirty Port:8082 Logging:{Level:info}}}2025-10-06T20:10:43.203+1030	INFO	log/log.go:49	starting server server at :9091
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 10, offset: 0
+2025/10/06 20:10:44 [DEBUG] cache miss for GetTopShorts, fetching from database
+2025/10/06 20:10:44 [DEBUG] get stock: CBA
+2025/10/06 20:10:44 [DEBUG] cache miss for GetStock, fetching from database
+2025/10/06 20:10:44 [ERROR] database error in GetStock: product_code=CBA, err=no rows in result set
+2025/10/06 20:10:44 [DEBUG] get stock: BHP
+2025/10/06 20:10:44 [DEBUG] cache miss for GetStock, fetching from database
+2025/10/06 20:10:44 [ERROR] database error in GetStock: product_code=BHP, err=no rows in result set
+2025/10/06 20:10:44 [ERROR] validation failed for GetStock: invalid_argument: product code must be 3-4 uppercase letters (e.g., CBA, ZIP)
+2025/10/06 20:10:44 [ERROR] validation failed for GetStock: invalid_argument: product code is required
+2025/10/06 20:10:44 [DEBUG] get stock data: product_code=CBA, period=1M
+2025-10-06T20:10:44.047+1030	INFO	log/log.go:49	Generated Query: 
+		SELECT date_trunc('day', "DATE") as interval_start, 
+		       AVG("PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") as avg_percent
+		FROM shorts
+		WHERE "PRODUCT_CODE" = $1
+		  AND "DATE" > CURRENT_DATE - INTERVAL '6 month'
+		  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
+		GROUP BY interval_start
+		ORDER BY interval_start ASC
+2025/10/06 20:10:44 [DEBUG] get stock data: product_code=BHP, period=6M
+2025-10-06T20:10:44.051+1030	INFO	log/log.go:49	Generated Query: 
+		SELECT date_trunc('day', "DATE") as interval_start, 
+		       AVG("PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") as avg_percent
+		FROM shorts
+		WHERE "PRODUCT_CODE" = $1
+		  AND "DATE" > CURRENT_DATE - INTERVAL '6 month'
+		  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
+		GROUP BY interval_start
+		ORDER BY interval_start ASC
+2025/10/06 20:10:44 [DEBUG] get stock data: product_code=WBC, period=1Y
+2025-10-06T20:10:44.052+1030	INFO	log/log.go:49	Generated Query: 
+		SELECT date_trunc('day', "DATE") as interval_start, 
+		       AVG("PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") as avg_percent
+		FROM shorts
+		WHERE "PRODUCT_CODE" = $1
+		  AND "DATE" > CURRENT_DATE - INTERVAL '6 month'
+		  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
+		GROUP BY interval_start
+		ORDER BY interval_start ASC
+2025/10/06 20:10:44 [ERROR] validation failed for GetStockData: invalid_argument: product code must be 3-4 uppercase letters (e.g., CBA, ZIP)
+2025/10/06 20:10:44 [ERROR] validation failed for GetStockData: invalid_argument: product code is required
+2025/10/06 20:10:44 [ERROR] validation failed for GetStockData: invalid_argument: invalid period format. Valid periods: 1D, 1W, 1M, 3M, 6M, 1Y
+2025/10/06 20:10:44 [ERROR] validation failed for GetTopShorts: invalid_argument: invalid period format. Valid periods: 1D, 1W, 1M, 3M, 6M, 1Y
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] cache miss for GetTopShorts, fetching from database
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/10/06 20:10:44 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0

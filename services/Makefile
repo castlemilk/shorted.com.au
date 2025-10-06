@@ -419,7 +419,13 @@ test-clean:
 # Performance and Load Testing Targets
 .PHONY: perf-test load-test stress-test spike-test benchmark-test artillery-test
 .PHONY: perf-install perf-setup perf-clean perf-report perf-baseline
-.PHONY: perf-vegeta perf-k6 perf-artillery perf-all
+.PHONY: perf-vegeta perf-k6 perf-artillery perf-all perf-go-tests
+
+# Go-based performance tests (testcontainers, opt-in)
+perf-go-tests:
+	@echo "🚀 Running Go performance tests with testcontainers..."
+	@echo "  This will start PostgreSQL container and shorts service"
+	@cd shorts/test/performance && RUN_PERFORMANCE_TESTS=1 go test -v -timeout=30m ./...
 
 # Performance testing setup
 perf-install:
@@ -618,6 +624,7 @@ perf-test-gettreemap:
 # Help target for performance testing
 perf-help:
 	@echo "🔧 Performance Testing Commands:"
+	@echo "  perf-go-tests    - Run Go performance tests (testcontainers, self-contained)"
 	@echo "  perf-install     - Install performance testing tools"
 	@echo "  perf-setup       - Setup performance test environment"
 	@echo "  perf-test        - Run standard performance tests"
@@ -642,3 +649,5 @@ perf-help:
 	@echo "  perf-test-getstock      - Test GetStock only"
 	@echo "  perf-test-getstockdata  - Test GetStockData only"
 	@echo "  perf-test-gettreemap    - Test GetIndustryTreeMap only"
+	@echo ""
+	@echo "💡 Note: Go performance tests (perf-go-tests) are self-contained and don't require perf-install"
