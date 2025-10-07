@@ -363,7 +363,7 @@ jobs:
     runs-on: ubuntu-latest
     if: needs.check-secrets.outputs.has-gcp == 'true' && needs.deploy-backend.outputs.shorts-url != ''
     outputs:
-      preview-url: ${{ steps.deploy.outputs.preview-url }}
+      preview-url: ${{ steps.deploy.outputs.url }}
 
     steps:
       - name: Checkout code
@@ -382,41 +382,25 @@ jobs:
 
       - name: Deploy to Vercel
         id: deploy
-        working-directory: web
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          SHORTS_URL: ${{ needs.deploy-backend.outputs.shorts-url }}
-          MARKET_DATA_URL: ${{ needs.deploy-backend.outputs.market-data-url }}
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./web
+          scope: ${{ secrets.VERCEL_ORG_ID }}
+          # Build-time environment variables
+          vercel-args: >-
+            --build-env SHORTS_SERVICE_ENDPOINT=${{ needs.deploy-backend.outputs.shorts-url }}
+            --build-env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ needs.deploy-backend.outputs.market-data-url }}
+            --env SHORTS_SERVICE_ENDPOINT=${{ needs.deploy-backend.outputs.shorts-url }}
+            --env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ needs.deploy-backend.outputs.market-data-url }}
+
+      - name: Deployment summary
         run: |
-          # Install Vercel CLI
-          npm install -g vercel@latest
-          
-          echo "🚀 Deploying to Vercel with preview backend URLs..."
-          echo "  Shorts API: $SHORTS_URL"
-          echo "  Market Data API: $MARKET_DATA_URL"
-          
-          # Deploy with environment variables
-          DEPLOYMENT_URL=$(vercel deploy \
-            --token=$VERCEL_TOKEN \
-            --build-env SHORTS_SERVICE_ENDPOINT=$SHORTS_URL \
-            --build-env NEXT_PUBLIC_MARKET_DATA_API_URL=$MARKET_DATA_URL \
-            --env SHORTS_SERVICE_ENDPOINT=$SHORTS_URL \
-            --env NEXT_PUBLIC_MARKET_DATA_API_URL=$MARKET_DATA_URL \
-            --yes \
-            2>&1 | tee /tmp/vercel-deploy.log | grep -oP 'https://[^\s]+' | head -1)
-          
-          if [ -z "$DEPLOYMENT_URL" ]; then
-            echo "❌ Failed to get deployment URL"
-            cat /tmp/vercel-deploy.log
-            exit 1
-          fi
-          
-          echo "preview-url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
-          echo "✅ Frontend deployed to: $DEPLOYMENT_URL"
-          echo "  ✅ Connected to Shorts API: $SHORTS_URL"
-          echo "  ✅ Connected to Market Data API: $MARKET_DATA_URL"
+          echo "✅ Frontend deployed to: ${{ steps.deploy.outputs.preview-url }}"
+          echo "  ✅ Connected to Shorts: ${{ needs.deploy-backend.outputs.shorts-url }}"
+          echo "  ✅ Connected to Market Data: ${{ needs.deploy-backend.outputs.market-data-url }}"
 
   test-e2e-backend:
     needs: [check-secrets, deploy-backend]
