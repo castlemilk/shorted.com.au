@@ -77,7 +77,7 @@ jobs:
       - name: Authenticate to Google Cloud
         id: auth
         uses: google-github-actions/auth@v2
-        if: ${{ secrets.WIP_PROVIDER != '' }}
+        if: secrets.WIP_PROVIDER != ''
         with:
           workload_identity_provider: ${{ secrets.WIP_PROVIDER }}
           service_account: ${{ secrets.SA_EMAIL }}
@@ -92,7 +92,7 @@ jobs:
       - name: Build and push Docker images
         run: |
           cd services
-          
+
           # Build and push Shorts Service
           docker build -f shorts/Dockerfile -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/shorts:pr-${{ env.PR_NUMBER }} .
           docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/shorts:pr-${{ env.PR_NUMBER }}
