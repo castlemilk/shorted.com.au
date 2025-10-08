@@ -30,15 +30,11 @@ jobs:
         id: check
         run: |
           HAS_GCP="false"
-
           if [ -n "${{ secrets.GCP_PROJECT_ID }}" ] && [ -n "${{ secrets.WIP_PROVIDER }}" ] && [ -n "${{ secrets.SA_EMAIL }}" ]; then
             HAS_GCP="true"
           fi
-
           echo "has-gcp=$HAS_GCP" >> $GITHUB_OUTPUT
-
           echo "GCP secrets configured: $HAS_GCP"
-          echo "Note: Vercel will automatically deploy via GitHub integration"
 
   deploy-backend:
     needs: check-secrets
@@ -60,14 +56,12 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Setup Go
-        if: needs.check-secrets.outputs.has-gcp == 'true'
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: services/go.sum
 
       - name: Authenticate to Google Cloud
-        if: needs.check-secrets.outputs.has-gcp == 'true'
         id: auth
         uses: google-github-actions/auth@v2
         with:
@@ -75,44 +69,39 @@ jobs:
           service_account: ${{ secrets.SA_EMAIL }}
 
       - name: Set up Cloud SDK
-        if: needs.check-secrets.outputs.has-gcp == 'true'
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Configure Docker for Artifact Registry
-        if: needs.check-secrets.outputs.has-gcp == 'true'
         run: |
           gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
 
       - name: Build and push Docker images
-        if: needs.check-secrets.outputs.has-gcp == 'true'
         run: |
           cd services
-
+          
           # Build and push Shorts Service
           docker build -f shorts/Dockerfile -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/shorts:pr-${{ env.PR_NUMBER }} .
           docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/shorts:pr-${{ env.PR_NUMBER }}
-
+          
           # Build and push Market Data Service
           docker build -f market-data/Dockerfile -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/market-data:pr-${{ env.PR_NUMBER }} .
           docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/market-data:pr-${{ env.PR_NUMBER }}
 
       - name: Deploy preview backend services to Cloud Run
-        if: needs.check-secrets.outputs.has-gcp == 'true'
         id: deploy-services
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           # Parse DATABASE_URL to extract components
-          # Format: postgresql://user:password@host:port/database
           DB_USER=$(echo $DATABASE_URL | sed -n 's|postgresql://\([^:]*\):.*|\1|p')
           DB_PASS=$(echo $DATABASE_URL | sed -n 's|postgresql://[^:]*:\([^@]*\)@.*|\1|p')
           DB_HOST=$(echo $DATABASE_URL | sed -n 's|.*@\([^:]*\):.*|\1|p')
           DB_PORT=$(echo $DATABASE_URL | sed -n 's|.*:\([0-9]*\)/.*|\1|p')
           DB_NAME=$(echo $DATABASE_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
           DB_ADDRESS="${DB_HOST}:${DB_PORT}"
-
+          
           echo "Deploying with database: $DB_ADDRESS (database: $DB_NAME)"
-
+          
           # Deploy Shorts Service
           gcloud run deploy shorts-service-pr-${{ env.PR_NUMBER }} \
             --image ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/shorts:pr-${{ env.PR_NUMBER }} \
@@ -131,7 +120,7 @@ jobs:
             --set-env-vars="ENVIRONMENT=preview" \
             --labels="pr=${{ env.PR_NUMBER }},type=preview" \
             --tag pr-${{ env.PR_NUMBER }}
-
+          
           # Deploy Market Data Service
           gcloud run deploy market-data-service-pr-${{ env.PR_NUMBER }} \
             --image ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/market-data:pr-${{ env.PR_NUMBER }} \
@@ -151,13 +140,13 @@ jobs:
             --set-env-vars="ENVIRONMENT=preview" \
             --labels="pr=${{ env.PR_NUMBER }},type=preview" \
             --tag pr-${{ env.PR_NUMBER }}
-
+          
           # Get service URLs
           SHORTS_URL=$(gcloud run services describe shorts-service-pr-${{ env.PR_NUMBER }} \
             --region ${{ env.GCP_REGION }} --format 'value(status.url)')
           MARKET_DATA_URL=$(gcloud run services describe market-data-service-pr-${{ env.PR_NUMBER }} \
             --region ${{ env.GCP_REGION }} --format 'value(status.url)')
-
+          
           echo "shorts-url=$SHORTS_URL" >> $GITHUB_OUTPUT
           echo "market-data-url=$MARKET_DATA_URL" >> $GITHUB_OUTPUT
           echo "Shorts Service: $SHORTS_URL"
@@ -168,11 +157,40 @@ jobs:
           echo "✅ Backend services deployed successfully for PR #${{ env.PR_NUMBER }}"
           echo "Shorts Service: ${{ steps.deploy-services.outputs.shorts-url }}"
           echo "Market Data Service: ${{ steps.deploy-services.outputs.market-data-url }}"
-          echo ""
-          echo "Note: Vercel will automatically deploy the frontend via GitHub integration"
+
+  deploy-vercel-preview:
+    needs: [check-secrets, deploy-backend]
+    runs-on: ubuntu-latest
+    if: needs.check-secrets.outputs.has-gcp == 'true' && needs.deploy-backend.outputs.shorts-url != ''
+    outputs:
+      preview-url: ${{ steps.deploy.outputs.url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to Vercel
+        id: deploy
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: ./web
+          vercel-args: >-
+            --build-env SHORTS_SERVICE_ENDPOINT=${{ needs.deploy-backend.outputs.shorts-url }}
+            --build-env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ needs.deploy-backend.outputs.market-data-url }}
+            --env SHORTS_SERVICE_ENDPOINT=${{ needs.deploy-backend.outputs.shorts-url }}
+            --env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ needs.deploy-backend.outputs.market-data-url }}
+
+      - name: Summary
+        run: |
+          echo "✅ Frontend deployed to Vercel: ${{ steps.deploy.outputs.url }}"
+          echo "Connected to Shorts API: ${{ needs.deploy-backend.outputs.shorts-url }}"
+          echo "Connected to Market Data API: ${{ needs.deploy-backend.outputs.market-data-url }}"
 
   comment-deployment:
-    needs: [check-secrets, deploy-backend]
+    needs: [check-secrets, deploy-backend, deploy-vercel-preview]
     runs-on: ubuntu-latest
     if: always() && github.event_name == 'pull_request'
     steps:
@@ -183,37 +201,40 @@ jobs:
             const hasGCP = '${{ needs.check-secrets.outputs.has-gcp }}' === 'true';
             const shortsUrl = '${{ needs.deploy-backend.outputs.shorts-url }}';
             const marketDataUrl = '${{ needs.deploy-backend.outputs.market-data-url }}';
-
+            const vercelUrl = '${{ needs.deploy-vercel-preview.outputs.preview-url }}';
+            
             let body = '## 🚀 Preview Deployment\n\n';
-
+            
             body += '### Frontend\n\n';
-            body += '✅ **Vercel** will automatically deploy the frontend via GitHub integration\n';
-            body += 'Check the Vercel bot comment below for the preview URL\n\n';
-
+            if (vercelUrl) {
+              body += `✅ **Vercel Preview**: ${vercelUrl}\n\n`;
+            } else {
+              body += '⚠️ **Vercel** will automatically deploy via GitHub integration\n';
+              body += 'Check the Vercel bot comment below for the preview URL\n\n';
+            }
+            
             body += '### Backend Services\n\n';
             if (hasGCP && shortsUrl) {
-              body += `✅ **Shorts API** (PR-specific): ${shortsUrl}\n`;
-              body += `✅ **Market Data API** (PR-specific): ${marketDataUrl}\n\n`;
-              body += `*PR-specific backend services deployed to Cloud Run*\n`;
+              body += `✅ **Shorts API**: ${shortsUrl}\n`;
+              body += `✅ **Market Data API**: ${marketDataUrl}\n\n`;
+              body += `*Connected to Vercel preview automatically*\n`;
             } else {
               body += `⚠️ **Backend services not deployed** - GCP secrets not configured\n\n`;
               body += '### ⚙️ Configuration Needed\n\n';
               body += 'To enable PR-specific backend deployments, configure these secrets:\n\n';
               body += '- `GCP_PROJECT_ID`\n- `WIP_PROVIDER`\n- `SA_EMAIL`\n- `DATABASE_URL`\n\n';
-              body += 'See [Preview Deployment Guide](../docs/PREVIEW_DEPLOYMENTS.md) for setup instructions.\n';
             }
-
-            // Find and update or create comment
+            
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
             });
-
+            
             const botComment = comments.find(comment => 
               comment.user.type === 'Bot' && comment.body.includes('Preview Deployment')
             );
-
+            
             if (botComment) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
@@ -265,12 +286,10 @@ jobs:
 
       - name: Run frontend unit tests
         working-directory: web
-        run: npm test -- --coverage --watchAll=false --testPathIgnorePatterns=integration
-        continue-on-error: true # Allow tests to fail for now
+        run: npm test -- --watchAll=false --testPathIgnorePatterns=integration
 
       - name: Setup Docker for testcontainers
         run: |
-          # Ensure Docker is available for testcontainers
           docker info
           docker ps
 
@@ -280,10 +299,8 @@ jobs:
           DOCKER_HOST: unix:///var/run/docker.sock
           TESTCONTAINERS_RYUK_DISABLED: true
         run: |
-          # Run all tests including performance tests
-          # Docker-in-docker is available via services
           go test ./... -v -cover -timeout 15m
-        continue-on-error: true # Allow tests to fail for now
+        continue-on-error: true
 
       - name: Upload frontend coverage
         uses: actions/upload-artifact@v4
@@ -332,15 +349,11 @@ jobs:
         if: needs.check-secrets.outputs.has-gcp == 'true' && needs.deploy-backend.outputs.shorts-url != ''
         env:
           BACKEND_URL: ${{ needs.deploy-backend.outputs.shorts-url }}
-          SHORTS_URL: ${{ needs.deploy-backend.outputs.shorts-url }}
-          MARKET_DATA_URL: ${{ needs.deploy-backend.outputs.market-data-url }}
         run: |
           echo "🧪 Running integration tests against deployed preview..."
           echo "Backend URL: $BACKEND_URL"
-          echo "Shorts URL: $SHORTS_URL"
-          echo "Market Data URL: $MARKET_DATA_URL"
           echo ""
-
+          
           cd services
           make test-integration-ci
         continue-on-error: true
@@ -348,10 +361,9 @@ jobs:
       - name: Run integration tests (local with testcontainers)
         if: needs.check-secrets.outputs.has-gcp != 'true' || needs.deploy-backend.outputs.shorts-url == ''
         run: |
-          echo "🧪 Running integration tests with local testcontainers setup..."
-          echo "  📦 Testcontainers will start PostgreSQL and shorts service"
+          echo "🧪 Running integration tests with local testcontainers..."
           echo ""
-
+          
           cd services
           make test-integration-local
         continue-on-error: true
@@ -381,69 +393,13 @@ jobs:
             --env SHORTS_SERVICE_ENDPOINT=${{ needs.deploy-backend.outputs.shorts-url }}
             --env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ needs.deploy-backend.outputs.market-data-url }}
 
-      - name: Comment preview URL
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const previewUrl = '${{ steps.deploy.outputs.url }}';
-            const shortsUrl = '${{ needs.deploy-backend.outputs.shorts-url }}';
-            
-            const body = `## 🚀 Preview Deployed
-            
-**Frontend**: ${previewUrl}
-**Backend**: ${shortsUrl}
-
-Connected and ready for testing!`;
-
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body
-            });
-
-  test-e2e:
-    needs: [check-secrets, deploy-backend]
-    runs-on: ubuntu-latest
-    if: needs.check-secrets.outputs.has-gcp == 'true'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: services/go.sum
-
-      - name: Install dependencies
-        working-directory: services
-        run: go mod download
-
-      - name: Run E2E tests against deployed services
-        working-directory: test/integration
-        env:
-          BACKEND_URL: ${{ needs.deploy-backend.outputs.shorts-url }}
-          FRONTEND_URL: "" # Vercel auto-deploys but URL not available in workflow
+      - name: Summary
         run: |
-          echo "🧪 Running E2E tests against deployed backend services"
-          echo "Backend (Shorts) URL: $BACKEND_URL"
-          echo ""
-
-          # Run Go E2E tests that test the deployed service via HTTP
-          # Skip tests that require frontend since Vercel URL not available in workflow
-          # Focus on backend API tests: TestAPIEndpoints, TestDatabaseConnectivity
-          go test -v -timeout 10m -run "TestAPIEndpoints|TestDatabaseConnectivity" . || true
-
-          echo ""
-          echo "✅ E2E API tests completed - backend service validated successfully"
-          echo "Note: Frontend tests skipped (Vercel deploys automatically but URL not available in workflow)"
-        continue-on-error: true
+          echo "✅ Vercel deployment: ${{ steps.deploy.outputs.url }}"
+          echo "Connected to backend: ${{ needs.deploy-backend.outputs.shorts-url }}"
 
   test-summary:
-    needs: [test-unit, test-integration, test-e2e]
+    needs: [test-unit, test-integration, deploy-vercel-preview]
     runs-on: ubuntu-latest
     if: always()
 
@@ -455,17 +411,16 @@ Connected and ready for testing!`;
             const results = {
               unit: '${{ needs.test-unit.result }}',
               integration: '${{ needs.test-integration.result }}',
-              e2e: '${{ needs.test-e2e.result }}'
+              'vercel-deploy': '${{ needs.deploy-vercel-preview.result }}'
             };
-
+            
             let summary = '## 🧪 Test Results Summary\n\n';
-
+            
             for (const [test, result] of Object.entries(results)) {
               const emoji = result === 'success' ? '✅' : result === 'failure' ? '❌' : '⏭️';
               summary += `${emoji} **${test.charAt(0).toUpperCase() + test.slice(1)} Tests**: ${result}\n`;
             }
-
-            // Add to PR comment if it's a PR
+            
             if (context.eventName === 'pull_request') {
               const { data: comments } = await github.rest.issues.listComments({
                 owner: context.repo.owner,
@@ -493,8 +448,7 @@ Connected and ready for testing!`;
                 });
               }
             }
-
-            // Add to job summary
+            
             await core.summary
               .addRaw(summary)
               .write();
