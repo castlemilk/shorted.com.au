@@ -3,7 +3,7 @@
 # E2E Test Runner Script
 # Sets up backend services, seeds test data, and runs E2E tests
 
-set -e
+set -euo pipefail
 
 # Colors for output
 RED='\033[0;31m'
@@ -111,12 +111,12 @@ echo -e "${YELLOW}🔨 Building backend services...${NC}"
 # Build shorts service
 cd "$SERVICES_DIR/shorts"
 echo "Building shorts service..."
-go build -o shorts-service . 2>&1 | tail -5
+go build -o shorts-service ./cmd/server
 
 # Build market data service
 cd "$SERVICES_DIR/market-data"
 echo "Building market data service..."
-go build -o market-data-service . 2>&1 | tail -5
+go build -o market-data-service .
 
 echo -e "${GREEN}✅ Services built${NC}\n"
 
@@ -128,6 +128,25 @@ if [ "$TEST_MODE" = "ci" ]; then
     export DATABASE_URL="${TEST_DATABASE_URL:-$DATABASE_URL}"
 else
     export DATABASE_URL="${DATABASE_URL:-postgres://postgres.vfzzkelbpyjdvuujyrpu:bxmsrFPazXawzeav@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres}"
+fi
+
+# If a DATABASE_URL is available, parse it and export settings for the shorts service
+if [ -n "${DATABASE_URL:-}" ]; then
+    # Expected format: postgres://user:pass@host:port/db
+    __db_rest="${DATABASE_URL#*://}"
+    __db_user="${__db_rest%%:*}"
+    __db_rest="${__db_rest#*:}"
+    __db_pass="${__db_rest%%@*}"
+    __db_rest="${__db_rest#*@}"
+    __db_hostport="${__db_rest%%/*}"
+    __db_host="${__db_hostport%%:*}"
+    __db_port="${__db_hostport#*:}"
+    __db_name="${__db_rest#*/}"
+
+    export APP_STORE_POSTGRES_ADDRESS="${__db_host}:${__db_port}"
+    export APP_STORE_POSTGRES_USERNAME="${__db_user}"
+    export APP_STORE_POSTGRES_PASSWORD="${__db_pass}"
+    export APP_STORE_POSTGRES_DATABASE="${__db_name}"
 fi
 
 # Start shorts service
