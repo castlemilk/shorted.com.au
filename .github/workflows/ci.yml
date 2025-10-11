@@ -167,6 +167,9 @@ jobs:
     needs: [check-secrets, deploy-backend]
     runs-on: ubuntu-latest
     if: needs.check-secrets.outputs.has-gcp == 'true' && needs.deploy-backend.outputs.shorts-url != ''
+    environment:
+      name: preview
+      url: ${{ steps.deploy.outputs.url }}
     outputs:
       preview-url: ${{ steps.deploy.outputs.url }}
 
@@ -181,15 +184,23 @@ jobs:
       - name: Deploy to Vercel
         id: deploy
         uses: amondnet/vercel-action@v25
+        env:
+          VERCEL_ENV: development
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: team_xE5DMN3hIo8aPqyHNkBybg8r
           vercel-project-id: shorted-com-au
+          alias-domains: preview.shorted.com.au
           vercel-args: >-
             --build-env SHORTS_SERVICE_ENDPOINT=${{ needs.deploy-backend.outputs.shorts-url }}
             --build-env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ needs.deploy-backend.outputs.market-data-url }}
+            --build-env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
+            --build-env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
             --env SHORTS_SERVICE_ENDPOINT=${{ needs.deploy-backend.outputs.shorts-url }}
             --env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ needs.deploy-backend.outputs.market-data-url }}
+            --env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
+            --env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
+            --env NEXTAUTH_URL=https://preview.shorted.com.au
 
       - name: Summary
         run: |
