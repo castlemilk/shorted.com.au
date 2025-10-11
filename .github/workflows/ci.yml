@@ -183,7 +183,7 @@ jobs:
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: document-analyser
+          vercel-org-id: team_xE5DMN3hIo8aPqyHNkBybg8r
           vercel-project-id: shorted-com-au
           working-directory: ./web
           vercel-args: >-
