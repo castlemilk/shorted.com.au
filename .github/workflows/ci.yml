@@ -185,7 +185,6 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: team_xE5DMN3hIo8aPqyHNkBybg8r
           vercel-project-id: shorted-com-au
-          working-directory: ./web
           vercel-args: >-
             --build-env SHORTS_SERVICE_ENDPOINT=${{ needs.deploy-backend.outputs.shorts-url }}
             --build-env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ needs.deploy-backend.outputs.market-data-url }}
