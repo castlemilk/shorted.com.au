@@ -41,7 +41,7 @@ declare module "next-auth" {
       name?: string | null;
       email?: string | null;
       image?: string | null;
-    }
+    };
   }
 }
 
@@ -89,12 +89,18 @@ export const authOptions = {
   ],
   // adapter: FirestoreAdapter(firestore), // Commented out until Firebase adapter issues are resolved
   callbacks: {
-    session: ({ session, user }: { session: Session; user: User | AdapterUser }) => {
+    session: ({
+      session,
+      user,
+    }: {
+      session: Session;
+      user: User | AdapterUser;
+    }) => {
       return {
         ...session,
         user: {
           ...session.user,
-          id: user.id,
+          id: user?.id ?? session.user.email ?? "unknown",
         },
       };
     },
