@@ -185,7 +185,7 @@ jobs:
         id: deploy
         uses: amondnet/vercel-action@v25
         env:
-          VERCEL_ENV: development
+          VERCEL_ENV: dev
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: team_xE5DMN3hIo8aPqyHNkBybg8r
