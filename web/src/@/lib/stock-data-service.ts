@@ -34,18 +34,19 @@ export interface SectorPerformance {
   topLosers: string[];
 }
 
-// Market Data API configuration - using Next.js API routes as proxy
-const API_BASE_URL = typeof window !== 'undefined' ? '' : process.env.NEXTAUTH_URL || 'http://localhost:3020';
+// Market Data API configuration - call backend directly
+const MARKET_DATA_API_URL =
+  process.env.NEXT_PUBLIC_MARKET_DATA_API_URL || "http://localhost:8090";
 
 /**
  * Check if market data service is available
  */
 async function isMarketDataServiceAvailable(): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/health`, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(5000)
+    const response = await fetch(`${MARKET_DATA_API_URL}/health`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+      signal: AbortSignal.timeout(5000),
     });
     return response.ok;
   } catch (error) {
@@ -57,7 +58,9 @@ async function isMarketDataServiceAvailable(): Promise<boolean> {
 /**
  * Get multiple stock quotes from market data API (Connect RPC)
  */
-export async function getMultipleStockQuotes(stockCodes: string[]): Promise<Map<string, StockQuote>> {
+export async function getMultipleStockQuotes(
+  stockCodes: string[],
+): Promise<Map<string, StockQuote>> {
   const quotes = new Map<string, StockQuote>();
 
   if (stockCodes.length === 0) return quotes;
@@ -67,32 +70,38 @@ export async function getMultipleStockQuotes(stockCodes: string[]): Promise<Map<
       throw new Error("Market data service not available");
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/market-data/multiple-quotes`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const response = await fetch(
+      `${MARKET_DATA_API_URL}/marketdata.v1.MarketDataService/GetMultipleStockPrices`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          stockCodes: stockCodes.map((code) => code.toUpperCase()),
+        }),
       },
-      body: JSON.stringify({
-        stockCodes: stockCodes.map(code => code.toUpperCase())
-      })
-    });
+    );
 
     if (response.ok) {
-      const apiResponse = await response.json() as { 
-        prices: Record<string, {
-          stockCode: string;
-          date: string;
-          open: number;
-          high: number;
-          low: number;
-          close: number;
-          volume: string;
-          adjustedClose: number;
-          change: number;
-          changePercent: number;
-        }>
+      const apiResponse = (await response.json()) as {
+        prices: Record<
+          string,
+          {
+            stockCode: string;
+            date: string;
+            open: number;
+            high: number;
+            low: number;
+            close: number;
+            volume: string;
+            adjustedClose: number;
+            change: number;
+            changePercent: number;
+          }
+        >;
       };
-      
+
       if (apiResponse.prices) {
         Object.entries(apiResponse.prices).forEach(([symbol, price]) => {
           quotes.set(symbol, {
@@ -107,8 +116,10 @@ export async function getMultipleStockQuotes(stockCodes: string[]): Promise<Map<
             open: price.open,
           });
         });
-        
-        console.log(`✅ Using Connect RPC market data API for ${stockCodes.length} stock quotes`);
+
+        console.log(
+          `✅ Using Connect RPC market data API for ${stockCodes.length} stock quotes`,
+        );
         return quotes;
       }
     }
@@ -125,26 +136,29 @@ export async function getMultipleStockQuotes(stockCodes: string[]): Promise<Map<
  */
 export async function getHistoricalData(
   stockCode: string,
-  period = "1m"
+  period = "1m",
 ): Promise<HistoricalDataPoint[]> {
   try {
     if (!(await isMarketDataServiceAvailable())) {
       throw new Error("Market data service not available");
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/market-data/historical`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const response = await fetch(
+      `${MARKET_DATA_API_URL}/marketdata.v1.MarketDataService/GetHistoricalPrices`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          stockCode: stockCode.toUpperCase(),
+          period: period.toLowerCase(),
+        }),
       },
-      body: JSON.stringify({
-        stockCode: stockCode.toUpperCase(),
-        period: period.toLowerCase()
-      })
-    });
+    );
 
     if (response.ok) {
-      const apiResponse = await response.json() as { 
+      const apiResponse = (await response.json()) as {
         prices?: Array<{
           stockCode: string;
           date: string;
@@ -156,24 +170,28 @@ export async function getHistoricalData(
           adjustedClose: number;
           change: number;
           changePercent: number;
-        }>
+        }>;
       };
-      
+
       if (apiResponse.prices && apiResponse.prices.length > 0) {
-        const historicalData: HistoricalDataPoint[] = apiResponse.prices.map((price) => ({
-          date: price.date.split('T')[0], // Convert ISO timestamp to date string
-          open: price.open,
-          high: price.high,
-          low: price.low,
-          close: price.close,
-          volume: parseInt(price.volume, 10),
-          adjustedClose: price.adjustedClose,
-        }));
-        
-        console.log(`✅ Using Connect RPC market data API for ${stockCode} historical data`);
+        const historicalData: HistoricalDataPoint[] = apiResponse.prices.map(
+          (price) => ({
+            date: price.date.split("T")[0], // Convert ISO timestamp to date string
+            open: price.open,
+            high: price.high,
+            low: price.low,
+            close: price.close,
+            volume: parseInt(price.volume, 10),
+            adjustedClose: price.adjustedClose,
+          }),
+        );
+
+        console.log(
+          `✅ Using Connect RPC market data API for ${stockCode} historical data`,
+        );
         return historicalData;
       }
-      
+
       // Return empty array if no data available for this stock
       console.log(`⚠️ No historical data available for ${stockCode}`);
       return [];
@@ -181,7 +199,10 @@ export async function getHistoricalData(
 
     throw new Error("Market data API returned invalid response");
   } catch (error) {
-    console.error("Connect RPC market data API failed for historical data:", error);
+    console.error(
+      "Connect RPC market data API failed for historical data:",
+      error,
+    );
     throw new Error(`Unable to fetch historical data for ${stockCode}`);
   }
 }
@@ -191,34 +212,41 @@ export async function getHistoricalData(
  */
 export async function getCorrelationMatrix(
   stockCodes: string[],
-  period = "1y"
+  period = "1y",
 ): Promise<CorrelationMatrix> {
   try {
     if (!(await isMarketDataServiceAvailable())) {
       throw new Error("Market data service not available");
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/market-data/correlations`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const response = await fetch(
+      `${MARKET_DATA_API_URL}/marketdata.v1.MarketDataService/GetStockCorrelations`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          stockCodes: stockCodes.map((code) => code.toUpperCase()),
+          period: period.toLowerCase(),
+        }),
       },
-      body: JSON.stringify({
-        stockCodes: stockCodes.map(code => code.toUpperCase()),
-        period: period.toLowerCase()
-      })
-    });
+    );
 
     if (response.ok) {
-      const data = await response.json() as { correlations: Record<string, { correlations?: Record<string, number> }> };
+      const data = (await response.json()) as {
+        correlations: Record<string, { correlations?: Record<string, number> }>;
+      };
       const matrix: CorrelationMatrix = {};
-      
-      Object.entries(data.correlations ?? {}).forEach(([stock1, correlationRow]) => {
-        if (correlationRow?.correlations) {
-          matrix[stock1] = correlationRow.correlations;
-        }
-      });
-      
+
+      Object.entries(data.correlations ?? {}).forEach(
+        ([stock1, correlationRow]) => {
+          if (correlationRow?.correlations) {
+            matrix[stock1] = correlationRow.correlations;
+          }
+        },
+      );
+
       console.log("✅ Using market data API for correlation matrix");
       return matrix;
     }
@@ -233,46 +261,51 @@ export async function getCorrelationMatrix(
 /**
  * Get sector performance - simplified implementation focusing on market data API
  */
-export async function getSectorPerformance(_period = '1d'): Promise<SectorPerformance[]> {
+export async function getSectorPerformance(
+  _period = "1d",
+): Promise<SectorPerformance[]> {
   // Major ASX sectors with representative stocks
   const sectors = [
-    { name: 'Financials', stocks: ['CBA', 'WBC', 'ANZ', 'NAB'] },
-    { name: 'Materials', stocks: ['BHP', 'RIO', 'FMG', 'NCM'] },
-    { name: 'Healthcare', stocks: ['CSL', 'COH', 'SHL', 'RMD'] },
-    { name: 'Consumer Staples', stocks: ['WOW', 'COL', 'WES', 'TWE'] },
-    { name: 'Energy', stocks: ['WDS', 'STO', 'ORG', 'OSH'] },
-    { name: 'Technology', stocks: ['XRO', 'WTC', 'CPU', 'APT'] },
+    { name: "Financials", stocks: ["CBA", "WBC", "ANZ", "NAB"] },
+    { name: "Materials", stocks: ["BHP", "RIO", "FMG", "NCM"] },
+    { name: "Healthcare", stocks: ["CSL", "COH", "SHL", "RMD"] },
+    { name: "Consumer Staples", stocks: ["WOW", "COL", "WES", "TWE"] },
+    { name: "Energy", stocks: ["WDS", "STO", "ORG", "OSH"] },
+    { name: "Technology", stocks: ["XRO", "WTC", "CPU", "APT"] },
   ];
-  
+
   const sectorPerformance: SectorPerformance[] = [];
-  
+
   try {
     await Promise.all(
       sectors.map(async (sector) => {
         try {
           const quotes = await getMultipleStockQuotes(sector.stocks);
-          
+
           let totalPerformance = 0;
           let totalVolume = 0;
           const performances: { symbol: string; change: number }[] = [];
-          
+
           quotes.forEach((quote, symbol) => {
             totalPerformance += quote.changePercent;
             totalVolume += quote.volume ?? 0;
             performances.push({ symbol, change: quote.changePercent });
           });
-          
+
           performances.sort((a, b) => b.change - a.change);
-          
+
           sectorPerformance.push({
             sector: sector.name,
             performance: totalPerformance / sector.stocks.length,
             volume: totalVolume,
-            topGainers: performances.slice(0, 2).map(p => p.symbol),
-            topLosers: performances.slice(-2).map(p => p.symbol),
+            topGainers: performances.slice(0, 2).map((p) => p.symbol),
+            topLosers: performances.slice(-2).map((p) => p.symbol),
           });
         } catch (error) {
-          console.error(`Error fetching data for ${sector.name} sector:`, error);
+          console.error(
+            `Error fetching data for ${sector.name} sector:`,
+            error,
+          );
           // Add empty sector data to maintain consistency
           sectorPerformance.push({
             sector: sector.name,
@@ -282,20 +315,22 @@ export async function getSectorPerformance(_period = '1d'): Promise<SectorPerfor
             topLosers: [],
           });
         }
-      })
+      }),
     );
   } catch (error) {
     console.error("Error fetching sector performance:", error);
     throw new Error("Unable to fetch sector performance");
   }
-  
+
   return sectorPerformance;
 }
 
 /**
  * Get single stock quote
  */
-export async function getStockPrice(stockCode: string): Promise<StockQuote | null> {
+export async function getStockPrice(
+  stockCode: string,
+): Promise<StockQuote | null> {
   try {
     const quotes = await getMultipleStockQuotes([stockCode]);
     return quotes.get(stockCode.toUpperCase()) ?? null;
