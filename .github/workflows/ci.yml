@@ -190,6 +190,7 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: team_xE5DMN3hIo8aPqyHNkBybg8r
           vercel-project-id: shorted-com-au
+          scope: team_xE5DMN3hIo8aPqyHNkBybg8r
           alias-domains: preview.shorted.com.au
           vercel-args: >-
             --build-env SHORTS_SERVICE_ENDPOINT=${{ needs.deploy-backend.outputs.shorts-url }}
