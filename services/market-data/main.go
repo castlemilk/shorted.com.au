@@ -12,16 +12,29 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	connectcors "connectrpc.com/cors"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/cors"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	
+
 	marketdatav1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/marketdata/v1"
 	"github.com/castlemilk/shorted.com.au/services/gen/proto/go/marketdata/v1/marketdatav1connect"
 )
 
 type MarketDataService struct {
 	db *pgxpool.Pool
+}
+
+// withCORS adds CORS support to a Connect HTTP handler.
+func withCORS(h http.Handler) http.Handler {
+	middleware := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000", "http://localhost:3001", "http://localhost:3020", "https://*.vercel.app", "https://*.shorted.com.au", "https://shorted.com.au"},
+		AllowedMethods:   connectcors.AllowedMethods(),
+		AllowedHeaders:   append([]string{"Authorization"}, connectcors.AllowedHeaders()...),
+		ExposedHeaders:   connectcors.ExposedHeaders(),
+	})
+	return middleware.Handler(h)
 }
 
 // GetStockPrice returns the latest price for a stock
@@ -494,16 +507,17 @@ func main() {
 	
 	// Create Connect handler
 	path, handler := marketdatav1connect.NewMarketDataServiceHandler(service)
+	handler = withCORS(handler)
 	
 	// Create HTTP server
 	mux := http.NewServeMux()
 	mux.Handle(path, handler)
 	
 	// Add health check
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/health", withCORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
-	})
+	})).ServeHTTP)
 	
 	port := os.Getenv("PORT")
 	if port == "" {
