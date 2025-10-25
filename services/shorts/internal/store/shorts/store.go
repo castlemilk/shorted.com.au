@@ -11,6 +11,7 @@ type Store interface {
 	GetStockData(string, string) (*stockv1alpha1.TimeSeriesData, error)
 	GetIndustryTreeMap(int32, string, string) (*stockv1alpha1.IndustryTreeMap, error)
 	RegisterEmail(string) error
+	SearchStocks(string, int32) ([]*stockv1alpha1.Stock, error)
 }
 
 func NewStore(config Config) Store {

@@ -10,7 +10,9 @@ import random
 import time
 
 # Database configuration
-DATABASE_URL = "postgresql://admin:password@localhost:5438/shorts"
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("DATABASE_URL environment variable is required")
 
 # Top ASX stocks by market cap and trading volume
 # This represents the ASX 200 core stocks that would have the most trading activity

@@ -5,11 +5,33 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, TrendingUp, TrendingDown, Activity, BarChart3 } from "lucide-react";
-import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
-import { getHistoricalData, getStockPrice, type StockQuote, type HistoricalDataPoint } from "@/lib/stock-data-service";
+import {
+  Search,
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  BarChart3,
+} from "lucide-react";
+import {
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Area,
+  AreaChart,
+} from "recharts";
+import {
+  getHistoricalData,
+  getStockPrice,
+  searchStocks,
+  type StockQuote,
+  type HistoricalDataPoint,
+  type StockSearchResult,
+} from "@/lib/stock-data-service";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { DashboardLayout } from "@/components/layouts/dashboard-layout";
 
 // Popular ASX stocks for quick access
 const POPULAR_STOCKS = [
@@ -33,19 +55,23 @@ export default function StocksPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStock, setSelectedStock] = useState<string | null>(null);
   const [stockQuote, setStockQuote] = useState<StockQuote | null>(null);
-  const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
+  const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>(
+    [],
+  );
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>("1m");
   const [loading, setLoading] = useState(false);
   const [loadingHistorical, setLoadingHistorical] = useState(false);
+  const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   // Filter popular stocks based on search query
   const filteredStocks = useMemo(() => {
     if (!searchQuery) return POPULAR_STOCKS;
     const query = searchQuery.toLowerCase();
     return POPULAR_STOCKS.filter(
-      stock =>
+      (stock) =>
         stock.code.toLowerCase().includes(query) ||
-        stock.name.toLowerCase().includes(query)
+        stock.name.toLowerCase().includes(query),
     );
   }, [searchQuery]);
 
@@ -70,7 +96,7 @@ export default function StocksPage() {
   // Load historical data
   const loadHistoricalData = useCallback(async () => {
     if (!selectedStock) return;
-    
+
     setLoadingHistorical(true);
     try {
       const data = await getHistoricalData(selectedStock, selectedPeriod);
@@ -89,11 +115,42 @@ export default function StocksPage() {
     }
   }, [selectedStock, selectedPeriod, loadHistoricalData]);
 
+  // Search stocks using API
+  const searchStocksAPI = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const results = await searchStocks(query.trim(), 10);
+      if (results) {
+        setSearchResults(results.stocks);
+      }
+    } catch (error) {
+      console.error("Failed to search stocks:", error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
   // Handle search submission
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
       void loadStockData(searchQuery.trim().toUpperCase());
+    }
+  };
+
+  // Handle search input change with debounced API search
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    if (value.trim().length >= 2) {
+      void searchStocksAPI(value);
+    } else {
+      setSearchResults([]);
     }
   };
 
@@ -122,16 +179,25 @@ export default function StocksPage() {
   const formatChartDate = (dateStr: string) => {
     const date = new Date(dateStr);
     if (selectedPeriod === "1d" || selectedPeriod === "1w") {
-      return date.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+      return date.toLocaleDateString("en-AU", {
+        day: "numeric",
+        month: "short",
+      });
     } else if (selectedPeriod === "1m" || selectedPeriod === "3m") {
-      return date.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+      return date.toLocaleDateString("en-AU", {
+        day: "numeric",
+        month: "short",
+      });
     } else {
-      return date.toLocaleDateString("en-AU", { month: "short", year: "2-digit" });
+      return date.toLocaleDateString("en-AU", {
+        month: "short",
+        year: "2-digit",
+      });
     }
   };
 
   return (
-    <div className="container mx-auto p-6">
+    <DashboardLayout>
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Stock Analysis</h1>
         <p className="text-muted-foreground">
@@ -146,11 +212,39 @@ export default function StocksPage() {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
               type="text"
-              placeholder="Search by stock code (e.g., CBA, BHP)"
+              placeholder="Search by stock code or company name (e.g., CBA, BHP, Bank)"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value.toUpperCase())}
+              onChange={(e) => handleSearchChange(e.target.value.toUpperCase())}
               className="pl-10"
             />
+            {/* Search Results Dropdown */}
+            {searchResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+                {searchResults.map((stock) => (
+                  <button
+                    key={stock.product_code}
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery(stock.product_code);
+                      setSearchResults([]);
+                      void loadStockData(stock.product_code);
+                    }}
+                    className="w-full px-4 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                  >
+                    <div className="font-medium">{stock.product_code}</div>
+                    <div className="text-sm text-gray-600">{stock.name}</div>
+                    <div className="text-xs text-gray-500">
+                      {stock.percentage_shorted.toFixed(2)}% shorted
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {isSearching && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 p-4 text-center text-gray-500">
+                Searching...
+              </div>
+            )}
           </div>
           <Button type="submit" disabled={!searchQuery.trim()}>
             Search
@@ -210,26 +304,38 @@ export default function StocksPage() {
                       <span
                         className={cn(
                           "font-medium",
-                          stockQuote.change >= 0 ? "text-green-600" : "text-red-600"
+                          stockQuote.change >= 0
+                            ? "text-green-600"
+                            : "text-red-600",
                         )}
                       >
                         {formatCurrency(Math.abs(stockQuote.change))}
-                        <span className="ml-1">({formatPercent(stockQuote.changePercent)})</span>
+                        <span className="ml-1">
+                          ({formatPercent(stockQuote.changePercent)})
+                        </span>
                       </span>
                     </div>
                   </div>
 
                   <div className="space-y-3 pt-4 border-t">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Open</span>
+                      <span className="text-sm text-muted-foreground">
+                        Open
+                      </span>
                       <span className="font-medium">
-                        {stockQuote.open ? formatCurrency(stockQuote.open) : "—"}
+                        {stockQuote.open
+                          ? formatCurrency(stockQuote.open)
+                          : "—"}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">High</span>
+                      <span className="text-sm text-muted-foreground">
+                        High
+                      </span>
                       <span className="font-medium">
-                        {stockQuote.high ? formatCurrency(stockQuote.high) : "—"}
+                        {stockQuote.high
+                          ? formatCurrency(stockQuote.high)
+                          : "—"}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -239,13 +345,19 @@ export default function StocksPage() {
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Volume</span>
+                      <span className="text-sm text-muted-foreground">
+                        Volume
+                      </span>
                       <span className="font-medium">
-                        {stockQuote.volume ? formatNumber(stockQuote.volume) : "—"}
+                        {stockQuote.volume
+                          ? formatNumber(stockQuote.volume)
+                          : "—"}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Previous Close</span>
+                      <span className="text-sm text-muted-foreground">
+                        Previous Close
+                      </span>
                       <span className="font-medium">
                         {formatCurrency(stockQuote.previousClose)}
                       </span>
@@ -266,7 +378,10 @@ export default function StocksPage() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Price History</h3>
-                <Tabs value={selectedPeriod} onValueChange={(v) => setSelectedPeriod(v as TimePeriod)}>
+                <Tabs
+                  value={selectedPeriod}
+                  onValueChange={(v) => setSelectedPeriod(v as TimePeriod)}
+                >
                   <TabsList>
                     <TabsTrigger value="1w">1W</TabsTrigger>
                     <TabsTrigger value="1m">1M</TabsTrigger>
@@ -284,16 +399,32 @@ export default function StocksPage() {
                   <div className="h-full flex items-center justify-center">
                     <div className="text-center">
                       <BarChart3 className="h-12 w-12 mx-auto mb-4 animate-pulse text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">Loading chart data...</p>
+                      <p className="text-sm text-muted-foreground">
+                        Loading chart data...
+                      </p>
                     </div>
                   </div>
                 ) : historicalData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={historicalData}>
                       <defs>
-                        <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                        <linearGradient
+                          id="colorPrice"
+                          x1="0"
+                          y1="0"
+                          x2="0"
+                          y2="1"
+                        >
+                          <stop
+                            offset="5%"
+                            stopColor="#3b82f6"
+                            stopOpacity={0.3}
+                          />
+                          <stop
+                            offset="95%"
+                            stopColor="#3b82f6"
+                            stopOpacity={0}
+                          />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -307,11 +438,13 @@ export default function StocksPage() {
                         stroke="#6b7280"
                         fontSize={12}
                         tickFormatter={(value) => `$${value}`}
-                        domain={['dataMin - 5', 'dataMax + 5']}
+                        domain={["dataMin - 5", "dataMax + 5"]}
                       />
                       <Tooltip
                         formatter={(value: number) => formatCurrency(value)}
-                        labelFormatter={(label: string) => new Date(label).toLocaleDateString("en-AU")}
+                        labelFormatter={(label: string) =>
+                          new Date(label).toLocaleDateString("en-AU")
+                        }
                         contentStyle={{
                           backgroundColor: "rgba(255, 255, 255, 0.95)",
                           border: "1px solid #e5e7eb",
@@ -357,11 +490,15 @@ export default function StocksPage() {
                       <YAxis
                         stroke="#6b7280"
                         fontSize={12}
-                        tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
+                        tickFormatter={(value) =>
+                          `${(value / 1000000).toFixed(0)}M`
+                        }
                       />
                       <Tooltip
                         formatter={(value: number) => formatNumber(value)}
-                        labelFormatter={(label: string) => new Date(label).toLocaleDateString("en-AU")}
+                        labelFormatter={(label: string) =>
+                          new Date(label).toLocaleDateString("en-AU")
+                        }
                         contentStyle={{
                           backgroundColor: "rgba(255, 255, 255, 0.95)",
                           border: "1px solid #e5e7eb",
@@ -388,6 +525,6 @@ export default function StocksPage() {
           </Card>
         </div>
       )}
-    </div>
+    </DashboardLayout>
   );
 }

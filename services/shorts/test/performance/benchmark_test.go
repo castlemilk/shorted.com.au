@@ -27,7 +27,7 @@ func setupBenchmark() error {
 	// Database connection
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgresql://admin:password@localhost:5432/shorts"
+		t.Skip("DATABASE_URL environment variable is required for benchmark tests")
 	}
 	
 	var err error

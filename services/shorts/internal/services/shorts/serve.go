@@ -46,6 +46,52 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
+	
+	// Add stock search endpoint
+	mux.HandleFunc("/api/stocks/search", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		
+		query := r.URL.Query().Get("q")
+		if query == "" {
+			http.Error(w, "Missing query parameter 'q'", http.StatusBadRequest)
+			return
+		}
+		
+		limitStr := r.URL.Query().Get("limit")
+		limit := int32(50) // default
+		if limitStr != "" {
+			if _, err := fmt.Sscanf(limitStr, "%d", &limit); err != nil {
+				http.Error(w, "Invalid limit parameter", http.StatusBadRequest)
+				return
+			}
+		}
+		
+		// Search stocks
+		stocks, err := s.store.SearchStocks(query, limit)
+		if err != nil {
+			logger.Errorf("Error searching stocks: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+		
+		// Convert to JSON response
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		
+		// Simple JSON response
+		fmt.Fprintf(w, `{"query":"%s","stocks":[`, query)
+		for i, stock := range stocks {
+			if i > 0 {
+				fmt.Fprintf(w, ",")
+			}
+			fmt.Fprintf(w, `{"product_code":"%s","name":"%s","percentage_shorted":%f,"total_product_in_issue":%f,"reported_short_positions":%f}`,
+				stock.ProductCode, stock.Name, stock.PercentageShorted, stock.TotalProductInIssue, stock.ReportedShortPositions)
+		}
+		fmt.Fprintf(w, `],"count":%d}`, len(stocks))
+	})
 
 	// Add statik file server
 	statikFS, err := fs.New()

@@ -34,9 +34,23 @@ export interface SectorPerformance {
   topLosers: string[];
 }
 
+export interface StockSearchResult {
+  product_code: string;
+  name: string;
+  percentage_shorted: number;
+  total_product_in_issue: number;
+  reported_short_positions: number;
+}
+
+export interface StockSearchResponse {
+  query: string;
+  stocks: StockSearchResult[];
+  count: number;
+}
+
 // Market Data API configuration - call backend directly
 const MARKET_DATA_API_URL =
-  process.env.NEXT_PUBLIC_MARKET_DATA_API_URL || "http://localhost:8090";
+  process.env.NEXT_PUBLIC_MARKET_DATA_API_URL ?? "http://localhost:8090";
 
 /**
  * Check if market data service is available
@@ -176,7 +190,9 @@ export async function getHistoricalData(
       if (apiResponse.prices && apiResponse.prices.length > 0) {
         const historicalData: HistoricalDataPoint[] = apiResponse.prices.map(
           (price) => ({
-            date: price.date.split("T")[0], // Convert ISO timestamp to date string
+            date:
+              price.date?.split("T")[0] ??
+              new Date().toISOString().split("T")[0], // Convert ISO timestamp to date string
             open: price.open,
             high: price.high,
             low: price.low,
@@ -346,4 +362,41 @@ export async function getStockPrice(
 export async function getServiceStatus(): Promise<{ marketDataAPI: boolean }> {
   const marketDataAPI = await isMarketDataServiceAvailable();
   return { marketDataAPI };
+}
+
+/**
+ * Search stocks using the Go backend API
+ */
+export async function searchStocks(
+  query: string,
+  limit = 50,
+): Promise<StockSearchResponse | null> {
+  try {
+    // Use the Go backend API for stock search
+    const SHORTS_API_URL =
+      process.env.NEXT_PUBLIC_SHORTS_API_URL ?? "http://localhost:9091";
+
+    const response = await fetch(
+      `${SHORTS_API_URL}/api/stocks/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        signal: AbortSignal.timeout(10000),
+      },
+    );
+
+    if (!response.ok) {
+      console.error(
+        `Stock search failed: ${response.status} ${response.statusText}`,
+      );
+      return null;
+    }
+
+    const data: StockSearchResponse =
+      (await response.json()) as StockSearchResponse;
+    return data;
+  } catch (error) {
+    console.error(`Error searching stocks for query "${query}":`, error);
+    return null;
+  }
 }

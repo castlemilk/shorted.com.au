@@ -17,6 +17,7 @@ import {
   Breadcrumbs,
   BreadcrumbStructuredData,
 } from "~/@/components/seo/breadcrumbs";
+import { DashboardLayout } from "@/components/layouts/dashboard-layout";
 
 interface PageProps {
   params: { stockCode: string };
@@ -80,15 +81,15 @@ const Page = async ({ params }: PageProps) => {
   ];
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-muted/40">
+    <DashboardLayout>
       <StockStructuredData stockCode={stockCode} />
       <BreadcrumbStructuredData items={breadcrumbItems} />
 
-      <div className="p-4 sm:px-6">
-        <Breadcrumbs items={breadcrumbItems} className="mb-4" />
+      <div className="mb-4">
+        <Breadcrumbs items={breadcrumbItems} />
       </div>
 
-      <main className="grid auto-rows-min flex-1 items-start gap-4 mt-1 p-4 sm:px-6 sm:py-0 md:gap-8 lg:grid-cols-3 xl:grid-cols-3">
+      <div className="grid auto-rows-min flex-1 items-start gap-4 md:gap-8 lg:grid-cols-3 xl:grid-cols-3">
         <div className="grid items-start gap-4 md:gap-8 lg:col-span-1">
           <div className="grid  gap-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4">
             <Suspense fallback={<CompanyProfilePlaceholder />}>
@@ -108,16 +109,20 @@ const Page = async ({ params }: PageProps) => {
         </div>
         <div className="grid auto-rows-max items-start gap-4 lg:col-span-2">
           <div>
-            <h2 className="text-lg font-semibold mb-2">Short Position Trends</h2>
+            <h2 className="text-lg font-semibold mb-2">
+              Short Position Trends
+            </h2>
             <Chart stockCode={params.stockCode} />
           </div>
           <div className="mt-6">
-            <h2 className="text-lg font-semibold mb-2">Historical Price Data</h2>
+            <h2 className="text-lg font-semibold mb-2">
+              Historical Price Data
+            </h2>
             <MarketChart stockCode={params.stockCode} />
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 };
 

@@ -95,7 +95,7 @@ func run() error {
 	log.Println("🔌 Connecting to database...")
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgresql://admin:password@localhost:5438/shorts"
+		return fmt.Errorf("DATABASE_URL environment variable is required")
 	}
 
 	pool, err := pgxpool.New(context.Background(), dbURL)

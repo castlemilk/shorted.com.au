@@ -8,12 +8,10 @@ import {
   Home,
   TrendingUp,
   Briefcase,
-  Settings,
   Menu,
   X,
   LayoutDashboard,
   LineChart,
-  PieChart,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -40,11 +38,6 @@ const sidebarItems = [
     icon: TrendingUp,
   },
   {
-    title: "Industry Analysis",
-    href: "/industries",
-    icon: PieChart,
-  },
-  {
     title: "Stocks",
     href: "/stocks",
     icon: LineChart,
@@ -53,11 +46,6 @@ const sidebarItems = [
     title: "Portfolio",
     href: "/portfolio",
     icon: Briefcase,
-  },
-  {
-    title: "Settings",
-    href: "/settings",
-    icon: Settings,
   },
 ];
 
@@ -77,7 +65,7 @@ export function Sidebar({ className }: SidebarProps) {
                 variant={isActive ? "secondary" : "ghost"}
                 className={cn(
                   "w-full justify-start gap-2",
-                  isActive && "bg-secondary"
+                  isActive && "bg-secondary",
                 )}
                 onClick={() => setIsOpen(false)}
               >
@@ -97,8 +85,16 @@ export function Sidebar({ className }: SidebarProps) {
       <div className="lg:hidden fixed bottom-4 left-4 z-50">
         <Sheet open={isOpen} onOpenChange={setIsOpen}>
           <SheetTrigger asChild>
-            <Button size="icon" variant="outline" className="rounded-full shadow-lg">
-              {isOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+            <Button
+              size="icon"
+              variant="outline"
+              className="rounded-full shadow-lg"
+            >
+              {isOpen ? (
+                <X className="h-4 w-4" />
+              ) : (
+                <Menu className="h-4 w-4" />
+              )}
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0">
@@ -116,7 +112,7 @@ export function Sidebar({ className }: SidebarProps) {
       <aside
         className={cn(
           "hidden lg:flex flex-col w-64 bg-background border-r",
-          className
+          className,
         )}
       >
         <div className="border-b p-4">
