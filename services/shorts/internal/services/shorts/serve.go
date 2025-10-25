@@ -2,6 +2,7 @@ package shorts
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -92,16 +93,44 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		
-		// Simple JSON response
-		fmt.Fprintf(w, `{"query":"%s","stocks":[`, query)
-		for i, stock := range stocks {
-			if i > 0 {
-				fmt.Fprintf(w, ",")
-			}
-			fmt.Fprintf(w, `{"product_code":"%s","name":"%s","percentage_shorted":%f,"total_product_in_issue":%f,"reported_short_positions":%f}`,
-				stock.ProductCode, stock.Name, stock.PercentageShorted, stock.TotalProductInIssue, stock.ReportedShortPositions)
+		// Create proper JSON response structure
+		type StockResponse struct {
+			ProductCode           string  `json:"product_code"`
+			Name                  string  `json:"name"`
+			PercentageShorted     float64 `json:"percentage_shorted"`
+			TotalProductInIssue   float64 `json:"total_product_in_issue"`
+			ReportedShortPositions float64 `json:"reported_short_positions"`
 		}
-		fmt.Fprintf(w, `],"count":%d}`, len(stocks))
+		
+		type SearchResponse struct {
+			Query  string          `json:"query"`
+			Stocks []StockResponse `json:"stocks"`
+			Count  int             `json:"count"`
+		}
+		
+		// Convert stocks to response format
+		stockResponses := make([]StockResponse, len(stocks))
+		for i, stock := range stocks {
+			stockResponses[i] = StockResponse{
+				ProductCode:           stock.ProductCode,
+				Name:                  stock.Name,
+				PercentageShorted:     float64(stock.PercentageShorted),
+				TotalProductInIssue:   float64(stock.TotalProductInIssue),
+				ReportedShortPositions: float64(stock.ReportedShortPositions),
+			}
+		}
+		
+		response := SearchResponse{
+			Query:  query,
+			Stocks: stockResponses,
+			Count:  len(stocks),
+		}
+		
+		// Marshal to JSON
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			logger.Errorf("Error encoding JSON response: %v", err)
+			return
+		}
 	})
 
 	// Add statik file server

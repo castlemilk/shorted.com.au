@@ -1,5 +1,5 @@
-config: {AppSpec:{Insecure:true Port:9091 ShortsStoreConfig:{StorageBackend:postgres DynamoDBRegion: DynamoDBTable: DynamoDBEndpoint: PostgresAddress:localhost:64837 PostgresUsername:test_user PostgresPassword:test_password PostgresDatabase:shorts_test}} OpsSpec:{Version:dev Commit:dirty Port:8082 Logging:{Level:info}}}2025-10-25T19:59:04.144+1100	INFO	log/log.go:49	starting server server at :9091
-2025-10-25T19:59:04.145+1100	ERROR	log/log.go:58	agent terminated with error: listen tcp :9091: bind: address already in use
+config: {AppSpec:{Insecure:true Port:9091 ShortsStoreConfig:{StorageBackend:postgres DynamoDBRegion: DynamoDBTable: DynamoDBEndpoint: PostgresAddress:localhost:52989 PostgresUsername:test_user PostgresPassword:test_password PostgresDatabase:shorts_test}} OpsSpec:{Version:dev Commit:dirty Port:8082 Logging:{Level:info}}}2025-10-25T21:37:52.748+1100	INFO	log/log.go:49	starting server server at :9091
+2025-10-25T21:37:52.749+1100	ERROR	log/log.go:58	agent terminated with error: listen tcp :9091: bind: address already in use
 github.com/castlemilk/shorted.com.au/services/pkg/log.Errorf
 	/Users/benebsworth/projects/shorted/services/pkg/log/log.go:58
 main.main
