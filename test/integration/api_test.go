@@ -42,11 +42,11 @@ type GetStockRequest struct {
 }
 
 type Stock struct {
-	ProductCode            string  `json:"productCode"`
+	ProductCode            string  `json:"product_code"`
 	Name                   string  `json:"name"`
-	TotalProductInIssue    float32 `json:"totalProductInIssue"`
-	ReportedShortPositions float32 `json:"reportedShortPositions"`
-	PercentageShorted      float32 `json:"percentageShorted"`
+	TotalProductInIssue    float32 `json:"total_product_in_issue"`
+	ReportedShortPositions float32 `json:"reported_short_positions"`
+	PercentageShorted      float32 `json:"percentage_shorted"`
 }
 
 type GetStockDataRequest struct {

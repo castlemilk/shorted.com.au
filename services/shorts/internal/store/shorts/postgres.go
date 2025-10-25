@@ -20,11 +20,24 @@ type postgresStore struct {
 
 // newPostgresStore initializes a new store with a PostgreSQL backend.
 func newPostgresStore(config Config) Store {
-
-	dbPool, err := pgxpool.New(context.Background(), fmt.Sprintf("postgres://%s:%s@%s/%s", config.PostgresUsername, config.PostgresPassword, config.PostgresAddress, config.PostgresDatabase))
+	// Configure connection pool for better concurrency
+	poolConfig, err := pgxpool.ParseConfig(fmt.Sprintf("postgres://%s:%s@%s/%s", 
+		config.PostgresUsername, config.PostgresPassword, config.PostgresAddress, config.PostgresDatabase))
+	if err != nil {
+		panic("Unable to parse database config: " + err.Error())
+	}
+	
+	// Set connection pool settings for better concurrency
+	poolConfig.MaxConns = 25                    // Maximum number of connections
+	poolConfig.MinConns = 5                     // Minimum number of connections
+	poolConfig.MaxConnLifetime = time.Hour      // Maximum connection lifetime
+	poolConfig.MaxConnIdleTime = time.Minute * 30 // Maximum idle time
+	
+	dbPool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
 		panic("Unable to connect to database: " + err.Error())
 	}
+	
 	return &postgresStore{
 		db: dbPool,
 	}
@@ -211,6 +224,11 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 	rows, err := s.db.Query(ctx, searchQuery, "%"+query+"%", limit)
 	if err != nil {
 		log.Errorf("Database query failed for search '%s': %v", query, err)
+		// Check if it's a context timeout
+		if ctx.Err() == context.DeadlineExceeded {
+			log.Errorf("Search query timed out for '%s'", query)
+			return nil, fmt.Errorf("search query timed out: %w", err)
+		}
 		return nil, fmt.Errorf("failed to search stocks: %w", err)
 	}
 	defer rows.Close()
