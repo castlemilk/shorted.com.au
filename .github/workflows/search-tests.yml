@@ -188,6 +188,8 @@ jobs:
         run: |
           cd web
           npm run build
+        env:
+          SKIP_ENV_VALIDATION: true
 
   e2e-tests:
     name: E2E Tests
