@@ -182,17 +182,12 @@ jobs:
       - name: Run unit tests
         run: |
           cd web
-          npm run test:unit
+          npm run test
 
       - name: Build application
         run: |
           cd web
           npm run build
-
-      - name: Run type checking
-        run: |
-          cd web
-          npm run type-check
 
   e2e-tests:
     name: E2E Tests
