@@ -372,5 +372,5 @@ async def get_service_stats():
 
 
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8080))
+    port = int(os.getenv("PORT", 8090))
     uvicorn.run(app, host="0.0.0.0", port=port)

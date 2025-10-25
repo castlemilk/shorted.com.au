@@ -93,7 +93,7 @@ gcloud run deploy market-data-sync \
     --timeout 900 \
     --memory 1Gi \
     --cpu 1 \
-    --port 8080 \
+    --port 8090 \
     --service-account market-data-sync@${PROJECT_ID}.iam.gserviceaccount.com
 
 # Get the service URL
