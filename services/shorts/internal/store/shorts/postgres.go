@@ -209,11 +209,12 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 			"PRODUCT_CODE" as productCode,
 			"PRODUCT" as name, 
 			"TOTAL_PRODUCT_IN_ISSUE" as totalProductInIssue, 
-			"REPORTED_SHORT_POSITIONS" as reportedShortPositions
+			"REPORTED_SHORT_POSITIONS" as reportedShortPositions,
+			CASE WHEN "PRODUCT_CODE" ILIKE $1 THEN 1 ELSE 2 END as sort_priority
 		FROM shorts 
 		WHERE "PRODUCT_CODE" ILIKE $1 OR "PRODUCT" ILIKE $1
 		ORDER BY 
-			CASE WHEN "PRODUCT_CODE" ILIKE $1 THEN 1 ELSE 2 END,
+			sort_priority,
 			"PRODUCT_CODE" ASC
 		LIMIT $2`
 	
@@ -236,12 +237,14 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 	var stocks []*stocksv1alpha1.Stock
 	for rows.Next() {
 		var stock stocksv1alpha1.Stock
+		var sortPriority int
 		err := rows.Scan(
 			&stock.PercentageShorted,
 			&stock.ProductCode,
 			&stock.Name,
 			&stock.TotalProductInIssue,
 			&stock.ReportedShortPositions,
+			&sortPriority, // Dummy variable for sort_priority column
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan stock row: %w", err)
