@@ -202,17 +202,51 @@ func (s *postgresStore) RegisterEmail(email string) error {
 func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error) {
 	log.Debugf("Searching stocks with query: %s, limit: %d", query, limit)
 	
-	// Search query that looks for matches in product code or product name
+	// Optimized search query that uses indexes efficiently
+	// First try exact PRODUCT_CODE matches, then partial matches
 	searchQuery := `
-		SELECT DISTINCT 
-			"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentageShorted,
-			"PRODUCT_CODE" as productCode,
-			"PRODUCT" as name, 
-			"TOTAL_PRODUCT_IN_ISSUE" as totalProductInIssue, 
-			"REPORTED_SHORT_POSITIONS" as reportedShortPositions,
-			CASE WHEN "PRODUCT_CODE" ILIKE $1 THEN 1 ELSE 2 END as sort_priority
-		FROM shorts 
-		WHERE "PRODUCT_CODE" ILIKE $1 OR "PRODUCT" ILIKE $1
+		WITH search_results AS (
+			-- Exact PRODUCT_CODE matches (highest priority)
+			SELECT DISTINCT ON ("PRODUCT_CODE")
+				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentageShorted,
+				"PRODUCT_CODE" as productCode,
+				"PRODUCT" as name, 
+				"TOTAL_PRODUCT_IN_ISSUE" as totalProductInIssue, 
+				"REPORTED_SHORT_POSITIONS" as reportedShortPositions,
+				1 as sort_priority
+			FROM shorts 
+			WHERE "PRODUCT_CODE" = $1
+			ORDER BY "PRODUCT_CODE", "DATE" DESC
+			
+			UNION ALL
+			
+			-- Partial PRODUCT_CODE matches (medium priority)
+			SELECT DISTINCT ON ("PRODUCT_CODE")
+				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentageShorted,
+				"PRODUCT_CODE" as productCode,
+				"PRODUCT" as name, 
+				"TOTAL_PRODUCT_IN_ISSUE" as totalProductInIssue, 
+				"REPORTED_SHORT_POSITIONS" as reportedShortPositions,
+				2 as sort_priority
+			FROM shorts 
+			WHERE "PRODUCT_CODE" ILIKE $2 AND "PRODUCT_CODE" != $1
+			ORDER BY "PRODUCT_CODE", "DATE" DESC
+			
+			UNION ALL
+			
+			-- PRODUCT name matches (lowest priority)
+			SELECT DISTINCT ON ("PRODUCT_CODE")
+				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentageShorted,
+				"PRODUCT_CODE" as productCode,
+				"PRODUCT" as name, 
+				"TOTAL_PRODUCT_IN_ISSUE" as totalProductInIssue, 
+				"REPORTED_SHORT_POSITIONS" as reportedShortPositions,
+				3 as sort_priority
+			FROM shorts 
+			WHERE "PRODUCT" ILIKE $3
+			ORDER BY "PRODUCT_CODE", "DATE" DESC
+		)
+		SELECT * FROM search_results
 		ORDER BY 
 			sort_priority,
 			"PRODUCT_CODE" ASC
@@ -221,8 +255,12 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 	// Create context with timeout to prevent hanging
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
+	// Prepare search patterns
+	exactQuery := query
+	partialQuery := "%" + query + "%"
 	
-	rows, err := s.db.Query(ctx, searchQuery, "%"+query+"%", limit)
+	rows, err := s.db.Query(ctx, searchQuery, exactQuery, partialQuery, partialQuery, limit)
 	if err != nil {
 		log.Errorf("Database query failed for search '%s': %v", query, err)
 		// Check if it's a context timeout
