@@ -149,3 +149,7 @@ func (c *MemoryCache) GetStockDetailsKey(productCode string) string {
 func (c *MemoryCache) GetIndustryTreeMapKey(limit int32, period, viewMode string) string {
 	return c.generateKey("industry_treemap", limit, period, viewMode)
 }
+
+func (c *MemoryCache) GetSearchStocksKey(query string, limit int32) string {
+	return c.generateKey("search_stocks", query, limit)
+}

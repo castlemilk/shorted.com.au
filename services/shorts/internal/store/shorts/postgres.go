@@ -183,3 +183,47 @@ func (s *postgresStore) RegisterEmail(email string) error {
 	_, err := s.db.Exec(context.Background(), query, email)
 	return err
 }
+
+// SearchStocks searches for stocks by symbol or company name
+func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error) {
+	// Search query that looks for matches in product code or product name
+	searchQuery := `
+		SELECT DISTINCT 
+			"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentageShorted,
+			"PRODUCT_CODE" as productCode,
+			"PRODUCT" as name, 
+			"TOTAL_PRODUCT_IN_ISSUE" as totalProductInIssue, 
+			"REPORTED_SHORT_POSITIONS" as reportedShortPositions
+		FROM shorts 
+		WHERE "PRODUCT_CODE" ILIKE $1 OR "PRODUCT" ILIKE $1
+		ORDER BY "PRODUCT_CODE" ASC
+		LIMIT $2`
+	
+	rows, err := s.db.Query(context.Background(), searchQuery, "%"+query+"%", limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search stocks: %w", err)
+	}
+	defer rows.Close()
+	
+	var stocks []*stocksv1alpha1.Stock
+	for rows.Next() {
+		var stock stocksv1alpha1.Stock
+		err := rows.Scan(
+			&stock.PercentageShorted,
+			&stock.ProductCode,
+			&stock.Name,
+			&stock.TotalProductInIssue,
+			&stock.ReportedShortPositions,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan stock row: %w", err)
+		}
+		stocks = append(stocks, &stock)
+	}
+	
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
+	
+	return stocks, nil
+}

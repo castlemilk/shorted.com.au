@@ -364,7 +364,9 @@ class StockDataIngestion:
 async def main():
     """Main entry point"""
     # Get database connection from environment
-    db_url = os.getenv('DATABASE_URL', 'postgresql://user:password@localhost/shorted')
+    db_url = os.getenv('DATABASE_URL')
+    if not db_url:
+        raise ValueError("DATABASE_URL environment variable is required")
     
     # Default ASX top stocks
     stock_codes = [

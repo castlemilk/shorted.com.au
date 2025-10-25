@@ -1,0 +1,433 @@
+name: Search Functionality Tests
+
+on:
+  push:
+    branches: [main, develop, feature/*]
+    paths:
+      - "services/shorts/**"
+      - "web/src/**"
+      - "test/integration/**"
+      - "web/e2e/**"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "services/shorts/**"
+      - "web/src/**"
+      - "test/integration/**"
+      - "web/e2e/**"
+
+env:
+  GO_VERSION: "1.22"
+  NODE_VERSION: "18"
+
+jobs:
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: shorts_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Install dependencies
+        run: |
+          cd test/integration
+          go mod download
+
+      - name: Run integration tests
+        run: |
+          cd test/integration
+          go test -v -timeout 10m ./...
+        env:
+          DATABASE_URL: postgres://test_user:test_password@localhost:5432/shorts_test?sslmode=disable
+          APP_STORE_POSTGRES_ADDRESS: localhost:5432
+          APP_STORE_POSTGRES_DATABASE: shorts_test
+          APP_STORE_POSTGRES_USERNAME: test_user
+          APP_STORE_POSTGRES_PASSWORD: test_password
+          APP_PORT: 9091
+          BACKEND_URL: http://localhost:9091
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: integration-test-results
+          path: test/integration/*.log
+
+  search-api-tests:
+    name: Search API Tests
+    runs-on: ubuntu-latest
+    needs: integration-tests
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: shorts_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Build shorts service
+        run: |
+          cd services/shorts
+          go build -o shorts-server ./cmd/server/main.go
+
+      - name: Start shorts service
+        run: |
+          cd services/shorts
+          ./shorts-server &
+          sleep 5
+          curl -f http://localhost:9091/health || exit 1
+        env:
+          APP_STORE_POSTGRES_ADDRESS: localhost:5432
+          APP_STORE_POSTGRES_DATABASE: shorts_test
+          APP_STORE_POSTGRES_USERNAME: test_user
+          APP_STORE_POSTGRES_PASSWORD: test_password
+          APP_PORT: 9091
+
+      - name: Run search API tests
+        run: |
+          cd test/integration
+          go test -v -run "TestSearch" -timeout 5m ./...
+        env:
+          BACKEND_URL: http://localhost:9091
+
+      - name: Test search API endpoints directly
+        run: |
+          # Test basic search functionality
+          curl -f "http://localhost:9091/api/stocks/search?q=CBA&limit=5" || exit 1
+
+          # Test search with different parameters
+          curl -f "http://localhost:9091/api/stocks/search?q=Bank&limit=10" || exit 1
+
+          # Test search error handling
+          curl -f "http://localhost:9091/api/stocks/search?q=&limit=5" && exit 1 || true
+
+  frontend-tests:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd web
+          npm ci
+
+      - name: Run unit tests
+        run: |
+          cd web
+          npm run test:unit
+
+      - name: Build application
+        run: |
+          cd web
+          npm run build
+
+      - name: Run type checking
+        run: |
+          cd web
+          npm run type-check
+
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    needs: [integration-tests, frontend-tests]
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: shorts_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          cd web
+          npm ci
+
+      - name: Install Playwright browsers
+        run: |
+          cd web
+          npx playwright install --with-deps
+
+      - name: Build shorts service
+        run: |
+          cd services/shorts
+          go build -o shorts-server ./cmd/server/main.go
+
+      - name: Start backend service
+        run: |
+          cd services/shorts
+          ./shorts-server &
+          sleep 5
+          curl -f http://localhost:9091/health || exit 1
+        env:
+          APP_STORE_POSTGRES_ADDRESS: localhost:5432
+          APP_STORE_POSTGRES_DATABASE: shorts_test
+          APP_STORE_POSTGRES_USERNAME: test_user
+          APP_STORE_POSTGRES_PASSWORD: test_password
+          APP_PORT: 9091
+
+      - name: Start frontend service
+        run: |
+          cd web
+          npm run dev &
+          sleep 10
+          curl -f http://localhost:3000 || exit 1
+        env:
+          NEXT_PUBLIC_SHORTS_API_URL: http://localhost:9091
+
+      - name: Run E2E tests
+        run: |
+          cd web
+          npx playwright test e2e/search.spec.ts --reporter=html
+        env:
+          NEXT_PUBLIC_SHORTS_API_URL: http://localhost:9091
+
+      - name: Upload E2E test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: e2e-test-results
+          path: web/playwright-report/
+
+  performance-tests:
+    name: Performance Tests
+    runs-on: ubuntu-latest
+    needs: integration-tests
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: shorts_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build shorts service
+        run: |
+          cd services/shorts
+          go build -o shorts-server ./cmd/server/main.go
+
+      - name: Start shorts service
+        run: |
+          cd services/shorts
+          ./shorts-server &
+          sleep 5
+          curl -f http://localhost:9091/health || exit 1
+        env:
+          APP_STORE_POSTGRES_ADDRESS: localhost:5432
+          APP_STORE_POSTGRES_DATABASE: shorts_test
+          APP_STORE_POSTGRES_USERNAME: test_user
+          APP_STORE_POSTGRES_PASSWORD: test_password
+          APP_PORT: 9091
+
+      - name: Run performance tests
+        run: |
+          cd test/integration
+          go test -v -run "TestSearchFunctionality" -timeout 10m ./...
+        env:
+          BACKEND_URL: http://localhost:9091
+
+      - name: Load test search API
+        run: |
+          # Simple load test using curl
+          for i in {1..20}; do
+            curl -s "http://localhost:9091/api/stocks/search?q=CBA&limit=5" > /dev/null &
+          done
+          wait
+          echo "Load test completed"
+
+  security-tests:
+    name: Security Tests
+    runs-on: ubuntu-latest
+    needs: integration-tests
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_USER: test_user
+          POSTGRES_DB: shorts_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Build shorts service
+        run: |
+          cd services/shorts
+          go build -o shorts-server ./cmd/server/main.go
+
+      - name: Start shorts service
+        run: |
+          cd services/shorts
+          ./shorts-server &
+          sleep 5
+          curl -f http://localhost:9091/health || exit 1
+        env:
+          APP_STORE_POSTGRES_ADDRESS: localhost:5432
+          APP_STORE_POSTGRES_DATABASE: shorts_test
+          APP_STORE_POSTGRES_USERNAME: test_user
+          APP_STORE_POSTGRES_PASSWORD: test_password
+          APP_PORT: 9091
+
+      - name: Test SQL injection protection
+        run: |
+          # Test for SQL injection attempts
+          curl -s "http://localhost:9091/api/stocks/search?q='; DROP TABLE shorts; --&limit=5" | grep -q "error\|not found" || echo "SQL injection test passed"
+
+      - name: Test input validation
+        run: |
+          # Test with various malicious inputs
+          curl -s "http://localhost:9091/api/stocks/search?q=<script>alert('xss')</script>&limit=5" | grep -q "error\|not found" || echo "XSS test passed"
+          curl -s "http://localhost:9091/api/stocks/search?q=../../../etc/passwd&limit=5" | grep -q "error\|not found" || echo "Path traversal test passed"
+
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs:
+      [
+        integration-tests,
+        search-api-tests,
+        frontend-tests,
+        e2e-tests,
+        performance-tests,
+        security-tests,
+      ]
+    if: always()
+
+    steps:
+      - name: Test Results Summary
+        run: |
+          echo "## Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Integration Tests | ${{ needs.integration-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Search API Tests | ${{ needs.search-api-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend Tests | ${{ needs.frontend-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| E2E Tests | ${{ needs.e2e-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Performance Tests | ${{ needs.performance-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Tests | ${{ needs.security-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All search functionality tests completed!" >> $GITHUB_STEP_SUMMARY

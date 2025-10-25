@@ -37,6 +37,10 @@ func (s *StoreAdapter) GetIndustryTreeMap(limit int32, period, viewMode string) 
 	return s.store.GetIndustryTreeMap(limit, period, viewMode)
 }
 
+func (s *StoreAdapter) SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error) {
+	return s.store.SearchStocks(query, limit)
+}
+
 // LoggerAdapter adapts the standard logger to the Logger interface
 type LoggerAdapter struct{}
 

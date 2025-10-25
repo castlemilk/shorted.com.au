@@ -218,6 +218,44 @@ service ShortedStocksService {
       },
     };
   }
+  
+  // Search stocks by symbol or company name
+  rpc SearchStocks (SearchStocksRequest) returns (SearchStocksResponse) {
+    option (gnostic.openapi.v3.operation) = {
+      deprecated: false,
+      description: "Search ASX stocks by symbol or company name",
+      responses: {
+        response_or_reference: {
+          name: "400"
+          value: {
+            response: {
+              description: "Bad Request"
+            }
+          }
+        },
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "OK"
+            }
+          }
+        } 
+      },
+      security: [
+        {
+          additional_properties: [
+            {
+              name: "BasicAuth";
+              value: {
+                value: []
+              }
+            }
+          ]
+        }
+      ]
+    };
+  }
 }
 
 // Request for Top10 RPC, specifying the period of time.
@@ -264,4 +302,18 @@ message GetStockDetailsRequest {
 message GetStockDataRequest {
   string product_code = 1;
   string period = 2;
+}
+
+// Request for SearchStocks RPC, specifying the search query.
+message SearchStocksRequest {
+  string query = 1;           // Search query (symbol or company name)
+  int32 limit = 2;           // Maximum number of results to return (default: 50)
+  bool include_details = 3;  // Whether to include detailed stock information
+}
+
+// Response for SearchStocks RPC, containing matching stocks.
+message SearchStocksResponse {
+  string query = 1;                    // The search query used
+  repeated stocks.v1alpha1.Stock stocks = 2;  // Matching stocks
+  int32 count = 3;                     // Number of results returned
 }

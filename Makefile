@@ -1,11 +1,20 @@
 # Shorted.com.au Root Makefile
 # Orchestrates testing and building for both frontend and backend
 
-.PHONY: help test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down install clean build dev dev-script dev-frontend dev-backend lint format populate-data populate-data-quick
+.PHONY: help run test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down install clean build dev dev-script dev-frontend dev-backend lint format populate-data populate-data-quick
 
 # Default target
 help:
 	@echo "Available commands:"
+	@echo "  run           - Start all services for local development (alias for dev)"
+	@echo "  dev           - Start database, backend and frontend dev servers"
+	@echo "  dev-db        - Start PostgreSQL database only"
+	@echo "  dev-frontend  - Start frontend dev server only"
+	@echo "  dev-backend   - Start backend dev server only"
+	@echo "  dev-stop      - Stop all development services"
+	@echo "  install       - Install all dependencies"
+	@echo "  clean         - Clean all build artifacts"
+	@echo "  build         - Build frontend and backend"
 	@echo "  test          - Run all tests (frontend + backend)"
 	@echo "  test-frontend - Run frontend tests only"
 	@echo "  test-backend  - Run backend tests only"
@@ -18,14 +27,6 @@ help:
 	@echo "  test-e2e-headed - Run E2E tests in headed browser mode"
 	@echo "  test-stack-up - Start test environment"
 	@echo "  test-stack-down - Stop test environment"
-	@echo "  install       - Install all dependencies"
-	@echo "  clean         - Clean all build artifacts"
-	@echo "  build         - Build frontend and backend"
-	@echo "  dev           - Start database, backend and frontend dev servers"
-	@echo "  dev-db        - Start PostgreSQL database only"
-	@echo "  dev-frontend  - Start frontend dev server only"
-	@echo "  dev-backend   - Start backend dev server only"
-	@echo "  dev-stop      - Stop all development services"
 	@echo "  lint          - Run linting for all projects"
 	@echo "  format        - Format code for all projects"
 	@echo "  populate-data - Download and populate database with ASIC short selling data"
@@ -103,6 +104,8 @@ build-backend:
 	@cd services && make build.shorts
 
 # Development commands
+run: dev ## Start all services for local development (alias for dev)
+
 dev: dev-stop-services dev-db ## Start database, backend and frontend development servers
 	@if [ -f package.json ] && command -v npm >/dev/null 2>&1; then \
 		echo "🚀 Starting full application with npm concurrently..."; \
@@ -146,9 +149,9 @@ dev-backend:
 
 dev-stop-services: ## Stop only application services (not database)
 	@echo "🛑 Stopping application services..."
-	@pkill -f "next dev" 2>/dev/null || true
-	@pkill -f "go run" 2>/dev/null || true
+	@echo "Stopping frontend service on port 3020..."
 	@lsof -ti:3020 | xargs kill -9 2>/dev/null || true
+	@echo "Stopping backend service on port 9091..."
 	@lsof -ti:9091 | xargs kill -9 2>/dev/null || true
 	@echo "✅ Application services stopped"
 

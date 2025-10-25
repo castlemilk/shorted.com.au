@@ -1,41 +1,37 @@
-# Build stage
-FROM golang:1.22-alpine AS builder
+# Use Python 3.12 for better compatibility with our tested environment
+FROM python:3.12
 
-# Install build dependencies
-RUN apk add --no-cache git
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8080
+ENV PATH="/usr/local/bin:${PATH}"
 
 # Set working directory
 WORKDIR /app
 
-# Copy go mod files from services directory
-COPY go.mod go.sum ./
+# Copy requirements first for better caching
+COPY requirements.txt .
 
-# Download dependencies
-RUN go mod download
+# Install Python dependencies with retry and timeout settings
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir --timeout 120 --retries 5 -r requirements.txt
 
-# Copy entire services directory
+# Copy application code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o market-data-service ./market-data
+# Make Python files executable
+RUN chmod +x *.py
 
-# Runtime stage
-FROM alpine:latest
+# Create non-root user for security
+RUN useradd -m -u 1001 appuser && chown -R appuser:appuser /app
+USER appuser
 
-# Install ca-certificates for HTTPS
-RUN apk --no-cache add ca-certificates
-
-WORKDIR /root/
-
-# Copy the binary from builder
-COPY --from=builder /app/market-data-service .
+# Health check endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python3 -c "import requests; requests.get('http://localhost:8080/health')" || exit 1
 
 # Expose port
-EXPOSE 8090
+EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8090/health || exit 1
-
-# Run the binary
-CMD ["./market-data-service"]
+# Run the enhanced application
+CMD ["python3", "cloud_run_service_v4.py"]

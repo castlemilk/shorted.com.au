@@ -353,7 +353,7 @@ def main(start_date, end_date, stocks, db_url, workers, retry_failed):
     
     # Get DB URL
     if not db_url:
-        db_url = 'postgresql://admin:admin@localhost:5438/shorts'
+        raise ValueError("DATABASE_URL environment variable is required")
     
     # Create ingestion instance
     ingestion = HistoricalDataIngestion(db_url, max_workers=workers)

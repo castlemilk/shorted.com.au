@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -13,18 +14,18 @@ import (
 // Function to convert period enum values to PostgreSQL interval strings.
 func periodToInterval(period string) string {
 	switch period {
-	case "1m":
+	case "1D":
+		return "1 day"
+	case "1W":
+		return "1 week"
+	case "1M":
 		return "1 month"
-	case "3m":
+	case "3M":
 		return "3 month"
-	case "6m":
+	case "6M":
 		return "6 month"
-	case "1y":
+	case "1Y":
 		return "1 year"
-	case "2y":
-		return "2 year"
-	case "max":
-		return "10 year"
 	default:
 		return "6 month"
 	}
@@ -48,6 +49,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 	defer connection.Release()
 
 	interval := periodToInterval(period)
+	log.Infof("Period: %s, Interval: %s", period, interval)
 	
 	// Optimized query for top product codes
 	topCodesQuery := fmt.Sprintf(`

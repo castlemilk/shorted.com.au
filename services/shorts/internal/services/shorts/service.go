@@ -146,3 +146,52 @@ func (s *ShortsServer) GetIndustryTreeMap(ctx context.Context, req *connect.Requ
 	
 	return connect.NewResponse(treeMap), nil
 }
+
+// SearchStocks searches for stocks by symbol or company name
+// TODO: Uncomment when protobuf is regenerated with SearchStocksRequest and SearchStocksResponse
+/*
+func (s *ShortsServer) SearchStocks(ctx context.Context, req *connect.Request[shortsv1alpha1.SearchStocksRequest]) (*connect.Response[shortsv1alpha1.SearchStocksResponse], error) {
+	// Set default values
+	if req.Msg.Limit <= 0 {
+		req.Msg.Limit = 50
+	}
+	if req.Msg.Limit > 100 {
+		req.Msg.Limit = 100 // Cap at 100 results
+	}
+	
+	// Validate request
+	if req.Msg.Query == "" {
+		s.logger.Errorf("validation failed for SearchStocks: empty query")
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("search query cannot be empty"))
+	}
+	
+	s.logger.Debugf("search stocks, query: %s, limit: %d", req.Msg.Query, req.Msg.Limit)
+	
+	// Check cache first
+	cacheKey := s.cache.GetSearchStocksKey(req.Msg.Query, req.Msg.Limit)
+	
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+		s.logger.Debugf("cache miss for SearchStocks, fetching from database")
+		
+		stocks, err := s.store.SearchStocks(req.Msg.Query, req.Msg.Limit)
+		if err != nil {
+			return nil, err
+		}
+
+		return &shortsv1alpha1.SearchStocksResponse{
+			Query: req.Msg.Query,
+			Stocks: stocks,
+			Count: int32(len(stocks)),
+		}, nil
+	})
+	
+	if err != nil {
+		s.logger.Errorf("database error in SearchStocks: query=%s, limit=%d, err=%v", 
+			req.Msg.Query, req.Msg.Limit, err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to search stocks"))
+	}
+	
+	response := cachedResponse.(*shortsv1alpha1.SearchStocksResponse)
+	return connect.NewResponse(response), nil
+}
+*/

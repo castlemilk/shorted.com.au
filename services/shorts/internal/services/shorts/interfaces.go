@@ -13,6 +13,7 @@ type ShortsStore interface {
 	GetStockData(productCode, period string) (*stocksv1alpha1.TimeSeriesData, error)
 	GetStockDetails(productCode string) (*stocksv1alpha1.StockDetails, error)
 	GetIndustryTreeMap(limit int32, period, viewMode string) (*stocksv1alpha1.IndustryTreeMap, error)
+	SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error)
 }
 
 // Cache defines the interface for caching operations
@@ -30,6 +31,7 @@ type Cache interface {
 	GetStockDataKey(productCode, period string) string
 	GetStockDetailsKey(productCode string) string
 	GetIndustryTreeMapKey(limit int32, period, viewMode string) string
+	GetSearchStocksKey(query string, limit int32) string
 }
 
 // Logger defines the interface for logging operations
