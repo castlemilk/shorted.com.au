@@ -3,7 +3,7 @@ FROM python:3.12
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
-ENV PORT=8080
+ENV PORT=8090
 ENV PATH="/usr/local/bin:${PATH}"
 
 # Set working directory
@@ -28,10 +28,10 @@ USER appuser
 
 # Health check endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python3 -c "import requests; requests.get('http://localhost:8080/health')" || exit 1
+    CMD python3 -c "import requests; requests.get('http://localhost:8090/health')" || exit 1
 
 # Expose port
-EXPOSE 8080
+EXPOSE 8090
 
 # Run the enhanced application
 CMD ["python3", "cloud_run_service_v4.py"]
