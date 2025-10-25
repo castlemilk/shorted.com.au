@@ -250,7 +250,7 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 		ORDER BY 
 			sort_priority,
 			"PRODUCT_CODE" ASC
-		LIMIT $2`
+		LIMIT $4`
 	
 	// Create context with timeout to prevent hanging
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
