@@ -3,6 +3,7 @@ package shorts
 import (
 	"context"
 	"fmt"
+	"time"
 
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
@@ -186,6 +187,8 @@ func (s *postgresStore) RegisterEmail(email string) error {
 
 // SearchStocks searches for stocks by symbol or company name
 func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error) {
+	log.Debugf("Searching stocks with query: %s, limit: %d", query, limit)
+	
 	// Search query that looks for matches in product code or product name
 	searchQuery := `
 		SELECT DISTINCT 
@@ -196,11 +199,18 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 			"REPORTED_SHORT_POSITIONS" as reportedShortPositions
 		FROM shorts 
 		WHERE "PRODUCT_CODE" ILIKE $1 OR "PRODUCT" ILIKE $1
-		ORDER BY "PRODUCT_CODE" ASC
+		ORDER BY 
+			CASE WHEN "PRODUCT_CODE" ILIKE $1 THEN 1 ELSE 2 END,
+			"PRODUCT_CODE" ASC
 		LIMIT $2`
 	
-	rows, err := s.db.Query(context.Background(), searchQuery, "%"+query+"%", limit)
+	// Create context with timeout to prevent hanging
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	rows, err := s.db.Query(ctx, searchQuery, "%"+query+"%", limit)
 	if err != nil {
+		log.Errorf("Database query failed for search '%s': %v", query, err)
 		return nil, fmt.Errorf("failed to search stocks: %w", err)
 	}
 	defer rows.Close()
@@ -222,8 +232,10 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 	}
 	
 	if err := rows.Err(); err != nil {
+		log.Errorf("Error iterating rows for search '%s': %v", query, err)
 		return nil, fmt.Errorf("error iterating rows: %w", err)
 	}
 	
+	log.Debugf("Search completed for '%s': found %d stocks", query, len(stocks))
 	return stocks, nil
 }
