@@ -82,10 +82,21 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		}
 		
 		// Search stocks
+		if s.store == nil {
+			logger.Errorf("Store is nil")
+			http.Error(w, "Service not initialized", http.StatusInternalServerError)
+			return
+		}
+		
 		stocks, err := s.store.SearchStocks(query, limit)
 		if err != nil {
-			logger.Errorf("Error searching stocks: %v", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			logger.Errorf("Error searching stocks for query '%s': %v", query, err)
+			// Check if it's a timeout error
+			if err.Error() == "search query timed out" {
+				http.Error(w, "Search timeout", http.StatusRequestTimeout)
+			} else {
+				http.Error(w, "Internal server error", http.StatusInternalServerError)
+			}
 			return
 		}
 		
@@ -95,11 +106,11 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		
 		// Create proper JSON response structure
 		type StockResponse struct {
-			ProductCode           string  `json:"product_code"`
+			ProductCode           string  `json:"productCode"`
 			Name                  string  `json:"name"`
-			PercentageShorted     float64 `json:"percentage_shorted"`
-			TotalProductInIssue   float64 `json:"total_product_in_issue"`
-			ReportedShortPositions float64 `json:"reported_short_positions"`
+			PercentageShorted     float64 `json:"percentageShorted"`
+			TotalProductInIssue   float64 `json:"totalProductInIssue"`
+			ReportedShortPositions float64 `json:"reportedShortPositions"`
 		}
 		
 		type SearchResponse struct {
