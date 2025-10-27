@@ -47,15 +47,15 @@ func newPostgresStore(config Config) Store {
 func (s *postgresStore) GetStock(productCode string) (*stocksv1alpha1.Stock, error) {
 	rows, _ := s.db.Query(context.Background(),
 		`
-SELECT "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentageShorted,
-	"PRODUCT_CODE" as productCode,
+SELECT "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
+	"PRODUCT_CODE" as product_code,
 	"PRODUCT" as name, 
-	"TOTAL_PRODUCT_IN_ISSUE" as totalProductInIssue, 
-	"REPORTED_SHORT_POSITIONS" as reportedShortPositions
+	"TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue, 
+	"REPORTED_SHORT_POSITIONS" as reported_short_positions
 FROM shorts WHERE "PRODUCT_CODE" = $1 
 ORDER BY "DATE" DESC LIMIT 1`,
 		productCode)
-	stock, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[stocksv1alpha1.Stock]) // Update as per actual table schema
+	stock, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[stocksv1alpha1.Stock])
 	if err != nil {
 		return nil, err
 	}
@@ -205,28 +205,27 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 	// Optimized search query that uses indexes efficiently
 	// First try exact PRODUCT_CODE matches, then partial matches
 	searchQuery := `
-		WITH search_results AS (
-			-- Exact PRODUCT_CODE matches (highest priority)
-			SELECT DISTINCT ON ("PRODUCT_CODE")
-				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentageShorted,
-				"PRODUCT_CODE" as productCode,
+		WITH results AS (
+			SELECT 
+				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
+				"PRODUCT_CODE" as product_code,
 				"PRODUCT" as name, 
-				"TOTAL_PRODUCT_IN_ISSUE" as totalProductInIssue, 
-				"REPORTED_SHORT_POSITIONS" as reportedShortPositions,
+				"TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue, 
+				"REPORTED_SHORT_POSITIONS" as reported_short_positions,
 				1 as sort_priority
 			FROM shorts 
 			WHERE "PRODUCT_CODE" = $1
-			ORDER BY "PRODUCT_CODE", "DATE" DESC
+			ORDER BY "DATE" DESC
+			LIMIT 1
 			
 			UNION ALL
 			
-			-- Partial PRODUCT_CODE matches (medium priority)
 			SELECT DISTINCT ON ("PRODUCT_CODE")
-				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentageShorted,
-				"PRODUCT_CODE" as productCode,
+				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
+				"PRODUCT_CODE" as product_code,
 				"PRODUCT" as name, 
-				"TOTAL_PRODUCT_IN_ISSUE" as totalProductInIssue, 
-				"REPORTED_SHORT_POSITIONS" as reportedShortPositions,
+				"TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue, 
+				"REPORTED_SHORT_POSITIONS" as reported_short_positions,
 				2 as sort_priority
 			FROM shorts 
 			WHERE "PRODUCT_CODE" ILIKE $2 AND "PRODUCT_CODE" != $1
@@ -234,22 +233,20 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 			
 			UNION ALL
 			
-			-- PRODUCT name matches (lowest priority)
 			SELECT DISTINCT ON ("PRODUCT_CODE")
-				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentageShorted,
-				"PRODUCT_CODE" as productCode,
+				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
+				"PRODUCT_CODE" as product_code,
 				"PRODUCT" as name, 
-				"TOTAL_PRODUCT_IN_ISSUE" as totalProductInIssue, 
-				"REPORTED_SHORT_POSITIONS" as reportedShortPositions,
+				"TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue, 
+				"REPORTED_SHORT_POSITIONS" as reported_short_positions,
 				3 as sort_priority
 			FROM shorts 
 			WHERE "PRODUCT" ILIKE $3
 			ORDER BY "PRODUCT_CODE", "DATE" DESC
 		)
-		SELECT * FROM search_results
-		ORDER BY 
-			sort_priority,
-			"PRODUCT_CODE" ASC
+		SELECT percentage_shorted, product_code, name, total_product_in_issue, reported_short_positions, sort_priority
+		FROM results
+		ORDER BY sort_priority, product_code
 		LIMIT $4`
 	
 	// Create context with timeout to prevent hanging
@@ -272,29 +269,35 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 	}
 	defer rows.Close()
 	
-	var stocks []*stocksv1alpha1.Stock
+	// Custom scan function to handle sort_priority
+	type searchResult struct {
+		stocksv1alpha1.Stock
+		SortPriority int32 `db:"sort_priority"`
+	}
+	
+	var results []searchResult
 	for rows.Next() {
-		var stock stocksv1alpha1.Stock
-		var sortPriority int
-		err := rows.Scan(
-			&stock.PercentageShorted,
-			&stock.ProductCode,
-			&stock.Name,
-			&stock.TotalProductInIssue,
-			&stock.ReportedShortPositions,
-			&sortPriority, // Dummy variable for sort_priority column
-		)
-		if err != nil {
+		var result searchResult
+		if err := rows.Scan(
+			&result.PercentageShorted,
+			&result.ProductCode,
+			&result.Name,
+			&result.TotalProductInIssue,
+			&result.ReportedShortPositions,
+			&result.SortPriority,
+		); err != nil {
+			log.Errorf("Failed to scan stock row for search '%s': %v", query, err)
 			return nil, fmt.Errorf("failed to scan stock row: %w", err)
 		}
-		stocks = append(stocks, &stock)
+		results = append(results, result)
 	}
 	
-	if err := rows.Err(); err != nil {
-		log.Errorf("Error iterating rows for search '%s': %v", query, err)
-		return nil, fmt.Errorf("error iterating rows: %w", err)
+	// Convert []searchResult to []*stocksv1alpha1.Stock
+	stockPointers := make([]*stocksv1alpha1.Stock, len(results))
+	for i := range results {
+		stockPointers[i] = &results[i].Stock
 	}
 	
-	log.Debugf("Search completed for '%s': found %d stocks", query, len(stocks))
-	return stocks, nil
+	log.Debugf("Search completed for '%s': found %d stocks", query, len(results))
+	return stockPointers, nil
 }
