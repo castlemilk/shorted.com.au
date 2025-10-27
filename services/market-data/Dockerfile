@@ -26,8 +26,8 @@ RUN chmod +x *.py
 RUN useradd -m -u 1001 appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Health check endpoint
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+# Health check endpoint with longer start period to allow initialization
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD python3 -c "import requests; requests.get('http://localhost:8090/health')" || exit 1
 
 # Expose port
