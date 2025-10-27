@@ -79,9 +79,9 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 				http.Error(w, "Invalid limit parameter", http.StatusBadRequest)
 				return
 			}
-			// Validate limit is positive and reasonable
-			if limit <= 0 {
-				http.Error(w, "Limit must be positive", http.StatusBadRequest)
+			// Validate limit is non-negative and reasonable
+			if limit < 0 {
+				http.Error(w, "Limit must be non-negative", http.StatusBadRequest)
 				return
 			}
 			// Cap limit at 1000 to prevent DOS
