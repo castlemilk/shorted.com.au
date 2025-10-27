@@ -41,12 +41,22 @@ type GetStockRequest struct {
 	ProductCode string `json:"productCode"`
 }
 
+// Stock is used for HTTP search API responses (snake_case JSON)
 type Stock struct {
 	ProductCode            string  `json:"product_code"`
 	Name                   string  `json:"name"`
 	TotalProductInIssue    float32 `json:"total_product_in_issue"`
 	ReportedShortPositions float32 `json:"reported_short_positions"`
 	PercentageShorted      float32 `json:"percentage_shorted"`
+}
+
+// ConnectRPCStock is used for ConnectRPC responses (camelCase JSON)
+type ConnectRPCStock struct {
+	ProductCode            string  `json:"productCode"`
+	Name                   string  `json:"name"`
+	TotalProductInIssue    float32 `json:"totalProductInIssue"`
+	ReportedShortPositions float32 `json:"reportedShortPositions"`
+	PercentageShorted      float32 `json:"percentageShorted"`
 }
 
 type GetStockDataRequest struct {
@@ -142,7 +152,7 @@ func TestAPIEndpoints(t *testing.T) {
 						resp.StatusCode, "Unexpected status code for GetStock")
 					
 					if resp.StatusCode == http.StatusOK {
-						var response Stock
+						var response ConnectRPCStock
 						err = json.NewDecoder(resp.Body).Decode(&response)
 						assert.NoError(t, err, "Failed to decode GetStock response")
 						
