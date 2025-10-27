@@ -7,84 +7,23 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
+	"go.uber.org/mock/gomock"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts/mocks"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// MockStore is a mock implementation of the ShortsStore interface
-type MockStore struct {
-	mock.Mock
-}
-
-func (m *MockStore) GetTopShorts(period string, limit int32, offset int32) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
-	args := m.Called(period, limit, offset)
-	if args.Get(0) == nil {
-		return nil, args.Int(1), args.Error(2)
-	}
-	return args.Get(0).([]*stocksv1alpha1.TimeSeriesData), args.Int(1), args.Error(2)
-}
-
-func (m *MockStore) GetStock(productCode string) (*stocksv1alpha1.Stock, error) {
-	args := m.Called(productCode)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*stocksv1alpha1.Stock), args.Error(1)
-}
-
-func (m *MockStore) GetStockData(productCode, period string) (*stocksv1alpha1.TimeSeriesData, error) {
-	args := m.Called(productCode, period)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*stocksv1alpha1.TimeSeriesData), args.Error(1)
-}
-
-func (m *MockStore) GetStockDetails(productCode string) (*stocksv1alpha1.StockDetails, error) {
-	args := m.Called(productCode)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*stocksv1alpha1.StockDetails), args.Error(1)
-}
-
-func (m *MockStore) GetIndustryTreeMap(limit int32, period, viewMode string) (*stocksv1alpha1.IndustryTreeMap, error) {
-	args := m.Called(limit, period, viewMode)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*stocksv1alpha1.IndustryTreeMap), args.Error(1)
-}
-
-// MockLogger is a mock implementation of the Logger interface
-type MockLogger struct {
-	mock.Mock
-}
-
-func (m *MockLogger) Debugf(format string, args ...interface{}) {
-	m.Called(format, args)
-}
-
-func (m *MockLogger) Infof(format string, args ...interface{}) {
-	m.Called(format, args)
-}
-
-func (m *MockLogger) Warnf(format string, args ...interface{}) {
-	m.Called(format, args)
-}
-
-func (m *MockLogger) Errorf(format string, args ...interface{}) {
-	m.Called(format, args)
-}
 
 func TestShortsServer_GetTopShorts(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	tests := []struct {
 		name           string
 		request        *shortsv1alpha1.GetTopShortsRequest
-		setupMock      func(*MockStore, *MockLogger)
+		setupMock      func(*mocks.MockShortsStore, *mocks.MockLogger)
 		expectedError  bool
 		expectedCode   connect.Code
 		validateResult func(*testing.T, *shortsv1alpha1.GetTopShortsResponse)
@@ -96,9 +35,9 @@ func TestShortsServer_GetTopShorts(t *testing.T) {
 				Limit:  0,
 				Offset: 0,
 			},
-			setupMock: func(m *MockStore, l *MockLogger) {
-				l.On("Debugf", mock.Anything, mock.Anything).Maybe()
-				m.On("GetTopShorts", "1M", int32(50), int32(0)).Return([]*stocksv1alpha1.TimeSeriesData{
+			setupMock: func(m *mocks.MockShortsStore, l *mocks.MockLogger) {
+				l.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
+				m.EXPECT().GetTopShorts("1M", int32(50), int32(0)).Return([]*stocksv1alpha1.TimeSeriesData{
 					{
 						ProductCode:         "CBA",
 						Name:                "Commonwealth Bank",
@@ -126,9 +65,9 @@ func TestShortsServer_GetTopShorts(t *testing.T) {
 				Limit:  20,
 				Offset: 10,
 			},
-			setupMock: func(m *MockStore, l *MockLogger) {
-				l.On("Debugf", mock.Anything, mock.Anything).Maybe()
-				m.On("GetTopShorts", "3M", int32(20), int32(10)).Return([]*stocksv1alpha1.TimeSeriesData{
+			setupMock: func(m *mocks.MockShortsStore, l *mocks.MockLogger) {
+				l.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
+				m.EXPECT().GetTopShorts("3M", int32(20), int32(10)).Return([]*stocksv1alpha1.TimeSeriesData{
 					{
 						ProductCode:         "ZIP",
 						Name:                "ZIP Co Limited",
@@ -156,8 +95,8 @@ func TestShortsServer_GetTopShorts(t *testing.T) {
 				Limit:  10,
 				Offset: 0,
 			},
-			setupMock: func(m *MockStore, l *MockLogger) {
-				l.On("Errorf", mock.Anything, mock.Anything).Maybe()
+			setupMock: func(m *mocks.MockShortsStore, l *mocks.MockLogger) {
+				l.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
 			},
 			expectedError: true,
 			expectedCode:  connect.CodeInvalidArgument,
@@ -169,8 +108,8 @@ func TestShortsServer_GetTopShorts(t *testing.T) {
 				Limit:  -10,
 				Offset: 0,
 			},
-			setupMock: func(m *MockStore, l *MockLogger) {
-				l.On("Errorf", mock.Anything, mock.Anything).Maybe()
+			setupMock: func(m *mocks.MockShortsStore, l *mocks.MockLogger) {
+				l.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
 			},
 			expectedError: true,
 			expectedCode:  connect.CodeInvalidArgument,
@@ -182,10 +121,10 @@ func TestShortsServer_GetTopShorts(t *testing.T) {
 				Limit:  10,
 				Offset: 0,
 			},
-			setupMock: func(m *MockStore, l *MockLogger) {
-				l.On("Debugf", mock.Anything, mock.Anything).Maybe()
-				l.On("Errorf", mock.Anything, mock.Anything).Maybe()
-				m.On("GetTopShorts", "1M", int32(10), int32(0)).Return(nil, 0, assert.AnError)
+			setupMock: func(m *mocks.MockShortsStore, l *mocks.MockLogger) {
+				l.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
+				l.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
+				m.EXPECT().GetTopShorts("1M", int32(10), int32(0)).Return(nil, 0, assert.AnError)
 			},
 			expectedError: true,
 			expectedCode:  connect.CodeInternal,
@@ -194,8 +133,8 @@ func TestShortsServer_GetTopShorts(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockStore := new(MockStore)
-			mockLogger := new(MockLogger)
+			mockStore := mocks.NewMockShortsStore(ctrl)
+			mockLogger := mocks.NewMockLogger(ctrl)
 			tt.setupMock(mockStore, mockLogger)
 
 			server := &ShortsServer{
@@ -218,18 +157,18 @@ func TestShortsServer_GetTopShorts(t *testing.T) {
 					tt.validateResult(t, resp.Msg)
 				}
 			}
-
-			mockStore.AssertExpectations(t)
-			mockLogger.AssertExpectations(t)
 		})
 	}
 }
 
 func TestShortsServer_GetStock(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	tests := []struct {
 		name           string
 		request        *shortsv1alpha1.GetStockRequest
-		setupMock      func(*MockStore, *MockLogger)
+		setupMock      func(*mocks.MockShortsStore, *mocks.MockLogger)
 		expectedError  bool
 		expectedCode   connect.Code
 		validateResult func(*testing.T, *stocksv1alpha1.Stock)
@@ -239,9 +178,9 @@ func TestShortsServer_GetStock(t *testing.T) {
 			request: &shortsv1alpha1.GetStockRequest{
 				ProductCode: "CBA",
 			},
-			setupMock: func(m *MockStore, l *MockLogger) {
-				l.On("Debugf", mock.Anything, mock.Anything).Maybe()
-				m.On("GetStock", "CBA").Return(&stocksv1alpha1.Stock{
+			setupMock: func(m *mocks.MockShortsStore, l *mocks.MockLogger) {
+				l.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
+				m.EXPECT().GetStock("CBA").Return(&stocksv1alpha1.Stock{
 					ProductCode:            "CBA",
 					Name:                   "Commonwealth Bank",
 					PercentageShorted:      2.5,
@@ -261,9 +200,9 @@ func TestShortsServer_GetStock(t *testing.T) {
 			request: &shortsv1alpha1.GetStockRequest{
 				ProductCode: "  cba  ",
 			},
-			setupMock: func(m *MockStore, l *MockLogger) {
-				l.On("Debugf", mock.Anything, mock.Anything).Maybe()
-				m.On("GetStock", "CBA").Return(&stocksv1alpha1.Stock{
+			setupMock: func(m *mocks.MockShortsStore, l *mocks.MockLogger) {
+				l.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
+				m.EXPECT().GetStock("CBA").Return(&stocksv1alpha1.Stock{
 					ProductCode: "CBA",
 					Name:        "Commonwealth Bank",
 				}, nil)
@@ -278,8 +217,8 @@ func TestShortsServer_GetStock(t *testing.T) {
 			request: &shortsv1alpha1.GetStockRequest{
 				ProductCode: "",
 			},
-			setupMock: func(m *MockStore, l *MockLogger) {
-				l.On("Errorf", mock.Anything, mock.Anything).Maybe()
+			setupMock: func(m *mocks.MockShortsStore, l *mocks.MockLogger) {
+				l.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
 			},
 			expectedError: true,
 			expectedCode:  connect.CodeInvalidArgument,
@@ -289,8 +228,8 @@ func TestShortsServer_GetStock(t *testing.T) {
 			request: &shortsv1alpha1.GetStockRequest{
 				ProductCode: "INVALID123",
 			},
-			setupMock: func(m *MockStore, l *MockLogger) {
-				l.On("Errorf", mock.Anything, mock.Anything).Maybe()
+			setupMock: func(m *mocks.MockShortsStore, l *mocks.MockLogger) {
+				l.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
 			},
 			expectedError: true,
 			expectedCode:  connect.CodeInvalidArgument,
@@ -299,8 +238,8 @@ func TestShortsServer_GetStock(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockStore := new(MockStore)
-			mockLogger := new(MockLogger)
+			mockStore := mocks.NewMockShortsStore(ctrl)
+			mockLogger := mocks.NewMockLogger(ctrl)
 			tt.setupMock(mockStore, mockLogger)
 
 			server := &ShortsServer{
@@ -323,18 +262,18 @@ func TestShortsServer_GetStock(t *testing.T) {
 					tt.validateResult(t, resp.Msg)
 				}
 			}
-
-			mockStore.AssertExpectations(t)
-			mockLogger.AssertExpectations(t)
 		})
 	}
 }
 
 func TestShortsServer_GetStockData(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
 	tests := []struct {
 		name           string
 		request        *shortsv1alpha1.GetStockDataRequest
-		setupMock      func(*MockStore, *MockLogger)
+		setupMock      func(*mocks.MockShortsStore, *mocks.MockLogger)
 		expectedError  bool
 		expectedCode   connect.Code
 		validateResult func(*testing.T, *stocksv1alpha1.TimeSeriesData)
@@ -345,10 +284,10 @@ func TestShortsServer_GetStockData(t *testing.T) {
 				ProductCode: "CBA",
 				Period:      "1M",
 			},
-			setupMock: func(m *MockStore, l *MockLogger) {
-				l.On("Debugf", mock.Anything, mock.Anything).Maybe()
+			setupMock: func(m *mocks.MockShortsStore, l *mocks.MockLogger) {
+				l.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
 				now := time.Now()
-				m.On("GetStockData", "CBA", "1M").Return(&stocksv1alpha1.TimeSeriesData{
+				m.EXPECT().GetStockData("CBA", "1M").Return(&stocksv1alpha1.TimeSeriesData{
 					ProductCode: "CBA",
 					Name:        "Commonwealth Bank",
 					Points: []*stocksv1alpha1.TimeSeriesPoint{
@@ -386,9 +325,9 @@ func TestShortsServer_GetStockData(t *testing.T) {
 				ProductCode: "ZIP",
 				Period:      "",
 			},
-			setupMock: func(m *MockStore, l *MockLogger) {
-				l.On("Debugf", mock.Anything, mock.Anything).Maybe()
-				m.On("GetStockData", "ZIP", "1M").Return(&stocksv1alpha1.TimeSeriesData{
+			setupMock: func(m *mocks.MockShortsStore, l *mocks.MockLogger) {
+				l.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
+				m.EXPECT().GetStockData("ZIP", "1M").Return(&stocksv1alpha1.TimeSeriesData{
 					ProductCode: "ZIP",
 					Name:        "ZIP Co Limited",
 					Points:      []*stocksv1alpha1.TimeSeriesPoint{},
@@ -406,8 +345,8 @@ func TestShortsServer_GetStockData(t *testing.T) {
 				ProductCode: "CBA",
 				Period:      "5Y",
 			},
-			setupMock: func(m *MockStore, l *MockLogger) {
-				l.On("Errorf", mock.Anything, mock.Anything).Maybe()
+			setupMock: func(m *mocks.MockShortsStore, l *mocks.MockLogger) {
+				l.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
 			},
 			expectedError: true,
 			expectedCode:  connect.CodeInvalidArgument,
@@ -418,8 +357,8 @@ func TestShortsServer_GetStockData(t *testing.T) {
 				ProductCode: "",
 				Period:      "1M",
 			},
-			setupMock: func(m *MockStore, l *MockLogger) {
-				l.On("Errorf", mock.Anything, mock.Anything).Maybe()
+			setupMock: func(m *mocks.MockShortsStore, l *mocks.MockLogger) {
+				l.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
 			},
 			expectedError: true,
 			expectedCode:  connect.CodeInvalidArgument,
@@ -428,8 +367,8 @@ func TestShortsServer_GetStockData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockStore := new(MockStore)
-			mockLogger := new(MockLogger)
+			mockStore := mocks.NewMockShortsStore(ctrl)
+			mockLogger := mocks.NewMockLogger(ctrl)
 			tt.setupMock(mockStore, mockLogger)
 
 			server := &ShortsServer{
@@ -452,16 +391,16 @@ func TestShortsServer_GetStockData(t *testing.T) {
 					tt.validateResult(t, resp.Msg)
 				}
 			}
-
-			mockStore.AssertExpectations(t)
-			mockLogger.AssertExpectations(t)
 		})
 	}
 }
 
 func TestShortsServer_Caching(t *testing.T) {
-	mockStore := new(MockStore)
-	mockLogger := new(MockLogger)
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockLogger := mocks.NewMockLogger(ctrl)
 	cache := NewMemoryCache(time.Minute)
 	server := &ShortsServer{
 		store:  mockStore,
@@ -469,14 +408,14 @@ func TestShortsServer_Caching(t *testing.T) {
 		logger: mockLogger,
 	}
 
-	mockLogger.On("Debugf", mock.Anything, mock.Anything).Maybe()
+	mockLogger.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
 
 	// Setup mock to be called only once
-	mockStore.On("GetStock", "CBA").Return(&stocksv1alpha1.Stock{
+	mockStore.EXPECT().GetStock("CBA").Return(&stocksv1alpha1.Stock{
 		ProductCode:       "CBA",
 		Name:              "Commonwealth Bank",
 		PercentageShorted: 2.5,
-	}, nil).Once()
+	}, nil).Times(1)
 
 	// First call should hit the store
 	req := &shortsv1alpha1.GetStockRequest{ProductCode: "CBA"}
@@ -488,7 +427,4 @@ func TestShortsServer_Caching(t *testing.T) {
 	resp2, err := server.GetStock(context.Background(), connect.NewRequest(req))
 	assert.NoError(t, err)
 	assert.Equal(t, "CBA", resp2.Msg.ProductCode)
-
-	// Verify the store was only called once
-	mockStore.AssertExpectations(t)
 }

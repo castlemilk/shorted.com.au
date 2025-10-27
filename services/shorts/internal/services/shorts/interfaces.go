@@ -4,7 +4,7 @@ import (
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 )
 
-//go:generate mockgen -source=interfaces.go -destination=mocks/mock_interfaces.go
+//go:generate mockgen -source=interfaces.go -destination=mocks/mock_interfaces.go -package=mocks
 
 // ShortsStore defines the interface for shorts data operations
 type ShortsStore interface {
