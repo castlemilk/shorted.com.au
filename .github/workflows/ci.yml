@@ -137,6 +137,7 @@ jobs:
             --cpu 1 \
             --min-instances 0 \
             --max-instances 2 \
+            --timeout 300s \
             --set-env-vars="DATABASE_URL=$DATABASE_URL" \
             --set-env-vars="APP_STORE_POSTGRES_ADDRESS=$DB_ADDRESS" \
             --set-env-vars="APP_STORE_POSTGRES_USERNAME=$DB_USER" \
