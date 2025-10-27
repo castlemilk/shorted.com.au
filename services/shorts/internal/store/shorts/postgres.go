@@ -215,8 +215,6 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 				1 as sort_priority
 			FROM shorts 
 			WHERE "PRODUCT_CODE" = $1
-			ORDER BY "DATE" DESC
-			LIMIT 1
 			
 			UNION ALL
 			
@@ -229,7 +227,6 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 				2 as sort_priority
 			FROM shorts 
 			WHERE "PRODUCT_CODE" ILIKE $2 AND "PRODUCT_CODE" != $1
-			ORDER BY "PRODUCT_CODE", "DATE" DESC
 			
 			UNION ALL
 			
@@ -242,7 +239,6 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 				3 as sort_priority
 			FROM shorts 
 			WHERE "PRODUCT" ILIKE $3
-			ORDER BY "PRODUCT_CODE", "DATE" DESC
 		)
 		SELECT percentage_shorted, product_code, name, total_product_in_issue, reported_short_positions, sort_priority
 		FROM results
