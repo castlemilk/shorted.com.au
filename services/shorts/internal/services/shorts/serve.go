@@ -115,11 +115,11 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		
 		// Create proper JSON response structure
 		type StockResponse struct {
-			ProductCode           string  `json:"productCode"`
-			Name                  string  `json:"name"`
-			PercentageShorted     float64 `json:"percentageShorted"`
-			TotalProductInIssue   float64 `json:"totalProductInIssue"`
-			ReportedShortPositions float64 `json:"reportedShortPositions"`
+			ProductCode            string  `json:"product_code"`
+			Name                   string  `json:"name"`
+			PercentageShorted       float64 `json:"percentage_shorted"`
+			TotalProductInIssue     float64 `json:"total_product_in_issue"`
+			ReportedShortPositions  float64 `json:"reported_short_positions"`
 		}
 		
 		type SearchResponse struct {
