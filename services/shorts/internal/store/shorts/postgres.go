@@ -300,8 +300,10 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 			log.Errorf("Failed to scan stock row for search '%s': %v", query, err)
 			return nil, fmt.Errorf("failed to scan stock row: %w", err)
 		}
+		log.Infof("SQL returned: ProductCode=%s, Priority=%d, Name=%s", result.ProductCode, result.SortPriority, result.Name)
 		results = append(results, result)
 	}
+	log.Infof("Total SQL results for query '%s': %d rows", query, len(results))
 	
 	// Convert []searchResult to []*stocksv1alpha1.Stock
 	stockPointers := make([]*stocksv1alpha1.Stock, len(results))
@@ -316,9 +318,11 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 		if !seen[stock.ProductCode] {
 			deduplicated = append(deduplicated, stock)
 			seen[stock.ProductCode] = true
+		} else {
+			log.Debugf("Filtering duplicate product_code: %s", stock.ProductCode)
 		}
 	}
 	
-	log.Debugf("Search completed for '%s': found %d unique stocks (deduplicated from %d)", query, len(deduplicated), len(results))
+	log.Infof("Search completed for '%s': found %d unique stocks (deduplicated from %d total results)", query, len(deduplicated), len(results))
 	return deduplicated, nil
 }
