@@ -240,9 +240,10 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 			FROM shorts 
 			WHERE "PRODUCT" ILIKE $3
 		)
-		SELECT percentage_shorted, product_code, name, total_product_in_issue, reported_short_positions, sort_priority
+		SELECT DISTINCT ON (product_code)
+			percentage_shorted, product_code, name, total_product_in_issue, reported_short_positions, sort_priority
 		FROM results
-		ORDER BY sort_priority, product_code
+		ORDER BY product_code, sort_priority
 		LIMIT $4`
 	
 	// Create context with timeout to prevent hanging
