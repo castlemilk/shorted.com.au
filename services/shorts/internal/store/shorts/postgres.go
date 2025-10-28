@@ -206,7 +206,8 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 	// First try exact PRODUCT_CODE matches, then partial matches
 	searchQuery := `
 		WITH results AS (
-			SELECT 
+			-- Exact product code matches (highest priority, latest date)
+			SELECT DISTINCT ON ("PRODUCT_CODE")
 				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
 				"PRODUCT_CODE" as product_code,
 				"PRODUCT" as name, 
@@ -215,9 +216,11 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 				1 as sort_priority
 			FROM shorts 
 			WHERE "PRODUCT_CODE" = $1
+			ORDER BY "PRODUCT_CODE", "DATE" DESC
 			
 			UNION ALL
 			
+			-- Partial product code matches (medium priority, latest date)
 			SELECT DISTINCT ON ("PRODUCT_CODE")
 				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
 				"PRODUCT_CODE" as product_code,
@@ -227,9 +230,11 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 				2 as sort_priority
 			FROM shorts 
 			WHERE "PRODUCT_CODE" ILIKE $2 AND "PRODUCT_CODE" != $1
+			ORDER BY "PRODUCT_CODE", "DATE" DESC
 			
 			UNION ALL
 			
+			-- Product name matches (lowest priority, latest date)
 			SELECT DISTINCT ON ("PRODUCT_CODE")
 				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
 				"PRODUCT_CODE" as product_code,
@@ -239,11 +244,12 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 				3 as sort_priority
 			FROM shorts 
 			WHERE "PRODUCT" ILIKE $3
+			ORDER BY "PRODUCT_CODE", "DATE" DESC
 		)
 		SELECT DISTINCT ON (product_code)
 			percentage_shorted, product_code, name, total_product_in_issue, reported_short_positions, sort_priority
 		FROM results
-		ORDER BY product_code, sort_priority
+		ORDER BY sort_priority, product_code
 		LIMIT $4`
 	
 	// Create context with timeout to prevent hanging
