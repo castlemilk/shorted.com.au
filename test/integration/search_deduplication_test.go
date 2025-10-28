@@ -97,11 +97,9 @@ func TestSearchDeduplication(t *testing.T) {
 				productCodes := make(map[string]bool)
 				duplicates := []string{}
 				
-				for i, stock := range response.Stocks {
-					t.Logf("Stock %d: %s (ProductCode: %s)", i, stock.ProductCode, stock.ProductCode)
+				for _, stock := range response.Stocks {
 					if productCodes[stock.ProductCode] {
 						duplicates = append(duplicates, stock.ProductCode)
-						t.Logf("Found duplicate at index %d: %s", i, stock.ProductCode)
 					}
 					productCodes[stock.ProductCode] = true
 				}
