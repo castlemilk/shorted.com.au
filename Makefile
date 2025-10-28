@@ -1,7 +1,7 @@
 # Shorted.com.au Root Makefile
 # Orchestrates testing and building for both frontend and backend
 
-.PHONY: help run test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down install clean build dev dev-script dev-frontend dev-backend lint format populate-data populate-data-quick
+.PHONY: help run test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down install clean clean-ports build dev dev-script dev-frontend dev-backend lint format populate-data populate-data-quick
 
 # Default target
 help:
@@ -15,6 +15,7 @@ help:
 	@echo "  dev-stop         - Stop all development services"
 	@echo "  install       - Install all dependencies"
 	@echo "  clean         - Clean all build artifacts"
+	@echo "  clean-ports   - Kill any stale processes on development ports (9091, 3000, 5432)"
 	@echo "  build         - Build frontend and backend"
 	@echo "  test          - Run all tests (frontend + backend)"
 	@echo "  test-frontend - Run frontend tests only"
@@ -92,6 +93,13 @@ clean-frontend:
 clean-backend:
 	@echo "🧹 Cleaning backend build artifacts..."
 	@cd services && go clean -cache -testcache && rm -f coverage.out coverage.html
+
+clean-ports:
+	@echo "🧹 Killing stale processes on development ports..."
+	@-lsof -ti :9091 | xargs kill -9 2>/dev/null || true
+	@-lsof -ti :3000 | xargs kill -9 2>/dev/null || true
+	@-lsof -ti :8090 | xargs kill -9 2>/dev/null || true
+	@echo "✅ Ports cleaned (9091, 3000, 8090)"
 
 # Build commands
 build: build-frontend
