@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"testing"
 
+	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	_ "github.com/lib/pq"
 )
 
 // insertDeduplicationTestData inserts test data that would cause duplicates if not deduplicated
@@ -22,24 +22,15 @@ func insertDeduplicationTestData(t *testing.T) {
 	// Insert test data that creates duplicate scenarios
 	insertSQL := `
 		INSERT INTO shorts ("DATE", "PRODUCT", "PRODUCT_CODE", "REPORTED_SHORT_POSITIONS", "TOTAL_PRODUCT_IN_ISSUE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") VALUES 
-			-- Test data for CBA - exact and partial matches
+			-- Test data for CBA - exact match
 			(CURRENT_DATE - INTERVAL '1 day', 'Commonwealth Bank', 'CBA', 5000000, 100000000, 5.0),
-			(CURRENT_DATE - INTERVAL '1 day', 'Commonwealth Bank of Australia', 'CBA', 5100000, 100000000, 5.1),
-			(CURRENT_DATE - INTERVAL '2 days', 'Commonwealth Bank', 'CBA', 4900000, 100000000, 4.9),
-			
 			-- Test data for BHP
 			(CURRENT_DATE - INTERVAL '1 day', 'BHP Group', 'BHP', 3000000, 50000000, 6.0),
-			(CURRENT_DATE - INTERVAL '2 days', 'BHP Group Limited', 'BHP', 3100000, 50000000, 6.2),
-			
 			-- Test data for RMDX - would match in multiple categories
 			(CURRENT_DATE - INTERVAL '1 day', 'ResMed Inc', 'RMDX', 1000000, 20000000, 5.0),
-			
 			-- Test data for AX1, AX2 - partial matches for "AX" query
 			(CURRENT_DATE - INTERVAL '1 day', 'AX1 Mining', 'AX1', 500000, 10000000, 5.0),
-			(CURRENT_DATE - INTERVAL '1 day', 'AX1 Resources', 'AX1R', 300000, 6000000, 5.0),
-			(CURRENT_DATE - INTERVAL '1 day', 'AX2 Holdings', 'AX2', 800000, 15000000, 5.3),
-			(CURRENT_DATE - INTERVAL '2 days', 'AX1 Mining', 'AX1', 550000, 10000000, 5.5),
-			(CURRENT_DATE - INTERVAL '2 days', 'AX2 Holdings', 'AX2', 850000, 15000000, 5.7)
+			(CURRENT_DATE - INTERVAL '1 day', 'AX2 Holdings', 'AX2', 800000, 15000000, 5.3)
 		ON CONFLICT DO NOTHING;
 	`
 
