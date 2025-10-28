@@ -2,6 +2,17 @@
 
 A comprehensive platform for tracking short selling positions in the Australian stock market.
 
+## Services Overview
+
+The application consists of three main services:
+
+| Service             | Port | Purpose                     | Command                |
+| ------------------- | ---- | --------------------------- | ---------------------- |
+| Frontend            | 3020 | Next.js web application     | `make dev-frontend`    |
+| Shorts Service      | 9091 | Short position data API     | `make dev-backend`     |
+| Market Data Service | 8090 | Historical stock prices API | `make dev-market-data` |
+| Database            | 5438 | PostgreSQL database         | `make dev-db`          |
+
 ## Quick Start
 
 ### Prerequisites
@@ -281,4 +292,5 @@ You can check out the [create-t3-app GitHub repository](https://github.com/t3-os
 
 [1] nextjs + connect-query + connect-web - https://github.com/connectrpc/examples-es/tree/main/nextjs
 [1.1] https://connectrpc.com/docs/web/ssr
+
 # Force CI run

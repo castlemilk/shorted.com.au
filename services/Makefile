@@ -78,8 +78,21 @@ clean.shorts:
 	@pkill -f "go run shorts/cmd/server/main.go" 2>/dev/null || true
 	@sleep 1
 
+# Clean up any existing processes on port 8090
+.PHONY: clean.market-data
+clean.market-data:
+	@echo "🧹 Cleaning up existing market data service..."
+	@lsof -ti:8090 | xargs kill -9 2>/dev/null || true
+	@pkill -f "go run market-data/main.go" 2>/dev/null || true
+	@pkill -f "market-data-service" 2>/dev/null || true
+	@sleep 1
+
 run.shorts: clean.shorts
-	GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS} go run shorts/cmd/server/main.go 
+	GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS} go run shorts/cmd/server/main.go
+
+run.market-data: clean.market-data
+	@echo "🚀 Starting market data service on port 8090..."
+	@cd market-data && go run main.go validation.go 
 build.short-data-sync:
 	cd short-data-sync; docker buildx build --push --progress=plain --platform linux/amd64,linux/arm64 -f Dockerfile -t ${SHORTS_SYNC_IMAGE}:latest -t ${SHORTS_SYNC_IMAGE}:${SHORTS_VERSION} .
 build.shorts:

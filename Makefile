@@ -6,12 +6,13 @@
 # Default target
 help:
 	@echo "Available commands:"
-	@echo "  run           - Start all services for local development (alias for dev)"
-	@echo "  dev           - Start database, backend and frontend dev servers"
-	@echo "  dev-db        - Start PostgreSQL database only"
-	@echo "  dev-frontend  - Start frontend dev server only"
-	@echo "  dev-backend   - Start backend dev server only"
-	@echo "  dev-stop      - Stop all development services"
+	@echo "  run              - Start all services for local development (alias for dev)"
+	@echo "  dev              - Start database, backend and frontend dev servers"
+	@echo "  dev-db           - Start PostgreSQL database only"
+	@echo "  dev-frontend     - Start frontend dev server only"
+	@echo "  dev-backend      - Start backend dev server only (shorts service)"
+	@echo "  dev-market-data  - Start market data service only (port 8090)"
+	@echo "  dev-stop         - Stop all development services"
 	@echo "  install       - Install all dependencies"
 	@echo "  clean         - Clean all build artifacts"
 	@echo "  build         - Build frontend and backend"
@@ -147,12 +148,18 @@ dev-backend:
 	@echo "🚀 Starting backend development server..."
 	@cd services && make run.shorts
 
+dev-market-data:
+	@echo "🚀 Starting market data service..."
+	@cd services && make run.market-data
+
 dev-stop-services: ## Stop only application services (not database)
 	@echo "🛑 Stopping application services..."
 	@echo "Stopping frontend service on port 3020..."
 	@lsof -ti:3020 | xargs kill -9 2>/dev/null || true
 	@echo "Stopping backend service on port 9091..."
 	@lsof -ti:9091 | xargs kill -9 2>/dev/null || true
+	@echo "Stopping market data service on port 8090..."
+	@lsof -ti:8090 | xargs kill -9 2>/dev/null || true
 	@echo "✅ Application services stopped"
 
 dev-stop: ## Stop all development services
