@@ -88,8 +88,8 @@ jobs:
           docker build -f shorts/Dockerfile -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/shorts:pr-${{ env.PR_NUMBER }} .
           docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/shorts:pr-${{ env.PR_NUMBER }}
 
-          # Build and push Market Data Service
-          docker build -f market-data/Dockerfile -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/market-data:pr-${{ env.PR_NUMBER }} market-data/
+          # Build and push Market Data Service (Go Connect RPC service)
+          docker build -f market-data/Dockerfile -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/market-data:pr-${{ env.PR_NUMBER }} .
           docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/market-data:pr-${{ env.PR_NUMBER }}
 
       - name: Deploy preview backend services to Cloud Run
