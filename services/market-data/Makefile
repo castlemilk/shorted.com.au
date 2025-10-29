@@ -1,6 +1,6 @@
 # Makefile for Market Data Sync Service
 
-.PHONY: help install test test-unit test-integration test-local deploy health-check logs clean
+.PHONY: help install test test-unit test-integration test-local deploy health-check logs clean populate-all-stocks
 
 help:
 	@echo "Available commands:"
@@ -12,6 +12,7 @@ help:
 	@echo "  deploy         - Deploy to Google Cloud Run"
 	@echo "  health         - Check service health"
 	@echo "  logs           - View Cloud Run logs"
+	@echo "  populate-all-stocks - Populate price data for ALL stocks from shorts table"
 	@echo "  clean          - Clean up generated files"
 
 install:
@@ -125,6 +126,15 @@ logs:
 		exit 1; \
 	fi
 	gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=market-data-sync" --limit 20
+
+populate-all-stocks:
+	@echo "📊 Populating historical price data for ALL stocks from shorts table..."
+	@if [ -z "$$DATABASE_URL" ]; then \
+		echo "❌ DATABASE_URL environment variable is required"; \
+		echo "   Usage: export DATABASE_URL='your-database-url'"; \
+		exit 1; \
+	fi
+	python3 populate_from_shorts_data.py
 
 clean:
 	@echo "🧹 Cleaning up..."
