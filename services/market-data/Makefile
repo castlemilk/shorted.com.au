@@ -1,6 +1,6 @@
 # Makefile for Market Data Sync Service
 
-.PHONY: help install test test-unit test-integration test-local deploy health-check logs clean populate-all-stocks
+.PHONY: help install test test-unit test-integration test-local deploy health-check logs clean populate-all-stocks daily-sync deploy-daily-sync
 
 help:
 	@echo "Available commands:"
@@ -13,6 +13,8 @@ help:
 	@echo "  health         - Check service health"
 	@echo "  logs           - View Cloud Run logs"
 	@echo "  populate-all-stocks - Populate price data for ALL ASX stocks from official list"
+	@echo "  daily-sync     - Run daily incremental sync (last 5 days)"
+	@echo "  deploy-daily-sync - Deploy daily sync as Cloud Run Job with scheduler"
 	@echo "  clean          - Clean up generated files"
 
 install:
@@ -135,6 +137,23 @@ populate-all-stocks:
 		exit 1; \
 	fi
 	python3 populate_all_asx_from_csv.py
+
+daily-sync:
+	@echo "🔄 Running daily incremental sync (last 5 days)..."
+	@if [ -z "$$DATABASE_URL" ]; then \
+		echo "❌ DATABASE_URL environment variable is required"; \
+		echo "   Usage: export DATABASE_URL='your-database-url'"; \
+		exit 1; \
+	fi
+	python3 daily_historical_sync.py
+
+deploy-daily-sync:
+	@echo "☁️  Deploying daily sync job to Cloud Run..."
+	@if [ -z "$$DATABASE_URL" ]; then \
+		echo "❌ DATABASE_URL environment variable is required"; \
+		exit 1; \
+	fi
+	./deploy-daily-sync.sh
 
 clean:
 	@echo "🧹 Cleaning up..."
