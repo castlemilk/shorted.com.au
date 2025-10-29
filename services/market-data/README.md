@@ -1,202 +1,278 @@
-# Market Data Sync Service
+# Market Data Service
 
-Cloud Run service for automated daily synchronization of ASX stock prices from Yahoo Finance to Supabase/PostgreSQL.
-
-## Overview
-
-This service provides automated daily ingestion of stock market data for Australian Stock Exchange (ASX) listed companies. It runs on Google Cloud Run and is triggered by Cloud Scheduler to ensure consistent, reliable data updates.
-
-## Features
-
-- **Automated Daily Sync**: Scheduled to run after ASX market close (6 PM AEST)
-- **Yahoo Finance Integration**: Fetches OHLCV data from Yahoo Finance using batch downloads
-- **Optimized Performance**: Processes 1,800+ stocks in ~10 minutes using batch API calls
-- **Rate Limiting Protection**: Uses batch downloads to avoid Yahoo Finance rate limits
-- **Error Recovery**: Automatic retry with exponential backoff
-- **Data Quality**: Validates data integrity and handles missing values
+Historical stock price data management for ALL ASX stocks.
 
 ## Architecture
 
-```
-Cloud Scheduler → Cloud Run Service → Yahoo Finance API (Batch)
-                        ↓
-                   Supabase PostgreSQL
-```
+Two independent jobs:
 
-## Quick Start
+### 1. Short Data Sync (Existing)
+- **Purpose**: Sync short selling data from ASIC
+- **Frequency**: Daily
+- **Source**: ASIC daily reports
+- **Target**: `shorts` table
+- **Location**: `services/short-data-sync/`
 
-### Prerequisites
+### 2. Historical Price Data Sync (This Service)
+- **Purpose**: Maintain historical price data for all ASX stocks
+- **Frequency**: Daily at 2 AM AEST
+- **Source**: Yahoo Finance API
+- **Target**: `stock_prices` table
 
-1. Google Cloud Project with billing enabled
-2. Supabase project with database configured
-3. gcloud CLI installed and authenticated
+## Jobs
 
-### Environment Variables
+### Initial Population (One-Time)
 
-```bash
-export DATABASE_URL="postgresql://user:pass@host:5432/database"
-export GCP_PROJECT="your-project-id"  # Optional, defaults to shorted-prod
-```
-
-### Deploy to Cloud Run
+Populates 10 years of historical data for ALL ~2,291 ASX stocks.
 
 ```bash
-# Quick deployment
-make deploy
-
-# Or manually
-./deploy.sh
+cd services/market-data
+export DATABASE_URL="postgresql://..."
+make populate-all-stocks
 ```
 
-This will:
+**Expected Duration**: 30-60 minutes
+**Records**: ~2.8M price records (10 years × 2,291 stocks)
 
-1. Build and push Docker image to Container Registry
-2. Deploy service to Cloud Run
-3. Create Cloud Scheduler job for automated sync
-4. Configure IAM permissions
+### Daily Sync (Ongoing)
 
-## Usage
-
-### Automated Sync (Production)
-
-The service runs automatically via Cloud Scheduler:
-
-- **Daily Sync**: Weekdays at 6 PM AEST (after market close)
-- **Batch Processing**: 100 stocks per batch to avoid rate limits
-
-### Manual Sync
+Incrementally updates the last 5 days of data for all stocks.
 
 ```bash
-# Trigger daily sync
-curl -X POST [SERVICE_URL]/sync
+# Run locally
+make daily-sync
 
-# Run sync immediately (for testing)
-curl -X POST [SERVICE_URL]/sync-now
-
-# Check service health
-curl [SERVICE_URL]/health
+# Deploy to Cloud Run (scheduled daily at 2 AM)
+export DATABASE_URL="postgresql://..."
+export GCP_PROJECT="shorted-dev-aba5688f"
+make deploy-daily-sync
 ```
 
-### Local Testing
+**Expected Duration**: 5-10 minutes
+**Records**: ~11,000 price records (5 days × 2,291 stocks)
+
+## Files
+
+```
+services/market-data/
+├── populate_all_asx_from_csv.py   # One-time: Load 10 years of data
+├── daily_historical_sync.py        # Daily: Incremental updates (5 days)
+├── deploy-daily-sync.sh            # Deploy daily sync to Cloud Run
+├── Dockerfile.daily-sync           # Container for daily sync job
+├── requirements.txt                # Python dependencies
+└── Makefile                        # Commands
+```
+
+## Data Source
+
+**ASX Company List**:
+- Location: `analysis/data/ASX_Listed_Companies_07-04-2024_11-03-45_AEST.csv`
+- Contains: 2,291 ASX stocks
+- Official source: ASX.com.au company directory
+
+**Price Data**:
+- Provider: Yahoo Finance (free, no API key needed)
+- Format: Stock code + `.AX` suffix (e.g., `CBA.AX`, `RMX.AX`)
+- Fields: open, high, low, close, adjusted_close, volume
+
+## Cloud Run Job
+
+The daily sync runs as a Cloud Run Job:
+
+```yaml
+Name: daily-historical-sync
+Schedule: "0 2 * * *" (2 AM AEST daily)
+Memory: 2Gi
+CPU: 1
+Timeout: 1 hour
+Retries: 2
+```
+
+### Manual Execution
+
+```bash
+gcloud run jobs execute daily-historical-sync \
+  --region australia-southeast2 \
+  --project shorted-dev-aba5688f
+```
+
+### View Logs
+
+```bash
+gcloud logging read \
+  "resource.type=cloud_run_job AND resource.labels.job_name=daily-historical-sync" \
+  --limit 50 \
+  --project shorted-dev-aba5688f
+```
+
+## Database Schema
+
+```sql
+CREATE TABLE stock_prices (
+    id BIGSERIAL PRIMARY KEY,
+    stock_code VARCHAR(10) NOT NULL,
+    date DATE NOT NULL,
+    open DECIMAL(10, 2),
+    high DECIMAL(10, 2),
+    low DECIMAL(10, 2),
+    close DECIMAL(10, 2) NOT NULL,
+    adjusted_close DECIMAL(10, 2),
+    volume BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(stock_code, date)
+);
+
+CREATE INDEX idx_stock_prices_stock_code ON stock_prices(stock_code);
+CREATE INDEX idx_stock_prices_date ON stock_prices(date);
+CREATE INDEX idx_stock_prices_stock_date ON stock_prices(stock_code, date DESC);
+```
+
+## Configuration
+
+Environment variables:
+
+```bash
+# Required
+DATABASE_URL="postgresql://user:pass@host:port/db"
+
+# Optional
+SYNC_DAYS="5"              # Number of days to sync (default: 5)
+GCP_PROJECT="..."          # For deployment
+GCP_REGION="..."           # For deployment (default: australia-southeast2)
+```
+
+## Monitoring
+
+### Success Metrics
+
+```
+✅ Success: 2,100+ stocks synced
+⚠️  No data: <100 (delisted/suspended stocks)
+❌ Failed: <50 (API errors, network issues)
+📊 Records: ~11,000 (for 5-day sync)
+```
+
+### Alerts
+
+Set up alerts for:
+- Job failure (exit code != 0)
+- Success rate < 90%
+- Duration > 15 minutes
+- No execution in 25 hours
+
+## Troubleshooting
+
+### No data for specific stock
+
+```bash
+# Check if stock exists in ASX list
+grep "RMX" analysis/data/ASX_Listed_Companies_*.csv
+
+# Check database
+psql $DATABASE_URL -c "SELECT COUNT(*), MIN(date), MAX(date) FROM stock_prices WHERE stock_code = 'RMX';"
+
+# Test Yahoo Finance directly
+python3 -c "
+import yfinance as yf
+ticker = yf.Ticker('RMX.AX')
+print(ticker.history(period='5d'))
+"
+```
+
+### Rate limiting
+
+Yahoo Finance has soft rate limits:
+- ~2,000 requests/hour without issues
+- Script uses 0.3s delay (10,800 req/hour theoretical)
+- Batches of 50 stocks for monitoring
+
+### Database connection issues
+
+```bash
+# Test connection
+python3 -c "
+import asyncpg, asyncio
+asyncio.run(asyncpg.connect('$DATABASE_URL'))
+print('✅ Connected')
+"
+```
+
+## Local Development
 
 ```bash
 # Install dependencies
 make install
 
-# Test configuration
-python test_deployment.py
+# Test database connection
+make test
 
-# Test locally (requires DATABASE_URL)
+# Run initial population (test with small dataset first)
+export DATABASE_URL="..."
+python3 populate_all_asx_from_csv.py
+
+# Run daily sync
+python3 daily_historical_sync.py
+```
+
+## Production Deployment
+
+```bash
+# 1. One-time: Populate 10 years of data
+make populate-all-stocks
+
+# 2. Deploy daily sync job
+export DATABASE_URL="..."
+export GCP_PROJECT="shorted-dev-aba5688f"
+make deploy-daily-sync
+
+# 3. Verify deployment
+gcloud run jobs describe daily-historical-sync \
+  --region australia-southeast2 \
+  --project shorted-dev-aba5688f
+
+# 4. Check scheduler
+gcloud scheduler jobs describe daily-historical-sync-trigger \
+  --location australia-southeast2 \
+  --project shorted-dev-aba5688f
+```
+
+## Cost Estimation
+
+### Storage
+- ~2.8M records × 100 bytes = 280 MB
+- PostgreSQL storage: ~$0.17/GB/month = **$0.05/month**
+
+### Cloud Run Job
+- Daily execution: ~10 minutes
+- Memory: 2Gi
+- Free tier: 180,000 vCPU-seconds/month
+- **Cost: Free** (well within free tier)
+
+### Data Transfer
+- Yahoo Finance API: Free
+- No egress charges (same region)
+
+**Total: ~$0.05/month**
+
+## Testing
+
+```bash
+# Unit tests (with mocks)
+make test-unit
+
+# Integration tests (requires DATABASE_URL)
+export DATABASE_URL="..."
+make test-integration
+
+# Test locally
 make test-local
 ```
 
-## Performance
+## Support
 
-- **Throughput**: ~1,800 stocks in ~10 minutes
-- **API Efficiency**: 18 API calls vs 1,800 individual calls
-- **Rate Limiting**: Safe from Yahoo Finance limits
-- **Resource Usage**: 1 CPU, 1GB RAM
-- **Cost**: ~$2-5/month on Cloud Run
-
-## Monitoring
-
-### View Logs
-
-```bash
-make logs
-# or
-gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=market-data-sync" --limit 50
-```
-
-### Health Checks
-
-```bash
-make health
-# or
-curl [SERVICE_URL]/health
-```
-
-### Manual Recovery
-
-```bash
-# Re-run failed sync
-gcloud scheduler jobs run market-data-daily-sync --location=australia-southeast1
-```
-
-## Troubleshooting
-
-### Common Issues
-
-#### 1. Yahoo Finance Rate Limiting
-
-- **Symptom**: No data fetched for batches
-- **Solution**: Batch size is optimized (100 stocks) to stay under limits
-
-#### 2. Database Connection Errors
-
-- **Symptom**: Connection failures in logs
-- **Solution**: Check DATABASE_URL and network connectivity
-
-#### 3. Memory Issues
-
-- **Symptom**: Cloud Run instance crashes
-- **Solution**: Service is configured with 1GB RAM (should be sufficient)
-
-### Debug Locally
-
-```bash
-# Test with sample data
-export DATABASE_URL="your-database-url"
-python test_deployment.py
-
-# Run sync manually
-python daily_sync_optimized.py
-```
-
-## Security
-
-- Service account with minimal permissions
-- Database credentials in environment variables
-- No public access (scheduler only)
-- Input validation on all endpoints
-
-## Development
-
-### Adding Features
-
-1. Modify `cloud_run_service.py` for new endpoints
-2. Update `daily_sync_optimized.py` for sync logic
-3. Test locally with `make test-local`
-4. Deploy with `make deploy`
-
-### Docker Development
-
-```bash
-# Build locally
-docker build -t market-data-sync .
-
-# Run locally
-docker run -p 8080:8080 \
-  -e DATABASE_URL="your-database-url" \
-  market-data-sync
-```
-
-## API Reference
-
-### Endpoints
-
-- `GET /` - Service information
-- `GET /health` - Health check
-- `POST /sync` - Trigger daily sync (scheduled)
-- `POST /sync-now` - Run sync immediately (for testing)
-
-### Response Format
-
-```json
-{
-  "status": "completed",
-  "message": "Sync completed for 1803 stocks",
-  "records_processed": 1803,
-  "batch_id": "manual-sync-1699123456"
-}
-```
+For issues or questions:
+- Check logs: `gcloud logging read ...`
+- Test locally: `make daily-sync`
+- Verify data: Query `stock_prices` table
+- Check ASX list: `analysis/data/ASX_Listed_Companies_*.csv`
