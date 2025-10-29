@@ -12,7 +12,7 @@ help:
 	@echo "  deploy         - Deploy to Google Cloud Run"
 	@echo "  health         - Check service health"
 	@echo "  logs           - View Cloud Run logs"
-	@echo "  populate-all-stocks - Populate price data for ALL stocks from shorts table"
+	@echo "  populate-all-stocks - Populate price data for ALL ASX stocks from official list"
 	@echo "  clean          - Clean up generated files"
 
 install:
@@ -128,13 +128,13 @@ logs:
 	gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=market-data-sync" --limit 20
 
 populate-all-stocks:
-	@echo "📊 Populating historical price data for ALL stocks from shorts table..."
+	@echo "📊 Populating historical price data for ALL ASX stocks..."
 	@if [ -z "$$DATABASE_URL" ]; then \
 		echo "❌ DATABASE_URL environment variable is required"; \
 		echo "   Usage: export DATABASE_URL='your-database-url'"; \
 		exit 1; \
 	fi
-	python3 populate_from_shorts_data.py
+	python3 populate_all_asx_from_csv.py
 
 clean:
 	@echo "🧹 Cleaning up..."

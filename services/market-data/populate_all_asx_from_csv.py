@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 """
-Populate historical price data for ALL stocks found in the shorts table.
-This ensures every stock with short data also has price data available.
+Populate historical price data for ALL ASX stocks.
+Uses the official ASX company list CSV as the source of truth.
+
+This is the correct approach - two independent jobs:
+1. Sync short data (already exists)
+2. Load historical price data for ALL ASX stocks (this script)
 """
 import asyncio
 import asyncpg
@@ -10,27 +14,31 @@ import yfinance as yf
 import pandas as pd
 import time
 import os
-from typing import List, Dict, Set
+from typing import List, Dict
+from pathlib import Path
 
 # Database configuration
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable is required")
 
+# Path to ASX company list
+SCRIPT_DIR = Path(__file__).parent
+PROJECT_ROOT = SCRIPT_DIR.parent.parent
+ASX_LIST_PATH = PROJECT_ROOT / "analysis" / "data" / "ASX_Listed_Companies_07-04-2024_11-03-45_AEST.csv"
 
-async def get_all_stocks_from_shorts() -> Set[str]:
-    """Get all unique stock codes from the shorts table."""
-    conn = await asyncpg.connect(DATABASE_URL)
-    
+
+def load_asx_stocks() -> List[str]:
+    """Load all ASX stock codes from the official ASX company list."""
     try:
-        stocks = await conn.fetch(
-            'SELECT DISTINCT "PRODUCT_CODE" FROM shorts ORDER BY "PRODUCT_CODE"'
-        )
-        stock_codes = {row["PRODUCT_CODE"] for row in stocks}
-        print(f"📊 Found {len(stock_codes)} unique stocks in shorts table")
-        return stock_codes
-    finally:
-        await conn.close()
+        df = pd.read_csv(ASX_LIST_PATH)
+        stock_codes = df["ASX code"].unique().tolist()
+        print(f"📊 Loaded {len(stock_codes)} ASX stocks from {ASX_LIST_PATH.name}")
+        return sorted(stock_codes)
+    except Exception as e:
+        print(f"❌ Failed to load ASX list: {e}")
+        print(f"   Expected file at: {ASX_LIST_PATH}")
+        raise
 
 
 async def check_existing_data(conn, stock_code: str) -> bool:
@@ -51,7 +59,7 @@ async def check_existing_data(conn, stock_code: str) -> bool:
             else 0
         )
         print(
-            f"  ⏭️  Skipping {stock_code} - already has {existing['count']:,} records ({years:.1f} years)"
+            f"  ⏭️  Skipping - already has {existing['count']:,} records ({years:.1f} years)"
         )
         return True
     return False
@@ -59,12 +67,10 @@ async def check_existing_data(conn, stock_code: str) -> bool:
 
 def fetch_stock_price_data(stock_code: str, years: int = 10) -> List[Dict]:
     """Fetch historical price data from Yahoo Finance."""
-    # Try with .AX suffix for ASX stocks
+    # Add .AX suffix for ASX stocks
     yf_ticker = f"{stock_code}.AX"
     
     try:
-        print(f"  📈 Fetching {years} years of data for {stock_code}...")
-        
         ticker = yf.Ticker(yf_ticker)
         end_date = date.today()
         start_date = end_date - timedelta(days=years * 365)
@@ -72,7 +78,7 @@ def fetch_stock_price_data(stock_code: str, years: int = 10) -> List[Dict]:
         hist = ticker.history(start=start_date, end=end_date, interval="1d")
         
         if hist.empty:
-            print(f"    ⚠️  No data available for {yf_ticker}")
+            print(f"  ⚠️  No data available from Yahoo Finance")
             return []
         
         # Convert to our format
@@ -94,11 +100,11 @@ def fetch_stock_price_data(stock_code: str, years: int = 10) -> List[Dict]:
                 }
             )
         
-        print(f"    ✅ Fetched {len(data)} records")
+        print(f"  ✅ Fetched {len(data)} records ({years} years)")
         return data
         
     except Exception as e:
-        print(f"    ❌ Error fetching {stock_code}: {e}")
+        print(f"  ❌ Error: {e}")
         return []
 
 
@@ -144,7 +150,10 @@ async def insert_price_data(conn, data: List[Dict]) -> int:
             )
             inserted += len(batch)
         except Exception as e:
-            print(f"    ❌ Error inserting batch: {e}")
+            print(f"  ❌ Error inserting batch: {e}")
+    
+    if inserted > 0:
+        print(f"  💾 Inserted {inserted:,} records into database")
     
     return inserted
 
@@ -164,19 +173,30 @@ async def populate_stock(conn, stock_code: str) -> tuple[int, str]:
     # Insert data
     inserted = await insert_price_data(conn, data)
     
-    if inserted > 0:
-        print(f"    ✅ Inserted {inserted} records")
-        return inserted, "success"
-    else:
-        return 0, "failed"
+    return inserted, "success" if inserted > 0 else "failed"
 
 
 async def main():
-    """Main function to populate all stocks from shorts table."""
-    print("🚀 Populating historical price data for ALL stocks with short positions\n")
+    """Main function to populate all ASX stocks."""
+    print("=" * 70)
+    print("🚀 POPULATE HISTORICAL PRICE DATA FOR ALL ASX STOCKS")
+    print("=" * 70)
+    print()
+    print("This script:")
+    print("  1. Loads all ASX stocks from the official company list")
+    print("  2. Fetches 10 years of historical data from Yahoo Finance")
+    print("  3. Stores in the stock_prices table")
+    print()
+    print("=" * 70)
+    print()
     
-    # Get all stocks from shorts table
-    all_stocks = await get_all_stocks_from_shorts()
+    # Load all ASX stocks from CSV
+    all_stocks = load_asx_stocks()
+    
+    print(f"\n🎯 Target: {len(all_stocks)} ASX stocks")
+    print(f"📈 Data source: Yahoo Finance (.AX suffix)")
+    print(f"📅 Period: 10 years of daily data")
+    print()
     
     # Connect to database
     conn = await asyncpg.connect(DATABASE_URL)
@@ -188,8 +208,10 @@ async def main():
         no_data = 0
         failed = 0
         
-        for i, stock_code in enumerate(sorted(all_stocks), 1):
-            print(f"\n[{i:4d}/{len(all_stocks)}] Processing {stock_code}")
+        start_time = time.time()
+        
+        for i, stock_code in enumerate(all_stocks, 1):
+            print(f"[{i:4d}/{len(all_stocks)}] {stock_code}")
             
             try:
                 inserted, status = await populate_stock(conn, stock_code)
@@ -205,22 +227,33 @@ async def main():
                     failed += 1
                 
             except Exception as e:
-                print(f"    ❌ Failed: {e}")
+                print(f"  ❌ Failed: {e}")
                 failed += 1
             
             # Rate limiting - be nice to Yahoo Finance
             time.sleep(0.5)
+            
+            # Progress update every 50 stocks
+            if i % 50 == 0:
+                elapsed = time.time() - start_time
+                rate = i / elapsed
+                remaining = len(all_stocks) - i
+                eta = remaining / rate if rate > 0 else 0
+                print(f"\n📊 Progress: {i}/{len(all_stocks)} ({i/len(all_stocks)*100:.1f}%)")
+                print(f"⏱️  Rate: {rate:.1f} stocks/sec | ETA: {eta/60:.1f} min\n")
         
         # Print summary
-        print("\n" + "=" * 60)
+        elapsed_total = time.time() - start_time
+        print("\n" + "=" * 70)
         print("📊 POPULATION COMPLETE")
-        print("=" * 60)
-        print(f"✅ Successful: {successful}")
-        print(f"⏭️  Skipped (already populated): {skipped}")
-        print(f"⚠️  No data available: {no_data}")
-        print(f"❌ Failed: {failed}")
+        print("=" * 70)
+        print(f"⏱️  Total time: {elapsed_total/60:.1f} minutes")
+        print(f"✅ Successful: {successful:,}")
+        print(f"⏭️  Skipped (already populated): {skipped:,}")
+        print(f"⚠️  No data available: {no_data:,}")
+        print(f"❌ Failed: {failed:,}")
         print(f"➕ Total records inserted: {total_inserted:,}")
-        print("=" * 60)
+        print("=" * 70)
         
     finally:
         await conn.close()
