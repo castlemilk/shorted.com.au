@@ -457,22 +457,65 @@ class StockDataIngestion:
 
 
 def load_all_asx_stocks() -> List[str]:
-    """Load all ASX stock codes from the official ASX company list"""
-    import os
-    from pathlib import Path
+    """Load all ASX stock codes from the official ASX API (live data)"""
+    # Official ASX API endpoint - publicly available from their website
+    ASX_API_URL = "https://asx.api.markitdigital.com/asx-research/1.0/companies/directory/file"
+    ASX_API_TOKEN = "83ff96335c2d45a094df02a206a39ff4"
+    
+    try:
+        import requests
+        from io import StringIO
+        
+        logger.info("📡 Fetching live ASX company list from official API...")
+        response = requests.get(
+            ASX_API_URL,
+            params={"access_token": ASX_API_TOKEN},
+            timeout=30
+        )
+        response.raise_for_status()
+        
+        # Parse CSV response
+        df = pd.read_csv(StringIO(response.text))
+        
+        if 'ASX code' not in df.columns:
+            logger.error("API response missing 'ASX code' column")
+            raise ValueError("Invalid API response format")
+        
+        # Get all stock codes, clean and filter
+        stock_codes = (
+            df["ASX code"]
+            .dropna()
+            .str.strip()
+            .str.upper()
+            .unique()
+            .tolist()
+        )
+        
+        # Filter out invalid codes (should be 3-4 letters, alphabetic)
+        stock_codes = [
+            code for code in stock_codes 
+            if len(code) >= 3 and len(code) <= 4 and code.isalpha()
+        ]
+        
+        logger.info(f"✅ Loaded {len(stock_codes)} ASX stocks from live API")
+        return sorted(stock_codes)
+        
+    except Exception as e:
+        logger.error(f"❌ Failed to fetch from ASX API: {e}")
+        logger.warning("⚠️  Falling back to local CSV or fallback list...")
+        return load_asx_stocks_fallback()
 
-    # Try multiple possible paths for the CSV file
+def load_asx_stocks_fallback() -> List[str]:
+    """Fallback: Load ASX stocks from local CSV file or hardcoded list"""
+    from pathlib import Path
+    
     possible_paths = [
         Path(__file__).parent.parent.parent
         / "analysis"
         / "data"
         / "ASX_Listed_Companies_07-04-2024_11-03-45_AEST.csv",
-        Path(
-            "/app/data/ASX_Listed_Companies_07-04-2024_11-03-45_AEST.csv"
-        ),  # Docker path
-        Path(
-            "../../analysis/data/ASX_Listed_Companies_07-04-2024_11-03-45_AEST.csv"
-        ),  # Relative path
+        Path("/app/data/ASX_Listed_Companies_07-04-2024_11-03-45_AEST.csv"),
+        Path("../../analysis/data/ASX_Listed_Companies_07-04-2024_11-03-45_AEST.csv"),
     ]
 
     csv_path = None
@@ -481,61 +524,46 @@ def load_all_asx_stocks() -> List[str]:
             csv_path = path
             break
 
-    if not csv_path:
-        logger.error(
-            f"ASX companies CSV not found. Tried: {[str(p) for p in possible_paths]}"
-        )
-        logger.warning("Falling back to top 24 ASX stocks")
-        return [
-            "CBA",
-            "BHP",
-            "CSL",
-            "WBC",
-            "ANZ",
-            "NAB",
-            "WES",
-            "MQG",
-            "WOW",
-            "TLS",
-            "RIO",
-            "WDS",
-            "GMG",
-            "TCL",
-            "COL",
-            "FMG",
-            "REA",
-            "ALL",
-            "IAG",
-            "SUN",
-            "QBE",
-            "JHX",
-            "AMC",
-            "BXB",
-        ]
+    if csv_path:
+        try:
+            df = pd.read_csv(csv_path, engine="python")
 
-    try:
-        df = pd.read_csv(csv_path, engine="python")
+            if "ASX code" not in df.columns:
+                logger.error("CSV missing 'ASX code' column")
+                return get_top_24_stocks()
 
-        if "ASX code" not in df.columns:
-            logger.error("CSV missing 'ASX code' column")
-            return []
+            stock_codes = (
+                df["ASX code"]
+                .dropna()
+                .str.strip()
+                .str.upper()
+                .unique()
+                .tolist()
+            )
 
-        # Get all stock codes, clean and filter
-        stock_codes = df["ASX code"].dropna().str.strip().str.upper().unique().tolist()
+            stock_codes = [
+                code
+                for code in stock_codes
+                if len(code) >= 3 and len(code) <= 4 and code.isalpha()
+            ]
 
-        # Filter out invalid codes (should be 3-4 letters)
-        stock_codes = [
-            code
-            for code in stock_codes
-            if len(code) >= 3 and len(code) <= 4 and code.isalpha()
-        ]
+            logger.info(f"Loaded {len(stock_codes)} ASX stocks from local CSV")
+            return sorted(stock_codes)
 
-        logger.info(f"Loaded {len(stock_codes)} ASX stocks from {csv_path}")
-        return sorted(stock_codes)
+        except Exception as e:
+            logger.error(f"Error loading from CSV: {e}")
+    
+    # Final fallback: top 24 stocks
+    logger.warning("Using fallback list of top 24 ASX stocks")
+    return get_top_24_stocks()
 
-    except Exception as e:
-        logger.error(f"Error loading ASX stocks from CSV: {e}")
-        return []
+def get_top_24_stocks() -> List[str]:
+    """Last resort: hardcoded list of top 24 ASX stocks"""
+    return [
+        "CBA", "BHP", "CSL", "WBC", "ANZ", "NAB", "WES", "MQG",
+        "WOW", "TLS", "RIO", "WDS", "GMG", "TCL", "COL", "FMG",
+        "REA", "ALL", "IAG", "SUN", "QBE", "JHX", "AMC", "BXB",
+    ]
 
 
 async def main():
