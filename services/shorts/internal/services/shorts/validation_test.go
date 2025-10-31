@@ -52,9 +52,54 @@ func TestValidateGetTopShortsRequest(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "invalid period",
+			name: "valid request with 2Y period",
 			request: &shortsv1alpha1.GetTopShortsRequest{
 				Period: "2Y",
+				Limit:  10,
+				Offset: 0,
+			},
+			expectError: false,
+		},
+		{
+			name: "valid request with 5Y period",
+			request: &shortsv1alpha1.GetTopShortsRequest{
+				Period: "5Y",
+				Limit:  10,
+				Offset: 0,
+			},
+			expectError: false,
+		},
+		{
+			name: "valid request with 10Y period",
+			request: &shortsv1alpha1.GetTopShortsRequest{
+				Period: "10Y",
+				Limit:  10,
+				Offset: 0,
+			},
+			expectError: false,
+		},
+		{
+			name: "valid request with MAX period",
+			request: &shortsv1alpha1.GetTopShortsRequest{
+				Period: "MAX",
+				Limit:  10,
+				Offset: 0,
+			},
+			expectError: false,
+		},
+		{
+			name: "valid request with lowercase max period",
+			request: &shortsv1alpha1.GetTopShortsRequest{
+				Period: "max",
+				Limit:  10,
+				Offset: 0,
+			},
+			expectError: false,
+		},
+		{
+			name: "invalid period",
+			request: &shortsv1alpha1.GetTopShortsRequest{
+				Period: "7Y",
 				Limit:  10,
 				Offset: 0,
 			},

@@ -26,51 +26,46 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 def load_all_asx_stocks() -> List[str]:
     """Load all ASX stock codes from the official ASX API (live data)"""
     # Official ASX API endpoint - publicly available from their website
-    ASX_API_URL = "https://asx.api.markitdigital.com/asx-research/1.0/companies/directory/file"
+    ASX_API_URL = (
+        "https://asx.api.markitdigital.com/asx-research/1.0/companies/directory/file"
+    )
     ASX_API_TOKEN = "83ff96335c2d45a094df02a206a39ff4"
-    
+
     try:
         import requests
         from io import StringIO
-        
+
         logger.info("📡 Fetching live ASX company list from official API...")
         response = requests.get(
-            ASX_API_URL,
-            params={"access_token": ASX_API_TOKEN},
-            timeout=30
+            ASX_API_URL, params={"access_token": ASX_API_TOKEN}, timeout=30
         )
         response.raise_for_status()
-        
+
         # Parse CSV response
         df = pd.read_csv(StringIO(response.text))
-        
-        if 'ASX code' not in df.columns:
+
+        if "ASX code" not in df.columns:
             logger.error("API response missing 'ASX code' column")
             raise ValueError("Invalid API response format")
-        
+
         # Get all stock codes, clean and filter
-        stock_codes = (
-            df["ASX code"]
-            .dropna()
-            .str.strip()
-            .str.upper()
-            .unique()
-            .tolist()
-        )
-        
+        stock_codes = df["ASX code"].dropna().str.strip().str.upper().unique().tolist()
+
         # Filter out invalid codes (should be 3-4 letters, alphabetic)
         stock_codes = [
-            code for code in stock_codes 
+            code
+            for code in stock_codes
             if len(code) >= 3 and len(code) <= 4 and code.isalpha()
         ]
-        
+
         logger.info(f"✅ Loaded {len(stock_codes)} ASX stocks from live API")
         return sorted(stock_codes)
-        
+
     except Exception as e:
         logger.error(f"❌ Failed to fetch from ASX API: {e}")
         logger.warning("⚠️  Falling back to local CSV file...")
         return load_asx_stocks_from_csv()
+
 
 def load_asx_stocks_from_csv() -> List[str]:
     """Fallback: Load ASX stocks from local CSV file"""
@@ -100,14 +95,7 @@ def load_asx_stocks_from_csv() -> List[str]:
             logger.error("CSV missing 'ASX code' column")
             return []
 
-        stock_codes = (
-            df["ASX code"]
-            .dropna()
-            .str.strip()
-            .str.upper()
-            .unique()
-            .tolist()
-        )
+        stock_codes = df["ASX code"].dropna().str.strip().str.upper().unique().tolist()
 
         stock_codes = [
             code
