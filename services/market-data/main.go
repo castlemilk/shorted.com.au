@@ -538,10 +538,10 @@ func main() {
 	mux.Handle(path, handler)
 	
 	// Add health check
-	mux.HandleFunc("/health", withCORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
-	})).ServeHTTP)
+	})
 	
 	port := os.Getenv("PORT")
 	if port == "" {
