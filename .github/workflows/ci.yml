@@ -38,7 +38,7 @@ jobs:
           echo "GCP secrets configured: $HAS_GCP"
 
   deploy-backend:
-    needs: check-secrets
+    needs: [check-secrets, test-unit]
     if: needs.check-secrets.outputs.has-gcp == 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
     runs-on: ubuntu-latest
     outputs:
@@ -326,8 +326,13 @@ jobs:
           DOCKER_HOST: unix:///var/run/docker.sock
           TESTCONTAINERS_RYUK_DISABLED: true
         run: |
+          # Run unit tests (excluding integration tests)
           go test ./... -v -cover -timeout 15m
-        continue-on-error: true
+
+          # Run market-data startup tests specifically
+          echo "Running market-data startup tests..."
+          cd market-data && go test -v -run "TestHealth|TestStartup" -timeout 2m
+        continue-on-error: false
 
       - name: Upload frontend coverage
         uses: actions/upload-artifact@v4

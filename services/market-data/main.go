@@ -494,39 +494,60 @@ func main() {
 		dbURL = "postgres://user:password@localhost/shorted"
 	}
 	
-	// Create connection pool with proper configuration
+	// Log startup
+	log.Printf("Starting market data service")
+	log.Printf("Database URL configured: %t", dbURL != "")
+	
+	// Create connection pool configuration
 	config, err := pgxpool.ParseConfig(dbURL)
 	if err != nil {
-		log.Fatal("Failed to parse database URL:", err)
+		log.Printf("WARNING: Failed to parse database URL: %v", err)
+		log.Printf("Service will start but database operations will fail")
+		// Don't exit - allow server to start
 	}
 	
-	// Configure connection pool settings
-	config.MaxConns = 10
-	config.MinConns = 2
-	config.MaxConnLifetime = 30 * time.Minute
-	config.MaxConnIdleTime = 5 * time.Minute
-	config.HealthCheckPeriod = 1 * time.Minute
-	config.ConnConfig.ConnectTimeout = 5 * time.Second
+	var pool *pgxpool.Pool
 	
-	// CRITICAL: Disable prepared statements for Supabase transaction pooler (port 6543)
-	// This prevents "prepared statement already exists" errors
-	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
-	
-	log.Printf("Connecting to database (simple protocol mode for Supabase pooler)")
-	
-	pool, err := pgxpool.NewWithConfig(context.Background(), config)
-	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+	if config != nil {
+		// Configure connection pool settings
+		config.MaxConns = 10
+		config.MinConns = 2
+		config.MaxConnLifetime = 30 * time.Minute
+		config.MaxConnIdleTime = 5 * time.Minute
+		config.HealthCheckPeriod = 1 * time.Minute
+		config.ConnConfig.ConnectTimeout = 10 * time.Second // Increased timeout
+		
+		// CRITICAL: Disable prepared statements for Supabase transaction pooler (port 6543)
+		// This prevents "prepared statement already exists" errors
+		config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+		
+		log.Printf("Attempting to connect to database (simple protocol mode)")
+		
+		// Try to connect with context timeout
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		
+		pool, err = pgxpool.NewWithConfig(ctx, config)
+		if err != nil {
+			log.Printf("WARNING: Failed to create connection pool: %v", err)
+			log.Printf("Service will start but database operations will fail")
+			// Don't exit - allow server to start
+		} else {
+			// Test connection with timeout
+			pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer pingCancel()
+			
+			if err := pool.Ping(pingCtx); err != nil {
+				log.Printf("WARNING: Failed to ping database: %v", err)
+				log.Printf("Service will start but database operations may fail")
+				// Don't close pool or exit - allow retries
+			} else {
+				log.Printf("Database connection successful")
+			}
+		}
 	}
-	defer pool.Close()
 	
-	// Test connection
-	if err := pool.Ping(context.Background()); err != nil {
-		log.Fatal("Failed to ping database:", err)
-	}
-	log.Printf("Database connection successful")
-	
-	// Create service
+	// Create service (pool may be nil, which will cause requests to fail but service will start)
 	service := &MarketDataService{db: pool}
 	
 	// Create Connect handler
@@ -537,10 +558,52 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle(path, handler)
 	
-	// Add health check
+	// Add health check (always returns 200 OK for Cloud Run startup)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
+		w.WriteHeader(http.StatusOK)
+		
+		status := map[string]interface{}{
+			"status": "healthy",
+		}
+		
+		// Include database status as metadata (but don't fail health check)
+		if pool != nil {
+			ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+			defer cancel()
+			
+			if err := pool.Ping(ctx); err != nil {
+				status["database"] = "unavailable"
+				status["database_error"] = err.Error()
+			} else {
+				status["database"] = "connected"
+			}
+		} else {
+			status["database"] = "not_configured"
+		}
+		
+		json.NewEncoder(w).Encode(status)
+	})
+	
+	// Add readiness check (for Kubernetes/Cloud Run)
+	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+		if pool == nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			json.NewEncoder(w).Encode(map[string]string{"status": "not ready", "reason": "database not configured"})
+			return
+		}
+		
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+		
+		if err := pool.Ping(ctx); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			json.NewEncoder(w).Encode(map[string]string{"status": "not ready", "reason": err.Error()})
+			return
+		}
+		
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
 	})
 	
 	port := os.Getenv("PORT")
@@ -548,7 +611,7 @@ func main() {
 		port = "8090"
 	}
 	
-	log.Printf("Market data service listening on port %s", port)
+	log.Printf("Starting HTTP server on port %s", port)
 	if err := http.ListenAndServe(":"+port, mux); err != nil {
 		log.Fatal("Server failed:", err)
 	}
