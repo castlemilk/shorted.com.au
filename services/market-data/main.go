@@ -560,6 +560,17 @@ func main() {
 	
 	// Add health check (always returns 200 OK for Cloud Run startup)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		// Add CORS headers for browser requests
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		
+		// Handle preflight request
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		
@@ -587,6 +598,19 @@ func main() {
 	
 	// Add readiness check (for Kubernetes/Cloud Run)
 	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+		// Add CORS headers for browser requests
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		
+		// Handle preflight request
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		
+		w.Header().Set("Content-Type", "application/json")
+		
 		if pool == nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			json.NewEncoder(w).Encode(map[string]string{"status": "not ready", "reason": "database not configured"})
