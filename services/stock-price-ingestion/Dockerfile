@@ -24,6 +24,9 @@ RUN pip install --upgrade pip && \
 # Copy application code
 COPY . .
 
+# Copy ASX company list for stock discovery
+COPY ../../analysis/data/ASX_Listed_Companies_07-04-2024_11-03-45_AEST.csv /app/data/ASX_Listed_Companies_07-04-2024_11-03-45_AEST.csv
+
 # Create non-root user for security
 RUN useradd -m -u 1001 appuser && chown -R appuser:appuser /app
 USER appuser
