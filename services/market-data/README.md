@@ -7,6 +7,7 @@ Historical stock price data management for ALL ASX stocks.
 Two independent jobs:
 
 ### 1. Short Data Sync (Existing)
+
 - **Purpose**: Sync short selling data from ASIC
 - **Frequency**: Daily
 - **Source**: ASIC daily reports
@@ -14,6 +15,7 @@ Two independent jobs:
 - **Location**: `services/short-data-sync/`
 
 ### 2. Historical Price Data Sync (This Service)
+
 - **Purpose**: Maintain historical price data for all ASX stocks
 - **Frequency**: Daily at 2 AM AEST
 - **Source**: Yahoo Finance API
@@ -66,11 +68,13 @@ services/market-data/
 ## Data Source
 
 **ASX Company List**:
+
 - Location: `analysis/data/ASX_Listed_Companies_07-04-2024_11-03-45_AEST.csv`
 - Contains: 2,291 ASX stocks
 - Official source: ASX.com.au company directory
 
 **Price Data**:
+
 - Provider: Yahoo Finance (free, no API key needed)
 - Format: Stock code + `.AX` suffix (e.g., `CBA.AX`, `RMX.AX`)
 - Fields: open, high, low, close, adjusted_close, volume
@@ -156,6 +160,7 @@ GCP_REGION="..."           # For deployment (default: australia-southeast2)
 ### Alerts
 
 Set up alerts for:
+
 - Job failure (exit code != 0)
 - Success rate < 90%
 - Duration > 15 minutes
@@ -183,6 +188,7 @@ print(ticker.history(period='5d'))
 ### Rate limiting
 
 Yahoo Finance has soft rate limits:
+
 - ~2,000 requests/hour without issues
 - Script uses 0.3s delay (10,800 req/hour theoretical)
 - Batches of 50 stocks for monitoring
@@ -240,16 +246,19 @@ gcloud scheduler jobs describe daily-historical-sync-trigger \
 ## Cost Estimation
 
 ### Storage
+
 - ~2.8M records × 100 bytes = 280 MB
 - PostgreSQL storage: ~$0.17/GB/month = **$0.05/month**
 
 ### Cloud Run Job
+
 - Daily execution: ~10 minutes
 - Memory: 2Gi
 - Free tier: 180,000 vCPU-seconds/month
 - **Cost: Free** (well within free tier)
 
 ### Data Transfer
+
 - Yahoo Finance API: Free
 - No egress charges (same region)
 
@@ -272,6 +281,7 @@ make test-local
 ## Support
 
 For issues or questions:
+
 - Check logs: `gcloud logging read ...`
 - Test locally: `make daily-sync`
 - Verify data: Query `stock_prices` table
