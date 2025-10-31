@@ -26,6 +26,14 @@ func periodToInterval(period string) string {
 		return "6 month"
 	case "1Y":
 		return "1 year"
+	case "2Y":
+		return "2 year"
+	case "5Y":
+		return "5 year"
+	case "10Y":
+		return "10 year"
+	case "MAX":
+		return "100 year" // Use a very large interval for MAX
 	default:
 		return "6 month"
 	}

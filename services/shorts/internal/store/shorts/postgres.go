@@ -73,19 +73,25 @@ func (s *postgresStore) GetStockData(productCode, period string) (*stocksv1alpha
 	// Define the interval for downsampling (e.g., 'day', 'week', 'month')
 	var interval string
 	switch period {
-	case "1d":
+	case "1D", "1d":
 		interval = "day"
-	case "1w":
+	case "1W", "1w":
 		interval = "day"
-	case "1m":
+	case "1M", "1m":
 		interval = "day"
-	case "3m":
+	case "3M", "3m":
 		interval = "day"
-	case "6m":
+	case "6M", "6m":
 		interval = "day"
-	case "1y", "2y":
+	case "1Y", "1y":
 		interval = "day"
-	case "max":
+	case "2Y", "2y":
+		interval = "day"
+	case "5Y", "5y":
+		interval = "week"
+	case "10Y", "10y":
+		interval = "week"
+	case "MAX", "max":
 		interval = "week"
 	default:
 		interval = "day"

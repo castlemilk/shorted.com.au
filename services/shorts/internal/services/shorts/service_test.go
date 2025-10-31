@@ -91,7 +91,7 @@ func TestShortsServer_GetTopShorts(t *testing.T) {
 		{
 			name: "invalid period",
 			request: &shortsv1alpha1.GetTopShortsRequest{
-				Period: "2Y",
+				Period: "7Y",
 				Limit:  10,
 				Offset: 0,
 			},
@@ -343,7 +343,7 @@ func TestShortsServer_GetStockData(t *testing.T) {
 			name: "invalid period",
 			request: &shortsv1alpha1.GetStockDataRequest{
 				ProductCode: "CBA",
-				Period:      "5Y",
+				Period:      "7Y",
 			},
 			setupMock: func(m *mocks.MockShortsStore, l *mocks.MockLogger) {
 				l.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()

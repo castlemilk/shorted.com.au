@@ -14,6 +14,8 @@ var (
 	validPeriods   = map[string]bool{
 		"1D": true, "1W": true, "1M": true,
 		"3M": true, "6M": true, "1Y": true,
+		"2Y": true, "5Y": true, "10Y": true,
+		"MAX": true,
 	}
 	validViewModes = map[string]bool{
 		"CURRENT_CHANGE":    true,
@@ -27,7 +29,7 @@ func ValidateGetTopShortsRequest(req *shortsv1alpha1.GetTopShortsRequest) error 
 	if req.Period != "" && !validPeriods[strings.ToUpper(req.Period)] {
 		return connect.NewError(
 			connect.CodeInvalidArgument,
-			fmt.Errorf("invalid period format. Valid periods: 1D, 1W, 1M, 3M, 6M, 1Y"),
+			fmt.Errorf("invalid period format. Valid periods: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y, MAX"),
 		)
 	}
 
@@ -93,7 +95,7 @@ func ValidateGetStockDataRequest(req *shortsv1alpha1.GetStockDataRequest) error 
 	if req.Period != "" && !validPeriods[strings.ToUpper(req.Period)] {
 		return connect.NewError(
 			connect.CodeInvalidArgument,
-			fmt.Errorf("invalid period format. Valid periods: 1D, 1W, 1M, 3M, 6M, 1Y"),
+			fmt.Errorf("invalid period format. Valid periods: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y, MAX"),
 		)
 	}
 
@@ -113,7 +115,7 @@ func ValidateGetIndustryTreeMapRequest(req *shortsv1alpha1.GetIndustryTreeMapReq
 	if req.Period != "" && !validPeriods[strings.ToUpper(req.Period)] {
 		return connect.NewError(
 			connect.CodeInvalidArgument,
-			fmt.Errorf("invalid period format. Valid periods: 1D, 1W, 1M, 3M, 6M, 1Y"),
+			fmt.Errorf("invalid period format. Valid periods: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y, MAX"),
 		)
 	}
 

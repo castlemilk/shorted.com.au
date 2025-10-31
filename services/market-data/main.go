@@ -123,13 +123,20 @@ func (s *MarketDataService) GetHistoricalPrices(
 	ctx context.Context,
 	req *connect.Request[marketdatav1.GetHistoricalPricesRequest],
 ) (*connect.Response[marketdatav1.GetHistoricalPricesResponse], error) {
+	log.Printf("GetHistoricalPrices called: stockCode=%s, period=%s", req.Msg.StockCode, req.Msg.Period)
+	
 	// Set defaults and normalize input
 	SetDefaultValues(req.Msg)
 	
+	log.Printf("After defaults: stockCode=%s, period=%s", req.Msg.StockCode, req.Msg.Period)
+	
 	// Validate request
 	if err := ValidateGetHistoricalPricesRequest(req.Msg); err != nil {
+		log.Printf("Validation error: %v", err)
 		return nil, err
 	}
+	
+	log.Printf("Validation passed")
 	
 	// Calculate date range based on period
 	endDate := time.Now()
@@ -167,16 +174,27 @@ func (s *MarketDataService) GetHistoricalPrices(
 		ORDER BY date ASC
 	`
 	
-	rows, err := s.db.Query(ctx, query, req.Msg.StockCode, startDate, endDate)
+	log.Printf("Executing query: stockCode=%s, startDate=%s, endDate=%s", req.Msg.StockCode, startDate, endDate)
+	
+	// Add timeout to prevent hanging
+	queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	
+	rows, err := s.db.Query(queryCtx, query, req.Msg.StockCode, startDate, endDate)
 	if err != nil {
+		log.Printf("Query error: %v", err)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	defer rows.Close()
 	
+	log.Printf("Query executed successfully, processing rows...")
+	
 	var prices []*marketdatav1.StockPrice
 	var prevClose float64
+	rowCount := 0
 	
 	for rows.Next() {
+		rowCount++
 		var (
 			date          time.Time
 			open          float64
@@ -221,6 +239,8 @@ func (s *MarketDataService) GetHistoricalPrices(
 		
 		prices = append(prices, &price)
 	}
+	
+	log.Printf("Processed %d rows, returning %d prices", rowCount, len(prices))
 	
 	return connect.NewResponse(&marketdatav1.GetHistoricalPricesResponse{
 		Prices: prices,
@@ -490,17 +510,38 @@ func main() {
 		dbURL = "postgres://user:password@localhost/shorted"
 	}
 	
-	// Create connection pool
+	// Create connection pool with proper configuration
 	config, err := pgxpool.ParseConfig(dbURL)
 	if err != nil {
 		log.Fatal("Failed to parse database URL:", err)
 	}
+	
+	// Configure connection pool settings
+	config.MaxConns = 10
+	config.MinConns = 2
+	config.MaxConnLifetime = 30 * time.Minute
+	config.MaxConnIdleTime = 5 * time.Minute
+	config.HealthCheckPeriod = 1 * time.Minute
+	config.ConnConfig.ConnectTimeout = 5 * time.Second
+	
+	// CRITICAL: Disable prepared statements for Supabase transaction pooler (port 6543)
+	// This prevents "prepared statement already exists" errors
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+	
+	log.Printf("Connecting to database (simple protocol mode for Supabase pooler)")
+	log.Printf("Pool config: MaxConns=%d, ConnectTimeout=%s", config.MaxConns, config.ConnConfig.ConnectTimeout)
 	
 	pool, err := pgxpool.NewWithConfig(context.Background(), config)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 	defer pool.Close()
+	
+	// Test connection
+	if err := pool.Ping(context.Background()); err != nil {
+		log.Fatal("Failed to ping database:", err)
+	}
+	log.Printf("Database connection successful")
 	
 	// Create service
 	service := &MarketDataService{db: pool}
