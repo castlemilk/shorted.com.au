@@ -155,6 +155,40 @@ deploy-daily-sync:
 	fi
 	./deploy-daily-sync.sh
 
+.PHONY: test-integration
+test-integration:
+	@echo "🧪 Running integration tests..."
+	@if [ -z "$$DATABASE_URL" ]; then \
+		echo "❌ DATABASE_URL environment variable is required"; \
+		echo "   Export it with: export DATABASE_URL='postgresql://...:6543/postgres?sslmode=require'"; \
+		exit 1; \
+	fi
+	@echo "   Using DATABASE_URL: $$DATABASE_URL"
+	go test -tags=integration -v -timeout 5m -coverprofile=integration-coverage.out ./...
+	@echo "✅ Integration tests complete"
+
+.PHONY: test-integration-quick
+test-integration-quick:
+	@echo "🧪 Running quick integration tests (connection only)..."
+	@if [ -z "$$DATABASE_URL" ]; then \
+		echo "❌ DATABASE_URL environment variable is required"; \
+		exit 1; \
+	fi
+	go test -tags=integration -v -timeout 2m -run TestDatabaseConnection ./...
+
+.PHONY: test-integration-concurrent
+test-integration-concurrent:
+	@echo "🧪 Running concurrency integration tests..."
+	@if [ -z "$$DATABASE_URL" ]; then \
+		echo "❌ DATABASE_URL environment variable is required"; \
+		exit 1; \
+	fi
+	go test -tags=integration -v -timeout 3m -run TestGetHistoricalPricesConcurrency ./...
+
+.PHONY: test-all
+test-all: test-unit test-integration
+	@echo "✅ All tests complete"
+
 clean:
 	@echo "🧹 Cleaning up..."
 	rm -rf __pycache__/
