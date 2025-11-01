@@ -90,25 +90,16 @@ const MarketChart = ({ stockCode }: MarketChartProps) => {
             </p>
           </div>
         ) : (
-          <div className="mt-4">
-            <div className="text-sm text-muted-foreground mb-2">
-              Showing {chartData.points.length.toLocaleString()} data points
-              from {(chartData.points[0] as any).date.toLocaleDateString()} to{" "}
-              {(
-                chartData.points[chartData.points.length - 1] as any
-              ).date.toLocaleDateString()}
-            </div>
-            <ParentSize className="min-w-0">
-              {({ width }) => (
-                <UnifiedBrushChart
-                  ref={chartRef}
-                  data={chartData}
-                  width={width}
-                  height={500}
-                />
-              )}
-            </ParentSize>
-          </div>
+          <ParentSize className="min-w-0">
+            {({ width }) => (
+              <UnifiedBrushChart
+                ref={chartRef}
+                data={chartData}
+                width={width}
+                height={500}
+              />
+            )}
+          </ParentSize>
         )}
       </div>
     </Suspense>

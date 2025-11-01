@@ -202,12 +202,13 @@ const UnifiedBrushChart = forwardRef<
 
     // Calculate heights
     const innerHeight = height - margin.top - margin.bottom;
-    const volumeChartHeight = showVolume ? 60 : 0;
+    const volumeChartHeight = showVolume ? 70 : 0;
+    const volumeChartGap = showVolume ? 25 : 0;
     const topChartBottomMargin = compact
       ? chartSeparation / 2
       : chartSeparation + 10;
     const availableChartHeight =
-      innerHeight - volumeChartHeight - (showVolume ? 10 : 0);
+      innerHeight - volumeChartHeight - volumeChartGap;
     const topChartHeight = isMobile
       ? availableChartHeight
       : 0.8 * availableChartHeight - topChartBottomMargin;
@@ -220,7 +221,7 @@ const UnifiedBrushChart = forwardRef<
         volumeChartHeight +
         margin.top +
         margin.bottom +
-        (showVolume ? 10 : 0)
+        volumeChartGap
       : height;
 
     // bounds
@@ -417,6 +418,13 @@ const UnifiedBrushChart = forwardRef<
               scale={valueScale}
               stroke={colors.secondary}
               tickStroke={colors.secondary}
+              tickLabelProps={() => ({
+                fill: colors.primary,
+                fontSize: 11,
+                textAnchor: "end",
+                dx: -4,
+                dy: 3,
+              })}
             />
             {!compact && (
               <AxisBottom
@@ -425,13 +433,22 @@ const UnifiedBrushChart = forwardRef<
                 stroke={colors.secondary}
                 tickStroke={colors.secondary}
                 numTicks={isMobile ? 4 : 8}
+                tickLabelProps={() => ({
+                  fill: colors.primary,
+                  fontSize: 11,
+                  textAnchor: "middle",
+                  dy: 4,
+                })}
               />
             )}
           </Group>
 
           {/* Volume Chart */}
           {showVolume && isPriceData(data) && (
-            <Group top={margin.top + topChartHeight + 10} left={margin.left}>
+            <Group
+              top={margin.top + topChartHeight + volumeChartGap}
+              left={margin.left}
+            >
               {(filteredData as PriceDataPoint[]).map((d, i) => {
                 const barHeight = yVolumeMax - volumeScale(getVolume(d));
                 const barWidth = Math.max(1, xMax / filteredData.length - 1);
@@ -454,12 +471,28 @@ const UnifiedBrushChart = forwardRef<
                 stroke={colors.secondary}
                 tickStroke={colors.secondary}
                 numTicks={3}
+                tickFormat={(value) => {
+                  const num = Number(value);
+                  if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
+                  if (num >= 1000) return `${(num / 1000).toFixed(0)}K`;
+                  return num.toString();
+                }}
+                tickLabelProps={() => ({
+                  fill: colors.primary,
+                  fontSize: 10,
+                  textAnchor: "end",
+                  dx: -4,
+                  dy: 3,
+                })}
               />
               <text
-                x={-30}
+                x={-margin.left + 10}
                 y={yVolumeMax / 2}
-                fontSize={10}
-                fill={colors.secondary}
+                fontSize={11}
+                fontWeight="600"
+                fill={colors.primary}
+                textAnchor="middle"
+                transform={`rotate(-90, ${-margin.left + 10}, ${yVolumeMax / 2})`}
               >
                 Volume
               </text>
@@ -473,7 +506,7 @@ const UnifiedBrushChart = forwardRef<
                 margin.top +
                 topChartHeight +
                 topChartBottomMargin +
-                (showVolume ? volumeChartHeight + 10 : 0)
+                (showVolume ? volumeChartHeight + volumeChartGap : 0)
               }
               left={brushMargin.left}
             >
@@ -526,7 +559,7 @@ const UnifiedBrushChart = forwardRef<
                   y:
                     margin.top +
                     topChartHeight +
-                    (showVolume ? volumeChartHeight + 10 : 0),
+                    (showVolume ? volumeChartHeight + volumeChartGap : 0),
                 }}
                 stroke={colors.dark}
                 strokeWidth={2}
@@ -630,7 +663,7 @@ function BrushHandle({ x, height, isBrushActive }: BrushHandleRenderProps) {
   return (
     <Group left={x + pathWidth / 2} top={(height - pathHeight) / 2}>
       <path
-        fill="#f2f2f2"
+        fill="hsl(var(--muted))"
         d="M -4.5 0.5 L 3.5 0.5 L 3.5 15.5 L -4.5 15.5 L -4.5 0.5 M -1.5 4 L -1.5 12 M 0.5 4 L 0.5 12"
         stroke="hsl(var(--foreground))"
         strokeWidth="1"

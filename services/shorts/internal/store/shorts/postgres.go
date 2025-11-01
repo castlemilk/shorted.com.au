@@ -107,7 +107,7 @@ func (s *postgresStore) GetStockData(productCode, period string) (*stocksv1alpha
 		  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
 		GROUP BY interval_start
 		ORDER BY interval_start ASC`, interval, periodToInterval(period))
-	log.Infof("Generated Query: %s", query)
+	
 	rows, err := s.db.Query(context.Background(), query, productCode)
 	if err != nil {
 		return nil, err
@@ -207,8 +207,6 @@ func (s *postgresStore) RegisterEmail(email string) error {
 
 // SearchStocks searches for stocks by symbol or company name
 func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error) {
-	log.Debugf("Searching stocks with query: %s, limit: %d", query, limit)
-	
 	// Optimized search query that uses indexes efficiently
 	// First try exact PRODUCT_CODE matches, then partial matches
 	searchQuery := `

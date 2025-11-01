@@ -49,10 +49,6 @@ func (s *ShortsServer) GetTopShorts(ctx context.Context, req *connect.Request[sh
 	}
 
 	response := cachedResponse.(*shortsv1alpha1.GetTopShortsResponse)
-	
-	for _, tsData := range response.TimeSeries {
-		s.logger.Debugf("Product Code: %s, Number of Points: %d\n", tsData.ProductCode, len(tsData.Points))
-	}
 
 	return connect.NewResponse(response), nil
 }
@@ -65,13 +61,10 @@ func (s *ShortsServer) GetStock(ctx context.Context, req *connect.Request[shorts
 		return nil, err
 	}
 
-	s.logger.Debugf("get stock: %s", req.Msg.ProductCode)
-	
 	// Check cache first
 	cacheKey := s.cache.GetStockKey(req.Msg.ProductCode)
 	
 	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		s.logger.Debugf("cache miss for GetStock, fetching from database")
 		return s.store.GetStock(req.Msg.ProductCode)
 	})
 	
@@ -92,8 +85,6 @@ func (s *ShortsServer) GetStockData(ctx context.Context, req *connect.Request[sh
 		return nil, err
 	}
 
-	s.logger.Debugf("get stock data: product_code=%s, period=%s", req.Msg.ProductCode, req.Msg.Period)
-	
 	stock, err := s.store.GetStockData(req.Msg.ProductCode, req.Msg.Period)
 	if err != nil {
 		s.logger.Errorf("database error in GetStockData: product_code=%s, period=%s, err=%v", 
@@ -113,8 +104,6 @@ func (s *ShortsServer) GetStockDetails(ctx context.Context, req *connect.Request
 		return nil, err
 	}
 
-	s.logger.Debugf("get stock details: %s", req.Msg.ProductCode)
-	
 	stock, err := s.store.GetStockDetails(req.Msg.ProductCode)
 	if err != nil {
 		s.logger.Errorf("database error in GetStockDetails: product_code=%s, err=%v", req.Msg.ProductCode, err)
@@ -133,9 +122,6 @@ func (s *ShortsServer) GetIndustryTreeMap(ctx context.Context, req *connect.Requ
 		return nil, err
 	}
 
-	s.logger.Debugf("get industry tree map: limit=%d, period=%s, viewMode=%s", 
-		req.Msg.Limit, req.Msg.Period, req.Msg.ViewMode.String())
-	
 	treeMap, err := s.store.GetIndustryTreeMap(req.Msg.Limit, req.Msg.Period, req.Msg.ViewMode.String())
 	if err != nil {
 		s.logger.Errorf("database error in GetIndustryTreeMap: limit=%d, period=%s, viewMode=%s, err=%v", 

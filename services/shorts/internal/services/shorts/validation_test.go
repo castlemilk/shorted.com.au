@@ -189,7 +189,7 @@ func TestValidateGetStockRequest(t *testing.T) {
 				ProductCode: "AB",
 			},
 			expectError: true,
-			errorMsg:    "product code must be 3-4 uppercase letters",
+			errorMsg:    "product code must be 3-4 alphanumeric characters",
 		},
 		{
 			name: "product code too long",
@@ -197,7 +197,7 @@ func TestValidateGetStockRequest(t *testing.T) {
 				ProductCode: "ABCDE",
 			},
 			expectError: true,
-			errorMsg:    "product code must be 3-4 uppercase letters",
+			errorMsg:    "product code must be 3-4 alphanumeric characters",
 		},
 		{
 			name: "product code with special characters",
@@ -205,15 +205,21 @@ func TestValidateGetStockRequest(t *testing.T) {
 				ProductCode: "AB@",
 			},
 			expectError: true,
-			errorMsg:    "product code must be 3-4 uppercase letters",
+			errorMsg:    "product code must be 3-4 alphanumeric characters",
 		},
 		{
-			name: "product code with numbers",
+			name: "product code with numbers (valid)",
 			request: &shortsv1alpha1.GetStockRequest{
-				ProductCode: "AB1",
+				ProductCode: "AX1",
 			},
-			expectError: true,
-			errorMsg:    "product code must be 3-4 uppercase letters",
+			expectError: false,
+		},
+		{
+			name: "product code all numbers (valid)",
+			request: &shortsv1alpha1.GetStockRequest{
+				ProductCode: "3PL",
+			},
+			expectError: false,
 		},
 	}
 

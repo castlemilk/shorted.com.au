@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { type WidgetProps } from "@/types/dashboard";
 import { type PlainMessage } from "@bufbuild/protobuf";
 import { type IndustryTreeMap } from "~/gen/stocks/v1alpha1/stocks_pb";
@@ -11,6 +11,7 @@ import { Group } from "@visx/group";
 import { ParentSize } from "@visx/responsive";
 import { scaleLinear } from "@visx/scale";
 import { useRouter } from "next/navigation";
+import { TreemapTooltip } from "./treemap-tooltip";
 
 interface TreeMapDatum {
   id: string;
@@ -19,15 +20,31 @@ interface TreeMapDatum {
   industry?: string;
 }
 
+interface TooltipState {
+  productCode: string;
+  shortPosition: number;
+  industry: string;
+  x: number;
+  y: number;
+  containerWidth: number;
+  containerHeight: number;
+  containerX: number;
+  containerY: number;
+}
+
 export function IndustryTreemapWidget({ config }: WidgetProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [treeMapData, setTreeMapData] = useState<PlainMessage<IndustryTreeMap> | null>(null);
-  
+  const [treeMapData, setTreeMapData] =
+    useState<PlainMessage<IndustryTreeMap> | null>(null);
+  const [tooltipState, setTooltipState] = useState<TooltipState | null>(null);
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const period = (config.settings?.period as string) || "3m";
-  const viewMode = config.settings?.viewMode === "PERCENTAGE_CHANGE" 
-    ? ViewMode.PERCENTAGE_CHANGE 
-    : ViewMode.CURRENT_CHANGE;
+  const viewMode =
+    config.settings?.viewMode === "PERCENTAGE_CHANGE"
+      ? ViewMode.PERCENTAGE_CHANGE
+      : ViewMode.CURRENT_CHANGE;
   const showSectorGrouping = config.settings?.showSectorGrouping ?? true; // Default to true like the main treemap
 
   useEffect(() => {
@@ -44,9 +61,12 @@ export function IndustryTreemapWidget({ config }: WidgetProps) {
     };
 
     void fetchData();
-    
+
     if (config.dataSource.refreshInterval) {
-      const interval = setInterval(() => void fetchData(), config.dataSource.refreshInterval * 1000);
+      const interval = setInterval(
+        () => void fetchData(),
+        config.dataSource.refreshInterval * 1000,
+      );
       return () => clearInterval(interval);
     }
   }, [period, viewMode, config.dataSource.refreshInterval]);
@@ -91,144 +111,206 @@ export function IndustryTreemapWidget({ config }: WidgetProps) {
   });
 
   const root = hierarchy(industryTreeMap).sort(
-    (a, b) => (b.value ?? 0) - (a.value ?? 0)
+    (a, b) => (b.value ?? 0) - (a.value ?? 0),
   );
 
   const PADDING = 5;
 
   return (
-    <ParentSize>
-      {({ width, height }) => (
-        <Treemap
-          root={root}
-          size={[width, height]}
-          tile={treemapSquarify}
-          round
-        >
-          {(treemap) => (
-            <svg width={width} height={height}>
-              <Group>
-                {/* Render stocks */}
-                {treemap
-                  .descendants()
-                  .filter((node) => showSectorGrouping ? node.depth > 1 : node.depth === 1)
-                  .map((node, i) => {
-                    const nodeWithPath = node as {
-                      x0: number;
-                      y0: number;
-                      x1: number;
-                      y1: number;
-                      data: { data: { id: string; industry?: string } };
-                    };
-
-                    const stock = treeMapData.stocks.find(
-                      (s) => s.productCode === node.data.data.id
-                    );
-                    if (!stock) return null;
-
-                    // Apply padding for sector grouped view
-                    let nodeX = nodeWithPath.x0;
-                    let nodeY = nodeWithPath.y0;
-                    let nodeWidth = nodeWithPath.x1 - nodeWithPath.x0;
-                    let nodeHeight = nodeWithPath.y1 - nodeWithPath.y0;
-
-                    if (showSectorGrouping && node.parent) {
-                      const parentNode = node.parent as {
-                        x0: number;
-                        y0: number;
-                        x1: number;
-                        y1: number;
-                      };
-                      const isTopEdge = nodeWithPath.y0 === parentNode.y0;
-                      const isBottomEdge = nodeWithPath.y1 === parentNode.y1;
-                      const isLeftEdge = nodeWithPath.x0 === parentNode.x0;
-                      const isRightEdge = nodeWithPath.x1 === parentNode.x1;
-
-                      nodeX = nodeWithPath.x0 + (isLeftEdge ? PADDING : 0);
-                      nodeY = nodeWithPath.y0 + (isTopEdge ? PADDING * 4 : 0);
-                      nodeWidth = nodeWithPath.x1 - nodeWithPath.x0 - (isLeftEdge ? PADDING : 0) - (isRightEdge ? PADDING : 0);
-                      nodeHeight = nodeWithPath.y1 - nodeWithPath.y0 - (isTopEdge ? PADDING * 4 : 0) - (isBottomEdge ? PADDING : 0);
-
-                      if (nodeHeight < 0 || nodeWidth < 0) {
-                        return null;
-                      }
-                    }
-
-                    return (
-                      <g
-                        key={`stock-${i}`}
-                        onClick={() => router.push(`/shorts/${stock.productCode}`)}
-                        style={{ cursor: "pointer" }}
-                      >
-                        <rect
-                          x={nodeX}
-                          y={nodeY}
-                          width={nodeWidth}
-                          height={nodeHeight}
-                          fill={colorScale(stock.shortPosition)}
-                          stroke="white"
-                          strokeWidth={1}
-                          className="transition-opacity hover:opacity-80"
-                        />
-                        {nodeWidth > 50 && (
-                          <text
-                            x={nodeX + nodeWidth / 2}
-                            y={nodeY + nodeHeight / 2}
-                            dy=".35em"
-                            textAnchor="middle"
-                            fontSize={12}
-                            fill="white"
-                            fontWeight="600"
-                          >
-                            {stock.productCode}
-                          </text>
-                        )}
-                      </g>
-                    );
-                  })}
-
-                {/* Render sector labels if grouping is enabled */}
-                {showSectorGrouping &&
-                  treemap
+    <>
+      <ParentSize>
+        {({ width, height }) => (
+          <Treemap
+            root={root}
+            size={[width, height]}
+            tile={treemapSquarify}
+            round
+          >
+            {(treemap) => (
+              <svg width={width} height={height}>
+                <Group>
+                  {/* Render stocks */}
+                  {treemap
                     .descendants()
-                    .filter((node) => node.depth === 1)
+                    .filter((node) =>
+                      showSectorGrouping ? node.depth > 1 : node.depth === 1,
+                    )
                     .map((node, i) => {
                       const nodeWithPath = node as {
                         x0: number;
                         y0: number;
                         x1: number;
                         y1: number;
-                        data: { data: { id: string } };
+                        data: { data: { id: string; industry?: string } };
                       };
-                      const nodeWidth = nodeWithPath.x1 - nodeWithPath.x0;
+
+                      const stock = treeMapData.stocks.find(
+                        (s) => s.productCode === node.data.data.id,
+                      );
+                      if (!stock) return null;
+
+                      // Apply padding for sector grouped view
+                      let nodeX = nodeWithPath.x0;
+                      let nodeY = nodeWithPath.y0;
+                      let nodeWidth = nodeWithPath.x1 - nodeWithPath.x0;
+                      let nodeHeight = nodeWithPath.y1 - nodeWithPath.y0;
+
+                      if (showSectorGrouping && node.parent) {
+                        const parentNode = node.parent as {
+                          x0: number;
+                          y0: number;
+                          x1: number;
+                          y1: number;
+                        };
+                        const isTopEdge = nodeWithPath.y0 === parentNode.y0;
+                        const isBottomEdge = nodeWithPath.y1 === parentNode.y1;
+                        const isLeftEdge = nodeWithPath.x0 === parentNode.x0;
+                        const isRightEdge = nodeWithPath.x1 === parentNode.x1;
+
+                        nodeX = nodeWithPath.x0 + (isLeftEdge ? PADDING : 0);
+                        nodeY = nodeWithPath.y0 + (isTopEdge ? PADDING * 4 : 0);
+                        nodeWidth =
+                          nodeWithPath.x1 -
+                          nodeWithPath.x0 -
+                          (isLeftEdge ? PADDING : 0) -
+                          (isRightEdge ? PADDING : 0);
+                        nodeHeight =
+                          nodeWithPath.y1 -
+                          nodeWithPath.y0 -
+                          (isTopEdge ? PADDING * 4 : 0) -
+                          (isBottomEdge ? PADDING : 0);
+
+                        if (nodeHeight < 0 || nodeWidth < 0) {
+                          return null;
+                        }
+                      }
 
                       return (
-                        <Group
-                          key={`sector-label-${i}`}
-                          top={nodeWithPath.y0}
-                          left={nodeWithPath.x0}
+                        <g
+                          key={`stock-${i}`}
+                          onClick={() =>
+                            router.push(`/shorts/${stock.productCode}`)
+                          }
+                          onMouseEnter={(e) => {
+                            // Clear any pending hide timeout
+                            if (hideTimeoutRef.current) {
+                              clearTimeout(hideTimeoutRef.current);
+                              hideTimeoutRef.current = null;
+                            }
+
+                            const svgRect =
+                              e.currentTarget.ownerSVGElement?.getBoundingClientRect();
+                            if (svgRect) {
+                              // Use mouse position directly (clientX/Y are viewport coordinates)
+                              setTooltipState({
+                                productCode: stock.productCode,
+                                shortPosition: stock.shortPosition,
+                                industry: stock.industry,
+                                x: e.clientX,
+                                y: e.clientY,
+                                containerWidth: svgRect.width,
+                                containerHeight: svgRect.height,
+                                containerX: svgRect.left,
+                                containerY: svgRect.top,
+                              });
+                            }
+                          }}
+                          onMouseLeave={() => {
+                            // Add a small delay before hiding to prevent flickering
+                            // This helps when the mouse briefly leaves the tile
+                            hideTimeoutRef.current = setTimeout(() => {
+                              setTooltipState(null);
+                            }, 100);
+                          }}
+                          style={{ cursor: "pointer" }}
                         >
-                          <text
-                            x={5}
-                            y={5}
-                            dy=".66em"
-                            fontSize={12}
-                            textAnchor="start"
-                            pointerEvents="none"
-                            fill="hsl(var(--foreground))"
-                          >
-                            {`${node.data.data.id.substring(0, nodeWidth / 10)}${
-                              node.data.data.id.length > nodeWidth / 10 ? "..." : ""
-                            }`}
-                          </text>
-                        </Group>
+                          <rect
+                            x={nodeX}
+                            y={nodeY}
+                            width={nodeWidth}
+                            height={nodeHeight}
+                            fill={colorScale(stock.shortPosition)}
+                            stroke="white"
+                            strokeWidth={1}
+                            className="transition-opacity hover:opacity-80"
+                          />
+                          {nodeWidth > 50 && (
+                            <text
+                              x={nodeX + nodeWidth / 2}
+                              y={nodeY + nodeHeight / 2}
+                              dy=".35em"
+                              textAnchor="middle"
+                              fontSize={12}
+                              fill="white"
+                              fontWeight="600"
+                            >
+                              {stock.productCode}
+                            </text>
+                          )}
+                        </g>
                       );
                     })}
-              </Group>
-            </svg>
-          )}
-        </Treemap>
+
+                  {/* Render sector labels if grouping is enabled */}
+                  {showSectorGrouping &&
+                    treemap
+                      .descendants()
+                      .filter((node) => node.depth === 1)
+                      .map((node, i) => {
+                        const nodeWithPath = node as {
+                          x0: number;
+                          y0: number;
+                          x1: number;
+                          y1: number;
+                          data: { data: { id: string } };
+                        };
+                        const nodeWidth = nodeWithPath.x1 - nodeWithPath.x0;
+
+                        return (
+                          <Group
+                            key={`sector-label-${i}`}
+                            top={nodeWithPath.y0}
+                            left={nodeWithPath.x0}
+                          >
+                            <text
+                              x={5}
+                              y={5}
+                              dy=".66em"
+                              fontSize={12}
+                              textAnchor="start"
+                              pointerEvents="none"
+                              fill="hsl(var(--foreground))"
+                            >
+                              {`${node.data.data.id.substring(0, nodeWidth / 10)}${
+                                node.data.data.id.length > nodeWidth / 10
+                                  ? "..."
+                                  : ""
+                              }`}
+                            </text>
+                          </Group>
+                        );
+                      })}
+                </Group>
+              </svg>
+            )}
+          </Treemap>
+        )}
+      </ParentSize>
+
+      {/* Render tooltip */}
+      {tooltipState && (
+        <TreemapTooltip
+          productCode={tooltipState.productCode}
+          shortPosition={tooltipState.shortPosition}
+          industry={tooltipState.industry}
+          x={tooltipState.x}
+          y={tooltipState.y}
+          containerWidth={tooltipState.containerWidth}
+          containerHeight={tooltipState.containerHeight}
+          containerX={tooltipState.containerX}
+          containerY={tooltipState.containerY}
+        />
       )}
-    </ParentSize>
+    </>
   );
 }

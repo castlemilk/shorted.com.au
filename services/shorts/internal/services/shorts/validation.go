@@ -10,7 +10,8 @@ import (
 )
 
 var (
-	stockCodeRegex = regexp.MustCompile(`^[A-Z]{3,4}$`)
+	// Allow 3-4 characters: uppercase letters and digits (e.g., CBA, ZIP, AX1, 3PL)
+	stockCodeRegex = regexp.MustCompile(`^[A-Z0-9]{3,4}$`)
 	validPeriods   = map[string]bool{
 		"1D": true, "1W": true, "1M": true,
 		"3M": true, "6M": true, "1Y": true,
@@ -75,7 +76,7 @@ func ValidateGetStockRequest(req *shortsv1alpha1.GetStockRequest) error {
 	if !stockCodeRegex.MatchString(productCode) {
 		return connect.NewError(
 			connect.CodeInvalidArgument,
-			fmt.Errorf("product code must be 3-4 uppercase letters (e.g., CBA, ZIP)"),
+			fmt.Errorf("product code must be 3-4 alphanumeric characters (e.g., CBA, ZIP, AX1)"),
 		)
 	}
 
