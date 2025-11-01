@@ -1,5 +1,0 @@
-config: {AppSpec:{Insecure:true Port:9091 ShortsStoreConfig:{StorageBackend:postgres DynamoDBRegion: DynamoDBTable: DynamoDBEndpoint: PostgresAddress:localhost:54145 PostgresUsername:test_user PostgresPassword:test_password PostgresDatabase:shorts_test}} OpsSpec:{Version:dev Commit:dirty Port:8082 Logging:{Level:info}}}2025-10-28T21:17:15.603+1030	INFO	log/log.go:49	starting server server at :9091
-2025-10-28T21:17:16.337+1030	DEBUG	log/log.go:62	Searching stocks with query: CBA, limit: 10
-2025-10-28T21:17:16.341+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
-2025-10-28T21:17:16.341+1030	DEBUG	log/log.go:62	Searching stocks with query: BHP, limit: 10
-2025-10-28T21:17:16.342+1030	DEBUG	log/log.go:62	Search completed for 'BHP': found 1 unique stocks (deduplicated from 1 total results)
