@@ -97,12 +97,13 @@ func (s *postgresStore) GetStockData(productCode, period string) (*stocksv1alpha
 		interval = "day"
 	}
 
+	// Uses MAX(DATE) instead of CURRENT_DATE to work with historical data
 	query := fmt.Sprintf(`
 		SELECT date_trunc('%s', "DATE") as interval_start, 
 		       AVG("PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") as avg_percent
 		FROM shorts
 		WHERE "PRODUCT_CODE" = $1
-		  AND "DATE" > CURRENT_DATE - INTERVAL '%s'
+		  AND "DATE" > (SELECT MAX("DATE") FROM shorts) - INTERVAL '%s'
 		  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
 		GROUP BY interval_start
 		ORDER BY interval_start ASC`, interval, periodToInterval(period))

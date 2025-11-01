@@ -79,7 +79,7 @@ var (
 		FROM 
 			public.shorts
 		WHERE 
-			"DATE" >= NOW() - INTERVAL '%s'
+			"DATE" >= (SELECT MAX("DATE") FROM shorts) - INTERVAL '%s'
 	),
 	latest_data AS (
 		-- Extract the most recent short position for each product
@@ -153,7 +153,7 @@ var (
 		FROM 
 			public.shorts
 		WHERE 
-			"DATE" >= NOW() - INTERVAL '%s'
+			"DATE" >= (SELECT MAX("DATE") FROM shorts) - INTERVAL '%s'
 		GROUP BY 
 			"PRODUCT_CODE"
 	),

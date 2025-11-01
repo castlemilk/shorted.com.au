@@ -1,7 +1,10 @@
 "use client";
 import ParentSize from "@visx/responsive/lib/components/ParentSize";
-import BrushChart, { type HandleBrushClearAndReset } from "./brushChart";
-import { Suspense, useRef, useState } from "react";
+import UnifiedBrushChart, {
+  type HandleBrushClearAndReset,
+  type UnifiedChartData,
+} from "./unified-brush-chart";
+import { Suspense, useRef, useState, useMemo } from "react";
 import { ToggleGroup, ToggleGroupItem } from "./toggle-group";
 import { Button } from "./button";
 import { Skeleton } from "./skeleton";
@@ -17,6 +20,24 @@ const MarketChart = ({ stockCode }: MarketChartProps) => {
   const [period, setPeriod] = useState<string>(INITIAL_PERIOD);
   const chartRef = useRef<HandleBrushClearAndReset>(null);
   const { data, loading, error } = useMarketData(stockCode, period);
+
+  // Convert market data to unified chart format
+  const chartData = useMemo((): UnifiedChartData | null => {
+    if (!data || !data.points || data.points.length === 0) return null;
+
+    return {
+      type: "price",
+      stockCode,
+      points: data.points.map((point) => ({
+        date: point.date,
+        open: point.open,
+        high: point.high,
+        low: point.low,
+        close: point.close,
+        volume: point.volume,
+      })),
+    };
+  }, [data, stockCode]);
 
   const handleClearClick = () => {
     chartRef?.current?.clear();
@@ -62,20 +83,29 @@ const MarketChart = ({ stockCode }: MarketChartProps) => {
           <div className="flex items-center justify-center h-[400px] text-red-500">
             <p>Error loading market data: {error.message}</p>
           </div>
-        ) : !data?.points || data.points.length === 0 ? (
+        ) : !chartData ? (
           <div className="flex items-center justify-center h-[400px] text-muted-foreground">
-            <p>No market data available for {stockCode} in the selected period</p>
+            <p>
+              No market data available for {stockCode} in the selected period
+            </p>
           </div>
         ) : (
           <div className="mt-4">
             <div className="text-sm text-muted-foreground mb-2">
-              Showing {data.points.length.toLocaleString()} data points from{" "}
-              {data.points[0].date.toLocaleDateString()} to{" "}
-              {data.points[data.points.length - 1].date.toLocaleDateString()}
+              Showing {chartData.points.length.toLocaleString()} data points
+              from {(chartData.points[0] as any).date.toLocaleDateString()} to{" "}
+              {(
+                chartData.points[chartData.points.length - 1] as any
+              ).date.toLocaleDateString()}
             </div>
             <ParentSize className="min-w-0">
               {({ width }) => (
-                <BrushChart ref={chartRef} data={data} width={width} height={400} />
+                <UnifiedBrushChart
+                  ref={chartRef}
+                  data={chartData}
+                  width={width}
+                  height={500}
+                />
               )}
             </ParentSize>
           </div>

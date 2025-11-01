@@ -50,7 +50,7 @@ interface TopShortsProps {
 const LOAD_CHUNK_SIZE = 10;
 
 export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
-  const [period, setPeriod] = useState<string>("3m");
+  const [period, setPeriod] = useState<string>("max");
   const [loading, setLoading] = useState<boolean>(false);
   const [offset, setOffset] = useState<number>(0); // Added offset state
   const [shortsData, setShortsData] =
@@ -99,7 +99,7 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
           <div className="flex flex-row-reverse m-2">
             <div className="w-48">
               <Label htmlFor="area">Time</Label>
-              <Select onValueChange={(e) => setPeriod(e)} defaultValue={"3m"}>
+              <Select onValueChange={(e) => setPeriod(e)} defaultValue={"max"}>
                 <SelectTrigger id="area">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>

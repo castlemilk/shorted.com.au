@@ -60,19 +60,22 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 	log.Infof("Period: %s, Interval: %s", period, interval)
 	
 	// Optimized query for top product codes
-	topCodesQuery := fmt.Sprintf(`
-	WITH latest_shorts AS (
-	    SELECT "PRODUCT_CODE", "PRODUCT", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS",
-	           ROW_NUMBER() OVER (PARTITION BY "PRODUCT_CODE" ORDER BY "DATE" DESC) as rn
-	    FROM shorts
-	    WHERE "DATE" > CURRENT_DATE - INTERVAL '%s'
+	// Uses MAX(DATE) to work with historical data
+	// Only selects stocks that have data at the most recent date to avoid showing old delisted stocks
+	topCodesQuery := `
+	WITH max_date AS (
+	    SELECT MAX("DATE") as latest_date FROM shorts
+	),
+	latest_shorts AS (
+	    SELECT "PRODUCT_CODE", "PRODUCT", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
+	    FROM shorts, max_date
+	    WHERE "DATE" = max_date.latest_date
 	      AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
 	)
 	SELECT "PRODUCT", "PRODUCT_CODE"
 	FROM latest_shorts
-	WHERE rn = 1
 	ORDER BY "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC
-	LIMIT $1 OFFSET $2`, interval)
+	LIMIT $1 OFFSET $2`
 
 	rows, err := connection.Query(ctx, topCodesQuery, limit, offset)
 	if err != nil {
@@ -96,6 +99,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 	}
 
 	// Optimized query for time series data without downsampling
+	// Uses MAX(DATE) instead of CURRENT_DATE to work with historical data
 	timeSeriesQuery := fmt.Sprintf(`
 	SELECT 
 	    "PRODUCT_CODE",
@@ -103,7 +107,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 	    "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" AS "PERCENT"
 	FROM shorts
 	WHERE "PRODUCT_CODE" = ANY($1)
-	    AND "DATE" > CURRENT_DATE - INTERVAL '%s'
+	    AND "DATE" > (SELECT MAX("DATE") FROM shorts) - INTERVAL '%s'
 	    AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
 	ORDER BY "PRODUCT_CODE", "DATE" ASC`, interval)
 

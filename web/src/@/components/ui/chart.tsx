@@ -1,7 +1,10 @@
 "use client";
 import ParentSize from "@visx/responsive/lib/components/ParentSize";
-import BrushChart, { type HandleBrushClearAndReset } from "./brushChart";
-import { Suspense, useRef, useState } from "react";
+import UnifiedBrushChart, {
+  type HandleBrushClearAndReset,
+  type UnifiedChartData,
+} from "./unified-brush-chart";
+import { Suspense, useRef, useState, useMemo } from "react";
 import { ToggleGroup, ToggleGroupItem } from "./toggle-group";
 import { Button } from "./button";
 import { Skeleton } from "./skeleton";
@@ -16,6 +19,23 @@ const Chart = ({ stockCode }: ChartProps) => {
   const [period, setPeriod] = useState<string>(INITIAL_PERIOD);
   const chartRef = useRef<HandleBrushClearAndReset>(null);
   const { data, loading, error } = useStockData(stockCode, period);
+
+  // Convert protobuf data to unified chart format
+  const chartData = useMemo((): UnifiedChartData | null => {
+    if (!data || !data.points || data.points.length === 0) return null;
+
+    return {
+      type: "short-position",
+      stockCode,
+      points: data.points.map((point) => ({
+        timestamp:
+          typeof point.timestamp === "string"
+            ? new Date(point.timestamp)
+            : new Date(Number(point.timestamp?.seconds ?? 0) * 1000),
+        shortPosition: point.shortPosition ?? 0,
+      })),
+    };
+  }, [data, stockCode]);
 
   const handleClearClick = () => {
     chartRef?.current?.clear();
@@ -59,14 +79,22 @@ const Chart = ({ stockCode }: ChartProps) => {
           <ChartLoadingPlaceholder withMenu={false} />
         ) : error ? (
           <div>Error loading data: {error.message}</div>
-        ) : !data?.points || data.points.length === 0 ? (
+        ) : !chartData ? (
           <div className="flex items-center justify-center h-[400px] text-muted-foreground">
-            <p>No short position data available for {stockCode} in the selected period</p>
+            <p>
+              No short position data available for {stockCode} in the selected
+              period
+            </p>
           </div>
         ) : (
           <ParentSize className="min-w-0">
             {({ width }) => (
-              <BrushChart ref={chartRef} data={data} width={width} height={400} />
+              <UnifiedBrushChart
+                ref={chartRef}
+                data={chartData}
+                width={width}
+                height={500}
+              />
             )}
           </ParentSize>
         )}
@@ -77,15 +105,17 @@ const Chart = ({ stockCode }: ChartProps) => {
 
 const ChartLoadingPlaceholder = ({ withMenu }: { withMenu: boolean }) => (
   <div className="grid">
-    {withMenu ? <div className="flex flex-row-reverse">
-      <div className="flex">
-        <Skeleton className="h-[40px] w-[60px] ml-2" />
-        <Skeleton className="h-[40px] w-[60px] ml-2" />
+    {withMenu ? (
+      <div className="flex flex-row-reverse">
+        <div className="flex">
+          <Skeleton className="h-[40px] w-[60px] ml-2" />
+          <Skeleton className="h-[40px] w-[60px] ml-2" />
+        </div>
+        <div>
+          <Skeleton className="h-[40px] w-[300px]" />
+        </div>
       </div>
-      <div>
-        <Skeleton className="h-[40px] w-[300px]" />
-      </div>
-    </div> : null}
+    ) : null}
     <div>
       <Skeleton className="h-[400px] w-full mt-2" />
     </div>

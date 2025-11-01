@@ -18,6 +18,14 @@ import {
   BreadcrumbStructuredData,
 } from "~/@/components/seo/breadcrumbs";
 import { DashboardLayout } from "@/components/layouts/dashboard-layout";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "~/@/components/ui/card";
+import { TrendingDown, CandlestickChart } from "lucide-react";
 
 interface PageProps {
   params: { stockCode: string };
@@ -107,19 +115,48 @@ const Page = async ({ params }: PageProps) => {
             </Suspense>
           </div>
         </div>
-        <div className="grid auto-rows-max items-start gap-4 lg:col-span-2">
-          <div>
-            <h2 className="text-lg font-semibold mb-2">
-              Short Position Trends
-            </h2>
-            <Chart stockCode={params.stockCode} />
-          </div>
-          <div className="mt-6">
-            <h2 className="text-lg font-semibold mb-2">
-              Historical Price Data
-            </h2>
-            <MarketChart stockCode={params.stockCode} />
-          </div>
+        <div className="grid auto-rows-max items-start gap-6 lg:col-span-2">
+          <Card className="border-l-4 border-l-red-500 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+            <CardHeader className="pb-4 bg-gradient-to-r from-red-50/50 to-transparent dark:from-red-950/20 dark:to-transparent">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-red-100 dark:bg-red-900/40 rounded-lg shadow-sm">
+                  <TrendingDown className="h-6 w-6 text-red-600 dark:text-red-400" />
+                </div>
+                <div className="flex-1">
+                  <CardTitle className="text-xl text-red-900 dark:text-red-100">
+                    Short Position Trends
+                  </CardTitle>
+                  <CardDescription className="mt-1.5 text-sm">
+                    Track bearish sentiment and short interest over time
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <Chart stockCode={params.stockCode} />
+            </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-blue-500 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+            <CardHeader className="pb-4 bg-gradient-to-r from-blue-50/50 to-transparent dark:from-blue-950/20 dark:to-transparent">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-blue-100 dark:bg-blue-900/40 rounded-lg shadow-sm">
+                  <CandlestickChart className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="flex-1">
+                  <CardTitle className="text-xl text-blue-900 dark:text-blue-100">
+                    Historical Price Data
+                  </CardTitle>
+                  <CardDescription className="mt-1.5 text-sm">
+                    View stock price movements, volume, and trading patterns
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <MarketChart stockCode={params.stockCode} />
+            </CardContent>
+          </Card>
         </div>
       </div>
     </DashboardLayout>
