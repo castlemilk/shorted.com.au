@@ -5,8 +5,11 @@ SHORTS_VERSION := `git describe --tags --always --dirty`
 SHORTS_SYNC_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/short-data-sync
 STOCK_PRICE_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/stock-price-ingestion
 SHORTS_DATABASE_URL := postgresql://admin:password@postgres:5432/shorts
-# IMPORTANT: Set DATABASE_URL environment variable before running commands
-# export DATABASE_URL='your-database-url'
+
+# Default database URL for local development
+# Note: Local docker-compose (in ../analysis/sql) uses admin/password on port 5438
+DATABASE_URL ?= postgresql://admin:password@localhost:5438/shorts
+
 MIGRATION_PATH := file://migrations
 
 # Database migration commands
@@ -88,11 +91,14 @@ clean.market-data:
 	@sleep 1
 
 run.shorts: clean.shorts
-	GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS} go run shorts/cmd/server/main.go
+	@echo "🚀 Starting shorts service on port 9091..."
+	@echo "   Database: $(DATABASE_URL)"
+	DATABASE_URL=$(DATABASE_URL) GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS} go run shorts/cmd/server/main.go
 
 run.market-data: clean.market-data
 	@echo "🚀 Starting market data service on port 8090..."
-	@cd market-data && go run main.go validation.go 
+	@echo "   Database: $(DATABASE_URL)"
+	@cd market-data && DATABASE_URL=$(DATABASE_URL) go run main.go validation.go 
 build.short-data-sync:
 	cd short-data-sync; docker buildx build --push --progress=plain --platform linux/amd64,linux/arm64 -f Dockerfile -t ${SHORTS_SYNC_IMAGE}:latest -t ${SHORTS_SYNC_IMAGE}:${SHORTS_VERSION} .
 build.shorts:

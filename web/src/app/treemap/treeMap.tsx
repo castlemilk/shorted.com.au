@@ -42,7 +42,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
 }) => {
   const firstUpdate = useRef(true);
   const router = useRouter();
-  const [period, setPeriod] = useState<string>("3m");
+  const [period, setPeriod] = useState<string>("max");
   const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.CURRENT_CHANGE);
   const [treeMapData, setTreeMapData] =
     useState<PlainMessage<IndustryTreeMap> | null>(initialTreeMapData);
@@ -152,7 +152,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
           {viewMode === ViewMode.PERCENTAGE_CHANGE && (
             <div className="w-48">
               <Label htmlFor="period">Time</Label>
-              <Select onValueChange={(e) => setPeriod(e)} defaultValue={"3m"}>
+              <Select onValueChange={(e) => setPeriod(e)} defaultValue={"max"}>
                 <SelectTrigger id="period">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
