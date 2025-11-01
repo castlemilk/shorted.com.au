@@ -17,13 +17,10 @@ import { scaleLinear } from "@visx/scale";
 import { type IndustryTreeMap } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { getIndustryTreeMap } from "../actions/getIndustryTreeMap";
 import { type PlainMessage } from "@bufbuild/protobuf";
-import {
-  type HierarchyNode,
-  type HierarchyRectangularNode,
-} from "@visx/hierarchy/lib/types";
 import { useRouter } from "next/navigation";
 import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TreemapTooltip } from "@/components/widgets/treemap-tooltip";
 
 interface TreeMapProps {
   initialTreeMapData: PlainMessage<IndustryTreeMap>;
@@ -47,12 +44,19 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
   const [treeMapData, setTreeMapData] =
     useState<PlainMessage<IndustryTreeMap> | null>(initialTreeMapData);
 
-  const [tooltip, setTooltip] = useState<{
-    visible: boolean;
+  const [tooltipState, setTooltipState] = useState<{
+    productCode: string;
+    shortPosition: number;
+    industry: string;
     x: number;
     y: number;
-    content: string;
-  }>({ visible: false, x: 0, y: 0, content: "" });
+    containerWidth: number;
+    containerHeight: number;
+    containerX: number;
+    containerY: number;
+  } | null>(null);
+
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (firstUpdate.current) {
@@ -97,28 +101,41 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
     (a, b) => (b.value ?? 0) - (a.value ?? 0),
   );
 
-  const handleMouseEnter = (
-    event: React.MouseEvent,
-    node: HierarchyRectangularNode<HierarchyNode<TreeMapDatum>>,
-  ) => {
+  const handleMouseEnter = (event: React.MouseEvent, productCode: string) => {
+    // Clear any pending hide timeout
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+
+    const stock = treeMapData?.stocks.find(
+      (s) => s.productCode === productCode,
+    );
+    if (!stock) return;
+
     const svgRect = (event.target as SVGRectElement)
       .closest("svg")!
       .getBoundingClientRect();
-    setTooltip({
-      visible: true,
-      x: event.clientX - svgRect.left,
-      y: event.clientY - svgRect.top,
-      content: `${node.data.id}: ${node.value?.toFixed(2)}%`,
+
+    // Use mouse position directly (clientX/Y are viewport coordinates)
+    setTooltipState({
+      productCode: stock.productCode,
+      shortPosition: stock.shortPosition,
+      industry: stock.industry,
+      x: event.clientX,
+      y: event.clientY,
+      containerWidth: svgRect.width,
+      containerHeight: svgRect.height,
+      containerX: svgRect.left,
+      containerY: svgRect.top,
     });
   };
 
   const handleMouseLeave = () => {
-    setTooltip({
-      visible: false,
-      x: 0,
-      y: 0,
-      content: "",
-    });
+    // Add a small delay before hiding to prevent flickering
+    hideTimeoutRef.current = setTimeout(() => {
+      setTooltipState(null);
+    }, 100);
   };
 
   const handleRectClick = (stockCode: string) => {
@@ -220,7 +237,9 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                               key={`node-${i}`}
                               top={top}
                               left={left}
-                              onMouseEnter={(e) => handleMouseEnter(e, node)}
+                              onMouseEnter={(e) =>
+                                handleMouseEnter(e, node.data?.id ?? "")
+                              }
                               onMouseLeave={handleMouseLeave}
                               pointerEvents={"all"}
                               onClick={() =>
@@ -287,21 +306,20 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                   )}
                 </Treemap>
               </svg>
-              {tooltip.visible && (
-                <div
-                  style={{
-                    position: "absolute",
-                    left: tooltip.x + 10,
-                    top: tooltip.y + 10,
-                    background: "rgba(0, 0, 0, 0.75)",
-                    color: "#fff",
-                    padding: "5px",
-                    borderRadius: "3px",
-                    pointerEvents: "none",
-                  }}
-                >
-                  {tooltip.content}
-                </div>
+
+              {/* Render rich tooltip */}
+              {tooltipState && (
+                <TreemapTooltip
+                  productCode={tooltipState.productCode}
+                  shortPosition={tooltipState.shortPosition}
+                  industry={tooltipState.industry}
+                  x={tooltipState.x}
+                  y={tooltipState.y}
+                  containerWidth={tooltipState.containerWidth}
+                  containerHeight={tooltipState.containerHeight}
+                  containerX={tooltipState.containerX}
+                  containerY={tooltipState.containerY}
+                />
               )}
             </div>
           )}
