@@ -65,7 +65,7 @@ func (s *MarketDataService) GetStockPrice(
 		low           float64
 		close         float64
 		volume        int64
-		adjustedClose float64
+		adjustedClose sql.NullFloat64
 	)
 	
 	err := s.db.QueryRow(ctx, query, req.Msg.StockCode).Scan(
@@ -86,6 +86,11 @@ func (s *MarketDataService) GetStockPrice(
 	}
 	
 	// Create the price struct with converted timestamp
+	adjClose := close // Default to close if NULL
+	if adjustedClose.Valid {
+		adjClose = adjustedClose.Float64
+	}
+	
 	price := marketdatav1.StockPrice{
 		StockCode:     req.Msg.StockCode,
 		Date:          timestamppb.New(date),
@@ -94,7 +99,7 @@ func (s *MarketDataService) GetStockPrice(
 		Low:           low,
 		Close:         close,
 		Volume:        volume,
-		AdjustedClose: adjustedClose,
+		AdjustedClose: adjClose,
 	}
 	
 	// Calculate change from previous close
@@ -188,7 +193,7 @@ func (s *MarketDataService) GetHistoricalPrices(
 			low           float64
 			close         float64
 			volume        int64
-			adjustedClose float64
+			adjustedClose sql.NullFloat64
 		)
 		
 		err := rows.Scan(
@@ -205,6 +210,11 @@ func (s *MarketDataService) GetHistoricalPrices(
 		}
 		
 		// Create the price struct with converted timestamp
+		adjClose := close // Default to close if NULL
+		if adjustedClose.Valid {
+			adjClose = adjustedClose.Float64
+		}
+		
 		price := marketdatav1.StockPrice{
 			StockCode:     req.Msg.StockCode,
 			Date:          timestamppb.New(date),
@@ -213,7 +223,7 @@ func (s *MarketDataService) GetHistoricalPrices(
 			Low:           low,
 			Close:         close,
 			Volume:        volume,
-			AdjustedClose: adjustedClose,
+			AdjustedClose: adjClose,
 		}
 		
 		// Calculate daily change
@@ -291,7 +301,7 @@ func (s *MarketDataService) GetMultipleStockPrices(
 			low           float64
 			close         float64
 			volume        int64
-			adjustedClose float64
+			adjustedClose sql.NullFloat64
 			prevClose     sql.NullFloat64
 		)
 		
@@ -311,6 +321,11 @@ func (s *MarketDataService) GetMultipleStockPrices(
 		}
 		
 		// Create the price struct with converted timestamp
+		adjClose := close // Default to close if NULL
+		if adjustedClose.Valid {
+			adjClose = adjustedClose.Float64
+		}
+		
 		price := marketdatav1.StockPrice{
 			StockCode:     stockCode,
 			Date:          timestamppb.New(date),
@@ -319,7 +334,7 @@ func (s *MarketDataService) GetMultipleStockPrices(
 			Low:           low,
 			Close:         close,
 			Volume:        volume,
-			AdjustedClose: adjustedClose,
+			AdjustedClose: adjClose,
 		}
 		
 		// Calculate change if we have previous close

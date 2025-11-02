@@ -103,3 +103,56 @@ db-check-data: ## Check recent stock price data
 			print(f'Latest data: {latest}'); \
 			await conn.close(); \
 		asyncio.run(check())"
+
+db-check-coverage: ## Check how many stocks have data
+	@echo "Checking stock data coverage..."
+	@PGGSSENCMODE=disable psql "$$DATABASE_URL" -c "\
+		SELECT \
+			(SELECT COUNT(DISTINCT stock_code) FROM \"company-metadata\") as total_stocks, \
+			(SELECT COUNT(DISTINCT stock_code) FROM stock_prices) as stocks_with_data, \
+			(SELECT COUNT(DISTINCT stock_code) FROM \"company-metadata\" WHERE stock_code NOT IN (SELECT DISTINCT stock_code FROM stock_prices)) as stocks_missing_data;"
+
+db-list-missing: ## List first 20 stocks missing data
+	@echo "Stocks missing historical data:"
+	@PGGSSENCMODE=disable psql "$$DATABASE_URL" -c "\
+		SELECT stock_code, company_name, industry \
+		FROM \"company-metadata\" \
+		WHERE stock_code NOT IN (SELECT DISTINCT stock_code FROM stock_prices) \
+		ORDER BY stock_code \
+		LIMIT 20;"
+
+backfill-missing: ## Backfill all missing stocks (interactive)
+	@echo "Starting backfill for missing stocks..."
+	@cd ../../ && source venv/bin/activate && cd services/stock-price-ingestion && python backfill_missing_stocks.py
+
+check-deployment: ## Check deployment status and show monitoring commands
+	@./check_deployment_status.sh
+
+sync-single: ## Sync a single stock (usage: make sync-single STOCK=RMX)
+	@echo "Syncing $(STOCK)..."
+	@cd ../../ && source venv/bin/activate && cd services/stock-price-ingestion && python -c "\
+		import asyncio; \
+		import asyncpg; \
+		import yfinance as yf; \
+		from datetime import datetime, timedelta; \
+		async def sync(): \
+			pool = await asyncpg.create_pool('$$DATABASE_URL', min_size=1, max_size=2, server_settings={'gssencmode': 'disable'}); \
+			symbol = '$(STOCK).AX'; \
+			end_date = datetime.now(); \
+			start_date = end_date - timedelta(days=730); \
+			print(f'Fetching {symbol}...'); \
+			ticker = yf.Ticker(symbol); \
+			df = ticker.history(start=start_date, end=end_date); \
+			if df.empty: \
+				print('No data found'); \
+				await pool.close(); \
+				return; \
+			print(f'Found {len(df)} data points, inserting...'); \
+			inserted = 0; \
+			async with pool.acquire() as conn: \
+				for idx, row in df.iterrows(): \
+					await conn.execute('INSERT INTO stock_prices (stock_code, date, open, high, low, close, volume) VALUES (\$$1, \$$2, \$$3, \$$4, \$$5, \$$6, \$$7) ON CONFLICT (stock_code, date) DO UPDATE SET open = EXCLUDED.open, high = EXCLUDED.high, low = EXCLUDED.low, close = EXCLUDED.close, volume = EXCLUDED.volume, updated_at = CURRENT_TIMESTAMP', '$(STOCK)', idx.date(), float(row[\"Open\"]), float(row[\"High\"]), float(row[\"Low\"]), float(row[\"Close\"]), int(row[\"Volume\"])); \
+					inserted += 1; \
+			print(f'Inserted {inserted} records'); \
+			await pool.close(); \
+		asyncio.run(sync())"

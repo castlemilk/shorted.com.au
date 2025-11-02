@@ -327,19 +327,31 @@ global.IntersectionObserver = jest.fn().mockImplementation(() => ({
 const originalError = console.error;
 beforeAll(() => {
   console.error = (...args: any[]) => {
-    const message = typeof args[0] === "string" ? args[0] : "";
+    // Convert all arguments to strings for checking
+    const message = args
+      .map((arg) => {
+        if (typeof arg === "string") return arg;
+        if (arg instanceof Error) return arg.message;
+        try {
+          return String(arg);
+        } catch {
+          return "";
+        }
+      })
+      .join(" ");
 
     // Suppress expected warnings and test error outputs
     if (
       message.includes("Warning: ReactDOM.render is no longer supported") ||
       message.includes("Warning: validateDOMNesting") ||
       message.includes("cannot appear as a child of") ||
-      message.includes("React does not recognize the `asChild` prop") ||
+      message.includes("asChild") || // Catches various asChild prop warnings
       message.includes("Function components cannot be given refs") ||
       message.includes("Consider adding an error boundary") ||
       message.includes("The above error occurred in the") ||
       message.includes("Uncaught [Error:") ||
-      message.includes("reportException")
+      message.includes("reportException") ||
+      message.includes("punycode") // Suppress punycode deprecation warnings
     ) {
       return;
     }

@@ -140,6 +140,8 @@ export default function StocksPage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      // Close search results dropdown
+      setSearchResults([]);
       void loadStockData(searchQuery.trim().toUpperCase());
     }
   };
@@ -170,7 +172,10 @@ export default function StocksPage() {
   };
 
   // Format percentage
-  const formatPercent = (value: number) => {
+  const formatPercent = (value: number | undefined) => {
+    if (value === undefined || value === null || isNaN(value)) {
+      return "N/A";
+    }
     const sign = value >= 0 ? "+" : "";
     return `${sign}${value.toFixed(2)}%`;
   };
@@ -215,6 +220,13 @@ export default function StocksPage() {
               placeholder="Search by stock code or company name (e.g., CBA, BHP, Bank)"
               value={searchQuery}
               onChange={(e) => handleSearchChange(e.target.value.toUpperCase())}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  setSearchResults([]);
+                  void loadStockData(searchQuery.trim().toUpperCase());
+                }
+              }}
               className="pl-10"
             />
             {/* Search Results Dropdown */}
@@ -437,8 +449,11 @@ export default function StocksPage() {
                       <YAxis
                         stroke="#6b7280"
                         fontSize={12}
-                        tickFormatter={(value) => `$${value}`}
-                        domain={["dataMin - 5", "dataMax + 5"]}
+                        tickFormatter={(value) => `$${value.toFixed(3)}`}
+                        domain={[
+                          (dataMin: number) => Math.max(0, dataMin * 0.95),
+                          (dataMax: number) => dataMax * 1.05,
+                        ]}
                       />
                       <Tooltip
                         formatter={(value: number) => formatCurrency(value)}
