@@ -81,7 +81,10 @@ export async function getMultipleStockQuotes(
 
   try {
     if (!(await isMarketDataServiceAvailable())) {
-      throw new Error("Market data service not available");
+      console.warn(
+        `Market data service unavailable for quotes, returning empty data`,
+      );
+      return quotes;
     }
 
     const response = await fetch(
@@ -138,10 +141,17 @@ export async function getMultipleStockQuotes(
       }
     }
 
-    throw new Error("Market data API returned invalid response");
+    // Non-200 response - return empty map gracefully
+    console.warn(
+      `Market data API returned ${response.status} for quotes, returning empty data`,
+    );
+    return quotes;
   } catch (error) {
-    console.error("Connect RPC market data API failed:", error);
-    throw new Error("Unable to fetch stock quotes");
+    console.warn(
+      "Failed to fetch stock quotes:",
+      error instanceof Error ? error.message : String(error),
+    );
+    return quotes;
   }
 }
 
@@ -154,7 +164,10 @@ export async function getHistoricalData(
 ): Promise<HistoricalDataPoint[]> {
   try {
     if (!(await isMarketDataServiceAvailable())) {
-      throw new Error("Market data service not available");
+      console.warn(
+        `Market data service unavailable for ${stockCode}, returning empty data`,
+      );
+      return [];
     }
 
     const response = await fetch(
@@ -189,17 +202,20 @@ export async function getHistoricalData(
 
       if (apiResponse.prices && apiResponse.prices.length > 0) {
         const historicalData: HistoricalDataPoint[] = apiResponse.prices.map(
-          (price) => ({
-            date:
+          (price) => {
+            const dateStr =
               price.date?.split("T")[0] ??
-              new Date().toISOString().split("T")[0], // Convert ISO timestamp to date string
-            open: price.open,
-            high: price.high,
-            low: price.low,
-            close: price.close,
-            volume: parseInt(price.volume, 10),
-            adjustedClose: price.adjustedClose,
-          }),
+              new Date().toISOString().split("T")[0]!;
+            return {
+              date: dateStr,
+              open: price.open,
+              high: price.high,
+              low: price.low,
+              close: price.close,
+              volume: parseInt(price.volume, 10),
+              adjustedClose: price.adjustedClose,
+            };
+          },
         );
 
         console.log(
@@ -209,17 +225,21 @@ export async function getHistoricalData(
       }
 
       // Return empty array if no data available for this stock
-      console.log(`⚠️ No historical data available for ${stockCode}`);
+      console.warn(`⚠️ No historical data available for ${stockCode}`);
       return [];
     }
 
-    throw new Error("Market data API returned invalid response");
-  } catch (error) {
-    console.error(
-      "Connect RPC market data API failed for historical data:",
-      error,
+    // Non-200 response - return empty data gracefully
+    console.warn(
+      `Market data API returned ${response.status} for ${stockCode}, returning empty data`,
     );
-    throw new Error(`Unable to fetch historical data for ${stockCode}`);
+    return [];
+  } catch (error) {
+    console.warn(
+      `Failed to fetch historical data for ${stockCode}:`,
+      error instanceof Error ? error.message : String(error),
+    );
+    return [];
   }
 }
 

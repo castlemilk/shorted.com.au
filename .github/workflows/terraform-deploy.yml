@@ -1,0 +1,274 @@
+name: Terraform Deploy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy"
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+env:
+  NODE_VERSION: "20"
+  GO_VERSION: "1.23"
+  PYTHON_VERSION: "3.11"
+  GCP_REGION: australia-southeast2
+  ARTIFACT_REGISTRY: australia-southeast2-docker.pkg.dev
+  TF_VERSION: "1.5.0"
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+  deployments: write
+
+jobs:
+  determine-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      project-id: ${{ steps.set-env.outputs.project-id }}
+      image-tag: ${{ steps.set-env.outputs.image-tag }}
+      is-preview: ${{ steps.set-env.outputs.is-preview }}
+    steps:
+      - name: Determine environment
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "environment=dev" >> $GITHUB_OUTPUT
+            echo "project-id=shorted-dev-aba5688f" >> $GITHUB_OUTPUT
+            echo "image-tag=pr-${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+            echo "is-preview=true" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "release" ]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "project-id=rosy-clover-477102-t5" >> $GITHUB_OUTPUT
+            echo "image-tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+            echo "is-preview=false" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            ENV="${{ github.event.inputs.environment }}"
+            echo "environment=$ENV" >> $GITHUB_OUTPUT
+            if [ "$ENV" == "prod" ]; then
+              echo "project-id=rosy-clover-477102-t5" >> $GITHUB_OUTPUT
+            else
+              echo "project-id=shorted-dev-aba5688f" >> $GITHUB_OUTPUT
+            fi
+            echo "image-tag=manual-${{ github.sha }}" >> $GITHUB_OUTPUT
+            echo "is-preview=false" >> $GITHUB_OUTPUT
+          else
+            # Push to main = dev deployment
+            echo "environment=dev" >> $GITHUB_OUTPUT
+            echo "project-id=shorted-dev-aba5688f" >> $GITHUB_OUTPUT
+            echo "image-tag=dev-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+            echo "is-preview=false" >> $GITHUB_OUTPUT
+          fi
+
+  build-and-push-images:
+    needs: determine-environment
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - name: shorts
+            dockerfile: shorts/Dockerfile
+            context: services
+          - name: market-data
+            dockerfile: market-data/Dockerfile
+            context: services
+          - name: stock-price-ingestion
+            dockerfile: stock-price-ingestion/Dockerfile
+            context: services/stock-price-ingestion
+          - name: short-data-sync
+            dockerfile: short-data-sync/Dockerfile
+            context: services/short-data-sync
+          - name: cms
+            dockerfile: cms/Dockerfile
+            context: cms
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIP_PROVIDER }}
+          service_account: ${{ secrets.SA_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
+
+      - name: Build and push ${{ matrix.service.name }}
+        run: |
+          IMAGE="${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}:${{ needs.determine-environment.outputs.image-tag }}"
+          LATEST="${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}:latest"
+
+          echo "Building ${{ matrix.service.name }}..."
+          docker build \
+            --platform linux/amd64 \
+            -f ${{ matrix.service.dockerfile }} \
+            -t $IMAGE \
+            -t $LATEST \
+            ${{ matrix.service.context }}
+
+          echo "Pushing ${{ matrix.service.name }}..."
+          docker push $IMAGE
+          docker push $LATEST
+
+          echo "✅ Pushed: $IMAGE"
+
+  terraform-plan:
+    needs: [determine-environment, build-and-push-images]
+    runs-on: ubuntu-latest
+    outputs:
+      plan-output: ${{ steps.plan.outputs.stdout }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIP_PROVIDER }}
+          service_account: ${{ secrets.SA_EMAIL }}
+
+      - name: Terraform Init
+        working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
+        run: terraform init
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
+        run: |
+          terraform plan \
+            -var="stock_price_ingestion_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/stock-price-ingestion:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="short_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/short-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="shorts_api_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="cms_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/cms:${{ needs.determine-environment.outputs.image-tag }}" \
+            -out=tfplan
+        continue-on-error: true
+
+      - name: Comment PR with plan
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `#### Terraform Plan 📝
+
+            <details><summary>Show Plan</summary>
+
+            \`\`\`terraform
+            ${{ steps.plan.outputs.stdout }}
+            \`\`\`
+
+            </details>
+
+            *Environment: ${{ needs.determine-environment.outputs.environment }}*
+            *Project: ${{ needs.determine-environment.outputs.project-id }}*
+            *Image Tag: ${{ needs.determine-environment.outputs.image-tag }}*
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+  terraform-apply:
+    needs: [determine-environment, terraform-plan]
+    runs-on: ubuntu-latest
+    # Only apply on main branch push or manual workflow dispatch
+    # PRs will only plan, not apply
+    if: github.event_name != 'pull_request'
+    environment:
+      name: ${{ needs.determine-environment.outputs.environment }}
+    outputs:
+      shorts-url: ${{ steps.outputs.outputs.shorts_url }}
+      stock-price-url: ${{ steps.outputs.outputs.stock_price_url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIP_PROVIDER }}
+          service_account: ${{ secrets.SA_EMAIL }}
+
+      - name: Terraform Init
+        working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
+        run: |
+          terraform apply \
+            -var="stock_price_ingestion_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/stock-price-ingestion:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="short_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/short-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="shorts_api_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="cms_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/cms:${{ needs.determine-environment.outputs.image-tag }}" \
+            -auto-approve
+
+      - name: Get Terraform Outputs
+        id: outputs
+        working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
+        run: |
+          echo "shorts_url=$(terraform output -raw shorts_api_url)" >> $GITHUB_OUTPUT
+          echo "stock_price_url=$(terraform output -raw stock_price_ingestion_url)" >> $GITHUB_OUTPUT
+
+      - name: Deployment Summary
+        run: |
+          echo "## 🚀 Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ needs.determine-environment.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Project:** ${{ needs.determine-environment.outputs.project-id }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Image Tag:** ${{ needs.determine-environment.outputs.image-tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Service URLs" >> $GITHUB_STEP_SUMMARY
+          echo "- **Shorts API:** ${{ steps.outputs.outputs.shorts_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Stock Price Ingestion:** ${{ steps.outputs.outputs.stock_price_url }}" >> $GITHUB_STEP_SUMMARY
+
+  run-tests:
+    needs: [determine-environment, terraform-apply]
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run integration tests
+        env:
+          BACKEND_URL: ${{ needs.terraform-apply.outputs.shorts-url }}
+        run: |
+          echo "🧪 Running integration tests against deployed services..."
+          echo "Backend URL: $BACKEND_URL"
+          cd services
+          make test-integration-ci || true

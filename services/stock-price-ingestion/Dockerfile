@@ -35,5 +35,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Expose port
 EXPOSE 8080
 
-# Run the application
-CMD ["python", "simple_sync.py"]
+# Run the FastAPI application with uvicorn
+CMD ["uvicorn", "cloud_run_service:app", "--host", "0.0.0.0", "--port", "8080"]

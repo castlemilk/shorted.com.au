@@ -36,7 +36,7 @@ Cloud Scheduler → Cloud Run Service → Yahoo Finance API
 
 ```bash
 DATABASE_URL=postgresql://user:pass@host:5432/database
-GCP_PROJECT=shorted-prod
+GCP_PROJECT=shorted-dev-aba5688f
 ENVIRONMENT=production
 ```
 
@@ -51,6 +51,7 @@ make deploy
 ```
 
 This will:
+
 1. Build and push Docker image to Container Registry
 2. Deploy service to Cloud Run
 3. Create Cloud Scheduler jobs for automated sync
@@ -105,15 +106,19 @@ make test
 ## API Endpoints
 
 ### `GET /health`
+
 Health check endpoint for Cloud Run monitoring.
 
 ### `POST /sync-all`
+
 Sync all configured ASX stocks (called by scheduler).
 
 ### `POST /sync`
+
 Custom sync with specific parameters.
 
 **Request Body:**
+
 ```json
 {
   "symbols": ["CBA.AX", "BHP.AX"],
@@ -125,11 +130,13 @@ Custom sync with specific parameters.
 ```
 
 ### `GET /status/{batch_id}`
+
 Check status of a sync job.
 
 ## Data Schema
 
 ### stock_prices table
+
 ```sql
 CREATE TABLE stock_prices (
     id SERIAL PRIMARY KEY,
@@ -148,6 +155,7 @@ CREATE TABLE stock_prices (
 ```
 
 ### stock_data_ingestion_log table
+
 ```sql
 CREATE TABLE stock_data_ingestion_log (
     id SERIAL PRIMARY KEY,
@@ -169,6 +177,7 @@ CREATE TABLE stock_data_ingestion_log (
 ## Monitoring
 
 ### View Logs
+
 ```bash
 # Recent logs
 make logs
@@ -181,6 +190,7 @@ make db-check-data
 ```
 
 ### Health Checks
+
 ```bash
 # Service health
 make health-check
@@ -202,18 +212,22 @@ make db-test-connection
 ### Common Issues
 
 #### 1. Yahoo Finance Rate Limiting
+
 - **Symptom**: 429 errors or timeouts
 - **Solution**: Circuit breaker will automatically back off and retry
 
 #### 2. Missing Data for Weekends/Holidays
+
 - **Symptom**: No data for certain dates
 - **Solution**: This is expected - markets are closed
 
 #### 3. Database Connection Errors
+
 - **Symptom**: asyncpg connection failures
 - **Solution**: Check DATABASE_URL and network connectivity
 
 #### 4. Memory Issues
+
 - **Symptom**: Cloud Run instance crashes
 - **Solution**: Increase memory limit in cloudbuild.yaml
 
@@ -221,7 +235,7 @@ make db-test-connection
 
 ```bash
 # Re-run failed daily sync
-gcloud scheduler jobs run stock-price-daily-sync --location=australia-southeast1
+gcloud scheduler jobs run stock-price-daily-sync --location=australia-southeast2
 
 # Backfill missing data
 curl -X POST [SERVICE_URL]/sync \

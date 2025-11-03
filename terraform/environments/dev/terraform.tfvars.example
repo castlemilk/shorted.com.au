@@ -1,0 +1,9 @@
+# Development Environment Configuration
+# Copy this file to terraform.tfvars and customize as needed
+
+project_id = "shorted-dev-aba5688f"
+region     = "australia-southeast2"
+
+# Override the image URL if deploying a specific version
+# stock_price_ingestion_image = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/stock-price-ingestion:20250103-120000"
+

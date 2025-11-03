@@ -6,11 +6,47 @@
 set -e
 
 # Configuration
-PROJECT_ID=${GCP_PROJECT:-"shorted-prod"}
-REGION=${GCP_REGION:-"australia-southeast1"}
+PROJECT_ID=${GCP_PROJECT:-"shorted-dev-aba5688f"}
+REGION=${GCP_REGION:-"australia-southeast2"}
 SERVICE_NAME="stock-price-ingestion"
 SERVICE_ACCOUNT="${SERVICE_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+# Ensure ALPHA_VANTAGE_API_KEY secret exists in Secret Manager
+echo "🔐 Checking Alpha Vantage API key secret..."
+if ! gcloud secrets describe ALPHA_VANTAGE_API_KEY --project=${PROJECT_ID} &> /dev/null; then
+    echo "⚠️  ALPHA_VANTAGE_API_KEY secret not found in Secret Manager"
+    echo ""
+    if [ -n "$ALPHA_VANTAGE_API_KEY" ]; then
+        echo "Creating secret from environment variable..."
+        echo -n "$ALPHA_VANTAGE_API_KEY" | gcloud secrets create ALPHA_VANTAGE_API_KEY \
+            --data-file=- \
+            --replication-policy="automatic" \
+            --project=${PROJECT_ID}
+        echo "✅ Secret created successfully"
+    else
+        echo "❌ Please set ALPHA_VANTAGE_API_KEY environment variable or create the secret manually:"
+        echo ""
+        echo "  # Option 1: From environment variable"
+        echo "  export ALPHA_VANTAGE_API_KEY='your_key'"
+        echo "  echo -n \"\$ALPHA_VANTAGE_API_KEY\" | gcloud secrets create ALPHA_VANTAGE_API_KEY \\"
+        echo "    --data-file=- \\"
+        echo "    --replication-policy=\"automatic\" \\"
+        echo "    --project=${PROJECT_ID}"
+        echo ""
+        echo "  # Option 2: From file"
+        echo "  echo -n 'your_key' > /tmp/alpha_vantage_key.txt"
+        echo "  gcloud secrets create ALPHA_VANTAGE_API_KEY \\"
+        echo "    --data-file=/tmp/alpha_vantage_key.txt \\"
+        echo "    --replication-policy=\"automatic\" \\"
+        echo "    --project=${PROJECT_ID}"
+        echo "  rm /tmp/alpha_vantage_key.txt"
+        echo ""
+        exit 1
+    fi
+else
+    echo "✅ ALPHA_VANTAGE_API_KEY secret exists in Secret Manager"
+fi
 
+echo ""
 echo "🚀 Deploying Stock Price Ingestion Service"
 echo "   Project: ${PROJECT_ID}"
 echo "   Region: ${REGION}"
@@ -28,10 +64,9 @@ gcloud config set project ${PROJECT_ID}
 # Enable required APIs
 echo "📡 Enabling required APIs..."
 gcloud services enable \
-    cloudbuild.googleapis.com \
     run.googleapis.com \
     cloudscheduler.googleapis.com \
-    containerregistry.googleapis.com
+    artifactregistry.googleapis.com
 
 # Create service account if it doesn't exist
 echo "👤 Setting up service account..."
@@ -44,22 +79,56 @@ fi
 echo "🔐 Configuring IAM permissions..."
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
     --member="serviceAccount:${SERVICE_ACCOUNT}" \
-    --role="roles/cloudsql.client"
+    --role="roles/cloudsql.client" \
+    --quiet
 
 gcloud projects add-iam-policy-binding ${PROJECT_ID} \
     --member="serviceAccount:${SERVICE_ACCOUNT}" \
-    --role="roles/secretmanager.secretAccessor"
+    --role="roles/secretmanager.secretAccessor" \
+    --quiet
 
-# Build and deploy using Cloud Build
-echo "🔨 Building and deploying service..."
-gcloud builds submit \
-    --config=cloudbuild.yaml \
-    --substitutions=_DATABASE_URL="${DATABASE_URL}",_ENVIRONMENT="production" \
-    .
+# Grant specific access to the Alpha Vantage API key secret
+echo "🔑 Granting access to ALPHA_VANTAGE_API_KEY secret..."
+gcloud secrets add-iam-policy-binding ALPHA_VANTAGE_API_KEY \
+    --member="serviceAccount:${SERVICE_ACCOUNT}" \
+    --role="roles/secretmanager.secretAccessor" \
+    --project=${PROJECT_ID} \
+    --quiet
+
+# Configure Docker authentication
+echo "🔐 Configuring Docker authentication..."
+gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet
+
+# Build Docker image locally
+echo "🔨 Building Docker image..."
+IMAGE_TAG="${REGION}-docker.pkg.dev/${PROJECT_ID}/shorted/${SERVICE_NAME}:$(date +%Y%m%d-%H%M%S)"
+IMAGE_LATEST="${REGION}-docker.pkg.dev/${PROJECT_ID}/shorted/${SERVICE_NAME}:latest"
+
+docker build -t ${IMAGE_TAG} -t ${IMAGE_LATEST} .
+
+# Push to Artifact Registry
+echo "📤 Pushing image to Artifact Registry..."
+docker push ${IMAGE_TAG}
+docker push ${IMAGE_LATEST}
+
+# Deploy to Cloud Run using the service template
+echo "🚀 Deploying to Cloud Run..."
+# Update the service.yaml with the new image
+sed "s|image: .*|image: ${IMAGE_TAG}|g" service.template.yaml > service.yaml
+
+# Deploy the service
+gcloud run services replace service.yaml \
+    --region=${REGION} \
+    --project=${PROJECT_ID}
+
+# Wait for deployment to complete
+echo "⏳ Waiting for deployment to complete..."
+sleep 10
 
 # Get the service URL
 SERVICE_URL=$(gcloud run services describe ${SERVICE_NAME} \
     --region=${REGION} \
+    --project=${PROJECT_ID} \
     --format='value(status.url)')
 
 echo "✅ Service deployed at: ${SERVICE_URL}"
