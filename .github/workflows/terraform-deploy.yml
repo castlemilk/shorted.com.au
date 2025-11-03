@@ -2,7 +2,7 @@ name: Terraform Deploy
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, closed]
   push:
     branches: [main]
   release:
@@ -39,6 +39,7 @@ jobs:
       project-id: ${{ steps.set-env.outputs.project-id }}
       image-tag: ${{ steps.set-env.outputs.image-tag }}
       is-preview: ${{ steps.set-env.outputs.is-preview }}
+      pr-number: ${{ steps.set-env.outputs.pr-number }}
     steps:
       - name: Determine environment
         id: set-env
@@ -48,11 +49,13 @@ jobs:
             echo "project-id=shorted-dev-aba5688f" >> $GITHUB_OUTPUT
             echo "image-tag=pr-${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
             echo "is-preview=true" >> $GITHUB_OUTPUT
+            echo "pr-number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" == "release" ]; then
             echo "environment=prod" >> $GITHUB_OUTPUT
             echo "project-id=rosy-clover-477102-t5" >> $GITHUB_OUTPUT
             echo "image-tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
             echo "is-preview=false" >> $GITHUB_OUTPUT
+            echo "pr-number=" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             ENV="${{ github.event.inputs.environment }}"
             echo "environment=$ENV" >> $GITHUB_OUTPUT
@@ -63,12 +66,14 @@ jobs:
             fi
             echo "image-tag=manual-${{ github.sha }}" >> $GITHUB_OUTPUT
             echo "is-preview=false" >> $GITHUB_OUTPUT
+            echo "pr-number=" >> $GITHUB_OUTPUT
           else
             # Push to main = dev deployment
             echo "environment=dev" >> $GITHUB_OUTPUT
             echo "project-id=shorted-dev-aba5688f" >> $GITHUB_OUTPUT
             echo "image-tag=dev-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
             echo "is-preview=false" >> $GITHUB_OUTPUT
+            echo "pr-number=" >> $GITHUB_OUTPUT
           fi
 
   build-and-push-images:
@@ -191,6 +196,150 @@ jobs:
               body: output
             });
 
+  deploy-preview:
+    needs: [determine-environment, build-and-push-images]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && needs.determine-environment.outputs.is-preview == 'true'
+    outputs:
+      shorts-url: ${{ steps.deploy.outputs.shorts_url }}
+      market-data-url: ${{ steps.deploy.outputs.market_data_url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIP_PROVIDER }}
+          service_account: ${{ secrets.SA_EMAIL }}
+
+      - name: Create Terraform workspace for PR
+        id: deploy
+        working-directory: terraform
+        env:
+          PR_NUMBER: ${{ needs.determine-environment.outputs.pr-number }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          # Parse DATABASE_URL
+          DB_USER=$(echo $DATABASE_URL | sed -n 's|postgresql://\([^:]*\):.*|\1|p')
+          DB_PASS=$(echo $DATABASE_URL | sed -n 's|postgresql://[^:]*:\([^@]*\)@.*|\1|p')
+          DB_HOST=$(echo $DATABASE_URL | sed -n 's|.*@\([^:]*\):.*|\1|p')
+          DB_PORT=$(echo $DATABASE_URL | sed -n 's|.*:\([0-9]*\)/.*|\1|p')
+          DB_NAME=$(echo $DATABASE_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
+          DB_ADDRESS="${DB_HOST}:${DB_PORT}"
+
+          # Create preview config directory
+          mkdir -p preview-pr-${PR_NUMBER}
+          cd preview-pr-${PR_NUMBER}
+
+          # Create Terraform config for this PR
+          cat > main.tf <<EOF
+          terraform {
+            required_version = ">= 1.0"
+            required_providers {
+              google = {
+                source  = "hashicorp/google"
+                version = "~> 5.0"
+              }
+            }
+          }
+
+          provider "google" {
+            project = "${{ needs.determine-environment.outputs.project-id }}"
+            region  = "${{ env.GCP_REGION }}"
+          }
+
+          module "preview" {
+            source = "../modules/preview"
+
+            project_id             = "${{ needs.determine-environment.outputs.project-id }}"
+            region                 = "${{ env.GCP_REGION }}"
+            pr_number              = "${PR_NUMBER}"
+            shorts_api_image       = "${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}"
+            market_data_image      = "${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data:${{ needs.determine-environment.outputs.image-tag }}"
+            shorts_service_account = "shorts@${{ needs.determine-environment.outputs.project-id }}.iam.gserviceaccount.com"
+            postgres_address       = "${DB_ADDRESS}"
+            postgres_database      = "${DB_NAME}"
+            postgres_username      = "${DB_USER}"
+          }
+
+          output "shorts_url" {
+            value = module.preview.shorts_url
+          }
+
+          output "market_data_url" {
+            value = module.preview.market_data_url
+          }
+          EOF
+
+          # Initialize and apply
+          terraform init
+          terraform apply -auto-approve
+
+          # Capture outputs
+          SHORTS_URL=$(terraform output -raw shorts_url)
+          MARKET_DATA_URL=$(terraform output -raw market_data_url)
+
+          echo "shorts_url=$SHORTS_URL" >> $GITHUB_OUTPUT
+          echo "market_data_url=$MARKET_DATA_URL" >> $GITHUB_OUTPUT
+
+      - name: Comment PR with deployment URLs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const shortsUrl = '${{ steps.deploy.outputs.shorts_url }}';
+            const marketDataUrl = '${{ steps.deploy.outputs.market_data_url }}';
+
+            const body = `## 🚀 Preview Deployment (via Terraform)
+
+            ### Backend Services
+            ✅ **Shorts API**: ${shortsUrl}
+            ✅ **Market Data API**: ${marketDataUrl}
+
+            **PR #${{ needs.determine-environment.outputs.pr-number }}** deployed successfully!
+
+            ### Services Deployed
+            - \`shorts-service-pr-${{ needs.determine-environment.outputs.pr-number }}\`
+            - \`market-data-service-pr-${{ needs.determine-environment.outputs.pr-number }}\`
+
+            *Note: Preview uses lightweight instances (256Mi RAM, 1 CPU, 0-2 instances)*
+
+            ---
+            *Managed by Terraform • Image tag: \`${{ needs.determine-environment.outputs.image-tag }}\`*
+            `;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && comment.body.includes('Preview Deployment (via Terraform)')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body
+              });
+            }
+
   terraform-apply:
     needs: [determine-environment, terraform-plan]
     runs-on: ubuntu-latest
@@ -272,3 +421,73 @@ jobs:
           echo "Backend URL: $BACKEND_URL"
           cd services
           make test-integration-ci || true
+
+  cleanup-preview:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIP_PROVIDER }}
+          service_account: ${{ secrets.SA_EMAIL }}
+
+      - name: Destroy preview environment
+        working-directory: terraform
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+        run: |
+          echo "🧹 Cleaning up preview environment for PR #${PR_NUMBER}..."
+
+          # Check if preview directory exists (from previous deployment)
+          if [ -d "preview-pr-${PR_NUMBER}" ]; then
+            cd preview-pr-${PR_NUMBER}
+            terraform init
+            terraform destroy -auto-approve
+            cd ..
+            rm -rf preview-pr-${PR_NUMBER}
+            echo "✅ Preview environment destroyed"
+          else
+            echo "⚠️ No Terraform state found, attempting direct cleanup..."
+            # Fallback: delete services directly
+            gcloud run services delete shorts-service-pr-${PR_NUMBER} \
+              --region australia-southeast2 \
+              --project ${GCP_PROJECT_ID} \
+              --quiet || echo "Shorts service not found"
+            
+            gcloud run services delete market-data-service-pr-${PR_NUMBER} \
+              --region australia-southeast2 \
+              --project ${GCP_PROJECT_ID} \
+              --quiet || echo "Market data service not found"
+            
+            echo "✅ Cleanup complete"
+          fi
+
+      - name: Comment PR with cleanup status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `## 🧹 Preview Environment Cleaned Up
+
+            Preview services for PR #${{ github.event.pull_request.number }} have been removed:
+            - \`shorts-service-pr-${{ github.event.pull_request.number }}\` ❌
+            - \`market-data-service-pr-${{ github.event.pull_request.number }}\` ❌
+
+            *Terraform infrastructure destroyed automatically*
+            `;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
