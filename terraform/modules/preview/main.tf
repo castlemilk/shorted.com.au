@@ -196,10 +196,8 @@ resource "google_cloud_run_v2_service_iam_member" "market_data_preview_access" {
   member   = "allUsers"
 }
 
-# Grant service account access to DATABASE_URL secret
-resource "google_secret_manager_secret_iam_member" "database_url_access" {
-  project   = var.project_id
-  secret_id = "DATABASE_URL"
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${var.shorts_service_account}"
-}
+# NOTE: DATABASE_URL secret access must be granted manually to the shorts service account:
+# gcloud secrets add-iam-policy-binding DATABASE_URL \
+#   --project=shorted-dev-aba5688f \
+#   --member="serviceAccount:shorts@shorted-dev-aba5688f.iam.gserviceaccount.com" \
+#   --role="roles/secretmanager.secretAccessor"
