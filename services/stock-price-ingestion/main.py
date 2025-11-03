@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Stock Price Data Ingestion Service
-Fetches historical stock price data from various sources and stores in PostgreSQL
+Fetches historical stock price data from multiple sources with automatic fallback
+Supports Alpha Vantage (primary) and Yahoo Finance (fallback)
 """
 
 import os
@@ -11,15 +12,36 @@ import asyncio
 import asyncpg
 from datetime import datetime, timedelta, date
 from typing import List, Dict, Optional, Tuple
+from pathlib import Path
 import aiohttp
 import pandas as pd
-import yfinance as yf
 from uuid import uuid4
 import json
 from dataclasses import dataclass, asdict
 import backoff
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+
+    # Look for .env file in current directory and parent directories
+    env_path = Path(__file__).parent / ".env"
+    if env_path.exists():
+        load_dotenv(env_path)
+        logger_temp = logging.getLogger(__name__)
+        logger_temp.info(f"✅ Loaded environment variables from {env_path}")
+    else:
+        # Try parent directory
+        env_path = Path(__file__).parent.parent / ".env"
+        if env_path.exists():
+            load_dotenv(env_path)
+except ImportError:
+    pass  # python-dotenv not installed, skip
+
 from circuit_breaker import CircuitBreaker, CircuitBreakerConfig
 from data_validation import DataValidator
+from data_providers.factory import DataProviderFactory
+from data_providers.base import DataProviderError, RateLimitError, SymbolNotFoundError
 
 # Configure logging
 logging.basicConfig(
@@ -52,11 +74,47 @@ class DataQualityIssue:
 
 
 class StockDataIngestion:
-    def __init__(self, db_url: str):
+    def __init__(
+        self,
+        db_url: str,
+        primary_provider: str = "alpha_vantage",
+        fallback_provider: str = "yahoo_finance",
+    ):
         self.db_url = db_url
         self.pool: Optional[asyncpg.Pool] = None
         self.batch_id = str(uuid4())
-        self.data_source = "yfinance"  # Can be extended to other sources
+
+        # Initialize pluggable data providers with fallback
+        self.primary_provider = None
+        self.fallback_provider = None
+        self.data_source = "multi-provider"  # Using multiple sources with fallback
+
+        # Initialize primary provider (Alpha Vantage)
+        try:
+            api_key = os.getenv("ALPHA_VANTAGE_API_KEY")
+            if primary_provider == "alpha_vantage" and api_key:
+                self.primary_provider = DataProviderFactory.create_provider(
+                    primary_provider, api_key=api_key
+                )
+                logger.info(
+                    f"✅ Primary provider initialized: {self.primary_provider.get_provider_name()}"
+                )
+            else:
+                logger.warning(f"⚠️ Primary provider {primary_provider} not configured")
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to initialize primary provider: {e}")
+
+        # Initialize fallback provider (Yahoo Finance)
+        try:
+            self.fallback_provider = DataProviderFactory.create_provider(
+                fallback_provider
+            )
+            logger.info(
+                f"✅ Fallback provider initialized: {self.fallback_provider.get_provider_name()}"
+            )
+        except Exception as e:
+            logger.error(f"❌ Failed to initialize fallback provider: {e}")
+
         # Initialize circuit breaker with custom config
         self.circuit_breaker = CircuitBreaker(
             CircuitBreakerConfig(
@@ -119,71 +177,88 @@ class StockDataIngestion:
                 self.batch_id,
             )
 
-    async def _fetch_from_yfinance(
-        self, symbol: str, start_date: date, end_date: date
-    ) -> pd.DataFrame:
-        """Internal method to fetch data from yfinance"""
-        loop = asyncio.get_event_loop()
-        ticker = await loop.run_in_executor(None, yf.Ticker, symbol)
-
-        df = await loop.run_in_executor(
-            None,
-            ticker.history,
-            start=start_date,
-            end=end_date,
-            interval="1d",
-            auto_adjust=False,
-        )
-
-        return df
-
-    async def fetch_stock_data_yfinance(
+    async def fetch_stock_data_with_fallback(
         self, stock_code: str, start_date: date, end_date: date
     ) -> pd.DataFrame:
-        """Fetch stock data from Yahoo Finance with circuit breaker protection"""
-        # Add .AX suffix for ASX stocks
-        symbol = f"{stock_code}.AX" if not stock_code.endswith(".AX") else stock_code
+        """
+        Fetch stock data with automatic fallback between providers.
+        Tries primary provider (Alpha Vantage) first, falls back to Yahoo Finance if needed.
+        """
+        # Normalize symbol
+        symbol = stock_code.replace(".AX", "")  # Remove .AX suffix for consistency
 
-        try:
-            # Use circuit breaker to protect external API call
-            df = await self.circuit_breaker.call(
-                self._fetch_from_yfinance, symbol, start_date, end_date
-            )
+        # Try primary provider first (Alpha Vantage)
+        if self.primary_provider:
+            try:
+                logger.info(
+                    f"🔄 Trying primary provider ({self.primary_provider.get_provider_name()}) for {stock_code}..."
+                )
+                async with self.primary_provider as provider:
+                    df = await provider.fetch_historical_data(
+                        symbol, start_date, end_date
+                    )
 
-            if df.empty:
+                    if df is not None and not df.empty:
+                        logger.info(
+                            f"✅ Primary provider success for {stock_code}: {len(df)} records"
+                        )
+                        # Ensure stock_code column exists
+                        if "stock_code" not in df.columns:
+                            df["stock_code"] = stock_code
+                        return df
+                    else:
+                        logger.warning(
+                            f"⚠️ Primary provider returned no data for {stock_code}"
+                        )
+
+            except RateLimitError as e:
                 logger.warning(
-                    f"No data found for {stock_code} between {start_date} and {end_date}"
+                    f"⚠️ Primary provider rate limit exceeded for {stock_code}: {e}"
                 )
-                return pd.DataFrame()
-
-            # Reset index to get date as a column
-            df.reset_index(inplace=True)
-            df["stock_code"] = stock_code
-
-            # Rename columns to match our schema
-            df.rename(
-                columns={
-                    "Date": "date",
-                    "Open": "open",
-                    "High": "high",
-                    "Low": "low",
-                    "Close": "close",
-                    "Adj Close": "adjusted_close",
-                    "Volume": "volume",
-                },
-                inplace=True,
-            )
-
-            return df
-
-        except Exception as e:
-            if "Circuit breaker is OPEN" in str(e):
+            except SymbolNotFoundError as e:
+                logger.warning(
+                    f"⚠️ Symbol not found in primary provider for {stock_code}: {e}"
+                )
+            except DataProviderError as e:
+                logger.warning(f"⚠️ Primary provider error for {stock_code}: {e}")
+            except Exception as e:
                 logger.error(
-                    f"Circuit breaker is open - too many failures fetching stock data"
+                    f"❌ Unexpected primary provider error for {stock_code}: {e}"
                 )
-            else:
-                logger.error(f"Error fetching data for {stock_code}: {str(e)}")
-            raise
+
+        # Fallback to Yahoo Finance
+        if self.fallback_provider:
+            try:
+                # Yahoo Finance uses .AX suffix for ASX stocks
+                yahoo_symbol = (
+                    f"{symbol}.AX" if not stock_code.endswith(".AX") else stock_code
+                )
+                logger.info(
+                    f"🔄 Falling back to {self.fallback_provider.get_provider_name()} for {stock_code}..."
+                )
+
+                df = await self.fallback_provider.fetch_historical_data(
+                    yahoo_symbol, start_date, end_date
+                )
+
+                if df is not None and not df.empty:
+                    logger.info(
+                        f"✅ Fallback provider success for {stock_code}: {len(df)} records"
+                    )
+                    # Ensure stock_code column exists
+                    if "stock_code" not in df.columns:
+                        df["stock_code"] = stock_code
+                    return df
+                else:
+                    logger.warning(
+                        f"⚠️ Fallback provider returned no data for {stock_code}"
+                    )
+
+            except Exception as e:
+                logger.error(f"❌ Fallback provider failed for {stock_code}: {e}")
+
+        logger.error(f"❌ All providers failed for {stock_code}")
+        return pd.DataFrame()
 
     def check_data_quality(
         self, df: pd.DataFrame, stock_code: str
@@ -248,8 +323,8 @@ class StockDataIngestion:
     async def fetch_stock_data(
         self, symbol: str, start_date: date, end_date: date
     ) -> pd.DataFrame:
-        """Fetch stock data for a symbol within date range"""
-        return await self._fetch_from_yfinance(symbol, start_date, end_date)
+        """Fetch stock data for a symbol within date range (wrapper for compatibility)"""
+        return await self.fetch_stock_data_with_fallback(symbol, start_date, end_date)
 
     async def insert_stock_prices(
         self, df: pd.DataFrame, symbol: str = None
@@ -355,8 +430,8 @@ class StockDataIngestion:
             try:
                 logger.info(f"Processing {stock_code}...")
 
-                # Fetch data
-                df = await self.fetch_stock_data_yfinance(
+                # Fetch data with automatic fallback between providers
+                df = await self.fetch_stock_data_with_fallback(
                     stock_code, start_date, end_date
                 )
 

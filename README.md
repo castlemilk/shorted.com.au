@@ -84,6 +84,33 @@ make test-integration  # Full-stack integration tests
 - **Backend**: Go with gRPC/Connect-RPC
 - **Database**: PostgreSQL
 - **Data Source**: ASIC daily CSV files
+- **Infrastructure**: Managed by Terraform on Google Cloud Platform
+
+## Infrastructure Management
+
+All cloud services and async jobs are managed by Terraform:
+
+```bash
+cd terraform
+make plan   # Preview changes
+make apply  # Deploy infrastructure
+```
+
+**Managed Services:**
+
+- Stock Price Ingestion (Cloud Run + Scheduler)
+- Short Data Sync (Cloud Run Job)
+- Shorts API (Cloud Run Service)
+- CMS (Payload CMS)
+
+See [terraform/QUICK_START.md](terraform/QUICK_START.md) for detailed setup instructions.
+
+📚 **Documentation:**
+
+- [Terraform Quick Start](terraform/QUICK_START.md) - 5-minute setup
+- [Terraform README](terraform/README.md) - Full documentation
+- [Services Documentation](terraform/SERVICES.md) - Detailed service info
+- [Migration Guide](TERRAFORM_MIGRATION.md) - What changed
 
 ## Contributing
 

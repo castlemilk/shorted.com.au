@@ -19,44 +19,49 @@ spec:
       timeoutSeconds: 600
       serviceAccountName: stock-price-ingestion@shorted-dev-aba5688f.iam.gserviceaccount.com
       containers:
-      - image: ${IMAGE_NAME}:${VERSION}
-        name: stock-price-ingestion
-        ports:
-        - name: http1
-          containerPort: 8080
-        env:
-        - name: ENVIRONMENT
-          value: production
-        - name: GCP_PROJECT
-          value: shorted-dev-aba5688f
-        - name: DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: DATABASE_URL
-              key: latest
-        resources:
-          limits:
-            cpu: "1"
-            memory: 1Gi
-          requests:
-            cpu: "0.5"
-            memory: 512Mi
-        startupProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 8080
-          initialDelaySeconds: 30
-          periodSeconds: 30
-          timeoutSeconds: 10
-          failureThreshold: 3
+        - image: ${IMAGE_NAME}:${VERSION}
+          name: stock-price-ingestion
+          ports:
+            - name: http1
+              containerPort: 8080
+          env:
+            - name: ENVIRONMENT
+              value: production
+            - name: GCP_PROJECT
+              value: shorted-dev-aba5688f
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: DATABASE_URL
+                  key: latest
+            - name: ALPHA_VANTAGE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: ALPHA_VANTAGE_API_KEY
+                  key: latest
+          resources:
+            limits:
+              cpu: "1"
+              memory: 1Gi
+            requests:
+              cpu: "0.5"
+              memory: 512Mi
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
   traffic:
-  - percent: 100
-    latestRevision: true
+    - percent: 100
+      latestRevision: true

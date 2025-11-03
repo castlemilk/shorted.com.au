@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
-  Home,
   TrendingUp,
   Briefcase,
   Menu,
@@ -22,11 +21,6 @@ interface SidebarProps {
 }
 
 const sidebarItems = [
-  {
-    title: "Home",
-    href: "/",
-    icon: Home,
-  },
   {
     title: "Dashboard",
     href: "/dashboards",
@@ -99,9 +93,6 @@ export function Sidebar({ className }: SidebarProps) {
           </SheetTrigger>
           <SheetContent side="left" className="w-64 p-0">
             <div className="flex h-full flex-col">
-              <div className="border-b p-4">
-                <h2 className="text-lg font-semibold">Navigation</h2>
-              </div>
               <SidebarContent />
             </div>
           </SheetContent>
@@ -115,9 +106,6 @@ export function Sidebar({ className }: SidebarProps) {
           className,
         )}
       >
-        <div className="border-b p-4">
-          <h2 className="text-lg font-semibold">Navigation</h2>
-        </div>
         <SidebarContent />
       </aside>
     </>

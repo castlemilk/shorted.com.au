@@ -5,8 +5,8 @@
 
 set -e
 
-PROJECT_ID="shorted-dev"
-REGION="australia-southeast1"
+PROJECT_ID="shorted-dev-aba5688f"
+REGION="australia-southeast2"
 SERVICE_NAME="stock-price-ingestion"
 
 echo "================================================"
