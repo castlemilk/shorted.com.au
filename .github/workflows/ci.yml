@@ -39,7 +39,8 @@ jobs:
 
   deploy-backend:
     needs: [check-secrets, test-unit]
-    if: needs.check-secrets.outputs.has-gcp == 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork == false
+    # DISABLED: Now using terraform-deploy.yml workflow for all deployments
+    if: false
     runs-on: ubuntu-latest
     outputs:
       shorts-url: ${{ steps.deploy-services.outputs.shorts-url }}
@@ -167,7 +168,8 @@ jobs:
   deploy-vercel-preview:
     needs: [check-secrets, deploy-backend]
     runs-on: ubuntu-latest
-    if: needs.check-secrets.outputs.has-gcp == 'true' && needs.deploy-backend.outputs.shorts-url != ''
+    # DISABLED: Backend deployment now handled by terraform-deploy.yml
+    if: false
     environment:
       name: preview
       url: ${{ steps.deploy.outputs.url }}
@@ -215,7 +217,8 @@ jobs:
   comment-deployment:
     needs: [check-secrets, deploy-backend, deploy-vercel-preview]
     runs-on: ubuntu-latest
-    if: always() && github.event_name == 'pull_request'
+    # DISABLED: Deployment comments now handled by terraform-deploy.yml
+    if: false
     steps:
       - name: Comment PR with deployment info
         uses: actions/github-script@v7
@@ -351,8 +354,9 @@ jobs:
           retention-days: 7
 
   test-integration:
-    needs: [check-secrets, deploy-backend]
+    needs: [check-secrets]
     runs-on: ubuntu-latest
+    # Wait for terraform-deploy.yml to complete, then test against deployed services
     if: always()
 
     steps:
@@ -381,10 +385,52 @@ jobs:
           docker version
           docker info
 
-      - name: Run integration tests (testcontainers)
-        if: needs.check-secrets.outputs.has-gcp == 'true' && needs.deploy-backend.outputs.shorts-url != ''
+      - name: Authenticate to Google Cloud
+        if: needs.check-secrets.outputs.has-gcp == 'true' && github.event_name == 'pull_request'
+        id: get-urls
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIP_PROVIDER }}
+          service_account: ${{ secrets.SA_EMAIL }}
+
+      - name: Set up Cloud SDK
+        if: needs.check-secrets.outputs.has-gcp == 'true' && github.event_name == 'pull_request'
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Fetch service URLs from GCP
+        if: needs.check-secrets.outputs.has-gcp == 'true' && github.event_name == 'pull_request'
+        id: urls
+        run: |
+          # Wait a bit for terraform-deploy to finish
+          echo "⏳ Waiting for services to be deployed by terraform-deploy workflow..."
+          sleep 30
+
+          # Try to get service URLs (may not exist yet if terraform-deploy is still running)
+          SHORTS_URL=$(gcloud run services describe shorts-service-pr-${{ env.PR_NUMBER }} \
+            --region ${{ env.GCP_REGION }} \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --format 'value(status.url)' 2>/dev/null || echo "")
+
+          MARKET_DATA_URL=$(gcloud run services describe market-data-service-pr-${{ env.PR_NUMBER }} \
+            --region ${{ env.GCP_REGION }} \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --format 'value(status.url)' 2>/dev/null || echo "")
+
+          echo "shorts_url=$SHORTS_URL" >> $GITHUB_OUTPUT
+          echo "market_data_url=$MARKET_DATA_URL" >> $GITHUB_OUTPUT
+
+          if [ -n "$SHORTS_URL" ]; then
+            echo "✅ Found deployed services:"
+            echo "   Shorts: $SHORTS_URL"
+            echo "   Market Data: $MARKET_DATA_URL"
+          else
+            echo "⚠️ Services not yet deployed (terraform-deploy may still be running)"
+          fi
+
+      - name: Run integration tests (against deployed preview)
+        if: needs.check-secrets.outputs.has-gcp == 'true' && steps.urls.outputs.shorts_url != ''
         env:
-          BACKEND_URL: ${{ needs.deploy-backend.outputs.shorts-url }}
+          BACKEND_URL: ${{ steps.urls.outputs.shorts_url }}
         run: |
           echo "🧪 Running integration tests against deployed preview..."
           echo "Backend URL: $BACKEND_URL"
@@ -395,9 +441,10 @@ jobs:
         continue-on-error: true
 
       - name: Run integration tests (local with testcontainers)
-        if: needs.check-secrets.outputs.has-gcp != 'true' || needs.deploy-backend.outputs.shorts-url == ''
+        if: needs.check-secrets.outputs.has-gcp != 'true' || steps.urls.outputs.shorts_url == ''
         run: |
           echo "🧪 Running integration tests with local testcontainers..."
+          echo "(Deployed services not available - running local tests only)"
           echo ""
 
           cd services
@@ -405,7 +452,7 @@ jobs:
         continue-on-error: true
 
   test-summary:
-    needs: [test-unit, test-integration, deploy-vercel-preview]
+    needs: [test-unit, test-integration]
     runs-on: ubuntu-latest
     if: always()
 
@@ -416,8 +463,7 @@ jobs:
           script: |
             const results = {
               unit: '${{ needs.test-unit.result }}',
-              integration: '${{ needs.test-integration.result }}',
-              'vercel-deploy': '${{ needs.deploy-vercel-preview.result }}'
+              integration: '${{ needs.test-integration.result }}'
             };
 
             let summary = '## 🧪 Test Results Summary\n\n';
