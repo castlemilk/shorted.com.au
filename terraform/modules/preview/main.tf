@@ -32,7 +32,7 @@ resource "google_cloud_run_v2_service" "shorts_preview" {
       image = var.shorts_api_image
       
       ports {
-        container_port = 8080
+        container_port = 9091
       }
 
       env {
