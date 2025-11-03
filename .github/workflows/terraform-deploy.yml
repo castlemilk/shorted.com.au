@@ -83,19 +83,19 @@ jobs:
       matrix:
         service:
           - name: shorts
-            dockerfile: shorts/Dockerfile
+            dockerfile: services/shorts/Dockerfile
             context: services
           - name: market-data
-            dockerfile: market-data/Dockerfile
+            dockerfile: services/market-data/Dockerfile
             context: services
           - name: stock-price-ingestion
-            dockerfile: Dockerfile
+            dockerfile: services/stock-price-ingestion/Dockerfile
             context: services/stock-price-ingestion
           - name: short-data-sync
-            dockerfile: Dockerfile
+            dockerfile: services/short-data-sync/Dockerfile
             context: services/short-data-sync
           - name: cms
-            dockerfile: Dockerfile
+            dockerfile: cms/Dockerfile
             context: cms
     steps:
       - name: Checkout code
