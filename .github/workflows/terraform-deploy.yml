@@ -225,6 +225,8 @@ jobs:
         env:
           PR_NUMBER: ${{ needs.determine-environment.outputs.pr-number }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          GCP_REGION: ${{ env.GCP_REGION }}
         run: |
           # Parse DATABASE_URL
           DB_USER=$(echo $DATABASE_URL | sed -n 's|postgresql://\([^:]*\):.*|\1|p')
@@ -238,7 +240,7 @@ jobs:
           mkdir -p preview-pr-${PR_NUMBER}
           cd preview-pr-${PR_NUMBER}
 
-          # Create Terraform config for this PR
+          # Create Terraform config for this PR with GCS backend
           cat > main.tf <<EOF
           terraform {
             required_version = ">= 1.0"
@@ -248,22 +250,26 @@ jobs:
                 version = "~> 5.0"
               }
             }
+            backend "gcs" {
+              bucket = "${GCP_PROJECT_ID}-terraform-state"
+              prefix = "preview/pr-${PR_NUMBER}"
+            }
           }
 
           provider "google" {
-            project = "${{ needs.determine-environment.outputs.project-id }}"
-            region  = "${{ env.GCP_REGION }}"
+            project = "${GCP_PROJECT_ID}"
+            region  = "${GCP_REGION}"
           }
 
           module "preview" {
             source = "../modules/preview"
 
-            project_id             = "${{ needs.determine-environment.outputs.project-id }}"
-            region                 = "${{ env.GCP_REGION }}"
+            project_id             = "${GCP_PROJECT_ID}"
+            region                 = "${GCP_REGION}"
             pr_number              = "${PR_NUMBER}"
-            shorts_api_image       = "${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}"
-            market_data_image      = "${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data:${{ needs.determine-environment.outputs.image-tag }}"
-            shorts_service_account = "shorts@${{ needs.determine-environment.outputs.project-id }}.iam.gserviceaccount.com"
+            shorts_api_image       = "${{ env.ARTIFACT_REGISTRY }}/${GCP_PROJECT_ID}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}"
+            market_data_image      = "${{ env.ARTIFACT_REGISTRY }}/${GCP_PROJECT_ID}/shorted/market-data:${{ needs.determine-environment.outputs.image-tag }}"
+            shorts_service_account = "shorts@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
             postgres_address       = "${DB_ADDRESS}"
             postgres_database      = "${DB_NAME}"
             postgres_username      = "${DB_USER}"
@@ -278,8 +284,24 @@ jobs:
           }
           EOF
 
-          # Initialize and apply
+          # Initialize Terraform with GCS backend
           terraform init
+
+          # Import existing resources if they exist
+          echo "Checking for existing resources..."
+          if gcloud run services describe shorts-service-pr-${PR_NUMBER} --region=${GCP_REGION} --project=${GCP_PROJECT_ID} &>/dev/null; then
+            echo "Importing existing shorts service..."
+            terraform import module.preview.google_cloud_run_v2_service.shorts_preview \
+              projects/${GCP_PROJECT_ID}/locations/${GCP_REGION}/services/shorts-service-pr-${PR_NUMBER} || true
+          fi
+
+          if gcloud run services describe market-data-service-pr-${PR_NUMBER} --region=${GCP_REGION} --project=${GCP_PROJECT_ID} &>/dev/null; then
+            echo "Importing existing market-data service..."
+            terraform import module.preview.google_cloud_run_v2_service.market_data_preview \
+              projects/${GCP_PROJECT_ID}/locations/${GCP_REGION}/services/market-data-service-pr-${PR_NUMBER} || true
+          fi
+
+          # Apply configuration (will create or update)
           terraform apply -auto-approve
 
           # Capture outputs
@@ -445,32 +467,68 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_REGION: australia-southeast2
         run: |
           echo "🧹 Cleaning up preview environment for PR #${PR_NUMBER}..."
 
-          # Check if preview directory exists (from previous deployment)
-          if [ -d "preview-pr-${PR_NUMBER}" ]; then
-            cd preview-pr-${PR_NUMBER}
-            terraform init
-            terraform destroy -auto-approve
-            cd ..
-            rm -rf preview-pr-${PR_NUMBER}
-            echo "✅ Preview environment destroyed"
-          else
-            echo "⚠️ No Terraform state found, attempting direct cleanup..."
-            # Fallback: delete services directly
+          # Create temporary directory to destroy resources
+          mkdir -p preview-pr-${PR_NUMBER}-destroy
+          cd preview-pr-${PR_NUMBER}-destroy
+
+          # Create minimal Terraform config with GCS backend
+          cat > main.tf <<EOF
+          terraform {
+            required_version = ">= 1.0"
+            required_providers {
+              google = {
+                source  = "hashicorp/google"
+                version = "~> 5.0"
+              }
+            }
+            backend "gcs" {
+              bucket = "${GCP_PROJECT_ID}-terraform-state"
+              prefix = "preview/pr-${PR_NUMBER}"
+            }
+          }
+
+          provider "google" {
+            project = "${GCP_PROJECT_ID}"
+            region  = "${GCP_REGION}"
+          }
+
+          module "preview" {
+            source = "../modules/preview"
+
+            project_id             = "${GCP_PROJECT_ID}"
+            region                 = "${GCP_REGION}"
+            pr_number              = "${PR_NUMBER}"
+            shorts_api_image       = "australia-southeast2-docker.pkg.dev/${GCP_PROJECT_ID}/shorted/shorts:pr-${PR_NUMBER}"
+            market_data_image      = "australia-southeast2-docker.pkg.dev/${GCP_PROJECT_ID}/shorted/market-data:pr-${PR_NUMBER}"
+            shorts_service_account = "shorts@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+            postgres_address       = "dummy:5432"
+            postgres_database      = "dummy"
+            postgres_username      = "dummy"
+          }
+          EOF
+
+          # Initialize and destroy
+          terraform init
+          terraform destroy -auto-approve || {
+            echo "⚠️ Terraform destroy failed, attempting direct cleanup..."
             gcloud run services delete shorts-service-pr-${PR_NUMBER} \
-              --region australia-southeast2 \
+              --region ${GCP_REGION} \
               --project ${GCP_PROJECT_ID} \
               --quiet || echo "Shorts service not found"
             
             gcloud run services delete market-data-service-pr-${PR_NUMBER} \
-              --region australia-southeast2 \
+              --region ${GCP_REGION} \
               --project ${GCP_PROJECT_ID} \
               --quiet || echo "Market data service not found"
-            
-            echo "✅ Cleanup complete"
-          fi
+          }
+
+          cd ..
+          rm -rf preview-pr-${PR_NUMBER}-destroy
+          echo "✅ Preview environment destroyed"
 
       - name: Comment PR with cleanup status
         uses: actions/github-script@v7

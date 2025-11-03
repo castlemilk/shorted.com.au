@@ -13,11 +13,10 @@ terraform {
     }
   }
 
-  # Uncomment to use GCS backend for state storage
-  # backend "gcs" {
-  #   bucket = "shorted-dev-terraform-state"
-  #   prefix = "terraform/state"
-  # }
+  backend "gcs" {
+    bucket = "shorted-dev-aba5688f-terraform-state"
+    prefix = "env/dev"
+  }
 }
 
 provider "google" {
