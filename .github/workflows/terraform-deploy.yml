@@ -1,4 +1,4 @@
-name: Terraform Deploy
+name: 🚀 Deploy Infrastructure
 
 on:
   pull_request:
@@ -318,22 +318,40 @@ jobs:
             const shortsUrl = '${{ steps.deploy.outputs.shorts_url }}';
             const marketDataUrl = '${{ steps.deploy.outputs.market_data_url }}';
 
-            const body = `## 🚀 Preview Deployment (via Terraform)
+            const body = `## 🏗️ Infrastructure Deployment (Terraform)
 
-            ### Backend Services
-            ✅ **Shorts API**: ${shortsUrl}
-            ✅ **Market Data API**: ${marketDataUrl}
+            ### ✅ Backend Services Ready
 
-            **PR #${{ needs.determine-environment.outputs.pr-number }}** deployed successfully!
+            | Service | URL | Status |
+            |---------|-----|--------|
+            | **Shorts API** | ${shortsUrl} | 🟢 Live |
+            | **Market Data API** | ${marketDataUrl} | 🟢 Live |
 
-            ### Services Deployed
-            - \`shorts-service-pr-${{ needs.determine-environment.outputs.pr-number }}\`
-            - \`market-data-service-pr-${{ needs.determine-environment.outputs.pr-number }}\`
+            ### 📦 Services Deployed
+            - \`shorts-service-pr-${{ needs.determine-environment.outputs.pr-number }}\` (256Mi RAM, 0-2 instances)
+            - \`market-data-service-pr-${{ needs.determine-environment.outputs.pr-number }}\` (256Mi RAM, 0-2 instances)
 
-            *Note: Preview uses lightweight instances (256Mi RAM, 1 CPU, 0-2 instances)*
+            ### 🔧 Infrastructure Details
+            - **Environment**: Preview (PR #${{ needs.determine-environment.outputs.pr-number }})
+            - **Image Tag**: \`${{ needs.determine-environment.outputs.image-tag }}\`
+            - **Managed by**: Terraform (GCS State)
+            - **Auto-cleanup**: On PR close
+
+            <details>
+            <summary>📊 View Deployment Details</summary>
+
+            **Project**: \`shorted-dev-aba5688f\`
+            **Region**: \`australia-southeast2\`
+            **State**: \`gs://shorted-dev-aba5688f-terraform-state/preview/pr-${{ needs.determine-environment.outputs.pr-number }}/\`
+
+            **Resource Names**:
+            - Cloud Run Services: \`shorts-service-pr-${{ needs.determine-environment.outputs.pr-number }}\`, \`market-data-service-pr-${{ needs.determine-environment.outputs.pr-number }}\`
+            - Service Accounts: Reusing \`shorts@shorted-dev-aba5688f.iam.gserviceaccount.com\`
+
+            </details>
 
             ---
-            *Managed by Terraform • Image tag: \`${{ needs.determine-environment.outputs.image-tag }}\`*
+            *🔄 Frontend deployment handled by \`ci.yml\` workflow*
             `;
 
             const { data: comments } = await github.rest.issues.listComments({
@@ -343,7 +361,7 @@ jobs:
             });
 
             const botComment = comments.find(comment => 
-              comment.user.type === 'Bot' && comment.body.includes('Preview Deployment (via Terraform)')
+              comment.user.type === 'Bot' && comment.body.includes('Infrastructure Deployment')
             );
 
             if (botComment) {
