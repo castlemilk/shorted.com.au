@@ -199,11 +199,11 @@ jobs:
         id: get-backend-urls
         run: |
           echo "⏳ Waiting for Terraform to deploy backend services..."
-          
+
           # Wait up to 10 minutes for services to be deployed
           MAX_ATTEMPTS=40
           ATTEMPT=0
-          
+
           while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
             SHORTS_URL=$(gcloud run services describe shorts-service-pr-${{ env.PR_NUMBER }} \
               --region ${{ env.GCP_REGION }} \
@@ -229,7 +229,7 @@ jobs:
             echo "   Attempt $ATTEMPT/$MAX_ATTEMPTS - Services not ready yet, waiting 15s..."
             sleep 15
           done
-          
+
           if [ -z "$SHORTS_URL" ]; then
             echo "❌ Timeout waiting for backend services"
             exit 1
