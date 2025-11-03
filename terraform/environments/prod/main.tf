@@ -13,11 +13,10 @@ terraform {
     }
   }
 
-  # TODO: Enable remote state for prod
-  # backend "gcs" {
-  #   bucket = "shorted-prod-terraform-state"
-  #   prefix = "terraform/state"
-  # }
+  backend "gcs" {
+    bucket = "rosy-clover-477102-t5-terraform-state"
+    prefix = "env/prod"
+  }
 }
 
 provider "google" {
