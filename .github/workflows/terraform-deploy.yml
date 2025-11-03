@@ -89,13 +89,13 @@ jobs:
             dockerfile: market-data/Dockerfile
             context: services
           - name: stock-price-ingestion
-            dockerfile: stock-price-ingestion/Dockerfile
+            dockerfile: Dockerfile
             context: services/stock-price-ingestion
           - name: short-data-sync
-            dockerfile: short-data-sync/Dockerfile
+            dockerfile: Dockerfile
             context: services/short-data-sync
           - name: cms
-            dockerfile: cms/Dockerfile
+            dockerfile: Dockerfile
             context: cms
     steps:
       - name: Checkout code
