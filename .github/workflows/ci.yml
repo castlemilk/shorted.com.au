@@ -166,15 +166,17 @@ jobs:
           echo "Market Data Service: ${{ steps.deploy-services.outputs.market-data-url }}"
 
   deploy-vercel-preview:
-    needs: [check-secrets, deploy-backend]
+    needs: [check-secrets]
     runs-on: ubuntu-latest
-    # DISABLED: Backend deployment now handled by terraform-deploy.yml
-    if: false
+    # Deploy Vercel preview after waiting for Terraform backend deployment
+    if: needs.check-secrets.outputs.has-gcp == 'true' && github.event_name == 'pull_request'
     environment:
       name: preview
       url: ${{ steps.deploy.outputs.url }}
     outputs:
       preview-url: ${{ steps.deploy.outputs.url }}
+      shorts-url: ${{ steps.get-backend-urls.outputs.shorts_url }}
+      market-data-url: ${{ steps.get-backend-urls.outputs.market_data_url }}
 
     steps:
       - name: Checkout code
@@ -183,6 +185,55 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIP_PROVIDER }}
+          service_account: ${{ secrets.SA_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Wait for Terraform backend deployment
+        id: get-backend-urls
+        run: |
+          echo "⏳ Waiting for Terraform to deploy backend services..."
+          
+          # Wait up to 10 minutes for services to be deployed
+          MAX_ATTEMPTS=40
+          ATTEMPT=0
+          
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            SHORTS_URL=$(gcloud run services describe shorts-service-pr-${{ env.PR_NUMBER }} \
+              --region ${{ env.GCP_REGION }} \
+              --project ${{ env.GCP_PROJECT_ID }} \
+              --format 'value(status.url)' 2>/dev/null || echo "")
+            
+            if [ -n "$SHORTS_URL" ]; then
+              MARKET_DATA_URL=$(gcloud run services describe market-data-service-pr-${{ env.PR_NUMBER }} \
+                --region ${{ env.GCP_REGION }} \
+                --project ${{ env.GCP_PROJECT_ID }} \
+                --format 'value(status.url)' 2>/dev/null || echo "")
+              
+              echo "shorts_url=$SHORTS_URL" >> $GITHUB_OUTPUT
+              echo "market_data_url=$MARKET_DATA_URL" >> $GITHUB_OUTPUT
+              
+              echo "✅ Backend services ready:"
+              echo "   Shorts API: $SHORTS_URL"
+              echo "   Market Data API: $MARKET_DATA_URL"
+              break
+            fi
+            
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "   Attempt $ATTEMPT/$MAX_ATTEMPTS - Services not ready yet, waiting 15s..."
+            sleep 15
+          done
+          
+          if [ -z "$SHORTS_URL" ]; then
+            echo "❌ Timeout waiting for backend services"
+            exit 1
+          fi
 
       - name: Deploy to Vercel
         id: deploy
@@ -196,14 +247,14 @@ jobs:
           scope: team_xE5DMN3hIo8aPqyHNkBybg8r
           alias-domains: preview.shorted.com.au
           vercel-args: >-
-            --build-env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ needs.deploy-backend.outputs.shorts-url }}
-            --build-env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ needs.deploy-backend.outputs.market-data-url }}
-            --build-env NEXT_PUBLIC_SHORTS_API_URL=${{ needs.deploy-backend.outputs.shorts-url }}
+            --build-env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.get-backend-urls.outputs.shorts_url }}
+            --build-env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ steps.get-backend-urls.outputs.market_data_url }}
+            --build-env NEXT_PUBLIC_SHORTS_API_URL=${{ steps.get-backend-urls.outputs.shorts_url }}
             --build-env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
             --build-env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
-            --env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ needs.deploy-backend.outputs.shorts-url }}
-            --env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ needs.deploy-backend.outputs.market-data-url }}
-            --env NEXT_PUBLIC_SHORTS_API_URL=${{ needs.deploy-backend.outputs.shorts-url }}
+            --env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.get-backend-urls.outputs.shorts_url }}
+            --env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ steps.get-backend-urls.outputs.market_data_url }}
+            --env NEXT_PUBLIC_SHORTS_API_URL=${{ steps.get-backend-urls.outputs.shorts_url }}
             --env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
             --env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
             --env NEXTAUTH_URL=https://preview.shorted.com.au
@@ -211,22 +262,21 @@ jobs:
       - name: Summary
         run: |
           echo "✅ Frontend deployed to Vercel: ${{ steps.deploy.outputs.url }}"
-          echo "Connected to Shorts API: ${{ needs.deploy-backend.outputs.shorts-url }}"
-          echo "Connected to Market Data API: ${{ needs.deploy-backend.outputs.market-data-url }}"
+          echo "Connected to Shorts API: ${{ steps.get-backend-urls.outputs.shorts_url }}"
+          echo "Connected to Market Data API: ${{ steps.get-backend-urls.outputs.market_data_url }}"
 
   comment-deployment:
-    needs: [check-secrets, deploy-backend, deploy-vercel-preview]
+    needs: [check-secrets, deploy-vercel-preview]
     runs-on: ubuntu-latest
-    # DISABLED: Deployment comments now handled by terraform-deploy.yml
-    if: false
+    if: always() && github.event_name == 'pull_request' && needs.check-secrets.outputs.has-gcp == 'true'
     steps:
       - name: Comment PR with deployment info
         uses: actions/github-script@v7
         with:
           script: |
             const hasGCP = '${{ needs.check-secrets.outputs.has-gcp }}' === 'true';
-            const shortsUrl = '${{ needs.deploy-backend.outputs.shorts-url }}';
-            const marketDataUrl = '${{ needs.deploy-backend.outputs.market-data-url }}';
+            const shortsUrl = '${{ needs.deploy-vercel-preview.outputs.shorts-url }}';
+            const marketDataUrl = '${{ needs.deploy-vercel-preview.outputs.market-data-url }}';
             const vercelUrl = '${{ needs.deploy-vercel-preview.outputs.preview-url }}';
 
             let body = '## 🚀 Preview Deployment\n\n';
@@ -239,16 +289,15 @@ jobs:
               body += 'Check the Vercel bot comment below for the preview URL\n\n';
             }
 
-            body += '### Backend Services\n\n';
+            body += '### Backend Services (via Terraform)\n\n';
             if (hasGCP && shortsUrl) {
               body += `✅ **Shorts API**: ${shortsUrl}\n`;
               body += `✅ **Market Data API**: ${marketDataUrl}\n\n`;
+              body += `*Deployed by terraform-deploy.yml workflow*\n`;
               body += `*Connected to Vercel preview automatically*\n`;
             } else {
-              body += `⚠️ **Backend services not deployed** - GCP secrets not configured\n\n`;
-              body += '### ⚙️ Configuration Needed\n\n';
-              body += 'To enable PR-specific backend deployments, configure these secrets:\n\n';
-              body += '- `GCP_PROJECT_ID`\n- `WIP_PROVIDER`\n- `SA_EMAIL`\n- `DATABASE_URL`\n\n';
+              body += `⚠️ **Backend services not deployed**\n\n`;
+              body += 'Check the terraform-deploy workflow for deployment status.\n\n';
             }
 
             const { data: comments } = await github.rest.issues.listComments({
@@ -354,9 +403,9 @@ jobs:
           retention-days: 7
 
   test-integration:
-    needs: [check-secrets]
+    needs: [check-secrets, deploy-vercel-preview]
     runs-on: ubuntu-latest
-    # Wait for terraform-deploy.yml to complete, then test against deployed services
+    # Test against deployed services (from Terraform + Vercel)
     if: always()
 
     steps:
@@ -385,55 +434,15 @@ jobs:
           docker version
           docker info
 
-      - name: Authenticate to Google Cloud
-        if: needs.check-secrets.outputs.has-gcp == 'true' && github.event_name == 'pull_request'
-        id: get-urls
-        uses: google-github-actions/auth@v2
-        with:
-          workload_identity_provider: ${{ secrets.WIP_PROVIDER }}
-          service_account: ${{ secrets.SA_EMAIL }}
-
-      - name: Set up Cloud SDK
-        if: needs.check-secrets.outputs.has-gcp == 'true' && github.event_name == 'pull_request'
-        uses: google-github-actions/setup-gcloud@v2
-
-      - name: Fetch service URLs from GCP
-        if: needs.check-secrets.outputs.has-gcp == 'true' && github.event_name == 'pull_request'
-        id: urls
-        run: |
-          # Wait a bit for terraform-deploy to finish
-          echo "⏳ Waiting for services to be deployed by terraform-deploy workflow..."
-          sleep 30
-
-          # Try to get service URLs (may not exist yet if terraform-deploy is still running)
-          SHORTS_URL=$(gcloud run services describe shorts-service-pr-${{ env.PR_NUMBER }} \
-            --region ${{ env.GCP_REGION }} \
-            --project ${{ env.GCP_PROJECT_ID }} \
-            --format 'value(status.url)' 2>/dev/null || echo "")
-
-          MARKET_DATA_URL=$(gcloud run services describe market-data-service-pr-${{ env.PR_NUMBER }} \
-            --region ${{ env.GCP_REGION }} \
-            --project ${{ env.GCP_PROJECT_ID }} \
-            --format 'value(status.url)' 2>/dev/null || echo "")
-
-          echo "shorts_url=$SHORTS_URL" >> $GITHUB_OUTPUT
-          echo "market_data_url=$MARKET_DATA_URL" >> $GITHUB_OUTPUT
-
-          if [ -n "$SHORTS_URL" ]; then
-            echo "✅ Found deployed services:"
-            echo "   Shorts: $SHORTS_URL"
-            echo "   Market Data: $MARKET_DATA_URL"
-          else
-            echo "⚠️ Services not yet deployed (terraform-deploy may still be running)"
-          fi
-
       - name: Run integration tests (against deployed preview)
-        if: needs.check-secrets.outputs.has-gcp == 'true' && steps.urls.outputs.shorts_url != ''
+        if: needs.check-secrets.outputs.has-gcp == 'true' && needs.deploy-vercel-preview.outputs.shorts-url != ''
         env:
-          BACKEND_URL: ${{ steps.urls.outputs.shorts_url }}
+          BACKEND_URL: ${{ needs.deploy-vercel-preview.outputs.shorts-url }}
+          FRONTEND_URL: ${{ needs.deploy-vercel-preview.outputs.preview-url }}
         run: |
           echo "🧪 Running integration tests against deployed preview..."
           echo "Backend URL: $BACKEND_URL"
+          echo "Frontend URL: $FRONTEND_URL"
           echo ""
 
           cd services
@@ -441,7 +450,7 @@ jobs:
         continue-on-error: true
 
       - name: Run integration tests (local with testcontainers)
-        if: needs.check-secrets.outputs.has-gcp != 'true' || steps.urls.outputs.shorts_url == ''
+        if: needs.check-secrets.outputs.has-gcp != 'true' || needs.deploy-vercel-preview.outputs.shorts-url == ''
         run: |
           echo "🧪 Running integration tests with local testcontainers..."
           echo "(Deployed services not available - running local tests only)"
@@ -452,7 +461,7 @@ jobs:
         continue-on-error: true
 
   test-summary:
-    needs: [test-unit, test-integration]
+    needs: [test-unit, test-integration, deploy-vercel-preview]
     runs-on: ubuntu-latest
     if: always()
 
@@ -463,7 +472,8 @@ jobs:
           script: |
             const results = {
               unit: '${{ needs.test-unit.result }}',
-              integration: '${{ needs.test-integration.result }}'
+              integration: '${{ needs.test-integration.result }}',
+              'vercel-deploy': '${{ needs.deploy-vercel-preview.result }}'
             };
 
             let summary = '## 🧪 Test Results Summary\n\n';
