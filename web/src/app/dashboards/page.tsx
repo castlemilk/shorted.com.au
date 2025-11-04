@@ -25,6 +25,7 @@ import { v4 as uuidv4 } from "uuid";
 import { dashboardService } from "@/lib/dashboard-service";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { LoginRequired } from "@/components/auth/login-required";
 
 // Bento-style layout with varied widget sizes for visual interest
 const defaultWidgets: WidgetConfig[] = [
@@ -57,7 +58,7 @@ const defaultWidgets: WidgetConfig[] = [
 ];
 
 export default function Dashboards() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { toast } = useToast();
   const [widgets, setWidgets] = useState<WidgetConfig[]>(defaultWidgets);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -215,6 +216,29 @@ export default function Dashboards() {
 
     void loadDashboard();
   }, [session]);
+
+  // Show loading state while checking authentication
+  if (status === "loading") {
+    return (
+      <DashboardLayout fullWidth>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Require authentication
+  if (!session) {
+    return (
+      <DashboardLayout fullWidth>
+        <LoginRequired
+          title="Sign in Required"
+          description="Please sign in to view and manage your dashboards"
+        />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout fullWidth>

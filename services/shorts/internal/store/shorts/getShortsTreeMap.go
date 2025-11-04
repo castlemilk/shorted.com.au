@@ -85,11 +85,14 @@ var (
 		-- Extract the most recent short position for each product
 		SELECT 
 			"PRODUCT_CODE",
-			"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" AS latest_short_position
+			"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" AS latest_short_position,
+			"DATE" AS latest_date
 		FROM 
 			period_data
 		WHERE 
 			rnk_desc = 1
+			-- Filter out stocks with stale data (older than 6 months from latest date)
+			AND "DATE" >= (SELECT MAX("DATE") FROM shorts) - INTERVAL '6 months'
 	),
 	earliest_data AS (
 		-- Extract the oldest short position within the period for each product
@@ -156,6 +159,8 @@ var (
 			"DATE" >= (SELECT MAX("DATE") FROM shorts) - INTERVAL '%s'
 		GROUP BY 
 			"PRODUCT_CODE"
+		-- Filter out stocks with stale data (older than 6 months from latest date)
+		HAVING MAX("DATE") >= (SELECT MAX("DATE") FROM shorts) - INTERVAL '6 months'
 	),
 	current_short_positions AS (
 		SELECT 

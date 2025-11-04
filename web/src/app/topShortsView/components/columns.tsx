@@ -21,8 +21,10 @@ const greenColor = `var(--green)`;
 const truncateValue = (value: number, maxLength: number) => {
   const formatted = value.toFixed(2);
   if (formatted.length <= maxLength) return formatted;
-  if (maxLength < 4) return '...';
-  return value.toFixed(0) + (value.toFixed(0).length > maxLength - 1 ? '...' : '');
+  if (maxLength < 4) return "...";
+  return (
+    value.toFixed(0) + (value.toFixed(0).length > maxLength - 1 ? "..." : "")
+  );
 };
 
 export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
@@ -55,7 +57,9 @@ export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
     accessorKey: "latestShortPosition",
     header: ({ column }) => {
       return (
-        <div className="h-full flex items-center justify-center"> {/* Added wrapper div */}
+        <div className="h-full flex items-center justify-center">
+          {" "}
+          {/* Added wrapper div */}
           <Button
             variant="ghost"
             className="self-center"
@@ -100,7 +104,7 @@ export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
       </div>
     ),
     cell: ({ row }) => (
-      <div className="w-full h-full flex items-center justify-center">
+      <div className="w-full h-full flex items-center justify-center px-1">
         <Sparkline data={row.original} />
       </div>
     ),

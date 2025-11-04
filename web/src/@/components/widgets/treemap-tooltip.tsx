@@ -242,6 +242,22 @@ export function TreemapTooltip({
                 />
               </div>
             )}
+
+            {/* Last Updated */}
+            {sparklineData.length > 0 && (
+              <div className="pt-2 border-t border-border">
+                <p className="text-xs text-muted-foreground">
+                  Last updated:{" "}
+                  {new Date(
+                    sparklineData[sparklineData.length - 1]!.date,
+                  ).toLocaleDateString("en-AU", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>

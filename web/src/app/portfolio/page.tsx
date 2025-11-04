@@ -45,6 +45,7 @@ import {
 import { useSession } from "next-auth/react";
 import { useToast } from "@/hooks/use-toast";
 import { DashboardLayout } from "@/components/layouts/dashboard-layout";
+import { LoginRequired } from "@/components/auth/login-required";
 
 interface PortfolioData {
   holdings: PortfolioHolding[];
@@ -57,7 +58,7 @@ interface PortfolioData {
 }
 
 export default function PortfolioPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const { toast } = useToast();
   const [holdings, setHoldings] = useState<PortfolioHolding[]>([]);
   const [quotes, setQuotes] = useState<Map<string, StockQuote>>(new Map());
@@ -288,15 +289,25 @@ export default function PortfolioPage() {
     return `${sign}${value.toFixed(2)}%`;
   };
 
+  // Show loading state while checking authentication
+  if (status === "loading") {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Require authentication
   if (!session) {
     return (
       <DashboardLayout>
-        <Card className="p-8 text-center">
-          <h2 className="text-xl font-semibold mb-4">Sign in Required</h2>
-          <p className="text-muted-foreground">
-            Please sign in to view and manage your portfolio
-          </p>
-        </Card>
+        <LoginRequired
+          title="Sign in Required"
+          description="Please sign in to view and manage your portfolio"
+        />
       </DashboardLayout>
     );
   }

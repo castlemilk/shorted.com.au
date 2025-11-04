@@ -76,7 +76,7 @@ export function StockSearchResultItem({
             )}
           </div>
           <div className="text-sm text-muted-foreground truncate">
-            {stock.companyName || stock.name}
+            {stock.companyName ?? stock.name}
           </div>
           <div className="text-xs text-muted-foreground mt-1">
             Short: {stock.percentage_shorted.toFixed(2)}%
