@@ -24,7 +24,6 @@ import {
 } from "recharts";
 import {
   getHistoricalData,
-  getStockPrice,
   searchStocksEnriched,
   type StockQuote,
   type HistoricalDataPoint,
@@ -59,13 +58,13 @@ type TimePeriod = "1d" | "1w" | "1m" | "3m" | "6m" | "1y" | "5y" | "10y";
 export default function StocksPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStock, setSelectedStock] = useState<string | null>(null);
-  const [stockQuote, setStockQuote] = useState<StockQuote | null>(null);
+  const [selectedStock, _setSelectedStock] = useState<string | null>(null);
+  const [stockQuote, _setStockQuote] = useState<StockQuote | null>(null);
   const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>(
     [],
   );
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>("1m");
-  const [loading, setLoading] = useState(false);
+  const [loading, _setLoading] = useState(false);
   const [loadingHistorical, setLoadingHistorical] = useState(false);
   const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);

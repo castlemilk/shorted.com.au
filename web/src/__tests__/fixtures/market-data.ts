@@ -160,7 +160,7 @@ export const mockMalformedResponse = {
 export function generateMockPrices(
   stockCode: string,
   days: number,
-  startPrice: number = 100,
+  startPrice = 100,
 ): Array<{
   stockCode: string;
   date: string;

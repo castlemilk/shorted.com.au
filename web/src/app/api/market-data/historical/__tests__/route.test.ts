@@ -8,7 +8,7 @@ import { NextRequest } from "next/server";
 import {
   mockHistoricalPrices,
   mockEmptyResponse,
-} from "@/__tests__/fixtures/market-data";
+} from "~/__tests__/fixtures/market-data";
 
 // Mock the market data service
 global.fetch = jest.fn();

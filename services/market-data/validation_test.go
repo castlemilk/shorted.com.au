@@ -90,7 +90,7 @@ func TestValidateGetStockPriceRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateGetStockPriceRequest(tt.request)
-			
+
 			if tt.expectError {
 				require.Error(t, err)
 				if tt.errorMsg != "" {
@@ -164,7 +164,7 @@ func TestValidateGetHistoricalPricesRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateGetHistoricalPricesRequest(tt.request)
-			
+
 			if tt.expectError {
 				require.Error(t, err)
 				if tt.errorMsg != "" {
@@ -227,7 +227,7 @@ func TestValidateGetMultipleStockPricesRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateGetMultipleStockPricesRequest(tt.request)
-			
+
 			if tt.expectError {
 				require.Error(t, err)
 				if tt.errorMsg != "" {
@@ -303,7 +303,7 @@ func TestValidateGetStockCorrelationsRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateGetStockCorrelationsRequest(tt.request)
-			
+
 			if tt.expectError {
 				require.Error(t, err)
 				if tt.errorMsg != "" {
@@ -339,7 +339,7 @@ func TestNormalizeStockCode(t *testing.T) {
 func TestNormalizeStockCodes(t *testing.T) {
 	input := []string{"cba", "  bhp  ", "CSL", "wbc"}
 	expected := []string{"CBA", "BHP", "CSL", "WBC"}
-	
+
 	result := NormalizeStockCodes(input)
 	assert.Equal(t, expected, result)
 }
@@ -350,7 +350,7 @@ func TestSetDefaultValues(t *testing.T) {
 			StockCode: "cba",
 		}
 		SetDefaultValues(req)
-		
+
 		assert.Equal(t, "CBA", req.StockCode)
 		assert.Equal(t, "1m", req.Period)
 	})
@@ -361,7 +361,7 @@ func TestSetDefaultValues(t *testing.T) {
 			Period:    "6M",
 		}
 		SetDefaultValues(req)
-		
+
 		assert.Equal(t, "CBA", req.StockCode)
 		assert.Equal(t, "6m", req.Period) // Normalized to lowercase
 	})
@@ -371,7 +371,7 @@ func TestSetDefaultValues(t *testing.T) {
 			StockCode: "  bhp  ",
 		}
 		SetDefaultValues(req)
-		
+
 		assert.Equal(t, "BHP", req.StockCode)
 	})
 
@@ -380,7 +380,7 @@ func TestSetDefaultValues(t *testing.T) {
 			StockCodes: []string{"cba", "  bhp  ", "CSL"},
 		}
 		SetDefaultValues(req)
-		
+
 		assert.Equal(t, []string{"CBA", "BHP", "CSL"}, req.StockCodes)
 	})
 
@@ -389,7 +389,7 @@ func TestSetDefaultValues(t *testing.T) {
 			StockCodes: []string{"cba", "bhp"},
 		}
 		SetDefaultValues(req)
-		
+
 		assert.Equal(t, []string{"CBA", "BHP"}, req.StockCodes)
 		assert.Equal(t, "3m", req.Period)
 	})
@@ -397,47 +397,47 @@ func TestSetDefaultValues(t *testing.T) {
 
 func TestValidateDateRange(t *testing.T) {
 	now := time.Now()
-	
+
 	tests := []struct {
-		name      string
-		startDate time.Time
-		endDate   time.Time
+		name        string
+		startDate   time.Time
+		endDate     time.Time
 		expectError bool
-		errorMsg  string
+		errorMsg    string
 	}{
 		{
-			name:      "valid date range",
-			startDate: now.AddDate(-1, 0, 0),
-			endDate:   now,
+			name:        "valid date range",
+			startDate:   now.AddDate(-1, 0, 0),
+			endDate:     now,
 			expectError: false,
 		},
 		{
-			name:      "start after end",
-			startDate: now,
-			endDate:   now.AddDate(-1, 0, 0),
+			name:        "start after end",
+			startDate:   now,
+			endDate:     now.AddDate(-1, 0, 0),
 			expectError: true,
-			errorMsg:  "start date must be before end date",
+			errorMsg:    "start date must be before end date",
 		},
 		{
-			name:      "range too large",
-			startDate: now.AddDate(-6, 0, 0),
-			endDate:   now,
+			name:        "range too large",
+			startDate:   now.AddDate(-6, 0, 0),
+			endDate:     now,
 			expectError: true,
-			errorMsg:  "date range cannot exceed 5 years",
+			errorMsg:    "date range cannot exceed 5 years",
 		},
 		{
-			name:      "end date in future",
-			startDate: now,
-			endDate:   now.AddDate(0, 1, 0),
+			name:        "end date in future",
+			startDate:   now,
+			endDate:     now.AddDate(0, 1, 0),
 			expectError: true,
-			errorMsg:  "end date cannot be in the future",
+			errorMsg:    "end date cannot be in the future",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateDateRange(tt.startDate, tt.endDate)
-			
+
 			if tt.expectError {
 				require.Error(t, err)
 				if tt.errorMsg != "" {

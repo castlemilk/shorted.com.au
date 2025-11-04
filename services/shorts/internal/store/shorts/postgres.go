@@ -21,23 +21,23 @@ type postgresStore struct {
 // newPostgresStore initializes a new store with a PostgreSQL backend.
 func newPostgresStore(config Config) Store {
 	// Configure connection pool for better concurrency
-	poolConfig, err := pgxpool.ParseConfig(fmt.Sprintf("postgres://%s:%s@%s/%s", 
+	poolConfig, err := pgxpool.ParseConfig(fmt.Sprintf("postgres://%s:%s@%s/%s",
 		config.PostgresUsername, config.PostgresPassword, config.PostgresAddress, config.PostgresDatabase))
 	if err != nil {
 		panic("Unable to parse database config: " + err.Error())
 	}
-	
+
 	// Set connection pool settings for better concurrency
-	poolConfig.MaxConns = 25                    // Maximum number of connections
-	poolConfig.MinConns = 5                     // Minimum number of connections
-	poolConfig.MaxConnLifetime = time.Hour      // Maximum connection lifetime
+	poolConfig.MaxConns = 25                      // Maximum number of connections
+	poolConfig.MinConns = 5                       // Minimum number of connections
+	poolConfig.MaxConnLifetime = time.Hour        // Maximum connection lifetime
 	poolConfig.MaxConnIdleTime = time.Minute * 30 // Maximum idle time
-	
+
 	dbPool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
 		panic("Unable to connect to database: " + err.Error())
 	}
-	
+
 	return &postgresStore{
 		db: dbPool,
 	}
@@ -107,7 +107,7 @@ func (s *postgresStore) GetStockData(productCode, period string) (*stocksv1alpha
 		  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" IS NOT NULL
 		GROUP BY interval_start
 		ORDER BY interval_start ASC`, interval, periodToInterval(period))
-	
+
 	rows, err := s.db.Query(context.Background(), query, productCode)
 	if err != nil {
 		return nil, err
@@ -150,9 +150,6 @@ func (s *postgresStore) GetStockData(productCode, period string) (*stocksv1alpha
 		LatestShortPosition: 0,
 	}, nil
 }
-
-
-
 
 // GetStockDetails implements Store.
 // fetch the stock metadata following the schema:
@@ -264,7 +261,7 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 		WHERE rn = 1
 		ORDER BY sort_priority, product_code
 		LIMIT $4`
-	
+
 	// Create context with timeout to prevent hanging
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -272,7 +269,7 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 	// Prepare search patterns
 	exactQuery := query
 	partialQuery := "%" + query + "%"
-	
+
 	rows, err := s.db.Query(ctx, searchQuery, exactQuery, partialQuery, partialQuery, limit)
 	if err != nil {
 		log.Errorf("Database query failed for search '%s': %v", query, err)
@@ -284,16 +281,16 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 		return nil, fmt.Errorf("failed to search stocks: %w", err)
 	}
 	defer rows.Close()
-	
+
 	// Custom scan function to handle sort_priority
 	type searchResult struct {
 		stocksv1alpha1.Stock
 		SortPriority int32 `db:"sort_priority"`
 	}
-	
-	var results []searchResult
+
+	var results []*searchResult
 	for rows.Next() {
-		var result searchResult
+		result := &searchResult{}
 		if err := rows.Scan(
 			&result.PercentageShorted,
 			&result.ProductCode,
@@ -307,13 +304,13 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 		}
 		results = append(results, result)
 	}
-	
+
 	// Convert []searchResult to []*stocksv1alpha1.Stock
 	stockPointers := make([]*stocksv1alpha1.Stock, len(results))
 	for i := range results {
 		stockPointers[i] = &results[i].Stock
 	}
-	
+
 	// Deduplicate by product_code (keep first occurrence, which has highest priority)
 	seen := make(map[string]bool)
 	deduplicated := make([]*stocksv1alpha1.Stock, 0, len(stockPointers))
@@ -323,7 +320,7 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 			seen[stock.ProductCode] = true
 		}
 	}
-	
+
 	log.Debugf("Search completed for '%s': found %d unique stocks (deduplicated from %d total results)", query, len(deduplicated), len(results))
 	return deduplicated, nil
 }

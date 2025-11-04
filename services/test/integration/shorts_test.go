@@ -12,6 +12,7 @@ import (
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
+	"github.com/castlemilk/shorted.com.au/services/test/integration/testdata"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -33,7 +34,21 @@ func TestDatabaseSetup(t *testing.T) {
 			require.NoError(t, err, "Table %s should exist and be queryable", table)
 		}
 
-		// Test that test data was loaded
+		// Seed test data
+		seeder := container.GetSeeder()
+		
+		// Generate test data for today
+		today := time.Now().Truncate(24 * time.Hour)
+		shorts, metadata := testdata.GetTopShortsTestData(10, today)
+		
+		// Insert test data
+		err = seeder.SeedShorts(ctx, shorts)
+		require.NoError(t, err, "Should be able to seed shorts data")
+		
+		err = seeder.SeedCompanyMetadata(ctx, metadata)
+		require.NoError(t, err, "Should be able to seed company metadata")
+
+		// Verify test data was loaded
 		var shortCount int
 		err = container.DB.QueryRow(ctx, "SELECT COUNT(*) FROM shorts").Scan(&shortCount)
 		require.NoError(t, err)
@@ -50,15 +65,27 @@ func TestDatabaseSetup(t *testing.T) {
 func TestDatabaseOperations(t *testing.T) {
 	WithTestDatabase(t, func(container *TestContainer) {
 		ctx := context.Background()
+		seeder := container.GetSeeder()
+
+		// Seed test data with comprehensive CBA data
+		testDate := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
+		shorts, metadata, _ := testdata.GetCBATestData(testDate, 30)
+
+		// Seed the data
+		err := seeder.SeedCompanyMetadata(ctx, []testdata.CompanyMetadata{metadata})
+		require.NoError(t, err)
+		
+		err = seeder.SeedShorts(ctx, shorts)
+		require.NoError(t, err)
 
 		// Test querying shorts data
 		rows, err := container.DB.Query(ctx, `
 			SELECT product_code, product_name, percent_of_total_shares 
 			FROM shorts 
-			WHERE date = '2024-01-15' 
+			WHERE date = $1
 			ORDER BY percent_of_total_shares DESC 
 			LIMIT 5
-		`)
+		`, testDate)
 		require.NoError(t, err)
 		defer rows.Close()
 
@@ -167,7 +194,7 @@ func testGetTopShorts(t *testing.T, ctx context.Context, client shortsv1alpha1co
 
 	t.Run("DifferentPeriods", func(t *testing.T) {
 		periods := []string{"1d", "1w", "1m"}
-		
+
 		for _, period := range periods {
 			t.Run("Period_"+period, func(t *testing.T) {
 				req := connect.NewRequest(&shortsv1alpha1.GetTopShortsRequest{
@@ -272,7 +299,7 @@ func testErrorHandling(t *testing.T, ctx context.Context, client shortsv1alpha1c
 
 		_, err := client.GetStock(ctx, req)
 		require.Error(t, err)
-		
+
 		var connectErr *connect.Error
 		require.ErrorAs(t, err, &connectErr)
 		assert.Equal(t, connect.CodeNotFound, connectErr.Code())
@@ -285,7 +312,7 @@ func testErrorHandling(t *testing.T, ctx context.Context, client shortsv1alpha1c
 
 		_, err := client.GetStock(ctx, req)
 		require.Error(t, err)
-		
+
 		var connectErr *connect.Error
 		require.ErrorAs(t, err, &connectErr)
 		assert.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
@@ -296,6 +323,18 @@ func testErrorHandling(t *testing.T, ctx context.Context, client shortsv1alpha1c
 func TestDataConsistency(t *testing.T) {
 	WithTestDatabase(t, func(container *TestContainer) {
 		ctx := context.Background()
+		seeder := container.GetSeeder()
+
+		// Seed test data with multiple dates
+		testDate := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
+		stockCodes := []string{"CBA", "BHP", "CSL"}
+		shorts, metadata, _ := testdata.GetMultipleStocksTestData(stockCodes, testDate, 5)
+		
+		err := seeder.SeedCompanyMetadata(ctx, metadata)
+		require.NoError(t, err)
+		
+		err = seeder.SeedShorts(ctx, shorts)
+		require.NoError(t, err)
 
 		t.Run("ShortsDataIntegrity", func(t *testing.T) {
 			// Test that all shorts have corresponding dates and valid percentages
@@ -333,24 +372,36 @@ func TestDataConsistency(t *testing.T) {
 func TestPerformance(t *testing.T) {
 	WithTestDatabase(t, func(container *TestContainer) {
 		ctx := context.Background()
+		seeder := container.GetSeeder()
+
+		// Seed test data for performance testing
+		testDate := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
+		stockCodes := testdata.GetSampleStocks()
+		shorts, metadata, _ := testdata.GetMultipleStocksTestData(stockCodes, testDate, 1)
+		
+		err := seeder.SeedCompanyMetadata(ctx, metadata)
+		require.NoError(t, err)
+		
+		err = seeder.SeedShorts(ctx, shorts)
+		require.NoError(t, err)
 
 		t.Run("QueryResponseTime", func(t *testing.T) {
 			start := time.Now()
-			
+
 			rows, err := container.DB.Query(ctx, `
 				SELECT s.product_code, s.percent_of_total_shares, m.company_name
 				FROM shorts s
 				JOIN "company-metadata" m ON s.product_code = m.stock_code
-				WHERE s.date = '2024-01-15'
+				WHERE s.date = $1
 				ORDER BY s.percent_of_total_shares DESC
 				LIMIT 10
-			`)
-			
+			`, testDate)
+
 			duration := time.Since(start)
-			
+
 			require.NoError(t, err)
 			rows.Close()
-			
+
 			// Query should complete quickly with test data
 			assert.Less(t, duration, 500*time.Millisecond, "Query should be fast with test data")
 		})
@@ -379,8 +430,16 @@ func TestCleanup(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 0, count)
 
-		// Seed sample data again
-		container.SeedSampleData(ctx, t)
+		// Seed sample data again using the new seeder
+		seeder := container.GetSeeder()
+		testDate := time.Now().Truncate(24 * time.Hour)
+		shorts, metadata := testdata.GetTopShortsTestData(5, testDate)
+		
+		err = seeder.SeedCompanyMetadata(ctx, metadata)
+		require.NoError(t, err)
+		
+		err = seeder.SeedShorts(ctx, shorts)
+		require.NoError(t, err)
 
 		// Verify sample data is there
 		err = container.DB.QueryRow(ctx, "SELECT COUNT(*) FROM shorts WHERE product_code = 'CBA'").Scan(&count)

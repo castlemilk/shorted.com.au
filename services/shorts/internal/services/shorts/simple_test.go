@@ -3,8 +3,8 @@ package shorts
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
+	"github.com/stretchr/testify/assert"
 )
 
 // Simple validation tests that don't depend on complex mocking
@@ -15,7 +15,7 @@ func TestSimpleValidation(t *testing.T) {
 			Limit:  10,
 			Offset: 0,
 		}
-		
+
 		err := ValidateGetTopShortsRequest(req)
 		assert.NoError(t, err)
 	})
@@ -26,7 +26,7 @@ func TestSimpleValidation(t *testing.T) {
 			Limit:  10,
 			Offset: 0,
 		}
-		
+
 		err := ValidateGetTopShortsRequest(req)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "invalid period format")
@@ -38,7 +38,7 @@ func TestSimpleValidation(t *testing.T) {
 			Limit:  -5,
 			Offset: 0,
 		}
-		
+
 		err := ValidateGetTopShortsRequest(req)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "limit must be positive")

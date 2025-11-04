@@ -141,7 +141,7 @@ func TestValidateGetTopShortsRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateGetTopShortsRequest(tt.request)
-			
+
 			if tt.expectError {
 				assert.Error(t, err)
 				if tt.errorMsg != "" {
@@ -226,7 +226,7 @@ func TestValidateGetStockRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateGetStockRequest(tt.request)
-			
+
 			if tt.expectError {
 				assert.Error(t, err)
 				if tt.errorMsg != "" {
@@ -301,7 +301,7 @@ func TestValidateGetStockDataRequest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateGetStockDataRequest(tt.request)
-			
+
 			if tt.expectError {
 				assert.Error(t, err)
 				if tt.errorMsg != "" {
@@ -338,7 +338,7 @@ func TestSetDefaultValues(t *testing.T) {
 	t.Run("GetTopShortsRequest defaults", func(t *testing.T) {
 		req := &shortsv1alpha1.GetTopShortsRequest{}
 		SetDefaultValues(req)
-		
+
 		assert.Equal(t, "1M", req.Period)
 		assert.Equal(t, int32(50), req.Limit)
 	})
@@ -349,7 +349,7 @@ func TestSetDefaultValues(t *testing.T) {
 			Limit:  25,
 		}
 		SetDefaultValues(req)
-		
+
 		assert.Equal(t, "3M", req.Period)
 		assert.Equal(t, int32(25), req.Limit)
 	})
@@ -360,7 +360,7 @@ func TestSetDefaultValues(t *testing.T) {
 			Limit:  25,
 		}
 		SetDefaultValues(req)
-		
+
 		assert.Equal(t, "3M", req.Period)
 		assert.Equal(t, int32(25), req.Limit)
 	})
@@ -370,7 +370,7 @@ func TestSetDefaultValues(t *testing.T) {
 			ProductCode: "cba",
 		}
 		SetDefaultValues(req)
-		
+
 		assert.Equal(t, "1M", req.Period)
 		assert.Equal(t, "CBA", req.ProductCode)
 	})
@@ -378,10 +378,10 @@ func TestSetDefaultValues(t *testing.T) {
 	t.Run("GetStockDataRequest normalizes lowercase period", func(t *testing.T) {
 		req := &shortsv1alpha1.GetStockDataRequest{
 			ProductCode: "cba",
-			Period: "6m",
+			Period:      "6m",
 		}
 		SetDefaultValues(req)
-		
+
 		assert.Equal(t, "6M", req.Period)
 		assert.Equal(t, "CBA", req.ProductCode)
 	})
@@ -391,7 +391,7 @@ func TestSetDefaultValues(t *testing.T) {
 			ProductCode: "  zip  ",
 		}
 		SetDefaultValues(req)
-		
+
 		assert.Equal(t, "ZIP", req.ProductCode)
 	})
 }

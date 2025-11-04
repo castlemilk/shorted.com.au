@@ -98,7 +98,7 @@ export function DashboardGrid({
     (currentLayout: Layout[], allLayouts: Record<string, Layout[]>) => {
       // Only update from the lg (desktop) layout to preserve user's intended layout
       // Smaller breakpoints are auto-calculated from lg
-      const lgLayout = allLayouts.lg || currentLayout;
+      const lgLayout = allLayouts.lg ?? currentLayout;
 
       const updatedWidgets = widgets.map((widget) => {
         const layoutItem = lgLayout.find((item) => item.i === widget.id);

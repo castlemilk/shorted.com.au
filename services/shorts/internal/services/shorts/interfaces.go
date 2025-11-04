@@ -24,7 +24,7 @@ type Cache interface {
 	Delete(key string)
 	Clear()
 	Size() int
-	
+
 	// Cache key generators
 	GetTopShortsKey(period string, limit int32, offset int32) string
 	GetStockKey(productCode string) string

@@ -5,7 +5,7 @@
 
 export type Environment = "production" | "preview" | "development";
 
-export const environment = (process.env.NEXT_PUBLIC_ENVIRONMENT ||
+export const environment = (process.env.NEXT_PUBLIC_ENVIRONMENT ??
   "development") as Environment;
 
 // API URLs with fallbacks for different environments
@@ -17,10 +17,10 @@ export const config = {
 
   // API endpoints
   api: {
-    shorts: process.env.NEXT_PUBLIC_API_URL || "http://localhost:9091",
+    shorts: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:9091",
     marketData:
-      process.env.NEXT_PUBLIC_MARKET_DATA_API_URL ||
-      process.env.NEXT_PUBLIC_MARKET_DATA_URL ||
+      process.env.NEXT_PUBLIC_MARKET_DATA_API_URL ??
+      process.env.NEXT_PUBLIC_MARKET_DATA_URL ??
       "http://localhost:8090",
   },
 

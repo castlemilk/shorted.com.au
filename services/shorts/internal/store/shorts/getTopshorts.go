@@ -48,7 +48,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 	if offset < 0 {
 		offset = 0 // Start at the beginning if a negative offset is given
 	}
-	
+
 	ctx := context.Background()
 	connection, err := db.Acquire(ctx)
 	if err != nil {
@@ -58,7 +58,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 
 	interval := periodToInterval(period)
 	log.Infof("Period: %s, Interval: %s", period, interval)
-	
+
 	// Optimized query for top product codes
 	// Uses MAX(DATE) to work with historical data
 	// Only selects stocks that have data at the most recent date to avoid showing old delisted stocks
@@ -118,7 +118,9 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 	defer rows.Close()
 
 	timeSeriesMap := make(map[string][]*stocksv1alpha1.TimeSeriesPoint)
-	minMaxMap := make(map[string]*struct{min, max *stocksv1alpha1.TimeSeriesPoint})
+	minMaxMap := make(map[string]*struct {
+		min, max *stocksv1alpha1.TimeSeriesPoint
+	})
 
 	for rows.Next() {
 		var productCode string
@@ -136,9 +138,11 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 			ShortPosition: shortPosition,
 		}
 		timeSeriesMap[productCode] = append(timeSeriesMap[productCode], point)
-		
+
 		if minMax, ok := minMaxMap[productCode]; !ok {
-			minMaxMap[productCode] = &struct{min, max *stocksv1alpha1.TimeSeriesPoint}{point, point}
+			minMaxMap[productCode] = &struct {
+				min, max *stocksv1alpha1.TimeSeriesPoint
+			}{point, point}
 		} else {
 			if shortPosition < minMax.min.ShortPosition {
 				minMax.min = point

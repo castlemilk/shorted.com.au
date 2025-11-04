@@ -1,23 +1,126 @@
 import "@testing-library/jest-dom";
 
+// Polyfill for Next.js Request/Response API
+// @ts-expect-error - Polyfill for test environment
+global.Request = class Request {
+  url: string;
+  method: string;
+  headers: Map<string, string>;
+  body: any;
+  bodyUsed: boolean;
+
+  constructor(url: string, init?: any) {
+    this.url = url;
+    this.method = init?.method || "GET";
+    this.headers = new Map();
+    this.body = init?.body;
+    this.bodyUsed = false;
+  }
+
+  async json() {
+    if (this.bodyUsed) throw new Error("Body already used");
+    this.bodyUsed = true;
+    return typeof this.body === "string" ? JSON.parse(this.body) : this.body;
+  }
+
+  async text() {
+    if (this.bodyUsed) throw new Error("Body already used");
+    this.bodyUsed = true;
+    return typeof this.body === "string"
+      ? this.body
+      : JSON.stringify(this.body);
+  }
+};
+
+// @ts-expect-error - Polyfill for test environment
+global.Response = class Response {
+  body: any;
+  status: number;
+  statusText: string;
+  headers: Map<string, string>;
+  ok: boolean;
+
+  constructor(body?: any, init?: any) {
+    this.body = body;
+    this.status = init?.status || 200;
+    this.statusText = init?.statusText || "OK";
+    this.headers = new Map();
+    this.ok = this.status >= 200 && this.status < 300;
+  }
+
+  async json() {
+    return typeof this.body === "string" ? JSON.parse(this.body) : this.body;
+  }
+
+  async text() {
+    return typeof this.body === "string"
+      ? this.body
+      : JSON.stringify(this.body);
+  }
+
+  static json(data: any, init?: any) {
+    return new Response(JSON.stringify(data), {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers || {}),
+      },
+    });
+  }
+};
+
+// @ts-expect-error - Polyfill for test environment
+global.Headers = class Headers {
+  private map: Map<string, string>;
+
+  constructor(init?: any) {
+    this.map = new Map();
+    if (init) {
+      if (init instanceof Headers) {
+        this.map = new Map(init.map);
+      } else if (typeof init === "object") {
+        Object.entries(init).forEach(([key, value]) => {
+          this.map.set(key.toLowerCase(), String(value));
+        });
+      }
+    }
+  }
+
+  get(name: string): string | null {
+    return this.map.get(name.toLowerCase()) ?? null;
+  }
+
+  set(name: string, value: string): void {
+    this.map.set(name.toLowerCase(), value);
+  }
+
+  has(name: string): boolean {
+    return this.map.has(name.toLowerCase());
+  }
+
+  delete(name: string): void {
+    this.map.delete(name.toLowerCase());
+  }
+
+  forEach(callback: (value: string, key: string) => void): void {
+    this.map.forEach((value, key) => callback(value, key));
+  }
+};
+
 // Mock class-variance-authority
 jest.mock("class-variance-authority", () => ({
   cva: jest.fn((base, config) => {
     return jest.fn((props) => {
       // Return a string that includes base classes and variant classes
-      let classes = base || "";
-      if (props && config && config.variants) {
-        const { variant, size, className } = props || {};
+      let classes = base ?? "";
+      if (props?.variants) {
+        const { variant, size, className } = props ?? {};
         // Add variant classes
-        if (
-          variant &&
-          config.variants.variant &&
-          config.variants.variant[variant]
-        ) {
+        if (variant && config?.variants?.variant?.[variant]) {
           classes += " " + config.variants.variant[variant];
         }
         // Add size classes
-        if (size && config.variants.size && config.variants.size[size]) {
+        if (size && config?.variants?.size?.[size]) {
           classes += " " + config.variants.size[size];
         }
         // Add custom classes
@@ -272,6 +375,13 @@ jest.mock("@visx/tooltip", () => ({
     showTooltip: jest.fn(),
     hideTooltip: jest.fn(),
   })),
+}));
+
+// Mock rate limiting
+jest.mock("@/lib/rate-limit", () => ({
+  rateLimit: jest.fn().mockResolvedValue({
+    success: true,
+  }),
 }));
 
 // Mock common actions
