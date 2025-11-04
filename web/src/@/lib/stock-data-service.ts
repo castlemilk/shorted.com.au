@@ -40,6 +40,12 @@ export interface StockSearchResult {
   percentage_shorted: number;
   total_product_in_issue: number;
   reported_short_positions: number;
+  // Enriched optional fields
+  industry?: string;
+  companyName?: string;
+  logoUrl?: string;
+  currentPrice?: number;
+  priceChange?: number;
 }
 
 export interface StockSearchResponse {
@@ -156,7 +162,7 @@ export async function getMultipleStockQuotes(
 }
 
 /**
- * Get historical data from market data API (Connect RPC)
+ * Get historical data from market data API via Next.js API route
  */
 export async function getHistoricalData(
   stockCode: string,
@@ -170,19 +176,17 @@ export async function getHistoricalData(
       return [];
     }
 
-    const response = await fetch(
-      `${MARKET_DATA_API_URL}/marketdata.v1.MarketDataService/GetHistoricalPrices`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          stockCode: stockCode.toUpperCase(),
-          period: period.toLowerCase(),
-        }),
+    // Use the Next.js API route which properly handles Connect RPC
+    const response = await fetch("/api/market-data/historical", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({
+        stockCode: stockCode.toUpperCase(),
+        period: period.toLowerCase(),
+      }),
+    });
 
     if (response.ok) {
       const apiResponse = (await response.json()) as {
@@ -219,7 +223,7 @@ export async function getHistoricalData(
         );
 
         console.log(
-          `✅ Using Connect RPC market data API for ${stockCode} historical data`,
+          `✅ Fetched ${historicalData.length} price points for ${stockCode} (${period})`,
         );
         return historicalData;
       }
@@ -418,5 +422,98 @@ export async function searchStocks(
   } catch (error) {
     console.error(`Error searching stocks for query "${query}":`, error);
     return null;
+  }
+}
+
+/**
+ * Search stocks with enriched metadata (industry, logo, current price)
+ * Fetches basic search results and enriches them with stock details in parallel
+ */
+export async function searchStocksEnriched(
+  query: string,
+  limit = 10,
+): Promise<StockSearchResult[]> {
+  try {
+    // First, get basic search results
+    const searchResponse = await searchStocks(query, limit);
+
+    if (!searchResponse?.stocks || searchResponse.stocks.length === 0) {
+      return [];
+    }
+
+    // Fetch stock details and current prices in parallel for enrichment
+    const enrichedStocks = await Promise.all(
+      searchResponse.stocks.map(async (stock) => {
+        try {
+          // Fetch stock details (industry, logo, company name)
+          const detailsPromise = fetchStockDetailsClient(stock.product_code);
+
+          // Fetch current price
+          const pricePromise = getStockPrice(stock.product_code);
+
+          // Wait for both with timeout
+          const [details, quote] = await Promise.race([
+            Promise.all([detailsPromise, pricePromise]),
+            new Promise<[undefined, null]>((resolve) =>
+              setTimeout(() => resolve([undefined, null]), 3000),
+            ),
+          ]);
+
+          // Return enriched stock result
+          return {
+            ...stock,
+            industry: details?.industry,
+            companyName: details?.companyName ?? stock.name,
+            logoUrl: details?.gcsUrl,
+            currentPrice: quote?.price,
+            priceChange: quote?.changePercent,
+          } as StockSearchResult;
+        } catch (err) {
+          // If enrichment fails for this stock, return basic data
+          console.warn(`Failed to enrich stock ${stock.product_code}:`, err);
+          return stock;
+        }
+      }),
+    );
+
+    return enrichedStocks;
+  } catch (error) {
+    console.error(
+      `Error in enriched stock search for query "${query}":`,
+      error,
+    );
+    return [];
+  }
+}
+
+/**
+ * Fetch stock details using Connect RPC client
+ * Imports the client-api function dynamically to work in both client and server contexts
+ */
+async function fetchStockDetailsClient(
+  productCode: string,
+): Promise<
+  { industry?: string; companyName?: string; gcsUrl?: string } | undefined
+> {
+  try {
+    // Dynamic import to make this work in both client and server contexts
+    const { fetchStockDetailsClient: fetchDetails } = await import(
+      "@/lib/client-api"
+    );
+    const details = await fetchDetails(productCode);
+
+    if (!details) {
+      return undefined;
+    }
+
+    return {
+      industry: details.industry,
+      companyName: details.companyName,
+      gcsUrl: details.gcsUrl,
+    };
+  } catch (error) {
+    // Silently fail - enrichment is optional
+    console.warn(`Failed to fetch details for ${productCode}:`, error);
+    return undefined;
   }
 }

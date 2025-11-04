@@ -27,7 +27,9 @@ interface SparklineProps {
 }
 
 // eslint-disable-next-line @typescript-eslint/unbound-method
-const bisectDate = bisector<SparklineData, Date>((d: SparklineData): Date => d.date).left;
+const bisectDate = bisector<SparklineData, Date>(
+  (d: SparklineData): Date => d.date,
+).left;
 
 export function Sparkline({
   data,
@@ -58,10 +60,13 @@ export function Sparkline({
   const xScale = useMemo(
     () =>
       scaleTime({
-        domain: [data[0]?.date ?? new Date(), data[data.length - 1]?.date ?? new Date()],
+        domain: [
+          data[0]?.date ?? new Date(),
+          data[data.length - 1]?.date ?? new Date(),
+        ],
         range: [0, innerWidth],
       }),
-    [data, innerWidth]
+    [data, innerWidth],
   );
 
   const yScale = useMemo(() => {
@@ -69,7 +74,7 @@ export function Sparkline({
     const min = Math.min(...values);
     const max = Math.max(...values);
     const padding = (max - min) * 0.1;
-    
+
     return scaleLinear({
       domain: [min - padding, max + padding],
       range: [innerHeight, 0],
@@ -89,20 +94,23 @@ export function Sparkline({
       const index = bisectDate(data, x0, 1);
       const d0 = data[index - 1];
       const d1 = data[index];
-      
+
       if (!d0 || !d1) return;
-      
-      const d = x0.valueOf() - d0.date.valueOf() > d1.date.valueOf() - x0.valueOf() ? d1 : d0;
-      
+
+      const d =
+        x0.valueOf() - d0.date.valueOf() > d1.date.valueOf() - x0.valueOf()
+          ? d1
+          : d0;
+
       showTooltip({
         tooltipData: d,
         tooltipLeft: xScale(d.date) + margin.left,
         tooltipTop: yScale(d.value) + margin.top,
       });
-      
+
       onHover?.(d);
     },
-    [data, xScale, yScale, margin, showTooltip, onHover]
+    [data, xScale, yScale, margin, showTooltip, onHover],
   );
 
   const handleMouseLeave = useCallback(() => {
@@ -111,7 +119,7 @@ export function Sparkline({
   }, [hideTooltip, onHover]);
 
   return (
-    <div style={{ position: "relative" }}>
+    <div style={{ position: "relative", width, height }}>
       <svg width={width} height={height}>
         <LinearGradient
           id={gradientId}
@@ -120,7 +128,7 @@ export function Sparkline({
           fromOpacity={0.3}
           toOpacity={0}
         />
-        
+
         <g transform={`translate(${margin.left},${margin.top})`}>
           {showArea && (
             <AreaClosed
@@ -132,7 +140,7 @@ export function Sparkline({
               curve={curveMonotoneX}
             />
           )}
-          
+
           <LinePath
             data={data}
             x={(d) => xScale(d.date) ?? 0}
@@ -143,7 +151,7 @@ export function Sparkline({
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-          
+
           {/* Invisible overlay for mouse events */}
           <Bar
             width={innerWidth}
@@ -152,7 +160,7 @@ export function Sparkline({
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
           />
-          
+
           {/* Hover indicator */}
           {tooltipOpen && tooltipData && (
             <>
@@ -178,26 +186,32 @@ export function Sparkline({
           )}
         </g>
       </svg>
-      
+
       {tooltipOpen && tooltipData && (
         <TooltipWithBounds
           key={Math.random()}
           top={tooltipTop}
           left={tooltipLeft}
+          offsetLeft={10}
+          offsetTop={-10}
+          detectBounds={true}
           style={{
+            position: "absolute",
             backgroundColor: "rgba(0, 0, 0, 0.9)",
             color: "white",
-            padding: "8px",
+            padding: "6px 8px",
             borderRadius: "4px",
-            fontSize: "12px",
+            fontSize: "11px",
             pointerEvents: "none",
+            zIndex: 1000,
+            whiteSpace: "nowrap",
           }}
         >
           <div>
-            <div style={{ fontWeight: "bold" }}>
+            <div style={{ fontWeight: "600" }}>
               ${tooltipData.value.toFixed(2)}
             </div>
-            <div style={{ fontSize: "10px", opacity: 0.8 }}>
+            <div style={{ fontSize: "9px", opacity: 0.8, marginTop: "2px" }}>
               {format(tooltipData.date, "MMM d, yyyy")}
             </div>
           </div>

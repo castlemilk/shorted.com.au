@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -24,7 +25,7 @@ import {
 import {
   getHistoricalData,
   getStockPrice,
-  searchStocks,
+  searchStocksEnriched,
   type StockQuote,
   type HistoricalDataPoint,
   type StockSearchResult,
@@ -32,6 +33,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { DashboardLayout } from "@/components/layouts/dashboard-layout";
+import {
+  StockSearchResultItem,
+  StockSearchResultItemSkeleton,
+} from "@/components/search/stock-search-result-item";
 
 // Popular ASX stocks for quick access
 const POPULAR_STOCKS = [
@@ -52,6 +57,7 @@ const POPULAR_STOCKS = [
 type TimePeriod = "1d" | "1w" | "1m" | "3m" | "6m" | "1y" | "5y" | "10y";
 
 export default function StocksPage() {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStock, setSelectedStock] = useState<string | null>(null);
   const [stockQuote, setStockQuote] = useState<StockQuote | null>(null);
@@ -64,22 +70,13 @@ export default function StocksPage() {
   const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Filter popular stocks based on search query
-  const filteredStocks = useMemo(() => {
-    if (!searchQuery) return POPULAR_STOCKS;
-    const query = searchQuery.toLowerCase();
-    return POPULAR_STOCKS.filter(
-      (stock) =>
-        stock.code.toLowerCase().includes(query) ||
-        stock.name.toLowerCase().includes(query),
-    );
-  }, [searchQuery]);
+  // Debounced search
+  const searchDebounceTimeoutRef = useState<NodeJS.Timeout | null>(null)[0];
 
   // Load stock data
   const loadStockData = useCallback(async (stockCode: string) => {
     setLoading(true);
     setSelectedStock(stockCode);
-    setSearchQuery(stockCode);
 
     try {
       const quote = await getStockPrice(stockCode);
@@ -115,19 +112,18 @@ export default function StocksPage() {
     }
   }, [selectedStock, selectedPeriod, loadHistoricalData]);
 
-  // Search stocks using API
+  // Search stocks using enriched API
   const searchStocksAPI = useCallback(async (query: string) => {
-    if (!query.trim()) {
+    if (!query.trim() || query.trim().length < 2) {
       setSearchResults([]);
       return;
     }
 
     setIsSearching(true);
+
     try {
-      const results = await searchStocks(query.trim(), 10);
-      if (results) {
-        setSearchResults(results.stocks);
-      }
+      const results = await searchStocksEnriched(query.trim(), 10);
+      setSearchResults(results);
     } catch (error) {
       console.error("Failed to search stocks:", error);
       setSearchResults([]);
@@ -136,24 +132,36 @@ export default function StocksPage() {
     }
   }, []);
 
-  // Handle search submission
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      // Close search results dropdown
-      setSearchResults([]);
-      void loadStockData(searchQuery.trim().toUpperCase());
-    }
-  };
-
-  // Handle search input change with debounced API search
+  // Handle search input change with debouncing
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
+
+    // Clear existing timeout
+    if (searchDebounceTimeoutRef) {
+      clearTimeout(searchDebounceTimeoutRef);
+    }
+
+    // Set new timeout for debounced search
     if (value.trim().length >= 2) {
-      void searchStocksAPI(value);
+      const timeout = setTimeout(() => {
+        void searchStocksAPI(value);
+      }, 300);
+      // Store timeout reference (using state would cause re-renders)
+      Object.assign(searchDebounceTimeoutRef, timeout);
     } else {
       setSearchResults([]);
     }
+  };
+
+  // Handle search result selection
+  const handleSelectStock = (stockCode: string) => {
+    // Keep search query and results visible when navigating
+    router.push(`/shorts/${stockCode}`);
+  };
+
+  // Handle popular stock click
+  const handlePopularStockClick = (stockCode: string) => {
+    router.push(`/shorts/${stockCode}`);
   };
 
   // Format currency
@@ -203,87 +211,102 @@ export default function StocksPage() {
 
   return (
     <DashboardLayout>
+      {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Stock Analysis</h1>
+        <h1 className="text-3xl font-bold mb-2">Stock Search & Analysis</h1>
         <p className="text-muted-foreground">
-          Search and analyze ASX stocks with historical price data
+          Search ASX stocks by code, company name, or industry
         </p>
       </div>
 
       {/* Search Section */}
-      <Card className="p-6 mb-8">
-        <form onSubmit={handleSearch} className="flex gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+      <Card className="p-8 mb-8">
+        <div className="max-w-3xl mx-auto">
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
             <Input
               type="text"
-              placeholder="Search by stock code or company name (e.g., CBA, BHP, Bank)"
+              placeholder="Search stocks by code, name, or industry (e.g., CBA, mining, technology)"
               value={searchQuery}
-              onChange={(e) => handleSearchChange(e.target.value.toUpperCase())}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  setSearchResults([]);
-                  void loadStockData(searchQuery.trim().toUpperCase());
-                }
-              }}
-              className="pl-10"
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="pl-12 h-14 text-lg"
             />
-            {/* Search Results Dropdown */}
-            {searchResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
-                {searchResults.map((stock) => (
-                  <button
-                    key={stock.product_code}
-                    type="button"
-                    onClick={() => {
-                      setSearchQuery(stock.product_code);
-                      setSearchResults([]);
-                      void loadStockData(stock.product_code);
-                    }}
-                    className="w-full px-4 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+          </div>
+
+          {/* Popular Stocks */}
+          {!searchQuery && !isSearching && searchResults.length === 0 && (
+            <div className="mt-8">
+              <p className="text-sm text-muted-foreground mb-4">
+                Popular stocks:
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {POPULAR_STOCKS.map((stock) => (
+                  <Button
+                    key={stock.code}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePopularStockClick(stock.code)}
+                    className="text-sm"
                   >
-                    <div className="font-medium">{stock.product_code}</div>
-                    <div className="text-sm text-gray-600">{stock.name}</div>
-                    <div className="text-xs text-gray-500">
-                      {stock.percentage_shorted.toFixed(2)}% shorted
-                    </div>
-                  </button>
+                    <span className="font-semibold">{stock.code}</span>
+                    <span className="ml-2 text-muted-foreground font-normal">
+                      {stock.name}
+                    </span>
+                  </Button>
                 ))}
               </div>
-            )}
-            {isSearching && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-10 p-4 text-center text-gray-500">
-                Searching...
-              </div>
-            )}
-          </div>
-          <Button type="submit" disabled={!searchQuery.trim()}>
-            Search
-          </Button>
-        </form>
-
-        {/* Popular Stocks */}
-        <div className="mt-6">
-          <p className="text-sm text-muted-foreground mb-3">Popular stocks:</p>
-          <div className="flex flex-wrap gap-2">
-            {filteredStocks.map((stock) => (
-              <Button
-                key={stock.code}
-                variant="outline"
-                size="sm"
-                onClick={() => void loadStockData(stock.code)}
-                className="text-xs"
-              >
-                {stock.code}
-                <span className="ml-1 text-muted-foreground">{stock.name}</span>
-              </Button>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
       </Card>
 
-      {/* Stock Data Section */}
+      {/* Search Results List View */}
+      {(isSearching ||
+        searchResults.length > 0 ||
+        (searchQuery.trim().length >= 2 && !isSearching)) && (
+        <Card className="mb-8 overflow-hidden">
+          <div className="border-b border-border px-6 py-4">
+            <h2 className="text-lg font-semibold">
+              {isSearching
+                ? "Searching..."
+                : searchResults.length > 0
+                  ? `Found ${searchResults.length} result${searchResults.length !== 1 ? "s" : ""}`
+                  : "No results found"}
+            </h2>
+          </div>
+          <div className="divide-y divide-border">
+            {isSearching ? (
+              <>
+                <StockSearchResultItemSkeleton />
+                <StockSearchResultItemSkeleton />
+                <StockSearchResultItemSkeleton />
+              </>
+            ) : searchResults.length > 0 ? (
+              <>
+                {searchResults.map((stock) => (
+                  <StockSearchResultItem
+                    key={stock.product_code}
+                    stock={stock}
+                    onClick={() => handleSelectStock(stock.product_code)}
+                  />
+                ))}
+              </>
+            ) : searchQuery.trim().length >= 2 ? (
+              <div className="px-6 py-12 text-center text-muted-foreground">
+                <Search className="h-12 w-12 mx-auto mb-4 opacity-30" />
+                <p className="text-lg font-medium mb-2">No stocks found</p>
+                <p className="text-sm">
+                  Try searching for a different stock code, company name, or
+                  industry
+                </p>
+              </div>
+            ) : null}
+          </div>
+        </Card>
+      )}
+
+      {/* Stock Data Section - Keep existing functionality */}
       {selectedStock && (
         <div className="grid gap-6 lg:grid-cols-3">
           {/* Stock Info Card */}

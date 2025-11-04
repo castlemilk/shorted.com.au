@@ -46,13 +46,8 @@ export function TreemapTooltip({
   const [loading, setLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
 
-  // Lock position on mount to prevent jolt when content loads
-  const positionRef = useRef<{ x: number; y: number } | null>(null);
-
-  // Reset position when stock changes (new hover)
-  useEffect(() => {
-    positionRef.current = null;
-  }, [productCode, x, y]);
+  // Calculate position on every render since mouse position changes
+  // We don't lock it anymore - this allows it to update as the mouse moves
 
   useEffect(() => {
     let isMounted = true;
@@ -94,70 +89,37 @@ export function TreemapTooltip({
       : 0;
   const isPositive = change >= 0;
 
-  // Smart positioning to keep tooltip within treemap container
+  // Simple positioning: render near mouse, adjust if would go off-screen
   const TOOLTIP_WIDTH = 320;
-  const TOOLTIP_OFFSET = 15;
-  const EDGE_PADDING = 10;
-
-  // Use max height for all calculations to prevent position shifts
-  // This ensures position stays stable as content loads
   const TOOLTIP_HEIGHT = 400;
+  const OFFSET = 15;
 
-  // Calculate position once and lock it
-  if (!positionRef.current) {
-    // Calculate container boundaries in viewport coordinates
-    const containerLeft = containerX + EDGE_PADDING;
-    const containerRight = containerX + containerWidth - EDGE_PADDING;
-    const containerTop = containerY + EDGE_PADDING;
-    const containerBottom = containerY + containerHeight - EDGE_PADDING;
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
 
-    // === HORIZONTAL POSITIONING ===
-    // Try to position to the right of cursor first
-    let tooltipX = x + TOOLTIP_OFFSET;
+  // Start by positioning to the right and below the cursor
+  let tooltipX = x + OFFSET;
+  let tooltipY = y + OFFSET;
 
-    // If that would overflow right edge, try left side
-    if (tooltipX + TOOLTIP_WIDTH > containerRight) {
-      tooltipX = x - TOOLTIP_WIDTH - TOOLTIP_OFFSET;
-    }
-
-    // If left side also overflows, center on cursor and clamp
-    if (tooltipX < containerLeft) {
-      tooltipX = Math.max(
-        containerLeft,
-        Math.min(x - TOOLTIP_WIDTH / 2, containerRight - TOOLTIP_WIDTH),
-      );
-    }
-
-    // Final safety clamp
-    tooltipX = Math.max(
-      containerLeft,
-      Math.min(tooltipX, containerRight - TOOLTIP_WIDTH),
-    );
-
-    // === VERTICAL POSITIONING ===
-    // Try to position at cursor (expanding down)
-    let tooltipY = y;
-
-    // If would overflow bottom, shift up only as much as needed
-    if (tooltipY + TOOLTIP_HEIGHT > containerBottom) {
-      tooltipY = containerBottom - TOOLTIP_HEIGHT;
-    }
-
-    // If would overflow top, shift down only as much as needed
-    if (tooltipY < containerTop) {
-      tooltipY = containerTop;
-    }
-
-    // Final safety clamp
-    tooltipY = Math.max(
-      containerTop,
-      Math.min(tooltipY, containerBottom - TOOLTIP_HEIGHT),
-    );
-
-    positionRef.current = { x: tooltipX, y: tooltipY };
+  // If tooltip would go off the right edge, position it to the left of cursor
+  if (tooltipX + TOOLTIP_WIDTH > viewportWidth - 10) {
+    tooltipX = x - TOOLTIP_WIDTH - OFFSET;
   }
 
-  const { x: tooltipX, y: tooltipY } = positionRef.current;
+  // If tooltip would go off the bottom edge, position it above cursor
+  if (tooltipY + TOOLTIP_HEIGHT > viewportHeight - 10) {
+    tooltipY = y - TOOLTIP_HEIGHT - OFFSET;
+  }
+
+  // Clamp to viewport to ensure it's always visible
+  tooltipX = Math.max(
+    10,
+    Math.min(tooltipX, viewportWidth - TOOLTIP_WIDTH - 10),
+  );
+  tooltipY = Math.max(
+    10,
+    Math.min(tooltipY, viewportHeight - TOOLTIP_HEIGHT - 10),
+  );
 
   return (
     <div

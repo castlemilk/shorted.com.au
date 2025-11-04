@@ -21,12 +21,11 @@ const ResponsiveGridLayout = WidthProvider(Responsive);
 
 // Predefined snap sizes for easier widget sizing
 const SNAP_SIZES = {
-  small: { w: 3, h: 4 },
-  medium: { w: 6, h: 6 },
-  large: { w: 9, h: 8 },
-  extraLarge: { w: 12, h: 10 },
+  small: { w: 4, h: 6 },
+  medium: { w: 8, h: 10 },
+  large: { w: 12, h: 16 },
+  extraLarge: { w: 12, h: 24 },
 };
-
 
 interface DashboardGridProps {
   widgets: WidgetConfig[];
@@ -34,7 +33,10 @@ interface DashboardGridProps {
   onLayoutChange: (widgets: WidgetConfig[]) => void;
   onRemoveWidget: (widgetId: string) => void;
   onEditWidget: (widgetId: string) => void;
-  onUpdateWidgetSettings?: (widgetId: string, settings: Record<string, unknown>) => void;
+  onUpdateWidgetSettings?: (
+    widgetId: string,
+    settings: Record<string, unknown>,
+  ) => void;
 }
 
 export function DashboardGrid({
@@ -48,28 +50,58 @@ export function DashboardGrid({
   const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
   const [showGridLines, setShowGridLines] = useState(false);
 
-  const layouts = useMemo(
-    () => ({
-      lg: widgets.map((widget) => ({
-        i: widget.id,
-        x: widget.layout.x,
-        y: widget.layout.y,
-        w: widget.layout.w,
-        h: widget.layout.h,
-        minW: widget.layout.minW ?? 2,
-        maxW: widget.layout.maxW ?? 12,
-        minH: widget.layout.minH ?? 3,
-        maxH: widget.layout.maxH ?? 20,
+  const layouts = useMemo(() => {
+    const baseLayout = widgets.map((widget) => ({
+      i: widget.id,
+      x: widget.layout.x,
+      y: widget.layout.y,
+      w: widget.layout.w,
+      h: widget.layout.h,
+      minW: widget.layout.minW ?? 2,
+      maxW: widget.layout.maxW ?? 12,
+      minH: widget.layout.minH ?? 3,
+      maxH: widget.layout.maxH ?? 40, // Increased from 20 to 40 to allow taller widgets
+    }));
+
+    // Generate responsive layouts for all breakpoints
+    // This allows the grid to reflow properly at different screen sizes
+    return {
+      lg: baseLayout,
+      md: baseLayout.map((item) => ({
+        ...item,
+        // Scale down width for medium screens (10 cols instead of 12)
+        w: Math.min(item.w, 10),
+        x: Math.min(item.x, Math.max(0, 10 - item.w)),
       })),
-    }),
-    [widgets],
-  );
+      sm: baseLayout.map((item) => ({
+        ...item,
+        // Scale down for small screens (6 cols)
+        w: Math.min(item.w, 6),
+        x: Math.min(item.x, Math.max(0, 6 - item.w)),
+      })),
+      xs: baseLayout.map((item) => ({
+        ...item,
+        // Stack vertically on extra small screens (4 cols)
+        w: Math.min(item.w, 4),
+        x: 0, // Force to left edge
+      })),
+      xxs: baseLayout.map((item) => ({
+        ...item,
+        // Full width on tiny screens (2 cols)
+        w: 2,
+        x: 0,
+      })),
+    };
+  }, [widgets]);
 
   const handleLayoutChange = useCallback(
-    (currentLayout: Layout[], _allLayouts: { lg: Layout[] }) => {
-      // Update widget positions with enhanced snapping
+    (currentLayout: Layout[], allLayouts: Record<string, Layout[]>) => {
+      // Only update from the lg (desktop) layout to preserve user's intended layout
+      // Smaller breakpoints are auto-calculated from lg
+      const lgLayout = allLayouts.lg || currentLayout;
+
       const updatedWidgets = widgets.map((widget) => {
-        const layoutItem = currentLayout.find((item) => item.i === widget.id);
+        const layoutItem = lgLayout.find((item) => item.i === widget.id);
         if (layoutItem) {
           return {
             ...widget,
