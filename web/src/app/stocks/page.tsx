@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -72,23 +72,6 @@ export default function StocksPage() {
 
   // Debounced search
   const searchDebounceTimeoutRef = useState<NodeJS.Timeout | null>(null)[0];
-
-  // Load stock data
-  const loadStockData = useCallback(async (stockCode: string) => {
-    setLoading(true);
-    setSelectedStock(stockCode);
-
-    try {
-      const quote = await getStockPrice(stockCode);
-      if (quote) {
-        setStockQuote(quote);
-      }
-    } catch (error) {
-      console.error("Failed to load stock quote:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   // Load historical data
   const loadHistoricalData = useCallback(async () => {
@@ -472,14 +455,18 @@ export default function StocksPage() {
                       <YAxis
                         stroke="#6b7280"
                         fontSize={12}
-                        tickFormatter={(value) => `$${value.toFixed(3)}`}
+                        tickFormatter={(value: unknown) =>
+                          `$${(value as number).toFixed(3)}`
+                        }
                         domain={[
                           (dataMin: number) => Math.max(0, dataMin * 0.95),
                           (dataMax: number) => dataMax * 1.05,
                         ]}
                       />
                       <Tooltip
-                        formatter={(value: number) => formatCurrency(value)}
+                        formatter={(value: unknown) =>
+                          formatCurrency(value as number)
+                        }
                         labelFormatter={(label: string) =>
                           new Date(label).toLocaleDateString("en-AU")
                         }

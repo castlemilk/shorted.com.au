@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { DashboardLayout } from "@/components/layouts/dashboard-layout";
 import {
   Card,
@@ -19,11 +20,13 @@ import {
   BarChart3,
   Activity,
   Target,
+  Loader2,
 } from "lucide-react";
 import { getTopShortsData } from "../actions/getTopShorts";
 import { type PlainMessage } from "@bufbuild/protobuf";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { useRouter } from "next/navigation";
+import { LoginRequired } from "@/components/auth/login-required";
 
 type TimePeriod = "1m" | "3m" | "6m" | "1y";
 
@@ -43,6 +46,7 @@ const PERIOD_LABELS: Record<TimePeriod, string> = {
 const LOAD_CHUNK_SIZE = 20;
 
 export default function TopShortsPage() {
+  const { data: session, status } = useSession();
   const router = useRouter();
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>("3m");
   const [loading, setLoading] = useState(true);

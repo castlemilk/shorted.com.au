@@ -15,7 +15,7 @@ import { type AdapterUser } from "next-auth/adapters";
 //   measurementId: "G-X85RLQ4N2N",
 // };
 
-import { firestore } from "~/app/lib/firestore";
+// import { firestore } from "~/app/lib/firestore"; // Commented out until Firebase adapter is used
 
 // TODO: Implement these auth functions
 function saltAndHashPassword(password: string): string {
@@ -51,6 +51,9 @@ declare module "next-auth" {
  * @see https://next-auth.js.org/configuration/options
  */
 export const authOptions = {
+  pages: {
+    signIn: "/signin",
+  },
   providers: [
     Credentials({
       // You can specify which fields should be submitted, by adding keys to the `credentials` object.
