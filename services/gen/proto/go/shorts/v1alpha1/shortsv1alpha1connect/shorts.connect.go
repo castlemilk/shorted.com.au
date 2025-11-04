@@ -49,6 +49,20 @@ const (
 	// ShortedStocksServiceGetStockDataProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetStockData RPC.
 	ShortedStocksServiceGetStockDataProcedure = "/shorts.v1alpha1.ShortedStocksService/GetStockData"
+	// ShortedStocksServiceSearchStocksProcedure is the fully-qualified name of the
+	// ShortedStocksService's SearchStocks RPC.
+	ShortedStocksServiceSearchStocksProcedure = "/shorts.v1alpha1.ShortedStocksService/SearchStocks"
+)
+
+// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
+var (
+	shortedStocksServiceServiceDescriptor                  = v1alpha1.File_shorts_v1alpha1_shorts_proto.Services().ByName("ShortedStocksService")
+	shortedStocksServiceGetTopShortsMethodDescriptor       = shortedStocksServiceServiceDescriptor.Methods().ByName("GetTopShorts")
+	shortedStocksServiceGetIndustryTreeMapMethodDescriptor = shortedStocksServiceServiceDescriptor.Methods().ByName("GetIndustryTreeMap")
+	shortedStocksServiceGetStockMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStock")
+	shortedStocksServiceGetStockDetailsMethodDescriptor    = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockDetails")
+	shortedStocksServiceGetStockDataMethodDescriptor       = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockData")
+	shortedStocksServiceSearchStocksMethodDescriptor       = shortedStocksServiceServiceDescriptor.Methods().ByName("SearchStocks")
 )
 
 // ShortedStocksServiceClient is a client for the shorts.v1alpha1.ShortedStocksService service.
@@ -62,6 +76,8 @@ type ShortedStocksServiceClient interface {
 	GetStockDetails(context.Context, *connect.Request[v1alpha1.GetStockDetailsRequest]) (*connect.Response[v1alpha11.StockDetails], error)
 	// fetch time series data for a specific stock
 	GetStockData(context.Context, *connect.Request[v1alpha1.GetStockDataRequest]) (*connect.Response[v1alpha11.TimeSeriesData], error)
+	// Search stocks by symbol or company name
+	SearchStocks(context.Context, *connect.Request[v1alpha1.SearchStocksRequest]) (*connect.Response[v1alpha1.SearchStocksResponse], error)
 }
 
 // NewShortedStocksServiceClient constructs a client for the shorts.v1alpha1.ShortedStocksService
@@ -73,36 +89,41 @@ type ShortedStocksServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) ShortedStocksServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
-	shortedStocksServiceMethods := v1alpha1.File_shorts_v1alpha1_shorts_proto.Services().ByName("ShortedStocksService").Methods()
 	return &shortedStocksServiceClient{
 		getTopShorts: connect.NewClient[v1alpha1.GetTopShortsRequest, v1alpha1.GetTopShortsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetTopShortsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetTopShorts")),
+			connect.WithSchema(shortedStocksServiceGetTopShortsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getIndustryTreeMap: connect.NewClient[v1alpha1.GetIndustryTreeMapRequest, v1alpha11.IndustryTreeMap](
 			httpClient,
 			baseURL+ShortedStocksServiceGetIndustryTreeMapProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetIndustryTreeMap")),
+			connect.WithSchema(shortedStocksServiceGetIndustryTreeMapMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStock: connect.NewClient[v1alpha1.GetStockRequest, v1alpha11.Stock](
 			httpClient,
 			baseURL+ShortedStocksServiceGetStockProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetStock")),
+			connect.WithSchema(shortedStocksServiceGetStockMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStockDetails: connect.NewClient[v1alpha1.GetStockDetailsRequest, v1alpha11.StockDetails](
 			httpClient,
 			baseURL+ShortedStocksServiceGetStockDetailsProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockDetails")),
+			connect.WithSchema(shortedStocksServiceGetStockDetailsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getStockData: connect.NewClient[v1alpha1.GetStockDataRequest, v1alpha11.TimeSeriesData](
 			httpClient,
 			baseURL+ShortedStocksServiceGetStockDataProcedure,
-			connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockData")),
+			connect.WithSchema(shortedStocksServiceGetStockDataMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		searchStocks: connect.NewClient[v1alpha1.SearchStocksRequest, v1alpha1.SearchStocksResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceSearchStocksProcedure,
+			connect.WithSchema(shortedStocksServiceSearchStocksMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -115,6 +136,7 @@ type shortedStocksServiceClient struct {
 	getStock           *connect.Client[v1alpha1.GetStockRequest, v1alpha11.Stock]
 	getStockDetails    *connect.Client[v1alpha1.GetStockDetailsRequest, v1alpha11.StockDetails]
 	getStockData       *connect.Client[v1alpha1.GetStockDataRequest, v1alpha11.TimeSeriesData]
+	searchStocks       *connect.Client[v1alpha1.SearchStocksRequest, v1alpha1.SearchStocksResponse]
 }
 
 // GetTopShorts calls shorts.v1alpha1.ShortedStocksService.GetTopShorts.
@@ -142,6 +164,11 @@ func (c *shortedStocksServiceClient) GetStockData(ctx context.Context, req *conn
 	return c.getStockData.CallUnary(ctx, req)
 }
 
+// SearchStocks calls shorts.v1alpha1.ShortedStocksService.SearchStocks.
+func (c *shortedStocksServiceClient) SearchStocks(ctx context.Context, req *connect.Request[v1alpha1.SearchStocksRequest]) (*connect.Response[v1alpha1.SearchStocksResponse], error) {
+	return c.searchStocks.CallUnary(ctx, req)
+}
+
 // ShortedStocksServiceHandler is an implementation of the shorts.v1alpha1.ShortedStocksService
 // service.
 type ShortedStocksServiceHandler interface {
@@ -154,6 +181,8 @@ type ShortedStocksServiceHandler interface {
 	GetStockDetails(context.Context, *connect.Request[v1alpha1.GetStockDetailsRequest]) (*connect.Response[v1alpha11.StockDetails], error)
 	// fetch time series data for a specific stock
 	GetStockData(context.Context, *connect.Request[v1alpha1.GetStockDataRequest]) (*connect.Response[v1alpha11.TimeSeriesData], error)
+	// Search stocks by symbol or company name
+	SearchStocks(context.Context, *connect.Request[v1alpha1.SearchStocksRequest]) (*connect.Response[v1alpha1.SearchStocksResponse], error)
 }
 
 // NewShortedStocksServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -162,35 +191,40 @@ type ShortedStocksServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
-	shortedStocksServiceMethods := v1alpha1.File_shorts_v1alpha1_shorts_proto.Services().ByName("ShortedStocksService").Methods()
 	shortedStocksServiceGetTopShortsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetTopShortsProcedure,
 		svc.GetTopShorts,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetTopShorts")),
+		connect.WithSchema(shortedStocksServiceGetTopShortsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetIndustryTreeMapHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetIndustryTreeMapProcedure,
 		svc.GetIndustryTreeMap,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetIndustryTreeMap")),
+		connect.WithSchema(shortedStocksServiceGetIndustryTreeMapMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetStockHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetStockProcedure,
 		svc.GetStock,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetStock")),
+		connect.WithSchema(shortedStocksServiceGetStockMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetStockDetailsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetStockDetailsProcedure,
 		svc.GetStockDetails,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockDetails")),
+		connect.WithSchema(shortedStocksServiceGetStockDetailsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetStockDataHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetStockDataProcedure,
 		svc.GetStockData,
-		connect.WithSchema(shortedStocksServiceMethods.ByName("GetStockData")),
+		connect.WithSchema(shortedStocksServiceGetStockDataMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceSearchStocksHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceSearchStocksProcedure,
+		svc.SearchStocks,
+		connect.WithSchema(shortedStocksServiceSearchStocksMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/shorts.v1alpha1.ShortedStocksService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -205,6 +239,8 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetStockDetailsHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetStockDataProcedure:
 			shortedStocksServiceGetStockDataHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceSearchStocksProcedure:
+			shortedStocksServiceSearchStocksHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -232,4 +268,8 @@ func (UnimplementedShortedStocksServiceHandler) GetStockDetails(context.Context,
 
 func (UnimplementedShortedStocksServiceHandler) GetStockData(context.Context, *connect.Request[v1alpha1.GetStockDataRequest]) (*connect.Response[v1alpha11.TimeSeriesData], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetStockData is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) SearchStocks(context.Context, *connect.Request[v1alpha1.SearchStocksRequest]) (*connect.Response[v1alpha1.SearchStocksResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.SearchStocks is not implemented"))
 }
