@@ -57,7 +57,7 @@ export async function fetchStockDetailsClient(
  */
 export async function fetchStockDataClient(
   productCode: string,
-  period: string = "1m",
+  period = "1m",
 ): Promise<PlainMessage<TimeSeriesData> | undefined> {
   try {
     const transport = getTransport();

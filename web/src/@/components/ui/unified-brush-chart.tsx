@@ -118,7 +118,13 @@ const getVolume = (d: PriceDataPoint | undefined): number => {
   return d?.volume ?? 0;
 };
 
-const bisectDate = bisector<TooltipData, Date>((d) => getDate(d)).left;
+const bisectDate = (
+  array: TooltipData[],
+  date: Date,
+  low?: number,
+  high?: number,
+) =>
+  bisector<TooltipData, Date>((d) => getDate(d)).left(array, date, low, high);
 
 const formatDate = timeFormat("%b %d, '%y");
 const formatValue = (value: number, isPercent: boolean) =>
@@ -167,10 +173,11 @@ const UnifiedBrushChart = forwardRef<
       color: "hsl(var(--foreground))",
     };
 
-    const { containerRef, containerBounds } = useTooltipInPortal({
-      scroll: true,
-      detectBounds: true,
-    });
+    const { containerRef, containerBounds: _containerBounds } =
+      useTooltipInPortal({
+        scroll: true,
+        detectBounds: true,
+      });
 
     const {
       tooltipData,

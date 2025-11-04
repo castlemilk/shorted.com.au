@@ -16,23 +16,23 @@ import (
 func TestHealthCheckEndpoint(t *testing.T) {
 	// Create a test HTTP server with just the health check
 	mux := http.NewServeMux()
-	
+
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		
+
 		status := map[string]interface{}{
 			"status":   "healthy",
 			"database": "not_configured",
 		}
-		
+
 		json.NewEncoder(w).Encode(status)
 	})
 
 	// Test the endpoint
 	req := httptest.NewRequest("GET", "/health", nil)
 	w := httptest.NewRecorder()
-	
+
 	mux.ServeHTTP(w, req)
 
 	// Verify response
@@ -43,7 +43,7 @@ func TestHealthCheckEndpoint(t *testing.T) {
 	var response map[string]interface{}
 	err := json.NewDecoder(w.Body).Decode(&response)
 	require.NoError(t, err)
-	
+
 	assert.Equal(t, "healthy", response["status"])
 }
 
@@ -52,41 +52,41 @@ func TestHealthCheckEndpoint(t *testing.T) {
 func TestHealthCheckAlwaysSucceeds(t *testing.T) {
 	// Create service with nil database (simulates connection failure)
 	service := &MarketDataService{db: nil}
-	
+
 	// Create HTTP server
 	mux := http.NewServeMux()
-	
+
 	// Health check should work even without database
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		
+
 		status := map[string]interface{}{
 			"status": "healthy",
 		}
-		
+
 		if service.db == nil {
 			status["database"] = "not_configured"
 		}
-		
+
 		json.NewEncoder(w).Encode(status)
 	})
 
 	req := httptest.NewRequest("GET", "/health", nil)
 	w := httptest.NewRecorder()
-	
+
 	mux.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusOK, w.Code, 
+	assert.Equal(t, http.StatusOK, w.Code,
 		"Health check should return 200 OK even without database")
 }
 
 // TestReadinessCheckRequiresDatabase verifies readiness check fails without DB
 func TestReadinessCheckRequiresDatabase(t *testing.T) {
 	service := &MarketDataService{db: nil}
-	
+
 	mux := http.NewServeMux()
-	
+
 	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
 		if service.db == nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
@@ -96,19 +96,19 @@ func TestReadinessCheckRequiresDatabase(t *testing.T) {
 			})
 			return
 		}
-		
+
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
 	})
 
 	req := httptest.NewRequest("GET", "/ready", nil)
 	w := httptest.NewRecorder()
-	
+
 	mux.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusServiceUnavailable, w.Code,
 		"Readiness check should fail without database")
-	
+
 	var response map[string]string
 	err := json.NewDecoder(w.Body).Decode(&response)
 	require.NoError(t, err)
@@ -120,12 +120,12 @@ func TestReadinessCheckRequiresDatabase(t *testing.T) {
 func TestServerStartsWithoutDatabase(t *testing.T) {
 	// Simulate startup with bad database URL
 	dbURL := "postgres://invalid:invalid@invalid:5432/invalid"
-	
+
 	// Parse config (should handle error gracefully)
 	_, err := parseConfigGracefully(dbURL)
 	// We expect an error, but it shouldn't crash
 	t.Logf("Database parse result: %v", err)
-	
+
 	// The key is that we reached this point without panic
 	assert.True(t, true, "Server startup should not panic with bad database")
 }
@@ -137,7 +137,7 @@ func parseConfigGracefully(dbURL string) (interface{}, error) {
 	if dbURL == "" {
 		return nil, nil
 	}
-	
+
 	// Would normally parse config, but for this test we just validate
 	// the pattern of graceful degradation
 	return nil, nil
@@ -146,7 +146,7 @@ func parseConfigGracefully(dbURL string) (interface{}, error) {
 // TestHealthCheckFormat verifies the response format is correct
 func TestHealthCheckFormat(t *testing.T) {
 	mux := http.NewServeMux()
-	
+
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -155,14 +155,14 @@ func TestHealthCheckFormat(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/health", nil)
 	w := httptest.NewRecorder()
-	
+
 	mux.ServeHTTP(w, req)
 
 	// Verify it's valid JSON
 	var response map[string]interface{}
 	err := json.NewDecoder(w.Body).Decode(&response)
 	require.NoError(t, err, "Health check must return valid JSON")
-	
+
 	// Verify required fields
 	_, hasStatus := response["status"]
 	assert.True(t, hasStatus, "Health check must include 'status' field")
@@ -171,7 +171,7 @@ func TestHealthCheckFormat(t *testing.T) {
 // TestHealthCheckPerformance verifies health check is fast
 func TestHealthCheckPerformance(t *testing.T) {
 	mux := http.NewServeMux()
-	
+
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -180,7 +180,7 @@ func TestHealthCheckPerformance(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/health", nil)
 	w := httptest.NewRecorder()
-	
+
 	start := time.Now()
 	mux.ServeHTTP(w, req)
 	duration := time.Since(start)
@@ -192,19 +192,19 @@ func TestHealthCheckPerformance(t *testing.T) {
 // TestHealthCheckCORS verifies CORS headers are present for browser requests
 func TestHealthCheckCORS(t *testing.T) {
 	mux := http.NewServeMux()
-	
+
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		// Add CORS headers
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		
+
 		// Handle preflight
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-		
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
@@ -213,7 +213,7 @@ func TestHealthCheckCORS(t *testing.T) {
 	t.Run("GET request has CORS headers", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/health", nil)
 		w := httptest.NewRecorder()
-		
+
 		mux.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
@@ -225,7 +225,7 @@ func TestHealthCheckCORS(t *testing.T) {
 	t.Run("OPTIONS preflight request works", func(t *testing.T) {
 		req := httptest.NewRequest("OPTIONS", "/health", nil)
 		w := httptest.NewRecorder()
-		
+
 		mux.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
@@ -233,4 +233,3 @@ func TestHealthCheckCORS(t *testing.T) {
 		assert.Contains(t, w.Header().Get("Access-Control-Allow-Methods"), "OPTIONS")
 	})
 }
-

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { type PlainMessage } from "@bufbuild/protobuf";
 import {
   type StockDetails,
@@ -32,10 +32,10 @@ export function TreemapTooltip({
   industry,
   x,
   y,
-  containerWidth,
-  containerHeight,
-  containerX,
-  containerY,
+  _containerWidth,
+  _containerHeight,
+  _containerX,
+  _containerY,
 }: TreemapTooltipProps) {
   const [stockDetails, setStockDetails] = useState<
     PlainMessage<StockDetails> | undefined

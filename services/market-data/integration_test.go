@@ -44,9 +44,9 @@ func TestDatabaseConnection(t *testing.T) {
 
 		connectionTime := time.Since(startTime)
 		t.Logf("Connection established in %v", connectionTime)
-		
+
 		// Connection should be fast (< 5 seconds)
-		assert.Less(t, connectionTime, 5*time.Second, 
+		assert.Less(t, connectionTime, 5*time.Second,
 			"Database connection took too long - check port and SSL configuration")
 
 		// Verify ping works
@@ -114,7 +114,7 @@ func TestGetHistoricalPricesIntegration(t *testing.T) {
 	// Setup service
 	config, err := pgxpool.ParseConfig(dbURL)
 	require.NoError(t, err)
-	
+
 	config.MaxConns = 10
 	config.MinConns = 2
 	config.ConnConfig.ConnectTimeout = 5 * time.Second
@@ -127,12 +127,12 @@ func TestGetHistoricalPricesIntegration(t *testing.T) {
 	service := &MarketDataService{db: pool}
 
 	testCases := []struct {
-		name          string
-		stockCode     string
-		period        string
-		timeout       time.Duration
-		expectError   bool
-		minRecords    int
+		name        string
+		stockCode   string
+		period      string
+		timeout     time.Duration
+		expectError bool
+		minRecords  int
 	}{
 		{
 			name:        "one_month_CBA",
@@ -190,10 +190,10 @@ func TestGetHistoricalPricesIntegration(t *testing.T) {
 			} else {
 				require.NoError(t, err, "Query should not error")
 				require.NotNil(t, resp)
-				
+
 				// Verify we got expected data
 				prices := resp.Msg.Prices
-				assert.GreaterOrEqual(t, len(prices), tc.minRecords, 
+				assert.GreaterOrEqual(t, len(prices), tc.minRecords,
 					"Expected at least %d records, got %d", tc.minRecords, len(prices))
 
 				// If we have data, verify structure
@@ -207,7 +207,7 @@ func TestGetHistoricalPricesIntegration(t *testing.T) {
 				}
 
 				// CRITICAL: Verify query doesn't take too long (catches hanging queries)
-				assert.Less(t, duration, tc.timeout, 
+				assert.Less(t, duration, tc.timeout,
 					"Query took too long - possible hanging query or connection issue")
 			}
 
@@ -232,7 +232,7 @@ func TestGetHistoricalPricesConcurrency(t *testing.T) {
 
 	config, err := pgxpool.ParseConfig(dbURL)
 	require.NoError(t, err)
-	
+
 	config.MaxConns = 5 // Limited pool to stress test
 	config.MinConns = 2
 	config.ConnConfig.ConnectTimeout = 5 * time.Second
@@ -278,8 +278,8 @@ func TestGetHistoricalPricesConcurrency(t *testing.T) {
 	}
 
 	// Allow some failures due to rate limiting, but not all
-	assert.Less(t, failures, concurrentRequests/2, 
-		"Too many concurrent requests failed (%d/%d) - check connection pool and prepared statement config", 
+	assert.Less(t, failures, concurrentRequests/2,
+		"Too many concurrent requests failed (%d/%d) - check connection pool and prepared statement config",
 		failures, concurrentRequests)
 }
 
@@ -369,8 +369,7 @@ func TestDatabaseSchema(t *testing.T) {
 		var count int64
 		err := pool.QueryRow(ctx, "SELECT COUNT(*) FROM stock_prices").Scan(&count)
 		require.NoError(t, err)
-		assert.Greater(t, count, int64(1000), 
+		assert.Greater(t, count, int64(1000),
 			"stock_prices should have substantial data (got %d rows)", count)
 	})
 }
-

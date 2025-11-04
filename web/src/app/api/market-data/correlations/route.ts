@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 import { getMarketDataApiUrl } from "~/app/actions/config";
 import { rateLimit } from "@/lib/rate-limit";
 
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
     return rateLimitResult.response;
   }
   try {
-    const body = await request.json();
+    const body = (await request.json()) as Record<string, unknown>;
 
     // Forward the request to the market data service
     const response = await fetch(
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const data = await response.json();
+    const data = (await response.json()) as Record<string, unknown>;
 
     // Handle empty response from market data service
     if (!data || Object.keys(data).length === 0) {
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function OPTIONS(request: NextRequest) {
+export async function OPTIONS(_request: NextRequest) {
   return new NextResponse(null, {
     status: 200,
     headers: {

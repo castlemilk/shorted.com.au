@@ -32,10 +32,10 @@ func NewMemoryCache(maxAge time.Duration) *MemoryCache {
 		store:  make(map[string]*CacheEntry),
 		maxAge: maxAge,
 	}
-	
+
 	// Start cleanup goroutine
 	go cache.cleanup()
-	
+
 	return cache
 }
 
@@ -50,12 +50,12 @@ func (c *MemoryCache) generateKey(prefix string, params ...interface{}) string {
 func (c *MemoryCache) Get(key string) (interface{}, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	entry, exists := c.store[key]
 	if !exists || entry.IsExpired() {
 		return nil, false
 	}
-	
+
 	return entry.Value, true
 }
 
@@ -63,7 +63,7 @@ func (c *MemoryCache) Get(key string) (interface{}, bool) {
 func (c *MemoryCache) Set(key string, value interface{}) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	c.store[key] = &CacheEntry{
 		Value:     value,
 		ExpiresAt: time.Now().Add(c.maxAge),
@@ -76,16 +76,16 @@ func (c *MemoryCache) GetOrSet(key string, computeFn func() (interface{}, error)
 	if value, found := c.Get(key); found {
 		return value, nil
 	}
-	
+
 	// Compute the value
 	value, err := computeFn()
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Store in cache
 	c.Set(key, value)
-	
+
 	return value, nil
 }
 
@@ -93,7 +93,7 @@ func (c *MemoryCache) GetOrSet(key string, computeFn func() (interface{}, error)
 func (c *MemoryCache) Delete(key string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	delete(c.store, key)
 }
 
@@ -101,7 +101,7 @@ func (c *MemoryCache) Delete(key string) {
 func (c *MemoryCache) Clear() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	c.store = make(map[string]*CacheEntry)
 }
 
@@ -109,7 +109,7 @@ func (c *MemoryCache) Clear() {
 func (c *MemoryCache) Size() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	return len(c.store)
 }
 
@@ -117,7 +117,7 @@ func (c *MemoryCache) Size() int {
 func (c *MemoryCache) cleanup() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
-	
+
 	for range ticker.C {
 		c.mu.Lock()
 		for key, entry := range c.store {

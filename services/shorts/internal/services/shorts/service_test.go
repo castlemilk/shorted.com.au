@@ -15,7 +15,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-
 func TestShortsServer_GetTopShorts(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

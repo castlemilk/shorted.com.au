@@ -22,9 +22,9 @@ import (
 )
 
 const (
-	dataURL  = "https://download.asic.gov.au/short-selling/short-selling-data.json"
-	baseURL  = "https://download.asic.gov.au/short-selling/"
-	dataDir  = "./data/shorts"
+	dataURL = "https://download.asic.gov.au/short-selling/short-selling-data.json"
+	baseURL = "https://download.asic.gov.au/short-selling/"
+	dataDir = "./data/shorts"
 )
 
 var (
@@ -39,11 +39,11 @@ type ShortSellingRecord struct {
 }
 
 type CSVRecord struct {
-	Date                                                  time.Time
-	Product                                               string
-	ProductCode                                           string
-	ReportedShortPositions                                float64
-	TotalProductInIssue                                   float64
+	Date                                                 time.Time
+	Product                                              string
+	ProductCode                                          string
+	ReportedShortPositions                               float64
+	TotalProductInIssue                                  float64
 	PercentOfTotalProductInIssueReportedAsShortPositions float64
 }
 
@@ -63,7 +63,7 @@ func run() error {
 	}
 
 	var records []ShortSellingRecord
-	
+
 	if !*skipDownload {
 		// Fetch available data records
 		log.Println("📥 Fetching available data records...")
@@ -81,7 +81,7 @@ func run() error {
 		if len(records) < limit {
 			limit = len(records)
 		}
-		
+
 		// Get the MOST RECENT records (not the oldest)
 		recentRecords := records[:limit] // Take from beginning (most recent)
 		if err := downloadCSVFiles(recentRecords); err != nil {
@@ -198,18 +198,18 @@ func processAndLoadData(pool *pgxpool.Pool) error {
 	var allRecords []CSVRecord
 	for i, file := range files {
 		log.Printf("📋 [%d/%d] Processing %s...", i+1, len(files), filepath.Base(file))
-		
+
 		records, err := parseCSVFile(file)
 		if err != nil {
 			log.Printf("⚠️  Failed to parse %s: %v", filepath.Base(file), err)
 			continue
 		}
-		
+
 		allRecords = append(allRecords, records...)
 	}
 
 	log.Printf("💾 Loading %d records into database...", len(allRecords))
-	
+
 	// Batch insert records
 	return batchInsertRecords(pool, allRecords)
 }
@@ -219,7 +219,7 @@ func parseCSVFile(filename string) ([]CSVRecord, error) {
 	basename := filepath.Base(filename)
 	dateStr := strings.TrimPrefix(basename, "RR")
 	dateStr = dateStr[:8] // Take first 8 characters (YYYYMMDD)
-	
+
 	date, err := time.Parse("20060102", dateStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse date from filename: %w", err)
@@ -233,7 +233,7 @@ func parseCSVFile(filename string) ([]CSVRecord, error) {
 
 	// Try to detect encoding and convert to UTF-8
 	reader := transform.NewReader(file, charmap.Windows1252.NewDecoder())
-	
+
 	csvReader := csv.NewReader(reader)
 	csvReader.LazyQuotes = true
 	csvReader.TrimLeadingSpace = true
@@ -311,7 +311,7 @@ func parseCSVFile(filename string) ([]CSVRecord, error) {
 
 func batchInsertRecords(pool *pgxpool.Pool, records []CSVRecord) error {
 	ctx := context.Background()
-	
+
 	// Process in smaller batches to avoid overwhelming the connection
 	batchSize := 1000
 	sql := `INSERT INTO shorts ("DATE", "PRODUCT", "PRODUCT_CODE", "REPORTED_SHORT_POSITIONS", "TOTAL_PRODUCT_IN_ISSUE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") 
@@ -322,10 +322,10 @@ func batchInsertRecords(pool *pgxpool.Pool, records []CSVRecord) error {
 		if end > len(records) {
 			end = len(records)
 		}
-		
+
 		batchRecords := records[i:end]
 		log.Printf("💾 Inserting batch %d-%d of %d records...", i+1, end, len(records))
-		
+
 		// Begin transaction for this batch
 		tx, err := pool.Begin(ctx)
 		if err != nil {
@@ -335,7 +335,7 @@ func batchInsertRecords(pool *pgxpool.Pool, records []CSVRecord) error {
 		// Prepare batch insert
 		batch := &pgx.Batch{}
 		for _, record := range batchRecords {
-			batch.Queue(sql, 
+			batch.Queue(sql,
 				record.Date,
 				record.Product,
 				record.ProductCode,
@@ -367,4 +367,4 @@ func batchInsertRecords(pool *pgxpool.Pool, records []CSVRecord) error {
 	}
 
 	return nil
-} 
+}

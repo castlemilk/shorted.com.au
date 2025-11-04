@@ -23,10 +23,10 @@ import (
 // withCORS adds CORS support to a Connect HTTP handler.
 func withCORS(h http.Handler) http.Handler {
 	middleware := cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3000", "http://localhost:3001", "http://localhost:3020", "https://*.vercel.app", "https://*.shorted.com.au", "https://shorted.com.au"},
-		AllowedMethods:   connectcors.AllowedMethods(),
-		AllowedHeaders:   append([]string{"Authorization"}, connectcors.AllowedHeaders()...),
-		ExposedHeaders:   connectcors.ExposedHeaders(),
+		AllowedOrigins: []string{"http://localhost:3000", "http://localhost:3001", "http://localhost:3020", "https://*.vercel.app", "https://*.shorted.com.au", "https://shorted.com.au"},
+		AllowedMethods: connectcors.AllowedMethods(),
+		AllowedHeaders: append([]string{"Authorization"}, connectcors.AllowedHeaders()...),
+		ExposedHeaders: connectcors.ExposedHeaders(),
 	})
 	return middleware.Handler(h)
 }
@@ -41,37 +41,37 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	// handler = AuthMiddleware(handler)
 	mux.Handle(shortsPath, shortsHandler)
 	mux.Handle(registerPath, registerHandler)
-	
+
 	// Add health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
-	
+
 	// Add stock search endpoint
 	mux.HandleFunc("/api/stocks/search", func(w http.ResponseWriter, r *http.Request) {
 		// Add CORS headers
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		
+
 		// Handle preflight OPTIONS request
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-		
+
 		if r.Method != http.MethodGet {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		
+
 		query := r.URL.Query().Get("q")
 		if query == "" {
 			http.Error(w, "Missing query parameter 'q'", http.StatusBadRequest)
 			return
 		}
-		
+
 		limitStr := r.URL.Query().Get("limit")
 		limit := int32(50) // default
 		if limitStr != "" {
@@ -89,14 +89,14 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 				limit = 1000
 			}
 		}
-		
+
 		// Search stocks
 		if s.store == nil {
 			logger.Errorf("Store is nil")
 			http.Error(w, "Service not initialized", http.StatusInternalServerError)
 			return
 		}
-		
+
 		stocks, err := s.store.SearchStocks(query, limit)
 		if err != nil {
 			logger.Errorf("Error searching stocks for query '%s': %v", query, err)
@@ -108,44 +108,44 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			}
 			return
 		}
-		
+
 		// Convert to JSON response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		
+
 		// Create proper JSON response structure
 		type StockResponse struct {
 			ProductCode            string  `json:"product_code"`
 			Name                   string  `json:"name"`
-			PercentageShorted       float64 `json:"percentage_shorted"`
-			TotalProductInIssue     float64 `json:"total_product_in_issue"`
-			ReportedShortPositions  float64 `json:"reported_short_positions"`
+			PercentageShorted      float64 `json:"percentage_shorted"`
+			TotalProductInIssue    float64 `json:"total_product_in_issue"`
+			ReportedShortPositions float64 `json:"reported_short_positions"`
 		}
-		
+
 		type SearchResponse struct {
 			Query  string          `json:"query"`
 			Stocks []StockResponse `json:"stocks"`
 			Count  int             `json:"count"`
 		}
-		
+
 		// Convert stocks to response format
 		stockResponses := make([]StockResponse, len(stocks))
 		for i, stock := range stocks {
 			stockResponses[i] = StockResponse{
-				ProductCode:           stock.ProductCode,
-				Name:                  stock.Name,
-				PercentageShorted:     float64(stock.PercentageShorted),
-				TotalProductInIssue:   float64(stock.TotalProductInIssue),
+				ProductCode:            stock.ProductCode,
+				Name:                   stock.Name,
+				PercentageShorted:      float64(stock.PercentageShorted),
+				TotalProductInIssue:    float64(stock.TotalProductInIssue),
 				ReportedShortPositions: float64(stock.ReportedShortPositions),
 			}
 		}
-		
+
 		response := SearchResponse{
 			Query:  query,
 			Stocks: stockResponses,
 			Count:  len(stocks),
 		}
-		
+
 		// Marshal to JSON
 		if err := json.NewEncoder(w).Encode(response); err != nil {
 			logger.Errorf("Error encoding JSON response: %v", err)

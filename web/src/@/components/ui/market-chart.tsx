@@ -23,7 +23,7 @@ const MarketChart = ({ stockCode }: MarketChartProps) => {
 
   // Convert market data to unified chart format
   const chartData = useMemo((): UnifiedChartData | null => {
-    if (!data || !data.points || data.points.length === 0) return null;
+    if (!data?.points || data.points.length === 0) return null;
 
     return {
       type: "price",

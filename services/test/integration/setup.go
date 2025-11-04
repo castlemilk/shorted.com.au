@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/castlemilk/shorted.com.au/services/test/integration/testdata"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -41,7 +42,6 @@ func SetupTestDatabase(ctx context.Context, t *testing.T) *TestContainer {
 		postgres.WithPassword(TestPassword),
 		postgres.WithInitScripts(
 			"../../migrations/000001_initial_schema.up.sql",
-			"../fixtures/test_data.sql",
 		),
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").
@@ -152,37 +152,14 @@ func GetProjectRoot() string {
 // WithTestDatabase is a helper that sets up and tears down a test database
 func WithTestDatabase(t *testing.T, testFn func(*TestContainer)) {
 	ctx := context.Background()
-	
+
 	container := SetupTestDatabase(ctx, t)
 	defer container.Cleanup(ctx, t)
 
 	testFn(container)
 }
 
-// SeedSampleData inserts a minimal set of test data for basic tests
-func (tc *TestContainer) SeedSampleData(ctx context.Context, t *testing.T) {
-	t.Helper()
-
-	// Insert sample shorts data
-	sampleShorts := `
-		INSERT INTO shorts (date, product_code, product_name, total_short_position, daily_short_volume, percent_of_total_shares)
-		VALUES 
-			('2024-01-15', 'CBA', 'COMMONWEALTH BANK OF AUSTRALIA', 1000000, 50000, 0.12),
-			('2024-01-15', 'CSL', 'CSL LIMITED', 2000000, 75000, 0.45),
-			('2024-01-15', 'BHP', 'BHP GROUP LIMITED', 3000000, 100000, 0.89),
-			('2024-01-16', 'CBA', 'COMMONWEALTH BANK OF AUSTRALIA', 1100000, 55000, 0.13),
-			('2024-01-16', 'CSL', 'CSL LIMITED', 2100000, 80000, 0.47),
-			('2024-01-16', 'BHP', 'BHP GROUP LIMITED', 3200000, 120000, 0.95);
-	`
-	tc.ExecuteSQL(ctx, t, sampleShorts)
-
-	// Insert sample company metadata
-	sampleMetadata := `
-		INSERT INTO "company-metadata" (stock_code, company_name, sector, industry, market_cap, logo_url, website, description, exchange)
-		VALUES 
-			('CBA', 'Commonwealth Bank of Australia', 'Financial Services', 'Banks', 180000000000, 'https://example.com/cba-logo.png', 'https://commbank.com.au', 'Major Australian bank', 'ASX'),
-			('CSL', 'CSL Limited', 'Healthcare', 'Biotechnology', 150000000000, 'https://example.com/csl-logo.png', 'https://csl.com', 'Global biotechnology company', 'ASX'),
-			('BHP', 'BHP Group Limited', 'Materials', 'Mining', 200000000000, 'https://example.com/bhp-logo.png', 'https://bhp.com', 'Global mining company', 'ASX');
-	`
-	tc.ExecuteSQL(ctx, t, sampleMetadata)
+// GetSeeder returns a new test data seeder for this container
+func (tc *TestContainer) GetSeeder() *testdata.Seeder {
+	return testdata.NewSeeder(tc.DB)
 }

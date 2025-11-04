@@ -23,19 +23,19 @@ type ShortsServer struct {
 func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 	// Create cache with 5 minute TTL for most data
 	cache := NewMemoryCache(5 * time.Minute)
-	
+
 	// Create store adapter
 	storeImpl := shorts.NewStore(cfg.ShortsStoreConfig)
 	store := NewStoreAdapter(storeImpl)
-	
+
 	// Create logger adapter
 	logger := NewLoggerAdapter()
 
 	return &ShortsServer{
-		config: cfg,
-		store:  store,
-		cache:  cache,
-		logger: logger,
+		config:         cfg,
+		store:          store,
+		cache:          cache,
+		logger:         logger,
 		registerServer: register.NewRegisterServer(cfg.ShortsStoreConfig),
 	}, nil
 }
