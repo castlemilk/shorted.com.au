@@ -17,7 +17,8 @@ help:
 	@echo "  clean         - Clean all build artifacts"
 	@echo "  clean-ports   - Kill any stale processes on development ports (9091, 3000, 5432)"
 	@echo "  build         - Build frontend and backend"
-	@echo "  test          - Run all tests (frontend + backend)"
+	@echo "  test          - Run complete pre-push validation (lint + unit + integration)"
+	@echo "  test-unit     - Run unit tests only (frontend + backend)"
 	@echo "  test-frontend - Run frontend tests only"
 	@echo "  test-backend  - Run backend tests only"
 	@echo "  test-coverage - Run all tests with coverage reporting"
@@ -26,16 +27,26 @@ help:
 	@echo "  test-integration - Run full-stack integration tests"
 	@echo "  test-e2e      - Run E2E tests with all dependencies"
 	@echo "  test-e2e-ui   - Run E2E tests in Playwright UI mode"
-	@echo "  test-e2e-headed - Run E2E tests in headed browser mode"
 	@echo "  test-stack-up - Start test environment"
 	@echo "  test-stack-down - Stop test environment"
-	@echo "  lint          - Run linting for all projects"
+	@echo "  lint          - Run linting (TypeScript + golangci-lint)"
+	@echo "  lint-frontend - Run TypeScript/ESLint linting"
+	@echo "  lint-backend  - Run golangci-lint for Go code"
 	@echo "  format        - Format code for all projects"
 	@echo "  populate-data - Download and populate database with ASIC short selling data"
 	@echo "  populate-data-quick - Populate database using existing CSV files (no download)"
 
 # Test commands
-test: test-frontend test-backend
+test: lint test-unit test-integration-local
+	@echo ""
+	@echo "✅ All tests and linting completed successfully!"
+	@echo "   🔍 Linting: TypeScript + Go"
+	@echo "   🧪 Unit Tests: Frontend + Backend"
+	@echo "   🔗 Integration Tests: Backend"
+	@echo ""
+
+# Unit tests only (no linting, no integration)
+test-unit: test-frontend test-backend
 
 test-frontend:
 	@echo "🧪 Running frontend tests..."
@@ -58,19 +69,6 @@ test-backend-coverage:
 test-watch:
 	@echo "👀 Running frontend tests in watch mode..."
 	@cd web && npm run test:watch
-
-# E2E Test commands
-test-e2e:
-	@echo "🎭 Running E2E tests with all dependencies..."
-	@./scripts/e2e-test-runner.sh
-
-test-e2e-ui:
-	@echo "🎭 Running E2E tests in UI mode..."
-	@./scripts/e2e-test-runner.sh --ui
-
-test-e2e-headed:
-	@echo "🎭 Running E2E tests in headed mode..."
-	@./scripts/e2e-test-runner.sh --headed
 
 # Installation commands
 install: install-frontend install-backend
@@ -210,8 +208,22 @@ lint-frontend:
 	@echo "🔍 Linting frontend..."
 	@cd web && npm run lint
 
-lint-backend:
-	@echo "🔍 Linting backend..."
+lint-backend: lint-backend-install
+	@echo "🔍 Linting backend with golangci-lint..."
+	@cd services && golangci-lint run ./...
+
+lint-backend-install:
+	@which golangci-lint > /dev/null || { \
+		echo "📦 Installing golangci-lint..."; \
+		if [ "$$(uname)" = "Darwin" ]; then \
+			brew install golangci-lint; \
+		else \
+			curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin v1.61.0; \
+		fi; \
+	}
+
+lint-backend-quick:
+	@echo "🔍 Quick linting backend (go vet + go fmt)..."
 	@cd services && go vet ./... && go fmt ./...
 
 # Format commands
@@ -229,8 +241,11 @@ format-backend:
 ci-test: install test-coverage lint
 	@echo "✅ CI tests completed successfully"
 
-pre-commit: format lint test
-	@echo "✅ Pre-commit checks passed"
+pre-commit: test
+	@echo "✅ Pre-commit checks passed - ready to push!"
+
+pre-push: test
+	@echo "✅ Pre-push validation complete - all tests passed!"
 
 # Service-specific shortcuts
 test-shorts:

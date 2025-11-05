@@ -1,0 +1,102 @@
+config: {AppSpec:{Insecure:true Port:9091 ShortsStoreConfig:{StorageBackend:postgres DynamoDBRegion: DynamoDBTable: DynamoDBEndpoint: PostgresAddress:localhost:63568 PostgresUsername:test_user PostgresPassword:test_password PostgresDatabase:shorts_test}} OpsSpec:{Version:dev Commit:dirty Port:8082 Logging:{Level:info}}}2025-11-05T21:53:33.840+1030	INFO	log/log.go:49	starting server server at :9091
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 10, offset: 0
+2025/11/05 21:53:34 [DEBUG] cache miss for GetTopShorts, fetching from database
+2025-11-05T21:53:34.572+1030	INFO	log/log.go:49	Period: 1M, Interval: 1 month
+2025/11/05 21:53:34 [ERROR] validation failed for GetStock: invalid_argument: product code must be 3-4 alphanumeric characters (e.g., CBA, ZIP, AX1)
+2025/11/05 21:53:34 [ERROR] validation failed for GetStock: invalid_argument: product code is required
+2025/11/05 21:53:34 [ERROR] validation failed for GetStockData: invalid_argument: product code must be 3-4 alphanumeric characters (e.g., CBA, ZIP, AX1)
+2025/11/05 21:53:34 [ERROR] validation failed for GetStockData: invalid_argument: product code is required
+2025/11/05 21:53:34 [ERROR] validation failed for GetStockData: invalid_argument: invalid period format. Valid periods: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y, MAX
+2025/11/05 21:53:34 [ERROR] validation failed for GetTopShorts: invalid_argument: invalid period format. Valid periods: 1D, 1W, 1M, 3M, 6M, 1Y, 2Y, 5Y, 10Y, MAX
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] cache miss for GetTopShorts, fetching from database
+2025-11-05T21:53:34.587+1030	INFO	log/log.go:49	Period: 1M, Interval: 1 month
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025-11-05T21:53:34.601+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.602+1030	DEBUG	log/log.go:62	Search completed for 'BHP': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.603+1030	DEBUG	log/log.go:62	Search completed for 'Bank': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.604+1030	DEBUG	log/log.go:62	Search completed for 'ThisIsAVeryLongQueryThatShouldNotMatchAnythingInTheDatabase': found 0 unique stocks (deduplicated from 0 total results)
+2025-11-05T21:53:34.605+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 0 unique stocks (deduplicated from 0 total results)
+2025-11-05T21:53:34.606+1030	DEBUG	log/log.go:62	Search completed for 'A': found 6 unique stocks (deduplicated from 6 total results)
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025/11/05 21:53:34 [DEBUG] get top shorts, period: 1M, limit: 1, offset: 0
+2025-11-05T21:53:34.608+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.609+1030	DEBUG	log/log.go:62	Search completed for 'A': found 6 unique stocks (deduplicated from 6 total results)
+2025-11-05T21:53:34.610+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.611+1030	DEBUG	log/log.go:62	Search completed for 'Bank': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.612+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.612+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.613+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.732+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.835+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.944+1030	DEBUG	log/log.go:62	Search completed for 'CBA@#$%': found 0 unique stocks (deduplicated from 0 total results)
+2025-11-05T21:53:34.946+1030	DEBUG	log/log.go:62	Search completed for '123': found 0 unique stocks (deduplicated from 0 total results)
+2025-11-05T21:53:34.949+1030	DEBUG	log/log.go:62	Search completed for 'cBa': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.951+1030	DEBUG	log/log.go:62	Search completed for 'A': found 6 unique stocks (deduplicated from 6 total results)
+2025-11-05T21:53:34.966+1030	DEBUG	log/log.go:62	Search completed for 'RMX': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.967+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.969+1030	DEBUG	log/log.go:62	Search completed for 'AX': found 2 unique stocks (deduplicated from 2 total results)
+2025-11-05T21:53:34.971+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.973+1030	DEBUG	log/log.go:62	Search completed for 'RMX': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.974+1030	DEBUG	log/log.go:62	Search completed for 'Bank': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.976+1030	DEBUG	log/log.go:62	Search completed for 'cba': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.977+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.979+1030	DEBUG	log/log.go:62	Search completed for 'BHP': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.981+1030	DEBUG	log/log.go:62	Search completed for 'Bank': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.983+1030	DEBUG	log/log.go:62	Search completed for 'A': found 8 unique stocks (deduplicated from 8 total results)
+2025-11-05T21:53:34.984+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.985+1030	DEBUG	log/log.go:62	Search completed for 'Bank': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:34.986+1030	DEBUG	log/log.go:62	Search completed for 'L': found 7 unique stocks (deduplicated from 7 total results)
+2025-11-05T21:53:34.987+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.091+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.094+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.097+1030	DEBUG	log/log.go:62	Search completed for 'Bank': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.101+1030	DEBUG	log/log.go:62	Search completed for 'A': found 8 unique stocks (deduplicated from 8 total results)
+2025-11-05T21:53:35.106+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.108+1030	DEBUG	log/log.go:62	Search completed for 'BHP': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.111+1030	DEBUG	log/log.go:62	Search completed for 'A': found 5 unique stocks (deduplicated from 5 total results)
+2025-11-05T21:53:35.111+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.111+1030	DEBUG	log/log.go:62	Search completed for 'L': found 5 unique stocks (deduplicated from 5 total results)
+2025-11-05T21:53:35.114+1030	DEBUG	log/log.go:62	Search completed for 'BHP': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.114+1030	DEBUG	log/log.go:62	Search completed for 'Bank': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.115+1030	DEBUG	log/log.go:62	Search completed for 'A': found 5 unique stocks (deduplicated from 5 total results)
+2025-11-05T21:53:35.132+1030	DEBUG	log/log.go:62	Search completed for 'L': found 5 unique stocks (deduplicated from 5 total results)
+2025-11-05T21:53:35.136+1030	DEBUG	log/log.go:62	Search completed for 'Bank': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.140+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.140+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.140+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.140+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.140+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.140+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.140+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.141+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.141+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.141+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.142+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.142+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.142+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.142+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.142+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.161+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.162+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.165+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.165+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)
+2025-11-05T21:53:35.166+1030	DEBUG	log/log.go:62	Search completed for 'CBA': found 1 unique stocks (deduplicated from 1 total results)

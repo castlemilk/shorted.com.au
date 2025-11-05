@@ -129,11 +129,18 @@ describe("Home Page", () => {
     expect(screen.getByText("Top Shorts: 0 items")).toBeInTheDocument();
   });
 
-  it("handles data fetch error", async () => {
+  it("handles data fetch error gracefully", async () => {
     mockGetTopShortsData.mockRejectedValue(new Error("Failed to fetch"));
+    mockGetIndustryTreeMap.mockResolvedValue({
+      industries: [],
+      stocks: [],
+    } as any);
 
-    // In a real app, this would show an error boundary or fallback
-    await expect(Home()).rejects.toThrow("Failed to fetch");
+    // The page should render with empty/fallback data instead of throwing
+    render(await Home());
+
+    // Should still render the page structure even if data fetch fails
+    expect(screen.getByText("Top Shorts: 0 items")).toBeInTheDocument();
   });
 
   it("renders with correct layout structure", async () => {

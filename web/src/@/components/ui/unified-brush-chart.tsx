@@ -175,11 +175,10 @@ const UnifiedBrushChart = forwardRef<
       color: "hsl(var(--foreground))",
     };
 
-    const { containerRef, containerBounds: _containerBounds } =
-      useTooltipInPortal({
-        scroll: true,
-        detectBounds: true,
-      });
+    const { containerRef } = useTooltipInPortal({
+      scroll: true,
+      detectBounds: true,
+    });
 
     const {
       tooltipData,
