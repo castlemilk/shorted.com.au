@@ -1,3 +1,4 @@
+/// <reference types="jest" />
 /**
  * Integration tests for market data service
  * Tests the mocked behavior of market data API functions
@@ -8,10 +9,10 @@ import {
   getHistoricalData,
   getStockPrice,
   getServiceStatus,
-} from "@/lib/stock-data-service";
+} from "../../@/lib/stock-data-service";
 
 // Mock the entire stock-data-service module
-jest.mock("@/lib/stock-data-service");
+jest.mock("../../@/lib/stock-data-service");
 
 const mockGetMultipleStockQuotes =
   getMultipleStockQuotes as jest.MockedFunction<typeof getMultipleStockQuotes>;
@@ -33,8 +34,7 @@ describe("Market Data Service Integration", () => {
   describe("Service Health Check", () => {
     it("should check market data API availability", async () => {
       mockGetServiceStatus.mockResolvedValueOnce({
-        marketData: { available: true, latency: 100 },
-        shorts: { available: true, latency: 50 },
+        marketDataAPI: true,
       });
 
       const status = await getServiceStatus();
@@ -94,7 +94,7 @@ describe("Market Data Service Integration", () => {
 
       const quote = await getStockPrice("CBA");
       expect(quote).toBeDefined();
-      expect(quote.symbol).toBe("CBA");
+      expect(quote!.symbol).toBe("CBA");
       expect(mockGetStockPrice).toHaveBeenCalledWith("CBA");
     });
 

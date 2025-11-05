@@ -119,12 +119,14 @@ const getVolume = (d: PriceDataPoint | undefined): number => {
 };
 
 const bisectDate = (
-  array: TooltipData[],
+  array: (ShortPositionDataPoint | PriceDataPoint)[],
   date: Date,
   low?: number,
   high?: number,
 ) =>
-  bisector<TooltipData, Date>((d) => getDate(d)).left(array, date, low, high);
+  bisector<ShortPositionDataPoint | PriceDataPoint, Date>((d) =>
+    getDate(d),
+  ).left(array, date, low, high);
 
 const formatDate = timeFormat("%b %d, '%y");
 const formatValue = (value: number, isPercent: boolean) =>
