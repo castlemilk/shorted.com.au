@@ -32,10 +32,6 @@ export function TreemapTooltip({
   industry,
   x,
   y,
-  _containerWidth,
-  _containerHeight,
-  _containerX,
-  _containerY,
 }: TreemapTooltipProps) {
   const [stockDetails, setStockDetails] = useState<
     PlainMessage<StockDetails> | undefined

@@ -1,8 +1,12 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { X, GitPullRequest, AlertTriangle } from 'lucide-react';
-import { config, getPreviewPRNumber, isPreviewDeployment } from '@/config/environment';
+import { useState, useEffect } from "react";
+import { X, GitPullRequest, AlertTriangle } from "lucide-react";
+import {
+  config,
+  getPreviewPRNumber,
+  isPreviewDeployment,
+} from "@/config/environment";
 
 export function EnvironmentBanner() {
   const [isVisible, setIsVisible] = useState(false);
@@ -21,8 +25,8 @@ export function EnvironmentBanner() {
   const handleDismiss = () => {
     setIsVisible(false);
     // Store dismissal in session storage
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem('preview-banner-dismissed', 'true');
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("preview-banner-dismissed", "true");
     }
   };
 
@@ -69,7 +73,7 @@ export function DevelopmentBanner() {
 
   useEffect(() => {
     // Only show in development
-    if (config.isDevelopment && process.env.NODE_ENV === 'development') {
+    if (config.isDevelopment && process.env.NODE_ENV === "development") {
       setIsVisible(true);
     }
   }, []);
@@ -84,7 +88,7 @@ export function DevelopmentBanner() {
           <span>Development Mode</span>
           <span className="text-blue-600 dark:text-blue-400">•</span>
           <span className="font-mono text-blue-600 dark:text-blue-400">
-            API: {config.api.shorts}
+            API: {config.api.url}
           </span>
         </div>
       </div>

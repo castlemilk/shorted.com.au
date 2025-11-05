@@ -194,7 +194,6 @@ export function Sparkline({
           left={tooltipLeft}
           offsetLeft={10}
           offsetTop={-10}
-          detectBounds={true}
           style={{
             position: "absolute",
             backgroundColor: "rgba(0, 0, 0, 0.9)",
