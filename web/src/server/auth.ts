@@ -1,7 +1,7 @@
-import NextAuth, { type Session, type User } from "next-auth";
+import NextAuth, { type Session } from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
-import { type AdapterUser } from "next-auth/adapters";
+import type { JWT } from "next-auth/jwt";
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -42,6 +42,12 @@ declare module "next-auth" {
       email?: string | null;
       image?: string | null;
     };
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id?: string;
   }
 }
 
@@ -92,20 +98,41 @@ export const authOptions = {
   ],
   // adapter: FirestoreAdapter(firestore), // Commented out until Firebase adapter issues are resolved
   callbacks: {
-    session: ({
+    // JWT callback runs first - when JWT is created or updated
+    async jwt({ token, user }: { token: JWT; user: any }): Promise<JWT> {
+      // When user signs in, add their ID to the token
+      // Use email as the consistent user ID to maintain compatibility with existing data
+      if (user) {
+        // On sign in, set the user ID from the email
+        token.id = user.email ?? user.id ?? token.sub ?? "unknown";
+        // Preserve email and sub for middleware checks
+        if (user.email && !token.email) token.email = user.email;
+        if (user.sub && !token.sub) token.sub = user.sub;
+      }
+      // Ensure token.id is always set (preserve it on token refresh)
+      if (!token.id && token.email) {
+        token.id = token.email;
+      }
+      return token;
+    },
+    // Session callback runs after JWT - when session is checked
+    async session({
       session,
-      user,
+      token,
     }: {
       session: Session;
-      user: User | AdapterUser;
-    }) => {
-      return {
-        ...session,
-        user: {
-          ...session.user,
-          id: user?.id ?? session.user.email ?? "unknown",
-        },
-      };
+      token: JWT;
+    }): Promise<Session> {
+      // Add user ID from token to session
+      // Use email as the consistent user ID to maintain compatibility with existing data
+      if (session.user) {
+        session.user.id =
+          (token.id as string) ??
+          session.user.email! ??
+          (token.sub as string) ??
+          "unknown";
+      }
+      return session;
     },
   },
   debug: process.env.NODE_ENV === "development",
