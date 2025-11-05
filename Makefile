@@ -17,7 +17,7 @@ help:
 	@echo "  clean         - Clean all build artifacts"
 	@echo "  clean-ports   - Kill any stale processes on development ports (9091, 3000, 5432)"
 	@echo "  build         - Build frontend and backend"
-	@echo "  test          - Run complete pre-push validation (lint + unit + integration)"
+	@echo "  test          - Run complete pre-push validation (lint + build + unit + integration)"
 	@echo "  test-unit     - Run unit tests only (frontend + backend)"
 	@echo "  test-frontend - Run frontend tests only"
 	@echo "  test-backend  - Run backend tests only"
@@ -37,10 +37,11 @@ help:
 	@echo "  populate-data-quick - Populate database using existing CSV files (no download)"
 
 # Test commands
-test: lint test-unit test-integration-local
+test: lint build-frontend test-unit test-integration-local
 	@echo ""
-	@echo "✅ All tests and linting completed successfully!"
+	@echo "✅ All tests, linting, and build validation completed successfully!"
 	@echo "   🔍 Linting: TypeScript + Go"
+	@echo "   🏗️  Build: Frontend (type checking)"
 	@echo "   🧪 Unit Tests: Frontend + Backend"
 	@echo "   🔗 Integration Tests: Backend"
 	@echo ""
