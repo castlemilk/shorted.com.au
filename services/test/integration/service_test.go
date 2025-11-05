@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"os"
-	"os/exec"
 	"testing"
 	"time"
 
@@ -16,17 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestShortsServiceWithSeededData tests the service with a fresh database and seeded test data
-// This is an END-TO-END test that starts the actual service binary - not suitable for CI
+// TestShortsServiceWithSeededData tests database seeding and optionally the service
+// if SHORTS_API_URL is provided. This allows testing against a manually started service
+// that points to the test database.
 func TestShortsServiceWithSeededData(t *testing.T) {
-	// Skip in CI environments (GitHub Actions sets multiple env vars)
-	if os.Getenv("SKIP_SERVICE_TESTS") != "" || 
-	   os.Getenv("CI") != "" || 
-	   os.Getenv("GITHUB_ACTIONS") != "" ||
-	   os.Getenv("CONTINUOUS_INTEGRATION") != "" {
-		t.Skip("Skipping end-to-end service tests (requires local service binary)")
-	}
-
 	WithTestDatabase(t, func(container *TestContainer) {
 		ctx := context.Background()
 		seeder := container.GetSeeder()
@@ -36,31 +28,45 @@ func TestShortsServiceWithSeededData(t *testing.T) {
 		
 		// Get test data for multiple stocks
 		stockCodes := []string{"CBA", "BHP", "CSL", "WBC", "NAB"}
-		shorts, metadata, _ := testdata.GetMultipleStocksTestData(stockCodes, testDate.AddDate(0, 0, -30), 30)
+		shortsData, metadata, _ := testdata.GetMultipleStocksTestData(stockCodes, testDate.AddDate(0, 0, -30), 30)
 		
 		// Seed the database
 		require.NoError(t, seeder.SeedCompanyMetadata(ctx, metadata))
-		require.NoError(t, seeder.SeedShorts(ctx, shorts))
-		// Note: stock_prices table doesn't exist in the current schema
+		require.NoError(t, seeder.SeedShorts(ctx, shortsData))
 
-		// Start the shorts service
-		serviceURL := "http://localhost:9091"
-		cmd := startShortsService(t, container.ConnectionString())
-		defer func() {
-			if cmd != nil && cmd.Process != nil {
-				_ = cmd.Process.Kill()
-			}
-		}()
+		// Verify data was seeded correctly
+		var shortCount int
+		err := container.DB.QueryRow(ctx, "SELECT COUNT(*) FROM shorts WHERE \"PRODUCT_CODE\" = 'CBA'").Scan(&shortCount)
+		require.NoError(t, err)
+		assert.Greater(t, shortCount, 0, "Should have seeded shorts data for CBA")
 
+		var metadataCount int
+		err = container.DB.QueryRow(ctx, "SELECT COUNT(*) FROM \"company-metadata\" WHERE stock_code = 'CBA'").Scan(&metadataCount)
+		require.NoError(t, err)
+		assert.Equal(t, 1, metadataCount, "Should have metadata for CBA")
+
+		// If SHORTS_API_URL is set, test against that service
+		// To use: Start the service with APP_STORE_POSTGRES_ADDRESS=localhost:<testport> and run tests
+		apiURL := os.Getenv("SHORTS_API_URL")
+		if apiURL == "" {
+			t.Log("SHORTS_API_URL not set - skipping API tests")
+			t.Logf("Database seeded successfully at: %s", container.ConnectionString())
+			t.Log("To test the API, start the service pointing to this database and set SHORTS_API_URL")
+			return
+		}
+
+		// Test against external service
+		t.Logf("Testing against service at: %s", apiURL)
+		
 		// Wait for service to be ready
-		if !waitForService(serviceURL, 30*time.Second) {
-			t.Fatal("Service did not start in time")
+		if !waitForServiceHealth(apiURL, 10*time.Second) {
+			t.Skipf("Service not available at %s", apiURL)
 		}
 
 		// Create client
 		client := shortsv1alpha1connect.NewShortedStocksServiceClient(
 			http.DefaultClient,
-			serviceURL,
+			apiURL,
 		)
 
 		// Run tests
@@ -86,38 +92,12 @@ func TestShortsServiceWithSeededData(t *testing.T) {
 	})
 }
 
-func startShortsService(t *testing.T, dbURL string) *exec.Cmd {
-	t.Helper()
-
-	// Find the project root
-	projectRoot := GetProjectRoot()
-	if projectRoot == "" {
-		t.Skip("Cannot find project root, skipping service test")
-		return nil
-	}
-
-	// Build and start the service
-	cmd := exec.Command("go", "run", "shorts/cmd/server/main.go")
-	cmd.Dir = projectRoot
-	cmd.Env = append(os.Environ(),
-		"DATABASE_URL="+dbURL,
-		"PORT=9091",
-	)
-
-	// Start the service in the background
-	err := cmd.Start()
-	if err != nil {
-		t.Fatalf("Failed to start service: %v", err)
-	}
-
-	return cmd
-}
-
-func waitForService(url string, timeout time.Duration) bool {
+// waitForServiceHealth checks if a service is healthy
+func waitForServiceHealth(baseURL string, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	
 	for time.Now().Before(deadline) {
-		resp, err := http.Get(url + "/health")
+		resp, err := http.Get(baseURL + "/health")
 		if err == nil && resp.StatusCode == 200 {
 			resp.Body.Close()
 			return true
@@ -130,6 +110,7 @@ func waitForService(url string, timeout time.Duration) bool {
 	
 	return false
 }
+
 
 func testGetTopShortsWithData(t *testing.T, ctx context.Context, client shortsv1alpha1connect.ShortedStocksServiceClient) {
 	req := connect.NewRequest(&shortsv1alpha1.GetTopShortsRequest{

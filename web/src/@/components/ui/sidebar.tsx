@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 
 interface SidebarProps {
   className?: string;
@@ -46,6 +47,16 @@ const sidebarItems = [
 export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const { data: session, status } = useSession();
+
+  // Don't render sidebar if user is not authenticated
+  if (status === "loading") {
+    return null; // or could return a loading skeleton
+  }
+
+  if (!session) {
+    return null; // Don't show sidebar for unauthenticated users
+  }
 
   const SidebarContent = () => (
     <ScrollArea className="flex-1 py-2">
