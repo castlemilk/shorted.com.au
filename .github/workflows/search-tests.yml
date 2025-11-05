@@ -1,24 +1,13 @@
-name: Search Functionality Tests
+name: Search Functionality Tests (DEPRECATED - Use ci.yml)
 
+# DEPRECATED: This workflow has been replaced by ci.yml (Preview and Test)
+# Only runs on manual trigger now to avoid duplicate jobs
 on:
-  push:
-    branches: [main, develop, feature/*]
-    paths:
-      - "services/shorts/**"
-      - "web/src/**"
-      - "test/integration/**"
-      - "web/e2e/**"
-  pull_request:
-    branches: [main, develop]
-    paths:
-      - "services/shorts/**"
-      - "web/src/**"
-      - "test/integration/**"
-      - "web/e2e/**"
+  workflow_dispatch:
 
 env:
-  GO_VERSION: "1.22"
-  NODE_VERSION: "18"
+  GO_VERSION: "1.23"
+  NODE_VERSION: "20"
 
 jobs:
   integration-tests:
@@ -86,12 +75,12 @@ jobs:
       - name: Install dependencies
         run: |
           cd web
-          npm ci
+          npm ci --legacy-peer-deps
 
       - name: Run unit tests
         run: |
           cd web
-          npm run test
+          npm test -- --watchAll=false --testPathIgnorePatterns=integration
 
       - name: Build application
         run: |
