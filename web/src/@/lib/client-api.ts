@@ -46,7 +46,14 @@ export async function fetchStockDetailsClient(
     const response = await client.getStockDetails({ productCode });
     return toPlainMessage(response);
   } catch (error) {
-    console.error(`Error fetching stock details for ${productCode}:`, error);
+    // Only log non-validation errors to avoid console spam
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (
+      !errorMessage.includes("invalid_argument") &&
+      !errorMessage.includes("not_found")
+    ) {
+      console.error(`Error fetching stock details for ${productCode}:`, error);
+    }
     return undefined;
   }
 }

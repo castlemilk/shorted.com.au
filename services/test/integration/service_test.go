@@ -32,12 +32,12 @@ func TestShortsServiceWithSeededData(t *testing.T) {
 		
 		// Get test data for multiple stocks
 		stockCodes := []string{"CBA", "BHP", "CSL", "WBC", "NAB"}
-		shorts, metadata, prices := testdata.GetMultipleStocksTestData(stockCodes, testDate.AddDate(0, 0, -30), 30)
+		shorts, metadata, _ := testdata.GetMultipleStocksTestData(stockCodes, testDate.AddDate(0, 0, -30), 30)
 		
 		// Seed the database
 		require.NoError(t, seeder.SeedCompanyMetadata(ctx, metadata))
 		require.NoError(t, seeder.SeedShorts(ctx, shorts))
-		require.NoError(t, seeder.SeedStockPrices(ctx, prices))
+		// Note: stock_prices table doesn't exist in the current schema
 
 		// Start the shorts service
 		serviceURL := "http://localhost:9091"
@@ -129,7 +129,7 @@ func waitForService(url string, timeout time.Duration) bool {
 
 func testGetTopShortsWithData(t *testing.T, ctx context.Context, client shortsv1alpha1connect.ShortedStocksServiceClient) {
 	req := connect.NewRequest(&shortsv1alpha1.GetTopShortsRequest{
-		Period: "1d",
+		Period: "1M",  // Request 1 month to get enough data points (30 days seeded)
 		Limit:  5,
 		Offset: 0,
 	})
@@ -178,7 +178,7 @@ func testGetStockWithData(t *testing.T, ctx context.Context, client shortsv1alph
 func testGetStockDataWithData(t *testing.T, ctx context.Context, client shortsv1alpha1connect.ShortedStocksServiceClient, productCode string) {
 	req := connect.NewRequest(&shortsv1alpha1.GetStockDataRequest{
 		ProductCode: productCode,
-		Period:      "1w",
+		Period:      "1M",  // Request 1 month to match seeded data range
 	})
 
 	resp, err := client.GetStockData(ctx, req)

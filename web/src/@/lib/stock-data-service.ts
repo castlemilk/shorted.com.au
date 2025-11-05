@@ -426,6 +426,14 @@ export async function searchStocks(
 }
 
 /**
+ * Validates if a product code meets the backend API requirements
+ * Product codes must be 3-4 alphanumeric characters
+ */
+function isValidProductCode(code: string): boolean {
+  return /^[A-Za-z0-9]{3,4}$/.test(code);
+}
+
+/**
  * Search stocks with enriched metadata (industry, logo, current price)
  * Fetches basic search results and enriches them with stock details in parallel
  */
@@ -445,6 +453,15 @@ export async function searchStocksEnriched(
     const enrichedStocks = await Promise.all(
       searchResponse.stocks.map(async (stock) => {
         try {
+          // Only fetch details for valid product codes (3-4 alphanumeric chars)
+          // to avoid spamming the API with invalid requests
+          const shouldEnrich = isValidProductCode(stock.product_code);
+
+          if (!shouldEnrich) {
+            // Return basic data without enrichment for invalid codes
+            return stock;
+          }
+
           // Fetch stock details (industry, logo, company name)
           const detailsPromise = fetchStockDetailsClient(stock.product_code);
 

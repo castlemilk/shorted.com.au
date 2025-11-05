@@ -53,7 +53,14 @@
     "**/*.tsx",
     "**/*.cjs",
     "**/*.js",
-    ".next/types/**/*.ts"
-, "next.config.mjs"  ],
-  "exclude": ["node_modules"]
+    ".next/types/**/*.ts",
+    "next.config.mjs"
+  ],
+  "exclude": [
+    "node_modules",
+    "e2e",
+    "**/*.spec.ts",
+    "**/*.test.tsx",
+    "**/*.test.ts"
+  ]
 }

@@ -1,22 +1,18 @@
--- Create shorts table if not exists
+-- Create shorts table matching production schema (uppercase columns from data sync)
 CREATE TABLE IF NOT EXISTS shorts (
-    id SERIAL PRIMARY KEY,
-    date DATE NOT NULL,
-    product_code VARCHAR(50) NOT NULL,
-    product_name VARCHAR(255),
-    total_short_position BIGINT,
-    daily_short_volume BIGINT,
-    percent_of_total_shares DECIMAL(5, 2),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT unique_shorts_date_product UNIQUE(date, product_code)
+    "DATE" timestamp without time zone,
+    "PRODUCT" text,
+    "PRODUCT_CODE" text,
+    "REPORTED_SHORT_POSITIONS" double precision,
+    "TOTAL_PRODUCT_IN_ISSUE" double precision,
+    "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" double precision
 );
 
 -- Create indexes for shorts
-CREATE INDEX IF NOT EXISTS idx_shorts_product_code_date ON shorts(product_code, date DESC);
-CREATE INDEX IF NOT EXISTS idx_shorts_date_percent ON shorts(date DESC, percent_of_total_shares DESC);
-CREATE INDEX IF NOT EXISTS idx_shorts_product_code ON shorts(product_code);
-CREATE INDEX IF NOT EXISTS idx_shorts_date ON shorts(date);
+CREATE INDEX IF NOT EXISTS idx_shorts_product_code_date ON shorts("PRODUCT_CODE", "DATE" DESC);
+CREATE INDEX IF NOT EXISTS idx_shorts_date_percent ON shorts("DATE" DESC, "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC);
+CREATE INDEX IF NOT EXISTS idx_shorts_product_code ON shorts("PRODUCT_CODE");
+CREATE INDEX IF NOT EXISTS idx_shorts_date ON shorts("DATE");
 
 -- Create company metadata table
 CREATE TABLE IF NOT EXISTS "company-metadata" (

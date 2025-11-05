@@ -19,6 +19,13 @@ const sparklineCache = new Map<string, SparklineData[]>();
 const loadingCache = new Set<string>();
 
 /**
+ * Validates if a stock code is valid (3-4 alphanumeric characters)
+ */
+function isValidStockCode(code: string): boolean {
+  return /^[A-Za-z0-9]{3,4}$/.test(code);
+}
+
+/**
  * Custom hook to fetch and format 3-month sparkline data for a stock
  * @param stockCode - The stock code to fetch data for
  * @returns Sparkline data, loading state, error, and trend direction
@@ -39,6 +46,15 @@ export function useSparklineData(stockCode: string): UseSparklineDataResult {
 
   useEffect(() => {
     if (!stockCode) {
+      setData(null);
+      setLoading(false);
+      setError(null);
+      setIsPositive(false);
+      return;
+    }
+
+    // Skip fetching for invalid stock codes (prevents API spam)
+    if (!isValidStockCode(stockCode)) {
       setData(null);
       setLoading(false);
       setError(null);

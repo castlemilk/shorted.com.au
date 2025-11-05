@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -70,7 +70,7 @@ export default function StocksPage() {
   const [isSearching, setIsSearching] = useState(false);
 
   // Debounced search
-  const searchDebounceTimeoutRef = useState<NodeJS.Timeout | null>(null)[0];
+  const searchDebounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load historical data
   const loadHistoricalData = useCallback(async () => {
@@ -119,17 +119,15 @@ export default function StocksPage() {
     setSearchQuery(value);
 
     // Clear existing timeout
-    if (searchDebounceTimeoutRef) {
-      clearTimeout(searchDebounceTimeoutRef);
+    if (searchDebounceTimeoutRef.current) {
+      clearTimeout(searchDebounceTimeoutRef.current);
     }
 
     // Set new timeout for debounced search
     if (value.trim().length >= 2) {
-      const timeout = setTimeout(() => {
+      searchDebounceTimeoutRef.current = setTimeout(() => {
         void searchStocksAPI(value);
       }, 300);
-      // Store timeout reference (using state would cause re-renders)
-      Object.assign(searchDebounceTimeoutRef, timeout);
     } else {
       setSearchResults([]);
     }

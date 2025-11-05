@@ -80,10 +80,10 @@ func TestDatabaseOperations(t *testing.T) {
 
 		// Test querying shorts data
 		rows, err := container.DB.Query(ctx, `
-			SELECT product_code, product_name, percent_of_total_shares 
+			SELECT "PRODUCT_CODE", "PRODUCT", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" 
 			FROM shorts 
-			WHERE date = $1
-			ORDER BY percent_of_total_shares DESC 
+			WHERE "DATE" = $1
+			ORDER BY "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC 
 			LIMIT 5
 		`, testDate)
 		require.NoError(t, err)
@@ -110,8 +110,8 @@ func TestDatabaseOperations(t *testing.T) {
 		err = container.DB.QueryRow(ctx, `
 			SELECT m.company_name 
 			FROM shorts s 
-			JOIN "company-metadata" m ON s.product_code = m.stock_code 
-			WHERE s.product_code = 'CBA' 
+			JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code 
+			WHERE s."PRODUCT_CODE" = 'CBA' 
 			LIMIT 1
 		`).Scan(&companyName)
 		require.NoError(t, err)
@@ -340,15 +340,15 @@ func TestDataConsistency(t *testing.T) {
 			// Test that all shorts have corresponding dates and valid percentages
 			var invalidCount int
 			err := container.DB.QueryRow(ctx, `
-				SELECT COUNT(*) FROM shorts 
-				WHERE percent_of_total_shares < 0 OR percent_of_total_shares > 100
+			SELECT COUNT(*) FROM shorts 
+			WHERE "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" < 0 OR "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 100
 			`).Scan(&invalidCount)
 			require.NoError(t, err)
 			assert.Equal(t, 0, invalidCount, "No shorts should have invalid percentages")
 
 			// Test that we have multiple dates
 			var dateCount int
-			err = container.DB.QueryRow(ctx, "SELECT COUNT(DISTINCT date) FROM shorts").Scan(&dateCount)
+			err = container.DB.QueryRow(ctx, "SELECT COUNT(DISTINCT \"DATE\") FROM shorts").Scan(&dateCount)
 			require.NoError(t, err)
 			assert.Greater(t, dateCount, 1, "Should have multiple dates in test data")
 		})
@@ -442,7 +442,7 @@ func TestCleanup(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify sample data is there
-		err = container.DB.QueryRow(ctx, "SELECT COUNT(*) FROM shorts WHERE product_code = 'CBA'").Scan(&count)
+		err = container.DB.QueryRow(ctx, "SELECT COUNT(*) FROM shorts WHERE \"PRODUCT_CODE\" = 'CBA'").Scan(&count)
 		require.NoError(t, err)
 		assert.Greater(t, count, 0)
 	})

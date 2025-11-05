@@ -17,6 +17,7 @@ import {
   Breadcrumbs,
   BreadcrumbStructuredData,
 } from "~/@/components/seo/breadcrumbs";
+import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { DashboardLayout } from "@/components/layouts/dashboard-layout";
 import {
   Card,
@@ -80,7 +81,9 @@ export async function generateMetadata({
   };
 }
 export const revalidate = 60; // revalidate the data at most every minute
+
 const Page = async ({ params }: PageProps) => {
+  // This page is public for SEO and discovery - no authentication required
   const stockCode = params.stockCode.toUpperCase();
 
   const breadcrumbItems = [
@@ -92,6 +95,21 @@ const Page = async ({ params }: PageProps) => {
     <DashboardLayout>
       <StockStructuredData stockCode={stockCode} />
       <BreadcrumbStructuredData items={breadcrumbItems} />
+      <LLMMeta
+        title={`${stockCode} Stock Analysis - Short Position Data`}
+        description={`Comprehensive analysis of ${stockCode} short positions on the ASX. View real-time charts, company profile, and short interest data for ${stockCode} shares.`}
+        keywords={[
+          `${stockCode} short position`,
+          `${stockCode} ASX`,
+          `${stockCode} stock analysis`,
+          `${stockCode} short interest`,
+          "short selling data",
+          "Australian stocks",
+        ]}
+        dataSource="ASIC"
+        dataFrequency="daily"
+        requiresAuth={false}
+      />
 
       <div className="mb-4">
         <Breadcrumbs items={breadcrumbItems} />

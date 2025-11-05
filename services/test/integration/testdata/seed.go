@@ -61,8 +61,8 @@ func (s *Seeder) SeedShorts(ctx context.Context, shorts []ShortData) error {
 
 	query := `
 		INSERT INTO shorts (
-			date, product_code, product_name, total_short_position, 
-			daily_short_volume, percent_of_total_shares
+			"DATE", "PRODUCT_CODE", "PRODUCT", "REPORTED_SHORT_POSITIONS", 
+			"TOTAL_PRODUCT_IN_ISSUE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
 		) VALUES ($1, $2, $3, $4, $5, $6)
 	`
 
@@ -72,7 +72,7 @@ func (s *Seeder) SeedShorts(ctx context.Context, shorts []ShortData) error {
 			short.ProductCode,
 			short.ProductName,
 			short.TotalShortPos,
-			short.DailyShortVol,
+			short.TotalProductIssue,
 			short.PercentOfShares,
 		)
 		if err != nil {
