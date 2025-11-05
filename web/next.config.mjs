@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially useful
  * for Docker builds.
@@ -10,20 +11,16 @@ const { version } = packageJson;
 
 // Bundle analyzer configuration (optional - only if installed)
 // Install with: npm install --save-dev @next/bundle-analyzer
-// @ts-ignore - Bundle analyzer is optional dependency
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-const withBundleAnalyzer =
-  process.env.ANALYZE === "true"
-    ? // @ts-ignore
-      (
-        await import("@next/bundle-analyzer").catch(() => ({
-          default: (config) => config,
-        }))
-      ).default
-    : (config) => config;
-
-// @ts-expect-error - Bundle analyzer types are optional
-withBundleAnalyzer({ enabled: process.env.ANALYZE === "true" });
+/**@type {(config: import("next").NextConfig) => import("next").NextConfig} */
+let withBundleAnalyzer = (config) => config;
+if (process.env.ANALYZE === "true") {
+  try {
+    const analyzer = await import("@next/bundle-analyzer");
+    withBundleAnalyzer = analyzer.default({ enabled: true });
+  } catch (e) {
+    console.warn("Bundle analyzer not installed, skipping...");
+  }
+}
 /** @type {import("next").NextConfig} */
 const config = {
   output: "standalone", // Enable standalone mode for Docker

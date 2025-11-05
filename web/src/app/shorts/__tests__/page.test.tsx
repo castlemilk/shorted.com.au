@@ -1,6 +1,10 @@
+import "@testing-library/jest-dom";
+import React from "react";
 import { render, screen } from "@testing-library/react";
+import type { Mock } from "jest-mock";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 import Page, { metadata } from "../page";
+import type { Metadata } from "next";
 
 // Mock the shorts API
 jest.mock("~/app/actions/getTopShorts", () => ({
@@ -64,7 +68,7 @@ describe("/shorts Page (SSR)", () => {
         totalCount: 2,
       };
 
-      (getTopShortsData as jest.Mock).mockResolvedValue(mockData);
+      (getTopShortsData as Mock).mockResolvedValue(mockData);
 
       const jsx = await Page();
       render(jsx);
@@ -75,7 +79,7 @@ describe("/shorts Page (SSR)", () => {
     });
 
     it("should handle empty data gracefully", async () => {
-      (getTopShortsData as jest.Mock).mockResolvedValue({
+      (getTopShortsData as Mock).mockResolvedValue({
         timeSeries: [],
         totalCount: 0,
       });
@@ -89,12 +93,15 @@ describe("/shorts Page (SSR)", () => {
 
   describe("Metadata Configuration", () => {
     it("should have correct metadata for SEO", () => {
-      expect(metadata.title).toContain("Shorted");
-      expect(metadata.description).toBeTruthy();
-      expect(metadata.keywords).toContain("short interest");
-      expect(metadata.keywords).toContain("ASX shorts");
-      expect(metadata.openGraph?.title).toBeTruthy();
-      expect(metadata.openGraph?.type).toBe("website");
+      const meta = metadata as Metadata;
+      expect(meta.title).toContain("Shorted");
+      expect(meta.description).toBeTruthy();
+      expect(meta.keywords).toContain("short interest");
+      expect(meta.keywords).toContain("ASX shorts");
+      expect(meta.openGraph?.title).toBeTruthy();
+      if (meta.openGraph && typeof meta.openGraph !== "string") {
+        expect(meta.openGraph.type).toBe("website");
+      }
     });
   });
 
