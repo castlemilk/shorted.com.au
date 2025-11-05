@@ -17,38 +17,72 @@ const LoginPromptBanner = dynamic(
   { ssr: true },
 );
 
-export const revalidate = 60; // revalidate the data at most every minute
+// Revalidate the page every 60 seconds (ISR - Incremental Static Regeneration)
+// This means Vercel will serve cached pages and revalidate in the background
+export const revalidate = 60;
+
+// Set a maximum execution time for this page (30 seconds)
+// This prevents timeouts when backend is slow
+export const maxDuration = 30;
 
 const Page = async () => {
-  const session = await auth();
-  const data = await getTopShortsData("3m", 10, 0);
-  const treeMapData = await getIndustryTreeMap(
-    "3m",
-    10,
-    ViewMode.CURRENT_CHANGE,
-  );
+  try {
+    const session = await auth();
 
-  return (
-    <>
-      <GoogleAnalytics gaId="G-X85RLQ4N2N" />
-      {/* Subtle login prompt banner for non-authenticated users */}
-      {!session && <LoginPromptBanner />}
+    // Fetch data with error handling
+    const [data, treeMapData] = await Promise.all([
+      getTopShortsData("3m", 10, 0).catch((error) => {
+        console.error("Error fetching top shorts:", error);
+        return { timeSeries: [] }; // Fallback to empty data
+      }),
+      getIndustryTreeMap("3m", 10, ViewMode.CURRENT_CHANGE).catch((error) => {
+        console.error("Error fetching industry treemap:", error);
+        return { industries: [], stocks: [] }; // Fallback to empty data
+      }),
+    ]);
 
-      {/* Main dashboard view - accessible to all users */}
-      <div className="flex flex-col lg:flex-row">
-        <div className="lg:w-2/5">
-          <TopShorts initialShortsData={data.timeSeries} initialPeriod="3m" />
+    return (
+      <>
+        <GoogleAnalytics gaId="G-X85RLQ4N2N" />
+        {/* Subtle login prompt banner for non-authenticated users */}
+        {!session && <LoginPromptBanner />}
+
+        {/* Main dashboard view - accessible to all users */}
+        <div className="flex flex-col lg:flex-row">
+          <div className="lg:w-2/5">
+            <TopShorts initialShortsData={data.timeSeries} initialPeriod="3m" />
+          </div>
+          <div className="lg:w-3/5">
+            <IndustryTreeMapView
+              initialTreeMapData={treeMapData}
+              initialPeriod="3m"
+              initialViewMode={ViewMode.CURRENT_CHANGE}
+            />
+          </div>
         </div>
-        <div className="lg:w-3/5">
-          <IndustryTreeMapView
-            initialTreeMapData={treeMapData}
-            initialPeriod="3m"
-            initialViewMode={ViewMode.CURRENT_CHANGE}
-          />
+      </>
+    );
+  } catch (error) {
+    console.error("Critical error rendering homepage:", error);
+    // Even if there's an error, show the page structure
+    return (
+      <>
+        <GoogleAnalytics gaId="G-X85RLQ4N2N" />
+        <div className="flex flex-col lg:flex-row">
+          <div className="lg:w-2/5">
+            <TopShorts initialShortsData={[]} initialPeriod="3m" />
+          </div>
+          <div className="lg:w-3/5">
+            <IndustryTreeMapView
+              initialTreeMapData={{ industries: [], stocks: [] }}
+              initialPeriod="3m"
+              initialViewMode={ViewMode.CURRENT_CHANGE}
+            />
+          </div>
         </div>
-      </div>
-    </>
-  );
+      </>
+    );
+  }
 };
 
 export default Page;
