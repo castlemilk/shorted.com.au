@@ -102,7 +102,7 @@ export async function middleware(request: NextRequest) {
       // Determine identifier and rate limiter
       const isAuthenticated = !!token?.sub;
       const identifier = isAuthenticated
-        ? `user:${token.sub}`
+        ? `user:${token?.sub ?? "unknown"}`
         : `ip:${request.ip ?? request.headers.get("x-forwarded-for") ?? "unknown"}`;
 
       // Use appropriate rate limiter
