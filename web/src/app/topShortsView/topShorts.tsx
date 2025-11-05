@@ -45,12 +45,16 @@ const getPeriodString = (period: string) => {
 
 interface TopShortsProps {
   initialShortsData: PlainMessage<TimeSeriesData>[]; // Data for multiple series
+  initialPeriod?: string; // Add initial period prop
 }
 
 const LOAD_CHUNK_SIZE = 10;
 
-export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
-  const [period, setPeriod] = useState<string>("max");
+export const TopShorts: FC<TopShortsProps> = ({
+  initialShortsData,
+  initialPeriod = "3m",
+}) => {
+  const [period, setPeriod] = useState<string>(initialPeriod);
   const [loading, setLoading] = useState<boolean>(false);
   const [offset, setOffset] = useState<number>(0); // Added offset state
   const [shortsData, setShortsData] =

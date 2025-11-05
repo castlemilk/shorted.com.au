@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rate-limit";
 
+// Use Edge Runtime for faster cold starts
+export const runtime = "edge";
+
 // In a real implementation, this would query your database
 // For now, we'll use a comprehensive list of ASX stocks
 const ASX_STOCKS = [

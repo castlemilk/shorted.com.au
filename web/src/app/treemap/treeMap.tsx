@@ -24,6 +24,8 @@ import { TreemapTooltip } from "@/components/widgets/treemap-tooltip";
 
 interface TreeMapProps {
   initialTreeMapData: PlainMessage<IndustryTreeMap>;
+  initialPeriod?: string; // Add initial period prop
+  initialViewMode?: ViewMode; // Add initial view mode prop
 }
 
 interface TreeMapDatum {
@@ -36,11 +38,13 @@ const PADDING = 5;
 
 export const IndustryTreeMapView: FC<TreeMapProps> = ({
   initialTreeMapData,
+  initialPeriod = "3m",
+  initialViewMode = ViewMode.CURRENT_CHANGE,
 }) => {
   const firstUpdate = useRef(true);
   const router = useRouter();
-  const [period, setPeriod] = useState<string>("max");
-  const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.CURRENT_CHANGE);
+  const [period, setPeriod] = useState<string>(initialPeriod);
+  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [treeMapData, setTreeMapData] =
     useState<PlainMessage<IndustryTreeMap> | null>(initialTreeMapData);
 

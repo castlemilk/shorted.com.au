@@ -13,7 +13,10 @@ import { NextAuthProvider } from "./next-auth-provider";
 import { siteConfig } from "~/@/config/site";
 import { StructuredData } from "~/@/components/seo/structured-data";
 import { Toaster } from "@/components/ui/toaster";
-import { EnvironmentBanner, DevelopmentBanner } from "@/components/ui/environment-banner";
+import {
+  EnvironmentBanner,
+  DevelopmentBanner,
+} from "@/components/ui/environment-banner";
 
 const fontSans = FontSans({
   subsets: ["latin"],
@@ -101,7 +104,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={fontSans.variable}>
+    <html lang="en" className={fontSans.variable} suppressHydrationWarning>
       <body className={cn("min-h-screen bg-background font-sans antialiased")}>
         <NextAuthProvider>
           <ThemeProvider

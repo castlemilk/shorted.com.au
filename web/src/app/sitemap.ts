@@ -55,15 +55,111 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
-  // TODO: Add dynamic routes for stock pages
-  // This would require fetching all stock codes from your API
-  // const stockCodes = await getAllStockCodes()
-  // const stockRoutes = stockCodes.map((code) => ({
-  //   url: `${baseUrl}/shorts/${code}`,
-  //   lastModified: currentDate,
-  //   changeFrequency: 'daily' as const,
-  //   priority: 0.8,
-  // }))
+  // Popular ASX stock pages (top 50 by market cap and activity)
+  // TODO: In production, fetch all stock codes from the database
+  const popularStocks = [
+    "CBA",
+    "BHP",
+    "CSL",
+    "NAB",
+    "WBC",
+    "ANZ",
+    "WES",
+    "MQG",
+    "WOW",
+    "TLS",
+    "RIO",
+    "FMG",
+    "GMG",
+    "TCL",
+    "WDS",
+    "NCM",
+    "ALL",
+    "COL",
+    "REA",
+    "QBE",
+    "APT",
+    "XRO",
+    "SHL",
+    "RMD",
+    "COH",
+    "IAG",
+    "SUN",
+    "ORG",
+    "APA",
+    "TWE",
+    "CPU",
+    "MPL",
+    "AGL",
+    "ASX",
+    "STO",
+    "S32",
+    "A2M",
+    "JHX",
+    "SGP",
+    "GPT",
+    "MIN",
+    "EVN",
+    "NST",
+    "OZL",
+    "WHC",
+    "PLS",
+    "LYC",
+    "IGO",
+    "NHC",
+    "WTC",
+  ];
 
-  return [...staticRoutes, ...blogRoutes];
+  const stockRoutes = popularStocks.map((code) => ({
+    url: `${baseUrl}/shorts/${code}`,
+    lastModified: currentDate,
+    changeFrequency: "daily" as const,
+    priority: 0.8,
+  }));
+
+  // Add main shorts page
+  const shortsRoutes = [
+    {
+      url: `${baseUrl}/shorts`,
+      lastModified: currentDate,
+      changeFrequency: "hourly" as const,
+      priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/stocks`,
+      lastModified: currentDate,
+      changeFrequency: "daily" as const,
+      priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/portfolio`,
+      lastModified: currentDate,
+      changeFrequency: "daily" as const,
+      priority: 0.8,
+    },
+  ];
+
+  // Documentation routes for LLMs and developers
+  const docRoutes = [
+    {
+      url: `${baseUrl}/docs/llm-context`,
+      lastModified: currentDate,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/docs/api-reference`,
+      lastModified: currentDate,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    },
+  ];
+
+  return [
+    ...staticRoutes,
+    ...shortsRoutes,
+    ...docRoutes,
+    ...blogRoutes,
+    ...stockRoutes,
+  ];
 }

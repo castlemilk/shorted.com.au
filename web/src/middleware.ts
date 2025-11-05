@@ -38,7 +38,8 @@ if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
 const RATE_LIMITED_PATHS = ["/api/market-data", "/api/search"];
 
 // Protected page routes that require authentication
-const PROTECTED_ROUTES = ["/dashboards", "/portfolio", "/shorts", "/stocks"];
+const PROTECTED_ROUTES = ["/dashboards", "/portfolio", "/stocks"];
+// Note: /shorts/[stockCode] is public for SEO, only /shorts list view is protected
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -49,9 +50,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check if this is a protected route
-  const isProtectedRoute = PROTECTED_ROUTES.some((route) =>
-    pathname.startsWith(route),
-  );
+  // Special case: /shorts is protected, but /shorts/[stockCode] is public
+  const isProtectedRoute =
+    pathname === "/shorts" ||
+    PROTECTED_ROUTES.some((route) => pathname.startsWith(route));
 
   // Enforce authentication for protected routes
   if (isProtectedRoute) {
@@ -162,13 +164,13 @@ export const config = {
     "/api/search/:path*",
     /*
      * Protected page routes (require authentication)
+     * Note: /shorts/[stockCode] pages are NOT protected (public for SEO)
      */
     "/dashboards",
     "/dashboards/:path*",
     "/portfolio",
     "/portfolio/:path*",
-    "/shorts",
-    "/shorts/:path*",
+    "/shorts", // Only the list view, not individual stock pages
     "/stocks",
     "/stocks/:path*",
   ],

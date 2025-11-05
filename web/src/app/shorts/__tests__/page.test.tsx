@@ -101,8 +101,8 @@ describe("/shorts Page (SSR)", () => {
   describe("ISR Configuration", () => {
     it("should have revalidate time configured", async () => {
       // The revalidate export should be present
-      const module = await import("../page");
-      expect(module.revalidate).toBe(300); // 5 minutes
+      const pageModule = await import("../page");
+      expect(pageModule.revalidate).toBe(300); // 5 minutes
     });
   });
 });

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Building2 } from "lucide-react";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,7 @@ export function StockSearchResultItem({
   stock,
   onClick,
 }: StockSearchResultItemProps) {
+  const [imageError, setImageError] = useState(false);
   const {
     data: sparklineData,
     loading: sparklineLoading,
@@ -35,7 +37,7 @@ export function StockSearchResultItem({
       <div className="flex items-center gap-4">
         {/* Logo */}
         <div className="flex-shrink-0">
-          {stock.logoUrl ? (
+          {stock.logoUrl && !imageError ? (
             <div className="relative w-10 h-10 rounded-md overflow-hidden bg-muted">
               <Image
                 src={stock.logoUrl}
@@ -43,15 +45,10 @@ export function StockSearchResultItem({
                 fill
                 className="object-contain p-1"
                 sizes="40px"
-                onError={(e) => {
-                  // Fallback to icon if image fails
-                  e.currentTarget.style.display = "none";
+                onError={() => {
+                  setImageError(true);
                 }}
               />
-              {/* Fallback icon overlay */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Building2 className="h-6 w-6 text-muted-foreground/50" />
-              </div>
             </div>
           ) : (
             <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center">

@@ -28,10 +28,14 @@ const Page = async () => {
       {/* Main dashboard view - accessible to all users */}
       <div className="flex flex-col lg:flex-row">
         <div className="lg:w-2/5">
-          <TopShorts initialShortsData={data.timeSeries} />
+          <TopShorts initialShortsData={data.timeSeries} initialPeriod="3m" />
         </div>
         <div className="lg:w-3/5">
-          <IndustryTreeMapView initialTreeMapData={treeMapData} />
+          <IndustryTreeMapView
+            initialTreeMapData={treeMapData}
+            initialPeriod="3m"
+            initialViewMode={ViewMode.CURRENT_CHANGE}
+          />
         </div>
       </div>
     </>

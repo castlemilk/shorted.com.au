@@ -81,18 +81,15 @@ jest.mock("lucide-react", () => ({
   CandlestickChart: () => <div data-testid="candlestick-icon" />,
 }));
 
-// Mock auth
-jest.mock("@/auth", () => ({
-  auth: jest.fn().mockResolvedValue({ user: { id: "test-user" } }),
-}));
+// Note: No auth mocking needed - this page is public!
 
-describe("/shorts/[stockCode] Page (SSR)", () => {
+describe("/shorts/[stockCode] Page (SSR - Public)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   describe("Server-Side Rendering", () => {
-    it("should render with uppercase stock code", async () => {
+    it("should render public stock page with uppercase stock code", async () => {
       const jsx = await Page({ params: { stockCode: "cba" } });
       const { getByTestId } = render(jsx);
 
@@ -172,8 +169,8 @@ describe("/shorts/[stockCode] Page (SSR)", () => {
 
   describe("ISR Configuration", () => {
     it("should have revalidate time of 60 seconds", async () => {
-      const module = await import("../page");
-      expect(module.revalidate).toBe(60);
+      const pageModule = await import("../page");
+      expect(pageModule.revalidate).toBe(60);
     });
   });
 });
