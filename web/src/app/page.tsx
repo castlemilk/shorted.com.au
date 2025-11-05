@@ -6,7 +6,16 @@ import { getIndustryTreeMap } from "./actions/getIndustryTreeMap";
 import { IndustryTreeMapView } from "./treemap/treeMap";
 import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { auth } from "~/server/auth";
-import { LoginPromptBanner } from "@/components/ui/login-prompt-banner";
+import dynamic from "next/dynamic";
+
+// Dynamic import to ensure client component is properly bundled
+const LoginPromptBanner = dynamic(
+  () =>
+    import("@/components/ui/login-prompt-banner").then(
+      (mod) => mod.LoginPromptBanner,
+    ),
+  { ssr: true },
+);
 
 export const revalidate = 60; // revalidate the data at most every minute
 
