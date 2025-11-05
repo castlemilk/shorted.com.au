@@ -357,9 +357,9 @@ func TestDataConsistency(t *testing.T) {
 			// Test that all stocks in shorts have metadata
 			var orphanCount int
 			err := container.DB.QueryRow(ctx, `
-				SELECT COUNT(DISTINCT s.product_code) 
+				SELECT COUNT(DISTINCT s."PRODUCT_CODE") 
 				FROM shorts s 
-				LEFT JOIN "company-metadata" m ON s.product_code = m.stock_code 
+				LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code 
 				WHERE m.stock_code IS NULL
 			`).Scan(&orphanCount)
 			require.NoError(t, err)
@@ -389,11 +389,11 @@ func TestPerformance(t *testing.T) {
 			start := time.Now()
 
 			rows, err := container.DB.Query(ctx, `
-				SELECT s.product_code, s.percent_of_total_shares, m.company_name
+				SELECT s."PRODUCT_CODE", s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS", m.company_name
 				FROM shorts s
-				JOIN "company-metadata" m ON s.product_code = m.stock_code
-				WHERE s.date = $1
-				ORDER BY s.percent_of_total_shares DESC
+				JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
+				WHERE s."DATE" = $1
+				ORDER BY s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC
 				LIMIT 10
 			`, testDate)
 
