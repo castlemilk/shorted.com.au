@@ -74,7 +74,7 @@ export function isPreviewDeployment(): boolean {
 export function getPreviewPRNumber(): string | null {
   if (typeof window !== "undefined") {
     const match = window.location.hostname.match(/pr-(\d+)/);
-    return match ? match[1] : null;
+    return match?.[1] ?? null;
   }
   return null;
 }
