@@ -8,6 +8,10 @@
 # E2E tests  
 e2e/**
 
+# Generated code
+src/gen/**
+src/app/lib/firestore.ts
+
 # Build outputs
 .next/**
 out/**
@@ -19,6 +23,10 @@ node_modules/**
 
 # Coverage
 coverage/**
+
+# Scripts
+scripts/**
+test-*.cjs
 
 # Misc
 *.config.js
