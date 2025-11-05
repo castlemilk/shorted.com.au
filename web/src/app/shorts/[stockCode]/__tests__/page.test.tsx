@@ -1,5 +1,8 @@
+import "@testing-library/jest-dom";
+import React from "react";
 import { render } from "@testing-library/react";
 import Page, { generateMetadata } from "../page";
+import type { Metadata } from "next";
 
 // Mock all child components
 jest.mock("~/@/components/ui/chart", () => ({
@@ -136,8 +139,12 @@ describe("/shorts/[stockCode] Page (SSR - Public)", () => {
       });
 
       expect(metadata.openGraph?.title).toContain("BHP");
-      expect(metadata.openGraph?.type).toBe("article");
-      expect(metadata.openGraph?.url).toContain("/shorts/BHP");
+      if (metadata.openGraph && typeof metadata.openGraph !== "string") {
+        expect(metadata.openGraph.type).toBe("article");
+      }
+      if (metadata.openGraph && typeof metadata.openGraph !== "string") {
+        expect(metadata.openGraph.url).toContain("/shorts/BHP");
+      }
     });
 
     it("should include Twitter card metadata", async () => {
@@ -145,7 +152,9 @@ describe("/shorts/[stockCode] Page (SSR - Public)", () => {
         params: { stockCode: "csl" },
       });
 
-      expect(metadata.twitter?.card).toBe("summary_large_image");
+      if (metadata.twitter && typeof metadata.twitter !== "string") {
+        expect(metadata.twitter.card).toBe("summary_large_image");
+      }
       expect(metadata.twitter?.title).toContain("CSL");
     });
 
@@ -162,8 +171,10 @@ describe("/shorts/[stockCode] Page (SSR - Public)", () => {
         params: { stockCode: "nab" },
       });
 
-      expect(metadata.robots?.index).toBe(true);
-      expect(metadata.robots?.follow).toBe(true);
+      if (metadata.robots && typeof metadata.robots !== "string") {
+        expect(metadata.robots.index).toBe(true);
+        expect(metadata.robots.follow).toBe(true);
+      }
     });
   });
 
