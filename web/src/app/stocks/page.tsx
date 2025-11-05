@@ -1,35 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search } from "lucide-react";
 import {
-  Search,
-  TrendingUp,
-  TrendingDown,
-  Activity,
-  BarChart3,
-} from "lucide-react";
-import {
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Area,
-  AreaChart,
-} from "recharts";
-import {
-  getHistoricalData,
   searchStocksEnriched,
-  type HistoricalDataPoint,
   type StockSearchResult,
 } from "@/lib/stock-data-service";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import { DashboardLayout } from "@/components/layouts/dashboard-layout";
 import {
   StockSearchResultItem,
@@ -52,44 +32,14 @@ const POPULAR_STOCKS = [
   { code: "MQG", name: "Macquarie Group" },
 ];
 
-type TimePeriod = "1d" | "1w" | "1m" | "3m" | "6m" | "1y" | "5y" | "10y";
-
 export default function StocksPage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStock] = useState<string | null>(null);
-  const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>(
-    [],
-  );
-  const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>("1m");
-  const [loadingHistorical, setLoadingHistorical] = useState(false);
   const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
   // Debounced search
   const searchDebounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Load historical data
-  const loadHistoricalData = useCallback(async () => {
-    if (!selectedStock) return;
-
-    setLoadingHistorical(true);
-    try {
-      const data = await getHistoricalData(selectedStock, selectedPeriod);
-      setHistoricalData(data);
-    } catch (error) {
-      console.error("Failed to load historical data:", error);
-    } finally {
-      setLoadingHistorical(false);
-    }
-  }, [selectedStock, selectedPeriod]);
-
-  // Load historical data when stock or period changes
-  useEffect(() => {
-    if (selectedStock) {
-      void loadHistoricalData();
-    }
-  }, [selectedStock, selectedPeriod, loadHistoricalData]);
 
   // Search stocks using enriched API
   const searchStocksAPI = useCallback(async (query: string) => {
@@ -139,51 +89,6 @@ export default function StocksPage() {
   // Handle popular stock click
   const handlePopularStockClick = (stockCode: string) => {
     router.push(`/shorts/${stockCode}`);
-  };
-
-  // Format currency
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-AU", {
-      style: "currency",
-      currency: "AUD",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  };
-
-  // Format number
-  const formatNumber = (value: number) => {
-    return new Intl.NumberFormat("en-AU").format(value);
-  };
-
-  // Format percentage
-  const formatPercent = (value: number | undefined) => {
-    if (value === undefined || value === null || isNaN(value)) {
-      return "N/A";
-    }
-    const sign = value >= 0 ? "+" : "";
-    return `${sign}${value.toFixed(2)}%`;
-  };
-
-  // Format date for chart
-  const formatChartDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    if (selectedPeriod === "1d" || selectedPeriod === "1w") {
-      return date.toLocaleDateString("en-AU", {
-        day: "numeric",
-        month: "short",
-      });
-    } else if (selectedPeriod === "1m" || selectedPeriod === "3m") {
-      return date.toLocaleDateString("en-AU", {
-        day: "numeric",
-        month: "short",
-      });
-    } else {
-      return date.toLocaleDateString("en-AU", {
-        month: "short",
-        year: "2-digit",
-      });
-    }
   };
 
   return (
