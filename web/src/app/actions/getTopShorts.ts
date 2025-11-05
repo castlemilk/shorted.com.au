@@ -6,18 +6,25 @@ import { cache } from "react";
 import { formatPeriodForAPI } from "~/lib/period-utils";
 import { SHORTS_API_URL } from "./config";
 
+// Create a cached fetch function that uses Next.js's Data Cache
+// This enables Vercel's CDN to serve stale data while revalidating (stale-while-revalidate)
+const cachedFetch: typeof fetch = (input, init) => {
+  return fetch(input, {
+    ...init,
+    next: {
+      // Cache for 60 seconds, then revalidate in the background
+      revalidate: 60,
+      // Tag this cache entry so we can manually revalidate if needed
+      tags: ['top-shorts'],
+    },
+  });
+};
+
 export const getTopShortsData = cache(
   async (period: string, limit: number, offset: number) => {
     const transport = createConnectTransport({
-      // All transports accept a custom fetch implementation.
-      fetch,
-      // fetch: (input, init: RequestInit | undefined) => {
-      //   if (init?.headers) {
-      //     const headers = init.headers as Headers;
-      //     headers.set("Authorization", authHeader.get("Authorization") ?? "");
-      //   }
-      //   return fetch(input, init);
-      // },
+      // Use the cached fetch function to enable Next.js Data Cache
+      fetch: cachedFetch,
       baseUrl:
         process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
         SHORTS_API_URL,

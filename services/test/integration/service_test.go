@@ -17,10 +17,14 @@ import (
 )
 
 // TestShortsServiceWithSeededData tests the service with a fresh database and seeded test data
+// This is an END-TO-END test that starts the actual service binary - not suitable for CI
 func TestShortsServiceWithSeededData(t *testing.T) {
-	// Skip if SKIP_SERVICE_TESTS is set (for CI/CD where we test against deployed services)
-	if os.Getenv("SKIP_SERVICE_TESTS") != "" {
-		t.Skip("Skipping service tests as SKIP_SERVICE_TESTS is set")
+	// Skip in CI environments (GitHub Actions sets multiple env vars)
+	if os.Getenv("SKIP_SERVICE_TESTS") != "" || 
+	   os.Getenv("CI") != "" || 
+	   os.Getenv("GITHUB_ACTIONS") != "" ||
+	   os.Getenv("CONTINUOUS_INTEGRATION") != "" {
+		t.Skip("Skipping end-to-end service tests (requires local service binary)")
 	}
 
 	WithTestDatabase(t, func(container *TestContainer) {
