@@ -317,7 +317,28 @@ history.stock-data.status:
 .PHONY: test test.coverage test.shorts test.integration test.integration.local test.integration.docker bench
 .PHONY: test-stack-up test-stack-down test-stack-status test-stack-logs
 .PHONY: test-integration test-e2e test-all-integration test-integration-local test-integration-ci
+.PHONY: lint lint-install
 
+# Linting
+lint-install:
+	@which golangci-lint > /dev/null || { \
+		echo "📦 Installing golangci-lint..."; \
+		if [ "$$(uname)" = "Darwin" ]; then \
+			brew install golangci-lint; \
+		else \
+			curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin v1.61.0; \
+		fi; \
+	}
+
+lint: lint-install
+	@echo "🔍 Running golangci-lint..."
+	golangci-lint run ./...
+
+lint-fix: lint-install
+	@echo "🔧 Running golangci-lint with auto-fix..."
+	golangci-lint run --fix ./...
+
+# Unit tests
 test:
 	go test ./... -v
 
