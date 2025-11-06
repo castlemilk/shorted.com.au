@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Image from "next/image";
-import { signInWithGoogle, signInWithCredentials } from "~/app/actions/auth";
+import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,8 +13,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Chrome, Loader2, AlertCircle } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 
-export default function SignInPage() {
+function SignInForm() {
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") ?? "/";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -25,7 +28,7 @@ export default function SignInPage() {
     setIsGoogleLoading(true);
     setError(null);
     try {
-      await signInWithGoogle();
+      await signIn("google", { callbackUrl });
     } catch (err) {
       setError("Failed to sign in with Google. Please try again.");
       setIsGoogleLoading(false);
@@ -44,10 +47,19 @@ export default function SignInPage() {
     }
 
     try {
-      const result = await signInWithCredentials(email, password);
+      const result = await signIn("credentials", {
+        email,
+        password,
+        callbackUrl,
+        redirect: false,
+      });
+      
       if (result?.error) {
-        setError(result.error);
+        setError("Invalid email or password");
         setIsLoading(false);
+      } else if (result?.ok) {
+        // Redirect on success
+        window.location.href = callbackUrl;
       }
     } catch (err) {
       setError("Failed to sign in. Please check your credentials.");
@@ -191,5 +203,13 @@ export default function SignInPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <SignInForm />
+    </Suspense>
   );
 }

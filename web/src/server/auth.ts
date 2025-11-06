@@ -126,18 +126,24 @@ export const authOptions = {
       token: JWT;
       user?: User | AdapterUser;
     }): Promise<JWT> {
-      // When user signs in, add their ID to the token
-      // Use email as the consistent user ID to maintain compatibility with existing data
-      if (user?.email) {
-        // On sign in, set the user ID from the email
-        token.id = user.email ?? token.sub ?? "unknown";
-        // Preserve email and sub for middleware checks
-        if (!token.email) token.email = user.email;
+      // On initial sign in, user object is provided
+      if (user) {
+        // Use email as the consistent user ID to maintain compatibility with existing data
+        token.id = user.email ?? user.id ?? token.sub ?? "unknown";
+        token.email = user.email ?? token.email;
+        token.name = user.name ?? token.name;
+        token.picture = user.image ?? token.picture;
+        // CRITICAL: Preserve or set sub for middleware checks
+        if (!token.sub) {
+          token.sub = user.id ?? user.email ?? "unknown";
+        }
       }
+      
       // Ensure token.id is always set (preserve it on token refresh)
       if (!token.id && token.email) {
         token.id = token.email;
       }
+      
       return token;
     },
     // Session callback runs after JWT - when session is checked
