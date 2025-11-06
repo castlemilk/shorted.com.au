@@ -1,7 +1,8 @@
-import NextAuth, { type Session } from "next-auth";
+import NextAuth, { type Session, type User } from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import type { JWT } from "next-auth/jwt";
+import type { AdapterUser } from "next-auth/adapters";
 
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -99,15 +100,20 @@ export const authOptions = {
   // adapter: FirestoreAdapter(firestore), // Commented out until Firebase adapter issues are resolved
   callbacks: {
     // JWT callback runs first - when JWT is created or updated
-    async jwt({ token, user }: { token: JWT; user: any }): Promise<JWT> {
+    async jwt({
+      token,
+      user,
+    }: {
+      token: JWT;
+      user?: User | AdapterUser;
+    }): Promise<JWT> {
       // When user signs in, add their ID to the token
       // Use email as the consistent user ID to maintain compatibility with existing data
-      if (user) {
+      if (user?.email) {
         // On sign in, set the user ID from the email
-        token.id = user.email ?? user.id ?? token.sub ?? "unknown";
+        token.id = user.email ?? token.sub ?? "unknown";
         // Preserve email and sub for middleware checks
-        if (user.email && !token.email) token.email = user.email;
-        if (user.sub && !token.sub) token.sub = user.sub;
+        if (!token.email) token.email = user.email;
       }
       // Ensure token.id is always set (preserve it on token refresh)
       if (!token.id && token.email) {
@@ -127,10 +133,7 @@ export const authOptions = {
       // Use email as the consistent user ID to maintain compatibility with existing data
       if (session.user) {
         session.user.id =
-          (token.id as string) ??
-          session.user.email! ??
-          (token.sub as string) ??
-          "unknown";
+          token.id ?? session.user.email ?? token.sub ?? "unknown";
       }
       return session;
     },
