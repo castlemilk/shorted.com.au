@@ -60,6 +60,23 @@ declare module "next-auth/jwt" {
 export const authOptions = {
   trustHost: true, // Required for Vercel and production environments
   secret: process.env.NEXTAUTH_SECRET,
+  session: {
+    strategy: "jwt" as const,
+  },
+  cookies: {
+    sessionToken: {
+      name:
+        process.env.NODE_ENV === "production"
+          ? "__Secure-next-auth.session-token"
+          : "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax" as const,
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+  },
   pages: {
     signIn: "/signin",
   },

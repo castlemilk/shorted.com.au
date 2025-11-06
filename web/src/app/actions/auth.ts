@@ -7,7 +7,7 @@ export async function signInAction() {
 }
 
 export async function signInWithGoogle() {
-  await authSignIn("google", { redirectTo: "/" });
+  await authSignIn("google", { redirect: true, redirectTo: "/" });
 }
 
 export async function signInWithCredentials(email: string, password: string) {
