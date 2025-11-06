@@ -58,6 +58,8 @@ declare module "next-auth/jwt" {
  * @see https://next-auth.js.org/configuration/options
  */
 export const authOptions = {
+  trustHost: true, // Required for Vercel and production environments
+  secret: process.env.NEXTAUTH_SECRET,
   pages: {
     signIn: "/signin",
   },
