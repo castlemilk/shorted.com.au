@@ -1,3 +1,5 @@
+"use client";
+
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -6,12 +8,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Avatar from "@/components/ui/avatar";
-import { auth } from "~/server/auth";
+import { useSession } from "next-auth/react";
 import { SignIn } from "@/components/ui/sign-in";
 import { SignOut } from "./sign-out";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export const UserAuthNav = async () => {
-  const session = await auth();
+export const UserAuthNav = () => {
+  const { data: session, status } = useSession();
+  
+  if (status === "loading") {
+    return <Skeleton className="h-10 w-10 rounded-full" />;
+  }
+  
   if (!session) {
     return <SignIn />;
   }

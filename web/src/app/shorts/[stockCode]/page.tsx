@@ -1,3 +1,5 @@
+"use client";
+
 import Chart from "~/@/components/ui/chart";
 import MarketChart from "~/@/components/ui/market-chart";
 import CompanyProfile, {
@@ -10,8 +12,6 @@ import CompanyInfo, {
   CompanyInfoPlaceholder,
 } from "~/@/components/ui/companyInfo";
 import { Suspense } from "react";
-import { siteConfig } from "~/@/config/site";
-import { type Metadata } from "next";
 import { StockStructuredData } from "~/@/components/seo/structured-data";
 import {
   Breadcrumbs,
@@ -32,57 +32,7 @@ interface PageProps {
   params: { stockCode: string };
 }
 
-export async function generateMetadata({
-  params,
-}: PageProps): Promise<Metadata> {
-  const stockCode = params.stockCode.toUpperCase();
-
-  // TODO: Fetch actual company data for richer metadata
-  // const companyData = await getCompanyData(stockCode);
-
-  return {
-    title: `${stockCode} Stock Analysis - Short Position Data`,
-    description: `Comprehensive analysis of ${stockCode} short positions on the ASX. View real-time charts, company profile, and short interest data for ${stockCode} shares.`,
-    keywords: [
-      `${stockCode} short position`,
-      `${stockCode} ASX`,
-      `${stockCode} stock analysis`,
-      `${stockCode} short interest`,
-      `${stockCode} bearish sentiment`,
-      "ASX short data",
-      "Australian stock analysis",
-    ],
-    openGraph: {
-      title: `${stockCode} Short Position Analysis | ${siteConfig.name}`,
-      description: `Analyze ${stockCode} short positions with real-time data and interactive charts. Discover market sentiment and trading insights.`,
-      url: `${siteConfig.url}/shorts/${stockCode}`,
-      type: "article",
-      images: [
-        {
-          url: siteConfig.ogImage,
-          width: 1200,
-          height: 630,
-          alt: `${stockCode} short position analysis`,
-        },
-      ],
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: `${stockCode} Short Analysis`,
-      description: `Real-time ${stockCode} short position data and market insights`,
-    },
-    alternates: {
-      canonical: `${siteConfig.url}/shorts/${stockCode}`,
-    },
-    robots: {
-      index: true,
-      follow: true,
-    },
-  };
-}
-export const revalidate = 60; // revalidate the data at most every minute
-
-const Page = async ({ params }: PageProps) => {
+const Page = ({ params }: PageProps) => {
   // This page is public for SEO and discovery - no authentication required
   const stockCode = params.stockCode.toUpperCase();
 
