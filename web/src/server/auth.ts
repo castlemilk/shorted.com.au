@@ -63,20 +63,6 @@ export const authOptions = {
   session: {
     strategy: "jwt" as const,
   },
-  cookies: {
-    sessionToken: {
-      name:
-        process.env.NODE_ENV === "production"
-          ? "__Secure-next-auth.session-token"
-          : "next-auth.session-token",
-      options: {
-        httpOnly: true,
-        sameSite: "lax" as const,
-        path: "/",
-        secure: process.env.NODE_ENV === "production",
-      },
-    },
-  },
   pages: {
     signIn: "/signin",
   },
@@ -138,12 +124,12 @@ export const authOptions = {
           token.sub = user.id ?? user.email ?? "unknown";
         }
       }
-      
+
       // Ensure token.id is always set (preserve it on token refresh)
       if (!token.id && token.email) {
         token.id = token.email;
       }
-      
+
       return token;
     },
     // Session callback runs after JWT - when session is checked
