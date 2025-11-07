@@ -1,11 +1,12 @@
+"use client";
 
 import { type FC } from "react";
 import { MainNav } from "./main-nav";
 import { ModeToggle } from "./mode-toggle";
-import { auth } from "~/server/auth";
+import { useSession } from "next-auth/react";
 
-const SiteHeader: FC = async () => {
-  const session = await auth();
+const SiteHeader: FC = () => {
+  const { data: session } = useSession();
   
   const items = [
     ...(session ? [
