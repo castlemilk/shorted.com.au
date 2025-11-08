@@ -2,19 +2,19 @@
 
 import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Card } from "~/@/components/ui/card";
+import { Input } from "~/@/components/ui/input";
+import { Button } from "~/@/components/ui/button";
 import { Search } from "lucide-react";
 import {
   searchStocksEnriched,
   type StockSearchResult,
-} from "@/lib/stock-data-service";
-import { DashboardLayout } from "@/components/layouts/dashboard-layout";
+} from "~/@/lib/stock-data-service";
+import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import {
   StockSearchResultItem,
   StockSearchResultItemSkeleton,
-} from "@/components/search/stock-search-result-item";
+} from "~/@/components/search/stock-search-result-item";
 
 // Popular ASX stocks for quick access
 const POPULAR_STOCKS = [

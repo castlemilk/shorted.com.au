@@ -1,17 +1,17 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "~/@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import Avatar from "@/components/ui/avatar";
+} from "~/@/components/ui/dropdown-menu";
+import Avatar from "~/@/components/ui/avatar";
 import { useSession } from "next-auth/react";
-import { SignIn } from "@/components/ui/sign-in";
+import { SignIn } from "~/@/components/ui/sign-in";
 import { SignOut } from "./sign-out";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "~/@/components/ui/skeleton";
 
 export const UserAuthNav = () => {
   const { data: session, status } = useSession();

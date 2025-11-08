@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "@/auth";
-import { type DashboardConfig } from "@/types/dashboard";
+import { type DashboardConfig } from "~/@/types/dashboard";
 import { initializeApp, cert, getApps, type App } from "firebase-admin/app";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 

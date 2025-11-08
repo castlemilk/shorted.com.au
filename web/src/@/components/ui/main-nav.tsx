@@ -3,11 +3,11 @@
 import * as React from "react";
 import Link from "next/link";
 
-import { type NavItem } from "@/types/nav";
-import { siteConfig } from "@/config/site";
-import { cn } from "@/lib/utils";
-import { Icons } from "@/components/ui/icons";
-import { UserAuthNav } from "@/components/ui/user-auth-nav";
+import { type NavItem } from "~/@/types/nav";
+import { siteConfig } from "~/@/config/site";
+import { cn } from "~/@/lib/utils";
+import { Icons } from "~/@/components/ui/icons";
+import { UserAuthNav } from "~/@/components/ui/user-auth-nav";
 
 interface MainNavProps {
   items?: NavItem[];

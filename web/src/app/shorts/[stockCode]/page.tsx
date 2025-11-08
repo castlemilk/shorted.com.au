@@ -1,5 +1,3 @@
-"use client";
-
 import Chart from "~/@/components/ui/chart";
 import MarketChart from "~/@/components/ui/market-chart";
 import CompanyProfile, {
@@ -18,7 +16,7 @@ import {
   BreadcrumbStructuredData,
 } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
-import { DashboardLayout } from "@/components/layouts/dashboard-layout";
+import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import {
   Card,
   CardContent,

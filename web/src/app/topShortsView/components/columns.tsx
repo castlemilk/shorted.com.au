@@ -10,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/@/components/ui/card";
-import Sparkline from "./sparkline";
+import { SparkLine } from "./sparkline";
 import { Button } from "~/@/components/ui/button";
 import { ArrowUpDown, Circle } from "lucide-react";
 import { Badge } from "~/@/components/ui/badge";
@@ -27,6 +27,7 @@ const truncateValue = (value: number, maxLength: number) => {
   );
 };
 
+// Restore full columns
 export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
   {
     id: "name",
@@ -105,7 +106,7 @@ export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
     ),
     cell: ({ row }) => (
       <div className="w-full h-full flex items-center justify-center px-1">
-        <Sparkline data={row.original} />
+        <SparkLine data={row.original} />
       </div>
     ),
     enableSorting: false,

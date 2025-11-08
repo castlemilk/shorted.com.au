@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Card } from "~/@/components/ui/card";
+import { Button } from "~/@/components/ui/button";
+import { Input } from "~/@/components/ui/input";
+import { Label } from "~/@/components/ui/label";
+import { Badge } from "~/@/components/ui/badge";
+import { Skeleton } from "~/@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -15,15 +15,15 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "~/@/components/ui/table";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+} from "~/@/components/ui/dialog";
+import { ScrollArea } from "~/@/components/ui/scroll-area";
 import {
   Plus,
   Trash2,
@@ -33,16 +33,16 @@ import {
   BarChart3,
   Loader2,
 } from "lucide-react";
-import { StockAutocomplete } from "@/components/ui/stock-autocomplete";
+import { StockAutocomplete } from "~/@/components/ui/stock-autocomplete";
 import {
   getMultipleStockQuotes,
   type StockQuote,
-} from "@/lib/stock-data-service";
+} from "~/@/lib/stock-data-service";
 import {
   portfolioService,
   type PortfolioHolding,
-} from "@/lib/portfolio-service";
-import { useToast } from "@/hooks/use-toast";
+} from "~/@/lib/portfolio-service";
+import { useToast } from "~/@/hooks/use-toast";
 
 interface PortfolioData {
   holdings: PortfolioHolding[];

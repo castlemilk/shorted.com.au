@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Input } from "@/components/ui/input";
+import { Input } from "~/@/components/ui/input";
 import { Loader2, Search } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "~/@/lib/utils";
 import debounce from "lodash/debounce";
 
 interface StockSuggestion {

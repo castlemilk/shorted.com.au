@@ -1,14 +1,14 @@
 import { notFound } from "next/navigation";
-import { getPostBySlug } from "@/lib/api";
-import Container from "@/components/ui/container";
-import { PostHeader } from "@/components/ui/post-header";
+import { getPostBySlug } from "~/@/lib/api";
+import Container from "~/@/components/ui/container";
+import { PostHeader } from "~/@/components/ui/post-header";
 import { type Metadata } from "next";
 import { MDXRemote } from "next-mdx-remote/rsc";
-import { siteConfig } from "@/config/site";
-import { ArticleSchema } from "@/components/seo/article-schema";
-import { SocialShare } from "@/components/seo/social-share";
-import { RelatedPosts } from "@/components/seo/related-posts";
-import { calculateReadingTime, formatReadingTime } from "@/utils/reading-time";
+import { siteConfig } from "~/@/config/site";
+import { ArticleSchema } from "~/@/components/seo/article-schema";
+import { SocialShare } from "~/@/components/seo/social-share";
+import { RelatedPosts } from "~/@/components/seo/related-posts";
+import { calculateReadingTime, formatReadingTime } from "~/@/utils/reading-time";
 import Info from "~/@/components/ui/info";
 import RegisterEmail from "~/@/components/ui/register-email";
 

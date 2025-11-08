@@ -1,17 +1,17 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "~/@/components/ui/card";
+import { Button } from "~/@/components/ui/button";
 import { X, Settings, Maximize2, Minimize2 } from "lucide-react";
-import { type WidgetProps } from "@/types/dashboard";
+import { type WidgetProps } from "~/@/types/dashboard";
 import { useState, Suspense } from "react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "~/@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "~/@/components/ui/dropdown-menu";
 
 interface WidgetWrapperProps extends WidgetProps {
   children: React.ReactNode;

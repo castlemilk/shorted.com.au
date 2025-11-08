@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "~/@/components/ui/input";
+import { Button } from "~/@/components/ui/button";
+import { Alert, AlertDescription } from "~/@/components/ui/alert";
 import { registerEmail } from "~/app/actions/register";
 import Image from "next/image";
 const RegisterEmail = () => {

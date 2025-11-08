@@ -1,8 +1,8 @@
 "use client";
 
 import { type ComponentType } from "react";
-import { WidgetErrorBoundary } from "@/components/ui/error-boundary";
-import { type WidgetProps } from "@/types/dashboard";
+import { WidgetErrorBoundary } from "~/@/components/ui/error-boundary";
+import { type WidgetProps } from "~/@/types/dashboard";
 
 /**
  * Higher-order component that wraps a widget with an error boundary

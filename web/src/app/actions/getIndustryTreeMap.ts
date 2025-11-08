@@ -29,5 +29,5 @@ export const getIndustryTreeMap = cache(
     });
 
     return toPlainMessage(response);
-  }
+  },
 );

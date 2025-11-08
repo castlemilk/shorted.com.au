@@ -1,16 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { type WidgetProps } from "@/types/dashboard";
+import { type WidgetProps } from "~/@/types/dashboard";
 import { ParentSize } from "@visx/responsive";
 import { Pie } from "@visx/shape";
 import { Group } from "@visx/group";
 import { scaleBand, scaleLinear } from "@visx/scale";
 import { AxisBottom, AxisLeft } from "@visx/axis";
 import { GridRows } from "@visx/grid";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "~/@/components/ui/skeleton";
 import { getSectorPerformance, type SectorPerformance } from "@/lib/stock-data-service";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "~/@/components/ui/badge";
 import { TrendingUp, TrendingDown } from "lucide-react";
 
 const margin = { top: 20, right: 20, bottom: 40, left: 60 };

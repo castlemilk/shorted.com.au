@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { type WidgetProps } from "@/types/dashboard";
+import { type WidgetProps } from "~/@/types/dashboard";
 import { ParentSize } from "@visx/responsive";
 import { scaleTime, scaleLinear } from "@visx/scale";
 import { LinePath } from "@visx/shape";
@@ -12,7 +12,7 @@ import { getStockData } from "~/app/actions/getStockData";
 import { type PlainMessage } from "@bufbuild/protobuf";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { curveLinear } from "@visx/curve";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "~/@/components/ui/skeleton";
 import { format } from "date-fns";
 
 const margin = { top: 20, right: 20, bottom: 40, left: 60 };

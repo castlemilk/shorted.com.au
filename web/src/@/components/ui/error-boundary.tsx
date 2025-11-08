@@ -2,8 +2,8 @@
 
 import React, { Component, type ReactNode } from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Button } from "~/@/components/ui/button";
+import { Card } from "~/@/components/ui/card";
 
 interface Props {
   children: ReactNode;

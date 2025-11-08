@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getMarketDataApiUrl } from "~/app/actions/config";
-import { rateLimit } from "@/lib/rate-limit";
+import { rateLimit } from "~/@/lib/rate-limit";
 
 const MARKET_DATA_API_URL = getMarketDataApiUrl();
 

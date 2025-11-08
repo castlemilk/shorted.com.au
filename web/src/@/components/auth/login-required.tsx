@@ -1,5 +1,5 @@
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Card } from "~/@/components/ui/card";
+import { Button } from "~/@/components/ui/button";
 import { LogIn } from "lucide-react";
 import Link from "next/link";
 

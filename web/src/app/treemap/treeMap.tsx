@@ -7,9 +7,9 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Card, CardTitle } from "@/components/ui/card";
+} from "~/@/components/ui/select";
+import { Label } from "~/@/components/ui/label";
+import { Card, CardTitle } from "~/@/components/ui/card";
 import { Treemap, hierarchy, stratify, treemapSquarify } from "@visx/hierarchy";
 import { Group } from "@visx/group";
 import { ParentSize } from "@visx/responsive";
@@ -19,8 +19,8 @@ import { getIndustryTreeMap } from "../actions/getIndustryTreeMap";
 import { type PlainMessage } from "@bufbuild/protobuf";
 import { useRouter } from "next/navigation";
 import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { Skeleton } from "@/components/ui/skeleton";
-import { TreemapTooltip } from "@/components/widgets/treemap-tooltip";
+import { Skeleton } from "~/@/components/ui/skeleton";
+import { TreemapTooltip } from "~/@/components/widgets/treemap-tooltip";
 
 interface TreeMapProps {
   initialTreeMapData: PlainMessage<IndustryTreeMap>;

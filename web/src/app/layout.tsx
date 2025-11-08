@@ -12,11 +12,11 @@ import SiteFooter from "~/@/components/ui/site-footer";
 import { NextAuthProvider } from "./next-auth-provider";
 import { siteConfig } from "~/@/config/site";
 import { StructuredData } from "~/@/components/seo/structured-data";
-import { Toaster } from "@/components/ui/toaster";
+import { Toaster } from "~/@/components/ui/toaster";
 import {
   EnvironmentBanner,
   DevelopmentBanner,
-} from "@/components/ui/environment-banner";
+} from "~/@/components/ui/environment-banner";
 
 const fontSans = FontSans({
   subsets: ["latin"],

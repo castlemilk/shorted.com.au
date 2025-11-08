@@ -1,7 +1,7 @@
 # Shorted.com.au Root Makefile
 # Orchestrates testing and building for both frontend and backend
 
-.PHONY: help run test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down install clean clean-ports build dev dev-script dev-frontend dev-backend lint format populate-data populate-data-quick db-diagnose db-optimize db-analyze
+.PHONY: help run test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down install clean clean-cache clean-all clean-ports build dev dev-clean dev-script dev-frontend dev-backend lint format populate-data populate-data-quick db-diagnose db-optimize db-analyze
 
 # Default target
 help:
@@ -15,6 +15,8 @@ help:
 	@echo "  dev-stop         - Stop all development services"
 	@echo "  install       - Install all dependencies"
 	@echo "  clean         - Clean all build artifacts"
+	@echo "  clean-cache   - Clear Next.js caches (fixes 'Element type is invalid' errors)"
+	@echo "  clean-all     - Clean build artifacts AND caches"
 	@echo "  clean-ports   - Kill any stale processes on development ports (9091, 3000, 5432)"
 	@echo "  build         - Build frontend and backend"
 	@echo "  test          - Run complete pre-push validation (lint + build + unit + integration)"
@@ -90,11 +92,19 @@ clean: clean-frontend clean-backend
 
 clean-frontend:
 	@echo "🧹 Cleaning frontend build artifacts..."
-	@cd web && rm -rf .next node_modules/.cache coverage/
+	@cd web && rm -rf .next out coverage/
 
 clean-backend:
 	@echo "🧹 Cleaning backend build artifacts..."
 	@cd services && go clean -cache -testcache && rm -f coverage.out coverage.html
+
+clean-cache: ## Clear Next.js and webpack caches (fixes "Element type is invalid" errors)
+	@echo "🧹 Clearing Next.js and webpack caches..."
+	@cd web && rm -rf .next node_modules/.cache
+	@echo "✅ Caches cleared - restart dev server with 'make dev'"
+
+clean-all: clean clean-cache ## Clean all build artifacts and caches
+	@echo "✅ All build artifacts and caches cleared"
 
 clean-ports:
 	@echo "🧹 Killing stale processes on development ports..."

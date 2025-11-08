@@ -31,6 +31,34 @@ const config = {
         checksVoidReturn: { attributes: false },
       },
     ],
+    "no-restricted-imports": [
+      "error",
+      {
+        patterns: [
+          {
+            group: ["src/@/*"],
+            message:
+              'Do not import from "src/@/...". Use "@/..." instead (e.g., "@/lib/utils" not "src/@/lib/utils").',
+          },
+        ],
+      },
+    ],
+    // Warn about potential React component naming issues
+    "@typescript-eslint/naming-convention": [
+      "warn",
+      {
+        selector: "variable",
+        format: ["camelCase", "PascalCase", "UPPER_CASE"],
+        leadingUnderscore: "allow",
+        trailingUnderscore: "allow",
+      },
+      {
+        // React components (functions that return JSX) should be PascalCase
+        selector: "function",
+        format: ["camelCase", "PascalCase"],
+        leadingUnderscore: "allow",
+      },
+    ],
   },
   overrides: [
     {

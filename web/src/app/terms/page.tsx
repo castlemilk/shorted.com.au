@@ -1,5 +1,5 @@
 import { type Metadata } from "next";
-import { Separator } from "@/components/ui/separator";
+import { Separator } from "~/@/components/ui/separator";
 
 export const metadata: Metadata = {
   title: "Terms of Service | Shorted",

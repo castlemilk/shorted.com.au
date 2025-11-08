@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { type WidgetProps } from "@/types/dashboard";
+import { type WidgetProps } from "~/@/types/dashboard";
 import { type PlainMessage } from "@bufbuild/protobuf";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
@@ -13,7 +13,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "~/@/components/ui/table";
 import {
   flexRender,
   getCoreRowModel,
@@ -22,8 +22,8 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { useRouter } from "next/navigation";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { Skeleton } from "~/@/components/ui/skeleton";
+import { cn } from "~/@/lib/utils";
 
 export function TopShortsWidget({ config }: WidgetProps) {
   const [loading, setLoading] = useState(true);
