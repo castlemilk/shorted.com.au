@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import Home from "../page";
 
@@ -47,6 +47,18 @@ jest.mock("~/gen/shorts/v1alpha1/shorts_pb", () => ({
   },
 }));
 
+// Mock Skeleton component
+jest.mock("@/components/ui/skeleton", () => ({
+  Skeleton: ({ className }: any) => (
+    <div data-testid="skeleton" className={className}></div>
+  ),
+}));
+
+// Mock LoginPromptBanner
+jest.mock("@/components/ui/login-prompt-banner", () => ({
+  LoginPromptBanner: () => <div data-testid="login-prompt-banner"></div>,
+}));
+
 // Import the mocked functions
 const { getTopShortsData } = require("../actions/getTopShorts");
 const { getIndustryTreeMap } = require("../actions/getIndustryTreeMap");
@@ -86,36 +98,44 @@ describe("Home Page", () => {
   it("renders the home page with all components", async () => {
     mockGetTopShortsData.mockResolvedValue(mockData as any);
 
-    render(await Home());
+    render(<Home />);
 
-    expect(screen.getByTestId("google-analytics")).toBeInTheDocument();
-    expect(screen.getByTestId("top-shorts")).toBeInTheDocument();
-    expect(screen.getByTestId("tree-map")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("google-analytics")).toBeInTheDocument();
+      expect(screen.getByTestId("top-shorts")).toBeInTheDocument();
+      expect(screen.getByTestId("tree-map")).toBeInTheDocument();
+    });
   });
 
   it("fetches top shorts data with correct parameters", async () => {
     mockGetTopShortsData.mockResolvedValue(mockData as any);
 
-    await Home();
+    render(<Home />);
 
-    expect(mockGetTopShortsData).toHaveBeenCalledWith("3m", 10, 0);
+    await waitFor(() => {
+      expect(mockGetTopShortsData).toHaveBeenCalledWith("3m", 10, 0);
+    });
   });
 
   it("passes fetched data to TopShorts component", async () => {
     mockGetTopShortsData.mockResolvedValue(mockData as any);
 
-    render(await Home());
+    render(<Home />);
 
-    expect(screen.getByText("Top Shorts: 2 items")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Top Shorts: 2 items")).toBeInTheDocument();
+    });
   });
 
   it("renders with flex layout", async () => {
     mockGetTopShortsData.mockResolvedValue(mockData as any);
 
-    const { container } = render(await Home());
+    const { container } = render(<Home />);
 
-    const layoutDiv = container.querySelector(".flex");
-    expect(layoutDiv).toBeInTheDocument();
+    await waitFor(() => {
+      const layoutDiv = container.querySelector(".flex");
+      expect(layoutDiv).toBeInTheDocument();
+    });
   });
 
   it("handles empty data gracefully", async () => {
@@ -124,9 +144,11 @@ describe("Home Page", () => {
       offset: 0,
     } as any);
 
-    render(await Home());
+    render(<Home />);
 
-    expect(screen.getByText("Top Shorts: 0 items")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Top Shorts: 0 items")).toBeInTheDocument();
+    });
   });
 
   it("handles data fetch error gracefully", async () => {
@@ -137,32 +159,38 @@ describe("Home Page", () => {
     } as any);
 
     // The page should render with empty/fallback data instead of throwing
-    render(await Home());
+    render(<Home />);
 
     // Should still render the page structure even if data fetch fails
-    expect(screen.getByText("Top Shorts: 0 items")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText("Top Shorts: 0 items")).toBeInTheDocument();
+    });
   });
 
   it("renders with correct layout structure", async () => {
     mockGetTopShortsData.mockResolvedValue(mockData as any);
 
-    const { container } = render(await Home());
+    const { container } = render(<Home />);
 
-    // Check for flex layout
-    const flexElement = container.querySelector(".flex");
-    expect(flexElement).toBeInTheDocument();
+    await waitFor(() => {
+      // Check for flex layout
+      const flexElement = container.querySelector(".flex");
+      expect(flexElement).toBeInTheDocument();
 
-    // Check for Google Analytics
-    expect(screen.getByTestId("google-analytics")).toBeInTheDocument();
+      // Check for Google Analytics
+      expect(screen.getByTestId("google-analytics")).toBeInTheDocument();
+    });
   });
 
   it("includes meta information", async () => {
     mockGetTopShortsData.mockResolvedValue(mockData as any);
 
-    render(await Home());
+    render(<Home />);
 
-    // In a real Next.js app, you'd check for metadata in the head
-    // For now, we just verify the component renders without errors
-    expect(screen.getByTestId("top-shorts")).toBeInTheDocument();
+    await waitFor(() => {
+      // In a real Next.js app, you'd check for metadata in the head
+      // For now, we just verify the component renders without errors
+      expect(screen.getByTestId("top-shorts")).toBeInTheDocument();
+    });
   });
 });

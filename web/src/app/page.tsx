@@ -10,11 +10,14 @@ import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { useSession } from "next-auth/react";
 import { LoginPromptBanner } from "@/components/ui/login-prompt-banner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { type PlainMessage } from "@bufbuild/protobuf";
+import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
+import { type IndustryTreeMap } from "~/gen/stocks/v1alpha1/stocks_pb";
 
 const Page = () => {
   const { data: session } = useSession();
-  const [shortsData, setShortsData] = useState<any[]>([]);
-  const [treeMapData, setTreeMapData] = useState<any>({ industries: [], stocks: [] });
+  const [shortsData, setShortsData] = useState<PlainMessage<TimeSeriesData>[]>([]);
+  const [treeMapData, setTreeMapData] = useState<PlainMessage<IndustryTreeMap>>({ industries: [], stocks: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

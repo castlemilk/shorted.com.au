@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { getTopShortsData } from "../actions/getTopShorts";
-import { calculateMovers, type TimePeriod } from "@/lib/shorts-calculations";
+import { calculateMovers, type TimePeriod, type MoversData } from "@/lib/shorts-calculations";
 import { TopShortsClient } from "./components/top-shorts-client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DashboardLayout } from "@/components/layouts/dashboard-layout";
@@ -15,7 +15,7 @@ const LOAD_CHUNK_SIZE = 20;
 export default function TopShortsPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [moversData, setMoversData] = useState<any>(null);
+  const [moversData, setMoversData] = useState<MoversData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

@@ -1,19 +1,20 @@
 import "@testing-library/jest-dom";
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import type { Mock } from "jest-mock";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
-import Page, { metadata } from "../page";
-import type { Metadata } from "next";
+import Page from "../page";
 
 // Mock the shorts API
 jest.mock("~/app/actions/getTopShorts", () => ({
   getTopShortsData: jest.fn(),
 }));
 
-// Mock auth
-jest.mock("@/auth", () => ({
-  auth: jest.fn().mockResolvedValue({ user: { id: "test-user" } }),
+// Mock next/navigation
+jest.mock("next/navigation", () => ({
+  useRouter: jest.fn(() => ({
+    push: jest.fn(),
+  })),
 }));
 
 // Mock TopShortsClient component
@@ -25,12 +26,35 @@ jest.mock("../components/top-shorts-client", () => ({
   ),
 }));
 
-describe("/shorts Page (SSR)", () => {
+// Mock Skeleton component
+jest.mock("@/components/ui/skeleton", () => ({
+  Skeleton: ({ className }: any) => (
+    <div data-testid="skeleton" className={className}></div>
+  ),
+}));
+
+// Mock DashboardLayout
+jest.mock("@/components/layouts/dashboard-layout", () => ({
+  DashboardLayout: ({ children }: any) => (
+    <div data-testid="dashboard-layout">{children}</div>
+  ),
+}));
+
+// Mock calculateMovers
+jest.mock("@/lib/shorts-calculations", () => ({
+  calculateMovers: jest.fn((timeSeries: any) => ({
+    biggestIncreases: [],
+    biggestDecreases: [],
+    mostVolatile: [],
+  })),
+}));
+
+describe("/shorts Page (Client-Side)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe("Server-Side Data Fetching", () => {
+  describe("Client-Side Data Fetching", () => {
     it("should fetch initial data with default period (3m)", async () => {
       const mockData = {
         timeSeries: [
@@ -70,12 +94,13 @@ describe("/shorts Page (SSR)", () => {
 
       (getTopShortsData as Mock).mockResolvedValue(mockData);
 
-      const jsx = await Page();
-      render(jsx);
+      render(<Page />);
 
-      expect(getTopShortsData).toHaveBeenCalledWith("3m", 20, 0);
-      expect(screen.getByTestId("top-shorts-client")).toBeInTheDocument();
-      expect(screen.getByTestId("initial-period")).toHaveTextContent("3m");
+      await waitFor(() => {
+        expect(getTopShortsData).toHaveBeenCalledWith("3m", 20, 0);
+        expect(screen.getByTestId("top-shorts-client")).toBeInTheDocument();
+        expect(screen.getByTestId("initial-period")).toHaveTextContent("3m");
+      });
     });
 
     it("should handle empty data gracefully", async () => {
@@ -84,32 +109,11 @@ describe("/shorts Page (SSR)", () => {
         totalCount: 0,
       });
 
-      const jsx = await Page();
-      render(jsx);
+      render(<Page />);
 
-      expect(screen.getByTestId("top-shorts-client")).toBeInTheDocument();
-    });
-  });
-
-  describe("Metadata Configuration", () => {
-    it("should have correct metadata for SEO", () => {
-      const meta = metadata as Metadata;
-      expect(meta.title).toContain("Shorted");
-      expect(meta.description).toBeTruthy();
-      expect(meta.keywords).toContain("short interest");
-      expect(meta.keywords).toContain("ASX shorts");
-      expect(meta.openGraph?.title).toBeTruthy();
-      if (meta.openGraph && typeof meta.openGraph !== "string") {
-        expect(meta.openGraph.type).toBe("website");
-      }
-    });
-  });
-
-  describe("ISR Configuration", () => {
-    it("should have revalidate time configured", async () => {
-      // The revalidate export should be present
-      const pageModule = await import("../page");
-      expect(pageModule.revalidate).toBe(300); // 5 minutes
+      await waitFor(() => {
+        expect(screen.getByTestId("top-shorts-client")).toBeInTheDocument();
+      });
     });
   });
 });
