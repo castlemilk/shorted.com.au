@@ -1,7 +1,7 @@
 # Shorted.com.au Root Makefile
 # Orchestrates testing and building for both frontend and backend
 
-.PHONY: help run test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down install clean clean-ports build dev dev-script dev-frontend dev-backend lint format populate-data populate-data-quick
+.PHONY: help run test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down install clean clean-ports build dev dev-script dev-frontend dev-backend lint format populate-data populate-data-quick db-diagnose db-optimize db-analyze
 
 # Default target
 help:
@@ -35,6 +35,9 @@ help:
 	@echo "  format        - Format code for all projects"
 	@echo "  populate-data - Download and populate database with ASIC short selling data"
 	@echo "  populate-data-quick - Populate database using existing CSV files (no download)"
+	@echo "  db-diagnose   - Diagnose database query performance issues"
+	@echo "  db-optimize   - Apply performance indexes to database"
+	@echo "  db-analyze    - Update database statistics for query optimizer"
 
 # Test commands
 test: lint build-frontend test-unit test-integration-local
@@ -333,6 +336,21 @@ db-reset:
 	@echo "🗄️  Resetting database..."
 	@echo "Note: This should connect to your database reset script"
 	# Add your database reset commands here
+
+db-diagnose: ## Diagnose database query performance issues
+	@echo "🔍 Diagnosing database performance..."
+	@python3 scripts/diagnose-slow-queries.py
+
+db-optimize: ## Apply performance indexes to database
+	@echo "⚡ Applying performance indexes..."
+	@python3 scripts/apply-performance-indexes.py
+	@echo "✅ Performance indexes applied successfully"
+	@echo "Run 'make db-diagnose' to verify improvements"
+
+db-analyze: ## Update database statistics for query planner
+	@echo "📊 Updating database statistics..."
+	@echo "This requires DATABASE_URL environment variable to be set"
+	@echo "Run: ANALYZE shorts; ANALYZE \"company-metadata\";"
 
 # Health checks
 health-check:
