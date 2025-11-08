@@ -38,7 +38,7 @@ func generateJWT(credentials []byte, audience string) (string, error) {
 
 	key, err := jwt.ParseRSAPrivateKeyFromPEM([]byte(serviceAccountInfo.PrivateKey))
 	if err != nil {
-		return "", fmt.Errorf("error parsing RSA private key: %v\n", err)
+		return "", fmt.Errorf("error parsing RSA private key: %v", err)
 	}
 
 	now := time.Now().Unix()
@@ -75,7 +75,11 @@ func exchangeJWTForToken(signedJWT string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("Error closing response body: %v", err)
+		}
+	}()
 
 	var respData struct {
 		IDToken string `json:"id_token"`
@@ -157,6 +161,9 @@ func main() {
 
 	stocks, err := serviceClient.GetTopShorts(context.Background(), connect.NewRequest(&shortsv1alpha1.GetTopShortsRequest{
 		Period: "6m", Limit: 10}))
+	if err != nil {
+		log.Fatalf("failed to get top shorts: %v", err)
+	}
 
 	println("got stocksr %s", stocks.Msg.TimeSeries)
 }

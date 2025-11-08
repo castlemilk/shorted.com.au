@@ -124,7 +124,11 @@ func fetchDataRecords() ([]ShortSellingRecord, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("Error closing response body: %v", err)
+		}
+	}()
 
 	var records []ShortSellingRecord
 	if err := json.NewDecoder(resp.Body).Decode(&records); err != nil {
@@ -168,13 +172,21 @@ func downloadFile(url, filepath string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("Error closing response body: %v", err)
+		}
+	}()
 
 	file, err := os.Create(filepath)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("Error closing file: %v", err)
+		}
+	}()
 
 	_, err = io.Copy(file, resp.Body)
 	return err
@@ -229,7 +241,11 @@ func parseCSVFile(filename string) ([]CSVRecord, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("Error closing file: %v", err)
+		}
+	}()
 
 	// Try to detect encoding and convert to UTF-8
 	reader := transform.NewReader(file, charmap.Windows1252.NewDecoder())
@@ -352,13 +368,15 @@ func batchInsertRecords(pool *pgxpool.Pool, records []CSVRecord) error {
 		for j := 0; j < len(batchRecords); j++ {
 			_, err := br.Exec()
 			if err != nil {
-				br.Close()
-				tx.Rollback(ctx)
+				_ = br.Close()
+				_ = tx.Rollback(ctx)
 				return fmt.Errorf("failed to insert record %d: %w", i+j, err)
 			}
 		}
 
-		br.Close()
+		if err := br.Close(); err != nil {
+			return fmt.Errorf("failed to close batch: %w", err)
+		}
 
 		// Commit transaction
 		if err := tx.Commit(ctx); err != nil {

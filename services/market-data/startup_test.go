@@ -26,7 +26,7 @@ func TestHealthCheckEndpoint(t *testing.T) {
 			"database": "not_configured",
 		}
 
-		json.NewEncoder(w).Encode(status)
+		_ = json.NewEncoder(w).Encode(status)
 	})
 
 	// Test the endpoint
@@ -69,7 +69,7 @@ func TestHealthCheckAlwaysSucceeds(t *testing.T) {
 			status["database"] = "not_configured"
 		}
 
-		json.NewEncoder(w).Encode(status)
+		_ = json.NewEncoder(w).Encode(status)
 	})
 
 	req := httptest.NewRequest("GET", "/health", nil)
@@ -90,7 +90,7 @@ func TestReadinessCheckRequiresDatabase(t *testing.T) {
 	mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
 		if service.db == nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"status": "not ready",
 				"reason": "database not configured",
 			})
@@ -98,7 +98,7 @@ func TestReadinessCheckRequiresDatabase(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
 	})
 
 	req := httptest.NewRequest("GET", "/ready", nil)
@@ -150,7 +150,7 @@ func TestHealthCheckFormat(t *testing.T) {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
 	})
 
 	req := httptest.NewRequest("GET", "/health", nil)
@@ -175,7 +175,7 @@ func TestHealthCheckPerformance(t *testing.T) {
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
 	})
 
 	req := httptest.NewRequest("GET", "/health", nil)
@@ -207,7 +207,7 @@ func TestHealthCheckCORS(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
+		_ = json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
 	})
 
 	t.Run("GET request has CORS headers", func(t *testing.T) {

@@ -99,11 +99,11 @@ func waitForServiceHealth(baseURL string, timeout time.Duration) bool {
 	for time.Now().Before(deadline) {
 		resp, err := http.Get(baseURL + "/health")
 		if err == nil && resp.StatusCode == 200 {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			return true
 		}
 		if resp != nil {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 		}
 		time.Sleep(500 * time.Millisecond)
 	}

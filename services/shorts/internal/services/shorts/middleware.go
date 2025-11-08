@@ -67,7 +67,9 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		token, err := firebaseClient.VerifyIDToken(ctx, idToken)
 		if err == nil {
 			// Token is a valid Firebase ID token
-			ctx := context.WithValue(r.Context(), "user", token.Claims)
+			type contextKey string
+			const userKey contextKey = "user"
+			ctx := context.WithValue(r.Context(), userKey, token.Claims)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
 		}
@@ -84,7 +86,9 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		}
 
 		// Token is a valid Google service account token
-		ctx = context.WithValue(r.Context(), "user", payload.Claims)
+		type contextKey string
+		const userKey contextKey = "user"
+		ctx = context.WithValue(r.Context(), userKey, payload.Claims)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
