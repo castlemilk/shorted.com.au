@@ -2,6 +2,7 @@ package health
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 )
 
