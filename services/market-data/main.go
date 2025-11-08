@@ -608,7 +608,9 @@ func main() {
 			status["database"] = "not_configured"
 		}
 
-		json.NewEncoder(w).Encode(status)
+		if err := json.NewEncoder(w).Encode(status); err != nil {
+			log.Printf("Error encoding status response: %v", err)
+		}
 	})
 
 	// Add readiness check (for Kubernetes/Cloud Run)
@@ -628,7 +630,9 @@ func main() {
 
 		if pool == nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			json.NewEncoder(w).Encode(map[string]string{"status": "not ready", "reason": "database not configured"})
+			if err := json.NewEncoder(w).Encode(map[string]string{"status": "not ready", "reason": "database not configured"}); err != nil {
+				log.Printf("Error encoding response: %v", err)
+			}
 			return
 		}
 
@@ -637,12 +641,16 @@ func main() {
 
 		if err := pool.Ping(ctx); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			json.NewEncoder(w).Encode(map[string]string{"status": "not ready", "reason": err.Error()})
+			if err := json.NewEncoder(w).Encode(map[string]string{"status": "not ready", "reason": err.Error()}); err != nil {
+				log.Printf("Error encoding response: %v", err)
+			}
 			return
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
+		if err := json.NewEncoder(w).Encode(map[string]string{"status": "ready"}); err != nil {
+			log.Printf("Error encoding response: %v", err)
+		}
 	})
 
 	port := os.Getenv("PORT")

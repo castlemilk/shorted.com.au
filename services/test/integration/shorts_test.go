@@ -149,7 +149,7 @@ func TestShortsServiceIntegration(t *testing.T) {
 				t.Skip("Shorts service not available at", apiURL)
 				return
 			}
-			resp.Body.Close()
+			_ = resp.Body.Close()
 
 			client := shortsv1alpha1connect.NewShortedStocksServiceClient(
 				http.DefaultClient,
