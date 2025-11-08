@@ -13,8 +13,7 @@ export async function getTopShortsData(
   offset: number,
 ) {
   const transport = createConnectTransport({
-    baseUrl:
-      process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL,
+    baseUrl: process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL,
   });
 
   const client = createPromiseClient(ShortedStocksService, transport);
