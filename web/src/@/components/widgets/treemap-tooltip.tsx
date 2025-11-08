@@ -10,8 +10,8 @@ import {
   fetchStockDetailsClient,
   fetchStockDataClient,
 } from "@/lib/client-api";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkline, type SparklineData } from "@/components/ui/sparkline";
+import { Skeleton } from "~/@/components/ui/skeleton";
+import { Sparkline, type SparklineData } from "~/@/components/ui/sparkline";
 import Image from "next/image";
 
 interface TreemapTooltipProps {

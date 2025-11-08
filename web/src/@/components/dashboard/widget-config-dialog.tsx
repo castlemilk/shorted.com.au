@@ -7,21 +7,21 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+} from "~/@/components/ui/dialog";
+import { Button } from "~/@/components/ui/button";
+import { Input } from "~/@/components/ui/input";
+import { Label } from "~/@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { type WidgetConfig } from "@/types/dashboard";
+} from "~/@/components/ui/select";
+import { type WidgetConfig } from "~/@/types/dashboard";
 import { widgetRegistry } from "@/lib/widget-registry";
-import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
+import { Badge } from "~/@/components/ui/badge";
+import { Switch } from "~/@/components/ui/switch";
 import { X } from "lucide-react";
 
 interface WidgetConfigDialogProps {

@@ -1,7 +1,7 @@
 "use client";
 
 import { signInAction } from "~/app/actions/auth";
-import { cn } from "@/lib/utils";
+import { cn } from "~/@/lib/utils";
 import { type VariantProps, cva } from "class-variance-authority";
 
 const signInButtonVariants = cva(

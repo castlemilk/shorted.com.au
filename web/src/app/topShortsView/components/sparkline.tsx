@@ -167,6 +167,8 @@ const SparkLine = ({ data }: { data: PlainMessage<TimeSeriesData> }) => {
               setTimeout(() => {
                 setIsInitialLoad(false);
               }, 50);
+              // Return null while waiting for the timeout
+              return null;
             }
 
             // Don't render chart until we have dimensions
@@ -183,4 +185,5 @@ const SparkLine = ({ data }: { data: PlainMessage<TimeSeriesData> }) => {
   );
 };
 
+export { SparkLine };
 export default SparkLine;

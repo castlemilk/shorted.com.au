@@ -3,13 +3,13 @@
 import { useState } from "react";
 import { Building2 } from "lucide-react";
 import Image from "next/image";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkline } from "@/components/ui/sparkline";
+import { Badge } from "~/@/components/ui/badge";
+import { Skeleton } from "~/@/components/ui/skeleton";
+import { Sparkline } from "~/@/components/ui/sparkline";
 import { type StockSearchResult } from "@/lib/stock-data-service";
 import { getIndustryColor } from "@/lib/industry-colors";
 import { useSparklineData } from "@/hooks/use-sparkline-data";
-import { cn } from "@/lib/utils";
+import { cn } from "~/@/lib/utils";
 
 interface StockSearchResultItemProps {
   stock: StockSearchResult;

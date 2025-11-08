@@ -1,10 +1,10 @@
-import Container from "@/components/ui/container";
-import { HeroPost } from "@/components/ui/hero-post";
-import { Intro } from "@/components/ui/intro";
-import { MoreStories } from "@/components/ui/more-stories";
-import { getAllPosts } from "@/lib/api";
+import Container from "~/@/components/ui/container";
+import { HeroPost } from "~/@/components/ui/hero-post";
+import { Intro } from "~/@/components/ui/intro";
+import { MoreStories } from "~/@/components/ui/more-stories";
+import { getAllPosts } from "~/@/lib/api";
 import { MDXRemote } from "next-mdx-remote/rsc";
-import { type Post } from "@/interfaces/post";
+import { type Post } from "~/@/interfaces/post";
 import Info from "~/@/components/ui/info";
 import RegisterEmail from "~/@/components/ui/register-email";
 

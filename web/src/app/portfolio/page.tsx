@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
-import { DashboardLayout } from "@/components/layouts/dashboard-layout";
+import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { PortfolioClient } from "./components/portfolio-client";
 import { getPortfolioData } from "../actions/getPortfolio";
-import { type PortfolioHolding } from "@/lib/portfolio-service";
+import { type PortfolioHolding } from "~/@/lib/portfolio-service";
 
 function PortfolioLoadingState() {
   return (

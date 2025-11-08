@@ -2,11 +2,11 @@
 
 import { useCallback, useState, Suspense, useMemo } from "react";
 import { Responsive, WidthProvider, type Layout } from "react-grid-layout";
-import { type WidgetConfig, type WidgetProps } from "@/types/dashboard";
+import { type WidgetConfig, type WidgetProps } from "~/@/types/dashboard";
 import { widgetRegistry } from "@/lib/widget-registry";
 import { WidgetWrapper } from "./widget-wrapper";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
+import { Skeleton } from "~/@/components/ui/skeleton";
+import { Button } from "~/@/components/ui/button";
 import {
   Grid3x3,
   AlignHorizontalJustifyCenter,

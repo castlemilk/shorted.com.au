@@ -3,15 +3,15 @@
 import { useState, Suspense } from "react";
 import Image from "next/image";
 import { signIn } from "next-auth/react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "~/@/components/ui/button";
+import { Input } from "~/@/components/ui/input";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "~/@/components/ui/card";
 import { Chrome, Loader2, AlertCircle } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 

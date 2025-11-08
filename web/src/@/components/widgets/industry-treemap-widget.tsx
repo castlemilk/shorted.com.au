@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
-import { type WidgetProps } from "@/types/dashboard";
+import { type WidgetProps } from "~/@/types/dashboard";
 import { type PlainMessage } from "@bufbuild/protobuf";
 import { type IndustryTreeMap } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";

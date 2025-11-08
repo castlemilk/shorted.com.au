@@ -1,18 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { type WidgetProps } from "@/types/dashboard";
-import { Card } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { type WidgetProps } from "~/@/types/dashboard";
+import { Card } from "~/@/components/ui/card";
+import { Skeleton } from "~/@/components/ui/skeleton";
+import { Badge } from "~/@/components/ui/badge";
+import { Button } from "~/@/components/ui/button";
+import { Input } from "~/@/components/ui/input";
+import { ScrollArea } from "~/@/components/ui/scroll-area";
 import { getMultipleStockQuotes, getHistoricalData, type StockQuote, type HistoricalDataPoint } from "@/lib/stock-data-service";
 import { TrendingUp, TrendingDown, Plus, X } from "lucide-react";
 import Link from "next/link";
-import { Sparkline, type SparklineData } from "@/components/ui/sparkline";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sparkline, type SparklineData } from "~/@/components/ui/sparkline";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/@/components/ui/select";
 
 // Default watchlist for demo
 const DEFAULT_WATCHLIST = ["CBA", "BHP", "CSL", "WBC", "ANZ", "RIO", "WOW", "TLS"];

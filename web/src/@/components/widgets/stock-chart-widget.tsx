@@ -1,6 +1,6 @@
 "use client";
 
-import { type WidgetProps } from "@/types/dashboard";
+import { type WidgetProps } from "~/@/types/dashboard";
 import Chart from "~/@/components/ui/chart";
 
 export function StockChartWidget({ config }: WidgetProps) {

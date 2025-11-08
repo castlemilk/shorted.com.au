@@ -2,10 +2,10 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { DashboardLayout } from "@/components/layouts/dashboard-layout";
-import { DashboardGrid } from "@/components/dashboard/dashboard-grid";
-import { WidgetConfigDialog } from "@/components/dashboard/widget-config-dialog";
-import { Button } from "@/components/ui/button";
+import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
+import { DashboardGrid } from "~/@/components/dashboard/dashboard-grid";
+import { WidgetConfigDialog } from "~/@/components/dashboard/widget-config-dialog";
+import { Button } from "~/@/components/ui/button";
 import { Plus, Edit2, Save } from "lucide-react";
 import {
   DropdownMenu,
@@ -14,18 +14,18 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
   DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu";
+} from "~/@/components/ui/dropdown-menu";
 import {
   type WidgetConfig,
   WidgetType,
   WidgetCategory,
-} from "@/types/dashboard";
-import { widgetRegistry } from "@/lib/widget-registry";
+} from "~/@/types/dashboard";
+import { widgetRegistry } from "~/@/lib/widget-registry";
 import { v4 as uuidv4 } from "uuid";
-import { dashboardService } from "@/lib/dashboard-service";
-import { useToast } from "@/hooks/use-toast";
+import { dashboardService } from "~/@/lib/dashboard-service";
+import { useToast } from "~/@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { LoginRequired } from "@/components/auth/login-required";
+import { LoginRequired } from "~/@/components/auth/login-required";
 
 // Bento-style layout with varied widget sizes for visual interest
 const defaultWidgets: WidgetConfig[] = [

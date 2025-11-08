@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { getTopShortsData } from "../actions/getTopShorts";
-import { calculateMovers, type TimePeriod, type MoversData } from "@/lib/shorts-calculations";
+import { calculateMovers, type TimePeriod, type MoversData } from "~/@/lib/shorts-calculations";
 import { TopShortsClient } from "./components/top-shorts-client";
-import { Skeleton } from "@/components/ui/skeleton";
-import { DashboardLayout } from "@/components/layouts/dashboard-layout";
+import { Skeleton } from "~/@/components/ui/skeleton";
+import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 
 const DEFAULT_PERIOD: TimePeriod = "3m";
 const LOAD_CHUNK_SIZE = 20;

@@ -1,5 +1,5 @@
-import { siteConfig } from "@/config/site";
-import { Badge } from "@/components/ui/badge";
+import { siteConfig } from "~/@/config/site";
+import { Badge } from "~/@/components/ui/badge";
 import getConfig from "next/config";
 import Link from "next/link";
 import { File, RouteIcon, GitCommit } from "lucide-react";

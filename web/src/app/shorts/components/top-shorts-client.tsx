@@ -2,16 +2,16 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { DashboardLayout } from "@/components/layouts/dashboard-layout";
+import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
+} from "~/@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/@/components/ui/tabs";
+import { Badge } from "~/@/components/ui/badge";
 import {
   TrendingUp,
   TrendingDown,
@@ -29,7 +29,7 @@ import {
   formatPercentage,
   formatChange,
   calculateMovers,
-} from "@/lib/shorts-calculations";
+} from "~/@/lib/shorts-calculations";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 
 const LOAD_CHUNK_SIZE = 20;

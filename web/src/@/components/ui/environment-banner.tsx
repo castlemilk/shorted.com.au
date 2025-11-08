@@ -6,7 +6,7 @@ import {
   config,
   getPreviewPRNumber,
   isPreviewDeployment,
-} from "@/config/environment";
+} from "~/@/config/environment";
 
 export function EnvironmentBanner() {
   const [isVisible, setIsVisible] = useState(false);

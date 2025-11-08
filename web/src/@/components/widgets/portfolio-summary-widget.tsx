@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { type WidgetProps } from "@/types/dashboard";
-import { Card } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { type WidgetProps } from "~/@/types/dashboard";
+import { Card } from "~/@/components/ui/card";
+import { Skeleton } from "~/@/components/ui/skeleton";
 import { getMultipleStockQuotes } from "@/lib/stock-data-service";
 import { TrendingUp, TrendingDown, DollarSign, Activity } from "lucide-react";
 import { useAsyncErrorHandler } from "@/hooks/use-async-error";

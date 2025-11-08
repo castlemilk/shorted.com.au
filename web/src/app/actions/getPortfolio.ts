@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "@/auth";
-import { portfolioService } from "@/lib/portfolio-service";
+import { portfolioService } from "~/@/lib/portfolio-service";
 
 export interface PortfolioData {
   holdings: Array<{

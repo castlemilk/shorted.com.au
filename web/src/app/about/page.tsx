@@ -1,6 +1,6 @@
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "~/@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "~/@/components/ui/card"
 import { Eye, TrendingDown, BarChart2, Bell } from "lucide-react"
 
 const Page = () => {

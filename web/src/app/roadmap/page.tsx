@@ -1,6 +1,6 @@
 // renders the tree component with the roadmap data
 
-import Tree from "@/components/tree/tree";
+import Tree from "~/@/components/tree/tree";
 import {
   ActivityIcon,
   AreaChart,
@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Container from "~/@/components/ui/container";
-import { cn } from "@/lib/utils";
+import { cn } from "~/@/lib/utils";
 
 const CustomImage = () => (
   <Image src="/logo.png" alt="Shorted node" width={40} height={40} />

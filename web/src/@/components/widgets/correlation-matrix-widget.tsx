@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { type WidgetProps } from "@/types/dashboard";
-import { Skeleton } from "@/components/ui/skeleton";
+import { type WidgetProps } from "~/@/types/dashboard";
+import { Skeleton } from "~/@/components/ui/skeleton";
 import { getCorrelationMatrix } from "@/lib/stock-data-service";
 import { ParentSize } from "@visx/responsive";
 import { scaleLinear } from "@visx/scale";

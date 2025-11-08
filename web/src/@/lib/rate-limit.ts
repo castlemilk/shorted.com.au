@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { auth } from "~/server/auth";
 
 interface RateLimitStore {
   count: number;
