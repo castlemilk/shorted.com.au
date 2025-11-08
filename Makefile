@@ -51,7 +51,7 @@ test-unit: test-frontend test-backend
 
 test-frontend:
 	@echo "🧪 Running frontend tests..."
-	@cd web && npm test
+	@cd web && npm test -- --watchAll=false --testPathIgnorePatterns=integration
 
 test-backend:
 	@echo "🧪 Running backend tests..."
