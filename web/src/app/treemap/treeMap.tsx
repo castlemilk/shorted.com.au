@@ -23,7 +23,7 @@ import { Skeleton } from "~/@/components/ui/skeleton";
 import { TreemapTooltip } from "~/@/components/widgets/treemap-tooltip";
 
 interface TreeMapProps {
-  initialTreeMapData: PlainMessage<IndustryTreeMap>;
+  initialTreeMapData?: PlainMessage<IndustryTreeMap>; // Optional initial data
   initialPeriod?: string; // Add initial period prop
   initialViewMode?: ViewMode; // Add initial view mode prop
 }
@@ -41,12 +41,13 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
   initialPeriod = "3m",
   initialViewMode = ViewMode.CURRENT_CHANGE,
 }) => {
-  const firstUpdate = useRef(true);
+  const firstUpdate = useRef(!initialTreeMapData); // If no initial data, fetch on mount
   const router = useRouter();
   const [period, setPeriod] = useState<string>(initialPeriod);
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [treeMapData, setTreeMapData] =
-    useState<PlainMessage<IndustryTreeMap> | null>(initialTreeMapData);
+    useState<PlainMessage<IndustryTreeMap> | null>(initialTreeMapData ?? null);
+  const [loading, setLoading] = useState<boolean>(!initialTreeMapData);
 
   const [tooltipState, setTooltipState] = useState<{
     productCode: string;
@@ -63,21 +64,39 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (firstUpdate.current) {
+    // Fetch data on mount if no initial data, or when period/viewMode changes
+    if (firstUpdate.current && initialTreeMapData) {
       firstUpdate.current = false;
       return;
     }
+
+    if (firstUpdate.current) {
+      firstUpdate.current = false;
+    }
+
+    setLoading(true);
     getIndustryTreeMap(period, 10, viewMode)
       .then((data) => {
         setTreeMapData(data);
+        setLoading(false);
       })
       .catch((e) => {
         console.error("Error fetching data: ", e);
+        setLoading(false);
       });
-  }, [period, viewMode]);
+  }, [period, viewMode, initialTreeMapData]);
 
-  if (!treeMapData) {
-    return <div>Loading...</div>;
+  if (loading || !treeMapData) {
+    return (
+      <Card className="m-2 w-full">
+        <div className="flex align-middle justify-between">
+          <CardTitle className="self-center m-5">Industry Tree Map</CardTitle>
+        </div>
+        <div className="p-2">
+          <Skeleton className="h-[700px] w-full rounded-xl" />
+        </div>
+      </Card>
+    );
   }
 
   const industryTreeMap = stratify<TreeMapDatum>()
