@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 import Link from "next/link";
 
@@ -11,7 +13,7 @@ interface MainNavProps {
   items?: NavItem[];
 }
 
-export const MainNav = async ({ items }: MainNavProps) => {
+export const MainNav = ({ items }: MainNavProps) => {
   return (
     <div className="flex items-center justify-between w-full">
       <div className="flex gap-6 md:gap-10">
