@@ -44,7 +44,7 @@ const getPeriodString = (period: string) => {
 };
 
 interface TopShortsProps {
-  initialShortsData: PlainMessage<TimeSeriesData>[]; // Data for multiple series
+  initialShortsData?: PlainMessage<TimeSeriesData>[]; // Data for multiple series (optional)
   initialPeriod?: string; // Add initial period prop
 }
 
@@ -55,11 +55,12 @@ export const TopShorts: FC<TopShortsProps> = ({
   initialPeriod = "3m",
 }) => {
   const [period, setPeriod] = useState<string>(initialPeriod);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(!initialShortsData);
   const [offset, setOffset] = useState<number>(0); // Added offset state
-  const [shortsData, setShortsData] =
-    useState<PlainMessage<TimeSeriesData>[]>(initialShortsData);
-  const firstUpdate = useRef(true);
+  const [shortsData, setShortsData] = useState<PlainMessage<TimeSeriesData>[]>(
+    initialShortsData ?? [],
+  );
+  const firstUpdate = useRef(!initialShortsData); // If no initial data, fetch on mount
   const fetchMoreData = useCallback(async () => {
     setLoading(true);
     try {
@@ -78,10 +79,16 @@ export const TopShorts: FC<TopShortsProps> = ({
   }, [offset, period]); // Add period to the dependency array
 
   useEffect(() => {
-    if (firstUpdate.current) {
+    // Fetch data on mount if no initial data, or when period changes
+    if (firstUpdate.current && initialShortsData) {
       firstUpdate.current = false;
       return;
     }
+
+    if (firstUpdate.current) {
+      firstUpdate.current = false;
+    }
+
     setLoading(true);
     setOffset(0); // Reset offset when period changes
     getTopShortsData(period, LOAD_CHUNK_SIZE, 0)
@@ -93,7 +100,7 @@ export const TopShorts: FC<TopShortsProps> = ({
         console.error("Error fetching data: ", e);
         setLoading(false);
       });
-  }, [period]);
+  }, [period, initialShortsData]);
 
   return (
     <Suspense fallback={loadingPlaceholder}>
