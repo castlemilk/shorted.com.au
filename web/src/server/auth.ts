@@ -125,6 +125,15 @@ export const authOptions = {
         }
       }
 
+      // CRITICAL: Always ensure sub is set - middleware depends on this
+      // This handles cases where token is refreshed without user object
+      if (!token.sub && token.email) {
+        token.sub = token.email;
+      }
+      if (!token.sub && token.id) {
+        token.sub = String(token.id);
+      }
+
       // Ensure token.id is always set (preserve it on token refresh)
       if (!token.id && token.email) {
         token.id = token.email;
