@@ -46,7 +46,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		if _, err := w.Write([]byte("OK")); err != nil {
-			log.Printf("Error writing response: %v", err)
+			log.Errorf("Error writing response: %v", err)
 		}
 	})
 
