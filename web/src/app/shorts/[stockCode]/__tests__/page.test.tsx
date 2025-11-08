@@ -2,8 +2,7 @@
 import "@testing-library/jest-dom";
 import React from "react";
 import { render } from "@testing-library/react";
-import Page, { generateMetadata } from "../page";
-import type { Metadata } from "next";
+import Page from "../page";
 
 // Mock all child components
 jest.mock("~/@/components/ui/chart", () => ({
@@ -85,17 +84,21 @@ jest.mock("lucide-react", () => ({
   CandlestickChart: () => <div data-testid="candlestick-icon" />,
 }));
 
+// Mock LLMMeta component
+jest.mock("~/@/components/seo/llm-meta", () => ({
+  LLMMeta: () => <script data-testid="llm-meta" />,
+}));
+
 // Note: No auth mocking needed - this page is public!
 
-describe("/shorts/[stockCode] Page (SSR - Public)", () => {
+describe("/shorts/[stockCode] Page (Client-Side - Public)", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe("Server-Side Rendering", () => {
-    it("should render public stock page with uppercase stock code", async () => {
-      const jsx = await Page({ params: { stockCode: "cba" } });
-      const { getByTestId } = render(jsx);
+  describe("Client-Side Rendering", () => {
+    it("should render public stock page with uppercase stock code", () => {
+      const { getByTestId } = render(<Page params={{ stockCode: "cba" }} />);
 
       expect(getByTestId("chart")).toHaveTextContent("cba");
       expect(getByTestId("market-chart")).toHaveTextContent("cba");
@@ -104,80 +107,19 @@ describe("/shorts/[stockCode] Page (SSR - Public)", () => {
       expect(getByTestId("company-info")).toHaveTextContent("cba");
     });
 
-    it("should include structured data for SEO", async () => {
-      const jsx = await Page({ params: { stockCode: "BHP" } });
-      const { getByTestId } = render(jsx);
+    it("should include structured data for SEO", () => {
+      const { getByTestId } = render(<Page params={{ stockCode: "BHP" }} />);
 
       const structuredData = getByTestId("structured-data");
       expect(structuredData).toBeInTheDocument();
       expect(structuredData).toHaveAttribute("data-stock", "BHP");
     });
 
-    it("should render breadcrumbs navigation", async () => {
-      const jsx = await Page({ params: { stockCode: "CSL" } });
-      const { getByTestId } = render(jsx);
+    it("should render breadcrumbs navigation", () => {
+      const { getByTestId } = render(<Page params={{ stockCode: "CSL" }} />);
 
       const breadcrumbs = getByTestId("breadcrumbs");
       expect(breadcrumbs).toHaveTextContent("Stocks > CSL");
-    });
-  });
-
-  describe("Metadata Generation", () => {
-    it("should generate metadata with stock code", async () => {
-      const metadata = await generateMetadata({
-        params: { stockCode: "cba" },
-      });
-
-      expect(metadata.title).toContain("CBA");
-      expect(metadata.description).toContain("CBA");
-      expect(metadata.keywords).toContain("CBA short position");
-      expect(metadata.keywords).toContain("CBA ASX");
-    });
-
-    it("should include OpenGraph metadata", async () => {
-      const metadata = await generateMetadata({
-        params: { stockCode: "bhp" },
-      });
-
-      expect(metadata.openGraph?.title).toContain("BHP");
-      if (metadata.openGraph && typeof metadata.openGraph !== "string") {
-        expect(metadata.openGraph.url).toContain("/shorts/BHP");
-      }
-    });
-
-    it("should include Twitter card metadata", async () => {
-      const metadata = await generateMetadata({
-        params: { stockCode: "csl" },
-      });
-
-      expect(metadata.twitter).toBeDefined();
-      expect(metadata.twitter?.title).toContain("CSL");
-    });
-
-    it("should set canonical URL correctly", async () => {
-      const metadata = await generateMetadata({
-        params: { stockCode: "wbc" },
-      });
-
-      expect(metadata.alternates?.canonical).toContain("/shorts/WBC");
-    });
-
-    it("should enable search indexing", async () => {
-      const metadata = await generateMetadata({
-        params: { stockCode: "nab" },
-      });
-
-      if (metadata.robots && typeof metadata.robots !== "string") {
-        expect(metadata.robots.index).toBe(true);
-        expect(metadata.robots.follow).toBe(true);
-      }
-    });
-  });
-
-  describe("ISR Configuration", () => {
-    it("should have revalidate time of 60 seconds", async () => {
-      const pageModule = await import("../page");
-      expect(pageModule.revalidate).toBe(60);
     });
   });
 });

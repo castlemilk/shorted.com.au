@@ -7,6 +7,7 @@ import { Loader2 } from "lucide-react";
 import { DashboardLayout } from "@/components/layouts/dashboard-layout";
 import { PortfolioClient } from "./components/portfolio-client";
 import { getPortfolioData } from "../actions/getPortfolio";
+import { type PortfolioHolding } from "@/lib/portfolio-service";
 
 function PortfolioLoadingState() {
   return (
@@ -19,7 +20,7 @@ function PortfolioLoadingState() {
 export default function PortfolioPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const [holdings, setHoldings] = useState<any[]>([]);
+  const [holdings, setHoldings] = useState<PortfolioHolding[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
