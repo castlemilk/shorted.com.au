@@ -1,14 +1,15 @@
 {
   "name": "shorted",
-  "version": "v0.1.9-28-g9bc1abe",
+  "version": "v0.2.2-494-g29336010-dirty",
   "private": true,
   "type": "module",
   "moduleResolution": "Node",
   "scripts": {
+    "prebuild": "npm run bump-version",
     "build": "next build",
     "build:analyze": "ANALYZE=true next build",
     "dev": "APP_VERSION=`git describe --tags --always --dirty` next dev -p 3020",
-    "bump-version": "./scripts/bump-version.sh",
+    "bump-version": "bash ./scripts/bump-version.sh",
     "lint": "next lint",
     "start": "next start -p 3020",
     "test": "jest",

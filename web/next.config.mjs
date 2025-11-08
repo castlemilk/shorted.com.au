@@ -6,8 +6,18 @@
 await import("./src/env.js");
 
 import packageJson from "./package.json" with { type: "json" };
+import { execSync } from "child_process";
 
-const { version } = packageJson;
+// Get version from git if available, fallback to package.json
+let version = packageJson.version;
+try {
+  const gitVersion = execSync("git describe --tags --always --dirty", {
+    encoding: "utf8",
+  }).trim();
+  version = gitVersion;
+} catch (e) {
+  console.warn("Git not available, using package.json version:", version);
+}
 
 // Bundle analyzer configuration (optional - only if installed)
 // Install with: npm install --save-dev @next/bundle-analyzer
@@ -36,6 +46,12 @@ const config = {
   },
   publicRuntimeConfig: {
     version,
+    buildDate: new Date().toISOString(),
+    gitCommit: process.env.VERCEL_GIT_COMMIT_SHA?.substring(0, 7) || 
+               process.env.VERCEL_GIT_COMMIT_SHA || 
+               "local",
+    gitBranch: process.env.VERCEL_GIT_COMMIT_REF || "local",
+    environment: process.env.VERCEL_ENV || process.env.NODE_ENV || "development",
     shortsUrl: process.env.SHORTS_SERVICE_ENDPOINT ?? "http://localhost:9091",
   },
   // Optionally, add any other Next.js config below

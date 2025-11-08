@@ -2,11 +2,18 @@ import { siteConfig } from "@/config/site";
 import { Badge } from "@/components/ui/badge";
 import getConfig from "next/config";
 import Link from "next/link";
-import { File, RouteIcon } from "lucide-react";
+import { File, RouteIcon, GitCommit } from "lucide-react";
+
+interface RuntimeConfig {
+  version?: string;
+  buildDate?: string;
+  gitCommit?: string;
+  gitBranch?: string;
+  environment?: string;
+}
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-const { publicRuntimeConfig }: { publicRuntimeConfig: Record<string, string> } =
-  getConfig();
+const { publicRuntimeConfig }: { publicRuntimeConfig: RuntimeConfig } = getConfig();
 
 const SiteFooter = () => {
   return (
@@ -24,7 +31,14 @@ const SiteFooter = () => {
           </a>
         </p>
         <div className="flex items-center gap-2">
-          <Badge variant="secondary">{publicRuntimeConfig?.version}</Badge>
+          <Badge 
+            variant="secondary" 
+            className="cursor-help"
+            title={`Build: ${publicRuntimeConfig?.buildDate ?? 'N/A'}\nCommit: ${publicRuntimeConfig?.gitCommit ?? 'N/A'}\nBranch: ${publicRuntimeConfig?.gitBranch ?? 'N/A'}\nEnvironment: ${publicRuntimeConfig?.environment ?? 'N/A'}`}
+          >
+            <GitCommit className="w-3 h-3 mr-1" />
+            {publicRuntimeConfig?.version ?? 'dev'}
+          </Badge>
           <Link href="/roadmap">
             <Badge variant="secondary">
               <RouteIcon className="w-3 h-3 mr-1" />
