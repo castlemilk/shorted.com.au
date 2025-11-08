@@ -1,66 +1,23 @@
-"use client";
-
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { TopShorts } from "./topShortsView/topShorts";
 import { getIndustryTreeMap } from "./actions/getIndustryTreeMap";
 import { IndustryTreeMapView } from "./treemap/treeMap";
 import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { useSession } from "next-auth/react";
+import { auth } from "~/server/auth";
 import { LoginPromptBanner } from "@/components/ui/login-prompt-banner";
-import { Skeleton } from "@/components/ui/skeleton";
-import { type PlainMessage } from "@bufbuild/protobuf";
-import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
-import { type IndustryTreeMap } from "~/gen/stocks/v1alpha1/stocks_pb";
 
-const Page = () => {
-  const { data: session } = useSession();
-  const [shortsData, setShortsData] = useState<PlainMessage<TimeSeriesData>[]>([]);
-  const [treeMapData, setTreeMapData] = useState<PlainMessage<IndustryTreeMap>>({ industries: [], stocks: [] });
-  const [loading, setLoading] = useState(true);
+export const revalidate = 60; // revalidate the data at most every minute
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [data, treeData] = await Promise.all([
-          getTopShortsData("3m", 10, 0).catch((error) => {
-            console.error("Error fetching top shorts:", error);
-            return { timeSeries: [] };
-          }),
-          getIndustryTreeMap("3m", 10, ViewMode.CURRENT_CHANGE).catch((error) => {
-            console.error("Error fetching industry treemap:", error);
-            return { industries: [], stocks: [] };
-          }),
-        ]);
-        
-        setShortsData(data.timeSeries);
-        setTreeMapData(treeData);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void fetchData();
-  }, []);
-
-  if (loading) {
-    return (
-      <>
-        <GoogleAnalytics gaId="G-X85RLQ4N2N" />
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="lg:w-2/5">
-            <Skeleton className="h-[600px] w-full" />
-          </div>
-          <div className="lg:w-3/5">
-            <Skeleton className="h-[600px] w-full" />
-          </div>
-        </div>
-      </>
-    );
-  }
+const Page = async () => {
+  const session = await auth();
+  const data = await getTopShortsData("3m", 10, 0);
+  const treeMapData = await getIndustryTreeMap(
+    "3m",
+    10,
+    ViewMode.CURRENT_CHANGE,
+  );
 
   return (
     <>
@@ -71,7 +28,7 @@ const Page = () => {
       {/* Main dashboard view - accessible to all users */}
       <div className="flex flex-col lg:flex-row">
         <div className="lg:w-2/5">
-          <TopShorts initialShortsData={shortsData} initialPeriod="3m" />
+          <TopShorts initialShortsData={data.timeSeries} initialPeriod="3m" />
         </div>
         <div className="lg:w-3/5">
           <IndustryTreeMapView
