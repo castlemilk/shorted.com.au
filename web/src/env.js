@@ -21,12 +21,27 @@ export const env = createEnv({
       // VERCEL_URL doesn't include `https` so it cant be validated as a URL
       process.env.VERCEL ? z.string() : z.string().url(),
     ),
-    AUTH_FIREBASE_PROJECT_ID: z.string(),
-    AUTH_FIREBASE_CLIENT_EMAIL: z.string(),
-    AUTH_FIREBASE_PRIVATE_KEY: z.string(),
-    AUTH_GOOGLE_ID: z.string(),
-    AUTH_GOOGLE_SECRET: z.string(),
-    SHORTS_SERVICE_ENDPOINT: z.string(),
+    AUTH_FIREBASE_PROJECT_ID:
+      process.env.NODE_ENV === "production"
+        ? z.string()
+        : z.string().optional(),
+    AUTH_FIREBASE_CLIENT_EMAIL:
+      process.env.NODE_ENV === "production"
+        ? z.string()
+        : z.string().optional(),
+    AUTH_FIREBASE_PRIVATE_KEY:
+      process.env.NODE_ENV === "production"
+        ? z.string()
+        : z.string().optional(),
+    AUTH_GOOGLE_ID:
+      process.env.NODE_ENV === "production"
+        ? z.string()
+        : z.string().optional(),
+    AUTH_GOOGLE_SECRET:
+      process.env.NODE_ENV === "production"
+        ? z.string()
+        : z.string().optional(),
+    SHORTS_SERVICE_ENDPOINT: z.string().optional(),
   },
 
   /**

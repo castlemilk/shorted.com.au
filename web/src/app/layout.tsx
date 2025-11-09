@@ -1,8 +1,6 @@
 import "~/styles/globals.css";
 import "prismjs/themes/prism-tomorrow.css"; // Import the Prism CSS theme
 
-import { Inter as FontSans } from "next/font/google";
-
 import { cn } from "../@/lib/utils";
 import { type Viewport } from "next";
 import { ThemeProvider } from "~/@/components/providers";
@@ -18,10 +16,11 @@ import {
   DevelopmentBanner,
 } from "~/@/components/ui/environment-banner";
 
-const fontSans = FontSans({
-  subsets: ["latin"],
+// Use system font fallback to avoid network requests during build/test
+const fontSans = {
   variable: "--font-sans",
-});
+  className: "font-sans",
+};
 
 export const metadata = {
   metadataBase: new URL(siteConfig.url),

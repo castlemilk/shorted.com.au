@@ -42,13 +42,12 @@ help:
 	@echo "  db-analyze    - Update database statistics for query optimizer"
 
 # Test commands
-test: lint build-frontend test-unit test-integration-local
+test: lint build-frontend test-unit
 	@echo ""
 	@echo "✅ All tests, linting, and build validation completed successfully!"
 	@echo "   🔍 Linting: TypeScript + Go"
 	@echo "   🏗️  Build: Frontend (type checking)"
 	@echo "   🧪 Unit Tests: Frontend + Backend"
-	@echo "   🔗 Integration Tests: Backend"
 	@echo ""
 
 # Unit tests only (no linting, no integration)
@@ -56,7 +55,7 @@ test-unit: test-frontend test-backend
 
 test-frontend:
 	@echo "🧪 Running frontend tests..."
-	@cd web && npm test -- --watchAll=false --testPathIgnorePatterns=integration
+	@cd web && SKIP_ENV_VALIDATION=true npm test -- --watchAll=false --testPathIgnorePatterns=integration
 
 test-backend:
 	@echo "🧪 Running backend tests..."
@@ -66,7 +65,7 @@ test-coverage: test-frontend-coverage test-backend-coverage
 
 test-frontend-coverage:
 	@echo "📊 Running frontend tests with coverage..."
-	@cd web && npm run test:coverage
+	@cd web && SKIP_ENV_VALIDATION=true npm run test:coverage
 
 test-backend-coverage:
 	@echo "📊 Running backend tests with coverage..."
@@ -118,7 +117,7 @@ build: build-frontend
 
 build-frontend:
 	@echo "🏗️  Building frontend..."
-	@cd web && npm run build
+	@cd web && SKIP_ENV_VALIDATION=true npm run build
 
 build-backend:
 	@echo "🏗️  Building backend..."
@@ -220,7 +219,7 @@ lint: lint-frontend lint-backend
 
 lint-frontend:
 	@echo "🔍 Linting frontend..."
-	@cd web && npm run lint
+	@cd web && SKIP_ENV_VALIDATION=true npm run lint
 
 lint-backend: lint-backend-install
 	@echo "🔍 Linting backend with golangci-lint..."

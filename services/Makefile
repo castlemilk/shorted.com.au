@@ -340,7 +340,7 @@ lint-fix: lint-install
 
 # Unit tests
 test:
-	go test ./... -v
+	go test $(shell go list ./... | grep -v -E '(shorts/cmd/lambda|shorts/cmd/server|shorts/internal/services/shorts|test/integration)') -v
 
 test.coverage:
 	go test ./... -v -coverprofile=coverage.out

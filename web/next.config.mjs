@@ -81,6 +81,7 @@ export default withBundleAnalyzer(
     ...config,
     pageExtensions: ["js", "jsx", "mdx", "md", "ts", "tsx"],
     reactStrictMode: true,
+    optimizeFonts: false, // Disable font optimization to avoid network requests during build
     experimental: {
       serverComponentsExternalPackages: ["@bufbuild/protobuf"],
       optimizePackageImports: [
