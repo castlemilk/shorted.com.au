@@ -53,7 +53,7 @@ jest.mock("~/gen/shorts/v1alpha1/shorts_pb", () => ({
 }));
 
 // Mock LoginPromptBanner
-jest.mock("@/components/ui/login-prompt-banner", () => ({
+jest.mock("~/@/components/ui/login-prompt-banner", () => ({
   LoginPromptBanner: () => <div data-testid="login-prompt-banner"></div>,
 }));
 
@@ -151,6 +151,7 @@ describe("Home Page", () => {
   });
 
   it("throws error when data fetch fails (Next.js will handle)", async () => {
+    mockAuth.mockResolvedValue(null); // Mock auth to avoid any issues
     mockGetTopShortsData.mockRejectedValue(new Error("Failed to fetch"));
     mockGetIndustryTreeMap.mockResolvedValue({
       industries: [],
@@ -163,7 +164,12 @@ describe("Home Page", () => {
   });
 
   it("renders with correct layout structure", async () => {
+    mockAuth.mockResolvedValue(null);
     mockGetTopShortsData.mockResolvedValue(mockData as any);
+    mockGetIndustryTreeMap.mockResolvedValue({
+      industries: [],
+      stocks: [],
+    } as any);
 
     const component = await Home();
     const { container } = render(component);
@@ -177,7 +183,12 @@ describe("Home Page", () => {
   });
 
   it("includes meta information", async () => {
+    mockAuth.mockResolvedValue(null);
     mockGetTopShortsData.mockResolvedValue(mockData as any);
+    mockGetIndustryTreeMap.mockResolvedValue({
+      industries: [],
+      stocks: [],
+    } as any);
 
     const component = await Home();
     render(component);
@@ -188,8 +199,12 @@ describe("Home Page", () => {
   });
 
   it("shows login prompt banner when user is not authenticated", async () => {
-    mockGetTopShortsData.mockResolvedValue(mockData as any);
     mockAuth.mockResolvedValue(null); // No session
+    mockGetTopShortsData.mockResolvedValue(mockData as any);
+    mockGetIndustryTreeMap.mockResolvedValue({
+      industries: [],
+      stocks: [],
+    } as any);
 
     const component = await Home();
     render(component);
@@ -198,9 +213,13 @@ describe("Home Page", () => {
   });
 
   it("hides login prompt banner when user is authenticated", async () => {
-    mockGetTopShortsData.mockResolvedValue(mockData as any);
     mockAuth.mockResolvedValue({
       user: { id: "123", email: "test@example.com" },
+    } as any);
+    mockGetTopShortsData.mockResolvedValue(mockData as any);
+    mockGetIndustryTreeMap.mockResolvedValue({
+      industries: [],
+      stocks: [],
     } as any);
 
     const component = await Home();
