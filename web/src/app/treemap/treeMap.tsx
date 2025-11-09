@@ -15,7 +15,7 @@ import { Group } from "@visx/group";
 import { ParentSize } from "@visx/responsive";
 import { scaleLinear } from "@visx/scale";
 import { type IndustryTreeMap } from "~/gen/stocks/v1alpha1/stocks_pb";
-import { getIndustryTreeMap } from "../actions/getIndustryTreeMap";
+import { getIndustryTreeMapClient } from "../actions/client/getIndustryTreeMap";
 import { type PlainMessage } from "@bufbuild/protobuf";
 import { useRouter } from "next/navigation";
 import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
@@ -75,7 +75,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
     }
 
     setLoading(true);
-    getIndustryTreeMap(period, 10, viewMode)
+    getIndustryTreeMapClient(period, 10, viewMode)
       .then((data) => {
         setTreeMapData(data);
         setLoading(false);
