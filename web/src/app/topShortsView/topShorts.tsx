@@ -18,7 +18,7 @@ import {
 import { type PlainMessage } from "@bufbuild/protobuf";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { Label } from "~/@/components/ui/label";
-import { getTopShortsData } from "../actions/getTopShorts";
+import { getTopShortsDataClient } from "../actions/client/getTopShorts";
 import { DataTable } from "./components/data-table";
 import { columns } from "./components/columns";
 import { Card, CardTitle } from "~/@/components/ui/card";
@@ -64,7 +64,7 @@ export const TopShorts: FC<TopShortsProps> = ({
   const fetchMoreData = useCallback(async () => {
     setLoading(true);
     try {
-      const newData = await getTopShortsData(
+      const newData = await getTopShortsDataClient(
         period,
         LOAD_CHUNK_SIZE,
         LOAD_CHUNK_SIZE + offset,
@@ -91,7 +91,7 @@ export const TopShorts: FC<TopShortsProps> = ({
 
     setLoading(true);
     setOffset(0); // Reset offset when period changes
-    getTopShortsData(period, LOAD_CHUNK_SIZE, 0)
+    getTopShortsDataClient(period, LOAD_CHUNK_SIZE, 0)
       .then((data) => {
         setShortsData(data.timeSeries);
         setLoading(false);

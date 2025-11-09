@@ -3,18 +3,18 @@ import { render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import Home from "../page";
 
-// Mock auth
-jest.mock("~/server/auth", () => ({
-  auth: jest.fn(),
+// Mock next-auth for client-side
+jest.mock("next-auth/react", () => ({
+  useSession: jest.fn(),
 }));
 
-// Mock all the actions
-jest.mock("../actions/getTopShorts", () => ({
-  getTopShortsData: jest.fn(),
+// Mock the client-side actions
+jest.mock("../actions/client/getTopShorts", () => ({
+  getTopShortsDataClient: jest.fn(),
 }));
 
-jest.mock("../actions/getIndustryTreeMap", () => ({
-  getIndustryTreeMap: jest.fn(),
+jest.mock("../actions/client/getIndustryTreeMap", () => ({
+  getIndustryTreeMapClient: jest.fn(),
 }));
 
 // Mock next/link
@@ -32,16 +32,18 @@ jest.mock("@next/third-parties/google", () => ({
 
 // Mock the components with correct paths
 jest.mock("../topShortsView/topShorts", () => ({
-  TopShorts: ({ initialShortsData }: any) => (
+  TopShorts: ({ initialPeriod }: any) => (
     <div data-testid="top-shorts">
-      Top Shorts: {initialShortsData?.length || 0} items
+      Top Shorts Component (period: {initialPeriod})
     </div>
   ),
 }));
 
 jest.mock("../treemap/treeMap", () => ({
-  IndustryTreeMapView: ({ initialTreeMapData }: any) => (
-    <div data-testid="tree-map">Tree Map Component</div>
+  IndustryTreeMapView: ({ initialPeriod }: any) => (
+    <div data-testid="tree-map">
+      Tree Map Component (period: {initialPeriod})
+    </div>
   ),
 }));
 
@@ -58,18 +60,20 @@ jest.mock("~/@/components/ui/login-prompt-banner", () => ({
 }));
 
 // Import the mocked functions
-const { auth } = require("~/server/auth");
-const { getTopShortsData } = require("../actions/getTopShorts");
-const { getIndustryTreeMap } = require("../actions/getIndustryTreeMap");
+const { useSession } = require("next-auth/react");
+const { getTopShortsDataClient } = require("../actions/client/getTopShorts");
+const {
+  getIndustryTreeMapClient,
+} = require("../actions/client/getIndustryTreeMap");
 
-const mockAuth = auth as jest.MockedFunction<typeof auth>;
+const mockUseSession = useSession as jest.MockedFunction<typeof useSession>;
 
-const mockGetTopShortsData = getTopShortsData as jest.MockedFunction<
-  typeof getTopShortsData
->;
-const mockGetIndustryTreeMap = getIndustryTreeMap as jest.MockedFunction<
-  typeof getIndustryTreeMap
->;
+const mockGetTopShortsDataClient =
+  getTopShortsDataClient as jest.MockedFunction<typeof getTopShortsDataClient>;
+const mockGetIndustryTreeMapClient =
+  getIndustryTreeMapClient as jest.MockedFunction<
+    typeof getIndustryTreeMapClient
+  >;
 
 describe("Home Page", () => {
   const mockData = {
@@ -92,87 +96,59 @@ describe("Home Page", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Set up default mocks
-    mockAuth.mockResolvedValue(null); // No session by default
-    mockGetIndustryTreeMap.mockResolvedValue({
+    // Set up default mocks for client-side rendering
+    mockUseSession.mockReturnValue({
+      data: null,
+      status: "unauthenticated",
+      update: jest.fn(),
+    });
+    mockGetIndustryTreeMapClient.mockResolvedValue({
       industries: [],
       stocks: [],
     });
+    mockGetTopShortsDataClient.mockResolvedValue(mockData as any);
   });
 
-  it("renders the home page with all components", async () => {
-    mockGetTopShortsData.mockResolvedValue(mockData as any);
-
-    const component = await Home();
-    render(component);
+  it("renders the home page with all components", () => {
+    render(<Home />);
 
     expect(screen.getByTestId("google-analytics")).toBeInTheDocument();
     expect(screen.getByTestId("top-shorts")).toBeInTheDocument();
     expect(screen.getByTestId("tree-map")).toBeInTheDocument();
   });
 
-  it("fetches top shorts data with correct parameters", async () => {
-    mockGetTopShortsData.mockResolvedValue(mockData as any);
+  it("passes correct initial period to components", () => {
+    render(<Home />);
 
-    await Home();
-
-    expect(mockGetTopShortsData).toHaveBeenCalledWith("3m", 10, 0);
+    expect(
+      screen.getByText(/Top Shorts Component \(period: 3m\)/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Tree Map Component \(period: 3m\)/),
+    ).toBeInTheDocument();
   });
 
-  it("passes fetched data to TopShorts component", async () => {
-    mockGetTopShortsData.mockResolvedValue(mockData as any);
-
-    const component = await Home();
-    render(component);
-
-    expect(screen.getByText("Top Shorts: 2 items")).toBeInTheDocument();
-  });
-
-  it("renders with flex layout", async () => {
-    mockGetTopShortsData.mockResolvedValue(mockData as any);
-
-    const component = await Home();
-    const { container } = render(component);
+  it("renders with flex layout", () => {
+    const { container } = render(<Home />);
 
     const layoutDiv = container.querySelector(".flex");
     expect(layoutDiv).toBeInTheDocument();
   });
 
-  it("handles empty data gracefully", async () => {
-    mockGetTopShortsData.mockResolvedValue({
-      timeSeries: [],
-      offset: 0,
-    } as any);
+  it("shows login banner when not authenticated", () => {
+    mockUseSession.mockReturnValue({
+      data: null,
+      status: "unauthenticated",
+      update: jest.fn(),
+    });
 
-    const component = await Home();
-    render(component);
+    render(<Home />);
 
-    expect(screen.getByText("Top Shorts: 0 items")).toBeInTheDocument();
+    expect(screen.getByTestId("login-prompt-banner")).toBeInTheDocument();
   });
 
-  it("throws error when data fetch fails (Next.js will handle)", async () => {
-    mockAuth.mockResolvedValue(null); // Mock auth to avoid any issues
-    mockGetTopShortsData.mockRejectedValue(new Error("Failed to fetch"));
-    mockGetIndustryTreeMap.mockResolvedValue({
-      industries: [],
-      stocks: [],
-    } as any);
-
-    // Server Components should throw errors - Next.js will catch them
-    // and display error boundaries
-    await expect(Home()).rejects.toThrow("Failed to fetch");
-  });
-
-  it("renders with correct layout structure", async () => {
-    mockAuth.mockResolvedValue(null);
-    mockGetTopShortsData.mockResolvedValue(mockData as any);
-    mockGetIndustryTreeMap.mockResolvedValue({
-      industries: [],
-      stocks: [],
-    } as any);
-
-    const component = await Home();
-    const { container } = render(component);
+  it("renders with correct layout structure", () => {
+    const { container } = render(<Home />);
 
     // Check for flex layout
     const flexElement = container.querySelector(".flex");
@@ -182,49 +158,44 @@ describe("Home Page", () => {
     expect(screen.getByTestId("google-analytics")).toBeInTheDocument();
   });
 
-  it("includes meta information", async () => {
-    mockAuth.mockResolvedValue(null);
-    mockGetTopShortsData.mockResolvedValue(mockData as any);
-    mockGetIndustryTreeMap.mockResolvedValue({
-      industries: [],
-      stocks: [],
-    } as any);
+  it("includes all expected components", () => {
+    render(<Home />);
 
-    const component = await Home();
-    render(component);
-
-    // In a real Next.js app, you'd check for metadata in the head
-    // For now, we just verify the component renders without errors
+    // Verify all main components are present
     expect(screen.getByTestId("top-shorts")).toBeInTheDocument();
+    expect(screen.getByTestId("tree-map")).toBeInTheDocument();
+    expect(screen.getByTestId("google-analytics")).toBeInTheDocument();
   });
 
-  it("shows login prompt banner when user is not authenticated", async () => {
-    mockAuth.mockResolvedValue(null); // No session
-    mockGetTopShortsData.mockResolvedValue(mockData as any);
-    mockGetIndustryTreeMap.mockResolvedValue({
-      industries: [],
-      stocks: [],
-    } as any);
+  it("shows login prompt banner when user is not authenticated", () => {
+    mockUseSession.mockReturnValue({
+      data: null,
+      status: "unauthenticated",
+      update: jest.fn(),
+    });
 
-    const component = await Home();
-    render(component);
+    render(<Home />);
 
     expect(screen.getByTestId("login-prompt-banner")).toBeInTheDocument();
   });
 
-  it("hides login prompt banner when user is authenticated", async () => {
-    mockAuth.mockResolvedValue({
-      user: { id: "123", email: "test@example.com" },
-    } as any);
-    mockGetTopShortsData.mockResolvedValue(mockData as any);
-    mockGetIndustryTreeMap.mockResolvedValue({
-      industries: [],
-      stocks: [],
+  it("hides login prompt banner when user is authenticated", () => {
+    mockUseSession.mockReturnValue({
+      data: { user: { id: "123", email: "test@example.com" } },
+      status: "authenticated",
+      update: jest.fn(),
     } as any);
 
-    const component = await Home();
-    render(component);
+    render(<Home />);
 
     expect(screen.queryByTestId("login-prompt-banner")).not.toBeInTheDocument();
+  });
+
+  it("renders responsive layout classes", () => {
+    const { container } = render(<Home />);
+
+    // Check for responsive layout classes
+    const layoutDiv = container.querySelector(".flex.flex-col.lg\\:flex-row");
+    expect(layoutDiv).toBeInTheDocument();
   });
 });
