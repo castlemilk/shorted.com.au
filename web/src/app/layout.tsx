@@ -17,6 +17,7 @@ import {
   EnvironmentBanner,
   DevelopmentBanner,
 } from "~/@/components/ui/environment-banner";
+import { auth } from "~/server/auth";
 
 const fontSans = FontSans({
   subsets: ["latin"],
@@ -98,15 +99,17 @@ export const viewport: Viewport = {
   userScalable: true,
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth();
+  
   return (
     <html lang="en" className={fontSans.variable} suppressHydrationWarning>
       <body className={cn("min-h-screen bg-background font-sans antialiased")}>
-        <NextAuthProvider>
+        <NextAuthProvider session={session}>
           <ThemeProvider
             attribute="class"
             defaultTheme="system"
