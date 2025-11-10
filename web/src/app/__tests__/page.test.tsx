@@ -213,7 +213,7 @@ describe("Home Page", () => {
 
     // Login banner should NOT be present from the first render
     expect(screen.queryByTestId("login-prompt-banner")).not.toBeInTheDocument();
-    
+
     // Components should render immediately without waiting for session
     expect(screen.getByTestId("top-shorts")).toBeInTheDocument();
     expect(screen.getByTestId("tree-map")).toBeInTheDocument();
