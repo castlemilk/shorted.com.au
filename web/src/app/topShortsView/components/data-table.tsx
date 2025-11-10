@@ -24,6 +24,7 @@ import {
   TableRow,
 } from "~/@/components/ui/table";
 import { Button } from "~/@/components/ui/button";
+import { Skeleton } from "~/@/components/ui/skeleton";
 import { debounce } from "lodash";
 
 interface DataTableProps<TData, TValue> {
@@ -212,7 +213,21 @@ export function DataTable<TData, TValue>({
             ))}
           </TableHeader>
           <TableBody>
-            {rows.length === 0 ? (
+            {loading ? (
+              // Show skeleton loader while data is being fetched
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={`skeleton-${i}`} className="flex w-full">
+                  {columns.map((_, colIndex) => (
+                    <TableCell
+                      key={`skeleton-cell-${i}-${colIndex}`}
+                      className="flex-1 min-w-0 p-2"
+                    >
+                      <Skeleton className="h-[160px] w-full rounded-lg" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : rows.length === 0 ? (
               <TableRow className="w-full">
                 <TableCell
                   colSpan={columns.length}
