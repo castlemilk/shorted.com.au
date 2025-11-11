@@ -24,12 +24,9 @@ export default function PortfolioPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (status === "loading") return;
-
-    if (!session) {
-      router.push("/signin?callbackUrl=/portfolio");
-      return;
-    }
+    // Note: This route is protected by middleware, so if we reach here, user is authenticated
+    // Wait for session to hydrate from server before fetching portfolio data
+    if (status === "loading" || !session) return;
 
     const fetchData = async () => {
       try {
@@ -43,7 +40,7 @@ export default function PortfolioPage() {
     };
 
     void fetchData();
-  }, [session, status, router]);
+  }, [session, status]);
 
   if (status === "loading" || loading) {
     return (
