@@ -19,7 +19,6 @@ function PortfolioLoadingState() {
 
 export default function PortfolioPage() {
   const { data: session, status } = useSession();
-  const router = useRouter();
   const [holdings, setHoldings] = useState<PortfolioHolding[]>([]);
   const [loading, setLoading] = useState(true);
 

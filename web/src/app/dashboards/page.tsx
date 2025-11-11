@@ -25,7 +25,6 @@ import { v4 as uuidv4 } from "uuid";
 import { dashboardService } from "~/@/lib/dashboard-service";
 import { useToast } from "~/@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { LoginRequired } from "~/@/components/auth/login-required";
 
 // Bento-style layout with varied widget sizes for visual interest
 const defaultWidgets: WidgetConfig[] = [
