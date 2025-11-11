@@ -58,17 +58,33 @@ export async function middleware(request: NextRequest) {
   // Enforce authentication for protected routes
   if (isProtectedRoute) {
     try {
+      // Check for session cookie in request
+      const cookies = request.cookies;
+      const sessionCookie = cookies.get("__Secure-next-auth.session-token") ?? cookies.get("next-auth.session-token");
+      
+      console.log("[Middleware] Cookie check:", {
+        pathname,
+        hasSessionCookie: !!sessionCookie,
+        cookieNames: Array.from(cookies.getAll().map(c => c.name)),
+        hasSecret: !!process.env.NEXTAUTH_SECRET,
+      });
+
       const token = await getToken({
         req: request,
         secret: process.env.NEXTAUTH_SECRET,
       });
 
       // Debug logging for Vercel
-      console.log("[Middleware] Protected route check:", {
+      console.log("[Middleware] Token check:", {
         pathname,
         hasToken: !!token,
         hasSub: !!token?.sub,
+        hasId: !!token?.id,
+        hasEmail: !!token?.email,
         tokenKeys: token ? Object.keys(token) : [],
+        tokenSub: token?.sub,
+        tokenId: token?.id,
+        tokenEmail: token?.email,
       });
 
       // If no valid session, redirect to signin
