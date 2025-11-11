@@ -63,14 +63,25 @@ export async function middleware(request: NextRequest) {
         secret: process.env.NEXTAUTH_SECRET,
       });
 
+      // Debug logging for Vercel
+      console.log("[Middleware] Protected route check:", {
+        pathname,
+        hasToken: !!token,
+        hasSub: !!token?.sub,
+        tokenKeys: token ? Object.keys(token) : [],
+      });
+
       // If no valid session, redirect to signin
       if (!token?.sub) {
+        console.log("[Middleware] No token.sub found, redirecting to signin");
         const url = new URL("/signin", request.url);
         url.searchParams.set("callbackUrl", pathname);
         return NextResponse.redirect(url);
       }
+
+      console.log("[Middleware] Auth check passed for:", token.sub);
     } catch (error) {
-      console.error("Auth check error in middleware:", error);
+      console.error("[Middleware] Auth check error:", error);
       // On error, redirect to signin to be safe
       const url = new URL("/signin", request.url);
       url.searchParams.set("callbackUrl", pathname);
