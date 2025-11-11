@@ -74,9 +74,10 @@ export async function middleware(request: NextRequest) {
       const token = await getToken({
         req: request,
         secret: process.env.NEXTAUTH_SECRET,
-        cookieName: process.env.NODE_ENV === "production" 
-          ? "__Secure-next-auth.session-token"
-          : "next-auth.session-token",
+        cookieName:
+          process.env.NODE_ENV === "production"
+            ? "__Secure-next-auth.session-token"
+            : "next-auth.session-token",
       });
 
       // Debug logging for Vercel
@@ -125,9 +126,10 @@ export async function middleware(request: NextRequest) {
         token = await getToken({
           req: request,
           secret: process.env.NEXTAUTH_SECRET,
-          cookieName: process.env.NODE_ENV === "production" 
-            ? "__Secure-next-auth.session-token"
-            : "next-auth.session-token",
+          cookieName:
+            process.env.NODE_ENV === "production"
+              ? "__Secure-next-auth.session-token"
+              : "next-auth.session-token",
         });
       } catch (error) {
         // If getToken fails, treat as anonymous user
