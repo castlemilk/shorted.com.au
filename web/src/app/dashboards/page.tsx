@@ -217,25 +217,15 @@ export default function Dashboards() {
     void loadDashboard();
   }, [session]);
 
-  // Show loading state while checking authentication
-  if (status === "loading") {
+  // Note: This route is protected by middleware, so if we reach here, user is authenticated
+  // Show loading spinner while session is being hydrated from server
+  // Don't show LoginRequired since middleware already checked authentication
+  if (status === "loading" || !session) {
     return (
       <DashboardLayout fullWidth>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
-      </DashboardLayout>
-    );
-  }
-
-  // Require authentication
-  if (!session) {
-    return (
-      <DashboardLayout fullWidth>
-        <LoginRequired
-          title="Sign in Required"
-          description="Please sign in to view and manage your dashboards"
-        />
       </DashboardLayout>
     );
   }
