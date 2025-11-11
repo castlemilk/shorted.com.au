@@ -214,17 +214,35 @@ export function DataTable<TData, TValue>({
           </TableHeader>
           <TableBody>
             {loading ? (
-              // Show skeleton loader while data is being fetched
+              // Show skeleton loader that matches the actual card layout
               Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={`skeleton-${i}`} className="flex w-full">
-                  {columns.map((_, colIndex) => (
-                    <TableCell
-                      key={`skeleton-cell-${i}-${colIndex}`}
-                      className="flex-1 min-w-0 p-2"
-                    >
-                      <Skeleton className="h-[160px] w-full rounded-lg" />
-                    </TableCell>
-                  ))}
+                <TableRow key={`skeleton-${i}`} className="flex w-full items-center">
+                  {/* Stock ticker and name column */}
+                  <TableCell className="flex-1 min-w-0 p-4">
+                    <div className="space-y-2">
+                      <Skeleton className="h-6 w-16 rounded" /> {/* Ticker */}
+                      <Skeleton className="h-4 w-32 rounded" /> {/* Company name */}
+                    </div>
+                  </TableCell>
+                  {/* Percentage and Min/Max badges column */}
+                  <TableCell className="flex-1 min-w-0 p-4">
+                    <div className="flex flex-col items-center space-y-3">
+                      {/* Min/Max badges */}
+                      <div className="flex flex-col space-y-1">
+                        <Skeleton className="h-5 w-20 rounded-full" /> {/* Min badge */}
+                        <Skeleton className="h-5 w-20 rounded-full" /> {/* Max badge */}
+                      </div>
+                      {/* Percentage */}
+                      <div className="flex items-end space-x-1">
+                        <Skeleton className="h-8 w-16 rounded" /> {/* Large percentage */}
+                        <Skeleton className="h-5 w-3 rounded" /> {/* % symbol */}
+                      </div>
+                    </div>
+                  </TableCell>
+                  {/* Sparkline chart column */}
+                  <TableCell className="flex-1 min-w-0 p-4" style={{ width: "200px" }}>
+                    <Skeleton className="h-[140px] w-full rounded-lg" /> {/* Chart area */}
+                  </TableCell>
                 </TableRow>
               ))
             ) : rows.length === 0 ? (
