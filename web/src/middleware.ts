@@ -60,18 +60,23 @@ export async function middleware(request: NextRequest) {
     try {
       // Check for session cookie in request
       const cookies = request.cookies;
-      const sessionCookie = cookies.get("__Secure-next-auth.session-token") ?? cookies.get("next-auth.session-token");
-      
+      const sessionCookie =
+        cookies.get("__Secure-next-auth.session-token") ??
+        cookies.get("next-auth.session-token");
+
       console.log("[Middleware] Cookie check:", {
         pathname,
         hasSessionCookie: !!sessionCookie,
-        cookieNames: Array.from(cookies.getAll().map(c => c.name)),
+        cookieNames: Array.from(cookies.getAll().map((c) => c.name)),
         hasSecret: !!process.env.NEXTAUTH_SECRET,
       });
 
       const token = await getToken({
         req: request,
         secret: process.env.NEXTAUTH_SECRET,
+        cookieName: process.env.NODE_ENV === "production" 
+          ? "__Secure-next-auth.session-token"
+          : "next-auth.session-token",
       });
 
       // Debug logging for Vercel
@@ -120,6 +125,9 @@ export async function middleware(request: NextRequest) {
         token = await getToken({
           req: request,
           secret: process.env.NEXTAUTH_SECRET,
+          cookieName: process.env.NODE_ENV === "production" 
+            ? "__Secure-next-auth.session-token"
+            : "next-auth.session-token",
         });
       } catch (error) {
         // If getToken fails, treat as anonymous user
