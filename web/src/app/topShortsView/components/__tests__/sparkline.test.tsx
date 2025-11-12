@@ -138,10 +138,9 @@ describe("SparkLine Component", () => {
 
   it("renders with correct container height", () => {
     const { container } = render(<SparkLine data={mockData} />);
-    
-    // Container should have the h-[140px] class
-    const wrapper = container.firstElementChild;
-    expect(wrapper).toHaveClass("h-[140px]");
+ 
+    const wrapper = container.firstElementChild as HTMLElement;
+    expect(wrapper).toHaveStyle({ height: "140px" });
   });
 
   it("has a relative positioned container for tooltip positioning", () => {
@@ -199,6 +198,64 @@ describe("SparkLine Component", () => {
         const path = container.querySelector("path");
         expect(path).toBeInTheDocument();
       }, { timeout: 200 });
+    });
+  });
+
+  describe("observer strategy", () => {
+    let originalResizeObserver: typeof ResizeObserver | undefined;
+
+    beforeEach(() => {
+      originalResizeObserver = (global as unknown as { ResizeObserver?: typeof ResizeObserver }).ResizeObserver;
+
+      class ResizeObserverMock {
+        callback: ResizeObserverCallback;
+        constructor(callback: ResizeObserverCallback) {
+          this.callback = callback;
+        }
+        observe = (element: Element) => {
+          this.callback([
+            {
+              target: element,
+              contentRect: {
+                width: 220,
+                height: 140,
+                top: 0,
+                left: 0,
+                bottom: 140,
+                right: 220,
+                x: 0,
+                y: 0,
+              },
+              borderBoxSize: [],
+              contentBoxSize: [],
+              devicePixelContentBoxSize: [],
+            } as unknown as ResizeObserverEntry,
+          ]);
+        };
+        unobserve = () => void 0;
+        disconnect = () => void 0;
+      }
+
+      (global as unknown as { ResizeObserver: typeof ResizeObserver }).ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
+    });
+
+    afterEach(() => {
+      if (originalResizeObserver) {
+        (global as unknown as { ResizeObserver: typeof ResizeObserver }).ResizeObserver = originalResizeObserver;
+      } else {
+        delete (global as unknown as { ResizeObserver?: typeof ResizeObserver }).ResizeObserver;
+      }
+    });
+
+    it("renders when using observer strategy", async () => {
+      const { container } = render(
+        <SparkLine data={mockData} strategy="observer" minWidth={160} />,
+      );
+
+      await waitFor(() => {
+        const svg = container.querySelector("svg");
+        expect(svg).toBeInTheDocument();
+      });
     });
   });
 });

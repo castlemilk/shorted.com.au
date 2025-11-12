@@ -106,7 +106,7 @@ export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
     ),
     cell: ({ row }) => (
       <div className="w-full h-full flex items-center justify-center px-1">
-        <SparkLine data={row.original} />
+        <SparkLine data={row.original} strategy="observer" minWidth={160} />
       </div>
     ),
     enableSorting: false,
