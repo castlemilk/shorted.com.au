@@ -1,6 +1,6 @@
 import { type PlainMessage } from "@bufbuild/protobuf";
 import { timeFormat } from "@visx/vendor/d3-time-format";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useLayoutEffect } from "react";
 
 import { LineSeries, XYChart, Tooltip, GlyphSeries } from "@visx/xychart";
 import { GlyphCircle } from "@visx/glyph";
@@ -131,16 +131,91 @@ const Chart = ({ width, height, data }: SparklineProps) => {
   );
 };
 
-const SparkLine = ({ data }: { data: PlainMessage<TimeSeriesData> }) => {
+type SparkLineStrategy = "parent" | "observer";
+
+interface SparkLineProps {
+  data: PlainMessage<TimeSeriesData>;
+  height?: number;
+  minWidth?: number;
+  strategy?: SparkLineStrategy;
+}
+
+const SparkLine = ({
+  data,
+  height = 140,
+  minWidth,
+  strategy = "parent",
+}: SparkLineProps) => {
+  if (strategy === "observer") {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const widthRef = useRef<number>(0);
+    const [width, setWidth] = useState<number>(0);
+    const [ready, setReady] = useState(false);
+
+    useLayoutEffect(() => {
+      const node = containerRef.current;
+      if (!node) return;
+
+      const resizeObserver = new ResizeObserver((entries) => {
+        const entry = entries[0];
+        if (!entry) return;
+        const nextWidth = entry.contentRect.width;
+        if (nextWidth <= 0) return;
+
+        if (Math.abs(widthRef.current - nextWidth) > 0.5) {
+          widthRef.current = nextWidth;
+          setWidth(nextWidth);
+        }
+        setReady(true);
+      });
+
+      resizeObserver.observe(node);
+
+      return () => {
+        resizeObserver.disconnect();
+      };
+    }, []);
+
+    const showSkeleton = !ready || width <= 0;
+
+    return (
+      <div
+        ref={containerRef}
+        className="relative w-full"
+        style={{
+          height: `${height}px`,
+          minHeight: `${height}px`,
+          minWidth: minWidth ? `${minWidth}px` : undefined,
+          boxSizing: "border-box",
+        }}
+      >
+        {showSkeleton && (
+          <Skeleton className="absolute inset-0 w-full h-full" />
+        )}
+        {!showSkeleton && (
+          <div className="absolute inset-0">
+            <Chart width={width} height={height} data={data} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useEffect(() => {
-    // Reset to show skeleton when data changes
     setIsInitialLoad(true);
   }, [data]);
 
   return (
-    <div className="w-full h-[140px] relative">
+    <div
+      className="w-full relative"
+      style={{
+        height: `${height}px`,
+        minHeight: `${height}px`,
+        minWidth: minWidth ? `${minWidth}px` : undefined,
+      }}
+    >
       {isInitialLoad && <Skeleton className="absolute inset-0 w-full h-full" />}
       <div
         style={{
@@ -152,22 +227,17 @@ const SparkLine = ({ data }: { data: PlainMessage<TimeSeriesData> }) => {
       >
         <ParentSize>
           {({ width, height }) => {
-            // Once we get valid dimensions on initial load, show the chart
-            if (width > 0 && height > 0 && isInitialLoad) {
-              // Delay showing the chart to ensure everything is measured
-              setTimeout(() => {
-                setIsInitialLoad(false);
-              }, 50);
-              // Return null while waiting for the timeout
-              return null;
-            }
-
-            // Don't render chart until we have dimensions
             if (width === 0 || height === 0) {
               return null;
             }
 
-            // Always render chart with current dimensions (handles resize)
+            if (isInitialLoad) {
+              setTimeout(() => {
+                setIsInitialLoad(false);
+              }, 50);
+              return null;
+            }
+
             return <Chart width={width} height={height} data={data} />;
           }}
         </ParentSize>
