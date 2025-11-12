@@ -216,32 +216,55 @@ export function DataTable<TData, TValue>({
             {loading ? (
               // Show skeleton loader that matches the actual card layout
               Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={`skeleton-${i}`} className="flex w-full items-center">
-                  {/* Stock ticker and name column */}
-                  <TableCell className="flex-1 min-w-0 p-4">
-                    <div className="space-y-2">
-                      <Skeleton className="h-6 w-16 rounded" /> {/* Ticker */}
-                      <Skeleton className="h-4 w-32 rounded" /> {/* Company name */}
+                <TableRow
+                  key={`skeleton-${i}`}
+                  className="flex w-full items-center border-b"
+                >
+                  {/* Stock ticker and name column - matches Card structure */}
+                  <TableCell className="flex-1 min-w-0 p-2">
+                    <div className="space-y-1">
+                      <Skeleton className="h-6 w-16 rounded-md" />{" "}
+                      {/* CardTitle - Stock ticker */}
+                      <Skeleton className="h-4 w-40 rounded-md" />{" "}
+                      {/* CardDescription - Company name */}
                     </div>
                   </TableCell>
-                  {/* Percentage and Min/Max badges column */}
-                  <TableCell className="flex-1 min-w-0 p-4">
-                    <div className="flex flex-col items-center space-y-3">
+                  {/* Percentage and Min/Max badges column - matches Badge + percentage layout */}
+                  <TableCell className="flex-1 min-w-0 p-2">
+                    <div className="flex flex-col items-center justify-center h-full space-y-2">
                       {/* Min/Max badges */}
                       <div className="flex flex-col space-y-1">
-                        <Skeleton className="h-5 w-20 rounded-full" /> {/* Min badge */}
-                        <Skeleton className="h-5 w-20 rounded-full" /> {/* Max badge */}
+                        <div className="flex items-center">
+                          <Skeleton className="h-3 w-3 rounded-full mr-1" />{" "}
+                          {/* Green circle */}
+                          <Skeleton className="h-5 w-[85px] rounded-full" />{" "}
+                          {/* Min badge */}
+                        </div>
+                        <div className="flex items-center">
+                          <Skeleton className="h-3 w-3 rounded-full mr-1" />{" "}
+                          {/* Red circle */}
+                          <Skeleton className="h-5 w-[85px] rounded-full" />{" "}
+                          {/* Max badge */}
+                        </div>
                       </div>
-                      {/* Percentage */}
-                      <div className="flex items-end space-x-1">
-                        <Skeleton className="h-8 w-16 rounded" /> {/* Large percentage */}
-                        <Skeleton className="h-5 w-3 rounded" /> {/* % symbol */}
+                      {/* Large percentage value */}
+                      <div className="flex items-end space-x-1 mt-2">
+                        <Skeleton className="h-9 w-20 rounded-md" />{" "}
+                        {/* Large percentage (text-3xl) */}
+                        <Skeleton className="h-5 w-3 rounded-md mb-1" />{" "}
+                        {/* % symbol (text-lg) */}
                       </div>
                     </div>
                   </TableCell>
                   {/* Sparkline chart column */}
-                  <TableCell className="flex-1 min-w-0 p-4" style={{ width: "200px" }}>
-                    <Skeleton className="h-[140px] w-full rounded-lg" /> {/* Chart area */}
+                  <TableCell
+                    className="flex-1 min-w-0 p-2"
+                    style={{ width: "200px" }}
+                  >
+                    <div className="w-full h-full flex items-center justify-center px-1">
+                      <Skeleton className="h-[140px] w-full rounded-lg" />{" "}
+                      {/* Chart area matching SparkLine */}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
