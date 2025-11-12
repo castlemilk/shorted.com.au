@@ -40,103 +40,94 @@ const Chart = ({ width, height, data }: SparklineProps) => {
   const minY = Math.min(...data.points.map(accessors.yAccessor));
   const maxY = Math.max(...data.points.map(accessors.yAccessor));
 
-  // Calculate the padding (15% of the range to give room for badges)
-  const padding = (maxY - minY) * 0.15;
+  // Calculate the padding (e.g., 10% of the range)
+  const padding = (maxY - minY) * 0.1;
 
   return (
-    <svg width={width} height={height} style={{ overflow: "hidden" }}>
-      <defs>
-        <clipPath id={`clip-sparkline-${data.productCode}`}>
-          <rect x="0" y="0" width={width} height={height} />
-        </clipPath>
-      </defs>
-      <g clipPath={`url(#clip-sparkline-${data.productCode})`}>
-        <XYChart
-          width={width}
-          height={height}
-          margin={{ top: 20, right: 2, bottom: 10, left: 2 }}
-          xScale={{ type: "time" }}
-          yScale={{
-            type: "linear",
-            domain: [minY - padding, maxY + padding],
-          }}
-        >
-          <LineSeries
-            dataKey="Shorts"
-            data={data.points}
-            {...accessors}
-            stroke={strokeColor}
-            strokeWidth={1.5}
-          />
-          {/* Remove the GlyphSeries for regular points */}
-          {data.min && (
-            <GlyphSeries
-              dataKey="Min"
-              data={[data.min]}
-              {...accessors}
-              renderGlyph={({ x, y }) => (
-                <GlyphCircle
-                  left={x}
-                  top={y}
-                  size={15}
-                  fill={greenColor}
-                  stroke={greenColor}
-                />
-              )}
+    <XYChart
+      width={width}
+      height={height}
+      margin={{ top: 40, right: 10, bottom: 20, left: 10 }}
+      xScale={{ type: "time" }}
+      yScale={{
+        type: "linear",
+        domain: [minY - padding, maxY + padding],
+      }}
+    >
+      <LineSeries
+        dataKey="Shorts"
+        data={data.points}
+        {...accessors}
+        stroke={strokeColor}
+        strokeWidth={1.5}
+      />
+      {/* Remove the GlyphSeries for regular points */}
+      {data.min && (
+        <GlyphSeries
+          dataKey="Min"
+          data={[data.min]}
+          {...accessors}
+          renderGlyph={({ x, y }) => (
+            <GlyphCircle
+              left={x}
+              top={y}
+              size={20}
+              fill={greenColor}
+              stroke={greenColor}
             />
           )}
-          {data.max && (
-            <GlyphSeries
-              dataKey="Max"
-              data={[data.max]}
-              {...accessors}
-              renderGlyph={({ x, y }) => (
-                <GlyphCircle
-                  left={x}
-                  top={y}
-                  size={15}
-                  fill={redColor}
-                  stroke={redColor}
-                />
-              )}
+        />
+      )}
+      {data.max && (
+        <GlyphSeries
+          dataKey="Max"
+          data={[data.max]}
+          {...accessors}
+          renderGlyph={({ x, y }) => (
+            <GlyphCircle
+              left={x}
+              top={y}
+              size={20}
+              fill={redColor}
+              stroke={redColor}
             />
           )}
-          <Tooltip
-            snapTooltipToDatumX
-            snapTooltipToDatumY
-            showSeriesGlyphs
-            renderGlyph={({ x, y, datum }) => {
-              const isMin = datum === data.min;
-              const isMax = datum === data.max;
-              return (
-                <g>
-                  <circle
-                    cx={x}
-                    cy={y}
-                    r={3}
-                    fill={isMin ? greenColor : isMax ? redColor : strokeColor}
-                    strokeWidth={0}
-                  />
-                </g>
-              );
-            }}
-            renderTooltip={({ tooltipData }) => {
-              const datum = tooltipData?.nearestDatum?.datum as TimeSeriesPoint;
-              return (
-                <>
-                  <div style={{ fontWeight: "600" }}>
-                    {formatDate(accessors.xAccessor(datum))}
-                  </div>
-                  <div
-                    style={{ color: "#2563EB" }}
-                  >{`${accessors.yAccessor(datum).toFixed(2)}%`}</div>
-                </>
-              );
-            }}
-          />
-        </XYChart>
-      </g>
-    </svg>
+        />
+      )}
+      <Tooltip
+        snapTooltipToDatumX
+        snapTooltipToDatumY
+        showSeriesGlyphs
+        renderGlyph={({ x, y, datum }) => {
+          const isMin = datum === data.min;
+          const isMax = datum === data.max;
+          return (
+            <g>
+              <circle
+                cx={x}
+                cy={y}
+                r={3}
+                fill={isMin ? greenColor : isMax ? redColor : strokeColor}
+                strokeWidth={0}
+              />
+            </g>
+          );
+        }}
+        renderTooltip={({ tooltipData }) => {
+          const datum = tooltipData?.nearestDatum?.datum as TimeSeriesPoint;
+          return (
+            <>
+              <div style={{ fontWeight: "600" }}>
+                {formatDate(accessors.xAccessor(datum))}
+              </div>
+              <div
+                style={{ color: "#2563EB" }}
+              >{`${accessors.yAccessor(datum).toFixed(2)}%`}</div>
+            </>
+          );
+        }}
+      />
+    </XYChart>
   );
 };
 
@@ -149,7 +140,7 @@ const SparkLine = ({ data }: { data: PlainMessage<TimeSeriesData> }) => {
   }, [data]);
 
   return (
-    <div className="w-full h-[140px] relative overflow-hidden">
+    <div className="w-full h-[140px] relative">
       {isInitialLoad && <Skeleton className="absolute inset-0 w-full h-full" />}
       <div
         style={{
