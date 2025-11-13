@@ -25,10 +25,13 @@ import {
 } from "~/@/components/ui/table";
 import { Button } from "~/@/components/ui/button";
 import { Skeleton } from "~/@/components/ui/skeleton";
+import { Loader2 } from "lucide-react";
 import { debounce } from "lodash";
 
 interface DataTableProps<TData, TValue> {
   loading: boolean;
+  isRefreshing?: boolean;
+  refreshKey?: number;
   columns: ColumnDef<TData, TValue>[];
   period: string;
   data: TData[];
@@ -41,6 +44,8 @@ export function DataTable<TData, TValue>({
   data,
   fetchMore,
   loading,
+  isRefreshing = false,
+  refreshKey,
 }: DataTableProps<TData, TValue>) {
   const [localData, setLocalData] = React.useState(data);
   const [, setIsLoading] = React.useState(loading);
@@ -62,11 +67,15 @@ export function DataTable<TData, TValue>({
   }, []);
 
   React.useEffect(() => {
-    setLocalData(data);
+    // Only update localData if we're not currently refreshing
+    // This keeps the old data visible during the refresh overlay
+    if (!isRefreshing) {
+      setLocalData(data);
+    }
     setIsLoading(loading);
     setIsFetching(false);
     fetchingRef.current = false;
-  }, [data, loading]);
+  }, [data, loading, isRefreshing]);
 
   React.useEffect(() => {
     setShowLoadMore(!isLargeScreen && localData.length < totalRowsMax);
@@ -163,6 +172,14 @@ export function DataTable<TData, TValue>({
     rowVirtualizer.measure();
   }, [localData, rowVirtualizer]);
 
+  React.useEffect(() => {
+    if (!refreshKey) {
+      return;
+    }
+    parentRef.current?.scrollTo({ top: 0, behavior: "auto" });
+    rowVirtualizer.scrollToIndex(0);
+  }, [refreshKey, rowVirtualizer]);
+
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
 
   const handleLoadMore = React.useCallback(() => {
@@ -181,10 +198,16 @@ export function DataTable<TData, TValue>({
   }, [fetchMore, isLoadingMore]);
 
   return (
-    <div className="h-[700px] w-full flex flex-col">
+    <div className="relative h-[700px] min-h-[700px] w-full flex flex-col">
+      {isRefreshing && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-background/70 backdrop-blur-sm">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Updating data…</p>
+        </div>
+      )}
       <div
         ref={parentRef}
-        className="flex-grow overflow-x-hidden overflow-y-auto"
+        className="flex-grow overflow-x-hidden overflow-y-auto min-h-0"
         onScroll={() => fetchMoreOnBottomReached(parentRef.current)}
       >
         <Table className="w-full table-fixed">
@@ -214,11 +237,11 @@ export function DataTable<TData, TValue>({
           </TableHeader>
           <TableBody>
             {loading ? (
-              // Show skeleton loader that matches the actual card layout
+              // Show skeleton loader that matches the actual card layout with fixed height
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow
                   key={`skeleton-${i}`}
-                  className="flex w-full items-center border-b"
+                  className="flex w-full items-center border-b h-[183px]"
                 >
                   {/* Stock ticker and name column - matches Card structure */}
                   <TableCell className="flex-1 min-w-0 p-2">
@@ -286,7 +309,7 @@ export function DataTable<TData, TValue>({
                       `/shorts/${(row.original as { productCode: string }).productCode}`,
                     )
                   }
-                  className="flex w-full cursor-pointer items-center"
+                  className="flex w-full cursor-pointer items-center h-[183px]"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell

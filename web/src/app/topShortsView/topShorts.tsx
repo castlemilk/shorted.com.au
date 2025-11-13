@@ -36,6 +36,8 @@ const getPeriodString = (period: string) => {
       return "1 year";
     case "2y":
       return "2 years";
+    case "5y":
+      return "5 years";
     case "max":
       return "maximum window";
     default:
@@ -55,52 +57,107 @@ export const TopShorts: FC<TopShortsProps> = ({
   initialPeriod = "3m",
 }) => {
   const [period, setPeriod] = useState<string>(initialPeriod);
-  const [loading, setLoading] = useState<boolean>(!initialShortsData);
-  const [offset, setOffset] = useState<number>(0); // Added offset state
+  const [displayPeriod, setDisplayPeriod] = useState<string>(initialPeriod);
+  const [isInitialLoading, setIsInitialLoading] =
+    useState<boolean>(!initialShortsData);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [shortsData, setShortsData] = useState<PlainMessage<TimeSeriesData>[]>(
     initialShortsData ?? [],
   );
-  const firstUpdate = useRef(!initialShortsData); // If no initial data, fetch on mount
-  const fetchMoreData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const newData = await getTopShortsDataClient(
-        period,
-        LOAD_CHUNK_SIZE,
-        LOAD_CHUNK_SIZE + offset,
-      );
-      setShortsData((prev) => [...(prev ?? []), ...newData.timeSeries]);
-      setOffset((prevOffset) => prevOffset + LOAD_CHUNK_SIZE);
-    } catch (e) {
-      console.error("Error fetching data: ", e);
-    } finally {
-      setLoading(false);
-    }
-  }, [offset, period]); // Add period to the dependency array
+  const requestIdRef = useRef(0);
+  const offsetRef = useRef<number>(initialShortsData?.length ?? 0);
+  const [refreshKey, setRefreshKey] = useState<number>(() => Date.now());
 
-  useEffect(() => {
-    // Fetch data on mount if no initial data, or when period changes
-    if (firstUpdate.current && initialShortsData) {
-      firstUpdate.current = false;
+  const getTimeSeriesForPeriod = useCallback(
+    async (nextPeriod: string, opts: { keepExisting: boolean }) => {
+      requestIdRef.current += 1;
+      const currentRequestId = requestIdRef.current;
+
+      if (opts.keepExisting) {
+        setIsRefreshing(true);
+      } else {
+        setIsInitialLoading(true);
+      }
+
+      try {
+        const result = await getTopShortsDataClient(
+          nextPeriod,
+          LOAD_CHUNK_SIZE,
+          0,
+        );
+
+        if (requestIdRef.current !== currentRequestId) {
+          return;
+        }
+
+        setShortsData(result.timeSeries);
+        setDisplayPeriod(nextPeriod);
+        offsetRef.current = result.timeSeries.length;
+        setRefreshKey(Date.now());
+      } catch (e) {
+        if (requestIdRef.current === currentRequestId) {
+          console.error("Error fetching data: ", e);
+        }
+      } finally {
+        if (requestIdRef.current !== currentRequestId) {
+          return;
+        }
+
+        if (opts.keepExisting) {
+          setIsRefreshing(false);
+        } else {
+          setIsInitialLoading(false);
+        }
+      }
+    },
+    [],
+  );
+
+  const fetchMoreData = useCallback(async () => {
+    if (isInitialLoading || isRefreshing) {
       return;
     }
 
-    if (firstUpdate.current) {
-      firstUpdate.current = false;
+    try {
+      const result = await getTopShortsDataClient(
+        period,
+        LOAD_CHUNK_SIZE,
+        offsetRef.current,
+      );
+
+      if (result.timeSeries.length === 0) {
+        return;
+      }
+
+      offsetRef.current += result.timeSeries.length;
+      setShortsData((prev) => [...prev, ...result.timeSeries]);
+    } catch (e) {
+      console.error("Error fetching data: ", e);
+    }
+  }, [isInitialLoading, isRefreshing, period]);
+
+  useEffect(() => {
+    if (!initialShortsData || initialShortsData.length === 0) {
+      void getTimeSeriesForPeriod(initialPeriod, { keepExisting: false });
+      return;
     }
 
-    setLoading(true);
-    setOffset(0); // Reset offset when period changes
-    getTopShortsDataClient(period, LOAD_CHUNK_SIZE, 0)
-      .then((data) => {
-        setShortsData(data.timeSeries);
-        setLoading(false);
-      })
-      .catch((e) => {
-        console.error("Error fetching data: ", e);
-        setLoading(false);
-      });
-  }, [period, initialShortsData]);
+    offsetRef.current = initialShortsData.length;
+    setDisplayPeriod(initialPeriod);
+    setIsInitialLoading(false);
+    setRefreshKey(Date.now());
+  }, [getTimeSeriesForPeriod, initialPeriod, initialShortsData]);
+
+  const handlePeriodChange = useCallback(
+    (nextPeriod: string) => {
+      if (nextPeriod === period && !isRefreshing) {
+        return;
+      }
+      setPeriod(nextPeriod);
+      void getTimeSeriesForPeriod(nextPeriod, { keepExisting: true });
+    },
+    [getTimeSeriesForPeriod, period, isRefreshing],
+  );
 
   return (
     <Suspense fallback={loadingPlaceholder}>
@@ -110,7 +167,7 @@ export const TopShorts: FC<TopShortsProps> = ({
           <div className="flex flex-row-reverse m-2">
             <div className="w-48">
               <Label htmlFor="area">Time</Label>
-              <Select onValueChange={(e) => setPeriod(e)} defaultValue={"max"}>
+              <Select value={period} onValueChange={handlePeriodChange}>
                 <SelectTrigger id="area">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
@@ -127,11 +184,13 @@ export const TopShorts: FC<TopShortsProps> = ({
           </div>
         </div>
         <DataTable
-          loading={loading}
+          loading={isInitialLoading && shortsData.length === 0}
+          isRefreshing={isRefreshing}
           data={shortsData}
           columns={columns}
-          period={getPeriodString(period)}
+          period={getPeriodString(displayPeriod)}
           fetchMore={fetchMoreData}
+          refreshKey={refreshKey}
         />
       </Card>
     </Suspense>
