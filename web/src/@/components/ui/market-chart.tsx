@@ -19,11 +19,20 @@ export type MarketChartProps = {
 const MarketChart = ({ stockCode }: MarketChartProps) => {
   const [period, setPeriod] = useState<string>(INITIAL_PERIOD);
   const chartRef = useRef<HandleBrushClearAndReset>(null);
+  const [isFirstLoad, setIsFirstLoad] = useState<boolean>(true);
   const { data, loading, error } = useMarketData(stockCode, period);
+
+  // Track if this is the initial load or a refresh
+  const isRefreshing = !isFirstLoad && loading;
 
   // Convert market data to unified chart format
   const chartData = useMemo((): UnifiedChartData | null => {
     if (!data?.points || data.points.length === 0) return null;
+
+    // Mark first load as complete once we have data
+    if (isFirstLoad && data.points.length > 0) {
+      setIsFirstLoad(false);
+    }
 
     return {
       type: "price",
@@ -37,7 +46,7 @@ const MarketChart = ({ stockCode }: MarketChartProps) => {
         volume: point.volume,
       })),
     };
-  }, [data, stockCode]);
+  }, [data, stockCode, isFirstLoad]);
 
   const handleClearClick = () => {
     chartRef?.current?.clear();
@@ -49,7 +58,7 @@ const MarketChart = ({ stockCode }: MarketChartProps) => {
 
   return (
     <Suspense fallback={<ChartLoadingPlaceholder withMenu={true} />}>
-      <div className="grid">
+      <div className="grid relative">
         <div className="flex flex-row-reverse">
           <div className="flex">
             <Button className="mr-1" size="sm" onClick={handleClearClick}>
@@ -77,29 +86,37 @@ const MarketChart = ({ stockCode }: MarketChartProps) => {
           </div>
         </div>
 
-        {loading ? (
+        {isFirstLoad && loading ? (
           <ChartLoadingPlaceholder withMenu={false} />
         ) : error ? (
-          <div className="flex items-center justify-center h-[400px] text-red-500">
+          <div className="flex items-center justify-center h-[500px] min-h-[500px] text-red-500">
             <p>Error loading market data: {error.message}</p>
           </div>
         ) : !chartData ? (
-          <div className="flex items-center justify-center h-[400px] text-muted-foreground">
+          <div className="flex items-center justify-center h-[500px] min-h-[500px] text-muted-foreground">
             <p>
               No market data available for {stockCode} in the selected period
             </p>
           </div>
         ) : (
-          <ParentSize className="min-w-0">
-            {({ width }) => (
-              <UnifiedBrushChart
-                ref={chartRef}
-                data={chartData}
-                width={width}
-                height={500}
-              />
+          <div className="relative min-h-[500px]">
+            {isRefreshing && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-background/70 backdrop-blur-sm rounded-lg">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+                <p className="text-sm text-muted-foreground">Updating chart…</p>
+              </div>
             )}
-          </ParentSize>
+            <ParentSize className="min-w-0">
+              {({ width }) => (
+                <UnifiedBrushChart
+                  ref={chartRef}
+                  data={chartData}
+                  width={width}
+                  height={500}
+                />
+              )}
+            </ParentSize>
+          </div>
         )}
       </div>
     </Suspense>
@@ -120,7 +137,7 @@ const ChartLoadingPlaceholder = ({ withMenu }: { withMenu: boolean }) => (
       </div>
     ) : null}
     <div>
-      <Skeleton className="h-[400px] w-full mt-2" />
+      <Skeleton className="h-[500px] min-h-[500px] w-full mt-2" />
     </div>
   </div>
 );

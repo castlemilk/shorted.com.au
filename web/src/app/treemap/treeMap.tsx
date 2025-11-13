@@ -48,6 +48,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
   const [treeMapData, setTreeMapData] =
     useState<PlainMessage<IndustryTreeMap> | null>(initialTreeMapData ?? null);
   const [loading, setLoading] = useState<boolean>(!initialTreeMapData);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   const [tooltipState, setTooltipState] = useState<{
     productCode: string;
@@ -72,17 +73,22 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
 
     if (firstUpdate.current) {
       firstUpdate.current = false;
+      setLoading(true);
+    } else {
+      // Subsequent updates are refreshes, not initial loads
+      setIsRefreshing(true);
     }
 
-    setLoading(true);
     getIndustryTreeMapClient(period, 10, viewMode)
       .then((data) => {
         setTreeMapData(data);
         setLoading(false);
+        setIsRefreshing(false);
       })
       .catch((e) => {
         console.error("Error fetching data: ", e);
         setLoading(false);
+        setIsRefreshing(false);
       });
   }, [period, viewMode, initialTreeMapData]);
 
@@ -216,137 +222,145 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
           </div>
         }
       >
-        <ParentSize>
-          {({ width }) => (
-            <div style={{ position: "relative" }}>
-              <svg width={width} height={700}>
-                <Treemap<typeof industryTreeMap>
-                  top={0}
-                  root={root}
-                  size={[width, 700]}
-                  tile={treemapSquarify}
-                  round
-                >
-                  {(treemap) => (
-                    <Group>
-                      {/* Render child nodes first */}
-                      {treemap.descendants().map((node, i) => {
-                        if (node.depth > 1) {
-                          const isTopEdge = node.y0 === node.parent?.y0;
-                          const isBottomEdge = node.y1 === node.parent?.y1;
-                          const isLeftEdge = node.x0 === node.parent?.x0;
-                          const isRightEdge = node.x1 === node.parent?.x1;
-
-                          const nodeWidth =
-                            node.x1 -
-                            node.x0 -
-                            (isLeftEdge ? PADDING : 0) -
-                            (isRightEdge ? PADDING : 0);
-                          const nodeHeight =
-                            node.y1 -
-                            node.y0 -
-                            (isTopEdge ? PADDING * 4 : 0) -
-                            (isBottomEdge ? PADDING : 0);
-
-                          const top = node.y0 + (isTopEdge ? PADDING * 4 : 0);
-                          const left = node.x0 + (isLeftEdge ? PADDING : 0);
-
-                          if (nodeHeight < 0 || nodeWidth < 0) {
-                            return null;
-                          }
-
-                          return (
-                            <Group
-                              key={`node-${i}`}
-                              top={top}
-                              left={left}
-                              onMouseEnter={(e) =>
-                                handleMouseEnter(e, node.data?.id ?? "")
-                              }
-                              onMouseLeave={handleMouseLeave}
-                              pointerEvents={"all"}
-                              onClick={() =>
-                                handleRectClick(node.data?.id ?? "")
-                              }
-                            >
-                              <rect
-                                width={nodeWidth}
-                                height={nodeHeight}
-                                stroke="#114b5f"
-                                fill={colorScale(node.value ?? 0)}
-                                pointerEvents={"all"}
-                                cursor={"pointer"}
-                              />
-                              {nodeWidth > 20 && (
-                                <>
-                                  <text
-                                    x={nodeWidth / 2}
-                                    y={nodeHeight / 2}
-                                    dy=".33em"
-                                    fontSize={10}
-                                    textAnchor="middle"
-                                    pointerEvents="none"
-                                    fill="hsl(var(--foreground))"
-                                  >
-                                    {node.data.id}
-                                  </text>
-                                </>
-                              )}
-                            </Group>
-                          );
-                        }
-                        return null;
-                      })}
-
-                      {/* Render parent nodes and their text last to bring them to the front */}
-                      {treemap.descendants().map((node, i) => {
-                        if (node.depth === 1) {
-                          const nodeWidth = node.x1 - node.x0;
-
-                          return (
-                            <Group
-                              key={`node-${i}`}
-                              top={node.y0}
-                              left={node.x0}
-                            >
-                              <text
-                                x={5}
-                                y={5}
-                                dy=".66em"
-                                fontSize={12}
-                                textAnchor="start"
-                                pointerEvents="none"
-                                fill="hsl(var(--foreground))"
-                              >
-                                {`${node.data.id?.substring(0, nodeWidth / 10)}${(node.data.id?.length ?? 0) > nodeWidth / 10 ? "..." : ""}`}
-                              </text>
-                            </Group>
-                          );
-                        }
-                        return null;
-                      })}
-                    </Group>
-                  )}
-                </Treemap>
-              </svg>
-
-              {/* Render rich tooltip */}
-              {tooltipState && (
-                <TreemapTooltip
-                  productCode={tooltipState.productCode}
-                  shortPosition={tooltipState.shortPosition}
-                  industry={tooltipState.industry}
-                  x={tooltipState.x}
-                  y={tooltipState.y}
-                  containerWidth={tooltipState.containerWidth}
-                  containerHeight={tooltipState.containerHeight}
-                  containerX={tooltipState.containerX}
-                  containerY={tooltipState.containerY}
-                />
-              )}
+        <div className="relative">
+          {isRefreshing && (
+            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-background/70 backdrop-blur-sm m-2 rounded-xl">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+              <p className="text-sm text-muted-foreground">Updating data…</p>
             </div>
           )}
-        </ParentSize>
+          <ParentSize>
+            {({ width }) => (
+              <div style={{ position: "relative" }}>
+                <svg width={width} height={700}>
+                  <Treemap<typeof industryTreeMap>
+                    top={0}
+                    root={root}
+                    size={[width, 700]}
+                    tile={treemapSquarify}
+                    round
+                  >
+                    {(treemap) => (
+                      <Group>
+                        {/* Render child nodes first */}
+                        {treemap.descendants().map((node, i) => {
+                          if (node.depth > 1) {
+                            const isTopEdge = node.y0 === node.parent?.y0;
+                            const isBottomEdge = node.y1 === node.parent?.y1;
+                            const isLeftEdge = node.x0 === node.parent?.x0;
+                            const isRightEdge = node.x1 === node.parent?.x1;
+
+                            const nodeWidth =
+                              node.x1 -
+                              node.x0 -
+                              (isLeftEdge ? PADDING : 0) -
+                              (isRightEdge ? PADDING : 0);
+                            const nodeHeight =
+                              node.y1 -
+                              node.y0 -
+                              (isTopEdge ? PADDING * 4 : 0) -
+                              (isBottomEdge ? PADDING : 0);
+
+                            const top = node.y0 + (isTopEdge ? PADDING * 4 : 0);
+                            const left = node.x0 + (isLeftEdge ? PADDING : 0);
+
+                            if (nodeHeight < 0 || nodeWidth < 0) {
+                              return null;
+                            }
+
+                            return (
+                              <Group
+                                key={`node-${i}`}
+                                top={top}
+                                left={left}
+                                onMouseEnter={(e) =>
+                                  handleMouseEnter(e, node.data?.id ?? "")
+                                }
+                                onMouseLeave={handleMouseLeave}
+                                pointerEvents={"all"}
+                                onClick={() =>
+                                  handleRectClick(node.data?.id ?? "")
+                                }
+                              >
+                                <rect
+                                  width={nodeWidth}
+                                  height={nodeHeight}
+                                  stroke="#114b5f"
+                                  fill={colorScale(node.value ?? 0)}
+                                  pointerEvents={"all"}
+                                  cursor={"pointer"}
+                                />
+                                {nodeWidth > 20 && (
+                                  <>
+                                    <text
+                                      x={nodeWidth / 2}
+                                      y={nodeHeight / 2}
+                                      dy=".33em"
+                                      fontSize={10}
+                                      textAnchor="middle"
+                                      pointerEvents="none"
+                                      fill="hsl(var(--foreground))"
+                                    >
+                                      {node.data.id}
+                                    </text>
+                                  </>
+                                )}
+                              </Group>
+                            );
+                          }
+                          return null;
+                        })}
+
+                        {/* Render parent nodes and their text last to bring them to the front */}
+                        {treemap.descendants().map((node, i) => {
+                          if (node.depth === 1) {
+                            const nodeWidth = node.x1 - node.x0;
+
+                            return (
+                              <Group
+                                key={`node-${i}`}
+                                top={node.y0}
+                                left={node.x0}
+                              >
+                                <text
+                                  x={5}
+                                  y={5}
+                                  dy=".66em"
+                                  fontSize={12}
+                                  textAnchor="start"
+                                  pointerEvents="none"
+                                  fill="hsl(var(--foreground))"
+                                >
+                                  {`${node.data.id?.substring(0, nodeWidth / 10)}${(node.data.id?.length ?? 0) > nodeWidth / 10 ? "..." : ""}`}
+                                </text>
+                              </Group>
+                            );
+                          }
+                          return null;
+                        })}
+                      </Group>
+                    )}
+                  </Treemap>
+                </svg>
+
+                {/* Render rich tooltip */}
+                {tooltipState && (
+                  <TreemapTooltip
+                    productCode={tooltipState.productCode}
+                    shortPosition={tooltipState.shortPosition}
+                    industry={tooltipState.industry}
+                    x={tooltipState.x}
+                    y={tooltipState.y}
+                    containerWidth={tooltipState.containerWidth}
+                    containerHeight={tooltipState.containerHeight}
+                    containerX={tooltipState.containerX}
+                    containerY={tooltipState.containerY}
+                  />
+                )}
+              </div>
+            )}
+          </ParentSize>
+        </div>
       </Suspense>
     </Card>
   );
