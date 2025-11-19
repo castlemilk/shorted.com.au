@@ -1,6 +1,12 @@
 "use client";
 import React, { useRef, useEffect } from "react";
-import * as d3 from "d3";
+import { select } from "d3-selection";
+import {
+  hierarchy,
+  tree,
+  type HierarchyNode,
+  type HierarchyLink,
+} from "d3-hierarchy";
 import { createRoot } from "react-dom/client"; // Add this import
 
 interface TreeItem {
@@ -22,7 +28,7 @@ const Tree: React.FC<TreeProps> = ({ data }) => {
 
   useEffect(() => {
     // Clear the SVG before rendering
-    d3.select(svgRef.current).selectAll("*").remove();
+    select(svgRef.current).selectAll("*").remove();
 
     // Set dimensions and margins
     const margin = { top: 60, right: 120, bottom: 80, left: 120 };
@@ -30,8 +36,7 @@ const Tree: React.FC<TreeProps> = ({ data }) => {
     const height = 800 - margin.top - margin.bottom; // Increased height
 
     // Create the SVG container
-    const svg = d3
-      .select(svgRef.current)
+    const svg = select(svgRef.current)
       .attr("width", width + margin.right + margin.left)
       .attr("height", height + margin.top + margin.bottom)
       .attr(
@@ -42,11 +47,10 @@ const Tree: React.FC<TreeProps> = ({ data }) => {
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
     // Create root hierarchy node
-    const root = d3.hierarchy(data);
+    const root = hierarchy(data);
 
     // Create tree layout with increased node separation
-    const treeLayout = d3
-      .tree<TreeItem>()
+    const treeLayout = tree<TreeItem>()
       .size([width, height])
       .separation((a, b) => (a.parent === b.parent ? 2 : 3)); // Increased separation
 
@@ -65,7 +69,7 @@ const Tree: React.FC<TreeProps> = ({ data }) => {
     };
 
     // Helper function to check if a node is complete
-    const isNodeComplete = (node: d3.HierarchyNode<TreeItem>): boolean => {
+    const isNodeComplete = (node: HierarchyNode<TreeItem>): boolean => {
       return (
         node.data.status === "DONE" ||
         (node.children ? node.children.some(isNodeComplete) : false)
@@ -98,9 +102,9 @@ const Tree: React.FC<TreeProps> = ({ data }) => {
 
     // Function to render links (remove glow and keep consistent stroke width)
     const renderLinks = (
-      linkData: d3.HierarchyLink<TreeItem>[],
+      linkData: HierarchyLink<TreeItem>[],
       className: string,
-      colorFn: (d: d3.HierarchyLink<TreeItem>) => string,
+      colorFn: (d: HierarchyLink<TreeItem>) => string,
     ) => {
       svg
         .selectAll(`.${className}`)
@@ -132,8 +136,7 @@ const Tree: React.FC<TreeProps> = ({ data }) => {
     );
 
     // Update the tooltip creation
-    const tooltip = d3
-      .select("body")
+    const tooltip = select("body")
       .append("div")
       .attr("class", "node-tooltip")
       .style("position", "absolute")
@@ -163,7 +166,7 @@ const Tree: React.FC<TreeProps> = ({ data }) => {
       .attr("transform", (d) => `translate(${d.x},${d.y})`);
 
     node.each(function (d) {
-      const currentNode = d3.select(this);
+      const currentNode = select(this);
       const isComplete = d.data.status === "DONE";
       const isRootNode = !d.parent; // Check if it's the root node
 
@@ -279,7 +282,7 @@ const Tree: React.FC<TreeProps> = ({ data }) => {
         .on(
           "mouseover",
           function (this: SVGGElement, event: MouseEvent, d: unknown) {
-            const node = d as d3.HierarchyNode<TreeItem>;
+            const node = d as HierarchyNode<TreeItem>;
             if (!isRootNode && (node.data.name || node.data.description)) {
               const svgRect = svgRef.current!.getBoundingClientRect();
               const nodeRect = this.getBoundingClientRect();
@@ -334,7 +337,7 @@ const Tree: React.FC<TreeProps> = ({ data }) => {
 
     // Clean up on unmount
     return () => {
-      d3.select(svgRef.current).selectAll("*").remove();
+      select(svgRef.current).selectAll("*").remove();
       tooltip.remove();
     };
   }, [data]);

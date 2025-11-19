@@ -1,4 +1,4 @@
-import Chart from "~/@/components/ui/chart";
+import dynamic from "next/dynamic";
 import MarketChart from "~/@/components/ui/market-chart";
 import CompanyProfile, {
   CompanyProfilePlaceholder,
@@ -9,6 +9,10 @@ import CompanyStats, {
 import CompanyInfo, {
   CompanyInfoPlaceholder,
 } from "~/@/components/ui/companyInfo";
+import CompanyFinancials, {
+  CompanyFinancialsPlaceholder,
+} from "~/@/components/ui/companyFinancials";
+import { EnrichedCompanySection } from "~/@/components/company/enriched-company-section";
 import { Suspense } from "react";
 import { StockStructuredData } from "~/@/components/seo/structured-data";
 import {
@@ -29,6 +33,14 @@ import { TrendingDown, CandlestickChart } from "lucide-react";
 interface PageProps {
   params: { stockCode: string };
 }
+
+// ISR: Revalidate every hour (3600 seconds)
+export const revalidate = 3600;
+
+const Chart = dynamic(() => import("~/@/components/ui/chart"), {
+  ssr: false,
+  loading: () => <ChartSkeleton />,
+});
 
 const Page = ({ params }: PageProps) => {
   // This page is public for SEO and discovery - no authentication required
@@ -80,8 +92,14 @@ const Page = ({ params }: PageProps) => {
               <CompanyInfo stockCode={params.stockCode} />
             </Suspense>
           </div>
+          <div className="grid gap-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4">
+            <Suspense fallback={<CompanyFinancialsPlaceholder />}>
+              <CompanyFinancials stockCode={params.stockCode} />
+            </Suspense>
+          </div>
         </div>
         <div className="grid auto-rows-max items-start gap-6 lg:col-span-2">
+          {/* Short Position Trends */}
           <Card className="border-l-4 border-l-red-500 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
             <CardHeader className="pb-4 bg-gradient-to-r from-red-50/50 to-transparent dark:from-red-950/20 dark:to-transparent">
               <div className="flex items-center gap-3">
@@ -103,6 +121,7 @@ const Page = ({ params }: PageProps) => {
             </CardContent>
           </Card>
 
+          {/* Historical Price Data */}
           <Card className="border-l-4 border-l-blue-500 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
             <CardHeader className="pb-4 bg-gradient-to-r from-blue-50/50 to-transparent dark:from-blue-950/20 dark:to-transparent">
               <div className="flex items-center gap-3">
@@ -123,6 +142,9 @@ const Page = ({ params }: PageProps) => {
               <MarketChart stockCode={params.stockCode} />
             </CardContent>
           </Card>
+
+          {/* Enriched Company Insights */}
+          <EnrichedCompanySection stockCode={stockCode} />
         </div>
       </div>
     </DashboardLayout>
@@ -130,3 +152,22 @@ const Page = ({ params }: PageProps) => {
 };
 
 export default Page;
+
+const ChartSkeleton = () => (
+  <div className="grid">
+    <div className="flex flex-row-reverse">
+      <div className="flex">
+        <div className="h-10 w-[60px] ml-2 rounded bg-muted animate-pulse" />
+        <div className="h-10 w-[60px] ml-2 rounded bg-muted animate-pulse" />
+      </div>
+      <div className="flex space-x-2">
+        {Array.from({ length: 8 }).map((_, idx) => (
+          <div key={idx} className="h-10 w-12 rounded bg-muted animate-pulse" />
+        ))}
+      </div>
+    </div>
+    <div>
+      <div className="h-[500px] min-h-[500px] w-full mt-2 rounded bg-muted animate-pulse" />
+    </div>
+  </div>
+);

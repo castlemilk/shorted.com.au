@@ -1,32 +1,36 @@
-.about-page {
-    animation: fadeIn 1s ease-in-out;
+@keyframes gradient {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
 }
 
-.title {
-    color: var(--foreground);
+.animate-gradient {
+  background-size: 200% auto;
+  animation: gradient 3s ease infinite;
 }
 
-.description, .contact-info {
-    color: var(--muted-foreground);
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
 }
 
-.features-intro {
-    color: var(--foreground);
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
 }
 
-.features-list li {
-    color: var(--foreground);
+::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
 }
 
-.features-list li svg {
-    color: var(--primary);
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 5px;
 }
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
 }

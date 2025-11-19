@@ -1,71 +1,17 @@
 {
-  "framework": "nextjs",
-  "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install --legacy-peer-deps",
-  "regions": [
-    "syd1"
-  ],
-  "functions": {
-    "src/app/api/**/*.ts": {
-      "maxDuration": 30
-    }
-  },
   "crons": [
     {
-      "path": "/api/cron/cleanup",
-      "schedule": "0 */6 * * *"
-    }
-  ],
-  "env": {
-    "NEXT_PUBLIC_ENVIRONMENT": "production"
-  },
-  "build": {
-    "env": {}
-  },
-  "github": {
-    "enabled": true,
-    "autoAlias": false,
-    "silent": false,
-    "autoJobCancelation": true
-  },
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store, max-age=0"
-        }
-      ]
+      "path": "/api/about/warm-cache",
+      "schedule": "*/5 * * * *"
     },
     {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        }
-      ]
+      "path": "/api/homepage/warm-cache",
+      "schedule": "*/10 * * * *"
     }
   ],
-  "rewrites": [
-    {
-      "source": "/api/shorts/:path*",
-      "destination": "${NEXT_PUBLIC_API_URL}/:path*"
-    },
-    {
-      "source": "/api/market/:path*",
-      "destination": "${NEXT_PUBLIC_MARKET_DATA_URL}/:path*"
+  "functions": {
+    "api/warm-cache.ts": {
+      "maxDuration": 30
     }
-  ]
+  }
 }

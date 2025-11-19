@@ -1,9 +1,8 @@
 "use client";
 
 import { createConnectTransport } from "@connectrpc/connect-web";
-import { createPromiseClient } from "@connectrpc/connect";
-import { type PlainMessage, toPlainMessage } from "@bufbuild/protobuf";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_connect";
+import { createClient } from "@connectrpc/connect";
+import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import {
   type StockDetails,
   type TimeSeriesData,
@@ -39,12 +38,12 @@ const getTransport = () =>
  */
 export async function fetchStockDetailsClient(
   productCode: string,
-): Promise<PlainMessage<StockDetails> | undefined> {
+): Promise<StockDetails | undefined> {
   try {
     const transport = getTransport();
-    const client = createPromiseClient(ShortedStocksService, transport);
+    const client = createClient(ShortedStocksService, transport);
     const response = await client.getStockDetails({ productCode });
-    return toPlainMessage(response);
+    return response;
   } catch (error) {
     // Only log non-validation errors to avoid console spam
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -65,15 +64,15 @@ export async function fetchStockDetailsClient(
 export async function fetchStockDataClient(
   productCode: string,
   period = "1m",
-): Promise<PlainMessage<TimeSeriesData> | undefined> {
+): Promise<TimeSeriesData | undefined> {
   try {
     const transport = getTransport();
-    const client = createPromiseClient(ShortedStocksService, transport);
+    const client = createClient(ShortedStocksService, transport);
     const response = await client.getStockData({
       productCode,
       period,
     });
-    return toPlainMessage(response);
+    return response;
   } catch (error) {
     console.error(`Error fetching stock data for ${productCode}:`, error);
     return undefined;

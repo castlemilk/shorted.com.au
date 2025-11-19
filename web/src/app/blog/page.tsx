@@ -7,6 +7,8 @@ import { MDXRemote } from "next-mdx-remote/rsc";
 import { type Post } from "~/@/interfaces/post";
 import Info from "~/@/components/ui/info";
 import RegisterEmail from "~/@/components/ui/register-email";
+// Lazy load Prism CSS only for blog pages
+import "prismjs/themes/prism-tomorrow.css";
 
 export const dynamic = 'force-dynamic';
 

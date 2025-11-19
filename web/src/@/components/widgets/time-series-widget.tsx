@@ -9,8 +9,7 @@ import { AxisBottom, AxisLeft } from "@visx/axis";
 import { GridRows, GridColumns } from "@visx/grid";
 import { Group } from "@visx/group";
 import { getStockData } from "~/app/actions/getStockData";
-import { type PlainMessage } from "@bufbuild/protobuf";
-import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
+import { type TimeSeriesData, type TimeSeriesPoint } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { curveLinear } from "@visx/curve";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { format } from "date-fns";
@@ -32,7 +31,7 @@ export function TimeSeriesWidget({ config }: WidgetProps) {
 
   const [loading, setLoading] = useState(true);
   const [stockData, setStockData] = useState<
-    Map<string, PlainMessage<TimeSeriesData>>
+    Map<string, TimeSeriesData>
   >(new Map());
 
   useEffect(() => {
@@ -43,7 +42,7 @@ export function TimeSeriesWidget({ config }: WidgetProps) {
 
     const fetchData = async () => {
       setLoading(true);
-      const newData = new Map<string, PlainMessage<TimeSeriesData>>();
+      const newData = new Map<string, TimeSeriesData>();
 
       try {
         await Promise.all(
@@ -69,13 +68,13 @@ export function TimeSeriesWidget({ config }: WidgetProps) {
     const allDataPoints: { date: Date; values: Map<string, number> }[] = [];
     const dateMap = new Map<string, Map<string, number>>();
 
-    stockData.forEach((seriesData, stockCode) => {
+    stockData.forEach((seriesData: TimeSeriesData, stockCode: string) => {
       if (seriesData.points) {
-        seriesData.points.forEach((point) => {
+        seriesData.points.forEach((point: TimeSeriesPoint) => {
           if (point.timestamp) {
             // Convert protobuf Timestamp to Date
-            const seconds = Number(point.timestamp.seconds || 0);
-            const nanos = Number(point.timestamp.nanos || 0);
+            const seconds = Number(point.timestamp.seconds ?? 0);
+            const nanos = Number(point.timestamp.nanos ?? 0);
             const date = new Date(seconds * 1000 + nanos / 1000000);
             const dateStr = date.toISOString();
 

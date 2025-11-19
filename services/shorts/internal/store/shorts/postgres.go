@@ -1,8 +1,13 @@
 package shorts
 
 import (
+	"bytes"
 	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
@@ -13,9 +18,40 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+const (
+	companyMetadataTableName  = "company-metadata"
+	stockDetailsQueryTemplate = `
+SELECT 
+	stock_code,
+	company_name,
+	industry,
+	address,
+	COALESCE(summary, '') as summary,
+	details,
+	website,
+	%s,
+	COALESCE(tags, ARRAY[]::text[]) as tags,
+	enhanced_summary,
+	company_history,
+	COALESCE(key_people, '[]'::jsonb) as key_people,
+	COALESCE(financial_reports, '[]'::jsonb) as financial_reports,
+	competitive_advantages,
+	risk_factors,
+	recent_developments,
+	COALESCE(social_media_links, '{}'::jsonb) as social_media_links,
+	enrichment_status,
+	enrichment_date,
+	enrichment_error,
+	COALESCE(financial_statements, '{}'::jsonb) as financial_statements
+FROM "company-metadata"
+WHERE stock_code = $1
+LIMIT 1`
+)
+
 // postgresStore implements the Store interface for a PostgreSQL backend.
 type postgresStore struct {
-	db *pgxpool.Pool
+	db                *pgxpool.Pool
+	stockDetailsQuery string
 }
 
 // newPostgresStore initializes a new store with a PostgreSQL backend.
@@ -38,9 +74,47 @@ func newPostgresStore(config Config) Store {
 		panic("Unable to connect to database: " + err.Error())
 	}
 
-	return &postgresStore{
-		db: dbPool,
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	stockDetailsQuery, err := buildStockDetailsQuery(ctx, dbPool)
+	if err != nil {
+		panic("Unable to build stock details query: " + err.Error())
 	}
+
+	return &postgresStore{
+		db:                dbPool,
+		stockDetailsQuery: stockDetailsQuery,
+	}
+}
+
+func buildStockDetailsQuery(ctx context.Context, db *pgxpool.Pool) (string, error) {
+	// Only use GCS URLs - no fallback to external company_logo_link
+	logoExpr := `COALESCE(logo_gcs_url, ''::text) as logo_gcs_url`
+	log.Infof("Using logo_gcs_url only (no external URL fallback)")
+
+	return fmt.Sprintf(stockDetailsQueryTemplate, logoExpr), nil
+}
+
+func columnExists(ctx context.Context, db *pgxpool.Pool, tableName, columnName string) (bool, error) {
+	const query = `
+SELECT 1
+FROM information_schema.columns
+WHERE table_schema = 'public'
+  AND table_name = $1
+  AND column_name = $2
+LIMIT 1`
+
+	var exists int
+	err := db.QueryRow(ctx, query, tableName, columnName).Scan(&exists)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, nil
 }
 
 // GetStock retrieves a single stock by its ID.
@@ -169,26 +243,399 @@ Table "public.metadata"
  gcsUrl            | text |           |          |
 */
 func (s *postgresStore) GetStockDetails(stockCode string) (*stocksv1alpha1.StockDetails, error) {
-	query := `select 
-		stock_code as ProductCode,
-		company_name as CompanyName,
-		address as Address,
-		industry as Industry,
-		summary as Summary,
-		details as Details,
-		website as Website,
-		"gcsUrl" as GcsUrl
-		from "company-metadata" 
-		where stock_code = $1
-		LIMIT 1`
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	rows, _ := s.db.Query(context.Background(), query, stockCode)
+	row := s.db.QueryRow(ctx, s.stockDetailsQuery, stockCode)
 
-	stock, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[stocksv1alpha1.StockDetails]) // Update as per actual table schema
-	if err != nil {
+	var (
+		productCode,
+		companyName,
+		industry,
+		address,
+		summary,
+		details,
+		website,
+		logoGCSURL sql.NullString
+		enhancedSummary         sql.NullString
+		companyHistory          sql.NullString
+		competitiveAdvantages   sql.NullString
+		riskFactors             sql.NullString
+		recentDevelopments      sql.NullString
+		enrichmentStatus        sql.NullString
+		enrichmentError         sql.NullString
+		enrichmentDate          pgtype.Timestamptz
+		tags                    []string
+		keyPeopleJSON           []byte
+		financialReportsJSON    []byte
+		socialMediaLinksJSON    []byte
+		financialStatementsJSON []byte
+	)
+
+	if err := row.Scan(
+		&productCode,
+		&companyName,
+		&industry,
+		&address,
+		&summary,
+		&details,
+		&website,
+		&logoGCSURL,
+		&tags,
+		&enhancedSummary,
+		&companyHistory,
+		&keyPeopleJSON,
+		&financialReportsJSON,
+		&competitiveAdvantages,
+		&riskFactors,
+		&recentDevelopments,
+		&socialMediaLinksJSON,
+		&enrichmentStatus,
+		&enrichmentDate,
+		&enrichmentError,
+		&financialStatementsJSON,
+	); err != nil {
 		return nil, err
 	}
-	return &stock, nil
+
+	detailsProto := &stocksv1alpha1.StockDetails{
+		ProductCode:           productCode.String,
+		CompanyName:           companyName.String,
+		Industry:              industry.String,
+		Address:               address.String,
+		Summary:               summary.String,
+		Details:               details.String,
+		Website:               website.String,
+		GcsUrl:                logoGCSURL.String,
+		Tags:                  tags,
+		EnhancedSummary:       enhancedSummary.String,
+		CompanyHistory:        companyHistory.String,
+		CompetitiveAdvantages: competitiveAdvantages.String,
+		RecentDevelopments:    recentDevelopments.String,
+		SocialMediaLinks:      parseSocialMediaLinks(socialMediaLinksJSON),
+		EnrichmentStatus:      enrichmentStatus.String,
+		EnrichmentError:       enrichmentError.String,
+	}
+
+	if enrichmentDate.Status == pgtype.Present {
+		detailsProto.EnrichmentDate = timestamppb.New(enrichmentDate.Time)
+	}
+
+	if keyPeople, err := parseKeyPeople(keyPeopleJSON); err == nil {
+		detailsProto.KeyPeople = keyPeople
+	}
+
+	if reports, err := parseFinancialReports(financialReportsJSON); err == nil {
+		detailsProto.FinancialReports = reports
+	}
+
+	if rf := strings.TrimSpace(riskFactors.String); rf != "" {
+		if parsed, err := parseStringArray([]byte(rf)); err == nil {
+			detailsProto.RiskFactors = parsed
+		} else {
+			detailsProto.RiskFactors = []string{riskFactors.String}
+		}
+	}
+
+	if fs := parseFinancialStatements(financialStatementsJSON); fs != nil {
+		detailsProto.FinancialStatements = fs
+	}
+
+	return detailsProto, nil
+}
+
+type dbPerson struct {
+	Name string `json:"name"`
+	Role string `json:"role"`
+	Bio  string `json:"bio"`
+}
+
+type dbFinancialReport struct {
+	URL    string `json:"url"`
+	Title  string `json:"title"`
+	Type   string `json:"type"`
+	Date   string `json:"date"`
+	Source string `json:"source"`
+	GCSURL string `json:"gcsUrl"`
+}
+
+type dbSocialMediaLinks struct {
+	Twitter  *string `json:"twitter"`
+	LinkedIn *string `json:"linkedin"`
+	Facebook *string `json:"facebook"`
+	YouTube  *string `json:"youtube"`
+	Website  *string `json:"website"`
+}
+
+type dbFinancialStatementsInfo struct {
+	MarketCap     *float64 `json:"market_cap"`
+	CurrentPrice  *float64 `json:"current_price"`
+	PeRatio       *float64 `json:"pe_ratio"`
+	Eps           *float64 `json:"eps"`
+	DividendYield *float64 `json:"dividend_yield"`
+	Beta          *float64 `json:"beta"`
+	Week52High    *float64 `json:"week_52_high"`
+	Week52Low     *float64 `json:"week_52_low"`
+	Volume        *float64 `json:"volume"`
+	EmployeeCount *float64 `json:"employee_count"`
+	Sector        *string  `json:"sector"`
+	Industry      *string  `json:"industry"`
+}
+
+type dbFinancialStatements struct {
+	Success   bool                       `json:"success"`
+	Annual    *dbFinancialStatementSet   `json:"annual"`
+	Quarterly *dbFinancialStatementSet   `json:"quarterly"`
+	Info      *dbFinancialStatementsInfo `json:"info"`
+	Error     string                     `json:"error"`
+}
+
+type dbFinancialStatementSet struct {
+	IncomeStatement map[string]map[string]*float64 `json:"income_statement"`
+	BalanceSheet    map[string]map[string]*float64 `json:"balance_sheet"`
+	CashFlow        map[string]map[string]*float64 `json:"cash_flow"`
+}
+
+func parseKeyPeople(data []byte) ([]*stocksv1alpha1.CompanyPerson, error) {
+	if isEmptyJSON(data) {
+		return nil, nil
+	}
+	var raw []dbPerson
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, err
+	}
+	people := make([]*stocksv1alpha1.CompanyPerson, 0, len(raw))
+	for _, person := range raw {
+		if person.Name == "" && person.Role == "" && person.Bio == "" {
+			continue
+		}
+		people = append(people, &stocksv1alpha1.CompanyPerson{
+			Name: person.Name,
+			Role: person.Role,
+			Bio:  person.Bio,
+		})
+	}
+	return people, nil
+}
+
+func parseFinancialReports(data []byte) ([]*stocksv1alpha1.FinancialReport, error) {
+	if isEmptyJSON(data) {
+		return nil, nil
+	}
+	var raw []dbFinancialReport
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil, err
+	}
+	reports := make([]*stocksv1alpha1.FinancialReport, 0, len(raw))
+	for _, report := range raw {
+		if report.URL == "" {
+			continue
+		}
+		reports = append(reports, &stocksv1alpha1.FinancialReport{
+			Url:    report.URL,
+			Title:  report.Title,
+			Type:   report.Type,
+			Date:   report.Date,
+			Source: report.Source,
+			GcsUrl: report.GCSURL,
+		})
+	}
+	return reports, nil
+}
+
+func parseSocialMediaLinks(data []byte) *stocksv1alpha1.SocialMediaLinks {
+	if isEmptyJSON(data) {
+		return nil
+	}
+	var links dbSocialMediaLinks
+	if err := json.Unmarshal(data, &links); err != nil {
+		return nil
+	}
+	result := &stocksv1alpha1.SocialMediaLinks{}
+	var hasValue bool
+	if links.Twitter != nil {
+		result.Twitter = *links.Twitter
+		hasValue = true
+	}
+	if links.LinkedIn != nil {
+		result.Linkedin = *links.LinkedIn
+		hasValue = true
+	}
+	if links.Facebook != nil {
+		result.Facebook = *links.Facebook
+		hasValue = true
+	}
+	if links.YouTube != nil {
+		result.Youtube = *links.YouTube
+		hasValue = true
+	}
+	if links.Website != nil {
+		result.Website = *links.Website
+		hasValue = true
+	}
+	if !hasValue {
+		return nil
+	}
+	return result
+}
+
+func parseStringArray(data []byte) ([]string, error) {
+	if isEmptyJSON(data) {
+		return nil, nil
+	}
+	var vals []string
+	if err := json.Unmarshal(data, &vals); err != nil {
+		return nil, err
+	}
+	return vals, nil
+}
+
+func parseFinancialStatements(data []byte) *stocksv1alpha1.FinancialStatements {
+	if isEmptyJSON(data) {
+		return nil
+	}
+	var raw dbFinancialStatements
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil
+	}
+	statements := &stocksv1alpha1.FinancialStatements{
+		Success:   raw.Success,
+		Error:     raw.Error,
+		Annual:    convertStatementSet(raw.Annual),
+		Quarterly: convertStatementSet(raw.Quarterly),
+		Info:      convertFinancialInfo(raw.Info),
+	}
+	if statements.Info == nil && statements.Annual == nil && statements.Quarterly == nil && !statements.Success && statements.Error == "" {
+		return nil
+	}
+	return statements
+}
+
+func convertStatementSet(src *dbFinancialStatementSet) *stocksv1alpha1.FinancialStatementSet {
+	if src == nil {
+		return nil
+	}
+	set := &stocksv1alpha1.FinancialStatementSet{
+		IncomeStatement: convertStatementMap(src.IncomeStatement),
+		BalanceSheet:    convertStatementMap(src.BalanceSheet),
+		CashFlow:        convertStatementMap(src.CashFlow),
+	}
+	if len(set.IncomeStatement) == 0 {
+		set.IncomeStatement = nil
+	}
+	if len(set.BalanceSheet) == 0 {
+		set.BalanceSheet = nil
+	}
+	if len(set.CashFlow) == 0 {
+		set.CashFlow = nil
+	}
+	if set.IncomeStatement == nil && set.BalanceSheet == nil && set.CashFlow == nil {
+		return nil
+	}
+	return set
+}
+
+func convertStatementMap(src map[string]map[string]*float64) map[string]*stocksv1alpha1.StatementValues {
+	if len(src) == 0 {
+		return nil
+	}
+	result := make(map[string]*stocksv1alpha1.StatementValues, len(src))
+	for period, metrics := range src {
+		if len(metrics) == 0 {
+			continue
+		}
+		values := &stocksv1alpha1.StatementValues{
+			Metrics: make(map[string]float64, len(metrics)),
+		}
+		for key, val := range metrics {
+			if val == nil {
+				continue
+			}
+			values.Metrics[key] = *val
+		}
+		if len(values.Metrics) > 0 {
+			result[period] = values
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+func convertFinancialInfo(info *dbFinancialStatementsInfo) *stocksv1alpha1.FinancialStatementsInfo {
+	if info == nil {
+		return nil
+	}
+	fsInfo := &stocksv1alpha1.FinancialStatementsInfo{}
+	var hasValue bool
+
+	if info.MarketCap != nil {
+		fsInfo.MarketCap = *info.MarketCap
+		hasValue = true
+	}
+	if info.CurrentPrice != nil {
+		fsInfo.CurrentPrice = *info.CurrentPrice
+		hasValue = true
+	}
+	if info.PeRatio != nil {
+		fsInfo.PeRatio = *info.PeRatio
+		hasValue = true
+	}
+	if info.Eps != nil {
+		fsInfo.Eps = *info.Eps
+		hasValue = true
+	}
+	if info.DividendYield != nil {
+		fsInfo.DividendYield = *info.DividendYield
+		hasValue = true
+	}
+	if info.Beta != nil {
+		fsInfo.Beta = *info.Beta
+		hasValue = true
+	}
+	if info.Week52High != nil {
+		fsInfo.Week_52High = *info.Week52High
+		hasValue = true
+	}
+	if info.Week52Low != nil {
+		fsInfo.Week_52Low = *info.Week52Low
+		hasValue = true
+	}
+	if info.Volume != nil {
+		fsInfo.Volume = *info.Volume
+		hasValue = true
+	}
+	if info.EmployeeCount != nil {
+		fsInfo.EmployeeCount = int64(*info.EmployeeCount)
+		hasValue = true
+	}
+	if info.Sector != nil {
+		fsInfo.Sector = *info.Sector
+		hasValue = true
+	}
+	if info.Industry != nil {
+		fsInfo.Industry = *info.Industry
+		hasValue = true
+	}
+
+	if !hasValue {
+		return nil
+	}
+	return fsInfo
+}
+
+func isEmptyJSON(data []byte) bool {
+	trimmed := bytes.TrimSpace(data)
+	if len(trimmed) == 0 {
+		return true
+	}
+	switch string(trimmed) {
+	case "[]", "{}", "null", `""`:
+		return true
+	default:
+		return false
+	}
 }
 
 // GetHeatmapData retrieves the top shorted stocks by industry.

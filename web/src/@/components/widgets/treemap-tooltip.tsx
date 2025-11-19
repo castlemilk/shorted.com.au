@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { type PlainMessage } from "@bufbuild/protobuf";
 import {
   type StockDetails,
   type TimeSeriesData,
+  type TimeSeriesPoint,
 } from "~/gen/stocks/v1alpha1/stocks_pb";
 import {
   fetchStockDetailsClient,
@@ -33,12 +33,8 @@ export function TreemapTooltip({
   x,
   y,
 }: TreemapTooltipProps) {
-  const [stockDetails, setStockDetails] = useState<
-    PlainMessage<StockDetails> | undefined
-  >();
-  const [timeSeriesData, setTimeSeriesData] = useState<
-    PlainMessage<TimeSeriesData> | undefined
-  >();
+  const [stockDetails, setStockDetails] = useState<StockDetails | undefined>();
+  const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesData | undefined>();
   const [loading, setLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
 
@@ -58,8 +54,8 @@ export function TreemapTooltip({
       ]);
 
       if (isMounted) {
-        setStockDetails(details);
-        setTimeSeriesData(tsData);
+        setStockDetails(details ?? undefined);
+        setTimeSeriesData(tsData ?? undefined);
         setLoading(false);
       }
     };
@@ -73,10 +69,14 @@ export function TreemapTooltip({
 
   // Convert time series data to sparkline format
   const sparklineData: SparklineData[] =
-    timeSeriesData?.points.map((point) => ({
-      date: new Date(Number(point.timestamp?.seconds ?? 0) * 1000),
-      value: point.shortPosition,
-    })) ?? [];
+    timeSeriesData?.points.map((point: TimeSeriesPoint) => {
+      const timestamp = point.timestamp;
+      const seconds = timestamp?.seconds ? Number(timestamp.seconds) : 0;
+      return {
+        date: new Date(seconds * 1000),
+        value: point.shortPosition ?? 0,
+      };
+    }) ?? [];
 
   // Calculate change
   const change =
@@ -155,8 +155,9 @@ export function TreemapTooltip({
                     alt={`${stockDetails.companyName ?? productCode} logo`}
                     fill
                     className="object-contain"
+                    sizes="48px"
+                    loading="lazy"
                     onError={() => setImageError(true)}
-                    unoptimized
                   />
                 </div>
               ) : (

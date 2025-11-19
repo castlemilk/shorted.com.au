@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { PortfolioClient } from "./components/portfolio-client";

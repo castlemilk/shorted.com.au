@@ -1,7 +1,6 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
-import { createPromiseClient } from "@connectrpc/connect";
-import { toPlainMessage } from "@bufbuild/protobuf";
-import { RegisterService } from "~/gen/register/v1/register_connect";
+import { createClient } from "@connectrpc/connect";
+import { RegisterService } from "~/gen/register/v1/register_pb";
 import { cache } from "react";
 import { SHORTS_API_URL } from "./config";
 
@@ -13,8 +12,8 @@ export const registerEmail = cache(async (email: string) => {
       SHORTS_API_URL,
   });
 
-  const client = createPromiseClient(RegisterService, transport);
+  const client = createClient(RegisterService, transport);
   const response = await client.registerEmail({ email });
 
-  return toPlainMessage(response);
+  return response;
 });

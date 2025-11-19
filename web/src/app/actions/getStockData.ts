@@ -1,7 +1,6 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
-import { createPromiseClient } from "@connectrpc/connect";
-import { type PlainMessage, toPlainMessage } from "@bufbuild/protobuf";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_connect";
+import { createClient } from "@connectrpc/connect";
+import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { cache } from "react";
 import { SHORTS_API_URL } from "./config";
@@ -13,16 +12,16 @@ export const getStockData = cache(
   async (
     productCode: string,
     period: string,
-  ): Promise<PlainMessage<TimeSeriesData>> => {
+  ): Promise<TimeSeriesData> => {
     const transport = createConnectTransport({
       baseUrl:
         process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL,
     });
-    const client = createPromiseClient(ShortedStocksService, transport);
+    const client = createClient(ShortedStocksService, transport);
     const response = await client.getStockData({
       productCode,
       period: formatPeriodForAPI(period),
     });
-    return toPlainMessage(response);
+    return response;
   },
 );

@@ -1,6 +1,13 @@
 // renders the tree component with the roadmap data
 
-import Tree from "~/@/components/tree/tree";
+import dynamic from "next/dynamic";
+import { Skeleton } from "~/@/components/ui/skeleton";
+
+// Dynamically import heavy tree component
+const Tree = dynamic(() => import("~/@/components/tree/tree"), {
+  loading: () => <Skeleton className="h-[800px] w-full" />,
+  ssr: false,
+});
 import {
   ActivityIcon,
   AreaChart,
@@ -18,7 +25,14 @@ import Container from "~/@/components/ui/container";
 import { cn } from "~/@/lib/utils";
 
 const CustomImage = () => (
-  <Image src="/logo.png" alt="Shorted node" width={40} height={40} />
+  <Image 
+    src="/logo.png" 
+    alt="Shorted node" 
+    width={40} 
+    height={40}
+    priority
+    sizes="40px"
+  />
 );
 
 // render a circle around the icon, hiding the line

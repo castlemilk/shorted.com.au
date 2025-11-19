@@ -252,17 +252,30 @@ func (x *TimeSeriesPoint) GetShortPosition() float64 {
 // company_logo_link | text |           |          |
 // gcsUrl            | text |           |          |
 type StockDetails struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	ProductCode   string                 `protobuf:"bytes,1,opt,name=product_code,json=productCode,proto3" json:"product_code,omitempty"`
-	CompanyName   string                 `protobuf:"bytes,2,opt,name=company_name,json=companyName,proto3" json:"company_name,omitempty"`
-	Industry      string                 `protobuf:"bytes,3,opt,name=industry,proto3" json:"industry,omitempty"`
-	Address       string                 `protobuf:"bytes,4,opt,name=address,proto3" json:"address,omitempty"`
-	Summary       string                 `protobuf:"bytes,5,opt,name=summary,proto3" json:"summary,omitempty"`
-	Details       string                 `protobuf:"bytes,6,opt,name=details,proto3" json:"details,omitempty"`
-	Website       string                 `protobuf:"bytes,7,opt,name=website,proto3" json:"website,omitempty"`
-	GcsUrl        string                 `protobuf:"bytes,8,opt,name=gcs_url,json=gcsUrl,proto3" json:"gcs_url,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	ProductCode           string                 `protobuf:"bytes,1,opt,name=product_code,json=productCode,proto3" json:"product_code,omitempty"`
+	CompanyName           string                 `protobuf:"bytes,2,opt,name=company_name,json=companyName,proto3" json:"company_name,omitempty"`
+	Industry              string                 `protobuf:"bytes,3,opt,name=industry,proto3" json:"industry,omitempty"`
+	Address               string                 `protobuf:"bytes,4,opt,name=address,proto3" json:"address,omitempty"`
+	Summary               string                 `protobuf:"bytes,5,opt,name=summary,proto3" json:"summary,omitempty"`
+	Details               string                 `protobuf:"bytes,6,opt,name=details,proto3" json:"details,omitempty"`
+	Website               string                 `protobuf:"bytes,7,opt,name=website,proto3" json:"website,omitempty"`
+	GcsUrl                string                 `protobuf:"bytes,8,opt,name=gcs_url,json=gcsUrl,proto3" json:"gcs_url,omitempty"`
+	Tags                  []string               `protobuf:"bytes,9,rep,name=tags,proto3" json:"tags,omitempty"`
+	EnhancedSummary       string                 `protobuf:"bytes,10,opt,name=enhanced_summary,json=enhancedSummary,proto3" json:"enhanced_summary,omitempty"`
+	CompanyHistory        string                 `protobuf:"bytes,11,opt,name=company_history,json=companyHistory,proto3" json:"company_history,omitempty"`
+	KeyPeople             []*CompanyPerson       `protobuf:"bytes,12,rep,name=key_people,json=keyPeople,proto3" json:"key_people,omitempty"`
+	FinancialReports      []*FinancialReport     `protobuf:"bytes,13,rep,name=financial_reports,json=financialReports,proto3" json:"financial_reports,omitempty"`
+	CompetitiveAdvantages string                 `protobuf:"bytes,14,opt,name=competitive_advantages,json=competitiveAdvantages,proto3" json:"competitive_advantages,omitempty"`
+	RiskFactors           []string               `protobuf:"bytes,15,rep,name=risk_factors,json=riskFactors,proto3" json:"risk_factors,omitempty"`
+	RecentDevelopments    string                 `protobuf:"bytes,16,opt,name=recent_developments,json=recentDevelopments,proto3" json:"recent_developments,omitempty"`
+	SocialMediaLinks      *SocialMediaLinks      `protobuf:"bytes,17,opt,name=social_media_links,json=socialMediaLinks,proto3" json:"social_media_links,omitempty"`
+	EnrichmentStatus      string                 `protobuf:"bytes,18,opt,name=enrichment_status,json=enrichmentStatus,proto3" json:"enrichment_status,omitempty"`
+	EnrichmentDate        *timestamppb.Timestamp `protobuf:"bytes,19,opt,name=enrichment_date,json=enrichmentDate,proto3" json:"enrichment_date,omitempty"`
+	EnrichmentError       string                 `protobuf:"bytes,20,opt,name=enrichment_error,json=enrichmentError,proto3" json:"enrichment_error,omitempty"`
+	FinancialStatements   *FinancialStatements   `protobuf:"bytes,21,opt,name=financial_statements,json=financialStatements,proto3" json:"financial_statements,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
 }
 
 func (x *StockDetails) Reset() {
@@ -351,6 +364,629 @@ func (x *StockDetails) GetGcsUrl() string {
 	return ""
 }
 
+func (x *StockDetails) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+func (x *StockDetails) GetEnhancedSummary() string {
+	if x != nil {
+		return x.EnhancedSummary
+	}
+	return ""
+}
+
+func (x *StockDetails) GetCompanyHistory() string {
+	if x != nil {
+		return x.CompanyHistory
+	}
+	return ""
+}
+
+func (x *StockDetails) GetKeyPeople() []*CompanyPerson {
+	if x != nil {
+		return x.KeyPeople
+	}
+	return nil
+}
+
+func (x *StockDetails) GetFinancialReports() []*FinancialReport {
+	if x != nil {
+		return x.FinancialReports
+	}
+	return nil
+}
+
+func (x *StockDetails) GetCompetitiveAdvantages() string {
+	if x != nil {
+		return x.CompetitiveAdvantages
+	}
+	return ""
+}
+
+func (x *StockDetails) GetRiskFactors() []string {
+	if x != nil {
+		return x.RiskFactors
+	}
+	return nil
+}
+
+func (x *StockDetails) GetRecentDevelopments() string {
+	if x != nil {
+		return x.RecentDevelopments
+	}
+	return ""
+}
+
+func (x *StockDetails) GetSocialMediaLinks() *SocialMediaLinks {
+	if x != nil {
+		return x.SocialMediaLinks
+	}
+	return nil
+}
+
+func (x *StockDetails) GetEnrichmentStatus() string {
+	if x != nil {
+		return x.EnrichmentStatus
+	}
+	return ""
+}
+
+func (x *StockDetails) GetEnrichmentDate() *timestamppb.Timestamp {
+	if x != nil {
+		return x.EnrichmentDate
+	}
+	return nil
+}
+
+func (x *StockDetails) GetEnrichmentError() string {
+	if x != nil {
+		return x.EnrichmentError
+	}
+	return ""
+}
+
+func (x *StockDetails) GetFinancialStatements() *FinancialStatements {
+	if x != nil {
+		return x.FinancialStatements
+	}
+	return nil
+}
+
+type CompanyPerson struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Role          string                 `protobuf:"bytes,2,opt,name=role,proto3" json:"role,omitempty"`
+	Bio           string                 `protobuf:"bytes,3,opt,name=bio,proto3" json:"bio,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CompanyPerson) Reset() {
+	*x = CompanyPerson{}
+	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompanyPerson) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompanyPerson) ProtoMessage() {}
+
+func (x *CompanyPerson) ProtoReflect() protoreflect.Message {
+	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CompanyPerson.ProtoReflect.Descriptor instead.
+func (*CompanyPerson) Descriptor() ([]byte, []int) {
+	return file_stocks_v1alpha1_stocks_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *CompanyPerson) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CompanyPerson) GetRole() string {
+	if x != nil {
+		return x.Role
+	}
+	return ""
+}
+
+func (x *CompanyPerson) GetBio() string {
+	if x != nil {
+		return x.Bio
+	}
+	return ""
+}
+
+type FinancialReport struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Url           string                 `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
+	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Type          string                 `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
+	Date          string                 `protobuf:"bytes,4,opt,name=date,proto3" json:"date,omitempty"`
+	Source        string                 `protobuf:"bytes,5,opt,name=source,proto3" json:"source,omitempty"`
+	GcsUrl        string                 `protobuf:"bytes,6,opt,name=gcs_url,json=gcsUrl,proto3" json:"gcs_url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FinancialReport) Reset() {
+	*x = FinancialReport{}
+	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FinancialReport) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FinancialReport) ProtoMessage() {}
+
+func (x *FinancialReport) ProtoReflect() protoreflect.Message {
+	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FinancialReport.ProtoReflect.Descriptor instead.
+func (*FinancialReport) Descriptor() ([]byte, []int) {
+	return file_stocks_v1alpha1_stocks_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *FinancialReport) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
+func (x *FinancialReport) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *FinancialReport) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *FinancialReport) GetDate() string {
+	if x != nil {
+		return x.Date
+	}
+	return ""
+}
+
+func (x *FinancialReport) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *FinancialReport) GetGcsUrl() string {
+	if x != nil {
+		return x.GcsUrl
+	}
+	return ""
+}
+
+type SocialMediaLinks struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Twitter       string                 `protobuf:"bytes,1,opt,name=twitter,proto3" json:"twitter,omitempty"`
+	Linkedin      string                 `protobuf:"bytes,2,opt,name=linkedin,proto3" json:"linkedin,omitempty"`
+	Facebook      string                 `protobuf:"bytes,3,opt,name=facebook,proto3" json:"facebook,omitempty"`
+	Youtube       string                 `protobuf:"bytes,4,opt,name=youtube,proto3" json:"youtube,omitempty"`
+	Website       string                 `protobuf:"bytes,5,opt,name=website,proto3" json:"website,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SocialMediaLinks) Reset() {
+	*x = SocialMediaLinks{}
+	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SocialMediaLinks) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SocialMediaLinks) ProtoMessage() {}
+
+func (x *SocialMediaLinks) ProtoReflect() protoreflect.Message {
+	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SocialMediaLinks.ProtoReflect.Descriptor instead.
+func (*SocialMediaLinks) Descriptor() ([]byte, []int) {
+	return file_stocks_v1alpha1_stocks_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *SocialMediaLinks) GetTwitter() string {
+	if x != nil {
+		return x.Twitter
+	}
+	return ""
+}
+
+func (x *SocialMediaLinks) GetLinkedin() string {
+	if x != nil {
+		return x.Linkedin
+	}
+	return ""
+}
+
+func (x *SocialMediaLinks) GetFacebook() string {
+	if x != nil {
+		return x.Facebook
+	}
+	return ""
+}
+
+func (x *SocialMediaLinks) GetYoutube() string {
+	if x != nil {
+		return x.Youtube
+	}
+	return ""
+}
+
+func (x *SocialMediaLinks) GetWebsite() string {
+	if x != nil {
+		return x.Website
+	}
+	return ""
+}
+
+type FinancialStatements struct {
+	state         protoimpl.MessageState   `protogen:"open.v1"`
+	Success       bool                     `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Annual        *FinancialStatementSet   `protobuf:"bytes,2,opt,name=annual,proto3" json:"annual,omitempty"`
+	Quarterly     *FinancialStatementSet   `protobuf:"bytes,3,opt,name=quarterly,proto3" json:"quarterly,omitempty"`
+	Info          *FinancialStatementsInfo `protobuf:"bytes,4,opt,name=info,proto3" json:"info,omitempty"`
+	Error         string                   `protobuf:"bytes,5,opt,name=error,proto3" json:"error,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FinancialStatements) Reset() {
+	*x = FinancialStatements{}
+	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FinancialStatements) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FinancialStatements) ProtoMessage() {}
+
+func (x *FinancialStatements) ProtoReflect() protoreflect.Message {
+	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FinancialStatements.ProtoReflect.Descriptor instead.
+func (*FinancialStatements) Descriptor() ([]byte, []int) {
+	return file_stocks_v1alpha1_stocks_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *FinancialStatements) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *FinancialStatements) GetAnnual() *FinancialStatementSet {
+	if x != nil {
+		return x.Annual
+	}
+	return nil
+}
+
+func (x *FinancialStatements) GetQuarterly() *FinancialStatementSet {
+	if x != nil {
+		return x.Quarterly
+	}
+	return nil
+}
+
+func (x *FinancialStatements) GetInfo() *FinancialStatementsInfo {
+	if x != nil {
+		return x.Info
+	}
+	return nil
+}
+
+func (x *FinancialStatements) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+type FinancialStatementSet struct {
+	state           protoimpl.MessageState      `protogen:"open.v1"`
+	IncomeStatement map[string]*StatementValues `protobuf:"bytes,1,rep,name=income_statement,json=incomeStatement,proto3" json:"income_statement,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	BalanceSheet    map[string]*StatementValues `protobuf:"bytes,2,rep,name=balance_sheet,json=balanceSheet,proto3" json:"balance_sheet,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	CashFlow        map[string]*StatementValues `protobuf:"bytes,3,rep,name=cash_flow,json=cashFlow,proto3" json:"cash_flow,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *FinancialStatementSet) Reset() {
+	*x = FinancialStatementSet{}
+	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FinancialStatementSet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FinancialStatementSet) ProtoMessage() {}
+
+func (x *FinancialStatementSet) ProtoReflect() protoreflect.Message {
+	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FinancialStatementSet.ProtoReflect.Descriptor instead.
+func (*FinancialStatementSet) Descriptor() ([]byte, []int) {
+	return file_stocks_v1alpha1_stocks_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *FinancialStatementSet) GetIncomeStatement() map[string]*StatementValues {
+	if x != nil {
+		return x.IncomeStatement
+	}
+	return nil
+}
+
+func (x *FinancialStatementSet) GetBalanceSheet() map[string]*StatementValues {
+	if x != nil {
+		return x.BalanceSheet
+	}
+	return nil
+}
+
+func (x *FinancialStatementSet) GetCashFlow() map[string]*StatementValues {
+	if x != nil {
+		return x.CashFlow
+	}
+	return nil
+}
+
+type StatementValues struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Metrics       map[string]float64     `protobuf:"bytes,1,rep,name=metrics,proto3" json:"metrics,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"fixed64,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StatementValues) Reset() {
+	*x = StatementValues{}
+	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StatementValues) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StatementValues) ProtoMessage() {}
+
+func (x *StatementValues) ProtoReflect() protoreflect.Message {
+	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StatementValues.ProtoReflect.Descriptor instead.
+func (*StatementValues) Descriptor() ([]byte, []int) {
+	return file_stocks_v1alpha1_stocks_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *StatementValues) GetMetrics() map[string]float64 {
+	if x != nil {
+		return x.Metrics
+	}
+	return nil
+}
+
+type FinancialStatementsInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MarketCap     float64                `protobuf:"fixed64,1,opt,name=market_cap,json=marketCap,proto3" json:"market_cap,omitempty"`
+	CurrentPrice  float64                `protobuf:"fixed64,2,opt,name=current_price,json=currentPrice,proto3" json:"current_price,omitempty"`
+	PeRatio       float64                `protobuf:"fixed64,3,opt,name=pe_ratio,json=peRatio,proto3" json:"pe_ratio,omitempty"`
+	Eps           float64                `protobuf:"fixed64,4,opt,name=eps,proto3" json:"eps,omitempty"`
+	DividendYield float64                `protobuf:"fixed64,5,opt,name=dividend_yield,json=dividendYield,proto3" json:"dividend_yield,omitempty"`
+	Beta          float64                `protobuf:"fixed64,6,opt,name=beta,proto3" json:"beta,omitempty"`
+	Week_52High   float64                `protobuf:"fixed64,7,opt,name=week_52_high,json=week52High,proto3" json:"week_52_high,omitempty"`
+	Week_52Low    float64                `protobuf:"fixed64,8,opt,name=week_52_low,json=week52Low,proto3" json:"week_52_low,omitempty"`
+	Volume        float64                `protobuf:"fixed64,9,opt,name=volume,proto3" json:"volume,omitempty"`
+	EmployeeCount int64                  `protobuf:"varint,10,opt,name=employee_count,json=employeeCount,proto3" json:"employee_count,omitempty"`
+	Sector        string                 `protobuf:"bytes,11,opt,name=sector,proto3" json:"sector,omitempty"`
+	Industry      string                 `protobuf:"bytes,12,opt,name=industry,proto3" json:"industry,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FinancialStatementsInfo) Reset() {
+	*x = FinancialStatementsInfo{}
+	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FinancialStatementsInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FinancialStatementsInfo) ProtoMessage() {}
+
+func (x *FinancialStatementsInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FinancialStatementsInfo.ProtoReflect.Descriptor instead.
+func (*FinancialStatementsInfo) Descriptor() ([]byte, []int) {
+	return file_stocks_v1alpha1_stocks_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *FinancialStatementsInfo) GetMarketCap() float64 {
+	if x != nil {
+		return x.MarketCap
+	}
+	return 0
+}
+
+func (x *FinancialStatementsInfo) GetCurrentPrice() float64 {
+	if x != nil {
+		return x.CurrentPrice
+	}
+	return 0
+}
+
+func (x *FinancialStatementsInfo) GetPeRatio() float64 {
+	if x != nil {
+		return x.PeRatio
+	}
+	return 0
+}
+
+func (x *FinancialStatementsInfo) GetEps() float64 {
+	if x != nil {
+		return x.Eps
+	}
+	return 0
+}
+
+func (x *FinancialStatementsInfo) GetDividendYield() float64 {
+	if x != nil {
+		return x.DividendYield
+	}
+	return 0
+}
+
+func (x *FinancialStatementsInfo) GetBeta() float64 {
+	if x != nil {
+		return x.Beta
+	}
+	return 0
+}
+
+func (x *FinancialStatementsInfo) GetWeek_52High() float64 {
+	if x != nil {
+		return x.Week_52High
+	}
+	return 0
+}
+
+func (x *FinancialStatementsInfo) GetWeek_52Low() float64 {
+	if x != nil {
+		return x.Week_52Low
+	}
+	return 0
+}
+
+func (x *FinancialStatementsInfo) GetVolume() float64 {
+	if x != nil {
+		return x.Volume
+	}
+	return 0
+}
+
+func (x *FinancialStatementsInfo) GetEmployeeCount() int64 {
+	if x != nil {
+		return x.EmployeeCount
+	}
+	return 0
+}
+
+func (x *FinancialStatementsInfo) GetSector() string {
+	if x != nil {
+		return x.Sector
+	}
+	return ""
+}
+
+func (x *FinancialStatementsInfo) GetIndustry() string {
+	if x != nil {
+		return x.Industry
+	}
+	return ""
+}
+
 type IndustryTreeMap struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// indstries that a stock will belond to
@@ -362,7 +998,7 @@ type IndustryTreeMap struct {
 
 func (x *IndustryTreeMap) Reset() {
 	*x = IndustryTreeMap{}
-	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[4]
+	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -374,7 +1010,7 @@ func (x *IndustryTreeMap) String() string {
 func (*IndustryTreeMap) ProtoMessage() {}
 
 func (x *IndustryTreeMap) ProtoReflect() protoreflect.Message {
-	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[4]
+	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -387,7 +1023,7 @@ func (x *IndustryTreeMap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IndustryTreeMap.ProtoReflect.Descriptor instead.
 func (*IndustryTreeMap) Descriptor() ([]byte, []int) {
-	return file_stocks_v1alpha1_stocks_proto_rawDescGZIP(), []int{4}
+	return file_stocks_v1alpha1_stocks_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *IndustryTreeMap) GetIndustries() []string {
@@ -415,7 +1051,7 @@ type TreemapShortPosition struct {
 
 func (x *TreemapShortPosition) Reset() {
 	*x = TreemapShortPosition{}
-	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[5]
+	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -427,7 +1063,7 @@ func (x *TreemapShortPosition) String() string {
 func (*TreemapShortPosition) ProtoMessage() {}
 
 func (x *TreemapShortPosition) ProtoReflect() protoreflect.Message {
-	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[5]
+	mi := &file_stocks_v1alpha1_stocks_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -440,7 +1076,7 @@ func (x *TreemapShortPosition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TreemapShortPosition.ProtoReflect.Descriptor instead.
 func (*TreemapShortPosition) Descriptor() ([]byte, []int) {
-	return file_stocks_v1alpha1_stocks_proto_rawDescGZIP(), []int{5}
+	return file_stocks_v1alpha1_stocks_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *TreemapShortPosition) GetIndustry() string {
@@ -485,7 +1121,7 @@ const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\x03min\x18\f \x01(\v2 .stocks.v1alpha1.TimeSeriesPointR\x03min\"r\n" +
 	"\x0fTimeSeriesPoint\x128\n" +
 	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12%\n" +
-	"\x0eshort_position\x18\x02 \x01(\x01R\rshortPosition\"\xf1\x01\n" +
+	"\x0eshort_position\x18\x02 \x01(\x01R\rshortPosition\"\xb9\a\n" +
 	"\fStockDetails\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12!\n" +
 	"\fcompany_name\x18\x02 \x01(\tR\vcompanyName\x12\x1a\n" +
@@ -494,7 +1130,79 @@ const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\asummary\x18\x05 \x01(\tR\asummary\x12\x18\n" +
 	"\adetails\x18\x06 \x01(\tR\adetails\x12\x18\n" +
 	"\awebsite\x18\a \x01(\tR\awebsite\x12\x17\n" +
-	"\agcs_url\x18\b \x01(\tR\x06gcsUrl\"p\n" +
+	"\agcs_url\x18\b \x01(\tR\x06gcsUrl\x12\x12\n" +
+	"\x04tags\x18\t \x03(\tR\x04tags\x12)\n" +
+	"\x10enhanced_summary\x18\n" +
+	" \x01(\tR\x0fenhancedSummary\x12'\n" +
+	"\x0fcompany_history\x18\v \x01(\tR\x0ecompanyHistory\x12=\n" +
+	"\n" +
+	"key_people\x18\f \x03(\v2\x1e.stocks.v1alpha1.CompanyPersonR\tkeyPeople\x12M\n" +
+	"\x11financial_reports\x18\r \x03(\v2 .stocks.v1alpha1.FinancialReportR\x10financialReports\x125\n" +
+	"\x16competitive_advantages\x18\x0e \x01(\tR\x15competitiveAdvantages\x12!\n" +
+	"\frisk_factors\x18\x0f \x03(\tR\vriskFactors\x12/\n" +
+	"\x13recent_developments\x18\x10 \x01(\tR\x12recentDevelopments\x12O\n" +
+	"\x12social_media_links\x18\x11 \x01(\v2!.stocks.v1alpha1.SocialMediaLinksR\x10socialMediaLinks\x12+\n" +
+	"\x11enrichment_status\x18\x12 \x01(\tR\x10enrichmentStatus\x12C\n" +
+	"\x0fenrichment_date\x18\x13 \x01(\v2\x1a.google.protobuf.TimestampR\x0eenrichmentDate\x12)\n" +
+	"\x10enrichment_error\x18\x14 \x01(\tR\x0fenrichmentError\x12W\n" +
+	"\x14financial_statements\x18\x15 \x01(\v2$.stocks.v1alpha1.FinancialStatementsR\x13financialStatements\"I\n" +
+	"\rCompanyPerson\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
+	"\x04role\x18\x02 \x01(\tR\x04role\x12\x10\n" +
+	"\x03bio\x18\x03 \x01(\tR\x03bio\"\x92\x01\n" +
+	"\x0fFinancialReport\x12\x10\n" +
+	"\x03url\x18\x01 \x01(\tR\x03url\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12\x12\n" +
+	"\x04type\x18\x03 \x01(\tR\x04type\x12\x12\n" +
+	"\x04date\x18\x04 \x01(\tR\x04date\x12\x16\n" +
+	"\x06source\x18\x05 \x01(\tR\x06source\x12\x17\n" +
+	"\agcs_url\x18\x06 \x01(\tR\x06gcsUrl\"\x98\x01\n" +
+	"\x10SocialMediaLinks\x12\x18\n" +
+	"\atwitter\x18\x01 \x01(\tR\atwitter\x12\x1a\n" +
+	"\blinkedin\x18\x02 \x01(\tR\blinkedin\x12\x1a\n" +
+	"\bfacebook\x18\x03 \x01(\tR\bfacebook\x12\x18\n" +
+	"\ayoutube\x18\x04 \x01(\tR\ayoutube\x12\x18\n" +
+	"\awebsite\x18\x05 \x01(\tR\awebsite\"\x89\x02\n" +
+	"\x13FinancialStatements\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12>\n" +
+	"\x06annual\x18\x02 \x01(\v2&.stocks.v1alpha1.FinancialStatementSetR\x06annual\x12D\n" +
+	"\tquarterly\x18\x03 \x01(\v2&.stocks.v1alpha1.FinancialStatementSetR\tquarterly\x12<\n" +
+	"\x04info\x18\x04 \x01(\v2(.stocks.v1alpha1.FinancialStatementsInfoR\x04info\x12\x14\n" +
+	"\x05error\x18\x05 \x01(\tR\x05error\"\xd9\x04\n" +
+	"\x15FinancialStatementSet\x12f\n" +
+	"\x10income_statement\x18\x01 \x03(\v2;.stocks.v1alpha1.FinancialStatementSet.IncomeStatementEntryR\x0fincomeStatement\x12]\n" +
+	"\rbalance_sheet\x18\x02 \x03(\v28.stocks.v1alpha1.FinancialStatementSet.BalanceSheetEntryR\fbalanceSheet\x12Q\n" +
+	"\tcash_flow\x18\x03 \x03(\v24.stocks.v1alpha1.FinancialStatementSet.CashFlowEntryR\bcashFlow\x1ad\n" +
+	"\x14IncomeStatementEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x126\n" +
+	"\x05value\x18\x02 \x01(\v2 .stocks.v1alpha1.StatementValuesR\x05value:\x028\x01\x1aa\n" +
+	"\x11BalanceSheetEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x126\n" +
+	"\x05value\x18\x02 \x01(\v2 .stocks.v1alpha1.StatementValuesR\x05value:\x028\x01\x1a]\n" +
+	"\rCashFlowEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x126\n" +
+	"\x05value\x18\x02 \x01(\v2 .stocks.v1alpha1.StatementValuesR\x05value:\x028\x01\"\x96\x01\n" +
+	"\x0fStatementValues\x12G\n" +
+	"\ametrics\x18\x01 \x03(\v2-.stocks.v1alpha1.StatementValues.MetricsEntryR\ametrics\x1a:\n" +
+	"\fMetricsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x01R\x05value:\x028\x01\"\xfa\x02\n" +
+	"\x17FinancialStatementsInfo\x12\x1d\n" +
+	"\n" +
+	"market_cap\x18\x01 \x01(\x01R\tmarketCap\x12#\n" +
+	"\rcurrent_price\x18\x02 \x01(\x01R\fcurrentPrice\x12\x19\n" +
+	"\bpe_ratio\x18\x03 \x01(\x01R\apeRatio\x12\x10\n" +
+	"\x03eps\x18\x04 \x01(\x01R\x03eps\x12%\n" +
+	"\x0edividend_yield\x18\x05 \x01(\x01R\rdividendYield\x12\x12\n" +
+	"\x04beta\x18\x06 \x01(\x01R\x04beta\x12 \n" +
+	"\fweek_52_high\x18\a \x01(\x01R\n" +
+	"week52High\x12\x1e\n" +
+	"\vweek_52_low\x18\b \x01(\x01R\tweek52Low\x12\x16\n" +
+	"\x06volume\x18\t \x01(\x01R\x06volume\x12%\n" +
+	"\x0eemployee_count\x18\n" +
+	" \x01(\x03R\remployeeCount\x12\x16\n" +
+	"\x06sector\x18\v \x01(\tR\x06sector\x12\x1a\n" +
+	"\bindustry\x18\f \x01(\tR\bindustry\"p\n" +
 	"\x0fIndustryTreeMap\x12\x1e\n" +
 	"\n" +
 	"industries\x18\x01 \x03(\tR\n" +
@@ -518,27 +1226,53 @@ func file_stocks_v1alpha1_stocks_proto_rawDescGZIP() []byte {
 	return file_stocks_v1alpha1_stocks_proto_rawDescData
 }
 
-var file_stocks_v1alpha1_stocks_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_stocks_v1alpha1_stocks_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_stocks_v1alpha1_stocks_proto_goTypes = []any{
-	(*Stock)(nil),                 // 0: stocks.v1alpha1.Stock
-	(*TimeSeriesData)(nil),        // 1: stocks.v1alpha1.TimeSeriesData
-	(*TimeSeriesPoint)(nil),       // 2: stocks.v1alpha1.TimeSeriesPoint
-	(*StockDetails)(nil),          // 3: stocks.v1alpha1.StockDetails
-	(*IndustryTreeMap)(nil),       // 4: stocks.v1alpha1.IndustryTreeMap
-	(*TreemapShortPosition)(nil),  // 5: stocks.v1alpha1.TreemapShortPosition
-	(*timestamppb.Timestamp)(nil), // 6: google.protobuf.Timestamp
+	(*Stock)(nil),                   // 0: stocks.v1alpha1.Stock
+	(*TimeSeriesData)(nil),          // 1: stocks.v1alpha1.TimeSeriesData
+	(*TimeSeriesPoint)(nil),         // 2: stocks.v1alpha1.TimeSeriesPoint
+	(*StockDetails)(nil),            // 3: stocks.v1alpha1.StockDetails
+	(*CompanyPerson)(nil),           // 4: stocks.v1alpha1.CompanyPerson
+	(*FinancialReport)(nil),         // 5: stocks.v1alpha1.FinancialReport
+	(*SocialMediaLinks)(nil),        // 6: stocks.v1alpha1.SocialMediaLinks
+	(*FinancialStatements)(nil),     // 7: stocks.v1alpha1.FinancialStatements
+	(*FinancialStatementSet)(nil),   // 8: stocks.v1alpha1.FinancialStatementSet
+	(*StatementValues)(nil),         // 9: stocks.v1alpha1.StatementValues
+	(*FinancialStatementsInfo)(nil), // 10: stocks.v1alpha1.FinancialStatementsInfo
+	(*IndustryTreeMap)(nil),         // 11: stocks.v1alpha1.IndustryTreeMap
+	(*TreemapShortPosition)(nil),    // 12: stocks.v1alpha1.TreemapShortPosition
+	nil,                             // 13: stocks.v1alpha1.FinancialStatementSet.IncomeStatementEntry
+	nil,                             // 14: stocks.v1alpha1.FinancialStatementSet.BalanceSheetEntry
+	nil,                             // 15: stocks.v1alpha1.FinancialStatementSet.CashFlowEntry
+	nil,                             // 16: stocks.v1alpha1.StatementValues.MetricsEntry
+	(*timestamppb.Timestamp)(nil),   // 17: google.protobuf.Timestamp
 }
 var file_stocks_v1alpha1_stocks_proto_depIdxs = []int32{
-	2, // 0: stocks.v1alpha1.TimeSeriesData.points:type_name -> stocks.v1alpha1.TimeSeriesPoint
-	2, // 1: stocks.v1alpha1.TimeSeriesData.max:type_name -> stocks.v1alpha1.TimeSeriesPoint
-	2, // 2: stocks.v1alpha1.TimeSeriesData.min:type_name -> stocks.v1alpha1.TimeSeriesPoint
-	6, // 3: stocks.v1alpha1.TimeSeriesPoint.timestamp:type_name -> google.protobuf.Timestamp
-	5, // 4: stocks.v1alpha1.IndustryTreeMap.stocks:type_name -> stocks.v1alpha1.TreemapShortPosition
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	2,  // 0: stocks.v1alpha1.TimeSeriesData.points:type_name -> stocks.v1alpha1.TimeSeriesPoint
+	2,  // 1: stocks.v1alpha1.TimeSeriesData.max:type_name -> stocks.v1alpha1.TimeSeriesPoint
+	2,  // 2: stocks.v1alpha1.TimeSeriesData.min:type_name -> stocks.v1alpha1.TimeSeriesPoint
+	17, // 3: stocks.v1alpha1.TimeSeriesPoint.timestamp:type_name -> google.protobuf.Timestamp
+	4,  // 4: stocks.v1alpha1.StockDetails.key_people:type_name -> stocks.v1alpha1.CompanyPerson
+	5,  // 5: stocks.v1alpha1.StockDetails.financial_reports:type_name -> stocks.v1alpha1.FinancialReport
+	6,  // 6: stocks.v1alpha1.StockDetails.social_media_links:type_name -> stocks.v1alpha1.SocialMediaLinks
+	17, // 7: stocks.v1alpha1.StockDetails.enrichment_date:type_name -> google.protobuf.Timestamp
+	7,  // 8: stocks.v1alpha1.StockDetails.financial_statements:type_name -> stocks.v1alpha1.FinancialStatements
+	8,  // 9: stocks.v1alpha1.FinancialStatements.annual:type_name -> stocks.v1alpha1.FinancialStatementSet
+	8,  // 10: stocks.v1alpha1.FinancialStatements.quarterly:type_name -> stocks.v1alpha1.FinancialStatementSet
+	10, // 11: stocks.v1alpha1.FinancialStatements.info:type_name -> stocks.v1alpha1.FinancialStatementsInfo
+	13, // 12: stocks.v1alpha1.FinancialStatementSet.income_statement:type_name -> stocks.v1alpha1.FinancialStatementSet.IncomeStatementEntry
+	14, // 13: stocks.v1alpha1.FinancialStatementSet.balance_sheet:type_name -> stocks.v1alpha1.FinancialStatementSet.BalanceSheetEntry
+	15, // 14: stocks.v1alpha1.FinancialStatementSet.cash_flow:type_name -> stocks.v1alpha1.FinancialStatementSet.CashFlowEntry
+	16, // 15: stocks.v1alpha1.StatementValues.metrics:type_name -> stocks.v1alpha1.StatementValues.MetricsEntry
+	12, // 16: stocks.v1alpha1.IndustryTreeMap.stocks:type_name -> stocks.v1alpha1.TreemapShortPosition
+	9,  // 17: stocks.v1alpha1.FinancialStatementSet.IncomeStatementEntry.value:type_name -> stocks.v1alpha1.StatementValues
+	9,  // 18: stocks.v1alpha1.FinancialStatementSet.BalanceSheetEntry.value:type_name -> stocks.v1alpha1.StatementValues
+	9,  // 19: stocks.v1alpha1.FinancialStatementSet.CashFlowEntry.value:type_name -> stocks.v1alpha1.StatementValues
+	20, // [20:20] is the sub-list for method output_type
+	20, // [20:20] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_stocks_v1alpha1_stocks_proto_init() }
@@ -552,7 +1286,7 @@ func file_stocks_v1alpha1_stocks_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_stocks_v1alpha1_stocks_proto_rawDesc), len(file_stocks_v1alpha1_stocks_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   6,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

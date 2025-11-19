@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { type WidgetProps } from "~/@/types/dashboard";
-import { type PlainMessage } from "@bufbuild/protobuf";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { columns } from "~/app/topShortsView/components/columns";
@@ -27,7 +26,7 @@ import { cn } from "~/@/lib/utils";
 
 export function TopShortsWidget({ config }: WidgetProps) {
   const [loading, setLoading] = useState(true);
-  const [shortsData, setShortsData] = useState<PlainMessage<TimeSeriesData>[]>(
+  const [shortsData, setShortsData] = useState<TimeSeriesData[]>(
     [],
   );
   const [sorting, setSorting] = useState<SortingState>([]);

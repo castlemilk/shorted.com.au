@@ -1,4 +1,13 @@
-import { Sidebar } from "~/@/components/ui/sidebar";
+import dynamic from "next/dynamic";
+
+// Dynamically import Sidebar to avoid SSR issues
+// Sidebar uses client-side hooks (usePathname, useSession) that don't work during SSR
+const Sidebar = dynamic(
+  () => import("~/@/components/ui/sidebar").then((mod) => ({ default: mod.Sidebar })),
+  {
+    ssr: false, // Disable SSR for Sidebar since it uses client-side hooks
+  },
+);
 
 interface DashboardLayoutProps {
   children: React.ReactNode;

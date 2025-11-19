@@ -3,8 +3,10 @@
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { type WidgetProps } from "~/@/types/dashboard";
-import { type PlainMessage } from "@bufbuild/protobuf";
-import { type IndustryTreeMap } from "~/gen/stocks/v1alpha1/stocks_pb";
+import {
+  type IndustryTreeMap,
+  type TreemapShortPosition,
+} from "~/gen/stocks/v1alpha1/stocks_pb";
 import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { getIndustryTreeMap } from "~/app/actions/getIndustryTreeMap";
 import { Treemap, hierarchy, stratify, treemapSquarify } from "@visx/hierarchy";
@@ -36,8 +38,7 @@ interface TooltipState {
 export function IndustryTreemapWidget({ config }: WidgetProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [treeMapData, setTreeMapData] =
-    useState<PlainMessage<IndustryTreeMap> | null>(null);
+  const [treeMapData, setTreeMapData] = useState<IndustryTreeMap | null>(null);
   const [tooltipState, setTooltipState] = useState<TooltipState | null>(null);
   const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -87,14 +88,14 @@ export function IndustryTreemapWidget({ config }: WidgetProps) {
   }
 
   // Build tree data based on whether sector grouping is enabled
-  const treeData = showSectorGrouping
+  const treeData: TreeMapDatum[] = showSectorGrouping
     ? [
         { id: "root", parent: undefined },
         ...treeMapData.industries.map((industry) => ({
           id: industry,
           parent: "root",
         })),
-        ...treeMapData.stocks.map((stock) => ({
+        ...treeMapData.stocks.map((stock: TreemapShortPosition) => ({
           id: stock.productCode,
           parent: stock.industry,
           size: stock.shortPosition,
@@ -103,7 +104,7 @@ export function IndustryTreemapWidget({ config }: WidgetProps) {
       ]
     : [
         { id: "root", parent: undefined },
-        ...treeMapData.stocks.map((stock) => ({
+        ...treeMapData.stocks.map((stock: TreemapShortPosition) => ({
           id: stock.productCode,
           parent: "root",
           size: stock.shortPosition,
@@ -117,7 +118,12 @@ export function IndustryTreemapWidget({ config }: WidgetProps) {
     .sum((d) => d.size ?? 0);
 
   const colorScale = scaleLinear({
-    domain: [0, Math.max(...treeMapData.stocks.map((d) => d.shortPosition))],
+    domain: [
+      0,
+      Math.max(
+        ...treeMapData.stocks.map((d: TreemapShortPosition) => d.shortPosition),
+      ),
+    ],
     range: ["#33B074", "#EC5D5E"],
   });
 
@@ -193,7 +199,8 @@ export function IndustryTreemapWidget({ config }: WidgetProps) {
                         };
 
                         const stock = treeMapData.stocks.find(
-                          (s) => s.productCode === node.data.data.id,
+                          (s: TreemapShortPosition) =>
+                            s.productCode === node.data.data.id,
                         );
                         if (!stock) return null;
 

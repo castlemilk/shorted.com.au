@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { MethodKind } from "@bufbuild/protobuf";
+import { MethodKind } from "../runtime/method-kind";
 import { GetHistoricalPricesRequest, GetHistoricalPricesResponse, GetMultipleStockPricesRequest, GetMultipleStockPricesResponse, GetStockCorrelationsRequest, GetStockCorrelationsResponse, GetStockPriceRequest, GetStockPriceResponse } from "./marketdata_pb";
 
 /**

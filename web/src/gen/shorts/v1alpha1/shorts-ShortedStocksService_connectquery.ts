@@ -4,7 +4,7 @@
 // @ts-nocheck
 
 import { MethodKind } from "@bufbuild/protobuf";
-import { GetIndustryTreeMapRequest, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetTopShortsRequest, GetTopShortsResponse } from "./shorts_pb";
+import { GetIndustryTreeMapRequest, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetTopShortsRequest, GetTopShortsResponse, SearchStocksRequest, SearchStocksResponse } from "./shorts_pb";
 import { IndustryTreeMap, Stock, StockDetails, TimeSeriesData } from "../../stocks/v1alpha1/stocks_pb";
 
 /**
@@ -80,6 +80,22 @@ export const getStockData = {
   kind: MethodKind.Unary,
   I: GetStockDataRequest,
   O: TimeSeriesData,
+  service: {
+    typeName: "shorts.v1alpha1.ShortedStocksService"
+  }
+} as const;
+
+/**
+ * Search stocks by symbol or company name
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.SearchStocks
+ */
+export const searchStocks = {
+  localName: "searchStocks",
+  name: "SearchStocks",
+  kind: MethodKind.Unary,
+  I: SearchStocksRequest,
+  O: SearchStocksResponse,
   service: {
     typeName: "shorts.v1alpha1.ShortedStocksService"
   }

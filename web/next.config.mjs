@@ -34,16 +34,6 @@ if (process.env.ANALYZE === "true") {
 /** @type {import("next").NextConfig} */
 const config = {
   output: "standalone", // Enable standalone mode for Docker
-  webpack: (config) => {
-    config.resolve.fallback = {
-      fs: false,
-      net: false,
-      dns: false,
-      child_process: false,
-      tls: false,
-    };
-    return config;
-  },
   publicRuntimeConfig: {
     version,
     buildDate: new Date().toISOString(),
@@ -92,16 +82,125 @@ export default withBundleAnalyzer(
         "@visx/hierarchy",
         "@visx/scale",
         "@visx/shape",
+        "@visx/tooltip",
+        "@visx/pattern",
+        "@visx/gradient",
+        "@visx/event",
+        "@visx/vendor",
+        "@visx/curve",
+        "@visx/responsive",
       ],
+    },
+    // Optimize bundle splitting
+    webpack: (config, { isServer }) => {
+      // Existing webpack config for fallbacks
+      config.resolve.fallback = {
+        fs: false,
+        net: false,
+        dns: false,
+        child_process: false,
+        tls: false,
+      };
+
+
+      // Optimize chunk splitting for better caching
+      if (!isServer) {
+        config.optimization = {
+          ...config.optimization,
+          splitChunks: {
+            chunks: "all",
+            minSize: 20000,
+            maxSize: 244000,
+            cacheGroups: {
+              default: false,
+              vendors: false,
+              // Framework chunk - highest priority
+              framework: {
+                name: "framework",
+                test: /[\\/]node_modules[\\/](react|react-dom|next|scheduler)[\\/]/,
+                priority: 40,
+                reuseExistingChunk: true,
+                enforce: true,
+              },
+              // Visx visualization library - split by module for better tree-shaking
+              visx: {
+                name: "visx",
+                test: /[\\/]node_modules[\\/]@visx[\\/]/,
+                priority: 30,
+                reuseExistingChunk: true,
+                enforce: true,
+                maxSize: 150000, // Split large visx chunks
+              },
+              // D3 library
+              d3: {
+                name: "d3",
+                test: /[\\/]node_modules[\\/]d3[\\/]/,
+                priority: 20,
+                reuseExistingChunk: true,
+                enforce: true,
+              },
+              // Radix UI components
+              radix: {
+                name: "radix",
+                test: /[\\/]node_modules[\\/]@radix-ui[\\/]/,
+                priority: 25,
+                reuseExistingChunk: true,
+                enforce: true,
+              },
+              // Lucide icons
+              lucide: {
+                name: "lucide",
+                test: /[\\/]node_modules[\\/]lucide-react[\\/]/,
+                priority: 15,
+                reuseExistingChunk: true,
+              },
+              // Next Auth
+              nextAuth: {
+                name: "next-auth",
+                test: /[\\/]node_modules[\\/]next-auth[\\/]/,
+                priority: 15,
+                reuseExistingChunk: true,
+              },
+              // Common vendor libraries
+              vendor: {
+                name: "vendor",
+                test: /[\\/]node_modules[\\/]/,
+                priority: 10,
+                minChunks: 2,
+                reuseExistingChunk: true,
+              },
+            },
+          },
+        };
+      }
+
+      return config;
     },
     images: {
       ...config.images,
-      domains: [
-        "localhost",
-        "shorted.com.au",
-        "storage.googleapis.com",
-        "lh3.googleusercontent.com",
+      remotePatterns: [
+        {
+          protocol: "https",
+          hostname: "storage.googleapis.com",
+        },
+        {
+          protocol: "https",
+          hostname: "lh3.googleusercontent.com",
+        },
+        {
+          protocol: "https",
+          hostname: "shorted.com.au",
+        },
+        {
+          protocol: "http",
+          hostname: "localhost",
+          port: "3020",
+        },
       ],
+      formats: ["image/avif", "image/webp"],
+      deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+      imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+      minimumCacheTTL: 60,
     },
   }),
 );

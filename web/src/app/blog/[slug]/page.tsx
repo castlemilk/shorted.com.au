@@ -8,9 +8,14 @@ import { siteConfig } from "~/@/config/site";
 import { ArticleSchema } from "~/@/components/seo/article-schema";
 import { SocialShare } from "~/@/components/seo/social-share";
 import { RelatedPosts } from "~/@/components/seo/related-posts";
-import { calculateReadingTime, formatReadingTime } from "~/@/utils/reading-time";
+import {
+  calculateReadingTime,
+  formatReadingTime,
+} from "~/@/utils/reading-time";
 import Info from "~/@/components/ui/info";
 import RegisterEmail from "~/@/components/ui/register-email";
+// Lazy load Prism CSS only for blog posts
+import "prismjs/themes/prism-tomorrow.css";
 
 export const dynamic = "force-dynamic";
 
