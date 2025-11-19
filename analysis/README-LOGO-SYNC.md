@@ -66,3 +66,4 @@ To add logos for the remaining 167 stocks:
 - **Frontend Component**: `web/src/@/components/ui/company-logo.tsx`
 - **Database Table**: `company-metadata` (column: `logo_gcs_url`)
 
+
