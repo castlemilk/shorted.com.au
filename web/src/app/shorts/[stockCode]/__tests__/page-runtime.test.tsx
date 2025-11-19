@@ -1,14 +1,16 @@
 /// <reference types="jest" />
 import "@testing-library/jest-dom";
-import { TextEncoder, TextDecoder } from "util";
 
-if (!globalThis.TextEncoder) {
-  globalThis.TextEncoder = TextEncoder;
-}
-if (!globalThis.TextDecoder) {
-  // @ts-expect-error - TextDecoder type on Node differs from DOM lib
-  globalThis.TextDecoder = TextDecoder;
-}
+// Mock Connect RPC before any imports
+jest.mock("@connectrpc/connect", () => ({
+  createClient: jest.fn(() => ({
+    getStockDetails: jest.fn(),
+  })),
+}));
+
+jest.mock("@connectrpc/connect-web", () => ({
+  createConnectTransport: jest.fn(() => ({})),
+}));
 
 /**
  * Runtime Import Test

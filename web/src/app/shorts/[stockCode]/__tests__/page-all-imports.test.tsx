@@ -1,14 +1,16 @@
 /// <reference types="jest" />
 import "@testing-library/jest-dom";
-import { TextEncoder, TextDecoder } from "util";
 
-if (!globalThis.TextEncoder) {
-  globalThis.TextEncoder = TextEncoder;
-}
-if (!globalThis.TextDecoder) {
-  // @ts-expect-error - TextDecoder type on Node differs from DOM lib
-  globalThis.TextDecoder = TextDecoder;
-}
+// Mock Connect RPC before any imports
+jest.mock("@connectrpc/connect", () => ({
+  createClient: jest.fn(() => ({
+    getStockDetails: jest.fn(),
+  })),
+}));
+
+jest.mock("@connectrpc/connect-web", () => ({
+  createConnectTransport: jest.fn(() => ({})),
+}));
 
 /**
  * Comprehensive Import Test
@@ -22,6 +24,14 @@ import { describe, it, expect } from "@jest/globals";
 // Mock Next.js modules
 jest.mock("next/navigation", () => ({
   usePathname: jest.fn(() => "/shorts/BOE"),
+}));
+
+jest.mock("next/link", () => ({
+  __esModule: true,
+  default: ({ children, href }: any) => {
+    const React = require("react");
+    return React.createElement("a", { href }, children);
+  },
 }));
 
 jest.mock("next-auth/react", () => ({
@@ -200,7 +210,8 @@ describe("Page Component Imports - All Components", () => {
     for (const [name, component] of Object.entries(components)) {
       expect(component).toBeDefined();
       expect(component).not.toBeNull();
-      expect(typeof component).toBe("function");
+      // Components can be functions or objects (React.forwardRef returns an object)
+      expect(typeof component === "function" || typeof component === "object").toBe(true);
     }
   });
 });

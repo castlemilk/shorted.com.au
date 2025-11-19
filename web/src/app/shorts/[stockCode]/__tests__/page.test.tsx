@@ -2,6 +2,18 @@
 import "@testing-library/jest-dom";
 import React from "react";
 import { render } from "@testing-library/react";
+
+// Mock Connect RPC before any imports
+jest.mock("@connectrpc/connect", () => ({
+  createClient: jest.fn(() => ({
+    getStockDetails: jest.fn(),
+  })),
+}));
+
+jest.mock("@connectrpc/connect-web", () => ({
+  createConnectTransport: jest.fn(() => ({})),
+}));
+
 import Page from "../page";
 
 // Mock all child components

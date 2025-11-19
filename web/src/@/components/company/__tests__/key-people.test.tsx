@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "@jest/globals";
 import { render, screen } from "@testing-library/react";
 import { KeyPeople } from "../key-people";
 import type { Person } from "~/@/types/company-metadata";

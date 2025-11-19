@@ -24,23 +24,10 @@ jest.mock("next/link", () => ({
   default: ({ children, href }: any) => <a href={href}>{children}</a>,
 }));
 
-// Mock next/script for Google Analytics
-jest.mock("next/script", () => ({
-  __esModule: true,
-  default: ({
-    id,
-    src,
-    strategy,
-  }: {
-    id?: string;
-    src?: string;
-    strategy?: string;
-  }) => (
-    <div
-      data-testid={id ?? "google-analytics"}
-      data-src={src}
-      data-strategy={strategy}
-    ></div>
+// Mock @next/third-parties/google for Google Analytics
+jest.mock("@next/third-parties/google", () => ({
+  GoogleAnalytics: ({ gaId }: { gaId?: string }) => (
+    <div data-testid="google-analytics" data-ga-id={gaId}></div>
   ),
 }));
 
@@ -153,13 +140,8 @@ describe("Home Page", () => {
       expect(screen.getByTestId("tree-map")).toBeInTheDocument();
     });
 
-    // Google Analytics is deferred (loads after 2s), so wait for it
-    await waitFor(
-      () => {
-        expect(screen.getByTestId("google-analytics")).toBeInTheDocument();
-      },
-      { timeout: 3000 },
-    );
+    // Google Analytics should be rendered immediately
+    expect(screen.getByTestId("google-analytics")).toBeInTheDocument();
   });
 
   it("passes correct initial period to components", async () => {
@@ -223,13 +205,8 @@ describe("Home Page", () => {
       expect(screen.getByTestId("tree-map")).toBeInTheDocument();
     });
 
-    // Google Analytics is deferred (loads after 2s), so wait for it
-    await waitFor(
-      () => {
-        expect(screen.getByTestId("google-analytics")).toBeInTheDocument();
-      },
-      { timeout: 3000 },
-    );
+    // Google Analytics should be rendered immediately
+    expect(screen.getByTestId("google-analytics")).toBeInTheDocument();
   });
 
   it("shows login prompt banner when user is not authenticated", () => {

@@ -1,4 +1,14 @@
 import "@testing-library/jest-dom";
+import { TextEncoder, TextDecoder } from "util";
+
+// Polyfill TextEncoder/TextDecoder for Node.js environment
+if (typeof globalThis.TextEncoder === "undefined") {
+  globalThis.TextEncoder = TextEncoder;
+}
+if (typeof globalThis.TextDecoder === "undefined") {
+  // @ts-expect-error - TextDecoder type on Node differs from DOM lib
+  globalThis.TextDecoder = TextDecoder;
+}
 
 // Polyfill for Next.js Request/Response API
 // @ts-expect-error - Polyfill for test environment
@@ -186,6 +196,13 @@ jest.mock("@bufbuild/protobuf", () => ({
 
 // Mock Connect RPC
 jest.mock("@connectrpc/connect", () => ({
+  createClient: jest.fn(() => ({
+    getTopShorts: jest.fn(),
+    getStock: jest.fn(),
+    getStockData: jest.fn(),
+    getStockDetails: jest.fn(),
+    getIndustryTreeMap: jest.fn(),
+  })),
   createPromiseClient: jest.fn(() => ({
     getTopShorts: jest.fn(),
     getStock: jest.fn(),
@@ -285,34 +302,181 @@ jest.mock("@/components/ui/button", () => ({
   buttonVariants: jest.fn(),
 }));
 
-jest.mock("@/components/ui/card", () => ({
-  __esModule: true,
-  Card: jest.fn(({ children, className }) => {
+jest.mock("@/components/ui/card", () => {
+  const React = require("react");
+  const cn = (...classes: any[]) => classes.filter(Boolean).join(" ");
+  return {
+    __esModule: true,
+    Card: React.forwardRef(({ children, className, ...props }: any, ref: any) =>
+      React.createElement("div", { ref, className: cn(className), ...props }, children)
+    ),
+    CardHeader: React.forwardRef(({ children, className, ...props }: any, ref: any) =>
+      React.createElement("div", { ref, className: cn(className), ...props }, children)
+    ),
+    CardTitle: React.forwardRef(({ children, className, ...props }: any, ref: any) =>
+      React.createElement("h3", { ref, className: cn(className), ...props }, children)
+    ),
+    CardDescription: React.forwardRef(({ children, className, ...props }: any, ref: any) =>
+      React.createElement("p", { ref, className: cn(className), ...props }, children)
+    ),
+    CardContent: React.forwardRef(({ children, className, ...props }: any, ref: any) =>
+      React.createElement("div", { ref, className: cn(className), ...props }, children)
+    ),
+    CardFooter: React.forwardRef(({ children, className, ...props }: any, ref: any) =>
+      React.createElement("div", { ref, className: cn(className), ...props }, children)
+    ),
+  };
+});
+
+jest.mock("@/components/ui/badge", () => {
+  const React = require("react");
+  return {
+    __esModule: true,
+    Badge: React.forwardRef(({ children, className, variant, ...props }: any, ref: any) =>
+      React.createElement("span", { ref, className, ...props }, children)
+    ),
+  };
+});
+
+// Mock Radix UI components
+jest.mock("@radix-ui/react-slot", () => ({
+  Slot: ({ children, ...props }: any) => {
     const React = require("react");
-    return React.createElement("div", { className }, children);
+    return React.createElement("div", props, children);
+  },
+}));
+
+jest.mock("@radix-ui/react-select", () => {
+  const React = require("react");
+  const MockComponent = React.forwardRef(({ children, ...props }: any, ref: any) =>
+    React.createElement("div", { ref, ...props }, children)
+  );
+  MockComponent.displayName = "MockSelectComponent";
+  
+  const ScrollUpButton = React.forwardRef(({ children, ...props }: any, ref: any) =>
+    React.createElement("div", { ref, ...props }, children)
+  );
+  ScrollUpButton.displayName = "SelectScrollUpButton";
+  
+  const ScrollDownButton = React.forwardRef(({ children, ...props }: any, ref: any) =>
+    React.createElement("div", { ref, ...props }, children)
+  );
+  ScrollDownButton.displayName = "SelectScrollDownButton";
+  
+  const Label = React.forwardRef(({ children, ...props }: any, ref: any) =>
+    React.createElement("label", { ref, ...props }, children)
+  );
+  Label.displayName = "SelectLabel";
+  
+  const Separator = React.forwardRef(({ children, ...props }: any, ref: any) =>
+    React.createElement("hr", { ref, ...props }, children)
+  );
+  Separator.displayName = "SelectSeparator";
+  
+  return {
+    Root: ({ children, ...props }: any) => React.createElement("div", props, children),
+    Trigger: MockComponent,
+    Value: MockComponent,
+    Content: MockComponent,
+    Item: MockComponent,
+    Label,
+    Separator,
+    ScrollUpButton,
+    ScrollDownButton,
+  };
+});
+
+jest.mock("@radix-ui/react-context", () => ({
+  createContext: () => ({
+    Provider: ({ children }: any) => {
+      const React = require("react");
+      return React.createElement(React.Fragment, {}, children);
+    },
+    Consumer: ({ children }: any) => {
+      const React = require("react");
+      return React.createElement(React.Fragment, {}, children);
+    },
   }),
 }));
 
-jest.mock("lucide-react", () => ({
-  AlertCircle: jest.fn(({ className }) => {
-    const React = require("react");
-    return React.createElement("div", {
-      className: `alert-circle ${className}`,
-    });
-  }),
-  RefreshCw: jest.fn(({ className }) => {
-    const React = require("react");
-    return React.createElement("div", { className: `refresh-cw ${className}` });
-  }),
-  Plus: jest.fn(({ className }) => {
-    const React = require("react");
-    return React.createElement("div", { className: `plus ${className}` });
-  }),
-  X: jest.fn(({ className }) => {
-    const React = require("react");
-    return React.createElement("div", { className: `x ${className}` });
-  }),
-}));
+jest.mock("@radix-ui/react-collection", () => {
+  const React = require("react");
+  return {
+    createCollection: () => ({
+      CollectionProvider: ({ children }: any) => React.createElement(React.Fragment, {}, children),
+      CollectionSlot: ({ children }: any) => React.createElement(React.Fragment, {}, children),
+      useCollection: () => ({ getItems: () => [] }),
+    }),
+    CollectionProvider: ({ children }: any) => {
+      return React.createElement(React.Fragment, {}, children);
+    },
+  };
+});
+
+jest.mock("@radix-ui/react-toggle-group", () => {
+  const React = require("react");
+  const MockToggleGroup = React.forwardRef(({ children, ...props }: any, ref: any) =>
+    React.createElement("div", { ref, ...props }, children)
+  );
+  MockToggleGroup.displayName = "ToggleGroup";
+  
+  const MockToggleGroupItem = React.forwardRef(({ children, ...props }: any, ref: any) =>
+    React.createElement("button", { ref, ...props }, children)
+  );
+  MockToggleGroupItem.displayName = "ToggleGroupItem";
+  
+  return {
+    Root: MockToggleGroup,
+    Item: MockToggleGroupItem,
+  };
+});
+
+jest.mock("lucide-react", () => {
+  const React = require("react");
+  return {
+    AlertCircle: jest.fn(({ className }: any) => {
+      return React.createElement("div", {
+        className: `alert-circle ${className}`,
+      });
+    }),
+    RefreshCw: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `refresh-cw ${className}` });
+    }),
+    Plus: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `plus ${className}` });
+    }),
+    X: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `x ${className}` });
+    }),
+    ChevronRight: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `chevron-right ${className}` });
+    }),
+    Home: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `home ${className}` });
+    }),
+    TrendingDown: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `trending-down ${className}` });
+    }),
+    CandlestickChart: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `candlestick-chart ${className}` });
+    }),
+    Users: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `users ${className}` });
+    }),
+    Building2: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `building2 ${className}` });
+    }),
+    TrendingUp: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `trending-up ${className}` });
+    }),
+    AlertTriangle: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `alert-triangle ${className}` });
+    }),
+    Newspaper: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `newspaper ${className}` });
+    }),
+  };
+});
 
 // Mock Login Prompt Banner
 jest.mock("@/components/ui/login-prompt-banner", () => ({
@@ -432,6 +596,16 @@ global.IntersectionObserver = jest.fn().mockImplementation(() => ({
   unobserve: jest.fn(),
   disconnect: jest.fn(),
 }));
+
+// Mock Performance API
+if (typeof global.performance === "undefined") {
+  global.performance = {} as any;
+}
+global.performance.mark = jest.fn();
+global.performance.measure = jest.fn();
+global.performance.now = jest.fn(() => Date.now());
+global.performance.getEntriesByType = jest.fn(() => []);
+global.performance.getEntriesByName = jest.fn(() => []);
 
 // Console error suppression for expected test warnings
 const originalError = console.error;

@@ -8,10 +8,5 @@
       "path": "/api/homepage/warm-cache",
       "schedule": "*/10 * * * *"
     }
-  ],
-  "functions": {
-    "api/warm-cache.ts": {
-      "maxDuration": 30
-    }
-  }
+  ]
 }
