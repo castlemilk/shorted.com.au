@@ -15,7 +15,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/@/components/ui/select";
-import { type PlainMessage } from "@bufbuild/protobuf";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { Label } from "~/@/components/ui/label";
 import { getTopShortsDataClient } from "../actions/client/getTopShorts";
@@ -46,7 +45,7 @@ const getPeriodString = (period: string) => {
 };
 
 interface TopShortsProps {
-  initialShortsData?: PlainMessage<TimeSeriesData>[]; // Data for multiple series (optional)
+  initialShortsData?: TimeSeriesData[]; // Data for multiple series (optional)
   initialPeriod?: string; // Add initial period prop
 }
 
@@ -61,7 +60,7 @@ export const TopShorts: FC<TopShortsProps> = ({
   const [isInitialLoading, setIsInitialLoading] =
     useState<boolean>(!initialShortsData);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [shortsData, setShortsData] = useState<PlainMessage<TimeSeriesData>[]>(
+  const [shortsData, setShortsData] = useState<TimeSeriesData[]>(
     initialShortsData ?? [],
   );
   const requestIdRef = useRef(0);
@@ -90,9 +89,10 @@ export const TopShorts: FC<TopShortsProps> = ({
           return;
         }
 
-        setShortsData(result.timeSeries);
+        const timeSeriesData: TimeSeriesData[] = result.timeSeries ?? [];
+        setShortsData(timeSeriesData);
         setDisplayPeriod(nextPeriod);
-        offsetRef.current = result.timeSeries.length;
+        offsetRef.current = timeSeriesData.length;
         setRefreshKey(Date.now());
       } catch (e) {
         if (requestIdRef.current === currentRequestId) {
@@ -125,12 +125,13 @@ export const TopShorts: FC<TopShortsProps> = ({
         offsetRef.current,
       );
 
-      if (result.timeSeries.length === 0) {
+      const timeSeriesData: TimeSeriesData[] = result.timeSeries ?? [];
+      if (timeSeriesData.length === 0) {
         return;
       }
 
-      offsetRef.current += result.timeSeries.length;
-      setShortsData((prev) => [...prev, ...result.timeSeries]);
+      offsetRef.current += timeSeriesData.length;
+      setShortsData((prev) => [...prev, ...timeSeriesData]);
     } catch (e) {
       console.error("Error fetching data: ", e);
     }

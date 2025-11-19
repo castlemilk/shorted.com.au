@@ -1,14 +1,13 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
-import { createPromiseClient, ConnectError, Code } from "@connectrpc/connect";
-import { type PlainMessage, toPlainMessage } from "@bufbuild/protobuf";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_connect";
+import { createClient, ConnectError, Code } from "@connectrpc/connect";
+import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { type StockDetails } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { cache } from "react";
 import { SHORTS_API_URL } from "./config";
 
 export const getStockDetails = cache(async (
   productCode: string,
-): Promise<PlainMessage<StockDetails> | undefined> => {
+): Promise<StockDetails | undefined> => {
   const transport = createConnectTransport({
     // All transports accept a custom fetch implementation.
     fetch,
@@ -23,10 +22,10 @@ export const getStockDetails = cache(async (
       process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
       SHORTS_API_URL,
   });
-  const client = createPromiseClient(ShortedStocksService, transport);
+  const client = createClient(ShortedStocksService, transport);
   try {
     const response = await client.getStockDetails({ productCode });
-    return toPlainMessage(response);
+    return response;
   } catch (err) {
     if (err instanceof ConnectError) {
       if (err.code === Code.NotFound) {

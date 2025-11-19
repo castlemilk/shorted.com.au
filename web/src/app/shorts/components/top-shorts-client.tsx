@@ -20,7 +20,6 @@ import {
   Activity,
   Target,
 } from "lucide-react";
-import { type PlainMessage } from "@bufbuild/protobuf";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import {
   type MoversData,
@@ -68,14 +67,16 @@ export function TopShortsClient({
     }
   }, []);
 
+  type StockWithMetrics = TimeSeriesData & {
+    change?: number;
+    volatility?: number;
+  };
+
   const StockCard = ({
     stock,
     type,
   }: {
-    stock: PlainMessage<TimeSeriesData> & {
-      change?: number;
-      volatility?: number;
-    };
+    stock: StockWithMetrics;
     type: "gainer" | "loser" | "volatile";
   }) => {
     const getChangeColor = () => {

@@ -47,8 +47,6 @@ SELECT
     stock_code,
     company_name,
     industry,
-    sector,
-    market_cap,
     logo_url,
     logo_gcs_url,
     website,
@@ -63,9 +61,7 @@ SELECT
     recent_developments,
     social_media_links,
     enrichment_status,
-    enrichment_date,
-    created_at,
-    updated_at
+    enrichment_date
 FROM "company-metadata"
 WHERE enrichment_status = 'completed';
 

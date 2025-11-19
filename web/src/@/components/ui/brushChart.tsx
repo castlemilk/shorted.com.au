@@ -24,9 +24,9 @@ import { type BrushHandleRenderProps } from "@visx/brush/lib/BrushHandle";
 import AreaChart from "./areaChart";
 import {
   type TimeSeriesData,
-  TimeSeriesPoint,
+  type TimeSeriesPoint,
 } from "~/gen/stocks/v1alpha1/stocks_pb";
-import { type PlainMessage } from "@bufbuild/protobuf";
+import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import {
   TooltipWithBounds,
   defaultStyles,
@@ -38,7 +38,7 @@ import { Line } from "@visx/shape";
 import { timeFormat } from "@visx/vendor/d3-time-format";
 import useWindowSize from "@/hooks/use-window-size";
 
-type TooltipData = PlainMessage<TimeSeriesPoint> | null;
+type TooltipData = TimeSeriesPoint | null | undefined;
 // Initialize some variables
 const brushMargin = { top: 10, bottom: 15, left: 50, right: 20 };
 const chartSeparation = 30;
@@ -60,20 +60,22 @@ const tooltipStyles = {
 };
 
 // accessors
-const getDate = (d: PlainMessage<TimeSeriesPoint> | undefined) => {
+const getDate = (d: TimeSeriesPoint | undefined): Date => {
   if (!d?.timestamp) return new Date();
   // Handle both string timestamps (from JSON) and Timestamp objects
   if (typeof d.timestamp === 'string') {
     return new Date(d.timestamp);
   }
   // Handle protobuf Timestamp object format
-  return new Date(Number(d.timestamp.seconds) * 1000);
+  const timestamp: Timestamp = d.timestamp;
+  return new Date(Number(timestamp.seconds ?? 0) * 1000);
 };
-const getStockValue = (d: PlainMessage<TimeSeriesPoint> | undefined) =>
-  d ? d.shortPosition ?? 0 : 0;
+const getStockValue = (d: TimeSeriesPoint | undefined): number => {
+  return d ? d.shortPosition ?? 0 : 0;
+};
 // eslint-disable-next-line @typescript-eslint/unbound-method
 const bisectDate = bisector<TooltipData, Date>(
-  (d) => {
+  (d: TooltipData): Date => {
     if (!d?.timestamp) return new Date();
     if (typeof d.timestamp === 'string') {
       return new Date(d.timestamp);
@@ -90,7 +92,7 @@ export type BrushProps = {
   height: number;
   margin?: { top: number; right: number; bottom: number; left: number };
   compact?: boolean;
-  data: PlainMessage<TimeSeriesData>;
+  data: TimeSeriesData;
 };
 
 const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
@@ -122,15 +124,15 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
       tooltipData: null,
     });
     const brushRef = useRef<BaseBrush | null>(null);
-    const [filteredStock, setFilteredStock] = useState(data.points);
+    const [filteredStock, setFilteredStock] = useState<TimeSeriesPoint[]>(data.points ?? []);
     useEffect(() => {
-      setFilteredStock(data.points);
+      setFilteredStock(data.points ?? []);
     }, [data]);
 
     const onBrushChange = (domain: Bounds | null) => {
       if (!domain) return;
       const { x0, x1, y0, y1 } = domain;
-      const stockCopy = data.points.filter((s) => {
+      const stockCopy: TimeSeriesPoint[] = (data.points ?? []).filter((s: TimeSeriesPoint) => {
         const x = getDate(s).getTime();
         const y = getStockValue(s);
         return x > x0 && x < x1 && y > y0 && y < y1;
@@ -194,21 +196,22 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
     );
 
     const initialBrushPosition = useMemo(
-      () => ({
-        start: {
-          x: brushDateScale(
-            getDate(data.points?.at(-1) ?? new TimeSeriesPoint()),
-          ),
-        },
-        end: {
-          x: brushDateScale(
-            getDate(
-              data.points?.[Math.round(data.points.length * 0.8)] ??
-                new TimeSeriesPoint(),
-            ),
-          ),
-        },
-      }),
+      () => {
+        const lastPoint = data.points?.at(-1);
+        const midPoint = data.points?.[Math.round((data.points.length ?? 0) * 0.8)];
+        const fallbackPoint: TimeSeriesPoint = {
+          $typeName: "stocks.v1alpha1.TimeSeriesPoint",
+          shortPosition: 0,
+        };
+        return {
+          start: {
+            x: brushDateScale(getDate(lastPoint ?? fallbackPoint)),
+          },
+          end: {
+            x: brushDateScale(getDate(midPoint ?? fallbackPoint)),
+          },
+        };
+      },
       [brushDateScale, data.points],
     );
     useImperativeHandle(innerRef, () => ({
@@ -223,7 +226,7 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
 
     const handleClearClick = () => {
       if (brushRef?.current) {
-        setFilteredStock(data.points);
+        setFilteredStock(data.points ?? []);
         brushRef.current.reset();
       }
     };
@@ -238,24 +241,26 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
         // coordinates should be relative to the container in which Tooltip is rendered
         const { x } = localPoint(event) ?? { x: 0 };
         const x0 = dateScale.invert(x);
-        const index = bisectDate(data.points, x0, 1);
-        const d0 = data.points[index - 1];
-        const d1 = data.points[index];
-        let d = d0;
-        if (d1 && getDate(d1)) {
+        const index = bisectDate(data.points ?? [], x0, 1);
+        const d0: TimeSeriesPoint | undefined = data.points?.[index - 1];
+        const d1: TimeSeriesPoint | undefined = data.points?.[index];
+        let d: TooltipData = d0 ?? null;
+        if (d1 && d0) {
           d =
             x0.valueOf() - getDate(d0).valueOf() >
             getDate(d1).valueOf() - x0.valueOf()
               ? d1
               : d0;
         }
-        showTooltip({
-          tooltipData: d,
-          tooltipLeft: x,
-          tooltipTop: stockScale(getStockValue(d)),
-        });
+        if (d) {
+          showTooltip({
+            tooltipData: d,
+            tooltipLeft: x,
+            tooltipTop: stockScale(getStockValue(d)),
+          });
+        }
       },
-      [showTooltip, stockScale, dateScale],
+      [showTooltip, stockScale, dateScale, data.points],
     );
 
     const handleResetClick = () => {
@@ -346,7 +351,7 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
                   brushDirection="horizontal"
                   initialBrushPosition={initialBrushPosition}
                   onChange={onBrushChange}
-                  onClick={() => setFilteredStock(data.points)}
+                  onClick={() => setFilteredStock(data.points ?? [])}
                   selectedBoxStyle={selectedBrushStyle}
                   useWindowMoveEvents
                   renderBrushHandle={(props) => <BrushHandle {...props} />}

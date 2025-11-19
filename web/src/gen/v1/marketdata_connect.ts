@@ -4,7 +4,7 @@
 // @ts-nocheck
 
 import { GetHistoricalPricesRequest, GetHistoricalPricesResponse, GetMultipleStockPricesRequest, GetMultipleStockPricesResponse, GetStockCorrelationsRequest, GetStockCorrelationsResponse, GetStockPriceRequest, GetStockPriceResponse } from "./marketdata_pb";
-import { MethodKind } from "@bufbuild/protobuf";
+import { MethodKind } from "../runtime/method-kind";
 
 /**
  * MarketDataService provides access to stock price data

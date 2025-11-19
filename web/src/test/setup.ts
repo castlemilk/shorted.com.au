@@ -179,7 +179,7 @@ jest.mock("@bufbuild/protobuf", () => ({
       return this;
     }
   },
-  toPlainMessage: jest.fn((msg) => msg || {}),
+  // toPlainMessage is no longer needed in v2 - responses are already plain
   fromPlainMessage: jest.fn((schema, data) => data || {}),
   create: jest.fn((schema, data) => data || {}),
 }));

@@ -207,6 +207,51 @@ populate-stock-data-custom: dev-db ## Populate with custom stocks and date range
 	@echo "📊 Usage: make populate-stock-data-custom STOCKS=CBA,BHP,CSL START=2022-01-01 END=2024-01-01"
 	@cd services/stock-price-ingestion && python populate_historical_data.py --stocks $(STOCKS) --start-date $(START) --end-date $(END)
 
+# Daily sync commands
+daily-sync-local: ## Run daily sync locally (updates shorts + stock prices)
+	@echo "🔄 Running daily sync locally..."
+	@if [ -z "$$DATABASE_URL" ]; then \
+		export DATABASE_URL="postgresql://admin:password@localhost:5438/shorts"; \
+	fi; \
+	cd services/daily-sync && python3 comprehensive_daily_sync.py
+
+daily-sync-deploy: ## Deploy daily sync job to Cloud Run (scheduled for 2 AM AEST)
+	@echo "☁️  Deploying daily sync to Cloud Run..."
+	@if [ -z "$$DATABASE_URL" ]; then \
+		echo "❌ DATABASE_URL environment variable is required"; \
+		echo "   Usage: export DATABASE_URL='postgresql://...'"; \
+		exit 1; \
+	fi
+	@cd services/daily-sync && chmod +x deploy.sh && ./deploy.sh
+
+daily-sync-execute: ## Execute daily sync job now (Cloud Run)
+	@echo "🚀 Executing daily sync job..."
+	@gcloud run jobs execute comprehensive-daily-sync \
+		--region asia-northeast1 \
+		--project shorted-dev-aba5688f
+
+daily-sync-logs: ## View daily sync job logs
+	@echo "📋 Viewing daily sync logs..."
+	@gcloud logging read \
+		"resource.type=cloud_run_job AND resource.labels.job_name=comprehensive-daily-sync" \
+		--limit 100 \
+		--project shorted-dev-aba5688f \
+		--format="table(timestamp, severity, textPayload)"
+
+daily-sync-status: ## Check daily sync scheduler status
+	@echo "⏰ Checking scheduler status..."
+	@gcloud scheduler jobs describe comprehensive-daily-sync-trigger \
+		--location asia-northeast1 \
+		--project shorted-dev-aba5688f
+
+daily-sync-test: ## Run e2e tests for daily sync
+	@echo "🧪 Running daily sync integration tests..."
+	@cd services/daily-sync && ./test_integration.sh
+
+daily-sync-test-quick: ## Run quick tests (no external API calls)
+	@echo "🧪 Running quick tests..."
+	@cd services/daily-sync && python3 -m pytest test_daily_sync.py::TestDatabaseConnectivity -v
+
 demo-stock-data: ## Demo: Test stock data fetching with progress bar (no database required)
 	@echo "📊 Running stock data fetching demo..."
 	@cd services/stock-price-ingestion && source venv/bin/activate && python demo_populate.py
@@ -220,7 +265,7 @@ lint: lint-frontend lint-backend
 
 lint-frontend:
 	@echo "🔍 Linting frontend..."
-	@cd web && npm run lint
+	@cd web && npm run lint -- --max-warnings 1000
 
 lint-backend: lint-backend-install
 	@echo "🔍 Linting backend with golangci-lint..."
@@ -361,6 +406,23 @@ db-analyze: ## Update database statistics for query planner
 	@echo "📊 Updating database statistics..."
 	@echo "This requires DATABASE_URL environment variable to be set"
 	@echo "Run: ANALYZE shorts; ANALYZE \"company-metadata\";"
+
+db-optimize-full: ## Full database optimization (indexes + statistics + validation)
+	@echo "🚀 Running full database optimization..."
+	@echo "📦 Checking Python dependencies..."
+	@python3 -c "import asyncpg" 2>/dev/null || { \
+		echo "⚠️  asyncpg not found. Installing..."; \
+		pip install -q asyncpg || { \
+			echo "❌ Failed to install asyncpg. Please run: pip install asyncpg"; \
+			exit 1; \
+		}; \
+	}
+	@if [ -z "$$DATABASE_URL" ] && [ -z "$$SUPABASE_DB_URL" ]; then \
+		echo "❌ DATABASE_URL or SUPABASE_DB_URL environment variable is required"; \
+		echo "   Example: export DATABASE_URL='postgresql://user:pass@host:port/db'"; \
+		exit 1; \
+	fi
+	@python3 scripts/optimize-database.py
 
 # Health checks
 health-check:

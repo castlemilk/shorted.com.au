@@ -5,6 +5,13 @@ import type { Mock } from "jest-mock";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 import Page from "../page";
 
+// Mock auth server function
+jest.mock("~/server/auth", () => ({
+  auth: jest.fn().mockResolvedValue({
+    user: { id: "test-user", email: "test@example.com" },
+  }),
+}));
+
 // Mock the shorts API
 jest.mock("~/app/actions/getTopShorts", () => ({
   getTopShortsData: jest.fn(),
@@ -15,6 +22,9 @@ jest.mock("next/navigation", () => ({
   useRouter: jest.fn(() => ({
     push: jest.fn(),
   })),
+  redirect: jest.fn((url: string) => {
+    throw new Error(`Redirected to: ${url}`);
+  }),
 }));
 
 // Mock TopShortsClient component
@@ -94,7 +104,10 @@ describe("/shorts Page (Client-Side)", () => {
 
       (getTopShortsData as Mock).mockResolvedValue(mockData);
 
-      render(<Page />);
+      // Render async server component
+      const { default: Component } = await import("../page");
+      const result = await Component();
+      render(result);
 
       await waitFor(() => {
         expect(getTopShortsData).toHaveBeenCalledWith("3m", 20, 0);
@@ -109,7 +122,10 @@ describe("/shorts Page (Client-Side)", () => {
         totalCount: 0,
       });
 
-      render(<Page />);
+      // Render async server component
+      const { default: Component } = await import("../page");
+      const result = await Component();
+      render(result);
 
       await waitFor(() => {
         expect(screen.getByTestId("top-shorts-client")).toBeInTheDocument();

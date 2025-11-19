@@ -1,4 +1,3 @@
-import { type PlainMessage } from "@bufbuild/protobuf";
 import { timeFormat } from "@visx/vendor/d3-time-format";
 import { useState, useEffect, useRef, useLayoutEffect } from "react";
 
@@ -8,23 +7,30 @@ import {
   type TimeSeriesPoint,
   type TimeSeriesData,
 } from "~/gen/stocks/v1alpha1/stocks_pb";
+import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import { ParentSize } from "@visx/responsive";
 import { Skeleton } from "~/@/components/ui/skeleton";
 
+type TimeSeriesPointData = TimeSeriesPoint;
+
 const accessors = {
-  xAccessor: (d: PlainMessage<TimeSeriesPoint> | undefined) =>
-    d
-      ? new Date(Number(d.timestamp?.seconds) * 1000) || new Date()
-      : new Date(),
-  yAccessor: (d: PlainMessage<TimeSeriesPoint> | undefined) =>
-    d ? d.shortPosition || 0 : 0,
+  xAccessor: (d: TimeSeriesPointData | undefined): Date => {
+    if (!d) return new Date();
+    if (!d.timestamp) return new Date();
+    const timestamp: Timestamp = d.timestamp;
+    const seconds = timestamp.seconds ?? 0;
+    return new Date(Number(seconds) * 1000) || new Date();
+  },
+  yAccessor: (d: TimeSeriesPointData | undefined): number => {
+    return d ? d.shortPosition || 0 : 0;
+  },
 };
 
 const formatDate = timeFormat("%b %d, '%y");
 interface SparklineProps {
   width: number;
   height: number;
-  data: PlainMessage<TimeSeriesData>;
+  data: TimeSeriesData;
   margin?: { top: number; right: number; bottom: number; left: number };
 }
 const strokeColor = "var(--line-stroke)";
@@ -32,13 +38,14 @@ const redColor = `var(--red)`;
 const greenColor = `var(--green)`;
 
 const Chart = ({ width, height, data }: SparklineProps) => {
-  if (data.points.length === 0) {
+  const points = data.points ?? [];
+  if (points.length === 0) {
     return <div>Loading or no data available...</div>;
   }
 
   // Calculate the min and max values
-  const minY = Math.min(...data.points.map(accessors.yAccessor));
-  const maxY = Math.max(...data.points.map(accessors.yAccessor));
+  const minY = Math.min(...points.map(accessors.yAccessor));
+  const maxY = Math.max(...points.map(accessors.yAccessor));
 
   // Calculate the padding (e.g., 10% of the range)
   const padding = (maxY - minY) * 0.1;
@@ -56,7 +63,7 @@ const Chart = ({ width, height, data }: SparklineProps) => {
     >
       <LineSeries
         dataKey="Shorts"
-        data={data.points}
+        data={points}
         {...accessors}
         stroke={strokeColor}
         strokeWidth={1.5}
@@ -99,8 +106,10 @@ const Chart = ({ width, height, data }: SparklineProps) => {
         snapTooltipToDatumY
         showSeriesGlyphs
         renderGlyph={({ x, y, datum }) => {
-          const isMin = datum === data.min;
-          const isMax = datum === data.max;
+          const minPoint = data.min;
+          const maxPoint = data.max;
+          const isMin = datum === minPoint;
+          const isMax = datum === maxPoint;
           return (
             <g>
               <circle
@@ -134,7 +143,7 @@ const Chart = ({ width, height, data }: SparklineProps) => {
 type SparkLineStrategy = "parent" | "observer";
 
 interface SparkLineProps {
-  data: PlainMessage<TimeSeriesData>;
+  data: TimeSeriesData;
   height?: number;
   minWidth?: number;
   strategy?: SparkLineStrategy;

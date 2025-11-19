@@ -4,7 +4,6 @@ import {
   formatChange,
   type TimePeriod,
 } from "../shorts-calculations";
-import { type PlainMessage } from "@bufbuild/protobuf";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 
 describe("shorts-calculations", () => {
@@ -38,7 +37,7 @@ describe("shorts-calculations", () => {
       name: string,
       latestPosition: number,
       points: Array<{ shortPosition: number; timestamp: { seconds: bigint; nanos: number } }>,
-    ): PlainMessage<TimeSeriesData> => ({
+    ): TimeSeriesData => ({
       productCode,
       name,
       latestShortPosition: latestPosition,

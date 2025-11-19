@@ -11,15 +11,14 @@ plugins:
     out: ../services/gen/proto/go
     opt:
       - paths=source_relative
-  # This will invoke protoc-gen-es and write output to src/gen
+  # This will invoke protoc-gen-es v2 and write output to src/gen
   - name: es
     out: ../web/src/gen
     opt:
       - target=ts
       - import_extension=none
-
-    # This will invoke protoc-gen-connect-query
-  - name: connect-es
+  # This will invoke protoc-gen-connect-es v2 for Connect service descriptors
+  - plugin: buf.build/connectrpc/es:v1.6.1
     out: ../web/src/gen
     opt:
       - target=ts

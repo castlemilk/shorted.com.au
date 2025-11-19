@@ -1,5 +1,6 @@
 import { formatNumber } from "~/@/lib/utils";
 import { getStock } from "~/app/actions/getStock";
+import { type Stock } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { Card, CardHeader, CardTitle, CardContent } from "./card";
 import { Separator } from "./separator";
 import { Skeleton } from "./skeleton";
@@ -44,7 +45,26 @@ export const CompanyStatsPlaceholder = () => (
 );
 
 const CompanyStats = async ({ stockCode }: { stockCode: string }) => {
-  const stock = await getStock(stockCode);
+  const stockResult = await getStock(stockCode);
+  
+  if (!stockResult) {
+    return (
+      <Card className="sm:col-span-4">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex">Shorted</CardTitle>
+          <Separator />
+          <CardContent className="p-0 pt-4">
+            <p className="text-sm text-muted-foreground">
+              Stock statistics not available
+            </p>
+          </CardContent>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  const stock: Stock = stockResult;
+  
   return (
       <Card className="sm:col-span-4">
         <CardHeader className="pb-3">

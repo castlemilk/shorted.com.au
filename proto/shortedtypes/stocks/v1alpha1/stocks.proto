@@ -57,6 +57,75 @@ message StockDetails {
   string details = 6;
   string website = 7;
   string gcs_url = 8;
+  repeated string tags = 9;
+  string enhanced_summary = 10;
+  string company_history = 11;
+  repeated CompanyPerson key_people = 12;
+  repeated FinancialReport financial_reports = 13;
+  string competitive_advantages = 14;
+  repeated string risk_factors = 15;
+  string recent_developments = 16;
+  SocialMediaLinks social_media_links = 17;
+  string enrichment_status = 18;
+  google.protobuf.Timestamp enrichment_date = 19;
+  string enrichment_error = 20;
+  FinancialStatements financial_statements = 21;
+}
+
+message CompanyPerson {
+  string name = 1;
+  string role = 2;
+  string bio = 3;
+}
+
+message FinancialReport {
+  string url = 1;
+  string title = 2;
+  string type = 3;
+  string date = 4;
+  string source = 5;
+  string gcs_url = 6;
+}
+
+message SocialMediaLinks {
+  string twitter = 1;
+  string linkedin = 2;
+  string facebook = 3;
+  string youtube = 4;
+  string website = 5;
+}
+
+message FinancialStatements {
+  bool success = 1;
+  FinancialStatementSet annual = 2;
+  FinancialStatementSet quarterly = 3;
+  FinancialStatementsInfo info = 4;
+  string error = 5;
+}
+
+message FinancialStatementSet {
+  map<string, StatementValues> income_statement = 1;
+  map<string, StatementValues> balance_sheet = 2;
+  map<string, StatementValues> cash_flow = 3;
+}
+
+message StatementValues {
+  map<string, double> metrics = 1;
+}
+
+message FinancialStatementsInfo {
+  double market_cap = 1;
+  double current_price = 2;
+  double pe_ratio = 3;
+  double eps = 4;
+  double dividend_yield = 5;
+  double beta = 6;
+  double week_52_high = 7;
+  double week_52_low = 8;
+  double volume = 9;
+  int64 employee_count = 10;
+  string sector = 11;
+  string industry = 12;
 }
 
 

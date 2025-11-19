@@ -1,12 +1,14 @@
-import { type PlainMessage } from "@bufbuild/protobuf";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 
 export type TimePeriod = "1m" | "3m" | "6m" | "1y";
 
+type TimeSeriesDataWithChange = TimeSeriesData & { change: number };
+type TimeSeriesDataWithVolatility = TimeSeriesData & { volatility: number };
+
 export interface MoversData {
-  biggestGainers: Array<PlainMessage<TimeSeriesData> & { change: number }>;
-  biggestLosers: Array<PlainMessage<TimeSeriesData> & { change: number }>;
-  mostVolatile: Array<PlainMessage<TimeSeriesData> & { volatility: number }>;
+  biggestGainers: Array<TimeSeriesDataWithChange>;
+  biggestLosers: Array<TimeSeriesDataWithChange>;
+  mostVolatile: Array<TimeSeriesDataWithVolatility>;
 }
 
 /**
@@ -92,7 +94,7 @@ function calculateChange(
  * Calculate the biggest movers in short positions for a given period
  */
 export function calculateMovers(
-  data: PlainMessage<TimeSeriesData>[],
+  data: TimeSeriesData[],
   period: TimePeriod,
 ): MoversData {
   // Calculate biggest gainers (stocks with largest increase in short position)

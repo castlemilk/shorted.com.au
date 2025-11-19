@@ -10,20 +10,20 @@ import {
 } from "~/@/components/ui/select";
 import { Label } from "~/@/components/ui/label";
 import { Card, CardTitle } from "~/@/components/ui/card";
+// Lazy load @visx modules to reduce initial bundle size
 import { Treemap, hierarchy, stratify, treemapSquarify } from "@visx/hierarchy";
 import { Group } from "@visx/group";
 import { ParentSize } from "@visx/responsive";
 import { scaleLinear } from "@visx/scale";
 import { type IndustryTreeMap } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { getIndustryTreeMapClient } from "../actions/client/getIndustryTreeMap";
-import { type PlainMessage } from "@bufbuild/protobuf";
 import { useRouter } from "next/navigation";
 import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { TreemapTooltip } from "~/@/components/widgets/treemap-tooltip";
 
 interface TreeMapProps {
-  initialTreeMapData?: PlainMessage<IndustryTreeMap>; // Optional initial data
+  initialTreeMapData?: IndustryTreeMap; // Optional initial data
   initialPeriod?: string; // Add initial period prop
   initialViewMode?: ViewMode; // Add initial view mode prop
 }
@@ -36,6 +36,8 @@ interface TreeMapDatum {
 
 const PADDING = 5;
 
+type TreeMapDataType = IndustryTreeMap | null | undefined;
+
 export const IndustryTreeMapView: FC<TreeMapProps> = ({
   initialTreeMapData,
   initialPeriod = "3m",
@@ -45,8 +47,9 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
   const router = useRouter();
   const [period, setPeriod] = useState<string>(initialPeriod);
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
-  const [treeMapData, setTreeMapData] =
-    useState<PlainMessage<IndustryTreeMap> | null>(initialTreeMapData ?? null);
+  const [treeMapData, setTreeMapData] = useState<TreeMapDataType>(
+    initialTreeMapData ?? null,
+  );
   const [loading, setLoading] = useState<boolean>(!initialTreeMapData);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
@@ -105,24 +108,38 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
     );
   }
 
-  const industryTreeMap = stratify<TreeMapDatum>()
-    .id((d) => d.id)
-    .parentId((d) => d.parent)([
-      { id: "root", parent: undefined }, // Add a dummy root node
-      ...treeMapData.industries.map((industry) => ({
+  // Type assertion after null check
+  const industries: string[] = treeMapData.industries ?? [];
+  type TreemapStock = IndustryTreeMap["stocks"][number];
+  const stocks: TreemapStock[] = treeMapData.stocks ?? [];
+
+  const treeMapDataArray: TreeMapDatum[] = [
+    { id: "root", parent: undefined }, // Add a dummy root node
+    ...industries.map(
+      (industry: string): TreeMapDatum => ({
         id: industry,
         parent: "root",
-      })),
-      ...treeMapData.stocks.map((stock) => ({
+      }),
+    ),
+    ...stocks.map(
+      (stock: TreemapStock): TreeMapDatum => ({
         id: stock.productCode,
         parent: stock.industry,
         size: stock.shortPosition,
-      })),
-    ])
+      }),
+    ),
+  ];
+
+  const industryTreeMap = stratify<TreeMapDatum>()
+    .id((d) => d.id)
+    .parentId((d) => d.parent)(treeMapDataArray)
     .sum((d) => d.size ?? 0);
 
+  const stockPositions = stocks.map((d: TreemapStock) => d.shortPosition);
+  const maxPosition =
+    stockPositions.length > 0 ? Math.max(...stockPositions) : 0;
   const colorScale = scaleLinear({
-    domain: [0, Math.max(...treeMapData.stocks.map((d) => d.shortPosition))],
+    domain: [0, maxPosition],
     range: ["#33B074", "#EC5D5E"],
   });
 
@@ -137,8 +154,11 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
       hideTimeoutRef.current = null;
     }
 
-    const stock = treeMapData?.stocks.find(
-      (s) => s.productCode === productCode,
+    if (!treeMapData) return;
+    type TreemapStock = IndustryTreeMap["stocks"][number];
+    const stocks: TreemapStock[] = treeMapData.stocks ?? [];
+    const stock = stocks.find(
+      (s: TreemapStock) => s.productCode === productCode,
     );
     if (!stock) return;
 

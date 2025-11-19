@@ -1,7 +1,8 @@
-import "~/styles/globals.css";
-import "prismjs/themes/prism-tomorrow.css"; // Import the Prism CSS theme
+import fs from "node:fs";
+import path from "node:path";
 
 import { Inter as FontSans } from "next/font/google";
+import "~/styles/globals.css";
 
 import { cn } from "../@/lib/utils";
 import { type Viewport } from "next";
@@ -12,6 +13,7 @@ import SiteFooter from "~/@/components/ui/site-footer";
 import { NextAuthProvider } from "./next-auth-provider";
 import { siteConfig } from "~/@/config/site";
 import { StructuredData } from "~/@/components/seo/structured-data";
+import { EnhancedOrganizationSchema } from "~/@/components/seo/enhanced-structured-data";
 import { Toaster } from "~/@/components/ui/toaster";
 import {
   EnvironmentBanner,
@@ -22,6 +24,9 @@ import { auth } from "~/server/auth";
 const fontSans = FontSans({
   subsets: ["latin"],
   variable: "--font-sans",
+  display: "swap", // Optimize font loading
+  preload: true,
+  fallback: ["system-ui", "arial"],
 });
 
 export const metadata = {
@@ -99,15 +104,55 @@ export const viewport: Viewport = {
   userScalable: true,
 };
 
+const criticalCSSPath = path.resolve(
+  process.cwd(),
+  "src",
+  "styles",
+  "critical.css",
+);
+
+const criticalCSS = fs
+  .readFileSync(criticalCSSPath, "utf8")
+  .replace(/\s+/g, " ")
+  .trim();
+
 export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const session = await auth();
-  
+
+  const inlineLoadScript = `
+    if (typeof document !== "undefined") {
+      document.documentElement.classList.add('loaded');
+    }
+  `.replace(/\s+/g, " ");
+
   return (
     <html lang="en" className={fontSans.variable} suppressHydrationWarning>
+      <head>
+        {/* Inline critical CSS to prevent render-blocking */}
+        <style dangerouslySetInnerHTML={{ __html: criticalCSS }} />
+        {/* Non-critical CSS will be loaded by Next.js automatically */}
+        {/* Resource hints for performance - preconnect to external domains */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link rel="preconnect" href="https://storage.googleapis.com" />
+        <link rel="preconnect" href="https://www.googletagmanager.com" />
+        <link rel="dns-prefetch" href="https://storage.googleapis.com" />
+        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+        {/* Mark HTML as loaded to prevent FOUC */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: inlineLoadScript,
+          }}
+        />
+      </head>
       <body className={cn("min-h-screen bg-background font-sans antialiased")}>
         <NextAuthProvider session={session}>
           <ThemeProvider
@@ -123,6 +168,7 @@ export default async function RootLayout({
             <SiteFooter />
             <ThemeSwitcher />
             <StructuredData />
+            <EnhancedOrganizationSchema />
             <Toaster />
           </ThemeProvider>
         </NextAuthProvider>
