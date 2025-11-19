@@ -14,7 +14,7 @@ export const useStockData = (stockCode: string, period: string) => {
       setLoading(true);
       try {
         const fetchedData = await fetchStockDataClient(stockCode, period);
-        setData(fetchedData);
+        setData(fetchedData ?? null);
       } catch (err) {
         setError(err as Error);
       } finally {
