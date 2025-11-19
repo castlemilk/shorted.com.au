@@ -1,9 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { CACHE_KEYS, setCached } from "~/@/lib/kv-cache";
-import type { AboutPageStatistics } from "~/app/about/actions/get-statistics";
-import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
-import type { Timestamp } from "@bufbuild/protobuf/wkt";
+import { fetchAndCacheStatistics } from "~/lib/statistics";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -62,48 +60,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Warm statistics cache
+    // Warm statistics cache using shared library
     try {
-      const response = await getTopShortsData("max", 1000, 0);
-      
-      const timeSeries = response.timeSeries ?? [];
-      const uniqueCompanies = new Set(
-        timeSeries.map((ts: TimeSeriesData) => ts.productCode).filter(Boolean)
-      );
-      
-      const companyCount = uniqueCompanies.size;
-      const industryCount = Math.min(35, Math.max(25, Math.floor(companyCount / 15)));
-      
-      let latestUpdateDate: Date | null = null;
-      if (timeSeries.length > 0) {
-        for (const ts of timeSeries) {
-          if (ts.points && ts.points.length > 0) {
-            const latestPoint = ts.points[ts.points.length - 1];
-            if (latestPoint?.timestamp) {
-              const timestamp: Timestamp = latestPoint.timestamp;
-              const seconds = timestamp.seconds ? Number(timestamp.seconds) : 0;
-              const nanos = timestamp.nanos ? Number(timestamp.nanos) / 1_000_000_000 : 0;
-              const pointDate = new Date((seconds + nanos) * 1000);
-              if (!latestUpdateDate || pointDate > latestUpdateDate) {
-                latestUpdateDate = pointDate;
-              }
-            }
-          }
-        }
-      }
-
-      // Serialize date for cache storage
-      const statistics: AboutPageStatistics = {
-        companyCount,
-        industryCount,
-        latestUpdateDate: latestUpdateDate ? latestUpdateDate : null,
-      };
-
-      results.statistics = await setCached(
-        CACHE_KEYS.statistics,
-        statistics,
-        300, // 5 minutes
-      );
+      const stats = await fetchAndCacheStatistics();
+      // Consider success if we got some data
+      results.statistics = stats.companyCount > 0 || stats.industryCount > 0;
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.error("Error warming statistics cache:", errorMsg);
@@ -148,4 +109,3 @@ export async function GET(request: NextRequest) {
 
 // Also support POST for webhook/cron
 export const POST = GET;
-

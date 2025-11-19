@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "@jest/globals";
 import { render, screen } from "@testing-library/react";
 import { CompanyOverview } from "../company-overview";
 import type { EnrichedCompanyMetadata } from "~/@/types/company-metadata";
@@ -109,16 +109,19 @@ describe("CompanyOverview", () => {
   });
 
   it("should render all sections with correct styling", () => {
-    render(<CompanyOverview data={mockEnrichedData} />);
+    const { container } = render(<CompanyOverview data={mockEnrichedData} />);
 
-    // Check for specific colored borders on cards
-    const competitiveAdvCard = screen.getByText("Competitive Advantages").closest("div");
+    // Check for specific colored borders on cards - find the Card element that contains the text
+    const competitiveAdvText = screen.getByText("Competitive Advantages");
+    const competitiveAdvCard = competitiveAdvText.closest("div")?.parentElement;
     expect(competitiveAdvCard).toHaveClass("border-l-4", "border-l-green-500");
 
-    const riskCard = screen.getByText("Risk Factors").closest("div");
+    const riskText = screen.getByText("Risk Factors");
+    const riskCard = riskText.closest("div")?.parentElement;
     expect(riskCard).toHaveClass("border-l-4", "border-l-amber-500");
 
-    const recentDevCard = screen.getByText("Recent Developments").closest("div");
+    const recentDevText = screen.getByText("Recent Developments");
+    const recentDevCard = recentDevText.closest("div")?.parentElement;
     expect(recentDevCard).toHaveClass("border-l-4", "border-l-blue-500");
   });
 });

@@ -26,6 +26,14 @@ jest.mock("next/navigation", () => ({
   usePathname: jest.fn(() => "/shorts/BOE"),
 }));
 
+jest.mock("next/link", () => ({
+  __esModule: true,
+  default: ({ children, href }: any) => {
+    const React = require("react");
+    return React.createElement("a", { href }, children);
+  },
+}));
+
 jest.mock("next-auth/react", () => ({
   useSession: jest.fn(() => ({
     data: null,
@@ -91,6 +99,44 @@ jest.mock("~/@/components/ui/market-chart", () => ({
   __esModule: true,
   default: ({ stockCode }: { stockCode: string }) => (
     <div data-testid="market-chart">{stockCode}</div>
+  ),
+}));
+
+jest.mock("~/@/components/ui/companyProfile", () => ({
+  __esModule: true,
+  default: ({ stockCode }: { stockCode: string }) => (
+    <div data-testid="company-profile">{stockCode}</div>
+  ),
+  CompanyProfilePlaceholder: () => <div data-testid="company-profile-placeholder" />,
+}));
+
+jest.mock("~/@/components/ui/companyStats", () => ({
+  __esModule: true,
+  default: ({ stockCode }: { stockCode: string }) => (
+    <div data-testid="company-stats">{stockCode}</div>
+  ),
+  CompanyStatsPlaceholder: () => <div data-testid="company-stats-placeholder" />,
+}));
+
+jest.mock("~/@/components/ui/companyInfo", () => ({
+  __esModule: true,
+  default: ({ stockCode }: { stockCode: string }) => (
+    <div data-testid="company-info">{stockCode}</div>
+  ),
+  CompanyInfoPlaceholder: () => <div data-testid="company-info-placeholder" />,
+}));
+
+jest.mock("~/@/components/ui/companyFinancials", () => ({
+  __esModule: true,
+  default: ({ stockCode }: { stockCode: string }) => (
+    <div data-testid="company-financials">{stockCode}</div>
+  ),
+  CompanyFinancialsPlaceholder: () => <div data-testid="company-financials-placeholder" />,
+}));
+
+jest.mock("~/@/components/company/enriched-company-section", () => ({
+  EnrichedCompanySection: ({ stockCode }: { stockCode: string }) => (
+    <div data-testid="enriched-company-section">{stockCode}</div>
   ),
 }));
 
