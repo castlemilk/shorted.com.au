@@ -57,20 +57,22 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
     return `$${num.toFixed(2)}`;
   };
 
-  const formatNumber = (value?: number | string | null) => {
+  const formatNumber = (value?: number | string | bigint | null) => {
     if (!value) return null;
+    if (typeof value === "bigint") return value.toLocaleString();
     const num = typeof value === "string" ? parseFloat(value) : value;
     if (isNaN(num)) return null;
     return num.toLocaleString();
   };
 
-  const hasAnyData =
-    financialInfo.market_cap ||
-    financialInfo.current_price ||
-    financialInfo.pe_ratio ||
+  const hasAnyData = Boolean(
+    financialInfo.marketCap ||
+    financialInfo.currentPrice ||
+    financialInfo.peRatio ||
     financialInfo.eps ||
-    financialInfo.dividend_yield ||
-    financialInfo.employee_count;
+    financialInfo.dividendYield ||
+    financialInfo.employeeCount
+  );
 
   if (!hasAnyData) {
     return null;
@@ -87,7 +89,7 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
 
         <CardContent className="p-0 space-y-0">
           {/* Market Cap */}
-          {financialInfo.market_cap && (
+          {financialInfo.marketCap && (
             <>
               <div className="flex align-middle justify-between py-2">
                 <div className="flex items-center gap-2">
@@ -97,7 +99,7 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
                   </span>
                 </div>
                 <span className="text-xs">
-                  {formatCurrency(financialInfo.market_cap)}
+                  {formatCurrency(financialInfo.marketCap as number | string | null | undefined)}
                 </span>
               </div>
               <Separator />
@@ -105,12 +107,12 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
           )}
 
           {/* Current Price */}
-          {financialInfo.current_price && (
+          {financialInfo.currentPrice && (
             <>
               <div className="flex align-middle justify-between py-2">
                 <span className="uppercase font-semibold text-xs">price</span>
                 <span className="text-xs">
-                  {formatCurrency(financialInfo.current_price)}
+                  {formatCurrency(financialInfo.currentPrice as number | string | null | undefined)}
                 </span>
               </div>
               <Separator />
@@ -118,16 +120,16 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
           )}
 
           {/* P/E Ratio */}
-          {financialInfo.pe_ratio && (
+          {financialInfo.peRatio && (
             <>
               <div className="flex align-middle justify-between py-2">
                 <span className="uppercase font-semibold text-xs">
                   p/e ratio
                 </span>
                 <span className="text-xs">
-                  {typeof financialInfo.pe_ratio === "number"
-                    ? financialInfo.pe_ratio.toFixed(2)
-                    : financialInfo.pe_ratio}
+                  {typeof financialInfo.peRatio === "number"
+                    ? financialInfo.peRatio.toFixed(2)
+                    : financialInfo.peRatio}
                 </span>
               </div>
               <Separator />
@@ -140,7 +142,7 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
               <div className="flex align-middle justify-between py-2">
                 <span className="uppercase font-semibold text-xs">eps</span>
                 <span className="text-xs">
-                  {formatCurrency(financialInfo.eps)}
+                  {formatCurrency(financialInfo.eps as number | string | null | undefined)}
                 </span>
               </div>
               <Separator />
@@ -148,16 +150,16 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
           )}
 
           {/* Dividend Yield */}
-          {financialInfo.dividend_yield && (
+          {financialInfo.dividendYield && (
             <>
               <div className="flex align-middle justify-between py-2">
                 <span className="uppercase font-semibold text-xs">
                   dividend yield
                 </span>
                 <span className="text-xs">
-                  {typeof financialInfo.dividend_yield === "number"
-                    ? `${(financialInfo.dividend_yield * 100).toFixed(2)}%`
-                    : financialInfo.dividend_yield}
+                  {typeof financialInfo.dividendYield === "number"
+                    ? `${(financialInfo.dividendYield * 100).toFixed(2)}%`
+                    : financialInfo.dividendYield}
                 </span>
               </div>
               <Separator />
@@ -165,7 +167,7 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
           )}
 
           {/* Employees */}
-          {financialInfo.employee_count && (
+          {financialInfo.employeeCount && (
             <>
               <div className="flex align-middle justify-between py-2">
                 <div className="flex items-center gap-2">
@@ -175,7 +177,7 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
                   </span>
                 </div>
                 <span className="text-xs">
-                  {formatNumber(financialInfo.employee_count)}
+                  {formatNumber(financialInfo.employeeCount as number | string | bigint | null | undefined)}
                 </span>
               </div>
             </>

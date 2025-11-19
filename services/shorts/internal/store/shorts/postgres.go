@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -94,27 +93,6 @@ func buildStockDetailsQuery(ctx context.Context, db *pgxpool.Pool) (string, erro
 	log.Infof("Using logo_gcs_url only (no external URL fallback)")
 
 	return fmt.Sprintf(stockDetailsQueryTemplate, logoExpr), nil
-}
-
-func columnExists(ctx context.Context, db *pgxpool.Pool, tableName, columnName string) (bool, error) {
-	const query = `
-SELECT 1
-FROM information_schema.columns
-WHERE table_schema = 'public'
-  AND table_name = $1
-  AND column_name = $2
-LIMIT 1`
-
-	var exists int
-	err := db.QueryRow(ctx, query, tableName, columnName).Scan(&exists)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return false, nil
-		}
-		return false, err
-	}
-
-	return true, nil
 }
 
 // GetStock retrieves a single stock by its ID.

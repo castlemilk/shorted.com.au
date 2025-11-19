@@ -1,4 +1,3 @@
-import { IdCardIcon } from "@radix-ui/react-icons";
 import { getStockDetails } from "~/app/actions/getStockDetails";
 import { type StockDetails } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { Card, CardHeader, CardTitle, CardDescription } from "./card";
@@ -75,7 +74,9 @@ const CompanyProfile = async ({ stockCode }: { stockCode: string }) => {
             <CardTitle className="flex items-center gap-2">
               {stockCode}
               {isEnriched && (
-                <Sparkles className="h-3 w-3 text-purple-500" title="AI-Enhanced Data Available" />
+                <span title="AI-Enhanced Data Available">
+                  <Sparkles className="h-3 w-3 text-purple-500" />
+                </span>
               )}
             </CardTitle>
             <CardTitle className="flex text-lg font-semibold">
@@ -87,8 +88,7 @@ const CompanyProfile = async ({ stockCode }: { stockCode: string }) => {
               )}
               {/* Show first 2-3 enriched tags */}
               {isEnriched &&
-                stockDetails.tags &&
-                stockDetails.tags.slice(0, 2).map((tag) => (
+                stockDetails.tags?.slice(0, 2).map((tag) => (
                   <Badge
                     key={tag}
                     variant="secondary"
