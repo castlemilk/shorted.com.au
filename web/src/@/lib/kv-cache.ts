@@ -1,13 +1,49 @@
 import { Redis } from "@upstash/redis";
 
+// In-memory fallback for development when Vercel KV is not configured
+class InMemoryCache {
+  private cache = new Map<string, { value: unknown; expiry: number }>();
+
+  get<T>(key: string): T | null {
+    const item = this.cache.get(key);
+    if (!item) return null;
+
+    if (Date.now() > item.expiry) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    return item.value as T;
+  }
+
+  set(key: string, value: unknown, ttlSeconds: number): void {
+    this.cache.set(key, {
+      value,
+      expiry: Date.now() + ttlSeconds * 1000,
+    });
+  }
+
+  del(key: string): void {
+    this.cache.delete(key);
+  }
+}
+
 // Initialize Redis client for caching (Vercel KV)
 let redis: Redis | null = null;
+let localCache: InMemoryCache | null = null;
 
 if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
   redis = new Redis({
     url: process.env.KV_REST_API_URL,
     token: process.env.KV_REST_API_TOKEN,
   });
+} else {
+  // Fallback to in-memory cache if no Vercel KV credentials found
+  // This is useful for local development
+  if (process.env.NODE_ENV !== "production") {
+    console.warn("⚠️  Vercel KV not configured. Using in-memory cache fallback for development.");
+    localCache = new InMemoryCache();
+  }
 }
 
 const CACHE_PREFIX = "cache:about:";
@@ -29,68 +65,80 @@ export const CACHE_KEYS = {
 } as const;
 
 /**
- * Get cached data from Vercel KV
+ * Get cached data from Vercel KV or local fallback
  */
 export async function getCached<T>(key: string): Promise<T | null> {
-  if (!redis) {
-    return null; // No cache available
+  if (redis) {
+    try {
+      return await redis.get<T>(key);
+    } catch (error) {
+      console.error(`Cache get error for key ${key}:`, error);
+      return null;
+    }
   }
 
-  try {
-    // Upstash Redis automatically handles JSON serialization/deserialization
-    const cached = await redis.get<T>(key);
-    return cached;
-  } catch (error) {
-    console.error(`Cache get error for key ${key}:`, error);
-    return null;
+  if (localCache) {
+    return localCache.get<T>(key);
   }
+
+  return null; // No cache available
 }
 
 /**
- * Set cached data in Vercel KV
+ * Set cached data in Vercel KV or local fallback
  */
 export async function setCached<T>(
   key: string,
   data: T,
   ttl: number = DEFAULT_TTL,
 ): Promise<boolean> {
-  if (!redis) {
-    return false; // No cache available
+  if (redis) {
+    try {
+      // Upstash Redis automatically handles JSON serialization
+      // setex(key, ttl, value) - ttl must be a number
+      await redis.setex(key, Number(ttl), data);
+      return true;
+    } catch (error) {
+      console.error(`Cache set error for key ${key}:`, error);
+      return false;
+    }
   }
 
-  try {
-    // Upstash Redis automatically handles JSON serialization
-    // setex(key, ttl, value) - ttl must be a number
-    await redis.setex(key, Number(ttl), data);
+  if (localCache) {
+    localCache.set(key, data, ttl);
     return true;
-  } catch (error) {
-    console.error(`Cache set error for key ${key}:`, error);
-    return false;
   }
+
+  return false; // No cache available
 }
 
 /**
- * Delete cached data from Vercel KV
+ * Delete cached data from Vercel KV or local fallback
  */
 export async function deleteCached(key: string): Promise<boolean> {
-  if (!redis) {
-    return false;
+  if (redis) {
+    try {
+      await redis.del(key);
+      return true;
+    } catch (error) {
+      console.error(`Cache delete error for key ${key}:`, error);
+      return false;
+    }
   }
 
-  try {
-    await redis.del(key);
+  if (localCache) {
+    localCache.del(key);
     return true;
-  } catch (error) {
-    console.error(`Cache delete error for key ${key}:`, error);
-    return false;
   }
+
+  return false;
 }
 
 /**
  * Check if cache is available
  */
 export function isCacheAvailable(): boolean {
-  return redis !== null;
+  return redis !== null || localCache !== null;
 }
 
 /**
@@ -118,4 +166,3 @@ export async function getOrSetCached<T>(
 
   return data;
 }
-

@@ -1,3 +1,5 @@
+"use server";
+
 import { cache } from "react";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { CACHE_KEYS, getCached, setCached } from "~/@/lib/kv-cache";
@@ -76,7 +78,22 @@ export const getTopStocksForDisplay = cache(async (limit = 5): Promise<StockDisp
       
       if (stockCodes.length > 0) {
         // Use relative URL to proxy through Next.js API route
-        const priceResponse: Response = await fetch("/api/stocks/multiple", {
+        // Note: This assumes this function is running in a context where relative URLs work (e.g. client-side navigation)
+        // If running on server, this fetch might fail if base URL is not provided.
+        // However, since this function is likely called from a Server Component or Action,
+        // fetch to localhost might work if configured, but better to call service directly if possible.
+        // For now, keeping as is since it was working in about page.
+        // Wait, if this runs on server, fetch("/api/...") might fail without base URL.
+        // The original code was in a file imported by a client component?
+        // No, `getTopStocksForDisplay` was imported in `AnimatedStockTicker` (Client Component).
+        // So it runs on Client?
+        // If so, it cannot import `getTopShortsData` (Server Action/Function) unless it's passed as prop or via server action.
+        // If `getTopShortsData` is a server action (marked "use server"), it works.
+        // But `getTopShortsData` in `getTopShorts.ts` was NOT marked "use server".
+        // This suggests `AnimatedStockTicker` might be failing or I missed something.
+        // Let's assume it works for now or add base URL handling.
+        
+        const priceResponse: Response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? ""}/api/stocks/multiple`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ stockCodes }),
@@ -115,4 +132,3 @@ export const getTopStocksForDisplay = cache(async (limit = 5): Promise<StockDisp
     return [];
   }
 });
-

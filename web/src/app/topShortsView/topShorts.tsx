@@ -22,6 +22,7 @@ import { DataTable } from "./components/data-table";
 import { columns } from "./components/columns";
 import { Card, CardTitle } from "~/@/components/ui/card";
 import { Skeleton } from "~/@/components/ui/skeleton";
+import { cn } from "~/@/lib/utils";
 
 const getPeriodString = (period: string) => {
   switch (period) {
@@ -47,6 +48,7 @@ const getPeriodString = (period: string) => {
 interface TopShortsProps {
   initialShortsData?: TimeSeriesData[]; // Data for multiple series (optional)
   initialPeriod?: string; // Add initial period prop
+  className?: string; // Allow custom class name
 }
 
 const LOAD_CHUNK_SIZE = 10;
@@ -54,6 +56,7 @@ const LOAD_CHUNK_SIZE = 10;
 export const TopShorts: FC<TopShortsProps> = ({
   initialShortsData,
   initialPeriod = "3m",
+  className,
 }) => {
   const [period, setPeriod] = useState<string>(initialPeriod);
   const [displayPeriod, setDisplayPeriod] = useState<string>(initialPeriod);
@@ -162,7 +165,7 @@ export const TopShorts: FC<TopShortsProps> = ({
 
   return (
     <Suspense fallback={loadingPlaceholder}>
-      <Card className="m-2">
+      <Card className={cn("m-2", className)}>
         <div className="flex align-middle justify-between">
           <CardTitle className="self-center m-5">Top Shorts</CardTitle>
           <div className="flex flex-row-reverse m-2">
