@@ -21,11 +21,13 @@ import { useRouter } from "next/navigation";
 import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { TreemapTooltip } from "~/@/components/widgets/treemap-tooltip";
+import { cn } from "~/@/lib/utils";
 
 interface TreeMapProps {
   initialTreeMapData?: IndustryTreeMap; // Optional initial data
   initialPeriod?: string; // Add initial period prop
   initialViewMode?: ViewMode; // Add initial view mode prop
+  className?: string; // Allow custom class name
 }
 
 interface TreeMapDatum {
@@ -42,6 +44,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
   initialTreeMapData,
   initialPeriod = "3m",
   initialViewMode = ViewMode.CURRENT_CHANGE,
+  className,
 }) => {
   const firstUpdate = useRef(!initialTreeMapData); // If no initial data, fetch on mount
   const router = useRouter();
@@ -97,7 +100,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
 
   if (loading || !treeMapData) {
     return (
-      <Card className="m-2 w-full">
+      <Card className={cn("m-2 w-full", className)}>
         <div className="flex align-middle justify-between">
           <CardTitle className="self-center m-5">Industry Tree Map</CardTitle>
         </div>
@@ -192,7 +195,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
   };
 
   return (
-    <Card className="m-2 w-full">
+    <Card className={cn("m-2 w-full", className)}>
       <div className="flex align-middle justify-between">
         <CardTitle className="self-center m-5">Industry Tree Map</CardTitle>
         <div className="flex flex-col sm:flex-row m-2 gap-2">

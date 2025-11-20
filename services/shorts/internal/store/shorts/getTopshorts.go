@@ -60,17 +60,17 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 	log.Infof("Period: %s, Interval: %s", period, interval)
 
 	// Optimized query for top product codes
-	// Uses MAX(DATE) to work with historical data
-	// Only selects stocks that have data at the most recent date to avoid showing old delisted stocks
+	// Uses DISTINCT ON to get the latest data for each stock individually
+	// This handles cases where different stocks have different latest report dates
 	topCodesQuery := `
-	WITH max_date AS (
-	    SELECT MAX("DATE") as latest_date FROM shorts
-	),
-	latest_shorts AS (
-	    SELECT "PRODUCT_CODE", "PRODUCT", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
-	    FROM shorts, max_date
-	    WHERE "DATE" = max_date.latest_date
-	      AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+	WITH latest_shorts AS (
+		SELECT DISTINCT ON ("PRODUCT_CODE") 
+			"PRODUCT_CODE", 
+			"PRODUCT", 
+			"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
+		FROM shorts
+		WHERE "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+		ORDER BY "PRODUCT_CODE", "DATE" DESC
 	)
 	SELECT "PRODUCT", "PRODUCT_CODE"
 	FROM latest_shorts

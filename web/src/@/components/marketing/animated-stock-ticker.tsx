@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSpring, animated } from "react-spring";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { cn } from "~/@/lib/utils";
-import { getTopStocksForDisplay, type StockDisplayData } from "../actions/get-top-stocks";
+import { getTopStocksForDisplay, type StockDisplayData } from "~/app/actions/client/get-display-stocks";
 
 export function AnimatedStockTicker() {
   const [stocks, setStocks] = useState<StockDisplayData[]>([]);
@@ -159,3 +159,4 @@ export function AnimatedStockTicker() {
     </div>
   );
 }
+

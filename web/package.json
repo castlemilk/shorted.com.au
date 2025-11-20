@@ -1,6 +1,6 @@
 {
   "name": "shorted",
-  "version": "v0.2.2-527-gcc61e312-dirty",
+  "version": "v0.2.2-528-g3ed18eba-dirty",
   "private": true,
   "type": "module",
   "moduleResolution": "Node",
@@ -77,7 +77,7 @@
       ]
     },
     "transformIgnorePatterns": [
-      "node_modules/(?!(@bufbuild|@connectrpc|next-auth|@auth|firebase|@visx|d3-array|d3-scale|d3-shape|d3-time|d3-format)/)"
+      "node_modules/(?!(@bufbuild|@connectrpc|next-auth|@auth|firebase|@visx|d3-array|d3-scale|d3-shape|d3-time|d3-format|@upstash|uncrypto)/)"
     ],
     "modulePathIgnorePatterns": [
       "<rootDir>/src/gen/"

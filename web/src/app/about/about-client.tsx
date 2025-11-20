@@ -2,7 +2,6 @@
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Suspense is used in JSX (line 64)
 import { Suspense, useState } from "react";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Button } from "~/@/components/ui/button";
 import {
@@ -15,24 +14,12 @@ import {
   Clock,
   Database,
 } from "lucide-react";
-import { ScrollReveal } from "./components/scroll-reveal";
-import { GradientText } from "./components/gradient-text";
-import { SpotlightCard } from "./components/spotlight-card";
-import { AnimatedStockTicker } from "./components/animated-stock-ticker";
+import { ScrollReveal } from "~/@/components/marketing/scroll-reveal";
+import { GradientText } from "~/@/components/marketing/gradient-text";
+import { SpotlightCard } from "~/@/components/marketing/spotlight-card";
+import { AnimatedStockTicker } from "~/@/components/marketing/animated-stock-ticker";
+import { BackgroundBeams } from "~/@/components/marketing/background-beams";
 import { type AboutPageStatistics } from "~/lib/statistics";
-import "./page.css";
-
-// Dynamically import ripple grid - client-side only for performance
-const RippleGrid = dynamic(
-  () =>
-    import("./components/ripple-grid").then((mod) => ({
-      default: mod.RippleGrid,
-    })),
-  {
-    ssr: false,
-    loading: () => null,
-  },
-);
 
 interface AboutClientProps {
   initialStatistics: AboutPageStatistics;
@@ -46,20 +33,8 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
 
   return (
     <div className="flex flex-col min-h-screen bg-background relative overflow-hidden">
-      {/* Ripple grid background - loads client-side only */}
-      <div className="fixed inset-0 w-full h-full pointer-events-none z-0">
-        <Suspense fallback={null}>
-          <RippleGrid
-            enableRainbow={false}
-            rippleIntensity={0.08}
-            gridSize={12}
-            gridThickness={20}
-            mouseInteraction={true}
-            mouseInteractionRadius={1.5}
-            opacity={1.0}
-          />
-        </Suspense>
-      </div>
+      {/* Background Beams - non-interactive ambient effect */}
+      <BackgroundBeams className="z-0 fixed inset-0" />
 
       {/* Hero Section */}
       <section className="relative w-full py-20 md:py-32 lg:py-40 overflow-hidden">
@@ -109,7 +84,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
       </section>
 
       {/* Statistics Section */}
-      <section className="w-full py-16 md:py-24 bg-muted/30">
+      <section className="w-full py-16 md:py-24 bg-muted/30 relative z-10 backdrop-blur-sm bg-background/50">
         <div className="container px-4 md:px-6">
           <ScrollReveal direction="up">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-center mb-12">
@@ -178,7 +153,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
       </section>
 
       {/* Features Section */}
-      <section className="w-full py-16 md:py-24 lg:py-32">
+      <section className="w-full py-16 md:py-24 lg:py-32 relative z-10">
         <div className="container px-4 md:px-6">
           <ScrollReveal direction="up">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-center mb-4">
@@ -261,7 +236,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
       </section>
 
       {/* Why Choose Us Section */}
-      <section className="w-full py-16 md:py-24 bg-muted/30">
+      <section className="w-full py-16 md:py-24 bg-muted/30 relative z-10 backdrop-blur-sm bg-background/50">
         <div className="container px-4 md:px-6">
           <ScrollReveal direction="up">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-center mb-12">
@@ -313,7 +288,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
       </section>
 
       {/* Data Showcase Section */}
-      <section className="w-full py-16 md:py-24">
+      <section className="w-full py-16 md:py-24 relative z-10">
         <div className="container px-4 md:px-6">
           <ScrollReveal direction="up">
             <div className="max-w-4xl mx-auto text-center mb-12">
@@ -390,7 +365,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
       </section>
 
       {/* CTA Section */}
-      <section className="w-full py-16 md:py-24 lg:py-32 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10">
+      <section className="w-full py-16 md:py-24 lg:py-32 relative z-10 bg-gradient-to-br from-blue-500/10 via-purple-500/10 to-pink-500/10 backdrop-blur-sm">
         <div className="container px-4 md:px-6">
           <ScrollReveal direction="up">
             <div className="flex flex-col items-center space-y-6 text-center max-w-3xl mx-auto">
@@ -428,4 +403,3 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
 };
 
 export default AboutClient;
-

@@ -9,6 +9,9 @@ jest.mock("next-auth/react", () => ({
   useSession: jest.fn(),
 }));
 
+// Mock kv-cache to avoid Redis imports in tests
+jest.mock("~/@/lib/kv-cache", () => require("~/@/lib/__mocks__/kv-cache"));
+
 // Mock the client-side actions
 jest.mock("../actions/client/getTopShorts", () => ({
   getTopShortsDataClient: jest.fn(),
@@ -29,6 +32,39 @@ jest.mock("@next/third-parties/google", () => ({
   GoogleAnalytics: ({ gaId }: { gaId?: string }) => (
     <div data-testid="google-analytics" data-ga-id={gaId}></div>
   ),
+}));
+
+// Mock UI components
+jest.mock("~/@/components/ui/button", () => ({
+  Button: ({ children, onClick }: any) => (
+    <button onClick={onClick}>{children}</button>
+  ),
+}));
+
+// Mock Marketing components
+jest.mock("~/@/components/marketing/scroll-reveal", () => ({
+  ScrollReveal: ({ children }: any) => <div>{children}</div>,
+}));
+
+jest.mock("~/@/components/marketing/animated-stock-ticker", () => ({
+  AnimatedStockTicker: () => (
+    <div data-testid="animated-stock-ticker">Ticker</div>
+  ),
+}));
+
+jest.mock("~/@/components/marketing/background-beams", () => ({
+  BackgroundBeams: () => <div data-testid="background-beams">Beams</div>,
+}));
+
+// Mock Lucide icons
+jest.mock("lucide-react", () => ({
+  ArrowRight: () => <div />,
+  ChevronDown: () => <div />,
+  Activity: () => <div />,
+  Zap: () => <div />,
+  Search: () => <div />,
+  TrendingDown: () => <div />,
+  TrendingUp: () => <div />,
 }));
 
 // Mock the components with correct paths
@@ -270,6 +306,12 @@ describe("Home Page", () => {
 
     // Check for responsive layout classes
     const layoutDiv = container.querySelector(".flex.flex-col.lg\\:flex-row");
-    expect(layoutDiv).toBeInTheDocument();
+    // Note: The actual class might have changed in the revamp
+    // In the new code: <div className="flex flex-col xl:flex-row gap-8">
+    // So we should check for that
+    const layoutDivUpdated = container.querySelector(
+      ".flex.flex-col.xl\\:flex-row",
+    );
+    expect(layoutDivUpdated).toBeInTheDocument();
   });
 });
