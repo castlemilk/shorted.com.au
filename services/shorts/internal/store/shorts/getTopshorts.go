@@ -61,7 +61,8 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 
 	// Optimized query for top product codes
 	// Uses DISTINCT ON to get the latest data for each stock individually
-	// This handles cases where different stocks have different latest report dates
+	// Filters to only include stocks with recent data (within 1 month of the latest report date)
+	// This excludes delisted or stale stocks that haven't reported recently
 	topCodesQuery := `
 	WITH latest_shorts AS (
 		SELECT DISTINCT ON ("PRODUCT_CODE") 
@@ -70,6 +71,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 			"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
 		FROM shorts
 		WHERE "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+			AND "DATE" > (SELECT MAX("DATE") FROM shorts) - INTERVAL '1 month'
 		ORDER BY "PRODUCT_CODE", "DATE" DESC
 	)
 	SELECT "PRODUCT", "PRODUCT_CODE"
@@ -159,7 +161,8 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 	timeSeriesDataSlice := make([]*stocksv1alpha1.TimeSeriesData, 0)
 	for _, productCode := range topShorts {
 		points := timeSeriesMap[productCode]
-		if len(points) >= 10 {
+		// Require at least 2 points to draw a meaningful line chart
+		if len(points) >= 2 {
 			minMax := minMaxMap[productCode]
 			tsData := &stocksv1alpha1.TimeSeriesData{
 				ProductCode:         productCode,
