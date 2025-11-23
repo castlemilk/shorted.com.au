@@ -305,13 +305,8 @@ describe("Home Page", () => {
     const { container } = render(<HomePageClient />);
 
     // Check for responsive layout classes
+    // The simplified page uses: <div className="flex flex-col lg:flex-row gap-8">
     const layoutDiv = container.querySelector(".flex.flex-col.lg\\:flex-row");
-    // Note: The actual class might have changed in the revamp
-    // In the new code: <div className="flex flex-col xl:flex-row gap-8">
-    // So we should check for that
-    const layoutDivUpdated = container.querySelector(
-      ".flex.flex-col.xl\\:flex-row",
-    );
-    expect(layoutDivUpdated).toBeInTheDocument();
+    expect(layoutDiv).toBeInTheDocument();
   });
 });
