@@ -349,6 +349,12 @@ test.coverage:
 test.shorts:
 	go test ./shorts/... -v
 
+test.topshorts.integration:
+	@echo "🧪 Running top shorts integration tests with testcontainers..."
+	@echo "⚠️  This requires Docker to be running"
+	@echo ""
+	cd shorts && go test -v -run TestFetchTimeSeriesData ./internal/store/shorts/ -timeout=5m
+
 test.integration:
 	go test ./... -v -tags=integration
 
