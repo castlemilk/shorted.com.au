@@ -30,6 +30,7 @@ type CompanyMetadata struct {
 	Website     string
 	Description string
 	Exchange    string
+	Tags        []string
 }
 
 // StockPrice represents historical stock price data for testing
@@ -92,13 +93,14 @@ func (s *Seeder) SeedCompanyMetadata(ctx context.Context, metadata []CompanyMeta
 	query := `
 		INSERT INTO "company-metadata" (
 			stock_code, company_name, sector, industry, market_cap,
-			logo_url, website, description, exchange
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			logo_url, website, description, exchange, tags
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		ON CONFLICT (stock_code) DO UPDATE SET
 			company_name = EXCLUDED.company_name,
 			sector = EXCLUDED.sector,
 			industry = EXCLUDED.industry,
-			market_cap = EXCLUDED.market_cap
+			market_cap = EXCLUDED.market_cap,
+			tags = EXCLUDED.tags
 	`
 
 	for _, meta := range metadata {
@@ -112,6 +114,7 @@ func (s *Seeder) SeedCompanyMetadata(ctx context.Context, metadata []CompanyMeta
 			meta.Website,
 			meta.Description,
 			meta.Exchange,
+			meta.Tags,
 		)
 		if err != nil {
 			return fmt.Errorf("failed to insert metadata for %s: %w", meta.StockCode, err)

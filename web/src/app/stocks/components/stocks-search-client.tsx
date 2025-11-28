@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "~/@/components/ui/card";
 import { Input } from "~/@/components/ui/input";
@@ -14,6 +14,8 @@ import {
   StockSearchResultItem,
   StockSearchResultItemSkeleton,
 } from "~/@/components/search/stock-search-result-item";
+import { StockSearchFiltersView } from "~/@/components/search/stock-search-filters";
+import { useSearchFilters, type StockSearchFilters } from "~/@/lib/use-search-filters";
 
 interface PopularStock {
   code: string;
@@ -26,6 +28,7 @@ interface StocksSearchClientProps {
 
 export function StocksSearchClient({ popularStocks }: StocksSearchClientProps) {
   const router = useRouter();
+  const { filters, updateFilter, clearFilters } = useSearchFilters();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -34,7 +37,7 @@ export function StocksSearchClient({ popularStocks }: StocksSearchClientProps) {
   const searchDebounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Search stocks using enriched API
-  const searchStocksAPI = useCallback(async (query: string) => {
+  const searchStocksAPI = useCallback(async (query: string, filtersOverride?: StockSearchFilters) => {
     if (!query.trim() || query.trim().length < 2) {
       setSearchResults([]);
       return;
@@ -43,7 +46,8 @@ export function StocksSearchClient({ popularStocks }: StocksSearchClientProps) {
     setIsSearching(true);
 
     try {
-      const results = await searchStocksEnriched(query.trim(), 10);
+      const activeFilters = filtersOverride || filters;
+      const results = await searchStocksEnriched(query.trim(), activeFilters, 10);
       setSearchResults(results);
     } catch (error) {
       console.error("Failed to search stocks:", error);
@@ -51,7 +55,14 @@ export function StocksSearchClient({ popularStocks }: StocksSearchClientProps) {
     } finally {
       setIsSearching(false);
     }
-  }, []);
+  }, [filters]);
+
+  // Re-run search when filters change
+  useEffect(() => {
+    if (searchQuery.trim().length >= 2) {
+      void searchStocksAPI(searchQuery);
+    }
+  }, [filters, searchStocksAPI]); // searchQuery excluded to prevent loop, though safe here
 
   // Handle search input change with debouncing
   const handleSearchChange = (value: string) => {
@@ -88,7 +99,7 @@ export function StocksSearchClient({ popularStocks }: StocksSearchClientProps) {
       <Card className="p-8 mb-8">
         <div className="max-w-3xl mx-auto">
           {/* Search Input */}
-          <div className="relative">
+          <div className="relative mb-6">
             <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground h-5 w-5" />
             <Input
               type="text"
@@ -98,6 +109,13 @@ export function StocksSearchClient({ popularStocks }: StocksSearchClientProps) {
               className="pl-12 h-14 text-lg"
             />
           </div>
+
+          {/* Filters */}
+          <StockSearchFiltersView 
+            filters={filters}
+            onUpdateFilter={updateFilter}
+            onClearFilters={clearFilters}
+          />
 
           {/* Popular Stocks */}
           {!searchQuery && !isSearching && searchResults.length === 0 && (

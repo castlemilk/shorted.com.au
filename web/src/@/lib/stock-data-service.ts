@@ -42,6 +42,7 @@ export interface StockSearchResult {
   reported_short_positions: number;
   // Enriched optional fields
   industry?: string;
+  tags?: string[];
   companyName?: string;
   logoUrl?: string;
   currentPrice?: number;
@@ -433,37 +434,69 @@ function isValidProductCode(code: string): boolean {
   return /^[A-Za-z0-9]{3,4}$/.test(code);
 }
 
+export interface StockSearchFilters {
+  industry: string | null;
+  marketCap: string | null;
+  tags: string[];
+}
+
 /**
  * Search stocks with enriched metadata (industry, logo, current price)
  * Fetches basic search results and enriches them with stock details in parallel
  */
 export async function searchStocksEnriched(
   query: string,
+  filters?: StockSearchFilters,
   limit = 10,
 ): Promise<StockSearchResult[]> {
   try {
     // First, get basic search results
-    const searchResponse = await searchStocks(query, limit);
+    // Note: Backend now searches industry and tags too
+    const searchResponse = await searchStocks(query, limit * 2); // Fetch more to allow for client-side filtering
 
     if (!searchResponse?.stocks || searchResponse.stocks.length === 0) {
       return [];
     }
 
+    let results = searchResponse.stocks;
+
+    // Client-side filtering
+    if (filters) {
+      if (filters.industry) {
+        results = results.filter(s => 
+          s.industry?.toLowerCase() === filters.industry?.toLowerCase()
+        );
+      }
+      
+      // TODO: Market cap filtering requires market cap data which is in details
+      
+      if (filters.tags && filters.tags.length > 0) {
+        results = results.filter(s => 
+          filters.tags.some(tag => s.tags?.includes(tag))
+        );
+      }
+    }
+    
+    // Limit results after filtering
+    results = results.slice(0, limit);
+
     // Fetch stock details and current prices in parallel for enrichment
     const enrichedStocks = await Promise.all(
-      searchResponse.stocks.map(async (stock) => {
+      results.map(async (stock) => {
         try {
           // Only fetch details for valid product codes (3-4 alphanumeric chars)
-          // to avoid spamming the API with invalid requests
           const shouldEnrich = isValidProductCode(stock.product_code);
 
           if (!shouldEnrich) {
-            // Return basic data without enrichment for invalid codes
             return stock;
           }
 
-          // Fetch stock details (industry, logo, company name)
-          const detailsPromise = fetchStockDetailsClient(stock.product_code);
+          // Fetch stock details if missing crucial info (like if backend didn't return it)
+          // But prefer using backend data if available
+          const needDetails = !stock.industry || !stock.logoUrl;
+          const detailsPromise = needDetails 
+            ? fetchStockDetailsClient(stock.product_code)
+            : Promise.resolve(undefined);
 
           // Fetch current price
           const pricePromise = getStockPrice(stock.product_code);
@@ -479,14 +512,15 @@ export async function searchStocksEnriched(
           // Return enriched stock result
           return {
             ...stock,
-            industry: details?.industry,
+            // Use existing data or fetch if missing
+            industry: stock.industry || details?.industry,
             companyName: details?.companyName ?? stock.name,
-            logoUrl: details?.gcsUrl,
+            logoUrl: stock.logoUrl || details?.gcsUrl,
+            tags: stock.tags || details?.tags, 
             currentPrice: quote?.price,
             priceChange: quote?.changePercent,
           } as StockSearchResult;
         } catch (err) {
-          // If enrichment fails for this stock, return basic data
           console.warn(`Failed to enrich stock ${stock.product_code}:`, err);
           return stock;
         }

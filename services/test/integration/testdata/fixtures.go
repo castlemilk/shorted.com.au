@@ -36,6 +36,7 @@ func NewCompanyMetadata(stockCode, companyName string) CompanyMetadata {
 		Website:     "https://example.com",
 		Description: "Test company",
 		Exchange:    "ASX",
+		Tags:        []string{"financial-services", "banking", "finance"},
 	}
 }
 
@@ -106,6 +107,7 @@ func GetCBATestData(startDate time.Time, days int) ([]ShortData, CompanyMetadata
 		Website:     "https://commbank.com.au",
 		Description: "Australia's largest bank by market capitalization",
 		Exchange:    "ASX",
+		Tags:        []string{"banking", "financial-services", "mortgages", "retail-banking"},
 	}
 	
 	prices := GenerateStockPriceTimeSeries("CBA", startDate, days, 100.0)
@@ -127,6 +129,7 @@ func GetBHPTestData(startDate time.Time, days int) ([]ShortData, CompanyMetadata
 		Website:     "https://bhp.com",
 		Description: "World's largest mining company",
 		Exchange:    "ASX",
+		Tags:        []string{"mining", "resources", "iron-ore", "copper", "commodities"},
 	}
 	
 	prices := GenerateStockPriceTimeSeries("BHP", startDate, days, 45.0)
@@ -148,6 +151,7 @@ func GetCSLTestData(startDate time.Time, days int) ([]ShortData, CompanyMetadata
 		Website:     "https://csl.com",
 		Description: "Global biotechnology company",
 		Exchange:    "ASX",
+		Tags:        []string{"healthcare", "biotech", "pharmaceuticals", "plasma"},
 	}
 	
 	prices := GenerateStockPriceTimeSeries("CSL", startDate, days, 300.0)
