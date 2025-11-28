@@ -96,6 +96,20 @@ export function StockSearchResultItem({
               </>
             )}
           </div>
+          
+          {/* Tags */}
+          {stock.tags && stock.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {stock.tags.slice(0, 3).map(tag => (
+                <Badge key={tag} variant="outline" className="text-[10px] px-1 py-0 h-4 border-muted-foreground/30 text-muted-foreground">
+                  #{tag}
+                </Badge>
+              ))}
+              {stock.tags.length > 3 && (
+                <span className="text-[10px] text-muted-foreground self-center">+{stock.tags.length - 3}</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Sparkline */}

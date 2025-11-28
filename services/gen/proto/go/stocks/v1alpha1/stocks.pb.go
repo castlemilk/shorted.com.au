@@ -30,6 +30,9 @@ type Stock struct {
 	TotalProductInIssue    float32                `protobuf:"fixed32,3,opt,name=total_product_in_issue,json=totalProductInIssue,proto3" json:"total_product_in_issue,omitempty"`
 	ReportedShortPositions float32                `protobuf:"fixed32,4,opt,name=reported_short_positions,json=reportedShortPositions,proto3" json:"reported_short_positions,omitempty"`
 	PercentageShorted      float32                `protobuf:"fixed32,5,opt,name=percentage_shorted,json=percentageShorted,proto3" json:"percentage_shorted,omitempty"` // TODO(castlemilk): add more metadata here as needed
+	Industry               string                 `protobuf:"bytes,6,opt,name=industry,proto3" json:"industry,omitempty"`
+	Tags                   []string               `protobuf:"bytes,7,rep,name=tags,proto3" json:"tags,omitempty"`
+	LogoUrl                string                 `protobuf:"bytes,8,opt,name=logo_url,json=logoUrl,proto3" json:"logo_url,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -97,6 +100,27 @@ func (x *Stock) GetPercentageShorted() float32 {
 		return x.PercentageShorted
 	}
 	return 0
+}
+
+func (x *Stock) GetIndustry() string {
+	if x != nil {
+		return x.Industry
+	}
+	return ""
+}
+
+func (x *Stock) GetTags() []string {
+	if x != nil {
+		return x.Tags
+	}
+	return nil
+}
+
+func (x *Stock) GetLogoUrl() string {
+	if x != nil {
+		return x.LogoUrl
+	}
+	return ""
 }
 
 // TimeSeriesData represents time series data for a stock.

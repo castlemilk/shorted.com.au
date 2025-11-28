@@ -13,6 +13,9 @@ message Stock {
   float total_product_in_issue = 3;
   float reported_short_positions = 4;
   float percentage_shorted = 5;
+  string industry = 6;
+  repeated string tags = 7;
+  string logo_url = 8;
   // TODO(castlemilk): add more metadata here as needed
   }
   

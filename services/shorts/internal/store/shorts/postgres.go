@@ -627,65 +627,58 @@ func (s *postgresStore) RegisterEmail(email string) error {
 	return err
 }
 
-// SearchStocks searches for stocks by symbol or company name
+// SearchStocks searches for stocks by symbol or company name, including industry and tags
 func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error) {
-	// Optimized search query that uses indexes efficiently
-	// First try exact PRODUCT_CODE matches, then partial matches
+	// Optimized search query that searches across shorts and metadata
 	searchQuery := `
-		WITH all_matches AS (
-			-- Exact product code matches (highest priority)
-			SELECT 
-				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
-				"PRODUCT_CODE" as product_code,
-				"PRODUCT" as name, 
-				"TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue, 
-				"REPORTED_SHORT_POSITIONS" as reported_short_positions,
-				1 as sort_priority
-			FROM shorts 
-			WHERE "PRODUCT_CODE" = $1
-			
-			UNION ALL
-			
-			-- Partial product code matches (medium priority)
-			SELECT 
-				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
-				"PRODUCT_CODE" as product_code,
-				"PRODUCT" as name, 
-				"TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue, 
-				"REPORTED_SHORT_POSITIONS" as reported_short_positions,
-				2 as sort_priority
-			FROM shorts 
-			WHERE "PRODUCT_CODE" ILIKE $2 AND "PRODUCT_CODE" != $1
-			
-			UNION ALL
-			
-			-- Product name matches (lowest priority)
-			SELECT 
-				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
-				"PRODUCT_CODE" as product_code,
-				"PRODUCT" as name, 
-				"TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue, 
-				"REPORTED_SHORT_POSITIONS" as reported_short_positions,
-				3 as sort_priority
-			FROM shorts 
-			WHERE "PRODUCT" ILIKE $3
+		WITH latest_shorts AS (
+			SELECT DISTINCT ON ("PRODUCT_CODE") 
+				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS",
+				"PRODUCT_CODE",
+				"PRODUCT",
+				"TOTAL_PRODUCT_IN_ISSUE",
+				"REPORTED_SHORT_POSITIONS",
+				"DATE"
+			FROM shorts
+			ORDER BY "PRODUCT_CODE", "DATE" DESC
 		),
-		ranked_matches AS (
+		matched_stocks AS (
 			SELECT 
-				percentage_shorted, 
-				product_code, 
-				name, 
-				total_product_in_issue, 
-				reported_short_positions, 
-				sort_priority,
-				ROW_NUMBER() OVER (PARTITION BY product_code ORDER BY sort_priority ASC) as rn
-			FROM all_matches
+				s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
+				s."PRODUCT_CODE" as product_code,
+				s."PRODUCT" as name,
+				s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue,
+				s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
+				COALESCE(m.industry, '') as industry,
+				COALESCE(m.tags, ARRAY[]::text[]) as tags,
+				COALESCE(m.logo_gcs_url, '') as logo_url,
+				CASE 
+					WHEN s."PRODUCT_CODE" = $1 THEN 1       -- Exact Code Match
+					WHEN s."PRODUCT_CODE" ILIKE $2 THEN 2   -- Partial Code Match
+					WHEN s."PRODUCT" ILIKE $2 THEN 3        -- Name Match
+					WHEN m.industry ILIKE $2 THEN 4         -- Industry Match
+					ELSE 5                                  -- Tag Match
+				END as relevance
+			FROM latest_shorts s
+			LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
+			WHERE 
+				s."PRODUCT_CODE" ILIKE $2 OR
+				s."PRODUCT" ILIKE $2 OR
+				m.industry ILIKE $2 OR
+				EXISTS (SELECT 1 FROM unnest(m.tags) tag WHERE tag ILIKE $2)
 		)
-		SELECT percentage_shorted, product_code, name, total_product_in_issue, reported_short_positions, sort_priority
-		FROM ranked_matches
-		WHERE rn = 1
-		ORDER BY sort_priority, product_code
-		LIMIT $4`
+		SELECT 
+			percentage_shorted, 
+			product_code, 
+			name, 
+			total_product_in_issue, 
+			reported_short_positions, 
+			industry,
+			tags,
+			logo_url
+		FROM matched_stocks
+		ORDER BY relevance ASC, percentage_shorted DESC
+		LIMIT $3`
 
 	// Create context with timeout to prevent hanging
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -695,7 +688,7 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 	exactQuery := query
 	partialQuery := "%" + query + "%"
 
-	rows, err := s.db.Query(ctx, searchQuery, exactQuery, partialQuery, partialQuery, limit)
+	rows, err := s.db.Query(ctx, searchQuery, exactQuery, partialQuery, limit)
 	if err != nil {
 		log.Errorf("Database query failed for search '%s': %v", query, err)
 		// Check if it's a context timeout
@@ -707,45 +700,25 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 	}
 	defer rows.Close()
 
-	// Custom scan function to handle sort_priority
-	type searchResult struct {
-		stocksv1alpha1.Stock
-		SortPriority int32 `db:"sort_priority"`
-	}
-
-	var results []*searchResult
+	var results []*stocksv1alpha1.Stock
 	for rows.Next() {
-		result := &searchResult{}
+		stock := &stocksv1alpha1.Stock{}
 		if err := rows.Scan(
-			&result.PercentageShorted,
-			&result.ProductCode,
-			&result.Name,
-			&result.TotalProductInIssue,
-			&result.ReportedShortPositions,
-			&result.SortPriority,
+			&stock.PercentageShorted,
+			&stock.ProductCode,
+			&stock.Name,
+			&stock.TotalProductInIssue,
+			&stock.ReportedShortPositions,
+			&stock.Industry,
+			&stock.Tags,
+			&stock.LogoUrl,
 		); err != nil {
 			log.Errorf("Failed to scan stock row for search '%s': %v", query, err)
 			return nil, fmt.Errorf("failed to scan stock row: %w", err)
 		}
-		results = append(results, result)
+		results = append(results, stock)
 	}
 
-	// Convert []searchResult to []*stocksv1alpha1.Stock
-	stockPointers := make([]*stocksv1alpha1.Stock, len(results))
-	for i := range results {
-		stockPointers[i] = &results[i].Stock
-	}
-
-	// Deduplicate by product_code (keep first occurrence, which has highest priority)
-	seen := make(map[string]bool)
-	deduplicated := make([]*stocksv1alpha1.Stock, 0, len(stockPointers))
-	for _, stock := range stockPointers {
-		if !seen[stock.ProductCode] {
-			deduplicated = append(deduplicated, stock)
-			seen[stock.ProductCode] = true
-		}
-	}
-
-	log.Debugf("Search completed for '%s': found %d unique stocks (deduplicated from %d total results)", query, len(deduplicated), len(results))
-	return deduplicated, nil
+	log.Debugf("Search completed for '%s': found %d stocks", query, len(results))
+	return results, nil
 }
