@@ -29,10 +29,10 @@ type Stock struct {
 	Name                   string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`                                  // The full name of the stock.
 	TotalProductInIssue    float32                `protobuf:"fixed32,3,opt,name=total_product_in_issue,json=totalProductInIssue,proto3" json:"total_product_in_issue,omitempty"`
 	ReportedShortPositions float32                `protobuf:"fixed32,4,opt,name=reported_short_positions,json=reportedShortPositions,proto3" json:"reported_short_positions,omitempty"`
-	PercentageShorted      float32                `protobuf:"fixed32,5,opt,name=percentage_shorted,json=percentageShorted,proto3" json:"percentage_shorted,omitempty"` // TODO(castlemilk): add more metadata here as needed
+	PercentageShorted      float32                `protobuf:"fixed32,5,opt,name=percentage_shorted,json=percentageShorted,proto3" json:"percentage_shorted,omitempty"`
 	Industry               string                 `protobuf:"bytes,6,opt,name=industry,proto3" json:"industry,omitempty"`
 	Tags                   []string               `protobuf:"bytes,7,rep,name=tags,proto3" json:"tags,omitempty"`
-	LogoUrl                string                 `protobuf:"bytes,8,opt,name=logo_url,json=logoUrl,proto3" json:"logo_url,omitempty"`
+	LogoUrl                string                 `protobuf:"bytes,8,opt,name=logo_url,json=logoUrl,proto3" json:"logo_url,omitempty"` // TODO(castlemilk): add more metadata here as needed
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -1128,13 +1128,16 @@ var File_stocks_v1alpha1_stocks_proto protoreflect.FileDescriptor
 
 const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\n" +
-	"\x1cstocks/v1alpha1/stocks.proto\x12\x0fstocks.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xdc\x01\n" +
+	"\x1cstocks/v1alpha1/stocks.proto\x12\x0fstocks.v1alpha1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa7\x02\n" +
 	"\x05Stock\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x123\n" +
 	"\x16total_product_in_issue\x18\x03 \x01(\x02R\x13totalProductInIssue\x128\n" +
 	"\x18reported_short_positions\x18\x04 \x01(\x02R\x16reportedShortPositions\x12-\n" +
-	"\x12percentage_shorted\x18\x05 \x01(\x02R\x11percentageShorted\"\x9d\x02\n" +
+	"\x12percentage_shorted\x18\x05 \x01(\x02R\x11percentageShorted\x12\x1a\n" +
+	"\bindustry\x18\x06 \x01(\tR\bindustry\x12\x12\n" +
+	"\x04tags\x18\a \x03(\tR\x04tags\x12\x19\n" +
+	"\blogo_url\x18\b \x01(\tR\alogoUrl\"\x9d\x02\n" +
 	"\x0eTimeSeriesData\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x122\n" +
