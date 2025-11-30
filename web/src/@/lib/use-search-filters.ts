@@ -12,33 +12,36 @@ export function useSearchFilters() {
   const searchParams = useSearchParams();
 
   const [filters, setFilters] = useState<StockSearchFilters>({
-    industry: searchParams?.get('industry') || null,
-    marketCap: searchParams?.get('marketCap') || null,
-    tags: searchParams?.getAll('tag') || [],
+    industry: searchParams?.get("industry") ?? null,
+    marketCap: searchParams?.get("marketCap") ?? null,
+    tags: searchParams?.getAll("tag") ?? [],
   });
 
-  const updateFilter = useCallback((key: keyof StockSearchFilters, value: any) => {
-    setFilters(prev => {
-      const newFilters = { ...prev, [key]: value };
-      
-      // Update URL
-      const params = new URLSearchParams(searchParams?.toString());
-      
-      if (value === null || (Array.isArray(value) && value.length === 0)) {
-        params.delete(key === 'tags' ? 'tag' : key);
-      } else if (key === 'tags' && Array.isArray(value)) {
-        params.delete('tag');
-        value.forEach(tag => params.append('tag', tag));
-      } else {
-        params.set(key, String(value));
-      }
-      
-      // Use replace to avoid cluttering history
-      router.replace(`?${params.toString()}`, { scroll: false });
-      
-      return newFilters;
-    });
-  }, [router, searchParams]);
+  const updateFilter = useCallback(
+    (key: keyof StockSearchFilters, value: string | string[] | null) => {
+      setFilters((prev) => {
+        const newFilters = { ...prev, [key]: value };
+
+        // Update URL
+        const params = new URLSearchParams(searchParams?.toString());
+
+        if (value === null || (Array.isArray(value) && value.length === 0)) {
+          params.delete(key === "tags" ? "tag" : key);
+        } else if (key === "tags" && Array.isArray(value)) {
+          params.delete("tag");
+          value.forEach((tag) => params.append("tag", tag));
+        } else {
+          params.set(key, String(value));
+        }
+
+        // Use replace to avoid cluttering history
+        router.replace(`?${params.toString()}`, { scroll: false });
+
+        return newFilters;
+      });
+    },
+    [router, searchParams],
+  );
 
   const clearFilters = useCallback(() => {
     setFilters({

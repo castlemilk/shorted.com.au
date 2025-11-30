@@ -513,10 +513,10 @@ export async function searchStocksEnriched(
           return {
             ...stock,
             // Use existing data or fetch if missing
-            industry: stock.industry || details?.industry,
+            industry: stock.industry ?? details?.industry,
             companyName: details?.companyName ?? stock.name,
-            logoUrl: stock.logoUrl || details?.gcsUrl,
-            tags: stock.tags || details?.tags, 
+            logoUrl: stock.logoUrl ?? details?.gcsUrl,
+            tags: stock.tags ?? details?.tags, 
             currentPrice: quote?.price,
             priceChange: quote?.changePercent,
           } as StockSearchResult;
@@ -544,7 +544,7 @@ export async function searchStocksEnriched(
 async function fetchStockDetailsClient(
   productCode: string,
 ): Promise<
-  { industry?: string; companyName?: string; gcsUrl?: string } | undefined
+  { industry?: string; companyName?: string; gcsUrl?: string; tags?: string[] } | undefined
 > {
   try {
     // Dynamic import to make this work in both client and server contexts
@@ -561,6 +561,7 @@ async function fetchStockDetailsClient(
       industry: details.industry,
       companyName: details.companyName,
       gcsUrl: details.gcsUrl,
+      tags: details.tags,
     };
   } catch (error) {
     // Silently fail - enrichment is optional

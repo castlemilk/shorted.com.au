@@ -46,7 +46,7 @@ export function StocksSearchClient({ popularStocks }: StocksSearchClientProps) {
     setIsSearching(true);
 
     try {
-      const activeFilters = filtersOverride || filters;
+      const activeFilters = filtersOverride ?? filters;
       const results = await searchStocksEnriched(query.trim(), activeFilters, 10);
       setSearchResults(results);
     } catch (error) {
