@@ -10,7 +10,7 @@ import {
   SelectValue,
 } from "~/@/components/ui/select";
 import { Badge } from "~/@/components/ui/badge";
-import { StockSearchFilters } from "~/@/lib/use-search-filters";
+import type { StockSearchFilters } from "~/@/lib/use-search-filters";
 
 const INDUSTRIES = [
   "Banks",
@@ -34,7 +34,10 @@ const MARKET_CAP_RANGES = [
 
 interface StockSearchFiltersProps {
   filters: StockSearchFilters;
-  onUpdateFilter: (key: keyof StockSearchFilters, value: any) => void;
+  onUpdateFilter: (
+    key: keyof StockSearchFilters,
+    value: string | string[] | null,
+  ) => void;
   onClearFilters: () => void;
 }
 
@@ -44,13 +47,15 @@ export function StockSearchFiltersView({
   onClearFilters,
 }: StockSearchFiltersProps) {
   const hasActiveFilters =
-    filters.industry || filters.marketCap || filters.tags.length > 0;
+    (filters.industry !== null && filters.industry !== "") ||
+    (filters.marketCap !== null && filters.marketCap !== "") ||
+    filters.tags.length > 0;
 
   return (
     <div className="flex flex-col gap-4 mb-6">
       <div className="flex flex-wrap items-center gap-3">
         <Select
-          value={filters.industry || "all"}
+          value={filters.industry ?? "all"}
           onValueChange={(value) =>
             onUpdateFilter("industry", value === "all" ? null : value)
           }
@@ -69,7 +74,7 @@ export function StockSearchFiltersView({
         </Select>
 
         <Select
-          value={filters.marketCap || "all"}
+          value={filters.marketCap ?? "all"}
           onValueChange={(value) =>
             onUpdateFilter("marketCap", value === "all" ? null : value)
           }
