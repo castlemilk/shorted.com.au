@@ -263,6 +263,7 @@ jobs:
             --env NEXT_PUBLIC_ALGOLIA_SEARCH_KEY=${{ secrets.ALGOLIA_SEARCH_KEY }}
             --env ALGOLIA_INDEX=stocks
             --env NEXTAUTH_URL=https://preview.shorted.com.au
+            --env ALLOW_E2E_AUTH=true
 
       - name: Summary
         run: |
@@ -557,8 +558,118 @@ jobs:
               body
             });
 
+  test-e2e-authenticated:
+    needs: [check-secrets, deploy-vercel-preview]
+    runs-on: ubuntu-latest
+    if: needs.check-secrets.outputs.has-gcp == 'true' && needs.deploy-vercel-preview.outputs.preview-url != ''
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright browsers
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Create auth directory
+        working-directory: web
+        run: mkdir -p .auth
+
+      - name: Wait for deployment to be ready
+        run: |
+          echo "⏳ Waiting for preview deployment to be ready..."
+          PREVIEW_URL="${{ needs.deploy-vercel-preview.outputs.preview-url }}"
+          MAX_ATTEMPTS=30
+          ATTEMPT=0
+          
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            if curl -sSf "$PREVIEW_URL" > /dev/null 2>&1; then
+              echo "✅ Preview deployment is ready: $PREVIEW_URL"
+              break
+            fi
+            
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "   Attempt $ATTEMPT/$MAX_ATTEMPTS - Waiting 10s..."
+            sleep 10
+          done
+          
+          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+            echo "❌ Timeout waiting for preview deployment"
+            exit 1
+          fi
+
+      - name: Run authenticated Playwright tests
+        working-directory: web
+        env:
+          BASE_URL: ${{ needs.deploy-vercel-preview.outputs.preview-url }}
+          RUN_AUTH_TESTS: "1"
+          E2E_TEST_EMAIL: "e2e-test@shorted.com.au"
+          E2E_TEST_PASSWORD: "E2ETestPassword123!"
+          CI: true
+        run: |
+          echo "🔐 Running authenticated Playwright tests against: $BASE_URL"
+          echo "   Test user: $E2E_TEST_EMAIL"
+          
+          # Run the setup project first (authentication), then authenticated tests
+          npx playwright test --project=setup --project=chromium-authenticated --reporter=list
+        continue-on-error: true
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-authenticated-report
+          path: web/playwright-report/
+          retention-days: 7
+
+      - name: Upload auth state (debug)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-auth-state
+          path: web/.auth/
+          retention-days: 1
+
+      - name: Comment auth test results on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const testResult = '${{ job.status }}';
+            const previewUrl = '${{ needs.deploy-vercel-preview.outputs.preview-url }}';
+            const emoji = testResult === 'success' ? '✅' : testResult === 'failure' ? '❌' : '⚠️';
+            
+            const body = `## 🔐 Authenticated E2E Tests ${emoji}\n\n` +
+              `**Preview URL**: ${previewUrl}\n` +
+              `**Status**: ${testResult}\n\n` +
+              `${testResult === 'success' ? 
+                '✅ All authenticated user flows (search, dashboards, etc.) are working!' : 
+                '⚠️ Authenticated tests had issues. Check the workflow logs and artifacts for details.'}`;
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+
   test-summary:
-    needs: [test-unit, test-integration, deploy-vercel-preview, test-e2e-smoke]
+    needs: [test-unit, test-integration, deploy-vercel-preview, test-e2e-smoke, test-e2e-authenticated]
     runs-on: ubuntu-latest
     if: always()
 
@@ -571,6 +682,7 @@ jobs:
               unit: '${{ needs.test-unit.result }}',
               integration: '${{ needs.test-integration.result }}',
               'e2e-smoke': '${{ needs.test-e2e-smoke.result }}',
+              'e2e-authenticated': '${{ needs.test-e2e-authenticated.result }}',
               'vercel-deploy': '${{ needs.deploy-vercel-preview.result }}'
             };
 

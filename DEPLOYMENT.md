@@ -159,6 +159,54 @@ NEXTAUTH_URL=https://shorted.com.au
 NEXTAUTH_SECRET=...
 ```
 
+## E2E Testing in CI
+
+### Authenticated Tests
+
+The CI pipeline runs authenticated E2E tests using a static test user. This is enabled by:
+
+1. **ALLOW_E2E_AUTH=true** - Environment variable on Vercel preview
+2. **Test User Credentials** - Static test account for Playwright
+
+The test user is defined in `web/src/server/auth.ts` and only works in non-production:
+
+```typescript
+// E2E Test User - only enabled in non-production
+const E2E_TEST_USER = {
+  email: "e2e-test@shorted.com.au",
+  password: "E2ETestPassword123!",
+};
+```
+
+### CI Jobs
+
+| Job | Description | Depends On |
+|-----|-------------|------------|
+| `test-e2e-smoke` | Public page tests | `deploy-vercel-preview` |
+| `test-e2e-authenticated` | Authenticated user flows | `deploy-vercel-preview` |
+
+### Running Locally
+
+```bash
+# Run all tests with auth
+cd web
+RUN_AUTH_TESTS=1 npx playwright test --project=setup --project=chromium-authenticated
+
+# Run just auth setup
+npx playwright test --project=setup
+
+# Run just smoke tests (no auth)
+npx playwright test e2e/smoke.spec.ts --project=chromium
+```
+
+### Test Files
+
+| File Pattern | Description |
+|--------------|-------------|
+| `*.authenticated.spec.ts` | Tests that require login |
+| `*.spec.ts` | Regular tests (run with/without auth) |
+| `auth.setup.ts` | Authentication setup (saves session) |
+
 ## Monitoring
 
 ### Health Checks

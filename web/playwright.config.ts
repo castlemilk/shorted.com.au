@@ -23,7 +23,9 @@ export default defineConfig({
     // 2. Local development server (default)
     baseURL:
       process.env.BASE_URL ||
-      (process.env.E2E_TEST ? "http://localhost:3001" : "http://localhost:3020"),
+      (process.env.E2E_TEST
+        ? "http://localhost:3001"
+        : "http://localhost:3020"),
     trace: "on-first-retry",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
