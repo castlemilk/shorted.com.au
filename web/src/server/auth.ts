@@ -18,14 +18,41 @@ import type { AdapterUser } from "next-auth/adapters";
 
 // import { firestore } from "~/app/lib/firestore"; // Commented out until Firebase adapter is used
 
-// TODO: Implement these auth functions
+// E2E Test User - only enabled in non-production environments
+// This allows Playwright tests to authenticate without OAuth
+const E2E_TEST_USER = {
+  email: process.env.E2E_TEST_EMAIL ?? "e2e-test@shorted.com.au",
+  password: process.env.E2E_TEST_PASSWORD ?? "E2ETestPassword123!",
+  id: "e2e-test-user",
+  name: "E2E Test User",
+};
+
+// TODO: Implement these auth functions for production users
 function saltAndHashPassword(password: string): string {
   // Stub implementation - replace with actual hashing
   return password;
 }
 
-async function getUserFromDb(_email: string, _passwordHash: string) {
-  // Stub implementation - replace with actual database lookup
+async function getUserFromDb(
+  email: string,
+  passwordHash: string,
+): Promise<User | null> {
+  // In non-production, allow E2E test user to authenticate
+  // This enables automated testing with Playwright
+  if (process.env.NODE_ENV !== "production" || process.env.ALLOW_E2E_AUTH === "true") {
+    if (
+      email === E2E_TEST_USER.email &&
+      passwordHash === E2E_TEST_USER.password
+    ) {
+      return {
+        id: E2E_TEST_USER.id,
+        email: E2E_TEST_USER.email,
+        name: E2E_TEST_USER.name,
+      };
+    }
+  }
+
+  // Stub implementation for other users - replace with actual database lookup
   return null;
 }
 
