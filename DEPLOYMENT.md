@@ -45,6 +45,7 @@ terraform apply -var="project_id=YOUR_PROJECT_ID"
 ```
 
 This creates:
+
 - Workload Identity Pool and Provider
 - Service Account with necessary permissions
 - Artifact Registry for Docker images
@@ -53,20 +54,20 @@ This creates:
 
 Add these secrets to your GitHub repository:
 
-| Secret | Description | Example |
-|--------|-------------|---------|
-| `GCP_PROJECT_ID` | Your GCP project ID | `shorted-prod-123456` |
-| `WIP_PROVIDER` | Workload Identity Provider | `projects/123/locations/global/workloadIdentityPools/github-pool/providers/github-provider` |
-| `SA_EMAIL` | Service Account email | `github-actions-sa@project.iam.gserviceaccount.com` |
-| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@host/db` |
-| `SUPABASE_URL` | Supabase project URL | `https://xxx.supabase.co` |
-| `SUPABASE_ANON_KEY` | Supabase anonymous key | `eyJxxx...` |
-| `VERCEL_TOKEN` | Vercel deployment token | `xxx` |
-| `VERCEL_ORG_ID` | Vercel organization ID | `team_xxx` |
-| `VERCEL_PROJECT_ID` | Vercel project ID | `prj_xxx` |
-| `NEXTAUTH_SECRET` | NextAuth.js secret | Random string |
-| `ALGOLIA_APP_ID` | Algolia Application ID | `1BWAPWSTDD` |
-| `ALGOLIA_SEARCH_KEY` | Algolia Search-only API Key | `0e5adba5fd8aa4b3848255a39c1287ef` |
+| Secret               | Description                  | Example                                                                                     |
+| -------------------- | ---------------------------- | ------------------------------------------------------------------------------------------- |
+| `GCP_PROJECT_ID`     | Your GCP project ID          | `shorted-prod-123456`                                                                       |
+| `WIP_PROVIDER`       | Workload Identity Provider   | `projects/123/locations/global/workloadIdentityPools/github-pool/providers/github-provider` |
+| `SA_EMAIL`           | Service Account email        | `github-actions-sa@project.iam.gserviceaccount.com`                                         |
+| `DATABASE_URL`       | PostgreSQL connection string | `postgresql://user:pass@host/db`                                                            |
+| `SUPABASE_URL`       | Supabase project URL         | `https://xxx.supabase.co`                                                                   |
+| `SUPABASE_ANON_KEY`  | Supabase anonymous key       | `eyJxxx...`                                                                                 |
+| `VERCEL_TOKEN`       | Vercel deployment token      | `xxx`                                                                                       |
+| `VERCEL_ORG_ID`      | Vercel organization ID       | `team_xxx`                                                                                  |
+| `VERCEL_PROJECT_ID`  | Vercel project ID            | `prj_xxx`                                                                                   |
+| `NEXTAUTH_SECRET`    | NextAuth.js secret           | Random string                                                                               |
+| `ALGOLIA_APP_ID`     | Algolia Application ID       | `1BWAPWSTDD`                                                                                |
+| `ALGOLIA_SEARCH_KEY` | Algolia Search-only API Key  | `0e5adba5fd8aa4b3848255a39c1287ef`                                                          |
 
 ### 3. Set up Vercel Project
 
@@ -112,6 +113,7 @@ gh workflow run deploy.yml
 ### Cloud Run Services
 
 #### Shorts Service
+
 - **Port**: 9091
 - **Memory**: 512Mi
 - **CPU**: 1
@@ -120,6 +122,7 @@ gh workflow run deploy.yml
 - **URL**: `https://shorts-service-xxx.a.run.app`
 
 #### Market Data Service
+
 - **Port**: 8090
 - **Memory**: 512Mi
 - **CPU**: 1
@@ -130,6 +133,7 @@ gh workflow run deploy.yml
 ### Environment Variables
 
 #### Backend Services
+
 ```env
 DATABASE_URL=postgresql://...
 ENVIRONMENT=production
@@ -147,10 +151,12 @@ Run the setup script to configure Algolia secrets in GCP Secret Manager:
 ```
 
 This will:
+
 1. Create `ALGOLIA_APP_ID` and `ALGOLIA_SEARCH_KEY` secrets in both dev and prod projects
 2. Grant the shorts service account access to these secrets
 
 #### Frontend (Vercel)
+
 ```env
 NEXT_PUBLIC_API_URL=https://shorts-service-xxx.a.run.app
 NEXT_PUBLIC_MARKET_DATA_URL=https://market-data-service-xxx.a.run.app
@@ -180,9 +186,9 @@ const E2E_TEST_USER = {
 
 ### CI Jobs
 
-| Job | Description | Depends On |
-|-----|-------------|------------|
-| `test-e2e-smoke` | Public page tests | `deploy-vercel-preview` |
+| Job                      | Description              | Depends On              |
+| ------------------------ | ------------------------ | ----------------------- |
+| `test-e2e-smoke`         | Public page tests        | `deploy-vercel-preview` |
 | `test-e2e-authenticated` | Authenticated user flows | `deploy-vercel-preview` |
 
 ### Running Locally
@@ -201,11 +207,11 @@ npx playwright test e2e/smoke.spec.ts --project=chromium
 
 ### Test Files
 
-| File Pattern | Description |
-|--------------|-------------|
-| `*.authenticated.spec.ts` | Tests that require login |
-| `*.spec.ts` | Regular tests (run with/without auth) |
-| `auth.setup.ts` | Authentication setup (saves session) |
+| File Pattern              | Description                           |
+| ------------------------- | ------------------------------------- |
+| `*.authenticated.spec.ts` | Tests that require login              |
+| `*.spec.ts`               | Regular tests (run with/without auth) |
+| `auth.setup.ts`           | Authentication setup (saves session)  |
 
 ## Monitoring
 
@@ -236,6 +242,7 @@ gcloud logging read "resource.type=cloud_run_revision AND resource.labels.servic
 ### Metrics
 
 Monitor in GCP Console:
+
 - Cloud Run → Services → [Service Name] → Metrics
 - Key metrics: Request count, latency, error rate
 
@@ -274,16 +281,19 @@ vercel rollback [deployment-url]
 ### Deployment Failures
 
 1. Check service logs:
+
 ```bash
 gcloud run services logs read [service-name] --region australia-southeast2
 ```
 
 2. Verify IAM permissions:
+
 ```bash
 gcloud projects get-iam-policy [project-id]
 ```
 
 3. Check Cloud Run service status:
+
 ```bash
 gcloud run services describe [service-name] --region australia-southeast2
 ```
@@ -297,15 +307,18 @@ gcloud run services describe [service-name] --region australia-southeast2
 ## Cost Optimization
 
 ### Cloud Run
+
 - Use minimum instances = 0 for dev/staging
 - Set appropriate CPU/memory limits
 - Enable CPU throttling when idle
 
 ### Artifact Registry
+
 - Set up cleanup policies for old images
 - Use multi-stage Docker builds to reduce image size
 
 ### Monitoring
+
 - Set up budget alerts in GCP
 - Monitor usage in Cloud Console
 
@@ -338,6 +351,7 @@ gcloud run services describe [service-name] --region australia-southeast2
 ## Support
 
 For deployment issues:
+
 1. Check GitHub Actions logs
 2. Review GCP Console logs
 3. Create an issue with `deployment` label
