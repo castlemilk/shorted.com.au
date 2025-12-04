@@ -1,5 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 import path from "path";
+import { fileURLToPath } from "url";
+
+// ES module compatible __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Auth state file path
 const AUTH_FILE = path.join(__dirname, ".auth/user.json");
