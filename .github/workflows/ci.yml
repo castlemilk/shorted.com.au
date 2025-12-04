@@ -172,9 +172,9 @@ jobs:
     if: needs.check-secrets.outputs.has-gcp == 'true' && github.event_name == 'pull_request'
     environment:
       name: preview
-      url: ${{ steps.deploy.outputs.url }}
+      url: ${{ steps.deploy.outputs.preview-url }}
     outputs:
-      preview-url: ${{ steps.deploy.outputs.url }}
+      preview-url: ${{ steps.deploy.outputs.preview-url }}
       shorts-url: ${{ steps.get-backend-urls.outputs.shorts_url }}
       market-data-url: ${{ steps.get-backend-urls.outputs.market_data_url }}
 
@@ -267,7 +267,7 @@ jobs:
 
       - name: Summary
         run: |
-          echo "✅ Frontend deployed to Vercel: ${{ steps.deploy.outputs.url }}"
+          echo "✅ Frontend deployed to Vercel: ${{ steps.deploy.outputs.preview-url }}"
           echo "Connected to Shorts API: ${{ steps.get-backend-urls.outputs.shorts_url }}"
           echo "Connected to Market Data API: ${{ steps.get-backend-urls.outputs.market_data_url }}"
 
@@ -470,7 +470,7 @@ jobs:
     needs: [check-secrets, deploy-vercel-preview]
     runs-on: ubuntu-latest
     if: needs.check-secrets.outputs.has-gcp == 'true' && needs.deploy-vercel-preview.outputs.preview-url != ''
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -500,7 +500,7 @@ jobs:
           PREVIEW_URL="${{ needs.deploy-vercel-preview.outputs.preview-url }}"
           MAX_ATTEMPTS=30
           ATTEMPT=0
-          
+
           while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
             if curl -sSf "$PREVIEW_URL" > /dev/null 2>&1; then
               echo "✅ Preview deployment is ready: $PREVIEW_URL"
@@ -511,7 +511,7 @@ jobs:
             echo "   Attempt $ATTEMPT/$MAX_ATTEMPTS - Waiting 10s..."
             sleep 10
           done
-          
+
           if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
             echo "❌ Timeout waiting for preview deployment"
             exit 1
@@ -543,14 +543,14 @@ jobs:
             const testResult = '${{ job.status }}';
             const previewUrl = '${{ needs.deploy-vercel-preview.outputs.preview-url }}';
             const emoji = testResult === 'success' ? '✅' : '❌';
-            
+
             const body = `## 🎭 E2E Smoke Tests ${emoji}\n\n` +
               `**Preview URL**: ${previewUrl}\n` +
               `**Status**: ${testResult}\n\n` +
               `${testResult === 'success' ? 
                 '✅ All critical user flows are working on the preview deployment!' : 
                 '❌ Some smoke tests failed. Check the workflow logs for details.'}`;
-            
+
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -562,7 +562,7 @@ jobs:
     needs: [check-secrets, deploy-vercel-preview]
     runs-on: ubuntu-latest
     if: needs.check-secrets.outputs.has-gcp == 'true' && needs.deploy-vercel-preview.outputs.preview-url != ''
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -596,7 +596,7 @@ jobs:
           PREVIEW_URL="${{ needs.deploy-vercel-preview.outputs.preview-url }}"
           MAX_ATTEMPTS=30
           ATTEMPT=0
-          
+
           while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
             if curl -sSf "$PREVIEW_URL" > /dev/null 2>&1; then
               echo "✅ Preview deployment is ready: $PREVIEW_URL"
@@ -607,7 +607,7 @@ jobs:
             echo "   Attempt $ATTEMPT/$MAX_ATTEMPTS - Waiting 10s..."
             sleep 10
           done
-          
+
           if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
             echo "❌ Timeout waiting for preview deployment"
             exit 1
@@ -624,7 +624,7 @@ jobs:
         run: |
           echo "🔐 Running authenticated Playwright tests against: $BASE_URL"
           echo "   Test user: $E2E_TEST_EMAIL"
-          
+
           # Run the setup project first (authentication), then authenticated tests
           npx playwright test --project=setup --project=chromium-authenticated --reporter=list
         continue-on-error: true
@@ -653,14 +653,14 @@ jobs:
             const testResult = '${{ job.status }}';
             const previewUrl = '${{ needs.deploy-vercel-preview.outputs.preview-url }}';
             const emoji = testResult === 'success' ? '✅' : testResult === 'failure' ? '❌' : '⚠️';
-            
+
             const body = `## 🔐 Authenticated E2E Tests ${emoji}\n\n` +
               `**Preview URL**: ${previewUrl}\n` +
               `**Status**: ${testResult}\n\n` +
               `${testResult === 'success' ? 
                 '✅ All authenticated user flows (search, dashboards, etc.) are working!' : 
                 '⚠️ Authenticated tests had issues. Check the workflow logs and artifacts for details.'}`;
-            
+
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -669,7 +669,14 @@ jobs:
             });
 
   test-summary:
-    needs: [test-unit, test-integration, deploy-vercel-preview, test-e2e-smoke, test-e2e-authenticated]
+    needs:
+      [
+        test-unit,
+        test-integration,
+        deploy-vercel-preview,
+        test-e2e-smoke,
+        test-e2e-authenticated,
+      ]
     runs-on: ubuntu-latest
     if: always()
 
