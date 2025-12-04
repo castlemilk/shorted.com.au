@@ -1,9 +1,11 @@
 package shorts
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	connectcors "connectrpc.com/cors"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/castlemilk/shorted.com.au/services/gen/proto/go/register/v1/registerv1connect"
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
+	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/rakyll/statik/fs"
 
 	_ "github.com/castlemilk/shorted.com.au/services/shorts/internal/api/schema/statik"
@@ -99,7 +102,26 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			return
 		}
 
-		stocks, err := s.store.SearchStocks(query, limit)
+		// Check cache first
+		cacheKey := s.cache.GetSearchStocksKey(query, limit)
+		
+		// Use cached result or fetch from Algolia/database
+		cachedResult, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+			// Try Algolia first if configured
+			if s.config.AlgoliaAppID != "" && s.config.AlgoliaSearchKey != "" {
+				logger.Debugf("searching via Algolia: query='%s'", query)
+				stocks, algoliaErr := s.searchAlgolia(query, limit)
+				if algoliaErr == nil && len(stocks) > 0 {
+					return stocks, nil
+				}
+				logger.Warnf("Algolia search failed or returned no results for '%s', falling back to PostgreSQL: %v", query, algoliaErr)
+			}
+			
+			// Fall back to PostgreSQL
+			logger.Debugf("cache miss for SearchStocks, fetching from database: query='%s'", query)
+			return s.store.SearchStocks(query, limit)
+		})
+
 		if err != nil {
 			logger.Errorf("Error searching stocks for query '%s': %v", query, err)
 			// Check if it's a timeout error
@@ -110,6 +132,8 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			}
 			return
 		}
+		
+		stocks := cachedResult.([]*stocksv1alpha1.Stock)
 
 		// Convert to JSON response
 		w.Header().Set("Content-Type", "application/json")
@@ -124,7 +148,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			ReportedShortPositions float64  `json:"reported_short_positions"`
 			Industry               string   `json:"industry"`
 			Tags                   []string `json:"tags"`
-			LogoUrl                string   `json:"logo_url"`
+			LogoUrl                string   `json:"logoUrl"`
 		}
 
 		type SearchResponse struct {
@@ -159,6 +183,108 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			logger.Errorf("Error encoding JSON response: %v", err)
 			return
 		}
+	})
+
+	// Add Algolia search proxy endpoint
+	mux.HandleFunc("/api/algolia/search", func(w http.ResponseWriter, r *http.Request) {
+		// Add CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		// Handle preflight OPTIONS request
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method != http.MethodPost && r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Check if Algolia is configured
+		if s.config.AlgoliaAppID == "" || s.config.AlgoliaSearchKey == "" {
+			logger.Warnf("Algolia not configured, falling back to PostgreSQL search")
+			http.Error(w, "Algolia not configured", http.StatusServiceUnavailable)
+			return
+		}
+
+		var query string
+		var hitsPerPage int = 20
+
+		if r.Method == http.MethodGet {
+			query = r.URL.Query().Get("q")
+			if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+				fmt.Sscanf(limitStr, "%d", &hitsPerPage)
+			}
+		} else {
+			// Parse POST body
+			var reqBody struct {
+				Query       string `json:"query"`
+				HitsPerPage int    `json:"hitsPerPage"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+				http.Error(w, "Invalid request body", http.StatusBadRequest)
+				return
+			}
+			query = reqBody.Query
+			if reqBody.HitsPerPage > 0 {
+				hitsPerPage = reqBody.HitsPerPage
+			}
+		}
+
+		if query == "" {
+			http.Error(w, "Missing query parameter", http.StatusBadRequest)
+			return
+		}
+
+		// Cap hitsPerPage
+		if hitsPerPage > 100 {
+			hitsPerPage = 100
+		}
+
+		// Build Algolia request
+		indexName := s.config.AlgoliaIndex
+		if indexName == "" {
+			indexName = "stocks"
+		}
+
+		algoliaURL := fmt.Sprintf("https://%s-dsn.algolia.net/1/indexes/%s/query",
+			s.config.AlgoliaAppID, indexName)
+
+		algoliaReqBody := map[string]interface{}{
+			"query":       query,
+			"hitsPerPage": hitsPerPage,
+		}
+		reqBodyBytes, _ := json.Marshal(algoliaReqBody)
+
+		algoliaReq, err := http.NewRequest("POST", algoliaURL, bytes.NewReader(reqBodyBytes))
+		if err != nil {
+			logger.Errorf("Error creating Algolia request: %v", err)
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		// Use search key (safe for read operations)
+		algoliaReq.Header.Set("X-Algolia-API-Key", s.config.AlgoliaSearchKey)
+		algoliaReq.Header.Set("X-Algolia-Application-Id", s.config.AlgoliaAppID)
+		algoliaReq.Header.Set("Content-Type", "application/json")
+
+		// Make request to Algolia
+		client := &http.Client{}
+		resp, err := client.Do(algoliaReq)
+		if err != nil {
+			logger.Errorf("Error calling Algolia: %v", err)
+			http.Error(w, "Search service unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		defer resp.Body.Close()
+
+		// Forward response
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(resp.StatusCode)
+		io.Copy(w, resp.Body)
 	})
 
 	// Add statik file server

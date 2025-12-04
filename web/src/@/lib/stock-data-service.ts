@@ -44,7 +44,8 @@ export interface StockSearchResult {
   industry?: string;
   tags?: string[];
   companyName?: string;
-  logoUrl?: string;
+  logo_url?: string; // From API (snake_case)
+  logoUrl?: string; // Normalized (camelCase)
   currentPrice?: number;
   priceChange?: number;
 }
@@ -390,36 +391,44 @@ export async function getServiceStatus(): Promise<{ marketDataAPI: boolean }> {
 }
 
 /**
- * Search stocks using the Go backend API
+ * Search stocks using Connect RPC (backend uses Algolia with PostgreSQL fallback)
  */
 export async function searchStocks(
   query: string,
   limit = 50,
-): Promise<StockSearchResponse | null> {
+): Promise<{
+  stocks: Array<{
+    productCode: string;
+    name: string;
+    percentageShorted: number;
+    totalProductInIssue: number;
+    reportedShortPositions: number;
+    industry: string;
+    tags: string[];
+    logoUrl: string;
+  }>;
+} | null> {
   try {
-    // Use the Go backend API for stock search
-    const SHORTS_API_URL =
-      process.env.NEXT_PUBLIC_SHORTS_API_URL ?? "http://localhost:9091";
-
-    const response = await fetch(
-      `${SHORTS_API_URL}/api/stocks/search?q=${encodeURIComponent(query)}&limit=${limit}`,
-      {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-        signal: AbortSignal.timeout(10000),
-      },
+    // Dynamic import to avoid circular dependencies and work in client context
+    const { searchStocks: searchStocksRPC } = await import(
+      "~/app/actions/searchStocks"
     );
+    const response = await searchStocksRPC(query, limit);
+    if (!response) return null;
 
-    if (!response.ok) {
-      console.error(
-        `Stock search failed: ${response.status} ${response.statusText}`,
-      );
-      return null;
-    }
-
-    const data: StockSearchResponse =
-      (await response.json()) as StockSearchResponse;
-    return data;
+    // Convert protobuf response to plain object format
+    return {
+      stocks: response.stocks.map((stock) => ({
+        productCode: stock.productCode,
+        name: stock.name,
+        percentageShorted: stock.percentageShorted,
+        totalProductInIssue: Number(stock.totalProductInIssue),
+        reportedShortPositions: Number(stock.reportedShortPositions),
+        industry: stock.industry,
+        tags: stock.tags,
+        logoUrl: stock.logoUrl,
+      })),
+    };
   } catch (error) {
     console.error(`Error searching stocks for query "${query}":`, error);
     return null;
@@ -442,7 +451,7 @@ export interface StockSearchFilters {
 
 /**
  * Search stocks with enriched metadata (industry, logo, current price)
- * Fetches basic search results and enriches them with stock details in parallel
+ * Uses Connect RPC SearchStocks which uses Algolia with PostgreSQL fallback
  */
 export async function searchStocksEnriched(
   query: string,
@@ -450,82 +459,68 @@ export async function searchStocksEnriched(
   limit = 10,
 ): Promise<StockSearchResult[]> {
   try {
-    // First, get basic search results
-    // Note: Backend now searches industry and tags too
-    const searchResponse = await searchStocks(query, limit * 2); // Fetch more to allow for client-side filtering
+    // Use Connect RPC SearchStocks (backend handles Algolia with PostgreSQL fallback)
+    const searchResponse = await searchStocks(query, limit * 2);
 
     if (!searchResponse?.stocks || searchResponse.stocks.length === 0) {
       return [];
     }
 
-    let results = searchResponse.stocks;
+    let results: StockSearchResult[] = searchResponse.stocks.map((stock) => ({
+      product_code: stock.productCode,
+      name: stock.name,
+      percentage_shorted: stock.percentageShorted,
+      total_product_in_issue: Number(stock.totalProductInIssue),
+      reported_short_positions: Number(stock.reportedShortPositions),
+      industry: stock.industry,
+      tags: stock.tags,
+      logoUrl: stock.logoUrl,
+      companyName: stock.name,
+    }));
 
     // Client-side filtering
     if (filters) {
       if (filters.industry) {
-        results = results.filter(s => 
-          s.industry?.toLowerCase() === filters.industry?.toLowerCase()
+        results = results.filter(
+          (s) => s.industry?.toLowerCase() === filters.industry?.toLowerCase(),
         );
       }
-      
-      // TODO: Market cap filtering requires market cap data which is in details
-      
+
       if (filters.tags && filters.tags.length > 0) {
-        results = results.filter(s => 
-          filters.tags.some(tag => s.tags?.includes(tag))
+        results = results.filter((s) =>
+          filters.tags?.some((tag) => s.tags?.includes(tag)),
         );
       }
     }
-    
+
     // Limit results after filtering
     results = results.slice(0, limit);
 
-    // Fetch stock details and current prices in parallel for enrichment
-    const enrichedStocks = await Promise.all(
-      results.map(async (stock) => {
-        try {
-          // Only fetch details for valid product codes (3-4 alphanumeric chars)
-          const shouldEnrich = isValidProductCode(stock.product_code);
+    // Get valid product codes for batch price fetch
+    const validCodes = results
+      .filter((s) => isValidProductCode(s.product_code))
+      .map((s) => s.product_code);
 
-          if (!shouldEnrich) {
-            return stock;
-          }
-
-          // Fetch stock details if missing crucial info (like if backend didn't return it)
-          // But prefer using backend data if available
-          const needDetails = !stock.industry || !stock.logoUrl;
-          const detailsPromise = needDetails 
-            ? fetchStockDetailsClient(stock.product_code)
-            : Promise.resolve(undefined);
-
-          // Fetch current price
-          const pricePromise = getStockPrice(stock.product_code);
-
-          // Wait for both with timeout
-          const [details, quote] = await Promise.race([
-            Promise.all([detailsPromise, pricePromise]),
-            new Promise<[undefined, null]>((resolve) =>
-              setTimeout(() => resolve([undefined, null]), 3000),
+    // Batch fetch all prices in ONE request (instead of N individual requests)
+    const pricesMap =
+      validCodes.length > 0
+        ? await Promise.race([
+            getMultipleStockQuotes(validCodes),
+            new Promise<Map<string, StockQuote>>((resolve) =>
+              setTimeout(() => resolve(new Map()), 1500),
             ),
-          ]);
+          ])
+        : new Map<string, StockQuote>();
 
-          // Return enriched stock result
-          return {
-            ...stock,
-            // Use existing data or fetch if missing
-            industry: stock.industry ?? details?.industry,
-            companyName: details?.companyName ?? stock.name,
-            logoUrl: stock.logoUrl ?? details?.gcsUrl,
-            tags: stock.tags ?? details?.tags, 
-            currentPrice: quote?.price,
-            priceChange: quote?.changePercent,
-          } as StockSearchResult;
-        } catch (err) {
-          console.warn(`Failed to enrich stock ${stock.product_code}:`, err);
-          return stock;
-        }
-      }),
-    );
+    // Enrich results with prices from the batch response
+    const enrichedStocks = results.map((stock) => {
+      const quote = pricesMap.get(stock.product_code.toUpperCase());
+      return {
+        ...stock,
+        currentPrice: quote?.price,
+        priceChange: quote?.changePercent,
+      } as StockSearchResult;
+    });
 
     return enrichedStocks;
   } catch (error) {
@@ -534,38 +529,5 @@ export async function searchStocksEnriched(
       error,
     );
     return [];
-  }
-}
-
-/**
- * Fetch stock details using Connect RPC client
- * Imports the client-api function dynamically to work in both client and server contexts
- */
-async function fetchStockDetailsClient(
-  productCode: string,
-): Promise<
-  { industry?: string; companyName?: string; gcsUrl?: string; tags?: string[] } | undefined
-> {
-  try {
-    // Dynamic import to make this work in both client and server contexts
-    const { fetchStockDetailsClient: fetchDetails } = await import(
-      "@/lib/client-api"
-    );
-    const details = await fetchDetails(productCode);
-
-    if (!details) {
-      return undefined;
-    }
-
-    return {
-      industry: details.industry,
-      companyName: details.companyName,
-      gcsUrl: details.gcsUrl,
-      tags: details.tags,
-    };
-  } catch (error) {
-    // Silently fail - enrichment is optional
-    console.warn(`Failed to fetch details for ${productCode}:`, error);
-    return undefined;
   }
 }

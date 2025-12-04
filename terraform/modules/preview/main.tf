@@ -70,6 +70,32 @@ resource "google_cloud_run_v2_service" "shorts_preview" {
         }
       }
 
+      # Algolia Search Configuration
+      env {
+        name = "ALGOLIA_APP_ID"
+        value_source {
+          secret_key_ref {
+            secret  = "ALGOLIA_APP_ID"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "ALGOLIA_SEARCH_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = "ALGOLIA_SEARCH_KEY"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name  = "ALGOLIA_INDEX"
+        value = "stocks"
+      }
+
       resources {
         limits = {
           cpu    = "1"

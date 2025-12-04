@@ -34,7 +34,9 @@ export function TreemapTooltip({
   y,
 }: TreemapTooltipProps) {
   const [stockDetails, setStockDetails] = useState<StockDetails | undefined>();
-  const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesData | undefined>();
+  const [timeSeriesData, setTimeSeriesData] = useState<
+    TimeSeriesData | undefined
+  >();
   const [loading, setLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
 
@@ -148,25 +150,48 @@ export function TreemapTooltip({
           <div className="space-y-3">
             {/* Header with logo and basic info */}
             <div className="flex items-start gap-3">
-              {stockDetails?.gcsUrl && !imageError ? (
-                <div className="relative h-12 w-12 flex-shrink-0 rounded-md overflow-hidden bg-muted">
-                  <Image
-                    src={stockDetails.gcsUrl}
-                    alt={`${stockDetails.companyName ?? productCode} logo`}
-                    fill
-                    className="object-contain"
-                    sizes="48px"
-                    loading="lazy"
-                    onError={() => setImageError(true)}
-                  />
-                </div>
-              ) : (
-                <div className="h-12 w-12 flex-shrink-0 rounded-md bg-muted flex items-center justify-center">
-                  <span className="text-lg font-semibold text-muted-foreground">
-                    {productCode.slice(0, 2)}
-                  </span>
-                </div>
-              )}
+              {(() => {
+                // Validate logo URL - only use if it's from an allowed domain
+                const isValidLogoUrl = (url: string | undefined): boolean => {
+                  if (!url) return false;
+                  try {
+                    const parsedUrl = new URL(url);
+                    const allowedHosts = [
+                      "storage.googleapis.com",
+                      "lh3.googleusercontent.com",
+                      "shorted.com.au",
+                    ];
+                    return allowedHosts.some(
+                      (host) =>
+                        parsedUrl.hostname === host ||
+                        parsedUrl.hostname.endsWith(`.${host}`),
+                    );
+                  } catch {
+                    return false;
+                  }
+                };
+                const validLogoUrl = isValidLogoUrl(stockDetails?.gcsUrl);
+
+                return validLogoUrl && !imageError && stockDetails?.gcsUrl ? (
+                  <div className="relative h-12 w-12 flex-shrink-0 rounded-md overflow-hidden bg-muted">
+                    <Image
+                      src={stockDetails.gcsUrl}
+                      alt={`${stockDetails?.companyName ?? productCode} logo`}
+                      fill
+                      className="object-contain"
+                      sizes="48px"
+                      loading="lazy"
+                      onError={() => setImageError(true)}
+                    />
+                  </div>
+                ) : (
+                  <div className="h-12 w-12 flex-shrink-0 rounded-md bg-muted flex items-center justify-center">
+                    <span className="text-lg font-semibold text-muted-foreground">
+                      {productCode.slice(0, 2)}
+                    </span>
+                  </div>
+                );
+              })()}
 
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">

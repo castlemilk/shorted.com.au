@@ -1,5 +1,5 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
-import { createClient } from "@connectrpc/connect";
+import { createClient, ConnectError, Code } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { type Stock } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { cache } from "react";
@@ -7,7 +7,7 @@ import { SHORTS_API_URL } from "./config";
 
 export const getStock = cache(async (
   productCode: string,
-): Promise<Stock> => {
+): Promise<Stock | undefined> => {
   const transport = createConnectTransport({
     // All transports accept a custom fetch implementation.
     fetch,
@@ -24,7 +24,17 @@ export const getStock = cache(async (
   });
   const client = createClient(ShortedStocksService, transport);
 
-  const response = await client.getStock({ productCode });
-
-  return response;
+  try {
+    const response = await client.getStock({ productCode });
+    return response;
+  } catch (err) {
+    if (err instanceof ConnectError) {
+      if (err.code === Code.NotFound) {
+        // Stock not found - return undefined to handle gracefully
+        return undefined;
+      }
+      throw err;
+    }
+    throw err;
+  }
 });

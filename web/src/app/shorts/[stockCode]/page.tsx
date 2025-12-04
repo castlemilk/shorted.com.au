@@ -47,7 +47,7 @@ const Page = ({ params }: PageProps) => {
   const stockCode = params.stockCode.toUpperCase();
 
   const breadcrumbItems = [
-    { label: "Stocks", href: "/shorts" },
+    { label: "Stocks", href: "/stocks" },
     { label: stockCode, href: `/shorts/${stockCode}` },
   ];
 

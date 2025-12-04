@@ -1,8 +1,12 @@
 package shorts
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"time"
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
@@ -133,9 +137,7 @@ func (s *ShortsServer) GetIndustryTreeMap(ctx context.Context, req *connect.Requ
 	return connect.NewResponse(treeMap), nil
 }
 
-// SearchStocks searches for stocks by symbol or company name
-// TODO: Uncomment when protobuf is regenerated with SearchStocksRequest and SearchStocksResponse
-/*
+// SearchStocks searches for stocks using Algolia (with PostgreSQL fallback)
 func (s *ShortsServer) SearchStocks(ctx context.Context, req *connect.Request[shortsv1alpha1.SearchStocksRequest]) (*connect.Response[shortsv1alpha1.SearchStocksResponse], error) {
 	// Set default values
 	if req.Msg.Limit <= 0 {
@@ -157,17 +159,31 @@ func (s *ShortsServer) SearchStocks(ctx context.Context, req *connect.Request[sh
 	cacheKey := s.cache.GetSearchStocksKey(req.Msg.Query, req.Msg.Limit)
 
 	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		s.logger.Debugf("cache miss for SearchStocks, fetching from database")
+		// Try Algolia first if configured
+		if s.config.AlgoliaAppID != "" && s.config.AlgoliaSearchKey != "" {
+			s.logger.Debugf("searching via Algolia: query='%s'", req.Msg.Query)
+			stocks, algoliaErr := s.searchAlgolia(req.Msg.Query, req.Msg.Limit)
+			if algoliaErr == nil && len(stocks) > 0 {
+				return &shortsv1alpha1.SearchStocksResponse{
+					Query:  req.Msg.Query,
+					Stocks: stocks,
+					Count:  int32(len(stocks)),
+				}, nil
+			}
+			s.logger.Warnf("Algolia search failed or returned no results, falling back to PostgreSQL: %v", algoliaErr)
+		}
 
+		// Fall back to PostgreSQL full-text search
+		s.logger.Debugf("cache miss for SearchStocks, fetching from database: query='%s'", req.Msg.Query)
 		stocks, err := s.store.SearchStocks(req.Msg.Query, req.Msg.Limit)
 		if err != nil {
 			return nil, err
 		}
 
 		return &shortsv1alpha1.SearchStocksResponse{
-			Query: req.Msg.Query,
+			Query:  req.Msg.Query,
 			Stocks: stocks,
-			Count: int32(len(stocks)),
+			Count:  int32(len(stocks)),
 		}, nil
 	})
 
@@ -180,4 +196,75 @@ func (s *ShortsServer) SearchStocks(ctx context.Context, req *connect.Request[sh
 	response := cachedResponse.(*shortsv1alpha1.SearchStocksResponse)
 	return connect.NewResponse(response), nil
 }
-*/
+
+// searchAlgolia queries Algolia for stock search results
+func (s *ShortsServer) searchAlgolia(query string, limit int32) ([]*stocksv1alpha1.Stock, error) {
+	// Build Algolia request
+	indexName := s.config.AlgoliaIndex
+	if indexName == "" {
+		indexName = "stocks"
+	}
+
+	algoliaURL := fmt.Sprintf("https://%s-dsn.algolia.net/1/indexes/%s/query",
+		s.config.AlgoliaAppID, indexName)
+
+	reqBody := map[string]interface{}{
+		"query":       query,
+		"hitsPerPage": limit,
+	}
+	reqBodyBytes, _ := json.Marshal(reqBody)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", algoliaURL, bytes.NewReader(reqBodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Algolia request: %w", err)
+	}
+
+	req.Header.Set("X-Algolia-API-Key", s.config.AlgoliaSearchKey)
+	req.Header.Set("X-Algolia-Application-Id", s.config.AlgoliaAppID)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("Algolia request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Algolia returned status %d", resp.StatusCode)
+	}
+
+	// Parse Algolia response
+	var algoliaResp struct {
+		Hits []struct {
+			StockCode         string   `json:"stock_code"`
+			CompanyName       string   `json:"company_name"`
+			Industry          string   `json:"industry"`
+			Tags              []string `json:"tags"`
+			LogoGcsUrl        string   `json:"logo_gcs_url"`
+			PercentageShorted float64  `json:"percentage_shorted"`
+		} `json:"hits"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&algoliaResp); err != nil {
+		return nil, fmt.Errorf("failed to decode Algolia response: %w", err)
+	}
+
+	// Convert to Stock protos
+	stocks := make([]*stocksv1alpha1.Stock, len(algoliaResp.Hits))
+	for i, hit := range algoliaResp.Hits {
+		stocks[i] = &stocksv1alpha1.Stock{
+			ProductCode:       hit.StockCode,
+			Name:              hit.CompanyName,
+			Industry:          hit.Industry,
+			Tags:              hit.Tags,
+			LogoUrl:           hit.LogoGcsUrl,
+			PercentageShorted: float32(hit.PercentageShorted),
+		}
+	}
+
+	return stocks, nil
+}

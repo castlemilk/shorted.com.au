@@ -9,7 +9,11 @@ interface CompanyLogoProps {
   stockCode: string;
 }
 
-export function CompanyLogo({ gcsUrl, companyName, stockCode }: CompanyLogoProps) {
+export function CompanyLogo({
+  gcsUrl,
+  companyName,
+  stockCode,
+}: CompanyLogoProps) {
   const [imageError, setImageError] = useState(false);
 
   if (!gcsUrl || imageError) {
@@ -34,4 +38,3 @@ export function CompanyLogo({ gcsUrl, companyName, stockCode }: CompanyLogoProps
     </div>
   );
 }
-
