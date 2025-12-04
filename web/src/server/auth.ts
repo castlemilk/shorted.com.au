@@ -39,11 +39,25 @@ async function getUserFromDb(
 ): Promise<User | null> {
   // In non-production, allow E2E test user to authenticate
   // This enables automated testing with Playwright
-  if (process.env.NODE_ENV !== "production" || process.env.ALLOW_E2E_AUTH === "true") {
+  const allowE2E =
+    process.env.NODE_ENV !== "production" ||
+    process.env.ALLOW_E2E_AUTH === "true";
+
+  console.log("[Auth] getUserFromDb called:", {
+    email,
+    allowE2E,
+    nodeEnv: process.env.NODE_ENV,
+    testUserEmail: E2E_TEST_USER.email,
+    emailMatch: email === E2E_TEST_USER.email,
+    passwordMatch: passwordHash === E2E_TEST_USER.password,
+  });
+
+  if (allowE2E) {
     if (
       email === E2E_TEST_USER.email &&
       passwordHash === E2E_TEST_USER.password
     ) {
+      console.log("[Auth] E2E test user authenticated successfully");
       return {
         id: E2E_TEST_USER.id,
         email: E2E_TEST_USER.email,
@@ -53,6 +67,7 @@ async function getUserFromDb(
   }
 
   // Stub implementation for other users - replace with actual database lookup
+  console.log("[Auth] User not found in database");
   return null;
 }
 

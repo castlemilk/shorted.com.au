@@ -56,7 +56,11 @@ export default defineConfig({
         storageState: AUTH_FILE,
       },
       dependencies: ["setup"],
-      testMatch: /.*\.(authenticated|protected)\.spec\.ts/,
+      // Match .authenticated.spec.ts OR any test when RUN_AUTH_TESTS is set
+      testMatch: process.env.RUN_AUTH_TESTS
+        ? /.*\.spec\.ts/
+        : /.*\.(authenticated|protected)\.spec\.ts/,
+      testIgnore: /auth\.setup\.ts/,
     },
 
     // ============================================

@@ -227,6 +227,8 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
           GCP_REGION: ${{ env.GCP_REGION }}
+          ARTIFACT_REGISTRY: ${{ env.ARTIFACT_REGISTRY }}
+          IMAGE_TAG: ${{ needs.determine-environment.outputs.image-tag }}
         run: |
           # Parse DATABASE_URL
           DB_USER=$(echo $DATABASE_URL | sed -n 's|postgresql://\([^:]*\):.*|\1|p')
@@ -267,8 +269,8 @@ jobs:
             project_id             = "${GCP_PROJECT_ID}"
             region                 = "${GCP_REGION}"
             pr_number              = "${PR_NUMBER}"
-            shorts_api_image       = "${{ env.ARTIFACT_REGISTRY }}/${GCP_PROJECT_ID}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}"
-            market_data_image      = "${{ env.ARTIFACT_REGISTRY }}/${GCP_PROJECT_ID}/shorted/market-data:${{ needs.determine-environment.outputs.image-tag }}"
+            shorts_api_image       = "${ARTIFACT_REGISTRY}/${GCP_PROJECT_ID}/shorted/shorts:${IMAGE_TAG}"
+            market_data_image      = "${ARTIFACT_REGISTRY}/${GCP_PROJECT_ID}/shorted/market-data:${IMAGE_TAG}"
             shorts_service_account = "shorts@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
             postgres_address       = "${DB_ADDRESS}"
             postgres_database      = "${DB_NAME}"
