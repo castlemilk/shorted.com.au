@@ -12,7 +12,6 @@ import (
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	"github.com/jackc/pgtype"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -95,23 +94,47 @@ func buildStockDetailsQuery(ctx context.Context, db *pgxpool.Pool) (string, erro
 	return fmt.Sprintf(stockDetailsQueryTemplate, logoExpr), nil
 }
 
-// GetStock retrieves a single stock by its ID.
+// GetStock retrieves a single stock by its ID, including metadata.
 func (s *postgresStore) GetStock(productCode string) (*stocksv1alpha1.Stock, error) {
-	rows, _ := s.db.Query(context.Background(),
-		`
-SELECT "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
-	"PRODUCT_CODE" as product_code,
-	"PRODUCT" as name, 
-	"TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue, 
-	"REPORTED_SHORT_POSITIONS" as reported_short_positions
-FROM shorts WHERE "PRODUCT_CODE" = $1 
-ORDER BY "DATE" DESC LIMIT 1`,
-		productCode)
-	stock, err := pgx.CollectOneRow(rows, pgx.RowToStructByName[stocksv1alpha1.Stock])
+	query := `
+SELECT 
+	s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
+	s."PRODUCT_CODE" as product_code,
+	s."PRODUCT" as name, 
+	s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue, 
+	s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
+	COALESCE(m.industry, '') as industry,
+	COALESCE(m.tags, ARRAY[]::text[]) as tags,
+	COALESCE(m.logo_gcs_url, '') as logo_url
+FROM shorts s
+LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
+WHERE s."PRODUCT_CODE" = $1 
+ORDER BY s."DATE" DESC LIMIT 1`
+
+	rows, err := s.db.Query(context.Background(), query, productCode)
 	if err != nil {
 		return nil, err
 	}
-	return &stock, nil
+	defer rows.Close()
+
+	if !rows.Next() {
+		return nil, fmt.Errorf("stock not found: %s", productCode)
+	}
+
+	stock := &stocksv1alpha1.Stock{}
+	if err := rows.Scan(
+		&stock.PercentageShorted,
+		&stock.ProductCode,
+		&stock.Name,
+		&stock.TotalProductInIssue,
+		&stock.ReportedShortPositions,
+		&stock.Industry,
+		&stock.Tags,
+		&stock.LogoUrl,
+	); err != nil {
+		return nil, err
+	}
+	return stock, nil
 }
 
 // GetTop10Shorts retrieves the top 10 shorted stocks.
@@ -629,7 +652,7 @@ func (s *postgresStore) RegisterEmail(email string) error {
 
 // SearchStocks searches for stocks by symbol or company name, including industry and tags
 func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error) {
-	// Optimized search query that searches across shorts and metadata
+	// Optimized search query using full-text search across rich metadata
 	searchQuery := `
 		WITH latest_shorts AS (
 			SELECT DISTINCT ON ("PRODUCT_CODE") 
@@ -642,7 +665,7 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 			FROM shorts
 			ORDER BY "PRODUCT_CODE", "DATE" DESC
 		),
-		matched_stocks AS (
+		search_results AS (
 			SELECT 
 				s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
 				s."PRODUCT_CODE" as product_code,
@@ -653,19 +676,19 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 				COALESCE(m.tags, ARRAY[]::text[]) as tags,
 				COALESCE(m.logo_gcs_url, '') as logo_url,
 				CASE 
-					WHEN s."PRODUCT_CODE" = $1 THEN 1       -- Exact Code Match
-					WHEN s."PRODUCT_CODE" ILIKE $2 THEN 2   -- Partial Code Match
-					WHEN s."PRODUCT" ILIKE $2 THEN 3        -- Name Match
-					WHEN m.industry ILIKE $2 THEN 4         -- Industry Match
-					ELSE 5                                  -- Tag Match
+					WHEN s."PRODUCT_CODE" = $1 THEN 100  -- Exact Code Match (Highest Priority)
+					WHEN s."PRODUCT_CODE" ILIKE $2 THEN 50  -- Partial Code Match
+					WHEN m.search_vector @@ plainto_tsquery('english', $1) THEN ts_rank(m.search_vector, plainto_tsquery('english', $1)) * 10
+					WHEN s."PRODUCT" ILIKE $2 THEN 20       -- Name Match (fallback if not in search vector)
+					ELSE 1
 				END as relevance
 			FROM latest_shorts s
 			LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
 			WHERE 
+				s."PRODUCT_CODE" = $1 OR
 				s."PRODUCT_CODE" ILIKE $2 OR
 				s."PRODUCT" ILIKE $2 OR
-				m.industry ILIKE $2 OR
-				EXISTS (SELECT 1 FROM unnest(m.tags) tag WHERE tag ILIKE $2)
+				m.search_vector @@ plainto_tsquery('english', $1)
 		)
 		SELECT 
 			percentage_shorted, 
@@ -676,8 +699,8 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 			industry,
 			tags,
 			logo_url
-		FROM matched_stocks
-		ORDER BY relevance ASC, percentage_shorted DESC
+		FROM search_results
+		ORDER BY relevance DESC, percentage_shorted DESC
 		LIMIT $3`
 
 	// Create context with timeout to prevent hanging

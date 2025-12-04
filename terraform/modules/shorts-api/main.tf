@@ -32,6 +32,21 @@ resource "google_secret_manager_secret_iam_member" "postgres_password" {
   project   = var.project_id
 }
 
+# Grant access to Algolia secrets
+resource "google_secret_manager_secret_iam_member" "algolia_app_id" {
+  secret_id = "ALGOLIA_APP_ID"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.shorts_api.email}"
+  project   = var.project_id
+}
+
+resource "google_secret_manager_secret_iam_member" "algolia_search_key" {
+  secret_id = "ALGOLIA_SEARCH_KEY"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.shorts_api.email}"
+  project   = var.project_id
+}
+
 # Cloud Run Service
 resource "google_cloud_run_v2_service" "shorts_api" {
   name     = local.service_name
@@ -86,6 +101,32 @@ resource "google_cloud_run_v2_service" "shorts_api" {
         }
       }
 
+      # Algolia Search Configuration
+      env {
+        name = "ALGOLIA_APP_ID"
+        value_source {
+          secret_key_ref {
+            secret  = "ALGOLIA_APP_ID"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "ALGOLIA_SEARCH_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = "ALGOLIA_SEARCH_KEY"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name  = "ALGOLIA_INDEX"
+        value = "stocks"
+      }
+
       resources {
         limits = {
           cpu    = "2"
@@ -132,7 +173,9 @@ resource "google_cloud_run_v2_service" "shorts_api" {
   }
 
   depends_on = [
-    google_secret_manager_secret_iam_member.postgres_password
+    google_secret_manager_secret_iam_member.postgres_password,
+    google_secret_manager_secret_iam_member.algolia_app_id,
+    google_secret_manager_secret_iam_member.algolia_search_key
   ]
 }
 

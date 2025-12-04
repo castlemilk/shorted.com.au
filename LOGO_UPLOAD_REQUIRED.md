@@ -166,3 +166,4 @@ curl -I "https://storage.googleapis.com/shorted-company-logos/logos/BHP.svg"
 The logo display system is working correctly - it just needs the actual logo files to exist in GCS!
 
 
+

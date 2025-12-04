@@ -10,6 +10,11 @@ SHORTS_DATABASE_URL := postgresql://admin:password@postgres:5432/shorts
 # Note: Local docker-compose (in ../analysis/sql) uses admin/password on port 5438
 DATABASE_URL ?= postgresql://admin:password@localhost:5438/shorts
 
+# Algolia configuration for search
+ALGOLIA_APP_ID ?= 1BWAPWSTDD
+ALGOLIA_SEARCH_KEY ?= 0e5adba5fd8aa4b3848255a39c1287ef
+ALGOLIA_INDEX ?= stocks
+
 MIGRATION_PATH := file://migrations
 
 # Database migration commands
@@ -93,7 +98,13 @@ clean.market-data:
 run.shorts: clean.shorts
 	@echo "🚀 Starting shorts service on port 9091..."
 	@echo "   Database: $(DATABASE_URL)"
-	DATABASE_URL=$(DATABASE_URL) GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS} go run shorts/cmd/server/main.go
+	@echo "   Algolia: $(ALGOLIA_APP_ID) / $(ALGOLIA_INDEX)"
+	DATABASE_URL=$(DATABASE_URL) \
+	GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS} \
+	ALGOLIA_APP_ID=$(ALGOLIA_APP_ID) \
+	ALGOLIA_SEARCH_KEY=$(ALGOLIA_SEARCH_KEY) \
+	ALGOLIA_INDEX=$(ALGOLIA_INDEX) \
+	go run shorts/cmd/server/main.go
 
 run.market-data: clean.market-data
 	@echo "🚀 Starting market data service on port 8090..."

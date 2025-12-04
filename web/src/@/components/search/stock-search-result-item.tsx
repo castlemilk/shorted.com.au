@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Building2 } from "lucide-react";
 import Image from "next/image";
 import { Badge } from "~/@/components/ui/badge";
 import { Skeleton } from "~/@/components/ui/skeleton";
@@ -28,6 +27,48 @@ export function StockSearchResultItem({
   } = useSparklineData(stock.product_code);
   const industryColor = getIndustryColor(stock.industry);
 
+  // Validate logo URL - only use if it's from an allowed domain
+  const isValidLogoUrl = (url: string | undefined): boolean => {
+    if (!url) return false;
+    try {
+      const parsedUrl = new URL(url);
+      const allowedHosts = [
+        "storage.googleapis.com",
+        "lh3.googleusercontent.com",
+        "shorted.com.au",
+      ];
+      return allowedHosts.some(
+        (host) =>
+          parsedUrl.hostname === host ||
+          parsedUrl.hostname.endsWith(`.${host}`),
+      );
+    } catch {
+      return false;
+    }
+  };
+
+  const validLogoUrl = isValidLogoUrl(stock.logoUrl)
+    ? stock.logoUrl
+    : undefined;
+
+  // Deterministic color generator for placeholder
+  const getStockPlaceholder = (code: string) => {
+    const colors = [
+      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+      "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+      "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300",
+      "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+    ];
+    const hash = code
+      .split("")
+      .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return colors[hash % colors.length];
+  };
+
+  const placeholderClass = getStockPlaceholder(stock.product_code);
+
   return (
     <button
       type="button"
@@ -37,10 +78,10 @@ export function StockSearchResultItem({
       <div className="flex items-center gap-4">
         {/* Logo */}
         <div className="flex-shrink-0">
-          {stock.logoUrl && !imageError ? (
+          {validLogoUrl && !imageError ? (
             <div className="relative w-10 h-10 rounded-md overflow-hidden bg-muted">
               <Image
-                src={stock.logoUrl}
+                src={validLogoUrl}
                 alt={`${stock.product_code} logo`}
                 fill
                 className="object-contain p-1"
@@ -51,8 +92,13 @@ export function StockSearchResultItem({
               />
             </div>
           ) : (
-            <div className="w-10 h-10 rounded-md bg-muted flex items-center justify-center">
-              <Building2 className="h-6 w-6 text-muted-foreground" />
+            <div
+              className={cn(
+                "w-10 h-10 rounded-md flex items-center justify-center font-bold text-sm",
+                placeholderClass,
+              )}
+            >
+              {stock.product_code.slice(0, 2)}
             </div>
           )}
         </div>
@@ -96,17 +142,23 @@ export function StockSearchResultItem({
               </>
             )}
           </div>
-          
+
           {/* Tags */}
           {stock.tags && stock.tags.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
-              {stock.tags.slice(0, 3).map(tag => (
-                <Badge key={tag} variant="outline" className="text-[10px] px-1 py-0 h-4 border-muted-foreground/30 text-muted-foreground">
+              {stock.tags.slice(0, 3).map((tag) => (
+                <Badge
+                  key={tag}
+                  variant="outline"
+                  className="text-[10px] px-1 py-0 h-4 border-muted-foreground/30 text-muted-foreground"
+                >
                   #{tag}
                 </Badge>
               ))}
               {stock.tags.length > 3 && (
-                <span className="text-[10px] text-muted-foreground self-center">+{stock.tags.length - 3}</span>
+                <span className="text-[10px] text-muted-foreground self-center">
+                  +{stock.tags.length - 3}
+                </span>
               )}
             </div>
           )}

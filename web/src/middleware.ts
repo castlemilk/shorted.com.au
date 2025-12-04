@@ -38,7 +38,7 @@ if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
 const RATE_LIMITED_PATHS = ["/api/market-data", "/api/search"];
 
 // Protected page routes that require authentication
-const PROTECTED_ROUTES = ["/dashboards", "/portfolio", "/stocks"];
+const PROTECTED_ROUTES = ["/dashboards", "/portfolio"];
 // Note: /shorts/[stockCode] is public for SEO, only /shorts list view is protected
 
 export async function middleware(request: NextRequest) {

@@ -44,6 +44,7 @@ func SetupTestDatabase(ctx context.Context, t *testing.T) *TestContainer {
 			"../../migrations/000001_initial_schema.up.sql",
 			"../../migrations/000002_stock_prices.up.sql",
 			"../../migrations/000003_add_enrichment_fields.up.sql",
+			"../../migrations/000004_add_fulltext_search.up.sql",
 		),
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").

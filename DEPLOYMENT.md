@@ -65,6 +65,8 @@ Add these secrets to your GitHub repository:
 | `VERCEL_ORG_ID` | Vercel organization ID | `team_xxx` |
 | `VERCEL_PROJECT_ID` | Vercel project ID | `prj_xxx` |
 | `NEXTAUTH_SECRET` | NextAuth.js secret | Random string |
+| `ALGOLIA_APP_ID` | Algolia Application ID | `1BWAPWSTDD` |
+| `ALGOLIA_SEARCH_KEY` | Algolia Search-only API Key | `0e5adba5fd8aa4b3848255a39c1287ef` |
 
 ### 3. Set up Vercel Project
 
@@ -131,7 +133,22 @@ gh workflow run deploy.yml
 ```env
 DATABASE_URL=postgresql://...
 ENVIRONMENT=production
+ALGOLIA_APP_ID=1BWAPWSTDD
+ALGOLIA_SEARCH_KEY=0e5adba5fd8aa4b3848255a39c1287ef
+ALGOLIA_INDEX=stocks
 ```
+
+#### Setting up Algolia Secrets
+
+Run the setup script to configure Algolia secrets in GCP Secret Manager:
+
+```bash
+./scripts/setup-algolia-secrets.sh
+```
+
+This will:
+1. Create `ALGOLIA_APP_ID` and `ALGOLIA_SEARCH_KEY` secrets in both dev and prod projects
+2. Grant the shorts service account access to these secrets
 
 #### Frontend (Vercel)
 ```env

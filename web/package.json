@@ -1,6 +1,6 @@
 {
   "name": "shorted",
-  "version": "v0.2.2-542-ge26be3ba-dirty",
+  "version": "v0.2.2-543-gbede854e-dirty",
   "private": true,
   "type": "module",
   "moduleResolution": "Node",
@@ -41,7 +41,8 @@
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
-    "supabase:migrate": "supabase db push"
+    "supabase:migrate": "supabase db push",
+    "algolia:sync": "tsx scripts/sync-algolia.ts"
   },
   "jest": {
     "preset": "ts-jest",
@@ -149,6 +150,7 @@
     "@visx/tooltip": "^3.3.0",
     "@visx/vendor": "^3.5.0",
     "@visx/xychart": "^3.10.2",
+    "algoliasearch": "^5.45.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
     "d3": "^7.9.0",

@@ -67,3 +67,4 @@ To add logos for the remaining 167 stocks:
 - **Database Table**: `company-metadata` (column: `logo_gcs_url`)
 
 
+
