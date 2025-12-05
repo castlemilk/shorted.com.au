@@ -1,7 +1,7 @@
 # Shorted.com.au Root Makefile
 # Orchestrates testing and building for both frontend and backend
 
-.PHONY: help run test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down install clean clean-cache clean-all clean-ports build dev dev-clean dev-script dev-frontend dev-backend lint format populate-data populate-data-quick db-diagnose db-optimize db-analyze
+.PHONY: help run test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down install clean clean-cache clean-all clean-ports build dev dev-clean dev-script dev-frontend dev-backend lint format populate-data populate-data-quick db-diagnose db-optimize db-analyze algolia-sync algolia-sync-prod algolia-search enrich-metadata enrich-metadata-all enrich-metadata-stocks pipeline-local pipeline-prod pipeline-daily pipeline-help
 
 # Default target
 help:
@@ -444,3 +444,105 @@ test-summary: test-coverage
 	@echo "📋 Test Summary:"
 	@echo "Frontend coverage: See web/coverage/index.html"
 	@echo "Backend coverage: See services/coverage.html"
+
+# =========================================
+# Search Index Management (Algolia)
+# =========================================
+
+algolia-sync: ## Sync Algolia search index with local database
+	@echo "🔄 Syncing Algolia index with local database..."
+	@cd web && make algolia.sync
+
+algolia-sync-prod: ## Sync Algolia search index with production database
+	@if [ -z "$$DATABASE_URL" ]; then echo "❌ DATABASE_URL required"; exit 1; fi
+	@echo "🔄 Syncing Algolia index with production database..."
+	@cd web && DATABASE_URL=$$DATABASE_URL make algolia.sync.prod
+
+algolia-search: ## Test Algolia search (usage: make algolia-search Q=BHP)
+	@cd web && make algolia.search Q=$(Q)
+
+# =========================================
+# Company Metadata Pipeline
+# =========================================
+
+enrich-metadata: ## Enrich company metadata using GPT-4 (usage: make enrich-metadata LIMIT=10)
+	@echo "🧠 Enriching company metadata..."
+	@cd analysis && python enrich_database.py --limit $(or $(LIMIT),10)
+
+enrich-metadata-all: ## Enrich ALL company metadata (expensive - uses GPT-4)
+	@echo "⚠️  This will enrich ALL companies using GPT-4 API calls"
+	@read -p "Are you sure? Type 'yes' to confirm: " confirm && [ "$$confirm" = "yes" ] || exit 1
+	@cd analysis && python enrich_database.py --all
+
+enrich-metadata-stocks: ## Enrich specific stocks (usage: make enrich-metadata-stocks STOCKS="CBA BHP")
+	@if [ -z "$(STOCKS)" ]; then echo "Usage: make enrich-metadata-stocks STOCKS='CBA BHP WBC'"; exit 1; fi
+	@echo "🧠 Enriching metadata for: $(STOCKS)..."
+	@cd analysis && python enrich_database.py --stocks $(STOCKS)
+
+# =========================================
+# Full Data Pipeline
+# =========================================
+
+pipeline-local: ## Run full pipeline locally: enrich → sync Algolia
+	@echo "🚀 Running full data pipeline (local)..."
+	@echo ""
+	@echo "Step 1/2: Enriching company metadata..."
+	@cd analysis && python enrich_database.py --limit $(or $(LIMIT),5) || true
+	@echo ""
+	@echo "Step 2/2: Syncing Algolia index..."
+	@cd web && make algolia.sync
+	@echo ""
+	@echo "✅ Pipeline complete!"
+
+pipeline-prod: ## Run full pipeline on production: enrich → sync Algolia
+	@if [ -z "$$DATABASE_URL" ]; then echo "❌ DATABASE_URL required"; exit 1; fi
+	@if [ -z "$$OPENAI_API_KEY" ]; then echo "❌ OPENAI_API_KEY required"; exit 1; fi
+	@echo "🚀 Running full data pipeline (production)..."
+	@echo ""
+	@echo "Step 1/2: Enriching company metadata..."
+	@cd analysis && python enrich_database.py --limit $(or $(LIMIT),10)
+	@echo ""
+	@echo "Step 2/2: Syncing Algolia index..."
+	@cd web && DATABASE_URL=$$DATABASE_URL make algolia.sync.prod
+	@echo ""
+	@echo "✅ Pipeline complete!"
+
+pipeline-daily: ## Run daily sync pipeline: ASIC data → stock prices → Algolia
+	@echo "🔄 Running daily sync pipeline..."
+	@echo ""
+	@echo "Step 1/2: Syncing ASIC shorts + stock prices..."
+	@make daily-sync-local
+	@echo ""
+	@echo "Step 2/2: Syncing Algolia index..."
+	@cd web && make algolia.sync
+	@echo ""
+	@echo "✅ Daily pipeline complete!"
+
+pipeline-help: ## Show pipeline documentation
+	@echo ""
+	@echo "📊 Data Pipeline Overview"
+	@echo "========================="
+	@echo ""
+	@echo "The data pipeline has 3 main stages:"
+	@echo ""
+	@echo "  1. DISCOVER: Enrich company metadata"
+	@echo "     - Uses GPT-4 to generate summaries"
+	@echo "     - Crawls company websites for details"
+	@echo "     - Fetches data from Yahoo Finance"
+	@echo "     Commands: make enrich-metadata, enrich-metadata-stocks"
+	@echo ""
+	@echo "  2. UPDATE DB: Sync market data"
+	@echo "     - Downloads ASIC short selling data"
+	@echo "     - Updates stock prices from Yahoo/Alpha Vantage"
+	@echo "     Commands: make daily-sync-local, populate-data"
+	@echo ""
+	@echo "  3. UPDATE INDEX: Sync Algolia search"
+	@echo "     - Pushes company metadata to Algolia"
+	@echo "     - Configures search relevance settings"
+	@echo "     Commands: make algolia-sync, algolia-sync-prod"
+	@echo ""
+	@echo "Full Pipelines:"
+	@echo "  make pipeline-local    - Run enrichment + Algolia sync locally"
+	@echo "  make pipeline-prod     - Run enrichment + Algolia sync on production"
+	@echo "  make pipeline-daily    - Run ASIC sync + Algolia sync (daily job)"
+	@echo ""
