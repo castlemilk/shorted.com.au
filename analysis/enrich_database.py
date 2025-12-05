@@ -2,7 +2,7 @@
 """
 Company Metadata Enrichment Pipeline
 
-Enriches company metadata using GPT-4, smart web crawlers, and Yahoo Finance data.
+Enriches company metadata using GPT-5.1 (reasoning model), smart web crawlers, and Yahoo Finance data.
 Stores results in the main Postgres database.
 
 Usage:
@@ -460,7 +460,7 @@ def fetch_yahoo_finance_data(stock_code: str) -> Dict[str, Any]:
 def enrich_with_gpt(company: pd.Series, reports: List[Dict]) -> Dict[str, Any]:
     """Use GPT-5.1 to enrich company metadata with optimized prompting"""
 
-    # System prompt optimized for GPT-5.1 based on https://cookbook.openai.com/examples/gpt-5/gpt-5-1_prompting_guide
+    # System prompt optimized for GPT-5.1 reasoning model
     system_prompt = """You are a financial analyst specializing in Australian Stock Exchange (ASX) companies. Your task is to research and compile comprehensive, accurate company intelligence.
 
 <core_behavior>
@@ -533,7 +533,7 @@ CRITICAL:
 
     try:
         response = client.chat.completions.create(
-            model="gpt-5.1",  # GPT-5.1 with improved calibration and steerability
+            model="gpt-5.1",  # GPT-5.1 with enhanced reasoning capabilities
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -648,7 +648,7 @@ def process_company(company: pd.Series) -> Dict[str, Any]:
             print(f"    💾 Saved {saved} new reports to database")
 
         # Step 2: Enrich with GPT
-        print(f"  🤖 Enriching with GPT-4...")
+        print(f"  🤖 Enriching with GPT-5.1...")
         enriched_data = enrich_with_gpt(company, reports)
         result.update(enriched_data)
 
