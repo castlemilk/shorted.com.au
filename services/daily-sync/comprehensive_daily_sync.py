@@ -527,12 +527,76 @@ async def main():
         logger.info(f"⏱️  Duration: {duration:.1f} seconds")
         logger.info("="*60)
         
+        # Trigger Algolia sync if configured
+        if os.getenv("SYNC_ALGOLIA", "").lower() == "true":
+            await trigger_algolia_sync()
+        
     except Exception as e:
         logger.error(f"\n❌ SYNC FAILED: {e}")
         raise
     
     finally:
         await conn.close()
+
+
+async def trigger_algolia_sync():
+    """Trigger Algolia index sync via HTTP call or subprocess."""
+    algolia_app_id = os.getenv("ALGOLIA_APP_ID")
+    algolia_admin_key = os.getenv("ALGOLIA_ADMIN_KEY")
+    
+    if not algolia_app_id or not algolia_admin_key:
+        logger.warning("⚠️  Algolia credentials not configured, skipping index sync")
+        return
+    
+    logger.info("\n🔍 Triggering Algolia index sync...")
+    
+    # Option 1: Call the sync script directly (if Node.js available)
+    import subprocess
+    import shutil
+    
+    # Check if we're in a Cloud Run environment with the sync script
+    sync_script = "/app/scripts/sync-search-index.sh"
+    if os.path.exists(sync_script):
+        try:
+            result = subprocess.run(
+                [sync_script],
+                env={
+                    **os.environ,
+                    "DATABASE_URL": DATABASE_URL,
+                    "ALGOLIA_APP_ID": algolia_app_id,
+                    "ALGOLIA_ADMIN_KEY": algolia_admin_key,
+                    "ALGOLIA_INDEX": os.getenv("ALGOLIA_INDEX", "stocks"),
+                },
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 minute timeout
+            )
+            if result.returncode == 0:
+                logger.info("✅ Algolia sync completed successfully")
+            else:
+                logger.error(f"❌ Algolia sync failed: {result.stderr}")
+        except subprocess.TimeoutExpired:
+            logger.error("❌ Algolia sync timed out")
+        except Exception as e:
+            logger.error(f"❌ Algolia sync error: {e}")
+    else:
+        # Option 2: Make HTTP call to a Cloud Run service that handles sync
+        algolia_sync_url = os.getenv("ALGOLIA_SYNC_URL")
+        if algolia_sync_url:
+            try:
+                async with httpx.AsyncClient(timeout=300.0) as client:
+                    response = await client.post(
+                        algolia_sync_url,
+                        headers={"Authorization": f"Bearer {os.getenv('ALGOLIA_SYNC_TOKEN', '')}"},
+                    )
+                    if response.status_code == 200:
+                        logger.info("✅ Algolia sync triggered successfully")
+                    else:
+                        logger.error(f"❌ Algolia sync failed: {response.status_code}")
+            except Exception as e:
+                logger.error(f"❌ Algolia sync request failed: {e}")
+        else:
+            logger.info("ℹ️  No Algolia sync mechanism configured (set ALGOLIA_SYNC_URL or include sync script)")
 
 
 if __name__ == "__main__":
