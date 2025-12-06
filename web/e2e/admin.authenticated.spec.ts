@@ -29,17 +29,17 @@ test.describe("Admin Dashboard - Authenticated Admin", () => {
 
     // Should show status card with "Last Sync" heading
     await expect(page.getByRole("heading", { name: /last sync/i })).toBeVisible(
-      { timeout: 5000 }
+      { timeout: 5000 },
     );
 
     // Should show success rate card
     await expect(
-      page.getByRole("heading", { name: /success rate/i })
+      page.getByRole("heading", { name: /success rate/i }),
     ).toBeVisible({ timeout: 3000 });
 
     // Should show records updated card
     await expect(
-      page.getByRole("heading", { name: /records updated/i })
+      page.getByRole("heading", { name: /records updated/i }),
     ).toBeVisible({ timeout: 3000 });
   });
 
@@ -52,9 +52,15 @@ test.describe("Admin Dashboard - Authenticated Admin", () => {
     await expect(table).toBeVisible({ timeout: 5000 });
 
     // Table should have expected headers (case-insensitive text matching)
-    await expect(page.locator("th").filter({ hasText: /Status/i })).toBeVisible();
-    await expect(page.locator("th").filter({ hasText: /Started/i })).toBeVisible();
-    await expect(page.locator("th").filter({ hasText: /Duration/i })).toBeVisible();
+    await expect(
+      page.locator("th").filter({ hasText: /Status/i }),
+    ).toBeVisible();
+    await expect(
+      page.locator("th").filter({ hasText: /Started/i }),
+    ).toBeVisible();
+    await expect(
+      page.locator("th").filter({ hasText: /Duration/i }),
+    ).toBeVisible();
   });
 
   test("shows no data message when no sync history", async ({ page }) => {

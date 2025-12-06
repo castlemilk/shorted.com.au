@@ -53,17 +53,6 @@ const (
 	DashboardServiceSetDefaultDashboardProcedure = "/dashboard.v1.DashboardService/SetDefaultDashboard"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	dashboardServiceServiceDescriptor                   = v1.File_dashboard_v1_dashboard_proto.Services().ByName("DashboardService")
-	dashboardServiceCreateDashboardMethodDescriptor     = dashboardServiceServiceDescriptor.Methods().ByName("CreateDashboard")
-	dashboardServiceGetDashboardMethodDescriptor        = dashboardServiceServiceDescriptor.Methods().ByName("GetDashboard")
-	dashboardServiceListDashboardsMethodDescriptor      = dashboardServiceServiceDescriptor.Methods().ByName("ListDashboards")
-	dashboardServiceUpdateDashboardMethodDescriptor     = dashboardServiceServiceDescriptor.Methods().ByName("UpdateDashboard")
-	dashboardServiceDeleteDashboardMethodDescriptor     = dashboardServiceServiceDescriptor.Methods().ByName("DeleteDashboard")
-	dashboardServiceSetDefaultDashboardMethodDescriptor = dashboardServiceServiceDescriptor.Methods().ByName("SetDefaultDashboard")
-)
-
 // DashboardServiceClient is a client for the dashboard.v1.DashboardService service.
 type DashboardServiceClient interface {
 	// CreateDashboard creates a new dashboard for the authenticated user
@@ -89,41 +78,42 @@ type DashboardServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewDashboardServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) DashboardServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	dashboardServiceMethods := v1.File_dashboard_v1_dashboard_proto.Services().ByName("DashboardService").Methods()
 	return &dashboardServiceClient{
 		createDashboard: connect.NewClient[v1.CreateDashboardRequest, v1.CreateDashboardResponse](
 			httpClient,
 			baseURL+DashboardServiceCreateDashboardProcedure,
-			connect.WithSchema(dashboardServiceCreateDashboardMethodDescriptor),
+			connect.WithSchema(dashboardServiceMethods.ByName("CreateDashboard")),
 			connect.WithClientOptions(opts...),
 		),
 		getDashboard: connect.NewClient[v1.GetDashboardRequest, v1.GetDashboardResponse](
 			httpClient,
 			baseURL+DashboardServiceGetDashboardProcedure,
-			connect.WithSchema(dashboardServiceGetDashboardMethodDescriptor),
+			connect.WithSchema(dashboardServiceMethods.ByName("GetDashboard")),
 			connect.WithClientOptions(opts...),
 		),
 		listDashboards: connect.NewClient[v1.ListDashboardsRequest, v1.ListDashboardsResponse](
 			httpClient,
 			baseURL+DashboardServiceListDashboardsProcedure,
-			connect.WithSchema(dashboardServiceListDashboardsMethodDescriptor),
+			connect.WithSchema(dashboardServiceMethods.ByName("ListDashboards")),
 			connect.WithClientOptions(opts...),
 		),
 		updateDashboard: connect.NewClient[v1.UpdateDashboardRequest, v1.UpdateDashboardResponse](
 			httpClient,
 			baseURL+DashboardServiceUpdateDashboardProcedure,
-			connect.WithSchema(dashboardServiceUpdateDashboardMethodDescriptor),
+			connect.WithSchema(dashboardServiceMethods.ByName("UpdateDashboard")),
 			connect.WithClientOptions(opts...),
 		),
 		deleteDashboard: connect.NewClient[v1.DeleteDashboardRequest, v1.DeleteDashboardResponse](
 			httpClient,
 			baseURL+DashboardServiceDeleteDashboardProcedure,
-			connect.WithSchema(dashboardServiceDeleteDashboardMethodDescriptor),
+			connect.WithSchema(dashboardServiceMethods.ByName("DeleteDashboard")),
 			connect.WithClientOptions(opts...),
 		),
 		setDefaultDashboard: connect.NewClient[v1.SetDefaultDashboardRequest, v1.SetDefaultDashboardResponse](
 			httpClient,
 			baseURL+DashboardServiceSetDefaultDashboardProcedure,
-			connect.WithSchema(dashboardServiceSetDefaultDashboardMethodDescriptor),
+			connect.WithSchema(dashboardServiceMethods.ByName("SetDefaultDashboard")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -191,40 +181,41 @@ type DashboardServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewDashboardServiceHandler(svc DashboardServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	dashboardServiceMethods := v1.File_dashboard_v1_dashboard_proto.Services().ByName("DashboardService").Methods()
 	dashboardServiceCreateDashboardHandler := connect.NewUnaryHandler(
 		DashboardServiceCreateDashboardProcedure,
 		svc.CreateDashboard,
-		connect.WithSchema(dashboardServiceCreateDashboardMethodDescriptor),
+		connect.WithSchema(dashboardServiceMethods.ByName("CreateDashboard")),
 		connect.WithHandlerOptions(opts...),
 	)
 	dashboardServiceGetDashboardHandler := connect.NewUnaryHandler(
 		DashboardServiceGetDashboardProcedure,
 		svc.GetDashboard,
-		connect.WithSchema(dashboardServiceGetDashboardMethodDescriptor),
+		connect.WithSchema(dashboardServiceMethods.ByName("GetDashboard")),
 		connect.WithHandlerOptions(opts...),
 	)
 	dashboardServiceListDashboardsHandler := connect.NewUnaryHandler(
 		DashboardServiceListDashboardsProcedure,
 		svc.ListDashboards,
-		connect.WithSchema(dashboardServiceListDashboardsMethodDescriptor),
+		connect.WithSchema(dashboardServiceMethods.ByName("ListDashboards")),
 		connect.WithHandlerOptions(opts...),
 	)
 	dashboardServiceUpdateDashboardHandler := connect.NewUnaryHandler(
 		DashboardServiceUpdateDashboardProcedure,
 		svc.UpdateDashboard,
-		connect.WithSchema(dashboardServiceUpdateDashboardMethodDescriptor),
+		connect.WithSchema(dashboardServiceMethods.ByName("UpdateDashboard")),
 		connect.WithHandlerOptions(opts...),
 	)
 	dashboardServiceDeleteDashboardHandler := connect.NewUnaryHandler(
 		DashboardServiceDeleteDashboardProcedure,
 		svc.DeleteDashboard,
-		connect.WithSchema(dashboardServiceDeleteDashboardMethodDescriptor),
+		connect.WithSchema(dashboardServiceMethods.ByName("DeleteDashboard")),
 		connect.WithHandlerOptions(opts...),
 	)
 	dashboardServiceSetDefaultDashboardHandler := connect.NewUnaryHandler(
 		DashboardServiceSetDefaultDashboardProcedure,
 		svc.SetDefaultDashboard,
-		connect.WithSchema(dashboardServiceSetDefaultDashboardMethodDescriptor),
+		connect.WithSchema(dashboardServiceMethods.ByName("SetDefaultDashboard")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/dashboard.v1.DashboardService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

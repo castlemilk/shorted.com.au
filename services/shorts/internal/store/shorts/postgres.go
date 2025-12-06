@@ -775,7 +775,7 @@ func (s *postgresStore) GetSyncStatus(limit int) ([]*shortsv1alpha1.SyncRun, err
 
 	var runs []*shortsv1alpha1.SyncRun
 	for rows.Next() {
-		var run shortsv1alpha1.SyncRun
+		run := &shortsv1alpha1.SyncRun{}
 		var runID, status, errMsg, env, hostname sql.NullString
 		var startedAt, completedAt sql.NullTime
 		var shortsUpdated, pricesUpdated, metricsUpdated, algoliaSynced sql.NullInt32
@@ -806,7 +806,7 @@ func (s *postgresStore) GetSyncStatus(limit int) ([]*shortsv1alpha1.SyncRun, err
 		run.Environment = env.String
 		run.Hostname = hostname.String
 
-		runs = append(runs, &run)
+		runs = append(runs, run)
 	}
 
 	return runs, nil

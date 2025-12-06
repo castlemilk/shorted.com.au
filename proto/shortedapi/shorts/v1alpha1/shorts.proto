@@ -256,6 +256,24 @@ service ShortedStocksService {
       ]
     };
   }
+
+  // Get sync status for admin dashboard
+  rpc GetSyncStatus (GetSyncStatusRequest) returns (GetSyncStatusResponse) {
+    option (gnostic.openapi.v3.operation) = {
+      deprecated: false,
+      description: "Get sync status and history",
+      responses: {
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "OK"
+            }
+          }
+        }
+      }
+    };
+  }
 }
 
 // Request for Top10 RPC, specifying the period of time.
@@ -316,4 +334,29 @@ message SearchStocksResponse {
   string query = 1;                    // The search query used
   repeated stocks.v1alpha1.Stock stocks = 2;  // Matching stocks
   int32 count = 3;                     // Number of results returned
+}
+// Request for GetSyncStatus RPC
+message GetSyncStatusRequest {
+  int32 limit = 1; // Number of past runs to return (default: 10)
+}
+
+// Response for GetSyncStatus RPC
+message GetSyncStatusResponse {
+  repeated SyncRun runs = 1;
+}
+
+// Represents a single sync run execution
+message SyncRun {
+  string run_id = 1;
+  string started_at = 2;
+  string completed_at = 3;
+  string status = 4;
+  string error_message = 5;
+  int32 shorts_records_updated = 6;
+  int32 prices_records_updated = 7;
+  int32 metrics_records_updated = 8;
+  int32 algolia_records_synced = 9;
+  double total_duration_seconds = 10;
+  string environment = 11;
+  string hostname = 12;
 }
