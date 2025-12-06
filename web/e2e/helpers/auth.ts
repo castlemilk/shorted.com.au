@@ -140,10 +140,10 @@ export class AuthHelper {
     // Look for user indicators
     const userMenu = this.page.locator('[data-testid="user-menu"]');
     const logoutButton = this.page.getByRole('button', { name: /logout|sign out/i });
-    const userEmail = this.page.getByText(userEmail || testUsers.validUser.email);
+    const userEmailLocator = this.page.getByText(userEmail || testUsers.validUser.email);
 
     await expect(
-      userMenu.or(logoutButton).or(userEmail)
+      userMenu.or(logoutButton).or(userEmailLocator)
     ).toBeVisible({ timeout: 10000 });
 
     // Should not see login button
