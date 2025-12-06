@@ -219,5 +219,7 @@ export const config = {
     "/shorts", // Only the list view, not individual stock pages
     "/stocks",
     "/stocks/:path*",
+    "/admin",
+    "/admin/:path*",
   ],
 };

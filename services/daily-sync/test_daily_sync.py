@@ -30,6 +30,7 @@ from comprehensive_daily_sync import (
     insert_price_data,
     update_shorts_data,
     update_stock_prices,
+    SyncStatusRecorder,
     DATABASE_URL,
     ALPHA_VANTAGE_API_KEY,
     ALPHA_VANTAGE_ENABLED
@@ -389,6 +390,180 @@ class TestErrorHandling:
         try:
             inserted = await insert_price_data(conn, [])
             assert inserted == 0, "Empty data should insert 0 records"
+        finally:
+            await conn.close()
+
+
+class TestSyncStatusRecorder:
+    """Test SyncStatusRecorder for tracking sync job metrics."""
+    
+    @pytest.mark.asyncio
+    async def test_sync_status_table_exists(self):
+        """Test that sync_status table exists."""
+        conn = await asyncpg.connect(TEST_DATABASE_URL)
+        try:
+            result = await conn.fetch(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'sync_status'"
+            )
+            columns = [row['column_name'] for row in result]
+            
+            required_columns = ['run_id', 'status', 'started_at', 'completed_at', 
+                              'shorts_records_updated', 'prices_records_updated',
+                              'total_duration_seconds', 'error_message']
+            
+            for col in required_columns:
+                assert col in columns, f"Column {col} missing from sync_status table"
+        finally:
+            await conn.close()
+    
+    @pytest.mark.asyncio
+    async def test_recorder_start(self):
+        """Test that recorder creates initial record with 'running' status."""
+        conn = await asyncpg.connect(TEST_DATABASE_URL)
+        try:
+            recorder = SyncStatusRecorder(conn)
+            await recorder.start()
+            
+            # Verify record was created
+            result = await conn.fetchrow(
+                "SELECT * FROM sync_status WHERE run_id = $1",
+                recorder.run_id
+            )
+            
+            assert result is not None, "Should create sync_status record"
+            assert result['status'] == 'running', "Initial status should be 'running'"
+            assert result['started_at'] is not None, "started_at should be set"
+            
+            # Cleanup
+            await conn.execute("DELETE FROM sync_status WHERE run_id = $1", recorder.run_id)
+        finally:
+            await conn.close()
+    
+    @pytest.mark.asyncio
+    async def test_recorder_update_metric(self):
+        """Test that metrics are tracked correctly."""
+        conn = await asyncpg.connect(TEST_DATABASE_URL)
+        try:
+            recorder = SyncStatusRecorder(conn)
+            await recorder.start()
+            
+            # Update metrics
+            await recorder.update_metric("shorts_records_updated", 100)
+            await recorder.update_metric("prices_records_updated", 50)
+            await recorder.update_metric("shorts_records_updated", 25)  # Should increment
+            
+            # Check internal state
+            assert recorder.metrics["shorts_records_updated"] == 125, "Should increment metric"
+            assert recorder.metrics["prices_records_updated"] == 50
+            
+            # Cleanup
+            await conn.execute("DELETE FROM sync_status WHERE run_id = $1", recorder.run_id)
+        finally:
+            await conn.close()
+    
+    @pytest.mark.asyncio
+    async def test_recorder_complete(self):
+        """Test that completion updates record correctly."""
+        conn = await asyncpg.connect(TEST_DATABASE_URL)
+        try:
+            recorder = SyncStatusRecorder(conn)
+            await recorder.start()
+            
+            # Add some metrics
+            await recorder.update_metric("shorts_records_updated", 100)
+            await recorder.update_metric("prices_records_updated", 200)
+            
+            # Complete
+            await recorder.complete()
+            
+            # Verify record
+            result = await conn.fetchrow(
+                "SELECT * FROM sync_status WHERE run_id = $1",
+                recorder.run_id
+            )
+            
+            assert result['status'] == 'completed', "Status should be 'completed'"
+            assert result['completed_at'] is not None, "completed_at should be set"
+            assert result['shorts_records_updated'] == 100
+            assert result['prices_records_updated'] == 200
+            assert result['total_duration_seconds'] is not None
+            assert result['total_duration_seconds'] >= 0
+            
+            # Cleanup
+            await conn.execute("DELETE FROM sync_status WHERE run_id = $1", recorder.run_id)
+        finally:
+            await conn.close()
+    
+    @pytest.mark.asyncio
+    async def test_recorder_fail(self):
+        """Test that failure is recorded correctly."""
+        conn = await asyncpg.connect(TEST_DATABASE_URL)
+        try:
+            recorder = SyncStatusRecorder(conn)
+            await recorder.start()
+            
+            # Simulate failure
+            error_message = "Test error: Something went wrong"
+            await recorder.fail(error_message)
+            
+            # Verify record
+            result = await conn.fetchrow(
+                "SELECT * FROM sync_status WHERE run_id = $1",
+                recorder.run_id
+            )
+            
+            assert result['status'] == 'failed', "Status should be 'failed'"
+            assert result['completed_at'] is not None, "completed_at should be set"
+            assert result['error_message'] == error_message
+            assert result['total_duration_seconds'] is not None
+            
+            # Cleanup
+            await conn.execute("DELETE FROM sync_status WHERE run_id = $1", recorder.run_id)
+        finally:
+            await conn.close()
+    
+    @pytest.mark.asyncio
+    async def test_recorder_unique_run_ids(self):
+        """Test that each recorder instance has a unique run_id."""
+        conn = await asyncpg.connect(TEST_DATABASE_URL)
+        try:
+            recorder1 = SyncStatusRecorder(conn)
+            recorder2 = SyncStatusRecorder(conn)
+            
+            assert recorder1.run_id != recorder2.run_id, "Run IDs should be unique"
+        finally:
+            await conn.close()
+
+
+class TestSyncStatusIntegration:
+    """Integration tests for sync status with actual sync operations."""
+    
+    @pytest.mark.asyncio
+    async def test_shorts_sync_records_status(self):
+        """Test that shorts sync records status when recorder is passed."""
+        conn = await asyncpg.connect(TEST_DATABASE_URL)
+        try:
+            recorder = SyncStatusRecorder(conn)
+            await recorder.start()
+            
+            # Run a small sync
+            updated = await update_shorts_data(conn, days=1, recorder=recorder)
+            
+            # Verify metrics were recorded
+            assert recorder.metrics["shorts_records_updated"] >= 0
+            
+            await recorder.complete()
+            
+            # Verify in database
+            result = await conn.fetchrow(
+                "SELECT * FROM sync_status WHERE run_id = $1",
+                recorder.run_id
+            )
+            assert result['status'] == 'completed'
+            assert result['shorts_records_updated'] == recorder.metrics["shorts_records_updated"]
+            
+            # Cleanup
+            await conn.execute("DELETE FROM sync_status WHERE run_id = $1", recorder.run_id)
         finally:
             await conn.close()
 
