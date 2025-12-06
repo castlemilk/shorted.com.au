@@ -19,8 +19,12 @@ export interface SyncRun {
   hostname: string;
 }
 
+interface SyncStatusResponse {
+  runs?: SyncRun[];
+}
+
 export const getSyncStatus = cache(
-  async (limit: number = 10): Promise<SyncRun[]> => {
+  async (limit = 10): Promise<SyncRun[]> => {
     // Use fetch directly since proto types aren't regenerated yet
     try {
       const response = await fetch(
@@ -39,8 +43,8 @@ export const getSyncStatus = cache(
         return [];
       }
 
-      const data = await response.json();
-      return data.runs || [];
+      const data: SyncStatusResponse = await response.json() as SyncStatusResponse;
+      return data.runs ?? [];
     } catch (err) {
       console.error("Failed to get sync status:", err);
       return [];
