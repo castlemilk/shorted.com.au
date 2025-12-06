@@ -42,7 +42,9 @@ SYNC_DAYS_STOCK_PRICES = int(os.getenv("SYNC_DAYS_STOCK_PRICES", "5"))
 SYNC_DAYS_SHORTS = int(os.getenv("SYNC_DAYS_SHORTS", "7"))
 SYNC_KEY_METRICS = os.getenv("SYNC_KEY_METRICS", "true").lower() == "true"
 RATE_LIMIT_DELAY_ALPHA = 12.0  # Alpha Vantage: 5 calls/minute
-RATE_LIMIT_DELAY_YAHOO = 0.3  # Yahoo Finance: more lenient
+RATE_LIMIT_DELAY_YAHOO = 1.0  # Yahoo Finance: base delay between requests
+RATE_LIMIT_DELAY_YAHOO_MAX = 30.0  # Max backoff delay
+CONSECUTIVE_FAILURES_BACKOFF_THRESHOLD = 3  # Start backing off after this many failures
 import json
 import uuid
 import socket
@@ -408,43 +410,63 @@ async def fetch_from_alpha_vantage(
         return None
 
 
-def fetch_from_yahoo_finance(stock_code: str, days: int) -> Optional[List[Dict]]:
-    """Fetch recent price data from Yahoo Finance (fallback)."""
+def fetch_from_yahoo_finance(stock_code: str, days: int, max_retries: int = 3) -> Optional[List[Dict]]:
+    """Fetch recent price data from Yahoo Finance with retry and exponential backoff."""
     # Add .AX suffix only if not already present
     yf_ticker = stock_code if stock_code.endswith(".AX") else f"{stock_code}.AX"
 
-    try:
-        ticker = yf.Ticker(yf_ticker)
-        end_date = date.today()
-        start_date = end_date - timedelta(days=days + 5)
+    for attempt in range(max_retries):
+        try:
+            ticker = yf.Ticker(yf_ticker)
+            end_date = date.today()
+            start_date = end_date - timedelta(days=days + 5)
 
-        hist = ticker.history(start=start_date, end=end_date, interval="1d")
+            hist = ticker.history(start=start_date, end=end_date, interval="1d")
 
-        if hist.empty:
+            if hist.empty:
+                # Empty response might be rate limiting - backoff and retry
+                if attempt < max_retries - 1:
+                    backoff = RATE_LIMIT_DELAY_YAHOO * (2 ** attempt)
+                    logger.debug(f"  Empty response for {yf_ticker}, backing off {backoff:.1f}s")
+                    time.sleep(min(backoff, RATE_LIMIT_DELAY_YAHOO_MAX))
+                    continue
+                return None
+
+            data = []
+            for date_idx, row in hist.iterrows():
+                if pd.isna(row["Open"]) or pd.isna(row["Close"]):
+                    continue
+
+                data.append(
+                    {
+                        "stock_code": stock_code,
+                        "date": date_idx.date(),
+                        "open": round(float(row["Open"]), 2),
+                        "high": round(float(row["High"]), 2),
+                        "low": round(float(row["Low"]), 2),
+                        "close": round(float(row["Close"]), 2),
+                        "adjusted_close": round(float(row["Close"]), 2),
+                        "volume": int(row["Volume"]) if not pd.isna(row["Volume"]) else 0,
+                    }
+                )
+
+            return data if data else None
+
+        except Exception as e:
+            error_msg = str(e)
+            # Check for rate limit indicators
+            if "Expecting value" in error_msg or "Too Many Requests" in error_msg or "429" in error_msg:
+                if attempt < max_retries - 1:
+                    backoff = RATE_LIMIT_DELAY_YAHOO * (2 ** (attempt + 1))
+                    logger.warning(f"  Rate limited on {yf_ticker}, backing off {backoff:.1f}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(min(backoff, RATE_LIMIT_DELAY_YAHOO_MAX))
+                    continue
+            # Log other errors
+            if attempt == max_retries - 1:
+                logger.error(f"Failed to get ticker '{yf_ticker}' reason: {error_msg[:100]}")
             return None
-
-        data = []
-        for date_idx, row in hist.iterrows():
-            if pd.isna(row["Open"]) or pd.isna(row["Close"]):
-                continue
-
-            data.append(
-                {
-                    "stock_code": stock_code,
-                    "date": date_idx.date(),
-                    "open": round(float(row["Open"]), 2),
-                    "high": round(float(row["High"]), 2),
-                    "low": round(float(row["Low"]), 2),
-                    "close": round(float(row["Close"]), 2),
-                    "adjusted_close": round(float(row["Close"]), 2),
-                    "volume": int(row["Volume"]) if not pd.isna(row["Volume"]) else 0,
-                }
-            )
-
-        return data if data else None
-
-    except Exception:
-        return None
+    
+    return None
 
 
 async def get_stocks_with_price_data(conn) -> List[str]:
@@ -558,6 +580,9 @@ async def update_stock_prices(
     # Create aiohttp session for Alpha Vantage
     session = aiohttp.ClientSession() if ALPHA_VANTAGE_ENABLED else None
 
+    consecutive_failures = 0
+    current_delay = RATE_LIMIT_DELAY_YAHOO
+    
     try:
         for i, stock_code in enumerate(stocks, 1):
             # Check last ingested date for this stock
@@ -583,16 +608,22 @@ async def update_stock_prices(
                 if data:
                     source = "Alpha Vantage"
                     alpha_success += 1
+                    consecutive_failures = 0
+                    current_delay = RATE_LIMIT_DELAY_YAHOO
                     # Respect Alpha Vantage rate limits
                     await asyncio.sleep(RATE_LIMIT_DELAY_ALPHA)
 
             # Fallback to Yahoo Finance
             if not data:
+                # Always add base delay before Yahoo request
+                time.sleep(current_delay)
+                
                 data = fetch_from_yahoo_finance(stock_code, days_to_fetch)
                 if data:
                     source = "Yahoo Finance"
                     yahoo_success += 1
-                    time.sleep(RATE_LIMIT_DELAY_YAHOO)
+                    consecutive_failures = 0
+                    current_delay = RATE_LIMIT_DELAY_YAHOO  # Reset delay on success
 
             if not data:
                 last_info = f"last: {last_date}" if last_date else "no data yet"
@@ -600,6 +631,13 @@ async def update_stock_prices(
                     f"[{i:3d}/{len(stocks)}] {stock_code}: ⚠️  No data from any source ({last_info})"
                 )
                 failed += 1
+                consecutive_failures += 1
+                
+                # Increase delay on consecutive failures (circuit breaker pattern)
+                if consecutive_failures >= CONSECUTIVE_FAILURES_BACKOFF_THRESHOLD:
+                    current_delay = min(current_delay * 1.5, RATE_LIMIT_DELAY_YAHOO_MAX)
+                    if consecutive_failures % 10 == 0:
+                        logger.warning(f"⚠️  {consecutive_failures} consecutive failures, backing off to {current_delay:.1f}s delay")
                 continue
 
             # Insert data
@@ -641,37 +679,52 @@ async def update_stock_prices(
 # ============================================================================
 
 
-def fetch_key_metrics_from_yahoo(stock_code: str) -> Optional[Dict]:
-    """Fetch key metrics from Yahoo Finance for a single stock."""
+def fetch_key_metrics_from_yahoo(stock_code: str, max_retries: int = 3) -> Optional[Dict]:
+    """Fetch key metrics from Yahoo Finance for a single stock with retry and backoff."""
     yahoo_symbol = f"{stock_code}.AX"
 
-    try:
-        ticker = yf.Ticker(yahoo_symbol)
-        info = ticker.info
+    for attempt in range(max_retries):
+        try:
+            ticker = yf.Ticker(yahoo_symbol)
+            info = ticker.info
 
-        if not info or info.get("regularMarketPrice") is None:
+            if not info or info.get("regularMarketPrice") is None:
+                # Empty response - possible rate limit
+                if attempt < max_retries - 1:
+                    backoff = RATE_LIMIT_DELAY_YAHOO * (2 ** attempt)
+                    time.sleep(min(backoff, RATE_LIMIT_DELAY_YAHOO_MAX))
+                    continue
+                return None
+
+            return {
+                "stock_code": stock_code,
+                "market_cap": info.get("marketCap"),
+                "pe_ratio": info.get("trailingPE"),
+                "forward_pe": info.get("forwardPE"),
+                "eps": info.get("trailingEps"),
+                "dividend_yield": info.get("dividendYield"),
+                "book_value": info.get("bookValue"),
+                "price_to_book": info.get("priceToBook"),
+                "revenue": info.get("totalRevenue"),
+                "profit_margin": info.get("profitMargins"),
+                "debt_to_equity": info.get("debtToEquity"),
+                "return_on_equity": info.get("returnOnEquity"),
+                "fifty_two_week_high": info.get("fiftyTwoWeekHigh"),
+                "fifty_two_week_low": info.get("fiftyTwoWeekLow"),
+                "avg_volume": info.get("averageVolume"),
+                "beta": info.get("beta"),
+            }
+        except Exception as e:
+            error_msg = str(e)
+            if "Expecting value" in error_msg or "Too Many Requests" in error_msg or "429" in error_msg:
+                if attempt < max_retries - 1:
+                    backoff = RATE_LIMIT_DELAY_YAHOO * (2 ** (attempt + 1))
+                    logger.debug(f"  Rate limited on {yahoo_symbol}, backing off {backoff:.1f}s")
+                    time.sleep(min(backoff, RATE_LIMIT_DELAY_YAHOO_MAX))
+                    continue
             return None
-
-        return {
-            "stock_code": stock_code,
-            "market_cap": info.get("marketCap"),
-            "pe_ratio": info.get("trailingPE"),
-            "forward_pe": info.get("forwardPE"),
-            "eps": info.get("trailingEps"),
-            "dividend_yield": info.get("dividendYield"),
-            "book_value": info.get("bookValue"),
-            "price_to_book": info.get("priceToBook"),
-            "revenue": info.get("totalRevenue"),
-            "profit_margin": info.get("profitMargins"),
-            "debt_to_equity": info.get("debtToEquity"),
-            "return_on_equity": info.get("returnOnEquity"),
-            "fifty_two_week_high": info.get("fiftyTwoWeekHigh"),
-            "fifty_two_week_low": info.get("fiftyTwoWeekLow"),
-            "avg_volume": info.get("averageVolume"),
-            "beta": info.get("beta"),
-        }
-    except Exception:
-        return None
+    
+    return None
 
 
 async def update_key_metrics(
@@ -700,8 +753,13 @@ async def update_key_metrics(
 
     updated = 0
     failed = 0
+    consecutive_failures = 0
+    current_delay = RATE_LIMIT_DELAY_YAHOO
 
     for i, stock_code in enumerate(stock_list, 1):
+        # Always add delay before request
+        time.sleep(current_delay)
+        
         metrics = fetch_key_metrics_from_yahoo(stock_code)
 
         if not metrics:
@@ -710,7 +768,13 @@ async def update_key_metrics(
                     f"[{i:4d}/{len(stock_list)}] {stock_code}: ⚠️  No metrics available"
                 )
             failed += 1
-            time.sleep(RATE_LIMIT_DELAY_YAHOO)
+            consecutive_failures += 1
+            
+            # Increase delay on consecutive failures
+            if consecutive_failures >= CONSECUTIVE_FAILURES_BACKOFF_THRESHOLD:
+                current_delay = min(current_delay * 1.5, RATE_LIMIT_DELAY_YAHOO_MAX)
+                if consecutive_failures % 10 == 0:
+                    logger.warning(f"⚠️  {consecutive_failures} consecutive failures, backing off to {current_delay:.1f}s delay")
             continue
 
         try:
@@ -731,12 +795,12 @@ async def update_key_metrics(
                     f"[{i:4d}/{len(stock_list)}] {stock_code}: ✅ Updated (P/E: {metrics.get('pe_ratio', 'N/A')}, MCap: {metrics.get('market_cap', 'N/A')})"
                 )
             updated += 1
+            consecutive_failures = 0  # Reset on success
+            current_delay = RATE_LIMIT_DELAY_YAHOO  # Reset delay on success
 
         except Exception as e:
             logger.error(f"[{i:4d}/{len(stock_list)}] {stock_code}: ❌ DB error: {e}")
             failed += 1
-
-        time.sleep(RATE_LIMIT_DELAY_YAHOO)
 
     logger.info(f"\n✅ Key metrics update complete:")
     logger.info(f"   Updated: {updated}")
