@@ -264,6 +264,7 @@ jobs:
             --env ALGOLIA_INDEX=stocks
             --env NEXTAUTH_URL=https://preview.shorted.com.au
             --env ALLOW_E2E_AUTH=true
+            --env ADMIN_EMAILS=ben.ebsworth@gmail.com
 
       - name: Summary
         run: |
