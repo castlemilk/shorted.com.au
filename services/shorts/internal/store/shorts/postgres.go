@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	"github.com/jackc/pgtype"
@@ -744,4 +745,69 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 
 	log.Debugf("Search completed for '%s': found %d stocks", query, len(results))
 	return results, nil
+}
+
+func (s *postgresStore) GetSyncStatus(limit int) ([]*shortsv1alpha1.SyncRun, error) {
+	query := `
+		SELECT 
+			run_id, 
+			started_at, 
+			completed_at, 
+			status, 
+			error_message,
+			shorts_records_updated, 
+			prices_records_updated, 
+			metrics_records_updated, 
+			algolia_records_synced, 
+			total_duration_seconds, 
+			environment, 
+			hostname
+		FROM sync_status
+		ORDER BY started_at DESC
+		LIMIT $1
+	`
+
+	rows, err := s.db.Query(context.Background(), query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query sync_status: %w", err)
+	}
+	defer rows.Close()
+
+	var runs []*shortsv1alpha1.SyncRun
+	for rows.Next() {
+		var run shortsv1alpha1.SyncRun
+		var runID, status, errMsg, env, hostname sql.NullString
+		var startedAt, completedAt sql.NullTime
+		var shortsUpdated, pricesUpdated, metricsUpdated, algoliaSynced sql.NullInt32
+		var duration sql.NullFloat64
+
+		if err := rows.Scan(
+			&runID, &startedAt, &completedAt, &status, &errMsg,
+			&shortsUpdated, &pricesUpdated, &metricsUpdated, &algoliaSynced,
+			&duration, &env, &hostname,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan sync_status row: %w", err)
+		}
+
+		run.RunId = runID.String
+		if startedAt.Valid {
+			run.StartedAt = startedAt.Time.Format(time.RFC3339)
+		}
+		if completedAt.Valid {
+			run.CompletedAt = completedAt.Time.Format(time.RFC3339)
+		}
+		run.Status = status.String
+		run.ErrorMessage = errMsg.String
+		run.ShortsRecordsUpdated = shortsUpdated.Int32
+		run.PricesRecordsUpdated = pricesUpdated.Int32
+		run.MetricsRecordsUpdated = metricsUpdated.Int32
+		run.AlgoliaRecordsSynced = algoliaSynced.Int32
+		run.TotalDurationSeconds = duration.Float64
+		run.Environment = env.String
+		run.Hostname = hostname.String
+
+		runs = append(runs, &run)
+	}
+
+	return runs, nil
 }

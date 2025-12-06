@@ -3,6 +3,7 @@ package shorts
 import (
 	"log"
 
+	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
@@ -39,6 +40,10 @@ func (s *StoreAdapter) GetIndustryTreeMap(limit int32, period, viewMode string) 
 
 func (s *StoreAdapter) SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error) {
 	return s.store.SearchStocks(query, limit)
+}
+
+func (s *StoreAdapter) GetSyncStatus(limit int) ([]*shortsv1alpha1.SyncRun, error) {
+	return s.store.GetSyncStatus(limit)
 }
 
 // LoggerAdapter adapts the standard logger to the Logger interface

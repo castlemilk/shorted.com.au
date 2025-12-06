@@ -63,8 +63,18 @@ setup("authenticate", async ({ page }) => {
   console.log("🖱️ Submitting form...");
   await submitButton.click();
 
-  // Wait for navigation or error
-  await page.waitForTimeout(3000);
+  // Wait for navigation/redirect (increased timeout for cold starts)
+  await page.waitForTimeout(5000);
+
+  // Also try waiting for URL change explicitly
+  try {
+    await page.waitForURL((url) => !url.pathname.includes("/signin"), {
+      timeout: 10000,
+    });
+    console.log("✅ URL changed away from signin");
+  } catch (e) {
+    console.log("⚠️ URL did not change from signin after 10s");
+  }
 
   // Check if URL changed (successful login redirects away from /signin)
   const currentUrl = page.url();

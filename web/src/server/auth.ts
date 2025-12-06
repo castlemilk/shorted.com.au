@@ -84,6 +84,7 @@ declare module "next-auth" {
       name?: string | null;
       email?: string | null;
       image?: string | null;
+      isAdmin?: boolean;
     };
   }
 }
@@ -91,6 +92,7 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     id?: string;
+    isAdmin?: boolean;
   }
 }
 
@@ -193,6 +195,15 @@ export const authOptions = {
         token.id = token.email;
       }
 
+      // Admin check
+      const adminEmails = (process.env.ADMIN_EMAILS ?? "")
+        .split(",")
+        .map((e) => e.trim());
+      
+      // In non-production, allow E2E test user to be admin
+      const isTestUser = process.env.NODE_ENV !== "production" && token.email === E2E_TEST_USER.email;
+      token.isAdmin = isTestUser || adminEmails.includes(token.email ?? "");
+
       return token;
     },
     // Session callback runs after JWT - when session is checked
@@ -208,6 +219,7 @@ export const authOptions = {
       if (session.user) {
         session.user.id =
           token.id ?? session.user.email ?? token.sub ?? "unknown";
+        session.user.isAdmin = token.isAdmin;
       }
       return session;
     },

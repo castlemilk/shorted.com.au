@@ -268,3 +268,22 @@ func (s *ShortsServer) searchAlgolia(query string, limit int32) ([]*stocksv1alph
 
 	return stocks, nil
 }
+
+func (s *ShortsServer) GetSyncStatus(ctx context.Context, req *connect.Request[shortsv1alpha1.GetSyncStatusRequest]) (*connect.Response[shortsv1alpha1.GetSyncStatusResponse], error) {
+	limit := req.Msg.Limit
+	if limit <= 0 {
+		limit = 10 // Default limit
+	}
+
+	s.logger.Debugf("getting sync status with limit %d", limit)
+
+	runs, err := s.store.GetSyncStatus(int(limit))
+	if err != nil {
+		s.logger.Errorf("failed to get sync status: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	return connect.NewResponse(&shortsv1alpha1.GetSyncStatusResponse{
+		Runs: runs,
+	}), nil
+}
