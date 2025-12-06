@@ -610,7 +610,7 @@ test.describe('TreeMap Visualization', () => {
       page.locator('[data-testid="data-info"]'),
       page.getByText(/as of|last updated|data from/i),
       page.locator('.data-timestamp'),
-      page.getByText(/\\d{1,2}\\/\\d{1,2}\\/\\d{4}|\\d{4}-\\d{2}-\\d{2}/)
+      page.getByText(/\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2}/)
     ];
     
     for (const context of contextSelectors) {
