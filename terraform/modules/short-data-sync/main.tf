@@ -92,8 +92,7 @@ resource "google_cloud_run_v2_job" "short_data_sync" {
 
       containers {
         image   = var.image_url
-        command = ["python"]
-        args    = ["main.py"]
+        # Use Dockerfile's default CMD: python comprehensive_daily_sync.py
 
         env {
           name  = "ENVIRONMENT"

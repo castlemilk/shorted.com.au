@@ -38,7 +38,7 @@ if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
 const RATE_LIMITED_PATHS = ["/api/market-data", "/api/search"];
 
 // Protected page routes that require authentication
-const PROTECTED_ROUTES = ["/dashboards", "/portfolio", "/stocks"];
+const PROTECTED_ROUTES = ["/dashboards", "/portfolio", "/stocks", "/admin"];
 // Note: /shorts/[stockCode] is public for SEO, only /shorts list view is protected
 
 export async function middleware(request: NextRequest) {
@@ -91,6 +91,7 @@ export async function middleware(request: NextRequest) {
         tokenSub: token?.sub,
         tokenId: token?.id,
         tokenEmail: token?.email,
+        isAdmin: token?.isAdmin,
       });
 
       // If no valid session, redirect to signin
@@ -99,6 +100,14 @@ export async function middleware(request: NextRequest) {
         const url = new URL("/signin", request.url);
         url.searchParams.set("callbackUrl", pathname);
         return NextResponse.redirect(url);
+      }
+
+      // Admin route protection
+      if (pathname.startsWith("/admin") && !token.isAdmin) {
+        console.log(
+          "[Middleware] Non-admin user attempted to access admin route",
+        );
+        return NextResponse.redirect(new URL("/", request.url));
       }
 
       console.log("[Middleware] Auth check passed for:", token.sub);

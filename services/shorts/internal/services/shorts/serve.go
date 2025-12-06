@@ -287,6 +287,86 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		io.Copy(w, resp.Body)
 	})
 
+	// Add admin sync status endpoint
+	mux.HandleFunc("/api/admin/sync-status", func(w http.ResponseWriter, r *http.Request) {
+		// Add CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Parse limit parameter
+		limitStr := r.URL.Query().Get("limit")
+		limit := 10 // default
+		if limitStr != "" {
+			fmt.Sscanf(limitStr, "%d", &limit)
+		}
+		if limit > 100 {
+			limit = 100
+		}
+
+		// Get sync status from store
+		runs, err := s.store.GetSyncStatus(limit)
+		if err != nil {
+			logger.Errorf("Failed to get sync status: %v", err)
+			http.Error(w, "Failed to get sync status", http.StatusInternalServerError)
+			return
+		}
+
+		// Build response
+		type SyncRunResponse struct {
+			RunId                 string  `json:"runId"`
+			StartedAt             string  `json:"startedAt"`
+			CompletedAt           string  `json:"completedAt"`
+			Status                string  `json:"status"`
+			ErrorMessage          string  `json:"errorMessage"`
+			ShortsRecordsUpdated  int32   `json:"shortsRecordsUpdated"`
+			PricesRecordsUpdated  int32   `json:"pricesRecordsUpdated"`
+			MetricsRecordsUpdated int32   `json:"metricsRecordsUpdated"`
+			AlgoliaRecordsSynced  int32   `json:"algoliaRecordsSynced"`
+			TotalDurationSeconds  float64 `json:"totalDurationSeconds"`
+			Environment           string  `json:"environment"`
+			Hostname              string  `json:"hostname"`
+		}
+
+		type Response struct {
+			Runs []SyncRunResponse `json:"runs"`
+		}
+
+		runResponses := make([]SyncRunResponse, len(runs))
+		for i, run := range runs {
+			runResponses[i] = SyncRunResponse{
+				RunId:                 run.RunId,
+				StartedAt:             run.StartedAt,
+				CompletedAt:           run.CompletedAt,
+				Status:                run.Status,
+				ErrorMessage:          run.ErrorMessage,
+				ShortsRecordsUpdated:  run.ShortsRecordsUpdated,
+				PricesRecordsUpdated:  run.PricesRecordsUpdated,
+				MetricsRecordsUpdated: run.MetricsRecordsUpdated,
+				AlgoliaRecordsSynced:  run.AlgoliaRecordsSynced,
+				TotalDurationSeconds:  run.TotalDurationSeconds,
+				Environment:           run.Environment,
+				Hostname:              run.Hostname,
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(Response{Runs: runResponses}); err != nil {
+			logger.Errorf("Error encoding JSON response: %v", err)
+			return
+		}
+	})
+
 	// Add statik file server
 	statikFS, err := fs.New()
 	if err != nil {

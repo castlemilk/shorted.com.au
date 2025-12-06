@@ -24,8 +24,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -41,8 +40,121 @@ ALPHA_VANTAGE_ENABLED = bool(ALPHA_VANTAGE_API_KEY)
 # Configuration
 SYNC_DAYS_STOCK_PRICES = int(os.getenv("SYNC_DAYS_STOCK_PRICES", "5"))
 SYNC_DAYS_SHORTS = int(os.getenv("SYNC_DAYS_SHORTS", "7"))
+SYNC_KEY_METRICS = os.getenv("SYNC_KEY_METRICS", "true").lower() == "true"
 RATE_LIMIT_DELAY_ALPHA = 12.0  # Alpha Vantage: 5 calls/minute
-RATE_LIMIT_DELAY_YAHOO = 0.3   # Yahoo Finance: more lenient
+RATE_LIMIT_DELAY_YAHOO = 0.3  # Yahoo Finance: more lenient
+import json
+import uuid
+import socket
+
+
+# ============================================================================
+# SYNC STATUS RECORDING
+# ============================================================================
+
+
+class SyncStatusRecorder:
+    """Records sync progress and metrics to the database."""
+
+    def __init__(self, conn):
+        self.conn = conn
+        self.run_id = str(uuid.uuid4())
+        self.started_at = None
+        self.metrics = {
+            "shorts_records_updated": 0,
+            "prices_records_updated": 0,
+            "prices_alpha_success": 0,
+            "prices_yahoo_success": 0,
+            "prices_failed": 0,
+            "prices_skipped": 0,
+            "metrics_records_updated": 0,
+            "metrics_failed": 0,
+            "algolia_records_synced": 0,
+        }
+
+    async def start(self):
+        """Record start of sync run."""
+        self.started_at = time.time()
+        hostname = socket.gethostname()
+        environment = os.getenv("ENVIRONMENT", "development")
+
+        await self.conn.execute(
+            """
+            INSERT INTO sync_status (
+                run_id, status, environment, hostname
+            ) VALUES ($1, 'running', $2, $3)
+        """,
+            self.run_id,
+            environment,
+            hostname,
+        )
+
+        logger.info(f"📝 Sync run started with ID: {self.run_id}")
+
+    async def update_metric(self, metric_name: str, value: int, increment: bool = True):
+        """Update a specific metric."""
+        if metric_name in self.metrics:
+            if increment:
+                self.metrics[metric_name] += value
+            else:
+                self.metrics[metric_name] = value
+
+    async def complete(self):
+        """Record successful completion."""
+        duration = time.time() - (self.started_at or time.time())
+
+        await self.conn.execute(
+            """
+            UPDATE sync_status SET
+                status = 'completed',
+                completed_at = CURRENT_TIMESTAMP,
+                shorts_records_updated = $2,
+                prices_records_updated = $3,
+                prices_alpha_success = $4,
+                prices_yahoo_success = $5,
+                prices_failed = $6,
+                prices_skipped = $7,
+                metrics_records_updated = $8,
+                metrics_failed = $9,
+                algolia_records_synced = $10,
+                total_duration_seconds = $11
+            WHERE run_id = $1
+        """,
+            self.run_id,
+            self.metrics["shorts_records_updated"],
+            self.metrics["prices_records_updated"],
+            self.metrics["prices_alpha_success"],
+            self.metrics["prices_yahoo_success"],
+            self.metrics["prices_failed"],
+            self.metrics["prices_skipped"],
+            self.metrics["metrics_records_updated"],
+            self.metrics["metrics_failed"],
+            self.metrics["algolia_records_synced"],
+            duration,
+        )
+
+        logger.info(f"📝 Sync run completed successfully")
+
+    async def fail(self, error_message: str):
+        """Record failure."""
+        duration = time.time() - (self.started_at or time.time())
+
+        await self.conn.execute(
+            """
+            UPDATE sync_status SET
+                status = 'failed',
+                completed_at = CURRENT_TIMESTAMP,
+                error_message = $2,
+                total_duration_seconds = $3
+            WHERE run_id = $1
+        """,
+            self.run_id,
+            error_message,
+            duration,
+        )
+
+        logger.error(f"📝 Sync run marked as failed: {error_message}")
+
 
 # ASIC Data URLs
 ASIC_DATA_URL = "https://download.asic.gov.au/short-selling/short-selling-data.json"
@@ -52,6 +164,7 @@ ASIC_BASE_URL = "https://download.asic.gov.au/short-selling/"
 # ============================================================================
 # SHORTS DATA SYNC
 # ============================================================================
+
 
 def generate_download_url(record: Dict) -> str:
     """Generate download URL for ASIC shorts data."""
@@ -66,13 +179,15 @@ async def get_last_shorts_date(conn) -> Optional[date]:
     if result and result["last_date"]:
         # Convert datetime to date if needed
         last_date = result["last_date"]
-        return last_date.date() if hasattr(last_date, 'date') else last_date
+        return last_date.date() if hasattr(last_date, "date") else last_date
     return None
 
 
-async def get_recent_shorts_files(days: int = 7, since_date: Optional[date] = None) -> List[str]:
+async def get_recent_shorts_files(
+    days: int = 7, since_date: Optional[date] = None
+) -> List[str]:
     """Get URLs for recent shorts data files from ASIC.
-    
+
     Args:
         days: Default number of days to look back if since_date is None
         since_date: If provided, fetch files from this date onwards
@@ -83,18 +198,18 @@ async def get_recent_shorts_files(days: int = 7, since_date: Optional[date] = No
     else:
         logger.info(f"📥 Fetching list of ASIC shorts files (last {days} days)...")
         cutoff_date = int((date.today() - timedelta(days=days)).strftime("%Y%m%d"))
-    
+
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(ASIC_DATA_URL)
             all_records = response.json()
-        
+
         recent_records = [r for r in all_records if r["date"] >= cutoff_date]
-        
+
         urls = [generate_download_url(r) for r in recent_records]
         logger.info(f"📊 Found {len(urls)} shorts data files to process")
         return urls
-        
+
     except Exception as e:
         logger.error(f"❌ Failed to fetch ASIC file list: {e}")
         return []
@@ -106,37 +221,40 @@ async def download_and_parse_shorts_csv(url: str) -> pd.DataFrame:
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.get(url)
             response.raise_for_status()
-        
+
         filename = url.split("/")[-1]
         date_str = "".join(filter(str.isdigit, filename.split("-")[0]))
-        
+
         from io import StringIO
+
         df = pd.read_csv(StringIO(response.text))
-        
+
         df.columns = (
             df.columns.str.upper()
             .str.strip()
             .str.replace(" ", "_")
             .str.replace("%", "PERCENT")
         )
-        
+
         df["DATE"] = pd.to_datetime(date_str, format="%Y%m%d")
         df["PRODUCT_CODE"] = df["PRODUCT_CODE"].str.strip()
         df["PRODUCT"] = df["PRODUCT"].str.strip()
-        
+
         return df
-        
+
     except Exception as e:
         logger.warning(f"⚠️  Failed to download {url}: {str(e)[:100]}")
         return pd.DataFrame()
 
 
-async def update_shorts_data(conn, days: int = 7):
+async def update_shorts_data(
+    conn, days: int = 7, recorder: Optional[SyncStatusRecorder] = None
+):
     """Update shorts position data from ASIC."""
-    logger.info("\n" + "="*60)
+    logger.info("\n" + "=" * 60)
     logger.info("📊 UPDATING SHORTS DATA")
-    logger.info("="*60)
-    
+    logger.info("=" * 60)
+
     # Check last ingested date
     last_date = await get_last_shorts_date(conn)
     if last_date:
@@ -146,33 +264,35 @@ async def update_shorts_data(conn, days: int = 7):
             logger.info(f"   ✓ Already up to date!")
             return 0
         # Fetch from last date onwards
-        urls = await get_recent_shorts_files(days=days, since_date=last_date + timedelta(days=1))
+        urls = await get_recent_shorts_files(
+            days=days, since_date=last_date + timedelta(days=1)
+        )
     else:
         logger.info(f"   No existing shorts data - initial load")
         urls = await get_recent_shorts_files(days)
-    
+
     if not urls:
         logger.warning("⚠️  No shorts data files to process")
         return 0
-    
+
     total_inserted = 0
-    
+
     for i, url in enumerate(urls, 1):
         logger.info(f"[{i}/{len(urls)}] Processing {url.split('/')[-1]}")
-        
+
         df = await download_and_parse_shorts_csv(url)
-        
+
         if df.empty:
             continue
-        
+
         try:
             records = df.to_records(index=False)
             inserted = 0
-            
+
             for record in records:
                 try:
                     await conn.execute(
-                        '''
+                        """
                         INSERT INTO shorts (
                             "DATE", "PRODUCT", "PRODUCT_CODE",
                             "REPORTED_SHORT_POSITIONS", "TOTAL_PRODUCT_IN_ISSUE",
@@ -184,25 +304,35 @@ async def update_shorts_data(conn, days: int = 7):
                             "TOTAL_PRODUCT_IN_ISSUE" = EXCLUDED."TOTAL_PRODUCT_IN_ISSUE",
                             "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" = 
                                 EXCLUDED."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
-                        ''',
-                        record['DATE'].date(),
-                        str(record['PRODUCT']),
-                        str(record['PRODUCT_CODE']),
-                        float(record.get('REPORTED_SHORT_POSITIONS', 0) or 0),
-                        float(record.get('TOTAL_PRODUCT_IN_ISSUE', 0) or 0),
-                        float(record.get('PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS', 0) or 0)
+                        """,
+                        record["DATE"].date(),
+                        str(record["PRODUCT"]),
+                        str(record["PRODUCT_CODE"]),
+                        float(record.get("REPORTED_SHORT_POSITIONS", 0) or 0),
+                        float(record.get("TOTAL_PRODUCT_IN_ISSUE", 0) or 0),
+                        float(
+                            record.get(
+                                "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS",
+                                0,
+                            )
+                            or 0
+                        ),
                     )
                     inserted += 1
                 except Exception:
                     continue
-            
+
             total_inserted += inserted
             logger.info(f"  ✅ Inserted/Updated {inserted} records")
-            
+
         except Exception as e:
             logger.error(f"  ❌ Error: {str(e)[:100]}")
-    
+
     logger.info(f"\n✅ Shorts update complete: {total_inserted} total records updated")
+
+    if recorder:
+        await recorder.update_metric("shorts_records_updated", total_inserted)
+
     return total_inserted
 
 
@@ -210,62 +340,69 @@ async def update_shorts_data(conn, days: int = 7):
 # STOCK PRICE SYNC WITH ALPHA VANTAGE + YAHOO FALLBACK
 # ============================================================================
 
-async def fetch_from_alpha_vantage(session: aiohttp.ClientSession, stock_code: str, days: int) -> Optional[List[Dict]]:
+
+async def fetch_from_alpha_vantage(
+    session: aiohttp.ClientSession, stock_code: str, days: int
+) -> Optional[List[Dict]]:
     """Fetch recent price data from Alpha Vantage."""
     if not ALPHA_VANTAGE_API_KEY:
         return None
-    
+
     try:
         # Alpha Vantage uses plain stock codes for ASX (strip .AX suffix if present)
-        symbol = stock_code.replace('.AX', '')
-        
+        symbol = stock_code.replace(".AX", "")
+
         params = {
-            'function': 'TIME_SERIES_DAILY',
-            'symbol': symbol,
-            'apikey': ALPHA_VANTAGE_API_KEY,
-            'outputsize': 'compact'  # Last 100 days
+            "function": "TIME_SERIES_DAILY",
+            "symbol": symbol,
+            "apikey": ALPHA_VANTAGE_API_KEY,
+            "outputsize": "compact",  # Last 100 days
         }
-        
-        async with session.get('https://www.alphavantage.co/query', params=params) as response:
+
+        async with session.get(
+            "https://www.alphavantage.co/query", params=params
+        ) as response:
             if response.status == 429:
                 logger.warning(f"  ⚠️  Alpha Vantage rate limit hit")
                 return None
-            
+
             if response.status != 200:
                 return None
-            
+
             data = await response.json()
-            
+
             # Check for errors
-            if 'Error Message' in data or 'Note' in data or 'Information' in data:
+            if "Error Message" in data or "Note" in data or "Information" in data:
                 return None
-            
-            time_series = data.get('Time Series (Daily)', {})
+
+            time_series = data.get("Time Series (Daily)", {})
             if not time_series:
                 return None
-            
+
             # Convert to our format
             cutoff_date = date.today() - timedelta(days=days + 5)
             result = []
-            
+
             for date_str, values in time_series.items():
                 price_date = date.fromisoformat(date_str)
                 if price_date < cutoff_date:
                     continue
-                
-                result.append({
-                    'stock_code': stock_code,
-                    'date': price_date,
-                    'open': round(float(values['1. open']), 2),
-                    'high': round(float(values['2. high']), 2),
-                    'low': round(float(values['3. low']), 2),
-                    'close': round(float(values['4. close']), 2),
-                    'adjusted_close': round(float(values['4. close']), 2),
-                    'volume': int(values['5. volume'])
-                })
-            
+
+                result.append(
+                    {
+                        "stock_code": stock_code,
+                        "date": price_date,
+                        "open": round(float(values["1. open"]), 2),
+                        "high": round(float(values["2. high"]), 2),
+                        "low": round(float(values["3. low"]), 2),
+                        "close": round(float(values["4. close"]), 2),
+                        "adjusted_close": round(float(values["4. close"]), 2),
+                        "volume": int(values["5. volume"]),
+                    }
+                )
+
             return result if result else None
-            
+
     except Exception as e:
         logger.debug(f"  Alpha Vantage error: {str(e)[:50]}")
         return None
@@ -274,43 +411,47 @@ async def fetch_from_alpha_vantage(session: aiohttp.ClientSession, stock_code: s
 def fetch_from_yahoo_finance(stock_code: str, days: int) -> Optional[List[Dict]]:
     """Fetch recent price data from Yahoo Finance (fallback)."""
     # Add .AX suffix only if not already present
-    yf_ticker = stock_code if stock_code.endswith('.AX') else f"{stock_code}.AX"
-    
+    yf_ticker = stock_code if stock_code.endswith(".AX") else f"{stock_code}.AX"
+
     try:
         ticker = yf.Ticker(yf_ticker)
         end_date = date.today()
         start_date = end_date - timedelta(days=days + 5)
-        
+
         hist = ticker.history(start=start_date, end=end_date, interval="1d")
-        
+
         if hist.empty:
             return None
-        
+
         data = []
         for date_idx, row in hist.iterrows():
             if pd.isna(row["Open"]) or pd.isna(row["Close"]):
                 continue
-            
-            data.append({
-                "stock_code": stock_code,
-                "date": date_idx.date(),
-                "open": round(float(row["Open"]), 2),
-                "high": round(float(row["High"]), 2),
-                "low": round(float(row["Low"]), 2),
-                "close": round(float(row["Close"]), 2),
-                "adjusted_close": round(float(row["Close"]), 2),
-                "volume": int(row["Volume"]) if not pd.isna(row["Volume"]) else 0,
-            })
-        
+
+            data.append(
+                {
+                    "stock_code": stock_code,
+                    "date": date_idx.date(),
+                    "open": round(float(row["Open"]), 2),
+                    "high": round(float(row["High"]), 2),
+                    "low": round(float(row["Low"]), 2),
+                    "close": round(float(row["Close"]), 2),
+                    "adjusted_close": round(float(row["Close"]), 2),
+                    "volume": int(row["Volume"]) if not pd.isna(row["Volume"]) else 0,
+                }
+            )
+
         return data if data else None
-        
+
     except Exception:
         return None
 
 
 async def get_stocks_with_price_data(conn) -> List[str]:
     """Get list of stocks that already have price data."""
-    stocks = await conn.fetch("SELECT DISTINCT stock_code FROM stock_prices ORDER BY stock_code")
+    stocks = await conn.fetch(
+        "SELECT DISTINCT stock_code FROM stock_prices ORDER BY stock_code"
+    )
     stock_list = [row["stock_code"] for row in stocks]
     logger.info(f"📋 Found {len(stock_list)} stocks with existing price data")
     return stock_list
@@ -320,12 +461,12 @@ async def get_last_ingested_date(conn, stock_code: str) -> Optional[date]:
     """Get the most recent date with price data for a given stock."""
     result = await conn.fetchrow(
         "SELECT MAX(date) as last_date FROM stock_prices WHERE stock_code = $1",
-        stock_code
+        stock_code,
     )
     if result and result["last_date"]:
         # Convert datetime to date if needed
         last_date = result["last_date"]
-        return last_date.date() if hasattr(last_date, 'date') else last_date
+        return last_date.date() if hasattr(last_date, "date") else last_date
     return None
 
 
@@ -334,9 +475,9 @@ def calculate_days_to_fetch(last_date: Optional[date], max_days: int = 365) -> i
     if not last_date:
         # No data yet, fetch default period
         return max_days
-    
+
     days_missing = (date.today() - last_date).days
-    
+
     # Add 5 extra days for overlap to ensure no gaps
     return min(days_missing + 5, max_days)
 
@@ -345,13 +486,13 @@ async def insert_price_data(conn, data: List[Dict]) -> int:
     """Insert stock price data into database (upsert)."""
     if not data:
         return 0
-    
+
     try:
         inserted = 0
         for d in data:
             try:
                 await conn.execute(
-                    '''
+                    """
                     INSERT INTO stock_prices (
                         stock_code, date, open, high, low, close, adjusted_close, volume
                     )
@@ -364,73 +505,87 @@ async def insert_price_data(conn, data: List[Dict]) -> int:
                         adjusted_close = EXCLUDED.adjusted_close,
                         volume = EXCLUDED.volume,
                         updated_at = CURRENT_TIMESTAMP
-                    ''',
-                    d["stock_code"], d["date"], d["open"], d["high"],
-                    d["low"], d["close"], d["adjusted_close"], d["volume"]
+                    """,
+                    d["stock_code"],
+                    d["date"],
+                    d["open"],
+                    d["high"],
+                    d["low"],
+                    d["close"],
+                    d["adjusted_close"],
+                    d["volume"],
                 )
                 inserted += 1
             except Exception:
                 continue
-        
+
         return inserted
-        
+
     except Exception:
         return 0
 
 
-async def update_stock_prices(conn, days: int = 5):
+async def update_stock_prices(
+    conn, days: int = 5, recorder: Optional[SyncStatusRecorder] = None
+):
     """Update stock price data with Alpha Vantage primary, Yahoo Finance fallback."""
-    logger.info("\n" + "="*60)
+    logger.info("\n" + "=" * 60)
     logger.info("💰 UPDATING STOCK PRICES")
-    logger.info("="*60)
-    
+    logger.info("=" * 60)
+
     if ALPHA_VANTAGE_ENABLED:
         logger.info("🔑 Alpha Vantage API key found - using as primary source")
         logger.info("📊 Yahoo Finance enabled as fallback")
     else:
         logger.info("⚠️  No Alpha Vantage API key - using Yahoo Finance only")
-    
+
     stocks = await get_stocks_with_price_data(conn)
-    
+
     if not stocks:
         logger.warning("⚠️  No stocks with existing price data")
         return 0
-    
-    logger.info(f"🔄 Updating {len(stocks)} stocks (from last ingested date to today)\n")
-    
+
+    logger.info(
+        f"🔄 Updating {len(stocks)} stocks (from last ingested date to today)\n"
+    )
+
     total_inserted = 0
     alpha_success = 0
     yahoo_success = 0
     failed = 0
     skipped = 0
-    
+
     # Create aiohttp session for Alpha Vantage
     session = aiohttp.ClientSession() if ALPHA_VANTAGE_ENABLED else None
-    
+
     try:
         for i, stock_code in enumerate(stocks, 1):
             # Check last ingested date for this stock
             last_date = await get_last_ingested_date(conn, stock_code)
             days_to_fetch = calculate_days_to_fetch(last_date, max_days=days)
-            
+
             # Skip if we already have today's data
             if last_date and last_date >= date.today():
-                logger.info(f"[{i:3d}/{len(stocks)}] {stock_code}: ✓ Already up to date (last: {last_date})")
+                logger.info(
+                    f"[{i:3d}/{len(stocks)}] {stock_code}: ✓ Already up to date (last: {last_date})"
+                )
                 skipped += 1
                 continue
-            
+
             data = None
             source = None
-            
+
             # Try Alpha Vantage first
             if ALPHA_VANTAGE_ENABLED and session:
-                data = await fetch_from_alpha_vantage(session, stock_code, days_to_fetch)
+                data = await fetch_from_alpha_vantage(
+                    session, stock_code, days_to_fetch
+                )
                 if data:
                     source = "Alpha Vantage"
                     alpha_success += 1
                     # Respect Alpha Vantage rate limits
                     await asyncio.sleep(RATE_LIMIT_DELAY_ALPHA)
-            
+
             # Fallback to Yahoo Finance
             if not data:
                 data = fetch_from_yahoo_finance(stock_code, days_to_fetch)
@@ -438,103 +593,253 @@ async def update_stock_prices(conn, days: int = 5):
                     source = "Yahoo Finance"
                     yahoo_success += 1
                     time.sleep(RATE_LIMIT_DELAY_YAHOO)
-            
+
             if not data:
                 last_info = f"last: {last_date}" if last_date else "no data yet"
-                logger.info(f"[{i:3d}/{len(stocks)}] {stock_code}: ⚠️  No data from any source ({last_info})")
+                logger.info(
+                    f"[{i:3d}/{len(stocks)}] {stock_code}: ⚠️  No data from any source ({last_info})"
+                )
                 failed += 1
                 continue
-            
+
             # Insert data
             inserted = await insert_price_data(conn, data)
-            
+
             if inserted > 0:
                 last_info = f"from {last_date}" if last_date else "initial load"
-                logger.info(f"[{i:3d}/{len(stocks)}] {stock_code}: ✅ {inserted} records ({source}, {last_info})")
+                logger.info(
+                    f"[{i:3d}/{len(stocks)}] {stock_code}: ✅ {inserted} records ({source}, {last_info})"
+                )
                 total_inserted += inserted
             else:
                 logger.info(f"[{i:3d}/{len(stocks)}] {stock_code}: ❌ Insert failed")
                 failed += 1
-    
+
     finally:
         if session:
             await session.close()
-    
+
     logger.info(f"\n✅ Stock prices update complete:")
     logger.info(f"   Alpha Vantage: {alpha_success}")
     logger.info(f"   Yahoo Finance: {yahoo_success}")
     logger.info(f"   Already up-to-date: {skipped}")
     logger.info(f"   Failed: {failed}")
     logger.info(f"   Total records inserted: {total_inserted}")
-    
+
+    if recorder:
+        await recorder.update_metric("prices_records_updated", total_inserted)
+        await recorder.update_metric("prices_alpha_success", alpha_success)
+        await recorder.update_metric("prices_yahoo_success", yahoo_success)
+        await recorder.update_metric("prices_failed", failed)
+        await recorder.update_metric("prices_skipped", skipped)
+
     return total_inserted
+
+
+# ============================================================================
+# KEY METRICS SYNC
+# ============================================================================
+
+
+def fetch_key_metrics_from_yahoo(stock_code: str) -> Optional[Dict]:
+    """Fetch key metrics from Yahoo Finance for a single stock."""
+    yahoo_symbol = f"{stock_code}.AX"
+
+    try:
+        ticker = yf.Ticker(yahoo_symbol)
+        info = ticker.info
+
+        if not info or info.get("regularMarketPrice") is None:
+            return None
+
+        return {
+            "stock_code": stock_code,
+            "market_cap": info.get("marketCap"),
+            "pe_ratio": info.get("trailingPE"),
+            "forward_pe": info.get("forwardPE"),
+            "eps": info.get("trailingEps"),
+            "dividend_yield": info.get("dividendYield"),
+            "book_value": info.get("bookValue"),
+            "price_to_book": info.get("priceToBook"),
+            "revenue": info.get("totalRevenue"),
+            "profit_margin": info.get("profitMargins"),
+            "debt_to_equity": info.get("debtToEquity"),
+            "return_on_equity": info.get("returnOnEquity"),
+            "fifty_two_week_high": info.get("fiftyTwoWeekHigh"),
+            "fifty_two_week_low": info.get("fiftyTwoWeekLow"),
+            "avg_volume": info.get("averageVolume"),
+            "beta": info.get("beta"),
+        }
+    except Exception:
+        return None
+
+
+async def update_key_metrics(
+    conn, batch_size: int = 50, recorder: Optional[SyncStatusRecorder] = None
+):
+    """Update key metrics for all stocks in company-metadata table."""
+    logger.info("\n" + "=" * 60)
+    logger.info("📈 UPDATING KEY METRICS")
+    logger.info("=" * 60)
+
+    # Get all stocks that need metrics updated
+    stocks = await conn.fetch(
+        """
+        SELECT stock_code FROM "company-metadata" 
+        WHERE stock_code IS NOT NULL 
+        ORDER BY stock_code
+    """
+    )
+    stock_list = [row["stock_code"] for row in stocks]
+
+    if not stock_list:
+        logger.warning("⚠️  No stocks found in company-metadata")
+        return 0
+
+    logger.info(f"🔄 Updating key metrics for {len(stock_list)} stocks\n")
+
+    updated = 0
+    failed = 0
+
+    for i, stock_code in enumerate(stock_list, 1):
+        metrics = fetch_key_metrics_from_yahoo(stock_code)
+
+        if not metrics:
+            if i <= 10 or i % 100 == 0:  # Log first 10 and every 100th
+                logger.info(
+                    f"[{i:4d}/{len(stock_list)}] {stock_code}: ⚠️  No metrics available"
+                )
+            failed += 1
+            time.sleep(RATE_LIMIT_DELAY_YAHOO)
+            continue
+
+        try:
+            await conn.execute(
+                """
+                UPDATE "company-metadata"
+                SET 
+                    key_metrics = $2::jsonb,
+                    key_metrics_updated_at = CURRENT_TIMESTAMP
+                WHERE stock_code = $1
+            """,
+                stock_code,
+                json.dumps(metrics),
+            )
+
+            if i <= 10 or i % 100 == 0:
+                logger.info(
+                    f"[{i:4d}/{len(stock_list)}] {stock_code}: ✅ Updated (P/E: {metrics.get('pe_ratio', 'N/A')}, MCap: {metrics.get('market_cap', 'N/A')})"
+                )
+            updated += 1
+
+        except Exception as e:
+            logger.error(f"[{i:4d}/{len(stock_list)}] {stock_code}: ❌ DB error: {e}")
+            failed += 1
+
+        time.sleep(RATE_LIMIT_DELAY_YAHOO)
+
+    logger.info(f"\n✅ Key metrics update complete:")
+    logger.info(f"   Updated: {updated}")
+    logger.info(f"   Failed/No data: {failed}")
+
+    if recorder:
+        await recorder.update_metric("metrics_records_updated", updated)
+        await recorder.update_metric("metrics_failed", failed)
+
+    return updated
 
 
 # ============================================================================
 # MAIN EXECUTION
 # ============================================================================
 
+
 async def connect_to_database():
     """Connect to database using parsed URL to avoid SCRAM auth issues with special chars."""
     parsed = urlparse(DATABASE_URL)
-    
+
     # Parse connection parameters
     conn_params = {
-        'host': parsed.hostname,
-        'port': parsed.port or 5432,
-        'database': parsed.path.lstrip('/'),
-        'user': parsed.username,
-        'password': parsed.password
+        "host": parsed.hostname,
+        "port": parsed.port or 5432,
+        "database": parsed.path.lstrip("/"),
+        "user": parsed.username,
+        "password": parsed.password,
     }
-    
-    logger.info(f"🔌 Connecting to database: {conn_params['user']}@{conn_params['host']}:{conn_params['port']}/{conn_params['database']}")
-    
+
+    logger.info(
+        f"🔌 Connecting to database: {conn_params['user']}@{conn_params['host']}:{conn_params['port']}/{conn_params['database']}"
+    )
+
     return await asyncpg.connect(**conn_params)
 
 
 async def main():
     """Main sync function."""
     logger.info("🚀 COMPREHENSIVE DAILY SYNC - STARTING")
-    logger.info("="*60)
+    logger.info("=" * 60)
     logger.info(f"⏰ Started at: {date.today()}")
     logger.info(f"📊 Shorts sync: Last {SYNC_DAYS_SHORTS} days")
     logger.info(f"💰 Stock prices sync: Last {SYNC_DAYS_STOCK_PRICES} days")
+    logger.info(f"📈 Key metrics sync: {'ENABLED' if SYNC_KEY_METRICS else 'DISABLED'}")
     if ALPHA_VANTAGE_ENABLED:
         logger.info(f"🔑 Alpha Vantage: ENABLED (primary)")
         logger.info(f"📊 Yahoo Finance: ENABLED (fallback)")
     else:
         logger.info(f"📊 Yahoo Finance: ENABLED (only)")
-    logger.info("="*60)
-    
+    logger.info("=" * 60)
+
     start_time = time.time()
-    
+
     conn = await connect_to_database()
-    
+    recorder = SyncStatusRecorder(conn)
+
     try:
+        await recorder.start()
+
         # Update shorts data
-        shorts_updated = await update_shorts_data(conn, SYNC_DAYS_SHORTS)
-        
+        shorts_updated = await update_shorts_data(conn, SYNC_DAYS_SHORTS, recorder)
+
         # Update stock prices
-        prices_updated = await update_stock_prices(conn, SYNC_DAYS_STOCK_PRICES)
-        
+        prices_updated = await update_stock_prices(
+            conn, SYNC_DAYS_STOCK_PRICES, recorder
+        )
+
+        # Update key metrics (P/E, market cap, etc.) from Yahoo Finance
+        metrics_updated = 0
+        if SYNC_KEY_METRICS:
+            metrics_updated = await update_key_metrics(
+                conn, batch_size=50, recorder=recorder
+            )
+
         # Final summary
         duration = time.time() - start_time
-        logger.info("\n" + "="*60)
+        logger.info("\n" + "=" * 60)
         logger.info("🎉 SYNC COMPLETE")
-        logger.info("="*60)
+        logger.info("=" * 60)
         logger.info(f"📊 Shorts records updated: {shorts_updated:,}")
         logger.info(f"💰 Price records updated: {prices_updated:,}")
+        if SYNC_KEY_METRICS:
+            logger.info(f"📈 Key metrics updated: {metrics_updated:,}")
         logger.info(f"⏱️  Duration: {duration:.1f} seconds")
-        logger.info("="*60)
-        
+        logger.info("=" * 60)
+
         # Trigger Algolia sync if configured
         if os.getenv("SYNC_ALGOLIA", "").lower() == "true":
             await trigger_algolia_sync()
-        
+            # Algolia sync doesn't return metrics in current implementation
+            # We'll assume it started if no error raised
+            await recorder.update_metric(
+                "algolia_records_synced", 0
+            )  # Or update if we change trigger_algolia_sync to return count
+
+        await recorder.complete()
+
     except Exception as e:
         logger.error(f"\n❌ SYNC FAILED: {e}")
+        await recorder.fail(str(e))
         raise
-    
+
     finally:
         await conn.close()
 
@@ -543,17 +848,17 @@ async def trigger_algolia_sync():
     """Trigger Algolia index sync via HTTP call or subprocess."""
     algolia_app_id = os.getenv("ALGOLIA_APP_ID")
     algolia_admin_key = os.getenv("ALGOLIA_ADMIN_KEY")
-    
+
     if not algolia_app_id or not algolia_admin_key:
         logger.warning("⚠️  Algolia credentials not configured, skipping index sync")
         return
-    
+
     logger.info("\n🔍 Triggering Algolia index sync...")
-    
+
     # Option 1: Call the sync script directly (if Node.js available)
     import subprocess
     import shutil
-    
+
     # Check if we're in a Cloud Run environment with the sync script
     sync_script = "/app/scripts/sync-search-index.sh"
     if os.path.exists(sync_script):
@@ -587,7 +892,9 @@ async def trigger_algolia_sync():
                 async with httpx.AsyncClient(timeout=300.0) as client:
                     response = await client.post(
                         algolia_sync_url,
-                        headers={"Authorization": f"Bearer {os.getenv('ALGOLIA_SYNC_TOKEN', '')}"},
+                        headers={
+                            "Authorization": f"Bearer {os.getenv('ALGOLIA_SYNC_TOKEN', '')}"
+                        },
                     )
                     if response.status_code == 200:
                         logger.info("✅ Algolia sync triggered successfully")
@@ -596,9 +903,10 @@ async def trigger_algolia_sync():
             except Exception as e:
                 logger.error(f"❌ Algolia sync request failed: {e}")
         else:
-            logger.info("ℹ️  No Algolia sync mechanism configured (set ALGOLIA_SYNC_URL or include sync script)")
+            logger.info(
+                "ℹ️  No Algolia sync mechanism configured (set ALGOLIA_SYNC_URL or include sync script)"
+            )
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-

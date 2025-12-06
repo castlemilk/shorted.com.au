@@ -1,6 +1,7 @@
 package shorts
 
 import (
+	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stockv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 )
 
@@ -12,6 +13,7 @@ type Store interface {
 	GetIndustryTreeMap(int32, string, string) (*stockv1alpha1.IndustryTreeMap, error)
 	RegisterEmail(string) error
 	SearchStocks(string, int32) ([]*stockv1alpha1.Stock, error)
+	GetSyncStatus(int) ([]*shortsv1alpha1.SyncRun, error)
 }
 
 func NewStore(config Config) Store {
