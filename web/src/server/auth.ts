@@ -199,9 +199,11 @@ export const authOptions = {
       const adminEmails = (process.env.ADMIN_EMAILS ?? "")
         .split(",")
         .map((e) => e.trim());
-      
+
       // In non-production, allow E2E test user to be admin
-      const isTestUser = process.env.NODE_ENV !== "production" && token.email === E2E_TEST_USER.email;
+      const isTestUser =
+        process.env.NODE_ENV !== "production" &&
+        token.email === E2E_TEST_USER.email;
       token.isAdmin = isTestUser || adminEmails.includes(token.email ?? "");
 
       return token;

@@ -326,8 +326,8 @@ def crawl_for_reports(
             seen_urls.add(normalized)
             unique_reports.append(report)
 
-    # Sort by year (newest first)
-    unique_reports.sort(key=lambda x: x.get("date", ""), reverse=True)
+    # Sort by year (newest first), handle None dates
+    unique_reports.sort(key=lambda x: x.get("date") or "", reverse=True)
 
     return unique_reports[:10]  # Limit to 10 most recent
 
@@ -566,7 +566,10 @@ CRITICAL:
 
 
 def save_reports_to_database(stock_code: str, reports: List[Dict]) -> int:
-    """Save discovered reports to financial_report_files table"""
+    """Save discovered reports to financial_report_files table.
+
+    Uses ON CONFLICT DO NOTHING to handle duplicates gracefully.
+    """
     if not reports:
         return 0
 
@@ -575,56 +578,50 @@ def save_reports_to_database(stock_code: str, reports: List[Dict]) -> int:
 
     with engine.connect() as conn:
         for report in reports:
-            # Check if already exists
-            check_query = text(
+            # Use ON CONFLICT DO NOTHING to handle duplicates gracefully
+            insert_query = text(
                 """
-                SELECT id FROM financial_report_files 
-                WHERE stock_code = :stock_code AND source_url = :source_url
+                INSERT INTO financial_report_files (
+                    stock_code, report_type, report_date, report_title,
+                    source_url, source_domain, crawler_source, sync_status
+                ) VALUES (
+                    :stock_code, :report_type, :report_date, :report_title,
+                    :source_url, :source_domain, :crawler_source, 'pending'
+                )
+                ON CONFLICT (stock_code, source_url) DO NOTHING
             """
             )
 
-            existing = conn.execute(
-                check_query, {"stock_code": stock_code, "source_url": report["url"]}
-            ).fetchone()
+            domain = urlparse(report["url"]).netloc
 
-            if not existing:
-                # Insert new report
-                insert_query = text(
-                    """
-                    INSERT INTO financial_report_files (
-                        stock_code, report_type, report_date, report_title,
-                        source_url, source_domain, crawler_source, sync_status
-                    ) VALUES (
-                        :stock_code, :report_type, :report_date, :report_title,
-                        :source_url, :source_domain, :crawler_source, 'pending'
-                    )
-                """
-                )
+            result = conn.execute(
+                insert_query,
+                {
+                    "stock_code": stock_code,
+                    "report_type": report.get("type", "annual_report"),
+                    "report_date": report.get("date"),
+                    "report_title": report.get("title"),
+                    "source_url": report["url"],
+                    "source_domain": domain,
+                    "crawler_source": report.get("source", "smart_crawler"),
+                },
+            )
 
-                domain = urlparse(report["url"]).netloc
-
-                conn.execute(
-                    insert_query,
-                    {
-                        "stock_code": stock_code,
-                        "report_type": report.get("type", "annual_report"),
-                        "report_date": report.get("date"),
-                        "report_title": report.get("title"),
-                        "source_url": report["url"],
-                        "source_domain": domain,
-                        "crawler_source": report.get("source", "smart_crawler"),
-                    },
-                )
-
-                conn.commit()
+            # rowcount is 0 if ON CONFLICT skipped the insert
+            if result.rowcount > 0:
                 saved_count += 1
 
-    # Don't dispose - we're reusing the engine
+        conn.commit()
+
     return saved_count
 
 
 def process_company(company: pd.Series) -> Dict[str, Any]:
-    """Process a single company: crawl, enrich with GPT, fetch Yahoo Finance data"""
+    """Process a single company: crawl, enrich with GPT, fetch Yahoo Finance data.
+
+    Each step is resilient - failures in one step don't prevent others.
+    GPT enrichment (OpenAI) takes precedence and determines success/failure.
+    """
     stock_code = company["stock_code"]
 
     print(f"\n🔍 Processing {stock_code} - {company['company_name']}")
@@ -634,25 +631,49 @@ def process_company(company: pd.Series) -> Dict[str, Any]:
         "enrichment_status": "failed",
         "enrichment_error": None,
         "enrichment_date": datetime.now().isoformat(),
+        "logo_gcs_url": company.get("logo_gcs_url"),
     }
 
+    reports = []
+    warnings = []
+
+    # Step 1: Fetch annual reports (non-blocking)
     try:
-        # Step 1: Fetch annual reports
         print(f"  📄 Crawling for financial reports...")
         reports = fetch_annual_reports(company)
         print(f"    ✅ Found {len(reports)} reports")
+    except Exception as e:
+        warnings.append(f"Report crawling failed: {e}")
+        print(f"    ⚠ Report crawling failed: {e}")
 
-        # Save reports to database
-        if reports:
+    # Step 2: Save reports to database (non-blocking)
+    if reports:
+        try:
             saved = save_reports_to_database(stock_code, reports)
             print(f"    💾 Saved {saved} new reports to database")
+        except Exception as e:
+            warnings.append(f"Report saving failed: {e}")
+            print(f"    ⚠ Report saving failed: {e}")
 
-        # Step 2: Enrich with GPT
+    # Step 3: GPT Enrichment (CRITICAL - determines success/failure)
+    try:
         print(f"  🤖 Enriching with GPT-5.1...")
         enriched_data = enrich_with_gpt(company, reports)
         result.update(enriched_data)
+        result["financial_reports"] = reports
 
-        # Step 3: Fetch Yahoo Finance data
+        # GPT succeeded - mark as completed
+        result["enrichment_status"] = "completed"
+
+    except Exception as e:
+        # GPT failed - this is a critical failure
+        result["enrichment_status"] = "failed"
+        result["enrichment_error"] = str(e)
+        print(f"  ❌ GPT enrichment failed: {e}")
+        return result
+
+    # Step 4: Fetch Yahoo Finance data (non-blocking)
+    try:
         print(f"  📊 Fetching Yahoo Finance data...")
         yahoo_data = fetch_yahoo_finance_data(stock_code)
 
@@ -662,26 +683,26 @@ def process_company(company: pd.Series) -> Dict[str, Any]:
         else:
             print(f"    ⚠ No Yahoo Finance data available")
             result["financial_statements"] = None
-
-        # Add metadata
-        result["financial_reports"] = reports
-        result["logo_gcs_url"] = company["logo_gcs_url"]
-        result["enrichment_status"] = "completed"
-
-        print(f"  ✅ Completed successfully")
-
     except Exception as e:
-        result["enrichment_status"] = "failed"
-        result["enrichment_error"] = str(e)
-        print(f"  ❌ Error: {e}")
+        warnings.append(f"Yahoo Finance failed: {e}")
+        print(f"    ⚠ Yahoo Finance failed: {e}")
+        result["financial_statements"] = None
+
+    # Log warnings if any non-critical steps failed
+    if warnings:
+        result["enrichment_warnings"] = warnings
+        print(f"  ✅ Completed with {len(warnings)} warning(s)")
+    else:
+        print(f"  ✅ Completed successfully")
 
     return result
 
 
-def update_database(result: Dict[str, Any]):
-    """Update company-metadata table with enrichment results"""
-    engine = get_target_engine()
+def update_database(result: Dict[str, Any], max_retries: int = 3):
+    """Update company-metadata table with enrichment results.
 
+    Includes retry logic with exponential backoff for connection pool issues.
+    """
     # Prepare update data
     update_data = {
         "stock_code": result["stock_code"],
@@ -731,11 +752,22 @@ def update_database(result: Dict[str, Any]):
     """
     )
 
-    with engine.connect() as conn:
-        conn.execute(query, update_data)
-        conn.commit()
-
-    # Don't dispose - we're reusing the engine
+    for attempt in range(max_retries):
+        try:
+            engine = get_target_engine()
+            with engine.connect() as conn:
+                conn.execute(query, update_data)
+                conn.commit()
+            return  # Success
+        except Exception as e:
+            if "MaxClientsInSessionMode" in str(e) and attempt < max_retries - 1:
+                wait_time = (attempt + 1) * 30  # 30s, 60s, 90s
+                print(
+                    f"    ⏳ Connection pool exhausted, waiting {wait_time}s (attempt {attempt + 1}/{max_retries})"
+                )
+                time.sleep(wait_time)
+            else:
+                raise
 
 
 def load_checkpoint() -> set:
@@ -797,13 +829,12 @@ def enrich_database(
 
         if result["enrichment_status"] == "completed":
             stats["success"] += 1
+            # Only checkpoint successful enrichments (so failed ones get retried)
+            processed.add(company["stock_code"])
+            if len(processed) % 10 == 0:
+                save_checkpoint(processed)
         else:
             stats["failed"] += 1
-
-        # Update checkpoint
-        processed.add(company["stock_code"])
-        if len(processed) % 10 == 0:
-            save_checkpoint(processed)
 
         # Rate limiting
         time.sleep(2)  # Be nice to OpenAI API
