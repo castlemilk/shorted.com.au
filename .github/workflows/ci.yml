@@ -39,8 +39,8 @@ jobs:
 
   deploy-backend:
     needs: [check-secrets, test-unit]
-    # DISABLED: Now using terraform-deploy.yml workflow for all deployments
-    if: false
+    # Re-enabled for preview deployments (terraform-deploy has permission issues)
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       shorts-url: ${{ steps.deploy-services.outputs.shorts-url }}
