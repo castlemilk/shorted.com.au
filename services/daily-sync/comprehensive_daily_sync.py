@@ -293,6 +293,9 @@ async def update_shorts_data(
 
             for record in records:
                 try:
+                    # Convert numpy.datetime64 to Python date
+                    date_val = pd.Timestamp(record["DATE"]).date()
+
                     await conn.execute(
                         """
                         INSERT INTO shorts (
@@ -307,21 +310,22 @@ async def update_shorts_data(
                             "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" = 
                                 EXCLUDED."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
                         """,
-                        record["DATE"].date(),
+                        date_val,
                         str(record["PRODUCT"]),
                         str(record["PRODUCT_CODE"]),
-                        float(record.get("REPORTED_SHORT_POSITIONS", 0) or 0),
-                        float(record.get("TOTAL_PRODUCT_IN_ISSUE", 0) or 0),
+                        float(record["REPORTED_SHORT_POSITIONS"] or 0),
+                        float(record["TOTAL_PRODUCT_IN_ISSUE"] or 0),
                         float(
-                            record.get(
-                                "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS",
-                                0,
-                            )
+                            record[
+                                "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
+                            ]
                             or 0
                         ),
                     )
                     inserted += 1
-                except Exception:
+                except Exception as e:
+                    if inserted == 0:  # Log first error for debugging
+                        logger.debug(f"Insert error: {e}")
                     continue
 
             total_inserted += inserted
@@ -410,7 +414,9 @@ async def fetch_from_alpha_vantage(
         return None
 
 
-def fetch_from_yahoo_finance(stock_code: str, days: int, max_retries: int = 3) -> Optional[List[Dict]]:
+def fetch_from_yahoo_finance(
+    stock_code: str, days: int, max_retries: int = 3
+) -> Optional[List[Dict]]:
     """Fetch recent price data from Yahoo Finance with retry and exponential backoff."""
     # Add .AX suffix only if not already present
     yf_ticker = stock_code if stock_code.endswith(".AX") else f"{stock_code}.AX"
@@ -426,8 +432,10 @@ def fetch_from_yahoo_finance(stock_code: str, days: int, max_retries: int = 3) -
             if hist.empty:
                 # Empty response might be rate limiting - backoff and retry
                 if attempt < max_retries - 1:
-                    backoff = RATE_LIMIT_DELAY_YAHOO * (2 ** attempt)
-                    logger.debug(f"  Empty response for {yf_ticker}, backing off {backoff:.1f}s")
+                    backoff = RATE_LIMIT_DELAY_YAHOO * (2**attempt)
+                    logger.debug(
+                        f"  Empty response for {yf_ticker}, backing off {backoff:.1f}s"
+                    )
                     time.sleep(min(backoff, RATE_LIMIT_DELAY_YAHOO_MAX))
                     continue
                 return None
@@ -446,7 +454,9 @@ def fetch_from_yahoo_finance(stock_code: str, days: int, max_retries: int = 3) -
                         "low": round(float(row["Low"]), 2),
                         "close": round(float(row["Close"]), 2),
                         "adjusted_close": round(float(row["Close"]), 2),
-                        "volume": int(row["Volume"]) if not pd.isna(row["Volume"]) else 0,
+                        "volume": (
+                            int(row["Volume"]) if not pd.isna(row["Volume"]) else 0
+                        ),
                     }
                 )
 
@@ -455,17 +465,25 @@ def fetch_from_yahoo_finance(stock_code: str, days: int, max_retries: int = 3) -
         except Exception as e:
             error_msg = str(e)
             # Check for rate limit indicators
-            if "Expecting value" in error_msg or "Too Many Requests" in error_msg or "429" in error_msg:
+            if (
+                "Expecting value" in error_msg
+                or "Too Many Requests" in error_msg
+                or "429" in error_msg
+            ):
                 if attempt < max_retries - 1:
                     backoff = RATE_LIMIT_DELAY_YAHOO * (2 ** (attempt + 1))
-                    logger.warning(f"  Rate limited on {yf_ticker}, backing off {backoff:.1f}s (attempt {attempt + 1}/{max_retries})")
+                    logger.warning(
+                        f"  Rate limited on {yf_ticker}, backing off {backoff:.1f}s (attempt {attempt + 1}/{max_retries})"
+                    )
                     time.sleep(min(backoff, RATE_LIMIT_DELAY_YAHOO_MAX))
                     continue
             # Log other errors
             if attempt == max_retries - 1:
-                logger.error(f"Failed to get ticker '{yf_ticker}' reason: {error_msg[:100]}")
+                logger.error(
+                    f"Failed to get ticker '{yf_ticker}' reason: {error_msg[:100]}"
+                )
             return None
-    
+
     return None
 
 
@@ -582,7 +600,7 @@ async def update_stock_prices(
 
     consecutive_failures = 0
     current_delay = RATE_LIMIT_DELAY_YAHOO
-    
+
     try:
         for i, stock_code in enumerate(stocks, 1):
             # Check last ingested date for this stock
@@ -617,7 +635,7 @@ async def update_stock_prices(
             if not data:
                 # Always add base delay before Yahoo request
                 time.sleep(current_delay)
-                
+
                 data = fetch_from_yahoo_finance(stock_code, days_to_fetch)
                 if data:
                     source = "Yahoo Finance"
@@ -632,12 +650,14 @@ async def update_stock_prices(
                 )
                 failed += 1
                 consecutive_failures += 1
-                
+
                 # Increase delay on consecutive failures (circuit breaker pattern)
                 if consecutive_failures >= CONSECUTIVE_FAILURES_BACKOFF_THRESHOLD:
                     current_delay = min(current_delay * 1.5, RATE_LIMIT_DELAY_YAHOO_MAX)
                     if consecutive_failures % 10 == 0:
-                        logger.warning(f"⚠️  {consecutive_failures} consecutive failures, backing off to {current_delay:.1f}s delay")
+                        logger.warning(
+                            f"⚠️  {consecutive_failures} consecutive failures, backing off to {current_delay:.1f}s delay"
+                        )
                 continue
 
             # Insert data
@@ -679,7 +699,9 @@ async def update_stock_prices(
 # ============================================================================
 
 
-def fetch_key_metrics_from_yahoo(stock_code: str, max_retries: int = 3) -> Optional[Dict]:
+def fetch_key_metrics_from_yahoo(
+    stock_code: str, max_retries: int = 3
+) -> Optional[Dict]:
     """Fetch key metrics from Yahoo Finance for a single stock with retry and backoff."""
     yahoo_symbol = f"{stock_code}.AX"
 
@@ -691,7 +713,7 @@ def fetch_key_metrics_from_yahoo(stock_code: str, max_retries: int = 3) -> Optio
             if not info or info.get("regularMarketPrice") is None:
                 # Empty response - possible rate limit
                 if attempt < max_retries - 1:
-                    backoff = RATE_LIMIT_DELAY_YAHOO * (2 ** attempt)
+                    backoff = RATE_LIMIT_DELAY_YAHOO * (2**attempt)
                     time.sleep(min(backoff, RATE_LIMIT_DELAY_YAHOO_MAX))
                     continue
                 return None
@@ -716,14 +738,20 @@ def fetch_key_metrics_from_yahoo(stock_code: str, max_retries: int = 3) -> Optio
             }
         except Exception as e:
             error_msg = str(e)
-            if "Expecting value" in error_msg or "Too Many Requests" in error_msg or "429" in error_msg:
+            if (
+                "Expecting value" in error_msg
+                or "Too Many Requests" in error_msg
+                or "429" in error_msg
+            ):
                 if attempt < max_retries - 1:
                     backoff = RATE_LIMIT_DELAY_YAHOO * (2 ** (attempt + 1))
-                    logger.debug(f"  Rate limited on {yahoo_symbol}, backing off {backoff:.1f}s")
+                    logger.debug(
+                        f"  Rate limited on {yahoo_symbol}, backing off {backoff:.1f}s"
+                    )
                     time.sleep(min(backoff, RATE_LIMIT_DELAY_YAHOO_MAX))
                     continue
             return None
-    
+
     return None
 
 
@@ -759,7 +787,7 @@ async def update_key_metrics(
     for i, stock_code in enumerate(stock_list, 1):
         # Always add delay before request
         time.sleep(current_delay)
-        
+
         metrics = fetch_key_metrics_from_yahoo(stock_code)
 
         if not metrics:
@@ -769,12 +797,14 @@ async def update_key_metrics(
                 )
             failed += 1
             consecutive_failures += 1
-            
+
             # Increase delay on consecutive failures
             if consecutive_failures >= CONSECUTIVE_FAILURES_BACKOFF_THRESHOLD:
                 current_delay = min(current_delay * 1.5, RATE_LIMIT_DELAY_YAHOO_MAX)
                 if consecutive_failures % 10 == 0:
-                    logger.warning(f"⚠️  {consecutive_failures} consecutive failures, backing off to {current_delay:.1f}s delay")
+                    logger.warning(
+                        f"⚠️  {consecutive_failures} consecutive failures, backing off to {current_delay:.1f}s delay"
+                    )
             continue
 
         try:
