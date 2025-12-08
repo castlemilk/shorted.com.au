@@ -92,8 +92,8 @@ jobs:
             dockerfile: services/stock-price-ingestion/Dockerfile
             context: services/stock-price-ingestion
           - name: short-data-sync
-            dockerfile: services/short-data-sync/Dockerfile
-            context: services/short-data-sync
+            dockerfile: services/daily-sync/Dockerfile
+            context: services/daily-sync
           - name: cms
             dockerfile: cms/Dockerfile
             context: cms
