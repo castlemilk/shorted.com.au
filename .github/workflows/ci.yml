@@ -134,6 +134,9 @@ jobs:
             --set-env-vars="APP_STORE_POSTGRES_USERNAME=$DB_USER" \
             --set-env-vars="APP_STORE_POSTGRES_PASSWORD=$DB_PASS" \
             --set-env-vars="APP_STORE_POSTGRES_DATABASE=$DB_NAME" \
+            --set-env-vars="ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}" \
+            --set-env-vars="ALGOLIA_SEARCH_KEY=${{ secrets.ALGOLIA_SEARCH_KEY }}" \
+            --set-env-vars="ALGOLIA_INDEX=stocks" \
             --set-env-vars="ENVIRONMENT=preview" \
             --labels="pr=${{ env.PR_NUMBER }},type=preview" \
             --tag pr-${{ env.PR_NUMBER }}
