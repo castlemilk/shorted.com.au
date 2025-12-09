@@ -25,9 +25,15 @@ test.describe("Algolia Search Functionality", () => {
   // Skip UI tests if no auth - they will run in authenticated project
   test.skip(() => skipAuthTests, "Skipping - requires authentication");
 
+  // Increase timeout for cold starts on preview environments
+  test.setTimeout(90000);
+
   test.beforeEach(async ({ page }) => {
-    await page.goto("/stocks");
-    await page.waitForLoadState("networkidle");
+    await page.goto("/stocks", { timeout: 30000 });
+    // Use domcontentloaded instead of networkidle for faster tests
+    await page.waitForLoadState("domcontentloaded");
+    // Wait for the page to be interactive
+    await page.waitForTimeout(2000);
   });
 
   test("should find stocks with typo tolerance", async ({ page }) => {
@@ -160,9 +166,12 @@ test.describe("Logo Display in Search Results", () => {
   // Skip UI tests if no auth - they will run in authenticated project
   test.skip(() => skipAuthTests, "Skipping - requires authentication");
 
+  // Increase timeout for cold starts on preview environments
+  test.setTimeout(90000);
+
   test.beforeEach(async ({ page }) => {
     await page.goto("/stocks");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
   });
 
   test("should display logos for major stocks in search dropdown", async ({
@@ -242,9 +251,12 @@ test.describe("Logo Display in Search Results", () => {
 });
 
 test.describe("Logo Display on Stock Detail Page", () => {
+  // Increase timeout for cold starts on preview environments
+  test.setTimeout(90000);
+
   test("should display logo on BHP detail page", async ({ page }) => {
     await page.goto("/shorts/BHP");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
 
     // Wait for page content to load
     await page.waitForTimeout(2000);
@@ -274,7 +286,7 @@ test.describe("Logo Display on Stock Detail Page", () => {
 
   test("should display logo on CSL detail page", async ({ page }) => {
     await page.goto("/shorts/CSL");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
 
     await page.waitForTimeout(2000);
 
@@ -293,7 +305,7 @@ test.describe("Logo Display on Stock Detail Page", () => {
 
   test("should display logo on CBA detail page", async ({ page }) => {
     await page.goto("/shorts/CBA");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
 
     await page.waitForTimeout(2000);
 
@@ -310,7 +322,7 @@ test.describe("Logo Display on Stock Detail Page", () => {
   test("should handle stock without logo gracefully", async ({ page }) => {
     // Navigate to a stock that might not have a logo
     await page.goto("/shorts/AAA");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
 
     await page.waitForTimeout(2000);
 
@@ -405,13 +417,16 @@ test.describe("Search API Integration", () => {
 });
 
 test.describe("Visual Regression Prevention", () => {
+  // Increase timeout for cold starts on preview environments
+  test.setTimeout(90000);
+
   test.describe("Search Results Layout", () => {
     // Skip if no auth
     test.skip(() => skipAuthTests, "Skipping - requires authentication");
 
     test("search results have consistent layout", async ({ page }) => {
       await page.goto("/stocks");
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("domcontentloaded");
 
       const searchInput = page.locator(
         'input[placeholder*="Search"], input[type="search"]',
@@ -436,7 +451,7 @@ test.describe("Visual Regression Prevention", () => {
 
   test("stock detail page has consistent layout", async ({ page }) => {
     await page.goto("/shorts/BHP");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
     await page.waitForTimeout(2000);
 
     // Take screenshot for visual comparison
