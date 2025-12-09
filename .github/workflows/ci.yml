@@ -93,6 +93,17 @@ jobs:
           docker build -f market-data/Dockerfile -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/market-data:pr-${{ env.PR_NUMBER }} .
           docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/market-data:pr-${{ env.PR_NUMBER }}
 
+      - name: Clean up existing preview services
+        run: |
+          # Delete any existing preview services to avoid env var type conflicts
+          # (Terraform may have created them with secrets, CI uses string literals)
+          echo "Cleaning up existing preview services..."
+          gcloud run services delete shorts-service-pr-${{ env.PR_NUMBER }} \
+            --region ${{ env.GCP_REGION }} --quiet 2>/dev/null || true
+          gcloud run services delete market-data-service-pr-${{ env.PR_NUMBER }} \
+            --region ${{ env.GCP_REGION }} --quiet 2>/dev/null || true
+          echo "Cleanup complete"
+
       - name: Deploy preview backend services to Cloud Run
         id: deploy-services
         env:
