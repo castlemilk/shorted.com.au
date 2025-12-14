@@ -367,6 +367,7 @@ test.topshorts.integration:
 	cd shorts && go test -v -run TestFetchTimeSeriesData ./internal/store/shorts/ -timeout=5m
 
 test.integration:
+	@echo "🧪 Running all integration tests (including market-data)..."
 	go test ./... -v -tags=integration
 
 # Integration tests - LOCAL development (fully self-contained with testcontainers)
@@ -379,7 +380,11 @@ test-integration-local:
 	@echo "    - Clean up everything"
 	@echo ""
 	@$(MAKE) clean.shorts
+	@echo "Running test/integration tests..."
 	@cd ../test/integration && go test -v -timeout=20m ./...
+	@echo ""
+	@echo "Running market-data integration tests (with testcontainers)..."
+	@cd market-data && go test -v -tags=integration -timeout=10m ./... || echo "⚠️  Market-data integration tests failed (non-blocking)"
 	@echo ""
 
 # Integration tests - CI (expects BACKEND_URL to be set)
@@ -395,7 +400,11 @@ test-integration-ci:
 	@curl -f "$$BACKEND_URL/health" || (echo "❌ Backend health check failed" && exit 1)
 	@echo "✅ Backend is healthy"
 	@echo ""
+	@echo "Running test/integration tests..."
 	@cd ../test/integration && go test -v -timeout=10m ./...
+	@echo ""
+	@echo "Running market-data integration tests (with testcontainers)..."
+	@cd market-data && go test -v -tags=integration -timeout=10m ./... || echo "⚠️  Market-data integration tests failed (non-blocking)"
 
 # New integration test targets using testcontainers
 test.integration.local:

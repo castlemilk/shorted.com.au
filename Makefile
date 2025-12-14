@@ -1,7 +1,7 @@
 # Shorted.com.au Root Makefile
 # Orchestrates testing and building for both frontend and backend
 
-.PHONY: help run test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down install clean clean-cache clean-all clean-ports build dev dev-clean dev-script dev-frontend dev-backend lint format populate-data populate-data-quick db-diagnose db-optimize db-analyze algolia-sync algolia-sync-prod algolia-search enrich-metadata enrich-metadata-all enrich-metadata-stocks pipeline-local pipeline-prod pipeline-daily pipeline-help
+.PHONY: help run test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down install install-hooks clean clean-cache clean-all clean-ports build dev dev-clean dev-script dev-frontend dev-backend lint format populate-data populate-data-quick db-diagnose db-optimize db-analyze algolia-sync algolia-sync-prod algolia-search enrich-metadata enrich-metadata-all enrich-metadata-stocks pipeline-local pipeline-prod pipeline-daily pipeline-help
 
 # Default target
 help:
@@ -14,6 +14,7 @@ help:
 	@echo "  dev-market-data  - Start market data service only (port 8090)"
 	@echo "  dev-stop         - Stop all development services"
 	@echo "  install       - Install all dependencies"
+	@echo "  install-hooks - Install git hooks for pre-commit testing"
 	@echo "  clean         - Clean all build artifacts"
 	@echo "  clean-cache   - Clear Next.js caches (fixes 'Element type is invalid' errors)"
 	@echo "  clean-all     - Clean build artifacts AND caches"
@@ -42,13 +43,26 @@ help:
 	@echo "  db-analyze    - Update database statistics for query optimizer"
 
 # Test commands
-test: lint build-frontend test-unit test-integration-local
-	@echo ""
-	@echo "✅ All tests, linting, and build validation completed successfully!"
-	@echo "   🔍 Linting: TypeScript + Go"
-	@echo "   🏗️  Build: Frontend (type checking)"
-	@echo "   🧪 Unit Tests: Frontend + Backend"
-	@echo "   🔗 Integration Tests: Backend"
+test: lint build-frontend test-unit
+	@if docker info > /dev/null 2>&1; then \
+		echo "🐳 Docker available - running integration tests..."; \
+		$(MAKE) test-integration-local; \
+		echo ""; \
+		echo "✅ All tests, linting, and build validation completed successfully!"; \
+		echo "   🔍 Linting: TypeScript + Go"; \
+		echo "   🏗️  Build: Frontend (type checking)"; \
+		echo "   🧪 Unit Tests: Frontend + Backend"; \
+		echo "   🔗 Integration Tests: Backend"; \
+	else \
+		echo ""; \
+		echo "⚠️  Docker not available - skipping integration tests"; \
+		echo "   Start Docker Desktop to run integration tests"; \
+		echo ""; \
+		echo "✅ Lint, build, and unit tests completed successfully!"; \
+		echo "   🔍 Linting: TypeScript + Go"; \
+		echo "   🏗️  Build: Frontend (type checking)"; \
+		echo "   🧪 Unit Tests: Frontend + Backend"; \
+	fi
 	@echo ""
 
 # Unit tests only (no linting, no integration)
@@ -86,6 +100,10 @@ install-frontend:
 install-backend:
 	@echo "📦 Installing backend dependencies..."
 	@cd services && go mod download && go mod tidy
+
+install-hooks: ## Install git hooks for pre-commit testing
+	@echo "🔧 Installing git hooks..."
+	@bash scripts/install-hooks.sh
 
 # Clean commands
 clean: clean-frontend clean-backend

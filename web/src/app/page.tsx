@@ -12,7 +12,7 @@ const Page = () => {
   const { data: session } = useSession();
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-transparent">
       <GoogleAnalytics gaId="G-X85RLQ4N2N" />
       
       {/* Login prompt banner for non-authenticated users */}

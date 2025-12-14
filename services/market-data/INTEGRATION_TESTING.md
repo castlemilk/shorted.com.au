@@ -58,7 +58,23 @@ Each test:
 - Verifies query fails quickly, not hangs
 - ✅ Would have caught: Missing context timeout in query execution
 
-### 5. `TestDatabaseSchema`
+### 5. `TestGetHistoricalPricesNilDatabase`
+
+**Protects Against**: Nil database connection causing panics or incorrect behavior
+
+- Tests service behavior when database connection is nil
+- Verifies proper error handling (CodeUnavailable)
+- ✅ Would have caught: Missing nil check causing runtime errors
+
+### 6. `TestGetHistoricalPricesTimezone`
+
+**Protects Against**: Timezone mismatches causing incorrect date range queries
+
+- Tests that dates are calculated in UTC (matching database timezone)
+- Verifies date ranges are correct (within expected period)
+- ✅ Would have caught: Timezone mismatch causing missing historical data
+
+### 7. `TestDatabaseSchema`
 
 **Protects Against**: Missing tables, schema drift
 

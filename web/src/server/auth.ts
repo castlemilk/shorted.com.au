@@ -170,8 +170,9 @@ export const authOptions = {
     }): Promise<JWT> {
       // On initial sign in, user object is provided
       if (user) {
-        // Use email as the consistent user ID to maintain compatibility with existing data
-        token.id = user.email ?? user.id ?? token.sub ?? "unknown";
+        // Use the provider's user ID first (e.g., Google OAuth ID) to maintain
+        // compatibility with existing Firebase data stored under that ID
+        token.id = user.id ?? user.email ?? token.sub ?? "unknown";
         token.email = user.email ?? token.email;
         token.name = user.name ?? token.name;
         token.picture = user.image ?? token.picture;
@@ -191,6 +192,7 @@ export const authOptions = {
       }
 
       // Ensure token.id is always set (preserve it on token refresh)
+      // Fall back to email only if no ID was set from the provider
       if (!token.id && token.email) {
         token.id = token.email;
       }
@@ -217,10 +219,11 @@ export const authOptions = {
       token: JWT;
     }): Promise<Session> {
       // Add user ID from token to session
-      // Use email as the consistent user ID to maintain compatibility with existing data
+      // Use the token.id which was set from the provider's user ID (e.g., Google OAuth ID)
+      // This maintains compatibility with existing Firebase data
       if (session.user) {
         session.user.id =
-          token.id ?? session.user.email ?? token.sub ?? "unknown";
+          token.id ?? token.sub ?? session.user.email ?? "unknown";
         session.user.isAdmin = token.isAdmin;
       }
       return session;

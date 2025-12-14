@@ -36,7 +36,10 @@ interface TreeMapDatum {
   size?: number;
 }
 
-const PADDING = 5;
+const PADDING = 3;
+const TREEMAP_HEIGHT = 820;
+
+const clamp = (min: number, v: number, max: number) => Math.max(min, Math.min(max, v));
 
 type TreeMapDataType = IndustryTreeMap | null | undefined;
 
@@ -85,7 +88,8 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
       setIsRefreshing(true);
     }
 
-    getIndustryTreeMapClient(period, 10, viewMode)
+    // Slightly fewer tiles -> larger cells + more legible labels.
+    getIndustryTreeMapClient(period, 8, viewMode)
       .then((data) => {
         setTreeMapData(data);
         setLoading(false);
@@ -105,7 +109,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
           <CardTitle className="self-center m-5">Industry Tree Map</CardTitle>
         </div>
         <div className="p-2">
-          <Skeleton className="h-[700px] w-full rounded-xl" />
+          <Skeleton className="h-[820px] w-full rounded-xl" />
         </div>
       </Card>
     );
@@ -241,7 +245,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
       <Suspense
         fallback={
           <div className="p-2">
-            <Skeleton className="h-[700px] w-full rounded-xl" />
+            <Skeleton className="h-[820px] w-full rounded-xl" />
           </div>
         }
       >
@@ -255,11 +259,11 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
           <ParentSize>
             {({ width }) => (
               <div style={{ position: "relative" }}>
-                <svg width={width} height={700}>
+                <svg width={width} height={TREEMAP_HEIGHT}>
                   <Treemap<typeof industryTreeMap>
                     top={0}
                     root={root}
-                    size={[width, 700]}
+                    size={[width, TREEMAP_HEIGHT]}
                     tile={treemapSquarify}
                     round
                   >
@@ -291,6 +295,9 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                               return null;
                             }
 
+                            const minSide = Math.min(nodeWidth, nodeHeight);
+                            const leafFontSize = clamp(12, Math.floor(minSide / 4.8), 20);
+
                             return (
                               <Group
                                 key={`node-${i}`}
@@ -313,13 +320,13 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                                   pointerEvents={"all"}
                                   cursor={"pointer"}
                                 />
-                                {nodeWidth > 20 && (
+                                {nodeWidth > 60 && nodeHeight > 32 && (
                                   <>
                                     <text
                                       x={nodeWidth / 2}
                                       y={nodeHeight / 2}
                                       dy=".33em"
-                                      fontSize={10}
+                                      fontSize={leafFontSize}
                                       textAnchor="middle"
                                       pointerEvents="none"
                                       fill="hsl(var(--foreground))"
@@ -338,6 +345,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                         {treemap.descendants().map((node, i) => {
                           if (node.depth === 1) {
                             const nodeWidth = node.x1 - node.x0;
+                            const parentFontSize = clamp(14, Math.floor(nodeWidth / 22), 22);
 
                             return (
                               <Group
@@ -349,7 +357,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                                   x={5}
                                   y={5}
                                   dy=".66em"
-                                  fontSize={12}
+                                  fontSize={parentFontSize}
                                   textAnchor="start"
                                   pointerEvents="none"
                                   fill="hsl(var(--foreground))"
