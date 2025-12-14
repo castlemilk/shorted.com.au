@@ -7,7 +7,7 @@ import { type Viewport } from "next";
 import { ThemeProvider } from "~/@/components/providers";
 import { ThemeSwitcher } from "~/@/components/theme-switcher";
 import SiteHeader from "~/@/components/ui/site-header";
-import SiteFooter from "~/@/components/ui/site-footer";
+import { ConditionalFooter } from "./conditional-footer";
 import { NextAuthProvider } from "./next-auth-provider";
 import { siteConfig } from "~/@/config/site";
 import { StructuredData } from "~/@/components/seo/structured-data";
@@ -150,15 +150,17 @@ export default async function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <EnvironmentBanner />
-            <DevelopmentBanner />
-            <SiteHeader />
-            {children}
-            <SiteFooter />
-            <ThemeSwitcher />
-            <StructuredData />
-            <EnhancedOrganizationSchema />
-            <Toaster />
+            <div className="relative z-10">
+              <EnvironmentBanner />
+              <DevelopmentBanner />
+              <SiteHeader />
+              {children}
+              <ConditionalFooter />
+              <ThemeSwitcher />
+              <StructuredData />
+              <EnhancedOrganizationSchema />
+              <Toaster />
+            </div>
           </ThemeProvider>
         </NextAuthProvider>
       </body>

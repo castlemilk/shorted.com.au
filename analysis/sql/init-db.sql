@@ -11,19 +11,22 @@ CREATE TABLE IF NOT EXISTS shorts (
     "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DOUBLE PRECISION
 );
 
--- Create the company-metadata table
+-- Create the company-metadata table with all required columns for search
 CREATE TABLE IF NOT EXISTS "company-metadata" (
     company_name TEXT,
     address TEXT,
     summary TEXT,
     details TEXT,
     website TEXT,
-    stock_code TEXT,
+    stock_code TEXT PRIMARY KEY,
     links TEXT,
     images TEXT,
     company_logo_link TEXT,
     gcs_url TEXT,
-    industry TEXT
+    logo_gcs_url TEXT,
+    industry TEXT,
+    tags TEXT[] DEFAULT ARRAY[]::TEXT[],
+    search_vector TSVECTOR
 );
 
 -- Create the subscriptions table
@@ -36,13 +39,22 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_shorts_product_code_date ON shorts ("PRODUCT_CODE", "DATE");
 CREATE INDEX IF NOT EXISTS idx_shorts_date_percent ON shorts ("DATE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS");
+CREATE INDEX IF NOT EXISTS idx_company_metadata_search_vector ON "company-metadata" USING GIN (search_vector);
 
--- Insert some sample data so the application can display something
-INSERT INTO "company-metadata" (company_name, stock_code, industry) VALUES 
-    ('Sample Company A', 'SMPA', 'Technology'),
-    ('Sample Company B', 'SMPB', 'Finance'),
-    ('Sample Company C', 'SMPC', 'Healthcare')
-ON CONFLICT DO NOTHING;
+-- Insert sample metadata with all required fields for search functionality
+INSERT INTO "company-metadata" (company_name, stock_code, industry, tags, search_vector, logo_gcs_url) VALUES 
+    ('Sample Company A', 'SMPA', 'Technology', ARRAY['tech', 'sample']::TEXT[], to_tsvector('english', 'Sample Company A Technology tech sample'), ''),
+    ('Sample Company B', 'SMPB', 'Finance', ARRAY['finance', 'sample']::TEXT[], to_tsvector('english', 'Sample Company B Finance finance sample'), ''),
+    ('Sample Company C', 'SMPC', 'Healthcare', ARRAY['healthcare', 'sample']::TEXT[], to_tsvector('english', 'Sample Company C Healthcare healthcare sample'), ''),
+    ('Commonwealth Bank of Australia', 'CBA', 'Financials', ARRAY['bank', 'finance', 'big4']::TEXT[], to_tsvector('english', 'Commonwealth Bank of Australia CBA Financials bank finance big4'), ''),
+    ('BHP Group Limited', 'BHP', 'Materials', ARRAY['mining', 'resources', 'asx20']::TEXT[], to_tsvector('english', 'BHP Group Limited Materials mining resources asx20'), ''),
+    ('ResMed Inc', 'RMD', 'Healthcare', ARRAY['medical', 'devices', 'healthcare']::TEXT[], to_tsvector('english', 'ResMed Inc Healthcare medical devices healthcare'), ''),
+    ('Red Mount Mining Ltd', 'RMX', 'Materials', ARRAY['mining', 'exploration']::TEXT[], to_tsvector('english', 'Red Mount Mining Ltd Materials mining exploration'), '')
+ON CONFLICT (stock_code) DO UPDATE SET 
+    company_name = EXCLUDED.company_name,
+    industry = EXCLUDED.industry,
+    tags = EXCLUDED.tags,
+    search_vector = EXCLUDED.search_vector;
 
 INSERT INTO shorts ("DATE", "PRODUCT", "PRODUCT_CODE", "REPORTED_SHORT_POSITIONS", "TOTAL_PRODUCT_IN_ISSUE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS") VALUES 
     -- Sample test data

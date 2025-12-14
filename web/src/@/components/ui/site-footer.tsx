@@ -1,21 +1,27 @@
-import { siteConfig } from "~/@/config/site";
-import { Badge } from "~/@/components/ui/badge";
-import getConfig from "next/config";
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+"use client";
+
 import Link from "next/link";
 import { File, RouteIcon, GitCommit } from "lucide-react";
-
-interface RuntimeConfig {
-  version?: string;
-  buildDate?: string;
-  gitCommit?: string;
-  gitBranch?: string;
-  environment?: string;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-const { publicRuntimeConfig }: { publicRuntimeConfig: RuntimeConfig } = getConfig();
+import { siteConfig } from "~/@/config/site";
+import { Badge } from "~/@/components/ui/badge";
 
 const SiteFooter = () => {
+  // `next/config` is not supported in the Next.js App Router on the client.
+  // Prefer env vars if present; fall back to a safe label.
+  const version = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
+  const gitCommit = process.env.NEXT_PUBLIC_GIT_COMMIT;
+  const gitBranch = process.env.NEXT_PUBLIC_GIT_BRANCH;
+  const buildDate = process.env.NEXT_PUBLIC_BUILD_DATE;
+  const environment = process.env.NEXT_PUBLIC_ENVIRONMENT;
+
+  const buildTitleParts = [
+    buildDate ? `Build: ${buildDate}` : null,
+    gitCommit ? `Commit: ${gitCommit}` : null,
+    gitBranch ? `Branch: ${gitBranch}` : null,
+    environment ? `Environment: ${environment}` : null,
+  ].filter(Boolean);
+
   return (
     <footer className="py-6 md:px-8 md:py-0">
       <div className="container flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row">
@@ -34,10 +40,10 @@ const SiteFooter = () => {
           <Badge 
             variant="secondary" 
             className="cursor-help"
-            title={`Build: ${publicRuntimeConfig?.buildDate ?? 'N/A'}\nCommit: ${publicRuntimeConfig?.gitCommit ?? 'N/A'}\nBranch: ${publicRuntimeConfig?.gitBranch ?? 'N/A'}\nEnvironment: ${publicRuntimeConfig?.environment ?? 'N/A'}`}
+            title={buildTitleParts.length > 0 ? buildTitleParts.join("\n") : "Build info not available"}
           >
             <GitCommit className="w-3 h-3 mr-1" />
-            {publicRuntimeConfig?.version ?? 'dev'}
+            {version}
           </Badge>
           <Link href="/roadmap">
             <Badge variant="secondary">

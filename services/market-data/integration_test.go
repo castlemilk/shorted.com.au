@@ -5,7 +5,6 @@ package main
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -20,8 +19,8 @@ import (
 // TestDatabaseConnection verifies the database connection is properly configured
 // This would have caught the port 5432 vs 6543 issue
 func TestDatabaseConnection(t *testing.T) {
-	dbURL := os.Getenv("DATABASE_URL")
-	require.NotEmpty(t, dbURL, "DATABASE_URL must be set")
+	dbURL := GetTestDatabaseURL()
+	require.NotEmpty(t, dbURL, "Test database URL should be set by TestMain")
 
 	t.Run("connection_establishes_quickly", func(t *testing.T) {
 		// Connection should establish within 10 seconds
@@ -105,11 +104,79 @@ func TestDatabaseConnection(t *testing.T) {
 	})
 }
 
+// TestGetHistoricalPricesNilDatabase tests nil database connection handling
+// This would have caught the nil database connection issue
+func TestGetHistoricalPricesNilDatabase(t *testing.T) {
+	service := &MarketDataService{db: nil}
+
+	ctx := context.Background()
+	req := connect.NewRequest(&marketdatav1.GetHistoricalPricesRequest{
+		StockCode: "CBA",
+		Period:    "1m",
+	})
+
+	_, err := service.GetHistoricalPrices(ctx, req)
+	require.Error(t, err, "Should return error when database is nil")
+	
+	// Verify it's the correct error type
+	connectErr, ok := err.(*connect.Error)
+	require.True(t, ok, "Error should be a connect.Error")
+	assert.Equal(t, connect.CodeUnavailable, connectErr.Code(), "Should return Unavailable code")
+	assert.Contains(t, connectErr.Message(), "database connection not available")
+}
+
+// TestGetHistoricalPricesTimezone tests timezone handling in date queries
+// This would have caught the timezone mismatch issue
+func TestGetHistoricalPricesTimezone(t *testing.T) {
+	dbURL := GetTestDatabaseURL()
+	require.NotEmpty(t, dbURL, "Test database URL should be set by TestMain")
+
+	config, err := pgxpool.ParseConfig(dbURL)
+	require.NoError(t, err)
+
+	config.MaxConns = 10
+	config.MinConns = 2
+	config.ConnConfig.ConnectTimeout = 5 * time.Second
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+
+	pool, err := pgxpool.NewWithConfig(context.Background(), config)
+	require.NoError(t, err)
+	defer pool.Close()
+
+	service := &MarketDataService{db: pool}
+
+	// Test that dates are calculated in UTC (matching database timezone)
+	ctx := context.Background()
+	req := connect.NewRequest(&marketdatav1.GetHistoricalPricesRequest{
+		StockCode: "WES", // Known to have data
+		Period:    "1m",
+	})
+
+	resp, err := service.GetHistoricalPrices(ctx, req)
+	require.NoError(t, err, "Query should succeed")
+	require.NotNil(t, resp)
+
+	// Verify we got data (proves date range query worked correctly)
+	if len(resp.Msg.Prices) > 0 {
+		// Verify dates are in reasonable range (within last month)
+		now := time.Now().UTC()
+		oneMonthAgo := now.AddDate(0, -1, 0)
+
+		for _, price := range resp.Msg.Prices {
+			priceDate := price.Date.AsTime()
+			assert.True(t, priceDate.After(oneMonthAgo) || priceDate.Equal(oneMonthAgo),
+				"Price date %s should be after %s", priceDate.Format("2006-01-02"), oneMonthAgo.Format("2006-01-02"))
+			assert.True(t, priceDate.Before(now) || priceDate.Equal(now),
+				"Price date %s should be before %s", priceDate.Format("2006-01-02"), now.Format("2006-01-02"))
+		}
+	}
+}
+
 // TestGetHistoricalPricesIntegration tests the full GetHistoricalPrices flow
 // This would have caught the hanging query issue
 func TestGetHistoricalPricesIntegration(t *testing.T) {
-	dbURL := os.Getenv("DATABASE_URL")
-	require.NotEmpty(t, dbURL, "DATABASE_URL must be set")
+	dbURL := GetTestDatabaseURL()
+	require.NotEmpty(t, dbURL, "Test database URL should be set by TestMain")
 
 	// Setup service
 	config, err := pgxpool.ParseConfig(dbURL)
@@ -165,6 +232,22 @@ func TestGetHistoricalPricesIntegration(t *testing.T) {
 			timeout:     10 * time.Second,
 			expectError: false, // Not an error, just empty results
 			minRecords:  0,
+		},
+		{
+			name:        "all_periods_covered",
+			stockCode:   "WES", // Known to have extensive data
+			period:      "1d",
+			timeout:     10 * time.Second,
+			expectError: false,
+			minRecords:  0, // May have 0-1 records for 1 day
+		},
+		{
+			name:        "max_period",
+			stockCode:   "WES",
+			period:      "max",
+			timeout:     20 * time.Second,
+			expectError: false,
+			minRecords:  100, // Should have substantial historical data
 		},
 	}
 
@@ -227,8 +310,8 @@ func TestGetHistoricalPricesIntegration(t *testing.T) {
 // TestGetHistoricalPricesConcurrency tests concurrent requests don't cause issues
 // This would have caught prepared statement conflicts and connection pool issues
 func TestGetHistoricalPricesConcurrency(t *testing.T) {
-	dbURL := os.Getenv("DATABASE_URL")
-	require.NotEmpty(t, dbURL, "DATABASE_URL must be set")
+	dbURL := GetTestDatabaseURL()
+	require.NotEmpty(t, dbURL, "Test database URL should be set by TestMain")
 
 	config, err := pgxpool.ParseConfig(dbURL)
 	require.NoError(t, err)
@@ -285,8 +368,8 @@ func TestGetHistoricalPricesConcurrency(t *testing.T) {
 
 // TestQueryTimeout verifies queries have proper timeouts
 func TestQueryTimeout(t *testing.T) {
-	dbURL := os.Getenv("DATABASE_URL")
-	require.NotEmpty(t, dbURL, "DATABASE_URL must be set")
+	dbURL := GetTestDatabaseURL()
+	require.NotEmpty(t, dbURL, "Test database URL should be set by TestMain")
 
 	config, err := pgxpool.ParseConfig(dbURL)
 	require.NoError(t, err)
@@ -322,8 +405,8 @@ func TestQueryTimeout(t *testing.T) {
 
 // TestDatabaseSchema verifies required tables and columns exist
 func TestDatabaseSchema(t *testing.T) {
-	dbURL := os.Getenv("DATABASE_URL")
-	require.NotEmpty(t, dbURL, "DATABASE_URL must be set")
+	dbURL := GetTestDatabaseURL()
+	require.NotEmpty(t, dbURL, "Test database URL should be set by TestMain")
 
 	config, err := pgxpool.ParseConfig(dbURL)
 	require.NoError(t, err)

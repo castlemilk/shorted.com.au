@@ -1,6 +1,6 @@
 {
   "name": "shorted",
-  "version": "v0.2.2-557-g88f65032-dirty",
+  "version": "v0.2.2-576-gbc2feb85-dirty",
   "private": true,
   "type": "module",
   "moduleResolution": "Node",
@@ -150,6 +150,8 @@
     "@visx/tooltip": "^3.3.0",
     "@visx/vendor": "^3.5.0",
     "@visx/xychart": "^3.10.2",
+    "@react-three/fiber": "8.18.0",
+    "@react-three/postprocessing": "2.19.1",
     "algoliasearch": "^5.45.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
@@ -182,9 +184,11 @@
     "redoc": "^2.1.5",
     "rehype-prism-plus": "^2.0.0",
     "request": "^2.88.2",
+    "postprocessing": "^6.38.0",
     "styled-components": "^6.1.18",
     "tailwind-merge": "^2.1.0",
     "tailwindcss-animate": "^1.0.7",
+    "three": "^0.176.0",
     "uuid": "^11.1.0",
     "zod": "^3.22.4"
   },

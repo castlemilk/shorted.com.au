@@ -42,6 +42,12 @@ func (s *MarketDataService) GetStockPrice(
 	ctx context.Context,
 	req *connect.Request[marketdatav1.GetStockPriceRequest],
 ) (*connect.Response[marketdatav1.GetStockPriceResponse], error) {
+	// Check if database connection is available
+	if s.db == nil {
+		log.Printf("ERROR: Database connection is nil for GetStockPrice request: stockCode=%s", req.Msg.StockCode)
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("database connection not available"))
+	}
+
 	// Set defaults and normalize input
 	SetDefaultValues(req.Msg)
 
@@ -128,6 +134,12 @@ func (s *MarketDataService) GetHistoricalPrices(
 	ctx context.Context,
 	req *connect.Request[marketdatav1.GetHistoricalPricesRequest],
 ) (*connect.Response[marketdatav1.GetHistoricalPricesResponse], error) {
+	// Check if database connection is available
+	if s.db == nil {
+		log.Printf("ERROR: Database connection is nil for GetHistoricalPrices request: stockCode=%s, period=%s", req.Msg.StockCode, req.Msg.Period)
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("database connection not available"))
+	}
+
 	// Set defaults and normalize input
 	SetDefaultValues(req.Msg)
 
@@ -137,7 +149,10 @@ func (s *MarketDataService) GetHistoricalPrices(
 	}
 
 	// Calculate date range based on period
-	endDate := time.Now()
+	// Use UTC to match database timezone
+	now := time.Now().UTC()
+	// Normalize to end of day for consistent date comparisons
+	endDate := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 999999999, time.UTC)
 	var startDate time.Time
 
 	switch req.Msg.Period {
@@ -165,6 +180,9 @@ func (s *MarketDataService) GetHistoricalPrices(
 		startDate = endDate.AddDate(0, -1, 0) // Default to 1 month
 	}
 
+	// Normalize startDate to beginning of day in UTC
+	startDate = time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, time.UTC)
+
 	query := `
 		SELECT date, open, high, low, close, volume, adjusted_close
 		FROM stock_prices
@@ -176,9 +194,12 @@ func (s *MarketDataService) GetHistoricalPrices(
 	queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
+	log.Printf("Querying historical data: stockCode=%s, period=%s, startDate=%s, endDate=%s", req.Msg.StockCode, req.Msg.Period, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
+
 	rows, err := s.db.Query(queryCtx, query, req.Msg.StockCode, startDate, endDate)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		log.Printf("ERROR: Database query failed for GetHistoricalPrices: stockCode=%s, error=%v", req.Msg.StockCode, err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to query historical prices: %w", err))
 	}
 	defer rows.Close()
 
@@ -206,6 +227,7 @@ func (s *MarketDataService) GetHistoricalPrices(
 			&adjustedClose,
 		)
 		if err != nil {
+			log.Printf("WARNING: Failed to scan row in GetHistoricalPrices: stockCode=%s, error=%v", req.Msg.StockCode, err)
 			continue
 		}
 
@@ -235,6 +257,14 @@ func (s *MarketDataService) GetHistoricalPrices(
 
 		prices = append(prices, &price)
 	}
+
+	// Check for errors during iteration
+	if err := rows.Err(); err != nil {
+		log.Printf("ERROR: Row iteration error in GetHistoricalPrices: stockCode=%s, error=%v", req.Msg.StockCode, err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("error iterating rows: %w", err))
+	}
+
+	log.Printf("Successfully retrieved %d price points for stockCode=%s, period=%s", len(prices), req.Msg.StockCode, req.Msg.Period)
 
 	return connect.NewResponse(&marketdatav1.GetHistoricalPricesResponse{
 		Prices: prices,
