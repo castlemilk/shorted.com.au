@@ -11,6 +11,7 @@ import (
 )
 
 func TestSearchStocks(t *testing.T) {
+	t.Parallel() // Enable parallel execution - each test gets its own container with random port
 	WithTestDatabase(t, func(container *TestContainer) {
 		ctx := context.Background()
 		seeder := container.GetSeeder()
@@ -126,6 +127,7 @@ func TestSearchStocks(t *testing.T) {
 
 // TestFullTextSearch tests PostgreSQL full-text search capabilities with search_vector
 func TestFullTextSearch(t *testing.T) {
+	t.Parallel() // Enable parallel execution - each test gets its own container with random port
 	WithTestDatabase(t, func(container *TestContainer) {
 		ctx := context.Background()
 
@@ -231,6 +233,7 @@ func TestFullTextSearch(t *testing.T) {
 
 // TestSearchRelevanceRanking tests that search results are properly ranked
 func TestSearchRelevanceRanking(t *testing.T) {
+	t.Parallel() // Enable parallel execution - each test gets its own container with random port
 	WithTestDatabase(t, func(container *TestContainer) {
 		ctx := context.Background()
 		seeder := container.GetSeeder()

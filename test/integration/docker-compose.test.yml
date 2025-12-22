@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres-test:
     image: postgres:15
@@ -8,7 +6,7 @@ services:
       POSTGRES_USER: test_user
       POSTGRES_PASSWORD: test_password
     ports:
-      - "5433:5432"
+      - "0:5432" # Use random port to avoid conflicts
     volumes:
       - ../../analysis/sql/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql
     healthcheck:
@@ -34,7 +32,7 @@ services:
       APP_STORE_POSTGRES_PASSWORD: test_password
       APP_STORE_POSTGRES_DATABASE: shorted_test
     ports:
-      - "8081:8080"
+      - "0:8080" # Use random port to avoid conflicts
     depends_on:
       postgres-test:
         condition: service_healthy
@@ -52,7 +50,7 @@ services:
       NEXT_PUBLIC_API_URL: http://shorts-service-test:8080
       NODE_ENV: test
     ports:
-      - "3001:3000"
+      - "0:3000" # Use random port to avoid conflicts
     depends_on:
       shorts-service-test:
         condition: service_healthy

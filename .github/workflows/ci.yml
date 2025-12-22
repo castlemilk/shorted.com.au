@@ -39,8 +39,10 @@ jobs:
 
   deploy-backend:
     needs: [check-secrets, test-unit]
-    # Re-enabled for preview deployments (terraform-deploy has permission issues)
-    if: github.event_name == 'pull_request'
+    # DISABLED: terraform-deploy.yml now handles preview deployments
+    # This job was causing race conditions and "Root resource was present, but now absent" errors
+    # because it deletes services that Terraform is trying to manage
+    if: false  # github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       shorts-url: ${{ steps.deploy-services.outputs.shorts-url }}

@@ -289,18 +289,34 @@ jobs:
           # Initialize Terraform with GCS backend
           terraform init
 
-          # Import existing resources if they exist
+          # Check if resources are already in Terraform state before importing
           echo "Checking for existing resources..."
+          
+          # Function to check if resource is in terraform state
+          is_in_state() {
+            terraform state list 2>/dev/null | grep -q "$1"
+          }
+          
+          # Import shorts service if it exists in GCP but not in state
           if gcloud run services describe shorts-service-pr-${PR_NUMBER} --region=${GCP_REGION} --project=${GCP_PROJECT_ID} &>/dev/null; then
-            echo "Importing existing shorts service..."
-            terraform import module.preview.google_cloud_run_v2_service.shorts_preview \
-              projects/${GCP_PROJECT_ID}/locations/${GCP_REGION}/services/shorts-service-pr-${PR_NUMBER} || true
+            if ! is_in_state "module.preview.google_cloud_run_v2_service.shorts_preview"; then
+              echo "Importing existing shorts service..."
+              terraform import module.preview.google_cloud_run_v2_service.shorts_preview \
+                projects/${GCP_PROJECT_ID}/locations/${GCP_REGION}/services/shorts-service-pr-${PR_NUMBER} || true
+            else
+              echo "Shorts service already in Terraform state, skipping import"
+            fi
           fi
 
+          # Import market-data service if it exists in GCP but not in state
           if gcloud run services describe market-data-service-pr-${PR_NUMBER} --region=${GCP_REGION} --project=${GCP_PROJECT_ID} &>/dev/null; then
-            echo "Importing existing market-data service..."
-            terraform import module.preview.google_cloud_run_v2_service.market_data_preview \
-              projects/${GCP_PROJECT_ID}/locations/${GCP_REGION}/services/market-data-service-pr-${PR_NUMBER} || true
+            if ! is_in_state "module.preview.google_cloud_run_v2_service.market_data_preview"; then
+              echo "Importing existing market-data service..."
+              terraform import module.preview.google_cloud_run_v2_service.market_data_preview \
+                projects/${GCP_PROJECT_ID}/locations/${GCP_REGION}/services/market-data-service-pr-${PR_NUMBER} || true
+            else
+              echo "Market-data service already in Terraform state, skipping import"
+            fi
           fi
 
           # Apply configuration (will create or update)

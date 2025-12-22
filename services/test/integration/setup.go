@@ -34,7 +34,15 @@ type TestContainer struct {
 func SetupTestDatabase(ctx context.Context, t *testing.T) *TestContainer {
 	t.Helper()
 
+	// Disable reaper if TESTCONTAINERS_RYUK_DISABLED is not already set
+	// This prevents "port not found: creating reaper failed" errors
+	if os.Getenv("TESTCONTAINERS_RYUK_DISABLED") == "" {
+		os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
+	}
+
 	// Create PostgreSQL container
+	// testcontainers automatically maps container port 5432 to a random available host port
+	// This prevents port conflicts when running tests in parallel
 	postgresContainer, err := postgres.Run(ctx,
 		"postgres:15-alpine",
 		postgres.WithDatabase(TestDatabase),

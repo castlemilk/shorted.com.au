@@ -17,6 +17,8 @@ import httpx
 import aiohttp
 import time
 import os
+import signal
+import sys
 from pathlib import Path
 import logging
 from typing import List, Dict, Set, Optional
@@ -41,10 +43,16 @@ ALPHA_VANTAGE_ENABLED = bool(ALPHA_VANTAGE_API_KEY)
 SYNC_DAYS_STOCK_PRICES = int(os.getenv("SYNC_DAYS_STOCK_PRICES", "5"))
 SYNC_DAYS_SHORTS = int(os.getenv("SYNC_DAYS_SHORTS", "7"))
 SYNC_KEY_METRICS = os.getenv("SYNC_KEY_METRICS", "true").lower() == "true"
+SYNC_BATCH_SIZE = int(
+    os.getenv("SYNC_BATCH_SIZE", "500")
+)  # Stocks per batch to avoid timeout
 RATE_LIMIT_DELAY_ALPHA = 12.0  # Alpha Vantage: 5 calls/minute
 RATE_LIMIT_DELAY_YAHOO = 1.0  # Yahoo Finance: base delay between requests
 RATE_LIMIT_DELAY_YAHOO_MAX = 30.0  # Max backoff delay
 CONSECUTIVE_FAILURES_BACKOFF_THRESHOLD = 3  # Start backing off after this many failures
+MAX_STOCK_FAILURE_RETRIES = int(
+    os.getenv("MAX_STOCK_FAILURE_RETRIES", "3")
+)  # Max retries per stock before permanently skipping
 import json
 import uuid
 import socket
@@ -58,9 +66,9 @@ import socket
 class SyncStatusRecorder:
     """Records sync progress and metrics to the database."""
 
-    def __init__(self, conn):
+    def __init__(self, conn, run_id: Optional[str] = None):
         self.conn = conn
-        self.run_id = str(uuid.uuid4())
+        self.run_id = run_id or str(uuid.uuid4())
         self.started_at = None
         self.metrics = {
             "shorts_records_updated": 0,
@@ -73,25 +81,89 @@ class SyncStatusRecorder:
             "metrics_failed": 0,
             "algolia_records_synced": 0,
         }
+        self.checkpoint_data = {
+            "stocks_processed": [],
+            "stocks_successful": [],
+            "stocks_failed": [],
+            "stocks_failed_count": {},  # Track failure count per stock: {stock_code: count}
+            "resume_from": 0,
+        }
 
-    async def start(self):
+    async def start(
+        self, total_stocks: int = 0, batch_size: int = 500, resume_from: int = 0
+    ):
         """Record start of sync run."""
         self.started_at = time.time()
         hostname = socket.gethostname()
         environment = os.getenv("ENVIRONMENT", "development")
 
-        await self.conn.execute(
+        # Check if this is a resume from checkpoint
+        existing = await self.conn.fetchrow(
             """
-            INSERT INTO sync_status (
-                run_id, status, environment, hostname
-            ) VALUES ($1, 'running', $2, $3)
+            SELECT run_id, checkpoint_stocks_processed, checkpoint_stocks_successful,
+                   checkpoint_stocks_failed, checkpoint_resume_from, status
+            FROM sync_status
+            WHERE run_id = $1
         """,
             self.run_id,
-            environment,
-            hostname,
         )
 
+        if existing and existing["status"] in ("running", "partial"):
+            # Resume from checkpoint
+            logger.info(f"🔄 Resuming sync run {self.run_id} from checkpoint")
+            self.checkpoint_data["stocks_processed"] = list(
+                existing["checkpoint_stocks_processed"] or []
+            )
+            self.checkpoint_data["stocks_successful"] = list(
+                existing["checkpoint_stocks_successful"] or []
+            )
+            self.checkpoint_data["stocks_failed"] = list(
+                existing["checkpoint_stocks_failed"] or []
+            )
+            self.checkpoint_data["resume_from"] = (
+                existing["checkpoint_resume_from"] or 0
+            )
+            # Reconstruct failure counts from failed stocks list
+            # Count occurrences of each stock in failed list
+            failed_list = self.checkpoint_data["stocks_failed"] or []
+            self.checkpoint_data["stocks_failed_count"] = {
+                stock: failed_list.count(stock) for stock in set(failed_list)
+            }
+
+            # Update existing checkpoint - arrays already set, just update metadata
+            await self.conn.execute(
+                """
+                UPDATE sync_status SET
+                    status = 'running',
+                    started_at = CURRENT_TIMESTAMP,
+                    checkpoint_stocks_total = COALESCE($2, checkpoint_stocks_total),
+                    checkpoint_batch_size = COALESCE($3, checkpoint_batch_size)
+                WHERE run_id = $1
+            """,
+                self.run_id,
+                total_stocks if total_stocks > 0 else None,
+                batch_size if batch_size > 0 else None,
+            )
+        else:
+            # New run
+            await self.conn.execute(
+                """
+                INSERT INTO sync_status (
+                    run_id, status, environment, hostname,
+                    checkpoint_stocks_total, checkpoint_batch_size, checkpoint_resume_from
+                ) VALUES ($1, 'running', $2, $3, $4, $5, $6)
+            """,
+                self.run_id,
+                environment,
+                hostname,
+                total_stocks,
+                batch_size,
+                resume_from,
+            )
+
         logger.info(f"📝 Sync run started with ID: {self.run_id}")
+        if resume_from > 0:
+            logger.info(f"📍 Resuming from stock index {resume_from}/{total_stocks}")
 
     async def update_metric(self, metric_name: str, value: int, increment: bool = True):
         """Update a specific metric."""
@@ -101,41 +173,120 @@ class SyncStatusRecorder:
             else:
                 self.metrics[metric_name] = value
 
-    async def complete(self):
+    async def update_checkpoint(self, stock_code: str, success: bool, index: int):
+        """Update checkpoint with processed stock."""
+        if success:
+            if stock_code not in self.checkpoint_data["stocks_successful"]:
+                self.checkpoint_data["stocks_successful"].append(stock_code)
+            # Reset failure count on success
+            self.checkpoint_data["stocks_failed_count"].pop(stock_code, None)
+        else:
+            # Increment failure count
+            current_count = self.checkpoint_data["stocks_failed_count"].get(
+                stock_code, 0
+            )
+            self.checkpoint_data["stocks_failed_count"][stock_code] = current_count + 1
+            # Add to failed list for tracking
+            if stock_code not in self.checkpoint_data["stocks_failed"]:
+                self.checkpoint_data["stocks_failed"].append(stock_code)
+
+        if stock_code not in self.checkpoint_data["stocks_processed"]:
+            self.checkpoint_data["stocks_processed"].append(stock_code)
+
+        self.checkpoint_data["resume_from"] = index + 1
+
+        # Update database checkpoint (only update every 10 stocks to reduce DB load)
+        # Also update on last stock or if this is the first stock after resume
+        # Don't update on the very first stock (index 0) if arrays are empty - wait until we have data
+        processed_count = len(self.checkpoint_data["stocks_processed"])
+        should_update = (processed_count > 0 and processed_count % 10 == 0) or (
+            index > 0 and index == self.checkpoint_data["resume_from"] - 1
+        )
+
+        if should_update:
+            # Ensure we have lists (not None) for empty arrays
+            processed = self.checkpoint_data["stocks_processed"] or []
+            successful = self.checkpoint_data["stocks_successful"] or []
+            failed = self.checkpoint_data["stocks_failed"] or []
+
+            # Use explicit type casting with COALESCE to handle empty arrays
+            # For empty arrays, use NULL and let PostgreSQL handle it
+            await self.conn.execute(
+                """
+                UPDATE sync_status SET
+                    checkpoint_stocks_processed = COALESCE($2::TEXT[], ARRAY[]::TEXT[]),
+                    checkpoint_stocks_successful = COALESCE($3::TEXT[], ARRAY[]::TEXT[]),
+                    checkpoint_stocks_failed = COALESCE($4::TEXT[], ARRAY[]::TEXT[]),
+                    checkpoint_resume_from = $5,
+                    status = CASE 
+                        WHEN COALESCE(array_length(COALESCE($2::TEXT[], ARRAY[]::TEXT[]), 1), 0) >= checkpoint_stocks_total THEN 'completed'
+                        ELSE 'partial'
+                    END
+                WHERE run_id = $1
+            """,
+                self.run_id,
+                processed,
+                successful,
+                failed,
+                self.checkpoint_data["resume_from"],
+            )
+
+    async def complete(self, all_stocks_complete: bool = True):
         """Record successful completion."""
         duration = time.time() - (self.started_at or time.time())
 
-        await self.conn.execute(
-            """
-            UPDATE sync_status SET
-                status = 'completed',
-                completed_at = CURRENT_TIMESTAMP,
-                shorts_records_updated = $2,
-                prices_records_updated = $3,
-                prices_alpha_success = $4,
-                prices_yahoo_success = $5,
-                prices_failed = $6,
-                prices_skipped = $7,
-                metrics_records_updated = $8,
-                metrics_failed = $9,
-                algolia_records_synced = $10,
-                total_duration_seconds = $11
-            WHERE run_id = $1
-        """,
-            self.run_id,
-            self.metrics["shorts_records_updated"],
-            self.metrics["prices_records_updated"],
-            self.metrics["prices_alpha_success"],
-            self.metrics["prices_yahoo_success"],
-            self.metrics["prices_failed"],
-            self.metrics["prices_skipped"],
-            self.metrics["metrics_records_updated"],
-            self.metrics["metrics_failed"],
-            self.metrics["algolia_records_synced"],
-            duration,
-        )
+        logger.info(f"📝 Recording completion with metrics: {self.metrics}")
 
-        logger.info(f"📝 Sync run completed successfully")
+        try:
+            status = "completed" if all_stocks_complete else "partial"
+            await self.conn.execute(
+                """
+                UPDATE sync_status SET
+                    status = $2,
+                    completed_at = CURRENT_TIMESTAMP,
+                    shorts_records_updated = $3,
+                    prices_records_updated = $4,
+                    prices_alpha_success = $5,
+                    prices_yahoo_success = $6,
+                    prices_failed = $7,
+                    prices_skipped = $8,
+                    metrics_records_updated = $9,
+                    metrics_failed = $10,
+                    algolia_records_synced = $11,
+                    total_duration_seconds = $12,
+                    checkpoint_stocks_processed = $13::TEXT[],
+                    checkpoint_stocks_successful = $14::TEXT[],
+                    checkpoint_stocks_failed = $15::TEXT[],
+                    checkpoint_resume_from = $16
+                WHERE run_id = $1
+            """,
+                self.run_id,
+                status,
+                self.metrics["shorts_records_updated"],
+                self.metrics["prices_records_updated"],
+                self.metrics["prices_alpha_success"],
+                self.metrics["prices_yahoo_success"],
+                self.metrics["prices_failed"],
+                self.metrics["prices_skipped"],
+                self.metrics["metrics_records_updated"],
+                self.metrics["metrics_failed"],
+                self.metrics["algolia_records_synced"],
+                duration,
+                self.checkpoint_data["stocks_processed"] or [],
+                self.checkpoint_data["stocks_successful"] or [],
+                self.checkpoint_data["stocks_failed"] or [],
+                self.checkpoint_data["resume_from"],
+            )
+
+            if all_stocks_complete:
+                logger.info(f"📝 Sync run completed successfully")
+            else:
+                logger.info(
+                    f"📝 Sync run partially completed - {len(self.checkpoint_data['stocks_processed'])} stocks processed"
+                )
+        except Exception as e:
+            logger.error(f"❌ Failed to update sync_status to completed: {e}")
+            raise
 
     async def fail(self, error_message: str):
         """Record failure."""
@@ -566,9 +717,19 @@ async def insert_price_data(conn, data: List[Dict]) -> int:
 
 
 async def update_stock_prices(
-    conn, days: int = 5, recorder: Optional[SyncStatusRecorder] = None
+    conn,
+    days: int = 5,
+    recorder: Optional[SyncStatusRecorder] = None,
+    batch_size: int = 500,
+    max_stocks: Optional[int] = None,
 ):
-    """Update stock price data with Alpha Vantage primary, Yahoo Finance fallback."""
+    """Update stock price data with Alpha Vantage primary, Yahoo Finance fallback.
+
+    Supports checkpoint-based batch processing:
+    - Processes stocks in batches to avoid timeout
+    - Tracks progress in checkpoint
+    - Can resume from checkpoint on retry
+    """
     logger.info("\n" + "=" * 60)
     logger.info("💰 UPDATING STOCK PRICES")
     logger.info("=" * 60)
@@ -585,6 +746,36 @@ async def update_stock_prices(
         logger.warning("⚠️  No stocks with existing price data")
         return 0
 
+    # Get checkpoint info
+    resume_from = recorder.checkpoint_data["resume_from"] if recorder else 0
+    processed_stocks = set(
+        recorder.checkpoint_data["stocks_processed"] if recorder else []
+    )
+    successful_stocks = set(
+        recorder.checkpoint_data["stocks_successful"] if recorder else []
+    )
+    failed_stocks_count = (
+        recorder.checkpoint_data["stocks_failed_count"] if recorder else {}
+    )
+    permanently_failed_stocks = {
+        stock
+        for stock, count in failed_stocks_count.items()
+        if count >= MAX_STOCK_FAILURE_RETRIES
+    }
+
+    # Filter out already processed stocks
+    if resume_from > 0:
+        stocks = stocks[resume_from:]
+        logger.info(
+            f"📍 Resuming from index {resume_from}, {len(stocks)} stocks remaining"
+        )
+
+    # Limit batch size if specified
+    if max_stocks:
+        stocks = stocks[:max_stocks]
+        logger.info(f"📦 Processing batch of {len(stocks)} stocks (max: {max_stocks})")
+
+    total_stocks = len(stocks) + resume_from
     logger.info(
         f"🔄 Updating {len(stocks)} stocks (from last ingested date to today)\n"
     )
@@ -603,6 +794,38 @@ async def update_stock_prices(
 
     try:
         for i, stock_code in enumerate(stocks, 1):
+            current_index = resume_from + i - 1
+
+            # Check for termination signal periodically
+            if _terminating:
+                logger.warning(
+                    f"⚠️  Termination signal received at stock {current_index}/{total_stocks}, saving checkpoint"
+                )
+                if recorder:
+                    await recorder.update_checkpoint(stock_code, False, current_index)
+                break
+
+            # Skip if already successfully processed
+            if stock_code in successful_stocks:
+                logger.info(
+                    f"[{current_index:4d}/{total_stocks}] {stock_code}: ✓ Already processed (skipping)"
+                )
+                skipped += 1
+                if recorder:
+                    await recorder.update_checkpoint(stock_code, True, current_index)
+                continue
+
+            # Skip permanently failed stocks (exceeded max retries)
+            if stock_code in permanently_failed_stocks:
+                failure_count = failed_stocks_count.get(stock_code, 0)
+                logger.warning(
+                    f"[{current_index:4d}/{total_stocks}] {stock_code}: ⛔ Permanently failed ({failure_count} failures, max: {MAX_STOCK_FAILURE_RETRIES}) - skipping"
+                )
+                skipped += 1
+                if recorder:
+                    # Mark as processed but not successful to avoid retrying
+                    await recorder.update_checkpoint(stock_code, False, current_index)
+                continue
             # Check last ingested date for this stock
             last_date = await get_last_ingested_date(conn, stock_code)
             days_to_fetch = calculate_days_to_fetch(last_date, max_days=days)
@@ -610,9 +833,11 @@ async def update_stock_prices(
             # Skip if we already have today's data
             if last_date and last_date >= date.today():
                 logger.info(
-                    f"[{i:3d}/{len(stocks)}] {stock_code}: ✓ Already up to date (last: {last_date})"
+                    f"[{current_index:4d}/{total_stocks}] {stock_code}: ✓ Already up to date (last: {last_date})"
                 )
                 skipped += 1
+                if recorder:
+                    await recorder.update_checkpoint(stock_code, True, current_index)
                 continue
 
             data = None
@@ -645,43 +870,76 @@ async def update_stock_prices(
 
             if not data:
                 last_info = f"last: {last_date}" if last_date else "no data yet"
-                logger.info(
-                    f"[{i:3d}/{len(stocks)}] {stock_code}: ⚠️  No data from any source ({last_info})"
-                )
+                failure_count = failed_stocks_count.get(stock_code, 0) + 1
+
+                # Check if this stock has exceeded max retries
+                if failure_count >= MAX_STOCK_FAILURE_RETRIES:
+                    logger.warning(
+                        f"[{current_index:4d}/{total_stocks}] {stock_code}: ⛔ Permanently failed ({failure_count}/{MAX_STOCK_FAILURE_RETRIES} failures) - will skip in future runs"
+                    )
+                else:
+                    logger.info(
+                        f"[{current_index:4d}/{total_stocks}] {stock_code}: ⚠️  No data from any source ({last_info}, failure {failure_count}/{MAX_STOCK_FAILURE_RETRIES})"
+                    )
+
                 failed += 1
                 consecutive_failures += 1
 
                 # Increase delay on consecutive failures (circuit breaker pattern)
+                # This helps with rate limiting and temporary API issues
                 if consecutive_failures >= CONSECUTIVE_FAILURES_BACKOFF_THRESHOLD:
                     current_delay = min(current_delay * 1.5, RATE_LIMIT_DELAY_YAHOO_MAX)
                     if consecutive_failures % 10 == 0:
                         logger.warning(
-                            f"⚠️  {consecutive_failures} consecutive failures, backing off to {current_delay:.1f}s delay"
+                            f"⚠️  {consecutive_failures} consecutive failures, backing off to {current_delay:.1f}s delay (rate limit protection)"
                         )
+
+                # Update checkpoint even for failures
+                if recorder:
+                    await recorder.update_checkpoint(stock_code, False, current_index)
                 continue
 
             # Insert data
             inserted = await insert_price_data(conn, data)
+            success = inserted > 0
 
-            if inserted > 0:
+            if success:
                 last_info = f"from {last_date}" if last_date else "initial load"
                 logger.info(
-                    f"[{i:3d}/{len(stocks)}] {stock_code}: ✅ {inserted} records ({source}, {last_info})"
+                    f"[{current_index:4d}/{total_stocks}] {stock_code}: ✅ {inserted} records ({source}, {last_info})"
                 )
                 total_inserted += inserted
             else:
-                logger.info(f"[{i:3d}/{len(stocks)}] {stock_code}: ❌ Insert failed")
+                failure_count = failed_stocks_count.get(stock_code, 0) + 1
+                if failure_count >= MAX_STOCK_FAILURE_RETRIES:
+                    logger.warning(
+                        f"[{current_index:4d}/{total_stocks}] {stock_code}: ⛔ Insert failed ({failure_count}/{MAX_STOCK_FAILURE_RETRIES} failures) - will skip in future"
+                    )
+                else:
+                    logger.info(
+                        f"[{current_index:4d}/{total_stocks}] {stock_code}: ❌ Insert failed (failure {failure_count}/{MAX_STOCK_FAILURE_RETRIES})"
+                    )
                 failed += 1
+
+            # Update checkpoint after each stock
+            if recorder:
+                await recorder.update_checkpoint(stock_code, success, current_index)
 
     finally:
         if session:
             await session.close()
 
+    permanently_skipped = len(permanently_failed_stocks) if recorder else 0
+
     logger.info(f"\n✅ Stock prices update complete:")
     logger.info(f"   Alpha Vantage: {alpha_success}")
     logger.info(f"   Yahoo Finance: {yahoo_success}")
     logger.info(f"   Already up-to-date: {skipped}")
-    logger.info(f"   Failed: {failed}")
+    logger.info(f"   Failed (this run): {failed}")
+    if permanently_skipped > 0:
+        logger.warning(
+            f"   ⛔ Permanently skipped (exceeded {MAX_STOCK_FAILURE_RETRIES} retries): {permanently_skipped}"
+        )
     logger.info(f"   Total records inserted: {total_inserted}")
 
     if recorder:
@@ -868,8 +1126,87 @@ async def connect_to_database():
     return await asyncpg.connect(**conn_params)
 
 
-async def main():
-    """Main sync function."""
+async def get_or_create_daily_sync_run(conn, batch_size: int = 500) -> Optional[str]:
+    """Get existing incomplete daily sync run or return None to create new one."""
+    today = date.today()
+
+    # Find incomplete sync from today
+    incomplete = await conn.fetchrow(
+        """
+        SELECT run_id, checkpoint_resume_from, checkpoint_stocks_total,
+               checkpoint_stocks_processed, checkpoint_stocks_successful
+        FROM sync_status
+        WHERE DATE(started_at) = $1
+          AND status IN ('running', 'partial')
+        ORDER BY started_at DESC
+        LIMIT 1
+    """,
+        today,
+    )
+
+    if incomplete:
+        processed_count = len(incomplete["checkpoint_stocks_processed"] or [])
+        total = incomplete["checkpoint_stocks_total"] or 0
+        resume_from = incomplete["checkpoint_resume_from"] or 0
+
+        if processed_count < total:
+            logger.info(f"🔄 Found incomplete sync run: {incomplete['run_id']}")
+            logger.info(
+                f"   Progress: {processed_count}/{total} stocks ({resume_from} index)"
+            )
+            return incomplete["run_id"]
+
+    return None
+
+
+# Global variable to track if we're being terminated
+_terminating = False
+_recorder_instance = None
+
+
+def handle_timeout(signum, frame):
+    """Handle timeout signal from Cloud Run (SIGTERM)"""
+    global _terminating
+    logger.warning("⚠️  Received termination signal (likely timeout)")
+    _terminating = True
+    # Don't try to update database here - connection may be closed
+    # The main async function will check _terminating flag and handle it
+    # Just set the flag and let the async code handle the cleanup
+
+
+async def main() -> bool:
+    """Main sync function.
+
+    Returns:
+        bool: True if all stocks processed, False if partial completion
+    """
+    # Set up signal handlers for timeout detection
+    signal.signal(signal.SIGTERM, handle_timeout)
+    signal.signal(signal.SIGINT, handle_timeout)
+
+    # #region agent log
+    import json
+
+    try:
+        with open("/Users/benebsworth/projects/shorted/.cursor/debug.log", "a") as f:
+            f.write(
+                json.dumps(
+                    {
+                        "timestamp": time.time() * 1000,
+                        "location": "comprehensive_daily_sync.py:871",
+                        "message": "main() entry",
+                        "data": {},
+                        "sessionId": "debug-session",
+                        "runId": "run1",
+                        "hypothesisId": "A",
+                    }
+                )
+                + "\n"
+            )
+    except:
+        pass
+    # #endregion
+
     logger.info("🚀 COMPREHENSIVE DAILY SYNC - STARTING")
     logger.info("=" * 60)
     logger.info(f"⏰ Started at: {date.today()}")
@@ -885,26 +1222,308 @@ async def main():
 
     start_time = time.time()
 
+    # #region agent log
+    try:
+        with open("/Users/benebsworth/projects/shorted/.cursor/debug.log", "a") as f:
+            f.write(
+                json.dumps(
+                    {
+                        "timestamp": time.time() * 1000,
+                        "location": "comprehensive_daily_sync.py:888",
+                        "message": "before connect_to_database()",
+                        "data": {},
+                        "sessionId": "debug-session",
+                        "runId": "run1",
+                        "hypothesisId": "A",
+                    }
+                )
+                + "\n"
+            )
+    except:
+        pass
+    # #endregion
+
     conn = await connect_to_database()
-    recorder = SyncStatusRecorder(conn)
+
+    # #region agent log
+    try:
+        with open("/Users/benebsworth/projects/shorted/.cursor/debug.log", "a") as f:
+            f.write(
+                json.dumps(
+                    {
+                        "timestamp": time.time() * 1000,
+                        "location": "comprehensive_daily_sync.py:890",
+                        "message": "after connect_to_database(), before recorder",
+                        "data": {"conn": "connected" if conn else "None"},
+                        "sessionId": "debug-session",
+                        "runId": "run1",
+                        "hypothesisId": "A",
+                    }
+                )
+                + "\n"
+            )
+    except:
+        pass
+    # #endregion
+
+    # Check for existing incomplete sync run and get total stocks count
+    BATCH_SIZE = int(os.getenv("SYNC_BATCH_SIZE", "500"))  # Stocks per batch
+    all_stocks = await get_stocks_with_price_data(conn)
+    total_stocks = len(all_stocks) if all_stocks else 0
+    existing_run_id = await get_or_create_daily_sync_run(conn, BATCH_SIZE)
+
+    recorder = SyncStatusRecorder(conn, run_id=existing_run_id)
+    global _recorder_instance
+    _recorder_instance = recorder
 
     try:
-        await recorder.start()
+        # #region agent log
+        try:
+            with open(
+                "/Users/benebsworth/projects/shorted/.cursor/debug.log", "a"
+            ) as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "timestamp": time.time() * 1000,
+                            "location": "comprehensive_daily_sync.py:892",
+                            "message": "before recorder.start()",
+                            "data": {"run_id": recorder.run_id},
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "A",
+                        }
+                    )
+                    + "\n"
+                )
+        except:
+            pass
+        # #endregion
+
+        await recorder.start(
+            total_stocks=total_stocks,
+            batch_size=BATCH_SIZE,
+            resume_from=recorder.checkpoint_data["resume_from"],
+        )
+
+        # #region agent log
+        try:
+            with open(
+                "/Users/benebsworth/projects/shorted/.cursor/debug.log", "a"
+            ) as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "timestamp": time.time() * 1000,
+                            "location": "comprehensive_daily_sync.py:894",
+                            "message": "after recorder.start()",
+                            "data": {},
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "A",
+                        }
+                    )
+                    + "\n"
+                )
+        except:
+            pass
+        # #endregion
+
+        # Check for termination signal
+        if _terminating:
+            logger.warning("⚠️  Termination signal received, aborting")
+            await recorder.fail("Job terminated before completion")
+            return False  # Return False to indicate incomplete
+
+        # #region agent log
+        try:
+            with open(
+                "/Users/benebsworth/projects/shorted/.cursor/debug.log", "a"
+            ) as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "timestamp": time.time() * 1000,
+                            "location": "comprehensive_daily_sync.py:895",
+                            "message": "before update_shorts_data()",
+                            "data": {},
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "B",
+                        }
+                    )
+                    + "\n"
+                )
+        except:
+            pass
+        # #endregion
 
         # Update shorts data
         shorts_updated = await update_shorts_data(conn, SYNC_DAYS_SHORTS, recorder)
 
-        # Update stock prices
-        prices_updated = await update_stock_prices(
-            conn, SYNC_DAYS_STOCK_PRICES, recorder
+        # #region agent log
+        try:
+            with open(
+                "/Users/benebsworth/projects/shorted/.cursor/debug.log", "a"
+            ) as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "timestamp": time.time() * 1000,
+                            "location": "comprehensive_daily_sync.py:897",
+                            "message": "after update_shorts_data()",
+                            "data": {"shorts_updated": shorts_updated},
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "B",
+                        }
+                    )
+                    + "\n"
+                )
+        except:
+            pass
+        # #endregion
+
+        # Check for termination signal
+        if _terminating:
+            logger.warning("⚠️  Termination signal received, aborting")
+            await recorder.fail("Job terminated during stock price update")
+            return
+
+        # #region agent log
+        try:
+            with open(
+                "/Users/benebsworth/projects/shorted/.cursor/debug.log", "a"
+            ) as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "timestamp": time.time() * 1000,
+                            "location": "comprehensive_daily_sync.py:898",
+                            "message": "before update_stock_prices()",
+                            "data": {},
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "C",
+                        }
+                    )
+                    + "\n"
+                )
+        except:
+            pass
+        # #endregion
+
+        # Calculate how many stocks to process in this batch
+        # Process up to BATCH_SIZE stocks, or remaining if less
+        remaining_stocks = total_stocks - recorder.checkpoint_data["resume_from"]
+        batch_limit = (
+            min(BATCH_SIZE, remaining_stocks) if remaining_stocks > 0 else BATCH_SIZE
         )
+
+        logger.info(
+            f"📦 Processing batch: {batch_limit} stocks (remaining: {remaining_stocks}, total: {total_stocks})"
+        )
+
+        # Update stock prices with checkpoint support
+        prices_updated = await update_stock_prices(
+            conn,
+            days=SYNC_DAYS_STOCK_PRICES,
+            recorder=recorder,
+            batch_size=BATCH_SIZE,
+            max_stocks=batch_limit,
+        )
+
+        # #region agent log
+        try:
+            with open(
+                "/Users/benebsworth/projects/shorted/.cursor/debug.log", "a"
+            ) as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "timestamp": time.time() * 1000,
+                            "location": "comprehensive_daily_sync.py:900",
+                            "message": "after update_stock_prices()",
+                            "data": {"prices_updated": prices_updated},
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "C",
+                        }
+                    )
+                    + "\n"
+                )
+        except:
+            pass
+        # #endregion
+
+        # Check for termination signal before completing
+        if _terminating:
+            logger.warning("⚠️  Termination signal received, marking as failed")
+            await recorder.fail("Job terminated before completion")
+            return False  # Return False to indicate incomplete
+
+        # #region agent log
+        try:
+            with open(
+                "/Users/benebsworth/projects/shorted/.cursor/debug.log", "a"
+            ) as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "timestamp": time.time() * 1000,
+                            "location": "comprehensive_daily_sync.py:1164",
+                            "message": "before update_key_metrics()",
+                            "data": {"SYNC_KEY_METRICS": SYNC_KEY_METRICS},
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "G",
+                        }
+                    )
+                    + "\n"
+                )
+        except:
+            pass
+        # #endregion
 
         # Update key metrics (P/E, market cap, etc.) from Yahoo Finance
         metrics_updated = 0
         if SYNC_KEY_METRICS:
-            metrics_updated = await update_key_metrics(
-                conn, batch_size=50, recorder=recorder
-            )
+            try:
+                metrics_updated = await update_key_metrics(
+                    conn, batch_size=50, recorder=recorder
+                )
+            except Exception as e:
+                logger.error(f"❌ Error updating key metrics: {e}")
+                metrics_updated = 0
+
+        # #region agent log
+        try:
+            with open(
+                "/Users/benebsworth/projects/shorted/.cursor/debug.log", "a"
+            ) as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "timestamp": time.time() * 1000,
+                            "location": "comprehensive_daily_sync.py:1171",
+                            "message": "after update_key_metrics()",
+                            "data": {"metrics_updated": metrics_updated},
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "G",
+                        }
+                    )
+                    + "\n"
+                )
+        except:
+            pass
+        # #endregion
+
+        # Check for termination signal before final steps
+        if _terminating:
+            logger.warning("⚠️  Termination signal received, marking as failed")
+            await recorder.fail("Job terminated before completion")
+            return False  # Return False to indicate incomplete
 
         # Final summary
         duration = time.time() - start_time
@@ -918,24 +1537,243 @@ async def main():
         logger.info(f"⏱️  Duration: {duration:.1f} seconds")
         logger.info("=" * 60)
 
+        logger.info("🔍 DEBUG: After SYNC COMPLETE, before Algolia check")
+        logger.info(
+            f"🔍 DEBUG: SYNC_ALGOLIA env var = '{os.getenv('SYNC_ALGOLIA', 'NOT_SET')}'"
+        )
+
         # Trigger Algolia sync if configured
         if os.getenv("SYNC_ALGOLIA", "").lower() == "true":
-            await trigger_algolia_sync()
-            # Algolia sync doesn't return metrics in current implementation
-            # We'll assume it started if no error raised
-            await recorder.update_metric(
-                "algolia_records_synced", 0
-            )  # Or update if we change trigger_algolia_sync to return count
+            try:
+                logger.info("🔍 Triggering Algolia sync...")
+                await trigger_algolia_sync()
+                # Algolia sync doesn't return metrics in current implementation
+                # We'll assume it started if no error raised
+                await recorder.update_metric(
+                    "algolia_records_synced", 0
+                )  # Or update if we change trigger_algolia_sync to return count
+            except Exception as e:
+                logger.error(f"❌ Error triggering Algolia sync: {e}")
+        else:
+            logger.info("🔍 DEBUG: Algolia sync not enabled, skipping")
 
-        await recorder.complete()
+        logger.info("🔍 DEBUG: After Algolia check, before recorder.complete()")
+        logger.info(f"🔍 DEBUG: recorder object exists: {recorder is not None}")
+        logger.info(
+            f"🔍 DEBUG: recorder.run_id: {recorder.run_id if recorder else 'N/A'}"
+        )
+
+        # Check if all stocks are processed
+        processed_count = len(recorder.checkpoint_data["stocks_processed"])
+        all_complete = processed_count >= total_stocks
+
+        logger.info("📝 About to call recorder.complete()...")
+        logger.info(f"📊 Progress: {processed_count}/{total_stocks} stocks processed")
+        logger.info(
+            f"✅ Successful: {len(recorder.checkpoint_data['stocks_successful'])}"
+        )
+        logger.info(f"❌ Failed: {len(recorder.checkpoint_data['stocks_failed'])}")
+
+        try:
+            await recorder.complete(all_stocks_complete=all_complete)
+            if all_complete:
+                logger.info(
+                    "✅ recorder.complete() finished successfully - all stocks processed"
+                )
+            else:
+                remaining = total_stocks - processed_count
+                logger.info(
+                    f"⏸️  recorder.complete() finished - partial completion ({processed_count}/{total_stocks})"
+                )
+                logger.info(
+                    f"🔄 {remaining} stocks remaining - job marked as 'partial' for retry"
+                )
+        except Exception as e:
+            logger.error(f"❌ Failed to call recorder.complete(): {e}")
+            import traceback
+
+            logger.error(traceback.format_exc())
+            # Don't raise - we want to exit cleanly even if status update fails
+
+        logger.info("🔍 DEBUG: After recorder.complete() call")
+        logger.info("🔍 DEBUG: About to exit main() function normally")
+
+        # #region agent log
+        try:
+            with open(
+                "/Users/benebsworth/projects/shorted/.cursor/debug.log", "a"
+            ) as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "timestamp": time.time() * 1000,
+                            "location": "comprehensive_daily_sync.py:1482",
+                            "message": "after recorder.complete()",
+                            "data": {"all_complete": all_complete},
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "D",
+                        }
+                    )
+                    + "\n"
+                )
+        except:
+            pass
+        # #endregion
+
+        # Return partial completion status (will be checked in __main__)
+        return all_complete
 
     except Exception as e:
+        # #region agent log
+        try:
+            with open(
+                "/Users/benebsworth/projects/shorted/.cursor/debug.log", "a"
+            ) as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "timestamp": time.time() * 1000,
+                            "location": "comprehensive_daily_sync.py:934",
+                            "message": "exception caught",
+                            "data": {"error": str(e), "type": type(e).__name__},
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "E",
+                        }
+                    )
+                    + "\n"
+                )
+        except:
+            pass
+        # #endregion
+
         logger.error(f"\n❌ SYNC FAILED: {e}")
+
+        # Re-raise to trigger Cloud Run retry
+        raise
+
+        # #region agent log
+        try:
+            with open(
+                "/Users/benebsworth/projects/shorted/.cursor/debug.log", "a"
+            ) as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "timestamp": time.time() * 1000,
+                            "location": "comprehensive_daily_sync.py:936",
+                            "message": "before recorder.fail()",
+                            "data": {"error": str(e)},
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "E",
+                        }
+                    )
+                    + "\n"
+                )
+        except:
+            pass
+        # #endregion
+
         await recorder.fail(str(e))
+
+        # #region agent log
+        try:
+            with open(
+                "/Users/benebsworth/projects/shorted/.cursor/debug.log", "a"
+            ) as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "timestamp": time.time() * 1000,
+                            "location": "comprehensive_daily_sync.py:938",
+                            "message": "after recorder.fail(), before raise",
+                            "data": {},
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "E",
+                        }
+                    )
+                    + "\n"
+                )
+        except:
+            pass
+        # #endregion
+
         raise
 
     finally:
+        logger.info("🔍 DEBUG: Entering finally block")
+        # Check if we were terminated and mark as failed before closing connection
+        # Only update if we haven't already marked it as failed/completed
+        if _terminating:
+            logger.info("🔍 DEBUG: _terminating is True, checking status")
+            try:
+                # Check current status to avoid duplicate updates
+                current_status = await conn.fetchval(
+                    "SELECT status FROM sync_status WHERE run_id = $1", recorder.run_id
+                )
+                logger.info(f"🔍 DEBUG: Current status in DB: {current_status}")
+                if current_status == "running":
+                    logger.warning(
+                        "⚠️  Job was terminated, marking as failed before cleanup"
+                    )
+                    await recorder.fail("Job terminated due to timeout")
+            except Exception as e:
+                logger.error(f"Failed to mark job as failed in finally block: {e}")
+        else:
+            logger.info("🔍 DEBUG: _terminating is False, normal completion")
+
+        # #region agent log
+        try:
+            with open(
+                "/Users/benebsworth/projects/shorted/.cursor/debug.log", "a"
+            ) as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "timestamp": time.time() * 1000,
+                            "location": "comprehensive_daily_sync.py:940",
+                            "message": "finally block, before conn.close()",
+                            "data": {"_terminating": _terminating},
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "F",
+                        }
+                    )
+                    + "\n"
+                )
+        except:
+            pass
+        # #endregion
+
+        logger.info("🔍 DEBUG: About to close database connection")
         await conn.close()
+        logger.info("🔍 DEBUG: Database connection closed")
+
+        # #region agent log
+        try:
+            with open(
+                "/Users/benebsworth/projects/shorted/.cursor/debug.log", "a"
+            ) as f:
+                f.write(
+                    json.dumps(
+                        {
+                            "timestamp": time.time() * 1000,
+                            "location": "comprehensive_daily_sync.py:942",
+                            "message": "finally block, after conn.close()",
+                            "data": {},
+                            "sessionId": "debug-session",
+                            "runId": "run1",
+                            "hypothesisId": "F",
+                        }
+                    )
+                    + "\n"
+                )
+        except:
+            pass
+        # #endregion
 
 
 async def trigger_algolia_sync():
@@ -1003,4 +1841,34 @@ async def trigger_algolia_sync():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    logger.info("🔍 DEBUG: Script starting, about to call asyncio.run(main())")
+    all_complete = False
+    try:
+        result = asyncio.run(main())
+        all_complete = result if result is not None else False
+        logger.info(f"🔍 DEBUG: asyncio.run(main()) completed with result: {result}")
+
+        # If not all stocks are complete, exit with code 2 to trigger retry
+        # (Cloud Run will retry jobs that exit with non-zero codes)
+        if not all_complete:
+            logger.warning(
+                "⚠️  Partial completion - exiting with code 2 to trigger retry"
+            )
+            sys.exit(2)
+    except KeyboardInterrupt:
+        logger.warning("⚠️  Interrupted by user")
+        sys.exit(1)
+    except Exception as e:
+        logger.error(f"❌ Fatal error in main: {e}")
+        import traceback
+
+        logger.error(traceback.format_exc())
+        sys.exit(1)
+    finally:
+        # Ensure we flush any pending logs
+        import sys
+
+        logger.info("🔍 DEBUG: In finally block of __main__, flushing logs")
+        sys.stdout.flush()
+        sys.stderr.flush()
+        logger.info("🔍 DEBUG: Script exiting")

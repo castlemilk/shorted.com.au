@@ -25,12 +25,26 @@ resource "google_cloud_run_v2_service" "shorts_preview" {
 
   labels = local.labels
 
+  lifecycle {
+    create_before_destroy = true
+    # Ignore changes to revision and other computed attributes that can cause
+    # "present but now absent" errors during updates
+    ignore_changes = [
+      template[0].revision,
+      template[0].labels,
+      client,
+      client_version,
+      # Ignore traffic changes to avoid conflicts with services created by gcloud
+      traffic,
+    ]
+  }
+
   template {
     service_account = var.shorts_service_account
 
     containers {
       image = var.shorts_api_image
-      
+
       ports {
         container_port = 9091
       }
@@ -125,6 +139,10 @@ resource "google_cloud_run_v2_service_iam_member" "shorts_preview_access" {
   name     = google_cloud_run_v2_service.shorts_preview.name
   role     = "roles/run.invoker"
   member   = "allUsers"
+
+  depends_on = [
+    google_cloud_run_v2_service.shorts_preview
+  ]
 }
 
 # Market Data Service Preview
@@ -135,12 +153,26 @@ resource "google_cloud_run_v2_service" "market_data_preview" {
 
   labels = local.labels
 
+  lifecycle {
+    create_before_destroy = true
+    # Ignore changes to revision and other computed attributes that can cause
+    # "present but now absent" errors during updates
+    ignore_changes = [
+      template[0].revision,
+      template[0].labels,
+      client,
+      client_version,
+      # Ignore traffic changes to avoid conflicts with services created by gcloud
+      traffic,
+    ]
+  }
+
   template {
-    service_account = var.shorts_service_account  # Reuse shorts SA for preview
+    service_account = var.shorts_service_account # Reuse shorts SA for preview
 
     containers {
       image = var.market_data_image
-      
+
       ports {
         container_port = 8090
       }
@@ -220,6 +252,10 @@ resource "google_cloud_run_v2_service_iam_member" "market_data_preview_access" {
   name     = google_cloud_run_v2_service.market_data_preview.name
   role     = "roles/run.invoker"
   member   = "allUsers"
+
+  depends_on = [
+    google_cloud_run_v2_service.market_data_preview
+  ]
 }
 
 # NOTE: DATABASE_URL secret access must be granted manually to the shorts service account:
