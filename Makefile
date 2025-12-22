@@ -375,9 +375,16 @@ test-stack-up:
 	@echo "Waiting for database to be ready..."
 	@timeout 60 bash -c 'until docker exec $$(docker compose -f test/integration/docker-compose.test.yml ps -q postgres-test) pg_isready -U test_user; do sleep 2; done' || echo "Database may not be ready"
 	@echo "Waiting for backend service to be ready..."
-	@timeout 60 bash -c 'until curl -f http://localhost:8081/health > /dev/null 2>&1; do sleep 2; done' || echo "Backend may not be ready"
+	@echo "Waiting for backend service to be ready..."
+	@BACKEND_PORT=$$(docker port $$(docker compose -f test/integration/docker-compose.test.yml ps -q shorts-service-test) 8080/tcp 2>/dev/null | cut -d: -f2); \
+		if [ -n "$$BACKEND_PORT" ]; then \
+			timeout 60 bash -c "until curl -f http://localhost:$$BACKEND_PORT/health > /dev/null 2>&1; do sleep 2; done" || echo "Backend may not be ready"; \
+		fi
 	@echo "Waiting for frontend service to be ready..."
-	@timeout 60 bash -c 'until curl -f http://localhost:3001/api/health > /dev/null 2>&1; do sleep 2; done' || echo "Frontend may not be ready"
+	@FRONTEND_PORT=$$(docker port $$(docker compose -f test/integration/docker-compose.test.yml ps -q web-test) 3000/tcp 2>/dev/null | cut -d: -f2); \
+		if [ -n "$$FRONTEND_PORT" ]; then \
+			timeout 60 bash -c "until curl -f http://localhost:$$FRONTEND_PORT/api/health > /dev/null 2>&1; do sleep 2; done" || echo "Frontend may not be ready"; \
+		fi
 	@echo "✅ Test environment is ready"
 
 test-stack-down:

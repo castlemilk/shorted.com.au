@@ -19,6 +19,7 @@ import (
 
 // TestDatabaseSetup tests that the PostgreSQL container setup works correctly
 func TestDatabaseSetup(t *testing.T) {
+	t.Parallel() // Enable parallel execution - each test gets its own container with random port
 	WithTestDatabase(t, func(container *TestContainer) {
 		ctx := context.Background()
 
@@ -63,6 +64,7 @@ func TestDatabaseSetup(t *testing.T) {
 
 // TestDatabaseOperations tests basic database operations
 func TestDatabaseOperations(t *testing.T) {
+	t.Parallel() // Enable parallel execution - each test gets its own container with random port
 	WithTestDatabase(t, func(container *TestContainer) {
 		ctx := context.Background()
 		seeder := container.GetSeeder()

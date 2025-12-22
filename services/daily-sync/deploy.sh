@@ -61,21 +61,22 @@ docker push ${IMAGE_NAME}:latest
 echo ""
 echo "☁️  Creating/Updating Cloud Run Job..."
 
-# Build env vars command
-ENV_VARS="DATABASE_URL=${DATABASE_URL},SYNC_DAYS_STOCK_PRICES=5,SYNC_DAYS_SHORTS=7"
+# Build env vars command (exclude DATABASE_URL if it's already set as a secret)
+ENV_VARS="SYNC_DAYS_STOCK_PRICES=5,SYNC_DAYS_SHORTS=7,SYNC_BATCH_SIZE=500,MAX_STOCK_FAILURE_RETRIES=3"
 if [ -n "$ALPHA_VANTAGE_API_KEY" ]; then
     ENV_VARS="${ENV_VARS},ALPHA_VANTAGE_API_KEY=${ALPHA_VANTAGE_API_KEY}"
 fi
 
+# Deploy with env vars (DATABASE_URL should be set as secret separately if needed)
 gcloud run jobs deploy ${JOB_NAME} \
     --image ${IMAGE_NAME}:latest \
     --region ${REGION} \
     --project ${PROJECT_ID} \
-    --set-env-vars "${ENV_VARS}" \
+    --update-env-vars "${ENV_VARS}" \
     --memory 2Gi \
     --cpu 1 \
-    --max-retries 2 \
-    --task-timeout 3600
+    --max-retries 10 \
+    --task-timeout 3600s
 
 echo ""
 echo "⏰ Setting up Cloud Scheduler (daily at 2 AM AEST)..."
