@@ -221,9 +221,11 @@ class SyncStatusRecorder:
             processed = self.checkpoint_data["stocks_processed"] or []
             successful = self.checkpoint_data["stocks_successful"] or []
             failed = self.checkpoint_data["stocks_failed"] or []
+            duration = time.time() - (self.started_at or time.time())
 
             # Use explicit type casting with COALESCE to handle empty arrays
             # For empty arrays, use NULL and let PostgreSQL handle it
+            # Also save metrics incrementally so they persist even if job times out
             await self.conn.execute(
                 """
                 UPDATE sync_status SET
@@ -231,6 +233,14 @@ class SyncStatusRecorder:
                     checkpoint_stocks_successful = COALESCE($3::TEXT[], ARRAY[]::TEXT[]),
                     checkpoint_stocks_failed = COALESCE($4::TEXT[], ARRAY[]::TEXT[]),
                     checkpoint_resume_from = $5,
+                    shorts_records_updated = $6,
+                    prices_records_updated = $7,
+                    prices_alpha_success = $8,
+                    prices_yahoo_success = $9,
+                    prices_failed = $10,
+                    prices_skipped = $11,
+                    metrics_records_updated = $12,
+                    total_duration_seconds = $13,
                     status = CASE 
                         WHEN COALESCE(array_length(COALESCE($2::TEXT[], ARRAY[]::TEXT[]), 1), 0) >= checkpoint_stocks_total THEN 'completed'
                         ELSE 'partial'
@@ -242,6 +252,14 @@ class SyncStatusRecorder:
                 successful,
                 failed,
                 self.checkpoint_data["resume_from"],
+                self.metrics["shorts_records_updated"],
+                self.metrics["prices_records_updated"],
+                self.metrics["prices_alpha_success"],
+                self.metrics["prices_yahoo_success"],
+                self.metrics["prices_failed"],
+                self.metrics["prices_skipped"],
+                self.metrics["metrics_records_updated"],
+                duration,
             )
 
     async def complete(self, all_stocks_complete: bool = True):
