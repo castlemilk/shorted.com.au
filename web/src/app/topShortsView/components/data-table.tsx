@@ -314,9 +314,11 @@ export function DataTable<TData, TValue>({
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className="flex-1 min-w-0 p-2 text-sm overflow-hidden items-center"
+                      className={`flex-1 min-w-0 p-2 text-sm items-center ${
+                        cell.column.id === "sparkline" ? "overflow-visible" : "overflow-hidden"
+                      }`}
                     >
-                      <div className="truncate">
+                      <div className={cell.column.id === "sparkline" ? "" : "truncate"}>
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext(),

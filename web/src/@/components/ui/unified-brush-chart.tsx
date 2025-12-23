@@ -356,7 +356,9 @@ const UnifiedBrushChart = forwardRef<
           | React.MouseEvent<SVGRectElement>,
       ) => {
         const { x } = localPoint(event) ?? { x: 0 };
-        const x0 = dateScale.invert(x);
+        // Adjust for margin to get chart-relative x coordinate
+        const chartX = x - margin.left;
+        const x0 = dateScale.invert(chartX);
         const index = bisectDate(filteredData, x0, 1);
         const d0 = filteredData[index - 1];
         const d1 = filteredData[index];
@@ -368,13 +370,15 @@ const UnifiedBrushChart = forwardRef<
               ? d1
               : d0;
         }
+        // Snap tooltipLeft to the actual data point's x position
+        const snappedX = dateScale(getDate(d)) + margin.left;
         showTooltip({
           tooltipData: d,
-          tooltipLeft: x,
+          tooltipLeft: snappedX,
           tooltipTop: valueScale(getValue(d, data.type)),
         });
       },
-      [showTooltip, valueScale, dateScale, filteredData, data.type],
+      [showTooltip, valueScale, dateScale, filteredData, data.type, margin.left],
     );
 
     if (width < 10) return null;

@@ -9,6 +9,7 @@ import { type StockSearchResult } from "@/lib/stock-data-service";
 import { getIndustryColor } from "@/lib/industry-colors";
 import { useSparklineData } from "@/hooks/use-sparkline-data";
 import { cn } from "~/@/lib/utils";
+import { TrendingUp, TrendingDown, ArrowRight, Percent } from "lucide-react";
 
 interface StockSearchResultItemProps {
   stock: StockSearchResult;
@@ -51,41 +52,52 @@ export function StockSearchResultItem({
     ? stock.logoUrl
     : undefined;
 
-  // Deterministic color generator for placeholder
-  const getStockPlaceholder = (code: string) => {
-    const colors = [
-      "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-      "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
-      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-      "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
-      "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300",
-      "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+  // Deterministic gradient generator for placeholder
+  const getStockGradient = (code: string) => {
+    const gradients = [
+      "from-blue-500/20 to-blue-600/10 text-blue-600 dark:text-blue-400 ring-blue-500/20",
+      "from-emerald-500/20 to-emerald-600/10 text-emerald-600 dark:text-emerald-400 ring-emerald-500/20",
+      "from-amber-500/20 to-amber-600/10 text-amber-600 dark:text-amber-400 ring-amber-500/20",
+      "from-purple-500/20 to-purple-600/10 text-purple-600 dark:text-purple-400 ring-purple-500/20",
+      "from-pink-500/20 to-pink-600/10 text-pink-600 dark:text-pink-400 ring-pink-500/20",
+      "from-indigo-500/20 to-indigo-600/10 text-indigo-600 dark:text-indigo-400 ring-indigo-500/20",
+      "from-cyan-500/20 to-cyan-600/10 text-cyan-600 dark:text-cyan-400 ring-cyan-500/20",
+      "from-orange-500/20 to-orange-600/10 text-orange-600 dark:text-orange-400 ring-orange-500/20",
     ];
     const hash = code
       .split("")
       .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return colors[hash % colors.length];
+    return gradients[hash % gradients.length];
   };
 
-  const placeholderClass = getStockPlaceholder(stock.product_code);
+  const gradientClass = getStockGradient(stock.product_code);
+  const priceChange = stock.priceChange ?? 0;
+  const isPricePositive = priceChange >= 0;
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="w-full px-6 py-4 text-left hover:bg-accent/50 transition-colors cursor-pointer group"
+      className={cn(
+        "w-full px-6 py-5 text-left transition-all duration-300 cursor-pointer group relative",
+        "hover:bg-gradient-to-r hover:from-muted/80 hover:via-muted/50 hover:to-transparent",
+        "focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500/20"
+      )}
     >
-      <div className="flex items-center gap-4">
-        {/* Logo */}
-        <div className="flex-shrink-0">
+      {/* Hover accent line */}
+      <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-blue-500 to-indigo-500 rounded-r-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      
+      <div className="flex items-center gap-5">
+        {/* Logo Container */}
+        <div className="flex-shrink-0 relative">
           {validLogoUrl && !imageError ? (
-            <div className="relative w-10 h-10 rounded-md overflow-hidden bg-muted">
+            <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-muted ring-1 ring-border/50 group-hover:ring-2 group-hover:ring-blue-500/30 transition-all duration-300">
               <Image
                 src={validLogoUrl}
                 alt={`${stock.product_code} logo`}
                 fill
-                className="object-contain p-1"
-                sizes="40px"
+                className="object-contain p-1.5"
+                sizes="48px"
                 onError={() => {
                   setImageError(true);
                 }}
@@ -94,8 +106,10 @@ export function StockSearchResultItem({
           ) : (
             <div
               className={cn(
-                "w-10 h-10 rounded-md flex items-center justify-center font-bold text-sm",
-                placeholderClass,
+                "w-12 h-12 rounded-xl flex items-center justify-center font-bold text-sm",
+                "bg-gradient-to-br ring-1 ring-inset transition-all duration-300",
+                "group-hover:ring-2 group-hover:scale-105",
+                gradientClass,
               )}
             >
               {stock.product_code.slice(0, 2)}
@@ -104,87 +118,128 @@ export function StockSearchResultItem({
         </div>
 
         {/* Stock Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="font-semibold text-base group-hover:text-primary transition-colors">
+        <div className="flex-1 min-w-0 space-y-1.5">
+          <div className="flex items-center gap-2.5">
+            <span className="font-bold text-base group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
               {stock.product_code}
             </span>
             {stock.industry && (
               <Badge
                 variant={industryColor.variant}
-                className={cn("text-xs font-normal", industryColor.className)}
+                className={cn(
+                  "text-[10px] font-medium px-2 py-0.5 rounded-md",
+                  industryColor.className
+                )}
               >
                 {stock.industry}
               </Badge>
             )}
           </div>
-          <div className="text-sm text-muted-foreground truncate">
+          
+          <div className="text-sm text-muted-foreground truncate font-medium">
             {stock.companyName ?? stock.name}
           </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            Short: {stock.percentage_shorted.toFixed(2)}%
+          
+          {/* Metrics Row */}
+          <div className="flex items-center gap-4 text-xs">
+            {/* Short Interest */}
+            <div className="flex items-center gap-1.5">
+              <div className="p-1 rounded bg-red-500/10 dark:bg-red-500/15">
+                <Percent className="w-3 h-3 text-red-500" />
+              </div>
+              <span className="text-muted-foreground">Short:</span>
+              <span className="font-semibold text-red-600 dark:text-red-400">
+                {stock.percentage_shorted.toFixed(2)}%
+              </span>
+            </div>
+            
+            {/* Price & Change */}
             {stock.currentPrice !== undefined && (
-              <>
-                {" • "}${stock.currentPrice.toFixed(2)}
+              <div className="flex items-center gap-2">
+                <span className="font-medium text-foreground">
+                  ${stock.currentPrice.toFixed(2)}
+                </span>
                 {stock.priceChange !== undefined && (
-                  <span
-                    className={cn(
-                      "ml-1",
-                      stock.priceChange >= 0
-                        ? "text-green-600"
-                        : "text-red-600",
+                  <div className={cn(
+                    "flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-[11px] font-medium",
+                    isPricePositive 
+                      ? "bg-green-500/10 text-green-600 dark:text-green-400" 
+                      : "bg-red-500/10 text-red-600 dark:text-red-400"
+                  )}>
+                    {isPricePositive ? (
+                      <TrendingUp className="w-3 h-3" />
+                    ) : (
+                      <TrendingDown className="w-3 h-3" />
                     )}
-                  >
-                    ({stock.priceChange >= 0 ? "+" : ""}
-                    {stock.priceChange.toFixed(2)}%)
-                  </span>
+                    <span>
+                      {isPricePositive ? "+" : ""}
+                      {stock.priceChange.toFixed(2)}%
+                    </span>
+                  </div>
                 )}
-              </>
+              </div>
             )}
           </div>
 
           {/* Tags */}
           {stock.tags && stock.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-2">
-              {stock.tags.slice(0, 3).map((tag) => (
-                <Badge
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {stock.tags.slice(0, 4).map((tag) => (
+                <span
                   key={tag}
-                  variant="outline"
-                  className="text-[10px] px-1 py-0 h-4 border-muted-foreground/30 text-muted-foreground"
+                  className="text-[10px] px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium"
                 >
                   #{tag}
-                </Badge>
+                </span>
               ))}
-              {stock.tags.length > 3 && (
-                <span className="text-[10px] text-muted-foreground self-center">
-                  +{stock.tags.length - 3}
+              {stock.tags.length > 4 && (
+                <span className="text-[10px] text-muted-foreground/70 self-center font-medium">
+                  +{stock.tags.length - 4} more
                 </span>
               )}
             </div>
           )}
         </div>
 
-        {/* Sparkline */}
-        <div className="flex-shrink-0">
-          {sparklineLoading ? (
-            <Skeleton className="w-20 h-10" />
-          ) : sparklineData && sparklineData.length > 1 ? (
-            <div className="w-20 h-10">
-              <Sparkline
-                data={sparklineData}
-                width={80}
-                height={40}
-                isPositive={isPositive}
-                showArea={true}
-                strokeWidth={1.5}
-                gradientId={`sparkline-${stock.product_code}`}
-              />
-            </div>
-          ) : (
-            <div className="w-20 h-10 flex items-center justify-center text-xs text-muted-foreground">
-              No data
-            </div>
-          )}
+        {/* Sparkline & Arrow */}
+        <div className="flex items-center gap-4 flex-shrink-0">
+          {/* Sparkline */}
+          <div className="hidden sm:block">
+            {sparklineLoading ? (
+              <Skeleton className="w-24 h-12 rounded-lg" />
+            ) : sparklineData && sparklineData.length > 1 ? (
+              <div className={cn(
+                "w-24 h-12 p-1 rounded-lg transition-all duration-300",
+                "bg-gradient-to-br",
+                isPositive 
+                  ? "from-green-500/5 to-green-500/10" 
+                  : "from-red-500/5 to-red-500/10"
+              )}>
+                <Sparkline
+                  data={sparklineData}
+                  width={88}
+                  height={40}
+                  isPositive={isPositive}
+                  showArea={true}
+                  strokeWidth={1.5}
+                  gradientId={`sparkline-${stock.product_code}`}
+                />
+              </div>
+            ) : (
+              <div className="w-24 h-12 flex items-center justify-center text-[10px] text-muted-foreground/60 bg-muted/30 rounded-lg">
+                No chart data
+              </div>
+            )}
+          </div>
+
+          {/* Arrow */}
+          <div className={cn(
+            "w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300",
+            "bg-muted/50 group-hover:bg-blue-500 group-hover:text-white",
+            "group-hover:shadow-lg group-hover:shadow-blue-500/25"
+          )}>
+            <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+          </div>
         </div>
       </div>
     </button>
@@ -196,18 +251,24 @@ export function StockSearchResultItem({
  */
 export function StockSearchResultItemSkeleton() {
   return (
-    <div className="w-full px-6 py-4">
-      <div className="flex items-center gap-4">
-        <Skeleton className="w-10 h-10 rounded-md flex-shrink-0" />
-        <div className="flex-1 min-w-0 space-y-2">
+    <div className="w-full px-6 py-5">
+      <div className="flex items-center gap-5">
+        <Skeleton className="w-12 h-12 rounded-xl flex-shrink-0" />
+        <div className="flex-1 min-w-0 space-y-2.5">
           <div className="flex items-center gap-2">
-            <Skeleton className="h-5 w-16" />
-            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-5 w-14 rounded-md" />
+            <Skeleton className="h-4 w-20 rounded-md" />
           </div>
-          <Skeleton className="h-4 w-48" />
-          <Skeleton className="h-3 w-32" />
+          <Skeleton className="h-4 w-48 rounded-md" />
+          <div className="flex items-center gap-4">
+            <Skeleton className="h-4 w-24 rounded-md" />
+            <Skeleton className="h-4 w-16 rounded-md" />
+          </div>
         </div>
-        <Skeleton className="w-20 h-10 flex-shrink-0" />
+        <div className="flex items-center gap-4 flex-shrink-0">
+          <Skeleton className="w-24 h-12 rounded-lg hidden sm:block" />
+          <Skeleton className="w-8 h-8 rounded-full" />
+        </div>
       </div>
     </div>
   );

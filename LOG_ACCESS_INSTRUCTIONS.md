@@ -154,5 +154,3 @@ This will:
 ---
 
 **Note**: If you find errors in the logs, please share them so we can fix the issue!
-
-
