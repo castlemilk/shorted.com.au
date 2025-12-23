@@ -8,13 +8,46 @@ export interface AboutPageStatistics {
 }
 
 /**
+ * Promise wrapper with timeout
+ * Returns the promise result or throws if timeout is exceeded
+ */
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  timeoutMessage = "Operation timed out"
+): Promise<T> {
+  let timeoutId: NodeJS.Timeout | undefined;
+  
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+  });
+
+  try {
+    const result = await Promise.race([promise, timeoutPromise]);
+    clearTimeout(timeoutId);
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+}
+
+/**
  * Fetch statistics and cache them
  * Used both for initial fetch and background refresh
  */
 export async function fetchAndCacheStatistics(): Promise<AboutPageStatistics> {
   try {
-    console.log("Calling getTopShortsData('max', 1000, 0)...");
-    const response = await getTopShortsData("max", 1000, 0);
+    // Use a smaller limit (100) instead of 1000 - we just need counts
+    // Also add a 5 second timeout to prevent hanging
+    console.log("Calling getTopShortsData('3m', 100, 0) with timeout...");
+    const response = await withTimeout(
+      getTopShortsData("3m", 100, 0),
+      5000,
+      "Statistics API call timed out"
+    );
     
     if (!response?.timeSeries) {
       console.error("Invalid response from getTopShortsData:", response);
