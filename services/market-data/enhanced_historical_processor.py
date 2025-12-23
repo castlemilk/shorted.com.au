@@ -21,6 +21,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from data_providers.factory import DataProviderFactory
 from data_providers.base import DataProviderError, RateLimitError, SymbolNotFoundError
 from asx_stock_resolver import ASXStockResolver, DynamicASXProcessor
+from gap_detector import find_gaps
 
 # Configure logging
 logging.basicConfig(
@@ -76,7 +77,7 @@ class EnhancedStockDataProcessor:
             self.yahoo_provider = None
 
     async def fetch_stock_data_with_fallback(
-        self, symbol: str, years: int = 10
+        self, symbol: str, years: int = 10, skip_validation: bool = False
     ) -> Optional[pd.DataFrame]:
         """
         Fetch stock data with Alpha Vantage priority and Yahoo Finance fallback.
@@ -84,37 +85,56 @@ class EnhancedStockDataProcessor:
         Args:
             symbol: Stock symbol (e.g., 'CBA' or 'CBA.AX')
             years: Number of years of historical data to fetch
+            skip_validation: Skip symbol validation (useful for repair operations)
 
         Returns:
             DataFrame with historical data or None if both providers fail
         """
-        # Validate the symbol first
-        if not self.dynamic_processor.validate_stock_symbol(symbol):
-            logger.error(f"❌ Invalid ASX symbol: {symbol}")
-            return None
+        # Validate the symbol first (unless skipped for repair operations)
+        if not skip_validation and not self.dynamic_processor.validate_stock_symbol(symbol):
+            logger.warning(f"⚠️ Symbol {symbol} not in resolver's stock list, attempting fetch anyway")
 
-        # Resolve symbols for both providers
-        alpha_symbol, yahoo_symbol = (
-            self.dynamic_processor.resolve_symbols_for_providers(symbol)
-        )
+        # Normalize symbol for provider resolution
+        # Remove .AX suffix for internal processing, add it back for Yahoo
+        base_symbol = symbol.replace('.AX', '').upper()
+        alpha_symbol = base_symbol
+        yahoo_symbol = f"{base_symbol}.AX"
+        
+        # Try to use the resolver if the symbol is known
+        if self.dynamic_processor.validate_stock_symbol(symbol):
+            alpha_symbol, yahoo_symbol = (
+                self.dynamic_processor.resolve_symbols_for_providers(symbol)
+            )
 
         start_date = date.today() - timedelta(days=years * 365)
         end_date = date.today()
+        
+        # Calculate minimum expected records (~250 trading days/year, allow 80% coverage)
+        min_expected_records = int(years * 250 * 0.8)
 
+        alpha_df = None
         # Try Alpha Vantage first
         if self.alpha_vantage_provider:
             try:
                 logger.info(f"🔄 Trying Alpha Vantage for {symbol} ({alpha_symbol})...")
                 async with self.alpha_vantage_provider as provider:
-                    df = await provider.fetch_historical_data(
-                        alpha_symbol, start_date, end_date
+                    alpha_df = await provider.fetch_historical_data(
+                        alpha_symbol, start_date, end_date, full_output=True
                     )
 
-                    if df is not None and not df.empty:
+                    if alpha_df is not None and not alpha_df.empty:
                         logger.info(
-                            f"✅ Alpha Vantage success for {symbol}: {len(df)} records"
+                            f"✅ Alpha Vantage returned {len(alpha_df)} records for {symbol}"
                         )
-                        return df
+                        # Check if we have sufficient data
+                        if len(alpha_df) >= min_expected_records:
+                            logger.info(f"✅ Alpha Vantage data sufficient for {symbol}")
+                            return alpha_df
+                        else:
+                            logger.warning(
+                                f"⚠️ Alpha Vantage returned insufficient data for {symbol}: "
+                                f"{len(alpha_df)} records (expected at least {min_expected_records})"
+                            )
                     else:
                         logger.warning(f"⚠️ Alpha Vantage returned no data for {symbol}")
 
@@ -123,26 +143,35 @@ class EnhancedStockDataProcessor:
             except Exception as e:
                 logger.error(f"❌ Alpha Vantage unexpected error for {symbol}: {e}")
 
-        # Fallback to Yahoo Finance
+        # Fallback to Yahoo Finance (or use if Alpha Vantage data was insufficient)
         if self.yahoo_provider:
             try:
                 logger.info(
-                    f"🔄 Falling back to Yahoo Finance for {symbol} ({yahoo_symbol})..."
+                    f"🔄 Trying Yahoo Finance for {symbol} ({yahoo_symbol})..."
                 )
-                df = await self.yahoo_provider.fetch_historical_data(
+                yahoo_df = await self.yahoo_provider.fetch_historical_data(
                     yahoo_symbol, start_date, end_date
                 )
 
-                if df is not None and not df.empty:
+                if yahoo_df is not None and not yahoo_df.empty:
                     logger.info(
-                        f"✅ Yahoo Finance success for {symbol}: {len(df)} records"
+                        f"✅ Yahoo Finance returned {len(yahoo_df)} records for {symbol}"
                     )
-                    return df
+                    # If we have Alpha Vantage data too, use whichever has more
+                    if alpha_df is not None and len(alpha_df) > len(yahoo_df):
+                        logger.info(f"📊 Using Alpha Vantage data (more records)")
+                        return alpha_df
+                    return yahoo_df
                 else:
                     logger.warning(f"⚠️ Yahoo Finance returned no data for {symbol}")
 
             except Exception as e:
                 logger.error(f"❌ Yahoo Finance failed for {symbol}: {e}")
+
+        # If we have partial Alpha Vantage data, use it as a last resort
+        if alpha_df is not None and not alpha_df.empty:
+            logger.warning(f"⚠️ Using partial Alpha Vantage data ({len(alpha_df)} records) for {symbol}")
+            return alpha_df
 
         logger.error(f"❌ Both providers failed for {symbol}")
         return None
@@ -200,7 +229,7 @@ class EnhancedStockDataProcessor:
         Returns:
             Number of records inserted
         """
-        # Check if stock already has substantial data
+        # Check if stock already has data
         existing = await conn.fetchrow(
             """
             SELECT COUNT(*) as count, MIN(date) as earliest, MAX(date) as latest
@@ -209,21 +238,35 @@ class EnhancedStockDataProcessor:
             stock_code,
         )
 
-        # Skip if we already have more than 2000 records (likely already has 10 years)
-        if existing["count"] > 2000:
+        # Check for gaps if data exists
+        has_gaps = False
+        if existing["count"] > 0:
+            actual_dates = [row["date"] for row in await conn.fetch(
+                "SELECT date FROM stock_prices WHERE stock_code = $1 ORDER BY date ASC",
+                stock_code
+            )]
+            gap_ranges = find_gaps(actual_dates, start_date=existing["earliest"], end_date=existing["latest"])
+            if gap_ranges:
+                has_gaps = True
+                logger.info(f"🔍 Found {len(gap_ranges)} gaps for {stock_code}")
+
+        # Skip only if we have recent data, enough records, and no gaps
+        is_recent = existing["latest"] and (date.today() - existing["latest"]).days < 7
+        if existing["count"] > 2000 and is_recent and not has_gaps:
             years_existing = (
                 (existing["latest"] - existing["earliest"]).days / 365.25
                 if existing["earliest"]
                 else 0
             )
             logger.info(
-                f"⏭️ Skipping {stock_code} - already has {existing['count']:,} records ({years_existing:.1f} years)"
+                f"⏭️ Skipping {stock_code} - already has {existing['count']:,} records ({years_existing:.1f} years) and no gaps"
             )
             return existing["count"]
 
         # Fetch data using enhanced processor
+        # Skip validation since we're repairing a stock that exists in our database
         logger.info(f"📈 Fetching {years} years of data for {stock_code}...")
-        df = await self.fetch_stock_data_with_fallback(stock_code, years)
+        df = await self.fetch_stock_data_with_fallback(stock_code, years, skip_validation=True)
 
         if df is None or df.empty:
             logger.warning(f"⚠️ No data available for {stock_code}")
@@ -239,10 +282,7 @@ class EnhancedStockDataProcessor:
         logger.info(f"📊 Processing {len(records)} records for {stock_code}")
         logger.info(f"📅 Date range: {records[0]['date']} to {records[-1]['date']}")
 
-        # Delete existing data for clean replacement
-        await conn.execute("DELETE FROM stock_prices WHERE stock_code = $1", stock_code)
-
-        # Insert new data in batches
+        # Insert new data using UPSERT pattern to avoid data loss and preserve existing data
         inserted = 0
         batch_size = 100
 
@@ -256,6 +296,14 @@ class EnhancedStockDataProcessor:
                         INSERT INTO stock_prices 
                         (stock_code, date, open, high, low, close, adjusted_close, volume)
                         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                        ON CONFLICT (stock_code, date) DO UPDATE SET
+                            open = EXCLUDED.open,
+                            high = EXCLUDED.high,
+                            low = EXCLUDED.low,
+                            close = EXCLUDED.close,
+                            adjusted_close = EXCLUDED.adjusted_close,
+                            volume = EXCLUDED.volume,
+                            updated_at = CURRENT_TIMESTAMP
                         """,
                         record["stock_code"],
                         record["date"],
@@ -271,7 +319,7 @@ class EnhancedStockDataProcessor:
                     logger.warning(f"⚠️ Insert error for {record['date']}: {e}")
                     continue
 
-        logger.info(f"✅ Inserted {inserted}/{len(records)} records for {stock_code}")
+        logger.info(f"✅ Upserted {inserted}/{len(records)} records for {stock_code}")
         return inserted
 
     async def populate_all_stocks(self, years: int = 10, limit: Optional[int] = None):

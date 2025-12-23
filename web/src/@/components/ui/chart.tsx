@@ -96,22 +96,11 @@ const Chart = ({ stockCode }: ChartProps) => {
 
   return (
     <div className="grid relative">
-      <div className="flex flex-row-reverse">
-        <div className="flex">
-          <Button
-            className="mr-1"
-            size="sm"
-            onClick={() => chartRef.current?.clear()}
-          >
-            Clear
-          </Button>
-          <Button size="sm" onClick={() => chartRef.current?.reset()}>
-            Reset
-          </Button>
-        </div>
-        <div>
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-4">
+        <div className="overflow-x-auto pb-1 md:pb-0">
           <ToggleGroup
             type="single"
+            className="justify-start md:justify-center"
             value={period}
             onValueChange={(v) => v && setPeriod(v)}
           >
@@ -124,6 +113,20 @@ const Chart = ({ stockCode }: ChartProps) => {
             <ToggleGroupItem value="10y">10Y</ToggleGroupItem>
             <ToggleGroupItem value="max">max</ToggleGroupItem>
           </ToggleGroup>
+        </div>
+        <div className="flex items-center justify-between md:justify-end gap-2">
+          <div className="flex gap-1">
+            <Button
+              className="min-w-[60px]"
+              size="sm"
+              onClick={() => chartRef.current?.clear()}
+            >
+              Clear
+            </Button>
+            <Button size="sm" className="min-w-[60px]" onClick={() => chartRef.current?.reset()}>
+              Reset
+            </Button>
+          </div>
         </div>
       </div>
 

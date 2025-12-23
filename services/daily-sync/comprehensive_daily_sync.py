@@ -56,6 +56,19 @@ MAX_STOCK_FAILURE_RETRIES = int(
 import json
 import uuid
 import socket
+import sys
+
+# Add market-data directory to path for gap_detector
+sys.path.append(
+    os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "market-data"
+    )
+)
+try:
+    from gap_detector import find_gaps
+except ImportError:
+    logger.warning("⚠️  Could not import gap_detector, gap filling will be disabled")
+    find_gaps = None
 
 
 # ============================================================================
@@ -661,16 +674,38 @@ async def get_last_ingested_date(conn, stock_code: str) -> Optional[date]:
     return None
 
 
-def calculate_days_to_fetch(last_date: Optional[date], max_days: int = 365) -> int:
-    """Calculate how many days of data to fetch based on last ingested date."""
+async def get_stock_dates(conn, stock_code: str) -> List[date]:
+    """Get all dates with price data for a given stock."""
+    rows = await conn.fetch(
+        "SELECT date FROM stock_prices WHERE stock_code = $1 ORDER BY date ASC",
+        stock_code,
+    )
+    return [row["date"] for row in rows]
+
+
+def calculate_days_to_fetch(
+    last_date: Optional[date], max_days: int = 365, min_overlap: int = 14
+) -> int:
+    """
+    Calculate how many days of data to fetch based on last ingested date.
+
+    Args:
+        last_date: Most recent date with data for this stock
+        max_days: Maximum days to fetch (default: 365 for initial backfill)
+        min_overlap: Minimum overlap days to ensure no gaps (default: 14)
+
+    Returns:
+        Number of days of data to fetch
+    """
     if not last_date:
         # No data yet, fetch default period
         return max_days
 
     days_missing = (date.today() - last_date).days
 
-    # Add 5 extra days for overlap to ensure no gaps
-    return min(days_missing + 5, max_days)
+    # Add overlap days to ensure no gaps from holidays, weekends, API issues
+    # 14 days overlap handles most holiday periods (e.g., Christmas/New Year)
+    return min(days_missing + min_overlap, max_days)
 
 
 async def insert_price_data(conn, data: List[Dict]) -> int:
@@ -714,6 +749,63 @@ async def insert_price_data(conn, data: List[Dict]) -> int:
 
     except Exception:
         return 0
+
+
+async def check_data_health(conn) -> dict:
+    """
+    Check the health of historical stock price data.
+
+    Returns a summary of data completeness for monitoring purposes.
+    """
+    try:
+        # Get summary statistics
+        summary = await conn.fetchrow(
+            """
+            SELECT 
+                COUNT(*) as total_stocks,
+                COUNT(CASE WHEN records < 500 THEN 1 END) as incomplete,
+                COUNT(CASE WHEN records >= 500 AND records < 2000 THEN 1 END) as partial,
+                COUNT(CASE WHEN records >= 2000 THEN 1 END) as complete
+            FROM (
+                SELECT stock_code, COUNT(*) as records 
+                FROM stock_prices 
+                GROUP BY stock_code
+            ) sub
+            """
+        )
+
+        # Get stocks with stale data (no update in last 7 days)
+        stale_stocks = await conn.fetch(
+            """
+            SELECT stock_code, MAX(date) as last_date
+            FROM stock_prices
+            GROUP BY stock_code
+            HAVING MAX(date) < CURRENT_DATE - INTERVAL '7 days'
+            ORDER BY MAX(date) ASC
+            LIMIT 10
+            """
+        )
+
+        return {
+            "total_stocks": summary["total_stocks"],
+            "incomplete": summary["incomplete"],
+            "partial": summary["partial"],
+            "complete": summary["complete"],
+            "stale_stocks": [(r["stock_code"], r["last_date"]) for r in stale_stocks],
+            "health_score": round(
+                (summary["complete"] / max(summary["total_stocks"], 1)) * 100, 1
+            ),
+        }
+    except Exception as e:
+        logger.error(f"❌ Error checking data health: {e}")
+        return {
+            "total_stocks": 0,
+            "incomplete": 0,
+            "partial": 0,
+            "complete": 0,
+            "stale_stocks": [],
+            "health_score": 0,
+        }
 
 
 async def update_stock_prices(
@@ -826,19 +918,42 @@ async def update_stock_prices(
                     # Mark as processed but not successful to avoid retrying
                     await recorder.update_checkpoint(stock_code, False, current_index)
                 continue
-            # Check last ingested date for this stock
+            # Check last ingested date and potential gaps for this stock
             last_date = await get_last_ingested_date(conn, stock_code)
+
+            # Identify gaps if gap_detector is available
+            gap_ranges = []
+            if find_gaps:
+                actual_dates = await get_stock_dates(conn, stock_code)
+                if actual_dates:
+                    # Look for gaps in the last 2 years (or whatever limit is appropriate)
+                    start_lookback = date.today() - timedelta(days=730)
+                    gap_ranges = find_gaps(
+                        actual_dates, start_date=max(actual_dates[0], start_lookback)
+                    )
+
             days_to_fetch = calculate_days_to_fetch(last_date, max_days=days)
 
-            # Skip if we already have today's data
-            if last_date and last_date >= date.today():
+            # Skip if we already have today's data and no gaps
+            if last_date and last_date >= date.today() and not gap_ranges:
                 logger.info(
-                    f"[{current_index:4d}/{total_stocks}] {stock_code}: ✓ Already up to date (last: {last_date})"
+                    f"[{current_index:4d}/{total_stocks}] {stock_code}: ✓ Already up to date and no gaps (last: {last_date})"
                 )
                 skipped += 1
                 if recorder:
                     await recorder.update_checkpoint(stock_code, True, current_index)
                 continue
+
+            if gap_ranges:
+                logger.info(
+                    f"[{current_index:4d}/{total_stocks}] {stock_code}: 🔍 Found {len(gap_ranges)} gaps to fill"
+                )
+                # For gaps, we might want to fetch a longer period that covers the gaps
+                # or handle them specifically. For now, we'll ensure days_to_fetch
+                # covers at least the oldest gap if it's reasonably recent.
+                oldest_gap_date = min(g[0] for g in gap_ranges)
+                days_to_oldest_gap = (date.today() - oldest_gap_date).days
+                days_to_fetch = max(days_to_fetch, min(days_to_oldest_gap + 5, 365))
 
             data = None
             source = None
@@ -1536,6 +1651,30 @@ async def main() -> bool:
             logger.info(f"📈 Key metrics updated: {metrics_updated:,}")
         logger.info(f"⏱️  Duration: {duration:.1f} seconds")
         logger.info("=" * 60)
+
+        # Data health check
+        try:
+            health = await check_data_health(conn)
+            logger.info("")
+            logger.info("📋 DATA HEALTH CHECK")
+            logger.info("-" * 40)
+            logger.info(f"   Total stocks: {health['total_stocks']}")
+            logger.info(f"   Complete (≥2000 records): {health['complete']}")
+            logger.info(f"   Partial (500-2000): {health['partial']}")
+            logger.info(f"   Incomplete (<500): {health['incomplete']}")
+            logger.info(f"   Health score: {health['health_score']}%")
+
+            if health["stale_stocks"]:
+                logger.warning(
+                    f"   ⚠️ {len(health['stale_stocks'])} stocks with stale data:"
+                )
+                for stock, last_date in health["stale_stocks"][:5]:
+                    logger.warning(f"      - {stock}: last data {last_date}")
+            else:
+                logger.info("   ✅ No stale data detected")
+            logger.info("-" * 40)
+        except Exception as e:
+            logger.warning(f"⚠️ Could not run health check: {e}")
 
         logger.info("🔍 DEBUG: After SYNC COMPLETE, before Algolia check")
         logger.info(
