@@ -13,25 +13,42 @@ const FALLBACK_STATISTICS: AboutPageStatistics = {
   latestUpdateDate: null,
 };
 
-export default async function Page() {
-  let statistics: AboutPageStatistics;
+// Timeout for the statistics fetch (4 seconds to leave margin for Vercel's 10s limit)
+const STATISTICS_TIMEOUT_MS = 4000;
 
-  try {
-    // Fetch statistics on the server side
-    // This uses the shared cache logic to ensure fast responses
-    const { data } = await getStatisticsWithCache();
-    
-    // Validate the data - use fallback if we got zeros
-    if (data.companyCount > 0) {
-      statistics = data;
-    } else {
-      statistics = FALLBACK_STATISTICS;
-    }
-  } catch (error) {
-    // Graceful degradation - use fallback statistics if fetch fails
-    console.error("Failed to fetch statistics for about page:", error);
-    statistics = FALLBACK_STATISTICS;
-  }
+/**
+ * Fetch statistics with a timeout to ensure the page renders quickly
+ */
+async function getStatisticsWithTimeout(): Promise<AboutPageStatistics> {
+  return new Promise((resolve) => {
+    // Set a timeout to return fallback stats
+    const timeoutId = setTimeout(() => {
+      console.warn("Statistics fetch timed out, using fallback");
+      resolve(FALLBACK_STATISTICS);
+    }, STATISTICS_TIMEOUT_MS);
+
+    // Try to fetch real stats
+    getStatisticsWithCache()
+      .then(({ data }) => {
+        clearTimeout(timeoutId);
+        // Validate the data - use fallback if we got zeros
+        if (data.companyCount > 0) {
+          resolve(data);
+        } else {
+          resolve(FALLBACK_STATISTICS);
+        }
+      })
+      .catch((error) => {
+        clearTimeout(timeoutId);
+        console.error("Failed to fetch statistics for about page:", error);
+        resolve(FALLBACK_STATISTICS);
+      });
+  });
+}
+
+export default async function Page() {
+  // Use timeout-protected fetch to ensure page always renders quickly
+  const statistics = await getStatisticsWithTimeout();
 
   return <AboutClient initialStatistics={statistics} />;
 }
