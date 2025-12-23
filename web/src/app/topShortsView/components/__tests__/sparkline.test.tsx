@@ -22,6 +22,24 @@ jest.mock("@visx/responsive", () => ({
   }) => children({ width: 400, height: 140 }),
 }));
 
+// Mock tooltip hooks
+jest.mock("@visx/tooltip", () => ({
+  useTooltip: () => ({
+    tooltipOpen: false,
+    tooltipLeft: undefined,
+    tooltipTop: undefined,
+    tooltipData: undefined,
+    showTooltip: jest.fn(),
+    hideTooltip: jest.fn(),
+  }),
+  useTooltipInPortal: () => ({
+    containerRef: { current: null },
+    TooltipInPortal: ({ children }: { children: React.ReactNode }) => (
+      <div data-testid="tooltip-portal">{children}</div>
+    ),
+  }),
+}));
+
 describe("SparkLine Component", () => {
   const mockData: TimeSeriesData = {
     points: [
@@ -118,10 +136,10 @@ describe("SparkLine Component", () => {
     // Wait for the chart to render
     await waitFor(
       () => {
-        // GlyphCircle renders as path elements with class visx-glyph-circle
-        const glyphs = container.querySelectorAll(".visx-glyph-circle");
-        // Should have at least 2 glyphs (min and max indicators)
-        expect(glyphs.length).toBeGreaterThanOrEqual(2);
+        // Min and max indicators are rendered as circle elements
+        const circles = container.querySelectorAll("svg circle");
+        // Should have at least 2 circles (min and max indicators)
+        expect(circles.length).toBeGreaterThanOrEqual(2);
       },
       { timeout: 200 },
     );

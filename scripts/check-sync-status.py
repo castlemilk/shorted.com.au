@@ -177,5 +177,3 @@ def check_sync_status():
 
 if __name__ == "__main__":
     check_sync_status()
-
-

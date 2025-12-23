@@ -58,40 +58,43 @@ const MarketChart = ({ stockCode }: MarketChartProps) => {
 
   return (
     <Suspense fallback={<ChartLoadingPlaceholder withMenu={true} />}>
-      <div className="grid relative">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-4">
-        <div className="overflow-x-auto pb-1 md:pb-0">
-          <ToggleGroup
-            type="single"
-            className="justify-start md:justify-center"
-            value={period}
-            onValueChange={(v: string) => setPeriod(v)}
-          >
-            <ToggleGroupItem value="1m">1M</ToggleGroupItem>
-            <ToggleGroupItem value="3m">3M</ToggleGroupItem>
-            <ToggleGroupItem value="6m">6M</ToggleGroupItem>
-            <ToggleGroupItem value="1y">1Y</ToggleGroupItem>
-            <ToggleGroupItem value="2y">2Y</ToggleGroupItem>
-            <ToggleGroupItem value="5y">5Y</ToggleGroupItem>
-            <ToggleGroupItem value="10y">10Y</ToggleGroupItem>
-            <ToggleGroupItem value="max">max</ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-        <div className="flex items-center justify-between md:justify-end gap-2">
-          <div className="flex gap-1">
+      <div className="relative">
+        {/* Controls bar - aligned to the right */}
+        <div className="flex items-center justify-end gap-4 mb-4">
+          <div className="overflow-x-auto">
+            <ToggleGroup
+              type="single"
+              className="justify-end"
+              value={period}
+              onValueChange={(v: string) => setPeriod(v)}
+            >
+              <ToggleGroupItem value="1m">1M</ToggleGroupItem>
+              <ToggleGroupItem value="3m">3M</ToggleGroupItem>
+              <ToggleGroupItem value="6m">6M</ToggleGroupItem>
+              <ToggleGroupItem value="1y">1Y</ToggleGroupItem>
+              <ToggleGroupItem value="2y">2Y</ToggleGroupItem>
+              <ToggleGroupItem value="5y">5Y</ToggleGroupItem>
+              <ToggleGroupItem value="10y">10Y</ToggleGroupItem>
+              <ToggleGroupItem value="max">max</ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+          <div className="flex gap-1.5">
             <Button
-              className="min-w-[60px]"
+              variant="outline"
               size="sm"
               onClick={handleClearClick}
             >
               Clear
             </Button>
-            <Button size="sm" className="min-w-[60px]" onClick={handleResetClick}>
+            <Button 
+              variant="outline"
+              size="sm" 
+              onClick={handleResetClick}
+            >
               Reset
             </Button>
           </div>
         </div>
-      </div>
 
         {isFirstLoad && loading ? (
           <ChartLoadingPlaceholder withMenu={false} />

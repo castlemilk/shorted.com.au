@@ -78,4 +78,3 @@ The timeout is still 1 hour (maximum for Cloud Run). If the sync consistently ta
 - Processing stocks in parallel
 - Reducing the number of stocks processed per run
 - Splitting into multiple jobs
-

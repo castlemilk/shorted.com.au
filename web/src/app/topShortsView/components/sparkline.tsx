@@ -1,8 +1,6 @@
 import { timeFormat } from "@visx/vendor/d3-time-format";
-import { useState, useEffect, useRef, useLayoutEffect } from "react";
+import { useState, useEffect, useRef, useLayoutEffect, useCallback } from "react";
 
-import { LineSeries, XYChart, Tooltip, GlyphSeries } from "@visx/xychart";
-import { GlyphCircle } from "@visx/glyph";
 import {
   type TimeSeriesPoint,
   type TimeSeriesData,
@@ -10,20 +8,29 @@ import {
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import { ParentSize } from "@visx/responsive";
 import { Skeleton } from "~/@/components/ui/skeleton";
+import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
+import { localPoint } from "@visx/event";
+import { scaleTime, scaleLinear } from "@visx/scale";
+import { bisector } from "@visx/vendor/d3-array";
+import { LinePath, Line } from "@visx/shape";
 
 type TimeSeriesPointData = TimeSeriesPoint;
 
+const xAccessor = (d: TimeSeriesPointData | undefined): Date => {
+  if (!d) return new Date();
+  if (!d.timestamp) return new Date();
+  const timestamp: Timestamp = d.timestamp;
+  const seconds = timestamp.seconds ?? 0;
+  return new Date(Number(seconds) * 1000) || new Date();
+};
+
+const yAccessor = (d: TimeSeriesPointData | undefined): number => {
+  return d ? d.shortPosition || 0 : 0;
+};
+
 const accessors = {
-  xAccessor: (d: TimeSeriesPointData | undefined): Date => {
-    if (!d) return new Date();
-    if (!d.timestamp) return new Date();
-    const timestamp: Timestamp = d.timestamp;
-    const seconds = timestamp.seconds ?? 0;
-    return new Date(Number(seconds) * 1000) || new Date();
-  },
-  yAccessor: (d: TimeSeriesPointData | undefined): number => {
-    return d ? d.shortPosition || 0 : 0;
-  },
+  xAccessor,
+  yAccessor,
 };
 
 const formatDate = timeFormat("%b %d, '%y");
@@ -37,8 +44,39 @@ const strokeColor = "var(--line-stroke)";
 const redColor = `var(--red)`;
 const greenColor = `var(--green)`;
 
+// Bisector for finding nearest data point
+const bisectorFn = bisector<TimeSeriesPointData, Date>(
+  (d: TimeSeriesPointData): Date => {
+    if (!d) return new Date();
+    if (!d.timestamp) return new Date();
+    const timestamp: Timestamp = d.timestamp;
+    const seconds = timestamp.seconds ?? 0;
+    return new Date(Number(seconds) * 1000) || new Date();
+  }
+);
+const bisectDate = (array: TimeSeriesPointData[], x: Date, lo?: number, hi?: number): number => {
+  return bisectorFn.left(array, x, lo, hi);
+};
+
 const Chart = ({ width, height, data }: SparklineProps) => {
   const points = data.points ?? [];
+  
+  const {
+    tooltipOpen,
+    tooltipLeft,
+    tooltipTop,
+    tooltipData,
+    showTooltip,
+    hideTooltip,
+  } = useTooltip<TimeSeriesPointData>();
+
+  const { containerRef: portalRef, TooltipInPortal } = useTooltipInPortal({
+    detectBounds: true,
+    scroll: true,
+  });
+
+  const margin = { top: 20, right: 10, bottom: 20, left: 10 };
+  
   if (points.length === 0) {
     return <div>Loading or no data available...</div>;
   }
@@ -46,97 +84,146 @@ const Chart = ({ width, height, data }: SparklineProps) => {
   // Calculate the min and max values
   const minY = Math.min(...points.map(accessors.yAccessor));
   const maxY = Math.max(...points.map(accessors.yAccessor));
-
-  // Calculate the padding (e.g., 10% of the range)
   const padding = (maxY - minY) * 0.1;
 
+  // Create scales
+  const xScale = scaleTime({
+    domain: [accessors.xAccessor(points[0]), accessors.xAccessor(points[points.length - 1])],
+    range: [margin.left, width - margin.right],
+  });
+
+  const yScale = scaleLinear({
+    domain: [minY - padding, maxY + padding],
+    range: [height - margin.bottom, margin.top],
+  });
+
+  const handleMouseMove = useCallback(
+    (event: React.MouseEvent<SVGSVGElement>) => {
+      const point = localPoint(event);
+      if (!point) return;
+
+      const x0 = xScale.invert(point.x);
+      const index = bisectDate(points, x0, 1);
+      const d0 = points[index - 1];
+      const d1 = points[index];
+      
+      let d = d0;
+      if (d1 && accessors.xAccessor(d1)) {
+        d = x0.valueOf() - accessors.xAccessor(d0).valueOf() >
+            accessors.xAccessor(d1).valueOf() - x0.valueOf()
+          ? d1
+          : d0;
+      }
+
+      if (d) {
+        const tooltipX = xScale(accessors.xAccessor(d));
+        const tooltipY = yScale(accessors.yAccessor(d));
+        showTooltip({
+          tooltipData: d,
+          tooltipLeft: tooltipX,
+          tooltipTop: tooltipY,
+        });
+      }
+    },
+    [points, xScale, yScale, showTooltip]
+  );
+
   return (
-    <XYChart
-      width={width}
-      height={height}
-      margin={{ top: 40, right: 10, bottom: 20, left: 10 }}
-      xScale={{ type: "time" }}
-      yScale={{
-        type: "linear",
-        domain: [minY - padding, maxY + padding],
-      }}
-    >
-      <LineSeries
-        dataKey="Shorts"
-        data={points}
-        {...accessors}
-        stroke={strokeColor}
-        strokeWidth={1.5}
-      />
-      {/* Remove the GlyphSeries for regular points */}
-      {data.min && (
-        <GlyphSeries
-          dataKey="Min"
-          data={[data.min]}
-          {...accessors}
-          renderGlyph={({ x, y }) => (
-            <GlyphCircle
-              left={x}
-              top={y}
-              size={20}
-              fill={greenColor}
-              stroke={greenColor}
-            />
-          )}
+    <div ref={portalRef} style={{ position: 'relative', width, height }}>
+      <svg
+        width={width}
+        height={height}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={hideTooltip}
+        style={{ cursor: 'crosshair' }}
+      >
+        {/* Main line */}
+        <LinePath
+          data={points}
+          x={(d) => xScale(accessors.xAccessor(d))}
+          y={(d) => yScale(accessors.yAccessor(d))}
+          stroke={strokeColor}
+          strokeWidth={1.5}
         />
-      )}
-      {data.max && (
-        <GlyphSeries
-          dataKey="Max"
-          data={[data.max]}
-          {...accessors}
-          renderGlyph={({ x, y }) => (
-            <GlyphCircle
-              left={x}
-              top={y}
-              size={20}
-              fill={redColor}
-              stroke={redColor}
+        
+        {/* Min point marker */}
+        {data.min && (
+          <circle
+            cx={xScale(accessors.xAccessor(data.min))}
+            cy={yScale(accessors.yAccessor(data.min))}
+            r={4}
+            fill={greenColor}
+            stroke={greenColor}
+          />
+        )}
+        
+        {/* Max point marker */}
+        {data.max && (
+          <circle
+            cx={xScale(accessors.xAccessor(data.max))}
+            cy={yScale(accessors.yAccessor(data.max))}
+            r={4}
+            fill={redColor}
+            stroke={redColor}
+          />
+        )}
+        
+        {/* Hover indicator */}
+        {tooltipOpen && tooltipData && (
+          <>
+            {/* Vertical crosshair line */}
+            <Line
+              from={{ x: tooltipLeft ?? 0, y: margin.top }}
+              to={{ x: tooltipLeft ?? 0, y: height - margin.bottom }}
+              stroke="rgba(255,255,255,0.3)"
+              strokeWidth={1}
+              strokeDasharray="4,3"
+              pointerEvents="none"
             />
-          )}
-        />
+            {/* Hover dot */}
+            <circle
+              cx={tooltipLeft ?? 0}
+              cy={tooltipTop ?? 0}
+              r={5}
+              fill={strokeColor}
+              stroke="white"
+              strokeWidth={2}
+              pointerEvents="none"
+            />
+          </>
+        )}
+      </svg>
+      
+      {/* Tooltip rendered in portal */}
+      {tooltipOpen && tooltipData && (
+        <TooltipInPortal
+          left={tooltipLeft}
+          top={tooltipTop}
+          offsetTop={-50}
+          offsetLeft={0}
+          style={{
+            position: 'absolute',
+            pointerEvents: 'none',
+            zIndex: 10000,
+          }}
+        >
+          <div style={{ 
+            background: "rgba(15, 23, 42, 0.95)", 
+            padding: "8px 12px", 
+            borderRadius: "8px",
+            border: "1px solid rgba(255,255,255,0.1)",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+          }}>
+            <div style={{ fontWeight: "500", color: "white", fontSize: "11px", opacity: 0.8 }}>
+              {formatDate(accessors.xAccessor(tooltipData))}
+            </div>
+            <div style={{ color: "#60a5fa", fontWeight: "700", fontSize: "14px", marginTop: "2px" }}>
+              {`${accessors.yAccessor(tooltipData).toFixed(2)}%`}
+            </div>
+          </div>
+        </TooltipInPortal>
       )}
-      <Tooltip
-        snapTooltipToDatumX
-        snapTooltipToDatumY
-        showSeriesGlyphs
-        renderGlyph={({ x, y, datum }) => {
-          const minPoint = data.min;
-          const maxPoint = data.max;
-          const isMin = datum === minPoint;
-          const isMax = datum === maxPoint;
-          return (
-            <g>
-              <circle
-                cx={x}
-                cy={y}
-                r={3}
-                fill={isMin ? greenColor : isMax ? redColor : strokeColor}
-                strokeWidth={0}
-              />
-            </g>
-          );
-        }}
-        renderTooltip={({ tooltipData }) => {
-          const datum = tooltipData?.nearestDatum?.datum as TimeSeriesPoint;
-          return (
-            <>
-              <div style={{ fontWeight: "600" }}>
-                {formatDate(accessors.xAccessor(datum))}
-              </div>
-              <div
-                style={{ color: "#2563EB" }}
-              >{`${accessors.yAccessor(datum).toFixed(2)}%`}</div>
-            </>
-          );
-        }}
-      />
-    </XYChart>
+    </div>
   );
 };
 
@@ -157,25 +244,25 @@ const SparkLine = ({
 }: SparkLineProps) => {
   if (strategy === "observer") {
     const containerRef = useRef<HTMLDivElement>(null);
-    const widthRef = useRef<number>(0);
     const [width, setWidth] = useState<number>(0);
-    const [ready, setReady] = useState(false);
 
     useLayoutEffect(() => {
       const node = containerRef.current;
       if (!node) return;
 
+      // Get initial width
+      const initialWidth = node.getBoundingClientRect().width;
+      if (initialWidth > 0) {
+        setWidth(initialWidth);
+      }
+
       const resizeObserver = new ResizeObserver((entries) => {
         const entry = entries[0];
         if (!entry) return;
         const nextWidth = entry.contentRect.width;
-        if (nextWidth <= 0) return;
-
-        if (Math.abs(widthRef.current - nextWidth) > 0.5) {
-          widthRef.current = nextWidth;
+        if (nextWidth > 0) {
           setWidth(nextWidth);
         }
-        setReady(true);
       });
 
       resizeObserver.observe(node);
@@ -185,12 +272,10 @@ const SparkLine = ({
       };
     }, []);
 
-    const showSkeleton = !ready || width <= 0;
-
     return (
       <div
         ref={containerRef}
-        className="relative w-full"
+        className="relative w-full overflow-visible"
         style={{
           height: `${height}px`,
           minHeight: `${height}px`,
@@ -198,13 +283,10 @@ const SparkLine = ({
           boxSizing: "border-box",
         }}
       >
-        {showSkeleton && (
+        {width > 0 ? (
+          <Chart width={width} height={height} data={data} />
+        ) : (
           <Skeleton className="absolute inset-0 w-full h-full" />
-        )}
-        {!showSkeleton && (
-          <div className="absolute inset-0">
-            <Chart width={width} height={height} data={data} />
-          </div>
         )}
       </div>
     );

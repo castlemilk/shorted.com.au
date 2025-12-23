@@ -96,4 +96,3 @@
 - Checkpoint updates are batched (every 10 stocks) to reduce DB load
 - Successfully processed stocks are tracked separately from failed ones
 - Job will automatically retry until all stocks are processed or max retries reached
-

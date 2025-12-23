@@ -154,5 +154,3 @@ Based on the evidence, the most likely issues are:
 4. **Missing Error Handling**: Errors may not be properly caught and recorded in `sync_status` table
 
 The fact that all runs show 0 records and "running" status suggests the job is failing early in execution, before any data processing occurs.
-
-

@@ -89,4 +89,3 @@ To verify in browser:
 - Multiple stocks and periods tested successfully
 
 The preview environment is now fully functional with the historical data fixes deployed.
-
