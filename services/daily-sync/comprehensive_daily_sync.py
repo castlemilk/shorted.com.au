@@ -107,7 +107,15 @@ class SyncStatusRecorder:
     ):
         """Record start of sync run."""
         self.started_at = time.time()
-        hostname = socket.gethostname()
+        
+        # Get hostname - prefer Cloud Run identifiers over socket.gethostname()
+        # Cloud Run sets K_SERVICE for services and CLOUD_RUN_JOB for jobs
+        hostname = (
+            os.getenv("CLOUD_RUN_JOB") or 
+            os.getenv("K_SERVICE") or 
+            os.getenv("CLOUD_RUN_EXECUTION") or
+            socket.gethostname()
+        )
         environment = os.getenv("ENVIRONMENT", "development")
 
         # Check if this is a resume from checkpoint
