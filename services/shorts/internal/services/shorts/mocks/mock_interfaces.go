@@ -14,6 +14,7 @@ import (
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	shorts "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -102,18 +103,18 @@ func (mr *MockShortsStoreMockRecorder) GetStockDetails(productCode any) *gomock.
 }
 
 // GetSyncStatus mocks base method.
-func (m *MockShortsStore) GetSyncStatus(limit int) ([]*shortsv1alpha1.SyncRun, error) {
+func (m *MockShortsStore) GetSyncStatus(filter shorts.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetSyncStatus", limit)
+	ret := m.ctrl.Call(m, "GetSyncStatus", filter)
 	ret0, _ := ret[0].([]*shortsv1alpha1.SyncRun)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetSyncStatus indicates an expected call of GetSyncStatus.
-func (mr *MockShortsStoreMockRecorder) GetSyncStatus(limit any) *gomock.Call {
+func (mr *MockShortsStoreMockRecorder) GetSyncStatus(filter any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSyncStatus", reflect.TypeOf((*MockShortsStore)(nil).GetSyncStatus), limit)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSyncStatus", reflect.TypeOf((*MockShortsStore)(nil).GetSyncStatus), filter)
 }
 
 // GetTopShorts mocks base method.

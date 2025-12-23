@@ -12,6 +12,7 @@ import (
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
 
 // validate ServerServer implements productpb.ServerService
@@ -277,7 +278,13 @@ func (s *ShortsServer) GetSyncStatus(ctx context.Context, req *connect.Request[s
 
 	s.logger.Debugf("getting sync status with limit %d", limit)
 
-	runs, err := s.store.GetSyncStatus(int(limit))
+	// Use default filter for gRPC requests (production, exclude local)
+	filter := shortsstore.SyncStatusFilter{
+		Limit:        int(limit),
+		Environment:  "production",
+		ExcludeLocal: true,
+	}
+	runs, err := s.store.GetSyncStatus(filter)
 	if err != nil {
 		s.logger.Errorf("failed to get sync status: %v", err)
 		return nil, connect.NewError(connect.CodeInternal, err)

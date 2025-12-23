@@ -19,16 +19,34 @@ export interface SyncRun {
   hostname: string;
 }
 
+export interface SyncStatusFilter {
+  limit?: number;
+  environment?: string; // "production", "development", or empty for all
+  excludeLocal?: boolean; // if true, exclude runs from local hostnames
+}
+
 interface SyncStatusResponse {
   runs?: SyncRun[];
 }
 
 export const getSyncStatus = cache(
-  async (limit = 10): Promise<SyncRun[]> => {
+  async (filter: SyncStatusFilter = {}): Promise<SyncRun[]> => {
+    const { limit = 20, environment = "production", excludeLocal = true } = filter;
+    
     // Use fetch directly since proto types aren't regenerated yet
     try {
+      const params = new URLSearchParams({
+        limit: String(limit),
+        excludeLocal: String(excludeLocal),
+      });
+      
+      // Only add environment filter if specified
+      if (environment) {
+        params.set("environment", environment);
+      }
+      
       const response = await fetch(
-        `${SHORTS_API_URL}/api/admin/sync-status?limit=${limit}`,
+        `${SHORTS_API_URL}/api/admin/sync-status?${params.toString()}`,
         {
           method: "GET",
           headers: {
