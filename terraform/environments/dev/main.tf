@@ -64,7 +64,7 @@ module "stock_price_ingestion" {
   project_id        = var.project_id
   region            = var.region
   scheduler_region  = "australia-southeast1"  # Cloud Scheduler only available in southeast1
-  environment       = "development"
+  environment       = "production"  # Using production since this is the live system
   image_url         = var.stock_price_ingestion_image
   min_instances     = 0
   max_instances     = 10
@@ -97,7 +97,7 @@ module "shorts_api" {
 
   project_id       = var.project_id
   region           = var.region
-  environment      = "development"
+  environment      = "production"  # Using production since this is the live system
   image_url        = var.shorts_api_image
   min_instances    = 1
   max_instances    = 100
@@ -117,7 +117,7 @@ module "cms" {
 
   project_id           = var.project_id
   region               = var.region
-  environment          = "development"
+  environment          = "production"  # Using production since this is the live system
   image_url            = var.cms_image
   min_instances        = 0
   max_instances        = 10
