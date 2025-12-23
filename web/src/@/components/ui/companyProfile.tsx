@@ -71,16 +71,18 @@ const CompanyProfile = async ({ stockCode }: { stockCode: string }) => {
             stockCode={stockCode}
           />
           <div className="flex-1">
-            <CardTitle className="flex items-center gap-2">
-              {stockCode}
+            <CardTitle className="flex items-center gap-2 truncate">
+              <span className="truncate">{stockCode}</span>
               {isEnriched && (
-                <span title="AI-Enhanced Data Available">
+                <span title="AI-Enhanced Data Available" className="shrink-0">
                   <Sparkles className="h-3 w-3 text-purple-500" />
                 </span>
               )}
             </CardTitle>
-            <CardTitle className="flex text-lg font-semibold">
-              {stockDetails.companyName ?? stockCode}
+            <CardTitle className="flex text-lg font-semibold truncate leading-tight">
+              <span className="truncate" title={stockDetails.companyName ?? stockCode}>
+                {stockDetails.companyName ?? stockCode}
+              </span>
             </CardTitle>
             <div className="flex flex-wrap gap-1 mt-1">
               {stockDetails.industry && (

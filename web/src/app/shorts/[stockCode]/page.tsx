@@ -75,9 +75,9 @@ const Page = ({ params }: PageProps) => {
         <Breadcrumbs items={breadcrumbItems} />
       </div>
 
-      <div className="grid auto-rows-min flex-1 items-start gap-4 md:gap-8 lg:grid-cols-3 xl:grid-cols-3">
-        <div className="grid items-start gap-4 md:gap-8 lg:col-span-1">
-          <div className="grid  gap-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4">
+      <div className="grid auto-rows-min flex-1 items-start gap-4 md:gap-8 xl:grid-cols-3">
+        <div className="order-1 xl:order-1 grid items-start gap-4 md:gap-8 xl:col-span-1">
+          <div className="grid gap-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-4 xl:grid-cols-4">
             <Suspense fallback={<CompanyProfilePlaceholder />}>
               <CompanyProfile stockCode={params.stockCode} />
             </Suspense>
@@ -98,7 +98,7 @@ const Page = ({ params }: PageProps) => {
             </Suspense>
           </div>
         </div>
-        <div className="grid auto-rows-max items-start gap-6 lg:col-span-2">
+        <div className="order-2 xl:order-2 grid auto-rows-max items-start gap-6 xl:col-span-2">
           {/* Short Position Trends */}
           <Card className="border-l-4 border-l-red-500 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
             <CardHeader className="pb-4 bg-gradient-to-r from-red-50/50 to-transparent dark:from-red-950/20 dark:to-transparent">

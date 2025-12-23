@@ -225,6 +225,44 @@ populate-stock-data-custom: dev-db ## Populate with custom stocks and date range
 	@echo "📊 Usage: make populate-stock-data-custom STOCKS=CBA,BHP,CSL START=2022-01-01 END=2024-01-01"
 	@cd services/stock-price-ingestion && python populate_historical_data.py --stocks $(STOCKS) --start-date $(START) --end-date $(END)
 
+repair-gaps: dev-db ## Detect and repair historical data gaps (usage: make repair-gaps STOCKS=CBA,BHP)
+	@echo "🛠️ Repairing historical data gaps..."
+	@if [ -z "$$DATABASE_URL" ]; then \
+		export DATABASE_URL="postgresql://admin:password@localhost:5438/shorts"; \
+	fi; \
+	if [ -n "$(STOCKS)" ]; then \
+		python3 scripts/repair-gaps.py --stocks $(STOCKS); \
+	else \
+		python3 scripts/repair-gaps.py; \
+	fi
+
+repair-gaps-all: dev-db ## Batch repair ALL stocks with insufficient data (< 2000 records)
+	@echo "🛠️ Starting batch repair of all stocks with gaps..."
+	@if [ -z "$$DATABASE_URL" ]; then \
+		export DATABASE_URL="postgresql://admin:password@localhost:5438/shorts"; \
+	fi; \
+	python3 scripts/repair-gaps.py --repair-all $(if $(LIMIT),--limit $(LIMIT),) $(if $(DRY_RUN),--dry-run,)
+
+repair-gaps-dry-run: dev-db ## Show which stocks would be repaired (no changes made)
+	@echo "🔍 Checking which stocks need repair..."
+	@if [ -z "$$DATABASE_URL" ]; then \
+		export DATABASE_URL="postgresql://admin:password@localhost:5438/shorts"; \
+	fi; \
+	python3 scripts/repair-gaps.py --repair-all --dry-run
+
+repair-gaps-status: dev-db ## Show repair status summary
+	@echo "📊 Checking historical data status..."
+	@if [ -z "$$DATABASE_URL" ]; then \
+		export DATABASE_URL="postgresql://admin:password@localhost:5438/shorts"; \
+	fi; \
+	psql $$DATABASE_URL -c " \
+		SELECT \
+			COUNT(*) as total_stocks, \
+			COUNT(CASE WHEN records < 500 THEN 1 END) as needs_backfill, \
+			COUNT(CASE WHEN records >= 500 AND records < 2000 THEN 1 END) as partial_data, \
+			COUNT(CASE WHEN records >= 2000 THEN 1 END) as complete \
+		FROM (SELECT stock_code, COUNT(*) as records FROM stock_prices GROUP BY stock_code) sub;"
+
 # Daily sync commands
 daily-sync-local: ## Run daily sync locally (updates shorts + stock prices)
 	@echo "🔄 Running daily sync locally..."

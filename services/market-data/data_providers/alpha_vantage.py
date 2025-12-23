@@ -190,7 +190,8 @@ class AlphaVantageProvider(StockDataProvider):
         self, 
         symbol: str, 
         start_date: Optional[date] = None, 
-        end_date: Optional[date] = None
+        end_date: Optional[date] = None,
+        full_output: bool = True
     ) -> Optional[pd.DataFrame]:
         """
         Fetch historical stock data for a given symbol.
@@ -199,6 +200,7 @@ class AlphaVantageProvider(StockDataProvider):
             symbol: Stock symbol (e.g., 'CBA.AX', 'IBM')
             start_date: Start date for historical data (optional)
             end_date: End date for historical data (optional)
+            full_output: If True, fetch full history (~20 years). If False, fetch last 100 points.
             
         Returns:
             DataFrame with columns: ['Date', 'Open', 'High', 'Low', 'Close', 'Volume']
@@ -206,14 +208,18 @@ class AlphaVantageProvider(StockDataProvider):
         """
         alpha_symbol = self._convert_symbol_for_alpha_vantage(symbol)
         
+        # Use 'full' for complete history (needed for gap filling)
+        # 'compact' only returns last 100 data points
+        output_size = 'full' if full_output else 'compact'
+        
         params = {
             'function': 'TIME_SERIES_DAILY',
             'symbol': alpha_symbol,
-            'outputsize': 'compact'  # Last 100 data points
+            'outputsize': output_size
         }
         
         try:
-            logger.info(f"Fetching data for {symbol} ({alpha_symbol}) from Alpha Vantage")
+            logger.info(f"Fetching data for {symbol} ({alpha_symbol}) from Alpha Vantage (outputsize={output_size})")
             data = await self._make_request(params)
             
             df = self._parse_time_series_data(data, symbol)
