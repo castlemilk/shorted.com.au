@@ -3,6 +3,7 @@ package shorts
 import (
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
 
 //go:generate mockgen -source=interfaces.go -destination=mocks/mock_interfaces.go -package=mocks
@@ -15,7 +16,7 @@ type ShortsStore interface {
 	GetStockDetails(productCode string) (*stocksv1alpha1.StockDetails, error)
 	GetIndustryTreeMap(limit int32, period, viewMode string) (*stocksv1alpha1.IndustryTreeMap, error)
 	SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error)
-	GetSyncStatus(limit int) ([]*shortsv1alpha1.SyncRun, error)
+	GetSyncStatus(filter shortsstore.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
 }
 
 // Cache defines the interface for caching operations

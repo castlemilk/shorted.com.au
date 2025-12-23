@@ -42,8 +42,8 @@ func (s *StoreAdapter) SearchStocks(query string, limit int32) ([]*stocksv1alpha
 	return s.store.SearchStocks(query, limit)
 }
 
-func (s *StoreAdapter) GetSyncStatus(limit int) ([]*shortsv1alpha1.SyncRun, error) {
-	return s.store.GetSyncStatus(limit)
+func (s *StoreAdapter) GetSyncStatus(filter shorts.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error) {
+	return s.store.GetSyncStatus(filter)
 }
 
 // LoggerAdapter adapts the standard logger to the Logger interface

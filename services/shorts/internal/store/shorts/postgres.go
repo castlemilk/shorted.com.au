@@ -747,8 +747,9 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 	return results, nil
 }
 
-func (s *postgresStore) GetSyncStatus(limit int) ([]*shortsv1alpha1.SyncRun, error) {
-	query := `
+func (s *postgresStore) GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error) {
+	// Build dynamic query with filters
+	baseQuery := `
 		SELECT 
 			run_id, 
 			started_at, 
@@ -763,11 +764,39 @@ func (s *postgresStore) GetSyncStatus(limit int) ([]*shortsv1alpha1.SyncRun, err
 			environment, 
 			hostname
 		FROM sync_status
-		ORDER BY started_at DESC
-		LIMIT $1
+		WHERE 1=1
 	`
+	
+	var args []interface{}
+	argIndex := 1
+	
+	// Filter by environment if specified
+	if filter.Environment != "" {
+		baseQuery += fmt.Sprintf(" AND environment = $%d", argIndex)
+		args = append(args, filter.Environment)
+		argIndex++
+	}
+	
+	// Exclude local/development hostnames if requested
+	// Local runs typically have hostnames like "localhost", local machine names, or ".local" suffix
+	if filter.ExcludeLocal {
+		baseQuery += fmt.Sprintf(" AND hostname NOT LIKE '%%local%%' AND hostname NOT LIKE '%%.local' AND hostname IS NOT NULL AND hostname != ''")
+	}
+	
+	baseQuery += " ORDER BY started_at DESC"
+	
+	// Apply limit
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	baseQuery += fmt.Sprintf(" LIMIT $%d", argIndex)
+	args = append(args, limit)
 
-	rows, err := s.db.Query(context.Background(), query, limit)
+	rows, err := s.db.Query(context.Background(), baseQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query sync_status: %w", err)
 	}

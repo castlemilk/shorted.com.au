@@ -5,6 +5,13 @@ import (
 	stockv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 )
 
+// SyncStatusFilter defines filtering options for sync status queries
+type SyncStatusFilter struct {
+	Limit       int
+	Environment string // "production", "development", or empty for all
+	ExcludeLocal bool   // if true, exclude runs from local hostnames
+}
+
 type Store interface {
 	GetStock(string) (*stockv1alpha1.Stock, error)
 	GetTopShorts(string, int32, int32) ([]*stockv1alpha1.TimeSeriesData, int, error)
@@ -13,7 +20,7 @@ type Store interface {
 	GetIndustryTreeMap(int32, string, string) (*stockv1alpha1.IndustryTreeMap, error)
 	RegisterEmail(string) error
 	SearchStocks(string, int32) ([]*stockv1alpha1.Stock, error)
-	GetSyncStatus(int) ([]*shortsv1alpha1.SyncRun, error)
+	GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
 }
 
 func NewStore(config Config) Store {

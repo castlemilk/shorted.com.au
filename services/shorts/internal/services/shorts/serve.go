@@ -19,6 +19,7 @@ import (
 	"github.com/rakyll/statik/fs"
 
 	_ "github.com/castlemilk/shorted.com.au/services/shorts/internal/api/schema/statik"
+	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
@@ -304,18 +305,29 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			return
 		}
 
-		// Parse limit parameter
+		// Parse filter parameters
 		limitStr := r.URL.Query().Get("limit")
-		limit := 10 // default
+		limit := 20 // default
 		if limitStr != "" {
 			fmt.Sscanf(limitStr, "%d", &limit)
 		}
 		if limit > 100 {
 			limit = 100
 		}
+		
+		// Environment filter: "production", "development", or empty for all
+		environment := r.URL.Query().Get("environment")
+		
+		// Exclude local runs by default for cleaner production view
+		excludeLocal := r.URL.Query().Get("excludeLocal") != "false"
 
-		// Get sync status from store
-		runs, err := s.store.GetSyncStatus(limit)
+		// Get sync status from store with filtering
+		filter := shortsstore.SyncStatusFilter{
+			Limit:        limit,
+			Environment:  environment,
+			ExcludeLocal: excludeLocal,
+		}
+		runs, err := s.store.GetSyncStatus(filter)
 		if err != nil {
 			logger.Errorf("Failed to get sync status: %v", err)
 			http.Error(w, "Failed to get sync status", http.StatusInternalServerError)
