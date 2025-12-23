@@ -82,7 +82,7 @@ module "short_data_sync" {
   project_id        = var.project_id
   region            = var.region
   scheduler_region  = "australia-southeast1"  # Cloud Scheduler only available in southeast1
-  environment       = "development"
+  environment       = "production"  # Using production since this is the live system
   image_url         = var.short_data_sync_image
 
   depends_on = [
