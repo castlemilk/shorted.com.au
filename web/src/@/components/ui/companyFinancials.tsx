@@ -37,8 +37,9 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
   const stockDetails: StockDetails = stockDetailsResult;
   const financialInfo = stockDetails.financialStatements?.info;
 
-  // Only show this card if we have enriched financial data
-  if (!financialInfo || stockDetails.enrichmentStatus !== "completed") {
+  // Show key metrics if we have financial data (from daily sync or enrichment)
+  // Key metrics come from daily sync, not just enrichment, so don't require enrichmentStatus === "completed"
+  if (!financialInfo) {
     return null;
   }
 
