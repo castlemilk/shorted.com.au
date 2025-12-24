@@ -93,25 +93,66 @@ func NewAuthInterceptor(tokenService *TokenService) connect.UnaryInterceptorFunc
 			if internalSecret == "dev-internal-secret" {
 				userID := req.Header().Get("X-User-Id")
 				userEmail := req.Header().Get("X-User-Email")
+				userRolesHeader := req.Header().Get("X-User-Roles")
+				
 				if userID != "" {
+					// Start with api-user role by default
+					roles := []string{"api-user"}
+					
+					// Parse roles from header if provided
+					if userRolesHeader != "" {
+						headerRoles := strings.Split(userRolesHeader, ",")
+						for _, role := range headerRoles {
+							role = strings.TrimSpace(role)
+							if role != "" && role != "api-user" {
+								roles = append(roles, role)
+							}
+						}
+					}
+					
+					// Auto-grant admin to specific emails
+					adminEmails := []string{
+						"e2e-test@shorted.com.au",
+						"ben.ebsworth@gmail.com",
+						"ben@shorted.com.au",
+					}
+					isAdmin := false
+					for _, adminEmail := range adminEmails {
+						if userEmail == adminEmail {
+							if !hasRoleInList(roles, "admin") {
+								roles = append(roles, "admin")
+							}
+							isAdmin = true
+							break
+						}
+					}
+					
 					normalizedClaims := &Claims{
 						UserID: userID,
 						Email:  userEmail,
-						Roles:  []string{},
-					}
-					// Admin check if needed
-					if userEmail == "e2e-test@shorted.com.au" {
-						normalizedClaims.Roles = append(normalizedClaims.Roles, "admin")
+						Roles:  roles,
 					}
 					
+					log.Infof("Internal auth: user=%s, roles=%v, isAdmin=%v", userEmail, roles, isAdmin)
 					ctx = context.WithValue(ctx, userKey, normalizedClaims)
+					
+					// Check role requirement
+					if requiredRole != "" && !hasRole(normalizedClaims, requiredRole) {
+						return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("%s role required", requiredRole))
+					}
+					
 					return next(ctx, req)
 				}
 			}
 
-			// If it's public and doesn't require a specific role, proceed
+			// If it's public and doesn't require a specific role, allow unauthenticated access
 			if visibility == optionsv1.Visibility_VISIBILITY_PUBLIC && requiredRole == "" {
 				return next(ctx, req)
+			}
+			
+			// If it's private but no specific role required, just need authentication (any role)
+			if visibility == optionsv1.Visibility_VISIBILITY_PRIVATE && requiredRole == "" {
+				// Will check for authentication below
 			}
 
 			// Perform standard authentication via Authorization header
@@ -140,22 +181,45 @@ func NewAuthInterceptor(tokenService *TokenService) connect.UnaryInterceptorFunc
 					fbToken, verifyErr := firebaseClient.VerifyIDToken(ctx, tokenString)
 					if verifyErr == nil {
 						// Token is a valid Firebase ID token
-						// Normalize claims
-						roles := []string{}
+						// Start with api-user role for all authenticated users
+						roles := []string{"api-user"}
+						
+						// Check for custom roles from Firebase claims
 						if r, ok := fbToken.Claims["roles"].([]interface{}); ok {
 							for _, role := range r {
 								if rs, ok := role.(string); ok {
-									roles = append(roles, rs)
+									if rs != "api-user" { // Don't duplicate api-user
+										roles = append(roles, rs)
+									}
+								}
+							}
+						}
+						
+						// Auto-grant admin to specific emails
+						email := ""
+						if e, ok := fbToken.Claims["email"].(string); ok {
+							email = e
+							adminEmails := []string{
+								"ben.ebsworth@gmail.com",
+								"ben@shorted.com.au",
+								"e2e-test@shorted.com.au",
+							}
+							for _, adminEmail := range adminEmails {
+								if email == adminEmail && !hasRoleInList(roles, "admin") {
+									roles = append(roles, "admin")
+									log.Infof("Auto-granted admin role to %s", email)
+									break
 								}
 							}
 						}
 						
 						normalizedClaims := &Claims{
 							UserID: fbToken.UID,
-							Email:  fbToken.Claims["email"].(string),
+							Email:  email,
 							Roles:  roles,
 						}
 						
+						log.Infof("Firebase auth: user=%s, roles=%v", email, roles)
 						ctx = context.WithValue(ctx, userKey, normalizedClaims)
 						if requiredRole != "" && !hasRole(normalizedClaims, requiredRole) {
 							return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("%s role required", requiredRole))
@@ -188,6 +252,15 @@ func NewAuthInterceptor(tokenService *TokenService) connect.UnaryInterceptorFunc
 
 func hasRole(claims *Claims, role string) bool {
 	for _, r := range claims.Roles {
+		if r == role {
+			return true
+		}
+	}
+	return false
+}
+
+func hasRoleInList(roles []string, role string) bool {
+	for _, r := range roles {
 		if r == role {
 			return true
 		}
