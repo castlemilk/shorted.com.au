@@ -151,7 +151,7 @@ resource "google_cloud_run_v2_service_iam_member" "invoker" {
 
 # Cloud Scheduler Job - Daily Sync
 resource "google_cloud_scheduler_job" "daily_sync" {
-  name             = "stock-price-daily-sync"  # Keep existing job name
+  name             = "stock-price-daily-sync" # Keep existing job name
   description      = "Daily sync of ASX stock prices from Yahoo Finance (after market close)"
   schedule         = "0 8 * * 1-5" # Weekdays at 6 PM AEST (8 AM UTC)
   time_zone        = "UTC"
@@ -185,7 +185,7 @@ resource "google_cloud_scheduler_job" "daily_sync" {
 
 # Cloud Scheduler Job - Weekly Backfill
 resource "google_cloud_scheduler_job" "weekly_backfill" {
-  name             = "stock-price-weekly-sync"  # Keep existing job name
+  name             = "stock-price-weekly-sync" # Keep existing job name
   description      = "Weekly comprehensive sync of stock prices (7-day backfill)"
   schedule         = "0 10 * * 0" # Sundays at 8 PM AEST (10 AM UTC)
   time_zone        = "UTC"
@@ -203,7 +203,7 @@ resource "google_cloud_scheduler_job" "weekly_backfill" {
   http_target {
     http_method = "POST"
     uri         = "${google_cloud_run_v2_service.stock_price_ingestion.uri}/sync"
-    body        = base64encode(jsonencode({
+    body = base64encode(jsonencode({
       days_back = 7
       mode      = "backfill"
     }))

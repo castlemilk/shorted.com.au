@@ -31,7 +31,7 @@ jobs:
         id: check
         run: |
           HAS_GCP="false"
-          if [ -n "${{ secrets.GCP_PROJECT_ID }}" ] && [ -n "${{ secrets.WIP_PROVIDER }}" ] && [ -n "${{ secrets.SA_EMAIL }}" ]; then
+          if [ -n "${{ secrets.GCP_PROJECT_ID }}" ] && [ -n "${{ secrets.WIP_PROVIDER }}" ] && [ -n "${{ secrets.SA_EMAIL }}" ] && [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
             HAS_GCP="true"
           fi
           echo "has-gcp=$HAS_GCP" >> $GITHUB_OUTPUT

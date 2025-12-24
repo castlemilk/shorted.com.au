@@ -61,13 +61,13 @@ resource "google_artifact_registry_repository" "shorted" {
 module "stock_price_ingestion" {
   source = "../../modules/stock-price-ingestion"
 
-  project_id        = var.project_id
-  region            = var.region
-  scheduler_region  = "australia-southeast1"  # Cloud Scheduler only available in southeast1
-  environment       = "production"  # Using production since this is the live system
-  image_url         = var.stock_price_ingestion_image
-  min_instances     = 0
-  max_instances     = 10
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment      = "production"           # Using production since this is the live system
+  image_url        = var.stock_price_ingestion_image
+  min_instances    = 0
+  max_instances    = 10
 
   depends_on = [
     google_project_service.required_apis,
@@ -79,11 +79,11 @@ module "stock_price_ingestion" {
 module "short_data_sync" {
   source = "../../modules/short-data-sync"
 
-  project_id        = var.project_id
-  region            = var.region
-  scheduler_region  = "australia-southeast1"  # Cloud Scheduler only available in southeast1
-  environment       = "production"  # Using production since this is the live system
-  image_url         = var.short_data_sync_image
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment      = "production"           # Using production since this is the live system
+  image_url        = var.short_data_sync_image
 
   depends_on = [
     google_project_service.required_apis,
@@ -95,13 +95,13 @@ module "short_data_sync" {
 module "shorts_api" {
   source = "../../modules/shorts-api"
 
-  project_id       = var.project_id
-  region           = var.region
-  environment      = "production"  # Using production since this is the live system
-  image_url        = var.shorts_api_image
-  min_instances    = 1
-  max_instances    = 100
-  postgres_address = var.postgres_address
+  project_id        = var.project_id
+  region            = var.region
+  environment       = "production" # Using production since this is the live system
+  image_url         = var.shorts_api_image
+  min_instances     = 1
+  max_instances     = 100
+  postgres_address  = var.postgres_address
   postgres_database = var.postgres_database
   postgres_username = var.postgres_username
 
@@ -115,13 +115,13 @@ module "shorts_api" {
 module "cms" {
   source = "../../modules/cms"
 
-  project_id           = var.project_id
-  region               = var.region
-  environment          = "production"  # Using production since this is the live system
-  image_url            = var.cms_image
-  min_instances        = 0
-  max_instances        = 10
-  mongodb_secret_name  = var.cms_mongodb_secret_name
+  project_id            = var.project_id
+  region                = var.region
+  environment           = "production" # Using production since this is the live system
+  image_url             = var.cms_image
+  min_instances         = 0
+  max_instances         = 10
+  mongodb_secret_name   = var.cms_mongodb_secret_name
   allow_unauthenticated = true
 
   additional_env_vars = {

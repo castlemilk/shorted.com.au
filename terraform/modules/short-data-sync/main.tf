@@ -9,7 +9,7 @@
  */
 
 locals {
-  service_name = "shorts-data-sync"  # Match existing job name
+  service_name = "shorts-data-sync" # Match existing job name
   labels = {
     service     = "short-data-sync"
     environment = var.environment
@@ -19,8 +19,8 @@ locals {
 
 # GCS Bucket for short selling data (existing bucket name format)
 resource "google_storage_bucket" "short_selling_data" {
-  name          = "shorted-short-selling-data"  # Match existing bucket name
-  location      = "US"  # Match existing bucket location (multi-region)
+  name          = "shorted-short-selling-data" # Match existing bucket name
+  location      = "US"                         # Match existing bucket location (multi-region)
   project       = var.project_id
   force_destroy = false
 
@@ -31,7 +31,7 @@ resource "google_storage_bucket" "short_selling_data" {
   }
 
   # Don't add labels/autoclass to match existing bucket (avoids replacement)
-  
+
   lifecycle_rule {
     condition {
       age = 365 # Keep data for 1 year
@@ -44,7 +44,7 @@ resource "google_storage_bucket" "short_selling_data" {
   lifecycle {
     ignore_changes = [
       labels,
-      autoclass,  # Ignore autoclass if it was enabled manually
+      autoclass, # Ignore autoclass if it was enabled manually
       soft_delete_policy
     ]
   }
@@ -91,7 +91,7 @@ resource "google_cloud_run_v2_job" "short_data_sync" {
       timeout     = "3600s" # 1 hour
 
       containers {
-        image   = var.image_url
+        image = var.image_url
         # Use Dockerfile's default CMD: python comprehensive_daily_sync.py
 
         env {
@@ -153,7 +153,7 @@ resource "google_cloud_scheduler_job" "daily_sync" {
   description      = "Daily sync of ASIC short selling data"
   schedule         = "0 10 * * *" # 8 PM AEST (10 AM UTC)
   time_zone        = "UTC"
-  attempt_deadline = "1800s"  # 30 minutes (max allowed by Cloud Scheduler)
+  attempt_deadline = "1800s" # 30 minutes (max allowed by Cloud Scheduler)
   region           = var.scheduler_region
   project          = var.project_id
 

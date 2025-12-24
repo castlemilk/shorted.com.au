@@ -7,6 +7,7 @@ option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/
 import "google/api/annotations.proto";
 import "gnostic/openapi/v3/annotations.proto";
 import "google/api/client.proto";
+import "google/protobuf/timestamp.proto";
 import "stocks/v1alpha1/stocks.proto";
 import "options/v1/options.proto";
 
@@ -292,6 +293,37 @@ service ShortedStocksService {
       }
     };
   }
+
+  // Trigger enrichment for a specific stock. Admin only.
+  // Returns enrichment data for review before applying to company-metadata.
+  rpc EnrichStock (EnrichStockRequest) returns (EnrichStockResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // Get top stocks for enrichment batching/prioritization. Admin only.
+  rpc GetTopStocksForEnrichment (GetTopStocksForEnrichmentRequest) returns (GetTopStocksForEnrichmentResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // List pending enrichments awaiting review. Admin only.
+  rpc ListPendingEnrichments (ListPendingEnrichmentsRequest) returns (ListPendingEnrichmentsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // Get a specific pending enrichment by ID. Admin only.
+  rpc GetPendingEnrichment (GetPendingEnrichmentRequest) returns (GetPendingEnrichmentResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // Approve or reject a pending enrichment. Admin only.
+  rpc ReviewEnrichment (ReviewEnrichmentRequest) returns (ReviewEnrichmentResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
 }
 
 message MintTokenRequest {
@@ -420,4 +452,142 @@ message KeyMetricsData {
   double fifty_two_week_high = 6;
   double fifty_two_week_low = 7;
   double avg_volume = 8;
+}
+
+// Enrichment request
+message EnrichStockRequest {
+  string stock_code = 1; // Stock code to enrich (e.g., "CBA")
+  bool force = 2; // If true, re-enrich even if already enriched
+}
+
+// Enrichment response with data for review
+message EnrichStockResponse {
+  string stock_code = 1;
+  EnrichmentStatus status = 2;
+  EnrichmentData data = 3; // Enrichment data for review
+  QualityScore quality_score = 4; // Quality evaluation
+  string error_message = 5;
+  double duration_seconds = 6;
+  string enrichment_id = 7; // Unique ID for this enrichment (used for review)
+}
+
+// Enrichment status
+enum EnrichmentStatus {
+  ENRICHMENT_STATUS_UNSPECIFIED = 0;
+  ENRICHMENT_STATUS_PENDING_REVIEW = 1; // Enrichment completed, awaiting review
+  ENRICHMENT_STATUS_COMPLETED = 2; // Approved and saved
+  ENRICHMENT_STATUS_FAILED = 3; // Enrichment failed
+  ENRICHMENT_STATUS_REJECTED = 4; // Rejected during review
+}
+
+// Enrichment data structure
+message EnrichmentData {
+  string enhanced_summary = 1;
+  string company_history = 2;
+  repeated stocks.v1alpha1.CompanyPerson key_people = 3;
+  repeated stocks.v1alpha1.FinancialReport financial_reports = 4;
+  string competitive_advantages = 5;
+  repeated string risk_factors = 6;
+  string recent_developments = 7;
+  stocks.v1alpha1.SocialMediaLinks social_media_links = 8;
+  repeated string tags = 9;
+}
+
+// Quality score for enrichment data
+message QualityScore {
+  double overall_score = 1; // 0.0 to 1.0
+  double completeness_score = 2; // How complete is the data
+  double accuracy_score = 3; // Estimated accuracy
+  repeated string warnings = 4; // Quality warnings
+  repeated string strengths = 5; // Quality strengths
+}
+
+// Get top stocks for enrichment request
+message GetTopStocksForEnrichmentRequest {
+  int32 limit = 1; // Number of stocks to return (default: 100)
+  EnrichmentPriority priority = 2; // How to prioritize stocks
+}
+
+// Enrichment priority
+enum EnrichmentPriority {
+  ENRICHMENT_PRIORITY_UNSPECIFIED = 0;
+  ENRICHMENT_PRIORITY_MARKET_CAP = 1; // Top by market cap
+  ENRICHMENT_PRIORITY_SHORT_POSITION = 2; // Top by short position
+  ENRICHMENT_PRIORITY_UNENRICHED = 3; // Stocks that haven't been enriched
+  ENRICHMENT_PRIORITY_STALE = 4; // Stocks with old enrichment data
+}
+
+// Get top stocks response
+message GetTopStocksForEnrichmentResponse {
+  repeated StockEnrichmentCandidate stocks = 1;
+}
+
+// Stock candidate for enrichment
+message StockEnrichmentCandidate {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  double market_cap = 4;
+  double short_position_percent = 5;
+  string enrichment_status = 6;
+  google.protobuf.Timestamp last_enriched = 7;
+  int32 priority_score = 8; // Higher = more important to enrich
+}
+
+// Review enrichment request
+message ReviewEnrichmentRequest {
+  string stock_code = 1;
+  string enrichment_id = 2; // ID from EnrichStockResponse
+  bool approve = 3; // true to approve, false to reject
+  string review_notes = 4; // Optional notes about the review
+}
+
+// Review enrichment response
+message ReviewEnrichmentResponse {
+  string stock_code = 1;
+  bool approved = 2;
+  string message = 3;
+}
+
+// List pending enrichments request
+message ListPendingEnrichmentsRequest {
+  int32 limit = 1;  // Default: 100
+  int32 offset = 2; // Default: 0
+}
+
+// List pending enrichments response
+message ListPendingEnrichmentsResponse {
+  repeated PendingEnrichmentSummary enrichments = 1;
+}
+
+// A summary view of a pending enrichment (for listing)
+message PendingEnrichmentSummary {
+  string enrichment_id = 1;
+  string stock_code = 2;
+  EnrichmentStatus status = 3;
+  google.protobuf.Timestamp created_at = 4;
+  QualityScore quality_score = 5;
+}
+
+// Get a pending enrichment request
+message GetPendingEnrichmentRequest {
+  string enrichment_id = 1;
+}
+
+// Get a pending enrichment response
+message GetPendingEnrichmentResponse {
+  PendingEnrichment pending = 1;
+}
+
+// Full pending enrichment record (for review UI)
+message PendingEnrichment {
+  string enrichment_id = 1;
+  string stock_code = 2;
+  EnrichmentStatus status = 3;
+  EnrichmentData data = 4;
+  QualityScore quality_score = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp reviewed_at = 7;
+  string reviewed_by = 8;
+  string review_notes = 9;
 }

@@ -47,6 +47,14 @@ resource "google_secret_manager_secret_iam_member" "algolia_search_key" {
   project   = var.project_id
 }
 
+# Grant access to OpenAI API key secret (for enrichment)
+resource "google_secret_manager_secret_iam_member" "openai_api_key" {
+  secret_id = "OPENAI_API_KEY"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.shorts_api.email}"
+  project   = var.project_id
+}
+
 # Cloud Run Service
 resource "google_cloud_run_v2_service" "shorts_api" {
   name     = local.service_name
@@ -127,6 +135,17 @@ resource "google_cloud_run_v2_service" "shorts_api" {
         value = "stocks"
       }
 
+      # OpenAI enrichment
+      env {
+        name = "OPENAI_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = "OPENAI_API_KEY"
+            version = "latest"
+          }
+        }
+      }
+
       resources {
         limits = {
           cpu    = "2"
@@ -175,7 +194,8 @@ resource "google_cloud_run_v2_service" "shorts_api" {
   depends_on = [
     google_secret_manager_secret_iam_member.postgres_password,
     google_secret_manager_secret_iam_member.algolia_app_id,
-    google_secret_manager_secret_iam_member.algolia_search_key
+    google_secret_manager_secret_iam_member.algolia_search_key,
+    google_secret_manager_secret_iam_member.openai_api_key
   ]
 }
 

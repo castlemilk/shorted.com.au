@@ -8,8 +8,8 @@
  */
 
 locals {
-  service_name = "cms"
-  service_account_name = "shorted-cms"  # Min 6 chars for GCP service account
+  service_name         = "cms"
+  service_account_name = "shorted-cms" # Min 6 chars for GCP service account
   labels = {
     service     = "cms"
     environment = var.environment

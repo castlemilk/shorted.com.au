@@ -110,6 +110,17 @@ resource "google_cloud_run_v2_service" "shorts_preview" {
         value = "stocks"
       }
 
+      # OpenAI enrichment (shared secret in project)
+      env {
+        name = "OPENAI_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = "OPENAI_API_KEY"
+            version = "latest"
+          }
+        }
+      }
+
       resources {
         limits = {
           cpu    = "1"
