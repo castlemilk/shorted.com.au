@@ -17,6 +17,14 @@ locals {
   }
 }
 
+# Allow the preview Shorts service account to read the OpenAI API key secret.
+resource "google_secret_manager_secret_iam_member" "openai_api_key" {
+  project   = var.project_id
+  secret_id = "OPENAI_API_KEY"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.shorts_service_account}"
+}
+
 # Shorts API Preview
 resource "google_cloud_run_v2_service" "shorts_preview" {
   name     = "shorts-service-${local.pr_suffix}"
@@ -24,6 +32,10 @@ resource "google_cloud_run_v2_service" "shorts_preview" {
   project  = var.project_id
 
   labels = local.labels
+
+  depends_on = [
+    google_secret_manager_secret_iam_member.openai_api_key,
+  ]
 
   lifecycle {
     create_before_destroy = true
