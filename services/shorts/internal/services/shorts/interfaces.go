@@ -17,6 +17,11 @@ type ShortsStore interface {
 	GetIndustryTreeMap(limit int32, period, viewMode string) (*stocksv1alpha1.IndustryTreeMap, error)
 	SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error)
 	GetSyncStatus(filter shortsstore.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
+	
+	// Key metrics sync methods
+	GetAllStockCodes() ([]string, error)
+	StockExists(stockCode string) (bool, error)
+	UpdateKeyMetrics(stockCode string, metrics map[string]interface{}) error
 }
 
 // Cache defines the interface for caching operations

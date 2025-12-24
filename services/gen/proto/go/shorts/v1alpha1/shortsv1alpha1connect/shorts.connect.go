@@ -58,6 +58,9 @@ const (
 	// ShortedStocksServiceMintTokenProcedure is the fully-qualified name of the ShortedStocksService's
 	// MintToken RPC.
 	ShortedStocksServiceMintTokenProcedure = "/shorts.v1alpha1.ShortedStocksService/MintToken"
+	// ShortedStocksServiceSyncKeyMetricsProcedure is the fully-qualified name of the
+	// ShortedStocksService's SyncKeyMetrics RPC.
+	ShortedStocksServiceSyncKeyMetricsProcedure = "/shorts.v1alpha1.ShortedStocksService/SyncKeyMetrics"
 )
 
 // ShortedStocksServiceClient is a client for the shorts.v1alpha1.ShortedStocksService service.
@@ -78,6 +81,8 @@ type ShortedStocksServiceClient interface {
 	GetSyncStatus(context.Context, *connect.Request[v1alpha1.GetSyncStatusRequest]) (*connect.Response[v1alpha1.GetSyncStatusResponse], error)
 	// Mint an API token for the user. Requires valid authentication.
 	MintToken(context.Context, *connect.Request[v1alpha1.MintTokenRequest]) (*connect.Response[v1alpha1.MintTokenResponse], error)
+	// Trigger key metrics sync for specific stocks. Admin only.
+	SyncKeyMetrics(context.Context, *connect.Request[v1alpha1.SyncKeyMetricsRequest]) (*connect.Response[v1alpha1.SyncKeyMetricsResponse], error)
 }
 
 // NewShortedStocksServiceClient constructs a client for the shorts.v1alpha1.ShortedStocksService
@@ -139,6 +144,12 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceMethods.ByName("MintToken")),
 			connect.WithClientOptions(opts...),
 		),
+		syncKeyMetrics: connect.NewClient[v1alpha1.SyncKeyMetricsRequest, v1alpha1.SyncKeyMetricsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceSyncKeyMetricsProcedure,
+			connect.WithSchema(shortedStocksServiceMethods.ByName("SyncKeyMetrics")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -152,6 +163,7 @@ type shortedStocksServiceClient struct {
 	searchStocks       *connect.Client[v1alpha1.SearchStocksRequest, v1alpha1.SearchStocksResponse]
 	getSyncStatus      *connect.Client[v1alpha1.GetSyncStatusRequest, v1alpha1.GetSyncStatusResponse]
 	mintToken          *connect.Client[v1alpha1.MintTokenRequest, v1alpha1.MintTokenResponse]
+	syncKeyMetrics     *connect.Client[v1alpha1.SyncKeyMetricsRequest, v1alpha1.SyncKeyMetricsResponse]
 }
 
 // GetTopShorts calls shorts.v1alpha1.ShortedStocksService.GetTopShorts.
@@ -194,6 +206,11 @@ func (c *shortedStocksServiceClient) MintToken(ctx context.Context, req *connect
 	return c.mintToken.CallUnary(ctx, req)
 }
 
+// SyncKeyMetrics calls shorts.v1alpha1.ShortedStocksService.SyncKeyMetrics.
+func (c *shortedStocksServiceClient) SyncKeyMetrics(ctx context.Context, req *connect.Request[v1alpha1.SyncKeyMetricsRequest]) (*connect.Response[v1alpha1.SyncKeyMetricsResponse], error) {
+	return c.syncKeyMetrics.CallUnary(ctx, req)
+}
+
 // ShortedStocksServiceHandler is an implementation of the shorts.v1alpha1.ShortedStocksService
 // service.
 type ShortedStocksServiceHandler interface {
@@ -213,6 +230,8 @@ type ShortedStocksServiceHandler interface {
 	GetSyncStatus(context.Context, *connect.Request[v1alpha1.GetSyncStatusRequest]) (*connect.Response[v1alpha1.GetSyncStatusResponse], error)
 	// Mint an API token for the user. Requires valid authentication.
 	MintToken(context.Context, *connect.Request[v1alpha1.MintTokenRequest]) (*connect.Response[v1alpha1.MintTokenResponse], error)
+	// Trigger key metrics sync for specific stocks. Admin only.
+	SyncKeyMetrics(context.Context, *connect.Request[v1alpha1.SyncKeyMetricsRequest]) (*connect.Response[v1alpha1.SyncKeyMetricsResponse], error)
 }
 
 // NewShortedStocksServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -270,6 +289,12 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceMethods.ByName("MintToken")),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceSyncKeyMetricsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceSyncKeyMetricsProcedure,
+		svc.SyncKeyMetrics,
+		connect.WithSchema(shortedStocksServiceMethods.ByName("SyncKeyMetrics")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.ShortedStocksService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ShortedStocksServiceGetTopShortsProcedure:
@@ -288,6 +313,8 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetSyncStatusHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceMintTokenProcedure:
 			shortedStocksServiceMintTokenHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceSyncKeyMetricsProcedure:
+			shortedStocksServiceSyncKeyMetricsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -327,4 +354,8 @@ func (UnimplementedShortedStocksServiceHandler) GetSyncStatus(context.Context, *
 
 func (UnimplementedShortedStocksServiceHandler) MintToken(context.Context, *connect.Request[v1alpha1.MintTokenRequest]) (*connect.Response[v1alpha1.MintTokenResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.MintToken is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) SyncKeyMetrics(context.Context, *connect.Request[v1alpha1.SyncKeyMetricsRequest]) (*connect.Response[v1alpha1.SyncKeyMetricsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.SyncKeyMetrics is not implemented"))
 }

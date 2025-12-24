@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { GetIndustryTreeMapRequest, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetSyncStatusRequest, GetSyncStatusResponse, GetTopShortsRequest, GetTopShortsResponse, MintTokenRequest, MintTokenResponse, SearchStocksRequest, SearchStocksResponse } from "./shorts_pb";
+import { GetIndustryTreeMapRequest, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetSyncStatusRequest, GetSyncStatusResponse, GetTopShortsRequest, GetTopShortsResponse, MintTokenRequest, MintTokenResponse, SearchStocksRequest, SearchStocksResponse, SyncKeyMetricsRequest, SyncKeyMetricsResponse } from "./shorts_pb";
 import { MethodKind } from "@bufbuild/protobuf";
 import { IndustryTreeMap, Stock, StockDetails, TimeSeriesData } from "../../stocks/v1alpha1/stocks_pb";
 
@@ -99,6 +99,17 @@ export const ShortedStocksService = {
       name: "MintToken",
       I: MintTokenRequest,
       O: MintTokenResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Trigger key metrics sync for specific stocks. Admin only.
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.SyncKeyMetrics
+     */
+    syncKeyMetrics: {
+      name: "SyncKeyMetrics",
+      I: SyncKeyMetricsRequest,
+      O: SyncKeyMetricsResponse,
       kind: MethodKind.Unary,
     },
   }

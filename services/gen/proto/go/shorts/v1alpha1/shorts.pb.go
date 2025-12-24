@@ -818,6 +818,306 @@ func (x *SyncRun) GetHostname() string {
 	return ""
 }
 
+// Request for SyncKeyMetrics RPC
+type SyncKeyMetricsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StockCodes    []string               `protobuf:"bytes,1,rep,name=stock_codes,json=stockCodes,proto3" json:"stock_codes,omitempty"` // Stock codes to sync (e.g., ["CVN", "CBA"]). Empty = sync all.
+	Force         bool                   `protobuf:"varint,2,opt,name=force,proto3" json:"force,omitempty"`                            // Force sync even if recently updated (default: false)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SyncKeyMetricsRequest) Reset() {
+	*x = SyncKeyMetricsRequest{}
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SyncKeyMetricsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SyncKeyMetricsRequest) ProtoMessage() {}
+
+func (x *SyncKeyMetricsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SyncKeyMetricsRequest.ProtoReflect.Descriptor instead.
+func (*SyncKeyMetricsRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *SyncKeyMetricsRequest) GetStockCodes() []string {
+	if x != nil {
+		return x.StockCodes
+	}
+	return nil
+}
+
+func (x *SyncKeyMetricsRequest) GetForce() bool {
+	if x != nil {
+		return x.Force
+	}
+	return false
+}
+
+// Response for SyncKeyMetrics RPC
+type SyncKeyMetricsResponse struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	TotalRequested     int32                  `protobuf:"varint,1,opt,name=total_requested,json=totalRequested,proto3" json:"total_requested,omitempty"`
+	SuccessfullySynced int32                  `protobuf:"varint,2,opt,name=successfully_synced,json=successfullySynced,proto3" json:"successfully_synced,omitempty"`
+	Failed             int32                  `protobuf:"varint,3,opt,name=failed,proto3" json:"failed,omitempty"`
+	Results            []*StockSyncResult     `protobuf:"bytes,4,rep,name=results,proto3" json:"results,omitempty"`
+	DurationSeconds    float64                `protobuf:"fixed64,5,opt,name=duration_seconds,json=durationSeconds,proto3" json:"duration_seconds,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *SyncKeyMetricsResponse) Reset() {
+	*x = SyncKeyMetricsResponse{}
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SyncKeyMetricsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SyncKeyMetricsResponse) ProtoMessage() {}
+
+func (x *SyncKeyMetricsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SyncKeyMetricsResponse.ProtoReflect.Descriptor instead.
+func (*SyncKeyMetricsResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *SyncKeyMetricsResponse) GetTotalRequested() int32 {
+	if x != nil {
+		return x.TotalRequested
+	}
+	return 0
+}
+
+func (x *SyncKeyMetricsResponse) GetSuccessfullySynced() int32 {
+	if x != nil {
+		return x.SuccessfullySynced
+	}
+	return 0
+}
+
+func (x *SyncKeyMetricsResponse) GetFailed() int32 {
+	if x != nil {
+		return x.Failed
+	}
+	return 0
+}
+
+func (x *SyncKeyMetricsResponse) GetResults() []*StockSyncResult {
+	if x != nil {
+		return x.Results
+	}
+	return nil
+}
+
+func (x *SyncKeyMetricsResponse) GetDurationSeconds() float64 {
+	if x != nil {
+		return x.DurationSeconds
+	}
+	return 0
+}
+
+// Result for a single stock sync
+type StockSyncResult struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StockCode     string                 `protobuf:"bytes,1,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
+	Success       bool                   `protobuf:"varint,2,opt,name=success,proto3" json:"success,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,3,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	Metrics       *KeyMetricsData        `protobuf:"bytes,4,opt,name=metrics,proto3" json:"metrics,omitempty"` // The synced metrics if successful
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StockSyncResult) Reset() {
+	*x = StockSyncResult{}
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StockSyncResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StockSyncResult) ProtoMessage() {}
+
+func (x *StockSyncResult) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StockSyncResult.ProtoReflect.Descriptor instead.
+func (*StockSyncResult) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *StockSyncResult) GetStockCode() string {
+	if x != nil {
+		return x.StockCode
+	}
+	return ""
+}
+
+func (x *StockSyncResult) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *StockSyncResult) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
+func (x *StockSyncResult) GetMetrics() *KeyMetricsData {
+	if x != nil {
+		return x.Metrics
+	}
+	return nil
+}
+
+// Key metrics data structure
+type KeyMetricsData struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	MarketCap        float64                `protobuf:"fixed64,1,opt,name=market_cap,json=marketCap,proto3" json:"market_cap,omitempty"`
+	PeRatio          float64                `protobuf:"fixed64,2,opt,name=pe_ratio,json=peRatio,proto3" json:"pe_ratio,omitempty"`
+	Eps              float64                `protobuf:"fixed64,3,opt,name=eps,proto3" json:"eps,omitempty"`
+	DividendYield    float64                `protobuf:"fixed64,4,opt,name=dividend_yield,json=dividendYield,proto3" json:"dividend_yield,omitempty"`
+	Beta             float64                `protobuf:"fixed64,5,opt,name=beta,proto3" json:"beta,omitempty"`
+	FiftyTwoWeekHigh float64                `protobuf:"fixed64,6,opt,name=fifty_two_week_high,json=fiftyTwoWeekHigh,proto3" json:"fifty_two_week_high,omitempty"`
+	FiftyTwoWeekLow  float64                `protobuf:"fixed64,7,opt,name=fifty_two_week_low,json=fiftyTwoWeekLow,proto3" json:"fifty_two_week_low,omitempty"`
+	AvgVolume        float64                `protobuf:"fixed64,8,opt,name=avg_volume,json=avgVolume,proto3" json:"avg_volume,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *KeyMetricsData) Reset() {
+	*x = KeyMetricsData{}
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KeyMetricsData) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KeyMetricsData) ProtoMessage() {}
+
+func (x *KeyMetricsData) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KeyMetricsData.ProtoReflect.Descriptor instead.
+func (*KeyMetricsData) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *KeyMetricsData) GetMarketCap() float64 {
+	if x != nil {
+		return x.MarketCap
+	}
+	return 0
+}
+
+func (x *KeyMetricsData) GetPeRatio() float64 {
+	if x != nil {
+		return x.PeRatio
+	}
+	return 0
+}
+
+func (x *KeyMetricsData) GetEps() float64 {
+	if x != nil {
+		return x.Eps
+	}
+	return 0
+}
+
+func (x *KeyMetricsData) GetDividendYield() float64 {
+	if x != nil {
+		return x.DividendYield
+	}
+	return 0
+}
+
+func (x *KeyMetricsData) GetBeta() float64 {
+	if x != nil {
+		return x.Beta
+	}
+	return 0
+}
+
+func (x *KeyMetricsData) GetFiftyTwoWeekHigh() float64 {
+	if x != nil {
+		return x.FiftyTwoWeekHigh
+	}
+	return 0
+}
+
+func (x *KeyMetricsData) GetFiftyTwoWeekLow() float64 {
+	if x != nil {
+		return x.FiftyTwoWeekLow
+	}
+	return 0
+}
+
+func (x *KeyMetricsData) GetAvgVolume() float64 {
+	if x != nil {
+		return x.AvgVolume
+	}
+	return 0
+}
+
 var File_shorts_v1alpha1_shorts_proto protoreflect.FileDescriptor
 
 const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
@@ -871,10 +1171,37 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x16total_duration_seconds\x18\n" +
 	" \x01(\x01R\x14totalDurationSeconds\x12 \n" +
 	"\venvironment\x18\v \x01(\tR\venvironment\x12\x1a\n" +
-	"\bhostname\x18\f \x01(\tR\bhostname*5\n" +
+	"\bhostname\x18\f \x01(\tR\bhostname\"N\n" +
+	"\x15SyncKeyMetricsRequest\x12\x1f\n" +
+	"\vstock_codes\x18\x01 \x03(\tR\n" +
+	"stockCodes\x12\x14\n" +
+	"\x05force\x18\x02 \x01(\bR\x05force\"\xf1\x01\n" +
+	"\x16SyncKeyMetricsResponse\x12'\n" +
+	"\x0ftotal_requested\x18\x01 \x01(\x05R\x0etotalRequested\x12/\n" +
+	"\x13successfully_synced\x18\x02 \x01(\x05R\x12successfullySynced\x12\x16\n" +
+	"\x06failed\x18\x03 \x01(\x05R\x06failed\x12:\n" +
+	"\aresults\x18\x04 \x03(\v2 .shorts.v1alpha1.StockSyncResultR\aresults\x12)\n" +
+	"\x10duration_seconds\x18\x05 \x01(\x01R\x0fdurationSeconds\"\xaa\x01\n" +
+	"\x0fStockSyncResult\x12\x1d\n" +
+	"\n" +
+	"stock_code\x18\x01 \x01(\tR\tstockCode\x12\x18\n" +
+	"\asuccess\x18\x02 \x01(\bR\asuccess\x12#\n" +
+	"\rerror_message\x18\x03 \x01(\tR\ferrorMessage\x129\n" +
+	"\ametrics\x18\x04 \x01(\v2\x1f.shorts.v1alpha1.KeyMetricsDataR\ametrics\"\x92\x02\n" +
+	"\x0eKeyMetricsData\x12\x1d\n" +
+	"\n" +
+	"market_cap\x18\x01 \x01(\x01R\tmarketCap\x12\x19\n" +
+	"\bpe_ratio\x18\x02 \x01(\x01R\apeRatio\x12\x10\n" +
+	"\x03eps\x18\x03 \x01(\x01R\x03eps\x12%\n" +
+	"\x0edividend_yield\x18\x04 \x01(\x01R\rdividendYield\x12\x12\n" +
+	"\x04beta\x18\x05 \x01(\x01R\x04beta\x12-\n" +
+	"\x13fifty_two_week_high\x18\x06 \x01(\x01R\x10fiftyTwoWeekHigh\x12+\n" +
+	"\x12fifty_two_week_low\x18\a \x01(\x01R\x0ffiftyTwoWeekLow\x12\x1d\n" +
+	"\n" +
+	"avg_volume\x18\b \x01(\x01R\tavgVolume*5\n" +
 	"\bViewMode\x12\x12\n" +
 	"\x0eCURRENT_CHANGE\x10\x00\x12\x15\n" +
-	"\x11PERCENTAGE_CHANGE\x10\x012\xd6\x15\n" +
+	"\x11PERCENTAGE_CHANGE\x10\x012\xc5\x18\n" +
 	"\x14ShortedStocksService\x12\x86\x03\n" +
 	"\fGetTopShorts\x12$.shorts.v1alpha1.GetTopShortsRequest\x1a%.shorts.v1alpha1.GetTopShortsResponse\"\xa8\x02\xdaA\x13period,limit,offset\xbaG\x8a\x02\x12\x0eGet Top Shorts\x1ajRetrieve the top shorted stocks on the ASX for a given time period. Supports pagination and custom limits.B\x8b\x01\x12X\n" +
 	"\x03200\x12Q\n" +
@@ -928,7 +1255,14 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x10A new API token.\x120\n" +
 	"\x03401\x12)\n" +
 	"'\n" +
-	"%Unauthorized: User must be signed in.\x80\xb5\x18\x02\x1a\x15\xcaA\x12api.shorted.com.auB\x9e\x02\xbaG\xbf\x01\x12|\n" +
+	"%Unauthorized: User must be signed in.\x80\xb5\x18\x02\x12\xec\x02\n" +
+	"\x0eSyncKeyMetrics\x12&.shorts.v1alpha1.SyncKeyMetricsRequest\x1a'.shorts.v1alpha1.SyncKeyMetricsResponse\"\x88\x02\xbaG\xf7\x01\x12\x10Sync Key Metrics\x1a\x8b\x01Trigger on-demand sync of key metrics (market cap, P/E ratio, etc.) for specific stocks. Fetches fresh data from Yahoo Finance. Admin only.BU\x12'\n" +
+	"\x03200\x12 \n" +
+	"\x1e\n" +
+	"\x1cSync completed successfully.\x12*\n" +
+	"\x03403\x12#\n" +
+	"!\n" +
+	"\x1fForbidden: Admin role required.\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x1a\x15\xcaA\x12api.shorted.com.auB\x9e\x02\xbaG\xbf\x01\x12|\n" +
 	"\vShorted API\x12\rShorted API's\"%\x12\x0eshorted.com.au\x1a\x13help@shorted.com.au*3\n" +
 	"\x13Proprietary license\x12\x1chttps://shorted.com.au/terms2\x02v1\x1a\x1c\n" +
 	"\x1ahttps://api.shorted.com.au*!:\x1f\n" +
@@ -950,7 +1284,7 @@ func file_shorts_v1alpha1_shorts_proto_rawDescGZIP() []byte {
 }
 
 var file_shorts_v1alpha1_shorts_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_shorts_v1alpha1_shorts_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_shorts_v1alpha1_shorts_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_shorts_v1alpha1_shorts_proto_goTypes = []any{
 	(ViewMode)(0),                     // 0: shorts.v1alpha1.ViewMode
 	(*MintTokenRequest)(nil),          // 1: shorts.v1alpha1.MintTokenRequest
@@ -966,37 +1300,45 @@ var file_shorts_v1alpha1_shorts_proto_goTypes = []any{
 	(*GetSyncStatusRequest)(nil),      // 11: shorts.v1alpha1.GetSyncStatusRequest
 	(*GetSyncStatusResponse)(nil),     // 12: shorts.v1alpha1.GetSyncStatusResponse
 	(*SyncRun)(nil),                   // 13: shorts.v1alpha1.SyncRun
-	(*v1alpha1.TimeSeriesData)(nil),   // 14: stocks.v1alpha1.TimeSeriesData
-	(*v1alpha1.Stock)(nil),            // 15: stocks.v1alpha1.Stock
-	(*v1alpha1.IndustryTreeMap)(nil),  // 16: stocks.v1alpha1.IndustryTreeMap
-	(*v1alpha1.StockDetails)(nil),     // 17: stocks.v1alpha1.StockDetails
+	(*SyncKeyMetricsRequest)(nil),     // 14: shorts.v1alpha1.SyncKeyMetricsRequest
+	(*SyncKeyMetricsResponse)(nil),    // 15: shorts.v1alpha1.SyncKeyMetricsResponse
+	(*StockSyncResult)(nil),           // 16: shorts.v1alpha1.StockSyncResult
+	(*KeyMetricsData)(nil),            // 17: shorts.v1alpha1.KeyMetricsData
+	(*v1alpha1.TimeSeriesData)(nil),   // 18: stocks.v1alpha1.TimeSeriesData
+	(*v1alpha1.Stock)(nil),            // 19: stocks.v1alpha1.Stock
+	(*v1alpha1.IndustryTreeMap)(nil),  // 20: stocks.v1alpha1.IndustryTreeMap
+	(*v1alpha1.StockDetails)(nil),     // 21: stocks.v1alpha1.StockDetails
 }
 var file_shorts_v1alpha1_shorts_proto_depIdxs = []int32{
 	0,  // 0: shorts.v1alpha1.GetIndustryTreeMapRequest.view_mode:type_name -> shorts.v1alpha1.ViewMode
-	14, // 1: shorts.v1alpha1.GetTopShortsResponse.time_series:type_name -> stocks.v1alpha1.TimeSeriesData
-	15, // 2: shorts.v1alpha1.SearchStocksResponse.stocks:type_name -> stocks.v1alpha1.Stock
+	18, // 1: shorts.v1alpha1.GetTopShortsResponse.time_series:type_name -> stocks.v1alpha1.TimeSeriesData
+	19, // 2: shorts.v1alpha1.SearchStocksResponse.stocks:type_name -> stocks.v1alpha1.Stock
 	13, // 3: shorts.v1alpha1.GetSyncStatusResponse.runs:type_name -> shorts.v1alpha1.SyncRun
-	3,  // 4: shorts.v1alpha1.ShortedStocksService.GetTopShorts:input_type -> shorts.v1alpha1.GetTopShortsRequest
-	4,  // 5: shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap:input_type -> shorts.v1alpha1.GetIndustryTreeMapRequest
-	6,  // 6: shorts.v1alpha1.ShortedStocksService.GetStock:input_type -> shorts.v1alpha1.GetStockRequest
-	7,  // 7: shorts.v1alpha1.ShortedStocksService.GetStockDetails:input_type -> shorts.v1alpha1.GetStockDetailsRequest
-	8,  // 8: shorts.v1alpha1.ShortedStocksService.GetStockData:input_type -> shorts.v1alpha1.GetStockDataRequest
-	9,  // 9: shorts.v1alpha1.ShortedStocksService.SearchStocks:input_type -> shorts.v1alpha1.SearchStocksRequest
-	11, // 10: shorts.v1alpha1.ShortedStocksService.GetSyncStatus:input_type -> shorts.v1alpha1.GetSyncStatusRequest
-	1,  // 11: shorts.v1alpha1.ShortedStocksService.MintToken:input_type -> shorts.v1alpha1.MintTokenRequest
-	5,  // 12: shorts.v1alpha1.ShortedStocksService.GetTopShorts:output_type -> shorts.v1alpha1.GetTopShortsResponse
-	16, // 13: shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap:output_type -> stocks.v1alpha1.IndustryTreeMap
-	15, // 14: shorts.v1alpha1.ShortedStocksService.GetStock:output_type -> stocks.v1alpha1.Stock
-	17, // 15: shorts.v1alpha1.ShortedStocksService.GetStockDetails:output_type -> stocks.v1alpha1.StockDetails
-	14, // 16: shorts.v1alpha1.ShortedStocksService.GetStockData:output_type -> stocks.v1alpha1.TimeSeriesData
-	10, // 17: shorts.v1alpha1.ShortedStocksService.SearchStocks:output_type -> shorts.v1alpha1.SearchStocksResponse
-	12, // 18: shorts.v1alpha1.ShortedStocksService.GetSyncStatus:output_type -> shorts.v1alpha1.GetSyncStatusResponse
-	2,  // 19: shorts.v1alpha1.ShortedStocksService.MintToken:output_type -> shorts.v1alpha1.MintTokenResponse
-	12, // [12:20] is the sub-list for method output_type
-	4,  // [4:12] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	16, // 4: shorts.v1alpha1.SyncKeyMetricsResponse.results:type_name -> shorts.v1alpha1.StockSyncResult
+	17, // 5: shorts.v1alpha1.StockSyncResult.metrics:type_name -> shorts.v1alpha1.KeyMetricsData
+	3,  // 6: shorts.v1alpha1.ShortedStocksService.GetTopShorts:input_type -> shorts.v1alpha1.GetTopShortsRequest
+	4,  // 7: shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap:input_type -> shorts.v1alpha1.GetIndustryTreeMapRequest
+	6,  // 8: shorts.v1alpha1.ShortedStocksService.GetStock:input_type -> shorts.v1alpha1.GetStockRequest
+	7,  // 9: shorts.v1alpha1.ShortedStocksService.GetStockDetails:input_type -> shorts.v1alpha1.GetStockDetailsRequest
+	8,  // 10: shorts.v1alpha1.ShortedStocksService.GetStockData:input_type -> shorts.v1alpha1.GetStockDataRequest
+	9,  // 11: shorts.v1alpha1.ShortedStocksService.SearchStocks:input_type -> shorts.v1alpha1.SearchStocksRequest
+	11, // 12: shorts.v1alpha1.ShortedStocksService.GetSyncStatus:input_type -> shorts.v1alpha1.GetSyncStatusRequest
+	1,  // 13: shorts.v1alpha1.ShortedStocksService.MintToken:input_type -> shorts.v1alpha1.MintTokenRequest
+	14, // 14: shorts.v1alpha1.ShortedStocksService.SyncKeyMetrics:input_type -> shorts.v1alpha1.SyncKeyMetricsRequest
+	5,  // 15: shorts.v1alpha1.ShortedStocksService.GetTopShorts:output_type -> shorts.v1alpha1.GetTopShortsResponse
+	20, // 16: shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap:output_type -> stocks.v1alpha1.IndustryTreeMap
+	19, // 17: shorts.v1alpha1.ShortedStocksService.GetStock:output_type -> stocks.v1alpha1.Stock
+	21, // 18: shorts.v1alpha1.ShortedStocksService.GetStockDetails:output_type -> stocks.v1alpha1.StockDetails
+	18, // 19: shorts.v1alpha1.ShortedStocksService.GetStockData:output_type -> stocks.v1alpha1.TimeSeriesData
+	10, // 20: shorts.v1alpha1.ShortedStocksService.SearchStocks:output_type -> shorts.v1alpha1.SearchStocksResponse
+	12, // 21: shorts.v1alpha1.ShortedStocksService.GetSyncStatus:output_type -> shorts.v1alpha1.GetSyncStatusResponse
+	2,  // 22: shorts.v1alpha1.ShortedStocksService.MintToken:output_type -> shorts.v1alpha1.MintTokenResponse
+	15, // 23: shorts.v1alpha1.ShortedStocksService.SyncKeyMetrics:output_type -> shorts.v1alpha1.SyncKeyMetricsResponse
+	15, // [15:24] is the sub-list for method output_type
+	6,  // [6:15] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_shorts_proto_init() }
@@ -1010,7 +1352,7 @@ func file_shorts_v1alpha1_shorts_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_shorts_proto_rawDesc), len(file_shorts_v1alpha1_shorts_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   13,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

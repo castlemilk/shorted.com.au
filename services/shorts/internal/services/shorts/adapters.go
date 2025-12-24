@@ -46,6 +46,21 @@ func (s *StoreAdapter) GetSyncStatus(filter shorts.SyncStatusFilter) ([]*shortsv
 	return s.store.GetSyncStatus(filter)
 }
 
+// GetAllStockCodes wraps the store's GetAllStockCodes
+func (s *StoreAdapter) GetAllStockCodes() ([]string, error) {
+	return s.store.GetAllStockCodes()
+}
+
+// StockExists wraps the store's StockExists
+func (s *StoreAdapter) StockExists(stockCode string) (bool, error) {
+	return s.store.StockExists(stockCode)
+}
+
+// UpdateKeyMetrics wraps the store's UpdateKeyMetrics
+func (s *StoreAdapter) UpdateKeyMetrics(stockCode string, metrics map[string]interface{}) error {
+	return s.store.UpdateKeyMetrics(stockCode, metrics)
+}
+
 // LoggerAdapter adapts the standard logger to the Logger interface
 type LoggerAdapter struct{}
 
