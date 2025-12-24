@@ -41,7 +41,8 @@ SELECT
 	enrichment_status,
 	enrichment_date,
 	enrichment_error,
-	COALESCE(financial_statements, '{}'::jsonb) as financial_statements
+	COALESCE(financial_statements, '{}'::jsonb) as financial_statements,
+	COALESCE(key_metrics, '{}'::jsonb) as key_metrics
 FROM "company-metadata"
 WHERE stock_code = $1
 LIMIT 1`
@@ -272,6 +273,7 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stocksv1alpha1.Stock
 		financialReportsJSON    []byte
 		socialMediaLinksJSON    []byte
 		financialStatementsJSON []byte
+		keyMetricsJSON          []byte
 	)
 
 	if err := row.Scan(
@@ -296,6 +298,7 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stocksv1alpha1.Stock
 		&enrichmentDate,
 		&enrichmentError,
 		&financialStatementsJSON,
+		&keyMetricsJSON,
 	); err != nil {
 		return nil, err
 	}
@@ -339,7 +342,25 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stocksv1alpha1.Stock
 		}
 	}
 
-	if fs := parseFinancialStatements(financialStatementsJSON); fs != nil {
+	// Parse financial statements
+	fs := parseFinancialStatements(financialStatementsJSON)
+	
+	// Parse key_metrics and merge with financial_statements info
+	if !isEmptyJSON(keyMetricsJSON) {
+		var keyMetrics map[string]interface{}
+		if err := json.Unmarshal(keyMetricsJSON, &keyMetrics); err == nil {
+			// If no financial_statements, create a minimal one with just info
+			if fs == nil {
+				fs = &stocksv1alpha1.FinancialStatements{
+					Success: true,
+				}
+			}
+			// Merge key_metrics into financial_statements.info
+			fs.Info = mergeKeyMetricsToInfo(keyMetrics, fs.Info)
+		}
+	}
+	
+	if fs != nil {
 		detailsProto.FinancialStatements = fs
 	}
 
@@ -638,6 +659,119 @@ func isEmptyJSON(data []byte) bool {
 	default:
 		return false
 	}
+}
+
+// mergeKeyMetricsToInfo merges key_metrics JSONB data with existing financial_statements.info
+// This allows us to use key_metrics data from the daily sync when financial_statements.info is empty
+func mergeKeyMetricsToInfo(keyMetrics map[string]interface{}, existing *stocksv1alpha1.FinancialStatementsInfo) *stocksv1alpha1.FinancialStatementsInfo {
+	// Initialize info if it doesn't exist
+	if existing == nil {
+		existing = &stocksv1alpha1.FinancialStatementsInfo{}
+	}
+
+	// Helper to safely convert interface{} to float64
+	toFloat64 := func(v interface{}) float64 {
+		switch val := v.(type) {
+		case float64:
+			return val
+		case float32:
+			return float64(val)
+		case int:
+			return float64(val)
+		case int64:
+			return float64(val)
+		default:
+			return 0
+		}
+	}
+
+	// Helper to safely convert interface{} to int64
+	toInt64 := func(v interface{}) int64 {
+		switch val := v.(type) {
+		case int:
+			return int64(val)
+		case int64:
+			return val
+		case float64:
+			return int64(val)
+		case float32:
+			return int64(val)
+		default:
+			return 0
+		}
+	}
+
+	// Helper to safely convert interface{} to string
+	toString := func(v interface{}) string {
+		if str, ok := v.(string); ok {
+			return str
+		}
+		return ""
+	}
+
+	// Merge each field, preferring existing values over key_metrics
+	if existing.MarketCap == 0 {
+		if v, ok := keyMetrics["market_cap"]; ok && v != nil {
+			existing.MarketCap = toFloat64(v)
+		}
+	}
+	if existing.CurrentPrice == 0 {
+		if v, ok := keyMetrics["current_price"]; ok && v != nil {
+			existing.CurrentPrice = toFloat64(v)
+		}
+	}
+	if existing.PeRatio == 0 {
+		if v, ok := keyMetrics["pe_ratio"]; ok && v != nil {
+			existing.PeRatio = toFloat64(v)
+		}
+	}
+	if existing.Eps == 0 {
+		if v, ok := keyMetrics["eps"]; ok && v != nil {
+			existing.Eps = toFloat64(v)
+		}
+	}
+	if existing.DividendYield == 0 {
+		if v, ok := keyMetrics["dividend_yield"]; ok && v != nil {
+			existing.DividendYield = toFloat64(v)
+		}
+	}
+	if existing.Beta == 0 {
+		if v, ok := keyMetrics["beta"]; ok && v != nil {
+			existing.Beta = toFloat64(v)
+		}
+	}
+	if existing.Week_52High == 0 {
+		if v, ok := keyMetrics["fifty_two_week_high"]; ok && v != nil {
+			existing.Week_52High = toFloat64(v)
+		}
+	}
+	if existing.Week_52Low == 0 {
+		if v, ok := keyMetrics["fifty_two_week_low"]; ok && v != nil {
+			existing.Week_52Low = toFloat64(v)
+		}
+	}
+	if existing.Volume == 0 {
+		if v, ok := keyMetrics["avg_volume"]; ok && v != nil {
+			existing.Volume = toFloat64(v)
+		}
+	}
+	if existing.EmployeeCount == 0 {
+		if v, ok := keyMetrics["employee_count"]; ok && v != nil {
+			existing.EmployeeCount = toInt64(v)
+		}
+	}
+	if existing.Sector == "" {
+		if v, ok := keyMetrics["sector"]; ok && v != nil {
+			existing.Sector = toString(v)
+		}
+	}
+	if existing.Industry == "" {
+		if v, ok := keyMetrics["industry"]; ok && v != nil {
+			existing.Industry = toString(v)
+		}
+	}
+
+	return existing
 }
 
 // GetHeatmapData retrieves the top shorted stocks by industry.
