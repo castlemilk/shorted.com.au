@@ -132,6 +132,7 @@ export function IndustryTreemapWidget({ config }: WidgetProps) {
   );
 
   const PADDING = 5;
+  const HEADER_HEIGHT = 20; // Height reserved for sector labels
 
   // Event handlers for tooltip - matching main treemap page implementation
   const handleMouseEnter = (event: React.MouseEvent, productCode: string) => {
@@ -225,7 +226,7 @@ export function IndustryTreemapWidget({ config }: WidgetProps) {
 
                           nodeX = nodeWithPath.x0 + (isLeftEdge ? PADDING : 0);
                           nodeY =
-                            nodeWithPath.y0 + (isTopEdge ? PADDING * 4 : 0);
+                            nodeWithPath.y0 + (isTopEdge ? HEADER_HEIGHT + PADDING : 0);
                           nodeWidth =
                             nodeWithPath.x1 -
                             nodeWithPath.x0 -
@@ -234,7 +235,7 @@ export function IndustryTreemapWidget({ config }: WidgetProps) {
                           nodeHeight =
                             nodeWithPath.y1 -
                             nodeWithPath.y0 -
-                            (isTopEdge ? PADDING * 4 : 0) -
+                            (isTopEdge ? HEADER_HEIGHT + PADDING : 0) -
                             (isBottomEdge ? PADDING : 0);
 
                           if (nodeHeight < 0 || nodeWidth < 0) {
@@ -298,6 +299,10 @@ export function IndustryTreemapWidget({ config }: WidgetProps) {
                             data: { data: { id: string } };
                           };
                           const nodeWidth = nodeWithPath.x1 - nodeWithPath.x0;
+                          const nodeHeight = nodeWithPath.y1 - nodeWithPath.y0;
+
+                          // Don't render label if section is too small
+                          if (nodeWidth < 50 || nodeHeight < 35) return null;
 
                           return (
                             <Group
@@ -305,17 +310,36 @@ export function IndustryTreemapWidget({ config }: WidgetProps) {
                               top={nodeWithPath.y0}
                               left={nodeWithPath.x0}
                             >
+                              {/* Background bar for sector label */}
+                              <rect
+                                x={0}
+                                y={0}
+                                width={nodeWidth}
+                                height={HEADER_HEIGHT}
+                                fill="hsl(var(--background))"
+                                opacity={0.85}
+                              />
+                              {/* Bottom border line */}
+                              <line
+                                x1={0}
+                                y1={HEADER_HEIGHT}
+                                x2={nodeWidth}
+                                y2={HEADER_HEIGHT}
+                                stroke="hsl(var(--border))"
+                                strokeWidth={1}
+                              />
                               <text
-                                x={5}
-                                y={5}
-                                dy=".66em"
-                                fontSize={12}
+                                x={6}
+                                y={HEADER_HEIGHT / 2}
+                                dy=".35em"
+                                fontSize={10}
+                                fontWeight={600}
                                 textAnchor="start"
                                 pointerEvents="none"
                                 fill="hsl(var(--foreground))"
                               >
-                                {`${node.data.data.id.substring(0, nodeWidth / 10)}${
-                                  node.data.data.id.length > nodeWidth / 10
+                                {`${node.data.data.id.substring(0, Math.floor(nodeWidth / 7))}${
+                                  node.data.data.id.length > Math.floor(nodeWidth / 7)
                                     ? "..."
                                     : ""
                                 }`}

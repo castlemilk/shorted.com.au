@@ -230,12 +230,14 @@ func (s *ShortsServer) searchAlgolia(query string, limit int32) ([]*stocksv1alph
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("Algolia request failed: %w", err)
+		return nil, fmt.Errorf("algolia request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Algolia returned status %d", resp.StatusCode)
+		return nil, fmt.Errorf("algolia returned status %d", resp.StatusCode)
 	}
 
 	// Parse Algolia response
@@ -292,5 +294,27 @@ func (s *ShortsServer) GetSyncStatus(ctx context.Context, req *connect.Request[s
 
 	return connect.NewResponse(&shortsv1alpha1.GetSyncStatusResponse{
 		Runs: runs,
+	}), nil
+}
+
+func (s *ShortsServer) MintToken(ctx context.Context, req *connect.Request[shortsv1alpha1.MintTokenRequest]) (*connect.Response[shortsv1alpha1.MintTokenResponse], error) {
+	// In a real application, we would extract the user information from the context
+	// which was populated by the AuthInterceptor from a Firebase/Google token.
+	userClaims, ok := UserFromContext(ctx)
+	if !ok {
+		// Fallback for demo or if context parsing is different
+		// For now, let's just return an error if no user is found
+		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("user not authenticated"))
+	}
+
+	// Mint a new API token based on the authenticated user
+	token, err := s.tokenService.MintToken(userClaims.UserID, userClaims.Email, userClaims.Roles, 30*24*time.Hour)
+	if err != nil {
+		s.logger.Errorf("failed to mint token: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to generate token"))
+	}
+
+	return connect.NewResponse(&shortsv1alpha1.MintTokenResponse{
+		Token: token,
 	}), nil
 }

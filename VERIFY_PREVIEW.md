@@ -100,3 +100,5 @@ With the fixes we made:
 4. **Error Handling**: `rows.Err()` check catches scan errors
 
 The preview should now successfully load historical stock data for stocks that have data in the database.
+
+

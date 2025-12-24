@@ -119,10 +119,15 @@ const file_register_v1_register_proto_rawDesc = "" +
 	"\x14RegisterEmailRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\"1\n" +
 	"\x15RegisterEmailResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess2\x9d\x01\n" +
-	"\x0fRegisterService\x12\x89\x01\n" +
-	"\rRegisterEmail\x12!.register.v1.RegisterEmailRequest\x1a\".register.v1.RegisterEmailResponse\"1\xbaG.\x1a,Register an email address to receive updatesB\xc0\x01\n" +
-	"\x0fcom.register.v1B\rRegisterProtoP\x01ZQgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/register/v1;registerv1\xa2\x02\x03RXX\xaa\x02\vRegister.V1\xca\x02\vRegister\\V1\xe2\x02\x17Register\\V1\\GPBMetadata\xea\x02\fRegister::V1b\x06proto3"
+	"\asuccess\x18\x01 \x01(\bR\asuccess2\xb2\x02\n" +
+	"\x0fRegisterService\x12\x9e\x02\n" +
+	"\rRegisterEmail\x12!.register.v1.RegisterEmailRequest\x1a\".register.v1.RegisterEmailResponse\"\xc5\x01\xbaG\xc1\x01\x12\x0eRegister Email\x1aSRegister an email address to receive notifications and market updates from Shorted.BZ\x12.\n" +
+	"\x03200\x12'\n" +
+	"%\n" +
+	"#A successful registration response.\x12(\n" +
+	"\x03400\x12!\n" +
+	"\x1f\n" +
+	"\x1dInvalid email address format.BSZQgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/register/v1;registerv1b\x06proto3"
 
 var (
 	file_register_v1_register_proto_rawDescOnce sync.Once

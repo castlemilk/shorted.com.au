@@ -11,3 +11,5 @@ DROP COLUMN IF EXISTS checkpoint_stocks_failed,
 DROP COLUMN IF EXISTS checkpoint_batch_size,
 DROP COLUMN IF EXISTS checkpoint_resume_from;
 
+
+

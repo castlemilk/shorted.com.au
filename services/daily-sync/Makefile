@@ -15,3 +15,5 @@ test: test-unit
 test-coverage:
 	pytest test_checkpoint_retry.py --cov=comprehensive_daily_sync --cov-report=html --cov-report=term
 
+
+

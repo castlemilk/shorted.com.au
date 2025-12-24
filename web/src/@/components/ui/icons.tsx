@@ -1,12 +1,12 @@
 export const Icons = {
-  logo: () => (
+  logo: (props: React.SVGProps<SVGSVGElement>) => (
     <svg
       width="40"
       height="50"
-      viewBox="0 0 40 50  "
+      viewBox="0 0 40 50"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      xlinkHref="http://www.w3.org/1999/xlink"
+      {...props}
     >
       <rect width="40" height="50" fill="url(#pattern0)" />
       <defs>

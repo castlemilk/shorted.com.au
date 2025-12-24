@@ -187,3 +187,74 @@
 .focus-ring {
   @apply focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:ring-offset-2 focus:ring-offset-background;
 }
+
+/* API Documentation Styles */
+.api-docs-content h1, 
+.api-docs-content h2, 
+.api-docs-content h3 {
+  @apply tracking-tight;
+}
+
+/* Prism Overrides */
+pre[class*="language-"] {
+  @apply !bg-zinc-950 !border-zinc-800 !my-0;
+}
+
+code[class*="language-"] {
+  @apply !text-zinc-100;
+}
+
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  @apply !text-zinc-500;
+}
+
+.token.punctuation {
+  @apply !text-zinc-400;
+}
+
+.token.property,
+.token.tag,
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted {
+  @apply !text-blue-400;
+}
+
+.token.selector,
+.token.attr-name,
+.token.string,
+.token.char,
+.token.builtin,
+.token.inserted {
+  @apply !text-green-400;
+}
+
+.token.operator,
+.token.entity,
+.token.url,
+.language-css .token.string,
+.style .token.string {
+  @apply !text-zinc-300;
+}
+
+.token.atrule,
+.token.attr-value,
+.token.keyword {
+  @apply !text-purple-400;
+}
+
+.token.function,
+.token.class-name {
+  @apply !text-yellow-400;
+}
+
+.token.regex,
+.token.important,
+.token.variable {
+  @apply !text-orange-400;
+}

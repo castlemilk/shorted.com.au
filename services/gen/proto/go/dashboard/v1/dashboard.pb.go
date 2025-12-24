@@ -7,6 +7,7 @@
 package dashboardv1
 
 import (
+	_ "github.com/google/gnostic/openapiv3"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -1010,7 +1011,7 @@ var File_dashboard_v1_dashboard_proto protoreflect.FileDescriptor
 
 const file_dashboard_v1_dashboard_proto_rawDesc = "" +
 	"\n" +
-	"\x1cdashboard/v1/dashboard.proto\x12\fdashboard.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xaf\x02\n" +
+	"\x1cdashboard/v1/dashboard.proto\x12\fdashboard.v1\x1a\x1cgoogle/api/annotations.proto\x1a$gnostic/openapi/v3/annotations.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xaf\x02\n" +
 	"\tDashboard\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x12\n" +
@@ -1087,15 +1088,35 @@ const file_dashboard_v1_dashboard_proto_rawDesc = "" +
 	"\x15WIDGET_TYPE_WATCHLIST\x10\x04\x12\x19\n" +
 	"\x15WIDGET_TYPE_PORTFOLIO\x10\x05\x12\x19\n" +
 	"\x15WIDGET_TYPE_NEWS_FEED\x10\x06\x12\x1f\n" +
-	"\x1bWIDGET_TYPE_MARKET_OVERVIEW\x10\a2\xb3\x06\n" +
-	"\x10DashboardService\x12y\n" +
-	"\x0fCreateDashboard\x12$.dashboard.v1.CreateDashboardRequest\x1a%.dashboard.v1.CreateDashboardResponse\"\x19\x82\xd3\xe4\x93\x02\x13:\x01*\"\x0e/v1/dashboards\x12|\n" +
-	"\fGetDashboard\x12!.dashboard.v1.GetDashboardRequest\x1a\".dashboard.v1.GetDashboardResponse\"%\x82\xd3\xe4\x93\x02\x1f\x12\x1d/v1/dashboards/{dashboard_id}\x12s\n" +
-	"\x0eListDashboards\x12#.dashboard.v1.ListDashboardsRequest\x1a$.dashboard.v1.ListDashboardsResponse\"\x16\x82\xd3\xe4\x93\x02\x10\x12\x0e/v1/dashboards\x12\x88\x01\n" +
-	"\x0fUpdateDashboard\x12$.dashboard.v1.UpdateDashboardRequest\x1a%.dashboard.v1.UpdateDashboardResponse\"(\x82\xd3\xe4\x93\x02\":\x01*\x1a\x1d/v1/dashboards/{dashboard_id}\x12\x85\x01\n" +
-	"\x0fDeleteDashboard\x12$.dashboard.v1.DeleteDashboardRequest\x1a%.dashboard.v1.DeleteDashboardResponse\"%\x82\xd3\xe4\x93\x02\x1f*\x1d/v1/dashboards/{dashboard_id}\x12\x9d\x01\n" +
-	"\x13SetDefaultDashboard\x12(.dashboard.v1.SetDefaultDashboardRequest\x1a).dashboard.v1.SetDefaultDashboardResponse\"1\x82\xd3\xe4\x93\x02+\")/v1/dashboards/{dashboard_id}/set-defaultB\xc8\x01\n" +
-	"\x10com.dashboard.v1B\x0eDashboardProtoP\x01ZSgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/dashboard/v1;dashboardv1\xa2\x02\x03DXX\xaa\x02\fDashboard.V1\xca\x02\fDashboard\\V1\xe2\x02\x18Dashboard\\V1\\GPBMetadata\xea\x02\rDashboard::V1b\x06proto3"
+	"\x1bWIDGET_TYPE_MARKET_OVERVIEW\x10\a2\x84\r\n" +
+	"\x10DashboardService\x12\x8b\x02\n" +
+	"\x0fCreateDashboard\x12$.dashboard.v1.CreateDashboardRequest\x1a%.dashboard.v1.CreateDashboardResponse\"\xaa\x01\xbaG\x8d\x01\x12\x10Create Dashboard\x1aKCreate a new customized dashboard configuration for the authenticated user.B,\x12*\n" +
+	"\x03201\x12#\n" +
+	"!\n" +
+	"\x1fDashboard created successfully.\x82\xd3\xe4\x93\x02\x13:\x01*\"\x0e/v1/dashboards\x12\xa8\x02\n" +
+	"\fGetDashboard\x12!.dashboard.v1.GetDashboardRequest\x1a\".dashboard.v1.GetDashboardResponse\"\xd0\x01\xbaG\xa7\x01\x12\rGet Dashboard\x1aERetrieve a specific dashboard configuration by its unique identifier.BO\x12,\n" +
+	"\x03200\x12%\n" +
+	"#\n" +
+	"!Dashboard retrieved successfully.\x12\x1f\n" +
+	"\x03404\x12\x18\n" +
+	"\x16\n" +
+	"\x14Dashboard not found.\x82\xd3\xe4\x93\x02\x1f\x12\x1d/v1/dashboards/{dashboard_id}\x12\xfa\x01\n" +
+	"\x0eListDashboards\x12#.dashboard.v1.ListDashboardsRequest\x1a$.dashboard.v1.ListDashboardsResponse\"\x9c\x01\xbaG\x82\x01\x12\x0fList Dashboards\x1aFRetrieve a list of all dashboards belonging to the authenticated user.B'\x12%\n" +
+	"\x03200\x12\x1e\n" +
+	"\x1c\n" +
+	"\x1aA list of user dashboards.\x82\xd3\xe4\x93\x02\x10\x12\x0e/v1/dashboards\x12\x93\x02\n" +
+	"\x0fUpdateDashboard\x12$.dashboard.v1.UpdateDashboardRequest\x1a%.dashboard.v1.UpdateDashboardResponse\"\xb2\x01\xbaG\x86\x01\x12\x10Update Dashboard\x1aDUpdate the configuration, name, or widgets of an existing dashboard.B,\x12*\n" +
+	"\x03200\x12#\n" +
+	"!\n" +
+	"\x1fDashboard updated successfully.\x82\xd3\xe4\x93\x02\":\x01*\x1a\x1d/v1/dashboards/{dashboard_id}\x12\xf8\x01\n" +
+	"\x0fDeleteDashboard\x12$.dashboard.v1.DeleteDashboardRequest\x1a%.dashboard.v1.DeleteDashboardResponse\"\x97\x01\xbaGo\x12\x10Delete Dashboard\x1a-Permanently remove a dashboard configuration.B,\x12*\n" +
+	"\x03204\x12#\n" +
+	"!\n" +
+	"\x1fDashboard deleted successfully.\x82\xd3\xe4\x93\x02\x1f*\x1d/v1/dashboards/{dashboard_id}\x12\xa8\x02\n" +
+	"\x13SetDefaultDashboard\x12(.dashboard.v1.SetDefaultDashboardRequest\x1a).dashboard.v1.SetDefaultDashboardResponse\"\xbb\x01\xbaG\x86\x01\x12\x15Set Default Dashboard\x1a;Mark a specific dashboard as the default view for the user.B0\x12.\n" +
+	"\x03200\x12'\n" +
+	"%\n" +
+	"#Default dashboard set successfully.\x82\xd3\xe4\x93\x02+\")/v1/dashboards/{dashboard_id}/set-defaultBUZSgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/dashboard/v1;dashboardv1b\x06proto3"
 
 var (
 	file_dashboard_v1_dashboard_proto_rawDescOnce sync.Once

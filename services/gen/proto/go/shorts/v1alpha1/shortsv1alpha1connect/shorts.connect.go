@@ -55,12 +55,16 @@ const (
 	// ShortedStocksServiceGetSyncStatusProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetSyncStatus RPC.
 	ShortedStocksServiceGetSyncStatusProcedure = "/shorts.v1alpha1.ShortedStocksService/GetSyncStatus"
+	// ShortedStocksServiceMintTokenProcedure is the fully-qualified name of the ShortedStocksService's
+	// MintToken RPC.
+	ShortedStocksServiceMintTokenProcedure = "/shorts.v1alpha1.ShortedStocksService/MintToken"
 )
 
 // ShortedStocksServiceClient is a client for the shorts.v1alpha1.ShortedStocksService service.
 type ShortedStocksServiceClient interface {
 	// Shows top 10 short positions on the ASX over different periods of time.
 	GetTopShorts(context.Context, *connect.Request[v1alpha1.GetTopShortsRequest]) (*connect.Response[v1alpha1.GetTopShortsResponse], error)
+	// Get Industry TreeMap for short positions.
 	GetIndustryTreeMap(context.Context, *connect.Request[v1alpha1.GetIndustryTreeMapRequest]) (*connect.Response[v1alpha11.IndustryTreeMap], error)
 	// Provides an overview of a specific stock based on PRODUCT_CODE.
 	GetStock(context.Context, *connect.Request[v1alpha1.GetStockRequest]) (*connect.Response[v1alpha11.Stock], error)
@@ -72,6 +76,8 @@ type ShortedStocksServiceClient interface {
 	SearchStocks(context.Context, *connect.Request[v1alpha1.SearchStocksRequest]) (*connect.Response[v1alpha1.SearchStocksResponse], error)
 	// Get sync status for admin dashboard
 	GetSyncStatus(context.Context, *connect.Request[v1alpha1.GetSyncStatusRequest]) (*connect.Response[v1alpha1.GetSyncStatusResponse], error)
+	// Mint an API token for the user. Requires valid authentication.
+	MintToken(context.Context, *connect.Request[v1alpha1.MintTokenRequest]) (*connect.Response[v1alpha1.MintTokenResponse], error)
 }
 
 // NewShortedStocksServiceClient constructs a client for the shorts.v1alpha1.ShortedStocksService
@@ -127,6 +133,12 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceMethods.ByName("GetSyncStatus")),
 			connect.WithClientOptions(opts...),
 		),
+		mintToken: connect.NewClient[v1alpha1.MintTokenRequest, v1alpha1.MintTokenResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceMintTokenProcedure,
+			connect.WithSchema(shortedStocksServiceMethods.ByName("MintToken")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -139,6 +151,7 @@ type shortedStocksServiceClient struct {
 	getStockData       *connect.Client[v1alpha1.GetStockDataRequest, v1alpha11.TimeSeriesData]
 	searchStocks       *connect.Client[v1alpha1.SearchStocksRequest, v1alpha1.SearchStocksResponse]
 	getSyncStatus      *connect.Client[v1alpha1.GetSyncStatusRequest, v1alpha1.GetSyncStatusResponse]
+	mintToken          *connect.Client[v1alpha1.MintTokenRequest, v1alpha1.MintTokenResponse]
 }
 
 // GetTopShorts calls shorts.v1alpha1.ShortedStocksService.GetTopShorts.
@@ -176,11 +189,17 @@ func (c *shortedStocksServiceClient) GetSyncStatus(ctx context.Context, req *con
 	return c.getSyncStatus.CallUnary(ctx, req)
 }
 
+// MintToken calls shorts.v1alpha1.ShortedStocksService.MintToken.
+func (c *shortedStocksServiceClient) MintToken(ctx context.Context, req *connect.Request[v1alpha1.MintTokenRequest]) (*connect.Response[v1alpha1.MintTokenResponse], error) {
+	return c.mintToken.CallUnary(ctx, req)
+}
+
 // ShortedStocksServiceHandler is an implementation of the shorts.v1alpha1.ShortedStocksService
 // service.
 type ShortedStocksServiceHandler interface {
 	// Shows top 10 short positions on the ASX over different periods of time.
 	GetTopShorts(context.Context, *connect.Request[v1alpha1.GetTopShortsRequest]) (*connect.Response[v1alpha1.GetTopShortsResponse], error)
+	// Get Industry TreeMap for short positions.
 	GetIndustryTreeMap(context.Context, *connect.Request[v1alpha1.GetIndustryTreeMapRequest]) (*connect.Response[v1alpha11.IndustryTreeMap], error)
 	// Provides an overview of a specific stock based on PRODUCT_CODE.
 	GetStock(context.Context, *connect.Request[v1alpha1.GetStockRequest]) (*connect.Response[v1alpha11.Stock], error)
@@ -192,6 +211,8 @@ type ShortedStocksServiceHandler interface {
 	SearchStocks(context.Context, *connect.Request[v1alpha1.SearchStocksRequest]) (*connect.Response[v1alpha1.SearchStocksResponse], error)
 	// Get sync status for admin dashboard
 	GetSyncStatus(context.Context, *connect.Request[v1alpha1.GetSyncStatusRequest]) (*connect.Response[v1alpha1.GetSyncStatusResponse], error)
+	// Mint an API token for the user. Requires valid authentication.
+	MintToken(context.Context, *connect.Request[v1alpha1.MintTokenRequest]) (*connect.Response[v1alpha1.MintTokenResponse], error)
 }
 
 // NewShortedStocksServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -243,6 +264,12 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceMethods.ByName("GetSyncStatus")),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceMintTokenHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceMintTokenProcedure,
+		svc.MintToken,
+		connect.WithSchema(shortedStocksServiceMethods.ByName("MintToken")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.ShortedStocksService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ShortedStocksServiceGetTopShortsProcedure:
@@ -259,6 +286,8 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceSearchStocksHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetSyncStatusProcedure:
 			shortedStocksServiceGetSyncStatusHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceMintTokenProcedure:
+			shortedStocksServiceMintTokenHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -294,4 +323,8 @@ func (UnimplementedShortedStocksServiceHandler) SearchStocks(context.Context, *c
 
 func (UnimplementedShortedStocksServiceHandler) GetSyncStatus(context.Context, *connect.Request[v1alpha1.GetSyncStatusRequest]) (*connect.Response[v1alpha1.GetSyncStatusResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetSyncStatus is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) MintToken(context.Context, *connect.Request[v1alpha1.MintTokenRequest]) (*connect.Response[v1alpha1.MintTokenResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.MintToken is not implemented"))
 }

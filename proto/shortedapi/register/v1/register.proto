@@ -12,7 +12,26 @@ service RegisterService {
   rpc RegisterEmail (RegisterEmailRequest) returns (RegisterEmailResponse) {
     option (gnostic.openapi.v3.operation) = {
       deprecated: false,
-      description: "Register an email address to receive updates",
+      summary: "Register Email",
+      description: "Register an email address to receive notifications and market updates from Shorted.",
+      responses: {
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "A successful registration response."
+            }
+          }
+        },
+        response_or_reference: {
+          name: "400"
+          value: {
+            response: {
+              description: "Invalid email address format."
+            }
+          }
+        }
+      }
     };
   };
 }

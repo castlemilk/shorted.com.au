@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 
+	"connectrpc.com/connect"
 	connectcors "connectrpc.com/cors"
 	"github.com/rs/cors"
 
@@ -38,8 +39,14 @@ func withCORS(h http.Handler) http.Handler {
 func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address string) error {
 
 	mux := http.NewServeMux()
-	shortsPath, shortsHandler := shortsv1alpha1connect.NewShortedStocksServiceHandler(s)
-	registerPath, registerHandler := registerv1connect.NewRegisterServiceHandler(s.registerServer)
+
+	// Create interceptors
+	interceptors := connect.WithInterceptors(
+		NewAuthInterceptor(s.tokenService),
+	)
+
+	shortsPath, shortsHandler := shortsv1alpha1connect.NewShortedStocksServiceHandler(s, interceptors)
+	registerPath, registerHandler := registerv1connect.NewRegisterServiceHandler(s.registerServer, interceptors)
 	shortsHandler = withCORS(shortsHandler)
 	registerHandler = withCORS(registerHandler)
 	// handler = AuthMiddleware(handler)
@@ -212,12 +219,14 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		}
 
 		var query string
-		var hitsPerPage int = 20
+		hitsPerPage := 20
 
 		if r.Method == http.MethodGet {
 			query = r.URL.Query().Get("q")
 			if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
-				fmt.Sscanf(limitStr, "%d", &hitsPerPage)
+				if _, err := fmt.Sscanf(limitStr, "%d", &hitsPerPage); err != nil {
+					logger.Debugf("Error parsing limit parameter '%s': %v", limitStr, err)
+				}
 			}
 		} else {
 			// Parse POST body
@@ -280,12 +289,16 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			http.Error(w, "Search service unavailable", http.StatusServiceUnavailable)
 			return
 		}
-		defer resp.Body.Close()
+		defer func() {
+			_ = resp.Body.Close()
+		}()
 
 		// Forward response
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(resp.StatusCode)
-		io.Copy(w, resp.Body)
+		if _, err := io.Copy(w, resp.Body); err != nil {
+			logger.Errorf("Error copying Algolia response: %v", err)
+		}
 	})
 
 	// Add admin sync status endpoint
@@ -309,7 +322,9 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		limitStr := r.URL.Query().Get("limit")
 		limit := 20 // default
 		if limitStr != "" {
-			fmt.Sscanf(limitStr, "%d", &limit)
+			if _, err := fmt.Sscanf(limitStr, "%d", &limit); err != nil {
+				logger.Debugf("Error parsing limit parameter '%s': %v", limitStr, err)
+			}
 		}
 		if limit > 100 {
 			limit = 100
