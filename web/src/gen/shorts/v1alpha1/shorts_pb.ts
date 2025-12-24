@@ -7,7 +7,9 @@ import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf
 import { file_google_api_annotations } from "../../google/api/annotations_pb";
 import { file_gnostic_openapi_v3_annotations } from "../../gnostic/openapi/v3/annotations_pb";
 import { file_google_api_client } from "../../google/api/client_pb";
-import type { IndustryTreeMapSchema, Stock, StockDetailsSchema, StockSchema, TimeSeriesData, TimeSeriesDataSchema } from "../../stocks/v1alpha1/stocks_pb";
+import type { Timestamp } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import type { CompanyPerson, FinancialReport, IndustryTreeMapSchema, SocialMediaLinks, Stock, StockDetailsSchema, StockSchema, TimeSeriesData, TimeSeriesDataSchema } from "../../stocks/v1alpha1/stocks_pb";
 import { file_stocks_v1alpha1_stocks } from "../../stocks/v1alpha1/stocks_pb";
 import { file_options_v1_options } from "../../options/v1/options_pb";
 import type { Message } from "@bufbuild/protobuf";
@@ -16,7 +18,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file shorts/v1alpha1/shorts.proto.
  */
 export const file_shorts_v1alpha1_shorts: GenFile = /*@__PURE__*/
-  fileDesc("ChxzaG9ydHMvdjFhbHBoYTEvc2hvcnRzLnByb3RvEg9zaG9ydHMudjFhbHBoYTEiEgoQTWludFRva2VuUmVxdWVzdCIiChFNaW50VG9rZW5SZXNwb25zZRINCgV0b2tlbhgBIAEoCSJEChNHZXRUb3BTaG9ydHNSZXF1ZXN0Eg4KBnBlcmlvZBgBIAEoCRINCgVsaW1pdBgCIAEoBRIOCgZvZmZzZXQYAyABKAUiaAoZR2V0SW5kdXN0cnlUcmVlTWFwUmVxdWVzdBIOCgZwZXJpb2QYASABKAkSDQoFbGltaXQYAiABKAUSLAoJdmlld19tb2RlGAMgASgOMhkuc2hvcnRzLnYxYWxwaGExLlZpZXdNb2RlIlwKFEdldFRvcFNob3J0c1Jlc3BvbnNlEjQKC3RpbWVfc2VyaWVzGAEgAygLMh8uc3RvY2tzLnYxYWxwaGExLlRpbWVTZXJpZXNEYXRhEg4KBm9mZnNldBgCIAEoBSInCg9HZXRTdG9ja1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIi4KFkdldFN0b2NrRGV0YWlsc1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIjsKE0dldFN0b2NrRGF0YVJlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJEg4KBnBlcmlvZBgCIAEoCSJMChNTZWFyY2hTdG9ja3NSZXF1ZXN0Eg0KBXF1ZXJ5GAEgASgJEg0KBWxpbWl0GAIgASgFEhcKD2luY2x1ZGVfZGV0YWlscxgDIAEoCCJcChRTZWFyY2hTdG9ja3NSZXNwb25zZRINCgVxdWVyeRgBIAEoCRImCgZzdG9ja3MYAiADKAsyFi5zdG9ja3MudjFhbHBoYTEuU3RvY2sSDQoFY291bnQYAyABKAUiJQoUR2V0U3luY1N0YXR1c1JlcXVlc3QSDQoFbGltaXQYASABKAUiPwoVR2V0U3luY1N0YXR1c1Jlc3BvbnNlEiYKBHJ1bnMYASADKAsyGC5zaG9ydHMudjFhbHBoYTEuU3luY1J1biKyAgoHU3luY1J1bhIOCgZydW5faWQYASABKAkSEgoKc3RhcnRlZF9hdBgCIAEoCRIUCgxjb21wbGV0ZWRfYXQYAyABKAkSDgoGc3RhdHVzGAQgASgJEhUKDWVycm9yX21lc3NhZ2UYBSABKAkSHgoWc2hvcnRzX3JlY29yZHNfdXBkYXRlZBgGIAEoBRIeChZwcmljZXNfcmVjb3Jkc191cGRhdGVkGAcgASgFEh8KF21ldHJpY3NfcmVjb3Jkc191cGRhdGVkGAggASgFEh4KFmFsZ29saWFfcmVjb3Jkc19zeW5jZWQYCSABKAUSHgoWdG90YWxfZHVyYXRpb25fc2Vjb25kcxgKIAEoARITCgtlbnZpcm9ubWVudBgLIAEoCRIQCghob3N0bmFtZRgMIAEoCSI7ChVTeW5jS2V5TWV0cmljc1JlcXVlc3QSEwoLc3RvY2tfY29kZXMYASADKAkSDQoFZm9yY2UYAiABKAgiqwEKFlN5bmNLZXlNZXRyaWNzUmVzcG9uc2USFwoPdG90YWxfcmVxdWVzdGVkGAEgASgFEhsKE3N1Y2Nlc3NmdWxseV9zeW5jZWQYAiABKAUSDgoGZmFpbGVkGAMgASgFEjEKB3Jlc3VsdHMYBCADKAsyIC5zaG9ydHMudjFhbHBoYTEuU3RvY2tTeW5jUmVzdWx0EhgKEGR1cmF0aW9uX3NlY29uZHMYBSABKAEifwoPU3RvY2tTeW5jUmVzdWx0EhIKCnN0b2NrX2NvZGUYASABKAkSDwoHc3VjY2VzcxgCIAEoCBIVCg1lcnJvcl9tZXNzYWdlGAMgASgJEjAKB21ldHJpY3MYBCABKAsyHy5zaG9ydHMudjFhbHBoYTEuS2V5TWV0cmljc0RhdGEitgEKDktleU1ldHJpY3NEYXRhEhIKCm1hcmtldF9jYXAYASABKAESEAoIcGVfcmF0aW8YAiABKAESCwoDZXBzGAMgASgBEhYKDmRpdmlkZW5kX3lpZWxkGAQgASgBEgwKBGJldGEYBSABKAESGwoTZmlmdHlfdHdvX3dlZWtfaGlnaBgGIAEoARIaChJmaWZ0eV90d29fd2Vla19sb3cYByABKAESEgoKYXZnX3ZvbHVtZRgIIAEoASo1CghWaWV3TW9kZRISCg5DVVJSRU5UX0NIQU5HRRAAEhUKEVBFUkNFTlRBR0VfQ0hBTkdFEAEyxRgKFFNob3J0ZWRTdG9ja3NTZXJ2aWNlEoYDCgxHZXRUb3BTaG9ydHMSJC5zaG9ydHMudjFhbHBoYTEuR2V0VG9wU2hvcnRzUmVxdWVzdBolLnNob3J0cy52MWFscGhhMS5HZXRUb3BTaG9ydHNSZXNwb25zZSKoAtpBE3BlcmlvZCxsaW1pdCxvZmZzZXS6R4oCEg5HZXQgVG9wIFNob3J0cxpqUmV0cmlldmUgdGhlIHRvcCBzaG9ydGVkIHN0b2NrcyBvbiB0aGUgQVNYIGZvciBhIGdpdmVuIHRpbWUgcGVyaW9kLiBTdXBwb3J0cyBwYWdpbmF0aW9uIGFuZCBjdXN0b20gbGltaXRzLkKLARJYCgMyMDASUQpPCk1BIHN1Y2Nlc3NmdWwgcmVzcG9uc2UgY29udGFpbmluZyB0aW1lIHNlcmllcyBkYXRhIGZvciB0aGUgdG9wIHNob3J0ZWQgc3RvY2tzLhIvCgM0MDASKAomCiRJbnZhbGlkIHJlcXVlc3QgcGFyYW1ldGVycyBwcm92aWRlZC6AtRgBEv0CChJHZXRJbmR1c3RyeVRyZWVNYXASKi5zaG9ydHMudjFhbHBoYTEuR2V0SW5kdXN0cnlUcmVlTWFwUmVxdWVzdBogLnN0b2Nrcy52MWFscGhhMS5JbmR1c3RyeVRyZWVNYXAimAK6R5ACEhRHZXQgSW5kdXN0cnkgVHJlZU1hcBp7UmV0cmlldmUgYSBoaWVyYXJjaGljYWwgdHJlZW1hcCBvZiBzaG9ydCBwb3NpdGlvbnMgZ3JvdXBlZCBieSBpbmR1c3RyeS4gVXNlZnVsIGZvciB2aXN1YWxpemluZyBtYXJrZXQtd2lkZSBzaG9ydGluZyB0cmVuZHMuQnsSUQoDMjAwEkoKSApGQSBzdWNjZXNzZnVsIHJlc3BvbnNlIGNvbnRhaW5pbmcgaW5kdXN0cnktZ3JvdXBlZCBzaG9ydCBwb3NpdGlvbiBkYXRhLhImCgM0MDASHwodChtJbnZhbGlkIHJlcXVlc3QgcGFyYW1ldGVycy6AtRgBEsACCghHZXRTdG9jaxIgLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja1JlcXVlc3QaFi5zdG9ja3MudjFhbHBoYTEuU3RvY2si+QG6R/EBEhFHZXQgU3RvY2sgU3VtbWFyeRpmUmV0cmlldmUgYSBzdW1tYXJ5IG9mIGN1cnJlbnQgc2hvcnQgcG9zaXRpb25zIGFuZCBiYXNpYyBtZXRhZGF0YSBmb3IgYSBzcGVjaWZpYyBzdG9jayBieSBpdHMgQVNYIGNvZGUuQnQSPgoDMjAwEjcKNQozQSBzdWNjZXNzZnVsIHJlc3BvbnNlIGNvbnRhaW5pbmcgdGhlIHN0b2NrIHN1bW1hcnkuEjIKAzQwNBIrCikKJ1RoZSBzcGVjaWZpZWQgc3RvY2sgY29kZSB3YXMgbm90IGZvdW5kLoC1GAES8AIKD0dldFN0b2NrRGV0YWlscxInLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja0RldGFpbHNSZXF1ZXN0Gh0uc3RvY2tzLnYxYWxwaGExLlN0b2NrRGV0YWlscyKUArpHjAISEUdldCBTdG9jayBEZXRhaWxzGnNSZXRyaWV2ZSBjb21wcmVoZW5zaXZlIG1ldGFkYXRhIGZvciBhIHNwZWNpZmljIHN0b2NrLCBpbmNsdWRpbmcgY29tcGFueSBoaXN0b3J5LCBrZXkgcGVvcGxlLCBhbmQgZmluYW5jaWFsIHJlcG9ydHMuQoEBEkcKAzIwMBJACj4KPEEgc3VjY2Vzc2Z1bCByZXNwb25zZSBjb250YWluaW5nIGRldGFpbGVkIHN0b2NrIGluZm9ybWF0aW9uLhI2CgM0MDQSLwotCitUaGUgc3BlY2lmaWVkIHN0b2NrIGRldGFpbHMgd2VyZSBub3QgZm91bmQugLUYARLwAgoMR2V0U3RvY2tEYXRhEiQuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrRGF0YVJlcXVlc3QaHy5zdG9ja3MudjFhbHBoYTEuVGltZVNlcmllc0RhdGEimAK6R5ACEhpHZXQgU3RvY2sgVGltZSBTZXJpZXMgRGF0YRpYUmV0cmlldmUgaGlzdG9yaWNhbCBzaG9ydCBwb3NpdGlvbiBkYXRhIGZvciBhIHNwZWNpZmljIHN0b2NrIG92ZXIgYSBkZWZpbmVkIHRpbWUgcGVyaW9kLkKXARJKCgMyMDASQwpBCj9BIHN1Y2Nlc3NmdWwgcmVzcG9uc2UgY29udGFpbmluZyBoaXN0b3JpY2FsIHRpbWUgc2VyaWVzIHBvaW50cy4SSQoDNDAxEkIKQAo+QXV0aGVudGljYXRpb24gaXMgcmVxdWlyZWQgdG8gYWNjZXNzIHByaXZhdGUgdGltZSBzZXJpZXMgZGF0YS6AtRgBEvkBCgxTZWFyY2hTdG9ja3MSJC5zaG9ydHMudjFhbHBoYTEuU2VhcmNoU3RvY2tzUmVxdWVzdBolLnNob3J0cy52MWFscGhhMS5TZWFyY2hTdG9ja3NSZXNwb25zZSKbAbpHkwESDVNlYXJjaCBTdG9ja3MaWVNlYXJjaCBmb3IgQVNYIHN0b2NrcyB1c2luZyBmdWxsLXRleHQgc2VhcmNoIGFnYWluc3QgdGhlaXIgdGlja2VyIHN5bWJvbCBvciBjb21wYW55IG5hbWUuQicSJQoDMjAwEh4KHAoaQSBsaXN0IG9mIG1hdGNoaW5nIHN0b2Nrcy6AtRgBEskCCg1HZXRTeW5jU3RhdHVzEiUuc2hvcnRzLnYxYWxwaGExLkdldFN5bmNTdGF0dXNSZXF1ZXN0GiYuc2hvcnRzLnYxYWxwaGExLkdldFN5bmNTdGF0dXNSZXNwb25zZSLoAbpH1wESD0dldCBTeW5jIFN0YXR1cxpuQWRtaW5pc3RyYXRpdmUgZW5kcG9pbnQgdG8gcmV0cmlldmUgdGhlIHN0YXR1cyBhbmQgaGlzdG9yeSBvZiBkYXRhIHN5bmNocm9uaXphdGlvbiB0YXNrcy4gUmVxdWlyZXMgYWRtaW4gcm9sZS5CVBIjCgMyMDASHAoaChhSZWNlbnQgc3luYyBydW4gaGlzdG9yeS4SLQoDNDAzEiYKJAoiRm9yYmlkZGVuOiBBZG1pbiByb2xlIGlzIHJlcXVpcmVkLoC1GAKKtRgFYWRtaW4SrAIKCU1pbnRUb2tlbhIhLnNob3J0cy52MWFscGhhMS5NaW50VG9rZW5SZXF1ZXN0GiIuc2hvcnRzLnYxYWxwaGExLk1pbnRUb2tlblJlc3BvbnNlItcBukfPARIOTWludCBBUEkgVG9rZW4abEdlbmVyYXRlIGEgYmVzcG9rZSBBUEkgdG9rZW4gZm9yIHByb2dyYW1tYXRpYyBhY2Nlc3MgdG8gU2hvcnRlZCBBUElzLiBSZXF1aXJlcyB2YWxpZCBzZXNzaW9uIGF1dGhlbnRpY2F0aW9uLkJPEhsKAzIwMBIUChIKEEEgbmV3IEFQSSB0b2tlbi4SMAoDNDAxEikKJwolVW5hdXRob3JpemVkOiBVc2VyIG11c3QgYmUgc2lnbmVkIGluLoC1GAIS7AIKDlN5bmNLZXlNZXRyaWNzEiYuc2hvcnRzLnYxYWxwaGExLlN5bmNLZXlNZXRyaWNzUmVxdWVzdBonLnNob3J0cy52MWFscGhhMS5TeW5jS2V5TWV0cmljc1Jlc3BvbnNlIogCukf3ARIQU3luYyBLZXkgTWV0cmljcxqLAVRyaWdnZXIgb24tZGVtYW5kIHN5bmMgb2Yga2V5IG1ldHJpY3MgKG1hcmtldCBjYXAsIFAvRSByYXRpbywgZXRjLikgZm9yIHNwZWNpZmljIHN0b2Nrcy4gRmV0Y2hlcyBmcmVzaCBkYXRhIGZyb20gWWFob28gRmluYW5jZS4gQWRtaW4gb25seS5CVRInCgMyMDASIAoeChxTeW5jIGNvbXBsZXRlZCBzdWNjZXNzZnVsbHkuEioKAzQwMxIjCiEKH0ZvcmJpZGRlbjogQWRtaW4gcm9sZSByZXF1aXJlZC6AtRgCirUYBWFkbWluGhXKQRJhcGkuc2hvcnRlZC5jb20uYXVCngJaWWdpdGh1Yi5jb20vY2FzdGxlbWlsay9zaG9ydGVkLmNvbS5hdS9zZXJ2aWNlcy9nZW4vcHJvdG8vZ28vc2hvcnRzL3YxYWxwaGExO3Nob3J0c3YxYWxwaGExuke/ARJ8CgtTaG9ydGVkIEFQSRINU2hvcnRlZCBBUEkncyIlEg5zaG9ydGVkLmNvbS5hdRoTaGVscEBzaG9ydGVkLmNvbS5hdSozChNQcm9wcmlldGFyeSBsaWNlbnNlEhxodHRwczovL3Nob3J0ZWQuY29tLmF1L3Rlcm1zMgJ2MRocChpodHRwczovL2FwaS5zaG9ydGVkLmNvbS5hdSohOh8KHQoJQXV0aFRva2VuEhAKDgoEaHR0cCoGYmVhcmVyYgZwcm90bzM", [file_google_api_annotations, file_gnostic_openapi_v3_annotations, file_google_api_client, file_stocks_v1alpha1_stocks, file_options_v1_options]);
+  fileDesc("ChxzaG9ydHMvdjFhbHBoYTEvc2hvcnRzLnByb3RvEg9zaG9ydHMudjFhbHBoYTEiEgoQTWludFRva2VuUmVxdWVzdCIiChFNaW50VG9rZW5SZXNwb25zZRINCgV0b2tlbhgBIAEoCSJEChNHZXRUb3BTaG9ydHNSZXF1ZXN0Eg4KBnBlcmlvZBgBIAEoCRINCgVsaW1pdBgCIAEoBRIOCgZvZmZzZXQYAyABKAUiaAoZR2V0SW5kdXN0cnlUcmVlTWFwUmVxdWVzdBIOCgZwZXJpb2QYASABKAkSDQoFbGltaXQYAiABKAUSLAoJdmlld19tb2RlGAMgASgOMhkuc2hvcnRzLnYxYWxwaGExLlZpZXdNb2RlIlwKFEdldFRvcFNob3J0c1Jlc3BvbnNlEjQKC3RpbWVfc2VyaWVzGAEgAygLMh8uc3RvY2tzLnYxYWxwaGExLlRpbWVTZXJpZXNEYXRhEg4KBm9mZnNldBgCIAEoBSInCg9HZXRTdG9ja1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIi4KFkdldFN0b2NrRGV0YWlsc1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIjsKE0dldFN0b2NrRGF0YVJlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJEg4KBnBlcmlvZBgCIAEoCSJMChNTZWFyY2hTdG9ja3NSZXF1ZXN0Eg0KBXF1ZXJ5GAEgASgJEg0KBWxpbWl0GAIgASgFEhcKD2luY2x1ZGVfZGV0YWlscxgDIAEoCCJcChRTZWFyY2hTdG9ja3NSZXNwb25zZRINCgVxdWVyeRgBIAEoCRImCgZzdG9ja3MYAiADKAsyFi5zdG9ja3MudjFhbHBoYTEuU3RvY2sSDQoFY291bnQYAyABKAUiJQoUR2V0U3luY1N0YXR1c1JlcXVlc3QSDQoFbGltaXQYASABKAUiPwoVR2V0U3luY1N0YXR1c1Jlc3BvbnNlEiYKBHJ1bnMYASADKAsyGC5zaG9ydHMudjFhbHBoYTEuU3luY1J1biKyAgoHU3luY1J1bhIOCgZydW5faWQYASABKAkSEgoKc3RhcnRlZF9hdBgCIAEoCRIUCgxjb21wbGV0ZWRfYXQYAyABKAkSDgoGc3RhdHVzGAQgASgJEhUKDWVycm9yX21lc3NhZ2UYBSABKAkSHgoWc2hvcnRzX3JlY29yZHNfdXBkYXRlZBgGIAEoBRIeChZwcmljZXNfcmVjb3Jkc191cGRhdGVkGAcgASgFEh8KF21ldHJpY3NfcmVjb3Jkc191cGRhdGVkGAggASgFEh4KFmFsZ29saWFfcmVjb3Jkc19zeW5jZWQYCSABKAUSHgoWdG90YWxfZHVyYXRpb25fc2Vjb25kcxgKIAEoARITCgtlbnZpcm9ubWVudBgLIAEoCRIQCghob3N0bmFtZRgMIAEoCSI7ChVTeW5jS2V5TWV0cmljc1JlcXVlc3QSEwoLc3RvY2tfY29kZXMYASADKAkSDQoFZm9yY2UYAiABKAgiqwEKFlN5bmNLZXlNZXRyaWNzUmVzcG9uc2USFwoPdG90YWxfcmVxdWVzdGVkGAEgASgFEhsKE3N1Y2Nlc3NmdWxseV9zeW5jZWQYAiABKAUSDgoGZmFpbGVkGAMgASgFEjEKB3Jlc3VsdHMYBCADKAsyIC5zaG9ydHMudjFhbHBoYTEuU3RvY2tTeW5jUmVzdWx0EhgKEGR1cmF0aW9uX3NlY29uZHMYBSABKAEifwoPU3RvY2tTeW5jUmVzdWx0EhIKCnN0b2NrX2NvZGUYASABKAkSDwoHc3VjY2VzcxgCIAEoCBIVCg1lcnJvcl9tZXNzYWdlGAMgASgJEjAKB21ldHJpY3MYBCABKAsyHy5zaG9ydHMudjFhbHBoYTEuS2V5TWV0cmljc0RhdGEitgEKDktleU1ldHJpY3NEYXRhEhIKCm1hcmtldF9jYXAYASABKAESEAoIcGVfcmF0aW8YAiABKAESCwoDZXBzGAMgASgBEhYKDmRpdmlkZW5kX3lpZWxkGAQgASgBEgwKBGJldGEYBSABKAESGwoTZmlmdHlfdHdvX3dlZWtfaGlnaBgGIAEoARIaChJmaWZ0eV90d29fd2Vla19sb3cYByABKAESEgoKYXZnX3ZvbHVtZRgIIAEoASI3ChJFbnJpY2hTdG9ja1JlcXVlc3QSEgoKc3RvY2tfY29kZRgBIAEoCRINCgVmb3JjZRgCIAEoCCKJAgoTRW5yaWNoU3RvY2tSZXNwb25zZRISCgpzdG9ja19jb2RlGAEgASgJEjEKBnN0YXR1cxgCIAEoDjIhLnNob3J0cy52MWFscGhhMS5FbnJpY2htZW50U3RhdHVzEi0KBGRhdGEYAyABKAsyHy5zaG9ydHMudjFhbHBoYTEuRW5yaWNobWVudERhdGESNAoNcXVhbGl0eV9zY29yZRgEIAEoCzIdLnNob3J0cy52MWFscGhhMS5RdWFsaXR5U2NvcmUSFQoNZXJyb3JfbWVzc2FnZRgFIAEoCRIYChBkdXJhdGlvbl9zZWNvbmRzGAYgASgBEhUKDWVucmljaG1lbnRfaWQYByABKAki1AIKDkVucmljaG1lbnREYXRhEhgKEGVuaGFuY2VkX3N1bW1hcnkYASABKAkSFwoPY29tcGFueV9oaXN0b3J5GAIgASgJEjIKCmtleV9wZW9wbGUYAyADKAsyHi5zdG9ja3MudjFhbHBoYTEuQ29tcGFueVBlcnNvbhI7ChFmaW5hbmNpYWxfcmVwb3J0cxgEIAMoCzIgLnN0b2Nrcy52MWFscGhhMS5GaW5hbmNpYWxSZXBvcnQSHgoWY29tcGV0aXRpdmVfYWR2YW50YWdlcxgFIAEoCRIUCgxyaXNrX2ZhY3RvcnMYBiADKAkSGwoTcmVjZW50X2RldmVsb3BtZW50cxgHIAEoCRI9ChJzb2NpYWxfbWVkaWFfbGlua3MYCCABKAsyIS5zdG9ja3MudjFhbHBoYTEuU29jaWFsTWVkaWFMaW5rcxIMCgR0YWdzGAkgAygJIn4KDFF1YWxpdHlTY29yZRIVCg1vdmVyYWxsX3Njb3JlGAEgASgBEhoKEmNvbXBsZXRlbmVzc19zY29yZRgCIAEoARIWCg5hY2N1cmFjeV9zY29yZRgDIAEoARIQCgh3YXJuaW5ncxgEIAMoCRIRCglzdHJlbmd0aHMYBSADKAkiaAogR2V0VG9wU3RvY2tzRm9yRW5yaWNobWVudFJlcXVlc3QSDQoFbGltaXQYASABKAUSNQoIcHJpb3JpdHkYAiABKA4yIy5zaG9ydHMudjFhbHBoYTEuRW5yaWNobWVudFByaW9yaXR5Il4KIUdldFRvcFN0b2Nrc0ZvckVucmljaG1lbnRSZXNwb25zZRI5CgZzdG9ja3MYASADKAsyKS5zaG9ydHMudjFhbHBoYTEuU3RvY2tFbnJpY2htZW50Q2FuZGlkYXRlIvABChhTdG9ja0VucmljaG1lbnRDYW5kaWRhdGUSEgoKc3RvY2tfY29kZRgBIAEoCRIUCgxjb21wYW55X25hbWUYAiABKAkSEAoIaW5kdXN0cnkYAyABKAkSEgoKbWFya2V0X2NhcBgEIAEoARIeChZzaG9ydF9wb3NpdGlvbl9wZXJjZW50GAUgASgBEhkKEWVucmljaG1lbnRfc3RhdHVzGAYgASgJEjEKDWxhc3RfZW5yaWNoZWQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhYKDnByaW9yaXR5X3Njb3JlGAggASgFImsKF1Jldmlld0VucmljaG1lbnRSZXF1ZXN0EhIKCnN0b2NrX2NvZGUYASABKAkSFQoNZW5yaWNobWVudF9pZBgCIAEoCRIPCgdhcHByb3ZlGAMgASgIEhQKDHJldmlld19ub3RlcxgEIAEoCSJRChhSZXZpZXdFbnJpY2htZW50UmVzcG9uc2USEgoKc3RvY2tfY29kZRgBIAEoCRIQCghhcHByb3ZlZBgCIAEoCBIPCgdtZXNzYWdlGAMgASgJIj4KHUxpc3RQZW5kaW5nRW5yaWNobWVudHNSZXF1ZXN0Eg0KBWxpbWl0GAEgASgFEg4KBm9mZnNldBgCIAEoBSJgCh5MaXN0UGVuZGluZ0VucmljaG1lbnRzUmVzcG9uc2USPgoLZW5yaWNobWVudHMYASADKAsyKS5zaG9ydHMudjFhbHBoYTEuUGVuZGluZ0VucmljaG1lbnRTdW1tYXJ5It4BChhQZW5kaW5nRW5yaWNobWVudFN1bW1hcnkSFQoNZW5yaWNobWVudF9pZBgBIAEoCRISCgpzdG9ja19jb2RlGAIgASgJEjEKBnN0YXR1cxgDIAEoDjIhLnNob3J0cy52MWFscGhhMS5FbnJpY2htZW50U3RhdHVzEi4KCmNyZWF0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjQKDXF1YWxpdHlfc2NvcmUYBSABKAsyHS5zaG9ydHMudjFhbHBoYTEuUXVhbGl0eVNjb3JlIjQKG0dldFBlbmRpbmdFbnJpY2htZW50UmVxdWVzdBIVCg1lbnJpY2htZW50X2lkGAEgASgJIlMKHEdldFBlbmRpbmdFbnJpY2htZW50UmVzcG9uc2USMwoHcGVuZGluZxgBIAEoCzIiLnNob3J0cy52MWFscGhhMS5QZW5kaW5nRW5yaWNobWVudCLiAgoRUGVuZGluZ0VucmljaG1lbnQSFQoNZW5yaWNobWVudF9pZBgBIAEoCRISCgpzdG9ja19jb2RlGAIgASgJEjEKBnN0YXR1cxgDIAEoDjIhLnNob3J0cy52MWFscGhhMS5FbnJpY2htZW50U3RhdHVzEi0KBGRhdGEYBCABKAsyHy5zaG9ydHMudjFhbHBoYTEuRW5yaWNobWVudERhdGESNAoNcXVhbGl0eV9zY29yZRgFIAEoCzIdLnNob3J0cy52MWFscGhhMS5RdWFsaXR5U2NvcmUSLgoKY3JlYXRlZF9hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLwoLcmV2aWV3ZWRfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhMKC3Jldmlld2VkX2J5GAggASgJEhQKDHJldmlld19ub3RlcxgJIAEoCSo1CghWaWV3TW9kZRISCg5DVVJSRU5UX0NIQU5HRRAAEhUKEVBFUkNFTlRBR0VfQ0hBTkdFEAEqugEKEEVucmljaG1lbnRTdGF0dXMSIQodRU5SSUNITUVOVF9TVEFUVVNfVU5TUEVDSUZJRUQQABIkCiBFTlJJQ0hNRU5UX1NUQVRVU19QRU5ESU5HX1JFVklFVxABEh8KG0VOUklDSE1FTlRfU1RBVFVTX0NPTVBMRVRFRBACEhwKGEVOUklDSE1FTlRfU1RBVFVTX0ZBSUxFRBADEh4KGkVOUklDSE1FTlRfU1RBVFVTX1JFSkVDVEVEEAQqyAEKEkVucmljaG1lbnRQcmlvcml0eRIjCh9FTlJJQ0hNRU5UX1BSSU9SSVRZX1VOU1BFQ0lGSUVEEAASIgoeRU5SSUNITUVOVF9QUklPUklUWV9NQVJLRVRfQ0FQEAESJgoiRU5SSUNITUVOVF9QUklPUklUWV9TSE9SVF9QT1NJVElPThACEiIKHkVOUklDSE1FTlRfUFJJT1JJVFlfVU5FTlJJQ0hFRBADEh0KGUVOUklDSE1FTlRfUFJJT1JJVFlfU1RBTEUQBDLKHQoUU2hvcnRlZFN0b2Nrc1NlcnZpY2UShgMKDEdldFRvcFNob3J0cxIkLnNob3J0cy52MWFscGhhMS5HZXRUb3BTaG9ydHNSZXF1ZXN0GiUuc2hvcnRzLnYxYWxwaGExLkdldFRvcFNob3J0c1Jlc3BvbnNlIqgC2kETcGVyaW9kLGxpbWl0LG9mZnNldLpHigISDkdldCBUb3AgU2hvcnRzGmpSZXRyaWV2ZSB0aGUgdG9wIHNob3J0ZWQgc3RvY2tzIG9uIHRoZSBBU1ggZm9yIGEgZ2l2ZW4gdGltZSBwZXJpb2QuIFN1cHBvcnRzIHBhZ2luYXRpb24gYW5kIGN1c3RvbSBsaW1pdHMuQosBElgKAzIwMBJRCk8KTUEgc3VjY2Vzc2Z1bCByZXNwb25zZSBjb250YWluaW5nIHRpbWUgc2VyaWVzIGRhdGEgZm9yIHRoZSB0b3Agc2hvcnRlZCBzdG9ja3MuEi8KAzQwMBIoCiYKJEludmFsaWQgcmVxdWVzdCBwYXJhbWV0ZXJzIHByb3ZpZGVkLoC1GAES/QIKEkdldEluZHVzdHJ5VHJlZU1hcBIqLnNob3J0cy52MWFscGhhMS5HZXRJbmR1c3RyeVRyZWVNYXBSZXF1ZXN0GiAuc3RvY2tzLnYxYWxwaGExLkluZHVzdHJ5VHJlZU1hcCKYArpHkAISFEdldCBJbmR1c3RyeSBUcmVlTWFwGntSZXRyaWV2ZSBhIGhpZXJhcmNoaWNhbCB0cmVlbWFwIG9mIHNob3J0IHBvc2l0aW9ucyBncm91cGVkIGJ5IGluZHVzdHJ5LiBVc2VmdWwgZm9yIHZpc3VhbGl6aW5nIG1hcmtldC13aWRlIHNob3J0aW5nIHRyZW5kcy5CexJRCgMyMDASSgpICkZBIHN1Y2Nlc3NmdWwgcmVzcG9uc2UgY29udGFpbmluZyBpbmR1c3RyeS1ncm91cGVkIHNob3J0IHBvc2l0aW9uIGRhdGEuEiYKAzQwMBIfCh0KG0ludmFsaWQgcmVxdWVzdCBwYXJhbWV0ZXJzLoC1GAESwAIKCEdldFN0b2NrEiAuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrUmVxdWVzdBoWLnN0b2Nrcy52MWFscGhhMS5TdG9jayL5AbpH8QESEUdldCBTdG9jayBTdW1tYXJ5GmZSZXRyaWV2ZSBhIHN1bW1hcnkgb2YgY3VycmVudCBzaG9ydCBwb3NpdGlvbnMgYW5kIGJhc2ljIG1ldGFkYXRhIGZvciBhIHNwZWNpZmljIHN0b2NrIGJ5IGl0cyBBU1ggY29kZS5CdBI+CgMyMDASNwo1CjNBIHN1Y2Nlc3NmdWwgcmVzcG9uc2UgY29udGFpbmluZyB0aGUgc3RvY2sgc3VtbWFyeS4SMgoDNDA0EisKKQonVGhlIHNwZWNpZmllZCBzdG9jayBjb2RlIHdhcyBub3QgZm91bmQugLUYARLwAgoPR2V0U3RvY2tEZXRhaWxzEicuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrRGV0YWlsc1JlcXVlc3QaHS5zdG9ja3MudjFhbHBoYTEuU3RvY2tEZXRhaWxzIpQCukeMAhIRR2V0IFN0b2NrIERldGFpbHMac1JldHJpZXZlIGNvbXByZWhlbnNpdmUgbWV0YWRhdGEgZm9yIGEgc3BlY2lmaWMgc3RvY2ssIGluY2x1ZGluZyBjb21wYW55IGhpc3RvcnksIGtleSBwZW9wbGUsIGFuZCBmaW5hbmNpYWwgcmVwb3J0cy5CgQESRwoDMjAwEkAKPgo8QSBzdWNjZXNzZnVsIHJlc3BvbnNlIGNvbnRhaW5pbmcgZGV0YWlsZWQgc3RvY2sgaW5mb3JtYXRpb24uEjYKAzQwNBIvCi0KK1RoZSBzcGVjaWZpZWQgc3RvY2sgZGV0YWlscyB3ZXJlIG5vdCBmb3VuZC6AtRgBEvACCgxHZXRTdG9ja0RhdGESJC5zaG9ydHMudjFhbHBoYTEuR2V0U3RvY2tEYXRhUmVxdWVzdBofLnN0b2Nrcy52MWFscGhhMS5UaW1lU2VyaWVzRGF0YSKYArpHkAISGkdldCBTdG9jayBUaW1lIFNlcmllcyBEYXRhGlhSZXRyaWV2ZSBoaXN0b3JpY2FsIHNob3J0IHBvc2l0aW9uIGRhdGEgZm9yIGEgc3BlY2lmaWMgc3RvY2sgb3ZlciBhIGRlZmluZWQgdGltZSBwZXJpb2QuQpcBEkoKAzIwMBJDCkEKP0Egc3VjY2Vzc2Z1bCByZXNwb25zZSBjb250YWluaW5nIGhpc3RvcmljYWwgdGltZSBzZXJpZXMgcG9pbnRzLhJJCgM0MDESQgpACj5BdXRoZW50aWNhdGlvbiBpcyByZXF1aXJlZCB0byBhY2Nlc3MgcHJpdmF0ZSB0aW1lIHNlcmllcyBkYXRhLoC1GAES+QEKDFNlYXJjaFN0b2NrcxIkLnNob3J0cy52MWFscGhhMS5TZWFyY2hTdG9ja3NSZXF1ZXN0GiUuc2hvcnRzLnYxYWxwaGExLlNlYXJjaFN0b2Nrc1Jlc3BvbnNlIpsBukeTARINU2VhcmNoIFN0b2NrcxpZU2VhcmNoIGZvciBBU1ggc3RvY2tzIHVzaW5nIGZ1bGwtdGV4dCBzZWFyY2ggYWdhaW5zdCB0aGVpciB0aWNrZXIgc3ltYm9sIG9yIGNvbXBhbnkgbmFtZS5CJxIlCgMyMDASHgocChpBIGxpc3Qgb2YgbWF0Y2hpbmcgc3RvY2tzLoC1GAESyQIKDUdldFN5bmNTdGF0dXMSJS5zaG9ydHMudjFhbHBoYTEuR2V0U3luY1N0YXR1c1JlcXVlc3QaJi5zaG9ydHMudjFhbHBoYTEuR2V0U3luY1N0YXR1c1Jlc3BvbnNlIugBukfXARIPR2V0IFN5bmMgU3RhdHVzGm5BZG1pbmlzdHJhdGl2ZSBlbmRwb2ludCB0byByZXRyaWV2ZSB0aGUgc3RhdHVzIGFuZCBoaXN0b3J5IG9mIGRhdGEgc3luY2hyb25pemF0aW9uIHRhc2tzLiBSZXF1aXJlcyBhZG1pbiByb2xlLkJUEiMKAzIwMBIcChoKGFJlY2VudCBzeW5jIHJ1biBoaXN0b3J5LhItCgM0MDMSJgokCiJGb3JiaWRkZW46IEFkbWluIHJvbGUgaXMgcmVxdWlyZWQugLUYAoq1GAVhZG1pbhKsAgoJTWludFRva2VuEiEuc2hvcnRzLnYxYWxwaGExLk1pbnRUb2tlblJlcXVlc3QaIi5zaG9ydHMudjFhbHBoYTEuTWludFRva2VuUmVzcG9uc2Ui1wG6R88BEg5NaW50IEFQSSBUb2tlbhpsR2VuZXJhdGUgYSBiZXNwb2tlIEFQSSB0b2tlbiBmb3IgcHJvZ3JhbW1hdGljIGFjY2VzcyB0byBTaG9ydGVkIEFQSXMuIFJlcXVpcmVzIHZhbGlkIHNlc3Npb24gYXV0aGVudGljYXRpb24uQk8SGwoDMjAwEhQKEgoQQSBuZXcgQVBJIHRva2VuLhIwCgM0MDESKQonCiVVbmF1dGhvcml6ZWQ6IFVzZXIgbXVzdCBiZSBzaWduZWQgaW4ugLUYAhLsAgoOU3luY0tleU1ldHJpY3MSJi5zaG9ydHMudjFhbHBoYTEuU3luY0tleU1ldHJpY3NSZXF1ZXN0Gicuc2hvcnRzLnYxYWxwaGExLlN5bmNLZXlNZXRyaWNzUmVzcG9uc2UiiAK6R/cBEhBTeW5jIEtleSBNZXRyaWNzGosBVHJpZ2dlciBvbi1kZW1hbmQgc3luYyBvZiBrZXkgbWV0cmljcyAobWFya2V0IGNhcCwgUC9FIHJhdGlvLCBldGMuKSBmb3Igc3BlY2lmaWMgc3RvY2tzLiBGZXRjaGVzIGZyZXNoIGRhdGEgZnJvbSBZYWhvbyBGaW5hbmNlLiBBZG1pbiBvbmx5LkJVEicKAzIwMBIgCh4KHFN5bmMgY29tcGxldGVkIHN1Y2Nlc3NmdWxseS4SKgoDNDAzEiMKIQofRm9yYmlkZGVuOiBBZG1pbiByb2xlIHJlcXVpcmVkLoC1GAKKtRgFYWRtaW4SZwoLRW5yaWNoU3RvY2sSIy5zaG9ydHMudjFhbHBoYTEuRW5yaWNoU3RvY2tSZXF1ZXN0GiQuc2hvcnRzLnYxYWxwaGExLkVucmljaFN0b2NrUmVzcG9uc2UiDYC1GAKKtRgFYWRtaW4SkQEKGUdldFRvcFN0b2Nrc0ZvckVucmljaG1lbnQSMS5zaG9ydHMudjFhbHBoYTEuR2V0VG9wU3RvY2tzRm9yRW5yaWNobWVudFJlcXVlc3QaMi5zaG9ydHMudjFhbHBoYTEuR2V0VG9wU3RvY2tzRm9yRW5yaWNobWVudFJlc3BvbnNlIg2AtRgCirUYBWFkbWluEogBChZMaXN0UGVuZGluZ0VucmljaG1lbnRzEi4uc2hvcnRzLnYxYWxwaGExLkxpc3RQZW5kaW5nRW5yaWNobWVudHNSZXF1ZXN0Gi8uc2hvcnRzLnYxYWxwaGExLkxpc3RQZW5kaW5nRW5yaWNobWVudHNSZXNwb25zZSINgLUYAoq1GAVhZG1pbhKCAQoUR2V0UGVuZGluZ0VucmljaG1lbnQSLC5zaG9ydHMudjFhbHBoYTEuR2V0UGVuZGluZ0VucmljaG1lbnRSZXF1ZXN0Gi0uc2hvcnRzLnYxYWxwaGExLkdldFBlbmRpbmdFbnJpY2htZW50UmVzcG9uc2UiDYC1GAKKtRgFYWRtaW4SdgoQUmV2aWV3RW5yaWNobWVudBIoLnNob3J0cy52MWFscGhhMS5SZXZpZXdFbnJpY2htZW50UmVxdWVzdBopLnNob3J0cy52MWFscGhhMS5SZXZpZXdFbnJpY2htZW50UmVzcG9uc2UiDYC1GAKKtRgFYWRtaW4aFcpBEmFwaS5zaG9ydGVkLmNvbS5hdUKdAwoTY29tLnNob3J0cy52MWFscGhhMUILU2hvcnRzUHJvdG9QAVpZZ2l0aHViLmNvbS9jYXN0bGVtaWxrL3Nob3J0ZWQuY29tLmF1L3NlcnZpY2VzL2dlbi9wcm90by9nby9zaG9ydHMvdjFhbHBoYTE7c2hvcnRzdjFhbHBoYTGiAgNTWFiqAg9TaG9ydHMuVjFhbHBoYTHKAg9TaG9ydHNcVjFhbHBoYTHiAhtTaG9ydHNcVjFhbHBoYTFcR1BCTWV0YWRhdGHqAhBTaG9ydHM6OlYxYWxwaGExuke/ARJ8CgtTaG9ydGVkIEFQSRINU2hvcnRlZCBBUEkncyIlEg5zaG9ydGVkLmNvbS5hdRoTaGVscEBzaG9ydGVkLmNvbS5hdSozChNQcm9wcmlldGFyeSBsaWNlbnNlEhxodHRwczovL3Nob3J0ZWQuY29tLmF1L3Rlcm1zMgJ2MRocChpodHRwczovL2FwaS5zaG9ydGVkLmNvbS5hdSohOh8KHQoJQXV0aFRva2VuEhAKDgoEaHR0cCoGYmVhcmVyYgZwcm90bzM", [file_google_api_annotations, file_gnostic_openapi_v3_annotations, file_google_api_client, file_google_protobuf_timestamp, file_stocks_v1alpha1_stocks, file_options_v1_options]);
 
 /**
  * @generated from message shorts.v1alpha1.MintTokenRequest
@@ -538,6 +540,552 @@ export const KeyMetricsDataSchema: GenMessage<KeyMetricsData> = /*@__PURE__*/
   messageDesc(file_shorts_v1alpha1_shorts, 16);
 
 /**
+ * Enrichment request
+ *
+ * @generated from message shorts.v1alpha1.EnrichStockRequest
+ */
+export type EnrichStockRequest = Message<"shorts.v1alpha1.EnrichStockRequest"> & {
+  /**
+   * Stock code to enrich (e.g., "CBA")
+   *
+   * @generated from field: string stock_code = 1;
+   */
+  stockCode: string;
+
+  /**
+   * If true, re-enrich even if already enriched
+   *
+   * @generated from field: bool force = 2;
+   */
+  force: boolean;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.EnrichStockRequest.
+ * Use `create(EnrichStockRequestSchema)` to create a new message.
+ */
+export const EnrichStockRequestSchema: GenMessage<EnrichStockRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 17);
+
+/**
+ * Enrichment response with data for review
+ *
+ * @generated from message shorts.v1alpha1.EnrichStockResponse
+ */
+export type EnrichStockResponse = Message<"shorts.v1alpha1.EnrichStockResponse"> & {
+  /**
+   * @generated from field: string stock_code = 1;
+   */
+  stockCode: string;
+
+  /**
+   * @generated from field: shorts.v1alpha1.EnrichmentStatus status = 2;
+   */
+  status: EnrichmentStatus;
+
+  /**
+   * Enrichment data for review
+   *
+   * @generated from field: shorts.v1alpha1.EnrichmentData data = 3;
+   */
+  data?: EnrichmentData;
+
+  /**
+   * Quality evaluation
+   *
+   * @generated from field: shorts.v1alpha1.QualityScore quality_score = 4;
+   */
+  qualityScore?: QualityScore;
+
+  /**
+   * @generated from field: string error_message = 5;
+   */
+  errorMessage: string;
+
+  /**
+   * @generated from field: double duration_seconds = 6;
+   */
+  durationSeconds: number;
+
+  /**
+   * Unique ID for this enrichment (used for review)
+   *
+   * @generated from field: string enrichment_id = 7;
+   */
+  enrichmentId: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.EnrichStockResponse.
+ * Use `create(EnrichStockResponseSchema)` to create a new message.
+ */
+export const EnrichStockResponseSchema: GenMessage<EnrichStockResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 18);
+
+/**
+ * Enrichment data structure
+ *
+ * @generated from message shorts.v1alpha1.EnrichmentData
+ */
+export type EnrichmentData = Message<"shorts.v1alpha1.EnrichmentData"> & {
+  /**
+   * @generated from field: string enhanced_summary = 1;
+   */
+  enhancedSummary: string;
+
+  /**
+   * @generated from field: string company_history = 2;
+   */
+  companyHistory: string;
+
+  /**
+   * @generated from field: repeated stocks.v1alpha1.CompanyPerson key_people = 3;
+   */
+  keyPeople: CompanyPerson[];
+
+  /**
+   * @generated from field: repeated stocks.v1alpha1.FinancialReport financial_reports = 4;
+   */
+  financialReports: FinancialReport[];
+
+  /**
+   * @generated from field: string competitive_advantages = 5;
+   */
+  competitiveAdvantages: string;
+
+  /**
+   * @generated from field: repeated string risk_factors = 6;
+   */
+  riskFactors: string[];
+
+  /**
+   * @generated from field: string recent_developments = 7;
+   */
+  recentDevelopments: string;
+
+  /**
+   * @generated from field: stocks.v1alpha1.SocialMediaLinks social_media_links = 8;
+   */
+  socialMediaLinks?: SocialMediaLinks;
+
+  /**
+   * @generated from field: repeated string tags = 9;
+   */
+  tags: string[];
+};
+
+/**
+ * Describes the message shorts.v1alpha1.EnrichmentData.
+ * Use `create(EnrichmentDataSchema)` to create a new message.
+ */
+export const EnrichmentDataSchema: GenMessage<EnrichmentData> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 19);
+
+/**
+ * Quality score for enrichment data
+ *
+ * @generated from message shorts.v1alpha1.QualityScore
+ */
+export type QualityScore = Message<"shorts.v1alpha1.QualityScore"> & {
+  /**
+   * 0.0 to 1.0
+   *
+   * @generated from field: double overall_score = 1;
+   */
+  overallScore: number;
+
+  /**
+   * How complete is the data
+   *
+   * @generated from field: double completeness_score = 2;
+   */
+  completenessScore: number;
+
+  /**
+   * Estimated accuracy
+   *
+   * @generated from field: double accuracy_score = 3;
+   */
+  accuracyScore: number;
+
+  /**
+   * Quality warnings
+   *
+   * @generated from field: repeated string warnings = 4;
+   */
+  warnings: string[];
+
+  /**
+   * Quality strengths
+   *
+   * @generated from field: repeated string strengths = 5;
+   */
+  strengths: string[];
+};
+
+/**
+ * Describes the message shorts.v1alpha1.QualityScore.
+ * Use `create(QualityScoreSchema)` to create a new message.
+ */
+export const QualityScoreSchema: GenMessage<QualityScore> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 20);
+
+/**
+ * Get top stocks for enrichment request
+ *
+ * @generated from message shorts.v1alpha1.GetTopStocksForEnrichmentRequest
+ */
+export type GetTopStocksForEnrichmentRequest = Message<"shorts.v1alpha1.GetTopStocksForEnrichmentRequest"> & {
+  /**
+   * Number of stocks to return (default: 100)
+   *
+   * @generated from field: int32 limit = 1;
+   */
+  limit: number;
+
+  /**
+   * How to prioritize stocks
+   *
+   * @generated from field: shorts.v1alpha1.EnrichmentPriority priority = 2;
+   */
+  priority: EnrichmentPriority;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetTopStocksForEnrichmentRequest.
+ * Use `create(GetTopStocksForEnrichmentRequestSchema)` to create a new message.
+ */
+export const GetTopStocksForEnrichmentRequestSchema: GenMessage<GetTopStocksForEnrichmentRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 21);
+
+/**
+ * Get top stocks response
+ *
+ * @generated from message shorts.v1alpha1.GetTopStocksForEnrichmentResponse
+ */
+export type GetTopStocksForEnrichmentResponse = Message<"shorts.v1alpha1.GetTopStocksForEnrichmentResponse"> & {
+  /**
+   * @generated from field: repeated shorts.v1alpha1.StockEnrichmentCandidate stocks = 1;
+   */
+  stocks: StockEnrichmentCandidate[];
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetTopStocksForEnrichmentResponse.
+ * Use `create(GetTopStocksForEnrichmentResponseSchema)` to create a new message.
+ */
+export const GetTopStocksForEnrichmentResponseSchema: GenMessage<GetTopStocksForEnrichmentResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 22);
+
+/**
+ * Stock candidate for enrichment
+ *
+ * @generated from message shorts.v1alpha1.StockEnrichmentCandidate
+ */
+export type StockEnrichmentCandidate = Message<"shorts.v1alpha1.StockEnrichmentCandidate"> & {
+  /**
+   * @generated from field: string stock_code = 1;
+   */
+  stockCode: string;
+
+  /**
+   * @generated from field: string company_name = 2;
+   */
+  companyName: string;
+
+  /**
+   * @generated from field: string industry = 3;
+   */
+  industry: string;
+
+  /**
+   * @generated from field: double market_cap = 4;
+   */
+  marketCap: number;
+
+  /**
+   * @generated from field: double short_position_percent = 5;
+   */
+  shortPositionPercent: number;
+
+  /**
+   * @generated from field: string enrichment_status = 6;
+   */
+  enrichmentStatus: string;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp last_enriched = 7;
+   */
+  lastEnriched?: Timestamp;
+
+  /**
+   * Higher = more important to enrich
+   *
+   * @generated from field: int32 priority_score = 8;
+   */
+  priorityScore: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.StockEnrichmentCandidate.
+ * Use `create(StockEnrichmentCandidateSchema)` to create a new message.
+ */
+export const StockEnrichmentCandidateSchema: GenMessage<StockEnrichmentCandidate> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 23);
+
+/**
+ * Review enrichment request
+ *
+ * @generated from message shorts.v1alpha1.ReviewEnrichmentRequest
+ */
+export type ReviewEnrichmentRequest = Message<"shorts.v1alpha1.ReviewEnrichmentRequest"> & {
+  /**
+   * @generated from field: string stock_code = 1;
+   */
+  stockCode: string;
+
+  /**
+   * ID from EnrichStockResponse
+   *
+   * @generated from field: string enrichment_id = 2;
+   */
+  enrichmentId: string;
+
+  /**
+   * true to approve, false to reject
+   *
+   * @generated from field: bool approve = 3;
+   */
+  approve: boolean;
+
+  /**
+   * Optional notes about the review
+   *
+   * @generated from field: string review_notes = 4;
+   */
+  reviewNotes: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ReviewEnrichmentRequest.
+ * Use `create(ReviewEnrichmentRequestSchema)` to create a new message.
+ */
+export const ReviewEnrichmentRequestSchema: GenMessage<ReviewEnrichmentRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 24);
+
+/**
+ * Review enrichment response
+ *
+ * @generated from message shorts.v1alpha1.ReviewEnrichmentResponse
+ */
+export type ReviewEnrichmentResponse = Message<"shorts.v1alpha1.ReviewEnrichmentResponse"> & {
+  /**
+   * @generated from field: string stock_code = 1;
+   */
+  stockCode: string;
+
+  /**
+   * @generated from field: bool approved = 2;
+   */
+  approved: boolean;
+
+  /**
+   * @generated from field: string message = 3;
+   */
+  message: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ReviewEnrichmentResponse.
+ * Use `create(ReviewEnrichmentResponseSchema)` to create a new message.
+ */
+export const ReviewEnrichmentResponseSchema: GenMessage<ReviewEnrichmentResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 25);
+
+/**
+ * List pending enrichments request
+ *
+ * @generated from message shorts.v1alpha1.ListPendingEnrichmentsRequest
+ */
+export type ListPendingEnrichmentsRequest = Message<"shorts.v1alpha1.ListPendingEnrichmentsRequest"> & {
+  /**
+   * Default: 100
+   *
+   * @generated from field: int32 limit = 1;
+   */
+  limit: number;
+
+  /**
+   * Default: 0
+   *
+   * @generated from field: int32 offset = 2;
+   */
+  offset: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListPendingEnrichmentsRequest.
+ * Use `create(ListPendingEnrichmentsRequestSchema)` to create a new message.
+ */
+export const ListPendingEnrichmentsRequestSchema: GenMessage<ListPendingEnrichmentsRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 26);
+
+/**
+ * List pending enrichments response
+ *
+ * @generated from message shorts.v1alpha1.ListPendingEnrichmentsResponse
+ */
+export type ListPendingEnrichmentsResponse = Message<"shorts.v1alpha1.ListPendingEnrichmentsResponse"> & {
+  /**
+   * @generated from field: repeated shorts.v1alpha1.PendingEnrichmentSummary enrichments = 1;
+   */
+  enrichments: PendingEnrichmentSummary[];
+};
+
+/**
+ * Describes the message shorts.v1alpha1.ListPendingEnrichmentsResponse.
+ * Use `create(ListPendingEnrichmentsResponseSchema)` to create a new message.
+ */
+export const ListPendingEnrichmentsResponseSchema: GenMessage<ListPendingEnrichmentsResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 27);
+
+/**
+ * A summary view of a pending enrichment (for listing)
+ *
+ * @generated from message shorts.v1alpha1.PendingEnrichmentSummary
+ */
+export type PendingEnrichmentSummary = Message<"shorts.v1alpha1.PendingEnrichmentSummary"> & {
+  /**
+   * @generated from field: string enrichment_id = 1;
+   */
+  enrichmentId: string;
+
+  /**
+   * @generated from field: string stock_code = 2;
+   */
+  stockCode: string;
+
+  /**
+   * @generated from field: shorts.v1alpha1.EnrichmentStatus status = 3;
+   */
+  status: EnrichmentStatus;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 4;
+   */
+  createdAt?: Timestamp;
+
+  /**
+   * @generated from field: shorts.v1alpha1.QualityScore quality_score = 5;
+   */
+  qualityScore?: QualityScore;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.PendingEnrichmentSummary.
+ * Use `create(PendingEnrichmentSummarySchema)` to create a new message.
+ */
+export const PendingEnrichmentSummarySchema: GenMessage<PendingEnrichmentSummary> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 28);
+
+/**
+ * Get a pending enrichment request
+ *
+ * @generated from message shorts.v1alpha1.GetPendingEnrichmentRequest
+ */
+export type GetPendingEnrichmentRequest = Message<"shorts.v1alpha1.GetPendingEnrichmentRequest"> & {
+  /**
+   * @generated from field: string enrichment_id = 1;
+   */
+  enrichmentId: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetPendingEnrichmentRequest.
+ * Use `create(GetPendingEnrichmentRequestSchema)` to create a new message.
+ */
+export const GetPendingEnrichmentRequestSchema: GenMessage<GetPendingEnrichmentRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 29);
+
+/**
+ * Get a pending enrichment response
+ *
+ * @generated from message shorts.v1alpha1.GetPendingEnrichmentResponse
+ */
+export type GetPendingEnrichmentResponse = Message<"shorts.v1alpha1.GetPendingEnrichmentResponse"> & {
+  /**
+   * @generated from field: shorts.v1alpha1.PendingEnrichment pending = 1;
+   */
+  pending?: PendingEnrichment;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetPendingEnrichmentResponse.
+ * Use `create(GetPendingEnrichmentResponseSchema)` to create a new message.
+ */
+export const GetPendingEnrichmentResponseSchema: GenMessage<GetPendingEnrichmentResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 30);
+
+/**
+ * Full pending enrichment record (for review UI)
+ *
+ * @generated from message shorts.v1alpha1.PendingEnrichment
+ */
+export type PendingEnrichment = Message<"shorts.v1alpha1.PendingEnrichment"> & {
+  /**
+   * @generated from field: string enrichment_id = 1;
+   */
+  enrichmentId: string;
+
+  /**
+   * @generated from field: string stock_code = 2;
+   */
+  stockCode: string;
+
+  /**
+   * @generated from field: shorts.v1alpha1.EnrichmentStatus status = 3;
+   */
+  status: EnrichmentStatus;
+
+  /**
+   * @generated from field: shorts.v1alpha1.EnrichmentData data = 4;
+   */
+  data?: EnrichmentData;
+
+  /**
+   * @generated from field: shorts.v1alpha1.QualityScore quality_score = 5;
+   */
+  qualityScore?: QualityScore;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp created_at = 6;
+   */
+  createdAt?: Timestamp;
+
+  /**
+   * @generated from field: google.protobuf.Timestamp reviewed_at = 7;
+   */
+  reviewedAt?: Timestamp;
+
+  /**
+   * @generated from field: string reviewed_by = 8;
+   */
+  reviewedBy: string;
+
+  /**
+   * @generated from field: string review_notes = 9;
+   */
+  reviewNotes: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.PendingEnrichment.
+ * Use `create(PendingEnrichmentSchema)` to create a new message.
+ */
+export const PendingEnrichmentSchema: GenMessage<PendingEnrichment> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 31);
+
+/**
  * @generated from enum shorts.v1alpha1.ViewMode
  */
 export enum ViewMode {
@@ -561,6 +1109,98 @@ export enum ViewMode {
  */
 export const ViewModeSchema: GenEnum<ViewMode> = /*@__PURE__*/
   enumDesc(file_shorts_v1alpha1_shorts, 0);
+
+/**
+ * Enrichment status
+ *
+ * @generated from enum shorts.v1alpha1.EnrichmentStatus
+ */
+export enum EnrichmentStatus {
+  /**
+   * @generated from enum value: ENRICHMENT_STATUS_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * Enrichment completed, awaiting review
+   *
+   * @generated from enum value: ENRICHMENT_STATUS_PENDING_REVIEW = 1;
+   */
+  PENDING_REVIEW = 1,
+
+  /**
+   * Approved and saved
+   *
+   * @generated from enum value: ENRICHMENT_STATUS_COMPLETED = 2;
+   */
+  COMPLETED = 2,
+
+  /**
+   * Enrichment failed
+   *
+   * @generated from enum value: ENRICHMENT_STATUS_FAILED = 3;
+   */
+  FAILED = 3,
+
+  /**
+   * Rejected during review
+   *
+   * @generated from enum value: ENRICHMENT_STATUS_REJECTED = 4;
+   */
+  REJECTED = 4,
+}
+
+/**
+ * Describes the enum shorts.v1alpha1.EnrichmentStatus.
+ */
+export const EnrichmentStatusSchema: GenEnum<EnrichmentStatus> = /*@__PURE__*/
+  enumDesc(file_shorts_v1alpha1_shorts, 1);
+
+/**
+ * Enrichment priority
+ *
+ * @generated from enum shorts.v1alpha1.EnrichmentPriority
+ */
+export enum EnrichmentPriority {
+  /**
+   * @generated from enum value: ENRICHMENT_PRIORITY_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * Top by market cap
+   *
+   * @generated from enum value: ENRICHMENT_PRIORITY_MARKET_CAP = 1;
+   */
+  MARKET_CAP = 1,
+
+  /**
+   * Top by short position
+   *
+   * @generated from enum value: ENRICHMENT_PRIORITY_SHORT_POSITION = 2;
+   */
+  SHORT_POSITION = 2,
+
+  /**
+   * Stocks that haven't been enriched
+   *
+   * @generated from enum value: ENRICHMENT_PRIORITY_UNENRICHED = 3;
+   */
+  UNENRICHED = 3,
+
+  /**
+   * Stocks with old enrichment data
+   *
+   * @generated from enum value: ENRICHMENT_PRIORITY_STALE = 4;
+   */
+  STALE = 4,
+}
+
+/**
+ * Describes the enum shorts.v1alpha1.EnrichmentPriority.
+ */
+export const EnrichmentPrioritySchema: GenEnum<EnrichmentPriority> = /*@__PURE__*/
+  enumDesc(file_shorts_v1alpha1_shorts, 2);
 
 /**
  * @generated from service shorts.v1alpha1.ShortedStocksService
@@ -655,6 +1295,57 @@ export const ShortedStocksService: GenService<{
     methodKind: "unary";
     input: typeof SyncKeyMetricsRequestSchema;
     output: typeof SyncKeyMetricsResponseSchema;
+  },
+  /**
+   * Trigger enrichment for a specific stock. Admin only.
+   * Returns enrichment data for review before applying to company-metadata.
+   *
+   * @generated from rpc shorts.v1alpha1.ShortedStocksService.EnrichStock
+   */
+  enrichStock: {
+    methodKind: "unary";
+    input: typeof EnrichStockRequestSchema;
+    output: typeof EnrichStockResponseSchema;
+  },
+  /**
+   * Get top stocks for enrichment batching/prioritization. Admin only.
+   *
+   * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetTopStocksForEnrichment
+   */
+  getTopStocksForEnrichment: {
+    methodKind: "unary";
+    input: typeof GetTopStocksForEnrichmentRequestSchema;
+    output: typeof GetTopStocksForEnrichmentResponseSchema;
+  },
+  /**
+   * List pending enrichments awaiting review. Admin only.
+   *
+   * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListPendingEnrichments
+   */
+  listPendingEnrichments: {
+    methodKind: "unary";
+    input: typeof ListPendingEnrichmentsRequestSchema;
+    output: typeof ListPendingEnrichmentsResponseSchema;
+  },
+  /**
+   * Get a specific pending enrichment by ID. Admin only.
+   *
+   * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetPendingEnrichment
+   */
+  getPendingEnrichment: {
+    methodKind: "unary";
+    input: typeof GetPendingEnrichmentRequestSchema;
+    output: typeof GetPendingEnrichmentResponseSchema;
+  },
+  /**
+   * Approve or reject a pending enrichment. Admin only.
+   *
+   * @generated from rpc shorts.v1alpha1.ShortedStocksService.ReviewEnrichment
+   */
+  reviewEnrichment: {
+    methodKind: "unary";
+    input: typeof ReviewEnrichmentRequestSchema;
+    output: typeof ReviewEnrichmentResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_shorts_v1alpha1_shorts, 0);

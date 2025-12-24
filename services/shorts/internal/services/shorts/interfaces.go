@@ -22,6 +22,14 @@ type ShortsStore interface {
 	GetAllStockCodes() ([]string, error)
 	StockExists(stockCode string) (bool, error)
 	UpdateKeyMetrics(stockCode string, metrics map[string]interface{}) error
+
+	// Enrichment (v2) review workflow methods
+	GetTopStocksForEnrichment(limit int32, priority shortsv1alpha1.EnrichmentPriority) ([]*shortsv1alpha1.StockEnrichmentCandidate, error)
+	SavePendingEnrichment(enrichmentID, stockCode string, status shortsv1alpha1.EnrichmentStatus, data *shortsv1alpha1.EnrichmentData, quality *shortsv1alpha1.QualityScore) error
+	ListPendingEnrichments(limit int32, offset int32) ([]*shortsv1alpha1.PendingEnrichmentSummary, error)
+	GetPendingEnrichment(enrichmentID string) (*shortsv1alpha1.PendingEnrichment, error)
+	ReviewEnrichment(enrichmentID string, approve bool, reviewedBy, reviewNotes string) error
+	ApplyEnrichment(stockCode string, data *shortsv1alpha1.EnrichmentData) error
 }
 
 // Cache defines the interface for caching operations

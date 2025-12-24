@@ -1,6 +1,6 @@
 terraform {
   required_version = ">= 1.0"
-  
+
   required_providers {
     google = {
       source  = "hashicorp/google"
@@ -36,10 +36,10 @@ resource "google_project_service" "required_apis" {
     "run.googleapis.com",
     "artifactregistry.googleapis.com",
   ])
-  
+
   project = var.project_id
   service = each.key
-  
+
   disable_on_destroy = false
 }
 
@@ -47,29 +47,29 @@ resource "google_project_service" "required_apis" {
 resource "google_iam_workload_identity_pool" "github_pool" {
   project                   = var.project_id
   workload_identity_pool_id = "github-pool"
-  display_name             = "GitHub Actions Pool"
-  description              = "Workload Identity Pool for GitHub Actions"
-  
+  display_name              = "GitHub Actions Pool"
+  description               = "Workload Identity Pool for GitHub Actions"
+
   depends_on = [google_project_service.required_apis]
 }
 
 # Create Workload Identity Provider
 resource "google_iam_workload_identity_pool_provider" "github_provider" {
   project                            = var.project_id
-  workload_identity_pool_id         = google_iam_workload_identity_pool.github_pool.workload_identity_pool_id
+  workload_identity_pool_id          = google_iam_workload_identity_pool.github_pool.workload_identity_pool_id
   workload_identity_pool_provider_id = "github-provider"
   display_name                       = "GitHub Provider"
   description                        = "OIDC provider for GitHub Actions"
-  
+
   attribute_mapping = {
-    "google.subject"       = "assertion.sub"
-    "attribute.actor"      = "assertion.actor"
-    "attribute.repository" = "assertion.repository"
+    "google.subject"             = "assertion.sub"
+    "attribute.actor"            = "assertion.actor"
+    "attribute.repository"       = "assertion.repository"
     "attribute.repository_owner" = "assertion.repository_owner"
   }
-  
+
   attribute_condition = "assertion.repository_owner == '${var.github_org}'"
-  
+
   oidc {
     issuer_uri = "https://token.actions.githubusercontent.com"
   }
@@ -86,12 +86,12 @@ resource "google_service_account" "github_actions" {
 # Grant necessary permissions to the service account
 resource "google_project_iam_member" "github_actions_roles" {
   for_each = toset([
-    "roles/run.admin",              # Deploy to Cloud Run
+    "roles/run.admin",               # Deploy to Cloud Run
     "roles/artifactregistry.writer", # Push Docker images
-    "roles/storage.admin",          # Access storage buckets
-    "roles/iam.serviceAccountUser", # Act as service account
+    "roles/storage.admin",           # Access storage buckets
+    "roles/iam.serviceAccountUser",  # Act as service account
   ])
-  
+
   project = var.project_id
   role    = each.key
   member  = "serviceAccount:${google_service_account.github_actions.email}"
@@ -111,7 +111,7 @@ resource "google_artifact_registry_repository" "docker_repo" {
   repository_id = "shorted"
   description   = "Docker repository for Shorted services"
   format        = "DOCKER"
-  
+
   depends_on = [google_project_service.required_apis]
 }
 

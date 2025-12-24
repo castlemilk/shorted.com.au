@@ -149,11 +149,6 @@ func NewAuthInterceptor(tokenService *TokenService) connect.UnaryInterceptorFunc
 			if visibility == optionsv1.Visibility_VISIBILITY_PUBLIC && requiredRole == "" {
 				return next(ctx, req)
 			}
-			
-			// If it's private but no specific role required, just need authentication (any role)
-			if visibility == optionsv1.Visibility_VISIBILITY_PRIVATE && requiredRole == "" {
-				// Will check for authentication below
-			}
 
 			// Perform standard authentication via Authorization header
 			authHeader := req.Header().Get("Authorization")

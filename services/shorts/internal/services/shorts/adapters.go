@@ -61,6 +61,30 @@ func (s *StoreAdapter) UpdateKeyMetrics(stockCode string, metrics map[string]int
 	return s.store.UpdateKeyMetrics(stockCode, metrics)
 }
 
+func (s *StoreAdapter) GetTopStocksForEnrichment(limit int32, priority shortsv1alpha1.EnrichmentPriority) ([]*shortsv1alpha1.StockEnrichmentCandidate, error) {
+	return s.store.GetTopStocksForEnrichment(limit, priority)
+}
+
+func (s *StoreAdapter) SavePendingEnrichment(enrichmentID, stockCode string, status shortsv1alpha1.EnrichmentStatus, data *shortsv1alpha1.EnrichmentData, quality *shortsv1alpha1.QualityScore) error {
+	return s.store.SavePendingEnrichment(enrichmentID, stockCode, status, data, quality)
+}
+
+func (s *StoreAdapter) ListPendingEnrichments(limit int32, offset int32) ([]*shortsv1alpha1.PendingEnrichmentSummary, error) {
+	return s.store.ListPendingEnrichments(limit, offset)
+}
+
+func (s *StoreAdapter) GetPendingEnrichment(enrichmentID string) (*shortsv1alpha1.PendingEnrichment, error) {
+	return s.store.GetPendingEnrichment(enrichmentID)
+}
+
+func (s *StoreAdapter) ReviewEnrichment(enrichmentID string, approve bool, reviewedBy, reviewNotes string) error {
+	return s.store.ReviewEnrichment(enrichmentID, approve, reviewedBy, reviewNotes)
+}
+
+func (s *StoreAdapter) ApplyEnrichment(stockCode string, data *shortsv1alpha1.EnrichmentData) error {
+	return s.store.ApplyEnrichment(stockCode, data)
+}
+
 // LoggerAdapter adapts the standard logger to the Logger interface
 type LoggerAdapter struct{}
 

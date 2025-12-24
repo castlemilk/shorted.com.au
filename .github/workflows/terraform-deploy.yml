@@ -157,6 +157,24 @@ jobs:
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
         run: terraform init
 
+      - name: Ensure OpenAI secret exists in Secret Manager
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "❌ Missing GitHub secret: OPENAI_API_KEY"
+            exit 1
+          fi
+
+          if gcloud secrets describe OPENAI_API_KEY --project "$GCP_PROJECT_ID" &>/dev/null; then
+            echo "Updating Secret Manager: OPENAI_API_KEY (new version)"
+            printf "%s" "$OPENAI_API_KEY" | gcloud secrets versions add OPENAI_API_KEY --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            echo "Creating Secret Manager secret: OPENAI_API_KEY"
+            printf "%s" "$OPENAI_API_KEY" | gcloud secrets create OPENAI_API_KEY --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+
       - name: Terraform Plan
         id: plan
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
@@ -225,6 +243,7 @@ jobs:
         env:
           PR_NUMBER: ${{ needs.determine-environment.outputs.pr-number }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
           GCP_REGION: ${{ env.GCP_REGION }}
           ARTIFACT_REGISTRY: ${{ env.ARTIFACT_REGISTRY }}
@@ -237,6 +256,19 @@ jobs:
           DB_PORT=$(echo $DATABASE_URL | sed -n 's|.*:\([0-9]*\)/.*|\1|p')
           DB_NAME=$(echo $DATABASE_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
           DB_ADDRESS="${DB_HOST}:${DB_PORT}"
+
+          # Ensure Secret Manager has OPENAI_API_KEY for preview services
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "❌ Missing GitHub secret: OPENAI_API_KEY"
+            exit 1
+          fi
+          if gcloud secrets describe OPENAI_API_KEY --project "$GCP_PROJECT_ID" &>/dev/null; then
+            echo "Updating Secret Manager: OPENAI_API_KEY (new version)"
+            printf "%s" "$OPENAI_API_KEY" | gcloud secrets versions add OPENAI_API_KEY --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            echo "Creating Secret Manager secret: OPENAI_API_KEY"
+            printf "%s" "$OPENAI_API_KEY" | gcloud secrets create OPENAI_API_KEY --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
 
           # Create preview config directory
           mkdir -p preview-pr-${PR_NUMBER}
@@ -423,6 +455,24 @@ jobs:
       - name: Terraform Init
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
         run: terraform init
+
+      - name: Ensure OpenAI secret exists in Secret Manager
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "❌ Missing GitHub secret: OPENAI_API_KEY"
+            exit 1
+          fi
+
+          if gcloud secrets describe OPENAI_API_KEY --project "$GCP_PROJECT_ID" &>/dev/null; then
+            echo "Updating Secret Manager: OPENAI_API_KEY (new version)"
+            printf "%s" "$OPENAI_API_KEY" | gcloud secrets versions add OPENAI_API_KEY --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            echo "Creating Secret Manager secret: OPENAI_API_KEY"
+            printf "%s" "$OPENAI_API_KEY" | gcloud secrets create OPENAI_API_KEY --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
 
       - name: Terraform Apply
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}

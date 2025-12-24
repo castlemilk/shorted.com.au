@@ -3,18 +3,14 @@
 import { cn } from "~/@/lib/utils";
 import { Button } from "~/@/components/ui/button";
 import { ScrollArea } from "~/@/components/ui/scroll-area";
-import { Sheet, SheetContent, SheetTrigger } from "~/@/components/ui/sheet";
 import {
   TrendingUp,
   Briefcase,
-  Menu,
-  X,
   LayoutDashboard,
   LineChart,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
 import { useSession } from "next-auth/react";
 
 interface SidebarProps {
@@ -46,7 +42,6 @@ const sidebarItems = [
 
 export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname();
-  const [isOpen, setIsOpen] = useState(false);
   const { data: session, status } = useSession();
 
   // Don't render sidebar if user is not authenticated
@@ -73,7 +68,6 @@ export function Sidebar({ className }: SidebarProps) {
                   showLabels ? "justify-start" : "justify-center",
                   isActive && "bg-secondary",
                 )}
-                onClick={() => setIsOpen(false)}
                 title={!showLabels ? item.title : undefined}
               >
                 <Icon className="h-4 w-4" />
@@ -88,39 +82,15 @@ export function Sidebar({ className }: SidebarProps) {
 
   return (
     <>
-      {/* Mobile Sidebar Trigger */}
-      <div className="lg:hidden fixed bottom-4 left-4 z-50">
-        <Sheet open={isOpen} onOpenChange={setIsOpen}>
-          <SheetTrigger asChild>
-            <Button
-              size="icon"
-              variant="outline"
-              className="rounded-full shadow-lg"
-            >
-              {isOpen ? (
-                <X className="h-4 w-4" />
-              ) : (
-                <Menu className="h-4 w-4" />
-              )}
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-64 p-0">
-            <div className="flex h-full flex-col">
-              <SidebarContent />
-            </div>
-          </SheetContent>
-        </Sheet>
-      </div>
-
-      {/* Desktop Sidebar - Collapsed on medium screens, full on large */}
+      {/* Sidebar - Always visible, icons on small/medium, full labels on large */}
       <aside
         className={cn(
-          "hidden md:flex flex-col bg-background border-r transition-all duration-300",
-          "md:w-16 lg:w-64",
+          "flex flex-col bg-background border-r transition-all duration-300",
+          "w-16 lg:w-64",
           className,
         )}
       >
-        {/* Show icons only on md, full labels on lg */}
+        {/* Show icons only on small/medium, full labels on lg */}
         <div className="hidden lg:block">
           <SidebarContent showLabels={true} />
         </div>

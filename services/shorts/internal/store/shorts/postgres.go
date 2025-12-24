@@ -14,6 +14,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -1038,5 +1039,492 @@ func (s *postgresStore) GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha
 	}
 
 	return runs, nil
+}
+
+func (s *postgresStore) GetTopStocksForEnrichment(limit int32, priority shortsv1alpha1.EnrichmentPriority) ([]*shortsv1alpha1.StockEnrichmentCandidate, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if limit <= 0 {
+		limit = 100
+	}
+
+	// Safety cap to avoid runaway queries (we can still batch all stocks).
+	if limit > 10000 {
+		limit = 10000
+	}
+
+	orderBy := "market_cap DESC"
+	if priority == shortsv1alpha1.EnrichmentPriority_ENRICHMENT_PRIORITY_SHORT_POSITION {
+		orderBy = "short_position_percent DESC"
+	}
+
+	whereClause := "WHERE m.stock_code IS NOT NULL"
+	if priority == shortsv1alpha1.EnrichmentPriority_ENRICHMENT_PRIORITY_UNENRICHED {
+		whereClause += " AND COALESCE(m.enrichment_status, 'pending') != 'completed'"
+	}
+	if priority == shortsv1alpha1.EnrichmentPriority_ENRICHMENT_PRIORITY_STALE {
+		// Consider enrichment stale if older than 30 days or missing.
+		whereClause += " AND (m.enrichment_date IS NULL OR m.enrichment_date < CURRENT_TIMESTAMP - INTERVAL '30 days')"
+	}
+
+	// Use latest shorts date for short_position_percent.
+	query := fmt.Sprintf(`
+		WITH latest AS (SELECT MAX("DATE") AS max_date FROM shorts)
+		SELECT
+			m.stock_code,
+			COALESCE(m.company_name, '') as company_name,
+			COALESCE(m.industry, '') as industry,
+			COALESCE((m.key_metrics->>'market_cap')::double precision, 0) as market_cap,
+			COALESCE(s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS", 0) * 100 as short_position_percent,
+			COALESCE(m.enrichment_status, 'pending') as enrichment_status,
+			m.enrichment_date as last_enriched
+		FROM "company-metadata" m
+		LEFT JOIN latest l ON true
+		LEFT JOIN shorts s ON s."PRODUCT_CODE" = m.stock_code AND s."DATE" = l.max_date
+		%s
+		ORDER BY %s
+		LIMIT $1
+	`, whereClause, orderBy)
+
+	rows, err := s.db.Query(ctx, query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query enrichment candidates: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*shortsv1alpha1.StockEnrichmentCandidate
+	for rows.Next() {
+		var (
+			stockCode             string
+			companyName           string
+			industry              string
+			marketCap             float64
+			shortPositionPercent  float64
+			enrichmentStatus      string
+			lastEnriched          pgtype.Timestamptz
+		)
+		if err := rows.Scan(
+			&stockCode,
+			&companyName,
+			&industry,
+			&marketCap,
+			&shortPositionPercent,
+			&enrichmentStatus,
+			&lastEnriched,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan enrichment candidate: %w", err)
+		}
+
+		candidate := &shortsv1alpha1.StockEnrichmentCandidate{
+			StockCode:           stockCode,
+			CompanyName:         companyName,
+			Industry:            industry,
+			MarketCap:           marketCap,
+			ShortPositionPercent: shortPositionPercent,
+			EnrichmentStatus:    enrichmentStatus,
+		}
+		if lastEnriched.Status == pgtype.Present {
+			candidate.LastEnriched = timestamppb.New(lastEnriched.Time)
+		}
+		results = append(results, candidate)
+	}
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("failed to iterate enrichment candidates: %w", rows.Err())
+	}
+
+	// Set a simple priority score (higher is more important).
+	for i := range results {
+		results[i].PriorityScore = int32(len(results) - i)
+	}
+
+	return results, nil
+}
+
+func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, status shortsv1alpha1.EnrichmentStatus, data *shortsv1alpha1.EnrichmentData, quality *shortsv1alpha1.QualityScore) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if enrichmentID == "" {
+		return fmt.Errorf("enrichmentID is required")
+	}
+	if stockCode == "" {
+		return fmt.Errorf("stockCode is required")
+	}
+	if data == nil {
+		return fmt.Errorf("enrichment data is required")
+	}
+	if quality == nil {
+		return fmt.Errorf("quality score is required")
+	}
+
+	dataJSON, err := protojson.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("failed to marshal enrichment data: %w", err)
+	}
+	qualityJSON, err := protojson.Marshal(quality)
+	if err != nil {
+		return fmt.Errorf("failed to marshal quality score: %w", err)
+	}
+
+	dbStatus := enrichmentStatusToDB(status)
+
+	query := `
+		INSERT INTO "enrichment-pending" (
+			enrichment_id,
+			stock_code,
+			enrichment_data,
+			quality_score,
+			status
+		) VALUES ($1::uuid, $2, $3::jsonb, $4::jsonb, $5)
+		ON CONFLICT (enrichment_id) DO UPDATE SET
+			stock_code = EXCLUDED.stock_code,
+			enrichment_data = EXCLUDED.enrichment_data,
+			quality_score = EXCLUDED.quality_score,
+			status = EXCLUDED.status,
+			created_at = CURRENT_TIMESTAMP,
+			reviewed_at = NULL,
+			reviewed_by = NULL,
+			review_notes = NULL
+	`
+
+	_, err = s.db.Exec(ctx, query, enrichmentID, stockCode, dataJSON, qualityJSON, dbStatus)
+	if err != nil {
+		return fmt.Errorf("failed to save pending enrichment: %w", err)
+	}
+	return nil
+}
+
+func (s *postgresStore) ListPendingEnrichments(limit int32, offset int32) ([]*shortsv1alpha1.PendingEnrichmentSummary, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 1000 {
+		limit = 1000
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	query := `
+		SELECT
+			enrichment_id::text,
+			stock_code,
+			status,
+			created_at,
+			quality_score
+		FROM "enrichment-pending"
+		WHERE status = 'pending_review'
+		ORDER BY created_at DESC
+		LIMIT $1 OFFSET $2
+	`
+
+	rows, err := s.db.Query(ctx, query, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list pending enrichments: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*shortsv1alpha1.PendingEnrichmentSummary
+	for rows.Next() {
+		var (
+			enrichmentID string
+			stockCode    string
+			status       string
+			createdAt    pgtype.Timestamptz
+			qualityJSON  []byte
+		)
+		if err := rows.Scan(&enrichmentID, &stockCode, &status, &createdAt, &qualityJSON); err != nil {
+			return nil, fmt.Errorf("failed to scan pending enrichment summary: %w", err)
+		}
+
+		quality := &shortsv1alpha1.QualityScore{}
+		if !isEmptyJSON(qualityJSON) {
+			if err := protojson.Unmarshal(qualityJSON, quality); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal quality score: %w", err)
+			}
+		}
+
+		summary := &shortsv1alpha1.PendingEnrichmentSummary{
+			EnrichmentId: enrichmentID,
+			StockCode:    stockCode,
+			Status:       enrichmentStatusFromDB(status),
+			QualityScore: quality,
+		}
+		if createdAt.Status == pgtype.Present {
+			summary.CreatedAt = timestamppb.New(createdAt.Time)
+		}
+		results = append(results, summary)
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("failed to iterate pending enrichments: %w", rows.Err())
+	}
+	return results, nil
+}
+
+func (s *postgresStore) GetPendingEnrichment(enrichmentID string) (*shortsv1alpha1.PendingEnrichment, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if enrichmentID == "" {
+		return nil, fmt.Errorf("enrichmentID is required")
+	}
+
+	query := `
+		SELECT
+			enrichment_id::text,
+			stock_code,
+			status,
+			enrichment_data,
+			quality_score,
+			created_at,
+			reviewed_at,
+			reviewed_by,
+			review_notes
+		FROM "enrichment-pending"
+		WHERE enrichment_id = $1::uuid
+		LIMIT 1
+	`
+
+	var (
+		id          string
+		stockCode   string
+		status      string
+		dataJSON    []byte
+		qualityJSON []byte
+		createdAt   pgtype.Timestamptz
+		reviewedAt  pgtype.Timestamptz
+		reviewedBy  sql.NullString
+		reviewNotes sql.NullString
+	)
+
+	if err := s.db.QueryRow(ctx, query, enrichmentID).Scan(
+		&id,
+		&stockCode,
+		&status,
+		&dataJSON,
+		&qualityJSON,
+		&createdAt,
+		&reviewedAt,
+		&reviewedBy,
+		&reviewNotes,
+	); err != nil {
+		return nil, fmt.Errorf("failed to get pending enrichment: %w", err)
+	}
+
+	data := &shortsv1alpha1.EnrichmentData{}
+	if !isEmptyJSON(dataJSON) {
+		if err := protojson.Unmarshal(dataJSON, data); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal enrichment data: %w", err)
+		}
+	}
+
+	quality := &shortsv1alpha1.QualityScore{}
+	if !isEmptyJSON(qualityJSON) {
+		if err := protojson.Unmarshal(qualityJSON, quality); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal quality score: %w", err)
+		}
+	}
+
+	pending := &shortsv1alpha1.PendingEnrichment{
+		EnrichmentId: id,
+		StockCode:    stockCode,
+		Status:       enrichmentStatusFromDB(status),
+		Data:         data,
+		QualityScore: quality,
+		ReviewedBy:   reviewedBy.String,
+		ReviewNotes:  reviewNotes.String,
+	}
+	if createdAt.Status == pgtype.Present {
+		pending.CreatedAt = timestamppb.New(createdAt.Time)
+	}
+	if reviewedAt.Status == pgtype.Present {
+		pending.ReviewedAt = timestamppb.New(reviewedAt.Time)
+	}
+
+	return pending, nil
+}
+
+func (s *postgresStore) ReviewEnrichment(enrichmentID string, approve bool, reviewedBy, reviewNotes string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if enrichmentID == "" {
+		return fmt.Errorf("enrichmentID is required")
+	}
+
+	newStatus := "rejected"
+	if approve {
+		newStatus = "approved"
+	}
+
+	query := `
+		UPDATE "enrichment-pending"
+		SET
+			status = $2,
+			reviewed_at = CURRENT_TIMESTAMP,
+			reviewed_by = $3,
+			review_notes = $4
+		WHERE enrichment_id = $1::uuid
+	`
+	result, err := s.db.Exec(ctx, query, enrichmentID, newStatus, reviewedBy, reviewNotes)
+	if err != nil {
+		return fmt.Errorf("failed to review enrichment: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("pending enrichment not found: %s", enrichmentID)
+	}
+	return nil
+}
+
+func (s *postgresStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.EnrichmentData) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if stockCode == "" {
+		return fmt.Errorf("stockCode is required")
+	}
+	if data == nil {
+		return fmt.Errorf("enrichment data is required")
+	}
+
+	// Convert nested proto messages to the DB JSON shape expected by existing parsers.
+	keyPeople := make([]dbPerson, 0, len(data.KeyPeople))
+	for _, person := range data.KeyPeople {
+		if person == nil {
+			continue
+		}
+		keyPeople = append(keyPeople, dbPerson{
+			Name: person.Name,
+			Role: person.Role,
+			Bio:  person.Bio,
+		})
+	}
+	keyPeopleJSON, err := json.Marshal(keyPeople)
+	if err != nil {
+		return fmt.Errorf("failed to marshal key_people: %w", err)
+	}
+
+	reports := make([]dbFinancialReport, 0, len(data.FinancialReports))
+	for _, report := range data.FinancialReports {
+		if report == nil {
+			continue
+		}
+		reports = append(reports, dbFinancialReport{
+			URL:    report.Url,
+			Title:  report.Title,
+			Type:   report.Type,
+			Date:   report.Date,
+			Source: report.Source,
+			GCSURL: report.GcsUrl,
+		})
+	}
+	reportsJSON, err := json.Marshal(reports)
+	if err != nil {
+		return fmt.Errorf("failed to marshal financial_reports: %w", err)
+	}
+
+	var links dbSocialMediaLinks
+	if data.SocialMediaLinks != nil {
+		if data.SocialMediaLinks.Twitter != "" {
+			v := data.SocialMediaLinks.Twitter
+			links.Twitter = &v
+		}
+		if data.SocialMediaLinks.Linkedin != "" {
+			v := data.SocialMediaLinks.Linkedin
+			links.LinkedIn = &v
+		}
+		if data.SocialMediaLinks.Facebook != "" {
+			v := data.SocialMediaLinks.Facebook
+			links.Facebook = &v
+		}
+		if data.SocialMediaLinks.Youtube != "" {
+			v := data.SocialMediaLinks.Youtube
+			links.YouTube = &v
+		}
+		if data.SocialMediaLinks.Website != "" {
+			v := data.SocialMediaLinks.Website
+			links.Website = &v
+		}
+	}
+	socialLinksJSON, err := json.Marshal(links)
+	if err != nil {
+		return fmt.Errorf("failed to marshal social_media_links: %w", err)
+	}
+
+	enhancedSummary := sql.NullString{String: data.EnhancedSummary, Valid: data.EnhancedSummary != ""}
+	companyHistory := sql.NullString{String: data.CompanyHistory, Valid: data.CompanyHistory != ""}
+	competitiveAdvantages := sql.NullString{String: data.CompetitiveAdvantages, Valid: data.CompetitiveAdvantages != ""}
+	recentDevelopments := sql.NullString{String: data.RecentDevelopments, Valid: data.RecentDevelopments != ""}
+
+	query := `
+		UPDATE "company-metadata"
+		SET
+			tags = $2,
+			enhanced_summary = $3,
+			company_history = $4,
+			key_people = $5::jsonb,
+			financial_reports = $6::jsonb,
+			competitive_advantages = $7,
+			risk_factors = $8,
+			recent_developments = $9,
+			social_media_links = $10::jsonb,
+			enrichment_status = 'completed',
+			enrichment_date = CURRENT_TIMESTAMP,
+			enrichment_error = NULL
+		WHERE stock_code = $1
+	`
+
+	result, err := s.db.Exec(
+		ctx,
+		query,
+		stockCode,
+		data.Tags,
+		enhancedSummary,
+		companyHistory,
+		keyPeopleJSON,
+		reportsJSON,
+		competitiveAdvantages,
+		data.RiskFactors,
+		recentDevelopments,
+		socialLinksJSON,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to apply enrichment: %w", err)
+	}
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("stock not found: %s", stockCode)
+	}
+	return nil
+}
+
+func enrichmentStatusToDB(status shortsv1alpha1.EnrichmentStatus) string {
+	switch status {
+	case shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_REJECTED:
+		return "rejected"
+	case shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_COMPLETED:
+		return "approved"
+	case shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_PENDING_REVIEW:
+		return "pending_review"
+	default:
+		return "pending_review"
+	}
+}
+
+func enrichmentStatusFromDB(status string) shortsv1alpha1.EnrichmentStatus {
+	switch strings.ToLower(status) {
+	case "pending_review":
+		return shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_PENDING_REVIEW
+	case "approved":
+		return shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_COMPLETED
+	case "rejected":
+		return shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_REJECTED
+	default:
+		return shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_UNSPECIFIED
+	}
 }
 
