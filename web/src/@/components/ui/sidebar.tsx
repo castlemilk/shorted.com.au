@@ -58,7 +58,7 @@ export function Sidebar({ className }: SidebarProps) {
     return null; // Don't show sidebar for unauthenticated users
   }
 
-  const SidebarContent = () => (
+  const SidebarContent = ({ showLabels = true }: { showLabels?: boolean }) => (
     <ScrollArea className="flex-1 py-2">
       <nav className="grid gap-1 px-2">
         {sidebarItems.map((item) => {
@@ -69,13 +69,15 @@ export function Sidebar({ className }: SidebarProps) {
               <Button
                 variant={isActive ? "secondary" : "ghost"}
                 className={cn(
-                  "w-full justify-start gap-2",
+                  "w-full gap-2",
+                  showLabels ? "justify-start" : "justify-center",
                   isActive && "bg-secondary",
                 )}
                 onClick={() => setIsOpen(false)}
+                title={!showLabels ? item.title : undefined}
               >
                 <Icon className="h-4 w-4" />
-                {item.title}
+                {showLabels && <span>{item.title}</span>}
               </Button>
             </Link>
           );
@@ -110,14 +112,21 @@ export function Sidebar({ className }: SidebarProps) {
         </Sheet>
       </div>
 
-      {/* Desktop Sidebar */}
+      {/* Desktop Sidebar - Collapsed on medium screens, full on large */}
       <aside
         className={cn(
-          "hidden lg:flex flex-col w-64 bg-background border-r",
+          "hidden md:flex flex-col bg-background border-r transition-all duration-300",
+          "md:w-16 lg:w-64",
           className,
         )}
       >
-        <SidebarContent />
+        {/* Show icons only on md, full labels on lg */}
+        <div className="hidden lg:block">
+          <SidebarContent showLabels={true} />
+        </div>
+        <div className="block lg:hidden">
+          <SidebarContent showLabels={false} />
+        </div>
       </aside>
     </>
   );

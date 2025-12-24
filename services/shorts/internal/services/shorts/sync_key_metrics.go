@@ -154,16 +154,16 @@ func fetchKeyMetricsFromYahoo(stockCode string) (map[string]interface{}, error) 
 				return nil, fmt.Errorf("failed to parse Python script output: %w", err)
 			}
 
-			// Check for error in response
-			if errMsg, ok := result["error"].(string); ok {
-				return nil, fmt.Errorf("Yahoo Finance error: %s", errMsg)
-			}
+	// Check for error in response
+	if errMsg, ok := result["error"].(string); ok {
+		return nil, fmt.Errorf("yahoo Finance error: %s", errMsg)
+	}
 
 			return result, nil
 		}
 		// If error is not "file not found", return it
 		if !strings.Contains(err.Error(), "no such file") && !strings.Contains(string(output), "can't open file") {
-			return nil, fmt.Errorf("Python script failed: %w, output: %s", err, string(output))
+			return nil, fmt.Errorf("python script failed: %w, output: %s", err, string(output))
 		}
 	}
 	
