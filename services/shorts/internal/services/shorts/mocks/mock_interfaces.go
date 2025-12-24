@@ -42,6 +42,21 @@ func (m *MockShortsStore) EXPECT() *MockShortsStoreMockRecorder {
 	return m.recorder
 }
 
+// GetAllStockCodes mocks base method.
+func (m *MockShortsStore) GetAllStockCodes() ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAllStockCodes")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAllStockCodes indicates an expected call of GetAllStockCodes.
+func (mr *MockShortsStoreMockRecorder) GetAllStockCodes() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllStockCodes", reflect.TypeOf((*MockShortsStore)(nil).GetAllStockCodes))
+}
+
 // GetIndustryTreeMap mocks base method.
 func (m *MockShortsStore) GetIndustryTreeMap(limit int32, period, viewMode string) (*stocksv1alpha1.IndustryTreeMap, error) {
 	m.ctrl.T.Helper()
@@ -146,6 +161,35 @@ func (m *MockShortsStore) SearchStocks(query string, limit int32) ([]*stocksv1al
 func (mr *MockShortsStoreMockRecorder) SearchStocks(query, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SearchStocks", reflect.TypeOf((*MockShortsStore)(nil).SearchStocks), query, limit)
+}
+
+// StockExists mocks base method.
+func (m *MockShortsStore) StockExists(stockCode string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "StockExists", stockCode)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// StockExists indicates an expected call of StockExists.
+func (mr *MockShortsStoreMockRecorder) StockExists(stockCode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StockExists", reflect.TypeOf((*MockShortsStore)(nil).StockExists), stockCode)
+}
+
+// UpdateKeyMetrics mocks base method.
+func (m *MockShortsStore) UpdateKeyMetrics(stockCode string, metrics map[string]any) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateKeyMetrics", stockCode, metrics)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateKeyMetrics indicates an expected call of UpdateKeyMetrics.
+func (mr *MockShortsStoreMockRecorder) UpdateKeyMetrics(stockCode, metrics any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateKeyMetrics", reflect.TypeOf((*MockShortsStore)(nil).UpdateKeyMetrics), stockCode, metrics)
 }
 
 // MockCache is a mock of Cache interface.

@@ -263,6 +263,35 @@ service ShortedStocksService {
       }
     };
   }
+
+  // Trigger key metrics sync for specific stocks. Admin only.
+  rpc SyncKeyMetrics (SyncKeyMetricsRequest) returns (SyncKeyMetricsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+    option (gnostic.openapi.v3.operation) = {
+      deprecated: false,
+      summary: "Sync Key Metrics",
+      description: "Trigger on-demand sync of key metrics (market cap, P/E ratio, etc.) for specific stocks. Fetches fresh data from Yahoo Finance. Admin only.",
+      responses: {
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "Sync completed successfully."
+            }
+          }
+        },
+        response_or_reference: {
+          name: "403"
+          value: {
+            response: {
+              description: "Forbidden: Admin role required."
+            }
+          }
+        }
+      }
+    };
+  }
 }
 
 message MintTokenRequest {
@@ -356,4 +385,39 @@ message SyncRun {
   double total_duration_seconds = 10;
   string environment = 11;
   string hostname = 12;
+}
+
+// Request for SyncKeyMetrics RPC
+message SyncKeyMetricsRequest {
+  repeated string stock_codes = 1; // Stock codes to sync (e.g., ["CVN", "CBA"]). Empty = sync all.
+  bool force = 2; // Force sync even if recently updated (default: false)
+}
+
+// Response for SyncKeyMetrics RPC
+message SyncKeyMetricsResponse {
+  int32 total_requested = 1;
+  int32 successfully_synced = 2;
+  int32 failed = 3;
+  repeated StockSyncResult results = 4;
+  double duration_seconds = 5;
+}
+
+// Result for a single stock sync
+message StockSyncResult {
+  string stock_code = 1;
+  bool success = 2;
+  string error_message = 3;
+  KeyMetricsData metrics = 4; // The synced metrics if successful
+}
+
+// Key metrics data structure
+message KeyMetricsData {
+  double market_cap = 1;
+  double pe_ratio = 2;
+  double eps = 3;
+  double dividend_yield = 4;
+  double beta = 5;
+  double fifty_two_week_high = 6;
+  double fifty_two_week_low = 7;
+  double avg_volume = 8;
 }

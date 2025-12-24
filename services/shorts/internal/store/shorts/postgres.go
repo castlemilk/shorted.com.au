@@ -785,6 +785,71 @@ func (s *postgresStore) RegisterEmail(email string) error {
 	return err
 }
 
+// GetAllStockCodes retrieves all stock codes from company-metadata
+func (s *postgresStore) GetAllStockCodes() ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	query := `SELECT stock_code FROM "company-metadata" WHERE stock_code IS NOT NULL ORDER BY stock_code`
+	rows, err := s.db.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stockCodes []string
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			return nil, err
+		}
+		stockCodes = append(stockCodes, code)
+	}
+
+	return stockCodes, rows.Err()
+}
+
+// StockExists checks if a stock exists in company-metadata
+func (s *postgresStore) StockExists(stockCode string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var exists bool
+	query := `SELECT EXISTS(SELECT 1 FROM "company-metadata" WHERE stock_code = $1)`
+	err := s.db.QueryRow(ctx, query, stockCode).Scan(&exists)
+	return exists, err
+}
+
+// UpdateKeyMetrics updates the key_metrics column for a stock
+func (s *postgresStore) UpdateKeyMetrics(stockCode string, metrics map[string]interface{}) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	metricsJSON, err := json.Marshal(metrics)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metrics: %w", err)
+	}
+
+	query := `
+		UPDATE "company-metadata"
+		SET 
+			key_metrics = $2::jsonb,
+			key_metrics_updated_at = CURRENT_TIMESTAMP
+		WHERE stock_code = $1
+	`
+	
+	result, err := s.db.Exec(ctx, query, stockCode, metricsJSON)
+	if err != nil {
+		return fmt.Errorf("failed to update key_metrics: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return fmt.Errorf("stock not found: %s", stockCode)
+	}
+
+	return nil
+}
+
 // SearchStocks searches for stocks by symbol or company name, including industry and tags
 func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error) {
 	// Optimized search query using full-text search across rich metadata

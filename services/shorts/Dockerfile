@@ -22,13 +22,19 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o shorts-service ./
 # Runtime stage
 FROM alpine:latest
 
-# Install ca-certificates for HTTPS
-RUN apk --no-cache add ca-certificates
+# Install ca-certificates and Python for Yahoo Finance fetching
+RUN apk --no-cache add ca-certificates python3 py3-pip
+
+# Install yfinance for key metrics sync
+RUN pip3 install --no-cache-dir yfinance --break-system-packages
 
 WORKDIR /root/
 
 # Copy the binary from builder
 COPY --from=builder /app/shorts-service .
+
+# Copy Python scripts for key metrics sync
+COPY shorts/scripts/fetch_key_metrics.py /app/scripts/fetch_key_metrics.py
 
 # Expose port
 EXPOSE 9091
