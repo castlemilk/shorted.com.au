@@ -66,7 +66,8 @@ func TestGetStockDetailsSQLQuery(t *testing.T) {
 		enrichment_status,
 		enrichment_date,
 		enrichment_error,
-		COALESCE(financial_statements, '{}'::jsonb) as financial_statements
+		COALESCE(financial_statements, '{}'::jsonb) as financial_statements,
+		COALESCE(key_metrics, '{}'::jsonb) as key_metrics
 	FROM "company-metadata"
 	WHERE stock_code = $1
 	LIMIT 1`, logoExpr)
@@ -104,6 +105,7 @@ func TestGetStockDetailsSQLQuery(t *testing.T) {
 		enrichmentDate        *time.Time
 		enrichmentError       *string
 		financialStatements   []byte
+		keyMetrics            []byte
 	)
 
 	err = row.Scan(
@@ -128,6 +130,7 @@ func TestGetStockDetailsSQLQuery(t *testing.T) {
 		&enrichmentDate,
 		&enrichmentError,
 		&financialStatements,
+		&keyMetrics,
 	)
 
 	// If the stock doesn't exist, that's OK - we're just testing the query structure
@@ -212,6 +215,7 @@ func TestGetStockDetailsColumnNames(t *testing.T) {
 		"enrichment_date",
 		"enrichment_error",
 		"financial_statements",
+		"key_metrics", // New column for market data
 	}
 
 	// Check that all required columns exist
@@ -358,4 +362,229 @@ LIMIT 1`
 		return false, err
 	}
 	return true, nil
+}
+
+// TestGetStockDetailsKeyMetricsMerge tests that key_metrics data is properly merged
+// into financial_statements.info when financial_statements is empty
+func TestGetStockDetailsKeyMetricsMerge(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	dbURL := getTestDatabaseURL()
+	if dbURL == "" {
+		t.Skip("DATABASE_URL not set, skipping integration test")
+	}
+
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dbURL)
+	require.NoError(t, err, "Failed to create connection pool")
+	defer pool.Close()
+
+	// Check if key_metrics column exists
+	hasKeyMetrics, err := hasColumn(ctx, pool, "key_metrics")
+	require.NoError(t, err)
+	if !hasKeyMetrics {
+		t.Skip("key_metrics column missing; skipping merge test")
+	}
+
+	testStockCode := "TEST_KEY_METRICS_MERGE"
+	
+	// Clean up any existing test data
+	_, _ = pool.Exec(ctx, `DELETE FROM "company-metadata" WHERE stock_code = $1`, testStockCode)
+	
+	// Clean up after test
+	defer func() {
+		_, _ = pool.Exec(ctx, `DELETE FROM "company-metadata" WHERE stock_code = $1`, testStockCode)
+	}()
+
+	// Insert test stock with only key_metrics (no financial_statements)
+	keyMetricsJSON := `{
+		"market_cap": 5678912345,
+		"pe_ratio": 22.3,
+		"eps": 4.50,
+		"dividend_yield": 0.038,
+		"beta": 1.15,
+		"fifty_two_week_high": 8.95,
+		"fifty_two_week_low": 5.20,
+		"avg_volume": 3500000
+	}`
+
+	insertQuery := `
+		INSERT INTO "company-metadata" (
+			stock_code, company_name, industry, key_metrics
+		) VALUES ($1, $2, $3, $4::jsonb)
+	`
+	_, err = pool.Exec(ctx, insertQuery, testStockCode, "Test Mining Company", "Gold Mining", keyMetricsJSON)
+	require.NoError(t, err, "Failed to insert test data")
+
+	// Create a store and fetch the stock details
+	config := Config{
+		PostgresAddress:  pool.Config().ConnConfig.Host + ":" + fmt.Sprintf("%d", pool.Config().ConnConfig.Port),
+		PostgresUsername: pool.Config().ConnConfig.User,
+		PostgresPassword: pool.Config().ConnConfig.Password,
+		PostgresDatabase: pool.Config().ConnConfig.Database,
+	}
+
+	store := newPostgresStore(config)
+	
+	details, err := store.GetStockDetails(testStockCode)
+	require.NoError(t, err, "Failed to get stock details")
+	require.NotNil(t, details, "Stock details should not be nil")
+
+	// Verify that financial_statements.info was populated from key_metrics
+	require.NotNil(t, details.FinancialStatements, "FinancialStatements should not be nil")
+	require.NotNil(t, details.FinancialStatements.Info, "FinancialStatements.Info should not be nil")
+
+	info := details.FinancialStatements.Info
+	assert.Equal(t, float64(5678912345), info.MarketCap, "Market cap should come from key_metrics")
+	assert.Equal(t, float64(22.3), info.PeRatio, "PE ratio should come from key_metrics")
+	assert.Equal(t, float64(4.50), info.Eps, "EPS should come from key_metrics")
+	assert.Equal(t, float64(0.038), info.DividendYield, "Dividend yield should come from key_metrics")
+	assert.Equal(t, float64(1.15), info.Beta, "Beta should come from key_metrics")
+	assert.Equal(t, float64(8.95), info.Week_52High, "52-week high should come from key_metrics")
+	assert.Equal(t, float64(5.20), info.Week_52Low, "52-week low should come from key_metrics")
+	assert.Equal(t, float64(3500000), info.Volume, "Volume should come from key_metrics")
+}
+
+// TestGetStockDetailsKeyMetricsPreserveExisting tests that existing financial_statements.info
+// values are preserved when merging with key_metrics
+func TestGetStockDetailsKeyMetricsPreserveExisting(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	dbURL := getTestDatabaseURL()
+	if dbURL == "" {
+		t.Skip("DATABASE_URL not set, skipping integration test")
+	}
+
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dbURL)
+	require.NoError(t, err, "Failed to create connection pool")
+	defer pool.Close()
+
+	hasKeyMetrics, err := hasColumn(ctx, pool, "key_metrics")
+	require.NoError(t, err)
+	if !hasKeyMetrics {
+		t.Skip("key_metrics column missing; skipping merge test")
+	}
+
+	testStockCode := "TEST_PRESERVE_EXISTING"
+	
+	_, _ = pool.Exec(ctx, `DELETE FROM "company-metadata" WHERE stock_code = $1`, testStockCode)
+	defer func() {
+		_, _ = pool.Exec(ctx, `DELETE FROM "company-metadata" WHERE stock_code = $1`, testStockCode)
+	}()
+
+	// Insert test stock with both financial_statements and key_metrics
+	// financial_statements has market_cap, key_metrics has different value and pe_ratio
+	financialStatementsJSON := `{
+		"success": true,
+		"info": {
+			"market_cap": 999999999,
+			"sector": "Materials",
+			"industry": "Gold Mining"
+		}
+	}`
+
+	keyMetricsJSON := `{
+		"market_cap": 5678912345,
+		"pe_ratio": 22.3,
+		"beta": 1.15
+	}`
+
+	insertQuery := `
+		INSERT INTO "company-metadata" (
+			stock_code, company_name, industry, 
+			financial_statements, key_metrics
+		) VALUES ($1, $2, $3, $4::jsonb, $5::jsonb)
+	`
+	_, err = pool.Exec(ctx, insertQuery, testStockCode, "Test Company", "Mining", 
+		financialStatementsJSON, keyMetricsJSON)
+	require.NoError(t, err, "Failed to insert test data")
+
+	config := Config{
+		PostgresAddress:  pool.Config().ConnConfig.Host + ":" + fmt.Sprintf("%d", pool.Config().ConnConfig.Port),
+		PostgresUsername: pool.Config().ConnConfig.User,
+		PostgresPassword: pool.Config().ConnConfig.Password,
+		PostgresDatabase: pool.Config().ConnConfig.Database,
+	}
+
+	store := newPostgresStore(config)
+	details, err := store.GetStockDetails(testStockCode)
+	require.NoError(t, err, "Failed to get stock details")
+	require.NotNil(t, details.FinancialStatements.Info, "Info should not be nil")
+
+	info := details.FinancialStatements.Info
+	
+	// Existing market_cap should be preserved (from financial_statements, not key_metrics)
+	assert.Equal(t, float64(999999999), info.MarketCap, 
+		"Existing market cap should be preserved, not overwritten by key_metrics")
+	
+	// Missing fields should be filled from key_metrics
+	assert.Equal(t, float64(22.3), info.PeRatio, 
+		"PE ratio should be filled from key_metrics")
+	assert.Equal(t, float64(1.15), info.Beta, 
+		"Beta should be filled from key_metrics")
+	
+	// Existing string fields should be preserved
+	assert.Equal(t, "Materials", info.Sector, 
+		"Existing sector should be preserved")
+	assert.Equal(t, "Gold Mining", info.Industry, 
+		"Existing industry should be preserved")
+}
+
+// TestGetStockDetailsNoKeyMetrics tests behavior when key_metrics column is empty/null
+func TestGetStockDetailsNoKeyMetrics(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	dbURL := getTestDatabaseURL()
+	if dbURL == "" {
+		t.Skip("DATABASE_URL not set, skipping integration test")
+	}
+
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, dbURL)
+	require.NoError(t, err, "Failed to create connection pool")
+	defer pool.Close()
+
+	hasKeyMetrics, err := hasColumn(ctx, pool, "key_metrics")
+	require.NoError(t, err)
+	if !hasKeyMetrics {
+		t.Skip("key_metrics column missing; skipping test")
+	}
+
+	testStockCode := "TEST_NO_KEY_METRICS"
+	
+	_, _ = pool.Exec(ctx, `DELETE FROM "company-metadata" WHERE stock_code = $1`, testStockCode)
+	defer func() {
+		_, _ = pool.Exec(ctx, `DELETE FROM "company-metadata" WHERE stock_code = $1`, testStockCode)
+	}()
+
+	// Insert test stock with NULL key_metrics
+	insertQuery := `
+		INSERT INTO "company-metadata" (
+			stock_code, company_name, industry, key_metrics
+		) VALUES ($1, $2, $3, NULL)
+	`
+	_, err = pool.Exec(ctx, insertQuery, testStockCode, "Test Company", "Test Industry")
+	require.NoError(t, err, "Failed to insert test data")
+
+	config := Config{
+		PostgresAddress:  pool.Config().ConnConfig.Host + ":" + fmt.Sprintf("%d", pool.Config().ConnConfig.Port),
+		PostgresUsername: pool.Config().ConnConfig.User,
+		PostgresPassword: pool.Config().ConnConfig.Password,
+		PostgresDatabase: pool.Config().ConnConfig.Database,
+	}
+
+	store := newPostgresStore(config)
+	details, err := store.GetStockDetails(testStockCode)
+	require.NoError(t, err, "Failed to get stock details")
+	
+	// Should not crash with NULL key_metrics
+	assert.Equal(t, testStockCode, details.ProductCode)
+	assert.Equal(t, "Test Company", details.CompanyName)
 }

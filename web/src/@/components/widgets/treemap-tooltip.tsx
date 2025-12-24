@@ -226,6 +226,30 @@ export function TreemapTooltip({
                   {industry}
                 </p>
               </div>
+              {stockDetails?.financialStatements?.info?.marketCap && (
+                <>
+                  <div>
+                    <p className="text-muted-foreground">Market Cap</p>
+                    <p className="font-semibold">
+                      {stockDetails.financialStatements.info.marketCap >= 1e9
+                        ? `$${(stockDetails.financialStatements.info.marketCap / 1e9).toFixed(2)}B`
+                        : stockDetails.financialStatements.info.marketCap >= 1e6
+                          ? `$${(stockDetails.financialStatements.info.marketCap / 1e6).toFixed(2)}M`
+                          : `$${stockDetails.financialStatements.info.marketCap.toFixed(2)}`}
+                    </p>
+                  </div>
+                  {stockDetails.financialStatements.info.peRatio && (
+                    <div>
+                      <p className="text-muted-foreground">P/E Ratio</p>
+                      <p className="font-semibold">
+                        {stockDetails.financialStatements.info.peRatio.toFixed(
+                          2,
+                        )}
+                      </p>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
 
             {/* Summary */}
