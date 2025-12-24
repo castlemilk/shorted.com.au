@@ -48,6 +48,9 @@ export interface StockSearchResult {
   logoUrl?: string; // Normalized (camelCase)
   currentPrice?: number;
   priceChange?: number;
+  marketCap?: number;
+  peRatio?: number;
+  beta?: number;
 }
 
 export interface StockSearchResponse {
@@ -512,13 +515,53 @@ export async function searchStocksEnriched(
           ])
         : new Map<string, StockQuote>();
 
-    // Enrich results with prices from the batch response
+    // Fetch stock details in parallel to get financial data (market cap, P/E, etc.)
+    type FinancialData = {
+      productCode: string;
+      marketCap?: number;
+      peRatio?: number;
+      beta?: number;
+    };
+
+    const detailsPromises = results.slice(0, Math.min(results.length, 10)).map(async (stock): Promise<FinancialData> => {
+      try {
+        const { fetchStockDetailsClient } = await import("@/lib/client-api");
+        const details = await fetchStockDetailsClient(stock.product_code);
+        return {
+          productCode: stock.product_code,
+          marketCap: details?.financialStatements?.info?.marketCap,
+          peRatio: details?.financialStatements?.info?.peRatio,
+          beta: details?.financialStatements?.info?.beta,
+        };
+      } catch {
+        return { productCode: stock.product_code };
+      }
+    });
+
+    // Wait for all details with timeout
+    const detailsResults = await Promise.race<FinancialData[]>([
+      Promise.all(detailsPromises),
+      new Promise<FinancialData[]>((resolve) =>
+        setTimeout(() => resolve([]), 2000),
+      ),
+    ]);
+
+    // Create a map of product code to financial data
+    const financialDataMap = new Map<string, FinancialData>(
+      detailsResults.map((d) => [d.productCode, d]),
+    );
+
+    // Enrich results with prices and financial data
     const enrichedStocks = results.map((stock) => {
       const quote = pricesMap.get(stock.product_code.toUpperCase());
+      const financial = financialDataMap.get(stock.product_code);
       return {
         ...stock,
         currentPrice: quote?.price,
         priceChange: quote?.changePercent,
+        marketCap: financial?.marketCap,
+        peRatio: financial?.peRatio,
+        beta: financial?.beta,
       } as StockSearchResult;
     });
 

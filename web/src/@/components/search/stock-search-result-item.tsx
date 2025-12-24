@@ -153,6 +153,18 @@ export function StockSearchResultItem({
               </span>
             </div>
             
+            {/* Market Cap */}
+            {stock.marketCap && stock.marketCap > 0 && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-muted-foreground">MCap:</span>
+                <span className="font-semibold text-foreground">
+                  {stock.marketCap >= 1e9
+                    ? `$${(stock.marketCap / 1e9).toFixed(1)}B`
+                    : `$${(stock.marketCap / 1e6).toFixed(0)}M`}
+                </span>
+              </div>
+            )}
+            
             {/* Price & Change */}
             {stock.currentPrice !== undefined && (
               <div className="flex items-center gap-2">
