@@ -1,11 +1,18 @@
-version: v2
-managed:
-  enabled: true
+version: v1
 plugins:
-  # Use protoc directly instead of remote plugins
-  - local: protoc-gen-go
+  - name: go
     out: ../services/gen/proto/go
     opt: paths=source_relative
-  - local: protoc-gen-connect-go
+  - name: connect-go
     out: ../services/gen/proto/go
     opt: paths=source_relative
+  - name: es
+    out: ../web/src/gen
+    opt:
+      - target=ts
+      - import_extension=none
+  - name: connect-es
+    out: ../web/src/gen
+    opt:
+      - target=ts
+      - import_extension=none

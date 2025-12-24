@@ -7,6 +7,7 @@
 package shortsv1alpha1
 
 import (
+	_ "github.com/castlemilk/shorted.com.au/services/gen/proto/go/options/v1"
 	v1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	_ "github.com/google/gnostic/openapiv3"
 	_ "google.golang.org/genproto/googleapis/api/annotations"
@@ -72,6 +73,86 @@ func (ViewMode) EnumDescriptor() ([]byte, []int) {
 	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{0}
 }
 
+type MintTokenRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MintTokenRequest) Reset() {
+	*x = MintTokenRequest{}
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MintTokenRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MintTokenRequest) ProtoMessage() {}
+
+func (x *MintTokenRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MintTokenRequest.ProtoReflect.Descriptor instead.
+func (*MintTokenRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{0}
+}
+
+type MintTokenResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MintTokenResponse) Reset() {
+	*x = MintTokenResponse{}
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MintTokenResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MintTokenResponse) ProtoMessage() {}
+
+func (x *MintTokenResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MintTokenResponse.ProtoReflect.Descriptor instead.
+func (*MintTokenResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *MintTokenResponse) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
 // Request for Top10 RPC, specifying the period of time.
 type GetTopShortsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -84,7 +165,7 @@ type GetTopShortsRequest struct {
 
 func (x *GetTopShortsRequest) Reset() {
 	*x = GetTopShortsRequest{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[0]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -96,7 +177,7 @@ func (x *GetTopShortsRequest) String() string {
 func (*GetTopShortsRequest) ProtoMessage() {}
 
 func (x *GetTopShortsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[0]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -109,7 +190,7 @@ func (x *GetTopShortsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTopShortsRequest.ProtoReflect.Descriptor instead.
 func (*GetTopShortsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{0}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *GetTopShortsRequest) GetPeriod() string {
@@ -147,7 +228,7 @@ type GetIndustryTreeMapRequest struct {
 
 func (x *GetIndustryTreeMapRequest) Reset() {
 	*x = GetIndustryTreeMapRequest{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[1]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -159,7 +240,7 @@ func (x *GetIndustryTreeMapRequest) String() string {
 func (*GetIndustryTreeMapRequest) ProtoMessage() {}
 
 func (x *GetIndustryTreeMapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[1]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -172,7 +253,7 @@ func (x *GetIndustryTreeMapRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetIndustryTreeMapRequest.ProtoReflect.Descriptor instead.
 func (*GetIndustryTreeMapRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{1}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *GetIndustryTreeMapRequest) GetPeriod() string {
@@ -207,7 +288,7 @@ type GetTopShortsResponse struct {
 
 func (x *GetTopShortsResponse) Reset() {
 	*x = GetTopShortsResponse{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[2]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -219,7 +300,7 @@ func (x *GetTopShortsResponse) String() string {
 func (*GetTopShortsResponse) ProtoMessage() {}
 
 func (x *GetTopShortsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[2]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -232,7 +313,7 @@ func (x *GetTopShortsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTopShortsResponse.ProtoReflect.Descriptor instead.
 func (*GetTopShortsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{2}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *GetTopShortsResponse) GetTimeSeries() []*v1alpha1.TimeSeriesData {
@@ -259,7 +340,7 @@ type GetStockRequest struct {
 
 func (x *GetStockRequest) Reset() {
 	*x = GetStockRequest{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[3]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -271,7 +352,7 @@ func (x *GetStockRequest) String() string {
 func (*GetStockRequest) ProtoMessage() {}
 
 func (x *GetStockRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[3]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -284,7 +365,7 @@ func (x *GetStockRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockRequest.ProtoReflect.Descriptor instead.
 func (*GetStockRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{3}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *GetStockRequest) GetProductCode() string {
@@ -304,7 +385,7 @@ type GetStockDetailsRequest struct {
 
 func (x *GetStockDetailsRequest) Reset() {
 	*x = GetStockDetailsRequest{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[4]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -316,7 +397,7 @@ func (x *GetStockDetailsRequest) String() string {
 func (*GetStockDetailsRequest) ProtoMessage() {}
 
 func (x *GetStockDetailsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[4]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -329,7 +410,7 @@ func (x *GetStockDetailsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockDetailsRequest.ProtoReflect.Descriptor instead.
 func (*GetStockDetailsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{4}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *GetStockDetailsRequest) GetProductCode() string {
@@ -350,7 +431,7 @@ type GetStockDataRequest struct {
 
 func (x *GetStockDataRequest) Reset() {
 	*x = GetStockDataRequest{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[5]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -362,7 +443,7 @@ func (x *GetStockDataRequest) String() string {
 func (*GetStockDataRequest) ProtoMessage() {}
 
 func (x *GetStockDataRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[5]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -375,7 +456,7 @@ func (x *GetStockDataRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockDataRequest.ProtoReflect.Descriptor instead.
 func (*GetStockDataRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{5}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetStockDataRequest) GetProductCode() string {
@@ -404,7 +485,7 @@ type SearchStocksRequest struct {
 
 func (x *SearchStocksRequest) Reset() {
 	*x = SearchStocksRequest{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[6]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -416,7 +497,7 @@ func (x *SearchStocksRequest) String() string {
 func (*SearchStocksRequest) ProtoMessage() {}
 
 func (x *SearchStocksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[6]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -429,7 +510,7 @@ func (x *SearchStocksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchStocksRequest.ProtoReflect.Descriptor instead.
 func (*SearchStocksRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{6}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *SearchStocksRequest) GetQuery() string {
@@ -465,7 +546,7 @@ type SearchStocksResponse struct {
 
 func (x *SearchStocksResponse) Reset() {
 	*x = SearchStocksResponse{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[7]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -477,7 +558,7 @@ func (x *SearchStocksResponse) String() string {
 func (*SearchStocksResponse) ProtoMessage() {}
 
 func (x *SearchStocksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[7]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -490,7 +571,7 @@ func (x *SearchStocksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchStocksResponse.ProtoReflect.Descriptor instead.
 func (*SearchStocksResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{7}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SearchStocksResponse) GetQuery() string {
@@ -524,7 +605,7 @@ type GetSyncStatusRequest struct {
 
 func (x *GetSyncStatusRequest) Reset() {
 	*x = GetSyncStatusRequest{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[8]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -536,7 +617,7 @@ func (x *GetSyncStatusRequest) String() string {
 func (*GetSyncStatusRequest) ProtoMessage() {}
 
 func (x *GetSyncStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[8]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -549,7 +630,7 @@ func (x *GetSyncStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSyncStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetSyncStatusRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{8}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetSyncStatusRequest) GetLimit() int32 {
@@ -569,7 +650,7 @@ type GetSyncStatusResponse struct {
 
 func (x *GetSyncStatusResponse) Reset() {
 	*x = GetSyncStatusResponse{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[9]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -581,7 +662,7 @@ func (x *GetSyncStatusResponse) String() string {
 func (*GetSyncStatusResponse) ProtoMessage() {}
 
 func (x *GetSyncStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[9]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -594,7 +675,7 @@ func (x *GetSyncStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSyncStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetSyncStatusResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{9}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetSyncStatusResponse) GetRuns() []*SyncRun {
@@ -625,7 +706,7 @@ type SyncRun struct {
 
 func (x *SyncRun) Reset() {
 	*x = SyncRun{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[10]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -637,7 +718,7 @@ func (x *SyncRun) String() string {
 func (*SyncRun) ProtoMessage() {}
 
 func (x *SyncRun) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[10]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -650,7 +731,7 @@ func (x *SyncRun) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SyncRun.ProtoReflect.Descriptor instead.
 func (*SyncRun) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{10}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *SyncRun) GetRunId() string {
@@ -741,7 +822,10 @@ var File_shorts_v1alpha1_shorts_proto protoreflect.FileDescriptor
 
 const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\n" +
-	"\x1cshorts/v1alpha1/shorts.proto\x12\x0fshorts.v1alpha1\x1a\x1cgoogle/api/annotations.proto\x1a$gnostic/openapi/v3/annotations.proto\x1a\x17google/api/client.proto\x1a\x1cstocks/v1alpha1/stocks.proto\"[\n" +
+	"\x1cshorts/v1alpha1/shorts.proto\x12\x0fshorts.v1alpha1\x1a\x1cgoogle/api/annotations.proto\x1a$gnostic/openapi/v3/annotations.proto\x1a\x17google/api/client.proto\x1a\x1cstocks/v1alpha1/stocks.proto\x1a\x18options/v1/options.proto\"\x12\n" +
+	"\x10MintTokenRequest\")\n" +
+	"\x11MintTokenResponse\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"[\n" +
 	"\x13GetTopShortsRequest\x12\x16\n" +
 	"\x06period\x18\x01 \x01(\tR\x06period\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n" +
@@ -790,73 +874,68 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\bhostname\x18\f \x01(\tR\bhostname*5\n" +
 	"\bViewMode\x12\x12\n" +
 	"\x0eCURRENT_CHANGE\x10\x00\x12\x15\n" +
-	"\x11PERCENTAGE_CHANGE\x10\x012\xd5\n" +
-	"\n" +
-	"\x14ShortedStocksService\x12\xd7\x01\n" +
-	"\fGetTopShorts\x12$.shorts.v1alpha1.GetTopShortsRequest\x1a%.shorts.v1alpha1.GetTopShortsResponse\"z\xdaA\x13period,limit,offset\xbaGa\x1a%Get the top shorts for a given periodB'\x12\x16\n" +
-	"\x03400\x12\x0f\n" +
-	"\r\n" +
-	"\vBad Request\x12\r\n" +
-	"\x03200\x12\x06\n" +
-	"\x04\n" +
-	"\x02OKZ\x0f\n" +
-	"\r\n" +
-	"\tBasicAuth\x12\x00\x12\xce\x01\n" +
-	"\x12GetIndustryTreeMap\x12*.shorts.v1alpha1.GetIndustryTreeMapRequest\x1a .stocks.v1alpha1.IndustryTreeMap\"j\xbaGg\x1a+Get the industry treemap for a given periodB'\x12\x16\n" +
-	"\x03400\x12\x0f\n" +
-	"\r\n" +
-	"\vBad Request\x12\r\n" +
-	"\x03200\x12\x06\n" +
-	"\x04\n" +
-	"\x02OKZ\x0f\n" +
-	"\r\n" +
-	"\tBasicAuth\x12\x00\x12\xac\x01\n" +
-	"\bGetStock\x12 .shorts.v1alpha1.GetStockRequest\x1a\x16.stocks.v1alpha1.Stock\"f\xbaGc\x1a'Get the stock summary for a given stockB'\x12\x16\n" +
-	"\x03400\x12\x0f\n" +
-	"\r\n" +
-	"\vBad Request\x12\r\n" +
-	"\x03200\x12\x06\n" +
-	"\x04\n" +
-	"\x02OKZ\x0f\n" +
-	"\r\n" +
-	"\tBasicAuth\x12\x00\x12\xc1\x01\n" +
-	"\x0fGetStockDetails\x12'.shorts.v1alpha1.GetStockDetailsRequest\x1a\x1d.stocks.v1alpha1.StockDetails\"f\xbaGc\x1a'Get the stock details for a given stockB'\x12\x16\n" +
-	"\x03400\x12\x0f\n" +
-	"\r\n" +
-	"\vBad Request\x12\r\n" +
-	"\x03200\x12\x06\n" +
-	"\x04\n" +
-	"\x02OKZ\x0f\n" +
-	"\r\n" +
-	"\tBasicAuth\x12\x00\x12\xa9\x01\n" +
-	"\fGetStockData\x12$.shorts.v1alpha1.GetStockDataRequest\x1a\x1f.stocks.v1alpha1.TimeSeriesData\"R\xbaGO\x1a$Get the stock data for a given stockB'\x12\x16\n" +
-	"\x03400\x12\x0f\n" +
-	"\r\n" +
-	"\vBad Request\x12\r\n" +
-	"\x03200\x12\x06\n" +
-	"\x04\n" +
-	"\x02OK\x12\xc7\x01\n" +
-	"\fSearchStocks\x12$.shorts.v1alpha1.SearchStocksRequest\x1a%.shorts.v1alpha1.SearchStocksResponse\"j\xbaGg\x1a+Search ASX stocks by symbol or company nameB'\x12\x16\n" +
-	"\x03400\x12\x0f\n" +
-	"\r\n" +
-	"\vBad Request\x12\r\n" +
-	"\x03200\x12\x06\n" +
-	"\x04\n" +
-	"\x02OKZ\x0f\n" +
-	"\r\n" +
-	"\tBasicAuth\x12\x00\x12\x91\x01\n" +
-	"\rGetSyncStatus\x12%.shorts.v1alpha1.GetSyncStatusRequest\x1a&.shorts.v1alpha1.GetSyncStatusResponse\"1\xbaG.\x1a\x1bGet sync status and historyB\x0f\x12\r\n" +
-	"\x03200\x12\x06\n" +
-	"\x04\n" +
-	"\x02OK\x1a\x15\xcaA\x12api.shorted.com.auB\x9d\x03\xbaG\xbf\x01\x12|\n" +
+	"\x11PERCENTAGE_CHANGE\x10\x012\xd6\x15\n" +
+	"\x14ShortedStocksService\x12\x86\x03\n" +
+	"\fGetTopShorts\x12$.shorts.v1alpha1.GetTopShortsRequest\x1a%.shorts.v1alpha1.GetTopShortsResponse\"\xa8\x02\xdaA\x13period,limit,offset\xbaG\x8a\x02\x12\x0eGet Top Shorts\x1ajRetrieve the top shorted stocks on the ASX for a given time period. Supports pagination and custom limits.B\x8b\x01\x12X\n" +
+	"\x03200\x12Q\n" +
+	"O\n" +
+	"MA successful response containing time series data for the top shorted stocks.\x12/\n" +
+	"\x03400\x12(\n" +
+	"&\n" +
+	"$Invalid request parameters provided.\x80\xb5\x18\x01\x12\xfd\x02\n" +
+	"\x12GetIndustryTreeMap\x12*.shorts.v1alpha1.GetIndustryTreeMapRequest\x1a .stocks.v1alpha1.IndustryTreeMap\"\x98\x02\xbaG\x90\x02\x12\x14Get Industry TreeMap\x1a{Retrieve a hierarchical treemap of short positions grouped by industry. Useful for visualizing market-wide shorting trends.B{\x12Q\n" +
+	"\x03200\x12J\n" +
+	"H\n" +
+	"FA successful response containing industry-grouped short position data.\x12&\n" +
+	"\x03400\x12\x1f\n" +
+	"\x1d\n" +
+	"\x1bInvalid request parameters.\x80\xb5\x18\x01\x12\xc0\x02\n" +
+	"\bGetStock\x12 .shorts.v1alpha1.GetStockRequest\x1a\x16.stocks.v1alpha1.Stock\"\xf9\x01\xbaG\xf1\x01\x12\x11Get Stock Summary\x1afRetrieve a summary of current short positions and basic metadata for a specific stock by its ASX code.Bt\x12>\n" +
+	"\x03200\x127\n" +
+	"5\n" +
+	"3A successful response containing the stock summary.\x122\n" +
+	"\x03404\x12+\n" +
+	")\n" +
+	"'The specified stock code was not found.\x80\xb5\x18\x01\x12\xf0\x02\n" +
+	"\x0fGetStockDetails\x12'.shorts.v1alpha1.GetStockDetailsRequest\x1a\x1d.stocks.v1alpha1.StockDetails\"\x94\x02\xbaG\x8c\x02\x12\x11Get Stock Details\x1asRetrieve comprehensive metadata for a specific stock, including company history, key people, and financial reports.B\x81\x01\x12G\n" +
+	"\x03200\x12@\n" +
+	">\n" +
+	"<A successful response containing detailed stock information.\x126\n" +
+	"\x03404\x12/\n" +
+	"-\n" +
+	"+The specified stock details were not found.\x80\xb5\x18\x01\x12\xf0\x02\n" +
+	"\fGetStockData\x12$.shorts.v1alpha1.GetStockDataRequest\x1a\x1f.stocks.v1alpha1.TimeSeriesData\"\x98\x02\xbaG\x90\x02\x12\x1aGet Stock Time Series Data\x1aXRetrieve historical short position data for a specific stock over a defined time period.B\x97\x01\x12J\n" +
+	"\x03200\x12C\n" +
+	"A\n" +
+	"?A successful response containing historical time series points.\x12I\n" +
+	"\x03401\x12B\n" +
+	"@\n" +
+	">Authentication is required to access private time series data.\x80\xb5\x18\x01\x12\xf9\x01\n" +
+	"\fSearchStocks\x12$.shorts.v1alpha1.SearchStocksRequest\x1a%.shorts.v1alpha1.SearchStocksResponse\"\x9b\x01\xbaG\x93\x01\x12\rSearch Stocks\x1aYSearch for ASX stocks using full-text search against their ticker symbol or company name.B'\x12%\n" +
+	"\x03200\x12\x1e\n" +
+	"\x1c\n" +
+	"\x1aA list of matching stocks.\x80\xb5\x18\x01\x12\xc9\x02\n" +
+	"\rGetSyncStatus\x12%.shorts.v1alpha1.GetSyncStatusRequest\x1a&.shorts.v1alpha1.GetSyncStatusResponse\"\xe8\x01\xbaG\xd7\x01\x12\x0fGet Sync Status\x1anAdministrative endpoint to retrieve the status and history of data synchronization tasks. Requires admin role.BT\x12#\n" +
+	"\x03200\x12\x1c\n" +
+	"\x1a\n" +
+	"\x18Recent sync run history.\x12-\n" +
+	"\x03403\x12&\n" +
+	"$\n" +
+	"\"Forbidden: Admin role is required.\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12\xac\x02\n" +
+	"\tMintToken\x12!.shorts.v1alpha1.MintTokenRequest\x1a\".shorts.v1alpha1.MintTokenResponse\"\xd7\x01\xbaG\xcf\x01\x12\x0eMint API Token\x1alGenerate a bespoke API token for programmatic access to Shorted APIs. Requires valid session authentication.BO\x12\x1b\n" +
+	"\x03200\x12\x14\n" +
+	"\x12\n" +
+	"\x10A new API token.\x120\n" +
+	"\x03401\x12)\n" +
+	"'\n" +
+	"%Unauthorized: User must be signed in.\x80\xb5\x18\x02\x1a\x15\xcaA\x12api.shorted.com.auB\x9e\x02\xbaG\xbf\x01\x12|\n" +
 	"\vShorted API\x12\rShorted API's\"%\x12\x0eshorted.com.au\x1a\x13help@shorted.com.au*3\n" +
 	"\x13Proprietary license\x12\x1chttps://shorted.com.au/terms2\x02v1\x1a\x1c\n" +
 	"\x1ahttps://api.shorted.com.au*!:\x1f\n" +
 	"\x1d\n" +
 	"\tAuthToken\x12\x10\n" +
 	"\x0e\n" +
-	"\x04http*\x06bearer\n" +
-	"\x13com.shorts.v1alpha1B\vShortsProtoP\x01ZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1\xa2\x02\x03SXX\xaa\x02\x0fShorts.V1alpha1\xca\x02\x0fShorts\\V1alpha1\xe2\x02\x1bShorts\\V1alpha1\\GPBMetadata\xea\x02\x10Shorts::V1alpha1b\x06proto3"
+	"\x04http*\x06bearerZYgithub.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1;shortsv1alpha1b\x06proto3"
 
 var (
 	file_shorts_v1alpha1_shorts_proto_rawDescOnce sync.Once
@@ -871,46 +950,50 @@ func file_shorts_v1alpha1_shorts_proto_rawDescGZIP() []byte {
 }
 
 var file_shorts_v1alpha1_shorts_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_shorts_v1alpha1_shorts_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
+var file_shorts_v1alpha1_shorts_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_shorts_v1alpha1_shorts_proto_goTypes = []any{
 	(ViewMode)(0),                     // 0: shorts.v1alpha1.ViewMode
-	(*GetTopShortsRequest)(nil),       // 1: shorts.v1alpha1.GetTopShortsRequest
-	(*GetIndustryTreeMapRequest)(nil), // 2: shorts.v1alpha1.GetIndustryTreeMapRequest
-	(*GetTopShortsResponse)(nil),      // 3: shorts.v1alpha1.GetTopShortsResponse
-	(*GetStockRequest)(nil),           // 4: shorts.v1alpha1.GetStockRequest
-	(*GetStockDetailsRequest)(nil),    // 5: shorts.v1alpha1.GetStockDetailsRequest
-	(*GetStockDataRequest)(nil),       // 6: shorts.v1alpha1.GetStockDataRequest
-	(*SearchStocksRequest)(nil),       // 7: shorts.v1alpha1.SearchStocksRequest
-	(*SearchStocksResponse)(nil),      // 8: shorts.v1alpha1.SearchStocksResponse
-	(*GetSyncStatusRequest)(nil),      // 9: shorts.v1alpha1.GetSyncStatusRequest
-	(*GetSyncStatusResponse)(nil),     // 10: shorts.v1alpha1.GetSyncStatusResponse
-	(*SyncRun)(nil),                   // 11: shorts.v1alpha1.SyncRun
-	(*v1alpha1.TimeSeriesData)(nil),   // 12: stocks.v1alpha1.TimeSeriesData
-	(*v1alpha1.Stock)(nil),            // 13: stocks.v1alpha1.Stock
-	(*v1alpha1.IndustryTreeMap)(nil),  // 14: stocks.v1alpha1.IndustryTreeMap
-	(*v1alpha1.StockDetails)(nil),     // 15: stocks.v1alpha1.StockDetails
+	(*MintTokenRequest)(nil),          // 1: shorts.v1alpha1.MintTokenRequest
+	(*MintTokenResponse)(nil),         // 2: shorts.v1alpha1.MintTokenResponse
+	(*GetTopShortsRequest)(nil),       // 3: shorts.v1alpha1.GetTopShortsRequest
+	(*GetIndustryTreeMapRequest)(nil), // 4: shorts.v1alpha1.GetIndustryTreeMapRequest
+	(*GetTopShortsResponse)(nil),      // 5: shorts.v1alpha1.GetTopShortsResponse
+	(*GetStockRequest)(nil),           // 6: shorts.v1alpha1.GetStockRequest
+	(*GetStockDetailsRequest)(nil),    // 7: shorts.v1alpha1.GetStockDetailsRequest
+	(*GetStockDataRequest)(nil),       // 8: shorts.v1alpha1.GetStockDataRequest
+	(*SearchStocksRequest)(nil),       // 9: shorts.v1alpha1.SearchStocksRequest
+	(*SearchStocksResponse)(nil),      // 10: shorts.v1alpha1.SearchStocksResponse
+	(*GetSyncStatusRequest)(nil),      // 11: shorts.v1alpha1.GetSyncStatusRequest
+	(*GetSyncStatusResponse)(nil),     // 12: shorts.v1alpha1.GetSyncStatusResponse
+	(*SyncRun)(nil),                   // 13: shorts.v1alpha1.SyncRun
+	(*v1alpha1.TimeSeriesData)(nil),   // 14: stocks.v1alpha1.TimeSeriesData
+	(*v1alpha1.Stock)(nil),            // 15: stocks.v1alpha1.Stock
+	(*v1alpha1.IndustryTreeMap)(nil),  // 16: stocks.v1alpha1.IndustryTreeMap
+	(*v1alpha1.StockDetails)(nil),     // 17: stocks.v1alpha1.StockDetails
 }
 var file_shorts_v1alpha1_shorts_proto_depIdxs = []int32{
 	0,  // 0: shorts.v1alpha1.GetIndustryTreeMapRequest.view_mode:type_name -> shorts.v1alpha1.ViewMode
-	12, // 1: shorts.v1alpha1.GetTopShortsResponse.time_series:type_name -> stocks.v1alpha1.TimeSeriesData
-	13, // 2: shorts.v1alpha1.SearchStocksResponse.stocks:type_name -> stocks.v1alpha1.Stock
-	11, // 3: shorts.v1alpha1.GetSyncStatusResponse.runs:type_name -> shorts.v1alpha1.SyncRun
-	1,  // 4: shorts.v1alpha1.ShortedStocksService.GetTopShorts:input_type -> shorts.v1alpha1.GetTopShortsRequest
-	2,  // 5: shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap:input_type -> shorts.v1alpha1.GetIndustryTreeMapRequest
-	4,  // 6: shorts.v1alpha1.ShortedStocksService.GetStock:input_type -> shorts.v1alpha1.GetStockRequest
-	5,  // 7: shorts.v1alpha1.ShortedStocksService.GetStockDetails:input_type -> shorts.v1alpha1.GetStockDetailsRequest
-	6,  // 8: shorts.v1alpha1.ShortedStocksService.GetStockData:input_type -> shorts.v1alpha1.GetStockDataRequest
-	7,  // 9: shorts.v1alpha1.ShortedStocksService.SearchStocks:input_type -> shorts.v1alpha1.SearchStocksRequest
-	9,  // 10: shorts.v1alpha1.ShortedStocksService.GetSyncStatus:input_type -> shorts.v1alpha1.GetSyncStatusRequest
-	3,  // 11: shorts.v1alpha1.ShortedStocksService.GetTopShorts:output_type -> shorts.v1alpha1.GetTopShortsResponse
-	14, // 12: shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap:output_type -> stocks.v1alpha1.IndustryTreeMap
-	13, // 13: shorts.v1alpha1.ShortedStocksService.GetStock:output_type -> stocks.v1alpha1.Stock
-	15, // 14: shorts.v1alpha1.ShortedStocksService.GetStockDetails:output_type -> stocks.v1alpha1.StockDetails
-	12, // 15: shorts.v1alpha1.ShortedStocksService.GetStockData:output_type -> stocks.v1alpha1.TimeSeriesData
-	8,  // 16: shorts.v1alpha1.ShortedStocksService.SearchStocks:output_type -> shorts.v1alpha1.SearchStocksResponse
-	10, // 17: shorts.v1alpha1.ShortedStocksService.GetSyncStatus:output_type -> shorts.v1alpha1.GetSyncStatusResponse
-	11, // [11:18] is the sub-list for method output_type
-	4,  // [4:11] is the sub-list for method input_type
+	14, // 1: shorts.v1alpha1.GetTopShortsResponse.time_series:type_name -> stocks.v1alpha1.TimeSeriesData
+	15, // 2: shorts.v1alpha1.SearchStocksResponse.stocks:type_name -> stocks.v1alpha1.Stock
+	13, // 3: shorts.v1alpha1.GetSyncStatusResponse.runs:type_name -> shorts.v1alpha1.SyncRun
+	3,  // 4: shorts.v1alpha1.ShortedStocksService.GetTopShorts:input_type -> shorts.v1alpha1.GetTopShortsRequest
+	4,  // 5: shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap:input_type -> shorts.v1alpha1.GetIndustryTreeMapRequest
+	6,  // 6: shorts.v1alpha1.ShortedStocksService.GetStock:input_type -> shorts.v1alpha1.GetStockRequest
+	7,  // 7: shorts.v1alpha1.ShortedStocksService.GetStockDetails:input_type -> shorts.v1alpha1.GetStockDetailsRequest
+	8,  // 8: shorts.v1alpha1.ShortedStocksService.GetStockData:input_type -> shorts.v1alpha1.GetStockDataRequest
+	9,  // 9: shorts.v1alpha1.ShortedStocksService.SearchStocks:input_type -> shorts.v1alpha1.SearchStocksRequest
+	11, // 10: shorts.v1alpha1.ShortedStocksService.GetSyncStatus:input_type -> shorts.v1alpha1.GetSyncStatusRequest
+	1,  // 11: shorts.v1alpha1.ShortedStocksService.MintToken:input_type -> shorts.v1alpha1.MintTokenRequest
+	5,  // 12: shorts.v1alpha1.ShortedStocksService.GetTopShorts:output_type -> shorts.v1alpha1.GetTopShortsResponse
+	16, // 13: shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap:output_type -> stocks.v1alpha1.IndustryTreeMap
+	15, // 14: shorts.v1alpha1.ShortedStocksService.GetStock:output_type -> stocks.v1alpha1.Stock
+	17, // 15: shorts.v1alpha1.ShortedStocksService.GetStockDetails:output_type -> stocks.v1alpha1.StockDetails
+	14, // 16: shorts.v1alpha1.ShortedStocksService.GetStockData:output_type -> stocks.v1alpha1.TimeSeriesData
+	10, // 17: shorts.v1alpha1.ShortedStocksService.SearchStocks:output_type -> shorts.v1alpha1.SearchStocksResponse
+	12, // 18: shorts.v1alpha1.ShortedStocksService.GetSyncStatus:output_type -> shorts.v1alpha1.GetSyncStatusResponse
+	2,  // 19: shorts.v1alpha1.ShortedStocksService.MintToken:output_type -> shorts.v1alpha1.MintTokenResponse
+	12, // [12:20] is the sub-list for method output_type
+	4,  // [4:12] is the sub-list for method input_type
 	4,  // [4:4] is the sub-list for extension type_name
 	4,  // [4:4] is the sub-list for extension extendee
 	0,  // [0:4] is the sub-list for field type_name
@@ -927,7 +1010,7 @@ func file_shorts_v1alpha1_shorts_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_shorts_proto_rawDesc), len(file_shorts_v1alpha1_shorts_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   11,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

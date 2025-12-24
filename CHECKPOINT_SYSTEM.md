@@ -117,3 +117,5 @@ ORDER BY started_at DESC;
 3. **Progress Tracking**: Know exactly which stocks are processed
 4. **Efficient**: Skips already processed stocks
 5. **Reliable**: Tracks successes and failures separately
+
+

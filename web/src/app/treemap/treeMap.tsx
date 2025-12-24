@@ -37,9 +37,11 @@ interface TreeMapDatum {
 }
 
 const PADDING = 3;
+const HEADER_HEIGHT = 10; // Height reserved for sector labels
 const TREEMAP_HEIGHT = 820;
 
-const clamp = (min: number, v: number, max: number) => Math.max(min, Math.min(max, v));
+const clamp = (min: number, v: number, max: number) =>
+  Math.max(min, Math.min(max, v));
 
 type TreeMapDataType = IndustryTreeMap | null | undefined;
 
@@ -285,10 +287,12 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                             const nodeHeight =
                               node.y1 -
                               node.y0 -
-                              (isTopEdge ? PADDING * 4 : 0) -
+                              (isTopEdge ? HEADER_HEIGHT + PADDING : 0) -
                               (isBottomEdge ? PADDING : 0);
 
-                            const top = node.y0 + (isTopEdge ? PADDING * 4 : 0);
+                            const top =
+                              node.y0 +
+                              (isTopEdge ? HEADER_HEIGHT + PADDING : 0);
                             const left = node.x0 + (isLeftEdge ? PADDING : 0);
 
                             if (nodeHeight < 0 || nodeWidth < 0) {
@@ -296,7 +300,11 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                             }
 
                             const minSide = Math.min(nodeWidth, nodeHeight);
-                            const leafFontSize = clamp(12, Math.floor(minSide / 4.8), 20);
+                            const leafFontSize = clamp(
+                              12,
+                              Math.floor(minSide / 4.8),
+                              20,
+                            );
 
                             return (
                               <Group
@@ -345,7 +353,15 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                         {treemap.descendants().map((node, i) => {
                           if (node.depth === 1) {
                             const nodeWidth = node.x1 - node.x0;
-                            const parentFontSize = clamp(14, Math.floor(nodeWidth / 22), 22);
+                            const nodeHeight = node.y1 - node.y0;
+                            const parentFontSize = clamp(
+                              11,
+                              Math.floor(nodeWidth / 22),
+                              14,
+                            );
+
+                            // Don't render label if section is too small
+                            if (nodeWidth < 60 || nodeHeight < 40) return null;
 
                             return (
                               <Group
@@ -353,16 +369,35 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                                 top={node.y0}
                                 left={node.x0}
                               >
+                                {/* Background bar for sector label */}
+                                <rect
+                                  x={0}
+                                  y={0}
+                                  width={nodeWidth}
+                                  height={HEADER_HEIGHT}
+                                  fill="hsl(var(--background))"
+                                  opacity={0.85}
+                                />
+                                {/* Bottom border line */}
+                                <line
+                                  x1={0}
+                                  y1={HEADER_HEIGHT}
+                                  x2={nodeWidth}
+                                  y2={HEADER_HEIGHT}
+                                  stroke="hsl(var(--border))"
+                                  strokeWidth={1}
+                                />
                                 <text
-                                  x={5}
-                                  y={5}
-                                  dy=".66em"
+                                  x={8}
+                                  y={HEADER_HEIGHT / 2}
+                                  dy=".35em"
                                   fontSize={parentFontSize}
+                                  fontWeight={600}
                                   textAnchor="start"
                                   pointerEvents="none"
                                   fill="hsl(var(--foreground))"
                                 >
-                                  {`${node.data.id?.substring(0, nodeWidth / 10)}${(node.data.id?.length ?? 0) > nodeWidth / 10 ? "..." : ""}`}
+                                  {`${node.data.id?.substring(0, Math.floor(nodeWidth / 8))}${(node.data.id?.length ?? 0) > Math.floor(nodeWidth / 8) ? "..." : ""}`}
                                 </text>
                               </Group>
                             );

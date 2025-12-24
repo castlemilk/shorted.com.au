@@ -30,7 +30,9 @@ func TestAlgoliaLive(t *testing.T) {
 	if err != nil {
 		t.Skipf("Service not available at %s: %v", apiURL, err)
 	}
-	defer healthResp.Body.Close()
+	defer func() {
+		_ = healthResp.Body.Close()
+	}()
 	if healthResp.StatusCode != 200 {
 		t.Skipf("Service not healthy at %s", apiURL)
 	}
@@ -43,11 +45,14 @@ func TestAlgoliaLive(t *testing.T) {
 
 		resp, err := http.Get(searchURL)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() {
+			_ = resp.Body.Close()
+		}()
 
 		t.Logf("Response status: %d", resp.StatusCode)
 
-		if resp.StatusCode == http.StatusOK {
+		switch resp.StatusCode {
+		case http.StatusOK:
 			var result map[string]interface{}
 			err = json.NewDecoder(resp.Body).Decode(&result)
 			require.NoError(t, err)
@@ -62,11 +67,11 @@ func TestAlgoliaLive(t *testing.T) {
 					}
 				}
 			}
-		} else if resp.StatusCode == http.StatusServiceUnavailable {
+		case http.StatusServiceUnavailable:
 			t.Log("Algolia not configured (503) - this is expected if ALGOLIA_* env vars are not set")
-		} else if resp.StatusCode == http.StatusNotFound {
+		case http.StatusNotFound:
 			t.Log("Algolia endpoint not found (404) - service may need restart to pick up new endpoint")
-		} else {
+		default:
 			body := make([]byte, 1024)
 			n, _ := resp.Body.Read(body)
 			t.Logf("Unexpected response: %d - %s", resp.StatusCode, string(body[:n]))

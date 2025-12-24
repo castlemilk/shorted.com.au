@@ -21,7 +21,9 @@ func TestSyncStatusTable(t *testing.T) {
 
 	ctx := context.Background()
 	db := setupTestDB(t)
-	defer db.Close()
+	defer func() {
+		_ = db.Close()
+	}()
 
 	// Test table exists
 	t.Run("table exists", func(t *testing.T) {
@@ -66,7 +68,9 @@ func TestSyncStatusInsert(t *testing.T) {
 
 	ctx := context.Background()
 	db := setupTestDB(t)
-	defer db.Close()
+	defer func() {
+		_ = db.Close()
+	}()
 
 	runID := uuid.New().String()
 
@@ -100,7 +104,9 @@ func TestSyncStatusComplete(t *testing.T) {
 
 	ctx := context.Background()
 	db := setupTestDB(t)
-	defer db.Close()
+	defer func() {
+		_ = db.Close()
+	}()
 
 	runID := uuid.New().String()
 
@@ -153,7 +159,9 @@ func TestSyncStatusFailed(t *testing.T) {
 
 	ctx := context.Background()
 	db := setupTestDB(t)
-	defer db.Close()
+	defer func() {
+		_ = db.Close()
+	}()
 
 	runID := uuid.New().String()
 	errorMessage := "Test error: Connection refused"
@@ -200,7 +208,9 @@ func TestSyncStatusQuery(t *testing.T) {
 
 	ctx := context.Background()
 	db := setupTestDB(t)
-	defer db.Close()
+	defer func() {
+		_ = db.Close()
+	}()
 
 	// Insert multiple records
 	runIDs := make([]string, 3)
@@ -228,7 +238,9 @@ func TestSyncStatusQuery(t *testing.T) {
 		LIMIT 2
 	`)
 	require.NoError(t, err)
-	defer rows.Close()
+	defer func() {
+		_ = rows.Close()
+	}()
 
 	count := 0
 	for rows.Next() {

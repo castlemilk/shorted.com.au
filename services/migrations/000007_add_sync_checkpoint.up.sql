@@ -45,3 +45,5 @@ COMMENT ON COLUMN sync_status.checkpoint_stocks_failed IS 'Array of stock codes 
 COMMENT ON COLUMN sync_status.checkpoint_batch_size IS 'Number of stocks to process per batch';
 COMMENT ON COLUMN sync_status.checkpoint_resume_from IS 'Index in stock list to resume from on retry';
 
+
+

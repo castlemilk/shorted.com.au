@@ -17,6 +17,7 @@ type ShortsServer struct {
 	logger Logger
 	shortsv1alpha1connect.UnimplementedShortedStocksServiceHandler
 	registerServer *register.RegisterServer
+	tokenService   *TokenService
 }
 
 // New creates instance of the Server
@@ -31,11 +32,16 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 	// Create logger adapter
 	logger := NewLoggerAdapter()
 
+	// Token secret - should be in config in production
+	tokenSecret := "dev-secret" // TODO: get from config
+	tokenService := NewTokenService(tokenSecret)
+
 	return &ShortsServer{
 		config:         cfg,
 		store:          store,
 		cache:          cache,
 		logger:         logger,
 		registerServer: register.NewRegisterServer(cfg.ShortsStoreConfig),
+		tokenService:   tokenService,
 	}, nil
 }

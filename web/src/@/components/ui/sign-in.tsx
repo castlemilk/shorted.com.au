@@ -37,12 +37,16 @@ interface SignInProps extends VariantProps<typeof signInButtonVariants> {
   className?: string;
 }
 
-export function SignIn({ variant, size, className }: SignInProps = {}) {
+export function SignIn({ variant = "default", size = "sm", className }: SignInProps = {}) {
   return (
     <form action={signInAction}>
       <button 
         type="submit" 
-        className={cn(signInButtonVariants({ variant, size }), className)}
+        className={cn(
+          signInButtonVariants({ variant, size }), 
+          "font-bold transition-all hover:scale-105 active:scale-95 px-5 shadow-sm shadow-blue-500/20",
+          className
+        )}
       >
         Sign in
       </button>

@@ -840,3 +840,4 @@ func (s *postgresStore) GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha
 
 	return runs, nil
 }
+

@@ -8,6 +8,8 @@ import "google/api/annotations.proto";
 import "gnostic/openapi/v3/annotations.proto";
 import "google/api/client.proto";
 import "stocks/v1alpha1/stocks.proto";
+import "options/v1/options.proto";
+
 option (gnostic.openapi.v3.document) = {
   info: {
     title: "Shorted API"
@@ -46,234 +48,228 @@ service ShortedStocksService {
   
   // Shows top 10 short positions on the ASX over different periods of time.
   rpc GetTopShorts (GetTopShortsRequest) returns (GetTopShortsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
     option (google.api.method_signature) = "period,limit,offset";
     option (gnostic.openapi.v3.operation) = {
       deprecated: false,
-      description: "Get the top shorts for a given period",
+      summary: "Get Top Shorts",
+      description: "Retrieve the top shorted stocks on the ASX for a given time period. Supports pagination and custom limits.",
       responses: {
         response_or_reference: {
-          name: "400"
+          name: "200"
           value: {
             response: {
-              description: "Bad Request"
+              description: "A successful response containing time series data for the top shorted stocks."
             }
           }
         },
         response_or_reference: {
-          name: "200"
-          value: {
-            response: {
-              description: "OK"
-            }
-          }
-        }, 
-      },
-      security: [
-        {
-          additional_properties: [
-            {
-              name: "BasicAuth";
-              value: {
-                value: []
-              }
-            }
-          ]
-        }
-      ]
-    };
-  }
-
-  rpc GetIndustryTreeMap(GetIndustryTreeMapRequest) returns (stocks.v1alpha1.IndustryTreeMap) {
-    option (gnostic.openapi.v3.operation) = {
-      deprecated: false,
-      description: "Get the industry treemap for a given period",
-      responses: {
-        response_or_reference: {
           name: "400"
           value: {
             response: {
-              description: "Bad Request"
-            }
-          }
-        },
-        response_or_reference: {
-          name: "200"
-          value: {
-            response: {
-              description: "OK"
-            }
-          }
-        }, 
-      },
-      security: [
-        {
-          additional_properties: [
-            {
-              name: "BasicAuth";
-              value: {
-                value: []
-              }
-            }
-          ]
-        }
-      ]
-    };
-  }
-  // Provides an overview of a specific stock based on PRODUCT_CODE.
-  rpc GetStock (GetStockRequest) returns (stocks.v1alpha1.Stock) {
-    option (gnostic.openapi.v3.operation) = {
-      deprecated: false,
-      description: "Get the stock summary for a given stock",
-      responses: {
-        response_or_reference: {
-          name: "400"
-          value: {
-            response: {
-              description: "Bad Request"
-            }
-          }
-        },
-        response_or_reference: {
-          name: "200"
-          value: {
-            response: {
-              description: "OK"
-            }
-          }
-        } 
-      },
-      security: [
-        {
-          additional_properties: [
-            {
-              name: "BasicAuth";
-              value: {
-                value: []
-              }
-            }
-          ]
-        }
-      ]
-    };
-  }
-  // Provides a more in-depth breakdown of a particular stock's metadata.
-  rpc GetStockDetails (GetStockDetailsRequest) returns (stocks.v1alpha1.StockDetails) {
-    option (gnostic.openapi.v3.operation) = {
-      deprecated: false,
-      description: "Get the stock details for a given stock",
-      responses: {
-        response_or_reference: {
-          name: "400"
-          value: {
-            response: {
-              description: "Bad Request"
-            }
-          }
-        },
-        response_or_reference: {
-          name: "200"
-          value: {
-            response: {
-              description: "OK"
-            }
-          }
-        } 
-      },
-      security: [
-        {
-          additional_properties: [
-            {
-              name: "BasicAuth";
-              value: {
-                value: []
-              }
-            }
-          ]
-        }
-      ]
-    };
-  }
-  // fetch time series data for a specific stock
-  rpc GetStockData (GetStockDataRequest) returns (stocks.v1alpha1.TimeSeriesData) {
-    option (gnostic.openapi.v3.operation) = {
-      deprecated: false,
-      description: "Get the stock data for a given stock",
-      responses: {
-        response_or_reference: {
-          name: "400"
-          value: {
-            response: {
-              description: "Bad Request"
-            }
-          }
-        },
-        response_or_reference: {
-          name: "200"
-          value: {
-            response: {
-              description: "OK"
-            }
-          }
-        } 
-      },
-    };
-  }
-  
-  // Search stocks by symbol or company name
-  rpc SearchStocks (SearchStocksRequest) returns (SearchStocksResponse) {
-    option (gnostic.openapi.v3.operation) = {
-      deprecated: false,
-      description: "Search ASX stocks by symbol or company name",
-      responses: {
-        response_or_reference: {
-          name: "400"
-          value: {
-            response: {
-              description: "Bad Request"
-            }
-          }
-        },
-        response_or_reference: {
-          name: "200"
-          value: {
-            response: {
-              description: "OK"
-            }
-          }
-        } 
-      },
-      security: [
-        {
-          additional_properties: [
-            {
-              name: "BasicAuth";
-              value: {
-                value: []
-              }
-            }
-          ]
-        }
-      ]
-    };
-  }
-
-  // Get sync status for admin dashboard
-  rpc GetSyncStatus (GetSyncStatusRequest) returns (GetSyncStatusResponse) {
-    option (gnostic.openapi.v3.operation) = {
-      deprecated: false,
-      description: "Get sync status and history",
-      responses: {
-        response_or_reference: {
-          name: "200"
-          value: {
-            response: {
-              description: "OK"
+              description: "Invalid request parameters provided."
             }
           }
         }
       }
     };
   }
+
+  // Get Industry TreeMap for short positions.
+  rpc GetIndustryTreeMap(GetIndustryTreeMapRequest) returns (stocks.v1alpha1.IndustryTreeMap) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      deprecated: false,
+      summary: "Get Industry TreeMap",
+      description: "Retrieve a hierarchical treemap of short positions grouped by industry. Useful for visualizing market-wide shorting trends.",
+      responses: {
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "A successful response containing industry-grouped short position data."
+            }
+          }
+        },
+        response_or_reference: {
+          name: "400"
+          value: {
+            response: {
+              description: "Invalid request parameters."
+            }
+          }
+        }
+      }
+    };
+  }
+
+  // Provides an overview of a specific stock based on PRODUCT_CODE.
+  rpc GetStock (GetStockRequest) returns (stocks.v1alpha1.Stock) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      deprecated: false,
+      summary: "Get Stock Summary",
+      description: "Retrieve a summary of current short positions and basic metadata for a specific stock by its ASX code.",
+      responses: {
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "A successful response containing the stock summary."
+            }
+          }
+        },
+        response_or_reference: {
+          name: "404"
+          value: {
+            response: {
+              description: "The specified stock code was not found."
+            }
+          }
+        }
+      }
+    };
+  }
+
+  // Provides a more in-depth breakdown of a particular stock's metadata.
+  rpc GetStockDetails (GetStockDetailsRequest) returns (stocks.v1alpha1.StockDetails) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      deprecated: false,
+      summary: "Get Stock Details",
+      description: "Retrieve comprehensive metadata for a specific stock, including company history, key people, and financial reports.",
+      responses: {
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "A successful response containing detailed stock information."
+            }
+          }
+        },
+        response_or_reference: {
+          name: "404"
+          value: {
+            response: {
+              description: "The specified stock details were not found."
+            }
+          }
+        }
+      }
+    };
+  }
+
+  // fetch time series data for a specific stock
+  rpc GetStockData (GetStockDataRequest) returns (stocks.v1alpha1.TimeSeriesData) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      deprecated: false,
+      summary: "Get Stock Time Series Data",
+      description: "Retrieve historical short position data for a specific stock over a defined time period.",
+      responses: {
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "A successful response containing historical time series points."
+            }
+          }
+        },
+        response_or_reference: {
+          name: "401"
+          value: {
+            response: {
+              description: "Authentication is required to access private time series data."
+            }
+          }
+        }
+      }
+    };
+  }
+  
+  // Search stocks by symbol or company name
+  rpc SearchStocks (SearchStocksRequest) returns (SearchStocksResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      deprecated: false,
+      summary: "Search Stocks",
+      description: "Search for ASX stocks using full-text search against their ticker symbol or company name.",
+      responses: {
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "A list of matching stocks."
+            }
+          }
+        }
+      }
+    };
+  }
+
+  // Get sync status for admin dashboard
+  rpc GetSyncStatus (GetSyncStatusRequest) returns (GetSyncStatusResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+    option (gnostic.openapi.v3.operation) = {
+      deprecated: false,
+      summary: "Get Sync Status",
+      description: "Administrative endpoint to retrieve the status and history of data synchronization tasks. Requires admin role.",
+      responses: {
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "Recent sync run history."
+            }
+          }
+        },
+        response_or_reference: {
+          name: "403"
+          value: {
+            response: {
+              description: "Forbidden: Admin role is required."
+            }
+          }
+        }
+      }
+    };
+  }
+
+  // Mint an API token for the user. Requires valid authentication.
+  rpc MintToken (MintTokenRequest) returns (MintTokenResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (gnostic.openapi.v3.operation) = {
+      deprecated: false,
+      summary: "Mint API Token",
+      description: "Generate a bespoke API token for programmatic access to Shorted APIs. Requires valid session authentication.",
+      responses: {
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "A new API token."
+            }
+          }
+        },
+        response_or_reference: {
+          name: "401"
+          value: {
+            response: {
+              description: "Unauthorized: User must be signed in."
+            }
+          }
+        }
+      }
+    };
+  }
+}
+
+message MintTokenRequest {
+}
+
+message MintTokenResponse {
+  string token = 1;
 }
 
 // Request for Top10 RPC, specifying the period of time.
@@ -335,6 +331,7 @@ message SearchStocksResponse {
   repeated stocks.v1alpha1.Stock stocks = 2;  // Matching stocks
   int32 count = 3;                     // Number of results returned
 }
+
 // Request for GetSyncStatus RPC
 message GetSyncStatusRequest {
   int32 limit = 1; // Number of past runs to return (default: 10)

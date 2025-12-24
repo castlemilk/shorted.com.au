@@ -152,3 +152,5 @@ Or check via the GCP Console:
 - **Deployment Script**: `services/market-data/deploy-daily-sync.sh`
 - **Dockerfile**: `services/market-data/Dockerfile.daily-sync`
 - **Comprehensive Syncer**: `services/daily-sync/comprehensive_daily_sync.py`
+
+

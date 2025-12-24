@@ -12,7 +12,7 @@ export function SignOut() {
     <Button
       onClick={handleSignOut}
       variant="ghost"
-      className="w-full justify-start px-2 py-1.5 text-xs font-normal hover:bg-accent hover:text-accent-foreground"
+      className="w-full justify-start px-3 py-2 text-sm font-medium text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
     >
       Sign out
     </Button>

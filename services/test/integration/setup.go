@@ -37,7 +37,9 @@ func SetupTestDatabase(ctx context.Context, t *testing.T) *TestContainer {
 	// Disable reaper if TESTCONTAINERS_RYUK_DISABLED is not already set
 	// This prevents "port not found: creating reaper failed" errors
 	if os.Getenv("TESTCONTAINERS_RYUK_DISABLED") == "" {
-		os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
+		if err := os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true"); err != nil {
+			t.Logf("Warning: failed to set TESTCONTAINERS_RYUK_DISABLED: %v", err)
+		}
 	}
 
 	// Create PostgreSQL container

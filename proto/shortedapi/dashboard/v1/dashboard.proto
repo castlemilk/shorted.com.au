@@ -5,6 +5,7 @@ package dashboard.v1;
 option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/dashboard/v1;dashboardv1";
 
 import "google/api/annotations.proto";
+import "gnostic/openapi/v3/annotations.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/struct.proto";
 
@@ -16,6 +17,20 @@ service DashboardService {
       post: "/v1/dashboards"
       body: "*"
     };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Create Dashboard"
+      description: "Create a new customized dashboard configuration for the authenticated user."
+      responses: {
+        response_or_reference: {
+          name: "201"
+          value: {
+            response: {
+              description: "Dashboard created successfully."
+            }
+          }
+        }
+      }
+    };
   }
 
   // GetDashboard retrieves a specific dashboard by ID
@@ -23,12 +38,48 @@ service DashboardService {
     option (google.api.http) = {
       get: "/v1/dashboards/{dashboard_id}"
     };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Dashboard"
+      description: "Retrieve a specific dashboard configuration by its unique identifier."
+      responses: {
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "Dashboard retrieved successfully."
+            }
+          }
+        },
+        response_or_reference: {
+          name: "404"
+          value: {
+            response: {
+              description: "Dashboard not found."
+            }
+          }
+        }
+      }
+    };
   }
 
   // ListDashboards returns all dashboards for the authenticated user
   rpc ListDashboards(ListDashboardsRequest) returns (ListDashboardsResponse) {
     option (google.api.http) = {
       get: "/v1/dashboards"
+    };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Dashboards"
+      description: "Retrieve a list of all dashboards belonging to the authenticated user."
+      responses: {
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "A list of user dashboards."
+            }
+          }
+        }
+      }
     };
   }
 
@@ -38,6 +89,20 @@ service DashboardService {
       put: "/v1/dashboards/{dashboard_id}"
       body: "*"
     };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Update Dashboard"
+      description: "Update the configuration, name, or widgets of an existing dashboard."
+      responses: {
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "Dashboard updated successfully."
+            }
+          }
+        }
+      }
+    };
   }
 
   // DeleteDashboard removes a dashboard
@@ -45,12 +110,40 @@ service DashboardService {
     option (google.api.http) = {
       delete: "/v1/dashboards/{dashboard_id}"
     };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Delete Dashboard"
+      description: "Permanently remove a dashboard configuration."
+      responses: {
+        response_or_reference: {
+          name: "204"
+          value: {
+            response: {
+              description: "Dashboard deleted successfully."
+            }
+          }
+        }
+      }
+    };
   }
 
   // SetDefaultDashboard sets a dashboard as the user's default
   rpc SetDefaultDashboard(SetDefaultDashboardRequest) returns (SetDefaultDashboardResponse) {
     option (google.api.http) = {
       post: "/v1/dashboards/{dashboard_id}/set-default"
+    };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Set Default Dashboard"
+      description: "Mark a specific dashboard as the default view for the user."
+      responses: {
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "Default dashboard set successfully."
+            }
+          }
+        }
+      }
     };
   }
 }

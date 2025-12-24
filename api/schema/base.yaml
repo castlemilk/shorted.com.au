@@ -5,14 +5,49 @@ info:
 paths:
   /register.v1.RegisterService/RegisterEmail:
     post:
-      x-code-samples:
-        - language: shell
-          label: RegisterEmail
-          source: |
-            curl -X POST https://api.shorted.com.au/register.v1.RegisterService/RegisterEmail \
-            -H "Content-Type: application/json" \
-            -d '{"email": "user@example.com"}'
+      summary: Register Email
+      description: Register an email address to receive updates.
+      tags:
+        - register.v1.RegisterService
   /shorts.v1alpha1.ShortedStocksService/GetTopShorts:
     post:
+      summary: Get Top Shorts
+      description: Retrieve the top shorted stocks on the ASX for a given period.
       tags:
-        - shorts.v1alpha1.ShortedStocksServicezzzzzz
+        - shorts.v1alpha1.ShortedStocksService
+  /shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap:
+    post:
+      summary: Get Industry TreeMap
+      description: Get the industry treemap for a given period.
+      tags:
+        - shorts.v1alpha1.ShortedStocksService
+  /shorts.v1alpha1.ShortedStocksService/GetStock:
+    post:
+      summary: Get Stock Summary
+      description: Get the stock summary for a given stock.
+      tags:
+        - shorts.v1alpha1.ShortedStocksService
+  /shorts.v1alpha1.ShortedStocksService/GetStockDetails:
+    post:
+      summary: Get Stock Details
+      description: Get the stock details for a given stock.
+      tags:
+        - shorts.v1alpha1.ShortedStocksService
+  /shorts.v1alpha1.ShortedStocksService/GetStockData:
+    post:
+      summary: Get Stock Time Series Data
+      description: Get the historical short position data for a given stock.
+      tags:
+        - shorts.v1alpha1.ShortedStocksService
+  /shorts.v1alpha1.ShortedStocksService/SearchStocks:
+    post:
+      summary: Search Stocks
+      description: Search for ASX stocks by name or code.
+      tags:
+        - shorts.v1alpha1.ShortedStocksService
+  /shorts.v1alpha1.ShortedStocksService/MintToken:
+    post:
+      summary: Mint API Token
+      description: Generate a bespoke API token.
+      tags:
+        - shorts.v1alpha1.ShortedStocksService

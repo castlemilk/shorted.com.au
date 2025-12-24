@@ -9,13 +9,44 @@ import { file_gnostic_openapi_v3_annotations } from "../../gnostic/openapi/v3/an
 import { file_google_api_client } from "../../google/api/client_pb";
 import type { IndustryTreeMapSchema, Stock, StockDetailsSchema, StockSchema, TimeSeriesData, TimeSeriesDataSchema } from "../../stocks/v1alpha1/stocks_pb";
 import { file_stocks_v1alpha1_stocks } from "../../stocks/v1alpha1/stocks_pb";
+import { file_options_v1_options } from "../../options/v1/options_pb";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file shorts/v1alpha1/shorts.proto.
  */
 export const file_shorts_v1alpha1_shorts: GenFile = /*@__PURE__*/
-  fileDesc("ChxzaG9ydHMvdjFhbHBoYTEvc2hvcnRzLnByb3RvEg9zaG9ydHMudjFhbHBoYTEiRAoTR2V0VG9wU2hvcnRzUmVxdWVzdBIOCgZwZXJpb2QYASABKAkSDQoFbGltaXQYAiABKAUSDgoGb2Zmc2V0GAMgASgFImgKGUdldEluZHVzdHJ5VHJlZU1hcFJlcXVlc3QSDgoGcGVyaW9kGAEgASgJEg0KBWxpbWl0GAIgASgFEiwKCXZpZXdfbW9kZRgDIAEoDjIZLnNob3J0cy52MWFscGhhMS5WaWV3TW9kZSJcChRHZXRUb3BTaG9ydHNSZXNwb25zZRI0Cgt0aW1lX3NlcmllcxgBIAMoCzIfLnN0b2Nrcy52MWFscGhhMS5UaW1lU2VyaWVzRGF0YRIOCgZvZmZzZXQYAiABKAUiJwoPR2V0U3RvY2tSZXF1ZXN0EhQKDHByb2R1Y3RfY29kZRgBIAEoCSIuChZHZXRTdG9ja0RldGFpbHNSZXF1ZXN0EhQKDHByb2R1Y3RfY29kZRgBIAEoCSI7ChNHZXRTdG9ja0RhdGFSZXF1ZXN0EhQKDHByb2R1Y3RfY29kZRgBIAEoCRIOCgZwZXJpb2QYAiABKAkiTAoTU2VhcmNoU3RvY2tzUmVxdWVzdBINCgVxdWVyeRgBIAEoCRINCgVsaW1pdBgCIAEoBRIXCg9pbmNsdWRlX2RldGFpbHMYAyABKAgiXAoUU2VhcmNoU3RvY2tzUmVzcG9uc2USDQoFcXVlcnkYASABKAkSJgoGc3RvY2tzGAIgAygLMhYuc3RvY2tzLnYxYWxwaGExLlN0b2NrEg0KBWNvdW50GAMgASgFKjUKCFZpZXdNb2RlEhIKDkNVUlJFTlRfQ0hBTkdFEAASFQoRUEVSQ0VOVEFHRV9DSEFOR0UQATLBCQoUU2hvcnRlZFN0b2Nrc1NlcnZpY2US1wEKDEdldFRvcFNob3J0cxIkLnNob3J0cy52MWFscGhhMS5HZXRUb3BTaG9ydHNSZXF1ZXN0GiUuc2hvcnRzLnYxYWxwaGExLkdldFRvcFNob3J0c1Jlc3BvbnNlInraQRNwZXJpb2QsbGltaXQsb2Zmc2V0ukdhGiVHZXQgdGhlIHRvcCBzaG9ydHMgZm9yIGEgZ2l2ZW4gcGVyaW9kQicSFgoDNDAwEg8KDQoLQmFkIFJlcXVlc3QSDQoDMjAwEgYKBAoCT0taDwoNCglCYXNpY0F1dGgSABLOAQoSR2V0SW5kdXN0cnlUcmVlTWFwEiouc2hvcnRzLnYxYWxwaGExLkdldEluZHVzdHJ5VHJlZU1hcFJlcXVlc3QaIC5zdG9ja3MudjFhbHBoYTEuSW5kdXN0cnlUcmVlTWFwImq6R2caK0dldCB0aGUgaW5kdXN0cnkgdHJlZW1hcCBmb3IgYSBnaXZlbiBwZXJpb2RCJxIWCgM0MDASDwoNCgtCYWQgUmVxdWVzdBINCgMyMDASBgoECgJPS1oPCg0KCUJhc2ljQXV0aBIAEqwBCghHZXRTdG9jaxIgLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja1JlcXVlc3QaFi5zdG9ja3MudjFhbHBoYTEuU3RvY2siZrpHYxonR2V0IHRoZSBzdG9jayBzdW1tYXJ5IGZvciBhIGdpdmVuIHN0b2NrQicSFgoDNDAwEg8KDQoLQmFkIFJlcXVlc3QSDQoDMjAwEgYKBAoCT0taDwoNCglCYXNpY0F1dGgSABLBAQoPR2V0U3RvY2tEZXRhaWxzEicuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrRGV0YWlsc1JlcXVlc3QaHS5zdG9ja3MudjFhbHBoYTEuU3RvY2tEZXRhaWxzIma6R2MaJ0dldCB0aGUgc3RvY2sgZGV0YWlscyBmb3IgYSBnaXZlbiBzdG9ja0InEhYKAzQwMBIPCg0KC0JhZCBSZXF1ZXN0Eg0KAzIwMBIGCgQKAk9LWg8KDQoJQmFzaWNBdXRoEgASqQEKDEdldFN0b2NrRGF0YRIkLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja0RhdGFSZXF1ZXN0Gh8uc3RvY2tzLnYxYWxwaGExLlRpbWVTZXJpZXNEYXRhIlK6R08aJEdldCB0aGUgc3RvY2sgZGF0YSBmb3IgYSBnaXZlbiBzdG9ja0InEhYKAzQwMBIPCg0KC0JhZCBSZXF1ZXN0Eg0KAzIwMBIGCgQKAk9LEscBCgxTZWFyY2hTdG9ja3MSJC5zaG9ydHMudjFhbHBoYTEuU2VhcmNoU3RvY2tzUmVxdWVzdBolLnNob3J0cy52MWFscGhhMS5TZWFyY2hTdG9ja3NSZXNwb25zZSJqukdnGitTZWFyY2ggQVNYIHN0b2NrcyBieSBzeW1ib2wgb3IgY29tcGFueSBuYW1lQicSFgoDNDAwEg8KDQoLQmFkIFJlcXVlc3QSDQoDMjAwEgYKBAoCT0taDwoNCglCYXNpY0F1dGgSABoVykESYXBpLnNob3J0ZWQuY29tLmF1Qp0DChNjb20uc2hvcnRzLnYxYWxwaGExQgtTaG9ydHNQcm90b1ABWllnaXRodWIuY29tL2Nhc3RsZW1pbGsvc2hvcnRlZC5jb20uYXUvc2VydmljZXMvZ2VuL3Byb3RvL2dvL3Nob3J0cy92MWFscGhhMTtzaG9ydHN2MWFscGhhMaICA1NYWKoCD1Nob3J0cy5WMWFscGhhMcoCD1Nob3J0c1xWMWFscGhhMeICG1Nob3J0c1xWMWFscGhhMVxHUEJNZXRhZGF0YeoCEFNob3J0czo6VjFhbHBoYTG6R78BEnwKC1Nob3J0ZWQgQVBJEg1TaG9ydGVkIEFQSSdzIiUSDnNob3J0ZWQuY29tLmF1GhNoZWxwQHNob3J0ZWQuY29tLmF1KjMKE1Byb3ByaWV0YXJ5IGxpY2Vuc2USHGh0dHBzOi8vc2hvcnRlZC5jb20uYXUvdGVybXMyAnYxGhwKGmh0dHBzOi8vYXBpLnNob3J0ZWQuY29tLmF1KiE6HwodCglBdXRoVG9rZW4SEAoOCgRodHRwKgZiZWFyZXJiBnByb3RvMw", [file_google_api_annotations, file_gnostic_openapi_v3_annotations, file_google_api_client, file_stocks_v1alpha1_stocks]);
+  fileDesc("ChxzaG9ydHMvdjFhbHBoYTEvc2hvcnRzLnByb3RvEg9zaG9ydHMudjFhbHBoYTEiEgoQTWludFRva2VuUmVxdWVzdCIiChFNaW50VG9rZW5SZXNwb25zZRINCgV0b2tlbhgBIAEoCSJEChNHZXRUb3BTaG9ydHNSZXF1ZXN0Eg4KBnBlcmlvZBgBIAEoCRINCgVsaW1pdBgCIAEoBRIOCgZvZmZzZXQYAyABKAUiaAoZR2V0SW5kdXN0cnlUcmVlTWFwUmVxdWVzdBIOCgZwZXJpb2QYASABKAkSDQoFbGltaXQYAiABKAUSLAoJdmlld19tb2RlGAMgASgOMhkuc2hvcnRzLnYxYWxwaGExLlZpZXdNb2RlIlwKFEdldFRvcFNob3J0c1Jlc3BvbnNlEjQKC3RpbWVfc2VyaWVzGAEgAygLMh8uc3RvY2tzLnYxYWxwaGExLlRpbWVTZXJpZXNEYXRhEg4KBm9mZnNldBgCIAEoBSInCg9HZXRTdG9ja1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIi4KFkdldFN0b2NrRGV0YWlsc1JlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJIjsKE0dldFN0b2NrRGF0YVJlcXVlc3QSFAoMcHJvZHVjdF9jb2RlGAEgASgJEg4KBnBlcmlvZBgCIAEoCSJMChNTZWFyY2hTdG9ja3NSZXF1ZXN0Eg0KBXF1ZXJ5GAEgASgJEg0KBWxpbWl0GAIgASgFEhcKD2luY2x1ZGVfZGV0YWlscxgDIAEoCCJcChRTZWFyY2hTdG9ja3NSZXNwb25zZRINCgVxdWVyeRgBIAEoCRImCgZzdG9ja3MYAiADKAsyFi5zdG9ja3MudjFhbHBoYTEuU3RvY2sSDQoFY291bnQYAyABKAUiJQoUR2V0U3luY1N0YXR1c1JlcXVlc3QSDQoFbGltaXQYASABKAUiPwoVR2V0U3luY1N0YXR1c1Jlc3BvbnNlEiYKBHJ1bnMYASADKAsyGC5zaG9ydHMudjFhbHBoYTEuU3luY1J1biKyAgoHU3luY1J1bhIOCgZydW5faWQYASABKAkSEgoKc3RhcnRlZF9hdBgCIAEoCRIUCgxjb21wbGV0ZWRfYXQYAyABKAkSDgoGc3RhdHVzGAQgASgJEhUKDWVycm9yX21lc3NhZ2UYBSABKAkSHgoWc2hvcnRzX3JlY29yZHNfdXBkYXRlZBgGIAEoBRIeChZwcmljZXNfcmVjb3Jkc191cGRhdGVkGAcgASgFEh8KF21ldHJpY3NfcmVjb3Jkc191cGRhdGVkGAggASgFEh4KFmFsZ29saWFfcmVjb3Jkc19zeW5jZWQYCSABKAUSHgoWdG90YWxfZHVyYXRpb25fc2Vjb25kcxgKIAEoARITCgtlbnZpcm9ubWVudBgLIAEoCRIQCghob3N0bmFtZRgMIAEoCSo1CghWaWV3TW9kZRISCg5DVVJSRU5UX0NIQU5HRRAAEhUKEVBFUkNFTlRBR0VfQ0hBTkdFEAEy1hUKFFNob3J0ZWRTdG9ja3NTZXJ2aWNlEoYDCgxHZXRUb3BTaG9ydHMSJC5zaG9ydHMudjFhbHBoYTEuR2V0VG9wU2hvcnRzUmVxdWVzdBolLnNob3J0cy52MWFscGhhMS5HZXRUb3BTaG9ydHNSZXNwb25zZSKoAtpBE3BlcmlvZCxsaW1pdCxvZmZzZXS6R4oCEg5HZXQgVG9wIFNob3J0cxpqUmV0cmlldmUgdGhlIHRvcCBzaG9ydGVkIHN0b2NrcyBvbiB0aGUgQVNYIGZvciBhIGdpdmVuIHRpbWUgcGVyaW9kLiBTdXBwb3J0cyBwYWdpbmF0aW9uIGFuZCBjdXN0b20gbGltaXRzLkKLARJYCgMyMDASUQpPCk1BIHN1Y2Nlc3NmdWwgcmVzcG9uc2UgY29udGFpbmluZyB0aW1lIHNlcmllcyBkYXRhIGZvciB0aGUgdG9wIHNob3J0ZWQgc3RvY2tzLhIvCgM0MDASKAomCiRJbnZhbGlkIHJlcXVlc3QgcGFyYW1ldGVycyBwcm92aWRlZC6AtRgBEv0CChJHZXRJbmR1c3RyeVRyZWVNYXASKi5zaG9ydHMudjFhbHBoYTEuR2V0SW5kdXN0cnlUcmVlTWFwUmVxdWVzdBogLnN0b2Nrcy52MWFscGhhMS5JbmR1c3RyeVRyZWVNYXAimAK6R5ACEhRHZXQgSW5kdXN0cnkgVHJlZU1hcBp7UmV0cmlldmUgYSBoaWVyYXJjaGljYWwgdHJlZW1hcCBvZiBzaG9ydCBwb3NpdGlvbnMgZ3JvdXBlZCBieSBpbmR1c3RyeS4gVXNlZnVsIGZvciB2aXN1YWxpemluZyBtYXJrZXQtd2lkZSBzaG9ydGluZyB0cmVuZHMuQnsSUQoDMjAwEkoKSApGQSBzdWNjZXNzZnVsIHJlc3BvbnNlIGNvbnRhaW5pbmcgaW5kdXN0cnktZ3JvdXBlZCBzaG9ydCBwb3NpdGlvbiBkYXRhLhImCgM0MDASHwodChtJbnZhbGlkIHJlcXVlc3QgcGFyYW1ldGVycy6AtRgBEsACCghHZXRTdG9jaxIgLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja1JlcXVlc3QaFi5zdG9ja3MudjFhbHBoYTEuU3RvY2si+QG6R/EBEhFHZXQgU3RvY2sgU3VtbWFyeRpmUmV0cmlldmUgYSBzdW1tYXJ5IG9mIGN1cnJlbnQgc2hvcnQgcG9zaXRpb25zIGFuZCBiYXNpYyBtZXRhZGF0YSBmb3IgYSBzcGVjaWZpYyBzdG9jayBieSBpdHMgQVNYIGNvZGUuQnQSPgoDMjAwEjcKNQozQSBzdWNjZXNzZnVsIHJlc3BvbnNlIGNvbnRhaW5pbmcgdGhlIHN0b2NrIHN1bW1hcnkuEjIKAzQwNBIrCikKJ1RoZSBzcGVjaWZpZWQgc3RvY2sgY29kZSB3YXMgbm90IGZvdW5kLoC1GAES8AIKD0dldFN0b2NrRGV0YWlscxInLnNob3J0cy52MWFscGhhMS5HZXRTdG9ja0RldGFpbHNSZXF1ZXN0Gh0uc3RvY2tzLnYxYWxwaGExLlN0b2NrRGV0YWlscyKUArpHjAISEUdldCBTdG9jayBEZXRhaWxzGnNSZXRyaWV2ZSBjb21wcmVoZW5zaXZlIG1ldGFkYXRhIGZvciBhIHNwZWNpZmljIHN0b2NrLCBpbmNsdWRpbmcgY29tcGFueSBoaXN0b3J5LCBrZXkgcGVvcGxlLCBhbmQgZmluYW5jaWFsIHJlcG9ydHMuQoEBEkcKAzIwMBJACj4KPEEgc3VjY2Vzc2Z1bCByZXNwb25zZSBjb250YWluaW5nIGRldGFpbGVkIHN0b2NrIGluZm9ybWF0aW9uLhI2CgM0MDQSLwotCitUaGUgc3BlY2lmaWVkIHN0b2NrIGRldGFpbHMgd2VyZSBub3QgZm91bmQugLUYARLwAgoMR2V0U3RvY2tEYXRhEiQuc2hvcnRzLnYxYWxwaGExLkdldFN0b2NrRGF0YVJlcXVlc3QaHy5zdG9ja3MudjFhbHBoYTEuVGltZVNlcmllc0RhdGEimAK6R5ACEhpHZXQgU3RvY2sgVGltZSBTZXJpZXMgRGF0YRpYUmV0cmlldmUgaGlzdG9yaWNhbCBzaG9ydCBwb3NpdGlvbiBkYXRhIGZvciBhIHNwZWNpZmljIHN0b2NrIG92ZXIgYSBkZWZpbmVkIHRpbWUgcGVyaW9kLkKXARJKCgMyMDASQwpBCj9BIHN1Y2Nlc3NmdWwgcmVzcG9uc2UgY29udGFpbmluZyBoaXN0b3JpY2FsIHRpbWUgc2VyaWVzIHBvaW50cy4SSQoDNDAxEkIKQAo+QXV0aGVudGljYXRpb24gaXMgcmVxdWlyZWQgdG8gYWNjZXNzIHByaXZhdGUgdGltZSBzZXJpZXMgZGF0YS6AtRgBEvkBCgxTZWFyY2hTdG9ja3MSJC5zaG9ydHMudjFhbHBoYTEuU2VhcmNoU3RvY2tzUmVxdWVzdBolLnNob3J0cy52MWFscGhhMS5TZWFyY2hTdG9ja3NSZXNwb25zZSKbAbpHkwESDVNlYXJjaCBTdG9ja3MaWVNlYXJjaCBmb3IgQVNYIHN0b2NrcyB1c2luZyBmdWxsLXRleHQgc2VhcmNoIGFnYWluc3QgdGhlaXIgdGlja2VyIHN5bWJvbCBvciBjb21wYW55IG5hbWUuQicSJQoDMjAwEh4KHAoaQSBsaXN0IG9mIG1hdGNoaW5nIHN0b2Nrcy6AtRgBEskCCg1HZXRTeW5jU3RhdHVzEiUuc2hvcnRzLnYxYWxwaGExLkdldFN5bmNTdGF0dXNSZXF1ZXN0GiYuc2hvcnRzLnYxYWxwaGExLkdldFN5bmNTdGF0dXNSZXNwb25zZSLoAbpH1wESD0dldCBTeW5jIFN0YXR1cxpuQWRtaW5pc3RyYXRpdmUgZW5kcG9pbnQgdG8gcmV0cmlldmUgdGhlIHN0YXR1cyBhbmQgaGlzdG9yeSBvZiBkYXRhIHN5bmNocm9uaXphdGlvbiB0YXNrcy4gUmVxdWlyZXMgYWRtaW4gcm9sZS5CVBIjCgMyMDASHAoaChhSZWNlbnQgc3luYyBydW4gaGlzdG9yeS4SLQoDNDAzEiYKJAoiRm9yYmlkZGVuOiBBZG1pbiByb2xlIGlzIHJlcXVpcmVkLoC1GAKKtRgFYWRtaW4SrAIKCU1pbnRUb2tlbhIhLnNob3J0cy52MWFscGhhMS5NaW50VG9rZW5SZXF1ZXN0GiIuc2hvcnRzLnYxYWxwaGExLk1pbnRUb2tlblJlc3BvbnNlItcBukfPARIOTWludCBBUEkgVG9rZW4abEdlbmVyYXRlIGEgYmVzcG9rZSBBUEkgdG9rZW4gZm9yIHByb2dyYW1tYXRpYyBhY2Nlc3MgdG8gU2hvcnRlZCBBUElzLiBSZXF1aXJlcyB2YWxpZCBzZXNzaW9uIGF1dGhlbnRpY2F0aW9uLkJPEhsKAzIwMBIUChIKEEEgbmV3IEFQSSB0b2tlbi4SMAoDNDAxEikKJwolVW5hdXRob3JpemVkOiBVc2VyIG11c3QgYmUgc2lnbmVkIGluLoC1GAIaFcpBEmFwaS5zaG9ydGVkLmNvbS5hdUKeAlpZZ2l0aHViLmNvbS9jYXN0bGVtaWxrL3Nob3J0ZWQuY29tLmF1L3NlcnZpY2VzL2dlbi9wcm90by9nby9zaG9ydHMvdjFhbHBoYTE7c2hvcnRzdjFhbHBoYTG6R78BEnwKC1Nob3J0ZWQgQVBJEg1TaG9ydGVkIEFQSSdzIiUSDnNob3J0ZWQuY29tLmF1GhNoZWxwQHNob3J0ZWQuY29tLmF1KjMKE1Byb3ByaWV0YXJ5IGxpY2Vuc2USHGh0dHBzOi8vc2hvcnRlZC5jb20uYXUvdGVybXMyAnYxGhwKGmh0dHBzOi8vYXBpLnNob3J0ZWQuY29tLmF1KiE6HwodCglBdXRoVG9rZW4SEAoOCgRodHRwKgZiZWFyZXJiBnByb3RvMw", [file_google_api_annotations, file_gnostic_openapi_v3_annotations, file_google_api_client, file_stocks_v1alpha1_stocks, file_options_v1_options]);
+
+/**
+ * @generated from message shorts.v1alpha1.MintTokenRequest
+ */
+export type MintTokenRequest = Message<"shorts.v1alpha1.MintTokenRequest"> & {
+};
+
+/**
+ * Describes the message shorts.v1alpha1.MintTokenRequest.
+ * Use `create(MintTokenRequestSchema)` to create a new message.
+ */
+export const MintTokenRequestSchema: GenMessage<MintTokenRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 0);
+
+/**
+ * @generated from message shorts.v1alpha1.MintTokenResponse
+ */
+export type MintTokenResponse = Message<"shorts.v1alpha1.MintTokenResponse"> & {
+  /**
+   * @generated from field: string token = 1;
+   */
+  token: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.MintTokenResponse.
+ * Use `create(MintTokenResponseSchema)` to create a new message.
+ */
+export const MintTokenResponseSchema: GenMessage<MintTokenResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 1);
 
 /**
  * Request for Top10 RPC, specifying the period of time.
@@ -44,7 +75,7 @@ export type GetTopShortsRequest = Message<"shorts.v1alpha1.GetTopShortsRequest">
  * Use `create(GetTopShortsRequestSchema)` to create a new message.
  */
 export const GetTopShortsRequestSchema: GenMessage<GetTopShortsRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_shorts, 0);
+  messageDesc(file_shorts_v1alpha1_shorts, 2);
 
 /**
  * Request for Top10 RPC, specifying the period of time.
@@ -77,7 +108,7 @@ export type GetIndustryTreeMapRequest = Message<"shorts.v1alpha1.GetIndustryTree
  * Use `create(GetIndustryTreeMapRequestSchema)` to create a new message.
  */
 export const GetIndustryTreeMapRequestSchema: GenMessage<GetIndustryTreeMapRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_shorts, 1);
+  messageDesc(file_shorts_v1alpha1_shorts, 3);
 
 /**
  * Response for Top10 RPC, including time series data for each of the top 10 short positions.
@@ -101,7 +132,7 @@ export type GetTopShortsResponse = Message<"shorts.v1alpha1.GetTopShortsResponse
  * Use `create(GetTopShortsResponseSchema)` to create a new message.
  */
 export const GetTopShortsResponseSchema: GenMessage<GetTopShortsResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_shorts, 2);
+  messageDesc(file_shorts_v1alpha1_shorts, 4);
 
 /**
  * Request for GetStockSummary RPC, specifying the product code.
@@ -120,7 +151,7 @@ export type GetStockRequest = Message<"shorts.v1alpha1.GetStockRequest"> & {
  * Use `create(GetStockRequestSchema)` to create a new message.
  */
 export const GetStockRequestSchema: GenMessage<GetStockRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_shorts, 3);
+  messageDesc(file_shorts_v1alpha1_shorts, 5);
 
 /**
  * Request for GetStockDetails RPC, specifying the product code.
@@ -139,7 +170,7 @@ export type GetStockDetailsRequest = Message<"shorts.v1alpha1.GetStockDetailsReq
  * Use `create(GetStockDetailsRequestSchema)` to create a new message.
  */
 export const GetStockDetailsRequestSchema: GenMessage<GetStockDetailsRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_shorts, 4);
+  messageDesc(file_shorts_v1alpha1_shorts, 6);
 
 /**
  * Request for GetStockDataRequest RPC, specifying the product code.
@@ -163,7 +194,7 @@ export type GetStockDataRequest = Message<"shorts.v1alpha1.GetStockDataRequest">
  * Use `create(GetStockDataRequestSchema)` to create a new message.
  */
 export const GetStockDataRequestSchema: GenMessage<GetStockDataRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_shorts, 5);
+  messageDesc(file_shorts_v1alpha1_shorts, 7);
 
 /**
  * Request for SearchStocks RPC, specifying the search query.
@@ -198,7 +229,7 @@ export type SearchStocksRequest = Message<"shorts.v1alpha1.SearchStocksRequest">
  * Use `create(SearchStocksRequestSchema)` to create a new message.
  */
 export const SearchStocksRequestSchema: GenMessage<SearchStocksRequest> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_shorts, 6);
+  messageDesc(file_shorts_v1alpha1_shorts, 8);
 
 /**
  * Response for SearchStocks RPC, containing matching stocks.
@@ -233,7 +264,121 @@ export type SearchStocksResponse = Message<"shorts.v1alpha1.SearchStocksResponse
  * Use `create(SearchStocksResponseSchema)` to create a new message.
  */
 export const SearchStocksResponseSchema: GenMessage<SearchStocksResponse> = /*@__PURE__*/
-  messageDesc(file_shorts_v1alpha1_shorts, 7);
+  messageDesc(file_shorts_v1alpha1_shorts, 9);
+
+/**
+ * Request for GetSyncStatus RPC
+ *
+ * @generated from message shorts.v1alpha1.GetSyncStatusRequest
+ */
+export type GetSyncStatusRequest = Message<"shorts.v1alpha1.GetSyncStatusRequest"> & {
+  /**
+   * Number of past runs to return (default: 10)
+   *
+   * @generated from field: int32 limit = 1;
+   */
+  limit: number;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetSyncStatusRequest.
+ * Use `create(GetSyncStatusRequestSchema)` to create a new message.
+ */
+export const GetSyncStatusRequestSchema: GenMessage<GetSyncStatusRequest> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 10);
+
+/**
+ * Response for GetSyncStatus RPC
+ *
+ * @generated from message shorts.v1alpha1.GetSyncStatusResponse
+ */
+export type GetSyncStatusResponse = Message<"shorts.v1alpha1.GetSyncStatusResponse"> & {
+  /**
+   * @generated from field: repeated shorts.v1alpha1.SyncRun runs = 1;
+   */
+  runs: SyncRun[];
+};
+
+/**
+ * Describes the message shorts.v1alpha1.GetSyncStatusResponse.
+ * Use `create(GetSyncStatusResponseSchema)` to create a new message.
+ */
+export const GetSyncStatusResponseSchema: GenMessage<GetSyncStatusResponse> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 11);
+
+/**
+ * Represents a single sync run execution
+ *
+ * @generated from message shorts.v1alpha1.SyncRun
+ */
+export type SyncRun = Message<"shorts.v1alpha1.SyncRun"> & {
+  /**
+   * @generated from field: string run_id = 1;
+   */
+  runId: string;
+
+  /**
+   * @generated from field: string started_at = 2;
+   */
+  startedAt: string;
+
+  /**
+   * @generated from field: string completed_at = 3;
+   */
+  completedAt: string;
+
+  /**
+   * @generated from field: string status = 4;
+   */
+  status: string;
+
+  /**
+   * @generated from field: string error_message = 5;
+   */
+  errorMessage: string;
+
+  /**
+   * @generated from field: int32 shorts_records_updated = 6;
+   */
+  shortsRecordsUpdated: number;
+
+  /**
+   * @generated from field: int32 prices_records_updated = 7;
+   */
+  pricesRecordsUpdated: number;
+
+  /**
+   * @generated from field: int32 metrics_records_updated = 8;
+   */
+  metricsRecordsUpdated: number;
+
+  /**
+   * @generated from field: int32 algolia_records_synced = 9;
+   */
+  algoliaRecordsSynced: number;
+
+  /**
+   * @generated from field: double total_duration_seconds = 10;
+   */
+  totalDurationSeconds: number;
+
+  /**
+   * @generated from field: string environment = 11;
+   */
+  environment: string;
+
+  /**
+   * @generated from field: string hostname = 12;
+   */
+  hostname: string;
+};
+
+/**
+ * Describes the message shorts.v1alpha1.SyncRun.
+ * Use `create(SyncRunSchema)` to create a new message.
+ */
+export const SyncRunSchema: GenMessage<SyncRun> = /*@__PURE__*/
+  messageDesc(file_shorts_v1alpha1_shorts, 12);
 
 /**
  * @generated from enum shorts.v1alpha1.ViewMode
@@ -275,6 +420,8 @@ export const ShortedStocksService: GenService<{
     output: typeof GetTopShortsResponseSchema;
   },
   /**
+   * Get Industry TreeMap for short positions.
+   *
    * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap
    */
   getIndustryTreeMap: {
@@ -321,6 +468,26 @@ export const ShortedStocksService: GenService<{
     methodKind: "unary";
     input: typeof SearchStocksRequestSchema;
     output: typeof SearchStocksResponseSchema;
+  },
+  /**
+   * Get sync status for admin dashboard
+   *
+   * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetSyncStatus
+   */
+  getSyncStatus: {
+    methodKind: "unary";
+    input: typeof GetSyncStatusRequestSchema;
+    output: typeof GetSyncStatusResponseSchema;
+  },
+  /**
+   * Mint an API token for the user. Requires valid authentication.
+   *
+   * @generated from rpc shorts.v1alpha1.ShortedStocksService.MintToken
+   */
+  mintToken: {
+    methodKind: "unary";
+    input: typeof MintTokenRequestSchema;
+    output: typeof MintTokenResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_shorts_v1alpha1_shorts, 0);

@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -283,7 +284,9 @@ func TestSearchStocksHTTPAPI(t *testing.T) {
 
 			resp, err := http.Get(searchURL)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func() {
+				_ = resp.Body.Close()
+			}()
 
 			assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -315,7 +318,9 @@ func TestSearchStocksHTTPAPI(t *testing.T) {
 
 			resp, err := http.Get(searchURL)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func() {
+				_ = resp.Body.Close()
+			}()
 
 			assert.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -335,7 +340,9 @@ func TestSearchStocksHTTPAPI(t *testing.T) {
 
 			resp, err := http.Get(searchURL)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func() {
+				_ = resp.Body.Close()
+			}()
 
 			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 		})
@@ -345,7 +352,9 @@ func TestSearchStocksHTTPAPI(t *testing.T) {
 
 			resp, err := http.Get(searchURL)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func() {
+				_ = resp.Body.Close()
+			}()
 
 			assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 		})
@@ -356,7 +365,9 @@ func TestSearchStocksHTTPAPI(t *testing.T) {
 			req, _ := http.NewRequest(http.MethodDelete, searchURL, nil)
 			resp, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func() {
+				_ = resp.Body.Close()
+			}()
 
 			assert.Equal(t, http.StatusMethodNotAllowed, resp.StatusCode)
 		})
@@ -366,7 +377,9 @@ func TestSearchStocksHTTPAPI(t *testing.T) {
 
 			resp, err := http.Get(searchURL)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func() {
+				_ = resp.Body.Close()
+			}()
 
 			// Check CORS headers are present
 			assert.Equal(t, "*", resp.Header.Get("Access-Control-Allow-Origin"))
@@ -391,19 +404,22 @@ func TestAlgoliaProxyEndpoint(t *testing.T) {
 
 		resp, err := http.Get(searchURL)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() {
+			_ = resp.Body.Close()
+		}()
 
 		// Either returns results (if Algolia configured) or ServiceUnavailable
-		if resp.StatusCode == http.StatusOK {
+		switch resp.StatusCode {
+		case http.StatusOK:
 			var result struct {
 				Hits []interface{} `json:"hits"`
 			}
 			err = json.NewDecoder(resp.Body).Decode(&result)
 			require.NoError(t, err)
 			t.Logf("Algolia returned %d hits", len(result.Hits))
-		} else if resp.StatusCode == http.StatusServiceUnavailable {
+		case http.StatusServiceUnavailable:
 			t.Log("Algolia not configured - endpoint correctly returns 503")
-		} else {
+		default:
 			t.Errorf("Unexpected status code: %d", resp.StatusCode)
 		}
 	})
@@ -411,15 +427,13 @@ func TestAlgoliaProxyEndpoint(t *testing.T) {
 	t.Run("AlgoliaSearchPOST", func(t *testing.T) {
 		searchURL := fmt.Sprintf("%s/api/algolia/search", apiURL)
 
-		body := `{"query": "bank", "hitsPerPage": 5}`
-		resp, err := http.Post(searchURL, "application/json", nil)
-		_ = body // body would be used in a proper POST request
-
-		req, _ := http.NewRequest(http.MethodPost, searchURL, nil)
+		req, _ := http.NewRequest(http.MethodPost, searchURL, bytes.NewBufferString(`{"query": "bank", "hitsPerPage": 5}`))
 		req.Header.Set("Content-Type", "application/json")
-		resp, err = http.DefaultClient.Do(req)
+		resp, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() {
+			_ = resp.Body.Close()
+		}()
 
 		// Should handle POST method
 		if resp.StatusCode == http.StatusServiceUnavailable {
@@ -436,7 +450,9 @@ func TestAlgoliaProxyEndpoint(t *testing.T) {
 
 		resp, err := http.Get(searchURL)
 		require.NoError(t, err)
-		defer resp.Body.Close()
+		defer func() {
+			_ = resp.Body.Close()
+		}()
 
 		// Should return BadRequest or ServiceUnavailable
 		assert.True(t, resp.StatusCode == http.StatusBadRequest || resp.StatusCode == http.StatusServiceUnavailable,
