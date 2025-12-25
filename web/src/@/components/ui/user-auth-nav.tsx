@@ -5,6 +5,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "~/@/components/ui/dropdown-menu";
 import Avatar from "~/@/components/ui/avatar";
@@ -54,6 +55,14 @@ export const UserAuthNav = () => {
           <DropdownMenuItem asChild className="cursor-pointer focus:bg-secondary text-blue-500 font-medium">
             <Link href="/docs/api" className="w-full">API Documentation</Link>
           </DropdownMenuItem>
+          {session?.user?.isAdmin && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild className="cursor-pointer focus:bg-secondary text-purple-500 font-medium">
+                <Link href="/admin/enrichments" className="w-full">Admin: Enrichments</Link>
+              </DropdownMenuItem>
+            </>
+          )}
         </div>
         <div className="p-1 border-t border-border/50">
           <DropdownMenuItem className="p-0 focus:bg-destructive/10">
