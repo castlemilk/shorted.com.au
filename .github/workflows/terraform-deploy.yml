@@ -40,6 +40,8 @@ jobs:
       image-tag: ${{ steps.set-env.outputs.image-tag }}
       is-preview: ${{ steps.set-env.outputs.is-preview }}
       pr-number: ${{ steps.set-env.outputs.pr-number }}
+      wip-provider: ${{ steps.set-env.outputs.wip-provider }}
+      sa-email: ${{ steps.set-env.outputs.sa-email }}
     steps:
       - name: Determine environment
         id: set-env
@@ -50,19 +52,27 @@ jobs:
             echo "image-tag=pr-${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
             echo "is-preview=true" >> $GITHUB_OUTPUT
             echo "pr-number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+            echo "wip-provider=projects/234770780438/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_OUTPUT
+            echo "sa-email=github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" == "release" ]; then
             echo "environment=prod" >> $GITHUB_OUTPUT
             echo "project-id=rosy-clover-477102-t5" >> $GITHUB_OUTPUT
             echo "image-tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
             echo "is-preview=false" >> $GITHUB_OUTPUT
             echo "pr-number=" >> $GITHUB_OUTPUT
+            echo "wip-provider=projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_OUTPUT
+            echo "sa-email=github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com" >> $GITHUB_OUTPUT
           elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             ENV="${{ github.event.inputs.environment }}"
             echo "environment=$ENV" >> $GITHUB_OUTPUT
             if [ "$ENV" == "prod" ]; then
               echo "project-id=rosy-clover-477102-t5" >> $GITHUB_OUTPUT
+              echo "wip-provider=projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_OUTPUT
+              echo "sa-email=github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com" >> $GITHUB_OUTPUT
             else
               echo "project-id=shorted-dev-aba5688f" >> $GITHUB_OUTPUT
+              echo "wip-provider=projects/234770780438/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_OUTPUT
+              echo "sa-email=github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com" >> $GITHUB_OUTPUT
             fi
             echo "image-tag=manual-${{ github.sha }}" >> $GITHUB_OUTPUT
             echo "is-preview=false" >> $GITHUB_OUTPUT
@@ -74,6 +84,8 @@ jobs:
             echo "image-tag=dev-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
             echo "is-preview=false" >> $GITHUB_OUTPUT
             echo "pr-number=" >> $GITHUB_OUTPUT
+            echo "wip-provider=projects/234770780438/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_OUTPUT
+            echo "sa-email=github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com" >> $GITHUB_OUTPUT
           fi
 
   build-and-push-images:
@@ -104,8 +116,8 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIP_PROVIDER }}
-          service_account: ${{ secrets.SA_EMAIL }}
+          workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
+          service_account: ${{ needs.determine-environment.outputs.sa-email }}
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -150,8 +162,8 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIP_PROVIDER }}
-          service_account: ${{ secrets.SA_EMAIL }}
+          workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
+          service_account: ${{ needs.determine-environment.outputs.sa-email }}
 
       - name: Terraform Init
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
@@ -234,8 +246,8 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIP_PROVIDER }}
-          service_account: ${{ secrets.SA_EMAIL }}
+          workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
+          service_account: ${{ needs.determine-environment.outputs.sa-email }}
 
       - name: Create Terraform workspace for PR
         id: deploy
@@ -449,8 +461,8 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIP_PROVIDER }}
-          service_account: ${{ secrets.SA_EMAIL }}
+          workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
+          service_account: ${{ needs.determine-environment.outputs.sa-email }}
 
       - name: Terraform Init
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
@@ -528,6 +540,11 @@ jobs:
   cleanup-preview:
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    env:
+      # Preview environments are always in dev project
+      DEV_PROJECT_ID: shorted-dev-aba5688f
+      DEV_WIP_PROVIDER: projects/234770780438/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+      DEV_SA_EMAIL: github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -540,14 +557,14 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIP_PROVIDER }}
-          service_account: ${{ secrets.SA_EMAIL }}
+          workload_identity_provider: ${{ env.DEV_WIP_PROVIDER }}
+          service_account: ${{ env.DEV_SA_EMAIL }}
 
       - name: Destroy preview environment
         working-directory: terraform
         env:
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          GCP_PROJECT_ID: shorted-dev-aba5688f
           GCP_REGION: australia-southeast2
         run: |
           echo "🧹 Cleaning up preview environment for PR #${PR_NUMBER}..."
