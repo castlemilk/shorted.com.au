@@ -182,7 +182,11 @@ func (s *DefaultLogoScraper) fetchPage(ctx context.Context, pageURL string) (*go
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log error but don't fail - response body close errors are usually non-critical
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
@@ -557,7 +561,9 @@ func parseIntAttr(sel *goquery.Selection, attr string) int {
 	val = strings.TrimSuffix(val, "px")
 
 	var result int
-	fmt.Sscanf(val, "%d", &result)
+	if _, err := fmt.Sscanf(val, "%d", &result); err != nil {
+		return 0
+	}
 	return result
 }
 
@@ -570,9 +576,13 @@ func parseSizes(sizes string) (width, height int) {
 	re := regexp.MustCompile(`(\d+)(?:x(\d+))?`)
 	matches := re.FindStringSubmatch(sizes)
 	if len(matches) >= 2 {
-		fmt.Sscanf(matches[1], "%d", &width)
+		if _, err := fmt.Sscanf(matches[1], "%d", &width); err != nil {
+			width = 0
+		}
 		if len(matches) >= 3 && matches[2] != "" {
-			fmt.Sscanf(matches[2], "%d", &height)
+			if _, err := fmt.Sscanf(matches[2], "%d", &height); err != nil {
+				height = width // Fallback to square if parsing fails
+			}
 		} else {
 			height = width // Square
 		}

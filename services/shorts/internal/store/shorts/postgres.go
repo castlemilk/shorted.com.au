@@ -724,7 +724,9 @@ func mergeKeyMetricsToInfo(keyMetrics map[string]interface{}, existing *stocksv1
 			if trimmed == "" || trimmed == "0" || trimmed == "0.0" || trimmed == "0000" {
 				return 0
 			}
-			fmt.Sscanf(trimmed, "%f", &f)
+			if _, err := fmt.Sscanf(trimmed, "%f", &f); err != nil {
+				return 0
+			}
 		default:
 			return 0
 		}
@@ -751,7 +753,9 @@ func mergeKeyMetricsToInfo(keyMetrics map[string]interface{}, existing *stocksv1
 				return 0
 			}
 			var i int64
-			fmt.Sscanf(trimmed, "%d", &i)
+			if _, err := fmt.Sscanf(trimmed, "%d", &i); err != nil {
+				return 0
+			}
 			return i
 		default:
 			return 0
@@ -1247,7 +1251,7 @@ func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, st
 	// If this is a new pending review, we want to see if one already exists for this stock.
 	// If so, we'll use its enrichment_id to update it instead of creating a new one.
 	// This prevents multiple pending reviews for the same stock.
-	var finalEnrichmentID string = enrichmentID
+	finalEnrichmentID := enrichmentID
 	if dbStatus == "pending_review" {
 		var existingID string
 		checkQuery := `SELECT enrichment_id::text FROM "enrichment-pending" WHERE stock_code = $1 AND status = 'pending_review' LIMIT 1`
@@ -1990,7 +1994,7 @@ func (s *postgresStore) ListEnrichmentJobs(limit, offset int32, status *shortsv1
 	if status != nil {
 		whereClause = fmt.Sprintf(" WHERE status = $%d", argIdx)
 		args = append(args, enrichmentJobStatusToDB(*status))
-		argIdx++
+		// argIdx is only used for the WHERE clause formatting above
 	}
 
 	query := baseQuery + whereClause + `

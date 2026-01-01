@@ -245,7 +245,11 @@ func TestDefaultLogoScraper_HTTPRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("HTTP request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log error but don't fail - response body close errors are usually non-critical
+		}
+	}()
 	
 	t.Logf("HTTP Status: %d", resp.StatusCode)
 	if resp.StatusCode != 200 {
@@ -319,7 +323,11 @@ func TestDefaultLogoScraper_DebugScanPage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("HTTP request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log error but don't fail - response body close errors are usually non-critical
+		}
+	}()
 
 	t.Logf("HTTP Status: %d", resp.StatusCode)
 	t.Logf("Content-Type: %s", resp.Header.Get("Content-Type"))

@@ -203,6 +203,11 @@ dev-stop-services: ## Stop only application services (not database)
 	@echo "Stopping market data service on port 8090..."
 	@lsof -ti:8090 | xargs kill -9 2>/dev/null || true
 	@echo "Stopping enrichment processor..."
+	@for pid in $$(pgrep -f "enrichment-processor" 2>/dev/null); do \
+		echo "Killing enrichment processor process $$pid and its children..."; \
+		pkill -P $$pid 2>/dev/null || true; \
+		kill -9 $$pid 2>/dev/null || true; \
+	done || true
 	@pkill -f "enrichment-processor" 2>/dev/null || true
 	@echo "✅ Application services stopped"
 
@@ -210,6 +215,15 @@ dev-stop: ## Stop all development services
 	@echo "🛑 Stopping all development services..."
 	@cd analysis/sql && docker compose down
 	@make dev-stop-services
+
+dev-clean: ## Force clean all development processes (use if dev-stop didn't work)
+	@echo "🧹 Force cleaning all development processes..."
+	@make dev-stop-services
+	@echo "Killing any remaining concurrently processes..."
+	@pkill -f "concurrently.*dev" 2>/dev/null || true
+	@echo "Killing any remaining npm processes..."
+	@pkill -f "npm run dev" 2>/dev/null || true
+	@echo "✅ Force cleanup complete"
 
 populate-data: dev-db ## Download and populate database with ASIC short selling data
 	@echo "📊 Populating database with short selling data..."
