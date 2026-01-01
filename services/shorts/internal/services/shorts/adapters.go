@@ -65,7 +65,7 @@ func (s *StoreAdapter) GetTopStocksForEnrichment(limit int32, priority shortsv1a
 	return s.store.GetTopStocksForEnrichment(limit, priority)
 }
 
-func (s *StoreAdapter) SavePendingEnrichment(enrichmentID, stockCode string, status shortsv1alpha1.EnrichmentStatus, data *shortsv1alpha1.EnrichmentData, quality *shortsv1alpha1.QualityScore) error {
+func (s *StoreAdapter) SavePendingEnrichment(enrichmentID, stockCode string, status shortsv1alpha1.EnrichmentStatus, data *shortsv1alpha1.EnrichmentData, quality *shortsv1alpha1.QualityScore) (string, error) {
 	return s.store.SavePendingEnrichment(enrichmentID, stockCode, status, data, quality)
 }
 
@@ -77,12 +77,44 @@ func (s *StoreAdapter) GetPendingEnrichment(enrichmentID string) (*shortsv1alpha
 	return s.store.GetPendingEnrichment(enrichmentID)
 }
 
+func (s *StoreAdapter) GetPendingEnrichmentByStockCode(stockCode string) (*shortsv1alpha1.PendingEnrichmentSummary, error) {
+	return s.store.GetPendingEnrichmentByStockCode(stockCode)
+}
+
 func (s *StoreAdapter) ReviewEnrichment(enrichmentID string, approve bool, reviewedBy, reviewNotes string) error {
 	return s.store.ReviewEnrichment(enrichmentID, approve, reviewedBy, reviewNotes)
 }
 
 func (s *StoreAdapter) ApplyEnrichment(stockCode string, data *shortsv1alpha1.EnrichmentData) error {
 	return s.store.ApplyEnrichment(stockCode, data)
+}
+
+func (s *StoreAdapter) CreateEnrichmentJob(stockCode string, force bool) (string, error) {
+	return s.store.CreateEnrichmentJob(stockCode, force)
+}
+
+func (s *StoreAdapter) GetEnrichmentJob(jobID string) (*shortsv1alpha1.EnrichmentJob, error) {
+	return s.store.GetEnrichmentJob(jobID)
+}
+
+func (s *StoreAdapter) GetActiveEnrichmentJobByStockCode(stockCode string) (*shortsv1alpha1.EnrichmentJob, error) {
+	return s.store.GetActiveEnrichmentJobByStockCode(stockCode)
+}
+
+func (s *StoreAdapter) UpdateEnrichmentJobStatus(jobID string, status shortsv1alpha1.EnrichmentJobStatus, enrichmentID *string, errorMsg *string) error {
+	return s.store.UpdateEnrichmentJobStatus(jobID, status, enrichmentID, errorMsg)
+}
+
+func (s *StoreAdapter) ListEnrichmentJobs(limit, offset int32, status *shortsv1alpha1.EnrichmentJobStatus) ([]*shortsv1alpha1.EnrichmentJob, int32, error) {
+	return s.store.ListEnrichmentJobs(limit, offset, status)
+}
+
+func (s *StoreAdapter) UpdateLogoURLs(stockCode, logoGCSURL, logoIconGCSURL string) error {
+	return s.store.UpdateLogoURLs(stockCode, logoGCSURL, logoIconGCSURL)
+}
+
+func (s *StoreAdapter) UpdateLogoURLsWithSVG(stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat string) error {
+	return s.store.UpdateLogoURLsWithSVG(stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat)
 }
 
 // LoggerAdapter adapts the standard logger to the Logger interface

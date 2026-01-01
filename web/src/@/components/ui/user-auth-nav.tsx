@@ -59,6 +59,9 @@ export const UserAuthNav = () => {
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild className="cursor-pointer focus:bg-secondary text-purple-500 font-medium">
+                <Link href="/admin" className="w-full">Admin: Sync Status</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="cursor-pointer focus:bg-secondary text-purple-500 font-medium">
                 <Link href="/admin/enrichments" className="w-full">Admin: Enrichments</Link>
               </DropdownMenuItem>
             </>

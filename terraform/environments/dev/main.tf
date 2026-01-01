@@ -33,6 +33,7 @@ resource "google_project_service" "required_apis" {
     "secretmanager.googleapis.com",
     "compute.googleapis.com",
     "iam.googleapis.com",
+    "pubsub.googleapis.com",
   ])
 
   project = var.project_id
@@ -127,6 +128,24 @@ module "cms" {
   additional_env_vars = {
     PAYLOAD_PUBLIC_SERVER_URL = "https://cms-${var.project_id}.run.app"
   }
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
+# Enrichment Processor Job
+module "enrichment_processor" {
+  source = "../../modules/enrichment-processor"
+
+  project_id        = var.project_id
+  region            = var.region
+  environment       = "production" # Using production since this is the live system
+  image_url         = var.enrichment_processor_image
+  postgres_address  = var.postgres_address
+  postgres_database = var.postgres_database
+  postgres_username = var.postgres_username
 
   depends_on = [
     google_project_service.required_apis,

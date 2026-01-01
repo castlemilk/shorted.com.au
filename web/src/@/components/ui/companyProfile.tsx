@@ -7,27 +7,24 @@ import { Sparkles } from "lucide-react";
 import { CompanyLogo } from "./company-logo";
 
 export const CompanyProfilePlaceholder = () => (
-  <Card className="sm:col-span-4">
-    <CardHeader className="pb-3">
-      <div className="flex">
-        <div className="mr-4">
+  <Card className="w-full">
+    <CardHeader className="pb-4">
+      <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
+        <div className="flex items-center gap-4">
           <Skeleton className="rounded-md w-[70px] h-[70px]" />
+          <div className="flex flex-col gap-2">
+            <Skeleton className="w-[80px] h-[24px]" />
+            <div className="flex gap-1">
+              <Skeleton className="w-[60px] h-[18px]" />
+              <Skeleton className="w-[60px] h-[18px]" />
+            </div>
+          </div>
         </div>
-        <div className="">
-          <CardTitle className="flex">
-            <Skeleton className="w-[60px] h-[20px] mb-2" />
-          </CardTitle>
-          <CardTitle className="flex text-lg font-semibold">
-            <Skeleton className="w-[200px] h-[20px] mb-2" />
-          </CardTitle>
-          <CardTitle className="flex text-lg font-semibold">
-            <Skeleton className="w-[80px] h-[20px]" />
-          </CardTitle>
+        <div className="flex-1">
+          <Skeleton className="w-full max-w-[400px] h-[32px] md:h-[40px] mb-2" />
+          <Skeleton className="w-full max-w-[600px] h-[40px]" />
         </div>
       </div>
-      <CardDescription className="flex text-xs">
-        <Skeleton className="w-[250px] h-[20px]" />
-      </CardDescription>
     </CardHeader>
   </Card>
 );
@@ -55,58 +52,65 @@ const CompanyProfile = async ({ stockCode }: { stockCode: string }) => {
   const displaySummary =
     stockDetails.enhancedSummary || stockDetails.summary || "";
 
-  // Truncate summary if it's too long (limit to ~200 chars for card view)
+  // Truncate summary based on context (full width header allows more text)
   const truncatedSummary =
-    displaySummary.length > 200
-      ? `${displaySummary.substring(0, 200)}...`
+    displaySummary.length > 400
+      ? `${displaySummary.substring(0, 400)}...`
       : displaySummary;
 
   return (
-    <Card className="sm:col-span-4">
-      <CardHeader className="pb-3">
-        <div className="flex">
-          <CompanyLogo 
-            gcsUrl={stockDetails.gcsUrl} 
-            companyName={stockDetails.companyName} 
-            stockCode={stockCode}
-          />
-          <div className="flex-1">
-            <CardTitle className="flex items-center gap-2 truncate">
-              <span className="truncate">{stockCode}</span>
-              {isEnriched && (
-                <span title="AI-Enhanced Data Available" className="shrink-0">
-                  <Sparkles className="h-3 w-3 text-purple-500" />
-                </span>
-              )}
-            </CardTitle>
-            <CardTitle className="flex text-lg font-semibold truncate leading-tight">
-              <span className="truncate" title={stockDetails.companyName ?? stockCode}>
+    <Card className="h-full">
+      <CardHeader className="pb-4 h-full">
+        <div className="flex flex-col h-full">
+          <div className="flex items-start gap-4 mb-4">
+            <CompanyLogo 
+              gcsUrl={stockDetails.logoIconGcsUrl || stockDetails.gcsUrl} 
+              companyName={stockDetails.companyName} 
+              stockCode={stockCode}
+            />
+            <div className="flex flex-col min-w-0 flex-1">
+              <CardTitle className="flex items-center gap-2 text-xl font-bold truncate">
+                <span>{stockCode}</span>
+                {isEnriched && (
+                  <span title="AI-Enhanced Data Available" className="shrink-0">
+                    <Sparkles className="h-4 w-4 text-purple-500" />
+                  </span>
+                )}
+              </CardTitle>
+              <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-foreground line-clamp-2 leading-tight" title={stockDetails.companyName ?? stockCode}>
                 {stockDetails.companyName ?? stockCode}
-              </span>
-            </CardTitle>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {stockDetails.industry && (
-                <Badge variant="default">{stockDetails.industry}</Badge>
-              )}
-              {/* Show first 2-3 enriched tags */}
-              {isEnriched &&
-                stockDetails.tags?.slice(0, 2).map((tag) => (
+              </h1>
+              <div className="flex flex-wrap gap-1 mt-2">
+                {stockDetails.industry && (
+                  <Badge variant="default" className="text-[10px] whitespace-nowrap">
+                    {stockDetails.industry}
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex-1 min-w-0">
+            {truncatedSummary && (
+              <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3 md:line-clamp-4">
+                {truncatedSummary}
+              </p>
+            )}
+            {isEnriched && stockDetails.tags && stockDetails.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-3">
+                {stockDetails.tags.slice(0, 4).map((tag) => (
                   <Badge
                     key={tag}
                     variant="secondary"
-                    className="text-xs"
+                    className="text-[10px]"
                   >
                     {tag}
                   </Badge>
                 ))}
-            </div>
+              </div>
+            )}
           </div>
         </div>
-        {truncatedSummary && (
-          <CardDescription className="flex text-xs mt-2 leading-relaxed">
-            {truncatedSummary}
-          </CardDescription>
-        )}
       </CardHeader>
     </Card>
   );

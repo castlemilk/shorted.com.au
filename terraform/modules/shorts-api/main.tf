@@ -55,6 +55,14 @@ resource "google_secret_manager_secret_iam_member" "openai_api_key" {
   project   = var.project_id
 }
 
+# Grant Pub/Sub Publisher role to shorts API service account (for publishing enrichment jobs)
+resource "google_pubsub_topic_iam_member" "enrichment_jobs_publisher" {
+  topic    = "enrichment-jobs"
+  role     = "roles/pubsub.publisher"
+  member   = "serviceAccount:${google_service_account.shorts_api.email}"
+  project  = var.project_id
+}
+
 # Cloud Run Service
 resource "google_cloud_run_v2_service" "shorts_api" {
   name     = local.service_name

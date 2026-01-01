@@ -76,6 +76,12 @@ const (
 	// ShortedStocksServiceReviewEnrichmentProcedure is the fully-qualified name of the
 	// ShortedStocksService's ReviewEnrichment RPC.
 	ShortedStocksServiceReviewEnrichmentProcedure = "/shorts.v1alpha1.ShortedStocksService/ReviewEnrichment"
+	// ShortedStocksServiceGetEnrichmentJobStatusProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetEnrichmentJobStatus RPC.
+	ShortedStocksServiceGetEnrichmentJobStatusProcedure = "/shorts.v1alpha1.ShortedStocksService/GetEnrichmentJobStatus"
+	// ShortedStocksServiceListEnrichmentJobsProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListEnrichmentJobs RPC.
+	ShortedStocksServiceListEnrichmentJobsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListEnrichmentJobs"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -95,6 +101,8 @@ var (
 	shortedStocksServiceListPendingEnrichmentsMethodDescriptor    = shortedStocksServiceServiceDescriptor.Methods().ByName("ListPendingEnrichments")
 	shortedStocksServiceGetPendingEnrichmentMethodDescriptor      = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPendingEnrichment")
 	shortedStocksServiceReviewEnrichmentMethodDescriptor          = shortedStocksServiceServiceDescriptor.Methods().ByName("ReviewEnrichment")
+	shortedStocksServiceGetEnrichmentJobStatusMethodDescriptor    = shortedStocksServiceServiceDescriptor.Methods().ByName("GetEnrichmentJobStatus")
+	shortedStocksServiceListEnrichmentJobsMethodDescriptor        = shortedStocksServiceServiceDescriptor.Methods().ByName("ListEnrichmentJobs")
 )
 
 // ShortedStocksServiceClient is a client for the shorts.v1alpha1.ShortedStocksService service.
@@ -128,6 +136,10 @@ type ShortedStocksServiceClient interface {
 	GetPendingEnrichment(context.Context, *connect.Request[v1alpha1.GetPendingEnrichmentRequest]) (*connect.Response[v1alpha1.GetPendingEnrichmentResponse], error)
 	// Approve or reject a pending enrichment. Admin only.
 	ReviewEnrichment(context.Context, *connect.Request[v1alpha1.ReviewEnrichmentRequest]) (*connect.Response[v1alpha1.ReviewEnrichmentResponse], error)
+	// Get enrichment job status by job ID. Admin only.
+	GetEnrichmentJobStatus(context.Context, *connect.Request[v1alpha1.GetEnrichmentJobStatusRequest]) (*connect.Response[v1alpha1.GetEnrichmentJobStatusResponse], error)
+	// List enrichment jobs with optional status filter. Admin only.
+	ListEnrichmentJobs(context.Context, *connect.Request[v1alpha1.ListEnrichmentJobsRequest]) (*connect.Response[v1alpha1.ListEnrichmentJobsResponse], error)
 }
 
 // NewShortedStocksServiceClient constructs a client for the shorts.v1alpha1.ShortedStocksService
@@ -224,6 +236,18 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceReviewEnrichmentMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getEnrichmentJobStatus: connect.NewClient[v1alpha1.GetEnrichmentJobStatusRequest, v1alpha1.GetEnrichmentJobStatusResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetEnrichmentJobStatusProcedure,
+			connect.WithSchema(shortedStocksServiceGetEnrichmentJobStatusMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listEnrichmentJobs: connect.NewClient[v1alpha1.ListEnrichmentJobsRequest, v1alpha1.ListEnrichmentJobsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListEnrichmentJobsProcedure,
+			connect.WithSchema(shortedStocksServiceListEnrichmentJobsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -243,6 +267,8 @@ type shortedStocksServiceClient struct {
 	listPendingEnrichments    *connect.Client[v1alpha1.ListPendingEnrichmentsRequest, v1alpha1.ListPendingEnrichmentsResponse]
 	getPendingEnrichment      *connect.Client[v1alpha1.GetPendingEnrichmentRequest, v1alpha1.GetPendingEnrichmentResponse]
 	reviewEnrichment          *connect.Client[v1alpha1.ReviewEnrichmentRequest, v1alpha1.ReviewEnrichmentResponse]
+	getEnrichmentJobStatus    *connect.Client[v1alpha1.GetEnrichmentJobStatusRequest, v1alpha1.GetEnrichmentJobStatusResponse]
+	listEnrichmentJobs        *connect.Client[v1alpha1.ListEnrichmentJobsRequest, v1alpha1.ListEnrichmentJobsResponse]
 }
 
 // GetTopShorts calls shorts.v1alpha1.ShortedStocksService.GetTopShorts.
@@ -315,6 +341,16 @@ func (c *shortedStocksServiceClient) ReviewEnrichment(ctx context.Context, req *
 	return c.reviewEnrichment.CallUnary(ctx, req)
 }
 
+// GetEnrichmentJobStatus calls shorts.v1alpha1.ShortedStocksService.GetEnrichmentJobStatus.
+func (c *shortedStocksServiceClient) GetEnrichmentJobStatus(ctx context.Context, req *connect.Request[v1alpha1.GetEnrichmentJobStatusRequest]) (*connect.Response[v1alpha1.GetEnrichmentJobStatusResponse], error) {
+	return c.getEnrichmentJobStatus.CallUnary(ctx, req)
+}
+
+// ListEnrichmentJobs calls shorts.v1alpha1.ShortedStocksService.ListEnrichmentJobs.
+func (c *shortedStocksServiceClient) ListEnrichmentJobs(ctx context.Context, req *connect.Request[v1alpha1.ListEnrichmentJobsRequest]) (*connect.Response[v1alpha1.ListEnrichmentJobsResponse], error) {
+	return c.listEnrichmentJobs.CallUnary(ctx, req)
+}
+
 // ShortedStocksServiceHandler is an implementation of the shorts.v1alpha1.ShortedStocksService
 // service.
 type ShortedStocksServiceHandler interface {
@@ -347,6 +383,10 @@ type ShortedStocksServiceHandler interface {
 	GetPendingEnrichment(context.Context, *connect.Request[v1alpha1.GetPendingEnrichmentRequest]) (*connect.Response[v1alpha1.GetPendingEnrichmentResponse], error)
 	// Approve or reject a pending enrichment. Admin only.
 	ReviewEnrichment(context.Context, *connect.Request[v1alpha1.ReviewEnrichmentRequest]) (*connect.Response[v1alpha1.ReviewEnrichmentResponse], error)
+	// Get enrichment job status by job ID. Admin only.
+	GetEnrichmentJobStatus(context.Context, *connect.Request[v1alpha1.GetEnrichmentJobStatusRequest]) (*connect.Response[v1alpha1.GetEnrichmentJobStatusResponse], error)
+	// List enrichment jobs with optional status filter. Admin only.
+	ListEnrichmentJobs(context.Context, *connect.Request[v1alpha1.ListEnrichmentJobsRequest]) (*connect.Response[v1alpha1.ListEnrichmentJobsResponse], error)
 }
 
 // NewShortedStocksServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -439,6 +479,18 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceReviewEnrichmentMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceGetEnrichmentJobStatusHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetEnrichmentJobStatusProcedure,
+		svc.GetEnrichmentJobStatus,
+		connect.WithSchema(shortedStocksServiceGetEnrichmentJobStatusMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListEnrichmentJobsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListEnrichmentJobsProcedure,
+		svc.ListEnrichmentJobs,
+		connect.WithSchema(shortedStocksServiceListEnrichmentJobsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.ShortedStocksService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ShortedStocksServiceGetTopShortsProcedure:
@@ -469,6 +521,10 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetPendingEnrichmentHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceReviewEnrichmentProcedure:
 			shortedStocksServiceReviewEnrichmentHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetEnrichmentJobStatusProcedure:
+			shortedStocksServiceGetEnrichmentJobStatusHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListEnrichmentJobsProcedure:
+			shortedStocksServiceListEnrichmentJobsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -532,4 +588,12 @@ func (UnimplementedShortedStocksServiceHandler) GetPendingEnrichment(context.Con
 
 func (UnimplementedShortedStocksServiceHandler) ReviewEnrichment(context.Context, *connect.Request[v1alpha1.ReviewEnrichmentRequest]) (*connect.Response[v1alpha1.ReviewEnrichmentResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ReviewEnrichment is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetEnrichmentJobStatus(context.Context, *connect.Request[v1alpha1.GetEnrichmentJobStatusRequest]) (*connect.Response[v1alpha1.GetEnrichmentJobStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetEnrichmentJobStatus is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListEnrichmentJobs(context.Context, *connect.Request[v1alpha1.ListEnrichmentJobsRequest]) (*connect.Response[v1alpha1.ListEnrichmentJobsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListEnrichmentJobs is not implemented"))
 }

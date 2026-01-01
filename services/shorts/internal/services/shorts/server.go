@@ -7,6 +7,7 @@ import (
 	"time"
 
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
+	"github.com/castlemilk/shorted.com.au/services/pkg/enrichment"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/register"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
@@ -20,8 +21,9 @@ type ShortsServer struct {
 	shortsv1alpha1connect.UnimplementedShortedStocksServiceHandler
 	registerServer *register.RegisterServer
 	tokenService   *TokenService
-	gptClient      GPTClient
-	reportCrawler  FinancialReportCrawler
+	gptClient      enrichment.GPTClient
+	reportCrawler  enrichment.FinancialReportCrawler
+	pubSubClient   PubSubClient
 }
 
 // New creates instance of the Server
@@ -41,20 +43,28 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 	tokenService := NewTokenService(tokenSecret)
 
 	// Optional enrichment dependencies (service can run without them)
-	var gptClient GPTClient
+	var gptClient enrichment.GPTClient
 	openAIKey := strings.TrimSpace(cfg.OpenAIApiKey)
 	if openAIKey == "" {
 		openAIKey = strings.TrimSpace(os.Getenv("OPENAI_API_KEY"))
 	}
 	if openAIKey != "" {
-		client, err := NewOpenAIGPTClient(openAIKey)
+		client, err := enrichment.NewOpenAIGPTClient(openAIKey)
 		if err != nil {
 			return nil, err
 		}
 		gptClient = client
 	}
 
-	reportCrawler := NewReportCrawler()
+	reportCrawler := enrichment.NewReportCrawler()
+
+	// Initialize Pub/Sub client (optional, service can run without it)
+	var pubSubClient PubSubClient
+	pubSubClient, err := NewPubSubClientFromEnv(ctx)
+	if err != nil {
+		logger.Warnf("Failed to initialize Pub/Sub client: %v (enrichment jobs will not be queued)", err)
+		pubSubClient = nil
+	}
 
 	return &ShortsServer{
 		config:         cfg,
@@ -65,5 +75,6 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		tokenService:   tokenService,
 		gptClient:      gptClient,
 		reportCrawler:  reportCrawler,
+		pubSubClient:   pubSubClient,
 	}, nil
 }

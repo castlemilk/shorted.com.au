@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { auth } from "~/server/auth";
 import Container from "@/components/ui/container";
 import {
@@ -9,6 +10,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -20,9 +24,16 @@ import {
 import { getPendingEnrichments } from "~/app/actions/getPendingEnrichments";
 import { getEnrichmentComparison } from "~/app/actions/getEnrichmentComparison";
 import { reviewEnrichmentAction } from "~/app/actions/reviewEnrichment";
+import { triggerEnrichmentAction } from "~/app/actions/triggerEnrichment";
 import { EnrichmentStatus } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { EnrichmentJobsStatus } from "@/components/admin/enrichment-jobs-status";
 
 export const dynamic = "force-dynamic";
+
+async function triggerEnrichmentFormAction(formData: FormData) {
+  "use server";
+  await triggerEnrichmentAction(formData);
+}
 
 interface AdminEnrichmentsPageProps {
   searchParams: Promise<{
@@ -31,20 +42,26 @@ interface AdminEnrichmentsPageProps {
 }
 
 function formatPeople(
-  people:
-    | Array<{ name: string; role: string; bio: string }>
-    | undefined
-    | null,
+  people: Array<{ name: string; role: string; bio: string }> | undefined | null,
 ) {
   if (!people || people.length === 0) return "";
   return people
-    .map((p) => `${p.name}${p.role ? ` — ${p.role}` : ""}${p.bio ? `: ${p.bio}` : ""}`)
+    .map(
+      (p) =>
+        `${p.name}${p.role ? ` — ${p.role}` : ""}${p.bio ? `: ${p.bio}` : ""}`,
+    )
     .join("\n");
 }
 
 function formatReports(
   reports:
-    | Array<{ url: string; title: string; type: string; date: string; source: string }>
+    | Array<{
+        url: string;
+        title: string;
+        type: string;
+        date: string;
+        source: string;
+      }>
     | undefined
     | null,
 ) {
@@ -60,9 +77,7 @@ function formatStringArray(arr: string[] | undefined | null) {
 }
 
 function diffCellClass(isDiff: boolean) {
-  return isDiff
-    ? "bg-amber-50 dark:bg-amber-900/20"
-    : "";
+  return isDiff ? "bg-amber-50 dark:bg-amber-900/20" : "";
 }
 
 export default async function AdminEnrichmentsPage({
@@ -123,6 +138,18 @@ export default async function AdminEnrichmentsPage({
 
   const fields = [
     {
+      label: "Logo (Main)",
+      v1: current?.gcsUrl ?? "",
+      v2: v2?.logoGcsUrl ?? "", // Pending logo from enrichment data
+      isImage: true,
+    },
+    {
+      label: "Logo (Icon)",
+      v1: current?.logoIconGcsUrl ?? "",
+      v2: v2?.logoIconGcsUrl ?? "",
+      isImage: true,
+    },
+    {
       label: "Enhanced Summary",
       v1: current?.enhancedSummary ?? "",
       v2: v2?.enhancedSummary ?? "",
@@ -171,13 +198,19 @@ export default async function AdminEnrichmentsPage({
           <div className="flex flex-col gap-1">
             <h1 className="text-2xl font-semibold">Enrichment Review</h1>
             <p className="text-sm text-muted-foreground">
-              Compare current (v1) company-metadata vs pending (v2) enrichment, then approve/reject.
+              Compare current (v1) company-metadata vs pending (v2) enrichment,
+              then approve/reject.
             </p>
           </div>
-          <Link href="/admin" className="text-sm underline text-muted-foreground">
+          <Link
+            href="/admin"
+            className="text-sm underline text-muted-foreground"
+          >
             Back to Admin
           </Link>
         </div>
+
+        <EnrichmentJobsStatus />
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <Card className="lg:col-span-4">
@@ -187,7 +220,51 @@ export default async function AdminEnrichmentsPage({
                 {pending.length} pending enrichment(s)
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-col gap-4">
+              <Card className="border-dashed">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm">Trigger Enrichment</CardTitle>
+                  <CardDescription className="text-xs">
+                    Start a new enrichment for a stock
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    action={triggerEnrichmentFormAction}
+                    className="flex flex-col gap-3"
+                  >
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="stockCode" className="text-xs">
+                        Stock Code
+                      </Label>
+                      <Input
+                        id="stockCode"
+                        name="stockCode"
+                        placeholder="e.g., CBA, BHP"
+                        className="h-9 text-sm"
+                        required
+                        pattern="[A-Z0-9]{3,4}"
+                        title="3-4 uppercase letters/numbers"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="force"
+                        name="force"
+                        value="true"
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                      <Label htmlFor="force" className="text-xs cursor-pointer">
+                        Force re-enrichment (even if already enriched)
+                      </Label>
+                    </div>
+                    <Button type="submit" size="sm" className="w-full">
+                      Trigger Enrichment
+                    </Button>
+                  </form>
+                </CardContent>
+              </Card>
               <div className="overflow-auto">
                 <Table>
                   <TableHeader>
@@ -200,8 +277,12 @@ export default async function AdminEnrichmentsPage({
                   <TableBody>
                     {pending.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={3} className="text-sm text-muted-foreground">
-                          No pending enrichments. Trigger one via the EnrichStock API.
+                        <TableCell
+                          colSpan={3}
+                          className="text-sm text-muted-foreground"
+                        >
+                          No pending enrichments. Use the form above to trigger
+                          a new enrichment.
                         </TableCell>
                       </TableRow>
                     ) : (
@@ -230,7 +311,8 @@ export default async function AdminEnrichmentsPage({
                             </Badge>
                           </TableCell>
                           <TableCell className="font-mono text-xs">
-                            {p.qualityScore?.overallScore?.toFixed?.(2) ?? "n/a"}
+                            {p.qualityScore?.overallScore?.toFixed?.(2) ??
+                              "n/a"}
                           </TableCell>
                         </TableRow>
                       ))
@@ -280,18 +362,86 @@ export default async function AdminEnrichmentsPage({
                       <TableBody>
                         {fields.map((f) => {
                           const isDiff = f.v1.trim() !== f.v2.trim();
+                          const isImage = f.isImage === true;
                           return (
                             <TableRow key={f.label}>
-                              <TableCell className="font-medium">{f.label}</TableCell>
-                              <TableCell className={diffCellClass(isDiff)}>
-                                <pre className="whitespace-pre-wrap text-xs leading-relaxed">
-                                  {f.v1 || <span className="text-muted-foreground">—</span>}
-                                </pre>
+                              <TableCell className="font-medium">
+                                {f.label}
                               </TableCell>
                               <TableCell className={diffCellClass(isDiff)}>
-                                <pre className="whitespace-pre-wrap text-xs leading-relaxed">
-                                  {f.v2 || <span className="text-muted-foreground">—</span>}
-                                </pre>
+                                {isImage ? (
+                                  f.v1 ? (
+                                    <div className="flex items-center gap-2">
+                                      <Image
+                                        src={f.v1}
+                                        alt={`${selected?.stockCode} logo`}
+                                        width={64}
+                                        height={64}
+                                        className="h-16 w-16 object-contain border rounded p-1 bg-white"
+                                        unoptimized
+                                      />
+                                      <a
+                                        href={f.v1}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-blue-600 hover:underline"
+                                      >
+                                        View full size
+                                      </a>
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted-foreground">
+                                      —
+                                    </span>
+                                  )
+                                ) : (
+                                  <pre className="whitespace-pre-wrap text-xs leading-relaxed">
+                                    {f.v1 || (
+                                      <span className="text-muted-foreground">
+                                        —
+                                      </span>
+                                    )}
+                                  </pre>
+                                )}
+                              </TableCell>
+                              <TableCell className={diffCellClass(isDiff)}>
+                                {isImage ? (
+                                  f.v2 ? (
+                                    <div className="flex items-center gap-2">
+                                      <Image
+                                        src={f.v2}
+                                        alt={`${selected?.stockCode} logo (v2)`}
+                                        width={64}
+                                        height={64}
+                                        className="h-16 w-16 object-contain border rounded p-1 bg-white"
+                                        unoptimized
+                                      />
+                                      <a
+                                        href={f.v2}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-blue-600 hover:underline"
+                                      >
+                                        View full size
+                                      </a>
+                                      <span className="text-xs text-muted-foreground italic">
+                                        (applied immediately during processing)
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground italic">
+                                      No logo discovered during enrichment
+                                    </span>
+                                  )
+                                ) : (
+                                  <pre className="whitespace-pre-wrap text-xs leading-relaxed">
+                                    {f.v2 || (
+                                      <span className="text-muted-foreground">
+                                        —
+                                      </span>
+                                    )}
+                                  </pre>
+                                )}
                               </TableCell>
                             </TableRow>
                           );
@@ -303,12 +453,25 @@ export default async function AdminEnrichmentsPage({
                   <Card>
                     <CardHeader>
                       <CardTitle>Review</CardTitle>
-                      <CardDescription>Approve or reject this pending enrichment.</CardDescription>
+                      <CardDescription>
+                        Approve or reject this pending enrichment.
+                      </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <form action={reviewEnrichmentAction} className="flex flex-col gap-3">
-                        <input type="hidden" name="enrichmentId" value={selected.enrichmentId} />
-                        <input type="hidden" name="stockCode" value={selected.stockCode} />
+                      <form
+                        action={reviewEnrichmentAction}
+                        className="flex flex-col gap-3"
+                      >
+                        <input
+                          type="hidden"
+                          name="enrichmentId"
+                          value={selected.enrichmentId}
+                        />
+                        <input
+                          type="hidden"
+                          name="stockCode"
+                          value={selected.stockCode}
+                        />
                         <textarea
                           name="reviewNotes"
                           className="min-h-[100px] w-full rounded-md border bg-background p-2 text-sm"
@@ -344,5 +507,3 @@ export default async function AdminEnrichmentsPage({
     </Container>
   );
 }
-
-

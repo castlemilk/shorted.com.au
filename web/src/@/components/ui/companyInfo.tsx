@@ -5,7 +5,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "./card";
 import { 
   PanelTopIcon, 
@@ -97,42 +96,32 @@ const CompanyInfo = async ({ stockCode }: { stockCode: string }) => {
   }
 
   return (
-    <Card className="sm:col-span-4">
+    <Card className="w-full">
       <CardHeader className="pb-3">
-        <CardTitle className="flex">About</CardTitle>
-        <Separator />
+        <CardTitle className="flex text-sm font-bold uppercase tracking-wider text-muted-foreground">About</CardTitle>
+        <Separator className="my-2" />
 
-        <CardContent className="p-0 space-y-0">
-          {/* Summary/Description */}
-          {stockDetails.summary && (
-            <>
-              <div className="py-3">
-                <CardDescription className="text-sm">
-                  {stockDetails.summary}
-                </CardDescription>
-              </div>
-              <Separator />
-            </>
-          )}
-
+        <CardContent className="p-0 space-y-1">
+          {/* Summary/Description - Removed from here as it's now in Profile */}
+          
           {/* Website */}
           {stockDetails.website && (
             <>
-              <div className="flex content-center justify-between py-2">
-                <div className="flex content-center">
-                  <div className="flex self-center p-2">
-                    <PanelTopIcon size={10} />
+              <div className="flex content-center justify-between py-1">
+                <div className="flex content-center items-center">
+                  <div className="flex self-center p-1.5 opacity-70">
+                    <PanelTopIcon size={12} />
                   </div>
-                  <p className="uppercase font-semibold content-center text-xs">
+                  <p className="uppercase font-semibold text-[10px] text-muted-foreground">
                     website
                   </p>
                 </div>
-                <span className="flex items-end content-center p-2 text-xs">
+                <span className="flex items-center p-1.5 text-xs">
                   <Link
                     href={stockDetails.website}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline"
+                    className="text-blue-600 hover:underline font-medium"
                   >
                     {
                       stockDetails.website
@@ -142,67 +131,67 @@ const CompanyInfo = async ({ stockCode }: { stockCode: string }) => {
                   </Link>
                 </span>
               </div>
-              <Separator />
+              <Separator className="opacity-50" />
             </>
           )}
 
           {/* Industry */}
           {stockDetails.industry && (
             <>
-              <div className="flex content-center justify-between py-2">
-                <div className="flex content-center">
-                  <div className="flex self-center p-2">
-                    <Building2Icon size={10} />
+              <div className="flex content-center justify-between py-1">
+                <div className="flex content-center items-center">
+                  <div className="flex self-center p-1.5 opacity-70">
+                    <Building2Icon size={12} />
                   </div>
-                  <p className="uppercase font-semibold content-center text-xs">
+                  <p className="uppercase font-semibold text-[10px] text-muted-foreground">
                     industry
                   </p>
                 </div>
-                <span className="flex items-end content-center p-2 text-xs">
+                <span className="flex items-center p-1.5 text-xs font-medium">
                   {stockDetails.industry}
                 </span>
               </div>
-              <Separator />
+              <Separator className="opacity-50" />
             </>
           )}
 
           {/* Address */}
           {stockDetails.address && (
             <>
-              <div className="flex content-center justify-between py-2">
-                <div className="flex content-center">
-                  <div className="flex self-center p-2">
-                    <MapPinIcon size={10} />
+              <div className="flex content-center justify-between py-1">
+                <div className="flex content-center items-center">
+                  <div className="flex self-center p-1.5 opacity-70">
+                    <MapPinIcon size={12} />
                   </div>
-                  <p className="uppercase font-semibold content-center text-xs">
+                  <p className="uppercase font-semibold text-[10px] text-muted-foreground">
                     address
                   </p>
                 </div>
-                <span className="flex items-end content-center p-2 text-xs text-right max-w-[60%]">
+                <span className="flex items-center p-1.5 text-[10px] text-right max-w-[60%] leading-tight font-medium">
                   {stockDetails.address}
                 </span>
               </div>
-              <Separator />
+              <Separator className="opacity-50" />
             </>
           )}
 
           {/* Social Media Links - Only show if enriched */}
           {isEnriched && socialLinks && (
             <>
-              <div className="py-3">
-                <p className="uppercase font-semibold text-xs mb-2 px-2">
+              <div className="py-2">
+                <p className="uppercase font-semibold text-[10px] text-muted-foreground mb-2 px-1.5">
                   Connect
                 </p>
-                <div className="flex gap-3 px-2">
+                <div className="flex gap-4 px-1.5">
                   {socialLinks.linkedin && (
                     <Link
                       href={socialLinks.linkedin}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-700 transition-colors"
+                      className="text-muted-foreground hover:text-blue-600 transition-colors"
                       title="LinkedIn"
                     >
-                      <LinkedinIcon size={18} />
+                      <LinkedinIcon size={16} />
                     </Link>
                   )}
                   {socialLinks.twitter && (
@@ -210,10 +199,10 @@ const CompanyInfo = async ({ stockCode }: { stockCode: string }) => {
                       href={socialLinks.twitter}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-400 hover:text-blue-500 transition-colors"
+                      className="text-muted-foreground hover:text-blue-400 transition-colors"
                       title="Twitter"
                     >
-                      <TwitterIcon size={18} />
+                      <TwitterIcon size={16} />
                     </Link>
                   )}
                   {socialLinks.facebook && (
@@ -221,10 +210,10 @@ const CompanyInfo = async ({ stockCode }: { stockCode: string }) => {
                       href={socialLinks.facebook}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-700 transition-colors"
+                      className="text-muted-foreground hover:text-blue-600 transition-colors"
                       title="Facebook"
                     >
-                      <FacebookIcon size={18} />
+                      <FacebookIcon size={16} />
                     </Link>
                   )}
                   {socialLinks.youtube && (
@@ -232,10 +221,10 @@ const CompanyInfo = async ({ stockCode }: { stockCode: string }) => {
                       href={socialLinks.youtube}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-red-600 hover:text-red-700 transition-colors"
+                      className="text-muted-foreground hover:text-red-600 transition-colors"
                       title="YouTube"
                     >
-                      <YoutubeIcon size={18} />
+                      <YoutubeIcon size={16} />
                     </Link>
                   )}
                 </div>

@@ -43,10 +43,22 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
     return null;
   }
 
+  // Helper to check if a value is valid (non-zero, non-null, non-empty)
+  const isValidValue = (value?: number | string | bigint | null): boolean => {
+    if (value === null || value === undefined) return false;
+    if (typeof value === "bigint") return value !== BigInt(0);
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed === "" || /^0+\.?0*$/.test(trimmed)) return false;
+      const num = parseFloat(trimmed);
+      return !isNaN(num) && num !== 0;
+    }
+    return value !== 0 && !isNaN(value);
+  };
+
   const formatCurrency = (value?: number | string | null) => {
-    if (!value) return null;
-    const num = typeof value === "string" ? parseFloat(value) : value;
-    if (isNaN(num)) return null;
+    if (!isValidValue(value)) return null;
+    const num = typeof value === "string" ? parseFloat(value) : value!;
 
     if (num >= 1e9) {
       return `$${(num / 1e9).toFixed(2)}B`;
@@ -59,20 +71,21 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
   };
 
   const formatNumber = (value?: number | string | bigint | null) => {
-    if (!value) return null;
-    if (typeof value === "bigint") return value.toLocaleString();
-    const num = typeof value === "string" ? parseFloat(value) : value;
-    if (isNaN(num)) return null;
+    if (!isValidValue(value)) return null;
+    if (typeof value === "bigint") {
+      return value.toLocaleString();
+    }
+    const num = typeof value === "string" ? parseFloat(value) : value!;
     return num.toLocaleString();
   };
 
   const hasAnyData = Boolean(
-    financialInfo.marketCap ||
-    financialInfo.currentPrice ||
-    financialInfo.peRatio ||
-    financialInfo.eps ||
-    financialInfo.dividendYield ||
-    financialInfo.employeeCount
+    isValidValue(financialInfo.marketCap) ||
+      isValidValue(financialInfo.currentPrice) ||
+      isValidValue(financialInfo.peRatio) ||
+      isValidValue(financialInfo.eps) ||
+      isValidValue(financialInfo.dividendYield) ||
+      isValidValue(financialInfo.employeeCount),
   );
 
   if (!hasAnyData) {
@@ -90,99 +103,133 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
 
         <CardContent className="p-0 space-y-0">
           {/* Market Cap */}
-          {financialInfo.marketCap && (
-            <>
-              <div className="flex align-middle justify-between py-2">
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-3 w-3" />
-                  <span className="uppercase font-semibold text-xs">
-                    market cap
-                  </span>
+          {(() => {
+            if (!isValidValue(financialInfo.marketCap)) return null;
+            const formatted = formatCurrency(financialInfo.marketCap);
+            if (!formatted) return null;
+            return (
+              <>
+                <div className="flex align-middle justify-between py-2">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-3 w-3" />
+                    <span className="uppercase font-semibold text-xs">
+                      market cap
+                    </span>
+                  </div>
+                  <span className="text-xs">{formatted}</span>
                 </div>
-                <span className="text-xs">
-                  {formatCurrency(financialInfo.marketCap as number | string | null | undefined)}
-                </span>
-              </div>
-              <Separator />
-            </>
-          )}
+                <Separator />
+              </>
+            );
+          })()}
 
           {/* Current Price */}
-          {financialInfo.currentPrice && (
-            <>
-              <div className="flex align-middle justify-between py-2">
-                <span className="uppercase font-semibold text-xs">price</span>
-                <span className="text-xs">
-                  {formatCurrency(financialInfo.currentPrice as number | string | null | undefined)}
-                </span>
-              </div>
-              <Separator />
-            </>
-          )}
+          {(() => {
+            if (!isValidValue(financialInfo.currentPrice)) return null;
+            const formatted = formatCurrency(financialInfo.currentPrice);
+            if (!formatted) return null;
+            return (
+              <>
+                <div className="flex align-middle justify-between py-2">
+                  <span className="uppercase font-semibold text-xs">price</span>
+                  <span className="text-xs">{formatted}</span>
+                </div>
+                <Separator />
+              </>
+            );
+          })()}
 
           {/* P/E Ratio */}
-          {financialInfo.peRatio && (
-            <>
-              <div className="flex align-middle justify-between py-2">
-                <span className="uppercase font-semibold text-xs">
-                  p/e ratio
-                </span>
-                <span className="text-xs">
-                  {typeof financialInfo.peRatio === "number"
-                    ? financialInfo.peRatio.toFixed(2)
-                    : financialInfo.peRatio}
-                </span>
-              </div>
-              <Separator />
-            </>
-          )}
+          {(() => {
+            if (!isValidValue(financialInfo.peRatio)) return null;
+            const peRatio = financialInfo.peRatio;
+            const num =
+              typeof peRatio === "number"
+                ? peRatio
+                : parseFloat(String(peRatio));
+            if (isNaN(num) || num === 0) return null;
+            const formatted =
+              typeof peRatio === "number"
+                ? peRatio.toFixed(2)
+                : String(peRatio);
+            // Double-check formatted value isn't "0000" or similar
+            if (/^0+\.?0*$/.test(formatted)) return null;
+            return (
+              <>
+                <div className="flex align-middle justify-between py-2">
+                  <span className="uppercase font-semibold text-xs">
+                    p/e ratio
+                  </span>
+                  <span className="text-xs">{formatted}</span>
+                </div>
+                <Separator />
+              </>
+            );
+          })()}
 
           {/* EPS */}
-          {financialInfo.eps && (
-            <>
-              <div className="flex align-middle justify-between py-2">
-                <span className="uppercase font-semibold text-xs">eps</span>
-                <span className="text-xs">
-                  {formatCurrency(financialInfo.eps as number | string | null | undefined)}
-                </span>
-              </div>
-              <Separator />
-            </>
-          )}
+          {(() => {
+            if (!isValidValue(financialInfo.eps)) return null;
+            const formatted = formatCurrency(financialInfo.eps);
+            if (!formatted) return null;
+            return (
+              <>
+                <div className="flex align-middle justify-between py-2">
+                  <span className="uppercase font-semibold text-xs">eps</span>
+                  <span className="text-xs">{formatted}</span>
+                </div>
+                <Separator />
+              </>
+            );
+          })()}
 
           {/* Dividend Yield */}
-          {financialInfo.dividendYield && (
-            <>
-              <div className="flex align-middle justify-between py-2">
-                <span className="uppercase font-semibold text-xs">
-                  dividend yield
-                </span>
-                <span className="text-xs">
-                  {typeof financialInfo.dividendYield === "number"
-                    ? `${(financialInfo.dividendYield * 100).toFixed(2)}%`
-                    : financialInfo.dividendYield}
-                </span>
-              </div>
-              <Separator />
-            </>
-          )}
+          {(() => {
+            if (!isValidValue(financialInfo.dividendYield)) return null;
+            const divYield = financialInfo.dividendYield;
+            const num =
+              typeof divYield === "number"
+                ? divYield
+                : parseFloat(String(divYield));
+            if (isNaN(num) || num === 0) return null;
+            const formatted =
+              typeof divYield === "number"
+                ? `${(divYield * 100).toFixed(2)}%`
+                : String(divYield);
+            // Double-check formatted value isn't "0000" or similar
+            if (/^0+\.?0*%?$/.test(formatted.replace(/%$/, ""))) return null;
+            return (
+              <>
+                <div className="flex align-middle justify-between py-2">
+                  <span className="uppercase font-semibold text-xs">
+                    dividend yield
+                  </span>
+                  <span className="text-xs">{formatted}</span>
+                </div>
+                <Separator />
+              </>
+            );
+          })()}
 
           {/* Employees */}
-          {financialInfo.employeeCount && (
-            <>
-              <div className="flex align-middle justify-between py-2">
-                <div className="flex items-center gap-2">
-                  <Users className="h-3 w-3" />
-                  <span className="uppercase font-semibold text-xs">
-                    employees
-                  </span>
+          {(() => {
+            if (!isValidValue(financialInfo.employeeCount)) return null;
+            const formatted = formatNumber(financialInfo.employeeCount);
+            if (!formatted) return null;
+            return (
+              <>
+                <div className="flex align-middle justify-between py-2">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-3 w-3" />
+                    <span className="uppercase font-semibold text-xs">
+                      employees
+                    </span>
+                  </div>
+                  <span className="text-xs">{formatted}</span>
                 </div>
-                <span className="text-xs">
-                  {formatNumber(financialInfo.employeeCount as number | string | bigint | null | undefined)}
-                </span>
-              </div>
-            </>
-          )}
+              </>
+            );
+          })()}
         </CardContent>
       </CardHeader>
     </Card>
@@ -190,5 +237,3 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
 };
 
 export default CompanyFinancials;
-
-

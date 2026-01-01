@@ -4,7 +4,7 @@
 // @ts-nocheck
 
 import { MethodKind } from "@bufbuild/protobuf";
-import { EnrichStockRequest, EnrichStockResponse, GetIndustryTreeMapRequest, GetPendingEnrichmentRequest, GetPendingEnrichmentResponse, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetSyncStatusRequest, GetSyncStatusResponse, GetTopShortsRequest, GetTopShortsResponse, GetTopStocksForEnrichmentRequest, GetTopStocksForEnrichmentResponse, ListPendingEnrichmentsRequest, ListPendingEnrichmentsResponse, MintTokenRequest, MintTokenResponse, ReviewEnrichmentRequest, ReviewEnrichmentResponse, SearchStocksRequest, SearchStocksResponse, SyncKeyMetricsRequest, SyncKeyMetricsResponse } from "./shorts_pb";
+import { EnrichStockRequest, EnrichStockResponse, GetEnrichmentJobStatusRequest, GetEnrichmentJobStatusResponse, GetIndustryTreeMapRequest, GetPendingEnrichmentRequest, GetPendingEnrichmentResponse, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetSyncStatusRequest, GetSyncStatusResponse, GetTopShortsRequest, GetTopShortsResponse, GetTopStocksForEnrichmentRequest, GetTopStocksForEnrichmentResponse, ListEnrichmentJobsRequest, ListEnrichmentJobsResponse, ListPendingEnrichmentsRequest, ListPendingEnrichmentsResponse, MintTokenRequest, MintTokenResponse, ReviewEnrichmentRequest, ReviewEnrichmentResponse, SearchStocksRequest, SearchStocksResponse, SyncKeyMetricsRequest, SyncKeyMetricsResponse } from "./shorts_pb";
 import { IndustryTreeMap, Stock, StockDetails, TimeSeriesData } from "../../stocks/v1alpha1/stocks_pb";
 
 /**
@@ -227,6 +227,38 @@ export const reviewEnrichment = {
   kind: MethodKind.Unary,
   I: ReviewEnrichmentRequest,
   O: ReviewEnrichmentResponse,
+  service: {
+    typeName: "shorts.v1alpha1.ShortedStocksService"
+  }
+} as const;
+
+/**
+ * Get enrichment job status by job ID. Admin only.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetEnrichmentJobStatus
+ */
+export const getEnrichmentJobStatus = {
+  localName: "getEnrichmentJobStatus",
+  name: "GetEnrichmentJobStatus",
+  kind: MethodKind.Unary,
+  I: GetEnrichmentJobStatusRequest,
+  O: GetEnrichmentJobStatusResponse,
+  service: {
+    typeName: "shorts.v1alpha1.ShortedStocksService"
+  }
+} as const;
+
+/**
+ * List enrichment jobs with optional status filter. Admin only.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListEnrichmentJobs
+ */
+export const listEnrichmentJobs = {
+  localName: "listEnrichmentJobs",
+  name: "ListEnrichmentJobs",
+  kind: MethodKind.Unary,
+  I: ListEnrichmentJobsRequest,
+  O: ListEnrichmentJobsResponse,
   service: {
     typeName: "shorts.v1alpha1.ShortedStocksService"
   }

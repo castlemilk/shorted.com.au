@@ -29,11 +29,23 @@ type Store interface {
 
 	// Enrichment (v2) review workflow methods
 	GetTopStocksForEnrichment(limit int32, priority shortsv1alpha1.EnrichmentPriority) ([]*shortsv1alpha1.StockEnrichmentCandidate, error)
-	SavePendingEnrichment(enrichmentID, stockCode string, status shortsv1alpha1.EnrichmentStatus, data *shortsv1alpha1.EnrichmentData, quality *shortsv1alpha1.QualityScore) error
+	SavePendingEnrichment(enrichmentID, stockCode string, status shortsv1alpha1.EnrichmentStatus, data *shortsv1alpha1.EnrichmentData, quality *shortsv1alpha1.QualityScore) (string, error)
 	ListPendingEnrichments(limit int32, offset int32) ([]*shortsv1alpha1.PendingEnrichmentSummary, error)
 	GetPendingEnrichment(enrichmentID string) (*shortsv1alpha1.PendingEnrichment, error)
+	GetPendingEnrichmentByStockCode(stockCode string) (*shortsv1alpha1.PendingEnrichmentSummary, error)
 	ReviewEnrichment(enrichmentID string, approve bool, reviewedBy, reviewNotes string) error
 	ApplyEnrichment(stockCode string, data *shortsv1alpha1.EnrichmentData) error
+
+	// Enrichment job methods (async processing)
+	CreateEnrichmentJob(stockCode string, force bool) (string, error)
+	GetEnrichmentJob(jobID string) (*shortsv1alpha1.EnrichmentJob, error)
+	GetActiveEnrichmentJobByStockCode(stockCode string) (*shortsv1alpha1.EnrichmentJob, error)
+	UpdateEnrichmentJobStatus(jobID string, status shortsv1alpha1.EnrichmentJobStatus, enrichmentID *string, errorMsg *string) error
+	ListEnrichmentJobs(limit, offset int32, status *shortsv1alpha1.EnrichmentJobStatus) ([]*shortsv1alpha1.EnrichmentJob, int32, error)
+	ResetStuckJobs(stuckThresholdMinutes int) (int, error) // Reset jobs stuck in processing for > threshold minutes
+	CleanupOldCompletedJobs(keepPerStock int) (int, error) // Clean up old completed jobs, keeping only keepPerStock most recent per stock
+	UpdateLogoURLs(stockCode, logoGCSURL, logoIconGCSURL string) error
+	UpdateLogoURLsWithSVG(stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat string) error
 }
 
 func NewStore(config Config) Store {

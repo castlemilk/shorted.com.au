@@ -190,6 +190,10 @@ dev-market-data:
 	@echo "🚀 Starting market data service..."
 	@cd services && make run.market-data
 
+dev-enrichment-processor:
+	@echo "🚀 Starting enrichment processor..."
+	@cd services && make run.enrichment-processor
+
 dev-stop-services: ## Stop only application services (not database)
 	@echo "🛑 Stopping application services..."
 	@echo "Stopping frontend service on port 3020..."
@@ -198,6 +202,8 @@ dev-stop-services: ## Stop only application services (not database)
 	@lsof -ti:9091 | xargs kill -9 2>/dev/null || true
 	@echo "Stopping market data service on port 8090..."
 	@lsof -ti:8090 | xargs kill -9 2>/dev/null || true
+	@echo "Stopping enrichment processor..."
+	@pkill -f "enrichment-processor" 2>/dev/null || true
 	@echo "✅ Application services stopped"
 
 dev-stop: ## Stop all development services

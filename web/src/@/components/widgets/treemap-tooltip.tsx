@@ -170,12 +170,14 @@ export function TreemapTooltip({
                     return false;
                   }
                 };
-                const validLogoUrl = isValidLogoUrl(stockDetails?.gcsUrl);
+                const logoUrl =
+                  stockDetails?.logoIconGcsUrl ?? stockDetails?.gcsUrl;
+                const validLogoUrl = isValidLogoUrl(logoUrl);
 
-                return validLogoUrl && !imageError && stockDetails?.gcsUrl ? (
+                return validLogoUrl && !imageError && logoUrl ? (
                   <div className="relative h-12 w-12 flex-shrink-0 rounded-md overflow-hidden bg-muted">
                     <Image
-                      src={stockDetails.gcsUrl}
+                      src={logoUrl}
                       alt={`${stockDetails?.companyName ?? productCode} logo`}
                       fill
                       className="object-contain"

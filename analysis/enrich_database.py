@@ -532,8 +532,9 @@ CRITICAL:
 - Return ONLY the JSON object, no additional text"""
 
     try:
+        model = os.getenv("OPENAI_MODEL", "gpt-4o")
         response = client.chat.completions.create(
-            model="gpt-5.1",  # GPT-5.1 with enhanced reasoning capabilities
+            model=model,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},

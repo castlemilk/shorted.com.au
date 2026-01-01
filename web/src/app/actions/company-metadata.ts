@@ -206,10 +206,18 @@ function convertFinancialInfo(
     key: K,
     value?: number | string,
   ) => {
-    if (value !== undefined && value !== null && value !== 0) {
-      result[key] = value as never;
-      hasValue = true;
+    if (value === undefined || value === null) return;
+    // Filter out zero values
+    if (typeof value === "number" && value === 0) return;
+    // Filter out string "0", "0000", etc.
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (trimmed === "" || /^0+\.?0*$/.test(trimmed)) return;
+      const num = parseFloat(trimmed);
+      if (isNaN(num) || num === 0) return;
     }
+    result[key] = value as never;
+    hasValue = true;
   };
 
   assign("market_cap", info.marketCap);

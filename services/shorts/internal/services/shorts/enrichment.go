@@ -4,17 +4,12 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
-	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
-	"github.com/google/uuid"
 )
 
 func (s *ShortsServer) EnrichStock(ctx context.Context, req *connect.Request[shortsv1alpha1.EnrichStockRequest]) (*connect.Response[shortsv1alpha1.EnrichStockResponse], error) {
-	start := time.Now()
-
 	if req == nil || req.Msg == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("request is required"))
 	}
@@ -27,13 +22,7 @@ func (s *ShortsServer) EnrichStock(ctx context.Context, req *connect.Request[sho
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("stock_code must be 3-4 alphanumeric characters (e.g., CBA, ZIP, AX1)"))
 	}
 
-	if s.gptClient == nil {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("enrichment is not configured (missing OPENAI_API_KEY)"))
-	}
-	if s.reportCrawler == nil {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("report crawler is not configured"))
-	}
-
+	// Check if stock exists
 	exists, err := s.store.StockExists(stockCode)
 	if err != nil {
 		s.logger.Errorf("store error checking stock exists: %v", err)
@@ -43,95 +32,58 @@ func (s *ShortsServer) EnrichStock(ctx context.Context, req *connect.Request[sho
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("stock not found: %s", stockCode))
 	}
 
-	// Use current StockDetails as baseline context (v1).
-	var details *stocksv1alpha1.StockDetails
-	details, err = s.store.GetStockDetails(stockCode)
+	// Check if there's already an active job for this stock
+	activeJob, err := s.store.GetActiveEnrichmentJobByStockCode(stockCode)
 	if err != nil {
-		s.logger.Errorf("store error fetching stock details: %v", err)
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("stock details not found: %s", stockCode))
+		s.logger.Errorf("failed to check for active enrichment job for %s: %v", stockCode, err)
+		// Continue anyway, it's a safety check
 	}
-
-	// Skip if already enriched and not forced.
-	if !req.Msg.Force && strings.EqualFold(details.EnrichmentStatus, "completed") {
+	if activeJob != nil && !req.Msg.Force {
 		return connect.NewResponse(&shortsv1alpha1.EnrichStockResponse{
-			StockCode:        stockCode,
-			Status:           shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_COMPLETED,
-			ErrorMessage:     "stock already enriched (use force=true to re-enrich)",
-			DurationSeconds:  time.Since(start).Seconds(),
+			StockCode: stockCode,
+			JobId:     activeJob.JobId,
+			Message:   fmt.Sprintf("Enrichment already in progress for %s (Job ID: %s). Use force=true to override.", stockCode, activeJob.JobId),
 		}), nil
 	}
 
-	// Bound the enrichment end-to-end time.
-	enrichmentTimeout := s.config.EnrichmentTimeout
-	if enrichmentTimeout <= 0 {
-		enrichmentTimeout = 5 * time.Minute
-	}
-	enrichCtx, cancel := context.WithTimeout(ctx, enrichmentTimeout)
-	defer cancel()
-
-	// Crawl reports from the company website.
-	reports, crawlErr := s.reportCrawler.CrawlFinancialReports(enrichCtx, details.Website)
-	if crawlErr != nil {
-		// Non-fatal; continue without reports.
-		s.logger.Warnf("report crawl failed for %s: %v", stockCode, crawlErr)
-		reports = nil
-	}
-
-	enriched, err := s.gptClient.EnrichCompany(
-		enrichCtx,
-		stockCode,
-		details.CompanyName,
-		details.Industry,
-		details.Website,
-		details.Summary,
-		reports,
-	)
-	if err != nil {
-		s.logger.Errorf("gpt enrichment failed for %s: %v", stockCode, err)
-		return connect.NewResponse(&shortsv1alpha1.EnrichStockResponse{
-			StockCode:       stockCode,
-			Status:          shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_FAILED,
-			ErrorMessage:    err.Error(),
-			DurationSeconds: time.Since(start).Seconds(),
-		}), nil
-	}
-
-	quality, err := s.gptClient.EvaluateQuality(enrichCtx, stockCode, enriched)
-	if err != nil {
-		s.logger.Warnf("quality evaluation failed for %s: %v", stockCode, err)
-		quality = &shortsv1alpha1.QualityScore{
-			Warnings: []string{"quality evaluation failed: " + err.Error()},
+	// Check if there's already a pending enrichment waiting for review
+	if !req.Msg.Force {
+		pendingEnrichment, err := s.store.GetPendingEnrichmentByStockCode(stockCode)
+		if err != nil {
+			s.logger.Errorf("failed to check for pending enrichment for %s: %v", stockCode, err)
+			// Continue anyway, it's a safety check
+		}
+		if pendingEnrichment != nil {
+			return connect.NewResponse(&shortsv1alpha1.EnrichStockResponse{
+				StockCode: stockCode,
+				JobId:     "", // No job created
+				Message:   fmt.Sprintf("Pending enrichment already exists for %s (Enrichment ID: %s). Review or reject it first, or use force=true to create a new enrichment.", stockCode, pendingEnrichment.EnrichmentId),
+			}), nil
 		}
 	}
 
-	threshold := s.config.EnrichmentQualityThreshold
-	if threshold <= 0 {
-		threshold = 0.7
-	}
-	if quality != nil && quality.OverallScore > 0 && quality.OverallScore < threshold {
-		quality.Warnings = append(quality.Warnings, fmt.Sprintf("overall_score %.2f is below threshold %.2f", quality.OverallScore, threshold))
+	// Create enrichment job in database
+	jobID, err := s.store.CreateEnrichmentJob(stockCode, req.Msg.Force)
+	if err != nil {
+		s.logger.Errorf("failed to create enrichment job for %s: %v", stockCode, err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create enrichment job"))
 	}
 
-	enrichmentID := uuid.NewString()
-
-	if err := s.store.SavePendingEnrichment(
-		enrichmentID,
-		stockCode,
-		shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_PENDING_REVIEW,
-		enriched,
-		quality,
-	); err != nil {
-		s.logger.Errorf("failed to save pending enrichment for %s: %v", stockCode, err)
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to save pending enrichment"))
+	// Publish to Pub/Sub if configured
+	if s.pubSubClient != nil {
+		err = s.pubSubClient.PublishEnrichmentJob(ctx, jobID, stockCode, req.Msg.Force)
+		if err != nil {
+			s.logger.Errorf("failed to publish enrichment job to Pub/Sub for %s: %v", stockCode, err)
+			// Continue anyway - the job is in the DB and can be processed later
+		}
+	} else {
+		s.logger.Warnf("Pub/Sub client not configured - enrichment job %s created but not queued", jobID)
 	}
 
 	return connect.NewResponse(&shortsv1alpha1.EnrichStockResponse{
-		StockCode:       stockCode,
-		Status:          shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_PENDING_REVIEW,
-		Data:            enriched,
-		QualityScore:    quality,
-		DurationSeconds: time.Since(start).Seconds(),
-		EnrichmentId:    enrichmentID,
+		StockCode: stockCode,
+		JobId:     jobID,
+		Message:   fmt.Sprintf("Enrichment job created. Job ID: %s", jobID),
 	}), nil
 }
 
@@ -264,4 +216,55 @@ func (s *ShortsServer) ReviewEnrichment(ctx context.Context, req *connect.Reques
 	}), nil
 }
 
+func (s *ShortsServer) GetEnrichmentJobStatus(ctx context.Context, req *connect.Request[shortsv1alpha1.GetEnrichmentJobStatusRequest]) (*connect.Response[shortsv1alpha1.GetEnrichmentJobStatusResponse], error) {
+	if req == nil || req.Msg == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("request is required"))
+	}
+
+	jobID := req.Msg.JobId
+	if jobID == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("job_id is required"))
+	}
+
+	job, err := s.store.GetEnrichmentJob(jobID)
+	if err != nil {
+		s.logger.Errorf("failed to get enrichment job %s: %v", jobID, err)
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("enrichment job not found: %s", jobID))
+	}
+
+	return connect.NewResponse(&shortsv1alpha1.GetEnrichmentJobStatusResponse{
+		Job: job,
+	}), nil
+}
+
+func (s *ShortsServer) ListEnrichmentJobs(ctx context.Context, req *connect.Request[shortsv1alpha1.ListEnrichmentJobsRequest]) (*connect.Response[shortsv1alpha1.ListEnrichmentJobsResponse], error) {
+	if req == nil || req.Msg == nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("request is required"))
+	}
+
+	limit := req.Msg.Limit
+	if limit <= 0 {
+		limit = 100
+	}
+	offset := req.Msg.Offset
+	if offset < 0 {
+		offset = 0
+	}
+
+	var status *shortsv1alpha1.EnrichmentJobStatus
+	if req.Msg.Status != shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_UNSPECIFIED {
+		status = &req.Msg.Status
+	}
+
+	jobs, totalCount, err := s.store.ListEnrichmentJobs(limit, offset, status)
+	if err != nil {
+		s.logger.Errorf("failed to list enrichment jobs: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list enrichment jobs"))
+	}
+
+	return connect.NewResponse(&shortsv1alpha1.ListEnrichmentJobsResponse{
+		Jobs:       jobs,
+		TotalCount: totalCount,
+	}), nil
+}
 

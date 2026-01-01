@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	"github.com/jackc/pgtype"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -43,7 +45,11 @@ SELECT
 	enrichment_date,
 	enrichment_error,
 	COALESCE(financial_statements, '{}'::jsonb) as financial_statements,
-	COALESCE(key_metrics, '{}'::jsonb) as key_metrics
+	COALESCE(key_metrics, '{}'::jsonb) as key_metrics,
+	COALESCE(logo_icon_gcs_url, '') as logo_icon_gcs_url,
+	COALESCE(logo_svg_gcs_url, '') as logo_svg_gcs_url,
+	COALESCE(logo_source_url, '') as logo_source_url,
+	COALESCE(logo_format, '') as logo_format
 FROM "company-metadata"
 WHERE stock_code = $1
 LIMIT 1`
@@ -275,6 +281,10 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stocksv1alpha1.Stock
 		socialMediaLinksJSON    []byte
 		financialStatementsJSON []byte
 		keyMetricsJSON          []byte
+		logoIconGcsURL          sql.NullString
+		logoSvgGcsURL           sql.NullString
+		logoSourceURL           sql.NullString
+		logoFormat              sql.NullString
 	)
 
 	if err := row.Scan(
@@ -300,6 +310,10 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stocksv1alpha1.Stock
 		&enrichmentError,
 		&financialStatementsJSON,
 		&keyMetricsJSON,
+		&logoIconGcsURL,
+		&logoSvgGcsURL,
+		&logoSourceURL,
+		&logoFormat,
 	); err != nil {
 		return nil, err
 	}
@@ -321,6 +335,11 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stocksv1alpha1.Stock
 		SocialMediaLinks:      parseSocialMediaLinks(socialMediaLinksJSON),
 		EnrichmentStatus:      enrichmentStatus.String,
 		EnrichmentError:       enrichmentError.String,
+		LogoGcsUrl:            logoGCSURL.String, // Same as GcsUrl for backward compatibility
+		LogoIconGcsUrl:        logoIconGcsURL.String,
+		LogoSvgGcsUrl:         logoSvgGcsURL.String,
+		LogoSourceUrl:         logoSourceURL.String,
+		LogoFormat:            logoFormat.String,
 	}
 
 	if enrichmentDate.Status == pgtype.Present {
@@ -594,51 +613,66 @@ func convertFinancialInfo(info *dbFinancialStatementsInfo) *stocksv1alpha1.Finan
 	fsInfo := &stocksv1alpha1.FinancialStatementsInfo{}
 	var hasValue bool
 
-	if info.MarketCap != nil {
+	// Helper to check for valid non-zero values
+	isValidFloat := func(f *float64) bool {
+		return f != nil && *f != 0
+	}
+	isValidString := func(s *string) bool {
+		if s == nil {
+			return false
+		}
+		trimmed := strings.TrimSpace(*s)
+		if trimmed == "" || trimmed == "0" || trimmed == "0.0" || trimmed == "0000" {
+			return false
+		}
+		return true
+	}
+
+	if isValidFloat(info.MarketCap) {
 		fsInfo.MarketCap = *info.MarketCap
 		hasValue = true
 	}
-	if info.CurrentPrice != nil {
+	if isValidFloat(info.CurrentPrice) {
 		fsInfo.CurrentPrice = *info.CurrentPrice
 		hasValue = true
 	}
-	if info.PeRatio != nil {
+	if isValidFloat(info.PeRatio) {
 		fsInfo.PeRatio = *info.PeRatio
 		hasValue = true
 	}
-	if info.Eps != nil {
+	if isValidFloat(info.Eps) {
 		fsInfo.Eps = *info.Eps
 		hasValue = true
 	}
-	if info.DividendYield != nil {
+	if isValidFloat(info.DividendYield) {
 		fsInfo.DividendYield = *info.DividendYield
 		hasValue = true
 	}
-	if info.Beta != nil {
+	if isValidFloat(info.Beta) {
 		fsInfo.Beta = *info.Beta
 		hasValue = true
 	}
-	if info.Week52High != nil {
+	if isValidFloat(info.Week52High) {
 		fsInfo.Week_52High = *info.Week52High
 		hasValue = true
 	}
-	if info.Week52Low != nil {
+	if isValidFloat(info.Week52Low) {
 		fsInfo.Week_52Low = *info.Week52Low
 		hasValue = true
 	}
-	if info.Volume != nil {
+	if isValidFloat(info.Volume) {
 		fsInfo.Volume = *info.Volume
 		hasValue = true
 	}
-	if info.EmployeeCount != nil {
+	if info.EmployeeCount != nil && *info.EmployeeCount > 0 {
 		fsInfo.EmployeeCount = int64(*info.EmployeeCount)
 		hasValue = true
 	}
-	if info.Sector != nil {
+	if isValidString(info.Sector) {
 		fsInfo.Sector = *info.Sector
 		hasValue = true
 	}
-	if info.Industry != nil {
+	if isValidString(info.Industry) {
 		fsInfo.Industry = *info.Industry
 		hasValue = true
 	}
@@ -670,24 +704,38 @@ func mergeKeyMetricsToInfo(keyMetrics map[string]interface{}, existing *stocksv1
 		existing = &stocksv1alpha1.FinancialStatementsInfo{}
 	}
 
-	// Helper to safely convert interface{} to float64
+	// Helper to safely convert interface{} to float64, returning 0 if invalid or zero
 	toFloat64 := func(v interface{}) float64 {
+		if v == nil {
+			return 0
+		}
+		var f float64
 		switch val := v.(type) {
 		case float64:
-			return val
+			f = val
 		case float32:
-			return float64(val)
+			f = float64(val)
 		case int:
-			return float64(val)
+			f = float64(val)
 		case int64:
-			return float64(val)
+			f = float64(val)
+		case string:
+			trimmed := strings.TrimSpace(val)
+			if trimmed == "" || trimmed == "0" || trimmed == "0.0" || trimmed == "0000" {
+				return 0
+			}
+			fmt.Sscanf(trimmed, "%f", &f)
 		default:
 			return 0
 		}
+		return f
 	}
 
-	// Helper to safely convert interface{} to int64
+	// Helper to safely convert interface{} to int64, returning 0 if invalid or zero
 	toInt64 := func(v interface{}) int64 {
+		if v == nil {
+			return 0
+		}
 		switch val := v.(type) {
 		case int:
 			return int64(val)
@@ -697,79 +745,70 @@ func mergeKeyMetricsToInfo(keyMetrics map[string]interface{}, existing *stocksv1
 			return int64(val)
 		case float32:
 			return int64(val)
+		case string:
+			trimmed := strings.TrimSpace(val)
+			if trimmed == "" || trimmed == "0" || trimmed == "0.0" || trimmed == "0000" {
+				return 0
+			}
+			var i int64
+			fmt.Sscanf(trimmed, "%d", &i)
+			return i
 		default:
 			return 0
 		}
 	}
 
-	// Helper to safely convert interface{} to string
+	// Helper to safely convert interface{} to string, returning "" if invalid or zero-like
 	toString := func(v interface{}) string {
+		if v == nil {
+			return ""
+		}
 		if str, ok := v.(string); ok {
-			return str
+			trimmed := strings.TrimSpace(str)
+			if trimmed == "" || trimmed == "0" || trimmed == "0.0" || trimmed == "0000" {
+				return ""
+			}
+			return trimmed
 		}
 		return ""
 	}
 
 	// Merge each field, preferring existing values over key_metrics
 	if existing.MarketCap == 0 {
-		if v, ok := keyMetrics["market_cap"]; ok && v != nil {
-			existing.MarketCap = toFloat64(v)
-		}
+		existing.MarketCap = toFloat64(keyMetrics["market_cap"])
 	}
 	if existing.CurrentPrice == 0 {
-		if v, ok := keyMetrics["current_price"]; ok && v != nil {
-			existing.CurrentPrice = toFloat64(v)
-		}
+		existing.CurrentPrice = toFloat64(keyMetrics["current_price"])
 	}
 	if existing.PeRatio == 0 {
-		if v, ok := keyMetrics["pe_ratio"]; ok && v != nil {
-			existing.PeRatio = toFloat64(v)
-		}
+		existing.PeRatio = toFloat64(keyMetrics["pe_ratio"])
 	}
 	if existing.Eps == 0 {
-		if v, ok := keyMetrics["eps"]; ok && v != nil {
-			existing.Eps = toFloat64(v)
-		}
+		existing.Eps = toFloat64(keyMetrics["eps"])
 	}
 	if existing.DividendYield == 0 {
-		if v, ok := keyMetrics["dividend_yield"]; ok && v != nil {
-			existing.DividendYield = toFloat64(v)
-		}
+		existing.DividendYield = toFloat64(keyMetrics["dividend_yield"])
 	}
 	if existing.Beta == 0 {
-		if v, ok := keyMetrics["beta"]; ok && v != nil {
-			existing.Beta = toFloat64(v)
-		}
+		existing.Beta = toFloat64(keyMetrics["beta"])
 	}
 	if existing.Week_52High == 0 {
-		if v, ok := keyMetrics["fifty_two_week_high"]; ok && v != nil {
-			existing.Week_52High = toFloat64(v)
-		}
+		existing.Week_52High = toFloat64(keyMetrics["fifty_two_week_high"])
 	}
 	if existing.Week_52Low == 0 {
-		if v, ok := keyMetrics["fifty_two_week_low"]; ok && v != nil {
-			existing.Week_52Low = toFloat64(v)
-		}
+		existing.Week_52Low = toFloat64(keyMetrics["fifty_two_week_low"])
 	}
 	if existing.Volume == 0 {
-		if v, ok := keyMetrics["avg_volume"]; ok && v != nil {
-			existing.Volume = toFloat64(v)
-		}
+		existing.Volume = toFloat64(keyMetrics["avg_volume"])
 	}
 	if existing.EmployeeCount == 0 {
-		if v, ok := keyMetrics["employee_count"]; ok && v != nil {
-			existing.EmployeeCount = toInt64(v)
-		}
+		existing.EmployeeCount = toInt64(keyMetrics["employee_count"])
 	}
 	if existing.Sector == "" {
-		if v, ok := keyMetrics["sector"]; ok && v != nil {
-			existing.Sector = toString(v)
-		}
+		existing.Sector = toString(keyMetrics["sector"])
 	}
 	if existing.Industry == "" {
-		if v, ok := keyMetrics["industry"]; ok && v != nil {
-			existing.Industry = toString(v)
-		}
+		existing.Industry = toString(keyMetrics["industry"])
 	}
 
 	return existing
@@ -1141,33 +1180,82 @@ func (s *postgresStore) GetTopStocksForEnrichment(limit int32, priority shortsv1
 	return results, nil
 }
 
-func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, status shortsv1alpha1.EnrichmentStatus, data *shortsv1alpha1.EnrichmentData, quality *shortsv1alpha1.QualityScore) error {
+func (s *postgresStore) UpdateLogoURLs(stockCode, logoGCSURL, logoIconGCSURL string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	query := `
+		UPDATE "company-metadata"
+		SET logo_gcs_url = $1, logo_icon_gcs_url = $2
+		WHERE stock_code = $3
+	`
+	_, err := s.db.Exec(ctx, query, logoGCSURL, logoIconGCSURL, stockCode)
+	if err != nil {
+		return fmt.Errorf("failed to update logo URLs: %w", err)
+	}
+	return nil
+}
+
+func (s *postgresStore) UpdateLogoURLsWithSVG(stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	query := `
+		UPDATE "company-metadata"
+		SET logo_gcs_url = $1, 
+		    logo_icon_gcs_url = $2,
+		    logo_svg_gcs_url = $3,
+		    logo_source_url = $4,
+		    logo_format = $5
+		WHERE stock_code = $6
+	`
+	_, err := s.db.Exec(ctx, query, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat, stockCode)
+	if err != nil {
+		return fmt.Errorf("failed to update logo URLs with SVG: %w", err)
+	}
+	return nil
+}
+
+func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, status shortsv1alpha1.EnrichmentStatus, data *shortsv1alpha1.EnrichmentData, quality *shortsv1alpha1.QualityScore) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	if enrichmentID == "" {
-		return fmt.Errorf("enrichmentID is required")
+		return "", fmt.Errorf("enrichmentID is required")
 	}
 	if stockCode == "" {
-		return fmt.Errorf("stockCode is required")
+		return "", fmt.Errorf("stockCode is required")
 	}
 	if data == nil {
-		return fmt.Errorf("enrichment data is required")
+		return "", fmt.Errorf("enrichment data is required")
 	}
 	if quality == nil {
-		return fmt.Errorf("quality score is required")
+		return "", fmt.Errorf("quality score is required")
 	}
 
 	dataJSON, err := protojson.Marshal(data)
 	if err != nil {
-		return fmt.Errorf("failed to marshal enrichment data: %w", err)
+		return "", fmt.Errorf("failed to marshal enrichment data: %w", err)
 	}
 	qualityJSON, err := protojson.Marshal(quality)
 	if err != nil {
-		return fmt.Errorf("failed to marshal quality score: %w", err)
+		return "", fmt.Errorf("failed to marshal quality score: %w", err)
 	}
 
 	dbStatus := enrichmentStatusToDB(status)
+
+	// If this is a new pending review, we want to see if one already exists for this stock.
+	// If so, we'll use its enrichment_id to update it instead of creating a new one.
+	// This prevents multiple pending reviews for the same stock.
+	var finalEnrichmentID string = enrichmentID
+	if dbStatus == "pending_review" {
+		var existingID string
+		checkQuery := `SELECT enrichment_id::text FROM "enrichment-pending" WHERE stock_code = $1 AND status = 'pending_review' LIMIT 1`
+		err := s.db.QueryRow(ctx, checkQuery, stockCode).Scan(&existingID)
+		if err == nil && existingID != "" {
+			finalEnrichmentID = existingID
+		}
+	}
 
 	query := `
 		INSERT INTO "enrichment-pending" (
@@ -1188,11 +1276,11 @@ func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, st
 			review_notes = NULL
 	`
 
-	_, err = s.db.Exec(ctx, query, enrichmentID, stockCode, dataJSON, qualityJSON, dbStatus)
+	_, err = s.db.Exec(ctx, query, finalEnrichmentID, stockCode, dataJSON, qualityJSON, dbStatus)
 	if err != nil {
-		return fmt.Errorf("failed to save pending enrichment: %w", err)
+		return "", fmt.Errorf("failed to save pending enrichment: %w", err)
 	}
-	return nil
+	return finalEnrichmentID, nil
 }
 
 func (s *postgresStore) ListPendingEnrichments(limit int32, offset int32) ([]*shortsv1alpha1.PendingEnrichmentSummary, error) {
@@ -1349,6 +1437,69 @@ func (s *postgresStore) GetPendingEnrichment(enrichmentID string) (*shortsv1alph
 	return pending, nil
 }
 
+func (s *postgresStore) GetPendingEnrichmentByStockCode(stockCode string) (*shortsv1alpha1.PendingEnrichmentSummary, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if stockCode == "" {
+		return nil, fmt.Errorf("stockCode is required")
+	}
+
+	query := `
+		SELECT
+			enrichment_id::text,
+			stock_code,
+			status,
+			created_at,
+			quality_score
+		FROM "enrichment-pending"
+		WHERE stock_code = $1 AND status = 'pending_review'
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+
+	var (
+		enrichmentID string
+		dbStockCode  string
+		status       string
+		createdAt    pgtype.Timestamptz
+		qualityJSON  []byte
+	)
+
+	err := s.db.QueryRow(ctx, query, stockCode).Scan(
+		&enrichmentID,
+		&dbStockCode,
+		&status,
+		&createdAt,
+		&qualityJSON,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) || errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // No pending enrichment found
+		}
+		return nil, fmt.Errorf("failed to get pending enrichment by stock code: %w", err)
+	}
+
+	quality := &shortsv1alpha1.QualityScore{}
+	if !isEmptyJSON(qualityJSON) {
+		if err := protojson.Unmarshal(qualityJSON, quality); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal quality score: %w", err)
+		}
+	}
+
+	summary := &shortsv1alpha1.PendingEnrichmentSummary{
+		EnrichmentId: enrichmentID,
+		StockCode:    dbStockCode,
+		Status:       enrichmentStatusFromDB(status),
+		QualityScore: quality,
+	}
+	if createdAt.Status == pgtype.Present {
+		summary.CreatedAt = timestamppb.New(createdAt.Time)
+	}
+
+	return summary, nil
+}
+
 func (s *postgresStore) ReviewEnrichment(enrichmentID string, approve bool, reviewedBy, reviewNotes string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -1461,6 +1612,23 @@ func (s *postgresStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.E
 	competitiveAdvantages := sql.NullString{String: data.CompetitiveAdvantages, Valid: data.CompetitiveAdvantages != ""}
 	recentDevelopments := sql.NullString{String: data.RecentDevelopments, Valid: data.RecentDevelopments != ""}
 
+	// Convert risk_factors []string to JSON string for TEXT column storage
+	var riskFactorsJSON sql.NullString
+	if len(data.RiskFactors) > 0 {
+		riskFactorsBytes, err := json.Marshal(data.RiskFactors)
+		if err != nil {
+			return fmt.Errorf("failed to marshal risk_factors: %w", err)
+		}
+		riskFactorsJSON = sql.NullString{String: string(riskFactorsBytes), Valid: true}
+	}
+
+	// Handle logo URLs (only update if provided)
+	logoGcsUrl := sql.NullString{String: data.LogoGcsUrl, Valid: data.LogoGcsUrl != ""}
+	logoIconGcsUrl := sql.NullString{String: data.LogoIconGcsUrl, Valid: data.LogoIconGcsUrl != ""}
+	logoSvgGcsUrl := sql.NullString{String: data.LogoSvgGcsUrl, Valid: data.LogoSvgGcsUrl != ""}
+	logoSourceUrl := sql.NullString{String: data.LogoSourceUrl, Valid: data.LogoSourceUrl != ""}
+	logoFormat := sql.NullString{String: data.LogoFormat, Valid: data.LogoFormat != ""}
+
 	query := `
 		UPDATE "company-metadata"
 		SET
@@ -1475,7 +1643,15 @@ func (s *postgresStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.E
 			social_media_links = $10::jsonb,
 			enrichment_status = 'completed',
 			enrichment_date = CURRENT_TIMESTAMP,
-			enrichment_error = NULL
+			enrichment_error = NULL,
+			-- Update logo URLs if provided (COALESCE keeps existing value if new is NULL)
+			logo_gcs_url = COALESCE($11, logo_gcs_url),
+			logo_icon_gcs_url = COALESCE($12, logo_icon_gcs_url),
+			logo_svg_gcs_url = COALESCE($13, logo_svg_gcs_url),
+			logo_source_url = COALESCE($14, logo_source_url),
+			logo_format = COALESCE($15, logo_format),
+			-- Also update the legacy gcsUrl field for backward compatibility
+			"gcsUrl" = COALESCE($11, "gcsUrl")
 		WHERE stock_code = $1
 	`
 
@@ -1489,9 +1665,14 @@ func (s *postgresStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.E
 		keyPeopleJSON,
 		reportsJSON,
 		competitiveAdvantages,
-		data.RiskFactors,
+		riskFactorsJSON,
 		recentDevelopments,
 		socialLinksJSON,
+		logoGcsUrl,
+		logoIconGcsUrl,
+		logoSvgGcsUrl,
+		logoSourceUrl,
+		logoFormat,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to apply enrichment: %w", err)
@@ -1525,6 +1706,481 @@ func enrichmentStatusFromDB(status string) shortsv1alpha1.EnrichmentStatus {
 		return shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_REJECTED
 	default:
 		return shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_UNSPECIFIED
+	}
+}
+
+func (s *postgresStore) CreateEnrichmentJob(stockCode string, force bool) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	query := `
+		INSERT INTO "enrichment-jobs" (
+			stock_code,
+			status,
+			force
+		) VALUES ($1, 'queued', $2)
+		RETURNING job_id::text
+	`
+
+	var jobID string
+	err := s.db.QueryRow(ctx, query, stockCode, force).Scan(&jobID)
+	if err != nil {
+		return "", fmt.Errorf("failed to create enrichment job: %w", err)
+	}
+
+	return jobID, nil
+}
+
+func (s *postgresStore) GetActiveEnrichmentJobByStockCode(stockCode string) (*shortsv1alpha1.EnrichmentJob, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT
+			job_id::text,
+			stock_code,
+			status,
+			priority,
+			force,
+			created_at,
+			started_at,
+			completed_at,
+			error_message,
+			enrichment_id::text
+		FROM "enrichment-jobs"
+		WHERE stock_code = $1 AND status IN ('queued', 'processing')
+		ORDER BY created_at DESC
+		LIMIT 1
+	`
+
+	var (
+		dbJobID      string
+		dbStockCode  string
+		status       string
+		priority     int32
+		force        bool
+		createdAt    pgtype.Timestamptz
+		startedAt    pgtype.Timestamptz
+		completedAt  pgtype.Timestamptz
+		errorMessage sql.NullString
+		enrichmentID sql.NullString
+	)
+
+	err := s.db.QueryRow(ctx, query, stockCode).Scan(
+		&dbJobID,
+		&dbStockCode,
+		&status,
+		&priority,
+		&force,
+		&createdAt,
+		&startedAt,
+		&completedAt,
+		&errorMessage,
+		&enrichmentID,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil // No active job
+		}
+		return nil, fmt.Errorf("failed to get active enrichment job: %w", err)
+	}
+
+	job := &shortsv1alpha1.EnrichmentJob{
+		JobId:     dbJobID,
+		StockCode: dbStockCode,
+		Status:    enrichmentJobStatusFromDB(status),
+		Priority:  priority,
+		Force:     force,
+	}
+
+	if createdAt.Status == pgtype.Present {
+		job.CreatedAt = timestamppb.New(createdAt.Time)
+	}
+	if startedAt.Status == pgtype.Present {
+		job.StartedAt = timestamppb.New(startedAt.Time)
+	}
+	if completedAt.Status == pgtype.Present {
+		job.CompletedAt = timestamppb.New(completedAt.Time)
+	}
+	if errorMessage.Valid {
+		job.ErrorMessage = errorMessage.String
+	}
+	if enrichmentID.Valid {
+		job.EnrichmentId = enrichmentID.String
+	}
+
+	return job, nil
+}
+
+func (s *postgresStore) GetEnrichmentJob(jobID string) (*shortsv1alpha1.EnrichmentJob, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT
+			job_id::text,
+			stock_code,
+			status,
+			priority,
+			force,
+			created_at,
+			started_at,
+			completed_at,
+			error_message,
+			enrichment_id::text
+		FROM "enrichment-jobs"
+		WHERE job_id = $1::uuid
+		LIMIT 1
+	`
+
+	var (
+		dbJobID        string
+		stockCode      string
+		status         string
+		priority       int32
+		force          bool
+		createdAt      pgtype.Timestamptz
+		startedAt      pgtype.Timestamptz
+		completedAt    pgtype.Timestamptz
+		errorMessage   sql.NullString
+		enrichmentID   sql.NullString
+	)
+
+	err := s.db.QueryRow(ctx, query, jobID).Scan(
+		&dbJobID,
+		&stockCode,
+		&status,
+		&priority,
+		&force,
+		&createdAt,
+		&startedAt,
+		&completedAt,
+		&errorMessage,
+		&enrichmentID,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("enrichment job not found: %s", jobID)
+		}
+		return nil, fmt.Errorf("failed to get enrichment job: %w", err)
+	}
+
+	job := &shortsv1alpha1.EnrichmentJob{
+		JobId:     dbJobID,
+		StockCode: stockCode,
+		Status:    enrichmentJobStatusFromDB(status),
+		Priority:  priority,
+		Force:     force,
+	}
+
+	if createdAt.Status == pgtype.Present {
+		job.CreatedAt = timestamppb.New(createdAt.Time)
+	}
+	if startedAt.Status == pgtype.Present {
+		job.StartedAt = timestamppb.New(startedAt.Time)
+	}
+	if completedAt.Status == pgtype.Present {
+		job.CompletedAt = timestamppb.New(completedAt.Time)
+	}
+	if errorMessage.Valid {
+		job.ErrorMessage = errorMessage.String
+	}
+	if enrichmentID.Valid {
+		job.EnrichmentId = enrichmentID.String
+	}
+
+	return job, nil
+}
+
+func (s *postgresStore) UpdateEnrichmentJobStatus(jobID string, status shortsv1alpha1.EnrichmentJobStatus, enrichmentID *string, errorMsg *string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	dbStatus := enrichmentJobStatusToDB(status)
+	now := time.Now()
+
+	var query string
+	var args []interface{}
+
+	switch status {
+	case shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_PROCESSING:
+		query = `
+			UPDATE "enrichment-jobs"
+			SET status = $1, started_at = $2
+			WHERE job_id = $3::uuid
+		`
+		args = []interface{}{dbStatus, now, jobID}
+	case shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_COMPLETED:
+		// Handle enrichment_id - use NULL if empty, otherwise cast to UUID
+		if enrichmentID != nil && *enrichmentID != "" {
+			query = `
+				UPDATE "enrichment-jobs"
+				SET status = $1, completed_at = $2, enrichment_id = $3::uuid
+				WHERE job_id = $4::uuid
+			`
+			args = []interface{}{dbStatus, now, *enrichmentID, jobID}
+		} else {
+			query = `
+				UPDATE "enrichment-jobs"
+				SET status = $1, completed_at = $2
+				WHERE job_id = $3::uuid
+			`
+			args = []interface{}{dbStatus, now, jobID}
+		}
+	case shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED:
+		query = `
+			UPDATE "enrichment-jobs"
+			SET status = $1, completed_at = $2, error_message = $3
+			WHERE job_id = $4::uuid
+		`
+		errMsg := ""
+		if errorMsg != nil {
+			errMsg = *errorMsg
+		}
+		args = []interface{}{dbStatus, now, errMsg, jobID}
+	default:
+		query = `
+			UPDATE "enrichment-jobs"
+			SET status = $1
+			WHERE job_id = $2::uuid
+		`
+		args = []interface{}{dbStatus, jobID}
+	}
+
+	_, err := s.db.Exec(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to update enrichment job status: %w", err)
+	}
+
+	return nil
+}
+
+func (s *postgresStore) ListEnrichmentJobs(limit, offset int32, status *shortsv1alpha1.EnrichmentJobStatus) ([]*shortsv1alpha1.EnrichmentJob, int32, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if limit <= 0 {
+		limit = 100
+	}
+	if limit > 1000 {
+		limit = 1000
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	baseQuery := `
+		SELECT
+			job_id::text,
+			stock_code,
+			status,
+			priority,
+			force,
+			created_at,
+			started_at,
+			completed_at,
+			error_message,
+			enrichment_id::text
+		FROM "enrichment-jobs"
+	`
+	whereClause := ""
+	args := []interface{}{limit, offset}
+	argIdx := 3
+
+	if status != nil {
+		whereClause = fmt.Sprintf(" WHERE status = $%d", argIdx)
+		args = append(args, enrichmentJobStatusToDB(*status))
+		argIdx++
+	}
+
+	query := baseQuery + whereClause + `
+		ORDER BY created_at DESC
+		LIMIT $1 OFFSET $2
+	`
+
+	rows, err := s.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to list enrichment jobs: %w", err)
+	}
+	defer rows.Close()
+
+	var jobs []*shortsv1alpha1.EnrichmentJob
+	for rows.Next() {
+		var (
+			jobID        string
+			stockCode    string
+			dbStatus     string
+			priority     int32
+			force        bool
+			createdAt    pgtype.Timestamptz
+			startedAt    pgtype.Timestamptz
+			completedAt  pgtype.Timestamptz
+			errorMessage sql.NullString
+			enrichmentID sql.NullString
+		)
+
+		err := rows.Scan(
+			&jobID,
+			&stockCode,
+			&dbStatus,
+			&priority,
+			&force,
+			&createdAt,
+			&startedAt,
+			&completedAt,
+			&errorMessage,
+			&enrichmentID,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to scan enrichment job: %w", err)
+		}
+
+		job := &shortsv1alpha1.EnrichmentJob{
+			JobId:     jobID,
+			StockCode: stockCode,
+			Status:    enrichmentJobStatusFromDB(dbStatus),
+			Priority:  priority,
+			Force:     force,
+		}
+
+		if createdAt.Status == pgtype.Present {
+			job.CreatedAt = timestamppb.New(createdAt.Time)
+		}
+		if startedAt.Status == pgtype.Present {
+			job.StartedAt = timestamppb.New(startedAt.Time)
+		}
+		if completedAt.Status == pgtype.Present {
+			job.CompletedAt = timestamppb.New(completedAt.Time)
+		}
+		if errorMessage.Valid {
+			job.ErrorMessage = errorMessage.String
+		}
+		if enrichmentID.Valid {
+			job.EnrichmentId = enrichmentID.String
+		}
+
+		jobs = append(jobs, job)
+	}
+
+	// Get total count
+	countQuery := `SELECT COUNT(*) FROM "enrichment-jobs"` + whereClause
+	countArgs := args[2:] // Skip limit and offset
+	var totalCount int32
+	if len(countArgs) > 0 {
+		err = s.db.QueryRow(ctx, countQuery, countArgs...).Scan(&totalCount)
+	} else {
+		err = s.db.QueryRow(ctx, countQuery).Scan(&totalCount)
+	}
+	if err != nil {
+		return jobs, int32(len(jobs)), nil // Return partial count if query fails
+	}
+
+	return jobs, totalCount, nil
+}
+
+func (s *postgresStore) ResetStuckJobs(stuckThresholdMinutes int) (int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Reset jobs that have been in "processing" status for more than the threshold
+	query := `
+		UPDATE "enrichment-jobs"
+		SET status = 'queued', started_at = NULL, error_message = $1
+		WHERE status = 'processing'
+		  AND started_at IS NOT NULL
+		  AND started_at < NOW() - INTERVAL '1 minute' * $2
+		RETURNING job_id
+	`
+	errorMsg := fmt.Sprintf("Job was stuck in processing for > %d minutes, reset to queued", stuckThresholdMinutes)
+	
+	rows, err := s.db.Query(ctx, query, errorMsg, stuckThresholdMinutes)
+	if err != nil {
+		return 0, fmt.Errorf("failed to reset stuck jobs: %w", err)
+	}
+	defer rows.Close()
+
+	count := 0
+	for rows.Next() {
+		count++
+	}
+	
+	if count > 0 {
+		log.Infof("Reset %d stuck enrichment job(s) back to queued", count)
+	}
+	
+	return count, nil
+}
+
+func (s *postgresStore) CleanupOldCompletedJobs(keepPerStock int) (int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Delete old completed jobs, keeping only the keepPerStock most recent per stock
+	// Uses a window function to identify which jobs to keep
+	query := `
+		WITH ranked_jobs AS (
+			SELECT 
+				job_id,
+				ROW_NUMBER() OVER (PARTITION BY stock_code ORDER BY completed_at DESC NULLS LAST, created_at DESC) as rn
+			FROM "enrichment-jobs"
+			WHERE status = 'completed'
+		)
+		DELETE FROM "enrichment-jobs"
+		WHERE job_id IN (
+			SELECT job_id FROM ranked_jobs WHERE rn > $1
+		)
+		RETURNING job_id
+	`
+	
+	rows, err := s.db.Query(ctx, query, keepPerStock)
+	if err != nil {
+		return 0, fmt.Errorf("failed to cleanup old completed jobs: %w", err)
+	}
+	defer rows.Close()
+
+	count := 0
+	for rows.Next() {
+		count++
+	}
+	
+	if count > 0 {
+		log.Infof("Cleaned up %d old completed enrichment job(s) (kept %d most recent per stock)", count, keepPerStock)
+	}
+	
+	return count, nil
+}
+
+func enrichmentJobStatusToDB(status shortsv1alpha1.EnrichmentJobStatus) string {
+	switch status {
+	case shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_QUEUED:
+		return "queued"
+	case shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_PROCESSING:
+		return "processing"
+	case shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_COMPLETED:
+		return "completed"
+	case shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED:
+		return "failed"
+	case shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_CANCELLED:
+		return "cancelled"
+	default:
+		return "queued"
+	}
+}
+
+func enrichmentJobStatusFromDB(status string) shortsv1alpha1.EnrichmentJobStatus {
+	switch status {
+	case "queued":
+		return shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_QUEUED
+	case "processing":
+		return shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_PROCESSING
+	case "completed":
+		return shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_COMPLETED
+	case "failed":
+		return shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED
+	case "cancelled":
+		return shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_CANCELLED
+	default:
+		return shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_UNSPECIFIED
 	}
 }
 

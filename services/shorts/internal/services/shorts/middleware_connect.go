@@ -84,7 +84,8 @@ func NewAuthInterceptor(tokenService *TokenService) connect.UnaryInterceptorFunc
 				}
 			}
 
-			log.Infof("Procedure: %s, Visibility: %v, RequiredRole: %s", procedure, visibility, requiredRole)
+			// Only log procedure info at debug level
+			log.Debugf("Procedure: %s, Visibility: %v, RequiredRole: %s", procedure, visibility, requiredRole)
 
 			// 1. Check for internal service authentication first (from server actions)
 			// This allows minting tokens without an existing Authorization header
@@ -133,7 +134,7 @@ func NewAuthInterceptor(tokenService *TokenService) connect.UnaryInterceptorFunc
 						Roles:  roles,
 					}
 					
-					log.Infof("Internal auth: user=%s, roles=%v, isAdmin=%v", userEmail, roles, isAdmin)
+					log.Debugf("Internal auth: user=%s, roles=%v, isAdmin=%v", userEmail, roles, isAdmin)
 					ctx = context.WithValue(ctx, userKey, normalizedClaims)
 					
 					// Check role requirement
@@ -214,7 +215,7 @@ func NewAuthInterceptor(tokenService *TokenService) connect.UnaryInterceptorFunc
 							Roles:  roles,
 						}
 						
-						log.Infof("Firebase auth: user=%s, roles=%v", email, roles)
+						log.Debugf("Firebase auth: user=%s, roles=%v", email, roles)
 						ctx = context.WithValue(ctx, userKey, normalizedClaims)
 						if requiredRole != "" && !hasRole(normalizedClaims, requiredRole) {
 							return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("%s role required", requiredRole))
