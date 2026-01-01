@@ -10,10 +10,14 @@ on:
 env:
   NODE_VERSION: "20"
   GO_VERSION: "1.23"
-  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  # Preview deployments always use dev project
+  GCP_PROJECT_ID: shorted-dev-aba5688f
   GCP_REGION: australia-southeast2
   ARTIFACT_REGISTRY: australia-southeast2-docker.pkg.dev
   PR_NUMBER: ${{ github.event.pull_request.number || 'manual' }}
+  # Dev environment credentials for preview deployments
+  DEV_WIP_PROVIDER: projects/234770780438/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+  DEV_SA_EMAIL: github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com
 
 permissions:
   contents: read
@@ -30,12 +34,13 @@ jobs:
       - name: Check required secrets
         id: check
         run: |
+          # Dev WIP and SA are now hardcoded in env, just need to check OPENAI_API_KEY
           HAS_GCP="false"
-          if [ -n "${{ secrets.GCP_PROJECT_ID }}" ] && [ -n "${{ secrets.WIP_PROVIDER }}" ] && [ -n "${{ secrets.SA_EMAIL }}" ] && [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
+          if [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
             HAS_GCP="true"
           fi
           echo "has-gcp=$HAS_GCP" >> $GITHUB_OUTPUT
-          echo "GCP secrets configured: $HAS_GCP"
+          echo "GCP configured: $HAS_GCP"
 
   deploy-backend:
     needs: [check-secrets, test-unit]
@@ -73,8 +78,8 @@ jobs:
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIP_PROVIDER }}
-          service_account: ${{ secrets.SA_EMAIL }}
+          workload_identity_provider: ${{ env.DEV_WIP_PROVIDER }}
+          service_account: ${{ env.DEV_SA_EMAIL }}
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
@@ -205,8 +210,8 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIP_PROVIDER }}
-          service_account: ${{ secrets.SA_EMAIL }}
+          workload_identity_provider: ${{ env.DEV_WIP_PROVIDER }}
+          service_account: ${{ env.DEV_SA_EMAIL }}
 
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
