@@ -324,6 +324,18 @@ service ShortedStocksService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
     option (shortedapi.options.v1.required_role) = "admin";
   }
+
+  // Get enrichment job status by job ID. Admin only.
+  rpc GetEnrichmentJobStatus (GetEnrichmentJobStatusRequest) returns (GetEnrichmentJobStatusResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
+
+  // List enrichment jobs with optional status filter. Admin only.
+  rpc ListEnrichmentJobs (ListEnrichmentJobsRequest) returns (ListEnrichmentJobsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+    option (shortedapi.options.v1.required_role) = "admin";
+  }
 }
 
 message MintTokenRequest {
@@ -460,15 +472,11 @@ message EnrichStockRequest {
   bool force = 2; // If true, re-enrich even if already enriched
 }
 
-// Enrichment response with data for review
+// Enrichment response with job ID (async processing)
 message EnrichStockResponse {
   string stock_code = 1;
-  EnrichmentStatus status = 2;
-  EnrichmentData data = 3; // Enrichment data for review
-  QualityScore quality_score = 4; // Quality evaluation
-  string error_message = 5;
-  double duration_seconds = 6;
-  string enrichment_id = 7; // Unique ID for this enrichment (used for review)
+  string job_id = 2; // Job ID for tracking async enrichment
+  string message = 3; // Status message
 }
 
 // Enrichment status
@@ -491,6 +499,12 @@ message EnrichmentData {
   string recent_developments = 7;
   stocks.v1alpha1.SocialMediaLinks social_media_links = 8;
   repeated string tags = 9;
+  // Logo URLs (staged for review, applied on approval)
+  string logo_gcs_url = 10;           // Full logo PNG URL (background removed)
+  string logo_icon_gcs_url = 11;      // Icon-only logo PNG URL  
+  string logo_svg_gcs_url = 12;       // Original SVG logo URL (if discovered as SVG)
+  string logo_source_url = 13;        // Original URL where the logo was found
+  string logo_format = 14;            // Original format of discovered logo (svg, png, etc)
 }
 
 // Quality score for enrichment data
@@ -590,4 +604,51 @@ message PendingEnrichment {
   google.protobuf.Timestamp reviewed_at = 7;
   string reviewed_by = 8;
   string review_notes = 9;
+}
+
+// Enrichment job status enum
+enum EnrichmentJobStatus {
+  ENRICHMENT_JOB_STATUS_UNSPECIFIED = 0;
+  ENRICHMENT_JOB_STATUS_QUEUED = 1; // Job created, waiting to be processed
+  ENRICHMENT_JOB_STATUS_PROCESSING = 2; // Currently being processed
+  ENRICHMENT_JOB_STATUS_COMPLETED = 3; // Completed successfully
+  ENRICHMENT_JOB_STATUS_FAILED = 4; // Failed with error
+  ENRICHMENT_JOB_STATUS_CANCELLED = 5; // Cancelled before completion
+}
+
+// Enrichment job record
+message EnrichmentJob {
+  string job_id = 1;
+  string stock_code = 2;
+  EnrichmentJobStatus status = 3;
+  int32 priority = 4;
+  bool force = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp started_at = 7;
+  google.protobuf.Timestamp completed_at = 8;
+  string error_message = 9;
+  string enrichment_id = 10; // Set when job completes and enrichment is saved
+}
+
+// Get enrichment job status request
+message GetEnrichmentJobStatusRequest {
+  string job_id = 1;
+}
+
+// Get enrichment job status response
+message GetEnrichmentJobStatusResponse {
+  EnrichmentJob job = 1;
+}
+
+// List enrichment jobs request
+message ListEnrichmentJobsRequest {
+  int32 limit = 1; // Default: 100
+  int32 offset = 2; // Default: 0
+  EnrichmentJobStatus status = 3; // Optional filter by status
+}
+
+// List enrichment jobs response
+message ListEnrichmentJobsResponse {
+  repeated EnrichmentJob jobs = 1;
+  int32 total_count = 2;
 }

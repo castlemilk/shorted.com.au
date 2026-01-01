@@ -56,6 +56,36 @@ func (mr *MockShortsStoreMockRecorder) ApplyEnrichment(stockCode, data any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyEnrichment", reflect.TypeOf((*MockShortsStore)(nil).ApplyEnrichment), stockCode, data)
 }
 
+// CreateEnrichmentJob mocks base method.
+func (m *MockShortsStore) CreateEnrichmentJob(stockCode string, force bool) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateEnrichmentJob", stockCode, force)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreateEnrichmentJob indicates an expected call of CreateEnrichmentJob.
+func (mr *MockShortsStoreMockRecorder) CreateEnrichmentJob(stockCode, force any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEnrichmentJob", reflect.TypeOf((*MockShortsStore)(nil).CreateEnrichmentJob), stockCode, force)
+}
+
+// GetActiveEnrichmentJobByStockCode mocks base method.
+func (m *MockShortsStore) GetActiveEnrichmentJobByStockCode(stockCode string) (*shortsv1alpha1.EnrichmentJob, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetActiveEnrichmentJobByStockCode", stockCode)
+	ret0, _ := ret[0].(*shortsv1alpha1.EnrichmentJob)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetActiveEnrichmentJobByStockCode indicates an expected call of GetActiveEnrichmentJobByStockCode.
+func (mr *MockShortsStoreMockRecorder) GetActiveEnrichmentJobByStockCode(stockCode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActiveEnrichmentJobByStockCode", reflect.TypeOf((*MockShortsStore)(nil).GetActiveEnrichmentJobByStockCode), stockCode)
+}
+
 // GetAllStockCodes mocks base method.
 func (m *MockShortsStore) GetAllStockCodes() ([]string, error) {
 	m.ctrl.T.Helper()
@@ -69,6 +99,21 @@ func (m *MockShortsStore) GetAllStockCodes() ([]string, error) {
 func (mr *MockShortsStoreMockRecorder) GetAllStockCodes() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllStockCodes", reflect.TypeOf((*MockShortsStore)(nil).GetAllStockCodes))
+}
+
+// GetEnrichmentJob mocks base method.
+func (m *MockShortsStore) GetEnrichmentJob(jobID string) (*shortsv1alpha1.EnrichmentJob, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEnrichmentJob", jobID)
+	ret0, _ := ret[0].(*shortsv1alpha1.EnrichmentJob)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetEnrichmentJob indicates an expected call of GetEnrichmentJob.
+func (mr *MockShortsStoreMockRecorder) GetEnrichmentJob(jobID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEnrichmentJob", reflect.TypeOf((*MockShortsStore)(nil).GetEnrichmentJob), jobID)
 }
 
 // GetIndustryTreeMap mocks base method.
@@ -99,6 +144,21 @@ func (m *MockShortsStore) GetPendingEnrichment(enrichmentID string) (*shortsv1al
 func (mr *MockShortsStoreMockRecorder) GetPendingEnrichment(enrichmentID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingEnrichment", reflect.TypeOf((*MockShortsStore)(nil).GetPendingEnrichment), enrichmentID)
+}
+
+// GetPendingEnrichmentByStockCode mocks base method.
+func (m *MockShortsStore) GetPendingEnrichmentByStockCode(stockCode string) (*shortsv1alpha1.PendingEnrichmentSummary, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPendingEnrichmentByStockCode", stockCode)
+	ret0, _ := ret[0].(*shortsv1alpha1.PendingEnrichmentSummary)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPendingEnrichmentByStockCode indicates an expected call of GetPendingEnrichmentByStockCode.
+func (mr *MockShortsStoreMockRecorder) GetPendingEnrichmentByStockCode(stockCode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingEnrichmentByStockCode", reflect.TypeOf((*MockShortsStore)(nil).GetPendingEnrichmentByStockCode), stockCode)
 }
 
 // GetStock mocks base method.
@@ -192,6 +252,22 @@ func (mr *MockShortsStoreMockRecorder) GetTopStocksForEnrichment(limit, priority
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTopStocksForEnrichment", reflect.TypeOf((*MockShortsStore)(nil).GetTopStocksForEnrichment), limit, priority)
 }
 
+// ListEnrichmentJobs mocks base method.
+func (m *MockShortsStore) ListEnrichmentJobs(limit, offset int32, status *shortsv1alpha1.EnrichmentJobStatus) ([]*shortsv1alpha1.EnrichmentJob, int32, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListEnrichmentJobs", limit, offset, status)
+	ret0, _ := ret[0].([]*shortsv1alpha1.EnrichmentJob)
+	ret1, _ := ret[1].(int32)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListEnrichmentJobs indicates an expected call of ListEnrichmentJobs.
+func (mr *MockShortsStoreMockRecorder) ListEnrichmentJobs(limit, offset, status any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEnrichmentJobs", reflect.TypeOf((*MockShortsStore)(nil).ListEnrichmentJobs), limit, offset, status)
+}
+
 // ListPendingEnrichments mocks base method.
 func (m *MockShortsStore) ListPendingEnrichments(limit, offset int32) ([]*shortsv1alpha1.PendingEnrichmentSummary, error) {
 	m.ctrl.T.Helper()
@@ -222,11 +298,12 @@ func (mr *MockShortsStoreMockRecorder) ReviewEnrichment(enrichmentID, approve, r
 }
 
 // SavePendingEnrichment mocks base method.
-func (m *MockShortsStore) SavePendingEnrichment(enrichmentID, stockCode string, status shortsv1alpha1.EnrichmentStatus, data *shortsv1alpha1.EnrichmentData, quality *shortsv1alpha1.QualityScore) error {
+func (m *MockShortsStore) SavePendingEnrichment(enrichmentID, stockCode string, status shortsv1alpha1.EnrichmentStatus, data *shortsv1alpha1.EnrichmentData, quality *shortsv1alpha1.QualityScore) (string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SavePendingEnrichment", enrichmentID, stockCode, status, data, quality)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // SavePendingEnrichment indicates an expected call of SavePendingEnrichment.
@@ -265,6 +342,20 @@ func (mr *MockShortsStoreMockRecorder) StockExists(stockCode any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StockExists", reflect.TypeOf((*MockShortsStore)(nil).StockExists), stockCode)
 }
 
+// UpdateEnrichmentJobStatus mocks base method.
+func (m *MockShortsStore) UpdateEnrichmentJobStatus(jobID string, status shortsv1alpha1.EnrichmentJobStatus, enrichmentID, errorMsg *string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateEnrichmentJobStatus", jobID, status, enrichmentID, errorMsg)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateEnrichmentJobStatus indicates an expected call of UpdateEnrichmentJobStatus.
+func (mr *MockShortsStoreMockRecorder) UpdateEnrichmentJobStatus(jobID, status, enrichmentID, errorMsg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateEnrichmentJobStatus", reflect.TypeOf((*MockShortsStore)(nil).UpdateEnrichmentJobStatus), jobID, status, enrichmentID, errorMsg)
+}
+
 // UpdateKeyMetrics mocks base method.
 func (m *MockShortsStore) UpdateKeyMetrics(stockCode string, metrics map[string]any) error {
 	m.ctrl.T.Helper()
@@ -277,6 +368,34 @@ func (m *MockShortsStore) UpdateKeyMetrics(stockCode string, metrics map[string]
 func (mr *MockShortsStoreMockRecorder) UpdateKeyMetrics(stockCode, metrics any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateKeyMetrics", reflect.TypeOf((*MockShortsStore)(nil).UpdateKeyMetrics), stockCode, metrics)
+}
+
+// UpdateLogoURLs mocks base method.
+func (m *MockShortsStore) UpdateLogoURLs(stockCode, logoGCSURL, logoIconGCSURL string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateLogoURLs", stockCode, logoGCSURL, logoIconGCSURL)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateLogoURLs indicates an expected call of UpdateLogoURLs.
+func (mr *MockShortsStoreMockRecorder) UpdateLogoURLs(stockCode, logoGCSURL, logoIconGCSURL any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLogoURLs", reflect.TypeOf((*MockShortsStore)(nil).UpdateLogoURLs), stockCode, logoGCSURL, logoIconGCSURL)
+}
+
+// UpdateLogoURLsWithSVG mocks base method.
+func (m *MockShortsStore) UpdateLogoURLsWithSVG(stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateLogoURLsWithSVG", stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateLogoURLsWithSVG indicates an expected call of UpdateLogoURLsWithSVG.
+func (mr *MockShortsStoreMockRecorder) UpdateLogoURLsWithSVG(stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLogoURLsWithSVG", reflect.TypeOf((*MockShortsStore)(nil).UpdateLogoURLsWithSVG), stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat)
 }
 
 // MockCache is a mock of Cache interface.

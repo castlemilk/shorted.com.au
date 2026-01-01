@@ -2,6 +2,7 @@ package shorts
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -11,7 +12,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
-	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 )
 
 func allowAnyLogs(l *mocks.MockLogger) {
@@ -21,121 +21,8 @@ func allowAnyLogs(l *mocks.MockLogger) {
 	l.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
 }
 
-func TestShortsServer_EnrichStock_Success(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockStore := mocks.NewMockShortsStore(ctrl)
-	mockLogger := mocks.NewMockLogger(ctrl)
-	mockGPT := mocks.NewMockGPTClient(ctrl)
-	mockCrawler := mocks.NewMockFinancialReportCrawler(ctrl)
-	allowAnyLogs(mockLogger)
-
-	server := &ShortsServer{
-		config:        DefaultConfig(),
-		store:         mockStore,
-		cache:         NewMemoryCache(time.Minute),
-		logger:        mockLogger,
-		gptClient:     mockGPT,
-		reportCrawler: mockCrawler,
-	}
-
-	stockCode := "CVN"
-	details := &stocksv1alpha1.StockDetails{
-		ProductCode:       stockCode,
-		CompanyName:       "Carnarvon Energy",
-		Industry:          "Energy",
-		Website:           "https://example.com",
-		Summary:           "Energy producer",
-		EnrichmentStatus:  "pending",
-	}
-
-	reports := []*stocksv1alpha1.FinancialReport{
-		{Url: "https://example.com/report.pdf", Title: "Annual Report", Type: "annual_report", Date: "2024-12-31", Source: "crawler"},
-	}
-
-	enriched := &shortsv1alpha1.EnrichmentData{
-		EnhancedSummary: "Test summary",
-		CompanyHistory:  "Test history",
-		Tags:            []string{"tag1", "tag2", "tag3", "tag4", "tag5"},
-		FinancialReports: reports,
-	}
-
-	quality := &shortsv1alpha1.QualityScore{
-		OverallScore:      0.9,
-		CompletenessScore: 0.9,
-		AccuracyScore:     0.8,
-		Strengths:         []string{"good"},
-	}
-
-	mockStore.EXPECT().StockExists(stockCode).Return(true, nil)
-	mockStore.EXPECT().GetStockDetails(stockCode).Return(details, nil)
-	mockCrawler.EXPECT().CrawlFinancialReports(gomock.Any(), details.Website).Return(reports, nil)
-
-	mockGPT.EXPECT().EnrichCompany(
-		gomock.Any(),
-		stockCode,
-		details.CompanyName,
-		details.Industry,
-		details.Website,
-		details.Summary,
-		reports,
-	).Return(enriched, nil)
-	mockGPT.EXPECT().EvaluateQuality(gomock.Any(), stockCode, enriched).Return(quality, nil)
-	mockStore.EXPECT().SavePendingEnrichment(gomock.Any(), stockCode, shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_PENDING_REVIEW, enriched, quality).Return(nil)
-
-	resp, err := server.EnrichStock(context.Background(), connect.NewRequest(&shortsv1alpha1.EnrichStockRequest{
-		StockCode: stockCode,
-		Force:     true,
-	}))
-	assert.NoError(t, err)
-	assert.NotNil(t, resp)
-	assert.Equal(t, stockCode, resp.Msg.StockCode)
-	assert.Equal(t, shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_PENDING_REVIEW, resp.Msg.Status)
-	assert.NotEmpty(t, resp.Msg.EnrichmentId)
-	assert.Equal(t, enriched, resp.Msg.Data)
-	assert.Equal(t, quality, resp.Msg.QualityScore)
-}
-
-func TestShortsServer_EnrichStock_SkipsWhenAlreadyEnrichedAndNotForced(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
-
-	mockStore := mocks.NewMockShortsStore(ctrl)
-	mockLogger := mocks.NewMockLogger(ctrl)
-	mockGPT := mocks.NewMockGPTClient(ctrl)
-	mockCrawler := mocks.NewMockFinancialReportCrawler(ctrl)
-	allowAnyLogs(mockLogger)
-
-	server := &ShortsServer{
-		config:        DefaultConfig(),
-		store:         mockStore,
-		cache:         NewMemoryCache(time.Minute),
-		logger:        mockLogger,
-		gptClient:     mockGPT,
-		reportCrawler: mockCrawler,
-	}
-
-	stockCode := "CBA"
-	details := &stocksv1alpha1.StockDetails{
-		ProductCode:      stockCode,
-		CompanyName:      "Commonwealth Bank",
-		Website:          "https://example.com",
-		EnrichmentStatus: "completed",
-	}
-
-	mockStore.EXPECT().StockExists(stockCode).Return(true, nil)
-	mockStore.EXPECT().GetStockDetails(stockCode).Return(details, nil)
-
-	resp, err := server.EnrichStock(context.Background(), connect.NewRequest(&shortsv1alpha1.EnrichStockRequest{
-		StockCode: stockCode,
-		Force:     false,
-	}))
-	assert.NoError(t, err)
-	assert.NotNil(t, resp)
-	assert.Equal(t, shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_COMPLETED, resp.Msg.Status)
-	assert.NotEmpty(t, resp.Msg.ErrorMessage)
-}
+// NOTE: Old synchronous enrichment tests removed - EnrichStock now uses async job-based flow
+// See TestShortsServer_EnrichStock_* tests below for async flow tests
 
 func TestShortsServer_ReviewEnrichment_Approve(t *testing.T) {
 	ctrl := gomock.NewController(t)
@@ -304,6 +191,268 @@ func TestShortsServer_GetPendingEnrichment_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
 	assert.Equal(t, enrichmentID, resp.Msg.Pending.EnrichmentId)
+}
+
+func TestShortsServer_EnrichStock_BlocksWhenPendingEnrichmentExists(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockLogger := mocks.NewMockLogger(ctrl)
+	allowAnyLogs(mockLogger)
+
+	server := &ShortsServer{
+		config: DefaultConfig(),
+		store:  mockStore,
+		cache:  NewMemoryCache(time.Minute),
+		logger: mockLogger,
+	}
+
+	stockCode := "DMP"
+	pendingEnrichment := &shortsv1alpha1.PendingEnrichmentSummary{
+		EnrichmentId: "pending-enrichment-id",
+		StockCode:    stockCode,
+		Status:       shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_PENDING_REVIEW,
+	}
+
+	mockStore.EXPECT().StockExists(stockCode).Return(true, nil)
+	mockStore.EXPECT().GetActiveEnrichmentJobByStockCode(stockCode).Return(nil, nil)
+	mockStore.EXPECT().GetPendingEnrichmentByStockCode(stockCode).Return(pendingEnrichment, nil)
+
+	resp, err := server.EnrichStock(context.Background(), connect.NewRequest(&shortsv1alpha1.EnrichStockRequest{
+		StockCode: stockCode,
+		Force:     false,
+	}))
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Empty(t, resp.Msg.JobId, "Job ID should be empty when blocked by pending enrichment")
+	assert.Contains(t, resp.Msg.Message, "Pending enrichment already exists", "Message should indicate pending enrichment exists")
+	assert.Contains(t, resp.Msg.Message, pendingEnrichment.EnrichmentId, "Message should include enrichment ID")
+}
+
+func TestShortsServer_EnrichStock_ProceedsWhenForceTrueAndPendingEnrichmentExists(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockLogger := mocks.NewMockLogger(ctrl)
+	allowAnyLogs(mockLogger)
+
+	server := &ShortsServer{
+		config: DefaultConfig(),
+		store:  mockStore,
+		cache:  NewMemoryCache(time.Minute),
+		logger: mockLogger,
+	}
+
+	stockCode := "DMP"
+	jobID := "new-job-id"
+
+	mockStore.EXPECT().StockExists(stockCode).Return(true, nil)
+	mockStore.EXPECT().GetActiveEnrichmentJobByStockCode(stockCode).Return(nil, nil)
+	// Even if pending enrichment exists, with force=true we should proceed
+	mockStore.EXPECT().CreateEnrichmentJob(stockCode, true).Return(jobID, nil)
+
+	resp, err := server.EnrichStock(context.Background(), connect.NewRequest(&shortsv1alpha1.EnrichStockRequest{
+		StockCode: stockCode,
+		Force:     true,
+	}))
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, jobID, resp.Msg.JobId, "Job ID should be set when force=true")
+	assert.Contains(t, resp.Msg.Message, "Enrichment job created", "Message should indicate job was created")
+}
+
+func TestShortsServer_EnrichStock_ProceedsWhenNoPendingEnrichment(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockLogger := mocks.NewMockLogger(ctrl)
+	allowAnyLogs(mockLogger)
+
+	server := &ShortsServer{
+		config: DefaultConfig(),
+		store:  mockStore,
+		cache:  NewMemoryCache(time.Minute),
+		logger: mockLogger,
+	}
+
+	stockCode := "NEW"
+	jobID := "new-job-id"
+
+	mockStore.EXPECT().StockExists(stockCode).Return(true, nil)
+	mockStore.EXPECT().GetActiveEnrichmentJobByStockCode(stockCode).Return(nil, nil)
+	mockStore.EXPECT().GetPendingEnrichmentByStockCode(stockCode).Return(nil, nil)
+	mockStore.EXPECT().CreateEnrichmentJob(stockCode, false).Return(jobID, nil)
+
+	resp, err := server.EnrichStock(context.Background(), connect.NewRequest(&shortsv1alpha1.EnrichStockRequest{
+		StockCode: stockCode,
+		Force:     false,
+	}))
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, jobID, resp.Msg.JobId, "Job ID should be set")
+	assert.Contains(t, resp.Msg.Message, "Enrichment job created", "Message should indicate job was created")
+}
+
+func TestShortsServer_EnrichStock_HandlesPendingEnrichmentCheckError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockLogger := mocks.NewMockLogger(ctrl)
+	allowAnyLogs(mockLogger)
+
+	server := &ShortsServer{
+		config: DefaultConfig(),
+		store:  mockStore,
+		cache:  NewMemoryCache(time.Minute),
+		logger: mockLogger,
+	}
+
+	stockCode := "ERR"
+	jobID := "new-job-id"
+
+	mockStore.EXPECT().StockExists(stockCode).Return(true, nil)
+	mockStore.EXPECT().GetActiveEnrichmentJobByStockCode(stockCode).Return(nil, nil)
+	// Simulate error checking for pending enrichment - should continue anyway
+	mockStore.EXPECT().GetPendingEnrichmentByStockCode(stockCode).Return(nil, fmt.Errorf("database error"))
+	mockStore.EXPECT().CreateEnrichmentJob(stockCode, false).Return(jobID, nil)
+
+	resp, err := server.EnrichStock(context.Background(), connect.NewRequest(&shortsv1alpha1.EnrichStockRequest{
+		StockCode: stockCode,
+		Force:     false,
+	}))
+	// Should proceed despite error (as per the code's safety check behavior)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, jobID, resp.Msg.JobId, "Job ID should be set even if pending check fails")
+}
+
+func TestShortsServer_EnrichStock_StockNotFound(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockLogger := mocks.NewMockLogger(ctrl)
+	allowAnyLogs(mockLogger)
+
+	server := &ShortsServer{
+		config: DefaultConfig(),
+		store:  mockStore,
+		cache:  NewMemoryCache(time.Minute),
+		logger: mockLogger,
+	}
+
+	stockCode := "XXX" // Valid format but doesn't exist
+
+	mockStore.EXPECT().StockExists(stockCode).Return(false, nil)
+
+	resp, err := server.EnrichStock(context.Background(), connect.NewRequest(&shortsv1alpha1.EnrichStockRequest{
+		StockCode: stockCode,
+		Force:     false,
+	}))
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	// Should return NotFound error
+	assert.Contains(t, err.Error(), "not found", "Should return not found error")
+}
+
+func TestShortsServer_EnrichStock_InvalidStockCode(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockLogger := mocks.NewMockLogger(ctrl)
+	allowAnyLogs(mockLogger)
+
+	server := &ShortsServer{
+		config: DefaultConfig(),
+		store:  mockStore,
+		cache:  NewMemoryCache(time.Minute),
+		logger: mockLogger,
+	}
+
+	// Test invalid stock codes
+	invalidCodes := []string{"AB", "ABCDE", "12", "A-B", "AB CD"}
+
+	for _, invalidCode := range invalidCodes {
+		resp, err := server.EnrichStock(context.Background(), connect.NewRequest(&shortsv1alpha1.EnrichStockRequest{
+			StockCode: invalidCode,
+			Force:     false,
+		}))
+		assert.Error(t, err, "Should error for invalid stock code: %s", invalidCode)
+		assert.Nil(t, resp, "Should not return response for invalid stock code: %s", invalidCode)
+		assert.Contains(t, err.Error(), "stock_code must be 3-4", "Should mention stock code format requirement")
+	}
+}
+
+func TestShortsServer_EnrichStock_ActiveJobTakesPrecedenceOverPendingEnrichment(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockLogger := mocks.NewMockLogger(ctrl)
+	allowAnyLogs(mockLogger)
+
+	server := &ShortsServer{
+		config: DefaultConfig(),
+		store:  mockStore,
+		cache:  NewMemoryCache(time.Minute),
+		logger: mockLogger,
+	}
+
+	stockCode := "TEST"
+	activeJobID := "active-job-id"
+	activeJob := &shortsv1alpha1.EnrichmentJob{
+		JobId:     activeJobID,
+		StockCode: stockCode,
+		Status:    shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_PROCESSING,
+	}
+
+	mockStore.EXPECT().StockExists(stockCode).Return(true, nil)
+	mockStore.EXPECT().GetActiveEnrichmentJobByStockCode(stockCode).Return(activeJob, nil)
+	// Should not check for pending enrichment if active job exists
+
+	resp, err := server.EnrichStock(context.Background(), connect.NewRequest(&shortsv1alpha1.EnrichStockRequest{
+		StockCode: stockCode,
+		Force:     false,
+	}))
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Equal(t, activeJobID, resp.Msg.JobId, "Should return active job ID")
+	assert.Contains(t, resp.Msg.Message, "already in progress", "Should mention job already in progress")
+	// Should not mention pending enrichment since active job check happens first
+	assert.NotContains(t, resp.Msg.Message, "Pending enrichment", "Should not mention pending enrichment when active job exists")
+}
+
+func TestShortsServer_EnrichStock_StockExistsError(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockStore := mocks.NewMockShortsStore(ctrl)
+	mockLogger := mocks.NewMockLogger(ctrl)
+	allowAnyLogs(mockLogger)
+
+	server := &ShortsServer{
+		config: DefaultConfig(),
+		store:  mockStore,
+		cache:  NewMemoryCache(time.Minute),
+		logger: mockLogger,
+	}
+
+	stockCode := "TEST"
+
+	mockStore.EXPECT().StockExists(stockCode).Return(false, fmt.Errorf("database error"))
+
+	resp, err := server.EnrichStock(context.Background(), connect.NewRequest(&shortsv1alpha1.EnrichStockRequest{
+		StockCode: stockCode,
+		Force:     false,
+	}))
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "failed to check stock exists", "Should return internal error")
 }
 
 

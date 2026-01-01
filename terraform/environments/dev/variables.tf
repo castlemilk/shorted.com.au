@@ -58,3 +58,9 @@ variable "cms_mongodb_secret_name" {
   default     = ""
 }
 
+variable "enrichment_processor_image" {
+  description = "Docker image URL for enrichment-processor job"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/enrichment-processor:latest"
+}
+

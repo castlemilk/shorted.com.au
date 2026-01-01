@@ -73,6 +73,12 @@ message StockDetails {
   google.protobuf.Timestamp enrichment_date = 19;
   string enrichment_error = 20;
   FinancialStatements financial_statements = 21;
+  // Logo URLs (populated by logo discovery pipeline)
+  string logo_gcs_url = 22;           // Full logo PNG URL (background removed)
+  string logo_icon_gcs_url = 23;      // Icon-only logo PNG URL
+  string logo_svg_gcs_url = 24;       // Original SVG logo URL (if discovered as SVG)
+  string logo_source_url = 25;        // Original URL where the logo was found
+  string logo_format = 26;            // Original format of discovered logo (svg, png, etc)
 }
 
 message CompanyPerson {

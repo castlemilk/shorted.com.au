@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { EnrichStockRequest, EnrichStockResponse, GetIndustryTreeMapRequest, GetPendingEnrichmentRequest, GetPendingEnrichmentResponse, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetSyncStatusRequest, GetSyncStatusResponse, GetTopShortsRequest, GetTopShortsResponse, GetTopStocksForEnrichmentRequest, GetTopStocksForEnrichmentResponse, ListPendingEnrichmentsRequest, ListPendingEnrichmentsResponse, MintTokenRequest, MintTokenResponse, ReviewEnrichmentRequest, ReviewEnrichmentResponse, SearchStocksRequest, SearchStocksResponse, SyncKeyMetricsRequest, SyncKeyMetricsResponse } from "./shorts_pb";
+import { EnrichStockRequest, EnrichStockResponse, GetEnrichmentJobStatusRequest, GetEnrichmentJobStatusResponse, GetIndustryTreeMapRequest, GetPendingEnrichmentRequest, GetPendingEnrichmentResponse, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetSyncStatusRequest, GetSyncStatusResponse, GetTopShortsRequest, GetTopShortsResponse, GetTopStocksForEnrichmentRequest, GetTopStocksForEnrichmentResponse, ListEnrichmentJobsRequest, ListEnrichmentJobsResponse, ListPendingEnrichmentsRequest, ListPendingEnrichmentsResponse, MintTokenRequest, MintTokenResponse, ReviewEnrichmentRequest, ReviewEnrichmentResponse, SearchStocksRequest, SearchStocksResponse, SyncKeyMetricsRequest, SyncKeyMetricsResponse } from "./shorts_pb";
 import { MethodKind } from "@bufbuild/protobuf";
 import { IndustryTreeMap, Stock, StockDetails, TimeSeriesData } from "../../stocks/v1alpha1/stocks_pb";
 
@@ -166,6 +166,28 @@ export const ShortedStocksService = {
       name: "ReviewEnrichment",
       I: ReviewEnrichmentRequest,
       O: ReviewEnrichmentResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Get enrichment job status by job ID. Admin only.
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetEnrichmentJobStatus
+     */
+    getEnrichmentJobStatus: {
+      name: "GetEnrichmentJobStatus",
+      I: GetEnrichmentJobStatusRequest,
+      O: GetEnrichmentJobStatusResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * List enrichment jobs with optional status filter. Admin only.
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListEnrichmentJobs
+     */
+    listEnrichmentJobs: {
+      name: "ListEnrichmentJobs",
+      I: ListEnrichmentJobsRequest,
+      O: ListEnrichmentJobsResponse,
       kind: MethodKind.Unary,
     },
   }

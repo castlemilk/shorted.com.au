@@ -186,6 +186,65 @@ func (EnrichmentPriority) EnumDescriptor() ([]byte, []int) {
 	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{2}
 }
 
+// Enrichment job status enum
+type EnrichmentJobStatus int32
+
+const (
+	EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_UNSPECIFIED EnrichmentJobStatus = 0
+	EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_QUEUED      EnrichmentJobStatus = 1 // Job created, waiting to be processed
+	EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_PROCESSING  EnrichmentJobStatus = 2 // Currently being processed
+	EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_COMPLETED   EnrichmentJobStatus = 3 // Completed successfully
+	EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED      EnrichmentJobStatus = 4 // Failed with error
+	EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_CANCELLED   EnrichmentJobStatus = 5 // Cancelled before completion
+)
+
+// Enum value maps for EnrichmentJobStatus.
+var (
+	EnrichmentJobStatus_name = map[int32]string{
+		0: "ENRICHMENT_JOB_STATUS_UNSPECIFIED",
+		1: "ENRICHMENT_JOB_STATUS_QUEUED",
+		2: "ENRICHMENT_JOB_STATUS_PROCESSING",
+		3: "ENRICHMENT_JOB_STATUS_COMPLETED",
+		4: "ENRICHMENT_JOB_STATUS_FAILED",
+		5: "ENRICHMENT_JOB_STATUS_CANCELLED",
+	}
+	EnrichmentJobStatus_value = map[string]int32{
+		"ENRICHMENT_JOB_STATUS_UNSPECIFIED": 0,
+		"ENRICHMENT_JOB_STATUS_QUEUED":      1,
+		"ENRICHMENT_JOB_STATUS_PROCESSING":  2,
+		"ENRICHMENT_JOB_STATUS_COMPLETED":   3,
+		"ENRICHMENT_JOB_STATUS_FAILED":      4,
+		"ENRICHMENT_JOB_STATUS_CANCELLED":   5,
+	}
+)
+
+func (x EnrichmentJobStatus) Enum() *EnrichmentJobStatus {
+	p := new(EnrichmentJobStatus)
+	*p = x
+	return p
+}
+
+func (x EnrichmentJobStatus) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (EnrichmentJobStatus) Descriptor() protoreflect.EnumDescriptor {
+	return file_shorts_v1alpha1_shorts_proto_enumTypes[3].Descriptor()
+}
+
+func (EnrichmentJobStatus) Type() protoreflect.EnumType {
+	return &file_shorts_v1alpha1_shorts_proto_enumTypes[3]
+}
+
+func (x EnrichmentJobStatus) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use EnrichmentJobStatus.Descriptor instead.
+func (EnrichmentJobStatus) EnumDescriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{3}
+}
+
 type MintTokenRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -1284,18 +1343,14 @@ func (x *EnrichStockRequest) GetForce() bool {
 	return false
 }
 
-// Enrichment response with data for review
+// Enrichment response with job ID (async processing)
 type EnrichStockResponse struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	StockCode       string                 `protobuf:"bytes,1,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
-	Status          EnrichmentStatus       `protobuf:"varint,2,opt,name=status,proto3,enum=shorts.v1alpha1.EnrichmentStatus" json:"status,omitempty"`
-	Data            *EnrichmentData        `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`                                     // Enrichment data for review
-	QualityScore    *QualityScore          `protobuf:"bytes,4,opt,name=quality_score,json=qualityScore,proto3" json:"quality_score,omitempty"` // Quality evaluation
-	ErrorMessage    string                 `protobuf:"bytes,5,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
-	DurationSeconds float64                `protobuf:"fixed64,6,opt,name=duration_seconds,json=durationSeconds,proto3" json:"duration_seconds,omitempty"`
-	EnrichmentId    string                 `protobuf:"bytes,7,opt,name=enrichment_id,json=enrichmentId,proto3" json:"enrichment_id,omitempty"` // Unique ID for this enrichment (used for review)
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	StockCode     string                 `protobuf:"bytes,1,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
+	JobId         string                 `protobuf:"bytes,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"` // Job ID for tracking async enrichment
+	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`          // Status message
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *EnrichStockResponse) Reset() {
@@ -1335,44 +1390,16 @@ func (x *EnrichStockResponse) GetStockCode() string {
 	return ""
 }
 
-func (x *EnrichStockResponse) GetStatus() EnrichmentStatus {
+func (x *EnrichStockResponse) GetJobId() string {
 	if x != nil {
-		return x.Status
-	}
-	return EnrichmentStatus_ENRICHMENT_STATUS_UNSPECIFIED
-}
-
-func (x *EnrichStockResponse) GetData() *EnrichmentData {
-	if x != nil {
-		return x.Data
-	}
-	return nil
-}
-
-func (x *EnrichStockResponse) GetQualityScore() *QualityScore {
-	if x != nil {
-		return x.QualityScore
-	}
-	return nil
-}
-
-func (x *EnrichStockResponse) GetErrorMessage() string {
-	if x != nil {
-		return x.ErrorMessage
+		return x.JobId
 	}
 	return ""
 }
 
-func (x *EnrichStockResponse) GetDurationSeconds() float64 {
+func (x *EnrichStockResponse) GetMessage() string {
 	if x != nil {
-		return x.DurationSeconds
-	}
-	return 0
-}
-
-func (x *EnrichStockResponse) GetEnrichmentId() string {
-	if x != nil {
-		return x.EnrichmentId
+		return x.Message
 	}
 	return ""
 }
@@ -1389,8 +1416,14 @@ type EnrichmentData struct {
 	RecentDevelopments    string                      `protobuf:"bytes,7,opt,name=recent_developments,json=recentDevelopments,proto3" json:"recent_developments,omitempty"`
 	SocialMediaLinks      *v1alpha1.SocialMediaLinks  `protobuf:"bytes,8,opt,name=social_media_links,json=socialMediaLinks,proto3" json:"social_media_links,omitempty"`
 	Tags                  []string                    `protobuf:"bytes,9,rep,name=tags,proto3" json:"tags,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// Logo URLs (staged for review, applied on approval)
+	LogoGcsUrl     string `protobuf:"bytes,10,opt,name=logo_gcs_url,json=logoGcsUrl,proto3" json:"logo_gcs_url,omitempty"`               // Full logo PNG URL (background removed)
+	LogoIconGcsUrl string `protobuf:"bytes,11,opt,name=logo_icon_gcs_url,json=logoIconGcsUrl,proto3" json:"logo_icon_gcs_url,omitempty"` // Icon-only logo PNG URL
+	LogoSvgGcsUrl  string `protobuf:"bytes,12,opt,name=logo_svg_gcs_url,json=logoSvgGcsUrl,proto3" json:"logo_svg_gcs_url,omitempty"`    // Original SVG logo URL (if discovered as SVG)
+	LogoSourceUrl  string `protobuf:"bytes,13,opt,name=logo_source_url,json=logoSourceUrl,proto3" json:"logo_source_url,omitempty"`      // Original URL where the logo was found
+	LogoFormat     string `protobuf:"bytes,14,opt,name=logo_format,json=logoFormat,proto3" json:"logo_format,omitempty"`                 // Original format of discovered logo (svg, png, etc)
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *EnrichmentData) Reset() {
@@ -1484,6 +1517,41 @@ func (x *EnrichmentData) GetTags() []string {
 		return x.Tags
 	}
 	return nil
+}
+
+func (x *EnrichmentData) GetLogoGcsUrl() string {
+	if x != nil {
+		return x.LogoGcsUrl
+	}
+	return ""
+}
+
+func (x *EnrichmentData) GetLogoIconGcsUrl() string {
+	if x != nil {
+		return x.LogoIconGcsUrl
+	}
+	return ""
+}
+
+func (x *EnrichmentData) GetLogoSvgGcsUrl() string {
+	if x != nil {
+		return x.LogoSvgGcsUrl
+	}
+	return ""
+}
+
+func (x *EnrichmentData) GetLogoSourceUrl() string {
+	if x != nil {
+		return x.LogoSourceUrl
+	}
+	return ""
+}
+
+func (x *EnrichmentData) GetLogoFormat() string {
+	if x != nil {
+		return x.LogoFormat
+	}
+	return ""
 }
 
 // Quality score for enrichment data
@@ -2266,6 +2334,327 @@ func (x *PendingEnrichment) GetReviewNotes() string {
 	return ""
 }
 
+// Enrichment job record
+type EnrichmentJob struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	StockCode     string                 `protobuf:"bytes,2,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
+	Status        EnrichmentJobStatus    `protobuf:"varint,3,opt,name=status,proto3,enum=shorts.v1alpha1.EnrichmentJobStatus" json:"status,omitempty"`
+	Priority      int32                  `protobuf:"varint,4,opt,name=priority,proto3" json:"priority,omitempty"`
+	Force         bool                   `protobuf:"varint,5,opt,name=force,proto3" json:"force,omitempty"`
+	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	StartedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	CompletedAt   *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=completed_at,json=completedAt,proto3" json:"completed_at,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,9,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	EnrichmentId  string                 `protobuf:"bytes,10,opt,name=enrichment_id,json=enrichmentId,proto3" json:"enrichment_id,omitempty"` // Set when job completes and enrichment is saved
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EnrichmentJob) Reset() {
+	*x = EnrichmentJob{}
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EnrichmentJob) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnrichmentJob) ProtoMessage() {}
+
+func (x *EnrichmentJob) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnrichmentJob.ProtoReflect.Descriptor instead.
+func (*EnrichmentJob) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *EnrichmentJob) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+func (x *EnrichmentJob) GetStockCode() string {
+	if x != nil {
+		return x.StockCode
+	}
+	return ""
+}
+
+func (x *EnrichmentJob) GetStatus() EnrichmentJobStatus {
+	if x != nil {
+		return x.Status
+	}
+	return EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_UNSPECIFIED
+}
+
+func (x *EnrichmentJob) GetPriority() int32 {
+	if x != nil {
+		return x.Priority
+	}
+	return 0
+}
+
+func (x *EnrichmentJob) GetForce() bool {
+	if x != nil {
+		return x.Force
+	}
+	return false
+}
+
+func (x *EnrichmentJob) GetCreatedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *EnrichmentJob) GetStartedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.StartedAt
+	}
+	return nil
+}
+
+func (x *EnrichmentJob) GetCompletedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CompletedAt
+	}
+	return nil
+}
+
+func (x *EnrichmentJob) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
+func (x *EnrichmentJob) GetEnrichmentId() string {
+	if x != nil {
+		return x.EnrichmentId
+	}
+	return ""
+}
+
+// Get enrichment job status request
+type GetEnrichmentJobStatusRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	JobId         string                 `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetEnrichmentJobStatusRequest) Reset() {
+	*x = GetEnrichmentJobStatusRequest{}
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetEnrichmentJobStatusRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetEnrichmentJobStatusRequest) ProtoMessage() {}
+
+func (x *GetEnrichmentJobStatusRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetEnrichmentJobStatusRequest.ProtoReflect.Descriptor instead.
+func (*GetEnrichmentJobStatusRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *GetEnrichmentJobStatusRequest) GetJobId() string {
+	if x != nil {
+		return x.JobId
+	}
+	return ""
+}
+
+// Get enrichment job status response
+type GetEnrichmentJobStatusResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Job           *EnrichmentJob         `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetEnrichmentJobStatusResponse) Reset() {
+	*x = GetEnrichmentJobStatusResponse{}
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetEnrichmentJobStatusResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetEnrichmentJobStatusResponse) ProtoMessage() {}
+
+func (x *GetEnrichmentJobStatusResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetEnrichmentJobStatusResponse.ProtoReflect.Descriptor instead.
+func (*GetEnrichmentJobStatusResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *GetEnrichmentJobStatusResponse) GetJob() *EnrichmentJob {
+	if x != nil {
+		return x.Job
+	}
+	return nil
+}
+
+// List enrichment jobs request
+type ListEnrichmentJobsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Limit         int32                  `protobuf:"varint,1,opt,name=limit,proto3" json:"limit,omitempty"`                                            // Default: 100
+	Offset        int32                  `protobuf:"varint,2,opt,name=offset,proto3" json:"offset,omitempty"`                                          // Default: 0
+	Status        EnrichmentJobStatus    `protobuf:"varint,3,opt,name=status,proto3,enum=shorts.v1alpha1.EnrichmentJobStatus" json:"status,omitempty"` // Optional filter by status
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListEnrichmentJobsRequest) Reset() {
+	*x = ListEnrichmentJobsRequest{}
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListEnrichmentJobsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListEnrichmentJobsRequest) ProtoMessage() {}
+
+func (x *ListEnrichmentJobsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListEnrichmentJobsRequest.ProtoReflect.Descriptor instead.
+func (*ListEnrichmentJobsRequest) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *ListEnrichmentJobsRequest) GetLimit() int32 {
+	if x != nil {
+		return x.Limit
+	}
+	return 0
+}
+
+func (x *ListEnrichmentJobsRequest) GetOffset() int32 {
+	if x != nil {
+		return x.Offset
+	}
+	return 0
+}
+
+func (x *ListEnrichmentJobsRequest) GetStatus() EnrichmentJobStatus {
+	if x != nil {
+		return x.Status
+	}
+	return EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_UNSPECIFIED
+}
+
+// List enrichment jobs response
+type ListEnrichmentJobsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Jobs          []*EnrichmentJob       `protobuf:"bytes,1,rep,name=jobs,proto3" json:"jobs,omitempty"`
+	TotalCount    int32                  `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListEnrichmentJobsResponse) Reset() {
+	*x = ListEnrichmentJobsResponse{}
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListEnrichmentJobsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListEnrichmentJobsResponse) ProtoMessage() {}
+
+func (x *ListEnrichmentJobsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListEnrichmentJobsResponse.ProtoReflect.Descriptor instead.
+func (*ListEnrichmentJobsResponse) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *ListEnrichmentJobsResponse) GetJobs() []*EnrichmentJob {
+	if x != nil {
+		return x.Jobs
+	}
+	return nil
+}
+
+func (x *ListEnrichmentJobsResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
 var File_shorts_v1alpha1_shorts_proto protoreflect.FileDescriptor
 
 const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
@@ -2350,16 +2739,12 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x12EnrichStockRequest\x12\x1d\n" +
 	"\n" +
 	"stock_code\x18\x01 \x01(\tR\tstockCode\x12\x14\n" +
-	"\x05force\x18\x02 \x01(\bR\x05force\"\xdd\x02\n" +
+	"\x05force\x18\x02 \x01(\bR\x05force\"e\n" +
 	"\x13EnrichStockResponse\x12\x1d\n" +
 	"\n" +
-	"stock_code\x18\x01 \x01(\tR\tstockCode\x129\n" +
-	"\x06status\x18\x02 \x01(\x0e2!.shorts.v1alpha1.EnrichmentStatusR\x06status\x123\n" +
-	"\x04data\x18\x03 \x01(\v2\x1f.shorts.v1alpha1.EnrichmentDataR\x04data\x12B\n" +
-	"\rquality_score\x18\x04 \x01(\v2\x1d.shorts.v1alpha1.QualityScoreR\fqualityScore\x12#\n" +
-	"\rerror_message\x18\x05 \x01(\tR\ferrorMessage\x12)\n" +
-	"\x10duration_seconds\x18\x06 \x01(\x01R\x0fdurationSeconds\x12#\n" +
-	"\renrichment_id\x18\a \x01(\tR\fenrichmentId\"\xe2\x03\n" +
+	"stock_code\x18\x01 \x01(\tR\tstockCode\x12\x15\n" +
+	"\x06job_id\x18\x02 \x01(\tR\x05jobId\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\"\xa1\x05\n" +
 	"\x0eEnrichmentData\x12)\n" +
 	"\x10enhanced_summary\x18\x01 \x01(\tR\x0fenhancedSummary\x12'\n" +
 	"\x0fcompany_history\x18\x02 \x01(\tR\x0ecompanyHistory\x12=\n" +
@@ -2370,7 +2755,15 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\frisk_factors\x18\x06 \x03(\tR\vriskFactors\x12/\n" +
 	"\x13recent_developments\x18\a \x01(\tR\x12recentDevelopments\x12O\n" +
 	"\x12social_media_links\x18\b \x01(\v2!.stocks.v1alpha1.SocialMediaLinksR\x10socialMediaLinks\x12\x12\n" +
-	"\x04tags\x18\t \x03(\tR\x04tags\"\xc3\x01\n" +
+	"\x04tags\x18\t \x03(\tR\x04tags\x12 \n" +
+	"\flogo_gcs_url\x18\n" +
+	" \x01(\tR\n" +
+	"logoGcsUrl\x12)\n" +
+	"\x11logo_icon_gcs_url\x18\v \x01(\tR\x0elogoIconGcsUrl\x12'\n" +
+	"\x10logo_svg_gcs_url\x18\f \x01(\tR\rlogoSvgGcsUrl\x12&\n" +
+	"\x0flogo_source_url\x18\r \x01(\tR\rlogoSourceUrl\x12\x1f\n" +
+	"\vlogo_format\x18\x0e \x01(\tR\n" +
+	"logoFormat\"\xc3\x01\n" +
 	"\fQualityScore\x12#\n" +
 	"\roverall_score\x18\x01 \x01(\x01R\foverallScore\x12-\n" +
 	"\x12completeness_score\x18\x02 \x01(\x01R\x11completenessScore\x12%\n" +
@@ -2434,7 +2827,34 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"reviewedAt\x12\x1f\n" +
 	"\vreviewed_by\x18\b \x01(\tR\n" +
 	"reviewedBy\x12!\n" +
-	"\freview_notes\x18\t \x01(\tR\vreviewNotes*5\n" +
+	"\freview_notes\x18\t \x01(\tR\vreviewNotes\"\xb4\x03\n" +
+	"\rEnrichmentJob\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId\x12\x1d\n" +
+	"\n" +
+	"stock_code\x18\x02 \x01(\tR\tstockCode\x12<\n" +
+	"\x06status\x18\x03 \x01(\x0e2$.shorts.v1alpha1.EnrichmentJobStatusR\x06status\x12\x1a\n" +
+	"\bpriority\x18\x04 \x01(\x05R\bpriority\x12\x14\n" +
+	"\x05force\x18\x05 \x01(\bR\x05force\x129\n" +
+	"\n" +
+	"created_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
+	"\n" +
+	"started_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12=\n" +
+	"\fcompleted_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\vcompletedAt\x12#\n" +
+	"\rerror_message\x18\t \x01(\tR\ferrorMessage\x12#\n" +
+	"\renrichment_id\x18\n" +
+	" \x01(\tR\fenrichmentId\"6\n" +
+	"\x1dGetEnrichmentJobStatusRequest\x12\x15\n" +
+	"\x06job_id\x18\x01 \x01(\tR\x05jobId\"R\n" +
+	"\x1eGetEnrichmentJobStatusResponse\x120\n" +
+	"\x03job\x18\x01 \x01(\v2\x1e.shorts.v1alpha1.EnrichmentJobR\x03job\"\x87\x01\n" +
+	"\x19ListEnrichmentJobsRequest\x12\x14\n" +
+	"\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x16\n" +
+	"\x06offset\x18\x02 \x01(\x05R\x06offset\x12<\n" +
+	"\x06status\x18\x03 \x01(\x0e2$.shorts.v1alpha1.EnrichmentJobStatusR\x06status\"q\n" +
+	"\x1aListEnrichmentJobsResponse\x122\n" +
+	"\x04jobs\x18\x01 \x03(\v2\x1e.shorts.v1alpha1.EnrichmentJobR\x04jobs\x12\x1f\n" +
+	"\vtotal_count\x18\x02 \x01(\x05R\n" +
+	"totalCount*5\n" +
 	"\bViewMode\x12\x12\n" +
 	"\x0eCURRENT_CHANGE\x10\x00\x12\x15\n" +
 	"\x11PERCENTAGE_CHANGE\x10\x01*\xba\x01\n" +
@@ -2449,7 +2869,14 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x1eENRICHMENT_PRIORITY_MARKET_CAP\x10\x01\x12&\n" +
 	"\"ENRICHMENT_PRIORITY_SHORT_POSITION\x10\x02\x12\"\n" +
 	"\x1eENRICHMENT_PRIORITY_UNENRICHED\x10\x03\x12\x1d\n" +
-	"\x19ENRICHMENT_PRIORITY_STALE\x10\x042\xca\x1d\n" +
+	"\x19ENRICHMENT_PRIORITY_STALE\x10\x04*\xf0\x01\n" +
+	"\x13EnrichmentJobStatus\x12%\n" +
+	"!ENRICHMENT_JOB_STATUS_UNSPECIFIED\x10\x00\x12 \n" +
+	"\x1cENRICHMENT_JOB_STATUS_QUEUED\x10\x01\x12$\n" +
+	" ENRICHMENT_JOB_STATUS_PROCESSING\x10\x02\x12#\n" +
+	"\x1fENRICHMENT_JOB_STATUS_COMPLETED\x10\x03\x12 \n" +
+	"\x1cENRICHMENT_JOB_STATUS_FAILED\x10\x04\x12#\n" +
+	"\x1fENRICHMENT_JOB_STATUS_CANCELLED\x10\x052\xd3\x1f\n" +
 	"\x14ShortedStocksService\x12\x86\x03\n" +
 	"\fGetTopShorts\x12$.shorts.v1alpha1.GetTopShortsRequest\x1a%.shorts.v1alpha1.GetTopShortsResponse\"\xa8\x02\xdaA\x13period,limit,offset\xbaG\x8a\x02\x12\x0eGet Top Shorts\x1ajRetrieve the top shorted stocks on the ASX for a given time period. Supports pagination and custom limits.B\x8b\x01\x12X\n" +
 	"\x03200\x12Q\n" +
@@ -2515,7 +2942,9 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x19GetTopStocksForEnrichment\x121.shorts.v1alpha1.GetTopStocksForEnrichmentRequest\x1a2.shorts.v1alpha1.GetTopStocksForEnrichmentResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12\x88\x01\n" +
 	"\x16ListPendingEnrichments\x12..shorts.v1alpha1.ListPendingEnrichmentsRequest\x1a/.shorts.v1alpha1.ListPendingEnrichmentsResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12\x82\x01\n" +
 	"\x14GetPendingEnrichment\x12,.shorts.v1alpha1.GetPendingEnrichmentRequest\x1a-.shorts.v1alpha1.GetPendingEnrichmentResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12v\n" +
-	"\x10ReviewEnrichment\x12(.shorts.v1alpha1.ReviewEnrichmentRequest\x1a).shorts.v1alpha1.ReviewEnrichmentResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x1a\x15\xcaA\x12api.shorted.com.auB\x9d\x03\xbaG\xbf\x01\x12|\n" +
+	"\x10ReviewEnrichment\x12(.shorts.v1alpha1.ReviewEnrichmentRequest\x1a).shorts.v1alpha1.ReviewEnrichmentResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12\x88\x01\n" +
+	"\x16GetEnrichmentJobStatus\x12..shorts.v1alpha1.GetEnrichmentJobStatusRequest\x1a/.shorts.v1alpha1.GetEnrichmentJobStatusResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x12|\n" +
+	"\x12ListEnrichmentJobs\x12*.shorts.v1alpha1.ListEnrichmentJobsRequest\x1a+.shorts.v1alpha1.ListEnrichmentJobsResponse\"\r\x80\xb5\x18\x02\x8a\xb5\x18\x05admin\x1a\x15\xcaA\x12api.shorted.com.auB\x9d\x03\xbaG\xbf\x01\x12|\n" +
 	"\vShorted API\x12\rShorted API's\"%\x12\x0eshorted.com.au\x1a\x13help@shorted.com.au*3\n" +
 	"\x13Proprietary license\x12\x1chttps://shorted.com.au/terms2\x02v1\x1a\x1c\n" +
 	"\x1ahttps://api.shorted.com.au*!:\x1f\n" +
@@ -2537,112 +2966,126 @@ func file_shorts_v1alpha1_shorts_proto_rawDescGZIP() []byte {
 	return file_shorts_v1alpha1_shorts_proto_rawDescData
 }
 
-var file_shorts_v1alpha1_shorts_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_shorts_v1alpha1_shorts_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
+var file_shorts_v1alpha1_shorts_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_shorts_v1alpha1_shorts_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
 var file_shorts_v1alpha1_shorts_proto_goTypes = []any{
 	(ViewMode)(0),                             // 0: shorts.v1alpha1.ViewMode
 	(EnrichmentStatus)(0),                     // 1: shorts.v1alpha1.EnrichmentStatus
 	(EnrichmentPriority)(0),                   // 2: shorts.v1alpha1.EnrichmentPriority
-	(*MintTokenRequest)(nil),                  // 3: shorts.v1alpha1.MintTokenRequest
-	(*MintTokenResponse)(nil),                 // 4: shorts.v1alpha1.MintTokenResponse
-	(*GetTopShortsRequest)(nil),               // 5: shorts.v1alpha1.GetTopShortsRequest
-	(*GetIndustryTreeMapRequest)(nil),         // 6: shorts.v1alpha1.GetIndustryTreeMapRequest
-	(*GetTopShortsResponse)(nil),              // 7: shorts.v1alpha1.GetTopShortsResponse
-	(*GetStockRequest)(nil),                   // 8: shorts.v1alpha1.GetStockRequest
-	(*GetStockDetailsRequest)(nil),            // 9: shorts.v1alpha1.GetStockDetailsRequest
-	(*GetStockDataRequest)(nil),               // 10: shorts.v1alpha1.GetStockDataRequest
-	(*SearchStocksRequest)(nil),               // 11: shorts.v1alpha1.SearchStocksRequest
-	(*SearchStocksResponse)(nil),              // 12: shorts.v1alpha1.SearchStocksResponse
-	(*GetSyncStatusRequest)(nil),              // 13: shorts.v1alpha1.GetSyncStatusRequest
-	(*GetSyncStatusResponse)(nil),             // 14: shorts.v1alpha1.GetSyncStatusResponse
-	(*SyncRun)(nil),                           // 15: shorts.v1alpha1.SyncRun
-	(*SyncKeyMetricsRequest)(nil),             // 16: shorts.v1alpha1.SyncKeyMetricsRequest
-	(*SyncKeyMetricsResponse)(nil),            // 17: shorts.v1alpha1.SyncKeyMetricsResponse
-	(*StockSyncResult)(nil),                   // 18: shorts.v1alpha1.StockSyncResult
-	(*KeyMetricsData)(nil),                    // 19: shorts.v1alpha1.KeyMetricsData
-	(*EnrichStockRequest)(nil),                // 20: shorts.v1alpha1.EnrichStockRequest
-	(*EnrichStockResponse)(nil),               // 21: shorts.v1alpha1.EnrichStockResponse
-	(*EnrichmentData)(nil),                    // 22: shorts.v1alpha1.EnrichmentData
-	(*QualityScore)(nil),                      // 23: shorts.v1alpha1.QualityScore
-	(*GetTopStocksForEnrichmentRequest)(nil),  // 24: shorts.v1alpha1.GetTopStocksForEnrichmentRequest
-	(*GetTopStocksForEnrichmentResponse)(nil), // 25: shorts.v1alpha1.GetTopStocksForEnrichmentResponse
-	(*StockEnrichmentCandidate)(nil),          // 26: shorts.v1alpha1.StockEnrichmentCandidate
-	(*ReviewEnrichmentRequest)(nil),           // 27: shorts.v1alpha1.ReviewEnrichmentRequest
-	(*ReviewEnrichmentResponse)(nil),          // 28: shorts.v1alpha1.ReviewEnrichmentResponse
-	(*ListPendingEnrichmentsRequest)(nil),     // 29: shorts.v1alpha1.ListPendingEnrichmentsRequest
-	(*ListPendingEnrichmentsResponse)(nil),    // 30: shorts.v1alpha1.ListPendingEnrichmentsResponse
-	(*PendingEnrichmentSummary)(nil),          // 31: shorts.v1alpha1.PendingEnrichmentSummary
-	(*GetPendingEnrichmentRequest)(nil),       // 32: shorts.v1alpha1.GetPendingEnrichmentRequest
-	(*GetPendingEnrichmentResponse)(nil),      // 33: shorts.v1alpha1.GetPendingEnrichmentResponse
-	(*PendingEnrichment)(nil),                 // 34: shorts.v1alpha1.PendingEnrichment
-	(*v1alpha1.TimeSeriesData)(nil),           // 35: stocks.v1alpha1.TimeSeriesData
-	(*v1alpha1.Stock)(nil),                    // 36: stocks.v1alpha1.Stock
-	(*v1alpha1.CompanyPerson)(nil),            // 37: stocks.v1alpha1.CompanyPerson
-	(*v1alpha1.FinancialReport)(nil),          // 38: stocks.v1alpha1.FinancialReport
-	(*v1alpha1.SocialMediaLinks)(nil),         // 39: stocks.v1alpha1.SocialMediaLinks
-	(*timestamppb.Timestamp)(nil),             // 40: google.protobuf.Timestamp
-	(*v1alpha1.IndustryTreeMap)(nil),          // 41: stocks.v1alpha1.IndustryTreeMap
-	(*v1alpha1.StockDetails)(nil),             // 42: stocks.v1alpha1.StockDetails
+	(EnrichmentJobStatus)(0),                  // 3: shorts.v1alpha1.EnrichmentJobStatus
+	(*MintTokenRequest)(nil),                  // 4: shorts.v1alpha1.MintTokenRequest
+	(*MintTokenResponse)(nil),                 // 5: shorts.v1alpha1.MintTokenResponse
+	(*GetTopShortsRequest)(nil),               // 6: shorts.v1alpha1.GetTopShortsRequest
+	(*GetIndustryTreeMapRequest)(nil),         // 7: shorts.v1alpha1.GetIndustryTreeMapRequest
+	(*GetTopShortsResponse)(nil),              // 8: shorts.v1alpha1.GetTopShortsResponse
+	(*GetStockRequest)(nil),                   // 9: shorts.v1alpha1.GetStockRequest
+	(*GetStockDetailsRequest)(nil),            // 10: shorts.v1alpha1.GetStockDetailsRequest
+	(*GetStockDataRequest)(nil),               // 11: shorts.v1alpha1.GetStockDataRequest
+	(*SearchStocksRequest)(nil),               // 12: shorts.v1alpha1.SearchStocksRequest
+	(*SearchStocksResponse)(nil),              // 13: shorts.v1alpha1.SearchStocksResponse
+	(*GetSyncStatusRequest)(nil),              // 14: shorts.v1alpha1.GetSyncStatusRequest
+	(*GetSyncStatusResponse)(nil),             // 15: shorts.v1alpha1.GetSyncStatusResponse
+	(*SyncRun)(nil),                           // 16: shorts.v1alpha1.SyncRun
+	(*SyncKeyMetricsRequest)(nil),             // 17: shorts.v1alpha1.SyncKeyMetricsRequest
+	(*SyncKeyMetricsResponse)(nil),            // 18: shorts.v1alpha1.SyncKeyMetricsResponse
+	(*StockSyncResult)(nil),                   // 19: shorts.v1alpha1.StockSyncResult
+	(*KeyMetricsData)(nil),                    // 20: shorts.v1alpha1.KeyMetricsData
+	(*EnrichStockRequest)(nil),                // 21: shorts.v1alpha1.EnrichStockRequest
+	(*EnrichStockResponse)(nil),               // 22: shorts.v1alpha1.EnrichStockResponse
+	(*EnrichmentData)(nil),                    // 23: shorts.v1alpha1.EnrichmentData
+	(*QualityScore)(nil),                      // 24: shorts.v1alpha1.QualityScore
+	(*GetTopStocksForEnrichmentRequest)(nil),  // 25: shorts.v1alpha1.GetTopStocksForEnrichmentRequest
+	(*GetTopStocksForEnrichmentResponse)(nil), // 26: shorts.v1alpha1.GetTopStocksForEnrichmentResponse
+	(*StockEnrichmentCandidate)(nil),          // 27: shorts.v1alpha1.StockEnrichmentCandidate
+	(*ReviewEnrichmentRequest)(nil),           // 28: shorts.v1alpha1.ReviewEnrichmentRequest
+	(*ReviewEnrichmentResponse)(nil),          // 29: shorts.v1alpha1.ReviewEnrichmentResponse
+	(*ListPendingEnrichmentsRequest)(nil),     // 30: shorts.v1alpha1.ListPendingEnrichmentsRequest
+	(*ListPendingEnrichmentsResponse)(nil),    // 31: shorts.v1alpha1.ListPendingEnrichmentsResponse
+	(*PendingEnrichmentSummary)(nil),          // 32: shorts.v1alpha1.PendingEnrichmentSummary
+	(*GetPendingEnrichmentRequest)(nil),       // 33: shorts.v1alpha1.GetPendingEnrichmentRequest
+	(*GetPendingEnrichmentResponse)(nil),      // 34: shorts.v1alpha1.GetPendingEnrichmentResponse
+	(*PendingEnrichment)(nil),                 // 35: shorts.v1alpha1.PendingEnrichment
+	(*EnrichmentJob)(nil),                     // 36: shorts.v1alpha1.EnrichmentJob
+	(*GetEnrichmentJobStatusRequest)(nil),     // 37: shorts.v1alpha1.GetEnrichmentJobStatusRequest
+	(*GetEnrichmentJobStatusResponse)(nil),    // 38: shorts.v1alpha1.GetEnrichmentJobStatusResponse
+	(*ListEnrichmentJobsRequest)(nil),         // 39: shorts.v1alpha1.ListEnrichmentJobsRequest
+	(*ListEnrichmentJobsResponse)(nil),        // 40: shorts.v1alpha1.ListEnrichmentJobsResponse
+	(*v1alpha1.TimeSeriesData)(nil),           // 41: stocks.v1alpha1.TimeSeriesData
+	(*v1alpha1.Stock)(nil),                    // 42: stocks.v1alpha1.Stock
+	(*v1alpha1.CompanyPerson)(nil),            // 43: stocks.v1alpha1.CompanyPerson
+	(*v1alpha1.FinancialReport)(nil),          // 44: stocks.v1alpha1.FinancialReport
+	(*v1alpha1.SocialMediaLinks)(nil),         // 45: stocks.v1alpha1.SocialMediaLinks
+	(*timestamppb.Timestamp)(nil),             // 46: google.protobuf.Timestamp
+	(*v1alpha1.IndustryTreeMap)(nil),          // 47: stocks.v1alpha1.IndustryTreeMap
+	(*v1alpha1.StockDetails)(nil),             // 48: stocks.v1alpha1.StockDetails
 }
 var file_shorts_v1alpha1_shorts_proto_depIdxs = []int32{
 	0,  // 0: shorts.v1alpha1.GetIndustryTreeMapRequest.view_mode:type_name -> shorts.v1alpha1.ViewMode
-	35, // 1: shorts.v1alpha1.GetTopShortsResponse.time_series:type_name -> stocks.v1alpha1.TimeSeriesData
-	36, // 2: shorts.v1alpha1.SearchStocksResponse.stocks:type_name -> stocks.v1alpha1.Stock
-	15, // 3: shorts.v1alpha1.GetSyncStatusResponse.runs:type_name -> shorts.v1alpha1.SyncRun
-	18, // 4: shorts.v1alpha1.SyncKeyMetricsResponse.results:type_name -> shorts.v1alpha1.StockSyncResult
-	19, // 5: shorts.v1alpha1.StockSyncResult.metrics:type_name -> shorts.v1alpha1.KeyMetricsData
-	1,  // 6: shorts.v1alpha1.EnrichStockResponse.status:type_name -> shorts.v1alpha1.EnrichmentStatus
-	22, // 7: shorts.v1alpha1.EnrichStockResponse.data:type_name -> shorts.v1alpha1.EnrichmentData
-	23, // 8: shorts.v1alpha1.EnrichStockResponse.quality_score:type_name -> shorts.v1alpha1.QualityScore
-	37, // 9: shorts.v1alpha1.EnrichmentData.key_people:type_name -> stocks.v1alpha1.CompanyPerson
-	38, // 10: shorts.v1alpha1.EnrichmentData.financial_reports:type_name -> stocks.v1alpha1.FinancialReport
-	39, // 11: shorts.v1alpha1.EnrichmentData.social_media_links:type_name -> stocks.v1alpha1.SocialMediaLinks
-	2,  // 12: shorts.v1alpha1.GetTopStocksForEnrichmentRequest.priority:type_name -> shorts.v1alpha1.EnrichmentPriority
-	26, // 13: shorts.v1alpha1.GetTopStocksForEnrichmentResponse.stocks:type_name -> shorts.v1alpha1.StockEnrichmentCandidate
-	40, // 14: shorts.v1alpha1.StockEnrichmentCandidate.last_enriched:type_name -> google.protobuf.Timestamp
-	31, // 15: shorts.v1alpha1.ListPendingEnrichmentsResponse.enrichments:type_name -> shorts.v1alpha1.PendingEnrichmentSummary
-	1,  // 16: shorts.v1alpha1.PendingEnrichmentSummary.status:type_name -> shorts.v1alpha1.EnrichmentStatus
-	40, // 17: shorts.v1alpha1.PendingEnrichmentSummary.created_at:type_name -> google.protobuf.Timestamp
-	23, // 18: shorts.v1alpha1.PendingEnrichmentSummary.quality_score:type_name -> shorts.v1alpha1.QualityScore
-	34, // 19: shorts.v1alpha1.GetPendingEnrichmentResponse.pending:type_name -> shorts.v1alpha1.PendingEnrichment
-	1,  // 20: shorts.v1alpha1.PendingEnrichment.status:type_name -> shorts.v1alpha1.EnrichmentStatus
-	22, // 21: shorts.v1alpha1.PendingEnrichment.data:type_name -> shorts.v1alpha1.EnrichmentData
-	23, // 22: shorts.v1alpha1.PendingEnrichment.quality_score:type_name -> shorts.v1alpha1.QualityScore
-	40, // 23: shorts.v1alpha1.PendingEnrichment.created_at:type_name -> google.protobuf.Timestamp
-	40, // 24: shorts.v1alpha1.PendingEnrichment.reviewed_at:type_name -> google.protobuf.Timestamp
-	5,  // 25: shorts.v1alpha1.ShortedStocksService.GetTopShorts:input_type -> shorts.v1alpha1.GetTopShortsRequest
-	6,  // 26: shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap:input_type -> shorts.v1alpha1.GetIndustryTreeMapRequest
-	8,  // 27: shorts.v1alpha1.ShortedStocksService.GetStock:input_type -> shorts.v1alpha1.GetStockRequest
-	9,  // 28: shorts.v1alpha1.ShortedStocksService.GetStockDetails:input_type -> shorts.v1alpha1.GetStockDetailsRequest
-	10, // 29: shorts.v1alpha1.ShortedStocksService.GetStockData:input_type -> shorts.v1alpha1.GetStockDataRequest
-	11, // 30: shorts.v1alpha1.ShortedStocksService.SearchStocks:input_type -> shorts.v1alpha1.SearchStocksRequest
-	13, // 31: shorts.v1alpha1.ShortedStocksService.GetSyncStatus:input_type -> shorts.v1alpha1.GetSyncStatusRequest
-	3,  // 32: shorts.v1alpha1.ShortedStocksService.MintToken:input_type -> shorts.v1alpha1.MintTokenRequest
-	16, // 33: shorts.v1alpha1.ShortedStocksService.SyncKeyMetrics:input_type -> shorts.v1alpha1.SyncKeyMetricsRequest
-	20, // 34: shorts.v1alpha1.ShortedStocksService.EnrichStock:input_type -> shorts.v1alpha1.EnrichStockRequest
-	24, // 35: shorts.v1alpha1.ShortedStocksService.GetTopStocksForEnrichment:input_type -> shorts.v1alpha1.GetTopStocksForEnrichmentRequest
-	29, // 36: shorts.v1alpha1.ShortedStocksService.ListPendingEnrichments:input_type -> shorts.v1alpha1.ListPendingEnrichmentsRequest
-	32, // 37: shorts.v1alpha1.ShortedStocksService.GetPendingEnrichment:input_type -> shorts.v1alpha1.GetPendingEnrichmentRequest
-	27, // 38: shorts.v1alpha1.ShortedStocksService.ReviewEnrichment:input_type -> shorts.v1alpha1.ReviewEnrichmentRequest
-	7,  // 39: shorts.v1alpha1.ShortedStocksService.GetTopShorts:output_type -> shorts.v1alpha1.GetTopShortsResponse
-	41, // 40: shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap:output_type -> stocks.v1alpha1.IndustryTreeMap
-	36, // 41: shorts.v1alpha1.ShortedStocksService.GetStock:output_type -> stocks.v1alpha1.Stock
-	42, // 42: shorts.v1alpha1.ShortedStocksService.GetStockDetails:output_type -> stocks.v1alpha1.StockDetails
-	35, // 43: shorts.v1alpha1.ShortedStocksService.GetStockData:output_type -> stocks.v1alpha1.TimeSeriesData
-	12, // 44: shorts.v1alpha1.ShortedStocksService.SearchStocks:output_type -> shorts.v1alpha1.SearchStocksResponse
-	14, // 45: shorts.v1alpha1.ShortedStocksService.GetSyncStatus:output_type -> shorts.v1alpha1.GetSyncStatusResponse
-	4,  // 46: shorts.v1alpha1.ShortedStocksService.MintToken:output_type -> shorts.v1alpha1.MintTokenResponse
-	17, // 47: shorts.v1alpha1.ShortedStocksService.SyncKeyMetrics:output_type -> shorts.v1alpha1.SyncKeyMetricsResponse
-	21, // 48: shorts.v1alpha1.ShortedStocksService.EnrichStock:output_type -> shorts.v1alpha1.EnrichStockResponse
-	25, // 49: shorts.v1alpha1.ShortedStocksService.GetTopStocksForEnrichment:output_type -> shorts.v1alpha1.GetTopStocksForEnrichmentResponse
-	30, // 50: shorts.v1alpha1.ShortedStocksService.ListPendingEnrichments:output_type -> shorts.v1alpha1.ListPendingEnrichmentsResponse
-	33, // 51: shorts.v1alpha1.ShortedStocksService.GetPendingEnrichment:output_type -> shorts.v1alpha1.GetPendingEnrichmentResponse
-	28, // 52: shorts.v1alpha1.ShortedStocksService.ReviewEnrichment:output_type -> shorts.v1alpha1.ReviewEnrichmentResponse
-	39, // [39:53] is the sub-list for method output_type
-	25, // [25:39] is the sub-list for method input_type
-	25, // [25:25] is the sub-list for extension type_name
-	25, // [25:25] is the sub-list for extension extendee
-	0,  // [0:25] is the sub-list for field type_name
+	41, // 1: shorts.v1alpha1.GetTopShortsResponse.time_series:type_name -> stocks.v1alpha1.TimeSeriesData
+	42, // 2: shorts.v1alpha1.SearchStocksResponse.stocks:type_name -> stocks.v1alpha1.Stock
+	16, // 3: shorts.v1alpha1.GetSyncStatusResponse.runs:type_name -> shorts.v1alpha1.SyncRun
+	19, // 4: shorts.v1alpha1.SyncKeyMetricsResponse.results:type_name -> shorts.v1alpha1.StockSyncResult
+	20, // 5: shorts.v1alpha1.StockSyncResult.metrics:type_name -> shorts.v1alpha1.KeyMetricsData
+	43, // 6: shorts.v1alpha1.EnrichmentData.key_people:type_name -> stocks.v1alpha1.CompanyPerson
+	44, // 7: shorts.v1alpha1.EnrichmentData.financial_reports:type_name -> stocks.v1alpha1.FinancialReport
+	45, // 8: shorts.v1alpha1.EnrichmentData.social_media_links:type_name -> stocks.v1alpha1.SocialMediaLinks
+	2,  // 9: shorts.v1alpha1.GetTopStocksForEnrichmentRequest.priority:type_name -> shorts.v1alpha1.EnrichmentPriority
+	27, // 10: shorts.v1alpha1.GetTopStocksForEnrichmentResponse.stocks:type_name -> shorts.v1alpha1.StockEnrichmentCandidate
+	46, // 11: shorts.v1alpha1.StockEnrichmentCandidate.last_enriched:type_name -> google.protobuf.Timestamp
+	32, // 12: shorts.v1alpha1.ListPendingEnrichmentsResponse.enrichments:type_name -> shorts.v1alpha1.PendingEnrichmentSummary
+	1,  // 13: shorts.v1alpha1.PendingEnrichmentSummary.status:type_name -> shorts.v1alpha1.EnrichmentStatus
+	46, // 14: shorts.v1alpha1.PendingEnrichmentSummary.created_at:type_name -> google.protobuf.Timestamp
+	24, // 15: shorts.v1alpha1.PendingEnrichmentSummary.quality_score:type_name -> shorts.v1alpha1.QualityScore
+	35, // 16: shorts.v1alpha1.GetPendingEnrichmentResponse.pending:type_name -> shorts.v1alpha1.PendingEnrichment
+	1,  // 17: shorts.v1alpha1.PendingEnrichment.status:type_name -> shorts.v1alpha1.EnrichmentStatus
+	23, // 18: shorts.v1alpha1.PendingEnrichment.data:type_name -> shorts.v1alpha1.EnrichmentData
+	24, // 19: shorts.v1alpha1.PendingEnrichment.quality_score:type_name -> shorts.v1alpha1.QualityScore
+	46, // 20: shorts.v1alpha1.PendingEnrichment.created_at:type_name -> google.protobuf.Timestamp
+	46, // 21: shorts.v1alpha1.PendingEnrichment.reviewed_at:type_name -> google.protobuf.Timestamp
+	3,  // 22: shorts.v1alpha1.EnrichmentJob.status:type_name -> shorts.v1alpha1.EnrichmentJobStatus
+	46, // 23: shorts.v1alpha1.EnrichmentJob.created_at:type_name -> google.protobuf.Timestamp
+	46, // 24: shorts.v1alpha1.EnrichmentJob.started_at:type_name -> google.protobuf.Timestamp
+	46, // 25: shorts.v1alpha1.EnrichmentJob.completed_at:type_name -> google.protobuf.Timestamp
+	36, // 26: shorts.v1alpha1.GetEnrichmentJobStatusResponse.job:type_name -> shorts.v1alpha1.EnrichmentJob
+	3,  // 27: shorts.v1alpha1.ListEnrichmentJobsRequest.status:type_name -> shorts.v1alpha1.EnrichmentJobStatus
+	36, // 28: shorts.v1alpha1.ListEnrichmentJobsResponse.jobs:type_name -> shorts.v1alpha1.EnrichmentJob
+	6,  // 29: shorts.v1alpha1.ShortedStocksService.GetTopShorts:input_type -> shorts.v1alpha1.GetTopShortsRequest
+	7,  // 30: shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap:input_type -> shorts.v1alpha1.GetIndustryTreeMapRequest
+	9,  // 31: shorts.v1alpha1.ShortedStocksService.GetStock:input_type -> shorts.v1alpha1.GetStockRequest
+	10, // 32: shorts.v1alpha1.ShortedStocksService.GetStockDetails:input_type -> shorts.v1alpha1.GetStockDetailsRequest
+	11, // 33: shorts.v1alpha1.ShortedStocksService.GetStockData:input_type -> shorts.v1alpha1.GetStockDataRequest
+	12, // 34: shorts.v1alpha1.ShortedStocksService.SearchStocks:input_type -> shorts.v1alpha1.SearchStocksRequest
+	14, // 35: shorts.v1alpha1.ShortedStocksService.GetSyncStatus:input_type -> shorts.v1alpha1.GetSyncStatusRequest
+	4,  // 36: shorts.v1alpha1.ShortedStocksService.MintToken:input_type -> shorts.v1alpha1.MintTokenRequest
+	17, // 37: shorts.v1alpha1.ShortedStocksService.SyncKeyMetrics:input_type -> shorts.v1alpha1.SyncKeyMetricsRequest
+	21, // 38: shorts.v1alpha1.ShortedStocksService.EnrichStock:input_type -> shorts.v1alpha1.EnrichStockRequest
+	25, // 39: shorts.v1alpha1.ShortedStocksService.GetTopStocksForEnrichment:input_type -> shorts.v1alpha1.GetTopStocksForEnrichmentRequest
+	30, // 40: shorts.v1alpha1.ShortedStocksService.ListPendingEnrichments:input_type -> shorts.v1alpha1.ListPendingEnrichmentsRequest
+	33, // 41: shorts.v1alpha1.ShortedStocksService.GetPendingEnrichment:input_type -> shorts.v1alpha1.GetPendingEnrichmentRequest
+	28, // 42: shorts.v1alpha1.ShortedStocksService.ReviewEnrichment:input_type -> shorts.v1alpha1.ReviewEnrichmentRequest
+	37, // 43: shorts.v1alpha1.ShortedStocksService.GetEnrichmentJobStatus:input_type -> shorts.v1alpha1.GetEnrichmentJobStatusRequest
+	39, // 44: shorts.v1alpha1.ShortedStocksService.ListEnrichmentJobs:input_type -> shorts.v1alpha1.ListEnrichmentJobsRequest
+	8,  // 45: shorts.v1alpha1.ShortedStocksService.GetTopShorts:output_type -> shorts.v1alpha1.GetTopShortsResponse
+	47, // 46: shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap:output_type -> stocks.v1alpha1.IndustryTreeMap
+	42, // 47: shorts.v1alpha1.ShortedStocksService.GetStock:output_type -> stocks.v1alpha1.Stock
+	48, // 48: shorts.v1alpha1.ShortedStocksService.GetStockDetails:output_type -> stocks.v1alpha1.StockDetails
+	41, // 49: shorts.v1alpha1.ShortedStocksService.GetStockData:output_type -> stocks.v1alpha1.TimeSeriesData
+	13, // 50: shorts.v1alpha1.ShortedStocksService.SearchStocks:output_type -> shorts.v1alpha1.SearchStocksResponse
+	15, // 51: shorts.v1alpha1.ShortedStocksService.GetSyncStatus:output_type -> shorts.v1alpha1.GetSyncStatusResponse
+	5,  // 52: shorts.v1alpha1.ShortedStocksService.MintToken:output_type -> shorts.v1alpha1.MintTokenResponse
+	18, // 53: shorts.v1alpha1.ShortedStocksService.SyncKeyMetrics:output_type -> shorts.v1alpha1.SyncKeyMetricsResponse
+	22, // 54: shorts.v1alpha1.ShortedStocksService.EnrichStock:output_type -> shorts.v1alpha1.EnrichStockResponse
+	26, // 55: shorts.v1alpha1.ShortedStocksService.GetTopStocksForEnrichment:output_type -> shorts.v1alpha1.GetTopStocksForEnrichmentResponse
+	31, // 56: shorts.v1alpha1.ShortedStocksService.ListPendingEnrichments:output_type -> shorts.v1alpha1.ListPendingEnrichmentsResponse
+	34, // 57: shorts.v1alpha1.ShortedStocksService.GetPendingEnrichment:output_type -> shorts.v1alpha1.GetPendingEnrichmentResponse
+	29, // 58: shorts.v1alpha1.ShortedStocksService.ReviewEnrichment:output_type -> shorts.v1alpha1.ReviewEnrichmentResponse
+	38, // 59: shorts.v1alpha1.ShortedStocksService.GetEnrichmentJobStatus:output_type -> shorts.v1alpha1.GetEnrichmentJobStatusResponse
+	40, // 60: shorts.v1alpha1.ShortedStocksService.ListEnrichmentJobs:output_type -> shorts.v1alpha1.ListEnrichmentJobsResponse
+	45, // [45:61] is the sub-list for method output_type
+	29, // [29:45] is the sub-list for method input_type
+	29, // [29:29] is the sub-list for extension type_name
+	29, // [29:29] is the sub-list for extension extendee
+	0,  // [0:29] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_shorts_proto_init() }
@@ -2655,8 +3098,8 @@ func file_shorts_v1alpha1_shorts_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_shorts_proto_rawDesc), len(file_shorts_v1alpha1_shorts_proto_rawDesc)),
-			NumEnums:      3,
-			NumMessages:   32,
+			NumEnums:      4,
+			NumMessages:   37,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -27,9 +28,13 @@ func NewOpenAIGPTClient(apiKey string) (*OpenAIGPTClient, error) {
 	if strings.TrimSpace(apiKey) == "" {
 		return nil, fmt.Errorf("OPENAI_API_KEY is required")
 	}
+	model := os.Getenv("OPENAI_MODEL")
+	if model == "" {
+		model = "gpt-4o" // Use gpt-4o as default (cost-effective flagship)
+	}
 	return &OpenAIGPTClient{
 		client: openai.NewClient(apiKey),
-		model:  "gpt-5.1",
+		model:  model,
 	}, nil
 }
 

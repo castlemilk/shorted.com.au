@@ -298,8 +298,14 @@ type StockDetails struct {
 	EnrichmentDate        *timestamppb.Timestamp `protobuf:"bytes,19,opt,name=enrichment_date,json=enrichmentDate,proto3" json:"enrichment_date,omitempty"`
 	EnrichmentError       string                 `protobuf:"bytes,20,opt,name=enrichment_error,json=enrichmentError,proto3" json:"enrichment_error,omitempty"`
 	FinancialStatements   *FinancialStatements   `protobuf:"bytes,21,opt,name=financial_statements,json=financialStatements,proto3" json:"financial_statements,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// Logo URLs (populated by logo discovery pipeline)
+	LogoGcsUrl     string `protobuf:"bytes,22,opt,name=logo_gcs_url,json=logoGcsUrl,proto3" json:"logo_gcs_url,omitempty"`               // Full logo PNG URL (background removed)
+	LogoIconGcsUrl string `protobuf:"bytes,23,opt,name=logo_icon_gcs_url,json=logoIconGcsUrl,proto3" json:"logo_icon_gcs_url,omitempty"` // Icon-only logo PNG URL
+	LogoSvgGcsUrl  string `protobuf:"bytes,24,opt,name=logo_svg_gcs_url,json=logoSvgGcsUrl,proto3" json:"logo_svg_gcs_url,omitempty"`    // Original SVG logo URL (if discovered as SVG)
+	LogoSourceUrl  string `protobuf:"bytes,25,opt,name=logo_source_url,json=logoSourceUrl,proto3" json:"logo_source_url,omitempty"`      // Original URL where the logo was found
+	LogoFormat     string `protobuf:"bytes,26,opt,name=logo_format,json=logoFormat,proto3" json:"logo_format,omitempty"`                 // Original format of discovered logo (svg, png, etc)
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *StockDetails) Reset() {
@@ -477,6 +483,41 @@ func (x *StockDetails) GetFinancialStatements() *FinancialStatements {
 		return x.FinancialStatements
 	}
 	return nil
+}
+
+func (x *StockDetails) GetLogoGcsUrl() string {
+	if x != nil {
+		return x.LogoGcsUrl
+	}
+	return ""
+}
+
+func (x *StockDetails) GetLogoIconGcsUrl() string {
+	if x != nil {
+		return x.LogoIconGcsUrl
+	}
+	return ""
+}
+
+func (x *StockDetails) GetLogoSvgGcsUrl() string {
+	if x != nil {
+		return x.LogoSvgGcsUrl
+	}
+	return ""
+}
+
+func (x *StockDetails) GetLogoSourceUrl() string {
+	if x != nil {
+		return x.LogoSourceUrl
+	}
+	return ""
+}
+
+func (x *StockDetails) GetLogoFormat() string {
+	if x != nil {
+		return x.LogoFormat
+	}
+	return ""
 }
 
 type CompanyPerson struct {
@@ -1148,7 +1189,7 @@ const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\x03min\x18\f \x01(\v2 .stocks.v1alpha1.TimeSeriesPointR\x03min\"r\n" +
 	"\x0fTimeSeriesPoint\x128\n" +
 	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12%\n" +
-	"\x0eshort_position\x18\x02 \x01(\x01R\rshortPosition\"\xb9\a\n" +
+	"\x0eshort_position\x18\x02 \x01(\x01R\rshortPosition\"\xf8\b\n" +
 	"\fStockDetails\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12!\n" +
 	"\fcompany_name\x18\x02 \x01(\tR\vcompanyName\x12\x1a\n" +
@@ -1172,7 +1213,14 @@ const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\x11enrichment_status\x18\x12 \x01(\tR\x10enrichmentStatus\x12C\n" +
 	"\x0fenrichment_date\x18\x13 \x01(\v2\x1a.google.protobuf.TimestampR\x0eenrichmentDate\x12)\n" +
 	"\x10enrichment_error\x18\x14 \x01(\tR\x0fenrichmentError\x12W\n" +
-	"\x14financial_statements\x18\x15 \x01(\v2$.stocks.v1alpha1.FinancialStatementsR\x13financialStatements\"I\n" +
+	"\x14financial_statements\x18\x15 \x01(\v2$.stocks.v1alpha1.FinancialStatementsR\x13financialStatements\x12 \n" +
+	"\flogo_gcs_url\x18\x16 \x01(\tR\n" +
+	"logoGcsUrl\x12)\n" +
+	"\x11logo_icon_gcs_url\x18\x17 \x01(\tR\x0elogoIconGcsUrl\x12'\n" +
+	"\x10logo_svg_gcs_url\x18\x18 \x01(\tR\rlogoSvgGcsUrl\x12&\n" +
+	"\x0flogo_source_url\x18\x19 \x01(\tR\rlogoSourceUrl\x12\x1f\n" +
+	"\vlogo_format\x18\x1a \x01(\tR\n" +
+	"logoFormat\"I\n" +
 	"\rCompanyPerson\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04role\x18\x02 \x01(\tR\x04role\x12\x10\n" +

@@ -99,17 +99,91 @@ run.shorts: clean.shorts
 	@echo "🚀 Starting shorts service on port 9091..."
 	@echo "   Database: $(DATABASE_URL)"
 	@echo "   Algolia: $(ALGOLIA_APP_ID) / $(ALGOLIA_INDEX)"
-	DATABASE_URL=$(DATABASE_URL) \
-	GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS} \
-	ALGOLIA_APP_ID=$(ALGOLIA_APP_ID) \
-	ALGOLIA_SEARCH_KEY=$(ALGOLIA_SEARCH_KEY) \
-	ALGOLIA_INDEX=$(ALGOLIA_INDEX) \
-	go run shorts/cmd/server/main.go
+	@bash -c ' \
+		if [ -f .env ]; then \
+			set -a; \
+			source .env; \
+			set +a; \
+		fi; \
+		export DATABASE_URL="$(DATABASE_URL)"; \
+		if [ -n "$$GOOGLE_APPLICATION_CREDENTIALS" ]; then \
+			if [ -f "$$GOOGLE_APPLICATION_CREDENTIALS" ]; then \
+				export GOOGLE_APPLICATION_CREDENTIALS="$$(cd $$(dirname "$$GOOGLE_APPLICATION_CREDENTIALS") && pwd)/$$(basename "$$GOOGLE_APPLICATION_CREDENTIALS")"; \
+			fi; \
+		elif [ -f "$(GOOGLE_APPLICATION_CREDENTIALS)" ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS="$$(pwd)/$(GOOGLE_APPLICATION_CREDENTIALS)"; \
+		fi; \
+		export GCP_PROJECT_ID="$${GCP_PROJECT_ID:-shorted-dev-aba5688f}"; \
+		export ALGOLIA_APP_ID="$(ALGOLIA_APP_ID)"; \
+		export ALGOLIA_SEARCH_KEY="$(ALGOLIA_SEARCH_KEY)"; \
+		export ALGOLIA_INDEX="$(ALGOLIA_INDEX)"; \
+		go run shorts/cmd/server/main.go \
+	'
 
 run.market-data: clean.market-data
 	@echo "🚀 Starting market data service on port 8090..."
 	@echo "   Database: $(DATABASE_URL)"
 	@cd market-data && DATABASE_URL=$(DATABASE_URL) go run main.go validation.go 
+
+.PHONY: clean.enrichment-processor
+clean.enrichment-processor:
+	@echo "🧹 Cleaning up existing enrichment processor..."
+	@pkill -f "enrichment-processor" 2>/dev/null || true
+	@sleep 1
+
+.PHONY: setup.enrichment-processor.venv
+setup.enrichment-processor.venv:
+	@echo "🐍 Setting up Python virtual environment for enrichment processor..."
+	@cd enrichment-processor && \
+	if [ ! -d "venv" ]; then \
+		python3 -m venv venv; \
+	fi && \
+	. venv/bin/activate && \
+	pip install --upgrade pip && \
+	pip install -r requirements.txt && \
+	if [ ! -f "mobile_sam.pt" ]; then \
+		echo "📥 Downloading MobileSAM checkpoint..."; \
+		wget -q https://raw.githubusercontent.com/ChaoningZhang/MobileSAM/master/weights/mobile_sam.pt -O mobile_sam.pt || \
+		curl -L https://raw.githubusercontent.com/ChaoningZhang/MobileSAM/master/weights/mobile_sam.pt -o mobile_sam.pt; \
+	fi && \
+	echo "✅ Virtual environment setup complete!"
+
+.PHONY: install.enrichment-processor.deps
+install.enrichment-processor.deps: setup.enrichment-processor.venv
+	@echo "✅ Dependencies installed in venv"
+
+run.enrichment-processor: clean.enrichment-processor
+	@echo "🚀 Starting enrichment processor..."
+	@echo "   Database: $(DATABASE_URL)"
+	@if [ ! -d "enrichment-processor/venv" ]; then \
+		echo "⚠️  Warning: Python venv not found. Run 'make setup.enrichment-processor.venv' to set up dependencies."; \
+	fi
+	@bash -c ' \
+		if [ -f .env ]; then \
+			set -a; \
+			source .env; \
+			set +a; \
+		fi; \
+		export DATABASE_URL="$(DATABASE_URL)"; \
+		export APP_STORE_POSTGRES_ADDRESS="$${APP_STORE_POSTGRES_ADDRESS:-localhost:5438}"; \
+		export APP_STORE_POSTGRES_DATABASE="$${APP_STORE_POSTGRES_DATABASE:-shorts}"; \
+		export APP_STORE_POSTGRES_USERNAME="$${APP_STORE_POSTGRES_USERNAME:-admin}"; \
+		export APP_STORE_POSTGRES_PASSWORD="$${APP_STORE_POSTGRES_PASSWORD:-password}"; \
+		export OPENAI_API_KEY="$${OPENAI_API_KEY}"; \
+		export GEMINI_API_KEY="$${GEMINI_API_KEY}"; \
+		export ENRICHMENT_MODEL="$${ENRICHMENT_MODEL:-openai}"; \
+		export EXA_API_KEY="$${EXA_API_KEY}"; \
+		export GCS_LOGO_BUCKET="$${GCS_LOGO_BUCKET}"; \
+		export LOGO_DISCOVERY_ENABLED="$${LOGO_DISCOVERY_ENABLED:-true}"; \
+		if [ -n "$$GOOGLE_APPLICATION_CREDENTIALS" ] && [ -f "$$GOOGLE_APPLICATION_CREDENTIALS" ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS="$$(cd $$(dirname "$$GOOGLE_APPLICATION_CREDENTIALS") && pwd)/$$(basename "$$GOOGLE_APPLICATION_CREDENTIALS")"; \
+		elif [ -f "$(GOOGLE_APPLICATION_CREDENTIALS)" ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS="$$(pwd)/$(GOOGLE_APPLICATION_CREDENTIALS)"; \
+		fi; \
+		unset GCP_PROJECT_ID; \
+		go run enrichment-processor/main.go enrichment-processor/local-processor.go \
+	'
+
 build.short-data-sync:
 	cd short-data-sync; docker buildx build --push --progress=plain --platform linux/amd64,linux/arm64 -f Dockerfile -t ${SHORTS_SYNC_IMAGE}:latest -t ${SHORTS_SYNC_IMAGE}:${SHORTS_VERSION} .
 build.shorts:
