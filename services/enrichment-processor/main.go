@@ -13,7 +13,7 @@ import (
 	"syscall"
 	"time"
 
-	"cloud.google.com/go/pubsub"
+	"cloud.google.com/go/pubsub" //nolint:staticcheck // TODO: migrate to cloud.google.com/go/pubsub/v2
 	"cloud.google.com/go/storage"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
@@ -153,7 +153,11 @@ func main() {
 			logger.Warnf("Failed to create Pub/Sub client: %v (falling back to local polling mode)", err)
 			projectID = "" // Force local polling mode
 		} else {
-			defer pubsubClient.Close()
+			defer func() {
+				if err := pubsubClient.Close(); err != nil {
+					logger.Warnf("Failed to close Pub/Sub client: %v", err)
+				}
+			}()
 
 			// Get or create subscription
 			subscription = pubsubClient.Subscription(subscriptionName)
@@ -351,24 +355,28 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 	details, err := p.store.GetStockDetails(stockCode)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to get stock details: %v", err)
-		p.store.UpdateEnrichmentJobStatus(
+		if updateErr := p.store.UpdateEnrichmentJobStatus(
 			jobID,
 			shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED,
 			nil,
 			&errMsg,
-		)
+		); updateErr != nil {
+			p.logger.Warnf("Failed to update job status: %v", updateErr)
+		}
 		return fmt.Errorf("%s", errMsg)
 	}
 
 	// Check if already enriched and not forced
 	if !force && strings.EqualFold(details.EnrichmentStatus, "completed") {
 		errMsg := "stock already enriched (use force=true to re-enrich)"
-		p.store.UpdateEnrichmentJobStatus(
+		if updateErr := p.store.UpdateEnrichmentJobStatus(
 			jobID,
 			shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED,
 			nil,
 			&errMsg,
-		)
+		); updateErr != nil {
+			p.logger.Warnf("Failed to update job status: %v", updateErr)
+		}
 		return fmt.Errorf("%s", errMsg)
 	}
 
@@ -394,12 +402,14 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 	enriched, quality, err := p.runEnrichmentPhases(enrichCtx, stockCode, details)
 	if err != nil {
 		errMsg := err.Error()
-		p.store.UpdateEnrichmentJobStatus(
+		if updateErr := p.store.UpdateEnrichmentJobStatus(
 			jobID,
 			shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED,
 			nil,
 			&errMsg,
-		)
+		); updateErr != nil {
+			p.logger.Warnf("Failed to update job status: %v", updateErr)
+		}
 		return err
 	}
 
@@ -414,12 +424,14 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 	)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to save pending enrichment: %v", err)
-		p.store.UpdateEnrichmentJobStatus(
+		if updateErr := p.store.UpdateEnrichmentJobStatus(
 			jobID,
 			shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED,
 			nil,
 			&errMsg,
-		)
+		); updateErr != nil {
+			p.logger.Warnf("Failed to update job status: %v", updateErr)
+		}
 		return fmt.Errorf("%s", errMsg)
 	}
 
@@ -557,13 +569,21 @@ func (p *enrichmentProcessor) processLogo(ctx context.Context, logo *enrichment.
 	if err != nil {
 		return nil, fmt.Errorf("failed to save raw logo: %w", err)
 	}
-	defer os.Remove(inputPath)
+	defer func() {
+		if err := os.Remove(inputPath); err != nil {
+			p.logger.Warnf("Failed to remove input file %s: %v", inputPath, err)
+		}
+	}()
 
 	outputDir := filepath.Join(tmpDir, fmt.Sprintf("%s_logos", stockCode))
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create output dir: %w", err)
 	}
-	defer os.RemoveAll(outputDir)
+	defer func() {
+		if err := os.RemoveAll(outputDir); err != nil {
+			p.logger.Warnf("Failed to remove output dir %s: %v", outputDir, err)
+		}
+	}()
 
 	// 2. Call Python script for background removal and resizing
 	// Try to use venv Python if available, otherwise fall back to system python3
@@ -921,7 +941,11 @@ func (p *enrichmentProcessor) uploadLogosToGCS(ctx context.Context, filePaths []
 	if err != nil {
 		return "", "", "", fmt.Errorf("failed to create storage client: %w", err)
 	}
-	defer client.Close()
+	defer func() {
+		if err := client.Close(); err != nil {
+			p.logger.Warnf("Failed to close storage client: %v", err)
+		}
+	}()
 
 	bucket := client.Bucket(p.gcsBucket)
 	var mainLogoURL string
@@ -956,12 +980,18 @@ func (p *enrichmentProcessor) uploadLogosToGCS(ctx context.Context, filePaths []
 		wc.CacheControl = GCSCacheControl
 
 		if _, err = io.Copy(wc, f); err != nil {
-			f.Close()
-			wc.Close()
+			if closeErr := f.Close(); closeErr != nil {
+				p.logger.Warnf("failed to close file %s: %v", path, closeErr)
+			}
+			if closeErr := wc.Close(); closeErr != nil {
+				p.logger.Warnf("failed to close GCS writer for %s: %v", objectName, closeErr)
+			}
 			p.logger.Warnf("failed to upload logo %s to GCS: %v", objectName, err)
 			continue
 		}
-		f.Close()
+		if err := f.Close(); err != nil {
+			p.logger.Warnf("failed to close file %s: %v", path, err)
+		}
 		if err := wc.Close(); err != nil {
 			p.logger.Warnf("failed to close GCS writer for %s: %v", objectName, err)
 			continue
@@ -996,7 +1026,9 @@ func (p *enrichmentProcessor) uploadLogosToGCS(ctx context.Context, filePaths []
 		}
 
 		// Clean up local file
-		os.Remove(path)
+		if err := os.Remove(path); err != nil {
+			p.logger.Warnf("failed to remove local file %s: %v", path, err)
+		}
 	}
 
 	// If we have an icon SVG but no icon PNG, use icon SVG for icon URL

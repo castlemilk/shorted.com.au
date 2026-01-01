@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"cloud.google.com/go/pubsub"
+	"cloud.google.com/go/pubsub" //nolint:staticcheck // TODO: migrate to cloud.google.com/go/pubsub/v2
 )
 
 // PubSubClient interface for publishing enrichment jobs

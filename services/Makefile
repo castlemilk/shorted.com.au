@@ -128,6 +128,11 @@ run.market-data: clean.market-data
 .PHONY: clean.enrichment-processor
 clean.enrichment-processor:
 	@echo "🧹 Cleaning up existing enrichment processor..."
+	@for pid in $$(pgrep -f "enrichment-processor" 2>/dev/null); do \
+		echo "Killing enrichment processor process $$pid and its children..."; \
+		pkill -P $$pid 2>/dev/null || true; \
+		kill -9 $$pid 2>/dev/null || true; \
+	done || true
 	@pkill -f "enrichment-processor" 2>/dev/null || true
 	@sleep 1
 

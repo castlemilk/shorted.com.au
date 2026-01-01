@@ -103,7 +103,11 @@ func (d *logoDiscoverer) fetchLogo(ctx context.Context, candidate LogoCandidate)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			// Log error but don't fail - response body close errors are usually non-critical
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("failed to fetch logo: status %d", resp.StatusCode)
