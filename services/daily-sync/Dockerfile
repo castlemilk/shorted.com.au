@@ -17,8 +17,8 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the sync script
-COPY comprehensive_daily_sync.py .
+# Copy the sync script from deprecated folder
+COPY deprecated/comprehensive_daily_sync.py .
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
