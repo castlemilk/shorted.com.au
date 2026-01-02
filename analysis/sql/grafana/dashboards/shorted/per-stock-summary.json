@@ -1,0 +1,538 @@
+{
+    "__inputs": [
+        {
+            "name": "DS_POSTGRESQL",
+            "label": "PostgreSQL",
+            "description": "",
+            "type": "datasource",
+            "pluginId": "grafana-postgresql-datasource",
+            "pluginName": "PostgreSQL"
+        }
+    ],
+    "__elements": {},
+    "__requires": [
+        {
+            "type": "panel",
+            "id": "barchart",
+            "name": "Bar chart",
+            "version": ""
+        },
+        {
+            "type": "panel",
+            "id": "gauge",
+            "name": "Gauge",
+            "version": ""
+        },
+        {
+            "type": "grafana",
+            "id": "grafana",
+            "name": "Grafana",
+            "version": "10.4.0"
+        },
+        {
+            "type": "datasource",
+            "id": "grafana-postgresql-datasource",
+            "name": "PostgreSQL",
+            "version": "1.0.0"
+        },
+        {
+            "type": "panel",
+            "id": "news",
+            "name": "News",
+            "version": ""
+        },
+        {
+            "type": "panel",
+            "id": "text",
+            "name": "Text",
+            "version": ""
+        },
+        {
+            "type": "panel",
+            "id": "timeseries",
+            "name": "Time series",
+            "version": ""
+        }
+    ],
+    "annotations": {
+        "list": [
+            {
+                "builtIn": 1,
+                "datasource": "PostgreSQL",
+                "enable": true,
+                "hide": true,
+                "iconColor": "rgba(0, 211, 255, 1)",
+                "name": "Annotations & Alerts",
+                "type": "dashboard"
+            }
+        ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "id": null,
+    "links": [],
+    "panels": [
+        {
+            "datasource": "PostgreSQL",
+            "gridPos": {
+                "h": 26,
+                "w": 12,
+                "x": 0,
+                "y": 0
+            },
+            "id": 5,
+            "options": {
+                "code": {
+                    "language": "plaintext",
+                    "showLineNumbers": false,
+                    "showMiniMap": false
+                },
+                "content": "# ${stocks} Stock Profile Overview\nWelcome to the comprehensive stock profile view of [Company Name], a leading entity in its industry. This detailed report provides an in-depth look into the company's stock performance, with a focus on short position information and sentiment analysis, offering valuable insights for investors and analysts alike.\n\nShort Position Overview\n[Company Name]'s stock has seen various fluctuations over the recent months, highlighting significant activity in the market. Our analysis begins with an examination of the short positions held against the company's stock, a key indicator of market sentiment.\n\nAs of the latest reporting period, the total volume of short positions stands at [X units], representing [Y%] of the total shares outstanding.\nThis marks a [Z% increase/decrease] from the previous period, suggesting [a more bullish/bearish outlook] among investors.\nThe daily short sale volume has been particularly noteworthy on specific dates, notably on [date], where it reached a peak, indicating heightened investor interest or concern.\nSuch movements are critical for understanding the underlying market dynamics and potential speculative activities surrounding [Company Name]'s stock.\n\n# Sentiment Analysis Overview\nIn addition to raw short position data, we've conducted a comprehensive sentiment analysis, leveraging advanced natural language processing techniques to gauge the mood and opinions expressed across various media channels, including news articles, analyst reports, and social media platforms.\n\nThe sentiment analysis reveals a [positive/negative/mixed] outlook on [Company Name], with key themes emerging around [specific topics such as financial performance, leadership changes, industry trends, or regulatory impacts].\nPositive sentiment is often driven by [factor(s)], while concerns typically stem from [factor(s)], providing a nuanced view of the market's perception.\n# Market Implications\nThe combination of short position data and sentiment analysis provides a multi-dimensional view of [Company Name]'s current market standing. For investors:\n\nUnderstanding the interplay between the tangible metrics of short positions and the intangible aspects of market sentiment is crucial for making informed decisions.\nIt suggests potential [opportunities/risks] and informs about the broader market ecosystem's dynamics in relation to [Company Name].\nConclusion\n[Company Name] remains a focal point for market watchers, with its stock performance being a barometer for both its internal strategic moves and external industry shifts. As the market continues to digest new information and adjust its outlook, we remain committed to providing timely, accurate, and insightful analysis to navigate the complexities of stock investment and speculation.\n\nPlease note: While this overview aims to provide valuable insights, it should not be the sole basis for any investment decision. Investors are encouraged to consider a wide range of sources and conduct thorough due diligence.\n\nFor more detailed information, comprehensive analysis, and up-to-date news on [Company Name] and its stock performance, stay tuned to our platform.\n\n",
+                "mode": "markdown"
+            },
+            "pluginVersion": "10.4.0",
+            "title": "Panel Title",
+            "type": "text"
+        },
+        {
+            "datasource": {
+                "type": "datasource",
+                "uid": "grafana"
+            },
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "thresholds"
+                    },
+                    "mappings": [],
+                    "max": 100,
+                    "min": 0,
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    },
+                    "unit": "none"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 12,
+                "y": 0
+            },
+            "id": 6,
+            "options": {
+                "minVizHeight": 75,
+                "minVizWidth": 75,
+                "orientation": "auto",
+                "reduceOptions": {
+                    "calcs": [
+                        "lastNotNull"
+                    ],
+                    "fields": "",
+                    "values": false
+                },
+                "showThresholdLabels": false,
+                "showThresholdMarkers": true,
+                "sizing": "auto"
+            },
+            "pluginVersion": "10.4.0",
+            "targets": [
+                {
+                    "channel": "plugin/testdata/random-flakey-stream",
+                    "datasource": {
+                        "type": "datasource",
+                        "uid": "grafana"
+                    },
+                    "path": "maps",
+                    "queryType": "randomWalk",
+                    "refId": "A"
+                }
+            ],
+            "title": "Sentiment",
+            "type": "gauge"
+        },
+        {
+            "datasource": "PostgreSQL",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisBorderShow": false,
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "Short",
+                        "axisPlacement": "auto",
+                        "barAlignment": 0,
+                        "drawStyle": "line",
+                        "fillOpacity": 0,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "insertNulls": false,
+                        "lineInterpolation": "linear",
+                        "lineWidth": 1,
+                        "pointSize": 5,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "showPoints": "auto",
+                        "spanNulls": false,
+                        "stacking": {
+                            "group": "A",
+                            "mode": "none"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    },
+                    "unit": "percent"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 13,
+                "w": 12,
+                "x": 12,
+                "y": 8
+            },
+            "id": 1,
+            "options": {
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "right",
+                    "showLegend": false
+                },
+                "tooltip": {
+                    "mode": "single",
+                    "sort": "none"
+                }
+            },
+            "pluginVersion": "10.4.0",
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "grafana-postgresql-datasource",
+                        "uid": "${DS_POSTGRESQL}"
+                    },
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "SELECT\n  \"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS\" AS \"value\",\n  \"PRODUCT_CODE\" || ' - ' || \"PRODUCT\" AS metric,\n  \"DATE\" AS \"time\"\nFROM\n  shorts\nWHERE\n  \"PRODUCT_CODE\" IN ($stocks)\nORDER BY\n  \"DATE\"",
+                    "refId": "percentage shorted",
+                    "sql": {
+                        "columns": [
+                            {
+                                "alias": "\"value\"",
+                                "parameters": [
+                                    {
+                                        "name": "\"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS\"",
+                                        "type": "functionParameter"
+                                    }
+                                ],
+                                "type": "function"
+                            },
+                            {
+                                "alias": "\"time\"",
+                                "parameters": [
+                                    {
+                                        "name": "\"DATE\"",
+                                        "type": "functionParameter"
+                                    }
+                                ],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [],
+                        "orderBy": {
+                            "property": {
+                                "name": "\"DATE\"",
+                                "type": "string"
+                            },
+                            "type": "property"
+                        },
+                        "whereJsonTree": {
+                            "children1": [
+                                {
+                                    "id": "9a89898a-cdef-4012-b456-718e26826842",
+                                    "properties": {
+                                        "field": "\"PRODUCT_CODE\"",
+                                        "fieldSrc": "field",
+                                        "operator": "select_any_in",
+                                        "value": [
+                                            "$stocks"
+                                        ],
+                                        "valueSrc": [
+                                            "value"
+                                        ],
+                                        "valueType": [
+                                            "text"
+                                        ]
+                                    },
+                                    "type": "rule"
+                                }
+                            ],
+                            "id": "89a98bab-0123-4456-b89a-b18e2282af41",
+                            "type": "group"
+                        },
+                        "whereString": "\"PRODUCT_CODE\" IN ('$stocks')"
+                    },
+                    "table": "shorts"
+                }
+            ],
+            "title": "short positions for $stocks",
+            "type": "timeseries"
+        },
+        {
+            "datasource": "PostgreSQL",
+            "fieldConfig": {
+                "defaults": {
+                    "color": {
+                        "mode": "palette-classic"
+                    },
+                    "custom": {
+                        "axisBorderShow": false,
+                        "axisCenteredZero": false,
+                        "axisColorMode": "text",
+                        "axisLabel": "",
+                        "axisPlacement": "auto",
+                        "fillOpacity": 80,
+                        "gradientMode": "none",
+                        "hideFrom": {
+                            "legend": false,
+                            "tooltip": false,
+                            "viz": false
+                        },
+                        "lineWidth": 1,
+                        "scaleDistribution": {
+                            "type": "linear"
+                        },
+                        "thresholdsStyle": {
+                            "mode": "off"
+                        }
+                    },
+                    "mappings": [],
+                    "thresholds": {
+                        "mode": "absolute",
+                        "steps": [
+                            {
+                                "color": "green",
+                                "value": null
+                            },
+                            {
+                                "color": "red",
+                                "value": 80
+                            }
+                        ]
+                    },
+                    "unit": "none"
+                },
+                "overrides": []
+            },
+            "gridPos": {
+                "h": 5,
+                "w": 12,
+                "x": 12,
+                "y": 21
+            },
+            "id": 4,
+            "options": {
+                "barRadius": 0,
+                "barWidth": 0.97,
+                "fullHighlight": false,
+                "groupWidth": 0.7,
+                "legend": {
+                    "calcs": [],
+                    "displayMode": "list",
+                    "placement": "bottom",
+                    "showLegend": true
+                },
+                "orientation": "auto",
+                "showValue": "auto",
+                "stacking": "none",
+                "tooltip": {
+                    "mode": "single",
+                    "sort": "none"
+                },
+                "xTickLabelRotation": 0,
+                "xTickLabelSpacing": 0
+            },
+            "pluginVersion": "10.4.0",
+            "targets": [
+                {
+                    "datasource": {
+                        "type": "grafana-postgresql-datasource",
+                        "uid": "${DS_POSTGRESQL}"
+                    },
+                    "editorMode": "code",
+                    "format": "time_series",
+                    "rawQuery": true,
+                    "rawSql": "SELECT\n  \"REPORTED_SHORT_POSITIONS\" AS \"value\",\n  \"PRODUCT_CODE\" || ' - ' || \"PRODUCT\" AS metric,\n  \"DATE\" AS \"time\"\nFROM\n  shorts\nWHERE\n  \"PRODUCT_CODE\" IN ($stocks)\nORDER BY\n  \"DATE\"",
+                    "refId": "percentage shorted",
+                    "sql": {
+                        "columns": [
+                            {
+                                "alias": "\"value\"",
+                                "parameters": [
+                                    {
+                                        "name": "\"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS\"",
+                                        "type": "functionParameter"
+                                    }
+                                ],
+                                "type": "function"
+                            },
+                            {
+                                "alias": "\"time\"",
+                                "parameters": [
+                                    {
+                                        "name": "\"DATE\"",
+                                        "type": "functionParameter"
+                                    }
+                                ],
+                                "type": "function"
+                            }
+                        ],
+                        "groupBy": [],
+                        "orderBy": {
+                            "property": {
+                                "name": "\"DATE\"",
+                                "type": "string"
+                            },
+                            "type": "property"
+                        },
+                        "whereJsonTree": {
+                            "children1": [
+                                {
+                                    "id": "9a89898a-cdef-4012-b456-718e26826842",
+                                    "properties": {
+                                        "field": "\"PRODUCT_CODE\"",
+                                        "fieldSrc": "field",
+                                        "operator": "select_any_in",
+                                        "value": [
+                                            "$stocks"
+                                        ],
+                                        "valueSrc": [
+                                            "value"
+                                        ],
+                                        "valueType": [
+                                            "text"
+                                        ]
+                                    },
+                                    "type": "rule"
+                                }
+                            ],
+                            "id": "89a98bab-0123-4456-b89a-b18e2282af41",
+                            "type": "group"
+                        },
+                        "whereString": "\"PRODUCT_CODE\" IN ('$stocks')"
+                    },
+                    "table": "shorts"
+                }
+            ],
+            "title": "shares shorted for $stocks",
+            "type": "barchart"
+        },
+        {
+            "datasource": {
+                "type": "datasource",
+                "uid": "grafana"
+            },
+            "gridPos": {
+                "h": 8,
+                "w": 12,
+                "x": 0,
+                "y": 26
+            },
+            "id": 8,
+            "options": {
+                "feedUrl": "https://corsproxy.io/?https%3A%2F%2Fsmallcaps.com.au%2Ffeed%2F",
+                "showImage": true
+            },
+            "title": "Panel Title",
+            "type": "news"
+        }
+    ],
+    "refresh": "",
+    "schemaVersion": 39,
+    "tags": [],
+    "templating": {
+        "list": [
+            {
+                "current": {},
+                "datasource": "PostgreSQL",
+                "definition": "SELECT DISTINCT \"PRODUCT_CODE\" || ' - ' || \"PRODUCT\" AS \"label\"  FROM shorts GROUP BY \"label\"",
+                "hide": 0,
+                "includeAll": false,
+                "label": "stocks",
+                "multi": true,
+                "name": "stocks",
+                "options": [],
+                "query": "SELECT DISTINCT \"PRODUCT_CODE\" || ' - ' || \"PRODUCT\" AS \"label\"  FROM shorts GROUP BY \"label\"",
+                "refresh": 1,
+                "regex": "/(?<value>.*) - (?<text>)/",
+                "skipUrlSync": false,
+                "sort": 1,
+                "type": "query"
+            },
+            {
+                "allValue": "",
+                "current": {},
+                "datasource": "PostgreSQL",
+                "definition": "WITH TopCodes AS (\n  SELECT\n    \"PRODUCT_CODE\",\n    MAX(\"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS\") AS max_percent_short\n  FROM\n    shorts\n  WHERE\n    \"DATE\" > CURRENT_DATE - INTERVAL '1 month'\n  GROUP BY\n    \"PRODUCT_CODE\"\n  ORDER BY\n    max_percent_short DESC\n  LIMIT\n    10\n)\nSELECT \"PRODUCT_CODE\" FROM TopCodes;",
+                "hide": 0,
+                "includeAll": true,
+                "label": "top 10 shorts",
+                "multi": true,
+                "name": "top10shorts",
+                "options": [],
+                "query": "WITH TopCodes AS (\n  SELECT\n    \"PRODUCT_CODE\",\n    MAX(\"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS\") AS max_percent_short\n  FROM\n    shorts\n  WHERE\n    \"DATE\" > CURRENT_DATE - INTERVAL '1 month'\n  GROUP BY\n    \"PRODUCT_CODE\"\n  ORDER BY\n    max_percent_short DESC\n  LIMIT\n    10\n)\nSELECT \"PRODUCT_CODE\" FROM TopCodes;",
+                "refresh": 1,
+                "regex": "",
+                "skipUrlSync": false,
+                "sort": 0,
+                "type": "query"
+            }
+        ]
+    },
+    "time": {
+        "from": "now-1y",
+        "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "browser",
+    "title": "per stock",
+    "uid": "perstock",
+    "version": 6,
+    "weekStart": ""
+}

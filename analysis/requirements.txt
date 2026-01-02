@@ -1,0 +1,16 @@
+# Requirements for analysis scripts
+httpx>=0.27.0
+tqdm>=4.66.0
+pandas>=2.0.0
+dask[dataframe]>=2023.0.0
+chardet>=5.0.0
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+openai>=1.50.0
+python-dotenv>=1.0.0
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
+jupyter>=1.0.0
+ipykernel>=6.0.0
+yfinance>=0.2.40
+

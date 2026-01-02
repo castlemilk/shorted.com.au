@@ -1,0 +1,31 @@
+# Dockerfile for Daily Historical Data Sync Job
+# Optimized for Cloud Run Jobs - runs once and exits
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the sync script
+COPY daily_historical_sync.py .
+
+# Copy ASX company list (needed for stock discovery)
+COPY ../../analysis/data/ASX_Listed_Companies_07-04-2024_11-03-45_AEST.csv /app/data/ASX_Listed_Companies_07-04-2024_11-03-45_AEST.csv
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV SYNC_DAYS=5
+
+# Run the sync script
+CMD ["python", "daily_historical_sync.py"]
+

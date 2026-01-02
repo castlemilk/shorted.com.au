@@ -1,0 +1,251 @@
+"use client";
+
+import { createConnectTransport } from "@connectrpc/connect-web";
+import { createPromiseClient } from "@connectrpc/connect";
+import { MarketDataService } from "@/gen/proto/marketdata/v1/marketdata_connect";
+
+// Get API URL from environment
+const API_URL = process.env.NEXT_PUBLIC_MARKET_DATA_API_URL ?? "http://localhost:8090";
+
+// Create transport and client
+const transport = createConnectTransport({
+  baseUrl: API_URL,
+});
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+const client = createPromiseClient(MarketDataService, transport);
+
+export interface StockQuote {
+  symbol: string;
+  price: number;
+  change: number;
+  changePercent: number;
+  previousClose: number;
+  volume?: number;
+  high?: number;
+  low?: number;
+  open?: number;
+}
+
+export interface HistoricalDataPoint {
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  adjustedClose?: number;
+}
+
+export type CorrelationMatrix = Record<string, Record<string, number>>
+
+// Internal types for protobuf responses
+interface ProtoStockPrice {
+  close: number;
+  change: number;
+  changePercent: number;
+  volume?: bigint;
+  high: number;
+  low: number;
+  open: number;
+  date: string;
+  adjustedClose?: number;
+}
+
+interface StockPriceResponse {
+  price?: ProtoStockPrice;
+}
+
+interface MultipleStockPricesResponse {
+  prices: Record<string, ProtoStockPrice>;
+}
+
+interface HistoricalPricesResponse {
+  prices: ProtoStockPrice[];
+}
+
+interface CorrelationsResponse {
+  correlations: Record<string, { correlations?: Record<string, number> }>;
+}
+
+/**
+ * Convert protobuf StockPrice to StockQuote interface
+ */
+function convertStockPrice(stockCode: string, protoPrice: ProtoStockPrice): StockQuote {
+  return {
+    symbol: stockCode,
+    price: Number(protoPrice.close) || 0,
+    change: Number(protoPrice.change) || 0,
+    changePercent: Number(protoPrice.changePercent) || 0,
+    previousClose: (Number(protoPrice.close) || 0) - (Number(protoPrice.change) || 0),
+    volume: protoPrice.volume ? Number(protoPrice.volume) : undefined,
+    high: Number(protoPrice.high) || 0,
+    low: Number(protoPrice.low) || 0,
+    open: Number(protoPrice.open) || 0,
+  };
+}
+
+/**
+ * Convert protobuf StockPrice to HistoricalDataPoint
+ */
+function convertHistoricalPrice(protoPrice: ProtoStockPrice): HistoricalDataPoint {
+  return {
+    date: String(protoPrice.date) || '',
+    open: Number(protoPrice.open) || 0,
+    high: Number(protoPrice.high) || 0,
+    low: Number(protoPrice.low) || 0,
+    close: Number(protoPrice.close) || 0,
+    volume: protoPrice.volume ? Number(protoPrice.volume) : 0,
+    adjustedClose: protoPrice.adjustedClose ? Number(protoPrice.adjustedClose) : undefined,
+  };
+}
+
+/**
+ * Get current stock price
+ */
+export async function getStockPrice(stockCode: string): Promise<StockQuote | null> {
+  try {
+    const request = {
+      stockCode: stockCode.toUpperCase(),
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    const response = await client.getStockPrice(request) as StockPriceResponse;
+    
+    if (response.price) {
+      return convertStockPrice(stockCode, response.price);
+    }
+    
+    return null;
+  } catch (error) {
+    console.error(`Error fetching stock price for ${stockCode}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Get multiple stock quotes at once
+ */
+export async function getMultipleStockQuotes(stockCodes: string[]): Promise<Map<string, StockQuote>> {
+  const quotes = new Map<string, StockQuote>();
+  
+  if (stockCodes.length === 0) {
+    return quotes;
+  }
+
+  try {
+    const request = {
+      stockCodes: stockCodes.map(code => code.toUpperCase()),
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    const response = await client.getMultipleStockPrices(request) as MultipleStockPricesResponse;
+    
+    // Convert response to quotes map
+    Object.entries(response.prices).forEach(([stockCode, protoPrice]) => {
+      if (protoPrice) {
+        quotes.set(stockCode, convertStockPrice(stockCode, protoPrice));
+      }
+    });
+    
+  } catch (error) {
+    console.error("Error fetching multiple stock quotes:", error);
+    
+    // Fallback: fetch individual quotes
+    const promises = stockCodes.map(async (stockCode) => {
+      const quote = await getStockPrice(stockCode);
+      if (quote) {
+        quotes.set(stockCode.toUpperCase(), quote);
+      }
+    });
+    
+    await Promise.allSettled(promises);
+  }
+
+  return quotes;
+}
+
+/**
+ * Get historical price data for a stock
+ */
+export async function getHistoricalData(
+  stockCode: string,
+  period = "1m"
+): Promise<HistoricalDataPoint[]> {
+  try {
+    const request = {
+      stockCode: stockCode.toUpperCase(),
+      period: period.toLowerCase(),
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    const response = await client.getHistoricalPrices(request) as HistoricalPricesResponse;
+    
+    return response.prices.map(convertHistoricalPrice);
+    
+  } catch (error) {
+    console.error(`Error fetching historical data for ${stockCode}:`, error);
+    return [];
+  }
+}
+
+/**
+ * Get correlation matrix for multiple stocks
+ */
+export async function getCorrelationMatrix(
+  stockCodes: string[],
+  period = "3m"
+): Promise<CorrelationMatrix> {
+  if (stockCodes.length < 2) {
+    throw new Error("At least 2 stocks required for correlation matrix");
+  }
+
+  try {
+    const request = {
+      stockCodes: stockCodes.map(code => code.toUpperCase()),
+      period: period.toLowerCase(),
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+    const response = await client.getStockCorrelations(request) as CorrelationsResponse;
+    
+    // Convert protobuf response to our interface
+    const matrix: CorrelationMatrix = {};
+    
+    Object.entries(response.correlations).forEach(([stock1, correlationRow]) => {
+      if (correlationRow?.correlations) {
+        matrix[stock1] = correlationRow.correlations;
+      }
+    });
+    
+    return matrix;
+    
+  } catch (error) {
+    console.error("Error fetching correlation matrix:", error);
+    throw error;
+  }
+}
+
+/**
+ * Health check for the market data service
+ */
+export async function healthCheck(): Promise<boolean> {
+  try {
+    const response = await fetch(`${API_URL}/health`);
+    return response.ok;
+  } catch (error) {
+    console.error("Market data service health check failed:", error);
+    return false;
+  }
+}
+
+/**
+ * Check if market data service is available
+ */
+export async function isMarketDataServiceAvailable(): Promise<boolean> {
+  try {
+    return await healthCheck();
+  } catch {
+    return false;
+  }
+}

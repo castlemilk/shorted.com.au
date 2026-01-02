@@ -1,0 +1,8 @@
+version: v1
+plugins:
+  - name: es
+    out: ../web/src/gen
+    opt:
+      - target=ts
+      - import_extension=none
+

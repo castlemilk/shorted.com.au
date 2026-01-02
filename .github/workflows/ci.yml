@@ -1,0 +1,755 @@
+name: Preview and Test
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: "20"
+  GO_VERSION: "1.23"
+  # Preview deployments always use dev project
+  GCP_PROJECT_ID: shorted-dev-aba5688f
+  GCP_REGION: australia-southeast2
+  ARTIFACT_REGISTRY: australia-southeast2-docker.pkg.dev
+  PR_NUMBER: ${{ github.event.pull_request.number || 'manual' }}
+  # Dev environment credentials for preview deployments
+  DEV_WIP_PROVIDER: projects/234770780438/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+  DEV_SA_EMAIL: github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+  deployments: write
+
+jobs:
+  check-secrets:
+    runs-on: ubuntu-latest
+    outputs:
+      has-gcp: ${{ steps.check.outputs.has-gcp }}
+    steps:
+      - name: Check required secrets
+        id: check
+        run: |
+          # Dev WIP and SA are now hardcoded in env, just need to check OPENAI_API_KEY
+          HAS_GCP="false"
+          if [ -n "${{ secrets.OPENAI_API_KEY }}" ]; then
+            HAS_GCP="true"
+          fi
+          echo "has-gcp=$HAS_GCP" >> $GITHUB_OUTPUT
+          echo "GCP configured: $HAS_GCP"
+
+  deploy-backend:
+    needs: [check-secrets, test-unit]
+    # DISABLED: terraform-deploy.yml now handles preview deployments
+    # This job was causing race conditions and "Root resource was present, but now absent" errors
+    # because it deletes services that Terraform is trying to manage
+    if: false  # github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      shorts-url: ${{ steps.deploy-services.outputs.shorts-url }}
+      market-data-url: ${{ steps.deploy-services.outputs.market-data-url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: services/go.sum
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.DEV_WIP_PROVIDER }}
+          service_account: ${{ env.DEV_SA_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
+
+      - name: Build and push Docker images
+        run: |
+          cd services
+
+          # Build and push Shorts Service
+          docker build -f shorts/Dockerfile -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/shorts:pr-${{ env.PR_NUMBER }} .
+          docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/shorts:pr-${{ env.PR_NUMBER }}
+
+          # Build and push Market Data Service (Go Connect RPC service)
+          docker build -f market-data/Dockerfile -t ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/market-data:pr-${{ env.PR_NUMBER }} .
+          docker push ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/market-data:pr-${{ env.PR_NUMBER }}
+
+      - name: Clean up existing preview services
+        run: |
+          # Delete any existing preview services to avoid env var type conflicts
+          # (Terraform may have created them with secrets, CI uses string literals)
+          echo "Cleaning up existing preview services..."
+          gcloud run services delete shorts-service-pr-${{ env.PR_NUMBER }} \
+            --region ${{ env.GCP_REGION }} --quiet 2>/dev/null || true
+          gcloud run services delete market-data-service-pr-${{ env.PR_NUMBER }} \
+            --region ${{ env.GCP_REGION }} --quiet 2>/dev/null || true
+          echo "Cleanup complete"
+
+      - name: Deploy preview backend services to Cloud Run
+        id: deploy-services
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          # Parse DATABASE_URL to extract components
+          DB_USER=$(echo $DATABASE_URL | sed -n 's|postgresql://\([^:]*\):.*|\1|p')
+          DB_PASS=$(echo $DATABASE_URL | sed -n 's|postgresql://[^:]*:\([^@]*\)@.*|\1|p')
+          DB_HOST=$(echo $DATABASE_URL | sed -n 's|.*@\([^:]*\):.*|\1|p')
+          DB_PORT=$(echo $DATABASE_URL | sed -n 's|.*:\([0-9]*\)/.*|\1|p')
+          DB_NAME=$(echo $DATABASE_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
+          DB_ADDRESS="${DB_HOST}:${DB_PORT}"
+
+          echo "Deploying with database: $DB_ADDRESS (database: $DB_NAME)"
+
+          # Deploy Shorts Service
+          gcloud run deploy shorts-service-pr-${{ env.PR_NUMBER }} \
+            --image ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/shorts:pr-${{ env.PR_NUMBER }} \
+            --region ${{ env.GCP_REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 9091 \
+            --memory 256Mi \
+            --cpu 1 \
+            --min-instances 0 \
+            --max-instances 2 \
+            --set-env-vars="APP_STORE_POSTGRES_ADDRESS=$DB_ADDRESS" \
+            --set-env-vars="APP_STORE_POSTGRES_USERNAME=$DB_USER" \
+            --set-env-vars="APP_STORE_POSTGRES_PASSWORD=$DB_PASS" \
+            --set-env-vars="APP_STORE_POSTGRES_DATABASE=$DB_NAME" \
+            --set-env-vars="ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}" \
+            --set-env-vars="ALGOLIA_SEARCH_KEY=${{ secrets.ALGOLIA_SEARCH_KEY }}" \
+            --set-env-vars="ALGOLIA_INDEX=stocks" \
+            --set-env-vars="ENVIRONMENT=preview" \
+            --labels="pr=${{ env.PR_NUMBER }},type=preview" \
+            --tag pr-${{ env.PR_NUMBER }}
+
+          # Deploy Market Data Service
+          gcloud run deploy market-data-service-pr-${{ env.PR_NUMBER }} \
+            --image ${{ env.ARTIFACT_REGISTRY }}/${{ env.GCP_PROJECT_ID }}/shorted/market-data:pr-${{ env.PR_NUMBER }} \
+            --region ${{ env.GCP_REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 8090 \
+            --memory 256Mi \
+            --cpu 1 \
+            --min-instances 0 \
+            --max-instances 2 \
+            --timeout 300s \
+            --set-env-vars="DATABASE_URL=$DATABASE_URL" \
+            --set-env-vars="APP_STORE_POSTGRES_ADDRESS=$DB_ADDRESS" \
+            --set-env-vars="APP_STORE_POSTGRES_USERNAME=$DB_USER" \
+            --set-env-vars="APP_STORE_POSTGRES_PASSWORD=$DB_PASS" \
+            --set-env-vars="APP_STORE_POSTGRES_DATABASE=$DB_NAME" \
+            --set-env-vars="ENVIRONMENT=preview" \
+            --labels="pr=${{ env.PR_NUMBER }},type=preview" \
+            --tag pr-${{ env.PR_NUMBER }}
+
+          # Get service URLs
+          SHORTS_URL=$(gcloud run services describe shorts-service-pr-${{ env.PR_NUMBER }} \
+            --region ${{ env.GCP_REGION }} --format 'value(status.url)')
+          MARKET_DATA_URL=$(gcloud run services describe market-data-service-pr-${{ env.PR_NUMBER }} \
+            --region ${{ env.GCP_REGION }} --format 'value(status.url)')
+
+          echo "shorts-url=$SHORTS_URL" >> $GITHUB_OUTPUT
+          echo "market-data-url=$MARKET_DATA_URL" >> $GITHUB_OUTPUT
+          echo "Shorts Service: $SHORTS_URL"
+          echo "Market Data Service: $MARKET_DATA_URL"
+
+      - name: Summary
+        run: |
+          echo "✅ Backend services deployed successfully for PR #${{ env.PR_NUMBER }}"
+          echo "Shorts Service: ${{ steps.deploy-services.outputs.shorts-url }}"
+          echo "Market Data Service: ${{ steps.deploy-services.outputs.market-data-url }}"
+
+  deploy-vercel-preview:
+    needs: [check-secrets]
+    runs-on: ubuntu-latest
+    # Deploy Vercel preview after waiting for Terraform backend deployment
+    if: needs.check-secrets.outputs.has-gcp == 'true' && github.event_name == 'pull_request'
+    environment:
+      name: preview
+      url: ${{ steps.deploy.outputs.preview-url }}
+    outputs:
+      preview-url: ${{ steps.deploy.outputs.preview-url }}
+      shorts-url: ${{ steps.get-backend-urls.outputs.shorts_url }}
+      market-data-url: ${{ steps.get-backend-urls.outputs.market_data_url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.DEV_WIP_PROVIDER }}
+          service_account: ${{ env.DEV_SA_EMAIL }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Wait for Terraform backend deployment
+        id: get-backend-urls
+        run: |
+          echo "⏳ Waiting for Terraform to deploy backend services..."
+
+          # Wait up to 10 minutes for services to be deployed
+          MAX_ATTEMPTS=40
+          ATTEMPT=0
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            SHORTS_URL=$(gcloud run services describe shorts-service-pr-${{ env.PR_NUMBER }} \
+              --region ${{ env.GCP_REGION }} \
+              --project ${{ env.GCP_PROJECT_ID }} \
+              --format 'value(status.url)' 2>/dev/null || echo "")
+            
+            if [ -n "$SHORTS_URL" ]; then
+              MARKET_DATA_URL=$(gcloud run services describe market-data-service-pr-${{ env.PR_NUMBER }} \
+                --region ${{ env.GCP_REGION }} \
+                --project ${{ env.GCP_PROJECT_ID }} \
+                --format 'value(status.url)' 2>/dev/null || echo "")
+              
+              echo "shorts_url=$SHORTS_URL" >> $GITHUB_OUTPUT
+              echo "market_data_url=$MARKET_DATA_URL" >> $GITHUB_OUTPUT
+              
+              echo "✅ Backend services ready:"
+              echo "   Shorts API: $SHORTS_URL"
+              echo "   Market Data API: $MARKET_DATA_URL"
+              break
+            fi
+            
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "   Attempt $ATTEMPT/$MAX_ATTEMPTS - Services not ready yet, waiting 15s..."
+            sleep 15
+          done
+
+          if [ -z "$SHORTS_URL" ]; then
+            echo "❌ Timeout waiting for backend services"
+            exit 1
+          fi
+
+      - name: Deploy to Vercel
+        id: deploy
+        uses: amondnet/vercel-action@v25
+        env:
+          VERCEL_ENV: dev
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: team_xE5DMN3hIo8aPqyHNkBybg8r
+          vercel-project-id: shorted-com-au
+          scope: team_xE5DMN3hIo8aPqyHNkBybg8r
+          alias-domains: preview.shorted.com.au
+          vercel-args: >-
+            --build-env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.get-backend-urls.outputs.shorts_url }}
+            --build-env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ steps.get-backend-urls.outputs.market_data_url }}
+            --build-env NEXT_PUBLIC_SHORTS_API_URL=${{ steps.get-backend-urls.outputs.shorts_url }}
+            --build-env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
+            --build-env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
+            --build-env NEXT_PUBLIC_ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}
+            --build-env NEXT_PUBLIC_ALGOLIA_SEARCH_KEY=${{ secrets.ALGOLIA_SEARCH_KEY }}
+            --env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.get-backend-urls.outputs.shorts_url }}
+            --env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ steps.get-backend-urls.outputs.market_data_url }}
+            --env NEXT_PUBLIC_SHORTS_API_URL=${{ steps.get-backend-urls.outputs.shorts_url }}
+            --env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
+            --env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
+            --env NEXT_PUBLIC_ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}
+            --env NEXT_PUBLIC_ALGOLIA_SEARCH_KEY=${{ secrets.ALGOLIA_SEARCH_KEY }}
+            --env ALGOLIA_INDEX=stocks
+            --env NEXTAUTH_URL=https://preview.shorted.com.au
+            --env ALLOW_E2E_AUTH=true
+            --env ADMIN_EMAILS=ben.ebsworth@gmail.com,e2e-test@shorted.com.au
+
+      - name: Summary
+        run: |
+          echo "✅ Frontend deployed to Vercel: ${{ steps.deploy.outputs.preview-url }}"
+          echo "Connected to Shorts API: ${{ steps.get-backend-urls.outputs.shorts_url }}"
+          echo "Connected to Market Data API: ${{ steps.get-backend-urls.outputs.market_data_url }}"
+
+  comment-deployment:
+    needs: [check-secrets, deploy-vercel-preview]
+    runs-on: ubuntu-latest
+    if: always() && github.event_name == 'pull_request' && needs.check-secrets.outputs.has-gcp == 'true'
+    steps:
+      - name: Comment PR with deployment info
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const hasGCP = '${{ needs.check-secrets.outputs.has-gcp }}' === 'true';
+            const shortsUrl = '${{ needs.deploy-vercel-preview.outputs.shorts-url }}';
+            const marketDataUrl = '${{ needs.deploy-vercel-preview.outputs.market-data-url }}';
+            const vercelUrl = '${{ needs.deploy-vercel-preview.outputs.preview-url }}';
+
+            let body = '## 🚀 Preview Deployment\n\n';
+
+            body += '### Frontend\n\n';
+            if (vercelUrl) {
+              body += `✅ **Vercel Preview**: ${vercelUrl}\n\n`;
+            } else {
+              body += '⚠️ **Vercel** will automatically deploy via GitHub integration\n';
+              body += 'Check the Vercel bot comment below for the preview URL\n\n';
+            }
+
+            body += '### Backend Services (via Terraform)\n\n';
+            if (hasGCP && shortsUrl) {
+              body += `✅ **Shorts API**: ${shortsUrl}\n`;
+              body += `✅ **Market Data API**: ${marketDataUrl}\n\n`;
+              body += `*Deployed by terraform-deploy.yml workflow*\n`;
+              body += `*Connected to Vercel preview automatically*\n`;
+            } else {
+              body += `⚠️ **Backend services not deployed**\n\n`;
+              body += 'Check the terraform-deploy workflow for deployment status.\n\n';
+            }
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && comment.body.includes('Preview Deployment')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body
+              });
+            }
+
+  test-unit:
+    runs-on: ubuntu-latest
+
+    services:
+      docker:
+        image: docker:24-dind
+        options: --privileged
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: services/go.sum
+
+      - name: Install frontend dependencies
+        working-directory: web
+        run: npm ci --legacy-peer-deps
+
+      - name: Install backend dependencies
+        working-directory: services
+        run: go mod download
+
+      - name: Run frontend unit tests
+        working-directory: web
+        run: npm test -- --watchAll=false --testPathIgnorePatterns=integration
+
+      - name: Setup Docker for testcontainers
+        run: |
+          docker info
+          docker ps
+
+      - name: Run backend unit tests
+        working-directory: services
+        env:
+          DOCKER_HOST: unix:///var/run/docker.sock
+          TESTCONTAINERS_RYUK_DISABLED: true
+        run: |
+          # Run unit tests (excluding integration tests)
+          go test ./... -v -cover -timeout 15m
+
+          # Run market-data startup tests specifically
+          echo "Running market-data startup tests..."
+          cd market-data && go test -v -run "TestHealth|TestStartup" -timeout 2m
+        continue-on-error: false
+
+      - name: Upload frontend coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage
+          path: web/coverage/
+          retention-days: 7
+
+      - name: Upload backend coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage
+          path: services/coverage.out
+          retention-days: 7
+
+  test-integration:
+    needs: [check-secrets, deploy-vercel-preview]
+    runs-on: ubuntu-latest
+    # Test against deployed services (from Terraform + Vercel)
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: |
+            services/go.sum
+            test/integration/go.sum
+
+      - name: Install test dependencies
+        run: |
+          cd test/integration
+          go mod download
+
+      - name: Verify Docker is available
+        run: |
+          docker version
+          docker info
+
+      - name: Run integration tests (against deployed preview)
+        if: needs.check-secrets.outputs.has-gcp == 'true' && needs.deploy-vercel-preview.outputs.shorts-url != ''
+        env:
+          BACKEND_URL: ${{ needs.deploy-vercel-preview.outputs.shorts-url }}
+          FRONTEND_URL: ${{ needs.deploy-vercel-preview.outputs.preview-url }}
+        run: |
+          echo "🧪 Running integration tests against deployed preview..."
+          echo "Backend URL: $BACKEND_URL"
+          echo "Frontend URL: $FRONTEND_URL"
+          echo ""
+
+          cd services
+          make test-integration-ci
+        continue-on-error: true
+
+      - name: Run integration tests (local with testcontainers)
+        if: needs.check-secrets.outputs.has-gcp != 'true' || needs.deploy-vercel-preview.outputs.shorts-url == ''
+        run: |
+          echo "🧪 Running integration tests with local testcontainers..."
+          echo "(Deployed services not available - running local tests only)"
+          echo ""
+
+          cd services
+          make test-integration-local
+        continue-on-error: true
+
+  test-e2e-smoke:
+    needs: [check-secrets, deploy-vercel-preview]
+    runs-on: ubuntu-latest
+    if: needs.check-secrets.outputs.has-gcp == 'true' && needs.deploy-vercel-preview.outputs.preview-url != ''
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright browsers
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Wait for deployment to be ready
+        run: |
+          echo "⏳ Waiting for preview deployment to be ready..."
+          PREVIEW_URL="${{ needs.deploy-vercel-preview.outputs.preview-url }}"
+          MAX_ATTEMPTS=30
+          ATTEMPT=0
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            if curl -sSf "$PREVIEW_URL" > /dev/null 2>&1; then
+              echo "✅ Preview deployment is ready: $PREVIEW_URL"
+              break
+            fi
+            
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "   Attempt $ATTEMPT/$MAX_ATTEMPTS - Waiting 10s..."
+            sleep 10
+          done
+
+          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+            echo "❌ Timeout waiting for preview deployment"
+            exit 1
+          fi
+
+      - name: Run Playwright smoke tests
+        working-directory: web
+        env:
+          BASE_URL: ${{ needs.deploy-vercel-preview.outputs.preview-url }}
+          CI: true
+        run: |
+          echo "🎭 Running Playwright smoke tests against: $BASE_URL"
+          npx playwright test e2e/smoke.spec.ts --project=chromium --reporter=list
+        continue-on-error: false
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: web/playwright-report/
+          retention-days: 7
+
+      - name: Comment test results on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const testResult = '${{ job.status }}';
+            const previewUrl = '${{ needs.deploy-vercel-preview.outputs.preview-url }}';
+            const emoji = testResult === 'success' ? '✅' : '❌';
+
+            const body = `## 🎭 E2E Smoke Tests ${emoji}\n\n` +
+              `**Preview URL**: ${previewUrl}\n` +
+              `**Status**: ${testResult}\n\n` +
+              `${testResult === 'success' ? 
+                '✅ All critical user flows are working on the preview deployment!' : 
+                '❌ Some smoke tests failed. Check the workflow logs for details.'}`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+
+  test-e2e-authenticated:
+    needs: [check-secrets, deploy-vercel-preview]
+    runs-on: ubuntu-latest
+    if: needs.check-secrets.outputs.has-gcp == 'true' && needs.deploy-vercel-preview.outputs.preview-url != ''
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright browsers
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Create auth directory
+        working-directory: web
+        run: mkdir -p .auth
+
+      - name: Wait for deployment to be ready
+        run: |
+          echo "⏳ Waiting for preview deployment to be ready..."
+          PREVIEW_URL="${{ needs.deploy-vercel-preview.outputs.preview-url }}"
+          MAX_ATTEMPTS=30
+          ATTEMPT=0
+
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            if curl -sSf "$PREVIEW_URL" > /dev/null 2>&1; then
+              echo "✅ Preview deployment is ready: $PREVIEW_URL"
+              break
+            fi
+            
+            ATTEMPT=$((ATTEMPT + 1))
+            echo "   Attempt $ATTEMPT/$MAX_ATTEMPTS - Waiting 10s..."
+            sleep 10
+          done
+
+          if [ $ATTEMPT -eq $MAX_ATTEMPTS ]; then
+            echo "❌ Timeout waiting for preview deployment"
+            exit 1
+          fi
+
+      - name: Run authenticated Playwright tests
+        working-directory: web
+        env:
+          BASE_URL: ${{ needs.deploy-vercel-preview.outputs.preview-url }}
+          RUN_AUTH_TESTS: "1"
+          E2E_TEST_EMAIL: "e2e-test@shorted.com.au"
+          E2E_TEST_PASSWORD: "E2ETestPassword123!"
+          CI: true
+        run: |
+          echo "🔐 Running authenticated Playwright tests against: $BASE_URL"
+          echo "   Test user: $E2E_TEST_EMAIL"
+
+          # Run the setup project first (authentication), then authenticated tests
+          npx playwright test --project=setup --project=chromium-authenticated --reporter=list
+        continue-on-error: true
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-authenticated-report
+          path: web/playwright-report/
+          retention-days: 7
+
+      - name: Upload auth state (debug)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-auth-state
+          path: web/.auth/
+          retention-days: 1
+
+      - name: Comment auth test results on PR
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const testResult = '${{ job.status }}';
+            const previewUrl = '${{ needs.deploy-vercel-preview.outputs.preview-url }}';
+            const emoji = testResult === 'success' ? '✅' : testResult === 'failure' ? '❌' : '⚠️';
+
+            const body = `## 🔐 Authenticated E2E Tests ${emoji}\n\n` +
+              `**Preview URL**: ${previewUrl}\n` +
+              `**Status**: ${testResult}\n\n` +
+              `${testResult === 'success' ? 
+                '✅ All authenticated user flows (search, dashboards, etc.) are working!' : 
+                '⚠️ Authenticated tests had issues. Check the workflow logs and artifacts for details.'}`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
+
+  test-summary:
+    needs:
+      [
+        test-unit,
+        test-integration,
+        deploy-vercel-preview,
+        test-e2e-smoke,
+        test-e2e-authenticated,
+      ]
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Create test summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const results = {
+              unit: '${{ needs.test-unit.result }}',
+              integration: '${{ needs.test-integration.result }}',
+              'e2e-smoke': '${{ needs.test-e2e-smoke.result }}',
+              'e2e-authenticated': '${{ needs.test-e2e-authenticated.result }}',
+              'vercel-deploy': '${{ needs.deploy-vercel-preview.result }}'
+            };
+
+            let summary = '## 🧪 Test Results Summary\n\n';
+
+            for (const [test, result] of Object.entries(results)) {
+              const emoji = result === 'success' ? '✅' : result === 'failure' ? '❌' : '⏭️';
+              summary += `${emoji} **${test.charAt(0).toUpperCase() + test.slice(1)} Tests**: ${result}\n`;
+            }
+
+            if (context.eventName === 'pull_request') {
+              const { data: comments } = await github.rest.issues.listComments({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+              });
+              
+              const botComment = comments.find(comment => 
+                comment.user.type === 'Bot' && comment.body.includes('Test Results Summary')
+              );
+              
+              if (botComment) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: botComment.id,
+                  body: summary
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                  body: summary
+                });
+              }
+            }
+
+            await core.summary
+              .addRaw(summary)
+              .write();

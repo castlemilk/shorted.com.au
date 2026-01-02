@@ -1,0 +1,2 @@
+   CREATE INDEX idx_shorts_product_code_date ON shorts ("PRODUCT_CODE", "DATE");
+   CREATE INDEX idx_shorts_date_percent ON shorts ("DATE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS");

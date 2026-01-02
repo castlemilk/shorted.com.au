@@ -1,0 +1,72 @@
+{
+  "compilerOptions": {
+    /* Base Options: */
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "target": "es2022",
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "moduleDetection": "force",
+    "isolatedModules": true,
+
+    /* Strictness */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "checkJs": true,
+
+    /* Bundled projects */
+    "lib": ["dom", "dom.iterable", "ES2022"],
+    "noEmit": true,
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "jsx": "preserve",
+    "plugins": [{ "name": "next" }],
+    "incremental": true,
+
+    /* Path Aliases */
+    "baseUrl": ".",
+    "paths": {
+      "~/*": ["./src/*"],
+      "@/components/*": ["./src/@/components/*"],
+      "@/registry/*": ["./src/@/registry/*"],
+      "@/registry/new-york/ui/*": ["./src/@/registry/new-york/ui/*"],
+      "@/styles/*": ["./src/styles/*"],
+      "@/lib/*": ["./src/@/lib/*"],
+      "@/config/*": ["./src/@/config/*"],
+      "@/types/*": ["./src/@/types/*"],
+      "@/hooks/*": ["./src/@/hooks/*"],
+      "@/interfaces/*": ["./src/@/interfaces/*"],
+      "@/utils/*": ["./src/@/utils/*"],
+      "@/app/*": ["./src/app/*"],
+      "@/auth": ["./src/server/auth.ts"],
+      "@/server/*": ["./src/server/*"]
+    }
+  },
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node"
+  },
+  "include": [
+    ".eslintrc.cjs",
+    "next-env.d.ts",
+    "**/*.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.cjs",
+    "**/*.js",
+    ".next/types/**/*.ts",
+    "next.config.mjs"
+  ],
+  "exclude": [
+    "node_modules",
+    "e2e",
+    "scripts",
+    "src/app/lib/firestore.ts",
+    "src/gen/**/*",
+    "test-*.cjs",
+    "**/__tests__/**",
+    "**/*.spec.ts",
+    "**/*.test.tsx",
+    "**/*.test.ts"
+  ]
+}
