@@ -106,6 +106,7 @@ func (d *logoDiscoverer) fetchLogo(ctx context.Context, candidate LogoCandidate)
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
 			// Log error but don't fail - response body close errors are usually non-critical
+			_ = err
 		}
 	}()
 

@@ -248,6 +248,7 @@ func TestDefaultLogoScraper_HTTPRequest(t *testing.T) {
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
 			// Log error but don't fail - response body close errors are usually non-critical
+			_ = err
 		}
 	}()
 	
@@ -326,6 +327,7 @@ func TestDefaultLogoScraper_DebugScanPage(t *testing.T) {
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
 			// Log error but don't fail - response body close errors are usually non-critical
+			_ = err
 		}
 	}()
 
