@@ -13,10 +13,10 @@ terraform {
     }
   }
 
-  backend "gcs" {
-    bucket = "shorted-dev-aba5688f-terraform-state"
-    prefix = "env/dev"
-  }
+  #   backend "gcs" {
+  #     bucket = "shorted-dev-aba5688f-terraform-state"
+  #     prefix = "env/dev"
+  #   }
 }
 
 provider "google" {
@@ -153,3 +153,22 @@ module "enrichment_processor" {
   ]
 }
 
+# Market Discovery and Data Sync Jobs
+module "market_discovery_sync" {
+  source = "../../modules/market-discovery-sync"
+
+  project_id             = var.project_id
+  region                 = var.region
+  environment            = "dev"
+  asx_discovery_image    = var.asx_discovery_image
+  market_data_sync_image = var.market_data_sync_image
+  bucket_name            = module.short_data_sync.bucket_name
+  min_instances          = 0
+  max_instances          = 10
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted,
+    module.short_data_sync
+  ]
+}

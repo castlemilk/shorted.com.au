@@ -9,6 +9,7 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -161,11 +162,50 @@ function RunHealthBadge({ run }: { run: SyncRun }) {
   if (run.status === "running") {
     const startedAt = new Date(run.startedAt);
     const runningMins = differenceInMinutes(new Date(), startedAt);
+    const progress = run.checkpointStocksTotal > 0 
+      ? Math.round((run.checkpointStocksProcessed / run.checkpointStocksTotal) * 100) 
+      : 0;
+
     return (
-      <Badge variant="outline" className="gap-1 animate-pulse">
-        <Activity className="h-3 w-3" />
-        running ({runningMins}m)
-      </Badge>
+      <div className="flex flex-col gap-2 min-w-[120px]">
+        <Badge variant="outline" className="gap-1 animate-pulse">
+          <Activity className="h-3 w-3" />
+          running ({runningMins}m)
+        </Badge>
+        {run.checkpointStocksTotal > 0 && (
+          <div className="space-y-1">
+            <Progress value={progress} className="h-1.5" />
+            <div className="flex justify-between text-[10px] text-muted-foreground">
+              <span>{progress}%</span>
+              <span>{run.checkpointStocksProcessed}/{run.checkpointStocksTotal}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  if (run.status === "partial") {
+    const progress = run.checkpointStocksTotal > 0 
+      ? Math.round((run.checkpointStocksProcessed / run.checkpointStocksTotal) * 100) 
+      : 0;
+
+    return (
+      <div className="flex flex-col gap-2 min-w-[120px]">
+        <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+          <Clock className="h-3 w-3" />
+          partial
+        </Badge>
+        {run.checkpointStocksTotal > 0 && (
+          <div className="space-y-1">
+            <Progress value={progress} className="h-1.5" />
+            <div className="flex justify-between text-[10px] text-muted-foreground">
+              <span>{progress}%</span>
+              <span>{run.checkpointStocksProcessed}/{run.checkpointStocksTotal}</span>
+            </div>
+          </div>
+        )}
+      </div>
     );
   }
 

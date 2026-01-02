@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Button } from '~/@/components/ui/button';
-import { Check, Copy } from 'lucide-react';
+import React, { useState } from "react";
+import { Button } from "~/@/components/ui/button";
+import { Check, Copy } from "lucide-react";
 
 interface CopyButtonProps {
   value: string;
@@ -17,7 +17,7 @@ export function CopyButton({ value }: CopyButtonProps) {
       setHasCopied(true);
       setTimeout(() => setHasCopied(false), 2000);
     } catch (err) {
-      console.error('Failed to copy text: ', err);
+      console.error("Failed to copy text: ", err);
     }
   };
 
@@ -33,6 +33,3 @@ export function CopyButton({ value }: CopyButtonProps) {
     </Button>
   );
 }
-
-
-

@@ -1,239 +1,339 @@
-# CLAUDE.md
+# CLAUDE.md - Project Context for AI Assistants
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides context for AI coding assistants (Claude, Cursor, etc.) working on the Shorted.com.au codebase.
+
+## Quick Start
+
+```bash
+# First time setup
+make install
+
+# Start development (database + backend + frontend)
+make dev
+
+# Run all tests (lint + build + unit + integration)
+make test
+
+# Stop everything
+make dev-stop
+```
 
 ## Project Overview
 
-Shorted.com.au is a web application for tracking and visualizing short positions on the Australian Stock Exchange (ASX). It fetches daily short position data from ASIC and presents it through interactive visualizations and analytics.
+Shorted.com.au is a platform for tracking short selling positions in the Australian stock market. It ingests daily ASIC short selling data, enriches it with company metadata, and provides a dashboard for users to analyze short positions.
 
-## Development Commands
+## Architecture
 
-### Frontend (Next.js)
-```bash
-# Start development server
-cd web && npm run dev
-
-# Run tests
-cd web && npm test
-npm run test:watch    # Watch mode
-npm run test:coverage # With coverage
-
-# Build for production
-cd web && npm run build
-
-# Lint code
-cd web && npm run lint
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                           Frontend                                   │
+│                    Next.js 14 (port 3020)                           │
+│              TailwindCSS, Radix UI, Visx Charts                     │
+└─────────────────────┬───────────────────────────────────────────────┘
+                      │ Connect-RPC (HTTP/2)
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Backend Services                             │
+├──────────────────┬──────────────────┬───────────────────────────────┤
+│  Shorts API      │  Market Data     │  Enrichment Processor         │
+│  Go (port 9091)  │  Go (port 8090)  │  Go + Python                  │
+│  Main API        │  Stock prices    │  GPT-4 enrichment             │
+└──────────────────┴──────────────────┴───────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                       PostgreSQL (port 5438)                         │
+│              Tables: shorts, company-metadata, stock_prices          │
+└─────────────────────────────────────────────────────────────────────┘
+                      ▲
+                      │ Daily sync
+┌─────────────────────┴───────────────────────────────────────────────┐
+│                       Data Pipeline                                  │
+│           ASIC CSV files → Python processing → Database              │
+│           Cloud Run Jobs (scheduled 2 AM AEST)                       │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Backend (Go services)
-```bash
-# Run shorts service locally
-cd services && make run.shorts
+## Key Services
 
-# Run tests
-cd services && make test
-cd services && make test.shorts      # Just shorts service
-cd services && make test.coverage    # With coverage report
+| Service     | Port | Directory                        | Description                             |
+| ----------- | ---- | -------------------------------- | --------------------------------------- |
+| Frontend    | 3020 | `web/`                           | Next.js app with dashboard, stock pages |
+| Shorts API  | 9091 | `services/shorts/`               | Main API for short position data        |
+| Market Data | 8090 | `services/market-data/`          | Historical stock prices                 |
+| Enrichment  | -    | `services/enrichment-processor/` | AI-powered company metadata             |
+| Daily Sync  | -    | `services/daily-sync/`           | Scheduled data updates                  |
 
-# Build service
-cd services && make build.shorts
+## Development Database
 
-# Deploy to Google Cloud Run
-cd services && make deploy.gcr.shorts
+```
+Host:     localhost:5438
+Database: shorts
+Username: admin
+Password: password
 ```
 
-### Root-level commands
+Connection string: `postgresql://admin:password@localhost:5438/shorts`
+
+## Common Tasks
+
+### Adding a New API Endpoint
+
+1. **Define the protobuf** in `proto/shortedapi/shorts/v1alpha1/shorts.proto`:
+
+   ```protobuf
+   rpc GetNewEndpoint(GetNewEndpointRequest) returns (GetNewEndpointResponse) {
+     option (google.api.http) = {
+       post: "/v1/newEndpoint"
+       body: "*"
+     };
+   }
+   ```
+
+2. **Generate code**:
+
+   ```bash
+   cd proto && buf generate
+   ```
+
+3. **Implement the handler** in `services/shorts/internal/services/shorts/service.go`
+
+4. **Add store method** in `services/shorts/internal/store/shorts/store.go`
+
+5. **Frontend types** are auto-generated in `web/src/gen/`
+
+### Adding a New React Component
+
+1. Create in `web/src/@/components/ui/` for generic UI components
+2. Create in `web/src/@/components/` for feature-specific components
+3. Follow the existing pattern:
+
+   ```tsx
+   "use client"; // Only if needed
+
+   import { cn } from "@/lib/utils";
+
+   interface MyComponentProps {
+     // Props with JSDoc comments
+   }
+
+   export function MyComponent({ ...props }: MyComponentProps) {
+     // Implementation
+   }
+   ```
+
+### Database Migrations
+
 ```bash
-# Run all tests (frontend + backend)
-make test
+cd services
 
-# Install all dependencies
-make install
+# Create a new migration
+make migrate-create NAME=add_users_table
 
-# Start development servers
-make dev           # Both frontend and backend
-make dev-frontend  # Frontend dev server only (port 3020)
-make dev-backend   # Backend dev server only (port 9091)
+# Apply pending migrations
+make migrate-up
 
-# Pre-commit checks
-make pre-commit    # Format, lint, and test
+# Rollback last migration
+make migrate-down
+
+# Check current version
+make migrate-version
 ```
-
-### Database
-```bash
-# PostgreSQL is hosted on Supabase
-# Connection string is in environment variables
-# To run locally with Docker:
-cd analysis/sql && docker-compose up -d
-```
-
-## Architecture Overview
-
-### Tech Stack
-- **Frontend**: Next.js 14 (App Router), TypeScript, React 18, Tailwind CSS, Visx (charts)
-- **Backend**: Go 1.23, Connect RPC (gRPC-compatible), PostgreSQL
-- **Infrastructure**: Google Cloud Run, Vercel, Supabase (PostgreSQL)
-- **Data Pipeline**: Python service for syncing ASIC data
-
-### Key Services
-
-1. **Shorts Service** (`services/shorts/`)
-   - Main API service handling all stock queries
-   - Connect RPC endpoints: GetTopShorts, GetStock, GetStockDetails, GetStockData, GetIndustryTreeMap
-   - PostgreSQL queries with pgx driver
-
-2. **Register Service** (`services/register/`)
-   - Email subscription management
-   - Endpoint: RegisterEmail
-
-3. **Data Sync Service** (`services/short-data-sync/`)
-   - Python service that downloads daily CSV files from ASIC
-   - Processes and loads data into PostgreSQL
-   - Runs as a scheduled job on Google Cloud Run
-
-### Frontend Structure
-- **Pages** (`web/src/app/`): Home, Stock Details, TreeMap, Blog
-- **Components** (`web/src/components/`): StockChart, DataTable, TreeMap, UserNav
-- **Server Actions** (`web/src/app/actions/`): Data fetching functions
-- **API Client**: Connect RPC client for backend communication
-
-### API Definition
-Protocol Buffers definitions are in `/proto/`:
-- `shortedapi/shorts/v1alpha1/shorts.proto` - Main API service
-- `shortedapi/register/v1/register.proto` - Email registration
-- `shortedtypes/stocks/v1alpha1/stocks.proto` - Shared types
-
-### Code Generation
-```bash
-# Generate Go and TypeScript types from proto files
-cd proto && buf generate
-```
-
-## Database Schema
-
-### Main Tables
-- **shorts**: Daily short position data (Date, Product Code, Product Name, percentages)
-- **company-metadata**: Company details, logos, industry information
-- **subscriptions**: Email subscribers
-
-### Key Indexes
-- `idx_shorts_product_code_date` - For stock lookups
-- `idx_shorts_date_percent` - For top shorts queries
-- `idx_metadata_stock_code` - For company metadata joins
-
-## Testing Strategy
-
-### Frontend Testing
-- **Unit Tests**: Jest + React Testing Library
-- **E2E Tests**: Playwright with cross-browser testing
-- **Test files**: `*.test.ts`, `*.test.tsx` (unit), `e2e/*.spec.ts` (E2E)
-- **Coverage threshold**: 40% (target: 80%)
-
-### Backend Testing
-- **Unit Tests**: Go standard testing package
-- **Integration Tests**: Full-stack API testing
-- **Test individual services**: `make test.shorts`
-- **Integration tests**: `make test.integration`
-
-### Integration Testing
-- **Full-stack tests**: Backend + Frontend + Database
-- **Docker-based test environment**: Isolated containers
-- **API consistency tests**: Cross-endpoint data validation
-- **Performance tests**: Response time and concurrency
 
 ### Running Tests
 
-#### Unit Tests
 ```bash
-# Frontend unit tests
-cd web && npm test
-npm run test:watch    # Watch mode
-npm run test:coverage # With coverage
+# All tests (recommended before pushing)
+make test
 
-# Backend unit tests
-cd services && make test
-cd services && make test.coverage    # With coverage report
-```
+# Frontend only
+make test-frontend
 
-#### Integration Tests
-```bash
-# Full-stack integration tests
-make test-integration
+# Backend only
+make test-backend
 
-# E2E tests with Playwright
-make test-e2e
-make test-e2e-ui      # With Playwright UI
+# Integration tests (requires Docker)
+make test-integration-local
 
-# All integration tests
-make test-all-integration
-```
-
-#### Test Environment Management
-```bash
-# Start test environment
-make test-stack-up
-
-# Check test environment status
-make test-stack-status
-
-# View test environment logs
-make test-stack-logs
-
-# Stop test environment
-make test-stack-down
-```
-
-#### Individual Test Categories
-```bash
-# Playwright E2E tests only
+# E2E tests (Playwright)
 cd web && npm run test:e2e
-cd web && npm run test:e2e:ui      # With UI
-cd web && npm run test:e2e:debug   # Debug mode
-
-# Backend integration tests only
-cd test/integration && go test -v ./...
-
-# Specific service tests
-make test-shorts
 ```
 
-## Current Development Focus
+### Populating Data
 
-The project is currently on the `feature/user-profile-and-login` branch, implementing:
-- User authentication with NextAuth.js v5 and Firebase
-- User profiles and preferences
-- Login/registration flows
+```bash
+# Full data population (downloads ASIC files)
+make populate-data
+
+# Quick population (uses existing CSV files)
+make populate-data-quick
+
+# Stock price backfill
+cd services && make history.stock-data.backfill
+```
+
+## Key Files
+
+| File                          | Purpose                           |
+| ----------------------------- | --------------------------------- |
+| `Makefile`                    | Root-level orchestration commands |
+| `services/Makefile`           | Backend-specific commands         |
+| `web/Makefile`                | Frontend-specific commands        |
+| `proto/buf.yaml`              | Protobuf configuration            |
+| `terraform/environments/dev/` | Dev infrastructure config         |
+| `services/migrations/`        | Database migrations               |
+
+## Code Patterns
+
+### Go Store Interface
+
+All database access goes through store interfaces for testability:
+
+```go
+type Store interface {
+    GetStock(code string) (*Stock, error)
+    GetTopShorts(period string, limit, offset int32) ([]*TimeSeriesData, int, error)
+}
+```
+
+### Connect-RPC Handler
+
+```go
+func (s *Service) GetStock(
+    ctx context.Context,
+    req *connect.Request[pb.GetStockRequest],
+) (*connect.Response[pb.GetStockResponse], error) {
+    stock, err := s.store.GetStock(req.Msg.ProductCode)
+    if err != nil {
+        return nil, connect.NewError(connect.CodeNotFound, err)
+    }
+    return connect.NewResponse(&pb.GetStockResponse{Stock: stock}), nil
+}
+```
+
+### React Server Component Data Fetching
+
+```tsx
+// In app/stocks/[code]/page.tsx
+export default async function StockPage({
+  params,
+}: {
+  params: { code: string };
+}) {
+  const stock = await getStock(params.code); // Server-side fetch
+  return <StockDetails stock={stock} />;
+}
+```
+
+### Client-Side Data with TanStack Query
+
+```tsx
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+
+export function StockPrice({ code }: { code: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["stock-price", code],
+    queryFn: () => fetchStockPrice(code),
+  });
+
+  if (isLoading) return <Skeleton />;
+  return <div>${data?.price}</div>;
+}
+```
 
 ## Environment Variables
 
-### Frontend (.env.local)
-- `NEXT_PUBLIC_API_URL` - Backend API URL
-- `NEXTAUTH_*` - Authentication configuration
-- `FIREBASE_*` - Firebase credentials
+### Required for Development
 
-### Backend
-- `APP_STORE_POSTGRES_*` - Database connection
-- `GOOGLE_APPLICATION_CREDENTIALS` - GCP service account
+```bash
+# Automatically set by make dev
+DATABASE_URL=postgresql://admin:password@localhost:5438/shorts
 
-## Deployment
+# For GCP features (logo storage, etc.)
+GOOGLE_APPLICATION_CREDENTIALS=services/shorted-dev-aba5688f-*.json
+GCP_PROJECT_ID=shorted-dev-aba5688f
 
-### Frontend
-- Auto-deploys to Vercel on push to main
-- Preview deployments for PRs
+# For Algolia search (optional)
+ALGOLIA_APP_ID=1BWAPWSTDD
+ALGOLIA_SEARCH_KEY=0e5adba5fd8aa4b3848255a39c1287ef
 
-### Backend
-- Manual deployment to Google Cloud Run
-- Docker images pushed to Google Artifact Registry
-- Service configuration in `service.template.yaml`
+# For AI enrichment (optional)
+OPENAI_API_KEY=sk-...
+```
 
-## Important Notes
+### Production (Vercel + Cloud Run)
 
-1. **Authentication**: Currently implementing NextAuth.js v5 with Firebase adapter
-2. **Performance**: See OPTIMIZATIONS.md for planned improvements (caching, query optimization)
-3. **Testing**: See TEST_STRATEGY.md for comprehensive testing plan
-4. **Data Source**: Short position data comes from ASIC daily CSV files
-5. **Database**: PostgreSQL hosted on Supabase, avoid direct modifications
-6. **Port Configuration**: 
-   - Frontend runs on port 3020 (instead of default 3000)
-   - Backend runs on port 9091 (instead of default 8080)
-   - This prevents conflicts with other local development services
+Set via Vercel dashboard and Terraform for Cloud Run services.
+
+## Debugging
+
+### Backend not starting?
+
+```bash
+make clean-ports      # Kill stale processes
+make dev-stop         # Stop all services
+make dev              # Restart
+```
+
+### Database connection issues?
+
+```bash
+make dev-db           # Ensure DB is running
+docker ps             # Check container status
+```
+
+### Frontend build errors?
+
+```bash
+make clean-cache      # Clear Next.js cache
+cd web && rm -rf node_modules && npm install
+```
+
+### Integration tests failing?
+
+```bash
+# Ensure Docker is running
+docker info
+
+# Run with verbose output
+cd services && go test -v ./test/integration/...
+```
+
+## Infrastructure
+
+- **GCP Project**: `shorted-dev-aba5688f`
+- **Region**: `australia-southeast2`
+- **Artifact Registry**: `australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted`
+- **Database**: Supabase (production), Docker PostgreSQL (development)
+
+### Terraform
+
+```bash
+cd terraform/environments/dev
+terraform init
+terraform plan
+terraform apply
+```
+
+## External Services
+
+| Service   | Purpose               | Config Location                    |
+| --------- | --------------------- | ---------------------------------- |
+| Supabase  | Production PostgreSQL | `web/.env.local`                   |
+| Algolia   | Search index          | `services/Makefile`                |
+| Firebase  | Authentication        | `web/src/@/lib/firebase-client.ts` |
+| GCS       | Logo storage          | Terraform                          |
+| Cloud Run | Backend hosting       | Terraform                          |
+| Vercel    | Frontend hosting      | `web/vercel.json`                  |
+
+## Git Workflow
+
+```bash
+# Before pushing
+make test             # Runs full validation
+
+# Or use the hook
+make install-hooks    # Sets up pre-push hook
+```
