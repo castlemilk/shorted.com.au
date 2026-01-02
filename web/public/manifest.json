@@ -1,0 +1,36 @@
+{
+    "name": "Shorted - ASX Short Position Data",
+    "short_name": "Shorted",
+    "description": "Discover and analyze the most shorted stocks on the ASX with interactive visualizations and real-time data",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#000000",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "/favicon.ico",
+            "sizes": "any",
+            "type": "image/x-icon"
+        },
+        {
+            "src": "/icon-1.webp",
+            "sizes": "192x192",
+            "type": "image/webp"
+        },
+        {
+            "src": "/logo.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": [
+        "finance",
+        "business",
+        "productivity"
+    ],
+    "lang": "en-AU",
+    "scope": "/",
+    "prefer_related_applications": false
+}

@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package register.v1;
+
+option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/register/v1;registerv1";
+
+import "google/api/annotations.proto";
+import "gnostic/openapi/v3/annotations.proto";
+
+service RegisterService {
+  // Register an email address to receive updates.
+  rpc RegisterEmail (RegisterEmailRequest) returns (RegisterEmailResponse) {
+    option (gnostic.openapi.v3.operation) = {
+      deprecated: false,
+      summary: "Register Email",
+      description: "Register an email address to receive notifications and market updates from Shorted.",
+      responses: {
+        response_or_reference: {
+          name: "200"
+          value: {
+            response: {
+              description: "A successful registration response."
+            }
+          }
+        },
+        response_or_reference: {
+          name: "400"
+          value: {
+            response: {
+              description: "Invalid email address format."
+            }
+          }
+        }
+      }
+    };
+  };
+}
+
+message RegisterEmailRequest {
+    string email = 1;
+}
+
+message RegisterEmailResponse {
+    bool success = 1;
+}

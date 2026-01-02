@@ -1,0 +1,3037 @@
+
+<!DOCTYPE HTML>
+<html class="no-js" lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>404</title>
+  
+  
+  <meta name="template" content="error-page"/>
+  
+
+  
+
+    
+<link rel="stylesheet" href="/etc.clientlibs/conf/stantec-core/standardclientlibs/css/stantec_styles/standard.css" type="text/css">
+<link rel="stylesheet" href="/etc.clientlibs/conf/stantec-core/standardclientlibs/css/stantec_styles/uberflip.css" type="text/css">
+<script src="/etc.clientlibs/clientlibs/granite/jquery/granite/csrf.js"></script>
+<script src="/etc.clientlibs/clientlibs/granite/jquery.js"></script>
+<script src="/etc.clientlibs/clientlibs/granite/utils.js"></script>
+<script src="/etc.clientlibs/clientlibs/granite/jquery/granite.js"></script>
+<script src="/etc.clientlibs/foundation/clientlibs/jquery.js"></script>
+<script src="/etc.clientlibs/conf/stantec-core/headerclientlibs.js"></script>
+
+
+
+<script>(function (w, d, s, l, i) {
+  w[l] = w[l] || [];
+  w[l].push({
+    'gtm.start': new Date().getTime(), event: 'gtm.js'
+  });
+  var f = d.getElementsByTagName(s)[0],
+    j = d.createElement(s), dl = l != 'dataLayer' ? '&l=' + l : '';
+  j.async = true;
+  j.src =
+    '//www.googletagmanager.com/gtm.js?id=' + i + dl;
+  f.parentNode.insertBefore(j, f);
+})(window, document, 'script', 'dataLayer', 'GTM-PJ3G8B');</script>
+<!-- PDF Viewer requires this polyfill outside of requirejs -->
+<script src="https://cdn.jsdelivr.net/npm/es6-promise@4/dist/es6-promise.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/es6-promise@4/dist/es6-promise.auto.min.js"></script>
+<link rel="stylesheet" type="text/css" href="/static/css/tooltipster.bundle.min.css"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+<meta name="viewport" content="width=device-width; initial-scale=1.0; maximum-scale=2.0;"/>
+<!-- og metas -->
+<meta property="og:title" content="404"/>
+<meta property="og:image" content="/static/img/stantec-fb.jpg"/>
+<meta property="og:description"/>
+
+
+    <meta property="og:url" content="https://www.stantec.com/en/404"/>
+    <link rel="canonical" href="https://www.stantec.com/en/404"/>
+
+
+<!-- icons -->
+<link rel="shortcut icon" href="/static/img/favicon/favicon.ico"/>
+<link rel="apple-touch-icon" href="/static/img/favicon/apple-touch-icon.png"/>
+<link rel="apple-touch-icon" sizes="72x72" href="/static/img/favicon/apple-touch-icon-72.png"/>
+<link rel="apple-touch-icon" sizes="114x114" href="/static/img/favicon/apple-touch-icon-114.png"/>
+<link rel="apple-touch-icon" sizes="144x144" href="/static/img/favicon/apple-touch-icon-144.png"/>
+
+    
+        <link rel="alternate" hreflang="en" href="https://www.stantec.com/en"/>
+    
+        <link rel="alternate" hreflang="fr" href="https://www.stantec.com/fr"/>
+    
+        <link rel="alternate" hreflang="es" href="https://www.stantec.com/es"/>
+    
+        <link rel="alternate" hreflang="nl" href="https://www.stantec.com/nl"/>
+    
+        <link rel="alternate" hreflang="tr" href="https://www.stantec.com/tr"/>
+    
+        <link rel="alternate" hreflang="it" href="https://www.stantec.com/it"/>
+    
+        <link rel="alternate" hreflang="ar" href="https://www.stantec.com/ar"/>
+    
+        <link rel="alternate" hreflang="zh-Hans" href="https://www.stantec.com/zh_tw"/>
+    
+        <link rel="alternate" hreflang="zh-Hant" href="https://www.stantec.com/zh"/>
+    
+
+
+  <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+<meta name="viewport" content="width=device-width; initial-scale=1.0; maximum-scale=2.0;"/>
+<!-- og metas -->
+<meta property="og:title" content="404"/>
+<meta property="og:image" content="/static/img/stantec-fb.jpg"/>
+<meta property="og:description"/>
+
+
+    <meta property="og:url" content="https://www.stantec.com/en/404"/>
+    <link rel="canonical" href="https://www.stantec.com/en/404"/>
+
+
+<!-- icons -->
+<link rel="shortcut icon" href="/static/img/favicon/favicon.ico"/>
+<link rel="apple-touch-icon" href="/static/img/favicon/apple-touch-icon.png"/>
+<link rel="apple-touch-icon" sizes="72x72" href="/static/img/favicon/apple-touch-icon-72.png"/>
+<link rel="apple-touch-icon" sizes="114x114" href="/static/img/favicon/apple-touch-icon-114.png"/>
+<link rel="apple-touch-icon" sizes="144x144" href="/static/img/favicon/apple-touch-icon-144.png"/>
+
+    
+        <link rel="alternate" hreflang="en" href="https://www.stantec.com/en"/>
+    
+        <link rel="alternate" hreflang="fr" href="https://www.stantec.com/fr"/>
+    
+        <link rel="alternate" hreflang="es" href="https://www.stantec.com/es"/>
+    
+        <link rel="alternate" hreflang="nl" href="https://www.stantec.com/nl"/>
+    
+        <link rel="alternate" hreflang="tr" href="https://www.stantec.com/tr"/>
+    
+        <link rel="alternate" hreflang="it" href="https://www.stantec.com/it"/>
+    
+        <link rel="alternate" hreflang="ar" href="https://www.stantec.com/ar"/>
+    
+        <link rel="alternate" hreflang="zh-Hans" href="https://www.stantec.com/zh_tw"/>
+    
+        <link rel="alternate" hreflang="zh-Hant" href="https://www.stantec.com/zh"/>
+    
+
+
+  <!-- <sly data-sly-include="cookieconsent.html"></sly> -->
+  
+    
+    
+
+    
+
+    
+    
+
+  
+
+
+                              <script>!function(e){var n="https://s.go-mpulse.net/boomerang/";if("False"=="True")e.BOOMR_config=e.BOOMR_config||{},e.BOOMR_config.PageParams=e.BOOMR_config.PageParams||{},e.BOOMR_config.PageParams.pci=!0,n="https://s2.go-mpulse.net/boomerang/";if(window.BOOMR_API_key="36CC9-S7S7D-X36YX-GJ28Q-C3K4P",function(){function e(){if(!o){var e=document.createElement("script");e.id="boomr-scr-as",e.src=window.BOOMR.url,e.async=!0,i.parentNode.appendChild(e),o=!0}}function t(e){o=!0;var n,t,a,r,d=document,O=window;if(window.BOOMR.snippetMethod=e?"if":"i",t=function(e,n){var t=d.createElement("script");t.id=n||"boomr-if-as",t.src=window.BOOMR.url,BOOMR_lstart=(new Date).getTime(),e=e||d.body,e.appendChild(t)},!window.addEventListener&&window.attachEvent&&navigator.userAgent.match(/MSIE [67]\./))return window.BOOMR.snippetMethod="s",void t(i.parentNode,"boomr-async");a=document.createElement("IFRAME"),a.src="about:blank",a.title="",a.role="presentation",a.loading="eager",r=(a.frameElement||a).style,r.width=0,r.height=0,r.border=0,r.display="none",i.parentNode.appendChild(a);try{O=a.contentWindow,d=O.document.open()}catch(_){n=document.domain,a.src="javascript:var d=document.open();d.domain='"+n+"';void(0);",O=a.contentWindow,d=O.document.open()}if(n)d._boomrl=function(){this.domain=n,t()},d.write("<bo"+"dy onload='document._boomrl();'>");else if(O._boomrl=function(){t()},O.addEventListener)O.addEventListener("load",O._boomrl,!1);else if(O.attachEvent)O.attachEvent("onload",O._boomrl);d.close()}function a(e){window.BOOMR_onload=e&&e.timeStamp||(new Date).getTime()}if(!window.BOOMR||!window.BOOMR.version&&!window.BOOMR.snippetExecuted){window.BOOMR=window.BOOMR||{},window.BOOMR.snippetStart=(new Date).getTime(),window.BOOMR.snippetExecuted=!0,window.BOOMR.snippetVersion=12,window.BOOMR.url=n+"36CC9-S7S7D-X36YX-GJ28Q-C3K4P";var i=document.currentScript||document.getElementsByTagName("script")[0],o=!1,r=document.createElement("link");if(r.relList&&"function"==typeof r.relList.supports&&r.relList.supports("preload")&&"as"in r)window.BOOMR.snippetMethod="p",r.href=window.BOOMR.url,r.rel="preload",r.as="script",r.addEventListener("load",e),r.addEventListener("error",function(){t(!0)}),setTimeout(function(){if(!o)t(!0)},3e3),BOOMR_lstart=(new Date).getTime(),i.parentNode.appendChild(r);else t(!1);if(window.addEventListener)window.addEventListener("load",a,!1);else if(window.attachEvent)window.attachEvent("onload",a)}}(),"".length>0)if(e&&"performance"in e&&e.performance&&"function"==typeof e.performance.setResourceTimingBufferSize)e.performance.setResourceTimingBufferSize();!function(){if(BOOMR=e.BOOMR||{},BOOMR.plugins=BOOMR.plugins||{},!BOOMR.plugins.AK){var n=""=="true"?1:0,t="",a="eaayaa2dslhqajqacqktqaaaabtbt6oa-f-6105ebb6a-clienttons-s.akamaihd.net",i="false"=="true"?2:1,o={"ak.v":"37","ak.cp":"239456","ak.ai":parseInt("526599",10),"ak.ol":"0","ak.cr":13,"ak.ipv":6,"ak.proto":"http/1.1","ak.rid":"1275513f","ak.r":36379,"ak.a2":n,"ak.m":"dscb","ak.n":"essl","ak.bpcip":"2001:8003:4392:cf00::","ak.cport":63549,"ak.gh":"23.63.232.45","ak.quicv":"","ak.tlsv":"tls1.3","ak.0rtt":"","ak.csrc":"-","ak.acc":"bbr","ak.t":"1712978368","ak.ak":"hOBiQwZUYzCg5VSAfCLimQ==oBkiVN6uDhxYYw1O4zyQIpfLVGd1xXd2Up3/LbeFW+5N8pLhS+ugIqC4LIKuihD5t+fFDVWCL13m+KrkN5MRAQxQXT1DOR3zQENQehmTvPuBxOhLlcQNxTTzYP4yN7gwkBHmvDB9r3EeOhrSOD565U2suz/9ImRzKpm/Rg9tHKp/FrczGdyr98ifVHam94IlKF5ILR6n59T8CzDnsZzhuYtZK0lRuwlibTu9EkHaBcCiByr9zyK2ORawaJ755CNPN3TdyF1eepISNwESGEfGX2gdfhHnLD6KJtXdoxlhd9ncpldegGPyJx4mmMbZHTyiDUN7Bq01979NueOTnxPCzw2OjvnLBwlfY9j1+ifW60YAwn1VQMXEbESksKkvWB8fiuR5ltvaoAcURD+NaSQoytFUi8F9yMlglRtE2sKbDo8=","ak.pv":"75","ak.dpoabenc":"","ak.tf":i};if(""!==t)o["ak.ruds"]=t;var r={i:!1,av:function(n){var t="http.initiator";if(n&&(!n[t]||"spa_hard"===n[t]))o["ak.feo"]=void 0!==e.aFeoApplied?1:0,BOOMR.addVar(o)},rv:function(){var e=["ak.bpcip","ak.cport","ak.cr","ak.csrc","ak.gh","ak.ipv","ak.m","ak.n","ak.ol","ak.proto","ak.quicv","ak.tlsv","ak.0rtt","ak.r","ak.acc","ak.t","ak.tf"];BOOMR.removeVar(e)}};BOOMR.plugins.AK={akVars:o,akDNSPreFetchDomain:a,init:function(){if(!r.i){var e=BOOMR.subscribe;e("before_beacon",r.av,null,null),e("onbeacon",r.rv,null,null),r.i=!0}return this},is_complete:function(){return!0}}}}()}(window);</script></head>
+<body class="cq-wcm-disabled darker">
+    <noscript>
+        <iframe src="//www.googletagmanager.com/ns.html?id=GTM-PJ3G8B" height="0" width="0" style="display:none;visibility:hidden"></iframe>
+    </noscript>
+    <input type="hidden" id="current-path" value="/content/stantec/en/404"/>
+    <div id="top"></div>
+    <a href="#content" class="visuallyhidden">
+
+        Skip to main content
+    </a>
+    
+    
+    <div class="header-par"><div class="section"><div class="new"></div>
+</div><div class="iparys_inherited"><div class="header-par iparsys parsys"><div class="cq-global-header section">
+
+<nav class="main-nav-module  " aria-label="Stantec">
+    <div class="main-nav-module__inner">
+        <div class="main-nav-module__header-mobile">
+            <button class="main-nav-module__btn main-nav-module__btn-bars">Menu
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <a href="/en.html">
+                <img class="main-nav-module__logo" src="/content/dam/stantec/images/logos/logo.svg" alt="Stantec logo"/>
+                <img class="main-nav-module__logo main-nav-module__logo--dark" src="/content/dam/stantec/images/logos/logo-white.svg" alt="Stantec logo"/>
+                <img class="main-nav-module__logo main-nav-module__logo--dark  main-nav-module__logo--dark-sm" src="/content/dam/stantec/images/logos/logo-white.svg" alt="Stantec logo"/>
+            </a>
+            <button class="main-nav-module__btn main-nav-module__btn-search search-bar-module__btn-search">
+                Search
+            </button>
+        </div>
+        
+        <div class="main-nav-module__menu">
+            <div class="main-nav-module__menu-inner">
+                <div class="main-nav-module__menu-items-wrapper">
+                    <div class="navigation-item parbase section">
+<ul class="main-nav-module__ul main-nav-module__items" role="menu">
+	<li class="main-nav-module__li main-nav-module__dropdown-nav main-nav-module-li-firstsub " role="menuitem">
+			<a class="main-nav-module__collapsible-link main-nav-module__link main-nav-module__nav-link main-nav-module_Our Expertise main-nav-module-link-first-a" data-title="Our Expertise" data-description="Discover the people, projects, services, and markets that make Stantec a top-tier global design and delivery firm. " data-list-title="Global Initiatives" data-list-value="[{&#34;keyInitiativeImage&#34;: &#34;/content/dam/stantec/images/service%20page%20images/climate-solutions-service-1800x1200.jpg&#34;,&#34;keyInitiativeText&#34;: &#34;Climate Solutions&#34;,&#34;keyInitiativeLink&#34;: &#34;/en/markets/climate-solutions.html&#34;}, {&#34;keyInitiativeImage&#34;: &#34;/content/dam/stantec/images/stock/other/0013/stantec-io-2800x1640.jpg&#34;,&#34;keyInitiativeText&#34;: &#34;Digital (Stantec.io)&#34;,&#34;keyInitiativeLink&#34;: &#34;/en/services/digital.html&#34;}, {&#34;keyInitiativeImage&#34;: &#34;/content/dam/stantec/images/projects/0079/prime-hook-158392.jpg&#34;,&#34;keyInitiativeText&#34;: &#34;Coastal Resilience&#34;,&#34;keyInitiativeLink&#34;: &#34;/en/markets/coastal-marine.html&#34;}, {&#34;keyInitiativeImage&#34;: &#34;/content/dam/stantec/images/projects/0075/big-thompson-river-restoration-2.jpg&#34;,&#34;keyInitiativeText&#34;: &#34;Ecosystem Restoration&#34;,&#34;keyInitiativeLink&#34;: &#34;/en/services/ecosystem-restoration.html&#34;}, {&#34;keyInitiativeImage&#34;: &#34;/content/dam/stantec/images/projects/0002/powershift-atlantic.jpg&#34;,&#34;keyInitiativeText&#34;: &#34;Energy Transition&#34;,&#34;keyInitiativeLink&#34;: &#34;/en/markets/energy-transition.html&#34;}, {&#34;keyInitiativeImage&#34;: &#34;/content/dam/stantec/images/ideas/blogs/004/value-of-downtowns-report-part-2-2.jpg&#34;,&#34;keyInitiativeText&#34;: &#34;Smart Cities&#34;,&#34;keyInitiativeLink&#34;: &#34;/en/markets/smart-cities.html&#34;}, {&#34;keyInitiativeImage&#34;: &#34;/content/dam/stantec/images/homepage-hero/2022/sustainability-report-2021-hero-2800x1400.jpg&#34;,&#34;keyInitiativeText&#34;: &#34;Sustainability&#34;,&#34;keyInitiativeLink&#34;: &#34;/en/services/sustainability.html&#34;}, {&#34;keyInitiativeImage&#34;: &#34;/content/dam/stantec/images/stock/other/0009/lesotho-waterfall-stock.jpg&#34;,&#34;keyInitiativeText&#34;: &#34;International Development&#34;,&#34;keyInitiativeLink&#34;: &#34;/en/services/international-development.html&#34;}]" data-toggle="main-nav-module:menu" data-isfeatured="true" aria-expanded="false" href="/en/markets.html">
+					expertise
+			</a>
+            
+		      <ul class="main-nav-module__submenu main-nav-module__submenu-1 main-nav-module-firstsub-ul" role="menu" aria-label="expertise">
+					<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-first">
+							<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-second">
+									<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+											<button class="main-nav-module__link main-nav-module__btn main-nav-module-button main-nav-module__btn-back">
+													Back
+											</button>
+									</li>
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Our Expertise main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/markets/buildings.html" role="menuitem">Buildings</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Our Expertise main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/services/community-development.html" role="menuitem">Community Development</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Our Expertise main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/markets/energy.html" role="menuitem">Energy</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Our Expertise main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/markets/environment.html" role="menuitem">Environment</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Our Expertise main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/markets/federal-government.html" role="menuitem">Federal Government</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Our Expertise main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/markets/mining.html" role="menuitem">Mining, Minerals &amp; Metals</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Our Expertise main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/markets/transportation.html" role="menuitem">Transportation</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Our Expertise main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/markets/water.html" role="menuitem">Water</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Our Expertise main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/services/program-construction-management.html" role="menuitem">Program &amp; Construction Management</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+							</div> 
+							 <h4 id="header-key-initiative-mobile-title" class="show-dsiplay">Global Initiatives</h4>
+							  
+							        <div id='img-hover-zoom--quick-zoom-div-mobile-0' class="portfolio-items-key-0  portfolio-count">
+							      		<div id='img-hover-zoom--quick-zoom-inner-div-mobile-0'>
+													<a href="/en/markets/climate-solutions.html">
+														<img height='72' width='127' src='/content/dam/stantec/images/service%20page%20images/climate-solutions-service-1800x1200.jpg' alt='Climate Solutions' id='img-hover-zoom--quick-zoom-mobile-0' class="items-key-0"/>
+													</a>
+												</div>
+							       		<h4 id="header-key-initiative-mobile-0">
+													<a href="/en/markets/climate-solutions.html">Climate Solutions</a>
+												</h4>
+							        </div>
+							  
+							        <div id='img-hover-zoom--quick-zoom-div-mobile-1' class="portfolio-items-key-1  portfolio-count">
+							      		<div id='img-hover-zoom--quick-zoom-inner-div-mobile-1'>
+													<a href="/en/services/digital.html">
+														<img height='72' width='127' src='/content/dam/stantec/images/stock/other/0013/stantec-io-2800x1640.jpg' alt='Digital (Stantec.io)' id='img-hover-zoom--quick-zoom-mobile-1' class="items-key-1"/>
+													</a>
+												</div>
+							       		<h4 id="header-key-initiative-mobile-1">
+													<a href="/en/services/digital.html">Digital (Stantec.io)</a>
+												</h4>
+							        </div>
+							  
+							        <div id='img-hover-zoom--quick-zoom-div-mobile-2' class="portfolio-items-key-2  portfolio-count">
+							      		<div id='img-hover-zoom--quick-zoom-inner-div-mobile-2'>
+													<a href="/en/markets/coastal-marine.html">
+														<img height='72' width='127' src='/content/dam/stantec/images/projects/0079/prime-hook-158392.jpg' alt='Coastal Resilience' id='img-hover-zoom--quick-zoom-mobile-2' class="items-key-2"/>
+													</a>
+												</div>
+							       		<h4 id="header-key-initiative-mobile-2">
+													<a href="/en/markets/coastal-marine.html">Coastal Resilience</a>
+												</h4>
+							        </div>
+							  
+							        <div id='img-hover-zoom--quick-zoom-div-mobile-3' class="portfolio-items-key-3  portfolio-count">
+							      		<div id='img-hover-zoom--quick-zoom-inner-div-mobile-3'>
+													<a href="/en/services/ecosystem-restoration.html">
+														<img height='72' width='127' src='/content/dam/stantec/images/projects/0075/big-thompson-river-restoration-2.jpg' alt='Ecosystem Restoration' id='img-hover-zoom--quick-zoom-mobile-3' class="items-key-3"/>
+													</a>
+												</div>
+							       		<h4 id="header-key-initiative-mobile-3">
+													<a href="/en/services/ecosystem-restoration.html">Ecosystem Restoration</a>
+												</h4>
+							        </div>
+							  
+							        <div id='img-hover-zoom--quick-zoom-div-mobile-4' class="portfolio-items-key-4  portfolio-count">
+							      		<div id='img-hover-zoom--quick-zoom-inner-div-mobile-4'>
+													<a href="/en/markets/energy-transition.html">
+														<img height='72' width='127' src='/content/dam/stantec/images/projects/0002/powershift-atlantic.jpg' alt='Energy Transition' id='img-hover-zoom--quick-zoom-mobile-4' class="items-key-4"/>
+													</a>
+												</div>
+							       		<h4 id="header-key-initiative-mobile-4">
+													<a href="/en/markets/energy-transition.html">Energy Transition</a>
+												</h4>
+							        </div>
+							  
+							        <div id='img-hover-zoom--quick-zoom-div-mobile-5' class="portfolio-items-key-5  portfolio-count">
+							      		<div id='img-hover-zoom--quick-zoom-inner-div-mobile-5'>
+													<a href="/en/markets/smart-cities.html">
+														<img height='72' width='127' src='/content/dam/stantec/images/ideas/blogs/004/value-of-downtowns-report-part-2-2.jpg' alt='Smart Cities' id='img-hover-zoom--quick-zoom-mobile-5' class="items-key-5"/>
+													</a>
+												</div>
+							       		<h4 id="header-key-initiative-mobile-5">
+													<a href="/en/markets/smart-cities.html">Smart Cities</a>
+												</h4>
+							        </div>
+							  
+							        <div id='img-hover-zoom--quick-zoom-div-mobile-6' class="portfolio-items-key-6  portfolio-count">
+							      		<div id='img-hover-zoom--quick-zoom-inner-div-mobile-6'>
+													<a href="/en/services/sustainability.html">
+														<img height='72' width='127' src='/content/dam/stantec/images/homepage-hero/2022/sustainability-report-2021-hero-2800x1400.jpg' alt='Sustainability' id='img-hover-zoom--quick-zoom-mobile-6' class="items-key-6"/>
+													</a>
+												</div>
+							       		<h4 id="header-key-initiative-mobile-6">
+													<a href="/en/services/sustainability.html">Sustainability</a>
+												</h4>
+							        </div>
+							  
+							        <div id='img-hover-zoom--quick-zoom-div-mobile-7' class="portfolio-items-key-7  portfolio-count">
+							      		<div id='img-hover-zoom--quick-zoom-inner-div-mobile-7'>
+													<a href="/en/services/international-development.html">
+														<img height='72' width='127' src='/content/dam/stantec/images/stock/other/0009/lesotho-waterfall-stock.jpg' alt='International Development' id='img-hover-zoom--quick-zoom-mobile-7' class="items-key-7"/>
+													</a>
+												</div>
+							       		<h4 id="header-key-initiative-mobile-7">
+													<a href="/en/services/international-development.html">International Development</a>
+												</h4>
+							        </div>
+							  
+							  
+							 <div class="main-nav-module__blank-space_main_mobile">
+							   <div class="main-nav-module__blank-space-img_mobile_layout img-hover-zoom--quick-zoom_moblie"><img class="main-nav-module__blank-space-img_mobile_img" alt='expertise'/>></div>
+							   <div class="main-nav-module__blank-space-eyebrow-layout-mobile"><span class="main-nav-module__blank-space-eyebrow-mobile"></span></div>
+							   <div class="main-nav-module__blank-space-linktext-inside-layout-mobile">
+									
+								</div>
+							 </div>
+					</div>
+					
+			</ul>
+	</li>
+</ul>
+																					
+			<script>
+		
+			$(document).ready(function() {
+				
+				if ($('#header-key-initiative-mobile').is(':empty')) {
+					$("#header-key-initiative-mobile-title").show()
+	      }
+				
+					 for(var i = 0 ; i <= $('.portfolio-count').length; i++){
+				   		 $('<script>$(document).ready(function(){'+
+				   			'$(".portfolio-items-key-'+i+'").hover(function() {'+
+				   			' $(".items-key-'+i+'").addClass("transition");'+
+				   			'}, function() {'+
+				   				 ' $(".items-key-'+i+'").removeClass("transition");'+
+				   				    '});'+
+				   				'});</'+'script>').appendTo(document.body);
+				   	    };
+				
+				
+				   
+				});
+					
+	
+			</script>
+																					
+</div>
+<div class="navigation-item parbase section">
+<ul class="main-nav-module__ul main-nav-module__items" role="menu">
+	<li class="main-nav-module__li main-nav-module__dropdown-nav main-nav-module-li-firstsub " role="menuitem">
+			<a class="main-nav-module__collapsible-link main-nav-module__link main-nav-module__nav-link main-nav-module_Offices main-nav-module-link-first-a" data-title="Offices" data-description="We care about the communities we serve—because they&#39;re our communities too." data-cta-label="Find an Office" data-cta-url="/en/offices/office-finder.html" data-list-title="Key Initiatives" data-toggle="main-nav-module:menu" data-isfeatured="false" aria-expanded="false" href="/en/offices/office-finder.html">
+					locations
+			</a>
+            
+		      <ul class="main-nav-module__submenu main-nav-module__submenu-1 main-nav-module-firstsub-ul" role="menu" aria-label="locations">
+					<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-first">
+							<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-second">
+									<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+											<button class="main-nav-module__link main-nav-module__btn main-nav-module-button main-nav-module__btn-back">
+													Back
+											</button>
+									</li>
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/offices/office-finder.html" role="menuitem">Search All Offices</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/au.html" role="menuitem">Australia</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/offices/belgium-locations-hub.html" role="menuitem">Belgium</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/offices/canada-locations-hub.html" role="menuitem">Canada</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/offices/caribbean-locations-hub.html" role="menuitem">Caribbean</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/cn.html" role="menuitem">China</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/offices/prague-czech-republic.html" role="menuitem">Czech Republic</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/offices/berlin-germany.html" role="menuitem">Germany</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/offices/pune-india.html" role="menuitem">India</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/offices/italy-locations-hub.html" role="menuitem">Italy</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/offices/latin-america-locations-hub.html" role="menuitem">Latin America</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/offices/middle-east-locations-hub.html" role="menuitem">Middle East</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/offices/netherlands-locations-hub.html" role="menuitem">Netherlands</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/nz.html" role="menuitem">New Zealand</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/offices/manila-philippines.html" role="menuitem">Philippines</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/offices/bratislava-slovakia.html" role="menuitem">Slovakia</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/offices/taiwan-locations-hub.html" role="menuitem">Taiwan</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/offices/turkey-locations-hub.html" role="menuitem">Turkiye</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/uk.html" role="menuitem">United Kingdom</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Offices main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/offices/united-states-locations-hub.html" role="menuitem">United States</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+							</div> 
+							 <h4 id="header-key-initiative-mobile-title" class="empty-dsiplay">Key Initiatives</h4>
+							  
+							  
+							 <div class="main-nav-module__blank-space_main_mobile">
+							   <div class="main-nav-module__blank-space-img_mobile_layout img-hover-zoom--quick-zoom_moblie"><img class="main-nav-module__blank-space-img_mobile_img" alt='locations'/>></div>
+							   <div class="main-nav-module__blank-space-eyebrow-layout-mobile"><span class="main-nav-module__blank-space-eyebrow-mobile"></span></div>
+							   <div class="main-nav-module__blank-space-linktext-inside-layout-mobile">
+									
+								</div>
+							 </div>
+					</div>
+					
+			</ul>
+	</li>
+</ul>
+																					
+			<script>
+		
+			$(document).ready(function() {
+				
+				if ($('#header-key-initiative-mobile').is(':empty')) {
+					$("#header-key-initiative-mobile-title").show()
+	      }
+				
+					 for(var i = 0 ; i <= $('.portfolio-count').length; i++){
+				   		 $('<script>$(document).ready(function(){'+
+				   			'$(".portfolio-items-key-'+i+'").hover(function() {'+
+				   			' $(".items-key-'+i+'").addClass("transition");'+
+				   			'}, function() {'+
+				   				 ' $(".items-key-'+i+'").removeClass("transition");'+
+				   				    '});'+
+				   				'});</'+'script>').appendTo(document.body);
+				   	    };
+				
+				
+				   
+				});
+					
+	
+			</script>
+																					
+</div>
+<div class="navigation-item parbase section">
+<ul class="main-nav-module__ul main-nav-module__items" role="menu">
+	<li class="main-nav-module__li main-nav-module__dropdown-nav main-nav-module-li-firstsub " role="menuitem">
+			
+            <a class="main-nav-module__link main-nav-module__nav-link menu-disabledSub-menu-true main-nav-module_Ideas main-nav-module-link-first-a" aria-expanded="false" href="/en/ideas.html">
+					ideas
+			</a>
+		      <ul class="main-nav-module__submenu main-nav-module__submenu-1 main-nav-module-firstsub-ul" id="main-nav-module-li-disabled" role="menuitem" aria-label="ideas">
+					<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-first">
+							<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-second">
+									<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+											<button class="main-nav-module__link main-nav-module__btn main-nav-module-button main-nav-module__btn-back">
+													Back
+											</button>
+									</li>
+									
+							</div> 
+							 <h4 id="header-key-initiative-mobile-title" class="empty-dsiplay">Key Initiatives</h4>
+							  
+							  
+							 <div class="main-nav-module__blank-space_main_mobile">
+							   <div class="main-nav-module__blank-space-img_mobile_layout img-hover-zoom--quick-zoom_moblie"><img class="main-nav-module__blank-space-img_mobile_img" alt='ideas'/>></div>
+							   <div class="main-nav-module__blank-space-eyebrow-layout-mobile"><span class="main-nav-module__blank-space-eyebrow-mobile"></span></div>
+							   <div class="main-nav-module__blank-space-linktext-inside-layout-mobile">
+									
+								</div>
+							 </div>
+					</div>
+					
+			</ul>
+	</li>
+</ul>
+																					
+			<script>
+		
+			$(document).ready(function() {
+				
+				if ($('#header-key-initiative-mobile').is(':empty')) {
+					$("#header-key-initiative-mobile-title").show()
+	      }
+				
+					 for(var i = 0 ; i <= $('.portfolio-count').length; i++){
+				   		 $('<script>$(document).ready(function(){'+
+				   			'$(".portfolio-items-key-'+i+'").hover(function() {'+
+				   			' $(".items-key-'+i+'").addClass("transition");'+
+				   			'}, function() {'+
+				   				 ' $(".items-key-'+i+'").removeClass("transition");'+
+				   				    '});'+
+				   				'});</'+'script>').appendTo(document.body);
+				   	    };
+				
+				
+				   
+				});
+					
+	
+			</script>
+																					
+</div>
+<div class="navigation-item parbase section">
+<ul class="main-nav-module__ul main-nav-module__items" role="menu">
+	<li class="main-nav-module__li main-nav-module__dropdown-nav main-nav-module-li-firstsub " role="menuitem">
+			<a class="main-nav-module__collapsible-link main-nav-module__link main-nav-module__nav-link main-nav-module_About Stantec main-nav-module-link-first-a" data-title="About Stantec" data-description="We&#39;re active members of the communities we serve. That&#39;s why at Stantec, we always design with community in mind." data-cta-label="Learn About Us" data-cta-url="/en/about.html" data-list-title="Key Initiatives" data-toggle="main-nav-module:menu" data-isfeatured="false" aria-expanded="false" href="/en/about.html">
+					about
+			</a>
+            
+		      <ul class="main-nav-module__submenu main-nav-module__submenu-1 main-nav-module-firstsub-ul" role="menu" aria-label="about">
+					<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-first">
+							<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-second">
+									<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+											<button class="main-nav-module__link main-nav-module__btn main-nav-module-button main-nav-module__btn-back">
+													Back
+											</button>
+									</li>
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_About Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/about.html" role="menuitem">Company Overview</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_About Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/about/corporate-leadership.html" role="menuitem">Leadership</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_About Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/about/corporate-governance/board-of-directors.html" role="menuitem">Board of Directors</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_About Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/about/corporate-governance.html" role="menuitem">Corporate Governance</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_About Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/about/sustainability.html" role="menuitem">Corporate Sustainability</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_About Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/about/hsse.html" role="menuitem">Health, Safety, Security, and Environment</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_About Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/about/indigenous-relations.html" role="menuitem">Indigenous Relations &amp; Partnerships</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_About Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/about/inclusion-diversity.html" role="menuitem">Inclusion, Diversity &amp; Equity</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_About Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/about/community-engagement.html" role="menuitem">Community Engagement</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_About Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/ideas/topic/innovation-technology/stantec-innovation-office-overview.html" role="menuitem">Innovation Office</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_About Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/about/learning.html" role="menuitem">Learning Design &amp; Delivery</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_About Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/about/supplier-information.html" role="menuitem">Supplier Information</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_About Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/about/contact-us.html" role="menuitem">Contact Us</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_About Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/news.html" role="menuitem">News</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_About Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/ideas/watch.html" role="menuitem">Watch</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+							</div> 
+							 <h4 id="header-key-initiative-mobile-title" class="empty-dsiplay">Key Initiatives</h4>
+							  
+							  
+							 <div class="main-nav-module__blank-space_main_mobile">
+							   <div class="main-nav-module__blank-space-img_mobile_layout img-hover-zoom--quick-zoom_moblie"><img class="main-nav-module__blank-space-img_mobile_img" alt='about'/>></div>
+							   <div class="main-nav-module__blank-space-eyebrow-layout-mobile"><span class="main-nav-module__blank-space-eyebrow-mobile"></span></div>
+							   <div class="main-nav-module__blank-space-linktext-inside-layout-mobile">
+									
+								</div>
+							 </div>
+					</div>
+					
+			</ul>
+	</li>
+</ul>
+																					
+			<script>
+		
+			$(document).ready(function() {
+				
+				if ($('#header-key-initiative-mobile').is(':empty')) {
+					$("#header-key-initiative-mobile-title").show()
+	      }
+				
+					 for(var i = 0 ; i <= $('.portfolio-count').length; i++){
+				   		 $('<script>$(document).ready(function(){'+
+				   			'$(".portfolio-items-key-'+i+'").hover(function() {'+
+				   			' $(".items-key-'+i+'").addClass("transition");'+
+				   			'}, function() {'+
+				   				 ' $(".items-key-'+i+'").removeClass("transition");'+
+				   				    '});'+
+				   				'});</'+'script>').appendTo(document.body);
+				   	    };
+				
+				
+				   
+				});
+					
+	
+			</script>
+																					
+</div>
+<div class="navigation-item parbase section">
+<ul class="main-nav-module__ul main-nav-module__items" role="menu">
+	<li class="main-nav-module__li main-nav-module__dropdown-nav main-nav-module-li-firstsub " role="menuitem">
+			<a class="main-nav-module__collapsible-link main-nav-module__link main-nav-module__nav-link main-nav-module_Design Your Career main-nav-module-link-first-a" data-title="Design Your Career" data-description="Be part of a community that&#39;s driven to meet the needs of the present while contributing to a sustainable future. " data-cta-label="Find a Job" data-cta-url="https://stantec.jobs/" data-list-title="Key Initiatives" data-toggle="main-nav-module:menu" data-isfeatured="false" aria-expanded="false" href="/en/careers.html">
+					careers
+			</a>
+            
+		      <ul class="main-nav-module__submenu main-nav-module__submenu-1 main-nav-module-firstsub-ul" role="menu" aria-label="careers">
+					<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-first">
+							<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-second">
+									<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+											<button class="main-nav-module__link main-nav-module__btn main-nav-module-button main-nav-module__btn-back">
+													Back
+											</button>
+									</li>
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Design Your Career main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/careers.html" role="menuitem">Why Choose Stantec</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Design Your Career main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/careers/life-at-stantec.html" role="menuitem">Life At Stantec</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Design Your Career main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/about/inclusion-diversity.html" role="menuitem">Inclusion, Diversity &amp; Equity</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Design Your Career main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/careers/students-graduates.html" role="menuitem">Students &amp; Graduates</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Design Your Career main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/careers/developing-professionals-group.html" role="menuitem">Developing Professionals Group (DPG)</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Design Your Career main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/careers/veteran-military.html" role="menuitem">Veteran &amp; Military</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Design Your Career main-nav-module-link-second-a main-nav-module__submenu-hide" href="https://stantec.jobs/" role="menuitem">Search &amp; Apply</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+							</div> 
+							 <h4 id="header-key-initiative-mobile-title" class="empty-dsiplay">Key Initiatives</h4>
+							  
+							  
+							 <div class="main-nav-module__blank-space_main_mobile">
+							   <div class="main-nav-module__blank-space-img_mobile_layout img-hover-zoom--quick-zoom_moblie"><img class="main-nav-module__blank-space-img_mobile_img" alt='careers'/>></div>
+							   <div class="main-nav-module__blank-space-eyebrow-layout-mobile"><span class="main-nav-module__blank-space-eyebrow-mobile"></span></div>
+							   <div class="main-nav-module__blank-space-linktext-inside-layout-mobile">
+									
+								</div>
+							 </div>
+					</div>
+					
+			</ul>
+	</li>
+</ul>
+																					
+			<script>
+		
+			$(document).ready(function() {
+				
+				if ($('#header-key-initiative-mobile').is(':empty')) {
+					$("#header-key-initiative-mobile-title").show()
+	      }
+				
+					 for(var i = 0 ; i <= $('.portfolio-count').length; i++){
+				   		 $('<script>$(document).ready(function(){'+
+				   			'$(".portfolio-items-key-'+i+'").hover(function() {'+
+				   			' $(".items-key-'+i+'").addClass("transition");'+
+				   			'}, function() {'+
+				   				 ' $(".items-key-'+i+'").removeClass("transition");'+
+				   				    '});'+
+				   				'});</'+'script>').appendTo(document.body);
+				   	    };
+				
+				
+				   
+				});
+					
+	
+			</script>
+																					
+</div>
+<div class="navigation-item parbase section">
+<ul class="main-nav-module__ul main-nav-module__items" role="menu">
+	<li class="main-nav-module__li main-nav-module__dropdown-nav main-nav-module-li-firstsub " role="menuitem">
+			<a class="main-nav-module__collapsible-link main-nav-module__link main-nav-module__nav-link main-nav-module_Invest in Stantec main-nav-module-link-first-a" data-title="Invest in Stantec" data-description="With our diversified business and proven success, we are well positioned to provide long-term shareholder value." data-cta-label="Learn More" data-cta-url="/en/investors.html" data-list-title="Key Initiatives" data-toggle="main-nav-module:menu" data-isfeatured="false" aria-expanded="false" href="/en/investors.html">
+					investors
+			</a>
+            
+		      <ul class="main-nav-module__submenu main-nav-module__submenu-1 main-nav-module-firstsub-ul" role="menu" aria-label="investors">
+					<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-first">
+							<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-second">
+									<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+											<button class="main-nav-module__link main-nav-module__btn main-nav-module-button main-nav-module__btn-back">
+													Back
+											</button>
+									</li>
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Invest in Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/investors.html" role="menuitem">Why Invest</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Invest in Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/investors/stantec-financial-information.html" role="menuitem">Financial Reports &amp; Filings</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Invest in Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/investors/shareholder-information.html" role="menuitem">Shareholder Information</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Invest in Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/investors/events-presentations.html" role="menuitem">Events &amp; Presentations</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Invest in Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/investors/news-investors.html" role="menuitem">News</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+											<li class="main-nav-module__li  main-nav-module-li-secondsub">
+													
+													<a class="main-nav-module__link main-nav-module__dropdown-link main-nav-module__dropdown-link_Invest in Stantec main-nav-module-link-second-a main-nav-module__submenu-hide" href="/en/investors/stantec-investor-contacts.html" role="menuitem">Contact Information</a>
+														
+													<ul class="main-nav-module__submenu main-nav-module__submenu-2 main-nav-module-secondsub-ul">
+															<div class="main-nav-module__submenu-inner main-nav-module-submenu-inner-div-third">
+																	<div class="main-nav-module__submenu-items-wrapper main-nav-module-submenu-inner-div-fourth">
+																			<li class="main-nav-module__li main-nav-module__btn-back-wrapper">
+																					<button class="main-nav-module__link main-nav-module__btn main-nav-module-button-back-second main-nav-module__btn-back">
+																							Back
+																					</button>
+																			</li>
+																			
+																			
+																			
+																				
+																	</div>
+															</div>
+													</ul>	
+											</li>
+								
+									
+							</div> 
+							 <h4 id="header-key-initiative-mobile-title" class="empty-dsiplay">Key Initiatives</h4>
+							  
+							  
+							 <div class="main-nav-module__blank-space_main_mobile">
+							   <div class="main-nav-module__blank-space-img_mobile_layout img-hover-zoom--quick-zoom_moblie"><img class="main-nav-module__blank-space-img_mobile_img" alt='investors'/>></div>
+							   <div class="main-nav-module__blank-space-eyebrow-layout-mobile"><span class="main-nav-module__blank-space-eyebrow-mobile"></span></div>
+							   <div class="main-nav-module__blank-space-linktext-inside-layout-mobile">
+									
+								</div>
+							 </div>
+					</div>
+					
+			</ul>
+	</li>
+</ul>
+																					
+			<script>
+		
+			$(document).ready(function() {
+				
+				if ($('#header-key-initiative-mobile').is(':empty')) {
+					$("#header-key-initiative-mobile-title").show()
+	      }
+				
+					 for(var i = 0 ; i <= $('.portfolio-count').length; i++){
+				   		 $('<script>$(document).ready(function(){'+
+				   			'$(".portfolio-items-key-'+i+'").hover(function() {'+
+				   			' $(".items-key-'+i+'").addClass("transition");'+
+				   			'}, function() {'+
+				   				 ' $(".items-key-'+i+'").removeClass("transition");'+
+				   				    '});'+
+				   				'});</'+'script>').appendTo(document.body);
+				   	    };
+				
+				
+				   
+				});
+					
+	
+			</script>
+																					
+</div>
+
+
+                </div>
+            </div>
+		</div>
+
+        <ul class="main-nav-module__ul main-nav-module__items" role="menu">
+            <li class="main-nav-module__li main-nav-module__button-holder" role="menuitem">
+                <a class="main-nav-module__button" aria-expanded="false" href="/en/about/contact-us.html">
+                    contact us
+                </a>
+            </li>
+        </ul>
+		
+        <ul class="main-nav-module__menu-right">
+            
+
+    
+
+
+
+
+<li class="main-nav-module__li main-nav-module__dropdown-nav language-selector-module">
+    <a class="main-nav-module__link main-nav-module__nav-link language-selector-module__nav-link main-nav-module--lowercase" data-toggle="main-nav-module:modal" href="#modal-language-selector" role="button">
+        Global | eng
+    </a>
+    <div class="main-nav-module__submenu main-nav-module__submenu-1 language-selector-module__content">
+        <div class="main-nav-module__items-legend" tabindex="0">
+            <div class="language-selector-module__legend-copy">
+                <h2 class="main-nav-module__items-legend-title">Language / Region</h2>
+                <div class="main-nav-module__items-legend-description"><p>Select your region to visit a Stantec regional site, or visit our <a href="/en/offices.html">Locations Hub</a> on our Global site where you can learn more about Stantec in your local area.</p>
+</div>
+            </div>
+            <img class="main-nav-module__items-legend-img" src="/content/dam/stantec/images/Icons/Map.svg" alt="Map Image" aria-hidden="true"/>
+        </div>
+        <input class="language-selector-module__form-hidden" type="hidden" name="origin" value="/content/stantec/en/404.html"/>
+        <div class="language-selector-module__form-inner">
+            <div class="language-selector-module__global-section">
+                <div class="language-selector-module__region-container">
+                    <p class="language-selector-module__region">Global</p>
+                    <ul class="language-selector-module__language-list">
+                        
+                        <li class="language-selector-module__language active">
+                            <button role="link" aria-label="Global - English" data-href="/en" class="language-selector-module__language-link" data-language="en" data-region="localization:global">
+                                English
+                            </button>
+                        </li>
+                        
+                    
+                        <span class="language-selector-module__language-divider">|</span>
+                        <li class="language-selector-module__language ">
+                            <button role="link" aria-label="Global - Français" data-href="/fr" class="language-selector-module__language-link" data-language="fr" data-region="localization:global">
+                                Français
+                            </button>
+                        </li>
+                        
+                    </ul>
+                </div>
+            </div>
+            <div class="language-selector-module__regions-section">
+                <ul class="language-selector-module__regions ">
+                    <li class="language-selector-module__region-container">
+                        <p class="language-selector-module__region">Italy</p>
+                        <ul class="language-selector-module__language-list">
+                            
+                            <li class="language-selector-module__language ">
+                                <button role="link" aria-label="Italy - Italiano" data-href="/it" class="language-selector-module__language-link" data-language="it" data-region="localization:italy">
+                                    Italiano
+                                </button>
+                            </li>
+                            
+                        
+                            
+                            <li class="language-selector-module__language ">
+                                <button role="link" aria-label="Italy - " data-href="/en" class="language-selector-module__language-link" data-language="en" data-region="localization:italy">
+                                    
+                                </button>
+                            </li>
+                            
+                        </ul>
+                    </li>
+                
+                    <li class="language-selector-module__region-container">
+                        <p class="language-selector-module__region">Latin America</p>
+                        <ul class="language-selector-module__language-list">
+                            
+                            <li class="language-selector-module__language ">
+                                <button role="link" aria-label="Latin America - Español" data-href="/es" class="language-selector-module__language-link" data-language="es" data-region="localization:latin-america">
+                                    Español
+                                </button>
+                            </li>
+                            
+                        
+                            
+                            <li class="language-selector-module__language ">
+                                <button role="link" aria-label="Latin America - " data-href="/en" class="language-selector-module__language-link" data-language="en" data-region="localization:latin-america">
+                                    
+                                </button>
+                            </li>
+                            
+                        </ul>
+                    </li>
+                
+                    <li class="language-selector-module__region-container">
+                        <p class="language-selector-module__region">Netherlands</p>
+                        <ul class="language-selector-module__language-list">
+                            
+                            <li class="language-selector-module__language ">
+                                <button role="link" aria-label="Netherlands - Nederlands" data-href="/nl" class="language-selector-module__language-link" data-language="nl" data-region="localization:netherlands">
+                                    Nederlands
+                                </button>
+                            </li>
+                            
+                        
+                            
+                            <li class="language-selector-module__language ">
+                                <button role="link" aria-label="Netherlands - " data-href="/en" class="language-selector-module__language-link" data-language="en" data-region="localization:netherlands">
+                                    
+                                </button>
+                            </li>
+                            
+                        </ul>
+                    </li>
+                
+                    <li class="language-selector-module__region-container">
+                        <p class="language-selector-module__region">Taiwan</p>
+                        <ul class="language-selector-module__language-list">
+                            
+                            <li class="language-selector-module__language ">
+                                <button role="link" aria-label="Taiwan - 繁體中文" data-href="/zh_tw" class="language-selector-module__language-link" data-language="zh_tw" data-region="localization:taiwan">
+                                    繁體中文
+                                </button>
+                            </li>
+                            
+                        
+                            
+                            <li class="language-selector-module__language ">
+                                <button role="link" aria-label="Taiwan - " data-href="/en" class="language-selector-module__language-link" data-language="en" data-region="localization:taiwan">
+                                    
+                                </button>
+                            </li>
+                            
+                        </ul>
+                    </li>
+                
+                    <li class="language-selector-module__region-container">
+                        <p class="language-selector-module__region">Turkiye</p>
+                        <ul class="language-selector-module__language-list">
+                            
+                            <li class="language-selector-module__language ">
+                                <button role="link" aria-label="Turkiye - Türkçe" data-href="/tr" class="language-selector-module__language-link" data-language="tr" data-region="localization:turkey">
+                                    Türkçe
+                                </button>
+                            </li>
+                            
+                        
+                            
+                            <li class="language-selector-module__language ">
+                                <button role="link" aria-label="Turkiye - " data-href="/en" class="language-selector-module__language-link" data-language="en" data-region="localization:turkey">
+                                    
+                                </button>
+                            </li>
+                            
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+            
+
+<div class="language-selector-module__location-section">
+    <div class="language-selector-module__location-container">
+        <p class="language-selector-module__location">
+            <span class="language-selector-module__location-selector-label language-selector-module__location-selector-label--information">We&#39;ve detected you are located in</span>
+            <span class="language-selector-module__location-selector-label language-selector-module__location-selector-label--dropdown-selection">Please select your location</span>
+            <select class="language-selector-module__location-selector" autocomplete="off" tabindex="-1">
+                <option value="localization:africa">Africa</option>
+            
+                <option value="localization:australia">Australia</option>
+            
+                <option value="localization:belgium">Belgium</option>
+            
+                <option value="localization:caribbean">Caribbean</option>
+            
+                <option value="localization:china">China</option>
+            
+                <option value="localization:czech-republic">Czech Republic</option>
+            
+                <option value="localization:germany">Germany</option>
+            
+                <option value="localization:global">Global</option>
+            
+                <option value="localization:india">India</option>
+            
+                <option value="localization:italy">Italy</option>
+            
+                <option value="localization:latin-america">Latin America</option>
+            
+                <option value="localization:middle-east">Middle East</option>
+            
+                <option value="localization:netherlands">Netherlands</option>
+            
+                <option value="localization:new-zealand">New Zealand</option>
+            
+                <option value="localization:north-america">North America</option>
+            
+                <option value="localization:slovakia">Slovakia</option>
+            
+                <option value="localization:taiwan">Taiwan</option>
+            
+                <option value="localization:turkey">Turkiye</option>
+            
+                <option value="localization:united-kingdom">United Kingdom</option>
+            </select>
+        </p>
+        <button type="button" data-type="change-location-btn" class="language-selector-module__location-cta"> Change location</button>
+    </div>
+    <a href="/en/copyright.html" class="language-selector-module__location-learn-cta">Learn how we use this information</a>
+    <button data-type="save-location-btn" class="language-selector-module__location-save"> Save location</button>
+</div>
+        </div>
+    </div>
+</li>
+
+            <li class="main-nav-module__li main-nav-module--hidden-m">
+                <button class="main-nav-module__btn main-nav-module__btn-search search-bar-module__btn-search">
+                    Search
+                </button>
+            </li>
+        </ul>
+        <div class="main-nav-module__nav-selector" aria-hidden="true"></div>
+        
+        
+        <footer class="main-nav-module__footer-mobile">
+      		<span class="main-nav-module__footer-mobile-label main-nav-module--lowercase" data-toggle="language-selector-module">Global | eng</span>
+					<a href="/en/about/contact-us.html" class="main-nav-module__footer-mobile-button" aria-expanded="false">
+									contact us
+							</a>
+        </footer>
+        
+        
+    </div>
+    
+
+<div class="search-bar-module">
+    <div class="search-bar-module__inner">
+        <form class="search-bar-module__form" action="/en/search.html" method="GET">
+            <div class="search-bar-module__input-wrapper">
+              <legend class="visually-hidden">Search Form</legend>
+              <button class="search-bar-module__btn search-bar-module__btn-submit" tabindex="-1">Submit</button>
+              <label for="mainSearchInput" class="visually-hidden">
+                  Search Input
+              </label>
+              <input type="text" id="mainSearchInput" class="search-bar-module__input" title="Search Input" placeholder="What are you looking for?" name="q" autocomplete="off" tabindex="-1"/>
+            </div>
+            <button type="button" class="search-bar-module__btn search-bar-module__btn-close" tabindex="-1">
+              <span class="visually-hidden">Close Button</span>
+            </button>
+        </form>
+    </div>
+</div>
+
+    <div id="main-nav-modal" class="main-nav-module__modal" data-role="main-nav-module:modal">
+        <hr class="main-nav-module__line-menu-top "/>
+        <div class="main-nav-module__modal-content">
+            <div class="main-nav-module__items-legend"></div>
+            <div class="main-nav-module__items-columns">
+                <div class="main-nav-module__content"></div>
+                <div class="main-nav-module__blank-space">
+                </div>
+            </div>
+             <div class="main-nav-module__items-keyinitatives">
+            </div>
+        </div>
+    </div>
+    
+
+<div id="modal-language-selector" class="main-nav-module__modal" data-role="main-nav-module:modal">
+    <div class="main-nav-module__modal-content">
+        <div class="main-nav-module__items-legend" tabindex="0">
+            <h2 class="main-nav-module__items-legend-title">Language / Region</h2>
+            <div class="main-nav-module__items-legend-description"><p>Select your region to visit a Stantec regional site, or visit our <a href="/en/offices.html">Locations Hub</a> on our Global site where you can learn more about Stantec in your local area.</p>
+</div>
+            <img class="main-nav-module__items-legend-img" src="/content/dam/stantec/images/Icons/Map.svg" alt=" World map" aria-hidden="true"/>
+        </div>
+        <div class="main-nav-module__items-columns">
+            <div class="main-nav-module__content">
+                <input class="language-selector-module__form-hidden" type="hidden" name="origin" value="/content/stantec/en/404.html"/>
+                <div class="language-selector-module__form-inner">
+                    <div class="language-selector-module__global-section">
+                        <div class="language-selector-module__region-container">
+                            <p class="language-selector-module__region">Global</p>
+                            <ul class="language-selector-module__language-list">
+                                
+                                <li class="language-selector-module__language active">
+                                    <button role="link" aria-label="Global - English" data-href="/en" class="language-selector-module__language-link" data-language="en" data-region="localization:global">
+                                        English
+                                    </button>
+                                </li>
+                                
+                            
+                                <span class="language-selector-module__language-divider">|</span>
+                                <li class="language-selector-module__language ">
+                                    <button role="link" aria-label="Global - Français" data-href="/fr" class="language-selector-module__language-link" data-language="fr" data-region="localization:global">
+                                        Français
+                                    </button>
+                                </li>
+                                
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="language-selector-module__regions-section">
+                        <ul class="language-selector-module__regions ">
+                            <li class="language-selector-module__region-container">
+                                <p class="language-selector-module__region">Italy</p>
+                                <ul class="language-selector-module__language-list">
+                                    
+                                    <li class="language-selector-module__language ">
+                                        <button role="link" aria-label="Italy - Italiano" data-href="/it" class="language-selector-module__language-link" data-language="it" data-region="localization:italy">
+                                            Italiano
+																				</button>
+                                    </li>
+                                    
+                                
+                                    
+                                    
+                                    
+                                </ul>
+                            </li>
+                        
+                            <li class="language-selector-module__region-container">
+                                <p class="language-selector-module__region">Latin America</p>
+                                <ul class="language-selector-module__language-list">
+                                    
+                                    <li class="language-selector-module__language ">
+                                        <button role="link" aria-label="Latin America - Español" data-href="/es" class="language-selector-module__language-link" data-language="es" data-region="localization:latin-america">
+                                            Español
+																				</button>
+                                    </li>
+                                    
+                                
+                                    
+                                    
+                                    
+                                </ul>
+                            </li>
+                        
+                            <li class="language-selector-module__region-container">
+                                <p class="language-selector-module__region">Netherlands</p>
+                                <ul class="language-selector-module__language-list">
+                                    
+                                    <li class="language-selector-module__language ">
+                                        <button role="link" aria-label="Netherlands - Nederlands" data-href="/nl" class="language-selector-module__language-link" data-language="nl" data-region="localization:netherlands">
+                                            Nederlands
+																				</button>
+                                    </li>
+                                    
+                                
+                                    
+                                    
+                                    
+                                </ul>
+                            </li>
+                        
+                            <li class="language-selector-module__region-container">
+                                <p class="language-selector-module__region">Taiwan</p>
+                                <ul class="language-selector-module__language-list">
+                                    
+                                    <li class="language-selector-module__language ">
+                                        <button role="link" aria-label="Taiwan - 繁體中文" data-href="/zh_tw" class="language-selector-module__language-link" data-language="zh_tw" data-region="localization:taiwan">
+                                            繁體中文
+																				</button>
+                                    </li>
+                                    
+                                
+                                    
+                                    
+                                    
+                                </ul>
+                            </li>
+                        
+                            <li class="language-selector-module__region-container">
+                                <p class="language-selector-module__region">Turkiye</p>
+                                <ul class="language-selector-module__language-list">
+                                    
+                                    <li class="language-selector-module__language ">
+                                        <button role="link" aria-label="Turkiye - Türkçe" data-href="/tr" class="language-selector-module__language-link" data-language="tr" data-region="localization:turkey">
+                                            Türkçe
+																				</button>
+                                    </li>
+                                    
+                                
+                                    
+                                    
+                                    
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
+                    
+
+<div class="language-selector-module__location-section">
+    <div class="language-selector-module__location-container">
+        <p class="language-selector-module__location">
+            <span class="language-selector-module__location-selector-label language-selector-module__location-selector-label--information">We&#39;ve detected you are located in</span>
+            <span class="language-selector-module__location-selector-label language-selector-module__location-selector-label--dropdown-selection">Please select your location</span>
+            <select class="language-selector-module__location-selector" autocomplete="off" tabindex="-1">
+                <option value="localization:africa">Africa</option>
+            
+                <option value="localization:australia">Australia</option>
+            
+                <option value="localization:belgium">Belgium</option>
+            
+                <option value="localization:caribbean">Caribbean</option>
+            
+                <option value="localization:china">China</option>
+            
+                <option value="localization:czech-republic">Czech Republic</option>
+            
+                <option value="localization:germany">Germany</option>
+            
+                <option value="localization:global">Global</option>
+            
+                <option value="localization:india">India</option>
+            
+                <option value="localization:italy">Italy</option>
+            
+                <option value="localization:latin-america">Latin America</option>
+            
+                <option value="localization:middle-east">Middle East</option>
+            
+                <option value="localization:netherlands">Netherlands</option>
+            
+                <option value="localization:new-zealand">New Zealand</option>
+            
+                <option value="localization:north-america">North America</option>
+            
+                <option value="localization:slovakia">Slovakia</option>
+            
+                <option value="localization:taiwan">Taiwan</option>
+            
+                <option value="localization:turkey">Turkiye</option>
+            
+                <option value="localization:united-kingdom">United Kingdom</option>
+            </select>
+        </p>
+        <button type="button" data-type="change-location-btn" class="language-selector-module__location-cta"> Change location</button>
+    </div>
+    <a href="/en/copyright.html" class="language-selector-module__location-learn-cta">Learn how we use this information</a>
+    <button data-type="save-location-btn" class="language-selector-module__location-save"> Save location</button>
+</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <script>
+        window.STANTEC.loadModule('mainNavModule');
+        window.STANTEC.loadModule('desktopNavModule');
+    </script>
+</nav>
+</div>
+</div>
+</div>
+</div>
+    <div id="content" class="visuallyhidden" role='region' aria-label='main content'>
+
+        Start of main content
+    </div>
+    
+    <div class="main-container">
+    <div class="main wrapper clearfix"><div class="par fluid-parsys">
+
+
+
+
+<!-- Fluid parsys -->
+
+        <!-- Including component name: columns_full_width -->
+        <div class="columns-full-width parbase section"><div class="par fluid-parsys">
+
+
+
+
+<!-- Fluid parsys -->
+
+<div class="col_container liquid clearfix">
+    <div class="col_12 alpha omega">
+        <!-- Including component name: flexible_subnav -->
+        <div class="cq-flexible-subnav section">
+<div class="module flexible-sub-nav no-links">
+    <h1>
+        Page Not Found
+    </h1>
+    
+</div>
+<script>STANTEC.loadModule('flexibleSubNav');</script>
+</div>
+
+        </div>
+</div>
+
+<div class="col_container liquid clearfix">
+    <div class="col_12 alpha omega">
+        <!-- Including component name: text -->
+        <div class="cq-text section"><!--
+C9. Text Component
+-->
+
+<article class="module text-component preserve-old-width current-width-wrapper">
+    <h1 style="text-align: center;">We're sorry! We can't find that page.</h1>
+<p style="text-align: center;">Give search a try or visit:</p>
+<p style="text-align: center;"> <a href="/en.html" adhocenable="false">Home</a>  |  <a href="/en/careers.html" adhocenable="false">Jobs</a>  | <a href="/en/about/contact-us.html" adhocenable="false">Contact Us</a> | <a adhocenable="false" href="https://ideas.stantec.com/" target="_blank">Ideas</a></p>
+
+</article></div>
+
+        </div>
+</div>
+
+</div>
+
+
+
+     <div style="clear:both"></div>
+</div>
+
+        
+</div>
+
+
+
+     <div style="clear:both"></div>
+</div>
+</div>
+<!-- main-container -->
+    <div id="endcontent" class="visuallyhidden" role='region' aria-label='end main content'>
+
+        End of main content
+    </div>
+    <div id="to_top" class="visuallyhidden" role='region' aria-label='to top'>
+
+        To top
+    </div>
+
+    
+    <div class="footer-par"><div class="section"><div class="new"></div>
+</div><div class="iparys_inherited"><div class="footer-par iparsys parsys"><div class="cq-global-footer clearfix section">
+
+
+
+<footer class="footer-module">
+    <div class="footer-module__inner">
+        <section class="footer-module__sections">
+            <div class="footer-module__column">
+                
+    <div class="footer-module__collapsible footer-module__collapsible">
+        <a href="/en/markets.html" class="footer-module__headline-link">
+
+            <h2 class="footer-module__headline">
+                expertise
+            </h2>
+        </a>
+        <button class="footer-module__collapsible-btn">
+            expertise
+        </button>
+        <ul class="footer-module__collapsible-items">
+
+            <li class="footer-module__li">
+                <a href="/en/markets/buildings.html" class="footer-module__link">
+
+                   Buildings
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/services/community-development.html" class="footer-module__link">
+
+                   Community Development
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/markets/energy.html" class="footer-module__link">
+
+                   Energy
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/markets/environment.html" class="footer-module__link">
+
+                   Environment
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/markets/federal-government.html" class="footer-module__link">
+
+                   Federal Government
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/markets/mining.html" class="footer-module__link">
+
+                   Mining, Minerals &amp; Metals
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/markets/transportation.html" class="footer-module__link">
+
+                   Transportation
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/markets/water.html" class="footer-module__link">
+
+                   Water
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/markets.html" class="footer-module__link">
+
+                   View All Markets
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/services.html" class="footer-module__link">
+
+                   View All Services
+                </a>
+            </li>
+        </ul>
+    </div>
+
+            </div>
+            <div class="footer-module__column">
+                
+    <div class="footer-module__collapsible footer-module__collapsible">
+        <a href="/en/markets.html" class="footer-module__headline-link">
+
+            <h2 class="footer-module__headline">
+                initiatives
+            </h2>
+        </a>
+        <button class="footer-module__collapsible-btn">
+            initiatives
+        </button>
+        <ul class="footer-module__collapsible-items">
+
+            <li class="footer-module__li">
+                <a href="/en/markets/climate-solutions.html" class="footer-module__link">
+
+                   Climate Solutions
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/services/digital.html" class="footer-module__link">
+
+                   Digital (Stantec.io)
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/markets/coastal-marine.html" class="footer-module__link">
+
+                   Coastal Resilience
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/services/ecosystem-restoration.html" class="footer-module__link">
+
+                   Ecosystem Restoration
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/markets/energy-transition.html" class="footer-module__link">
+
+                   Energy Transition
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/markets/smart-cities.html" class="footer-module__link">
+
+                   Smart Cities
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/services/sustainability.html" class="footer-module__link">
+
+                   Sustainability
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/services/international-development.html" class="footer-module__link">
+
+                   International Development
+                </a>
+            </li>
+        </ul>
+    </div>
+
+            </div>
+            <div class="footer-module__column">
+                
+    <div class="footer-module__collapsible footer-module__collapsible">
+        <a href="/en/ideas.html" class="footer-module__headline-link">
+
+            <h2 class="footer-module__headline">
+                ideas
+            </h2>
+        </a>
+        <button class="footer-module__collapsible-btn">
+            ideas
+        </button>
+        <ul class="footer-module__collapsible-items">
+
+            <li class="footer-module__li">
+                <a href="/en/ideas.html" class="footer-module__link">
+
+                   Visit Our Hub
+                </a>
+            </li>
+        </ul>
+    </div>
+
+                
+    <div class="footer-module__collapsible footer-module__collapsible">
+        <a href="/en/about.html" class="footer-module__headline-link">
+
+            <h2 class="footer-module__headline">
+                about
+            </h2>
+        </a>
+        <button class="footer-module__collapsible-btn">
+            about
+        </button>
+        <ul class="footer-module__collapsible-items">
+
+            <li class="footer-module__li">
+                <a href="/en/about.html" class="footer-module__link">
+
+                   Company Overview
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/about/corporate-leadership.html" class="footer-module__link">
+
+                   Leadership
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/about/corporate-governance/board-of-directors.html" class="footer-module__link">
+
+                   Board of Directors
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/about/corporate-governance.html" class="footer-module__link">
+
+                   Corporate Governance
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/about/sustainability.html" class="footer-module__link">
+
+                   Corporate Sustainability
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/about/indigenous-relations.html" class="footer-module__link">
+
+                   Indigenous Relations
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/about/community-engagement.html" class="footer-module__link">
+
+                   Community Engagement
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/about/inclusion-diversity.html" class="footer-module__link">
+
+                   Inclusion, Diversity &amp; Equity
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/about/contact-us.html" class="footer-module__link">
+
+                   Contact Us
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/news.html" class="footer-module__link">
+
+                   News
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/ideas/watch.html" class="footer-module__link">
+
+                   Watch
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/offices/office-finder.html" class="footer-module__link">
+
+                   Find An Office
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/about/supplier-information.html" class="footer-module__link">
+
+                   Supplier Information
+                </a>
+            </li>
+        </ul>
+    </div>
+
+            </div>
+            <div class="footer-module__column">
+                
+    <div class="footer-module__collapsible footer-module__collapsible">
+        <a href="/en/careers.html" class="footer-module__headline-link">
+
+            <h2 class="footer-module__headline">
+                careers
+            </h2>
+        </a>
+        <button class="footer-module__collapsible-btn">
+            careers
+        </button>
+        <ul class="footer-module__collapsible-items">
+
+            <li class="footer-module__li">
+                <a href="/en/ideas/careers.html" class="footer-module__link">
+
+                   Life at Stantec
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/about/inclusion-diversity.html" class="footer-module__link">
+
+                   Inclusion, Diversity &amp; Equity
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/careers/students-graduates.html" class="footer-module__link">
+
+                   Students &amp; Graduates
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="https://stantec.jobs/" target="_blank" class="footer-module__link">
+
+                   Search &amp; Apply
+                </a>
+            </li>
+        </ul>
+    </div>
+
+                
+    <div class="footer-module__collapsible footer-module__collapsible">
+        <a href="/en/investors.html" class="footer-module__headline-link">
+
+            <h2 class="footer-module__headline">
+                investors
+            </h2>
+        </a>
+        <button class="footer-module__collapsible-btn">
+            investors
+        </button>
+        <ul class="footer-module__collapsible-items">
+
+            <li class="footer-module__li">
+                <a href="/en/investors.html" class="footer-module__link">
+
+                   Why Invest
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/investors/stantec-financial-information.html" class="footer-module__link">
+
+                   Financial Reports &amp; Filings
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/investors/shareholder-information.html" class="footer-module__link">
+
+                   Shareholder Information
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/investors/events-presentations.html" class="footer-module__link">
+
+                   Events &amp; Presentations
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/investors/stantec-investor-contacts.html" class="footer-module__link">
+
+                   Contact Information
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/investors/news-investors.html" class="footer-module__link">
+
+                   News
+                </a>
+            </li>
+        </ul>
+    </div>
+
+            </div>
+            <div class="footer-module__column footer-module__column-follow-us">
+                <div class="footer-module__collapsible">
+                    <h2 class="footer-module__headline">
+                        follow us
+                    </h2>
+                    <button class="footer-module__collapsible-btn">
+                        follow us
+                    </button>
+                    <ul class="footer-module__collapsible-items">
+                        <li class="footer-module__li">
+                            
+    <ul class="footer-module__social-media">
+
+        <li class="footer-module__li">
+            <a class="footer-module__icon" href="https://www.facebook.com/StantecInc" target="_blank">
+
+                <img class="footer-module__icon-img" src="/content/dam/stantec/images/Icons/icon-facebook.svg" alt="Facebook"/>
+            </a>
+        </li>
+    
+
+        <li class="footer-module__li">
+            <a class="footer-module__icon" href="https://twitter.com/Stantec" target="_blank">
+
+                <img class="footer-module__icon-img" src="/content/dam/stantec/images/Icons/icon-twitter.svg" alt="Twitter"/>
+            </a>
+        </li>
+    
+
+        <li class="footer-module__li">
+            <a class="footer-module__icon" href="https://www.instagram.com/stantec/" target="_blank">
+
+                <img class="footer-module__icon-img" src="/content/dam/stantec/images/Icons/instagram.svg" alt="Instagram"/>
+            </a>
+        </li>
+    
+
+        <li class="footer-module__li">
+            <a class="footer-module__icon" href="http://www.linkedin.com/company/stantec" target="_blank">
+
+                <img class="footer-module__icon-img" src="/content/dam/stantec/images/Icons/icon-linkedIn.svg" alt="LinkedIn"/>
+            </a>
+        </li>
+    
+
+        <li class="footer-module__li">
+            <a class="footer-module__icon" href="http://www.youtube.com/user/StantecInc" target="_blank">
+
+                <img class="footer-module__icon-img" src="/content/dam/stantec/images/Icons/icon-youtube.svg" alt="YouTube"/>
+            </a>
+        </li>
+    </ul>
+
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+        <address class="footer-module__contact-us">
+            <img src="/content/dam/stantec/images/Icons/logo-dark.png" class="footer-module__contact-us-logo" alt="Stantec"/>
+            <div class="footer-module__contact-us-items">
+                <div class="footer-module__contact-us-item">
+                    <span class="footer-module__contact-us-label">
+                        Phone: 
+                    </span>
+                    <a href="tel:1-866-782-6832" class="footer-module__contact-us-link">
+
+                        1-866-782-6832
+                    </a>
+                </div>
+                <div class="footer-module__contact-us-item">
+                    <span class="footer-module__contact-us-label">
+                        Media Requests:
+                    </span>
+                    <a href="mailto:media@stantec.com" class="footer-module__contact-us-link">
+
+                        media@stantec.com
+                    </a>
+                </div>
+                <div class="footer-module__contact-us-item">
+                    <span class="footer-module__contact-us-label">
+                         
+                    </span>
+                    
+                </div>
+            </div>
+        </address>
+    </div>
+    <section class="footer-module__footer">
+        <div class="footer-module__copyright">
+            ® 2023 Stantec, All rights reserved.
+        </div>
+        <ul class="footer-module__footer-links">
+
+            <li class="footer-module__li">
+                <a href="/en/copyright.html" class="footer-module__footer-link">
+
+                    Copyright &amp; Privacy Policy
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/portals.html" class="footer-module__footer-link">
+
+                    Portals
+                </a>
+            </li>
+        
+
+            <li class="footer-module__li">
+                <a href="/en/sitemap.html" class="footer-module__footer-link">
+
+                    Site Map
+                </a>
+            </li>
+        </ul>
+        
+    <ul class="footer-module__social-media">
+
+        <li class="footer-module__li">
+            <a class="footer-module__icon" href="https://www.facebook.com/StantecInc" target="_blank">
+
+                <img class="footer-module__icon-img" src="/content/dam/stantec/images/Icons/icon-facebook.svg" alt="Facebook"/>
+            </a>
+        </li>
+    
+
+        <li class="footer-module__li">
+            <a class="footer-module__icon" href="https://twitter.com/Stantec" target="_blank">
+
+                <img class="footer-module__icon-img" src="/content/dam/stantec/images/Icons/icon-twitter.svg" alt="Twitter"/>
+            </a>
+        </li>
+    
+
+        <li class="footer-module__li">
+            <a class="footer-module__icon" href="https://www.instagram.com/stantec/" target="_blank">
+
+                <img class="footer-module__icon-img" src="/content/dam/stantec/images/Icons/instagram.svg" alt="Instagram"/>
+            </a>
+        </li>
+    
+
+        <li class="footer-module__li">
+            <a class="footer-module__icon" href="http://www.linkedin.com/company/stantec" target="_blank">
+
+                <img class="footer-module__icon-img" src="/content/dam/stantec/images/Icons/icon-linkedIn.svg" alt="LinkedIn"/>
+            </a>
+        </li>
+    
+
+        <li class="footer-module__li">
+            <a class="footer-module__icon" href="http://www.youtube.com/user/StantecInc" target="_blank">
+
+                <img class="footer-module__icon-img" src="/content/dam/stantec/images/Icons/icon-youtube.svg" alt="YouTube"/>
+            </a>
+        </li>
+    </ul>
+
+    </section>
+    <script>window.STANTEC.loadModule('footerModule');</script>
+</footer>
+</div>
+</div>
+</div>
+</div>
+
+    
+    
+    
+
+    
+    
+<script src="/etc.clientlibs/conf/stantec-core/standardclientlibs/js.js"></script>
+
+
+
+
+
+
+    
+
+    
+
+
+    <button class="back-to-top"><span class="visually-hidden">Back To Top</span></button>
+</body>
+</html>

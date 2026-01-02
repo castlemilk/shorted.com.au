@@ -1,0 +1,13 @@
+{
+  /* Visit https://firebase.google.com/docs/database/security to learn more about security rules. */
+  "rules": {
+    "dashboards": {
+      "$dashboardId": {
+        ".read": "auth != null && auth.uid == data.child('userId').val()",
+        ".write": "auth != null && (auth.uid == data.child('userId').val() || !data.exists())"
+      }
+    },
+    ".read": false,
+    ".write": false
+  }
+}

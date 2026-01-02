@@ -1,0 +1,501 @@
+openapi: 3.1.0
+info:
+  x-logo:
+    url: https://shorted.com.au/logo.png
+  title: Shorted API
+  description: |
+    The Shorted API provides programmatic access to Australian Securities Exchange (ASX) short position data.
+    This includes historical time series, industry-wide trends, and comprehensive company metadata.
+  contact:
+    url: shorted.com.au
+    email: help@shorted.com.au
+  license:
+    name: Proprietary license
+    url: https://shorted.com.au/terms
+  version: v1
+servers:
+  - url: https://api.shorted.com.au
+    description: Production API
+  - url: http://localhost:9091
+    description: Local Development API
+paths:
+  /register.v1.RegisterService/RegisterEmail:
+    post:
+      summary: Register Email
+      description: Register an email address to receive notifications and market updates from Shorted.
+      tags:
+        - register.v1.RegisterService
+      parameters:
+        - $ref: "#/components/parameters/Connect-Protocol-Version"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/register.v1.RegisterEmailRequest"
+        required: true
+      responses:
+        "200":
+          description: A successful registration response.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/register.v1.RegisterEmailResponse"
+        "400":
+          description: Invalid email address format.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/connect.error"
+
+  /shorts.v1alpha1.ShortedStocksService/GetTopShorts:
+    post:
+      summary: Get Top Shorts
+      description: Retrieve the top shorted stocks on the ASX for a given time period. Supports pagination and custom limits.
+      tags:
+        - shorts.v1alpha1.ShortedStocksService
+      parameters:
+        - $ref: "#/components/parameters/Connect-Protocol-Version"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/shorts.v1alpha1.GetTopShortsRequest"
+        required: true
+      responses:
+        "200":
+          description: A successful response containing time series data for the top shorted stocks.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/shorts.v1alpha1.GetTopShortsResponse"
+        "400":
+          description: Invalid request parameters provided.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/connect.error"
+
+  /shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap:
+    post:
+      summary: Get Industry TreeMap
+      description: Retrieve a hierarchical treemap of short positions grouped by industry. Useful for visualizing market-wide shorting trends.
+      tags:
+        - shorts.v1alpha1.ShortedStocksService
+      parameters:
+        - $ref: "#/components/parameters/Connect-Protocol-Version"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/shorts.v1alpha1.GetIndustryTreeMapRequest"
+        required: true
+      responses:
+        "200":
+          description: A successful response containing industry-grouped short position data.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/stocks.v1alpha1.IndustryTreeMap"
+        "400":
+          description: Invalid request parameters.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/connect.error"
+
+  /shorts.v1alpha1.ShortedStocksService/GetStock:
+    post:
+      summary: Get Stock Summary
+      description: Retrieve a summary of current short positions and basic metadata for a specific stock by its ASX code.
+      tags:
+        - shorts.v1alpha1.ShortedStocksService
+      parameters:
+        - $ref: "#/components/parameters/Connect-Protocol-Version"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/shorts.v1alpha1.GetStockRequest"
+        required: true
+      responses:
+        "200":
+          description: A successful response containing the stock summary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/stocks.v1alpha1.Stock"
+        "404":
+          description: The specified stock code was not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/connect.error"
+
+  /shorts.v1alpha1.ShortedStocksService/GetStockDetails:
+    post:
+      summary: Get Stock Details
+      description: Retrieve comprehensive metadata for a specific stock, including company history, key people, and financial reports.
+      tags:
+        - shorts.v1alpha1.ShortedStocksService
+      parameters:
+        - $ref: "#/components/parameters/Connect-Protocol-Version"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/shorts.v1alpha1.GetStockDetailsRequest"
+        required: true
+      responses:
+        "200":
+          description: A successful response containing detailed stock information.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/stocks.v1alpha1.StockDetails"
+        "404":
+          description: The specified stock details were not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/connect.error"
+
+  /shorts.v1alpha1.ShortedStocksService/GetStockData:
+    post:
+      summary: Get Stock Time Series Data
+      description: Retrieve historical short position data for a specific stock over a defined time period. Requires authentication.
+      tags:
+        - shorts.v1alpha1.ShortedStocksService
+      security:
+        - AuthToken: []
+      parameters:
+        - $ref: "#/components/parameters/Connect-Protocol-Version"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/shorts.v1alpha1.GetStockDataRequest"
+        required: true
+      responses:
+        "200":
+          description: A successful response containing historical time series points.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/stocks.v1alpha1.TimeSeriesData"
+        "401":
+          description: Authentication is required to access private time series data.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/connect.error"
+
+  /shorts.v1alpha1.ShortedStocksService/SearchStocks:
+    post:
+      summary: Search Stocks
+      description: Search for ASX stocks using full-text search against their ticker symbol or company name.
+      tags:
+        - shorts.v1alpha1.ShortedStocksService
+      parameters:
+        - $ref: "#/components/parameters/Connect-Protocol-Version"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/shorts.v1alpha1.SearchStocksRequest"
+        required: true
+      responses:
+        "200":
+          description: A list of matching stocks.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/shorts.v1alpha1.SearchStocksResponse"
+
+  /shorts.v1alpha1.ShortedStocksService/MintToken:
+    post:
+      summary: Mint API Token
+      description: Generate a bespoke API token for programmatic access to Shorted APIs. Requires valid session authentication.
+      tags:
+        - shorts.v1alpha1.ShortedStocksService
+      security:
+        - AuthToken: []
+      parameters:
+        - $ref: "#/components/parameters/Connect-Protocol-Version"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/shorts.v1alpha1.MintTokenRequest"
+        required: true
+      responses:
+        "200":
+          description: A new API token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/shorts.v1alpha1.MintTokenResponse"
+        "401":
+          description: Unauthorized - User must be signed in.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/connect.error"
+
+components:
+  parameters:
+    Connect-Protocol-Version:
+      name: Connect-Protocol-Version
+      in: header
+      required: true
+      schema:
+        type: integer
+        enum: [1]
+        default: 1
+      description: Define the version of the Connect protocol.
+    Connect-Timeout-Ms:
+      name: Connect-Timeout-Ms
+      in: header
+      schema:
+        type: integer
+      description: Define the timeout in milliseconds.
+
+  securitySchemes:
+    AuthToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: API token generated via the MintToken endpoint.
+
+  schemas:
+    register.v1.RegisterEmailRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+      required: [email]
+      additionalProperties: false
+
+    register.v1.RegisterEmailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+      additionalProperties: false
+
+    shorts.v1alpha1.GetTopShortsRequest:
+      type: object
+      properties:
+        period:
+          type: string
+          enum: [1m, 3m, 6m, 1y, 2y, max]
+          default: 3m
+          example: 3m
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+          example: 10
+        offset:
+          type: integer
+          minimum: 0
+          default: 0
+          example: 0
+      additionalProperties: false
+
+    shorts.v1alpha1.GetTopShortsResponse:
+      type: object
+      properties:
+        timeSeries:
+          type: array
+          items:
+            $ref: "#/components/schemas/stocks.v1alpha1.TimeSeriesData"
+        offset:
+          type: integer
+          example: 10
+      additionalProperties: false
+
+    shorts.v1alpha1.GetIndustryTreeMapRequest:
+      type: object
+      properties:
+        period:
+          type: string
+          enum: [1m, 3m, 6m, 1y, 2y, max]
+          default: 3m
+        limit:
+          type: integer
+          default: 10
+        viewMode:
+          $ref: "#/components/schemas/shorts.v1alpha1.ViewMode"
+      additionalProperties: false
+
+    shorts.v1alpha1.ViewMode:
+      type: string
+      enum: [CURRENT_CHANGE, PERCENTAGE_CHANGE]
+      default: CURRENT_CHANGE
+
+    shorts.v1alpha1.GetStockRequest:
+      type: object
+      properties:
+        productCode:
+          type: string
+          example: CBA
+      required: [productCode]
+      additionalProperties: false
+
+    shorts.v1alpha1.GetStockDetailsRequest:
+      type: object
+      properties:
+        productCode:
+          type: string
+          example: CBA
+      required: [productCode]
+      additionalProperties: false
+
+    shorts.v1alpha1.GetStockDataRequest:
+      type: object
+      properties:
+        productCode:
+          type: string
+          example: CBA
+        period:
+          type: string
+          enum: [1m, 3m, 6m, 1y, 2y, max]
+          default: 3m
+      required: [productCode]
+      additionalProperties: false
+
+    shorts.v1alpha1.SearchStocksRequest:
+      type: object
+      properties:
+        query:
+          type: string
+          example: Commonwealth
+        limit:
+          type: integer
+          default: 50
+        include_details:
+          type: boolean
+          default: false
+      required: [query]
+      additionalProperties: false
+
+    shorts.v1alpha1.SearchStocksResponse:
+      type: object
+      properties:
+        query:
+          type: string
+        stocks:
+          type: array
+          items:
+            $ref: "#/components/schemas/stocks.v1alpha1.Stock"
+        count:
+          type: integer
+      additionalProperties: false
+
+    shorts.v1alpha1.MintTokenRequest:
+      type: object
+      additionalProperties: false
+
+    shorts.v1alpha1.MintTokenResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: The generated JWT token.
+      additionalProperties: false
+
+    stocks.v1alpha1.Stock:
+      type: object
+      properties:
+        productCode: { type: string, example: CBA }
+        name: { type: string, example: Commonwealth Bank of Australia }
+        totalProductInIssue: { type: number }
+        reportedShortPositions: { type: number }
+        percentageShorted: { type: number }
+        industry: { type: string }
+        tags: { type: array, items: { type: string } }
+        logoUrl: { type: string, format: uri }
+
+    stocks.v1alpha1.TimeSeriesData:
+      type: object
+      properties:
+        productCode: { type: string }
+        name: { type: string }
+        latestShortPosition: { type: number }
+        points:
+          type: array
+          items:
+            $ref: "#/components/schemas/stocks.v1alpha1.TimeSeriesPoint"
+        max: { $ref: "#/components/schemas/stocks.v1alpha1.TimeSeriesPoint" }
+        min: { $ref: "#/components/schemas/stocks.v1alpha1.TimeSeriesPoint" }
+
+    stocks.v1alpha1.TimeSeriesPoint:
+      type: object
+      properties:
+        timestamp: { type: string, format: date-time }
+        shortPosition: { type: number }
+
+    stocks.v1alpha1.IndustryTreeMap:
+      type: object
+      properties:
+        industries: { type: array, items: { type: string } }
+        stocks:
+          type: array
+          items:
+            $ref: "#/components/schemas/stocks.v1alpha1.TreemapShortPosition"
+
+    stocks.v1alpha1.TreemapShortPosition:
+      type: object
+      properties:
+        industry: { type: string }
+        productCode: { type: string }
+        shortPosition: { type: number }
+
+    stocks.v1alpha1.StockDetails:
+      type: object
+      properties:
+        productCode: { type: string }
+        companyName: { type: string }
+        industry: { type: string }
+        address: { type: string }
+        summary: { type: string }
+        details: { type: string }
+        website: { type: string, format: uri }
+        gcsUrl: { type: string, format: uri }
+        tags: { type: array, items: { type: string } }
+        enhanced_summary: { type: string }
+        company_history: { type: string }
+
+    connect.error:
+      type: object
+      properties:
+        code:
+          type: string
+          enum:
+            [
+              CodeCanceled,
+              CodeUnknown,
+              CodeInvalidArgument,
+              CodeDeadlineExceeded,
+              CodeNotFound,
+              CodeAlreadyExists,
+              CodePermissionDenied,
+              CodeResourceExhausted,
+              CodeFailedPrecondition,
+              CodeAborted,
+              CodeOutOfRange,
+              CodeInternal,
+              CodeUnavailable,
+              CodeDataLoss,
+              CodeUnauthenticated,
+            ]
+        message:
+          type: string
+        detail:
+          type: object
+          additionalProperties: true
+      required: [code, message]
