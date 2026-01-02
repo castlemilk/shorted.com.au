@@ -1,7 +1,7 @@
-import React from 'react';
-import { ApiSidebar } from '~/@/components/docs/api-sidebar';
-import { ApiHeader } from '~/@/components/docs/api-header';
-import { parseOpenAPISpec } from '~/lib/openapi/parser';
+import React from "react";
+import { ApiSidebar } from "~/@/components/docs/api-sidebar";
+import { ApiHeader } from "~/@/components/docs/api-header";
+import { parseOpenAPISpec } from "~/lib/openapi/parser";
 
 export default async function ApiDocsLayout({
   children,
@@ -17,11 +17,8 @@ export default async function ApiDocsLayout({
         <aside className="fixed top-14 z-30 -ml-2 hidden h-[calc(100vh-3.5rem)] w-full shrink-0 md:sticky md:block border-r border-zinc-100 dark:border-zinc-800">
           <ApiSidebar groups={spec.groups} />
         </aside>
-        <main className="relative min-h-screen">
-          {children}
-        </main>
+        <main className="relative min-h-screen">{children}</main>
       </div>
     </div>
   );
 }
-

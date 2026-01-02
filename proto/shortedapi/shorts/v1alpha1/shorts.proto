@@ -429,6 +429,12 @@ message SyncRun {
   double total_duration_seconds = 10;
   string environment = 11;
   string hostname = 12;
+  
+  // Checkpoint tracking
+  int32 checkpoint_stocks_total = 13;
+  int32 checkpoint_stocks_processed = 14;
+  int32 checkpoint_stocks_successful = 15;
+  int32 checkpoint_stocks_failed = 16;
 }
 
 // Request for SyncKeyMetrics RPC

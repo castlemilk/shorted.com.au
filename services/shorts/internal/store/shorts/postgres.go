@@ -1005,7 +1005,11 @@ func (s *postgresStore) GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha
 			algolia_records_synced, 
 			total_duration_seconds, 
 			environment, 
-			hostname
+			hostname,
+			checkpoint_stocks_total,
+			checkpoint_stocks_processed,
+			checkpoint_stocks_successful,
+			checkpoint_stocks_failed
 		FROM sync_status
 		WHERE 1=1
 	`
@@ -1052,11 +1056,13 @@ func (s *postgresStore) GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha
 		var startedAt, completedAt sql.NullTime
 		var shortsUpdated, pricesUpdated, metricsUpdated, algoliaSynced sql.NullInt32
 		var duration sql.NullFloat64
+		var checkpointStocksTotal, checkpointStocksProcessed, checkpointStocksSuccessful, checkpointStocksFailed sql.NullInt32
 
 		if err := rows.Scan(
 			&runID, &startedAt, &completedAt, &status, &errMsg,
 			&shortsUpdated, &pricesUpdated, &metricsUpdated, &algoliaSynced,
 			&duration, &env, &hostname,
+			&checkpointStocksTotal, &checkpointStocksProcessed, &checkpointStocksSuccessful, &checkpointStocksFailed,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan sync_status row: %w", err)
 		}
@@ -1077,6 +1083,10 @@ func (s *postgresStore) GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha
 		run.TotalDurationSeconds = duration.Float64
 		run.Environment = env.String
 		run.Hostname = hostname.String
+		run.CheckpointStocksTotal = checkpointStocksTotal.Int32
+		run.CheckpointStocksProcessed = checkpointStocksProcessed.Int32
+		run.CheckpointStocksSuccessful = checkpointStocksSuccessful.Int32
+		run.CheckpointStocksFailed = checkpointStocksFailed.Int32
 
 		runs = append(runs, run)
 	}

@@ -58,3 +58,15 @@ variable "cms_mongodb_secret_name" {
   default     = ""
 }
 
+
+variable "asx_discovery_image" {
+  description = "Docker image URL for asx-discovery job"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/asx-discovery:latest"
+}
+
+variable "market_data_sync_image" {
+  description = "Docker image URL for market-data-sync job"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/market-data-sync:latest"
+}

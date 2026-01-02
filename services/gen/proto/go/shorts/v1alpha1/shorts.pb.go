@@ -872,8 +872,13 @@ type SyncRun struct {
 	TotalDurationSeconds  float64                `protobuf:"fixed64,10,opt,name=total_duration_seconds,json=totalDurationSeconds,proto3" json:"total_duration_seconds,omitempty"`
 	Environment           string                 `protobuf:"bytes,11,opt,name=environment,proto3" json:"environment,omitempty"`
 	Hostname              string                 `protobuf:"bytes,12,opt,name=hostname,proto3" json:"hostname,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// Checkpoint tracking
+	CheckpointStocksTotal      int32 `protobuf:"varint,13,opt,name=checkpoint_stocks_total,json=checkpointStocksTotal,proto3" json:"checkpoint_stocks_total,omitempty"`
+	CheckpointStocksProcessed  int32 `protobuf:"varint,14,opt,name=checkpoint_stocks_processed,json=checkpointStocksProcessed,proto3" json:"checkpoint_stocks_processed,omitempty"`
+	CheckpointStocksSuccessful int32 `protobuf:"varint,15,opt,name=checkpoint_stocks_successful,json=checkpointStocksSuccessful,proto3" json:"checkpoint_stocks_successful,omitempty"`
+	CheckpointStocksFailed     int32 `protobuf:"varint,16,opt,name=checkpoint_stocks_failed,json=checkpointStocksFailed,proto3" json:"checkpoint_stocks_failed,omitempty"`
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
 }
 
 func (x *SyncRun) Reset() {
@@ -988,6 +993,34 @@ func (x *SyncRun) GetHostname() string {
 		return x.Hostname
 	}
 	return ""
+}
+
+func (x *SyncRun) GetCheckpointStocksTotal() int32 {
+	if x != nil {
+		return x.CheckpointStocksTotal
+	}
+	return 0
+}
+
+func (x *SyncRun) GetCheckpointStocksProcessed() int32 {
+	if x != nil {
+		return x.CheckpointStocksProcessed
+	}
+	return 0
+}
+
+func (x *SyncRun) GetCheckpointStocksSuccessful() int32 {
+	if x != nil {
+		return x.CheckpointStocksSuccessful
+	}
+	return 0
+}
+
+func (x *SyncRun) GetCheckpointStocksFailed() int32 {
+	if x != nil {
+		return x.CheckpointStocksFailed
+	}
+	return 0
 }
 
 // Request for SyncKeyMetrics RPC
@@ -2693,7 +2726,7 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x14GetSyncStatusRequest\x12\x14\n" +
 	"\x05limit\x18\x01 \x01(\x05R\x05limit\"E\n" +
 	"\x15GetSyncStatusResponse\x12,\n" +
-	"\x04runs\x18\x01 \x03(\v2\x18.shorts.v1alpha1.SyncRunR\x04runs\"\xed\x03\n" +
+	"\x04runs\x18\x01 \x03(\v2\x18.shorts.v1alpha1.SyncRunR\x04runs\"\xe1\x05\n" +
 	"\aSyncRun\x12\x15\n" +
 	"\x06run_id\x18\x01 \x01(\tR\x05runId\x12\x1d\n" +
 	"\n" +
@@ -2708,7 +2741,11 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x16total_duration_seconds\x18\n" +
 	" \x01(\x01R\x14totalDurationSeconds\x12 \n" +
 	"\venvironment\x18\v \x01(\tR\venvironment\x12\x1a\n" +
-	"\bhostname\x18\f \x01(\tR\bhostname\"N\n" +
+	"\bhostname\x18\f \x01(\tR\bhostname\x126\n" +
+	"\x17checkpoint_stocks_total\x18\r \x01(\x05R\x15checkpointStocksTotal\x12>\n" +
+	"\x1bcheckpoint_stocks_processed\x18\x0e \x01(\x05R\x19checkpointStocksProcessed\x12@\n" +
+	"\x1ccheckpoint_stocks_successful\x18\x0f \x01(\x05R\x1acheckpointStocksSuccessful\x128\n" +
+	"\x18checkpoint_stocks_failed\x18\x10 \x01(\x05R\x16checkpointStocksFailed\"N\n" +
 	"\x15SyncKeyMetricsRequest\x12\x1f\n" +
 	"\vstock_codes\x18\x01 \x03(\tR\n" +
 	"stockCodes\x12\x14\n" +

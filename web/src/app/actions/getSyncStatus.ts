@@ -17,6 +17,10 @@ export interface SyncRun {
   totalDurationSeconds: number;
   environment: string;
   hostname: string;
+  checkpointStocksTotal: number;
+  checkpointStocksProcessed: number;
+  checkpointStocksSuccessful: number;
+  checkpointStocksFailed: number;
 }
 
 export interface SyncStatusFilter {

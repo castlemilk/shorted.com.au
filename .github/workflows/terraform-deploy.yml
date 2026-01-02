@@ -106,6 +106,12 @@ jobs:
           - name: short-data-sync
             dockerfile: services/daily-sync/Dockerfile
             context: services/daily-sync
+          - name: asx-discovery
+            dockerfile: services/asx-discovery/Dockerfile
+            context: services
+          - name: market-data-sync
+            dockerfile: services/market-data-sync/Dockerfile
+            context: services
           - name: cms
             dockerfile: cms/Dockerfile
             context: cms
@@ -196,6 +202,8 @@ jobs:
             -var="short_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/short-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="shorts_api_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="cms_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/cms:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="asx_discovery_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-discovery:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -out=tfplan
         continue-on-error: true
 
@@ -341,7 +349,7 @@ jobs:
           # Clean up orphaned services (exist in GCP but not in Terraform state)
           # This prevents revision conflicts when services were created by gcloud
           echo "Checking for orphaned services..."
-          
+
           if gcloud run services describe shorts-service-pr-${PR_NUMBER} --region=${GCP_REGION} --project=${GCP_PROJECT_ID} &>/dev/null; then
             if ! is_in_state "module.preview.google_cloud_run_v2_service.shorts_preview"; then
               echo "Deleting orphaned shorts service (not in Terraform state)..."
@@ -494,6 +502,8 @@ jobs:
             -var="short_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/short-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="shorts_api_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="cms_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/cms:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="asx_discovery_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-discovery:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -auto-approve
 
       - name: Get Terraform Outputs

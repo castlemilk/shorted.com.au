@@ -403,6 +403,132 @@ history.stock-data.status:
 	@psql "$(DATABASE_URL)" -c \
 		"SELECT stock_code, COUNT(*) as records FROM stock_prices GROUP BY stock_code ORDER BY records DESC LIMIT 10" 2>/dev/null
 
+# ASX Discovery & Market Data Sync
+.PHONY: run.asx-discovery run.market-data-sync run.market-data-sync-cli run.market-data-sync-with-algolia
+.PHONY: test.asx-discovery test.market-data-sync test.market-data-sync-integration
+.PHONY: build.asx-discovery build.market-data-sync push.asx-discovery push.market-data-sync
+
+ASX_DISCOVERY_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/asx-discovery
+MARKET_DATA_SYNC_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/market-data-sync
+
+build.asx-discovery:
+	@echo "🏗️ Building ASX discovery image..."
+	cd asx-discovery && docker build --platform linux/amd64 -t $(ASX_DISCOVERY_IMAGE):latest -t $(ASX_DISCOVERY_IMAGE):$(SHORTS_VERSION) .
+
+push.asx-discovery: build.asx-discovery
+	@echo "⬆️ Pushing ASX discovery image..."
+	docker push $(ASX_DISCOVERY_IMAGE):latest
+	docker push $(ASX_DISCOVERY_IMAGE):$(SHORTS_VERSION)
+
+build.market-data-sync:
+	@echo "🏗️ Building market data sync image..."
+	cd market-data-sync && docker build --platform linux/amd64 -t $(MARKET_DATA_SYNC_IMAGE):latest -t $(MARKET_DATA_SYNC_IMAGE):$(SHORTS_VERSION) .
+
+push.market-data-sync: build.market-data-sync
+	@echo "⬆️ Pushing market data sync image..."
+	docker push $(MARKET_DATA_SYNC_IMAGE):latest
+	docker push $(MARKET_DATA_SYNC_IMAGE):$(SHORTS_VERSION)
+
+run.asx-discovery:
+	@echo "🚀 Running ASX discovery service..."
+	@bash -c ' \
+		if [ -f .env ]; then \
+			set -a; \
+			source .env; \
+			set +a; \
+		fi; \
+		export GCS_BUCKET_NAME=$${GCS_BUCKET_NAME:-shorted-data}; \
+		if [ -n "$$GOOGLE_APPLICATION_CREDENTIALS" ] && [ -f "$$GOOGLE_APPLICATION_CREDENTIALS" ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS="$$(cd $$(dirname "$$GOOGLE_APPLICATION_CREDENTIALS") && pwd)/$$(basename "$$GOOGLE_APPLICATION_CREDENTIALS")"; \
+		elif [ -f "$(GOOGLE_APPLICATION_CREDENTIALS)" ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS="$$(pwd)/$(GOOGLE_APPLICATION_CREDENTIALS)"; \
+		fi; \
+		cd asx-discovery && go run main.go \
+	'
+
+run.market-data-sync:
+	@echo "🚀 Running market data sync API server..."
+	@echo "   Database: $(DATABASE_URL)"
+	@echo "   GCS Bucket: $${GCS_BUCKET_NAME:-shorted-data}"
+	@echo "   Priority Stocks: $${PRIORITY_STOCK_COUNT:-100}"
+	@echo "   Port: $${PORT:-8080}"
+	@echo "   Alpha Vantage: $${ALPHA_VANTAGE_API_KEY:+enabled}"
+	@bash -c ' \
+		if [ -f .env ]; then \
+			set -a; \
+			source .env; \
+			set +a; \
+		fi; \
+		export DATABASE_URL="$(DATABASE_URL)"; \
+		export GCS_BUCKET_NAME=$${GCS_BUCKET_NAME:-shorted-data}; \
+		export PRIORITY_STOCK_COUNT=$${PRIORITY_STOCK_COUNT:-100}; \
+		export PORT=$${PORT:-8080}; \
+		export ALPHA_VANTAGE_API_KEY="$${ALPHA_VANTAGE_API_KEY}"; \
+		if [ -n "$$GOOGLE_APPLICATION_CREDENTIALS" ] && [ -f "$$GOOGLE_APPLICATION_CREDENTIALS" ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS="$$(cd $$(dirname "$$GOOGLE_APPLICATION_CREDENTIALS") && pwd)/$$(basename "$$GOOGLE_APPLICATION_CREDENTIALS")"; \
+		elif [ -f "$(GOOGLE_APPLICATION_CREDENTIALS)" ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS="$$(pwd)/$(GOOGLE_APPLICATION_CREDENTIALS)"; \
+		fi; \
+		cd market-data-sync && go run . \
+	'
+
+run.market-data-sync-cli:
+	@echo "🚀 Running market data sync in CLI mode (full sync)..."
+	@bash -c ' \
+		if [ -f .env ]; then \
+			set -a; \
+			source .env; \
+			set +a; \
+		fi; \
+		export DATABASE_URL="$(DATABASE_URL)"; \
+		export GCS_BUCKET_NAME=$${GCS_BUCKET_NAME:-shorted-data}; \
+		export PRIORITY_STOCK_COUNT=$${PRIORITY_STOCK_COUNT:-100}; \
+		export ALPHA_VANTAGE_API_KEY="$${ALPHA_VANTAGE_API_KEY}"; \
+		if [ -n "$$GOOGLE_APPLICATION_CREDENTIALS" ] && [ -f "$$GOOGLE_APPLICATION_CREDENTIALS" ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS="$$(cd $$(dirname "$$GOOGLE_APPLICATION_CREDENTIALS") && pwd)/$$(basename "$$GOOGLE_APPLICATION_CREDENTIALS")"; \
+		elif [ -f "$(GOOGLE_APPLICATION_CREDENTIALS)" ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS="$$(pwd)/$(GOOGLE_APPLICATION_CREDENTIALS)"; \
+		fi; \
+		cd market-data-sync && go run . -cli \
+	'
+
+run.market-data-sync-with-algolia:
+	@echo "🚀 Running market data sync with Algolia..."
+	@echo "   Database: $(DATABASE_URL)"
+	@echo "   Algolia: $(ALGOLIA_APP_ID)"
+	@bash -c ' \
+		if [ -f .env ]; then \
+			set -a; \
+			source .env; \
+			set +a; \
+		fi; \
+		export DATABASE_URL="$(DATABASE_URL)"; \
+		export GCS_BUCKET_NAME=$${GCS_BUCKET_NAME:-shorted-data}; \
+		export PRIORITY_STOCK_COUNT=$${PRIORITY_STOCK_COUNT:-100}; \
+		export SYNC_ALGOLIA=true; \
+		export ALGOLIA_APP_ID="$(ALGOLIA_APP_ID)"; \
+		export ALGOLIA_ADMIN_KEY="$${ALGOLIA_ADMIN_KEY}"; \
+		export ALGOLIA_INDEX="$(ALGOLIA_INDEX)"; \
+		if [ -n "$$GOOGLE_APPLICATION_CREDENTIALS" ] && [ -f "$$GOOGLE_APPLICATION_CREDENTIALS" ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS="$$(cd $$(dirname "$$GOOGLE_APPLICATION_CREDENTIALS") && pwd)/$$(basename "$$GOOGLE_APPLICATION_CREDENTIALS")"; \
+		elif [ -f "$(GOOGLE_APPLICATION_CREDENTIALS)" ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS="$$(pwd)/$(GOOGLE_APPLICATION_CREDENTIALS)"; \
+		fi; \
+		cd market-data-sync && go run . \
+	'
+
+test.asx-discovery:
+	@echo "🧪 Running ASX discovery integration tests..."
+	@cd asx-discovery && go test -v -tags=integration ./...
+
+test.market-data-sync:
+	@echo "🧪 Running market data sync tests..."
+	@cd market-data-sync && go test -v ./...
+
+test.market-data-sync-integration:
+	@echo "🧪 Running market data sync integration tests..."
+	@cd market-data-sync && go test -v -tags=integration ./...
+
 # Test commands
 .PHONY: test test.coverage test.shorts test.integration test.integration.local test.integration.docker bench
 .PHONY: test-stack-up test-stack-down test-stack-status test-stack-logs

@@ -64,3 +64,14 @@ variable "enrichment_processor_image" {
   default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/enrichment-processor:latest"
 }
 
+variable "asx_discovery_image" {
+  description = "Docker image URL for asx-discovery job"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/asx-discovery:latest"
+}
+
+variable "market_data_sync_image" {
+  description = "Docker image URL for market-data-sync job"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/market-data-sync:latest"
+}

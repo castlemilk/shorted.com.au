@@ -37,10 +37,14 @@ const SiteFooter = () => {
           </a>
         </p>
         <div className="flex items-center gap-2">
-          <Badge 
-            variant="secondary" 
+          <Badge
+            variant="secondary"
             className="cursor-help"
-            title={buildTitleParts.length > 0 ? buildTitleParts.join("\n") : "Build info not available"}
+            title={
+              buildTitleParts.length > 0
+                ? buildTitleParts.join("\n")
+                : "Build info not available"
+            }
           >
             <GitCommit className="w-3 h-3 mr-1" />
             {version}
