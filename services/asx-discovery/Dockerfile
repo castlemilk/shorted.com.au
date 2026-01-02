@@ -2,12 +2,15 @@
 FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
-# We need to copy the whole services dir if there are dependencies, but for now we just have asx-discovery
-COPY go.mod go.sum ./
+# Copy go mod files from asx-discovery subdirectory
+COPY asx-discovery/go.mod asx-discovery/go.sum ./
 RUN go mod download
 
-COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -o asx-discovery main.go
+# Copy all source code from asx-discovery subdirectory
+COPY asx-discovery/ .
+
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -o asx-discovery .
 
 # Final stage - use a Debian-based image for Playwright browser support
 FROM debian:bookworm-slim
