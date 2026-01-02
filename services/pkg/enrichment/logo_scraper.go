@@ -185,6 +185,7 @@ func (s *DefaultLogoScraper) fetchPage(ctx context.Context, pageURL string) (*go
 	defer func() {
 		if err := resp.Body.Close(); err != nil {
 			// Log error but don't fail - response body close errors are usually non-critical
+			_ = err
 		}
 	}()
 
