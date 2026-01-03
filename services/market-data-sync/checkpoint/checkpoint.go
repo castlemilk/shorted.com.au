@@ -51,57 +51,128 @@ func (s *Store) StartRun(ctx context.Context, runID string, total, priorityCount
 		return fmt.Errorf("failed to check existing run: %w", err)
 	}
 
+	// Check if priority columns exist (for backward compatibility)
+	var hasPriorityColumns bool
+	err = s.db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns 
+			WHERE table_name = 'sync_status' 
+			AND column_name = 'checkpoint_priority_total'
+		)
+	`).Scan(&hasPriorityColumns)
+	if err != nil {
+		// If we can't check, assume columns don't exist and use fallback
+		hasPriorityColumns = false
+	}
+
 	if exists {
 		// Update existing run
-		_, err = s.db.Exec(ctx, `
-			UPDATE sync_status SET
-				status = 'running',
-				started_at = CURRENT_TIMESTAMP,
-				checkpoint_stocks_total = $2,
-				checkpoint_priority_total = $3,
-				checkpoint_stocks_processed = 0,
-				checkpoint_stocks_successful = 0,
-				checkpoint_stocks_failed = 0,
-				checkpoint_priority_processed = 0,
-				checkpoint_priority_completed = false
-			WHERE run_id = $1
-		`, runID, total, priorityCount)
+		if hasPriorityColumns {
+			_, err = s.db.Exec(ctx, `
+				UPDATE sync_status SET
+					status = 'running',
+					started_at = CURRENT_TIMESTAMP,
+					checkpoint_stocks_total = $2,
+					checkpoint_priority_total = $3,
+					checkpoint_stocks_processed = 0,
+					checkpoint_stocks_successful = 0,
+					checkpoint_stocks_failed = 0,
+					checkpoint_priority_processed = 0,
+					checkpoint_priority_completed = false
+				WHERE run_id = $1
+			`, runID, total, priorityCount)
+		} else {
+			// Fallback: update without priority columns
+			_, err = s.db.Exec(ctx, `
+				UPDATE sync_status SET
+					status = 'running',
+					started_at = CURRENT_TIMESTAMP,
+					checkpoint_stocks_total = $2,
+					checkpoint_stocks_processed = 0,
+					checkpoint_stocks_successful = 0,
+					checkpoint_stocks_failed = 0
+				WHERE run_id = $1
+			`, runID, total)
+		}
 	} else {
 		// Insert new run
-		_, err = s.db.Exec(ctx, `
-			INSERT INTO sync_status (
-				run_id, status, started_at,
-				checkpoint_stocks_total, checkpoint_priority_total,
-				checkpoint_stocks_processed, checkpoint_stocks_successful, checkpoint_stocks_failed,
-				checkpoint_priority_processed, checkpoint_priority_completed
-			) VALUES ($1, 'running', CURRENT_TIMESTAMP, $2, $3, 0, 0, 0, 0, false)
-		`, runID, total, priorityCount)
+		if hasPriorityColumns {
+			_, err = s.db.Exec(ctx, `
+				INSERT INTO sync_status (
+					run_id, status, started_at,
+					checkpoint_stocks_total, checkpoint_priority_total,
+					checkpoint_stocks_processed, checkpoint_stocks_successful, checkpoint_stocks_failed,
+					checkpoint_priority_processed, checkpoint_priority_completed
+				) VALUES ($1, 'running', CURRENT_TIMESTAMP, $2, $3, 0, 0, 0, 0, false)
+			`, runID, total, priorityCount)
+		} else {
+			// Fallback: insert without priority columns
+			_, err = s.db.Exec(ctx, `
+				INSERT INTO sync_status (
+					run_id, status, started_at,
+					checkpoint_stocks_total,
+					checkpoint_stocks_processed, checkpoint_stocks_successful, checkpoint_stocks_failed
+				) VALUES ($1, 'running', CURRENT_TIMESTAMP, $2, 0, 0, 0)
+			`, runID, total)
+		}
 	}
 	return err
 }
 
 // UpdateProgress updates the sync progress including priority tracking
 func (s *Store) UpdateProgress(ctx context.Context, runID string, processed, successful, failed, priorityProcessed int) error {
-	_, err := s.db.Exec(ctx, `
-		UPDATE sync_status SET
-			checkpoint_stocks_processed = $2,
-			checkpoint_stocks_successful = $3,
-			checkpoint_stocks_failed = $4,
-			checkpoint_priority_processed = $5,
-			checkpoint_priority_completed = CASE
-				WHEN checkpoint_priority_total > 0 AND $5 >= checkpoint_priority_total THEN true
-				ELSE checkpoint_priority_completed
-			END,
-			status = CASE
-				WHEN $2 >= checkpoint_stocks_total THEN 'completed'
-				ELSE 'running'
-			END,
-			completed_at = CASE
-				WHEN $2 >= checkpoint_stocks_total THEN CURRENT_TIMESTAMP
-				ELSE NULL
-			END
-		WHERE run_id = $1
-	`, runID, processed, successful, failed, priorityProcessed)
+	// Check if priority columns exist
+	var hasPriorityColumns bool
+	err := s.db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns 
+			WHERE table_name = 'sync_status' 
+			AND column_name = 'checkpoint_priority_total'
+		)
+	`).Scan(&hasPriorityColumns)
+	if err != nil {
+		hasPriorityColumns = false
+	}
+
+	if hasPriorityColumns {
+		_, err = s.db.Exec(ctx, `
+			UPDATE sync_status SET
+				checkpoint_stocks_processed = $2,
+				checkpoint_stocks_successful = $3,
+				checkpoint_stocks_failed = $4,
+				checkpoint_priority_processed = $5,
+				checkpoint_priority_completed = CASE
+					WHEN checkpoint_priority_total > 0 AND $5 >= checkpoint_priority_total THEN true
+					ELSE checkpoint_priority_completed
+				END,
+				status = CASE
+					WHEN $2 >= checkpoint_stocks_total THEN 'completed'
+					ELSE 'running'
+				END,
+				completed_at = CASE
+					WHEN $2 >= checkpoint_stocks_total THEN CURRENT_TIMESTAMP
+					ELSE NULL
+				END
+			WHERE run_id = $1
+		`, runID, processed, successful, failed, priorityProcessed)
+	} else {
+		// Fallback: update without priority columns
+		_, err = s.db.Exec(ctx, `
+			UPDATE sync_status SET
+				checkpoint_stocks_processed = $2,
+				checkpoint_stocks_successful = $3,
+				checkpoint_stocks_failed = $4,
+				status = CASE
+					WHEN $2 >= checkpoint_stocks_total THEN 'completed'
+					ELSE 'running'
+				END,
+				completed_at = CASE
+					WHEN $2 >= checkpoint_stocks_total THEN CURRENT_TIMESTAMP
+					ELSE NULL
+				END
+			WHERE run_id = $1
+		`, runID, processed, successful, failed)
+	}
 	return err
 }
 
