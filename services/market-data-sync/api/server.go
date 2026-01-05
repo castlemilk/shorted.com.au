@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/market-data-sync/checkpoint"
+	"github.com/castlemilk/shorted.com.au/services/market-data-sync/providers"
 	"github.com/castlemilk/shorted.com.au/services/market-data-sync/sync"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -19,15 +21,17 @@ import (
 type Server struct {
 	syncManager *sync.SyncManager
 	checkpoint  *checkpoint.Store
+	gapDetector *sync.GapDetector
 	db          *pgxpool.Pool
 	port        int
 }
 
 // NewServer creates a new API server
-func NewServer(syncManager *sync.SyncManager, checkpointStore *checkpoint.Store, db *pgxpool.Pool, port int) *Server {
+func NewServer(syncManager *sync.SyncManager, checkpointStore *checkpoint.Store, db *pgxpool.Pool, dataProviders []providers.DataProvider, port int) *Server {
 	return &Server{
 		syncManager: syncManager,
 		checkpoint:  checkpointStore,
+		gapDetector: sync.NewGapDetector(db, dataProviders),
 		db:          db,
 		port:        port,
 	}
@@ -47,6 +51,12 @@ func (s *Server) Start(ctx context.Context) error {
 	mux.HandleFunc("/api/sync/status/", s.handleGetStatus)
 	mux.HandleFunc("/api/sync/status", s.handleGetLatestStatus)
 	mux.HandleFunc("/api/sync/all", s.handleSyncAll)
+
+	// Gap detection and repair endpoints
+	mux.HandleFunc("/api/gaps/detect/", s.handleDetectGaps)
+	mux.HandleFunc("/api/gaps/repair/", s.handleRepairGaps)
+	mux.HandleFunc("/api/gaps/report/", s.handleGapReport)
+	mux.HandleFunc("/api/gaps/detect-all", s.handleDetectAllGaps)
 
 	// CORS middleware
 	handler := s.corsMiddleware(mux)
@@ -301,5 +311,213 @@ func (s *Server) handleSyncAll(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleDetectGaps handles GET /api/gaps/detect/{symbol}
+// Detects gaps in price data for a specific stock
+func (s *Server) handleDetectGaps(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract symbol from path
+	path := r.URL.Path
+	prefix := "/api/gaps/detect/"
+	if !strings.HasPrefix(path, prefix) {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+	symbol := strings.TrimPrefix(path, prefix)
+	if symbol == "" {
+		http.Error(w, "symbol is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get optional minGapDays parameter (default: 4 to account for weekends)
+	minGapDays := 4
+	if minGapStr := r.URL.Query().Get("minGapDays"); minGapStr != "" {
+		if parsed, err := strconv.Atoi(minGapStr); err == nil && parsed > 0 {
+			minGapDays = parsed
+		}
+	}
+
+	log.Printf("🔍 Detecting gaps for %s (minGapDays=%d)", symbol, minGapDays)
+
+	gaps, err := s.gapDetector.DetectGaps(r.Context(), symbol, minGapDays)
+	if err != nil {
+		log.Printf("❌ Failed to detect gaps for %s: %v", symbol, err)
+		http.Error(w, fmt.Sprintf("failed to detect gaps: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"stock_code":   symbol,
+		"min_gap_days": minGapDays,
+		"gaps_found":   len(gaps),
+		"gaps":         gaps,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleRepairGaps handles POST /api/gaps/repair/{symbol}
+// Detects and repairs all gaps for a specific stock
+func (s *Server) handleRepairGaps(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract symbol from path
+	path := r.URL.Path
+	prefix := "/api/gaps/repair/"
+	if !strings.HasPrefix(path, prefix) {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+	symbol := strings.TrimPrefix(path, prefix)
+	if symbol == "" {
+		http.Error(w, "symbol is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get optional minGapDays parameter
+	minGapDays := 4
+	if minGapStr := r.URL.Query().Get("minGapDays"); minGapStr != "" {
+		if parsed, err := strconv.Atoi(minGapStr); err == nil && parsed > 0 {
+			minGapDays = parsed
+		}
+	}
+
+	log.Printf("🔧 Repairing gaps for %s (minGapDays=%d)", symbol, minGapDays)
+
+	// First detect gaps
+	gaps, err := s.gapDetector.DetectGaps(r.Context(), symbol, minGapDays)
+	if err != nil {
+		log.Printf("❌ Failed to detect gaps for %s: %v", symbol, err)
+		http.Error(w, fmt.Sprintf("failed to detect gaps: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if len(gaps) == 0 {
+		response := map[string]interface{}{
+			"stock_code":      symbol,
+			"status":          "no_gaps",
+			"message":         "No gaps found to repair",
+			"records_repaired": 0,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Repair gaps
+	totalRepaired, err := s.gapDetector.RepairAllGaps(r.Context(), symbol, minGapDays)
+	if err != nil {
+		log.Printf("❌ Failed to repair gaps for %s: %v", symbol, err)
+		http.Error(w, fmt.Sprintf("failed to repair gaps: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"stock_code":       symbol,
+		"status":           "repaired",
+		"gaps_found":       len(gaps),
+		"records_repaired": totalRepaired,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleGapReport handles GET /api/gaps/report/{symbol}
+// Generates a detailed gap report for a specific stock
+func (s *Server) handleGapReport(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract symbol from path
+	path := r.URL.Path
+	prefix := "/api/gaps/report/"
+	if !strings.HasPrefix(path, prefix) {
+		http.Error(w, "Invalid path", http.StatusBadRequest)
+		return
+	}
+	symbol := strings.TrimPrefix(path, prefix)
+	if symbol == "" {
+		http.Error(w, "symbol is required", http.StatusBadRequest)
+		return
+	}
+
+	// Get optional minGapDays parameter
+	minGapDays := 4
+	if minGapStr := r.URL.Query().Get("minGapDays"); minGapStr != "" {
+		if parsed, err := strconv.Atoi(minGapStr); err == nil && parsed > 0 {
+			minGapDays = parsed
+		}
+	}
+
+	log.Printf("📊 Generating gap report for %s", symbol)
+
+	report, err := s.gapDetector.GenerateReport(r.Context(), symbol, minGapDays)
+	if err != nil {
+		log.Printf("❌ Failed to generate gap report for %s: %v", symbol, err)
+		http.Error(w, fmt.Sprintf("failed to generate report: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(report)
+}
+
+// handleDetectAllGaps handles GET /api/gaps/detect-all
+// Detects gaps across all stocks with price data
+func (s *Server) handleDetectAllGaps(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get optional minGapDays parameter
+	minGapDays := 4
+	if minGapStr := r.URL.Query().Get("minGapDays"); minGapStr != "" {
+		if parsed, err := strconv.Atoi(minGapStr); err == nil && parsed > 0 {
+			minGapDays = parsed
+		}
+	}
+
+	log.Printf("🔍 Detecting gaps across all stocks (minGapDays=%d)", minGapDays)
+
+	allGaps, err := s.gapDetector.DetectAllGaps(r.Context(), minGapDays)
+	if err != nil {
+		log.Printf("❌ Failed to detect gaps: %v", err)
+		http.Error(w, fmt.Sprintf("failed to detect gaps: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	// Count total gaps and stocks with gaps
+	totalGaps := 0
+	for _, gaps := range allGaps {
+		totalGaps += len(gaps)
+	}
+
+	response := map[string]interface{}{
+		"min_gap_days":      minGapDays,
+		"stocks_with_gaps":  len(allGaps),
+		"total_gaps":        totalGaps,
+		"gaps_by_stock":     allGaps,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
 }

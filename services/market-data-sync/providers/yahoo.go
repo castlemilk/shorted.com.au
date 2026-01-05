@@ -40,7 +40,10 @@ func (p *YahooFinanceProvider) FetchHistoricalData(ctx context.Context, symbol s
 	iter := chart.Get(params)
 	var records []PriceRecord
 
+	// Try to fetch at least one record to detect errors early
+	hasData := false
 	for iter.Next() {
+		hasData = true
 		b := iter.Bar()
 		
 		t := time.Unix(int64(b.Timestamp), 0)
@@ -64,7 +67,14 @@ func (p *YahooFinanceProvider) FetchHistoricalData(ctx context.Context, symbol s
 	}
 
 	if err := iter.Err(); err != nil {
-		return nil, err
+		// Enhance error message with symbol and date range for debugging
+		return nil, fmt.Errorf("yahoo finance API error for %s (%s to %s): %w", yfTicker, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), err)
+	}
+
+	// If no data and no error, Yahoo Finance might have returned empty results
+	// This could indicate the symbol doesn't exist or date range has no data
+	if !hasData && len(records) == 0 {
+		return nil, fmt.Errorf("yahoo finance returned no data for %s (symbol may not exist or date range has no trading data)", yfTicker)
 	}
 
 	return records, nil

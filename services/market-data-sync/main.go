@@ -74,10 +74,11 @@ func main() {
 	}
 
 	// 4. Initialize data providers
-	// Order: Yahoo Finance first (free, unlimited), then Alpha Vantage as fallback (rate limited)
+	// Order: Yahoo Finance Direct first (free, unlimited), then Alpha Vantage as fallback (rate limited)
 	var dataProviders []providers.DataProvider
-	dataProviders = append(dataProviders, providers.NewYahooFinanceProvider())
-	log.Printf("✅ Yahoo Finance provider initialized")
+	// Use direct HTTP client instead of broken piquette/finance-go library
+	dataProviders = append(dataProviders, providers.NewYahooFinanceDirectProvider())
+	log.Printf("✅ Yahoo Finance Direct provider initialized")
 	if cfg.HasAlphaVantage() {
 		dataProviders = append(dataProviders, providers.NewAlphaVantageProvider(cfg.AlphaVantageAPIKey))
 		log.Printf("✅ Alpha Vantage provider initialized (fallback)")
@@ -101,7 +102,7 @@ func main() {
 		log.Printf("🎉 Market Data Sync completed successfully")
 	} else {
 		// API Server mode
-		server := api.NewServer(syncManager, checkpointStore, pool, cfg.Port)
+		server := api.NewServer(syncManager, checkpointStore, pool, dataProviders, cfg.Port)
 		log.Printf("🌐 Starting Market Data Sync API Server")
 		if err := server.Start(ctx); err != nil {
 			log.Fatalf("❌ Server failed: %v", err)
