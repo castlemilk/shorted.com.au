@@ -172,124 +172,133 @@ func (m *SyncManager) SyncStock(ctx context.Context, symbol string) (int, error)
 func (m *SyncManager) syncStock(ctx context.Context, symbol string) (int, error) {
 	totalRecords := 0
 
-	// Check if stock exists and its latest date
+	// STEP 1: Check for gaps FIRST - this determines if we need to sync even if "up to date"
+	gaps := m.detectGapsQuietly(ctx, symbol)
+	hasGaps := len(gaps) > 0
+
+	// STEP 2: Check if stock exists and its latest date
 	var latestDate time.Time
 	err := m.db.QueryRow(ctx, "SELECT MAX(date) FROM stock_prices WHERE stock_code = $1", symbol).Scan(&latestDate)
 
 	startDate := time.Now().AddDate(-10, 0, 0) // Default 10 years of history
+	isNewStock := true
 	if err == nil && !latestDate.IsZero() {
 		startDate = latestDate.AddDate(0, 0, 1)
+		isNewStock = false
 	}
 
 	// Adjust endDate: use end of yesterday if requesting today's data
-	// This handles cases where today's data isn't available yet (market not closed, weekend, etc.)
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	endDate := now
-	
-	// If startDate is today or later, we're trying to fetch today's data
-	// But Yahoo Finance may only have data up to yesterday, so adjust endDate accordingly
+
+	// Determine sync status
+	needsNewData := startDate.Before(today) || startDate.Equal(today)
+	isUpToDate := !needsNewData && !isNewStock
+
+	// Log sync decision with context
+	if hasGaps {
+		log.Printf("🔍 %s: Found %d gap(s) to repair", symbol, len(gaps))
+	}
+
+	if isUpToDate && !hasGaps {
+		log.Printf("⏭️ %s: Up to date (latest: %s), no gaps", symbol, latestDate.Format("2006-01-02"))
+		return 0, nil
+	}
+
+	if isUpToDate && hasGaps {
+		log.Printf("🔧 %s: Up to date but has %d gap(s) - repairing", symbol, len(gaps))
+		gapRecords := m.repairGaps(ctx, symbol, gaps)
+		return gapRecords, nil
+	}
+
+	// If startDate is today, adjust endDate to yesterday
 	if !startDate.Before(today) {
-		// If startDate is tomorrow or later, we're already up to date
-		if startDate.After(today) {
-			log.Printf("⏭️ %s already up to date (latest: %s)", symbol, latestDate.Format("2006-01-02"))
-			// Even if up to date, check for gaps
-			gapRecords, _ := m.repairGapsIfNeeded(ctx, symbol)
-			return gapRecords, nil
-		}
-		// We're requesting today's data - use end of yesterday as the effective end date
-		// This allows the provider to return yesterday's data if today isn't available
 		endDate = today.AddDate(0, 0, -1).Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 	}
 
-	// Try providers in order
-	var records []providers.PriceRecord
-	var syncErr error
-	for _, p := range m.providers {
-		// Always wait before making API call (rate limiting)
-		// This ensures we're respectful to the API even on the first provider
-		// For subsequent providers, this also ensures spacing between attempts
-		select {
-		case <-ctx.Done():
-			return 0, ctx.Err()
-		case <-time.After(p.GetRateLimit()):
+	// STEP 3: Fetch new incremental data
+	if needsNewData || isNewStock {
+		log.Printf("📥 %s: Fetching data from %s to %s", symbol, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
+
+		var records []providers.PriceRecord
+		var syncErr error
+		for _, p := range m.providers {
+			// Rate limiting
+			select {
+			case <-ctx.Done():
+				return 0, ctx.Err()
+			case <-time.After(p.GetRateLimit()):
+			}
+
+			records, syncErr = p.FetchHistoricalData(ctx, symbol, startDate, endDate)
+			if syncErr == nil && len(records) > 0 {
+				log.Printf("✅ %s: Fetched %d new records from %s", symbol, len(records), p.Name())
+				break
+			}
+			if syncErr != nil {
+				log.Printf("⚠️ %s: Provider %s failed: %v", symbol, p.Name(), syncErr)
+			}
 		}
 
-		records, syncErr = p.FetchHistoricalData(ctx, symbol, startDate, endDate)
-		if syncErr == nil && len(records) > 0 {
-			log.Printf("✅ %s: Fetched %d records from %s", symbol, len(records), p.Name())
-			// Success! The rate limit delay before this call ensures proper spacing
-			// No need to wait again - the main loop will handle spacing between stocks
-			break
+		if len(records) > 0 {
+			if err := m.upsertRecords(ctx, records); err != nil {
+				return 0, err
+			}
+			totalRecords += len(records)
+		} else if !hasGaps {
+			// No new records and no gaps to repair
+			return 0, fmt.Errorf("no data found for %s", symbol)
 		}
-		if syncErr != nil {
-			log.Printf("⚠️ %s: Provider %s failed: %v", symbol, p.Name(), syncErr)
-		}
-		// If this wasn't the last provider, the next iteration will wait before calling it
-		// No additional wait needed here - the loop's initial wait handles it
 	}
 
-	if len(records) == 0 {
-		// Even if no new records, check for and repair gaps
-		gapRecords, _ := m.repairGapsIfNeeded(ctx, symbol)
-		if gapRecords > 0 {
-			return gapRecords, nil
-		}
-		return 0, fmt.Errorf("no data found for %s", symbol)
+	// STEP 4: Repair gaps (if any were detected earlier)
+	if hasGaps {
+		gapRecords := m.repairGaps(ctx, symbol, gaps)
+		totalRecords += gapRecords
 	}
-
-	// Upsert records
-	if err := m.upsertRecords(ctx, records); err != nil {
-		return 0, err
-	}
-	totalRecords += len(records)
-
-	// Check for and repair any gaps in the data
-	gapRecords, _ := m.repairGapsIfNeeded(ctx, symbol)
-	totalRecords += gapRecords
 
 	return totalRecords, nil
 }
 
-// repairGapsIfNeeded checks for gaps and repairs them
-// Returns number of records added from gap repair
-func (m *SyncManager) repairGapsIfNeeded(ctx context.Context, symbol string) (int, error) {
-	// Skip gap detection if detector is not initialized
+// detectGapsQuietly checks for gaps without logging (used for initial assessment)
+func (m *SyncManager) detectGapsQuietly(ctx context.Context, symbol string) []Gap {
 	if m.gapDetector == nil {
-		return 0, nil
+		return nil
 	}
 
-	// Detect gaps (minGapDays=4 to account for weekends)
 	gaps, err := m.gapDetector.DetectGaps(ctx, symbol, 4)
 	if err != nil {
-		log.Printf("⚠️ %s: Failed to detect gaps: %v", symbol, err)
-		return 0, err
+		return nil
 	}
+	return gaps
+}
 
+// repairGaps repairs the given gaps and returns the number of records added
+func (m *SyncManager) repairGaps(ctx context.Context, symbol string, gaps []Gap) int {
 	if len(gaps) == 0 {
-		return 0, nil
+		return 0
 	}
 
-	log.Printf("🔧 %s: Found %d gaps, attempting repair...", symbol, len(gaps))
-
-	// Repair gaps
 	totalRepaired := 0
 	for _, gap := range gaps {
+		log.Printf("   🔧 Repairing gap: %s to %s (%d days)",
+			gap.StartDate.Format("2006-01-02"),
+			gap.EndDate.Format("2006-01-02"),
+			gap.Days)
+
 		repaired, err := m.gapDetector.RepairGap(ctx, gap)
 		if err != nil {
-			log.Printf("⚠️ %s: Failed to repair gap (%s to %s): %v",
-				symbol, gap.StartDate.Format("2006-01-02"), gap.EndDate.Format("2006-01-02"), err)
+			log.Printf("   ⚠️ Failed to repair gap: %v", err)
 			continue
 		}
 		totalRepaired += repaired
+		log.Printf("   ✅ Repaired %d records", repaired)
 	}
 
-	if totalRepaired > 0 {
-		log.Printf("✅ %s: Repaired %d gap records", symbol, totalRepaired)
-	}
-
-	return totalRepaired, nil
+	return totalRepaired
 }
+
 
 // upsertRecords inserts or updates price records in the database
 func (m *SyncManager) upsertRecords(ctx context.Context, records []providers.PriceRecord) error {
