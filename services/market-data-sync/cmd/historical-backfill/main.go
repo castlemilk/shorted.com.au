@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -41,13 +42,43 @@ func main() {
 		log.Fatalf("❌ Configuration error: %v", err)
 	}
 
-	// Connect to database
-	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	// Check if using Supabase Session mode (port 5432) - warn user
+	dbURL := cfg.DatabaseURL
+	if strings.Contains(dbURL, "pooler.supabase.com") && strings.Contains(dbURL, ":5432") {
+		log.Printf("⚠️  WARNING: Using Supabase Session mode (port 5432)")
+		log.Printf("⚠️  This has very limited connections and will cause errors!")
+		log.Printf("⚠️  Please use Transaction mode (port 6543) instead:")
+		log.Printf("⚠️  Change :5432 to :6543 in your DATABASE_URL")
+		log.Printf("")
+	}
+
+	// Configure connection pool for Supabase compatibility
+	// Supabase Transaction mode has limited connections, so we use a small pool
+	poolConfig, err := pgxpool.ParseConfig(dbURL)
+	if err != nil {
+		log.Fatalf("❌ Failed to parse database URL: %v", err)
+	}
+	
+	// Limit pool size to avoid exhausting Supabase connections
+	// Transaction mode typically allows ~15-20 connections
+	poolConfig.MaxConns = 3                          // Very conservative for backfill
+	poolConfig.MinConns = 1                          // Keep 1 connection ready
+	poolConfig.MaxConnLifetime = 30 * time.Minute    // Rotate connections
+	poolConfig.MaxConnIdleTime = 5 * time.Minute     // Release idle connections
+	poolConfig.HealthCheckPeriod = 1 * time.Minute   // Check connection health
+	
+	// Create pool with config
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		log.Fatalf("❌ Failed to connect to database: %v", err)
 	}
 	defer pool.Close()
-	log.Printf("✅ Connected to database")
+	
+	// Test connection
+	if err := pool.Ping(ctx); err != nil {
+		log.Fatalf("❌ Failed to ping database: %v", err)
+	}
+	log.Printf("✅ Connected to database (pool: max=%d, min=%d)", poolConfig.MaxConns, poolConfig.MinConns)
 
 	// Connect to GCS (optional - can use local CSV)
 	var gcsClient *storage.Client
