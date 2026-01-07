@@ -14,6 +14,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/market-data-sync/providers"
 	"github.com/castlemilk/shorted.com.au/services/market-data-sync/stocklist"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/api/option"
 )
@@ -59,6 +60,10 @@ func main() {
 	poolConfig.MaxConnLifetime = 30 * time.Minute    // Rotate connections
 	poolConfig.MaxConnIdleTime = 5 * time.Minute     // Release idle connections
 	poolConfig.HealthCheckPeriod = 1 * time.Minute   // Check connection health
+	
+	// CRITICAL: Use simple protocol to avoid prepared statement issues with Supabase pooler
+	// Transaction mode pooler can switch backend connections, breaking prepared statements
+	poolConfig.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 	
 	// Create pool with config
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
