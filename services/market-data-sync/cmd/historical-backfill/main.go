@@ -23,8 +23,7 @@ func main() {
 		years        = flag.Int("years", 10, "Number of years of historical data to fetch")
 		limit        = flag.Int("limit", 0, "Limit number of stocks to process (0 = all)")
 		priorityOnly = flag.Bool("priority-only", false, "Only sync priority (top shorted) stocks")
-		skipExisting = flag.Bool("skip-existing", true, "Skip stocks that already have sufficient data and no gaps")
-		freshStart   = flag.Bool("fresh", false, "Ignore incomplete runs and start fresh (still checks existing data)")
+		forceRefetch = flag.Bool("force", false, "Force re-fetch even if data exists (ignores database state)")
 	)
 	flag.Parse()
 
@@ -175,68 +174,37 @@ func main() {
 	}
 
 	log.Printf("🚀 Starting historical backfill for %d stocks (%d years)", len(stocks), *years)
+	if *forceRefetch {
+		log.Printf("⚠️  Force mode: will re-fetch ALL data regardless of existing records")
+	} else {
+		log.Printf("📋 Smart mode: checking database state for each stock (skip if complete, fetch if gaps/missing)")
+	}
 
-	// Initialize checkpoint system
+	// Initialize checkpoint system (for progress tracking only)
 	checkpointStore := checkpoint.NewStore(pool)
 	
-	// Check for incomplete run to resume from
-	var runID string
-	var processedStocks map[string]bool
-	var resumeFrom int
+	// Always create a new run - we use database state, not checkpoints, for skip decisions
+	runID := uuid.New().String()
 	var successful, failed int
 	
-	incompleteRun, err := checkpointStore.GetIncompleteRun(ctx)
-	if err == nil && incompleteRun != nil && !*freshStart {
-		log.Printf("🔄 Found incomplete run: %s (processed %d/%d stocks)", incompleteRun.RunID, incompleteRun.StocksProcessed, incompleteRun.StocksTotal)
-		log.Printf("📋 Resuming from checkpoint...")
-		log.Printf("💡 Tip: Use -fresh to ignore checkpoints and start fresh")
-		runID = incompleteRun.RunID
-		resumeFrom = incompleteRun.StocksProcessed
-		successful = incompleteRun.StocksSuccessful
-		failed = incompleteRun.StocksFailed
-		
-		// Mark stocks as processed up to the resume point
-		// This assumes the stock list order is stable between runs
-		processedStocks = make(map[string]bool)
-		if resumeFrom > 0 && resumeFrom <= len(stocks) {
-			for j := 0; j < resumeFrom; j++ {
-				processedStocks[stocks[j]] = true
-			}
-			log.Printf("✅ Skipping first %d stocks (already processed in checkpoint)", resumeFrom)
+	// Mark any incomplete runs as superseded
+	if incompleteRun, err := checkpointStore.GetIncompleteRun(ctx); err == nil && incompleteRun != nil {
+		log.Printf("📋 Found old incomplete run %s - marking as superseded", incompleteRun.RunID)
+		if markErr := checkpointStore.FailRun(ctx, incompleteRun.RunID, "Superseded - using database state"); markErr != nil {
+			log.Printf("⚠️ Failed to mark old run: %v", markErr)
 		}
-	} else {
-		// Create new run (either no incomplete run, or fresh start requested)
-		if *freshStart && incompleteRun != nil {
-			log.Printf("🔄 Found incomplete run %s but -fresh flag set, ignoring checkpoint", incompleteRun.RunID)
-			// Mark incomplete run as failed so it doesn't keep getting picked up
-			if markErr := checkpointStore.FailRun(ctx, incompleteRun.RunID, "Superseded by fresh run"); markErr != nil {
-				log.Printf("⚠️ Failed to mark old run as failed: %v", markErr)
-			}
-		}
-		runID = uuid.New().String()
-		log.Printf("🆕 Creating new checkpoint run: %s", runID)
-		if err := checkpointStore.StartRun(ctx, runID, len(stocks), 0); err != nil {
-			log.Printf("⚠️ Failed to create checkpoint: %v (continuing anyway)", err)
-		}
-		processedStocks = make(map[string]bool)
-		resumeFrom = 0
-		successful = 0
-		failed = 0
+	}
+	
+	log.Printf("🆕 Starting run: %s", runID)
+	if err := checkpointStore.StartRun(ctx, runID, len(stocks), 0); err != nil {
+		log.Printf("⚠️ Failed to create checkpoint: %v (continuing anyway)", err)
 	}
 
 	// Calculate date range
 	endDate := time.Now()
 	startDate := endDate.AddDate(-*years, 0, 0)
 
-	// Get total records from checkpoint if resuming
 	var totalRecords int
-	if incompleteRun != nil {
-		runDetails, err := checkpointStore.GetRun(ctx, runID)
-		if err == nil && runDetails != nil {
-			totalRecords = runDetails.PricesRecordsUpdated
-			log.Printf("📊 Resuming with %d total records from previous run", totalRecords)
-		}
-	}
 
 	for i, symbol := range stocks {
 		select {
@@ -250,14 +218,8 @@ func main() {
 		default:
 		}
 
-		// Skip stocks already processed in this run (from checkpoint)
-		if processedStocks[symbol] {
-			log.Printf("⏭️ [%d/%d] Skipping %s - already processed in this run", i+1, len(stocks), symbol)
-			continue
-		}
-
-		// Check if we should skip existing stocks based on actual data in DB
-		if *skipExisting {
+		// Check database state - this is the source of truth (unless -force is set)
+		if !*forceRefetch {
 			var earliestDate, latestDate time.Time
 			var recordCount int
 			err := pool.QueryRow(ctx, `
@@ -286,23 +248,30 @@ func main() {
 				
 				// If we have enough historical data span AND no significant gaps, skip
 				if dataSpanDays >= requiredDays && !hasGaps {
-					log.Printf("⏭️ [%d/%d] Skipping %s - has %d records spanning %d days (need %d), no gaps", 
-						i+1, len(stocks), symbol, recordCount, dataSpanDays, requiredDays)
+					log.Printf("✅ [%d/%d] %s: complete (%d records, %d days, no gaps)", 
+						i+1, len(stocks), symbol, recordCount, dataSpanDays)
 					successful++ // Count as successful since data exists
+					// Update checkpoint progress periodically
+					if (i+1)%50 == 0 {
+						if err := checkpointStore.UpdateProgress(ctx, runID, i+1, successful, failed, 0); err != nil {
+							log.Printf("⚠️ Failed to update checkpoint: %v", err)
+						}
+					}
 					continue
 				}
 				
 				// Log why we're processing this stock
-				if dataSpanDays < requiredDays {
-					log.Printf("📊 [%d/%d] %s needs more data: has %d days, need %d", i+1, len(stocks), symbol, dataSpanDays, requiredDays)
-				}
 				if hasGaps {
-					log.Printf("🔍 [%d/%d] %s has %d gap(s) to repair", i+1, len(stocks), symbol, gapCount)
+					log.Printf("🔍 [%d/%d] %s: has %d gap(s), repairing...", i+1, len(stocks), symbol, gapCount)
+				} else if dataSpanDays < requiredDays {
+					log.Printf("📊 [%d/%d] %s: incomplete (%d/%d days), fetching...", i+1, len(stocks), symbol, dataSpanDays, requiredDays)
 				}
+			} else {
+				log.Printf("🆕 [%d/%d] %s: no data, fetching full history...", i+1, len(stocks), symbol)
 			}
 		}
 
-		log.Printf("📥 [%d/%d] Fetching historical data for %s (%s to %s)...", i+1, len(stocks), symbol, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
+		log.Printf("📥 [%d/%d] Fetching %s (%s to %s)...", i+1, len(stocks), symbol, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
 
 		// Try providers in order
 		var records []providers.PriceRecord
@@ -361,7 +330,6 @@ func main() {
 
 		successful++
 		totalRecords += inserted
-		processedStocks[symbol] = true // Mark as processed
 		log.Printf("✅ [%d/%d] %s: Inserted %d records (total: %d)", i+1, len(stocks), symbol, inserted, totalRecords)
 
 		// Update checkpoint after each successful stock
