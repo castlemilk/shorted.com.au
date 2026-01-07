@@ -224,6 +224,15 @@ func main() {
 		}
 
 		// Check database state - this is the source of truth (unless -force is set)
+		type GapPeriod struct {
+			Start time.Time
+			End   time.Time
+		}
+		var gaps []GapPeriod
+		var needsFullFetch bool
+		var needsIncrementalFetch bool
+		var incrementalStart, incrementalEnd time.Time
+
 		if !*forceRefetch {
 			var earliestDate, latestDate time.Time
 			var recordCount int
@@ -232,31 +241,40 @@ func main() {
 				FROM stock_prices 
 				WHERE stock_code = $1
 			`, symbol).Scan(&earliestDate, &latestDate, &recordCount)
-			
+
 			if err == nil && recordCount > 0 && !earliestDate.IsZero() && !latestDate.IsZero() {
 				// Calculate the span of historical data we have
 				dataSpanDays := int(latestDate.Sub(earliestDate).Hours() / 24)
 				requiredDays := *years * 365
-				
-				// Check for gaps in the data using window function
-				var gapCount int
-				gapErr := pool.QueryRow(ctx, `
+
+				// Query ACTUAL gap periods (not just count) for targeted fetching
+				rows, gapErr := pool.Query(ctx, `
 					WITH date_series AS (
 						SELECT date, LAG(date) OVER (ORDER BY date) as prev_date
 						FROM stock_prices WHERE stock_code = $1
 					)
-					SELECT COUNT(*) FROM date_series 
+					SELECT prev_date, date FROM date_series 
 					WHERE prev_date IS NOT NULL AND (date - prev_date) > 4
-				`, symbol).Scan(&gapCount)
-				
-				hasGaps := gapErr == nil && gapCount > 0
-				
+					ORDER BY prev_date
+				`, symbol)
+
+				if gapErr == nil {
+					defer rows.Close()
+					for rows.Next() {
+						var gapStart, gapEnd time.Time
+						if err := rows.Scan(&gapStart, &gapEnd); err == nil {
+							gaps = append(gaps, GapPeriod{Start: gapStart, End: gapEnd})
+						}
+					}
+				}
+
+				hasGaps := len(gaps) > 0
+
 				// If we have enough historical data span AND no significant gaps, skip
 				if dataSpanDays >= requiredDays && !hasGaps {
-					log.Printf("✅ [%d/%d] %s: complete (%d records, %d days, no gaps)", 
+					log.Printf("✅ [%d/%d] %s: complete (%d records, %d days, no gaps)",
 						i+1, len(stocks), symbol, recordCount, dataSpanDays)
-					successful++ // Count as successful since data exists
-					// Update checkpoint progress periodically
+					successful++
 					if (i+1)%50 == 0 {
 						if err := checkpointStore.UpdateProgress(ctx, runID, i+1, successful, failed, 0); err != nil {
 							log.Printf("⚠️ Failed to update checkpoint: %v", err)
@@ -264,56 +282,113 @@ func main() {
 					}
 					continue
 				}
-				
-				// Log why we're processing this stock
-				if hasGaps {
-					log.Printf("🔍 [%d/%d] %s: has %d gap(s), repairing...", i+1, len(stocks), symbol, gapCount)
+
+				// Decide what to fetch based on data state
+				if hasGaps && dataSpanDays >= requiredDays {
+					// Span is sufficient, ONLY fetch gaps
+					log.Printf("🔧 [%d/%d] %s: has %d gap(s) to repair (span OK)", i+1, len(stocks), symbol, len(gaps))
 				} else if dataSpanDays < requiredDays {
-					log.Printf("📊 [%d/%d] %s: incomplete (%d/%d days), fetching...", i+1, len(stocks), symbol, dataSpanDays, requiredDays)
+					// Need more historical data - fetch from start to earliest OR latest to now
+					if earliestDate.After(startDate) {
+						// Need earlier data
+						needsIncrementalFetch = true
+						incrementalStart = startDate
+						incrementalEnd = earliestDate.AddDate(0, 0, -1)
+						log.Printf("📊 [%d/%d] %s: need earlier data (%s to %s)",
+							i+1, len(stocks), symbol, incrementalStart.Format("2006-01-02"), incrementalEnd.Format("2006-01-02"))
+					}
+					if latestDate.Before(endDate.AddDate(0, 0, -1)) {
+						// Need newer data - but we'll let the regular sync handle this
+						log.Printf("📊 [%d/%d] %s: also needs newer data (latest: %s)",
+							i+1, len(stocks), symbol, latestDate.Format("2006-01-02"))
+					}
 				}
 			} else {
+				// No data at all - need full fetch
+				needsFullFetch = true
 				log.Printf("🆕 [%d/%d] %s: no data, fetching full history...", i+1, len(stocks), symbol)
 			}
+		} else {
+			needsFullFetch = true
 		}
 
-		log.Printf("📥 [%d/%d] Fetching %s (%s to %s)...", i+1, len(stocks), symbol, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
+		var allRecords []providers.PriceRecord
 
-		// Try providers in order
-		var records []providers.PriceRecord
-		var syncErr error
-		for _, p := range dataProviders {
-			// Rate limiting
-			select {
-			case <-ctx.Done():
-				log.Printf("⏹️ Interrupted")
-				return
-			case <-time.After(p.GetRateLimit()):
+		// Helper function to fetch from providers
+		fetchData := func(fetchStart, fetchEnd time.Time) ([]providers.PriceRecord, error) {
+			for _, p := range dataProviders {
+				select {
+				case <-ctx.Done():
+					return nil, ctx.Err()
+				case <-time.After(p.GetRateLimit()):
+				}
+
+				records, err := p.FetchHistoricalData(ctx, symbol, fetchStart, fetchEnd)
+				if err == nil && len(records) > 0 {
+					return records, nil
+				}
+			}
+			return nil, nil
+		}
+
+		// Fetch based on what's needed
+		if needsFullFetch {
+			log.Printf("📥 [%d/%d] Fetching %s full history (%s to %s)...",
+				i+1, len(stocks), symbol, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
+			records, _ := fetchData(startDate, endDate)
+			if len(records) > 0 {
+				log.Printf("✅ %s: Fetched %d records", symbol, len(records))
+				allRecords = append(allRecords, records...)
+			}
+		} else {
+			// Fetch only gaps
+			if len(gaps) > 0 {
+				for gi, gap := range gaps {
+					// Add 1 day buffer on each side of gap
+					gapStart := gap.Start.AddDate(0, 0, 1)
+					gapEnd := gap.End.AddDate(0, 0, -1)
+					if gapStart.After(gapEnd) {
+						continue
+					}
+					log.Printf("🔧 [%d/%d] %s: fetching gap %d/%d (%s to %s)",
+						i+1, len(stocks), symbol, gi+1, len(gaps), gapStart.Format("2006-01-02"), gapEnd.Format("2006-01-02"))
+					records, _ := fetchData(gapStart, gapEnd)
+					if len(records) > 0 {
+						log.Printf("   ✅ Got %d records for gap", len(records))
+						allRecords = append(allRecords, records...)
+					}
+				}
 			}
 
-			records, syncErr = p.FetchHistoricalData(ctx, symbol, startDate, endDate)
-			if syncErr == nil && len(records) > 0 {
-				log.Printf("✅ %s: Fetched %d records from %s", symbol, len(records), p.Name())
-				break
-			}
-			if syncErr != nil {
-				log.Printf("⚠️ %s: Provider %s failed: %v", symbol, p.Name(), syncErr)
+			// Fetch incremental data if needed
+			if needsIncrementalFetch {
+				log.Printf("📥 [%d/%d] %s: fetching earlier history (%s to %s)...",
+					i+1, len(stocks), symbol, incrementalStart.Format("2006-01-02"), incrementalEnd.Format("2006-01-02"))
+				records, _ := fetchData(incrementalStart, incrementalEnd)
+				if len(records) > 0 {
+					log.Printf("✅ %s: Fetched %d earlier records", symbol, len(records))
+					allRecords = append(allRecords, records...)
+				}
 			}
 		}
 
-		if len(records) == 0 {
-			log.Printf("❌ [%d/%d] Failed to fetch data for %s", i+1, len(stocks), symbol)
-			failed++
-			// Update checkpoint on failure
+		if len(allRecords) == 0 {
+			if needsFullFetch {
+				log.Printf("❌ [%d/%d] Failed to fetch data for %s", i+1, len(stocks), symbol)
+				failed++
+			} else {
+				log.Printf("⏭️ [%d/%d] %s: no new records needed", i+1, len(stocks), symbol)
+				successful++
+			}
 			if err := checkpointStore.UpdateProgress(ctx, runID, i+1, successful, failed, 0); err != nil {
 				log.Printf("⚠️ Failed to update checkpoint: %v", err)
 			}
 			continue
 		}
 
-		// Insert records into database using sync manager's upsert method
-		// We'll need to access the private method, so let's create a helper
+		// Insert records into database
 		inserted := 0
-		for _, record := range records {
+		for _, record := range allRecords {
 			_, err := pool.Exec(ctx, `
 				INSERT INTO stock_prices (stock_code, date, open, high, low, close, adjusted_close, volume)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
