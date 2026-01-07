@@ -24,15 +24,9 @@ func main() {
 		limit        = flag.Int("limit", 0, "Limit number of stocks to process (0 = all)")
 		priorityOnly = flag.Bool("priority-only", false, "Only sync priority (top shorted) stocks")
 		skipExisting = flag.Bool("skip-existing", true, "Skip stocks that already have sufficient data and no gaps")
-		freshStart   = flag.Bool("fresh", true, "Ignore incomplete runs and start fresh (still checks existing data)")
-		resumeRun    = flag.Bool("resume", false, "Resume from incomplete checkpoint instead of starting fresh")
+		freshStart   = flag.Bool("fresh", false, "Ignore incomplete runs and start fresh (still checks existing data)")
 	)
 	flag.Parse()
-	
-	// -resume overrides -fresh
-	if *resumeRun {
-		*freshStart = false
-	}
 
 	ctx := context.Background()
 
@@ -194,7 +188,8 @@ func main() {
 	incompleteRun, err := checkpointStore.GetIncompleteRun(ctx)
 	if err == nil && incompleteRun != nil && !*freshStart {
 		log.Printf("🔄 Found incomplete run: %s (processed %d/%d stocks)", incompleteRun.RunID, incompleteRun.StocksProcessed, incompleteRun.StocksTotal)
-		log.Printf("📋 Resuming from checkpoint (use -fresh to ignore checkpoints)")
+		log.Printf("📋 Resuming from checkpoint...")
+		log.Printf("💡 Tip: Use -fresh to ignore checkpoints and start fresh")
 		runID = incompleteRun.RunID
 		resumeFrom = incompleteRun.StocksProcessed
 		successful = incompleteRun.StocksSuccessful
