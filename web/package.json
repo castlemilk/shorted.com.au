@@ -1,6 +1,6 @@
 {
   "name": "shorted",
-  "version": "v0.2.2-625-gcf24c6f0",
+  "version": "v0.2.2-625-gcf24c6f0-dirty",
   "private": true,
   "type": "module",
   "moduleResolution": "Node",
