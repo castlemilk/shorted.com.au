@@ -30,8 +30,7 @@ func TestGetStockDetailsSQLQuery(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dbURL)
-	require.NoError(t, err, "Failed to create connection pool")
+	pool := createTestPool(t, dbURL)
 	defer pool.Close()
 
 	// Test query that matches GetStockDetails implementation exactly
@@ -167,8 +166,7 @@ func TestGetStockDetailsColumnNames(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dbURL)
-	require.NoError(t, err, "Failed to create connection pool")
+	pool := createTestPool(t, dbURL)
 	defer pool.Close()
 
 	// Query to get all column names from company-metadata table
@@ -247,6 +245,24 @@ func getTestDatabaseURL() string {
 	return ""
 }
 
+// Helper function to create a test connection pool with simple protocol mode
+// This prevents prepared statement cache conflicts when tests run
+func createTestPool(t *testing.T, dbURL string) *pgxpool.Pool {
+	t.Helper()
+	ctx := context.Background()
+	
+	config, err := pgxpool.ParseConfig(dbURL)
+	require.NoError(t, err, "Failed to parse DATABASE_URL")
+	
+	// Use simple protocol mode to avoid prepared statement cache conflicts
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+	
+	pool, err := pgxpool.NewWithConfig(ctx, config)
+	require.NoError(t, err, "Failed to create connection pool")
+	
+	return pool
+}
+
 // TestGetStockDetailsLogoFallback tests that logo_url is used as fallback when logo_gcs_url is NULL
 func TestGetStockDetailsLogoFallback(t *testing.T) {
 	if testing.Short() {
@@ -259,8 +275,7 @@ func TestGetStockDetailsLogoFallback(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dbURL)
-	require.NoError(t, err, "Failed to create connection pool")
+	pool := createTestPool(t, dbURL)
 	defer pool.Close()
 
 	hasLogoURL, err := hasColumn(ctx, pool, "logo_url")
@@ -377,8 +392,7 @@ func TestGetStockDetailsKeyMetricsMerge(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dbURL)
-	require.NoError(t, err, "Failed to create connection pool")
+	pool := createTestPool(t, dbURL)
 	defer pool.Close()
 
 	// Check if key_metrics column exists
@@ -460,8 +474,7 @@ func TestGetStockDetailsKeyMetricsPreserveExisting(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dbURL)
-	require.NoError(t, err, "Failed to create connection pool")
+	pool := createTestPool(t, dbURL)
 	defer pool.Close()
 
 	hasKeyMetrics, err := hasColumn(ctx, pool, "key_metrics")
@@ -547,8 +560,7 @@ func TestGetStockDetailsNoKeyMetrics(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	pool, err := pgxpool.New(ctx, dbURL)
-	require.NoError(t, err, "Failed to create connection pool")
+	pool := createTestPool(t, dbURL)
 	defer pool.Close()
 
 	hasKeyMetrics, err := hasColumn(ctx, pool, "key_metrics")

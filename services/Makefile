@@ -407,6 +407,7 @@ history.stock-data.status:
 .PHONY: run.asx-discovery run.market-data-sync run.market-data-sync-cli run.market-data-sync-with-algolia
 .PHONY: test.asx-discovery test.market-data-sync test.market-data-sync-integration
 .PHONY: build.asx-discovery build.market-data-sync push.asx-discovery push.market-data-sync
+.PHONY: backfill.historical backfill.historical-symbol backfill.historical-force backfill.historical-test
 
 ASX_DISCOVERY_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/asx-discovery
 MARKET_DATA_SYNC_IMAGE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/market-data-sync
@@ -528,6 +529,88 @@ test.market-data-sync:
 test.market-data-sync-integration:
 	@echo "🧪 Running market data sync integration tests..."
 	@cd market-data-sync && go test -v -tags=integration ./...
+
+# Historical Backfill Commands
+backfill.historical: ## Backfill historical stock data for all stocks (10 years)
+	@echo "📊 Running historical backfill for all stocks (10 years)..."
+	@echo "   Database: $(DATABASE_URL)"
+	@bash -c ' \
+		if [ -f .env ]; then \
+			set -a; \
+			source .env; \
+			set +a; \
+		fi; \
+		export DATABASE_URL="$(DATABASE_URL)"; \
+		export GCS_BUCKET_NAME=$${GCS_BUCKET_NAME:-shorted-data}; \
+		if [ -n "$$GOOGLE_APPLICATION_CREDENTIALS" ] && [ -f "$$GOOGLE_APPLICATION_CREDENTIALS" ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS="$$(cd $$(dirname "$$GOOGLE_APPLICATION_CREDENTIALS") && pwd)/$$(basename "$$GOOGLE_APPLICATION_CREDENTIALS")"; \
+		elif [ -f "$(GOOGLE_APPLICATION_CREDENTIALS)" ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS="$$(pwd)/$(GOOGLE_APPLICATION_CREDENTIALS)"; \
+		fi; \
+		cd market-data-sync && go run ./cmd/historical-backfill -years=10 \
+	'
+
+backfill.historical-symbol: ## Backfill historical data for a specific stock (usage: make backfill.historical-symbol SYMBOL=DMP)
+	@if [ -z "$(SYMBOL)" ]; then \
+		echo "❌ Please provide SYMBOL=<stock_code>"; \
+		echo "   Example: make backfill.historical-symbol SYMBOL=DMP"; \
+		exit 1; \
+	fi
+	@echo "📊 Running historical backfill for $(SYMBOL)..."
+	@echo "   Database: $(DATABASE_URL)"
+	@bash -c ' \
+		if [ -f .env ]; then \
+			set -a; \
+			source .env; \
+			set +a; \
+		fi; \
+		export DATABASE_URL="$(DATABASE_URL)"; \
+		export GCS_BUCKET_NAME=$${GCS_BUCKET_NAME:-shorted-data}; \
+		if [ -n "$$GOOGLE_APPLICATION_CREDENTIALS" ] && [ -f "$$GOOGLE_APPLICATION_CREDENTIALS" ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS="$$(cd $$(dirname "$$GOOGLE_APPLICATION_CREDENTIALS") && pwd)/$$(basename "$$GOOGLE_APPLICATION_CREDENTIALS")"; \
+		elif [ -f "$(GOOGLE_APPLICATION_CREDENTIALS)" ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS="$$(pwd)/$(GOOGLE_APPLICATION_CREDENTIALS)"; \
+		fi; \
+		cd market-data-sync && go run ./cmd/historical-backfill -symbol=$(SYMBOL) -years=$${YEARS:-10} \
+	'
+
+backfill.historical-force: ## Force re-fetch all historical data (ignores existing records)
+	@echo "⚠️  Force mode: Re-fetching ALL historical data..."
+	@echo "   Database: $(DATABASE_URL)"
+	@bash -c ' \
+		if [ -f .env ]; then \
+			set -a; \
+			source .env; \
+			set +a; \
+		fi; \
+		export DATABASE_URL="$(DATABASE_URL)"; \
+		export GCS_BUCKET_NAME=$${GCS_BUCKET_NAME:-shorted-data}; \
+		if [ -n "$$GOOGLE_APPLICATION_CREDENTIALS" ] && [ -f "$$GOOGLE_APPLICATION_CREDENTIALS" ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS="$$(cd $$(dirname "$$GOOGLE_APPLICATION_CREDENTIALS") && pwd)/$$(basename "$$GOOGLE_APPLICATION_CREDENTIALS")"; \
+		elif [ -f "$(GOOGLE_APPLICATION_CREDENTIALS)" ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS="$$(pwd)/$(GOOGLE_APPLICATION_CREDENTIALS)"; \
+		fi; \
+		cd market-data-sync && go run ./cmd/historical-backfill -years=$${YEARS:-10} -force \
+	'
+
+backfill.historical-test: ## Test backfill with limited stocks (usage: make backfill.historical-test LIMIT=10 YEARS=2)
+	@echo "🧪 Running test backfill ($(or $(LIMIT),10) stocks, $(or $(YEARS),2) years)..."
+	@echo "   Database: $(DATABASE_URL)"
+	@bash -c ' \
+		if [ -f .env ]; then \
+			set -a; \
+			source .env; \
+			set +a; \
+		fi; \
+		export DATABASE_URL="$(DATABASE_URL)"; \
+		export GCS_BUCKET_NAME=$${GCS_BUCKET_NAME:-shorted-data}; \
+		if [ -n "$$GOOGLE_APPLICATION_CREDENTIALS" ] && [ -f "$$GOOGLE_APPLICATION_CREDENTIALS" ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS="$$(cd $$(dirname "$$GOOGLE_APPLICATION_CREDENTIALS") && pwd)/$$(basename "$$GOOGLE_APPLICATION_CREDENTIALS")"; \
+		elif [ -f "$(GOOGLE_APPLICATION_CREDENTIALS)" ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS="$$(pwd)/$(GOOGLE_APPLICATION_CREDENTIALS)"; \
+		fi; \
+		cd market-data-sync && go run ./cmd/historical-backfill -years=$(or $(YEARS),2) -limit=$(or $(LIMIT),10) \
+	'
 
 # Test commands
 .PHONY: test test.coverage test.shorts test.integration test.integration.local test.integration.docker bench

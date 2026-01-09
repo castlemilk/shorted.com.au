@@ -151,7 +151,7 @@ func TestYahooFinanceProvider_Integration(t *testing.T) {
 		startDate := time.Now().AddDate(0, 0, -7)
 		endDate := time.Now()
 
-		records, err := provider.FetchHistoricalData(ctx, "BHP", startDate, endDate)
+		_, err := provider.FetchHistoricalData(ctx, "BHP", startDate, endDate)
 
 		// Should handle cancellation gracefully
 		// Note: piquette/finance-go may not respect context cancellation immediately
@@ -179,7 +179,7 @@ func TestYahooFinanceProvider_ErrorDetails(t *testing.T) {
 			startDate := time.Now().AddDate(0, 0, -7)
 			endDate := time.Now()
 
-			_, err := provider.FetchHistoricalData(ctx, symbol, startDate, endDate)
+			records, err := provider.FetchHistoricalData(ctx, symbol, startDate, endDate)
 
 			if err != nil {
 				// Log detailed error information
