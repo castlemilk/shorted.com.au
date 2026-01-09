@@ -70,6 +70,13 @@ func newPostgresStore(config Config) Store {
 		panic("Unable to parse database config: " + err.Error())
 	}
 
+	// IMPORTANT: Use simple protocol mode to avoid prepared statement cache conflicts
+	// with pooled Postgres connections (e.g. Supabase/pgbouncer).
+	//
+	// Without this, Postgres can return:
+	//   ERROR: prepared statement "stmtcache_..." already exists (SQLSTATE 42P05)
+	poolConfig.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+
 	// Set connection pool settings for better concurrency
 	poolConfig.MaxConns = 25                      // Maximum number of connections
 	poolConfig.MinConns = 5                       // Minimum number of connections

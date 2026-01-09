@@ -27,6 +27,7 @@ import { reviewEnrichmentAction } from "~/app/actions/reviewEnrichment";
 import { triggerEnrichmentAction } from "~/app/actions/triggerEnrichment";
 import { EnrichmentStatus } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { EnrichmentJobsStatus } from "@/components/admin/enrichment-jobs-status";
+import { retryWithBackoff } from "@/lib/retry";
 
 export const dynamic = "force-dynamic";
 
@@ -98,13 +99,47 @@ export default async function AdminEnrichmentsPage({
   }
 
   const { id } = await searchParams;
-  const pending = await getPendingEnrichments(100, 0);
+  
+  // Wrap API calls in try-catch with retry logic to handle errors gracefully
+  let pending: Awaited<ReturnType<typeof getPendingEnrichments>> = [];
+  let comparison: Awaited<ReturnType<typeof getEnrichmentComparison>> | null = null;
+  let error: string | null = null;
+
+  try {
+    pending = await retryWithBackoff(
+      () => getPendingEnrichments(100, 0),
+      {
+        maxRetries: 3,
+        initialDelayMs: 500,
+        maxDelayMs: 5000,
+      },
+    );
+  } catch (err) {
+    console.error("Failed to load pending enrichments after retries:", err);
+    error = err instanceof Error ? err.message : "Failed to load pending enrichments";
+    // Continue with empty array to allow page to render
+  }
 
   const selected = id ? pending.find((p) => p.enrichmentId === id) : undefined;
-  const comparison =
-    selected?.stockCode && selected?.enrichmentId
-      ? await getEnrichmentComparison(selected.stockCode, selected.enrichmentId)
-      : null;
+  
+  // Only try to load comparison if we have a valid selection
+  if (selected?.stockCode && selected?.enrichmentId) {
+    try {
+      comparison = await retryWithBackoff(
+        () => getEnrichmentComparison(selected.stockCode, selected.enrichmentId),
+        {
+          maxRetries: 3,
+          initialDelayMs: 500,
+          maxDelayMs: 5000,
+        },
+      );
+    } catch (err) {
+      console.error("Failed to load enrichment comparison after retries:", err);
+      // Append to error message if one already exists, otherwise set it
+      const comparisonError = err instanceof Error ? err.message : "Failed to load enrichment comparison";
+      error = error ? `${error}. ${comparisonError}` : comparisonError;
+    }
+  }
 
   const current = comparison?.current;
   const v2 = comparison?.pending?.data;
@@ -209,6 +244,19 @@ export default async function AdminEnrichmentsPage({
             Back to Admin
           </Link>
         </div>
+
+        {error && (
+          <Card className="border-red-200 bg-red-50 dark:bg-red-950/20">
+            <CardHeader>
+              <CardTitle className="text-red-600 dark:text-red-400">
+                Error Loading Data
+              </CardTitle>
+              <CardDescription className="text-red-600/80 dark:text-red-400/80">
+                {error}
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        )}
 
         <EnrichmentJobsStatus />
 

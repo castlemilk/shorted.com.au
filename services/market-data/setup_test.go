@@ -145,9 +145,9 @@ func seedTestData(ctx context.Context) error {
 	defer pool.Close()
 
 	// Insert test data for multiple stocks with historical data
-	// Generate data for the last 3 months for realistic testing
+	// Generate data for the last 10 years to support max period queries
 	now := time.Now().UTC()
-	startDate := now.AddDate(0, -3, 0)
+	startDate := now.AddDate(-10, 0, 0)
 
 	testStocks := []struct {
 		code      string
@@ -157,6 +157,12 @@ func seedTestData(ctx context.Context) error {
 		{"CBA", 100.0},
 		{"BHP", 45.0},
 		{"CSL", 280.0},
+		{"ANZ", 25.0},
+		{"WBC", 22.0},
+		{"NAB", 28.0},
+		{"MQG", 150.0},
+		{"TLS", 4.0},
+		{"RIO", 120.0},
 	}
 
 	for _, stock := range testStocks {

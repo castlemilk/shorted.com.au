@@ -269,6 +269,7 @@ func (s *Store) CompleteRun(ctx context.Context, runID string) error {
 }
 
 // GetIncompleteRun retrieves the most recent incomplete sync run
+// Prefers runs with the most progress (stocks processed) to avoid resuming from barely-started runs
 func (s *Store) GetIncompleteRun(ctx context.Context) (*Checkpoint, error) {
 	var cp Checkpoint
 	var priorityTotal, priorityProcessed sql.NullInt32
@@ -287,7 +288,9 @@ func (s *Store) GetIncompleteRun(ctx context.Context) (*Checkpoint, error) {
 			COALESCE(checkpoint_priority_completed, false)
 		FROM sync_status
 		WHERE status IN ('running', 'partial')
-		ORDER BY started_at DESC
+			AND checkpoint_stocks_total IS NOT NULL
+			AND checkpoint_stocks_processed IS NOT NULL
+		ORDER BY checkpoint_stocks_processed DESC, started_at DESC
 		LIMIT 1
 	`).Scan(
 		&cp.RunID,

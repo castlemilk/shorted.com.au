@@ -41,6 +41,9 @@ help:
 	@echo "  db-diagnose   - Diagnose database query performance issues"
 	@echo "  db-optimize   - Apply performance indexes to database"
 	@echo "  db-analyze    - Update database statistics for query optimizer"
+	@echo "  backfill-historical - Backfill historical stock data (all stocks, 10 years)"
+	@echo "  backfill-historical-symbol - Backfill for specific stock (usage: SYMBOL=DMP)"
+	@echo "  backfill-historical-test - Test backfill with limited stocks (usage: LIMIT=10 YEARS=2)"
 
 # Test commands
 test: lint build-frontend test-unit
@@ -489,6 +492,19 @@ db-analyze: ## Update database statistics for query planner
 	@echo "📊 Updating database statistics..."
 	@echo "This requires DATABASE_URL environment variable to be set"
 	@echo "Run: ANALYZE shorts; ANALYZE \"company-metadata\";"
+
+# Historical Backfill Commands
+backfill-historical: ## Backfill historical stock data for all stocks (10 years)
+	@cd services && $(MAKE) backfill.historical
+
+backfill-historical-symbol: ## Backfill historical data for a specific stock (usage: make backfill-historical-symbol SYMBOL=DMP)
+	@cd services && $(MAKE) backfill.historical-symbol SYMBOL=$(SYMBOL)
+
+backfill-historical-force: ## Force re-fetch all historical data (ignores existing records)
+	@cd services && $(MAKE) backfill.historical-force
+
+backfill-historical-test: ## Test backfill with limited stocks (usage: make backfill-historical-test LIMIT=10 YEARS=2)
+	@cd services && $(MAKE) backfill.historical-test LIMIT=$(LIMIT) YEARS=$(YEARS)
 
 db-optimize-full: ## Full database optimization (indexes + statistics + validation)
 	@echo "🚀 Running full database optimization..."

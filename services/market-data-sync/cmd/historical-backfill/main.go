@@ -25,6 +25,7 @@ func main() {
 		limit        = flag.Int("limit", 0, "Limit number of stocks to process (0 = all)")
 		priorityOnly = flag.Bool("priority-only", false, "Only sync priority (top shorted) stocks")
 		forceRefetch = flag.Bool("force", false, "Force re-fetch even if data exists (ignores database state)")
+		symbol       = flag.String("symbol", "", "Process only this specific stock symbol (e.g., DMP). If provided, ignores other filters.")
 	)
 	flag.Parse()
 
@@ -78,19 +79,25 @@ func main() {
 	}
 	log.Printf("✅ Connected to database (pool: max=%d, min=%d)", poolConfig.MaxConns, poolConfig.MinConns)
 
-	// Connect to GCS (optional - can use local CSV)
+	// Connect to GCS (optional - not needed when using -symbol flag)
 	var gcsClient *storage.Client
-	if os.Getenv("LOCAL_ASX_CSV") == "" {
+	if *symbol == "" && os.Getenv("LOCAL_ASX_CSV") == "" {
+		// Only initialize GCS if we need to fetch stock list (not using -symbol)
 		var gcsOpts []option.ClientOption
 		if creds := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"); creds != "" {
 			gcsOpts = append(gcsOpts, option.WithCredentialsFile(creds))
 		}
 		gcsClient, err = storage.NewClient(ctx, gcsOpts...)
 		if err != nil {
-			log.Fatalf("❌ Failed to create GCS client: %v", err)
+			log.Printf("⚠️ Failed to create GCS client: %v", err)
+			log.Printf("💡 Will fall back to database for stock list")
+			gcsClient = nil
+		} else {
+			defer gcsClient.Close()
+			log.Printf("✅ Connected to GCS")
 		}
-		defer gcsClient.Close()
-		log.Printf("✅ Connected to GCS")
+	} else if *symbol != "" {
+		log.Printf("ℹ️ Single stock mode (-symbol), skipping GCS initialization")
 	} else {
 		log.Printf("ℹ️ Using local ASX CSV file, skipping GCS initialization")
 	}
@@ -166,16 +173,26 @@ func main() {
 
 	// Extract stock codes
 	stocks := make([]string, 0, len(allStocks))
-	for _, stock := range allStocks {
-		if *priorityOnly && !stock.IsPriority {
-			continue
+	
+	// If -symbol is provided, only process that specific stock
+	if *symbol != "" {
+		// Remove .AX suffix if present (for consistency)
+		symbolCode := strings.TrimSuffix(strings.ToUpper(*symbol), ".AX")
+		stocks = []string{symbolCode}
+		log.Printf("🎯 Single stock mode: processing only %s", symbolCode)
+	} else {
+		// Normal mode: process all stocks (with filters)
+		for _, stock := range allStocks {
+			if *priorityOnly && !stock.IsPriority {
+				continue
+			}
+			stocks = append(stocks, stock.Code)
 		}
-		stocks = append(stocks, stock.Code)
-	}
 
-	if *limit > 0 && *limit < len(stocks) {
-		stocks = stocks[:*limit]
-		log.Printf("📊 Limited to %d stocks", len(stocks))
+		if *limit > 0 && *limit < len(stocks) {
+			stocks = stocks[:*limit]
+			log.Printf("📊 Limited to %d stocks", len(stocks))
+		}
 	}
 
 	log.Printf("🚀 Starting historical backfill for %d stocks (%d years)", len(stocks), *years)
@@ -341,8 +358,28 @@ func main() {
 				allRecords = append(allRecords, records...)
 			}
 		} else {
-			// Fetch only gaps
-			if len(gaps) > 0 {
+			// OPTIMIZATION: If there are many gaps (>10), it's more efficient to fetch
+			// the entire date range at once rather than filling each gap individually.
+			// Each API call takes ~4 seconds, so 278 gaps = ~18 minutes vs ~30 seconds for full fetch.
+			const maxGapsBeforeFullFetch = 10
+
+			// Track if we did a full range fetch (so we can skip incremental fetch)
+			didFullRangeFetch := false
+
+			if len(gaps) > maxGapsBeforeFullFetch {
+				// Too many gaps - fetch the full range instead
+				log.Printf("🔄 [%d/%d] %s: %d gaps detected, fetching full range instead (more efficient)",
+					i+1, len(stocks), symbol, len(gaps))
+				log.Printf("📥 [%d/%d] Fetching %s full history (%s to %s)...",
+					i+1, len(stocks), symbol, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
+				records, _ := fetchData(startDate, endDate)
+				if len(records) > 0 {
+					log.Printf("✅ %s: Fetched %d records (replacing sparse data)", symbol, len(records))
+					allRecords = append(allRecords, records...)
+				}
+				didFullRangeFetch = true // Skip incremental fetch - full range already covers it
+			} else if len(gaps) > 0 {
+				// Few gaps - fetch each individually
 				for gi, gap := range gaps {
 					// Add 1 day buffer on each side of gap
 					gapStart := gap.Start.AddDate(0, 0, 1)
@@ -360,8 +397,9 @@ func main() {
 				}
 			}
 
-			// Fetch incremental data if needed
-			if needsIncrementalFetch {
+			// Fetch incremental data if needed (earlier history)
+			// Skip if we already did a full range fetch (which covers the entire date range)
+			if needsIncrementalFetch && !didFullRangeFetch {
 				log.Printf("📥 [%d/%d] %s: fetching earlier history (%s to %s)...",
 					i+1, len(stocks), symbol, incrementalStart.Format("2006-01-02"), incrementalEnd.Format("2006-01-02"))
 				records, _ := fetchData(incrementalStart, incrementalEnd)
