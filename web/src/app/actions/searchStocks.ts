@@ -3,6 +3,13 @@ import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { type SearchStocksResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { SHORTS_API_URL } from "./config";
+import { retryWithBackoff } from "@/lib/retry";
+
+const RETRY_OPTIONS = {
+  maxRetries: 3,
+  initialDelayMs: 500,
+  maxDelayMs: 5000,
+};
 
 /**
  * Search stocks using Connect RPC
@@ -23,11 +30,15 @@ export async function searchStocks(
   const client = createClient(ShortedStocksService, transport);
 
   try {
-    const response = await client.searchStocks({
-      query: query.trim(),
-      limit,
-      includeDetails: false,
-    });
+    const response = await retryWithBackoff(
+      () =>
+        client.searchStocks({
+          query: query.trim(),
+          limit,
+          includeDetails: false,
+        }),
+      RETRY_OPTIONS,
+    );
     return response;
   } catch (error) {
     console.error(`Error searching stocks for query "${query}":`, error);
@@ -45,4 +56,3 @@ export async function searchStocksClient(
 ): Promise<SearchStocksResponse | null> {
   return searchStocks(query, limit);
 }
-

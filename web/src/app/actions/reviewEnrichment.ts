@@ -7,6 +7,13 @@ import { redirect } from "next/navigation";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { auth } from "~/server/auth";
 import { SHORTS_API_URL } from "./config";
+import { retryWithBackoff } from "@/lib/retry";
+
+const RETRY_OPTIONS = {
+  maxRetries: 3,
+  initialDelayMs: 500,
+  maxDelayMs: 5000,
+};
 
 export async function reviewEnrichmentAction(formData: FormData) {
   const session = await auth();
@@ -34,24 +41,26 @@ export async function reviewEnrichmentAction(formData: FormData) {
   const client = createClient(ShortedStocksService, transport);
   const internalSecret = process.env.INTERNAL_SECRET ?? "dev-internal-secret";
 
-  await client.reviewEnrichment(
-    {
-      stockCode,
-      enrichmentId,
-      approve,
-      reviewNotes,
-    },
-    {
-      headers: {
-        "X-Internal-Secret": internalSecret,
-        "X-User-Email": session.user.email,
-        "X-User-Id": session.user.id,
-      },
-    },
+  await retryWithBackoff(
+    () =>
+      client.reviewEnrichment(
+        {
+          stockCode,
+          enrichmentId,
+          approve,
+          reviewNotes,
+        },
+        {
+            headers: {
+              "X-Internal-Secret": internalSecret,
+              "X-User-Email": session.user.email ?? "",
+              "X-User-Id": session.user.id,
+            },
+        },
+      ),
+    RETRY_OPTIONS,
   );
 
   revalidatePath("/admin/enrichments");
   redirect("/admin/enrichments");
 }
-
-

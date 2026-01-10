@@ -20,6 +20,7 @@ import type {
   SocialMediaLinks,
 } from "~/@/types/company-metadata";
 import { SHORTS_API_URL } from "./config";
+import { retryWithBackoff } from "@/lib/retry";
 
 const transport = createConnectTransport({
   baseUrl: SHORTS_API_URL,
@@ -27,13 +28,23 @@ const transport = createConnectTransport({
 
 const client = createClient(ShortedStocksService, transport);
 
+const RETRY_OPTIONS = {
+  maxRetries: 3,
+  initialDelayMs: 500,
+  maxDelayMs: 5000,
+};
+
 export async function getEnrichedCompanyMetadata(
   stockCode: string,
 ): Promise<EnrichedCompanyMetadata | null> {
   try {
-    const response = await client.getStockDetails({
-      productCode: stockCode.toUpperCase(),
-    });
+    const response = await retryWithBackoff(
+      () =>
+        client.getStockDetails({
+          productCode: stockCode.toUpperCase(),
+        }),
+      RETRY_OPTIONS,
+    );
     const details = response;
 
     if (!details.productCode) {
@@ -49,9 +60,13 @@ export async function getEnrichedCompanyMetadata(
 
 export async function hasEnrichedData(stockCode: string): Promise<boolean> {
   try {
-    const response = await client.getStockDetails({
-      productCode: stockCode.toUpperCase(),
-    });
+    const response = await retryWithBackoff(
+      () =>
+        client.getStockDetails({
+          productCode: stockCode.toUpperCase(),
+        }),
+      RETRY_OPTIONS,
+    );
     const details = response;
     return details.enrichmentStatus === "completed";
   } catch (error) {
@@ -98,9 +113,7 @@ function mapStockDetailsToMetadata(
   };
 }
 
-function convertKeyPeople(
-  people: ProtoCompanyPerson[],
-): Person[] {
+function convertKeyPeople(people: ProtoCompanyPerson[]): Person[] {
   return people.map((person) => ({
     name: person.name ?? "",
     role: person.role ?? "",
@@ -121,9 +134,7 @@ function convertFinancialReports(
   }));
 }
 
-function convertSocialLinks(
-  links?: ProtoSocialMediaLinks,
-): SocialMediaLinks {
+function convertSocialLinks(links?: ProtoSocialMediaLinks): SocialMediaLinks {
   return {
     linkedin: links?.linkedin ?? null,
     twitter: links?.twitter ?? null,
@@ -229,7 +240,10 @@ function convertFinancialInfo(
   assign("week_52_high", info.week52High);
   assign("week_52_low", info.week52Low);
   assign("volume", info.volume);
-  assign("employee_count", info.employeeCount ? Number(info.employeeCount) : undefined);
+  assign(
+    "employee_count",
+    info.employeeCount ? Number(info.employeeCount) : undefined,
+  );
   assign("sector", info.sector);
   assign("industry", info.industry);
 

@@ -6,6 +6,13 @@ import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { auth } from "~/server/auth";
 import { SHORTS_API_URL } from "./config";
 import { revalidatePath } from "next/cache";
+import { retryWithBackoff } from "@/lib/retry";
+
+const RETRY_OPTIONS = {
+  maxRetries: 3,
+  initialDelayMs: 500,
+  maxDelayMs: 5000,
+};
 
 export async function triggerEnrichmentAction(formData: FormData) {
   const session = await auth();
@@ -29,18 +36,22 @@ export async function triggerEnrichmentAction(formData: FormData) {
   const internalSecret = process.env.INTERNAL_SECRET ?? "dev-internal-secret";
 
   try {
-    const resp = await client.enrichStock(
-      {
-        stockCode: stockCode.trim().toUpperCase(),
-        force,
-      },
-      {
-        headers: {
-          "X-Internal-Secret": internalSecret,
-          "X-User-Email": session.user.email,
-          "X-User-Id": session.user.id,
-        },
-      },
+    const resp = await retryWithBackoff(
+      () =>
+        client.enrichStock(
+          {
+            stockCode: stockCode.trim().toUpperCase(),
+            force,
+          },
+          {
+            headers: {
+              "X-Internal-Secret": internalSecret,
+              "X-User-Email": session.user.email ?? "",
+              "X-User-Id": session.user.id,
+            },
+          },
+        ),
+      RETRY_OPTIONS,
     );
 
     // Revalidate the enrichments page to show the new job
@@ -61,4 +72,3 @@ export async function triggerEnrichmentAction(formData: FormData) {
     );
   }
 }
-

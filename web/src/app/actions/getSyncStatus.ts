@@ -2,6 +2,7 @@
 
 import { cache } from "react";
 import { SHORTS_API_URL } from "./config";
+import { retryWithBackoff } from "@/lib/retry";
 
 // Define SyncRun type locally until proto is regenerated
 export interface SyncRun {
@@ -33,39 +34,51 @@ interface SyncStatusResponse {
   runs?: SyncRun[];
 }
 
+const RETRY_OPTIONS = {
+  maxRetries: 3,
+  initialDelayMs: 500,
+  maxDelayMs: 5000,
+};
+
 export const getSyncStatus = cache(
   async (filter: SyncStatusFilter = {}): Promise<SyncRun[]> => {
-    const { limit = 20, environment = "production", excludeLocal = true } = filter;
-    
+    const {
+      limit = 20,
+      environment = "production",
+      excludeLocal = true,
+    } = filter;
+
     // Use fetch directly since proto types aren't regenerated yet
     try {
       const params = new URLSearchParams({
         limit: String(limit),
         excludeLocal: String(excludeLocal),
       });
-      
+
       // Only add environment filter if specified
       if (environment) {
         params.set("environment", environment);
       }
-      
-      const response = await fetch(
-        `${SHORTS_API_URL}/api/admin/sync-status?${params.toString()}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
+
+      const data = await retryWithBackoff<SyncStatusResponse>(async () => {
+        const response = await fetch(
+          `${SHORTS_API_URL}/api/admin/sync-status?${params.toString()}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            cache: "no-store",
           },
-          cache: "no-store",
-        },
-      );
+        );
 
-      if (!response.ok) {
-        console.error("Failed to get sync status:", response.status);
-        return [];
-      }
+        if (!response.ok) {
+          throw new Error(`Failed to get sync status: ${response.status}`);
+        }
 
-      const data: SyncStatusResponse = await response.json() as SyncStatusResponse;
+        return (await response.json()) as SyncStatusResponse;
+      }, RETRY_OPTIONS);
+
       return data.runs ?? [];
     } catch (err) {
       console.error("Failed to get sync status:", err);

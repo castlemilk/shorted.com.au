@@ -5,8 +5,19 @@ import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { auth } from "~/server/auth";
 import { SHORTS_API_URL } from "./config";
+import { retryWithBackoff } from "@/lib/retry";
 
-export async function listEnrichmentJobs(limit = 100, offset = 0, status?: number) {
+const RETRY_OPTIONS = {
+  maxRetries: 3,
+  initialDelayMs: 500,
+  maxDelayMs: 5000,
+};
+
+export async function listEnrichmentJobs(
+  limit = 100,
+  offset = 0,
+  status?: number,
+) {
   const session = await auth();
   if (!session?.user?.email || !session?.user?.isAdmin) {
     throw new Error("Unauthorized: Admin access required");
@@ -21,19 +32,23 @@ export async function listEnrichmentJobs(limit = 100, offset = 0, status?: numbe
   const internalSecret = process.env.INTERNAL_SECRET ?? "dev-internal-secret";
 
   try {
-    const resp = await client.listEnrichmentJobs(
-      {
-        limit,
-        offset,
-        status: status ?? 0, // 0 = UNSPECIFIED (all statuses)
-      },
-      {
-        headers: {
-          "X-Internal-Secret": internalSecret,
-          "X-User-Email": session.user.email,
-          "X-User-Id": session.user.id,
-        },
-      },
+    const resp = await retryWithBackoff(
+      () =>
+        client.listEnrichmentJobs(
+          {
+            limit,
+            offset,
+            status: status ?? 0, // 0 = UNSPECIFIED (all statuses)
+          },
+          {
+            headers: {
+              "X-Internal-Secret": internalSecret,
+              "X-User-Email": session.user.email ?? "",
+              "X-User-Id": session.user.id,
+            },
+          },
+        ),
+      RETRY_OPTIONS,
     );
 
     return {
@@ -49,4 +64,3 @@ export async function listEnrichmentJobs(limit = 100, offset = 0, status?: numbe
     );
   }
 }
-

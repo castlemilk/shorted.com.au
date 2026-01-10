@@ -4,11 +4,19 @@ import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { type GetTopShortsResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { formatPeriodForAPI } from "~/lib/period-utils";
 import { SHORTS_API_URL } from "../config";
+import { retryWithBackoff } from "@/lib/retry";
+
+const RETRY_OPTIONS = {
+  maxRetries: 3,
+  initialDelayMs: 500,
+  maxDelayMs: 5000,
+};
 
 /**
  * Client-side version of getTopShortsData
  * Calls the backend API directly from the browser
  * No caching, no server-side execution - pure client-side
+ * Includes retry logic for transient failures
  */
 export const getTopShortsDataClient = async (
   period: string,
@@ -17,15 +25,17 @@ export const getTopShortsDataClient = async (
 ): Promise<GetTopShortsResponse> => {
   const transport = createConnectTransport({
     baseUrl: process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL,
-    // Add timeout for long-running requests
-    // This allows the request to take longer without hitting server limits
   });
 
   const client = createClient(ShortedStocksService, transport);
-  const response = await client.getTopShorts({
-    period: formatPeriodForAPI(period),
-    limit,
-    offset,
-  });
-  return response;
+
+  return retryWithBackoff(
+    () =>
+      client.getTopShorts({
+        period: formatPeriodForAPI(period),
+        limit,
+        offset,
+      }),
+    RETRY_OPTIONS,
+  );
 };
