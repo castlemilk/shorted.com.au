@@ -61,14 +61,30 @@ resource "google_cloud_run_v2_service" "shorts_preview" {
         container_port = 9091
       }
 
+      # Env vars in alphabetical order to prevent reordering diffs
       env {
-        name  = "ENVIRONMENT"
-        value = "preview"
+        name = "ALGOLIA_APP_ID"
+        value_source {
+          secret_key_ref {
+            secret  = "ALGOLIA_APP_ID"
+            version = "latest"
+          }
+        }
       }
 
       env {
-        name  = "GCP_PROJECT"
-        value = var.project_id
+        name  = "ALGOLIA_INDEX"
+        value = "stocks"
+      }
+
+      env {
+        name = "ALGOLIA_SEARCH_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = "ALGOLIA_SEARCH_KEY"
+            version = "latest"
+          }
+        }
       }
 
       env {
@@ -79,11 +95,6 @@ resource "google_cloud_run_v2_service" "shorts_preview" {
       env {
         name  = "APP_STORE_POSTGRES_DATABASE"
         value = var.postgres_database
-      }
-
-      env {
-        name  = "APP_STORE_POSTGRES_USERNAME"
-        value = var.postgres_username
       }
 
       env {
@@ -98,31 +109,20 @@ resource "google_cloud_run_v2_service" "shorts_preview" {
 
       # Algolia Search Configuration
       env {
-        name = "ALGOLIA_APP_ID"
-        value_source {
-          secret_key_ref {
-            secret  = "ALGOLIA_APP_ID"
-            version = "latest"
-          }
-        }
+        name  = "APP_STORE_POSTGRES_USERNAME"
+        value = var.postgres_username
       }
 
       env {
-        name = "ALGOLIA_SEARCH_KEY"
-        value_source {
-          secret_key_ref {
-            secret  = "ALGOLIA_SEARCH_KEY"
-            version = "latest"
-          }
-        }
+        name  = "ENVIRONMENT"
+        value = "preview"
       }
 
       env {
-        name  = "ALGOLIA_INDEX"
-        value = "stocks"
+        name  = "GCP_PROJECT"
+        value = var.project_id
       }
 
-      # OpenAI enrichment (shared secret in project)
       env {
         name = "OPENAI_API_KEY"
         value_source {
@@ -200,14 +200,30 @@ resource "google_cloud_run_v2_service" "market_data_preview" {
         container_port = 8090
       }
 
+      # Env vars in alphabetical order to prevent reordering diffs
       env {
-        name  = "ENVIRONMENT"
-        value = "preview"
+        name  = "APP_STORE_POSTGRES_ADDRESS"
+        value = var.postgres_address
       }
 
       env {
-        name  = "GCP_PROJECT"
-        value = var.project_id
+        name  = "APP_STORE_POSTGRES_DATABASE"
+        value = var.postgres_database
+      }
+
+      env {
+        name = "APP_STORE_POSTGRES_PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = var.postgres_password_secret_name
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name  = "APP_STORE_POSTGRES_USERNAME"
+        value = var.postgres_username
       }
 
       # Market-data service expects DATABASE_URL
@@ -222,28 +238,13 @@ resource "google_cloud_run_v2_service" "market_data_preview" {
       }
 
       env {
-        name  = "APP_STORE_POSTGRES_ADDRESS"
-        value = var.postgres_address
+        name  = "ENVIRONMENT"
+        value = "preview"
       }
 
       env {
-        name  = "APP_STORE_POSTGRES_DATABASE"
-        value = var.postgres_database
-      }
-
-      env {
-        name  = "APP_STORE_POSTGRES_USERNAME"
-        value = var.postgres_username
-      }
-
-      env {
-        name = "APP_STORE_POSTGRES_PASSWORD"
-        value_source {
-          secret_key_ref {
-            secret  = var.postgres_password_secret_name
-            version = "latest"
-          }
-        }
+        name  = "GCP_PROJECT"
+        value = var.project_id
       }
 
       resources {
