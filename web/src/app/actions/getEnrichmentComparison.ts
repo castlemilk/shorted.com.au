@@ -5,8 +5,18 @@ import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { auth } from "~/server/auth";
 import { SHORTS_API_URL } from "./config";
+import { retryWithBackoff } from "@/lib/retry";
 
-export async function getEnrichmentComparison(stockCode: string, enrichmentId: string) {
+const RETRY_OPTIONS = {
+  maxRetries: 3,
+  initialDelayMs: 500,
+  maxDelayMs: 5000,
+};
+
+export async function getEnrichmentComparison(
+  stockCode: string,
+  enrichmentId: string,
+) {
   const session = await auth();
   if (!session?.user?.email) {
     throw new Error("Unauthorized");
@@ -21,13 +31,19 @@ export async function getEnrichmentComparison(stockCode: string, enrichmentId: s
 
   const headers = {
     "X-Internal-Secret": internalSecret,
-    "X-User-Email": session.user.email,
+    "X-User-Email": session.user.email ?? "",
     "X-User-Id": session.user.id,
   };
 
   const [current, pendingResp] = await Promise.all([
-    client.getStockDetails({ productCode: stockCode }, { headers }),
-    client.getPendingEnrichment({ enrichmentId }, { headers }),
+    retryWithBackoff(
+      () => client.getStockDetails({ productCode: stockCode }, { headers }),
+      RETRY_OPTIONS,
+    ),
+    retryWithBackoff(
+      () => client.getPendingEnrichment({ enrichmentId }, { headers }),
+      RETRY_OPTIONS,
+    ),
   ]);
 
   return {
@@ -35,5 +51,3 @@ export async function getEnrichmentComparison(stockCode: string, enrichmentId: s
     pending: pendingResp.pending,
   };
 }
-
-
