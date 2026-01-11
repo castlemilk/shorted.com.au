@@ -30,6 +30,8 @@ func setupTestDatabase(t *testing.T) (*pgxpool.Pool, func()) {
 				WithOccurrence(2).
 				WithStartupTimeout(60*time.Second)),
 	)
+	// Check if error is Docker-related and skip test if so
+	checkDockerError(t, err)
 	require.NoError(t, err, "Failed to start PostgreSQL container")
 
 	// Get connection string
