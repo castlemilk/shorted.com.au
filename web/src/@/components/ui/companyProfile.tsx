@@ -1,10 +1,11 @@
 import { getStockDetails } from "~/app/actions/getStockDetails";
 import { type StockDetails } from "~/gen/stocks/v1alpha1/stocks_pb";
-import { Card, CardHeader, CardTitle, CardDescription } from "./card";
+import { Card, CardHeader, CardTitle } from "./card";
 import { Badge } from "./badge";
 import { Skeleton } from "./skeleton";
 import { Sparkles } from "lucide-react";
 import { CompanyLogo } from "./company-logo";
+import { CompanyProfileWithRetry } from "./company-profile-with-retry";
 
 export const CompanyProfilePlaceholder = () => (
   <Card className="w-full">
@@ -32,17 +33,9 @@ export const CompanyProfilePlaceholder = () => (
 const CompanyProfile = async ({ stockCode }: { stockCode: string }) => {
   const stockDetailsResult = await getStockDetails(stockCode);
 
+  // If SSR failed or returned null, use client-side retry component
   if (!stockDetailsResult) {
-    return (
-      <Card className="sm:col-span-4">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex">{stockCode}</CardTitle>
-          <CardDescription className="flex text-xs">
-            Company profile not available
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    );
+    return <CompanyProfileWithRetry stockCode={stockCode} initialData={null} />;
   }
 
   const stockDetails: StockDetails = stockDetailsResult;

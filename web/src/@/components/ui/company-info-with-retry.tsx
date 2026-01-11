@@ -1,5 +1,8 @@
-import { getStockDetails } from "~/app/actions/getStockDetails";
+"use client";
+
 import { type StockDetails } from "~/gen/stocks/v1alpha1/stocks_pb";
+import { useClientRetry } from "@/hooks/use-client-retry";
+import { fetchStockDetailsClient } from "~/app/actions/client/getStockDetails";
 import {
   Card,
   CardContent,
@@ -13,49 +16,128 @@ import {
   LinkedinIcon,
   TwitterIcon,
   FacebookIcon,
-  YoutubeIcon
+  YoutubeIcon,
+  RefreshCwIcon,
+  AlertCircleIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { Separator } from "./separator";
 import { Skeleton } from "./skeleton";
-import { CompanyInfoWithRetry } from "./company-info-with-retry";
+import { Button } from "./button";
 
-export const CompanyInfoPlaceholder = () => (
-  <Card className="sm:col-span-4">
-    <CardHeader className="pb-3">
-      <CardTitle className="flex">About</CardTitle>
-      <Separator />
+interface CompanyInfoClientProps {
+  stockCode: string;
+  /** Initial data from SSR attempt (null if SSR failed) */
+  initialData: StockDetails | null;
+}
 
-      <CardContent className="p-0">
-        <div className="flex content-center justify-between">
-          <div className="flex content-center">
-            <div className="flex self-center p-2">
-              <PanelTopIcon size={10} />
-            </div>
-            <p className="uppercase font-semibold content-center text-xs">
-              website
-            </p>
-          </div>
-          <span className="flex items-end content-center p-2 text-xs">
-            <Skeleton className="w-[200px] h-[16px]" />
-          </span>
-        </div>
-      </CardContent>
-      <Separator />
-    </CardHeader>
-  </Card>
-);
+/**
+ * Client component that handles retry when SSR data is unavailable.
+ * Shows loading state during retry and allows manual retry.
+ */
+export function CompanyInfoWithRetry({ stockCode, initialData }: CompanyInfoClientProps) {
+  const { data, isLoading, error, retry, isRetrying } = useClientRetry(
+    () => fetchStockDetailsClient(stockCode),
+    {
+      initialData,
+      // Only fetch on mount if SSR data wasn't available
+      fetchOnMount: !initialData,
+      maxRetries: 3,
+      initialDelayMs: 1000,
+      maxDelayMs: 8000,
+    }
+  );
 
-const CompanyInfo = async ({ stockCode }: { stockCode: string }) => {
-  const stockDetailsResult = await getStockDetails(stockCode);
-
-  // If SSR failed or returned null, use client-side retry component
-  if (!stockDetailsResult) {
-    return <CompanyInfoWithRetry stockCode={stockCode} initialData={null} />;
+  // Loading state
+  if (isLoading || isRetrying) {
+    return <CompanyInfoLoading isRetrying={isRetrying} />;
   }
 
-  const stockDetails: StockDetails = stockDetailsResult;
+  // Error state with retry button
+  if (error && !data) {
+    return <CompanyInfoError onRetry={retry} stockCode={stockCode} />;
+  }
 
+  // No data available
+  if (!data) {
+    return (
+      <Card className="sm:col-span-4">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex text-sm font-bold uppercase tracking-wider text-muted-foreground">About</CardTitle>
+          <Separator />
+          <CardContent className="p-0 pt-4">
+            <p className="text-sm text-muted-foreground">
+              Company information not available
+            </p>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={retry}
+              className="mt-2"
+            >
+              <RefreshCwIcon className="mr-2 h-4 w-4" />
+              Try again
+            </Button>
+          </CardContent>
+        </CardHeader>
+      </Card>
+    );
+  }
+
+  // Render full company info
+  return <CompanyInfoContent stockDetails={data} />;
+}
+
+function CompanyInfoLoading({ isRetrying }: { isRetrying?: boolean }) {
+  return (
+    <Card className="sm:col-span-4">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex text-sm font-bold uppercase tracking-wider text-muted-foreground">
+          About
+          {isRetrying && (
+            <RefreshCwIcon className="ml-2 h-4 w-4 animate-spin text-muted-foreground" />
+          )}
+        </CardTitle>
+        <Separator />
+        <CardContent className="p-0 space-y-2 pt-4">
+          <Skeleton className="w-full h-[16px]" />
+          <Skeleton className="w-3/4 h-[16px]" />
+          <Skeleton className="w-1/2 h-[16px]" />
+        </CardContent>
+      </CardHeader>
+    </Card>
+  );
+}
+
+function CompanyInfoError({ onRetry, stockCode }: { onRetry: () => void; stockCode: string }) {
+  return (
+    <Card className="sm:col-span-4 border-amber-200 dark:border-amber-800">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center text-sm font-bold uppercase tracking-wider text-muted-foreground">
+          <AlertCircleIcon className="mr-2 h-4 w-4 text-amber-500" />
+          About
+        </CardTitle>
+        <Separator />
+        <CardContent className="p-0 pt-4">
+          <p className="text-sm text-muted-foreground mb-3">
+            Failed to load company information for {stockCode}.
+          </p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={onRetry}
+            className="border-amber-300 hover:bg-amber-50 dark:border-amber-700 dark:hover:bg-amber-950"
+          >
+            <RefreshCwIcon className="mr-2 h-4 w-4" />
+            Retry
+          </Button>
+        </CardContent>
+      </CardHeader>
+    </Card>
+  );
+}
+
+function CompanyInfoContent({ stockDetails }: { stockDetails: StockDetails }) {
   const isEnriched = stockDetails.enrichmentStatus === "completed";
   const socialLinks = stockDetails.socialMediaLinks;
   
@@ -67,12 +149,11 @@ const CompanyInfo = async ({ stockCode }: { stockCode: string }) => {
       socialLinks,
   );
 
-  // If no data at all, show a helpful message
   if (!hasAnyData) {
     return (
       <Card className="sm:col-span-4">
         <CardHeader className="pb-3">
-          <CardTitle className="flex">About</CardTitle>
+          <CardTitle className="flex text-sm font-bold uppercase tracking-wider text-muted-foreground">About</CardTitle>
           <Separator />
           <CardContent className="p-0 pt-4">
             <p className="text-sm text-muted-foreground">
@@ -91,8 +172,6 @@ const CompanyInfo = async ({ stockCode }: { stockCode: string }) => {
         <Separator className="my-2" />
 
         <CardContent className="p-0 space-y-1">
-          {/* Summary/Description - Removed from here as it's now in Profile */}
-          
           {/* Website */}
           {stockDetails.website && (
             <>
@@ -224,6 +303,6 @@ const CompanyInfo = async ({ stockCode }: { stockCode: string }) => {
       </CardHeader>
     </Card>
   );
-};
+}
 
-export default CompanyInfo;
+export default CompanyInfoWithRetry;
