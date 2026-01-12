@@ -293,8 +293,8 @@ resource "google_cloud_run_v2_service_iam_member" "market_data_preview_access" {
 }
 
 # Enrichment Processor for Preview
-# Note: Uses Cloud Run Job (not Service) - runs continuously to process queued enrichment jobs
 # Uses PR-specific topic names to avoid conflicts between preview environments
+# Deploys Pub/Sub resources via module, but uses Cloud Run Service (not Job) for continuous processing
 module "enrichment_processor_preview" {
   source = "../enrichment-processor"
 
@@ -311,6 +311,144 @@ module "enrichment_processor_preview" {
     google_cloud_run_v2_service.shorts_preview,
     google_cloud_run_v2_service.market_data_preview,
   ]
+}
+
+# Cloud Run Service for enrichment processor (event-driven via Pub/Sub push)
+# For preview, we use a Service with Pub/Sub push subscription to scale to zero and start on-demand
+resource "google_cloud_run_v2_service" "enrichment_processor_preview" {
+  name     = "enrichment-processor-${local.pr_suffix}"
+  location = var.region
+  project  = var.project_id
+
+  labels = local.labels
+
+  template {
+    service_account = module.enrichment_processor_preview.service_account_email
+
+    containers {
+      image = var.enrichment_processor_image
+
+      ports {
+        container_port = 8080
+        name           = "http1"
+      }
+
+      env {
+        name  = "GCP_PROJECT_ID"
+        value = var.project_id
+      }
+
+      env {
+        name  = "ENRICHMENT_PUBSUB_TOPIC"
+        value = module.enrichment_processor_preview.topic_name
+      }
+
+      env {
+        name  = "ENRICHMENT_PUBSUB_SUBSCRIPTION"
+        value = module.enrichment_processor_preview.subscription_name
+      }
+
+      env {
+        name  = "APP_STORE_POSTGRES_ADDRESS"
+        value = var.postgres_address
+      }
+
+      env {
+        name  = "APP_STORE_POSTGRES_DATABASE"
+        value = var.postgres_database
+      }
+
+      env {
+        name  = "APP_STORE_POSTGRES_USERNAME"
+        value = var.postgres_username
+      }
+
+      env {
+        name = "APP_STORE_POSTGRES_PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = var.postgres_password_secret_name
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "OPENAI_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = "OPENAI_API_KEY"
+            version = "latest"
+          }
+        }
+      }
+
+      resources {
+        limits = {
+          cpu    = "2"
+          memory = "4Gi"
+        }
+        cpu_idle          = true   # Allow CPU to scale down when idle
+        startup_cpu_boost = true
+      }
+    }
+
+    scaling {
+      min_instance_count = 0  # Scale to zero - will start on Pub/Sub push
+      max_instance_count = 1  # Only need 1 instance for preview
+    }
+  }
+
+  depends_on = [
+    module.enrichment_processor_preview,
+  ]
+}
+
+# Pub/Sub push subscription for event-driven processing
+# This sends messages to Cloud Run Service via HTTP POST
+# Note: Uses the pull subscription topic but sends to Cloud Run Service for event-driven scaling
+resource "google_pubsub_subscription" "enrichment_processor_push" {
+  name    = "enrichment-jobs-push-${local.pr_suffix}"
+  topic   = module.enrichment_processor_preview.topic_name
+  project = var.project_id
+
+  push_config {
+    push_endpoint = "${google_cloud_run_v2_service.enrichment_processor_preview.uri}/"
+    oidc_token {
+      service_account_email = module.enrichment_processor_preview.service_account_email
+    }
+    attributes = {
+      x-goog-version = "v1"
+    }
+  }
+
+  ack_deadline_seconds       = 600 # 10 minutes
+  message_retention_duration = "86400s" # 24 hours
+
+  labels = local.labels
+
+  depends_on = [
+    google_cloud_run_v2_service.enrichment_processor_preview,
+    google_cloud_run_v2_service_iam_member.enrichment_processor_pubsub_invoker,
+  ]
+}
+
+# Grant Pub/Sub to invoke Cloud Run Service
+resource "google_cloud_run_v2_service_iam_member" "enrichment_processor_pubsub_invoker" {
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.enrichment_processor_preview.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-pubsub.iam.gserviceaccount.com"
+
+  depends_on = [
+    google_cloud_run_v2_service.enrichment_processor_preview,
+  ]
+}
+
+# Get project number for Pub/Sub service account
+data "google_project" "project" {
+  project_id = var.project_id
 }
 
 # NOTE: DATABASE_URL secret access must be granted manually to the shorts service account:
