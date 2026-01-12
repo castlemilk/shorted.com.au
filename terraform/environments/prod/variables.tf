@@ -70,3 +70,9 @@ variable "market_data_sync_image" {
   type        = string
   default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/market-data-sync:latest"
 }
+
+variable "enrichment_processor_image" {
+  description = "Docker image URL for enrichment-processor job"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/enrichment-processor:latest"
+}
