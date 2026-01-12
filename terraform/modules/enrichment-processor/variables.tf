@@ -34,3 +34,8 @@ variable "postgres_username" {
   type        = string
 }
 
+variable "topic_name_suffix" {
+  description = "Optional suffix for Pub/Sub topic and subscription names (e.g., for preview environments)"
+  type        = string
+  default     = ""
+}

@@ -8,9 +8,9 @@
  */
 
 locals {
-  service_name = "enrichment-processor"
-  topic_name   = "enrichment-jobs"
-  subscription_name = "enrichment-jobs-subscription"
+  service_name = var.topic_name_suffix != "" ? "enrichment-processor-${var.topic_name_suffix}" : "enrichment-processor"
+  topic_name   = var.topic_name_suffix != "" ? "enrichment-jobs-${var.topic_name_suffix}" : "enrichment-jobs"
+  subscription_name = var.topic_name_suffix != "" ? "enrichment-jobs-subscription-${var.topic_name_suffix}" : "enrichment-jobs-subscription"
   labels = {
     service     = "enrichment-processor"
     environment = var.environment

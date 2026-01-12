@@ -124,6 +124,16 @@ resource "google_cloud_run_v2_service" "shorts_preview" {
       }
 
       env {
+        name  = "GCP_PROJECT_ID"
+        value = var.project_id
+      }
+
+      env {
+        name  = "ENRICHMENT_PUBSUB_TOPIC"
+        value = "enrichment-jobs-${local.pr_suffix}"
+      }
+
+      env {
         name = "OPENAI_API_KEY"
         value_source {
           secret_key_ref {
@@ -284,6 +294,7 @@ resource "google_cloud_run_v2_service_iam_member" "market_data_preview_access" {
 
 # Enrichment Processor for Preview
 # Note: Uses Cloud Run Job (not Service) - runs continuously to process queued enrichment jobs
+# Uses PR-specific topic names to avoid conflicts between preview environments
 module "enrichment_processor_preview" {
   source = "../enrichment-processor"
 
@@ -294,6 +305,7 @@ module "enrichment_processor_preview" {
   postgres_address  = var.postgres_address
   postgres_database = var.postgres_database
   postgres_username = var.postgres_username
+  topic_name_suffix = local.pr_suffix  # Use PR suffix to make topic names unique
 
   depends_on = [
     google_cloud_run_v2_service.shorts_preview,

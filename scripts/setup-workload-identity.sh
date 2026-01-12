@@ -127,7 +127,9 @@ else
         "roles/run.admin" \
         "roles/artifactregistry.writer" \
         "roles/storage.admin" \
-        "roles/iam.serviceAccountUser"
+        "roles/iam.serviceAccountUser" \
+        "roles/pubsub.admin" \
+        "roles/iam.serviceAccountAdmin"
     do
         gcloud projects add-iam-policy-binding "$PROJECT_ID" \
             --member="serviceAccount:${SA_EMAIL}" \
