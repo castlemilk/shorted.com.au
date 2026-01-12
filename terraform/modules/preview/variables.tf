@@ -49,3 +49,7 @@ variable "postgres_password_secret_name" {
   default     = "APP_STORE_POSTGRES_PASSWORD"
 }
 
+variable "enrichment_processor_image" {
+  description = "Docker image URL for enrichment-processor service"
+  type        = string
+}

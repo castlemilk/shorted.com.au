@@ -282,6 +282,25 @@ resource "google_cloud_run_v2_service_iam_member" "market_data_preview_access" {
   ]
 }
 
+# Enrichment Processor for Preview
+# Note: Uses Cloud Run Job (not Service) - runs continuously to process queued enrichment jobs
+module "enrichment_processor_preview" {
+  source = "../enrichment-processor"
+
+  project_id        = var.project_id
+  region            = var.region
+  environment       = "preview"
+  image_url         = var.enrichment_processor_image
+  postgres_address  = var.postgres_address
+  postgres_database = var.postgres_database
+  postgres_username = var.postgres_username
+
+  depends_on = [
+    google_cloud_run_v2_service.shorts_preview,
+    google_cloud_run_v2_service.market_data_preview,
+  ]
+}
+
 # NOTE: DATABASE_URL secret access must be granted manually to the shorts service account:
 # gcloud secrets add-iam-policy-binding DATABASE_URL \
 #   --project=shorted-dev-aba5688f \

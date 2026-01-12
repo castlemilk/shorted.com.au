@@ -112,6 +112,9 @@ jobs:
           - name: market-data-sync
             dockerfile: services/market-data-sync/Dockerfile
             context: services
+          - name: enrichment-processor
+            dockerfile: services/enrichment-processor/Dockerfile
+            context: services
           - name: cms
             dockerfile: cms/Dockerfile
             context: cms
@@ -204,6 +207,7 @@ jobs:
             -var="cms_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/cms:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="asx_discovery_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-discovery:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
             -out=tfplan
         continue-on-error: true
 
@@ -318,15 +322,16 @@ jobs:
           module "preview" {
             source = "../modules/preview"
 
-            project_id             = "${GCP_PROJECT_ID}"
-            region                 = "${GCP_REGION}"
-            pr_number              = "${PR_NUMBER}"
-            shorts_api_image       = "${ARTIFACT_REGISTRY}/${GCP_PROJECT_ID}/shorted/shorts:${IMAGE_TAG}"
-            market_data_image      = "${ARTIFACT_REGISTRY}/${GCP_PROJECT_ID}/shorted/market-data:${IMAGE_TAG}"
-            shorts_service_account = "shorts@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
-            postgres_address       = "${DB_ADDRESS}"
-            postgres_database      = "${DB_NAME}"
-            postgres_username      = "${DB_USER}"
+            project_id                 = "${GCP_PROJECT_ID}"
+            region                     = "${GCP_REGION}"
+            pr_number                  = "${PR_NUMBER}"
+            shorts_api_image           = "${ARTIFACT_REGISTRY}/${GCP_PROJECT_ID}/shorted/shorts:${IMAGE_TAG}"
+            market_data_image          = "${ARTIFACT_REGISTRY}/${GCP_PROJECT_ID}/shorted/market-data:${IMAGE_TAG}"
+            enrichment_processor_image = "${ARTIFACT_REGISTRY}/${GCP_PROJECT_ID}/shorted/enrichment-processor:${IMAGE_TAG}"
+            shorts_service_account     = "shorts@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+            postgres_address           = "${DB_ADDRESS}"
+            postgres_database          = "${DB_NAME}"
+            postgres_username          = "${DB_USER}"
           }
 
           output "shorts_url" {
@@ -504,6 +509,7 @@ jobs:
             -var="cms_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/cms:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="asx_discovery_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-discovery:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
             -auto-approve
 
       - name: Get Terraform Outputs
