@@ -237,6 +237,7 @@ jobs:
                 --project ${{ env.GCP_PROJECT_ID }} \
                 --format 'value(status.url)' 2>/dev/null || echo "")
               
+              # Try to get enrichment-processor URL (may not exist yet if Terraform hasn't deployed it)
               ENRICHMENT_PROCESSOR_URL=$(gcloud run services describe enrichment-processor-pr-${{ env.PR_NUMBER }} \
                 --region ${{ env.GCP_REGION }} \
                 --project ${{ env.GCP_PROJECT_ID }} \
@@ -244,12 +245,17 @@ jobs:
               
               echo "shorts_url=$SHORTS_URL" >> $GITHUB_OUTPUT
               echo "market_data_url=$MARKET_DATA_URL" >> $GITHUB_OUTPUT
-              echo "enrichment_processor_url=$ENRICHMENT_PROCESSOR_URL" >> $GITHUB_OUTPUT
+              # Always set enrichment_processor_url, even if empty (to avoid undefined variable errors)
+              echo "enrichment_processor_url=${ENRICHMENT_PROCESSOR_URL:-}" >> $GITHUB_OUTPUT
               
               echo "✅ Backend services ready:"
               echo "   Shorts API: $SHORTS_URL"
               echo "   Market Data API: $MARKET_DATA_URL"
-              echo "   Enrichment Processor: $ENRICHMENT_PROCESSOR_URL"
+              if [ -n "$ENRICHMENT_PROCESSOR_URL" ]; then
+                echo "   Enrichment Processor: $ENRICHMENT_PROCESSOR_URL"
+              else
+                echo "   Enrichment Processor: (not deployed yet, will be available after Terraform deployment)"
+              fi
               break
             fi
             
@@ -262,6 +268,17 @@ jobs:
             echo "❌ Timeout waiting for backend services"
             exit 1
           fi
+
+          # Ensure enrichment-processor URL output is always set (even if empty, to avoid undefined variable errors)
+          # Check if it was already set above, if not set it to empty string
+          if ! grep -q "^enrichment_processor_url=" $GITHUB_OUTPUT 2>/dev/null; then
+            echo "⚠️  Enrichment processor service not found yet, setting empty value"
+            echo "enrichment_processor_url=" >> $GITHUB_OUTPUT
+          fi
+
+          # Verify the output was set
+          echo "📋 Environment variables to be set in Vercel:"
+          echo "   ENRICHMENT_PROCESSOR_URL=$(grep '^enrichment_processor_url=' $GITHUB_OUTPUT | cut -d'=' -f2-)"
 
       - name: Deploy to Vercel
         id: deploy
@@ -278,8 +295,8 @@ jobs:
             --build-env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.get-backend-urls.outputs.shorts_url }}
             --build-env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ steps.get-backend-urls.outputs.market_data_url }}
             --build-env NEXT_PUBLIC_SHORTS_API_URL=${{ steps.get-backend-urls.outputs.shorts_url }}
-            --build-env ENRICHMENT_PROCESSOR_URL=${{ steps.get-backend-urls.outputs.enrichment_processor_url }}
-            --build-env NEXT_PUBLIC_ENRICHMENT_PROCESSOR_URL=${{ steps.get-backend-urls.outputs.enrichment_processor_url }}
+            --build-env ENRICHMENT_PROCESSOR_URL=${{ steps.get-backend-urls.outputs.enrichment_processor_url || '' }}
+            --build-env NEXT_PUBLIC_ENRICHMENT_PROCESSOR_URL=${{ steps.get-backend-urls.outputs.enrichment_processor_url || '' }}
             --build-env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
             --build-env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
             --build-env NEXT_PUBLIC_ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}
@@ -287,8 +304,8 @@ jobs:
             --env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.get-backend-urls.outputs.shorts_url }}
             --env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ steps.get-backend-urls.outputs.market_data_url }}
             --env NEXT_PUBLIC_SHORTS_API_URL=${{ steps.get-backend-urls.outputs.shorts_url }}
-            --env ENRICHMENT_PROCESSOR_URL=${{ steps.get-backend-urls.outputs.enrichment_processor_url }}
-            --env NEXT_PUBLIC_ENRICHMENT_PROCESSOR_URL=${{ steps.get-backend-urls.outputs.enrichment_processor_url }}
+            --env ENRICHMENT_PROCESSOR_URL=${{ steps.get-backend-urls.outputs.enrichment_processor_url || '' }}
+            --env NEXT_PUBLIC_ENRICHMENT_PROCESSOR_URL=${{ steps.get-backend-urls.outputs.enrichment_processor_url || '' }}
             --env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
             --env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
             --env NEXT_PUBLIC_ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}
