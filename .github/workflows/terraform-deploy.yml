@@ -378,7 +378,35 @@ jobs:
           # Capture outputs
           SHORTS_URL=$(terraform output -raw shorts_url)
           MARKET_DATA_URL=$(terraform output -raw market_data_url)
-          ENRICHMENT_PROCESSOR_URL=$(terraform output -raw enrichment_processor_url)
+          
+          # Try to get enrichment-processor URL, but handle case where it might not exist in state yet
+          # This can happen if the output was just added but Terraform hasn't refreshed the state
+          # Use set +e to prevent script from failing if output doesn't exist
+          set +e
+          ENRICHMENT_PROCESSOR_URL=$(terraform output -raw enrichment_processor_url 2>&1)
+          EXIT_CODE=$?
+          set -e
+          
+          # Check if the output is valid (not an error message and not empty)
+          if [ $EXIT_CODE -eq 0 ] && [ -n "$ENRICHMENT_PROCESSOR_URL" ] && ! echo "$ENRICHMENT_PROCESSOR_URL" | grep -q "Error:"; then
+            echo "✅ enrichment_processor_url: $ENRICHMENT_PROCESSOR_URL"
+          else
+            echo "⚠️  enrichment_processor_url output not found in Terraform state"
+            echo "   This is expected if the output was just added. It will be available after the next apply."
+            ENRICHMENT_PROCESSOR_URL=""
+            # Try to get it directly from gcloud as a fallback
+            set +e
+            GCLOUD_URL=$(gcloud run services describe enrichment-processor-pr-${PR_NUMBER} \
+              --region=${GCP_REGION} \
+              --project=${GCP_PROJECT_ID} \
+              --format='value(status.url)' 2>&1)
+            GCLOUD_EXIT_CODE=$?
+            set -e
+            if [ $GCLOUD_EXIT_CODE -eq 0 ] && [ -n "$GCLOUD_URL" ]; then
+              ENRICHMENT_PROCESSOR_URL="$GCLOUD_URL"
+              echo "   Found via gcloud: $ENRICHMENT_PROCESSOR_URL"
+            fi
+          fi
 
           echo "shorts_url=$SHORTS_URL" >> $GITHUB_OUTPUT
           echo "market_data_url=$MARKET_DATA_URL" >> $GITHUB_OUTPUT
