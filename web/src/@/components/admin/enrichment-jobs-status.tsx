@@ -15,7 +15,8 @@ import {
   EnrichmentJobStatus,
   type EnrichmentJob,
 } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { RefreshCw, Loader2 } from "lucide-react";
+import { RefreshCw, Loader2, Play } from "lucide-react";
+import { processQueuedJobsAction } from "~/app/actions/processQueuedJobs";
 
 function getStatusLabel(status: EnrichmentJobStatus) {
   switch (status) {
@@ -78,6 +79,9 @@ export function EnrichmentJobsStatus() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processError, setProcessError] = useState<string | null>(null);
+  const [processSuccess, setProcessSuccess] = useState<string | null>(null);
 
   // Refs for infinite scroll observers
   const activeObserverTarget = useRef<HTMLDivElement>(null);
@@ -230,6 +234,26 @@ export function EnrichmentJobsStatus() {
     setIsRefreshing(false);
   }, [loadInitialJobs]);
 
+  const handleProcessQueued = useCallback(async () => {
+    setIsProcessing(true);
+    setProcessError(null);
+    setProcessSuccess(null);
+    try {
+      const result = await processQueuedJobsAction();
+      setProcessSuccess(result.message ?? "Processing triggered successfully");
+      // Refresh jobs after a short delay to see the status change
+      setTimeout(() => {
+        void refreshAll();
+      }, 2000);
+    } catch (error) {
+      setProcessError(
+        error instanceof Error ? error.message : "Failed to trigger processing",
+      );
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [refreshAll]);
+
   useEffect(() => {
     void loadInitialJobs();
     // Poll every 10 seconds for active jobs only
@@ -324,19 +348,49 @@ export function EnrichmentJobsStatus() {
               completed, {failedState.totalCount} failed
             </CardDescription>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={refreshAll}
-            disabled={isRefreshing}
-          >
-            <RefreshCw
-              className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
-            />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            {queuedJobs.length > 0 && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleProcessQueued}
+                disabled={isProcessing}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <Play
+                  className={`h-4 w-4 mr-2 ${isProcessing ? "animate-pulse" : ""}`}
+                />
+                {isProcessing ? "Processing..." : `Process ${queuedJobs.length} Queued`}
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refreshAll}
+              disabled={isRefreshing}
+            >
+              <RefreshCw
+                className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+              />
+              Refresh
+            </Button>
+          </div>
         </div>
       </CardHeader>
+      {(processError != null || processSuccess != null) && (
+        <CardContent className="pb-2">
+          {processError && (
+            <div className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/20 p-2 rounded border border-red-200 dark:border-red-800">
+              {processError}
+            </div>
+          )}
+          {processSuccess && (
+            <div className="text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950/20 p-2 rounded border border-green-200 dark:border-green-800">
+              {processSuccess}
+            </div>
+          )}
+        </CardContent>
+      )}
       <CardContent className="flex-grow overflow-y-auto space-y-6">
         {/* Active Jobs Section (Polling + Infinite Scroll) */}
         {(queuedJobs.length > 0 || processingJobs.length > 0) && (

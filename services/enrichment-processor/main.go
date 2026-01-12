@@ -230,6 +230,36 @@ func main() {
 		logger.Infof("Running as Cloud Run Service (HTTP push mode) on port %d", port)
 		logger.Infof("Pub/Sub topic: %s", topicName)
 
+		// Process any existing queued jobs on startup (in case they were created before Pub/Sub was configured)
+		logger.Infof("Checking for existing queued jobs on startup...")
+		go func() {
+			startupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+			
+			status := shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_QUEUED
+			jobs, _, err := processor.store.ListEnrichmentJobs(10, 0, &status)
+			if err != nil {
+				logger.Warnf("Failed to list queued jobs on startup: %v", err)
+				return
+			}
+			
+			if len(jobs) > 0 {
+				logger.Infof("Found %d queued job(s) on startup, processing them...", len(jobs))
+				for _, job := range jobs {
+					if job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_QUEUED {
+						logger.Infof("Processing queued job %s for stock %s (force=%v)", job.JobId, job.StockCode, job.Force)
+						if err := processor.processJob(startupCtx, job.JobId, job.StockCode, job.Force); err != nil {
+							logger.Errorf("Failed to process queued job %s on startup: %v", job.JobId, err)
+						} else {
+							logger.Infof("Successfully processed queued job %s on startup", job.JobId)
+						}
+					}
+				}
+			} else {
+				logger.Infof("No queued jobs found on startup")
+			}
+		}()
+
 		// Start HTTP server for Pub/Sub push messages
 		g, gCtx := errgroup.WithContext(ctx)
 		g.Go(func() error {
@@ -1101,6 +1131,7 @@ func (p *enrichmentProcessor) startHTTPServer(ctx context.Context, port int) err
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
+	mux.HandleFunc("/process-queued", p.handleProcessQueued)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
@@ -1198,6 +1229,51 @@ func (p *enrichmentProcessor) handlePubSubPush(w http.ResponseWriter, r *http.Re
 	// Return 200 OK immediately (Pub/Sub push expects quick response)
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("OK"))
+}
+
+// handleProcessQueued manually triggers processing of queued jobs
+// Useful for processing jobs that were created before Pub/Sub was configured
+func (p *enrichmentProcessor) handleProcessQueued(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	p.logger.Infof("Manual trigger: Processing queued jobs...")
+
+	// Process queued jobs asynchronously
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		defer cancel()
+
+		status := shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_QUEUED
+		jobs, total, err := p.store.ListEnrichmentJobs(100, 0, &status)
+		if err != nil {
+			p.logger.Errorf("Failed to list queued jobs: %v", err)
+			return
+		}
+
+		if len(jobs) == 0 {
+			p.logger.Infof("No queued jobs found")
+			return
+		}
+
+		p.logger.Infof("Found %d queued job(s) (total: %d), processing...", len(jobs), total)
+
+		for _, job := range jobs {
+			if job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_QUEUED {
+				p.logger.Infof("Processing queued job %s for stock %s (force=%v)", job.JobId, job.StockCode, job.Force)
+				if err := p.processJob(ctx, job.JobId, job.StockCode, job.Force); err != nil {
+					p.logger.Errorf("Failed to process queued job %s: %v", job.JobId, err)
+				} else {
+					p.logger.Infof("Successfully processed queued job %s", job.JobId)
+				}
+			}
+		}
+	}()
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("Processing queued jobs in background")))
 }
 
 func signalListener(ctx context.Context) func() error {
