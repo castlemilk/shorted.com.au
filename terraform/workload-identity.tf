@@ -90,6 +90,8 @@ resource "google_project_iam_member" "github_actions_roles" {
     "roles/artifactregistry.writer", # Push Docker images
     "roles/storage.admin",           # Access storage buckets
     "roles/iam.serviceAccountUser",  # Act as service account
+    "roles/pubsub.admin",            # Create Pub/Sub topics and subscriptions
+    "roles/iam.serviceAccountAdmin", # Create service accounts
   ])
 
   project = var.project_id
