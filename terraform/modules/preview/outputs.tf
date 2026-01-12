@@ -18,3 +18,7 @@ output "market_data_service_name" {
   value       = google_cloud_run_v2_service.market_data_preview.name
 }
 
+output "enrichment_processor_url" {
+  description = "URL of the enrichment processor service"
+  value       = google_cloud_run_v2_service.enrichment_processor_preview.uri
+}

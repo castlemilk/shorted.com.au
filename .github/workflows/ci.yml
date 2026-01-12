@@ -47,7 +47,7 @@ jobs:
     # DISABLED: terraform-deploy.yml now handles preview deployments
     # This job was causing race conditions and "Root resource was present, but now absent" errors
     # because it deletes services that Terraform is trying to manage
-    if: false  # github.event_name == 'pull_request'
+    if: false # github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     outputs:
       shorts-url: ${{ steps.deploy-services.outputs.shorts-url }}
@@ -237,12 +237,19 @@ jobs:
                 --project ${{ env.GCP_PROJECT_ID }} \
                 --format 'value(status.url)' 2>/dev/null || echo "")
               
+              ENRICHMENT_PROCESSOR_URL=$(gcloud run services describe enrichment-processor-pr-${{ env.PR_NUMBER }} \
+                --region ${{ env.GCP_REGION }} \
+                --project ${{ env.GCP_PROJECT_ID }} \
+                --format 'value(status.url)' 2>/dev/null || echo "")
+              
               echo "shorts_url=$SHORTS_URL" >> $GITHUB_OUTPUT
               echo "market_data_url=$MARKET_DATA_URL" >> $GITHUB_OUTPUT
+              echo "enrichment_processor_url=$ENRICHMENT_PROCESSOR_URL" >> $GITHUB_OUTPUT
               
               echo "✅ Backend services ready:"
               echo "   Shorts API: $SHORTS_URL"
               echo "   Market Data API: $MARKET_DATA_URL"
+              echo "   Enrichment Processor: $ENRICHMENT_PROCESSOR_URL"
               break
             fi
             
@@ -271,6 +278,8 @@ jobs:
             --build-env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.get-backend-urls.outputs.shorts_url }}
             --build-env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ steps.get-backend-urls.outputs.market_data_url }}
             --build-env NEXT_PUBLIC_SHORTS_API_URL=${{ steps.get-backend-urls.outputs.shorts_url }}
+            --build-env ENRICHMENT_PROCESSOR_URL=${{ steps.get-backend-urls.outputs.enrichment_processor_url }}
+            --build-env NEXT_PUBLIC_ENRICHMENT_PROCESSOR_URL=${{ steps.get-backend-urls.outputs.enrichment_processor_url }}
             --build-env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
             --build-env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
             --build-env NEXT_PUBLIC_ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}
@@ -278,6 +287,8 @@ jobs:
             --env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.get-backend-urls.outputs.shorts_url }}
             --env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ steps.get-backend-urls.outputs.market_data_url }}
             --env NEXT_PUBLIC_SHORTS_API_URL=${{ steps.get-backend-urls.outputs.shorts_url }}
+            --env ENRICHMENT_PROCESSOR_URL=${{ steps.get-backend-urls.outputs.enrichment_processor_url }}
+            --env NEXT_PUBLIC_ENRICHMENT_PROCESSOR_URL=${{ steps.get-backend-urls.outputs.enrichment_processor_url }}
             --env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
             --env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
             --env NEXT_PUBLIC_ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}
