@@ -2,13 +2,16 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -217,6 +220,30 @@ func main() {
 		gcsBucket:        os.Getenv("GCS_LOGO_BUCKET"),
 	}
 
+	// Check if running as Cloud Run Service (PORT env var set) - use HTTP push mode
+	portStr := os.Getenv("PORT")
+	if portStr != "" {
+		port, err := strconv.Atoi(portStr)
+		if err != nil {
+			log.Fatalf("Invalid PORT environment variable: %v", err)
+		}
+		logger.Infof("Running as Cloud Run Service (HTTP push mode) on port %d", port)
+		logger.Infof("Pub/Sub topic: %s", topicName)
+
+		// Start HTTP server for Pub/Sub push messages
+		g, gCtx := errgroup.WithContext(ctx)
+		g.Go(func() error {
+			return processor.startHTTPServer(gCtx, port)
+		})
+		g.Go(signalListener(gCtx))
+
+		if err := g.Wait(); err != nil {
+			logger.Errorf("processor terminated with error: %v", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	// Check if Pub/Sub is available (GCP_PROJECT_ID set and subscription created successfully)
 	// If not, fall back to local polling mode
 	if projectID == "" || subscription == nil {
@@ -232,9 +259,9 @@ func main() {
 			os.Exit(1)
 		}
 	} else {
-		logger.Infof("Starting enrichment processor with Pub/Sub (topic: %s, subscription: %s)", topicName, subscriptionName)
+		logger.Infof("Starting enrichment processor with Pub/Sub pull (topic: %s, subscription: %s)", topicName, subscriptionName)
 
-		// Start processing
+		// Start processing with pull subscription
 		g, gCtx := errgroup.WithContext(ctx)
 		g.Go(func() error {
 			return processor.processMessages(gCtx, subscription)
@@ -1053,6 +1080,124 @@ func (p *enrichmentProcessor) uploadLogosToGCS(ctx context.Context, filePaths []
 	}
 
 	return mainLogoURL, iconLogoURL, svgLogoURL, nil
+}
+
+// Pub/Sub push message format
+type pubsubPushMessage struct {
+	Message struct {
+		Data        string            `json:"data"`
+		Attributes  map[string]string  `json:"attributes"`
+		MessageID   string            `json:"messageId"`
+		PublishTime string            `json:"publishTime"`
+	} `json:"message"`
+	Subscription string `json:"subscription"`
+}
+
+// startHTTPServer starts an HTTP server to handle Pub/Sub push messages
+func (p *enrichmentProcessor) startHTTPServer(ctx context.Context, port int) error {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", p.handlePubSubPush)
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	})
+
+	server := &http.Server{
+		Addr:    fmt.Sprintf(":%d", port),
+		Handler: mux,
+	}
+
+	p.logger.Infof("Starting HTTP server on port %d for Pub/Sub push messages", port)
+
+	// Start server in goroutine
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			p.logger.Errorf("HTTP server failed: %v", err)
+		}
+	}()
+
+	// Wait for context cancellation
+	<-ctx.Done()
+	p.logger.Infof("Shutting down HTTP server...")
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	return server.Shutdown(shutdownCtx)
+}
+
+// handlePubSubPush handles Pub/Sub push HTTP POST requests
+func (p *enrichmentProcessor) handlePubSubPush(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var pushMsg pubsubPushMessage
+	if err := json.NewDecoder(r.Body).Decode(&pushMsg); err != nil {
+		p.logger.Errorf("Failed to decode Pub/Sub push message: %v", err)
+		http.Error(w, "Invalid message format", http.StatusBadRequest)
+		return
+	}
+
+	// Decode base64 message data
+	messageData, err := base64.StdEncoding.DecodeString(pushMsg.Message.Data)
+	if err != nil {
+		p.logger.Errorf("Failed to decode message data: %v", err)
+		http.Error(w, "Invalid message data", http.StatusBadRequest)
+		return
+	}
+
+	// Parse enrichment job message
+	var jobMsg enrichmentJobMessage
+	if err := json.Unmarshal(messageData, &jobMsg); err != nil {
+		p.logger.Errorf("Failed to unmarshal job message: %v", err)
+		http.Error(w, "Invalid job message", http.StatusBadRequest)
+		return
+	}
+
+	p.logger.Infof("Received Pub/Sub push message for job %s (stock: %s)", jobMsg.JobID, jobMsg.StockCode)
+
+	// Process the job asynchronously
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		defer cancel()
+
+		// Get the job from database to check its current status and force flag
+		job, err := p.store.GetEnrichmentJob(jobMsg.JobID)
+		if err != nil {
+			p.logger.Errorf("Failed to get job %s from database: %v", jobMsg.JobID, err)
+			return
+		}
+
+		// If job is already in a final state, skip processing
+		if job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_COMPLETED ||
+			job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED ||
+			job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_CANCELLED {
+			p.logger.Infof("Job %s already in final state %s, skipping", jobMsg.JobID, job.Status)
+			return
+		}
+
+		// If job is already processing, skip (another worker is handling it)
+		if job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_PROCESSING {
+			p.logger.Infof("Job %s already processing, skipping (duplicate)", jobMsg.JobID)
+			return
+		}
+
+		// Use the force flag from the database job record
+		force := job.Force
+
+		// Process the job
+		if err := p.processJob(ctx, jobMsg.JobID, jobMsg.StockCode, force); err != nil {
+			p.logger.Errorf("Failed to process job %s: %v", jobMsg.JobID, err)
+		} else {
+			p.logger.Infof("Successfully processed job %s", jobMsg.JobID)
+		}
+	}()
+
+	// Return 200 OK immediately (Pub/Sub push expects quick response)
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
 }
 
 func signalListener(ctx context.Context) func() error {

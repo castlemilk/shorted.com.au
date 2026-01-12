@@ -13,3 +13,7 @@ output "job_name" {
   value       = google_cloud_run_v2_job.enrichment_processor.name
 }
 
+output "service_account_email" {
+  description = "Email of the enrichment processor service account"
+  value       = google_service_account.enrichment_processor.email
+}
