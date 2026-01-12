@@ -245,6 +245,7 @@ jobs:
     outputs:
       shorts-url: ${{ steps.deploy.outputs.shorts_url }}
       market-data-url: ${{ steps.deploy.outputs.market_data_url }}
+      enrichment-processor-url: ${{ steps.deploy.outputs.enrichment_processor_url }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -377,9 +378,11 @@ jobs:
           # Capture outputs
           SHORTS_URL=$(terraform output -raw shorts_url)
           MARKET_DATA_URL=$(terraform output -raw market_data_url)
+          ENRICHMENT_PROCESSOR_URL=$(terraform output -raw enrichment_processor_url)
 
           echo "shorts_url=$SHORTS_URL" >> $GITHUB_OUTPUT
           echo "market_data_url=$MARKET_DATA_URL" >> $GITHUB_OUTPUT
+          echo "enrichment_processor_url=$ENRICHMENT_PROCESSOR_URL" >> $GITHUB_OUTPUT
 
       - name: Comment PR with deployment URLs
         uses: actions/github-script@v7
