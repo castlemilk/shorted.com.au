@@ -416,6 +416,9 @@ jobs:
           echo "market_data_url=$MARKET_DATA_URL" >> $GITHUB_OUTPUT
           echo "enrichment_processor_url=$ENRICHMENT_PROCESSOR_URL" >> $GITHUB_OUTPUT
 
+      # NOTE: AUTH_FIREBASE_PRIVATE_KEY must be set in Vercel Dashboard
+      # (Settings -> Environment Variables -> Preview) because it contains
+      # special characters that break CLI argument parsing.
       - name: Deploy to Vercel (Preview)
         id: vercel-deploy
         uses: amondnet/vercel-action@v25
@@ -438,7 +441,6 @@ jobs:
             --build-env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
             --build-env AUTH_FIREBASE_PROJECT_ID=${{ secrets.AUTH_FIREBASE_PROJECT_ID }}
             --build-env AUTH_FIREBASE_CLIENT_EMAIL=${{ secrets.AUTH_FIREBASE_CLIENT_EMAIL }}
-            --build-env AUTH_FIREBASE_PRIVATE_KEY=${{ secrets.AUTH_FIREBASE_PRIVATE_KEY }}
             --build-env NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
             --build-env NEXT_PUBLIC_ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}
             --build-env NEXT_PUBLIC_ALGOLIA_SEARCH_KEY=${{ secrets.ALGOLIA_SEARCH_KEY }}
@@ -452,7 +454,6 @@ jobs:
             --env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
             --env AUTH_FIREBASE_PROJECT_ID=${{ secrets.AUTH_FIREBASE_PROJECT_ID }}
             --env AUTH_FIREBASE_CLIENT_EMAIL=${{ secrets.AUTH_FIREBASE_CLIENT_EMAIL }}
-            --env AUTH_FIREBASE_PRIVATE_KEY=${{ secrets.AUTH_FIREBASE_PRIVATE_KEY }}
             --env NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
             --env NEXT_PUBLIC_ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}
             --env NEXT_PUBLIC_ALGOLIA_SEARCH_KEY=${{ secrets.ALGOLIA_SEARCH_KEY }}
