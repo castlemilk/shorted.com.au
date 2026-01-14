@@ -342,6 +342,10 @@ jobs:
           output "market_data_url" {
             value = module.preview.market_data_url
           }
+
+          output "enrichment_processor_url" {
+            value = module.preview.enrichment_processor_url
+          }
           EOF
 
           # Initialize Terraform with GCS backend
@@ -412,12 +416,59 @@ jobs:
           echo "market_data_url=$MARKET_DATA_URL" >> $GITHUB_OUTPUT
           echo "enrichment_processor_url=$ENRICHMENT_PROCESSOR_URL" >> $GITHUB_OUTPUT
 
+      - name: Deploy to Vercel (Preview)
+        id: vercel-deploy
+        uses: amondnet/vercel-action@v25
+        env:
+          VERCEL_ENV: dev
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: team_xE5DMN3hIo8aPqyHNkBybg8r
+          vercel-project-id: shorted-com-au
+          scope: team_xE5DMN3hIo8aPqyHNkBybg8r
+          alias-domains: preview.shorted.com.au
+          vercel-args: >-
+            --build-env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.deploy.outputs.shorts_url }}
+            --build-env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ steps.deploy.outputs.market_data_url }}
+            --build-env NEXT_PUBLIC_SHORTS_API_URL=${{ steps.deploy.outputs.shorts_url }}
+            --build-env SHORTS_SERVICE_ENDPOINT=${{ steps.deploy.outputs.shorts_url }}
+            --build-env ENRICHMENT_PROCESSOR_URL=${{ steps.deploy.outputs.enrichment_processor_url }}
+            --build-env NEXT_PUBLIC_ENRICHMENT_PROCESSOR_URL=${{ steps.deploy.outputs.enrichment_processor_url }}
+            --build-env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
+            --build-env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
+            --build-env AUTH_FIREBASE_PROJECT_ID=${{ secrets.AUTH_FIREBASE_PROJECT_ID }}
+            --build-env AUTH_FIREBASE_CLIENT_EMAIL=${{ secrets.AUTH_FIREBASE_CLIENT_EMAIL }}
+            --build-env AUTH_FIREBASE_PRIVATE_KEY=${{ secrets.AUTH_FIREBASE_PRIVATE_KEY }}
+            --build-env NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+            --build-env NEXT_PUBLIC_ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}
+            --build-env NEXT_PUBLIC_ALGOLIA_SEARCH_KEY=${{ secrets.ALGOLIA_SEARCH_KEY }}
+            --env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.deploy.outputs.shorts_url }}
+            --env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ steps.deploy.outputs.market_data_url }}
+            --env NEXT_PUBLIC_SHORTS_API_URL=${{ steps.deploy.outputs.shorts_url }}
+            --env SHORTS_SERVICE_ENDPOINT=${{ steps.deploy.outputs.shorts_url }}
+            --env ENRICHMENT_PROCESSOR_URL=${{ steps.deploy.outputs.enrichment_processor_url }}
+            --env NEXT_PUBLIC_ENRICHMENT_PROCESSOR_URL=${{ steps.deploy.outputs.enrichment_processor_url }}
+            --env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
+            --env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
+            --env AUTH_FIREBASE_PROJECT_ID=${{ secrets.AUTH_FIREBASE_PROJECT_ID }}
+            --env AUTH_FIREBASE_CLIENT_EMAIL=${{ secrets.AUTH_FIREBASE_CLIENT_EMAIL }}
+            --env AUTH_FIREBASE_PRIVATE_KEY=${{ secrets.AUTH_FIREBASE_PRIVATE_KEY }}
+            --env NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+            --env NEXT_PUBLIC_ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}
+            --env NEXT_PUBLIC_ALGOLIA_SEARCH_KEY=${{ secrets.ALGOLIA_SEARCH_KEY }}
+            --env ALGOLIA_INDEX=stocks
+            --env NEXTAUTH_URL=https://preview.shorted.com.au
+            --env ALLOW_E2E_AUTH=true
+            --env ADMIN_EMAILS=ben.ebsworth@gmail.com,e2e-test@shorted.com.au
+
       - name: Comment PR with deployment URLs
         uses: actions/github-script@v7
         with:
           script: |
             const shortsUrl = '${{ steps.deploy.outputs.shorts_url }}';
             const marketDataUrl = '${{ steps.deploy.outputs.market_data_url }}';
+            const enrichmentProcessorUrl = '${{ steps.deploy.outputs.enrichment_processor_url }}';
+            const vercelUrl = '${{ steps.vercel-deploy.outputs.preview-url }}';
 
             const body = `## 🏗️ Infrastructure Deployment (Terraform)
 
@@ -427,10 +478,18 @@ jobs:
             |---------|-----|--------|
             | **Shorts API** | ${shortsUrl} | 🟢 Live |
             | **Market Data API** | ${marketDataUrl} | 🟢 Live |
+            | **Enrichment Processor** | ${enrichmentProcessorUrl || '(not deployed)'} | ${enrichmentProcessorUrl ? '🟢 Live' : '⚪ N/A'} |
+
+            ### ✅ Frontend Deployed
+
+            | Environment | URL |
+            |-------------|-----|
+            | **Vercel Preview** | ${vercelUrl} |
 
             ### 📦 Services Deployed
             - \`shorts-service-pr-${{ needs.determine-environment.outputs.pr-number }}\` (256Mi RAM, 0-2 instances)
             - \`market-data-service-pr-${{ needs.determine-environment.outputs.pr-number }}\` (256Mi RAM, 0-2 instances)
+            - \`enrichment-processor-pr-${{ needs.determine-environment.outputs.pr-number }}\` (4Gi RAM, 0-1 instances)
 
             ### 🔧 Infrastructure Details
             - **Environment**: Preview (PR #${{ needs.determine-environment.outputs.pr-number }})
@@ -445,14 +504,11 @@ jobs:
             **Region**: \`australia-southeast2\`
             **State**: \`gs://shorted-dev-aba5688f-terraform-state/preview/pr-${{ needs.determine-environment.outputs.pr-number }}/\`
 
-            **Resource Names**:
-            - Cloud Run Services: \`shorts-service-pr-${{ needs.determine-environment.outputs.pr-number }}\`, \`market-data-service-pr-${{ needs.determine-environment.outputs.pr-number }}\`
-            - Service Accounts: Reusing \`shorts@shorted-dev-aba5688f.iam.gserviceaccount.com\`
+            **Environment Variables passed to Vercel**:
+            - \`ENRICHMENT_PROCESSOR_URL=${enrichmentProcessorUrl || '(empty)'}\`
+            - \`SHORTS_SERVICE_ENDPOINT=${shortsUrl}\`
 
             </details>
-
-            ---
-            *🔄 Frontend deployment handled by \`ci.yml\` workflow*
             `;
 
             const { data: comments } = await github.rest.issues.listComments({

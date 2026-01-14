@@ -189,8 +189,9 @@ jobs:
   deploy-vercel-preview:
     needs: [check-secrets]
     runs-on: ubuntu-latest
-    # Deploy Vercel preview after waiting for Terraform backend deployment
-    if: needs.check-secrets.outputs.has-gcp == 'true' && github.event_name == 'pull_request'
+    # DISABLED: Vercel preview deployment is now handled by terraform-deploy.yml
+    # This ensures ENRICHMENT_PROCESSOR_URL is available (deployed by Terraform first)
+    if: false # needs.check-secrets.outputs.has-gcp == 'true' && github.event_name == 'pull_request'
     environment:
       name: preview
       url: ${{ steps.deploy.outputs.preview-url }}
@@ -224,6 +225,9 @@ jobs:
           # Wait up to 10 minutes for services to be deployed
           MAX_ATTEMPTS=40
           ATTEMPT=0
+          SHORTS_URL=""
+          MARKET_DATA_URL=""
+          ENRICHMENT_PROCESSOR_URL=""
 
           while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
             SHORTS_URL=$(gcloud run services describe shorts-service-pr-${{ env.PR_NUMBER }} \
@@ -237,16 +241,19 @@ jobs:
                 --project ${{ env.GCP_PROJECT_ID }} \
                 --format 'value(status.url)' 2>/dev/null || echo "")
               
-              # Try to get enrichment-processor URL (may not exist yet if Terraform hasn't deployed it)
+              # Try to get enrichment-processor URL
               ENRICHMENT_PROCESSOR_URL=$(gcloud run services describe enrichment-processor-pr-${{ env.PR_NUMBER }} \
                 --region ${{ env.GCP_REGION }} \
                 --project ${{ env.GCP_PROJECT_ID }} \
                 --format 'value(status.url)' 2>/dev/null || echo "")
               
-              echo "shorts_url=$SHORTS_URL" >> $GITHUB_OUTPUT
-              echo "market_data_url=$MARKET_DATA_URL" >> $GITHUB_OUTPUT
-              # Always set enrichment_processor_url, even if empty (to avoid undefined variable errors)
-              echo "enrichment_processor_url=${ENRICHMENT_PROCESSOR_URL:-}" >> $GITHUB_OUTPUT
+              # If enrichment-processor not ready yet, wait a bit more (it depends on shorts)
+              if [ -z "$ENRICHMENT_PROCESSOR_URL" ] && [ $ATTEMPT -lt $((MAX_ATTEMPTS - 5)) ]; then
+                echo "   Shorts ready, waiting for enrichment-processor..."
+                ATTEMPT=$((ATTEMPT + 1))
+                sleep 15
+                continue
+              fi
               
               echo "✅ Backend services ready:"
               echo "   Shorts API: $SHORTS_URL"
@@ -254,7 +261,7 @@ jobs:
               if [ -n "$ENRICHMENT_PROCESSOR_URL" ]; then
                 echo "   Enrichment Processor: $ENRICHMENT_PROCESSOR_URL"
               else
-                echo "   Enrichment Processor: (not deployed yet, will be available after Terraform deployment)"
+                echo "   Enrichment Processor: (not deployed yet, admin enrichment features will be unavailable)"
               fi
               break
             fi
@@ -269,16 +276,16 @@ jobs:
             exit 1
           fi
 
-          # Ensure enrichment-processor URL output is always set (even if empty, to avoid undefined variable errors)
-          # Check if it was already set above, if not set it to empty string
-          if ! grep -q "^enrichment_processor_url=" $GITHUB_OUTPUT 2>/dev/null; then
-            echo "⚠️  Enrichment processor service not found yet, setting empty value"
-            echo "enrichment_processor_url=" >> $GITHUB_OUTPUT
-          fi
+          # Set outputs
+          echo "shorts_url=$SHORTS_URL" >> $GITHUB_OUTPUT
+          echo "market_data_url=$MARKET_DATA_URL" >> $GITHUB_OUTPUT
+          echo "enrichment_processor_url=${ENRICHMENT_PROCESSOR_URL:-}" >> $GITHUB_OUTPUT
 
-          # Verify the output was set
+          # Verify the outputs
           echo "📋 Environment variables to be set in Vercel:"
-          echo "   ENRICHMENT_PROCESSOR_URL=$(grep '^enrichment_processor_url=' $GITHUB_OUTPUT | cut -d'=' -f2-)"
+          echo "   SHORTS_URL=$SHORTS_URL"
+          echo "   MARKET_DATA_URL=$MARKET_DATA_URL"
+          echo "   ENRICHMENT_PROCESSOR_URL=${ENRICHMENT_PROCESSOR_URL:-'(not set)'}"
 
       - name: Deploy to Vercel
         id: deploy
@@ -295,19 +302,29 @@ jobs:
             --build-env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.get-backend-urls.outputs.shorts_url }}
             --build-env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ steps.get-backend-urls.outputs.market_data_url }}
             --build-env NEXT_PUBLIC_SHORTS_API_URL=${{ steps.get-backend-urls.outputs.shorts_url }}
+            --build-env SHORTS_SERVICE_ENDPOINT=${{ steps.get-backend-urls.outputs.shorts_url }}
             --build-env ENRICHMENT_PROCESSOR_URL=${{ steps.get-backend-urls.outputs.enrichment_processor_url || '' }}
             --build-env NEXT_PUBLIC_ENRICHMENT_PROCESSOR_URL=${{ steps.get-backend-urls.outputs.enrichment_processor_url || '' }}
             --build-env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
             --build-env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
+            --build-env AUTH_FIREBASE_PROJECT_ID=${{ secrets.AUTH_FIREBASE_PROJECT_ID }}
+            --build-env AUTH_FIREBASE_CLIENT_EMAIL=${{ secrets.AUTH_FIREBASE_CLIENT_EMAIL }}
+            --build-env AUTH_FIREBASE_PRIVATE_KEY=${{ secrets.AUTH_FIREBASE_PRIVATE_KEY }}
+            --build-env NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
             --build-env NEXT_PUBLIC_ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}
             --build-env NEXT_PUBLIC_ALGOLIA_SEARCH_KEY=${{ secrets.ALGOLIA_SEARCH_KEY }}
             --env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.get-backend-urls.outputs.shorts_url }}
             --env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ steps.get-backend-urls.outputs.market_data_url }}
             --env NEXT_PUBLIC_SHORTS_API_URL=${{ steps.get-backend-urls.outputs.shorts_url }}
+            --env SHORTS_SERVICE_ENDPOINT=${{ steps.get-backend-urls.outputs.shorts_url }}
             --env ENRICHMENT_PROCESSOR_URL=${{ steps.get-backend-urls.outputs.enrichment_processor_url || '' }}
             --env NEXT_PUBLIC_ENRICHMENT_PROCESSOR_URL=${{ steps.get-backend-urls.outputs.enrichment_processor_url || '' }}
             --env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
             --env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
+            --env AUTH_FIREBASE_PROJECT_ID=${{ secrets.AUTH_FIREBASE_PROJECT_ID }}
+            --env AUTH_FIREBASE_CLIENT_EMAIL=${{ secrets.AUTH_FIREBASE_CLIENT_EMAIL }}
+            --env AUTH_FIREBASE_PRIVATE_KEY=${{ secrets.AUTH_FIREBASE_PRIVATE_KEY }}
+            --env NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
             --env NEXT_PUBLIC_ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}
             --env NEXT_PUBLIC_ALGOLIA_SEARCH_KEY=${{ secrets.ALGOLIA_SEARCH_KEY }}
             --env ALGOLIA_INDEX=stocks
