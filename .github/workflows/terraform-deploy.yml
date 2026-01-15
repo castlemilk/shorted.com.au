@@ -242,6 +242,7 @@ jobs:
     needs: [determine-environment, build-and-push-images]
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && needs.determine-environment.outputs.is-preview == 'true'
+    environment: dev
     outputs:
       shorts-url: ${{ steps.deploy.outputs.shorts_url }}
       market-data-url: ${{ steps.deploy.outputs.market_data_url }}
