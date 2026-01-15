@@ -25,6 +25,15 @@ export function GET() {
       NEXT_PUBLIC_ENRICHMENT_PROCESSOR_URL: process.env.NEXT_PUBLIC_ENRICHMENT_PROCESSOR_URL ?? "(not set)",
       NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT: process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? "(not set)",
       NODE_ENV: process.env.NODE_ENV ?? "(not set)",
+      NEXTAUTH_URL: process.env.NEXTAUTH_URL ?? "(not set)",
+      // Masked OAuth client ID - show first 12 and last 6 chars for verification
+      AUTH_GOOGLE_ID_MASKED: process.env.AUTH_GOOGLE_ID 
+        ? `${process.env.AUTH_GOOGLE_ID.slice(0, 12)}...${process.env.AUTH_GOOGLE_ID.slice(-6)}`
+        : "(not set)",
+      // Show secret suffix (last 4 chars only)
+      AUTH_GOOGLE_SECRET_SUFFIX: process.env.AUTH_GOOGLE_SECRET
+        ? `****${process.env.AUTH_GOOGLE_SECRET.slice(-4)}`
+        : "(not set)",
     },
   };
 
