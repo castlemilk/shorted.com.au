@@ -305,7 +305,7 @@ module "enrichment_processor_preview" {
   postgres_address  = var.postgres_address
   postgres_database = var.postgres_database
   postgres_username = var.postgres_username
-  topic_name_suffix = local.pr_suffix  # Use PR suffix to make topic names unique
+  topic_name_suffix = local.pr_suffix # Use PR suffix to make topic names unique
 
   depends_on = [
     google_cloud_run_v2_service.shorts_preview,
@@ -388,14 +388,14 @@ resource "google_cloud_run_v2_service" "enrichment_processor_preview" {
           cpu    = "2"
           memory = "4Gi"
         }
-        cpu_idle          = true   # Allow CPU to scale down when idle
+        cpu_idle          = true # Allow CPU to scale down when idle
         startup_cpu_boost = true
       }
     }
 
     scaling {
-      min_instance_count = 0  # Scale to zero - will start on Pub/Sub push
-      max_instance_count = 1  # Only need 1 instance for preview
+      min_instance_count = 0 # Scale to zero - will start on Pub/Sub push
+      max_instance_count = 1 # Only need 1 instance for preview
     }
   }
 
@@ -422,7 +422,7 @@ resource "google_pubsub_subscription" "enrichment_processor_push" {
     }
   }
 
-  ack_deadline_seconds       = 600 # 10 minutes
+  ack_deadline_seconds       = 600      # 10 minutes
   message_retention_duration = "86400s" # 24 hours
 
   labels = local.labels
@@ -440,6 +440,21 @@ resource "google_cloud_run_v2_service_iam_member" "enrichment_processor_pubsub_i
   name     = google_cloud_run_v2_service.enrichment_processor_preview.name
   role     = "roles/run.invoker"
   member   = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-pubsub.iam.gserviceaccount.com"
+
+  depends_on = [
+    google_cloud_run_v2_service.enrichment_processor_preview,
+  ]
+}
+
+# Allow unauthenticated access to enrichment processor for preview environments
+# The web app (deployed to Vercel) doesn't have GCP service account access,
+# so we allow public access. Admin authentication is handled at the web app level.
+resource "google_cloud_run_v2_service_iam_member" "enrichment_processor_preview_public" {
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.enrichment_processor_preview.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 
   depends_on = [
     google_cloud_run_v2_service.enrichment_processor_preview,
