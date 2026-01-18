@@ -129,6 +129,11 @@ resource "google_cloud_run_v2_service" "shorts_preview" {
       }
 
       env {
+        name  = "IMAGE_TAG"
+        value = var.image_tag # Forces new revision when image is rebuilt
+      }
+
+      env {
         name  = "ENRICHMENT_PUBSUB_TOPIC"
         value = "enrichment-jobs-${local.pr_suffix}"
       }
@@ -257,6 +262,11 @@ resource "google_cloud_run_v2_service" "market_data_preview" {
         value = var.project_id
       }
 
+      env {
+        name  = "IMAGE_TAG"
+        value = var.image_tag # Forces new revision when image is rebuilt
+      }
+
       resources {
         limits = {
           cpu    = "1"
@@ -339,6 +349,11 @@ resource "google_cloud_run_v2_service" "enrichment_processor_preview" {
       }
 
       env {
+        name  = "IMAGE_TAG"
+        value = var.image_tag # Forces new revision when image is rebuilt
+      }
+
+      env {
         name  = "ENRICHMENT_PUBSUB_TOPIC"
         value = module.enrichment_processor_preview.topic_name
       }
@@ -394,8 +409,8 @@ resource "google_cloud_run_v2_service" "enrichment_processor_preview" {
     }
 
     scaling {
-      min_instance_count = 0 # Scale to zero - will start on Pub/Sub push
-      max_instance_count = 1 # Only need 1 instance for preview
+      min_instance_count = 0 # Scale to zero - Cloud Run will scale based on Pub/Sub queue depth
+      max_instance_count = 10 # Allow scaling for concurrent jobs
     }
   }
 
@@ -404,47 +419,9 @@ resource "google_cloud_run_v2_service" "enrichment_processor_preview" {
   ]
 }
 
-# Pub/Sub push subscription for event-driven processing
-# This sends messages to Cloud Run Service via HTTP POST
-# Note: Uses the pull subscription topic but sends to Cloud Run Service for event-driven scaling
-resource "google_pubsub_subscription" "enrichment_processor_push" {
-  name    = "enrichment-jobs-push-${local.pr_suffix}"
-  topic   = module.enrichment_processor_preview.topic_name
-  project = var.project_id
-
-  push_config {
-    push_endpoint = "${google_cloud_run_v2_service.enrichment_processor_preview.uri}/"
-    oidc_token {
-      service_account_email = module.enrichment_processor_preview.service_account_email
-    }
-    attributes = {
-      x-goog-version = "v1"
-    }
-  }
-
-  ack_deadline_seconds       = 600      # 10 minutes
-  message_retention_duration = "86400s" # 24 hours
-
-  labels = local.labels
-
-  depends_on = [
-    google_cloud_run_v2_service.enrichment_processor_preview,
-    google_cloud_run_v2_service_iam_member.enrichment_processor_pubsub_invoker,
-  ]
-}
-
-# Grant Pub/Sub to invoke Cloud Run Service
-resource "google_cloud_run_v2_service_iam_member" "enrichment_processor_pubsub_invoker" {
-  project  = var.project_id
-  location = var.region
-  name     = google_cloud_run_v2_service.enrichment_processor_preview.name
-  role     = "roles/run.invoker"
-  member   = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-pubsub.iam.gserviceaccount.com"
-
-  depends_on = [
-    google_cloud_run_v2_service.enrichment_processor_preview,
-  ]
-}
+# Note: Using pull subscription (created by enrichment_processor_preview module)
+# Cloud Run will auto-scale based on unacknowledged messages in the queue
+# The service polls the subscription and Cloud Run scales instances based on activity
 
 # Allow unauthenticated access to enrichment processor for preview environments
 # The web app (deployed to Vercel) doesn't have GCP service account access,
