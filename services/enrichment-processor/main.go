@@ -220,13 +220,39 @@ func main() {
 		gcsBucket:        os.Getenv("GCS_LOGO_BUCKET"),
 	}
 
-	// Check if running as Cloud Run Service (PORT env var set) - use HTTP push mode
+	// Check if running as Cloud Run Service (PORT env var set)
+	// Use pull subscription mode for queue-based auto-scaling, but also start HTTP server for manual triggers
 	portStr := os.Getenv("PORT")
 	if portStr != "" {
 		port, err := strconv.Atoi(portStr)
 		if err != nil {
 			log.Fatalf("Invalid PORT environment variable: %v", err)
 		}
+
+		// If we have a subscription, use pull mode (better for auto-scaling based on queue depth)
+		// But also start HTTP server for /process-queued endpoint
+		if subscription != nil {
+			logger.Infof("Running as Cloud Run Service with Pub/Sub pull (topic: %s, subscription: %s)", topicName, subscriptionName)
+			logger.Infof("HTTP server on port %d for manual triggers (/process-queued)", port)
+
+			// Start both pull subscription processor and HTTP server
+			g, gCtx := errgroup.WithContext(ctx)
+			g.Go(func() error {
+				return processor.processMessages(gCtx, subscription)
+			})
+			g.Go(func() error {
+				return processor.startHTTPServer(gCtx, port)
+			})
+			g.Go(signalListener(gCtx))
+
+			if err := g.Wait(); err != nil {
+				logger.Errorf("processor terminated with error: %v", err)
+				os.Exit(1)
+			}
+			return
+		}
+
+		// Fallback: HTTP push mode if no subscription (legacy)
 		logger.Infof("Running as Cloud Run Service (HTTP push mode) on port %d", port)
 		logger.Infof("Pub/Sub topic: %s", topicName)
 
@@ -1129,7 +1155,7 @@ func (p *enrichmentProcessor) startHTTPServer(ctx context.Context, port int) err
 	mux.HandleFunc("/", p.handlePubSubPush)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 	})
 	mux.HandleFunc("/process-queued", p.handleProcessQueued)
 
@@ -1158,6 +1184,9 @@ func (p *enrichmentProcessor) startHTTPServer(ctx context.Context, port int) err
 }
 
 // handlePubSubPush handles Pub/Sub push HTTP POST requests
+// Jobs are processed asynchronously in a goroutine. We acknowledge the message quickly
+// to satisfy Pub/Sub's ack deadline, then process in the background.
+// With min_instance_count=1, Cloud Run keeps an instance warm so background jobs complete.
 func (p *enrichmentProcessor) handlePubSubPush(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -1189,31 +1218,43 @@ func (p *enrichmentProcessor) handlePubSubPush(w http.ResponseWriter, r *http.Re
 
 	p.logger.Infof("Received Pub/Sub push message for job %s (stock: %s)", jobMsg.JobID, jobMsg.StockCode)
 
-	// Process the job asynchronously
+	// Validate job exists and get its state before processing
+	job, err := p.store.GetEnrichmentJob(jobMsg.JobID)
+	if err != nil {
+		p.logger.Errorf("Failed to get job %s from database: %v", jobMsg.JobID, err)
+		// Return 500 so Pub/Sub will retry
+		http.Error(w, "Failed to get job from database", http.StatusInternalServerError)
+		return
+	}
+
+	// If job is already in a final state, acknowledge and skip
+	if job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_COMPLETED ||
+		job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED ||
+		job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_CANCELLED {
+		p.logger.Infof("Job %s already in final state %s, skipping", jobMsg.JobID, job.Status)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("Job already completed"))
+		return
+	}
+
+	// If job is already processing, acknowledge and skip (duplicate message)
+	if job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_PROCESSING {
+		p.logger.Infof("Job %s already processing, skipping (duplicate)", jobMsg.JobID)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("Job already processing"))
+		return
+	}
+
+	// Acknowledge message quickly (Pub/Sub expects fast response)
+	// Then process asynchronously - the warm instance (min_instance_count=1) keeps it alive
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("OK"))
+
+	// Process job in background goroutine
+	// With min_instance_count=1, Cloud Run keeps the instance alive for background work
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 		defer cancel()
-
-		// Get the job from database to check its current status and force flag
-		job, err := p.store.GetEnrichmentJob(jobMsg.JobID)
-		if err != nil {
-			p.logger.Errorf("Failed to get job %s from database: %v", jobMsg.JobID, err)
-			return
-		}
-
-		// If job is already in a final state, skip processing
-		if job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_COMPLETED ||
-			job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED ||
-			job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_CANCELLED {
-			p.logger.Infof("Job %s already in final state %s, skipping", jobMsg.JobID, job.Status)
-			return
-		}
-
-		// If job is already processing, skip (another worker is handling it)
-		if job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_PROCESSING {
-			p.logger.Infof("Job %s already processing, skipping (duplicate)", jobMsg.JobID)
-			return
-		}
 
 		// Use the force flag from the database job record
 		force := job.Force
@@ -1225,14 +1266,11 @@ func (p *enrichmentProcessor) handlePubSubPush(w http.ResponseWriter, r *http.Re
 			p.logger.Infof("Successfully processed job %s", jobMsg.JobID)
 		}
 	}()
-
-	// Return 200 OK immediately (Pub/Sub push expects quick response)
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
 }
 
 // handleProcessQueued manually triggers processing of queued jobs
 // Useful for processing jobs that were created before Pub/Sub was configured
+// Jobs are processed synchronously to prevent Cloud Run from terminating the instance
 func (p *enrichmentProcessor) handleProcessQueued(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -1241,39 +1279,64 @@ func (p *enrichmentProcessor) handleProcessQueued(w http.ResponseWriter, r *http
 
 	p.logger.Infof("Manual trigger: Processing queued jobs...")
 
-	// Process queued jobs asynchronously
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
-		defer cancel()
+	// Set headers for streaming response
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
 
-		status := shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_QUEUED
-		jobs, total, err := p.store.ListEnrichmentJobs(100, 0, &status)
-		if err != nil {
-			p.logger.Errorf("Failed to list queued jobs: %v", err)
-			return
+	// Helper to write and flush response
+	writeProgress := func(msg string) {
+		_, _ = w.Write([]byte(msg + "\n"))
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
 		}
+	}
 
-		if len(jobs) == 0 {
-			p.logger.Infof("No queued jobs found")
-			return
-		}
+	// Process jobs synchronously to keep HTTP connection alive
+	// This prevents Cloud Run from terminating the instance mid-processing
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Minute)
+	defer cancel()
 
-		p.logger.Infof("Found %d queued job(s) (total: %d), processing...", len(jobs), total)
+	status := shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_QUEUED
+	jobs, total, err := p.store.ListEnrichmentJobs(100, 0, &status)
+	if err != nil {
+		p.logger.Errorf("Failed to list queued jobs: %v", err)
+		writeProgress(fmt.Sprintf("Error: Failed to list queued jobs: %v", err))
+		return
+	}
 
-		for _, job := range jobs {
-			if job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_QUEUED {
-				p.logger.Infof("Processing queued job %s for stock %s (force=%v)", job.JobId, job.StockCode, job.Force)
-				if err := p.processJob(ctx, job.JobId, job.StockCode, job.Force); err != nil {
-					p.logger.Errorf("Failed to process queued job %s: %v", job.JobId, err)
-				} else {
-					p.logger.Infof("Successfully processed queued job %s", job.JobId)
-				}
+	if len(jobs) == 0 {
+		p.logger.Infof("No queued jobs found")
+		writeProgress("No queued jobs found")
+		return
+	}
+
+	p.logger.Infof("Found %d queued job(s) (total: %d), processing...", len(jobs), total)
+	writeProgress(fmt.Sprintf("Found %d queued job(s) (total: %d), processing...", len(jobs), total))
+
+	successCount := 0
+	failCount := 0
+
+	for _, job := range jobs {
+		if job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_QUEUED {
+			p.logger.Infof("Processing queued job %s for stock %s (force=%v)", job.JobId, job.StockCode, job.Force)
+			writeProgress(fmt.Sprintf("Processing job %s for stock %s...", job.JobId, job.StockCode))
+
+			if err := p.processJob(ctx, job.JobId, job.StockCode, job.Force); err != nil {
+				p.logger.Errorf("Failed to process queued job %s: %v", job.JobId, err)
+				writeProgress(fmt.Sprintf("  FAILED: %v", err))
+				failCount++
+			} else {
+				p.logger.Infof("Successfully processed queued job %s", job.JobId)
+				writeProgress(fmt.Sprintf("  SUCCESS: %s enriched", job.StockCode))
+				successCount++
 			}
 		}
-	}()
+	}
 
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("Processing queued jobs in background")))
+	summary := fmt.Sprintf("Completed: %d succeeded, %d failed", successCount, failCount)
+	p.logger.Infof(summary)
+	writeProgress(summary)
 }
 
 func signalListener(ctx context.Context) func() error {
