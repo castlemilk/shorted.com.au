@@ -53,3 +53,8 @@ variable "enrichment_processor_image" {
   description = "Docker image URL for enrichment-processor service"
   type        = string
 }
+
+variable "image_tag" {
+  description = "Image tag or commit SHA - used to force new Cloud Run revisions when images are rebuilt with the same tag"
+  type        = string
+}
