@@ -50,6 +50,7 @@ jobs:
             echo "environment=dev" >> $GITHUB_OUTPUT
             echo "project-id=shorted-dev-aba5688f" >> $GITHUB_OUTPUT
             echo "image-tag=pr-${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+            echo "commit-sha=${{ github.event.pull_request.head.sha }}" >> $GITHUB_OUTPUT
             echo "is-preview=true" >> $GITHUB_OUTPUT
             echo "pr-number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
             echo "wip-provider=projects/234770780438/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_OUTPUT
@@ -274,6 +275,7 @@ jobs:
           GCP_REGION: ${{ env.GCP_REGION }}
           ARTIFACT_REGISTRY: ${{ env.ARTIFACT_REGISTRY }}
           IMAGE_TAG: ${{ needs.determine-environment.outputs.image-tag }}
+          COMMIT_SHA: ${{ needs.determine-environment.outputs.commit-sha }}
         run: |
           # Parse DATABASE_URL
           DB_USER=$(echo $DATABASE_URL | sed -n 's|postgresql://\([^:]*\):.*|\1|p')
@@ -334,6 +336,7 @@ jobs:
             postgres_address           = "${DB_ADDRESS}"
             postgres_database          = "${DB_NAME}"
             postgres_username          = "${DB_USER}"
+            image_tag                  = "${COMMIT_SHA}"
           }
 
           output "shorts_url" {
