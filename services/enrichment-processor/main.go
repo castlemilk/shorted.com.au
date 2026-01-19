@@ -1166,13 +1166,15 @@ type pubsubPushMessage struct {
 // startHTTPServer starts an HTTP server to handle Pub/Sub push messages
 func (p *enrichmentProcessor) startHTTPServer(ctx context.Context, port int) error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", p.handlePubSubPush)
+	// Register specific routes BEFORE the catch-all route
+	// This ensures they match correctly in Go 1.24+
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("OK"))
 	})
 	mux.HandleFunc("/process-queued", p.handleProcessQueued)
 	mux.HandleFunc("/reset-stuck-jobs", p.handleResetStuckJobs)
+	mux.HandleFunc("/", p.handlePubSubPush) // Catch-all for Pub/Sub push messages
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
