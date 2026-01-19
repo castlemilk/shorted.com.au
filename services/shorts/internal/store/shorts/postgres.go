@@ -1254,13 +1254,42 @@ func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, st
 		return "", fmt.Errorf("quality score is required")
 	}
 
-	dataJSON, err := protojson.Marshal(data)
+	// Use protojson with EmitUnpopulated to ensure all fields are included
+	// and UseProtoNames to match the proto field names
+	marshaler := protojson.MarshalOptions{
+		EmitUnpopulated: true,
+		UseProtoNames:   true,
+	}
+	
+	dataJSON, err := marshaler.Marshal(data)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal enrichment data: %w", err)
 	}
-	qualityJSON, err := protojson.Marshal(quality)
+	
+	// Validate JSON is valid before inserting
+	if len(dataJSON) == 0 || string(dataJSON) == "null" {
+		return "", fmt.Errorf("enrichment data marshaled to empty or null JSON")
+	}
+	
+	// Verify it's valid JSON by attempting to parse it
+	var testData interface{}
+	if err := json.Unmarshal(dataJSON, &testData); err != nil {
+		return "", fmt.Errorf("enrichment data produced invalid JSON: %w (JSON: %s)", err, string(dataJSON))
+	}
+	
+	qualityJSON, err := marshaler.Marshal(quality)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal quality score: %w", err)
+	}
+	
+	// Validate quality JSON
+	if len(qualityJSON) == 0 || string(qualityJSON) == "null" {
+		return "", fmt.Errorf("quality score marshaled to empty or null JSON")
+	}
+	
+	var testQuality interface{}
+	if err := json.Unmarshal(qualityJSON, &testQuality); err != nil {
+		return "", fmt.Errorf("quality score produced invalid JSON: %w (JSON: %s)", err, string(qualityJSON))
 	}
 
 	dbStatus := enrichmentStatusToDB(status)
