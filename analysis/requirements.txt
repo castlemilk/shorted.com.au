@@ -14,3 +14,17 @@ jupyter>=1.0.0
 ipykernel>=6.0.0
 yfinance>=0.2.40
 
+# Logo processing dependencies (for batch enrichment)
+Pillow>=10.0.0
+cairosvg>=2.7.1
+google-cloud-storage>=2.14.0
+
+# Optional: For full logo processing with icon extraction
+# These are also in services/enrichment-processor/requirements.txt
+# Install separately if needed for advanced logo processing:
+# rembg>=2.0.50
+# onnxruntime>=1.15.0
+# easyocr>=1.7.1
+# opencv-contrib-python>=4.8.0
+# numpy<2.0.0
+
