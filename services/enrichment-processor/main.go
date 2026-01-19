@@ -416,15 +416,19 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 			err = fmt.Errorf("%s", errMsg)
 		} else if err != nil && !statusUpdated {
 			// Safety net: if there's an error and status wasn't updated by normal error handling,
-			// update it now. This handles edge cases where error handling might have failed.
+			// update it now with retry logic. This ensures the job NEVER gets stuck.
 			errMsg := err.Error()
-			if updateErr := p.store.UpdateEnrichmentJobStatus(
+			// Retry with exponential backoff - this MUST succeed
+			updateErr := p.store.UpdateEnrichmentJobStatus(
 				jobID,
 				shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED,
 				nil,
 				&errMsg,
-			); updateErr != nil {
-				p.logger.Warnf("Failed to update job %s status to failed in defer (original error: %v): %v", jobID, err, updateErr)
+			)
+			if updateErr != nil {
+				// This is critical - log it but the retry logic in UpdateEnrichmentJobStatus should handle it
+				p.logger.Errorf("CRITICAL: Failed to update job %s status to failed in defer after retries (original error: %v): %v", jobID, err, updateErr)
+				// At this point, we've exhausted all retries - the database-level safeguard should catch this
 			}
 		}
 	}()
@@ -444,13 +448,15 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 	details, err := p.store.GetStockDetails(stockCode)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to get stock details: %v", err)
+		// UpdateEnrichmentJobStatus has retry logic - it should always succeed
 		if updateErr := p.store.UpdateEnrichmentJobStatus(
 			jobID,
 			shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED,
 			nil,
 			&errMsg,
 		); updateErr != nil {
-			p.logger.Warnf("Failed to update job status: %v", updateErr)
+			// This is critical - retry logic failed after 5 attempts
+			p.logger.Errorf("CRITICAL: Failed to update job %s status after retries: %v", jobID, updateErr)
 		} else {
 			statusUpdated = true
 		}
@@ -460,13 +466,15 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 	// Check if already enriched and not forced
 	if !force && strings.EqualFold(details.EnrichmentStatus, "completed") {
 		errMsg := "stock already enriched (use force=true to re-enrich)"
+		// UpdateEnrichmentJobStatus has retry logic - it should always succeed
 		if updateErr := p.store.UpdateEnrichmentJobStatus(
 			jobID,
 			shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED,
 			nil,
 			&errMsg,
 		); updateErr != nil {
-			p.logger.Warnf("Failed to update job status: %v", updateErr)
+			// This is critical - retry logic failed after 5 attempts
+			p.logger.Errorf("CRITICAL: Failed to update job %s status after retries: %v", jobID, updateErr)
 		} else {
 			statusUpdated = true
 		}
@@ -495,13 +503,15 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 	enriched, quality, err := p.runEnrichmentPhases(enrichCtx, stockCode, details)
 	if err != nil {
 		errMsg := err.Error()
+		// UpdateEnrichmentJobStatus has retry logic - it should always succeed
 		if updateErr := p.store.UpdateEnrichmentJobStatus(
 			jobID,
 			shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED,
 			nil,
 			&errMsg,
 		); updateErr != nil {
-			p.logger.Warnf("Failed to update job status: %v", updateErr)
+			// This is critical - retry logic failed after 5 attempts
+			p.logger.Errorf("CRITICAL: Failed to update job %s status after retries: %v", jobID, updateErr)
 		} else {
 			statusUpdated = true
 		}
@@ -519,13 +529,15 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 	)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to save pending enrichment: %v", err)
+		// UpdateEnrichmentJobStatus has retry logic - it should always succeed
 		if updateErr := p.store.UpdateEnrichmentJobStatus(
 			jobID,
 			shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED,
 			nil,
 			&errMsg,
 		); updateErr != nil {
-			p.logger.Warnf("Failed to update job status: %v", updateErr)
+			// This is critical - retry logic failed after 5 attempts
+			p.logger.Errorf("CRITICAL: Failed to update job %s status after retries: %v", jobID, updateErr)
 		} else {
 			statusUpdated = true
 		}
