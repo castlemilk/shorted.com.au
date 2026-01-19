@@ -1272,6 +1272,10 @@ func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, st
 	}
 	
 	// Verify it's valid JSON by attempting to parse it
+	// Use json.Valid() which is stricter and matches PostgreSQL's JSONB validation
+	if !json.Valid(dataJSON) {
+		return "", fmt.Errorf("enrichment data produced invalid JSON (not valid per json.Valid): %s", string(dataJSON))
+	}
 	var testData interface{}
 	if err := json.Unmarshal(dataJSON, &testData); err != nil {
 		return "", fmt.Errorf("enrichment data produced invalid JSON: %w (JSON: %s)", err, string(dataJSON))
@@ -1287,6 +1291,10 @@ func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, st
 		return "", fmt.Errorf("quality score marshaled to empty or null JSON")
 	}
 	
+	// Use json.Valid() which is stricter and matches PostgreSQL's JSONB validation
+	if !json.Valid(qualityJSON) {
+		return "", fmt.Errorf("quality score produced invalid JSON (not valid per json.Valid): %s", string(qualityJSON))
+	}
 	var testQuality interface{}
 	if err := json.Unmarshal(qualityJSON, &testQuality); err != nil {
 		return "", fmt.Errorf("quality score produced invalid JSON: %w (JSON: %s)", err, string(qualityJSON))
@@ -1326,20 +1334,25 @@ func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, st
 			review_notes = NULL
 	`
 
-	// Log the JSON being inserted for debugging (truncated to avoid huge logs)
+	// Convert []byte to string for PostgreSQL - pgx handles both but string is more explicit
+	// This ensures proper encoding and avoids any byte-level issues
 	dataJSONStr := string(dataJSON)
 	qualityJSONStr := string(qualityJSON)
-	if len(dataJSONStr) > 500 {
-		dataJSONStr = dataJSONStr[:500] + "... (truncated)"
+	
+	// Log the JSON being inserted for debugging (truncated to avoid huge logs)
+	dataJSONPreview := dataJSONStr
+	qualityJSONPreview := qualityJSONStr
+	if len(dataJSONPreview) > 500 {
+		dataJSONPreview = dataJSONPreview[:500] + "... (truncated)"
 	}
-	if len(qualityJSONStr) > 500 {
-		qualityJSONStr = qualityJSONStr[:500] + "... (truncated)"
+	if len(qualityJSONPreview) > 500 {
+		qualityJSONPreview = qualityJSONPreview[:500] + "... (truncated)"
 	}
 	log.Debugf("Saving enrichment for %s: dataJSON length=%d, qualityJSON length=%d", stockCode, len(dataJSON), len(qualityJSON))
-	log.Debugf("Data JSON (first 500 chars): %s", dataJSONStr)
-	log.Debugf("Quality JSON (first 500 chars): %s", qualityJSONStr)
+	log.Debugf("Data JSON (first 500 chars): %s", dataJSONPreview)
+	log.Debugf("Quality JSON (first 500 chars): %s", qualityJSONPreview)
 	
-	_, err = s.db.Exec(ctx, query, finalEnrichmentID, stockCode, dataJSON, qualityJSON, dbStatus)
+	_, err = s.db.Exec(ctx, query, finalEnrichmentID, stockCode, dataJSONStr, qualityJSONStr, dbStatus)
 	if err != nil {
 		// Include JSON snippets in error for debugging
 		return "", fmt.Errorf("failed to save pending enrichment: %w (dataJSON length: %d, qualityJSON length: %d, dataJSON preview: %s)", 
