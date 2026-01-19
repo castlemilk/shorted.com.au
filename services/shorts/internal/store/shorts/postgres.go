@@ -1326,9 +1326,24 @@ func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, st
 			review_notes = NULL
 	`
 
+	// Log the JSON being inserted for debugging (truncated to avoid huge logs)
+	dataJSONStr := string(dataJSON)
+	qualityJSONStr := string(qualityJSON)
+	if len(dataJSONStr) > 500 {
+		dataJSONStr = dataJSONStr[:500] + "... (truncated)"
+	}
+	if len(qualityJSONStr) > 500 {
+		qualityJSONStr = qualityJSONStr[:500] + "... (truncated)"
+	}
+	log.Debugf("Saving enrichment for %s: dataJSON length=%d, qualityJSON length=%d", stockCode, len(dataJSON), len(qualityJSON))
+	log.Debugf("Data JSON (first 500 chars): %s", dataJSONStr)
+	log.Debugf("Quality JSON (first 500 chars): %s", qualityJSONStr)
+	
 	_, err = s.db.Exec(ctx, query, finalEnrichmentID, stockCode, dataJSON, qualityJSON, dbStatus)
 	if err != nil {
-		return "", fmt.Errorf("failed to save pending enrichment: %w", err)
+		// Include JSON snippets in error for debugging
+		return "", fmt.Errorf("failed to save pending enrichment: %w (dataJSON length: %d, qualityJSON length: %d, dataJSON preview: %s)", 
+			err, len(dataJSON), len(qualityJSON), dataJSONStr)
 	}
 	return finalEnrichmentID, nil
 }
