@@ -309,6 +309,33 @@ type enrichmentProcessor struct {
 }
 
 func (p *enrichmentProcessor) processMessages(ctx context.Context, subscription *pubsub.Subscription) error {
+	// Start periodic cleanup of stuck jobs in background
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute) // Check every 5 minutes
+		defer ticker.Stop()
+		
+		// Run immediately on startup
+		if count, err := p.store.ResetStuckJobs(5); err != nil {
+			p.logger.Warnf("Failed to reset stuck jobs on startup: %v", err)
+		} else if count > 0 {
+			p.logger.Infof("Reset %d stuck job(s) on startup", count)
+		}
+		
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				// Reset jobs stuck in processing for more than 5 minutes
+				if count, err := p.store.ResetStuckJobs(5); err != nil {
+					p.logger.Warnf("Failed to reset stuck jobs: %v", err)
+				} else if count > 0 {
+					p.logger.Infof("Reset %d stuck job(s) back to queued", count)
+				}
+			}
+		}
+	}()
+	
 	return subscription.Receive(ctx, func(ctx context.Context, msg *pubsub.Message) {
 		var jobMsg enrichmentJobMessage
 		if err := json.Unmarshal(msg.Data, &jobMsg); err != nil {
@@ -371,6 +398,9 @@ func (p *enrichmentProcessor) processMessages(ctx context.Context, subscription 
 }
 
 func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode string, force bool) (err error) {
+	// Track if we've updated the job status to avoid duplicate updates
+	statusUpdated := false
+	
 	// Panic recovery to ensure job is always marked as failed if processing crashes
 	defer func() {
 		if r := recover(); r != nil {
@@ -384,6 +414,18 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 				&errMsg,
 			)
 			err = fmt.Errorf("%s", errMsg)
+		} else if err != nil && !statusUpdated {
+			// Safety net: if there's an error and status wasn't updated by normal error handling,
+			// update it now. This handles edge cases where error handling might have failed.
+			errMsg := err.Error()
+			if updateErr := p.store.UpdateEnrichmentJobStatus(
+				jobID,
+				shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED,
+				nil,
+				&errMsg,
+			); updateErr != nil {
+				p.logger.Warnf("Failed to update job %s status to failed in defer (original error: %v): %v", jobID, err, updateErr)
+			}
 		}
 	}()
 
@@ -409,6 +451,8 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 			&errMsg,
 		); updateErr != nil {
 			p.logger.Warnf("Failed to update job status: %v", updateErr)
+		} else {
+			statusUpdated = true
 		}
 		return fmt.Errorf("%s", errMsg)
 	}
@@ -423,6 +467,8 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 			&errMsg,
 		); updateErr != nil {
 			p.logger.Warnf("Failed to update job status: %v", updateErr)
+		} else {
+			statusUpdated = true
 		}
 		return fmt.Errorf("%s", errMsg)
 	}
@@ -456,6 +502,8 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 			&errMsg,
 		); updateErr != nil {
 			p.logger.Warnf("Failed to update job status: %v", updateErr)
+		} else {
+			statusUpdated = true
 		}
 		return err
 	}
@@ -478,6 +526,8 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 			&errMsg,
 		); updateErr != nil {
 			p.logger.Warnf("Failed to update job status: %v", updateErr)
+		} else {
+			statusUpdated = true
 		}
 		return fmt.Errorf("%s", errMsg)
 	}
