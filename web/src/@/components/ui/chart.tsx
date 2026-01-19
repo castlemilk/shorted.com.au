@@ -138,7 +138,7 @@ const Chart = ({ stockCode }: ChartProps) => {
           <ChartLoadingPlaceholder withMenu={false} />
         ) : error ? (
           <div className="text-sm text-red-500">
-            Error loading data: {error.message}
+            Error loading data: {error instanceof Error ? error.message : String(error)}
           </div>
         ) : (
           <ParentSize className="min-w-0">

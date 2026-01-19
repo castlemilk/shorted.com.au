@@ -100,7 +100,7 @@ const MarketChart = ({ stockCode }: MarketChartProps) => {
           <ChartLoadingPlaceholder withMenu={false} />
         ) : error ? (
           <div className="flex items-center justify-center h-[500px] min-h-[500px] text-red-500">
-            <p>Error loading market data: {error.message}</p>
+            <p>Error loading market data: {error instanceof Error ? error.message : String(error)}</p>
           </div>
         ) : !chartData ? (
           <div className="flex items-center justify-center h-[500px] min-h-[500px] text-muted-foreground">
