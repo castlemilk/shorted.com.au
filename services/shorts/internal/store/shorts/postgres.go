@@ -1942,9 +1942,13 @@ func (s *postgresStore) GetEnrichmentJob(jobID string) (*shortsv1alpha1.Enrichme
 	return job, nil
 }
 
+// UpdateEnrichmentJobStatus updates the status of an enrichment job with retry logic.
+// This function will retry up to 5 times with exponential backoff to ensure the status
+// is always updated, preventing jobs from getting stuck in processing.
 func (s *postgresStore) UpdateEnrichmentJobStatus(jobID string, status shortsv1alpha1.EnrichmentJobStatus, enrichmentID *string, errorMsg *string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	const maxRetries = 5
+	const initialBackoff = 100 * time.Millisecond
+	const maxBackoff = 5 * time.Second
 
 	dbStatus := enrichmentJobStatusToDB(status)
 	now := time.Now()
@@ -1997,12 +2001,38 @@ func (s *postgresStore) UpdateEnrichmentJobStatus(jobID string, status shortsv1a
 		args = []interface{}{dbStatus, jobID}
 	}
 
-	_, err := s.db.Exec(ctx, query, args...)
-	if err != nil {
-		return fmt.Errorf("failed to update enrichment job status: %w", err)
+	var lastErr error
+	backoff := initialBackoff
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		
+		_, err := s.db.Exec(ctx, query, args...)
+		cancel()
+		
+		if err == nil {
+			// Success - status updated
+			return nil
+		}
+
+		lastErr = err
+		
+		// Don't retry on the last attempt
+		if attempt < maxRetries-1 {
+			// Exponential backoff with jitter
+			time.Sleep(backoff)
+			backoff = time.Duration(float64(backoff) * 2.0)
+			if backoff > maxBackoff {
+				backoff = maxBackoff
+			}
+			
+			log.Warnf("Failed to update enrichment job %s status to %s (attempt %d/%d), retrying: %v", 
+				jobID, dbStatus, attempt+1, maxRetries, err)
+		}
 	}
 
-	return nil
+	// All retries failed - this is a critical error
+	return fmt.Errorf("failed to update enrichment job status after %d attempts: %w", maxRetries, lastErr)
 }
 
 func (s *postgresStore) ListEnrichmentJobs(limit, offset int32, status *shortsv1alpha1.EnrichmentJobStatus) ([]*shortsv1alpha1.EnrichmentJob, int32, error) {
