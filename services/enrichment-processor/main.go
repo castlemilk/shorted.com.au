@@ -162,47 +162,11 @@ func main() {
 				}
 			}()
 
-			// Get or create subscription
+			// Get subscription - assume it exists (created by Terraform)
+			// If subscription name is provided via env var, we trust it exists
+			// The Receive() call will fail gracefully if it doesn't exist or we lack permissions
 			subscription = pubsubClient.Subscription(subscriptionName)
-			exists, err := subscription.Exists(ctx)
-			if err != nil {
-				logger.Warnf("Failed to check if subscription exists: %v (falling back to local polling mode)", err)
-				projectID = "" // Force local polling mode
-				subscription = nil
-			} else if !exists {
-				topic := pubsubClient.Topic(topicName)
-				exists, err := topic.Exists(ctx)
-				if err != nil {
-					logger.Warnf("Failed to check if topic exists: %v (falling back to local polling mode)", err)
-					projectID = "" // Force local polling mode
-					subscription = nil
-				} else if !exists {
-					topic, err = pubsubClient.CreateTopic(ctx, topicName)
-					if err != nil {
-						logger.Warnf("Failed to create topic: %v (falling back to local polling mode)", err)
-						projectID = "" // Force local polling mode
-						subscription = nil
-					} else {
-						subscription, err = pubsubClient.CreateSubscription(ctx, subscriptionName, pubsub.SubscriptionConfig{
-							Topic: topic,
-						})
-						if err != nil {
-							logger.Warnf("Failed to create subscription: %v (falling back to local polling mode)", err)
-							projectID = "" // Force local polling mode
-							subscription = nil
-						}
-					}
-				} else {
-					subscription, err = pubsubClient.CreateSubscription(ctx, subscriptionName, pubsub.SubscriptionConfig{
-						Topic: topic,
-					})
-					if err != nil {
-						logger.Warnf("Failed to create subscription: %v (falling back to local polling mode)", err)
-						projectID = "" // Force local polling mode
-						subscription = nil
-					}
-				}
-			}
+			logger.Infof("Using subscription: %s (assuming it exists, created by infrastructure)", subscriptionName)
 		}
 	}
 
