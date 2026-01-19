@@ -1172,6 +1172,7 @@ func (p *enrichmentProcessor) startHTTPServer(ctx context.Context, port int) err
 		_, _ = w.Write([]byte("OK"))
 	})
 	mux.HandleFunc("/process-queued", p.handleProcessQueued)
+	mux.HandleFunc("/reset-stuck-jobs", p.handleResetStuckJobs)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
@@ -1351,6 +1352,28 @@ func (p *enrichmentProcessor) handleProcessQueued(w http.ResponseWriter, r *http
 	summary := fmt.Sprintf("Completed: %d succeeded, %d failed", successCount, failCount)
 	p.logger.Infof(summary)
 	writeProgress(summary)
+}
+
+// handleResetStuckJobs manually resets jobs stuck in processing status
+func (p *enrichmentProcessor) handleResetStuckJobs(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	p.logger.Infof("Manual trigger: Resetting stuck jobs...")
+
+	// Reset jobs stuck for more than 5 minutes
+	count, err := p.store.ResetStuckJobs(5)
+	if err != nil {
+		p.logger.Errorf("Failed to reset stuck jobs: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to reset stuck jobs: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	p.logger.Infof("Reset %d stuck job(s) back to queued", count)
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(fmt.Sprintf("Reset %d stuck job(s) back to queued", count)))
 }
 
 func signalListener(ctx context.Context) func() error {
