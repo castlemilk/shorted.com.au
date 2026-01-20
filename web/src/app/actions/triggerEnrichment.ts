@@ -65,8 +65,8 @@ export async function triggerEnrichmentAction(formData: FormData) {
     
     return {
       success: true,
-      jobId: resp.jobId || "",
-      message: resp.message || `Enrichment job created: ${resp.jobId || "unknown"}`,
+      jobId: resp?.jobId || "",
+      message: resp?.message || `Enrichment job created: ${resp?.jobId || "unknown"}`,
     };
   } catch (error) {
     console.error("Failed to trigger enrichment:", error);
