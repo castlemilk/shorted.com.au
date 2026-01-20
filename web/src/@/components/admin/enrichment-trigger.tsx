@@ -41,9 +41,9 @@ export function EnrichmentTrigger({ stockCode }: EnrichmentTriggerProps) {
 
     try {
       const result = await triggerEnrichmentAction(formData);
-      if (result.success && result.jobId) {
+      if (result?.success && result.jobId) {
         setJobId(result.jobId);
-        setSuccessMessage(result.message || `Job ${result.jobId} created successfully`);
+        setSuccessMessage(result?.message || `Job ${result.jobId} created successfully`);
       }
     } catch (err) {
       setError(

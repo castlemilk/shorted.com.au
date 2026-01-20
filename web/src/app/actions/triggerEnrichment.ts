@@ -58,10 +58,15 @@ export async function triggerEnrichmentAction(formData: FormData) {
     revalidatePath("/admin/enrichments");
 
     // Return job_id instead of redirecting (async processing)
+    // Add defensive checks for resp
+    if (!resp) {
+      throw new Error("Received empty response from enrichment service");
+    }
+    
     return {
       success: true,
       jobId: resp.jobId || "",
-      message: resp.message || `Enrichment job created: ${resp.jobId}`,
+      message: resp.message || `Enrichment job created: ${resp.jobId || "unknown"}`,
     };
   } catch (error) {
     console.error("Failed to trigger enrichment:", error);

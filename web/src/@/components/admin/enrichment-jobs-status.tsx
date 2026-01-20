@@ -240,7 +240,7 @@ export function EnrichmentJobsStatus() {
     setProcessSuccess(null);
     try {
       const result = await processQueuedJobsAction();
-      setProcessSuccess(result.message ?? "Processing triggered successfully");
+      setProcessSuccess(result?.message ?? "Processing triggered successfully");
       // Refresh jobs after a short delay to see the status change
       setTimeout(() => {
         void refreshAll();
