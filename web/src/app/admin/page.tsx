@@ -270,7 +270,7 @@ export default async function AdminDashboard({ searchParams }: AdminPageProps) {
     limit: 30,
     environment: environment === "all" ? "" : environment,
     excludeLocal: !showLocal,
-  });
+  }) || [];
 
   const systemHealth = getSystemHealthStatus(runs);
 
@@ -310,20 +310,20 @@ export default async function AdminDashboard({ searchParams }: AdminPageProps) {
                   : "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30"
             }`}
           >
-            <StatusIcon status={systemHealth.status} />
+            <StatusIcon status={systemHealth?.status ?? "critical"} />
             <div>
               <div className="font-semibold text-sm capitalize">
-                {systemHealth.status}
+                {systemHealth?.status ?? "unknown"}
               </div>
               <div className="text-xs text-muted-foreground">
-                {systemHealth.message}
+                {systemHealth?.message ?? "Unknown status"}
               </div>
             </div>
           </div>
         </div>
 
         {/* Issues Alert */}
-        {systemHealth.issues.length > 0 && (
+        {systemHealth?.issues && systemHealth.issues.length > 0 && (
           <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-400">
