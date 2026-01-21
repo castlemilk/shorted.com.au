@@ -398,6 +398,11 @@ resource "google_cloud_run_v2_service" "enrichment_processor_preview" {
         }
       }
 
+      env {
+        name  = "GCS_LOGO_BUCKET"
+        value = "shorted-company-logos"
+      }
+
       resources {
         limits = {
           cpu    = "2"
