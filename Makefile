@@ -578,6 +578,26 @@ enrich-metadata-stocks: ## Enrich specific stocks (usage: make enrich-metadata-s
 	@echo "🧠 Enriching metadata for: $(STOCKS)..."
 	@cd analysis && python enrich_database.py --stocks $(STOCKS)
 
+enrich-api: ## Enrich via preview API (usage: make enrich-api STOCKS="CBA BHP" or make enrich-api BATCH=10)
+	@if [ -n "$(STOCKS)" ]; then \
+		echo "🧠 Enriching via API: $(STOCKS)..."; \
+		python3 scripts/enrich_via_api.py --stocks $(STOCKS) $(if $(FORCE),--force,); \
+	elif [ -n "$(BATCH)" ]; then \
+		echo "🧠 Enriching batch of $(BATCH) via API..."; \
+		python3 scripts/enrich_via_api.py --batch $(BATCH) $(if $(FORCE),--force,); \
+	else \
+		echo "Usage: make enrich-api STOCKS='CBA BHP' or make enrich-api BATCH=10"; \
+		echo "       Add FORCE=1 to force re-enrichment"; \
+	fi
+
+enrich-api-status: ## Show enrichment job status from preview API
+	@echo "📊 Checking enrichment job status..."
+	@python3 scripts/enrich_via_api.py --status
+
+enrich-api-review: ## Show pending enrichments for review from preview API
+	@echo "📋 Showing pending enrichments..."
+	@python3 scripts/enrich_via_api.py --review
+
 # =========================================
 # Full Data Pipeline
 # =========================================
