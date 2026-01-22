@@ -1737,6 +1737,12 @@ func (s *postgresStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.E
 		WHERE stock_code = $1
 	`
 
+	// Convert []byte to string for PostgreSQL - pgx handles both but string is more explicit
+	// This ensures proper encoding and avoids any byte-level issues with jsonb columns
+	keyPeopleJSONStr := string(keyPeopleJSON)
+	reportsJSONStr := string(reportsJSON)
+	socialLinksJSONStr := string(socialLinksJSON)
+
 	result, err := s.db.Exec(
 		ctx,
 		query,
@@ -1744,12 +1750,12 @@ func (s *postgresStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.E
 		data.Tags,
 		enhancedSummary,
 		companyHistory,
-		keyPeopleJSON,
-		reportsJSON,
+		keyPeopleJSONStr,
+		reportsJSONStr,
 		competitiveAdvantages,
 		riskFactorsJSON,
 		recentDevelopments,
-		socialLinksJSON,
+		socialLinksJSONStr,
 		logoGcsUrl,
 		logoIconGcsUrl,
 		logoSvgGcsUrl,
