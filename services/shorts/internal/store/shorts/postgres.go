@@ -1637,6 +1637,7 @@ func (s *postgresStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.E
 	if err != nil {
 		return fmt.Errorf("failed to marshal key_people: %w", err)
 	}
+	log.Debugf("ApplyEnrichment %s: key_people JSON (%d bytes): %s", stockCode, len(keyPeopleJSON), string(keyPeopleJSON))
 
 	reports := make([]dbFinancialReport, 0, len(data.FinancialReports))
 	for _, report := range data.FinancialReports {
@@ -1656,6 +1657,7 @@ func (s *postgresStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.E
 	if err != nil {
 		return fmt.Errorf("failed to marshal financial_reports: %w", err)
 	}
+	log.Debugf("ApplyEnrichment %s: financial_reports JSON (%d bytes)", stockCode, len(reportsJSON))
 
 	var links dbSocialMediaLinks
 	if data.SocialMediaLinks != nil {
@@ -1684,6 +1686,8 @@ func (s *postgresStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.E
 	if err != nil {
 		return fmt.Errorf("failed to marshal social_media_links: %w", err)
 	}
+	log.Debugf("ApplyEnrichment %s: social_media_links JSON (%d bytes): %s", stockCode, len(socialLinksJSON), string(socialLinksJSON))
+	log.Debugf("ApplyEnrichment %s: tags=%v, risk_factors=%v", stockCode, data.Tags, data.RiskFactors)
 
 	enhancedSummary := sql.NullString{String: data.EnhancedSummary, Valid: data.EnhancedSummary != ""}
 	companyHistory := sql.NullString{String: data.CompanyHistory, Valid: data.CompanyHistory != ""}
