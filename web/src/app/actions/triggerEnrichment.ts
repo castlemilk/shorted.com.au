@@ -33,10 +33,7 @@ export async function triggerEnrichmentAction(formData: FormData) {
   });
   const client = createClient(ShortedStocksService, transport);
 
-  const internalSecret = process.env.INTERNAL_SECRET;
-  if (!internalSecret) {
-    throw new Error("INTERNAL_SECRET environment variable is not configured");
-  }
+  const internalSecret = process.env.INTERNAL_SECRET ?? "dev-internal-secret";
 
   try {
     const resp = await retryWithBackoff(
