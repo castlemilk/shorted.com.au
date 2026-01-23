@@ -49,12 +49,42 @@ export async function getPortfolio() {
   }
 
   const userId = session.user.id;
+  const userEmail = session.user.email;
   
   try {
+    // First try with current user ID
     const doc = await adminDb
       .collection("portfolios")
       .doc(userId)
       .get();
+
+    // If not found and we have an email, try looking up by email as fallback
+    // This handles cases where data was stored under email instead of OAuth ID
+    if (!doc.exists && userEmail && userId !== userEmail) {
+      const emailDoc = await adminDb
+        .collection("portfolios")
+        .doc(userEmail)
+        .get();
+      
+      if (emailDoc.exists) {
+        // Migrate the data to the correct userId
+        const portfolioData = emailDoc.data();
+        await adminDb
+          .collection("portfolios")
+          .doc(userId)
+          .set({
+            ...portfolioData,
+            userId: userId,
+            migratedFrom: userEmail,
+            migratedAt: FieldValue.serverTimestamp(),
+          });
+        
+        return {
+          holdings: (portfolioData?.holdings as PortfolioHolding[]) ?? [],
+          updatedAt: portfolioData?.updatedAt ? (portfolioData.updatedAt as { toDate(): Date }).toDate() : new Date(),
+        };
+      }
+    }
 
     if (!doc.exists) {
       return { holdings: [] };
@@ -187,12 +217,41 @@ export async function getWatchlist() {
   }
 
   const userId = session.user.id;
+  const userEmail = session.user.email;
   
   try {
+    // First try with current user ID
     const doc = await adminDb
       .collection("watchlists")
       .doc(userId)
       .get();
+
+    // If not found and we have an email, try looking up by email as fallback
+    if (!doc.exists && userEmail && userId !== userEmail) {
+      const emailDoc = await adminDb
+        .collection("watchlists")
+        .doc(userEmail)
+        .get();
+      
+      if (emailDoc.exists) {
+        // Migrate the data to the correct userId
+        const watchlistData = emailDoc.data();
+        await adminDb
+          .collection("watchlists")
+          .doc(userId)
+          .set({
+            ...watchlistData,
+            userId: userId,
+            migratedFrom: userEmail,
+            migratedAt: FieldValue.serverTimestamp(),
+          });
+        
+        return {
+          items: (watchlistData?.items as WatchlistItem[]) ?? [],
+          updatedAt: watchlistData?.updatedAt ? (watchlistData.updatedAt as { toDate(): Date }).toDate() : new Date(),
+        };
+      }
+    }
 
     if (!doc.exists) {
       return { items: [] };
