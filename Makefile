@@ -168,7 +168,7 @@ dev-db: ## Start the PostgreSQL database for development
 	@cd analysis/sql && docker compose up -d postgres
 	@echo "⏳ Waiting for database to be ready..."
 	@for i in 1 2 3 4 5 6 7 8 9 10; do \
-		if docker exec shorted_db pg_isready -U admin -d shorts > /dev/null 2>&1; then \
+		if cd analysis/sql && docker compose exec -T postgres pg_isready -U admin -d shorts > /dev/null 2>&1; then \
 			echo "✅ Database is ready"; \
 			exit 0; \
 		fi; \
@@ -378,6 +378,19 @@ format-backend:
 # CI/CD helpful commands
 ci-test: install test-coverage lint
 	@echo "✅ CI tests completed successfully"
+
+# Secrets validation
+validate-secrets: ## Validate environment secrets for deployment
+	@./scripts/validate-secrets.sh $(ENV)
+
+validate-secrets-preview: ## Validate secrets for preview environment
+	@./scripts/validate-secrets.sh preview
+
+validate-secrets-dev: ## Validate secrets for dev environment
+	@./scripts/validate-secrets.sh dev
+
+validate-secrets-prod: ## Validate secrets for production environment
+	@./scripts/validate-secrets.sh prod
 
 pre-commit: test
 	@echo "✅ Pre-commit checks passed - ready to push!"

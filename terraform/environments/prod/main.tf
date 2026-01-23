@@ -171,21 +171,3 @@ module "market_discovery_sync" {
     module.short_data_sync
   ]
 }
-
-# Enrichment Processor Job
-module "enrichment_processor" {
-  source = "../../modules/enrichment-processor"
-
-  project_id        = var.project_id
-  region            = var.region
-  environment       = "production"
-  image_url         = var.enrichment_processor_image
-  postgres_address  = var.postgres_address
-  postgres_database = var.postgres_database
-  postgres_username = var.postgres_username
-
-  depends_on = [
-    google_project_service.required_apis,
-    google_artifact_registry_repository.shorted
-  ]
-}

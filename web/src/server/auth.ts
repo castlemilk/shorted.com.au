@@ -37,27 +37,30 @@ async function getUserFromDb(
   email: string,
   passwordHash: string,
 ): Promise<User | null> {
-  // In non-production, allow E2E test user to authenticate
-  // This enables automated testing with Playwright
-  const allowE2E =
-    process.env.NODE_ENV !== "production" ||
-    process.env.ALLOW_E2E_AUTH === "true";
+  // E2E test user authentication:
+  // - NEVER allowed in production (NODE_ENV === "production") regardless of ALLOW_E2E_AUTH
+  // - Only allowed in non-production when ALLOW_E2E_AUTH is explicitly set
+  // This ensures production security while enabling Playwright tests in preview/dev
+  const isProduction = process.env.NODE_ENV === "production";
+  const allowE2E = !isProduction && process.env.ALLOW_E2E_AUTH === "true";
 
-  console.log("[Auth] getUserFromDb called:", {
-    email,
-    allowE2E,
-    nodeEnv: process.env.NODE_ENV,
-    testUserEmail: E2E_TEST_USER.email,
-    emailMatch: email === E2E_TEST_USER.email,
-    passwordMatch: passwordHash === E2E_TEST_USER.password,
-  });
+  // Only log auth details in development (not preview or production)
+  if (process.env.NODE_ENV === "development") {
+    console.log("[Auth] getUserFromDb called:", {
+      email,
+      allowE2E,
+      nodeEnv: process.env.NODE_ENV,
+    });
+  }
 
   if (allowE2E) {
     if (
       email === E2E_TEST_USER.email &&
       passwordHash === E2E_TEST_USER.password
     ) {
-      console.log("[Auth] E2E test user authenticated successfully");
+      if (process.env.NODE_ENV === "development") {
+        console.log("[Auth] E2E test user authenticated successfully");
+      }
       return {
         id: E2E_TEST_USER.id,
         email: E2E_TEST_USER.email,
@@ -67,7 +70,6 @@ async function getUserFromDb(
   }
 
   // Stub implementation for other users - replace with actual database lookup
-  console.log("[Auth] User not found in database");
   return null;
 }
 
