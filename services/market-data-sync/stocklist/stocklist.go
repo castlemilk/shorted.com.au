@@ -94,8 +94,7 @@ func (s *Service) syncCompanyMetadata(ctx context.Context, companies []CompanyDa
 		ON CONFLICT (stock_code) DO UPDATE SET
 			company_name = COALESCE(NULLIF(EXCLUDED.company_name, ''), "company-metadata".company_name),
 			industry = COALESCE(NULLIF(EXCLUDED.industry, ''), "company-metadata".industry),
-			market_cap = COALESCE(NULLIF(EXCLUDED.market_cap, ''), "company-metadata".market_cap),
-			updated_at = CURRENT_TIMESTAMP
+			market_cap = COALESCE(NULLIF(EXCLUDED.market_cap, ''), "company-metadata".market_cap)
 	`
 
 	synced := 0
