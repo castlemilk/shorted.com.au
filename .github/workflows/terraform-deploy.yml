@@ -87,15 +87,15 @@ jobs:
             echo "is-preview=false" >> $GITHUB_OUTPUT
             echo "pr-number=" >> $GITHUB_OUTPUT
           else
-            # Push to main = dev deployment
-            echo "environment=dev" >> $GITHUB_OUTPUT
-            echo "project-id=shorted-dev-aba5688f" >> $GITHUB_OUTPUT
-            echo "image-tag=dev-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+            # Push to main = prod deployment
+            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "project-id=rosy-clover-477102-t5" >> $GITHUB_OUTPUT
+            echo "image-tag=main-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
             echo "commit-sha=${{ github.sha }}" >> $GITHUB_OUTPUT
             echo "is-preview=false" >> $GITHUB_OUTPUT
             echo "pr-number=" >> $GITHUB_OUTPUT
-            echo "wip-provider=projects/234770780438/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_OUTPUT
-            echo "sa-email=github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com" >> $GITHUB_OUTPUT
+            echo "wip-provider=projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_OUTPUT
+            echo "sa-email=github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com" >> $GITHUB_OUTPUT
           fi
 
   validate-secrets:
