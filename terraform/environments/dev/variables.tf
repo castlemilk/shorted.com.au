@@ -52,12 +52,6 @@ variable "postgres_username" {
   default     = "postgres.xivfykscsdagwsreyqgf"
 }
 
-variable "cms_mongodb_secret_name" {
-  description = "Name of the Secret Manager secret containing MongoDB URI for CMS"
-  type        = string
-  default     = ""
-}
-
 variable "enrichment_processor_image" {
   description = "Docker image URL for enrichment-processor job"
   type        = string

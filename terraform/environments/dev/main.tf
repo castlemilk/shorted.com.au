@@ -140,14 +140,14 @@ module "shorts_api" {
 module "cms" {
   source = "../../modules/cms"
 
-  project_id            = var.project_id
-  region                = var.region
-  environment           = "production" # Using production since this is the live system
-  image_url             = var.cms_image
-  min_instances         = 0
-  max_instances         = 10
-  mongodb_secret_name   = var.cms_mongodb_secret_name
-  allow_unauthenticated = true
+  project_id               = var.project_id
+  region                   = var.region
+  environment              = "production" # Using production since this is the live system
+  image_url                = var.cms_image
+  min_instances            = 0
+  max_instances            = 10
+  database_url_secret_name = "DATABASE_URL"
+  allow_unauthenticated    = true
 
   additional_env_vars = {
     PAYLOAD_PUBLIC_SERVER_URL = "https://cms-${var.project_id}.run.app"
