@@ -61,11 +61,6 @@ import {
 
 # Import existing service accounts
 import {
-  to = module.cms.google_service_account.cms
-  id = "projects/rosy-clover-477102-t5/serviceAccounts/shorted-cms@rosy-clover-477102-t5.iam.gserviceaccount.com"
-}
-
-import {
   to = module.shorts_api.google_service_account.shorts_api
   id = "projects/rosy-clover-477102-t5/serviceAccounts/shorts@rosy-clover-477102-t5.iam.gserviceaccount.com"
 }
@@ -167,30 +162,6 @@ module "shorts_api" {
     google_artifact_registry_repository.shorted
   ]
 }
-
-# CMS Service (Payload CMS)
-module "cms" {
-  source = "../../modules/cms"
-
-  project_id               = var.project_id
-  region                   = var.region
-  environment              = "production"
-  image_url                = var.cms_image
-  min_instances            = 0
-  max_instances            = 10
-  database_url_secret_name = "DATABASE_URL"
-  allow_unauthenticated    = true
-
-  additional_env_vars = {
-    PAYLOAD_PUBLIC_SERVER_URL = "https://cms-prod.shorted.com.au"
-  }
-
-  depends_on = [
-    google_project_service.required_apis,
-    google_artifact_registry_repository.shorted
-  ]
-}
-
 
 # Enrichment Processor Job
 module "enrichment_processor" {

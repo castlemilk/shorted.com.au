@@ -136,29 +136,6 @@ module "shorts_api" {
   ]
 }
 
-# CMS Service (Payload CMS)
-module "cms" {
-  source = "../../modules/cms"
-
-  project_id               = var.project_id
-  region                   = var.region
-  environment              = "production" # Using production since this is the live system
-  image_url                = var.cms_image
-  min_instances            = 0
-  max_instances            = 10
-  database_url_secret_name = "DATABASE_URL"
-  allow_unauthenticated    = true
-
-  additional_env_vars = {
-    PAYLOAD_PUBLIC_SERVER_URL = "https://cms-${var.project_id}.run.app"
-  }
-
-  depends_on = [
-    google_project_service.required_apis,
-    google_artifact_registry_repository.shorted
-  ]
-}
-
 # Enrichment Processor Job
 module "enrichment_processor" {
   source = "../../modules/enrichment-processor"
