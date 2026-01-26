@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { retryWithBackoff, type RetryOptions } from "@/lib/retry";
+import { retryWithBackoff, shouldRetryConnectError, type RetryOptions } from "@/lib/retry";
 
 export interface UseClientRetryOptions<T> extends Partial<RetryOptions> {
   /** Initial data from SSR (if available) */
@@ -55,6 +55,7 @@ export function useClientRetry<T>(
     initialDelayMs = 1000,
     maxDelayMs = 10000,
     backoffMultiplier = 2,
+    shouldRetry = shouldRetryConnectError,
   } = options;
 
   const [data, setData] = useState<T | null>(initialData);
@@ -76,6 +77,7 @@ export function useClientRetry<T>(
         initialDelayMs,
         maxDelayMs,
         backoffMultiplier,
+        shouldRetry,
       });
       setData(result);
       onSuccess?.(result);
@@ -88,7 +90,7 @@ export function useClientRetry<T>(
       setIsLoading(false);
       setIsRetrying(false);
     }
-  }, [fetchFn, maxRetries, initialDelayMs, maxDelayMs, backoffMultiplier, onSuccess, onError]);
+  }, [fetchFn, maxRetries, initialDelayMs, maxDelayMs, backoffMultiplier, shouldRetry, onSuccess, onError]);
 
   // Fetch on mount if no initial data
   useEffect(() => {

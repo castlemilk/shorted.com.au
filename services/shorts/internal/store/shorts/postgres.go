@@ -24,26 +24,26 @@ const (
 	companyMetadataTableName  = "company-metadata"
 	stockDetailsQueryTemplate = `
 SELECT 
-	stock_code,
-	company_name,
-	industry,
-	address,
+	COALESCE(stock_code, '') as stock_code,
+	COALESCE(company_name, '') as company_name,
+	COALESCE(industry, '') as industry,
+	COALESCE(address, '') as address,
 	COALESCE(summary, '') as summary,
-	details,
-	website,
+	COALESCE(details, '') as details,
+	COALESCE(website, '') as website,
 	%s,
 	COALESCE(tags, ARRAY[]::text[]) as tags,
-	enhanced_summary,
-	company_history,
+	COALESCE(enhanced_summary, '') as enhanced_summary,
+	COALESCE(company_history, '') as company_history,
 	COALESCE(key_people, '[]'::jsonb) as key_people,
 	COALESCE(financial_reports, '[]'::jsonb) as financial_reports,
-	competitive_advantages,
-	risk_factors,
-	recent_developments,
+	COALESCE(competitive_advantages, '') as competitive_advantages,
+	COALESCE(risk_factors, '') as risk_factors,
+	COALESCE(recent_developments, '') as recent_developments,
 	COALESCE(social_media_links, '{}'::jsonb) as social_media_links,
-	enrichment_status,
+	COALESCE(enrichment_status, '') as enrichment_status,
 	enrichment_date,
-	enrichment_error,
+	COALESCE(enrichment_error, '') as enrichment_error,
 	COALESCE(financial_statements, '{}'::jsonb) as financial_statements,
 	COALESCE(key_metrics, '{}'::jsonb) as key_metrics,
 	COALESCE(logo_icon_gcs_url, '') as logo_icon_gcs_url,
@@ -322,6 +322,11 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stocksv1alpha1.Stock
 		&logoSourceURL,
 		&logoFormat,
 	); err != nil {
+		// If no metadata exists, check if the stock exists in shorts table
+		// and return minimal details if it does
+		if errors.Is(err, pgx.ErrNoRows) {
+			return s.getMinimalStockDetails(ctx, stockCode)
+		}
 		return nil, err
 	}
 
@@ -392,6 +397,61 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stocksv1alpha1.Stock
 	}
 
 	return detailsProto, nil
+}
+
+// getMinimalStockDetails returns minimal stock details from the shorts table
+// when company-metadata doesn't exist. This provides graceful degradation
+// for stocks that have short position data but no enriched metadata yet.
+func (s *postgresStore) getMinimalStockDetails(ctx context.Context, stockCode string) (*stocksv1alpha1.StockDetails, error) {
+	query := `
+		SELECT "PRODUCT_CODE", "PRODUCT"
+		FROM shorts
+		WHERE "PRODUCT_CODE" = $1
+		ORDER BY "DATE" DESC
+		LIMIT 1`
+
+	var productCode, productName string
+	err := s.db.QueryRow(ctx, query, stockCode).Scan(&productCode, &productName)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, fmt.Errorf("stock not found: %s", stockCode)
+		}
+		return nil, err
+	}
+
+	// Return minimal details with just the stock code and company name from shorts table
+	return &stocksv1alpha1.StockDetails{
+		ProductCode:      productCode,
+		CompanyName:      cleanCompanyName(productName),
+		EnrichmentStatus: "pending", // Indicate that enrichment hasn't been done yet
+	}, nil
+}
+
+// cleanCompanyName removes common suffixes like "ORDINARY", "CDI", etc. for cleaner display
+func cleanCompanyName(name string) string {
+	// Remove common suffixes
+	suffixes := []string{
+		" ORDINARY",
+		" ORD",
+		" CDI 1:1",
+		" CDI",
+		" LIMITED",
+		" LTD",
+		" CORPORATION",
+		" CORP",
+		" INC",
+		" PLC",
+	}
+	
+	result := strings.ToUpper(name)
+	for _, suffix := range suffixes {
+		if strings.HasSuffix(result, suffix) {
+			result = strings.TrimSuffix(result, suffix)
+		}
+	}
+	
+	// Title case the result
+	return strings.Title(strings.ToLower(strings.TrimSpace(result)))
 }
 
 type dbPerson struct {

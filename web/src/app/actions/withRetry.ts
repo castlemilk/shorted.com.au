@@ -6,7 +6,7 @@
  */
 
 import { ConnectError, Code } from "@connectrpc/connect";
-import { retryWithBackoff, type RetryOptions } from "@/lib/retry";
+import { retryWithBackoff, shouldRetryConnectError, type RetryOptions } from "@/lib/retry";
 
 /**
  * Default retry configuration optimized for cold start scenarios
@@ -16,67 +16,8 @@ const DEFAULT_ACTION_RETRY_OPTIONS: RetryOptions = {
   initialDelayMs: 500,
   maxDelayMs: 5000,
   backoffMultiplier: 2,
-  shouldRetry: shouldRetryError,
+  shouldRetry: shouldRetryConnectError,
 };
-
-/**
- * Determines if an error should trigger a retry
- * 
- * @param error - The error to check
- * @returns true if the error is transient and should be retried
- */
-function shouldRetryError(error: unknown): boolean {
-  // Don't retry ConnectError with specific non-transient codes
-  if (error instanceof ConnectError) {
-    const nonRetryableCodes = [
-      Code.NotFound,
-      Code.InvalidArgument,
-      Code.PermissionDenied,
-      Code.Unauthenticated,
-      Code.FailedPrecondition,
-      Code.OutOfRange,
-      Code.Unimplemented,
-    ];
-    
-    if (nonRetryableCodes.includes(error.code)) {
-      return false;
-    }
-    
-    // Retry on transient errors
-    const retryableCodes = [
-      Code.Unavailable,
-      Code.DeadlineExceeded,
-      Code.ResourceExhausted,
-      Code.Aborted,
-      Code.Internal,
-      Code.Unknown,
-    ];
-    
-    return retryableCodes.includes(error.code);
-  }
-  
-  // Retry on network errors (fetch failures, timeouts, etc.)
-  if (error instanceof TypeError && error.message.includes("fetch")) {
-    return true;
-  }
-  
-  // Retry on generic Error with network-related messages
-  if (error instanceof Error) {
-    const message = error.message.toLowerCase();
-    if (
-      message.includes("network") ||
-      message.includes("timeout") ||
-      message.includes("econnrefused") ||
-      message.includes("econnreset") ||
-      message.includes("socket")
-    ) {
-      return true;
-    }
-  }
-  
-  // Default: retry unknown errors (conservative approach for cold starts)
-  return true;
-}
 
 /**
  * Wraps an async action function with retry logic
