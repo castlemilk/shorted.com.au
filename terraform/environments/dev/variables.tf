@@ -29,9 +29,9 @@ variable "shorts_api_image" {
 }
 
 variable "postgres_address" {
-  description = "PostgreSQL server address"
+  description = "PostgreSQL server address (using transaction pooler port 6543)"
   type        = string
-  default     = "aws-0-ap-southeast-2.pooler.supabase.com:5432"
+  default     = "aws-0-ap-southeast-2.pooler.supabase.com:6543"
 }
 
 variable "postgres_database" {
