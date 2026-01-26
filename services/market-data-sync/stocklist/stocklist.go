@@ -7,6 +7,8 @@ import (
 	"io"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 
 	"cloud.google.com/go/storage"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -16,6 +18,15 @@ import (
 type Stock struct {
 	Code       string
 	IsPriority bool
+}
+
+// CompanyData holds full company information from ASX CSV
+type CompanyData struct {
+	Code        string
+	CompanyName string
+	Industry    string
+	ListingDate string
+	MarketCap   int64
 }
 
 // Service provides stock list operations with GCS integration and prioritization
@@ -31,15 +42,29 @@ func New(db *pgxpool.Pool, gcs *storage.Client) *Service {
 
 // GetPrioritizedStocks returns all stocks with top shorted first
 func (s *Service) GetPrioritizedStocks(ctx context.Context, bucket string, priorityCount int) ([]Stock, error) {
-	// 1. Fetch full list from GCS (source of truth)
-	allCodes, err := s.fetchFromGCS(ctx, bucket, "asx-stocks/latest.csv")
+	// 1. Fetch full list from GCS (source of truth) and sync company metadata
+	companies, err := s.fetchCompaniesFromGCS(ctx, bucket, "asx-stocks/latest.csv")
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch from GCS: %w", err)
 	}
 
-	log.Printf("📋 Fetched %d stocks from GCS", len(allCodes))
+	log.Printf("📋 Fetched %d companies from GCS", len(companies))
 
-	// 2. Query top shorted stocks from database
+	// 2. Sync company metadata to database (upsert industry, name, market cap)
+	synced, err := s.syncCompanyMetadata(ctx, companies)
+	if err != nil {
+		log.Printf("⚠️ Warning: failed to sync company metadata: %v", err)
+	} else {
+		log.Printf("✅ Synced %d companies to company-metadata", synced)
+	}
+
+	// 3. Extract stock codes for price sync
+	allCodes := make([]string, len(companies))
+	for i, c := range companies {
+		allCodes[i] = c.Code
+	}
+
+	// 4. Query top shorted stocks from database
 	topShorted, err := s.fetchTopShorted(ctx, priorityCount)
 	if err != nil {
 		log.Printf("⚠️ Warning: could not fetch top shorted, using default order: %v", err)
@@ -53,16 +78,80 @@ func (s *Service) GetPrioritizedStocks(ctx context.Context, bucket string, prior
 
 	log.Printf("🔝 Fetched %d top shorted stocks for prioritization", len(topShorted))
 
-	// 3. Build prioritized list
+	// 5. Build prioritized list
 	return s.prioritize(allCodes, topShorted), nil
 }
 
-// fetchFromGCS fetches the stock list from GCS CSV file
-func (s *Service) fetchFromGCS(ctx context.Context, bucket, object string) ([]string, error) {
+// syncCompanyMetadata upserts company data from ASX CSV into company-metadata table
+func (s *Service) syncCompanyMetadata(ctx context.Context, companies []CompanyData) (int, error) {
+	if len(companies) == 0 {
+		return 0, nil
+	}
+
+	query := `
+		INSERT INTO "company-metadata" (stock_code, company_name, industry, market_cap)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (stock_code) DO UPDATE SET
+			company_name = COALESCE(NULLIF(EXCLUDED.company_name, ''), "company-metadata".company_name),
+			industry = COALESCE(NULLIF(EXCLUDED.industry, ''), "company-metadata".industry),
+			market_cap = CASE 
+				WHEN EXCLUDED.market_cap > 0 THEN EXCLUDED.market_cap 
+				ELSE "company-metadata".market_cap 
+			END,
+			updated_at = CURRENT_TIMESTAMP
+	`
+
+	synced := 0
+	for _, c := range companies {
+		// Clean company name - remove common suffixes and title case
+		cleanName := cleanCompanyName(c.CompanyName)
+
+		_, err := s.db.Exec(ctx, query, c.Code, cleanName, c.Industry, c.MarketCap)
+		if err != nil {
+			log.Printf("⚠️ Warning: failed to upsert company %s: %v", c.Code, err)
+			continue
+		}
+		synced++
+	}
+
+	return synced, nil
+}
+
+// cleanCompanyName removes common suffixes and title cases the name
+func cleanCompanyName(name string) string {
+	if name == "" {
+		return ""
+	}
+
+	result := strings.ToUpper(name)
+
+	// Remove common suffixes
+	suffixes := []string{
+		" ORDINARY",
+		" ORD",
+		" CDI",
+		" LIMITED",
+		" LTD",
+		" CORPORATION",
+		" CORP",
+		" INC",
+		" PLC",
+	}
+	for _, suffix := range suffixes {
+		result = strings.TrimSuffix(result, suffix)
+	}
+
+	// Title case
+	result = strings.Title(strings.ToLower(strings.TrimSpace(result)))
+	return result
+}
+
+// fetchCompaniesFromGCS fetches full company data from GCS CSV file
+func (s *Service) fetchCompaniesFromGCS(ctx context.Context, bucket, object string) ([]CompanyData, error) {
 	// Check if LOCAL_ASX_CSV is set (skip GCS entirely)
 	if localPath := os.Getenv("LOCAL_ASX_CSV"); localPath != "" {
 		log.Printf("ℹ️ Using local ASX CSV file: %s", localPath)
-		return s.fetchFromLocalFile(localPath)
+		return s.fetchCompaniesFromLocalFile(localPath)
 	}
 
 	// Try GCS if client is available
@@ -77,6 +166,22 @@ func (s *Service) fetchFromGCS(ctx context.Context, bucket, object string) ([]st
 	}
 	defer r.Close()
 
+	return s.parseCompaniesCSV(r)
+}
+
+// fetchCompaniesFromLocalFile reads company data from a local CSV file
+func (s *Service) fetchCompaniesFromLocalFile(filePath string) ([]CompanyData, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open local file: %w", err)
+	}
+	defer file.Close()
+
+	return s.parseCompaniesCSV(file)
+}
+
+// parseCompaniesCSV parses company data from a CSV reader
+func (s *Service) parseCompaniesCSV(r io.Reader) ([]CompanyData, error) {
 	reader := csv.NewReader(r)
 
 	// Read header
@@ -85,20 +190,35 @@ func (s *Service) fetchFromGCS(ctx context.Context, bucket, object string) ([]st
 		return nil, fmt.Errorf("failed to read CSV header: %w", err)
 	}
 
-	// Find "ASX code" column
-	codeIdx := -1
+	// Find column indices
+	indices := struct {
+		code     int
+		name     int
+		industry int
+		listing  int
+		marketCap int
+	}{-1, -1, -1, -1, -1}
+
 	for i, col := range header {
-		if col == "ASX code" {
-			codeIdx = i
-			break
+		switch col {
+		case "ASX code":
+			indices.code = i
+		case "Company name":
+			indices.name = i
+		case "GICs industry group":
+			indices.industry = i
+		case "Listing date":
+			indices.listing = i
+		case "Market Cap":
+			indices.marketCap = i
 		}
 	}
 
-	if codeIdx == -1 {
+	if indices.code == -1 {
 		return nil, fmt.Errorf("column 'ASX code' not found in CSV header: %v", header)
 	}
 
-	var stocks []string
+	var companies []CompanyData
 	for {
 		record, err := reader.Read()
 		if err == io.EOF {
@@ -108,65 +228,34 @@ func (s *Service) fetchFromGCS(ctx context.Context, bucket, object string) ([]st
 			log.Printf("⚠️ Warning: error reading CSV row: %v", err)
 			continue
 		}
-		if codeIdx < len(record) {
-			code := record[codeIdx]
-			if code != "" {
-				stocks = append(stocks, code)
-			}
-		}
-	}
 
-	return stocks, nil
-}
-
-// fetchFromLocalFile reads stock list from a local CSV file (for development/testing)
-func (s *Service) fetchFromLocalFile(filePath string) ([]string, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open local file: %w", err)
-	}
-	defer file.Close()
-
-	reader := csv.NewReader(file)
-
-	// Read header
-	header, err := reader.Read()
-	if err != nil {
-		return nil, fmt.Errorf("failed to read CSV header: %w", err)
-	}
-
-	// Find "ASX code" column
-	codeIdx := -1
-	for i, col := range header {
-		if col == "ASX code" {
-			codeIdx = i
-			break
-		}
-	}
-
-	if codeIdx == -1 {
-		return nil, fmt.Errorf("column 'ASX code' not found in CSV header: %v", header)
-	}
-
-	var stocks []string
-	for {
-		record, err := reader.Read()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Printf("⚠️ Warning: error reading CSV row: %v", err)
+		if indices.code >= len(record) || record[indices.code] == "" {
 			continue
 		}
-		if codeIdx < len(record) {
-			code := record[codeIdx]
-			if code != "" {
-				stocks = append(stocks, code)
+
+		company := CompanyData{
+			Code: record[indices.code],
+		}
+
+		if indices.name >= 0 && indices.name < len(record) {
+			company.CompanyName = record[indices.name]
+		}
+		if indices.industry >= 0 && indices.industry < len(record) {
+			company.Industry = record[indices.industry]
+		}
+		if indices.listing >= 0 && indices.listing < len(record) {
+			company.ListingDate = record[indices.listing]
+		}
+		if indices.marketCap >= 0 && indices.marketCap < len(record) {
+			if mc, err := strconv.ParseInt(record[indices.marketCap], 10, 64); err == nil {
+				company.MarketCap = mc
 			}
 		}
+
+		companies = append(companies, company)
 	}
 
-	return stocks, nil
+	return companies, nil
 }
 
 // fetchTopShorted fetches the top shorted stocks from the database
