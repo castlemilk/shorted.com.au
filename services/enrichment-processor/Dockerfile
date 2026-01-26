@@ -56,8 +56,9 @@ RUN pip install --no-cache-dir -r requirements.txt \
     && rm -rf /tmp/* \
     && rm -rf /var/tmp/*
 
-# Download MobileSAM checkpoint
-RUN wget https://raw.githubusercontent.com/ChaoningZhang/MobileSAM/master/weights/mobile_sam.pt -O mobile_sam.pt \
+# Download MobileSAM checkpoint (with retries for transient GitHub CDN errors)
+RUN wget --tries=5 --waitretry=10 --timeout=60 --retry-connrefused \
+    https://raw.githubusercontent.com/ChaoningZhang/MobileSAM/master/weights/mobile_sam.pt -O mobile_sam.pt \
     && rm -rf /tmp/* /var/tmp/*
 
 # Pre-download models to avoid download at runtime

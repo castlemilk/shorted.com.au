@@ -113,7 +113,10 @@ func main() {
 	case "openai", "":
 		openAIKey := strings.TrimSpace(os.Getenv("OPENAI_API_KEY"))
 		if openAIKey == "" {
-			log.Fatalf("OPENAI_API_KEY environment variable is required")
+			logger.Warnf("OPENAI_API_KEY environment variable is not set - enrichment processor will not run")
+			logger.Infof("To enable enrichment, set OPENAI_API_KEY in services/.env or environment")
+			logger.Infof("Enrichment processor exiting gracefully (this is normal for local development without API keys)")
+			return
 		}
 		gptClient, err = enrichment.NewOpenAIGPTClient(openAIKey)
 		if err != nil {
