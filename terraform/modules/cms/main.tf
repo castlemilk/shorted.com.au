@@ -34,6 +34,14 @@ resource "google_secret_manager_secret_iam_member" "mongodb_uri" {
   project   = var.project_id
 }
 
+# Grant access to PAYLOAD_SECRET
+resource "google_secret_manager_secret_iam_member" "payload_secret" {
+  secret_id = "PAYLOAD_SECRET"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.cms.email}"
+  project   = var.project_id
+}
+
 # Cloud Run Service
 resource "google_cloud_run_v2_service" "cms" {
   name     = local.service_name
@@ -71,6 +79,17 @@ resource "google_cloud_run_v2_service" "cms" {
       env {
         name  = "PAYLOAD_CONFIG_PATH"
         value = "dist/payload.config.js"
+      }
+
+      # Payload CMS secret key (required for security)
+      env {
+        name = "PAYLOAD_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = "PAYLOAD_SECRET"
+            version = "latest"
+          }
+        }
       }
 
       # MongoDB connection (if secret is provided)

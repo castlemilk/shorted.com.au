@@ -776,38 +776,41 @@ jobs:
           GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
-          # Extract password from DATABASE_URL
-          DB_PASS=$(echo $DATABASE_URL | sed -n 's|postgresql://[^:]*:\([^@]*\)@.*|\1|p')
+          # Extract password from DATABASE_URL (strip any newlines)
+          DB_PASS=$(echo "$DATABASE_URL" | sed -n 's|postgresql://[^:]*:\([^@]*\)@.*|\1|p' | tr -d '\n\r')
           
           if [ -z "$DB_PASS" ]; then
             echo "⚠️ Could not extract database password from DATABASE_URL"
           else
-            # Create/update postgres-password (legacy name)
+            echo "Extracted password (length: ${#DB_PASS})"
+            
+            # Create/update postgres-password (legacy name) - strip newlines
             if gcloud secrets describe postgres-password --project "$GCP_PROJECT_ID" &>/dev/null; then
               echo "Updating Secret Manager: postgres-password (new version)"
-              printf "%s" "$DB_PASS" | gcloud secrets versions add postgres-password --data-file=- --project "$GCP_PROJECT_ID"
+              printf "%s" "$DB_PASS" | tr -d '\n\r' | gcloud secrets versions add postgres-password --data-file=- --project "$GCP_PROJECT_ID"
             else
               echo "Creating Secret Manager secret: postgres-password"
-              printf "%s" "$DB_PASS" | gcloud secrets create postgres-password --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+              printf "%s" "$DB_PASS" | tr -d '\n\r' | gcloud secrets create postgres-password --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
             fi
             
-            # Create/update APP_STORE_POSTGRES_PASSWORD (used by shorts-api)
+            # Create/update APP_STORE_POSTGRES_PASSWORD (used by shorts-api) - strip newlines
             if gcloud secrets describe APP_STORE_POSTGRES_PASSWORD --project "$GCP_PROJECT_ID" &>/dev/null; then
               echo "Updating Secret Manager: APP_STORE_POSTGRES_PASSWORD (new version)"
-              printf "%s" "$DB_PASS" | gcloud secrets versions add APP_STORE_POSTGRES_PASSWORD --data-file=- --project "$GCP_PROJECT_ID"
+              printf "%s" "$DB_PASS" | tr -d '\n\r' | gcloud secrets versions add APP_STORE_POSTGRES_PASSWORD --data-file=- --project "$GCP_PROJECT_ID"
             else
               echo "Creating Secret Manager secret: APP_STORE_POSTGRES_PASSWORD"
-              printf "%s" "$DB_PASS" | gcloud secrets create APP_STORE_POSTGRES_PASSWORD --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+              printf "%s" "$DB_PASS" | tr -d '\n\r' | gcloud secrets create APP_STORE_POSTGRES_PASSWORD --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
             fi
           fi
           
-          # Also store full DATABASE_URL for services that need it
+          # Also store full DATABASE_URL for services that need it - strip newlines
+          DB_URL_CLEAN=$(printf "%s" "$DATABASE_URL" | tr -d '\n\r')
           if gcloud secrets describe DATABASE_URL --project "$GCP_PROJECT_ID" &>/dev/null; then
             echo "Updating Secret Manager: DATABASE_URL (new version)"
-            printf "%s" "$DATABASE_URL" | gcloud secrets versions add DATABASE_URL --data-file=- --project "$GCP_PROJECT_ID"
+            printf "%s" "$DB_URL_CLEAN" | gcloud secrets versions add DATABASE_URL --data-file=- --project "$GCP_PROJECT_ID"
           else
             echo "Creating Secret Manager secret: DATABASE_URL"
-            printf "%s" "$DATABASE_URL" | gcloud secrets create DATABASE_URL --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+            printf "%s" "$DB_URL_CLEAN" | gcloud secrets create DATABASE_URL --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
           fi
 
       - name: Ensure Algolia secrets exist in Secret Manager
@@ -843,12 +846,34 @@ jobs:
           fi
           
           if gcloud secrets describe ALPHA_VANTAGE_API_KEY --project "$GCP_PROJECT_ID" &>/dev/null; then
-            printf "%s" "$ALPHA_VANTAGE_API_KEY" | gcloud secrets versions add ALPHA_VANTAGE_API_KEY --data-file=- --project "$GCP_PROJECT_ID"
+            printf "%s" "$ALPHA_VANTAGE_API_KEY" | tr -d '\n\r' | gcloud secrets versions add ALPHA_VANTAGE_API_KEY --data-file=- --project "$GCP_PROJECT_ID"
           else
-            printf "%s" "$ALPHA_VANTAGE_API_KEY" | gcloud secrets create ALPHA_VANTAGE_API_KEY --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+            printf "%s" "$ALPHA_VANTAGE_API_KEY" | tr -d '\n\r' | gcloud secrets create ALPHA_VANTAGE_API_KEY --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
           fi
           
           echo "✅ Alpha Vantage API key configured"
+
+      - name: Ensure Payload CMS secret exists in Secret Manager
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+        run: |
+          # Use PAYLOAD_SECRET if set, otherwise use NEXTAUTH_SECRET as fallback
+          SECRET_VALUE="${PAYLOAD_SECRET:-$NEXTAUTH_SECRET}"
+          
+          if [ -z "$SECRET_VALUE" ]; then
+            echo "⚠️ PAYLOAD_SECRET not set, generating random secret"
+            SECRET_VALUE=$(openssl rand -base64 32)
+          fi
+          
+          if gcloud secrets describe PAYLOAD_SECRET --project "$GCP_PROJECT_ID" &>/dev/null; then
+            printf "%s" "$SECRET_VALUE" | tr -d '\n\r' | gcloud secrets versions add PAYLOAD_SECRET --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            printf "%s" "$SECRET_VALUE" | tr -d '\n\r' | gcloud secrets create PAYLOAD_SECRET --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+          
+          echo "✅ Payload CMS secret configured"
 
       - name: Terraform Apply
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}

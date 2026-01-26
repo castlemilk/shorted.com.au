@@ -86,7 +86,7 @@ resource "google_cloud_run_v2_service" "shorts_api" {
       image = var.image_url
 
       ports {
-        container_port = 8080
+        container_port = 9091
         name           = "http1"
       }
 
@@ -185,7 +185,7 @@ resource "google_cloud_run_v2_service" "shorts_api" {
       startup_probe {
         http_get {
           path = "/health"
-          port = 8080
+          port = 9091
         }
         initial_delay_seconds = 5
         period_seconds        = 10
@@ -196,7 +196,7 @@ resource "google_cloud_run_v2_service" "shorts_api" {
       liveness_probe {
         http_get {
           path = "/health"
-          port = 8080
+          port = 9091
         }
         initial_delay_seconds = 30
         period_seconds        = 30
