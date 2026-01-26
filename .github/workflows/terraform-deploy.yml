@@ -963,6 +963,74 @@ jobs:
             echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
           fi
 
+  deploy-vercel-prod:
+    needs: [determine-environment, terraform-apply]
+    runs-on: ubuntu-latest
+    if: needs.determine-environment.outputs.environment == 'prod'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # NOTE: AUTH_FIREBASE_PRIVATE_KEY must be set in Vercel Dashboard
+      # (Settings -> Environment Variables -> Production) because it contains
+      # special characters that break CLI argument parsing.
+      - name: Deploy to Vercel (Production)
+        id: vercel-deploy
+        uses: amondnet/vercel-action@v25
+        env:
+          VERCEL_ENV: production
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: team_xE5DMN3hIo8aPqyHNkBybg8r
+          vercel-project-id: shorted-com-au
+          scope: team_xE5DMN3hIo8aPqyHNkBybg8r
+          vercel-args: >-
+            --prod
+            --build-env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ needs.terraform-apply.outputs.shorts-url }}
+            --build-env NEXT_PUBLIC_SHORTS_API_URL=${{ needs.terraform-apply.outputs.shorts-url }}
+            --build-env SHORTS_SERVICE_ENDPOINT=${{ needs.terraform-apply.outputs.shorts-url }}
+            --build-env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
+            --build-env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
+            --build-env AUTH_FIREBASE_PROJECT_ID=${{ secrets.AUTH_FIREBASE_PROJECT_ID }}
+            --build-env AUTH_FIREBASE_CLIENT_EMAIL=${{ secrets.AUTH_FIREBASE_CLIENT_EMAIL }}
+            --build-env NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+            --build-env NEXT_PUBLIC_ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}
+            --build-env NEXT_PUBLIC_ALGOLIA_SEARCH_KEY=${{ secrets.ALGOLIA_SEARCH_KEY }}
+            --build-env STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+            --build-env STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+            --build-env STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+            --build-env STRIPE_PRO_PRICE_ID=${{ secrets.STRIPE_PRO_PRICE_ID }}
+            --build-env INTERNAL_SERVICE_SECRET=${{ secrets.INTERNAL_SERVICE_SECRET }}
+            --env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ needs.terraform-apply.outputs.shorts-url }}
+            --env NEXT_PUBLIC_SHORTS_API_URL=${{ needs.terraform-apply.outputs.shorts-url }}
+            --env SHORTS_SERVICE_ENDPOINT=${{ needs.terraform-apply.outputs.shorts-url }}
+            --env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
+            --env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
+            --env AUTH_FIREBASE_PROJECT_ID=${{ secrets.AUTH_FIREBASE_PROJECT_ID }}
+            --env AUTH_FIREBASE_CLIENT_EMAIL=${{ secrets.AUTH_FIREBASE_CLIENT_EMAIL }}
+            --env NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+            --env NEXT_PUBLIC_ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}
+            --env NEXT_PUBLIC_ALGOLIA_SEARCH_KEY=${{ secrets.ALGOLIA_SEARCH_KEY }}
+            --env ALGOLIA_INDEX=stocks
+            --env NEXTAUTH_URL=https://shorted.com.au
+            --env ADMIN_EMAILS=ben.ebsworth@gmail.com
+            --env STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+            --env STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+            --env STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+            --env STRIPE_PRO_PRICE_ID=${{ secrets.STRIPE_PRO_PRICE_ID }}
+            --env INTERNAL_SERVICE_SECRET=${{ secrets.INTERNAL_SERVICE_SECRET }}
+
+      - name: Production Deployment Summary
+        run: |
+          echo "## 🚀 Production Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Frontend" >> $GITHUB_STEP_SUMMARY
+          echo "- **Vercel Production URL**: https://shorted.com.au" >> $GITHUB_STEP_SUMMARY
+          echo "- **Vercel Deployment**: ${{ steps.vercel-deploy.outputs.preview-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Backend Services" >> $GITHUB_STEP_SUMMARY
+          echo "- **Shorts API**: ${{ needs.terraform-apply.outputs.shorts-url }}" >> $GITHUB_STEP_SUMMARY
+
   run-tests:
     needs: [determine-environment, terraform-apply]
     runs-on: ubuntu-latest
