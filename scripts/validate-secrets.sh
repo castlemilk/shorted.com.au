@@ -35,8 +35,11 @@ if [[ -z "$ENVIRONMENT" ]]; then
     exit 2
 fi
 
+# Uppercase environment name (compatible with bash 3.x and zsh)
+ENV_UPPER=$(echo "$ENVIRONMENT" | tr '[:lower:]' '[:upper:]')
+
 echo "=============================================="
-echo "🔐 Secrets Validation: ${ENVIRONMENT^^}"
+echo "🔐 Secrets Validation: ${ENV_UPPER}"
 echo "=============================================="
 echo ""
 
@@ -115,6 +118,17 @@ check_secret "ALGOLIA_SEARCH_KEY" true
 echo ""
 
 # =============================================================================
+# Stripe Secrets (all environments)
+# =============================================================================
+echo "📋 Stripe Secrets"
+echo "-------------------------------------------"
+check_secret "STRIPE_SECRET_KEY" true
+check_secret "STRIPE_PUBLISHABLE_KEY" true
+check_secret "STRIPE_WEBHOOK_SECRET" true
+check_secret "STRIPE_PRO_PRICE_ID" true
+echo ""
+
+# =============================================================================
 # Environment-Specific Secrets
 # =============================================================================
 case "$ENVIRONMENT" in
@@ -123,7 +137,7 @@ case "$ENVIRONMENT" in
         echo "-------------------------------------------"
         check_secret "VERCEL_TOKEN" true
         check_secret "OPENAI_API_KEY" true
-        check_secret "INTERNAL_SECRET" false  # Optional for preview
+        check_secret "INTERNAL_SERVICE_SECRET" false  # Optional for preview
         
         echo ""
         echo "📋 GCP Secrets (shorted-dev-aba5688f)"
@@ -148,13 +162,14 @@ case "$ENVIRONMENT" in
         echo "-------------------------------------------"
         check_secret "VERCEL_TOKEN" true
         check_secret "OPENAI_API_KEY" true
-        check_secret "INTERNAL_SECRET" true
+        check_secret "INTERNAL_SERVICE_SECRET" true
         
         echo ""
         echo "📋 GCP Secrets (shorted-dev-aba5688f)"
         echo "-------------------------------------------"
         check_gcp_secret "OPENAI_API_KEY" "shorted-dev-aba5688f" true
         check_gcp_secret "postgres-password" "shorted-dev-aba5688f" true
+        check_gcp_secret "INTERNAL_SERVICE_SECRET" "shorted-dev-aba5688f" false
         ;;
         
     prod)
@@ -162,13 +177,14 @@ case "$ENVIRONMENT" in
         echo "-------------------------------------------"
         check_secret "VERCEL_TOKEN" true
         check_secret "OPENAI_API_KEY" true
-        check_secret "INTERNAL_SECRET" true
+        check_secret "INTERNAL_SERVICE_SECRET" true
         
         echo ""
         echo "📋 GCP Secrets (rosy-clover-477102-t5)"
         echo "-------------------------------------------"
         check_gcp_secret "OPENAI_API_KEY" "rosy-clover-477102-t5" true
         check_gcp_secret "postgres-password" "rosy-clover-477102-t5" true
+        check_gcp_secret "INTERNAL_SERVICE_SECRET" "rosy-clover-477102-t5" true
         
         echo ""
         echo "📋 Production-Specific Validations"
@@ -189,10 +205,10 @@ case "$ENVIRONMENT" in
             WARNINGS+=("NODE_ENV")
         fi
         
-        # INTERNAL_SECRET should not be the default
-        if [[ "${INTERNAL_SECRET:-}" == "dev-internal-secret" ]]; then
-            echo -e "  ${RED}✗${NC} INTERNAL_SECRET is using default value - SECURITY RISK!"
-            MISSING_SECRETS+=("INTERNAL_SECRET_NOT_DEFAULT")
+        # INTERNAL_SERVICE_SECRET should not be the default
+        if [[ "${INTERNAL_SERVICE_SECRET:-}" == "dev-internal-secret" ]]; then
+            echo -e "  ${RED}✗${NC} INTERNAL_SERVICE_SECRET is using default value - SECURITY RISK!"
+            MISSING_SECRETS+=("INTERNAL_SERVICE_SECRET_NOT_DEFAULT")
         fi
         ;;
         
