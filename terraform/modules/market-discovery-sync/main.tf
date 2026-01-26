@@ -249,12 +249,12 @@ resource "google_cloud_scheduler_job" "market_data_sync_daily" {
 
   http_target {
     http_method = "POST"
-    uri         = "https://${google_cloud_run_v2_service.market_data_sync.uri}/api/sync/all"
+    uri         = "${google_cloud_run_v2_service.market_data_sync.uri}/api/sync/all"
     headers = {
       "Content-Type" = "application/json"
     }
 
-    oauth_token {
+    oidc_token {
       service_account_email = google_service_account.scheduler.email
     }
   }
