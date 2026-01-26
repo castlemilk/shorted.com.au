@@ -28,12 +28,6 @@ variable "shorts_api_image" {
   default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/shorts:latest"
 }
 
-variable "cms_image" {
-  description = "Docker image URL for CMS service"
-  type        = string
-  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/cms:latest"
-}
-
 variable "postgres_address" {
   description = "PostgreSQL server address"
   type        = string

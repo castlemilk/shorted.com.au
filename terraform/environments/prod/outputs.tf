@@ -46,17 +46,6 @@ output "shorts_api_service_account" {
   value       = module.shorts_api.service_account_email
 }
 
-# CMS Outputs
-output "cms_url" {
-  description = "URL of the CMS service"
-  value       = module.cms.service_url
-}
-
-output "cms_service_account" {
-  description = "Service account email for CMS"
-  value       = module.cms.service_account_email
-}
-
 # Infrastructure Outputs
 output "artifact_registry_repository" {
   description = "Artifact Registry repository for Docker images"

@@ -237,9 +237,6 @@ jobs:
           - name: enrichment-processor
             dockerfile: services/enrichment-processor/Dockerfile
             context: services
-          - name: cms
-            dockerfile: cms/Dockerfile
-            context: cms
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -344,7 +341,6 @@ jobs:
             -var="stock_price_ingestion_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/stock-price-ingestion:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="short_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/short-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="shorts_api_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}" \
-            -var="cms_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/cms:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="asx_discovery_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-discovery:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
@@ -881,28 +877,6 @@ jobs:
           
           echo "✅ Alpha Vantage API key configured"
 
-      - name: Ensure Payload CMS secret exists in Secret Manager
-        env:
-          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
-          PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET }}
-          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-        run: |
-          # Use PAYLOAD_SECRET if set, otherwise use NEXTAUTH_SECRET as fallback
-          SECRET_VALUE="${PAYLOAD_SECRET:-$NEXTAUTH_SECRET}"
-          
-          if [ -z "$SECRET_VALUE" ]; then
-            echo "⚠️ PAYLOAD_SECRET not set, generating random secret"
-            SECRET_VALUE=$(openssl rand -base64 32)
-          fi
-          
-          if gcloud secrets describe PAYLOAD_SECRET --project "$GCP_PROJECT_ID" &>/dev/null; then
-            printf "%s" "$SECRET_VALUE" | tr -d '\n\r' | gcloud secrets versions add PAYLOAD_SECRET --data-file=- --project "$GCP_PROJECT_ID"
-          else
-            printf "%s" "$SECRET_VALUE" | tr -d '\n\r' | gcloud secrets create PAYLOAD_SECRET --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-          fi
-          
-          echo "✅ Payload CMS secret configured"
-
       - name: Terraform Apply
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
         run: |
@@ -910,7 +884,6 @@ jobs:
             -var="stock_price_ingestion_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/stock-price-ingestion:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="short_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/short-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="shorts_api_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}" \
-            -var="cms_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/cms:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="asx_discovery_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-discovery:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
@@ -922,7 +895,6 @@ jobs:
         run: |
           echo "shorts_url=$(terraform output -raw shorts_api_url)" >> $GITHUB_OUTPUT
           echo "stock_price_url=$(terraform output -raw stock_price_ingestion_url)" >> $GITHUB_OUTPUT
-          echo "cms_url=$(terraform output -raw cms_url 2>/dev/null || echo '')" >> $GITHUB_OUTPUT
 
       - name: Verify Deployed Services
         env:
@@ -991,7 +963,6 @@ jobs:
           echo "|---------|-----|" >> $GITHUB_STEP_SUMMARY
           echo "| Shorts API | ${{ steps.outputs.outputs.shorts_url }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Stock Price Ingestion | ${{ steps.outputs.outputs.stock_price_url }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| CMS | ${{ steps.outputs.outputs.cms_url }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
           if [ "$ENVIRONMENT" = "prod" ]; then
