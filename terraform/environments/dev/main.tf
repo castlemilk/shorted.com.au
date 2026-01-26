@@ -59,6 +59,12 @@ import {
   id = "projects/shorted-dev-aba5688f/locations/australia-southeast2/repositories/shorted"
 }
 
+# Import existing bucket in dev project
+import {
+  to = module.short_data_sync.google_storage_bucket.short_selling_data
+  id = "shorted-short-selling-data"
+}
+
 # Artifact Registry for Docker images
 resource "google_artifact_registry_repository" "shorted" {
   location      = var.region
@@ -102,6 +108,7 @@ module "short_data_sync" {
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment      = "production"           # Using production since this is the live system
   image_url        = var.short_data_sync_image
+  bucket_name      = "shorted-short-selling-data" # Existing bucket in dev project
 
   depends_on = [
     google_project_service.required_apis,

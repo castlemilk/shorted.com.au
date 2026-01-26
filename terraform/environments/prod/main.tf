@@ -59,6 +59,58 @@ import {
   id = "projects/rosy-clover-477102-t5/locations/australia-southeast2/repositories/shorted"
 }
 
+# Import existing service accounts
+import {
+  to = module.cms.google_service_account.cms
+  id = "projects/rosy-clover-477102-t5/serviceAccounts/shorted-cms@rosy-clover-477102-t5.iam.gserviceaccount.com"
+}
+
+import {
+  to = module.shorts_api.google_service_account.shorts_api
+  id = "projects/rosy-clover-477102-t5/serviceAccounts/shorts@rosy-clover-477102-t5.iam.gserviceaccount.com"
+}
+
+import {
+  to = module.stock_price_ingestion.google_service_account.stock_price_ingestion
+  id = "projects/rosy-clover-477102-t5/serviceAccounts/stock-price-ingestion@rosy-clover-477102-t5.iam.gserviceaccount.com"
+}
+
+# Note: Bucket 'shorted-short-selling-data' is used by dev project
+# Prod uses a separate bucket name
+
+# Import short-data-sync service accounts
+import {
+  to = module.short_data_sync.google_service_account.short_data_sync
+  id = "projects/rosy-clover-477102-t5/serviceAccounts/shorts-data-sync@rosy-clover-477102-t5.iam.gserviceaccount.com"
+}
+
+import {
+  to = module.short_data_sync.google_service_account.scheduler_invoker
+  id = "projects/rosy-clover-477102-t5/serviceAccounts/shorts-data-sync-scheduler@rosy-clover-477102-t5.iam.gserviceaccount.com"
+}
+
+# Import enrichment-processor service account
+import {
+  to = module.enrichment_processor.google_service_account.enrichment_processor
+  id = "projects/rosy-clover-477102-t5/serviceAccounts/enrichment-processor@rosy-clover-477102-t5.iam.gserviceaccount.com"
+}
+
+# Import market-discovery-sync service accounts
+import {
+  to = module.market_discovery_sync.google_service_account.asx_discovery
+  id = "projects/rosy-clover-477102-t5/serviceAccounts/asx-discovery@rosy-clover-477102-t5.iam.gserviceaccount.com"
+}
+
+import {
+  to = module.market_discovery_sync.google_service_account.market_data_sync
+  id = "projects/rosy-clover-477102-t5/serviceAccounts/market-data-sync@rosy-clover-477102-t5.iam.gserviceaccount.com"
+}
+
+import {
+  to = module.market_discovery_sync.google_service_account.scheduler
+  id = "projects/rosy-clover-477102-t5/serviceAccounts/market-jobs-scheduler@rosy-clover-477102-t5.iam.gserviceaccount.com"
+}
+
 # Artifact Registry for Docker images
 resource "google_artifact_registry_repository" "shorted" {
   location      = var.region
@@ -102,6 +154,7 @@ module "short_data_sync" {
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment      = "production"
   image_url        = var.short_data_sync_image
+  bucket_name      = "shorted-short-selling-data-prod" # Prod-specific bucket
 
   depends_on = [
     google_project_service.required_apis,

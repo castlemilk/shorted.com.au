@@ -17,10 +17,10 @@ locals {
   }
 }
 
-# GCS Bucket for short selling data (existing bucket name format)
+# GCS Bucket for short selling data
 resource "google_storage_bucket" "short_selling_data" {
-  name          = "shorted-short-selling-data" # Match existing bucket name
-  location      = "US"                         # Match existing bucket location (multi-region)
+  name          = var.bucket_name != "" ? var.bucket_name : "shorted-short-selling-data"
+  location      = "US" # Multi-region for better availability
   project       = var.project_id
   force_destroy = false
 
