@@ -26,3 +26,9 @@ variable "image_url" {
   type        = string
 }
 
+variable "bucket_name" {
+  description = "Name for the GCS bucket storing short selling data (must be globally unique)"
+  type        = string
+  default     = "" # If empty, defaults to 'shorted-short-selling-data'
+}
+
