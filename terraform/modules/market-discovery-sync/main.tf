@@ -224,7 +224,7 @@ resource "google_cloud_scheduler_job" "asx_discovery_weekly" {
   time_zone        = "UTC"
   attempt_deadline = "320s"
   project          = var.project_id
-  region           = var.region
+  region           = var.scheduler_region
 
   http_target {
     http_method = "POST"
@@ -245,7 +245,7 @@ resource "google_cloud_scheduler_job" "market_data_sync_daily" {
   time_zone        = "UTC"
   attempt_deadline = "3600s"
   project          = var.project_id
-  region           = var.region
+  region           = var.scheduler_region
 
   http_target {
     http_method = "POST"

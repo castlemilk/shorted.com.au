@@ -4,8 +4,14 @@ variable "project_id" {
 }
 
 variable "region" {
-  description = "GCP region"
+  description = "GCP region for Cloud Run"
   type        = string
+}
+
+variable "scheduler_region" {
+  description = "GCP region for Cloud Scheduler (only available in certain regions)"
+  type        = string
+  default     = "australia-southeast1"
 }
 
 variable "asx_discovery_image" {
