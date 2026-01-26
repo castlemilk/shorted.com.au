@@ -56,7 +56,7 @@ resource "google_cloud_run_v2_service" "cms" {
       image = var.image_url
 
       ports {
-        container_port = 3000
+        container_port = 3002
         name           = "http1"
       }
 
@@ -122,19 +122,19 @@ resource "google_cloud_run_v2_service" "cms" {
 
       startup_probe {
         http_get {
-          path = "/api/health"
-          port = 3000
+          path = "/admin"
+          port = 3002
         }
-        initial_delay_seconds = 10
+        initial_delay_seconds = 15
         period_seconds        = 10
         timeout_seconds       = 5
-        failure_threshold     = 3
+        failure_threshold     = 6  # Allow more retries for Payload startup
       }
 
       liveness_probe {
         http_get {
-          path = "/api/health"
-          port = 3000
+          path = "/admin"
+          port = 3002
         }
         initial_delay_seconds = 30
         period_seconds        = 30
