@@ -7,12 +7,12 @@ import (
 
 // RegisterServer implements the RegisterServiceServer interface
 type RegisterServer struct {
-    registerv1connect.UnimplementedRegisterServiceHandler
-	store  shorts.Store
+	registerv1connect.UnimplementedRegisterServiceHandler
+	store shorts.Store
 }
 
 func NewRegisterServer(cfg shorts.Config) *RegisterServer {
-    return &RegisterServer{
-		store:  shorts.NewStore(cfg),
-    }
+	return &RegisterServer{
+		store: shorts.NewStore(cfg),
+	}
 }

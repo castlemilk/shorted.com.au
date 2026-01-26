@@ -1,0 +1,34 @@
+# Test files
+**/__tests__/**
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+
+# E2E tests  
+e2e/**
+
+# Generated code
+src/gen/**
+src/app/lib/firestore.ts
+
+# Build outputs
+.next/**
+out/**
+dist/**
+build/**
+
+# Dependencies
+node_modules/**
+
+# Coverage
+coverage/**
+
+# Scripts
+scripts/**
+test-*.cjs
+
+# Misc
+*.config.js
+*.config.mjs
+

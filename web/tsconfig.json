@@ -36,7 +36,10 @@
       "@/types/*": ["./src/@/types/*"],
       "@/hooks/*": ["./src/@/hooks/*"],
       "@/interfaces/*": ["./src/@/interfaces/*"],
-      "@/app/*": ["./src/app/*"]
+      "@/utils/*": ["./src/@/utils/*"],
+      "@/app/*": ["./src/app/*"],
+      "@/auth": ["./src/server/auth.ts"],
+      "@/server/*": ["./src/server/*"]
     }
   },
   "ts-node": {
@@ -46,11 +49,24 @@
   "include": [
     ".eslintrc.cjs",
     "next-env.d.ts",
+    "**/*.d.ts",
     "**/*.ts",
     "**/*.tsx",
     "**/*.cjs",
     "**/*.js",
-    ".next/types/**/*.ts"
-, "next.config.mjs"  ],
-  "exclude": ["node_modules"]
+    ".next/types/**/*.ts",
+    "next.config.mjs"
+  ],
+  "exclude": [
+    "node_modules",
+    "e2e",
+    "scripts",
+    "src/app/lib/firestore.ts",
+    "src/gen/**/*",
+    "test-*.cjs",
+    "**/__tests__/**",
+    "**/*.spec.ts",
+    "**/*.test.tsx",
+    "**/*.test.ts"
+  ]
 }

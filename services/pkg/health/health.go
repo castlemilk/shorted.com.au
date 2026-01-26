@@ -2,6 +2,7 @@ package health
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 )
 
@@ -89,21 +90,29 @@ func (h *HTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *HTTPServer) HandleAlive(w http.ResponseWriter, r *http.Request) {
-	if !h.State.IsAlive() {
+	if !h.IsAlive() {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		fmt.Fprintf(w, "%d service unavailable\n", http.StatusServiceUnavailable)
+		if _, err := fmt.Fprintf(w, "%d service unavailable\n", http.StatusServiceUnavailable); err != nil {
+			log.Printf("Error writing response: %v", err)
+		}
 		return
 	}
-	fmt.Fprintf(w, "%d ok\n", http.StatusOK)
+	if _, err := fmt.Fprintf(w, "%d ok\n", http.StatusOK); err != nil {
+		log.Printf("Error writing response: %v", err)
+	}
 }
 
 func (h *HTTPServer) HandleReady(w http.ResponseWriter, r *http.Request) {
-	if !h.State.IsReady() {
+	if !h.IsReady() {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		fmt.Fprintf(w, "%d service unavailable\n", http.StatusServiceUnavailable)
+		if _, err := fmt.Fprintf(w, "%d service unavailable\n", http.StatusServiceUnavailable); err != nil {
+			log.Printf("Error writing response: %v", err)
+		}
 		return
 	}
-	fmt.Fprintf(w, "%d ok\n", http.StatusOK)
+	if _, err := fmt.Fprintf(w, "%d ok\n", http.StatusOK); err != nil {
+		log.Printf("Error writing response: %v", err)
+	}
 }
 
 func requireGet(next http.HandlerFunc) http.Handler {

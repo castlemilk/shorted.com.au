@@ -2,7 +2,6 @@
 
 import { type ColumnDef } from "@tanstack/react-table";
 import { DataTableColumnDisplayHeader } from "./data-table-column-display-header";
-import { type PlainMessage } from "@bufbuild/protobuf";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import {
   Card,
@@ -10,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/@/components/ui/card";
-import Sparkline from "./sparkline";
+import { SparkLine } from "./sparkline";
 import { Button } from "~/@/components/ui/button";
 import { ArrowUpDown, Circle } from "lucide-react";
 import { Badge } from "~/@/components/ui/badge";
@@ -21,11 +20,14 @@ const greenColor = `var(--green)`;
 const truncateValue = (value: number, maxLength: number) => {
   const formatted = value.toFixed(2);
   if (formatted.length <= maxLength) return formatted;
-  if (maxLength < 4) return '...';
-  return value.toFixed(0) + (value.toFixed(0).length > maxLength - 1 ? '...' : '');
+  if (maxLength < 4) return "...";
+  return (
+    value.toFixed(0) + (value.toFixed(0).length > maxLength - 1 ? "..." : "")
+  );
 };
 
-export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
+// Restore full columns
+export const columns: ColumnDef<TimeSeriesData>[] = [
   {
     id: "name",
     accessorKey: "productCode",
@@ -55,7 +57,9 @@ export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
     accessorKey: "latestShortPosition",
     header: ({ column }) => {
       return (
-        <div className="h-full flex items-center justify-center"> {/* Added wrapper div */}
+        <div className="h-full flex items-center justify-center">
+          {" "}
+          {/* Added wrapper div */}
           <Button
             variant="ghost"
             className="self-center"
@@ -67,28 +71,34 @@ export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
         </div>
       );
     },
-    cell: ({ row }) => (
-      <div className="flex items-center justify-center h-full">
-        <div className="flex flex-col items-center">
-          <div className="flex flex-col mb-2">
-            <Badge className="flex mb-1 p-0 pl-1 items-center text-xs w-[85px] truncate">
-              <Circle strokeWidth={0} size={10} fill={greenColor} />
-              <p className="pl-1">{`Min: ${truncateValue(row.original.min?.shortPosition ?? 0, 5)}`}</p>
-            </Badge>
-            <Badge className="flex p-0 pl-1 items-center text-xs w-[85px] truncate">
-              <Circle strokeWidth={0} size={10} fill={redColor} />
-              <p className="pl-1">{`Max: ${truncateValue(row.original.max?.shortPosition ?? 0, 5)}`}</p>
-            </Badge>
-          </div>
-          <div className="flex items-end">
-            <div className="text-3xl font-bold">
-              {truncateValue(row.original.latestShortPosition, 6)}
+    cell: ({ row }) => {
+      const data = row.original;
+      const minValue = data.min?.shortPosition ?? 0;
+      const maxValue = data.max?.shortPosition ?? 0;
+      const latestValue = data.latestShortPosition ?? 0;
+      return (
+        <div className="flex items-center justify-center h-full">
+          <div className="flex flex-col items-center">
+            <div className="flex flex-col mb-2">
+              <Badge className="flex mb-1 p-0 pl-1 items-center text-xs w-[85px] truncate">
+                <Circle strokeWidth={0} size={10} fill={greenColor} />
+                <p className="pl-1">{`Min: ${truncateValue(minValue, 5)}`}</p>
+              </Badge>
+              <Badge className="flex p-0 pl-1 items-center text-xs w-[85px] truncate">
+                <Circle strokeWidth={0} size={10} fill={redColor} />
+                <p className="pl-1">{`Max: ${truncateValue(maxValue, 5)}`}</p>
+              </Badge>
             </div>
-            <div className="text-lg ">%</div>
+            <div className="flex items-end">
+              <div className="text-3xl font-bold">
+                {truncateValue(latestValue, 6)}
+              </div>
+              <div className="text-lg ">%</div>
+            </div>
           </div>
         </div>
-      </div>
-    ),
+      );
+    },
     enableSorting: true,
     enableHiding: false,
   },
@@ -100,8 +110,8 @@ export const columns: ColumnDef<PlainMessage<TimeSeriesData>>[] = [
       </div>
     ),
     cell: ({ row }) => (
-      <div className="w-full h-full flex items-center justify-center">
-        <Sparkline data={row.original} />
+      <div className="w-full h-full flex items-center justify-center px-1">
+        <SparkLine data={row.original} strategy="observer" minWidth={160} />
       </div>
     ),
     enableSorting: false,

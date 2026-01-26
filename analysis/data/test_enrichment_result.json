@@ -1,0 +1,44 @@
+{
+  "stock_code": "GAL",
+  "company_name": "GALILEO MINING LTD",
+  "logo_discovered": true,
+  "logo_source_url": "https://www.galileomining.com.au/wp-content/uploads/2023/06/favicon-300x300.png",
+  "logo_format": "png",
+  "logo_processed": true,
+  "logo_files": [
+    "/Users/benebsworth/projects/shorted/analysis/data/test_logos/GAL/GAL.png",
+    "/Users/benebsworth/projects/shorted/analysis/data/test_logos/GAL/GAL_64.png",
+    "/Users/benebsworth/projects/shorted/analysis/data/test_logos/GAL/GAL_128.png",
+    "/Users/benebsworth/projects/shorted/analysis/data/test_logos/GAL/GAL_256.png",
+    "/Users/benebsworth/projects/shorted/analysis/data/test_logos/GAL/GAL_512.png"
+  ],
+  "has_icon": false,
+  "enrichment_status": "completed",
+  "tags": [
+    "Mineral Exploration",
+    "ASX",
+    "Mining Industry",
+    "Natural Resources",
+    "Australian Company"
+  ],
+  "enhanced_summary": "Galileo Mining Ltd is an Australian-based company focused on the exploration and development of mineral resources, primarily targeting nickel, cobalt, and copper. The company aims to discover and develop economically viable mineral deposits to create shareholder value.",
+  "key_people": [
+    {
+      "name": "Brad Underwood",
+      "role": "Managing Director",
+      "bio": "Brad Underwood has over 20 years of experience in the mining industry, specializing in exploration and project development. He has been instrumental in advancing Galileo Mining's exploration projects and strategic direction."
+    },
+    {
+      "name": "Mark Pitts",
+      "role": "Company Secretary",
+      "bio": "Mark Pitts is a Chartered Accountant with extensive experience in corporate governance and financial management within the mining sector. He provides strategic advice and ensures compliance with regulatory requirements."
+    }
+  ],
+  "risk_factors": [
+    "Volatility in commodity prices",
+    "Exploration and development risks",
+    "Regulatory and environmental compliance",
+    "Access to capital and funding",
+    "Market competition"
+  ]
+}

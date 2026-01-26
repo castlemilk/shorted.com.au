@@ -1,0 +1,383 @@
+config:
+  target: '{{ $processEnvironment.BASE_URL || "http://localhost:9091" }}'
+  phases:
+    # Warm-up phase
+    - duration: 60
+      arrivalRate: 5
+      name: 'Warm-up'
+    
+    # Gradual ramp-up
+    - duration: 120
+      arrivalRate: 10
+      rampTo: 25
+      name: 'Ramp-up to normal load'
+    
+    # Sustained load test
+    - duration: 300
+      arrivalRate: 25
+      name: 'Sustained normal load'
+    
+    # Peak traffic simulation
+    - duration: 180
+      arrivalRate: 50
+      name: 'Peak traffic'
+    
+    # Spike test
+    - duration: 60
+      arrivalRate: 100
+      name: 'Traffic spike'
+    
+    # Recovery phase
+    - duration: 120
+      arrivalRate: 25
+      name: 'Post-spike recovery'
+    
+    # Cool down
+    - duration: 60
+      arrivalRate: 5
+      name: 'Cool down'
+
+  defaults:
+    headers:
+      Content-Type: 'application/json'
+      User-Agent: 'Artillery/{{ $processEnvironment.npm_package_version || "1.0.0" }}'
+  
+  processor: './test/artillery/processor.js'
+  
+  # Performance and reliability thresholds
+  ensure:
+    p95: 2000  # 95th percentile should be under 2 seconds
+    p99: 5000  # 99th percentile should be under 5 seconds
+    maxErrorRate: 5  # Error rate should be under 5%
+    
+  plugins:
+    expect: {}
+    metrics-by-endpoint:
+      useOnlyRequestNames: true
+    
+  # Variables for test data
+  variables:
+    stockCodes:
+      - 'CBA'
+      - 'BHP'
+      - 'ANZ' 
+      - 'WBC'
+      - 'NAB'
+      - 'CSL'
+      - 'WOW'
+      - 'TLS'
+      - 'RIO'
+      - 'WES'
+      - 'MQG'
+      - 'TCL'
+      - 'STO'
+      - 'QBE'
+      - 'WPL'
+      - 'ALL'
+      - 'JHX'
+      - 'COL'
+      - 'ILU'
+      - 'REA'
+    
+    periods:
+      - '1w'
+      - '1m'
+      - '3m'
+      - '6m'
+      - '1y'
+    
+    limits:
+      - 5
+      - 10
+      - 25
+      - 50
+    
+    viewModes:
+      - 'CURRENT_CHANGE'
+      - 'PERCENTAGE_CHANGE'
+
+scenarios:
+  # Main user journey scenario
+  - name: 'Typical User Journey'
+    weight: 40
+    flow:
+      - think: 2
+      - get:
+          name: 'Browse Top Shorts'
+          url: '/shorts.v1alpha1.ShortedStocksService/GetTopShorts'
+          json:
+            period: '{{ $randomChoice(periods) }}'
+            limit: '{{ $randomChoice(limits) }}'
+            offset: 0
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - hasProperty: 'timeSeries'
+          capture:
+            - json: '$.timeSeries[0].productCode'
+              as: 'selectedStock'
+      
+      - think: 3
+      - get:
+          name: 'View Stock Details'
+          url: '/shorts.v1alpha1.ShortedStocksService/GetStock'
+          json:
+            productCode: '{{ selectedStock || $randomChoice(stockCodes) }}'
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - hasProperty: 'productCode'
+      
+      - think: 2
+      - get:
+          name: 'Get Stock Historical Data'
+          url: '/shorts.v1alpha1.ShortedStocksService/GetStockData'
+          json:
+            productCode: '{{ selectedStock || $randomChoice(stockCodes) }}'
+            period: '{{ $randomChoice(periods) }}'
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - hasProperty: 'points'
+
+  # Power user scenario - more intensive usage
+  - name: 'Power User Journey'
+    weight: 25
+    flow:
+      - think: 1
+      - loop:
+          - get:
+              name: 'Browse Multiple Periods'
+              url: '/shorts.v1alpha1.ShortedStocksService/GetTopShorts'
+              json:
+                period: '{{ periods[$loopElement] }}'
+                limit: 25
+                offset: 0
+              expect:
+                - statusCode: 200
+          - think: 1
+        over: periods
+      
+      - think: 2
+      - get:
+          name: 'View Industry TreeMap'
+          url: '/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap'
+          json:
+            period: '{{ $randomChoice(periods) }}'
+            limit: '{{ $randomChoice(limits) }}'
+            viewMode: '{{ $randomChoice(viewModes) }}'
+          expect:
+            - statusCode: 200
+            - contentType: json
+      
+      - think: 1
+      - loop:
+          - get:
+              name: 'Analyze Multiple Stocks'
+              url: '/shorts.v1alpha1.ShortedStocksService/GetStockDetails'
+              json:
+                productCode: '{{ stockCodes[$loopElement] }}'
+              expect:
+                - statusCode: 200
+          - think: 0.5
+        count: 5
+
+  # Quick browsing scenario
+  - name: 'Quick Browse'
+    weight: 20
+    flow:
+      - get:
+          name: 'Quick Top Shorts Check'
+          url: '/shorts.v1alpha1.ShortedStocksService/GetTopShorts'
+          json:
+            period: '1m'
+            limit: 10
+            offset: 0
+          expect:
+            - statusCode: 200
+            - contentType: json
+      
+      - think: 1
+      - get:
+          name: 'Check Popular Stock'
+          url: '/shorts.v1alpha1.ShortedStocksService/GetStock'
+          json:
+            productCode: 'CBA'  # Most popular stock
+          expect:
+            - statusCode: 200
+
+  # API stress scenario - rapid requests
+  - name: 'API Stress Test'
+    weight: 10
+    flow:
+      - loop:
+          - get:
+              name: 'Rapid GetTopShorts'
+              url: '/shorts.v1alpha1.ShortedStocksService/GetTopShorts'
+              json:
+                period: '1m'
+                limit: 5
+                offset: '{{ $randomNumber(0, 20) }}'
+              expect:
+                - statusCode: 200
+          - think: 0.1
+        count: 10
+
+  # Cache effectiveness test
+  - name: 'Cache Test'
+    weight: 5
+    flow:
+      # Same request multiple times to test cache
+      - get:
+          name: 'Cache Test - First Request'
+          url: '/shorts.v1alpha1.ShortedStocksService/GetTopShorts'
+          json:
+            period: '1m'
+            limit: 10
+            offset: 0
+          expect:
+            - statusCode: 200
+      
+      - think: 0.5
+      - get:
+          name: 'Cache Test - Cached Request'
+          url: '/shorts.v1alpha1.ShortedStocksService/GetTopShorts'
+          json:
+            period: '1m'
+            limit: 10
+            offset: 0
+          expect:
+            - statusCode: 200
+      
+      - think: 0.5
+      - get:
+          name: 'Cache Test - Another Cached Request'
+          url: '/shorts.v1alpha1.ShortedStocksService/GetTopShorts'
+          json:
+            period: '1m'
+            limit: 10
+            offset: 0
+          expect:
+            - statusCode: 200
+
+# Error handling scenarios
+  - name: 'Error Handling Test'
+    weight: 3
+    flow:
+      # Test invalid stock code
+      - get:
+          name: 'Invalid Stock Code'
+          url: '/shorts.v1alpha1.ShortedStocksService/GetStock'
+          json:
+            productCode: 'INVALID'
+          expect:
+            - statusCode: [400, 404]  # Expect error response
+      
+      # Test invalid period
+      - get:
+          name: 'Invalid Period'
+          url: '/shorts.v1alpha1.ShortedStocksService/GetTopShorts'
+          json:
+            period: 'invalid'
+            limit: 10
+            offset: 0
+          expect:
+            - statusCode: [400, 422]  # Expect validation error
+      
+      # Test excessive limit
+      - get:
+          name: 'Excessive Limit'
+          url: '/shorts.v1alpha1.ShortedStocksService/GetTopShorts'
+          json:
+            period: '1m'
+            limit: 1000  # Very large limit
+            offset: 0
+          expect:
+            - statusCode: [200, 400]  # May succeed with capping or fail with validation
+
+# Database intensive scenarios
+  - name: 'Database Intensive'
+    weight: 2
+    flow:
+      # Large dataset requests
+      - get:
+          name: 'Large Dataset - Long Period'
+          url: '/shorts.v1alpha1.ShortedStocksService/GetTopShorts'
+          json:
+            period: '1y'
+            limit: 50
+            offset: 0
+          expect:
+            - statusCode: 200
+            - response_time_ms: 10000  # Should complete within 10 seconds
+      
+      - think: 1
+      - get:
+          name: 'Historical Data - Long Period'
+          url: '/shorts.v1alpha1.ShortedStocksService/GetStockData'
+          json:
+            productCode: 'CBA'
+            period: '1y'
+          expect:
+            - statusCode: 200
+            - response_time_ms: 15000  # Should complete within 15 seconds
+      
+      - think: 2
+      - get:
+          name: 'Complex TreeMap Query'
+          url: '/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap'
+          json:
+            period: '6m'
+            limit: 50
+            viewMode: 'PERCENTAGE_CHANGE'
+          expect:
+            - statusCode: 200
+            - response_time_ms: 20000  # Should complete within 20 seconds
+
+# Mixed workload simulation
+  - name: 'Mixed Workload'
+    weight: 10
+    flow:
+      - function: 'randomEndpointCall'
+      - think: '{{ $randomNumber(1, 3) }}'
+      - function: 'randomEndpointCall'
+      - think: '{{ $randomNumber(0.5, 2) }}'
+      - function: 'randomEndpointCall'
+      - think: '{{ $randomNumber(1, 4) }}'
+
+# Performance baseline scenario
+  - name: 'Performance Baseline'
+    weight: 5
+    flow:
+      # Consistent, measurable requests for performance baselining
+      - get:
+          name: 'Baseline - GetTopShorts Standard'
+          url: '/shorts.v1alpha1.ShortedStocksService/GetTopShorts'
+          json:
+            period: '1m'
+            limit: 10
+            offset: 0
+          expect:
+            - statusCode: 200
+            - response_time_ms: 2000  # Baseline expectation
+      
+      - think: 2
+      - get:
+          name: 'Baseline - GetStock Standard'
+          url: '/shorts.v1alpha1.ShortedStocksService/GetStock'
+          json:
+            productCode: 'CBA'
+          expect:
+            - statusCode: 200
+            - response_time_ms: 1000  # Baseline expectation
+      
+      - think: 2
+      - get:
+          name: 'Baseline - GetStockData Standard'
+          url: '/shorts.v1alpha1.ShortedStocksService/GetStockData'
+          json:
+            productCode: 'BHP'
+            period: '1m'
+          expect:
+            - statusCode: 200
+            - response_time_ms: 3000  # Baseline expectation

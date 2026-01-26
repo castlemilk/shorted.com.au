@@ -11,11 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bufbuild/connect-go"
+	"connectrpc.com/connect"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
 	"github.com/dgrijalva/jwt-go"
-	"github.com/google/uuid"
+	// "github.com/google/uuid" // TODO: Use when needed
 )
 
 const (
@@ -38,7 +38,7 @@ func generateJWT(credentials []byte, audience string) (string, error) {
 
 	key, err := jwt.ParseRSAPrivateKeyFromPEM([]byte(serviceAccountInfo.PrivateKey))
 	if err != nil {
-		return "", fmt.Errorf("error parsing RSA private key: %v\n", err)
+		return "", fmt.Errorf("error parsing RSA private key: %v", err)
 	}
 
 	now := time.Now().Unix()
@@ -75,7 +75,11 @@ func exchangeJWTForToken(signedJWT string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			log.Printf("Error closing response body: %v", err)
+		}
+	}()
 
 	var respData struct {
 		IDToken string `json:"id_token"`
@@ -90,7 +94,7 @@ func exchangeJWTForToken(signedJWT string) (string, error) {
 }
 
 func main() {
-	uuid := uuid.New().String()
+	// uuid := uuid.New().String() // TODO: Use this when needed
 
 	// Step 1: Load JSON credentials from environment variable
 	credsEnv := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
@@ -157,6 +161,9 @@ func main() {
 
 	stocks, err := serviceClient.GetTopShorts(context.Background(), connect.NewRequest(&shortsv1alpha1.GetTopShortsRequest{
 		Period: "6m", Limit: 10}))
+	if err != nil {
+		log.Fatalf("failed to get top shorts: %v", err)
+	}
 
 	println("got stocksr %s", stocks.Msg.TimeSeries)
 }

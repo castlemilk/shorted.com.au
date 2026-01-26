@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { GetIndustryTreeMapRequest, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetTopShortsRequest, GetTopShortsResponse } from "./shorts_pb";
+import { EnrichStockRequest, EnrichStockResponse, GetEnrichmentJobStatusRequest, GetEnrichmentJobStatusResponse, GetIndustryTreeMapRequest, GetMySubscriptionRequest, GetMySubscriptionResponse, GetPendingEnrichmentRequest, GetPendingEnrichmentResponse, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetSyncStatusRequest, GetSyncStatusResponse, GetTopShortsRequest, GetTopShortsResponse, GetTopStocksForEnrichmentRequest, GetTopStocksForEnrichmentResponse, HandleStripeCheckoutCompletedRequest, HandleStripeCheckoutCompletedResponse, HandleStripeSubscriptionUpdatedRequest, HandleStripeSubscriptionUpdatedResponse, ListEnrichmentJobsRequest, ListEnrichmentJobsResponse, ListPendingEnrichmentsRequest, ListPendingEnrichmentsResponse, MintTokenRequest, MintTokenResponse, ReviewEnrichmentRequest, ReviewEnrichmentResponse, SearchStocksRequest, SearchStocksResponse, SyncKeyMetricsRequest, SyncKeyMetricsResponse } from "./shorts_pb";
 import { MethodKind } from "@bufbuild/protobuf";
 import { IndustryTreeMap, Stock, StockDetails, TimeSeriesData } from "../../stocks/v1alpha1/stocks_pb";
 
@@ -25,6 +25,8 @@ export const ShortedStocksService = {
       kind: MethodKind.Unary,
     },
     /**
+     * Get Industry TreeMap for short positions.
+     *
      * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap
      */
     getIndustryTreeMap: {
@@ -64,6 +66,161 @@ export const ShortedStocksService = {
       name: "GetStockData",
       I: GetStockDataRequest,
       O: TimeSeriesData,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Search stocks by symbol or company name
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.SearchStocks
+     */
+    searchStocks: {
+      name: "SearchStocks",
+      I: SearchStocksRequest,
+      O: SearchStocksResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Get sync status for admin dashboard
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetSyncStatus
+     */
+    getSyncStatus: {
+      name: "GetSyncStatus",
+      I: GetSyncStatusRequest,
+      O: GetSyncStatusResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Mint an API token for the user. Requires valid authentication.
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.MintToken
+     */
+    mintToken: {
+      name: "MintToken",
+      I: MintTokenRequest,
+      O: MintTokenResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Trigger key metrics sync for specific stocks. Admin only.
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.SyncKeyMetrics
+     */
+    syncKeyMetrics: {
+      name: "SyncKeyMetrics",
+      I: SyncKeyMetricsRequest,
+      O: SyncKeyMetricsResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Trigger enrichment for a specific stock. Admin only.
+     * Returns enrichment data for review before applying to company-metadata.
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.EnrichStock
+     */
+    enrichStock: {
+      name: "EnrichStock",
+      I: EnrichStockRequest,
+      O: EnrichStockResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Get top stocks for enrichment batching/prioritization. Admin only.
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetTopStocksForEnrichment
+     */
+    getTopStocksForEnrichment: {
+      name: "GetTopStocksForEnrichment",
+      I: GetTopStocksForEnrichmentRequest,
+      O: GetTopStocksForEnrichmentResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * List pending enrichments awaiting review. Admin only.
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListPendingEnrichments
+     */
+    listPendingEnrichments: {
+      name: "ListPendingEnrichments",
+      I: ListPendingEnrichmentsRequest,
+      O: ListPendingEnrichmentsResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Get a specific pending enrichment by ID. Admin only.
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetPendingEnrichment
+     */
+    getPendingEnrichment: {
+      name: "GetPendingEnrichment",
+      I: GetPendingEnrichmentRequest,
+      O: GetPendingEnrichmentResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Approve or reject a pending enrichment. Admin only.
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.ReviewEnrichment
+     */
+    reviewEnrichment: {
+      name: "ReviewEnrichment",
+      I: ReviewEnrichmentRequest,
+      O: ReviewEnrichmentResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Get enrichment job status by job ID. Admin only.
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetEnrichmentJobStatus
+     */
+    getEnrichmentJobStatus: {
+      name: "GetEnrichmentJobStatus",
+      I: GetEnrichmentJobStatusRequest,
+      O: GetEnrichmentJobStatusResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * List enrichment jobs with optional status filter. Admin only.
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListEnrichmentJobs
+     */
+    listEnrichmentJobs: {
+      name: "ListEnrichmentJobs",
+      I: ListEnrichmentJobsRequest,
+      O: ListEnrichmentJobsResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Internal API for Stripe webhook: handle checkout completion (server-to-server only)
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.HandleStripeCheckoutCompleted
+     */
+    handleStripeCheckoutCompleted: {
+      name: "HandleStripeCheckoutCompleted",
+      I: HandleStripeCheckoutCompletedRequest,
+      O: HandleStripeCheckoutCompletedResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Internal API for Stripe webhook: handle subscription updates (server-to-server only)
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.HandleStripeSubscriptionUpdated
+     */
+    handleStripeSubscriptionUpdated: {
+      name: "HandleStripeSubscriptionUpdated",
+      I: HandleStripeSubscriptionUpdatedRequest,
+      O: HandleStripeSubscriptionUpdatedResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Get the current user's subscription status. Requires authentication.
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetMySubscription
+     */
+    getMySubscription: {
+      name: "GetMySubscription",
+      I: GetMySubscriptionRequest,
+      O: GetMySubscriptionResponse,
       kind: MethodKind.Unary,
     },
   }

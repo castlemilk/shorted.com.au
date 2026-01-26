@@ -1,3 +1,4 @@
+import * as React from "react";
 import { type Column } from "@tanstack/react-table";
 import { cn } from "~/@/lib/utils";
 
@@ -13,3 +14,6 @@ export function DataTableColumnDisplayHeader<TData, TValue>({
 }: DataTableColumnHeaderProps<TData, TValue>) {
   return <div className={cn(className)}>{title}</div>;
 }
+
+// Add default export as well
+export default DataTableColumnDisplayHeader;

@@ -1,5 +1,5 @@
 # Step 1: Build the application in a full Go environment
-FROM --platform=$BUILDPLATFORM golang:1.20-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
 
 # Install git.
 # Git is required for fetching the dependencies.

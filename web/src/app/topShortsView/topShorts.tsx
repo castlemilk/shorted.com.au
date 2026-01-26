@@ -14,15 +14,15 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { type PlainMessage } from "@bufbuild/protobuf";
+} from "~/@/components/ui/select";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { Label } from "~/@/components/ui/label";
-import { getTopShortsData } from "../actions/getTopShorts";
+import { getTopShortsDataClient } from "../actions/client/getTopShorts";
 import { DataTable } from "./components/data-table";
 import { columns } from "./components/columns";
 import { Card, CardTitle } from "~/@/components/ui/card";
 import { Skeleton } from "~/@/components/ui/skeleton";
+import { cn } from "~/@/lib/utils";
 
 const getPeriodString = (period: string) => {
   switch (period) {
@@ -36,6 +36,8 @@ const getPeriodString = (period: string) => {
       return "1 year";
     case "2y":
       return "2 years";
+    case "5y":
+      return "5 years";
     case "max":
       return "maximum window";
     default:
@@ -44,62 +46,132 @@ const getPeriodString = (period: string) => {
 };
 
 interface TopShortsProps {
-  initialShortsData: PlainMessage<TimeSeriesData>[]; // Data for multiple series
+  initialShortsData?: TimeSeriesData[]; // Data for multiple series (optional)
+  initialPeriod?: string; // Add initial period prop
+  className?: string; // Allow custom class name
 }
 
 const LOAD_CHUNK_SIZE = 10;
 
-export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
-  const [period, setPeriod] = useState<string>("3m");
-  const [loading, setLoading] = useState<boolean>(false);
-  const [offset, setOffset] = useState<number>(0); // Added offset state
-  const [shortsData, setShortsData] =
-    useState<PlainMessage<TimeSeriesData>[]>(initialShortsData);
-  const firstUpdate = useRef(true);
-  const fetchMoreData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const newData = await getTopShortsData(
-        period,
-        LOAD_CHUNK_SIZE,
-        LOAD_CHUNK_SIZE + offset,
-      );
-      setShortsData((prev) => [...(prev ?? []), ...newData.timeSeries]);
-      setOffset((prevOffset) => prevOffset + LOAD_CHUNK_SIZE);
-    } catch (e) {
-      console.error("Error fetching data: ", e);
-    } finally {
-      setLoading(false);
-    }
-  }, [offset, period]); // Add period to the dependency array
+export const TopShorts: FC<TopShortsProps> = ({
+  initialShortsData,
+  initialPeriod = "3m",
+  className,
+}) => {
+  const [period, setPeriod] = useState<string>(initialPeriod);
+  const [displayPeriod, setDisplayPeriod] = useState<string>(initialPeriod);
+  const [isInitialLoading, setIsInitialLoading] =
+    useState<boolean>(!initialShortsData);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [shortsData, setShortsData] = useState<TimeSeriesData[]>(
+    initialShortsData ?? [],
+  );
+  const requestIdRef = useRef(0);
+  const offsetRef = useRef<number>(initialShortsData?.length ?? 0);
+  const [refreshKey, setRefreshKey] = useState<number>(() => Date.now());
 
-  useEffect(() => {
-    if (firstUpdate.current) {
-      firstUpdate.current = false;
+  const getTimeSeriesForPeriod = useCallback(
+    async (nextPeriod: string, opts: { keepExisting: boolean }) => {
+      requestIdRef.current += 1;
+      const currentRequestId = requestIdRef.current;
+
+      if (opts.keepExisting) {
+        setIsRefreshing(true);
+      } else {
+        setIsInitialLoading(true);
+      }
+
+      try {
+        const result = await getTopShortsDataClient(
+          nextPeriod,
+          LOAD_CHUNK_SIZE,
+          0,
+        );
+
+        if (requestIdRef.current !== currentRequestId) {
+          return;
+        }
+
+        const timeSeriesData: TimeSeriesData[] = result.timeSeries ?? [];
+        setShortsData(timeSeriesData);
+        setDisplayPeriod(nextPeriod);
+        offsetRef.current = timeSeriesData.length;
+        setRefreshKey(Date.now());
+      } catch (e) {
+        if (requestIdRef.current === currentRequestId) {
+          console.error("Error fetching data: ", e);
+        }
+      } finally {
+        if (requestIdRef.current !== currentRequestId) {
+          return;
+        }
+
+        if (opts.keepExisting) {
+          setIsRefreshing(false);
+        } else {
+          setIsInitialLoading(false);
+        }
+      }
+    },
+    [],
+  );
+
+  const fetchMoreData = useCallback(async () => {
+    if (isInitialLoading || isRefreshing) {
       return;
     }
-    setLoading(true);
-    setOffset(0); // Reset offset when period changes
-    getTopShortsData(period, LOAD_CHUNK_SIZE, 0)
-      .then((data) => {
-        setShortsData(data.timeSeries);
-        setLoading(false);
-      })
-      .catch((e) => {
-        console.error("Error fetching data: ", e);
-        setLoading(false);
-      });
-  }, [period]);
+
+    try {
+      const result = await getTopShortsDataClient(
+        period,
+        LOAD_CHUNK_SIZE,
+        offsetRef.current,
+      );
+
+      const timeSeriesData: TimeSeriesData[] = result.timeSeries ?? [];
+      if (timeSeriesData.length === 0) {
+        return;
+      }
+
+      offsetRef.current += timeSeriesData.length;
+      setShortsData((prev) => [...prev, ...timeSeriesData]);
+    } catch (e) {
+      console.error("Error fetching data: ", e);
+    }
+  }, [isInitialLoading, isRefreshing, period]);
+
+  useEffect(() => {
+    if (!initialShortsData || initialShortsData.length === 0) {
+      void getTimeSeriesForPeriod(initialPeriod, { keepExisting: false });
+      return;
+    }
+
+    offsetRef.current = initialShortsData.length;
+    setDisplayPeriod(initialPeriod);
+    setIsInitialLoading(false);
+    setRefreshKey(Date.now());
+  }, [getTimeSeriesForPeriod, initialPeriod, initialShortsData]);
+
+  const handlePeriodChange = useCallback(
+    (nextPeriod: string) => {
+      if (nextPeriod === period && !isRefreshing) {
+        return;
+      }
+      setPeriod(nextPeriod);
+      void getTimeSeriesForPeriod(nextPeriod, { keepExisting: true });
+    },
+    [getTimeSeriesForPeriod, period, isRefreshing],
+  );
 
   return (
     <Suspense fallback={loadingPlaceholder}>
-      <Card className="m-2">
+      <Card className={cn("m-2", className)}>
         <div className="flex align-middle justify-between">
           <CardTitle className="self-center m-5">Top Shorts</CardTitle>
           <div className="flex flex-row-reverse m-2">
             <div className="w-48">
               <Label htmlFor="area">Time</Label>
-              <Select onValueChange={(e) => setPeriod(e)} defaultValue={"3m"}>
+              <Select value={period} onValueChange={handlePeriodChange}>
                 <SelectTrigger id="area">
                   <SelectValue placeholder="Select" />
                 </SelectTrigger>
@@ -116,11 +188,13 @@ export const TopShorts: FC<TopShortsProps> = ({ initialShortsData }) => {
           </div>
         </div>
         <DataTable
-          loading={loading}
+          loading={isInitialLoading && shortsData.length === 0}
+          isRefreshing={isRefreshing}
           data={shortsData}
           columns={columns}
-          period={getPeriodString(period)}
+          period={getPeriodString(displayPeriod)}
           fetchMore={fetchMoreData}
+          refreshKey={refreshKey}
         />
       </Card>
     </Suspense>

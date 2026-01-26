@@ -1,0 +1,11 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'australia-southeast2-docker.pkg.dev/$PROJECT_ID/shorted/enrichment-processor:pr-44'
+      - '-f'
+      - 'enrichment-processor/Dockerfile'
+      - '.'
+images:
+  - 'australia-southeast2-docker.pkg.dev/$PROJECT_ID/shorted/enrichment-processor:pr-44'

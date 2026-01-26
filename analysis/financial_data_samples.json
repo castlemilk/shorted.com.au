@@ -1,0 +1,46 @@
+[
+  {
+    "market_data": {
+      "current_price": 48254.82
+    },
+    "profile": {},
+    "financial_data_sources": [
+      "google_finance"
+    ],
+    "financial_data_last_updated": "2025-11-14T00:31:49.840032"
+  },
+  {
+    "market_data": {
+      "current_price": 48254.82
+    },
+    "profile": {
+      "description": "The Commonwealth Bank of Australia, also known as Commonwealth Bank or simply CommBank, is an Australian multinational bank with businesses across New Zealand, Asia, the United States, and the United Kingdom. It provides a variety of financial services, including retail, business and institutional banking, funds management, superannuation, insurance, investment, and broking services. The Commonwealth Bank is the largest Australian listed company on the Australian Securities Exchange as of July 2024, with brands including Bankwest, Colonial First State Investments, ASB Bank, Commonwealth Securities and Commonwealth Insurance. Its former constituent parts were the Commonwealth Trading Bank of Australia, the Commonwealth Savings Bank of Australia, and the Commonwealth Development Bank.\nFounded in 1911 by the Australian Government and fully privatised in 1996, the Commonwealth Bank is one of the big four Australian banks, with the National Australia Bank, ANZ and Westpac. The bank was listed on the Australian Stock Exchange on 12 Sep 1991. Wikipedia"
+    },
+    "financial_data_sources": [
+      "google_finance"
+    ],
+    "financial_data_last_updated": "2025-11-14T00:31:55.654132"
+  },
+  {
+    "market_data": {
+      "current_price": 48254.82
+    },
+    "profile": {
+      "description": "Westpac Banking Corporation, also known as Westpac, is an Australian multinational banking and financial services company headquartered at Westpac Place in Sydney.\nEstablished in 1817 as the Bank of New South Wales, it acquired the Commercial Bank of Australia in 1981 before being renamed to Westpac Banking Corporation in 1982. Westpac is one of Australia's Big Four banks, and is Australia's first and oldest banking institution. Its name is a portmanteau of \"Western\" and \"Pacific\".\nAs of 2024 Westpac has 13 million customers worldwide, and employs around 35,000 people.\nIn 2022 Westpac held the 53rd position in the \"Top 1000 World Banks\". Wikipedia"
+    },
+    "financial_data_sources": [
+      "google_finance"
+    ],
+    "financial_data_last_updated": "2025-11-14T00:32:01.559712"
+  },
+  {
+    "market_data": {
+      "current_price": 48254.82
+    },
+    "profile": {},
+    "financial_data_sources": [
+      "google_finance"
+    ],
+    "financial_data_last_updated": "2025-11-14T00:32:07.356797"
+  }
+]

@@ -38,12 +38,6 @@ const (
 	RegisterServiceRegisterEmailProcedure = "/register.v1.RegisterService/RegisterEmail"
 )
 
-// These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
-var (
-	registerServiceServiceDescriptor             = v1.File_register_v1_register_proto.Services().ByName("RegisterService")
-	registerServiceRegisterEmailMethodDescriptor = registerServiceServiceDescriptor.Methods().ByName("RegisterEmail")
-)
-
 // RegisterServiceClient is a client for the register.v1.RegisterService service.
 type RegisterServiceClient interface {
 	// Register an email address to receive updates.
@@ -59,11 +53,12 @@ type RegisterServiceClient interface {
 // http://api.acme.com or https://acme.com/grpc).
 func NewRegisterServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) RegisterServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
+	registerServiceMethods := v1.File_register_v1_register_proto.Services().ByName("RegisterService").Methods()
 	return &registerServiceClient{
 		registerEmail: connect.NewClient[v1.RegisterEmailRequest, v1.RegisterEmailResponse](
 			httpClient,
 			baseURL+RegisterServiceRegisterEmailProcedure,
-			connect.WithSchema(registerServiceRegisterEmailMethodDescriptor),
+			connect.WithSchema(registerServiceMethods.ByName("RegisterEmail")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -91,10 +86,11 @@ type RegisterServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewRegisterServiceHandler(svc RegisterServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	registerServiceMethods := v1.File_register_v1_register_proto.Services().ByName("RegisterService").Methods()
 	registerServiceRegisterEmailHandler := connect.NewUnaryHandler(
 		RegisterServiceRegisterEmailProcedure,
 		svc.RegisterEmail,
-		connect.WithSchema(registerServiceRegisterEmailMethodDescriptor),
+		connect.WithSchema(registerServiceMethods.ByName("RegisterEmail")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/register.v1.RegisterService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

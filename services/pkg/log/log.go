@@ -49,6 +49,10 @@ func Infof(template string, args ...interface{}) {
 	zap.S().Infof(template, args...)
 }
 
+func Warnf(template string, args ...interface{}) {
+	zap.S().Warnf(template, args...)
+}
+
 // Fatalf uses fmt.Sprintf to construct and log a message at fatal level.
 func Fatalf(template string, args ...interface{}) {
 	zap.S().Fatalf(template, args...)
