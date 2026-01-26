@@ -243,7 +243,7 @@ resource "google_cloud_scheduler_job" "market_data_sync_daily" {
   description      = "Sync stock prices daily via HTTP API"
   schedule         = "0 10 * * 1-5"
   time_zone        = "UTC"
-  attempt_deadline = "3600s"
+  attempt_deadline = "1800s"  # Max allowed is 30 minutes
   project          = var.project_id
   region           = var.scheduler_region
 

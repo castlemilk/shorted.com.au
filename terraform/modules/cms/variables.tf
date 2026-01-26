@@ -32,10 +32,10 @@ variable "max_instances" {
   default     = 10
 }
 
-variable "mongodb_secret_name" {
-  description = "Name of the Secret Manager secret containing MongoDB URI (leave empty if not using)"
+variable "database_url_secret_name" {
+  description = "Name of the Secret Manager secret containing PostgreSQL DATABASE_URL"
   type        = string
-  default     = ""
+  default     = "DATABASE_URL"
 }
 
 variable "allow_unauthenticated" {
@@ -49,4 +49,3 @@ variable "additional_env_vars" {
   type        = map(string)
   default     = {}
 }
-

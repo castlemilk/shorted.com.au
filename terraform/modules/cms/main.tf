@@ -4,7 +4,7 @@
  * Manages:
  * - Cloud Run service for Payload CMS
  * - Service account and IAM permissions
- * - MongoDB/Database connection configuration
+ * - PostgreSQL database connection configuration
  */
 
 locals {
@@ -25,10 +25,9 @@ resource "google_service_account" "cms" {
   project      = var.project_id
 }
 
-# Grant Secret Manager access to service account (if using secrets)
-resource "google_secret_manager_secret_iam_member" "mongodb_uri" {
-  count     = var.mongodb_secret_name != "" ? 1 : 0
-  secret_id = var.mongodb_secret_name
+# Grant Secret Manager access to service account for DATABASE_URL
+resource "google_secret_manager_secret_iam_member" "database_url" {
+  secret_id = var.database_url_secret_name
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.cms.email}"
   project   = var.project_id
@@ -92,16 +91,13 @@ resource "google_cloud_run_v2_service" "cms" {
         }
       }
 
-      # MongoDB connection (if secret is provided)
-      dynamic "env" {
-        for_each = var.mongodb_secret_name != "" ? [1] : []
-        content {
-          name = "MONGODB_URI"
-          value_source {
-            secret_key_ref {
-              secret  = var.mongodb_secret_name
-              version = "latest"
-            }
+      # PostgreSQL connection (Payload CMS uses DATABASE_URI)
+      env {
+        name = "DATABASE_URI"
+        value_source {
+          secret_key_ref {
+            secret  = var.database_url_secret_name
+            version = "latest"
           }
         }
       }
@@ -161,7 +157,8 @@ resource "google_cloud_run_v2_service" "cms" {
   }
 
   depends_on = [
-    google_secret_manager_secret_iam_member.mongodb_uri
+    google_secret_manager_secret_iam_member.database_url,
+    google_secret_manager_secret_iam_member.payload_secret
   ]
 }
 
@@ -173,4 +170,3 @@ resource "google_cloud_run_v2_service_iam_member" "cms_access" {
   role     = "roles/run.invoker"
   member   = var.allow_unauthenticated ? "allUsers" : "serviceAccount:${google_service_account.cms.email}"
 }
-
