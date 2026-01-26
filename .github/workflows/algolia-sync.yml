@@ -83,19 +83,3 @@ jobs:
         run: |
           echo "❌ Algolia sync failed!"
           echo "Check the logs above for details."
-
-  notify-slack:
-    name: Notify on Failure
-    needs: sync-algolia
-    runs-on: ubuntu-latest
-    if: failure() && github.event_name == 'schedule'
-    
-    steps:
-      - name: Send Slack notification
-        # Only if SLACK_WEBHOOK is configured
-        if: ${{ secrets.SLACK_WEBHOOK != '' }}
-        run: |
-          curl -X POST -H 'Content-type: application/json' \
-            --data '{"text":"⚠️ Algolia sync failed! Check GitHub Actions for details."}' \
-            ${{ secrets.SLACK_WEBHOOK }}
-
