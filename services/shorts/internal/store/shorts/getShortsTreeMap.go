@@ -134,6 +134,8 @@ var (
 			public."company-metadata" cm
 		ON 
 			pc."PRODUCT_CODE" = cm.stock_code
+		WHERE 
+			cm.industry IS NOT NULL
 	)
 	-- Select the top N stocks by percentage change for each industry
 	SELECT 
@@ -185,6 +187,8 @@ var (
 			public."company-metadata" cm
 		ON 
 			csp."PRODUCT_CODE" = cm.stock_code
+		WHERE 
+			cm.industry IS NOT NULL
 	)
 	SELECT 
 		industry,
