@@ -1,0 +1,260 @@
+{
+  "timestamp": "2026-01-20T21:52:10.762479",
+  "summary": {
+    "total": 8,
+    "passed": 7,
+    "failed": 1,
+    "with_warnings": 7,
+    "avg_extraction_time_ms": 3328.125,
+    "avg_candidates": 28.0
+  },
+  "results": [
+    {
+      "stock_code": "DMP",
+      "company_name": "Domino's Pizza Enterprises",
+      "website": "https://www.dominos.com.au",
+      "success": true,
+      "num_candidates": 6,
+      "top_candidate_score": 125.0,
+      "top_candidate_source": "inline_svg",
+      "top_candidate_format": "svg",
+      "top_candidate_url": "inline:svg:bdca12c5",
+      "logo_downloaded": true,
+      "logo_size_bytes": 156,
+      "logo_dimensions": "",
+      "logo_is_valid_image": true,
+      "llm_context_available": true,
+      "llm_context_preview": "Description: Order Domino's online now for tasty food & pizza delivery or takeaway. Find your nearest Domino's store for the latest pizza coupons & vouchers. \nSocial: facebook, youtube, twitter, insta",
+      "score_breakdown": {
+        "format": 100,
+        "source": 40,
+        "in_header": 15,
+        "keywords": 20,
+        "size": 0,
+        "penalty": -50
+      },
+      "extraction_time_ms": 2061,
+      "download_time_ms": 0,
+      "issues": [],
+      "warnings": [
+        "SVG render failed: unbound prefix: line 2, column 5",
+        "Expected keywords ['domino', 'logo'] not found in URL"
+      ],
+      "notes": "Iconic red/blue domino tile logo"
+    },
+    {
+      "stock_code": "4DS",
+      "company_name": "4DS Memory Limited",
+      "website": "https://www.4dsmemory.com",
+      "success": true,
+      "num_candidates": 16,
+      "top_candidate_score": 90.0,
+      "top_candidate_source": "apple_touch_icon",
+      "top_candidate_format": "jpeg",
+      "top_candidate_url": "https://www.4dsmemory.com/wp-content/uploads/2024/06/cropped-new-favicon-180x180.jpg",
+      "logo_downloaded": true,
+      "logo_size_bytes": 5883,
+      "logo_dimensions": "180x180",
+      "logo_is_valid_image": true,
+      "llm_context_available": true,
+      "llm_context_preview": "Company: 4DS Memory Limited\nDescription: The Right Memory for the Right Market at the Right Time 4DS Memory Limited (ASX: 4DS), with facilities located in Silicon Valley, is a semiconductor technology",
+      "score_breakdown": {
+        "format": 35,
+        "source": 25,
+        "keywords": 30,
+        "size": 0,
+        "penalty": 0
+      },
+      "extraction_time_ms": 1501,
+      "download_time_ms": 77,
+      "issues": [],
+      "warnings": [],
+      "notes": "Text-integrated '4DS' blocks + 'Memory' tagline"
+    },
+    {
+      "stock_code": "CBA",
+      "company_name": "Commonwealth Bank of Australia",
+      "website": "https://www.commbank.com.au",
+      "success": true,
+      "num_candidates": 4,
+      "top_candidate_score": 57.0,
+      "top_candidate_source": "favicon",
+      "top_candidate_format": "ico",
+      "top_candidate_url": "https://www.commbank.com.au/etc/designs/commbank/favicon.ico",
+      "logo_downloaded": true,
+      "logo_size_bytes": 1150,
+      "logo_dimensions": "16x16",
+      "logo_is_valid_image": true,
+      "llm_context_available": true,
+      "llm_context_preview": "Description: CommBank offers personal banking, business solutions, institutional banking, company information, and more\nKey headings: h3: Popular searches > h1: CommBank homepage > h2: Money Plan in t",
+      "score_breakdown": {
+        "format": 15,
+        "source": 12,
+        "keywords": 30,
+        "size": 0,
+        "penalty": 0
+      },
+      "extraction_time_ms": 247,
+      "download_time_ms": 72,
+      "issues": [],
+      "warnings": [
+        "Expected format 'svg', got 'ico'",
+        "Logo too small: 16x16 (min: 64)"
+      ],
+      "notes": "Yellow diamond logo - iconic Australian bank"
+    },
+    {
+      "stock_code": "NAB",
+      "company_name": "National Australia Bank",
+      "website": "https://www.nab.com.au",
+      "success": true,
+      "num_candidates": 178,
+      "top_candidate_score": 280,
+      "top_candidate_source": "schema_org_logo",
+      "top_candidate_format": "png",
+      "top_candidate_url": "https://www.nab.com.au/content/dam/nab/images/types/logos/nab-logo-schema.png",
+      "logo_downloaded": true,
+      "logo_size_bytes": 46560,
+      "logo_dimensions": "1200x1200",
+      "logo_is_valid_image": true,
+      "llm_context_available": true,
+      "llm_context_preview": "Company: NAB\nDescription: NAB personal banking services include online banking, bank accounts, credit cards, home loans and personal loans. We\u2019re here to help you with more than money.\nFounded: 1981\nC",
+      "score_breakdown": {
+        "format": 50,
+        "source": 50,
+        "keywords": 30,
+        "size": 0,
+        "penalty": 0
+      },
+      "extraction_time_ms": 473,
+      "download_time_ms": 72,
+      "issues": [],
+      "warnings": [
+        "Expected format 'svg', got 'png'"
+      ],
+      "notes": "Red star logo"
+    },
+    {
+      "stock_code": "BHP",
+      "company_name": "BHP Group Limited",
+      "website": "https://www.bhp.com",
+      "success": false,
+      "num_candidates": 0,
+      "top_candidate_score": 0.0,
+      "top_candidate_source": "",
+      "top_candidate_format": "",
+      "top_candidate_url": "",
+      "logo_downloaded": false,
+      "logo_size_bytes": 0,
+      "logo_dimensions": "",
+      "logo_is_valid_image": false,
+      "llm_context_available": false,
+      "llm_context_preview": "",
+      "score_breakdown": {},
+      "extraction_time_ms": 20136,
+      "download_time_ms": 0,
+      "issues": [
+        "No logo candidates found"
+      ],
+      "warnings": [
+        "Expected format 'svg', got ''",
+        "Expected keywords ['bhp', 'logo'] not found in URL"
+      ],
+      "notes": "Orange/red industrial logo"
+    },
+    {
+      "stock_code": "WOW",
+      "company_name": "Woolworths Group Limited",
+      "website": "https://www.woolworthsgroup.com.au",
+      "success": true,
+      "num_candidates": 4,
+      "top_candidate_score": 115.0,
+      "top_candidate_source": "apple_touch_icon",
+      "top_candidate_format": "png",
+      "top_candidate_url": "https://www.woolworthsgroup.com.au/etc.clientlibs/wwg/clientlibs/clientlib-site/resources/images/ico",
+      "logo_downloaded": true,
+      "logo_size_bytes": 15213,
+      "logo_dimensions": "180x180",
+      "logo_is_valid_image": true,
+      "llm_context_available": true,
+      "llm_context_preview": "Description: Woolworths Group is made up of some of the most recognisable and trusted brands in retailing, serving millions of customers every day with great choice, low prices and excellent quality.\n",
+      "score_breakdown": {
+        "format": 50,
+        "source": 25,
+        "keywords": 30,
+        "size": 10,
+        "penalty": 0
+      },
+      "extraction_time_ms": 1371,
+      "download_time_ms": 40,
+      "issues": [],
+      "warnings": [
+        "Expected format 'svg', got 'png'"
+      ],
+      "notes": "Green apple 'fresh' logo"
+    },
+    {
+      "stock_code": "GAL",
+      "company_name": "Galileo Mining Ltd",
+      "website": "https://www.galileomining.com.au",
+      "success": true,
+      "num_candidates": 2,
+      "top_candidate_score": 102.0,
+      "top_candidate_source": "favicon",
+      "top_candidate_format": "png",
+      "top_candidate_url": "https://www.galileomining.com.au/wp-content/uploads/2023/06/favicon-300x300.png",
+      "logo_downloaded": true,
+      "logo_size_bytes": 29535,
+      "logo_dimensions": "300x300",
+      "logo_is_valid_image": true,
+      "llm_context_available": true,
+      "llm_context_preview": "Social: twitter, youtube, linkedin\nKey headings: h1: From Exploration to Discovery Success: Palladium & Nickel in Western Australia > h3: Galileo Mining Ltd (ASX:GAL) is a Perth-based, ASX-listed expl",
+      "score_breakdown": {
+        "format": 50,
+        "source": 12,
+        "keywords": 30,
+        "size": 10,
+        "penalty": 0
+      },
+      "extraction_time_ms": 554,
+      "download_time_ms": 83,
+      "issues": [],
+      "warnings": [
+        "Expected format 'svg', got 'png'"
+      ],
+      "notes": "Spiral/target icon + 'GALILEO Mining' text"
+    },
+    {
+      "stock_code": "ASX",
+      "company_name": "ASX Limited",
+      "website": "https://www.asx.com.au",
+      "success": true,
+      "num_candidates": 14,
+      "top_candidate_score": 153.0,
+      "top_candidate_source": "inline_svg",
+      "top_candidate_format": "svg",
+      "top_candidate_url": "inline:svg:46d6bb6a",
+      "logo_downloaded": true,
+      "logo_size_bytes": 1230,
+      "logo_dimensions": "256x90",
+      "logo_is_valid_image": true,
+      "llm_context_available": true,
+      "llm_context_preview": "Company: Australian Securities Exchange\nDescription: ASX is more than a stock market. We support a sustainable financial ecosystem, providing an unmatched range of services and expertise.\r\n\nSocial: tw",
+      "score_breakdown": {
+        "format": 100,
+        "source": 40,
+        "in_nav": 8,
+        "keywords": 0,
+        "size": 5,
+        "penalty": 0
+      },
+      "extraction_time_ms": 282,
+      "download_time_ms": 0,
+      "issues": [],
+      "warnings": [
+        "Expected keywords ['asx', 'logo'] not found in URL"
+      ],
+      "notes": "ASX exchange logo"
+    }
+  ]
+}

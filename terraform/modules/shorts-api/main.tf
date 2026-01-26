@@ -55,6 +55,14 @@ resource "google_secret_manager_secret_iam_member" "openai_api_key" {
   project   = var.project_id
 }
 
+# Grant access to internal service secret (for webhook auth from frontend)
+resource "google_secret_manager_secret_iam_member" "internal_service_secret" {
+  secret_id = "INTERNAL_SERVICE_SECRET"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.shorts_api.email}"
+  project   = var.project_id
+}
+
 # Grant Pub/Sub Publisher role to shorts API service account (for publishing enrichment jobs)
 resource "google_pubsub_topic_iam_member" "enrichment_jobs_publisher" {
   topic    = "enrichment-jobs"
@@ -154,6 +162,17 @@ resource "google_cloud_run_v2_service" "shorts_api" {
         }
       }
 
+      # Internal service authentication (for webhook/server action calls from frontend)
+      env {
+        name = "INTERNAL_SERVICE_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = "INTERNAL_SERVICE_SECRET"
+            version = "latest"
+          }
+        }
+      }
+
       resources {
         limits = {
           cpu    = "2"
@@ -203,7 +222,8 @@ resource "google_cloud_run_v2_service" "shorts_api" {
     google_secret_manager_secret_iam_member.postgres_password,
     google_secret_manager_secret_iam_member.algolia_app_id,
     google_secret_manager_secret_iam_member.algolia_search_key,
-    google_secret_manager_secret_iam_member.openai_api_key
+    google_secret_manager_secret_iam_member.openai_api_key,
+    google_secret_manager_secret_iam_member.internal_service_secret
   ]
 }
 

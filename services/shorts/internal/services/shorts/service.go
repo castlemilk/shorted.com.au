@@ -304,31 +304,56 @@ func (s *ShortsServer) MintToken(ctx context.Context, req *connect.Request[short
 		return nil, connect.NewError(connect.CodeUnauthenticated, fmt.Errorf("user not authenticated"))
 	}
 
-	// Determine roles for the API token
-	// All authenticated users get "api-user" role (can access public APIs)
-	// Specific emails get "admin" role (can access admin endpoints)
-	roles := []string{"api-user"}
-	
-	// Admin emails list - these get admin role in addition to api-user
+	// Check subscription status
+	subscription, err := s.store.GetAPISubscription(userClaims.UserID)
+	if err != nil {
+		s.logger.Errorf("failed to check subscription for %s: %v", userClaims.Email, err)
+		// Continue with free tier if DB check fails
+	}
+
+	// Determine subscription tier
+	tier := "free"
+	if subscription != nil && (subscription.Status == "active" || subscription.Status == "trialing") {
+		tier = subscription.Tier
+	}
+
+	// Admin emails can always mint tokens (for testing/development)
 	adminEmails := []string{
 		"ben.ebsworth@gmail.com",
 		"ben@shorted.com.au",
 		"e2e-test@shorted.com.au",
 	}
-	
+
 	isAdmin := false
 	for _, adminEmail := range adminEmails {
 		if userClaims.Email == adminEmail {
-			roles = append(roles, "admin")
 			isAdmin = true
 			break
 		}
 	}
 
-	s.logger.Infof("Minting token for %s (admin=%v, roles=%v)", userClaims.Email, isAdmin, roles)
+	// Non-admin users without active subscription cannot mint tokens
+	if !isAdmin && tier == "free" {
+		s.logger.Warnf("User %s attempted to mint token without active subscription", userClaims.Email)
+		return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("active subscription required to generate API tokens"))
+	}
 
-	// Mint a new API token with determined roles
-	token, err := s.tokenService.MintToken(userClaims.UserID, userClaims.Email, roles, 30*24*time.Hour)
+	// Determine roles for the API token
+	// All authenticated users get "api-user" role (can access public APIs)
+	// Specific emails get "admin" role (can access admin endpoints)
+	roles := []string{"api-user"}
+	if isAdmin {
+		roles = append(roles, "admin")
+		// Admins get pro tier by default if they don't have a subscription
+		if tier == "free" {
+			tier = "pro"
+		}
+	}
+
+	s.logger.Infof("Minting token for %s (admin=%v, tier=%s, roles=%v)", userClaims.Email, isAdmin, tier, roles)
+
+	// Mint a new API token with determined roles and tier
+	token, err := s.tokenService.MintTokenWithTier(userClaims.UserID, userClaims.Email, roles, tier, 30*24*time.Hour)
 	if err != nil {
 		s.logger.Errorf("failed to mint token: %v", err)
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to generate token"))

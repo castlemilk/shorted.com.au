@@ -12,6 +12,7 @@ help:
 	@echo "  dev-frontend     - Start frontend dev server only"
 	@echo "  dev-backend      - Start backend dev server only (shorts service)"
 	@echo "  dev-market-data  - Start market data service only (port 8090)"
+	@echo "  dev-stripe       - Start Stripe CLI webhook forwarding (for local payment testing)"
 	@echo "  dev-stop         - Stop all development services"
 	@echo "  install       - Install all dependencies"
 	@echo "  install-hooks - Install git hooks for pre-commit testing"
@@ -168,7 +169,7 @@ dev-db: ## Start the PostgreSQL database for development
 	@cd analysis/sql && docker compose up -d postgres
 	@echo "⏳ Waiting for database to be ready..."
 	@for i in 1 2 3 4 5 6 7 8 9 10; do \
-		if cd analysis/sql && docker compose exec -T postgres pg_isready -U admin -d shorts > /dev/null 2>&1; then \
+		if (cd analysis/sql && docker compose exec -T postgres pg_isready -U admin -d shorts > /dev/null 2>&1); then \
 			echo "✅ Database is ready"; \
 			exit 0; \
 		fi; \
@@ -197,21 +198,47 @@ dev-enrichment-processor:
 	@echo "🚀 Starting enrichment processor..."
 	@cd services && make run.enrichment-processor
 
-dev-stop-services: ## Stop only application services (not database)
+dev-stripe: ## Start Stripe CLI webhook forwarding
+	@echo "💳 Starting Stripe CLI webhook forwarding..."
+	@if ! command -v stripe >/dev/null 2>&1; then \
+		echo "❌ Stripe CLI not installed."; \
+		echo "   Install with: brew install stripe/stripe-cli/stripe"; \
+		echo "   Or download from: https://stripe.com/docs/stripe-cli"; \
+		exit 1; \
+	fi
+	@echo "Forwarding webhooks to http://localhost:3020/api/stripe/webhook"
+	@echo "Use the webhook signing secret shown below in your .env.local"
+	@echo "────────────────────────────────────────"
+	@stripe listen --forward-to localhost:3020/api/stripe/webhook
+
+dev-stop-services: ## Stop only application services (not database) - scoped to this project
 	@echo "🛑 Stopping application services..."
-	@echo "Stopping frontend service on port 3020..."
-	@lsof -ti:3020 | xargs kill -9 2>/dev/null || true
-	@echo "Stopping backend service on port 9091..."
-	@lsof -ti:9091 | xargs kill -9 2>/dev/null || true
-	@echo "Stopping market data service on port 8090..."
-	@lsof -ti:8090 | xargs kill -9 2>/dev/null || true
-	@echo "Stopping enrichment processor..."
-	@for pid in $$(pgrep -f "enrichment-processor" 2>/dev/null); do \
-		echo "Killing enrichment processor process $$pid and its children..."; \
+	@PROJECT_DIR="$(CURDIR)"; \
+	echo "Stopping frontend service (port 3020) for $$PROJECT_DIR..."; \
+	for pid in $$(lsof -ti:3020 2>/dev/null); do \
+		if ps -p $$pid -o args= 2>/dev/null | grep -q "$$PROJECT_DIR"; then \
+			kill -9 $$pid 2>/dev/null || true; \
+		fi; \
+	done; \
+	echo "Stopping backend service (port 9091) for $$PROJECT_DIR..."; \
+	for pid in $$(lsof -ti:9091 2>/dev/null); do \
+		if ps -p $$pid -o args= 2>/dev/null | grep -q "$$PROJECT_DIR"; then \
+			kill -9 $$pid 2>/dev/null || true; \
+		fi; \
+	done; \
+	echo "Stopping market data service (port 8090) for $$PROJECT_DIR..."; \
+	for pid in $$(lsof -ti:8090 2>/dev/null); do \
+		if ps -p $$pid -o args= 2>/dev/null | grep -q "$$PROJECT_DIR"; then \
+			kill -9 $$pid 2>/dev/null || true; \
+		fi; \
+	done; \
+	echo "Stopping enrichment processor for $$PROJECT_DIR..."; \
+	for pid in $$(pgrep -f "$$PROJECT_DIR.*enrichment-processor" 2>/dev/null); do \
 		pkill -P $$pid 2>/dev/null || true; \
 		kill -9 $$pid 2>/dev/null || true; \
-	done || true
-	@pkill -f "enrichment-processor" 2>/dev/null || true
+	done; \
+	echo "Stopping Stripe CLI for $$PROJECT_DIR..."; \
+	pkill -f "stripe listen.*3020" 2>/dev/null || true
 	@echo "✅ Application services stopped"
 
 dev-stop: ## Stop all development services
@@ -219,13 +246,13 @@ dev-stop: ## Stop all development services
 	@cd analysis/sql && docker compose down
 	@make dev-stop-services
 
-dev-clean: ## Force clean all development processes (use if dev-stop didn't work)
-	@echo "🧹 Force cleaning all development processes..."
+dev-clean: ## Force clean all development processes (use if dev-stop didn't work) - scoped to this project
+	@echo "🧹 Force cleaning all development processes for $(CURDIR)..."
 	@make dev-stop-services
 	@echo "Killing any remaining concurrently processes..."
-	@pkill -f "concurrently.*dev" 2>/dev/null || true
+	@pkill -f "$(CURDIR).*concurrently" 2>/dev/null || true
 	@echo "Killing any remaining npm processes..."
-	@pkill -f "npm run dev" 2>/dev/null || true
+	@pkill -f "$(CURDIR).*npm run dev" 2>/dev/null || true
 	@echo "✅ Force cleanup complete"
 
 populate-data: dev-db ## Download and populate database with ASIC short selling data

@@ -117,6 +117,22 @@ func (s *StoreAdapter) UpdateLogoURLsWithSVG(stockCode, logoGCSURL, logoIconGCSU
 	return s.store.UpdateLogoURLsWithSVG(stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat)
 }
 
+func (s *StoreAdapter) GetAPISubscription(userID string) (*shorts.APISubscription, error) {
+	return s.store.GetAPISubscription(userID)
+}
+
+func (s *StoreAdapter) GetAPISubscriptionByCustomer(stripeCustomerID string) (*shorts.APISubscription, error) {
+	return s.store.GetAPISubscriptionByCustomer(stripeCustomerID)
+}
+
+func (s *StoreAdapter) UpsertAPISubscription(sub *shorts.APISubscription) error {
+	return s.store.UpsertAPISubscription(sub)
+}
+
+func (s *StoreAdapter) UpdateAPISubscriptionByCustomer(stripeCustomerID string, update *shorts.APISubscriptionUpdate) error {
+	return s.store.UpdateAPISubscriptionByCustomer(stripeCustomerID, update)
+}
+
 // LoggerAdapter adapts the standard logger to the Logger interface
 type LoggerAdapter struct{}
 

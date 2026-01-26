@@ -313,6 +313,7 @@ jobs:
             --build-env NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
             --build-env NEXT_PUBLIC_ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}
             --build-env NEXT_PUBLIC_ALGOLIA_SEARCH_KEY=${{ secrets.ALGOLIA_SEARCH_KEY }}
+            --build-env INTERNAL_SERVICE_SECRET=${{ secrets.INTERNAL_SERVICE_SECRET }}
             --env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.get-backend-urls.outputs.shorts_url }}
             --env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ steps.get-backend-urls.outputs.market_data_url }}
             --env NEXT_PUBLIC_SHORTS_API_URL=${{ steps.get-backend-urls.outputs.shorts_url }}
@@ -327,6 +328,7 @@ jobs:
             --env NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
             --env NEXT_PUBLIC_ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}
             --env NEXT_PUBLIC_ALGOLIA_SEARCH_KEY=${{ secrets.ALGOLIA_SEARCH_KEY }}
+            --env INTERNAL_SERVICE_SECRET=${{ secrets.INTERNAL_SERVICE_SECRET }}
             --env ALGOLIA_INDEX=stocks
             --env NEXTAUTH_URL=https://preview.shorted.com.au
             --env ALLOW_E2E_AUTH=true

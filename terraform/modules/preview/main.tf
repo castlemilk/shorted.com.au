@@ -25,6 +25,15 @@ resource "google_secret_manager_secret_iam_member" "openai_api_key" {
   member    = "serviceAccount:${var.shorts_service_account}"
 }
 
+# Allow the preview Shorts service account to read the internal service secret.
+# Used for authenticating webhook calls from Vercel to backend.
+resource "google_secret_manager_secret_iam_member" "internal_service_secret" {
+  project   = var.project_id
+  secret_id = "INTERNAL_SERVICE_SECRET"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${var.shorts_service_account}"
+}
+
 # Shorts API Preview
 resource "google_cloud_run_v2_service" "shorts_preview" {
   name     = "shorts-service-${local.pr_suffix}"
@@ -35,6 +44,7 @@ resource "google_cloud_run_v2_service" "shorts_preview" {
 
   depends_on = [
     google_secret_manager_secret_iam_member.openai_api_key,
+    google_secret_manager_secret_iam_member.internal_service_secret,
   ]
 
   lifecycle {
@@ -136,6 +146,16 @@ resource "google_cloud_run_v2_service" "shorts_preview" {
       env {
         name  = "ENRICHMENT_PUBSUB_TOPIC"
         value = "enrichment-jobs-${local.pr_suffix}"
+      }
+
+      env {
+        name = "INTERNAL_SERVICE_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = "INTERNAL_SERVICE_SECRET"
+            version = "latest"
+          }
+        }
       }
 
       env {

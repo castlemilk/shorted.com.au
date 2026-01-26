@@ -16,6 +16,11 @@ on:
         options:
           - dev
           - prod
+      plan_only:
+        description: "Plan only (no apply) - use for production dry-run"
+        required: false
+        type: boolean
+        default: false
 
 env:
   NODE_VERSION: "20"
@@ -116,7 +121,12 @@ jobs:
           # Environment-specific
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          INTERNAL_SECRET: ${{ secrets.INTERNAL_SECRET }}
+          INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
+          # Stripe (environment-specific)
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PRO_PRICE_ID: ${{ secrets.STRIPE_PRO_PRICE_ID }}
         run: |
           echo "=============================================="
           echo "🔐 Secrets Validation: ${ENVIRONMENT^^}"
@@ -155,13 +165,19 @@ jobs:
           check_secret "VERCEL_TOKEN"
           check_secret "OPENAI_API_KEY"
           
-          # Production-specific checks
-          if [ "$ENVIRONMENT" == "prod" ]; then
-            echo ""
-            echo "📋 Production-Specific Checks"
-            echo "-------------------------------------------"
-            check_secret "INTERNAL_SECRET"
-          fi
+          echo ""
+          echo "📋 Stripe Secrets"
+          echo "-------------------------------------------"
+          check_secret "STRIPE_SECRET_KEY"
+          check_secret "STRIPE_PUBLISHABLE_KEY"
+          check_secret "STRIPE_WEBHOOK_SECRET"
+          check_secret "STRIPE_PRO_PRICE_ID"
+          
+          # Service authentication checks
+          echo ""
+          echo "📋 Service Authentication"
+          echo "-------------------------------------------"
+          check_secret "INTERNAL_SERVICE_SECRET"
           
           echo ""
           echo "=============================================="
@@ -285,6 +301,24 @@ jobs:
             printf "%s" "$OPENAI_API_KEY" | gcloud secrets create OPENAI_API_KEY --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
           fi
 
+      - name: Ensure Internal Service Secret exists in Secret Manager
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
+        run: |
+          if [ -z "$INTERNAL_SERVICE_SECRET" ]; then
+            echo "❌ Missing GitHub secret: INTERNAL_SERVICE_SECRET"
+            exit 1
+          fi
+
+          if gcloud secrets describe INTERNAL_SERVICE_SECRET --project "$GCP_PROJECT_ID" &>/dev/null; then
+            echo "Updating Secret Manager: INTERNAL_SERVICE_SECRET (new version)"
+            printf "%s" "$INTERNAL_SERVICE_SECRET" | gcloud secrets versions add INTERNAL_SERVICE_SECRET --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            echo "Creating Secret Manager secret: INTERNAL_SERVICE_SECRET"
+            printf "%s" "$INTERNAL_SERVICE_SECRET" | gcloud secrets create INTERNAL_SERVICE_SECRET --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+
       - name: Terraform Plan
         id: plan
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
@@ -327,6 +361,21 @@ jobs:
               body: output
             });
 
+      - name: Plan-only summary
+        if: github.event.inputs.plan_only == 'true'
+        run: |
+          echo "## 🔍 Terraform Plan Only (Dry Run)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ needs.determine-environment.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Project:** ${{ needs.determine-environment.outputs.project-id }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Image Tag:** ${{ needs.determine-environment.outputs.image-tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Plan completed successfully** - No changes were applied." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "To apply these changes:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Create a GitHub Release (for prod)" >> $GITHUB_STEP_SUMMARY
+          echo "2. Or re-run this workflow with \`plan_only: false\`" >> $GITHUB_STEP_SUMMARY
+
   deploy-preview:
     needs: [determine-environment, validate-secrets, build-and-push-images]
     runs-on: ubuntu-latest
@@ -359,6 +408,7 @@ jobs:
           PR_NUMBER: ${{ needs.determine-environment.outputs.pr-number }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
           GCP_REGION: ${{ env.GCP_REGION }}
           ARTIFACT_REGISTRY: ${{ env.ARTIFACT_REGISTRY }}
@@ -384,6 +434,19 @@ jobs:
           else
             echo "Creating Secret Manager secret: OPENAI_API_KEY"
             printf "%s" "$OPENAI_API_KEY" | gcloud secrets create OPENAI_API_KEY --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+
+          # Ensure Secret Manager has INTERNAL_SERVICE_SECRET for webhook auth
+          if [ -z "$INTERNAL_SERVICE_SECRET" ]; then
+            echo "❌ Missing GitHub secret: INTERNAL_SERVICE_SECRET"
+            exit 1
+          fi
+          if gcloud secrets describe INTERNAL_SERVICE_SECRET --project "$GCP_PROJECT_ID" &>/dev/null; then
+            echo "Updating Secret Manager: INTERNAL_SERVICE_SECRET (new version)"
+            printf "%s" "$INTERNAL_SERVICE_SECRET" | gcloud secrets versions add INTERNAL_SERVICE_SECRET --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            echo "Creating Secret Manager secret: INTERNAL_SERVICE_SECRET"
+            printf "%s" "$INTERNAL_SERVICE_SECRET" | gcloud secrets create INTERNAL_SERVICE_SECRET --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
           fi
 
           # Create preview config directory
@@ -553,6 +616,16 @@ jobs:
             --env NEXTAUTH_URL=https://preview.shorted.com.au
             --env ALLOW_E2E_AUTH=true
             --env ADMIN_EMAILS=ben.ebsworth@gmail.com,e2e-test@shorted.com.au
+            --build-env STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+            --build-env STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+            --build-env STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+            --build-env STRIPE_PRO_PRICE_ID=${{ secrets.STRIPE_PRO_PRICE_ID }}
+            --build-env INTERNAL_SERVICE_SECRET=${{ secrets.INTERNAL_SERVICE_SECRET }}
+            --env STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+            --env STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+            --env STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+            --env STRIPE_PRO_PRICE_ID=${{ secrets.STRIPE_PRO_PRICE_ID }}
+            --env INTERNAL_SERVICE_SECRET=${{ secrets.INTERNAL_SERVICE_SECRET }}
 
       - name: Comment PR with deployment URLs
         uses: actions/github-script@v7
@@ -633,9 +706,10 @@ jobs:
   terraform-apply:
     needs: [determine-environment, validate-secrets, terraform-plan]
     runs-on: ubuntu-latest
-    # Only apply on main branch push or manual workflow dispatch
+    # Only apply on main branch push, release, or manual workflow dispatch (unless plan_only)
     # PRs will only plan, not apply
-    if: github.event_name != 'pull_request'
+    # Manual dispatches with plan_only=true will skip apply
+    if: github.event_name != 'pull_request' && github.event.inputs.plan_only != 'true'
     environment:
       name: ${{ needs.determine-environment.outputs.environment }}
     outputs:
@@ -679,6 +753,75 @@ jobs:
             printf "%s" "$OPENAI_API_KEY" | gcloud secrets create OPENAI_API_KEY --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
           fi
 
+      - name: Ensure Internal Service Secret exists in Secret Manager
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
+        run: |
+          if [ -z "$INTERNAL_SERVICE_SECRET" ]; then
+            echo "❌ Missing GitHub secret: INTERNAL_SERVICE_SECRET"
+            exit 1
+          fi
+
+          if gcloud secrets describe INTERNAL_SERVICE_SECRET --project "$GCP_PROJECT_ID" &>/dev/null; then
+            echo "Updating Secret Manager: INTERNAL_SERVICE_SECRET (new version)"
+            printf "%s" "$INTERNAL_SERVICE_SECRET" | gcloud secrets versions add INTERNAL_SERVICE_SECRET --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            echo "Creating Secret Manager secret: INTERNAL_SERVICE_SECRET"
+            printf "%s" "$INTERNAL_SERVICE_SECRET" | gcloud secrets create INTERNAL_SERVICE_SECRET --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+
+      - name: Ensure Database secrets exist in Secret Manager
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          # Extract password from DATABASE_URL
+          DB_PASS=$(echo $DATABASE_URL | sed -n 's|postgresql://[^:]*:\([^@]*\)@.*|\1|p')
+          
+          if [ -z "$DB_PASS" ]; then
+            echo "⚠️ Could not extract database password from DATABASE_URL"
+          else
+            if gcloud secrets describe postgres-password --project "$GCP_PROJECT_ID" &>/dev/null; then
+              echo "Updating Secret Manager: postgres-password (new version)"
+              printf "%s" "$DB_PASS" | gcloud secrets versions add postgres-password --data-file=- --project "$GCP_PROJECT_ID"
+            else
+              echo "Creating Secret Manager secret: postgres-password"
+              printf "%s" "$DB_PASS" | gcloud secrets create postgres-password --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+            fi
+          fi
+          
+          # Also store full DATABASE_URL for services that need it
+          if gcloud secrets describe DATABASE_URL --project "$GCP_PROJECT_ID" &>/dev/null; then
+            echo "Updating Secret Manager: DATABASE_URL (new version)"
+            printf "%s" "$DATABASE_URL" | gcloud secrets versions add DATABASE_URL --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            echo "Creating Secret Manager secret: DATABASE_URL"
+            printf "%s" "$DATABASE_URL" | gcloud secrets create DATABASE_URL --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+
+      - name: Ensure Algolia secrets exist in Secret Manager
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          ALGOLIA_APP_ID: ${{ secrets.ALGOLIA_APP_ID }}
+          ALGOLIA_SEARCH_KEY: ${{ secrets.ALGOLIA_SEARCH_KEY }}
+        run: |
+          # Create/update ALGOLIA_APP_ID
+          if gcloud secrets describe ALGOLIA_APP_ID --project "$GCP_PROJECT_ID" &>/dev/null; then
+            printf "%s" "$ALGOLIA_APP_ID" | gcloud secrets versions add ALGOLIA_APP_ID --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            printf "%s" "$ALGOLIA_APP_ID" | gcloud secrets create ALGOLIA_APP_ID --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+          
+          # Create/update ALGOLIA_SEARCH_KEY
+          if gcloud secrets describe ALGOLIA_SEARCH_KEY --project "$GCP_PROJECT_ID" &>/dev/null; then
+            printf "%s" "$ALGOLIA_SEARCH_KEY" | gcloud secrets versions add ALGOLIA_SEARCH_KEY --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            printf "%s" "$ALGOLIA_SEARCH_KEY" | gcloud secrets create ALGOLIA_SEARCH_KEY --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+          
+          echo "✅ Algolia secrets configured"
+
       - name: Terraform Apply
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
         run: |
@@ -698,8 +841,62 @@ jobs:
         run: |
           echo "shorts_url=$(terraform output -raw shorts_api_url)" >> $GITHUB_OUTPUT
           echo "stock_price_url=$(terraform output -raw stock_price_ingestion_url)" >> $GITHUB_OUTPUT
+          echo "cms_url=$(terraform output -raw cms_url 2>/dev/null || echo '')" >> $GITHUB_OUTPUT
+
+      - name: Verify Deployed Services
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          GCP_REGION: ${{ env.GCP_REGION }}
+        run: |
+          echo "🔍 Verifying deployed services..."
+          echo ""
+          
+          # List all deployed services
+          echo "📋 Cloud Run Services:"
+          gcloud run services list --project "$GCP_PROJECT_ID" --region "$GCP_REGION" --format="table(name,status.url,status.conditions[0].type)"
+          
+          echo ""
+          echo "📋 Cloud Run Jobs:"
+          gcloud run jobs list --project "$GCP_PROJECT_ID" --region "$GCP_REGION" --format="table(name,status.executionCount)" 2>/dev/null || echo "No jobs found"
+          
+          echo ""
+          echo "📋 Cloud Scheduler Jobs:"
+          gcloud scheduler jobs list --project "$GCP_PROJECT_ID" --location australia-southeast1 --format="table(name,state,schedule)" 2>/dev/null || echo "No scheduler jobs found"
+
+      - name: Health Check Services
+        env:
+          SHORTS_URL: ${{ steps.outputs.outputs.shorts_url }}
+        run: |
+          echo "🏥 Running health checks..."
+          
+          # Wait for services to be ready
+          sleep 10
+          
+          # Check Shorts API
+          if [ -n "$SHORTS_URL" ]; then
+            echo "Testing Shorts API: $SHORTS_URL"
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$SHORTS_URL/health" 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Shorts API health check passed"
+            else
+              echo "⚠️ Shorts API health check returned: $HTTP_CODE (may need warm-up)"
+            fi
+            
+            # Test a simple query
+            echo "Testing Shorts API query..."
+            RESPONSE=$(curl -s -X POST "$SHORTS_URL/shorts.v1alpha1.ShortedStocksService/GetTopShorts" \
+              -H "Content-Type: application/json" \
+              -d '{"limit": 1}' 2>/dev/null || echo '{"error": "failed"}')
+            if echo "$RESPONSE" | grep -q "error"; then
+              echo "⚠️ Shorts API query test: Service may need warm-up"
+            else
+              echo "✅ Shorts API query test passed"
+            fi
+          fi
 
       - name: Deployment Summary
+        env:
+          ENVIRONMENT: ${{ needs.determine-environment.outputs.environment }}
         run: |
           echo "## 🚀 Deployment Complete" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -707,9 +904,36 @@ jobs:
           echo "**Project:** ${{ needs.determine-environment.outputs.project-id }}" >> $GITHUB_STEP_SUMMARY
           echo "**Image Tag:** ${{ needs.determine-environment.outputs.image-tag }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Service URLs" >> $GITHUB_STEP_SUMMARY
-          echo "- **Shorts API:** ${{ steps.outputs.outputs.shorts_url }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Stock Price Ingestion:** ${{ steps.outputs.outputs.stock_price_url }}" >> $GITHUB_STEP_SUMMARY
+          echo "### 🌐 Service URLs" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | URL |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-----|" >> $GITHUB_STEP_SUMMARY
+          echo "| Shorts API | ${{ steps.outputs.outputs.shorts_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Stock Price Ingestion | ${{ steps.outputs.outputs.stock_price_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| CMS | ${{ steps.outputs.outputs.cms_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$ENVIRONMENT" = "prod" ]; then
+            echo "### ⚠️ Production Cutover Checklist" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Before routing production traffic:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "1. ✅ Services deployed and running" >> $GITHUB_STEP_SUMMARY
+            echo "2. ⏳ Verify health checks pass (see logs above)" >> $GITHUB_STEP_SUMMARY
+            echo "3. ⏳ Test API endpoints manually" >> $GITHUB_STEP_SUMMARY
+            echo "4. ⏳ Verify database connectivity" >> $GITHUB_STEP_SUMMARY
+            echo "5. ⏳ Update DNS/Vercel to point to prod services" >> $GITHUB_STEP_SUMMARY
+            echo "6. ⏳ Monitor logs for errors" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔗 Quick Test Commands" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+            echo "# Test Shorts API" >> $GITHUB_STEP_SUMMARY
+            echo "curl -X POST ${{ steps.outputs.outputs.shorts_url }}/shorts.v1alpha1.ShortedStocksService/GetTopShorts \\\\" >> $GITHUB_STEP_SUMMARY
+            echo "  -H 'Content-Type: application/json' \\\\" >> $GITHUB_STEP_SUMMARY
+            echo "  -d '{\"limit\": 5}'" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
 
   run-tests:
     needs: [determine-environment, terraform-apply]

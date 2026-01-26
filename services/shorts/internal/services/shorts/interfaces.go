@@ -42,6 +42,12 @@ type ShortsStore interface {
 	// Logo methods
 	UpdateLogoURLs(stockCode, logoGCSURL, logoIconGCSURL string) error
 	UpdateLogoURLsWithSVG(stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat string) error
+
+	// API Subscription methods
+	GetAPISubscription(userID string) (*shortsstore.APISubscription, error)
+	GetAPISubscriptionByCustomer(stripeCustomerID string) (*shortsstore.APISubscription, error)
+	UpsertAPISubscription(sub *shortsstore.APISubscription) error
+	UpdateAPISubscriptionByCustomer(stripeCustomerID string, update *shortsstore.APISubscriptionUpdate) error
 }
 
 // Cache defines the interface for caching operations

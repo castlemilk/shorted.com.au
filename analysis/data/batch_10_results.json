@@ -1,0 +1,138 @@
+{
+  "timestamp": "2026-01-21T17:36:32.435508",
+  "total_input_tokens": 759,
+  "total_output_tokens": 1707,
+  "total_cost_usd": 0.018967499999999998,
+  "results": [
+    {
+      "stock_code": "4DS",
+      "success": true,
+      "tags": [
+        "Semiconductors",
+        "Memory Technology",
+        "4DS Memory",
+        "Semiconductor Equipment",
+        "Tech Industry"
+      ],
+      "input_tokens": 79,
+      "output_tokens": 179
+    },
+    {
+      "stock_code": "5EA",
+      "success": true,
+      "tags": [
+        "Materials",
+        "Advanced Materials",
+        "5E Advanced Materials",
+        "5EA",
+        "Innovative Solutions"
+      ],
+      "input_tokens": 76,
+      "output_tokens": 171
+    },
+    {
+      "stock_code": "8IH",
+      "success": true,
+      "tags": [
+        "Financial Services",
+        "Investment",
+        "Asia-Pacific",
+        "Wealth Management",
+        "Education"
+      ],
+      "input_tokens": 74,
+      "output_tokens": 182
+    },
+    {
+      "stock_code": "8VI",
+      "success": true,
+      "tags": [
+        "Consumer Services",
+        "Education Technology",
+        "Investment Training",
+        "Financial Literacy",
+        "Asia-Pacific"
+      ],
+      "input_tokens": 76,
+      "output_tokens": 163
+    },
+    {
+      "stock_code": "92E",
+      "success": true,
+      "tags": [
+        "Uranium",
+        "Nuclear Energy",
+        "Exploration",
+        "Mining",
+        "Sustainable Energy"
+      ],
+      "input_tokens": 71,
+      "output_tokens": 176
+    },
+    {
+      "stock_code": "AYI",
+      "success": true,
+      "tags": [
+        "Financial Services",
+        "Investments",
+        "Australia",
+        "Stock Market",
+        "Resources"
+      ],
+      "input_tokens": 77,
+      "output_tokens": 143
+    },
+    {
+      "stock_code": "A2B",
+      "success": true,
+      "tags": [
+        "Transportation",
+        "Taxi Services",
+        "Australia",
+        "Logistics",
+        "Public Company"
+      ],
+      "input_tokens": 76,
+      "output_tokens": 173
+    },
+    {
+      "stock_code": "ABG",
+      "success": true,
+      "tags": [
+        "Real Estate",
+        "Investment Trusts",
+        "REITs",
+        "Equity",
+        "Property Management"
+      ],
+      "input_tokens": 80,
+      "output_tokens": 178
+    },
+    {
+      "stock_code": "ASK",
+      "success": true,
+      "tags": [
+        "Real Estate",
+        "REIT",
+        "Investment",
+        "Storage",
+        "Australia"
+      ],
+      "input_tokens": 79,
+      "output_tokens": 179
+    },
+    {
+      "stock_code": "ABX",
+      "success": true,
+      "tags": [
+        "Materials",
+        "Mining",
+        "Australia",
+        "Commodities",
+        "Sustainability"
+      ],
+      "input_tokens": 71,
+      "output_tokens": 163
+    }
+  ]
+}

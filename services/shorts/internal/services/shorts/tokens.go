@@ -12,6 +12,7 @@ type Claims struct {
 	UserID string   `json:"user_id"`
 	Email  string   `json:"email"`
 	Roles  []string `json:"roles"`
+	Tier   string   `json:"tier,omitempty"` // Subscription tier: free, pro, enterprise
 }
 
 type TokenService struct {
@@ -26,6 +27,11 @@ func NewTokenService(secret string) *TokenService {
 
 // MintToken creates a new JWT for a user with specific roles.
 func (s *TokenService) MintToken(userID, email string, roles []string, duration time.Duration) (string, error) {
+	return s.MintTokenWithTier(userID, email, roles, "free", duration)
+}
+
+// MintTokenWithTier creates a new JWT for a user with specific roles and subscription tier.
+func (s *TokenService) MintTokenWithTier(userID, email string, roles []string, tier string, duration time.Duration) (string, error) {
 	claims := Claims{
 		StandardClaims: jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(duration).Unix(),
@@ -35,6 +41,7 @@ func (s *TokenService) MintToken(userID, email string, roles []string, duration 
 		UserID: userID,
 		Email:  email,
 		Roles:  roles,
+		Tier:   tier,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

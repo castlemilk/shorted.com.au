@@ -2302,3 +2302,191 @@ func enrichmentJobStatusFromDB(status string) shortsv1alpha1.EnrichmentJobStatus
 	}
 }
 
+// GetAPISubscription retrieves the API subscription status for a user
+func (s *postgresStore) GetAPISubscription(userID string) (*APISubscription, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT user_id, user_email, COALESCE(stripe_customer_id, ''), COALESCE(stripe_subscription_id, ''),
+		       status, tier, current_period_start::text, current_period_end::text, cancel_at_period_end
+		FROM api_subscriptions
+		WHERE user_id = $1
+	`
+
+	var sub APISubscription
+	var periodStart, periodEnd *string
+
+	err := s.db.QueryRow(ctx, query, userID).Scan(
+		&sub.UserID,
+		&sub.UserEmail,
+		&sub.StripeCustomerID,
+		&sub.StripeSubscriptionID,
+		&sub.Status,
+		&sub.Tier,
+		&periodStart,
+		&periodEnd,
+		&sub.CancelAtPeriodEnd,
+	)
+
+	if err != nil {
+		if err.Error() == "no rows in result set" {
+			// No subscription found, return nil (free tier)
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get subscription: %w", err)
+	}
+
+	sub.CurrentPeriodStart = periodStart
+	sub.CurrentPeriodEnd = periodEnd
+	return &sub, nil
+}
+
+func (s *postgresStore) GetAPISubscriptionByCustomer(stripeCustomerID string) (*APISubscription, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT user_id, user_email, COALESCE(stripe_customer_id, ''), COALESCE(stripe_subscription_id, ''),
+		       status, tier, current_period_start::text, current_period_end::text, cancel_at_period_end
+		FROM api_subscriptions
+		WHERE stripe_customer_id = $1
+	`
+
+	var sub APISubscription
+	var periodStart, periodEnd *string
+
+	err := s.db.QueryRow(ctx, query, stripeCustomerID).Scan(
+		&sub.UserID,
+		&sub.UserEmail,
+		&sub.StripeCustomerID,
+		&sub.StripeSubscriptionID,
+		&sub.Status,
+		&sub.Tier,
+		&periodStart,
+		&periodEnd,
+		&sub.CancelAtPeriodEnd,
+	)
+
+	if err != nil {
+		if err.Error() == "no rows in result set" {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to get subscription by customer: %w", err)
+	}
+
+	sub.CurrentPeriodStart = periodStart
+	sub.CurrentPeriodEnd = periodEnd
+	return &sub, nil
+}
+
+func (s *postgresStore) UpsertAPISubscription(sub *APISubscription) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// First, delete any existing subscription with the same stripe_customer_id but different user_id.
+	// This handles the case where a customer ID was previously associated with a different user
+	// (e.g., during testing or account migration).
+	if sub.StripeCustomerID != "" {
+		deleteQuery := `
+			DELETE FROM api_subscriptions 
+			WHERE stripe_customer_id = $1 AND user_id != $2
+		`
+		_, _ = s.db.Exec(ctx, deleteQuery, sub.StripeCustomerID, sub.UserID)
+	}
+
+	query := `
+		INSERT INTO api_subscriptions (
+			user_id, user_email, stripe_customer_id, stripe_subscription_id,
+			status, tier, current_period_start, current_period_end, cancel_at_period_end
+		) VALUES ($1, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9)
+		ON CONFLICT (user_id) DO UPDATE SET
+			stripe_customer_id = EXCLUDED.stripe_customer_id,
+			stripe_subscription_id = EXCLUDED.stripe_subscription_id,
+			status = EXCLUDED.status,
+			tier = EXCLUDED.tier,
+			current_period_start = EXCLUDED.current_period_start,
+			current_period_end = EXCLUDED.current_period_end,
+			cancel_at_period_end = EXCLUDED.cancel_at_period_end,
+			updated_at = CURRENT_TIMESTAMP
+	`
+
+	_, err := s.db.Exec(ctx, query,
+		sub.UserID,
+		sub.UserEmail,
+		sub.StripeCustomerID,
+		sub.StripeSubscriptionID,
+		sub.Status,
+		sub.Tier,
+		sub.CurrentPeriodStart,
+		sub.CurrentPeriodEnd,
+		sub.CancelAtPeriodEnd,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to upsert subscription: %w", err)
+	}
+
+	return nil
+}
+
+func (s *postgresStore) UpdateAPISubscriptionByCustomer(stripeCustomerID string, update *APISubscriptionUpdate) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Build dynamic update query based on which fields are set
+	setParts := []string{"updated_at = CURRENT_TIMESTAMP"}
+	args := []interface{}{}
+	argNum := 1
+
+	if update.Status != nil {
+		setParts = append(setParts, fmt.Sprintf("status = $%d", argNum))
+		args = append(args, *update.Status)
+		argNum++
+	}
+	if update.Tier != nil {
+		setParts = append(setParts, fmt.Sprintf("tier = $%d", argNum))
+		args = append(args, *update.Tier)
+		argNum++
+	}
+	if update.CurrentPeriodStart != nil {
+		setParts = append(setParts, fmt.Sprintf("current_period_start = $%d::timestamptz", argNum))
+		args = append(args, *update.CurrentPeriodStart)
+		argNum++
+	}
+	if update.CurrentPeriodEnd != nil {
+		setParts = append(setParts, fmt.Sprintf("current_period_end = $%d::timestamptz", argNum))
+		args = append(args, *update.CurrentPeriodEnd)
+		argNum++
+	}
+	if update.CancelAtPeriodEnd != nil {
+		setParts = append(setParts, fmt.Sprintf("cancel_at_period_end = $%d", argNum))
+		args = append(args, *update.CancelAtPeriodEnd)
+		argNum++
+	}
+
+	// Add customer ID as the last argument
+	args = append(args, stripeCustomerID)
+
+	query := fmt.Sprintf(`
+		UPDATE api_subscriptions
+		SET %s
+		WHERE stripe_customer_id = $%d
+	`, strings.Join(setParts, ", "), argNum)
+
+	result, err := s.db.Exec(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("failed to update subscription: %w", err)
+	}
+
+	// Don't treat "no rows affected" as an error - the subscription record
+	// might not exist yet (checkout.session.completed will create it)
+	if result.RowsAffected() == 0 {
+		// Log but don't fail - this is expected when subscription events arrive
+		// before the checkout completion creates the initial record
+		return nil
+	}
+
+	return nil
+}
+

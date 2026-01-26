@@ -46,6 +46,34 @@ type Store interface {
 	CleanupOldCompletedJobs(keepPerStock int) (int, error) // Clean up old completed jobs, keeping only keepPerStock most recent per stock
 	UpdateLogoURLs(stockCode, logoGCSURL, logoIconGCSURL string) error
 	UpdateLogoURLsWithSVG(stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat string) error
+
+	// API Subscription methods
+	GetAPISubscription(userID string) (*APISubscription, error)
+	GetAPISubscriptionByCustomer(stripeCustomerID string) (*APISubscription, error)
+	UpsertAPISubscription(sub *APISubscription) error
+	UpdateAPISubscriptionByCustomer(stripeCustomerID string, update *APISubscriptionUpdate) error
+}
+
+// APISubscription represents a user's API subscription status
+type APISubscription struct {
+	UserID               string
+	UserEmail            string
+	StripeCustomerID     string
+	StripeSubscriptionID string
+	Status               string  // active, canceled, past_due, inactive, trialing
+	Tier                 string  // free, pro, enterprise
+	CurrentPeriodStart   *string
+	CurrentPeriodEnd     *string
+	CancelAtPeriodEnd    bool
+}
+
+// APISubscriptionUpdate represents fields to update on a subscription
+type APISubscriptionUpdate struct {
+	Status             *string
+	Tier               *string
+	CurrentPeriodStart *string
+	CurrentPeriodEnd   *string
+	CancelAtPeriodEnd  *bool
 }
 
 func NewStore(config Config) Store {
