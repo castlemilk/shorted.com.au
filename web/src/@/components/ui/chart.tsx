@@ -1,86 +1,177 @@
 "use client";
 import ParentSize from "@visx/responsive/lib/components/ParentSize";
-import BrushChart, { type HandleBrushClearAndReset } from "./brushChart";
-import { Suspense, useRef, useState } from "react";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import UnifiedBrushChart, {
+  type HandleBrushClearAndReset,
+  type UnifiedChartData,
+} from "./unified-brush-chart";
+import { useRef, useState, useMemo, useEffect } from "react";
+import { ToggleGroup, ToggleGroupItem } from "./toggle-group";
 import { Button } from "./button";
 import { Skeleton } from "./skeleton";
-import { useStockData } from "./../../hooks/use-stock-data"; // Custom hook
+import { fetchStockDataClient } from "~/@/lib/client-api";
+import {
+  type TimeSeriesData,
+  type TimeSeriesPoint,
+} from "~/gen/stocks/v1alpha1/stocks_pb";
 
-const INITIAL_PERIOD = "6m";
+const INITIAL_PERIOD = "5y";
 export type ChartProps = {
   stockCode: string;
 };
 
 const Chart = ({ stockCode }: ChartProps) => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
   const [period, setPeriod] = useState<string>(INITIAL_PERIOD);
   const chartRef = useRef<HandleBrushClearAndReset>(null);
-  const { data, loading, error } = useStockData(stockCode, period);
+  const [data, setData] = useState<TimeSeriesData | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<Error | null>(null);
 
-  const handleClearClick = () => {
-    chartRef?.current?.clear();
-  };
+  useEffect(() => {
+    let isMounted = true;
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetchStockDataClient(stockCode, period);
+        if (isMounted) {
+          setData(response ?? null);
+          setError(null);
+        }
+      } catch (err) {
+        if (isMounted) {
+          setError(err as Error);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+    fetchData().catch((err) => {
+      if (isMounted) {
+        setError(err as Error);
+        setLoading(false);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [stockCode, period]);
 
-  const handleResetClick = () => {
-    chartRef?.current?.reset();
-  };
+  const chartData = useMemo<UnifiedChartData>(() => {
+    if (!data?.points || data.points.length === 0) {
+      const now = Date.now();
+      const fallbackPoints = Array.from({ length: 10 }, (_, idx) => {
+        const timestamp = new Date(now - (9 - idx) * 86400000);
+        return {
+          timestamp,
+          shortPosition: Math.random() * 10,
+        };
+      });
+      return {
+        type: "short-position",
+        stockCode,
+        points: fallbackPoints,
+      };
+    }
+
+    return {
+      type: "short-position",
+      stockCode,
+      points: data.points.map((point: TimeSeriesPoint) => {
+        const timestamp = point.timestamp;
+        return {
+          timestamp:
+            typeof timestamp === "string"
+              ? new Date(timestamp)
+              : new Date(Number(timestamp?.seconds ?? 0) * 1000),
+          shortPosition: point.shortPosition ?? 0,
+        };
+      }),
+    };
+  }, [data, stockCode]);
 
   return (
-    <Suspense fallback={<ChartLoadingPlaceholder withMenu={true} />}>
-      <div className="grid">
-        <div className="flex flex-row-reverse">
-          <div className="flex">
-            <Button className="mr-1" size="sm" onClick={handleClearClick}>
-              Clear
-            </Button>
-            <Button size="sm" onClick={handleResetClick}>
-              Reset
-            </Button>
-          </div>
-          <div>
-            <ToggleGroup
-              type="single"
-              onValueChange={(v: string) => setPeriod(v)}
-            >
-              <ToggleGroupItem value="1m">1M</ToggleGroupItem>
-              <ToggleGroupItem value="3m">3M</ToggleGroupItem>
-              <ToggleGroupItem value="6m">6M</ToggleGroupItem>
-              <ToggleGroupItem value="1y">1Y</ToggleGroupItem>
-              <ToggleGroupItem value="2y">2Y</ToggleGroupItem>
-              <ToggleGroupItem value="max">max</ToggleGroupItem>
-            </ToggleGroup>
-          </div>
+    <div className="relative">
+      {/* Controls bar - aligned to the right */}
+      <div className="flex items-center justify-end gap-4 mb-4">
+        <div className="overflow-x-auto">
+          <ToggleGroup
+            type="single"
+            className="justify-end"
+            value={period}
+            onValueChange={(v) => v && setPeriod(v)}
+          >
+            <ToggleGroupItem value="1m">1M</ToggleGroupItem>
+            <ToggleGroupItem value="3m">3M</ToggleGroupItem>
+            <ToggleGroupItem value="6m">6M</ToggleGroupItem>
+            <ToggleGroupItem value="1y">1Y</ToggleGroupItem>
+            <ToggleGroupItem value="2y">2Y</ToggleGroupItem>
+            <ToggleGroupItem value="5y">5Y</ToggleGroupItem>
+            <ToggleGroupItem value="10y">10Y</ToggleGroupItem>
+            <ToggleGroupItem value="max">max</ToggleGroupItem>
+          </ToggleGroup>
         </div>
+        <div className="flex gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => chartRef.current?.clear()}
+          >
+            Clear
+          </Button>
+          <Button 
+            variant="outline"
+            size="sm" 
+            onClick={() => chartRef.current?.reset()}
+          >
+            Reset
+          </Button>
+        </div>
+      </div>
 
-        {(loading || data == null)  ? (
+      <div className="relative min-h-[400px]">
+        {loading ? (
           <ChartLoadingPlaceholder withMenu={false} />
         ) : error ? (
-          <div>Error loading data</div>
+          <div className="text-sm text-red-500">
+            Error loading data: {error instanceof Error ? error.message : String(error)}
+          </div>
         ) : (
           <ParentSize className="min-w-0">
             {({ width }) => (
-              <BrushChart ref={chartRef} data={data} width={width} height={400} />
+              <UnifiedBrushChart
+                ref={chartRef}
+                data={chartData}
+                width={width}
+                height={400}
+              />
             )}
           </ParentSize>
         )}
       </div>
-    </Suspense>
+    </div>
   );
 };
 
-const ChartLoadingPlaceholder = ({ withMenu }: { withMenu: boolean }) => (
+export const ChartLoadingPlaceholder = ({ withMenu }: { withMenu: boolean }) => (
   <div className="grid">
-    {withMenu ? <div className="flex flex-row-reverse">
-      <div className="flex">
-        <Skeleton className="h-[40px] w-[60px] ml-2" />
-        <Skeleton className="h-[40px] w-[60px] ml-2" />
+    {withMenu ? (
+      <div className="flex flex-row-reverse">
+        <div className="flex">
+          <Skeleton className="h-[40px] w-[60px] ml-2" />
+          <Skeleton className="h-[40px] w-[60px] ml-2" />
+        </div>
+        <div>
+          <Skeleton className="h-[40px] w-[300px]" />
+        </div>
       </div>
-      <div>
-        <Skeleton className="h-[40px] w-[300px]" />
-      </div>
-    </div> : null}
+    ) : null}
     <div>
-      <Skeleton className="h-[400px] w-full mt-2" />
+      <Skeleton className="h-[500px] min-h-[500px] w-full mt-2" />
     </div>
   </div>
 );

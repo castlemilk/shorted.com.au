@@ -4,7 +4,7 @@
 // @ts-nocheck
 
 import { MethodKind } from "@bufbuild/protobuf";
-import { GetIndustryTreeMapRequest, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetTopShortsRequest, GetTopShortsResponse } from "./shorts_pb";
+import { EnrichStockRequest, EnrichStockResponse, GetEnrichmentJobStatusRequest, GetEnrichmentJobStatusResponse, GetIndustryTreeMapRequest, GetPendingEnrichmentRequest, GetPendingEnrichmentResponse, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetSyncStatusRequest, GetSyncStatusResponse, GetTopShortsRequest, GetTopShortsResponse, GetTopStocksForEnrichmentRequest, GetTopStocksForEnrichmentResponse, ListEnrichmentJobsRequest, ListEnrichmentJobsResponse, ListPendingEnrichmentsRequest, ListPendingEnrichmentsResponse, MintTokenRequest, MintTokenResponse, ReviewEnrichmentRequest, ReviewEnrichmentResponse, SearchStocksRequest, SearchStocksResponse, SyncKeyMetricsRequest, SyncKeyMetricsResponse } from "./shorts_pb";
 import { IndustryTreeMap, Stock, StockDetails, TimeSeriesData } from "../../stocks/v1alpha1/stocks_pb";
 
 /**
@@ -24,6 +24,8 @@ export const getTopShorts = {
 } as const;
 
 /**
+ * Get Industry TreeMap for short positions.
+ *
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap
  */
 export const getIndustryTreeMap = {
@@ -80,6 +82,183 @@ export const getStockData = {
   kind: MethodKind.Unary,
   I: GetStockDataRequest,
   O: TimeSeriesData,
+  service: {
+    typeName: "shorts.v1alpha1.ShortedStocksService"
+  }
+} as const;
+
+/**
+ * Search stocks by symbol or company name
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.SearchStocks
+ */
+export const searchStocks = {
+  localName: "searchStocks",
+  name: "SearchStocks",
+  kind: MethodKind.Unary,
+  I: SearchStocksRequest,
+  O: SearchStocksResponse,
+  service: {
+    typeName: "shorts.v1alpha1.ShortedStocksService"
+  }
+} as const;
+
+/**
+ * Get sync status for admin dashboard
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetSyncStatus
+ */
+export const getSyncStatus = {
+  localName: "getSyncStatus",
+  name: "GetSyncStatus",
+  kind: MethodKind.Unary,
+  I: GetSyncStatusRequest,
+  O: GetSyncStatusResponse,
+  service: {
+    typeName: "shorts.v1alpha1.ShortedStocksService"
+  }
+} as const;
+
+/**
+ * Mint an API token for the user. Requires valid authentication.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.MintToken
+ */
+export const mintToken = {
+  localName: "mintToken",
+  name: "MintToken",
+  kind: MethodKind.Unary,
+  I: MintTokenRequest,
+  O: MintTokenResponse,
+  service: {
+    typeName: "shorts.v1alpha1.ShortedStocksService"
+  }
+} as const;
+
+/**
+ * Trigger key metrics sync for specific stocks. Admin only.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.SyncKeyMetrics
+ */
+export const syncKeyMetrics = {
+  localName: "syncKeyMetrics",
+  name: "SyncKeyMetrics",
+  kind: MethodKind.Unary,
+  I: SyncKeyMetricsRequest,
+  O: SyncKeyMetricsResponse,
+  service: {
+    typeName: "shorts.v1alpha1.ShortedStocksService"
+  }
+} as const;
+
+/**
+ * Trigger enrichment for a specific stock. Admin only.
+ * Returns enrichment data for review before applying to company-metadata.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.EnrichStock
+ */
+export const enrichStock = {
+  localName: "enrichStock",
+  name: "EnrichStock",
+  kind: MethodKind.Unary,
+  I: EnrichStockRequest,
+  O: EnrichStockResponse,
+  service: {
+    typeName: "shorts.v1alpha1.ShortedStocksService"
+  }
+} as const;
+
+/**
+ * Get top stocks for enrichment batching/prioritization. Admin only.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetTopStocksForEnrichment
+ */
+export const getTopStocksForEnrichment = {
+  localName: "getTopStocksForEnrichment",
+  name: "GetTopStocksForEnrichment",
+  kind: MethodKind.Unary,
+  I: GetTopStocksForEnrichmentRequest,
+  O: GetTopStocksForEnrichmentResponse,
+  service: {
+    typeName: "shorts.v1alpha1.ShortedStocksService"
+  }
+} as const;
+
+/**
+ * List pending enrichments awaiting review. Admin only.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListPendingEnrichments
+ */
+export const listPendingEnrichments = {
+  localName: "listPendingEnrichments",
+  name: "ListPendingEnrichments",
+  kind: MethodKind.Unary,
+  I: ListPendingEnrichmentsRequest,
+  O: ListPendingEnrichmentsResponse,
+  service: {
+    typeName: "shorts.v1alpha1.ShortedStocksService"
+  }
+} as const;
+
+/**
+ * Get a specific pending enrichment by ID. Admin only.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetPendingEnrichment
+ */
+export const getPendingEnrichment = {
+  localName: "getPendingEnrichment",
+  name: "GetPendingEnrichment",
+  kind: MethodKind.Unary,
+  I: GetPendingEnrichmentRequest,
+  O: GetPendingEnrichmentResponse,
+  service: {
+    typeName: "shorts.v1alpha1.ShortedStocksService"
+  }
+} as const;
+
+/**
+ * Approve or reject a pending enrichment. Admin only.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ReviewEnrichment
+ */
+export const reviewEnrichment = {
+  localName: "reviewEnrichment",
+  name: "ReviewEnrichment",
+  kind: MethodKind.Unary,
+  I: ReviewEnrichmentRequest,
+  O: ReviewEnrichmentResponse,
+  service: {
+    typeName: "shorts.v1alpha1.ShortedStocksService"
+  }
+} as const;
+
+/**
+ * Get enrichment job status by job ID. Admin only.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetEnrichmentJobStatus
+ */
+export const getEnrichmentJobStatus = {
+  localName: "getEnrichmentJobStatus",
+  name: "GetEnrichmentJobStatus",
+  kind: MethodKind.Unary,
+  I: GetEnrichmentJobStatusRequest,
+  O: GetEnrichmentJobStatusResponse,
+  service: {
+    typeName: "shorts.v1alpha1.ShortedStocksService"
+  }
+} as const;
+
+/**
+ * List enrichment jobs with optional status filter. Admin only.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListEnrichmentJobs
+ */
+export const listEnrichmentJobs = {
+  localName: "listEnrichmentJobs",
+  name: "ListEnrichmentJobs",
+  kind: MethodKind.Unary,
+  I: ListEnrichmentJobsRequest,
+  O: ListEnrichmentJobsResponse,
   service: {
     typeName: "shorts.v1alpha1.ShortedStocksService"
   }

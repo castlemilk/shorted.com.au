@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -13,18 +14,26 @@ import (
 // Function to convert period enum values to PostgreSQL interval strings.
 func periodToInterval(period string) string {
 	switch period {
-	case "1m":
+	case "1D":
+		return "1 day"
+	case "1W":
+		return "1 week"
+	case "1M":
 		return "1 month"
-	case "3m":
+	case "3M":
 		return "3 month"
-	case "6m":
+	case "6M":
 		return "6 month"
-	case "1y":
+	case "1Y":
 		return "1 year"
-	case "2y":
+	case "2Y":
 		return "2 year"
-	case "max":
+	case "5Y":
+		return "5 year"
+	case "10Y":
 		return "10 year"
+	case "MAX":
+		return "100 year" // Use a very large interval for MAX
 	default:
 		return "6 month"
 	}
@@ -39,7 +48,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 	if offset < 0 {
 		offset = 0 // Start at the beginning if a negative offset is given
 	}
-	
+
 	ctx := context.Background()
 	connection, err := db.Acquire(ctx)
 	if err != nil {
@@ -48,21 +57,27 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 	defer connection.Release()
 
 	interval := periodToInterval(period)
-	
+	log.Infof("Period: %s, Interval: %s", period, interval)
+
 	// Optimized query for top product codes
-	topCodesQuery := fmt.Sprintf(`
+	// Uses DISTINCT ON to get the latest data for each stock individually
+	// Filters to only include stocks with recent data (within 1 month of the latest report date)
+	// This excludes delisted or stale stocks that haven't reported recently
+	topCodesQuery := `
 	WITH latest_shorts AS (
-	    SELECT "PRODUCT_CODE", "PRODUCT", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS",
-	           ROW_NUMBER() OVER (PARTITION BY "PRODUCT_CODE" ORDER BY "DATE" DESC) as rn
-	    FROM shorts
-	    WHERE "DATE" > CURRENT_DATE - INTERVAL '%s'
-	      AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+		SELECT DISTINCT ON ("PRODUCT_CODE") 
+			"PRODUCT_CODE", 
+			"PRODUCT", 
+			"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
+		FROM shorts
+		WHERE "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+			AND "DATE" > (SELECT MAX("DATE") FROM shorts) - INTERVAL '1 month'
+		ORDER BY "PRODUCT_CODE", "DATE" DESC
 	)
 	SELECT "PRODUCT", "PRODUCT_CODE"
 	FROM latest_shorts
-	WHERE rn = 1
 	ORDER BY "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC
-	LIMIT $1 OFFSET $2`, interval)
+	LIMIT $1 OFFSET $2`
 
 	rows, err := connection.Query(ctx, topCodesQuery, limit, offset)
 	if err != nil {
@@ -86,6 +101,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 	}
 
 	// Optimized query for time series data without downsampling
+	// Uses MAX(DATE) instead of CURRENT_DATE to work with historical data
 	timeSeriesQuery := fmt.Sprintf(`
 	SELECT 
 	    "PRODUCT_CODE",
@@ -93,7 +109,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 	    "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" AS "PERCENT"
 	FROM shorts
 	WHERE "PRODUCT_CODE" = ANY($1)
-	    AND "DATE" > CURRENT_DATE - INTERVAL '%s'
+	    AND "DATE" > (SELECT MAX("DATE") FROM shorts) - INTERVAL '%s'
 	    AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
 	ORDER BY "PRODUCT_CODE", "DATE" ASC`, interval)
 
@@ -104,7 +120,9 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 	defer rows.Close()
 
 	timeSeriesMap := make(map[string][]*stocksv1alpha1.TimeSeriesPoint)
-	minMaxMap := make(map[string]*struct{min, max *stocksv1alpha1.TimeSeriesPoint})
+	minMaxMap := make(map[string]*struct {
+		min, max *stocksv1alpha1.TimeSeriesPoint
+	})
 
 	for rows.Next() {
 		var productCode string
@@ -122,9 +140,11 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 			ShortPosition: shortPosition,
 		}
 		timeSeriesMap[productCode] = append(timeSeriesMap[productCode], point)
-		
+
 		if minMax, ok := minMaxMap[productCode]; !ok {
-			minMaxMap[productCode] = &struct{min, max *stocksv1alpha1.TimeSeriesPoint}{point, point}
+			minMaxMap[productCode] = &struct {
+				min, max *stocksv1alpha1.TimeSeriesPoint
+			}{point, point}
 		} else {
 			if shortPosition < minMax.min.ShortPosition {
 				minMax.min = point
@@ -141,7 +161,8 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 	timeSeriesDataSlice := make([]*stocksv1alpha1.TimeSeriesData, 0)
 	for _, productCode := range topShorts {
 		points := timeSeriesMap[productCode]
-		if len(points) >= 10 {
+		// Require at least 2 points to draw a meaningful line chart
+		if len(points) >= 2 {
 			minMax := minMaxMap[productCode]
 			tsData := &stocksv1alpha1.TimeSeriesData{
 				ProductCode:         productCode,

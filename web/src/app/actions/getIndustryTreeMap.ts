@@ -1,41 +1,49 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
-import { createPromiseClient } from "@connectrpc/connect";
-import { type PlainMessage, toPlainMessage } from "@bufbuild/protobuf";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_connect";
+import { createClient } from "@connectrpc/connect";
+import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { type IndustryTreeMap } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { type ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { SHORTS_API_URL } from "./config";
+import { formatPeriodForAPI } from "~/lib/period-utils";
 import { cache } from "react";
+import { getOrSetCached, CACHE_KEYS, HOMEPAGE_TTL } from "~/@/lib/kv-cache";
+import { withRetry } from "./withRetry";
 
+// React cache() provides request deduplication during a single render
+// This prevents duplicate fetches when the same data is needed by multiple components
+// Now also uses KV cache for faster responses
 export const getIndustryTreeMap = cache(
-  async (
-    period: string,
-    limit: number,
-    viewMode: ViewMode,
-  ): Promise<PlainMessage<IndustryTreeMap>> => {
-    const transport = createConnectTransport({
-      // All transports accept a custom fetch implementation.
-      fetch,
-    //   fetch: (input, init: RequestInit | undefined) => {
-    //     if (init?.headers) {
-    //       const headers = init.headers as Headers;
-    //       headers.set('Authorization', authHeader.get('Authorization') ?? '');
-    //     }
-    //     return fetch(input, init);
-    //   },
-      // With Svelte's custom fetch function, we could alternatively
-      // use a relative base URL here.
-      baseUrl:
-        process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-        "http://localhost:8080",
-    });
-    const client = createPromiseClient(ShortedStocksService, transport);
+  withRetry(
+    async (
+      period: string,
+      limit: number,
+      viewMode: ViewMode,
+    ): Promise<IndustryTreeMap> => {
+      const cacheKey = CACHE_KEYS.industryTreeMap(
+        period,
+        limit,
+        viewMode.toString(),
+      );
 
-    const response = await client.getIndustryTreeMap({
-      period,
-      limit,
-      viewMode,
-    });
+      return getOrSetCached(
+        cacheKey,
+        async () => {
+          const transport = createConnectTransport({
+            baseUrl:
+              process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL,
+          });
+          const client = createClient(ShortedStocksService, transport);
 
-    return toPlainMessage(response);
-  },
+          const response = await client.getIndustryTreeMap({
+            period: formatPeriodForAPI(period),
+            limit,
+            viewMode,
+          });
+
+          return response;
+        },
+        Number(HOMEPAGE_TTL),
+      );
+    },
+  ),
 );

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,11 +14,12 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-func registerOps(config *config.Config, mux *http.ServeMux, hs *health.HTTPServer) {
-	hs.RegisterWith(mux)
-	mux.HandleFunc("/config.json", config.ServeAsJSON)
-	mux.HandleFunc("/config.yaml", config.ServeAsYAML)
-}
+// Commented out as it's currently not being used
+// func registerOps(config *config.Config, mux *http.ServeMux, hs *health.HTTPServer) {
+// 	hs.RegisterWith(mux)
+// 	mux.HandleFunc("/config.json", config.ServeAsJSON)
+// 	mux.HandleFunc("/config.yaml", config.ServeAsYAML)
+// }
 
 func main() {
 	ctx := context.Background()
@@ -42,7 +42,11 @@ func main() {
 	// 	Handler: opsMux,
 	// }
 	// registerOps(cfg, opsMux, healthServer)
-	s, err := shorts.New(ctx, cfg.AppSpec)
+	s, sErr := shorts.New(ctx, cfg.AppSpec)
+	if sErr != nil {
+		log.Errorf("error creating shorts service: %v", sErr)
+		os.Exit(1)
+	}
 	g, gCtx := errgroup.WithContext(ctx)
 	healthServer.SetAlive(true)
 	// g.Go(func() error {

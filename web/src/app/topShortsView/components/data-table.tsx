@@ -24,10 +24,14 @@ import {
   TableRow,
 } from "~/@/components/ui/table";
 import { Button } from "~/@/components/ui/button";
+import { Skeleton } from "~/@/components/ui/skeleton";
+import { Loader2 } from "lucide-react";
 import { debounce } from "lodash";
 
 interface DataTableProps<TData, TValue> {
   loading: boolean;
+  isRefreshing?: boolean;
+  refreshKey?: number;
   columns: ColumnDef<TData, TValue>[];
   period: string;
   data: TData[];
@@ -40,6 +44,8 @@ export function DataTable<TData, TValue>({
   data,
   fetchMore,
   loading,
+  isRefreshing = false,
+  refreshKey,
 }: DataTableProps<TData, TValue>) {
   const [localData, setLocalData] = React.useState(data);
   const [, setIsLoading] = React.useState(loading);
@@ -61,11 +67,15 @@ export function DataTable<TData, TValue>({
   }, []);
 
   React.useEffect(() => {
-    setLocalData(data);
+    // Only update localData if we're not currently refreshing
+    // This keeps the old data visible during the refresh overlay
+    if (!isRefreshing) {
+      setLocalData(data);
+    }
     setIsLoading(loading);
     setIsFetching(false);
     fetchingRef.current = false;
-  }, [data, loading]);
+  }, [data, loading, isRefreshing]);
 
   React.useEffect(() => {
     setShowLoadMore(!isLargeScreen && localData.length < totalRowsMax);
@@ -162,6 +172,14 @@ export function DataTable<TData, TValue>({
     rowVirtualizer.measure();
   }, [localData, rowVirtualizer]);
 
+  React.useEffect(() => {
+    if (!refreshKey) {
+      return;
+    }
+    parentRef.current?.scrollTo({ top: 0, behavior: "auto" });
+    rowVirtualizer.scrollToIndex(0);
+  }, [refreshKey, rowVirtualizer]);
+
   const [isLoadingMore, setIsLoadingMore] = React.useState(false);
 
   const handleLoadMore = React.useCallback(() => {
@@ -180,10 +198,16 @@ export function DataTable<TData, TValue>({
   }, [fetchMore, isLoadingMore]);
 
   return (
-    <div className="h-[700px] w-full flex flex-col">
+    <div className="relative h-[700px] min-h-[700px] w-full flex flex-col">
+      {isRefreshing && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-background/70 backdrop-blur-sm">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Updating data…</p>
+        </div>
+      )}
       <div
         ref={parentRef}
-        className="flex-grow overflow-x-hidden overflow-y-auto"
+        className="flex-grow overflow-x-hidden overflow-y-auto min-h-0"
         onScroll={() => fetchMoreOnBottomReached(parentRef.current)}
       >
         <Table className="w-full table-fixed">
@@ -212,7 +236,62 @@ export function DataTable<TData, TValue>({
             ))}
           </TableHeader>
           <TableBody>
-            {rows.length === 0 ? (
+            {loading ? (
+              // Show skeleton loader that matches the actual card layout with fixed height
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow
+                  key={`skeleton-${i}`}
+                  className="flex w-full items-center border-b h-[183px]"
+                >
+                  {/* Stock ticker and name column - matches Card structure */}
+                  <TableCell className="flex-1 min-w-0 p-2">
+                    <div className="space-y-1">
+                      <Skeleton className="h-6 w-16 rounded-md" />{" "}
+                      {/* CardTitle - Stock ticker */}
+                      <Skeleton className="h-4 w-40 rounded-md" />{" "}
+                      {/* CardDescription - Company name */}
+                    </div>
+                  </TableCell>
+                  {/* Percentage and Min/Max badges column - matches Badge + percentage layout */}
+                  <TableCell className="flex-1 min-w-0 p-2">
+                    <div className="flex flex-col items-center justify-center h-full space-y-2">
+                      {/* Min/Max badges */}
+                      <div className="flex flex-col space-y-1">
+                        <div className="flex items-center">
+                          <Skeleton className="h-3 w-3 rounded-full mr-1" />{" "}
+                          {/* Green circle */}
+                          <Skeleton className="h-5 w-[85px] rounded-full" />{" "}
+                          {/* Min badge */}
+                        </div>
+                        <div className="flex items-center">
+                          <Skeleton className="h-3 w-3 rounded-full mr-1" />{" "}
+                          {/* Red circle */}
+                          <Skeleton className="h-5 w-[85px] rounded-full" />{" "}
+                          {/* Max badge */}
+                        </div>
+                      </div>
+                      {/* Large percentage value */}
+                      <div className="flex items-end space-x-1 mt-2">
+                        <Skeleton className="h-9 w-20 rounded-md" />{" "}
+                        {/* Large percentage (text-3xl) */}
+                        <Skeleton className="h-5 w-3 rounded-md mb-1" />{" "}
+                        {/* % symbol (text-lg) */}
+                      </div>
+                    </div>
+                  </TableCell>
+                  {/* Sparkline chart column */}
+                  <TableCell
+                    className="flex-1 min-w-0 p-2"
+                    style={{ width: "200px" }}
+                  >
+                    <div className="w-full h-full flex items-center justify-center px-1">
+                      <Skeleton className="h-[140px] w-full rounded-lg" />{" "}
+                      {/* Chart area matching SparkLine */}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : rows.length === 0 ? (
               <TableRow className="w-full">
                 <TableCell
                   colSpan={columns.length}
@@ -230,14 +309,16 @@ export function DataTable<TData, TValue>({
                       `/shorts/${(row.original as { productCode: string }).productCode}`,
                     )
                   }
-                  className="flex w-full cursor-pointer items-center"
+                  className="flex w-full cursor-pointer items-center h-[183px]"
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
-                      className="flex-1 min-w-0 p-2 text-sm overflow-hidden items-center"
+                      className={`flex-1 min-w-0 p-2 text-sm items-center ${
+                        cell.column.id === "sparkline" ? "overflow-visible" : "overflow-hidden"
+                      }`}
                     >
-                      <div className="truncate">
+                      <div className={cell.column.id === "sparkline" ? "" : "truncate"}>
                         {flexRender(
                           cell.column.columnDef.cell,
                           cell.getContext(),

@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/about/warm-cache",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/homepage/warm-cache",
+      "schedule": "*/10 * * * *"
+    }
+  ]
+}

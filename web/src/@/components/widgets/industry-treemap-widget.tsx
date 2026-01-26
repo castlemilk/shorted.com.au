@@ -1,0 +1,377 @@
+"use client";
+
+import { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
+import { type WidgetProps } from "~/@/types/dashboard";
+import {
+  type IndustryTreeMap,
+  type TreemapShortPosition,
+} from "~/gen/stocks/v1alpha1/stocks_pb";
+import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { getIndustryTreeMap } from "~/app/actions/getIndustryTreeMap";
+import { Treemap, hierarchy, stratify, treemapSquarify } from "@visx/hierarchy";
+import { Group } from "@visx/group";
+import { ParentSize } from "@visx/responsive";
+import { scaleLinear } from "@visx/scale";
+import { useRouter } from "next/navigation";
+import { TreemapTooltip } from "./treemap-tooltip";
+
+interface TreeMapDatum {
+  id: string;
+  parent?: string;
+  size?: number;
+  industry?: string;
+}
+
+interface TooltipState {
+  productCode: string;
+  shortPosition: number;
+  industry: string;
+  x: number;
+  y: number;
+  containerWidth: number;
+  containerHeight: number;
+  containerX: number;
+  containerY: number;
+}
+
+export function IndustryTreemapWidget({ config }: WidgetProps) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [treeMapData, setTreeMapData] = useState<IndustryTreeMap | null>(null);
+  const [tooltipState, setTooltipState] = useState<TooltipState | null>(null);
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Hide tooltip on window resize (standard behavior)
+  useEffect(() => {
+    const handleResize = () => {
+      setTooltipState(null);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const period = (config.settings?.period as string) || "3m";
+  const viewMode =
+    config.settings?.viewMode === "PERCENTAGE_CHANGE"
+      ? ViewMode.PERCENTAGE_CHANGE
+      : ViewMode.CURRENT_CHANGE;
+  const showSectorGrouping = config.settings?.showSectorGrouping ?? true; // Default to true like the main treemap
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const data = await getIndustryTreeMap(period, 10, viewMode);
+        setTreeMapData(data);
+      } catch (error) {
+        console.error("Error fetching treemap data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void fetchData();
+
+    if (config.dataSource.refreshInterval) {
+      const interval = setInterval(
+        () => void fetchData(),
+        config.dataSource.refreshInterval * 1000,
+      );
+      return () => clearInterval(interval);
+    }
+  }, [period, viewMode, config.dataSource.refreshInterval]);
+
+  if (loading || !treeMapData) {
+    return <div className="animate-pulse">Loading industry data...</div>;
+  }
+
+  // Build tree data based on whether sector grouping is enabled
+  const treeData: TreeMapDatum[] = showSectorGrouping
+    ? [
+        { id: "root", parent: undefined },
+        ...treeMapData.industries.map((industry) => ({
+          id: industry,
+          parent: "root",
+        })),
+        ...treeMapData.stocks.map((stock: TreemapShortPosition) => ({
+          id: stock.productCode,
+          parent: stock.industry,
+          size: stock.shortPosition,
+          industry: stock.industry,
+        })),
+      ]
+    : [
+        { id: "root", parent: undefined },
+        ...treeMapData.stocks.map((stock: TreemapShortPosition) => ({
+          id: stock.productCode,
+          parent: "root",
+          size: stock.shortPosition,
+          industry: stock.industry,
+        })),
+      ];
+
+  const industryTreeMap = stratify<TreeMapDatum>()
+    .id((d) => d.id)
+    .parentId((d) => d.parent)(treeData)
+    .sum((d) => d.size ?? 0);
+
+  const colorScale = scaleLinear({
+    domain: [
+      0,
+      Math.max(
+        ...treeMapData.stocks.map((d: TreemapShortPosition) => d.shortPosition),
+      ),
+    ],
+    range: ["#33B074", "#EC5D5E"],
+  });
+
+  const root = hierarchy(industryTreeMap).sort(
+    (a, b) => (b.value ?? 0) - (a.value ?? 0),
+  );
+
+  const PADDING = 5;
+  const HEADER_HEIGHT = 20; // Height reserved for sector labels
+
+  // Event handlers for tooltip - matching main treemap page implementation
+  const handleMouseEnter = (event: React.MouseEvent, productCode: string) => {
+    // Clear any pending hide timeout
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current);
+      hideTimeoutRef.current = null;
+    }
+
+    const stock = treeMapData.stocks.find((s) => s.productCode === productCode);
+    if (!stock) return;
+
+    const svgRect = (event.target as SVGElement)
+      .closest("svg")!
+      .getBoundingClientRect();
+
+    // Use mouse position directly (clientX/Y are viewport coordinates)
+    setTooltipState({
+      productCode: stock.productCode,
+      shortPosition: stock.shortPosition,
+      industry: stock.industry,
+      x: event.clientX,
+      y: event.clientY,
+      containerWidth: svgRect.width,
+      containerHeight: svgRect.height,
+      containerX: svgRect.left,
+      containerY: svgRect.top,
+    });
+  };
+
+  const handleMouseLeave = () => {
+    // Add a small delay before hiding to prevent flickering
+    hideTimeoutRef.current = setTimeout(() => {
+      setTooltipState(null);
+    }, 100);
+  };
+
+  return (
+    <>
+      <ParentSize>
+        {({ width, height }) => (
+          <div style={{ position: "relative" }}>
+            <svg width={width} height={height}>
+              <Treemap
+                root={root}
+                size={[width, height]}
+                tile={treemapSquarify}
+                round
+              >
+                {(treemap) => (
+                  <Group>
+                    {/* Render stocks */}
+                    {treemap
+                      .descendants()
+                      .filter((node) =>
+                        showSectorGrouping ? node.depth > 1 : node.depth === 1,
+                      )
+                      .map((node, i) => {
+                        const nodeWithPath = node as {
+                          x0: number;
+                          y0: number;
+                          x1: number;
+                          y1: number;
+                          data: { data: { id: string; industry?: string } };
+                        };
+
+                        const stock = treeMapData.stocks.find(
+                          (s: TreemapShortPosition) =>
+                            s.productCode === node.data.data.id,
+                        );
+                        if (!stock) return null;
+
+                        // Apply padding for sector grouped view
+                        let nodeX = nodeWithPath.x0;
+                        let nodeY = nodeWithPath.y0;
+                        let nodeWidth = nodeWithPath.x1 - nodeWithPath.x0;
+                        let nodeHeight = nodeWithPath.y1 - nodeWithPath.y0;
+
+                        if (showSectorGrouping && node.parent) {
+                          const parentNode = node.parent as {
+                            x0: number;
+                            y0: number;
+                            x1: number;
+                            y1: number;
+                          };
+                          const isTopEdge = nodeWithPath.y0 === parentNode.y0;
+                          const isBottomEdge =
+                            nodeWithPath.y1 === parentNode.y1;
+                          const isLeftEdge = nodeWithPath.x0 === parentNode.x0;
+                          const isRightEdge = nodeWithPath.x1 === parentNode.x1;
+
+                          nodeX = nodeWithPath.x0 + (isLeftEdge ? PADDING : 0);
+                          nodeY =
+                            nodeWithPath.y0 + (isTopEdge ? HEADER_HEIGHT + PADDING : 0);
+                          nodeWidth =
+                            nodeWithPath.x1 -
+                            nodeWithPath.x0 -
+                            (isLeftEdge ? PADDING : 0) -
+                            (isRightEdge ? PADDING : 0);
+                          nodeHeight =
+                            nodeWithPath.y1 -
+                            nodeWithPath.y0 -
+                            (isTopEdge ? HEADER_HEIGHT + PADDING : 0) -
+                            (isBottomEdge ? PADDING : 0);
+
+                          if (nodeHeight < 0 || nodeWidth < 0) {
+                            return null;
+                          }
+                        }
+
+                        return (
+                          <Group
+                            key={`stock-${i}`}
+                            top={nodeY}
+                            left={nodeX}
+                            onMouseEnter={(e) =>
+                              handleMouseEnter(e, stock.productCode)
+                            }
+                            onMouseLeave={handleMouseLeave}
+                            pointerEvents="all"
+                            onClick={() =>
+                              router.push(`/shorts/${stock.productCode}`)
+                            }
+                          >
+                            <rect
+                              width={nodeWidth}
+                              height={nodeHeight}
+                              fill={colorScale(stock.shortPosition)}
+                              stroke="white"
+                              strokeWidth={1}
+                              pointerEvents="all"
+                              cursor="pointer"
+                              className="transition-opacity hover:opacity-80"
+                            />
+                            {nodeWidth > 50 && (
+                              <text
+                                x={nodeWidth / 2}
+                                y={nodeHeight / 2}
+                                dy=".35em"
+                                textAnchor="middle"
+                                fontSize={12}
+                                fill="white"
+                                fontWeight="600"
+                                pointerEvents="none"
+                              >
+                                {stock.productCode}
+                              </text>
+                            )}
+                          </Group>
+                        );
+                      })}
+
+                    {/* Render sector labels if grouping is enabled */}
+                    {showSectorGrouping &&
+                      treemap
+                        .descendants()
+                        .filter((node) => node.depth === 1)
+                        .map((node, i) => {
+                          const nodeWithPath = node as {
+                            x0: number;
+                            y0: number;
+                            x1: number;
+                            y1: number;
+                            data: { data: { id: string } };
+                          };
+                          const nodeWidth = nodeWithPath.x1 - nodeWithPath.x0;
+                          const nodeHeight = nodeWithPath.y1 - nodeWithPath.y0;
+
+                          // Don't render label if section is too small
+                          if (nodeWidth < 50 || nodeHeight < 35) return null;
+
+                          return (
+                            <Group
+                              key={`sector-label-${i}`}
+                              top={nodeWithPath.y0}
+                              left={nodeWithPath.x0}
+                            >
+                              {/* Background bar for sector label */}
+                              <rect
+                                x={0}
+                                y={0}
+                                width={nodeWidth}
+                                height={HEADER_HEIGHT}
+                                fill="hsl(var(--background))"
+                                opacity={0.85}
+                              />
+                              {/* Bottom border line */}
+                              <line
+                                x1={0}
+                                y1={HEADER_HEIGHT}
+                                x2={nodeWidth}
+                                y2={HEADER_HEIGHT}
+                                stroke="hsl(var(--border))"
+                                strokeWidth={1}
+                              />
+                              <text
+                                x={6}
+                                y={HEADER_HEIGHT / 2}
+                                dy=".35em"
+                                fontSize={10}
+                                fontWeight={600}
+                                textAnchor="start"
+                                pointerEvents="none"
+                                fill="hsl(var(--foreground))"
+                              >
+                                {`${node.data.data.id.substring(0, Math.floor(nodeWidth / 7))}${
+                                  node.data.data.id.length > Math.floor(nodeWidth / 7)
+                                    ? "..."
+                                    : ""
+                                }`}
+                              </text>
+                            </Group>
+                          );
+                        })}
+                  </Group>
+                )}
+              </Treemap>
+            </svg>
+          </div>
+        )}
+      </ParentSize>
+
+      {/* Render rich tooltip via portal to document body */}
+      {tooltipState &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <TreemapTooltip
+            productCode={tooltipState.productCode}
+            shortPosition={tooltipState.shortPosition}
+            industry={tooltipState.industry}
+            x={tooltipState.x}
+            y={tooltipState.y}
+            containerWidth={tooltipState.containerWidth}
+            containerHeight={tooltipState.containerHeight}
+            containerX={tooltipState.containerX}
+            containerY={tooltipState.containerY}
+          />,
+          document.body,
+        )}
+    </>
+  );
+}

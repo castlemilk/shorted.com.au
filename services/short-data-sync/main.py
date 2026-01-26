@@ -329,9 +329,7 @@ async def process_full_workflow():
         write_short_data_to_postgres(
             df,
             TABLE_NAME,
-            os.environ.get(
-                "DATABASE_URL", "postgresql://admin:password@localhost:5432/shorts"
-            ),
+            os.environ["DATABASE_URL"],
         )
 
         return {"message": "Workflow completed successfully."}

@@ -5,7 +5,7 @@ import { AxisLeft, AxisBottom, type AxisScale } from "@visx/axis";
 import { LinearGradient } from "@visx/gradient";
 import { curveMonotoneX } from "@visx/curve";
 import { type TimeSeriesPoint } from "~/gen/stocks/v1alpha1/stocks_pb";
-import { type PlainMessage } from "@bufbuild/protobuf";
+import type { Timestamp } from "@bufbuild/protobuf/wkt";
 
 // Initialize some variables
 const axisColor = "hsl(var(--primary))";
@@ -25,10 +25,14 @@ const axisLeftTickLabelProps = {
   fill: axisColor,
 };
 
-const getDate = (d: PlainMessage<TimeSeriesPoint>) =>
-  new Date(Number(d.timestamp?.seconds) * 1000) ?? new Date();
-const getStockValue = (d: PlainMessage<TimeSeriesPoint>) =>
-  d.shortPosition ?? 0;
+const getDate = (d: TimeSeriesPoint): Date => {
+  if (!d.timestamp) return new Date();
+  const timestamp: Timestamp = d.timestamp;
+  return new Date(Number(timestamp.seconds ?? 0) * 1000) ?? new Date();
+};
+const getStockValue = (d: TimeSeriesPoint): number => {
+  return d.shortPosition ?? 0;
+};
 
 const AreaChart = ({
   data,
@@ -48,7 +52,7 @@ const AreaChart = ({
   onMouseMove,
   onMouseLeave,
 }: {
-  data: PlainMessage<TimeSeriesPoint>[];
+  data: TimeSeriesPoint[];
   gradientColor: string;
   xScale: AxisScale<number>;
   yScale: AxisScale<number>;
@@ -101,7 +105,7 @@ const AreaChart = ({
             toOpacity={0.2}
           />
         </defs>
-        <AreaClosed<PlainMessage<TimeSeriesPoint>>
+        <AreaClosed<TimeSeriesPoint>
           data={data}
           x={(d) => xScale(getDate(d)) ?? 0}
           y={(d) => yScale(getStockValue(d)) ?? 0}

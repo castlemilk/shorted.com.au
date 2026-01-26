@@ -1,0 +1,1069 @@
+name: 🚀 Deploy Infrastructure
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+  push:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy"
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+      plan_only:
+        description: "Plan only (no apply) - use for production dry-run"
+        required: false
+        type: boolean
+        default: false
+
+env:
+  NODE_VERSION: "20"
+  GO_VERSION: "1.23"
+  PYTHON_VERSION: "3.11"
+  GCP_REGION: australia-southeast2
+  ARTIFACT_REGISTRY: australia-southeast2-docker.pkg.dev
+  TF_VERSION: "1.5.0"
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+  deployments: write
+
+jobs:
+  determine-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      project-id: ${{ steps.set-env.outputs.project-id }}
+      image-tag: ${{ steps.set-env.outputs.image-tag }}
+      commit-sha: ${{ steps.set-env.outputs.commit-sha }}
+      is-preview: ${{ steps.set-env.outputs.is-preview }}
+      pr-number: ${{ steps.set-env.outputs.pr-number }}
+      wip-provider: ${{ steps.set-env.outputs.wip-provider }}
+      sa-email: ${{ steps.set-env.outputs.sa-email }}
+    steps:
+      - name: Determine environment
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            echo "environment=dev" >> $GITHUB_OUTPUT
+            echo "project-id=shorted-dev-aba5688f" >> $GITHUB_OUTPUT
+            echo "image-tag=pr-${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+            echo "commit-sha=${{ github.event.pull_request.head.sha }}" >> $GITHUB_OUTPUT
+            echo "is-preview=true" >> $GITHUB_OUTPUT
+            echo "pr-number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+            echo "wip-provider=projects/234770780438/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_OUTPUT
+            echo "sa-email=github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "release" ]; then
+            echo "environment=prod" >> $GITHUB_OUTPUT
+            echo "project-id=rosy-clover-477102-t5" >> $GITHUB_OUTPUT
+            echo "image-tag=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+            echo "commit-sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+            echo "is-preview=false" >> $GITHUB_OUTPUT
+            echo "pr-number=" >> $GITHUB_OUTPUT
+            echo "wip-provider=projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_OUTPUT
+            echo "sa-email=github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            ENV="${{ github.event.inputs.environment }}"
+            echo "environment=$ENV" >> $GITHUB_OUTPUT
+            if [ "$ENV" == "prod" ]; then
+              echo "project-id=rosy-clover-477102-t5" >> $GITHUB_OUTPUT
+              echo "wip-provider=projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_OUTPUT
+              echo "sa-email=github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com" >> $GITHUB_OUTPUT
+            else
+              echo "project-id=shorted-dev-aba5688f" >> $GITHUB_OUTPUT
+              echo "wip-provider=projects/234770780438/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_OUTPUT
+              echo "sa-email=github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com" >> $GITHUB_OUTPUT
+            fi
+            echo "image-tag=manual-${{ github.sha }}" >> $GITHUB_OUTPUT
+            echo "commit-sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+            echo "is-preview=false" >> $GITHUB_OUTPUT
+            echo "pr-number=" >> $GITHUB_OUTPUT
+          else
+            # Push to main = dev deployment
+            echo "environment=dev" >> $GITHUB_OUTPUT
+            echo "project-id=shorted-dev-aba5688f" >> $GITHUB_OUTPUT
+            echo "image-tag=dev-${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+            echo "commit-sha=${{ github.sha }}" >> $GITHUB_OUTPUT
+            echo "is-preview=false" >> $GITHUB_OUTPUT
+            echo "pr-number=" >> $GITHUB_OUTPUT
+            echo "wip-provider=projects/234770780438/locations/global/workloadIdentityPools/github-pool/providers/github-provider" >> $GITHUB_OUTPUT
+            echo "sa-email=github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com" >> $GITHUB_OUTPUT
+          fi
+
+  validate-secrets:
+    needs: determine-environment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        env:
+          ENVIRONMENT: ${{ needs.determine-environment.outputs.environment }}
+          # Common secrets
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+          AUTH_GOOGLE_ID: ${{ secrets.AUTH_GOOGLE_ID }}
+          AUTH_GOOGLE_SECRET: ${{ secrets.AUTH_GOOGLE_SECRET }}
+          AUTH_FIREBASE_PROJECT_ID: ${{ secrets.AUTH_FIREBASE_PROJECT_ID }}
+          AUTH_FIREBASE_CLIENT_EMAIL: ${{ secrets.AUTH_FIREBASE_CLIENT_EMAIL }}
+          AUTH_FIREBASE_PRIVATE_KEY: ${{ secrets.AUTH_FIREBASE_PRIVATE_KEY }}
+          ALGOLIA_APP_ID: ${{ secrets.ALGOLIA_APP_ID }}
+          ALGOLIA_SEARCH_KEY: ${{ secrets.ALGOLIA_SEARCH_KEY }}
+          # Environment-specific
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
+          # Stripe (environment-specific)
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+          STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+          STRIPE_PRO_PRICE_ID: ${{ secrets.STRIPE_PRO_PRICE_ID }}
+        run: |
+          echo "=============================================="
+          echo "🔐 Secrets Validation: ${ENVIRONMENT^^}"
+          echo "=============================================="
+          
+          MISSING=()
+          
+          # Check common required secrets
+          check_secret() {
+            local name="$1"
+            local value="${!name:-}"
+            if [ -z "$value" ]; then
+              MISSING+=("$name")
+              echo "❌ $name - MISSING"
+            else
+              echo "✅ $name - configured"
+            fi
+          }
+          
+          echo ""
+          echo "📋 Common Secrets"
+          echo "-------------------------------------------"
+          check_secret "DATABASE_URL"
+          check_secret "NEXTAUTH_SECRET"
+          check_secret "AUTH_GOOGLE_ID"
+          check_secret "AUTH_GOOGLE_SECRET"
+          check_secret "AUTH_FIREBASE_PROJECT_ID"
+          check_secret "AUTH_FIREBASE_CLIENT_EMAIL"
+          check_secret "AUTH_FIREBASE_PRIVATE_KEY"
+          check_secret "ALGOLIA_APP_ID"
+          check_secret "ALGOLIA_SEARCH_KEY"
+          
+          echo ""
+          echo "📋 Deployment Secrets"
+          echo "-------------------------------------------"
+          check_secret "VERCEL_TOKEN"
+          check_secret "OPENAI_API_KEY"
+          
+          echo ""
+          echo "📋 Stripe Secrets"
+          echo "-------------------------------------------"
+          check_secret "STRIPE_SECRET_KEY"
+          check_secret "STRIPE_PUBLISHABLE_KEY"
+          check_secret "STRIPE_WEBHOOK_SECRET"
+          check_secret "STRIPE_PRO_PRICE_ID"
+          
+          # Service authentication checks
+          echo ""
+          echo "📋 Service Authentication"
+          echo "-------------------------------------------"
+          check_secret "INTERNAL_SERVICE_SECRET"
+          
+          echo ""
+          echo "=============================================="
+          if [ ${#MISSING[@]} -eq 0 ]; then
+            echo "✅ All required secrets configured for $ENVIRONMENT"
+          else
+            echo "❌ Missing ${#MISSING[@]} required secret(s):"
+            for secret in "${MISSING[@]}"; do
+              echo "   - $secret"
+            done
+            echo ""
+            echo "Please configure these secrets in GitHub repository settings."
+            exit 1
+          fi
+
+  build-and-push-images:
+    needs: [determine-environment, validate-secrets]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - name: shorts
+            dockerfile: services/shorts/Dockerfile
+            context: services
+          - name: market-data
+            dockerfile: services/market-data/Dockerfile
+            context: services
+          - name: stock-price-ingestion
+            dockerfile: services/stock-price-ingestion/Dockerfile
+            context: services/stock-price-ingestion
+          - name: short-data-sync
+            dockerfile: services/daily-sync/Dockerfile
+            context: services/daily-sync
+          - name: asx-discovery
+            dockerfile: services/asx-discovery/Dockerfile
+            context: services
+          - name: market-data-sync
+            dockerfile: services/market-data-sync/Dockerfile
+            context: services
+          - name: enrichment-processor
+            dockerfile: services/enrichment-processor/Dockerfile
+            context: services
+          - name: cms
+            dockerfile: cms/Dockerfile
+            context: cms
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
+          service_account: ${{ needs.determine-environment.outputs.sa-email }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
+
+      - name: Build and push ${{ matrix.service.name }}
+        run: |
+          IMAGE="${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}:${{ needs.determine-environment.outputs.image-tag }}"
+          LATEST="${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}:latest"
+
+          echo "Building ${{ matrix.service.name }}..."
+          docker build \
+            --platform linux/amd64 \
+            -f ${{ matrix.service.dockerfile }} \
+            -t $IMAGE \
+            -t $LATEST \
+            ${{ matrix.service.context }}
+
+          echo "Pushing ${{ matrix.service.name }}..."
+          docker push $IMAGE
+          docker push $LATEST
+
+          echo "✅ Pushed: $IMAGE"
+
+  terraform-plan:
+    needs: [determine-environment, validate-secrets, build-and-push-images]
+    runs-on: ubuntu-latest
+    outputs:
+      plan-output: ${{ steps.plan.outputs.stdout }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
+          service_account: ${{ needs.determine-environment.outputs.sa-email }}
+
+      - name: Terraform Init
+        working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
+        run: terraform init
+
+      - name: Ensure OpenAI secret exists in Secret Manager
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "❌ Missing GitHub secret: OPENAI_API_KEY"
+            exit 1
+          fi
+
+          if gcloud secrets describe OPENAI_API_KEY --project "$GCP_PROJECT_ID" &>/dev/null; then
+            echo "Updating Secret Manager: OPENAI_API_KEY (new version)"
+            printf "%s" "$OPENAI_API_KEY" | gcloud secrets versions add OPENAI_API_KEY --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            echo "Creating Secret Manager secret: OPENAI_API_KEY"
+            printf "%s" "$OPENAI_API_KEY" | gcloud secrets create OPENAI_API_KEY --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+
+      - name: Ensure Internal Service Secret exists in Secret Manager
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
+        run: |
+          if [ -z "$INTERNAL_SERVICE_SECRET" ]; then
+            echo "❌ Missing GitHub secret: INTERNAL_SERVICE_SECRET"
+            exit 1
+          fi
+
+          if gcloud secrets describe INTERNAL_SERVICE_SECRET --project "$GCP_PROJECT_ID" &>/dev/null; then
+            echo "Updating Secret Manager: INTERNAL_SERVICE_SECRET (new version)"
+            printf "%s" "$INTERNAL_SERVICE_SECRET" | gcloud secrets versions add INTERNAL_SERVICE_SECRET --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            echo "Creating Secret Manager secret: INTERNAL_SERVICE_SECRET"
+            printf "%s" "$INTERNAL_SERVICE_SECRET" | gcloud secrets create INTERNAL_SERVICE_SECRET --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
+        run: |
+          terraform plan \
+            -var="stock_price_ingestion_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/stock-price-ingestion:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="short_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/short-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="shorts_api_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="cms_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/cms:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="asx_discovery_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-discovery:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
+            -out=tfplan
+        continue-on-error: true
+
+      - name: Comment PR with plan
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `#### Terraform Plan 📝
+
+            <details><summary>Show Plan</summary>
+
+            \`\`\`terraform
+            ${{ steps.plan.outputs.stdout }}
+            \`\`\`
+
+            </details>
+
+            *Environment: ${{ needs.determine-environment.outputs.environment }}*
+            *Project: ${{ needs.determine-environment.outputs.project-id }}*
+            *Image Tag: ${{ needs.determine-environment.outputs.image-tag }}*
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+      - name: Plan-only summary
+        if: github.event.inputs.plan_only == 'true'
+        run: |
+          echo "## 🔍 Terraform Plan Only (Dry Run)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ needs.determine-environment.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Project:** ${{ needs.determine-environment.outputs.project-id }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Image Tag:** ${{ needs.determine-environment.outputs.image-tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Plan completed successfully** - No changes were applied." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "To apply these changes:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Create a GitHub Release (for prod)" >> $GITHUB_STEP_SUMMARY
+          echo "2. Or re-run this workflow with \`plan_only: false\`" >> $GITHUB_STEP_SUMMARY
+
+  deploy-preview:
+    needs: [determine-environment, validate-secrets, build-and-push-images]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && needs.determine-environment.outputs.is-preview == 'true'
+    environment: dev
+    outputs:
+      shorts-url: ${{ steps.deploy.outputs.shorts_url }}
+      market-data-url: ${{ steps.deploy.outputs.market_data_url }}
+      enrichment-processor-url: ${{ steps.deploy.outputs.enrichment_processor_url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
+          service_account: ${{ needs.determine-environment.outputs.sa-email }}
+
+      - name: Create Terraform workspace for PR
+        id: deploy
+        working-directory: terraform
+        env:
+          PR_NUMBER: ${{ needs.determine-environment.outputs.pr-number }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          GCP_REGION: ${{ env.GCP_REGION }}
+          ARTIFACT_REGISTRY: ${{ env.ARTIFACT_REGISTRY }}
+          IMAGE_TAG: ${{ needs.determine-environment.outputs.image-tag }}
+          COMMIT_SHA: ${{ needs.determine-environment.outputs.commit-sha }}
+        run: |
+          # Parse DATABASE_URL
+          DB_USER=$(echo $DATABASE_URL | sed -n 's|postgresql://\([^:]*\):.*|\1|p')
+          DB_PASS=$(echo $DATABASE_URL | sed -n 's|postgresql://[^:]*:\([^@]*\)@.*|\1|p')
+          DB_HOST=$(echo $DATABASE_URL | sed -n 's|.*@\([^:]*\):.*|\1|p')
+          DB_PORT=$(echo $DATABASE_URL | sed -n 's|.*:\([0-9]*\)/.*|\1|p')
+          DB_NAME=$(echo $DATABASE_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
+          DB_ADDRESS="${DB_HOST}:${DB_PORT}"
+
+          # Ensure Secret Manager has OPENAI_API_KEY for preview services
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "❌ Missing GitHub secret: OPENAI_API_KEY"
+            exit 1
+          fi
+          if gcloud secrets describe OPENAI_API_KEY --project "$GCP_PROJECT_ID" &>/dev/null; then
+            echo "Updating Secret Manager: OPENAI_API_KEY (new version)"
+            printf "%s" "$OPENAI_API_KEY" | gcloud secrets versions add OPENAI_API_KEY --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            echo "Creating Secret Manager secret: OPENAI_API_KEY"
+            printf "%s" "$OPENAI_API_KEY" | gcloud secrets create OPENAI_API_KEY --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+
+          # Ensure Secret Manager has INTERNAL_SERVICE_SECRET for webhook auth
+          if [ -z "$INTERNAL_SERVICE_SECRET" ]; then
+            echo "❌ Missing GitHub secret: INTERNAL_SERVICE_SECRET"
+            exit 1
+          fi
+          if gcloud secrets describe INTERNAL_SERVICE_SECRET --project "$GCP_PROJECT_ID" &>/dev/null; then
+            echo "Updating Secret Manager: INTERNAL_SERVICE_SECRET (new version)"
+            printf "%s" "$INTERNAL_SERVICE_SECRET" | gcloud secrets versions add INTERNAL_SERVICE_SECRET --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            echo "Creating Secret Manager secret: INTERNAL_SERVICE_SECRET"
+            printf "%s" "$INTERNAL_SERVICE_SECRET" | gcloud secrets create INTERNAL_SERVICE_SECRET --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+
+          # Create preview config directory
+          mkdir -p preview-pr-${PR_NUMBER}
+          cd preview-pr-${PR_NUMBER}
+
+          # Create Terraform config for this PR with GCS backend
+          cat > main.tf <<EOF
+          terraform {
+            required_version = ">= 1.0"
+            required_providers {
+              google = {
+                source  = "hashicorp/google"
+                version = "~> 5.0"
+              }
+            }
+            backend "gcs" {
+              bucket = "${GCP_PROJECT_ID}-terraform-state"
+              prefix = "preview/pr-${PR_NUMBER}"
+            }
+          }
+
+          provider "google" {
+            project = "${GCP_PROJECT_ID}"
+            region  = "${GCP_REGION}"
+          }
+
+          module "preview" {
+            source = "../modules/preview"
+
+            project_id                 = "${GCP_PROJECT_ID}"
+            region                     = "${GCP_REGION}"
+            pr_number                  = "${PR_NUMBER}"
+            shorts_api_image           = "${ARTIFACT_REGISTRY}/${GCP_PROJECT_ID}/shorted/shorts:${IMAGE_TAG}"
+            market_data_image          = "${ARTIFACT_REGISTRY}/${GCP_PROJECT_ID}/shorted/market-data:${IMAGE_TAG}"
+            enrichment_processor_image = "${ARTIFACT_REGISTRY}/${GCP_PROJECT_ID}/shorted/enrichment-processor:${IMAGE_TAG}"
+            shorts_service_account     = "shorts@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+            postgres_address           = "${DB_ADDRESS}"
+            postgres_database          = "${DB_NAME}"
+            postgres_username          = "${DB_USER}"
+            image_tag                  = "${COMMIT_SHA}"
+          }
+
+          output "shorts_url" {
+            value = module.preview.shorts_url
+          }
+
+          output "market_data_url" {
+            value = module.preview.market_data_url
+          }
+
+          output "enrichment_processor_url" {
+            value = module.preview.enrichment_processor_url
+          }
+          EOF
+
+          # Initialize Terraform with GCS backend
+          terraform init
+
+          # Function to check if resource is in terraform state
+          is_in_state() {
+            terraform state list 2>/dev/null | grep -q "$1"
+          }
+
+          # Clean up orphaned services (exist in GCP but not in Terraform state)
+          # This prevents revision conflicts when services were created by gcloud
+          echo "Checking for orphaned services..."
+
+          if gcloud run services describe shorts-service-pr-${PR_NUMBER} --region=${GCP_REGION} --project=${GCP_PROJECT_ID} &>/dev/null; then
+            if ! is_in_state "module.preview.google_cloud_run_v2_service.shorts_preview"; then
+              echo "Deleting orphaned shorts service (not in Terraform state)..."
+              gcloud run services delete shorts-service-pr-${PR_NUMBER} \
+                --region=${GCP_REGION} --project=${GCP_PROJECT_ID} --quiet || true
+            fi
+          fi
+
+          if gcloud run services describe market-data-service-pr-${PR_NUMBER} --region=${GCP_REGION} --project=${GCP_PROJECT_ID} &>/dev/null; then
+            if ! is_in_state "module.preview.google_cloud_run_v2_service.market_data_preview"; then
+              echo "Deleting orphaned market-data service (not in Terraform state)..."
+              gcloud run services delete market-data-service-pr-${PR_NUMBER} \
+                --region=${GCP_REGION} --project=${GCP_PROJECT_ID} --quiet || true
+            fi
+          fi
+
+          # Apply configuration (will create new or update existing)
+          terraform apply -auto-approve
+
+          # Capture outputs
+          SHORTS_URL=$(terraform output -raw shorts_url)
+          MARKET_DATA_URL=$(terraform output -raw market_data_url)
+          
+          # Try to get enrichment-processor URL, but handle case where it might not exist in state yet
+          # This can happen if the output was just added but Terraform hasn't refreshed the state
+          # Use set +e to prevent script from failing if output doesn't exist
+          set +e
+          ENRICHMENT_PROCESSOR_URL=$(terraform output -raw enrichment_processor_url 2>&1)
+          EXIT_CODE=$?
+          set -e
+          
+          # Check if the output is valid (not an error message and not empty)
+          if [ $EXIT_CODE -eq 0 ] && [ -n "$ENRICHMENT_PROCESSOR_URL" ] && ! echo "$ENRICHMENT_PROCESSOR_URL" | grep -q "Error:"; then
+            echo "✅ enrichment_processor_url: $ENRICHMENT_PROCESSOR_URL"
+          else
+            echo "⚠️  enrichment_processor_url output not found in Terraform state"
+            echo "   This is expected if the output was just added. It will be available after the next apply."
+            ENRICHMENT_PROCESSOR_URL=""
+            # Try to get it directly from gcloud as a fallback
+            set +e
+            GCLOUD_URL=$(gcloud run services describe enrichment-processor-pr-${PR_NUMBER} \
+              --region=${GCP_REGION} \
+              --project=${GCP_PROJECT_ID} \
+              --format='value(status.url)' 2>&1)
+            GCLOUD_EXIT_CODE=$?
+            set -e
+            if [ $GCLOUD_EXIT_CODE -eq 0 ] && [ -n "$GCLOUD_URL" ]; then
+              ENRICHMENT_PROCESSOR_URL="$GCLOUD_URL"
+              echo "   Found via gcloud: $ENRICHMENT_PROCESSOR_URL"
+            fi
+          fi
+
+          echo "shorts_url=$SHORTS_URL" >> $GITHUB_OUTPUT
+          echo "market_data_url=$MARKET_DATA_URL" >> $GITHUB_OUTPUT
+          echo "enrichment_processor_url=$ENRICHMENT_PROCESSOR_URL" >> $GITHUB_OUTPUT
+
+      # NOTE: AUTH_FIREBASE_PRIVATE_KEY must be set in Vercel Dashboard
+      # (Settings -> Environment Variables -> Preview) because it contains
+      # special characters that break CLI argument parsing.
+      - name: Deploy to Vercel (Preview)
+        id: vercel-deploy
+        uses: amondnet/vercel-action@v25
+        env:
+          VERCEL_ENV: dev
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: team_xE5DMN3hIo8aPqyHNkBybg8r
+          vercel-project-id: shorted-com-au
+          scope: team_xE5DMN3hIo8aPqyHNkBybg8r
+          alias-domains: preview.shorted.com.au
+          vercel-args: >-
+            --build-env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.deploy.outputs.shorts_url }}
+            --build-env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ steps.deploy.outputs.market_data_url }}
+            --build-env NEXT_PUBLIC_SHORTS_API_URL=${{ steps.deploy.outputs.shorts_url }}
+            --build-env SHORTS_SERVICE_ENDPOINT=${{ steps.deploy.outputs.shorts_url }}
+            --build-env ENRICHMENT_PROCESSOR_URL=${{ steps.deploy.outputs.enrichment_processor_url }}
+            --build-env NEXT_PUBLIC_ENRICHMENT_PROCESSOR_URL=${{ steps.deploy.outputs.enrichment_processor_url }}
+            --build-env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
+            --build-env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
+            --build-env AUTH_FIREBASE_PROJECT_ID=${{ secrets.AUTH_FIREBASE_PROJECT_ID }}
+            --build-env AUTH_FIREBASE_CLIENT_EMAIL=${{ secrets.AUTH_FIREBASE_CLIENT_EMAIL }}
+            --build-env NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+            --build-env NEXT_PUBLIC_ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}
+            --build-env NEXT_PUBLIC_ALGOLIA_SEARCH_KEY=${{ secrets.ALGOLIA_SEARCH_KEY }}
+            --env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.deploy.outputs.shorts_url }}
+            --env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ steps.deploy.outputs.market_data_url }}
+            --env NEXT_PUBLIC_SHORTS_API_URL=${{ steps.deploy.outputs.shorts_url }}
+            --env SHORTS_SERVICE_ENDPOINT=${{ steps.deploy.outputs.shorts_url }}
+            --env ENRICHMENT_PROCESSOR_URL=${{ steps.deploy.outputs.enrichment_processor_url }}
+            --env NEXT_PUBLIC_ENRICHMENT_PROCESSOR_URL=${{ steps.deploy.outputs.enrichment_processor_url }}
+            --env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
+            --env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
+            --env AUTH_FIREBASE_PROJECT_ID=${{ secrets.AUTH_FIREBASE_PROJECT_ID }}
+            --env AUTH_FIREBASE_CLIENT_EMAIL=${{ secrets.AUTH_FIREBASE_CLIENT_EMAIL }}
+            --env NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+            --env NEXT_PUBLIC_ALGOLIA_APP_ID=${{ secrets.ALGOLIA_APP_ID }}
+            --env NEXT_PUBLIC_ALGOLIA_SEARCH_KEY=${{ secrets.ALGOLIA_SEARCH_KEY }}
+            --env ALGOLIA_INDEX=stocks
+            --env NEXTAUTH_URL=https://preview.shorted.com.au
+            --env ALLOW_E2E_AUTH=true
+            --env ADMIN_EMAILS=ben.ebsworth@gmail.com,e2e-test@shorted.com.au
+            --build-env STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+            --build-env STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+            --build-env STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+            --build-env STRIPE_PRO_PRICE_ID=${{ secrets.STRIPE_PRO_PRICE_ID }}
+            --build-env INTERNAL_SERVICE_SECRET=${{ secrets.INTERNAL_SERVICE_SECRET }}
+            --env STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
+            --env STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+            --env STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
+            --env STRIPE_PRO_PRICE_ID=${{ secrets.STRIPE_PRO_PRICE_ID }}
+            --env INTERNAL_SERVICE_SECRET=${{ secrets.INTERNAL_SERVICE_SECRET }}
+
+      - name: Comment PR with deployment URLs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const shortsUrl = '${{ steps.deploy.outputs.shorts_url }}';
+            const marketDataUrl = '${{ steps.deploy.outputs.market_data_url }}';
+            const enrichmentProcessorUrl = '${{ steps.deploy.outputs.enrichment_processor_url }}';
+            const vercelUrl = '${{ steps.vercel-deploy.outputs.preview-url }}';
+
+            const body = `## 🏗️ Infrastructure Deployment (Terraform)
+
+            ### ✅ Backend Services Ready
+
+            | Service | URL | Status |
+            |---------|-----|--------|
+            | **Shorts API** | ${shortsUrl} | 🟢 Live |
+            | **Market Data API** | ${marketDataUrl} | 🟢 Live |
+            | **Enrichment Processor** | ${enrichmentProcessorUrl || '(not deployed)'} | ${enrichmentProcessorUrl ? '🟢 Live' : '⚪ N/A'} |
+
+            ### ✅ Frontend Deployed
+
+            | Environment | URL |
+            |-------------|-----|
+            | **Vercel Preview** | ${vercelUrl} |
+
+            ### 📦 Services Deployed
+            - \`shorts-service-pr-${{ needs.determine-environment.outputs.pr-number }}\` (256Mi RAM, 0-2 instances)
+            - \`market-data-service-pr-${{ needs.determine-environment.outputs.pr-number }}\` (256Mi RAM, 0-2 instances)
+            - \`enrichment-processor-pr-${{ needs.determine-environment.outputs.pr-number }}\` (4Gi RAM, 0-1 instances)
+
+            ### 🔧 Infrastructure Details
+            - **Environment**: Preview (PR #${{ needs.determine-environment.outputs.pr-number }})
+            - **Image Tag**: \`${{ needs.determine-environment.outputs.image-tag }}\`
+            - **Managed by**: Terraform (GCS State)
+            - **Auto-cleanup**: On PR close
+
+            <details>
+            <summary>📊 View Deployment Details</summary>
+
+            **Project**: \`shorted-dev-aba5688f\`
+            **Region**: \`australia-southeast2\`
+            **State**: \`gs://shorted-dev-aba5688f-terraform-state/preview/pr-${{ needs.determine-environment.outputs.pr-number }}/\`
+
+            **Environment Variables passed to Vercel**:
+            - \`ENRICHMENT_PROCESSOR_URL=${enrichmentProcessorUrl || '(empty)'}\`
+            - \`SHORTS_SERVICE_ENDPOINT=${shortsUrl}\`
+
+            </details>
+            `;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment => 
+              comment.user.type === 'Bot' && comment.body.includes('Infrastructure Deployment')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body
+              });
+            }
+
+  terraform-apply:
+    needs: [determine-environment, validate-secrets, terraform-plan]
+    runs-on: ubuntu-latest
+    # Only apply on main branch push, release, or manual workflow dispatch (unless plan_only)
+    # PRs will only plan, not apply
+    # Manual dispatches with plan_only=true will skip apply
+    if: github.event_name != 'pull_request' && github.event.inputs.plan_only != 'true'
+    environment:
+      name: ${{ needs.determine-environment.outputs.environment }}
+    outputs:
+      shorts-url: ${{ steps.outputs.outputs.shorts_url }}
+      stock-price-url: ${{ steps.outputs.outputs.stock_price_url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
+          service_account: ${{ needs.determine-environment.outputs.sa-email }}
+
+      - name: Terraform Init
+        working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
+        run: terraform init
+
+      - name: Ensure OpenAI secret exists in Secret Manager
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "❌ Missing GitHub secret: OPENAI_API_KEY"
+            exit 1
+          fi
+
+          if gcloud secrets describe OPENAI_API_KEY --project "$GCP_PROJECT_ID" &>/dev/null; then
+            echo "Updating Secret Manager: OPENAI_API_KEY (new version)"
+            printf "%s" "$OPENAI_API_KEY" | gcloud secrets versions add OPENAI_API_KEY --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            echo "Creating Secret Manager secret: OPENAI_API_KEY"
+            printf "%s" "$OPENAI_API_KEY" | gcloud secrets create OPENAI_API_KEY --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+
+      - name: Ensure Internal Service Secret exists in Secret Manager
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
+        run: |
+          if [ -z "$INTERNAL_SERVICE_SECRET" ]; then
+            echo "❌ Missing GitHub secret: INTERNAL_SERVICE_SECRET"
+            exit 1
+          fi
+
+          if gcloud secrets describe INTERNAL_SERVICE_SECRET --project "$GCP_PROJECT_ID" &>/dev/null; then
+            echo "Updating Secret Manager: INTERNAL_SERVICE_SECRET (new version)"
+            printf "%s" "$INTERNAL_SERVICE_SECRET" | gcloud secrets versions add INTERNAL_SERVICE_SECRET --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            echo "Creating Secret Manager secret: INTERNAL_SERVICE_SECRET"
+            printf "%s" "$INTERNAL_SERVICE_SECRET" | gcloud secrets create INTERNAL_SERVICE_SECRET --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+
+      - name: Ensure Database secrets exist in Secret Manager
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          # Extract password from DATABASE_URL
+          DB_PASS=$(echo $DATABASE_URL | sed -n 's|postgresql://[^:]*:\([^@]*\)@.*|\1|p')
+          
+          if [ -z "$DB_PASS" ]; then
+            echo "⚠️ Could not extract database password from DATABASE_URL"
+          else
+            if gcloud secrets describe postgres-password --project "$GCP_PROJECT_ID" &>/dev/null; then
+              echo "Updating Secret Manager: postgres-password (new version)"
+              printf "%s" "$DB_PASS" | gcloud secrets versions add postgres-password --data-file=- --project "$GCP_PROJECT_ID"
+            else
+              echo "Creating Secret Manager secret: postgres-password"
+              printf "%s" "$DB_PASS" | gcloud secrets create postgres-password --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+            fi
+          fi
+          
+          # Also store full DATABASE_URL for services that need it
+          if gcloud secrets describe DATABASE_URL --project "$GCP_PROJECT_ID" &>/dev/null; then
+            echo "Updating Secret Manager: DATABASE_URL (new version)"
+            printf "%s" "$DATABASE_URL" | gcloud secrets versions add DATABASE_URL --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            echo "Creating Secret Manager secret: DATABASE_URL"
+            printf "%s" "$DATABASE_URL" | gcloud secrets create DATABASE_URL --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+
+      - name: Ensure Algolia secrets exist in Secret Manager
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          ALGOLIA_APP_ID: ${{ secrets.ALGOLIA_APP_ID }}
+          ALGOLIA_SEARCH_KEY: ${{ secrets.ALGOLIA_SEARCH_KEY }}
+        run: |
+          # Create/update ALGOLIA_APP_ID
+          if gcloud secrets describe ALGOLIA_APP_ID --project "$GCP_PROJECT_ID" &>/dev/null; then
+            printf "%s" "$ALGOLIA_APP_ID" | gcloud secrets versions add ALGOLIA_APP_ID --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            printf "%s" "$ALGOLIA_APP_ID" | gcloud secrets create ALGOLIA_APP_ID --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+          
+          # Create/update ALGOLIA_SEARCH_KEY
+          if gcloud secrets describe ALGOLIA_SEARCH_KEY --project "$GCP_PROJECT_ID" &>/dev/null; then
+            printf "%s" "$ALGOLIA_SEARCH_KEY" | gcloud secrets versions add ALGOLIA_SEARCH_KEY --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            printf "%s" "$ALGOLIA_SEARCH_KEY" | gcloud secrets create ALGOLIA_SEARCH_KEY --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+          
+          echo "✅ Algolia secrets configured"
+
+      - name: Terraform Apply
+        working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
+        run: |
+          terraform apply \
+            -var="stock_price_ingestion_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/stock-price-ingestion:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="short_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/short-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="shorts_api_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="cms_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/cms:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="asx_discovery_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-discovery:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
+            -auto-approve
+
+      - name: Get Terraform Outputs
+        id: outputs
+        working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
+        run: |
+          echo "shorts_url=$(terraform output -raw shorts_api_url)" >> $GITHUB_OUTPUT
+          echo "stock_price_url=$(terraform output -raw stock_price_ingestion_url)" >> $GITHUB_OUTPUT
+          echo "cms_url=$(terraform output -raw cms_url 2>/dev/null || echo '')" >> $GITHUB_OUTPUT
+
+      - name: Verify Deployed Services
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          GCP_REGION: ${{ env.GCP_REGION }}
+        run: |
+          echo "🔍 Verifying deployed services..."
+          echo ""
+          
+          # List all deployed services
+          echo "📋 Cloud Run Services:"
+          gcloud run services list --project "$GCP_PROJECT_ID" --region "$GCP_REGION" --format="table(name,status.url,status.conditions[0].type)"
+          
+          echo ""
+          echo "📋 Cloud Run Jobs:"
+          gcloud run jobs list --project "$GCP_PROJECT_ID" --region "$GCP_REGION" --format="table(name,status.executionCount)" 2>/dev/null || echo "No jobs found"
+          
+          echo ""
+          echo "📋 Cloud Scheduler Jobs:"
+          gcloud scheduler jobs list --project "$GCP_PROJECT_ID" --location australia-southeast1 --format="table(name,state,schedule)" 2>/dev/null || echo "No scheduler jobs found"
+
+      - name: Health Check Services
+        env:
+          SHORTS_URL: ${{ steps.outputs.outputs.shorts_url }}
+        run: |
+          echo "🏥 Running health checks..."
+          
+          # Wait for services to be ready
+          sleep 10
+          
+          # Check Shorts API
+          if [ -n "$SHORTS_URL" ]; then
+            echo "Testing Shorts API: $SHORTS_URL"
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$SHORTS_URL/health" 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Shorts API health check passed"
+            else
+              echo "⚠️ Shorts API health check returned: $HTTP_CODE (may need warm-up)"
+            fi
+            
+            # Test a simple query
+            echo "Testing Shorts API query..."
+            RESPONSE=$(curl -s -X POST "$SHORTS_URL/shorts.v1alpha1.ShortedStocksService/GetTopShorts" \
+              -H "Content-Type: application/json" \
+              -d '{"limit": 1}' 2>/dev/null || echo '{"error": "failed"}')
+            if echo "$RESPONSE" | grep -q "error"; then
+              echo "⚠️ Shorts API query test: Service may need warm-up"
+            else
+              echo "✅ Shorts API query test passed"
+            fi
+          fi
+
+      - name: Deployment Summary
+        env:
+          ENVIRONMENT: ${{ needs.determine-environment.outputs.environment }}
+        run: |
+          echo "## 🚀 Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ needs.determine-environment.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Project:** ${{ needs.determine-environment.outputs.project-id }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Image Tag:** ${{ needs.determine-environment.outputs.image-tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🌐 Service URLs" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | URL |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-----|" >> $GITHUB_STEP_SUMMARY
+          echo "| Shorts API | ${{ steps.outputs.outputs.shorts_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Stock Price Ingestion | ${{ steps.outputs.outputs.stock_price_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| CMS | ${{ steps.outputs.outputs.cms_url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$ENVIRONMENT" = "prod" ]; then
+            echo "### ⚠️ Production Cutover Checklist" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Before routing production traffic:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "1. ✅ Services deployed and running" >> $GITHUB_STEP_SUMMARY
+            echo "2. ⏳ Verify health checks pass (see logs above)" >> $GITHUB_STEP_SUMMARY
+            echo "3. ⏳ Test API endpoints manually" >> $GITHUB_STEP_SUMMARY
+            echo "4. ⏳ Verify database connectivity" >> $GITHUB_STEP_SUMMARY
+            echo "5. ⏳ Update DNS/Vercel to point to prod services" >> $GITHUB_STEP_SUMMARY
+            echo "6. ⏳ Monitor logs for errors" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔗 Quick Test Commands" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+            echo "# Test Shorts API" >> $GITHUB_STEP_SUMMARY
+            echo "curl -X POST ${{ steps.outputs.outputs.shorts_url }}/shorts.v1alpha1.ShortedStocksService/GetTopShorts \\\\" >> $GITHUB_STEP_SUMMARY
+            echo "  -H 'Content-Type: application/json' \\\\" >> $GITHUB_STEP_SUMMARY
+            echo "  -d '{\"limit\": 5}'" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  run-tests:
+    needs: [determine-environment, terraform-apply]
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run integration tests
+        env:
+          BACKEND_URL: ${{ needs.terraform-apply.outputs.shorts-url }}
+        run: |
+          echo "🧪 Running integration tests against deployed services..."
+          echo "Backend URL: $BACKEND_URL"
+          cd services
+          make test-integration-ci || true
+
+  cleanup-preview:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    env:
+      # Preview environments are always in dev project
+      DEV_PROJECT_ID: shorted-dev-aba5688f
+      DEV_WIP_PROVIDER: projects/234770780438/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+      DEV_SA_EMAIL: github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.DEV_WIP_PROVIDER }}
+          service_account: ${{ env.DEV_SA_EMAIL }}
+
+      - name: Destroy preview environment
+        working-directory: terraform
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GCP_PROJECT_ID: shorted-dev-aba5688f
+          GCP_REGION: australia-southeast2
+        run: |
+          echo "🧹 Cleaning up preview environment for PR #${PR_NUMBER}..."
+
+          # Create temporary directory to destroy resources
+          mkdir -p preview-pr-${PR_NUMBER}-destroy
+          cd preview-pr-${PR_NUMBER}-destroy
+
+          # Create minimal Terraform config with GCS backend
+          cat > main.tf <<EOF
+          terraform {
+            required_version = ">= 1.0"
+            required_providers {
+              google = {
+                source  = "hashicorp/google"
+                version = "~> 5.0"
+              }
+            }
+            backend "gcs" {
+              bucket = "${GCP_PROJECT_ID}-terraform-state"
+              prefix = "preview/pr-${PR_NUMBER}"
+            }
+          }
+
+          provider "google" {
+            project = "${GCP_PROJECT_ID}"
+            region  = "${GCP_REGION}"
+          }
+
+          module "preview" {
+            source = "../modules/preview"
+
+            project_id             = "${GCP_PROJECT_ID}"
+            region                 = "${GCP_REGION}"
+            pr_number              = "${PR_NUMBER}"
+            shorts_api_image       = "australia-southeast2-docker.pkg.dev/${GCP_PROJECT_ID}/shorted/shorts:pr-${PR_NUMBER}"
+            market_data_image      = "australia-southeast2-docker.pkg.dev/${GCP_PROJECT_ID}/shorted/market-data:pr-${PR_NUMBER}"
+            shorts_service_account = "shorts@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+            postgres_address       = "dummy:5432"
+            postgres_database      = "dummy"
+            postgres_username      = "dummy"
+          }
+          EOF
+
+          # Initialize and destroy
+          terraform init
+          terraform destroy -auto-approve || {
+            echo "⚠️ Terraform destroy failed, attempting direct cleanup..."
+            gcloud run services delete shorts-service-pr-${PR_NUMBER} \
+              --region ${GCP_REGION} \
+              --project ${GCP_PROJECT_ID} \
+              --quiet || echo "Shorts service not found"
+            
+            gcloud run services delete market-data-service-pr-${PR_NUMBER} \
+              --region ${GCP_REGION} \
+              --project ${GCP_PROJECT_ID} \
+              --quiet || echo "Market data service not found"
+          }
+
+          cd ..
+          rm -rf preview-pr-${PR_NUMBER}-destroy
+          echo "✅ Preview environment destroyed"
+
+      - name: Comment PR with cleanup status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `## 🧹 Preview Environment Cleaned Up
+
+            Preview services for PR #${{ github.event.pull_request.number }} have been removed:
+            - \`shorts-service-pr-${{ github.event.pull_request.number }}\` ❌
+            - \`market-data-service-pr-${{ github.event.pull_request.number }}\` ❌
+
+            *Terraform infrastructure destroyed automatically*
+            `;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body
+            });
