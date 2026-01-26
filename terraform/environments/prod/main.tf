@@ -95,21 +95,7 @@ import {
   id = "projects/rosy-clover-477102-t5/serviceAccounts/enrichment-processor@rosy-clover-477102-t5.iam.gserviceaccount.com"
 }
 
-# Import market-discovery-sync service accounts
-import {
-  to = module.market_discovery_sync.google_service_account.asx_discovery
-  id = "projects/rosy-clover-477102-t5/serviceAccounts/asx-discovery@rosy-clover-477102-t5.iam.gserviceaccount.com"
-}
-
-import {
-  to = module.market_discovery_sync.google_service_account.market_data_sync
-  id = "projects/rosy-clover-477102-t5/serviceAccounts/market-data-sync@rosy-clover-477102-t5.iam.gserviceaccount.com"
-}
-
-import {
-  to = module.market_discovery_sync.google_service_account.scheduler
-  id = "projects/rosy-clover-477102-t5/serviceAccounts/market-jobs-scheduler@rosy-clover-477102-t5.iam.gserviceaccount.com"
-}
+# Note: market_discovery_sync service accounts will be created (don't exist yet in prod)
 
 # Artifact Registry for Docker images
 resource "google_artifact_registry_repository" "shorted" {
