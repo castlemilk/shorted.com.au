@@ -47,9 +47,10 @@ resource "google_project_service" "required_apis" {
 }
 
 # Wait for APIs to fully propagate before creating resources
+# Artifact Registry API can take up to 60s to fully propagate in GCP
 resource "time_sleep" "wait_for_apis" {
   depends_on      = [google_project_service.required_apis]
-  create_duration = "30s"
+  create_duration = "60s"
 }
 
 # Artifact Registry for Docker images
