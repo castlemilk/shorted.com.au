@@ -11,6 +11,10 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 5.0"
     }
+    time = {
+      source  = "hashicorp/time"
+      version = "~> 0.9"
+    }
   }
 
   #   backend "gcs" {
@@ -42,6 +46,12 @@ resource "google_project_service" "required_apis" {
   disable_on_destroy = false
 }
 
+# Wait for APIs to fully propagate before creating resources
+resource "time_sleep" "wait_for_apis" {
+  depends_on      = [google_project_service.required_apis]
+  create_duration = "30s"
+}
+
 # Artifact Registry for Docker images
 resource "google_artifact_registry_repository" "shorted" {
   location      = var.region
@@ -55,7 +65,7 @@ resource "google_artifact_registry_repository" "shorted" {
     managed_by  = "terraform"
   }
 
-  depends_on = [google_project_service.required_apis]
+  depends_on = [time_sleep.wait_for_apis]
 }
 
 # Stock Price Ingestion Service
