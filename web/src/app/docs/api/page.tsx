@@ -3,7 +3,10 @@ import { parseOpenAPISpec } from '~/lib/openapi/parser';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '~/@/components/ui/card';
 import { ArrowRight, Book, Terminal, Shield, Lock } from 'lucide-react';
-import { TokenGenerator } from '~/@/components/docs/token-generator';
+import { ApiAccessSection } from '~/@/components/docs/api-access-section';
+
+// Pro subscription price ID - set in environment or use placeholder
+const PRO_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID ?? "";
 
 export default async function ApiDocsIndex() {
   const spec = await parseOpenAPISpec();
@@ -105,7 +108,7 @@ export default async function ApiDocsIndex() {
           </div>
 
           <div>
-            <TokenGenerator />
+            <ApiAccessSection priceId={PRO_PRICE_ID} />
           </div>
         </div>
       </section>

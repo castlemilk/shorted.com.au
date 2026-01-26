@@ -3,6 +3,7 @@ package shorts
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"connectrpc.com/connect"
@@ -87,14 +88,23 @@ func NewAuthInterceptor(tokenService *TokenService) connect.UnaryInterceptorFunc
 			// Only log procedure info at debug level
 			log.Debugf("Procedure: %s, Visibility: %v, RequiredRole: %s", procedure, visibility, requiredRole)
 
-			// 1. Check for internal service authentication first (from server actions)
-			// This allows minting tokens without an existing Authorization header
-			internalSecret := req.Header().Get("X-Internal-Secret")
-			// TODO: Use a proper secret from config
-			if internalSecret == "dev-internal-secret" {
-				userID := req.Header().Get("X-User-Id")
-				userEmail := req.Header().Get("X-User-Email")
-				userRolesHeader := req.Header().Get("X-User-Roles")
+		// 1. Check for internal service authentication first (from server actions/webhooks)
+		// This allows service-to-service calls without user auth tokens
+		// Use lowercase header names for compatibility with HTTP/2 and gRPC-web
+		internalSecret := req.Header().Get("x-internal-secret")
+		expectedSecret := os.Getenv("INTERNAL_SERVICE_SECRET")
+		if expectedSecret == "" {
+			expectedSecret = "dev-internal-secret" // Default for local development
+		}
+		
+		// Debug: log received headers for internal auth troubleshooting
+		log.Infof("Internal auth check: secret present=%v, secret matches=%v, expected=%q, received=%q",
+			internalSecret != "", internalSecret == expectedSecret, expectedSecret, internalSecret)
+		
+		if internalSecret != "" && internalSecret == expectedSecret {
+				userID := req.Header().Get("x-user-id")
+				userEmail := req.Header().Get("x-user-email")
+				userRolesHeader := req.Header().Get("x-user-roles")
 				
 				if userID != "" {
 					// Start with api-user role by default

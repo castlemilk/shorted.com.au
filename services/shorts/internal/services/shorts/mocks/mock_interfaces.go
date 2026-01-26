@@ -71,6 +71,36 @@ func (mr *MockShortsStoreMockRecorder) CreateEnrichmentJob(stockCode, force any)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEnrichmentJob", reflect.TypeOf((*MockShortsStore)(nil).CreateEnrichmentJob), stockCode, force)
 }
 
+// GetAPISubscription mocks base method.
+func (m *MockShortsStore) GetAPISubscription(userID string) (*shorts.APISubscription, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAPISubscription", userID)
+	ret0, _ := ret[0].(*shorts.APISubscription)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAPISubscription indicates an expected call of GetAPISubscription.
+func (mr *MockShortsStoreMockRecorder) GetAPISubscription(userID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAPISubscription", reflect.TypeOf((*MockShortsStore)(nil).GetAPISubscription), userID)
+}
+
+// GetAPISubscriptionByCustomer mocks base method.
+func (m *MockShortsStore) GetAPISubscriptionByCustomer(stripeCustomerID string) (*shorts.APISubscription, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetAPISubscriptionByCustomer", stripeCustomerID)
+	ret0, _ := ret[0].(*shorts.APISubscription)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetAPISubscriptionByCustomer indicates an expected call of GetAPISubscriptionByCustomer.
+func (mr *MockShortsStoreMockRecorder) GetAPISubscriptionByCustomer(stripeCustomerID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAPISubscriptionByCustomer", reflect.TypeOf((*MockShortsStore)(nil).GetAPISubscriptionByCustomer), stripeCustomerID)
+}
+
 // GetActiveEnrichmentJobByStockCode mocks base method.
 func (m *MockShortsStore) GetActiveEnrichmentJobByStockCode(stockCode string) (*shortsv1alpha1.EnrichmentJob, error) {
 	m.ctrl.T.Helper()
@@ -342,6 +372,20 @@ func (mr *MockShortsStoreMockRecorder) StockExists(stockCode any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StockExists", reflect.TypeOf((*MockShortsStore)(nil).StockExists), stockCode)
 }
 
+// UpdateAPISubscriptionByCustomer mocks base method.
+func (m *MockShortsStore) UpdateAPISubscriptionByCustomer(stripeCustomerID string, update *shorts.APISubscriptionUpdate) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateAPISubscriptionByCustomer", stripeCustomerID, update)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpdateAPISubscriptionByCustomer indicates an expected call of UpdateAPISubscriptionByCustomer.
+func (mr *MockShortsStoreMockRecorder) UpdateAPISubscriptionByCustomer(stripeCustomerID, update any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAPISubscriptionByCustomer", reflect.TypeOf((*MockShortsStore)(nil).UpdateAPISubscriptionByCustomer), stripeCustomerID, update)
+}
+
 // UpdateEnrichmentJobStatus mocks base method.
 func (m *MockShortsStore) UpdateEnrichmentJobStatus(jobID string, status shortsv1alpha1.EnrichmentJobStatus, enrichmentID, errorMsg *string) error {
 	m.ctrl.T.Helper()
@@ -396,6 +440,20 @@ func (m *MockShortsStore) UpdateLogoURLsWithSVG(stockCode, logoGCSURL, logoIconG
 func (mr *MockShortsStoreMockRecorder) UpdateLogoURLsWithSVG(stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLogoURLsWithSVG", reflect.TypeOf((*MockShortsStore)(nil).UpdateLogoURLsWithSVG), stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat)
+}
+
+// UpsertAPISubscription mocks base method.
+func (m *MockShortsStore) UpsertAPISubscription(sub *shorts.APISubscription) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpsertAPISubscription", sub)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UpsertAPISubscription indicates an expected call of UpsertAPISubscription.
+func (mr *MockShortsStoreMockRecorder) UpsertAPISubscription(sub any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertAPISubscription", reflect.TypeOf((*MockShortsStore)(nil).UpsertAPISubscription), sub)
 }
 
 // MockCache is a mock of Cache interface.

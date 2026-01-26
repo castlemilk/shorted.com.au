@@ -336,6 +336,23 @@ service ShortedStocksService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
     option (shortedapi.options.v1.required_role) = "admin";
   }
+
+  // ==================== Subscription Management ====================
+
+  // Internal API for Stripe webhook: handle checkout completion (server-to-server only)
+  rpc HandleStripeCheckoutCompleted (HandleStripeCheckoutCompletedRequest) returns (HandleStripeCheckoutCompletedResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Internal API for Stripe webhook: handle subscription updates (server-to-server only)
+  rpc HandleStripeSubscriptionUpdated (HandleStripeSubscriptionUpdatedRequest) returns (HandleStripeSubscriptionUpdatedResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Get the current user's subscription status. Requires authentication.
+  rpc GetMySubscription (GetMySubscriptionRequest) returns (GetMySubscriptionResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
 }
 
 message MintTokenRequest {
@@ -657,4 +674,70 @@ message ListEnrichmentJobsRequest {
 message ListEnrichmentJobsResponse {
   repeated EnrichmentJob jobs = 1;
   int32 total_count = 2;
+}
+
+// ==================== Subscription Messages ====================
+
+// Subscription status enum
+enum SubscriptionStatus {
+  SUBSCRIPTION_STATUS_UNSPECIFIED = 0;
+  SUBSCRIPTION_STATUS_ACTIVE = 1;
+  SUBSCRIPTION_STATUS_TRIALING = 2;
+  SUBSCRIPTION_STATUS_PAST_DUE = 3;
+  SUBSCRIPTION_STATUS_CANCELED = 4;
+  SUBSCRIPTION_STATUS_INACTIVE = 5;
+}
+
+// Subscription tier enum
+enum SubscriptionTier {
+  SUBSCRIPTION_TIER_UNSPECIFIED = 0;
+  SUBSCRIPTION_TIER_FREE = 1;
+  SUBSCRIPTION_TIER_PRO = 2;
+  SUBSCRIPTION_TIER_ENTERPRISE = 3;
+}
+
+// Request for HandleStripeCheckoutCompleted RPC (called by webhook)
+message HandleStripeCheckoutCompletedRequest {
+  string user_id = 1;                    // User ID from session metadata
+  string user_email = 2;                 // User email from session metadata
+  string stripe_customer_id = 3;         // Stripe customer ID
+  string stripe_subscription_id = 4;     // Stripe subscription ID
+  SubscriptionTier tier = 5;             // Subscription tier (defaults to PRO)
+}
+
+// Response for HandleStripeCheckoutCompleted RPC
+message HandleStripeCheckoutCompletedResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Request for HandleStripeSubscriptionUpdated RPC (called by webhook)
+message HandleStripeSubscriptionUpdatedRequest {
+  string stripe_customer_id = 1;         // Stripe customer ID (used for lookup)
+  string stripe_subscription_id = 2;     // Stripe subscription ID
+  SubscriptionStatus status = 3;         // New subscription status
+  SubscriptionTier tier = 4;             // Subscription tier
+  google.protobuf.Timestamp current_period_start = 5;
+  google.protobuf.Timestamp current_period_end = 6;
+  bool cancel_at_period_end = 7;
+  bool is_deleted = 8;                   // True if subscription was deleted/canceled permanently
+}
+
+// Response for HandleStripeSubscriptionUpdated RPC
+message HandleStripeSubscriptionUpdatedResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Request for GetMySubscription RPC (empty, uses auth context)
+message GetMySubscriptionRequest {}
+
+// Response for GetMySubscription RPC
+message GetMySubscriptionResponse {
+  bool has_subscription = 1;             // Whether user has any subscription record
+  SubscriptionStatus status = 2;         // Current subscription status
+  SubscriptionTier tier = 3;             // Current subscription tier
+  google.protobuf.Timestamp current_period_end = 4;
+  bool cancel_at_period_end = 5;
+  string stripe_customer_id = 6;         // For portal access
 }

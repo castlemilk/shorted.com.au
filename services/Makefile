@@ -8,14 +8,14 @@ SHORTS_DATABASE_URL := postgresql://admin:password@postgres:5432/shorts
 
 # Default database URL for local development
 # Note: Local docker-compose (in ../analysis/sql) uses admin/password on port 5438
-DATABASE_URL ?= postgresql://admin:password@localhost:5438/shorts
+DATABASE_URL ?= postgresql://admin:password@localhost:5438/shorts?sslmode=disable
 
 # Algolia configuration for search
 ALGOLIA_APP_ID ?= 1BWAPWSTDD
 ALGOLIA_SEARCH_KEY ?= 0e5adba5fd8aa4b3848255a39c1287ef
 ALGOLIA_INDEX ?= stocks
 
-MIGRATION_PATH := file://migrations
+MIGRATION_PATH := migrations
 
 # Database migration commands
 .PHONY: migrate-install migrate-up migrate-down migrate-create migrate-force migrate-version migrate-status

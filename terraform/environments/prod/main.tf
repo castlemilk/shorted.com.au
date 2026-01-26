@@ -100,7 +100,7 @@ module "shorts_api" {
   region            = var.region
   environment       = "production"
   image_url         = var.shorts_api_image
-  min_instances     = 2 # Always-on with redundancy for production
+  min_instances     = 0 # Scale to zero when idle
   max_instances     = 100
   postgres_address  = var.postgres_address
   postgres_database = var.postgres_database
