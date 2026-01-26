@@ -1258,6 +1258,8 @@ async def connect_to_database():
         "database": parsed.path.lstrip("/"),
         "user": parsed.username,
         "password": parsed.password,
+        # Disable prepared statements for pgbouncer transaction pooler compatibility
+        "statement_cache_size": 0,
     }
 
     logger.info(
