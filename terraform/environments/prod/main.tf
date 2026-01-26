@@ -216,6 +216,7 @@ module "market_discovery_sync" {
 
   project_id             = var.project_id
   region                 = var.region
+  scheduler_region       = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment            = "production"
   asx_discovery_image    = var.asx_discovery_image
   market_data_sync_image = var.market_data_sync_image

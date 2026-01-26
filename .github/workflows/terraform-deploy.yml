@@ -782,12 +782,22 @@ jobs:
           if [ -z "$DB_PASS" ]; then
             echo "⚠️ Could not extract database password from DATABASE_URL"
           else
+            # Create/update postgres-password (legacy name)
             if gcloud secrets describe postgres-password --project "$GCP_PROJECT_ID" &>/dev/null; then
               echo "Updating Secret Manager: postgres-password (new version)"
               printf "%s" "$DB_PASS" | gcloud secrets versions add postgres-password --data-file=- --project "$GCP_PROJECT_ID"
             else
               echo "Creating Secret Manager secret: postgres-password"
               printf "%s" "$DB_PASS" | gcloud secrets create postgres-password --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+            fi
+            
+            # Create/update APP_STORE_POSTGRES_PASSWORD (used by shorts-api)
+            if gcloud secrets describe APP_STORE_POSTGRES_PASSWORD --project "$GCP_PROJECT_ID" &>/dev/null; then
+              echo "Updating Secret Manager: APP_STORE_POSTGRES_PASSWORD (new version)"
+              printf "%s" "$DB_PASS" | gcloud secrets versions add APP_STORE_POSTGRES_PASSWORD --data-file=- --project "$GCP_PROJECT_ID"
+            else
+              echo "Creating Secret Manager secret: APP_STORE_POSTGRES_PASSWORD"
+              printf "%s" "$DB_PASS" | gcloud secrets create APP_STORE_POSTGRES_PASSWORD --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
             fi
           fi
           
@@ -821,6 +831,24 @@ jobs:
           fi
           
           echo "✅ Algolia secrets configured"
+
+      - name: Ensure Alpha Vantage API key exists in Secret Manager
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
+        run: |
+          if [ -z "$ALPHA_VANTAGE_API_KEY" ]; then
+            echo "⚠️ ALPHA_VANTAGE_API_KEY not set, creating placeholder"
+            ALPHA_VANTAGE_API_KEY="placeholder-set-in-secret-manager"
+          fi
+          
+          if gcloud secrets describe ALPHA_VANTAGE_API_KEY --project "$GCP_PROJECT_ID" &>/dev/null; then
+            printf "%s" "$ALPHA_VANTAGE_API_KEY" | gcloud secrets versions add ALPHA_VANTAGE_API_KEY --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            printf "%s" "$ALPHA_VANTAGE_API_KEY" | gcloud secrets create ALPHA_VANTAGE_API_KEY --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+          
+          echo "✅ Alpha Vantage API key configured"
 
       - name: Terraform Apply
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
