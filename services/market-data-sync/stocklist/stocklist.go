@@ -94,10 +94,7 @@ func (s *Service) syncCompanyMetadata(ctx context.Context, companies []CompanyDa
 		ON CONFLICT (stock_code) DO UPDATE SET
 			company_name = COALESCE(NULLIF(EXCLUDED.company_name, ''), "company-metadata".company_name),
 			industry = COALESCE(NULLIF(EXCLUDED.industry, ''), "company-metadata".industry),
-			market_cap = CASE 
-				WHEN EXCLUDED.market_cap > 0 THEN EXCLUDED.market_cap 
-				ELSE "company-metadata".market_cap 
-			END,
+			market_cap = COALESCE(NULLIF(EXCLUDED.market_cap, ''), "company-metadata".market_cap),
 			updated_at = CURRENT_TIMESTAMP
 	`
 
@@ -106,7 +103,13 @@ func (s *Service) syncCompanyMetadata(ctx context.Context, companies []CompanyDa
 		// Clean company name - remove common suffixes and title case
 		cleanName := cleanCompanyName(c.CompanyName)
 
-		_, err := s.db.Exec(ctx, query, c.Code, cleanName, c.Industry, c.MarketCap)
+		// Convert market cap to string since the column is text type
+		marketCapStr := ""
+		if c.MarketCap > 0 {
+			marketCapStr = strconv.FormatInt(c.MarketCap, 10)
+		}
+
+		_, err := s.db.Exec(ctx, query, c.Code, cleanName, c.Industry, marketCapStr)
 		if err != nil {
 			log.Printf("⚠️ Warning: failed to upsert company %s: %v", c.Code, err)
 			continue
