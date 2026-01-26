@@ -53,6 +53,12 @@ resource "time_sleep" "wait_for_apis" {
   create_duration = "60s"
 }
 
+# Import existing Artifact Registry repository into Terraform state (if it exists)
+import {
+  to = google_artifact_registry_repository.shorted
+  id = "projects/shorted-dev-aba5688f/locations/australia-southeast2/repositories/shorted"
+}
+
 # Artifact Registry for Docker images
 resource "google_artifact_registry_repository" "shorted" {
   location      = var.region
