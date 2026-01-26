@@ -3,6 +3,8 @@
  * Useful for API calls that may fail transiently
  */
 
+import { ConnectError, Code } from "@connectrpc/connect";
+
 export interface RetryOptions {
   /** Maximum number of retry attempts (default: 3) */
   maxRetries?: number;
@@ -12,8 +14,72 @@ export interface RetryOptions {
   maxDelayMs?: number;
   /** Multiplier for exponential backoff (default: 2) */
   backoffMultiplier?: number;
-  /** Whether to retry on specific error types (default: retry on all errors) */
+  /** Whether to retry on specific error types (default: uses shouldRetryConnectError) */
   shouldRetry?: (error: unknown) => boolean;
+}
+
+/**
+ * Determines if an error should trigger a retry.
+ * 
+ * This function is smart about Connect-RPC errors:
+ * - NOT retried: NotFound, InvalidArgument, PermissionDenied, etc. (deterministic failures)
+ * - Retried: Unavailable, DeadlineExceeded, Internal, etc. (transient failures)
+ * - Network errors are always retried
+ * 
+ * @param error - The error to check
+ * @returns true if the error is transient and should be retried
+ */
+export function shouldRetryConnectError(error: unknown): boolean {
+  // Don't retry ConnectError with specific non-transient codes
+  if (error instanceof ConnectError) {
+    const nonRetryableCodes = [
+      Code.NotFound,
+      Code.InvalidArgument,
+      Code.PermissionDenied,
+      Code.Unauthenticated,
+      Code.FailedPrecondition,
+      Code.OutOfRange,
+      Code.Unimplemented,
+    ];
+    
+    if (nonRetryableCodes.includes(error.code)) {
+      return false;
+    }
+    
+    // Retry on transient errors
+    const retryableCodes = [
+      Code.Unavailable,
+      Code.DeadlineExceeded,
+      Code.ResourceExhausted,
+      Code.Aborted,
+      Code.Internal,
+      Code.Unknown,
+    ];
+    
+    return retryableCodes.includes(error.code);
+  }
+  
+  // Retry on network errors (fetch failures, timeouts, etc.)
+  if (error instanceof TypeError && error.message.includes("fetch")) {
+    return true;
+  }
+  
+  // Retry on generic Error with network-related messages
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    if (
+      message.includes("network") ||
+      message.includes("timeout") ||
+      message.includes("econnrefused") ||
+      message.includes("econnreset") ||
+      message.includes("socket")
+    ) {
+      return true;
+    }
+  }
+  
+  // Default: retry unknown errors (conservative approach for cold starts)
+  return true;
 }
 
 const DEFAULT_OPTIONS: Required<Omit<RetryOptions, "shouldRetry">> = {
