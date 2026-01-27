@@ -191,6 +191,19 @@ func (mr *MockGPTClientMockRecorder) EvaluateQuality(ctx, stockCode, data interf
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EvaluateQuality", reflect.TypeOf((*MockGPTClient)(nil).EvaluateQuality), ctx, stockCode, data)
 }
 
+func (m *MockGPTClient) DiscoverWebsite(ctx context.Context, stockCode, companyName, industry string) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DiscoverWebsite", ctx, stockCode, companyName, industry)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (mr *MockGPTClientMockRecorder) DiscoverWebsite(ctx, stockCode, companyName, industry interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DiscoverWebsite", reflect.TypeOf((*MockGPTClient)(nil).DiscoverWebsite), ctx, stockCode, companyName, industry)
+}
+
 // MockFinancialReportCrawler is a mock of FinancialReportCrawler interface
 type MockFinancialReportCrawler struct {
 	ctrl     *gomock.Controller

@@ -1771,6 +1771,12 @@ func (s *postgresStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.E
 	logoSourceUrl := sql.NullString{String: data.LogoSourceUrl, Valid: data.LogoSourceUrl != ""}
 	logoFormat := sql.NullString{String: data.LogoFormat, Valid: data.LogoFormat != ""}
 
+	// Handle discovered website (only update if provided and current website is empty)
+	discoveredWebsite := sql.NullString{String: data.DiscoveredWebsite, Valid: data.DiscoveredWebsite != ""}
+	if discoveredWebsite.Valid {
+		log.Infof("ApplyEnrichment %s: discovered website to apply: %s", stockCode, data.DiscoveredWebsite)
+	}
+
 	query := `
 		UPDATE "company-metadata"
 		SET
@@ -1793,7 +1799,13 @@ func (s *postgresStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.E
 			logo_source_url = COALESCE($14, logo_source_url),
 			logo_format = COALESCE($15, logo_format),
 			-- Also update the legacy gcsUrl field for backward compatibility
-			"gcsUrl" = COALESCE($11, "gcsUrl")
+			"gcsUrl" = COALESCE($11, "gcsUrl"),
+			-- Update website if discovered and current is empty (don't overwrite existing)
+			website = CASE 
+				WHEN (website IS NULL OR website = '') AND $16 IS NOT NULL AND $16 != ''
+				THEN $16 
+				ELSE website 
+			END
 		WHERE stock_code = $1
 	`
 
@@ -1821,6 +1833,7 @@ func (s *postgresStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.E
 		logoSvgGcsUrl,
 		logoSourceUrl,
 		logoFormat,
+		discoveredWebsite,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to apply enrichment: %w", err)

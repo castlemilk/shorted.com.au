@@ -528,6 +528,8 @@ message EnrichmentData {
   string logo_svg_gcs_url = 12;       // Original SVG logo URL (if discovered as SVG)
   string logo_source_url = 13;        // Original URL where the logo was found
   string logo_format = 14;            // Original format of discovered logo (svg, png, etc)
+  // Website discovery (when original metadata lacks website)
+  string discovered_website = 15;     // Website URL discovered during enrichment
 }
 
 // Quality score for enrichment data

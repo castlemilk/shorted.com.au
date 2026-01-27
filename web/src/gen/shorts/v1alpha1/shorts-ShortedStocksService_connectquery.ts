@@ -4,7 +4,7 @@
 // @ts-nocheck
 
 import { MethodKind } from "@bufbuild/protobuf";
-import { EnrichStockRequest, EnrichStockResponse, GetEnrichmentJobStatusRequest, GetEnrichmentJobStatusResponse, GetIndustryTreeMapRequest, GetPendingEnrichmentRequest, GetPendingEnrichmentResponse, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetSyncStatusRequest, GetSyncStatusResponse, GetTopShortsRequest, GetTopShortsResponse, GetTopStocksForEnrichmentRequest, GetTopStocksForEnrichmentResponse, ListEnrichmentJobsRequest, ListEnrichmentJobsResponse, ListPendingEnrichmentsRequest, ListPendingEnrichmentsResponse, MintTokenRequest, MintTokenResponse, ReviewEnrichmentRequest, ReviewEnrichmentResponse, SearchStocksRequest, SearchStocksResponse, SyncKeyMetricsRequest, SyncKeyMetricsResponse } from "./shorts_pb";
+import { EnrichStockRequest, EnrichStockResponse, GetEnrichmentJobStatusRequest, GetEnrichmentJobStatusResponse, GetIndustryTreeMapRequest, GetMySubscriptionRequest, GetMySubscriptionResponse, GetPendingEnrichmentRequest, GetPendingEnrichmentResponse, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetSyncStatusRequest, GetSyncStatusResponse, GetTopShortsRequest, GetTopShortsResponse, GetTopStocksForEnrichmentRequest, GetTopStocksForEnrichmentResponse, HandleStripeCheckoutCompletedRequest, HandleStripeCheckoutCompletedResponse, HandleStripeSubscriptionUpdatedRequest, HandleStripeSubscriptionUpdatedResponse, ListEnrichmentJobsRequest, ListEnrichmentJobsResponse, ListPendingEnrichmentsRequest, ListPendingEnrichmentsResponse, MintTokenRequest, MintTokenResponse, ReviewEnrichmentRequest, ReviewEnrichmentResponse, SearchStocksRequest, SearchStocksResponse, SyncKeyMetricsRequest, SyncKeyMetricsResponse } from "./shorts_pb";
 import { IndustryTreeMap, Stock, StockDetails, TimeSeriesData } from "../../stocks/v1alpha1/stocks_pb";
 
 /**
@@ -259,6 +259,54 @@ export const listEnrichmentJobs = {
   kind: MethodKind.Unary,
   I: ListEnrichmentJobsRequest,
   O: ListEnrichmentJobsResponse,
+  service: {
+    typeName: "shorts.v1alpha1.ShortedStocksService"
+  }
+} as const;
+
+/**
+ * Internal API for Stripe webhook: handle checkout completion (server-to-server only)
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.HandleStripeCheckoutCompleted
+ */
+export const handleStripeCheckoutCompleted = {
+  localName: "handleStripeCheckoutCompleted",
+  name: "HandleStripeCheckoutCompleted",
+  kind: MethodKind.Unary,
+  I: HandleStripeCheckoutCompletedRequest,
+  O: HandleStripeCheckoutCompletedResponse,
+  service: {
+    typeName: "shorts.v1alpha1.ShortedStocksService"
+  }
+} as const;
+
+/**
+ * Internal API for Stripe webhook: handle subscription updates (server-to-server only)
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.HandleStripeSubscriptionUpdated
+ */
+export const handleStripeSubscriptionUpdated = {
+  localName: "handleStripeSubscriptionUpdated",
+  name: "HandleStripeSubscriptionUpdated",
+  kind: MethodKind.Unary,
+  I: HandleStripeSubscriptionUpdatedRequest,
+  O: HandleStripeSubscriptionUpdatedResponse,
+  service: {
+    typeName: "shorts.v1alpha1.ShortedStocksService"
+  }
+} as const;
+
+/**
+ * Get the current user's subscription status. Requires authentication.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetMySubscription
+ */
+export const getMySubscription = {
+  localName: "getMySubscription",
+  name: "GetMySubscription",
+  kind: MethodKind.Unary,
+  I: GetMySubscriptionRequest,
+  O: GetMySubscriptionResponse,
   service: {
     typeName: "shorts.v1alpha1.ShortedStocksService"
   }

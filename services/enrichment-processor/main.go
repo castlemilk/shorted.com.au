@@ -562,8 +562,28 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 	return nil
 }
 
-// runEnrichmentPhases executes the 5 logical phases of enrichment
+// runEnrichmentPhases executes the 6 logical phases of enrichment
 func (p *enrichmentProcessor) runEnrichmentPhases(ctx context.Context, stockCode string, details *stocksv1alpha1.StockDetails) (*shortsv1alpha1.EnrichmentData, *shortsv1alpha1.QualityScore, error) {
+	// Track discovered website for later storage
+	var discoveredWebsite string
+
+	// Phase 0: Website Discovery (if missing)
+	if strings.TrimSpace(details.Website) == "" {
+		p.logger.Infof("Phase 0: Website missing for %s, attempting discovery...", stockCode)
+		website, err := p.gptClient.DiscoverWebsite(ctx, stockCode, details.CompanyName, details.Industry)
+		if err != nil {
+			p.logger.Warnf("Phase 0: Website discovery failed for %s: %v", stockCode, err)
+		} else if website != "" {
+			p.logger.Infof("Phase 0: Discovered website for %s: %s", stockCode, website)
+			details.Website = website
+			discoveredWebsite = website
+		} else {
+			p.logger.Infof("Phase 0: No website found for %s", stockCode)
+		}
+	} else {
+		p.logger.Infof("Phase 0: Skipped for %s (website already exists: %s)", stockCode, details.Website)
+	}
+
 	// Phase 1: Static scraping - scrape company metadata (leadership, about pages, key links)
 	p.logger.Infof("Phase 1: Scraping metadata for %s from %s", stockCode, details.Website)
 	metadata, metadataErr := p.metadataScraper.ScrapeMetadata(ctx, details.Website, details.CompanyName, p.exaClient)
@@ -621,6 +641,12 @@ func (p *enrichmentProcessor) runEnrichmentPhases(ctx context.Context, stockCode
 	// Check quality threshold
 	if quality != nil && quality.OverallScore > 0 && quality.OverallScore < p.qualityThreshold {
 		quality.Warnings = append(quality.Warnings, fmt.Sprintf("overall_score %.2f is below threshold %.2f", quality.OverallScore, p.qualityThreshold))
+	}
+
+	// Store discovered website in enrichment data for ApplyEnrichment to persist
+	if discoveredWebsite != "" {
+		enriched.DiscoveredWebsite = discoveredWebsite
+		p.logger.Infof("Stored discovered website in enrichment data for %s: %s", stockCode, discoveredWebsite)
 	}
 
 	return enriched, quality, nil
