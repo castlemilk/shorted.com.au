@@ -96,7 +96,7 @@ resource "google_cloud_run_v2_service" "shorts_api" {
       }
 
       env {
-        name  = "GCP_PROJECT"
+        name  = "GCP_PROJECT_ID"
         value = var.project_id
       }
 
