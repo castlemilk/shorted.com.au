@@ -163,7 +163,7 @@ module "shorts_api" {
   ]
 }
 
-# Enrichment Processor Job
+# Enrichment Processor Service
 module "enrichment_processor" {
   source = "../../modules/enrichment-processor"
 
@@ -171,6 +171,7 @@ module "enrichment_processor" {
   region            = var.region
   environment       = "production"
   image_url         = var.enrichment_processor_image
+  image_tag         = var.image_tag
   postgres_address  = var.postgres_address
   postgres_database = var.postgres_database
   postgres_username = var.postgres_username

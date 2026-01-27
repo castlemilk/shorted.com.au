@@ -59,7 +59,13 @@ variable "market_data_sync_image" {
 }
 
 variable "enrichment_processor_image" {
-  description = "Docker image URL for enrichment-processor job"
+  description = "Docker image URL for enrichment-processor service"
   type        = string
   default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/enrichment-processor:latest"
+}
+
+variable "image_tag" {
+  description = "Image tag for forcing new Cloud Run revisions"
+  type        = string
+  default     = ""
 }

@@ -887,6 +887,7 @@ jobs:
             -var="asx_discovery_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-discovery:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="image_tag=${{ needs.determine-environment.outputs.image-tag }}" \
             -auto-approve
 
       - name: Get Terraform Outputs

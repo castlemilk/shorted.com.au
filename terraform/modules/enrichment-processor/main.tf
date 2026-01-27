@@ -97,6 +97,11 @@ resource "google_cloud_run_v2_service" "enrichment_processor" {
       }
 
       env {
+        name  = "IMAGE_TAG"
+        value = var.image_tag # Forces new revision when image is rebuilt
+      }
+
+      env {
         name  = "ENRICHMENT_PUBSUB_TOPIC"
         value = local.topic_name
       }
