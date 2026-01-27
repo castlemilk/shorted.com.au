@@ -39,3 +39,9 @@ variable "topic_name_suffix" {
   type        = string
   default     = ""
 }
+
+variable "image_tag" {
+  description = "Image tag for forcing new revisions"
+  type        = string
+  default     = ""
+}
