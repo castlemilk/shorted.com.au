@@ -8,9 +8,14 @@ output "subscription_name" {
   value       = google_pubsub_subscription.enrichment_jobs.name
 }
 
-output "job_name" {
-  description = "Name of the Cloud Run Job"
-  value       = google_cloud_run_v2_job.enrichment_processor.name
+output "service_name" {
+  description = "Name of the Cloud Run Service"
+  value       = google_cloud_run_v2_service.enrichment_processor.name
+}
+
+output "service_url" {
+  description = "URL of the Cloud Run Service"
+  value       = google_cloud_run_v2_service.enrichment_processor.uri
 }
 
 output "service_account_email" {
