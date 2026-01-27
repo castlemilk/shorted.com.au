@@ -17,6 +17,7 @@ import (
 type GPTClient interface {
 	EnrichCompany(ctx context.Context, stockCode, companyName, industry, website, currentSummary string, reports []*stocksv1alpha1.FinancialReport, metadata *ScrapedMetadata) (*shortsv1alpha1.EnrichmentData, error)
 	EvaluateQuality(ctx context.Context, stockCode string, data *shortsv1alpha1.EnrichmentData) (*shortsv1alpha1.QualityScore, error)
+	DiscoverWebsite(ctx context.Context, stockCode, companyName, industry string) (string, error)
 }
 
 type OpenAIGPTClient struct {
@@ -276,6 +277,102 @@ Enrichment JSON:
 		Warnings:          parsed.Warnings,
 		Strengths:         parsed.Strengths,
 	}, nil
+}
+
+// DiscoverWebsite attempts to find the official corporate website for a company
+// when the website field is missing from the company metadata.
+func (c *OpenAIGPTClient) DiscoverWebsite(ctx context.Context, stockCode, companyName, industry string) (string, error) {
+	if strings.TrimSpace(companyName) == "" {
+		return "", fmt.Errorf("company name is required")
+	}
+
+	systemPrompt := `You are an expert at finding official corporate websites for Australian Stock Exchange (ASX) listed companies.
+
+Your task is to return the official corporate website URL for the given company.
+
+Rules:
+- Return ONLY a valid URL string (no JSON, no markdown, no explanation)
+- The URL must be the official company website, NOT social media profiles
+- For well-known Australian companies, use their known domain (e.g., guzmanygomez.com for Guzman Y Gomez)
+- If you know the company website, return it even if you're not 100% certain
+- Only return "UNKNOWN" if you truly have no idea what the company's website might be`
+
+	userPrompt := fmt.Sprintf(`Find the official corporate website for this ASX-listed company:
+
+Company Name: %s
+ASX Stock Code: %s
+Industry: %s
+
+Common patterns for Australian company websites:
+- companyname.com.au
+- companyname.com
+- thecompanyname.com.au
+
+Return ONLY the website URL or "UNKNOWN" if you cannot determine it.`, companyName, stockCode, industry)
+
+	req := openai.ChatCompletionRequest{
+		Model: c.model,
+		Messages: []openai.ChatCompletionMessage{
+			{Role: openai.ChatMessageRoleSystem, Content: systemPrompt},
+			{Role: openai.ChatMessageRoleUser, Content: userPrompt},
+		},
+		Temperature: 0.0,
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	resp, err := c.client.CreateChatCompletion(callCtx, req)
+	if err != nil {
+		return "", fmt.Errorf("website discovery failed: %w", err)
+	}
+	if len(resp.Choices) == 0 {
+		return "", fmt.Errorf("website discovery returned no choices")
+	}
+
+	result := strings.TrimSpace(resp.Choices[0].Message.Content)
+	result = strings.Trim(result, "\"'`")
+	result = strings.TrimSpace(result)
+
+	// Check for unknown response
+	if strings.EqualFold(result, "UNKNOWN") || result == "" {
+		return "", nil // No website found, but not an error
+	}
+
+	// Validate URL format
+	if !strings.HasPrefix(result, "http://") && !strings.HasPrefix(result, "https://") {
+		result = "https://" + result
+	}
+
+	// Basic URL validation
+	if !isValidWebsiteURL(result) {
+		return "", nil // Invalid URL format
+	}
+
+	return result, nil
+}
+
+// isValidWebsiteURL performs basic validation on a website URL
+func isValidWebsiteURL(urlStr string) bool {
+	// Must have a scheme
+	if !strings.HasPrefix(urlStr, "http://") && !strings.HasPrefix(urlStr, "https://") {
+		return false
+	}
+	// Must have a domain
+	parts := strings.SplitN(urlStr, "://", 2)
+	if len(parts) != 2 || parts[1] == "" {
+		return false
+	}
+	domain := strings.Split(parts[1], "/")[0]
+	// Domain must have at least one dot
+	if !strings.Contains(domain, ".") {
+		return false
+	}
+	// Domain shouldn't have spaces
+	if strings.Contains(domain, " ") {
+		return false
+	}
+	return true
 }
 
 func derefString(s *string) string {

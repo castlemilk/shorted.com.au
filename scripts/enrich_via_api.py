@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Enrich companies via the preview API service.
+Enrich companies via the API service.
 
 Usage:
     # Enrich specific stocks
@@ -8,6 +8,12 @@ Usage:
     
     # Enrich batch of N pending companies
     python scripts/enrich_via_api.py --batch 10
+    
+    # Enrich batch with auto-approve (applies enrichments immediately)
+    python scripts/enrich_via_api.py --batch 10 --auto-approve
+    
+    # Use production API
+    python scripts/enrich_via_api.py --batch 10 --auto-approve --api-url https://api.shorted.com.au
     
     # Check job status
     python scripts/enrich_via_api.py --status
@@ -96,6 +102,14 @@ class APIClient:
     def get_top_stocks_for_enrichment(self, limit: int = 10) -> Dict[str, Any]:
         """Get top stocks that need enrichment."""
         return self._call("GetTopStocksForEnrichment", {"limit": limit})
+    
+    def review_enrichment(self, enrichment_id: str, approve: bool, notes: str = "") -> Dict[str, Any]:
+        """Approve or reject a pending enrichment."""
+        return self._call("ReviewEnrichment", {
+            "enrichmentId": enrichment_id,
+            "approve": approve,
+            "reviewNotes": notes
+        })
 
 
 def enrich_stocks(client: APIClient, stock_codes: List[str], force: bool = False) -> List[Dict]:
@@ -129,11 +143,11 @@ def enrich_stocks(client: APIClient, stock_codes: List[str], force: bool = False
     return jobs
 
 
-def monitor_jobs(client: APIClient, jobs: List[Dict], poll_interval: int = 15, max_wait: int = 600) -> List[Dict]:
+def monitor_jobs(client: APIClient, jobs: List[Dict], poll_interval: int = 15, max_wait: int = 600, auto_approve: bool = False) -> List[Dict]:
     """Monitor jobs until completion or timeout."""
     
     print(f"\n{'='*60}")
-    print(f"MONITORING {len(jobs)} JOBS")
+    print(f"MONITORING {len(jobs)} JOBS" + (" (auto-approve enabled)" if auto_approve else ""))
     print(f"{'='*60}")
     
     job_ids = {j["stock_code"]: j["job_id"] for j in jobs if "job_id" in j}
@@ -158,11 +172,22 @@ def monitor_jobs(client: APIClient, jobs: List[Dict], poll_interval: int = 15, m
             print(f"  {stock_code}: {status}")
             
             if status == "COMPLETED":
+                enrichment_id = job.get("enrichmentId")
                 completed[stock_code] = {
                     "status": "completed",
-                    "enrichment_id": job.get("enrichmentId"),
+                    "enrichment_id": enrichment_id,
                     "duration_ms": job.get("durationMs", 0)
                 }
+                # Auto-approve if enabled
+                if auto_approve and enrichment_id:
+                    print(f"    Auto-approving {stock_code}...", end=" ")
+                    approve_result = client.review_enrichment(enrichment_id, True, "Auto-approved via batch script")
+                    if "error" in approve_result:
+                        print(f"✗ {approve_result.get('error', 'Unknown error')[:50]}")
+                        completed[stock_code]["auto_approved"] = False
+                    else:
+                        print("✓")
+                        completed[stock_code]["auto_approved"] = True
             elif status == "FAILED":
                 completed[stock_code] = {
                     "status": "failed",
@@ -329,6 +354,7 @@ def main():
     parser.add_argument("--status", action="store_true", help="Show job status")
     parser.add_argument("--review", action="store_true", help="Show pending enrichments")
     parser.add_argument("--no-monitor", action="store_true", help="Don't wait for completion")
+    parser.add_argument("--auto-approve", action="store_true", help="Automatically approve completed enrichments")
     parser.add_argument("--api-url", default=PREVIEW_API_URL, help="API URL")
     
     args = parser.parse_args()
@@ -354,15 +380,19 @@ def main():
         return
     
     if jobs and not args.no_monitor:
-        jobs = monitor_jobs(client, jobs)
+        jobs = monitor_jobs(client, jobs, auto_approve=args.auto_approve)
         print_results(client, jobs)
     
     # Summary
     successful = sum(1 for j in jobs if j.get("status") == "completed")
     failed = sum(1 for j in jobs if j.get("status") == "failed")
+    auto_approved = sum(1 for j in jobs if j.get("auto_approved"))
     
     print(f"\n{'='*60}")
-    print(f"SUMMARY: {successful} completed, {failed} failed, {len(jobs) - successful - failed} other")
+    summary = f"SUMMARY: {successful} completed, {failed} failed, {len(jobs) - successful - failed} other"
+    if auto_approved > 0:
+        summary += f", {auto_approved} auto-approved"
+    print(summary)
     print(f"{'='*60}")
 
 
