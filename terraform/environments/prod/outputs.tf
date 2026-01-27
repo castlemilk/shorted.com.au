@@ -46,6 +46,17 @@ output "shorts_api_service_account" {
   value       = module.shorts_api.service_account_email
 }
 
+# Enrichment Processor Outputs
+output "enrichment_processor_url" {
+  description = "URL of the enrichment processor service"
+  value       = module.enrichment_processor.service_url
+}
+
+output "enrichment_processor_service_account" {
+  description = "Service account email for enrichment processor"
+  value       = module.enrichment_processor.service_account_email
+}
+
 # Infrastructure Outputs
 output "artifact_registry_repository" {
   description = "Artifact Registry repository for Docker images"

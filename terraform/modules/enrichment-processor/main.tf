@@ -3,7 +3,7 @@
  * 
  * Manages:
  * - Pub/Sub topic and subscription for enrichment jobs
- * - Cloud Run Job for processing enrichment jobs
+ * - Cloud Run Service for processing enrichment jobs (runs continuously)
  * - Service account and IAM permissions
  */
 
@@ -71,8 +71,9 @@ resource "google_secret_manager_secret_iam_member" "openai_api_key" {
 }
 
 
-# Cloud Run Job (v2) for processing enrichment jobs
-resource "google_cloud_run_v2_job" "enrichment_processor" {
+# Cloud Run Service (v2) for processing enrichment jobs
+# Runs continuously and polls Pub/Sub subscription for jobs
+resource "google_cloud_run_v2_service" "enrichment_processor" {
   name     = local.service_name
   location = var.region
   project  = var.project_id
@@ -80,74 +81,84 @@ resource "google_cloud_run_v2_job" "enrichment_processor" {
   labels = local.labels
 
   template {
-    task_count = 1
+    service_account = google_service_account.enrichment_processor.email
 
-    template {
-      service_account = google_service_account.enrichment_processor.email
+    containers {
+      image = var.image_url
 
-      max_retries = 3
-      timeout     = "600s" # 10 minutes per job
+      ports {
+        container_port = 8080
+        name           = "http1"
+      }
 
-      containers {
-        image = var.image_url
+      env {
+        name  = "GCP_PROJECT_ID"
+        value = var.project_id
+      }
 
-        env {
-          name  = "GCP_PROJECT_ID"
-          value = var.project_id
-        }
+      env {
+        name  = "ENRICHMENT_PUBSUB_TOPIC"
+        value = local.topic_name
+      }
 
-        env {
-          name  = "ENRICHMENT_PUBSUB_TOPIC"
-          value = local.topic_name
-        }
+      env {
+        name  = "ENRICHMENT_PUBSUB_SUBSCRIPTION"
+        value = local.subscription_name
+      }
 
-        env {
-          name  = "ENRICHMENT_PUBSUB_SUBSCRIPTION"
-          value = local.subscription_name
-        }
+      env {
+        name  = "APP_STORE_POSTGRES_ADDRESS"
+        value = var.postgres_address
+      }
 
-        env {
-          name  = "APP_STORE_POSTGRES_ADDRESS"
-          value = var.postgres_address
-        }
+      env {
+        name  = "APP_STORE_POSTGRES_DATABASE"
+        value = var.postgres_database
+      }
 
-        env {
-          name  = "APP_STORE_POSTGRES_DATABASE"
-          value = var.postgres_database
-        }
+      env {
+        name  = "APP_STORE_POSTGRES_USERNAME"
+        value = var.postgres_username
+      }
 
-        env {
-          name  = "APP_STORE_POSTGRES_USERNAME"
-          value = var.postgres_username
-        }
-
-        env {
-          name = "APP_STORE_POSTGRES_PASSWORD"
-          value_source {
-            secret_key_ref {
-              secret  = "APP_STORE_POSTGRES_PASSWORD"
-              version = "latest"
-            }
-          }
-        }
-
-        env {
-          name = "OPENAI_API_KEY"
-          value_source {
-            secret_key_ref {
-              secret  = "OPENAI_API_KEY"
-              version = "latest"
-            }
-          }
-        }
-
-        resources {
-          limits = {
-            cpu    = "4"
-            memory = "8Gi"
+      env {
+        name = "APP_STORE_POSTGRES_PASSWORD"
+        value_source {
+          secret_key_ref {
+            secret  = "APP_STORE_POSTGRES_PASSWORD"
+            version = "latest"
           }
         }
       }
+
+      env {
+        name = "OPENAI_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = "OPENAI_API_KEY"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name  = "GCS_LOGO_BUCKET"
+        value = "shorted-company-logos"
+      }
+
+      resources {
+        limits = {
+          cpu    = "4"
+          memory = "8Gi"
+        }
+        cpu_idle          = true # Allow CPU to scale down when idle
+        startup_cpu_boost = true
+      }
+    }
+
+    scaling {
+      min_instance_count = 1  # Keep one instance warm for processing jobs
+      max_instance_count = 5  # Allow scaling for concurrent jobs
     }
   }
 
@@ -155,6 +166,19 @@ resource "google_cloud_run_v2_job" "enrichment_processor" {
     google_secret_manager_secret_iam_member.postgres_password,
     google_secret_manager_secret_iam_member.openai_api_key,
     google_pubsub_subscription_iam_member.processor_subscriber
+  ]
+}
+
+# IAM binding for Cloud Run invoker (internal use only)
+resource "google_cloud_run_v2_service_iam_member" "enrichment_processor_invoker" {
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.enrichment_processor.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.enrichment_processor.email}"
+
+  depends_on = [
+    google_cloud_run_v2_service.enrichment_processor
   ]
 }
 
