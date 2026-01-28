@@ -97,9 +97,18 @@ func isRetryableError(err error) bool {
 		return true
 	}
 
-	// Retry on connection errors
+	// Retry on connection errors (including TLS, reset, refused, etc.)
 	if strings.Contains(errStr, "connection") || strings.Contains(errStr, "network") ||
-		strings.Contains(errStr, "eof") {
+		strings.Contains(errStr, "eof") || strings.Contains(errStr, "reset") ||
+		strings.Contains(errStr, "refused") || strings.Contains(errStr, "tls") ||
+		strings.Contains(errStr, "dial") || strings.Contains(errStr, "post") ||
+		strings.Contains(errStr, "http") || strings.Contains(errStr, "context canceled") {
+		return true
+	}
+
+	// Default to retryable for any error from openai.com calls
+	// This is a catch-all since OpenAI API issues are often transient
+	if strings.Contains(errStr, "openai") || strings.Contains(errStr, "api.openai.com") {
 		return true
 	}
 
