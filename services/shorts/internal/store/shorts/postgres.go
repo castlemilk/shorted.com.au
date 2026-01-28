@@ -1805,6 +1805,13 @@ func (s *postgresStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.E
 				WHEN (website IS NULL OR website = '') AND $16 IS NOT NULL AND $16 != ''
 				THEN $16 
 				ELSE website 
+			END,
+			-- Also populate the base summary field with enhanced_summary if summary is empty
+			-- This ensures the "About" section always has content after enrichment
+			summary = CASE 
+				WHEN (summary IS NULL OR summary = '') AND $3 IS NOT NULL AND $3 != ''
+				THEN $3 
+				ELSE summary 
 			END
 		WHERE stock_code = $1
 	`
