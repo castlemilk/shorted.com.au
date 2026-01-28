@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"strings"
 	"time"
@@ -12,6 +13,98 @@ import (
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	openai "github.com/sashabaranov/go-openai"
 )
+
+// retryConfig holds retry parameters for OpenAI API calls
+type retryConfig struct {
+	maxRetries     int
+	initialBackoff time.Duration
+	maxBackoff     time.Duration
+}
+
+// defaultRetryConfig provides sensible defaults for OpenAI API retries
+var defaultRetryConfig = retryConfig{
+	maxRetries:     3,
+	initialBackoff: 2 * time.Second,
+	maxBackoff:     30 * time.Second,
+}
+
+// retryableOpenAICall executes an OpenAI API call with exponential backoff retry
+func retryableOpenAICall[T any](ctx context.Context, cfg retryConfig, operation string, fn func() (T, error)) (T, error) {
+	var lastErr error
+	var zero T
+
+	for attempt := 0; attempt <= cfg.maxRetries; attempt++ {
+		result, err := fn()
+		if err == nil {
+			return result, nil
+		}
+
+		lastErr = err
+
+		// Check if error is retryable (rate limits, timeouts, server errors)
+		if !isRetryableError(err) {
+			return zero, fmt.Errorf("%s failed (non-retryable): %w", operation, err)
+		}
+
+		// Don't retry if context is already cancelled
+		if ctx.Err() != nil {
+			return zero, fmt.Errorf("%s failed (context cancelled): %w", operation, ctx.Err())
+		}
+
+		// Calculate backoff with jitter
+		if attempt < cfg.maxRetries {
+			backoff := cfg.initialBackoff * time.Duration(1<<uint(attempt))
+			if backoff > cfg.maxBackoff {
+				backoff = cfg.maxBackoff
+			}
+			// Add 10-30% jitter
+			jitter := time.Duration(float64(backoff) * (0.1 + rand.Float64()*0.2))
+			backoff += jitter
+
+			select {
+			case <-ctx.Done():
+				return zero, fmt.Errorf("%s failed (context cancelled during backoff): %w", operation, ctx.Err())
+			case <-time.After(backoff):
+				// Continue to next retry
+			}
+		}
+	}
+
+	return zero, fmt.Errorf("%s failed after %d retries: %w", operation, cfg.maxRetries, lastErr)
+}
+
+// isRetryableError determines if an OpenAI API error should be retried
+func isRetryableError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errStr := strings.ToLower(err.Error())
+
+	// Retry on rate limits
+	if strings.Contains(errStr, "rate limit") || strings.Contains(errStr, "429") {
+		return true
+	}
+
+	// Retry on timeouts
+	if strings.Contains(errStr, "timeout") || strings.Contains(errStr, "deadline exceeded") {
+		return true
+	}
+
+	// Retry on server errors (5xx)
+	if strings.Contains(errStr, "500") || strings.Contains(errStr, "502") ||
+		strings.Contains(errStr, "503") || strings.Contains(errStr, "504") {
+		return true
+	}
+
+	// Retry on connection errors
+	if strings.Contains(errStr, "connection") || strings.Contains(errStr, "network") ||
+		strings.Contains(errStr, "eof") {
+		return true
+	}
+
+	return false
+}
 
 // GPTClient interface for company enrichment
 type GPTClient interface {
@@ -120,13 +213,19 @@ IMPORTANT: Extract key_people information from the scraped_website_metadata sect
 		Temperature: 0.2,
 	}
 
-	// Protect against runaway calls.
-	callCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
-	defer cancel()
-
-	resp, err := c.client.CreateChatCompletion(callCtx, req)
+	// Use retry wrapper for the API call with longer timeout for enrichment
+	enrichRetryConfig := retryConfig{
+		maxRetries:     3,
+		initialBackoff: 3 * time.Second,
+		maxBackoff:     45 * time.Second,
+	}
+	resp, err := retryableOpenAICall(ctx, enrichRetryConfig, "company enrichment", func() (openai.ChatCompletionResponse, error) {
+		callCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+		defer cancel()
+		return c.client.CreateChatCompletion(callCtx, req)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("gpt enrichment failed: %w", err)
+		return nil, err
 	}
 	if len(resp.Choices) == 0 {
 		return nil, fmt.Errorf("gpt enrichment returned no choices")
@@ -245,12 +344,14 @@ Enrichment JSON:
 		Temperature: 0.0,
 	}
 
-	callCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
-
-	resp, err := c.client.CreateChatCompletion(callCtx, req)
+	// Use retry wrapper for the API call
+	resp, err := retryableOpenAICall(ctx, defaultRetryConfig, "quality evaluation", func() (openai.ChatCompletionResponse, error) {
+		callCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+		defer cancel()
+		return c.client.CreateChatCompletion(callCtx, req)
+	})
 	if err != nil {
-		return nil, fmt.Errorf("gpt quality evaluation failed: %w", err)
+		return nil, err
 	}
 	if len(resp.Choices) == 0 {
 		return nil, fmt.Errorf("gpt quality evaluation returned no choices")
@@ -281,6 +382,7 @@ Enrichment JSON:
 
 // DiscoverWebsite attempts to find the official corporate website for a company
 // when the website field is missing from the company metadata.
+// Includes automatic retry with exponential backoff for transient failures.
 func (c *OpenAIGPTClient) DiscoverWebsite(ctx context.Context, stockCode, companyName, industry string) (string, error) {
 	if strings.TrimSpace(companyName) == "" {
 		return "", fmt.Errorf("company name is required")
@@ -319,12 +421,14 @@ Return ONLY the website URL or "UNKNOWN" if you cannot determine it.`, companyNa
 		Temperature: 0.0,
 	}
 
-	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	defer cancel()
-
-	resp, err := c.client.CreateChatCompletion(callCtx, req)
+	// Use retry wrapper for the API call
+	resp, err := retryableOpenAICall(ctx, defaultRetryConfig, "website discovery", func() (openai.ChatCompletionResponse, error) {
+		callCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+		defer cancel()
+		return c.client.CreateChatCompletion(callCtx, req)
+	})
 	if err != nil {
-		return "", fmt.Errorf("website discovery failed: %w", err)
+		return "", err
 	}
 	if len(resp.Choices) == 0 {
 		return "", fmt.Errorf("website discovery returned no choices")
