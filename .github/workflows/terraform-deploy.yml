@@ -105,6 +105,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # NOTE: Prod-specific secrets for OAuth and Stripe are stored in GitHub Environments
+      # (Settings -> Environments -> prod), not as repo-level secrets with _PROD suffix.
+      # Firebase still uses repo-level _PROD suffix secrets.
       - name: Validate required secrets
         env:
           ENVIRONMENT: ${{ needs.determine-environment.outputs.environment }}
@@ -112,17 +115,14 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_URL_PROD: ${{ secrets.DATABASE_URL_PROD }}
           NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-          # Google OAuth - Dev
+          # Google OAuth (dev - prod uses environment secrets)
           AUTH_GOOGLE_ID: ${{ secrets.AUTH_GOOGLE_ID }}
           AUTH_GOOGLE_SECRET: ${{ secrets.AUTH_GOOGLE_SECRET }}
-          # Google OAuth - Prod
-          AUTH_GOOGLE_ID_PROD: ${{ secrets.AUTH_GOOGLE_ID_PROD }}
-          AUTH_GOOGLE_SECRET_PROD: ${{ secrets.AUTH_GOOGLE_SECRET_PROD }}
           # Firebase - Dev
           AUTH_FIREBASE_PROJECT_ID: ${{ secrets.AUTH_FIREBASE_PROJECT_ID }}
           AUTH_FIREBASE_CLIENT_EMAIL: ${{ secrets.AUTH_FIREBASE_CLIENT_EMAIL }}
           AUTH_FIREBASE_PRIVATE_KEY: ${{ secrets.AUTH_FIREBASE_PRIVATE_KEY }}
-          # Firebase - Prod
+          # Firebase - Prod (repo-level with _PROD suffix)
           AUTH_FIREBASE_PROJECT_ID_PROD: ${{ secrets.AUTH_FIREBASE_PROJECT_ID_PROD }}
           AUTH_FIREBASE_CLIENT_EMAIL_PROD: ${{ secrets.AUTH_FIREBASE_CLIENT_EMAIL_PROD }}
           AUTH_FIREBASE_PRIVATE_KEY_PROD: ${{ secrets.AUTH_FIREBASE_PRIVATE_KEY_PROD }}
@@ -132,16 +132,11 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
-          # Stripe - Dev (test mode)
+          # Stripe (dev - prod uses environment secrets)
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
           STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           STRIPE_PRO_PRICE_ID: ${{ secrets.STRIPE_PRO_PRICE_ID }}
-          # Stripe - Prod (live mode)
-          STRIPE_SECRET_KEY_PROD: ${{ secrets.STRIPE_SECRET_KEY_PROD }}
-          STRIPE_PUBLISHABLE_KEY_PROD: ${{ secrets.STRIPE_PUBLISHABLE_KEY_PROD }}
-          STRIPE_WEBHOOK_SECRET_PROD: ${{ secrets.STRIPE_WEBHOOK_SECRET_PROD }}
-          STRIPE_PRO_PRICE_ID_PROD: ${{ secrets.STRIPE_PRO_PRICE_ID_PROD }}
         run: |
           echo "=============================================="
           echo "🔐 Secrets Validation: ${ENVIRONMENT^^}"
@@ -170,16 +165,11 @@ jobs:
           check_secret "ALGOLIA_SEARCH_KEY"
           
           echo ""
-          echo "📋 Google OAuth Secrets (Dev)"
+          echo "📋 Google OAuth Secrets (repo-level for dev)"
           echo "-------------------------------------------"
           check_secret "AUTH_GOOGLE_ID"
           check_secret "AUTH_GOOGLE_SECRET"
-          
-          echo ""
-          echo "📋 Google OAuth Secrets (Prod)"
-          echo "-------------------------------------------"
-          check_secret "AUTH_GOOGLE_ID_PROD"
-          check_secret "AUTH_GOOGLE_SECRET_PROD"
+          echo "ℹ️  Prod OAuth secrets are in GitHub Environment 'prod'"
           
           echo ""
           echo "📋 Firebase Secrets (Dev)"
@@ -202,20 +192,13 @@ jobs:
           check_secret "OPENAI_API_KEY"
           
           echo ""
-          echo "📋 Stripe Secrets (Dev - test mode)"
+          echo "📋 Stripe Secrets (repo-level for dev)"
           echo "-------------------------------------------"
           check_secret "STRIPE_SECRET_KEY"
           check_secret "STRIPE_PUBLISHABLE_KEY"
           check_secret "STRIPE_WEBHOOK_SECRET"
           check_secret "STRIPE_PRO_PRICE_ID"
-          
-          echo ""
-          echo "📋 Stripe Secrets (Prod - live mode)"
-          echo "-------------------------------------------"
-          check_secret "STRIPE_SECRET_KEY_PROD"
-          check_secret "STRIPE_PUBLISHABLE_KEY_PROD"
-          check_secret "STRIPE_WEBHOOK_SECRET_PROD"
-          check_secret "STRIPE_PRO_PRICE_ID_PROD"
+          echo "ℹ️  Prod Stripe secrets are in GitHub Environment 'prod'"
           
           # Service authentication checks
           echo ""
