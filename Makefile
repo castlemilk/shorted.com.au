@@ -1,7 +1,7 @@
 # Shorted.com.au Root Makefile
 # Orchestrates testing and building for both frontend and backend
 
-.PHONY: help run test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down install install-hooks clean clean-cache clean-all clean-ports build dev dev-clean dev-script dev-frontend dev-backend lint format populate-data populate-data-quick db-diagnose db-optimize db-analyze algolia-sync algolia-sync-prod algolia-search enrich-metadata enrich-metadata-all enrich-metadata-stocks pipeline-local pipeline-prod pipeline-daily pipeline-help
+.PHONY: help run test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down install install-hooks clean clean-cache clean-all clean-ports build dev dev-clean dev-script dev-frontend dev-backend lint format populate-data populate-data-quick backfill-websites backfill-websites-dry db-diagnose db-optimize db-analyze algolia-sync algolia-sync-prod algolia-search enrich-metadata enrich-metadata-all enrich-metadata-stocks pipeline-local pipeline-prod pipeline-daily pipeline-help
 
 # Default target
 help:
@@ -39,6 +39,7 @@ help:
 	@echo "  format        - Format code for all projects"
 	@echo "  populate-data - Download and populate database with ASIC short selling data"
 	@echo "  populate-data-quick - Populate database using existing CSV files (no download)"
+	@echo "  backfill-websites - Backfill company website URLs from metadata CSV"
 	@echo "  db-diagnose   - Diagnose database query performance issues"
 	@echo "  db-optimize   - Apply performance indexes to database"
 	@echo "  db-analyze    - Update database statistics for query optimizer"
@@ -262,6 +263,20 @@ populate-data: dev-db ## Download and populate database with ASIC short selling 
 populate-data-quick: dev-db ## Populate database using existing CSV files (no download)
 	@echo "📊 Quick populating database from existing files..."
 	@cd services && make populate-data-quick
+
+backfill-websites: dev-db ## Backfill company website URLs from metadata CSV
+	@echo "🌐 Backfilling company websites from metadata CSV..."
+	@if [ -z "$$DATABASE_URL" ]; then \
+		export DATABASE_URL="postgresql://admin:password@localhost:5438/shorts"; \
+	fi; \
+	python3 scripts/backfill-websites.py
+
+backfill-websites-dry: dev-db ## Preview website backfill without making changes
+	@echo "🌐 [DRY RUN] Previewing website backfill..."
+	@if [ -z "$$DATABASE_URL" ]; then \
+		export DATABASE_URL="postgresql://admin:password@localhost:5438/shorts"; \
+	fi; \
+	python3 scripts/backfill-websites.py --dry-run
 
 populate-stock-data: dev-db ## Populate database with historical stock price data
 	@echo "📊 Populating database with historical stock price data..."
