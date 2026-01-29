@@ -94,10 +94,12 @@ class SyncStatusRecorder:
             "metrics_failed": 0,
             "algolia_records_synced": 0,
         }
+        # Use integer counts instead of arrays (matches migration 000013 schema)
         self.checkpoint_data = {
-            "stocks_processed": [],
-            "stocks_successful": [],
-            "stocks_failed": [],
+            "stocks_processed": 0,  # Count of processed stocks
+            "stocks_successful": 0,  # Count of successful stocks
+            "stocks_failed": 0,  # Count of failed stocks
+            "stocks_failed_set": set(),  # Track which stocks failed for retry logic
             "stocks_failed_count": {},  # Track failure count per stock: {stock_code: count}
             "resume_from": 0,
         }
@@ -130,28 +132,18 @@ class SyncStatusRecorder:
         )
 
         if existing and existing["status"] in ("running", "partial"):
-            # Resume from checkpoint
+            # Resume from checkpoint - checkpoint columns are now integers
             logger.info(f"🔄 Resuming sync run {self.run_id} from checkpoint")
-            self.checkpoint_data["stocks_processed"] = list(
-                existing["checkpoint_stocks_processed"] or []
-            )
-            self.checkpoint_data["stocks_successful"] = list(
-                existing["checkpoint_stocks_successful"] or []
-            )
-            self.checkpoint_data["stocks_failed"] = list(
-                existing["checkpoint_stocks_failed"] or []
-            )
-            self.checkpoint_data["resume_from"] = (
-                existing["checkpoint_resume_from"] or 0
-            )
-            # Reconstruct failure counts from failed stocks list
-            # Count occurrences of each stock in failed list
-            failed_list = self.checkpoint_data["stocks_failed"] or []
-            self.checkpoint_data["stocks_failed_count"] = {
-                stock: failed_list.count(stock) for stock in set(failed_list)
-            }
+            self.checkpoint_data["stocks_processed"] = existing["checkpoint_stocks_processed"] or 0
+            self.checkpoint_data["stocks_successful"] = existing["checkpoint_stocks_successful"] or 0
+            self.checkpoint_data["stocks_failed"] = existing["checkpoint_stocks_failed"] or 0
+            self.checkpoint_data["resume_from"] = existing["checkpoint_resume_from"] or 0
+            # Note: We can no longer track which specific stocks failed with integer schema
+            # but we can still track failure counts per stock in memory for this run
+            self.checkpoint_data["stocks_failed_count"] = {}
+            self.checkpoint_data["stocks_failed_set"] = set()
 
-            # Update existing checkpoint - arrays already set, just update metadata
+            # Update existing checkpoint
             await self.conn.execute(
                 """
                 UPDATE sync_status SET
@@ -166,13 +158,14 @@ class SyncStatusRecorder:
                 batch_size if batch_size > 0 else None,
             )
         else:
-            # New run
+            # New run - insert with integer columns (migration 000013 schema)
             await self.conn.execute(
                 """
                 INSERT INTO sync_status (
                     run_id, status, environment, hostname,
-                    checkpoint_stocks_total, checkpoint_batch_size, checkpoint_resume_from
-                ) VALUES ($1, 'running', $2, $3, $4, $5, $6)
+                    checkpoint_stocks_total, checkpoint_batch_size, checkpoint_resume_from,
+                    checkpoint_stocks_processed, checkpoint_stocks_successful, checkpoint_stocks_failed
+                ) VALUES ($1, 'running', $2, $3, $4, $5, $6, 0, 0, 0)
             """,
                 self.run_id,
                 environment,
@@ -195,51 +188,40 @@ class SyncStatusRecorder:
                 self.metrics[metric_name] = value
 
     async def update_checkpoint(self, stock_code: str, success: bool, index: int):
-        """Update checkpoint with processed stock."""
+        """Update checkpoint with processed stock (using integer counts)."""
         if success:
-            if stock_code not in self.checkpoint_data["stocks_successful"]:
-                self.checkpoint_data["stocks_successful"].append(stock_code)
+            self.checkpoint_data["stocks_successful"] += 1
             # Reset failure count on success
             self.checkpoint_data["stocks_failed_count"].pop(stock_code, None)
+            self.checkpoint_data["stocks_failed_set"].discard(stock_code)
         else:
             # Increment failure count
             current_count = self.checkpoint_data["stocks_failed_count"].get(
                 stock_code, 0
             )
             self.checkpoint_data["stocks_failed_count"][stock_code] = current_count + 1
-            # Add to failed list for tracking
-            if stock_code not in self.checkpoint_data["stocks_failed"]:
-                self.checkpoint_data["stocks_failed"].append(stock_code)
+            # Track failed stocks for retry logic (in memory only)
+            if stock_code not in self.checkpoint_data["stocks_failed_set"]:
+                self.checkpoint_data["stocks_failed_set"].add(stock_code)
+                self.checkpoint_data["stocks_failed"] += 1
 
-        if stock_code not in self.checkpoint_data["stocks_processed"]:
-            self.checkpoint_data["stocks_processed"].append(stock_code)
-
+        self.checkpoint_data["stocks_processed"] += 1
         self.checkpoint_data["resume_from"] = index + 1
 
         # Update database checkpoint (only update every 10 stocks to reduce DB load)
-        # Also update on last stock or if this is the first stock after resume
-        # Don't update on the very first stock (index 0) if arrays are empty - wait until we have data
-        processed_count = len(self.checkpoint_data["stocks_processed"])
-        should_update = (processed_count > 0 and processed_count % 10 == 0) or (
-            index > 0 and index == self.checkpoint_data["resume_from"] - 1
-        )
+        processed_count = self.checkpoint_data["stocks_processed"]
+        should_update = (processed_count > 0 and processed_count % 10 == 0)
 
         if should_update:
-            # Ensure we have lists (not None) for empty arrays
-            processed = self.checkpoint_data["stocks_processed"] or []
-            successful = self.checkpoint_data["stocks_successful"] or []
-            failed = self.checkpoint_data["stocks_failed"] or []
             duration = time.time() - (self.started_at or time.time())
 
-            # Use explicit type casting with COALESCE to handle empty arrays
-            # For empty arrays, use NULL and let PostgreSQL handle it
-            # Also save metrics incrementally so they persist even if job times out
+            # Use integer columns (migration 000013 schema)
             await self.conn.execute(
                 """
                 UPDATE sync_status SET
-                    checkpoint_stocks_processed = COALESCE($2::TEXT[], ARRAY[]::TEXT[]),
-                    checkpoint_stocks_successful = COALESCE($3::TEXT[], ARRAY[]::TEXT[]),
-                    checkpoint_stocks_failed = COALESCE($4::TEXT[], ARRAY[]::TEXT[]),
+                    checkpoint_stocks_processed = $2,
+                    checkpoint_stocks_successful = $3,
+                    checkpoint_stocks_failed = $4,
                     checkpoint_resume_from = $5,
                     shorts_records_updated = $6,
                     prices_records_updated = $7,
@@ -250,15 +232,15 @@ class SyncStatusRecorder:
                     metrics_records_updated = $12,
                     total_duration_seconds = $13,
                     status = CASE 
-                        WHEN COALESCE(array_length(COALESCE($2::TEXT[], ARRAY[]::TEXT[]), 1), 0) >= checkpoint_stocks_total THEN 'completed'
+                        WHEN $2 >= checkpoint_stocks_total THEN 'completed'
                         ELSE 'partial'
                     END
                 WHERE run_id = $1
             """,
                 self.run_id,
-                processed,
-                successful,
-                failed,
+                self.checkpoint_data["stocks_processed"],
+                self.checkpoint_data["stocks_successful"],
+                self.checkpoint_data["stocks_failed"],
                 self.checkpoint_data["resume_from"],
                 self.metrics["shorts_records_updated"],
                 self.metrics["prices_records_updated"],
@@ -278,6 +260,7 @@ class SyncStatusRecorder:
 
         try:
             status = "completed" if all_stocks_complete else "partial"
+            # Use integer columns (migration 000013 schema)
             await self.conn.execute(
                 """
                 UPDATE sync_status SET
@@ -293,9 +276,9 @@ class SyncStatusRecorder:
                     metrics_failed = $10,
                     algolia_records_synced = $11,
                     total_duration_seconds = $12,
-                    checkpoint_stocks_processed = $13::TEXT[],
-                    checkpoint_stocks_successful = $14::TEXT[],
-                    checkpoint_stocks_failed = $15::TEXT[],
+                    checkpoint_stocks_processed = $13,
+                    checkpoint_stocks_successful = $14,
+                    checkpoint_stocks_failed = $15,
                     checkpoint_resume_from = $16
                 WHERE run_id = $1
             """,
@@ -311,9 +294,9 @@ class SyncStatusRecorder:
                 self.metrics["metrics_failed"],
                 self.metrics["algolia_records_synced"],
                 duration,
-                self.checkpoint_data["stocks_processed"] or [],
-                self.checkpoint_data["stocks_successful"] or [],
-                self.checkpoint_data["stocks_failed"] or [],
+                self.checkpoint_data["stocks_processed"],
+                self.checkpoint_data["stocks_successful"],
+                self.checkpoint_data["stocks_failed"],
                 self.checkpoint_data["resume_from"],
             )
 
@@ -321,7 +304,7 @@ class SyncStatusRecorder:
                 logger.info(f"📝 Sync run completed successfully")
             else:
                 logger.info(
-                    f"📝 Sync run partially completed - {len(self.checkpoint_data['stocks_processed'])} stocks processed"
+                    f"📝 Sync run partially completed - {self.checkpoint_data['stocks_processed']} stocks processed"
                 )
         except Exception as e:
             logger.error(f"❌ Failed to update sync_status to completed: {e}")
@@ -864,14 +847,13 @@ async def update_stock_prices(
         logger.warning("⚠️  No stocks with existing price data")
         return 0
 
-    # Get checkpoint info
+    # Get checkpoint info - using integer counts now (not stock lists)
+    # The resume_from index is the main mechanism for skipping already-processed stocks
     resume_from = recorder.checkpoint_data["resume_from"] if recorder else 0
-    processed_stocks = set(
-        recorder.checkpoint_data["stocks_processed"] if recorder else []
-    )
-    successful_stocks = set(
-        recorder.checkpoint_data["stocks_successful"] if recorder else []
-    )
+    # Note: With integer counts, we can't track which specific stocks were processed/successful
+    # from previous runs. We rely on resume_from index for resumption, which skips stocks at line 868.
+    # Within-run tracking uses in-memory sets initialized here:
+    successful_stocks_this_run = set()  # Track successful stocks within this run (in memory only)
     failed_stocks_count = (
         recorder.checkpoint_data["stocks_failed_count"] if recorder else {}
     )
@@ -923,8 +905,9 @@ async def update_stock_prices(
                     await recorder.update_checkpoint(stock_code, False, current_index)
                 break
 
-            # Skip if already successfully processed
-            if stock_code in successful_stocks:
+            # Skip if already successfully processed within this run
+            # (Stocks from previous runs are already skipped via resume_from at line 868)
+            if stock_code in successful_stocks_this_run:
                 logger.info(
                     f"[{current_index:4d}/{total_stocks}] {stock_code}: ✓ Already processed (skipping)"
                 )
@@ -1050,6 +1033,7 @@ async def update_stock_prices(
                     f"[{current_index:4d}/{total_stocks}] {stock_code}: ✅ {inserted} records ({source}, {last_info})"
                 )
                 total_inserted += inserted
+                successful_stocks_this_run.add(stock_code)  # Track for within-run deduplication
             else:
                 failure_count = failed_stocks_count.get(stock_code, 0) + 1
                 if failure_count >= MAX_STOCK_FAILURE_RETRIES:
@@ -1730,16 +1714,16 @@ async def main() -> bool:
             f"🔍 DEBUG: recorder.run_id: {recorder.run_id if recorder else 'N/A'}"
         )
 
-        # Check if all stocks are processed
-        processed_count = len(recorder.checkpoint_data["stocks_processed"])
+        # Check if all stocks are processed (using integer counts now)
+        processed_count = recorder.checkpoint_data["stocks_processed"]
         all_complete = processed_count >= total_stocks
 
         logger.info("📝 About to call recorder.complete()...")
         logger.info(f"📊 Progress: {processed_count}/{total_stocks} stocks processed")
         logger.info(
-            f"✅ Successful: {len(recorder.checkpoint_data['stocks_successful'])}"
+            f"✅ Successful: {recorder.checkpoint_data['stocks_successful']}"
         )
-        logger.info(f"❌ Failed: {len(recorder.checkpoint_data['stocks_failed'])}")
+        logger.info(f"❌ Failed: {recorder.checkpoint_data['stocks_failed']}")
 
         try:
             await recorder.complete(all_stocks_complete=all_complete)
