@@ -1272,7 +1272,8 @@ async def get_or_create_daily_sync_run(conn, batch_size: int = 500) -> Optional[
     )
 
     if incomplete:
-        processed_count = len(incomplete["checkpoint_stocks_processed"] or [])
+        # checkpoint_stocks_processed is now an INTEGER, not an array
+        processed_count = incomplete["checkpoint_stocks_processed"] or 0
         total = incomplete["checkpoint_stocks_total"] or 0
         resume_from = incomplete["checkpoint_resume_from"] or 0
 
