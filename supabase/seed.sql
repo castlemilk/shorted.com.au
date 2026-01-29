@@ -2,16 +2,16 @@
 
 -- Insert sample company metadata
 INSERT INTO company_metadata (stock_code, company_name, logo_url, industry, sector, market_cap) VALUES
-('CBA', 'Commonwealth Bank of Australia', 'https://logo.clearbit.com/commbank.com.au', 'Banks', 'Financials', 170000000000),
-('BHP', 'BHP Group Limited', 'https://logo.clearbit.com/bhp.com', 'Materials', 'Materials', 230000000000),
-('CSL', 'CSL Limited', 'https://logo.clearbit.com/csl.com', 'Pharmaceuticals', 'Health Care', 140000000000),
-('ANZ', 'ANZ Banking Group', 'https://logo.clearbit.com/anz.com', 'Banks', 'Financials', 80000000000),
-('WBC', 'Westpac Banking Corp', 'https://logo.clearbit.com/westpac.com.au', 'Banks', 'Financials', 75000000000),
-('NAB', 'National Australia Bank', 'https://logo.clearbit.com/nab.com.au', 'Banks', 'Financials', 90000000000),
-('WES', 'Wesfarmers Limited', 'https://logo.clearbit.com/wesfarmers.com.au', 'Retailing', 'Consumer Discretionary', 70000000000),
-('WOW', 'Woolworths Group', 'https://logo.clearbit.com/woolworths.com.au', 'Food & Staples Retailing', 'Consumer Staples', 50000000000),
-('TLS', 'Telstra Corporation', 'https://logo.clearbit.com/telstra.com.au', 'Telecommunication Services', 'Communication Services', 45000000000),
-('RIO', 'Rio Tinto Limited', 'https://logo.clearbit.com/riotinto.com', 'Materials', 'Materials', 180000000000)
+('CBA', 'Commonwealth Bank of Australia', '', 'Banks', 'Financials', 170000000000),
+('BHP', 'BHP Group Limited', '', 'Materials', 'Materials', 230000000000),
+('CSL', 'CSL Limited', '', 'Pharmaceuticals', 'Health Care', 140000000000),
+('ANZ', 'ANZ Banking Group', '', 'Banks', 'Financials', 80000000000),
+('WBC', 'Westpac Banking Corp', '', 'Banks', 'Financials', 75000000000),
+('NAB', 'National Australia Bank', '', 'Banks', 'Financials', 90000000000),
+('WES', 'Wesfarmers Limited', '', 'Retailing', 'Consumer Discretionary', 70000000000),
+('WOW', 'Woolworths Group', '', 'Food & Staples Retailing', 'Consumer Staples', 50000000000),
+('TLS', 'Telstra Corporation', '', 'Telecommunication Services', 'Communication Services', 45000000000),
+('RIO', 'Rio Tinto Limited', '', 'Materials', 'Materials', 180000000000)
 ON CONFLICT (stock_code) DO NOTHING;
 
 -- Insert sample shorts data (last 30 days)
