@@ -489,6 +489,34 @@ func TestTopShortsQuery_ExcludesDelistedStocks(t *testing.T) {
 		excludedCount, len(delistedStocks))
 }
 
+// TestTopShortsQuery_ExcludesDeferredSettlementStocks specifically tests that
+// deferred settlement stocks (temporary trading codes) are not included in top shorts.
+// These stocks have codes like LOTDB, PNRDA and have "DEFERRED SETTLEMENT" in their name.
+func TestTopShortsQuery_ExcludesDeferredSettlementStocks(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	pool, cleanup := setupTestDatabase(t)
+	defer cleanup()
+
+	results, _, err := FetchTimeSeriesData(pool, 100, 0, "6M") // Get more results to be thorough
+	require.NoError(t, err, "FetchTimeSeriesData should not return error")
+	require.NotEmpty(t, results, "Should return results")
+
+	// Check that no deferred settlement stocks appear in results
+	for _, result := range results {
+		assert.NotContains(t, result.Name, "DEFERRED SETTLEMENT",
+			"Stock %s should not be a deferred settlement stock: %s",
+			result.ProductCode, result.Name)
+		assert.NotContains(t, result.Name, "DEFERRED",
+			"Stock %s should not be a deferred stock: %s",
+			result.ProductCode, result.Name)
+	}
+
+	t.Logf("✓ Verified that no deferred settlement stocks appear in %d results", len(results))
+}
+
 // TestFetchTimeSeriesData_DataIntegrity validates the integrity of returned data
 func TestFetchTimeSeriesData_DataIntegrity(t *testing.T) {
 	if testing.Short() {

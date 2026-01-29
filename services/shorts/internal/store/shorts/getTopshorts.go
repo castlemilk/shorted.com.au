@@ -63,6 +63,8 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 	// Uses DISTINCT ON to get the latest data for each stock individually
 	// Filters to only include stocks with recent data (within 1 month of the latest report date)
 	// This excludes delisted or stale stocks that haven't reported recently
+	// Also excludes deferred settlement stocks (temporary trading codes during corporate actions)
+	// which may not have complete company metadata
 	topCodesQuery := `
 	WITH latest_shorts AS (
 		SELECT DISTINCT ON ("PRODUCT_CODE") 
@@ -72,6 +74,8 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 		FROM shorts
 		WHERE "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
 			AND "DATE" > (SELECT MAX("DATE") FROM shorts) - INTERVAL '1 month'
+			AND "PRODUCT" NOT ILIKE '%DEFERRED SETTLEMENT%'
+			AND "PRODUCT" NOT ILIKE '%DEFERRED%'
 		ORDER BY "PRODUCT_CODE", "DATE" DESC
 	)
 	SELECT "PRODUCT", "PRODUCT_CODE"
