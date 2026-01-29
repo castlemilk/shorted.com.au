@@ -147,7 +147,7 @@ resource "google_cloud_run_v2_service" "market_data_sync" {
 
       startup_probe {
         http_get {
-          path = "/healthz"
+          path = "/health"
           port = 8080
         }
         initial_delay_seconds = 10
@@ -158,7 +158,7 @@ resource "google_cloud_run_v2_service" "market_data_sync" {
 
       liveness_probe {
         http_get {
-          path = "/healthz"
+          path = "/health"
           port = 8080
         }
         initial_delay_seconds = 30

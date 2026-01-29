@@ -423,7 +423,7 @@ push.asx-discovery: build.asx-discovery
 
 build.market-data-sync:
 	@echo "🏗️ Building market data sync image..."
-	cd market-data-sync && docker build --platform linux/amd64 -t $(MARKET_DATA_SYNC_IMAGE):latest -t $(MARKET_DATA_SYNC_IMAGE):$(SHORTS_VERSION) .
+	docker build --platform linux/amd64 -t $(MARKET_DATA_SYNC_IMAGE):latest -t $(MARKET_DATA_SYNC_IMAGE):$(SHORTS_VERSION) -f market-data-sync/Dockerfile .
 
 push.market-data-sync: build.market-data-sync
 	@echo "⬆️ Pushing market data sync image..."
