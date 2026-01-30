@@ -78,27 +78,27 @@ export const columns: ColumnDef<TimeSeriesData>[] = [
       const latestValue = data.latestShortPosition ?? 0;
       return (
         <div className="flex items-center justify-center h-full">
-          <div className="flex flex-col items-center gap-2">
-            {/* Min/Max indicators */}
-            <div className="flex gap-3">
-              {/* Min badge */}
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50 border border-border/50">
-                <div
-                  className="w-2.5 h-2.5 rounded-full shrink-0"
-                  style={{ backgroundColor: greenColor }}
-                />
-                <span className="text-xs text-muted-foreground font-medium">
-                  {minValue.toFixed(1)}%
-                </span>
-              </div>
+          <div className="flex flex-col items-center gap-1">
+            {/* Min/Max indicators - stacked vertically */}
+            <div className="flex flex-col gap-1">
               {/* Max badge */}
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50 border border-border/50">
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted/50 border border-border/50">
                 <div
-                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  className="w-2 h-2 rounded-full shrink-0"
                   style={{ backgroundColor: redColor }}
                 />
                 <span className="text-xs text-muted-foreground font-medium">
                   {maxValue.toFixed(1)}%
+                </span>
+              </div>
+              {/* Min badge */}
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted/50 border border-border/50">
+                <div
+                  className="w-2 h-2 rounded-full shrink-0"
+                  style={{ backgroundColor: greenColor }}
+                />
+                <span className="text-xs text-muted-foreground font-medium">
+                  {minValue.toFixed(1)}%
                 </span>
               </div>
             </div>

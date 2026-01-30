@@ -1,4 +1,5 @@
 import dynamic from "next/dynamic";
+import { type Metadata } from "next";
 import MarketChart from "~/@/components/ui/market-chart";
 import CompanyProfile, {
   CompanyProfilePlaceholder,
@@ -9,7 +10,7 @@ import CompanyStats, {
 import CompanyInfo, {
   CompanyInfoPlaceholder,
 } from "~/@/components/ui/companyInfo";
-import CompanyFinancials, {
+import CompanyFinancials,{
   CompanyFinancialsPlaceholder,
 } from "~/@/components/ui/companyFinancials";
 import { EnrichedCompanySection } from "~/@/components/company/enriched-company-section";
@@ -30,9 +31,48 @@ import {
   CardTitle,
 } from "~/@/components/ui/card";
 import { TrendingDown, CandlestickChart } from "lucide-react";
+import { siteConfig } from "~/@/config/site";
 
 interface PageProps {
-  params: { stockCode: string };
+  params: Promise<{ stockCode: string }>;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { stockCode } = await params;
+  const code = stockCode.toUpperCase();
+
+  const title = `${code} Short Position Data & Analysis`;
+  const description = `Track ${code} short selling positions on the ASX. View daily ASIC short interest data, historical charts, company profile, and analysis for ${code} shares on the Australian Securities Exchange.`;
+
+  return {
+    title,
+    description,
+    keywords: [
+      `${code} short position`,
+      `${code} short interest`,
+      `${code} ASX`,
+      `${code} stock analysis`,
+      `${code} short selling`,
+      "ASIC short data",
+      "Australian stocks",
+    ],
+    openGraph: {
+      title: `${title} | ${siteConfig.name}`,
+      description,
+      url: `${siteConfig.url}/shorts/${code}`,
+      siteName: siteConfig.name,
+      type: "article",
+      locale: "en_AU",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} | ${siteConfig.name}`,
+      description,
+    },
+    alternates: {
+      canonical: `${siteConfig.url}/shorts/${code}`,
+    },
+  };
 }
 
 // ISR: Revalidate every hour (3600 seconds)
@@ -43,9 +83,10 @@ const Chart = dynamic(() => import("~/@/components/ui/chart"), {
   loading: () => <ChartSkeleton />,
 });
 
-const Page = ({ params }: PageProps) => {
+const Page = async ({ params }: PageProps) => {
+  const { stockCode: rawStockCode } = await params;
   // This page is public for SEO and discovery - no authentication required
-  const stockCode = params.stockCode.toUpperCase();
+  const stockCode = rawStockCode.toUpperCase();
 
   const breadcrumbItems = [
     { label: "Stocks", href: "/stocks" },
@@ -80,22 +121,22 @@ const Page = ({ params }: PageProps) => {
         {/* Row 1: Profile & Short Stats */}
         <div className="md:col-span-2">
           <Suspense fallback={<CompanyProfilePlaceholder />}>
-            <CompanyProfile stockCode={params.stockCode} />
+            <CompanyProfile stockCode={stockCode} />
           </Suspense>
         </div>
         <div className="md:col-span-1 h-full">
           <Suspense fallback={<CompanyStatsPlaceholder />}>
-            <CompanyStats stockCode={params.stockCode} />
+            <CompanyStats stockCode={stockCode} />
           </Suspense>
         </div>
 
         {/* Row 2: About & Short Trend Chart */}
         <div className="md:col-span-1 flex flex-col gap-4 md:gap-6">
           <Suspense fallback={<CompanyInfoPlaceholder />}>
-            <CompanyInfo stockCode={params.stockCode} />
+            <CompanyInfo stockCode={stockCode} />
           </Suspense>
           <Suspense fallback={<CompanyFinancialsPlaceholder />}>
-            <CompanyFinancials stockCode={params.stockCode} />
+            <CompanyFinancials stockCode={stockCode} />
           </Suspense>
           <EnrichmentTrigger stockCode={stockCode} />
         </div>
@@ -119,7 +160,7 @@ const Page = ({ params }: PageProps) => {
               </div>
             </CardHeader>
             <CardContent className="pt-2">
-              <Chart stockCode={params.stockCode} />
+              <Chart stockCode={stockCode} />
             </CardContent>
           </Card>
 
@@ -141,7 +182,7 @@ const Page = ({ params }: PageProps) => {
               </div>
             </CardHeader>
             <CardContent className="pt-2">
-              <MarketChart stockCode={params.stockCode} />
+              <MarketChart stockCode={stockCode} />
             </CardContent>
           </Card>
 

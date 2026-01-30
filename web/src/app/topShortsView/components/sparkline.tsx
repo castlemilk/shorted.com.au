@@ -75,7 +75,7 @@ const Chart = ({ width, height, data }: SparklineProps) => {
     scroll: true,
   });
 
-  const margin = { top: 20, right: 10, bottom: 20, left: 10 };
+  const margin = { top: 20, right: 24, bottom: 20, left: 10 };
   
   if (points.length === 0) {
     return <div>Loading or no data available...</div>;
