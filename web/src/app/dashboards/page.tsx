@@ -35,7 +35,7 @@ const defaultWidgets: WidgetConfig[] = [
       endpoint: "/api/shorts/top",
       refreshInterval: 300,
     },
-    layout: { x: 0, y: 0, w: 5, h: 12, minW: 4, minH: 6 },
+    layout: { x: 0, y: 0, w: 5, h: 14, minW: 4, minH: 6 },
     settings: { period: "3m", limit: 10 },
   },
   {
@@ -46,7 +46,7 @@ const defaultWidgets: WidgetConfig[] = [
       endpoint: "/api/shorts/industry-treemap",
       refreshInterval: 300,
     },
-    layout: { x: 5, y: 0, w: 7, h: 12, minW: 4, minH: 6 },
+    layout: { x: 5, y: 0, w: 7, h: 14, minW: 4, minH: 6 },
     settings: {
       period: "3m",
       viewMode: "CURRENT_CHANGE",

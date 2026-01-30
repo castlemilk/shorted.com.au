@@ -1,6 +1,40 @@
+import { type Metadata } from "next";
 import { getStatisticsWithCache } from "~/lib/statistics";
 import AboutClient from "./about-client";
 import { type AboutPageStatistics } from "~/lib/statistics";
+import { siteConfig } from "~/@/config/site";
+
+export const metadata: Metadata = {
+  title: "About Shorted - ASX Short Position Data Platform",
+  description:
+    "Learn about Shorted.com.au, Australia's free short position tracking platform. We provide daily ASIC short selling data, interactive visualizations, and analysis tools for ASX-listed stocks.",
+  keywords: [
+    "about Shorted",
+    "ASX short selling data",
+    "ASIC short positions",
+    "Australian stock market",
+    "short interest tracker",
+    "free stock data Australia",
+  ],
+  openGraph: {
+    title: "About Shorted - ASX Short Position Data Platform",
+    description:
+      "Learn about Shorted.com.au, Australia's free short position tracking platform providing daily ASIC short selling data.",
+    url: `${siteConfig.url}/about`,
+    siteName: siteConfig.name,
+    type: "website",
+    locale: "en_AU",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "About Shorted - ASX Short Position Data Platform",
+    description:
+      "Learn about Shorted.com.au, Australia's free short position tracking platform.",
+  },
+  alternates: {
+    canonical: `${siteConfig.url}/about`,
+  },
+};
 
 // Allow page to be cached but revalidated periodically
 // This ensures the static shell is cached, while the data is fetched fresh periodically
