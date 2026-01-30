@@ -9,6 +9,7 @@ import { siteConfig } from "~/@/config/site";
 import { cn } from "~/@/lib/utils";
 import { Icons } from "~/@/components/ui/icons";
 import { UserAuthNav } from "~/@/components/ui/user-auth-nav";
+import { NavSearchInput } from "~/@/components/ui/nav-search-input";
 import { MobileNav } from "./mobile-nav";
 
 interface MainNavProps {
@@ -53,6 +54,7 @@ export const MainNav = ({ items }: MainNavProps) => {
         </nav>
       ) : null}
       <div className="ml-auto flex items-center gap-4">
+        <NavSearchInput />
         <UserAuthNav />
       </div>
     </div>
