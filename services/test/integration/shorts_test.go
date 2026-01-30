@@ -317,6 +317,63 @@ func testGetIndustryTreeMap(t *testing.T, ctx context.Context, client shortsv1al
 		assert.NotNil(t, resp.Msg.Industries)
 		assert.NotNil(t, resp.Msg.Stocks)
 	})
+
+	// Test all periods - this ensures both MV and fallback queries work
+	t.Run("AllPeriods", func(t *testing.T) {
+		periods := []string{"3M", "6M", "1Y", "2Y", "5Y", "MAX"}
+		for _, period := range periods {
+			t.Run(period, func(t *testing.T) {
+				req := connect.NewRequest(&shortsv1alpha1.GetIndustryTreeMapRequest{
+					Period:   period,
+					Limit:    5,
+					ViewMode: shortsv1alpha1.ViewMode_CURRENT_CHANGE,
+				})
+
+				resp, err := client.GetIndustryTreeMap(ctx, req)
+				require.NoError(t, err, "GetIndustryTreeMap should not fail for period %s", period)
+				require.NotNil(t, resp.Msg, "Response should not be nil for period %s", period)
+			})
+		}
+	})
+
+	// Test all view modes
+	t.Run("AllViewModes", func(t *testing.T) {
+		viewModes := []shortsv1alpha1.ViewMode{
+			shortsv1alpha1.ViewMode_CURRENT_CHANGE,
+			shortsv1alpha1.ViewMode_PERCENTAGE_CHANGE,
+		}
+		for _, viewMode := range viewModes {
+			t.Run(viewMode.String(), func(t *testing.T) {
+				req := connect.NewRequest(&shortsv1alpha1.GetIndustryTreeMapRequest{
+					Period:   "3M",
+					Limit:    5,
+					ViewMode: viewMode,
+				})
+
+				resp, err := client.GetIndustryTreeMap(ctx, req)
+				require.NoError(t, err, "GetIndustryTreeMap should not fail for viewMode %s", viewMode.String())
+				require.NotNil(t, resp.Msg, "Response should not be nil for viewMode %s", viewMode.String())
+			})
+		}
+	})
+
+	// Test different limits
+	t.Run("DifferentLimits", func(t *testing.T) {
+		limits := []int32{1, 5, 10, 20}
+		for _, limit := range limits {
+			t.Run(fmt.Sprintf("Limit%d", limit), func(t *testing.T) {
+				req := connect.NewRequest(&shortsv1alpha1.GetIndustryTreeMapRequest{
+					Period:   "3M",
+					Limit:    limit,
+					ViewMode: shortsv1alpha1.ViewMode_CURRENT_CHANGE,
+				})
+
+				resp, err := client.GetIndustryTreeMap(ctx, req)
+				require.NoError(t, err, "GetIndustryTreeMap should not fail for limit %d", limit)
+				require.NotNil(t, resp.Msg)
+			})
+		}
+	})
 }
 
 func testErrorHandling(t *testing.T, ctx context.Context, client shortsv1alpha1connect.ShortedStocksServiceClient) {
