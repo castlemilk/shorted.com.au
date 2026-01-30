@@ -174,6 +174,34 @@ REFRESH MATERIALIZED VIEW mv_watchlist_defaults;
 
 The daily-sync script automatically refreshes these after loading new data.
 
+### Performance Benchmarks
+
+Query performance expectations (measured January 2026):
+
+| Query | Without MV | With MV | Improvement |
+|-------|-----------|---------|-------------|
+| GetTopShorts (50 stocks) | ~2,300ms | ~6ms | **380x** |
+| GetIndustryTreeMap | ~500ms | ~3ms | **165x** |
+| Watchlist defaults (8 stocks) | ~227ms | <1ms | **227x+** |
+| Time series (5 stocks, 6mo) | ~140ms | ~140ms | (still raw query) |
+
+**Backend Implementation:**
+- `getTopshorts.go` uses `mv_top_shorts` with fallback to raw query
+- `getShortsTreeMap.go` uses `mv_treemap_data` with fallback to raw query
+- Fallback ensures tests and dev environments work without MVs
+
+**Production Database (Supabase):**
+- Host: `aws-0-ap-southeast-2.pooler.supabase.com`
+- Transaction pooler port: 6543 (use this for queries)
+- Session pooler port: 5432 (limited connections)
+- ~2.1M rows in shorts, ~3.7M rows in stock_prices
+
+**Supabase Limits:**
+- max_connections: 60
+- shared_buffers: 224 MB
+- work_mem: 2 MB
+- Use transaction pooler (port 6543) to avoid connection limits
+
 ## Common Tasks
 
 ### Adding a New API Endpoint
