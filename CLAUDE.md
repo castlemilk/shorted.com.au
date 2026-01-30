@@ -75,6 +75,105 @@ Password: password
 
 Connection string: `postgresql://admin:password@localhost:5438/shorts`
 
+## Database Schema
+
+### Core Tables
+
+| Table | Rows | Description |
+|-------|------|-------------|
+| `shorts` | ~2.1M | Daily ASIC short position data |
+| `stock_prices` | ~3.7M | Historical stock prices |
+| `company-metadata` | ~4.5K | Company info, industry, logos |
+| `sync_status` | - | Tracks data sync runs |
+
+### shorts Table
+```sql
+-- Primary short selling data from ASIC
+"DATE" timestamp                    -- Report date
+"PRODUCT" text                      -- Full product name
+"PRODUCT_CODE" text                 -- ASX stock code (e.g., 'BHP')
+"REPORTED_SHORT_POSITIONS" float    -- Number of shares shorted
+"TOTAL_PRODUCT_IN_ISSUE" float      -- Total shares on issue
+"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" float
+```
+
+**Key Indexes:**
+- `shorts_date_product_code_unique` ON (DATE, PRODUCT_CODE) - unique constraint
+- `idx_shorts_product_code_date` ON (PRODUCT_CODE, DATE DESC) - time series queries
+- `idx_shorts_timeseries_covering` ON (PRODUCT_CODE, DATE DESC) INCLUDE (PERCENT...) - covering index
+- `idx_shorts_percent_nonzero` - partial index for non-zero percentages
+
+### stock_prices Table
+```sql
+stock_code VARCHAR     -- ASX code
+date DATE              -- Trading date
+open, high, low, close, adjusted_close DECIMAL
+volume BIGINT
+```
+
+**Key Indexes:**
+- `idx_stock_prices_stock_date` ON (stock_code, date DESC)
+- `stock_prices_stock_code_date_key` UNIQUE ON (stock_code, date)
+
+### company-metadata Table
+```sql
+stock_code VARCHAR(50) UNIQUE  -- Primary key for joins
+company_name, sector, industry, market_cap
+logo_url, logo_gcs_url, logo_icon_gcs_url
+website, description, summary, details
+-- Enrichment fields (GPT-4 generated)
+enhanced_summary, company_history, key_people
+competitive_advantages, risk_factors, recent_developments
+key_metrics JSONB              -- Flexible metrics storage
+search_vector TSVECTOR         -- Full-text search
+```
+
+### Materialized Views (Performance)
+
+| View | Rows | Purpose | Query Time |
+|------|------|---------|------------|
+| `mv_top_shorts` | ~940 | Pre-computed top shorted stocks | ~6ms |
+| `mv_treemap_data` | ~6.2K | Pre-computed treemap by period/industry | ~3ms |
+| `mv_watchlist_defaults` | 8 | Default watchlist stock data | <1ms |
+
+**mv_top_shorts** - Current top shorted stocks with metadata:
+```sql
+SELECT product_code, product_name, current_percent, industry, company_name
+FROM mv_top_shorts
+ORDER BY current_percent DESC
+LIMIT 50;
+```
+
+**mv_treemap_data** - Industry treemap data by period (3m, 6m, 1y, 2y, 5y, max):
+```sql
+SELECT industry, product_code, percentage_change, current_short_position
+FROM mv_treemap_data
+WHERE period_name = '3m'
+ORDER BY percentage_change DESC;
+```
+
+**mv_watchlist_defaults** - Pre-computed data for default watchlist stocks (CBA, BHP, CSL, WBC, ANZ, RIO, WOW, TLS):
+```sql
+SELECT stock_code, latest_price, change_percent, short_percent
+FROM mv_watchlist_defaults;
+```
+
+### Refreshing Materialized Views
+
+After data sync, refresh all MVs:
+```sql
+SELECT refresh_all_materialized_views();
+```
+
+Or individually:
+```sql
+REFRESH MATERIALIZED VIEW CONCURRENTLY mv_treemap_data;
+REFRESH MATERIALIZED VIEW mv_top_shorts;
+REFRESH MATERIALIZED VIEW mv_watchlist_defaults;
+```
+
+The daily-sync script automatically refreshes these after loading new data.
+
 ## Common Tasks
 
 ### Adding a New API Endpoint
