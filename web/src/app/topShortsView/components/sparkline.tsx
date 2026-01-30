@@ -236,62 +236,67 @@ interface SparkLineProps {
   strategy?: SparkLineStrategy;
 }
 
-const SparkLine = ({
+// Observer-based SparkLine component
+const SparkLineObserver = ({
   data,
   height = 140,
   minWidth,
-  strategy = "parent",
-}: SparkLineProps) => {
-  if (strategy === "observer") {
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [width, setWidth] = useState<number>(0);
+}: Omit<SparkLineProps, "strategy">) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState<number>(0);
 
-    useLayoutEffect(() => {
-      const node = containerRef.current;
-      if (!node) return;
+  useLayoutEffect(() => {
+    const node = containerRef.current;
+    if (!node) return;
 
-      // Get initial width
-      const initialWidth = node.getBoundingClientRect().width;
-      if (initialWidth > 0) {
-        setWidth(initialWidth);
+    // Get initial width
+    const initialWidth = node.getBoundingClientRect().width;
+    if (initialWidth > 0) {
+      setWidth(initialWidth);
+    }
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (!entry) return;
+      const nextWidth = entry.contentRect.width;
+      if (nextWidth > 0) {
+        setWidth(nextWidth);
       }
+    });
 
-      const resizeObserver = new ResizeObserver((entries) => {
-        const entry = entries[0];
-        if (!entry) return;
-        const nextWidth = entry.contentRect.width;
-        if (nextWidth > 0) {
-          setWidth(nextWidth);
-        }
-      });
+    resizeObserver.observe(node);
 
-      resizeObserver.observe(node);
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
 
-      return () => {
-        resizeObserver.disconnect();
-      };
-    }, []);
+  return (
+    <div
+      ref={containerRef}
+      className="relative w-full overflow-visible"
+      style={{
+        height: `${height}px`,
+        minHeight: `${height}px`,
+        minWidth: minWidth ? `${minWidth}px` : undefined,
+        boxSizing: "border-box",
+      }}
+    >
+      {width > 0 ? (
+        <Chart width={width} height={height} data={data} />
+      ) : (
+        <Skeleton className="absolute inset-0 w-full h-full" />
+      )}
+    </div>
+  );
+};
 
-    return (
-      <div
-        ref={containerRef}
-        className="relative w-full overflow-visible"
-        style={{
-          height: `${height}px`,
-          minHeight: `${height}px`,
-          minWidth: minWidth ? `${minWidth}px` : undefined,
-          boxSizing: "border-box",
-        }}
-      >
-        {width > 0 ? (
-          <Chart width={width} height={height} data={data} />
-        ) : (
-          <Skeleton className="absolute inset-0 w-full h-full" />
-        )}
-      </div>
-    );
-  }
-
+// Parent-based SparkLine component
+const SparkLineParent = ({
+  data,
+  height = 140,
+  minWidth,
+}: Omit<SparkLineProps, "strategy">) => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useEffect(() => {
@@ -335,6 +340,19 @@ const SparkLine = ({
       </div>
     </div>
   );
+};
+
+// Main SparkLine component that delegates to the appropriate implementation
+const SparkLine = ({
+  data,
+  height = 140,
+  minWidth,
+  strategy = "parent",
+}: SparkLineProps) => {
+  if (strategy === "observer") {
+    return <SparkLineObserver data={data} height={height} minWidth={minWidth} />;
+  }
+  return <SparkLineParent data={data} height={height} minWidth={minWidth} />;
 };
 
 export { SparkLine };
