@@ -1161,6 +1161,27 @@ func (s *postgresStore) GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha
 	return runs, nil
 }
 
+func (s *postgresStore) CleanupStuckSyncRuns() (int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Mark runs as failed if they've been in 'running' state for more than 5 hours
+	// This is longer than the 4-hour job timeout to account for any delays
+	result, err := s.db.Exec(ctx, `
+		UPDATE sync_status
+		SET status = 'failed',
+		    completed_at = CURRENT_TIMESTAMP,
+		    error_message = 'Job timed out (cleaned up by admin)'
+		WHERE status = 'running'
+		  AND started_at < NOW() - INTERVAL '5 hours'
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to cleanup stuck sync runs: %w", err)
+	}
+
+	return int(result.RowsAffected()), nil
+}
+
 func (s *postgresStore) GetTopStocksForEnrichment(limit int32, priority shortsv1alpha1.EnrichmentPriority) ([]*shortsv1alpha1.StockEnrichmentCandidate, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
