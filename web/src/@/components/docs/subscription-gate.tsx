@@ -125,7 +125,7 @@ export function SubscriptionGate({
         {children}
 
         {/* Subscription management link */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground bg-zinc-100 dark:bg-zinc-900 p-3 rounded-lg">
+        <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted p-3 rounded-lg">
           <div className="flex items-center gap-2">
             <Check className={cn("h-4 w-4", subscription.cancelAtPeriodEnd ? "text-yellow-500" : "text-green-500")} />
             <span>
@@ -167,11 +167,11 @@ export function SubscriptionGate({
     <Card
       className={cn(
         "relative overflow-hidden transition-all duration-300",
-        "border-blue-500/30 shadow-lg shadow-blue-500/5"
+        "border-primary/30 shadow-lg shadow-primary/5"
       )}
     >
       {/* Gradient accent */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500" />
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-accent to-secondary" />
 
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -211,7 +211,7 @@ export function SubscriptionGate({
         <Button
           onClick={handleSubscribe}
           disabled={loading}
-          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
         >
           {loading ? (
             <Loader2 className="h-4 w-4 animate-spin mr-2" />

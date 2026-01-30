@@ -44,6 +44,7 @@ The web admin dashboard provides real-time monitoring:
   - Stats cards (last sync, success rate, records updated)
 
 **Source files**:
+
 - `web/src/app/admin/page.tsx` - Dashboard UI
 - `web/src/app/actions/getSyncStatus.ts` - API client
 - `web/src/app/admin/sync-utils.ts` - Health detection logic
@@ -52,18 +53,18 @@ The web admin dashboard provides real-time monitoring:
 
 ### Cloud Run Jobs (Batch)
 
-| Job | Schedule | Purpose |
-|-----|----------|---------|
-| `shorts-data-sync` | Daily 10:00 UTC | ASIC short positions + stock prices + key metrics |
-| `asx-discovery` | Sunday 12:00 UTC | Scrape ASX website for new stock listings |
+| Job                | Schedule         | Purpose                                           |
+| ------------------ | ---------------- | ------------------------------------------------- |
+| `shorts-data-sync` | Daily 10:00 UTC  | ASIC short positions + stock prices + key metrics |
+| `asx-discovery`    | Sunday 12:00 UTC | Scrape ASX website for new stock listings         |
 
 ### Cloud Run Services (HTTP Endpoints)
 
-| Service | Schedule | Endpoint | Purpose |
-|---------|----------|----------|---------|
-| `stock-price-ingestion` | Mon-Fri 8:00 UTC | `/sync-all` | Stock price updates |
-| `market-data-sync` | Mon-Fri 10:00 UTC | `/api/sync/all` | Market data sync + gap filling |
-| `enrichment-processor` | On-demand | Various | Company metadata enrichment |
+| Service                 | Schedule          | Endpoint        | Purpose                        |
+| ----------------------- | ----------------- | --------------- | ------------------------------ |
+| `stock-price-ingestion` | Mon-Fri 8:00 UTC  | `/sync-all`     | Stock price updates            |
+| `market-data-sync`      | Mon-Fri 10:00 UTC | `/api/sync/all` | Market data sync + gap filling |
+| `enrichment-processor`  | On-demand         | Various         | Company metadata enrichment    |
 
 ## Viewing Logs
 
@@ -111,12 +112,14 @@ gcloud scheduler jobs run shorts-data-sync-daily --project=rosy-clover-477102-t5
 ### Job Shows X (Failed) Status
 
 1. **Check logs for error message**:
+
    ```bash
    gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="shorts-data-sync" AND severity>=ERROR' \
      --project=rosy-clover-477102-t5 --limit=20
    ```
 
 2. **Common issues**:
+
    - `DatatypeMismatchError` - Schema mismatch, check migrations
    - `Terminating task because it has reached the maximum timeout` - Job exceeded 1hr limit
    - `Connection refused` - Database connectivity issue
@@ -130,6 +133,7 @@ gcloud scheduler jobs run shorts-data-sync-daily --project=rosy-clover-477102-t5
 ### Scheduler Not Triggering
 
 1. **Check scheduler status**:
+
    ```bash
    gcloud scheduler jobs describe shorts-data-sync-daily \
      --project=rosy-clover-477102-t5 --location=australia-southeast1
@@ -146,6 +150,7 @@ gcloud scheduler jobs run shorts-data-sync-daily --project=rosy-clover-477102-t5
 1. **Check ASIC data availability**: https://download.asic.gov.au/short-selling/short-selling-data.json
 
 2. **Verify database connection**:
+
    ```bash
    # Check DATABASE_URL secret exists
    gcloud secrets versions access latest --secret=DATABASE_URL --project=rosy-clover-477102-t5
@@ -163,14 +168,14 @@ The key metrics phase processes ~500 stocks per hour due to Yahoo Finance rate l
 
 ## Key Files Reference
 
-| File | Purpose |
-|------|---------|
-| `terraform/modules/short-data-sync/main.tf` | Terraform config for shorts-data-sync job |
-| `terraform/modules/market-discovery-sync/main.tf` | Terraform config for ASX discovery + market sync |
-| `services/daily-sync/deprecated/comprehensive_daily_sync.py` | Python sync script (shorts + prices + metrics) |
-| `services/migrations/000006_add_sync_status.up.sql` | sync_status table schema |
-| `services/migrations/000013_add_priority_checkpoint.up.sql` | Checkpoint columns (INTEGER) |
-| `web/src/app/admin/page.tsx` | Admin dashboard UI |
+| File                                                         | Purpose                                          |
+| ------------------------------------------------------------ | ------------------------------------------------ |
+| `terraform/modules/short-data-sync/main.tf`                  | Terraform config for shorts-data-sync job        |
+| `terraform/modules/market-discovery-sync/main.tf`            | Terraform config for ASX discovery + market sync |
+| `services/daily-sync/deprecated/comprehensive_daily_sync.py` | Python sync script (shorts + prices + metrics)   |
+| `services/migrations/000006_add_sync_status.up.sql`          | sync_status table schema                         |
+| `services/migrations/000013_add_priority_checkpoint.up.sql`  | Checkpoint columns (INTEGER)                     |
+| `web/src/app/admin/page.tsx`                                 | Admin dashboard UI                               |
 
 ## Database Tables
 
@@ -178,15 +183,15 @@ The `sync_status` table tracks all sync runs:
 
 ```sql
 -- Check recent sync runs
-SELECT run_id, status, started_at, completed_at, 
+SELECT run_id, status, started_at, completed_at,
        shorts_records_updated, prices_records_updated, metrics_records_updated,
        checkpoint_stocks_processed, checkpoint_stocks_total, error_message
-FROM sync_status 
-ORDER BY started_at DESC 
+FROM sync_status
+ORDER BY started_at DESC
 LIMIT 10;
 
 -- Check for stuck jobs
-SELECT * FROM sync_status 
-WHERE status = 'running' 
+SELECT * FROM sync_status
+WHERE status = 'running'
   AND started_at < NOW() - INTERVAL '70 minutes';
 ```

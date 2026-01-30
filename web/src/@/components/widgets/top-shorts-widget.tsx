@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { type WidgetProps } from "~/@/types/dashboard";
+import { useState } from "react";
+import { type WidgetProps, type TopShortsSettings, WidgetType } from "~/@/types/dashboard";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
-import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { columns } from "~/app/topShortsView/components/columns";
 import {
   Table,
@@ -23,42 +22,30 @@ import {
 import { useRouter } from "next/navigation";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { cn } from "~/@/lib/utils";
+import { useTopShorts } from "~/@/hooks/use-stock-queries";
+import { getTypedSettings } from "~/@/lib/widget-settings";
+import { useWidgetVisibility } from "~/@/hooks/use-widget-visibility";
+import { ScrollArea, ScrollBar } from "~/@/components/ui/scroll-area";
+import { Card } from "~/@/components/ui/card";
+import { TrendingDown, TrendingUp } from "lucide-react";
 
-export function TopShortsWidget({ config }: WidgetProps) {
-  const [loading, setLoading] = useState(true);
-  const [shortsData, setShortsData] = useState<TimeSeriesData[]>(
-    [],
-  );
+export function TopShortsWidget({ config, sizeVariant = "standard" }: WidgetProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const router = useRouter();
+  const { ref, hasBeenVisible } = useWidgetVisibility();
 
-  const period = (config.settings?.period as string) || "3m";
-  const limit = (config.settings?.limit as number) || 10;
+  // Get typed settings with defaults
+  const settings = getTypedSettings(WidgetType.TOP_SHORTS, config.settings as Partial<TopShortsSettings>);
+  const { period, limit } = settings;
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const data = await getTopShortsData(period, limit, 0);
-        setShortsData(data.timeSeries);
-      } catch (error) {
-        console.error("Error fetching top shorts data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Use TanStack Query for data fetching
+  const { data: shortsData = [], isLoading, isError } = useTopShorts(
+    period,
+    limit
+  );
 
-    void fetchData();
-
-    // Set up refresh interval if configured
-    if (config.dataSource.refreshInterval) {
-      const interval = setInterval(
-        () => void fetchData(),
-        config.dataSource.refreshInterval * 1000,
-      );
-      return () => clearInterval(interval);
-    }
-  }, [period, limit, config.dataSource.refreshInterval]);
+  // Only fetch when visible (lazy loading)
+  const shouldFetch = hasBeenVisible;
 
   const table = useReactTable({
     data: shortsData,
@@ -71,11 +58,71 @@ export function TopShortsWidget({ config }: WidgetProps) {
     getSortedRowModel: getSortedRowModel(),
   });
 
-  if (loading) {
+  // Compact mode: horizontal scrollable cards
+  if (sizeVariant === "compact") {
+    if (isLoading || !shouldFetch) {
+      return (
+        <div ref={ref} className="h-full p-2">
+          <ScrollArea className="w-full whitespace-nowrap">
+            <div className="flex gap-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Card key={i} className="p-3 min-w-[140px]">
+                  <Skeleton className="h-4 w-12 mb-2" />
+                  <Skeleton className="h-6 w-16 mb-1" />
+                  <Skeleton className="h-3 w-8" />
+                </Card>
+              ))}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        </div>
+      );
+    }
+
     return (
-      <div className="h-full overflow-auto">
+      <div ref={ref} className="h-full p-2">
+        <ScrollArea className="w-full whitespace-nowrap">
+          <div className="flex gap-2">
+            {shortsData.slice(0, 8).map((stock, index) => {
+              const stockData = stock as TimeSeriesData & { percentageShorted?: number; shortPercentageChange?: number };
+              const percentageShorted = stockData.percentageShorted ?? 0;
+              const change = stockData.shortPercentageChange ?? 0;
+              const isUp = change > 0;
+
+              return (
+                <Card
+                  key={stock.productCode ?? index}
+                  className="p-3 min-w-[140px] cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => router.push(`/shorts/${stock.productCode}`)}
+                >
+                  <div className="flex items-center gap-1 mb-1">
+                    <span className="text-xs text-muted-foreground">#{index + 1}</span>
+                    <span className="font-semibold text-sm">{stock.productCode}</span>
+                  </div>
+                  <div className="text-lg font-bold">{percentageShorted.toFixed(1)}%</div>
+                  <div className={cn(
+                    "flex items-center gap-0.5 text-xs",
+                    isUp ? "text-red-500" : "text-green-500"
+                  )}>
+                    {isUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                    {change >= 0 ? "+" : ""}{change.toFixed(2)}%
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+          <ScrollBar orientation="horizontal" />
+        </ScrollArea>
+      </div>
+    );
+  }
+
+  // Standard/Expanded mode: table view
+  if (isLoading || !shouldFetch) {
+    return (
+      <div ref={ref} className="h-full overflow-auto">
         <Table>
-          <TableHeader className="sticky top-0 bg-background">
+          <TableHeader className="sticky top-0 bg-background z-10">
             <TableRow>
               <TableHead className="text-xs w-12">Rank</TableHead>
               <TableHead className="text-xs">Company</TableHead>
@@ -118,10 +165,18 @@ export function TopShortsWidget({ config }: WidgetProps) {
     );
   }
 
+  if (isError) {
+    return (
+      <div ref={ref} className="h-full flex items-center justify-center text-muted-foreground">
+        <p className="text-sm">Failed to load data</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="h-full overflow-auto">
+    <div ref={ref} className="h-full overflow-auto">
       <Table>
-        <TableHeader className="sticky top-0 bg-background">
+        <TableHeader className="sticky top-0 bg-background z-10">
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => (

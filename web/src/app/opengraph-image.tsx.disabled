@@ -1,0 +1,140 @@
+import { ImageResponse } from "next/og";
+
+// Temporarily disabled edge runtime due to WASM build issues
+// export const runtime = "edge";
+
+export const alt = "Shorted - ASX Short Position Tracker";
+export const size = {
+  width: 1200,
+  height: 630,
+};
+export const contentType = "image/png";
+
+export default async function Image() {
+  return new ImageResponse(
+    (
+      <div
+        style={{
+          height: "100%",
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#0C0C0C",
+          backgroundImage:
+            "radial-gradient(circle at 25% 25%, #1a1a1a 0%, transparent 50%), radial-gradient(circle at 75% 75%, #1a1a1a 0%, transparent 50%)",
+        }}
+      >
+        {/* Logo and brand */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 40,
+          }}
+        >
+          <div
+            style={{
+              width: 80,
+              height: 80,
+              borderRadius: 16,
+              background: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginRight: 24,
+            }}
+          >
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+              <polyline points="16 7 22 7 22 13" />
+            </svg>
+          </div>
+          <span
+            style={{
+              fontSize: 72,
+              fontWeight: 700,
+              color: "#ffffff",
+              letterSpacing: "-0.02em",
+            }}
+          >
+            Shorted
+          </span>
+        </div>
+
+        {/* Tagline */}
+        <div
+          style={{
+            fontSize: 36,
+            color: "#a1a1aa",
+            textAlign: "center",
+            maxWidth: 900,
+            lineHeight: 1.4,
+          }}
+        >
+          ASX Short Position Tracker
+        </div>
+
+        {/* Features */}
+        <div
+          style={{
+            display: "flex",
+            gap: 40,
+            marginTop: 48,
+          }}
+        >
+          {["Daily ASIC Data", "Interactive Charts", "Industry Heatmaps"].map(
+            (feature) => (
+              <div
+                key={feature}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  fontSize: 24,
+                  color: "#71717a",
+                }}
+              >
+                <div
+                  style={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    backgroundColor: "#f97316",
+                  }}
+                />
+                {feature}
+              </div>
+            )
+          )}
+        </div>
+
+        {/* URL */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: 40,
+            fontSize: 24,
+            color: "#52525b",
+          }}
+        >
+          shorted.com.au
+        </div>
+      </div>
+    ),
+    {
+      ...size,
+    }
+  );
+}

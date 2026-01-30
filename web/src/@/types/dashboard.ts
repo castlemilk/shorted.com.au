@@ -1,5 +1,84 @@
 import { type ComponentType } from "react";
 
+// Type-safe widget settings
+export interface TopShortsSettings {
+  period: "1m" | "3m" | "6m" | "1y" | "2y" | "max";
+  limit: number;
+}
+
+export interface WatchlistSettings {
+  watchlist: string[];
+  timeInterval: "1d" | "1w" | "1m" | "3m" | "1y";
+}
+
+export interface IndicatorConfig {
+  type: "SMA" | "WMA" | "EMA";
+  period: number;
+  stockCode: string;
+  color: string;
+  enabled: boolean;
+}
+
+export interface StockChartSettings {
+  stocks: string[];
+  period: "1m" | "3m" | "6m" | "1y" | "2y" | "5y" | "10y" | "max";
+  viewMode: "absolute" | "normalized";
+  dataTypes: ("shorts" | "market")[];
+  indicators: IndicatorConfig[];
+  stockShortsVisibility: Record<string, boolean>;
+}
+
+export interface IndustryTreemapSettings {
+  period: "1m" | "3m" | "6m" | "1y" | "2y" | "max";
+  viewMode: "CURRENT_CHANGE" | "PERCENTAGE_CHANGE";
+  showSectorGrouping: boolean;
+}
+
+export interface PortfolioHolding {
+  symbol: string;
+  shares: number;
+}
+
+export interface PortfolioSummarySettings {
+  portfolio: PortfolioHolding[];
+  refreshInterval: number;
+}
+
+export interface TimeSeriesAnalysisSettings {
+  stocks: string[];
+  analysisType: "trend" | "volatility" | "comparison";
+  period: "1m" | "3m" | "6m" | "1y" | "2y" | "max";
+}
+
+export interface SectorPerformanceSettings {
+  period: "1d" | "1w" | "1m" | "3m";
+  displayType: "pie" | "bar" | "heatmap";
+}
+
+export interface CorrelationMatrixSettings {
+  stocks: string[];
+  period: "1m" | "3m" | "6m" | "1y";
+}
+
+export interface MarketWatchlistSettings {
+  stocks: string[];
+  timeInterval: "1d" | "1w" | "1m" | "3m" | "1y";
+  refreshInterval: number;
+}
+
+// Map widget types to their settings types
+export type WidgetSettingsMap = {
+  [WidgetType.TOP_SHORTS]: TopShortsSettings;
+  [WidgetType.WATCHLIST]: WatchlistSettings;
+  [WidgetType.STOCK_CHART]: StockChartSettings;
+  [WidgetType.INDUSTRY_TREEMAP]: IndustryTreemapSettings;
+  [WidgetType.PORTFOLIO_SUMMARY]: PortfolioSummarySettings;
+  [WidgetType.TIME_SERIES_ANALYSIS]: TimeSeriesAnalysisSettings;
+  [WidgetType.SECTOR_PERFORMANCE]: SectorPerformanceSettings;
+  [WidgetType.CORRELATION_MATRIX]: CorrelationMatrixSettings;
+  [WidgetType.MARKET_WATCHLIST]: MarketWatchlistSettings;
+};
+
 export interface WidgetConfig {
   id: string;
   type: WidgetType;
@@ -37,6 +116,7 @@ export enum WidgetType {
   TIME_SERIES_ANALYSIS = "TIME_SERIES_ANALYSIS",
   CORRELATION_MATRIX = "CORRELATION_MATRIX",
   SECTOR_PERFORMANCE = "SECTOR_PERFORMANCE",
+  MARKET_WATCHLIST = "MARKET_WATCHLIST",
 }
 
 export interface WidgetDefinition {
@@ -55,6 +135,9 @@ export enum WidgetCategory {
   MARKET_DATA = "Market Data",
 }
 
+// Widget size variants for responsive design
+export type WidgetSizeVariant = "compact" | "standard" | "expanded";
+
 export interface WidgetProps {
   config: WidgetConfig;
   data?: unknown;
@@ -62,6 +145,8 @@ export interface WidgetProps {
   error?: Error;
   onSettingsChange?: (settings: Record<string, unknown>) => void;
   onRemove?: () => void;
+  sizeVariant?: WidgetSizeVariant;
+  isVisible?: boolean;
 }
 
 export interface DashboardConfig {
@@ -79,4 +164,13 @@ export interface DashboardState {
   activeDashboardId: string | null;
   isEditMode: boolean;
   selectedWidgetId: string | null;
+}
+
+// Save status for auto-save functionality
+export type SaveStatus = "idle" | "pending" | "saving" | "saved" | "error" | "offline";
+
+export interface SaveState {
+  status: SaveStatus;
+  lastSavedAt?: Date;
+  error?: string;
 }

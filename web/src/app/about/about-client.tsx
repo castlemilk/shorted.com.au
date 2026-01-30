@@ -40,7 +40,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
             <div className="flex flex-col space-y-8 text-center lg:text-left">
               {/* Badge */}
               <div className="inline-flex items-center justify-center lg:justify-start">
-                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-sm font-medium">
+                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium">
                   <Activity className="w-4 h-4" />
                   ASX Short Position Intelligence
                 </span>
@@ -50,7 +50,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
               <div className="space-y-4">
                 <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
                   <span className="block text-foreground">Decode Market</span>
-                  <span className="block bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient">
+                  <span className="block bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent bg-[length:200%_auto] animate-gradient">
                     Sentiment
                   </span>
                 </h1>
@@ -63,9 +63,9 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Link href="/">
-                  <Button 
-                    size="lg" 
-                    className="text-base px-8 py-6 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg shadow-blue-500/25 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/30"
+                  <Button
+                    size="lg"
+                    className="text-base px-8 py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30"
                   >
                     Explore Short Positions
                     <ChevronRight className="w-5 h-5 ml-2" />
@@ -133,7 +133,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
               icon={<TrendingDown className="w-8 h-8" />}
               title="Sentiment Indicator"
               description="High short interest often signals bearish institutional sentiment, while covering can trigger short squeezes and rapid price increases."
-              gradient="from-rose-500 to-orange-500"
+              gradient="from-accent to-primary"
             />
 
             {/* Value Card 2 */}
@@ -141,7 +141,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
               icon={<Shield className="w-8 h-8" />}
               title="ASIC-Sourced Data"
               description="Official regulatory data reported by short sellers themselves, providing the most accurate and reliable short position information available."
-              gradient="from-blue-500 to-cyan-500"
+              gradient="from-secondary to-primary"
             />
 
             {/* Value Card 3 */}
@@ -149,7 +149,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
               icon={<Activity className="w-8 h-8" />}
               title="Real-Time Tracking"
               description="Monitor position changes daily as they're reported. Spot trends early and stay ahead of market movements."
-              gradient="from-emerald-500 to-teal-500"
+              gradient="from-primary to-accent"
             />
           </div>
         </div>
@@ -225,7 +225,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
         <div className="container px-4 md:px-6">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-12">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm font-medium mb-6">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/20 border border-secondary/30 text-secondary-foreground text-sm font-medium mb-6">
                 <Shield className="w-4 h-4" />
                 Official Data Source
               </div>
@@ -247,8 +247,8 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
 
             <div className="mt-12 p-6 rounded-2xl bg-card border">
               <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                  <Database className="w-8 h-8 text-white" />
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0">
+                  <Database className="w-8 h-8 text-primary-foreground" />
                 </div>
                 <div className="flex-1">
                   <h3 className="text-xl font-semibold text-foreground mb-2">
@@ -271,7 +271,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
         <div className="container px-4 md:px-6">
           <div className="relative max-w-4xl mx-auto">
             {/* Decorative background */}
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-blue-500/10 rounded-3xl blur-xl" />
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 rounded-3xl blur-xl" />
             
             <div className="relative bg-card/50 backdrop-blur-sm rounded-3xl border p-8 md:p-12 lg:p-16 text-center">
               <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-foreground mb-6">
@@ -284,9 +284,9 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link href="/">
-                  <Button 
-                    size="lg" 
-                    className="text-base px-10 py-7 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg shadow-blue-500/25 transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/30"
+                  <Button
+                    size="lg"
+                    className="text-base px-10 py-7 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30"
                   >
                     View Top Shorts
                     <ChevronRight className="w-5 h-5 ml-2" />
@@ -350,15 +350,16 @@ interface FeatureCardProps {
   color: "blue" | "purple" | "emerald" | "amber" | "rose" | "cyan" | "indigo" | "teal";
 }
 
+// Theme-aware color styles using CSS variables
 const colorStyles = {
-  blue: "bg-blue-500/10 text-blue-600 dark:text-blue-400 group-hover:bg-blue-500/20",
-  purple: "bg-purple-500/10 text-purple-600 dark:text-purple-400 group-hover:bg-purple-500/20",
-  emerald: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500/20",
-  amber: "bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500/20",
-  rose: "bg-rose-500/10 text-rose-600 dark:text-rose-400 group-hover:bg-rose-500/20",
-  cyan: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 group-hover:bg-cyan-500/20",
-  indigo: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 group-hover:bg-indigo-500/20",
-  teal: "bg-teal-500/10 text-teal-600 dark:text-teal-400 group-hover:bg-teal-500/20",
+  blue: "bg-primary/10 text-primary group-hover:bg-primary/20",
+  purple: "bg-accent/10 text-accent group-hover:bg-accent/20",
+  emerald: "bg-secondary/20 text-secondary-foreground group-hover:bg-secondary/30",
+  amber: "bg-primary/10 text-primary group-hover:bg-primary/20",
+  rose: "bg-accent/10 text-accent group-hover:bg-accent/20",
+  cyan: "bg-secondary/20 text-secondary-foreground group-hover:bg-secondary/30",
+  indigo: "bg-muted text-muted-foreground group-hover:bg-muted/80",
+  teal: "bg-secondary/20 text-secondary-foreground group-hover:bg-secondary/30",
 };
 
 function FeatureCard({ icon, title, description, color }: FeatureCardProps) {

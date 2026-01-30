@@ -14,34 +14,47 @@ import {
   Eye,
   Grid3X3,
   Activity,
+  ListFilter,
 } from "lucide-react";
 import { withErrorBoundary } from "@/components/widgets/with-error-boundary";
 
 // Lazy load widget components
 const widgetComponents = {
   [WidgetType.TOP_SHORTS]: () =>
-    import("@/components/widgets/top-shorts-widget").then((m) => m.TopShortsWidget),
+    import("@/components/widgets/top-shorts-widget").then(
+      (m) => m.TopShortsWidget,
+    ),
   [WidgetType.INDUSTRY_TREEMAP]: () =>
     import("@/components/widgets/industry-treemap-widget").then(
-      (m) => m.IndustryTreemapWidget
+      (m) => m.IndustryTreemapWidget,
     ),
   [WidgetType.STOCK_CHART]: () =>
-    import("@/components/widgets/stock-chart-widget").then((m) => m.StockChartWidget),
+    import("@/components/widgets/stock-chart-widget").then(
+      (m) => m.StockChartWidget,
+    ),
   [WidgetType.PORTFOLIO_SUMMARY]: () =>
     import("@/components/widgets/portfolio-summary-widget").then(
-      (m) => m.PortfolioSummaryWidget
+      (m) => m.PortfolioSummaryWidget,
     ),
   [WidgetType.WATCHLIST]: () =>
-    import("@/components/widgets/watchlist-widget").then((m) => m.WatchlistWidget),
+    import("@/components/widgets/watchlist-widget").then(
+      (m) => m.WatchlistWidget,
+    ),
   [WidgetType.TIME_SERIES_ANALYSIS]: () =>
-    import("@/components/widgets/time-series-widget").then((m) => m.TimeSeriesWidget),
+    import("@/components/widgets/time-series-widget").then(
+      (m) => m.TimeSeriesWidget,
+    ),
   [WidgetType.CORRELATION_MATRIX]: () =>
     import("@/components/widgets/correlation-matrix-widget").then(
-      (m) => m.CorrelationMatrixWidget
+      (m) => m.CorrelationMatrixWidget,
     ),
   [WidgetType.SECTOR_PERFORMANCE]: () =>
     import("@/components/widgets/sector-performance-widget").then(
-      (m) => m.SectorPerformanceWidget
+      (m) => m.SectorPerformanceWidget,
+    ),
+  [WidgetType.MARKET_WATCHLIST]: () =>
+    import("@/components/widgets/market-watchlist-widget").then(
+      (m) => m.MarketWatchlistWidget,
     ),
 };
 
@@ -110,16 +123,53 @@ class WidgetRegistry {
       configSchema: {
         type: "object",
         properties: {
-          stockCode: { type: "string" },
+          stocks: {
+            type: "array",
+            items: { type: "string" },
+            default: ["CBA"],
+            description: "Stock codes to display and compare (max 5)",
+          },
           period: {
             type: "string",
-            enum: ["1m", "3m", "6m", "1y", "2y", "max"],
-            default: "3m",
+            enum: ["1m", "3m", "6m", "1y", "2y", "5y", "10y", "max"],
+            default: "5y",
+            description: "Time period for chart data",
           },
-          chartType: {
+          viewMode: {
             type: "string",
-            enum: ["line", "candlestick", "area"],
-            default: "line",
+            enum: ["absolute", "normalized"],
+            default: "absolute",
+            description:
+              "Absolute values or normalized % change for comparison",
+          },
+          indicators: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                type: { type: "string", enum: ["SMA", "WMA", "EMA"] },
+                period: { type: "number" },
+                stockCode: { type: "string" },
+                color: { type: "string" },
+                enabled: { type: "boolean", default: true },
+              },
+            },
+            default: [],
+            description: "Technical indicators to overlay on the chart",
+          },
+          dataTypes: {
+            type: "array",
+            items: { type: "string", enum: ["shorts", "market"] },
+            default: ["market"],
+            description:
+              "Select data types to display (shorts percentage, market price, or both)",
+          },
+          stockShortsVisibility: {
+            type: "object",
+            additionalProperties: { type: "boolean" },
+            default: {},
+            description:
+              "Per-stock visibility toggle for shorts data (stockCode -> boolean)",
           },
         },
       },
@@ -182,6 +232,23 @@ class WidgetRegistry {
       defaultLayout: { w: 4, h: 8, minW: 3, minH: 6 },
       icon: Eye,
       category: WidgetCategory.PORTFOLIO,
+      configSchema: {
+        type: "object",
+        properties: {
+          watchlist: {
+            type: "array",
+            items: { type: "string" },
+            default: ["CBA", "BHP", "CSL", "WBC", "ANZ", "RIO", "WOW", "TLS"],
+            description: "List of stock codes to watch",
+          },
+          timeInterval: {
+            type: "string",
+            enum: ["1d", "1w", "1m", "3m", "1y"],
+            default: "1m",
+            description: "Time interval for sparkline charts",
+          },
+        },
+      },
     });
 
     this.register({
@@ -190,6 +257,40 @@ class WidgetRegistry {
       defaultLayout: { w: 8, h: 4, minW: 6, minH: 3 },
       icon: Briefcase,
       category: WidgetCategory.PORTFOLIO,
+      configSchema: {
+        type: "object",
+        properties: {
+          portfolio: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                symbol: { type: "string", description: "Stock code" },
+                shares: {
+                  type: "number",
+                  description: "Number of shares held",
+                },
+              },
+              required: ["symbol", "shares"],
+            },
+            default: [
+              { symbol: "CBA", shares: 100 },
+              { symbol: "BHP", shares: 50 },
+              { symbol: "CSL", shares: 25 },
+              { symbol: "WBC", shares: 80 },
+              { symbol: "WOW", shares: 40 },
+            ],
+            description:
+              "Portfolio holdings with stock codes and share quantities",
+          },
+          refreshInterval: {
+            type: "number",
+            default: 300000,
+            description:
+              "Refresh interval in milliseconds (default: 5 minutes)",
+          },
+        },
+      },
     });
 
     this.register({
@@ -215,6 +316,38 @@ class WidgetRegistry {
         },
       },
     });
+
+    this.register({
+      type: WidgetType.MARKET_WATCHLIST,
+      component: {} as ComponentType<WidgetProps>,
+      defaultLayout: { w: 3, h: 8, minW: 3, minH: 6 },
+      icon: ListFilter,
+      category: WidgetCategory.MARKET_DATA,
+      configSchema: {
+        type: "object",
+        properties: {
+          stocks: {
+            type: "array",
+            items: { type: "string" },
+            default: ["CBA", "BHP", "CSL", "WBC", "ANZ"],
+            description:
+              "List of stock codes to display with sparklines (auto-complete enabled)",
+          },
+          timeInterval: {
+            type: "string",
+            enum: ["1d", "1w", "1m", "3m", "1y"],
+            default: "1m",
+            description: "Time interval for sparkline charts",
+          },
+          refreshInterval: {
+            type: "number",
+            default: 120000,
+            description:
+              "Refresh interval in milliseconds (default: 2 minutes)",
+          },
+        },
+      },
+    });
   }
 
   register(definition: WidgetDefinition) {
@@ -232,14 +365,16 @@ class WidgetRegistry {
     }
 
     const component = await loader();
-    
+
     // Get widget definition for the name
     const definition = this.getDefinition(type);
-    const widgetName = definition ? type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Widget';
-    
+    const widgetName = definition
+      ? type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())
+      : "Widget";
+
     // Wrap component with error boundary
     const wrappedComponent = withErrorBoundary(component, widgetName);
-    
+
     this.loadedComponents.set(type, wrappedComponent);
     return wrappedComponent;
   }

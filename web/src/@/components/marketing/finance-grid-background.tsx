@@ -40,66 +40,66 @@ export function FinanceGridBackground({ className }: FinanceGridBackgroundProps)
         <rect width="100%" height="100%" fill="url(#finance-grid)" />
       </svg>
 
-      {/* Animated diagonal lines */}
+      {/* Animated diagonal lines - using theme colors */}
       <div className="absolute inset-0 overflow-hidden">
-        {/* Rising line 1 */}
-        <div 
-          className="absolute w-px h-[200px] bg-gradient-to-t from-transparent via-emerald-500/40 to-transparent"
+        {/* Rising line 1 - secondary (avocado/sage) */}
+        <div
+          className="absolute w-px h-[200px] bg-gradient-to-t from-transparent via-secondary/40 to-transparent"
           style={{ left: "15%", animation: "grid-rise-line 8s ease-in-out infinite", animationDelay: "0s" }}
         />
         {/* Rising line 2 */}
-        <div 
-          className="absolute w-px h-[150px] bg-gradient-to-t from-transparent via-emerald-500/30 to-transparent"
+        <div
+          className="absolute w-px h-[150px] bg-gradient-to-t from-transparent via-secondary/30 to-transparent"
           style={{ left: "35%", animation: "grid-rise-line 8s ease-in-out infinite", animationDelay: "2s" }}
         />
-        {/* Falling line 1 */}
-        <div 
-          className="absolute w-px h-[180px] bg-gradient-to-b from-transparent via-rose-500/40 to-transparent"
+        {/* Falling line 1 - accent (rust/tawny) */}
+        <div
+          className="absolute w-px h-[180px] bg-gradient-to-b from-transparent via-accent/40 to-transparent"
           style={{ left: "55%", animation: "grid-fall-line 8s ease-in-out infinite", animationDelay: "1s" }}
         />
         {/* Rising line 3 */}
-        <div 
-          className="absolute w-px h-[160px] bg-gradient-to-t from-transparent via-emerald-500/25 to-transparent"
+        <div
+          className="absolute w-px h-[160px] bg-gradient-to-t from-transparent via-secondary/25 to-transparent"
           style={{ left: "75%", animation: "grid-rise-line 8s ease-in-out infinite", animationDelay: "3s" }}
         />
         {/* Falling line 2 */}
-        <div 
-          className="absolute w-px h-[140px] bg-gradient-to-b from-transparent via-rose-500/30 to-transparent"
+        <div
+          className="absolute w-px h-[140px] bg-gradient-to-b from-transparent via-accent/30 to-transparent"
           style={{ left: "90%", animation: "grid-fall-line 8s ease-in-out infinite", animationDelay: "2.5s" }}
         />
       </div>
 
       {/* Accent dots grid */}
       <div className="absolute inset-0">
-        <div className="absolute top-1/4 left-1/4 w-2 h-2 rounded-full bg-emerald-500/20" style={{ animation: "grid-pulse-slow 4s ease-in-out infinite" }} />
-        <div className="absolute top-1/3 right-1/3 w-1.5 h-1.5 rounded-full bg-blue-500/20" style={{ animation: "grid-pulse-slow 4s ease-in-out infinite", animationDelay: "1s" }} />
-        <div className="absolute bottom-1/4 left-1/3 w-2 h-2 rounded-full bg-rose-500/20" style={{ animation: "grid-pulse-slow 4s ease-in-out infinite", animationDelay: "2s" }} />
-        <div className="absolute top-2/3 right-1/4 w-1.5 h-1.5 rounded-full bg-amber-500/20" style={{ animation: "grid-pulse-slow 4s ease-in-out infinite", animationDelay: "0.5s" }} />
+        <div className="absolute top-1/4 left-1/4 w-2 h-2 rounded-full bg-secondary/20" style={{ animation: "grid-pulse-slow 4s ease-in-out infinite" }} />
+        <div className="absolute top-1/3 right-1/3 w-1.5 h-1.5 rounded-full bg-primary/20" style={{ animation: "grid-pulse-slow 4s ease-in-out infinite", animationDelay: "1s" }} />
+        <div className="absolute bottom-1/4 left-1/3 w-2 h-2 rounded-full bg-accent/20" style={{ animation: "grid-pulse-slow 4s ease-in-out infinite", animationDelay: "2s" }} />
+        <div className="absolute top-2/3 right-1/4 w-1.5 h-1.5 rounded-full bg-primary/20" style={{ animation: "grid-pulse-slow 4s ease-in-out infinite", animationDelay: "0.5s" }} />
       </div>
 
       {/* Horizontal data streams */}
       <div className="absolute inset-0 overflow-hidden opacity-30">
-        <div 
-          className="absolute h-px w-[300px] bg-gradient-to-r from-transparent via-blue-500/50 to-transparent"
+        <div
+          className="absolute h-px w-[300px] bg-gradient-to-r from-transparent via-primary/50 to-transparent"
           style={{ top: "20%", animation: "grid-stream-left 12s linear infinite", animationDelay: "0s" }}
         />
-        <div 
-          className="absolute h-px w-[200px] bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent"
+        <div
+          className="absolute h-px w-[200px] bg-gradient-to-r from-transparent via-secondary/40 to-transparent"
           style={{ top: "40%", animation: "grid-stream-right 12s linear infinite", animationDelay: "1.5s" }}
         />
-        <div 
-          className="absolute h-px w-[250px] bg-gradient-to-r from-transparent via-purple-500/40 to-transparent"
+        <div
+          className="absolute h-px w-[250px] bg-gradient-to-r from-transparent via-accent/40 to-transparent"
           style={{ top: "60%", animation: "grid-stream-left 12s linear infinite", animationDelay: "3s" }}
         />
-        <div 
-          className="absolute h-px w-[180px] bg-gradient-to-r from-transparent via-blue-500/30 to-transparent"
+        <div
+          className="absolute h-px w-[180px] bg-gradient-to-r from-transparent via-primary/30 to-transparent"
           style={{ top: "80%", animation: "grid-stream-right 12s linear infinite", animationDelay: "2s" }}
         />
       </div>
 
       {/* Corner accent gradients */}
-      <div className="absolute top-0 left-0 w-1/3 h-1/3 bg-gradient-to-br from-blue-500/5 to-transparent" />
-      <div className="absolute bottom-0 right-0 w-1/3 h-1/3 bg-gradient-to-tl from-emerald-500/5 to-transparent" />
+      <div className="absolute top-0 left-0 w-1/3 h-1/3 bg-gradient-to-br from-primary/5 to-transparent" />
+      <div className="absolute bottom-0 right-0 w-1/3 h-1/3 bg-gradient-to-tl from-secondary/5 to-transparent" />
 
       {/* Global styles for animations */}
       <style dangerouslySetInnerHTML={{ __html: `

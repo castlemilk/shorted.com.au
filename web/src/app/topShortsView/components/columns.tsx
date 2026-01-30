@@ -11,11 +11,11 @@ import {
 } from "~/@/components/ui/card";
 import { SparkLine } from "./sparkline";
 import { Button } from "~/@/components/ui/button";
-import { ArrowUpDown, Circle } from "lucide-react";
-import { Badge } from "~/@/components/ui/badge";
+import { ArrowUpDown } from "lucide-react";
 
-const redColor = `var(--red)`;
-const greenColor = `var(--green)`;
+// Use semantic colors for min/max indicators - these stay red/green regardless of theme
+const redColor = `var(--semantic-red)`;
+const greenColor = `var(--semantic-green)`;
 
 const truncateValue = (value: number, maxLength: number) => {
   const formatted = value.toFixed(2);
@@ -78,22 +78,36 @@ export const columns: ColumnDef<TimeSeriesData>[] = [
       const latestValue = data.latestShortPosition ?? 0;
       return (
         <div className="flex items-center justify-center h-full">
-          <div className="flex flex-col items-center">
-            <div className="flex flex-col mb-2">
-              <Badge className="flex mb-1 p-0 pl-1 items-center text-xs w-[85px] truncate">
-                <Circle strokeWidth={0} size={10} fill={greenColor} />
-                <p className="pl-1">{`Min: ${truncateValue(minValue, 5)}`}</p>
-              </Badge>
-              <Badge className="flex p-0 pl-1 items-center text-xs w-[85px] truncate">
-                <Circle strokeWidth={0} size={10} fill={redColor} />
-                <p className="pl-1">{`Max: ${truncateValue(maxValue, 5)}`}</p>
-              </Badge>
-            </div>
-            <div className="flex items-end">
-              <div className="text-3xl font-bold">
-                {truncateValue(latestValue, 6)}
+          <div className="flex flex-col items-center gap-2">
+            {/* Min/Max indicators */}
+            <div className="flex gap-3">
+              {/* Min badge */}
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50 border border-border/50">
+                <div
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  style={{ backgroundColor: greenColor }}
+                />
+                <span className="text-xs text-muted-foreground font-medium">
+                  {minValue.toFixed(1)}%
+                </span>
               </div>
-              <div className="text-lg ">%</div>
+              {/* Max badge */}
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-muted/50 border border-border/50">
+                <div
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
+                  style={{ backgroundColor: redColor }}
+                />
+                <span className="text-xs text-muted-foreground font-medium">
+                  {maxValue.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+            {/* Current value */}
+            <div className="flex items-baseline gap-0.5">
+              <span className="text-2xl font-bold tabular-nums">
+                {latestValue.toFixed(2)}
+              </span>
+              <span className="text-sm text-muted-foreground">%</span>
             </div>
           </div>
         </div>
