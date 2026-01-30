@@ -17,12 +17,12 @@ export function FloatingApiDocsLink() {
       <Link
         href="/docs/api"
         className={cn(
-          "flex items-center gap-3 px-5 py-3.5 bg-zinc-950 dark:bg-white text-zinc-50 dark:text-zinc-950 rounded-full shadow-2xl shadow-blue-500/40 hover:scale-105 hover:shadow-blue-500/60 transition-all active:scale-95 group border border-zinc-800 dark:border-zinc-200",
+          "flex items-center gap-3 px-5 py-3.5 bg-foreground dark:bg-foreground text-background dark:text-background rounded-full shadow-2xl shadow-primary/40 hover:scale-105 hover:shadow-primary/60 transition-all active:scale-95 group border border-border",
         )}
       >
         <div className="relative flex h-2.5 w-2.5 mr-0.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-primary"></span>
         </div>
         <Terminal className="h-4 w-4 transition-transform group-hover:-rotate-12" />
         <span className="text-[11px] font-extrabold tracking-widest uppercase">

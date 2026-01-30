@@ -8,16 +8,18 @@
 export const criticalCSS = `
 /* Critical CSS - Above the fold styles only */
 
-/* CSS Variables - Critical for theme support */
+/* CSS Variables - Amber Terminal Glow Theme */
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 84% 4.9%;
-  --font-sans: 'Inter', sans-serif;
+  --background: 40 25% 97%;
+  --foreground: 19 18% 24%;
+  --muted: 40 15% 94%;
+  --font-sans: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
 }
 
 .dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
+  --background: 0 0% 5%;
+  --foreground: 48 52% 81%;
+  --muted: 0 0% 12%;
 }
 
 /* Base reset - Critical for preventing layout shift */
@@ -104,7 +106,7 @@ body {
 }
 
 .bg-muted {
-  background-color: hsl(var(--muted, 210 40% 96.1%));
+  background-color: hsl(var(--muted, 40 15% 94%));
 }
 
 /* Responsive breakpoints - Critical */

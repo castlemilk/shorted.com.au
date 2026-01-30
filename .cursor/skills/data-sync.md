@@ -114,6 +114,7 @@ OPENAI_API_KEY=sk-...  # For enrichment
 ### Admin Dashboard
 
 Monitor sync jobs via the web admin dashboard:
+
 - **URL**: https://shorted.com.au/admin
 - **Features**: System health, issue detection, sync history, checkpoint progress
 
@@ -140,12 +141,12 @@ gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name=
 
 ### Scheduled Jobs
 
-| Schedule | Job | Time (UTC) | Purpose |
-|----------|-----|------------|---------|
-| Daily | `shorts-data-sync-daily` | 10:00 | ASIC shorts + stock prices + metrics |
-| Mon-Fri | `stock-price-daily-sync` | 8:00 | Stock price updates |
-| Mon-Fri | `market-data-sync-daily` | 10:00 | Market data sync |
-| Sunday | `asx-discovery-weekly` | 12:00 | ASX stock list scraping |
+| Schedule | Job                      | Time (UTC) | Purpose                              |
+| -------- | ------------------------ | ---------- | ------------------------------------ |
+| Daily    | `shorts-data-sync-daily` | 10:00      | ASIC shorts + stock prices + metrics |
+| Mon-Fri  | `stock-price-daily-sync` | 8:00       | Stock price updates                  |
+| Mon-Fri  | `market-data-sync-daily` | 10:00      | Market data sync                     |
+| Sunday   | `asx-discovery-weekly`   | 12:00      | ASX stock list scraping              |
 
 ### Manual Trigger
 
@@ -162,6 +163,7 @@ gcloud run jobs execute asx-discovery --project=rosy-clover-477102-t5 --region=a
 ### Job Failed (X Status)
 
 1. **Check error logs**:
+
    ```bash
    gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="shorts-data-sync" AND severity>=ERROR' \
      --project=rosy-clover-477102-t5 --limit=20
@@ -175,6 +177,7 @@ gcloud run jobs execute asx-discovery --project=rosy-clover-477102-t5 --region=a
 ### Database Schema Issues
 
 If sync fails with type errors, check migrations:
+
 - `services/migrations/000006_add_sync_status.up.sql` - sync_status table
 - `services/migrations/000013_add_priority_checkpoint.up.sql` - INTEGER columns
 
@@ -182,23 +185,22 @@ If sync fails with type errors, check migrations:
 
 ```sql
 -- Recent sync runs
-SELECT run_id, status, started_at, 
-       shorts_records_updated, prices_records_updated, 
+SELECT run_id, status, started_at,
+       shorts_records_updated, prices_records_updated,
        checkpoint_stocks_processed, checkpoint_stocks_total
 FROM sync_status ORDER BY started_at DESC LIMIT 10;
 
 -- Stuck jobs
-SELECT * FROM sync_status 
+SELECT * FROM sync_status
 WHERE status = 'running' AND started_at < NOW() - INTERVAL '70 minutes';
 ```
 
 ### Key Files
 
-| File | Purpose |
-|------|---------|
-| `services/daily-sync/deprecated/comprehensive_daily_sync.py` | Main sync script |
-| `terraform/modules/short-data-sync/main.tf` | Job infrastructure |
-| `web/src/app/admin/page.tsx` | Admin dashboard |
+| File                                                         | Purpose            |
+| ------------------------------------------------------------ | ------------------ |
+| `services/daily-sync/deprecated/comprehensive_daily_sync.py` | Main sync script   |
+| `terraform/modules/short-data-sync/main.tf`                  | Job infrastructure |
+| `web/src/app/admin/page.tsx`                                 | Admin dashboard    |
 
 For detailed monitoring commands, see `.cursor/rules/sync-monitoring.md`.
-

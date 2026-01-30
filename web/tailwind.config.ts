@@ -29,6 +29,11 @@ module.exports = {
     'slide-in-from-left-2',
     'slide-in-from-top-2',
     'zoom-in-95',
+    // Terminal effects
+    'text-glow',
+    'box-glow',
+    'scanlines',
+    'phosphor-in',
   ],
   theme: {
     container: {
@@ -40,7 +45,9 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        sans: ["var(--font-sans)", ...fontFamily.sans],
+        sans: ["var(--font-sans)", ...fontFamily.mono],
+        display: ["var(--font-display)", ...fontFamily.sans],
+        mono: ["var(--font-sans)", ...fontFamily.mono],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -82,6 +89,15 @@ module.exports = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      boxShadow: {
+        // Amber glow effects
+        "amber-sm": "0 0 10px -3px hsl(32 100% 65% / 0.3)",
+        "amber": "0 0 20px -5px hsl(32 100% 65% / 0.4)",
+        "amber-lg": "0 0 30px -5px hsl(32 100% 65% / 0.5)",
+        "amber-glow": "0 0 0 1px hsl(32 100% 65% / 0.2), 0 0 30px -5px hsl(32 100% 65% / 0.4)",
+        // Terminal inset glow
+        "terminal-inset": "inset 0 0 20px -10px hsl(32 100% 65% / 0.2)",
+      },
       keyframes: {
         "accordion-down": {
           from: { height: 0 },
@@ -111,9 +127,30 @@ module.exports = {
           "0%": { opacity: "0", transform: "translateY(10px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        // Amber-themed glow pulse (replaces blue)
         "glow-pulse": {
-          "0%, 100%": { boxShadow: "0 0 20px 0 rgba(59, 130, 246, 0.3)" },
-          "50%": { boxShadow: "0 0 40px 5px rgba(59, 130, 246, 0.5)" },
+          "0%, 100%": { boxShadow: "0 0 20px 0 hsl(32 100% 65% / 0.3)" },
+          "50%": { boxShadow: "0 0 40px 5px hsl(32 100% 65% / 0.5)" },
+        },
+        // Terminal cursor blink
+        "cursor-blink": {
+          "0%, 50%": { opacity: "1" },
+          "51%, 100%": { opacity: "0" },
+        },
+        // Phosphor fade in
+        "phosphor-in": {
+          "0%": { opacity: "0", filter: "blur(2px)" },
+          "100%": { opacity: "1", filter: "blur(0)" },
+        },
+        // Amber text glow pulse
+        "text-glow-pulse": {
+          "0%, 100%": { textShadow: "0 0 4px hsl(32 100% 65% / 0.4)" },
+          "50%": { textShadow: "0 0 8px hsl(32 100% 65% / 0.6), 0 0 16px hsl(32 100% 65% / 0.3)" },
+        },
+        // Scanline scroll (subtle)
+        "scanline": {
+          "0%": { transform: "translateY(0)" },
+          "100%": { transform: "translateY(4px)" },
         },
       },
       animation: {
@@ -125,6 +162,10 @@ module.exports = {
         float: "float 4s ease-in-out infinite",
         "slide-up-fade": "slide-up-fade 0.4s ease-out",
         "glow-pulse": "glow-pulse 2s ease-in-out infinite",
+        "cursor-blink": "cursor-blink 1s step-end infinite",
+        "phosphor-in": "phosphor-in 0.3s ease-out forwards",
+        "text-glow-pulse": "text-glow-pulse 2s ease-in-out infinite",
+        "scanline": "scanline 0.1s linear infinite",
       },
     },
   },

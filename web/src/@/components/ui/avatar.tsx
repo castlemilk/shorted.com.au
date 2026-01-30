@@ -3,16 +3,20 @@ import Image from "next/image";
 type Props = {
   name: string;
   picture: string;
+  size?: number;
 };
 
-const Avatar = ({ name, picture }: Props) => {
+const Avatar = ({ name, picture, size = 40 }: Props) => {
   return (
-    <div className="flex items-center">
+    <div
+      className="relative flex items-center justify-center overflow-hidden rounded-full"
+      style={{ width: size, height: size }}
+    >
       <Image
         src={picture}
-        className="w-10 h-10 rounded-full"
-        width={42}
-        height={42}
+        className="object-cover"
+        fill
+        sizes={`${size}px`}
         alt={name}
       />
     </div>

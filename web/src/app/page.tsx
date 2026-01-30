@@ -1,39 +1,62 @@
-"use client";
+import { type Metadata } from "next";
+import { siteConfig } from "~/@/config/site";
+import { HomeContent } from "./home-content";
 
-import React from "react";
-import { GoogleAnalytics } from "@next/third-parties/google";
-import { TopShorts } from "./topShortsView/topShorts";
-import { IndustryTreeMapView } from "./treemap/treeMap";
-import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { LoginPromptBanner } from "~/@/components/ui/login-prompt-banner";
-import { useSession } from "next-auth/react";
-
-const Page = () => {
-  const { data: session } = useSession();
-
-  return (
-    <div className="min-h-screen flex flex-col bg-transparent">
-      <GoogleAnalytics gaId="G-X85RLQ4N2N" />
-      
-      {/* Login prompt banner for non-authenticated users */}
-      {!session && <LoginPromptBanner />}
-
-      {/* Main dashboard view */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
-          <div className="lg:w-2/5">
-            <TopShorts initialPeriod="3m" />
-          </div>
-          <div className="lg:w-3/5">
-            <IndustryTreeMapView
-              initialPeriod="3m"
-              initialViewMode={ViewMode.CURRENT_CHANGE}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+export const metadata: Metadata = {
+  title: siteConfig.fullTitle,
+  description: siteConfig.description,
+  keywords: siteConfig.keywords,
+  openGraph: {
+    title: siteConfig.fullTitle,
+    description: siteConfig.description,
+    url: siteConfig.url,
+    siteName: siteConfig.name,
+    type: "website",
+    locale: "en_AU",
+    images: [
+      {
+        url: siteConfig.ogImage,
+        width: 1200,
+        height: 630,
+        alt: "Shorted - ASX Short Position Tracker",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteConfig.fullTitle,
+    description: siteConfig.description,
+    images: [siteConfig.ogImage],
+  },
+  alternates: {
+    canonical: siteConfig.url,
+  },
 };
 
-export default Page;
+export default function Page() {
+  return (
+    <main className="min-h-screen flex flex-col bg-transparent">
+      {/* Page header with SEO-optimized content */}
+      <header className="container mx-auto px-4 pt-8 pb-4">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
+          ASX Short Position Tracker
+        </h1>
+        <p className="text-muted-foreground mt-2 max-w-2xl">
+          Daily ASIC short selling data for Australian stocks. Track the most shorted
+          positions, analyze trends, and explore industry breakdowns.
+        </p>
+        {/* Extended description for SEO - visually hidden but accessible */}
+        <p className="sr-only">
+          Shorted.com.au provides free daily short position data sourced from ASIC,
+          featuring interactive charts, industry heatmaps, and comprehensive analysis
+          of the most shorted stocks in Australia. Monitor short interest trends,
+          compare positions across industries, and make informed investment decisions
+          with real-time ASX short selling data.
+        </p>
+      </header>
+
+      {/* Interactive dashboard content */}
+      <HomeContent />
+    </main>
+  );
+}

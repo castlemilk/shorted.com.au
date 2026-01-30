@@ -1,4 +1,4 @@
-import { Inter as FontSans } from "next/font/google";
+import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import "~/styles/globals.css";
 import { criticalCSS } from "~/styles/critical-css";
 
@@ -19,18 +19,30 @@ import {
 } from "~/@/components/ui/environment-banner";
 import { auth } from "~/server/auth";
 
-const fontSans = FontSans({
+// IBM Plex Mono - Primary monospace for terminal aesthetic
+const fontMono = IBM_Plex_Mono({
   subsets: ["latin"],
   variable: "--font-sans",
-  display: "swap", // Optimize font loading
+  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
   preload: true,
-  fallback: ["system-ui", "arial"],
+  fallback: ["JetBrains Mono", "Fira Code", "ui-monospace", "monospace"],
+});
+
+// Space Grotesk - Display font for headings (optional, geometric sans)
+const fontDisplay = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-display",
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  preload: true,
+  fallback: ["system-ui", "sans-serif"],
 });
 
 export const metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: siteConfig.name,
+    default: siteConfig.fullTitle,
     template: `%s | ${siteConfig.name}`,
   },
   description: siteConfig.description,
@@ -93,8 +105,8 @@ export const metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "white" },
-    { media: "(prefers-color-scheme: dark)", color: "black" },
+    { media: "(prefers-color-scheme: light)", color: "#F8F7F4" },  // Subtle warm white
+    { media: "(prefers-color-scheme: dark)", color: "#0C0C0C" },   // Terminal black
   ],
   width: "device-width",
   initialScale: 1,
@@ -119,7 +131,7 @@ export default async function RootLayout({
   `.replace(/\s+/g, " ");
 
   return (
-    <html lang="en" className={fontSans.variable} suppressHydrationWarning>
+    <html lang="en" className={`${fontMono.variable} ${fontDisplay.variable}`} suppressHydrationWarning>
       <head>
         {/* Inline critical CSS to prevent render-blocking */}
         <style dangerouslySetInnerHTML={{ __html: criticalCSS }} />

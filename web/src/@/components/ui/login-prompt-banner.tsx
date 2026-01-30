@@ -11,11 +11,11 @@ export function LoginPromptBanner() {
   if (!isVisible) return null;
 
   return (
-    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border-b border-blue-200 dark:border-blue-800">
+    <div className="bg-gradient-to-r from-primary/5 to-accent/5 border-b border-primary/20">
       <div className="container mx-auto px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <Sparkles className="h-5 w-5 text-primary" />
             <p className="text-sm text-gray-700 dark:text-gray-300">
               <span className="font-medium">Unlock advanced features:</span>{" "}
               <span className="text-gray-600 dark:text-gray-400">

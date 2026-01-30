@@ -17,11 +17,11 @@ import Link from "next/link";
 
 export const UserAuthNav = () => {
   const { data: session, status } = useSession();
-  
+
   if (status === "loading") {
     return <Skeleton className="h-10 w-10 rounded-full" />;
   }
-  
+
   if (!session) {
     return <SignIn />;
   }
@@ -29,10 +29,14 @@ export const UserAuthNav = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0 border border-border/50 hover:bg-secondary transition-colors">
+        <Button
+          variant="ghost"
+          className="relative h-9 w-9 rounded-full p-0 border border-border/50 hover:bg-secondary transition-colors"
+        >
           <Avatar
             name={session?.user?.name ?? "User"}
             picture={session?.user?.image ?? "/default-avatar.png"}
+            size={36}
           />
         </Button>
       </DropdownMenuTrigger>
@@ -46,23 +50,48 @@ export const UserAuthNav = () => {
           </p>
         </div>
         <div className="p-1">
-          <DropdownMenuItem asChild className="cursor-pointer focus:bg-secondary">
-            <Link href="/portfolio" className="w-full">My Portfolio</Link>
+          <DropdownMenuItem
+            asChild
+            className="cursor-pointer focus:bg-secondary"
+          >
+            <Link href="/portfolio" className="w-full">
+              My Portfolio
+            </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild className="cursor-pointer focus:bg-secondary">
-            <Link href="/dashboards" className="w-full">Dashboards</Link>
+          <DropdownMenuItem
+            asChild
+            className="cursor-pointer focus:bg-secondary"
+          >
+            <Link href="/dashboards" className="w-full">
+              Dashboards
+            </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild className="cursor-pointer focus:bg-secondary text-blue-500 font-medium">
-            <Link href="/docs/api" className="w-full">API Documentation</Link>
+          <DropdownMenuItem
+            asChild
+            className="cursor-pointer focus:bg-secondary text-blue-500 font-medium"
+          >
+            <Link href="/docs/api" className="w-full">
+              API Documentation
+            </Link>
           </DropdownMenuItem>
           {session?.user?.isAdmin && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild className="cursor-pointer focus:bg-secondary text-purple-500 font-medium">
-                <Link href="/admin" className="w-full">Admin: Sync Status</Link>
+              <DropdownMenuItem
+                asChild
+                className="cursor-pointer focus:bg-secondary text-purple-500 font-medium"
+              >
+                <Link href="/admin" className="w-full">
+                  Admin: Sync Status
+                </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem asChild className="cursor-pointer focus:bg-secondary text-purple-500 font-medium">
-                <Link href="/admin/enrichments" className="w-full">Admin: Enrichments</Link>
+              <DropdownMenuItem
+                asChild
+                className="cursor-pointer focus:bg-secondary text-purple-500 font-medium"
+              >
+                <Link href="/admin/enrichments" className="w-full">
+                  Admin: Enrichments
+                </Link>
               </DropdownMenuItem>
             </>
           )}

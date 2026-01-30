@@ -1,12 +1,16 @@
 /**
  * Action retry wrapper
- * 
+ *
  * Wraps server actions with automatic retry logic to handle cold start failures
  * and transient network errors. Works seamlessly with React's cache().
  */
 
 import { ConnectError, Code } from "@connectrpc/connect";
-import { retryWithBackoff, shouldRetryConnectError, type RetryOptions } from "@/lib/retry";
+import {
+  retryWithBackoff,
+  shouldRetryConnectError,
+  type RetryOptions,
+} from "@/lib/retry";
 
 /**
  * Default retry configuration optimized for cold start scenarios
@@ -21,9 +25,9 @@ const DEFAULT_ACTION_RETRY_OPTIONS: RetryOptions = {
 
 /**
  * Wraps an async action function with retry logic
- * 
+ *
  * Use this to wrap action implementations before passing to cache().
- * 
+ *
  * @example
  * ```ts
  * export const getStockDetails = cache(
@@ -33,7 +37,7 @@ const DEFAULT_ACTION_RETRY_OPTIONS: RetryOptions = {
  *   })
  * );
  * ```
- * 
+ *
  * @param fn - The async function to wrap
  * @param options - Optional retry configuration overrides
  * @returns A wrapped function with retry logic
@@ -43,7 +47,7 @@ export function withRetry<TArgs extends unknown[], TReturn>(
   options?: Partial<RetryOptions>,
 ): (...args: TArgs) => Promise<TReturn> {
   const retryOptions = { ...DEFAULT_ACTION_RETRY_OPTIONS, ...options };
-  
+
   return async (...args: TArgs): Promise<TReturn> => {
     return retryWithBackoff(() => fn(...args), retryOptions);
   };
@@ -51,14 +55,14 @@ export function withRetry<TArgs extends unknown[], TReturn>(
 
 /**
  * Creates a retry-wrapped action that gracefully handles errors
- * 
+ *
  * Returns undefined instead of throwing when:
  * - The resource is not found (NotFound error)
  * - All retries are exhausted (to prevent SSR crashes)
- * 
+ *
  * This is the recommended wrapper for most data fetching actions in
  * Server Components, as it prevents crashes and allows fallback UI.
- * 
+ *
  * @example
  * ```ts
  * export const getStockDetails = cache(
@@ -68,7 +72,7 @@ export function withRetry<TArgs extends unknown[], TReturn>(
  *   })
  * );
  * ```
- * 
+ *
  * @param fn - The async function to wrap
  * @param options - Optional retry configuration overrides
  * @returns A wrapped function that returns undefined on errors
@@ -78,7 +82,7 @@ export function withRetryAndNotFound<TArgs extends unknown[], TReturn>(
   options?: Partial<RetryOptions>,
 ): (...args: TArgs) => Promise<TReturn | undefined> {
   const retryOptions = { ...DEFAULT_ACTION_RETRY_OPTIONS, ...options };
-  
+
   return async (...args: TArgs): Promise<TReturn | undefined> => {
     try {
       return await retryWithBackoff(() => fn(...args), retryOptions);
@@ -87,13 +91,17 @@ export function withRetryAndNotFound<TArgs extends unknown[], TReturn>(
       if (err instanceof ConnectError && err.code === Code.NotFound) {
         return undefined;
       }
-      
+
       // For other errors after all retries exhausted, log and return undefined
       // This prevents Server Component crashes in production
       console.error(
-        '[withRetryAndNotFound] All retries exhausted, returning undefined:',
+        "[withRetryAndNotFound] All retries exhausted, returning undefined:",
         err instanceof Error ? err.message : String(err),
-        { args: args.map(a => typeof a === 'string' ? a : '[object]').join(', ') }
+        {
+          args: args
+            .map((a) => (typeof a === "string" ? a : "[object]"))
+            .join(", "),
+        },
       );
       return undefined;
     }
