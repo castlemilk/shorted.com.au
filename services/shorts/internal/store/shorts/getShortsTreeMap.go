@@ -190,10 +190,12 @@ func FetchTreeMapData(db *pgxpool.Pool, limit int32, period string, viewMode str
 		ORDER BY industry, short_position DESC`
 	}
 
+	log.Debugf("FetchTreeMapData: period=%s, mvPeriod=%s, interval=%s, viewMode=%s, limit=%d", period, mvPeriod, interval, viewMode, limit)
+
 	rows, err := db.Query(ctx, query, mvPeriod, limit)
 	if err != nil {
 		// Fallback to raw query if MV doesn't exist (dev/test environments)
-		log.Infof("mv_treemap_data not available, using fallback query: %v", err)
+		log.Warnf("mv_treemap_data query failed (period=%s, viewMode=%s): %v. Trying fallback query...", mvPeriod, viewMode, err)
 		useMV = false
 		switch viewMode {
 		case shortsv1alpha1.ViewMode_PERCENTAGE_CHANGE.String():
@@ -203,8 +205,12 @@ func FetchTreeMapData(db *pgxpool.Pool, limit int32, period string, viewMode str
 		}
 		rows, err = db.Query(ctx, query, limit)
 		if err != nil {
-			return nil, fmt.Errorf("error querying database: %v", err)
+			log.Errorf("Fallback query also failed (interval=%s, viewMode=%s, limit=%d): %v", interval, viewMode, limit, err)
+			return nil, fmt.Errorf("error querying database (MV and fallback failed): %v", err)
 		}
+		log.Infof("Fallback query succeeded for treemap data")
+	} else {
+		log.Debugf("MV query succeeded for treemap data (period=%s)", mvPeriod)
 	}
 	defer rows.Close()
 	_ = useMV // suppress unused warning
@@ -216,6 +222,7 @@ func FetchTreeMapData(db *pgxpool.Pool, limit int32, period string, viewMode str
 		var shortPosition float64
 
 		if err := rows.Scan(&industry, &productCode, &shortPosition); err != nil {
+			log.Errorf("Error scanning treemap row: %v", err)
 			return nil, fmt.Errorf("error scanning row: %v", err)
 		}
 
@@ -227,8 +234,15 @@ func FetchTreeMapData(db *pgxpool.Pool, limit int32, period string, viewMode str
 	}
 
 	if rows.Err() != nil {
+		log.Errorf("Row iteration error in treemap query: %v", rows.Err())
 		return nil, fmt.Errorf("row error: %v", rows.Err())
 	}
+
+	rowCount := 0
+	for _, stocks := range industryMap {
+		rowCount += len(stocks)
+	}
+	log.Debugf("FetchTreeMapData: processed %d rows across %d industries", rowCount, len(industryMap))
 
 	industryTreeMap := &stocksv1alpha1.IndustryTreeMap{}
 	for industry, stocks := range industryMap {
