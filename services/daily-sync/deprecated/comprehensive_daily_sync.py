@@ -1764,6 +1764,35 @@ async def main() -> bool:
         except Exception as e:
             logger.warning(f"⚠️ Could not run health check: {e}")
 
+        # Refresh materialized views for performance
+        logger.info("")
+        logger.info("🔄 REFRESHING MATERIALIZED VIEWS")
+        logger.info("-" * 40)
+        try:
+            await conn.execute("SELECT refresh_all_materialized_views()")
+            logger.info("   ✅ mv_treemap_data refreshed")
+            logger.info("   ✅ mv_top_shorts refreshed")
+            logger.info("   ✅ mv_watchlist_defaults refreshed")
+        except Exception as e:
+            logger.warning(f"⚠️ Could not refresh materialized views: {e}")
+            # Try individual refreshes as fallback
+            try:
+                await conn.execute("REFRESH MATERIALIZED VIEW mv_treemap_data")
+                logger.info("   ✅ mv_treemap_data refreshed (fallback)")
+            except Exception:
+                pass
+            try:
+                await conn.execute("REFRESH MATERIALIZED VIEW mv_top_shorts")
+                logger.info("   ✅ mv_top_shorts refreshed (fallback)")
+            except Exception:
+                pass
+            try:
+                await conn.execute("REFRESH MATERIALIZED VIEW mv_watchlist_defaults")
+                logger.info("   ✅ mv_watchlist_defaults refreshed (fallback)")
+            except Exception:
+                pass
+        logger.info("-" * 40)
+
         logger.info("🔍 DEBUG: After SYNC COMPLETE, before Algolia check")
         logger.info(
             f"🔍 DEBUG: SYNC_ALGOLIA env var = '{os.getenv('SYNC_ALGOLIA', 'NOT_SET')}'"

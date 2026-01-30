@@ -41,6 +41,10 @@ func periodToInterval(period string) string {
 
 // FetchTimeSeriesData retrieves time series data for the top N products with the highest short positions,
 // over a specified period, starting from the given offset for infinite scrolling.
+//
+// Uses mv_top_shorts materialized view for fast retrieval of top stocks (~6ms vs ~2s),
+// then fetches time series data from the raw shorts table.
+// Falls back to raw query if MV doesn't exist (for dev/test environments).
 func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
 	if limit <= 0 {
 		limit = 10 // Default to 10 if a non-positive limit is provided
@@ -59,33 +63,39 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 	interval := periodToInterval(period)
 	log.Infof("Period: %s, Interval: %s", period, interval)
 
-	// Optimized query for top product codes
-	// Uses DISTINCT ON to get the latest data for each stock individually
-	// Filters to only include stocks with recent data (within 1 month of the latest report date)
-	// This excludes delisted or stale stocks that haven't reported recently
-	// Also excludes deferred settlement stocks (temporary trading codes during corporate actions)
-	// which may not have complete company metadata
+	// Try mv_top_shorts materialized view first (fast path, ~6ms)
+	// Falls back to raw query if MV doesn't exist (dev/test environments, ~2s)
 	topCodesQuery := `
-	WITH latest_shorts AS (
-		SELECT DISTINCT ON ("PRODUCT_CODE") 
-			"PRODUCT_CODE", 
-			"PRODUCT", 
-			"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
-		FROM shorts
-		WHERE "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
-			AND "DATE" > (SELECT MAX("DATE") FROM shorts) - INTERVAL '1 month'
-			AND "PRODUCT" NOT ILIKE '%DEFERRED SETTLEMENT%'
-			AND "PRODUCT" NOT ILIKE '%DEFERRED%'
-		ORDER BY "PRODUCT_CODE", "DATE" DESC
-	)
-	SELECT "PRODUCT", "PRODUCT_CODE"
-	FROM latest_shorts
-	ORDER BY "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC
+	SELECT product_name, product_code
+	FROM mv_top_shorts
+	ORDER BY current_percent DESC
 	LIMIT $1 OFFSET $2`
 
 	rows, err := connection.Query(ctx, topCodesQuery, limit, offset)
 	if err != nil {
-		return nil, 0, err
+		// Fallback to original query if MV doesn't exist
+		log.Infof("mv_top_shorts not available, using fallback query: %v", err)
+		topCodesQuery = `
+		WITH latest_shorts AS (
+			SELECT DISTINCT ON ("PRODUCT_CODE")
+				"PRODUCT_CODE",
+				"PRODUCT",
+				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
+			FROM shorts
+			WHERE "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+				AND "DATE" > (SELECT MAX("DATE") FROM shorts) - INTERVAL '1 month'
+				AND "PRODUCT" NOT ILIKE '%DEFERRED SETTLEMENT%'
+				AND "PRODUCT" NOT ILIKE '%DEFERRED%'
+			ORDER BY "PRODUCT_CODE", "DATE" DESC
+		)
+		SELECT "PRODUCT", "PRODUCT_CODE"
+		FROM latest_shorts
+		ORDER BY "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC
+		LIMIT $1 OFFSET $2`
+		rows, err = connection.Query(ctx, topCodesQuery, limit, offset)
+		if err != nil {
+			return nil, 0, err
+		}
 	}
 	defer rows.Close()
 
