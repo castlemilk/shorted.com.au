@@ -88,7 +88,7 @@ resource "google_cloud_run_v2_job" "short_data_sync" {
       service_account = google_service_account.short_data_sync.email
 
       max_retries = 3
-      timeout     = "3600s" # 1 hour
+      timeout     = "14400s" # 4 hours - needed for processing ~4000+ stocks
 
       containers {
         image = var.image_url

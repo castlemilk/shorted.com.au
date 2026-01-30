@@ -21,7 +21,8 @@ type Store interface {
 	RegisterEmail(string) error
 	SearchStocks(string, int32) ([]*stockv1alpha1.Stock, error)
 	GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
-	
+	CleanupStuckSyncRuns() (int, error)
+
 	// Key metrics sync methods
 	GetAllStockCodes() ([]string, error)
 	StockExists(stockCode string) (bool, error)

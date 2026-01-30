@@ -46,6 +46,10 @@ func (s *StoreAdapter) GetSyncStatus(filter shorts.SyncStatusFilter) ([]*shortsv
 	return s.store.GetSyncStatus(filter)
 }
 
+func (s *StoreAdapter) CleanupStuckSyncRuns() (int, error) {
+	return s.store.CleanupStuckSyncRuns()
+}
+
 // GetAllStockCodes wraps the store's GetAllStockCodes
 func (s *StoreAdapter) GetAllStockCodes() ([]string, error) {
 	return s.store.GetAllStockCodes()

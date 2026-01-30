@@ -56,6 +56,21 @@ func (mr *MockShortsStoreMockRecorder) ApplyEnrichment(stockCode, data any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyEnrichment", reflect.TypeOf((*MockShortsStore)(nil).ApplyEnrichment), stockCode, data)
 }
 
+// CleanupStuckSyncRuns mocks base method.
+func (m *MockShortsStore) CleanupStuckSyncRuns() (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CleanupStuckSyncRuns")
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CleanupStuckSyncRuns indicates an expected call of CleanupStuckSyncRuns.
+func (mr *MockShortsStoreMockRecorder) CleanupStuckSyncRuns() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanupStuckSyncRuns", reflect.TypeOf((*MockShortsStore)(nil).CleanupStuckSyncRuns))
+}
+
 // CreateEnrichmentJob mocks base method.
 func (m *MockShortsStore) CreateEnrichmentJob(stockCode string, force bool) (string, error) {
 	m.ctrl.T.Helper()

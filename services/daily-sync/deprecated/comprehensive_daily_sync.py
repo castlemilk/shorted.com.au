@@ -590,7 +590,13 @@ async def fetch_from_alpha_vantage(
 def fetch_from_yahoo_finance(
     stock_code: str, days: int, max_retries: int = 3
 ) -> Optional[List[Dict]]:
-    """Fetch recent price data from Yahoo Finance with retry and exponential backoff."""
+    """Fetch recent price data from Yahoo Finance with retry and exponential backoff.
+
+    Optimizations:
+    - 404 errors (stock not found) are not retried since they won't recover
+    - Rate limit errors (429) use exponential backoff
+    - Empty responses are retried with backoff
+    """
     # Add .AX suffix only if not already present
     yf_ticker = stock_code if stock_code.endswith(".AX") else f"{stock_code}.AX"
 
@@ -637,7 +643,21 @@ def fetch_from_yahoo_finance(
 
         except Exception as e:
             error_msg = str(e)
-            # Check for rate limit indicators
+
+            # 404 errors (stock not found) - don't retry, these won't recover
+            # Common patterns: "404", "Not Found", "Quote not found"
+            if (
+                "404" in error_msg
+                or "Not Found" in error_msg
+                or "Quote not found" in error_msg
+                or "No data found" in error_msg
+            ):
+                # Log only on first attempt to reduce noise
+                if attempt == 0:
+                    logger.debug(f"  {yf_ticker}: Stock not found (404) - skipping retries")
+                return None
+
+            # Check for rate limit indicators - these should be retried
             if (
                 "Expecting value" in error_msg
                 or "Too Many Requests" in error_msg
@@ -650,7 +670,8 @@ def fetch_from_yahoo_finance(
                     )
                     time.sleep(min(backoff, RATE_LIMIT_DELAY_YAHOO_MAX))
                     continue
-            # Log other errors
+
+            # Log other errors only on final attempt
             if attempt == max_retries - 1:
                 logger.error(
                     f"Failed to get ticker '{yf_ticker}' reason: {error_msg[:100]}"
@@ -1085,7 +1106,12 @@ async def update_stock_prices(
 def fetch_key_metrics_from_yahoo(
     stock_code: str, max_retries: int = 3
 ) -> Optional[Dict]:
-    """Fetch key metrics from Yahoo Finance for a single stock with retry and backoff."""
+    """Fetch key metrics from Yahoo Finance for a single stock with retry and backoff.
+
+    Optimizations:
+    - 404 errors (stock not found) are not retried since they won't recover
+    - Rate limit errors (429) use exponential backoff
+    """
     yahoo_symbol = f"{stock_code}.AX"
 
     for attempt in range(max_retries):
@@ -1121,6 +1147,17 @@ def fetch_key_metrics_from_yahoo(
             }
         except Exception as e:
             error_msg = str(e)
+
+            # 404 errors (stock not found) - don't retry, these won't recover
+            if (
+                "404" in error_msg
+                or "Not Found" in error_msg
+                or "Quote not found" in error_msg
+                or "No data found" in error_msg
+            ):
+                return None
+
+            # Rate limit errors - retry with backoff
             if (
                 "Expecting value" in error_msg
                 or "Too Many Requests" in error_msg
@@ -1253,6 +1290,41 @@ async def connect_to_database():
     return await asyncpg.connect(**conn_params)
 
 
+async def cleanup_stuck_runs(conn) -> int:
+    """Mark stuck 'running' jobs as failed.
+
+    Jobs are considered stuck if they've been running for more than 5 hours
+    (longer than the 4-hour timeout to account for any delays).
+
+    Returns the number of cleaned up runs.
+    """
+    result = await conn.execute(
+        """
+        UPDATE sync_status
+        SET status = 'failed',
+            completed_at = CURRENT_TIMESTAMP,
+            error_message = 'Job timed out (cleaned up by next run)'
+        WHERE status = 'running'
+          AND started_at < NOW() - INTERVAL '5 hours'
+        """
+    )
+
+    # Parse the result to get count (format: "UPDATE N")
+    count = 0
+    if result:
+        parts = result.split()
+        if len(parts) >= 2:
+            try:
+                count = int(parts[1])
+            except ValueError:
+                pass
+
+    if count > 0:
+        logger.info(f"🧹 Cleaned up {count} stuck job(s) from previous runs")
+
+    return count
+
+
 async def get_or_create_daily_sync_run(conn, batch_size: int = 500) -> Optional[str]:
     """Get existing incomplete daily sync run or return None to create new one."""
     today = date.today()
@@ -1372,6 +1444,9 @@ async def main() -> bool:
     # #endregion
 
     conn = await connect_to_database()
+
+    # Clean up any stuck runs from previous executions before starting
+    await cleanup_stuck_runs(conn)
 
     # #region agent log
     try:

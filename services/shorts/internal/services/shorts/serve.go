@@ -394,6 +394,46 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		}
 	})
 
+	// Add admin cleanup endpoint for stuck sync runs
+	mux.HandleFunc("/api/admin/cleanup-stuck-runs", func(w http.ResponseWriter, r *http.Request) {
+		// Add CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Clean up stuck runs (running for more than 5 hours)
+		count, err := s.store.CleanupStuckSyncRuns()
+		if err != nil {
+			logger.Errorf("Failed to cleanup stuck runs: %v", err)
+			http.Error(w, "Failed to cleanup stuck runs", http.StatusInternalServerError)
+			return
+		}
+
+		type CleanupResponse struct {
+			CleanedUp int    `json:"cleanedUp"`
+			Message   string `json:"message"`
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(CleanupResponse{
+			CleanedUp: count,
+			Message:   fmt.Sprintf("Cleaned up %d stuck job(s)", count),
+		}); err != nil {
+			logger.Errorf("Error encoding JSON response: %v", err)
+			return
+		}
+	})
+
 	// Add statik file server
 	statikFS, err := fs.New()
 	if err != nil {
