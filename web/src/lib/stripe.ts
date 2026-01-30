@@ -1,12 +1,26 @@
 import Stripe from "stripe";
 
-if (!process.env.STRIPE_SECRET_KEY) {
-  throw new Error("STRIPE_SECRET_KEY is not set");
-}
+// Defer the check to runtime to allow builds to succeed
+// The actual Stripe client is only used in API routes at runtime
+const getStripeClient = () => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error("STRIPE_SECRET_KEY is not set");
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: "2025-12-15.clover",
+    typescript: true,
+  });
+};
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-12-15.clover",
-  typescript: true,
+// Lazy initialization - only creates the client when first accessed
+let _stripe: Stripe | null = null;
+export const stripe = new Proxy({} as Stripe, {
+  get(_, prop) {
+    if (!_stripe) {
+      _stripe = getStripeClient();
+    }
+    return _stripe[prop as keyof Stripe];
+  },
 });
 
 // Subscription tiers configuration
