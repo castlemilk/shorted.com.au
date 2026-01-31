@@ -249,13 +249,23 @@ function StockSearchField({
           {/* Search Results Dropdown */}
           {showSearch && searchResults.length > 0 && (
             <div className="absolute z-50 mt-1 w-full rounded-md border bg-popover shadow-lg overflow-hidden">
-              <ul className="max-h-[200px] overflow-auto py-1">
+              <ul className="max-h-[200px] overflow-auto py-1" role="listbox" aria-label="Stock search results">
                 {searchResults.map((stock, index) => {
                   const alreadyAdded = stocks.includes(stock.productCode);
                   return (
                     <li
                       key={stock.productCode}
                       onClick={() => !alreadyAdded && addStock(stock)}
+                      onKeyDown={(e) => {
+                        if (!alreadyAdded && (e.key === "Enter" || e.key === " ")) {
+                          e.preventDefault();
+                          addStock(stock);
+                        }
+                      }}
+                      role="option"
+                      aria-selected={selectedIndex === index}
+                      aria-disabled={alreadyAdded}
+                      tabIndex={alreadyAdded ? -1 : 0}
                       className={cn(
                         "px-3 py-2 transition-colors text-sm",
                         alreadyAdded

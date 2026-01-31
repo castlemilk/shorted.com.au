@@ -1,6 +1,6 @@
 {
   "name": "shorted",
-  "version": "v0.2.2-730-g97d73f60-dirty",
+  "version": "v0.2.2-732-g7364af6b-dirty",
   "private": true,
   "type": "module",
   "moduleResolution": "Node",
@@ -237,6 +237,7 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.1",
     "eslint": "^8.54.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "partial-props": "^0.1.3",

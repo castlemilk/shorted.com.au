@@ -424,15 +424,17 @@ export function PortfolioSummaryWidget({ config, onSettingsChange }: WidgetProps
                         </Button>
                       </div>
                     ) : (
-                      <span 
-                        className="text-muted-foreground cursor-pointer hover:text-foreground"
+                      <button
+                        type="button"
+                        className="text-muted-foreground cursor-pointer hover:text-foreground bg-transparent border-none p-0 font-inherit"
                         onClick={() => {
                           setEditingHolding(holding.symbol);
                           setEditShares(holding.shares.toString());
                         }}
+                        aria-label={`Edit shares for ${holding.symbol}`}
                       >
                         {holding.shares} shares
-                      </span>
+                      </button>
                     )}
                   </div>
                   <div className="flex items-center gap-2">

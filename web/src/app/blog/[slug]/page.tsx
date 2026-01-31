@@ -36,26 +36,26 @@ export default async function Post({ params }: Params) {
   const postUrl = `${siteConfig.url}/blog/${params.slug}`;
 
   const components = {
-    h1: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
-      <h1 className="text-4xl font-bold mt-8 mb-4" {...props} />
+    h1: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
+      <h1 className="text-4xl font-bold mt-8 mb-4" {...props}>{children}</h1>
     ),
-    h2: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
-      <h2 className="text-3xl font-semibold mt-6 mb-3" {...props} />
+    h2: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
+      <h2 className="text-3xl font-semibold mt-6 mb-3" {...props}>{children}</h2>
     ),
-    h3: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
-      <h3 className="text-2xl font-medium mt-4 mb-2" {...props} />
+    h3: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
+      <h3 className="text-2xl font-medium mt-4 mb-2" {...props}>{children}</h3>
     ),
-    h4: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
-      <h4 className="text-xl font-medium mt-3 mb-2" {...props} />
+    h4: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
+      <h4 className="text-xl font-medium mt-3 mb-2" {...props}>{children}</h4>
     ),
-    h5: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
-      <h5 className="text-lg font-medium mt-2 mb-1" {...props} />
+    h5: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
+      <h5 className="text-lg font-medium mt-2 mb-1" {...props}>{children}</h5>
     ),
-    h6: (props: React.HTMLAttributes<HTMLHeadingElement>) => (
-      <h6 className="text-base font-medium mt-2 mb-1" {...props} />
+    h6: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
+      <h6 className="text-base font-medium mt-2 mb-1" {...props}>{children}</h6>
     ),
-    a: (props: React.HTMLAttributes<HTMLAnchorElement>) => (
-      <a className="text-blue-500" {...props} />
+    a: ({ children, ...props }: React.HTMLAttributes<HTMLAnchorElement>) => (
+      <a className="text-blue-500" {...props}>{children}</a>
     ),
     p: (props: React.HTMLAttributes<HTMLParagraphElement>) => (
       <p className="mt-4 mb-4" {...props} />

@@ -17,15 +17,6 @@ import { ArrowUpDown } from "lucide-react";
 const redColor = `var(--semantic-red)`;
 const greenColor = `var(--semantic-green)`;
 
-const truncateValue = (value: number, maxLength: number) => {
-  const formatted = value.toFixed(2);
-  if (formatted.length <= maxLength) return formatted;
-  if (maxLength < 4) return "...";
-  return (
-    value.toFixed(0) + (value.toFixed(0).length > maxLength - 1 ? "..." : "")
-  );
-};
-
 // Restore full columns
 export const columns: ColumnDef<TimeSeriesData>[] = [
   {

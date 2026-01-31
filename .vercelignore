@@ -1,0 +1,30 @@
+# Data files
+services/data/
+
+# Go services (not needed for frontend)
+services/*/
+
+# Terraform
+terraform/
+
+# Python
+*.pyc
+__pycache__/
+
+# IDE
+.idea/
+.vscode/
+
+# Build artifacts
+*.o
+*.a
+
+# Test artifacts
+coverage/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

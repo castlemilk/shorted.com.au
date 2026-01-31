@@ -9,6 +9,7 @@ const SiteHeader: FC = () => {
   const { data: session } = useSession();
 
   const items = [
+    { title: "top shorted", href: "/top" },
     ...(session
       ? [
           { title: "dashboard", href: "/dashboards" },

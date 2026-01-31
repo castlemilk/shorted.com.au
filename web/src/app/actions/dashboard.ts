@@ -9,7 +9,7 @@ import { getFirestore, FieldValue } from "firebase-admin/firestore";
 let app: App;
 
 if (!getApps().length) {
-  const projectId = process.env.AUTH_FIREBASE_PROJECT_ID;
+  const projectId = process.env.AUTH_FIREBASE_PROJECT_ID?.trim();
   console.log("Initializing Firebase Admin with project:", projectId);
   
   app = initializeApp({
