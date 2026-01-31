@@ -672,7 +672,10 @@ export default function Roadmap() {
         </p>
       </div>
 
-      {/* Tree visualization */}
+      {/* Tree visualization - interactive panning/zooming widget
+          This is a complex interactive visualization that requires mouse/keyboard interaction.
+          The role="application" indicates this is a custom widget requiring its own event handling. */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <div
         ref={containerRef}
         className={cn(
@@ -683,6 +686,23 @@ export default function Roadmap() {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        role="application"
+        aria-label="Product roadmap visualization. Drag to pan, use plus and minus keys to zoom."
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "+" || e.key === "=") {
+            setTransform(prev => ({
+              ...prev,
+              scale: Math.min(prev.scale * 1.2, 2)
+            }));
+          } else if (e.key === "-" || e.key === "_") {
+            setTransform(prev => ({
+              ...prev,
+              scale: Math.max(prev.scale / 1.2, 0.5)
+            }));
+          }
+        }}
       >
         <svg
           data-testid="roadmap-svg"
