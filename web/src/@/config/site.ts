@@ -1,18 +1,23 @@
 export const siteConfig = {
   name: "Shorted",
-  fullTitle: "Shorted | ASX Short Position Data & Analysis",
+  fullTitle: "Shorted | Official ASIC Short Position Data for ASX Stocks",
   url: "https://shorted.com.au",
   ogImage: "https://shorted.com.au/opengraph-image",
   description:
-    "Track short selling positions on the Australian Securities Exchange (ASX). Free daily ASIC data, interactive charts, industry heatmaps, and analysis of the most shorted stocks in Australia.",
+    "Track short selling positions on the ASX using official ASIC data (T+4 delayed). Free daily updates, interactive charts, industry heatmaps, and analysis of the most shorted Australian stocks.",
   shortDescription:
-    "Free ASX short position data from ASIC. Track the most shorted stocks on the Australian market.",
+    "Official ASIC short position data for ASX stocks. Updated daily with T+4 delay. Track the most shorted stocks on the Australian market.",
+  dataDisclaimer:
+    "Data sourced from ASIC and published with a T+4 trading day delay. This information is for general purposes only and does not constitute financial advice.",
   keywords: [
+    "ASIC short position data",
     "ASX short positions",
-    "ASIC short selling data",
+    "ASIC short selling reports",
+    "official ASIC data",
     "Australian stock market shorts",
     "short interest data Australia",
     "most shorted ASX stocks",
+    "ASIC daily short positions",
     "bearish stocks ASX",
     "stock market analysis",
     "short selling Australia",
@@ -22,6 +27,7 @@ export const siteConfig = {
     "investment research",
     "short position tracker",
     "ASX short interest",
+    "T+4 short data",
   ],
   author: "Shorted Team",
   creator: "Shorted",

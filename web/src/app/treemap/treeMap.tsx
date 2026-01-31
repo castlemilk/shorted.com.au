@@ -38,7 +38,7 @@ interface TreeMapDatum {
 
 const PADDING = 3;
 const HEADER_HEIGHT = 10; // Height reserved for sector labels
-const TREEMAP_HEIGHT = 820;
+const TREEMAP_HEIGHT = 700;
 
 const clamp = (min: number, v: number, max: number) =>
   Math.max(min, Math.min(max, v));
@@ -111,7 +111,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
           <CardTitle className="self-center m-5">Industry Tree Map</CardTitle>
         </div>
         <div className="p-2">
-          <Skeleton className="h-[820px] w-full rounded-xl" />
+          <Skeleton className="h-[700px] w-full rounded-xl" />
         </div>
       </Card>
     );
@@ -247,11 +247,11 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
       <Suspense
         fallback={
           <div className="p-2">
-            <Skeleton className="h-[820px] w-full rounded-xl" />
+            <Skeleton className="h-[700px] w-full rounded-xl" />
           </div>
         }
       >
-        <div className="relative">
+        <div className="relative overflow-hidden">
           {isRefreshing && (
             <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-background/70 backdrop-blur-sm m-2 rounded-xl">
               <div className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />

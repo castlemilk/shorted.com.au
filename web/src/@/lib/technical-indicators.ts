@@ -10,14 +10,9 @@
 
 import {
   type IndicatorName,
-  type IndicatorOutput,
   calculateIndicatorByName,
   toFloat64Array,
   toNullableArray,
-  isOscillator as checkIsOscillator,
-  isMultiOutput as checkIsMultiOutput,
-  getIndicatorRange,
-  getOverboughtOversoldLevels,
 } from "./time-series-analysis";
 
 // ============================================================================
@@ -728,9 +723,9 @@ export function getIndicatorCategories(): IndicatorCategory[] {
  */
 export function isIndicatorAvailable(
   type: IndicatorType,
-  dataSource: IndicatorDataSource,
-  hasOHLCV: boolean = false,
-  hasVolume: boolean = false
+  _dataSource: IndicatorDataSource,
+  _hasOHLCV = false,
+  hasVolume = false
 ): boolean {
   const metadata = INDICATOR_METADATA[type];
   if (!metadata) return false;

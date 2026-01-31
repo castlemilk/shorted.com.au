@@ -36,7 +36,10 @@ import useWindowSize from "@/hooks/use-window-size";
 import { curveMonotoneX } from "@visx/curve";
 import {
   type IndicatorConfig,
+  type MultiOutputIndicator,
   normalizeToPercentChange,
+  isOscillator,
+  INDICATOR_METADATA,
 } from "@/lib/technical-indicators";
 
 // Data point type
@@ -53,10 +56,12 @@ export type ChartSeries = {
   seriesType?: "shorts" | "market";
 };
 
-// Indicator overlay type
+// Indicator overlay type (extended for multi-output)
 export type IndicatorOverlay = {
   config: IndicatorConfig;
   values: (number | null)[];
+  timestamps?: Date[]; // Timestamps for matching values to filtered series
+  multiOutput?: MultiOutputIndicator;
 };
 
 // Chart data for multi-series
@@ -65,6 +70,8 @@ export type MultiSeriesChartData = {
   viewMode: "absolute" | "normalized";
   indicators?: IndicatorOverlay[];
   hasDualAxis?: boolean;
+  /** Show oscillator panel */
+  showOscillatorPanel?: boolean;
 };
 
 type TooltipData = {
@@ -75,12 +82,14 @@ type TooltipData = {
     color: string;
     seriesType?: "shorts" | "market";
   }[];
-  indicators: { label: string; value: number | null; color: string }[];
+  indicators: { label: string; value: number | null; color: string; isOscillator?: boolean }[];
+  oscillators: { label: string; value: number | null; color: string }[];
 };
 
 // Styling constants
 const brushMargin = { top: 10, bottom: 15, left: 50, right: 20 };
 const chartSeparation = 30;
+const oscillatorPanelHeight = 100;
 
 export const background = `hsl(var(--background))`;
 export const background2 = `hsl(var(--primary))`;
@@ -92,6 +101,32 @@ const getValue = (d: DataPoint): number => d.value;
 const bisectDateFn = bisector<DataPoint, Date>(getDate);
 const bisectDate = (array: DataPoint[], date: Date, lo?: number, hi?: number) =>
   bisectDateFn.left(array, date, lo, hi);
+
+// Helper to find indicator value by matching timestamp
+const getIndicatorValueByTimestamp = (
+  indicator: IndicatorOverlay,
+  timestamp: Date,
+  outputKey?: "primary" | "upper" | "middle" | "lower" | "signal" | "histogram" | "percentK" | "percentD" | "plusDI" | "minusDI"
+): number | null => {
+  if (!indicator.timestamps) {
+    // Fallback to index-based lookup (legacy)
+    return null;
+  }
+
+  const targetTime = timestamp.getTime();
+  const index = indicator.timestamps.findIndex(
+    (t) => t.getTime() === targetTime
+  );
+
+  if (index === -1) return null;
+
+  if (outputKey && indicator.multiOutput) {
+    const output = indicator.multiOutput[outputKey];
+    if (output) return output[index] ?? null;
+  }
+
+  return indicator.values[index] ?? null;
+};
 
 const formatDate = timeFormat("%b %d, '%y");
 const formatValue = (value: number, isPercent: boolean) =>
@@ -135,8 +170,25 @@ const MultiSeriesChart = forwardRef<
     const isNormalized = data.viewMode === "normalized";
     const hasDualAxis = data.hasDualAxis ?? false;
 
+    // Separate oscillator and overlay indicators
+    const oscillatorIndicators = useMemo(() => {
+      return (data.indicators ?? []).filter(
+        (ind) => ind.config.enabled !== false && isOscillator(ind.config.type)
+      );
+    }, [data.indicators]);
+
+    const overlayIndicators = useMemo(() => {
+      return (data.indicators ?? []).filter(
+        (ind) => ind.config.enabled !== false && !isOscillator(ind.config.type)
+      );
+    }, [data.indicators]);
+
+    const showOscillatorPanel =
+      data.showOscillatorPanel !== false && oscillatorIndicators.length > 0;
+
     const PATTERN_ID = "multi_series_brush_pattern";
     const GRADIENT_ID = "multi_series_brush_gradient";
+    const BB_GRADIENT_ID = "bollinger_bands_gradient";
 
     const selectedBrushStyle = {
       fill: `url(#${PATTERN_ID})`,
@@ -205,15 +257,6 @@ const MultiSeriesChart = forwardRef<
       return processedSeries.flatMap((s) => s.points);
     }, [processedSeries]);
 
-    // Get shorts and market points separately for dual axis
-    const shortsPoints = useMemo(() => {
-      return shortsSeries.flatMap((s) => s.points);
-    }, [shortsSeries]);
-
-    const marketPoints = useMemo(() => {
-      return marketSeries.flatMap((s) => s.points);
-    }, [marketSeries]);
-
     // Filtered data for zoom
     const [filteredSeries, setFilteredSeries] = useState(processedSeries);
 
@@ -255,18 +298,19 @@ const MultiSeriesChart = forwardRef<
 
     // Calculate heights
     const innerHeight = height - margin.top - margin.bottom;
+    const oscillatorHeight = showOscillatorPanel ? oscillatorPanelHeight : 0;
     const topChartBottomMargin = compact
       ? chartSeparation / 2
       : chartSeparation + 10;
     const topChartHeight = isMobile
-      ? innerHeight
-      : 0.8 * innerHeight - topChartBottomMargin;
+      ? innerHeight - oscillatorHeight
+      : 0.8 * innerHeight - topChartBottomMargin - oscillatorHeight;
     const bottomChartHeight = isMobile
       ? 0
-      : innerHeight - topChartHeight - chartSeparation;
+      : innerHeight - topChartHeight - chartSeparation - oscillatorHeight;
 
     const svgHeight = isMobile
-      ? topChartHeight + margin.top + margin.bottom
+      ? topChartHeight + margin.top + margin.bottom + oscillatorHeight
       : height;
 
     // Adjust margins for dual axis (need more space on right)
@@ -344,6 +388,23 @@ const MultiSeriesChart = forwardRef<
         nice: true,
       });
     }, [yMax, filteredMarketPoints, hasDualAxis, shortsValueScale]);
+
+    // Oscillator scale (0-100 or -100-0)
+    const oscillatorScale = useMemo(() => {
+      // Default to 0-100 for RSI/Stochastic
+      return scaleLinear<number>({
+        range: [oscillatorPanelHeight - 20, 10],
+        domain: [0, 100],
+      });
+    }, []);
+
+    // Williams %R scale (-100 to 0)
+    const williamsRScale = useMemo(() => {
+      return scaleLinear<number>({
+        range: [oscillatorPanelHeight - 20, 10],
+        domain: [-100, 0],
+      });
+    }, []);
 
     // Use appropriate scale based on series type
     const getValueScale = (seriesType?: "shorts" | "market") => {
@@ -460,22 +521,74 @@ const MultiSeriesChart = forwardRef<
           };
         });
 
-        // Find indicator values at this date
+        // Find overlay indicator values
         const indicatorValues =
-          data.indicators?.map((ind) => {
-            // Find the index in the original series
+          overlayIndicators?.map((ind) => {
             const series = filteredSeries.find(
               (s) => s.stockCode === ind.config.stockCode,
             );
             if (!series)
               return { label: "", value: null, color: ind.config.color };
 
+            // Find closest point in the series to get its exact timestamp
             const index = bisectDate(series.points, date, 1);
-            const adjustedIndex = Math.min(index, ind.values.length - 1);
+            const d0 = series.points[index - 1];
+            const d1 = series.points[index];
+            let closestPoint = d0;
+            if (d0 && d1) {
+              closestPoint =
+                date.valueOf() - getDate(d0).valueOf() >
+                getDate(d1).valueOf() - date.valueOf()
+                  ? d1
+                  : d0;
+            } else if (d1) {
+              closestPoint = d1;
+            }
 
+            const value = closestPoint
+              ? getIndicatorValueByTimestamp(ind, closestPoint.timestamp)
+              : null;
+
+            const metadata = INDICATOR_METADATA[ind.config.type];
             return {
-              label: `${ind.config.type}(${ind.config.period})`,
-              value: ind.values[adjustedIndex] ?? null,
+              label: `${metadata?.shortName ?? ind.config.type}(${ind.config.period})`,
+              value,
+              color: ind.config.color,
+            };
+          }) ?? [];
+
+        // Find oscillator values
+        const oscillatorValues =
+          oscillatorIndicators?.map((ind) => {
+            const series = filteredSeries.find(
+              (s) => s.stockCode === ind.config.stockCode,
+            );
+            if (!series)
+              return { label: "", value: null, color: ind.config.color };
+
+            // Find closest point in the series to get its exact timestamp
+            const index = bisectDate(series.points, date, 1);
+            const d0 = series.points[index - 1];
+            const d1 = series.points[index];
+            let closestPoint = d0;
+            if (d0 && d1) {
+              closestPoint =
+                date.valueOf() - getDate(d0).valueOf() >
+                getDate(d1).valueOf() - date.valueOf()
+                  ? d1
+                  : d0;
+            } else if (d1) {
+              closestPoint = d1;
+            }
+
+            const value = closestPoint
+              ? getIndicatorValueByTimestamp(ind, closestPoint.timestamp)
+              : null;
+
+            const metadata = INDICATOR_METADATA[ind.config.type];
+            return {
+              label: `${metadata?.shortName ?? ind.config.type}(${ind.config.period})`,
+              value,
               color: ind.config.color,
             };
           }) ?? [];
@@ -490,6 +603,7 @@ const MultiSeriesChart = forwardRef<
             date,
             values,
             indicators: indicatorValues,
+            oscillators: oscillatorValues,
           },
           tooltipLeft: x,
           tooltipTop: tooltipY,
@@ -500,24 +614,40 @@ const MultiSeriesChart = forwardRef<
         valueScale,
         dateScale,
         filteredSeries,
-        data.indicators,
+        overlayIndicators,
+        oscillatorIndicators,
         adjustedMargin.left,
         getValueScale,
       ],
     );
+
+    // Get Bollinger Bands indicator if present
+    const bollingerBandsIndicator = useMemo(() => {
+      return overlayIndicators.find(
+        (ind) => ind.config.type === "BBANDS" && ind.multiOutput
+      );
+    }, [overlayIndicators]);
 
     if (width < 10 || allPoints.length === 0) return null;
 
     return (
       <div ref={containerRef} style={{ position: "relative" }}>
         <svg width={width} height={svgHeight}>
-          <LinearGradient
-            id={GRADIENT_ID}
-            from={background}
-            to={background2}
-            toOffset={"1%"}
-            rotate={180}
-          />
+          <defs>
+            <LinearGradient
+              id={GRADIENT_ID}
+              from={background}
+              to={background2}
+              toOffset={"1%"}
+              rotate={180}
+            />
+            {/* Gradient for Bollinger Bands fill */}
+            <linearGradient id={BB_GRADIENT_ID} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.1} />
+              <stop offset="50%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
+              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.1} />
+            </linearGradient>
+          </defs>
           <rect
             x={0}
             y={0}
@@ -541,6 +671,47 @@ const MultiSeriesChart = forwardRef<
               />
             )}
 
+            {/* Bollinger Bands fill area */}
+            {bollingerBandsIndicator?.multiOutput?.upper &&
+              bollingerBandsIndicator?.multiOutput?.lower && (() => {
+                const series = filteredSeries.find(
+                  (s) => s.stockCode === bollingerBandsIndicator.config.stockCode
+                );
+                if (!series) return null;
+
+                const upperPoints = series.points
+                  .map((point) => {
+                    const upper = getIndicatorValueByTimestamp(bollingerBandsIndicator, point.timestamp, "upper");
+                    if (upper === null) return null;
+                    return { timestamp: point.timestamp, value: upper };
+                  })
+                  .filter((p): p is DataPoint => p !== null);
+
+                const lowerPoints = series.points
+                  .map((point) => {
+                    const lower = getIndicatorValueByTimestamp(bollingerBandsIndicator, point.timestamp, "lower");
+                    if (lower === null) return null;
+                    return { timestamp: point.timestamp, value: lower };
+                  })
+                  .filter((p): p is DataPoint => p !== null);
+
+                // Create area between upper and lower
+                const areaPoints = [
+                  ...upperPoints.map(p => ({ x: dateScale(p.timestamp), y: shortsValueScale(p.value) })),
+                  ...lowerPoints.reverse().map(p => ({ x: dateScale(p.timestamp), y: shortsValueScale(p.value) })),
+                ];
+
+                if (areaPoints.length < 4) return null;
+
+                return (
+                  <path
+                    d={`M ${areaPoints.map(p => `${p.x},${p.y}`).join(' L ')} Z`}
+                    fill={`url(#${BB_GRADIENT_ID})`}
+                    opacity={0.5}
+                  />
+                );
+              })()}
+
             {/* Stock lines */}
             {filteredSeries.map((series) => {
               const scale = getValueScale(series.seriesType);
@@ -557,17 +728,140 @@ const MultiSeriesChart = forwardRef<
               );
             })}
 
-            {/* Indicator lines */}
-            {data.indicators?.map((indicator, idx) => {
+            {/* Overlay indicator lines (non-oscillators) */}
+            {overlayIndicators?.map((indicator, idx) => {
               const series = filteredSeries.find(
                 (s) => s.stockCode === indicator.config.stockCode,
               );
-              if (!series || !indicator.config.enabled) return null;
+              if (!series) return null;
 
-              // Create points for indicator line
+              const metadata = INDICATOR_METADATA[indicator.config.type];
+
+              // For multi-output indicators, render all outputs
+              if (indicator.multiOutput && metadata?.hasMultipleOutputs) {
+                const outputs = [];
+
+                // Bollinger Bands: upper, middle, lower
+                if (indicator.config.type === "BBANDS") {
+                  const keys = ["upper", "middle", "lower"] as const;
+                  keys.forEach((key) => {
+                    const points = series.points
+                      .map((point) => {
+                        const value = getIndicatorValueByTimestamp(indicator, point.timestamp, key);
+                        if (value === null) return null;
+                        return { timestamp: point.timestamp, value };
+                      })
+                      .filter((p): p is DataPoint => p !== null);
+
+                    const indicatorScale = getValueScale(series.seriesType);
+                    const color = indicator.config.color;
+                    const opacity = key === "middle" ? 1 : 0.7;
+                    const dasharray = key === "middle" ? undefined : "4,2";
+
+                    outputs.push(
+                      <LinePath<DataPoint>
+                        key={`indicator-${idx}-${key}`}
+                        data={points}
+                        x={(d) => dateScale(getDate(d)) ?? 0}
+                        y={(d) => indicatorScale(getValue(d)) ?? 0}
+                        stroke={color}
+                        strokeWidth={key === "middle" ? 1.5 : 1}
+                        strokeDasharray={dasharray}
+                        opacity={opacity}
+                        curve={curveMonotoneX}
+                      />
+                    );
+                  });
+                }
+                // MACD: line, signal (histogram in separate panel)
+                else if (indicator.config.type === "MACD") {
+                  // Primary MACD line
+                  const primaryPoints = series.points
+                    .map((point) => {
+                      const value = getIndicatorValueByTimestamp(indicator, point.timestamp, "primary");
+                      if (value === null) return null;
+                      return { timestamp: point.timestamp, value };
+                    })
+                    .filter((p): p is DataPoint => p !== null);
+
+                  outputs.push(
+                    <LinePath<DataPoint>
+                      key={`indicator-${idx}-macd`}
+                      data={primaryPoints}
+                      x={(d) => dateScale(getDate(d)) ?? 0}
+                      y={(d) => shortsValueScale(getValue(d)) ?? 0}
+                      stroke={indicator.config.color}
+                      strokeWidth={1.5}
+                      curve={curveMonotoneX}
+                    />
+                  );
+
+                  // Signal line
+                  if (indicator.multiOutput?.signal) {
+                    const signalPoints = series.points
+                      .map((point) => {
+                        const value = getIndicatorValueByTimestamp(indicator, point.timestamp, "signal");
+                        if (value === null) return null;
+                        return { timestamp: point.timestamp, value };
+                      })
+                      .filter((p): p is DataPoint => p !== null);
+
+                    outputs.push(
+                      <LinePath<DataPoint>
+                        key={`indicator-${idx}-signal`}
+                        data={signalPoints}
+                        x={(d) => dateScale(getDate(d)) ?? 0}
+                        y={(d) => shortsValueScale(getValue(d)) ?? 0}
+                        stroke="#f59e0b"
+                        strokeWidth={1.5}
+                        strokeDasharray="4,2"
+                        curve={curveMonotoneX}
+                      />
+                    );
+                  }
+                }
+                // ADX: ADX line, +DI, -DI
+                else if (indicator.config.type === "ADX") {
+                  const adxOutputs = [] as React.ReactNode[];
+                  const adxLines = [
+                    { key: "primary" as const, color: indicator.config.color, label: "ADX" },
+                    { key: "plusDI" as const, color: "#10b981", label: "+DI" },
+                    { key: "minusDI" as const, color: "#ef4444", label: "-DI" },
+                  ];
+
+                  adxLines.forEach(({ key, color }) => {
+                    const points = series.points
+                      .map((point) => {
+                        const value = getIndicatorValueByTimestamp(indicator, point.timestamp, key);
+                        if (value === null) return null;
+                        return { timestamp: point.timestamp, value };
+                      })
+                      .filter((p): p is DataPoint => p !== null);
+
+                    adxOutputs.push(
+                      <LinePath<DataPoint>
+                        key={`indicator-${idx}-${key}`}
+                        data={points}
+                        x={(d) => dateScale(getDate(d)) ?? 0}
+                        y={(d) => shortsValueScale(getValue(d)) ?? 0}
+                        stroke={color}
+                        strokeWidth={key === "primary" ? 2 : 1}
+                        strokeDasharray={key === "primary" ? undefined : "3,2"}
+                        curve={curveMonotoneX}
+                      />
+                    );
+                  });
+
+                  return adxOutputs;
+                }
+
+                return outputs;
+              }
+
+              // Single output indicator
               const indicatorPoints = series.points
-                .map((point, i) => {
-                  const value = indicator.values[i];
+                .map((point) => {
+                  const value = getIndicatorValueByTimestamp(indicator, point.timestamp);
                   if (value === null) return null;
                   return { timestamp: point.timestamp, value };
                 })
@@ -657,10 +951,184 @@ const MultiSeriesChart = forwardRef<
             )}
           </Group>
 
+          {/* Oscillator Panel */}
+          {showOscillatorPanel && (
+            <Group
+              top={adjustedMargin.top + topChartHeight + 10}
+              left={adjustedMargin.left}
+            >
+              {/* Panel background */}
+              <rect
+                x={-5}
+                y={-5}
+                width={xMax + 10}
+                height={oscillatorPanelHeight}
+                fill="hsl(var(--muted))"
+                fillOpacity={0.3}
+                rx={4}
+              />
+
+              {/* Overbought/Oversold reference lines */}
+              {/* RSI/Stochastic levels: 70/30 */}
+              <Line
+                from={{ x: 0, y: oscillatorScale(70) }}
+                to={{ x: xMax, y: oscillatorScale(70) }}
+                stroke="hsl(var(--destructive))"
+                strokeWidth={1}
+                strokeDasharray="3,3"
+                opacity={0.5}
+              />
+              <Line
+                from={{ x: 0, y: oscillatorScale(30) }}
+                to={{ x: xMax, y: oscillatorScale(30) }}
+                stroke="hsl(var(--primary))"
+                strokeWidth={1}
+                strokeDasharray="3,3"
+                opacity={0.5}
+              />
+              {/* 50 line */}
+              <Line
+                from={{ x: 0, y: oscillatorScale(50) }}
+                to={{ x: xMax, y: oscillatorScale(50) }}
+                stroke="hsl(var(--muted-foreground))"
+                strokeWidth={1}
+                strokeDasharray="2,4"
+                opacity={0.3}
+              />
+
+              {/* Labels */}
+              <text
+                x={xMax + 5}
+                y={oscillatorScale(70) + 3}
+                fontSize={9}
+                fill="hsl(var(--destructive))"
+                opacity={0.7}
+              >
+                70
+              </text>
+              <text
+                x={xMax + 5}
+                y={oscillatorScale(30) + 3}
+                fontSize={9}
+                fill="hsl(var(--primary))"
+                opacity={0.7}
+              >
+                30
+              </text>
+
+              {/* Oscillator lines */}
+              {oscillatorIndicators.map((indicator, idx) => {
+                const series = filteredSeries.find(
+                  (s) => s.stockCode === indicator.config.stockCode
+                );
+                if (!series) return null;
+
+                const isWilliamsR = indicator.config.type === "WILLR";
+                const scale = isWilliamsR ? williamsRScale : oscillatorScale;
+
+                // For Stochastic, render both %K and %D
+                if (indicator.config.type === "STOCH" && indicator.multiOutput) {
+                  const stochOutputs = [];
+
+                  // %K line
+                  if (indicator.multiOutput.percentK) {
+                    const kPoints = series.points
+                      .map((point) => {
+                        const value = getIndicatorValueByTimestamp(indicator, point.timestamp, "percentK");
+                        if (value === null) return null;
+                        return { timestamp: point.timestamp, value };
+                      })
+                      .filter((p): p is DataPoint => p !== null);
+
+                    stochOutputs.push(
+                      <LinePath<DataPoint>
+                        key={`osc-${idx}-k`}
+                        data={kPoints}
+                        x={(d) => dateScale(getDate(d)) ?? 0}
+                        y={(d) => scale(getValue(d)) ?? 0}
+                        stroke={indicator.config.color}
+                        strokeWidth={1.5}
+                        curve={curveMonotoneX}
+                      />
+                    );
+                  }
+
+                  // %D line
+                  if (indicator.multiOutput.percentD) {
+                    const dPoints = series.points
+                      .map((point) => {
+                        const value = getIndicatorValueByTimestamp(indicator, point.timestamp, "percentD");
+                        if (value === null) return null;
+                        return { timestamp: point.timestamp, value };
+                      })
+                      .filter((p): p is DataPoint => p !== null);
+
+                    stochOutputs.push(
+                      <LinePath<DataPoint>
+                        key={`osc-${idx}-d`}
+                        data={dPoints}
+                        x={(d) => dateScale(getDate(d)) ?? 0}
+                        y={(d) => scale(getValue(d)) ?? 0}
+                        stroke="#f59e0b"
+                        strokeWidth={1}
+                        strokeDasharray="3,2"
+                        curve={curveMonotoneX}
+                      />
+                    );
+                  }
+
+                  return stochOutputs;
+                }
+
+                // Single line oscillator (RSI, Williams %R)
+                const points = series.points
+                  .map((point) => {
+                    const value = getIndicatorValueByTimestamp(indicator, point.timestamp);
+                    if (value === null) return null;
+                    return { timestamp: point.timestamp, value };
+                  })
+                  .filter((p): p is DataPoint => p !== null);
+
+                return (
+                  <LinePath<DataPoint>
+                    key={`osc-${idx}`}
+                    data={points}
+                    x={(d) => dateScale(getDate(d)) ?? 0}
+                    y={(d) => scale(getValue(d)) ?? 0}
+                    stroke={indicator.config.color}
+                    strokeWidth={1.5}
+                    curve={curveMonotoneX}
+                  />
+                );
+              })}
+
+              {/* Oscillator Y-axis */}
+              <AxisLeft
+                scale={oscillatorScale}
+                stroke="hsl(var(--muted-foreground))"
+                tickStroke="hsl(var(--muted-foreground))"
+                numTicks={3}
+                tickValues={[0, 50, 100]}
+                tickLabelProps={() => ({
+                  fill: "hsl(var(--muted-foreground))",
+                  fontSize: 9,
+                  textAnchor: "end",
+                  dx: -2,
+                  dy: 3,
+                })}
+              />
+            </Group>
+          )}
+
           {/* Brush Chart */}
           {!isMobile && (
             <Group
-              top={margin.top + topChartHeight + topChartBottomMargin}
+              top={
+                margin.top +
+                topChartHeight +
+                topChartBottomMargin +
+                (showOscillatorPanel ? oscillatorPanelHeight + 10 : 0)
+              }
               left={brushMargin.left}
             >
               {/* Mini lines for brush */}
@@ -710,7 +1178,13 @@ const MultiSeriesChart = forwardRef<
             <g>
               <Line
                 from={{ x: tooltipLeft, y: adjustedMargin.top }}
-                to={{ x: tooltipLeft, y: adjustedMargin.top + topChartHeight }}
+                to={{
+                  x: tooltipLeft,
+                  y:
+                    adjustedMargin.top +
+                    topChartHeight +
+                    (showOscillatorPanel ? oscillatorPanelHeight + 10 : 0),
+                }}
                 stroke="hsl(var(--muted-foreground))"
                 strokeWidth={1}
                 pointerEvents="none"
@@ -732,6 +1206,28 @@ const MultiSeriesChart = forwardRef<
                   />
                 );
               })}
+              {/* Dots for oscillators */}
+              {showOscillatorPanel &&
+                tooltipData.oscillators.map((osc, idx) => {
+                  if (osc.value === null) return null;
+                  return (
+                    <circle
+                      key={`osc-dot-${idx}`}
+                      cx={tooltipLeft}
+                      cy={
+                        adjustedMargin.top +
+                        topChartHeight +
+                        10 +
+                        oscillatorScale(osc.value)
+                      }
+                      r={3}
+                      fill={osc.color}
+                      stroke="white"
+                      strokeWidth={1.5}
+                      pointerEvents="none"
+                    />
+                  );
+                })}
             </g>
           )}
         </svg>
@@ -800,6 +1296,32 @@ const MultiSeriesChart = forwardRef<
                     </span>
                   </div>
                 ))}
+              {/* Oscillator values */}
+              {tooltipData.oscillators.length > 0 && (
+                <>
+                  <div className="border-t border-border my-1" />
+                  {tooltipData.oscillators
+                    .filter((i) => i.value !== null)
+                    .map((osc, idx) => (
+                      <div
+                        key={`osc-${idx}`}
+                        className="flex items-center gap-2"
+                      >
+                        <div
+                          className="w-2 h-2 rounded-sm"
+                          style={{ backgroundColor: osc.color }}
+                        />
+                        <span className="text-xs">{osc.label}</span>
+                        <span
+                          className="text-xs font-medium"
+                          style={{ color: osc.color }}
+                        >
+                          {osc.value!.toFixed(1)}
+                        </span>
+                      </div>
+                    ))}
+                </>
+              )}
             </div>
           </TooltipWithBounds>
         )}

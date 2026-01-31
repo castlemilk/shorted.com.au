@@ -2,9 +2,15 @@
 "use client";
 
 import Link from "next/link";
-import { File, RouteIcon, GitCommit, Terminal } from "lucide-react";
+import { File, RouteIcon, GitCommit, Terminal, AlertCircle } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { Badge } from "~/@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "~/@/components/ui/tooltip";
 
 const SiteFooter = () => {
   // `next/config` is not supported in the Next.js App Router on the client.
@@ -24,6 +30,40 @@ const SiteFooter = () => {
 
   return (
     <footer className="py-6 md:px-8 md:py-0">
+      {/* ASIC Data Disclaimer */}
+      <div className="container mb-4 md:mb-0">
+        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground/70 border-t border-border/40 pt-4">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex items-center gap-1.5 cursor-help">
+                  <AlertCircle className="h-3 w-3" />
+                  <span>
+                    Data sourced from{" "}
+                    <a
+                      href="https://asic.gov.au/regulatory-resources/markets/short-selling/short-position-reports-table/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline underline-offset-2 hover:text-foreground"
+                    >
+                      ASIC
+                    </a>
+                    {" "}with T+4 trading day delay. Not financial advice.
+                  </span>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs">
+                <p className="text-xs">
+                  Short position data is reported to ASIC by market participants and published
+                  with a T+4 trading day delay. This means data shown reflects positions from
+                  4 trading days ago. This information is for general purposes only and should
+                  not be relied upon for investment decisions.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </div>
       <div className="container flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row">
         <p className="text-balance text-center text-sm leading-loose text-muted-foreground md:text-left">
           Built with ❤️ by{" "}

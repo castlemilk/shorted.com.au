@@ -1,39 +1,77 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { type WidgetProps } from "~/@/types/dashboard";
 import { ParentSize } from "@visx/responsive";
-import { scaleTime, scaleLinear } from "@visx/scale";
-import { LinePath } from "@visx/shape";
-import { AxisBottom, AxisLeft } from "@visx/axis";
-import { GridRows, GridColumns } from "@visx/grid";
-import { Group } from "@visx/group";
+import MultiSeriesChart, {
+  type HandleBrushClearAndReset,
+  type MultiSeriesChartData,
+  type ChartSeries,
+  type IndicatorOverlay,
+} from "~/@/components/ui/multi-series-chart";
 import { getStockData } from "~/app/actions/getStockData";
-import { type TimeSeriesData, type TimeSeriesPoint } from "~/gen/stocks/v1alpha1/stocks_pb";
-import { curveLinear } from "@visx/curve";
+import {
+  type TimeSeriesData,
+  type TimeSeriesPoint,
+} from "~/gen/stocks/v1alpha1/stocks_pb";
 import { Skeleton } from "~/@/components/ui/skeleton";
-import { format } from "date-fns";
+import { Button } from "~/@/components/ui/button";
+import { Badge } from "~/@/components/ui/badge";
+import { ToggleGroup, ToggleGroupItem } from "~/@/components/ui/toggle-group";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "~/@/components/ui/popover";
+import { Settings2, Activity, RotateCcw, LineChart, BarChart3 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  type IndicatorConfig,
+  calculateIndicator,
+  calculateAdvancedIndicator,
+  getStockColor,
+  INDICATOR_METADATA,
+  isOscillator,
+} from "@/lib/technical-indicators";
+import { IndicatorPanel } from "./indicator-panel";
+import { StockSelector } from "./stock-selector";
 
-const margin = { top: 20, right: 20, bottom: 40, left: 60 };
+const PERIODS = ["1m", "3m", "6m", "1y", "2y", "5y", "max"] as const;
+const DEFAULT_PERIOD = "3m";
 
-const colors = [
-  "#2563eb", // blue
-  "#dc2626", // red
-  "#16a34a", // green
-  "#ea580c", // orange
-  "#7c3aed", // purple
-  "#0891b2", // cyan
-];
+export function TimeSeriesWidget({ config, onSettingsChange }: WidgetProps) {
+  const chartRef = useRef<HandleBrushClearAndReset>(null);
 
-export function TimeSeriesWidget({ config }: WidgetProps) {
-  const stocks = (config.settings?.stocks as string[]) || [];
-  const period = (config.settings?.period as string) || "3m";
+  // Get settings from config
+  const stocks = useMemo(() => {
+    const stocksArray = config.settings?.stocks as string[] | undefined;
+    return stocksArray && stocksArray.length > 0 ? stocksArray : [];
+  }, [config.settings?.stocks]);
 
+  const period = useMemo(() => {
+    return (config.settings?.period as string) || DEFAULT_PERIOD;
+  }, [config.settings?.period]);
+
+  const viewMode = useMemo(() => {
+    return (config.settings?.viewMode as "absolute" | "normalized") || "absolute";
+  }, [config.settings?.viewMode]);
+
+  const indicators = useMemo(() => {
+    return (config.settings?.indicators as IndicatorConfig[]) || [];
+  }, [config.settings?.indicators]);
+
+  const analysisMode = useMemo(() => {
+    return (config.settings?.analysisMode as boolean) ?? false;
+  }, [config.settings?.analysisMode]);
+
+  // State
   const [loading, setLoading] = useState(true);
-  const [stockData, setStockData] = useState<
-    Map<string, TimeSeriesData>
-  >(new Map());
+  const [stockData, setStockData] = useState<Map<string, TimeSeriesData>>(
+    new Map()
+  );
+  const [showSettings, setShowSettings] = useState(false);
 
+  // Fetch data
   useEffect(() => {
     if (stocks.length === 0) {
       setLoading(false);
@@ -51,7 +89,7 @@ export function TimeSeriesWidget({ config }: WidgetProps) {
             if (data) {
               newData.set(stockCode, data);
             }
-          }),
+          })
         );
         setStockData(newData);
       } catch (error) {
@@ -64,38 +102,129 @@ export function TimeSeriesWidget({ config }: WidgetProps) {
     void fetchData();
   }, [stocks, period]);
 
-  const chartData = useMemo(() => {
-    const allDataPoints: { date: Date; values: Map<string, number> }[] = [];
-    const dateMap = new Map<string, Map<string, number>>();
+  // Build chart data
+  const chartData = useMemo<MultiSeriesChartData>(() => {
+    const series: ChartSeries[] = [];
 
-    stockData.forEach((seriesData: TimeSeriesData, stockCode: string) => {
-      if (seriesData.points) {
-        seriesData.points.forEach((point: TimeSeriesPoint) => {
-          if (point.timestamp) {
-            // Convert protobuf Timestamp to Date
-            const seconds = Number(point.timestamp.seconds ?? 0);
-            const nanos = Number(point.timestamp.nanos ?? 0);
-            const date = new Date(seconds * 1000 + nanos / 1000000);
-            const dateStr = date.toISOString();
+    stocks.forEach((code, index) => {
+      const data = stockData.get(code);
+      if (!data?.points || data.points.length === 0) return;
 
-            if (!dateMap.has(dateStr)) {
-              dateMap.set(dateStr, new Map());
-            }
-            dateMap.get(dateStr)!.set(stockCode, point.shortPosition);
-          }
-        });
-      }
-    });
-
-    dateMap.forEach((values, dateStr) => {
-      allDataPoints.push({
-        date: new Date(dateStr),
-        values,
+      series.push({
+        stockCode: code,
+        color: getStockColor(index),
+        points: data.points.map((point: TimeSeriesPoint) => ({
+          timestamp:
+            typeof point.timestamp === "string"
+              ? new Date(point.timestamp)
+              : new Date(Number(point.timestamp?.seconds ?? 0) * 1000),
+          value: point.shortPosition ?? 0,
+        })),
+        seriesType: "shorts" as const,
       });
     });
 
-    return allDataPoints.sort((a, b) => a.date.getTime() - b.date.getTime());
-  }, [stockData]);
+    // Calculate indicators
+    const indicatorOverlays: IndicatorOverlay[] = indicators
+      .filter((ind) => ind.enabled !== false)
+      .map((ind) => {
+        const seriesData = series.find((s) => s.stockCode === ind.stockCode);
+        if (!seriesData) {
+          return { config: ind, values: [], timestamps: [] };
+        }
+
+        const values = seriesData.points.map((p) => p.value);
+        const timestamps = seriesData.points.map((p) => p.timestamp);
+
+        // Use advanced calculation for multi-output/oscillator indicators
+        const metadata = INDICATOR_METADATA[ind.type];
+        if (metadata?.hasMultipleOutputs || isOscillator(ind.type)) {
+          const result = calculateAdvancedIndicator(values, ind);
+          return {
+            config: ind,
+            values: result.values,
+            timestamps,
+            multiOutput: result.multiOutput,
+          };
+        }
+
+        const indicatorValues = calculateIndicator(values, ind.type, ind.period);
+        return {
+          config: ind,
+          values: indicatorValues,
+          timestamps,
+        };
+      });
+
+    return {
+      series,
+      viewMode,
+      indicators: indicatorOverlays,
+      hasDualAxis: false,
+      showOscillatorPanel: indicators.some((ind) => isOscillator(ind.type)),
+    };
+  }, [stocks, stockData, viewMode, indicators]);
+
+  // Settings handlers
+  const handleStocksChange = useCallback(
+    (newStocks: string[]) => {
+      if (onSettingsChange) {
+        onSettingsChange({
+          ...config.settings,
+          stocks: newStocks,
+        });
+      }
+    },
+    [onSettingsChange, config.settings]
+  );
+
+  const handlePeriodChange = useCallback(
+    (newPeriod: string) => {
+      if (newPeriod && onSettingsChange) {
+        onSettingsChange({
+          ...config.settings,
+          period: newPeriod,
+        });
+      }
+    },
+    [onSettingsChange, config.settings]
+  );
+
+  const handleViewModeChange = useCallback(
+    (newMode: "absolute" | "normalized") => {
+      if (onSettingsChange) {
+        onSettingsChange({
+          ...config.settings,
+          viewMode: newMode,
+        });
+      }
+    },
+    [onSettingsChange, config.settings]
+  );
+
+  const handleIndicatorsChange = useCallback(
+    (newIndicators: IndicatorConfig[]) => {
+      if (onSettingsChange) {
+        onSettingsChange({
+          ...config.settings,
+          indicators: newIndicators,
+        });
+      }
+    },
+    [onSettingsChange, config.settings]
+  );
+
+  const handleAnalysisModeChange = useCallback(
+    (enabled: boolean) => {
+      if (onSettingsChange) {
+        onSettingsChange({
+          ...config.settings,
+          analysisMode: enabled,
+        });
+      }
+    },
+    [onSettingsChange, config.settings]
+  );
 
   if (loading) {
     return (
@@ -107,128 +236,253 @@ export function TimeSeriesWidget({ config }: WidgetProps) {
 
   if (stocks.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center text-muted-foreground">
-        <div className="text-center">
-          <p className="text-sm font-medium">Time Series Analysis</p>
-          <p className="text-xs mt-2">Select stocks to analyze</p>
+      <div className="h-full flex flex-col">
+        <div className="px-4 pt-3 pb-2 border-b flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <LineChart className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium text-sm">Time Series Analysis</span>
+          </div>
+          <Popover open={showSettings} onOpenChange={setShowSettings}>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                <Settings2 className="h-4 w-4" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72" align="end">
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Select Stocks</h4>
+                  <StockSelector
+                    selectedStocks={stocks}
+                    onStocksChange={handleStocksChange}
+                    maxStocks={8}
+                  />
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+        <div className="flex-1 flex items-center justify-center text-muted-foreground">
+          <div className="text-center">
+            <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p className="text-sm font-medium">No Stocks Selected</p>
+            <p className="text-xs mt-2">
+              Click the settings icon to add stocks for analysis
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <ParentSize>
-      {({ width, height }) => {
-        const xMax = width - margin.left - margin.right;
-        const yMax = height - margin.top - margin.bottom;
+    <div className="h-full flex flex-col">
+      {/* Header */}
+      <div className="px-4 pt-3 pb-2 border-b">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 flex-wrap">
+            <LineChart className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium text-sm">Comparing</span>
+            {stocks.map((code, index) => (
+              <Badge
+                key={code}
+                variant="secondary"
+                className="text-xs"
+                style={{ borderLeft: `3px solid ${getStockColor(index)}` }}
+              >
+                {code}
+              </Badge>
+            ))}
+          </div>
 
-        const xScale = scaleTime<number>({
-          domain: [
-            chartData[0]?.date ?? new Date(),
-            chartData[chartData.length - 1]?.date ?? new Date(),
-          ],
-          range: [0, xMax],
-        });
+          <div className="flex items-center gap-1">
+            {/* Analysis mode toggle */}
+            <Button
+              variant={analysisMode ? "default" : "ghost"}
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => handleAnalysisModeChange(!analysisMode)}
+            >
+              <Activity className="h-3 w-3" />
+              {analysisMode ? "Analysis On" : "Analysis"}
+            </Button>
 
-        const yScale = scaleLinear<number>({
-          domain: [
-            0,
-            Math.max(
-              ...chartData.flatMap((d) => Array.from(d.values.values())),
-            ) * 1.1,
-          ],
-          range: [yMax, 0],
-          nice: true,
-        });
+            {/* Settings */}
+            <Popover open={showSettings} onOpenChange={setShowSettings}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn("h-7 w-7 p-0", showSettings && "text-primary")}
+                >
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72" align="end">
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">Stocks</h4>
+                    <StockSelector
+                      selectedStocks={stocks}
+                      onStocksChange={handleStocksChange}
+                      maxStocks={8}
+                    />
+                  </div>
 
-        return (
-          <svg width={width} height={height}>
-            <Group left={margin.left} top={margin.top}>
-              <GridRows
-                scale={yScale}
-                width={xMax}
-                strokeDasharray="3,3"
-                stroke="currentColor"
-                strokeOpacity={0.1}
-              />
-              <GridColumns
-                scale={xScale}
-                height={yMax}
-                strokeDasharray="3,3"
-                stroke="currentColor"
-                strokeOpacity={0.1}
-              />
-              {stocks.map((stockCode, index) => {
-                const stockDataPoints = chartData
-                  .filter((d) => d.values.has(stockCode))
-                  .map((d) => ({
-                    date: d.date,
-                    value: d.values.get(stockCode)!,
-                  }));
+                  <div>
+                    <h4 className="text-sm font-medium mb-2">View Mode</h4>
+                    <ToggleGroup
+                      type="single"
+                      value={viewMode}
+                      onValueChange={(v) =>
+                        v && handleViewModeChange(v as "absolute" | "normalized")
+                      }
+                      className="justify-start"
+                    >
+                      <ToggleGroupItem value="absolute" className="text-xs">
+                        Absolute
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="normalized" className="text-xs">
+                        % Change
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                    {viewMode === "normalized" && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Shows percentage change from start of period
+                      </p>
+                    )}
+                  </div>
 
-                return (
-                  <LinePath
-                    key={stockCode}
-                    data={stockDataPoints}
-                    x={(d) => xScale(d.date) ?? 0}
-                    y={(d) => yScale(d.value) ?? 0}
-                    stroke={colors[index % colors.length]}
-                    strokeWidth={2}
-                    curve={curveLinear}
-                  />
-                );
-              })}
-              <AxisBottom
-                top={yMax}
-                scale={xScale}
-                numTicks={width > 520 ? 10 : 5}
-                tickLabelProps={() => ({
-                  fill: "currentColor",
-                  fontSize: 11,
-                  textAnchor: "middle",
-                })}
-                tickFormat={(d) => {
-                  const date = d instanceof Date ? d : new Date(d.valueOf());
-                  return format(date, "MMM d");
-                }}
+                  {analysisMode && (
+                    <div>
+                      <h4 className="text-sm font-medium mb-2">Indicators</h4>
+                      <IndicatorPanel
+                        indicators={indicators}
+                        onIndicatorsChange={handleIndicatorsChange}
+                        stockCodes={stocks}
+                        availableDataSources={["shorts"]}
+                        hasOHLCV={false}
+                        hasVolume={false}
+                      />
+                    </div>
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+          </div>
+        </div>
+      </div>
+
+      {/* Period selector and controls */}
+      <div className="flex items-center justify-between gap-2 px-4 py-2 border-b">
+        <div className="overflow-x-auto">
+          <ToggleGroup
+            type="single"
+            value={period}
+            onValueChange={handlePeriodChange}
+            className="justify-start"
+          >
+            {PERIODS.map((p) => (
+              <ToggleGroupItem key={p} value={p} className="text-xs h-7 px-2">
+                {p.toUpperCase()}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
+
+        <div className="flex gap-1">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => chartRef.current?.clear()}
+          >
+            Clear
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => chartRef.current?.reset()}
+          >
+            <RotateCcw className="h-3 w-3" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Indicator badges when in analysis mode */}
+      {analysisMode && indicators.length > 0 && (
+        <div className="px-4 py-2 border-b flex flex-wrap gap-1.5">
+          {indicators.map((ind, index) => {
+            const metadata = INDICATOR_METADATA[ind.type];
+            return (
+              <Badge
+                key={`${ind.type}-${ind.period}-${index}`}
+                variant={ind.enabled ? "secondary" : "outline"}
+                className={cn(
+                  "text-xs",
+                  !ind.enabled && "opacity-50"
+                )}
+                style={{ borderLeft: `3px solid ${ind.color}` }}
+              >
+                {metadata?.shortName ?? ind.type}({ind.period})
+                {stocks.length > 1 && <span className="ml-1 text-muted-foreground">• {ind.stockCode}</span>}
+              </Badge>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Chart */}
+      <div className="flex-1 min-h-0 p-2">
+        {chartData.series.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-muted-foreground">
+            <div className="text-center">
+              <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="text-sm font-medium">No Data Available</p>
+              <p className="text-xs">No short position data found for selected stocks</p>
+            </div>
+          </div>
+        ) : (
+          <ParentSize className="min-w-0">
+            {({ width, height }) => (
+              <MultiSeriesChart
+                ref={chartRef}
+                data={chartData}
+                width={width}
+                height={Math.max(height, 250)}
               />
-              <AxisLeft
-                scale={yScale}
-                numTicks={5}
-                tickLabelProps={() => ({
-                  fill: "currentColor",
-                  fontSize: 11,
-                  textAnchor: "end",
-                  x: -8,
-                  y: 3,
-                })}
-                tickFormat={(d) => `${d as number}%`}
-              />
-            </Group>
-            {/* Legend */}
-            <Group left={margin.left} top={height - 20}>
-              {stocks.map((stockCode, index) => (
-                <Group key={stockCode} left={index * 80}>
-                  <rect
-                    width={12}
-                    height={12}
-                    fill={colors[index % colors.length]}
-                    y={-6}
-                  />
-                  <text
-                    x={16}
-                    fontSize={12}
-                    fill="currentColor"
-                    alignmentBaseline="middle"
-                  >
-                    {stockCode}
-                  </text>
-                </Group>
-              ))}
-            </Group>
-          </svg>
-        );
-      }}
-    </ParentSize>
+            )}
+          </ParentSize>
+        )}
+      </div>
+
+      {/* Legend */}
+      {chartData.series.length > 0 && (
+        <div className="px-4 pb-2 flex flex-wrap gap-3 border-t pt-2">
+          {chartData.series.map((series) => {
+            const data = stockData.get(series.stockCode);
+            const latestPoint = data?.points?.[data.points.length - 1];
+            return (
+              <div
+                key={series.stockCode}
+                className="flex items-center gap-1.5 text-xs"
+              >
+                <div
+                  className="w-3 h-0.5 rounded"
+                  style={{ backgroundColor: series.color }}
+                />
+                <span className="font-medium">{series.stockCode}</span>
+                {latestPoint && (
+                  <span className="text-muted-foreground">
+                    {latestPoint.shortPosition.toFixed(2)}%
+                  </span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

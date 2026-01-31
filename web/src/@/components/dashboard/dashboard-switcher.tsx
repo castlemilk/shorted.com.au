@@ -83,7 +83,7 @@ export function DashboardSwitcher({
   const [importJson, setImportJson] = useState("");
 
   const currentDashboard = dashboards.find((d) => d.id === currentDashboardId);
-  const defaultDashboard = dashboards.find((d) => d.isDefault);
+  const _defaultDashboard = dashboards.find((d) => d.isDefault);
 
   const handleCreate = () => {
     if (inputValue.trim()) {
