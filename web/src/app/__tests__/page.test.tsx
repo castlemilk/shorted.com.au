@@ -1,13 +1,7 @@
 import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
-// Import the client component for testing (server component is tested separately)
-import { HomePageClient } from "../page-client";
-
-// Mock next-auth for client-side
-jest.mock("next-auth/react", () => ({
-  useSession: jest.fn(),
-}));
+import { HomeContent } from "../home-content";
 
 // Mock kv-cache to avoid Redis imports in tests
 jest.mock("~/@/lib/kv-cache", () => require("~/@/lib/__mocks__/kv-cache"));
@@ -25,35 +19,6 @@ jest.mock("../actions/client/getIndustryTreeMap", () => ({
 jest.mock("next/link", () => ({
   __esModule: true,
   default: ({ children, href }: any) => <a href={href}>{children}</a>,
-}));
-
-// Mock @next/third-parties/google for Google Analytics
-jest.mock("@next/third-parties/google", () => ({
-  GoogleAnalytics: ({ gaId }: { gaId?: string }) => (
-    <div data-testid="google-analytics" data-ga-id={gaId}></div>
-  ),
-}));
-
-// Mock UI components
-jest.mock("~/@/components/ui/button", () => ({
-  Button: ({ children, onClick }: any) => (
-    <button onClick={onClick}>{children}</button>
-  ),
-}));
-
-// Mock Marketing components
-jest.mock("~/@/components/marketing/scroll-reveal", () => ({
-  ScrollReveal: ({ children }: any) => <div>{children}</div>,
-}));
-
-jest.mock("~/@/components/marketing/animated-stock-ticker", () => ({
-  AnimatedStockTicker: () => (
-    <div data-testid="animated-stock-ticker">Ticker</div>
-  ),
-}));
-
-jest.mock("~/@/components/marketing/background-beams", () => ({
-  BackgroundBeams: () => <div data-testid="background-beams">Beams</div>,
 }));
 
 // Mock Lucide icons
@@ -76,20 +41,27 @@ jest.mock("../topShortsView/topShorts", () => ({
   ),
 }));
 
-// Mock dynamic import for treemap
+// Mock dynamic import for both TopShorts and treemap
 jest.mock("next/dynamic", () => {
-  const actualDynamic = jest.requireActual("next/dynamic");
   return (importFn: any, options: any) => {
-    // For treemap component, return the mocked component directly
-    if (importFn.toString().includes("treemap/treeMap")) {
-      return ({ initialPeriod, initialViewMode }: any) => (
+    const fnString = importFn.toString();
+    if (fnString.includes("treemap/treeMap")) {
+      return ({ initialPeriod }: any) => (
         <div data-testid="tree-map">
           Tree Map Component (period: {initialPeriod})
         </div>
       );
     }
-    // For other dynamic imports, use the actual dynamic
-    return actualDynamic(importFn, options);
+    if (fnString.includes("topShortsView/topShorts")) {
+      return ({ initialPeriod }: any) => (
+        <div data-testid="top-shorts">
+          Top Shorts Component (period: {initialPeriod})
+        </div>
+      );
+    }
+    // Fallback for other dynamic imports
+    const React = require("react");
+    return () => React.createElement("div", null, "Mocked Dynamic Component");
   };
 });
 
@@ -108,19 +80,11 @@ jest.mock("~/gen/shorts/v1alpha1/shorts_pb", () => ({
   },
 }));
 
-// Mock LoginPromptBanner
-jest.mock("~/@/components/ui/login-prompt-banner", () => ({
-  LoginPromptBanner: () => <div data-testid="login-prompt-banner"></div>,
-}));
-
 // Import the mocked functions
-const { useSession } = require("next-auth/react");
 const { getTopShortsDataClient } = require("../actions/client/getTopShorts");
 const {
   getIndustryTreeMapClient,
 } = require("../actions/client/getIndustryTreeMap");
-
-const mockUseSession = useSession as jest.MockedFunction<typeof useSession>;
 
 const mockGetTopShortsDataClient =
   getTopShortsDataClient as jest.MockedFunction<typeof getTopShortsDataClient>;
@@ -150,12 +114,6 @@ describe("Home Page", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // Set up default mocks for client-side rendering
-    mockUseSession.mockReturnValue({
-      data: null,
-      status: "unauthenticated",
-      update: jest.fn(),
-    });
     mockGetIndustryTreeMapClient.mockResolvedValue({
       industries: [],
       stocks: [],
@@ -164,7 +122,7 @@ describe("Home Page", () => {
   });
 
   it("renders the home page with all components", async () => {
-    render(<HomePageClient />);
+    render(<HomeContent />);
 
     // Wait for dynamically imported TopShorts to resolve
     await waitFor(() => {
@@ -175,17 +133,16 @@ describe("Home Page", () => {
     await waitFor(() => {
       expect(screen.getByTestId("tree-map")).toBeInTheDocument();
     });
-
-    // Google Analytics should be rendered immediately
-    expect(screen.getByTestId("google-analytics")).toBeInTheDocument();
   });
 
   it("passes correct initial period to components", async () => {
-    render(<HomePageClient />);
+    render(<HomeContent />);
 
-    expect(
-      screen.getByText(/Top Shorts Component \(period: 3m\)/),
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Top Shorts Component \(period: 3m\)/),
+      ).toBeInTheDocument();
+    });
 
     // Wait for dynamic import to resolve
     await waitFor(() => {
@@ -195,118 +152,45 @@ describe("Home Page", () => {
     });
   });
 
-  it("renders with flex layout", () => {
-    const { container } = render(<HomePageClient />);
+  it("renders with flex layout", async () => {
+    const { container } = render(<HomeContent />);
 
-    const layoutDiv = container.querySelector(".flex");
-    expect(layoutDiv).toBeInTheDocument();
-  });
-
-  it("shows login banner when not authenticated", () => {
-    mockUseSession.mockReturnValue({
-      data: null,
-      status: "unauthenticated",
-      update: jest.fn(),
+    await waitFor(() => {
+      const layoutDiv = container.querySelector(".flex");
+      expect(layoutDiv).toBeInTheDocument();
     });
-
-    render(<HomePageClient />);
-
-    expect(screen.getByTestId("login-prompt-banner")).toBeInTheDocument();
   });
 
   it("renders with correct layout structure", async () => {
-    const { container } = render(<HomePageClient />);
+    const { container } = render(<HomeContent />);
 
     // Check for flex layout
-    const flexElement = container.querySelector(".flex");
-    expect(flexElement).toBeInTheDocument();
-
-    // Google Analytics is deferred, so wait for it to load
-    await waitFor(
-      () => {
-        expect(screen.getByTestId("google-analytics")).toBeInTheDocument();
-      },
-      { timeout: 3000 },
-    );
+    await waitFor(() => {
+      const flexElement = container.querySelector(".flex");
+      expect(flexElement).toBeInTheDocument();
+    });
   });
 
   it("includes all expected components", async () => {
-    render(<HomePageClient />);
+    render(<HomeContent />);
 
-    // Verify all main components are present
-    expect(screen.getByTestId("top-shorts")).toBeInTheDocument();
-
-    // Wait for dynamic import to resolve
+    // Wait for dynamically imported components to resolve
     await waitFor(() => {
-      expect(screen.getByTestId("tree-map")).toBeInTheDocument();
+      expect(screen.getByTestId("top-shorts")).toBeInTheDocument();
     });
 
-    // Google Analytics should be rendered immediately
-    expect(screen.getByTestId("google-analytics")).toBeInTheDocument();
-  });
-
-  it("shows login prompt banner when user is not authenticated", () => {
-    mockUseSession.mockReturnValue({
-      data: null,
-      status: "unauthenticated",
-      update: jest.fn(),
-    });
-
-    render(<HomePageClient />);
-
-    expect(screen.getByTestId("login-prompt-banner")).toBeInTheDocument();
-  });
-
-  it("hides login prompt banner when user is authenticated", () => {
-    mockUseSession.mockReturnValue({
-      data: { user: { id: "123", email: "test@example.com" } },
-      status: "authenticated",
-      update: jest.fn(),
-    } as any);
-
-    render(<HomePageClient />);
-
-    expect(screen.queryByTestId("login-prompt-banner")).not.toBeInTheDocument();
-  });
-
-  it("has session immediately available without flash of unauthenticated content", async () => {
-    // This test verifies the auth fix where session is passed from server to client
-    // preventing a flash of unauthenticated content (login banner)
-    const sessionData = {
-      user: {
-        id: "test-user-id",
-        name: "Test User",
-        email: "test@example.com",
-      },
-      expires: "2099-01-01",
-    };
-
-    mockUseSession.mockReturnValue({
-      data: sessionData,
-      status: "authenticated",
-      update: jest.fn(),
-    });
-
-    render(<HomePageClient />);
-
-    // Login banner should NOT be present from the first render
-    expect(screen.queryByTestId("login-prompt-banner")).not.toBeInTheDocument();
-
-    // Components should render immediately without waiting for session
-    expect(screen.getByTestId("top-shorts")).toBeInTheDocument();
-
-    // Wait for dynamic import to resolve
     await waitFor(() => {
       expect(screen.getByTestId("tree-map")).toBeInTheDocument();
     });
   });
 
-  it("renders responsive layout classes", () => {
-    const { container } = render(<HomePageClient />);
+  it("renders responsive layout classes", async () => {
+    const { container } = render(<HomeContent />);
 
     // Check for responsive layout classes
-    // The simplified page uses: <div className="flex flex-col lg:flex-row gap-8">
-    const layoutDiv = container.querySelector(".flex.flex-col.lg\\:flex-row");
-    expect(layoutDiv).toBeInTheDocument();
+    await waitFor(() => {
+      const layoutDiv = container.querySelector(".flex.flex-col.lg\\:flex-row");
+      expect(layoutDiv).toBeInTheDocument();
+    });
   });
 });
