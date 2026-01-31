@@ -43,7 +43,10 @@ import { IndicatorPanel } from "./indicator-panel";
 import {
   type IndicatorConfig,
   calculateIndicator,
+  calculateAdvancedIndicator,
   getStockColor,
+  INDICATOR_METADATA,
+  isOscillator,
 } from "@/lib/technical-indicators";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -63,6 +66,18 @@ const getMarketColor = (index: number): string => {
     "#93c5fd", // blue-300
   ];
   return marketColors[index % marketColors.length] ?? "#3b82f6";
+};
+
+// Color scheme for shorts data when shown alongside market (red/orange tones)
+const getShortsColor = (index: number): string => {
+  const shortsColors = [
+    "#ef4444", // red-500
+    "#f97316", // orange-500
+    "#dc2626", // red-600
+    "#ea580c", // orange-600
+    "#f87171", // red-400
+  ];
+  return shortsColors[index % shortsColors.length] ?? "#ef4444";
 };
 
 // Transform market data to ChartSeries format
@@ -232,6 +247,8 @@ export function StockChartWidget({ config, onSettingsChange }: WidgetProps) {
   // Build chart data
   const chartData = useMemo<MultiSeriesChartData>(() => {
     const series: ChartSeries[] = [];
+    const hasDualAxis =
+      dataTypes.includes("shorts") && dataTypes.includes("market");
 
     // Add shorts series if enabled
     if (dataTypes.includes("shorts")) {
@@ -246,7 +263,8 @@ export function StockChartWidget({ config, onSettingsChange }: WidgetProps) {
 
           return {
             stockCode: code,
-            color: getStockColor(index),
+            // Use red/orange for shorts when showing alongside market data
+            color: hasDualAxis ? getShortsColor(index) : getStockColor(index),
             points: data.points.map((point: TimeSeriesPoint) => ({
               timestamp:
                 typeof point.timestamp === "string"
@@ -274,16 +292,45 @@ export function StockChartWidget({ config, onSettingsChange }: WidgetProps) {
       series.push(...marketSeries);
     }
 
-    // Calculate indicators (only for shorts data)
+    // Calculate indicators based on data source
     const indicatorOverlays: IndicatorOverlay[] = indicators
       .filter((ind) => ind.enabled !== false)
       .map((ind) => {
-        const seriesData = series.find((s) => s.stockCode === ind.stockCode);
+        // Determine which data source to use
+        const dataSource = ind.dataSource ?? "shorts";
+
+        // Find the appropriate series
+        let seriesData;
+        if (dataSource === "market") {
+          seriesData = series.find(
+            (s) => s.stockCode === `PRICE:${ind.stockCode}` && s.seriesType === "market"
+          );
+        } else {
+          seriesData = series.find(
+            (s) => s.stockCode === ind.stockCode && (!s.seriesType || s.seriesType === "shorts")
+          );
+        }
+
         if (!seriesData) {
-          return { config: ind, values: [] };
+          return { config: ind, values: [], timestamps: [] };
         }
 
         const values = seriesData.points.map((p) => p.value);
+        const timestamps = seriesData.points.map((p) => p.timestamp);
+
+        // Use advanced calculation for multi-output indicators
+        const metadata = INDICATOR_METADATA[ind.type];
+        if (metadata?.hasMultipleOutputs || isOscillator(ind.type)) {
+          const result = calculateAdvancedIndicator(values, ind);
+          return {
+            config: ind,
+            values: result.values,
+            timestamps,
+            multiOutput: result.multiOutput,
+          };
+        }
+
+        // Use legacy calculation for simple indicators
         const indicatorValues = calculateIndicator(
           values,
           ind.type,
@@ -293,11 +340,9 @@ export function StockChartWidget({ config, onSettingsChange }: WidgetProps) {
         return {
           config: ind,
           values: indicatorValues,
+          timestamps,
         };
       });
-
-    const hasDualAxis =
-      dataTypes.includes("shorts") && dataTypes.includes("market");
 
     return {
       series,
@@ -316,20 +361,6 @@ export function StockChartWidget({ config, onSettingsChange }: WidgetProps) {
   ]);
 
   // Settings change handlers
-  const handleStocksChange = useCallback(
-    (newStocks: string[]) => {
-      if (onSettingsChange) {
-        onSettingsChange({
-          ...config.settings,
-          stocks: newStocks,
-          // Remove old format
-          stockCode: undefined,
-        });
-      }
-    },
-    [onSettingsChange, config.settings],
-  );
-
   const handlePeriodChange = useCallback(
     (newPeriod: string) => {
       if (newPeriod && onSettingsChange) {
@@ -649,6 +680,15 @@ export function StockChartWidget({ config, onSettingsChange }: WidgetProps) {
                     indicators={indicators}
                     onIndicatorsChange={handleIndicatorsChange}
                     stockCodes={stocks}
+                    availableDataSources={
+                      dataTypes.includes("shorts") && dataTypes.includes("market")
+                        ? ["shorts", "market"]
+                        : dataTypes.includes("market")
+                          ? ["market"]
+                          : ["shorts"]
+                    }
+                    hasOHLCV={dataTypes.includes("market")}
+                    hasVolume={false}
                   />
                 </div>
               </div>

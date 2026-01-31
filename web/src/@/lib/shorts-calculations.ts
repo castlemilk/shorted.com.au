@@ -169,19 +169,62 @@ export function calculateMovers(
   };
 }
 
+// Locale-aware number formatters for Australian English
+const percentFormatter = new Intl.NumberFormat("en-AU", {
+  style: "decimal",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const signedPercentFormatter = new Intl.NumberFormat("en-AU", {
+  style: "decimal",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+  signDisplay: "always",
+});
+
 /**
- * Format a number as a percentage string
+ * Format a number as a percentage string (locale-aware)
  */
 export function formatPercentage(value: number): string {
-  return `${value.toFixed(2)}%`;
+  return `${percentFormatter.format(value)}%`;
 }
 
 /**
- * Format a change value with sign
+ * Format a change value with sign (locale-aware)
  */
 export function formatChange(value: number): string {
-  const sign = value >= 0 ? "+" : "";
-  return `${sign}${value.toFixed(2)}%`;
+  return `${signedPercentFormatter.format(value)}%`;
+}
+
+/**
+ * Format a large number with locale-aware grouping
+ */
+export function formatNumber(value: number): string {
+  return new Intl.NumberFormat("en-AU").format(value);
+}
+
+/**
+ * Format currency in AUD
+ */
+export function formatCurrency(value: number): string {
+  return new Intl.NumberFormat("en-AU", {
+    style: "currency",
+    currency: "AUD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+/**
+ * Format a date for display (locale-aware)
+ */
+export function formatDate(date: Date | number): string {
+  return new Intl.DateTimeFormat("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(date);
 }
 
 /**

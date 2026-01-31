@@ -112,7 +112,8 @@ export function LLMMeta({
 
       {/* Data quality indicators */}
       <meta name="data-accuracy" content="regulatory" />
-      <meta name="data-lag" content="1-2 business days" />
+      <meta name="data-lag" content="T+4 trading days" />
+      <meta name="data-source-authority" content="ASIC - Australian Securities and Investments Commission" />
 
       {/* Usage guidelines */}
       <meta name="usage-rights" content="informational" />

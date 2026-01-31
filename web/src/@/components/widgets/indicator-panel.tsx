@@ -38,8 +38,6 @@ import {
   getIndicatorCategories,
   isIndicatorAvailable,
   isOscillator,
-  isMultiOutput,
-  getIndicatorLabel,
 } from "@/lib/technical-indicators";
 
 interface IndicatorPanelProps {
@@ -83,20 +81,9 @@ export function IndicatorPanel({
     enabled: true,
   });
 
-  // Get available indicators for current data source
-  const availableIndicators = useMemo(() => {
-    const dataSource = newIndicator.dataSource ?? "shorts";
-    const hasVol = dataSource === "market" && hasVolume;
-    const hasOhlc = dataSource === "market" && hasOHLCV;
-
-    return getIndicatorsByCategory(selectedCategory).filter((meta) =>
-      isIndicatorAvailable(meta.type, dataSource, hasOhlc, hasVol)
-    );
-  }, [selectedCategory, newIndicator.dataSource, hasOHLCV, hasVolume]);
-
   // Get metadata for selected indicator type
   const selectedMetadata = useMemo(() => {
-    return INDICATOR_METADATA[newIndicator.type as IndicatorType];
+    return INDICATOR_METADATA[newIndicator.type!];
   }, [newIndicator.type]);
 
   const addIndicator = () => {
@@ -262,7 +249,7 @@ export function IndicatorPanel({
                 type="single"
                 collapsible
                 value={selectedCategory}
-                onValueChange={(v) => v && setSelectedCategory(v as IndicatorCategory)}
+                onValueChange={(v: string) => v && setSelectedCategory(v as IndicatorCategory)}
                 className="w-full"
               >
                 {getIndicatorCategories().map((category) => {

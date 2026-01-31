@@ -1,18 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  type StockDetails,
-  type TimeSeriesData,
-  type TimeSeriesPoint,
-} from "~/gen/stocks/v1alpha1/stocks_pb";
-import {
-  fetchStockDetailsClient,
-  fetchStockDataClient,
-} from "@/lib/client-api";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { Sparkline, type SparklineData } from "~/@/components/ui/sparkline";
 import Image from "next/image";
+import {
+  getTooltipData,
+  type SerializedStockDetails,
+  type SerializedTimeSeriesData,
+} from "~/app/actions/tooltip/getTooltipData";
 
 interface TreemapTooltipProps {
   productCode: string;
@@ -33,10 +29,8 @@ export function TreemapTooltip({
   x,
   y,
 }: TreemapTooltipProps) {
-  const [stockDetails, setStockDetails] = useState<StockDetails | undefined>();
-  const [timeSeriesData, setTimeSeriesData] = useState<
-    TimeSeriesData | undefined
-  >();
+  const [stockDetails, setStockDetails] = useState<SerializedStockDetails | null>(null);
+  const [timeSeriesData, setTimeSeriesData] = useState<SerializedTimeSeriesData | null>(null);
   const [loading, setLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
 
@@ -49,15 +43,12 @@ export function TreemapTooltip({
     const fetchData = async () => {
       setLoading(true);
 
-      // Fetch both stock details and time series data in parallel
-      const [details, tsData] = await Promise.all([
-        fetchStockDetailsClient(productCode),
-        fetchStockDataClient(productCode, "1m"),
-      ]);
+      // Fetch cached tooltip data via server action
+      const data = await getTooltipData(productCode);
 
       if (isMounted) {
-        setStockDetails(details ?? undefined);
-        setTimeSeriesData(tsData ?? undefined);
+        setStockDetails(data.stockDetails);
+        setTimeSeriesData(data.timeSeriesData);
         setLoading(false);
       }
     };
@@ -71,11 +62,11 @@ export function TreemapTooltip({
 
   // Convert time series data to sparkline format
   const sparklineData: SparklineData[] =
-    timeSeriesData?.points.map((point: TimeSeriesPoint) => {
-      const timestamp = point.timestamp;
-      const seconds = timestamp?.seconds ? Number(timestamp.seconds) : 0;
+    timeSeriesData?.points.map((point) => {
+      // Serialized timestamp is an ISO string
+      const date = point.timestamp ? new Date(point.timestamp) : new Date(0);
       return {
-        date: new Date(seconds * 1000),
+        date,
         value: point.shortPosition ?? 0,
       };
     }) ?? [];

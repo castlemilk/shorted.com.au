@@ -10,7 +10,7 @@ import CompanyStats, {
 import CompanyInfo, {
   CompanyInfoPlaceholder,
 } from "~/@/components/ui/companyInfo";
-import CompanyFinancials,{
+import CompanyFinancials, {
   CompanyFinancialsPlaceholder,
 } from "~/@/components/ui/companyFinancials";
 import { EnrichedCompanySection } from "~/@/components/company/enriched-company-section";
@@ -41,8 +41,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { stockCode } = await params;
   const code = stockCode.toUpperCase();
 
-  const title = `${code} Short Position Data & Analysis`;
-  const description = `Track ${code} short selling positions on the ASX. View daily ASIC short interest data, historical charts, company profile, and analysis for ${code} shares on the Australian Securities Exchange.`;
+  const title = `${code} Short Position | Official ASIC Data (T+4)`;
+  const description = `${code} short selling data from official ASIC reports. Current short interest %, historical trends, charts & analysis. Updated daily with T+4 delay. Free ASX short position tracking.`;
 
   return {
     title,
@@ -50,11 +50,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     keywords: [
       `${code} short position`,
       `${code} short interest`,
-      `${code} ASX`,
+      `${code} ASX short selling`,
+      `${code} ASIC data`,
       `${code} stock analysis`,
-      `${code} short selling`,
-      "ASIC short data",
-      "Australian stocks",
+      `${code} bearish sentiment`,
+      `how much is ${code} shorted`,
+      `${code} short squeeze`,
+      "ASIC short position reports",
+      "ASX short selling data",
+      "Australian stocks short interest",
     ],
     openGraph: {
       title: `${title} | ${siteConfig.name}`,

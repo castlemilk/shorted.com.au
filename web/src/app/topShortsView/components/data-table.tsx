@@ -198,7 +198,7 @@ export function DataTable<TData, TValue>({
   }, [fetchMore, isLoadingMore]);
 
   return (
-    <div className="relative h-[700px] min-h-[700px] w-full flex flex-col">
+    <div className="relative h-[700px] w-full flex flex-col">
       {isRefreshing && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-background/70 backdrop-blur-sm">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

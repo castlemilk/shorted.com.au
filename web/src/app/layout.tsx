@@ -59,7 +59,7 @@ export const metadata = {
     type: "website",
     locale: "en_AU",
     url: siteConfig.url,
-    title: siteConfig.name,
+    title: "Shorted - Official ASIC Short Position Data",
     description: siteConfig.description,
     siteName: siteConfig.name,
     images: [
@@ -67,13 +67,13 @@ export const metadata = {
         url: siteConfig.ogImage,
         width: 1200,
         height: 630,
-        alt: `${siteConfig.name} - ${siteConfig.description}`,
+        alt: "Shorted - Official ASIC short selling data for ASX stocks with T+4 delay",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: siteConfig.name,
+    title: "Shorted - Official ASIC Short Position Data",
     description: siteConfig.description,
     images: [siteConfig.ogImage],
     creator: "@shorted",
@@ -94,6 +94,11 @@ export const metadata = {
   },
   alternates: {
     canonical: siteConfig.url,
+    languages: {
+      "en-AU": siteConfig.url,
+      "en": siteConfig.url,
+      "x-default": siteConfig.url,
+    },
   },
   icons: {
     icon: "/favicon.ico",
@@ -131,7 +136,7 @@ export default async function RootLayout({
   `.replace(/\s+/g, " ");
 
   return (
-    <html lang="en" className={`${fontMono.variable} ${fontDisplay.variable}`} suppressHydrationWarning>
+    <html lang="en-AU" className={`${fontMono.variable} ${fontDisplay.variable}`} suppressHydrationWarning>
       <head>
         {/* Inline critical CSS to prevent render-blocking */}
         <style dangerouslySetInnerHTML={{ __html: criticalCSS }} />

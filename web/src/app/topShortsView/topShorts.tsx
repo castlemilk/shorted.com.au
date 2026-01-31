@@ -165,7 +165,7 @@ export const TopShorts: FC<TopShortsProps> = ({
 
   return (
     <Suspense fallback={loadingPlaceholder}>
-      <Card className={cn("m-2", className)}>
+      <Card className={cn("m-2 flex flex-col", className)}>
         <div className="flex align-middle justify-between">
           <CardTitle className="self-center m-5">Top Shorts</CardTitle>
           <div className="flex flex-row-reverse m-2">

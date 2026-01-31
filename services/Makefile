@@ -304,7 +304,7 @@ generate.statik:
 	statik -src=../api/schema -f -include=openapi.yaml -dest=./shorts/internal/api/schema
 
 # Data population commands
-.PHONY: build.populate-data run.populate-data populate-data populate-data-quick populate-data-force
+.PHONY: build.populate-data run.populate-data populate-data populate-data-quick populate-data-force populate-data-1y populate-data-force-reload
 
 build.populate-data:
 	go build -o bin/populate-data ./cmd/populate-data
@@ -313,7 +313,7 @@ run.populate-data: build.populate-data
 	./bin/populate-data
 
 populate-data: build.populate-data
-	@echo "🚀 Starting data population (downloads new files only)..."
+	@echo "🚀 Starting full data population (all ASIC data back to 2010, ~4000 files)..."
 	@DATABASE_URL=${DATABASE_URL:-postgresql://admin:password@localhost:5438/shorts} ./bin/populate-data
 
 populate-data-quick: build.populate-data
@@ -327,6 +327,14 @@ populate-data-force: build.populate-data
 populate-data-recent: build.populate-data
 	@echo "🚀 Populating with recent 30 days only..."
 	@DATABASE_URL=${DATABASE_URL:-postgresql://admin:password@localhost:5438/shorts} ./bin/populate-data --limit=30
+
+populate-data-1y: build.populate-data
+	@echo "🚀 Populating with 1 year of data (~260 trading days)..."
+	@DATABASE_URL=${DATABASE_URL:-postgresql://admin:password@localhost:5438/shorts} ./bin/populate-data --limit=260
+
+populate-data-force-reload: build.populate-data
+	@echo "🚀 Force reloading ALL data (truncates table first)..."
+	@DATABASE_URL=${DATABASE_URL:-postgresql://admin:password@localhost:5438/shorts} ./bin/populate-data --force-reload
 
 # Stock price data backfill commands
 .PHONY: history.stock-data.backfill history.stock-data.backfill-test history.stock-data.backfill-full history.stock-data.status

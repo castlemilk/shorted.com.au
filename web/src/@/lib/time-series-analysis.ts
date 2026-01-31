@@ -236,7 +236,7 @@ export function wma(data: Float64Array, period: number): Float64Array {
  * RSI = 100 - (100 / (1 + RS))
  * RS = Average Gain / Average Loss
  */
-export function rsi(data: Float64Array, period: number = 14): Float64Array {
+export function rsi(data: Float64Array, period = 14): Float64Array {
   const result = new Float64Array(data.length);
   if (period <= 0 || data.length < period + 1) {
     result.fill(NaN);
@@ -297,9 +297,9 @@ export function rsi(data: Float64Array, period: number = 14): Float64Array {
  */
 export function macd(
   data: Float64Array,
-  fastPeriod: number = 12,
-  slowPeriod: number = 26,
-  signalPeriod: number = 9
+  fastPeriod = 12,
+  slowPeriod = 26,
+  signalPeriod = 9
 ): IndicatorOutput {
   const emaFast = ema(data, fastPeriod);
   const emaSlow = ema(data, slowPeriod);
@@ -337,8 +337,8 @@ export function stochastic(
   high: Float64Array,
   low: Float64Array,
   close: Float64Array,
-  kPeriod: number = 14,
-  dPeriod: number = 3
+  kPeriod = 14,
+  dPeriod = 3
 ): IndicatorOutput {
   const length = close.length;
   const percentK = new Float64Array(length);
@@ -381,8 +381,8 @@ export function stochastic(
  */
 export function stochasticClose(
   data: Float64Array,
-  kPeriod: number = 14,
-  dPeriod: number = 3
+  kPeriod = 14,
+  dPeriod = 3
 ): IndicatorOutput {
   return stochastic(data, data, data, kPeriod, dPeriod);
 }
@@ -395,7 +395,7 @@ export function williamsR(
   high: Float64Array,
   low: Float64Array,
   close: Float64Array,
-  period: number = 14
+  period = 14
 ): Float64Array {
   const length = close.length;
   const result = new Float64Array(length);
@@ -429,7 +429,7 @@ export function williamsR(
  */
 export function williamsRClose(
   data: Float64Array,
-  period: number = 14
+  period = 14
 ): Float64Array {
   return williamsR(data, data, data, period);
 }
@@ -438,7 +438,7 @@ export function williamsRClose(
  * Rate of Change (ROC)
  * ROC = ((Close - Close_n) / Close_n) × 100
  */
-export function roc(data: Float64Array, period: number = 12): Float64Array {
+export function roc(data: Float64Array, period = 12): Float64Array {
   const result = new Float64Array(data.length);
   fillNaN(result, period);
 
@@ -460,7 +460,7 @@ export function roc(data: Float64Array, period: number = 12): Float64Array {
  */
 export function momentum(
   data: Float64Array,
-  period: number = 10
+  period = 10
 ): Float64Array {
   const result = new Float64Array(data.length);
   fillNaN(result, period);
@@ -484,8 +484,8 @@ export function momentum(
  */
 export function bollingerBands(
   data: Float64Array,
-  period: number = 20,
-  stdDevMultiplier: number = 2
+  period = 20,
+  stdDevMultiplier = 2
 ): IndicatorOutput {
   const middle = sma(data, period);
   const upper = new Float64Array(data.length);
@@ -545,7 +545,7 @@ export function atr(
   high: Float64Array,
   low: Float64Array,
   close: Float64Array,
-  period: number = 14
+  period = 14
 ): Float64Array {
   const tr = trueRange(high, low, close);
 
@@ -574,7 +574,7 @@ export function atr(
  */
 export function standardDeviation(
   data: Float64Array,
-  period: number = 20
+  period = 20
 ): Float64Array {
   const result = new Float64Array(data.length);
   const mean = sma(data, period);
@@ -599,7 +599,7 @@ export function standardDeviation(
  */
 export function historicalVolatility(
   data: Float64Array,
-  period: number = 20
+  period = 20
 ): Float64Array {
   const result = new Float64Array(data.length);
 
@@ -638,9 +638,9 @@ export function keltnerChannels(
   high: Float64Array,
   low: Float64Array,
   close: Float64Array,
-  emaPeriod: number = 20,
-  atrPeriod: number = 10,
-  multiplier: number = 2
+  emaPeriod = 20,
+  atrPeriod = 10,
+  multiplier = 2
 ): IndicatorOutput {
   const middle = ema(close, emaPeriod);
   const atrValues = atr(high, low, close, atrPeriod);
@@ -674,7 +674,7 @@ export function keltnerChannels(
  * TRIX (Triple Exponential Average Rate of Change)
  * TRIX = ROC(EMA(EMA(EMA(close))))
  */
-export function trix(data: Float64Array, period: number = 15): Float64Array {
+export function trix(data: Float64Array, period = 15): Float64Array {
   const ema1 = ema(data, period);
   const ema2 = ema(ema1, period);
   const ema3 = ema(ema2, period);
@@ -702,7 +702,7 @@ export function adx(
   high: Float64Array,
   low: Float64Array,
   close: Float64Array,
-  period: number = 14
+  period = 14
 ): IndicatorOutput {
   const length = close.length;
   const plusDM = new Float64Array(length);
@@ -803,9 +803,9 @@ export function adx(
 export function parabolicSAR(
   high: Float64Array,
   low: Float64Array,
-  accelerationStart: number = 0.02,
-  accelerationMax: number = 0.2,
-  accelerationStep: number = 0.02
+  accelerationStart = 0.02,
+  accelerationMax = 0.2,
+  accelerationStep = 0.02
 ): Float64Array {
   const length = high.length;
   const result = new Float64Array(length);
@@ -885,7 +885,7 @@ export function parabolicSAR(
 export function correlation(
   series1: Float64Array,
   series2: Float64Array,
-  period: number = 20
+  period = 20
 ): Float64Array {
   const length = Math.min(series1.length, series2.length);
   const result = new Float64Array(length);
@@ -961,7 +961,8 @@ export function linearRegression(
     ssTot = 0;
   for (let i = 0; i < n; i++) {
     trendLine[i] = intercept + slope * i;
-    const residual = (data[i] ?? 0) - trendLine[i];
+    const trendVal = trendLine[i] ?? 0;
+    const residual = (data[i] ?? 0) - trendVal;
     ssRes += residual * residual;
     ssTot += ((data[i] ?? 0) - meanY) * ((data[i] ?? 0) - meanY);
   }
@@ -976,7 +977,7 @@ export function linearRegression(
  */
 export function rollingLinearRegression(
   data: Float64Array,
-  period: number = 20
+  period = 20
 ): Float64Array {
   const result = new Float64Array(data.length);
   fillNaN(result, period - 1);
@@ -994,7 +995,7 @@ export function rollingLinearRegression(
 /**
  * Z-Score Normalization
  */
-export function zScore(data: Float64Array, period: number = 20): Float64Array {
+export function zScore(data: Float64Array, period = 20): Float64Array {
   const result = new Float64Array(data.length);
   const mean = sma(data, period);
   const stdDev = standardDeviation(data, period);
@@ -1016,7 +1017,7 @@ export function zScore(data: Float64Array, period: number = 20): Float64Array {
 /**
  * First-order differencing
  */
-export function difference(data: Float64Array, order: number = 1): Float64Array {
+export function difference(data: Float64Array, order = 1): Float64Array {
   let result = new Float64Array(data);
 
   for (let o = 0; o < order; o++) {
@@ -1072,7 +1073,7 @@ export function logTransform(data: Float64Array): Float64Array {
  */
 export function rollingStats(
   data: Float64Array,
-  period: number = 20
+  period = 20
 ): RollingStats {
   const length = data.length;
   const mean = sma(data, period);
@@ -1113,8 +1114,8 @@ export function rollingStats(
  */
 export function rollingPercentile(
   data: Float64Array,
-  period: number = 20,
-  percentile: number = 50
+  period = 20,
+  percentile = 50
 ): Float64Array {
   const result = new Float64Array(data.length);
   fillNaN(result, period - 1);
@@ -1203,7 +1204,7 @@ export function vwap(
  */
 export function volumeSMA(
   volume: Float64Array,
-  period: number = 20
+  period = 20
 ): Float64Array {
   return sma(volume, period);
 }
@@ -1374,7 +1375,9 @@ export function calculateIndicatorByName(
       // Return autocorrelation with lag 1 if no second series
       const lagged = new Float64Array(data.length);
       lagged[0] = NaN;
-      lagged.set(data.subarray(0, data.length - 1), 1);
+      if (data.length > 1) {
+        lagged.set(data.subarray(0, data.length - 1), 1);
+      }
       return { primary: correlation(data, lagged, period) };
     case "LINREG":
       return { primary: rollingLinearRegression(data, period) };
