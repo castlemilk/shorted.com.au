@@ -1,3 +1,5 @@
+"use client";
+
 import { timeFormat } from "@visx/vendor/d3-time-format";
 import { useState, useEffect, useRef, useLayoutEffect, useCallback } from "react";
 
