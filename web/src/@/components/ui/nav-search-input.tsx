@@ -215,11 +215,20 @@ export function NavSearchInput() {
         {/* Results dropdown */}
         {isOpen && results.length > 0 && (
           <div className="absolute z-50 mt-1.5 w-full min-w-[280px] rounded-lg border bg-popover shadow-lg overflow-hidden">
-            <ul className="max-h-[320px] overflow-auto py-1">
+            <ul className="max-h-[320px] overflow-auto py-1" role="listbox" aria-label="Stock search results">
               {results.map((stock, index) => (
                 <li
                   key={stock.productCode}
                   onClick={() => handleSelect(stock)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleSelect(stock);
+                    }
+                  }}
+                  role="option"
+                  aria-selected={selectedIndex === index}
+                  tabIndex={0}
                   className={cn(
                     "cursor-pointer px-3 py-2.5 transition-colors",
                     "hover:bg-accent",

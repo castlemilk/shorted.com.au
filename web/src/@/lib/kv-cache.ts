@@ -68,9 +68,11 @@ if (process.env.REDIS_URL) {
 const CACHE_PREFIX = "cache:about:";
 const HOMEPAGE_CACHE_PREFIX = "cache:homepage:";
 const TOOLTIP_CACHE_PREFIX = "tooltip:stock:";
+const TOP_PAGE_CACHE_PREFIX = "cache:top:";
 const DEFAULT_TTL = 300; // 5 minutes
 export const HOMEPAGE_TTL = 600; // 10 minutes - homepage data changes less frequently
 export const TOOLTIP_TTL = 300; // 5 minutes - tooltip data refreshes reasonably often
+export const TOP_PAGE_TTL = 600; // 10 minutes - top page data aligned with ISR
 
 /**
  * Cache keys for various data types
@@ -86,6 +88,9 @@ export const CACHE_KEYS = {
   // Tooltip cache keys
   tooltipData: (productCode: string) =>
     `${TOOLTIP_CACHE_PREFIX}${productCode}`,
+  // Top page cache keys (SSR + client-side period changes)
+  topPageData: (period: string, limit: number) =>
+    `${TOP_PAGE_CACHE_PREFIX}${period}:${limit}`,
 } as const;
 
 /**

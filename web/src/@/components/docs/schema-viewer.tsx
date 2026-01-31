@@ -55,12 +55,21 @@ export function SchemaViewer({ schema, name, required, depth = 0 }: SchemaViewer
 
   return (
     <div className={cn("text-sm", depth > 0 && "ml-4 border-l border-zinc-200 dark:border-zinc-800 pl-4 my-2")}>
-      <div 
+      <div
         className={cn(
           "flex items-start gap-2 py-1 group rounded px-1 transition-colors",
           hasChildren && "cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900"
         )}
         onClick={hasChildren ? toggle : undefined}
+        onKeyDown={hasChildren ? (e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggle();
+          }
+        } : undefined}
+        role={hasChildren ? "button" : undefined}
+        tabIndex={hasChildren ? 0 : undefined}
+        aria-expanded={hasChildren ? isOpen : undefined}
       >
         {hasChildren ? (
           isOpen ? <ChevronDown className="h-4 w-4 mt-0.5 text-zinc-400" /> : <ChevronRight className="h-4 w-4 mt-0.5 text-zinc-400" />

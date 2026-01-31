@@ -373,6 +373,15 @@ export function DashboardGrid({
                   : ""
               }`}
               onClick={() => isEditMode && setSelectedWidgetId(widget.id)}
+              onKeyDown={(e) => {
+                if (isEditMode && (e.key === "Enter" || e.key === " ")) {
+                  e.preventDefault();
+                  setSelectedWidgetId(widget.id);
+                }
+              }}
+              role={isEditMode ? "button" : undefined}
+              tabIndex={isEditMode ? 0 : undefined}
+              aria-label={isEditMode ? `Select ${widget.type} widget` : undefined}
             >
               <WidgetRenderer
                 widget={widget}

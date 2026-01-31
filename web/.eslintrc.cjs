@@ -4,13 +4,27 @@ const config = {
   parserOptions: {
     project: true,
   },
-  plugins: ["@typescript-eslint"],
+  plugins: ["@typescript-eslint", "jsx-a11y"],
   extends: [
     "plugin:@next/next/recommended",
     "plugin:@typescript-eslint/recommended-type-checked",
     "plugin:@typescript-eslint/stylistic-type-checked",
+    "plugin:jsx-a11y/recommended",
   ],
   rules: {
+    // Accessibility rules configuration
+    // Allow autoFocus in specific cases like search dialogs and modals
+    "jsx-a11y/no-autofocus": ["warn", { ignoreNonDOM: true }],
+    // Components that spread props onto elements handle content via children
+    "jsx-a11y/heading-has-content": ["error", { components: ["Heading", "CardTitle", "AlertTitle"] }],
+    "jsx-a11y/anchor-has-content": ["error", { components: ["Link", "Anchor"] }],
+    // Allow click handlers on elements with role="button" or tabIndex
+    "jsx-a11y/click-events-have-key-events": "error",
+    "jsx-a11y/no-static-element-interactions": ["error", {
+      handlers: ["onClick"],
+      allowExpressionValues: true,
+    }],
+
     // These opinionated rules are enabled in stylistic-type-checked above.
     // Feel free to reconfigure them to your own preference.
     "@typescript-eslint/array-type": "off",

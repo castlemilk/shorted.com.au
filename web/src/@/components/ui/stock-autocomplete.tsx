@@ -192,11 +192,20 @@ export function StockAutocomplete({
           ref={dropdownRef}
           className="absolute z-50 mt-1 w-full rounded-md border bg-popover p-1 shadow-md"
         >
-          <ul className="max-h-60 overflow-auto">
+          <ul className="max-h-60 overflow-auto" role="listbox" aria-label="Stock suggestions">
             {suggestions.map((stock, index) => (
               <li
                 key={stock.code}
                 onClick={() => handleSelect(stock)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleSelect(stock);
+                  }
+                }}
+                role="option"
+                aria-selected={selectedIndex === index}
+                tabIndex={0}
                 className={cn(
                   "cursor-pointer rounded-sm px-3 py-2 text-sm transition-colors",
                   "hover:bg-accent hover:text-accent-foreground",

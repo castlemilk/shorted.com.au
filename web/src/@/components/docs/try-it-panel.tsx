@@ -84,9 +84,10 @@ export function TryItPanel({ endpoint }: TryItPanelProps) {
       </div>
 
       <div className="space-y-2">
-        <label className="text-xs font-medium text-zinc-400">Authentication Token (Optional)</label>
+        <label htmlFor="auth-token" className="text-xs font-medium text-zinc-400">Authentication Token (Optional)</label>
         <div className="flex gap-2">
-          <Input 
+          <Input
+            id="auth-token"
             className="h-8 bg-zinc-900 border-zinc-800 text-xs font-mono text-blue-400"
             placeholder="Bearer token..."
             value={token}
@@ -110,8 +111,9 @@ export function TryItPanel({ endpoint }: TryItPanelProps) {
 
       {endpoint.method !== 'GET' && (
         <div className="space-y-2">
-          <label className="text-xs font-medium text-zinc-400">Request Body (JSON)</label>
+          <label htmlFor="request-body" className="text-xs font-medium text-zinc-400">Request Body (JSON)</label>
           <textarea
+            id="request-body"
             className="w-full h-40 bg-zinc-900 border border-zinc-800 rounded-md p-2 text-xs font-mono text-zinc-100 focus:outline-none focus:ring-1 focus:ring-blue-500"
             value={body}
             onChange={(e) => setBody(e.target.value)}
@@ -129,7 +131,7 @@ export function TryItPanel({ endpoint }: TryItPanelProps) {
       {response && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-xs font-medium text-zinc-400">Response</label>
+            <span className="text-xs font-medium text-zinc-400">Response</span>
             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
               response.status >= 200 && response.status < 300 ? 'bg-green-900/20 text-green-500' : 'bg-red-900/20 text-red-500'
             }`}>
