@@ -1,6 +1,19 @@
 "use client";
 
-import { TopShorts } from "./topShortsView/topShorts";
+import dynamic from "next/dynamic";
+import { Skeleton } from "~/@/components/ui/skeleton";
+
+const TopShorts = dynamic(
+  () => import("./topShortsView/topShorts").then((mod) => mod.TopShorts),
+  {
+    loading: () => (
+      <div className="p-4">
+        <Skeleton className="h-[700px] w-full rounded-xl" />
+      </div>
+    ),
+    ssr: false,
+  }
+);
 
 export function HomeContent() {
   return (
