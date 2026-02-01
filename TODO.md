@@ -18,11 +18,11 @@
 
 ### Backend Security
 
-- [ ] **Migrate JWT library** - `services/shorts/internal/services/shorts/tokens.go:7`
+- [x] **Migrate JWT library** - `services/shorts/internal/services/shorts/tokens.go:7`
   - Replace `github.com/dgrijalva/jwt-go` with `github.com/golang-jwt/jwt/v5`
   - The old library has critical vulnerabilities (CVE-2020-26160) and is abandoned
 
-- [ ] **Remove hardcoded secrets** - `services/shorts/internal/services/shorts/server.go:42`
+- [x] **Remove hardcoded secrets** - `services/shorts/internal/services/shorts/server.go:42`
   - Remove `tokenSecret := "dev-secret"` hardcoded value
   - Fail fast if `TOKEN_SECRET` env var is not set in production
   - Also fix in `middleware_connect.go:95-97` (dev-internal-secret)
@@ -48,7 +48,7 @@
 
 ### Backend Reliability
 
-- [ ] **Fix panic() in database initialization** - `services/shorts/internal/store/shorts/postgres.go:70-96`
+- [x] **Fix panic() in database initialization** - `services/shorts/internal/store/shorts/postgres.go:70-96`
   - Replace panic() with proper error returns
   - Add retry logic with exponential backoff
   - Allow graceful degradation instead of crashing
@@ -84,11 +84,11 @@
   - Causes component to load multiple times
   - Memory leaks from unresolved promises
 
-- [ ] **Add cleanup to debounced functions** - `web/src/@/components/dashboard/widget-config-form.tsx:88-94`
+- [x] **Add cleanup to debounced functions** - `web/src/@/components/dashboard/widget-config-form.tsx:88-94`
   - Debounced search not cleaned up on unmount
   - Can cause state updates on unmounted component
 
-- [ ] **Fix Memory leak in MultiSeriesChart** - `web/src/@/components/ui/multi-series-chart.tsx:1238`
+- [x] **Fix Memory leak in MultiSeriesChart** - `web/src/@/components/ui/multi-series-chart.tsx:1238`
   - Tooltip uses `Math.random()` as key
   - Creates new DOM nodes on every render
   - Change to stable key like `"multi-series-tooltip"`
@@ -269,10 +269,10 @@
 
 ## Quick Wins (< 1 day each)
 
-1. Replace `Math.random()` tooltip key with stable string
+1. ~~Replace `Math.random()` tooltip key with stable string~~ ✅
 2. Add `reserved 2;` to TimeSeriesData proto
 3. Pin Docker base image versions
-4. Add debounce cleanup in widget-config-form
+4. ~~Add debounce cleanup in widget-config-form~~ ✅
 5. Remove disabled jobs from ci.yml
 6. Fix typos in IndustryTreeMap proto comments
 

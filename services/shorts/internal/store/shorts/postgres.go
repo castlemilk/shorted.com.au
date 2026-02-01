@@ -64,12 +64,13 @@ type postgresStore struct {
 }
 
 // newPostgresStore initializes a new store with a PostgreSQL backend.
-func newPostgresStore(config Config) Store {
+// Returns an error instead of panicking to allow graceful handling.
+func newPostgresStore(config Config) (Store, error) {
 	// Configure connection pool for better concurrency
 	poolConfig, err := pgxpool.ParseConfig(fmt.Sprintf("postgres://%s:%s@%s/%s",
 		config.PostgresUsername, config.PostgresPassword, config.PostgresAddress, config.PostgresDatabase))
 	if err != nil {
-		panic("Unable to parse database config: " + err.Error())
+		return nil, fmt.Errorf("unable to parse database config: %w", err)
 	}
 
 	// IMPORTANT: Use simple protocol mode to avoid prepared statement cache conflicts
@@ -87,7 +88,7 @@ func newPostgresStore(config Config) Store {
 
 	dbPool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
-		panic("Unable to connect to database: " + err.Error())
+		return nil, fmt.Errorf("unable to connect to database: %w", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -95,13 +96,14 @@ func newPostgresStore(config Config) Store {
 
 	stockDetailsQuery, err := buildStockDetailsQuery(ctx, dbPool)
 	if err != nil {
-		panic("Unable to build stock details query: " + err.Error())
+		dbPool.Close()
+		return nil, fmt.Errorf("unable to build stock details query: %w", err)
 	}
 
 	return &postgresStore{
 		db:                dbPool,
 		stockDetailsQuery: stockDetailsQuery,
-	}
+	}, nil
 }
 
 func buildStockDetailsQuery(ctx context.Context, db *pgxpool.Pool) (string, error) {

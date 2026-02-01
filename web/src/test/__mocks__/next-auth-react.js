@@ -21,6 +21,7 @@ module.exports = {
   useSession: mockUseSession,
   signIn: mockSignIn,
   signOut: mockSignOut,
+  /** @param {{ children: React.ReactNode }} props */
   SessionProvider: ({ children }) => children,
   getCsrfToken: jest.fn(),
   getProviders: jest.fn(),
