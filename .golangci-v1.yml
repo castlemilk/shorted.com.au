@@ -1,0 +1,36 @@
+run:
+  timeout: 3m
+  issues-exit-code: 1
+  tests: true
+  skip-dirs:
+    - gen
+    - vendor
+    - venv
+    - node_modules
+  skip-files:
+    - ".*\\.pb\\.go$"
+    - ".*_mock\\.go$"
+    - ".*_gen\\.go$"
+    - ".*_connect\\.go$"
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+  disable-all: false
+  fast: true
+
+linters-settings:
+  govet:
+    check-shadowing: false
+  staticcheck:
+    checks: ["all", "-SA1019"]  # Disable deprecation warnings
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true

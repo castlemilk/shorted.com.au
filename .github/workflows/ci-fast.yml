@@ -57,11 +57,11 @@ jobs:
           cache-dependency-path: services/go.sum
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v7
+        uses: golangci/golangci-lint-action@v4
         with:
-          version: v2.1.0
+          version: v1.62.0
           working-directory: services
-          args: --timeout=3m
+          args: --timeout=3m --config=../.golangci-v1.yml
 
   typecheck:
     name: TypeScript Check
