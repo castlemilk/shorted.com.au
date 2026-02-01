@@ -16,6 +16,8 @@ import (
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -442,16 +444,15 @@ func cleanCompanyName(name string) string {
 		" INC",
 		" PLC",
 	}
-	
+
 	result := strings.ToUpper(name)
 	for _, suffix := range suffixes {
-		if strings.HasSuffix(result, suffix) {
-			result = strings.TrimSuffix(result, suffix)
-		}
+		result = strings.TrimSuffix(result, suffix)
 	}
-	
+
 	// Title case the result
-	return strings.Title(strings.ToLower(strings.TrimSpace(result)))
+	caser := cases.Title(language.English)
+	return caser.String(strings.ToLower(strings.TrimSpace(result)))
 }
 
 type dbPerson struct {
