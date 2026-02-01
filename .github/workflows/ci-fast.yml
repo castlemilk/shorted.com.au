@@ -1,0 +1,360 @@
+name: Fast CI
+
+# Optimized CI pipeline targeting 3-5 minute execution
+# Runs lint, typecheck, and unit tests in parallel
+# Integration tests run separately (slower, optional for PRs)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: "20"
+  GO_VERSION: "1.23"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================
+  # STAGE 1: Fast checks (run in parallel)
+  # Target: Complete in ~1 minute
+  # ============================================
+
+  lint-frontend:
+    name: Lint Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci --legacy-peer-deps
+
+      - name: Run ESLint
+        working-directory: web
+        run: npm run lint
+
+  lint-backend:
+    name: Lint Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: services/go.sum
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: latest
+          working-directory: services
+          args: --timeout=3m
+
+  typecheck:
+    name: TypeScript Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci --legacy-peer-deps
+
+      - name: TypeScript type check
+        working-directory: web
+        run: npx tsc --noEmit
+
+  # ============================================
+  # STAGE 2: Unit tests (run in parallel)
+  # Target: Complete in ~2-3 minutes
+  # ============================================
+
+  test-frontend:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci --legacy-peer-deps
+
+      - name: Run Jest tests
+        working-directory: web
+        run: npm test -- --watchAll=false --testPathIgnorePatterns=integration --maxWorkers=2
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage
+          path: web/coverage/
+          retention-days: 7
+
+  test-backend-unit:
+    name: Test Backend (Unit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: services/go.sum
+
+      - name: Download dependencies
+        working-directory: services
+        run: go mod download
+
+      - name: Run unit tests (excluding testcontainers)
+        working-directory: services
+        env:
+          # Skip tests that require testcontainers for fast CI
+          SKIP_INTEGRATION_TESTS: "true"
+        run: |
+          # Run tests excluding files that use testcontainers
+          # These patterns match the slow integration tests
+          go test ./... \
+            -v \
+            -short \
+            -timeout 5m \
+            -skip "TestPostgres|TestIntegration|TestSetup" \
+            -cover \
+            -coverprofile=coverage.out \
+            2>&1 | tee test-output.txt
+
+          # Show summary
+          echo ""
+          echo "=== Test Summary ==="
+          grep -E "^(ok|FAIL|---)" test-output.txt || true
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-coverage
+          path: services/coverage.out
+          retention-days: 7
+
+  # ============================================
+  # STAGE 3: Build validation
+  # Target: Complete in ~2 minutes
+  # ============================================
+
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: web
+        run: npm ci --legacy-peer-deps
+
+      - name: Build Next.js
+        working-directory: web
+        env:
+          # Minimal env vars for build validation
+          NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT: "https://api.shorted.com.au"
+          NEXT_PUBLIC_ALGOLIA_APP_ID: "test"
+          NEXT_PUBLIC_ALGOLIA_SEARCH_KEY: "test"
+        run: npm run build
+
+  build-backend:
+    name: Build Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: services/go.sum
+
+      - name: Build all services
+        working-directory: services
+        run: |
+          echo "Building shorts service..."
+          go build -o /dev/null ./shorts/cmd/server
+
+          echo "Building market-data service..."
+          go build -o /dev/null ./market-data
+
+          echo "✅ All services build successfully"
+
+  # ============================================
+  # GATE: All fast checks must pass
+  # ============================================
+
+  ci-pass:
+    name: CI Pass Gate
+    runs-on: ubuntu-latest
+    needs:
+      - lint-frontend
+      - lint-backend
+      - typecheck
+      - test-frontend
+      - test-backend-unit
+      - build-frontend
+      - build-backend
+    if: always()
+    steps:
+      - name: Check all jobs passed
+        run: |
+          echo "Checking job results..."
+
+          FAILED=""
+
+          if [ "${{ needs.lint-frontend.result }}" != "success" ]; then
+            FAILED="$FAILED lint-frontend"
+          fi
+          if [ "${{ needs.lint-backend.result }}" != "success" ]; then
+            FAILED="$FAILED lint-backend"
+          fi
+          if [ "${{ needs.typecheck.result }}" != "success" ]; then
+            FAILED="$FAILED typecheck"
+          fi
+          if [ "${{ needs.test-frontend.result }}" != "success" ]; then
+            FAILED="$FAILED test-frontend"
+          fi
+          if [ "${{ needs.test-backend-unit.result }}" != "success" ]; then
+            FAILED="$FAILED test-backend-unit"
+          fi
+          if [ "${{ needs.build-frontend.result }}" != "success" ]; then
+            FAILED="$FAILED build-frontend"
+          fi
+          if [ "${{ needs.build-backend.result }}" != "success" ]; then
+            FAILED="$FAILED build-backend"
+          fi
+
+          if [ -n "$FAILED" ]; then
+            echo "❌ Failed jobs:$FAILED"
+            exit 1
+          fi
+
+          echo "✅ All CI checks passed!"
+
+  # ============================================
+  # OPTIONAL: Integration tests (slower)
+  # Only runs on main branch or when requested
+  # ============================================
+
+  test-backend-integration:
+    name: Test Backend (Integration)
+    runs-on: ubuntu-latest
+    needs: [ci-pass]
+    # Only run on main branch or when manually triggered
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    services:
+      docker:
+        image: docker:24-dind
+        options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: services/go.sum
+
+      - name: Run integration tests with testcontainers
+        working-directory: services
+        env:
+          DOCKER_HOST: unix:///var/run/docker.sock
+          TESTCONTAINERS_RYUK_DISABLED: true
+        run: |
+          echo "Running integration tests (with testcontainers)..."
+          go test ./... -v -timeout 15m -run "TestPostgres|TestIntegration"
+
+  # ============================================
+  # Summary comment on PR
+  # ============================================
+
+  summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [ci-pass]
+    if: always() && github.event_name == 'pull_request'
+    steps:
+      - name: Post summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const passed = '${{ needs.ci-pass.result }}' === 'success';
+            const emoji = passed ? '✅' : '❌';
+            const status = passed ? 'All checks passed' : 'Some checks failed';
+
+            const body = `## ${emoji} Fast CI ${status}
+
+            | Check | Status |
+            |-------|--------|
+            | Lint Frontend | ${{ needs.lint-frontend.result == 'success' && '✅' || '❌' }} |
+            | Lint Backend | ${{ needs.lint-backend.result == 'success' && '✅' || '❌' }} |
+            | TypeScript | ${{ needs.typecheck.result == 'success' && '✅' || '❌' }} |
+            | Test Frontend | ${{ needs.test-frontend.result == 'success' && '✅' || '❌' }} |
+            | Test Backend | ${{ needs.test-backend-unit.result == 'success' && '✅' || '❌' }} |
+            | Build Frontend | ${{ needs.build-frontend.result == 'success' && '✅' || '❌' }} |
+            | Build Backend | ${{ needs.build-backend.result == 'success' && '✅' || '❌' }} |
+
+            ${passed ? '🚀 Ready to merge!' : '⚠️ Please fix failing checks before merging.'}
+
+            *Fast CI completes in ~3-5 minutes. Integration tests run on merge to main.*
+            `;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Fast CI')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body
+              });
+            }
