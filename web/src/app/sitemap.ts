@@ -1,8 +1,68 @@
 import { type MetadataRoute } from "next";
 import { siteConfig } from "~/@/config/site";
 import { getAllPosts } from "~/@/lib/api";
+import { createConnectTransport } from "@connectrpc/connect-web";
+import { createClient } from "@connectrpc/connect";
+import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+/**
+ * Fetch all stock codes from the API for the sitemap.
+ * Uses getTopShorts with a high limit to get all stocks with short positions.
+ */
+async function getAllStockCodes(): Promise<string[]> {
+  try {
+    const transport = createConnectTransport({
+      baseUrl:
+        process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
+        process.env.NEXT_PUBLIC_API_URL ??
+        "http://localhost:9091",
+    });
+
+    const client = createClient(ShortedStocksService, transport);
+
+    // Fetch top shorts with a high limit to get all stocks
+    // The API returns stocks sorted by short position, so this gets all actively shorted stocks
+    const response = await client.getTopShorts({
+      period: "max",
+      limit: 1000, // Get up to 1000 stocks for sitemap
+      offset: 0,
+    });
+
+    // Extract unique stock codes from the response
+    const stockCodes = response.timeSeries
+      .map((ts) => ts.productCode)
+      .filter((code): code is string => !!code);
+
+    return [...new Set(stockCodes)]; // Deduplicate
+  } catch (error) {
+    console.error("Failed to fetch stock codes for sitemap:", error);
+    // Fallback to popular stocks if API fails
+    return [
+      "CBA",
+      "BHP",
+      "CSL",
+      "NAB",
+      "WBC",
+      "ANZ",
+      "WES",
+      "MQG",
+      "WOW",
+      "TLS",
+      "RIO",
+      "FMG",
+      "GMG",
+      "TCL",
+      "WDS",
+      "NCM",
+      "ALL",
+      "COL",
+      "REA",
+      "QBE",
+    ];
+  }
+}
+
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = siteConfig.url;
   const currentDate = new Date().toISOString();
 
@@ -55,62 +115,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
-  // Popular ASX stock pages (top 50 by market cap and activity)
-  // TODO: In production, fetch all stock codes from the database
-  const popularStocks = [
-    "CBA",
-    "BHP",
-    "CSL",
-    "NAB",
-    "WBC",
-    "ANZ",
-    "WES",
-    "MQG",
-    "WOW",
-    "TLS",
-    "RIO",
-    "FMG",
-    "GMG",
-    "TCL",
-    "WDS",
-    "NCM",
-    "ALL",
-    "COL",
-    "REA",
-    "QBE",
-    "APT",
-    "XRO",
-    "SHL",
-    "RMD",
-    "COH",
-    "IAG",
-    "SUN",
-    "ORG",
-    "APA",
-    "TWE",
-    "CPU",
-    "MPL",
-    "AGL",
-    "ASX",
-    "STO",
-    "S32",
-    "A2M",
-    "JHX",
-    "SGP",
-    "GPT",
-    "MIN",
-    "EVN",
-    "NST",
-    "OZL",
-    "WHC",
-    "PLS",
-    "LYC",
-    "IGO",
-    "NHC",
-    "WTC",
-  ];
+  // Dynamically fetch all stock codes from the API
+  const stockCodes = await getAllStockCodes();
 
-  const stockRoutes = popularStocks.map((code) => ({
+  const stockRoutes = stockCodes.map((code) => ({
     url: `${baseUrl}/shorts/${code}`,
     lastModified: currentDate,
     changeFrequency: "daily" as const,
@@ -146,6 +154,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: currentDate,
       changeFrequency: "weekly" as const,
       priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/docs/llm-context-raw`,
+      lastModified: currentDate,
+      changeFrequency: "weekly" as const,
+      priority: 0.6,
     },
     {
       url: `${baseUrl}/docs/api-reference`,

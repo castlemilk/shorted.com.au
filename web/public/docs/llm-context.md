@@ -96,7 +96,7 @@ Configurable widgets including:
   "totalShares": 1700000000,
   "currentShortPosition": 85000000,
   "shortPercentage": 5.0,
-  "dateReported": "2025-11-04"
+  "dateReported": "2026-01-30"
 }
 ```
 
@@ -107,7 +107,7 @@ Configurable widgets including:
   "productCode": "CBA",
   "timeSeries": [
     {
-      "date": "2025-11-04",
+      "date": "2026-01-30",
       "shortPosition": 85000000,
       "percentage": 5.0,
       "change": 1000000,
@@ -269,8 +269,8 @@ URL: https://shorted.com.au/shorts/[STOCK_CODE]
 
 ## Version & Updates
 
-- **Current Version**: 0.1.9
-- **Last Updated**: November 2025
+- **Current Version**: 0.2.0
+- **Last Updated**: February 2026
 - **Changelog**: See GitHub repository
 - **API Version**: v1alpha1 (subject to change)
 
