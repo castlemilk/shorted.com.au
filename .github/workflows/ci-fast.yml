@@ -43,6 +43,17 @@ jobs:
 
       - name: Run ESLint
         working-directory: web
+        env:
+          NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT: "https://api.shorted.com.au"
+          NEXT_PUBLIC_ALGOLIA_APP_ID: "test"
+          NEXT_PUBLIC_ALGOLIA_SEARCH_KEY: "test"
+          NEXTAUTH_SECRET: "test-secret-for-ci"
+          NEXTAUTH_URL: "http://localhost:3000"
+          AUTH_FIREBASE_PROJECT_ID: "test-project"
+          AUTH_FIREBASE_CLIENT_EMAIL: "test@test.iam.gserviceaccount.com"
+          AUTH_FIREBASE_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----"
+          AUTH_GOOGLE_ID: "test.apps.googleusercontent.com"
+          AUTH_GOOGLE_SECRET: "test-secret"
         run: npm run lint
 
   lint-backend:
@@ -88,6 +99,17 @@ jobs:
 
       - name: TypeScript type check
         working-directory: web
+        env:
+          NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT: "https://api.shorted.com.au"
+          NEXT_PUBLIC_ALGOLIA_APP_ID: "test"
+          NEXT_PUBLIC_ALGOLIA_SEARCH_KEY: "test"
+          NEXTAUTH_SECRET: "test-secret-for-ci"
+          NEXTAUTH_URL: "http://localhost:3000"
+          AUTH_FIREBASE_PROJECT_ID: "test-project"
+          AUTH_FIREBASE_CLIENT_EMAIL: "test@test.iam.gserviceaccount.com"
+          AUTH_FIREBASE_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----"
+          AUTH_GOOGLE_ID: "test.apps.googleusercontent.com"
+          AUTH_GOOGLE_SECRET: "test-secret"
         run: npx tsc --noEmit
 
   # ============================================
@@ -113,6 +135,17 @@ jobs:
 
       - name: Run Jest tests
         working-directory: web
+        env:
+          NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT: "https://api.shorted.com.au"
+          NEXT_PUBLIC_ALGOLIA_APP_ID: "test"
+          NEXT_PUBLIC_ALGOLIA_SEARCH_KEY: "test"
+          NEXTAUTH_SECRET: "test-secret-for-ci"
+          NEXTAUTH_URL: "http://localhost:3000"
+          AUTH_FIREBASE_PROJECT_ID: "test-project"
+          AUTH_FIREBASE_CLIENT_EMAIL: "test@test.iam.gserviceaccount.com"
+          AUTH_FIREBASE_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----"
+          AUTH_GOOGLE_ID: "test.apps.googleusercontent.com"
+          AUTH_GOOGLE_SECRET: "test-secret"
         run: npm test -- --watchAll=false --testPathIgnorePatterns=integration --maxWorkers=2
 
       - name: Upload coverage
