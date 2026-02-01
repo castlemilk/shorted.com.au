@@ -192,10 +192,18 @@ jobs:
       - name: Build Next.js
         working-directory: web
         env:
-          # Minimal env vars for build validation
+          # Public env vars
           NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT: "https://api.shorted.com.au"
           NEXT_PUBLIC_ALGOLIA_APP_ID: "test"
           NEXT_PUBLIC_ALGOLIA_SEARCH_KEY: "test"
+          # Auth env vars (test values for build validation only)
+          NEXTAUTH_SECRET: "test-secret-for-ci-build-validation"
+          NEXTAUTH_URL: "http://localhost:3000"
+          AUTH_FIREBASE_PROJECT_ID: "test-project"
+          AUTH_FIREBASE_CLIENT_EMAIL: "test@test-project.iam.gserviceaccount.com"
+          AUTH_FIREBASE_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7\n-----END PRIVATE KEY-----"
+          AUTH_GOOGLE_ID: "test-google-id.apps.googleusercontent.com"
+          AUTH_GOOGLE_SECRET: "test-google-secret"
         run: npm run build
 
   build-backend:
