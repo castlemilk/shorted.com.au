@@ -5,9 +5,13 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 
+// Production API URL for sitemap generation during builds
+const PRODUCTION_API_URL = "https://api.shorted.com.au";
+
 /**
  * Fetch all stock codes from the API for the sitemap.
  * Uses getTopShorts with a high limit to get all stocks with short positions.
+ * Falls back to production API URL for Vercel builds where env vars may not be set.
  */
 async function getAllStockCodes(): Promise<string[]> {
   try {
@@ -15,7 +19,7 @@ async function getAllStockCodes(): Promise<string[]> {
       baseUrl:
         process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
         process.env.NEXT_PUBLIC_API_URL ??
-        "http://localhost:9091",
+        PRODUCTION_API_URL,
     });
 
     const client = createClient(ShortedStocksService, transport);
