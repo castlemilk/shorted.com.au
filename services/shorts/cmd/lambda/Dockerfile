@@ -1,4 +1,4 @@
-FROM golang:1.24 as build
+FROM golang:1.24.3 as build
 WORKDIR /helloworld
 # Copy dependencies list
 COPY go.mod go.sum ./

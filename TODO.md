@@ -53,7 +53,7 @@
   - Add retry logic with exponential backoff
   - Allow graceful degradation instead of crashing
 
-- [ ] **Replace MD5 with SHA-256 for cache keys** - `services/shorts/internal/services/shorts/cache.go:43-46`
+- [x] **Replace MD5 with SHA-256 for cache keys** - `services/shorts/internal/services/shorts/cache.go:43-46`
   - MD5 has collision risks
   - Also handle JSON marshaling errors (currently silently ignored)
 
@@ -129,7 +129,7 @@
   - Standardize: Server Components use Server Actions, Client Components use React Query
   - Remove direct API calls from components
 
-- [ ] **Fix stale closure in processOfflineQueue** - `web/src/@/hooks/use-auto-save.ts:83-117`
+- [x] **Fix stale closure in processOfflineQueue** - `web/src/@/hooks/use-auto-save.ts:83-117`
   - Empty dependency array causes stale closures
   - Add `onSave, onSaveSuccess, onSaveError` to dependencies
 
@@ -158,11 +158,11 @@
   - New workflow targets 3-5 min with parallel execution
   - Keep terraform-deploy.yml for preview/production deploys
 
-- [ ] **Fix Docker base image versions** - `services/shorts/Dockerfile:2`
+- [x] **Fix Docker base image versions** - `services/shorts/Dockerfile:2`
   - `golang:1.24-alpine` doesn't exist (latest is 1.23)
-  - Pin to specific version like `golang:1.23.5-alpine`
+  - Pin to specific version like `golang:1.24.3-alpine`
 
-- [ ] **Pin Alpine version** - `services/shorts/Dockerfile:23`
+- [x] **Pin Alpine version** - `services/shorts/Dockerfile:23`
   - `FROM alpine:latest` is non-reproducible
   - Use `alpine:3.19` or specific version
 
@@ -271,7 +271,7 @@
 
 1. ~~Replace `Math.random()` tooltip key with stable string~~ ✅
 2. Add `reserved 2;` to TimeSeriesData proto
-3. Pin Docker base image versions
+3. ~~Pin Docker base image versions~~ ✅
 4. ~~Add debounce cleanup in widget-config-form~~ ✅
 5. Remove disabled jobs from ci.yml
 6. Fix typos in IndustryTreeMap proto comments

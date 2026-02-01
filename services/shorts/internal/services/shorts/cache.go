@@ -1,7 +1,7 @@
 package shorts
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -39,10 +39,14 @@ func NewMemoryCache(maxAge time.Duration) *MemoryCache {
 	return cache
 }
 
-// generateKey creates a cache key from the given parameters
+// generateKey creates a cache key from the given parameters using SHA-256
 func (c *MemoryCache) generateKey(prefix string, params ...interface{}) string {
-	data, _ := json.Marshal(params)
-	hash := md5.Sum(data)
+	data, err := json.Marshal(params)
+	if err != nil {
+		// Fallback to a simple string representation if JSON marshal fails
+		data = []byte(fmt.Sprintf("%v", params))
+	}
+	hash := sha256.Sum256(data)
 	return fmt.Sprintf("%s:%x", prefix, hash)
 }
 

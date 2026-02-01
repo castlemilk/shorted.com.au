@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.24-alpine AS builder
+FROM golang:1.24.3-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git
@@ -20,7 +20,7 @@ COPY . ./
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o shorts-service ./shorts/cmd/server
 
 # Runtime stage
-FROM alpine:latest
+FROM alpine:3.19
 
 # Install ca-certificates and Python for Yahoo Finance fetching
 RUN apk --no-cache add ca-certificates python3 py3-pip
