@@ -1416,7 +1416,7 @@ func (p *enrichmentProcessor) handleResetStuckJobs(w http.ResponseWriter, r *htt
 
 	p.logger.Infof("Reset %d stuck job(s) back to queued", count)
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(fmt.Sprintf("Reset %d stuck job(s) back to queued", count)))
+	fmt.Fprintf(w, "Reset %d stuck job(s) back to queued", count)
 }
 
 func signalListener(ctx context.Context) func() error {

@@ -1,6 +1,8 @@
 package shorts
 
 import (
+	"fmt"
+
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/enrichment"
@@ -25,9 +27,9 @@ func NewEnrichmentStore(config EnrichmentStoreConfig) (enrichment.EnrichmentStor
 		PostgresPassword:  config.PostgresPassword,
 	}
 
-	internalStore := shortsstore.NewStore(storeConfig)
-	if internalStore == nil {
-		return nil, &ErrStoreCreationFailed{}
+	internalStore, err := shortsstore.NewStore(storeConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create store: %w", err)
 	}
 
 	return &enrichmentStoreAdapter{store: internalStore}, nil

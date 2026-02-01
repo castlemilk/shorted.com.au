@@ -27,7 +27,7 @@ func setupBenchmark() error {
 	// Database connection
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		t.Skip("DATABASE_URL environment variable is required for benchmark tests")
+		return fmt.Errorf("DATABASE_URL environment variable is required for benchmark tests")
 	}
 	
 	var err error
@@ -49,7 +49,10 @@ func setupBenchmark() error {
 		PostgresDatabase: "shorts",
 	}
 	
-	testStore = shortsstore.NewStore(storeConfig)
+	testStore, err = shortsstore.NewStore(storeConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create store: %v", err)
+	}
 	
 	// Initialize server (this would normally be done with proper config)
 	ctx := context.Background()
