@@ -161,7 +161,7 @@ const MultiSeriesChart = forwardRef<
       data,
       width,
       height,
-      margin = { top: 20, right: 20, bottom: 20, left: 50 },
+      margin = { top: 20, right: 35, bottom: 20, left: 50 },
     },
     innerRef,
   ) => {
@@ -313,8 +313,8 @@ const MultiSeriesChart = forwardRef<
       ? topChartHeight + margin.top + margin.bottom + oscillatorHeight
       : height;
 
-    // Adjust margins for dual axis (need more space on right)
-    const adjustedMargin = hasDualAxis ? { ...margin, right: 60 } : margin;
+    // Adjust margins for dual axis (need more space on right for price labels)
+    const adjustedMargin = hasDualAxis ? { ...margin, right: 85 } : margin;
 
     // bounds
     const xMax = Math.max(
@@ -1235,7 +1235,7 @@ const MultiSeriesChart = forwardRef<
         {/* Tooltip */}
         {tooltipData && (
           <TooltipWithBounds
-            key={Math.random()}
+            key="multi-series-tooltip"
             top={adjustedMargin.top + 10}
             left={tooltipLeft}
             style={{

@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type Claims struct {
-	jwt.StandardClaims
+	jwt.RegisteredClaims
 	UserID string   `json:"user_id"`
 	Email  string   `json:"email"`
 	Roles  []string `json:"roles"`
@@ -32,10 +32,11 @@ func (s *TokenService) MintToken(userID, email string, roles []string, duration 
 
 // MintTokenWithTier creates a new JWT for a user with specific roles and subscription tier.
 func (s *TokenService) MintTokenWithTier(userID, email string, roles []string, tier string, duration time.Duration) (string, error) {
+	now := time.Now()
 	claims := Claims{
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(duration).Unix(),
-			IssuedAt:  time.Now().Unix(),
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(now.Add(duration)),
+			IssuedAt:  jwt.NewNumericDate(now),
 			Issuer:    "shorted-api",
 		},
 		UserID: userID,

@@ -94,7 +94,13 @@ func NewAuthInterceptor(tokenService *TokenService) connect.UnaryInterceptorFunc
 		internalSecret := req.Header().Get("x-internal-secret")
 		expectedSecret := os.Getenv("INTERNAL_SERVICE_SECRET")
 		if expectedSecret == "" {
-			expectedSecret = "dev-internal-secret" // Default for local development
+			// Check if we're in production - fail fast
+			env := os.Getenv("ENV")
+			if env == "production" || env == "prod" {
+				log.Errorf("INTERNAL_SERVICE_SECRET environment variable is required in production")
+				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("server misconfiguration"))
+			}
+			expectedSecret = "dev-internal-secret-unsafe-do-not-use-in-production"
 		}
 		
 		// Debug: log received headers for internal auth troubleshooting

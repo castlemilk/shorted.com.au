@@ -57,6 +57,43 @@ export function useAutoSave({
   const offlineQueueRef = useRef<QueuedSave[]>([]);
   const isSavingRef = useRef(false);
 
+  // Process offline queue - defined before the effect that uses it
+  const processOfflineQueue = useCallback(() => {
+    void (async () => {
+      if (offlineQueueRef.current.length === 0) return;
+
+      // Get the most recent queued save
+      const latestSave = offlineQueueRef.current.sort(
+        (a, b) => b.timestamp - a.timestamp
+      )[0];
+
+      if (!latestSave) return;
+
+      // Clear the queue
+      offlineQueueRef.current = [];
+
+      // Save the most recent version
+      try {
+        setStatus("saving");
+        await onSave(latestSave.dashboard);
+        setStatus("saved");
+        setLastSavedAt(new Date());
+        setError(null);
+        onSaveSuccess?.();
+
+        // Reset to idle after showing "saved" briefly
+        setTimeout(() => {
+          setStatus("idle");
+        }, 2000);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : "Save failed";
+        setStatus("error");
+        setError(errorMsg);
+        onSaveError?.(err instanceof Error ? err : new Error(errorMsg));
+      }
+    })();
+  }, [onSave, onSaveSuccess, onSaveError]);
+
   // Track online/offline status
   useEffect(() => {
     const handleOnline = () => {
@@ -77,44 +114,7 @@ export function useAutoSave({
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, []);
-
-  // Process offline queue
-  const processOfflineQueue = useCallback(() => {
-    void (async () => {
-    if (offlineQueueRef.current.length === 0) return;
-
-    // Get the most recent queued save
-    const latestSave = offlineQueueRef.current.sort(
-      (a, b) => b.timestamp - a.timestamp
-    )[0];
-
-    if (!latestSave) return;
-
-    // Clear the queue
-    offlineQueueRef.current = [];
-
-    // Save the most recent version
-    try {
-      setStatus("saving");
-      await onSave(latestSave.dashboard);
-      setStatus("saved");
-      setLastSavedAt(new Date());
-      setError(null);
-      onSaveSuccess?.();
-
-      // Reset to idle after showing "saved" briefly
-      setTimeout(() => {
-        setStatus("idle");
-      }, 2000);
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : "Save failed";
-      setStatus("error");
-      setError(errorMsg);
-      onSaveError?.(err instanceof Error ? err : new Error(errorMsg));
-    }
-    })();
-  }, [onSave, onSaveSuccess, onSaveError]);
+  }, [processOfflineQueue]);
 
   // Core save function
   const performSave = useCallback(

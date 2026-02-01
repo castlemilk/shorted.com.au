@@ -2,6 +2,7 @@ package shorts
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -32,14 +33,26 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 	cache := NewMemoryCache(5 * time.Minute)
 
 	// Create store adapter
-	storeImpl := shorts.NewStore(cfg.ShortsStoreConfig)
+	storeImpl, err := shorts.NewStore(cfg.ShortsStoreConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create store: %w", err)
+	}
 	store := NewStoreAdapter(storeImpl)
 
 	// Create logger adapter
 	logger := NewLoggerAdapter()
 
-	// Token secret - should be in config in production
-	tokenSecret := "dev-secret" // TODO: get from config
+	// Token secret - required in production, optional in development
+	tokenSecret := os.Getenv("TOKEN_SECRET")
+	if tokenSecret == "" {
+		// Check if we're in production
+		env := os.Getenv("ENV")
+		if env == "production" || env == "prod" {
+			return nil, fmt.Errorf("TOKEN_SECRET environment variable is required in production")
+		}
+		// Allow fallback only in development
+		tokenSecret = "dev-secret-unsafe-do-not-use-in-production"
+	}
 	tokenService := NewTokenService(tokenSecret)
 
 	// Optional enrichment dependencies (service can run without them)
@@ -60,10 +73,15 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 
 	// Initialize Pub/Sub client (optional, service can run without it)
 	var pubSubClient PubSubClient
-	pubSubClient, err := NewPubSubClientFromEnv(ctx)
+	pubSubClient, err = NewPubSubClientFromEnv(ctx)
 	if err != nil {
 		logger.Warnf("Failed to initialize Pub/Sub client: %v (enrichment jobs will not be queued)", err)
 		pubSubClient = nil
+	}
+
+	registerServer, err := register.NewRegisterServer(cfg.ShortsStoreConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create register server: %w", err)
 	}
 
 	return &ShortsServer{
@@ -71,7 +89,7 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		store:          store,
 		cache:          cache,
 		logger:         logger,
-		registerServer: register.NewRegisterServer(cfg.ShortsStoreConfig),
+		registerServer: registerServer,
 		tokenService:   tokenService,
 		gptClient:      gptClient,
 		reportCrawler:  reportCrawler,

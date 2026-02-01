@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.24-alpine AS builder
+FROM golang:1.24.3-alpine AS builder
 
 WORKDIR /app
 # Copy go mod files from market-data-sync subdirectory
@@ -13,7 +13,7 @@ COPY market-data-sync/ .
 RUN CGO_ENABLED=0 GOOS=linux go build -o market-data-sync .
 
 # Final stage
-FROM alpine:latest
+FROM alpine:3.19
 RUN apk --no-cache add ca-certificates
 WORKDIR /app
 COPY --from=builder /app/market-data-sync .
