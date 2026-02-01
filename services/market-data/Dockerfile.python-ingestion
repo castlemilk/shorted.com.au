@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.24-alpine AS builder
+FROM golang:1.24.3-alpine AS builder
 
 WORKDIR /build
 
@@ -22,7 +22,7 @@ COPY market-data/main.go market-data/validation.go ./
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o market-data-service .
 
 # Runtime stage
-FROM alpine:latest
+FROM alpine:3.19
 
 # Install ca-certificates and wget for HTTPS and health checks
 RUN apk --no-cache add ca-certificates wget

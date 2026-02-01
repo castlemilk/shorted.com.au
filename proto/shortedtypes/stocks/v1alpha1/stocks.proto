@@ -22,6 +22,7 @@ message Stock {
 // TimeSeriesData represents time series data for a stock.
 message TimeSeriesData {
   string product_code = 1;                        // The stock code.
+  reserved 2;                                     // Previously used field, kept for compatibility.
   string name = 3;
   double latest_short_position = 4;                // The latest short position.
   repeated TimeSeriesPoint points = 10;            // The time series points.

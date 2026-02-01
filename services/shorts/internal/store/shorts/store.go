@@ -1,6 +1,8 @@
 package shorts
 
 import (
+	"fmt"
+
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stockv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 )
@@ -77,11 +79,11 @@ type APISubscriptionUpdate struct {
 	CancelAtPeriodEnd  *bool
 }
 
-func NewStore(config Config) Store {
+func NewStore(config Config) (Store, error) {
 	switch config.StorageBackend {
 	case PostgresStore:
 		return newPostgresStore(config)
 	default:
-		return nil
+		return nil, fmt.Errorf("unsupported storage backend: %s", config.StorageBackend)
 	}
 }

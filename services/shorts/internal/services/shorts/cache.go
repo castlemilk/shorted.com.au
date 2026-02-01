@@ -1,7 +1,7 @@
 package shorts
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"sync"
@@ -24,6 +24,7 @@ type MemoryCache struct {
 	mu     sync.RWMutex
 	store  map[string]*CacheEntry
 	maxAge time.Duration
+	done   chan struct{}
 }
 
 // NewMemoryCache creates a new memory cache with the specified max age
@@ -31,6 +32,7 @@ func NewMemoryCache(maxAge time.Duration) *MemoryCache {
 	cache := &MemoryCache{
 		store:  make(map[string]*CacheEntry),
 		maxAge: maxAge,
+		done:   make(chan struct{}),
 	}
 
 	// Start cleanup goroutine
@@ -39,10 +41,19 @@ func NewMemoryCache(maxAge time.Duration) *MemoryCache {
 	return cache
 }
 
-// generateKey creates a cache key from the given parameters
+// Close stops the cleanup goroutine and releases resources
+func (c *MemoryCache) Close() {
+	close(c.done)
+}
+
+// generateKey creates a cache key from the given parameters using SHA-256
 func (c *MemoryCache) generateKey(prefix string, params ...interface{}) string {
-	data, _ := json.Marshal(params)
-	hash := md5.Sum(data)
+	data, err := json.Marshal(params)
+	if err != nil {
+		// Fallback to a simple string representation if JSON marshal fails
+		data = []byte(fmt.Sprintf("%v", params))
+	}
+	hash := sha256.Sum256(data)
 	return fmt.Sprintf("%s:%x", prefix, hash)
 }
 
@@ -118,14 +129,19 @@ func (c *MemoryCache) cleanup() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		c.mu.Lock()
-		for key, entry := range c.store {
-			if entry.IsExpired() {
-				delete(c.store, key)
+	for {
+		select {
+		case <-c.done:
+			return
+		case <-ticker.C:
+			c.mu.Lock()
+			for key, entry := range c.store {
+				if entry.IsExpired() {
+					delete(c.store, key)
+				}
 			}
+			c.mu.Unlock()
 		}
-		c.mu.Unlock()
 	}
 }
 

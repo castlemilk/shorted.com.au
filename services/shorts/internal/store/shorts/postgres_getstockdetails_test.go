@@ -440,7 +440,8 @@ func TestGetStockDetailsKeyMetricsMerge(t *testing.T) {
 		PostgresDatabase: pool.Config().ConnConfig.Database,
 	}
 
-	store := newPostgresStore(config)
+	store, err := newPostgresStore(config)
+	require.NoError(t, err, "Failed to create store")
 	
 	details, err := store.GetStockDetails(testStockCode)
 	require.NoError(t, err, "Failed to get stock details")
@@ -524,7 +525,8 @@ func TestGetStockDetailsKeyMetricsPreserveExisting(t *testing.T) {
 		PostgresDatabase: pool.Config().ConnConfig.Database,
 	}
 
-	store := newPostgresStore(config)
+	store, err := newPostgresStore(config)
+	require.NoError(t, err, "Failed to create store")
 	details, err := store.GetStockDetails(testStockCode)
 	require.NoError(t, err, "Failed to get stock details")
 	require.NotNil(t, details.FinancialStatements.Info, "Info should not be nil")
@@ -592,7 +594,8 @@ func TestGetStockDetailsNoKeyMetrics(t *testing.T) {
 		PostgresDatabase: pool.Config().ConnConfig.Database,
 	}
 
-	store := newPostgresStore(config)
+	store, err := newPostgresStore(config)
+	require.NoError(t, err, "Failed to create store")
 	details, err := store.GetStockDetails(testStockCode)
 	require.NoError(t, err, "Failed to get stock details")
 	
