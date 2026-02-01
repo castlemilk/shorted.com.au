@@ -114,7 +114,7 @@
   - Add signal handling for SIGTERM/SIGINT
   - Drain in-flight requests before shutdown
 
-- [ ] **Add cache cleanup cancellation** - `services/shorts/internal/services/shorts/cache.go:117-130`
+- [x] **Add cache cleanup cancellation** - `services/shorts/internal/services/shorts/cache.go:117-130`
   - Cleanup goroutine runs forever with no stop mechanism
   - Add context-based cancellation via Close() method
 
@@ -173,7 +173,7 @@
   - Frontend uses localStorage instead
   - Either implement or remove proto
 
-- [ ] **Fix TimeSeriesData field numbering** - `proto/shortedtypes/stocks/v1alpha1/stocks.proto`
+- [x] **Fix TimeSeriesData field numbering** - `proto/shortedtypes/stocks/v1alpha1/stocks.proto`
   - Field number 2 is missing
   - Add `reserved 2;` if field was deleted
 
@@ -270,7 +270,7 @@
 ## Quick Wins (< 1 day each)
 
 1. ~~Replace `Math.random()` tooltip key with stable string~~ ✅
-2. Add `reserved 2;` to TimeSeriesData proto
+2. ~~Add `reserved 2;` to TimeSeriesData proto~~ ✅
 3. ~~Pin Docker base image versions~~ ✅
 4. ~~Add debounce cleanup in widget-config-form~~ ✅
 5. Remove disabled jobs from ci.yml
