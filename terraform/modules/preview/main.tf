@@ -343,110 +343,8 @@ module "enrichment_processor_preview" {
   ]
 }
 
-# Cloud Run Service for enrichment processor (event-driven via Pub/Sub push)
-# For preview, we use a Service with Pub/Sub push subscription to scale to zero and start on-demand
-resource "google_cloud_run_v2_service" "enrichment_processor_preview" {
-  name     = "enrichment-processor-${local.pr_suffix}"
-  location = var.region
-  project  = var.project_id
-
-  labels = local.labels
-
-  template {
-    service_account = module.enrichment_processor_preview.service_account_email
-
-    containers {
-      image = var.enrichment_processor_image
-
-      ports {
-        container_port = 8080
-        name           = "http1"
-      }
-
-      env {
-        name  = "GCP_PROJECT_ID"
-        value = var.project_id
-      }
-
-      env {
-        name  = "IMAGE_TAG"
-        value = var.image_tag # Forces new revision when image is rebuilt
-      }
-
-      env {
-        name  = "ENRICHMENT_PUBSUB_TOPIC"
-        value = module.enrichment_processor_preview.topic_name
-      }
-
-      env {
-        name  = "ENRICHMENT_PUBSUB_SUBSCRIPTION"
-        value = module.enrichment_processor_preview.subscription_name
-      }
-
-      env {
-        name  = "APP_STORE_POSTGRES_ADDRESS"
-        value = var.postgres_address
-      }
-
-      env {
-        name  = "APP_STORE_POSTGRES_DATABASE"
-        value = var.postgres_database
-      }
-
-      env {
-        name  = "APP_STORE_POSTGRES_USERNAME"
-        value = var.postgres_username
-      }
-
-      env {
-        name = "APP_STORE_POSTGRES_PASSWORD"
-        value_source {
-          secret_key_ref {
-            secret  = var.postgres_password_secret_name
-            version = "latest"
-          }
-        }
-      }
-
-      env {
-        name = "OPENAI_API_KEY"
-        value_source {
-          secret_key_ref {
-            secret  = "OPENAI_API_KEY"
-            version = "latest"
-          }
-        }
-      }
-
-      env {
-        name  = "GCS_LOGO_BUCKET"
-        value = "shorted-company-logos"
-      }
-
-      resources {
-        limits = {
-          cpu    = "2"
-          memory = "4Gi"
-        }
-        cpu_idle          = true # Allow CPU to scale down when idle
-        startup_cpu_boost = true
-      }
-    }
-
-    scaling {
-      min_instance_count = 0 # Scale to zero - Cloud Run will scale based on Pub/Sub queue depth
-      max_instance_count = 10 # Allow scaling for concurrent jobs
-    }
-  }
-
-  depends_on = [
-    module.enrichment_processor_preview,
-  ]
-}
-
-# Note: Using pull subscription (created by enrichment_processor_preview module)
-# Cloud Run will auto-scale based on unacknowledged messages in the queue
-# The service polls the subscription and Cloud Run scales instances based on activity
+# Note: The enrichment_processor_preview module (above) creates the Cloud Run service.
+# We just need to configure IAM for public access in preview environments.
 
 # Allow unauthenticated access to enrichment processor for preview environments
 # The web app (deployed to Vercel) doesn't have GCP service account access,
@@ -454,12 +352,12 @@ resource "google_cloud_run_v2_service" "enrichment_processor_preview" {
 resource "google_cloud_run_v2_service_iam_member" "enrichment_processor_preview_public" {
   project  = var.project_id
   location = var.region
-  name     = google_cloud_run_v2_service.enrichment_processor_preview.name
+  name     = module.enrichment_processor_preview.service_name
   role     = "roles/run.invoker"
   member   = "allUsers"
 
   depends_on = [
-    google_cloud_run_v2_service.enrichment_processor_preview,
+    module.enrichment_processor_preview,
   ]
 }
 
