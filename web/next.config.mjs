@@ -72,7 +72,12 @@ export default withBundleAnalyzer(
     pageExtensions: ["js", "jsx", "mdx", "md", "ts", "tsx"],
     reactStrictMode: true,
     experimental: {
-      serverComponentsExternalPackages: ["@bufbuild/protobuf"],
+      // Externalize protobuf and connect packages to prevent SSR bundling issues
+      serverComponentsExternalPackages: [
+        "@bufbuild/protobuf",
+        "@connectrpc/connect",
+        "@connectrpc/connect-web",
+      ],
       optimizePackageImports: [
         "@radix-ui/react-icons",
         "lucide-react",
