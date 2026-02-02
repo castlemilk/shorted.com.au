@@ -145,9 +145,6 @@ export async function getMultipleStockQuotes(
           });
         });
 
-        console.log(
-          `✅ Using Connect RPC market data API for ${stockCodes.length} stock quotes`,
-        );
         return quotes;
       }
     }
@@ -227,9 +224,6 @@ export async function getHistoricalData(
           },
         );
 
-        console.log(
-          `✅ Fetched ${historicalData.length} price points for ${stockCode} (${period})`,
-        );
         return historicalData;
       }
 
@@ -515,7 +509,7 @@ export async function searchStocksEnriched(
           ])
         : new Map<string, StockQuote>();
 
-    // Fetch stock details in parallel to get financial data (market cap, P/E, etc.)
+    // Fetch stock details with staggered requests to avoid overwhelming the API
     type FinancialData = {
       productCode: string;
       marketCap?: number;
@@ -523,26 +517,46 @@ export async function searchStocksEnriched(
       beta?: number;
     };
 
-    const detailsPromises = results.slice(0, Math.min(results.length, 10)).map(async (stock): Promise<FinancialData> => {
-      try {
-        const { fetchStockDetailsClient } = await import("@/lib/client-api");
-        const details = await fetchStockDetailsClient(stock.product_code);
-        return {
-          productCode: stock.product_code,
-          marketCap: details?.financialStatements?.info?.marketCap,
-          peRatio: details?.financialStatements?.info?.peRatio,
-          beta: details?.financialStatements?.info?.beta,
-        };
-      } catch {
-        return { productCode: stock.product_code };
+    // Filter to only valid product codes that will pass backend validation
+    const validStocksForDetails = results
+      .slice(0, Math.min(results.length, 10))
+      .filter((stock) => isValidProductCode(stock.product_code));
+
+    // Staggered fetch: request one at a time with small delay between each
+    const fetchStockDetailsStaggered = async (
+      stocks: typeof validStocksForDetails,
+    ): Promise<FinancialData[]> => {
+      const { fetchStockDetailsClient } = await import("@/lib/client-api");
+      const results: FinancialData[] = [];
+
+      for (let i = 0; i < stocks.length; i++) {
+        const stock = stocks[i]!;
+        try {
+          const details = await fetchStockDetailsClient(stock.product_code);
+          results.push({
+            productCode: stock.product_code,
+            marketCap: details?.financialStatements?.info?.marketCap,
+            peRatio: details?.financialStatements?.info?.peRatio,
+            beta: details?.financialStatements?.info?.beta,
+          });
+        } catch {
+          results.push({ productCode: stock.product_code });
+        }
+
+        // Small delay between requests to avoid flooding (except for last one)
+        if (i < stocks.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
       }
-    });
+
+      return results;
+    };
 
     // Wait for all details with timeout
     const detailsResults = await Promise.race<FinancialData[]>([
-      Promise.all(detailsPromises),
+      fetchStockDetailsStaggered(validStocksForDetails),
       new Promise<FinancialData[]>((resolve) =>
-        setTimeout(() => resolve([]), 2000),
+        setTimeout(() => resolve([]), 3000),
       ),
     ]);
 
