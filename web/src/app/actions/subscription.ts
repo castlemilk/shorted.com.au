@@ -18,20 +18,13 @@ const INTERNAL_SECRET = process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-sec
  * Creates a transport with auth headers for the given user
  */
 function createAuthTransport(userId: string, userEmail: string) {
-  console.log(`[subscription.ts] Creating transport with auth for user: ${userId}, email: ${userEmail}`);
-  console.log(`[subscription.ts] Using internal secret: ${INTERNAL_SECRET.substring(0, 8)}...`);
-  
   return createConnectTransport({
     baseUrl: SHORTS_API_URL,
-    // Add internal auth headers for server action -> backend calls
-    // Use lowercase header names for HTTP/2 compatibility
     interceptors: [
       (next) => async (req) => {
-        console.log(`[subscription.ts] Interceptor called - setting headers`);
         req.header.set("x-internal-secret", INTERNAL_SECRET);
         req.header.set("x-user-id", userId);
         req.header.set("x-user-email", userEmail);
-        console.log(`[subscription.ts] Headers set: x-internal-secret=${INTERNAL_SECRET.substring(0, 8)}..., x-user-id=${userId}`);
         return await next(req);
       },
     ],
@@ -165,7 +158,6 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
       stripeCustomerId: response.stripeCustomerId || undefined,
     };
   } catch (error) {
-    console.error("Error fetching subscription status via gRPC:", error);
     // Fall back to free tier on error
     return {
       status: "inactive",
@@ -208,7 +200,6 @@ export async function createCheckoutSession(priceId: string): Promise<{ url: str
 
     return { url: data.url ?? null };
   } catch (error) {
-    console.error("Checkout error:", error);
     return { url: null, error: "Failed to create checkout session" };
   }
 }
@@ -237,7 +228,6 @@ export async function createPortalSession(): Promise<{ url: string | null; error
 
     return { url: data.url ?? null };
   } catch (error) {
-    console.error("Portal error:", error);
     return { url: null, error: "Failed to create portal session" };
   }
 }
