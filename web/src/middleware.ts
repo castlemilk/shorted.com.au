@@ -58,23 +58,6 @@ export async function middleware(request: NextRequest) {
   // Enforce authentication for protected routes
   if (isProtectedRoute) {
     try {
-      // Check for session cookie in request
-      const cookies = request.cookies;
-      const sessionCookie =
-        cookies.get("__Secure-next-auth.session-token") ??
-        cookies.get("next-auth.session-token");
-
-      // Only log cookie check in debug mode or when there's an issue
-      const DEBUG_MIDDLEWARE = process.env.DEBUG_MIDDLEWARE === "true";
-      if (DEBUG_MIDDLEWARE) {
-        console.log("[Middleware] Cookie check:", {
-          pathname,
-          hasSessionCookie: !!sessionCookie,
-          cookieNames: Array.from(cookies.getAll().map((c) => c.name)),
-          hasSecret: !!process.env.NEXTAUTH_SECRET,
-        });
-      }
-
       const token = await getToken({
         req: request,
         secret: process.env.NEXTAUTH_SECRET,
@@ -84,25 +67,8 @@ export async function middleware(request: NextRequest) {
             : "next-auth.session-token",
       });
 
-      // Only log token check in debug mode
-      if (DEBUG_MIDDLEWARE) {
-        console.log("[Middleware] Token check:", {
-          pathname,
-          hasToken: !!token,
-          hasSub: !!token?.sub,
-          hasId: !!token?.id,
-          hasEmail: !!token?.email,
-          tokenKeys: token ? Object.keys(token) : [],
-          tokenSub: token?.sub,
-          tokenId: token?.id,
-          tokenEmail: token?.email,
-          isAdmin: token?.isAdmin,
-        });
-      }
-
       // If no valid session, redirect to signin
       if (!token?.sub) {
-        console.log("[Middleware] No token.sub found, redirecting to signin");
         const url = new URL("/signin", request.url);
         url.searchParams.set("callbackUrl", pathname);
         return NextResponse.redirect(url);
@@ -110,15 +76,7 @@ export async function middleware(request: NextRequest) {
 
       // Admin route protection
       if (pathname.startsWith("/admin") && !token.isAdmin) {
-        console.log(
-          "[Middleware] Non-admin user attempted to access admin route",
-        );
         return NextResponse.redirect(new URL("/", request.url));
-      }
-
-      // Only log successful auth checks in debug mode
-      if (DEBUG_MIDDLEWARE) {
-        console.log("[Middleware] Auth check passed for:", token.sub);
       }
     } catch (error) {
       console.error("[Middleware] Auth check error:", error);
@@ -151,7 +109,6 @@ export async function middleware(request: NextRequest) {
         });
       } catch (error) {
         // If getToken fails, treat as anonymous user
-        console.error("Error getting auth token in middleware:", error);
       }
 
       // Determine identifier and rate limiter
@@ -199,8 +156,7 @@ export async function middleware(request: NextRequest) {
       response.headers.set("X-RateLimit-Reset", new Date(reset).toISOString());
       return response;
     } catch (error) {
-      // Log error but don't block requests if rate limiting fails
-      console.error("Rate limiting error:", error);
+      // Don't block requests if rate limiting fails
       return NextResponse.next();
     }
   }

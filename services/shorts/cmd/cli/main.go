@@ -31,7 +31,6 @@ func generateJWT(credentials []byte, audience string) (string, error) {
 	}
 
 	err := json.Unmarshal(credentials, &serviceAccountInfo)
-	log.Printf("serviceAccountInfo: %v", serviceAccountInfo)
 	if err != nil {
 		return "", err
 	}
@@ -114,8 +113,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to exchange JWT for token: %v", err)
 	}
-	log.Printf("idToken: %v", idToken)
-
 	if err != nil {
 		panic(fmt.Sprintf("error creating token, %s", err))
 	}
@@ -127,8 +124,6 @@ func main() {
 			req connect.AnyRequest,
 		) (connect.AnyResponse, error) {
 			if req.Spec().IsClient {
-				// Send a token with client requests.
-				log.Printf("setting token header for client request to %s", idToken)
 				req.Header().Set("authorization", fmt.Sprintf("%s %s", "Bearer", idToken))
 			} else if req.Header().Get("authorization") == fmt.Sprintf("%s %s", "Bearer", "") {
 				// Check token in handlers.
@@ -137,7 +132,6 @@ func main() {
 					errors.New("no token provided"),
 				)
 			}
-			log.Printf("request headers: %v", req.Header())
 			return next(ctx, req)
 		})
 	}

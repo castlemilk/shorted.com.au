@@ -41,8 +41,6 @@ async function withTimeout<T>(
 export async function fetchAndCacheStatistics(): Promise<AboutPageStatistics> {
   try {
     // Use a smaller limit (100) instead of 1000 - we just need counts
-    // Also add a 5 second timeout to prevent hanging
-    console.log("Calling getTopShortsData('3m', 100, 0) with timeout...");
     const response = await withTimeout(
       getTopShortsData("3m", 100, 0),
       5000,
@@ -50,27 +48,20 @@ export async function fetchAndCacheStatistics(): Promise<AboutPageStatistics> {
     );
     
     if (!response?.timeSeries) {
-      console.error("Invalid response from getTopShortsData:", response);
       throw new Error("Invalid response from getTopShortsData");
     }
-    
-    console.log(`Received ${response.timeSeries.length} time series entries`);
-    
+
     const timeSeries = response.timeSeries ?? [];
     const uniqueCompanies = new Set(
       timeSeries.map((ts) => ts.productCode).filter(Boolean)
     );
     
     const companyCount = uniqueCompanies.size;
-    console.log(`Found ${companyCount} unique companies`);
-    
-    // Better industry count estimation - try to get actual count if possible
-    // For now, use a more accurate estimate based on ASX data
-    const industryCount = companyCount > 0 
-      ? Math.min(40, Math.max(20, Math.floor(companyCount / 12))) // More accurate ratio
+
+    // Industry count estimation based on ASX data
+    const industryCount = companyCount > 0
+      ? Math.min(40, Math.max(20, Math.floor(companyCount / 12)))
       : 0;
-    
-    console.log(`Estimated ${industryCount} industries`);
     
     let latestUpdateDate: Date | null = null;
     if (timeSeries.length > 0) {
@@ -104,7 +95,6 @@ export async function fetchAndCacheStatistics(): Promise<AboutPageStatistics> {
       latestUpdateDate,
     };
   } catch (error) {
-    console.error("Error fetching statistics:", error);
     // Return safe defaults on error
     return {
       companyCount: 0,
@@ -137,7 +127,6 @@ export async function getStatisticsWithCache(): Promise<{
           isCacheHit: true,
         };
       }
-      console.warn("Cached statistics are invalid (all zeros), fetching fresh data");
     }
 
     // Cache miss or invalid cache
@@ -147,7 +136,6 @@ export async function getStatisticsWithCache(): Promise<{
       isCacheHit: false,
     };
   } catch (error) {
-    console.error("Error in getStatisticsWithCache:", error);
     return {
       data: {
         companyCount: 0,

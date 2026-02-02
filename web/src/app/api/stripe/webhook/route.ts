@@ -23,8 +23,6 @@ const transport = createConnectTransport({
   // Use lowercase header names for HTTP/2 compatibility
   interceptors: [
     (next) => async (req) => {
-      console.log(`[webhook] Interceptor called - setting internal auth headers`);
-      console.log(`[webhook] Secret prefix: ${INTERNAL_SECRET.substring(0, 8)}...`);
       req.header.set("x-internal-secret", INTERNAL_SECRET);
       req.header.set("x-user-id", "stripe-webhook");
       req.header.set("x-user-email", "webhook@shorted.com.au");
@@ -126,7 +124,7 @@ export async function POST(request: NextRequest) {
       }
 
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        // Unhandled event type - ignore
     }
 
     return NextResponse.json({ received: true });
@@ -150,20 +148,16 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     return;
   }
 
-  console.log(`Checkout completed for user ${userId} (${userEmail})`);
-
   // Call backend API with retry
   await retryWithBackoff(
     async () => {
-      const response = await client.handleStripeCheckoutCompleted({
+      return await client.handleStripeCheckoutCompleted({
         userId,
         userEmail,
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscriptionId,
-        tier: SubscriptionTier.PRO, // Default to pro for completed checkouts
+        tier: SubscriptionTier.PRO,
       });
-      console.log(`Backend response: ${response.message}`);
-      return response;
     },
     WEBHOOK_RETRY_OPTIONS
   );
@@ -191,16 +185,14 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription, isDel
   const periodStartUnix = subscription.items?.data[0]?.current_period_start;
   const periodEndUnix = subscription.items?.data[0]?.current_period_end;
 
-  console.log(`Subscription ${subscription.id} updated: status=${subscription.status}, deleted=${isDeleted}`);
-
   // Call backend API with retry
   await retryWithBackoff(
     async () => {
-      const response = await client.handleStripeSubscriptionUpdated({
+      return await client.handleStripeSubscriptionUpdated({
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscription.id,
         status,
-        tier: SubscriptionTier.PRO, // Maintain pro tier unless deleted
+        tier: SubscriptionTier.PRO,
         currentPeriodStart: periodStartUnix
           ? timestampFromDate(new Date(periodStartUnix * 1000))
           : undefined,
@@ -210,8 +202,6 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription, isDel
         cancelAtPeriodEnd,
         isDeleted,
       });
-      console.log(`Backend response: ${response.message}`);
-      return response;
     },
     WEBHOOK_RETRY_OPTIONS
   );
@@ -220,21 +210,17 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription, isDel
 async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
   const customerId = invoice.customer as string;
 
-  console.log(`Payment succeeded for customer ${customerId}`);
-
   // Mark subscription as active after successful payment
   await retryWithBackoff(
     async () => {
-      const response = await client.handleStripeSubscriptionUpdated({
+      return await client.handleStripeSubscriptionUpdated({
         stripeCustomerId: customerId,
         stripeSubscriptionId: "",
         status: SubscriptionStatus.ACTIVE,
-        tier: SubscriptionTier.UNSPECIFIED, // Don't change tier
+        tier: SubscriptionTier.UNSPECIFIED,
         cancelAtPeriodEnd: false,
         isDeleted: false,
       });
-      console.log(`Backend response: ${response.message}`);
-      return response;
     },
     WEBHOOK_RETRY_OPTIONS
   );
@@ -243,21 +229,17 @@ async function handlePaymentSucceeded(invoice: Stripe.Invoice) {
 async function handlePaymentFailed(invoice: Stripe.Invoice) {
   const customerId = invoice.customer as string;
 
-  console.log(`Payment failed for customer ${customerId}`);
-
   // Mark subscription as past_due
   await retryWithBackoff(
     async () => {
-      const response = await client.handleStripeSubscriptionUpdated({
+      return await client.handleStripeSubscriptionUpdated({
         stripeCustomerId: customerId,
         stripeSubscriptionId: "",
         status: SubscriptionStatus.PAST_DUE,
-        tier: SubscriptionTier.UNSPECIFIED, // Don't change tier
+        tier: SubscriptionTier.UNSPECIFIED,
         cancelAtPeriodEnd: false,
         isDeleted: false,
       });
-      console.log(`Backend response: ${response.message}`);
-      return response;
     },
     WEBHOOK_RETRY_OPTIONS
   );
