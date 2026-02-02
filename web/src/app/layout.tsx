@@ -90,7 +90,7 @@ export const metadata = {
     },
   },
   verification: {
-    google: "google-site-verification-code", // Replace with actual verification code
+    google: "jk574DQKIqA97yDXw873BVts2Z9Yz_FxmGZCmXYsv9c",
   },
   alternates: {
     canonical: siteConfig.url,
