@@ -2,7 +2,10 @@
 
 import dynamic from "next/dynamic";
 import { Skeleton } from "~/@/components/ui/skeleton";
-import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
+
+// ViewMode enum values - matches shorts.v1alpha1.ViewMode
+// Using local constants to avoid SSR issues with protobuf-es v2 imports
+const VIEW_MODE_CURRENT_CHANGE = 0;
 
 const TopShorts = dynamic(
   () => import("./topShortsView/topShorts").then((mod) => mod.TopShorts),
@@ -38,7 +41,7 @@ export function HomeContent() {
         <div className="lg:w-3/5">
           <IndustryTreeMapView
             initialPeriod="3m"
-            initialViewMode={ViewMode.CURRENT_CHANGE}
+            initialViewMode={VIEW_MODE_CURRENT_CHANGE}
           />
         </div>
       </div>

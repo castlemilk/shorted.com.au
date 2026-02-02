@@ -6,7 +6,8 @@ import { getAllPosts } from "~/@/lib/api";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import { type Post } from "~/@/interfaces/post";
 import Info from "~/@/components/ui/info";
-import RegisterEmail from "~/@/components/ui/register-email";
+// Use client wrapper to avoid SSR issues with protobuf imports
+import RegisterEmailClient from "~/@/components/ui/register-email-client";
 // Lazy load Prism CSS only for blog pages
 import "prismjs/themes/prism-tomorrow.css";
 
@@ -33,7 +34,7 @@ export default async function Index() {
     tr: (props: React.HTMLAttributes<HTMLTableRowElement>) => <tr className="border-b border-gray-200" {...props} />,
     th: (props: React.HTMLAttributes<HTMLTableCellElement>) => <th className="px-4 py-2 text-left" {...props} />,
     td: (props: React.HTMLAttributes<HTMLTableCellElement>) => <td className="px-4 py-2 text-left" {...props} />,
-    RegisterEmail: (props: Record<string, unknown>) => <RegisterEmail {...props} />,
+    RegisterEmail: (props: Record<string, unknown>) => <RegisterEmailClient {...props} />,
     Info: (props: { title: string; children: React.ReactNode }) => <Info {...props} />,
   };
 
