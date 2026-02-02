@@ -33,12 +33,25 @@ const getTransport = () =>
   });
 
 /**
+ * Validates if a product code meets the backend API requirements
+ * Product codes must be 3-4 alphanumeric characters
+ */
+function isValidProductCode(code: string): boolean {
+  return /^[A-Za-z0-9]{3,4}$/.test(code);
+}
+
+/**
  * Fetch stock details on the client side (not cached)
  * Use this for interactive components like tooltips
  */
 export async function fetchStockDetailsClient(
   productCode: string,
 ): Promise<StockDetails | undefined> {
+  // Validate product code before making API call to avoid 400 errors
+  if (!productCode || !isValidProductCode(productCode)) {
+    return undefined;
+  }
+
   try {
     const transport = getTransport();
     const client = createClient(ShortedStocksService, transport);
@@ -65,6 +78,11 @@ export async function fetchStockDataClient(
   productCode: string,
   period = "1m",
 ): Promise<TimeSeriesData | undefined> {
+  // Validate product code before making API call to avoid 400 errors
+  if (!productCode || !isValidProductCode(productCode)) {
+    return undefined;
+  }
+
   try {
     const transport = getTransport();
     const client = createClient(ShortedStocksService, transport);
@@ -74,7 +92,14 @@ export async function fetchStockDataClient(
     });
     return response;
   } catch (error) {
-    console.error(`Error fetching stock data for ${productCode}:`, error);
+    // Only log non-validation errors to avoid console spam
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (
+      !errorMessage.includes("invalid_argument") &&
+      !errorMessage.includes("not_found")
+    ) {
+      console.error(`Error fetching stock data for ${productCode}:`, error);
+    }
     return undefined;
   }
 }
