@@ -464,3 +464,9 @@ make test             # Runs full validation
 # Or use the hook
 make install-hooks    # Sets up pre-push hook
 ```
+
+## Versioning
+
+The project uses git-based versioning. The version is automatically bumped on each frontend build via `web/scripts/bump-version.sh`, which generates versions like `v0.2.2-748-g032f59db`.
+
+**Always commit changes** to keep the version info current. The version is displayed in the app and used for debugging deployed builds.
