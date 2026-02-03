@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { retryWithBackoff, shouldRetryConnectError, type RetryOptions } from "@/lib/retry";
 
 export interface UseClientRetryOptions<T> extends Partial<RetryOptions> {
@@ -63,6 +63,24 @@ export function useClientRetry<T>(
   const [error, setError] = useState<Error | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
 
+  // Store fetchFn in a ref to avoid triggering re-renders when it changes
+  // This is critical because parent components often pass inline arrow functions
+  const fetchFnRef = useRef(fetchFn);
+  useEffect(() => {
+    fetchFnRef.current = fetchFn;
+  }, [fetchFn]);
+
+  // Store callbacks in refs to avoid dependency issues
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+    onErrorRef.current = onError;
+  }, [onSuccess, onError]);
+
+  // Track whether we've already run the initial fetch to prevent re-runs
+  const hasRunInitialFetch = useRef(false);
+
   const doFetch = useCallback(async (isManualRetry = false) => {
     if (isManualRetry) {
       setIsRetrying(true);
@@ -72,7 +90,7 @@ export function useClientRetry<T>(
     setError(null);
 
     try {
-      const result = await retryWithBackoff(fetchFn, {
+      const result = await retryWithBackoff(fetchFnRef.current, {
         maxRetries,
         initialDelayMs,
         maxDelayMs,
@@ -80,24 +98,24 @@ export function useClientRetry<T>(
         shouldRetry,
       });
       setData(result);
-      onSuccess?.(result);
+      onSuccessRef.current?.(result);
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       setError(error);
-      onError?.(error);
+      onErrorRef.current?.(error);
       console.error("Client retry failed after all attempts:", error);
     } finally {
       setIsLoading(false);
       setIsRetrying(false);
     }
-  }, [fetchFn, maxRetries, initialDelayMs, maxDelayMs, backoffMultiplier, shouldRetry, onSuccess, onError]);
+  }, [maxRetries, initialDelayMs, maxDelayMs, backoffMultiplier, shouldRetry]);
 
-  // Fetch on mount if no initial data
+  // Fetch on mount if no initial data - uses ref guard to ensure single execution
   useEffect(() => {
-    if (!initialData && fetchOnMount) {
+    if (!initialData && fetchOnMount && !hasRunInitialFetch.current) {
+      hasRunInitialFetch.current = true;
       void doFetch();
     }
-    // Intentionally empty deps - only run on mount
   }, [initialData, fetchOnMount, doFetch]);
 
   const retry = useCallback(() => {
