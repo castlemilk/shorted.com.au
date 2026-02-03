@@ -5,6 +5,21 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 
+// Educational articles for sitemap
+const learnArticles = [
+  "what-is-short-selling",
+  "understanding-t4-delay",
+  "how-to-read-short-interest",
+  "short-squeeze-mechanics",
+  "risk-management-shorted-stocks",
+  "sector-analysis-short-selling",
+  "building-a-watchlist",
+  "asx-short-selling-history",
+  "securities-lending-explained",
+  "short-selling-vs-put-options",
+  "reading-short-interest-changes",
+];
+
 // Production API URL for sitemap generation during builds
 const PRODUCTION_API_URL = "https://api.shorted.com.au";
 
@@ -173,10 +188,82 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
+  // New SEO routes - Industry pages
+  const industryRoutes = [
+    {
+      url: `${baseUrl}/industry`,
+      lastModified: currentDate,
+      changeFrequency: "daily" as const,
+      priority: 0.9,
+    },
+  ];
+
+  // Glossary page
+  const glossaryRoutes = [
+    {
+      url: `${baseUrl}/glossary`,
+      lastModified: currentDate,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    },
+  ];
+
+  // FAQ page
+  const faqRoutes = [
+    {
+      url: `${baseUrl}/faq`,
+      lastModified: currentDate,
+      changeFrequency: "monthly" as const,
+      priority: 0.8,
+    },
+  ];
+
+  // Educational content hub
+  const learnRoutes = [
+    {
+      url: `${baseUrl}/learn`,
+      lastModified: currentDate,
+      changeFrequency: "weekly" as const,
+      priority: 0.8,
+    },
+    ...learnArticles.map((slug) => ({
+      url: `${baseUrl}/learn/${slug}`,
+      lastModified: currentDate,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
+  ];
+
+  // RSS feed
+  const feedRoutes = [
+    {
+      url: `${baseUrl}/feed.xml`,
+      lastModified: currentDate,
+      changeFrequency: "daily" as const,
+      priority: 0.5,
+    },
+  ];
+
+  // Top page (high priority landing page)
+  const topRoutes = [
+    {
+      url: `${baseUrl}/top`,
+      lastModified: currentDate,
+      changeFrequency: "daily" as const,
+      priority: 0.95,
+    },
+  ];
+
   return [
     ...staticRoutes,
+    ...topRoutes,
     ...shortsRoutes,
+    ...industryRoutes,
+    ...glossaryRoutes,
+    ...faqRoutes,
+    ...learnRoutes,
     ...docRoutes,
+    ...feedRoutes,
     ...blogRoutes,
     ...stockRoutes,
   ];

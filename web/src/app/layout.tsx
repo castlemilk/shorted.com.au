@@ -148,6 +148,12 @@ export default async function RootLayout({
           href="https://fonts.gstatic.com"
           crossOrigin="anonymous"
         />
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          title="Shorted Blog RSS Feed"
+          href="/feed.xml"
+        />
         <link rel="preconnect" href="https://storage.googleapis.com" />
         <link rel="preconnect" href="https://www.googletagmanager.com" />
         <link rel="dns-prefetch" href="https://storage.googleapis.com" />
