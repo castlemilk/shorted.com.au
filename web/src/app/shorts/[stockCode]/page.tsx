@@ -32,6 +32,8 @@ import {
 } from "~/@/components/ui/card";
 import { TrendingDown, CandlestickChart } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
+import { RelatedStocks } from "~/@/components/seo/related-stocks";
+import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;
@@ -92,6 +94,9 @@ const Page = async ({ params }: PageProps) => {
   // This page is public for SEO and discovery - no authentication required
   const stockCode = rawStockCode.toUpperCase();
 
+  // Fetch related stocks for internal linking
+  const relatedData = await getRelatedStocks(stockCode);
+
   const breadcrumbItems = [
     { label: "Stocks", href: "/stocks" },
     { label: stockCode, href: `/shorts/${stockCode}` },
@@ -143,6 +148,17 @@ const Page = async ({ params }: PageProps) => {
             <CompanyFinancials stockCode={stockCode} />
           </Suspense>
           <EnrichmentTrigger stockCode={stockCode} />
+
+          {/* Related stocks for internal linking */}
+          {relatedData.stocks.length > 0 && (
+            <RelatedStocks
+              stocks={relatedData.stocks}
+              currentStock={stockCode}
+              industrySlug={relatedData.industrySlug}
+              title={`More ${relatedData.industry} Stocks`}
+              description="Other shorted stocks in this sector"
+            />
+          )}
         </div>
         
         <div className="md:col-span-2 flex flex-col gap-4 md:gap-6">
