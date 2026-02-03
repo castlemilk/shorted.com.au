@@ -967,9 +967,10 @@ func (s *postgresStore) UpdateKeyMetrics(stockCode string, metrics map[string]in
 // SearchStocks searches for stocks by symbol or company name, including industry and tags
 func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error) {
 	// Optimized search query using full-text search across rich metadata
+	// Only returns stocks that have price data (valid tradeable stocks)
 	searchQuery := `
 		WITH latest_shorts AS (
-			SELECT DISTINCT ON ("PRODUCT_CODE") 
+			SELECT DISTINCT ON ("PRODUCT_CODE")
 				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS",
 				"PRODUCT_CODE",
 				"PRODUCT",
@@ -979,8 +980,14 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 			FROM shorts
 			ORDER BY "PRODUCT_CODE", "DATE" DESC
 		),
+		valid_stocks AS (
+			-- Only include stocks that have at least one price record
+			SELECT DISTINCT stock_code
+			FROM stock_prices
+			WHERE stock_code IS NOT NULL
+		),
 		search_results AS (
-			SELECT 
+			SELECT
 				s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
 				s."PRODUCT_CODE" as product_code,
 				s."PRODUCT" as name,
@@ -989,7 +996,7 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 				COALESCE(m.industry, '') as industry,
 				COALESCE(m.tags, ARRAY[]::text[]) as tags,
 				COALESCE(m.logo_gcs_url, '') as logo_url,
-				CASE 
+				CASE
 					WHEN s."PRODUCT_CODE" = $1 THEN 100  -- Exact Code Match (Highest Priority)
 					WHEN s."PRODUCT_CODE" ILIKE $2 THEN 50  -- Partial Code Match
 					WHEN m.search_vector @@ plainto_tsquery('english', $1) THEN ts_rank(m.search_vector, plainto_tsquery('english', $1)) * 10
@@ -998,18 +1005,19 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 				END as relevance
 			FROM latest_shorts s
 			LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
-			WHERE 
+			INNER JOIN valid_stocks v ON s."PRODUCT_CODE" = v.stock_code
+			WHERE
 				s."PRODUCT_CODE" = $1 OR
 				s."PRODUCT_CODE" ILIKE $2 OR
 				s."PRODUCT" ILIKE $2 OR
 				m.search_vector @@ plainto_tsquery('english', $1)
 		)
-		SELECT 
-			percentage_shorted, 
-			product_code, 
-			name, 
-			total_product_in_issue, 
-			reported_short_positions, 
+		SELECT
+			percentage_shorted,
+			product_code,
+			name,
+			total_product_in_issue,
+			reported_short_positions,
 			industry,
 			tags,
 			logo_url
