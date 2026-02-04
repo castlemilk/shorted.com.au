@@ -65,6 +65,7 @@
     "src/gen/**/*",
     "test-*.cjs",
     "**/__tests__/**",
+    "**/__mocks__/**",
     "**/*.spec.ts",
     "**/*.test.tsx",
     "**/*.test.ts"
