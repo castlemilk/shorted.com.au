@@ -394,6 +394,67 @@ OPENAI_API_KEY=sk-...
 
 Set via Vercel dashboard and Terraform for Cloud Run services.
 
+## Known Issues & Gotchas
+
+### SSR Issues with @connectrpc/connect Imports (CRITICAL)
+
+**Problem**: Direct imports from `@connectrpc/connect` cause SSR failures in Next.js, resulting in 500 errors on all routes with the error:
+```
+Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: undefined.
+```
+
+**Root Cause**: The `@connectrpc/connect` package (and `@bufbuild/protobuf`) uses ES modules with initialization code that fails during Next.js server-side rendering. Even `"use client"` components can trigger this if they're transitively imported by server components.
+
+**Import Chain Example**:
+```
+layout.tsx (server) → ThemeProvider → QueryClientProvider → getQueryClient() → retry.ts → @connectrpc/connect ❌
+```
+
+**Solution**: Use duck-typing instead of direct imports for Connect-RPC types:
+
+```typescript
+// ❌ BAD - causes SSR failures
+import { ConnectError, Code } from "@connectrpc/connect";
+
+function isRateLimitError(error: unknown): boolean {
+  return error instanceof ConnectError && error.code === Code.ResourceExhausted;
+}
+
+// ✅ GOOD - duck-type check without imports
+interface ConnectErrorLike {
+  code: number;
+  message: string;
+  metadata: { get: (key: string) => string | null };
+}
+
+function isConnectErrorSync(error: unknown): error is ConnectErrorLike {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    typeof (error as Record<string, unknown>).code === "number" &&
+    "message" in error &&
+    "metadata" in error
+  );
+}
+
+// Use hardcoded error codes (gRPC/Connect standard)
+const CODE_RESOURCE_EXHAUSTED = 8;
+
+function isRateLimitError(error: unknown): boolean {
+  return isConnectErrorSync(error) && error.code === CODE_RESOURCE_EXHAUSTED;
+}
+```
+
+**Key Files**:
+- `web/src/@/lib/retry.ts` - Retry utility using duck-typing (fixed Feb 2026)
+- `web/src/@/lib/query-client.ts` - Query client configuration (imports retry.ts)
+
+**Prevention**:
+1. Never import from `@connectrpc/connect` in files that may be imported during SSR
+2. Keep Connect-RPC imports isolated to client-only API call files
+3. Use duck-typing for error handling utilities that need to work in both environments
+
 ## Debugging
 
 ### Backend not starting?
@@ -417,6 +478,32 @@ docker ps             # Check container status
 make clean-cache      # Clear Next.js cache
 cd web && rm -rf node_modules && npm install
 ```
+
+### Production 500 errors after deployment?
+
+If the site returns 500 on all routes after a deployment:
+
+1. **Check Vercel function logs**:
+   ```bash
+   vercel logs --follow
+   ```
+
+2. **Look for "Element type is invalid" errors** - this indicates an SSR import issue (see "SSR Issues with @connectrpc/connect" above)
+
+3. **Rollback to working deployment**:
+   ```bash
+   # List recent deployments
+   npx vercel ls
+
+   # Promote a working deployment to production
+   vercel promote <deployment-url> --yes
+   ```
+
+4. **Binary search to find the problematic component**:
+   - Comment out providers/components in `layout.tsx`
+   - Deploy to preview URL
+   - Test until you find the breaking component
+   - Check its import chain for `@connectrpc/connect` or `@bufbuild/protobuf`
 
 ### Integration tests failing?
 
