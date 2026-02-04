@@ -20,6 +20,7 @@ import { v4 as uuidv4 } from "uuid";
 import { dashboardService } from "~/@/lib/dashboard-service";
 import { useToast } from "~/@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { Skeleton } from "~/@/components/ui/skeleton";
 import { useAutoSave } from "~/@/hooks/use-auto-save";
 import { useUndoRedo } from "~/@/hooks/use-undo-redo";
 import { useBreakpoint } from "~/@/hooks/use-breakpoint";
@@ -74,6 +75,8 @@ export default function Dashboards() {
   const [dashboards, setDashboards] = useState<DashboardConfig[]>([]);
   const [currentDashboardId, setCurrentDashboardId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // Track if initial load is complete (prevents flash of default content)
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Edit mode state
   const [isEditMode, setIsEditMode] = useState(false);
@@ -95,6 +98,7 @@ export default function Dashboards() {
   const currentDashboard = dashboards.find((d) => d.id === currentDashboardId);
 
   // Undo/redo for widget changes
+  // Initialize with empty array - actual widgets loaded in useEffect
   const {
     state: widgets,
     setState: setWidgets,
@@ -104,7 +108,7 @@ export default function Dashboards() {
     canRedo,
     reset: resetWidgets,
   } = useUndoRedo({
-    initialState: currentDashboard?.widgets ?? defaultWidgets,
+    initialState: [] as WidgetConfig[],
     maxHistory: 50,
     debounceMs: 500,
   });
@@ -219,6 +223,10 @@ export default function Dashboards() {
         lastSavedWidgetsRef.current = JSON.stringify(newDashboard.widgets);
       } finally {
         setLoading(false);
+        // Use requestAnimationFrame to ensure state updates are flushed before showing content
+        requestAnimationFrame(() => {
+          setIsInitialized(true);
+        });
       }
     };
 
@@ -502,12 +510,40 @@ export default function Dashboards() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isEditMode, currentDashboard, widgets, saveNow]);
 
-  // Loading state
-  if (status === "loading" || !session) {
+  // Loading state - show skeleton until dashboards are fully loaded and initialized
+  if (status === "loading" || !session || loading || !isInitialized) {
     return (
       <DashboardLayout fullWidth>
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <div className="flex flex-col gap-4">
+          {/* Header skeleton */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-9 w-44" />
+              <Skeleton className="h-5 w-24" />
+            </div>
+            <div className="flex items-center gap-2">
+              <Skeleton className="h-9 w-20" />
+              <Skeleton className="h-9 w-28" />
+            </div>
+          </div>
+
+          {/* Dashboard grid skeleton - mimics bento layout */}
+          <div className="grid grid-cols-12 gap-4">
+            {/* Left widget skeleton (5 cols) */}
+            <div className="col-span-12 lg:col-span-5">
+              <Skeleton className="h-[400px] w-full rounded-lg" />
+            </div>
+            {/* Right widget skeleton (7 cols) */}
+            <div className="col-span-12 lg:col-span-7">
+              <Skeleton className="h-[400px] w-full rounded-lg" />
+            </div>
+          </div>
+
+          {/* Loading indicator */}
+          <div className="flex items-center justify-center gap-2 text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm">Loading dashboard...</span>
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -515,13 +551,7 @@ export default function Dashboards() {
 
   return (
     <DashboardLayout fullWidth>
-      {loading && widgets.length === 0 && (
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      )}
-      {(!loading || widgets.length > 0) && (
-        <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4">
           {/* Header */}
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-3">
@@ -660,7 +690,6 @@ export default function Dashboards() {
             onAddWidget={handleAddWidget}
           />
         </div>
-      )}
     </DashboardLayout>
   );
 }
