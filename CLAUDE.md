@@ -454,6 +454,68 @@ terraform apply
 | GCS       | Logo storage          | Terraform                          |
 | Cloud Run | Backend hosting       | Terraform                          |
 | Vercel    | Frontend hosting      | `web/vercel.json`                  |
+| Upstash   | Rate limiting (Redis) | Environment variables              |
+
+## Rate Limiting
+
+The API uses Upstash Redis for rate limiting with a sliding window algorithm.
+
+### Rate Limit Tiers
+
+**API Access** (programmatic, via API tokens):
+
+| Tier | Per Minute | Per Month | Description |
+|------|------------|-----------|-------------|
+| `anonymous` | 30 | 1,000 | Unauthenticated requests (by IP address) |
+| `free` | 60 | 2,000 | Authenticated users without paid subscription |
+| `paid` | unlimited | **10,000** | Users with any active paid subscription |
+
+**Browser Access** (web app, via Firebase auth):
+
+| Tier | Per Minute | Per Month | Description |
+|------|------------|-----------|-------------|
+| `anonymous` | 60 | 5,000 | Unauthenticated browser requests |
+| `free` | 120 | 10,000 | Authenticated without subscription |
+| `paid` | **unlimited** | **unlimited** | Paid subscribers have no limits |
+
+### How It Works
+
+1. **Authentication** - User authenticates via Firebase (browser) or API token (programmatic)
+2. **Access Type Detection** - Firebase auth → browser access, API token → API access
+3. **Subscription Lookup** - Auth interceptor queries `api_subscriptions` table for user's tier
+4. **Rate Check** - Applies browser or API limits based on access type
+
+### Response Headers
+
+All responses include rate limit headers:
+```
+X-RateLimit-Limit: 60              # Per-minute limit (0 = unlimited)
+X-RateLimit-Remaining: 55          # Per-minute remaining
+X-RateLimit-Reset: 1706918400      # Per-minute reset timestamp
+X-RateLimit-Monthly-Limit: 10000   # Monthly limit
+X-RateLimit-Monthly-Used: 150      # Monthly usage
+X-RateLimit-Monthly-Reset: 1709251200  # Start of next month
+```
+
+When rate limited, returns HTTP 429 with `Retry-After` header.
+
+### Configuration
+
+Environment variables:
+```bash
+UPSTASH_REDIS_REST_URL=https://amazed-cow-5075.upstash.io
+UPSTASH_REDIS_REST_TOKEN=<token>
+RATE_LIMIT_ENABLED=true
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `services/pkg/ratelimit/` | Rate limiting package |
+| `services/pkg/ratelimit/config.go` | Tier configuration |
+| `services/shorts/.../middleware_connect.go` | Auth + subscription lookup |
+| `services/migrations/000015_add_api_subscriptions.up.sql` | Subscription table |
 
 ## Git Workflow
 

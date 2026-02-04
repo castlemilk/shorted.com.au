@@ -13,6 +13,7 @@ import (
 	"github.com/rs/cors"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
+	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 
 	"github.com/castlemilk/shorted.com.au/services/gen/proto/go/register/v1/registerv1connect"
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
@@ -40,10 +41,37 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 
 	mux := http.NewServeMux()
 
-	// Create interceptors
-	interceptors := connect.WithInterceptors(
-		NewAuthInterceptor(s.tokenService),
-	)
+	// Create interceptors - order matters!
+	// 1. Auth runs first to populate user context (including subscription tier lookup)
+	// 2. Rate limit runs second to check limits based on user tier
+	var interceptorList []connect.Interceptor
+
+	// Create auth interceptor with subscription lookup
+	authOpts := AuthInterceptorOptions{
+		TokenService: s.tokenService,
+		SubscriptionLookup: func(userID string) (string, error) {
+			sub, err := s.store.GetAPISubscription(userID)
+			if err != nil {
+				return "", err
+			}
+			if sub == nil {
+				return "free", nil // No subscription = free tier
+			}
+			// Only return tier for active/trialing subscriptions
+			if sub.Status == "active" || sub.Status == "trialing" {
+				return sub.Tier, nil
+			}
+			return "free", nil // Inactive subscription = free tier
+		},
+	}
+	interceptorList = append(interceptorList, NewAuthInterceptorWithOptions(authOpts))
+
+	if s.rateLimiter != nil {
+		interceptorList = append(interceptorList,
+			ratelimit.NewRateLimitInterceptor(s.rateLimiter, s.config.RateLimitConfig, userKey))
+	}
+
+	interceptors := connect.WithInterceptors(interceptorList...)
 
 	shortsPath, shortsHandler := shortsv1alpha1connect.NewShortedStocksServiceHandler(s, interceptors)
 	registerPath, registerHandler := registerv1connect.NewRegisterServiceHandler(s.registerServer, interceptors)
