@@ -211,13 +211,8 @@ export function EnhancedOrganizationSchema() {
       areaServed: "AU",
       availableLanguage: "English",
     },
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.8",
-      reviewCount: "150",
-      bestRating: "5",
-      worstRating: "1",
-    },
+    // Note: aggregateRating removed - only add when real user reviews are collected
+    // to comply with Google's structured data guidelines
   };
 
   return (

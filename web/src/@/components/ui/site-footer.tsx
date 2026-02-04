@@ -2,7 +2,7 @@
 "use client";
 
 import Link from "next/link";
-import { File, RouteIcon, GitCommit, Terminal, AlertCircle } from "lucide-react";
+import { File, RouteIcon, GitCommit, Terminal, AlertCircle, Shield } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { Badge } from "~/@/components/ui/badge";
 import {
@@ -105,6 +105,12 @@ const SiteFooter = () => {
             <Badge variant="secondary" className="hover:bg-secondary/80">
               <File className="w-3 h-3 mr-1" />
               terms
+            </Badge>
+          </Link>
+          <Link href="/privacy">
+            <Badge variant="secondary" className="hover:bg-secondary/80">
+              <Shield className="w-3 h-3 mr-1" />
+              privacy
             </Badge>
           </Link>
         </div>

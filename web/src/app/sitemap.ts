@@ -218,6 +218,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
+  // Privacy page
+  const privacyRoutes = [
+    {
+      url: `${baseUrl}/privacy`,
+      lastModified: currentDate,
+      changeFrequency: "yearly" as const,
+      priority: 0.4,
+    },
+  ];
+
   // Educational content hub
   const learnRoutes = [
     {
@@ -261,6 +271,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...industryRoutes,
     ...glossaryRoutes,
     ...faqRoutes,
+    ...privacyRoutes,
     ...learnRoutes,
     ...docRoutes,
     ...feedRoutes,
