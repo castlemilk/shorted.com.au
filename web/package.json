@@ -79,7 +79,7 @@
       ]
     },
     "transformIgnorePatterns": [
-      "node_modules/(?!(@bufbuild|@connectrpc|next-auth|@auth|firebase|@visx|d3-array|d3-scale|d3-shape|d3-time|d3-format|@upstash|uncrypto)/)"
+      "node_modules/(?!(@bufbuild|@connectrpc|next-auth|@auth|firebase|@visx|d3-array|d3-scale|d3-shape|d3-time|d3-format|@upstash|uncrypto|@radix-ui)/)"
     ],
     "modulePathIgnorePatterns": [
       "<rootDir>/src/gen/"
