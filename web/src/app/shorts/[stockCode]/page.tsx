@@ -10,7 +10,7 @@ import CompanyStats, {
 import CompanyInfo, {
   CompanyInfoPlaceholder,
 } from "~/@/components/ui/companyInfo";
-import CompanyFinancials, {
+import CompanyFinancials,{
   CompanyFinancialsPlaceholder,
 } from "~/@/components/ui/companyFinancials";
 import { EnrichedCompanySection } from "~/@/components/company/enriched-company-section";
@@ -34,6 +34,54 @@ import { TrendingDown, CandlestickChart } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { RelatedStocks } from "~/@/components/seo/related-stocks";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
+import { createConnectTransport } from "@connectrpc/connect-web";
+import { createClient } from "@connectrpc/connect";
+import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+
+// Production API URL for static generation during builds
+const PRODUCTION_API_URL = "https://api.shorted.com.au";
+
+/**
+ * Pre-generate the top 200 most shorted stocks at build time.
+ * This ensures fast page loads and better SEO crawlability for high-traffic pages.
+ * Remaining stocks will be generated on-demand with ISR.
+ */
+export async function generateStaticParams(): Promise<{ stockCode: string }[]> {
+  try {
+    const transport = createConnectTransport({
+      baseUrl:
+        process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
+        process.env.NEXT_PUBLIC_API_URL ??
+        PRODUCTION_API_URL,
+    });
+
+    const client = createClient(ShortedStocksService, transport);
+
+    // Fetch top 200 stocks sorted by short position
+    const response = await client.getTopShorts({
+      period: "max",
+      limit: 200,
+      offset: 0,
+    });
+
+    const stockCodes = response.timeSeries
+      .map((ts) => ts.productCode)
+      .filter((code): code is string => !!code);
+
+    // Return unique stock codes
+    return [...new Set(stockCodes)].map((code) => ({
+      stockCode: code,
+    }));
+  } catch (error) {
+    console.error("Failed to fetch stock codes for static generation:", error);
+    // Fallback to most popular stocks if API fails
+    const fallbackStocks = [
+      "CBA", "BHP", "CSL", "NAB", "WBC", "ANZ", "WES", "MQG", "WOW", "TLS",
+      "RIO", "FMG", "GMG", "TCL", "WDS", "NCM", "ALL", "COL", "REA", "QBE",
+    ];
+    return fallbackStocks.map((code) => ({ stockCode: code }));
+  }
+}
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;
