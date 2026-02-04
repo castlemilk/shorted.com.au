@@ -1,9 +1,6 @@
 import { type MetadataRoute } from "next";
-import { siteConfig } from "~/@/config/site";
+import { siteConfig } from "~/@/config/site"
 import { getAllPosts } from "~/@/lib/api";
-import { createConnectTransport } from "@connectrpc/connect-web";
-import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 
 // Educational articles for sitemap
 const learnArticles = [
@@ -23,61 +20,62 @@ const learnArticles = [
 // Production API URL for sitemap generation during builds
 const PRODUCTION_API_URL = "https://api.shorted.com.au";
 
+// API response type for top shorts
+interface TopShortsResponse {
+  timeSeries: Array<{ productCode?: string }>;
+}
+
+// Popular stock codes as fallback when API is unavailable
+const FALLBACK_STOCK_CODES = [
+  "CBA", "BHP", "CSL", "NAB", "WBC", "ANZ", "WES", "MQG", "WOW", "TLS",
+  "RIO", "FMG", "GMG", "TCL", "WDS", "NCM", "ALL", "COL", "REA", "QBE",
+];
+
 /**
  * Fetch all stock codes from the API for the sitemap.
- * Uses getTopShorts with a high limit to get all stocks with short positions.
- * Falls back to production API URL for Vercel builds where env vars may not be set.
+ * Uses direct fetch to avoid protobuf-es SSR initialization issues.
+ * Falls back to popular stock codes if API is unavailable.
  */
 async function getAllStockCodes(): Promise<string[]> {
   try {
-    const transport = createConnectTransport({
-      baseUrl:
-        process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-        process.env.NEXT_PUBLIC_API_URL ??
-        PRODUCTION_API_URL,
-    });
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
+      process.env.NEXT_PUBLIC_API_URL ??
+      PRODUCTION_API_URL;
 
-    const client = createClient(ShortedStocksService, transport);
+    // Use direct fetch with JSON to avoid protobuf-es SSR issues
+    const response = await fetch(
+      `${baseUrl}/shorts.v1alpha1.ShortedStocksService/GetTopShorts`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          period: "max",
+          limit: 1000,
+          offset: 0,
+        }),
+        next: { revalidate: 3600 }, // Cache for 1 hour
+      }
+    );
 
-    // Fetch top shorts with a high limit to get all stocks
-    // The API returns stocks sorted by short position, so this gets all actively shorted stocks
-    const response = await client.getTopShorts({
-      period: "max",
-      limit: 1000, // Get up to 1000 stocks for sitemap
-      offset: 0,
-    });
+    if (!response.ok) {
+      console.warn(`Sitemap API returned ${response.status}, using fallback stocks`);
+      return FALLBACK_STOCK_CODES;
+    }
+
+    const data = (await response.json()) as TopShortsResponse;
 
     // Extract unique stock codes from the response
-    const stockCodes = response.timeSeries
+    const stockCodes = (data.timeSeries || [])
       .map((ts) => ts.productCode)
-      .filter((code): code is string => !!code);
+      .filter((code): code is string => typeof code === "string" && code.length > 0);
 
-    return [...new Set(stockCodes)]; // Deduplicate
+    return stockCodes.length > 0 ? [...new Set(stockCodes)] : FALLBACK_STOCK_CODES;
   } catch (error) {
     console.error("Failed to fetch stock codes for sitemap:", error);
-    // Fallback to popular stocks if API fails
-    return [
-      "CBA",
-      "BHP",
-      "CSL",
-      "NAB",
-      "WBC",
-      "ANZ",
-      "WES",
-      "MQG",
-      "WOW",
-      "TLS",
-      "RIO",
-      "FMG",
-      "GMG",
-      "TCL",
-      "WDS",
-      "NCM",
-      "ALL",
-      "COL",
-      "REA",
-      "QBE",
-    ];
+    return FALLBACK_STOCK_CODES;
   }
 }
 

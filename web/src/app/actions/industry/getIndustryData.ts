@@ -1,11 +1,22 @@
 "use server";
 
-import { createConnectTransport } from "@connectrpc/connect-web";
-import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService, ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { SHORTS_API_URL } from "../config";
 import { cache } from "react";
 import { getOrSetCached, CACHE_KEYS } from "~/@/lib/kv-cache";
+
+// ViewMode enum values - using constants to avoid protobuf-es SSR issues
+const VIEW_MODE_CURRENT_CHANGE = 0;
+
+// API response types for industry treemap
+interface TreeMapStock {
+  productCode?: string;
+  industry?: string;
+  shortPosition?: number;
+}
+
+interface TreeMapResponse {
+  stocks: TreeMapStock[];
+}
 
 export interface IndustryStats {
   name: string;
@@ -35,19 +46,27 @@ export const getIndustryData = cache(async (): Promise<IndustryStats[]> => {
   return getOrSetCached(
     cacheKey,
     async () => {
-      const transport = createConnectTransport({
-        baseUrl:
-          process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL,
-      });
+      const baseUrl = process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL;
 
-      const client = createClient(ShortedStocksService, transport);
+      // Use direct fetch to avoid protobuf-es SSR issues
+      const fetchResponse = await fetch(
+        `${baseUrl}/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            period: "max",
+            limit: 50,
+            viewMode: VIEW_MODE_CURRENT_CHANGE,
+          }),
+        }
+      );
 
-      // Get industry treemap with high limit to capture all stocks
-      const response = await client.getIndustryTreeMap({
-        period: "max",
-        limit: 50, // stocks per industry
-        viewMode: ViewMode.CURRENT_CHANGE,
-      });
+      if (!fetchResponse.ok) {
+        throw new Error(`API returned ${fetchResponse.status}`);
+      }
+
+      const response = (await fetchResponse.json()) as TreeMapResponse;
 
       // Group stocks by industry
       const industryMap = new Map<
@@ -62,7 +81,7 @@ export const getIndustryData = cache(async (): Promise<IndustryStats[]> => {
       >();
 
       for (const stock of response.stocks) {
-        const industry = stock.industry || "Other";
+        const industry = stock.industry ?? "Other";
         const shortPercent = stock.shortPosition ?? 0;
 
         if (!industryMap.has(industry)) {
@@ -123,19 +142,27 @@ export const getIndustryStocks = cache(
     return getOrSetCached(
       cacheKey,
       async () => {
-        const transport = createConnectTransport({
-          baseUrl:
-            process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL,
-        });
+        const baseUrl = process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL;
 
-        const client = createClient(ShortedStocksService, transport);
+        // Use direct fetch to avoid protobuf-es SSR issues
+        const fetchResponse = await fetch(
+          `${baseUrl}/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              period: "3m",
+              limit: 50,
+              viewMode: VIEW_MODE_CURRENT_CHANGE,
+            }),
+          }
+        );
 
-        // Get current positions
-        const response = await client.getIndustryTreeMap({
-          period: "3m",
-          limit: 50,
-          viewMode: ViewMode.CURRENT_CHANGE,
-        });
+        if (!fetchResponse.ok) {
+          throw new Error(`API returned ${fetchResponse.status}`);
+        }
+
+        const response = (await fetchResponse.json()) as TreeMapResponse;
 
         // Find stocks matching the industry slug
         const matchingStocks: Array<{
@@ -147,7 +174,7 @@ export const getIndustryStocks = cache(
         }> = [];
 
         for (const stock of response.stocks) {
-          const industry = stock.industry || "Other";
+          const industry = stock.industry ?? "Other";
           const slug = createSlug(industry);
 
           if (slug === industrySlug) {
