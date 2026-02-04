@@ -5,6 +5,7 @@ const config = {
     project: true,
   },
   plugins: ["@typescript-eslint", "jsx-a11y"],
+  ignorePatterns: ["**/__mocks__/**"],
   extends: [
     "plugin:@next/next/recommended",
     "plugin:@typescript-eslint/recommended-type-checked",
