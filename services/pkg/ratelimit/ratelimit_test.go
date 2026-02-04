@@ -29,19 +29,20 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Equal(t, 60, cfg.Tiers["free"].RequestsPerMinute)
 	assert.Equal(t, 2000, cfg.Tiers["free"].RequestsPerMonth)
 
-	// pro/enterprise: unlimited/min, 10000/month - paid subscription
-	assert.Equal(t, 0, cfg.Tiers["pro"].RequestsPerMinute) // 0 = unlimited
+	// pro: 120/min, 10000/month - paid subscription
+	assert.Equal(t, 120, cfg.Tiers["pro"].RequestsPerMinute)
 	assert.Equal(t, 10000, cfg.Tiers["pro"].RequestsPerMonth)
-	assert.Equal(t, 0, cfg.Tiers["enterprise"].RequestsPerMinute)
-	assert.Equal(t, 10000, cfg.Tiers["enterprise"].RequestsPerMonth)
+	// enterprise: 300/min, 50000/month - enterprise subscription
+	assert.Equal(t, 300, cfg.Tiers["enterprise"].RequestsPerMinute)
+	assert.Equal(t, 50000, cfg.Tiers["enterprise"].RequestsPerMonth)
 }
 
 func TestConfig_GetLimits(t *testing.T) {
 	cfg := DefaultConfig()
 
-	// Known tier - pro is paid tier with unlimited/min, 10000/month
+	// Known tier - pro is paid tier with 120/min, 10000/month
 	limits := cfg.GetLimits("pro")
-	assert.Equal(t, 0, limits.RequestsPerMinute) // 0 = unlimited
+	assert.Equal(t, 120, limits.RequestsPerMinute)
 	assert.Equal(t, 10000, limits.RequestsPerMonth)
 
 	// Unknown tier falls back to anonymous
@@ -216,11 +217,12 @@ func TestSlidingWindowLimiter_DifferentTiers(t *testing.T) {
 	assert.Equal(t, 2000, result.MonthlyLimit)
 	assert.Equal(t, 500, result.MonthlyUsed)
 
-	// Pro API access (unlimited/min, 10000/month) should be allowed - paid tier
+	// Pro API access (120/min, 10000/month) should be allowed at 50/min, 500/month
 	result, err = limiter.Check(ctx, "user:456", "pro", false)
 	require.NoError(t, err)
 	assert.True(t, result.Allowed)
-	assert.Equal(t, 0, result.Limit) // 0 = unlimited per minute
+	assert.Equal(t, 120, result.Limit)
+	assert.Equal(t, 70, result.Remaining) // 120 - 50 = 70
 	assert.Equal(t, 10000, result.MonthlyLimit)
 	assert.Equal(t, 500, result.MonthlyUsed)
 }

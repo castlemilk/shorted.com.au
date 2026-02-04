@@ -43,33 +43,33 @@ type Config struct {
 // Rate Limit Tiers (API/programmatic access via API tokens):
 //   - anonymous:  30 req/min, 1000 req/month  - Unauthenticated requests (by IP)
 //   - free:       60 req/min, 2000 req/month  - Authenticated users without paid subscription
-//   - paid:      unlimited/min, 10000 req/month - Users with active paid subscription
+//   - pro:       120 req/min, 10000 req/month - Users with pro subscription
+//   - enterprise: 300 req/min, 50000 req/month - Enterprise users
 //
 // Browser access (via Firebase auth from web app) has relaxed limits:
 //   - anonymous:  60 req/min, 5000 req/month
 //   - free:       120 req/min, 10000 req/month
-//   - paid:       unlimited (no rate limiting for browser)
+//   - pro/enterprise: unlimited (no rate limiting for browser)
 //
-// The "paid" tier applies to any user with an active or trialing subscription,
-// regardless of the specific plan (pro, enterprise, etc.).
+// The "pro" tier applies to any user with an active or trialing subscription.
 func DefaultConfig() Config {
 	return Config{
 		Enabled: false, // Disabled by default for safety
 		Tiers: map[string]TierLimits{
 			"anonymous": {
-				RequestsPerMinute: 30, RequestsPerMonth: 1000,      // API limits
+				RequestsPerMinute: 30, RequestsPerMonth: 1000, // API limits
 				BrowserRequestsPerMinute: 60, BrowserRequestsPerMonth: 5000, // Browser limits
 			},
 			"free": {
-				RequestsPerMinute: 60, RequestsPerMonth: 2000,       // API limits
+				RequestsPerMinute: 60, RequestsPerMonth: 2000, // API limits
 				BrowserRequestsPerMinute: 120, BrowserRequestsPerMonth: 10000, // Browser limits
 			},
 			"pro": {
-				RequestsPerMinute: 0, RequestsPerMonth: 10000,       // API limits (0 = unlimited/min)
+				RequestsPerMinute: 120, RequestsPerMonth: 10000, // API limits (2 req/sec)
 				BrowserRequestsPerMinute: 0, BrowserRequestsPerMonth: 0, // Browser: no limits (0 = unlimited)
 			},
 			"enterprise": {
-				RequestsPerMinute: 0, RequestsPerMonth: 10000,       // API limits
+				RequestsPerMinute: 300, RequestsPerMonth: 50000, // API limits (5 req/sec)
 				BrowserRequestsPerMinute: 0, BrowserRequestsPerMonth: 0, // Browser: no limits
 			},
 		},
