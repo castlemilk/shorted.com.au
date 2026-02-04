@@ -9,10 +9,26 @@ import (
 
 type Claims struct {
 	jwt.RegisteredClaims
-	UserID string   `json:"user_id"`
-	Email  string   `json:"email"`
-	Roles  []string `json:"roles"`
-	Tier   string   `json:"tier,omitempty"` // Subscription tier: free, pro, enterprise
+	UserID        string   `json:"user_id"`
+	Email         string   `json:"email"`
+	Roles         []string `json:"roles"`
+	Tier          string   `json:"tier,omitempty"`           // Subscription tier: free, pro, enterprise
+	IsBrowserAuth bool     `json:"is_browser_auth,omitempty"` // True if authenticated via Firebase (browser)
+}
+
+// GetUserID implements ratelimit.UserClaims interface
+func (c *Claims) GetUserID() string {
+	return c.UserID
+}
+
+// GetTier implements ratelimit.UserClaims interface
+func (c *Claims) GetTier() string {
+	return c.Tier
+}
+
+// GetIsBrowserAuth returns true if this is browser-based auth (Firebase)
+func (c *Claims) GetIsBrowserAuth() bool {
+	return c.IsBrowserAuth
 }
 
 type TokenService struct {

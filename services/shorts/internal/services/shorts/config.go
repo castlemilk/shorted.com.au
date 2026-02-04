@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -23,6 +24,9 @@ type Config struct {
 	OpenAIApiKey               string        `json:"openai_api_key" yaml:"openai_api_key" mapstructure:"openai_api_key"`
 	EnrichmentQualityThreshold float64       `json:"enrichment_quality_threshold" yaml:"enrichment_quality_threshold" mapstructure:"enrichment_quality_threshold"`
 	EnrichmentTimeout          time.Duration `json:"enrichment_timeout" yaml:"enrichment_timeout" mapstructure:"enrichment_timeout"`
+
+	// Rate limiting configuration
+	RateLimitConfig ratelimit.Config `json:"rate_limit" yaml:"rate_limit" mapstructure:"rate_limit"`
 }
 
 const (
@@ -34,12 +38,13 @@ const (
 
 func DefaultConfig() Config {
 	return Config{
-		Insecure:          defaultInsecure,
-		Port:              defaultPort,
-		ShortsStoreConfig: shorts.DefaultPostgresConfig(),
-		AlgoliaIndex:      "stocks", // Default index name
+		Insecure:                   defaultInsecure,
+		Port:                       defaultPort,
+		ShortsStoreConfig:          shorts.DefaultPostgresConfig(),
+		AlgoliaIndex:               "stocks", // Default index name
 		EnrichmentQualityThreshold: defaultEnrichmentQualityThreshold,
 		EnrichmentTimeout:          defaultEnrichmentTimeout,
+		RateLimitConfig:            ratelimit.DefaultConfig(),
 	}
 }
 
@@ -61,6 +66,12 @@ func Env(v *viper.Viper, cfgPrefix, envPrefix string) {
 	_ = v.BindEnv(fmt.Sprintf("%s.openai_api_key", cfgPrefix), "OPENAI_API_KEY")
 	_ = v.BindEnv(fmt.Sprintf("%s.enrichment_quality_threshold", cfgPrefix), "ENRICHMENT_QUALITY_THRESHOLD")
 	_ = v.BindEnv(fmt.Sprintf("%s.enrichment_timeout", cfgPrefix), "ENRICHMENT_TIMEOUT")
+
+	// Rate limiting configuration
+	_ = v.BindEnv(fmt.Sprintf("%s.rate_limit.upstash_url", cfgPrefix), "UPSTASH_REDIS_REST_URL")
+	_ = v.BindEnv(fmt.Sprintf("%s.rate_limit.upstash_token", cfgPrefix), "UPSTASH_REDIS_REST_TOKEN")
+	_ = v.BindEnv(fmt.Sprintf("%s.rate_limit.enabled", cfgPrefix), "RATE_LIMIT_ENABLED")
+	_ = v.BindEnv(fmt.Sprintf("%s.rate_limit.fail_open", cfgPrefix), "RATE_LIMIT_FAIL_OPEN")
 }
 
 func Flags(f *flag.FlagSet, prefix string) {

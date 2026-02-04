@@ -9,6 +9,7 @@ import (
 
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
 	"github.com/castlemilk/shorted.com.au/services/pkg/enrichment"
+	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/register"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
@@ -25,6 +26,7 @@ type ShortsServer struct {
 	gptClient      enrichment.GPTClient
 	reportCrawler  enrichment.FinancialReportCrawler
 	pubSubClient   PubSubClient
+	rateLimiter    ratelimit.RateLimiter
 }
 
 // New creates instance of the Server
@@ -84,6 +86,24 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		return nil, fmt.Errorf("failed to create register server: %w", err)
 	}
 
+	// Initialize rate limiter (optional, service can run without it)
+	var rateLimiter ratelimit.RateLimiter
+	if cfg.RateLimitConfig.Enabled {
+		if cfg.RateLimitConfig.UpstashURL != "" && cfg.RateLimitConfig.UpstashToken != "" {
+			rateLimiter, err = ratelimit.NewSlidingWindowLimiter(cfg.RateLimitConfig)
+			if err != nil {
+				logger.Warnf("Failed to initialize rate limiter: %v (rate limiting disabled)", err)
+				rateLimiter = nil
+			} else {
+				logger.Infof("Rate limiting enabled with Upstash Redis")
+			}
+		} else {
+			logger.Warnf("Rate limiting enabled but Upstash credentials not configured")
+		}
+	} else {
+		logger.Infof("Rate limiting disabled")
+	}
+
 	return &ShortsServer{
 		config:         cfg,
 		store:          store,
@@ -94,5 +114,6 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		gptClient:      gptClient,
 		reportCrawler:  reportCrawler,
 		pubSubClient:   pubSubClient,
+		rateLimiter:    rateLimiter,
 	}, nil
 }
