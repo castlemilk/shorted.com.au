@@ -1,6 +1,6 @@
 {
   "name": "shorted",
-  "version": "v0.2.2-732-g7364af6b-dirty",
+  "version": "v0.2.2-756-g8f65ff63-dirty",
   "private": true,
   "type": "module",
   "moduleResolution": "Node",
@@ -57,6 +57,8 @@
     "moduleNameMapper": {
       "^@/auth$": "<rootDir>/src/test/__mocks__/@/auth.js",
       "^next-auth/react$": "<rootDir>/src/test/__mocks__/next-auth-react.js",
+      "^uncrypto$": "<rootDir>/src/test/__mocks__/uncrypto.js",
+      "^@radix-ui/react-progress$": "<rootDir>/src/test/__mocks__/@radix-ui/react-progress.js",
       "^@/lib/utils$": "<rootDir>/src/@/lib/utils.ts",
       "^@/(.*)$": "<rootDir>/src/@/$1",
       "^~/(.*)$": "<rootDir>/src/$1"
