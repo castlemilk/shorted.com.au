@@ -17,6 +17,26 @@ ALGOLIA_INDEX ?= stocks
 
 MIGRATION_PATH := migrations
 
+define kill_pids_in_project_by_pattern
+for pid in $$(pgrep -f "$(1)" 2>/dev/null); do \
+	cwd=$$(lsof -a -p $$pid -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -n1); \
+	if [ -n "$$cwd" ] && printf '%s\n' "$$cwd" | grep -q "^$(CURDIR)"; then \
+		kill $(2) $$pid 2>/dev/null || true; \
+	fi; \
+done
+endef
+
+define kill_pids_in_project_by_port
+for pid in $$(lsof -ti:$(1) 2>/dev/null); do \
+	cwd=$$(lsof -a -p $$pid -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -n1); \
+	if [ -n "$$cwd" ] && printf '%s\n' "$$cwd" | grep -q "^$(CURDIR)"; then \
+		kill $(2) $$pid 2>/dev/null || true; \
+	fi; \
+done
+endef
+
+
+
 # Database migration commands
 .PHONY: migrate-install migrate-up migrate-down migrate-create migrate-force migrate-version migrate-status
 
@@ -82,17 +102,17 @@ gcloud.init:
 .PHONY: clean.shorts
 clean.shorts:
 	@echo "🧹 Cleaning up existing shorts service..."
-	@lsof -ti:9091 | xargs kill -9 2>/dev/null || true
-	@pkill -f "go run shorts/cmd/server/main.go" 2>/dev/null || true
+	@$(call kill_pids_in_project_by_port,9091,-9)
+	@$(call kill_pids_in_project_by_pattern,go run shorts/cmd/server/main.go,-9)
 	@sleep 1
 
 # Clean up any existing processes on port 8090
 .PHONY: clean.market-data
 clean.market-data:
 	@echo "🧹 Cleaning up existing market data service..."
-	@lsof -ti:8090 | xargs kill -9 2>/dev/null || true
-	@pkill -f "go run market-data/main.go" 2>/dev/null || true
-	@pkill -f "market-data-service" 2>/dev/null || true
+	@$(call kill_pids_in_project_by_port,8090,-9)
+	@$(call kill_pids_in_project_by_pattern,go run market-data/main.go,-9)
+	@$(call kill_pids_in_project_by_pattern,market-data-service,-9)
 	@sleep 1
 
 run.shorts: clean.shorts
@@ -129,11 +149,14 @@ run.market-data: clean.market-data
 clean.enrichment-processor:
 	@echo "🧹 Cleaning up existing enrichment processor..."
 	@for pid in $$(pgrep -f "enrichment-processor" 2>/dev/null); do \
-		echo "Killing enrichment processor process $$pid and its children..."; \
-		pkill -P $$pid 2>/dev/null || true; \
-		kill -9 $$pid 2>/dev/null || true; \
+		cwd=$$(lsof -a -p $$pid -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -n1); \
+		if [ -n "$$cwd" ] && printf '%s\n' "$$cwd" | grep -q "^$(CURDIR)"; then \
+			echo "Killing enrichment processor process $$pid and its children..."; \
+			pkill -P $$pid 2>/dev/null || true; \
+			kill -9 $$pid 2>/dev/null || true; \
+		fi; \
 	done || true
-	@pkill -f "enrichment-processor" 2>/dev/null || true
+	@$(call kill_pids_in_project_by_pattern,enrichment-processor,-9)
 	@sleep 1
 
 .PHONY: setup.enrichment-processor.venv
