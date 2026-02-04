@@ -5,6 +5,70 @@
 
 import { ConnectError, Code } from "@connectrpc/connect";
 
+/**
+ * Rate limit error information parsed from server response
+ */
+export interface RateLimitInfo {
+  /** Whether this is a rate limit error */
+  isRateLimited: boolean;
+  /** Per-minute limit */
+  limit?: number;
+  /** Remaining requests in current window */
+  remaining?: number;
+  /** When the minute-window resets (Unix timestamp) */
+  resetAt?: number;
+  /** Monthly limit */
+  monthlyLimit?: number;
+  /** Monthly usage count */
+  monthlyUsed?: number;
+  /** When the monthly window resets (Unix timestamp) */
+  monthlyResetAt?: number;
+  /** Suggested retry delay in seconds */
+  retryAfter?: number;
+  /** Error message from server */
+  message?: string;
+}
+
+/**
+ * Check if an error is a rate limit error (429 / ResourceExhausted)
+ */
+export function isRateLimitError(error: unknown): boolean {
+  if (error instanceof ConnectError) {
+    return error.code === Code.ResourceExhausted;
+  }
+  return false;
+}
+
+/**
+ * Extract rate limit information from a ConnectError
+ * The backend sends rate limit details in error metadata headers
+ */
+export function parseRateLimitInfo(error: unknown): RateLimitInfo {
+  if (!(error instanceof ConnectError) || error.code !== Code.ResourceExhausted) {
+    return { isRateLimited: false };
+  }
+
+  const metadata = error.metadata;
+
+  return {
+    isRateLimited: true,
+    limit: parseIntHeader(metadata.get("X-RateLimit-Limit")),
+    remaining: parseIntHeader(metadata.get("X-RateLimit-Remaining")),
+    resetAt: parseIntHeader(metadata.get("X-RateLimit-Reset")),
+    monthlyLimit: parseIntHeader(metadata.get("X-RateLimit-Monthly-Limit")),
+    monthlyUsed: parseIntHeader(metadata.get("X-RateLimit-Monthly-Used")),
+    monthlyResetAt: parseIntHeader(metadata.get("X-RateLimit-Monthly-Reset")),
+    retryAfter: parseIntHeader(metadata.get("Retry-After")),
+    message: error.message,
+  };
+}
+
+function parseIntHeader(value: string | null): number | undefined {
+  if (!value) return undefined;
+  const parsed = parseInt(value, 10);
+  return isNaN(parsed) ? undefined : parsed;
+}
+
 export interface RetryOptions {
   /** Maximum number of retry attempts (default: 3) */
   maxRetries?: number;
@@ -98,13 +162,26 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * Calculate delay for exponential backoff
+ * For rate limit errors, uses Retry-After header if available
  */
 function calculateDelay(
   attempt: number,
   initialDelayMs: number,
   maxDelayMs: number,
   backoffMultiplier: number,
+  error?: unknown,
 ): number {
+  // For rate limit errors, check for Retry-After header
+  if (error && isRateLimitError(error)) {
+    const rateLimitInfo = parseRateLimitInfo(error);
+    if (rateLimitInfo.retryAfter) {
+      // Use the server-suggested retry delay (in seconds, convert to ms)
+      // Cap at maxDelayMs to prevent extremely long waits
+      return Math.min(rateLimitInfo.retryAfter * 1000, maxDelayMs);
+    }
+  }
+
+  // Standard exponential backoff
   const delay = initialDelayMs * Math.pow(backoffMultiplier, attempt);
   return Math.min(delay, maxDelayMs);
 }
@@ -160,10 +237,12 @@ export async function retryWithBackoff<T>(
           initialDelayMs,
           maxDelayMs,
           backoffMultiplier,
+          error,
         );
 
+        const isRateLimit = isRateLimitError(error);
         console.log(
-          `Retry attempt ${attempt + 1}/${maxRetries + 1} after ${delay}ms`,
+          `Retry attempt ${attempt + 1}/${maxRetries + 1} after ${delay}ms${isRateLimit ? " (rate limited)" : ""}`,
         );
         await sleep(delay);
       }

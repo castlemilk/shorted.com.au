@@ -4,6 +4,8 @@ import React, { Component, type ReactNode } from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "~/@/components/ui/button";
 import { Card } from "~/@/components/ui/card";
+import { RateLimitError } from "~/@/components/ui/rate-limit-error";
+import { isRateLimitError, parseRateLimitInfo } from "~/@/lib/retry";
 
 interface Props {
   children: ReactNode;
@@ -64,6 +66,19 @@ export class ErrorBoundary extends Component<Props, State> {
     const { fallback, children } = this.props;
 
     if (hasError) {
+      // Check if this is a rate limit error
+      if (error && isRateLimitError(error)) {
+        const rateLimitInfo = parseRateLimitInfo(error);
+        return (
+          <div className="p-4">
+            <RateLimitError
+              rateLimitInfo={rateLimitInfo}
+              onRetry={this.resetErrorBoundary}
+            />
+          </div>
+        );
+      }
+
       if (fallback) {
         return <>{fallback}</>;
       }

@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { retryWithBackoff, shouldRetryConnectError, type RetryOptions } from "@/lib/retry";
+import {
+  retryWithBackoff,
+  shouldRetryConnectError,
+  isRateLimitError,
+  parseRateLimitInfo,
+  type RetryOptions,
+  type RateLimitInfo,
+} from "@/lib/retry";
 
 export interface UseClientRetryOptions<T> extends Partial<RetryOptions> {
   /** Initial data from SSR (if available) */
@@ -20,6 +27,8 @@ export interface UseClientRetryResult<T> {
   error: Error | null;
   retry: () => void;
   isRetrying: boolean;
+  /** Rate limit info if the error is a 429 */
+  rateLimitInfo: RateLimitInfo | null;
 }
 
 /**
@@ -62,6 +71,7 @@ export function useClientRetry<T>(
   const [isLoading, setIsLoading] = useState(!initialData && fetchOnMount);
   const [error, setError] = useState<Error | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [rateLimitInfo, setRateLimitInfo] = useState<RateLimitInfo | null>(null);
 
   // Store fetchFn in a ref to avoid triggering re-renders when it changes
   // This is critical because parent components often pass inline arrow functions
@@ -88,6 +98,7 @@ export function useClientRetry<T>(
       setIsLoading(true);
     }
     setError(null);
+    setRateLimitInfo(null);
 
     try {
       const result = await retryWithBackoff(fetchFnRef.current, {
@@ -102,6 +113,14 @@ export function useClientRetry<T>(
     } catch (err) {
       const error = err instanceof Error ? err : new Error(String(err));
       setError(error);
+
+      // Extract rate limit info if applicable
+      if (isRateLimitError(err)) {
+        const info = parseRateLimitInfo(err);
+        setRateLimitInfo(info);
+        console.warn("Rate limit exceeded:", info);
+      }
+
       onErrorRef.current?.(error);
       console.error("Client retry failed after all attempts:", error);
     } finally {
@@ -128,5 +147,6 @@ export function useClientRetry<T>(
     error,
     retry,
     isRetrying,
+    rateLimitInfo,
   };
 }

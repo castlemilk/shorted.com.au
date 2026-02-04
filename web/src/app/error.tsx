@@ -1,5 +1,11 @@
 'use client'
- 
+
+import { useEffect } from 'react'
+import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
+import { Button } from '~/@/components/ui/button'
+import { RateLimitError } from '~/@/components/ui/rate-limit-error'
+import { isRateLimitError, parseRateLimitInfo } from '~/@/lib/retry'
+
 export default function Error({
   error,
   reset,
@@ -7,31 +13,78 @@ export default function Error({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  console.error('Error boundary caught:', error)
-  console.error('Error stack:', error?.stack)
-  console.error('Error digest:', error?.digest)
-  
-  const errorMessage = error?.message ?? 'An unknown error occurred'
-  const errorStack = error?.stack ?? 'No stack trace available'
-  
+  useEffect(() => {
+    // Log error for debugging
+    console.error('Error boundary caught:', error)
+    if (error?.stack) {
+      console.error('Error stack:', error.stack)
+    }
+    if (error?.digest) {
+      console.error('Error digest:', error.digest)
+    }
+  }, [error])
+
+  // Check if this is a rate limit error
+  if (isRateLimitError(error)) {
+    const rateLimitInfo = parseRateLimitInfo(error)
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center p-8">
+        <RateLimitError rateLimitInfo={rateLimitInfo} onRetry={reset} />
+      </div>
+    )
+  }
+
   return (
-    <div className="p-8">
-      <h2 className="text-2xl font-bold mb-4">Something went wrong!</h2>
-      <pre className="bg-gray-100 p-4 rounded overflow-auto">
-        {errorMessage}
-      </pre>
-      <pre className="bg-gray-100 p-4 rounded overflow-auto mt-4 text-xs">
-        {errorStack}
-      </pre>
-      <button
-        className="mt-4 px-4 py-2 bg-blue-500 text-white rounded"
-        onClick={() => reset()}
-      >
-        Try again
-      </button>
+    <div className="flex min-h-[50vh] items-center justify-center p-8">
+      <div className="max-w-md text-center">
+        <div className="mb-6 flex justify-center">
+          <div className="rounded-full bg-red-100 p-4 dark:bg-red-900/30">
+            <AlertTriangle className="h-12 w-12 text-red-500" />
+          </div>
+        </div>
+
+        <h2 className="mb-2 text-2xl font-bold">Something went wrong</h2>
+        <p className="mb-6 text-muted-foreground">
+          We encountered an unexpected error. Please try again or return to the home page.
+        </p>
+
+        {/* Show error details in development */}
+        {process.env.NODE_ENV === 'development' && error?.message && (
+          <details className="mb-6 text-left">
+            <summary className="cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground">
+              Error details
+            </summary>
+            <pre className="mt-2 overflow-auto rounded-lg bg-muted p-4 text-xs">
+              {error.message}
+              {error.stack && (
+                <>
+                  {'\n\n'}
+                  {error.stack}
+                </>
+              )}
+            </pre>
+          </details>
+        )}
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <Button onClick={reset} variant="default">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Try again
+          </Button>
+          <Button variant="outline" asChild>
+            <a href="/">
+              <Home className="mr-2 h-4 w-4" />
+              Go home
+            </a>
+          </Button>
+        </div>
+
+        {error?.digest && (
+          <p className="mt-6 text-xs text-muted-foreground">
+            Error ID: {error.digest}
+          </p>
+        )}
+      </div>
     </div>
   )
 }
-
-
-
