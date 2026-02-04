@@ -58,6 +58,7 @@
       "^@/auth$": "<rootDir>/src/test/__mocks__/@/auth.js",
       "^next-auth/react$": "<rootDir>/src/test/__mocks__/next-auth-react.js",
       "^uncrypto$": "<rootDir>/src/test/__mocks__/uncrypto.js",
+      "^@radix-ui/react-progress$": "<rootDir>/src/test/__mocks__/@radix-ui/react-progress.js",
       "^@/lib/utils$": "<rootDir>/src/@/lib/utils.ts",
       "^@/(.*)$": "<rootDir>/src/@/$1",
       "^~/(.*)$": "<rootDir>/src/$1"
@@ -79,7 +80,7 @@
       ]
     },
     "transformIgnorePatterns": [
-      "node_modules/(?!(@bufbuild|@connectrpc|next-auth|@auth|firebase|@visx|d3-array|d3-scale|d3-shape|d3-time|d3-format|@upstash|uncrypto|@radix-ui)/)"
+      "node_modules/(?!(@bufbuild|@connectrpc|next-auth|@auth|firebase|@visx|d3-array|d3-scale|d3-shape|d3-time|d3-format|@upstash|uncrypto)/)"
     ],
     "modulePathIgnorePatterns": [
       "<rootDir>/src/gen/"
