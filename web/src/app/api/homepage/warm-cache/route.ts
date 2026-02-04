@@ -1,7 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { getIndustryTreeMap } from "~/app/actions/getIndustryTreeMap";
-import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
+
+// ViewMode enum value - using constant to avoid protobuf-es SSR issues
+const VIEW_MODE_CURRENT_CHANGE = 0;
 
 /**
  * Cache warming endpoint for homepage data
@@ -39,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     // Warm treemap cache for default period and view mode
     try {
-      await getIndustryTreeMap("3m", 10, ViewMode.CURRENT_CHANGE);
+      await getIndustryTreeMap("3m", 10, VIEW_MODE_CURRENT_CHANGE);
       results["treemap-3m"] = { success: true };
     } catch (error) {
       results["treemap-3m"] = {
