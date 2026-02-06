@@ -10,7 +10,7 @@ import {
 } from "~/@/components/seo/enhanced-structured-data";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { cn } from "~/@/lib/utils";
-import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { getMarketByDate, getAvailableDates } from "~/app/actions/market/getMarketByDate";
 
 const LETTERS = "abcdefghijklmnopqrstuvwxyz".split("");
 
@@ -82,16 +82,23 @@ export default async function DirectoryLetterPage({ params }: PageProps) {
   }> = [];
 
   try {
-    const response = await getTopShortsData("max", 5000, 0);
-    stocks = response.timeSeries
-      .filter((ts) => ts.productCode?.startsWith(upperLetter))
-      .map((ts) => ({
-        code: ts.productCode ?? "",
-        name: ts.name ?? ts.productCode ?? "",
-        industry: "",
-        shortPercent: ts.latestShortPosition ?? 0,
-      }))
-      .sort((a, b) => a.code.localeCompare(b.code));
+    // Get the latest available date, then fetch all stocks for that date
+    const datesResponse = await getAvailableDates(1);
+    const latestDate = datesResponse?.dates[0];
+    if (latestDate) {
+      const response = await getMarketByDate(latestDate, 1000, 0);
+      if (response) {
+        stocks = response.stocks
+          .filter((s) => s.productCode.startsWith(upperLetter))
+          .map((s) => ({
+            code: s.productCode,
+            name: s.name || s.productCode,
+            industry: s.industry || "",
+            shortPercent: s.percentageShorted,
+          }))
+          .sort((a, b) => a.code.localeCompare(b.code));
+      }
+    }
   } catch (error) {
     console.error("Failed to fetch stocks for directory:", error);
   }
