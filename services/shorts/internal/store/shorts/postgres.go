@@ -1068,20 +1068,25 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 	return results, nil
 }
 
-// GetMarketByDate retrieves all short positions for a specific trading date
+// GetMarketByDate retrieves all short positions for a specific trading date.
+// Uses timestamp range comparison to leverage the (DATE, PRODUCT_CODE) index.
 func (s *postgresStore) GetMarketByDate(date string, limit, offset int32) ([]*stocksv1alpha1.Stock, int, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+
+	// Use timestamp range to hit the index instead of ::date cast
+	dateStart := date + " 00:00:00"
+	dateEnd := date + " 23:59:59"
 
 	// Count total stocks for this date
 	countQuery := `
 		SELECT COUNT(*)
 		FROM shorts
-		WHERE "DATE"::date = $1
+		WHERE "DATE" >= $1 AND "DATE" <= $2
 		  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0`
 
 	var totalCount int
-	if err := s.db.QueryRow(ctx, countQuery, date).Scan(&totalCount); err != nil {
+	if err := s.db.QueryRow(ctx, countQuery, dateStart, dateEnd).Scan(&totalCount); err != nil {
 		return nil, 0, fmt.Errorf("failed to count stocks for date %s: %w", date, err)
 	}
 
@@ -1097,12 +1102,12 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32) ([]*st
 			COALESCE(m.logo_gcs_url, '') as logo_url
 		FROM shorts s
 		LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
-		WHERE s."DATE"::date = $1
+		WHERE s."DATE" >= $1 AND s."DATE" <= $2
 		  AND s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
 		ORDER BY s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC
-		LIMIT $2 OFFSET $3`
+		LIMIT $3 OFFSET $4`
 
-	rows, err := s.db.Query(ctx, query, date, limit, offset)
+	rows, err := s.db.Query(ctx, query, dateStart, dateEnd, limit, offset)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to query market by date %s: %w", date, err)
 	}
@@ -1128,29 +1133,23 @@ func (s *postgresStore) GetMarketByDate(date string, limit, offset int32) ([]*st
 	return stocks, totalCount, nil
 }
 
-// GetAvailableDates retrieves available trading dates with short position data
+// GetAvailableDates retrieves available trading dates with short position data.
+// Uses timestamp comparisons to leverage indexes on the DATE column.
 func (s *postgresStore) GetAvailableDates(limit int, before string) ([]string, string, string, int, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Get total count of distinct dates
-	var totalCount int
-	countQuery := `SELECT COUNT(DISTINCT "DATE"::date) FROM shorts`
-	if err := s.db.QueryRow(ctx, countQuery).Scan(&totalCount); err != nil {
-		return nil, "", "", 0, fmt.Errorf("failed to count available dates: %w", err)
-	}
-
-	// Get dates with optional "before" filter
+	// Get dates with optional "before" filter — use timestamp range for index usage
 	var datesQuery string
 	var args []interface{}
 	if before != "" {
 		datesQuery = `
 			SELECT DISTINCT "DATE"::date as date
 			FROM shorts
-			WHERE "DATE"::date < $1
+			WHERE "DATE" < $1::timestamp
 			ORDER BY date DESC
 			LIMIT $2`
-		args = []interface{}{before, limit}
+		args = []interface{}{before + " 00:00:00", limit}
 	} else {
 		datesQuery = `
 			SELECT DISTINCT "DATE"::date as date
@@ -1177,9 +1176,16 @@ func (s *postgresStore) GetAvailableDates(limit int, before string) ([]string, s
 
 	// Get earliest and latest dates
 	var earliest, latest time.Time
-	boundsQuery := `SELECT MIN("DATE"::date), MAX("DATE"::date) FROM shorts`
+	boundsQuery := `SELECT MIN("DATE"), MAX("DATE") FROM shorts`
 	if err := s.db.QueryRow(ctx, boundsQuery).Scan(&earliest, &latest); err != nil {
 		return nil, "", "", 0, fmt.Errorf("failed to get date bounds: %w", err)
+	}
+
+	// Use length of dates as approximate count (avoids expensive COUNT DISTINCT)
+	totalCount := len(dates)
+	if totalCount == limit {
+		// If we hit the limit, there are more dates — use a rough estimate
+		totalCount = limit * 2 // Signal that there are more
 	}
 
 	return dates, earliest.Format("2006-01-02"), latest.Format("2006-01-02"), totalCount, nil

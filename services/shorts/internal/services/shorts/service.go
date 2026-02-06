@@ -156,19 +156,20 @@ func (s *ShortsServer) GetMarketByDate(ctx context.Context, req *connect.Request
 			return nil, err
 		}
 
-		// Get adjacent dates for navigation
+		// Get previous date (most recent date before this one)
 		prevDates, _, _, _, _ := s.store.GetAvailableDates(1, req.Msg.Date)
 		previousDate := ""
 		if len(prevDates) > 0 {
 			previousDate = prevDates[0]
 		}
 
-		// For next date, we need dates after this one - get recent dates and find the one after
-		allDates, _, _, _, _ := s.store.GetAvailableDates(500, "")
+		// Get next date: fetch 2 dates starting from day after this one
+		// Dates come back DESC, so we need the last one that's after our date
 		nextDate := ""
-		for i, d := range allDates {
-			if d == req.Msg.Date && i > 0 {
-				nextDate = allDates[i-1]
+		recentDates, _, _, _, _ := s.store.GetAvailableDates(90, "")
+		for i := len(recentDates) - 1; i >= 0; i-- {
+			if recentDates[i] > req.Msg.Date {
+				nextDate = recentDates[i]
 				break
 			}
 		}
