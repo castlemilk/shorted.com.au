@@ -394,6 +394,67 @@ OPENAI_API_KEY=sk-...
 
 Set via Vercel dashboard and Terraform for Cloud Run services.
 
+## Known Issues & Gotchas
+
+### SSR Issues with @connectrpc/connect Imports (CRITICAL)
+
+**Problem**: Direct imports from `@connectrpc/connect` cause SSR failures in Next.js, resulting in 500 errors on all routes with the error:
+```
+Error: Element type is invalid: expected a string (for built-in components) or a class/function (for composite components) but got: undefined.
+```
+
+**Root Cause**: The `@connectrpc/connect` package (and `@bufbuild/protobuf`) uses ES modules with initialization code that fails during Next.js server-side rendering. Even `"use client"` components can trigger this if they're transitively imported by server components.
+
+**Import Chain Example**:
+```
+layout.tsx (server) → ThemeProvider → QueryClientProvider → getQueryClient() → retry.ts → @connectrpc/connect ❌
+```
+
+**Solution**: Use duck-typing instead of direct imports for Connect-RPC types:
+
+```typescript
+// ❌ BAD - causes SSR failures
+import { ConnectError, Code } from "@connectrpc/connect";
+
+function isRateLimitError(error: unknown): boolean {
+  return error instanceof ConnectError && error.code === Code.ResourceExhausted;
+}
+
+// ✅ GOOD - duck-type check without imports
+interface ConnectErrorLike {
+  code: number;
+  message: string;
+  metadata: { get: (key: string) => string | null };
+}
+
+function isConnectErrorSync(error: unknown): error is ConnectErrorLike {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    typeof (error as Record<string, unknown>).code === "number" &&
+    "message" in error &&
+    "metadata" in error
+  );
+}
+
+// Use hardcoded error codes (gRPC/Connect standard)
+const CODE_RESOURCE_EXHAUSTED = 8;
+
+function isRateLimitError(error: unknown): boolean {
+  return isConnectErrorSync(error) && error.code === CODE_RESOURCE_EXHAUSTED;
+}
+```
+
+**Key Files**:
+- `web/src/@/lib/retry.ts` - Retry utility using duck-typing (fixed Feb 2026)
+- `web/src/@/lib/query-client.ts` - Query client configuration (imports retry.ts)
+
+**Prevention**:
+1. Never import from `@connectrpc/connect` in files that may be imported during SSR
+2. Keep Connect-RPC imports isolated to client-only API call files
+3. Use duck-typing for error handling utilities that need to work in both environments
+
 ## Debugging
 
 ### Backend not starting?
@@ -417,6 +478,32 @@ docker ps             # Check container status
 make clean-cache      # Clear Next.js cache
 cd web && rm -rf node_modules && npm install
 ```
+
+### Production 500 errors after deployment?
+
+If the site returns 500 on all routes after a deployment:
+
+1. **Check Vercel function logs**:
+   ```bash
+   vercel logs --follow
+   ```
+
+2. **Look for "Element type is invalid" errors** - this indicates an SSR import issue (see "SSR Issues with @connectrpc/connect" above)
+
+3. **Rollback to working deployment**:
+   ```bash
+   # List recent deployments
+   npx vercel ls
+
+   # Promote a working deployment to production
+   vercel promote <deployment-url> --yes
+   ```
+
+4. **Binary search to find the problematic component**:
+   - Comment out providers/components in `layout.tsx`
+   - Deploy to preview URL
+   - Test until you find the breaking component
+   - Check its import chain for `@connectrpc/connect` or `@bufbuild/protobuf`
 
 ### Integration tests failing?
 
@@ -454,6 +541,68 @@ terraform apply
 | GCS       | Logo storage          | Terraform                          |
 | Cloud Run | Backend hosting       | Terraform                          |
 | Vercel    | Frontend hosting      | `web/vercel.json`                  |
+| Upstash   | Rate limiting (Redis) | Environment variables              |
+
+## Rate Limiting
+
+The API uses Upstash Redis for rate limiting with a sliding window algorithm.
+
+### Rate Limit Tiers
+
+**API Access** (programmatic, via API tokens):
+
+| Tier | Per Minute | Per Month | Description |
+|------|------------|-----------|-------------|
+| `anonymous` | 30 | 1,000 | Unauthenticated requests (by IP address) |
+| `free` | 60 | 2,000 | Authenticated users without paid subscription |
+| `paid` | unlimited | **10,000** | Users with any active paid subscription |
+
+**Browser Access** (web app, via Firebase auth):
+
+| Tier | Per Minute | Per Month | Description |
+|------|------------|-----------|-------------|
+| `anonymous` | 60 | 5,000 | Unauthenticated browser requests |
+| `free` | 120 | 10,000 | Authenticated without subscription |
+| `paid` | **unlimited** | **unlimited** | Paid subscribers have no limits |
+
+### How It Works
+
+1. **Authentication** - User authenticates via Firebase (browser) or API token (programmatic)
+2. **Access Type Detection** - Firebase auth → browser access, API token → API access
+3. **Subscription Lookup** - Auth interceptor queries `api_subscriptions` table for user's tier
+4. **Rate Check** - Applies browser or API limits based on access type
+
+### Response Headers
+
+All responses include rate limit headers:
+```
+X-RateLimit-Limit: 60              # Per-minute limit (0 = unlimited)
+X-RateLimit-Remaining: 55          # Per-minute remaining
+X-RateLimit-Reset: 1706918400      # Per-minute reset timestamp
+X-RateLimit-Monthly-Limit: 10000   # Monthly limit
+X-RateLimit-Monthly-Used: 150      # Monthly usage
+X-RateLimit-Monthly-Reset: 1709251200  # Start of next month
+```
+
+When rate limited, returns HTTP 429 with `Retry-After` header.
+
+### Configuration
+
+Environment variables:
+```bash
+UPSTASH_REDIS_REST_URL=https://amazed-cow-5075.upstash.io
+UPSTASH_REDIS_REST_TOKEN=<token>
+RATE_LIMIT_ENABLED=true
+```
+
+### Key Files
+
+| File | Purpose |
+|------|---------|
+| `services/pkg/ratelimit/` | Rate limiting package |
+| `services/pkg/ratelimit/config.go` | Tier configuration |
+| `services/shorts/.../middleware_connect.go` | Auth + subscription lookup |
+| `services/migrations/000015_add_api_subscriptions.up.sql` | Subscription table |
 
 ## Git Workflow
 

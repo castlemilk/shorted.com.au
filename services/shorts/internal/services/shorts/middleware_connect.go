@@ -43,8 +43,41 @@ const (
 	userKey contextKey = "user"
 )
 
+// SubscriptionLookup is a function that looks up a user's subscription tier by user ID.
+// Returns the tier (e.g., "free", "pro", "enterprise") or empty string if not found.
+type SubscriptionLookup func(userID string) (tier string, err error)
+
+// AuthInterceptorOptions configures the auth interceptor.
+type AuthInterceptorOptions struct {
+	TokenService       *TokenService
+	SubscriptionLookup SubscriptionLookup
+}
+
 // AuthInterceptor implements authentication and authorization using Connect interceptors.
 func NewAuthInterceptor(tokenService *TokenService) connect.UnaryInterceptorFunc {
+	return NewAuthInterceptorWithOptions(AuthInterceptorOptions{
+		TokenService: tokenService,
+	})
+}
+
+// NewAuthInterceptorWithOptions creates an auth interceptor with additional options.
+func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInterceptorFunc {
+	// Helper to look up and set subscription tier
+	lookupTier := func(claims *Claims) {
+		if opts.SubscriptionLookup == nil || claims.UserID == "" {
+			return
+		}
+		tier, err := opts.SubscriptionLookup(claims.UserID)
+		if err != nil {
+			log.Debugf("Failed to lookup subscription for user %s: %v", claims.UserID, err)
+			return
+		}
+		if tier != "" {
+			claims.Tier = tier
+			log.Debugf("Set tier=%s for user %s", tier, claims.UserID)
+		}
+	}
+
 	return func(next connect.UnaryFunc) connect.UnaryFunc {
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
 			procedure := req.Spec().Procedure
@@ -88,34 +121,34 @@ func NewAuthInterceptor(tokenService *TokenService) connect.UnaryInterceptorFunc
 			// Only log procedure info at debug level
 			log.Debugf("Procedure: %s, Visibility: %v, RequiredRole: %s", procedure, visibility, requiredRole)
 
-		// 1. Check for internal service authentication first (from server actions/webhooks)
-		// This allows service-to-service calls without user auth tokens
-		// Use lowercase header names for compatibility with HTTP/2 and gRPC-web
-		internalSecret := req.Header().Get("x-internal-secret")
-		expectedSecret := os.Getenv("INTERNAL_SERVICE_SECRET")
-		if expectedSecret == "" {
-			// Check if we're in production - fail fast
-			env := os.Getenv("ENV")
-			if env == "production" || env == "prod" {
-				log.Errorf("INTERNAL_SERVICE_SECRET environment variable is required in production")
-				return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("server misconfiguration"))
+			// 1. Check for internal service authentication first (from server actions/webhooks)
+			// This allows service-to-service calls without user auth tokens
+			// Use lowercase header names for compatibility with HTTP/2 and gRPC-web
+			internalSecret := req.Header().Get("x-internal-secret")
+			expectedSecret := os.Getenv("INTERNAL_SERVICE_SECRET")
+			if expectedSecret == "" {
+				// Check if we're in production - fail fast
+				env := os.Getenv("ENV")
+				if env == "production" || env == "prod" {
+					log.Errorf("INTERNAL_SERVICE_SECRET environment variable is required in production")
+					return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("server misconfiguration"))
+				}
+				expectedSecret = "dev-internal-secret-unsafe-do-not-use-in-production"
 			}
-			expectedSecret = "dev-internal-secret-unsafe-do-not-use-in-production"
-		}
-		
-		// Debug: log received headers for internal auth troubleshooting
-		log.Infof("Internal auth check: secret present=%v, secret matches=%v, expected=%q, received=%q",
-			internalSecret != "", internalSecret == expectedSecret, expectedSecret, internalSecret)
-		
-		if internalSecret != "" && internalSecret == expectedSecret {
+
+			// Debug: log received headers for internal auth troubleshooting
+			log.Infof("Internal auth check: secret present=%v, secret matches=%v, expected=%q, received=%q",
+				internalSecret != "", internalSecret == expectedSecret, expectedSecret, internalSecret)
+
+			if internalSecret != "" && internalSecret == expectedSecret {
 				userID := req.Header().Get("x-user-id")
 				userEmail := req.Header().Get("x-user-email")
 				userRolesHeader := req.Header().Get("x-user-roles")
-				
+
 				if userID != "" {
 					// Start with api-user role by default
 					roles := []string{"api-user"}
-					
+
 					// Parse roles from header if provided
 					if userRolesHeader != "" {
 						headerRoles := strings.Split(userRolesHeader, ",")
@@ -126,7 +159,7 @@ func NewAuthInterceptor(tokenService *TokenService) connect.UnaryInterceptorFunc
 							}
 						}
 					}
-					
+
 					// Auto-grant admin to specific emails
 					adminEmails := []string{
 						"e2e-test@shorted.com.au",
@@ -143,21 +176,24 @@ func NewAuthInterceptor(tokenService *TokenService) connect.UnaryInterceptorFunc
 							break
 						}
 					}
-					
+
 					normalizedClaims := &Claims{
 						UserID: userID,
 						Email:  userEmail,
 						Roles:  roles,
 					}
-					
-					log.Debugf("Internal auth: user=%s, roles=%v, isAdmin=%v", userEmail, roles, isAdmin)
+
+					// Look up subscription tier
+					lookupTier(normalizedClaims)
+
+					log.Debugf("Internal auth: user=%s, roles=%v, tier=%s, isAdmin=%v", userEmail, roles, normalizedClaims.Tier, isAdmin)
 					ctx = context.WithValue(ctx, userKey, normalizedClaims)
-					
+
 					// Check role requirement
 					if requiredRole != "" && !hasRole(normalizedClaims, requiredRole) {
 						return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("%s role required", requiredRole))
 					}
-					
+
 					return next(ctx, req)
 				}
 			}
@@ -176,8 +212,12 @@ func NewAuthInterceptor(tokenService *TokenService) connect.UnaryInterceptorFunc
 			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 
 			// 2. Try to validate our bespoke API token
-			claims, err := tokenService.ValidateToken(tokenString)
+			claims, err := opts.TokenService.ValidateToken(tokenString)
 			if err == nil {
+				// API tokens already have tier embedded, but refresh from DB if lookup available
+				if claims.Tier == "" {
+					lookupTier(claims)
+				}
 				ctx = context.WithValue(ctx, userKey, claims)
 				if requiredRole != "" && !hasRole(claims, requiredRole) {
 					return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("%s role required", requiredRole))
@@ -226,12 +266,16 @@ func NewAuthInterceptor(tokenService *TokenService) connect.UnaryInterceptorFunc
 						}
 						
 						normalizedClaims := &Claims{
-							UserID: fbToken.UID,
-							Email:  email,
-							Roles:  roles,
+							UserID:        fbToken.UID,
+							Email:         email,
+							Roles:         roles,
+							IsBrowserAuth: true, // Firebase auth = browser access
 						}
-						
-						log.Debugf("Firebase auth: user=%s, roles=%v", email, roles)
+
+						// Look up subscription tier
+						lookupTier(normalizedClaims)
+
+						log.Debugf("Firebase auth: user=%s, roles=%v, tier=%s", email, roles, normalizedClaims.Tier)
 						ctx = context.WithValue(ctx, userKey, normalizedClaims)
 						if requiredRole != "" && !hasRole(normalizedClaims, requiredRole) {
 							return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("%s role required", requiredRole))
@@ -250,6 +294,10 @@ func NewAuthInterceptor(tokenService *TokenService) connect.UnaryInterceptorFunc
 					Email:  payload.Claims["email"].(string),
 					Roles:  []string{},
 				}
+
+				// Look up subscription tier (service accounts typically don't have subscriptions)
+				lookupTier(normalizedClaims)
+
 				ctx = context.WithValue(ctx, userKey, normalizedClaims)
 				if requiredRole != "" && !hasRole(normalizedClaims, requiredRole) {
 					return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("%s role required", requiredRole))

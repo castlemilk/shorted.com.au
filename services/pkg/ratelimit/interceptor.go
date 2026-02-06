@@ -1,0 +1,157 @@
+package ratelimit
+
+import (
+	"context"
+	"fmt"
+	"strconv"
+	"strings"
+
+	"connectrpc.com/connect"
+	"github.com/castlemilk/shorted.com.au/services/pkg/log"
+)
+
+// UserClaims defines the interface for user claims used by the rate limiter
+type UserClaims interface {
+	GetUserID() string
+	GetTier() string
+	GetIsBrowserAuth() bool
+}
+
+// UserClaimsContextKey is the context key for user claims
+// This should match the key used by the auth interceptor
+type UserClaimsContextKey string
+
+const DefaultUserClaimsKey UserClaimsContextKey = "user"
+
+// NewRateLimitInterceptor creates a Connect interceptor for rate limiting
+func NewRateLimitInterceptor(limiter RateLimiter, cfg Config, userClaimsKey any) connect.UnaryInterceptorFunc {
+	return func(next connect.UnaryFunc) connect.UnaryFunc {
+		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+			// If rate limiting is disabled, skip
+			if !cfg.Enabled {
+				return next(ctx, req)
+			}
+
+			// Build identifier based on user or IP
+			identifier, tier, isBrowser := extractIdentifierAndTier(ctx, req, userClaimsKey)
+
+			// Check rate limit
+			result, err := limiter.Check(ctx, identifier, tier, isBrowser)
+			if err != nil {
+				log.Warnf("Rate limit check failed: %v", err)
+				// Fail open if configured
+				if cfg.FailOpen {
+					return next(ctx, req)
+				}
+				return nil, connect.NewError(connect.CodeUnavailable,
+					fmt.Errorf("rate limit check failed"))
+			}
+
+			// Rate limit exceeded
+			if !result.Allowed {
+				var msg string
+				if result.MonthlyUsed > result.MonthlyLimit && result.MonthlyLimit > 0 {
+					log.Infof("Monthly rate limit exceeded for %s (tier=%s, used=%d, limit=%d/month)",
+						identifier, tier, result.MonthlyUsed, result.MonthlyLimit)
+					msg = fmt.Sprintf("monthly rate limit exceeded: %d/%d requests used", result.MonthlyUsed, result.MonthlyLimit)
+				} else {
+					log.Infof("Rate limit exceeded for %s (tier=%s, limit=%d/min)", identifier, tier, result.Limit)
+					msg = fmt.Sprintf("rate limit exceeded: %d requests per minute", result.Limit)
+				}
+
+				err := connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("%s", msg))
+
+				// Add rate limit details to error metadata
+				err.Meta().Set("X-RateLimit-Limit", strconv.Itoa(result.Limit))
+				err.Meta().Set("X-RateLimit-Remaining", "0")
+				err.Meta().Set("X-RateLimit-Reset", strconv.FormatInt(result.ResetAt.Unix(), 10))
+				err.Meta().Set("X-RateLimit-Monthly-Limit", strconv.Itoa(result.MonthlyLimit))
+				err.Meta().Set("X-RateLimit-Monthly-Used", strconv.Itoa(result.MonthlyUsed))
+				err.Meta().Set("X-RateLimit-Monthly-Reset", strconv.FormatInt(result.MonthlyResetAt.Unix(), 10))
+				err.Meta().Set("Retry-After", strconv.Itoa(int(result.RetryAfter.Seconds())))
+
+				return nil, err
+			}
+
+			// Call the actual handler
+			resp, err := next(ctx, req)
+
+			// Add rate limit headers to successful response
+			if err == nil && resp != nil {
+				if result.Limit > 0 {
+					resp.Header().Set("X-RateLimit-Limit", strconv.Itoa(result.Limit))
+					resp.Header().Set("X-RateLimit-Remaining", strconv.Itoa(result.Remaining))
+					resp.Header().Set("X-RateLimit-Reset", strconv.FormatInt(result.ResetAt.Unix(), 10))
+				}
+				resp.Header().Set("X-RateLimit-Monthly-Limit", strconv.Itoa(result.MonthlyLimit))
+				resp.Header().Set("X-RateLimit-Monthly-Used", strconv.Itoa(result.MonthlyUsed))
+				resp.Header().Set("X-RateLimit-Monthly-Reset", strconv.FormatInt(result.MonthlyResetAt.Unix(), 10))
+			}
+
+			return resp, err
+		}
+	}
+}
+
+// extractIdentifierAndTier extracts the rate limit identifier, tier, and browser flag from context/request
+func extractIdentifierAndTier(ctx context.Context, req connect.AnyRequest, userClaimsKey any) (string, string, bool) {
+	// Try to get user claims from context
+	if claims := ctx.Value(userClaimsKey); claims != nil {
+		if uc, ok := claims.(UserClaims); ok {
+			userID := uc.GetUserID()
+			if userID != "" {
+				tier := uc.GetTier()
+				if tier == "" {
+					tier = "free"
+				}
+				isBrowser := uc.GetIsBrowserAuth()
+				return "user:" + userID, tier, isBrowser
+			}
+		}
+		// Also try with a struct that has UserID and Tier fields directly
+		if c, ok := claims.(interface{ UserID() string }); ok {
+			if userID := c.UserID(); userID != "" {
+				tier := "free"
+				if t, ok := claims.(interface{ Tier() string }); ok {
+					if t.Tier() != "" {
+						tier = t.Tier()
+					}
+				}
+				// Check for browser auth
+				isBrowser := false
+				if b, ok := claims.(interface{ GetIsBrowserAuth() bool }); ok {
+					isBrowser = b.GetIsBrowserAuth()
+				}
+				return "user:" + userID, tier, isBrowser
+			}
+		}
+	}
+
+	// Fall back to IP address for anonymous users (not browser - could be API scraping)
+	ip := extractIP(req)
+	return "ip:" + ip, "anonymous", false
+}
+
+// extractIP extracts the client IP from request headers
+func extractIP(req connect.AnyRequest) string {
+	// Try X-Forwarded-For first (for proxied requests)
+	if xff := req.Header().Get("X-Forwarded-For"); xff != "" {
+		// Take the first IP (client IP)
+		if idx := strings.Index(xff, ","); idx != -1 {
+			return strings.TrimSpace(xff[:idx])
+		}
+		return strings.TrimSpace(xff)
+	}
+
+	// Try X-Real-IP
+	if realIP := req.Header().Get("X-Real-IP"); realIP != "" {
+		return realIP
+	}
+
+	// Try CF-Connecting-IP (Cloudflare)
+	if cfIP := req.Header().Get("CF-Connecting-IP"); cfIP != "" {
+		return cfIP
+	}
+
+	return "unknown"
+}
