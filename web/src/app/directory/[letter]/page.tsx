@@ -61,7 +61,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export const revalidate = 86400; // Revalidate daily
+export const revalidate = 3600; // Revalidate hourly — data fetches may fail on first build
 
 export default async function DirectoryLetterPage({ params }: PageProps) {
   const { letter } = await params;
