@@ -169,3 +169,11 @@ func (c *MemoryCache) GetIndustryTreeMapKey(limit int32, period, viewMode string
 func (c *MemoryCache) GetSearchStocksKey(query string, limit int32) string {
 	return c.generateKey("search_stocks", query, limit)
 }
+
+func (c *MemoryCache) GetMarketByDateKey(date string, limit, offset int32) string {
+	return c.generateKey("market_by_date", date, limit, offset)
+}
+
+func (c *MemoryCache) GetAvailableDatesKey(limit int32, before string) string {
+	return c.generateKey("available_dates", limit, before)
+}

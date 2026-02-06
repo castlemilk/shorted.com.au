@@ -22,6 +22,8 @@ type Store interface {
 	GetIndustryTreeMap(int32, string, string) (*stockv1alpha1.IndustryTreeMap, error)
 	RegisterEmail(string) error
 	SearchStocks(string, int32) ([]*stockv1alpha1.Stock, error)
+	GetMarketByDate(date string, limit, offset int32) ([]*stockv1alpha1.Stock, int, error)
+	GetAvailableDates(limit int, before string) ([]string, string, string, int, error)
 	GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
 	CleanupStuckSyncRuns() (int, error)
 

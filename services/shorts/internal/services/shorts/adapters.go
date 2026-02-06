@@ -42,6 +42,14 @@ func (s *StoreAdapter) SearchStocks(query string, limit int32) ([]*stocksv1alpha
 	return s.store.SearchStocks(query, limit)
 }
 
+func (s *StoreAdapter) GetMarketByDate(date string, limit, offset int32) ([]*stocksv1alpha1.Stock, int, error) {
+	return s.store.GetMarketByDate(date, limit, offset)
+}
+
+func (s *StoreAdapter) GetAvailableDates(limit int, before string) ([]string, string, string, int, error) {
+	return s.store.GetAvailableDates(limit, before)
+}
+
 func (s *StoreAdapter) GetSyncStatus(filter shorts.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error) {
 	return s.store.GetSyncStatus(filter)
 }

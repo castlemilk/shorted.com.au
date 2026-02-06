@@ -147,6 +147,67 @@ func ValidateGetIndustryTreeMapRequest(req *shortsv1alpha1.GetIndustryTreeMapReq
 	return nil
 }
 
+// ValidateGetMarketByDateRequest validates the GetMarketByDate request parameters
+func ValidateGetMarketByDateRequest(req *shortsv1alpha1.GetMarketByDateRequest) error {
+	if req.Date == "" {
+		return connect.NewError(
+			connect.CodeInvalidArgument,
+			fmt.Errorf("date is required (YYYY-MM-DD format)"),
+		)
+	}
+
+	// Basic date format validation
+	if len(req.Date) != 10 || req.Date[4] != '-' || req.Date[7] != '-' {
+		return connect.NewError(
+			connect.CodeInvalidArgument,
+			fmt.Errorf("date must be in YYYY-MM-DD format"),
+		)
+	}
+
+	if req.Limit < 0 {
+		return connect.NewError(
+			connect.CodeInvalidArgument,
+			fmt.Errorf("limit must be positive"),
+		)
+	}
+	if req.Limit > 1000 {
+		return connect.NewError(
+			connect.CodeInvalidArgument,
+			fmt.Errorf("limit cannot exceed 1000"),
+		)
+	}
+	if req.Offset < 0 {
+		return connect.NewError(
+			connect.CodeInvalidArgument,
+			fmt.Errorf("offset must be non-negative"),
+		)
+	}
+	return nil
+}
+
+// ValidateGetAvailableDatesRequest validates the GetAvailableDates request parameters
+func ValidateGetAvailableDatesRequest(req *shortsv1alpha1.GetAvailableDatesRequest) error {
+	if req.Limit < 0 {
+		return connect.NewError(
+			connect.CodeInvalidArgument,
+			fmt.Errorf("limit must be positive"),
+		)
+	}
+	if req.Limit > 1000 {
+		return connect.NewError(
+			connect.CodeInvalidArgument,
+			fmt.Errorf("limit cannot exceed 1000"),
+		)
+	}
+	if req.Before != "" && (len(req.Before) != 10 || req.Before[4] != '-' || req.Before[7] != '-') {
+		return connect.NewError(
+			connect.CodeInvalidArgument,
+			fmt.Errorf("before date must be in YYYY-MM-DD format"),
+		)
+	}
+	return nil
+}
+
 // NormalizeStockCode normalizes a stock code to uppercase and trims whitespace
 func NormalizeStockCode(code string) string {
 	return strings.ToUpper(strings.TrimSpace(code))
@@ -183,6 +244,14 @@ func SetDefaultValues(req interface{}) {
 		}
 		if r.Limit == 0 {
 			r.Limit = 100
+		}
+	case *shortsv1alpha1.GetMarketByDateRequest:
+		if r.Limit == 0 {
+			r.Limit = 50
+		}
+	case *shortsv1alpha1.GetAvailableDatesRequest:
+		if r.Limit == 0 {
+			r.Limit = 90
 		}
 	}
 }

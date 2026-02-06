@@ -4,6 +4,12 @@ import { getAllPosts } from "~/@/lib/api";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { getAllIndustrySlugs } from "./actions/industry/getIndustryData";
+import { getAllTermSlugs } from "~/@/data/glossary-terms";
+import {
+  getAvailableWeekSlugs,
+  getAvailableMonthSlugs,
+} from "./actions/reports/getReportData";
 
 // Educational articles for sitemap
 const learnArticles = [
@@ -106,12 +112,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     },
     {
-      url: `${baseUrl}/dashboards`,
-      lastModified: currentDate,
-      changeFrequency: "daily" as const,
-      priority: 0.9,
-    },
-    {
       url: `${baseUrl}/terms`,
       lastModified: currentDate,
       changeFrequency: "yearly" as const,
@@ -158,12 +158,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily" as const,
       priority: 0.9,
     },
-    {
-      url: `${baseUrl}/portfolio`,
-      lastModified: currentDate,
-      changeFrequency: "daily" as const,
-      priority: 0.8,
-    },
   ];
 
   // Documentation routes for LLMs and developers
@@ -188,7 +182,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  // New SEO routes - Industry pages
+  // Industry pages - index + individual industry pages
+  let industrySlugs: string[] = [];
+  try {
+    industrySlugs = await getAllIndustrySlugs();
+  } catch (error) {
+    console.error("Failed to fetch industry slugs for sitemap:", error);
+  }
+
   const industryRoutes = [
     {
       url: `${baseUrl}/industry`,
@@ -196,9 +197,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily" as const,
       priority: 0.9,
     },
+    ...industrySlugs.map((slug) => ({
+      url: `${baseUrl}/industry/${slug}`,
+      lastModified: currentDate,
+      changeFrequency: "daily" as const,
+      priority: 0.7,
+    })),
   ];
 
-  // Glossary page
+  // Glossary pages - index + individual terms
+  const termSlugs = getAllTermSlugs();
   const glossaryRoutes = [
     {
       url: `${baseUrl}/glossary`,
@@ -206,6 +214,91 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "monthly" as const,
       priority: 0.7,
     },
+    ...termSlugs.map((slug) => ({
+      url: `${baseUrl}/glossary/${slug}`,
+      lastModified: currentDate,
+      changeFrequency: "monthly" as const,
+      priority: 0.6,
+    })),
+  ];
+
+  // Directory pages - index + per-letter
+  const letters = "abcdefghijklmnopqrstuvwxyz".split("");
+  const directoryRoutes = [
+    {
+      url: `${baseUrl}/directory`,
+      lastModified: currentDate,
+      changeFrequency: "weekly" as const,
+      priority: 0.6,
+    },
+    ...letters.map((letter) => ({
+      url: `${baseUrl}/directory/${letter}`,
+      lastModified: currentDate,
+      changeFrequency: "weekly" as const,
+      priority: 0.6,
+    })),
+  ];
+
+  // Market snapshot pages
+  let marketDates: string[] = [];
+  try {
+    const transport = createConnectTransport({
+      baseUrl:
+        process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
+        process.env.NEXT_PUBLIC_API_URL ??
+        PRODUCTION_API_URL,
+    });
+    const client = createClient(ShortedStocksService, transport);
+    const response = await client.getAvailableDates({ limit: 90, before: "" });
+    marketDates = response.dates;
+  } catch (error) {
+    console.error("Failed to fetch market dates for sitemap:", error);
+  }
+
+  const marketRoutes = [
+    {
+      url: `${baseUrl}/market`,
+      lastModified: currentDate,
+      changeFrequency: "daily" as const,
+      priority: 0.8,
+    },
+    ...marketDates.map((date) => ({
+      url: `${baseUrl}/market/${date}`,
+      lastModified: currentDate,
+      changeFrequency: "daily" as const,
+      priority: 0.7,
+    })),
+  ];
+
+  // Report pages
+  let weekSlugs: string[] = [];
+  let monthSlugs: string[] = [];
+  try {
+    weekSlugs = await getAvailableWeekSlugs();
+    monthSlugs = await getAvailableMonthSlugs();
+  } catch (error) {
+    console.error("Failed to fetch report slugs for sitemap:", error);
+  }
+
+  const reportRoutes = [
+    {
+      url: `${baseUrl}/reports`,
+      lastModified: currentDate,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    },
+    ...weekSlugs.map((slug) => ({
+      url: `${baseUrl}/reports/weekly/${slug}`,
+      lastModified: currentDate,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    })),
+    ...monthSlugs.map((slug) => ({
+      url: `${baseUrl}/reports/monthly/${slug}`,
+      lastModified: currentDate,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
   ];
 
   // FAQ page
@@ -270,6 +363,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...shortsRoutes,
     ...industryRoutes,
     ...glossaryRoutes,
+    ...directoryRoutes,
+    ...marketRoutes,
+    ...reportRoutes,
     ...faqRoutes,
     ...privacyRoutes,
     ...learnRoutes,

@@ -1068,6 +1068,123 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 	return results, nil
 }
 
+// GetMarketByDate retrieves all short positions for a specific trading date
+func (s *postgresStore) GetMarketByDate(date string, limit, offset int32) ([]*stocksv1alpha1.Stock, int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Count total stocks for this date
+	countQuery := `
+		SELECT COUNT(*)
+		FROM shorts
+		WHERE "DATE"::date = $1
+		  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0`
+
+	var totalCount int
+	if err := s.db.QueryRow(ctx, countQuery, date).Scan(&totalCount); err != nil {
+		return nil, 0, fmt.Errorf("failed to count stocks for date %s: %w", date, err)
+	}
+
+	// Fetch stocks for this date
+	query := `
+		SELECT
+			s."PRODUCT_CODE" as product_code,
+			s."PRODUCT" as name,
+			s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
+			s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
+			s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue,
+			COALESCE(m.industry, '') as industry,
+			COALESCE(m.logo_gcs_url, '') as logo_url
+		FROM shorts s
+		LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
+		WHERE s."DATE"::date = $1
+		  AND s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+		ORDER BY s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC
+		LIMIT $2 OFFSET $3`
+
+	rows, err := s.db.Query(ctx, query, date, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query market by date %s: %w", date, err)
+	}
+	defer rows.Close()
+
+	var stocks []*stocksv1alpha1.Stock
+	for rows.Next() {
+		stock := &stocksv1alpha1.Stock{}
+		if err := rows.Scan(
+			&stock.ProductCode,
+			&stock.Name,
+			&stock.PercentageShorted,
+			&stock.ReportedShortPositions,
+			&stock.TotalProductInIssue,
+			&stock.Industry,
+			&stock.LogoUrl,
+		); err != nil {
+			return nil, 0, fmt.Errorf("failed to scan stock row: %w", err)
+		}
+		stocks = append(stocks, stock)
+	}
+
+	return stocks, totalCount, nil
+}
+
+// GetAvailableDates retrieves available trading dates with short position data
+func (s *postgresStore) GetAvailableDates(limit int, before string) ([]string, string, string, int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Get total count of distinct dates
+	var totalCount int
+	countQuery := `SELECT COUNT(DISTINCT "DATE"::date) FROM shorts`
+	if err := s.db.QueryRow(ctx, countQuery).Scan(&totalCount); err != nil {
+		return nil, "", "", 0, fmt.Errorf("failed to count available dates: %w", err)
+	}
+
+	// Get dates with optional "before" filter
+	var datesQuery string
+	var args []interface{}
+	if before != "" {
+		datesQuery = `
+			SELECT DISTINCT "DATE"::date as date
+			FROM shorts
+			WHERE "DATE"::date < $1
+			ORDER BY date DESC
+			LIMIT $2`
+		args = []interface{}{before, limit}
+	} else {
+		datesQuery = `
+			SELECT DISTINCT "DATE"::date as date
+			FROM shorts
+			ORDER BY date DESC
+			LIMIT $1`
+		args = []interface{}{limit}
+	}
+
+	rows, err := s.db.Query(ctx, datesQuery, args...)
+	if err != nil {
+		return nil, "", "", 0, fmt.Errorf("failed to query available dates: %w", err)
+	}
+	defer rows.Close()
+
+	var dates []string
+	for rows.Next() {
+		var d time.Time
+		if err := rows.Scan(&d); err != nil {
+			return nil, "", "", 0, fmt.Errorf("failed to scan date row: %w", err)
+		}
+		dates = append(dates, d.Format("2006-01-02"))
+	}
+
+	// Get earliest and latest dates
+	var earliest, latest time.Time
+	boundsQuery := `SELECT MIN("DATE"::date), MAX("DATE"::date) FROM shorts`
+	if err := s.db.QueryRow(ctx, boundsQuery).Scan(&earliest, &latest); err != nil {
+		return nil, "", "", 0, fmt.Errorf("failed to get date bounds: %w", err)
+	}
+
+	return dates, earliest.Format("2006-01-02"), latest.Format("2006-01-02"), totalCount, nil
+}
+
 func (s *postgresStore) GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error) {
 	// Build dynamic query with filters
 	baseQuery := `

@@ -146,13 +146,6 @@ export function StockStructuredData({
       exchange: "ASX",
     },
     category: "Stock Market Analysis",
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.5",
-      reviewCount: "100",
-      bestRating: "5",
-      worstRating: "1",
-    },
   };
 
   return (

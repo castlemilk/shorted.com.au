@@ -37,6 +37,7 @@ import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { getStock } from "~/app/actions/getStock";
 
 // Production API URL for static generation during builds
 const PRODUCTION_API_URL = "https://api.shorted.com.au";
@@ -91,8 +92,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { stockCode } = await params;
   const code = stockCode.toUpperCase();
 
-  const title = `${code} Short Position | Official ASIC Data (T+4)`;
-  const description = `${code} short selling data from official ASIC reports. Current short interest %, historical trends, charts & analysis. Updated daily with T+4 delay. Free ASX short position tracking.`;
+  // Try to fetch stock data for enriched metadata
+  let title = `${code} Short Position | Official ASIC Data (T+4)`;
+  let description = `${code} short selling data from official ASIC reports. Current short interest %, historical trends, charts & analysis. Updated daily with T+4 delay. Free ASX short position tracking.`;
+
+  try {
+    const stock = await getStock(code);
+    if (stock) {
+      const companyName = stock.name ? `(${stock.name})` : "";
+      const shortPct = stock.percentageShorted > 0 ? ` | ${stock.percentageShorted.toFixed(1)}% Shorted` : "";
+      title = `${code} ${companyName} Short Position${shortPct} | ASIC Data`;
+      description = `${code}${companyName ? ` ${companyName}` : ""} short selling data from official ASIC reports.${stock.percentageShorted > 0 ? ` Currently ${stock.percentageShorted.toFixed(1)}% shorted.` : ""} Historical trends, charts & analysis. Updated daily with T+4 delay.`;
+    }
+  } catch {
+    // Fall back to default title/description if fetch fails
+  }
 
   return {
     title,

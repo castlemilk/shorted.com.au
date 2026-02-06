@@ -188,6 +188,24 @@ service ShortedStocksService {
     };
   }
   
+  // Get all short positions for a specific trading date
+  rpc GetMarketByDate (GetMarketByDateRequest) returns (GetMarketByDateResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Market By Date",
+      description: "Retrieve all short positions for a specific trading date from ASIC data."
+    };
+  }
+
+  // Get available trading dates for market snapshots
+  rpc GetAvailableDates (GetAvailableDatesRequest) returns (GetAvailableDatesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Available Dates",
+      description: "Retrieve available trading dates with short position data."
+    };
+  }
+
   // Search stocks by symbol or company name
   rpc SearchStocks (SearchStocksRequest) returns (SearchStocksResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
@@ -742,4 +760,36 @@ message GetMySubscriptionResponse {
   google.protobuf.Timestamp current_period_end = 4;
   bool cancel_at_period_end = 5;
   string stripe_customer_id = 6;         // For portal access
+}
+
+// ==================== Market By Date Messages ====================
+
+// Request for GetMarketByDate RPC
+message GetMarketByDateRequest {
+  string date = 1;   // YYYY-MM-DD format
+  int32 limit = 2;   // Max stocks to return (default 50)
+  int32 offset = 3;  // Pagination offset
+}
+
+// Response for GetMarketByDate RPC
+message GetMarketByDateResponse {
+  string date = 1;
+  repeated stocks.v1alpha1.Stock stocks = 2;
+  int32 total_count = 3;
+  string previous_date = 4;  // Previous trading date for navigation
+  string next_date = 5;      // Next trading date for navigation
+}
+
+// Request for GetAvailableDates RPC
+message GetAvailableDatesRequest {
+  int32 limit = 1;       // How many dates to return (default 90)
+  string before = 2;     // Return dates before this date (YYYY-MM-DD)
+}
+
+// Response for GetAvailableDates RPC
+message GetAvailableDatesResponse {
+  repeated string dates = 1;   // Available trading dates in YYYY-MM-DD
+  string earliest_date = 2;
+  string latest_date = 3;
+  int32 total_count = 4;
 }

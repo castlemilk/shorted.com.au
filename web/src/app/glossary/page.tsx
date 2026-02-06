@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "~/@/components/ui/card";
 import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
+import { glossaryTerms } from "~/@/data/glossary-terms";
 
 export const metadata: Metadata = {
   title: "Short Selling Glossary | Key Terms & Definitions",
@@ -51,160 +52,6 @@ const breadcrumbs = [
   { name: "Glossary", url: `${siteConfig.url}/glossary` },
 ];
 
-// Glossary terms organized by category
-const glossaryTerms = [
-  {
-    category: "Core Concepts",
-    terms: [
-      {
-        term: "Short Selling",
-        definition:
-          "A trading strategy where an investor borrows shares and sells them, hoping to buy them back at a lower price. The investor profits if the stock price falls and loses money if it rises.",
-        related: ["Short Position", "Securities Lending", "Short Squeeze"],
-      },
-      {
-        term: "Short Position",
-        definition:
-          "The number of shares of a particular stock that have been sold short but not yet covered or closed out. On the ASX, significant short positions must be reported to ASIC.",
-        related: ["Short Interest", "ASIC"],
-      },
-      {
-        term: "Short Interest",
-        definition:
-          "The percentage of a company's total shares on issue that are currently held as short positions. Expressed as a percentage, e.g., 10% short interest means 10% of all shares are shorted.",
-        related: ["Short Position", "Shares on Issue"],
-      },
-      {
-        term: "Short Squeeze",
-        definition:
-          "A rapid increase in a stock's price caused by short sellers rushing to cover their positions. When many shorts try to buy shares simultaneously, it can drive the price up dramatically, forcing more shorts to cover.",
-        related: ["Short Covering", "Short Position"],
-      },
-    ],
-  },
-  {
-    category: "ASIC & Reporting",
-    terms: [
-      {
-        term: "ASIC",
-        definition:
-          "The Australian Securities and Investments Commission - Australia's corporate regulator. ASIC collects and publishes aggregated short position reports from market participants.",
-        related: ["T+4 Delay", "Short Position"],
-      },
-      {
-        term: "T+4 Delay",
-        definition:
-          "ASIC publishes short position data with a four trading day delay. For example, Monday's short positions are published on Friday. This delay is built into the reporting system.",
-        related: ["ASIC", "Short Position"],
-      },
-      {
-        term: "Reporting Threshold",
-        definition:
-          "Market participants must report short positions to ASIC when they exceed $100,000 or 0.01% of the company's issued capital, whichever is less.",
-        related: ["ASIC", "Short Position"],
-      },
-      {
-        term: "Aggregated Short Position",
-        definition:
-          "The total short position across all market participants, published by ASIC. Individual positions are not disclosed to protect trader confidentiality.",
-        related: ["ASIC", "Short Position"],
-      },
-    ],
-  },
-  {
-    category: "Trading Mechanics",
-    terms: [
-      {
-        term: "Securities Lending",
-        definition:
-          "The process by which shares are borrowed from institutional holders (like superannuation funds) to facilitate short selling. Lenders receive a fee for making their shares available.",
-        related: ["Short Selling", "Borrowing Cost"],
-      },
-      {
-        term: "Short Covering",
-        definition:
-          "The process of closing out a short position by buying back the shares that were previously sold short. Also called 'covering' or 'closing a short'.",
-        related: ["Short Squeeze", "Short Position"],
-      },
-      {
-        term: "Days to Cover",
-        definition:
-          "The number of days it would take for all short sellers to cover their positions based on average daily trading volume. Calculated as: Short Interest ÷ Average Daily Volume.",
-        related: ["Short Interest", "Short Squeeze"],
-      },
-      {
-        term: "Borrowing Cost",
-        definition:
-          "The interest rate charged to borrow shares for short selling. Hard-to-borrow stocks have higher borrowing costs, which can exceed 50% annually for heavily shorted stocks.",
-        related: ["Securities Lending", "Short Selling"],
-      },
-      {
-        term: "Margin Call",
-        definition:
-          "A demand from a broker for additional funds when a short position moves against the trader. If the stock price rises significantly, the short seller must deposit more collateral.",
-        related: ["Short Selling", "Short Squeeze"],
-      },
-    ],
-  },
-  {
-    category: "Analysis Terms",
-    terms: [
-      {
-        term: "Bearish",
-        definition:
-          "A negative outlook on a stock or the market. Short sellers are bearish as they profit when prices fall. High short interest is often considered a bearish indicator.",
-        related: ["Short Selling", "Short Interest"],
-      },
-      {
-        term: "Bullish",
-        definition:
-          "A positive outlook expecting prices to rise. Some traders view high short interest as bullish, believing a short squeeze could push prices higher.",
-        related: ["Short Squeeze"],
-      },
-      {
-        term: "Shares on Issue",
-        definition:
-          "The total number of shares of a company that have been issued and are outstanding. Used as the denominator when calculating short interest percentage.",
-        related: ["Short Interest"],
-      },
-      {
-        term: "Float",
-        definition:
-          "The number of shares available for public trading, excluding restricted shares held by insiders. Short interest relative to float can be higher than relative to total shares.",
-        related: ["Short Interest", "Shares on Issue"],
-      },
-      {
-        term: "Short Interest Ratio",
-        definition:
-          "Another name for days to cover. A higher ratio suggests it will take longer for shorts to exit their positions, potentially increasing squeeze risk.",
-        related: ["Days to Cover", "Short Squeeze"],
-      },
-    ],
-  },
-  {
-    category: "Market Participants",
-    terms: [
-      {
-        term: "Hedge Fund",
-        definition:
-          "Investment funds that use various strategies including short selling. Hedge funds are major participants in ASX short selling activity.",
-        related: ["Short Selling", "Securities Lending"],
-      },
-      {
-        term: "Market Maker",
-        definition:
-          "Financial institutions that provide liquidity by buying and selling securities. Market makers may have short positions as part of their market-making activities.",
-        related: ["Short Position"],
-      },
-      {
-        term: "Prime Broker",
-        definition:
-          "Financial institutions that provide services to hedge funds including securities lending for short selling. They facilitate the borrowing of shares.",
-        related: ["Securities Lending", "Hedge Fund"],
-      },
-    ],
-  },
-];
 
 // DefinedTermSet structured data
 function GlossaryStructuredData() {
@@ -285,28 +132,38 @@ export default function GlossaryPage() {
             </h2>
             <div className="grid gap-4">
               {category.terms.map((item) => (
-                <Card key={item.term} id={item.term.toLowerCase().replace(/\s+/g, "-")}>
+                <Card key={item.term} id={item.slug}>
                   <CardHeader className="pb-3">
-                    <CardTitle className="text-lg">{item.term}</CardTitle>
+                    <Link href={`/glossary/${item.slug}`} className="hover:text-primary transition-colors">
+                      <CardTitle className="text-lg">{item.term}</CardTitle>
+                    </Link>
                   </CardHeader>
                   <CardContent>
                     <p className="text-muted-foreground mb-4">{item.definition}</p>
-                    {item.related.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          Related:
-                        </span>
-                        {item.related.map((related) => (
-                          <a
-                            key={related}
-                            href={`#${related.toLowerCase().replace(/\s+/g, "-")}`}
-                            className="text-xs px-2 py-1 rounded bg-muted hover:bg-muted/80 transition-colors"
-                          >
-                            {related}
-                          </a>
-                        ))}
-                      </div>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {item.related.length > 0 && (
+                        <>
+                          <span className="text-xs text-muted-foreground">
+                            Related:
+                          </span>
+                          {item.related.map((related) => (
+                            <Link
+                              key={related}
+                              href={`/glossary/${related.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`}
+                              className="text-xs px-2 py-1 rounded bg-muted hover:bg-muted/80 transition-colors"
+                            >
+                              {related}
+                            </Link>
+                          ))}
+                        </>
+                      )}
+                      <Link
+                        href={`/glossary/${item.slug}`}
+                        className="text-xs text-primary hover:underline ml-auto"
+                      >
+                        Read more
+                      </Link>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
