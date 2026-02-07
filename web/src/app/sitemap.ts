@@ -61,7 +61,7 @@ async function getAllStockCodes(): Promise<string[]> {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          period: "1w",
+          period: "1y",
           limit: 1000,
           offset: 0,
         }),
