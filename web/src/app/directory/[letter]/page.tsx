@@ -42,7 +42,7 @@ async function getAllStocksForDirectory(): Promise<
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ period: "max", limit: 1000, offset: 0 }),
+        body: JSON.stringify({ period: "1w", limit: 1000, offset: 0 }),
         next: { revalidate: 3600 },
       },
     );
