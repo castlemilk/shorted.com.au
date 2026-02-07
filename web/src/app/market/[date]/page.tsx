@@ -42,7 +42,8 @@ export async function generateStaticParams(): Promise<{ date: string }[]> {
         PRODUCTION_API_URL,
     });
     const client = createClient(ShortedStocksService, transport);
-    const response = await client.getAvailableDates({ limit: 90, before: "" });
+    // Only pre-generate last 10 dates at build time; rest via ISR on-demand
+    const response = await client.getAvailableDates({ limit: 10, before: "" });
 
     return response.dates.map((date) => ({ date }));
   } catch (error) {

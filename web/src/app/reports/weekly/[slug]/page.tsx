@@ -30,7 +30,8 @@ interface PageProps {
 export async function generateStaticParams() {
   try {
     const slugs = await getAvailableWeekSlugs();
-    return slugs.slice(0, 52).map((slug) => ({ slug }));
+    // Only pre-generate last 4 weeks at build time; rest via ISR on-demand
+    return slugs.slice(0, 4).map((slug) => ({ slug }));
   } catch {
     return [];
   }
