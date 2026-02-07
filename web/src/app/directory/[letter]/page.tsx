@@ -10,7 +10,65 @@ import {
 } from "~/@/components/seo/enhanced-structured-data";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { cn } from "~/@/lib/utils";
-import { getMarketByDate, getAvailableDates } from "~/app/actions/market/getMarketByDate";
+
+const PRODUCTION_API_URL = "https://api.shorted.com.au";
+
+interface TopShortsTimeSeries {
+  productCode?: string;
+  name?: string;
+  latestShortPosition?: number;
+}
+
+interface TopShortsResponse {
+  timeSeries: TopShortsTimeSeries[];
+}
+
+/**
+ * Fetch all stocks via direct JSON fetch to GetTopShorts.
+ * Uses plain fetch to avoid protobuf-es SSR initialization overhead
+ * that causes timeouts on Vercel serverless functions.
+ */
+async function getAllStocksForDirectory(): Promise<
+  Array<{ code: string; name: string; shortPercent: number }>
+> {
+  try {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
+      process.env.NEXT_PUBLIC_API_URL ??
+      PRODUCTION_API_URL;
+
+    const response = await fetch(
+      `${baseUrl}/shorts.v1alpha1.ShortedStocksService/GetTopShorts`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ period: "max", limit: 1000, offset: 0 }),
+        next: { revalidate: 3600 },
+      },
+    );
+
+    if (!response.ok) {
+      console.warn(`Directory API returned ${response.status}`);
+      return [];
+    }
+
+    const data = (await response.json()) as TopShortsResponse;
+
+    return (data.timeSeries || [])
+      .filter(
+        (ts): ts is Required<TopShortsTimeSeries> =>
+          typeof ts.productCode === "string" && ts.productCode.length > 0,
+      )
+      .map((ts) => ({
+        code: ts.productCode,
+        name: ts.name || ts.productCode,
+        shortPercent: ts.latestShortPosition ?? 0,
+      }));
+  } catch (error) {
+    console.error("Failed to fetch stocks for directory:", error);
+    return [];
+  }
+}
 
 const LETTERS = "abcdefghijklmnopqrstuvwxyz".split("");
 
@@ -73,35 +131,11 @@ export default async function DirectoryLetterPage({ params }: PageProps) {
 
   const upperLetter = normalizedLetter.toUpperCase();
 
-  // Fetch all stocks using getTopShortsData with a high limit
-  let stocks: Array<{
-    code: string;
-    name: string;
-    industry: string;
-    shortPercent: number;
-  }> = [];
-
-  try {
-    // Get the latest available date, then fetch all stocks for that date
-    const datesResponse = await getAvailableDates(1);
-    const latestDate = datesResponse?.dates[0];
-    if (latestDate) {
-      const response = await getMarketByDate(latestDate, 1000, 0);
-      if (response) {
-        stocks = response.stocks
-          .filter((s) => s.productCode.startsWith(upperLetter))
-          .map((s) => ({
-            code: s.productCode,
-            name: s.name || s.productCode,
-            industry: s.industry || "",
-            shortPercent: s.percentageShorted,
-          }))
-          .sort((a, b) => a.code.localeCompare(b.code));
-      }
-    }
-  } catch (error) {
-    console.error("Failed to fetch stocks for directory:", error);
-  }
+  // Fetch all stocks via direct JSON fetch (fast, avoids protobuf-es SSR overhead)
+  const allStocks = await getAllStocksForDirectory();
+  const stocks = allStocks
+    .filter((s) => s.code.startsWith(upperLetter))
+    .sort((a, b) => a.code.localeCompare(b.code));
 
   const breadcrumbItems = [
     { label: "Directory", href: "/directory" },
