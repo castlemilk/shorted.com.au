@@ -10,7 +10,7 @@ import CompanyStats, {
 import CompanyInfo, {
   CompanyInfoPlaceholder,
 } from "~/@/components/ui/companyInfo";
-import CompanyFinancials, {
+import CompanyFinancials,{
   CompanyFinancialsPlaceholder,
 } from "~/@/components/ui/companyFinancials";
 import { EnrichedCompanySection } from "~/@/components/company/enriched-company-section";
@@ -34,6 +34,55 @@ import { TrendingDown, CandlestickChart } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { RelatedStocks } from "~/@/components/seo/related-stocks";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
+import { createConnectTransport } from "@connectrpc/connect-web";
+import { createClient } from "@connectrpc/connect";
+import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { getStock } from "~/app/actions/getStock";
+
+// Production API URL for static generation during builds
+const PRODUCTION_API_URL = "https://api.shorted.com.au";
+
+/**
+ * Pre-generate the top 200 most shorted stocks at build time.
+ * This ensures fast page loads and better SEO crawlability for high-traffic pages.
+ * Remaining stocks will be generated on-demand with ISR.
+ */
+export async function generateStaticParams(): Promise<{ stockCode: string }[]> {
+  try {
+    const transport = createConnectTransport({
+      baseUrl:
+        process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
+        process.env.NEXT_PUBLIC_API_URL ??
+        PRODUCTION_API_URL,
+    });
+
+    const client = createClient(ShortedStocksService, transport);
+
+    // Fetch top 200 stocks sorted by short position
+    const response = await client.getTopShorts({
+      period: "max",
+      limit: 200,
+      offset: 0,
+    });
+
+    const stockCodes = response.timeSeries
+      .map((ts) => ts.productCode)
+      .filter((code): code is string => !!code);
+
+    // Return unique stock codes
+    return [...new Set(stockCodes)].map((code) => ({
+      stockCode: code,
+    }));
+  } catch (error) {
+    console.error("Failed to fetch stock codes for static generation:", error);
+    // Fallback to most popular stocks if API fails
+    const fallbackStocks = [
+      "CBA", "BHP", "CSL", "NAB", "WBC", "ANZ", "WES", "MQG", "WOW", "TLS",
+      "RIO", "FMG", "GMG", "TCL", "WDS", "NCM", "ALL", "COL", "REA", "QBE",
+    ];
+    return fallbackStocks.map((code) => ({ stockCode: code }));
+  }
+}
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;
@@ -43,8 +92,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { stockCode } = await params;
   const code = stockCode.toUpperCase();
 
-  const title = `${code} Short Position | Official ASIC Data (T+4)`;
-  const description = `${code} short selling data from official ASIC reports. Current short interest %, historical trends, charts & analysis. Updated daily with T+4 delay. Free ASX short position tracking.`;
+  // Try to fetch stock data for enriched metadata
+  let title = `${code} Short Position | Official ASIC Data (T+4)`;
+  let description = `${code} short selling data from official ASIC reports. Current short interest %, historical trends, charts & analysis. Updated daily with T+4 delay. Free ASX short position tracking.`;
+
+  try {
+    const stock = await getStock(code);
+    if (stock) {
+      const companyName = stock.name ? `(${stock.name})` : "";
+      const shortPct = stock.percentageShorted > 0 ? ` | ${stock.percentageShorted.toFixed(1)}% Shorted` : "";
+      title = `${code} ${companyName} Short Position${shortPct} | ASIC Data`;
+      description = `${code}${companyName ? ` ${companyName}` : ""} short selling data from official ASIC reports.${stock.percentageShorted > 0 ? ` Currently ${stock.percentageShorted.toFixed(1)}% shorted.` : ""} Historical trends, charts & analysis. Updated daily with T+4 delay.`;
+    }
+  } catch {
+    // Fall back to default title/description if fetch fails
+  }
 
   return {
     title,

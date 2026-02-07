@@ -158,9 +158,8 @@ ORDER BY s."DATE" DESC LIMIT 1`
 }
 
 // GetTop10Shorts retrieves the top 10 shorted stocks.
-func (s *postgresStore) GetTopShorts(period string, limit int32, offset int32) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
-	// You'll need to adjust FetchTimeSeriesData to use pgx as well.
-	return FetchTimeSeriesData(s.db, int(limit), int(offset), period)
+func (s *postgresStore) GetTopShorts(period string, limit int32, offset int32, summaryOnly bool) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
+	return FetchTimeSeriesData(s.db, int(limit), int(offset), period, summaryOnly)
 }
 
 // GetStockData retrieves the time series data for a single stock, downsampling it for performance.
@@ -1066,6 +1065,129 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 
 	log.Debugf("Search completed for '%s': found %d stocks", query, len(results))
 	return results, nil
+}
+
+// GetMarketByDate retrieves all short positions for a specific trading date.
+// Uses timestamp range comparison to leverage the (DATE, PRODUCT_CODE) index.
+func (s *postgresStore) GetMarketByDate(date string, limit, offset int32) ([]*stocksv1alpha1.Stock, int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Use timestamp range to hit the index instead of ::date cast
+	dateStart := date + " 00:00:00"
+	dateEnd := date + " 23:59:59"
+
+	// Count total stocks for this date
+	countQuery := `
+		SELECT COUNT(*)
+		FROM shorts
+		WHERE "DATE" >= $1 AND "DATE" <= $2
+		  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0`
+
+	var totalCount int
+	if err := s.db.QueryRow(ctx, countQuery, dateStart, dateEnd).Scan(&totalCount); err != nil {
+		return nil, 0, fmt.Errorf("failed to count stocks for date %s: %w", date, err)
+	}
+
+	// Fetch stocks for this date
+	query := `
+		SELECT
+			s."PRODUCT_CODE" as product_code,
+			s."PRODUCT" as name,
+			s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
+			s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
+			s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue,
+			COALESCE(m.industry, '') as industry,
+			COALESCE(m.logo_gcs_url, '') as logo_url
+		FROM shorts s
+		LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
+		WHERE s."DATE" >= $1 AND s."DATE" <= $2
+		  AND s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+		ORDER BY s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC
+		LIMIT $3 OFFSET $4`
+
+	rows, err := s.db.Query(ctx, query, dateStart, dateEnd, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query market by date %s: %w", date, err)
+	}
+	defer rows.Close()
+
+	var stocks []*stocksv1alpha1.Stock
+	for rows.Next() {
+		stock := &stocksv1alpha1.Stock{}
+		if err := rows.Scan(
+			&stock.ProductCode,
+			&stock.Name,
+			&stock.PercentageShorted,
+			&stock.ReportedShortPositions,
+			&stock.TotalProductInIssue,
+			&stock.Industry,
+			&stock.LogoUrl,
+		); err != nil {
+			return nil, 0, fmt.Errorf("failed to scan stock row: %w", err)
+		}
+		stocks = append(stocks, stock)
+	}
+
+	return stocks, totalCount, nil
+}
+
+// GetAvailableDates retrieves available trading dates with short position data.
+// Uses timestamp comparisons to leverage indexes on the DATE column.
+func (s *postgresStore) GetAvailableDates(limit int, before string) ([]string, string, string, int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Get dates with optional "before" filter — use timestamp range for index usage
+	var datesQuery string
+	var args []interface{}
+	if before != "" {
+		datesQuery = `
+			SELECT DISTINCT "DATE"::date as date
+			FROM shorts
+			WHERE "DATE" < $1::timestamp
+			ORDER BY date DESC
+			LIMIT $2`
+		args = []interface{}{before + " 00:00:00", limit}
+	} else {
+		datesQuery = `
+			SELECT DISTINCT "DATE"::date as date
+			FROM shorts
+			ORDER BY date DESC
+			LIMIT $1`
+		args = []interface{}{limit}
+	}
+
+	rows, err := s.db.Query(ctx, datesQuery, args...)
+	if err != nil {
+		return nil, "", "", 0, fmt.Errorf("failed to query available dates: %w", err)
+	}
+	defer rows.Close()
+
+	var dates []string
+	for rows.Next() {
+		var d time.Time
+		if err := rows.Scan(&d); err != nil {
+			return nil, "", "", 0, fmt.Errorf("failed to scan date row: %w", err)
+		}
+		dates = append(dates, d.Format("2006-01-02"))
+	}
+
+	// Get earliest and latest dates
+	var earliest, latest time.Time
+	boundsQuery := `SELECT MIN("DATE"), MAX("DATE") FROM shorts`
+	if err := s.db.QueryRow(ctx, boundsQuery).Scan(&earliest, &latest); err != nil {
+		return nil, "", "", 0, fmt.Errorf("failed to get date bounds: %w", err)
+	}
+
+	// Use length of dates as approximate count (avoids expensive COUNT DISTINCT)
+	totalCount := len(dates)
+	if totalCount == limit {
+		// If we hit the limit, there are more dates — use a rough estimate
+		totalCount = limit * 2 // Signal that there are more
+	}
+
+	return dates, earliest.Format("2006-01-02"), latest.Format("2006-01-02"), totalCount, nil
 }
 
 func (s *postgresStore) GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error) {

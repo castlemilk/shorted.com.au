@@ -45,7 +45,7 @@ func periodToInterval(period string) string {
 // Uses mv_top_shorts materialized view for fast retrieval of top stocks (~6ms vs ~2s),
 // then fetches time series data from the raw shorts table.
 // Falls back to raw query if MV doesn't exist (for dev/test environments).
-func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
+func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, summaryOnly bool) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
 	if limit <= 0 {
 		limit = 10 // Default to 10 if a non-positive limit is provided
 	}
@@ -62,6 +62,62 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string) ([]
 
 	interval := periodToInterval(period)
 	log.Infof("Period: %s, Interval: %s", period, interval)
+
+	// Summary-only mode: use mv_top_shorts with current_percent, skip time series query.
+	// Returns ~5-10KB instead of ~10MB for 1000 stocks.
+	if summaryOnly {
+		summaryQuery := `
+		SELECT product_name, product_code, current_percent
+		FROM mv_top_shorts
+		ORDER BY current_percent DESC
+		LIMIT $1 OFFSET $2`
+
+		rows, err := connection.Query(ctx, summaryQuery, limit, offset)
+		if err != nil {
+			// Fallback if MV doesn't exist
+			log.Infof("mv_top_shorts not available for summary, using fallback: %v", err)
+			summaryQuery = `
+			WITH latest_shorts AS (
+				SELECT DISTINCT ON ("PRODUCT_CODE")
+					"PRODUCT_CODE",
+					"PRODUCT",
+					"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
+				FROM shorts
+				WHERE "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+					AND "DATE" > (SELECT MAX("DATE") FROM shorts) - INTERVAL '1 month'
+					AND "PRODUCT" NOT ILIKE '%DEFERRED SETTLEMENT%'
+					AND "PRODUCT" NOT ILIKE '%DEFERRED%'
+				ORDER BY "PRODUCT_CODE", "DATE" DESC
+			)
+			SELECT "PRODUCT", "PRODUCT_CODE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
+			FROM latest_shorts
+			ORDER BY "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC
+			LIMIT $1 OFFSET $2`
+			rows, err = connection.Query(ctx, summaryQuery, limit, offset)
+			if err != nil {
+				return nil, 0, err
+			}
+		}
+		defer rows.Close()
+
+		result := make([]*stocksv1alpha1.TimeSeriesData, 0, limit)
+		for rows.Next() {
+			var productName, productCode string
+			var currentPercent float64
+			if err := rows.Scan(&productName, &productCode, &currentPercent); err != nil {
+				return nil, 0, err
+			}
+			result = append(result, &stocksv1alpha1.TimeSeriesData{
+				ProductCode:         productCode,
+				Name:                productName,
+				LatestShortPosition: currentPercent,
+			})
+		}
+		if rows.Err() != nil {
+			return nil, 0, rows.Err()
+		}
+		return result, offset + len(result), nil
+	}
 
 	// Try mv_top_shorts materialized view first (fast path, ~6ms)
 	// Falls back to raw query if MV doesn't exist (dev/test environments, ~2s)

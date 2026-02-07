@@ -10,12 +10,14 @@ import (
 
 // ShortsStore defines the interface for shorts data operations
 type ShortsStore interface {
-	GetTopShorts(period string, limit int32, offset int32) ([]*stocksv1alpha1.TimeSeriesData, int, error)
+	GetTopShorts(period string, limit int32, offset int32, summaryOnly bool) ([]*stocksv1alpha1.TimeSeriesData, int, error)
 	GetStock(productCode string) (*stocksv1alpha1.Stock, error)
 	GetStockData(productCode, period string) (*stocksv1alpha1.TimeSeriesData, error)
 	GetStockDetails(productCode string) (*stocksv1alpha1.StockDetails, error)
 	GetIndustryTreeMap(limit int32, period, viewMode string) (*stocksv1alpha1.IndustryTreeMap, error)
 	SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error)
+	GetMarketByDate(date string, limit, offset int32) ([]*stocksv1alpha1.Stock, int, error)
+	GetAvailableDates(limit int, before string) ([]string, string, string, int, error)
 	GetSyncStatus(filter shortsstore.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
 	CleanupStuckSyncRuns() (int, error)
 
@@ -67,6 +69,8 @@ type Cache interface {
 	GetStockDetailsKey(productCode string) string
 	GetIndustryTreeMapKey(limit int32, period, viewMode string) string
 	GetSearchStocksKey(query string, limit int32) string
+	GetMarketByDateKey(date string, limit, offset int32) string
+	GetAvailableDatesKey(limit int32, before string) string
 }
 
 // Logger defines the interface for logging operations

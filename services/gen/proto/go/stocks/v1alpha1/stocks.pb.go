@@ -1178,7 +1178,7 @@ const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\x12percentage_shorted\x18\x05 \x01(\x02R\x11percentageShorted\x12\x1a\n" +
 	"\bindustry\x18\x06 \x01(\tR\bindustry\x12\x12\n" +
 	"\x04tags\x18\a \x03(\tR\x04tags\x12\x19\n" +
-	"\blogo_url\x18\b \x01(\tR\alogoUrl\"\x9d\x02\n" +
+	"\blogo_url\x18\b \x01(\tR\alogoUrl\"\xa3\x02\n" +
 	"\x0eTimeSeriesData\x12!\n" +
 	"\fproduct_code\x18\x01 \x01(\tR\vproductCode\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x122\n" +
@@ -1186,7 +1186,7 @@ const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\x06points\x18\n" +
 	" \x03(\v2 .stocks.v1alpha1.TimeSeriesPointR\x06points\x122\n" +
 	"\x03max\x18\v \x01(\v2 .stocks.v1alpha1.TimeSeriesPointR\x03max\x122\n" +
-	"\x03min\x18\f \x01(\v2 .stocks.v1alpha1.TimeSeriesPointR\x03min\"r\n" +
+	"\x03min\x18\f \x01(\v2 .stocks.v1alpha1.TimeSeriesPointR\x03minJ\x04\b\x02\x10\x03\"r\n" +
 	"\x0fTimeSeriesPoint\x128\n" +
 	"\ttimestamp\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\ttimestamp\x12%\n" +
 	"\x0eshort_position\x18\x02 \x01(\x01R\rshortPosition\"\xf8\b\n" +

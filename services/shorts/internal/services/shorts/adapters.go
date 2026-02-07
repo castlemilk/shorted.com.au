@@ -18,8 +18,8 @@ func NewStoreAdapter(store shorts.Store) *StoreAdapter {
 	return &StoreAdapter{store: store}
 }
 
-func (s *StoreAdapter) GetTopShorts(period string, limit int32, offset int32) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
-	return s.store.GetTopShorts(period, limit, offset)
+func (s *StoreAdapter) GetTopShorts(period string, limit int32, offset int32, summaryOnly bool) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
+	return s.store.GetTopShorts(period, limit, offset, summaryOnly)
 }
 
 func (s *StoreAdapter) GetStock(productCode string) (*stocksv1alpha1.Stock, error) {
@@ -40,6 +40,14 @@ func (s *StoreAdapter) GetIndustryTreeMap(limit int32, period, viewMode string) 
 
 func (s *StoreAdapter) SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error) {
 	return s.store.SearchStocks(query, limit)
+}
+
+func (s *StoreAdapter) GetMarketByDate(date string, limit, offset int32) ([]*stocksv1alpha1.Stock, int, error) {
+	return s.store.GetMarketByDate(date, limit, offset)
+}
+
+func (s *StoreAdapter) GetAvailableDates(limit int, before string) ([]string, string, string, int, error) {
+	return s.store.GetAvailableDates(limit, before)
 }
 
 func (s *StoreAdapter) GetSyncStatus(filter shorts.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error) {
