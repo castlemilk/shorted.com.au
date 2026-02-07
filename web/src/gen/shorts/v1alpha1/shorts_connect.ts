@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { EnrichStockRequest, EnrichStockResponse, GetEnrichmentJobStatusRequest, GetEnrichmentJobStatusResponse, GetIndustryTreeMapRequest, GetMySubscriptionRequest, GetMySubscriptionResponse, GetPendingEnrichmentRequest, GetPendingEnrichmentResponse, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetSyncStatusRequest, GetSyncStatusResponse, GetTopShortsRequest, GetTopShortsResponse, GetTopStocksForEnrichmentRequest, GetTopStocksForEnrichmentResponse, HandleStripeCheckoutCompletedRequest, HandleStripeCheckoutCompletedResponse, HandleStripeSubscriptionUpdatedRequest, HandleStripeSubscriptionUpdatedResponse, ListEnrichmentJobsRequest, ListEnrichmentJobsResponse, ListPendingEnrichmentsRequest, ListPendingEnrichmentsResponse, MintTokenRequest, MintTokenResponse, ReviewEnrichmentRequest, ReviewEnrichmentResponse, SearchStocksRequest, SearchStocksResponse, SyncKeyMetricsRequest, SyncKeyMetricsResponse } from "./shorts_pb";
+import { EnrichStockRequest, EnrichStockResponse, GetAvailableDatesRequest, GetAvailableDatesResponse, GetEnrichmentJobStatusRequest, GetEnrichmentJobStatusResponse, GetIndustryTreeMapRequest, GetMarketByDateRequest, GetMarketByDateResponse, GetMySubscriptionRequest, GetMySubscriptionResponse, GetPendingEnrichmentRequest, GetPendingEnrichmentResponse, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetSyncStatusRequest, GetSyncStatusResponse, GetTopShortsRequest, GetTopShortsResponse, GetTopStocksForEnrichmentRequest, GetTopStocksForEnrichmentResponse, HandleStripeCheckoutCompletedRequest, HandleStripeCheckoutCompletedResponse, HandleStripeSubscriptionUpdatedRequest, HandleStripeSubscriptionUpdatedResponse, ListEnrichmentJobsRequest, ListEnrichmentJobsResponse, ListPendingEnrichmentsRequest, ListPendingEnrichmentsResponse, MintTokenRequest, MintTokenResponse, ReviewEnrichmentRequest, ReviewEnrichmentResponse, SearchStocksRequest, SearchStocksResponse, SyncKeyMetricsRequest, SyncKeyMetricsResponse } from "./shorts_pb";
 import { MethodKind } from "@bufbuild/protobuf";
 import { IndustryTreeMap, Stock, StockDetails, TimeSeriesData } from "../../stocks/v1alpha1/stocks_pb";
 
@@ -66,6 +66,28 @@ export const ShortedStocksService = {
       name: "GetStockData",
       I: GetStockDataRequest,
       O: TimeSeriesData,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Get all short positions for a specific trading date
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetMarketByDate
+     */
+    getMarketByDate: {
+      name: "GetMarketByDate",
+      I: GetMarketByDateRequest,
+      O: GetMarketByDateResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Get available trading dates for market snapshots
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetAvailableDates
+     */
+    getAvailableDates: {
+      name: "GetAvailableDates",
+      I: GetAvailableDatesRequest,
+      O: GetAvailableDatesResponse,
       kind: MethodKind.Unary,
     },
     /**

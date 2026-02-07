@@ -3,6 +3,26 @@
 
 .PHONY: help run test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down install install-hooks clean clean-cache clean-all clean-ports build dev dev-clean dev-script dev-frontend dev-backend lint format populate-data populate-data-quick backfill-websites backfill-websites-dry db-diagnose db-optimize db-analyze algolia-sync algolia-sync-prod algolia-search enrich-metadata enrich-metadata-all enrich-metadata-stocks pipeline-local pipeline-prod pipeline-daily pipeline-help
 
+define kill_pids_in_project_by_pattern
+for pid in $$(pgrep -f "$(1)" 2>/dev/null); do \
+	cwd=$$(lsof -a -p $$pid -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -n1); \
+	if [ -n "$$cwd" ] && printf '%s\n' "$$cwd" | grep -q "^$(CURDIR)"; then \
+		kill $(2) $$pid 2>/dev/null || true; \
+	fi; \
+done
+endef
+
+define kill_pids_in_project_by_port
+for pid in $$(lsof -ti:$(1) 2>/dev/null); do \
+	cwd=$$(lsof -a -p $$pid -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -n1); \
+	if [ -n "$$cwd" ] && printf '%s\n' "$$cwd" | grep -q "^$(CURDIR)"; then \
+		kill $(2) $$pid 2>/dev/null || true; \
+	fi; \
+done
+endef
+
+
+
 # Default target
 help:
 	@echo "Available commands:"
@@ -131,9 +151,9 @@ clean-all: clean clean-cache ## Clean all build artifacts and caches
 
 clean-ports:
 	@echo "🧹 Killing stale processes on development ports..."
-	@-lsof -ti :9091 | xargs kill -9 2>/dev/null || true
-	@-lsof -ti :3000 | xargs kill -9 2>/dev/null || true
-	@-lsof -ti :8090 | xargs kill -9 2>/dev/null || true
+	@$(call kill_pids_in_project_by_port,9091,-9)
+	@$(call kill_pids_in_project_by_port,3000,-9)
+	@$(call kill_pids_in_project_by_port,8090,-9)
 	@echo "✅ Ports cleaned (9091, 3000, 8090)"
 
 # Build commands

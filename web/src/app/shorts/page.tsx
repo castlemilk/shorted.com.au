@@ -1,6 +1,4 @@
 import { type Metadata } from "next";
-import { auth } from "~/server/auth";
-import { redirect } from "next/navigation";
 import { getTopShortsData } from "../actions/getTopShorts";
 import { calculateMovers, type TimePeriod } from "~/@/lib/shorts-calculations";
 import { TopShortsClient } from "./components/top-shorts-client";
@@ -42,14 +40,11 @@ export const metadata: Metadata = {
 const DEFAULT_PERIOD: TimePeriod = "3m";
 const LOAD_CHUNK_SIZE = 20;
 
-export default async function TopShortsPage() {
-  // Check authentication on server
-  const session = await auth();
-  
-  if (!session) {
-    redirect("/signin?callbackUrl=/shorts");
-  }
+// ISR: Revalidate every hour for fresh data while keeping pages fast
+export const revalidate = 3600;
 
+export default async function TopShortsPage() {
+  // Page is public for SEO - search engines can crawl the top shorts list
   // Fetch data on server
   const data = await getTopShortsData(DEFAULT_PERIOD, LOAD_CHUNK_SIZE, 0);
   const timeSeries = data.timeSeries ?? [];

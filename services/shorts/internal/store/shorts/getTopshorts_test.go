@@ -188,7 +188,7 @@ func TestFetchTimeSeriesData_ReturnsMultipleResults(t *testing.T) {
 	offset := 0
 	period := "6M"
 
-	results, newOffset, err := FetchTimeSeriesData(pool, limit, offset, period)
+	results, newOffset, err := FetchTimeSeriesData(pool, limit, offset, period, false)
 	require.NoError(t, err, "FetchTimeSeriesData should not return error")
 
 	// Validate we get multiple results (regression test)
@@ -239,7 +239,7 @@ func TestFetchTimeSeriesData_OnlyReturnsRecentStocks(t *testing.T) {
 
 	// Fetch top shorts
 	limit := 15
-	results, _, err := FetchTimeSeriesData(pool, limit, 0, "6M")
+	results, _, err := FetchTimeSeriesData(pool, limit, 0, "6M", false)
 	require.NoError(t, err, "FetchTimeSeriesData should not return error")
 	require.NotEmpty(t, results, "Should return results")
 
@@ -276,7 +276,7 @@ func TestFetchTimeSeriesData_ResultsOrderedByShortPosition(t *testing.T) {
 	pool, cleanup := setupTestDatabase(t)
 	defer cleanup()
 
-	results, _, err := FetchTimeSeriesData(pool, 10, 0, "6M")
+	results, _, err := FetchTimeSeriesData(pool, 10, 0, "6M", false)
 	require.NoError(t, err, "FetchTimeSeriesData should not return error")
 	require.NotEmpty(t, results, "Should return at least one result")
 
@@ -326,7 +326,7 @@ func TestFetchTimeSeriesData_DifferentPeriods(t *testing.T) {
 
 	for _, tc := range periods {
 		t.Run(tc.name, func(t *testing.T) {
-			results, _, err := FetchTimeSeriesData(pool, 5, 0, tc.period)
+			results, _, err := FetchTimeSeriesData(pool, 5, 0, tc.period, false)
 			require.NoError(t, err, "FetchTimeSeriesData should not return error for period %s", tc.period)
 
 			if tc.expectResults {
@@ -357,12 +357,12 @@ func TestFetchTimeSeriesData_Pagination(t *testing.T) {
 	defer cleanup()
 
 	// Fetch first page
-	page1, offset1, err := FetchTimeSeriesData(pool, 5, 0, "6M")
+	page1, offset1, err := FetchTimeSeriesData(pool, 5, 0, "6M", false)
 	require.NoError(t, err, "Failed to fetch first page")
 	require.NotEmpty(t, page1, "First page should have results")
 
 	// Fetch second page
-	page2, offset2, err := FetchTimeSeriesData(pool, 5, offset1, "6M")
+	page2, offset2, err := FetchTimeSeriesData(pool, 5, offset1, "6M", false)
 	require.NoError(t, err, "Failed to fetch second page")
 
 	// If there are results on the second page, they should be different from the first
@@ -394,7 +394,7 @@ func TestFetchTimeSeriesData_MinimumDataPoints(t *testing.T) {
 	defer cleanup()
 
 	// Test with a short period (1 month) where stocks should still have enough points
-	results, _, err := FetchTimeSeriesData(pool, 20, 0, "1M")
+	results, _, err := FetchTimeSeriesData(pool, 20, 0, "1M", false)
 	require.NoError(t, err, "FetchTimeSeriesData should not return error")
 
 	// All returned stocks must have at least 2 data points
@@ -418,26 +418,26 @@ func TestFetchTimeSeriesData_ValidatesInputs(t *testing.T) {
 	defer cleanup()
 
 	t.Run("Zero limit defaults to 10", func(t *testing.T) {
-		results, _, err := FetchTimeSeriesData(pool, 0, 0, "6M")
+		results, _, err := FetchTimeSeriesData(pool, 0, 0, "6M", false)
 		require.NoError(t, err, "Should handle zero limit")
 		assert.NotEmpty(t, results, "Should return results with default limit")
 	})
 
 	t.Run("Negative limit defaults to 10", func(t *testing.T) {
-		results, _, err := FetchTimeSeriesData(pool, -5, 0, "6M")
+		results, _, err := FetchTimeSeriesData(pool, -5, 0, "6M", false)
 		require.NoError(t, err, "Should handle negative limit")
 		assert.NotEmpty(t, results, "Should return results with default limit")
 	})
 
 	t.Run("Negative offset defaults to 0", func(t *testing.T) {
-		results, newOffset, err := FetchTimeSeriesData(pool, 5, -10, "6M")
+		results, newOffset, err := FetchTimeSeriesData(pool, 5, -10, "6M", false)
 		require.NoError(t, err, "Should handle negative offset")
 		assert.NotEmpty(t, results, "Should return results")
 		assert.Equal(t, len(results), newOffset, "Offset should start from 0")
 	})
 
 	t.Run("Invalid period defaults to 6M", func(t *testing.T) {
-		results, _, err := FetchTimeSeriesData(pool, 5, 0, "INVALID")
+		results, _, err := FetchTimeSeriesData(pool, 5, 0, "INVALID", false)
 		require.NoError(t, err, "Should handle invalid period")
 		assert.NotEmpty(t, results, "Should return results with default period")
 	})
@@ -465,7 +465,7 @@ func TestTopShortsQuery_ExcludesDelistedStocks(t *testing.T) {
 		"FIX",    // AII200 FinXAREIT - stale data
 	}
 
-	results, _, err := FetchTimeSeriesData(pool, 50, 0, "6M") // Get more results to be thorough
+	results, _, err := FetchTimeSeriesData(pool, 50, 0, "6M", false) // Get more results to be thorough
 	require.NoError(t, err, "FetchTimeSeriesData should not return error")
 	require.NotEmpty(t, results, "Should return results")
 
@@ -500,7 +500,7 @@ func TestTopShortsQuery_ExcludesDeferredSettlementStocks(t *testing.T) {
 	pool, cleanup := setupTestDatabase(t)
 	defer cleanup()
 
-	results, _, err := FetchTimeSeriesData(pool, 100, 0, "6M") // Get more results to be thorough
+	results, _, err := FetchTimeSeriesData(pool, 100, 0, "6M", false) // Get more results to be thorough
 	require.NoError(t, err, "FetchTimeSeriesData should not return error")
 	require.NotEmpty(t, results, "Should return results")
 
@@ -526,7 +526,7 @@ func TestFetchTimeSeriesData_DataIntegrity(t *testing.T) {
 	pool, cleanup := setupTestDatabase(t)
 	defer cleanup()
 
-	results, _, err := FetchTimeSeriesData(pool, 10, 0, "6M")
+	results, _, err := FetchTimeSeriesData(pool, 10, 0, "6M", false)
 	require.NoError(t, err, "FetchTimeSeriesData should not return error")
 	require.NotEmpty(t, results, "Should return results")
 
@@ -608,7 +608,7 @@ func BenchmarkFetchTimeSeriesData(b *testing.B) {
 	
 	// Run the benchmark
 	for i := 0; i < b.N; i++ {
-		_, _, err := FetchTimeSeriesData(pool, 10, 0, "6M")
+		_, _, err := FetchTimeSeriesData(pool, 10, 0, "6M", false)
 		if err != nil {
 			b.Fatal(err)
 		}

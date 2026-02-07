@@ -28,15 +28,19 @@ func (s *ShortsServer) GetTopShorts(ctx context.Context, req *connect.Request[sh
 		return nil, err
 	}
 
-	s.logger.Debugf("get top shorts, period: %s, limit: %d, offset: %d", req.Msg.GetPeriod(), req.Msg.Limit, req.Msg.Offset)
+	s.logger.Debugf("get top shorts, period: %s, limit: %d, offset: %d, summaryOnly: %v", req.Msg.GetPeriod(), req.Msg.Limit, req.Msg.Offset, req.Msg.SummaryOnly)
 
-	// Check cache first
-	cacheKey := s.cache.GetTopShortsKey(req.Msg.Period, req.Msg.Limit, req.Msg.Offset)
+	// Check cache first — include summaryOnly in cache key to avoid mixing full/summary responses
+	summaryTag := ""
+	if req.Msg.SummaryOnly {
+		summaryTag = ":summary"
+	}
+	cacheKey := s.cache.GetTopShortsKey(req.Msg.Period+summaryTag, req.Msg.Limit, req.Msg.Offset)
 
 	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
 		s.logger.Debugf("cache miss for GetTopShorts, fetching from database")
 
-		result, offset, err := s.store.GetTopShorts(req.Msg.GetPeriod(), req.Msg.GetLimit(), req.Msg.Offset)
+		result, offset, err := s.store.GetTopShorts(req.Msg.GetPeriod(), req.Msg.GetLimit(), req.Msg.Offset, req.Msg.SummaryOnly)
 		if err != nil {
 			return nil, err
 		}
@@ -136,6 +140,95 @@ func (s *ShortsServer) GetIndustryTreeMap(ctx context.Context, req *connect.Requ
 	}
 
 	return connect.NewResponse(treeMap), nil
+}
+
+// GetMarketByDate returns all short positions for a specific trading date
+func (s *ShortsServer) GetMarketByDate(ctx context.Context, req *connect.Request[shortsv1alpha1.GetMarketByDateRequest]) (*connect.Response[shortsv1alpha1.GetMarketByDateResponse], error) {
+	SetDefaultValues(req.Msg)
+	if err := ValidateGetMarketByDateRequest(req.Msg); err != nil {
+		s.logger.Errorf("validation failed for GetMarketByDate: %v", err)
+		return nil, err
+	}
+
+	s.logger.Debugf("get market by date: %s, limit: %d, offset: %d", req.Msg.Date, req.Msg.Limit, req.Msg.Offset)
+
+	cacheKey := s.cache.GetMarketByDateKey(req.Msg.Date, req.Msg.Limit, req.Msg.Offset)
+
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+		stocks, totalCount, err := s.store.GetMarketByDate(req.Msg.Date, req.Msg.Limit, req.Msg.Offset)
+		if err != nil {
+			return nil, err
+		}
+
+		// Get previous date (most recent date before this one)
+		prevDates, _, _, _, _ := s.store.GetAvailableDates(1, req.Msg.Date)
+		previousDate := ""
+		if len(prevDates) > 0 {
+			previousDate = prevDates[0]
+		}
+
+		// Get next date: fetch 2 dates starting from day after this one
+		// Dates come back DESC, so we need the last one that's after our date
+		nextDate := ""
+		recentDates, _, _, _, _ := s.store.GetAvailableDates(90, "")
+		for i := len(recentDates) - 1; i >= 0; i-- {
+			if recentDates[i] > req.Msg.Date {
+				nextDate = recentDates[i]
+				break
+			}
+		}
+
+		return &shortsv1alpha1.GetMarketByDateResponse{
+			Date:         req.Msg.Date,
+			Stocks:       stocks,
+			TotalCount:   int32(totalCount),
+			PreviousDate: previousDate,
+			NextDate:     nextDate,
+		}, nil
+	})
+
+	if err != nil {
+		s.logger.Errorf("database error in GetMarketByDate: date=%s, err=%v", req.Msg.Date, err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get market data for date %s", req.Msg.Date))
+	}
+
+	response := cachedResponse.(*shortsv1alpha1.GetMarketByDateResponse)
+	return connect.NewResponse(response), nil
+}
+
+// GetAvailableDates returns available trading dates with short position data
+func (s *ShortsServer) GetAvailableDates(ctx context.Context, req *connect.Request[shortsv1alpha1.GetAvailableDatesRequest]) (*connect.Response[shortsv1alpha1.GetAvailableDatesResponse], error) {
+	SetDefaultValues(req.Msg)
+	if err := ValidateGetAvailableDatesRequest(req.Msg); err != nil {
+		s.logger.Errorf("validation failed for GetAvailableDates: %v", err)
+		return nil, err
+	}
+
+	s.logger.Debugf("get available dates: limit=%d, before=%s", req.Msg.Limit, req.Msg.Before)
+
+	cacheKey := s.cache.GetAvailableDatesKey(req.Msg.Limit, req.Msg.Before)
+
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+		dates, earliest, latest, totalCount, err := s.store.GetAvailableDates(int(req.Msg.Limit), req.Msg.Before)
+		if err != nil {
+			return nil, err
+		}
+
+		return &shortsv1alpha1.GetAvailableDatesResponse{
+			Dates:        dates,
+			EarliestDate: earliest,
+			LatestDate:   latest,
+			TotalCount:   int32(totalCount),
+		}, nil
+	})
+
+	if err != nil {
+		s.logger.Errorf("database error in GetAvailableDates: err=%v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get available dates"))
+	}
+
+	response := cachedResponse.(*shortsv1alpha1.GetAvailableDatesResponse)
+	return connect.NewResponse(response), nil
 }
 
 // SearchStocks searches for stocks using Algolia (with PostgreSQL fallback)

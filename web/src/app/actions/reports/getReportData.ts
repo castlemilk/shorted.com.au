@@ -1,0 +1,183 @@
+import { createConnectTransport } from "@connectrpc/connect-web";
+import { createClient } from "@connectrpc/connect";
+import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { cache } from "react";
+import { SHORTS_API_URL } from "../config";
+import { withRetryAndNotFound } from "../withRetry";
+
+const PRODUCTION_API_URL = "https://api.shorted.com.au";
+
+function getApiUrl() {
+  return process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL ?? PRODUCTION_API_URL;
+}
+
+export interface ReportStock {
+  code: string;
+  name: string;
+  shortPercent: number;
+  industry: string;
+}
+
+export interface WeeklyReportData {
+  weekSlug: string; // e.g., "2026-W06"
+  startDate: string;
+  endDate: string;
+  dates: string[];
+  topStocks: ReportStock[];
+  totalStocksShorted: number;
+}
+
+export interface MonthlyReportData {
+  monthSlug: string; // e.g., "2026-01"
+  month: string;
+  year: string;
+  dates: string[];
+  topStocks: ReportStock[];
+  totalStocksShorted: number;
+}
+
+// Get the ISO week number and year for a date
+function getISOWeek(date: Date): { year: number; week: number } {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return { year: d.getUTCFullYear(), week: weekNo };
+}
+
+// Get the date range for an ISO week
+function getWeekDateRange(year: number, week: number): { start: Date; end: Date } {
+  const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+  const dow = simple.getUTCDay();
+  const start = new Date(simple);
+  if (dow <= 4) {
+    start.setUTCDate(simple.getUTCDate() - simple.getUTCDay() + 1);
+  } else {
+    start.setUTCDate(simple.getUTCDate() + 8 - simple.getUTCDay());
+  }
+  const end = new Date(start);
+  end.setUTCDate(start.getUTCDate() + 4); // Friday
+  return { start, end };
+}
+
+// Parse a week slug like "2026-W06" into year and week
+function parseWeekSlug(slug: string): { year: number; week: number } | null {
+  const match = slug.match(/^(\d{4})-W(\d{2})$/);
+  if (!match?.[1] || !match[2]) return null;
+  return { year: parseInt(match[1]), week: parseInt(match[2]) };
+}
+
+// Get weekly report data by fetching the last day of the week
+export const getWeeklyReportData = cache(
+  withRetryAndNotFound(async (weekSlug: string): Promise<WeeklyReportData> => {
+    const parsed = parseWeekSlug(weekSlug);
+    if (!parsed) throw new Error(`Invalid week slug: ${weekSlug}`);
+
+    const { start, end } = getWeekDateRange(parsed.year, parsed.week);
+    const startStr = start.toISOString().slice(0, 10);
+    const endStr = end.toISOString().slice(0, 10);
+
+    const transport = createConnectTransport({ baseUrl: getApiUrl() });
+    const client = createClient(ShortedStocksService, transport);
+
+    // Get available dates within this week's range
+    const availableDates = await client.getAvailableDates({ limit: 5, before: "" });
+    const weekDates = availableDates.dates.filter((d) => d >= startStr && d <= endStr);
+
+    // Fetch data for the latest day in the week
+    const latestDay = weekDates[0] ?? endStr;
+    const marketData = await client.getMarketByDate({
+      date: latestDay,
+      limit: 50,
+      offset: 0,
+    });
+
+    return {
+      weekSlug,
+      startDate: startStr,
+      endDate: endStr,
+      dates: weekDates,
+      topStocks: marketData.stocks.map((s) => ({
+        code: s.productCode ?? "",
+        name: s.name ?? "",
+        shortPercent: s.percentageShorted,
+        industry: s.industry ?? "",
+      })),
+      totalStocksShorted: marketData.totalCount,
+    };
+  }),
+);
+
+// Get monthly report data
+export const getMonthlyReportData = cache(
+  withRetryAndNotFound(async (monthSlug: string): Promise<MonthlyReportData> => {
+    const match = monthSlug.match(/^(\d{4})-(\d{2})$/);
+    if (!match?.[1] || !match[2]) throw new Error(`Invalid month slug: ${monthSlug}`);
+
+    const year = match[1];
+    const month = match[2];
+    const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+    const endDate = `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
+
+    const transport = createConnectTransport({ baseUrl: getApiUrl() });
+    const client = createClient(ShortedStocksService, transport);
+
+    // Get available dates for this month
+    const monthNum = parseInt(month);
+    const yearNum = parseInt(year);
+    const nextMonthDate = `${monthNum === 12 ? yearNum + 1 : yearNum}-${String(monthNum === 12 ? 1 : monthNum + 1).padStart(2, "0")}-01`;
+    const availableDates = await client.getAvailableDates({ limit: 31, before: nextMonthDate });
+    const monthDates = availableDates.dates.filter((d) => d.startsWith(`${year}-${month}`));
+
+    // Fetch data for the latest day in the month
+    const latestDay = monthDates[0] ?? endDate;
+    const marketData = await client.getMarketByDate({
+      date: latestDay,
+      limit: 50,
+      offset: 0,
+    });
+
+    const monthName = new Date(`${year}-${month}-01T00:00:00`).toLocaleDateString("en-AU", { month: "long" });
+
+    return {
+      monthSlug,
+      month: monthName,
+      year,
+      dates: monthDates,
+      topStocks: marketData.stocks.map((s) => ({
+        code: s.productCode ?? "",
+        name: s.name ?? "",
+        shortPercent: s.percentageShorted,
+        industry: s.industry ?? "",
+      })),
+      totalStocksShorted: marketData.totalCount,
+    };
+  }),
+);
+
+// Generate available week slugs (last 52 weeks)
+export async function getAvailableWeekSlugs(): Promise<string[]> {
+  const slugs: string[] = [];
+  const now = new Date();
+  for (let i = 0; i < 52; i++) {
+    const date = new Date(now);
+    date.setDate(date.getDate() - i * 7);
+    const { year, week } = getISOWeek(date);
+    const slug = `${year}-W${String(week).padStart(2, "0")}`;
+    if (!slugs.includes(slug)) {
+      slugs.push(slug);
+    }
+  }
+  return slugs;
+}
+
+// Generate available month slugs (last 24 months)
+export async function getAvailableMonthSlugs(): Promise<string[]> {
+  const slugs: string[] = [];
+  const now = new Date();
+  for (let i = 0; i < 24; i++) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    slugs.push(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`);
+  }
+  return slugs;
+}
