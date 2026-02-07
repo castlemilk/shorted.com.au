@@ -158,9 +158,8 @@ ORDER BY s."DATE" DESC LIMIT 1`
 }
 
 // GetTop10Shorts retrieves the top 10 shorted stocks.
-func (s *postgresStore) GetTopShorts(period string, limit int32, offset int32) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
-	// You'll need to adjust FetchTimeSeriesData to use pgx as well.
-	return FetchTimeSeriesData(s.db, int(limit), int(offset), period)
+func (s *postgresStore) GetTopShorts(period string, limit int32, offset int32, summaryOnly bool) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
+	return FetchTimeSeriesData(s.db, int(limit), int(offset), period, summaryOnly)
 }
 
 // GetStockData retrieves the time series data for a single stock, downsampling it for performance.

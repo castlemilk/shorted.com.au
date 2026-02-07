@@ -385,6 +385,9 @@ message GetTopShortsRequest {
   string period = 1;
   int32 limit = 2;
   int32 offset = 3;
+  // When true, returns only product code, name, and latest short position
+  // without time series points. Much faster and smaller response.
+  bool summary_only = 4;
 }
 
 // Request for Top10 RPC, specifying the period of time.

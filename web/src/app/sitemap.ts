@@ -64,6 +64,7 @@ async function getAllStockCodes(): Promise<string[]> {
           period: "1y",
           limit: 1000,
           offset: 0,
+          summaryOnly: true,
         }),
         next: { revalidate: 3600 }, // Cache for 1 hour
       }

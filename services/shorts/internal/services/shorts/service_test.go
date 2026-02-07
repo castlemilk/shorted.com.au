@@ -36,7 +36,7 @@ func TestShortsServer_GetTopShorts(t *testing.T) {
 			},
 			setupMock: func(m *mocks.MockShortsStore, l *mocks.MockLogger) {
 				l.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
-				m.EXPECT().GetTopShorts("1M", int32(50), int32(0)).Return([]*stocksv1alpha1.TimeSeriesData{
+				m.EXPECT().GetTopShorts("1M", int32(50), int32(0), false).Return([]*stocksv1alpha1.TimeSeriesData{
 					{
 						ProductCode:         "CBA",
 						Name:                "Commonwealth Bank",
@@ -66,7 +66,7 @@ func TestShortsServer_GetTopShorts(t *testing.T) {
 			},
 			setupMock: func(m *mocks.MockShortsStore, l *mocks.MockLogger) {
 				l.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
-				m.EXPECT().GetTopShorts("3M", int32(20), int32(10)).Return([]*stocksv1alpha1.TimeSeriesData{
+				m.EXPECT().GetTopShorts("3M", int32(20), int32(10), false).Return([]*stocksv1alpha1.TimeSeriesData{
 					{
 						ProductCode:         "ZIP",
 						Name:                "ZIP Co Limited",
@@ -123,7 +123,7 @@ func TestShortsServer_GetTopShorts(t *testing.T) {
 			setupMock: func(m *mocks.MockShortsStore, l *mocks.MockLogger) {
 				l.EXPECT().Debugf(gomock.Any(), gomock.Any()).AnyTimes()
 				l.EXPECT().Errorf(gomock.Any(), gomock.Any()).AnyTimes()
-				m.EXPECT().GetTopShorts("1M", int32(10), int32(0)).Return(nil, 0, assert.AnError)
+				m.EXPECT().GetTopShorts("1M", int32(10), int32(0), false).Return(nil, 0, assert.AnError)
 			},
 			expectedError: true,
 			expectedCode:  connect.CodeInternal,

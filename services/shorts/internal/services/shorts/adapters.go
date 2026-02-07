@@ -18,8 +18,8 @@ func NewStoreAdapter(store shorts.Store) *StoreAdapter {
 	return &StoreAdapter{store: store}
 }
 
-func (s *StoreAdapter) GetTopShorts(period string, limit int32, offset int32) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
-	return s.store.GetTopShorts(period, limit, offset)
+func (s *StoreAdapter) GetTopShorts(period string, limit int32, offset int32, summaryOnly bool) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
+	return s.store.GetTopShorts(period, limit, offset, summaryOnly)
 }
 
 func (s *StoreAdapter) GetStock(productCode string) (*stocksv1alpha1.Stock, error) {

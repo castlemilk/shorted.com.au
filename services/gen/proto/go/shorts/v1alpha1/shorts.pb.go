@@ -439,10 +439,13 @@ func (x *MintTokenResponse) GetToken() string {
 
 // Request for Top10 RPC, specifying the period of time.
 type GetTopShortsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Period        string                 `protobuf:"bytes,1,opt,name=period,proto3" json:"period,omitempty"`
-	Limit         int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
-	Offset        int32                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Period string                 `protobuf:"bytes,1,opt,name=period,proto3" json:"period,omitempty"`
+	Limit  int32                  `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
+	Offset int32                  `protobuf:"varint,3,opt,name=offset,proto3" json:"offset,omitempty"`
+	// When true, returns only product code, name, and latest short position
+	// without time series points. Much faster and smaller response.
+	SummaryOnly   bool `protobuf:"varint,4,opt,name=summary_only,json=summaryOnly,proto3" json:"summary_only,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -496,6 +499,13 @@ func (x *GetTopShortsRequest) GetOffset() int32 {
 		return x.Offset
 	}
 	return 0
+}
+
+func (x *GetTopShortsRequest) GetSummaryOnly() bool {
+	if x != nil {
+		return x.SummaryOnly
+	}
+	return false
 }
 
 // Request for Top10 RPC, specifying the period of time.
@@ -3482,11 +3492,12 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x1cshorts/v1alpha1/shorts.proto\x12\x0fshorts.v1alpha1\x1a\x1cgoogle/api/annotations.proto\x1a$gnostic/openapi/v3/annotations.proto\x1a\x17google/api/client.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1cstocks/v1alpha1/stocks.proto\x1a\x18options/v1/options.proto\"\x12\n" +
 	"\x10MintTokenRequest\")\n" +
 	"\x11MintTokenResponse\x12\x14\n" +
-	"\x05token\x18\x01 \x01(\tR\x05token\"[\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"~\n" +
 	"\x13GetTopShortsRequest\x12\x16\n" +
 	"\x06period\x18\x01 \x01(\tR\x06period\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\x12\x16\n" +
-	"\x06offset\x18\x03 \x01(\x05R\x06offset\"\x81\x01\n" +
+	"\x06offset\x18\x03 \x01(\x05R\x06offset\x12!\n" +
+	"\fsummary_only\x18\x04 \x01(\bR\vsummaryOnly\"\x81\x01\n" +
 	"\x19GetIndustryTreeMapRequest\x12\x16\n" +
 	"\x06period\x18\x01 \x01(\tR\x06period\x12\x14\n" +
 	"\x05limit\x18\x02 \x01(\x05R\x05limit\x126\n" +

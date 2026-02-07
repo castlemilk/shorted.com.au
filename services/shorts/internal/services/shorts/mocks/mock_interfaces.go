@@ -267,9 +267,9 @@ func (mr *MockShortsStoreMockRecorder) GetSyncStatus(filter any) *gomock.Call {
 }
 
 // GetTopShorts mocks base method.
-func (m *MockShortsStore) GetTopShorts(period string, limit, offset int32) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
+func (m *MockShortsStore) GetTopShorts(period string, limit, offset int32, summaryOnly bool) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetTopShorts", period, limit, offset)
+	ret := m.ctrl.Call(m, "GetTopShorts", period, limit, offset, summaryOnly)
 	ret0, _ := ret[0].([]*stocksv1alpha1.TimeSeriesData)
 	ret1, _ := ret[1].(int)
 	ret2, _ := ret[2].(error)
@@ -277,9 +277,9 @@ func (m *MockShortsStore) GetTopShorts(period string, limit, offset int32) ([]*s
 }
 
 // GetTopShorts indicates an expected call of GetTopShorts.
-func (mr *MockShortsStoreMockRecorder) GetTopShorts(period, limit, offset any) *gomock.Call {
+func (mr *MockShortsStoreMockRecorder) GetTopShorts(period, limit, offset, summaryOnly any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTopShorts", reflect.TypeOf((*MockShortsStore)(nil).GetTopShorts), period, limit, offset)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTopShorts", reflect.TypeOf((*MockShortsStore)(nil).GetTopShorts), period, limit, offset, summaryOnly)
 }
 
 // GetTopStocksForEnrichment mocks base method.

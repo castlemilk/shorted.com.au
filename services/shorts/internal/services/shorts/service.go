@@ -28,15 +28,19 @@ func (s *ShortsServer) GetTopShorts(ctx context.Context, req *connect.Request[sh
 		return nil, err
 	}
 
-	s.logger.Debugf("get top shorts, period: %s, limit: %d, offset: %d", req.Msg.GetPeriod(), req.Msg.Limit, req.Msg.Offset)
+	s.logger.Debugf("get top shorts, period: %s, limit: %d, offset: %d, summaryOnly: %v", req.Msg.GetPeriod(), req.Msg.Limit, req.Msg.Offset, req.Msg.SummaryOnly)
 
-	// Check cache first
-	cacheKey := s.cache.GetTopShortsKey(req.Msg.Period, req.Msg.Limit, req.Msg.Offset)
+	// Check cache first — include summaryOnly in cache key to avoid mixing full/summary responses
+	summaryTag := ""
+	if req.Msg.SummaryOnly {
+		summaryTag = ":summary"
+	}
+	cacheKey := s.cache.GetTopShortsKey(req.Msg.Period+summaryTag, req.Msg.Limit, req.Msg.Offset)
 
 	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
 		s.logger.Debugf("cache miss for GetTopShorts, fetching from database")
 
-		result, offset, err := s.store.GetTopShorts(req.Msg.GetPeriod(), req.Msg.GetLimit(), req.Msg.Offset)
+		result, offset, err := s.store.GetTopShorts(req.Msg.GetPeriod(), req.Msg.GetLimit(), req.Msg.Offset, req.Msg.SummaryOnly)
 		if err != nil {
 			return nil, err
 		}
