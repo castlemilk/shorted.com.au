@@ -3,20 +3,7 @@ import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import type { JWT } from "next-auth/jwt";
 import type { AdapterUser } from "next-auth/adapters";
-
-// Your web app's Firebase configuration
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-// const firebaseConfig = {
-//   apiKey: "AIzaSyDhHWZyjPHi6sCzhU0rX27iEACzzG1igzE",
-//   authDomain: "shorted-dev-aba5688f.firebaseapp.com",
-//   projectId: "shorted-dev-aba5688f",
-//   storageBucket: "shorted-dev-aba5688f.appspot.com",
-//   messagingSenderId: "234770780438",
-//   appId: "1:234770780438:web:12f6c6a0fdfe7e6585c037",
-//   measurementId: "G-X85RLQ4N2N",
-// };
-
-// import { firestore } from "~/app/lib/firestore"; // Commented out until Firebase adapter is used
+import { adminAuth } from "@/lib/firebase-admin";
 
 // E2E Test User - only enabled in non-production environments
 // This allows Playwright tests to authenticate without OAuth
@@ -26,52 +13,6 @@ const E2E_TEST_USER = {
   id: "e2e-test-user",
   name: "E2E Test User",
 };
-
-// TODO: Implement these auth functions for production users
-function saltAndHashPassword(password: string): string {
-  // Stub implementation - replace with actual hashing
-  return password;
-}
-
-async function getUserFromDb(
-  email: string,
-  passwordHash: string,
-): Promise<User | null> {
-  // E2E test user authentication:
-  // - NEVER allowed in production (NODE_ENV === "production") regardless of ALLOW_E2E_AUTH
-  // - Only allowed in non-production when ALLOW_E2E_AUTH is explicitly set
-  // This ensures production security while enabling Playwright tests in preview/dev
-  const isProduction = process.env.NODE_ENV === "production";
-  const allowE2E = !isProduction && process.env.ALLOW_E2E_AUTH === "true";
-
-  // Only log auth details in development (not preview or production)
-  if (process.env.NODE_ENV === "development") {
-    console.log("[Auth] getUserFromDb called:", {
-      email,
-      allowE2E,
-      nodeEnv: process.env.NODE_ENV,
-    });
-  }
-
-  if (allowE2E) {
-    if (
-      email === E2E_TEST_USER.email &&
-      passwordHash === E2E_TEST_USER.password
-    ) {
-      if (process.env.NODE_ENV === "development") {
-        console.log("[Auth] E2E test user authenticated successfully");
-      }
-      return {
-        id: E2E_TEST_USER.id,
-        email: E2E_TEST_USER.email,
-        name: E2E_TEST_USER.name,
-      };
-    }
-  }
-
-  // Stub implementation for other users - replace with actual database lookup
-  return null;
-}
 
 /**
  * Module augmentation for `next-auth` types. Allows us to add custom properties to the `session`
@@ -126,33 +67,59 @@ export const authOptions = {
   },
   providers: [
     Credentials({
-      // You can specify which fields should be submitted, by adding keys to the `credentials` object.
-      // e.g. domain, username, password, 2FA token, etc.
       credentials: {
         email: {},
         password: {},
+        idToken: {},
       },
       authorize: async (credentials) => {
-        if (!credentials?.email || !credentials?.password) {
+        const email = credentials?.email as string | undefined;
+        const password = credentials?.password as string | undefined;
+        const idToken = credentials?.idToken as string | undefined;
+
+        // Path 1: Firebase ID token verification
+        if (idToken) {
+          try {
+            const decoded = await adminAuth.verifyIdToken(idToken);
+            return {
+              id: decoded.uid,
+              email: decoded.email ?? email ?? null,
+              name: (decoded.name as string) ?? null,
+            };
+          } catch (error) {
+            console.error("[Auth] Firebase ID token verification failed:", error);
+            return null;
+          }
+        }
+
+        // Path 2: E2E test user fallback (no idToken)
+        if (!email || !password) {
           return null;
         }
 
-        let user = null;
+        const isProduction = process.env.NODE_ENV === "production";
+        const allowE2E = !isProduction && process.env.ALLOW_E2E_AUTH === "true";
 
-        // logic to salt and hash password
-        const pwHash = saltAndHashPassword(credentials.password as string);
-
-        // logic to verify if the user exists
-        user = await getUserFromDb(credentials.email as string, pwHash);
-
-        if (!user) {
-          // No user found, so this is their first attempt to login
-          // meaning this is also the place you could do registration
-          throw new Error("User not found.");
+        if (process.env.NODE_ENV === "development") {
+          console.log("[Auth] E2E fallback check:", { email, allowE2E });
         }
 
-        // return user object with their profile data
-        return user;
+        if (
+          allowE2E &&
+          email === E2E_TEST_USER.email &&
+          password === E2E_TEST_USER.password
+        ) {
+          if (process.env.NODE_ENV === "development") {
+            console.log("[Auth] E2E test user authenticated successfully");
+          }
+          return {
+            id: E2E_TEST_USER.id,
+            email: E2E_TEST_USER.email,
+            name: E2E_TEST_USER.name,
+          };
+        }
+
+        return null;
       },
     }),
     Google({
@@ -160,7 +127,6 @@ export const authOptions = {
       clientSecret: process.env.AUTH_GOOGLE_SECRET,
     }),
   ],
-  // adapter: FirestoreAdapter(firestore), // Commented out until Firebase adapter issues are resolved
   callbacks: {
     // JWT callback runs first - when JWT is created or updated
     async jwt({
@@ -172,8 +138,8 @@ export const authOptions = {
     }): Promise<JWT> {
       // On initial sign in, user object is provided
       if (user) {
-        // Use the provider's user ID first (e.g., Google OAuth ID) to maintain
-        // compatibility with existing Firebase data stored under that ID
+        // Use the provider's user ID first (e.g., Google OAuth ID or Firebase UID)
+        // to maintain compatibility with existing Firebase data stored under that ID
         token.id = user.id ?? user.email ?? token.sub ?? "unknown";
         token.email = user.email ?? token.email;
         token.name = user.name ?? token.name;
@@ -221,7 +187,7 @@ export const authOptions = {
       token: JWT;
     }): Promise<Session> {
       // Add user ID from token to session
-      // Use the token.id which was set from the provider's user ID (e.g., Google OAuth ID)
+      // Use the token.id which was set from the provider's user ID (e.g., Google OAuth ID or Firebase UID)
       // This maintains compatibility with existing Firebase data
       if (session.user) {
         session.user.id =

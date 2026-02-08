@@ -77,6 +77,7 @@ export default withBundleAnalyzer(
         "@bufbuild/protobuf",
         "@connectrpc/connect",
         "@connectrpc/connect-web",
+        "firebase-admin",
       ],
       optimizePackageImports: [
         "@radix-ui/react-icons",
