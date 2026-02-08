@@ -97,8 +97,13 @@ export const authOptions = {
           return null;
         }
 
-        const isProduction = process.env.NODE_ENV === "production";
-        const allowE2E = !isProduction && process.env.ALLOW_E2E_AUTH === "true";
+        // On Vercel, NODE_ENV is always "production" for both preview and prod.
+        // Use VERCEL_ENV to distinguish: "production" = real prod, "preview" = PR deploys.
+        const isRealProduction =
+          process.env.VERCEL_ENV === "production" ||
+          (process.env.NODE_ENV === "production" && !process.env.VERCEL_ENV);
+        const allowE2E =
+          !isRealProduction && process.env.ALLOW_E2E_AUTH === "true";
 
         if (process.env.NODE_ENV === "development") {
           console.log("[Auth] E2E fallback check:", { email, allowE2E });
