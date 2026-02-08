@@ -68,9 +68,11 @@ function SignInForm() {
       return;
     }
 
-    try {
-      // Try Firebase auth first
-      if (firebaseAuth) {
+    let firebaseErrorCode: string | undefined;
+
+    // Try Firebase auth first
+    if (firebaseAuth) {
+      try {
         const userCredential = await signInWithEmailAndPassword(
           firebaseAuth,
           email,
@@ -92,9 +94,13 @@ function SignInForm() {
           window.location.href = callbackUrl;
         }
         return;
+      } catch (err: unknown) {
+        firebaseErrorCode = (err as { code?: string }).code;
       }
+    }
 
-      // Fallback: direct credentials (E2E test compatibility)
+    // Fallback: direct credentials (E2E test compatibility)
+    try {
       const result = await signIn("credentials", {
         email,
         password,
@@ -103,35 +109,22 @@ function SignInForm() {
       });
 
       if (result?.error) {
-        setError("Invalid email or password");
+        // Show Firebase error if we had one, otherwise generic message
+        setError(
+          firebaseErrorCode
+            ? getFirebaseErrorMessage(firebaseErrorCode)
+            : "Invalid email or password",
+        );
         setIsLoading(false);
       } else if (result?.ok) {
         window.location.href = callbackUrl;
       }
-    } catch (err: unknown) {
-      const firebaseError = err as { code?: string };
-      if (firebaseError.code) {
-        setError(getFirebaseErrorMessage(firebaseError.code));
-      } else {
-        // If Firebase fails, try direct credentials as E2E fallback
-        try {
-          const result = await signIn("credentials", {
-            email,
-            password,
-            callbackUrl,
-            redirect: false,
-          });
-
-          if (result?.error) {
-            setError("Invalid email or password");
-          } else if (result?.ok) {
-            window.location.href = callbackUrl;
-            return;
-          }
-        } catch {
-          setError("Failed to sign in. Please check your credentials.");
-        }
-      }
+    } catch {
+      setError(
+        firebaseErrorCode
+          ? getFirebaseErrorMessage(firebaseErrorCode)
+          : "Failed to sign in. Please check your credentials.",
+      );
       setIsLoading(false);
     }
   };
