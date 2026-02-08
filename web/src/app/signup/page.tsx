@@ -7,6 +7,8 @@ import { signIn } from "next-auth/react";
 import {
   createUserWithEmailAndPassword,
   updateProfile,
+  signInWithPopup,
+  GoogleAuthProvider,
 } from "firebase/auth";
 import { auth as firebaseAuth } from "@/lib/firebase-client";
 import { Button } from "@/components/ui/button";
@@ -18,7 +20,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Chrome, Loader2, AlertCircle } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 
 function getFirebaseErrorMessage(code: string): string {
@@ -46,7 +48,47 @@ function SignUpForm() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleGoogleSignUp = async () => {
+    setIsGoogleLoading(true);
+    setError(null);
+    try {
+      if (!firebaseAuth) {
+        throw new Error("Firebase not initialized");
+      }
+      const provider = new GoogleAuthProvider();
+      const userCredential = await signInWithPopup(firebaseAuth, provider);
+      const idToken = await userCredential.user.getIdToken();
+
+      const result = await signIn("credentials", {
+        idToken,
+        email: userCredential.user.email,
+        callbackUrl,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError("Authentication failed. Please try again.");
+        setIsGoogleLoading(false);
+      } else if (result?.ok) {
+        window.location.href = callbackUrl;
+      }
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code;
+      if (code === "auth/popup-closed-by-user") {
+        setIsGoogleLoading(false);
+        return;
+      }
+      setError(
+        code === "auth/account-exists-with-different-credential"
+          ? "An account already exists with this email using a different sign-in method."
+          : "Failed to sign up with Google. Please try again.",
+      );
+      setIsGoogleLoading(false);
+    }
+  };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,6 +182,33 @@ function SignUpForm() {
         </CardHeader>
 
         <CardContent className="space-y-6">
+          {/* Google Sign Up */}
+          <Button
+            variant="outline"
+            className="w-full h-12 text-base font-medium"
+            onClick={handleGoogleSignUp}
+            disabled={isGoogleLoading || isLoading}
+          >
+            {isGoogleLoading ? (
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            ) : (
+              <Chrome className="mr-2 h-5 w-5" />
+            )}
+            Continue with Google
+          </Button>
+
+          {/* Divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">
+                Or continue with email
+              </span>
+            </div>
+          </div>
+
           <form onSubmit={handleSignUp} className="space-y-4">
             <div className="space-y-2">
               <label
@@ -157,7 +226,7 @@ function SignUpForm() {
                 placeholder="Your name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                disabled={isLoading}
+                disabled={isLoading || isGoogleLoading}
                 className="h-11"
               />
             </div>
@@ -175,7 +244,7 @@ function SignUpForm() {
                 placeholder="name@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
+                disabled={isLoading || isGoogleLoading}
                 required
                 className="h-11"
               />
@@ -194,7 +263,7 @@ function SignUpForm() {
                 placeholder="At least 6 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
+                disabled={isLoading || isGoogleLoading}
                 required
                 className="h-11"
               />
@@ -213,7 +282,7 @@ function SignUpForm() {
                 placeholder="Repeat your password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                disabled={isLoading}
+                disabled={isLoading || isGoogleLoading}
                 required
                 className="h-11"
               />

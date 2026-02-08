@@ -4,7 +4,11 @@ import { useState, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
+} from "firebase/auth";
 import { auth as firebaseAuth } from "@/lib/firebase-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,9 +54,38 @@ function SignInForm() {
     setIsGoogleLoading(true);
     setError(null);
     try {
-      await signIn("google", { callbackUrl });
-    } catch {
-      setError("Failed to sign in with Google. Please try again.");
+      if (!firebaseAuth) {
+        throw new Error("Firebase not initialized");
+      }
+      const provider = new GoogleAuthProvider();
+      const userCredential = await signInWithPopup(firebaseAuth, provider);
+      const idToken = await userCredential.user.getIdToken();
+
+      const result = await signIn("credentials", {
+        idToken,
+        email: userCredential.user.email,
+        callbackUrl,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError("Authentication failed. Please try again.");
+        setIsGoogleLoading(false);
+      } else if (result?.ok) {
+        window.location.href = callbackUrl;
+      }
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code;
+      if (code === "auth/popup-closed-by-user") {
+        // User closed the popup, not an error
+        setIsGoogleLoading(false);
+        return;
+      }
+      setError(
+        code === "auth/account-exists-with-different-credential"
+          ? "An account already exists with this email using a different sign-in method."
+          : "Failed to sign in with Google. Please try again.",
+      );
       setIsGoogleLoading(false);
     }
   };
