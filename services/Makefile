@@ -703,7 +703,7 @@ test-integration-local:
 	@cd ../test/integration && go test -v -timeout=20m ./...
 	@echo ""
 	@echo "Running market-data integration tests (with testcontainers)..."
-	@cd market-data && go test -v -tags=integration -timeout=10m ./... || echo "⚠️  Market-data integration tests failed (non-blocking)"
+	@cd market-data && go test -v -tags=integration -timeout=10m ./...
 	@echo ""
 
 # Integration tests - CI (expects BACKEND_URL to be set)
@@ -723,7 +723,7 @@ test-integration-ci:
 	@cd ../test/integration && go test -v -timeout=10m ./...
 	@echo ""
 	@echo "Running market-data integration tests (with testcontainers)..."
-	@cd market-data && go test -v -tags=integration -timeout=10m ./... || echo "⚠️  Market-data integration tests failed (non-blocking)"
+	@cd market-data && go test -v -tags=integration -timeout=10m ./...
 
 # New integration test targets using testcontainers
 test.integration.local:

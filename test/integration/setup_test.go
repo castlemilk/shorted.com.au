@@ -112,16 +112,30 @@ func TestMain(m *testing.M) {
 }
 
 func startShortsService() error {
-	// Path to the shorts service main.go
 	serviceDir := "../../services"
-	
+	logPath := filepath.Join(serviceDir, "shorts-test.log")
+
+	// Pre-build the binary so compilation time doesn't eat into the
+	// health-check budget.  In CI with cold cache, `go run` can spend
+	// 20+ seconds compiling before the process even starts.
+	fmt.Println("  🔨 Building shorts service binary...")
+	binaryPath := filepath.Join(serviceDir, "shorts-test-binary")
+	build := exec.Command("go", "build", "-o", binaryPath, "shorts/cmd/server/main.go")
+	build.Dir = serviceDir
+	build.Env = os.Environ()
+	buildOut, err := build.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to build shorts service: %w\n%s", err, string(buildOut))
+	}
+	fmt.Println("  ✅ Binary built")
+
 	// Create log file for service output to avoid I/O blocking
-	logFile, err := os.Create(filepath.Join(serviceDir, "shorts-test.log"))
+	logFile, err := os.Create(logPath)
 	if err != nil {
 		return fmt.Errorf("failed to create log file: %w", err)
 	}
-	
-	shortsServiceCmd = exec.Command("go", "run", "shorts/cmd/server/main.go")
+
+	shortsServiceCmd = exec.Command(binaryPath)
 	shortsServiceCmd.Dir = serviceDir
 	shortsServiceCmd.Stdout = logFile
 	shortsServiceCmd.Stderr = logFile
@@ -135,7 +149,7 @@ func startShortsService() error {
 	// Wait for service to be ready by checking health endpoint
 	fmt.Printf("  Waiting for service to be ready on port %s...\n", shortsServicePort)
 	client := &http.Client{Timeout: 2 * time.Second}
-	for i := 0; i < 30; i++ {
+	for i := 0; i < 60; i++ {
 		resp, err := client.Get(fmt.Sprintf("http://localhost:%s/health", shortsServicePort))
 		if err == nil && resp != nil {
 			resp.Body.Close()
@@ -146,8 +160,13 @@ func startShortsService() error {
 		}
 		time.Sleep(1 * time.Second)
 	}
-	
-	return fmt.Errorf("service did not become healthy after 30 seconds")
+
+	// Dump service logs on failure for debugging
+	logFile.Close()
+	if logData, err := os.ReadFile(logPath); err == nil && len(logData) > 0 {
+		fmt.Printf("📋 Shorts service log output:\n%s\n", string(logData))
+	}
+	return fmt.Errorf("service did not become healthy after 60 seconds")
 }
 
 func cleanup(ctx context.Context) {
@@ -180,6 +199,9 @@ func cleanup(ctx context.Context) {
 			fmt.Printf("  Warning: Failed to terminate PostgreSQL container: %v\n", err)
 		}
 	}
+
+	// Clean up test binary
+	_ = os.Remove("../../services/shorts-test-binary")
 
 	// Small delay to ensure all I/O is flushed
 	time.Sleep(500 * time.Millisecond)
