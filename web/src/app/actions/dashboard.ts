@@ -2,29 +2,8 @@
 
 import { auth } from "@/auth";
 import { type DashboardConfig } from "~/@/types/dashboard";
-import { initializeApp, cert, getApps, type App } from "firebase-admin/app";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
-
-// Initialize Firebase Admin SDK
-let app: App;
-
-if (!getApps().length) {
-  const projectId = process.env.AUTH_FIREBASE_PROJECT_ID?.trim();
-  console.log("Initializing Firebase Admin with project:", projectId);
-  
-  app = initializeApp({
-    credential: cert({
-      projectId: projectId,
-      clientEmail: process.env.AUTH_FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.AUTH_FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-    }),
-    projectId: projectId, // Explicitly set the project ID
-  });
-} else {
-  app = getApps()[0]!;
-}
-
-const adminDb = getFirestore(app);
+import { FieldValue } from "firebase-admin/firestore";
+import { adminDb } from "@/lib/firebase-admin";
 
 const COLLECTION_NAME = "dashboards";
 

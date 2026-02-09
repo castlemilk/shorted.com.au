@@ -24,9 +24,9 @@ export const getIndustryTreeMapClient = async (
   limit: number,
   viewMode: ViewMode,
 ): Promise<IndustryTreeMap> => {
+  // Use relative URL so requests go through Next.js rewrites (avoids CORS)
   const transport = createConnectTransport({
-    baseUrl:
-      process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL,
+    baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL,
   });
   const client = createClient(ShortedStocksService, transport);
 

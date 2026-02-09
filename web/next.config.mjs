@@ -32,8 +32,31 @@ if (process.env.ANALYZE === "true") {
   }
 }
 /** @type {import("next").NextConfig} */
+const shortsApiUrl =
+  process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:9091";
+
 const config = {
   output: "standalone", // Enable standalone mode for Docker
+  // Proxy Connect-RPC and backend API requests to avoid CORS issues.
+  // Client-side code uses relative URLs; Next.js rewrites proxy them to the backend.
+  async rewrites() {
+    return [
+      {
+        source: "/shorts.v1alpha1.ShortedStocksService/:path*",
+        destination: `${shortsApiUrl}/shorts.v1alpha1.ShortedStocksService/:path*`,
+      },
+      {
+        source: "/register.v1.RegisterService/:path*",
+        destination: `${shortsApiUrl}/register.v1.RegisterService/:path*`,
+      },
+      {
+        source: "/api/stocks/:path*",
+        destination: `${shortsApiUrl}/api/stocks/:path*`,
+      },
+    ];
+  },
   publicRuntimeConfig: {
     version,
     buildDate: new Date().toISOString(),
@@ -77,6 +100,7 @@ export default withBundleAnalyzer(
         "@bufbuild/protobuf",
         "@connectrpc/connect",
         "@connectrpc/connect-web",
+        "firebase-admin",
       ],
       optimizePackageImports: [
         "@radix-ui/react-icons",
