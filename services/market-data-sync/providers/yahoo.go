@@ -74,7 +74,7 @@ func (p *YahooFinanceProvider) FetchHistoricalData(ctx context.Context, symbol s
 	// If no data and no error, Yahoo Finance might have returned empty results
 	// This could indicate the symbol doesn't exist or date range has no data
 	if !hasData && len(records) == 0 {
-		return nil, fmt.Errorf("yahoo finance returned no data for %s (symbol may not exist or date range has no trading data)", yfTicker)
+		return nil, NewNoDataError(symbol, "symbol may not exist or date range has no trading data")
 	}
 
 	return records, nil

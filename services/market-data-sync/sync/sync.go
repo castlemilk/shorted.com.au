@@ -66,7 +66,7 @@ func (m *SyncManager) Run(ctx context.Context) error {
 	}
 
 	// 3. Process stocks
-	successful, failed := 0, 0
+	successful, failed, skipped := 0, 0, 0
 	priorityProcessed := 0
 	pricesUpdated := 0
 	var algoliaRecords []algolia.StockRecord
@@ -81,8 +81,13 @@ func (m *SyncManager) Run(ctx context.Context) error {
 
 		recordsAdded, err := m.syncStock(ctx, stock.Code)
 		if err != nil {
-			log.Printf("❌ [%d/%d] Failed to sync %s: %v", i+1, len(stocks), stock.Code, err)
-			failed++
+			if providers.IsNoDataError(err) {
+				log.Printf("⏭️ [%d/%d] Skipped %s (no data): %v", i+1, len(stocks), stock.Code, err)
+				skipped++
+			} else {
+				log.Printf("❌ [%d/%d] Failed to sync %s: %v", i+1, len(stocks), stock.Code, err)
+				failed++
+			}
 		} else {
 			successful++
 			pricesUpdated += recordsAdded
@@ -102,7 +107,7 @@ func (m *SyncManager) Run(ctx context.Context) error {
 
 		// Update checkpoint every 10 stocks or at the end
 		if (i+1)%10 == 0 || (i+1) == len(stocks) {
-			if err := m.checkpoint.UpdateProgress(ctx, runID, i+1, successful, failed, priorityProcessed); err != nil {
+			if err := m.checkpoint.UpdateProgress(ctx, runID, i+1, successful, failed, skipped, priorityProcessed); err != nil {
 				log.Printf("⚠️ Failed to update progress: %v", err)
 			}
 		}
@@ -158,7 +163,7 @@ func (m *SyncManager) Run(ctx context.Context) error {
 		log.Printf("⚠️ Failed to mark run as complete: %v", err)
 	}
 
-	log.Printf("🎉 Sync complete: %d successful, %d failed, %d price records", successful, failed, pricesUpdated)
+	log.Printf("🎉 Sync complete: %d successful, %d failed, %d skipped (no data), %d price records", successful, failed, skipped, pricesUpdated)
 	return nil
 }
 
@@ -247,8 +252,8 @@ func (m *SyncManager) syncStock(ctx context.Context, symbol string) (int, error)
 			}
 			totalRecords += len(records)
 		} else if !hasGaps {
-			// No new records and no gaps to repair
-			return 0, fmt.Errorf("no data found for %s", symbol)
+			// No new records and no gaps to repair — likely a delisted stock
+			return 0, providers.NewNoDataError(symbol, "all providers returned no data")
 		}
 	}
 

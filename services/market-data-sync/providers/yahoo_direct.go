@@ -209,6 +209,9 @@ func (p *YahooFinanceDirectProvider) makeAPIRequest(ctx context.Context, yfTicke
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, NewNoDataError(symbol, fmt.Sprintf("HTTP 404: %s", string(body)))
+		}
 		return nil, fmt.Errorf("yahoo finance API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -226,7 +229,7 @@ func (p *YahooFinanceDirectProvider) makeAPIRequest(ctx context.Context, yfTicke
 
 	// Check if we have results
 	if len(chartResp.Chart.Result) == 0 {
-		return nil, fmt.Errorf("yahoo finance returned no results for %s", yfTicker)
+		return nil, NewNoDataError(symbol, "no results returned")
 	}
 
 	result := chartResp.Chart.Result[0]
@@ -234,7 +237,7 @@ func (p *YahooFinanceDirectProvider) makeAPIRequest(ctx context.Context, yfTicke
 
 	// Check if we have quote data
 	if len(result.Indicators.Quote) == 0 {
-		return nil, fmt.Errorf("yahoo finance returned no quote data for %s", yfTicker)
+		return nil, NewNoDataError(symbol, "no quote data returned")
 	}
 
 	quote := result.Indicators.Quote[0]
@@ -325,15 +328,15 @@ func (p *YahooFinanceDirectProvider) makeAPIRequest(ctx context.Context, yfTicke
 	}
 
 	if len(records) == 0 {
-		// Provide more helpful error message
+		// No data in the requested range — expected for delisted stocks
 		if len(timestamps) > 0 {
 			latestDataDate := time.Unix(timestamps[len(timestamps)-1], 0)
 			earliestDataDate := time.Unix(timestamps[0], 0)
-			return nil, fmt.Errorf("yahoo finance returned no data for %s in date range %s to %s (available: %s to %s, filtered %d/%d)", 
-				yfTicker, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"), 
-				earliestDataDate.Format("2006-01-02"), latestDataDate.Format("2006-01-02"), filteredCount, len(timestamps))
+			return nil, NewNoDataError(symbol, fmt.Sprintf("no data in range %s to %s (available: %s to %s, filtered %d/%d)",
+				startDate.Format("2006-01-02"), endDate.Format("2006-01-02"),
+				earliestDataDate.Format("2006-01-02"), latestDataDate.Format("2006-01-02"), filteredCount, len(timestamps)))
 		}
-		return nil, fmt.Errorf("yahoo finance returned no data for %s in date range %s to %s", yfTicker, startDate.Format("2006-01-02"), endDate.Format("2006-01-02"))
+		return nil, NewNoDataError(symbol, fmt.Sprintf("no data in range %s to %s", startDate.Format("2006-01-02"), endDate.Format("2006-01-02")))
 	}
 
 	return records, nil

@@ -87,6 +87,9 @@ func (p *AlphaVantageProvider) FetchHistoricalData(ctx context.Context, symbol s
 	}
 
 	if data.Error != "" {
+		if strings.Contains(data.Error, "Invalid API call") {
+			return nil, NewNoDataError(symbol, fmt.Sprintf("alpha vantage: %s", data.Error))
+		}
 		return nil, fmt.Errorf("alpha vantage error: %s", data.Error)
 	}
 

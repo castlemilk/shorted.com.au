@@ -216,7 +216,7 @@ func (s *Server) handleSyncStock(w http.ResponseWriter, r *http.Request) {
 		response.Error = err.Error()
 		
 		// Update checkpoint
-		if updateErr := s.checkpoint.UpdateProgress(r.Context(), runID, 1, 0, 1, 0); updateErr != nil {
+		if updateErr := s.checkpoint.UpdateProgress(r.Context(), runID, 1, 0, 1, 0, 0); updateErr != nil {
 			log.Printf("⚠️ Failed to update checkpoint: %v", updateErr)
 		}
 		if failErr := s.checkpoint.FailRun(r.Context(), runID, err.Error()); failErr != nil {
@@ -234,7 +234,7 @@ func (s *Server) handleSyncStock(w http.ResponseWriter, r *http.Request) {
 	response.RecordsAdded = recordsAdded
 	
 	// Update checkpoint
-	if err := s.checkpoint.UpdateProgress(r.Context(), runID, 1, 1, 0, 0); err != nil {
+	if err := s.checkpoint.UpdateProgress(r.Context(), runID, 1, 1, 0, 0, 0); err != nil {
 		log.Printf("⚠️ Failed to update checkpoint: %v", err)
 	}
 	if err := s.checkpoint.UpdatePricesCount(r.Context(), runID, recordsAdded); err != nil {

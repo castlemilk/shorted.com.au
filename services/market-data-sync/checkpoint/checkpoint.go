@@ -18,6 +18,7 @@ type Checkpoint struct {
 	StocksProcessed  int
 	StocksSuccessful int
 	StocksFailed     int
+	StocksSkipped    int
 
 	// Priority tracking
 	PriorityTotal     int
@@ -150,7 +151,7 @@ func (s *Store) StartRun(ctx context.Context, runID string, total, priorityCount
 }
 
 // UpdateProgress updates the sync progress including priority tracking
-func (s *Store) UpdateProgress(ctx context.Context, runID string, processed, successful, failed, priorityProcessed int) error {
+func (s *Store) UpdateProgress(ctx context.Context, runID string, processed, successful, failed, skipped, priorityProcessed int) error {
 	// Check column type to determine schema version
 	var processedColType string
 	var hasPriorityColumns bool
@@ -169,29 +170,63 @@ func (s *Store) UpdateProgress(ctx context.Context, runID string, processed, suc
 		hasPriorityColumns = false
 	}
 
+	// Check if checkpoint_stocks_skipped column exists
+	var hasSkippedColumn bool
+	_ = s.db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_name = 'sync_status'
+			AND column_name = 'checkpoint_stocks_skipped'
+		)
+	`).Scan(&hasSkippedColumn)
+
 	if processedColType == "integer" {
 		// New schema: integer columns
 		if hasPriorityColumns {
-			_, err = s.db.Exec(ctx, `
-				UPDATE sync_status SET
-					checkpoint_stocks_processed = $2,
-					checkpoint_stocks_successful = $3,
-					checkpoint_stocks_failed = $4,
-					checkpoint_priority_processed = $5,
-					checkpoint_priority_completed = CASE
-						WHEN checkpoint_priority_total > 0 AND $5 >= checkpoint_priority_total THEN true
-						ELSE checkpoint_priority_completed
-					END,
-					status = CASE
-						WHEN $2 >= checkpoint_stocks_total THEN 'completed'
-						ELSE 'running'
-					END,
-					completed_at = CASE
-						WHEN $2 >= checkpoint_stocks_total THEN CURRENT_TIMESTAMP
-						ELSE NULL
-					END
-				WHERE run_id = $1
-			`, runID, processed, successful, failed, priorityProcessed)
+			if hasSkippedColumn {
+				_, err = s.db.Exec(ctx, `
+					UPDATE sync_status SET
+						checkpoint_stocks_processed = $2,
+						checkpoint_stocks_successful = $3,
+						checkpoint_stocks_failed = $4,
+						checkpoint_stocks_skipped = $5,
+						checkpoint_priority_processed = $6,
+						checkpoint_priority_completed = CASE
+							WHEN checkpoint_priority_total > 0 AND $6 >= checkpoint_priority_total THEN true
+							ELSE checkpoint_priority_completed
+						END,
+						status = CASE
+							WHEN $2 >= checkpoint_stocks_total THEN 'completed'
+							ELSE 'running'
+						END,
+						completed_at = CASE
+							WHEN $2 >= checkpoint_stocks_total THEN CURRENT_TIMESTAMP
+							ELSE NULL
+						END
+					WHERE run_id = $1
+				`, runID, processed, successful, failed, skipped, priorityProcessed)
+			} else {
+				_, err = s.db.Exec(ctx, `
+					UPDATE sync_status SET
+						checkpoint_stocks_processed = $2,
+						checkpoint_stocks_successful = $3,
+						checkpoint_stocks_failed = $4,
+						checkpoint_priority_processed = $5,
+						checkpoint_priority_completed = CASE
+							WHEN checkpoint_priority_total > 0 AND $5 >= checkpoint_priority_total THEN true
+							ELSE checkpoint_priority_completed
+						END,
+						status = CASE
+							WHEN $2 >= checkpoint_stocks_total THEN 'completed'
+							ELSE 'running'
+						END,
+						completed_at = CASE
+							WHEN $2 >= checkpoint_stocks_total THEN CURRENT_TIMESTAMP
+							ELSE NULL
+						END
+					WHERE run_id = $1
+				`, runID, processed, successful, failed, priorityProcessed)
+			}
 		} else {
 			_, err = s.db.Exec(ctx, `
 				UPDATE sync_status SET
