@@ -14,9 +14,10 @@ import { MobileNav } from "./mobile-nav";
 
 interface MainNavProps {
   items?: NavItem[];
+  modeToggle?: React.ReactNode;
 }
 
-export const MainNav = ({ items }: MainNavProps) => {
+export const MainNav = ({ items, modeToggle }: MainNavProps) => {
   const pathname = usePathname();
 
   return (
@@ -56,6 +57,7 @@ export const MainNav = ({ items }: MainNavProps) => {
       <div className="ml-auto flex items-center gap-3">
         <NavSearchInput />
         <UserAuthNav />
+        {modeToggle}
       </div>
     </div>
   );
