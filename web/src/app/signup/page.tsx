@@ -5,7 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import {
-  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile,
   signInWithPopup,
   GoogleAuthProvider,
 } from "firebase/auth";
@@ -24,33 +25,33 @@ import { useSearchParams } from "next/navigation";
 
 function getFirebaseErrorMessage(code: string): string {
   switch (code) {
+    case "auth/email-already-in-use":
+      return "An account with this email already exists.";
     case "auth/invalid-email":
       return "Invalid email address.";
-    case "auth/user-disabled":
-      return "This account has been disabled.";
-    case "auth/user-not-found":
-      return "No account found with this email.";
-    case "auth/wrong-password":
-      return "Incorrect password.";
-    case "auth/invalid-credential":
-      return "Invalid email or password.";
+    case "auth/weak-password":
+      return "Password should be at least 6 characters.";
+    case "auth/operation-not-allowed":
+      return "Email/password sign up is not enabled.";
     case "auth/too-many-requests":
       return "Too many attempts. Please try again later.";
     default:
-      return "Failed to sign in. Please try again.";
+      return "Failed to create account. Please try again.";
   }
 }
 
-function SignInForm() {
+function SignUpForm() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignUp = async () => {
     setIsGoogleLoading(true);
     setError(null);
     try {
@@ -77,87 +78,80 @@ function SignInForm() {
     } catch (err: unknown) {
       const code = (err as { code?: string }).code;
       if (code === "auth/popup-closed-by-user") {
-        // User closed the popup, not an error
         setIsGoogleLoading(false);
         return;
       }
       setError(
         code === "auth/account-exists-with-different-credential"
           ? "An account already exists with this email using a different sign-in method."
-          : "Failed to sign in with Google. Please try again.",
+          : "Failed to sign up with Google. Please try again.",
       );
       setIsGoogleLoading(false);
     }
   };
 
-  const handleCredentialsSignIn = async (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
     if (!email || !password) {
-      setError("Please enter both email and password");
+      setError("Please fill in all required fields");
       setIsLoading(false);
       return;
     }
 
-    let firebaseErrorCode: string | undefined;
-
-    // Try Firebase auth first
-    if (firebaseAuth) {
-      try {
-        const userCredential = await signInWithEmailAndPassword(
-          firebaseAuth,
-          email,
-          password,
-        );
-        const idToken = await userCredential.user.getIdToken();
-
-        const result = await signIn("credentials", {
-          idToken,
-          email,
-          callbackUrl,
-          redirect: false,
-        });
-
-        if (result?.error) {
-          setError("Authentication failed. Please try again.");
-          setIsLoading(false);
-        } else if (result?.ok) {
-          window.location.href = callbackUrl;
-        }
-        return;
-      } catch (err: unknown) {
-        firebaseErrorCode = (err as { code?: string }).code;
-      }
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      setIsLoading(false);
+      return;
     }
 
-    // Fallback: direct credentials (E2E test compatibility)
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!firebaseAuth) {
+      setError("Authentication service is not available. Please try again later.");
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const result = await signIn("credentials", {
+      const userCredential = await createUserWithEmailAndPassword(
+        firebaseAuth,
         email,
         password,
+      );
+
+      if (name) {
+        await updateProfile(userCredential.user, { displayName: name });
+      }
+
+      const idToken = await userCredential.user.getIdToken();
+
+      const result = await signIn("credentials", {
+        idToken,
+        email,
         callbackUrl,
         redirect: false,
       });
 
       if (result?.error) {
-        // Show Firebase error if we had one, otherwise generic message
-        setError(
-          firebaseErrorCode
-            ? getFirebaseErrorMessage(firebaseErrorCode)
-            : "Invalid email or password",
-        );
+        setError("Account created but sign-in failed. Please try signing in.");
         setIsLoading(false);
       } else if (result?.ok) {
         window.location.href = callbackUrl;
       }
-    } catch {
-      setError(
-        firebaseErrorCode
-          ? getFirebaseErrorMessage(firebaseErrorCode)
-          : "Failed to sign in. Please check your credentials.",
-      );
+    } catch (err: unknown) {
+      const firebaseError = err as { code?: string };
+      if (firebaseError.code) {
+        setError(getFirebaseErrorMessage(firebaseError.code));
+      } else {
+        setError("Failed to create account. Please try again.");
+      }
       setIsLoading(false);
     }
   };
@@ -179,20 +173,20 @@ function SignInForm() {
           </div>
           <div className="text-center space-y-2">
             <CardTitle className="text-3xl font-bold tracking-tight">
-              Welcome to Shorted
+              Create an Account
             </CardTitle>
             <CardDescription className="text-base">
-              Sign in to access advanced features and insights
+              Sign up to track short positions and build your portfolio
             </CardDescription>
           </div>
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* Google Sign In */}
+          {/* Google Sign Up */}
           <Button
             variant="outline"
             className="w-full h-12 text-base font-medium"
-            onClick={handleGoogleSignIn}
+            onClick={handleGoogleSignUp}
             disabled={isGoogleLoading || isLoading}
           >
             {isGoogleLoading ? (
@@ -210,13 +204,33 @@ function SignInForm() {
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-card px-2 text-muted-foreground">
-                Or continue with
+                Or continue with email
               </span>
             </div>
           </div>
 
-          {/* Email/Password Form */}
-          <form onSubmit={handleCredentialsSignIn} className="space-y-4">
+          <form onSubmit={handleSignUp} className="space-y-4">
+            <div className="space-y-2">
+              <label
+                htmlFor="name"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Name{" "}
+                <span className="text-muted-foreground font-normal">
+                  (optional)
+                </span>
+              </label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="Your name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={isLoading || isGoogleLoading}
+                className="h-11"
+              />
+            </div>
+
             <div className="space-y-2">
               <label
                 htmlFor="email"
@@ -246,9 +260,28 @@ function SignInForm() {
               <Input
                 id="password"
                 type="password"
-                placeholder="Enter your password"
+                placeholder="At least 6 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading || isGoogleLoading}
+                required
+                className="h-11"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label
+                htmlFor="confirmPassword"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Confirm Password
+              </label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="Repeat your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 disabled={isLoading || isGoogleLoading}
                 required
                 className="h-11"
@@ -265,33 +298,33 @@ function SignInForm() {
             <Button
               type="submit"
               className="w-full h-11 text-base font-medium"
-              disabled={isLoading || isGoogleLoading}
+              disabled={isLoading}
             >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Signing in...
+                  Creating account...
                 </>
               ) : (
-                "Sign in"
+                "Sign up"
               )}
             </Button>
           </form>
 
-          {/* Sign Up Link */}
+          {/* Sign In Link */}
           <div className="text-center text-sm text-muted-foreground">
-            Don&apos;t have an account?{" "}
+            Already have an account?{" "}
             <Link
-              href="/signup"
+              href="/signin"
               className="font-medium text-primary underline underline-offset-4 hover:text-primary/80 transition-colors"
             >
-              Sign up
+              Sign in
             </Link>
           </div>
 
           {/* Footer Text */}
           <div className="text-center text-sm text-muted-foreground pt-2">
-            By signing in, you agree to our{" "}
+            By signing up, you agree to our{" "}
             <a
               href="/terms"
               className="underline underline-offset-4 hover:text-foreground transition-colors"
@@ -312,7 +345,7 @@ function SignInForm() {
   );
 }
 
-export default function SignInPage() {
+export default function SignUpPage() {
   return (
     <Suspense
       fallback={
@@ -321,7 +354,7 @@ export default function SignInPage() {
         </div>
       }
     >
-      <SignInForm />
+      <SignUpForm />
     </Suspense>
   );
 }

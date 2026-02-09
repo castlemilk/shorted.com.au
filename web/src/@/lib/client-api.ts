@@ -11,18 +11,17 @@ import {
 // Client-side API calls (not using React cache) for use in interactive components like tooltips
 // These should only be called from client components
 
-// Use the same endpoint resolution as server-side actions
+// Use relative URL in browser so requests go through Next.js rewrites (avoids CORS).
+// Server-side falls back to direct backend URL.
 const getApiUrl = (): string => {
-  // In browser, use NEXT_PUBLIC env var or default to localhost:9091
   if (typeof window !== "undefined") {
-    return (
-      process.env.NEXT_PUBLIC_API_URL ??
-      process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-      "http://localhost:9091"
-    );
+    return "";
   }
-  // Fallback for SSR (shouldn't be called but just in case)
-  return "http://localhost:9091";
+  return (
+    process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
+    process.env.NEXT_PUBLIC_API_URL ??
+    "http://localhost:9091"
+  );
 };
 
 // Create a shared transport for client-side calls
