@@ -84,6 +84,7 @@ export const authOptions = {
               id: decoded.uid,
               email: decoded.email ?? email ?? null,
               name: (decoded.name as string) ?? null,
+              image: decoded.picture ?? null,
             };
           } catch (error) {
             console.error("[Auth] Firebase ID token verification failed:", error);
