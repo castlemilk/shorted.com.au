@@ -455,6 +455,94 @@ function isRateLimitError(error: unknown): boolean {
 2. Keep Connect-RPC imports isolated to client-only API call files
 3. Use duck-typing for error handling utilities that need to work in both environments
 
+### Firebase Admin SDK — Lazy Initialization (CRITICAL)
+
+**Problem**: `firebase-admin.ts` initializing eagerly at module scope crashes during `next build` when CI provides a dummy private key.
+
+```
+FirebaseAppError: Failed to parse private key: Error: Too few bytes to parse DER.
+Error: Failed to collect page data for /api/auth/[...nextauth]
+```
+
+**Solution**: Use Proxy-based lazy getters that defer initialization to first access:
+
+```typescript
+function getApp(): App {
+  if (getApps().length) return getApps()[0]!;
+  return initializeApp({ credential: cert({...}) });
+}
+
+export const adminAuth = new Proxy({} as ReturnType<typeof getAuth>, {
+  get(_, prop) {
+    const auth = getAuth(getApp());
+    return (auth as unknown as Record<string | symbol, unknown>)[prop];
+  },
+});
+```
+
+**Key**: Cast through `unknown` first — `as unknown as Record<...>` — or TypeScript rejects the Proxy cast.
+
+### CORS — Use Next.js Rewrites Instead of Backend CORS Headers
+
+Client-side API requests should proxy through Next.js `rewrites()` to avoid CORS issues with Cloud Run:
+
+```javascript
+// next.config.mjs
+async rewrites() {
+  return [{
+    source: "/shorts.v1alpha1.ShortedStocksService/:path*",
+    destination: `${shortsApiUrl}/shorts.v1alpha1.ShortedStocksService/:path*`,
+  }];
+}
+```
+
+- Client-side: use relative URLs (`""` as baseUrl)
+- Server-side: use full backend URL
+- This eliminates the need for CORS headers entirely
+
+### Vercel Environment Variables — Trailing Newlines
+
+Vercel project-level env vars can have trailing `\n` baked into JS bundles. Always `.trim()` client-side config values (e.g., Firebase config in `firebase-client.ts`). CI/CD `--build-env` flags pass clean values, masking the issue.
+
+### Cloud Run — Always Add Health Probes in Terraform
+
+ALL Cloud Run services need `startup_probe` and `liveness_probe` in Terraform:
+
+```hcl
+startup_probe {
+  http_get { path = "/health" port = 8080 }
+  initial_delay_seconds = 15
+  period_seconds        = 10
+  timeout_seconds       = 5
+  failure_threshold     = 3
+}
+liveness_probe {
+  http_get { path = "/health" port = 8080 }
+  initial_delay_seconds = 30
+  period_seconds        = 30
+  timeout_seconds       = 10
+  failure_threshold     = 3
+}
+```
+
+Missing probes → "Error code 9: container failed startup probe checks".
+
+### Jest Testing — Firebase and ESM Dependencies
+
+- `firebase-admin/app` and `firebase-admin/auth` need explicit mocks in `setup.ts` (not just `firebase-admin`)
+- `jwks-rsa` bundles `jose` in nested `node_modules/` — add both to `transformIgnorePatterns`
+- `withRetryAndNotFound` returns `undefined` for ALL errors — tests should expect `toBeUndefined()`, not `rejects.toThrow()`
+- When changing component API calls (e.g., `searchStocksClient` → `fetch()`), always update corresponding tests
+- Use `getAllBy*` when multiple matching elements exist; use `toContain` for partial CSS class matching
+
+### Vercel Deployment — Root Directory
+
+The Vercel project Root Directory is set to `web/`. When deploying via CLI, deploy from the **repo root**, not from `web/`, or Vercel looks for `web/web/`.
+
+### Git Worktree
+
+`main` branch may be checked out in a separate worktree. Can't `git checkout main` — use `git branch fix-name origin/main` instead.
+
 ## Debugging
 
 ### Backend not starting?
