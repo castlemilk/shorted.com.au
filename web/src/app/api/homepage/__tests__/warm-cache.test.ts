@@ -1,9 +1,9 @@
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { getIndustryTreeMap } from "~/app/actions/getIndustryTreeMap";
 
-// Mock ViewMode enum
+// Mock ViewMode enum (protobuf enum value is 0)
 const ViewMode = {
-  CURRENT_CHANGE: 1,
+  CURRENT_CHANGE: 0,
 } as const;
 
 // Import GET after mocks are set up
@@ -21,7 +21,7 @@ jest.mock("~/app/actions/getIndustryTreeMap", () => ({
 // Mock protobuf to avoid import issues
 jest.mock("~/gen/shorts/v1alpha1/shorts_pb", () => ({
   ViewMode: {
-    CURRENT_CHANGE: 1,
+    CURRENT_CHANGE: 0,
   },
 }));
 

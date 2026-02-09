@@ -277,11 +277,37 @@ jest.mock("firebase-admin", () => ({
   },
 }));
 
+// Mock Firebase admin/app
+jest.mock("firebase-admin/app", () => ({
+  __esModule: true,
+  initializeApp: jest.fn(() => ({})),
+  cert: jest.fn(() => ({})),
+  getApps: jest.fn(() => [{}]),
+}));
+
+// Mock Firebase admin/auth
+jest.mock("firebase-admin/auth", () => ({
+  __esModule: true,
+  getAuth: jest.fn(() => ({
+    verifyIdToken: jest.fn(),
+  })),
+}));
+
 // Mock Firebase admin/firestore
 jest.mock("firebase-admin/firestore", () => ({
   __esModule: true,
   default: jest.fn(() => ({})),
-  getFirestore: jest.fn(() => ({})),
+  getFirestore: jest.fn(() => ({
+    collection: jest.fn(() => ({
+      doc: jest.fn(() => ({
+        get: jest.fn(),
+        set: jest.fn(),
+      })),
+    })),
+  })),
+  FieldValue: {
+    serverTimestamp: jest.fn(),
+  },
 }));
 
 // Mock UI components

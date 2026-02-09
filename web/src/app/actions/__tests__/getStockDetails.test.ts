@@ -84,9 +84,10 @@ describe("getStockDetails", () => {
       new Error("Stock not found"),
     );
 
-    // getStockDetails catches errors and returns undefined for NotFound
-    // For other errors, it should throw
-    await expect(getStockDetails("INVALID")).rejects.toThrow();
+    // withRetryAndNotFound catches all errors and returns undefined
+    // to prevent Server Component crashes
+    const result = await getStockDetails("INVALID");
+    expect(result).toBeUndefined();
   });
 
   it("should normalize stock code to uppercase", async () => {
