@@ -97,6 +97,9 @@ const (
 	// ShortedStocksServiceGetMySubscriptionProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetMySubscription RPC.
 	ShortedStocksServiceGetMySubscriptionProcedure = "/shorts.v1alpha1.ShortedStocksService/GetMySubscription"
+	// ShortedStocksServiceGetWeeklyReportProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetWeeklyReport RPC.
+	ShortedStocksServiceGetWeeklyReportProcedure = "/shorts.v1alpha1.ShortedStocksService/GetWeeklyReport"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -123,6 +126,7 @@ var (
 	shortedStocksServiceHandleStripeCheckoutCompletedMethodDescriptor   = shortedStocksServiceServiceDescriptor.Methods().ByName("HandleStripeCheckoutCompleted")
 	shortedStocksServiceHandleStripeSubscriptionUpdatedMethodDescriptor = shortedStocksServiceServiceDescriptor.Methods().ByName("HandleStripeSubscriptionUpdated")
 	shortedStocksServiceGetMySubscriptionMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetMySubscription")
+	shortedStocksServiceGetWeeklyReportMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("GetWeeklyReport")
 )
 
 // ShortedStocksServiceClient is a client for the shorts.v1alpha1.ShortedStocksService service.
@@ -170,6 +174,8 @@ type ShortedStocksServiceClient interface {
 	HandleStripeSubscriptionUpdated(context.Context, *connect.Request[v1alpha1.HandleStripeSubscriptionUpdatedRequest]) (*connect.Response[v1alpha1.HandleStripeSubscriptionUpdatedResponse], error)
 	// Get the current user's subscription status. Requires authentication.
 	GetMySubscription(context.Context, *connect.Request[v1alpha1.GetMySubscriptionRequest]) (*connect.Response[v1alpha1.GetMySubscriptionResponse], error)
+	// Get a weekly short report with narrative analysis
+	GetWeeklyReport(context.Context, *connect.Request[v1alpha1.GetWeeklyReportRequest]) (*connect.Response[v1alpha1.GetWeeklyReportResponse], error)
 }
 
 // NewShortedStocksServiceClient constructs a client for the shorts.v1alpha1.ShortedStocksService
@@ -308,6 +314,12 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceGetMySubscriptionMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getWeeklyReport: connect.NewClient[v1alpha1.GetWeeklyReportRequest, v1alpha1.GetWeeklyReportResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetWeeklyReportProcedure,
+			connect.WithSchema(shortedStocksServiceGetWeeklyReportMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -334,6 +346,7 @@ type shortedStocksServiceClient struct {
 	handleStripeCheckoutCompleted   *connect.Client[v1alpha1.HandleStripeCheckoutCompletedRequest, v1alpha1.HandleStripeCheckoutCompletedResponse]
 	handleStripeSubscriptionUpdated *connect.Client[v1alpha1.HandleStripeSubscriptionUpdatedRequest, v1alpha1.HandleStripeSubscriptionUpdatedResponse]
 	getMySubscription               *connect.Client[v1alpha1.GetMySubscriptionRequest, v1alpha1.GetMySubscriptionResponse]
+	getWeeklyReport                 *connect.Client[v1alpha1.GetWeeklyReportRequest, v1alpha1.GetWeeklyReportResponse]
 }
 
 // GetTopShorts calls shorts.v1alpha1.ShortedStocksService.GetTopShorts.
@@ -443,6 +456,11 @@ func (c *shortedStocksServiceClient) GetMySubscription(ctx context.Context, req 
 	return c.getMySubscription.CallUnary(ctx, req)
 }
 
+// GetWeeklyReport calls shorts.v1alpha1.ShortedStocksService.GetWeeklyReport.
+func (c *shortedStocksServiceClient) GetWeeklyReport(ctx context.Context, req *connect.Request[v1alpha1.GetWeeklyReportRequest]) (*connect.Response[v1alpha1.GetWeeklyReportResponse], error) {
+	return c.getWeeklyReport.CallUnary(ctx, req)
+}
+
 // ShortedStocksServiceHandler is an implementation of the shorts.v1alpha1.ShortedStocksService
 // service.
 type ShortedStocksServiceHandler interface {
@@ -489,6 +507,8 @@ type ShortedStocksServiceHandler interface {
 	HandleStripeSubscriptionUpdated(context.Context, *connect.Request[v1alpha1.HandleStripeSubscriptionUpdatedRequest]) (*connect.Response[v1alpha1.HandleStripeSubscriptionUpdatedResponse], error)
 	// Get the current user's subscription status. Requires authentication.
 	GetMySubscription(context.Context, *connect.Request[v1alpha1.GetMySubscriptionRequest]) (*connect.Response[v1alpha1.GetMySubscriptionResponse], error)
+	// Get a weekly short report with narrative analysis
+	GetWeeklyReport(context.Context, *connect.Request[v1alpha1.GetWeeklyReportRequest]) (*connect.Response[v1alpha1.GetWeeklyReportResponse], error)
 }
 
 // NewShortedStocksServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -623,6 +643,12 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceGetMySubscriptionMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceGetWeeklyReportHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetWeeklyReportProcedure,
+		svc.GetWeeklyReport,
+		connect.WithSchema(shortedStocksServiceGetWeeklyReportMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.ShortedStocksService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ShortedStocksServiceGetTopShortsProcedure:
@@ -667,6 +693,8 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceHandleStripeSubscriptionUpdatedHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetMySubscriptionProcedure:
 			shortedStocksServiceGetMySubscriptionHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetWeeklyReportProcedure:
+			shortedStocksServiceGetWeeklyReportHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -758,4 +786,8 @@ func (UnimplementedShortedStocksServiceHandler) HandleStripeSubscriptionUpdated(
 
 func (UnimplementedShortedStocksServiceHandler) GetMySubscription(context.Context, *connect.Request[v1alpha1.GetMySubscriptionRequest]) (*connect.Response[v1alpha1.GetMySubscriptionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetMySubscription is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetWeeklyReport(context.Context, *connect.Request[v1alpha1.GetWeeklyReportRequest]) (*connect.Response[v1alpha1.GetWeeklyReportResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetWeeklyReport is not implemented"))
 }

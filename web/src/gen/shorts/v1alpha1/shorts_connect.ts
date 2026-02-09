@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { EnrichStockRequest, EnrichStockResponse, GetAvailableDatesRequest, GetAvailableDatesResponse, GetEnrichmentJobStatusRequest, GetEnrichmentJobStatusResponse, GetIndustryTreeMapRequest, GetMarketByDateRequest, GetMarketByDateResponse, GetMySubscriptionRequest, GetMySubscriptionResponse, GetPendingEnrichmentRequest, GetPendingEnrichmentResponse, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetSyncStatusRequest, GetSyncStatusResponse, GetTopShortsRequest, GetTopShortsResponse, GetTopStocksForEnrichmentRequest, GetTopStocksForEnrichmentResponse, HandleStripeCheckoutCompletedRequest, HandleStripeCheckoutCompletedResponse, HandleStripeSubscriptionUpdatedRequest, HandleStripeSubscriptionUpdatedResponse, ListEnrichmentJobsRequest, ListEnrichmentJobsResponse, ListPendingEnrichmentsRequest, ListPendingEnrichmentsResponse, MintTokenRequest, MintTokenResponse, ReviewEnrichmentRequest, ReviewEnrichmentResponse, SearchStocksRequest, SearchStocksResponse, SyncKeyMetricsRequest, SyncKeyMetricsResponse } from "./shorts_pb";
+import { EnrichStockRequest, EnrichStockResponse, GetAvailableDatesRequest, GetAvailableDatesResponse, GetEnrichmentJobStatusRequest, GetEnrichmentJobStatusResponse, GetIndustryTreeMapRequest, GetMarketByDateRequest, GetMarketByDateResponse, GetMySubscriptionRequest, GetMySubscriptionResponse, GetPendingEnrichmentRequest, GetPendingEnrichmentResponse, GetStockDataRequest, GetStockDetailsRequest, GetStockRequest, GetSyncStatusRequest, GetSyncStatusResponse, GetTopShortsRequest, GetTopShortsResponse, GetTopStocksForEnrichmentRequest, GetTopStocksForEnrichmentResponse, GetWeeklyReportRequest, GetWeeklyReportResponse, HandleStripeCheckoutCompletedRequest, HandleStripeCheckoutCompletedResponse, HandleStripeSubscriptionUpdatedRequest, HandleStripeSubscriptionUpdatedResponse, ListEnrichmentJobsRequest, ListEnrichmentJobsResponse, ListPendingEnrichmentsRequest, ListPendingEnrichmentsResponse, MintTokenRequest, MintTokenResponse, ReviewEnrichmentRequest, ReviewEnrichmentResponse, SearchStocksRequest, SearchStocksResponse, SyncKeyMetricsRequest, SyncKeyMetricsResponse } from "./shorts_pb";
 import { MethodKind } from "@bufbuild/protobuf";
 import { IndustryTreeMap, Stock, StockDetails, TimeSeriesData } from "../../stocks/v1alpha1/stocks_pb";
 
@@ -243,6 +243,17 @@ export const ShortedStocksService = {
       name: "GetMySubscription",
       I: GetMySubscriptionRequest,
       O: GetMySubscriptionResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Get a weekly short report with narrative analysis
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetWeeklyReport
+     */
+    getWeeklyReport: {
+      name: "GetWeeklyReport",
+      I: GetWeeklyReportRequest,
+      O: GetWeeklyReportResponse,
       kind: MethodKind.Unary,
     },
   }

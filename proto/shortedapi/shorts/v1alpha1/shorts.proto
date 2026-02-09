@@ -371,6 +371,15 @@ service ShortedStocksService {
   rpc GetMySubscription (GetMySubscriptionRequest) returns (GetMySubscriptionResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
   }
+
+  // Get a weekly short report with narrative analysis
+  rpc GetWeeklyReport (GetWeeklyReportRequest) returns (GetWeeklyReportResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Weekly Report",
+      description: "Retrieve a weekly short selling report with narrative analysis, top shorted stocks, and biggest movers."
+    };
+  }
 }
 
 message MintTokenRequest {
@@ -795,4 +804,69 @@ message GetAvailableDatesResponse {
   string earliest_date = 2;
   string latest_date = 3;
   int32 total_count = 4;
+}
+
+// ==================== Weekly Report Messages ====================
+
+// Request for GetWeeklyReport RPC
+message GetWeeklyReportRequest {
+  string week_slug = 1; // ISO week format: "2026-W06"
+}
+
+// Response for GetWeeklyReport RPC
+message GetWeeklyReportResponse {
+  string week_slug = 1;
+  string headline = 2;
+  string summary = 3;
+  string report_date = 4;     // YYYY-MM-DD of latest trading day in the week
+  string previous_date = 5;   // YYYY-MM-DD of previous week's latest trading day
+  WeeklyNarrative narrative = 6;
+  repeated WeeklyReportStock top_shorted = 7;
+  repeated WeeklyReportMover risers = 8;
+  repeated WeeklyReportMover fallers = 9;
+  repeated WeeklyReportFAQ faqs = 10;
+  double quality_score = 11;
+  WeeklyMarketStats market_stats = 12;
+}
+
+// Narrative sections of the weekly report
+message WeeklyNarrative {
+  string opening_hook = 1;
+  string top_analysis = 2;
+  string movers_analysis = 3;
+  string industry_analysis = 4;
+  string outlook = 5;
+}
+
+// A stock entry in the weekly top shorted list
+message WeeklyReportStock {
+  int32 rank = 1;
+  string code = 2;
+  string name = 3;
+  double short_pct = 4;
+  double wow_change = 5; // Week-on-week change in short percentage
+}
+
+// A mover (riser or faller) in the weekly report
+message WeeklyReportMover {
+  string code = 1;
+  string name = 2;
+  double current_pct = 3;
+  double previous_pct = 4;
+  double change = 5; // Absolute change in short percentage
+}
+
+// FAQ entry in the weekly report
+message WeeklyReportFAQ {
+  string question = 1;
+  string answer = 2;
+}
+
+// Aggregate market statistics for the week
+message WeeklyMarketStats {
+  int32 total_stocks_shorted = 1;
+  double avg_short_pct = 2;
+  double max_short_pct = 3;
+  string max_short_code = 4;
+  double wow_avg_change = 5; // Week-on-week change in average short %
 }
