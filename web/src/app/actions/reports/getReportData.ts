@@ -171,6 +171,114 @@ export async function getAvailableWeekSlugs(): Promise<string[]> {
   return slugs;
 }
 
+// Enhanced weekly report data including LLM narrative (from weekly_reports table)
+export interface EnhancedWeeklyReportNarrative {
+  headline: string;
+  summary: string;
+  narrative: {
+    openingHook: string;
+    topAnalysis: string;
+    moversAnalysis: string;
+    industryAnalysis: string;
+    outlook: string;
+  };
+  topShorted: Array<{
+    rank: number;
+    code: string;
+    name: string;
+    shortPct: number;
+    wowChange: number;
+  }>;
+  risers: Array<{
+    code: string;
+    name: string;
+    currentPct: number;
+    previousPct: number;
+    change: number;
+  }>;
+  fallers: Array<{
+    code: string;
+    name: string;
+    currentPct: number;
+    previousPct: number;
+    change: number;
+  }>;
+  faqs: Array<{
+    question: string;
+    answer: string;
+  }>;
+  marketStats?: {
+    totalStocksShorted: number;
+    avgShortPct: number;
+    maxShortPct: number;
+    maxShortCode: string;
+    wowAvgChange: number;
+  };
+  qualityScore: number;
+}
+
+// Fetch enhanced weekly report narrative from the GetWeeklyReport RPC
+export const getEnhancedWeeklyReportData = cache(
+  async (weekSlug: string): Promise<EnhancedWeeklyReportNarrative | null> => {
+    try {
+      const transport = createConnectTransport({ baseUrl: getApiUrl() });
+      const client = createClient(ShortedStocksService, transport);
+
+      const resp = await client.getWeeklyReport({ weekSlug });
+
+      return {
+        headline: resp.headline,
+        summary: resp.summary,
+        narrative: {
+          openingHook: resp.narrative?.openingHook ?? "",
+          topAnalysis: resp.narrative?.topAnalysis ?? "",
+          moversAnalysis: resp.narrative?.moversAnalysis ?? "",
+          industryAnalysis: resp.narrative?.industryAnalysis ?? "",
+          outlook: resp.narrative?.outlook ?? "",
+        },
+        topShorted: resp.topShorted.map((s) => ({
+          rank: s.rank,
+          code: s.code,
+          name: s.name,
+          shortPct: s.shortPct,
+          wowChange: s.wowChange,
+        })),
+        risers: resp.risers.map((m) => ({
+          code: m.code,
+          name: m.name,
+          currentPct: m.currentPct,
+          previousPct: m.previousPct,
+          change: m.change,
+        })),
+        fallers: resp.fallers.map((m) => ({
+          code: m.code,
+          name: m.name,
+          currentPct: m.currentPct,
+          previousPct: m.previousPct,
+          change: m.change,
+        })),
+        faqs: resp.faqs.map((f) => ({
+          question: f.question,
+          answer: f.answer,
+        })),
+        marketStats: resp.marketStats
+          ? {
+              totalStocksShorted: resp.marketStats.totalStocksShorted,
+              avgShortPct: resp.marketStats.avgShortPct,
+              maxShortPct: resp.marketStats.maxShortPct,
+              maxShortCode: resp.marketStats.maxShortCode,
+              wowAvgChange: resp.marketStats.wowAvgChange,
+            }
+          : undefined,
+        qualityScore: resp.qualityScore,
+      };
+    } catch {
+      // Narrative not available for this week (expected for older weeks)
+      return null;
+    }
+  },
+);
+
 // Generate available month slugs (last 24 months)
 export async function getAvailableMonthSlugs(): Promise<string[]> {
   const slugs: string[] = [];

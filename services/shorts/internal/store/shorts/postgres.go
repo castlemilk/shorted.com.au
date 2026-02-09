@@ -2005,6 +2005,85 @@ func (s *postgresStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.E
 	return nil
 }
 
+// GetWeeklyReport retrieves a weekly report by its week slug (e.g., "2026-W06")
+func (s *postgresStore) GetWeeklyReport(weekSlug string) (*WeeklyReport, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT
+			id::text,
+			week_slug,
+			report_date::text,
+			previous_date::text,
+			headline,
+			summary,
+			narrative,
+			top_shorted,
+			risers,
+			fallers,
+			industry_breakdown,
+			market_stats,
+			faqs,
+			quality_score,
+			llm_model,
+			retry_count,
+			created_at::text,
+			published_at::text
+		FROM weekly_reports
+		WHERE week_slug = $1
+		  AND published_at IS NOT NULL
+		LIMIT 1
+	`
+
+	var report WeeklyReport
+	var industryBreakdown, marketStats, faqs []byte
+	var qualityScore sql.NullFloat64
+	var llmModel, publishedAt sql.NullString
+
+	err := s.db.QueryRow(ctx, query, weekSlug).Scan(
+		&report.ID,
+		&report.WeekSlug,
+		&report.ReportDate,
+		&report.PreviousDate,
+		&report.Headline,
+		&report.Summary,
+		&report.Narrative,
+		&report.TopShorted,
+		&report.Risers,
+		&report.Fallers,
+		&industryBreakdown,
+		&marketStats,
+		&faqs,
+		&qualityScore,
+		&llmModel,
+		&report.RetryCount,
+		&report.CreatedAt,
+		&publishedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // No report found
+		}
+		return nil, fmt.Errorf("failed to get weekly report: %w", err)
+	}
+
+	report.IndustryBreakdown = industryBreakdown
+	report.MarketStats = marketStats
+	report.FAQs = faqs
+	if qualityScore.Valid {
+		report.QualityScore = &qualityScore.Float64
+	}
+	if llmModel.Valid {
+		report.LLMModel = &llmModel.String
+	}
+	if publishedAt.Valid {
+		report.PublishedAt = &publishedAt.String
+	}
+
+	return &report, nil
+}
+
 func enrichmentStatusToDB(status shortsv1alpha1.EnrichmentStatus) string {
 	switch status {
 	case shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_REJECTED:

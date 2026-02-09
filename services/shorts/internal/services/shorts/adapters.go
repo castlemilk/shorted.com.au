@@ -145,6 +145,10 @@ func (s *StoreAdapter) UpdateAPISubscriptionByCustomer(stripeCustomerID string, 
 	return s.store.UpdateAPISubscriptionByCustomer(stripeCustomerID, update)
 }
 
+func (s *StoreAdapter) GetWeeklyReport(weekSlug string) (*shorts.WeeklyReport, error) {
+	return s.store.GetWeeklyReport(weekSlug)
+}
+
 // LoggerAdapter adapts the standard logger to the Logger interface
 type LoggerAdapter struct{}
 

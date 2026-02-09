@@ -51,6 +51,9 @@ type ShortsStore interface {
 	GetAPISubscriptionByCustomer(stripeCustomerID string) (*shortsstore.APISubscription, error)
 	UpsertAPISubscription(sub *shortsstore.APISubscription) error
 	UpdateAPISubscriptionByCustomer(stripeCustomerID string, update *shortsstore.APISubscriptionUpdate) error
+
+	// Weekly report methods
+	GetWeeklyReport(weekSlug string) (*shortsstore.WeeklyReport, error)
 }
 
 // Cache defines the interface for caching operations

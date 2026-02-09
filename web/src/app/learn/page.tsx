@@ -145,6 +145,20 @@ const articles = [
     topics: ["Options", "Trading Strategies", "Derivatives"],
   },
   {
+    slug: "asic-short-selling-regulations",
+    title: "ASIC Short Selling Regulations & Reporting Requirements",
+    description:
+      "Comprehensive guide to Australian short selling regulations including the Corporations Act 2001, ASIC Regulatory Guide 196, reporting thresholds, and the ASX short sales report.",
+    readTime: "14 min read",
+    level: "Intermediate",
+    topics: [
+      "ASIC Regulations",
+      "Corporations Act 2001",
+      "Regulatory Guide 196",
+      "Short Selling Compliance",
+    ],
+  },
+  {
     slug: "reading-short-interest-changes",
     title: "Interpreting Short Interest Changes Over Time",
     description:
@@ -152,6 +166,24 @@ const articles = [
     readTime: "9 min read",
     level: "Intermediate",
     topics: ["Trend Analysis", "Short Covering", "Market Signals"],
+  },
+  {
+    slug: "how-to-view-asic-short-positions",
+    title: "How to View ASIC Short Position Reports on the ASX",
+    description:
+      "Step-by-step guide to finding and reading ASIC short position reports. Learn where to access daily short selling data on the ASIC website, ASX website, and through Shorted.com.au.",
+    readTime: "10 min read",
+    level: "Beginner",
+    topics: ["ASIC Reports", "Short Position Data", "ASX Short Sales", "Data Access"],
+  },
+  {
+    slug: "covered-short-selling-australia",
+    title: "Covered Short Selling in Australia: How Retail Brokers Handle Stock Borrowing",
+    description:
+      "Understand how covered short selling works for retail investors in Australia. Learn about the stock locate process, broker requirements, borrowing fees, and which ASX stocks are available to short.",
+    readTime: "12 min read",
+    level: "Intermediate",
+    topics: ["Covered Short Selling", "Stock Borrowing", "Retail Brokers", "Borrow Fees"],
   },
 ];
 
