@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/castlemilk/shorted.com.au/services/market-data-sync/api"
@@ -50,8 +52,33 @@ func main() {
 			log.Fatalf("❌ Failed to start HTTP server: %v", err)
 		}
 
-		// Initialize dependencies (may take time due to DB/GCS connections)
-		pool, gcsClient, dataProviders := initDependencies(ctx, cfg)
+		// Initialize dependencies with retry — never crash the process so
+		// the health endpoint stays alive for Cloud Run startup probes.
+		var pool *pgxpool.Pool
+		var gcsClient *storage.Client
+		var dataProviders []providers.DataProvider
+		var err error
+
+		maxRetries := 10
+		for attempt := 1; attempt <= maxRetries; attempt++ {
+			pool, gcsClient, dataProviders, err = initDependencies(ctx, cfg)
+			if err == nil {
+				break
+			}
+			if ctx.Err() != nil {
+				log.Fatalf("❌ Context cancelled during dependency init: %v", err)
+			}
+			backoff := time.Duration(attempt) * 2 * time.Second
+			if backoff > 30*time.Second {
+				backoff = 30 * time.Second
+			}
+			log.Printf("⚠️ Dependency init failed (attempt %d/%d): %v — retrying in %s", attempt, maxRetries, err, backoff)
+			time.Sleep(backoff)
+		}
+		if err != nil {
+			log.Fatalf("❌ Failed to initialize dependencies after %d attempts: %v", maxRetries, err)
+		}
+
 		defer pool.Close()
 		if gcsClient != nil {
 			defer gcsClient.Close()
@@ -70,7 +97,10 @@ func main() {
 	}
 
 	// CLI mode — synchronous initialization and run
-	pool, gcsClient, dataProviders := initDependencies(ctx, cfg)
+	pool, gcsClient, dataProviders, err := initDependencies(ctx, cfg)
+	if err != nil {
+		log.Fatalf("❌ Failed to initialize dependencies: %v", err)
+	}
 	defer pool.Close()
 	if gcsClient != nil {
 		defer gcsClient.Close()
@@ -89,14 +119,20 @@ func main() {
 }
 
 // initDependencies initializes the database pool, GCS client, and data providers.
-func initDependencies(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, *storage.Client, []providers.DataProvider) {
+// Returns an error instead of calling log.Fatalf so callers can retry.
+func initDependencies(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, *storage.Client, []providers.DataProvider, error) {
+	// Use a timeout so we don't hang forever on network issues
+	initCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
 	// Database
-	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	pool, err := pgxpool.New(initCtx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatalf("❌ Failed to connect to DB: %v", err)
+		return nil, nil, nil, fmt.Errorf("connect to DB: %w", err)
 	}
-	if err := pool.Ping(ctx); err != nil {
-		log.Fatalf("❌ Failed to ping DB: %v", err)
+	if err := pool.Ping(initCtx); err != nil {
+		pool.Close()
+		return nil, nil, nil, fmt.Errorf("ping DB: %w", err)
 	}
 	log.Printf("✅ Connected to database")
 
@@ -107,9 +143,10 @@ func initDependencies(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, *
 		if creds := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"); creds != "" {
 			gcsOpts = append(gcsOpts, option.WithCredentialsFile(creds))
 		}
-		gcsClient, err = storage.NewClient(ctx, gcsOpts...)
+		gcsClient, err = storage.NewClient(initCtx, gcsOpts...)
 		if err != nil {
-			log.Fatalf("❌ Failed to create GCS client: %v", err)
+			pool.Close()
+			return nil, nil, nil, fmt.Errorf("create GCS client: %w", err)
 		}
 		log.Printf("✅ Connected to GCS")
 	} else {
@@ -125,5 +162,5 @@ func initDependencies(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, *
 		log.Printf("✅ Alpha Vantage provider initialized (fallback)")
 	}
 
-	return pool, gcsClient, dataProviders
+	return pool, gcsClient, dataProviders, nil
 }
