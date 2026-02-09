@@ -36,6 +36,22 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Create the stock_prices table (required by search query's valid_stocks CTE)
+CREATE TABLE IF NOT EXISTS stock_prices (
+    id SERIAL PRIMARY KEY,
+    stock_code VARCHAR(10) NOT NULL,
+    date DATE NOT NULL,
+    open DECIMAL(10, 2),
+    high DECIMAL(10, 2),
+    low DECIMAL(10, 2),
+    close DECIMAL(10, 2),
+    adjusted_close DECIMAL(10, 2),
+    volume BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(stock_code, date)
+);
+
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_shorts_product_code_date ON shorts ("PRODUCT_CODE", "DATE");
 CREATE INDEX IF NOT EXISTS idx_shorts_date_percent ON shorts ("DATE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS");
@@ -73,4 +89,19 @@ INSERT INTO shorts ("DATE", "PRODUCT", "PRODUCT_CODE", "REPORTED_SHORT_POSITIONS
     (CURRENT_DATE - INTERVAL '2 days', 'RESMED INC CDI 10:1 FOR. EXEMPT', 'RMD', 825000, 583681640, 0.14134567),
     (CURRENT_DATE - INTERVAL '1 day', 'RED MOUNT MIN LTD ORDINARY', 'RMX', 121046, 464957796, 0.02603376),
     (CURRENT_DATE - INTERVAL '2 days', 'RED MOUNT MIN LTD ORDINARY', 'RMX', 120500, 464957796, 0.02591628)
-ON CONFLICT DO NOTHING; 
+ON CONFLICT DO NOTHING;
+
+-- Insert sample stock prices so search valid_stocks CTE finds these stocks
+INSERT INTO stock_prices (stock_code, date, open, high, low, close, adjusted_close, volume) VALUES
+    ('CBA', CURRENT_DATE - INTERVAL '1 day', 140.00, 141.50, 139.50, 141.00, 141.00, 5000000),
+    ('CBA', CURRENT_DATE - INTERVAL '2 days', 139.00, 140.50, 138.50, 140.00, 140.00, 4800000),
+    ('BHP', CURRENT_DATE - INTERVAL '1 day', 45.00, 45.80, 44.50, 45.50, 45.50, 8000000),
+    ('BHP', CURRENT_DATE - INTERVAL '2 days', 44.50, 45.20, 44.00, 45.00, 45.00, 7500000),
+    ('RMD', CURRENT_DATE - INTERVAL '1 day', 38.00, 38.50, 37.50, 38.20, 38.20, 1200000),
+    ('RMD', CURRENT_DATE - INTERVAL '2 days', 37.50, 38.10, 37.00, 38.00, 38.00, 1100000),
+    ('RMX', CURRENT_DATE - INTERVAL '1 day', 0.05, 0.06, 0.04, 0.05, 0.05, 500000),
+    ('RMX', CURRENT_DATE - INTERVAL '2 days', 0.04, 0.05, 0.04, 0.05, 0.05, 450000),
+    ('SMPA', CURRENT_DATE - INTERVAL '1 day', 10.00, 10.50, 9.80, 10.20, 10.20, 200000),
+    ('SMPB', CURRENT_DATE - INTERVAL '1 day', 25.00, 25.50, 24.50, 25.20, 25.20, 300000),
+    ('SMPC', CURRENT_DATE - INTERVAL '1 day', 15.00, 15.30, 14.80, 15.10, 15.10, 150000)
+ON CONFLICT (stock_code, date) DO NOTHING;
