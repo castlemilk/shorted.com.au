@@ -1142,6 +1142,9 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: |
+            services/go.sum
+            test/integration/go.sum
 
       - name: Run integration tests
         env:
@@ -1150,7 +1153,7 @@ jobs:
           echo "🧪 Running integration tests against deployed services..."
           echo "Backend URL: $BACKEND_URL"
           cd services
-          make test-integration-ci || true
+          make test-integration-ci
 
   cleanup-preview:
     runs-on: ubuntu-latest
