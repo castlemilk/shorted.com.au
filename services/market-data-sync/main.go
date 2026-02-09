@@ -42,41 +42,82 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// 2. Initialize DB pool
+	// 2. In API mode, start HTTP server immediately so health probes pass
+	//    while we initialize heavy dependencies (DB, GCS, providers).
+	if !*cliMode {
+		server := api.NewServer(cfg.Port)
+		if err := server.Start(); err != nil {
+			log.Fatalf("❌ Failed to start HTTP server: %v", err)
+		}
+
+		// Initialize dependencies (may take time due to DB/GCS connections)
+		pool, gcsClient, dataProviders := initDependencies(ctx, cfg)
+		defer pool.Close()
+		if gcsClient != nil {
+			defer gcsClient.Close()
+		}
+
+		syncManager := sync.NewSyncManager(pool, gcsClient, cfg, dataProviders)
+		checkpointStore := checkpoint.NewStore(pool)
+
+		// Mark server as ready — API endpoints now accept requests
+		server.SetDependencies(syncManager, checkpointStore, pool, dataProviders)
+
+		if err := server.AwaitShutdown(ctx); err != nil {
+			log.Fatalf("❌ Server shutdown error: %v", err)
+		}
+		return
+	}
+
+	// CLI mode — synchronous initialization and run
+	pool, gcsClient, dataProviders := initDependencies(ctx, cfg)
+	defer pool.Close()
+	if gcsClient != nil {
+		defer gcsClient.Close()
+	}
+
+	syncManager := sync.NewSyncManager(pool, gcsClient, cfg, dataProviders)
+	log.Printf("🚀 Starting Market Data Sync (CLI mode)")
+	if err := syncManager.Run(ctx); err != nil {
+		if ctx.Err() != nil {
+			log.Printf("⏹️ Sync interrupted: %v", err)
+			os.Exit(130) // Standard exit code for SIGINT
+		}
+		log.Fatalf("❌ Sync failed: %v", err)
+	}
+	log.Printf("🎉 Market Data Sync completed successfully")
+}
+
+// initDependencies initializes the database pool, GCS client, and data providers.
+func initDependencies(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, *storage.Client, []providers.DataProvider) {
+	// Database
 	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("❌ Failed to connect to DB: %v", err)
 	}
-	defer pool.Close()
-
 	if err := pool.Ping(ctx); err != nil {
 		log.Fatalf("❌ Failed to ping DB: %v", err)
 	}
 	log.Printf("✅ Connected to database")
 
-	// 3. Initialize GCS client (optional if LOCAL_ASX_CSV is set)
+	// GCS (optional if LOCAL_ASX_CSV is set)
 	var gcsClient *storage.Client
 	if os.Getenv("LOCAL_ASX_CSV") == "" {
-		// Only initialize GCS if not using local CSV
 		var gcsOpts []option.ClientOption
 		if creds := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"); creds != "" {
 			gcsOpts = append(gcsOpts, option.WithCredentialsFile(creds))
 		}
-		var err error
 		gcsClient, err = storage.NewClient(ctx, gcsOpts...)
 		if err != nil {
 			log.Fatalf("❌ Failed to create GCS client: %v", err)
 		}
-		defer gcsClient.Close()
 		log.Printf("✅ Connected to GCS")
 	} else {
 		log.Printf("ℹ️ Using local ASX CSV file, skipping GCS initialization")
 	}
 
-	// 4. Initialize data providers
-	// Order: Yahoo Finance Direct first (free, unlimited), then Alpha Vantage as fallback (rate limited)
+	// Data providers: Yahoo Finance Direct first, Alpha Vantage as fallback
 	var dataProviders []providers.DataProvider
-	// Use direct HTTP client instead of broken piquette/finance-go library
 	dataProviders = append(dataProviders, providers.NewYahooFinanceDirectProvider())
 	log.Printf("✅ Yahoo Finance Direct provider initialized")
 	if cfg.HasAlphaVantage() {
@@ -84,28 +125,5 @@ func main() {
 		log.Printf("✅ Alpha Vantage provider initialized (fallback)")
 	}
 
-	// 5. Initialize SyncManager
-	// Note: gcsClient can be nil if LOCAL_ASX_CSV is set
-	syncManager := sync.NewSyncManager(pool, gcsClient, cfg, dataProviders)
-	checkpointStore := checkpoint.NewStore(pool)
-
-	// 6. Run in CLI mode or API server mode
-	if *cliMode {
-		log.Printf("🚀 Starting Market Data Sync (CLI mode)")
-		if err := syncManager.Run(ctx); err != nil {
-			if ctx.Err() != nil {
-				log.Printf("⏹️ Sync interrupted: %v", err)
-				os.Exit(130) // Standard exit code for SIGINT
-			}
-			log.Fatalf("❌ Sync failed: %v", err)
-		}
-		log.Printf("🎉 Market Data Sync completed successfully")
-	} else {
-		// API Server mode
-		server := api.NewServer(syncManager, checkpointStore, pool, dataProviders, cfg.Port)
-		log.Printf("🌐 Starting Market Data Sync API Server")
-		if err := server.Start(ctx); err != nil {
-			log.Fatalf("❌ Server failed: %v", err)
-		}
-	}
+	return pool, gcsClient, dataProviders
 }
