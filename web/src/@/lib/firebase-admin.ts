@@ -2,11 +2,13 @@ import { initializeApp, cert, getApps, type App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 
-let app: App;
+function getApp(): App {
+  if (getApps().length) {
+    return getApps()[0]!;
+  }
 
-if (!getApps().length) {
   const projectId = process.env.AUTH_FIREBASE_PROJECT_ID?.trim();
-  app = initializeApp({
+  return initializeApp({
     credential: cert({
       projectId: projectId,
       clientEmail: process.env.AUTH_FIREBASE_CLIENT_EMAIL,
@@ -14,9 +16,20 @@ if (!getApps().length) {
     }),
     projectId: projectId,
   });
-} else {
-  app = getApps()[0]!;
 }
 
-export const adminAuth = getAuth(app);
-export const adminDb = getFirestore(app);
+// Lazy getters — initialization is deferred until first access,
+// so module import during Next.js build won't crash with invalid CI credentials.
+export const adminAuth = new Proxy({} as ReturnType<typeof getAuth>, {
+  get(_, prop) {
+    const auth = getAuth(getApp());
+    return (auth as Record<string | symbol, unknown>)[prop];
+  },
+});
+
+export const adminDb = new Proxy({} as ReturnType<typeof getFirestore>, {
+  get(_, prop) {
+    const db = getFirestore(getApp());
+    return (db as Record<string | symbol, unknown>)[prop];
+  },
+});
