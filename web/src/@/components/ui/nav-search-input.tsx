@@ -42,41 +42,34 @@ async function fetchSearchResults(
 ): Promise<StockResult[]> {
   if (!query.trim()) return [];
 
-  // Try the backend Connect-RPC endpoint first (JSON transport, no protobuf imports)
-  const baseUrl =
-    process.env.NEXT_PUBLIC_API_URL ??
-    process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-    "";
-
-  if (baseUrl) {
-    try {
-      const res = await fetch(
-        `${baseUrl}/shorts.v1alpha1.ShortedStocksService/SearchStocks`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            query: query.trim(),
-            limit,
-            includeDetails: false,
-          }),
-        }
-      );
-
-      if (res.ok) {
-        const data = (await res.json()) as BackendResponse;
-        if (data.stocks?.length) {
-          return data.stocks.map((s) => ({
-            productCode: s.productCode,
-            name: s.name,
-            percentageShorted: s.percentageShorted ?? 0,
-            industry: s.industry,
-          }));
-        }
+  // Use relative URL so requests go through Next.js rewrites (avoids CORS)
+  try {
+    const res = await fetch(
+      `/shorts.v1alpha1.ShortedStocksService/SearchStocks`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: query.trim(),
+          limit,
+          includeDetails: false,
+        }),
       }
-    } catch {
-      // Fall through to local API
+    );
+
+    if (res.ok) {
+      const data = (await res.json()) as BackendResponse;
+      if (data.stocks?.length) {
+        return data.stocks.map((s) => ({
+          productCode: s.productCode,
+          name: s.name,
+          percentageShorted: s.percentageShorted ?? 0,
+          industry: s.industry,
+        }));
+      }
     }
+  } catch {
+    // Fall through to local API
   }
 
   // Fallback: use the local Next.js API route

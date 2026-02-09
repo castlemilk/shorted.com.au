@@ -14,8 +14,9 @@ export async function fetchStockDetailsClient(
   productCode: string,
 ): Promise<StockDetails | null> {
   try {
+    // Use relative URL so requests go through Next.js rewrites (avoids CORS)
     const transport = createConnectTransport({
-      baseUrl: getShortsApiUrl(),
+      baseUrl: typeof window !== "undefined" ? "" : getShortsApiUrl(),
     });
     const client = createClient(ShortedStocksService, transport);
     const response = await client.getStockDetails({ productCode });
@@ -34,8 +35,9 @@ export async function fetchStockClient(
   productCode: string,
 ): Promise<Stock | null> {
   try {
+    // Use relative URL so requests go through Next.js rewrites (avoids CORS)
     const transport = createConnectTransport({
-      baseUrl: getShortsApiUrl(),
+      baseUrl: typeof window !== "undefined" ? "" : getShortsApiUrl(),
     });
     const client = createClient(ShortedStocksService, transport);
     const response = await client.getStock({ productCode });
