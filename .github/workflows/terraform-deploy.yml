@@ -1131,7 +1131,7 @@ jobs:
           echo "- **Shorts API**: ${{ steps.resolve-urls.outputs.shorts_url }}" >> $GITHUB_STEP_SUMMARY
 
   run-tests:
-    needs: [determine-environment, terraform-apply]
+    needs: [determine-environment, build-and-push-images]
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
     steps:
@@ -1147,11 +1147,8 @@ jobs:
             test/integration/go.sum
 
       - name: Run integration tests
-        env:
-          BACKEND_URL: ${{ needs.terraform-apply.outputs.shorts-url }}
         run: |
-          echo "🧪 Running integration tests against deployed services..."
-          echo "Backend URL: $BACKEND_URL"
+          echo "🧪 Running integration tests (local testcontainers)..."
           cd services
           make test-integration-ci
 
