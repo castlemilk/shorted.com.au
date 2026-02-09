@@ -294,20 +294,24 @@ export function NavSearchInput() {
       )}
 
       {/* ─── Mobile: search icon trigger ─── */}
-      <button
-        className={cn(
-          "md:hidden flex items-center justify-center h-9 w-9 rounded-lg",
-          "text-muted-foreground hover:text-foreground hover:bg-muted/50",
-          "transition-colors active:scale-95"
-        )}
-        onClick={() => {
-          setIsMobileOpen(true);
-          setTimeout(() => mobileInputRef.current?.focus(), 50);
-        }}
-        aria-label="Search stocks"
-      >
-        <Search className="h-4 w-4" />
-      </button>
+      {/* Wrapper div handles responsive visibility (md:hidden) separately from
+          button layout (flex) to avoid display property conflicts */}
+      <div className="md:hidden">
+        <button
+          className={cn(
+            "flex items-center justify-center h-9 w-9 rounded-lg",
+            "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+            "transition-colors active:scale-95"
+          )}
+          onClick={() => {
+            setIsMobileOpen(true);
+            setTimeout(() => mobileInputRef.current?.focus(), 50);
+          }}
+          aria-label="Search stocks"
+        >
+          <Search className="h-4 w-4" />
+        </button>
+      </div>
 
       {/* ─── Mobile: full-screen search overlay ─── */}
       {isMobileOpen && (
