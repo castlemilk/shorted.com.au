@@ -706,19 +706,9 @@ test-integration-local:
 	@cd market-data && go test -v -tags=integration -timeout=10m ./...
 	@echo ""
 
-# Integration tests - CI (expects BACKEND_URL to be set)
+# Integration tests - CI (self-contained via testcontainers)
 test-integration-ci:
-	@echo "🧪 Running integration tests against deployed service..."
-	@if [ -z "$$BACKEND_URL" ]; then \
-		echo "❌ BACKEND_URL not set"; \
-		echo "Set BACKEND_URL to your deployed service URL"; \
-		exit 1; \
-	fi
-	@echo "Testing against: $$BACKEND_URL"
-	@echo "Checking service health..."
-	@curl -f "$$BACKEND_URL/health" || (echo "❌ Backend health check failed" && exit 1)
-	@echo "✅ Backend is healthy"
-	@echo ""
+	@echo "🧪 Running integration tests (testcontainers)..."
 	@echo "Running test/integration tests..."
 	@cd ../test/integration && go test -v -timeout=10m ./...
 	@echo ""
