@@ -23,13 +23,13 @@ function getApp(): App {
 export const adminAuth = new Proxy({} as ReturnType<typeof getAuth>, {
   get(_, prop) {
     const auth = getAuth(getApp());
-    return (auth as Record<string | symbol, unknown>)[prop];
+    return (auth as unknown as Record<string | symbol, unknown>)[prop];
   },
 });
 
 export const adminDb = new Proxy({} as ReturnType<typeof getFirestore>, {
   get(_, prop) {
     const db = getFirestore(getApp());
-    return (db as Record<string | symbol, unknown>)[prop];
+    return (db as unknown as Record<string | symbol, unknown>)[prop];
   },
 });
