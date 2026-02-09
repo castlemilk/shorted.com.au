@@ -21,7 +21,7 @@ import signal
 import sys
 from pathlib import Path
 import logging
-from typing import List, Dict, Set, Optional
+from typing import List, Dict, Set, Optional, Tuple
 from urllib.parse import urlparse, parse_qs, unquote
 
 # Configure logging
@@ -589,8 +589,14 @@ async def fetch_from_alpha_vantage(
 
 def fetch_from_yahoo_finance(
     stock_code: str, days: int, max_retries: int = 3
-) -> Optional[List[Dict]]:
+) -> Tuple[Optional[List[Dict]], bool]:
     """Fetch recent price data from Yahoo Finance with retry and exponential backoff.
+
+    Returns:
+        Tuple of (data, is_no_data):
+        - (list, False) on success
+        - (None, True) when stock has no data (expected for delisted stocks)
+        - (None, False) on real errors (network, rate limit, etc.)
 
     Optimizations:
     - 404 errors (stock not found) are not retried since they won't recover
@@ -617,7 +623,8 @@ def fetch_from_yahoo_finance(
                     )
                     time.sleep(min(backoff, RATE_LIMIT_DELAY_YAHOO_MAX))
                     continue
-                return None
+                # After all retries, treat as no data (likely delisted)
+                return None, True
 
             data = []
             for date_idx, row in hist.iterrows():
@@ -639,7 +646,7 @@ def fetch_from_yahoo_finance(
                     }
                 )
 
-            return data if data else None
+            return (data, False) if data else (None, True)
 
         except Exception as e:
             error_msg = str(e)
@@ -655,7 +662,7 @@ def fetch_from_yahoo_finance(
                 # Log only on first attempt to reduce noise
                 if attempt == 0:
                     logger.debug(f"  {yf_ticker}: Stock not found (404) - skipping retries")
-                return None
+                return None, True
 
             # Check for rate limit indicators - these should be retried
             if (
@@ -676,9 +683,9 @@ def fetch_from_yahoo_finance(
                 logger.error(
                     f"Failed to get ticker '{yf_ticker}' reason: {error_msg[:100]}"
                 )
-            return None
+            return None, False
 
-    return None
+    return None, True
 
 
 async def get_stocks_with_price_data(conn) -> List[str]:
@@ -1002,11 +1009,12 @@ async def update_stock_prices(
                     await asyncio.sleep(RATE_LIMIT_DELAY_ALPHA)
 
             # Fallback to Yahoo Finance
+            yahoo_is_no_data = False
             if not data:
                 # Always add base delay before Yahoo request
                 time.sleep(current_delay)
 
-                data = fetch_from_yahoo_finance(stock_code, days_to_fetch)
+                data, yahoo_is_no_data = fetch_from_yahoo_finance(stock_code, days_to_fetch)
                 if data:
                     source = "Yahoo Finance"
                     yahoo_success += 1
@@ -1015,31 +1023,39 @@ async def update_stock_prices(
 
             if not data:
                 last_info = f"last: {last_date}" if last_date else "no data yet"
-                failure_count = failed_stocks_count.get(stock_code, 0) + 1
 
-                # Check if this stock has exceeded max retries
-                if failure_count >= MAX_STOCK_FAILURE_RETRIES:
-                    logger.warning(
-                        f"[{current_index:4d}/{total_stocks}] {stock_code}: ⛔ Permanently failed ({failure_count}/{MAX_STOCK_FAILURE_RETRIES} failures) - will skip in future runs"
-                    )
+                if yahoo_is_no_data:
+                    # Expected condition (delisted stock) — do NOT escalate backoff
+                    skipped += 1
+                    if current_index <= 10 or current_index % 100 == 0:
+                        logger.info(
+                            f"[{current_index:4d}/{total_stocks}] {stock_code}: ⏭️  No data available ({last_info}, skipped)"
+                        )
                 else:
-                    logger.info(
-                        f"[{current_index:4d}/{total_stocks}] {stock_code}: ⚠️  No data from any source ({last_info}, failure {failure_count}/{MAX_STOCK_FAILURE_RETRIES})"
-                    )
+                    # Real error — escalate backoff
+                    failure_count = failed_stocks_count.get(stock_code, 0) + 1
 
-                failed += 1
-                consecutive_failures += 1
-
-                # Increase delay on consecutive failures (circuit breaker pattern)
-                # This helps with rate limiting and temporary API issues
-                if consecutive_failures >= CONSECUTIVE_FAILURES_BACKOFF_THRESHOLD:
-                    current_delay = min(current_delay * 1.5, RATE_LIMIT_DELAY_YAHOO_MAX)
-                    if consecutive_failures % 10 == 0:
+                    if failure_count >= MAX_STOCK_FAILURE_RETRIES:
                         logger.warning(
-                            f"⚠️  {consecutive_failures} consecutive failures, backing off to {current_delay:.1f}s delay (rate limit protection)"
+                            f"[{current_index:4d}/{total_stocks}] {stock_code}: ⛔ Permanently failed ({failure_count}/{MAX_STOCK_FAILURE_RETRIES} failures) - will skip in future runs"
+                        )
+                    else:
+                        logger.info(
+                            f"[{current_index:4d}/{total_stocks}] {stock_code}: ⚠️  No data from any source ({last_info}, failure {failure_count}/{MAX_STOCK_FAILURE_RETRIES})"
                         )
 
-                # Update checkpoint even for failures
+                    failed += 1
+                    consecutive_failures += 1
+
+                    # Increase delay on consecutive real failures (circuit breaker pattern)
+                    if consecutive_failures >= CONSECUTIVE_FAILURES_BACKOFF_THRESHOLD:
+                        current_delay = min(current_delay * 1.5, RATE_LIMIT_DELAY_YAHOO_MAX)
+                        if consecutive_failures % 10 == 0:
+                            logger.warning(
+                                f"⚠️  {consecutive_failures} consecutive failures, backing off to {current_delay:.1f}s delay (rate limit protection)"
+                            )
+
+                # Update checkpoint even for failures/skips
                 if recorder:
                     await recorder.update_checkpoint(stock_code, False, current_index)
                 continue
@@ -1105,8 +1121,14 @@ async def update_stock_prices(
 
 def fetch_key_metrics_from_yahoo(
     stock_code: str, max_retries: int = 3
-) -> Optional[Dict]:
+) -> Tuple[Optional[Dict], bool]:
     """Fetch key metrics from Yahoo Finance for a single stock with retry and backoff.
+
+    Returns:
+        Tuple of (metrics_dict, is_no_data):
+        - (dict, False) on success
+        - (None, True) when stock has no data (expected for delisted stocks)
+        - (None, False) on real errors (network, rate limit, etc.)
 
     Optimizations:
     - 404 errors (stock not found) are not retried since they won't recover
@@ -1125,7 +1147,8 @@ def fetch_key_metrics_from_yahoo(
                     backoff = RATE_LIMIT_DELAY_YAHOO * (2**attempt)
                     time.sleep(min(backoff, RATE_LIMIT_DELAY_YAHOO_MAX))
                     continue
-                return None
+                # After all retries, treat as no data (likely delisted)
+                return None, True
 
             return {
                 "stock_code": stock_code,
@@ -1144,7 +1167,7 @@ def fetch_key_metrics_from_yahoo(
                 "fifty_two_week_low": info.get("fiftyTwoWeekLow"),
                 "avg_volume": info.get("averageVolume"),
                 "beta": info.get("beta"),
-            }
+            }, False
         except Exception as e:
             error_msg = str(e)
 
@@ -1155,7 +1178,7 @@ def fetch_key_metrics_from_yahoo(
                 or "Quote not found" in error_msg
                 or "No data found" in error_msg
             ):
-                return None
+                return None, True
 
             # Rate limit errors - retry with backoff
             if (
@@ -1170,9 +1193,11 @@ def fetch_key_metrics_from_yahoo(
                     )
                     time.sleep(min(backoff, RATE_LIMIT_DELAY_YAHOO_MAX))
                     continue
-            return None
+            # Other errors after retries exhausted — real failure
+            return None, False
 
-    return None
+    # All retries exhausted with no clear error — likely no data
+    return None, True
 
 
 async def update_key_metrics(
@@ -1201,6 +1226,7 @@ async def update_key_metrics(
 
     updated = 0
     failed = 0
+    skipped = 0
     consecutive_failures = 0
     current_delay = RATE_LIMIT_DELAY_YAHOO
 
@@ -1208,23 +1234,32 @@ async def update_key_metrics(
         # Always add delay before request
         time.sleep(current_delay)
 
-        metrics = fetch_key_metrics_from_yahoo(stock_code)
+        metrics, is_no_data = fetch_key_metrics_from_yahoo(stock_code)
 
         if not metrics:
-            if i <= 10 or i % 100 == 0:  # Log first 10 and every 100th
-                logger.info(
-                    f"[{i:4d}/{len(stock_list)}] {stock_code}: ⚠️  No metrics available"
-                )
-            failed += 1
-            consecutive_failures += 1
-
-            # Increase delay on consecutive failures
-            if consecutive_failures >= CONSECUTIVE_FAILURES_BACKOFF_THRESHOLD:
-                current_delay = min(current_delay * 1.5, RATE_LIMIT_DELAY_YAHOO_MAX)
-                if consecutive_failures % 10 == 0:
-                    logger.warning(
-                        f"⚠️  {consecutive_failures} consecutive failures, backing off to {current_delay:.1f}s delay"
+            if is_no_data:
+                # Expected condition (delisted stock, no data) — do NOT escalate backoff
+                skipped += 1
+                if i <= 10 or i % 100 == 0:
+                    logger.info(
+                        f"[{i:4d}/{len(stock_list)}] {stock_code}: ⏭️  No data (expected, skipped)"
                     )
+            else:
+                # Real error (network, rate limit) — escalate backoff
+                failed += 1
+                consecutive_failures += 1
+                if i <= 10 or i % 100 == 0:
+                    logger.info(
+                        f"[{i:4d}/{len(stock_list)}] {stock_code}: ⚠️  Fetch failed (real error)"
+                    )
+
+                # Increase delay on consecutive real failures
+                if consecutive_failures >= CONSECUTIVE_FAILURES_BACKOFF_THRESHOLD:
+                    current_delay = min(current_delay * 1.5, RATE_LIMIT_DELAY_YAHOO_MAX)
+                    if consecutive_failures % 10 == 0:
+                        logger.warning(
+                            f"⚠️  {consecutive_failures} consecutive failures, backing off to {current_delay:.1f}s delay"
+                        )
             continue
 
         try:
@@ -1254,10 +1289,12 @@ async def update_key_metrics(
 
     logger.info(f"\n✅ Key metrics update complete:")
     logger.info(f"   Updated: {updated}")
-    logger.info(f"   Failed/No data: {failed}")
+    logger.info(f"   Skipped (no data): {skipped}")
+    logger.info(f"   Failed (real errors): {failed}")
 
     if recorder:
         await recorder.update_metric("metrics_records_updated", updated)
+        await recorder.update_metric("metrics_skipped", skipped)
         await recorder.update_metric("metrics_failed", failed)
 
     return updated

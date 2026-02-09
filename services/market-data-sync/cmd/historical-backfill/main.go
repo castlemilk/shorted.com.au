@@ -233,7 +233,7 @@ func main() {
 		case <-ctx.Done():
 			log.Printf("⏹️ Backfill interrupted at %d/%d", i, len(stocks))
 			// Update checkpoint before exiting
-			if err := checkpointStore.UpdateProgress(ctx, runID, i, successful, failed, 0); err != nil {
+			if err := checkpointStore.UpdateProgress(ctx, runID, i, successful, failed, 0, 0); err != nil {
 				log.Printf("⚠️ Failed to update checkpoint: %v", err)
 			}
 			return
@@ -293,7 +293,7 @@ func main() {
 						i+1, len(stocks), symbol, recordCount, dataSpanDays)
 					successful++
 					if (i+1)%50 == 0 {
-						if err := checkpointStore.UpdateProgress(ctx, runID, i+1, successful, failed, 0); err != nil {
+						if err := checkpointStore.UpdateProgress(ctx, runID, i+1, successful, failed, 0, 0); err != nil {
 							log.Printf("⚠️ Failed to update checkpoint: %v", err)
 						}
 					}
@@ -418,7 +418,7 @@ func main() {
 				log.Printf("⏭️ [%d/%d] %s: no new records needed", i+1, len(stocks), symbol)
 				successful++
 			}
-			if err := checkpointStore.UpdateProgress(ctx, runID, i+1, successful, failed, 0); err != nil {
+			if err := checkpointStore.UpdateProgress(ctx, runID, i+1, successful, failed, 0, 0); err != nil {
 				log.Printf("⚠️ Failed to update checkpoint: %v", err)
 			}
 			continue
@@ -451,7 +451,7 @@ func main() {
 		log.Printf("✅ [%d/%d] %s: Inserted %d records (total: %d)", i+1, len(stocks), symbol, inserted, totalRecords)
 
 		// Update checkpoint after each successful stock
-		if err := checkpointStore.UpdateProgress(ctx, runID, i+1, successful, failed, 0); err != nil {
+		if err := checkpointStore.UpdateProgress(ctx, runID, i+1, successful, failed, 0, 0); err != nil {
 			log.Printf("⚠️ Failed to update checkpoint: %v", err)
 		}
 		if err := checkpointStore.UpdatePricesCount(ctx, runID, totalRecords); err != nil {
