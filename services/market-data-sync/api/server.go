@@ -8,82 +8,104 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/market-data-sync/checkpoint"
 	"github.com/castlemilk/shorted.com.au/services/market-data-sync/providers"
-	"github.com/castlemilk/shorted.com.au/services/market-data-sync/sync"
+	msync "github.com/castlemilk/shorted.com.au/services/market-data-sync/sync"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Server provides HTTP API for market data sync
 type Server struct {
-	syncManager *sync.SyncManager
+	syncManager *msync.SyncManager
 	checkpoint  *checkpoint.Store
-	gapDetector *sync.GapDetector
+	gapDetector *msync.GapDetector
 	db          *pgxpool.Pool
 	port        int
+	ready       atomic.Bool
+	httpServer  *http.Server
 }
 
-// NewServer creates a new API server
-func NewServer(syncManager *sync.SyncManager, checkpointStore *checkpoint.Store, db *pgxpool.Pool, dataProviders []providers.DataProvider, port int) *Server {
-	return &Server{
-		syncManager: syncManager,
-		checkpoint:  checkpointStore,
-		gapDetector: sync.NewGapDetector(db, dataProviders),
-		db:          db,
-		port:        port,
-	}
+// NewServer creates a new API server. Call Start() to begin serving health
+// checks immediately, then SetDependencies() once initialization is complete.
+func NewServer(port int) *Server {
+	return &Server{port: port}
 }
 
-// Start starts the HTTP server
-func (s *Server) Start(ctx context.Context) error {
+// SetDependencies wires in service dependencies and marks the server as ready.
+func (s *Server) SetDependencies(syncManager *msync.SyncManager, checkpointStore *checkpoint.Store, db *pgxpool.Pool, dataProviders []providers.DataProvider) {
+	s.syncManager = syncManager
+	s.checkpoint = checkpointStore
+	s.db = db
+	s.gapDetector = msync.NewGapDetector(db, dataProviders)
+	s.ready.Store(true)
+	log.Printf("✅ Server dependencies initialized, service is ready")
+}
+
+// Start begins serving HTTP requests. Health endpoints are available
+// immediately; API endpoints return 503 until SetDependencies is called.
+func (s *Server) Start() error {
 	mux := http.NewServeMux()
 
-	// Health check endpoints
+	// Health check endpoints — always available (for startup/liveness probes)
 	mux.HandleFunc("/healthz", s.handleHealth)
 	mux.HandleFunc("/readyz", s.handleReady)
 	mux.HandleFunc("/health", s.handleHealth)
 
-	// Sync endpoints
-	mux.HandleFunc("/api/sync/stock/", s.handleSyncStock)
-	mux.HandleFunc("/api/sync/status/", s.handleGetStatus)
-	mux.HandleFunc("/api/sync/status", s.handleGetLatestStatus)
-	mux.HandleFunc("/api/sync/all", s.handleSyncAll)
+	// API endpoints — guarded by readiness check
+	mux.HandleFunc("/api/sync/stock/", s.requireReady(s.handleSyncStock))
+	mux.HandleFunc("/api/sync/status/", s.requireReady(s.handleGetStatus))
+	mux.HandleFunc("/api/sync/status", s.requireReady(s.handleGetLatestStatus))
+	mux.HandleFunc("/api/sync/all", s.requireReady(s.handleSyncAll))
+	mux.HandleFunc("/api/gaps/detect/", s.requireReady(s.handleDetectGaps))
+	mux.HandleFunc("/api/gaps/repair/", s.requireReady(s.handleRepairGaps))
+	mux.HandleFunc("/api/gaps/report/", s.requireReady(s.handleGapReport))
+	mux.HandleFunc("/api/gaps/detect-all", s.requireReady(s.handleDetectAllGaps))
 
-	// Gap detection and repair endpoints
-	mux.HandleFunc("/api/gaps/detect/", s.handleDetectGaps)
-	mux.HandleFunc("/api/gaps/repair/", s.handleRepairGaps)
-	mux.HandleFunc("/api/gaps/report/", s.handleGapReport)
-	mux.HandleFunc("/api/gaps/detect-all", s.handleDetectAllGaps)
-
-	// CORS middleware
 	handler := s.corsMiddleware(mux)
 
 	addr := fmt.Sprintf(":%d", s.port)
-	log.Printf("🌐 Starting HTTP server on %s", addr)
-
-	server := &http.Server{
+	s.httpServer = &http.Server{
 		Addr:    addr,
 		Handler: handler,
 	}
 
-	// Start server in goroutine
 	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Printf("🌐 Starting HTTP server on %s", addr)
+		if err := s.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("❌ Server failed: %v", err)
 		}
 	}()
 
-	// Wait for context cancellation
+	return nil
+}
+
+// AwaitShutdown blocks until the context is cancelled, then gracefully shuts
+// down the HTTP server.
+func (s *Server) AwaitShutdown(ctx context.Context) error {
 	<-ctx.Done()
 	log.Printf("⏹️ Shutting down server...")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	return server.Shutdown(shutdownCtx)
+	return s.httpServer.Shutdown(shutdownCtx)
+}
+
+// requireReady wraps a handler to return 503 if dependencies aren't initialized.
+func (s *Server) requireReady(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !s.ready.Load() {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			json.NewEncoder(w).Encode(map[string]string{"status": "initializing", "error": "service is starting up"})
+			return
+		}
+		next(w, r)
+	}
 }
 
 // corsMiddleware adds CORS headers
@@ -111,6 +133,13 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 // handleReady handles readiness check requests
 func (s *Server) handleReady(w http.ResponseWriter, r *http.Request) {
+	if !s.ready.Load() {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(map[string]string{"status": "initializing"})
+		return
+	}
+
 	// Check database connection
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()

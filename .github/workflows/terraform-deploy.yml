@@ -1011,13 +1011,52 @@ jobs:
           fi
 
   deploy-vercel-prod:
-    needs: [determine-environment, terraform-apply]
+    needs: [determine-environment, validate-secrets, terraform-apply]
     runs-on: ubuntu-latest
-    if: needs.determine-environment.outputs.environment == 'prod'
+    # Deploy Vercel even if terraform-apply fails (e.g. non-critical service
+    # like market-data-sync fails startup probe). We query the shorts URL from
+    # gcloud as a fallback so Vercel isn't blocked by Terraform failures.
+    if: |
+      always() &&
+      needs.determine-environment.outputs.environment == 'prod' &&
+      needs.validate-secrets.result == 'success'
     environment: prod
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
+          service_account: ${{ needs.determine-environment.outputs.sa-email }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Resolve Shorts API URL
+        id: resolve-urls
+        env:
+          TERRAFORM_SHORTS_URL: ${{ needs.terraform-apply.outputs.shorts-url }}
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+        run: |
+          # Use terraform output if available, otherwise query from gcloud
+          SHORTS_URL="$TERRAFORM_SHORTS_URL"
+          if [ -z "$SHORTS_URL" ]; then
+            echo "⚠️ Terraform output unavailable, querying gcloud for shorts URL..."
+            SHORTS_URL=$(gcloud run services describe shorts \
+              --region ${{ env.GCP_REGION }} \
+              --project "$GCP_PROJECT_ID" \
+              --format 'value(status.url)' 2>/dev/null || echo "")
+          fi
+
+          if [ -z "$SHORTS_URL" ]; then
+            echo "❌ Could not resolve Shorts API URL from terraform or gcloud"
+            exit 1
+          fi
+
+          echo "✅ Shorts API URL: $SHORTS_URL"
+          echo "shorts_url=$SHORTS_URL" >> $GITHUB_OUTPUT
 
       # NOTE: AUTH_FIREBASE_PRIVATE_KEY must be set in the prod environment
       # or Vercel Dashboard because it contains special characters that break CLI parsing.
@@ -1034,9 +1073,9 @@ jobs:
           scope: team_xE5DMN3hIo8aPqyHNkBybg8r
           vercel-args: >-
             --prod
-            --build-env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ needs.terraform-apply.outputs.shorts-url }}
-            --build-env NEXT_PUBLIC_SHORTS_API_URL=${{ needs.terraform-apply.outputs.shorts-url }}
-            --build-env SHORTS_SERVICE_ENDPOINT=${{ needs.terraform-apply.outputs.shorts-url }}
+            --build-env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.resolve-urls.outputs.shorts_url }}
+            --build-env NEXT_PUBLIC_SHORTS_API_URL=${{ steps.resolve-urls.outputs.shorts_url }}
+            --build-env SHORTS_SERVICE_ENDPOINT=${{ steps.resolve-urls.outputs.shorts_url }}
             --build-env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
             --build-env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
             --build-env AUTH_FIREBASE_PROJECT_ID=${{ secrets.AUTH_FIREBASE_PROJECT_ID_PROD }}
@@ -1055,9 +1094,9 @@ jobs:
             --build-env STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
             --build-env STRIPE_PRO_PRICE_ID=${{ secrets.STRIPE_PRO_PRICE_ID }}
             --build-env INTERNAL_SERVICE_SECRET=${{ secrets.INTERNAL_SERVICE_SECRET }}
-            --env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ needs.terraform-apply.outputs.shorts-url }}
-            --env NEXT_PUBLIC_SHORTS_API_URL=${{ needs.terraform-apply.outputs.shorts-url }}
-            --env SHORTS_SERVICE_ENDPOINT=${{ needs.terraform-apply.outputs.shorts-url }}
+            --env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.resolve-urls.outputs.shorts_url }}
+            --env NEXT_PUBLIC_SHORTS_API_URL=${{ steps.resolve-urls.outputs.shorts_url }}
+            --env SHORTS_SERVICE_ENDPOINT=${{ steps.resolve-urls.outputs.shorts_url }}
             --env AUTH_GOOGLE_ID=${{ secrets.AUTH_GOOGLE_ID }}
             --env AUTH_GOOGLE_SECRET=${{ secrets.AUTH_GOOGLE_SECRET }}
             --env AUTH_FIREBASE_PROJECT_ID=${{ secrets.AUTH_FIREBASE_PROJECT_ID_PROD }}
@@ -1089,7 +1128,7 @@ jobs:
           echo "- **Vercel Deployment**: ${{ steps.vercel-deploy.outputs.preview-url }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Backend Services" >> $GITHUB_STEP_SUMMARY
-          echo "- **Shorts API**: ${{ needs.terraform-apply.outputs.shorts-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Shorts API**: ${{ steps.resolve-urls.outputs.shorts_url }}" >> $GITHUB_STEP_SUMMARY
 
   run-tests:
     needs: [determine-environment, terraform-apply]
