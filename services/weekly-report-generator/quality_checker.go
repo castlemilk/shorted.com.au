@@ -139,7 +139,7 @@ func (q *QualityChecker) geminiReview(ctx context.Context, data *ReportData, nar
 	}
 	defer func() { _ = client.Close() }()
 
-	model := client.GenerativeModel("gemini-1.5-pro")
+	model := client.GenerativeModel("gemini-2.0-flash")
 	model.SetTemperature(0.0)
 
 	narrativeJSON, _ := json.Marshal(narrative)
