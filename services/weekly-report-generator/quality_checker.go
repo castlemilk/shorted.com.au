@@ -137,7 +137,7 @@ func (q *QualityChecker) geminiReview(ctx context.Context, data *ReportData, nar
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Gemini client: %w", err)
 	}
-	defer client.Close()
+	defer func() { _ = client.Close() }()
 
 	model := client.GenerativeModel("gemini-1.5-pro")
 	model.SetTemperature(0.0)
@@ -169,7 +169,7 @@ Return ONLY valid JSON:
 
 	resp, err := model.GenerateContent(callCtx, genai.Text(prompt))
 	if err != nil {
-		return nil, fmt.Errorf("Gemini API call failed: %w", err)
+		return nil, fmt.Errorf("gemini API call failed: %w", err)
 	}
 
 	if len(resp.Candidates) == 0 {

@@ -183,15 +183,9 @@ func extractLikelyJSON(raw string) string {
 	raw = strings.TrimSpace(raw)
 
 	// Strip markdown code fences
-	if strings.HasPrefix(raw, "```json") {
-		raw = strings.TrimPrefix(raw, "```json")
-	}
-	if strings.HasPrefix(raw, "```") {
-		raw = strings.TrimPrefix(raw, "```")
-	}
-	if strings.HasSuffix(raw, "```") {
-		raw = strings.TrimSuffix(raw, "```")
-	}
+	raw = strings.TrimPrefix(raw, "```json")
+	raw = strings.TrimPrefix(raw, "```")
+	raw = strings.TrimSuffix(raw, "```")
 	raw = strings.TrimSpace(raw)
 
 	// Find first { and last }
