@@ -8,7 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/generative-ai-go/genai"
 	"github.com/sashabaranov/go-openai"
+	"google.golang.org/api/option"
 )
 
 // NarrativeResult holds the LLM-generated narrative
@@ -36,21 +38,26 @@ type FAQ struct {
 	Answer   string `json:"answer"`
 }
 
-// LLMGenerator generates narrative using OpenAI GPT-4o
+// LLMGenerator generates narrative using a two-pass GPT-5.2 + Gemini 3 Pro pipeline
 type LLMGenerator struct {
-	client *openai.Client
-	model  string
+	openaiClient *openai.Client
+	geminiKey    string
+	openaiModel  string
+	geminiModel  string
 }
 
-// NewLLMGenerator creates a new LLM generator
-func NewLLMGenerator(apiKey string) *LLMGenerator {
+// NewLLMGenerator creates a new multi-model LLM generator
+func NewLLMGenerator(openaiKey, geminiKey string) *LLMGenerator {
 	return &LLMGenerator{
-		client: openai.NewClient(apiKey),
-		model:  "gpt-4o",
+		openaiClient: openai.NewClient(openaiKey),
+		geminiKey:    geminiKey,
+		openaiModel:  "gpt-5.2",
+		geminiModel:  "gemini-3-pro-preview",
 	}
 }
 
-const systemPrompt = `You are writing a weekly short selling column for Shorted.com.au, an Australian financial data platform. Write as a knowledgeable market commentator — someone who reads the data carefully, spots the interesting stories, and explains what retail investors should pay attention to.
+// analyticalSystemPrompt is the first-pass prompt for GPT-5.2: data-driven analysis
+const analyticalSystemPrompt = `You are writing a weekly short selling column for Shorted.com.au, an Australian financial data platform. Write as a knowledgeable market commentator — someone who reads the data carefully, spots the interesting stories, and explains what retail investors should pay attention to.
 
 Voice and tone:
 - Write like a sharp financial journalist at the AFR or Livewire Markets, not a corporate press release
@@ -70,7 +77,7 @@ What makes this feel human:
 
 NEVER use these AI-giveaway phrases: "it's important to note", "landscape", "delve", "navigate",
 "in the realm of", "interestingly", "notably", "it's worth noting", "robust", "dynamic",
-"unprecedented", "cutting-edge", "a]shifting landscape", "bears are circling", "all eyes on",
+"unprecedented", "cutting-edge", "a shifting landscape", "bears are circling", "all eyes on",
 "amidst", "the stage is set", "remains to be seen"
 
 Format:
@@ -95,23 +102,138 @@ Return ONLY valid JSON in this exact structure:
   ]
 }`
 
+// geminiNarrativePrompt is the first-pass prompt for Gemini 3 Pro: independent perspective
+const geminiNarrativePrompt = `You are a veteran Australian financial markets columnist writing a weekly short selling wrap for Shorted.com.au.
+
+Your job: look at this week's ASIC short position data and write a concise, opinionated market commentary. You're writing for retail investors who want to understand what the shorts are doing and why it matters.
+
+Style:
+- Write the way Marcus Padley or Alan Kohler would for their subscribers — informal authority, no corporate fluff
+- Australian English. ASX tickers. No American market analogies
+- If the data tells a clear story (sector rotation, crowded trade unwinding, earnings positioning), say it plainly
+- Short sentences punch harder. Use them
+- Every number you cite must come directly from the data provided
+- Don't pad. If you can say it in fewer words, do
+
+Avoid these dead giveaways of AI writing: "it's important to note", "landscape", "delve", "navigate",
+"in the realm of", "interestingly", "notably", "it's worth noting", "robust", "dynamic",
+"unprecedented", "cutting-edge", "bears are circling", "all eyes on", "amidst", "the stage is set",
+"remains to be seen", "a testament to"
+
+Return ONLY valid JSON in this exact structure:
+{
+  "headline": "Punchy headline under 80 chars",
+  "summary": "2-3 sentence summary with the key numbers",
+  "narrative": {
+    "opening_hook": "The single most interesting thing in this week's data",
+    "top_analysis": "What the top shorted list tells us — who's new, who dropped out, what changed",
+    "movers_analysis": "The real action: biggest risers and fallers and what might be driving it",
+    "industry_analysis": "Sector-level read — where are shorts concentrating or retreating?",
+    "outlook": "One sharp observation about what to watch next week"
+  },
+  "faqs": [
+    {"question": "Question a retail investor would actually search for", "answer": "Direct, factual answer"}
+  ]
+}`
+
+// amalgamationSystemPrompt is the second-pass prompt: creative writing emphasis
+const amalgamationSystemPrompt = `You are the chief editor of Shorted.com.au's weekly column. You've received two draft analyses of this week's ASIC short position data — one from a data-focused analyst and one from a market columnist. Your job is to merge them into a single, polished piece that reads like the best financial journalism.
+
+Your editorial mandate:
+- Take the strongest insights from each draft. If both noticed the same thing, pick the better framing
+- Where they disagree or emphasise different stories, use your judgement — the more surprising, data-backed angle wins
+- The final piece should feel like it was written by ONE person: a sharp, experienced market watcher who writes with personality
+- Prioritise readability. A fund manager skimming this at 6am should get the key points in 30 seconds
+- Every number must match the source data. Do not invent or round figures
+- Write in Australian English. ASX codes. No hedging with weasel words
+- The opening must hook — lead with whatever is genuinely most interesting this week
+- The outlook should leave the reader with one specific thing to watch, not a vague "time will tell"
+
+Creative writing emphasis:
+- Vary rhythm. A three-word sentence after a complex one creates impact
+- Use concrete imagery over abstractions: "shorts piled in" not "there was increased short interest"
+- Let the data tell the story — don't tell the reader how to feel about it
+- The headline should make someone click. Think trading desk banter, not press releases
+- FAQs should be things people would genuinely type into Google after reading the report
+
+ABSOLUTELY DO NOT USE: "it's important to note", "landscape", "delve", "navigate", "in the realm of",
+"interestingly", "notably", "it's worth noting", "robust", "dynamic", "unprecedented", "cutting-edge",
+"bears are circling", "all eyes on", "amidst", "the stage is set", "remains to be seen", "a testament to",
+"make waves", "sent shockwaves", "a double-edged sword"
+
+Return ONLY valid JSON in this exact structure:
+{
+  "headline": "Punchy headline under 80 chars — the most click-worthy angle",
+  "summary": "2-3 crisp sentences. Key numbers. No filler",
+  "narrative": {
+    "opening_hook": "The hook. What's the most interesting thing in the data this week?",
+    "top_analysis": "The top shorted stocks — what changed, what's new, what matters",
+    "movers_analysis": "Risers and fallers — where the real action was and why",
+    "industry_analysis": "The bigger picture — sector trends, rotation patterns",
+    "outlook": "One or two sentences. Specific. What should investors actually watch next week?"
+  },
+  "faqs": [
+    {"question": "Question a retail investor would Google", "answer": "Direct factual answer"}
+  ]
+}`
+
 func (g *LLMGenerator) Generate(ctx context.Context, data *ReportData) (*NarrativeResult, error) {
-	return g.generate(ctx, data, "")
+	return g.generateMultiPass(ctx, data, "")
 }
 
 func (g *LLMGenerator) GenerateWithFeedback(ctx context.Context, data *ReportData, feedback string) (*NarrativeResult, error) {
-	return g.generate(ctx, data, feedback)
+	return g.generateMultiPass(ctx, data, feedback)
 }
 
-func (g *LLMGenerator) generate(ctx context.Context, data *ReportData, feedback string) (*NarrativeResult, error) {
+// generateMultiPass runs the two-pass pipeline: GPT-5.2 + Gemini 3 Pro → GPT-5.2 amalgamation
+func (g *LLMGenerator) generateMultiPass(ctx context.Context, data *ReportData, feedback string) (*NarrativeResult, error) {
 	userPrompt := buildUserPrompt(data, feedback)
 
+	// Pass 1a: GPT-5.2 analytical narrative
+	log.Println("  Pass 1a: GPT-5.2 analytical narrative...")
+	gptNarrative, err := g.gptGenerate(ctx, analyticalSystemPrompt, userPrompt)
+	if err != nil {
+		return nil, fmt.Errorf("GPT-5.2 pass 1 failed: %w", err)
+	}
+	log.Printf("  GPT-5.2 headline: %s", gptNarrative.Headline)
+
+	// Pass 1b: Gemini 3 Pro independent narrative
+	var geminiNarrative *NarrativeResult
+	if g.geminiKey != "" {
+		log.Println("  Pass 1b: Gemini 3 Pro narrative...")
+		geminiNarrative, err = g.geminiGenerate(ctx, geminiNarrativePrompt, userPrompt)
+		if err != nil {
+			log.Printf("  WARNING: Gemini 3 Pro narrative failed: %v (continuing with GPT-5.2 only)", err)
+		} else {
+			log.Printf("  Gemini 3 headline: %s", geminiNarrative.Headline)
+		}
+	}
+
+	// Pass 2: GPT-5.2 amalgamation with creative writing emphasis
+	if geminiNarrative != nil {
+		log.Println("  Pass 2: GPT-5.2 creative amalgamation...")
+		amalgamated, err := g.amalgamate(ctx, data, gptNarrative, geminiNarrative, feedback)
+		if err != nil {
+			log.Printf("  WARNING: Amalgamation failed: %v (using GPT-5.2 pass 1 output)", err)
+		} else {
+			amalgamated.Model = fmt.Sprintf("%s+%s+%s-amalgamated", g.openaiModel, g.geminiModel, g.openaiModel)
+			return amalgamated, nil
+		}
+	}
+
+	// Fallback: return GPT-5.2 pass 1 if Gemini or amalgamation failed
+	gptNarrative.Model = g.openaiModel
+	return gptNarrative, nil
+}
+
+// gptGenerate calls GPT-5.2 with a system prompt and user prompt
+func (g *LLMGenerator) gptGenerate(ctx context.Context, systemPrompt, userPrompt string) (*NarrativeResult, error) {
 	callCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
 
 	temp := float32(0.2)
-	resp, err := g.client.CreateChatCompletion(callCtx, openai.ChatCompletionRequest{
-		Model:       g.model,
+	resp, err := g.openaiClient.CreateChatCompletion(callCtx, openai.ChatCompletionRequest{
+		Model:       g.openaiModel,
 		Temperature: temp,
 		Messages: []openai.ChatCompletionMessage{
 			{Role: openai.ChatMessageRoleSystem, Content: systemPrompt},
@@ -131,10 +253,107 @@ func (g *LLMGenerator) generate(ctx context.Context, data *ReportData, feedback 
 
 	var result NarrativeResult
 	if err := json.Unmarshal([]byte(raw), &result); err != nil {
-		return nil, fmt.Errorf("failed to parse LLM response: %w\nraw: %s", err, raw)
+		return nil, fmt.Errorf("failed to parse GPT response: %w\nraw: %s", err, raw)
 	}
 
-	result.Model = g.model
+	return &result, nil
+}
+
+// geminiGenerate calls Gemini 3 Pro with a system prompt and user prompt
+func (g *LLMGenerator) geminiGenerate(ctx context.Context, systemPrompt, userPrompt string) (*NarrativeResult, error) {
+	client, err := genai.NewClient(ctx, option.WithAPIKey(g.geminiKey))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Gemini client: %w", err)
+	}
+	defer func() { _ = client.Close() }()
+
+	model := client.GenerativeModel(g.geminiModel)
+	model.SetTemperature(0.3)
+	model.SystemInstruction = &genai.Content{
+		Parts: []genai.Part{genai.Text(systemPrompt)},
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	defer cancel()
+
+	resp, err := model.GenerateContent(callCtx, genai.Text(userPrompt))
+	if err != nil {
+		return nil, fmt.Errorf("Gemini API call failed: %w", err)
+	}
+
+	if len(resp.Candidates) == 0 {
+		return nil, fmt.Errorf("no response from Gemini")
+	}
+
+	var raw string
+	for _, part := range resp.Candidates[0].Content.Parts {
+		if text, ok := part.(genai.Text); ok {
+			raw += string(text)
+		}
+	}
+
+	raw = extractLikelyJSON(raw)
+
+	var result NarrativeResult
+	if err := json.Unmarshal([]byte(raw), &result); err != nil {
+		return nil, fmt.Errorf("failed to parse Gemini response: %w\nraw: %s", err, raw)
+	}
+
+	return &result, nil
+}
+
+// amalgamate merges GPT-5.2 and Gemini 3 Pro outputs with creative writing emphasis
+func (g *LLMGenerator) amalgamate(ctx context.Context, data *ReportData, gpt, gemini *NarrativeResult, feedback string) (*NarrativeResult, error) {
+	gptJSON, _ := json.MarshalIndent(gpt, "", "  ")
+	geminiJSON, _ := json.MarshalIndent(gemini, "", "  ")
+
+	var sb strings.Builder
+	sb.WriteString("<source_data>\n")
+	sb.WriteString(buildUserPrompt(data, ""))
+	sb.WriteString("</source_data>\n\n")
+
+	sb.WriteString("<draft_1_gpt>\n")
+	sb.WriteString(string(gptJSON))
+	sb.WriteString("\n</draft_1_gpt>\n\n")
+
+	sb.WriteString("<draft_2_gemini>\n")
+	sb.WriteString(string(geminiJSON))
+	sb.WriteString("\n</draft_2_gemini>\n\n")
+
+	if feedback != "" {
+		sb.WriteString(fmt.Sprintf("<editorial_feedback>\n%s\n</editorial_feedback>\n\n", feedback))
+	}
+
+	sb.WriteString("Merge these two drafts into a single, polished weekly short selling report. Take the best from each. Return ONLY valid JSON.")
+
+	callCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	defer cancel()
+
+	temp := float32(0.4) // Slightly higher temperature for creative writing
+	resp, err := g.openaiClient.CreateChatCompletion(callCtx, openai.ChatCompletionRequest{
+		Model:       g.openaiModel,
+		Temperature: temp,
+		Messages: []openai.ChatCompletionMessage{
+			{Role: openai.ChatMessageRoleSystem, Content: amalgamationSystemPrompt},
+			{Role: openai.ChatMessageRoleUser, Content: sb.String()},
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("OpenAI amalgamation call failed: %w", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return nil, fmt.Errorf("no response from OpenAI amalgamation")
+	}
+
+	raw := resp.Choices[0].Message.Content
+	raw = extractLikelyJSON(raw)
+
+	var result NarrativeResult
+	if err := json.Unmarshal([]byte(raw), &result); err != nil {
+		return nil, fmt.Errorf("failed to parse amalgamation response: %w\nraw: %s", err, raw)
+	}
+
 	return &result, nil
 }
 
