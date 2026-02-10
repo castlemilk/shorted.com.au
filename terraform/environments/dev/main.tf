@@ -183,7 +183,8 @@ module "weekly_report_generator" {
   region           = var.region
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment      = "production"
-  image_url        = var.weekly_report_generator_image
+  image_url            = var.weekly_report_generator_image
+  gemini_secret_exists = true
 
   depends_on = [
     google_project_service.required_apis,
