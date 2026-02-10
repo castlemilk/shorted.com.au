@@ -40,8 +40,9 @@ resource "google_secret_manager_secret_iam_member" "openai_api_key" {
   project   = var.project_id
 }
 
-# Grant Secret Manager access for GEMINI_API_KEY
+# Grant Secret Manager access for GEMINI_API_KEY (optional — created only if secret exists)
 resource "google_secret_manager_secret_iam_member" "gemini_api_key" {
+  count     = var.gemini_secret_exists ? 1 : 0
   secret_id = "GEMINI_API_KEY"
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.weekly_report_generator.email}"
@@ -93,12 +94,15 @@ resource "google_cloud_run_v2_job" "weekly_report_generator" {
           }
         }
 
-        env {
-          name = "GEMINI_API_KEY"
-          value_source {
-            secret_key_ref {
-              secret  = "GEMINI_API_KEY"
-              version = "latest"
+        dynamic "env" {
+          for_each = var.gemini_secret_exists ? [1] : []
+          content {
+            name = "GEMINI_API_KEY"
+            value_source {
+              secret_key_ref {
+                secret  = "GEMINI_API_KEY"
+                version = "latest"
+              }
             }
           }
         }
@@ -116,7 +120,6 @@ resource "google_cloud_run_v2_job" "weekly_report_generator" {
   depends_on = [
     google_secret_manager_secret_iam_member.database_url,
     google_secret_manager_secret_iam_member.openai_api_key,
-    google_secret_manager_secret_iam_member.gemini_api_key
   ]
 }
 
