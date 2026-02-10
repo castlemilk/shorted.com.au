@@ -39,7 +39,7 @@ func main() {
 		log.Fatalf("Failed to parse database URL: %v", err)
 	}
 	poolConfig.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
-	poolConfig.MaxConns = 5
+	poolConfig.MaxConns = 2
 
 	db, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
