@@ -45,8 +45,6 @@ export function WeekNavigation({ currentSlug }: WeekNavigationProps) {
   // Don't show next if it's in the future
   const now = new Date();
   const currentISOYear = now.getFullYear();
-  const jan4 = new Date(currentISOYear, 0, 4);
-  const daysSinceMonday = (jan4.getDay() + 6) % 7;
   const currentWeek = Math.ceil(
     ((now.getTime() - new Date(currentISOYear, 0, 1).getTime()) / 86400000 +
       new Date(currentISOYear, 0, 1).getDay() +
