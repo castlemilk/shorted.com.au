@@ -82,6 +82,41 @@ export const glossaryTerms: GlossaryCategory[] = [
           "The total short position across all market participants, published by ASIC. Individual positions are not disclosed to protect trader confidentiality.",
         related: ["ASIC", "Short Position"],
       },
+      {
+        term: "Corporations Act 2001",
+        slug: createSlug("Corporations Act 2001"),
+        definition:
+          "The primary Australian legislation governing short selling. Key sections include s1020B (prohibiting naked short selling), s1020AB (short sale transaction reporting to ASX), and s1020AC (net short position reporting to ASIC). It establishes the legal framework for covered short selling and disclosure obligations.",
+        related: ["ASIC", "Regulatory Guide 196", "Net Short Position"],
+      },
+      {
+        term: "Regulatory Guide 196",
+        slug: createSlug("Regulatory Guide 196"),
+        definition:
+          "ASIC Regulatory Guide 196 (RG 196) provides guidance on short selling disclosure and reporting obligations in Australia. It outlines the 0.01% or $100,000 reporting threshold, T+4 publication delay, and the distinction between covered and naked short selling under the Corporations Act 2001.",
+        related: ["ASIC", "Corporations Act 2001", "Reporting Threshold"],
+      },
+      {
+        term: "Net Short Position",
+        slug: createSlug("Net Short Position"),
+        definition:
+          "The overall short exposure calculated by netting long positions against short positions in the same security. Australia uses net short position reporting under ASIC Regulatory Guide 196, meaning only the net directional exposure is reported, not the gross short position.",
+        related: ["Short Position", "ASIC", "Reporting Threshold"],
+      },
+      {
+        term: "Section 1020B Products",
+        slug: createSlug("Section 1020B Products"),
+        definition:
+          "Financial products subject to the naked short selling prohibition under section 1020B of the Corporations Act 2001. Includes shares, debentures, and other financial products traded on licensed markets like the ASX. Sellers must have a presently exercisable right to vest these products before selling short.",
+        related: ["Corporations Act 2001", "Short Selling", "ASIC"],
+      },
+      {
+        term: "ASX Short Sales Report",
+        slug: createSlug("ASX Short Sales Report"),
+        definition:
+          "The daily publication by ASIC containing aggregated short position data for all ASX-listed securities. Includes product code, product name, reported short positions, total shares in issue, and short position percentage. Published with a T+4 trading day delay.",
+        related: ["ASIC", "T+4 Delay", "Net Short Position"],
+      },
     ],
   },
   {

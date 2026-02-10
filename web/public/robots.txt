@@ -31,6 +31,11 @@ Allow: /
 Allow: /blog
 Allow: /shorts
 Allow: /about
+Allow: /learn
+Allow: /glossary
+Allow: /faq
+Allow: /llms.txt
+Allow: /docs/llm-context.md
 Disallow: /api/auth
 Disallow: /dashboard
 Disallow: /portfolio
@@ -39,6 +44,10 @@ Crawl-delay: 2
 # ChatGPT User Plugin
 User-agent: ChatGPT-User
 Allow: /
+Allow: /learn
+Allow: /glossary
+Allow: /faq
+Allow: /llms.txt
 Disallow: /api/auth
 Disallow: /dashboard
 Disallow: /portfolio
@@ -48,6 +57,11 @@ User-agent: Claude-Web
 Allow: /
 Allow: /blog
 Allow: /shorts
+Allow: /learn
+Allow: /glossary
+Allow: /faq
+Allow: /llms.txt
+Allow: /docs/llm-context.md
 Disallow: /api/auth
 Disallow: /dashboard
 Disallow: /portfolio
@@ -58,6 +72,11 @@ User-agent: Google-Extended
 Allow: /
 Allow: /blog
 Allow: /shorts
+Allow: /learn
+Allow: /glossary
+Allow: /faq
+Allow: /llms.txt
+Allow: /docs/llm-context.md
 Disallow: /api/auth
 Disallow: /dashboard
 Disallow: /portfolio
@@ -67,6 +86,11 @@ User-agent: PerplexityBot
 Allow: /
 Allow: /blog
 Allow: /shorts
+Allow: /learn
+Allow: /glossary
+Allow: /faq
+Allow: /llms.txt
+Allow: /docs/llm-context.md
 Disallow: /api/auth
 Disallow: /dashboard
 Disallow: /portfolio
@@ -77,6 +101,10 @@ User-agent: FacebookBot
 Allow: /
 Allow: /blog
 Allow: /shorts
+Allow: /learn
+Allow: /glossary
+Allow: /faq
+Allow: /llms.txt
 Disallow: /api/auth
 Disallow: /dashboard
 Disallow: /portfolio
@@ -87,6 +115,10 @@ User-agent: Omgilibot
 Allow: /
 Allow: /blog
 Allow: /shorts
+Allow: /learn
+Allow: /glossary
+Allow: /faq
+Allow: /llms.txt
 Disallow: /api/auth
 Disallow: /dashboard
 Disallow: /portfolio
@@ -105,5 +137,6 @@ Crawl-delay: 10
 Sitemap: https://shorted.com.au/sitemap.xml
 
 # === AI INSTRUCTIONS ===
+# See /llms.txt for LLM-readable site summary (llmstxt.org standard)
 # See /ai.txt for detailed AI/LLM crawling instructions
 # See /docs/llm-context.md for semantic understanding
