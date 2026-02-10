@@ -25,3 +25,9 @@ variable "image_url" {
   description = "Docker image URL for the weekly-report-generator Cloud Run job"
   type        = string
 }
+
+variable "gemini_secret_exists" {
+  description = "Whether GEMINI_API_KEY secret exists in Secret Manager"
+  type        = bool
+  default     = false
+}
