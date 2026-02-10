@@ -278,7 +278,7 @@ func (g *LLMGenerator) geminiGenerate(ctx context.Context, systemPrompt, userPro
 
 	resp, err := model.GenerateContent(callCtx, genai.Text(userPrompt))
 	if err != nil {
-		return nil, fmt.Errorf("Gemini API call failed: %w", err)
+		return nil, fmt.Errorf("gemini API call failed: %w", err)
 	}
 
 	if len(resp.Candidates) == 0 {
