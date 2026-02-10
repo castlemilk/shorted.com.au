@@ -69,7 +69,7 @@ func main() {
 		return
 	}
 
-	generator := NewLLMGenerator(openaiKey)
+	generator := NewLLMGenerator(openaiKey, os.Getenv("GEMINI_API_KEY"))
 	narrative, err := generator.Generate(ctx, data)
 	if err != nil {
 		log.Printf("WARNING: LLM generation failed: %v", err)
