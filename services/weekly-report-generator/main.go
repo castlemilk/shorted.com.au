@@ -158,7 +158,7 @@ func storeDataOnlyReport(ctx context.Context, db *pgxpool.Pool, weekSlug string,
 
 	_, err := db.Exec(ctx, query,
 		weekSlug, data.ReportDate, data.PreviousDate, headline, summary,
-		json.RawMessage(`{}`), topJSON, risersJSON, fallersJSON, statsJSON,
+		string(`{}`), string(topJSON), string(risersJSON), string(fallersJSON), string(statsJSON),
 	)
 	return err
 }
@@ -202,7 +202,7 @@ func storeReport(ctx context.Context, db *pgxpool.Pool, weekSlug string, data *R
 
 	_, err := db.Exec(ctx, query,
 		weekSlug, data.ReportDate, data.PreviousDate, narrative.Headline, narrative.Summary,
-		narrativeJSON, topJSON, risersJSON, fallersJSON, statsJSON, faqsJSON,
+		string(narrativeJSON), string(topJSON), string(risersJSON), string(fallersJSON), string(statsJSON), string(faqsJSON),
 		quality.Score, narrative.Model, narrative.RetryCount, publishedAt,
 	)
 	return err
