@@ -110,20 +110,18 @@ export default async function WeeklyReportPage({ params }: PageProps) {
     notFound();
   }
 
-  const [data, enhanced] = await Promise.all([
-    getWeeklyReportData(slug),
-    getEnhancedWeeklyReportData(slug),
-  ]);
+  const data = await getWeeklyReportData(slug);
 
   if (!data) {
     notFound();
   }
 
-  // Fetch financial highlights for top stocks
+  // Fetch enhanced data and financial highlights in parallel (both depend on data)
   const topCodes = data.topStocks.slice(0, 20).map((s) => s.code);
-  const financialHighlights = topCodes.length > 0
-    ? await getStockFinancialHighlights(topCodes)
-    : {};
+  const [enhanced, financialHighlights] = await Promise.all([
+    getEnhancedWeeklyReportData(slug),
+    topCodes.length > 0 ? getStockFinancialHighlights(topCodes) : Promise.resolve({} as Record<string, import("~/app/actions/reports/getReportData").StockFinancialHighlight[]>),
+  ]);
 
   const weekTitle = formatWeekTitle(slug);
   const hasNarrative = !!enhanced?.narrative?.openingHook;

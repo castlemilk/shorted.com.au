@@ -45,6 +45,7 @@ var (
 	flagLimit      = flag.Int("limit", 0, "Limit number of stocks to process (0 = all)")
 	flagDelay = flag.Duration("delay", 1500*time.Millisecond, "Delay between requests")
 	flagVerbose    = flag.Bool("verbose", false, "Verbose output")
+	flagAllAnnouncements = flag.Bool("all-announcements", false, "Store all announcements to asx_announcements table (not just financial reports)")
 )
 
 // Financial report headline keywords/patterns
@@ -126,10 +127,12 @@ func main() {
 
 	// Process stocks
 	var (
-		totalProcessed int
-		totalReports   int
-		totalUpdated   int
-		totalErrors    int
+		totalProcessed      int
+		totalReports        int
+		totalUpdated        int
+		totalErrors         int
+		totalAnnouncements  int
+		totalAnnStored      int
 	)
 
 	for i, code := range codes {
@@ -138,7 +141,7 @@ func main() {
 				i, len(codes), totalReports, totalUpdated, totalErrors)
 		}
 
-		reports, err := crawlStockAnnouncements(client, code, years)
+		reports, allAnns, err := crawlStockAnnouncementsFull(client, code, years)
 		if err != nil {
 			if *flagVerbose {
 				log.Printf("  ERROR %s: %v", code, err)
@@ -149,7 +152,25 @@ func main() {
 
 		totalProcessed++
 
+		// Store all announcements to asx_announcements table
+		if *flagAllAnnouncements && len(allAnns) > 0 {
+			totalAnnouncements += len(allAnns)
+			if !*flagDryRun {
+				stored, err := storeAnnouncements(ctx, db, code, allAnns)
+				if err != nil {
+					log.Printf("  ERROR storing announcements for %s: %v", code, err)
+				} else {
+					totalAnnStored += stored
+				}
+			} else if *flagVerbose {
+				log.Printf("  %s: %d total announcements", code, len(allAnns))
+			}
+		}
+
 		if len(reports) == 0 {
+			// Jittered delay to be polite
+			jitter := time.Duration(rand.Int63n(int64(*flagDelay / 2)))
+			time.Sleep(*flagDelay + jitter)
 			continue
 		}
 
@@ -160,6 +181,8 @@ func main() {
 			for _, r := range reports {
 				log.Printf("    [%s] %s — %s", r.Date, r.Title, r.URL)
 			}
+			jitter := time.Duration(rand.Int63n(int64(*flagDelay / 2)))
+			time.Sleep(*flagDelay + jitter)
 			continue
 		}
 
@@ -179,8 +202,8 @@ func main() {
 		time.Sleep(*flagDelay + jitter)
 	}
 
-	log.Printf("Done! Processed: %d, Reports found: %d, DB updated: %d, Errors: %d",
-		totalProcessed, totalReports, totalUpdated, totalErrors)
+	log.Printf("Done! Processed: %d, Reports found: %d, DB updated: %d, Announcements: %d (stored: %d), Errors: %d",
+		totalProcessed, totalReports, totalUpdated, totalAnnouncements, totalAnnStored, totalErrors)
 }
 
 func getStockCodes(ctx context.Context, db *pgxpool.Pool) ([]string, error) {
@@ -219,13 +242,22 @@ func getStockCodes(ctx context.Context, db *pgxpool.Pool) ([]string, error) {
 }
 
 func crawlStockAnnouncements(client *http.Client, code string, years []string) ([]FinancialReport, error) {
+	reports, _, err := crawlStockAnnouncementsFull(client, code, years)
+	return reports, err
+}
+
+// crawlStockAnnouncementsFull returns both financial reports and all announcements
+func crawlStockAnnouncementsFull(client *http.Client, code string, years []string) ([]FinancialReport, []ASXAnnouncement, error) {
 	var allReports []FinancialReport
+	var allAnnouncements []ASXAnnouncement
 
 	for _, year := range years {
 		announcements, err := fetchASXAnnouncements(client, code, year)
 		if err != nil {
-			return nil, fmt.Errorf("year %s: %w", year, err)
+			return nil, nil, fmt.Errorf("year %s: %w", year, err)
 		}
+
+		allAnnouncements = append(allAnnouncements, announcements...)
 
 		for _, ann := range announcements {
 			if isFinancialReport(ann.Headline) {
@@ -246,7 +278,7 @@ func crawlStockAnnouncements(client *http.Client, code string, years []string) (
 		return allReports[i].Date > allReports[j].Date
 	})
 
-	return allReports, nil
+	return allReports, allAnnouncements, nil
 }
 
 func fetchASXAnnouncements(client *http.Client, code, year string) ([]ASXAnnouncement, error) {
@@ -459,6 +491,63 @@ func mergeAndUpdateReports(ctx context.Context, db *pgxpool.Pool, code string, n
 	}
 
 	return true, nil
+}
+
+// classifyAnnouncementType determines the type of ASX announcement from its headline
+func classifyAnnouncementType(headline string) string {
+	lower := strings.ToLower(headline)
+	switch {
+	case strings.Contains(lower, "trading halt") || strings.Contains(lower, "voluntary suspension"):
+		return "trading_halt"
+	case strings.Contains(lower, "placement") || strings.Contains(lower, "share purchase plan") ||
+		strings.Contains(lower, "rights issue") || strings.Contains(lower, "entitlement offer"):
+		return "capital_raise"
+	case strings.Contains(lower, "appendix 3y") || strings.Contains(lower, "change of director") ||
+		strings.Contains(lower, "director interest"):
+		return "director_dealing"
+	case strings.Contains(lower, "profit") || strings.Contains(lower, "earnings") ||
+		strings.Contains(lower, "revenue") || strings.Contains(lower, "dividend"):
+		return "earnings"
+	case strings.Contains(lower, "guidance") || strings.Contains(lower, "forecast") ||
+		strings.Contains(lower, "outlook update"):
+		return "guidance"
+	case strings.Contains(lower, "takeover") || strings.Contains(lower, "scheme of arrangement") ||
+		strings.Contains(lower, "merger") || strings.Contains(lower, "acquisition"):
+		return "takeover"
+	default:
+		return "other"
+	}
+}
+
+// storeAnnouncements inserts announcements into the asx_announcements table, returning count of new rows
+func storeAnnouncements(ctx context.Context, db *pgxpool.Pool, code string, announcements []ASXAnnouncement) (int, error) {
+	stored := 0
+	for _, ann := range announcements {
+		annType := classifyAnnouncementType(ann.Headline)
+		query := fmt.Sprintf(
+			`INSERT INTO asx_announcements (stock_code, announcement_date, headline, is_price_sensitive, announcement_type, pdf_url, source)
+			 VALUES ('%s', '%s', '%s', %t, '%s', '%s', 'asx_announcements')
+			 ON CONFLICT (stock_code, announcement_date, headline) DO NOTHING`,
+			escapeSQLString(code),
+			escapeSQLString(ann.Date),
+			escapeSQLString(ann.Headline),
+			ann.IsPriceSens,
+			escapeSQLString(annType),
+			escapeSQLString(ann.PDFURL),
+		)
+
+		tag, err := db.Exec(ctx, query)
+		if err != nil {
+			if *flagVerbose {
+				log.Printf("    WARN: failed to insert announcement for %s: %v", code, err)
+			}
+			continue
+		}
+		if tag.RowsAffected() > 0 {
+			stored++
+		}
+	}
+	return stored, nil
 }
 
 // escapeSQLString escapes single quotes for safe SQL string literals

@@ -1,12 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { FileText, ChevronRight, X } from "lucide-react";
 import { Button } from "~/@/components/ui/button";
 
 export function ReportsBanner() {
   const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    const dismissed = localStorage.getItem("reports-banner-dismissed");
+    if (dismissed === "true") {
+      setIsVisible(false);
+    }
+  }, []);
+
+  const handleDismiss = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsVisible(false);
+    localStorage.setItem("reports-banner-dismissed", "true");
+  };
 
   if (!isVisible) return null;
 
@@ -35,7 +48,7 @@ export function ReportsBanner() {
             variant="ghost"
             size="sm"
             className="h-7 w-7 p-0 shrink-0"
-            onClick={() => setIsVisible(false)}
+            onClick={handleDismiss}
           >
             <X className="h-3.5 w-3.5" />
             <span className="sr-only">Dismiss</span>

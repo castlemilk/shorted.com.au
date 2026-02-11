@@ -2,6 +2,7 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { SHORTS_API_URL } from "../config";
 import { withRetryAndNotFound } from "../withRetry";
 
@@ -217,9 +218,8 @@ export interface EnhancedWeeklyReportNarrative {
   qualityScore: number;
 }
 
-// Fetch enhanced weekly report narrative from the GetWeeklyReport RPC
-export const getEnhancedWeeklyReportData = cache(
-  async (weekSlug: string): Promise<EnhancedWeeklyReportNarrative | null> => {
+// Inner fetch function for enhanced report data (used by both cache layers)
+async function fetchEnhancedReport(weekSlug: string): Promise<EnhancedWeeklyReportNarrative | null> {
     try {
       const transport = createConnectTransport({ baseUrl: getApiUrl() });
       const client = createClient(ShortedStocksService, transport);
@@ -272,10 +272,26 @@ export const getEnhancedWeeklyReportData = cache(
           : undefined,
         qualityScore: resp.qualityScore,
       };
-    } catch {
+    } catch (err) {
       // Narrative not available for this week (expected for older weeks)
+      console.error(`[getEnhancedWeeklyReportData] Failed for slug=${weekSlug}:`, err);
       return null;
     }
+}
+
+// Fetch enhanced weekly report narrative with on-demand revalidation support
+// Uses unstable_cache with tags so the report generator can trigger revalidation via POST /api/revalidate?tag=report-SLUG
+export const getEnhancedWeeklyReportData = cache(
+  (weekSlug: string) => {
+    const cachedFetch = unstable_cache(
+      () => fetchEnhancedReport(weekSlug),
+      [`enhanced-report-${weekSlug}`],
+      {
+        tags: [`report-${weekSlug}`],
+        revalidate: 86400, // 24h fallback
+      },
+    );
+    return cachedFetch();
   },
 );
 

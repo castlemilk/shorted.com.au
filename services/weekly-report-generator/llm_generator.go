@@ -59,6 +59,12 @@ func NewLLMGenerator(openaiKey, geminiKey string) *LLMGenerator {
 // analyticalSystemPrompt is the first-pass prompt for GPT-5.2: data-driven analysis
 const analyticalSystemPrompt = `You are writing a weekly short selling column for Shorted.com.au, an Australian financial data platform. Write as a knowledgeable market commentator — someone who reads the data carefully, spots the interesting stories, and explains what retail investors should pay attention to.
 
+CRITICAL ACCURACY RULES:
+- NEVER round, estimate, or approximate. Use exact figures from the data.
+- 15.23% means write "15.23%", not "about 15%" or "over 15%".
+- Every percentage and stock code you mention MUST appear in the source data above.
+- If unsure of a number, omit it rather than guess.
+
 Voice and tone:
 - Write like a sharp financial journalist at the AFR or Livewire Markets, not a corporate press release
 - Be direct and opinionated where the data supports it. If a stock's short interest jumped 3% in a week, say that's unusual — don't hedge
@@ -107,6 +113,12 @@ const geminiNarrativePrompt = `You are a veteran Australian financial markets co
 
 Your job: look at this week's ASIC short position data and write a concise, opinionated market commentary. You're writing for retail investors who want to understand what the shorts are doing and why it matters.
 
+CRITICAL ACCURACY RULES:
+- NEVER round, estimate, or approximate. Use exact figures from the data.
+- 15.23% means write "15.23%", not "about 15%" or "over 15%".
+- Every percentage and stock code you mention MUST appear in the source data above.
+- If unsure of a number, omit it rather than guess.
+
 Style:
 - Write the way Marcus Padley or Alan Kohler would for their subscribers — informal authority, no corporate fluff
 - Australian English. ASX tickers. No American market analogies
@@ -138,6 +150,13 @@ Return ONLY valid JSON in this exact structure:
 
 // amalgamationSystemPrompt is the second-pass prompt: creative writing emphasis
 const amalgamationSystemPrompt = `You are the chief editor of Shorted.com.au's weekly column. You've received two draft analyses of this week's ASIC short position data — one from a data-focused analyst and one from a market columnist. Your job is to merge them into a single, polished piece that reads like the best financial journalism.
+
+CRITICAL ACCURACY RULES:
+- NEVER round, estimate, or approximate. Use exact figures from the source data.
+- 15.23% means write "15.23%", not "about 15%" or "over 15%".
+- Every percentage and stock code you mention MUST appear in the source data.
+- If unsure of a number, omit it rather than guess.
+- Cross-check all figures against the source data before including them.
 
 Your editorial mandate:
 - Take the strongest insights from each draft. If both noticed the same thing, pick the better framing
@@ -429,6 +448,38 @@ func buildUserPrompt(data *ReportData, feedback string) string {
 						sb.WriteString("\n")
 					}
 				}
+			}
+		}
+	}
+
+	// Include stock price data
+	if len(data.PriceContext) > 0 {
+		sb.WriteString("\nSTOCK PRICE DATA (correlate short interest changes with price movements — rising stock + increasing shorts tells a different story than falling stock + increasing shorts):\n")
+		for code, p := range data.PriceContext {
+			if p.CurrentPrice > 0 {
+				fmt.Fprintf(&sb, "%s — $%.2f (week: %+.1f%%, month: %+.1f%%)", code, p.CurrentPrice, p.WeeklyChangePct, p.MonthlyChangePct)
+				if p.WeekHigh > 0 {
+					fmt.Fprintf(&sb, ", Range: $%.2f-$%.2f", p.WeekLow, p.WeekHigh)
+				}
+				if p.AvgVolume > 0 {
+					fmt.Fprintf(&sb, ", Vol: %.1fM", float64(p.AvgVolume)/1_000_000)
+				}
+				sb.WriteString("\n")
+			}
+		}
+	}
+
+	// Include recent ASX announcements
+	if len(data.Announcements) > 0 {
+		sb.WriteString("\nRECENT ASX ANNOUNCEMENTS (explain WHY shorts may be changing):\n")
+		for code, anns := range data.Announcements {
+			fmt.Fprintf(&sb, "%s:\n", code)
+			for _, a := range anns {
+				sens := ""
+				if a.IsPriceSensitive {
+					sens = " *"
+				}
+				fmt.Fprintf(&sb, "  - [%s]%s %s (%s)\n", a.Date, sens, a.Headline, a.Type)
 			}
 		}
 	}

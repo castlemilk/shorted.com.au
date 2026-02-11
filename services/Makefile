@@ -326,6 +326,21 @@ test.gettreemap:
 generate.statik:
 	statik -src=../api/schema -f -include=openapi.yaml -dest=./shorts/internal/api/schema
 
+# Weekly report generator commands
+.PHONY: report-generate report-rerun report-dry-run
+
+report-generate:
+	@echo "Generating weekly report for $(or $(WEEK),current week)..."
+	@bash -c 'DATABASE_URL="$(DATABASE_URL)" go run ./weekly-report-generator/ $(if $(WEEK),--week=$(WEEK)) $(if $(MONTH),--month=$(MONTH)) $(if $(YEAR),--year=$(YEAR))'
+
+report-rerun:
+	@echo "Re-generating report with --force..."
+	@bash -c 'DATABASE_URL="$(DATABASE_URL)" go run ./weekly-report-generator/ --force --max-retries=$(or $(RETRIES),3) $(if $(WEEK),--week=$(WEEK)) $(if $(MONTH),--month=$(MONTH)) $(if $(YEAR),--year=$(YEAR))'
+
+report-dry-run:
+	@echo "Dry-run report generation..."
+	@bash -c 'DATABASE_URL="$(DATABASE_URL)" go run ./weekly-report-generator/ --dry-run $(if $(WEEK),--week=$(WEEK)) $(if $(MONTH),--month=$(MONTH)) $(if $(YEAR),--year=$(YEAR))'
+
 # Data population commands
 .PHONY: build.populate-data run.populate-data populate-data populate-data-quick populate-data-force populate-data-1y populate-data-force-reload
 
