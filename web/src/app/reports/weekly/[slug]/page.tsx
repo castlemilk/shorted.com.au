@@ -30,6 +30,7 @@ import {
   getWeeklyReportData,
   getEnhancedWeeklyReportData,
   getAvailableWeekSlugs,
+  getStockFinancialHighlights,
 } from "~/app/actions/reports/getReportData";
 
 interface PageProps {
@@ -117,6 +118,12 @@ export default async function WeeklyReportPage({ params }: PageProps) {
   if (!data) {
     notFound();
   }
+
+  // Fetch financial highlights for top stocks
+  const topCodes = data.topStocks.slice(0, 20).map((s) => s.code);
+  const financialHighlights = topCodes.length > 0
+    ? await getStockFinancialHighlights(topCodes)
+    : {};
 
   const weekTitle = formatWeekTitle(slug);
   const hasNarrative = !!enhanced?.narrative?.openingHook;
@@ -400,6 +407,63 @@ export default async function WeeklyReportPage({ params }: PageProps) {
             </div>
           </div>
         </section>
+
+        {/* Financial Snapshot */}
+        {Object.keys(financialHighlights).length > 0 && (
+          <section>
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-primary" />
+              Financial Snapshot
+            </h2>
+            <p className="text-sm text-muted-foreground mb-3">
+              Key financial metrics from recent company reports for the most shorted stocks.
+            </p>
+            <div className="space-y-3">
+              {displayTopStocks.slice(0, 10).filter((s) => financialHighlights[s.code]?.length).map((stock) => {
+                const reports = financialHighlights[stock.code]!;
+                const report = reports[0]!;
+                const keyMetrics = report.metrics.filter((m) =>
+                  ["revenue", "net_profit", "npat", "eps", "ebitda", "dividend"].includes(m.metricType)
+                ).slice(0, 4);
+                if (keyMetrics.length === 0) return null;
+                return (
+                  <div key={stock.code} className="rounded-lg border border-border/60 bg-card/50 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <Link href={`/shorts/${stock.code}`} className="hover:text-primary transition-colors">
+                        <span className="font-semibold">{stock.code}</span>
+                        <span className="text-sm text-muted-foreground ml-2">{stock.name}</span>
+                      </Link>
+                      <span className="text-xs text-muted-foreground">
+                        {report.reportTitle} ({report.reportDate})
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-6 gap-y-1">
+                      {keyMetrics.map((m, i) => {
+                        const label = m.metricType.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+                        const attrs = m.attributes;
+                        const val = attrs.value_millions
+                          ? `$${Number(attrs.value_millions).toLocaleString()}M`
+                          : attrs.value_cents
+                            ? `${Number(attrs.value_cents).toFixed(1)}c`
+                            : attrs.value
+                              ? attrs.value
+                              : m.sourceText.slice(0, 60);
+                        const period = attrs.period ?? "";
+                        return (
+                          <div key={i} className="text-sm">
+                            <span className="text-muted-foreground">{label}:</span>{" "}
+                            <span className="font-medium tabular-nums">{val}</span>
+                            {period && <span className="text-xs text-muted-foreground ml-1">({period})</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* Biggest Risers */}
         {risers.length > 0 && (

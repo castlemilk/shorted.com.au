@@ -149,6 +149,10 @@ func (s *StoreAdapter) GetWeeklyReport(weekSlug string) (*shorts.WeeklyReport, e
 	return s.store.GetWeeklyReport(weekSlug)
 }
 
+func (s *StoreAdapter) GetStockFinancialHighlights(stockCodes []string, maxPerStock int) (map[string][]shorts.FinancialReportHighlight, error) {
+	return s.store.GetStockFinancialHighlights(stockCodes, maxPerStock)
+}
+
 // LoggerAdapter adapts the standard logger to the Logger interface
 type LoggerAdapter struct{}
 
