@@ -39,6 +39,7 @@ interface PageProps {
 
 export async function generateStaticParams() {
   try {
+    // getAvailableWeekSlugs already excludes the current incomplete week
     const slugs = await getAvailableWeekSlugs();
     // Pre-generate last 12 weeks at build time to avoid cold starts
     return slugs.slice(0, 12).map((slug) => ({ slug }));
@@ -116,7 +117,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
     getEnhancedWeeklyReportData(slug),
   ]);
 
-  if (!data) {
+  if (!data || data.topStocks.length === 0) {
     notFound();
   }
 

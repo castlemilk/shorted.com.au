@@ -31,6 +31,7 @@ interface PageProps {
 }
 
 export async function generateStaticParams() {
+  // Pre-generate completed years (current year excluded — it's incomplete)
   return [
     { slug: "2025" },
     { slug: "2024" },

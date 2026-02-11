@@ -161,16 +161,20 @@ export const getMonthlyReportData = cache(
   }, LIGHT_RETRY),
 );
 
-// Generate available week slugs (last 52 weeks)
+// Generate available week slugs (last 52 weeks, excluding the current incomplete week)
 export async function getAvailableWeekSlugs(): Promise<string[]> {
   const slugs: string[] = [];
   const now = new Date();
+  const currentWeek = getISOWeek(now);
+  const currentSlug = `${currentWeek.year}-W${String(currentWeek.week).padStart(2, "0")}`;
+
   for (let i = 0; i < 52; i++) {
     const date = new Date(now);
     date.setDate(date.getDate() - i * 7);
     const { year, week } = getISOWeek(date);
     const slug = `${year}-W${String(week).padStart(2, "0")}`;
-    if (!slugs.includes(slug)) {
+    // Skip the current week (report not yet generated) and duplicates
+    if (slug !== currentSlug && !slugs.includes(slug)) {
       slugs.push(slug);
     }
   }
@@ -300,11 +304,12 @@ export const getEnhancedWeeklyReportData = cache(
   },
 );
 
-// Generate available month slugs (last 24 months)
+// Generate available month slugs (last 24 months, excluding the current incomplete month)
 export async function getAvailableMonthSlugs(): Promise<string[]> {
   const slugs: string[] = [];
   const now = new Date();
-  for (let i = 0; i < 24; i++) {
+  // Start from previous month (current month is incomplete)
+  for (let i = 1; i <= 24; i++) {
     const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
     slugs.push(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`);
   }
@@ -359,11 +364,12 @@ export const getStockFinancialHighlights = cache(
   },
 );
 
-// Generate available year slugs (last 5 years)
+// Generate available year slugs (last 5 completed years, excluding the current year)
 export async function getAvailableYearSlugs(): Promise<string[]> {
   const slugs: string[] = [];
   const currentYear = new Date().getFullYear();
-  for (let i = 0; i < 5; i++) {
+  // Start from previous year (current year is incomplete)
+  for (let i = 1; i <= 5; i++) {
     slugs.push(String(currentYear - i));
   }
   return slugs;
