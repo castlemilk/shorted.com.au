@@ -165,11 +165,13 @@ func (c *MonthlyDataCollector) Collect(ctx context.Context, monthSlug string) (*
 
 	stats := dc.calculateStats(currentStocks, previousStocks)
 
-	// Collect company metadata, financial reports, and extracted highlights for all mentioned stocks
+	// Collect company metadata, financial reports, extracted highlights, and price data for all mentioned stocks
 	mentionedCodes := collectMentionedCodes(topShorted, risers, fallers)
 	companyCtx := dc.getCompanyMetadata(ctx, mentionedCodes)
 	finRefs := dc.getFinancialReports(ctx, mentionedCodes)
 	finHighlights := dc.getFinancialHighlights(ctx, mentionedCodes)
+	priceCtx := dc.getStockPrices(ctx, mentionedCodes, reportDate, startDate, endDate)
+	announcements := dc.getRecentAnnouncements(ctx, mentionedCodes, startDate, endDate)
 
 	return &ReportData{
 		WeekSlug:            monthSlug,
@@ -183,6 +185,8 @@ func (c *MonthlyDataCollector) Collect(ctx context.Context, monthSlug string) (*
 		CompanyContext:       companyCtx,
 		FinancialRefs:       finRefs,
 		FinancialHighlights: finHighlights,
+		PriceContext:         priceCtx,
+		Announcements:       announcements,
 	}, nil
 }
 
