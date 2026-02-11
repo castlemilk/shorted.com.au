@@ -4,13 +4,25 @@ import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { SHORTS_API_URL } from "../config";
-import { withRetryAndNotFound } from "../withRetry";
+import { withRetryAndNotFound, type RetryOptions } from "../withRetry";
 
 const PRODUCTION_API_URL = "https://api.shorted.com.au";
 
 function getApiUrl() {
   return process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL ?? PRODUCTION_API_URL;
 }
+
+// Shared transport instance — reused across all functions to avoid redundant HTTP/2 connection setup
+function getTransport() {
+  return createConnectTransport({ baseUrl: getApiUrl() });
+}
+
+// Lighter retry config for report data that's typically pre-cached
+const LIGHT_RETRY: Partial<RetryOptions> = {
+  maxRetries: 2,
+  initialDelayMs: 200,
+  maxDelayMs: 2000,
+};
 
 export interface ReportStock {
   code: string;
@@ -78,20 +90,16 @@ export const getWeeklyReportData = cache(
     const startStr = start.toISOString().slice(0, 10);
     const endStr = end.toISOString().slice(0, 10);
 
-    const transport = createConnectTransport({ baseUrl: getApiUrl() });
+    const transport = getTransport();
     const client = createClient(ShortedStocksService, transport);
 
-    // Get available dates within this week's range
-    const availableDates = await client.getAvailableDates({ limit: 5, before: "" });
-    const weekDates = availableDates.dates.filter((d) => d >= startStr && d <= endStr);
+    // Fetch dates and market data in parallel to eliminate serial round-trip
+    const [availableDates, marketData] = await Promise.all([
+      client.getAvailableDates({ limit: 5, before: "" }),
+      client.getMarketByDate({ date: endStr, limit: 50, offset: 0 }),
+    ]);
 
-    // Fetch data for the latest day in the week
-    const latestDay = weekDates[0] ?? endStr;
-    const marketData = await client.getMarketByDate({
-      date: latestDay,
-      limit: 50,
-      offset: 0,
-    });
+    const weekDates = availableDates.dates.filter((d) => d >= startStr && d <= endStr);
 
     return {
       weekSlug,
@@ -106,7 +114,7 @@ export const getWeeklyReportData = cache(
       })),
       totalStocksShorted: marketData.totalCount,
     };
-  }),
+  }, LIGHT_RETRY),
 );
 
 // Get monthly report data
@@ -120,24 +128,21 @@ export const getMonthlyReportData = cache(
     const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
     const endDate = `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
 
-    const transport = createConnectTransport({ baseUrl: getApiUrl() });
+    const transport = getTransport();
     const client = createClient(ShortedStocksService, transport);
 
     // Get available dates for this month
     const monthNum = parseInt(month);
     const yearNum = parseInt(year);
     const nextMonthDate = `${monthNum === 12 ? yearNum + 1 : yearNum}-${String(monthNum === 12 ? 1 : monthNum + 1).padStart(2, "0")}-01`;
-    const availableDates = await client.getAvailableDates({ limit: 31, before: nextMonthDate });
+
+    // Fetch dates and market data in parallel to eliminate serial round-trip
+    const [availableDates, marketData] = await Promise.all([
+      client.getAvailableDates({ limit: 31, before: nextMonthDate }),
+      client.getMarketByDate({ date: endDate, limit: 50, offset: 0 }),
+    ]);
+
     const monthDates = availableDates.dates.filter((d) => d.startsWith(`${year}-${month}`));
-
-    // Fetch data for the latest day in the month
-    const latestDay = monthDates[0] ?? endDate;
-    const marketData = await client.getMarketByDate({
-      date: latestDay,
-      limit: 50,
-      offset: 0,
-    });
-
     const monthName = new Date(`${year}-${month}-01T00:00:00`).toLocaleDateString("en-AU", { month: "long" });
 
     return {
@@ -153,7 +158,7 @@ export const getMonthlyReportData = cache(
       })),
       totalStocksShorted: marketData.totalCount,
     };
-  }),
+  }, LIGHT_RETRY),
 );
 
 // Generate available week slugs (last 52 weeks)
@@ -221,7 +226,7 @@ export interface EnhancedWeeklyReportNarrative {
 // Inner fetch function for enhanced report data (used by both cache layers)
 async function fetchEnhancedReport(weekSlug: string): Promise<EnhancedWeeklyReportNarrative | null> {
     try {
-      const transport = createConnectTransport({ baseUrl: getApiUrl() });
+      const transport = getTransport();
       const client = createClient(ShortedStocksService, transport);
 
       const resp = await client.getWeeklyReport({ weekSlug });
@@ -324,7 +329,7 @@ export const getStockFinancialHighlights = cache(
     stockCodes: string[],
   ): Promise<Record<string, StockFinancialHighlight[]>> => {
     try {
-      const transport = createConnectTransport({ baseUrl: getApiUrl() });
+      const transport = getTransport();
       const client = createClient(ShortedStocksService, transport);
 
       const resp = await client.getStockFinancialHighlights({

@@ -9,6 +9,7 @@ import { getAllTermSlugs } from "~/@/data/glossary-terms";
 import {
   getAvailableWeekSlugs,
   getAvailableMonthSlugs,
+  getAvailableYearSlugs,
 } from "./actions/reports/getReportData";
 
 // Educational articles for sitemap
@@ -275,9 +276,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Report pages
   let weekSlugs: string[] = [];
   let monthSlugs: string[] = [];
+  let yearSlugs: string[] = [];
   try {
     weekSlugs = await getAvailableWeekSlugs();
     monthSlugs = await getAvailableMonthSlugs();
+    yearSlugs = await getAvailableYearSlugs();
   } catch (error) {
     console.error("Failed to fetch report slugs for sitemap:", error);
   }
@@ -300,6 +303,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: currentDate,
       changeFrequency: "monthly" as const,
       priority: 0.7,
+    })),
+    ...yearSlugs.map((slug) => ({
+      url: `${baseUrl}/reports/yearly/${slug}`,
+      lastModified: currentDate,
+      changeFrequency: "yearly" as const,
+      priority: 0.8,
     })),
   ];
 

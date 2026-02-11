@@ -40,8 +40,8 @@ interface PageProps {
 export async function generateStaticParams() {
   try {
     const slugs = await getAvailableWeekSlugs();
-    // Only pre-generate last 4 weeks at build time; rest via ISR on-demand
-    return slugs.slice(0, 4).map((slug) => ({ slug }));
+    // Pre-generate last 12 weeks at build time to avoid cold starts
+    return slugs.slice(0, 12).map((slug) => ({ slug }));
   } catch {
     return [];
   }
@@ -110,18 +110,21 @@ export default async function WeeklyReportPage({ params }: PageProps) {
     notFound();
   }
 
-  const data = await getWeeklyReportData(slug);
+  // Start independent fetches in parallel immediately — enhanced doesn't depend on data
+  const [data, enhanced] = await Promise.all([
+    getWeeklyReportData(slug),
+    getEnhancedWeeklyReportData(slug),
+  ]);
 
   if (!data) {
     notFound();
   }
 
-  // Fetch enhanced data and financial highlights in parallel (both depend on data)
+  // Financial highlights depends on data.topStocks
   const topCodes = data.topStocks.slice(0, 20).map((s) => s.code);
-  const [enhanced, financialHighlights] = await Promise.all([
-    getEnhancedWeeklyReportData(slug),
-    topCodes.length > 0 ? getStockFinancialHighlights(topCodes) : Promise.resolve({} as Record<string, import("~/app/actions/reports/getReportData").StockFinancialHighlight[]>),
-  ]);
+  const financialHighlights = topCodes.length > 0
+    ? await getStockFinancialHighlights(topCodes)
+    : {} as Record<string, import("~/app/actions/reports/getReportData").StockFinancialHighlight[]>;
 
   const weekTitle = formatWeekTitle(slug);
   const hasNarrative = !!enhanced?.narrative?.openingHook;
