@@ -1,7 +1,10 @@
 import { type Metadata } from "next";
+import Link from "next/link";
+import { FileText, ChevronRight } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { HomeContent } from "./home-content";
 import { FAQStructuredData } from "~/@/components/seo/enhanced-structured-data";
+import { getEnhancedWeeklyReportData } from "~/app/actions/reports/getReportData";
 
 export const metadata: Metadata = {
   title: siteConfig.fullTitle,
@@ -58,7 +61,38 @@ const homeFAQs = [
   },
 ];
 
-export default function Page() {
+function getCurrentWeekSlug(): string {
+  const now = new Date();
+  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
+}
+
+function formatWeekTitle(slug: string): string {
+  const match = slug.match(/^(\d{4})-W(\d{2})$/);
+  if (!match?.[1] || !match[2]) return slug;
+  return `Week ${parseInt(match[2])}, ${match[1]}`;
+}
+
+export default async function Page() {
+  // Try current week, then previous week
+  const currentSlug = getCurrentWeekSlug();
+  let report = await getEnhancedWeeklyReportData(currentSlug);
+  let reportSlug = currentSlug;
+  if (!report) {
+    const match = currentSlug.match(/^(\d{4})-W(\d{2})$/);
+    if (match?.[1] && match[2]) {
+      const prevWeek = parseInt(match[2]) - 1;
+      const prevSlug = prevWeek >= 1
+        ? `${match[1]}-W${String(prevWeek).padStart(2, "0")}`
+        : `${parseInt(match[1]) - 1}-W52`;
+      report = await getEnhancedWeeklyReportData(prevSlug);
+      reportSlug = prevSlug;
+    }
+  }
+
   return (
     <main className="min-h-screen flex flex-col bg-transparent">
       {/* FAQ Structured Data for rich snippets */}
@@ -83,6 +117,43 @@ export default function Page() {
           shorted companies, and monitor bearish sentiment across the Australian market.
         </p>
       </header>
+
+      {/* Latest Weekly Report Banner */}
+      {report && (
+        <div className="container mx-auto px-4 pb-4">
+          <Link
+            href={`/reports/weekly/${reportSlug}`}
+            className="group block rounded-lg border border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10 p-4 hover:border-primary/40 transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2 bg-primary/10 rounded-md shrink-0">
+                  <FileText className="h-5 w-5 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-primary uppercase tracking-wider">
+                      Latest Report
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatWeekTitle(reportSlug)}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                    {report.headline}
+                  </p>
+                  {report.summary && (
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                      {report.summary}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors shrink-0 ml-2" />
+            </div>
+          </Link>
+        </div>
+      )}
 
       {/* Interactive dashboard content */}
       <HomeContent />

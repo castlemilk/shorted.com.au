@@ -10,6 +10,7 @@ import {
 import { getTopPageData } from "../actions/top/getTopPageData";
 import { type TimePeriod } from "~/@/lib/shorts-calculations";
 import { TopPageSkeleton } from "./components/top-page-skeleton";
+import { ReportsBanner } from "~/@/components/reports/reports-banner";
 
 // Dynamic import for client component to reduce initial bundle
 import dynamic from "next/dynamic";
@@ -146,6 +147,10 @@ export default function TopPage() {
       {/* Structured Data for SEO */}
       <BreadcrumbListSchema items={breadcrumbs} />
       <FAQStructuredData faqs={topPageFAQs} />
+
+      <div className="container mx-auto px-4 pt-4">
+        <ReportsBanner />
+      </div>
 
       <Suspense fallback={<TopPageSkeleton />}>
         <TopPageData />

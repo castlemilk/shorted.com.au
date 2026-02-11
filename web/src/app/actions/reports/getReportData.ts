@@ -171,6 +171,114 @@ export async function getAvailableWeekSlugs(): Promise<string[]> {
   return slugs;
 }
 
+// Enhanced weekly report data including LLM narrative (from weekly_reports table)
+export interface EnhancedWeeklyReportNarrative {
+  headline: string;
+  summary: string;
+  narrative: {
+    openingHook: string;
+    topAnalysis: string;
+    moversAnalysis: string;
+    industryAnalysis: string;
+    outlook: string;
+  };
+  topShorted: Array<{
+    rank: number;
+    code: string;
+    name: string;
+    shortPct: number;
+    wowChange: number;
+  }>;
+  risers: Array<{
+    code: string;
+    name: string;
+    currentPct: number;
+    previousPct: number;
+    change: number;
+  }>;
+  fallers: Array<{
+    code: string;
+    name: string;
+    currentPct: number;
+    previousPct: number;
+    change: number;
+  }>;
+  faqs: Array<{
+    question: string;
+    answer: string;
+  }>;
+  marketStats?: {
+    totalStocksShorted: number;
+    avgShortPct: number;
+    maxShortPct: number;
+    maxShortCode: string;
+    wowAvgChange: number;
+  };
+  qualityScore: number;
+}
+
+// Fetch enhanced weekly report narrative from the GetWeeklyReport RPC
+export const getEnhancedWeeklyReportData = cache(
+  async (weekSlug: string): Promise<EnhancedWeeklyReportNarrative | null> => {
+    try {
+      const transport = createConnectTransport({ baseUrl: getApiUrl() });
+      const client = createClient(ShortedStocksService, transport);
+
+      const resp = await client.getWeeklyReport({ weekSlug });
+
+      return {
+        headline: resp.headline,
+        summary: resp.summary,
+        narrative: {
+          openingHook: resp.narrative?.openingHook ?? "",
+          topAnalysis: resp.narrative?.topAnalysis ?? "",
+          moversAnalysis: resp.narrative?.moversAnalysis ?? "",
+          industryAnalysis: resp.narrative?.industryAnalysis ?? "",
+          outlook: resp.narrative?.outlook ?? "",
+        },
+        topShorted: resp.topShorted.map((s) => ({
+          rank: s.rank,
+          code: s.code,
+          name: s.name,
+          shortPct: s.shortPct,
+          wowChange: s.wowChange,
+        })),
+        risers: resp.risers.map((m) => ({
+          code: m.code,
+          name: m.name,
+          currentPct: m.currentPct,
+          previousPct: m.previousPct,
+          change: m.change,
+        })),
+        fallers: resp.fallers.map((m) => ({
+          code: m.code,
+          name: m.name,
+          currentPct: m.currentPct,
+          previousPct: m.previousPct,
+          change: m.change,
+        })),
+        faqs: resp.faqs.map((f) => ({
+          question: f.question,
+          answer: f.answer,
+        })),
+        marketStats: resp.marketStats
+          ? {
+              totalStocksShorted: resp.marketStats.totalStocksShorted,
+              avgShortPct: resp.marketStats.avgShortPct,
+              maxShortPct: resp.marketStats.maxShortPct,
+              maxShortCode: resp.marketStats.maxShortCode,
+              wowAvgChange: resp.marketStats.wowAvgChange,
+            }
+          : undefined,
+        qualityScore: resp.qualityScore,
+      };
+    } catch {
+      // Narrative not available for this week (expected for older weeks)
+      return null;
+    }
+  },
+);
+
 // Generate available month slugs (last 24 months)
 export async function getAvailableMonthSlugs(): Promise<string[]> {
   const slugs: string[] = [];
@@ -178,6 +286,64 @@ export async function getAvailableMonthSlugs(): Promise<string[]> {
   for (let i = 0; i < 24; i++) {
     const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
     slugs.push(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`);
+  }
+  return slugs;
+}
+
+// Financial highlights for a stock
+export interface StockFinancialHighlight {
+  reportTitle: string;
+  reportType: string;
+  reportDate: string;
+  metrics: Array<{
+    metricType: string; // e.g., "revenue", "net_profit", "eps"
+    sourceText: string;
+    attributes: Record<string, string>; // e.g., {value_millions: "5142", period: "H1 FY2025"}
+  }>;
+}
+
+// Fetch financial highlights for given stock codes
+export const getStockFinancialHighlights = cache(
+  async (
+    stockCodes: string[],
+  ): Promise<Record<string, StockFinancialHighlight[]>> => {
+    try {
+      const transport = createConnectTransport({ baseUrl: getApiUrl() });
+      const client = createClient(ShortedStocksService, transport);
+
+      const resp = await client.getStockFinancialHighlights({
+        stockCodes,
+        maxReportsPerStock: 2,
+      });
+
+      const result: Record<string, StockFinancialHighlight[]> = {};
+      for (const [code, data] of Object.entries(resp.highlights)) {
+        result[code] = data.reports.map((r) => ({
+          reportTitle: r.reportTitle,
+          reportType: r.reportType,
+          reportDate: r.reportDate,
+          metrics: r.metrics.map((m) => ({
+            metricType: m.metricType,
+            sourceText: m.sourceText,
+            attributes: Object.fromEntries(
+              Object.entries(m.attributes),
+            ),
+          })),
+        }));
+      }
+      return result;
+    } catch {
+      return {};
+    }
+  },
+);
+
+// Generate available year slugs (last 5 years)
+export async function getAvailableYearSlugs(): Promise<string[]> {
+  const slugs: string[] = [];
+  const currentYear = new Date().getFullYear();
+  for (let i = 0; i < 5; i++) {
+    slugs.push(String(currentYear - i));
   }
   return slugs;
 }

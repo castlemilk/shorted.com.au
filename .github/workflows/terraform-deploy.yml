@@ -247,6 +247,9 @@ jobs:
           - name: enrichment-processor
             dockerfile: services/enrichment-processor/Dockerfile
             context: services
+          - name: weekly-report-generator
+            dockerfile: services/weekly-report-generator/Dockerfile
+            context: services
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

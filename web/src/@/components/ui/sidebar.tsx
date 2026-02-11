@@ -8,6 +8,7 @@ import {
   Briefcase,
   LayoutDashboard,
   LineChart,
+  FileText,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -32,6 +33,11 @@ const sidebarItems = [
     title: "Stocks",
     href: "/stocks",
     icon: LineChart,
+  },
+  {
+    title: "Reports",
+    href: "/reports",
+    icon: FileText,
   },
   {
     title: "Portfolio",

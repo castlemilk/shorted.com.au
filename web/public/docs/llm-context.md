@@ -153,10 +153,43 @@ Includes historical data and charts
 
 ### Regulatory Framework
 
-- **ASIC Reporting**: All market participants with short positions must report daily
-- **Gross Short Positions**: Australia reports gross shorts (not net)
-- **Covered vs Naked Shorts**: Australia primarily has covered short selling
-- **Reporting Threshold**: Positions above 0.01% of issued capital must be reported
+Australian short selling is regulated under the **Corporations Act 2001** and guided by **ASIC Regulatory Guide 196** (RG 196).
+
+#### Corporations Act 2001 — Key Sections
+
+- **Section 1020B — Naked Short Selling Prohibition**: Makes it an offence to sell financial products ("section 1020B products") that the seller does not own or does not have a presently exercisable and unconditional right to vest. All short sales must be "covered" with a securities lending arrangement in place before execution.
+- **Section 1020AB — Short Sale Transaction Reporting**: Requires market participants to flag and report individual short sale transactions to the market operator (ASX) at the time of execution.
+- **Section 1020AC — Short Position Reporting**: Requires holders of net short positions to report their positions to ASIC when they meet or exceed the reporting threshold. ASIC then aggregates and publishes total short positions.
+
+#### ASIC Regulatory Guide 196 (RG 196) — Short Selling
+
+RG 196 is ASIC's primary guidance document for short selling disclosure and reporting. Key requirements:
+
+- **Reporting Threshold**: Net short positions must be reported when they reach **0.01% of a company's total issued capital** or **$100,000**, whichever is less.
+- **Daily Reporting**: Positions must be reported by 9:00 AM on the next trading day.
+- **T+4 Publication Delay**: ASIC publishes aggregated short position data 4 trading days after the reporting date.
+- **Net Short Position Reporting**: Australia reports **net short positions** — long positions are netted against short positions to determine the reportable amount. This differs from gross short position reporting used in some other jurisdictions.
+- **Covered Short Selling Only**: All short sales must be covered with a securities lending arrangement.
+
+#### The ASX Short Sales Report
+
+The ASX short sales report (daily short selling data published by ASIC) contains:
+
+- **Product code**: ASX ticker symbol (e.g., BHP, CBA, CSL)
+- **Product name**: Full name of the listed security
+- **Reported short positions**: Total number of shares reported as short across all reporting entities
+- **Total product in issue**: Total shares on issue for the security
+- **Short position percentage**: Reported shorts as a percentage of total shares on issue
+
+This daily publication covers all **ASX approved short sell products** — securities meeting ASX liquidity and market capitalisation criteria for short selling eligibility. The approved list typically includes all S&P/ASX 200 constituents and other sufficiently liquid securities.
+
+#### How to Interpret the ASX Short Interest Report
+
+- Short interest above 10% is generally considered elevated; above 20% is very high
+- Focus on trends over multiple days rather than individual snapshots
+- Account for the T+4 data lag when correlating with market events
+- Consider sector context — mining stocks typically carry higher short interest than defensive sectors
+- Use the "days to cover" metric (short interest ÷ average daily volume) to assess squeeze potential
 
 ### Market Hours
 

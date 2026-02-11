@@ -174,3 +174,20 @@ module "market_discovery_sync" {
     module.short_data_sync
   ]
 }
+
+# Weekly Report Generator Job
+module "weekly_report_generator" {
+  source = "../../modules/weekly-report-generator"
+
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment      = "production"
+  image_url            = var.weekly_report_generator_image
+  gemini_secret_exists = true
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}

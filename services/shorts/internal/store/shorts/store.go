@@ -57,6 +57,27 @@ type Store interface {
 	GetAPISubscriptionByCustomer(stripeCustomerID string) (*APISubscription, error)
 	UpsertAPISubscription(sub *APISubscription) error
 	UpdateAPISubscriptionByCustomer(stripeCustomerID string, update *APISubscriptionUpdate) error
+
+	// Weekly report methods
+	GetWeeklyReport(weekSlug string) (*WeeklyReport, error)
+
+	// Financial highlights from extracted reports
+	GetStockFinancialHighlights(stockCodes []string, maxPerStock int) (map[string][]FinancialReportHighlight, error)
+}
+
+// FinancialReportHighlight holds extracted metrics from a single financial report
+type FinancialReportHighlight struct {
+	ReportTitle string
+	ReportType  string
+	ReportDate  string
+	Metrics     []FinancialMetricEntry
+}
+
+// FinancialMetricEntry represents a single extracted metric
+type FinancialMetricEntry struct {
+	MetricType string
+	SourceText string
+	Attributes map[string]string
 }
 
 // APISubscription represents a user's API subscription status
@@ -79,6 +100,28 @@ type APISubscriptionUpdate struct {
 	CurrentPeriodStart *string
 	CurrentPeriodEnd   *string
 	CancelAtPeriodEnd  *bool
+}
+
+// WeeklyReport represents a weekly short selling report stored in the database
+type WeeklyReport struct {
+	ID                string
+	WeekSlug          string
+	ReportDate        string
+	PreviousDate      string
+	Headline          string
+	Summary           string
+	Narrative         []byte // JSON
+	TopShorted        []byte // JSON
+	Risers            []byte // JSON
+	Fallers           []byte // JSON
+	IndustryBreakdown []byte // JSON (nullable)
+	MarketStats       []byte // JSON (nullable)
+	FAQs              []byte // JSON (nullable)
+	QualityScore      *float64
+	LLMModel          *string
+	RetryCount        int
+	CreatedAt         string
+	PublishedAt       *string
 }
 
 func NewStore(config Config) (Store, error) {

@@ -435,6 +435,36 @@ func (mr *MockShortsStoreMockRecorder) UpdateAPISubscriptionByCustomer(stripeCus
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAPISubscriptionByCustomer", reflect.TypeOf((*MockShortsStore)(nil).UpdateAPISubscriptionByCustomer), stripeCustomerID, update)
 }
 
+// GetWeeklyReport mocks base method.
+func (m *MockShortsStore) GetWeeklyReport(weekSlug string) (*shorts.WeeklyReport, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetWeeklyReport", weekSlug)
+	ret0, _ := ret[0].(*shorts.WeeklyReport)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetWeeklyReport indicates an expected call of GetWeeklyReport.
+func (mr *MockShortsStoreMockRecorder) GetWeeklyReport(weekSlug any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWeeklyReport", reflect.TypeOf((*MockShortsStore)(nil).GetWeeklyReport), weekSlug)
+}
+
+// GetStockFinancialHighlights mocks base method.
+func (m *MockShortsStore) GetStockFinancialHighlights(stockCodes []string, maxPerStock int) (map[string][]shorts.FinancialReportHighlight, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStockFinancialHighlights", stockCodes, maxPerStock)
+	ret0, _ := ret[0].(map[string][]shorts.FinancialReportHighlight)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStockFinancialHighlights indicates an expected call of GetStockFinancialHighlights.
+func (mr *MockShortsStoreMockRecorder) GetStockFinancialHighlights(stockCodes, maxPerStock any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockFinancialHighlights", reflect.TypeOf((*MockShortsStore)(nil).GetStockFinancialHighlights), stockCodes, maxPerStock)
+}
+
 // UpdateEnrichmentJobStatus mocks base method.
 func (m *MockShortsStore) UpdateEnrichmentJobStatus(jobID string, status shortsv1alpha1.EnrichmentJobStatus, enrichmentID, errorMsg *string) error {
 	m.ctrl.T.Helper()
