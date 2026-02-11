@@ -15,18 +15,30 @@ import (
 
 func main() {
 	weekFlag := flag.String("week", "", "ISO week slug (e.g., 2026-W06). Defaults to current week.")
+	monthFlag := flag.String("month", "", "Month slug (e.g., 2026-01). Generates monthly report instead of weekly.")
+	yearFlag := flag.String("year", "", "Year (e.g., 2025). Generates year-in-review report.")
 	dryRun := flag.Bool("dry-run", false, "Generate report but don't store it")
 	flag.Parse()
 
 	ctx := context.Background()
 
-	// Determine week slug
-	weekSlug := *weekFlag
-	if weekSlug == "" {
-		year, week := time.Now().ISOWeek()
-		weekSlug = fmt.Sprintf("%d-W%02d", year, week)
+	// Determine report type and slug
+	isYearly := *yearFlag != ""
+	isMonthly := *monthFlag != ""
+	slug := *weekFlag
+	if isYearly {
+		slug = *yearFlag
+		log.Printf("Generating year-in-review report for %s", slug)
+	} else if isMonthly {
+		slug = *monthFlag
+		log.Printf("Generating monthly report for %s", slug)
+	} else {
+		if slug == "" {
+			year, week := time.Now().ISOWeek()
+			slug = fmt.Sprintf("%d-W%02d", year, week)
+		}
+		log.Printf("Generating weekly report for %s", slug)
 	}
-	log.Printf("Generating weekly report for %s", weekSlug)
 
 	// Connect to database
 	dbURL := os.Getenv("DATABASE_URL")
@@ -49,8 +61,17 @@ func main() {
 
 	// Step 1: Collect data
 	log.Println("Step 1: Collecting report data...")
-	collector := NewDataCollector(db)
-	data, err := collector.Collect(ctx, weekSlug)
+	var data *ReportData
+	if isYearly {
+		collector := NewYearlyDataCollector(db)
+		data, err = collector.Collect(ctx, slug)
+	} else if isMonthly {
+		collector := NewMonthlyDataCollector(db)
+		data, err = collector.Collect(ctx, slug)
+	} else {
+		collector := NewDataCollector(db)
+		data, err = collector.Collect(ctx, slug)
+	}
 	if err != nil {
 		log.Fatalf("Failed to collect data: %v", err)
 	}
@@ -62,7 +83,7 @@ func main() {
 	openaiKey := os.Getenv("OPENAI_API_KEY")
 	if openaiKey == "" {
 		log.Println("OPENAI_API_KEY not set, skipping narrative generation")
-		if err := storeDataOnlyReport(ctx, db, weekSlug, data, *dryRun); err != nil {
+		if err := storeDataOnlyReport(ctx, db, slug, data, *dryRun); err != nil {
 			log.Fatalf("Failed to store data-only report: %v", err)
 		}
 		log.Println("Stored data-only report (no narrative)")
@@ -74,7 +95,7 @@ func main() {
 	if err != nil {
 		log.Printf("WARNING: LLM generation failed: %v", err)
 		log.Println("Storing data-only report...")
-		if err := storeDataOnlyReport(ctx, db, weekSlug, data, *dryRun); err != nil {
+		if err := storeDataOnlyReport(ctx, db, slug, data, *dryRun); err != nil {
 			log.Fatalf("Failed to store data-only report: %v", err)
 		}
 		return
@@ -115,12 +136,12 @@ func main() {
 		return
 	}
 
-	if err := storeReport(ctx, db, weekSlug, data, narrative, result); err != nil {
+	if err := storeReport(ctx, db, slug, data, narrative, result); err != nil {
 		log.Fatalf("Failed to store report: %v", err)
 	}
 
 	log.Printf("Report stored: %s (quality: %.2f, published: %v)",
-		weekSlug, result.Score, result.PublishReady)
+		slug, result.Score, result.PublishReady)
 }
 
 func storeDataOnlyReport(ctx context.Context, db *pgxpool.Pool, weekSlug string, data *ReportData, dryRun bool) error {

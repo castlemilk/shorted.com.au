@@ -380,6 +380,15 @@ service ShortedStocksService {
       description: "Retrieve a weekly short selling report with narrative analysis, top shorted stocks, and biggest movers."
     };
   }
+
+  // Get extracted financial highlights for specific stocks
+  rpc GetStockFinancialHighlights (GetStockFinancialHighlightsRequest) returns (GetStockFinancialHighlightsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Stock Financial Highlights",
+      description: "Retrieve extracted financial metrics (revenue, NPAT, EPS, dividends, etc.) from company financial reports."
+    };
+  }
 }
 
 message MintTokenRequest {
@@ -869,4 +878,37 @@ message WeeklyMarketStats {
   double max_short_pct = 3;
   string max_short_code = 4;
   double wow_avg_change = 5; // Week-on-week change in average short %
+}
+
+// ==================== Financial Highlights Messages ====================
+
+// Request for GetStockFinancialHighlights RPC
+message GetStockFinancialHighlightsRequest {
+  repeated string stock_codes = 1; // ASX stock codes (e.g., ["DMP", "BHP"])
+  int32 max_reports_per_stock = 2; // Max reports to return per stock (default 2)
+}
+
+// Response for GetStockFinancialHighlights RPC
+message GetStockFinancialHighlightsResponse {
+  map<string, StockFinancialHighlights> highlights = 1; // stock_code → highlights
+}
+
+// Financial highlights for a single stock
+message StockFinancialHighlights {
+  repeated FinancialReportHighlight reports = 1;
+}
+
+// Extracted financial data from a single report
+message FinancialReportHighlight {
+  string report_title = 1;
+  string report_type = 2;  // e.g., "annual_results", "half_year_results"
+  string report_date = 3;  // YYYY-MM-DD
+  repeated FinancialMetric metrics = 4;
+}
+
+// A single extracted financial metric
+message FinancialMetric {
+  string metric_type = 1;   // e.g., "revenue", "net_profit", "eps", "dividend"
+  string source_text = 2;   // Original text from the report
+  map<string, string> attributes = 3; // e.g., {"value_millions": "5142", "period": "H1 FY2025"}
 }

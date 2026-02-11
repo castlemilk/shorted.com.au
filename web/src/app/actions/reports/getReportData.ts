@@ -289,3 +289,61 @@ export async function getAvailableMonthSlugs(): Promise<string[]> {
   }
   return slugs;
 }
+
+// Financial highlights for a stock
+export interface StockFinancialHighlight {
+  reportTitle: string;
+  reportType: string;
+  reportDate: string;
+  metrics: Array<{
+    metricType: string; // e.g., "revenue", "net_profit", "eps"
+    sourceText: string;
+    attributes: Record<string, string>; // e.g., {value_millions: "5142", period: "H1 FY2025"}
+  }>;
+}
+
+// Fetch financial highlights for given stock codes
+export const getStockFinancialHighlights = cache(
+  async (
+    stockCodes: string[],
+  ): Promise<Record<string, StockFinancialHighlight[]>> => {
+    try {
+      const transport = createConnectTransport({ baseUrl: getApiUrl() });
+      const client = createClient(ShortedStocksService, transport);
+
+      const resp = await client.getStockFinancialHighlights({
+        stockCodes,
+        maxReportsPerStock: 2,
+      });
+
+      const result: Record<string, StockFinancialHighlight[]> = {};
+      for (const [code, data] of Object.entries(resp.highlights)) {
+        result[code] = data.reports.map((r) => ({
+          reportTitle: r.reportTitle,
+          reportType: r.reportType,
+          reportDate: r.reportDate,
+          metrics: r.metrics.map((m) => ({
+            metricType: m.metricType,
+            sourceText: m.sourceText,
+            attributes: Object.fromEntries(
+              Object.entries(m.attributes),
+            ),
+          })),
+        }));
+      }
+      return result;
+    } catch {
+      return {};
+    }
+  },
+);
+
+// Generate available year slugs (last 5 years)
+export async function getAvailableYearSlugs(): Promise<string[]> {
+  const slugs: string[] = [];
+  const currentYear = new Date().getFullYear();
+  for (let i = 0; i < 5; i++) {
+    slugs.push(String(currentYear - i));
+  }
+  return slugs;
+}

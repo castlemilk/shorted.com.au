@@ -99,13 +99,19 @@ func (q *QualityChecker) programmaticCheck(data *ReportData, narrative *Narrativ
 		}
 	}
 
-	// Check word count
+	// Check word count (yearly reports get higher limits)
 	words := strings.Fields(fullText)
-	if len(words) > 600 {
-		issues = append(issues, fmt.Sprintf("narrative too long: %d words (max 600)", len(words)))
+	maxWords := 800
+	minWords := 100
+	if data.ReportType == "yearly" {
+		maxWords = 1500
+		minWords = 200
 	}
-	if len(words) < 100 {
-		issues = append(issues, fmt.Sprintf("narrative too short: %d words (min 100)", len(words)))
+	if len(words) > maxWords {
+		issues = append(issues, fmt.Sprintf("narrative too long: %d words (max %d)", len(words), maxWords))
+	}
+	if len(words) < minWords {
+		issues = append(issues, fmt.Sprintf("narrative too short: %d words (min %d)", len(words), minWords))
 	}
 
 	// Check headline length
@@ -121,12 +127,17 @@ func (q *QualityChecker) programmaticCheck(data *ReportData, narrative *Narrativ
 		}
 	}
 
-	// Check FAQ count
-	if len(narrative.FAQs) < 3 {
-		issues = append(issues, fmt.Sprintf("too few FAQs: %d (min 3)", len(narrative.FAQs)))
+	// Check FAQ count (yearly reports can have more)
+	minFAQs := 3
+	maxFAQs := 5
+	if data.ReportType == "yearly" {
+		maxFAQs = 8
 	}
-	if len(narrative.FAQs) > 5 {
-		issues = append(issues, fmt.Sprintf("too many FAQs: %d (max 5)", len(narrative.FAQs)))
+	if len(narrative.FAQs) < minFAQs {
+		issues = append(issues, fmt.Sprintf("too few FAQs: %d (min %d)", len(narrative.FAQs), minFAQs))
+	}
+	if len(narrative.FAQs) > maxFAQs {
+		issues = append(issues, fmt.Sprintf("too many FAQs: %d (max %d)", len(narrative.FAQs), maxFAQs))
 	}
 
 	return issues

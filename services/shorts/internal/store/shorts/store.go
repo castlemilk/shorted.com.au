@@ -60,6 +60,24 @@ type Store interface {
 
 	// Weekly report methods
 	GetWeeklyReport(weekSlug string) (*WeeklyReport, error)
+
+	// Financial highlights from extracted reports
+	GetStockFinancialHighlights(stockCodes []string, maxPerStock int) (map[string][]FinancialReportHighlight, error)
+}
+
+// FinancialReportHighlight holds extracted metrics from a single financial report
+type FinancialReportHighlight struct {
+	ReportTitle string
+	ReportType  string
+	ReportDate  string
+	Metrics     []FinancialMetricEntry
+}
+
+// FinancialMetricEntry represents a single extracted metric
+type FinancialMetricEntry struct {
+	MetricType string
+	SourceText string
+	Attributes map[string]string
 }
 
 // APISubscription represents a user's API subscription status

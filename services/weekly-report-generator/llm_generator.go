@@ -385,7 +385,62 @@ func buildUserPrompt(data *ReportData, feedback string) string {
 		data.MarketStats.TotalStocksShorted, data.MarketStats.AvgShortPct,
 		data.MarketStats.MaxShortPct, data.MarketStats.MaxShortCode, data.MarketStats.WoWAvgChange))
 
+	// Include company context
+	if len(data.CompanyContext) > 0 {
+		sb.WriteString("\nCOMPANY CONTEXT (use to add depth to your analysis):\n")
+		for code, meta := range data.CompanyContext {
+			fmt.Fprintf(&sb, "\n%s — %s (market cap: $%dM)\n", code, meta.Industry, meta.MarketCap/1_000_000)
+			if meta.RecentDevelopments != "" {
+				fmt.Fprintf(&sb, "  Recent: %s\n", meta.RecentDevelopments)
+			}
+		}
+	}
+
+	// Include financial report references
+	if len(data.FinancialRefs) > 0 {
+		sb.WriteString("\nCOMPANY FINANCIAL REPORTS (cite relevant reports with their URLs in your analysis):\n")
+		for code, reports := range data.FinancialRefs {
+			for _, r := range reports {
+				fmt.Fprintf(&sb, "- %s: \"%s\" (%s)", code, r.Title, r.Date)
+				if r.URL != "" {
+					fmt.Fprintf(&sb, " [%s]", r.URL)
+				}
+				sb.WriteString("\n")
+			}
+		}
+	}
+
+	// Include extracted financial highlights (actual numbers from reports)
+	if len(data.FinancialHighlights) > 0 {
+		sb.WriteString("\nEXTRACTED FINANCIAL DATA (use these actual figures to explain WHY shorts are positioning):\n")
+		for code, highlights := range data.FinancialHighlights {
+			for _, h := range highlights {
+				fmt.Fprintf(&sb, "\n%s — %s (%s, %s):\n", code, h.ReportTitle, h.ReportType, h.ReportDate)
+				for metricName, entries := range h.Metrics {
+					for _, attrs := range entries {
+						sb.WriteString("  ")
+						sb.WriteString(metricName)
+						sb.WriteString(": ")
+						parts := make([]string, 0, len(attrs))
+						for k, v := range attrs {
+							parts = append(parts, fmt.Sprintf("%s=%s", k, v))
+						}
+						sb.WriteString(strings.Join(parts, ", "))
+						sb.WriteString("\n")
+					}
+				}
+			}
+		}
+	}
+
 	sb.WriteString("</report_data>\n")
+
+	// Include extra context (e.g., quarterly snapshots + monthly narratives for yearly reports)
+	if data.ExtraContext != "" {
+		sb.WriteString("\n<extra_context>\n")
+		sb.WriteString(data.ExtraContext)
+		sb.WriteString("\n</extra_context>\n")
+	}
 
 	if feedback != "" {
 		sb.WriteString(fmt.Sprintf("\n<quality_feedback>\n%s\n</quality_feedback>\n", feedback))

@@ -54,6 +54,9 @@ type ShortsStore interface {
 
 	// Weekly report methods
 	GetWeeklyReport(weekSlug string) (*shortsstore.WeeklyReport, error)
+
+	// Financial highlights
+	GetStockFinancialHighlights(stockCodes []string, maxPerStock int) (map[string][]shortsstore.FinancialReportHighlight, error)
 }
 
 // Cache defines the interface for caching operations

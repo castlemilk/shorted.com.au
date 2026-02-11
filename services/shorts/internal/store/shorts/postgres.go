@@ -2084,6 +2084,90 @@ func (s *postgresStore) GetWeeklyReport(weekSlug string) (*WeeklyReport, error) 
 	return &report, nil
 }
 
+// GetStockFinancialHighlights fetches extracted financial metrics from financial_report_extractions
+func (s *postgresStore) GetStockFinancialHighlights(stockCodes []string, maxPerStock int) (map[string][]FinancialReportHighlight, error) {
+	if len(stockCodes) == 0 {
+		return nil, nil
+	}
+	if maxPerStock <= 0 {
+		maxPerStock = 2
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT stock_code, report_title, COALESCE(report_type, ''), report_date::text, COALESCE(metrics::text, '{}')
+		FROM financial_report_extractions
+		WHERE stock_code = ANY($1)
+		  AND metrics::text != '{}'
+		ORDER BY stock_code, report_date DESC
+	`
+
+	rows, err := s.db.Query(ctx, query, stockCodes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query financial highlights: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string][]FinancialReportHighlight)
+	for rows.Next() {
+		var code, title, reportType, reportDate, metricsJSON string
+		if err := rows.Scan(&code, &title, &reportType, &reportDate, &metricsJSON); err != nil {
+			continue
+		}
+
+		// Limit per stock
+		if len(result[code]) >= maxPerStock {
+			continue
+		}
+
+		// Parse metrics JSON — values can be objects or arrays of objects
+		var rawMetrics map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(metricsJSON), &rawMetrics); err != nil {
+			continue
+		}
+
+		var metrics []FinancialMetricEntry
+		for metricType, raw := range rawMetrics {
+			// Try array first
+			var arr []map[string]string
+			if err := json.Unmarshal(raw, &arr); err == nil {
+				for _, attrs := range arr {
+					sourceText := attrs["source_text"]
+					delete(attrs, "source_text")
+					metrics = append(metrics, FinancialMetricEntry{
+						MetricType: metricType,
+						SourceText: sourceText,
+						Attributes: attrs,
+					})
+				}
+				continue
+			}
+			// Fall back to single object
+			var single map[string]string
+			if err := json.Unmarshal(raw, &single); err == nil {
+				sourceText := single["source_text"]
+				delete(single, "source_text")
+				metrics = append(metrics, FinancialMetricEntry{
+					MetricType: metricType,
+					SourceText: sourceText,
+					Attributes: single,
+				})
+			}
+		}
+
+		result[code] = append(result[code], FinancialReportHighlight{
+			ReportTitle: title,
+			ReportType:  reportType,
+			ReportDate:  reportDate,
+			Metrics:     metrics,
+		})
+	}
+
+	return result, nil
+}
+
 func enrichmentStatusToDB(status shortsv1alpha1.EnrichmentStatus) string {
 	switch status {
 	case shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_REJECTED:
