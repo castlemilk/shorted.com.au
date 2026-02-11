@@ -12,6 +12,7 @@ import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import {
   getAvailableWeekSlugs,
   getAvailableMonthSlugs,
+  getAvailableYearSlugs,
 } from "~/app/actions/reports/getReportData";
 
 export const metadata: Metadata = {
@@ -59,6 +60,7 @@ function formatMonthSlug(slug: string): string {
 export default async function ReportsIndexPage() {
   const weekSlugs = await getAvailableWeekSlugs();
   const monthSlugs = await getAvailableMonthSlugs();
+  const yearSlugs = await getAvailableYearSlugs();
 
   const breadcrumbItems = [{ label: "Reports", href: "/reports" }];
 
@@ -115,6 +117,30 @@ export default async function ReportsIndexPage() {
               Showing latest 12 weeks. Older reports available via direct URL.
             </p>
           )}
+        </section>
+
+        {/* Year in Review */}
+        <section>
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-primary" />
+            Year in Review
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {yearSlugs.map((slug) => (
+              <Link key={slug} href={`/reports/yearly/${slug}`} className="group">
+                <Card className="hover:border-primary/50 transition-colors h-full">
+                  <CardContent className="pt-4 pb-4 flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold group-hover:text-primary transition-colors">
+                        {slug} Year in Review
+                      </p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
         </section>
 
         {/* Monthly Reports */}

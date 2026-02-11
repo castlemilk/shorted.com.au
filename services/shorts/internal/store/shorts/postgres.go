@@ -2005,6 +2005,169 @@ func (s *postgresStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.E
 	return nil
 }
 
+// GetWeeklyReport retrieves a weekly report by its week slug (e.g., "2026-W06")
+func (s *postgresStore) GetWeeklyReport(weekSlug string) (*WeeklyReport, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT
+			id::text,
+			week_slug,
+			report_date::text,
+			previous_date::text,
+			headline,
+			summary,
+			narrative,
+			top_shorted,
+			risers,
+			fallers,
+			industry_breakdown,
+			market_stats,
+			faqs,
+			quality_score,
+			llm_model,
+			retry_count,
+			created_at::text,
+			published_at::text
+		FROM weekly_reports
+		WHERE week_slug = $1
+		  AND published_at IS NOT NULL
+		LIMIT 1
+	`
+
+	var report WeeklyReport
+	var industryBreakdown, marketStats, faqs []byte
+	var qualityScore sql.NullFloat64
+	var llmModel, publishedAt sql.NullString
+
+	err := s.db.QueryRow(ctx, query, weekSlug).Scan(
+		&report.ID,
+		&report.WeekSlug,
+		&report.ReportDate,
+		&report.PreviousDate,
+		&report.Headline,
+		&report.Summary,
+		&report.Narrative,
+		&report.TopShorted,
+		&report.Risers,
+		&report.Fallers,
+		&industryBreakdown,
+		&marketStats,
+		&faqs,
+		&qualityScore,
+		&llmModel,
+		&report.RetryCount,
+		&report.CreatedAt,
+		&publishedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // No report found
+		}
+		return nil, fmt.Errorf("failed to get weekly report: %w", err)
+	}
+
+	report.IndustryBreakdown = industryBreakdown
+	report.MarketStats = marketStats
+	report.FAQs = faqs
+	if qualityScore.Valid {
+		report.QualityScore = &qualityScore.Float64
+	}
+	if llmModel.Valid {
+		report.LLMModel = &llmModel.String
+	}
+	if publishedAt.Valid {
+		report.PublishedAt = &publishedAt.String
+	}
+
+	return &report, nil
+}
+
+// GetStockFinancialHighlights fetches extracted financial metrics from financial_report_extractions
+func (s *postgresStore) GetStockFinancialHighlights(stockCodes []string, maxPerStock int) (map[string][]FinancialReportHighlight, error) {
+	if len(stockCodes) == 0 {
+		return nil, nil
+	}
+	if maxPerStock <= 0 {
+		maxPerStock = 2
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT stock_code, report_title, COALESCE(report_type, ''), report_date::text, COALESCE(metrics::text, '{}')
+		FROM financial_report_extractions
+		WHERE stock_code = ANY($1)
+		  AND metrics::text != '{}'
+		ORDER BY stock_code, report_date DESC
+	`
+
+	rows, err := s.db.Query(ctx, query, stockCodes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query financial highlights: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string][]FinancialReportHighlight)
+	for rows.Next() {
+		var code, title, reportType, reportDate, metricsJSON string
+		if err := rows.Scan(&code, &title, &reportType, &reportDate, &metricsJSON); err != nil {
+			continue
+		}
+
+		// Limit per stock
+		if len(result[code]) >= maxPerStock {
+			continue
+		}
+
+		// Parse metrics JSON — values can be objects or arrays of objects
+		var rawMetrics map[string]json.RawMessage
+		if err := json.Unmarshal([]byte(metricsJSON), &rawMetrics); err != nil {
+			continue
+		}
+
+		var metrics []FinancialMetricEntry
+		for metricType, raw := range rawMetrics {
+			// Try array first
+			var arr []map[string]string
+			if err := json.Unmarshal(raw, &arr); err == nil {
+				for _, attrs := range arr {
+					sourceText := attrs["source_text"]
+					delete(attrs, "source_text")
+					metrics = append(metrics, FinancialMetricEntry{
+						MetricType: metricType,
+						SourceText: sourceText,
+						Attributes: attrs,
+					})
+				}
+				continue
+			}
+			// Fall back to single object
+			var single map[string]string
+			if err := json.Unmarshal(raw, &single); err == nil {
+				sourceText := single["source_text"]
+				delete(single, "source_text")
+				metrics = append(metrics, FinancialMetricEntry{
+					MetricType: metricType,
+					SourceText: sourceText,
+					Attributes: single,
+				})
+			}
+		}
+
+		result[code] = append(result[code], FinancialReportHighlight{
+			ReportTitle: title,
+			ReportType:  reportType,
+			ReportDate:  reportDate,
+			Metrics:     metrics,
+		})
+	}
+
+	return result, nil
+}
+
 func enrichmentStatusToDB(status shortsv1alpha1.EnrichmentStatus) string {
 	switch status {
 	case shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_REJECTED:

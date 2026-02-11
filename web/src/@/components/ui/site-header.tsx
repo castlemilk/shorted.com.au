@@ -16,6 +16,7 @@ const SiteHeader: FC = () => {
           { title: "portfolio", href: "/portfolio" },
         ]
       : []),
+    { title: "reports", href: "/reports" },
     { title: "about", href: "/about" },
     { title: "blog", href: "/blog" },
   ];

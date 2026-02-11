@@ -89,6 +89,12 @@ const SiteFooter = () => {
             <GitCommit className="w-3 h-3 mr-1" />
             {version}
           </Badge>
+          <Link href="/reports">
+            <Badge variant="secondary" className="hover:bg-secondary/80">
+              <File className="w-3 h-3 mr-1" />
+              reports
+            </Badge>
+          </Link>
           <Link href="/roadmap">
             <Badge variant="secondary" className="hover:bg-secondary/80">
               <RouteIcon className="w-3 h-3 mr-1" />

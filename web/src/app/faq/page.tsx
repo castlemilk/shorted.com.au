@@ -133,6 +133,33 @@ const faqCategories = [
         answer:
           "Short position data may not capture all short activity because: (1) Positions below the reporting threshold aren't included, (2) Some synthetic short positions via derivatives may not be captured, (3) Intraday short positions that are covered before reporting time aren't recorded, and (4) International short selling through offshore entities may have different reporting requirements.",
       },
+      {
+        question: "What is ASIC Regulatory Guide 196?",
+        answer:
+          "ASIC Regulatory Guide 196 (RG 196) is the primary guidance document for short selling disclosure and reporting in Australia. It outlines the requirements for reporting net short positions to ASIC, including the 0.01% of issued capital or $100,000 reporting threshold (whichever is less), the T+4 publication delay, daily reporting obligations, and the distinction between covered and naked short selling. RG 196 implements the short selling transparency framework established under the Corporations Act 2001.",
+      },
+      {
+        question:
+          "What does the Corporations Act 2001 say about short selling?",
+        answer:
+          "The Corporations Act 2001 is the primary legislation governing short selling in Australia. Section 1020B prohibits naked short selling — selling securities without first arranging to borrow them. Section 1020AB requires short sale transactions to be flagged and reported to the ASX at execution. Section 1020AC requires holders of net short positions to report their positions to ASIC. Together, these sections create a comprehensive framework ensuring all short selling is covered (backed by a securities lending arrangement) and transparent.",
+      },
+      {
+        question: "What is the ASX short sales report?",
+        answer:
+          "The ASX short sales report is the daily publication by ASIC containing aggregated short position data for all ASX-listed securities. It includes the product code (ASX ticker), full product name, total reported short positions, total shares in issue, and the short position percentage. The data is published with a T+4 trading day delay and covers all ASX approved short sell products. This daily short selling data is the foundation of short interest analysis in Australia and the primary data source used by Shorted.com.au.",
+      },
+      {
+        question:
+          "What is the difference between covered and naked short selling?",
+        answer:
+          "Covered short selling means the seller has a securities lending arrangement in place before executing the short sale — they have borrowed or arranged to borrow the shares. This is the only legal form of short selling in Australia. Naked short selling means selling securities without first arranging to borrow them, creating a risk of settlement failure. Naked short selling is prohibited under section 1020B of the Corporations Act 2001 and can result in civil and criminal penalties.",
+      },
+      {
+        question: "What are ASX approved short sell products?",
+        answer:
+          "ASX approved short sell products are securities that meet ASX liquidity and market capitalisation criteria for short selling eligibility. The list typically includes all S&P/ASX 200 index constituents, other sufficiently liquid securities, and exchange-traded funds (ETFs) listed on the ASX. The approved list is reviewed periodically. Only these approved products can be legally short sold on the ASX.",
+      },
     ],
   },
   {

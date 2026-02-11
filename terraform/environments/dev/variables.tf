@@ -63,3 +63,9 @@ variable "market_data_sync_image" {
   type        = string
   default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/market-data-sync:latest"
 }
+
+variable "weekly_report_generator_image" {
+  description = "Docker image URL for weekly-report-generator job"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/weekly-report-generator:latest"
+}
