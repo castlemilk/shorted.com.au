@@ -2,18 +2,30 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FileText, ChevronRight, X } from "lucide-react";
 import { Button } from "~/@/components/ui/button";
 
 export function ReportsBanner() {
   const [isVisible, setIsVisible] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const dismissed = localStorage.getItem("reports-banner-dismissed");
     if (dismissed === "true") {
       setIsVisible(false);
+      return;
     }
-  }, []);
+
+    // Prefetch the latest weekly report page for instant navigation
+    const now = new Date();
+    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNum = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+    const slug = `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+    router.prefetch(`/reports/weekly/${slug}`);
+  }, [router]);
 
   const handleDismiss = (e: React.MouseEvent) => {
     e.stopPropagation();
