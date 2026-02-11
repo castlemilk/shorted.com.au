@@ -117,7 +117,8 @@ export default async function WeeklyReportPage({ params }: PageProps) {
     getEnhancedWeeklyReportData(slug),
   ]);
 
-  if (!data || data.topStocks.length === 0) {
+  // Show 404 if no market data or if the AI-generated report isn't ready yet
+  if (!data || data.topStocks.length === 0 || !enhanced) {
     notFound();
   }
 
