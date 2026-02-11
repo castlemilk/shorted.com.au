@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
@@ -18,6 +19,8 @@ func main() {
 	monthFlag := flag.String("month", "", "Month slug (e.g., 2026-01). Generates monthly report instead of weekly.")
 	yearFlag := flag.String("year", "", "Year (e.g., 2025). Generates year-in-review report.")
 	dryRun := flag.Bool("dry-run", false, "Generate report but don't store it")
+	forceFlag := flag.Bool("force", false, "Re-generate even if report already exists")
+	maxRetries := flag.Int("max-retries", 1, "Maximum retry attempts on quality failure")
 	flag.Parse()
 
 	ctx := context.Background()
@@ -101,7 +104,7 @@ func main() {
 		return
 	}
 
-	// Step 3: Quality check
+	// Step 3: Quality check with best-of-N selection
 	log.Println("Step 3: Running quality checks...")
 	checker := NewQualityChecker(os.Getenv("GEMINI_API_KEY"))
 	result, err := checker.Check(ctx, data, narrative)
@@ -110,22 +113,42 @@ func main() {
 		result = &QualityResult{Score: 0.5, PublishReady: true}
 	}
 
-	if !result.PublishReady && narrative.RetryCount == 0 {
-		log.Println("Quality check failed, retrying generation with feedback...")
-		narrative.RetryCount = 1
-		narrative, err = generator.GenerateWithFeedback(ctx, data, result.Feedback)
-		if err != nil {
-			log.Printf("WARNING: Retry generation failed: %v", err)
-		} else {
-			result, err = checker.Check(ctx, data, narrative)
-			if err != nil {
-				log.Printf("WARNING: Retry quality check failed: %v", err)
-				result = &QualityResult{Score: 0.5, PublishReady: true}
-			}
+	// Track the best result across retries
+	bestNarrative := narrative
+	bestResult := result
+
+	for attempt := 1; attempt <= *maxRetries && !result.PublishReady; attempt++ {
+		log.Printf("Quality check failed (score: %.2f), retrying (%d/%d) with feedback...", result.Score, attempt, *maxRetries)
+		narrative.RetryCount = attempt
+		retryNarrative, retryErr := generator.GenerateWithFeedback(ctx, data, result.Feedback)
+		if retryErr != nil {
+			log.Printf("WARNING: Retry %d generation failed: %v", attempt, retryErr)
+			break
 		}
+
+		retryResult, retryQErr := checker.Check(ctx, data, retryNarrative)
+		if retryQErr != nil {
+			log.Printf("WARNING: Retry %d quality check failed: %v", attempt, retryQErr)
+			retryResult = &QualityResult{Score: 0.5, PublishReady: true}
+		}
+
+		// Keep the best result
+		if retryResult.Score > bestResult.Score {
+			bestNarrative = retryNarrative
+			bestResult = retryResult
+			log.Printf("  New best score: %.2f (attempt %d)", retryResult.Score, attempt)
+		}
+
+		result = retryResult
+		narrative = retryNarrative
 	}
 
-	// Step 4: Store report
+	// Use the best result across all attempts
+	narrative = bestNarrative
+	result = bestResult
+	log.Printf("Final quality: %.2f (publish_ready: %v, retries: %d)", result.Score, result.PublishReady, narrative.RetryCount)
+
+	// Step 4: Store report (with generation history if force-overwriting)
 	log.Println("Step 4: Storing report...")
 	if *dryRun {
 		log.Println("DRY RUN - would store report:")
@@ -136,12 +159,74 @@ func main() {
 		return
 	}
 
+	// If --force, save previous version to generation_history before overwriting
+	if *forceFlag {
+		if err := appendGenerationHistory(ctx, db, slug); err != nil {
+			log.Printf("WARNING: Failed to save generation history: %v", err)
+		}
+	}
+
 	if err := storeReport(ctx, db, slug, data, narrative, result); err != nil {
 		log.Fatalf("Failed to store report: %v", err)
 	}
 
 	log.Printf("Report stored: %s (quality: %.2f, published: %v)",
 		slug, result.Score, result.PublishReady)
+
+	// Trigger Next.js on-demand revalidation (if configured)
+	revalidateURL := os.Getenv("REVALIDATION_URL")
+	revalidateSecret := os.Getenv("REVALIDATION_SECRET")
+	if revalidateURL != "" && revalidateSecret != "" {
+		tag := "report-" + slug
+		revalidateReq := fmt.Sprintf("%s?secret=%s&tag=%s", revalidateURL, revalidateSecret, tag)
+		resp, err := http.Post(revalidateReq, "application/json", nil)
+		if err != nil {
+			log.Printf("WARNING: Failed to trigger revalidation: %v", err)
+		} else {
+			resp.Body.Close()
+			log.Printf("Triggered revalidation for tag=%s (status: %d)", tag, resp.StatusCode)
+		}
+	}
+}
+
+// appendGenerationHistory fetches the current report and appends it to the generation_history JSONB array
+func appendGenerationHistory(ctx context.Context, db *pgxpool.Pool, weekSlug string) error {
+	queryCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	// Fetch current report metadata
+	var headline string
+	var qualityScore *float64
+	var model *string
+	var createdAt time.Time
+	err := db.QueryRow(queryCtx, `
+		SELECT headline, quality_score, llm_model, created_at
+		FROM weekly_reports WHERE week_slug = $1
+	`, weekSlug).Scan(&headline, &qualityScore, &model, &createdAt)
+	if err != nil {
+		return nil // No existing report to archive
+	}
+
+	historyEntry := map[string]interface{}{
+		"headline":      headline,
+		"quality_score": qualityScore,
+		"model":         model,
+		"generated_at":  createdAt.Format(time.RFC3339),
+	}
+	entryJSON, _ := json.Marshal(historyEntry)
+
+	_, err = db.Exec(queryCtx, `
+		UPDATE weekly_reports
+		SET generation_history = COALESCE(generation_history, '[]'::jsonb) || $1::jsonb
+		WHERE week_slug = $2
+	`, string(entryJSON), weekSlug)
+
+	if err != nil {
+		return fmt.Errorf("failed to append history: %w", err)
+	}
+
+	log.Printf("Archived previous report version for %s (headline: %s)", weekSlug, headline)
+	return nil
 }
 
 func storeDataOnlyReport(ctx context.Context, db *pgxpool.Pool, weekSlug string, data *ReportData, dryRun bool) error {

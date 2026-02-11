@@ -5,12 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/generative-ai-go/genai"
 	"google.golang.org/api/option"
 )
+
+var percentRegex = regexp.MustCompile(`(\d+\.\d+)%`)
 
 // QualityResult holds the quality check outcome
 type QualityResult struct {
@@ -127,6 +132,19 @@ func (q *QualityChecker) programmaticCheck(data *ReportData, narrative *Narrativ
 		}
 	}
 
+	// Check numerical accuracy: extract all percentages from narrative and cross-reference with source data
+	validPcts := buildValidPercentageSet(data)
+	matches := percentRegex.FindAllStringSubmatch(fullText, -1)
+	for _, match := range matches {
+		pct, err := strconv.ParseFloat(match[1], 64)
+		if err != nil {
+			continue
+		}
+		if !isPercentageInSet(pct, validPcts, 0.02) {
+			issues = append(issues, fmt.Sprintf("unverified percentage %.2f%% not found in source data", pct))
+		}
+	}
+
 	// Check FAQ count (yearly reports can have more)
 	minFAQs := 3
 	maxFAQs := 5
@@ -202,4 +220,61 @@ Return ONLY valid JSON:
 	}
 
 	return &result, nil
+}
+
+// buildValidPercentageSet collects all percentage values from the source data
+func buildValidPercentageSet(data *ReportData) []float64 {
+	seen := make(map[float64]bool)
+
+	for _, s := range data.TopShorted {
+		seen[s.ShortPct] = true
+		seen[math.Abs(s.WoWChange)] = true
+		if s.WoWChange != 0 {
+			seen[s.WoWChange] = true
+		}
+	}
+	for _, m := range data.Risers {
+		seen[m.CurrentPct] = true
+		seen[m.PreviousPct] = true
+		seen[math.Abs(m.Change)] = true
+		if m.Change != 0 {
+			seen[m.Change] = true
+		}
+	}
+	for _, m := range data.Fallers {
+		seen[m.CurrentPct] = true
+		seen[m.PreviousPct] = true
+		seen[math.Abs(m.Change)] = true
+		if m.Change != 0 {
+			seen[m.Change] = true
+		}
+	}
+
+	seen[data.MarketStats.AvgShortPct] = true
+	seen[data.MarketStats.MaxShortPct] = true
+	seen[math.Abs(data.MarketStats.WoWAvgChange)] = true
+
+	// Include price change percentages if available
+	if data.PriceContext != nil {
+		for _, p := range data.PriceContext {
+			seen[math.Abs(p.WeeklyChangePct)] = true
+			seen[math.Abs(p.MonthlyChangePct)] = true
+		}
+	}
+
+	pcts := make([]float64, 0, len(seen))
+	for v := range seen {
+		pcts = append(pcts, v)
+	}
+	return pcts
+}
+
+// isPercentageInSet checks if a percentage value matches any value in the set within tolerance
+func isPercentageInSet(pct float64, validPcts []float64, tolerance float64) bool {
+	for _, v := range validPcts {
+		if math.Abs(pct-math.Abs(v)) <= tolerance {
+			return true
+		}
+	}
+	return false
 }

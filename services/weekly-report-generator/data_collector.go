@@ -14,6 +14,25 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// StockPriceContext holds price data for enriching LLM context
+type StockPriceContext struct {
+	Code             string  `json:"code"`
+	CurrentPrice     float64 `json:"current_price"`
+	WeeklyChangePct  float64 `json:"weekly_change_pct"`
+	MonthlyChangePct float64 `json:"monthly_change_pct"`
+	WeekHigh         float64 `json:"week_high"`
+	WeekLow          float64 `json:"week_low"`
+	AvgVolume        int64   `json:"avg_volume"`
+}
+
+// Announcement represents an ASX announcement for LLM context
+type Announcement struct {
+	Date             string `json:"date"`
+	Headline         string `json:"headline"`
+	IsPriceSensitive bool   `json:"is_price_sensitive"`
+	Type             string `json:"type"`
+}
+
 // ReportData holds all collected data for a report (weekly, monthly, or yearly)
 type ReportData struct {
 	WeekSlug        string
@@ -28,6 +47,8 @@ type ReportData struct {
 	CompanyContext       map[string]CompanyMeta             // stock_code → metadata for LLM context
 	FinancialRefs       map[string][]FinancialReportRef    // stock_code → financial report links
 	FinancialHighlights map[string][]FinancialHighlight    // stock_code → extracted financial metrics
+	PriceContext         map[string]StockPriceContext       // stock_code → price data
+	Announcements        map[string][]Announcement          // stock_code → recent announcements
 }
 
 // CompanyMeta holds company metadata for enriching LLM context
@@ -226,11 +247,13 @@ func (c *DataCollector) Collect(ctx context.Context, weekSlug string) (*ReportDa
 	// Calculate market stats
 	stats := c.calculateStats(currentStocks, previousStocks)
 
-	// Collect company metadata, financial reports, and extracted highlights for all mentioned stocks
+	// Collect company metadata, financial reports, extracted highlights, and price data for all mentioned stocks
 	mentionedCodes := collectMentionedCodes(topShorted, risers, fallers)
 	companyCtx := c.getCompanyMetadata(ctx, mentionedCodes)
 	finRefs := c.getFinancialReports(ctx, mentionedCodes)
 	finHighlights := c.getFinancialHighlights(ctx, mentionedCodes)
+	priceCtx := c.getStockPrices(ctx, mentionedCodes, reportDate, startDate, endDate)
+	announcements := c.getRecentAnnouncements(ctx, mentionedCodes, startDate, endDate)
 
 	return &ReportData{
 		WeekSlug:            weekSlug,
@@ -244,6 +267,8 @@ func (c *DataCollector) Collect(ctx context.Context, weekSlug string) (*ReportDa
 		CompanyContext:       companyCtx,
 		FinancialRefs:       finRefs,
 		FinancialHighlights: finHighlights,
+		PriceContext:         priceCtx,
+		Announcements:       announcements,
 	}, nil
 }
 
@@ -512,6 +537,116 @@ func (c *DataCollector) getFinancialHighlights(ctx context.Context, codes []stri
 	}
 
 	log.Printf("Fetched financial highlights for %d/%d stocks", len(result), len(codes))
+	return result
+}
+
+// getStockPrices fetches price data from stock_prices and stock_price_changes for a list of stock codes
+func (c *DataCollector) getStockPrices(ctx context.Context, codes []string, reportDate, startDate, endDate string) map[string]StockPriceContext {
+	if len(codes) == 0 {
+		return nil
+	}
+
+	queryCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
+	result := make(map[string]StockPriceContext)
+
+	// Get current price and change percentages from stock_price_changes VIEW (if it exists)
+	priceQuery := `
+		SELECT stock_code, close, COALESCE(weekly_change_pct, 0), COALESCE(monthly_change_pct, 0)
+		FROM stock_price_changes
+		WHERE stock_code = ANY($1) AND date = $2
+	`
+	rows, err := c.db.Query(queryCtx, priceQuery, codes, reportDate)
+	if err != nil {
+		log.Printf("WARNING: stock_price_changes query failed (view may not exist): %v", err)
+	} else {
+		defer rows.Close()
+		for rows.Next() {
+			var code string
+			var p StockPriceContext
+			if err := rows.Scan(&code, &p.CurrentPrice, &p.WeeklyChangePct, &p.MonthlyChangePct); err != nil {
+				log.Printf("WARNING: failed to scan price change row: %v", err)
+				continue
+			}
+			p.Code = code
+			result[code] = p
+		}
+	}
+
+	// Get week high/low/avg volume from stock_prices
+	rangeQuery := `
+		SELECT stock_code, COALESCE(MAX(high), 0), COALESCE(MIN(low), 0), COALESCE(AVG(volume)::bigint, 0)
+		FROM stock_prices
+		WHERE stock_code = ANY($1) AND date BETWEEN $2 AND $3
+		GROUP BY stock_code
+	`
+	rangeCtx, rangeCancel := context.WithTimeout(ctx, 15*time.Second)
+	defer rangeCancel()
+
+	rangeRows, err := c.db.Query(rangeCtx, rangeQuery, codes, startDate, endDate)
+	if err != nil {
+		log.Printf("WARNING: stock_prices range query failed: %v", err)
+		return result
+	}
+	defer rangeRows.Close()
+
+	for rangeRows.Next() {
+		var code string
+		var weekHigh, weekLow float64
+		var avgVol int64
+		if err := rangeRows.Scan(&code, &weekHigh, &weekLow, &avgVol); err != nil {
+			log.Printf("WARNING: failed to scan price range row: %v", err)
+			continue
+		}
+		p := result[code]
+		p.Code = code
+		p.WeekHigh = weekHigh
+		p.WeekLow = weekLow
+		p.AvgVolume = avgVol
+		result[code] = p
+	}
+
+	log.Printf("Fetched price context for %d/%d stocks", len(result), len(codes))
+	return result
+}
+
+// getRecentAnnouncements fetches ASX announcements for a list of stock codes within a date range
+func (c *DataCollector) getRecentAnnouncements(ctx context.Context, codes []string, startDate, endDate string) map[string][]Announcement {
+	if len(codes) == 0 {
+		return nil
+	}
+
+	queryCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT stock_code, announcement_date::text, headline, COALESCE(is_price_sensitive, false), COALESCE(announcement_type, 'other')
+		FROM asx_announcements
+		WHERE stock_code = ANY($1)
+		  AND announcement_date BETWEEN $2 AND $3
+		ORDER BY stock_code, announcement_date DESC
+	`
+
+	rows, err := c.db.Query(queryCtx, query, codes, startDate, endDate)
+	if err != nil {
+		log.Printf("WARNING: asx_announcements query failed (table may not exist yet): %v", err)
+		return nil
+	}
+	defer rows.Close()
+
+	result := make(map[string][]Announcement)
+	for rows.Next() {
+		var code string
+		var a Announcement
+		if err := rows.Scan(&code, &a.Date, &a.Headline, &a.IsPriceSensitive, &a.Type); err != nil {
+			log.Printf("WARNING: failed to scan announcement row: %v", err)
+			continue
+		}
+		result[code] = append(result[code], a)
+	}
+
+	log.Printf("Fetched announcements for %d/%d stocks", len(result), len(codes))
 	return result
 }
 

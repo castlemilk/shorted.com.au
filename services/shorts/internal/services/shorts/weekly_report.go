@@ -10,7 +10,7 @@ import (
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 )
 
-var weekSlugRegex = regexp.MustCompile(`^\d{4}-W\d{2}$`)
+var weekSlugRegex = regexp.MustCompile(`^\d{4}(-W\d{2}|-\d{2})?$`)
 
 // GetWeeklyReport retrieves a weekly report with narrative analysis
 func (s *ShortsServer) GetWeeklyReport(ctx context.Context, req *connect.Request[shortsv1alpha1.GetWeeklyReportRequest]) (*connect.Response[shortsv1alpha1.GetWeeklyReportResponse], error) {

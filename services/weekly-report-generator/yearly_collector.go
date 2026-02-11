@@ -177,11 +177,13 @@ func (c *YearlyDataCollector) Collect(ctx context.Context, yearSlug string) (*Re
 	monthlyReports := c.collectMonthlyReports(ctx, year)
 	log.Printf("Found %d monthly reports for %d", len(monthlyReports), year)
 
-	// Collect company metadata, financial reports, and extracted highlights for mentioned stocks
+	// Collect company metadata, financial reports, extracted highlights, and price data for mentioned stocks
 	mentionedCodes := collectMentionedCodes(topShorted, risers, fallers)
 	companyCtx := dc.getCompanyMetadata(ctx, mentionedCodes)
 	financialRefs := c.collectFinancialReports(ctx, mentionedCodes)
 	finHighlights := dc.getFinancialHighlights(ctx, mentionedCodes)
+	priceCtx := dc.getStockPrices(ctx, mentionedCodes, reportDate, yearStart, yearEnd)
+	announcements := dc.getRecentAnnouncements(ctx, mentionedCodes, yearStart, yearEnd)
 	log.Printf("Found financial reports for %d/%d stocks, highlights for %d", len(financialRefs), len(mentionedCodes), len(finHighlights))
 
 	// Build extra context with all sources
@@ -199,6 +201,8 @@ func (c *YearlyDataCollector) Collect(ctx context.Context, yearSlug string) (*Re
 		ExtraContext:        extraContext,
 		CompanyContext:       companyCtx,
 		FinancialHighlights: finHighlights,
+		PriceContext:         priceCtx,
+		Announcements:       announcements,
 	}, nil
 }
 

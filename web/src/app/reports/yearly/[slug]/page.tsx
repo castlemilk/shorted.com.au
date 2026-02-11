@@ -30,6 +30,14 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+export async function generateStaticParams() {
+  return [
+    { slug: "2025" },
+    { slug: "2024" },
+    { slug: "2023" },
+  ];
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
   const enhanced = await getEnhancedWeeklyReportData(slug);
