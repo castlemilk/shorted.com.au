@@ -5,6 +5,7 @@ import { cache } from "react";
 import { unstable_cache } from "next/cache";
 import { SHORTS_API_URL } from "../config";
 import { withRetryAndNotFound, type RetryOptions } from "../withRetry";
+import { withSpan } from "~/@/lib/tracing";
 
 const PRODUCTION_API_URL = "https://api.shorted.com.au";
 
@@ -90,30 +91,36 @@ export const getWeeklyReportData = cache(
     const startStr = start.toISOString().slice(0, 10);
     const endStr = end.toISOString().slice(0, 10);
 
-    const transport = getTransport();
-    const client = createClient(ShortedStocksService, transport);
+    return withSpan(
+      "report.fetch.weekly",
+      { weekSlug, startDate: startStr, endDate: endStr },
+      async () => {
+        const transport = getTransport();
+        const client = createClient(ShortedStocksService, transport);
 
-    // Fetch dates and market data in parallel to eliminate serial round-trip
-    const [availableDates, marketData] = await Promise.all([
-      client.getAvailableDates({ limit: 5, before: "" }),
-      client.getMarketByDate({ date: endStr, limit: 50, offset: 0 }),
-    ]);
+        // Fetch dates and market data in parallel to eliminate serial round-trip
+        const [availableDates, marketData] = await Promise.all([
+          client.getAvailableDates({ limit: 5, before: "" }),
+          client.getMarketByDate({ date: endStr, limit: 50, offset: 0 }),
+        ]);
 
-    const weekDates = availableDates.dates.filter((d) => d >= startStr && d <= endStr);
+        const weekDates = availableDates.dates.filter((d) => d >= startStr && d <= endStr);
 
-    return {
-      weekSlug,
-      startDate: startStr,
-      endDate: endStr,
-      dates: weekDates,
-      topStocks: marketData.stocks.map((s) => ({
-        code: s.productCode ?? "",
-        name: s.name ?? "",
-        shortPercent: s.percentageShorted,
-        industry: s.industry ?? "",
-      })),
-      totalStocksShorted: marketData.totalCount,
-    };
+        return {
+          weekSlug,
+          startDate: startStr,
+          endDate: endStr,
+          dates: weekDates,
+          topStocks: marketData.stocks.map((s) => ({
+            code: s.productCode ?? "",
+            name: s.name ?? "",
+            shortPercent: s.percentageShorted,
+            industry: s.industry ?? "",
+          })),
+          totalStocksShorted: marketData.totalCount,
+        };
+      },
+    );
   }, LIGHT_RETRY),
 );
 
@@ -247,10 +254,15 @@ export interface EnhancedWeeklyReportNarrative {
 // Inner fetch function for enhanced report data (used by both cache layers)
 async function fetchEnhancedReport(weekSlug: string): Promise<EnhancedWeeklyReportNarrative | null> {
     try {
-      const transport = getTransport();
-      const client = createClient(ShortedStocksService, transport);
-
-      const resp = await client.getWeeklyReport({ weekSlug });
+      const resp = await withSpan(
+        "report.fetch.enhanced",
+        { weekSlug },
+        async () => {
+          const transport = getTransport();
+          const client = createClient(ShortedStocksService, transport);
+          return client.getWeeklyReport({ weekSlug });
+        },
+      );
 
       return {
         headline: resp.headline,

@@ -9,6 +9,9 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
+	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
+	"go.opentelemetry.io/otel/attribute"
+	otelmetric "go.opentelemetry.io/otel/metric"
 )
 
 // UserClaims defines the interface for user claims used by the rate limiter
@@ -70,6 +73,16 @@ func NewRateLimitInterceptor(limiter RateLimiter, cfg Config, userClaimsKey any)
 
 			// Rate limit exceeded
 			if !result.Allowed {
+				// Record rate limit blocked metric
+				if shortedotel.RateLimitBlocked != nil {
+					shortedotel.RateLimitBlocked.Add(ctx, 1,
+						otelmetric.WithAttributes(
+							attribute.String("tier", tier),
+							attribute.String("identifier", identifier),
+						),
+					)
+				}
+
 				var msg string
 				if result.MonthlyUsed > result.MonthlyLimit && result.MonthlyLimit > 0 {
 					log.Infof("Monthly rate limit exceeded for %s (tier=%s, used=%d, limit=%d/month)",

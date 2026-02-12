@@ -7,6 +7,7 @@ import { SHORTS_API_URL } from "./config";
 import { cache } from "react";
 import { getOrSetCached, CACHE_KEYS, HOMEPAGE_TTL } from "~/@/lib/kv-cache";
 import { withRetry } from "./withRetry";
+import { withSpan } from "~/@/lib/tracing";
 
 // React cache() provides request deduplication during a single render
 // This prevents duplicate fetches when the same data is needed by multiple components
@@ -22,20 +23,26 @@ export const getTopShortsData = cache(
 
       return getOrSetCached(
         cacheKey,
-        async () => {
-          const transport = createConnectTransport({
-            baseUrl:
-              process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL,
-          });
+        () =>
+          withSpan(
+            "shorts.fetch.top",
+            { period, limit, offset },
+            async () => {
+              const transport = createConnectTransport({
+                baseUrl:
+                  process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
+                  SHORTS_API_URL,
+              });
 
-          const client = createClient(ShortedStocksService, transport);
-          const response = await client.getTopShorts({
-            period: formatPeriodForAPI(period),
-            limit,
-            offset,
-          });
-          return response;
-        },
+              const client = createClient(ShortedStocksService, transport);
+              const response = await client.getTopShorts({
+                period: formatPeriodForAPI(period),
+                limit,
+                offset,
+              });
+              return response;
+            },
+          ),
         Number(HOMEPAGE_TTL),
       );
     },
