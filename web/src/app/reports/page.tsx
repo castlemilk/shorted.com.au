@@ -98,7 +98,7 @@ export default async function ReportsIndexPage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {weekSlugs.slice(0, 12).map((slug) => (
-              <Link key={slug} href={`/reports/weekly/${slug}`} className="group">
+              <Link key={slug} href={`/reports/weekly/${slug}`} prefetch={false} className="group">
                 <Card className="hover:border-primary/50 transition-colors h-full">
                   <CardContent className="pt-4 pb-4 flex items-center justify-between">
                     <div>
@@ -127,7 +127,7 @@ export default async function ReportsIndexPage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {yearSlugs.map((slug) => (
-              <Link key={slug} href={`/reports/yearly/${slug}`} className="group">
+              <Link key={slug} href={`/reports/yearly/${slug}`} prefetch={false} className="group">
                 <Card className="hover:border-primary/50 transition-colors h-full">
                   <CardContent className="pt-4 pb-4 flex items-center justify-between">
                     <div>
@@ -151,7 +151,7 @@ export default async function ReportsIndexPage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             {monthSlugs.slice(0, 12).map((slug) => (
-              <Link key={slug} href={`/reports/monthly/${slug}`} className="group">
+              <Link key={slug} href={`/reports/monthly/${slug}`} prefetch={false} className="group">
                 <Card className="hover:border-primary/50 transition-colors h-full">
                   <CardContent className="pt-4 pb-4 flex items-center justify-between">
                     <div>

@@ -45,8 +45,8 @@ export async function generateStaticParams() {
   try {
     // getAvailableWeekSlugs already excludes the current incomplete week
     const slugs = await getAvailableWeekSlugs();
-    // Pre-generate last 12 weeks at build time to avoid cold starts
-    return slugs.slice(0, 12).map((slug) => ({ slug }));
+    // Pre-generate all available weeks at build time — historical reports are immutable
+    return slugs.map((slug) => ({ slug }));
   } catch {
     return [];
   }

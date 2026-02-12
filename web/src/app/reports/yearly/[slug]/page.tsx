@@ -263,6 +263,7 @@ export default async function YearlyReportPage({ params }: PageProps) {
                   <Link
                     key={stock.code}
                     href={`/shorts/${stock.code}`}
+                    prefetch={false}
                     className="grid grid-cols-[60px_1fr_100px_90px_48px] gap-4 px-4 py-3 items-center hover:bg-muted/50 transition-colors group"
                   >
                     <div className="text-center">
