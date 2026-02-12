@@ -9,6 +9,7 @@ import (
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/health"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
+	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/castlemilk/shorted.com.au/services/shorts/cmd/server/config"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts"
 	"golang.org/x/sync/errgroup"
@@ -28,6 +29,19 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("failed to load configuration: %v", err)
+	}
+
+	// Initialize OpenTelemetry (traces + metrics via OTLP).
+	// If OTEL_EXPORTER_OTLP_ENDPOINT is not set, this is a no-op.
+	otelShutdown, otelErr := shortedotel.InitProvider(ctx, "shorted-api")
+	if otelErr != nil {
+		log.Errorf("failed to initialize OpenTelemetry: %v", otelErr)
+	} else {
+		defer func() {
+			if err := otelShutdown(ctx); err != nil {
+				log.Errorf("error shutting down OpenTelemetry: %v", err)
+			}
+		}()
 	}
 
 	healthServer, err := health.NewHTTPServer()

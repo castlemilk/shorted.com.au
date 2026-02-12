@@ -13,6 +13,7 @@ import (
 	"github.com/rs/cors"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
+	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 
 	"github.com/castlemilk/shorted.com.au/services/gen/proto/go/register/v1/registerv1connect"
@@ -42,9 +43,14 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	mux := http.NewServeMux()
 
 	// Create interceptors - order matters!
-	// 1. Auth runs first to populate user context (including subscription tier lookup)
-	// 2. Rate limit runs second to check limits based on user tier
+	// 0. OTel interceptor runs first to capture the full request lifecycle
+	// 1. Auth runs second to populate user context (including subscription tier lookup)
+	// 2. User-Agent check runs third to reject scrapers before rate limiting
+	// 3. Rate limit runs last to check limits based on user tier
 	var interceptorList []connect.Interceptor
+
+	// OTel interceptor captures spans and metrics for every RPC call
+	interceptorList = append(interceptorList, shortedotel.OTelInterceptor())
 
 	// Create auth interceptor with subscription lookup
 	authOpts := AuthInterceptorOptions{
@@ -473,9 +479,13 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	}
 	mux.Handle("/api/docs/", withCORS(http.StripPrefix("/api/docs/", http.FileServer(statikFS))))
 
+	// Wrap the mux with OTel HTTP middleware for non-RPC endpoints
+	// (health, search, admin, docs), then with h2c for HTTP/2 support.
+	handler := shortedotel.HTTPMiddleware(mux)
+
 	return http.ListenAndServe(
 		address,
 		// Use h2c so we can serve HTTP/2 without TLS.
-		h2c.NewHandler(mux, &http2.Server{}),
+		h2c.NewHandler(handler, &http2.Server{}),
 	)
 }

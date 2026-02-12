@@ -7,6 +7,9 @@ import (
 
 	"connectrpc.com/connect"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
+	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
+	"go.opentelemetry.io/otel/attribute"
+	otelmetric "go.opentelemetry.io/otel/metric"
 )
 
 // blockedUserAgentPatterns contains substrings that identify known scrapers, bots,
@@ -66,6 +69,13 @@ func UserAgentInterceptor(userClaimsKey any) connect.UnaryInterceptorFunc {
 
 			// Block requests with an empty User-Agent (common for basic scripts).
 			if ua == "" {
+				if shortedotel.ScraperBlocked != nil {
+					shortedotel.ScraperBlocked.Add(ctx, 1,
+						otelmetric.WithAttributes(
+							attribute.String("reason", "empty_user_agent"),
+						),
+					)
+				}
 				log.Infof("Blocked request with empty User-Agent")
 				return nil, connect.NewError(
 					connect.CodePermissionDenied,
@@ -77,6 +87,14 @@ func UserAgentInterceptor(userClaimsKey any) connect.UnaryInterceptorFunc {
 			uaLower := strings.ToLower(ua)
 			for _, pattern := range blockedUserAgentPatterns {
 				if strings.Contains(uaLower, pattern) {
+					if shortedotel.ScraperBlocked != nil {
+						shortedotel.ScraperBlocked.Add(ctx, 1,
+							otelmetric.WithAttributes(
+								attribute.String("reason", "blocked_pattern"),
+								attribute.String("pattern", pattern),
+							),
+						)
+					}
 					log.Infof("Blocked request with User-Agent: %s (matched pattern: %s)", ua, pattern)
 					return nil, connect.NewError(
 						connect.CodePermissionDenied,

@@ -5,16 +5,19 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	"connectrpc.com/connect"
+	firebase "firebase.google.com/go"
 	"github.com/castlemilk/shorted.com.au/services/gen/proto/go/options/v1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
+	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
+	"go.opentelemetry.io/otel/attribute"
+	otelmetric "go.opentelemetry.io/otel/metric"
 	"google.golang.org/api/idtoken"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
-	firebase "firebase.google.com/go"
-	"sync"
 )
 
 var (
@@ -186,6 +189,12 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 					// Look up subscription tier
 					lookupTier(normalizedClaims)
 
+					// Record internal auth method metric
+					if shortedotel.AuthMethod != nil {
+						shortedotel.AuthMethod.Add(ctx, 1,
+							otelmetric.WithAttributes(attribute.String("method", "internal")),
+						)
+					}
 					log.Debugf("Internal auth: user=%s, roles=%v, tier=%s, isAdmin=%v", userEmail, roles, normalizedClaims.Tier, isAdmin)
 					ctx = context.WithValue(ctx, userKey, normalizedClaims)
 
@@ -200,6 +209,11 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 
 			// If it's public and doesn't require a specific role, allow unauthenticated access
 			if visibility == optionsv1.Visibility_VISIBILITY_PUBLIC && requiredRole == "" {
+				if shortedotel.AuthMethod != nil {
+					shortedotel.AuthMethod.Add(ctx, 1,
+						otelmetric.WithAttributes(attribute.String("method", "anonymous")),
+					)
+				}
 				return next(ctx, req)
 			}
 
@@ -214,6 +228,12 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 			// 2. Try to validate our bespoke API token
 			claims, err := opts.TokenService.ValidateToken(tokenString)
 			if err == nil {
+				// Record API token auth method metric
+				if shortedotel.AuthMethod != nil {
+					shortedotel.AuthMethod.Add(ctx, 1,
+						otelmetric.WithAttributes(attribute.String("method", "token")),
+					)
+				}
 				// API tokens already have tier embedded, but refresh from DB if lookup available
 				if claims.Tier == "" {
 					lookupTier(claims)
@@ -275,6 +295,12 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 						// Look up subscription tier
 						lookupTier(normalizedClaims)
 
+						// Record Firebase auth method metric
+						if shortedotel.AuthMethod != nil {
+							shortedotel.AuthMethod.Add(ctx, 1,
+								otelmetric.WithAttributes(attribute.String("method", "firebase")),
+							)
+						}
 						log.Debugf("Firebase auth: user=%s, roles=%v, tier=%s", email, roles, normalizedClaims.Tier)
 						ctx = context.WithValue(ctx, userKey, normalizedClaims)
 						if requiredRole != "" && !hasRole(normalizedClaims, requiredRole) {
