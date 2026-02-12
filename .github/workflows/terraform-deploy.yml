@@ -346,6 +346,24 @@ jobs:
             printf "%s" "$INTERNAL_SERVICE_SECRET" | gcloud secrets create INTERNAL_SERVICE_SECRET --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
           fi
 
+      - name: Ensure OTEL headers secret exists in Secret Manager
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+        run: |
+          if [ -z "$OTEL_EXPORTER_OTLP_HEADERS" ]; then
+            echo "⚠️ OTEL_EXPORTER_OTLP_HEADERS not set, skipping"
+            exit 0
+          fi
+
+          if gcloud secrets describe OTEL_EXPORTER_OTLP_HEADERS --project "$GCP_PROJECT_ID" &>/dev/null; then
+            echo "Updating Secret Manager: OTEL_EXPORTER_OTLP_HEADERS (new version)"
+            printf "%s" "$OTEL_EXPORTER_OTLP_HEADERS" | gcloud secrets versions add OTEL_EXPORTER_OTLP_HEADERS --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            echo "Creating Secret Manager secret: OTEL_EXPORTER_OTLP_HEADERS"
+            printf "%s" "$OTEL_EXPORTER_OTLP_HEADERS" | gcloud secrets create OTEL_EXPORTER_OTLP_HEADERS --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+
       - name: Terraform Plan
         id: plan
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
@@ -357,6 +375,7 @@ jobs:
             -var="asx_discovery_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-discovery:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="grafana_auth=${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}" \
             -out=tfplan
         continue-on-error: true
 
@@ -862,6 +881,24 @@ jobs:
             printf "%s" "$DB_URL_CLEAN" | gcloud secrets create DATABASE_URL --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
           fi
 
+      - name: Ensure OTEL headers secret exists in Secret Manager
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+        run: |
+          if [ -z "$OTEL_EXPORTER_OTLP_HEADERS" ]; then
+            echo "⚠️ OTEL_EXPORTER_OTLP_HEADERS not set, skipping"
+            exit 0
+          fi
+
+          if gcloud secrets describe OTEL_EXPORTER_OTLP_HEADERS --project "$GCP_PROJECT_ID" &>/dev/null; then
+            echo "Updating Secret Manager: OTEL_EXPORTER_OTLP_HEADERS (new version)"
+            printf "%s" "$OTEL_EXPORTER_OTLP_HEADERS" | gcloud secrets versions add OTEL_EXPORTER_OTLP_HEADERS --data-file=- --project "$GCP_PROJECT_ID"
+          else
+            echo "Creating Secret Manager secret: OTEL_EXPORTER_OTLP_HEADERS"
+            printf "%s" "$OTEL_EXPORTER_OTLP_HEADERS" | gcloud secrets create OTEL_EXPORTER_OTLP_HEADERS --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+          fi
+
       - name: Ensure Algolia secrets exist in Secret Manager
         env:
           GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
@@ -912,6 +949,7 @@ jobs:
             -var="asx_discovery_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-discovery:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="grafana_auth=${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}" \
             -var="image_tag=${{ needs.determine-environment.outputs.image-tag }}" \
             -auto-approve
 

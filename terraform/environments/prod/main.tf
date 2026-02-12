@@ -15,6 +15,10 @@ terraform {
       source  = "hashicorp/time"
       version = "~> 0.9"
     }
+    grafana = {
+      source  = "grafana/grafana"
+      version = "~> 3.0"
+    }
   }
 
   backend "gcs" {
@@ -175,6 +179,31 @@ module "enrichment_processor" {
   postgres_address  = var.postgres_address
   postgres_database = var.postgres_database
   postgres_username = var.postgres_username
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
+# Grafana Cloud Dashboards
+module "grafana_dashboards" {
+  source = "../../modules/grafana-dashboards"
+
+  grafana_url  = var.grafana_url
+  grafana_auth = var.grafana_auth
+}
+
+# Weekly Report Generator Job
+module "weekly_report_generator" {
+  source = "../../modules/weekly-report-generator"
+
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment      = "production"
+  image_url            = var.weekly_report_generator_image
+  gemini_secret_exists = true
 
   depends_on = [
     google_project_service.required_apis,

@@ -69,3 +69,21 @@ variable "image_tag" {
   type        = string
   default     = ""
 }
+
+variable "weekly_report_generator_image" {
+  description = "Docker image URL for weekly-report-generator job"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/weekly-report-generator:latest"
+}
+
+variable "grafana_url" {
+  description = "Grafana Cloud instance URL"
+  type        = string
+  default     = "https://skunkworq.grafana.net"
+}
+
+variable "grafana_auth" {
+  description = "Grafana service account token"
+  type        = string
+  sensitive   = true
+}
