@@ -15,6 +15,10 @@ terraform {
       source  = "hashicorp/time"
       version = "~> 0.9"
     }
+    grafana = {
+      source  = "grafana/grafana"
+      version = "~> 3.0"
+    }
   }
 
   #   backend "gcs" {
@@ -173,6 +177,14 @@ module "market_discovery_sync" {
     google_artifact_registry_repository.shorted,
     module.short_data_sync
   ]
+}
+
+# Grafana Cloud Dashboards
+module "grafana_dashboards" {
+  source = "../../modules/grafana-dashboards"
+
+  grafana_url  = var.grafana_url
+  grafana_auth = var.grafana_auth
 }
 
 # Weekly Report Generator Job
