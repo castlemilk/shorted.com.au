@@ -63,6 +63,23 @@ resource "google_secret_manager_secret_iam_member" "internal_service_secret" {
   project   = var.project_id
 }
 
+# OpenTelemetry OTLP headers secret (contains Grafana Cloud auth token)
+resource "google_secret_manager_secret" "otel_headers" {
+  secret_id = "OTEL_EXPORTER_OTLP_HEADERS"
+  project   = var.project_id
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_iam_member" "otel_headers" {
+  secret_id = google_secret_manager_secret.otel_headers.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.shorts_api.email}"
+  project   = var.project_id
+}
+
 # Grant Pub/Sub Publisher role to shorts API service account (for publishing enrichment jobs)
 resource "google_pubsub_topic_iam_member" "enrichment_jobs_publisher" {
   topic    = "enrichment-jobs"
@@ -173,6 +190,27 @@ resource "google_cloud_run_v2_service" "shorts_api" {
         }
       }
 
+      # OpenTelemetry configuration (traces + metrics to Grafana Cloud)
+      env {
+        name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
+        value = var.otel_endpoint
+      }
+
+      env {
+        name  = "OTEL_EXPORTER_OTLP_PROTOCOL"
+        value = "http/protobuf"
+      }
+
+      env {
+        name = "OTEL_EXPORTER_OTLP_HEADERS"
+        value_source {
+          secret_key_ref {
+            secret  = "OTEL_EXPORTER_OTLP_HEADERS"
+            version = "latest"
+          }
+        }
+      }
+
       resources {
         limits = {
           cpu    = "2"
@@ -223,7 +261,8 @@ resource "google_cloud_run_v2_service" "shorts_api" {
     google_secret_manager_secret_iam_member.algolia_app_id,
     google_secret_manager_secret_iam_member.algolia_search_key,
     google_secret_manager_secret_iam_member.openai_api_key,
-    google_secret_manager_secret_iam_member.internal_service_secret
+    google_secret_manager_secret_iam_member.internal_service_secret,
+    google_secret_manager_secret_iam_member.otel_headers
   ]
 }
 

@@ -69,3 +69,15 @@ variable "weekly_report_generator_image" {
   type        = string
   default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/weekly-report-generator:latest"
 }
+
+variable "grafana_url" {
+  description = "Grafana Cloud instance URL"
+  type        = string
+  default     = "https://skunkworq.grafana.net"
+}
+
+variable "grafana_auth" {
+  description = "Grafana service account token"
+  type        = string
+  sensitive   = true
+}
