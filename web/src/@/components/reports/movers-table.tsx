@@ -35,6 +35,7 @@ export function MoversTable({ movers, type }: MoversTableProps) {
           <Link
             key={mover.code}
             href={`/shorts/${mover.code}`}
+            prefetch={false}
             className="grid grid-cols-[1fr_90px_90px_90px_40px] gap-3 px-4 py-3 items-center hover:bg-muted/50 transition-colors group"
           >
             <div className="min-w-0">

@@ -64,6 +64,7 @@ export function WeekNavigation({ currentSlug }: WeekNavigationProps) {
     >
       <Link
         href={`/reports/weekly/${prevSlug}`}
+        prefetch={false}
         className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
       >
         <ChevronLeft className="h-4 w-4" />
@@ -72,6 +73,7 @@ export function WeekNavigation({ currentSlug }: WeekNavigationProps) {
       {!isFuture && (
         <Link
           href={`/reports/weekly/${nextSlug}`}
+          prefetch={false}
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <span>{formatWeekLabel(nextSlug)}</span>

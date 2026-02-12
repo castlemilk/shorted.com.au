@@ -66,7 +66,7 @@ export function Sidebar({ className }: SidebarProps) {
           const Icon = item.icon;
           const isActive = pathname === item.href;
           return (
-            <Link key={item.href} href={item.href}>
+            <Link key={item.href} href={item.href} prefetch={false}>
               <Button
                 variant={isActive ? "secondary" : "ghost"}
                 className={cn(

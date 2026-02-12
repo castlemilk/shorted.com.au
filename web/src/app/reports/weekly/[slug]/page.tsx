@@ -335,7 +335,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
             </h2>
             <div className="flex flex-wrap gap-2">
               {data.dates.map((date) => (
-                <Link key={date} href={`/market/${date}`}>
+                <Link key={date} href={`/market/${date}`} prefetch={false}>
                   <Badge variant="outline" className="hover:bg-primary/10 cursor-pointer">
                     {formatDate(date)}
                   </Badge>
@@ -366,6 +366,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
                 <Link
                   key={stock.code}
                   href={`/shorts/${stock.code}`}
+                  prefetch={false}
                   className={cn(
                     "gap-4 px-4 py-3 items-center hover:bg-muted/50 transition-colors group",
                     enhanced ? "grid grid-cols-[60px_1fr_100px_90px_48px]" : "grid grid-cols-[60px_1fr_100px_48px]",
@@ -437,7 +438,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
                 return (
                   <div key={stock.code} className="rounded-lg border border-border/60 bg-card/50 p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <Link href={`/shorts/${stock.code}`} className="hover:text-primary transition-colors">
+                      <Link href={`/shorts/${stock.code}`} prefetch={false} className="hover:text-primary transition-colors">
                         <span className="font-semibold">{stock.code}</span>
                         <span className="text-sm text-muted-foreground ml-2">{stock.name}</span>
                       </Link>

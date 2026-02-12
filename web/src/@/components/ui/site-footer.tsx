@@ -89,31 +89,31 @@ const SiteFooter = () => {
             <GitCommit className="w-3 h-3 mr-1" />
             {version}
           </Badge>
-          <Link href="/reports">
+          <Link href="/reports" prefetch={false}>
             <Badge variant="secondary" className="hover:bg-secondary/80">
               <File className="w-3 h-3 mr-1" />
               reports
             </Badge>
           </Link>
-          <Link href="/roadmap">
+          <Link href="/roadmap" prefetch={false}>
             <Badge variant="secondary" className="hover:bg-secondary/80">
               <RouteIcon className="w-3 h-3 mr-1" />
               roadmap
             </Badge>
           </Link>
-          <Link href="/docs/api">
+          <Link href="/docs/api" prefetch={false}>
             <Badge variant="secondary" className="hover:bg-secondary/80">
               <Terminal className="w-3 h-3 mr-1 text-blue-500" />
               api docs
             </Badge>
           </Link>
-          <Link href="/terms">
+          <Link href="/terms" prefetch={false}>
             <Badge variant="secondary" className="hover:bg-secondary/80">
               <File className="w-3 h-3 mr-1" />
               terms
             </Badge>
           </Link>
-          <Link href="/privacy">
+          <Link href="/privacy" prefetch={false}>
             <Badge variant="secondary" className="hover:bg-secondary/80">
               <Shield className="w-3 h-3 mr-1" />
               privacy
