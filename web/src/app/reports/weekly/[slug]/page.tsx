@@ -27,6 +27,10 @@ import { cn } from "~/@/lib/utils";
 import { MoversTable } from "~/@/components/reports/movers-table";
 import { WeekNavigation } from "~/@/components/reports/week-navigation";
 import {
+  CitationRenderer,
+  CitationFootnotes,
+} from "~/@/components/reports/citation-renderer";
+import {
   getWeeklyReportData,
   getEnhancedWeeklyReportData,
   getAvailableWeekSlugs,
@@ -41,8 +45,8 @@ export async function generateStaticParams() {
   try {
     // getAvailableWeekSlugs already excludes the current incomplete week
     const slugs = await getAvailableWeekSlugs();
-    // Pre-generate last 12 weeks at build time to avoid cold starts
-    return slugs.slice(0, 12).map((slug) => ({ slug }));
+    // Pre-generate all available weeks at build time — historical reports are immutable
+    return slugs.map((slug) => ({ slug }));
   } catch {
     return [];
   }
@@ -156,6 +160,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
   const risers = enhanced?.risers ?? [];
   const fallers = enhanced?.fallers ?? [];
   const faqs = enhanced?.faqs ?? [];
+  const citations = enhanced?.citations ?? [];
   const marketStats = enhanced?.marketStats;
 
   // Article schema for SEO (when narrative exists)
@@ -311,11 +316,11 @@ export default async function WeeklyReportPage({ params }: PageProps) {
           <section className="rounded-lg border border-primary/20 bg-primary/5 p-6">
             <h2 className="text-lg font-semibold mb-3">This Week&apos;s Analysis</h2>
             <p className="text-foreground/90 leading-relaxed">
-              {enhanced.narrative.openingHook}
+              <CitationRenderer text={enhanced.narrative.openingHook} citations={citations} />
             </p>
             {enhanced.narrative.topAnalysis && (
               <p className="text-foreground/80 leading-relaxed mt-3">
-                {enhanced.narrative.topAnalysis}
+                <CitationRenderer text={enhanced.narrative.topAnalysis} citations={citations} />
               </p>
             )}
           </section>
@@ -330,7 +335,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
             </h2>
             <div className="flex flex-wrap gap-2">
               {data.dates.map((date) => (
-                <Link key={date} href={`/market/${date}`}>
+                <Link key={date} href={`/market/${date}`} prefetch={false}>
                   <Badge variant="outline" className="hover:bg-primary/10 cursor-pointer">
                     {formatDate(date)}
                   </Badge>
@@ -361,6 +366,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
                 <Link
                   key={stock.code}
                   href={`/shorts/${stock.code}`}
+                  prefetch={false}
                   className={cn(
                     "gap-4 px-4 py-3 items-center hover:bg-muted/50 transition-colors group",
                     enhanced ? "grid grid-cols-[60px_1fr_100px_90px_48px]" : "grid grid-cols-[60px_1fr_100px_48px]",
@@ -432,7 +438,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
                 return (
                   <div key={stock.code} className="rounded-lg border border-border/60 bg-card/50 p-4">
                     <div className="flex items-center justify-between mb-2">
-                      <Link href={`/shorts/${stock.code}`} className="hover:text-primary transition-colors">
+                      <Link href={`/shorts/${stock.code}`} prefetch={false} className="hover:text-primary transition-colors">
                         <span className="font-semibold">{stock.code}</span>
                         <span className="text-sm text-muted-foreground ml-2">{stock.name}</span>
                       </Link>
@@ -501,13 +507,13 @@ export default async function WeeklyReportPage({ params }: PageProps) {
           <section className="rounded-lg border border-border/40 bg-card/50 p-6">
             <h2 className="text-lg font-semibold mb-3">Movers Analysis</h2>
             <p className="text-foreground/80 leading-relaxed">
-              {enhanced.narrative.moversAnalysis}
+              <CitationRenderer text={enhanced.narrative.moversAnalysis} citations={citations} />
             </p>
             {enhanced.narrative.industryAnalysis && (
               <>
                 <h3 className="text-base font-semibold mt-4 mb-2">Industry Trends</h3>
                 <p className="text-foreground/80 leading-relaxed">
-                  {enhanced.narrative.industryAnalysis}
+                  <CitationRenderer text={enhanced.narrative.industryAnalysis} citations={citations} />
                 </p>
               </>
             )}
@@ -519,7 +525,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
           <section className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-6">
             <h2 className="text-lg font-semibold mb-3">Outlook</h2>
             <p className="text-foreground/80 leading-relaxed">
-              {enhanced.narrative.outlook}
+              <CitationRenderer text={enhanced.narrative.outlook} citations={citations} />
             </p>
           </section>
         )}
@@ -539,6 +545,11 @@ export default async function WeeklyReportPage({ params }: PageProps) {
               ))}
             </div>
           </section>
+        )}
+
+        {/* Citation Sources */}
+        {citations.length > 0 && (
+          <CitationFootnotes citations={citations} />
         )}
 
         {/* Disclaimer */}

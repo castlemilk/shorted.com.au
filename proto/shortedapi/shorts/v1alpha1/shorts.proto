@@ -836,6 +836,8 @@ message GetWeeklyReportResponse {
   repeated WeeklyReportFAQ faqs = 10;
   double quality_score = 11;
   WeeklyMarketStats market_stats = 12;
+  repeated WeeklyReportCitation citations = 13;
+  repeated WeeklyReportTrendInsight trend_insights = 14;
 }
 
 // Narrative sections of the weekly report
@@ -878,6 +880,27 @@ message WeeklyMarketStats {
   double max_short_pct = 3;
   string max_short_code = 4;
   double wow_avg_change = 5; // Week-on-week change in average short %
+}
+
+// A citation referencing a data source in the weekly report narrative
+message WeeklyReportCitation {
+  string id = 1;      // e.g., "ref-1"
+  string source = 2;  // e.g., "BHP H1 FY2025 Results"
+  string date = 3;
+  string url = 4;
+  string type = 5;    // "financial_report", "announcement", "asic_data", "price_data"
+}
+
+// Structured trend insight for a riser or faller
+message WeeklyReportTrendInsight {
+  string code = 1;
+  string direction = 2;          // "riser" or "faller"
+  double short_change = 3;
+  string price_pattern = 4;      // "contrarian", "momentum", "covering", "unwinding"
+  double weekly_price_change = 5;
+  string composite_signal = 6;
+  repeated string key_announcements = 7;
+  repeated string financial_signals = 8;
 }
 
 // ==================== Financial Highlights Messages ====================

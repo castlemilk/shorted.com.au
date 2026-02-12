@@ -107,5 +107,34 @@ func (s *ShortsServer) GetWeeklyReport(ctx context.Context, req *connect.Request
 		}
 	}
 
+	// Parse citations JSON
+	if len(report.Citations) > 0 {
+		var citations []*shortsv1alpha1.WeeklyReportCitation
+		if err := json.Unmarshal(report.Citations, &citations); err != nil {
+			s.logger.Warnf("failed to parse citations JSON for %s: %v", weekSlug, err)
+		} else {
+			response.Citations = citations
+		}
+	}
+
+	// Parse trend_insights JSON
+	if len(report.TrendInsights) > 0 {
+		var insights []*shortsv1alpha1.WeeklyReportTrendInsight
+		if err := json.Unmarshal(report.TrendInsights, &insights); err != nil {
+			// TrendInsights may be stored as a map — try map parse
+			var insightMap map[string]*shortsv1alpha1.WeeklyReportTrendInsight
+			if mapErr := json.Unmarshal(report.TrendInsights, &insightMap); mapErr != nil {
+				s.logger.Warnf("failed to parse trend_insights JSON for %s: %v", weekSlug, err)
+			} else {
+				for _, v := range insightMap {
+					insights = append(insights, v)
+				}
+				response.TrendInsights = insights
+			}
+		} else {
+			response.TrendInsights = insights
+		}
+	}
+
 	return connect.NewResponse(response), nil
 }
