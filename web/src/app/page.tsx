@@ -4,7 +4,7 @@ import { FileText, ChevronRight } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { HomeContent } from "./home-content";
 import { FAQStructuredData } from "~/@/components/seo/enhanced-structured-data";
-import { getEnhancedWeeklyReportData } from "~/app/actions/reports/getReportData";
+import { getEnhancedWeeklyReportData, getAvailableWeekSlugs } from "~/app/actions/reports/getReportData";
 
 export const metadata: Metadata = {
   title: siteConfig.fullTitle,
@@ -61,15 +61,6 @@ const homeFAQs = [
   },
 ];
 
-function getCurrentWeekSlug(): string {
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-  return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, "0")}`;
-}
-
 function formatWeekTitle(slug: string): string {
   const match = slug.match(/^(\d{4})-W(\d{2})$/);
   if (!match?.[1] || !match[2]) return slug;
@@ -77,19 +68,17 @@ function formatWeekTitle(slug: string): string {
 }
 
 export default async function Page() {
-  // Try current week, then previous week
-  const currentSlug = getCurrentWeekSlug();
-  let report = await getEnhancedWeeklyReportData(currentSlug);
-  let reportSlug = currentSlug;
-  if (!report) {
-    const match = currentSlug.match(/^(\d{4})-W(\d{2})$/);
-    if (match?.[1] && match[2]) {
-      const prevWeek = parseInt(match[2]) - 1;
-      const prevSlug = prevWeek >= 1
-        ? `${match[1]}-W${String(prevWeek).padStart(2, "0")}`
-        : `${parseInt(match[1]) - 1}-W52`;
-      report = await getEnhancedWeeklyReportData(prevSlug);
-      reportSlug = prevSlug;
+  // Use getAvailableWeekSlugs which excludes the current incomplete week,
+  // then find the first slug that has an enhanced report ready
+  const availableSlugs = await getAvailableWeekSlugs();
+  let report: Awaited<ReturnType<typeof getEnhancedWeeklyReportData>> = null;
+  let reportSlug = "";
+  for (const slug of availableSlugs.slice(0, 3)) {
+    const data = await getEnhancedWeeklyReportData(slug);
+    if (data?.headline) {
+      report = data;
+      reportSlug = slug;
+      break;
     }
   }
 
