@@ -36,13 +36,18 @@ type Config struct {
 
 	// HTTP client timeout for Upstash requests
 	Timeout time.Duration `json:"timeout" yaml:"timeout" mapstructure:"timeout"`
+
+	// AllowedOrigins is the list of hostnames allowed for browser-tier rate limits.
+	// Requests with browser auth that don't match these origins (or *.vercel.app)
+	// are downgraded to API-tier rate limits.
+	AllowedOrigins []string `json:"allowed_origins" yaml:"allowed_origins" mapstructure:"allowed_origins"`
 }
 
 // DefaultConfig returns the default rate limiter configuration
 //
 // Rate Limit Tiers (API/programmatic access via API tokens):
-//   - anonymous:  30 req/min, 1000 req/month  - Unauthenticated requests (by IP)
-//   - free:       60 req/min, 2000 req/month  - Authenticated users without paid subscription
+//   - anonymous:  10 req/min,  500 req/month  - Unauthenticated requests (by IP)
+//   - free:       30 req/min, 1000 req/month  - Authenticated users without paid subscription
 //   - pro:       120 req/min, 10000 req/month - Users with pro subscription
 //   - enterprise: 300 req/min, 50000 req/month - Enterprise users
 //
@@ -57,11 +62,11 @@ func DefaultConfig() Config {
 		Enabled: false, // Disabled by default for safety
 		Tiers: map[string]TierLimits{
 			"anonymous": {
-				RequestsPerMinute: 30, RequestsPerMonth: 1000, // API limits
+				RequestsPerMinute: 10, RequestsPerMonth: 500, // API limits (tightened to discourage scraping)
 				BrowserRequestsPerMinute: 60, BrowserRequestsPerMonth: 5000, // Browser limits
 			},
 			"free": {
-				RequestsPerMinute: 60, RequestsPerMonth: 2000, // API limits
+				RequestsPerMinute: 30, RequestsPerMonth: 1000, // API limits (tightened from 60/2000)
 				BrowserRequestsPerMinute: 120, BrowserRequestsPerMonth: 10000, // Browser limits
 			},
 			"pro": {
@@ -77,6 +82,12 @@ func DefaultConfig() Config {
 		KeyPrefix:  "ratelimit:shorted:",
 		WindowSize: time.Minute,
 		Timeout:    5 * time.Second,
+		AllowedOrigins: []string{
+			"shorted.com.au",
+			"www.shorted.com.au",
+			"localhost",
+			"127.0.0.1",
+		},
 	}
 }
 

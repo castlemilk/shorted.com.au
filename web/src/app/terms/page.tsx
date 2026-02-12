@@ -205,6 +205,43 @@ const Page = () => {
           </p>
         </section>
 
+        {/* Section 13 - Automated Access & Data Collection */}
+        <section className="space-y-4">
+          <h2 className="text-2xl font-semibold tracking-tight">
+            13. Automated Access &amp; Data Collection
+          </h2>
+          <p className="text-base leading-7">
+            Automated access to the Website or API without proper authentication
+            is strictly prohibited. Users must obtain and use valid API tokens
+            for all programmatic access to our services. API tokens can be
+            generated from your account dashboard after signing in.
+          </p>
+          <p className="text-base leading-7">
+            Scraping, crawling, or any form of systematic data extraction from
+            the Website or API without authorization is a violation of these
+            Terms. This includes, but is not limited to, the use of bots,
+            spiders, automated scripts, or any other automated means to access,
+            collect, or download data from our services.
+          </p>
+          <p className="text-base leading-7">
+            The Company reserves the right to block access from any IP address
+            or user account that violates these Terms, without prior notice.
+            Blocked users will not be entitled to refunds for any prepaid
+            subscription fees.
+          </p>
+          <p className="text-base leading-7">
+            For bulk data licensing, commercial redistribution, or enterprise
+            data access arrangements, please contact{" "}
+            <a
+              href="mailto:enterprise@shorted.com.au"
+              className="text-primary hover:underline"
+            >
+              enterprise@shorted.com.au
+            </a>
+            .
+          </p>
+        </section>
+
         {/* Privacy Policy Section */}
         <Separator className="my-8" />
 

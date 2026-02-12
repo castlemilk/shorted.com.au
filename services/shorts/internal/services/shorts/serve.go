@@ -66,6 +66,10 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 	}
 	interceptorList = append(interceptorList, NewAuthInterceptorWithOptions(authOpts))
 
+	// User-Agent interceptor runs after auth (so authenticated users are exempt)
+	// but before rate limiting (to reject scrapers early before consuming rate limit quota)
+	interceptorList = append(interceptorList, ratelimit.UserAgentInterceptor(userKey))
+
 	if s.rateLimiter != nil {
 		interceptorList = append(interceptorList,
 			ratelimit.NewRateLimitInterceptor(s.rateLimiter, s.config.RateLimitConfig, userKey))

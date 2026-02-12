@@ -4,7 +4,7 @@
 # === GENERAL SEARCH ENGINES ===
 User-agent: *
 Allow: /
-Crawl-delay: 1
+Crawl-delay: 2
 
 # Block admin and private areas
 Disallow: /api/auth
@@ -12,6 +12,10 @@ Disallow: /admin/
 Disallow: /_next/
 Disallow: /dashboard/
 Disallow: /portfolio/
+
+# API endpoints - use authenticated API access instead
+Disallow: /shorts.v1alpha1.ShortedStocksService/
+Disallow: /api/
 
 # Allow important pages
 Allow: /

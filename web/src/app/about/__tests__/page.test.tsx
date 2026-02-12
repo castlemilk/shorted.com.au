@@ -57,6 +57,9 @@ jest.mock("lucide-react", () => ({
   Bell: () => <span data-testid="icon-bell" />,
   ChevronRight: () => <span data-testid="icon-chevron-right" />,
   Database: () => <span data-testid="icon-database" />,
+  FileText: () => <span data-testid="icon-filetext" />,
+  Globe: () => <span data-testid="icon-globe" />,
+  Key: () => <span data-testid="icon-key" />,
   LineChart: () => <span data-testid="icon-linechart" />,
   Lock: () => <span data-testid="icon-lock" />,
   Search: () => <span data-testid="icon-search" />,
@@ -259,9 +262,9 @@ describe("About Page", () => {
     it("renders with proper section structure", () => {
       const { container } = render(<AboutClient initialStatistics={mockStatistics} />);
 
-      // Check for 5 sections
+      // Check for 6 sections (hero, value prop, features, data trust, usage policy, cta)
       const sections = container.querySelectorAll("section");
-      expect(sections.length).toBe(5);
+      expect(sections.length).toBe(6);
     });
 
     it("renders container with proper classes", () => {
