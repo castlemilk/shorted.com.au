@@ -8,6 +8,9 @@ import {
   Bell,
   ChevronRight,
   Database,
+  FileText,
+  Globe,
+  Key,
   LineChart,
   Lock,
   Search,
@@ -266,6 +269,66 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
         </div>
       </section>
 
+      {/* Data Access & Usage Policy Section */}
+      <section className="w-full py-20 md:py-28 relative z-10">
+        <div className="container px-4 md:px-6">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-12">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-6">
+                <Key className="w-4 h-4" />
+                Usage Policy
+              </div>
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-foreground mb-4">
+                Data Access &amp; Usage Policy
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Shorted sources short position data from ASIC and makes it available through our
+                web dashboard and authenticated API. Please review our data usage guidelines below.
+              </p>
+            </div>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <PolicyCard
+                icon={<Globe className="w-6 h-6" />}
+                title="Web Dashboard"
+                description="Free access for personal research and analysis. Browse short positions, charts, and insights directly on shorted.com.au."
+              />
+              <PolicyCard
+                icon={<Key className="w-6 h-6" />}
+                title="API Access"
+                description="Requires authentication via API token. A free tier is available for developers building integrations and tools."
+              />
+              <PolicyCard
+                icon={<Shield className="w-6 h-6" />}
+                title="Automated Scraping"
+                description="Prohibited without API authentication. All programmatic access must use a valid API token."
+              />
+              <PolicyCard
+                icon={<Lock className="w-6 h-6" />}
+                title="Commercial Use"
+                description="Requires a Pro or Enterprise subscription. Contact us for commercial licensing and bulk data arrangements."
+              />
+              <PolicyCard
+                icon={<FileText className="w-6 h-6" />}
+                title="Redistribution"
+                description="Not permitted without written consent. Data may not be resold, republished, or redistributed in any form."
+              />
+              <div className="flex items-center justify-center p-8 rounded-2xl border border-dashed border-primary/30 bg-primary/5">
+                <Link href="/docs/api" className="text-center group">
+                  <div className="text-primary font-semibold mb-2 group-hover:underline flex items-center justify-center gap-2">
+                    View API Documentation
+                    <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Full details on rate limits, authentication, and endpoints.
+                  </p>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="w-full py-24 md:py-32 relative z-10">
         <div className="container px-4 md:px-6">
@@ -390,6 +453,25 @@ function TrustMetric({ label, value }: TrustMetricProps) {
     <div className="text-center p-6 rounded-xl bg-card border">
       <div className="text-3xl font-bold text-foreground mb-1">{value}</div>
       <div className="text-sm text-muted-foreground">{label}</div>
+    </div>
+  );
+}
+
+// Policy Card Component
+interface PolicyCardProps {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}
+
+function PolicyCard({ icon, title, description }: PolicyCardProps) {
+  return (
+    <div className="bg-card rounded-2xl border p-6 transition-all duration-300 hover:shadow-lg">
+      <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-4">
+        {icon}
+      </div>
+      <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
+      <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
     </div>
   );
 }

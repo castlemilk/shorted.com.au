@@ -3,6 +3,7 @@ package ratelimit
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -34,6 +35,26 @@ func NewRateLimitInterceptor(limiter RateLimiter, cfg Config, userClaimsKey any)
 
 			// Build identifier based on user or IP
 			identifier, tier, isBrowser := extractIdentifierAndTier(ctx, req, userClaimsKey)
+
+			// Validate origin for browser-tier requests. If the request claims to be
+			// from a browser (Firebase auth) but doesn't have a valid Origin/Referer
+			// header, downgrade it to API-tier rate limits. This prevents scrapers
+			// from using stolen Firebase tokens to get relaxed browser limits.
+			// Exception: if the User-Agent looks like a real browser (contains "Mozilla/"),
+			// allow browser-tier even without Origin/Referer — privacy extensions strip these.
+			if isBrowser {
+				origin := req.Header().Get("Origin")
+				if origin == "" {
+					origin = req.Header().Get("Referer")
+				}
+				if !isValidBrowserOrigin(origin, cfg.AllowedOrigins) {
+					ua := strings.ToLower(req.Header().Get("User-Agent"))
+					if !strings.Contains(ua, "mozilla/") {
+						log.Debugf("Downgrading browser-tier to API-tier for %s: invalid origin %q, non-browser UA", identifier, origin)
+						isBrowser = false
+					}
+				}
+			}
 
 			// Check rate limit
 			result, err := limiter.Check(ctx, identifier, tier, isBrowser)
@@ -154,4 +175,71 @@ func extractIP(req connect.AnyRequest) string {
 	}
 
 	return "unknown"
+}
+
+// isValidBrowserOrigin checks whether the given origin or referer value matches
+// an allowed hostname for browser-tier rate limits. It accepts:
+//   - Full URLs like "https://shorted.com.au" or "https://www.shorted.com.au/reports/weekly"
+//   - Bare hostnames like "shorted.com.au"
+//   - Any *.vercel.app subdomain (for preview deployments)
+//   - Hostnames with ports like "localhost:3020"
+//
+// Returns false if the origin is empty or doesn't match any allowed origin.
+func isValidBrowserOrigin(origin string, allowedOrigins []string) bool {
+	if origin == "" {
+		return false
+	}
+
+	host := extractHostname(origin)
+	if host == "" {
+		return false
+	}
+
+	// Check against configured allowed origins
+	for _, allowed := range allowedOrigins {
+		if strings.EqualFold(host, allowed) {
+			return true
+		}
+	}
+
+	// Always allow *.vercel.app subdomains (preview deployments)
+	if strings.HasSuffix(strings.ToLower(host), ".vercel.app") {
+		return true
+	}
+
+	return false
+}
+
+// extractHostname extracts the hostname (without port) from a URL string or bare hostname.
+// Handles formats like:
+//   - "https://shorted.com.au"
+//   - "https://www.shorted.com.au/reports/weekly"
+//   - "shorted.com.au"
+//   - "localhost:3020"
+func extractHostname(rawOrigin string) string {
+	rawOrigin = strings.TrimSpace(rawOrigin)
+	if rawOrigin == "" {
+		return ""
+	}
+
+	// Try parsing as a full URL first
+	if strings.Contains(rawOrigin, "://") {
+		parsed, err := url.Parse(rawOrigin)
+		if err != nil {
+			return ""
+		}
+		host := parsed.Hostname() // strips port
+		return host
+	}
+
+	// Handle bare hostname or hostname:port (e.g., "localhost:3020")
+	// Strip any path component
+	if idx := strings.Index(rawOrigin, "/"); idx != -1 {
+		rawOrigin = rawOrigin[:idx]
+	}
+	// Strip port
+	if idx := strings.LastIndex(rawOrigin, ":"); idx != -1 {
+		return rawOrigin[:idx]
+	}
+	return rawOrigin
 }

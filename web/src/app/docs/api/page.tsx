@@ -2,7 +2,7 @@ import React from 'react';
 import { parseOpenAPISpec } from '~/lib/openapi/parser';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '~/@/components/ui/card';
-import { ArrowRight, Book, Terminal, Shield, Lock } from 'lucide-react';
+import { ArrowRight, Book, Terminal, Shield, Lock, Gauge, AlertTriangle } from 'lucide-react';
 import { ApiAccessSection } from '~/@/components/docs/api-access-section';
 
 // Pro subscription price ID - set in environment or use placeholder
@@ -111,6 +111,135 @@ export default async function ApiDocsIndex() {
             <ApiAccessSection priceId={PRO_PRICE_ID} />
           </div>
         </div>
+      </section>
+
+      <section id="rate-limits" className="space-y-8 scroll-mt-20">
+        <div className="space-y-4">
+          <h2 className="text-3xl font-bold tracking-tight">Rate Limits &amp; Usage Policy</h2>
+          <p className="text-muted-foreground">
+            All API requests are subject to rate limiting. Limits vary by subscription tier and are enforced
+            using a sliding window algorithm.
+          </p>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Gauge className="h-5 w-5 text-blue-500" />
+              <CardTitle className="text-xl">Rate Limit Tiers</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              These limits apply to <strong>programmatic API access</strong> (requests with API tokens).
+              Browser access via shorted.com.au has more relaxed limits and is not subject to these caps.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-3 pr-4 font-semibold">Tier</th>
+                    <th className="text-left py-3 pr-4 font-semibold">Per Minute</th>
+                    <th className="text-left py-3 pr-4 font-semibold">Per Month</th>
+                    <th className="text-left py-3 font-semibold">Access</th>
+                  </tr>
+                </thead>
+                <tbody className="text-muted-foreground">
+                  <tr className="border-b">
+                    <td className="py-3 pr-4 font-medium text-foreground">Anonymous</td>
+                    <td className="py-3 pr-4">10</td>
+                    <td className="py-3 pr-4">500</td>
+                    <td className="py-3">Public endpoints only, limited</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-3 pr-4 font-medium text-foreground">Free (signed in)</td>
+                    <td className="py-3 pr-4">30</td>
+                    <td className="py-3 pr-4">1,000</td>
+                    <td className="py-3">All endpoints, requires API token</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-3 pr-4 font-medium text-foreground">Pro ($29/mo)</td>
+                    <td className="py-3 pr-4">120</td>
+                    <td className="py-3 pr-4">10,000</td>
+                    <td className="py-3">All endpoints, priority</td>
+                  </tr>
+                  <tr>
+                    <td className="py-3 pr-4 font-medium text-foreground">Enterprise</td>
+                    <td className="py-3 pr-4">300</td>
+                    <td className="py-3 pr-4">50,000</td>
+                    <td className="py-3">All endpoints, dedicated support</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              <CardTitle className="text-xl">Usage Policy</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2 text-sm text-muted-foreground">
+              <li className="flex items-start gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground flex-shrink-0" />
+                Automated access requires a valid API token.
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground flex-shrink-0" />
+                Scraping without authentication is prohibited.
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground flex-shrink-0" />
+                Requests without valid <code className="text-xs bg-muted px-1 py-0.5 rounded">User-Agent</code> headers may be blocked.
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground flex-shrink-0" />
+                Browser-tier rate limits only apply to requests originating from shorted.com.au.
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground flex-shrink-0" />
+                Abuse results in IP-level blocking.
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground flex-shrink-0" />
+                For bulk data access, contact{' '}
+                <a href="mailto:enterprise@shorted.com.au" className="text-blue-500 hover:underline">
+                  enterprise@shorted.com.au
+                </a>.
+              </li>
+            </ul>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-green-500" />
+              <CardTitle className="text-xl">Response Headers</CardTitle>
+            </div>
+            <CardDescription>
+              All API responses include rate limit headers so you can monitor your usage programmatically.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="bg-zinc-950 rounded-lg p-4 font-mono text-xs text-zinc-300 border border-zinc-800 space-y-1">
+              <div><code>X-RateLimit-Limit</code>: 120 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-500"># Per-minute limit (0 = unlimited)</span></div>
+              <div><code>X-RateLimit-Remaining</code>: 115 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-500"># Requests remaining this minute</span></div>
+              <div><code>X-RateLimit-Reset</code>: 1706918400 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-500"># Unix timestamp when minute window resets</span></div>
+              <div><code>X-RateLimit-Monthly-Limit</code>: 10000 &nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-500"># Monthly request cap</span></div>
+              <div><code>X-RateLimit-Monthly-Used</code>: 150 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span className="text-zinc-500"># Requests used this month</span></div>
+              <div><code>X-RateLimit-Monthly-Reset</code>: 1709251200 <span className="text-zinc-500"># Start of next billing month</span></div>
+            </div>
+            <p className="text-sm text-muted-foreground mt-4">
+              When rate limited, the API returns HTTP <code className="text-xs bg-muted px-1 py-0.5 rounded">429 Too Many Requests</code> with
+              a <code className="text-xs bg-muted px-1 py-0.5 rounded">Retry-After</code> header indicating how many seconds to wait.
+            </p>
+          </CardContent>
+        </Card>
       </section>
 
       <div className="space-y-6">

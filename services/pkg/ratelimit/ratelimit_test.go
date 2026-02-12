@@ -21,13 +21,13 @@ func TestDefaultConfig(t *testing.T) {
 	assert.Equal(t, "ratelimit:shorted:", cfg.KeyPrefix)
 
 	// Check tier limits
-	// anonymous: 30/min, 1000/month - unauthenticated
-	assert.Equal(t, 30, cfg.Tiers["anonymous"].RequestsPerMinute)
-	assert.Equal(t, 1000, cfg.Tiers["anonymous"].RequestsPerMonth)
+	// anonymous: 10/min, 500/month - unauthenticated (tightened for anti-scraping)
+	assert.Equal(t, 10, cfg.Tiers["anonymous"].RequestsPerMinute)
+	assert.Equal(t, 500, cfg.Tiers["anonymous"].RequestsPerMonth)
 
-	// free: 60/min, 2000/month - authenticated without subscription
-	assert.Equal(t, 60, cfg.Tiers["free"].RequestsPerMinute)
-	assert.Equal(t, 2000, cfg.Tiers["free"].RequestsPerMonth)
+	// free: 30/min, 1000/month - authenticated without subscription (tightened)
+	assert.Equal(t, 30, cfg.Tiers["free"].RequestsPerMinute)
+	assert.Equal(t, 1000, cfg.Tiers["free"].RequestsPerMonth)
 
 	// pro: 120/min, 10000/month - paid subscription
 	assert.Equal(t, 120, cfg.Tiers["pro"].RequestsPerMinute)
@@ -47,8 +47,8 @@ func TestConfig_GetLimits(t *testing.T) {
 
 	// Unknown tier falls back to anonymous
 	limits = cfg.GetLimits("unknown")
-	assert.Equal(t, 30, limits.RequestsPerMinute)
-	assert.Equal(t, 1000, limits.RequestsPerMonth)
+	assert.Equal(t, 10, limits.RequestsPerMinute)
+	assert.Equal(t, 500, limits.RequestsPerMonth)
 }
 
 func TestNoopLimiter(t *testing.T) {
@@ -201,20 +201,20 @@ func TestSlidingWindowLimiter_DifferentTiers(t *testing.T) {
 
 	ctx := context.Background()
 
-	// Anonymous API access (30/min, 1000/month) should be limited at 50 requests/min
+	// Anonymous API access (10/min, 500/month) should be limited at 50 requests/min
 	result, err := limiter.Check(ctx, "ip:127.0.0.1", "anonymous", false)
 	require.NoError(t, err)
 	assert.False(t, result.Allowed)
-	assert.Equal(t, 30, result.Limit)
-	assert.Equal(t, 1000, result.MonthlyLimit)
+	assert.Equal(t, 10, result.Limit)
+	assert.Equal(t, 500, result.MonthlyLimit)
 
-	// Free API access (60/min, 2000/month) should be allowed at 50/min, 500/month
+	// Free API access (30/min, 1000/month) should be limited at 50 requests/min
 	result, err = limiter.Check(ctx, "user:123", "free", false)
 	require.NoError(t, err)
-	assert.True(t, result.Allowed)
-	assert.Equal(t, 60, result.Limit)
-	assert.Equal(t, 10, result.Remaining)
-	assert.Equal(t, 2000, result.MonthlyLimit)
+	assert.False(t, result.Allowed)
+	assert.Equal(t, 30, result.Limit)
+	assert.Equal(t, 0, result.Remaining)
+	assert.Equal(t, 1000, result.MonthlyLimit)
 	assert.Equal(t, 500, result.MonthlyUsed)
 
 	// Pro API access (120/min, 10000/month) should be allowed at 50/min, 500/month
