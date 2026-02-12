@@ -59,6 +59,7 @@ export function MobileNav({ items }: MobileNavProps) {
                   <Link
                     key={item.href}
                     href={item.href}
+                    prefetch={false}
                     className={cn(
                       "flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground",
                       pathname === item.href && "text-foreground font-bold"
@@ -74,6 +75,7 @@ export function MobileNav({ items }: MobileNavProps) {
               <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Resources</h4>
               <Link
                 href="/docs/api"
+                prefetch={false}
                 className={cn(
                   "flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground",
                   pathname.startsWith("/docs/api") && "text-foreground font-bold"

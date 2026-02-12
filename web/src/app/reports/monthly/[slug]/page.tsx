@@ -37,8 +37,8 @@ interface PageProps {
 export async function generateStaticParams() {
   try {
     const slugs = await getAvailableMonthSlugs();
-    // Pre-generate last 6 months at build time to avoid cold starts
-    return slugs.slice(0, 6).map((slug) => ({ slug }));
+    // Pre-generate all available months at build time — historical reports are immutable
+    return slugs.map((slug) => ({ slug }));
   } catch {
     return [];
   }
@@ -299,7 +299,7 @@ export default async function MonthlyReportPage({ params }: PageProps) {
             </h2>
             <div className="flex flex-wrap gap-2">
               {data.dates.map((date) => (
-                <Link key={date} href={`/market/${date}`}>
+                <Link key={date} href={`/market/${date}`} prefetch={false}>
                   <Badge variant="outline" className="hover:bg-primary/10 cursor-pointer">
                     {formatDate(date)}
                   </Badge>
@@ -330,6 +330,7 @@ export default async function MonthlyReportPage({ params }: PageProps) {
                 <Link
                   key={stock.code}
                   href={`/shorts/${stock.code}`}
+                  prefetch={false}
                   className={cn(
                     "gap-4 px-4 py-3 items-center hover:bg-muted/50 transition-colors group",
                     enhanced ? "grid grid-cols-[60px_1fr_100px_90px_48px]" : "grid grid-cols-[60px_1fr_100px_48px]",

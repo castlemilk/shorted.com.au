@@ -2025,6 +2025,8 @@ func (s *postgresStore) GetWeeklyReport(weekSlug string) (*WeeklyReport, error) 
 			industry_breakdown,
 			market_stats,
 			faqs,
+			COALESCE(citations::text, '[]'),
+			COALESCE(trend_insights::text, '{}'),
 			quality_score,
 			llm_model,
 			retry_count,
@@ -2038,6 +2040,7 @@ func (s *postgresStore) GetWeeklyReport(weekSlug string) (*WeeklyReport, error) 
 
 	var report WeeklyReport
 	var industryBreakdown, marketStats, faqs []byte
+	var citations, trendInsights []byte
 	var qualityScore sql.NullFloat64
 	var llmModel, publishedAt sql.NullString
 
@@ -2055,6 +2058,8 @@ func (s *postgresStore) GetWeeklyReport(weekSlug string) (*WeeklyReport, error) 
 		&industryBreakdown,
 		&marketStats,
 		&faqs,
+		&citations,
+		&trendInsights,
 		&qualityScore,
 		&llmModel,
 		&report.RetryCount,
@@ -2071,6 +2076,8 @@ func (s *postgresStore) GetWeeklyReport(weekSlug string) (*WeeklyReport, error) 
 	report.IndustryBreakdown = industryBreakdown
 	report.MarketStats = marketStats
 	report.FAQs = faqs
+	report.Citations = citations
+	report.TrendInsights = trendInsights
 	if qualityScore.Valid {
 		report.QualityScore = &qualityScore.Float64
 	}

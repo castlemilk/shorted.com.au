@@ -16,6 +16,7 @@ import (
 )
 
 var percentRegex = regexp.MustCompile(`(\d+\.\d+)%`)
+var citationRefRegex = regexp.MustCompile(`\[ref-(\d+)\]`)
 
 // QualityResult holds the quality check outcome
 type QualityResult struct {
@@ -133,8 +134,10 @@ func (q *QualityChecker) programmaticCheck(data *ReportData, narrative *Narrativ
 	}
 
 	// Check numerical accuracy: extract all percentages from narrative and cross-reference with source data
+	// First, strip [ref-N] markers so they don't trigger false percentage matches
+	textForPctCheck := citationRefRegex.ReplaceAllString(fullText, "")
 	validPcts := buildValidPercentageSet(data)
-	matches := percentRegex.FindAllStringSubmatch(fullText, -1)
+	matches := percentRegex.FindAllStringSubmatch(textForPctCheck, -1)
 	for _, match := range matches {
 		pct, err := strconv.ParseFloat(match[1], 64)
 		if err != nil {
@@ -142,6 +145,36 @@ func (q *QualityChecker) programmaticCheck(data *ReportData, narrative *Narrativ
 		}
 		if !isPercentageInSet(pct, validPcts, 0.02) {
 			issues = append(issues, fmt.Sprintf("unverified percentage %.2f%% not found in source data", pct))
+		}
+	}
+
+	// Citation validation: check that defined citation IDs appear in narrative text,
+	// and that inline [ref-N] markers have matching citation definitions
+	if narrative.Citations != nil {
+		definedIDs := make(map[string]bool)
+		for _, c := range narrative.Citations {
+			definedIDs[c.ID] = true
+		}
+
+		// Find all [ref-N] markers in the text
+		usedIDs := make(map[string]bool)
+		refMatches := citationRefRegex.FindAllStringSubmatch(fullText, -1)
+		for _, m := range refMatches {
+			usedIDs["ref-"+m[1]] = true
+		}
+
+		// Check for defined citations not used in text
+		for id := range definedIDs {
+			if !usedIDs[id] {
+				issues = append(issues, fmt.Sprintf("citation %s defined but never referenced in narrative", id))
+			}
+		}
+
+		// Check for orphaned [ref-N] markers with no matching citation
+		for id := range usedIDs {
+			if !definedIDs[id] {
+				issues = append(issues, fmt.Sprintf("orphaned [%s] in narrative has no matching citation definition", id))
+			}
 		}
 	}
 
