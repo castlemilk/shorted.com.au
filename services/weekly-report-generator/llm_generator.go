@@ -13,14 +13,24 @@ import (
 	"google.golang.org/api/option"
 )
 
+// Citation represents an inline reference to a data source
+type Citation struct {
+	ID     string `json:"id"`               // "ref-1"
+	Source string `json:"source"`            // "BHP H1 FY2025 Results"
+	Date   string `json:"date,omitempty"`
+	URL    string `json:"url,omitempty"`
+	Type   string `json:"type"`             // "financial_report", "announcement", "asic_data", "price_data"
+}
+
 // NarrativeResult holds the LLM-generated narrative
 type NarrativeResult struct {
-	Headline   string    `json:"headline"`
-	Summary    string    `json:"summary"`
-	Narrative  Narrative `json:"narrative"`
-	FAQs       []FAQ     `json:"faqs"`
-	Model      string    `json:"model"`
-	RetryCount int       `json:"retry_count"`
+	Headline   string     `json:"headline"`
+	Summary    string     `json:"summary"`
+	Narrative  Narrative  `json:"narrative"`
+	FAQs       []FAQ      `json:"faqs"`
+	Citations  []Citation `json:"citations,omitempty"`
+	Model      string     `json:"model"`
+	RetryCount int        `json:"retry_count"`
 }
 
 // Narrative holds the structured narrative sections
@@ -92,6 +102,13 @@ Format:
 - Summary: 2-3 sentences a busy person can skim
 - 3-5 FAQs with 1-2 sentence answers each
 
+Citations:
+- When referencing specific data points (financial results, announcements, price data, ASIC figures), add inline markers like [ref-1], [ref-2] in the narrative text
+- List all citations in the "citations" array with matching IDs
+- Citation types: "financial_report", "announcement", "asic_data", "price_data"
+- Only cite data that actually appears in the source data above
+- Scale citations to report scope: ~3-8 for weekly, ~8-15 for monthly, ~15-25 for yearly. Cite key claims, not every number
+
 Return ONLY valid JSON in this exact structure:
 {
   "headline": "Short, punchy headline under 80 chars",
@@ -105,6 +122,9 @@ Return ONLY valid JSON in this exact structure:
   },
   "faqs": [
     {"question": "Specific question a retail investor would ask", "answer": "Direct factual answer"}
+  ],
+  "citations": [
+    {"id": "ref-1", "source": "Description of the data source", "date": "2026-01-15", "url": "", "type": "asic_data"}
   ]
 }`
 
@@ -132,6 +152,13 @@ Avoid these dead giveaways of AI writing: "it's important to note", "landscape",
 "unprecedented", "cutting-edge", "bears are circling", "all eyes on", "amidst", "the stage is set",
 "remains to be seen", "a testament to"
 
+Citations:
+- When referencing specific data points (financial results, announcements, price data, ASIC figures), add inline markers like [ref-1], [ref-2] in the narrative text
+- List all citations in the "citations" array with matching IDs
+- Citation types: "financial_report", "announcement", "asic_data", "price_data"
+- Only cite data that actually appears in the source data above
+- Scale citations to report scope: ~3-8 for weekly, ~8-15 for monthly, ~15-25 for yearly
+
 Return ONLY valid JSON in this exact structure:
 {
   "headline": "Punchy headline under 80 chars",
@@ -145,6 +172,9 @@ Return ONLY valid JSON in this exact structure:
   },
   "faqs": [
     {"question": "Question a retail investor would actually search for", "answer": "Direct, factual answer"}
+  ],
+  "citations": [
+    {"id": "ref-1", "source": "Description of the data source", "date": "2026-01-15", "url": "", "type": "asic_data"}
   ]
 }`
 
@@ -180,6 +210,12 @@ ABSOLUTELY DO NOT USE: "it's important to note", "landscape", "delve", "navigate
 "bears are circling", "all eyes on", "amidst", "the stage is set", "remains to be seen", "a testament to",
 "make waves", "sent shockwaves", "a double-edged sword"
 
+Citations:
+- Merge citations from both drafts. Deduplicate by source. Renumber sequentially as [ref-1], [ref-2], etc.
+- Ensure every [ref-N] marker in the narrative text has a matching entry in the citations array
+- Citation types: "financial_report", "announcement", "asic_data", "price_data"
+- Scale citations to report scope: ~3-8 for weekly, ~8-15 for monthly, ~15-25 for yearly
+
 Return ONLY valid JSON in this exact structure:
 {
   "headline": "Punchy headline under 80 chars — the most click-worthy angle",
@@ -193,6 +229,9 @@ Return ONLY valid JSON in this exact structure:
   },
   "faqs": [
     {"question": "Question a retail investor would Google", "answer": "Direct factual answer"}
+  ],
+  "citations": [
+    {"id": "ref-1", "source": "Description of the data source", "date": "2026-01-15", "url": "", "type": "asic_data"}
   ]
 }`
 
@@ -409,8 +448,40 @@ func buildUserPrompt(data *ReportData, feedback string) string {
 		sb.WriteString("\nCOMPANY CONTEXT (use to add depth to your analysis):\n")
 		for code, meta := range data.CompanyContext {
 			fmt.Fprintf(&sb, "\n%s — %s (market cap: $%dM)\n", code, meta.Industry, meta.MarketCap/1_000_000)
+			if meta.EnhancedSummary != "" {
+				summary := meta.EnhancedSummary
+				if len(summary) > 200 {
+					summary = summary[:200] + "..."
+				}
+				fmt.Fprintf(&sb, "  Summary: %s\n", summary)
+			}
 			if meta.RecentDevelopments != "" {
 				fmt.Fprintf(&sb, "  Recent: %s\n", meta.RecentDevelopments)
+			}
+			if meta.RiskFactors != "" {
+				risks := meta.RiskFactors
+				if len(risks) > 150 {
+					risks = risks[:150] + "..."
+				}
+				fmt.Fprintf(&sb, "  Risks: %s\n", risks)
+			}
+			if meta.ParsedMetrics != nil {
+				var parts []string
+				if meta.ParsedMetrics.PERatio != nil {
+					parts = append(parts, fmt.Sprintf("P/E: %.1f", *meta.ParsedMetrics.PERatio))
+				}
+				if meta.ParsedMetrics.EPS != nil {
+					parts = append(parts, fmt.Sprintf("EPS: $%.2f", *meta.ParsedMetrics.EPS))
+				}
+				if meta.ParsedMetrics.DividendYield != nil {
+					parts = append(parts, fmt.Sprintf("Div Yield: %.1f%%", *meta.ParsedMetrics.DividendYield))
+				}
+				if meta.ParsedMetrics.Beta != nil {
+					parts = append(parts, fmt.Sprintf("Beta: %.2f", *meta.ParsedMetrics.Beta))
+				}
+				if len(parts) > 0 {
+					fmt.Fprintf(&sb, "  Metrics: %s\n", strings.Join(parts, ", "))
+				}
 			}
 		}
 	}
@@ -484,6 +555,37 @@ func buildUserPrompt(data *ReportData, feedback string) string {
 		}
 	}
 
+	// Include trend insights for movers
+	if len(data.TrendInsights) > 0 {
+		sb.WriteString("\nTREND INSIGHTS (use these structured signals to explain WHY short interest changed — cite the pattern, announcements, and financial data in your analysis):\n")
+		for code, ti := range data.TrendInsights {
+			fmt.Fprintf(&sb, "\n%s [%s] — short change: %+.2f%%\n", code, ti.Direction, ti.ShortChange)
+			if ti.PriceCorrelation != nil {
+				fmt.Fprintf(&sb, "  Pattern: %s (weekly price: %+.1f%%, monthly: %+.1f%%)\n",
+					ti.PriceCorrelation.Pattern, ti.PriceCorrelation.WeeklyPriceChange, ti.PriceCorrelation.MonthlyPriceChange)
+			}
+			if len(ti.KeyAnnouncements) > 0 {
+				sb.WriteString("  Announcements:\n")
+				for _, a := range ti.KeyAnnouncements {
+					fmt.Fprintf(&sb, "    - %s\n", a)
+				}
+			}
+			if len(ti.FinancialSignals) > 0 {
+				sb.WriteString("  Financial signals:\n")
+				for _, s := range ti.FinancialSignals {
+					fmt.Fprintf(&sb, "    - %s\n", s)
+				}
+			}
+			if len(ti.MetricSignals) > 0 {
+				sb.WriteString("  Valuation signals:\n")
+				for _, s := range ti.MetricSignals {
+					fmt.Fprintf(&sb, "    - %s\n", s)
+				}
+			}
+			fmt.Fprintf(&sb, "  Composite: %s\n", ti.CompositeSignal)
+		}
+	}
+
 	sb.WriteString("</report_data>\n")
 
 	// Include extra context (e.g., quarterly snapshots + monthly narratives for yearly reports)
@@ -498,7 +600,24 @@ func buildUserPrompt(data *ReportData, feedback string) string {
 		sb.WriteString("\nPlease regenerate the report addressing the quality feedback above.\n")
 	}
 
-	sb.WriteString("\nGenerate a weekly short selling report based on the data above. Return ONLY valid JSON.")
+	// Report-type-specific instructions
+	switch data.ReportType {
+	case "yearly":
+		sb.WriteString("\nGenerate a year-in-review short selling report based on the data above.")
+		sb.WriteString("\nCITATION GUIDANCE: This is a yearly report covering 12 months of data. You should include 15-25 citations covering:")
+		sb.WriteString("\n- ASIC short position data for key stocks at year start, year end, and major turning points")
+		sb.WriteString("\n- Financial reports from the biggest movers (earnings, profit warnings, capital raises)")
+		sb.WriteString("\n- Quarterly snapshot data showing how positions evolved through the year")
+		sb.WriteString("\n- Monthly report narratives where relevant")
+		sb.WriteString("\n- Price data correlated with short interest changes")
+		sb.WriteString("\nEvery major claim about a stock's short interest trajectory should have a citation.\n")
+	case "monthly":
+		sb.WriteString("\nGenerate a monthly short selling report based on the data above.")
+		sb.WriteString("\nCITATION GUIDANCE: This is a monthly report. Include 8-15 citations covering ASIC data, financial reports, and price data for the key movers.\n")
+	default:
+		sb.WriteString("\nGenerate a weekly short selling report based on the data above.\n")
+	}
+	sb.WriteString("Return ONLY valid JSON.")
 
 	return sb.String()
 }

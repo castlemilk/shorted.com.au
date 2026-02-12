@@ -27,6 +27,10 @@ import { cn } from "~/@/lib/utils";
 import { MoversTable } from "~/@/components/reports/movers-table";
 import { WeekNavigation } from "~/@/components/reports/week-navigation";
 import {
+  CitationRenderer,
+  CitationFootnotes,
+} from "~/@/components/reports/citation-renderer";
+import {
   getWeeklyReportData,
   getEnhancedWeeklyReportData,
   getAvailableWeekSlugs,
@@ -156,6 +160,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
   const risers = enhanced?.risers ?? [];
   const fallers = enhanced?.fallers ?? [];
   const faqs = enhanced?.faqs ?? [];
+  const citations = enhanced?.citations ?? [];
   const marketStats = enhanced?.marketStats;
 
   // Article schema for SEO (when narrative exists)
@@ -311,11 +316,11 @@ export default async function WeeklyReportPage({ params }: PageProps) {
           <section className="rounded-lg border border-primary/20 bg-primary/5 p-6">
             <h2 className="text-lg font-semibold mb-3">This Week&apos;s Analysis</h2>
             <p className="text-foreground/90 leading-relaxed">
-              {enhanced.narrative.openingHook}
+              <CitationRenderer text={enhanced.narrative.openingHook} citations={citations} />
             </p>
             {enhanced.narrative.topAnalysis && (
               <p className="text-foreground/80 leading-relaxed mt-3">
-                {enhanced.narrative.topAnalysis}
+                <CitationRenderer text={enhanced.narrative.topAnalysis} citations={citations} />
               </p>
             )}
           </section>
@@ -501,13 +506,13 @@ export default async function WeeklyReportPage({ params }: PageProps) {
           <section className="rounded-lg border border-border/40 bg-card/50 p-6">
             <h2 className="text-lg font-semibold mb-3">Movers Analysis</h2>
             <p className="text-foreground/80 leading-relaxed">
-              {enhanced.narrative.moversAnalysis}
+              <CitationRenderer text={enhanced.narrative.moversAnalysis} citations={citations} />
             </p>
             {enhanced.narrative.industryAnalysis && (
               <>
                 <h3 className="text-base font-semibold mt-4 mb-2">Industry Trends</h3>
                 <p className="text-foreground/80 leading-relaxed">
-                  {enhanced.narrative.industryAnalysis}
+                  <CitationRenderer text={enhanced.narrative.industryAnalysis} citations={citations} />
                 </p>
               </>
             )}
@@ -519,7 +524,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
           <section className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-6">
             <h2 className="text-lg font-semibold mb-3">Outlook</h2>
             <p className="text-foreground/80 leading-relaxed">
-              {enhanced.narrative.outlook}
+              <CitationRenderer text={enhanced.narrative.outlook} citations={citations} />
             </p>
           </section>
         )}
@@ -539,6 +544,11 @@ export default async function WeeklyReportPage({ params }: PageProps) {
               ))}
             </div>
           </section>
+        )}
+
+        {/* Citation Sources */}
+        {citations.length > 0 && (
+          <CitationFootnotes citations={citations} />
         )}
 
         {/* Disclaimer */}

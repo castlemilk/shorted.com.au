@@ -117,6 +117,8 @@ type WeeklyReport struct {
 	IndustryBreakdown []byte // JSON (nullable)
 	MarketStats       []byte // JSON (nullable)
 	FAQs              []byte // JSON (nullable)
+	Citations         []byte // JSON (nullable)
+	TrendInsights     []byte // JSON (nullable)
 	QualityScore      *float64
 	LLMModel          *string
 	RetryCount        int

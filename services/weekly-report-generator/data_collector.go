@@ -49,16 +49,26 @@ type ReportData struct {
 	FinancialHighlights map[string][]FinancialHighlight    // stock_code → extracted financial metrics
 	PriceContext         map[string]StockPriceContext       // stock_code → price data
 	Announcements        map[string][]Announcement          // stock_code → recent announcements
+	TrendInsights        map[string]TrendInsight            // stock_code → trend insight
+}
+
+// ParsedKeyMetrics holds parsed financial metrics from key_metrics JSONB
+type ParsedKeyMetrics struct {
+	PERatio       *float64 `json:"pe_ratio,omitempty"`
+	EPS           *float64 `json:"eps,omitempty"`
+	DividendYield *float64 `json:"dividend_yield,omitempty"`
+	Beta          *float64 `json:"beta,omitempty"`
 }
 
 // CompanyMeta holds company metadata for enriching LLM context
 type CompanyMeta struct {
-	Industry            string `json:"industry"`
-	MarketCap           int64  `json:"market_cap"`
-	EnhancedSummary     string `json:"enhanced_summary"`
-	RecentDevelopments  string `json:"recent_developments"`
-	RiskFactors         string `json:"risk_factors"`
-	KeyMetrics          string `json:"key_metrics"` // raw JSONB string
+	Industry            string            `json:"industry"`
+	MarketCap           int64             `json:"market_cap"`
+	EnhancedSummary     string            `json:"enhanced_summary"`
+	RecentDevelopments  string            `json:"recent_developments"`
+	RiskFactors         string            `json:"risk_factors"`
+	KeyMetrics          string            `json:"key_metrics"` // raw JSONB string
+	ParsedMetrics       *ParsedKeyMetrics `json:"parsed_metrics,omitempty"`
 }
 
 // FinancialReportRef represents a company's financial report link
@@ -255,7 +265,7 @@ func (c *DataCollector) Collect(ctx context.Context, weekSlug string) (*ReportDa
 	priceCtx := c.getStockPrices(ctx, mentionedCodes, reportDate, startDate, endDate)
 	announcements := c.getRecentAnnouncements(ctx, mentionedCodes, startDate, endDate)
 
-	return &ReportData{
+	data := &ReportData{
 		WeekSlug:            weekSlug,
 		ReportDate:          reportDate,
 		PreviousDate:        previousDate,
@@ -269,7 +279,13 @@ func (c *DataCollector) Collect(ctx context.Context, weekSlug string) (*ReportDa
 		FinancialHighlights: finHighlights,
 		PriceContext:         priceCtx,
 		Announcements:       announcements,
-	}, nil
+	}
+
+	// Build trend insights for risers/fallers
+	data.TrendInsights = NewTrendAnalyzer().Analyze(data)
+	log.Printf("Generated trend insights for %d movers", len(data.TrendInsights))
+
+	return data, nil
 }
 
 type stockRow struct {
@@ -466,11 +482,93 @@ func (c *DataCollector) getCompanyMetadata(ctx context.Context, codes []string) 
 		if marketCapStr != "" {
 			fmt.Sscanf(marketCapStr, "%d", &m.MarketCap)
 		}
+		m.ParsedMetrics = parseKeyMetrics(m.KeyMetrics)
 		result[code] = m
 	}
 
 	log.Printf("Fetched company metadata for %d/%d stocks", len(result), len(codes))
 	return result
+}
+
+// parseKeyMetrics extracts known financial metrics from key_metrics JSONB
+func parseKeyMetrics(raw string) *ParsedKeyMetrics {
+	if raw == "" || raw == "{}" {
+		return nil
+	}
+
+	var data map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(raw), &data); err != nil {
+		return nil
+	}
+
+	pm := &ParsedKeyMetrics{}
+	hasAny := false
+
+	// Helper to extract a float from various shapes: number, string, or object with "value" key
+	extractFloat := func(key string) *float64 {
+		raw, ok := data[key]
+		if !ok {
+			return nil
+		}
+		// Try direct number
+		var f float64
+		if err := json.Unmarshal(raw, &f); err == nil {
+			return &f
+		}
+		// Try string
+		var s string
+		if err := json.Unmarshal(raw, &s); err == nil {
+			s = strings.TrimSpace(strings.TrimSuffix(strings.TrimSuffix(s, "%"), "x"))
+			if v, err := strconv.ParseFloat(s, 64); err == nil {
+				return &v
+			}
+		}
+		// Try object with "value" key
+		var obj map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &obj); err == nil {
+			if valRaw, ok := obj["value"]; ok {
+				var v float64
+				if err := json.Unmarshal(valRaw, &v); err == nil {
+					return &v
+				}
+			}
+		}
+		return nil
+	}
+
+	for _, key := range []string{"pe_ratio", "p_e_ratio", "PE Ratio", "pe"} {
+		if v := extractFloat(key); v != nil {
+			pm.PERatio = v
+			hasAny = true
+			break
+		}
+	}
+	for _, key := range []string{"eps", "EPS", "earnings_per_share"} {
+		if v := extractFloat(key); v != nil {
+			pm.EPS = v
+			hasAny = true
+			break
+		}
+	}
+	for _, key := range []string{"dividend_yield", "Dividend Yield", "div_yield"} {
+		if v := extractFloat(key); v != nil {
+			pm.DividendYield = v
+			hasAny = true
+			break
+		}
+	}
+	for _, key := range []string{"beta", "Beta"} {
+		if v := extractFloat(key); v != nil {
+			pm.Beta = v
+			hasAny = true
+			break
+		}
+	}
+
+	if !hasAny {
+		return nil
+	}
+	return pm
 }
 
 // getFinancialHighlights fetches extracted financial metrics from financial_report_extractions for a list of stock codes

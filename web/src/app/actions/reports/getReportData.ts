@@ -188,6 +188,15 @@ export async function getAvailableWeekSlugs(): Promise<string[]> {
   return slugs;
 }
 
+// A citation referencing a data source in the weekly report narrative
+export interface ReportCitation {
+  id: string; // "ref-1"
+  source: string; // "BHP H1 FY2025 Results"
+  date: string;
+  url: string;
+  type: string; // "financial_report", "announcement", "asic_data", "price_data"
+}
+
 // Enhanced weekly report data including LLM narrative (from weekly_reports table)
 export interface EnhancedWeeklyReportNarrative {
   headline: string;
@@ -224,6 +233,7 @@ export interface EnhancedWeeklyReportNarrative {
     question: string;
     answer: string;
   }>;
+  citations: ReportCitation[];
   marketStats?: {
     totalStocksShorted: number;
     avgShortPct: number;
@@ -276,6 +286,13 @@ async function fetchEnhancedReport(weekSlug: string): Promise<EnhancedWeeklyRepo
         faqs: resp.faqs.map((f) => ({
           question: f.question,
           answer: f.answer,
+        })),
+        citations: (resp.citations ?? []).map((c) => ({
+          id: c.id,
+          source: c.source,
+          date: c.date,
+          url: c.url,
+          type: c.type,
         })),
         marketStats: resp.marketStats
           ? {

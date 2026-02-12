@@ -277,6 +277,18 @@ func storeReport(ctx context.Context, db *pgxpool.Pool, weekSlug string, data *R
 	narrativeJSON, _ := json.Marshal(narrative.Narrative)
 	faqsJSON, _ := json.Marshal(narrative.FAQs)
 
+	// Marshal citations (may be nil/empty)
+	var citationsJSON []byte
+	if len(narrative.Citations) > 0 {
+		citationsJSON, _ = json.Marshal(narrative.Citations)
+	}
+
+	// Marshal trend insights (may be nil/empty)
+	var trendInsightsJSON []byte
+	if len(data.TrendInsights) > 0 {
+		trendInsightsJSON, _ = json.Marshal(data.TrendInsights)
+	}
+
 	var publishedAt *time.Time
 	if quality.PublishReady {
 		now := time.Now()
@@ -287,8 +299,9 @@ func storeReport(ctx context.Context, db *pgxpool.Pool, weekSlug string, data *R
 		INSERT INTO weekly_reports (
 			week_slug, report_date, previous_date, headline, summary,
 			narrative, top_shorted, risers, fallers, market_stats, faqs,
-			quality_score, llm_model, retry_count, published_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+			quality_score, llm_model, retry_count, published_at,
+			citations, trend_insights
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
 		ON CONFLICT (week_slug) DO UPDATE SET
 			report_date = EXCLUDED.report_date,
 			previous_date = EXCLUDED.previous_date,
@@ -303,13 +316,25 @@ func storeReport(ctx context.Context, db *pgxpool.Pool, weekSlug string, data *R
 			quality_score = EXCLUDED.quality_score,
 			llm_model = EXCLUDED.llm_model,
 			retry_count = EXCLUDED.retry_count,
-			published_at = EXCLUDED.published_at
+			published_at = EXCLUDED.published_at,
+			citations = EXCLUDED.citations,
+			trend_insights = EXCLUDED.trend_insights
 	`
+
+	// Use nil for null JSONB columns
+	var citationsArg, trendInsightsArg interface{}
+	if citationsJSON != nil {
+		citationsArg = string(citationsJSON)
+	}
+	if trendInsightsJSON != nil {
+		trendInsightsArg = string(trendInsightsJSON)
+	}
 
 	_, err := db.Exec(ctx, query,
 		weekSlug, data.ReportDate, data.PreviousDate, narrative.Headline, narrative.Summary,
 		string(narrativeJSON), string(topJSON), string(risersJSON), string(fallersJSON), string(statsJSON), string(faqsJSON),
 		quality.Score, narrative.Model, narrative.RetryCount, publishedAt,
+		citationsArg, trendInsightsArg,
 	)
 	return err
 }
