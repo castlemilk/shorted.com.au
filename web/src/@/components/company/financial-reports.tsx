@@ -96,7 +96,7 @@ export function FinancialReports({ reports, stockCode: _stockCode }: FinancialRe
                 asChild
               >
                 <a
-                  href={report.url}
+                  href={report.gcs_url ?? report.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={`Open ${report.title}`}

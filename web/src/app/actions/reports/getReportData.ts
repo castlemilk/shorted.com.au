@@ -81,90 +81,105 @@ function parseWeekSlug(slug: string): { year: number; week: number } | null {
   return { year: parseInt(match[1]), week: parseInt(match[2]) };
 }
 
-// Get weekly report data by fetching the last day of the week
+// Inner fetch for weekly report data
+async function fetchWeeklyReport(weekSlug: string): Promise<WeeklyReportData> {
+  const parsed = parseWeekSlug(weekSlug);
+  if (!parsed) throw new Error(`Invalid week slug: ${weekSlug}`);
+
+  const { start, end } = getWeekDateRange(parsed.year, parsed.week);
+  const startStr = start.toISOString().slice(0, 10);
+  const endStr = end.toISOString().slice(0, 10);
+
+  return withSpan(
+    "report.fetch.weekly",
+    { weekSlug, startDate: startStr, endDate: endStr },
+    async () => {
+      const transport = getTransport();
+      const client = createClient(ShortedStocksService, transport);
+
+      const [availableDates, marketData] = await Promise.all([
+        client.getAvailableDates({ limit: 5, before: "" }),
+        client.getMarketByDate({ date: endStr, limit: 50, offset: 0 }),
+      ]);
+
+      const weekDates = availableDates.dates.filter((d) => d >= startStr && d <= endStr);
+
+      return {
+        weekSlug,
+        startDate: startStr,
+        endDate: endStr,
+        dates: weekDates,
+        topStocks: marketData.stocks.map((s) => ({
+          code: s.productCode ?? "",
+          name: s.name ?? "",
+          shortPercent: s.percentageShorted,
+          industry: s.industry ?? "",
+        })),
+        totalStocksShorted: marketData.totalCount,
+      };
+    },
+  );
+}
+
+// Get weekly report data — persistently cached across requests (24h)
 export const getWeeklyReportData = cache(
-  withRetryAndNotFound(async (weekSlug: string): Promise<WeeklyReportData> => {
-    const parsed = parseWeekSlug(weekSlug);
-    if (!parsed) throw new Error(`Invalid week slug: ${weekSlug}`);
-
-    const { start, end } = getWeekDateRange(parsed.year, parsed.week);
-    const startStr = start.toISOString().slice(0, 10);
-    const endStr = end.toISOString().slice(0, 10);
-
-    return withSpan(
-      "report.fetch.weekly",
-      { weekSlug, startDate: startStr, endDate: endStr },
-      async () => {
-        const transport = getTransport();
-        const client = createClient(ShortedStocksService, transport);
-
-        // Fetch dates and market data in parallel to eliminate serial round-trip
-        const [availableDates, marketData] = await Promise.all([
-          client.getAvailableDates({ limit: 5, before: "" }),
-          client.getMarketByDate({ date: endStr, limit: 50, offset: 0 }),
-        ]);
-
-        const weekDates = availableDates.dates.filter((d) => d >= startStr && d <= endStr);
-
-        return {
-          weekSlug,
-          startDate: startStr,
-          endDate: endStr,
-          dates: weekDates,
-          topStocks: marketData.stocks.map((s) => ({
-            code: s.productCode ?? "",
-            name: s.name ?? "",
-            shortPercent: s.percentageShorted,
-            industry: s.industry ?? "",
-          })),
-          totalStocksShorted: marketData.totalCount,
-        };
-      },
-    );
+  withRetryAndNotFound((weekSlug: string) => {
+    return unstable_cache(
+      () => fetchWeeklyReport(weekSlug),
+      [`weekly-report-${weekSlug}`],
+      { tags: [`report-${weekSlug}`], revalidate: 86400 },
+    )();
   }, LIGHT_RETRY),
 );
 
-// Get monthly report data
+// Inner fetch for monthly report data
+async function fetchMonthlyReport(monthSlug: string): Promise<MonthlyReportData> {
+  const match = monthSlug.match(/^(\d{4})-(\d{2})$/);
+  if (!match?.[1] || !match[2]) throw new Error(`Invalid month slug: ${monthSlug}`);
+
+  const year = match[1];
+  const month = match[2];
+  const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
+  const endDate = `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
+
+  const transport = getTransport();
+  const client = createClient(ShortedStocksService, transport);
+
+  const monthNum = parseInt(month);
+  const yearNum = parseInt(year);
+  const nextMonthDate = `${monthNum === 12 ? yearNum + 1 : yearNum}-${String(monthNum === 12 ? 1 : monthNum + 1).padStart(2, "0")}-01`;
+
+  const [availableDates, marketData] = await Promise.all([
+    client.getAvailableDates({ limit: 31, before: nextMonthDate }),
+    client.getMarketByDate({ date: endDate, limit: 50, offset: 0 }),
+  ]);
+
+  const monthDates = availableDates.dates.filter((d) => d.startsWith(`${year}-${month}`));
+  const monthName = new Date(`${year}-${month}-01T00:00:00`).toLocaleDateString("en-AU", { month: "long" });
+
+  return {
+    monthSlug,
+    month: monthName,
+    year,
+    dates: monthDates,
+    topStocks: marketData.stocks.map((s) => ({
+      code: s.productCode ?? "",
+      name: s.name ?? "",
+      shortPercent: s.percentageShorted,
+      industry: s.industry ?? "",
+    })),
+    totalStocksShorted: marketData.totalCount,
+  };
+}
+
+// Get monthly report data — persistently cached across requests (24h)
 export const getMonthlyReportData = cache(
-  withRetryAndNotFound(async (monthSlug: string): Promise<MonthlyReportData> => {
-    const match = monthSlug.match(/^(\d{4})-(\d{2})$/);
-    if (!match?.[1] || !match[2]) throw new Error(`Invalid month slug: ${monthSlug}`);
-
-    const year = match[1];
-    const month = match[2];
-    const lastDay = new Date(parseInt(year), parseInt(month), 0).getDate();
-    const endDate = `${year}-${month}-${String(lastDay).padStart(2, "0")}`;
-
-    const transport = getTransport();
-    const client = createClient(ShortedStocksService, transport);
-
-    // Get available dates for this month
-    const monthNum = parseInt(month);
-    const yearNum = parseInt(year);
-    const nextMonthDate = `${monthNum === 12 ? yearNum + 1 : yearNum}-${String(monthNum === 12 ? 1 : monthNum + 1).padStart(2, "0")}-01`;
-
-    // Fetch dates and market data in parallel to eliminate serial round-trip
-    const [availableDates, marketData] = await Promise.all([
-      client.getAvailableDates({ limit: 31, before: nextMonthDate }),
-      client.getMarketByDate({ date: endDate, limit: 50, offset: 0 }),
-    ]);
-
-    const monthDates = availableDates.dates.filter((d) => d.startsWith(`${year}-${month}`));
-    const monthName = new Date(`${year}-${month}-01T00:00:00`).toLocaleDateString("en-AU", { month: "long" });
-
-    return {
-      monthSlug,
-      month: monthName,
-      year,
-      dates: monthDates,
-      topStocks: marketData.stocks.map((s) => ({
-        code: s.productCode ?? "",
-        name: s.name ?? "",
-        shortPercent: s.percentageShorted,
-        industry: s.industry ?? "",
-      })),
-      totalStocksShorted: marketData.totalCount,
-    };
+  withRetryAndNotFound((monthSlug: string) => {
+    return unstable_cache(
+      () => fetchMonthlyReport(monthSlug),
+      [`monthly-report-${monthSlug}`],
+      { tags: [`report-${monthSlug}`], revalidate: 86400 },
+    )();
   }, LIGHT_RETRY),
 );
 
@@ -326,19 +341,16 @@ async function fetchEnhancedReport(weekSlug: string): Promise<EnhancedWeeklyRepo
 
 // Fetch enhanced weekly report narrative with on-demand revalidation support
 // Uses unstable_cache with tags so the report generator can trigger revalidation via POST /api/revalidate?tag=report-SLUG
-export const getEnhancedWeeklyReportData = cache(
-  (weekSlug: string) => {
-    const cachedFetch = unstable_cache(
-      () => fetchEnhancedReport(weekSlug),
-      [`enhanced-report-${weekSlug}`],
-      {
-        tags: [`report-${weekSlug}`],
-        revalidate: 86400, // 24h fallback
-      },
-    );
-    return cachedFetch();
-  },
-);
+export const getEnhancedWeeklyReportData = (weekSlug: string) => {
+  return unstable_cache(
+    () => fetchEnhancedReport(weekSlug),
+    [`enhanced-report-${weekSlug}`],
+    {
+      tags: [`report-${weekSlug}`],
+      revalidate: 86400, // 24h fallback
+    },
+  )();
+};
 
 // Generate available month slugs (last 24 months, excluding the current incomplete month)
 export async function getAvailableMonthSlugs(): Promise<string[]> {
@@ -364,39 +376,50 @@ export interface StockFinancialHighlight {
   }>;
 }
 
-// Fetch financial highlights for given stock codes
-export const getStockFinancialHighlights = cache(
-  async (
-    stockCodes: string[],
-  ): Promise<Record<string, StockFinancialHighlight[]>> => {
-    try {
-      const transport = getTransport();
-      const client = createClient(ShortedStocksService, transport);
+// Inner fetch for financial highlights
+async function fetchStockFinancialHighlights(
+  stockCodes: string[],
+): Promise<Record<string, StockFinancialHighlight[]>> {
+  try {
+    const transport = getTransport();
+    const client = createClient(ShortedStocksService, transport);
 
-      const resp = await client.getStockFinancialHighlights({
-        stockCodes,
-        maxReportsPerStock: 2,
-      });
+    const resp = await client.getStockFinancialHighlights({
+      stockCodes,
+      maxReportsPerStock: 2,
+    });
 
-      const result: Record<string, StockFinancialHighlight[]> = {};
-      for (const [code, data] of Object.entries(resp.highlights)) {
-        result[code] = data.reports.map((r) => ({
-          reportTitle: r.reportTitle,
-          reportType: r.reportType,
-          reportDate: r.reportDate,
-          metrics: r.metrics.map((m) => ({
-            metricType: m.metricType,
-            sourceText: m.sourceText,
-            attributes: Object.fromEntries(
-              Object.entries(m.attributes),
-            ),
-          })),
-        }));
-      }
-      return result;
-    } catch {
-      return {};
+    const result: Record<string, StockFinancialHighlight[]> = {};
+    for (const [code, data] of Object.entries(resp.highlights)) {
+      result[code] = data.reports.map((r) => ({
+        reportTitle: r.reportTitle,
+        reportType: r.reportType,
+        reportDate: r.reportDate,
+        metrics: r.metrics.map((m) => ({
+          metricType: m.metricType,
+          sourceText: m.sourceText,
+          attributes: Object.fromEntries(
+            Object.entries(m.attributes),
+          ),
+        })),
+      }));
     }
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+// Fetch financial highlights — persistently cached across requests (24h)
+// Cache key uses sorted codes to ensure stable keys regardless of input order
+export const getStockFinancialHighlights = cache(
+  (stockCodes: string[]) => {
+    const sortedKey = [...stockCodes].sort().join(",");
+    return unstable_cache(
+      () => fetchStockFinancialHighlights(stockCodes),
+      [`financial-highlights-${sortedKey}`],
+      { revalidate: 86400 },
+    )();
   },
 );
 
