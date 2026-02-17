@@ -40,8 +40,8 @@ export const metadata: Metadata = {
 const DEFAULT_PERIOD: TimePeriod = "3m";
 const LOAD_CHUNK_SIZE = 20;
 
-// ISR: Revalidate every hour for fresh data while keeping pages fast
-export const revalidate = 3600;
+// This page is behind auth middleware — force dynamic to avoid build-time pre-render failures
+export const dynamic = "force-dynamic";
 
 export default async function TopShortsPage() {
   // Page is public for SEO - search engines can crawl the top shorts list
