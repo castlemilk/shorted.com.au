@@ -32,7 +32,7 @@ export function ClientPage({
     <>
       {/* Google Analytics */}
       <Script
-        src={`https://www.googletagmanager.com/gtag/js?id=G-X85RLQ4N2N`}
+        src={`https://www.googletagmanager.com/gtag/js?id=G-DM16HLR7MZ`}
         strategy="afterInteractive"
         id="google-analytics"
       />
@@ -44,7 +44,7 @@ export function ClientPage({
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
-            gtag('config', 'G-X85RLQ4N2N');
+            gtag('config', 'G-DM16HLR7MZ');
           `,
         }}
       />

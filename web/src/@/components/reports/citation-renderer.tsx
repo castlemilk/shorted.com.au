@@ -52,29 +52,15 @@ export function CitationRenderer({
 
         const num = match[1];
 
-        if (citation.url) {
-          return (
-            <a
-              key={i}
-              href={citation.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={tooltipText}
-              className="relative -top-1 inline-flex items-center justify-center h-4 min-w-4 px-0.5 text-[10px] font-semibold text-primary bg-primary/10 rounded hover:bg-primary/20 transition-colors no-underline"
-            >
-              {num}
-            </a>
-          );
-        }
-
         return (
-          <span
+          <a
             key={i}
+            href={`#${refId}`}
             title={tooltipText}
-            className="relative -top-1 inline-flex items-center justify-center h-4 min-w-4 px-0.5 text-[10px] font-semibold text-primary bg-primary/10 rounded cursor-help"
+            className="relative -top-1 inline-flex items-center justify-center h-4 min-w-4 px-0.5 text-[10px] font-semibold text-primary bg-primary/10 rounded hover:bg-primary/20 transition-colors no-underline"
           >
             {num}
-          </span>
+          </a>
         );
       })}
     </span>
@@ -102,7 +88,7 @@ export function CitationFootnotes({ citations }: CitationFootnotesProps) {
             ? ` [${c.type.replace(/_/g, " ")}]`
             : "";
           return (
-            <li key={c.id}>
+            <li key={c.id} id={c.id} className="scroll-mt-24">
               {c.url ? (
                 <a
                   href={c.url}
