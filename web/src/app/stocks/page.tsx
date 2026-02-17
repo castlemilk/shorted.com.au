@@ -36,6 +36,9 @@ export const metadata: Metadata = {
   },
 };
 
+// This page is behind auth middleware — force dynamic to avoid build-time pre-render failures
+export const dynamic = "force-dynamic";
+
 // Popular ASX stocks for quick access (pre-rendered on server)
 const POPULAR_STOCKS = [
   { code: "CBA", name: "Commonwealth Bank", sector: "Banking" },

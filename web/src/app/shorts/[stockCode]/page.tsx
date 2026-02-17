@@ -67,7 +67,7 @@ export async function generateStaticParams(): Promise<{ stockCode: string }[]> {
 
     const stockCodes = response.timeSeries
       .map((ts) => ts.productCode)
-      .filter((code): code is string => !!code);
+      .filter((code): code is string => !!code && /^[A-Z0-9]{1,4}$/.test(code));
 
     // Return unique stock codes
     return [...new Set(stockCodes)].map((code) => ({
