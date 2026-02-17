@@ -17,7 +17,6 @@ import {
   EnvironmentBanner,
   DevelopmentBanner,
 } from "~/@/components/ui/environment-banner";
-import { auth } from "~/server/auth";
 
 // IBM Plex Mono - Primary monospace for terminal aesthetic
 const fontMono = IBM_Plex_Mono({
@@ -122,12 +121,11 @@ export const viewport: Viewport = {
 // Critical CSS is imported from a TypeScript module
 // This allows the CSS to be bundled properly in production
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
 
   const inlineLoadScript = `
     if (typeof document !== "undefined") {
@@ -166,7 +164,7 @@ export default async function RootLayout({
         />
       </head>
       <body className={cn("min-h-screen bg-background font-sans antialiased")}>
-        <NextAuthProvider session={session}>
+        <NextAuthProvider>
           <ThemeProvider
             attribute="class"
             defaultTheme="system"
