@@ -122,9 +122,11 @@ async function fetchWeeklyReport(weekSlug: string): Promise<WeeklyReportData> {
 }
 
 // Get weekly report data — persistently cached across requests (24h)
+// unstable_cache wraps the raw fetch (throws on failure → cache miss, no stale data cached)
+// withRetryAndNotFound wraps the outer call (returns undefined on error for graceful SSR)
 export const getWeeklyReportData = cache(
-  withRetryAndNotFound((weekSlug: string) => {
-    return unstable_cache(
+  withRetryAndNotFound(async (weekSlug: string) => {
+    return await unstable_cache(
       () => fetchWeeklyReport(weekSlug),
       [`weekly-report-${weekSlug}`],
       { tags: [`report-${weekSlug}`], revalidate: 86400 },
@@ -174,8 +176,8 @@ async function fetchMonthlyReport(monthSlug: string): Promise<MonthlyReportData>
 
 // Get monthly report data — persistently cached across requests (24h)
 export const getMonthlyReportData = cache(
-  withRetryAndNotFound((monthSlug: string) => {
-    return unstable_cache(
+  withRetryAndNotFound(async (monthSlug: string) => {
+    return await unstable_cache(
       () => fetchMonthlyReport(monthSlug),
       [`monthly-report-${monthSlug}`],
       { tags: [`report-${monthSlug}`], revalidate: 86400 },
@@ -266,91 +268,98 @@ export interface EnhancedWeeklyReportNarrative {
   qualityScore: number;
 }
 
-// Inner fetch function for enhanced report data (used by both cache layers)
+// Inner fetch function for enhanced report data — throws on transient errors so unstable_cache
+// doesn't cache failures. Only returns null for genuine "not found" (report doesn't exist).
 async function fetchEnhancedReport(weekSlug: string): Promise<EnhancedWeeklyReportNarrative | null> {
-    try {
-      const resp = await withSpan(
-        "report.fetch.enhanced",
-        { weekSlug },
-        async () => {
-          const transport = getTransport();
-          const client = createClient(ShortedStocksService, transport);
-          return client.getWeeklyReport({ weekSlug });
-        },
-      );
+  const resp = await withSpan(
+    "report.fetch.enhanced",
+    { weekSlug },
+    async () => {
+      const transport = getTransport();
+      const client = createClient(ShortedStocksService, transport);
+      return client.getWeeklyReport({ weekSlug });
+    },
+  );
 
-      return {
-        headline: resp.headline,
-        summary: resp.summary,
-        narrative: {
-          openingHook: resp.narrative?.openingHook ?? "",
-          topAnalysis: resp.narrative?.topAnalysis ?? "",
-          moversAnalysis: resp.narrative?.moversAnalysis ?? "",
-          industryAnalysis: resp.narrative?.industryAnalysis ?? "",
-          outlook: resp.narrative?.outlook ?? "",
-        },
-        topShorted: resp.topShorted.map((s) => ({
-          rank: s.rank,
-          code: s.code,
-          name: s.name,
-          shortPct: s.shortPct,
-          wowChange: s.wowChange,
-        })),
-        risers: resp.risers.map((m) => ({
-          code: m.code,
-          name: m.name,
-          currentPct: m.currentPct,
-          previousPct: m.previousPct,
-          change: m.change,
-        })),
-        fallers: resp.fallers.map((m) => ({
-          code: m.code,
-          name: m.name,
-          currentPct: m.currentPct,
-          previousPct: m.previousPct,
-          change: m.change,
-        })),
-        faqs: resp.faqs.map((f) => ({
-          question: f.question,
-          answer: f.answer,
-        })),
-        citations: (resp.citations ?? []).map((c) => ({
-          id: c.id,
-          source: c.source,
-          date: c.date,
-          url: c.url,
-          type: c.type,
-        })),
-        marketStats: resp.marketStats
-          ? {
-              totalStocksShorted: resp.marketStats.totalStocksShorted,
-              avgShortPct: resp.marketStats.avgShortPct,
-              maxShortPct: resp.marketStats.maxShortPct,
-              maxShortCode: resp.marketStats.maxShortCode,
-              wowAvgChange: resp.marketStats.wowAvgChange,
-            }
-          : undefined,
-        qualityScore: resp.qualityScore,
-      };
-    } catch (err) {
-      // Narrative not available for this week (expected for older weeks)
-      console.error(`[getEnhancedWeeklyReportData] Failed for slug=${weekSlug}:`, err);
-      return null;
-    }
+  // Empty response means report doesn't exist for this week — safe to cache as null
+  if (!resp.headline && !resp.narrative?.openingHook) {
+    return null;
+  }
+
+  return {
+    headline: resp.headline,
+    summary: resp.summary,
+    narrative: {
+      openingHook: resp.narrative?.openingHook ?? "",
+      topAnalysis: resp.narrative?.topAnalysis ?? "",
+      moversAnalysis: resp.narrative?.moversAnalysis ?? "",
+      industryAnalysis: resp.narrative?.industryAnalysis ?? "",
+      outlook: resp.narrative?.outlook ?? "",
+    },
+    topShorted: resp.topShorted.map((s) => ({
+      rank: s.rank,
+      code: s.code,
+      name: s.name,
+      shortPct: s.shortPct,
+      wowChange: s.wowChange,
+    })),
+    risers: resp.risers.map((m) => ({
+      code: m.code,
+      name: m.name,
+      currentPct: m.currentPct,
+      previousPct: m.previousPct,
+      change: m.change,
+    })),
+    fallers: resp.fallers.map((m) => ({
+      code: m.code,
+      name: m.name,
+      currentPct: m.currentPct,
+      previousPct: m.previousPct,
+      change: m.change,
+    })),
+    faqs: resp.faqs.map((f) => ({
+      question: f.question,
+      answer: f.answer,
+    })),
+    citations: (resp.citations ?? []).map((c) => ({
+      id: c.id,
+      source: c.source,
+      date: c.date,
+      url: c.url,
+      type: c.type,
+    })),
+    marketStats: resp.marketStats
+      ? {
+          totalStocksShorted: resp.marketStats.totalStocksShorted,
+          avgShortPct: resp.marketStats.avgShortPct,
+          maxShortPct: resp.marketStats.maxShortPct,
+          maxShortCode: resp.marketStats.maxShortCode,
+          wowAvgChange: resp.marketStats.wowAvgChange,
+        }
+      : undefined,
+    qualityScore: resp.qualityScore,
+  };
 }
 
 // Fetch enhanced weekly report narrative with on-demand revalidation support
-// Uses unstable_cache with tags so the report generator can trigger revalidation via POST /api/revalidate?tag=report-SLUG
-export const getEnhancedWeeklyReportData = (weekSlug: string) => {
-  return unstable_cache(
-    () => fetchEnhancedReport(weekSlug),
-    [`enhanced-report-${weekSlug}`],
-    {
-      tags: [`report-${weekSlug}`],
-      revalidate: 86400, // 24h fallback
-    },
-  )();
-};
+// unstable_cache wraps the raw fetch (throws on transient error → no stale null cached)
+// Outer try/catch returns null for SSR graceful degradation (not cached)
+export async function getEnhancedWeeklyReportData(weekSlug: string): Promise<EnhancedWeeklyReportNarrative | null> {
+  try {
+    return await unstable_cache(
+      () => fetchEnhancedReport(weekSlug),
+      [`enhanced-report-${weekSlug}`],
+      {
+        tags: [`report-${weekSlug}`],
+        revalidate: 86400, // 24h fallback
+      },
+    )();
+  } catch (err) {
+    // Transient error — don't cache, just return null for this request
+    console.error(`[getEnhancedWeeklyReportData] Failed for slug=${weekSlug}:`, err);
+    return null;
+  }
+}
 
 // Generate available month slugs (last 24 months, excluding the current incomplete month)
 export async function getAvailableMonthSlugs(): Promise<string[]> {
