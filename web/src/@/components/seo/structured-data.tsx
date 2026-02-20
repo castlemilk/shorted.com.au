@@ -134,6 +134,7 @@ export function StockStructuredData({
     description:
       description ?? `Analysis of ${stockCode} short positions on the ASX`,
     url: `${siteConfig.url}/shorts/${stockCode}`,
+    dateModified: new Date().toISOString(),
     provider: {
       "@type": "Organization",
       name: siteConfig.name,
@@ -146,6 +147,10 @@ export function StockStructuredData({
       exchange: "ASX",
     },
     category: "Stock Market Analysis",
+    speakable: {
+      "@type": "SpeakableSpecification",
+      cssSelector: ["h1", ".company-stats", ".short-position-summary"],
+    },
   };
 
   return (

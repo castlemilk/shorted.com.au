@@ -1,0 +1,34 @@
+{
+  "schema_version": "v1",
+  "name_for_human": "Shorted - ASX Short Position Data",
+  "name_for_model": "shorted_asx_short_positions",
+  "description_for_human": "Track short selling positions on the Australian Securities Exchange (ASX) using official ASIC data.",
+  "description_for_model": "Shorted.com.au provides official ASIC short position data for ASX-listed securities. Use this to look up current short interest percentages, historical trends, industry analysis, and weekly market reports for Australian stocks. Data is sourced from the Australian Securities and Investments Commission (ASIC) with a T+4 trading day delay. Coverage includes all ASX-listed securities from 2010 to present.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://shorted.com.au/docs/api-reference"
+  },
+  "logo_url": "https://shorted.com.au/logo.png",
+  "contact_email": "contact@shorted.com.au",
+  "legal_info_url": "https://shorted.com.au/terms",
+  "endpoints": {
+    "search": "https://shorted.com.au/api/search/stocks",
+    "stock_data": "https://shorted.com.au/shorts/{stockCode}",
+    "top_shorts": "https://shorted.com.au/top",
+    "industry_analysis": "https://shorted.com.au/industry",
+    "weekly_reports": "https://shorted.com.au/reports",
+    "glossary": "https://shorted.com.au/glossary",
+    "learn": "https://shorted.com.au/learn"
+  },
+  "data_source": {
+    "name": "ASIC (Australian Securities and Investments Commission)",
+    "url": "https://asic.gov.au",
+    "update_frequency": "daily",
+    "data_lag": "T+4 trading days",
+    "coverage": "All ASX-listed securities",
+    "historical_range": "2010 to present"
+  }
+}

@@ -12,6 +12,7 @@ import {
 } from "~/@/components/ui/card";
 import { Badge } from "~/@/components/ui/badge";
 import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
+import { LLMMeta } from "~/@/components/seo/llm-meta";
 
 export const metadata: Metadata = {
   title: "Learn Short Selling | Educational Guides & Tutorials",
@@ -35,12 +36,21 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     type: "website",
     locale: "en_AU",
+    images: [
+      {
+        url: siteConfig.ogImage,
+        width: 1200,
+        height: 630,
+        alt: "Learn Short Selling - Educational Guides for ASX Investors",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Learn Short Selling | Educational Guides & Tutorials",
     description:
       "Free educational guides on ASX short selling.",
+    images: [siteConfig.ogImage],
   },
   alternates: {
     canonical: `${siteConfig.url}/learn`,
@@ -197,6 +207,18 @@ export default function LearnIndexPage() {
   return (
     <DashboardLayout>
       <BreadcrumbListSchema items={breadcrumbs} />
+      <LLMMeta
+        title="Learn Short Selling - Educational Guides & Tutorials"
+        description="Free educational guides on ASX short selling. Learn about ASIC reporting, T+4 delay, short squeezes, and how to read short interest data."
+        keywords={[
+          "learn short selling",
+          "short selling guide",
+          "ASX short selling tutorial",
+          "ASIC short position guide",
+        ]}
+        dataSource="ASIC"
+        dataFrequency="static"
+      />
 
       <div className="space-y-8">
         {/* Hero Section */}

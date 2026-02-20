@@ -43,9 +43,15 @@ Australian short selling is regulated under the **Corporations Act 2001** and gu
 
 All short position data is sourced directly from official ASIC publications. Data is updated daily after ASIC releases new reports, typically in the late afternoon Australian Eastern Time. Historical data is available from 2010 onwards when ASIC began publishing daily aggregated short position data following the Global Financial Crisis.
 
+## Reports
+
+- [Weekly Reports](https://shorted.com.au/reports): Weekly and monthly analysis of ASX short selling activity with top movers, industry trends, and AI-generated market narratives.
+- [RSS Feed](https://shorted.com.au/feed.xml): Blog posts and weekly reports via RSS.
+
 ## Optional
 
 - [Blog](https://shorted.com.au/blog): Articles on short selling, market analysis, and platform updates.
 - [About](https://shorted.com.au/about): Platform mission and team information.
 - [Privacy Policy](https://shorted.com.au/privacy): Data handling and privacy practices.
 - [Terms of Service](https://shorted.com.au/terms): Usage terms and conditions.
+- [Full Documentation](https://shorted.com.au/llms-full.txt): Extended documentation with API reference and detailed platform context.

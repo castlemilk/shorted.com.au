@@ -2,8 +2,11 @@ import { type Metadata } from "next";
 import Link from "next/link";
 import { FileText, ChevronRight } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
+import { Suspense } from "react";
 import { HomeContent } from "./home-content";
+import { TopShortsFallback } from "./top-shorts-fallback";
 import { FAQStructuredData } from "~/@/components/seo/enhanced-structured-data";
+import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { getEnhancedWeeklyReportData, getAvailableWeekSlugs } from "~/app/actions/reports/getReportData";
 
 export const metadata: Metadata = {
@@ -86,6 +89,20 @@ export default async function Page() {
     <main className="min-h-screen flex flex-col bg-transparent">
       {/* FAQ Structured Data for rich snippets */}
       <FAQStructuredData faqs={homeFAQs} />
+      <LLMMeta
+        title="Shorted - Official ASIC Short Position Data for ASX Stocks"
+        description="Track short selling positions on the ASX using official ASIC data. Free daily updates, interactive charts, industry heatmaps, and analysis of the most shorted Australian stocks."
+        keywords={[
+          "ASIC short position data",
+          "ASX short positions",
+          "most shorted ASX stocks",
+          "short selling Australia",
+          "ASX short interest",
+        ]}
+        dataSource="ASIC"
+        dataFrequency="daily"
+        content="homepage"
+      />
 
       {/* Page header with SEO-optimized content */}
       <header className="container mx-auto px-4 pt-8 pb-4">
@@ -143,6 +160,11 @@ export default async function Page() {
           </Link>
         </div>
       )}
+
+      {/* SSR fallback table for search engine crawlability */}
+      <Suspense fallback={null}>
+        <TopShortsFallback />
+      </Suspense>
 
       {/* Interactive dashboard content */}
       <HomeContent />

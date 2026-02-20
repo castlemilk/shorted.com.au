@@ -21,7 +21,7 @@ import {
   Breadcrumbs,
   BreadcrumbStructuredData,
 } from "~/@/components/seo/breadcrumbs";
-import { LLMMeta } from "~/@/components/seo/llm-meta";
+import { LLMMeta, StockLLMMeta } from "~/@/components/seo/llm-meta";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import {
   Card,
@@ -131,14 +131,28 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       siteName: siteConfig.name,
       type: "article",
       locale: "en_AU",
+      images: [
+        {
+          url: siteConfig.ogImage,
+          width: 1200,
+          height: 630,
+          alt: `${code} Short Position Data - ASIC Short Selling Analysis`,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title: `${title} | ${siteConfig.name}`,
       description,
+      images: [siteConfig.ogImage],
     },
     alternates: {
       canonical: `${siteConfig.url}/shorts/${code}`,
+      languages: {
+        "en-AU": `${siteConfig.url}/shorts/${code}`,
+        "en": `${siteConfig.url}/shorts/${code}`,
+        "x-default": `${siteConfig.url}/shorts/${code}`,
+      },
     },
   };
 }
@@ -156,8 +170,19 @@ const Page = async ({ params }: PageProps) => {
   // This page is public for SEO and discovery - no authentication required
   const stockCode = rawStockCode.toUpperCase();
 
-  // Fetch related stocks for internal linking
-  const relatedData = await getRelatedStocks(stockCode);
+  // Fetch stock data for StockLLMMeta and related stocks in parallel
+  // Both use withRetryAndNotFound, so they return undefined on failure
+  let stock: Awaited<ReturnType<typeof getStock>> = undefined;
+  let relatedData: Awaited<ReturnType<typeof getRelatedStocks>>;
+  try {
+    [stock, relatedData] = await Promise.all([
+      getStock(stockCode),
+      getRelatedStocks(stockCode),
+    ]);
+  } catch {
+    // Fallback if parallel fetch fails during static generation
+    relatedData = { stocks: [], industry: null, industrySlug: null };
+  }
 
   const breadcrumbItems = [
     { label: "Stocks", href: "/stocks" },
@@ -183,6 +208,16 @@ const Page = async ({ params }: PageProps) => {
         dataFrequency="daily"
         requiresAuth={false}
       />
+      {stock && (
+        <StockLLMMeta
+          stockCode={stockCode}
+          companyName={stock.name || stockCode}
+          industry={stock.industry || ""}
+          sector={stock.industry || ""}
+          shortPercentage={stock.percentageShorted || undefined}
+          currentShortPosition={stock.reportedShortPositions || undefined}
+        />
+      )}
 
       <div className="mb-4">
         <Breadcrumbs items={breadcrumbItems} />

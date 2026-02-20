@@ -50,12 +50,21 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     type: "website",
     locale: "en_AU",
+    images: [
+      {
+        url: siteConfig.ogImage,
+        width: 1200,
+        height: 630,
+        alt: "Short Selling FAQ - Common Questions About ASIC Data",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Frequently Asked Questions | Short Selling & ASIC Data",
     description:
       "Get answers to common questions about ASX short selling and ASIC data.",
+    images: [siteConfig.ogImage],
   },
   alternates: {
     canonical: `${siteConfig.url}/faq`,

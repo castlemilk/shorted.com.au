@@ -216,6 +216,11 @@ export function generateMetadata({ params }: Params): Metadata {
     },
     alternates: {
       canonical: `${siteConfig.url}/blog/${params.slug}`,
+      languages: {
+        "en-AU": `${siteConfig.url}/blog/${params.slug}`,
+        "en": `${siteConfig.url}/blog/${params.slug}`,
+        "x-default": `${siteConfig.url}/blog/${params.slug}`,
+      },
     },
     robots: {
       index: true,
