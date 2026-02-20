@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "~/@/components/ui/card";
 import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
+import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { glossaryTerms } from "~/@/data/glossary-terms";
 
 export const metadata: Metadata = {
@@ -35,12 +36,21 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     type: "website",
     locale: "en_AU",
+    images: [
+      {
+        url: siteConfig.ogImage,
+        width: 1200,
+        height: 630,
+        alt: "Short Selling Glossary - Key Terms & Definitions",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Short Selling Glossary | Key Terms & Definitions",
     description:
       "Comprehensive glossary of short selling terms and definitions.",
+    images: [siteConfig.ogImage],
   },
   alternates: {
     canonical: `${siteConfig.url}/glossary`,
@@ -87,6 +97,18 @@ export default function GlossaryPage() {
     <DashboardLayout>
       <BreadcrumbListSchema items={breadcrumbs} />
       <GlossaryStructuredData />
+      <LLMMeta
+        title="Short Selling Glossary - Key Terms & Definitions"
+        description="Comprehensive glossary of short selling terms and definitions for ASX investors."
+        keywords={[
+          "short selling glossary",
+          "short interest definition",
+          "ASX trading terms",
+          "ASIC short position terms",
+        ]}
+        dataSource="ASIC"
+        dataFrequency="static"
+      />
 
       <div className="space-y-8">
         {/* Hero Section */}

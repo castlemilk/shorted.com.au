@@ -54,6 +54,10 @@ export function ArticleSchema({
     articleSection: "Finance",
     inLanguage: "en-AU",
     isAccessibleForFree: true,
+    speakable: {
+      "@type": "SpeakableSpecification",
+      cssSelector: ["h1", "[role='article'] p:first-of-type", ".article-summary"],
+    },
     about: [
       {
         "@type": "Thing",

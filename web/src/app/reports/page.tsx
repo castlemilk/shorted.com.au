@@ -8,6 +8,7 @@ import {
   CardContent,
 } from "~/@/components/ui/card";
 import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
+import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import {
   getAvailableWeekSlugs,
@@ -33,6 +34,20 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     type: "website",
     locale: "en_AU",
+    images: [
+      {
+        url: siteConfig.ogImage,
+        width: 1200,
+        height: 630,
+        alt: "ASX Short Selling Reports - Weekly & Monthly Analysis",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ASX Short Selling Reports | Weekly & Monthly Analysis",
+    description: "Weekly and monthly reports on ASX short selling activity.",
+    images: [siteConfig.ogImage],
   },
   alternates: {
     canonical: `${siteConfig.url}/reports`,
@@ -67,6 +82,18 @@ export default async function ReportsIndexPage() {
   return (
     <DashboardLayout>
       <BreadcrumbListSchema items={breadcrumbs} />
+      <LLMMeta
+        title="ASX Short Selling Reports - Weekly & Monthly Analysis"
+        description="Weekly and monthly reports on ASX short selling activity. See top movers, industry trends, and aggregate short interest from official ASIC data."
+        keywords={[
+          "ASX short selling reports",
+          "weekly short interest report",
+          "monthly short selling analysis",
+          "ASIC short position reports",
+        ]}
+        dataSource="ASIC"
+        dataFrequency="weekly"
+      />
 
       <div className="space-y-8">
         <div className="mb-4">

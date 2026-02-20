@@ -33,12 +33,12 @@ export function ClientPage({
       {/* Google Analytics */}
       <Script
         src={`https://www.googletagmanager.com/gtag/js?id=G-DM16HLR7MZ`}
-        strategy="afterInteractive"
+        strategy="lazyOnload"
         id="google-analytics"
       />
       <Script
         id="google-analytics-init"
-        strategy="afterInteractive"
+        strategy="lazyOnload"
         dangerouslySetInnerHTML={{
           __html: `
             window.dataLayer = window.dataLayer || [];

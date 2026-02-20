@@ -1,8 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { cn } from "~/@/lib/utils";
-import Dither from "~/@/components/marketing/dither";
+
+const Dither = dynamic(() => import("~/@/components/marketing/dither"), {
+  ssr: false,
+});
 
 type FeatureStatus = "done" | "in-progress" | "planned" | "exploring";
 

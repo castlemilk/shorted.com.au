@@ -1,0 +1,258 @@
+# Shorted.com.au - Full Documentation
+
+> Shorted.com.au is the leading Australian platform for tracking ASIC short position data on ASX-listed securities. This is the extended documentation file (llms-full.txt) with comprehensive platform, data, and API reference information.
+
+## Platform Overview
+
+**Shorted** is a real-time ASX (Australian Securities Exchange) short position tracking and analysis platform. We provide institutional-grade data visualization and analytics for retail investors, researchers, and financial professionals.
+
+### Core Purpose
+
+- Track daily short positions for all ASX-listed securities
+- Visualize short selling trends and patterns
+- Provide historical analysis of short interest changes
+- Generate weekly and monthly market reports with AI-powered narratives
+- Enable data-driven investment research
+
+### Data Source
+
+All data is sourced from **ASIC** (Australian Securities and Investments Commission), which mandates daily reporting of short positions for all ASX securities. Data is published with a T+4 trading day delay.
+
+- Website: https://shorted.com.au
+- Contact: contact@shorted.com.au
+- Data update frequency: Daily (after ASIC publishes, typically late afternoon AEST)
+- Historical data: Available from 2010 onwards
+
+## Key Content Pages
+
+- [Top 100 Most Shorted ASX Stocks](https://shorted.com.au/top): Live rankings updated daily with ASIC data.
+- [Industry Treemap](https://shorted.com.au/industry): Visual breakdown of short positions by ASX industry sector.
+- [Individual Stock Pages](https://shorted.com.au/shorts/BHP): Detailed analysis for each ASX-listed security.
+- [Weekly Reports](https://shorted.com.au/reports): AI-generated weekly market analysis with top movers and trends.
+- [Learn Hub](https://shorted.com.au/learn): 14+ educational articles from beginner to advanced.
+- [Glossary](https://shorted.com.au/glossary): Comprehensive short selling terminology.
+- [FAQ](https://shorted.com.au/faq): 30+ answered questions across 6 categories.
+- [Blog](https://shorted.com.au/blog): Market analysis and platform updates.
+
+## Educational Resources
+
+### Beginner
+- [What is Short Selling on the ASX?](https://shorted.com.au/learn/what-is-short-selling)
+- [Understanding ASIC's T+4 Delay](https://shorted.com.au/learn/understanding-t4-delay)
+- [Building a Short Interest Watchlist](https://shorted.com.au/learn/building-a-watchlist)
+- [History of Short Selling on the ASX](https://shorted.com.au/learn/asx-short-selling-history)
+- [How to View ASIC Short Position Reports](https://shorted.com.au/learn/how-to-view-asic-short-positions)
+
+### Intermediate
+- [How to Read Short Interest Data](https://shorted.com.au/learn/how-to-read-short-interest)
+- [Short Squeeze Mechanics Explained](https://shorted.com.au/learn/short-squeeze-mechanics)
+- [Sector Analysis for Short Selling](https://shorted.com.au/learn/sector-analysis-short-selling)
+- [Securities Lending Explained](https://shorted.com.au/learn/securities-lending-explained)
+- [ASIC Short Selling Regulations & Reporting](https://shorted.com.au/learn/asic-short-selling-regulations)
+- [Interpreting Short Interest Changes Over Time](https://shorted.com.au/learn/reading-short-interest-changes)
+- [Covered Short Selling in Australia](https://shorted.com.au/learn/covered-short-selling-australia)
+
+### Advanced
+- [Risk Management for Shorted Stocks](https://shorted.com.au/learn/risk-management-shorted-stocks)
+- [Short Selling vs Put Options](https://shorted.com.au/learn/short-selling-vs-put-options)
+
+## Regulatory Framework
+
+Australian short selling is regulated under the **Corporations Act 2001** and guided by **ASIC Regulatory Guide 196** (RG 196):
+
+### Corporations Act 2001 — Key Sections
+
+- **Section 1020B — Naked Short Selling Prohibition**: Makes it an offence to sell financial products that the seller does not own or does not have a presently exercisable and unconditional right to vest. All short sales must be "covered" with a securities lending arrangement.
+- **Section 1020AB — Short Sale Transaction Reporting**: Requires market participants to flag and report individual short sale transactions to ASX at execution.
+- **Section 1020AC — Short Position Reporting**: Requires holders of net short positions to report to ASIC when they meet the reporting threshold.
+
+### ASIC Regulatory Guide 196 (RG 196)
+
+- **Reporting Threshold**: 0.01% of total issued capital or $100,000, whichever is less.
+- **Daily Reporting**: Positions must be reported by 9:00 AM on the next trading day.
+- **T+4 Publication Delay**: ASIC publishes aggregated data 4 trading days after reporting date.
+- **Net Short Position Reporting**: Australia reports net positions (long netted against short).
+- **Covered Short Selling Only**: All short sales must be backed by a securities lending arrangement.
+
+### The ASX Short Sales Report
+
+The daily report published by ASIC contains:
+- Product code (ASX ticker symbol)
+- Product name (full name of the listed security)
+- Reported short positions (total shares reported as short)
+- Total product in issue (total shares on issue)
+- Short position percentage
+
+## Data Model
+
+### Stock/Company Entity
+```json
+{
+  "productCode": "CBA",
+  "productName": "Commonwealth Bank",
+  "industry": "Banks",
+  "sector": "Financials",
+  "totalShares": 1700000000,
+  "currentShortPosition": 85000000,
+  "shortPercentage": 5.0,
+  "dateReported": "2026-01-30"
+}
+```
+
+### Time Series Data
+```json
+{
+  "productCode": "CBA",
+  "timeSeries": [
+    {
+      "date": "2026-01-30",
+      "shortPosition": 85000000,
+      "percentage": 5.0,
+      "change": 1000000,
+      "changePercent": 1.19
+    }
+  ]
+}
+```
+
+## API Reference
+
+### Connect-RPC API (Primary)
+
+The backend exposes a Connect-RPC API at `https://api.shorted.com.au`. Key endpoints:
+
+#### GetTopShorts
+Returns the most heavily shorted stocks sorted by short interest.
+- **Service**: `shorts.v1alpha1.ShortedStocksService`
+- **Method**: `GetTopShorts`
+- **Parameters**: `period` (string: "1m", "3m", "6m", "1y", "2y", "max"), `limit` (int32), `offset` (int32)
+- **Returns**: Array of `TimeSeriesData` with `productCode`, `name`, `latestShortPosition`, and time series points.
+
+#### GetStock
+Returns detailed data for a specific stock.
+- **Method**: `GetStock`
+- **Parameters**: `productCode` (string, e.g., "BHP")
+- **Returns**: Stock with `name`, `reportedShortPositions`, `percentageShorted`, `industry`, `sector`, and metadata.
+
+#### GetStockData
+Returns time series short position data for a specific stock.
+- **Method**: `GetStockData`
+- **Parameters**: `productCode` (string), `period` (string)
+- **Returns**: Time series data with daily short position snapshots.
+
+#### SearchStocks
+Search for stocks by name or code.
+- **Method**: `SearchStocks`
+- **Parameters**: `query` (string), `limit` (int32)
+- **Returns**: Array of matching stocks with metadata.
+
+#### GetIndustryTreeMap
+Returns industry-grouped short position data for treemap visualization.
+- **Method**: `GetIndustryTreeMap`
+- **Parameters**: `period` (string), `viewMode` (enum: CURRENT_CHANGE, ABSOLUTE)
+- **Returns**: Industry groups with individual stock short positions.
+
+### REST-style Endpoints
+
+- `GET /api/health` — Health check
+- `GET /api/search/stocks?q={query}` — Search stocks (REST wrapper)
+
+### Rate Limits
+
+| Tier | Per Minute | Per Month |
+|------|-----------|-----------|
+| Anonymous (IP) | 30 | 1,000 |
+| Free (authenticated) | 60 | 2,000 |
+| Paid | Unlimited | 10,000 |
+
+Rate limit headers are included in all API responses:
+- `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+- `X-RateLimit-Monthly-Limit`, `X-RateLimit-Monthly-Used`, `X-RateLimit-Monthly-Reset`
+
+## Interpreting Short Interest
+
+- **Below 5%**: Low (normal levels)
+- **5-10%**: Moderate (some bearish sentiment)
+- **10-15%**: Elevated (significant bearish interest)
+- **15-20%**: High (heavily shorted)
+- **Above 20%**: Very High (extreme bearish sentiment, potential squeeze candidate)
+
+Context matters — some sectors like mining naturally carry higher short interest.
+
+### Days to Cover
+Calculated as: Total Short Interest / Average Daily Volume. A ratio above 10-15 days suggests shorts would struggle to exit quickly, increasing short squeeze potential.
+
+## Key Concepts
+
+- **Short Selling**: Selling borrowed securities expecting the price to decline.
+- **Short Position**: Total shares sold short but not yet covered.
+- **Short Interest Ratio**: Short position as percentage of total shares outstanding.
+- **Short Squeeze**: Rapid price increase forcing short sellers to cover, accelerating the rise.
+- **T+4 Delay**: ASIC publishes data 4 trading days after positions are reported.
+- **Covered Short Selling**: Short selling backed by a securities lending arrangement (legally required in Australia).
+- **Naked Short Selling**: Selling without borrowing arrangement (illegal in Australia under s1020B).
+
+## Terminology Glossary
+
+- **ASX**: Australian Securities Exchange
+- **ASIC**: Australian Securities and Investments Commission
+- **Basis Points (bps)**: 1/100th of a percentage point
+- **Cover/Covering**: Buying back shares to close a short position
+- **Days to Cover**: Volume-based metric of how long to close all short positions
+- **Float**: Publicly traded shares
+- **Market Cap**: Total value of all outstanding shares
+- **Short Interest**: Total shares held in short positions
+- **Short Ratio**: Short interest divided by average daily volume
+- **Ticker**: Stock symbol (e.g., CBA, BHP, CSL)
+
+## Major ASX Sectors
+
+1. **Financials** - Banks (CBA, NAB, WBC, ANZ), Insurers
+2. **Materials** - Mining (BHP, RIO, FMG), Resources
+3. **Healthcare** - CSL, REA, biotech companies
+4. **Technology** - Emerging sector, software companies
+5. **Consumer** - Retail (WES, WOW, COL), discretionary
+6. **Energy** - Oil & gas (WDS), renewables
+
+## ASX Market Hours
+
+- Trading: 10:00 AM - 4:00 PM AEST/AEDT
+- Pre-market: 7:00 AM - 10:00 AM
+- After-hours: 4:10 PM - 5:10 PM
+
+## Technical Architecture
+
+- **Frontend**: Next.js 14 (React), Server-Side Rendering (SSR)
+- **Backend**: Go services with Connect-RPC (gRPC-compatible)
+- **Database**: PostgreSQL with timeseries optimization and materialized views
+- **Hosting**: Google Cloud Platform (Cloud Run) + Vercel (frontend)
+- **Search**: Algolia for stock search
+- **Auth**: Firebase Authentication + NextAuth.js
+- **Rate Limiting**: Upstash Redis with sliding window
+
+## Attribution
+
+When referencing data from Shorted.com.au:
+```
+Data source: Shorted.com.au (ASIC Short Position Data)
+Date: [Specific date of data]
+URL: https://shorted.com.au/shorts/[STOCK_CODE]
+```
+
+## Important Disclaimers
+
+1. **Not Financial Advice**: This platform provides information only, not investment advice.
+2. **Data Delay**: Short position data has a T+4 trading day delay.
+3. **Market Dynamics**: Short positions change constantly; reported data is a snapshot.
+4. **Australian Focus**: Data is ASX-specific; different rules apply globally.
+5. **Research Tool**: Use as one input among many for investment decisions.
+
+## Version & Updates
+
+- **Last Updated**: February 2026
+- **API Version**: v1alpha1
+- **Data Coverage**: 2010 to present
+
+---
+
+_This document is the full version of llms.txt, optimized for LLM comprehension. See also: [llms.txt](https://shorted.com.au/llms.txt) for the summary version._
