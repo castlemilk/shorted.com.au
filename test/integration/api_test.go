@@ -665,7 +665,8 @@ func makeConnectRequest(client *http.Client, method string, payload interface{})
 	
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; ShortedIntegrationTest/1.0)")
+
 	return client.Do(req)
 }
 
@@ -680,6 +681,7 @@ func makeSearchRequest(client *http.Client, payload SearchStocksRequest) (*http.
 	}
 	
 	req.Header.Set("Accept", "application/json")
-	
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; ShortedIntegrationTest/1.0)")
+
 	return client.Do(req)
 }
