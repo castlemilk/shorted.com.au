@@ -117,8 +117,8 @@ func (l *SlidingWindowLimiter) Check(ctx context.Context, identifier string, tie
 		return nil, fmt.Errorf("redis pipeline error: %w", err)
 	}
 
-	if len(results) < 6 {
-		return nil, fmt.Errorf("unexpected pipeline result length: %d", len(results))
+	if len(results) < 7 {
+		return nil, fmt.Errorf("unexpected pipeline result length: %d (expected 7)", len(results))
 	}
 
 	// Parse minute count (index 2)
