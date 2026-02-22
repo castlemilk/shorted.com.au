@@ -56,7 +56,7 @@ export const MainNav = ({ items, modeToggle }: MainNavProps) => {
         </nav>
       ) : null}
       <div className="ml-auto flex items-center gap-3">
-        <NavSearchInput />
+        {!pathname?.startsWith("/docs/api") && <NavSearchInput />}
         <UserAuthNav />
         {modeToggle}
       </div>
