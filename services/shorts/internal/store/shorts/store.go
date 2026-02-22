@@ -52,6 +52,9 @@ type Store interface {
 	UpdateLogoURLs(stockCode, logoGCSURL, logoIconGCSURL string) error
 	UpdateLogoURLsWithSVG(stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat string) error
 
+	// Enrichment statistics
+	GetEnrichmentStats() (*EnrichmentStats, error)
+
 	// API Subscription methods
 	GetAPISubscription(userID string) (*APISubscription, error)
 	GetAPISubscriptionByCustomer(stripeCustomerID string) (*APISubscription, error)
@@ -63,6 +66,16 @@ type Store interface {
 
 	// Financial highlights from extracted reports
 	GetStockFinancialHighlights(stockCodes []string, maxPerStock int) (map[string][]FinancialReportHighlight, error)
+}
+
+// EnrichmentStats holds enrichment coverage statistics
+type EnrichmentStats struct {
+	TotalStocks     int     `json:"total_stocks"`
+	Enriched        int     `json:"enriched"`
+	PendingReview   int     `json:"pending_review"`
+	Failed          int     `json:"failed"`
+	Unenriched      int     `json:"unenriched"`
+	CoveragePercent float64 `json:"coverage_percent"`
 }
 
 // FinancialReportHighlight holds extracted metrics from a single financial report

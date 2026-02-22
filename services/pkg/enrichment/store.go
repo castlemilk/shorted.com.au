@@ -5,20 +5,43 @@ import (
 	stockv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 )
 
+// EnrichmentStats holds enrichment coverage statistics
+type EnrichmentStats struct {
+	TotalStocks    int     `json:"total_stocks"`
+	Enriched       int     `json:"enriched"`
+	PendingReview  int     `json:"pending_review"`
+	Failed         int     `json:"failed"`
+	Unenriched     int     `json:"unenriched"`
+	CoveragePercent float64 `json:"coverage_percent"`
+}
+
 // EnrichmentStore defines the minimal interface needed for enrichment processing
 type EnrichmentStore interface {
 	// Get stock details for enrichment
 	GetStockDetails(stockCode string) (*stockv1alpha1.StockDetails, error)
-	
+
 	// Enrichment job management
 	GetEnrichmentJob(jobID string) (*shortsv1alpha1.EnrichmentJob, error)
 	UpdateEnrichmentJobStatus(jobID string, status shortsv1alpha1.EnrichmentJobStatus, enrichmentID *string, errorMsg *string) error
 	ListEnrichmentJobs(limit, offset int32, status *shortsv1alpha1.EnrichmentJobStatus) ([]*shortsv1alpha1.EnrichmentJob, int32, error)
 	ResetStuckJobs(stuckThresholdMinutes int) (int, error) // Reset jobs stuck in processing for > threshold minutes
 	CleanupOldCompletedJobs(keepPerStock int) (int, error) // Clean up old completed jobs, keeping only keepPerStock most recent per stock
-	
+
 	// Save pending enrichment - returns the actual enrichment ID used (may differ if existing pending review is updated)
 	SavePendingEnrichment(enrichmentID, stockCode string, status shortsv1alpha1.EnrichmentStatus, data *shortsv1alpha1.EnrichmentData, quality *shortsv1alpha1.QualityScore) (string, error)
+
+	// Batch enrichment methods
+	GetTopStocksForEnrichment(limit int32, priority shortsv1alpha1.EnrichmentPriority) ([]*shortsv1alpha1.StockEnrichmentCandidate, error)
+	CreateEnrichmentJob(stockCode string, force bool) (string, error)
+	GetActiveEnrichmentJobByStockCode(stockCode string) (*shortsv1alpha1.EnrichmentJob, error)
+
+	// Review and apply enrichment
+	ReviewEnrichment(enrichmentID string, approve bool, reviewedBy, reviewNotes string) error
+	ApplyEnrichment(stockCode string, data *shortsv1alpha1.EnrichmentData) error
+	GetPendingEnrichment(enrichmentID string) (*shortsv1alpha1.PendingEnrichment, error)
+
+	// Enrichment statistics
+	GetEnrichmentStats() (*EnrichmentStats, error)
 
 	// Update logo URLs
 	UpdateLogoURLs(stockCode, logoGCSURL, logoIconGCSURL string) error
