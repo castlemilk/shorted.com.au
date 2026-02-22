@@ -14,7 +14,7 @@ env:
   NODE_VERSION: "20"
   GO_VERSION: "1.23"
   # Shared env vars for all frontend jobs
-  NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT: "https://api.shorted.com.au"
+  NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT: "https://shorts-ak2zgjnhlq-km.a.run.app"
   NEXT_PUBLIC_ALGOLIA_APP_ID: "test"
   NEXT_PUBLIC_ALGOLIA_SEARCH_KEY: "test"
   NEXTAUTH_SECRET: "test-secret-for-ci"
