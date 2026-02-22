@@ -176,6 +176,28 @@ resource "google_cloud_run_v2_service" "shorts_preview" {
         cpu_idle          = true
         startup_cpu_boost = false
       }
+
+      startup_probe {
+        http_get {
+          path = "/health"
+          port = 9091
+        }
+        initial_delay_seconds = 15
+        period_seconds        = 10
+        timeout_seconds       = 5
+        failure_threshold     = 3
+      }
+
+      liveness_probe {
+        http_get {
+          path = "/health"
+          port = 9091
+        }
+        initial_delay_seconds = 30
+        period_seconds        = 30
+        timeout_seconds       = 10
+        failure_threshold     = 3
+      }
     }
 
     scaling {
@@ -294,6 +316,28 @@ resource "google_cloud_run_v2_service" "market_data_preview" {
         }
         cpu_idle          = true
         startup_cpu_boost = false
+      }
+
+      startup_probe {
+        http_get {
+          path = "/health"
+          port = 8090
+        }
+        initial_delay_seconds = 15
+        period_seconds        = 10
+        timeout_seconds       = 5
+        failure_threshold     = 3
+      }
+
+      liveness_probe {
+        http_get {
+          path = "/health"
+          port = 8090
+        }
+        initial_delay_seconds = 30
+        period_seconds        = 30
+        timeout_seconds       = 10
+        failure_threshold     = 3
       }
     }
 

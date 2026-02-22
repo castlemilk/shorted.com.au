@@ -131,7 +131,11 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 			expectedSecret := os.Getenv("INTERNAL_SERVICE_SECRET")
 			if expectedSecret == "" {
 				// Check if we're in production - fail fast
+				// Support both ENV and ENVIRONMENT (Terraform/Cloud Run uses ENVIRONMENT)
 				env := os.Getenv("ENV")
+				if env == "" {
+					env = os.Getenv("ENVIRONMENT")
+				}
 				if env == "production" || env == "prod" {
 					log.Errorf("INTERNAL_SERVICE_SECRET environment variable is required in production")
 					return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("server misconfiguration"))
