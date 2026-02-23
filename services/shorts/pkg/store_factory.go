@@ -77,6 +77,46 @@ func (a *enrichmentStoreAdapter) SavePendingEnrichment(enrichmentID, stockCode s
 	return a.store.SavePendingEnrichment(enrichmentID, stockCode, status, data, quality)
 }
 
+func (a *enrichmentStoreAdapter) GetStocksForPeopleEnrichment(limit int) ([]enrichment.StockPeopleData, error) {
+	rows, err := a.store.GetStocksForPeopleEnrichment(limit)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]enrichment.StockPeopleData, len(rows))
+	for i, row := range rows {
+		result[i] = enrichment.StockPeopleData{
+			StockCode:   row.StockCode,
+			CompanyName: row.CompanyName,
+			KeyPeople:   row.KeyPeople,
+		}
+	}
+	return result, nil
+}
+
+func (a *enrichmentStoreAdapter) UpdateKeyPeopleEnriched(stockCode string, keyPeopleJSON []byte) error {
+	return a.store.UpdateKeyPeopleEnriched(stockCode, keyPeopleJSON)
+}
+
+func (a *enrichmentStoreAdapter) CreateEnrichmentJob(stockCode string, force bool) (string, error) {
+	return a.store.CreateEnrichmentJob(stockCode, force)
+}
+
+func (a *enrichmentStoreAdapter) GetStocksNeedingEnrichment(limit int, includeStale bool) ([]string, error) {
+	return a.store.GetStocksNeedingEnrichment(limit, includeStale)
+}
+
+func (a *enrichmentStoreAdapter) GetPendingEnrichment(enrichmentID string) (*shortsv1alpha1.PendingEnrichment, error) {
+	return a.store.GetPendingEnrichment(enrichmentID)
+}
+
+func (a *enrichmentStoreAdapter) ReviewEnrichment(enrichmentID string, approve bool, reviewedBy, reviewNotes string) error {
+	return a.store.ReviewEnrichment(enrichmentID, approve, reviewedBy, reviewNotes)
+}
+
+func (a *enrichmentStoreAdapter) ApplyEnrichment(stockCode string, data *shortsv1alpha1.EnrichmentData) error {
+	return a.store.ApplyEnrichment(stockCode, data)
+}
+
 // Explicit interface check to ensure enrichmentStoreAdapter implements enrichment.EnrichmentStore
 var _ enrichment.EnrichmentStore = (*enrichmentStoreAdapter)(nil)
 
