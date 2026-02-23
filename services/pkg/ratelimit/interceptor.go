@@ -3,6 +3,7 @@ package ratelimit
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -166,15 +167,22 @@ func extractIdentifierAndTier(ctx context.Context, req connect.AnyRequest, userC
 	return "ip:" + ip, "anonymous", false
 }
 
-// extractIP extracts the client IP from request headers
+// extractIP extracts the real client IP from request headers, resilient to
+// X-Forwarded-For spoofing. Cloud Run (and most reverse proxies) append the
+// actual client IP as the rightmost entry in X-Forwarded-For. Attackers can
+// prepend arbitrary IPs to the left side, so we must use the rightmost IP
+// (added by the trusted proxy) rather than the leftmost (client-controlled).
 func extractIP(req connect.AnyRequest) string {
 	// Try X-Forwarded-For first (for proxied requests)
 	if xff := req.Header().Get("X-Forwarded-For"); xff != "" {
-		// Take the first IP (client IP)
-		if idx := strings.Index(xff, ","); idx != -1 {
-			return strings.TrimSpace(xff[:idx])
+		ips := strings.Split(xff, ",")
+		// Use the rightmost IP (added by the proxy, not the client)
+		for i := len(ips) - 1; i >= 0; i-- {
+			ip := strings.TrimSpace(ips[i])
+			if ip != "" {
+				return ip
+			}
 		}
-		return strings.TrimSpace(xff)
 	}
 
 	// Try X-Real-IP
@@ -185,6 +193,15 @@ func extractIP(req connect.AnyRequest) string {
 	// Try CF-Connecting-IP (Cloudflare)
 	if cfIP := req.Header().Get("CF-Connecting-IP"); cfIP != "" {
 		return cfIP
+	}
+
+	// Fallback to peer address
+	if peer := req.Peer().Addr; peer != "" {
+		host, _, err := net.SplitHostPort(peer)
+		if err != nil {
+			return peer
+		}
+		return host
 	}
 
 	return "unknown"

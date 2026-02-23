@@ -94,7 +94,15 @@ func (s *ShortsServer) GetStockData(ctx context.Context, req *connect.Request[sh
 		return nil, err
 	}
 
-	stock, err := s.store.GetStockData(req.Msg.ProductCode, req.Msg.Period)
+	// Check cache first
+	cacheKey := s.cache.GetStockDataKey(req.Msg.ProductCode, req.Msg.Period)
+
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+		s.logger.Debugf("cache miss for GetStockData, fetching from database: product_code=%s, period=%s",
+			req.Msg.ProductCode, req.Msg.Period)
+		return s.store.GetStockData(req.Msg.ProductCode, req.Msg.Period)
+	})
+
 	if err != nil {
 		s.logger.Errorf("database error in GetStockData: product_code=%s, period=%s, err=%v",
 			req.Msg.ProductCode, req.Msg.Period, err)
@@ -102,6 +110,7 @@ func (s *ShortsServer) GetStockData(ctx context.Context, req *connect.Request[sh
 			fmt.Errorf("stock data not found: %s for period %s", req.Msg.ProductCode, req.Msg.Period))
 	}
 
+	stock := cachedResponse.(*stocksv1alpha1.TimeSeriesData)
 	return connect.NewResponse(stock), nil
 }
 
@@ -113,13 +122,21 @@ func (s *ShortsServer) GetStockDetails(ctx context.Context, req *connect.Request
 		return nil, err
 	}
 
-	stock, err := s.store.GetStockDetails(req.Msg.ProductCode)
+	// Check cache first
+	cacheKey := s.cache.GetStockDetailsKey(req.Msg.ProductCode)
+
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+		s.logger.Debugf("cache miss for GetStockDetails, fetching from database: product_code=%s", req.Msg.ProductCode)
+		return s.store.GetStockDetails(req.Msg.ProductCode)
+	})
+
 	if err != nil {
 		s.logger.Errorf("database error in GetStockDetails: product_code=%s, err=%v", req.Msg.ProductCode, err)
 		return nil, connect.NewError(connect.CodeNotFound,
 			fmt.Errorf("stock details not found: %s", req.Msg.ProductCode))
 	}
 
+	stock := cachedResponse.(*stocksv1alpha1.StockDetails)
 	return connect.NewResponse(stock), nil
 }
 
@@ -131,7 +148,15 @@ func (s *ShortsServer) GetIndustryTreeMap(ctx context.Context, req *connect.Requ
 		return nil, err
 	}
 
-	treeMap, err := s.store.GetIndustryTreeMap(req.Msg.Limit, req.Msg.Period, req.Msg.ViewMode.String())
+	// Check cache first
+	cacheKey := s.cache.GetIndustryTreeMapKey(req.Msg.Limit, req.Msg.Period, req.Msg.ViewMode.String())
+
+	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+		s.logger.Debugf("cache miss for GetIndustryTreeMap, fetching from database: limit=%d, period=%s, viewMode=%s",
+			req.Msg.Limit, req.Msg.Period, req.Msg.ViewMode.String())
+		return s.store.GetIndustryTreeMap(req.Msg.Limit, req.Msg.Period, req.Msg.ViewMode.String())
+	})
+
 	if err != nil {
 		s.logger.Errorf("database error in GetIndustryTreeMap: limit=%d, period=%s, viewMode=%s, err=%v",
 			req.Msg.Limit, req.Msg.Period, req.Msg.ViewMode.String(), err)
@@ -139,6 +164,7 @@ func (s *ShortsServer) GetIndustryTreeMap(ctx context.Context, req *connect.Requ
 			fmt.Errorf("failed to get industry tree map data"))
 	}
 
+	treeMap := cachedResponse.(*stocksv1alpha1.IndustryTreeMap)
 	return connect.NewResponse(treeMap), nil
 }
 

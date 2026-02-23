@@ -230,6 +230,21 @@ func main() {
 		}
 	}
 
+	// Parse auto-approve threshold from environment
+	autoApproveThreshold := DefaultAutoApproveThreshold
+	if v := os.Getenv("AUTO_APPROVE_THRESHOLD"); v != "" {
+		if parsed, parseErr := strconv.ParseFloat(v, 64); parseErr == nil && parsed >= 0 && parsed <= 1 {
+			autoApproveThreshold = parsed
+		} else {
+			logger.Warnf("Invalid AUTO_APPROVE_THRESHOLD value: %s (using default %.2f)", v, DefaultAutoApproveThreshold)
+		}
+	}
+	if autoApproveThreshold > 0 {
+		logger.Infof("Auto-approve threshold: %.2f (enrichments scoring above this will be automatically approved)", autoApproveThreshold)
+	} else {
+		logger.Infof("Auto-approve disabled (threshold=0)")
+	}
+
 	// Create processor
 	processor := &enrichmentProcessor{
 		store:                 enrichmentStore,
@@ -244,7 +259,20 @@ func main() {
 		logger:                logger,
 		timeout:               DefaultJobTimeout,
 		qualityThreshold:      DefaultQualityThreshold,
+		autoApproveThreshold:  autoApproveThreshold,
 		gcsBucket:             gcsBucket,
+	}
+
+	// Check if running in batch mode (one-shot batch enrichment)
+	runMode := strings.ToLower(strings.TrimSpace(os.Getenv("RUN_MODE")))
+	if runMode == "batch" {
+		logger.Infof("Running in batch mode")
+		if err := runBatchProcessor(ctx, processor); err != nil {
+			logger.Errorf("Batch enrichment failed: %v", err)
+			os.Exit(1)
+		}
+		logger.Infof("Batch enrichment completed successfully")
+		return
 	}
 
 	// Check if running as Cloud Run Service (PORT env var set)
@@ -371,6 +399,7 @@ type enrichmentProcessor struct {
 	logger                *log.Logger
 	timeout               time.Duration
 	qualityThreshold      float64
+	autoApproveThreshold  float64
 	gcsBucket             string
 }
 
@@ -608,6 +637,27 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 			statusUpdated = true
 		}
 		return fmt.Errorf("%s", errMsg)
+	}
+
+	// Auto-approve if quality score exceeds the threshold
+	if p.autoApproveThreshold > 0 && quality != nil && quality.OverallScore >= p.autoApproveThreshold {
+		p.logger.Infof("Auto-approving enrichment for %s (quality score %.2f >= threshold %.2f)",
+			stockCode, quality.OverallScore, p.autoApproveThreshold)
+
+		// Approve the pending enrichment
+		if reviewErr := p.store.ReviewEnrichment(enrichmentID, true, "auto-approve", fmt.Sprintf("Auto-approved: quality score %.2f >= threshold %.2f", quality.OverallScore, p.autoApproveThreshold)); reviewErr != nil {
+			p.logger.Warnf("Failed to auto-approve enrichment %s for %s: %v (will remain in pending review)", enrichmentID, stockCode, reviewErr)
+		} else {
+			// Apply the enrichment to company-metadata
+			if applyErr := p.store.ApplyEnrichment(stockCode, enriched); applyErr != nil {
+				p.logger.Warnf("Failed to auto-apply enrichment for %s: %v (approved but not applied)", stockCode, applyErr)
+			} else {
+				p.logger.Infof("Auto-approved and applied enrichment for %s (enrichment_id=%s)", stockCode, enrichmentID)
+			}
+		}
+	} else if quality != nil {
+		p.logger.Infof("Enrichment for %s saved as pending review (quality score %.2f < threshold %.2f)",
+			stockCode, quality.OverallScore, p.autoApproveThreshold)
 	}
 
 	// Update job status to completed
@@ -1558,6 +1608,7 @@ func (p *enrichmentProcessor) startHTTPServer(ctx context.Context, port int) err
 	mux.HandleFunc("/reset-stuck-jobs", p.handleResetStuckJobs)
 	mux.HandleFunc("/backfill-people", p.handleBackfillPeople)
 	mux.HandleFunc("/enrich-batch", p.handleEnrichBatch)
+	mux.HandleFunc("/enrichment/stats", p.handleEnrichmentStats)
 	mux.HandleFunc("/", p.handlePubSubPush) // Catch-all for Pub/Sub push messages
 
 	server := &http.Server{
@@ -1817,11 +1868,10 @@ func (p *enrichmentProcessor) handleEnrichBatch(w http.ResponseWriter, r *http.R
 			limit = l
 		}
 	}
-	includeStale := r.URL.Query().Get("include_stale") == "true" || r.URL.Query().Get("includeStale") == "true"
 	force := r.URL.Query().Get("force") == "true"
 	autoApprove := r.URL.Query().Get("auto_approve") != "false" && r.URL.Query().Get("autoApprove") != "false" // default true
 
-	p.logger.Infof("HTTP trigger: Batch enrichment (limit: %d, includeStale: %v, force: %v, autoApprove: %v)", limit, includeStale, force, autoApprove)
+	p.logger.Infof("HTTP trigger: Batch enrichment (limit: %d, force: %v, autoApprove: %v)", limit, force, autoApprove)
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -1834,19 +1884,19 @@ func (p *enrichmentProcessor) handleEnrichBatch(w http.ResponseWriter, r *http.R
 		}
 	}
 
-	// Get stocks needing enrichment
-	stockCodes, err := p.store.GetStocksNeedingEnrichment(limit, includeStale)
+	// Get stocks needing enrichment using the new priority-based method
+	candidates, err := p.store.GetTopStocksForEnrichment(int32(limit), shortsv1alpha1.EnrichmentPriority_ENRICHMENT_PRIORITY_UNSPECIFIED)
 	if err != nil {
 		writeProgress(fmt.Sprintf("Error getting stocks: %v", err))
 		return
 	}
 
-	if len(stockCodes) == 0 {
+	if len(candidates) == 0 {
 		writeProgress("No stocks need enrichment")
 		return
 	}
 
-	writeProgress(fmt.Sprintf("Found %d stocks needing enrichment, processing...", len(stockCodes)))
+	writeProgress(fmt.Sprintf("Found %d stocks needing enrichment, processing...", len(candidates)))
 
 	// Use a generous overall timeout but rely on per-job timeouts to bound individual stocks.
 	// Cloud Run has a 1-hour max request timeout, so we budget 55 minutes to leave headroom.
@@ -1863,11 +1913,12 @@ func (p *enrichmentProcessor) handleEnrichBatch(w http.ResponseWriter, r *http.R
 	// Use a smaller buffer than the full job timeout for the batch cutoff check.
 	const minTimePerStock = 3 * time.Minute
 
-	for i, stockCode := range stockCodes {
+	for i, candidate := range candidates {
+		stockCode := candidate.StockCode
 		// Check if we have enough time remaining for another stock
 		remaining := time.Until(batchDeadline) - batchSafetyMargin
 		if remaining < minTimePerStock {
-			skippedCount = len(stockCodes) - i
+			skippedCount = len(candidates) - i
 			writeProgress(fmt.Sprintf("  Stopping batch: only %v remaining (need %v per stock), skipping %d stocks",
 				remaining.Round(time.Second), minTimePerStock, skippedCount))
 			break
@@ -1878,7 +1929,7 @@ func (p *enrichmentProcessor) handleEnrichBatch(w http.ResponseWriter, r *http.R
 			time.Sleep(3 * time.Second)
 		}
 
-		writeProgress(fmt.Sprintf("[%d/%d] Enriching %s... (%v remaining)", i+1, len(stockCodes), stockCode, remaining.Round(time.Second)))
+		writeProgress(fmt.Sprintf("[%d/%d] Enriching %s... (%v remaining)", i+1, len(candidates), stockCode, remaining.Round(time.Second)))
 
 		// Create enrichment job
 		jobID, err := p.store.CreateEnrichmentJob(stockCode, force)
@@ -1938,9 +1989,30 @@ func (p *enrichmentProcessor) handleEnrichBatch(w http.ResponseWriter, r *http.R
 		successCount++
 	}
 
-	summary := fmt.Sprintf("Batch enrichment complete: %d succeeded, %d failed, %d skipped (time), %d total (autoApprove: %v)", successCount, failCount, skippedCount, len(stockCodes), autoApprove)
+	summary := fmt.Sprintf("Batch enrichment complete: %d succeeded, %d failed, %d skipped (time), %d total (autoApprove: %v)", successCount, failCount, skippedCount, len(candidates), autoApprove)
 	p.logger.Infof(summary)
 	writeProgress(summary)
+}
+
+// handleEnrichmentStats returns enrichment coverage statistics as JSON
+func (p *enrichmentProcessor) handleEnrichmentStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	stats, err := p.store.GetEnrichmentStats()
+	if err != nil {
+		p.logger.Errorf("Failed to get enrichment stats: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to get enrichment stats: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(stats); err != nil {
+		p.logger.Errorf("Failed to encode enrichment stats: %v", err)
+	}
 }
 
 func signalListener(ctx context.Context) func() error {

@@ -48,7 +48,11 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 	tokenSecret := os.Getenv("TOKEN_SECRET")
 	if tokenSecret == "" {
 		// Check if we're in production
+		// Support both ENV and ENVIRONMENT (Terraform/Cloud Run uses ENVIRONMENT)
 		env := os.Getenv("ENV")
+		if env == "" {
+			env = os.Getenv("ENVIRONMENT")
+		}
 		if env == "production" || env == "prod" {
 			return nil, fmt.Errorf("TOKEN_SECRET environment variable is required in production")
 		}
