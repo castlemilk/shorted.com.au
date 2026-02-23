@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -16,6 +17,41 @@ import (
 type GeminiGPTClient struct {
 	client *genai.Client
 	model  string
+}
+
+// retryableGeminiCall wraps a Gemini API call with exponential backoff retry logic.
+func retryableGeminiCall(ctx context.Context, maxRetries int, label string, fn func() (*genai.GenerateContentResponse, error)) (*genai.GenerateContentResponse, error) {
+	var lastErr error
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			backoff := time.Duration(math.Min(float64(time.Second)*math.Pow(2, float64(attempt)), float64(30*time.Second)))
+			select {
+			case <-ctx.Done():
+				return nil, fmt.Errorf("%s: context cancelled during retry backoff: %w", label, ctx.Err())
+			case <-time.After(backoff):
+			}
+		}
+
+		resp, err := fn()
+		if err == nil {
+			return resp, nil
+		}
+		lastErr = err
+
+		errStr := err.Error()
+		retryable := strings.Contains(errStr, "429") ||
+			strings.Contains(errStr, "500") ||
+			strings.Contains(errStr, "502") ||
+			strings.Contains(errStr, "503") ||
+			strings.Contains(errStr, "504") ||
+			strings.Contains(errStr, "deadline exceeded") ||
+			strings.Contains(errStr, "connection reset") ||
+			strings.Contains(errStr, "RESOURCE_EXHAUSTED")
+		if !retryable {
+			return nil, err
+		}
+	}
+	return nil, fmt.Errorf("%s failed after %d retries: %w", label, maxRetries, lastErr)
 }
 
 func NewGeminiGPTClient(apiKey string) (*GeminiGPTClient, error) {
@@ -31,7 +67,7 @@ func NewGeminiGPTClient(apiKey string) (*GeminiGPTClient, error) {
 
 	return &GeminiGPTClient{
 		client: client,
-		model:  "gemini-1.5-pro",
+		model:  "gemini-2.5-flash",
 	}, nil
 }
 
@@ -104,7 +140,12 @@ Return a JSON object with this EXACT structure (valid JSON only, no markdown):
   }
 }
 
-IMPORTANT: Extract key_people information from the scraped_website_metadata section above. Look for leadership pages, board members, and executive team information.
+IMPORTANT rules for key_people:
+- First check the scraped_website_metadata for leadership pages, board members, and executive team information.
+- If no people are found in the scraped data, use your own knowledge of the company's current leadership team. For major ASX-listed companies (e.g., BHP, CBA, CSL, NAB, TLS), the CEO, CFO, and Chair are widely known public figures.
+- Every person MUST have an actual full name. Do NOT return placeholder entries like {"name": "", "role": "CEO"}.
+- If you genuinely cannot determine any real names from either the scraped data or your knowledge, return "key_people": [] (empty array).
+- Include at least the CEO/MD, Chair, and CFO when their names are known. Add other C-suite/board members if available.
 `, companyName, stockCode, industry, website, currentSummary, reportsSection, metadataSection)
 
 	// Create model
@@ -120,8 +161,10 @@ IMPORTANT: Extract key_people information from the scraped_website_metadata sect
 	callCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
 
-	// Generate content with system instruction and user prompt
-	resp, err := model.GenerateContent(callCtx, genai.Text(userPrompt))
+	// Generate content with retries for transient errors
+	resp, err := retryableGeminiCall(callCtx, 3, "gemini enrichment", func() (*genai.GenerateContentResponse, error) {
+		return model.GenerateContent(callCtx, genai.Text(userPrompt))
+	})
 	if err != nil {
 		return nil, fmt.Errorf("gemini enrichment failed: %w", err)
 	}
@@ -251,7 +294,9 @@ Enrichment JSON:
 	callCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
-	resp, err := model.GenerateContent(callCtx, genai.Text(userPrompt))
+	resp, err := retryableGeminiCall(callCtx, 3, "gemini quality evaluation", func() (*genai.GenerateContentResponse, error) {
+		return model.GenerateContent(callCtx, genai.Text(userPrompt))
+	})
 	if err != nil {
 		return nil, fmt.Errorf("gemini quality evaluation failed: %w", err)
 	}
@@ -332,7 +377,9 @@ Return ONLY the website URL or "UNKNOWN" if you cannot determine it.`, companyNa
 	callCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	resp, err := model.GenerateContent(callCtx, genai.Text(userPrompt))
+	resp, err := retryableGeminiCall(callCtx, 2, "website discovery", func() (*genai.GenerateContentResponse, error) {
+		return model.GenerateContent(callCtx, genai.Text(userPrompt))
+	})
 	if err != nil {
 		return "", fmt.Errorf("website discovery failed: %w", err)
 	}
@@ -368,6 +415,92 @@ Return ONLY the website URL or "UNKNOWN" if you cannot determine it.`, companyNa
 	}
 
 	return result, nil
+}
+
+// ExtractPeopleFromText extracts key people from raw scraped text using the LLM.
+// Used as a fallback when the main enrichment phase returns 0 key_people.
+func (c *GeminiGPTClient) ExtractPeopleFromText(ctx context.Context, stockCode, companyName, rawText string) ([]*stocksv1alpha1.CompanyPerson, error) {
+	if strings.TrimSpace(rawText) == "" {
+		return nil, nil
+	}
+
+	systemPrompt := `You are extracting key people (board members, executives, leadership) from raw website text for an ASX-listed company.
+
+Return ONLY valid JSON. No markdown. No commentary.`
+
+	userPrompt := fmt.Sprintf(`Extract key people from the following website content for %s (ASX: %s).
+
+Return a JSON object with this EXACT structure:
+{
+  "key_people": [
+    {"name": "Full Name", "role": "Title/Role", "bio": "Brief 1-2 sentence bio if available"}
+  ]
+}
+
+Rules:
+- Every person MUST have a real full name. Do NOT include entries with empty names.
+- Include roles like CEO, CFO, Chair, Managing Director, Non-Executive Director, etc.
+- If you cannot determine any real names, return {"key_people": []}
+- Maximum 10 people.
+
+Website content:
+%s`, companyName, stockCode, rawText)
+
+	model := c.client.GenerativeModel(c.model)
+	model.SetTemperature(0.1)
+	model.SystemInstruction = &genai.Content{
+		Parts: []genai.Part{genai.Text(systemPrompt)},
+	}
+
+	callCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+
+	resp, err := retryableGeminiCall(callCtx, 2, "people extraction", func() (*genai.GenerateContentResponse, error) {
+		return model.GenerateContent(callCtx, genai.Text(userPrompt))
+	})
+	if err != nil {
+		return nil, fmt.Errorf("people extraction failed: %w", err)
+	}
+
+	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
+		return nil, fmt.Errorf("people extraction returned no content")
+	}
+
+	raw := ""
+	for _, part := range resp.Candidates[0].Content.Parts {
+		if text, ok := part.(genai.Text); ok {
+			raw += string(text)
+		}
+	}
+
+	raw = strings.TrimSpace(raw)
+	raw = extractLikelyJSON(raw)
+
+	var parsed struct {
+		KeyPeople []struct {
+			Name string `json:"name"`
+			Role string `json:"role"`
+			Bio  string `json:"bio"`
+		} `json:"key_people"`
+	}
+	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
+		return nil, fmt.Errorf("failed to parse people extraction JSON: %w", err)
+	}
+
+	people := make([]*stocksv1alpha1.CompanyPerson, 0, len(parsed.KeyPeople))
+	for _, p := range parsed.KeyPeople {
+		name := strings.TrimSpace(p.Name)
+		if name == "" {
+			continue
+		}
+		people = append(people, &stocksv1alpha1.CompanyPerson{
+			Name: name,
+			Role: strings.TrimSpace(p.Role),
+			Bio:  strings.TrimSpace(p.Bio),
+		})
+	}
+
+	return people, nil
 }
 
 func (c *GeminiGPTClient) Close() error {

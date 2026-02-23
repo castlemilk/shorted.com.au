@@ -68,7 +68,7 @@ type MetadataScraper struct {
 func NewMetadataScraper() *MetadataScraper {
 	return &MetadataScraper{
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout: 15 * time.Second, // Per-request timeout — keep tight so slow sites don't block the whole scrape
 		},
 	}
 }
@@ -106,7 +106,9 @@ func (s *MetadataScraper) ScrapeMetadata(ctx context.Context, website, companyNa
 				for i := range page.People {
 					enhanced, err := EnhancePersonWithExa(ctx, exaClient, &page.People[i], companyName)
 					if err == nil && enhanced != nil {
-						page.People[i] = *enhanced
+						page.People[i].Name = enhanced.Name
+						page.People[i].Role = enhanced.Role
+						page.People[i].Bio = enhanced.Bio
 					}
 				}
 			}
@@ -361,6 +363,8 @@ func (s *MetadataScraper) scrapeAboutPage(ctx context.Context, pageURL string) (
 
 // cleanText removes extra whitespace and junk from extracted text
 func cleanText(text string) string {
+	// Sanitize invalid UTF-8 sequences (e.g., from non-UTF-8 encoded websites)
+	text = strings.ToValidUTF8(text, "")
 	lines := strings.Split(text, "\n")
 	var cleaned []string
 	for _, line := range lines {
@@ -466,6 +470,8 @@ func (s *MetadataScraper) buildContextText(metadata *ScrapedMetadata) string {
 	}
 
 	fullContext := strings.Join(parts, "\n")
+	// Final UTF-8 sanitization to catch any invalid bytes from scraped content
+	fullContext = strings.ToValidUTF8(fullContext, "")
 	if len(fullContext) > maxGlobalChars {
 		return fullContext[:maxGlobalChars] + "\n\n... [METADATA TRUNCATED]"
 	}
@@ -589,6 +595,114 @@ func categorizeLink(url, text string) string {
 	}
 
 	return ""
+}
+
+// BuildPeopleFallbackURLs returns additional ASX-specific website paths to try
+// when the main enrichment returned 0 key people. These paths are not in the
+// standard buildMetadataSeedURLs list.
+func BuildPeopleFallbackURLs(websiteURL string) ([]string, error) {
+	rootURL, err := normalizeWebsiteURL(websiteURL)
+	if err != nil {
+		return nil, err
+	}
+
+	base := *rootURL
+	base.Path = strings.TrimRight(base.Path, "/")
+
+	// Paths not already covered by buildMetadataSeedURLs
+	paths := []string{
+		"/corporate-governance",
+		"/investors/corporate-governance",
+		"/investors/board",
+		"/who-we-are",
+		"/who-we-are/our-team",
+		"/who-we-are/our-people",
+		"/who-we-are/leadership",
+		"/people",
+		"/people/board-of-directors",
+		"/people/executive-team",
+		"/our-team",
+		"/our-people",
+		"/our-leadership",
+		"/governance/board-of-directors",
+	}
+
+	seen := make(map[string]struct{}, len(paths))
+	var out []string
+	for _, p := range paths {
+		u := base
+		u.Path = p
+		u.RawQuery = ""
+		s := u.String()
+		if _, ok := seen[s]; ok {
+			continue
+		}
+		seen[s] = struct{}{}
+		out = append(out, s)
+	}
+	return out, nil
+}
+
+// ScrapePeoplePages crawls extended people-specific pages on a company website
+// and returns concatenated text content for LLM extraction.
+func (s *MetadataScraper) ScrapePeoplePages(ctx context.Context, website string) (string, error) {
+	website = strings.TrimSpace(website)
+	if website == "" {
+		return "", nil
+	}
+
+	urls, err := BuildPeopleFallbackURLs(website)
+	if err != nil {
+		return "", err
+	}
+
+	const maxTotalChars = 8000
+	var parts []string
+	totalLen := 0
+
+	for _, u := range urls {
+		if ctx.Err() != nil {
+			break
+		}
+
+		// Per-request timeout to avoid slow sites blocking the whole crawl
+		reqCtx, reqCancel := context.WithTimeout(ctx, 10*time.Second)
+		doc, _, fetchErr := fetchHTML(reqCtx, s.httpClient, u)
+		reqCancel()
+
+		if fetchErr != nil || doc == nil {
+			continue
+		}
+
+		// Remove non-content elements
+		doc.Find("script, style, iframe, nav, footer, header, form, aside").Remove()
+		text := cleanText(doc.Find("body").Text())
+		if text == "" {
+			continue
+		}
+
+		// Truncate individual page text to keep things balanced
+		if len(text) > 2000 {
+			text = text[:2000]
+		}
+
+		parts = append(parts, fmt.Sprintf("--- Source: %s ---\n%s", u, text))
+		totalLen += len(text)
+
+		if totalLen >= maxTotalChars {
+			break
+		}
+	}
+
+	if len(parts) == 0 {
+		return "", nil
+	}
+
+	result := strings.Join(parts, "\n\n")
+	if len(result) > maxTotalChars {
+		result = result[:maxTotalChars]
+	}
+	return result, nil
 }
 
 // Note: normalizeWebsiteURL, resolveURL, normalizeURL, and sameHost are defined in report_crawler.go
