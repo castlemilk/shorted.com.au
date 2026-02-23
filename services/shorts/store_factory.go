@@ -69,6 +69,45 @@ func (a *enrichmentStoreAdapter) SavePendingEnrichment(enrichmentID, stockCode s
 	return a.store.SavePendingEnrichment(enrichmentID, stockCode, status, data, quality)
 }
 
+func (a *enrichmentStoreAdapter) GetTopStocksForEnrichment(limit int32, priority shortsv1alpha1.EnrichmentPriority) ([]*shortsv1alpha1.StockEnrichmentCandidate, error) {
+	return a.store.GetTopStocksForEnrichment(limit, priority)
+}
+
+func (a *enrichmentStoreAdapter) CreateEnrichmentJob(stockCode string, force bool) (string, error) {
+	return a.store.CreateEnrichmentJob(stockCode, force)
+}
+
+func (a *enrichmentStoreAdapter) GetActiveEnrichmentJobByStockCode(stockCode string) (*shortsv1alpha1.EnrichmentJob, error) {
+	return a.store.GetActiveEnrichmentJobByStockCode(stockCode)
+}
+
+func (a *enrichmentStoreAdapter) ReviewEnrichment(enrichmentID string, approve bool, reviewedBy, reviewNotes string) error {
+	return a.store.ReviewEnrichment(enrichmentID, approve, reviewedBy, reviewNotes)
+}
+
+func (a *enrichmentStoreAdapter) ApplyEnrichment(stockCode string, data *shortsv1alpha1.EnrichmentData) error {
+	return a.store.ApplyEnrichment(stockCode, data)
+}
+
+func (a *enrichmentStoreAdapter) GetPendingEnrichment(enrichmentID string) (*shortsv1alpha1.PendingEnrichment, error) {
+	return a.store.GetPendingEnrichment(enrichmentID)
+}
+
+func (a *enrichmentStoreAdapter) GetEnrichmentStats() (*enrichment.EnrichmentStats, error) {
+	stats, err := a.store.GetEnrichmentStats()
+	if err != nil {
+		return nil, err
+	}
+	return &enrichment.EnrichmentStats{
+		TotalStocks:     stats.TotalStocks,
+		Enriched:        stats.Enriched,
+		PendingReview:   stats.PendingReview,
+		Failed:          stats.Failed,
+		Unenriched:      stats.Unenriched,
+		CoveragePercent: stats.CoveragePercent,
+	}, nil
+}
+
 func (a *enrichmentStoreAdapter) UpdateLogoURLs(stockCode, logoGCSURL, logoIconGCSURL string) error {
 	return a.store.UpdateLogoURLs(stockCode, logoGCSURL, logoIconGCSURL)
 }
@@ -95,26 +134,6 @@ func (a *enrichmentStoreAdapter) GetStocksForPeopleEnrichment(limit int) ([]enri
 
 func (a *enrichmentStoreAdapter) UpdateKeyPeopleEnriched(stockCode string, keyPeopleJSON []byte) error {
 	return a.store.UpdateKeyPeopleEnriched(stockCode, keyPeopleJSON)
-}
-
-func (a *enrichmentStoreAdapter) CreateEnrichmentJob(stockCode string, force bool) (string, error) {
-	return a.store.CreateEnrichmentJob(stockCode, force)
-}
-
-func (a *enrichmentStoreAdapter) GetStocksNeedingEnrichment(limit int, includeStale bool) ([]string, error) {
-	return a.store.GetStocksNeedingEnrichment(limit, includeStale)
-}
-
-func (a *enrichmentStoreAdapter) GetPendingEnrichment(enrichmentID string) (*shortsv1alpha1.PendingEnrichment, error) {
-	return a.store.GetPendingEnrichment(enrichmentID)
-}
-
-func (a *enrichmentStoreAdapter) ReviewEnrichment(enrichmentID string, approve bool, reviewedBy, reviewNotes string) error {
-	return a.store.ReviewEnrichment(enrichmentID, approve, reviewedBy, reviewNotes)
-}
-
-func (a *enrichmentStoreAdapter) ApplyEnrichment(stockCode string, data *shortsv1alpha1.EnrichmentData) error {
-	return a.store.ApplyEnrichment(stockCode, data)
 }
 
 type ErrStoreCreationFailed struct{}

@@ -121,6 +121,95 @@ func (mr *MockEnrichmentStoreMockRecorder) SavePendingEnrichment(enrichmentID, s
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SavePendingEnrichment", reflect.TypeOf((*MockEnrichmentStore)(nil).SavePendingEnrichment), enrichmentID, stockCode, status, data, quality)
 }
 
+func (m *MockEnrichmentStore) GetTopStocksForEnrichment(limit int32, priority shortsv1alpha1.EnrichmentPriority) ([]*shortsv1alpha1.StockEnrichmentCandidate, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetTopStocksForEnrichment", limit, priority)
+	ret0, _ := ret[0].([]*shortsv1alpha1.StockEnrichmentCandidate)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (mr *MockEnrichmentStoreMockRecorder) GetTopStocksForEnrichment(limit, priority interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTopStocksForEnrichment", reflect.TypeOf((*MockEnrichmentStore)(nil).GetTopStocksForEnrichment), limit, priority)
+}
+
+func (m *MockEnrichmentStore) CreateEnrichmentJob(stockCode string, force bool) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreateEnrichmentJob", stockCode, force)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (mr *MockEnrichmentStoreMockRecorder) CreateEnrichmentJob(stockCode, force interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEnrichmentJob", reflect.TypeOf((*MockEnrichmentStore)(nil).CreateEnrichmentJob), stockCode, force)
+}
+
+func (m *MockEnrichmentStore) GetActiveEnrichmentJobByStockCode(stockCode string) (*shortsv1alpha1.EnrichmentJob, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetActiveEnrichmentJobByStockCode", stockCode)
+	ret0, _ := ret[0].(*shortsv1alpha1.EnrichmentJob)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (mr *MockEnrichmentStoreMockRecorder) GetActiveEnrichmentJobByStockCode(stockCode interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetActiveEnrichmentJobByStockCode", reflect.TypeOf((*MockEnrichmentStore)(nil).GetActiveEnrichmentJobByStockCode), stockCode)
+}
+
+func (m *MockEnrichmentStore) ReviewEnrichment(enrichmentID string, approve bool, reviewedBy, reviewNotes string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReviewEnrichment", enrichmentID, approve, reviewedBy, reviewNotes)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (mr *MockEnrichmentStoreMockRecorder) ReviewEnrichment(enrichmentID, approve, reviewedBy, reviewNotes interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReviewEnrichment", reflect.TypeOf((*MockEnrichmentStore)(nil).ReviewEnrichment), enrichmentID, approve, reviewedBy, reviewNotes)
+}
+
+func (m *MockEnrichmentStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.EnrichmentData) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplyEnrichment", stockCode, data)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (mr *MockEnrichmentStoreMockRecorder) ApplyEnrichment(stockCode, data interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyEnrichment", reflect.TypeOf((*MockEnrichmentStore)(nil).ApplyEnrichment), stockCode, data)
+}
+
+func (m *MockEnrichmentStore) GetPendingEnrichment(enrichmentID string) (*shortsv1alpha1.PendingEnrichment, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPendingEnrichment", enrichmentID)
+	ret0, _ := ret[0].(*shortsv1alpha1.PendingEnrichment)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (mr *MockEnrichmentStoreMockRecorder) GetPendingEnrichment(enrichmentID interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingEnrichment", reflect.TypeOf((*MockEnrichmentStore)(nil).GetPendingEnrichment), enrichmentID)
+}
+
+func (m *MockEnrichmentStore) GetEnrichmentStats() (*enrichment.EnrichmentStats, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEnrichmentStats")
+	ret0, _ := ret[0].(*enrichment.EnrichmentStats)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (mr *MockEnrichmentStoreMockRecorder) GetEnrichmentStats() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEnrichmentStats", reflect.TypeOf((*MockEnrichmentStore)(nil).GetEnrichmentStats))
+}
+
 func (m *MockEnrichmentStore) UpdateLogoURLs(stockCode, logoGCSURL, logoIconGCSURL string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateLogoURLs", stockCode, logoGCSURL, logoIconGCSURL)
@@ -168,65 +257,6 @@ func (m *MockEnrichmentStore) UpdateKeyPeopleEnriched(stockCode string, keyPeopl
 func (mr *MockEnrichmentStoreMockRecorder) UpdateKeyPeopleEnriched(stockCode, keyPeopleJSON interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateKeyPeopleEnriched", reflect.TypeOf((*MockEnrichmentStore)(nil).UpdateKeyPeopleEnriched), stockCode, keyPeopleJSON)
-}
-
-func (m *MockEnrichmentStore) CreateEnrichmentJob(stockCode string, force bool) (string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CreateEnrichmentJob", stockCode, force)
-	return ret[0].(string), ret[1].(error)
-}
-
-func (mr *MockEnrichmentStoreMockRecorder) CreateEnrichmentJob(stockCode, force interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEnrichmentJob", reflect.TypeOf((*MockEnrichmentStore)(nil).CreateEnrichmentJob), stockCode, force)
-}
-
-func (m *MockEnrichmentStore) GetStocksNeedingEnrichment(limit int, includeStale bool) ([]string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetStocksNeedingEnrichment", limit, includeStale)
-	return ret[0].([]string), ret[1].(error)
-}
-
-func (mr *MockEnrichmentStoreMockRecorder) GetStocksNeedingEnrichment(limit, includeStale interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStocksNeedingEnrichment", reflect.TypeOf((*MockEnrichmentStore)(nil).GetStocksNeedingEnrichment), limit, includeStale)
-}
-
-func (m *MockEnrichmentStore) GetPendingEnrichment(enrichmentID string) (*shortsv1alpha1.PendingEnrichment, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetPendingEnrichment", enrichmentID)
-	ret0, _ := ret[0].(*shortsv1alpha1.PendingEnrichment)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-func (mr *MockEnrichmentStoreMockRecorder) GetPendingEnrichment(enrichmentID interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingEnrichment", reflect.TypeOf((*MockEnrichmentStore)(nil).GetPendingEnrichment), enrichmentID)
-}
-
-func (m *MockEnrichmentStore) ReviewEnrichment(enrichmentID string, approve bool, reviewedBy, reviewNotes string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReviewEnrichment", enrichmentID, approve, reviewedBy, reviewNotes)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (mr *MockEnrichmentStoreMockRecorder) ReviewEnrichment(enrichmentID, approve, reviewedBy, reviewNotes interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReviewEnrichment", reflect.TypeOf((*MockEnrichmentStore)(nil).ReviewEnrichment), enrichmentID, approve, reviewedBy, reviewNotes)
-}
-
-func (m *MockEnrichmentStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.EnrichmentData) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ApplyEnrichment", stockCode, data)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-func (mr *MockEnrichmentStoreMockRecorder) ApplyEnrichment(stockCode, data interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyEnrichment", reflect.TypeOf((*MockEnrichmentStore)(nil).ApplyEnrichment), stockCode, data)
 }
 
 // MockGPTClient is a mock of GPTClient interface

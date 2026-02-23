@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/singleflight"
 )
 
 // CacheEntry represents a cached value with expiration
@@ -25,6 +27,7 @@ type MemoryCache struct {
 	store  map[string]*CacheEntry
 	maxAge time.Duration
 	done   chan struct{}
+	sf     singleflight.Group // Deduplicates concurrent computations for the same key
 }
 
 // NewMemoryCache creates a new memory cache with the specified max age
@@ -81,21 +84,36 @@ func (c *MemoryCache) Set(key string, value interface{}) {
 	}
 }
 
-// GetOrSet retrieves a value from cache or computes it using the provided function
+// GetOrSet retrieves a value from cache or computes it using the provided function.
+// Uses singleflight to deduplicate concurrent computations for the same key,
+// preventing thundering herd problems under burst traffic.
 func (c *MemoryCache) GetOrSet(key string, computeFn func() (interface{}, error)) (interface{}, error) {
 	// Try to get from cache first
 	if value, found := c.Get(key); found {
 		return value, nil
 	}
 
-	// Compute the value
-	value, err := computeFn()
+	// Use singleflight to ensure only one goroutine computes the value
+	// for a given key at a time. Other concurrent callers will wait and
+	// share the result.
+	value, err, _ := c.sf.Do(key, func() (interface{}, error) {
+		// Double-check cache inside singleflight (another goroutine may
+		// have populated it while we were waiting)
+		if v, found := c.Get(key); found {
+			return v, nil
+		}
+
+		v, err := computeFn()
+		if err != nil {
+			return nil, err
+		}
+
+		c.Set(key, v)
+		return v, nil
+	})
 	if err != nil {
 		return nil, err
 	}
-
-	// Store in cache
-	c.Set(key, value)
 
 	return value, nil
 }

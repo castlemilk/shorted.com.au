@@ -131,7 +131,11 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 			expectedSecret := os.Getenv("INTERNAL_SERVICE_SECRET")
 			if expectedSecret == "" {
 				// Check if we're in production - fail fast
+				// Support both ENV and ENVIRONMENT (Terraform/Cloud Run uses ENVIRONMENT)
 				env := os.Getenv("ENV")
+				if env == "" {
+					env = os.Getenv("ENVIRONMENT")
+				}
 				if env == "production" || env == "prod" {
 					log.Errorf("INTERNAL_SERVICE_SECRET environment variable is required in production")
 					return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("server misconfiguration"))
@@ -140,8 +144,9 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 			}
 
 			// Debug: log received headers for internal auth troubleshooting
-			log.Infof("Internal auth check: secret present=%v, secret matches=%v, expected=%q, received=%q",
-				internalSecret != "", internalSecret == expectedSecret, expectedSecret, internalSecret)
+			// SECURITY: Never log secret values — only log whether they are present/match
+			log.Debugf("Internal auth check: secret present=%v, secret matches=%v",
+				internalSecret != "", internalSecret == expectedSecret)
 
 			if internalSecret != "" && internalSecret == expectedSecret {
 				userID := req.Header().Get("x-user-id")
@@ -312,12 +317,19 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 			}
 
 			// 4. Try to validate as a Google service account token
-			audience := "shorted-dev-aba5688f"
+			audience := os.Getenv("GCP_PROJECT_ID")
+			if audience == "" {
+				audience = "shorted-dev-aba5688f" // dev fallback
+			}
 			payload, gErr := idtoken.Validate(ctx, tokenString, audience)
 			if gErr == nil {
+				email := ""
+				if e, ok := payload.Claims["email"].(string); ok {
+					email = e
+				}
 				normalizedClaims := &Claims{
 					UserID: payload.Subject,
-					Email:  payload.Claims["email"].(string),
+					Email:  email,
 					Roles:  []string{},
 				}
 

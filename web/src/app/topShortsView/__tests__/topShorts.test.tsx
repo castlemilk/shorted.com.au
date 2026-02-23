@@ -147,6 +147,25 @@ jest.mock("~/@/components/ui/skeleton", () => ({
   ),
 }));
 
+jest.mock("~/@/components/ui/button", () => ({
+  Button: ({
+    children,
+    ...props
+  }: React.ComponentPropsWithoutRef<"button"> & { variant?: string; size?: string }) => (
+    <button type="button" {...props}>
+      {children}
+    </button>
+  ),
+}));
+
+jest.mock("lucide-react", () => ({
+  Download: () => <svg data-testid="download-icon" />,
+}));
+
+jest.mock("~/@/lib/csv-export", () => ({
+  downloadCSV: jest.fn(),
+}));
+
 const mockGetTopShortsDataClient = jest.mocked(getTopShortsDataClient);
 
 const createDeferred = <T,>() => {
