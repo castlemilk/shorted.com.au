@@ -135,6 +135,9 @@ func TestEnrichmentProcessor_ProcessJob_FullFlow(t *testing.T) {
 		).
 		Return(enrichedData, nil)
 
+	// Phase 3.5: Person enrichment — uses Yahoo Finance + Wikipedia (both nil in test, skipped)
+	// No mock expectations needed since yahooPeopleClient and wikipediaClient are nil on the processor
+
 	// Phase 4: Logo discovery
 	mockLogoDiscoverer.EXPECT().
 		DiscoverLogo(gomock.Any(), stockDetails.Website, stockDetails.CompanyName, stockCode).
@@ -659,25 +662,36 @@ func TestEnrichmentProcessor_ProcessJob_LLMEnrichmentFailure(t *testing.T) {
 		CrawlFinancialReports(gomock.Any(), gomock.Any()).
 		Return([]*stocksv1alpha1.FinancialReport{}, nil)
 
-	// LLM enrichment fails
+	// LLM enrichment fails — but the pipeline gracefully degrades with minimal enrichment
 	mockGPTClient.EXPECT().
 		EnrichCompany(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(nil, fmt.Errorf("LLM API error"))
 
+	// Phase 5: Quality evaluation still runs on the minimal enrichment
+	mockGPTClient.EXPECT().
+		EvaluateQuality(gomock.Any(), stockCode, gomock.Any()).
+		Return(&shortsv1alpha1.QualityScore{
+			OverallScore:      0.3,
+			CompletenessScore: 0.2,
+			AccuracyScore:     0.4,
+			Warnings:          []string{"minimal enrichment from LLM failure"},
+		}, nil)
+
+	// SavePendingEnrichment is called with the minimal enrichment
 	mockStore.EXPECT().
-		UpdateEnrichmentJobStatus(
-			jobID,
-			shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED,
-			nil,
-			gomock.Any(),
-		).
+		SavePendingEnrichment(gomock.Any(), stockCode, shortsv1alpha1.EnrichmentStatus_ENRICHMENT_STATUS_PENDING_REVIEW, gomock.Any(), gomock.Any()).
+		Return("test-enrichment-id", nil)
+
+	// Job completes successfully (graceful degradation)
+	mockStore.EXPECT().
+		UpdateEnrichmentJobStatus(jobID, shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_COMPLETED, gomock.Any(), nil).
 		Return(nil)
 
 	ctx := context.Background()
 	err := processor.processJob(ctx, jobID, stockCode, false)
 
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "gpt enrichment failed")
+	// Pipeline should succeed with graceful degradation (minimal enrichment)
+	require.NoError(t, err)
 }
 
 // Test job cleanup functions

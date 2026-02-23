@@ -62,7 +62,8 @@ func TestDatabaseConnectivity(t *testing.T) {
 	require.NoError(t, err)
 	
 	req.Header.Set("Content-Type", "application/json")
-	
+	req.Header.Set("User-Agent", "ShortedIntegrationTest/1.0")
+
 	client := &http.Client{Timeout: 10 * time.Second}
 	
 	// Wait for service to be ready

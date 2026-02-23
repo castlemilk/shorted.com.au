@@ -14,33 +14,46 @@ import (
 // ExaClient interface for searching with Exa AI
 type ExaClient interface {
 	SearchPeople(ctx context.Context, companyName, personName, role string) (*ExaSearchResult, error)
+	SearchCompanyPeople(ctx context.Context, companyName, stockCode string) (*ExaSearchResult, error)
 }
 
 // ExaSearchResult represents a search result from Exa
 type ExaSearchResult struct {
-	Results    []ExaResult   `json:"results"`
-	Autoprompt string        `json:"autoprompt,omitempty"`
+	Results    []ExaResult `json:"results"`
+	Autoprompt string      `json:"autoprompt,omitempty"`
 }
 
 // ExaResult represents a single search result from Exa
 type ExaResult struct {
-	ID          string `json:"id"`
-	URL         string `json:"url"`
-	Title       string `json:"title"`
-	Author      string `json:"author,omitempty"`
-	PublishedDate string `json:"published_date,omitempty"`
-	Text        string `json:"text,omitempty"`
-	Score       float64 `json:"score,omitempty"`
+	ID            string  `json:"id"`
+	URL           string  `json:"url"`
+	Title         string  `json:"title"`
+	Author        string  `json:"author,omitempty"`
+	PublishedDate string  `json:"published_date,omitempty"`
+	Text          string  `json:"text,omitempty"`
+	Score         float64 `json:"score,omitempty"`
+	Image         string  `json:"image,omitempty"`
 }
 
 // ExaCitation represents a citation from Exa search (for answer endpoint)
 type ExaCitation struct {
-	ID          string `json:"id"`
-	URL         string `json:"url"`
-	Title       string `json:"title"`
-	Author      string `json:"author"`
+	ID            string `json:"id"`
+	URL           string `json:"url"`
+	Title         string `json:"title"`
+	Author        string `json:"author"`
 	PublishedDate string `json:"publishedDate"`
-	Text        string `json:"text"`
+	Text          string `json:"text"`
+}
+
+// EnhancedPerson contains structured person data extracted from Exa search
+type EnhancedPerson struct {
+	Name        string
+	Role        string
+	Bio         string
+	ImageURL    string // From Exa result.Image or LinkedIn profile
+	LinkedInURL string // Extracted from result URLs containing linkedin.com/in/
+	SourceURL   string // Best matching result URL
+	SourceType  string // "exa"
 }
 
 type exaClient struct {
@@ -63,37 +76,13 @@ func NewExaClient(apiKey string) (ExaClient, error) {
 	}, nil
 }
 
-// SearchPeople searches for information about a person using Exa AI
-func (c *exaClient) SearchPeople(ctx context.Context, companyName, personName, role string) (*ExaSearchResult, error) {
-	if strings.TrimSpace(personName) == "" {
-		return nil, fmt.Errorf("person name is required")
-	}
-
-	// Build query for Exa people search
-	query := personName
-	if role != "" {
-		query = fmt.Sprintf("%s %s", personName, role)
-	}
-	if companyName != "" {
-		query = fmt.Sprintf("%s at %s", query, companyName)
-	}
-
-	// Use Exa's /search endpoint with category="people" for people search
-	// This is more appropriate than /answer for finding people profiles
-	reqBody := map[string]interface{}{
-		"query":      query,
-		"category":   "people", // Use people search category
-		"num_results": 5,      // Limit to 5 results
-		"text":       true,    // Include full text content
-		"use_autoprompt": false, // Don't use autoprompt for people search
-	}
-
+// doSearch performs a search request against the Exa API
+func (c *exaClient) doSearch(ctx context.Context, reqBody map[string]interface{}) (*ExaSearchResult, error) {
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	// Create HTTP request to /search endpoint
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/search", bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -102,7 +91,6 @@ func (c *exaClient) SearchPeople(ctx context.Context, companyName, personName, r
 	req.Header.Set("x-api-key", c.apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	// Execute request
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("exa API request failed: %w", err)
@@ -114,7 +102,6 @@ func (c *exaClient) SearchPeople(ctx context.Context, companyName, personName, r
 		return nil, fmt.Errorf("exa API returned status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
-	// Parse response
 	var result ExaSearchResult
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("failed to decode exa response: %w", err)
@@ -123,59 +110,114 @@ func (c *exaClient) SearchPeople(ctx context.Context, companyName, personName, r
 	return &result, nil
 }
 
-// EnhancePersonWithExa enhances person information using Exa search
-func EnhancePersonWithExa(ctx context.Context, exaClient ExaClient, person *Person, companyName string) (*Person, error) {
-	if exaClient == nil || person == nil {
-		return person, nil // Return original if no client or person
+// SearchPeople searches for information about a person using Exa AI
+func (c *exaClient) SearchPeople(ctx context.Context, companyName, personName, role string) (*ExaSearchResult, error) {
+	if strings.TrimSpace(personName) == "" {
+		return nil, fmt.Errorf("person name is required")
 	}
 
-	// Search for additional information about this person
+	query := personName
+	if role != "" {
+		query = fmt.Sprintf("%s %s", personName, role)
+	}
+	if companyName != "" {
+		query = fmt.Sprintf("%s at %s", query, companyName)
+	}
+
+	reqBody := map[string]interface{}{
+		"query":          query,
+		"category":       "people",
+		"num_results":    5,
+		"text":           true,
+		"use_autoprompt": false,
+		"contents": map[string]interface{}{
+			"text": map[string]interface{}{
+				"max_characters": 1000,
+			},
+		},
+	}
+
+	return c.doSearch(ctx, reqBody)
+}
+
+// SearchCompanyPeople searches for a company's leadership/board page using Exa AI
+func (c *exaClient) SearchCompanyPeople(ctx context.Context, companyName, stockCode string) (*ExaSearchResult, error) {
+	if strings.TrimSpace(companyName) == "" {
+		return nil, fmt.Errorf("company name is required")
+	}
+
+	query := fmt.Sprintf("%s ASX board of directors leadership team", companyName)
+	if stockCode != "" {
+		query = fmt.Sprintf("%s %s", query, stockCode)
+	}
+
+	reqBody := map[string]interface{}{
+		"query":          query,
+		"category":       "company",
+		"num_results":    3,
+		"text":           true,
+		"use_autoprompt": false,
+		"contents": map[string]interface{}{
+			"text": map[string]interface{}{
+				"max_characters": 2000,
+			},
+		},
+	}
+
+	return c.doSearch(ctx, reqBody)
+}
+
+// EnhancePersonWithExa enhances person information using Exa search.
+// Returns an EnhancedPerson with image URL, LinkedIn URL, and source attribution.
+func EnhancePersonWithExa(ctx context.Context, exaClient ExaClient, person *Person, companyName string) (*EnhancedPerson, error) {
+	if exaClient == nil || person == nil {
+		return nil, nil
+	}
+
 	result, err := exaClient.SearchPeople(ctx, companyName, person.Name, person.Role)
 	if err != nil {
-		// Log error but don't fail - return original person
-		return person, nil
+		return nil, err
 	}
 
-	enhanced := *person
+	enhanced := &EnhancedPerson{
+		Name:       person.Name,
+		Role:       person.Role,
+		Bio:        person.Bio,
+		SourceType: "exa",
+	}
 
-	// Enhance bio with information from Exa search results
-	if len(result.Results) > 0 {
-		// Combine text from top results
-		var additionalInfo strings.Builder
-		for i, res := range result.Results {
-			if i >= 3 { // Limit to top 3 results
+	if len(result.Results) == 0 {
+		return enhanced, nil
+	}
+
+	// Extract LinkedIn URL and image from results
+	for _, res := range result.Results {
+		// Extract LinkedIn profile URL
+		if enhanced.LinkedInURL == "" && strings.Contains(res.URL, "linkedin.com/in/") {
+			enhanced.LinkedInURL = res.URL
+		}
+
+		// Extract image (Exa returns profile thumbnails for LinkedIn results)
+		if enhanced.ImageURL == "" && res.Image != "" {
+			enhanced.ImageURL = res.Image
+		}
+
+		// Use best result URL as source
+		if enhanced.SourceURL == "" && res.URL != "" {
+			enhanced.SourceURL = res.URL
+		}
+	}
+
+	// If we found an image from a LinkedIn result but no separate image field,
+	// check if the first LinkedIn result has an image
+	if enhanced.ImageURL == "" {
+		for _, res := range result.Results {
+			if res.Image != "" {
+				enhanced.ImageURL = res.Image
 				break
 			}
-			if res.Text != "" {
-				additionalInfo.WriteString(res.Text)
-				additionalInfo.WriteString(" ")
-			}
-		}
-
-		additionalText := strings.TrimSpace(additionalInfo.String())
-		if additionalText != "" {
-			if person.Bio == "" {
-				enhanced.Bio = additionalText
-			} else {
-				// Append additional information
-				enhanced.Bio = person.Bio + " " + additionalText
-			}
-		}
-
-		// Add source URLs
-		if len(result.Results) > 0 {
-			sources := " Sources: "
-			for i, res := range result.Results {
-				if i >= 2 { // Limit to first 2 sources
-					break
-				}
-				if res.URL != "" {
-					sources += res.URL + " "
-				}
-			}
-			enhanced.Bio += sources
 		}
 	}
 
-	return &enhanced, nil
+	return enhanced, nil
 }

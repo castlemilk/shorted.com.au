@@ -116,6 +116,27 @@ func (a *enrichmentStoreAdapter) GetEnrichmentStats() (*enrichment.EnrichmentSta
 	}, nil
 }
 
+func (a *enrichmentStoreAdapter) GetStocksForPeopleEnrichment(limit int) ([]enrichment.StockPeopleData, error) {
+	rows, err := a.store.GetStocksForPeopleEnrichment(limit)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]enrichment.StockPeopleData, len(rows))
+	for i, row := range rows {
+		result[i] = enrichment.StockPeopleData{
+			StockCode:   row.StockCode,
+			CompanyName: row.CompanyName,
+			KeyPeople:   row.KeyPeople,
+		}
+	}
+	return result, nil
+}
+
+func (a *enrichmentStoreAdapter) UpdateKeyPeopleEnriched(stockCode string, keyPeopleJSON []byte) error {
+	return a.store.UpdateKeyPeopleEnriched(stockCode, keyPeopleJSON)
+}
+
+
 // Explicit interface check to ensure enrichmentStoreAdapter implements enrichment.EnrichmentStore
 var _ enrichment.EnrichmentStore = (*enrichmentStoreAdapter)(nil)
 

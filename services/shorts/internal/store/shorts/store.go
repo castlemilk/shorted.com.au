@@ -66,6 +66,17 @@ type Store interface {
 
 	// Financial highlights from extracted reports
 	GetStockFinancialHighlights(stockCodes []string, maxPerStock int) (map[string][]FinancialReportHighlight, error)
+
+	// Person enrichment backfill
+	GetStocksForPeopleEnrichment(limit int) ([]StockPeopleBackfillRow, error)
+	UpdateKeyPeopleEnriched(stockCode string, keyPeopleJSON []byte) error
+}
+
+// StockPeopleBackfillRow represents a stock needing key_people enrichment
+type StockPeopleBackfillRow struct {
+	StockCode   string
+	CompanyName string
+	KeyPeople   []byte // Raw JSONB
 }
 
 // EnrichmentStats holds enrichment coverage statistics

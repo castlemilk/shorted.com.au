@@ -86,6 +86,11 @@ message CompanyPerson {
   string name = 1;
   string role = 2;
   string bio = 3;
+  string image_url = 4;       // Original source image URL (e.g. LinkedIn, Wikipedia)
+  string image_gcs_url = 5;   // GCS-hosted image URL
+  string linkedin_url = 6;    // LinkedIn profile URL
+  string source_url = 7;      // Where the person data was found
+  string source_type = 8;     // "company_website" | "exa" | "wikipedia"
 }
 
 message FinancialReport {
