@@ -28,14 +28,22 @@ export async function mintApiTokenAction() {
   const client = createClient(ShortedStocksService, transport);
 
   try {
-    // We pass the user context through headers if the backend supports it
-    // Or we rely on the backend's MintToken implementation which we just added
+    const internalSecret =
+      process.env.INTERNAL_SERVICE_SECRET ??
+      (process.env.NODE_ENV === "development"
+        ? "dev-internal-secret"
+        : undefined);
+    if (!internalSecret) {
+      throw new Error(
+        "INTERNAL_SERVICE_SECRET not configured for production",
+      );
+    }
+
     const response = await client.mintToken(
       {},
       {
         headers: {
-          // In a real app, we'd pass an internal service token here
-          "X-Internal-Secret": "dev-internal-secret",
+          "X-Internal-Secret": internalSecret,
           "X-User-Id": session.user.id,
           "X-User-Email": session.user.email ?? "",
         },

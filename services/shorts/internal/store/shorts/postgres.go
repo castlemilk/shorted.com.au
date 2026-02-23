@@ -81,8 +81,9 @@ func newPostgresStore(config Config) (Store, error) {
 	poolConfig.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
 	// Set connection pool settings for better concurrency
-	poolConfig.MaxConns = 25                      // Maximum number of connections
-	poolConfig.MinConns = 5                       // Minimum number of connections
+	// Supabase max_connections is 60, shared across multiple services — keep per-service pool small
+	poolConfig.MaxConns = 10                      // Maximum number of connections
+	poolConfig.MinConns = 2                       // Minimum number of connections
 	poolConfig.MaxConnLifetime = time.Hour        // Maximum connection lifetime
 	poolConfig.MaxConnIdleTime = time.Minute * 30 // Maximum idle time
 
@@ -2892,5 +2893,49 @@ func (s *postgresStore) UpdateAPISubscriptionByCustomer(stripeCustomerID string,
 	}
 
 	return nil
+}
+
+// GetEnrichmentStats returns enrichment coverage statistics from company-metadata and enrichment-pending tables
+func (s *postgresStore) GetEnrichmentStats() (*EnrichmentStats, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT
+			COUNT(*) AS total_stocks,
+			COUNT(*) FILTER (WHERE COALESCE(enrichment_status, '') = 'completed') AS enriched,
+			COUNT(*) FILTER (WHERE COALESCE(enrichment_status, '') = 'failed') AS failed,
+			COUNT(*) FILTER (WHERE COALESCE(enrichment_status, '') NOT IN ('completed', 'failed') OR enrichment_status IS NULL) AS unenriched
+		FROM "company-metadata"
+	`
+
+	var totalStocks, enriched, failed, unenriched int
+	err := s.db.QueryRow(ctx, query).Scan(&totalStocks, &enriched, &failed, &unenriched)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get enrichment stats: %w", err)
+	}
+
+	// Count pending reviews from the enrichment-pending table
+	pendingQuery := `SELECT COUNT(*) FROM "enrichment-pending" WHERE status = 'pending_review'`
+	var pendingReview int
+	err = s.db.QueryRow(ctx, pendingQuery).Scan(&pendingReview)
+	if err != nil {
+		// Non-fatal - table might not exist in dev
+		pendingReview = 0
+	}
+
+	var coveragePercent float64
+	if totalStocks > 0 {
+		coveragePercent = float64(enriched) / float64(totalStocks) * 100
+	}
+
+	return &EnrichmentStats{
+		TotalStocks:     totalStocks,
+		Enriched:        enriched,
+		PendingReview:   pendingReview,
+		Failed:          failed,
+		Unenriched:      unenriched,
+		CoveragePercent: coveragePercent,
+	}, nil
 }
 

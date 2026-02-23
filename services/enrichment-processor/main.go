@@ -173,18 +173,46 @@ func main() {
 		}
 	}
 
+	// Parse auto-approve threshold from environment
+	autoApproveThreshold := DefaultAutoApproveThreshold
+	if v := os.Getenv("AUTO_APPROVE_THRESHOLD"); v != "" {
+		if parsed, parseErr := strconv.ParseFloat(v, 64); parseErr == nil && parsed >= 0 && parsed <= 1 {
+			autoApproveThreshold = parsed
+		} else {
+			logger.Warnf("Invalid AUTO_APPROVE_THRESHOLD value: %s (using default %.2f)", v, DefaultAutoApproveThreshold)
+		}
+	}
+	if autoApproveThreshold > 0 {
+		logger.Infof("Auto-approve threshold: %.2f (enrichments scoring above this will be automatically approved)", autoApproveThreshold)
+	} else {
+		logger.Infof("Auto-approve disabled (threshold=0)")
+	}
+
 	// Create processor
 	processor := &enrichmentProcessor{
-		store:            enrichmentStore,
-		gptClient:        gptClient,
-		reportCrawler:    reportCrawler,
-		metadataScraper:  metadataScraper,
-		logoDiscoverer:   logoDiscoverer,
-		exaClient:        exaClient,
-		logger:           logger,
-		timeout:          DefaultJobTimeout,
-		qualityThreshold: DefaultQualityThreshold,
-		gcsBucket:        os.Getenv("GCS_LOGO_BUCKET"),
+		store:                enrichmentStore,
+		gptClient:            gptClient,
+		reportCrawler:        reportCrawler,
+		metadataScraper:      metadataScraper,
+		logoDiscoverer:       logoDiscoverer,
+		exaClient:            exaClient,
+		logger:               logger,
+		timeout:              DefaultJobTimeout,
+		qualityThreshold:     DefaultQualityThreshold,
+		autoApproveThreshold: autoApproveThreshold,
+		gcsBucket:            os.Getenv("GCS_LOGO_BUCKET"),
+	}
+
+	// Check if running in batch mode (one-shot batch enrichment)
+	runMode := strings.ToLower(strings.TrimSpace(os.Getenv("RUN_MODE")))
+	if runMode == "batch" {
+		logger.Infof("Running in batch mode")
+		if err := runBatchProcessor(ctx, processor); err != nil {
+			logger.Errorf("Batch enrichment failed: %v", err)
+			os.Exit(1)
+		}
+		logger.Infof("Batch enrichment completed successfully")
+		return
 	}
 
 	// Check if running as Cloud Run Service (PORT env var set)
@@ -299,16 +327,17 @@ func main() {
 }
 
 type enrichmentProcessor struct {
-	store            enrichment.EnrichmentStore
-	gptClient        enrichment.GPTClient
-	reportCrawler    enrichment.FinancialReportCrawler
-	metadataScraper  enrichment.CompanyMetadataScraper
-	logoDiscoverer   enrichment.LogoDiscoverer
-	exaClient        enrichment.ExaClient
-	logger           *log.Logger
-	timeout          time.Duration
-	qualityThreshold float64
-	gcsBucket        string
+	store                enrichment.EnrichmentStore
+	gptClient            enrichment.GPTClient
+	reportCrawler        enrichment.FinancialReportCrawler
+	metadataScraper      enrichment.CompanyMetadataScraper
+	logoDiscoverer       enrichment.LogoDiscoverer
+	exaClient            enrichment.ExaClient
+	logger               *log.Logger
+	timeout              time.Duration
+	qualityThreshold     float64
+	autoApproveThreshold float64
+	gcsBucket            string
 }
 
 func (p *enrichmentProcessor) processMessages(ctx context.Context, subscription *pubsub.Subscription) error {
@@ -545,6 +574,27 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 			statusUpdated = true
 		}
 		return fmt.Errorf("%s", errMsg)
+	}
+
+	// Auto-approve if quality score exceeds the threshold
+	if p.autoApproveThreshold > 0 && quality != nil && quality.OverallScore >= p.autoApproveThreshold {
+		p.logger.Infof("Auto-approving enrichment for %s (quality score %.2f >= threshold %.2f)",
+			stockCode, quality.OverallScore, p.autoApproveThreshold)
+
+		// Approve the pending enrichment
+		if reviewErr := p.store.ReviewEnrichment(enrichmentID, true, "auto-approve", fmt.Sprintf("Auto-approved: quality score %.2f >= threshold %.2f", quality.OverallScore, p.autoApproveThreshold)); reviewErr != nil {
+			p.logger.Warnf("Failed to auto-approve enrichment %s for %s: %v (will remain in pending review)", enrichmentID, stockCode, reviewErr)
+		} else {
+			// Apply the enrichment to company-metadata
+			if applyErr := p.store.ApplyEnrichment(stockCode, enriched); applyErr != nil {
+				p.logger.Warnf("Failed to auto-apply enrichment for %s: %v (approved but not applied)", stockCode, applyErr)
+			} else {
+				p.logger.Infof("Auto-approved and applied enrichment for %s (enrichment_id=%s)", stockCode, enrichmentID)
+			}
+		}
+	} else if quality != nil {
+		p.logger.Infof("Enrichment for %s saved as pending review (quality score %.2f < threshold %.2f)",
+			stockCode, quality.OverallScore, p.autoApproveThreshold)
 	}
 
 	// Update job status to completed
@@ -1215,6 +1265,7 @@ func (p *enrichmentProcessor) startHTTPServer(ctx context.Context, port int) err
 	})
 	mux.HandleFunc("/process-queued", p.handleProcessQueued)
 	mux.HandleFunc("/reset-stuck-jobs", p.handleResetStuckJobs)
+	mux.HandleFunc("/enrichment/stats", p.handleEnrichmentStats)
 	mux.HandleFunc("/", p.handlePubSubPush) // Catch-all for Pub/Sub push messages
 
 	server := &http.Server{
@@ -1417,6 +1468,27 @@ func (p *enrichmentProcessor) handleResetStuckJobs(w http.ResponseWriter, r *htt
 	p.logger.Infof("Reset %d stuck job(s) back to queued", count)
 	w.WriteHeader(http.StatusOK)
 	_, _ = fmt.Fprintf(w, "Reset %d stuck job(s) back to queued", count)
+}
+
+// handleEnrichmentStats returns enrichment coverage statistics as JSON
+func (p *enrichmentProcessor) handleEnrichmentStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	stats, err := p.store.GetEnrichmentStats()
+	if err != nil {
+		p.logger.Errorf("Failed to get enrichment stats: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to get enrichment stats: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(stats); err != nil {
+		p.logger.Errorf("Failed to encode enrichment stats: %v", err)
+	}
 }
 
 func signalListener(ctx context.Context) func() error {
