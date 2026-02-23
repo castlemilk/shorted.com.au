@@ -88,6 +88,7 @@ func TestMain(m *testing.M) {
 	os.Setenv("APP_STORE_POSTGRES_PASSWORD", "test_password")
 	os.Setenv("APP_PORT", shortsServicePort)
 	os.Setenv("BACKEND_URL", fmt.Sprintf("http://localhost:%s", shortsServicePort))
+	os.Setenv("RATE_LIMIT_ENABLED", "false")
 
 	// Start the shorts service
 	fmt.Println("  🚀 Starting shorts service...")
@@ -114,6 +115,10 @@ func TestMain(m *testing.M) {
 func startShortsService() error {
 	serviceDir := "../../services"
 	logPath := filepath.Join(serviceDir, "shorts-test.log")
+
+	// Kill any stale process on the test port from a previous run
+	killStale := exec.Command("bash", "-c", fmt.Sprintf("lsof -ti :%s | xargs kill -9 2>/dev/null || true", shortsServicePort))
+	_ = killStale.Run()
 
 	// Pre-build the binary so compilation time doesn't eat into the
 	// health-check budget.  In CI with cold cache, `go run` can spend
