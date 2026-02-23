@@ -5,6 +5,13 @@ import (
 	stockv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 )
 
+// StockPeopleData contains a stock's key people data for backfill processing
+type StockPeopleData struct {
+	StockCode   string
+	CompanyName string
+	KeyPeople   []byte // Raw JSONB from the database
+}
+
 // EnrichmentStore defines the minimal interface needed for enrichment processing
 type EnrichmentStore interface {
 	// Get stock details for enrichment
@@ -23,5 +30,18 @@ type EnrichmentStore interface {
 	// Update logo URLs
 	UpdateLogoURLs(stockCode, logoGCSURL, logoIconGCSURL string) error
 	UpdateLogoURLsWithSVG(stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat string) error
+
+	// Person enrichment backfill methods
+	GetStocksForPeopleEnrichment(limit int) ([]StockPeopleData, error)
+	UpdateKeyPeopleEnriched(stockCode string, keyPeopleJSON []byte) error
+
+	// Batch enrichment methods
+	CreateEnrichmentJob(stockCode string, force bool) (string, error)
+	GetStocksNeedingEnrichment(limit int, includeStale bool) ([]string, error)
+
+	// Review and apply enrichments
+	GetPendingEnrichment(enrichmentID string) (*shortsv1alpha1.PendingEnrichment, error)
+	ReviewEnrichment(enrichmentID string, approve bool, reviewedBy, reviewNotes string) error
+	ApplyEnrichment(stockCode string, data *shortsv1alpha1.EnrichmentData) error
 }
 
