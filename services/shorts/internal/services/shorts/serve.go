@@ -3,10 +3,12 @@ package shorts
 import (
 	"bytes"
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 
 	"connectrpc.com/connect"
 	connectcors "connectrpc.com/cors"
@@ -36,6 +38,57 @@ func withCORS(h http.Handler) http.Handler {
 		ExposedHeaders: connectcors.ExposedHeaders(),
 	})
 	return middleware.Handler(h)
+}
+
+// adminAuthMiddleware wraps an http.HandlerFunc with secret-based authentication.
+// It checks the Authorization header (Bearer token) or x-internal-secret header
+// against the INTERNAL_SERVICE_SECRET environment variable.
+// In non-production environments without INTERNAL_SERVICE_SECRET set, admin
+// endpoints are accessible without authentication for development convenience.
+func adminAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Allow preflight CORS requests through without auth
+		if r.Method == http.MethodOptions {
+			next(w, r)
+			return
+		}
+
+		expectedSecret := os.Getenv("INTERNAL_SERVICE_SECRET")
+		if expectedSecret == "" {
+			// Check if we're in production - fail closed
+			// Support both ENV and ENVIRONMENT (Terraform/Cloud Run uses ENVIRONMENT)
+			env := os.Getenv("ENV")
+			if env == "" {
+				env = os.Getenv("ENVIRONMENT")
+			}
+			if env == "production" || env == "prod" {
+				log.Errorf("INTERNAL_SERVICE_SECRET not set in production; denying admin access")
+				http.Error(w, "Forbidden", http.StatusForbidden)
+				return
+			}
+			// In development, allow unauthenticated admin access
+			next(w, r)
+			return
+		}
+
+		// Check Authorization: Bearer <secret> header first
+		providedSecret := ""
+		authHeader := r.Header.Get("Authorization")
+		if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			providedSecret = authHeader[7:]
+		}
+		// Fall back to x-internal-secret header
+		if providedSecret == "" {
+			providedSecret = r.Header.Get("x-internal-secret")
+		}
+
+		if providedSecret == "" || subtle.ConstantTimeCompare([]byte(providedSecret), []byte(expectedSecret)) != 1 {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		next(w, r)
+	}
 }
 
 func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address string) error {
@@ -339,8 +392,8 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		}
 	})
 
-	// Add admin sync status endpoint
-	mux.HandleFunc("/api/admin/sync-status", func(w http.ResponseWriter, r *http.Request) {
+	// Add admin sync status endpoint (requires INTERNAL_SERVICE_SECRET auth)
+	mux.HandleFunc("/api/admin/sync-status", adminAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		// Add CORS headers
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
@@ -430,10 +483,10 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			logger.Errorf("Error encoding JSON response: %v", err)
 			return
 		}
-	})
+	}))
 
-	// Add admin cleanup endpoint for stuck sync runs
-	mux.HandleFunc("/api/admin/cleanup-stuck-runs", func(w http.ResponseWriter, r *http.Request) {
+	// Add admin cleanup endpoint for stuck sync runs (requires INTERNAL_SERVICE_SECRET auth)
+	mux.HandleFunc("/api/admin/cleanup-stuck-runs", adminAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		// Add CORS headers
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
@@ -470,7 +523,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			logger.Errorf("Error encoding JSON response: %v", err)
 			return
 		}
-	})
+	}))
 
 	// Add statik file server
 	statikFS, err := fs.New()

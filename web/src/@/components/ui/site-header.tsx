@@ -14,6 +14,7 @@ const SiteHeader: FC = () => {
       ? [
           { title: "dashboard", href: "/dashboards" },
           { title: "portfolio", href: "/portfolio" },
+          { title: "developer", href: "/developer" },
         ]
       : []),
     { title: "reports", href: "/reports" },

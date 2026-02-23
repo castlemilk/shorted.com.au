@@ -21,8 +21,11 @@ import { getTopShortsDataClient } from "../actions/client/getTopShorts";
 import { DataTable } from "./components/data-table";
 import { columns } from "./components/columns";
 import { Card, CardTitle } from "~/@/components/ui/card";
+import { Button } from "~/@/components/ui/button";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { cn } from "~/@/lib/utils";
+import { Download } from "lucide-react";
+import { downloadCSV } from "~/@/lib/csv-export";
 
 const getPeriodString = (period: string) => {
   switch (period) {
@@ -163,12 +166,46 @@ export const TopShorts: FC<TopShortsProps> = ({
     [getTimeSeriesForPeriod, period, isRefreshing],
   );
 
+  const handleDownloadCSV = useCallback(() => {
+    if (shortsData.length === 0) return;
+
+    const csvHeaders: Record<string, string> = {
+      productCode: "Stock Code",
+      name: "Company Name",
+      latestShortPosition: "Short %",
+      maxShortPosition: "Max Short %",
+      minShortPosition: "Min Short %",
+    };
+
+    const rows = shortsData.map((item) => ({
+      productCode: item.productCode,
+      name: item.name,
+      latestShortPosition: item.latestShortPosition?.toFixed(2) ?? "",
+      maxShortPosition: item.max?.shortPosition?.toFixed(2) ?? "",
+      minShortPosition: item.min?.shortPosition?.toFixed(2) ?? "",
+    }));
+
+    const today = new Date().toISOString().slice(0, 10);
+    downloadCSV(rows, `shorted-top-shorts-${today}.csv`, csvHeaders);
+  }, [shortsData]);
+
   return (
     <Suspense fallback={loadingPlaceholder}>
       <Card className={cn("m-2 flex flex-col", className)}>
         <div className="flex align-middle justify-between">
           <CardTitle className="self-center m-5">Top Shorts</CardTitle>
-          <div className="flex flex-row-reverse m-2">
+          <div className="flex items-end gap-2 m-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadCSV}
+              disabled={shortsData.length === 0 || isInitialLoading}
+              className="self-end mb-0.5"
+              title="Download CSV"
+            >
+              <Download className="h-4 w-4 mr-1.5" />
+              CSV
+            </Button>
             <div className="w-48">
               <Label htmlFor="area">Time</Label>
               <Select value={period} onValueChange={handlePeriodChange}>

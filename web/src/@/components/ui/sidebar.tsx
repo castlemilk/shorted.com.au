@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LineChart,
   FileText,
+  Code2,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -43,6 +44,11 @@ const sidebarItems = [
     title: "Portfolio",
     href: "/portfolio",
     icon: Briefcase,
+  },
+  {
+    title: "Developer",
+    href: "/developer",
+    icon: Code2,
   },
 ];
 

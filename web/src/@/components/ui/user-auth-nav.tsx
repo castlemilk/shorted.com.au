@@ -68,6 +68,14 @@ export const UserAuthNav = () => {
           </DropdownMenuItem>
           <DropdownMenuItem
             asChild
+            className="cursor-pointer focus:bg-secondary"
+          >
+            <Link href="/developer" className="w-full">
+              Developer
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            asChild
             className="cursor-pointer focus:bg-secondary text-blue-500 font-medium"
           >
             <Link href="/docs/api" className="w-full">
