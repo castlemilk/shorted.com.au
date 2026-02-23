@@ -120,6 +120,7 @@ type GPTClient interface {
 	EnrichCompany(ctx context.Context, stockCode, companyName, industry, website, currentSummary string, reports []*stocksv1alpha1.FinancialReport, metadata *ScrapedMetadata) (*shortsv1alpha1.EnrichmentData, error)
 	EvaluateQuality(ctx context.Context, stockCode string, data *shortsv1alpha1.EnrichmentData) (*shortsv1alpha1.QualityScore, error)
 	DiscoverWebsite(ctx context.Context, stockCode, companyName, industry string) (string, error)
+	ExtractPeopleFromText(ctx context.Context, stockCode, companyName, rawText string) ([]*stocksv1alpha1.CompanyPerson, error)
 }
 
 type OpenAIGPTClient struct {
@@ -133,7 +134,7 @@ func NewOpenAIGPTClient(apiKey string) (*OpenAIGPTClient, error) {
 	}
 	model := os.Getenv("OPENAI_MODEL")
 	if model == "" {
-		model = "gpt-4o" // Use gpt-4o as default (cost-effective flagship)
+		model = "gpt-5.2" // Use gpt-5.2 as default
 	}
 	return &OpenAIGPTClient{
 		client: openai.NewClient(apiKey),
@@ -210,7 +211,12 @@ Return a JSON object with this EXACT structure (valid JSON only, no markdown):
   }
 }
 
-IMPORTANT: Extract key_people information from the scraped_website_metadata section above. Look for leadership pages, board members, and executive team information.
+IMPORTANT rules for key_people:
+- First check the scraped_website_metadata for leadership pages, board members, and executive team information.
+- If no people are found in the scraped data, use your own knowledge of the company's current leadership team. For major ASX-listed companies (e.g., BHP, CBA, CSL, NAB, TLS), the CEO, CFO, and Chair are widely known public figures.
+- Every person MUST have an actual full name. Do NOT return placeholder entries like {"name": "", "role": "CEO"}.
+- If you genuinely cannot determine any real names from either the scraped data or your knowledge, return "key_people": [] (empty array).
+- Include at least the CEO/MD, Chair, and CFO when their names are known. Add other C-suite/board members if available.
 `, companyName, stockCode, industry, website, currentSummary, reportsSection, metadataSection)
 
 	req := openai.ChatCompletionRequest{
@@ -223,10 +229,11 @@ IMPORTANT: Extract key_people information from the scraped_website_metadata sect
 	}
 
 	// Use retry wrapper for the API call with longer timeout for enrichment
+	// Use generous backoff to handle rate limits (429s) gracefully
 	enrichRetryConfig := retryConfig{
-		maxRetries:     3,
-		initialBackoff: 3 * time.Second,
-		maxBackoff:     45 * time.Second,
+		maxRetries:     5,
+		initialBackoff: 5 * time.Second,
+		maxBackoff:     90 * time.Second,
 	}
 	resp, err := retryableOpenAICall(ctx, enrichRetryConfig, "company enrichment", func() (openai.ChatCompletionResponse, error) {
 		callCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
@@ -463,6 +470,86 @@ Return ONLY the website URL or "UNKNOWN" if you cannot determine it.`, companyNa
 	}
 
 	return result, nil
+}
+
+// ExtractPeopleFromText extracts key people from raw scraped text using the LLM.
+// Used as a fallback when the main enrichment phase returns 0 key_people.
+func (c *OpenAIGPTClient) ExtractPeopleFromText(ctx context.Context, stockCode, companyName, rawText string) ([]*stocksv1alpha1.CompanyPerson, error) {
+	if strings.TrimSpace(rawText) == "" {
+		return nil, nil
+	}
+
+	systemPrompt := `You are extracting key people (board members, executives, leadership) from raw website text for an ASX-listed company.
+
+Return ONLY valid JSON. No markdown. No commentary.`
+
+	userPrompt := fmt.Sprintf(`Extract key people from the following website content for %s (ASX: %s).
+
+Return a JSON object with this EXACT structure:
+{
+  "key_people": [
+    {"name": "Full Name", "role": "Title/Role", "bio": "Brief 1-2 sentence bio if available"}
+  ]
+}
+
+Rules:
+- Every person MUST have a real full name. Do NOT include entries with empty names.
+- Include roles like CEO, CFO, Chair, Managing Director, Non-Executive Director, etc.
+- If you cannot determine any real names, return {"key_people": []}
+- Maximum 10 people.
+
+Website content:
+%s`, companyName, stockCode, rawText)
+
+	req := openai.ChatCompletionRequest{
+		Model: c.model,
+		Messages: []openai.ChatCompletionMessage{
+			{Role: openai.ChatMessageRoleSystem, Content: systemPrompt},
+			{Role: openai.ChatMessageRoleUser, Content: userPrompt},
+		},
+		Temperature: 0.1,
+	}
+
+	resp, err := retryableOpenAICall(ctx, defaultRetryConfig, "people extraction", func() (openai.ChatCompletionResponse, error) {
+		callCtx, cancel := context.WithTimeout(ctx, 60*time.Second)
+		defer cancel()
+		return c.client.CreateChatCompletion(callCtx, req)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(resp.Choices) == 0 {
+		return nil, fmt.Errorf("people extraction returned no choices")
+	}
+
+	raw := strings.TrimSpace(resp.Choices[0].Message.Content)
+	raw = extractLikelyJSON(raw)
+
+	var parsed struct {
+		KeyPeople []struct {
+			Name string `json:"name"`
+			Role string `json:"role"`
+			Bio  string `json:"bio"`
+		} `json:"key_people"`
+	}
+	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
+		return nil, fmt.Errorf("failed to parse people extraction JSON: %w", err)
+	}
+
+	people := make([]*stocksv1alpha1.CompanyPerson, 0, len(parsed.KeyPeople))
+	for _, p := range parsed.KeyPeople {
+		name := strings.TrimSpace(p.Name)
+		if name == "" {
+			continue
+		}
+		people = append(people, &stocksv1alpha1.CompanyPerson{
+			Name: name,
+			Role: strings.TrimSpace(p.Role),
+			Bio:  strings.TrimSpace(p.Bio),
+		})
+	}
+
+	return people, nil
 }
 
 // isValidWebsiteURL performs basic validation on a website URL

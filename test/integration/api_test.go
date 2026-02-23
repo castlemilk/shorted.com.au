@@ -672,14 +672,14 @@ func makeConnectRequest(client *http.Client, method string, payload interface{})
 
 // Helper function to make search API requests
 func makeSearchRequest(client *http.Client, payload SearchStocksRequest) (*http.Response, error) {
-	url := fmt.Sprintf("%s/api/stocks/search?q=%s&limit=%d", backendURL, 
+	url := fmt.Sprintf("%s/api/stocks/search?q=%s&limit=%d", backendURL,
 		url.QueryEscape(payload.Query), payload.Limit)
-	
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; ShortedIntegrationTest/1.0)")
 

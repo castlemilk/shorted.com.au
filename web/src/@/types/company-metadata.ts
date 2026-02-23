@@ -9,6 +9,11 @@ export interface Person {
   name: string;
   role: string;
   bio: string;
+  image_url?: string;
+  image_gcs_url?: string;
+  linkedin_url?: string;
+  source_url?: string;
+  source_type?: string;
 }
 
 export interface FinancialReport {

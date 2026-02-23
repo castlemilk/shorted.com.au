@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -58,6 +59,11 @@ func findVenvPython() string {
 }
 
 func main() {
+	// Parse CLI flags
+	backfillPeople := flag.Bool("backfill-people", false, "Run person enrichment backfill on existing stocks")
+	backfillLimit := flag.Int("limit", 50, "Maximum number of stocks to process in backfill mode")
+	flag.Parse()
+
 	ctx := context.Background()
 	logger := log.NewLogger()
 	logger.SetLevel("debug")
@@ -89,6 +95,36 @@ func main() {
 	enrichmentStore, err := shorts.NewEnrichmentStore(storeConfig)
 	if err != nil {
 		log.Fatalf("failed to create store: %v", err)
+	}
+
+	// Handle --backfill-people mode (only needs store + free data sources, no LLM/Pub/Sub)
+	if *backfillPeople {
+		logger.Infof("Running in people backfill mode (limit: %d)", *backfillLimit)
+
+		wikipediaClient := enrichment.NewWikipediaClient()
+		yahooPeopleClient := enrichment.NewYahooPeopleClient()
+
+		gcsBucket := os.Getenv("GCS_LOGO_BUCKET")
+		var personImageProcessor *enrichment.PersonImageProcessor
+		if gcsBucket != "" {
+			gcsClient, gcsErr := storage.NewClient(ctx)
+			if gcsErr != nil {
+				logger.Warnf("Failed to create GCS client for person images: %v (continuing without person image upload)", gcsErr)
+			} else {
+				personImageProcessor = enrichment.NewPersonImageProcessor(gcsClient, gcsBucket)
+				logger.Infof("Person image processor initialized (bucket: %s)", gcsBucket)
+			}
+		}
+
+		processor := &enrichmentProcessor{
+			store:                enrichmentStore,
+			wikipediaClient:     wikipediaClient,
+			yahooPeopleClient:   yahooPeopleClient,
+			personImageProcessor: personImageProcessor,
+			logger:              logger,
+		}
+		runPeopleBackfillMain(processor, *backfillLimit)
+		return
 	}
 
 	// Initialize LLM client (OpenAI or Gemini)
@@ -173,6 +209,27 @@ func main() {
 		}
 	}
 
+	// Initialize Wikipedia client (always available, no API key needed)
+	wikipediaClient := enrichment.NewWikipediaClient()
+	logger.Infof("Wikipedia client initialized")
+
+	// Initialize Yahoo Finance people client (free, no API key needed)
+	yahooPeopleClient := enrichment.NewYahooPeopleClient()
+	logger.Infof("Yahoo Finance people client initialized")
+
+	// Initialize person image processor (requires GCS bucket)
+	gcsBucket := os.Getenv("GCS_LOGO_BUCKET")
+	var personImageProcessor *enrichment.PersonImageProcessor
+	if gcsBucket != "" {
+		gcsClient, gcsErr := storage.NewClient(ctx)
+		if gcsErr != nil {
+			logger.Warnf("Failed to create GCS client for person images: %v (continuing without person image upload)", gcsErr)
+		} else {
+			personImageProcessor = enrichment.NewPersonImageProcessor(gcsClient, gcsBucket)
+			logger.Infof("Person image processor initialized (bucket: %s)", gcsBucket)
+		}
+	}
+
 	// Parse auto-approve threshold from environment
 	autoApproveThreshold := DefaultAutoApproveThreshold
 	if v := os.Getenv("AUTO_APPROVE_THRESHOLD"); v != "" {
@@ -190,17 +247,20 @@ func main() {
 
 	// Create processor
 	processor := &enrichmentProcessor{
-		store:                enrichmentStore,
-		gptClient:            gptClient,
-		reportCrawler:        reportCrawler,
-		metadataScraper:      metadataScraper,
-		logoDiscoverer:       logoDiscoverer,
-		exaClient:            exaClient,
-		logger:               logger,
-		timeout:              DefaultJobTimeout,
-		qualityThreshold:     DefaultQualityThreshold,
-		autoApproveThreshold: autoApproveThreshold,
-		gcsBucket:            os.Getenv("GCS_LOGO_BUCKET"),
+		store:                 enrichmentStore,
+		gptClient:             gptClient,
+		reportCrawler:         reportCrawler,
+		metadataScraper:       metadataScraper,
+		logoDiscoverer:        logoDiscoverer,
+		exaClient:             exaClient,
+		wikipediaClient:       wikipediaClient,
+		yahooPeopleClient:     yahooPeopleClient,
+		personImageProcessor:  personImageProcessor,
+		logger:                logger,
+		timeout:               DefaultJobTimeout,
+		qualityThreshold:      DefaultQualityThreshold,
+		autoApproveThreshold:  autoApproveThreshold,
+		gcsBucket:             gcsBucket,
 	}
 
 	// Check if running in batch mode (one-shot batch enrichment)
@@ -327,17 +387,20 @@ func main() {
 }
 
 type enrichmentProcessor struct {
-	store                enrichment.EnrichmentStore
-	gptClient            enrichment.GPTClient
-	reportCrawler        enrichment.FinancialReportCrawler
-	metadataScraper      enrichment.CompanyMetadataScraper
-	logoDiscoverer       enrichment.LogoDiscoverer
-	exaClient            enrichment.ExaClient
-	logger               *log.Logger
-	timeout              time.Duration
-	qualityThreshold     float64
-	autoApproveThreshold float64
-	gcsBucket            string
+	store                 enrichment.EnrichmentStore
+	gptClient             enrichment.GPTClient
+	reportCrawler         enrichment.FinancialReportCrawler
+	metadataScraper       enrichment.CompanyMetadataScraper
+	logoDiscoverer        enrichment.LogoDiscoverer
+	exaClient             enrichment.ExaClient
+	wikipediaClient       enrichment.WikipediaClient
+	yahooPeopleClient     enrichment.YahooPeopleClient
+	personImageProcessor  *enrichment.PersonImageProcessor
+	logger                *log.Logger
+	timeout               time.Duration
+	qualityThreshold      float64
+	autoApproveThreshold  float64
+	gcsBucket             string
 }
 
 func (p *enrichmentProcessor) processMessages(ctx context.Context, subscription *pubsub.Subscription) error {
@@ -612,6 +675,18 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 	return nil
 }
 
+// Per-phase timeout constants — prevent any single phase from eating the whole budget
+const (
+	phaseWebsiteDiscoveryTimeout = 60 * time.Second  // Phase 0
+	phaseScrapingTimeout         = 90 * time.Second   // Phase 1: metadata scraping
+	phaseReportCrawlTimeout      = 60 * time.Second   // Phase 2: financial report crawling
+	phaseLLMEnrichTimeout        = 4 * time.Minute    // Phase 3: LLM enrichment (includes retries)
+	phaseFallbackPeopleTimeout   = 2 * time.Minute     // Phase 3a: fallback people discovery
+	phasePersonEnrichTimeout     = 90 * time.Second   // Phase 3.5: people enrichment
+	phaseLogoTimeout             = 2 * time.Minute    // Phase 4: logo discovery + processing
+	phaseQualityTimeout          = 60 * time.Second   // Phase 5: quality evaluation
+)
+
 // runEnrichmentPhases executes the 6 logical phases of enrichment
 func (p *enrichmentProcessor) runEnrichmentPhases(ctx context.Context, stockCode string, details *stocksv1alpha1.StockDetails) (*shortsv1alpha1.EnrichmentData, *shortsv1alpha1.QualityScore, error) {
 	// Track discovered website for later storage
@@ -620,7 +695,9 @@ func (p *enrichmentProcessor) runEnrichmentPhases(ctx context.Context, stockCode
 	// Phase 0: Website Discovery (if missing)
 	if strings.TrimSpace(details.Website) == "" {
 		p.logger.Infof("Phase 0: Website missing for %s, attempting discovery...", stockCode)
-		website, err := p.gptClient.DiscoverWebsite(ctx, stockCode, details.CompanyName, details.Industry)
+		phase0Ctx, phase0Cancel := context.WithTimeout(ctx, phaseWebsiteDiscoveryTimeout)
+		website, err := p.gptClient.DiscoverWebsite(phase0Ctx, stockCode, details.CompanyName, details.Industry)
+		phase0Cancel()
 		if err != nil {
 			p.logger.Warnf("Phase 0: Website discovery failed for %s: %v", stockCode, err)
 		} else if website != "" {
@@ -634,29 +711,49 @@ func (p *enrichmentProcessor) runEnrichmentPhases(ctx context.Context, stockCode
 		p.logger.Infof("Phase 0: Skipped for %s (website already exists: %s)", stockCode, details.Website)
 	}
 
+	// Check parent context before proceeding
+	if ctx.Err() != nil {
+		return nil, nil, fmt.Errorf("context cancelled before Phase 1: %w", ctx.Err())
+	}
+
 	// Phase 1: Static scraping - scrape company metadata (leadership, about pages, key links)
 	p.logger.Infof("Phase 1: Scraping metadata for %s from %s", stockCode, details.Website)
-	metadata, metadataErr := p.metadataScraper.ScrapeMetadata(ctx, details.Website, details.CompanyName, p.exaClient)
+	phase1Ctx, phase1Cancel := context.WithTimeout(ctx, phaseScrapingTimeout)
+	metadata, metadataErr := p.metadataScraper.ScrapeMetadata(phase1Ctx, details.Website, details.CompanyName, p.exaClient)
+	phase1Cancel()
 	if metadataErr != nil {
-		p.logger.Warnf("metadata scraping failed for %s: %v", stockCode, metadataErr)
-		metadata = nil // Continue with nil metadata
+		p.logger.Warnf("metadata scraping failed for %s (continuing without): %v", stockCode, metadataErr)
+		metadata = nil // Continue with nil metadata — scraping is best-effort
 	} else {
 		p.logger.Infof("Scraped %d leadership pages, %d about pages, %d key links for %s",
 			len(metadata.LeadershipPages), len(metadata.AboutPages), len(metadata.KeyLinks), stockCode)
 	}
 
+	// Check parent context before LLM call
+	if ctx.Err() != nil {
+		return nil, nil, fmt.Errorf("context cancelled before Phase 2: %w", ctx.Err())
+	}
+
 	// Phase 2: Crawl financial reports
 	p.logger.Infof("Phase 2: Crawling financial reports for %s", stockCode)
-	reports, crawlErr := p.reportCrawler.CrawlFinancialReports(ctx, details.Website)
+	phase2Ctx, phase2Cancel := context.WithTimeout(ctx, phaseReportCrawlTimeout)
+	reports, crawlErr := p.reportCrawler.CrawlFinancialReports(phase2Ctx, details.Website)
+	phase2Cancel()
 	if crawlErr != nil {
-		p.logger.Warnf("report crawl failed for %s: %v", stockCode, crawlErr)
+		p.logger.Warnf("report crawl failed for %s (continuing without): %v", stockCode, crawlErr)
 		reports = nil
+	}
+
+	// Check parent context before the critical LLM phase
+	if ctx.Err() != nil {
+		return nil, nil, fmt.Errorf("context cancelled before Phase 3: %w", ctx.Err())
 	}
 
 	// Phase 3: LLM enrichment with scraped metadata context
 	p.logger.Infof("Phase 3: Enriching %s with LLM (using scraped metadata context)", stockCode)
+	phase3Ctx, phase3Cancel := context.WithTimeout(ctx, phaseLLMEnrichTimeout)
 	enriched, err := p.gptClient.EnrichCompany(
-		ctx,
+		phase3Ctx,
 		stockCode,
 		details.CompanyName,
 		details.Industry,
@@ -665,22 +762,61 @@ func (p *enrichmentProcessor) runEnrichmentPhases(ctx context.Context, stockCode
 		reports,
 		metadata, // Pass scraped metadata to LLM
 	)
+	phase3Cancel()
 	if err != nil {
-		return nil, nil, fmt.Errorf("gpt enrichment failed: %w", err)
+		p.logger.Warnf("Phase 3: LLM enrichment failed for %s, creating minimal enrichment: %v", stockCode, err)
+		// Fallback: create minimal enrichment from existing DB data so the stock
+		// is never left in a permanently failed state.
+		enriched = &shortsv1alpha1.EnrichmentData{
+			EnhancedSummary: details.Summary,
+		}
+		if details.Industry != "" {
+			enriched.Tags = []string{details.Industry}
+		}
 	}
+
+	// Post-process: filter out key_people entries with empty names (LLM placeholder artifacts)
+	if enriched != nil && len(enriched.KeyPeople) > 0 {
+		filtered := make([]*stocksv1alpha1.CompanyPerson, 0, len(enriched.KeyPeople))
+		for _, person := range enriched.KeyPeople {
+			if person != nil && strings.TrimSpace(person.Name) != "" {
+				filtered = append(filtered, person)
+			}
+		}
+		if len(filtered) != len(enriched.KeyPeople) {
+			p.logger.Infof("Filtered %d empty-name people entries for %s (kept %d)", len(enriched.KeyPeople)-len(filtered), stockCode, len(filtered))
+		}
+		enriched.KeyPeople = filtered
+	}
+
+	// Phase 3a: Fallback people discovery when LLM returned 0 people
+	if enriched != nil && len(enriched.KeyPeople) == 0 {
+		phase3aCtx, phase3aCancel := context.WithTimeout(ctx, phaseFallbackPeopleTimeout)
+		p.performFallbackPeopleDiscovery(phase3aCtx, stockCode, details, enriched)
+		phase3aCancel()
+	}
+
+	// Phase 3.5: Person Image & LinkedIn Enrichment
+	phase35Ctx, phase35Cancel := context.WithTimeout(ctx, phasePersonEnrichTimeout)
+	p.performPersonEnrichmentPhase(phase35Ctx, stockCode, details.CompanyName, enriched)
+	phase35Cancel()
 
 	// Phase 4: Logo Discovery and Optimization
 	p.logger.Infof("Phase 4: Starting logo discovery for %s (logoDiscoverer=%v, gcsBucket=%s, website=%s)",
 		stockCode, p.logoDiscoverer != nil, p.gcsBucket, details.Website)
 	if p.logoDiscoverer != nil {
-		p.performLogoPhase(ctx, stockCode, details, enriched)
+		phase4Ctx, phase4Cancel := context.WithTimeout(ctx, phaseLogoTimeout)
+		p.performLogoPhase(phase4Ctx, stockCode, details, enriched)
+		phase4Cancel()
 	} else {
 		p.logger.Warnf("Phase 4: Skipped for %s (logoDiscoverer is nil)", stockCode)
 	}
 
 	// Phase 5: Evaluate quality
 	p.logger.Infof("Phase 5: Evaluating enrichment quality for %s", stockCode)
-	quality, err := p.gptClient.EvaluateQuality(ctx, stockCode, enriched)
+	phase5Ctx, phase5Cancel := context.WithTimeout(ctx, phaseQualityTimeout)
+	quality, err := p.gptClient.EvaluateQuality(phase5Ctx, stockCode, enriched)
+	phase5Cancel()
 	if err != nil {
 		p.logger.Warnf("quality evaluation failed for %s: %v", stockCode, err)
 		quality = &shortsv1alpha1.QualityScore{
@@ -700,6 +836,211 @@ func (p *enrichmentProcessor) runEnrichmentPhases(ctx context.Context, stockCode
 	}
 
 	return enriched, quality, nil
+}
+
+// performPersonEnrichmentPhase handles Phase 3.5: Person Image & Data Enrichment
+// Uses free data sources (Yahoo Finance, Wikipedia) to enrich key people:
+// 1. Yahoo Finance quoteSummary for officer names/titles (cross-reference + fill gaps)
+// 2. Wikipedia for person images (headshots)
+// 3. Upload images to GCS
+func (p *enrichmentProcessor) performPersonEnrichmentPhase(ctx context.Context, stockCode, companyName string, enriched *shortsv1alpha1.EnrichmentData) {
+	if enriched == nil || len(enriched.KeyPeople) == 0 {
+		p.logger.Infof("Phase 3.5: Skipped for %s (no key people)", stockCode)
+		return
+	}
+
+	p.logger.Infof("Phase 3.5: Enriching %d key people for %s", len(enriched.KeyPeople), stockCode)
+
+	// Step 1: Fetch Yahoo Finance officers to cross-reference and supplement
+	if p.yahooPeopleClient != nil {
+		yahooOfficers, err := p.yahooPeopleClient.GetCompanyOfficers(ctx, stockCode)
+		if err != nil {
+			p.logger.Warnf("Phase 3.5: Yahoo Finance officers fetch failed for %s: %v", stockCode, err)
+		} else if len(yahooOfficers) > 0 {
+			p.logger.Infof("Phase 3.5: Got %d officers from Yahoo Finance for %s", len(yahooOfficers), stockCode)
+			p.mergeYahooOfficers(enriched, yahooOfficers)
+		}
+	}
+
+	// Step 2: For each person, try to find an image via Wikipedia
+	maxPeople := min(3, len(enriched.KeyPeople))
+
+	for i := 0; i < maxPeople; i++ {
+		person := enriched.KeyPeople[i]
+		if person == nil || person.Name == "" {
+			continue
+		}
+
+		p.logger.Infof("Phase 3.5: Looking up image for %s (%s)", person.Name, person.Role)
+
+		// Try Wikipedia for person image
+		if person.ImageUrl == "" && p.wikipediaClient != nil {
+			imageURL, pageURL, err := p.wikipediaClient.GetPersonImage(ctx, person.Name)
+			if err != nil {
+				p.logger.Warnf("Phase 3.5: Wikipedia lookup failed for %s: %v", person.Name, err)
+			} else if imageURL != "" {
+				person.ImageUrl = imageURL
+				person.SourceUrl = pageURL
+				person.SourceType = "wikipedia"
+				p.logger.Infof("Phase 3.5: Found image via Wikipedia for %s: %s", person.Name, imageURL)
+			}
+		}
+
+		// Upload image to GCS if found
+		if person.ImageUrl != "" && p.personImageProcessor != nil {
+			gcsURL, err := p.personImageProcessor.ProcessAndUpload(ctx, person.ImageUrl, stockCode, person.Name)
+			if err != nil {
+				p.logger.Warnf("Phase 3.5: Image upload failed for %s: %v", person.Name, err)
+			} else {
+				person.ImageGcsUrl = gcsURL
+				p.logger.Infof("Phase 3.5: Uploaded image to GCS for %s: %s", person.Name, gcsURL)
+			}
+		}
+	}
+
+	p.logger.Infof("Phase 3.5: Completed person enrichment for %s", stockCode)
+}
+
+// mergeYahooOfficers cross-references Yahoo Finance officers with existing key people.
+// Updates roles/titles from Yahoo when they match by name, and appends any new officers
+// not already in the list (up to 10 total).
+func (p *enrichmentProcessor) mergeYahooOfficers(enriched *shortsv1alpha1.EnrichmentData, yahooOfficers []enrichment.YahooOfficer) {
+	existingNames := make(map[string]int) // lowercase name → index in KeyPeople
+	for i, person := range enriched.KeyPeople {
+		if person != nil {
+			existingNames[strings.ToLower(strings.TrimSpace(person.Name))] = i
+		}
+	}
+
+	for _, officer := range yahooOfficers {
+		normalizedName := strings.ToLower(strings.TrimSpace(officer.Name))
+
+		if idx, found := existingNames[normalizedName]; found {
+			// Cross-reference: update role if Yahoo has a better title
+			existing := enriched.KeyPeople[idx]
+			if existing.Role == "" && officer.Title != "" {
+				existing.Role = officer.Title
+			}
+			if existing.SourceType == "" {
+				existing.SourceType = "yahoo_finance"
+			}
+		} else if len(enriched.KeyPeople) < 10 {
+			// New officer not in LLM-generated list — append
+			enriched.KeyPeople = append(enriched.KeyPeople, &stocksv1alpha1.CompanyPerson{
+				Name:       officer.Name,
+				Role:       officer.Title,
+				SourceType: "yahoo_finance",
+			})
+			existingNames[normalizedName] = len(enriched.KeyPeople) - 1
+		}
+	}
+}
+
+// performFallbackPeopleDiscovery handles Phase 3a: Fallback People Discovery.
+// Called only when the main LLM enrichment returned 0 key_people.
+// Tries Yahoo Finance officers and extended website crawl + LLM extraction.
+func (p *enrichmentProcessor) performFallbackPeopleDiscovery(ctx context.Context, stockCode string, details *stocksv1alpha1.StockDetails, enriched *shortsv1alpha1.EnrichmentData) {
+	p.logger.Infof("Phase 3a: Fallback people discovery for %s (LLM returned 0 people)", stockCode)
+
+	var allPeople []*stocksv1alpha1.CompanyPerson
+
+	// Source 1: Yahoo Finance officers (fast, free, no API key)
+	if p.yahooPeopleClient != nil {
+		officers, err := p.yahooPeopleClient.GetCompanyOfficers(ctx, stockCode)
+		if err != nil {
+			p.logger.Warnf("Phase 3a: Yahoo Finance failed for %s: %v", stockCode, err)
+		} else if len(officers) > 0 {
+			p.logger.Infof("Phase 3a: Got %d officers from Yahoo Finance for %s", len(officers), stockCode)
+			for _, o := range officers {
+				allPeople = append(allPeople, &stocksv1alpha1.CompanyPerson{
+					Name:       o.Name,
+					Role:       o.Title,
+					SourceType: "yahoo_finance",
+				})
+			}
+		}
+	}
+
+	// Source 2: Extended website crawl + LLM extraction
+	if details.Website != "" && p.gptClient != nil {
+		scraper, ok := p.metadataScraper.(*enrichment.MetadataScraper)
+		if ok {
+			rawText, err := scraper.ScrapePeoplePages(ctx, details.Website)
+			if err != nil {
+				p.logger.Warnf("Phase 3a: Extended website crawl failed for %s: %v", stockCode, err)
+			} else if rawText != "" {
+				extracted, err := p.gptClient.ExtractPeopleFromText(ctx, stockCode, details.CompanyName, rawText)
+				if err != nil {
+					p.logger.Warnf("Phase 3a: LLM people extraction failed for %s: %v", stockCode, err)
+				} else if len(extracted) > 0 {
+					p.logger.Infof("Phase 3a: Extracted %d people from website for %s", len(extracted), stockCode)
+					allPeople = append(allPeople, extracted...)
+				}
+			}
+		}
+	}
+
+	// Deduplicate by normalized name
+	enriched.KeyPeople = deduplicatePeople(allPeople)
+
+	if len(enriched.KeyPeople) > 0 {
+		p.logger.Infof("Phase 3a: Found %d people via fallback for %s", len(enriched.KeyPeople), stockCode)
+	} else {
+		p.logger.Infof("Phase 3a: No people found via fallback for %s", stockCode)
+	}
+}
+
+// deduplicatePeople merges people entries by normalized name, preferring entries with more data.
+func deduplicatePeople(people []*stocksv1alpha1.CompanyPerson) []*stocksv1alpha1.CompanyPerson {
+	if len(people) == 0 {
+		return nil
+	}
+
+	type entry struct {
+		person *stocksv1alpha1.CompanyPerson
+		index  int // preserves insertion order
+	}
+	seen := make(map[string]*entry, len(people))
+
+	for i, p := range people {
+		if p == nil || strings.TrimSpace(p.Name) == "" {
+			continue
+		}
+		key := strings.ToLower(strings.TrimSpace(p.Name))
+		if existing, ok := seen[key]; ok {
+			// Merge: prefer entries with more complete data
+			if existing.person.Role == "" && p.Role != "" {
+				existing.person.Role = p.Role
+			}
+			if existing.person.Bio == "" && p.Bio != "" {
+				existing.person.Bio = p.Bio
+			}
+			if existing.person.SourceType == "" && p.SourceType != "" {
+				existing.person.SourceType = p.SourceType
+			}
+		} else {
+			seen[key] = &entry{person: p, index: i}
+		}
+	}
+
+	// Collect in original order
+	result := make([]*stocksv1alpha1.CompanyPerson, 0, len(seen))
+	ordered := make([]*entry, 0, len(seen))
+	for _, e := range seen {
+		ordered = append(ordered, e)
+	}
+	// Sort by insertion order
+	for i := 0; i < len(ordered); i++ {
+		for j := i + 1; j < len(ordered); j++ {
+			if ordered[i].index > ordered[j].index {
+				ordered[i], ordered[j] = ordered[j], ordered[i]
+			}
+		}
+	}
+	for _, e := range ordered {
+		result = append(result, e.person)
+	}
+	return result
 }
 
 // performLogoPhase handles Phase 4: Logo Discovery and Optimization
@@ -1265,6 +1606,8 @@ func (p *enrichmentProcessor) startHTTPServer(ctx context.Context, port int) err
 	})
 	mux.HandleFunc("/process-queued", p.handleProcessQueued)
 	mux.HandleFunc("/reset-stuck-jobs", p.handleResetStuckJobs)
+	mux.HandleFunc("/backfill-people", p.handleBackfillPeople)
+	mux.HandleFunc("/enrich-batch", p.handleEnrichBatch)
 	mux.HandleFunc("/enrichment/stats", p.handleEnrichmentStats)
 	mux.HandleFunc("/", p.handlePubSubPush) // Catch-all for Pub/Sub push messages
 
@@ -1468,6 +1811,187 @@ func (p *enrichmentProcessor) handleResetStuckJobs(w http.ResponseWriter, r *htt
 	p.logger.Infof("Reset %d stuck job(s) back to queued", count)
 	w.WriteHeader(http.StatusOK)
 	_, _ = fmt.Fprintf(w, "Reset %d stuck job(s) back to queued", count)
+}
+
+// handleBackfillPeople runs people enrichment backfill via HTTP endpoint
+func (p *enrichmentProcessor) handleBackfillPeople(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse limit from query param, default 50
+	limit := 50
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+
+	p.logger.Infof("HTTP trigger: People backfill (limit: %d)", limit)
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
+
+	writeProgress := func(msg string) {
+		_, _ = w.Write([]byte(msg + "\n"))
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+	}
+
+	writeProgress(fmt.Sprintf("Starting people backfill (limit: %d)...", limit))
+
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Hour)
+	defer cancel()
+
+	if err := p.runPeopleBackfill(ctx, limit); err != nil {
+		writeProgress(fmt.Sprintf("Error: %v", err))
+		return
+	}
+
+	writeProgress("People backfill complete")
+}
+
+// handleEnrichBatch creates and processes enrichment jobs for stocks needing enrichment
+func (p *enrichmentProcessor) handleEnrichBatch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse parameters
+	limit := 50
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+			limit = l
+		}
+	}
+	force := r.URL.Query().Get("force") == "true"
+	autoApprove := r.URL.Query().Get("auto_approve") != "false" && r.URL.Query().Get("autoApprove") != "false" // default true
+
+	p.logger.Infof("HTTP trigger: Batch enrichment (limit: %d, force: %v, autoApprove: %v)", limit, force, autoApprove)
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.WriteHeader(http.StatusOK)
+
+	writeProgress := func(msg string) {
+		_, _ = w.Write([]byte(msg + "\n"))
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+	}
+
+	// Get stocks needing enrichment using the new priority-based method
+	candidates, err := p.store.GetTopStocksForEnrichment(int32(limit), shortsv1alpha1.EnrichmentPriority_ENRICHMENT_PRIORITY_UNSPECIFIED)
+	if err != nil {
+		writeProgress(fmt.Sprintf("Error getting stocks: %v", err))
+		return
+	}
+
+	if len(candidates) == 0 {
+		writeProgress("No stocks need enrichment")
+		return
+	}
+
+	writeProgress(fmt.Sprintf("Found %d stocks needing enrichment, processing...", len(candidates)))
+
+	// Use a generous overall timeout but rely on per-job timeouts to bound individual stocks.
+	// Cloud Run has a 1-hour max request timeout, so we budget 55 minutes to leave headroom.
+	const batchSafetyMargin = 5 * time.Minute
+	batchDeadline := time.Now().Add(55 * time.Minute)
+	ctx, cancel := context.WithDeadline(r.Context(), batchDeadline)
+	defer cancel()
+
+	successCount := 0
+	failCount := 0
+	skippedCount := 0
+
+	// With per-phase timeouts, most stocks complete in 1-3 minutes.
+	// Use a smaller buffer than the full job timeout for the batch cutoff check.
+	const minTimePerStock = 3 * time.Minute
+
+	for i, candidate := range candidates {
+		stockCode := candidate.StockCode
+		// Check if we have enough time remaining for another stock
+		remaining := time.Until(batchDeadline) - batchSafetyMargin
+		if remaining < minTimePerStock {
+			skippedCount = len(candidates) - i
+			writeProgress(fmt.Sprintf("  Stopping batch: only %v remaining (need %v per stock), skipping %d stocks",
+				remaining.Round(time.Second), minTimePerStock, skippedCount))
+			break
+		}
+
+		// Throttle between stocks to avoid OpenAI rate limits (429s)
+		if i > 0 {
+			time.Sleep(3 * time.Second)
+		}
+
+		writeProgress(fmt.Sprintf("[%d/%d] Enriching %s... (%v remaining)", i+1, len(candidates), stockCode, remaining.Round(time.Second)))
+
+		// Create enrichment job
+		jobID, err := p.store.CreateEnrichmentJob(stockCode, force)
+		if err != nil {
+			if strings.Contains(err.Error(), "already enriched") {
+				writeProgress(fmt.Sprintf("  SKIPPED: %s already enriched", stockCode))
+			} else {
+				writeProgress(fmt.Sprintf("  FAILED to create job: %v", err))
+				failCount++
+			}
+			continue
+		}
+
+		// Process the job
+		if err := p.processJob(ctx, jobID, stockCode, force); err != nil {
+			writeProgress(fmt.Sprintf("  FAILED: %v", err))
+			failCount++
+			continue
+		}
+
+		// Auto-approve and apply if enabled
+		if autoApprove {
+			// Get the completed job to find the enrichment ID
+			job, err := p.store.GetEnrichmentJob(jobID)
+			if err != nil || job.EnrichmentId == "" {
+				writeProgress(fmt.Sprintf("  ENRICHED but could not auto-approve (no enrichment ID): %v", err))
+				successCount++
+				continue
+			}
+
+			// Get the pending enrichment data
+			pending, err := p.store.GetPendingEnrichment(job.EnrichmentId)
+			if err != nil {
+				writeProgress(fmt.Sprintf("  ENRICHED but could not fetch pending enrichment: %v", err))
+				successCount++
+				continue
+			}
+
+			// Approve the enrichment
+			if err := p.store.ReviewEnrichment(job.EnrichmentId, true, "batch-auto-approve", "Auto-approved by batch enrichment"); err != nil {
+				writeProgress(fmt.Sprintf("  ENRICHED but review failed: %v", err))
+				successCount++
+				continue
+			}
+
+			// Apply the enrichment to company-metadata
+			if err := p.store.ApplyEnrichment(stockCode, pending.Data); err != nil {
+				writeProgress(fmt.Sprintf("  ENRICHED+APPROVED but apply failed: %v", err))
+				successCount++
+				continue
+			}
+
+			writeProgress(fmt.Sprintf("  SUCCESS: %s enriched + auto-approved + applied", stockCode))
+		} else {
+			writeProgress(fmt.Sprintf("  SUCCESS: %s enriched (pending review)", stockCode))
+		}
+		successCount++
+	}
+
+	summary := fmt.Sprintf("Batch enrichment complete: %d succeeded, %d failed, %d skipped (time), %d total (autoApprove: %v)", successCount, failCount, skippedCount, len(candidates), autoApprove)
+	p.logger.Infof(summary)
+	writeProgress(summary)
 }
 
 // handleEnrichmentStats returns enrichment coverage statistics as JSON

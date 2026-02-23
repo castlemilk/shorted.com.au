@@ -234,6 +234,31 @@ func (mr *MockEnrichmentStoreMockRecorder) UpdateLogoURLsWithSVG(stockCode, logo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLogoURLsWithSVG", reflect.TypeOf((*MockEnrichmentStore)(nil).UpdateLogoURLsWithSVG), stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat)
 }
 
+func (m *MockEnrichmentStore) GetStocksForPeopleEnrichment(limit int) ([]enrichment.StockPeopleData, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStocksForPeopleEnrichment", limit)
+	ret0, _ := ret[0].([]enrichment.StockPeopleData)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (mr *MockEnrichmentStoreMockRecorder) GetStocksForPeopleEnrichment(limit interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStocksForPeopleEnrichment", reflect.TypeOf((*MockEnrichmentStore)(nil).GetStocksForPeopleEnrichment), limit)
+}
+
+func (m *MockEnrichmentStore) UpdateKeyPeopleEnriched(stockCode string, keyPeopleJSON []byte) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateKeyPeopleEnriched", stockCode, keyPeopleJSON)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (mr *MockEnrichmentStoreMockRecorder) UpdateKeyPeopleEnriched(stockCode, keyPeopleJSON interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateKeyPeopleEnriched", reflect.TypeOf((*MockEnrichmentStore)(nil).UpdateKeyPeopleEnriched), stockCode, keyPeopleJSON)
+}
+
 // MockGPTClient is a mock of GPTClient interface
 type MockGPTClient struct {
 	ctrl     *gomock.Controller
@@ -291,6 +316,19 @@ func (m *MockGPTClient) DiscoverWebsite(ctx context.Context, stockCode, companyN
 func (mr *MockGPTClientMockRecorder) DiscoverWebsite(ctx, stockCode, companyName, industry interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DiscoverWebsite", reflect.TypeOf((*MockGPTClient)(nil).DiscoverWebsite), ctx, stockCode, companyName, industry)
+}
+
+func (m *MockGPTClient) ExtractPeopleFromText(ctx context.Context, stockCode, companyName, rawText string) ([]*stocksv1alpha1.CompanyPerson, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ExtractPeopleFromText", ctx, stockCode, companyName, rawText)
+	ret0, _ := ret[0].([]*stocksv1alpha1.CompanyPerson)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (mr *MockGPTClientMockRecorder) ExtractPeopleFromText(ctx, stockCode, companyName, rawText interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtractPeopleFromText", reflect.TypeOf((*MockGPTClient)(nil).ExtractPeopleFromText), ctx, stockCode, companyName, rawText)
 }
 
 // MockFinancialReportCrawler is a mock of FinancialReportCrawler interface
@@ -425,3 +463,15 @@ func (mr *MockExaClientMockRecorder) SearchPeople(ctx, companyName, personName, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SearchPeople", reflect.TypeOf((*MockExaClient)(nil).SearchPeople), ctx, companyName, personName, role)
 }
 
+func (m *MockExaClient) SearchCompanyPeople(ctx context.Context, companyName, stockCode string) (*enrichment.ExaSearchResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SearchCompanyPeople", ctx, companyName, stockCode)
+	ret0, _ := ret[0].(*enrichment.ExaSearchResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (mr *MockExaClientMockRecorder) SearchCompanyPeople(ctx, companyName, stockCode interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SearchCompanyPeople", reflect.TypeOf((*MockExaClient)(nil).SearchCompanyPeople), ctx, companyName, stockCode)
+}

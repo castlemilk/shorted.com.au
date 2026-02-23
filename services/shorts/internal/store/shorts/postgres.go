@@ -458,9 +458,14 @@ func cleanCompanyName(name string) string {
 }
 
 type dbPerson struct {
-	Name string `json:"name"`
-	Role string `json:"role"`
-	Bio  string `json:"bio"`
+	Name        string `json:"name"`
+	Role        string `json:"role"`
+	Bio         string `json:"bio"`
+	ImageURL    string `json:"image_url,omitempty"`
+	ImageGCSURL string `json:"image_gcs_url,omitempty"`
+	LinkedInURL string `json:"linkedin_url,omitempty"`
+	SourceURL   string `json:"source_url,omitempty"`
+	SourceType  string `json:"source_type,omitempty"`
 }
 
 type dbFinancialReport struct {
@@ -523,9 +528,14 @@ func parseKeyPeople(data []byte) ([]*stocksv1alpha1.CompanyPerson, error) {
 			continue
 		}
 		people = append(people, &stocksv1alpha1.CompanyPerson{
-			Name: person.Name,
-			Role: person.Role,
-			Bio:  person.Bio,
+			Name:        person.Name,
+			Role:        person.Role,
+			Bio:         person.Bio,
+			ImageUrl:    person.ImageURL,
+			ImageGcsUrl: person.ImageGCSURL,
+			LinkedinUrl: person.LinkedInURL,
+			SourceUrl:   person.SourceURL,
+			SourceType:  person.SourceType,
 		})
 	}
 	return people, nil
@@ -1480,12 +1490,15 @@ func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, st
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal enrichment data: %w", err)
 	}
-	
+
+	// Strip NUL bytes and control characters that PostgreSQL JSONB rejects
+	dataJSON = sanitizeJSONBytes(dataJSON)
+
 	// Validate JSON is valid before inserting
 	if len(dataJSON) == 0 || string(dataJSON) == "null" {
 		return "", fmt.Errorf("enrichment data marshaled to empty or null JSON")
 	}
-	
+
 	// Verify it's valid JSON by attempting to parse it
 	// Use json.Valid() which is stricter and matches PostgreSQL's JSONB validation
 	if !json.Valid(dataJSON) {
@@ -1500,12 +1513,15 @@ func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, st
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal quality score: %w", err)
 	}
-	
+
+	// Strip NUL bytes and control characters that PostgreSQL JSONB rejects
+	qualityJSON = sanitizeJSONBytes(qualityJSON)
+
 	// Validate quality JSON
 	if len(qualityJSON) == 0 || string(qualityJSON) == "null" {
 		return "", fmt.Errorf("quality score marshaled to empty or null JSON")
 	}
-	
+
 	// Use json.Valid() which is stricter and matches PostgreSQL's JSONB validation
 	if !json.Valid(qualityJSON) {
 		return "", fmt.Errorf("quality score produced invalid JSON (not valid per json.Valid): %s", string(qualityJSON))
@@ -1843,9 +1859,14 @@ func (s *postgresStore) ApplyEnrichment(stockCode string, data *shortsv1alpha1.E
 			continue
 		}
 		keyPeople = append(keyPeople, dbPerson{
-			Name: person.Name,
-			Role: person.Role,
-			Bio:  person.Bio,
+			Name:        person.Name,
+			Role:        person.Role,
+			Bio:         person.Bio,
+			ImageURL:    person.ImageUrl,
+			ImageGCSURL: person.ImageGcsUrl,
+			LinkedInURL: person.LinkedinUrl,
+			SourceURL:   person.SourceUrl,
+			SourceType:  person.SourceType,
 		})
 	}
 	keyPeopleJSON, err := json.Marshal(keyPeople)
@@ -2174,6 +2195,13 @@ func (s *postgresStore) GetStockFinancialHighlights(stockCodes []string, maxPerS
 	}
 
 	return result, nil
+}
+
+// sanitizeJSONBytes strips NUL bytes and other control characters that
+// PostgreSQL's JSONB parser rejects, even though Go's json.Valid accepts them.
+func sanitizeJSONBytes(b []byte) []byte {
+	s := strings.ReplaceAll(string(b), "\x00", "")
+	return []byte(s)
 }
 
 func enrichmentStatusToDB(status shortsv1alpha1.EnrichmentStatus) string {
@@ -2937,5 +2965,60 @@ func (s *postgresStore) GetEnrichmentStats() (*EnrichmentStats, error) {
 		Unenriched:      unenriched,
 		CoveragePercent: coveragePercent,
 	}, nil
+}
+
+// GetStocksForPeopleEnrichment returns stocks that have completed enrichment with
+// key_people data but have not yet had person-level enrichment (images/LinkedIn).
+func (s *postgresStore) GetStocksForPeopleEnrichment(limit int) ([]StockPeopleBackfillRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT stock_code, COALESCE(company_name, ''), key_people
+		FROM "company-metadata"
+		WHERE enrichment_status = 'completed'
+		  AND key_people IS NOT NULL
+		  AND key_people != '[]'::jsonb
+		  AND key_people_enriched_at IS NULL
+		ORDER BY stock_code
+		LIMIT $1
+	`
+
+	rows, err := s.db.Query(ctx, query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query stocks for people enrichment: %w", err)
+	}
+	defer rows.Close()
+
+	var results []StockPeopleBackfillRow
+	for rows.Next() {
+		var row StockPeopleBackfillRow
+		if err := rows.Scan(&row.StockCode, &row.CompanyName, &row.KeyPeople); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+		results = append(results, row)
+	}
+
+	return results, rows.Err()
+}
+
+// UpdateKeyPeopleEnriched updates the key_people JSONB and sets key_people_enriched_at
+func (s *postgresStore) UpdateKeyPeopleEnriched(stockCode string, keyPeopleJSON []byte) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	query := `
+		UPDATE "company-metadata"
+		SET key_people = $1::jsonb,
+		    key_people_enriched_at = NOW()
+		WHERE stock_code = $2
+	`
+
+	_, err := s.db.Exec(ctx, query, string(keyPeopleJSON), stockCode)
+	if err != nil {
+		return fmt.Errorf("failed to update key_people for %s: %w", stockCode, err)
+	}
+
+	return nil
 }
 
