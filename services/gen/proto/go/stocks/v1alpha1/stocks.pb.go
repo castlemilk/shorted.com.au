@@ -525,6 +525,11 @@ type CompanyPerson struct {
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Role          string                 `protobuf:"bytes,2,opt,name=role,proto3" json:"role,omitempty"`
 	Bio           string                 `protobuf:"bytes,3,opt,name=bio,proto3" json:"bio,omitempty"`
+	ImageUrl      string                 `protobuf:"bytes,4,opt,name=image_url,json=imageUrl,proto3" json:"image_url,omitempty"`            // Original source image URL (e.g. LinkedIn, Wikipedia)
+	ImageGcsUrl   string                 `protobuf:"bytes,5,opt,name=image_gcs_url,json=imageGcsUrl,proto3" json:"image_gcs_url,omitempty"` // GCS-hosted image URL
+	LinkedinUrl   string                 `protobuf:"bytes,6,opt,name=linkedin_url,json=linkedinUrl,proto3" json:"linkedin_url,omitempty"`   // LinkedIn profile URL
+	SourceUrl     string                 `protobuf:"bytes,7,opt,name=source_url,json=sourceUrl,proto3" json:"source_url,omitempty"`         // Where the person data was found
+	SourceType    string                 `protobuf:"bytes,8,opt,name=source_type,json=sourceType,proto3" json:"source_type,omitempty"`      // "company_website" | "exa" | "wikipedia"
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -576,6 +581,41 @@ func (x *CompanyPerson) GetRole() string {
 func (x *CompanyPerson) GetBio() string {
 	if x != nil {
 		return x.Bio
+	}
+	return ""
+}
+
+func (x *CompanyPerson) GetImageUrl() string {
+	if x != nil {
+		return x.ImageUrl
+	}
+	return ""
+}
+
+func (x *CompanyPerson) GetImageGcsUrl() string {
+	if x != nil {
+		return x.ImageGcsUrl
+	}
+	return ""
+}
+
+func (x *CompanyPerson) GetLinkedinUrl() string {
+	if x != nil {
+		return x.LinkedinUrl
+	}
+	return ""
+}
+
+func (x *CompanyPerson) GetSourceUrl() string {
+	if x != nil {
+		return x.SourceUrl
+	}
+	return ""
+}
+
+func (x *CompanyPerson) GetSourceType() string {
+	if x != nil {
+		return x.SourceType
 	}
 	return ""
 }
@@ -1220,11 +1260,18 @@ const file_stocks_v1alpha1_stocks_proto_rawDesc = "" +
 	"\x10logo_svg_gcs_url\x18\x18 \x01(\tR\rlogoSvgGcsUrl\x12&\n" +
 	"\x0flogo_source_url\x18\x19 \x01(\tR\rlogoSourceUrl\x12\x1f\n" +
 	"\vlogo_format\x18\x1a \x01(\tR\n" +
-	"logoFormat\"I\n" +
+	"logoFormat\"\xed\x01\n" +
 	"\rCompanyPerson\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04role\x18\x02 \x01(\tR\x04role\x12\x10\n" +
-	"\x03bio\x18\x03 \x01(\tR\x03bio\"\x92\x01\n" +
+	"\x03bio\x18\x03 \x01(\tR\x03bio\x12\x1b\n" +
+	"\timage_url\x18\x04 \x01(\tR\bimageUrl\x12\"\n" +
+	"\rimage_gcs_url\x18\x05 \x01(\tR\vimageGcsUrl\x12!\n" +
+	"\flinkedin_url\x18\x06 \x01(\tR\vlinkedinUrl\x12\x1d\n" +
+	"\n" +
+	"source_url\x18\a \x01(\tR\tsourceUrl\x12\x1f\n" +
+	"\vsource_type\x18\b \x01(\tR\n" +
+	"sourceType\"\x92\x01\n" +
 	"\x0fFinancialReport\x12\x10\n" +
 	"\x03url\x18\x01 \x01(\tR\x03url\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x12\n" +
