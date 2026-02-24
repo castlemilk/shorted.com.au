@@ -47,7 +47,7 @@ func NewWikipediaClient() WikipediaClient {
 		client: &http.Client{
 			Timeout: 15 * time.Second,
 		},
-		userAgent: "Shorted.com.au/1.0 (contact@shorted.com.au)",
+		userAgent: "Shorted.com.au/1.0 (support@shorted.com.au)",
 		delay:     200 * time.Millisecond,
 	}
 }

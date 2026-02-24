@@ -177,10 +177,10 @@ const Page = () => {
           <p className="text-base leading-7">
             If you have any questions about these Terms, please contact us at{" "}
             <a
-              href="mailto:contact@shorted.com.au"
+              href="mailto:support@shorted.com.au"
               className="text-primary hover:underline"
             >
-              contact@shorted.com.au
+              support@shorted.com.au
             </a>
           </p>
         </section>
@@ -233,10 +233,10 @@ const Page = () => {
             For bulk data licensing, commercial redistribution, or enterprise
             data access arrangements, please contact{" "}
             <a
-              href="mailto:enterprise@shorted.com.au"
+              href="mailto:support@shorted.com.au"
               className="text-primary hover:underline"
             >
-              enterprise@shorted.com.au
+              support@shorted.com.au
             </a>
             .
           </p>
@@ -297,10 +297,10 @@ const Page = () => {
             information at any time. If you wish to exercise these rights,
             please contact us at{" "}
             <a
-              href="mailto:privacy@shorted.com.au"
+              href="mailto:support@shorted.com.au"
               className="text-primary hover:underline"
             >
-              privacy@shorted.com.au
+              support@shorted.com.au
             </a>
           </p>
         </section>
