@@ -76,10 +76,11 @@ func NewRateLimitInterceptor(limiter RateLimiter, cfg Config, userClaimsKey any)
 			if !result.Allowed {
 				// Record rate limit blocked metric
 				if shortedotel.RateLimitBlocked != nil {
+					// Only use bounded attributes for metrics. "identifier" (IP/user ID)
+					// is unbounded and would create a time series per unique client.
 					shortedotel.RateLimitBlocked.Add(ctx, 1,
 						otelmetric.WithAttributes(
 							attribute.String("tier", tier),
-							attribute.String("identifier", identifier),
 						),
 					)
 				}

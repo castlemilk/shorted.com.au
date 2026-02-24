@@ -13,6 +13,8 @@ import (
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
+	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
+	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgtype"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -87,10 +89,21 @@ func newPostgresStore(config Config) (Store, error) {
 	poolConfig.MaxConnLifetime = time.Hour        // Maximum connection lifetime
 	poolConfig.MaxConnIdleTime = time.Minute * 30 // Maximum idle time
 
+	// Add OTel tracing to pgx — every Query/QueryRow/Exec gets a child span.
+	// SQL text is excluded from attributes for security; only db.operation is recorded.
+	poolConfig.ConnConfig.Tracer = otelpgx.NewTracer(
+		otelpgx.WithTrimSQLInSpanName(),
+		otelpgx.WithDisableQuerySpanNamePrefix(),
+		otelpgx.WithDisableSQLStatementInAttributes(),
+	)
+
 	dbPool, err := pgxpool.NewWithConfig(context.Background(), poolConfig)
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to database: %w", err)
 	}
+
+	// Register async gauge callbacks for connection pool stats
+	shortedotel.RegisterDBPoolMetrics(dbPool)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

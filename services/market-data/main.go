@@ -13,6 +13,7 @@ import (
 
 	"connectrpc.com/connect"
 	connectcors "connectrpc.com/cors"
+	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/cors"
@@ -20,6 +21,7 @@ import (
 
 	marketdatav1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/marketdata/v1"
 	"github.com/castlemilk/shorted.com.au/services/gen/proto/go/marketdata/v1/marketdatav1connect"
+	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 )
 
 type MarketDataService struct {
@@ -533,6 +535,22 @@ func calculateCorrelation(x, y []float64) float64 {
 }
 
 func main() {
+	ctx := context.Background()
+
+	// Initialize OpenTelemetry
+	otelShutdown, err := shortedotel.InitProvider(ctx, "shorted-market-data")
+	if err != nil {
+		log.Printf("WARNING: Failed to initialize OTel: %v", err)
+	} else {
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if err := otelShutdown(shutdownCtx); err != nil {
+				log.Printf("WARNING: OTel shutdown error: %v", err)
+			}
+		}()
+	}
+
 	// Get database URL from environment
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
@@ -566,6 +584,13 @@ func main() {
 		// This prevents "prepared statement already exists" errors
 		config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
+		// Add OTel tracing to pgx queries
+		config.ConnConfig.Tracer = otelpgx.NewTracer(
+			otelpgx.WithTrimSQLInSpanName(),
+			otelpgx.WithDisableQuerySpanNamePrefix(),
+			otelpgx.WithDisableSQLStatementInAttributes(),
+		)
+
 		log.Printf("Attempting to connect to database (simple protocol mode)")
 
 		// Try to connect with context timeout
@@ -588,6 +613,7 @@ func main() {
 				// Don't close pool or exit - allow retries
 			} else {
 				log.Printf("Database connection successful")
+				shortedotel.RegisterDBPoolMetrics(pool)
 			}
 		}
 	}
@@ -595,8 +621,9 @@ func main() {
 	// Create service (pool may be nil, which will cause requests to fail but service will start)
 	service := &MarketDataService{db: pool}
 
-	// Create Connect handler
-	path, handler := marketdatav1connect.NewMarketDataServiceHandler(service)
+	// Create Connect handler with OTel interceptor
+	interceptors := connect.WithInterceptors(shortedotel.OTelInterceptor())
+	path, handler := marketdatav1connect.NewMarketDataServiceHandler(service, interceptors)
 	handler = withCORS(handler)
 
 	// Create HTTP server
