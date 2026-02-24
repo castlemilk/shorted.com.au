@@ -374,6 +374,7 @@ jobs:
             -var="shorts_api_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="asx_discovery_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-discovery:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="market_data_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="grafana_auth=${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}" \
             -out=tfplan
@@ -772,6 +773,7 @@ jobs:
     outputs:
       shorts-url: ${{ steps.outputs.outputs.shorts_url }}
       stock-price-url: ${{ steps.outputs.outputs.stock_price_url }}
+      market-data-url: ${{ steps.outputs.outputs.market_data_url }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -948,6 +950,7 @@ jobs:
             -var="shorts_api_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/shorts:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="asx_discovery_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-discovery:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="market_data_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="grafana_auth=${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}" \
             -var="image_tag=${{ needs.determine-environment.outputs.image-tag }}" \
@@ -959,6 +962,7 @@ jobs:
         run: |
           echo "shorts_url=$(terraform output -raw shorts_api_url)" >> $GITHUB_OUTPUT
           echo "stock_price_url=$(terraform output -raw stock_price_ingestion_url)" >> $GITHUB_OUTPUT
+          echo "market_data_url=$(terraform output -raw market_data_url)" >> $GITHUB_OUTPUT
 
       - name: Verify Deployed Services
         env:
@@ -1075,10 +1079,11 @@ jobs:
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Resolve Shorts API URL
+      - name: Resolve Service URLs
         id: resolve-urls
         env:
           TERRAFORM_SHORTS_URL: ${{ needs.terraform-apply.outputs.shorts-url }}
+          TERRAFORM_MARKET_DATA_URL: ${{ needs.terraform-apply.outputs.market-data-url }}
           GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
         run: |
           # Use terraform output if available, otherwise query from gcloud
@@ -1098,6 +1103,23 @@ jobs:
 
           echo "✅ Shorts API URL: $SHORTS_URL"
           echo "shorts_url=$SHORTS_URL" >> $GITHUB_OUTPUT
+
+          # Resolve Market Data API URL
+          MARKET_DATA_URL="$TERRAFORM_MARKET_DATA_URL"
+          if [ -z "$MARKET_DATA_URL" ]; then
+            echo "⚠️ Terraform output unavailable, querying gcloud for market-data URL..."
+            MARKET_DATA_URL=$(gcloud run services describe market-data \
+              --region ${{ env.GCP_REGION }} \
+              --project "$GCP_PROJECT_ID" \
+              --format 'value(status.url)' 2>/dev/null || echo "")
+          fi
+
+          if [ -n "$MARKET_DATA_URL" ]; then
+            echo "✅ Market Data API URL: $MARKET_DATA_URL"
+          else
+            echo "⚠️ Market Data API URL not available"
+          fi
+          echo "market_data_url=$MARKET_DATA_URL" >> $GITHUB_OUTPUT
 
       # NOTE: AUTH_FIREBASE_PRIVATE_KEY must be set in the prod environment
       # or Vercel Dashboard because it contains special characters that break CLI parsing.
@@ -1135,6 +1157,8 @@ jobs:
             --build-env STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
             --build-env STRIPE_PRO_PRICE_ID=${{ secrets.STRIPE_PRO_PRICE_ID }}
             --build-env INTERNAL_SERVICE_SECRET=${{ secrets.INTERNAL_SERVICE_SECRET }}
+            --build-env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ steps.resolve-urls.outputs.market_data_url }}
+            --build-env MARKET_DATA_API_URL=${{ steps.resolve-urls.outputs.market_data_url }}
             --env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.resolve-urls.outputs.shorts_url }}
             --env NEXT_PUBLIC_SHORTS_API_URL=${{ steps.resolve-urls.outputs.shorts_url }}
             --env SHORTS_SERVICE_ENDPOINT=${{ steps.resolve-urls.outputs.shorts_url }}
@@ -1159,6 +1183,8 @@ jobs:
             --env STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
             --env STRIPE_PRO_PRICE_ID=${{ secrets.STRIPE_PRO_PRICE_ID }}
             --env INTERNAL_SERVICE_SECRET=${{ secrets.INTERNAL_SERVICE_SECRET }}
+            --env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ steps.resolve-urls.outputs.market_data_url }}
+            --env MARKET_DATA_API_URL=${{ steps.resolve-urls.outputs.market_data_url }}
 
       - name: Production Deployment Summary
         run: |

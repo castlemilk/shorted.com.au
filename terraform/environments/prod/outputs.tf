@@ -57,6 +57,17 @@ output "enrichment_processor_service_account" {
   value       = module.enrichment_processor.service_account_email
 }
 
+# Market Data API Outputs
+output "market_data_url" {
+  description = "URL of the market data API service"
+  value       = module.market_data.service_url
+}
+
+output "market_data_service_account" {
+  description = "Service account email for market data API"
+  value       = module.market_data.service_account_email
+}
+
 # Infrastructure Outputs
 output "artifact_registry_repository" {
   description = "Artifact Registry repository for Docker images"
