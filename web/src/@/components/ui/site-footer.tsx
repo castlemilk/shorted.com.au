@@ -37,7 +37,6 @@ const legalLinks: FooterLink[] = [
   { title: "Terms", href: "/terms" },
   { title: "Privacy", href: "/privacy" },
   { title: "API Docs", href: "/docs/api" },
-  { title: "Developer", href: "/developer", requiresAuth: true },
 ];
 
 function FooterLinkItem({

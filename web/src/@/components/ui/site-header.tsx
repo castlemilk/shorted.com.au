@@ -8,7 +8,6 @@ const items = [
   { title: "top shorted", href: "/top" },
   { title: "dashboard", href: "/dashboards", requiresAuth: true },
   { title: "portfolio", href: "/portfolio", requiresAuth: true },
-  { title: "developer", href: "/developer", requiresAuth: true },
   { title: "reports", href: "/reports" },
   { title: "about", href: "/about" },
   { title: "blog", href: "/blog" },
