@@ -70,8 +70,8 @@ jobs:
   # STAGE 1: Fast checks (run in parallel)
   # ============================================
 
-  lint-frontend:
-    name: Lint Frontend
+  check-frontend:
+    name: Lint & Typecheck Frontend
     runs-on: ubuntu-latest
     needs: setup-frontend
     steps:
@@ -87,6 +87,10 @@ jobs:
           path: web/node_modules
           key: node-modules-${{ hashFiles('web/package-lock.json') }}
           fail-on-cache-miss: true
+
+      - name: TypeScript type check
+        working-directory: web
+        run: npx tsc --noEmit
 
       - name: Run ESLint
         working-directory: web
@@ -120,28 +124,6 @@ jobs:
             --enable=govet \
             --fast \
             ./... || echo "Lint warnings found (non-blocking)"
-
-  typecheck:
-    name: TypeScript Check
-    runs-on: ubuntu-latest
-    needs: setup-frontend
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Restore node_modules
-        uses: actions/cache@v4
-        with:
-          path: web/node_modules
-          key: node-modules-${{ hashFiles('web/package-lock.json') }}
-          fail-on-cache-miss: true
-
-      - name: TypeScript type check
-        working-directory: web
-        run: npx tsc --noEmit
 
   # ============================================
   # STAGE 2: Tests (run in parallel)
@@ -260,9 +242,8 @@ jobs:
     name: CI Pass Gate
     runs-on: ubuntu-latest
     needs:
-      - lint-frontend
+      - check-frontend
       - lint-backend
-      - typecheck
       - test-frontend
       - test-backend-unit
       - build-frontend
@@ -272,9 +253,8 @@ jobs:
       - name: Check all jobs passed
         run: |
           FAILED=""
-          [ "${{ needs.lint-frontend.result }}" != "success" ] && FAILED="$FAILED lint-frontend"
+          [ "${{ needs.check-frontend.result }}" != "success" ] && FAILED="$FAILED check-frontend"
           [ "${{ needs.lint-backend.result }}" != "success" ] && FAILED="$FAILED lint-backend"
-          [ "${{ needs.typecheck.result }}" != "success" ] && FAILED="$FAILED typecheck"
           [ "${{ needs.test-frontend.result }}" != "success" ] && FAILED="$FAILED test-frontend"
           [ "${{ needs.test-backend-unit.result }}" != "success" ] && FAILED="$FAILED test-backend-unit"
           [ "${{ needs.build-frontend.result }}" != "success" ] && FAILED="$FAILED build-frontend"
