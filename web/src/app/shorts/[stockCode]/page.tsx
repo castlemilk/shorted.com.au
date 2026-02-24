@@ -131,20 +131,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       siteName: siteConfig.name,
       type: "article",
       locale: "en_AU",
-      images: [
-        {
-          url: siteConfig.ogImage,
-          width: 1200,
-          height: 630,
-          alt: `${code} Short Position Data - ASIC Short Selling Analysis`,
-        },
-      ],
     },
     twitter: {
       card: "summary_large_image",
       title: `${title} | ${siteConfig.name}`,
       description,
-      images: [siteConfig.ogImage],
     },
     alternates: {
       canonical: `${siteConfig.url}/shorts/${code}`,
@@ -157,8 +148,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-// ISR: Revalidate every hour (3600 seconds)
-export const revalidate = 3600;
+// ISR: revalidate daily. On-demand revalidation via /api/revalidate?scope=all after daily sync.
+export const revalidate = 86400;
 
 const Chart = dynamic(() => import("~/@/components/ui/chart"), {
   ssr: false,
