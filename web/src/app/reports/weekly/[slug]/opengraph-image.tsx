@@ -3,7 +3,7 @@ import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-export const alt = "Stock Short Position Data - Shorted.com.au";
+export const alt = "Weekly Short Selling Report - Shorted.com.au";
 export const size = {
   width: 1200,
   height: 630,
@@ -44,34 +44,57 @@ async function getLogoImage(): Promise<string> {
   return cachedLogo;
 }
 
-async function getStockData(
-  code: string,
-): Promise<{
-  name: string;
-  percentageShorted: number;
-} | null> {
+function parseWeekSlug(slug: string): { year: number; week: number } | null {
+  const match = slug.match(/^(\d{4})-W(\d{2})$/);
+  if (!match?.[1] || !match[2]) return null;
+  return { year: parseInt(match[1]), week: parseInt(match[2]) };
+}
+
+function getWeekEndDate(year: number, week: number): string {
+  const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+  const dow = simple.getUTCDay();
+  const start = new Date(simple);
+  if (dow <= 4) {
+    start.setUTCDate(simple.getUTCDate() - simple.getUTCDay() + 1);
+  } else {
+    start.setUTCDate(simple.getUTCDate() + 8 - simple.getUTCDay());
+  }
+  const end = new Date(start);
+  end.setUTCDate(start.getUTCDate() + 4); // Friday
+  return end.toISOString().slice(0, 10);
+}
+
+async function getTopStockForDate(
+  date: string,
+): Promise<{ code: string; name: string; percentageShorted: number } | null> {
   try {
     const apiUrl =
       process.env.NEXT_PUBLIC_API_URL ??
       process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
       "http://localhost:9091";
     const res = await fetch(
-      `${apiUrl}/shorts.v1alpha1.ShortedStocksService/GetStock`,
+      `${apiUrl}/shorts.v1alpha1.ShortedStocksService/GetMarketByDate`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productCode: code }),
-        next: { revalidate: 3600 },
+        body: JSON.stringify({ date, limit: 1, offset: 0 }),
+        next: { revalidate: 86400 },
       },
     );
     if (!res.ok) return null;
     const data = (await res.json()) as {
-      name?: string;
-      percentageShorted?: number;
+      stocks?: Array<{
+        productCode?: string;
+        name?: string;
+        percentageShorted?: number;
+      }>;
     };
+    const top = data.stocks?.[0];
+    if (!top) return null;
     return {
-      name: data.name ?? "",
-      percentageShorted: data.percentageShorted ?? 0,
+      code: top.productCode ?? "",
+      name: top.name ?? "",
+      percentageShorted: top.percentageShorted ?? 0,
     };
   } catch {
     return null;
@@ -81,22 +104,26 @@ async function getStockData(
 export default async function Image({
   params,
 }: {
-  params: Promise<{ stockCode: string }>;
+  params: Promise<{ slug: string }>;
 }) {
-  const { stockCode } = await params;
-  const code = stockCode.toUpperCase();
+  const { slug } = await params;
+  const parsed = parseWeekSlug(slug);
+  const weekLabel = parsed ? `Week ${parsed.week}, ${parsed.year}` : slug;
 
-  const [bgSrc, logoSrc, stockData] = await Promise.all([
+  const endDate = parsed ? getWeekEndDate(parsed.year, parsed.week) : "";
+
+  const [bgSrc, logoSrc, topStock] = await Promise.all([
     getBackgroundImage(),
     getLogoImage(),
-    getStockData(code),
+    endDate ? getTopStockForDate(endDate) : Promise.resolve(null),
   ]);
 
-  const companyName = stockData?.name ?? "";
+  const stockCode = topStock?.code ?? "";
+  const companyName = topStock?.name ?? "";
   const shortPct =
-    stockData && stockData.percentageShorted > 0
-      ? `${stockData.percentageShorted.toFixed(1)}%`
-      : "N/A";
+    topStock && topStock.percentageShorted > 0
+      ? `${topStock.percentageShorted.toFixed(1)}%`
+      : "";
 
   return new ImageResponse(
     (
@@ -214,124 +241,126 @@ export default async function Image({
 
             <div
               style={{
-                fontSize: 20,
-                fontWeight: 700,
-                color: "#FFA94D",
-                marginTop: 36,
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-              }}
-            >
-              Top Shorted
-            </div>
-
-            <div
-              style={{
                 display: "flex",
-                alignItems: "baseline",
-                gap: 40,
-                marginTop: 12,
+                alignItems: "center",
+                gap: 16,
+                marginTop: 28,
+                padding: "8px 20px",
+                borderRadius: 8,
+                border: "1px solid rgba(255, 169, 77, 0.2)",
+                backgroundColor: "rgba(255, 169, 77, 0.08)",
+                alignSelf: "flex-start",
               }}
             >
               <span
-                style={{
-                  fontSize: 72,
-                  fontWeight: 800,
-                  color: "#FFA94D",
-                  letterSpacing: "0.04em",
-                  textShadow: "0 0 30px rgba(255,169,77,0.3)",
-                }}
-              >
-                {code}
-              </span>
-              <span
-                style={{
-                  fontSize: 56,
-                  fontWeight: 700,
-                  color: "#FFA94D",
-                  textShadow: "0 0 20px rgba(255,169,77,0.3)",
-                }}
-              >
-                {shortPct}
-              </span>
-            </div>
-
-            {companyName && (
-              <div
                 style={{
                   fontSize: 24,
-                  color: "#d4a017",
-                  marginTop: 8,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  maxWidth: 600,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
+                  fontWeight: 700,
+                  color: "#FFA94D",
+                  letterSpacing: "0.05em",
                 }}
               >
-                {companyName}
+                {weekLabel}
+              </span>
+            </div>
+
+            {stockCode ? (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <div
+                  style={{
+                    fontSize: 18,
+                    fontWeight: 700,
+                    color: "#FFA94D",
+                    marginTop: 24,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Top Shorted
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "baseline",
+                    gap: 40,
+                    marginTop: 8,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 64,
+                      fontWeight: 800,
+                      color: "#FFA94D",
+                      letterSpacing: "0.04em",
+                      textShadow: "0 0 30px rgba(255,169,77,0.3)",
+                    }}
+                  >
+                    {stockCode}
+                  </span>
+                  {shortPct && (
+                    <span
+                      style={{
+                        fontSize: 48,
+                        fontWeight: 700,
+                        color: "#FFA94D",
+                        textShadow: "0 0 20px rgba(255,169,77,0.3)",
+                      }}
+                    >
+                      {shortPct}
+                    </span>
+                  )}
+                </div>
+
+                {companyName && (
+                  <div
+                    style={{
+                      fontSize: 22,
+                      color: "#d4a017",
+                      marginTop: 4,
+                      letterSpacing: "0.06em",
+                      textTransform: "uppercase",
+                      maxWidth: 600,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {companyName}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div
+                style={{
+                  fontSize: 36,
+                  fontWeight: 700,
+                  color: "#FFA94D",
+                  marginTop: 32,
+                  letterSpacing: "0.02em",
+                }}
+              >
+                Weekly Short Selling Report
               </div>
             )}
           </div>
         </div>
 
-          {/* Short interest bar */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 20,
-              padding: "16px 40px",
-              borderRadius: 8,
-              border: "1px solid rgba(255,169,77,0.3)",
-              backgroundColor: "rgba(0,0,0,0.5)",
-            }}
-          >
-            <div
-              style={{
-                fontSize: 24,
-                color: "#d4a017",
-                fontWeight: 600,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-              }}
-            >
-              Short Interest
-            </div>
-            <div
-              style={{
-                fontSize: 48,
-                fontWeight: 800,
-                color: "#FFA94D",
-                textShadow: "0 0 20px rgba(255,169,77,0.5)",
-              }}
-            >
-              {shortPct}
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div
-            style={{
-              position: "absolute",
-              bottom: 40,
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-              fontSize: 18,
-              color: "#8a7040",
-              letterSpacing: "0.05em",
-            }}
-          >
-            <span>
-              ASX shorted data from ASIC, T+4 delayed — shorted.com.au
-            </span>
-            <span style={{ color: "#6b5530" }}>|</span>
-            <span style={{ fontSize: 16, color: "#6b5530" }}>
-              By Ben Ebsworth
-            </span>
-          </div>
+        <div
+          style={{
+            position: "absolute",
+            bottom: 24,
+            left: 0,
+            right: 0,
+            display: "flex",
+            justifyContent: "center",
+            fontSize: 18,
+            color: "#8a7040",
+            letterSpacing: "0.03em",
+            fontStyle: "italic",
+          }}
+        >
+          Data Sourced From ASIC. T+4 Delay, Not Financial Advice.
         </div>
       </div>
     ),

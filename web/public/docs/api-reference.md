@@ -494,7 +494,7 @@ async function checkHealth() {
 
 ### API Issues
 
-- Email: ben@shorted.com.au
+- Email: support@shorted.com.au
 - GitHub: [Issues](https://github.com/castlemilk/shorted/issues)
 
 ### Enterprise Access

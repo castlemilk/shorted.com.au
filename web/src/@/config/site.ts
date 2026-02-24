@@ -47,7 +47,7 @@ export const siteConfig = {
     github: "https://github.com/shorted",
   },
   contact: {
-    email: "contact@shorted.com.au",
+    email: "support@shorted.com.au",
   },
 };
 
