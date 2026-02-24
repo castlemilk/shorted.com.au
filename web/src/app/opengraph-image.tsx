@@ -1,4 +1,7 @@
+/* eslint-disable @next/next/no-img-element, jsx-a11y/alt-text */
 import { ImageResponse } from "next/og";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 
 export const alt = "Shorted - Official ASIC Short Position Data for ASX Stocks";
 export const size = {
@@ -7,7 +10,40 @@ export const size = {
 };
 export const contentType = "image/png";
 
+let cachedLogo: string | null = null;
+
+async function getLogoBase64(): Promise<string> {
+  if (cachedLogo) return cachedLogo;
+
+  // Try filesystem first (works in dev + Docker)
+  try {
+    const data = await readFile(
+      join(process.cwd(), "public/assets/logo-small.png"),
+    );
+    cachedLogo = `data:image/png;base64,${data.toString("base64")}`;
+    return cachedLogo;
+  } catch {
+    // ignore
+  }
+
+  // Fallback: fetch from own domain (works on Vercel standalone)
+  try {
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ?? "https://shorted.com.au";
+    const res = await fetch(`${siteUrl}/assets/logo-small.png`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    cachedLogo = `data:image/png;base64,${buf.toString("base64")}`;
+    return cachedLogo;
+  } catch {
+    // ignore
+  }
+
+  return "";
+}
+
 export default async function Image() {
+  const logoSrc = await getLogoBase64();
+
   return new ImageResponse(
     (
       <div
@@ -32,22 +68,32 @@ export default async function Image() {
             marginBottom: 40,
           }}
         >
-          <div
-            style={{
-              width: 80,
-              height: 80,
-              borderRadius: 16,
-              background: "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              marginRight: 24,
-              fontSize: 48,
-              color: "white",
-            }}
-          >
-            S
-          </div>
+          {logoSrc ? (
+            <img
+              src={logoSrc}
+              width={80}
+              height={80}
+              style={{ marginRight: 24 }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 80,
+                height: 80,
+                borderRadius: 16,
+                background:
+                  "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginRight: 24,
+                fontSize: 48,
+                color: "white",
+              }}
+            >
+              S
+            </div>
+          )}
           <span
             style={{
               fontSize: 72,
@@ -172,6 +218,6 @@ export default async function Image() {
     ),
     {
       ...size,
-    }
+    },
   );
 }
