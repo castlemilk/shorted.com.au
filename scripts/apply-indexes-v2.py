@@ -21,7 +21,10 @@ async def apply_migration():
     """Apply the search indexes migration to the database."""
 
     # Database connection parameters
-    database_url = "postgresql://postgres.xivfykscsdagwsreyqgf:661wMKAq9zdZpDk2@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        logger.error("DATABASE_URL environment variable is not set")
+        return
 
     logger.info("🔧 Applying search indexes migration to Supabase...")
 

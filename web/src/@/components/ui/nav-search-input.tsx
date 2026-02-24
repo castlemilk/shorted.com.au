@@ -10,6 +10,7 @@ interface StockResult {
   name: string;
   percentageShorted: number;
   industry?: string;
+  logoUrl?: string;
 }
 
 interface BackendStock {
@@ -17,6 +18,7 @@ interface BackendStock {
   name: string;
   percentageShorted?: number;
   industry?: string;
+  logoUrl?: string;
 }
 
 interface BackendResponse {
@@ -65,6 +67,7 @@ async function fetchSearchResults(
           name: s.name,
           percentageShorted: s.percentageShorted ?? 0,
           industry: s.industry,
+          logoUrl: s.logoUrl,
         }));
       }
     }
@@ -402,6 +405,7 @@ function ResultsContent({
   onNavigateDirect: () => void;
   shortPercentColor: (pct: number) => string;
 }) {
+  const [imgErrors, setImgErrors] = useState<Set<string>>(new Set());
   if (loading && results.length === 0) {
     return (
       <div className="flex items-center justify-center py-8 gap-2.5 text-muted-foreground/50">
@@ -460,12 +464,25 @@ function ResultsContent({
                 : "hover:bg-accent/40"
             )}
           >
-            {/* Stock code chip */}
-            <div className="flex-shrink-0 w-[52px] h-8 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center">
-              <span className="text-xs font-bold tracking-wide text-primary">
-                {stock.productCode}
-              </span>
-            </div>
+            {/* Stock logo or code chip */}
+            {stock.logoUrl && !imgErrors.has(stock.productCode) ? (
+              <div className="flex-shrink-0 w-[52px] h-8 rounded-md bg-background border border-border/30 flex items-center justify-center overflow-hidden">
+                <img
+                  src={stock.logoUrl}
+                  alt={stock.productCode}
+                  className="h-6 w-6 object-contain"
+                  onError={() =>
+                    setImgErrors((prev) => new Set(prev).add(stock.productCode))
+                  }
+                />
+              </div>
+            ) : (
+              <div className="flex-shrink-0 w-[52px] h-8 rounded-md bg-primary/10 border border-primary/20 flex items-center justify-center">
+                <span className="text-xs font-bold tracking-wide text-primary">
+                  {stock.productCode}
+                </span>
+              </div>
+            )}
 
             {/* Name + industry */}
             <div className="flex-1 min-w-0">

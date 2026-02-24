@@ -22,7 +22,7 @@ NC='\033[0m' # No Color
 
 # Configuration
 LOCAL_DB="postgresql://admin:password@localhost:5438/shorts"
-REMOTE_DB="postgresql://postgres.xivfykscsdagwsreyqgf:661wMKAq9zdZpDk2@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
+REMOTE_DB="${REMOTE_DATABASE_URL:?Set REMOTE_DATABASE_URL environment variable}"
 
 # Parse arguments
 DRY_RUN=false

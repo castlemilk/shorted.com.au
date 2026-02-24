@@ -33,7 +33,7 @@ fi
 # Check if ALPHA_VANTAGE_API_KEY is set
 if [ -z "$ALPHA_VANTAGE_API_KEY" ]; then
     echo "⚠️  ALPHA_VANTAGE_API_KEY not set, using default key"
-    ALPHA_VANTAGE_API_KEY="UOI9AM59F03A0WZC"
+    ALPHA_VANTAGE_API_KEY="${ALPHA_VANTAGE_API_KEY:?Set ALPHA_VANTAGE_API_KEY env var}"
 fi
 
 # Set the project

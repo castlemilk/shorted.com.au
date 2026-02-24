@@ -8,7 +8,7 @@ import os
 
 async def check_stock_prices_table():
     """Check stock_prices table structure and content."""
-    DATABASE_URL = "postgresql://postgres.xivfykscsdagwsreyqgf:661wMKAq9zdZpDk2@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
+    DATABASE_URL = os.environ["DATABASE_URL"]
     
     try:
         print("Checking stock_prices table...")

@@ -29,6 +29,9 @@ plugins:
     opt:
       - target=ts
       - import_extension=none
+  # Java client SDK
+  - plugin: buf.build/protocolbuffers/java
+    out: ../sdks/java/src/main/java
   # - plugin: buf.build/grpc/python:v1.59.1
   #   out: ../services/gen/proto/python
   # - plugin: buf.build/protocolbuffers/python

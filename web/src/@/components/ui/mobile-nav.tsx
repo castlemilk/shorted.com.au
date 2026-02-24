@@ -3,7 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, Terminal, Code2, Home, Info, FileText, LayoutDashboard, Briefcase, TrendingDown } from "lucide-react";
+import { Menu, Terminal, Code2, Home, Info, FileText, LayoutDashboard, Briefcase, TrendingDown, Lock } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 import { siteConfig } from "~/@/config/site";
 import { cn } from "~/@/lib/utils";
@@ -19,6 +20,7 @@ interface MobileNavProps {
 export function MobileNav({ items }: MobileNavProps) {
   const [open, setOpen] = React.useState(false);
   const pathname = usePathname();
+  const { data: session } = useSession();
 
   const getIcon = (title: string) => {
     switch (title.toLowerCase()) {
@@ -54,24 +56,35 @@ export function MobileNav({ items }: MobileNavProps) {
         </Link>
         <div className="my-4 h-[calc(100vh-8rem)] pb-10 pl-6">
           <div className="flex flex-col space-y-3">
-            {items?.map(
-              (item) =>
-                item.href && (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    prefetch={false}
-                    className={cn(
-                      "flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground",
-                      pathname === item.href && "text-foreground font-bold"
-                    )}
-                    onClick={() => setOpen(false)}
-                  >
-                    {getIcon(item.title)}
-                    {item.title}
-                  </Link>
-                )
-            )}
+            {items?.map((item) => {
+              if (!item.href) return null;
+              const isLocked = item.requiresAuth && !session;
+              const href = isLocked
+                ? `/signin?callbackUrl=${encodeURIComponent(item.href)}`
+                : item.href;
+
+              return (
+                <Link
+                  key={item.href}
+                  href={href}
+                  prefetch={false}
+                  className={cn(
+                    "flex items-center gap-2 transition-colors",
+                    isLocked
+                      ? "text-muted-foreground/40"
+                      : "text-muted-foreground hover:text-foreground",
+                    pathname === item.href && !isLocked && "text-foreground font-bold"
+                  )}
+                  onClick={() => setOpen(false)}
+                >
+                  {getIcon(item.title)}
+                  {item.title}
+                  {isLocked && (
+                    <Lock className="h-3 w-3 ml-auto mr-6" aria-hidden="true" />
+                  )}
+                </Link>
+              );
+            })}
             <div className="pt-4 mt-4 border-t border-border pr-6">
               <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">Resources</h4>
               <Link

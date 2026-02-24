@@ -21,6 +21,7 @@ Disallow: /api/
 Allow: /
 Allow: /about
 Allow: /blog
+Allow: /blog/*/llm
 Allow: /shorts/
 Allow: /stocks/
 Allow: /terms
@@ -33,6 +34,7 @@ Allow: /api/health
 User-agent: GPTBot
 Allow: /
 Allow: /blog
+Allow: /blog/*/llm
 Allow: /shorts
 Allow: /about
 Allow: /learn
@@ -48,6 +50,7 @@ Crawl-delay: 2
 # ChatGPT User Plugin
 User-agent: ChatGPT-User
 Allow: /
+Allow: /blog/*/llm
 Allow: /learn
 Allow: /glossary
 Allow: /faq
@@ -60,6 +63,7 @@ Disallow: /portfolio
 User-agent: Claude-Web
 Allow: /
 Allow: /blog
+Allow: /blog/*/llm
 Allow: /shorts
 Allow: /learn
 Allow: /glossary
@@ -75,6 +79,7 @@ Crawl-delay: 2
 User-agent: Google-Extended
 Allow: /
 Allow: /blog
+Allow: /blog/*/llm
 Allow: /shorts
 Allow: /learn
 Allow: /glossary
@@ -89,6 +94,7 @@ Disallow: /portfolio
 User-agent: PerplexityBot
 Allow: /
 Allow: /blog
+Allow: /blog/*/llm
 Allow: /shorts
 Allow: /learn
 Allow: /glossary
@@ -104,6 +110,7 @@ Crawl-delay: 2
 User-agent: FacebookBot
 Allow: /
 Allow: /blog
+Allow: /blog/*/llm
 Allow: /shorts
 Allow: /learn
 Allow: /glossary
@@ -118,6 +125,7 @@ User-agent: CCBot
 User-agent: Omgilibot
 Allow: /
 Allow: /blog
+Allow: /blog/*/llm
 Allow: /shorts
 Allow: /learn
 Allow: /glossary

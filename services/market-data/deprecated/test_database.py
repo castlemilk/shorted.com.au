@@ -8,7 +8,7 @@ import os
 
 async def test_database_connection():
     """Test database connection."""
-    DATABASE_URL = "postgresql://postgres.xivfykscsdagwsreyqgf:661wMKAq9zdZpDk2@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
+    DATABASE_URL = os.environ["DATABASE_URL"]
     
     try:
         print("Testing database connection...")

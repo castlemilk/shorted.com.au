@@ -276,21 +276,62 @@ export default async function Image({
           </div>
         </div>
 
-        <div
-          style={{
-            position: "absolute",
-            bottom: 24,
-            left: 0,
-            right: 0,
-            display: "flex",
-            justifyContent: "center",
-            fontSize: 18,
-            color: "#8a7040",
-            letterSpacing: "0.03em",
-            fontStyle: "italic",
-          }}
-        >
-          Data Sourced From ASIC. T+4 Delay, Not Financial Advice.
+          {/* Short interest bar */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 20,
+              padding: "16px 40px",
+              borderRadius: 8,
+              border: "1px solid rgba(255,169,77,0.3)",
+              backgroundColor: "rgba(0,0,0,0.5)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: 24,
+                color: "#d4a017",
+                fontWeight: 600,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+              }}
+            >
+              Short Interest
+            </div>
+            <div
+              style={{
+                fontSize: 48,
+                fontWeight: 800,
+                color: "#FFA94D",
+                textShadow: "0 0 20px rgba(255,169,77,0.5)",
+              }}
+            >
+              {shortPct}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div
+            style={{
+              position: "absolute",
+              bottom: 40,
+              display: "flex",
+              alignItems: "center",
+              gap: 16,
+              fontSize: 18,
+              color: "#8a7040",
+              letterSpacing: "0.05em",
+            }}
+          >
+            <span>
+              ASX shorted data from ASIC, T+4 delayed — shorted.com.au
+            </span>
+            <span style={{ color: "#6b5530" }}>|</span>
+            <span style={{ fontSize: 16, color: "#6b5530" }}>
+              By Ben Ebsworth
+            </span>
+          </div>
         </div>
       </div>
     ),
