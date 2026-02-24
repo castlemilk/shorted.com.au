@@ -94,7 +94,7 @@ func RegisterDBPoolMetrics(pool *pgxpool.Pool) {
 		otelmetric.WithDescription("Maximum pool size"),
 	)
 
-	meter.RegisterCallback(
+	_, _ = meter.RegisterCallback(
 		func(_ context.Context, o otelmetric.Observer) error {
 			stat := pool.Stat()
 			o.ObserveInt64(activeConns, int64(stat.AcquiredConns()))
