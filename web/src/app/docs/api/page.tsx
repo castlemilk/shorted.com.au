@@ -207,8 +207,8 @@ export default async function ApiDocsIndex() {
               <li className="flex items-start gap-2">
                 <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-muted-foreground flex-shrink-0" />
                 For bulk data access, contact{' '}
-                <a href="mailto:enterprise@shorted.com.au" className="text-blue-500 hover:underline">
-                  enterprise@shorted.com.au
+                <a href="mailto:support@shorted.com.au" className="text-blue-500 hover:underline">
+                  support@shorted.com.au
                 </a>.
               </li>
             </ul>
