@@ -63,6 +63,14 @@ resource "google_secret_manager_secret_iam_member" "internal_service_secret" {
   project   = var.project_id
 }
 
+# Grant access to token secret (for API token JWT signing)
+resource "google_secret_manager_secret_iam_member" "token_secret" {
+  secret_id = "TOKEN_SECRET"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.shorts_api.email}"
+  project   = var.project_id
+}
+
 # OpenTelemetry OTLP headers secret (contains Grafana Cloud auth token)
 resource "google_secret_manager_secret" "otel_headers" {
   secret_id = "OTEL_EXPORTER_OTLP_HEADERS"
@@ -190,6 +198,17 @@ resource "google_cloud_run_v2_service" "shorts_api" {
         }
       }
 
+      # API token JWT signing secret
+      env {
+        name = "TOKEN_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = "TOKEN_SECRET"
+            version = "latest"
+          }
+        }
+      }
+
       # OpenTelemetry configuration (traces + metrics to Grafana Cloud)
       env {
         name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
@@ -262,6 +281,7 @@ resource "google_cloud_run_v2_service" "shorts_api" {
     google_secret_manager_secret_iam_member.algolia_search_key,
     google_secret_manager_secret_iam_member.openai_api_key,
     google_secret_manager_secret_iam_member.internal_service_secret,
+    google_secret_manager_secret_iam_member.token_secret,
     google_secret_manager_secret_iam_member.otel_headers
   ]
 }
