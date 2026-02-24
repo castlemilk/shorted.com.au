@@ -1,3 +1,4 @@
+import os
 """
 Debug script to check Alpha Vantage API responses.
 """
@@ -8,7 +9,7 @@ import json
 
 async def debug_alpha_vantage_api():
     """Debug Alpha Vantage API responses."""
-    api_key = "UOI9AM59F03A0WZC"
+    api_key = os.environ["ALPHA_VANTAGE_API_KEY"]
     base_url = "https://www.alphavantage.co/query"
     
     # Test different symbol formats

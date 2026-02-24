@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 # Environment variables
 DATABASE_URL = os.getenv("DATABASE_URL")
-ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "UOI9AM59F03A0WZC")
+ALPHA_VANTAGE_API_KEY = os.environ["ALPHA_VANTAGE_API_KEY"]
 
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable is required")

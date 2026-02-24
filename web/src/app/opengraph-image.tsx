@@ -203,16 +203,23 @@ export default async function Image() {
           </div>
         </div>
 
-        {/* URL */}
+        {/* Footer: URL + author */}
         <div
           style={{
             position: "absolute",
             bottom: 40,
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
             fontSize: 24,
             color: "#52525b",
           }}
         >
-          shorted.com.au
+          <span>shorted.com.au</span>
+          <span style={{ color: "#3f3f46" }}>|</span>
+          <span style={{ fontSize: 20, color: "#3f3f46" }}>
+            By Ben Ebsworth
+          </span>
         </div>
       </div>
     ),

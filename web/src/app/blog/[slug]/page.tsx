@@ -6,6 +6,7 @@ import { type Metadata } from "next";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import { siteConfig } from "~/@/config/site";
 import { ArticleSchema } from "~/@/components/seo/article-schema";
+import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { SocialShare } from "~/@/components/seo/social-share";
 import { RelatedPosts } from "~/@/components/seo/related-posts";
 import {
@@ -108,6 +109,23 @@ export default async function Post({ params }: Params) {
           "market insights",
           "investment analysis",
         ]}
+      />
+      <LLMMeta
+        title={post.title}
+        description={
+          post.excerpt ||
+          `${post.title} - Expert analysis on ASX short positions, market trends, and ASIC regulations.`
+        }
+        keywords={[
+          "blog",
+          "market insights",
+          "investment analysis",
+          "ASX short selling",
+          "market analysis",
+        ]}
+        dataSource="Shorted Blog"
+        dataFrequency="weekly"
+        lastUpdated={post.date}
       />
 
       <Container>

@@ -19,34 +19,6 @@ servers:
   - url: http://localhost:9091
     description: Local Development API
 paths:
-  /register.v1.RegisterService/RegisterEmail:
-    post:
-      summary: Register Email
-      description: Register an email address to receive notifications and market updates from Shorted.
-      tags:
-        - register.v1.RegisterService
-      parameters:
-        - $ref: "#/components/parameters/Connect-Protocol-Version"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/register.v1.RegisterEmailRequest"
-        required: true
-      responses:
-        "200":
-          description: A successful registration response.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/register.v1.RegisterEmailResponse"
-        "400":
-          description: Invalid email address format.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/connect.error"
-
   /shorts.v1alpha1.ShortedStocksService/GetTopShorts:
     post:
       summary: Get Top Shorts
@@ -267,24 +239,6 @@ components:
       description: API token generated via the MintToken endpoint.
 
   schemas:
-    register.v1.RegisterEmailRequest:
-      type: object
-      properties:
-        email:
-          type: string
-          format: email
-          example: user@example.com
-      required: [email]
-      additionalProperties: false
-
-    register.v1.RegisterEmailResponse:
-      type: object
-      properties:
-        success:
-          type: boolean
-          example: true
-      additionalProperties: false
-
     shorts.v1alpha1.GetTopShortsRequest:
       type: object
       properties:

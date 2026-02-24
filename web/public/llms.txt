@@ -48,9 +48,12 @@ All short position data is sourced directly from official ASIC publications. Dat
 - [Weekly Reports](https://shorted.com.au/reports): Weekly and monthly analysis of ASX short selling activity with top movers, industry trends, and AI-generated market narratives.
 - [RSS Feed](https://shorted.com.au/feed.xml): Blog posts and weekly reports via RSS.
 
-## Optional
+## Blog (LLM-Optimised)
 
 - [Blog](https://shorted.com.au/blog): Articles on short selling, market analysis, and platform updates.
+- Blog posts are available as LLM-friendly plain text at `/blog/{slug}/llm`. For example: [https://shorted.com.au/blog/short-squeeze-explained/llm](https://shorted.com.au/blog/short-squeeze-explained/llm).
+
+## Optional
 - [About](https://shorted.com.au/about): Platform mission and team information.
 - [Privacy Policy](https://shorted.com.au/privacy): Data handling and privacy practices.
 - [Terms of Service](https://shorted.com.au/terms): Usage terms and conditions.

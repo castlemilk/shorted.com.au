@@ -1,3 +1,4 @@
+import os
 """
 Test major ASX stocks without .AX suffix.
 """
@@ -8,7 +9,7 @@ import json
 
 async def test_major_asx_stocks():
     """Test major ASX stocks without .AX suffix."""
-    api_key = "UOI9AM59F03A0WZC"
+    api_key = os.environ["ALPHA_VANTAGE_API_KEY"]
     base_url = "https://www.alphavantage.co/query"
     
     # Major ASX stocks without .AX suffix

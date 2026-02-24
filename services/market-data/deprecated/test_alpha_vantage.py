@@ -24,7 +24,7 @@ async def test_alpha_vantage_provider():
     try:
         provider = DataProviderFactory.create_provider(
             "alpha_vantage", 
-            api_key="UOI9AM59F03A0WZC"
+            api_key=os.environ["ALPHA_VANTAGE_API_KEY"]
         )
         print(f"✅ Provider created: {provider.get_provider_name()}")
         print(f"📊 Rate limit delay: {provider.get_rate_limit_delay()}s")
@@ -90,7 +90,7 @@ async def test_provider_factory():
     
     # Test creating different providers
     try:
-        alpha_provider = DataProviderFactory.create_provider("alpha_vantage", api_key="UOI9AM59F03A0WZC")
+        alpha_provider = DataProviderFactory.create_provider("alpha_vantage", api_key=os.environ["ALPHA_VANTAGE_API_KEY"])
         print(f"✅ Alpha Vantage provider created: {alpha_provider.get_provider_name()}")
         
         yahoo_provider = DataProviderFactory.create_provider("yahoo_finance")

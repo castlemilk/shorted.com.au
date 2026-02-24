@@ -1,25 +1,84 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 "use client";
 
 import Link from "next/link";
-import { File, RouteIcon, GitCommit, Terminal, AlertCircle, Shield } from "lucide-react";
+import { GitCommit, AlertCircle, Lock } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { siteConfig } from "~/@/config/site";
 import { Badge } from "~/@/components/ui/badge";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "~/@/components/ui/tooltip";
+import { Icons } from "~/@/components/ui/icons";
+import { cn } from "~/@/lib/utils";
+
+interface FooterLink {
+  title: string;
+  href: string;
+  requiresAuth?: boolean;
+}
+
+const productLinks: FooterLink[] = [
+  { title: "Top Shorted", href: "/top" },
+  { title: "Dashboard", href: "/dashboards", requiresAuth: true },
+  { title: "Portfolio", href: "/portfolio", requiresAuth: true },
+  { title: "Industry Heatmap", href: "/top#treemap" },
+  { title: "Reports", href: "/reports" },
+  { title: "Market Snapshots", href: "/reports" },
+  { title: "Company Directory", href: "/directory" },
+];
+
+const resourceLinks: FooterLink[] = [
+  { title: "Blog", href: "/blog" },
+  { title: "Learn", href: "/learn" },
+  { title: "Glossary", href: "/glossary" },
+  { title: "FAQ", href: "/faq" },
+  { title: "About", href: "/about" },
+  { title: "Roadmap", href: "/roadmap" },
+];
+
+const legalLinks: FooterLink[] = [
+  { title: "Terms", href: "/terms" },
+  { title: "Privacy", href: "/privacy" },
+  { title: "API Docs", href: "/docs/api" },
+  { title: "Developer", href: "/developer", requiresAuth: true },
+];
+
+function FooterLinkItem({
+  link,
+  isLocked,
+}: {
+  link: FooterLink;
+  isLocked: boolean;
+}) {
+  const href = isLocked
+    ? `/signin?callbackUrl=${encodeURIComponent(link.href)}`
+    : link.href;
+
+  return (
+    <li>
+      <Link
+        href={href}
+        prefetch={false}
+        className={cn(
+          "text-sm transition-colors inline-flex items-center gap-1.5",
+          isLocked
+            ? "text-muted-foreground/30 hover:text-muted-foreground/50"
+            : "text-muted-foreground hover:text-foreground"
+        )}
+      >
+        {link.title}
+        {isLocked && (
+          <Lock className="h-2.5 w-2.5" aria-hidden="true" />
+        )}
+      </Link>
+    </li>
+  );
+}
 
 const SiteFooter = () => {
-  // `next/config` is not supported in the Next.js App Router on the client.
-  // Prefer env vars if present; fall back to a safe label.
   const version = process.env.NEXT_PUBLIC_APP_VERSION ?? "dev";
   const gitCommit = process.env.NEXT_PUBLIC_GIT_COMMIT;
   const gitBranch = process.env.NEXT_PUBLIC_GIT_BRANCH;
   const buildDate = process.env.NEXT_PUBLIC_BUILD_DATE;
   const environment = process.env.NEXT_PUBLIC_ENVIRONMENT;
+  const { data: session } = useSession();
 
   const buildTitleParts = [
     buildDate ? `Build: ${buildDate}` : null,
@@ -29,96 +88,113 @@ const SiteFooter = () => {
   ].filter(Boolean);
 
   return (
-    <footer className="py-6 md:px-8 md:py-0">
-      {/* ASIC Data Disclaimer */}
-      <div className="container mb-4 md:mb-0">
-        <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground/70 border-t border-border/40 pt-4">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex items-center gap-1.5 cursor-help">
-                  <AlertCircle className="h-3 w-3" />
-                  <span>
-                    Data sourced from{" "}
-                    <a
-                      href="https://asic.gov.au/regulatory-resources/markets/short-selling/short-position-reports-table/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline underline-offset-2 hover:text-foreground"
-                    >
-                      ASIC
-                    </a>
-                    {" "}with T+4 trading day delay. Not financial advice.
-                  </span>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-xs">
-                <p className="text-xs">
-                  Short position data is reported to ASIC by market participants and published
-                  with a T+4 trading day delay. This means data shown reflects positions from
-                  4 trading days ago. This information is for general purposes only and should
-                  not be relied upon for investment decisions.
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+    <footer className="border-t border-border/40 bg-background">
+      <div className="container px-4 md:px-6 py-12 md:py-16">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12">
+          {/* Brand column */}
+          <div className="col-span-2 md:col-span-1">
+            <Link
+              href="/"
+              className="flex items-center space-x-2 mb-4 transition-opacity hover:opacity-80"
+            >
+              <Icons.logo className="h-6 w-6" />
+              <span className="font-bold tracking-tight text-lg">
+                {siteConfig.name}
+              </span>
+            </Link>
+            <p className="text-sm text-muted-foreground mb-4 max-w-[280px]">
+              Official ASIC short position data for ASX stocks. Updated daily
+              with T+4 delay.
+            </p>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60 mb-4">
+              <AlertCircle className="h-3 w-3 flex-shrink-0" />
+              <span>Not financial advice.</span>
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">
+              Built by{" "}
+              <a
+                href={siteConfig.links.twitter}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium underline underline-offset-4 hover:text-foreground transition-colors"
+              >
+                Ben Ebsworth
+              </a>
+            </p>
+            <Badge
+              variant="secondary"
+              className="cursor-help"
+              title={
+                buildTitleParts.length > 0
+                  ? buildTitleParts.join("\n")
+                  : "Build info not available"
+              }
+            >
+              <GitCommit className="w-3 h-3 mr-1" />
+              {version}
+            </Badge>
+          </div>
+
+          {/* Product */}
+          <div>
+            <h4 className="text-sm font-semibold mb-4">Product</h4>
+            <ul className="space-y-2.5">
+              {productLinks.map((link) => (
+                <FooterLinkItem
+                  key={link.href + link.title}
+                  link={link}
+                  isLocked={!!link.requiresAuth && !session}
+                />
+              ))}
+            </ul>
+          </div>
+
+          {/* Resources */}
+          <div>
+            <h4 className="text-sm font-semibold mb-4">Resources</h4>
+            <ul className="space-y-2.5">
+              {resourceLinks.map((link) => (
+                <FooterLinkItem
+                  key={link.href + link.title}
+                  link={link}
+                  isLocked={!!link.requiresAuth && !session}
+                />
+              ))}
+            </ul>
+          </div>
+
+          {/* Legal & Dev */}
+          <div>
+            <h4 className="text-sm font-semibold mb-4">Legal & Dev</h4>
+            <ul className="space-y-2.5">
+              {legalLinks.map((link) => (
+                <FooterLinkItem
+                  key={link.href + link.title}
+                  link={link}
+                  isLocked={!!link.requiresAuth && !session}
+                />
+              ))}
+            </ul>
+          </div>
         </div>
       </div>
-      <div className="container flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row">
-        <p className="text-balance text-center text-sm leading-loose text-muted-foreground md:text-left">
-          Built with ❤️ by{" "}
-          <a
-            href={siteConfig.links.twitter}
-            target="_blank"
-            rel="noreferrer"
-            className="font-medium underline underline-offset-4"
-          >
-            castlemilk
-          </a>
-        </p>
-        <div className="flex items-center gap-2">
-          <Badge
-            variant="secondary"
-            className="cursor-help"
-            title={
-              buildTitleParts.length > 0
-                ? buildTitleParts.join("\n")
-                : "Build info not available"
-            }
-          >
-            <GitCommit className="w-3 h-3 mr-1" />
-            {version}
-          </Badge>
-          <Link href="/reports" prefetch={false}>
-            <Badge variant="secondary" className="hover:bg-secondary/80">
-              <File className="w-3 h-3 mr-1" />
-              reports
-            </Badge>
-          </Link>
-          <Link href="/roadmap" prefetch={false}>
-            <Badge variant="secondary" className="hover:bg-secondary/80">
-              <RouteIcon className="w-3 h-3 mr-1" />
-              roadmap
-            </Badge>
-          </Link>
-          <Link href="/docs/api" prefetch={false}>
-            <Badge variant="secondary" className="hover:bg-secondary/80">
-              <Terminal className="w-3 h-3 mr-1 text-blue-500" />
-              api docs
-            </Badge>
-          </Link>
-          <Link href="/terms" prefetch={false}>
-            <Badge variant="secondary" className="hover:bg-secondary/80">
-              <File className="w-3 h-3 mr-1" />
-              terms
-            </Badge>
-          </Link>
-          <Link href="/privacy" prefetch={false}>
-            <Badge variant="secondary" className="hover:bg-secondary/80">
-              <Shield className="w-3 h-3 mr-1" />
-              privacy
-            </Badge>
-          </Link>
+
+      {/* Bottom bar */}
+      <div className="border-t border-border/40">
+        <div className="container px-4 md:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground/60">
+          <p>
+            Data sourced from{" "}
+            <a
+              href="https://asic.gov.au/regulatory-resources/markets/short-selling/short-position-reports-table/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-foreground transition-colors"
+            >
+              ASIC
+            </a>{" "}
+            with T+4 trading day delay. Not financial advice.
+          </p>
+          <p>&copy; {new Date().getFullYear()} Shorted</p>
         </div>
       </div>
     </footer>
