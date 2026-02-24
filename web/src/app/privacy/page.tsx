@@ -300,19 +300,19 @@ export default function PrivacyPage() {
             <li>
               <strong>Email:</strong>{" "}
               <a
-                href="mailto:privacy@shorted.com.au"
+                href="mailto:support@shorted.com.au"
                 className="text-primary hover:underline"
               >
-                privacy@shorted.com.au
+                support@shorted.com.au
               </a>
             </li>
             <li>
               <strong>General enquiries:</strong>{" "}
               <a
-                href="mailto:contact@shorted.com.au"
+                href="mailto:support@shorted.com.au"
                 className="text-primary hover:underline"
               >
-                contact@shorted.com.au
+                support@shorted.com.au
               </a>
             </li>
           </ul>

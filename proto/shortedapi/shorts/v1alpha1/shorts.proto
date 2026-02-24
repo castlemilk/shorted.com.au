@@ -18,7 +18,7 @@ option (gnostic.openapi.v3.document) = {
     description: "Shorted API's"
     contact: {
       url: "shorted.com.au"
-      email: "help@shorted.com.au"
+      email: "support@shorted.com.au"
     }
     license: {
       name: "Proprietary license"

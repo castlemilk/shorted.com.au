@@ -285,7 +285,7 @@ This daily publication covers all **ASX approved short sell products** — secur
 
 ## Contact & Support
 
-- **Email**: ben@shorted.com.au
+- **Email**: support@shorted.com.au
 - **Website**: https://shorted.com.au
 - **Documentation**: https://shorted.com.au/docs
 - **API Access**: Contact for enterprise/research access
