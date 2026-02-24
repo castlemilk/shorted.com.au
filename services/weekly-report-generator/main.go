@@ -12,6 +12,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 )
 
 func main() {
@@ -24,6 +26,21 @@ func main() {
 	flag.Parse()
 
 	ctx := context.Background()
+
+	// Initialize OpenTelemetry (traces + metrics via OTLP).
+	// No-op when OTEL_EXPORTER_OTLP_ENDPOINT is not set.
+	otelShutdown, otelErr := shortedotel.InitProvider(ctx, "weekly-report-generator")
+	if otelErr != nil {
+		log.Printf("WARNING: Failed to initialize OpenTelemetry: %v", otelErr)
+	} else {
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := otelShutdown(shutdownCtx); err != nil {
+				log.Printf("Error shutting down OpenTelemetry: %v", err)
+			}
+		}()
+	}
 
 	// Determine report type and slug
 	isYearly := *yearFlag != ""

@@ -32,6 +32,14 @@ resource "google_secret_manager_secret_iam_member" "database_url" {
   project   = var.project_id
 }
 
+# Grant access to OpenTelemetry OTLP headers secret
+resource "google_secret_manager_secret_iam_member" "otel_headers" {
+  secret_id = "OTEL_EXPORTER_OTLP_HEADERS"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.market_data.email}"
+  project   = var.project_id
+}
+
 # Cloud Run Service
 resource "google_cloud_run_v2_service" "market_data" {
   name     = local.service_name
@@ -66,6 +74,27 @@ resource "google_cloud_run_v2_service" "market_data" {
         value_source {
           secret_key_ref {
             secret  = "DATABASE_URL"
+            version = "latest"
+          }
+        }
+      }
+
+      # OpenTelemetry configuration (traces + metrics to Grafana Cloud)
+      env {
+        name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
+        value = var.otel_endpoint
+      }
+
+      env {
+        name  = "OTEL_EXPORTER_OTLP_PROTOCOL"
+        value = "http/protobuf"
+      }
+
+      env {
+        name = "OTEL_EXPORTER_OTLP_HEADERS"
+        value_source {
+          secret_key_ref {
+            secret  = "OTEL_EXPORTER_OTLP_HEADERS"
             version = "latest"
           }
         }
@@ -115,7 +144,8 @@ resource "google_cloud_run_v2_service" "market_data" {
   }
 
   depends_on = [
-    google_secret_manager_secret_iam_member.database_url
+    google_secret_manager_secret_iam_member.database_url,
+    google_secret_manager_secret_iam_member.otel_headers
   ]
 }
 

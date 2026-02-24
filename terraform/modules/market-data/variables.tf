@@ -29,3 +29,9 @@ variable "max_instances" {
   type        = number
   default     = 10
 }
+
+variable "otel_endpoint" {
+  description = "OpenTelemetry OTLP endpoint for traces and metrics"
+  type        = string
+  default     = "https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp"
+}
