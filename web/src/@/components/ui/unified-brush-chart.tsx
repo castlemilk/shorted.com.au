@@ -384,8 +384,8 @@ const UnifiedBrushChart = forwardRef<
     if (width < 10) return null;
 
     return (
-      <div ref={containerRef} style={{ position: "relative" }}>
-        <svg width={width} height={svgHeight}>
+      <div ref={containerRef} style={{ position: "relative", touchAction: "none" }}>
+        <svg width={width} height={svgHeight} style={{ touchAction: "none" }}>
           <LinearGradient
             id={GRADIENT_ID}
             from={background}
@@ -421,6 +421,7 @@ const UnifiedBrushChart = forwardRef<
               width={xMax}
               height={yMax}
               fill="transparent"
+              style={{ touchAction: "none" }}
               onTouchStart={handlePointerMove}
               onTouchMove={handlePointerMove}
               onMouseMove={handlePointerMove}

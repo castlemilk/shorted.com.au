@@ -243,12 +243,21 @@ export default async function Image({
             style={{
               position: "absolute",
               bottom: 40,
+              display: "flex",
+              alignItems: "center",
+              gap: 16,
               fontSize: 18,
               color: "#8a7040",
               letterSpacing: "0.05em",
             }}
           >
-            ASX shorted data from ASIC, T+4 delayed — shorted.com.au
+            <span>
+              ASX shorted data from ASIC, T+4 delayed — shorted.com.au
+            </span>
+            <span style={{ color: "#6b5530" }}>|</span>
+            <span style={{ fontSize: 16, color: "#6b5530" }}>
+              By Ben Ebsworth
+            </span>
           </div>
         </div>
       </div>

@@ -66,6 +66,66 @@ const transport = createConnectTransport({
 `;
 }
 
+export function generateGo(endpoint: ParsedEndpoint, baseUrl: string): string {
+  let body = '';
+  if (endpoint.requestBody?.content?.['application/json']?.schema) {
+    const example = generateExampleFromJsonSchema(endpoint.requestBody.content['application/json'].schema);
+    body = `\tbody := bytes.NewBuffer([]byte(\`${JSON.stringify(example, null, 2)}\`))\n`;
+  }
+
+  return `package main
+
+import (
+\t"bytes"
+\t"fmt"
+\t"io"
+\t"net/http"
+)
+
+func main() {
+${body}\treq, _ := http.NewRequest("${endpoint.method}", "${baseUrl}${endpoint.path}", ${body ? 'body' : 'nil'})
+\treq.Header.Set("Content-Type", "application/json")
+\treq.Header.Set("Authorization", "Bearer YOUR_API_KEY")
+
+\tresp, err := http.DefaultClient.Do(req)
+\tif err != nil {
+\t\tpanic(err)
+\t}
+\tdefer resp.Body.Close()
+
+\tdata, _ := io.ReadAll(resp.Body)
+\tfmt.Println(string(data))
+}`;
+}
+
+export function generateJava(endpoint: ParsedEndpoint, baseUrl: string): string {
+  let body = '';
+  if (endpoint.requestBody?.content?.['application/json']?.schema) {
+    const example = generateExampleFromJsonSchema(endpoint.requestBody.content['application/json'].schema);
+    body = `\t\tString json = "${JSON.stringify(example).replace(/"/g, '\\"')}";\n\t\tconnection.setDoOutput(true);\n\t\tconnection.getOutputStream().write(json.getBytes());\n`;
+  }
+
+  return `import java.net.*;
+import java.io.*;
+
+public class ShortedApiExample {
+\tpublic static void main(String[] args) throws Exception {
+\t\tURL url = new URL("${baseUrl}${endpoint.path}");
+\t\tHttpURLConnection connection = (HttpURLConnection) url.openConnection();
+\t\tconnection.setRequestMethod("${endpoint.method}");
+\t\tconnection.setRequestProperty("Content-Type", "application/json");
+\t\tconnection.setRequestProperty("Authorization", "Bearer YOUR_API_KEY");
+${body}
+\t\tBufferedReader reader = new BufferedReader(
+\t\t\tnew InputStreamReader(connection.getInputStream()));
+\t\tString line;
+\t\twhile ((line = reader.readLine()) != null) {
+\t\t\tSystem.out.println(line);
+\t\t}
+\t}
+}`;
+}
+
 export function generateExampleFromJsonSchema(schema: any): any {
   if (schema.example) return schema.example;
   if (schema.default) return schema.default;

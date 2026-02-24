@@ -157,6 +157,15 @@ Returns industry-grouped short position data for treemap visualization.
 - `GET /api/health` — Health check
 - `GET /api/search/stocks?q={query}` — Search stocks (REST wrapper)
 
+### Client SDKs
+
+Official client libraries are available:
+- **Go**: Connect-RPC Go client — `go get github.com/castlemilk/shorted/sdks/go`
+- **TypeScript**: Connect-ES client for Node.js/browser — `npm install @shorted/sdk`
+- **Java**: Protobuf Java types for JVM applications
+
+Full SDK documentation: https://shorted.com.au/docs/api#client-sdks
+
 ### Rate Limits
 
 | Tier | Per Minute | Per Month |

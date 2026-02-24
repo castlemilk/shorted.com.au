@@ -32,7 +32,7 @@ if not DATABASE_URL:
 
 # Data provider configuration
 DATA_PROVIDER = os.getenv("DATA_PROVIDER", "alpha_vantage")  # Default to Alpha Vantage
-ALPHA_VANTAGE_API_KEY = os.getenv("ALPHA_VANTAGE_API_KEY", "UOI9AM59F03A0WZC")
+ALPHA_VANTAGE_API_KEY = os.environ["ALPHA_VANTAGE_API_KEY"]
 
 # Rate limiting configuration
 BATCH_SIZE = 10  # Process stocks in batches

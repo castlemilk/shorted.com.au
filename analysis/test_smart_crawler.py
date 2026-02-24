@@ -30,7 +30,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Database connection
-DATABASE_URL = os.getenv('CMS_DATABASE_URL', 'postgresql://postgres.vfzzkelbpyjdvuujyrpu:GpbQqFc7rwe3gF0v@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres')
+DATABASE_URL = os.environ['CMS_DATABASE_URL']
 
 # ============================================================================
 # SMART CRAWLER (Copy from notebook)

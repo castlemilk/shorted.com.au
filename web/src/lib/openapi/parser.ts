@@ -54,8 +54,9 @@ export async function parseOpenAPISpec(): Promise<OpenAPISpec> {
       const operation = methods[method];
       if (typeof operation !== 'object') return;
 
-      // Skip internal endpoints like GetSyncStatus from the bespoke docs
+      // Skip internal endpoints from the public docs
       if (pathKey.includes('GetSyncStatus')) return;
+      if (pathKey.includes('RegisterService') || pathKey.includes('RegisterEmail')) return;
 
       const endpoint: ParsedEndpoint = {
         id: `${method}-${pathKey.replace(/\//g, '-').replace(/[{}]/g, '')}`.toLowerCase(),

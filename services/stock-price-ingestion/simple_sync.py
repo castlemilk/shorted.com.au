@@ -29,7 +29,7 @@ def load_all_asx_stocks() -> List[str]:
     ASX_API_URL = (
         "https://asx.api.markitdigital.com/asx-research/1.0/companies/directory/file"
     )
-    ASX_API_TOKEN = "83ff96335c2d45a094df02a206a39ff4"
+    ASX_API_TOKEN = os.environ.get("ASX_API_TOKEN", "")
 
     try:
         import requests

@@ -3,8 +3,12 @@
 
 set -e
 
-# Database URL with SSL disabled for connection issues
-DATABASE_URL="postgresql://postgres.xivfykscsdagwsreyqgf:661wMKAq9zdZpDk2@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres?sslmode=disable"
+# Database URL - must be set via environment variable
+if [ -z "$DATABASE_URL" ]; then
+    echo "❌ DATABASE_URL environment variable is not set."
+    echo "   Export it first: export DATABASE_URL=\"postgresql://user:pass@host:5432/dbname\""
+    exit 1
+fi
 
 echo "🔧 Applying search indexes migration to Supabase..."
 

@@ -2,18 +2,20 @@
 
 ## Prerequisites
 
-Set the DATABASE_URL environment variable:
+Set the DATABASE_URL environment variable with your Supabase connection string:
 
 ```bash
-export DATABASE_URL="postgresql://postgres.xivfykscsdagwsreyqgf:661wMKAq9zdZpDk2@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
+export DATABASE_URL="postgresql://postgres.<project-ref>:<password>@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
 ```
 
 Or add to your shell profile (~/.zshrc or ~/.bashrc):
 
 ```bash
-echo 'export DATABASE_URL="postgresql://postgres.xivfykscsdagwsreyqgf:661wMKAq9zdZpDk2@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"' >> ~/.zshrc
+echo 'export DATABASE_URL="<your-connection-string>"' >> ~/.zshrc
 source ~/.zshrc
 ```
+
+> Get your connection string from the Supabase dashboard under Settings > Database.
 
 ## Common Commands
 

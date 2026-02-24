@@ -15,10 +15,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Database connection string
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://postgres.xivfykscsdagwsreyqgf:661wMKAq9zdZpDk2@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres",
-)
+DATABASE_URL = os.environ["DATABASE_URL"]
 
 
 async def get_all_stock_codes(pool: asyncpg.Pool) -> Set[str]:

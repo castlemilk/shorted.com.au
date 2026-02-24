@@ -5,10 +5,14 @@ Simple test to verify the Cloud Run service can start.
 import os
 import sys
 
-# Set environment variables
-os.environ["DATABASE_URL"] = "postgresql://postgres.xivfykscsdagwsreyqgf:661wMKAq9zdZpDk2@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
-os.environ["DATA_PROVIDER"] = "alpha_vantage"
-os.environ["ALPHA_VANTAGE_API_KEY"] = "UOI9AM59F03A0WZC"
+# Set environment variables (DATABASE_URL and ALPHA_VANTAGE_API_KEY must be set externally)
+if "DATABASE_URL" not in os.environ:
+    print("ERROR: DATABASE_URL environment variable must be set")
+    sys.exit(1)
+os.environ.setdefault("DATA_PROVIDER", "alpha_vantage")
+if "ALPHA_VANTAGE_API_KEY" not in os.environ:
+    print("ERROR: ALPHA_VANTAGE_API_KEY environment variable must be set")
+    sys.exit(1)
 
 try:
     print("Testing imports...")
@@ -22,7 +26,7 @@ try:
     print("✅ FastAPI imported")
     
     print("Testing provider creation...")
-    provider = DataProviderFactory.create_provider("alpha_vantage", api_key="UOI9AM59F03A0WZC")
+    provider = DataProviderFactory.create_provider("alpha_vantage", api_key=os.environ["ALPHA_VANTAGE_API_KEY"])
     print(f"✅ Provider created: {provider.get_provider_name()}")
     
     print("Testing FastAPI app creation...")

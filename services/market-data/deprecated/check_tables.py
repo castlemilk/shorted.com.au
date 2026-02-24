@@ -8,7 +8,7 @@ import os
 
 async def check_database_tables():
     """Check what tables exist in the database."""
-    DATABASE_URL = "postgresql://postgres.xivfykscsdagwsreyqgf:661wMKAq9zdZpDk2@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres"
+    DATABASE_URL = os.environ["DATABASE_URL"]
     
     try:
         print("Checking database tables...")

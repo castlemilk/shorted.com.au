@@ -19,7 +19,7 @@ async def test_recent_asx_stocks():
     # Create provider
     provider = DataProviderFactory.create_provider(
         "alpha_vantage", 
-        api_key="UOI9AM59F03A0WZC"
+        api_key=os.environ["ALPHA_VANTAGE_API_KEY"]
     )
     
     # Test stocks that had recent data in our previous test

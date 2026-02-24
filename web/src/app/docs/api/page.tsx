@@ -2,7 +2,7 @@ import React from 'react';
 import { parseOpenAPISpec } from '~/lib/openapi/parser';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '~/@/components/ui/card';
-import { ArrowRight, Book, Terminal, Shield, Lock, Gauge, AlertTriangle } from 'lucide-react';
+import { ArrowRight, Book, Terminal, Shield, Lock, Gauge, AlertTriangle, Code2, Package } from 'lucide-react';
 import { ApiAccessSection } from '~/@/components/docs/api-access-section';
 
 // Pro subscription price ID - set in environment or use placeholder
@@ -240,6 +240,69 @@ export default async function ApiDocsIndex() {
             </p>
           </CardContent>
         </Card>
+      </section>
+
+      <section id="client-sdks" className="space-y-8 scroll-mt-20">
+        <div className="space-y-4">
+          <h2 className="text-3xl font-bold tracking-tight">Client SDKs</h2>
+          <p className="text-muted-foreground">
+            Official client libraries for integrating with the Shorted API in your preferred language.
+            SDKs are generated from our protobuf definitions and will be published soon.
+          </p>
+        </div>
+
+        <div className="grid gap-6 sm:grid-cols-3">
+          <Card>
+            <CardHeader>
+              <div className="p-2 w-fit rounded-lg bg-cyan-500/10 text-cyan-500 mb-2">
+                <Code2 className="h-6 w-6" />
+              </div>
+              <CardTitle className="text-lg">Go</CardTitle>
+              <CardDescription>
+                Connect-RPC Go client with full type safety.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-zinc-950 rounded-lg p-3 font-mono text-xs text-zinc-300 border border-zinc-800">
+                go get github.com/castlemilk/shorted/sdks/go
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="p-2 w-fit rounded-lg bg-yellow-500/10 text-yellow-500 mb-2">
+                <Package className="h-6 w-6" />
+              </div>
+              <CardTitle className="text-lg">TypeScript</CardTitle>
+              <CardDescription>
+                Connect-ES client for Node.js and browsers.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-zinc-950 rounded-lg p-3 font-mono text-xs text-zinc-300 border border-zinc-800">
+                npm install @shorted/sdk
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="p-2 w-fit rounded-lg bg-orange-500/10 text-orange-500 mb-2">
+                <Code2 className="h-6 w-6" />
+              </div>
+              <CardTitle className="text-lg">Java</CardTitle>
+              <CardDescription>
+                Protobuf Java client for JVM applications.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-zinc-950 rounded-lg p-3 font-mono text-xs text-zinc-300 border border-zinc-800 text-[10px]">
+                {'<artifactId>shorted-sdk</artifactId>'}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </section>
 
       <div className="space-y-6">

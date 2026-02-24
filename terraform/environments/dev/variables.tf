@@ -70,6 +70,12 @@ variable "weekly_report_generator_image" {
   default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/weekly-report-generator:latest"
 }
 
+variable "image_tag" {
+  description = "Image tag for forcing new Cloud Run revisions"
+  type        = string
+  default     = ""
+}
+
 variable "grafana_url" {
   description = "Grafana Cloud instance URL"
   type        = string

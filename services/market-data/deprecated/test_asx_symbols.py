@@ -1,3 +1,4 @@
+import os
 """
 Test different ASX symbol formats for Alpha Vantage.
 """
@@ -8,7 +9,7 @@ import json
 
 async def test_asx_symbols():
     """Test different ASX symbol formats."""
-    api_key = "UOI9AM59F03A0WZC"
+    api_key = os.environ["ALPHA_VANTAGE_API_KEY"]
     base_url = "https://www.alphavantage.co/query"
     
     # Test different ASX symbol formats
