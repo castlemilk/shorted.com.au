@@ -4952,8 +4952,8 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x1fHandleStripeSubscriptionUpdated\x127.shorts.v1alpha1.HandleStripeSubscriptionUpdatedRequest\x1a8.shorts.v1alpha1.HandleStripeSubscriptionUpdatedResponse\"\x04\x80\xb5\x18\x02\x12p\n" +
 	"\x11GetMySubscription\x12).shorts.v1alpha1.GetMySubscriptionRequest\x1a*.shorts.v1alpha1.GetMySubscriptionResponse\"\x04\x80\xb5\x18\x02\x12\xea\x01\n" +
 	"\x0fGetWeeklyReport\x12'.shorts.v1alpha1.GetWeeklyReportRequest\x1a(.shorts.v1alpha1.GetWeeklyReportResponse\"\x83\x01\xbaG|\x12\x11Get Weekly Report\x1agRetrieve a weekly short selling report with narrative analysis, top shorted stocks, and biggest movers.\x80\xb5\x18\x01\x12\x9f\x02\n" +
-	"\x1bGetStockFinancialHighlights\x123.shorts.v1alpha1.GetStockFinancialHighlightsRequest\x1a4.shorts.v1alpha1.GetStockFinancialHighlightsResponse\"\x94\x01\xbaG\x8c\x01\x12\x1eGet Stock Financial Highlights\x1ajRetrieve extracted financial metrics (revenue, NPAT, EPS, dividends, etc.) from company financial reports.\x80\xb5\x18\x01\x1a\x15\xcaA\x12api.shorted.com.auB\x9d\x03\xbaG\xbf\x01\x12|\n" +
-	"\vShorted API\x12\rShorted API's\"%\x12\x0eshorted.com.au\x1a\x13help@shorted.com.au*3\n" +
+	"\x1bGetStockFinancialHighlights\x123.shorts.v1alpha1.GetStockFinancialHighlightsRequest\x1a4.shorts.v1alpha1.GetStockFinancialHighlightsResponse\"\x94\x01\xbaG\x8c\x01\x12\x1eGet Stock Financial Highlights\x1ajRetrieve extracted financial metrics (revenue, NPAT, EPS, dividends, etc.) from company financial reports.\x80\xb5\x18\x01\x1a\x15\xcaA\x12api.shorted.com.auB\xa0\x03\xbaG\xc2\x01\x12\x7f\n" +
+	"\vShorted API\x12\rShorted API's\"(\x12\x0eshorted.com.au\x1a\x16support@shorted.com.au*3\n" +
 	"\x13Proprietary license\x12\x1chttps://shorted.com.au/terms2\x02v1\x1a\x1c\n" +
 	"\x1ahttps://api.shorted.com.au*!:\x1f\n" +
 	"\x1d\n" +

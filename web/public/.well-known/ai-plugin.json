@@ -12,7 +12,7 @@
     "url": "https://shorted.com.au/docs/api-reference"
   },
   "logo_url": "https://shorted.com.au/logo.png",
-  "contact_email": "contact@shorted.com.au",
+  "contact_email": "support@shorted.com.au",
   "legal_info_url": "https://shorted.com.au/terms",
   "endpoints": {
     "search": "https://shorted.com.au/api/search/stocks",
