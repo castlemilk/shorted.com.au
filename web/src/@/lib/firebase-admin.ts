@@ -7,11 +7,11 @@ function getApp(): App {
     return getApps()[0]!;
   }
 
-  const projectId = process.env.AUTH_FIREBASE_PROJECT_ID?.trim();
+  const projectId = process.env.AUTH_FIREBASE_PROJECT_ID?.replace(/\s+/g, "");
   return initializeApp({
     credential: cert({
       projectId: projectId,
-      clientEmail: process.env.AUTH_FIREBASE_CLIENT_EMAIL,
+      clientEmail: process.env.AUTH_FIREBASE_CLIENT_EMAIL?.trim(),
       privateKey: process.env.AUTH_FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
     }),
     projectId: projectId,
