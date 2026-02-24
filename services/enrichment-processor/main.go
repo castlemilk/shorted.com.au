@@ -23,6 +23,7 @@ import (
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/enrichment"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
+	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/castlemilk/shorted.com.au/services/shorts"
 	"github.com/google/uuid"
 	"golang.org/x/sync/errgroup"
@@ -67,6 +68,21 @@ func main() {
 	ctx := context.Background()
 	logger := log.NewLogger()
 	logger.SetLevel("debug")
+
+	// Initialize OpenTelemetry (traces + metrics via OTLP).
+	// No-op when OTEL_EXPORTER_OTLP_ENDPOINT is not set.
+	otelShutdown, otelErr := shortedotel.InitProvider(ctx, "enrichment-processor")
+	if otelErr != nil {
+		log.Errorf("failed to initialize OpenTelemetry: %v", otelErr)
+	} else {
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := otelShutdown(shutdownCtx); err != nil {
+				log.Errorf("error shutting down OpenTelemetry: %v", err)
+			}
+		}()
+	}
 
 	// Load configuration from environment
 	projectID := os.Getenv("GCP_PROJECT_ID")
