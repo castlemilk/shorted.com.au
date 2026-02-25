@@ -53,7 +53,7 @@ func NewLLMClient(ctx context.Context, apiKey, model string, toolExecutor *ToolE
 
 // Close closes the underlying client.
 func (lc *LLMClient) Close() {
-	lc.client.Close()
+	_ = lc.client.Close()
 }
 
 // Chat sends a message and processes tool calls, returning the final response.

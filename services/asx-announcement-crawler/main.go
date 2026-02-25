@@ -297,11 +297,6 @@ func getStockCodes(ctx context.Context, db *pgxpool.Pool) ([]string, error) {
 	return codes, rows.Err()
 }
 
-func crawlStockAnnouncements(client *http.Client, code string, years []string) ([]FinancialReport, error) {
-	reports, _, err := crawlStockAnnouncementsFull(client, code, years)
-	return reports, err
-}
-
 // crawlStockAnnouncementsFull returns both financial reports and all announcements
 func crawlStockAnnouncementsFull(client *http.Client, code string, years []string) ([]FinancialReport, []ASXAnnouncement, error) {
 	var allReports []FinancialReport
@@ -358,7 +353,7 @@ func fetchASXAnnouncements(client *http.Client, code, year string) ([]ASXAnnounc
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)

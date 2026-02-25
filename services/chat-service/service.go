@@ -170,11 +170,14 @@ func (h *ChatServiceHandler) GetConversationHistory(
 
 	var protoMsgs []*chatv1.ChatMessage
 	for _, msg := range messages {
-		role := chatv1.MessageRole_MESSAGE_ROLE_USER
-		if msg.Role == "assistant" {
+		var role chatv1.MessageRole
+		switch msg.Role {
+		case "assistant":
 			role = chatv1.MessageRole_MESSAGE_ROLE_ASSISTANT
-		} else if msg.Role == "system" {
+		case "system":
 			role = chatv1.MessageRole_MESSAGE_ROLE_SYSTEM
+		default:
+			role = chatv1.MessageRole_MESSAGE_ROLE_USER
 		}
 
 		protoMsg := &chatv1.ChatMessage{

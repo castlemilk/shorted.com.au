@@ -2,18 +2,9 @@ version: 2
 
 run:
   timeout: 5m
-  issues-exit-code: 0 # Don't fail on linting issues for now
+  concurrency: 2
+  issues-exit-code: 1
   tests: true
-  skip-dirs:
-    - gen
-    - vendor
-    - venv
-    - node_modules
-  skip-files:
-    - ".*\\.pb\\.go$"
-    - ".*_mock\\.go$"
-    - ".*_gen\\.go$"
-    - ".*_connect\\.go$"
 
 linters:
   enable:
@@ -29,6 +20,16 @@ issues:
   # Show all issues
   max-issues-per-linter: 0
   max-same-issues: 0
+  exclude-dirs:
+    - gen
+    - vendor
+    - venv
+    - node_modules
+  exclude-files:
+    - ".*\\.pb\\.go$"
+    - ".*_mock\\.go$"
+    - ".*_gen\\.go$"
+    - ".*_connect\\.go$"
 
 output:
   format: colored-line-number

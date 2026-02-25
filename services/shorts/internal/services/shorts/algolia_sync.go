@@ -110,7 +110,7 @@ func (s *ShortsServer) syncStockToAlgolia(ctx context.Context, stockCode string)
 		span.SetStatus(codes.Error, err.Error())
 		return fmt.Errorf("algolia request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	span.SetAttributes(attribute.Int("algolia.response_status", resp.StatusCode))
 
