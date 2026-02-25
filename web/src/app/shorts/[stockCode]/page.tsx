@@ -14,7 +14,12 @@ import CompanyFinancials,{
   CompanyFinancialsPlaceholder,
 } from "~/@/components/ui/companyFinancials";
 import { EnrichedCompanySection } from "~/@/components/company/enriched-company-section";
-import { StockTabs } from "~/@/components/company/stock-tabs";
+
+// Dynamic import to avoid SSR issues — child components import @connectrpc/connect
+const StockTabs = dynamic(
+  () => import("~/@/components/company/stock-tabs").then((m) => m.StockTabs),
+  { ssr: false }
+);
 import { Suspense } from "react";
 import { StockStructuredData } from "~/@/components/seo/structured-data";
 import {
