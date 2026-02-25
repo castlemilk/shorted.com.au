@@ -10,13 +10,16 @@ import {
 } from "~/@/components/ui/dropdown-menu";
 import Avatar from "~/@/components/ui/avatar";
 import { useSession } from "next-auth/react";
+import { useSubscription } from "~/@/hooks/use-subscription";
 import { SignIn } from "~/@/components/ui/sign-in";
 import { SignOut } from "./sign-out";
 import { Skeleton } from "~/@/components/ui/skeleton";
+import { Sparkles } from "lucide-react";
 import Link from "next/link";
 
 export const UserAuthNav = () => {
   const { data: session, status } = useSession();
+  const { isPremium } = useSubscription();
 
   if (status === "loading") {
     return <Skeleton className="h-10 w-10 rounded-full" />;
@@ -104,6 +107,19 @@ export const UserAuthNav = () => {
             </>
           )}
         </div>
+        {!isPremium && (
+          <div className="p-1 border-t border-border/50">
+            <DropdownMenuItem
+              asChild
+              className="cursor-pointer focus:bg-primary/10 text-primary font-medium"
+            >
+              <Link href="/pricing" className="w-full flex items-center gap-2">
+                <Sparkles className="h-4 w-4" />
+                Upgrade to Premium
+              </Link>
+            </DropdownMenuItem>
+          </div>
+        )}
         <div className="p-1 border-t border-border/50">
           <DropdownMenuItem className="p-0 focus:bg-destructive/10">
             <SignOut />

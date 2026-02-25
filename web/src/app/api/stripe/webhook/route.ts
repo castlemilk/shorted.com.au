@@ -156,7 +156,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         userEmail,
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscriptionId,
-        tier: SubscriptionTier.PRO,
+        tier: SubscriptionTier.PREMIUM,
       });
     },
     WEBHOOK_RETRY_OPTIONS
@@ -192,7 +192,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription, isDel
         stripeCustomerId: customerId,
         stripeSubscriptionId: subscription.id,
         status,
-        tier: SubscriptionTier.PRO,
+        tier: SubscriptionTier.PREMIUM,
         currentPeriodStart: periodStartUnix
           ? timestampFromDate(new Date(periodStartUnix * 1000))
           : undefined,

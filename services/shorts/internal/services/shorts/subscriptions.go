@@ -33,7 +33,7 @@ func (s *ShortsServer) HandleStripeCheckoutCompleted(
 	// Map protobuf tier to string
 	tier := mapTierToString(req.Msg.Tier)
 	if tier == "" {
-		tier = "pro" // Default to pro for completed checkouts
+		tier = "premium" // Default to premium for completed checkouts
 	}
 
 	// Create/update subscription record
@@ -181,6 +181,8 @@ func mapTierToString(tier shortsv1alpha1.SubscriptionTier) string {
 		return "pro"
 	case shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_ENTERPRISE:
 		return "enterprise"
+	case shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_PREMIUM:
+		return "premium"
 	default:
 		return ""
 	}
@@ -194,6 +196,8 @@ func mapStringToTier(tier string) shortsv1alpha1.SubscriptionTier {
 		return shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_PRO
 	case "enterprise":
 		return shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_ENTERPRISE
+	case "premium":
+		return shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_PREMIUM
 	default:
 		return shortsv1alpha1.SubscriptionTier_SUBSCRIPTION_TIER_UNSPECIFIED
 	}

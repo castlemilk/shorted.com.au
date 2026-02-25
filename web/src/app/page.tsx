@@ -5,8 +5,10 @@ import { siteConfig } from "~/@/config/site";
 import { Suspense } from "react";
 import { HomeContent } from "./home-content";
 import { TopShortsFallback } from "./top-shorts-fallback";
+import { BreakingNewsBanner } from "~/@/components/ui/breaking-news-banner";
 import { FAQStructuredData } from "~/@/components/seo/enhanced-structured-data";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
+import { PremiumUpsellBanner } from "~/@/components/premium/premium-upsell-banner";
 import { getEnhancedWeeklyReportData, getAvailableWeekSlugs } from "~/app/actions/reports/getReportData";
 
 export const metadata: Metadata = {
@@ -124,6 +126,11 @@ export default async function Page() {
         </p>
       </header>
 
+      {/* Breaking News - Price Sensitive Announcements */}
+      <div className="container mx-auto px-4 pb-4">
+        <BreakingNewsBanner />
+      </div>
+
       {/* Latest Weekly Report Banner */}
       {report && (
         <div className="container mx-auto px-4 pb-4">
@@ -160,6 +167,11 @@ export default async function Page() {
           </Link>
         </div>
       )}
+
+      {/* Premium upsell for authenticated free-tier users */}
+      <Suspense fallback={null}>
+        <PremiumUpsellBanner />
+      </Suspense>
 
       {/* SSR fallback table for search engine crawlability */}
       <Suspense fallback={null}>
