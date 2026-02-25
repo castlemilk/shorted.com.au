@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # Script to warm cache immediately after deployment
 # This ensures cache is populated before first user requests
 

@@ -1940,7 +1940,18 @@ func (p *enrichmentProcessor) handleEnrichBatch(w http.ResponseWriter, r *http.R
 	force := r.URL.Query().Get("force") == "true"
 	autoApprove := r.URL.Query().Get("auto_approve") != "false" && r.URL.Query().Get("autoApprove") != "false" // default true
 
-	p.logger.Infof("HTTP trigger: Batch enrichment (limit: %d, force: %v, autoApprove: %v)", limit, force, autoApprove)
+	// Parse priority (default: unenriched to skip already-completed stocks)
+	priority := shortsv1alpha1.EnrichmentPriority_ENRICHMENT_PRIORITY_UNENRICHED
+	switch strings.ToLower(r.URL.Query().Get("priority")) {
+	case "short_position":
+		priority = shortsv1alpha1.EnrichmentPriority_ENRICHMENT_PRIORITY_SHORT_POSITION
+	case "stale":
+		priority = shortsv1alpha1.EnrichmentPriority_ENRICHMENT_PRIORITY_STALE
+	case "all", "unspecified":
+		priority = shortsv1alpha1.EnrichmentPriority_ENRICHMENT_PRIORITY_UNSPECIFIED
+	}
+
+	p.logger.Infof("HTTP trigger: Batch enrichment (limit: %d, force: %v, autoApprove: %v, priority: %s)", limit, force, autoApprove, priority.String())
 
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -1953,8 +1964,8 @@ func (p *enrichmentProcessor) handleEnrichBatch(w http.ResponseWriter, r *http.R
 		}
 	}
 
-	// Get stocks needing enrichment using the new priority-based method
-	candidates, err := p.store.GetTopStocksForEnrichment(int32(limit), shortsv1alpha1.EnrichmentPriority_ENRICHMENT_PRIORITY_UNSPECIFIED)
+	// Get stocks needing enrichment
+	candidates, err := p.store.GetTopStocksForEnrichment(int32(limit), priority)
 	if err != nil {
 		writeProgress(fmt.Sprintf("Error getting stocks: %v", err))
 		return

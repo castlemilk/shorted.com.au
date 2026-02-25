@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # Get the current version from git
 VERSION=$(git describe --tags --always --dirty)
