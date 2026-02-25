@@ -53,11 +53,6 @@ resource "google_cloud_run_v2_job" "news_aggregator" {
         image = var.image_url
 
         env {
-          name  = "CLOUD_RUN_JOB"
-          value = "true"
-        }
-
-        env {
           name  = "ENVIRONMENT"
           value = var.environment
         }
