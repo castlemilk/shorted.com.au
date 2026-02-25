@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from "react";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
-import { ChatService } from "~/gen/chat/v1/chat_connect";
+import { ChatService } from "~/gen/chat/v1/chat_pb";
 
 export interface ChatMessage {
   id: string;
