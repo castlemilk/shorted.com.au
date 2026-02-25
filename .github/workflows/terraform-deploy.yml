@@ -256,6 +256,12 @@ jobs:
           - name: enrichment-processor
             dockerfile: services/enrichment-processor/Dockerfile
             context: services
+          - name: news-aggregator
+            dockerfile: services/news-aggregator/Dockerfile
+            context: services
+          - name: asx-announcement-crawler
+            dockerfile: services/asx-announcement-crawler/Dockerfile
+            context: services
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -434,6 +440,8 @@ jobs:
             -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="news_aggregator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/news-aggregator:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="asx_announcement_crawler_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-announcement-crawler:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="grafana_auth=${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}" \
             -out=tfplan
         continue-on-error: true
@@ -1032,6 +1040,8 @@ jobs:
             -var="market_data_sync_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data-sync:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="market_data_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/market-data:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="news_aggregator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/news-aggregator:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="asx_announcement_crawler_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-announcement-crawler:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="grafana_auth=${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}" \
             -var="image_tag=${{ needs.determine-environment.outputs.image-tag }}" \
             -auto-approve

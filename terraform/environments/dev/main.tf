@@ -224,3 +224,35 @@ module "weekly_report_generator" {
     google_artifact_registry_repository.shorted
   ]
 }
+
+# News Aggregator Job (RSS feeds → news_articles table)
+module "news_aggregator" {
+  source = "../../modules/news-aggregator"
+
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment      = "dev"
+  image_url        = var.news_aggregator_image
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
+# ASX Announcement Crawler Job (director trades, dividends, news from ASX)
+module "asx_announcement_crawler" {
+  source = "../../modules/asx-announcement-crawler"
+
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment      = "dev"
+  image_url        = var.asx_announcement_crawler_image
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}

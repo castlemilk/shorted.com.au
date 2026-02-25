@@ -82,6 +82,18 @@ variable "image_tag" {
   default     = ""
 }
 
+variable "news_aggregator_image" {
+  description = "Docker image URL for news-aggregator job"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/news-aggregator:latest"
+}
+
+variable "asx_announcement_crawler_image" {
+  description = "Docker image URL for asx-announcement-crawler job"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/asx-announcement-crawler:latest"
+}
+
 variable "grafana_url" {
   description = "Grafana Cloud instance URL"
   type        = string
