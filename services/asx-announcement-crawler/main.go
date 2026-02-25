@@ -46,6 +46,9 @@ var (
 	flagDelay = flag.Duration("delay", 1500*time.Millisecond, "Delay between requests")
 	flagVerbose    = flag.Bool("verbose", false, "Verbose output")
 	flagAllAnnouncements = flag.Bool("all-announcements", false, "Store all announcements to asx_announcements table (not just financial reports)")
+	flagNewsTable        = flag.Bool("news-table", false, "Also write announcements into news_articles table")
+	flagDirectorTrades   = flag.Bool("director-trades", false, "Extract director trades from Appendix 3Y announcements into director_trades table")
+	flagDividends        = flag.Bool("dividends", false, "Extract dividend announcements into dividend_history table")
 )
 
 // Financial report headline keywords/patterns
@@ -133,6 +136,9 @@ func main() {
 		totalErrors         int
 		totalAnnouncements  int
 		totalAnnStored      int
+		totalNewsStored     int
+		totalDirTrades      int
+		totalDividends      int
 	)
 
 	for i, code := range codes {
@@ -164,6 +170,56 @@ func main() {
 				}
 			} else if *flagVerbose {
 				log.Printf("  %s: %d total announcements", code, len(allAnns))
+			}
+		}
+
+		// Write announcements as news articles
+		if *flagNewsTable && len(allAnns) > 0 && !*flagDryRun {
+			stored, err := storeAsNewsArticles(ctx, db, code, allAnns)
+			if err != nil {
+				log.Printf("  ERROR storing news for %s: %v", code, err)
+			} else {
+				totalNewsStored += stored
+			}
+		}
+
+		// Extract director trades from Appendix 3Y announcements
+		if *flagDirectorTrades && !*flagDryRun {
+			var trades []*DirectorTradeRecord
+			for _, ann := range allAnns {
+				if isAppendix3Y(ann.Headline) {
+					trade := parseDirectorTradeFromHeadline(ann, code)
+					trades = append(trades, trade)
+				}
+			}
+			if len(trades) > 0 {
+				stored, err := storeDirectorTrades(ctx, db, trades)
+				if err != nil {
+					log.Printf("  ERROR storing director trades for %s: %v", code, err)
+				} else {
+					totalDirTrades += stored
+				}
+			}
+		}
+
+		// Extract dividend announcements
+		if *flagDividends && !*flagDryRun {
+			var dividends []*DividendParseResult
+			for _, ann := range allAnns {
+				if isDividendAnnouncement(ann.Headline) {
+					div := parseDividendFromHeadline(ann, code)
+					if div.AmountPerShare != nil {
+						dividends = append(dividends, div)
+					}
+				}
+			}
+			if len(dividends) > 0 {
+				stored, err := storeDividends(ctx, db, dividends)
+				if err != nil {
+					log.Printf("  ERROR storing dividends for %s: %v", code, err)
+				} else {
+					totalDividends += stored
+				}
 			}
 		}
 
@@ -202,8 +258,8 @@ func main() {
 		time.Sleep(*flagDelay + jitter)
 	}
 
-	log.Printf("Done! Processed: %d, Reports found: %d, DB updated: %d, Announcements: %d (stored: %d), Errors: %d",
-		totalProcessed, totalReports, totalUpdated, totalAnnouncements, totalAnnStored, totalErrors)
+	log.Printf("Done! Processed: %d, Reports found: %d, DB updated: %d, Announcements: %d (stored: %d), News: %d, Director trades: %d, Dividends: %d, Errors: %d",
+		totalProcessed, totalReports, totalUpdated, totalAnnouncements, totalAnnStored, totalNewsStored, totalDirTrades, totalDividends, totalErrors)
 }
 
 func getStockCodes(ctx context.Context, db *pgxpool.Pool) ([]string, error) {

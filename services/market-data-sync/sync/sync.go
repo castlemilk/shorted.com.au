@@ -2,8 +2,10 @@ package sync
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -144,10 +146,19 @@ func (m *SyncManager) Run(ctx context.Context) error {
 		log.Printf("⚠️ Failed to update prices count: %v", err)
 	}
 
-	// 4. Sync Algolia if enabled
+	// 4. Sync Algolia if enabled — fetch enriched metadata from DB
 	if m.config.SyncAlgolia && len(algoliaRecords) > 0 {
-		log.Printf("🔍 Starting Algolia sync for %d records...", len(algoliaRecords))
-		count, err := m.algolia.SyncInBatches(ctx, algoliaRecords, 1000)
+		log.Printf("🔍 Enriching %d Algolia records from company-metadata...", len(algoliaRecords))
+		enrichedRecords, err := m.buildEnrichedAlgoliaRecords(ctx, algoliaRecords)
+		if err != nil {
+			log.Printf("⚠️ Failed to enrich Algolia records, using basic records: %v", err)
+			enrichedRecords = algoliaRecords
+		} else {
+			log.Printf("🔍 Enriched %d records with metadata", len(enrichedRecords))
+		}
+
+		log.Printf("🔍 Starting Algolia sync for %d records...", len(enrichedRecords))
+		count, err := m.algolia.SyncInBatches(ctx, enrichedRecords, 1000)
 		if err != nil {
 			log.Printf("⚠️ Algolia sync failed: %v", err)
 		} else {
@@ -304,6 +315,163 @@ func (m *SyncManager) repairGaps(ctx context.Context, symbol string, gaps []Gap)
 	return totalRepaired
 }
 
+
+// buildEnrichedAlgoliaRecords queries company-metadata to populate all enriched fields
+// for Algolia records, ensuring the Go syncer produces the same rich data as the TS sync script.
+func (m *SyncManager) buildEnrichedAlgoliaRecords(ctx context.Context, basicRecords []algolia.StockRecord) ([]algolia.StockRecord, error) {
+	// Collect stock codes
+	codes := make([]string, len(basicRecords))
+	for i, r := range basicRecords {
+		codes[i] = r.StockCode
+	}
+
+	query := `
+		WITH latest_shorts AS (
+			SELECT DISTINCT ON ("PRODUCT_CODE")
+				"PRODUCT_CODE" as product_code,
+				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted
+			FROM shorts
+			ORDER BY "PRODUCT_CODE", "DATE" DESC
+		)
+		SELECT
+			m.stock_code,
+			COALESCE(m.company_name, '') as company_name,
+			COALESCE(m.industry, '') as industry,
+			COALESCE(m.summary, '') as summary,
+			COALESCE(m.details, '') as details,
+			COALESCE(m.enhanced_summary, '') as enhanced_summary,
+			COALESCE(m.company_history, '') as company_history,
+			COALESCE(m.competitive_advantages, '') as competitive_advantages,
+			COALESCE(m.risk_factors, '') as risk_factors,
+			COALESCE(m.recent_developments, '') as recent_developments,
+			COALESCE(m.tags, ARRAY[]::text[]) as tags,
+			COALESCE(m.logo_gcs_url, '') as logo_gcs_url,
+			COALESCE(m.website, '') as website,
+			COALESCE(m.address, '') as address,
+			COALESCE(m.market_cap, '') as market_cap,
+			COALESCE(s.percentage_shorted, 0) as percentage_shorted,
+			COALESCE(m.key_people, '[]'::jsonb) as key_people,
+			COALESCE(m.key_metrics, '{}'::jsonb) as key_metrics
+		FROM "company-metadata" m
+		LEFT JOIN latest_shorts s ON m.stock_code = s.product_code
+		WHERE m.stock_code = ANY($1)
+	`
+
+	rows, err := m.db.Query(ctx, query, codes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query enriched metadata: %w", err)
+	}
+	defer rows.Close()
+
+	enriched := make(map[string]algolia.StockRecord, len(codes))
+	for rows.Next() {
+		var (
+			stockCode, companyName, industry, summary, details        string
+			enhancedSummary, companyHistory, competitiveAdvantages    string
+			riskFactors, recentDevelopments                           string
+			logoGCSURL, website, address, marketCap                   string
+			percentageShorted                                         float64
+			tags                                                      []string
+			keyPeopleJSON, keyMetricsJSON                             []byte
+		)
+
+		if err := rows.Scan(
+			&stockCode, &companyName, &industry, &summary, &details,
+			&enhancedSummary, &companyHistory, &competitiveAdvantages,
+			&riskFactors, &recentDevelopments, &tags, &logoGCSURL,
+			&website, &address, &marketCap, &percentageShorted,
+			&keyPeopleJSON, &keyMetricsJSON,
+		); err != nil {
+			log.Printf("⚠️ Failed to scan enriched record: %v", err)
+			continue
+		}
+
+		// Parse key_people
+		var keyPeople []struct {
+			Name string `json:"name"`
+			Role string `json:"role"`
+		}
+		_ = json.Unmarshal(keyPeopleJSON, &keyPeople)
+
+		names := make([]string, 0, len(keyPeople))
+		roles := make([]string, 0, len(keyPeople))
+		for _, p := range keyPeople {
+			if p.Name != "" {
+				names = append(names, p.Name)
+				role := strings.TrimSpace(p.Name + " " + p.Role)
+				if role != "" {
+					roles = append(roles, role)
+				}
+			}
+		}
+
+		// Parse key_metrics
+		var keyMetrics map[string]json.RawMessage
+		_ = json.Unmarshal(keyMetricsJSON, &keyMetrics)
+
+		parseMetric := func(raw json.RawMessage) *float64 {
+			if raw == nil {
+				return nil
+			}
+			var f float64
+			if err := json.Unmarshal(raw, &f); err == nil {
+				return &f
+			}
+			// Try as string
+			var s string
+			if err := json.Unmarshal(raw, &s); err == nil {
+				var val float64
+				if _, err := fmt.Sscanf(s, "%f", &val); err == nil {
+					return &val
+				}
+			}
+			return nil
+		}
+
+		rec := algolia.StockRecord{
+			ObjectID:              stockCode,
+			StockCode:             stockCode,
+			CompanyName:           companyName,
+			Industry:              industry,
+			Tags:                  tags,
+			Summary:               summary,
+			EnhancedSummary:       enhancedSummary,
+			CompanyHistory:        companyHistory,
+			CompetitiveAdvantages: competitiveAdvantages,
+			RiskFactors:           riskFactors,
+			RecentDevelopments:    recentDevelopments,
+			Details:               details,
+			KeyPeopleNames:        strings.Join(names, ", "),
+			KeyPeopleRoles:        roles,
+			LogoGCSURL:            logoGCSURL,
+			PercentageShorted:     percentageShorted,
+			Website:               website,
+			Address:               address,
+			MarketCap:             marketCap,
+			PERatio:               parseMetric(keyMetrics["pe_ratio"]),
+			EPS:                   parseMetric(keyMetrics["eps"]),
+			DividendYield:         parseMetric(keyMetrics["dividend_yield"]),
+		}
+
+		enriched[stockCode] = rec
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating enriched records: %w", err)
+	}
+
+	// Build final list — use enriched if available, fall back to basic
+	result := make([]algolia.StockRecord, 0, len(basicRecords))
+	for _, basic := range basicRecords {
+		if rec, ok := enriched[basic.StockCode]; ok {
+			result = append(result, rec)
+		} else {
+			result = append(result, basic)
+		}
+	}
+
+	return result, nil
+}
 
 // upsertRecords inserts or updates price records in the database
 func (m *SyncManager) upsertRecords(ctx context.Context, records []providers.PriceRecord) error {

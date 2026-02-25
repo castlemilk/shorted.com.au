@@ -288,3 +288,310 @@
 - [ ] Zero security vulnerabilities in dependency scan
 - [ ] All secrets in Secret Manager (not hardcoded)
 - [ ] Observability stack operational (logs, traces, metrics)
+
+---
+
+## V2: Vision Roadmap — "The Bloomberg Terminal for Retail Investors"
+
+**Goal:** Transform Shorted from a data tool into the definitive community-driven, AI-powered Australian market intelligence platform.
+
+**Context:** Shorted.com.au currently operates with 2.1M rows of ASIC data (since 2010), 3.7M stock price records, 4,500 enriched company profiles, AI-generated weekly reports, and a customizable dashboard with 9 widget types. The platform has a working Stripe billing system (free/pro/enterprise tiers), Firebase auth, API token management, and solid GCP infrastructure (Cloud Run, Pub/Sub, Cloud Scheduler, Terraform IaC).
+
+---
+
+### Phase 1: Foundation (Q1–Q2 2026) — News, Data Depth, AI Chat
+
+#### 1.1 News Aggregation Engine
+
+**Vision:** Every stock page becomes a living news hub. Short position spikes are explained by the news alongside them.
+
+**Features:**
+- [ ] Multi-source news feed per stock (ASX announcements, AFR, Stockhead, Livewire, Reuters AU)
+- [ ] LLM-classified sentiment tags (bullish/bearish/neutral) and relevance scoring via Gemini Flash
+- [ ] News markers overlaid on short position time series charts (click to reveal headline)
+- [ ] "Breaking news" banner on dashboard — top 3 price-sensitive announcements in last 24h
+- [ ] News digest woven into weekly report narrative (extend `weekly-report-generator/llm_generator.go`)
+- [ ] "News heat" toggle on industry treemap widget — news volume by sector instead of short % change
+- [ ] New dashboard widget: `NEWS_FEED`
+
+**Data sources:**
+- ASX announcements — already crawled via `asx-announcement-crawler`, expand to all types
+- RSS feeds: AFR Markets, Stockhead (`stockhead.com.au/feed/`), Livewire Markets
+- Substantial holder notices — classify from existing announcement stream
+
+**Architecture:**
+- New service: `services/news-aggregator/` (Go, Cloud Run Job, runs every 15 min)
+- New table: `news_articles` (stock_code, source, headline, url, published_at, sentiment, relevance_score, is_price_sensitive, summary, tags JSONB)
+- New Pub/Sub topic: `news-ingested` (feeds alerts, weekly reports, Pulse in later phases)
+- New RPCs: `GetStockNews(stock_code, limit, before)`, `GetMarketNews(limit, before)`
+
+**Monetization:** Free = last 7 days, 3 articles/view. Pro = full history, sentiment overlay, alerts.
+
+---
+
+#### 1.2 Expanded Market Data & Company Data
+
+**Vision:** Every stock page becomes a one-stop research hub — financials, insider trading, dividends, peer comparisons.
+
+**Features:**
+- [ ] **Director trading / insider transactions** — parse Appendix 3Y from ASX announcements, display "Who's buying/selling?" on stock pages. Director buying a heavily shorted stock = classic contrarian signal.
+- [ ] **Dividend history & calendar** — parse Appendix 3A.1, show yield, payout ratio, ex-dates. New widget: "Upcoming dividends for your watchlist"
+- [ ] **Corporate actions timeline** — capital raises, buybacks, mergers from ASX announcements
+- [ ] **RBA interest rate overlay** — track cash rate decisions, overlay on sector performance charts
+- [ ] **Enhanced financial statements** — extend `report-extractor` to extract full P&L, balance sheet, cash flow (already partially in `FinancialStatementSet` proto)
+- [ ] **Peer comparison tables** — auto-generate top 5 industry peers comparing short %, market cap, P/E, dividend yield, revenue growth
+- [ ] **Daily key metrics auto-refresh** — schedule existing `SyncKeyMetrics` RPC daily via Cloud Scheduler (currently admin-only)
+
+**Data sources:**
+- ASX announcements (already ingested — need classification for Appendix 3Y, 3A.1, 3B, 4C, 4D, 4E)
+- RBA statistics tables (`rba.gov.au/statistics/tables/`) — CSV Table A2 (Target Cash Rate)
+- Yahoo Finance fundamentals (already integrated, extend to more fields)
+
+**Architecture:**
+- Extend `asx-announcement-crawler` with announcement type classifiers
+- New tables: `director_trades`, `dividend_history`
+- New RPCs: `GetDirectorTrades`, `GetDividendHistory`, `GetPeerComparison`
+- New service: `services/rba-sync/` (Go, Cloud Run Job, monthly)
+- Frontend: Tabbed stock detail page (Overview | Financials | Directors | Dividends | News)
+
+**Monetization:** Free = basic data, 2 reports. Pro = full history, peer comparisons, dividend alerts.
+
+---
+
+#### 1.3 AI Chat MVP — "Ask Shorted"
+
+**Vision:** Conversational interface over Shorted's proprietary 15-year dataset. "Which mining stocks had the biggest short interest increase this month?" — answered with real data, inline citations, and embedded charts.
+
+**Features:**
+- [ ] Contextual chat sidebar (sliding panel, pre-loaded with current page context)
+- [ ] Data-grounded responses with inline citations to ASIC data, reports, announcements
+- [ ] Inline chart generation — AI responds with embedded Visx charts for comparison queries
+- [ ] Pre-built question templates as quick-action buttons
+- [ ] Conversation history per user (PostgreSQL)
+- [ ] RAG pipeline with function-calling over: shorts time series, company metadata, weekly reports, announcements, financials, prices
+
+**Architecture:**
+- New service: `services/chat-service/` (Go, Cloud Run, stateless)
+- New proto: `ChatService` in `proto/shortedapi/chat/v1/chat.proto` — `SendMessage(stream)`, `GetConversationHistory`, `DeleteConversation`
+- **Function calling tools** the LLM can invoke: `query_short_positions(stock_code, period)`, `get_top_shorts(limit, period)`, `get_stock_details(stock_code)`, `search_stocks(query)`, `get_news(stock_code, days)`, `get_financial_highlights(stock_code)` — mapped to existing store methods
+- Streaming via Connect-RPC server streaming + `ReadableStream` on frontend
+- Context: system prompt + function call results + last 10 turns, kept under 30K tokens
+- Frontend: `<ChatSidebar>` (shadcn Sheet), markdown rendering, `<ChatChart>` wrapper
+
+**Monetization:**
+
+| Tier | Web Messages | API Calls/Month | Streaming | Charts |
+|------|-------------|----------------|-----------|--------|
+| Free | 10/day | 0 | No | No |
+| Pro ($29/mo) | 100/day | 1,000 | Yes | Yes |
+| Enterprise ($199/mo) | Unlimited | 50,000 | Yes | Yes |
+
+---
+
+### Phase 2: Intelligence (Q2–Q3 2026) — Pulse, Screener, Dashboards
+
+#### 2.1 Agent "Pulse" — Personalized Market Digest
+
+**Vision:** Every morning at 7:30 AM AEST, Pro subscribers receive a bespoke briefing tailored to their portfolio, watchlist, and interests. Not a generic newsletter — *their* market analyst.
+
+**Features:**
+- [ ] **Daily personalized email digest** — dual-LLM pipeline (reuse `weekly-report-generator` pattern) with user-specific context. Sections: Your Portfolio Today, Watchlist Alerts, Market Signal, Upcoming Events
+- [ ] **Push notifications** — Firebase Cloud Messaging for short squeeze signals, director trades on portfolio stocks, short interest spikes > threshold
+- [ ] **Configurable alert thresholds** — "Alert me when any watchlist stock's short interest changes > X% in a day"
+- [ ] **"Why is this stock moving?" auto-analysis** — triggered on significant moves, combines short data + price + news + sector trends into a single paragraph
+- [ ] **Weekly portfolio short risk score** — "Your portfolio has 23% exposure to heavily shorted stocks"
+- [ ] **Server-side portfolio/watchlist migration** — move from localStorage to PostgreSQL (critical dependency)
+
+**Architecture:**
+- New tables: `user_preferences`, `user_watchlist`, `user_portfolio`, `pulse_history`
+- New service: `services/pulse-generator/` (Go, Cloud Run Job, daily 7:00 AM AEST)
+- Event-driven alerts: `news-ingested` topic → `alert-evaluator` service → `alerts` topic → `alert-dispatcher` service
+- Email: SendGrid or Resend API. Push: Firebase Cloud Messaging
+- New RPCs: `GetMyPulse(date)`, `UpdateAlertPreferences`, `GetAlertHistory`
+- Implement existing `DashboardService` proto (already defined in `proto/shortedapi/dashboard/v1/dashboard.proto`, never built) for server-side persistence
+- Frontend: `/settings/alerts`, `/pulse` archive, notification bell with unread count
+
+**Monetization:** Free = weekly summary only. Pro = daily Pulse, alerts, push notifications. Enterprise = unlimited rules, white-label digest.
+
+---
+
+#### 2.2 Stock Screener & Enhanced Dashboards
+
+**Vision:** Professional-grade analysis workstation. Screener presets become shareable social objects that seed community engagement.
+
+**Features:**
+- [ ] **Compound filter screener** — short interest range, change over period, market cap, industry, P/E, dividend yield, director activity, news sentiment. Sortable, paginated results.
+- [ ] **Shareable screener presets** — save, share via URL, community voting. Pre-built: "Short Squeeze Candidates" (>15% short, declining, price rising), "Dividend Aristocrats Under Pressure", "Small Cap Bears"
+- [ ] **Dashboard templates** — pre-built layouts: "Day Trader", "Income Investor", "Short Specialist"
+- [ ] **Heatmap widget** — entire ASX by market cap tiles, colored by short interest (finviz-style)
+- [ ] **Multi-timeframe chart overlay** — same stock across 1m, 3m, 1y side-by-side
+- [ ] **Server-side dashboard persistence** — implement existing `DashboardService` proto, enables cross-device sync and sharing
+
+**Architecture:**
+- New pre-computed table: `stock_daily_snapshot` — one row per stock per day with all screener metrics joined (updated by daily sync)
+- New RPC: `ScreenStocks(ScreenRequest)` with `FilterCriteria[]` → dynamic SQL against snapshot table
+- Implement `DashboardService` proto (already in `proto/shortedapi/dashboard/v1/dashboard.proto`)
+- New widgets in `widget-registry.ts`: `SCREENER`, `HEATMAP`, `NEWS_FEED`, `DIVIDEND_CALENDAR`
+- Frontend: `/screener` page with filter builder (shadcn Select, Slider), CSV export, "Share" button
+
+**Monetization:** Free = 3 filters, 2 widgets. Pro = unlimited filters/widgets, sharing, CSV export. Enterprise = API screener access, webhook triggers.
+
+---
+
+### Phase 3: Community (Q3–Q4 2026) — Forum, Social, Predictions
+
+#### 3.1 Community Forum — "Shorted Talk"
+
+**Vision:** Not a generic forum — a data-integrated discussion platform. Every post tagged to a stock auto-shows current short %, price action, and latest announcements. HotCopper meets Bloomberg.
+
+**Features:**
+- [ ] **Stock-linked threads** — tag posts to stock codes, auto-show live data in thread header
+- [ ] **Market-wide rooms** — "Daily Market Discussion" (auto-created each trading day), "Weekly Report Discussion", rotating "Sector Spotlight"
+- [ ] **Data-backed posts** — embed live stock charts, short comparisons, screener results in post body
+- [ ] **Reputation system** — earn from upvotes, prediction accuracy, posting quality. Unlocks: flair, early access, moderation powers
+- [ ] **Prediction market (paper-only)** — "I predict BHP short interest will exceed 8% by March 30." System tracks against actual data, displays accuracy on profiles. "Proven Analyst" badge for high accuracy.
+- [ ] **Community sentiment gauge** — aggregate per-stock sentiment from posts, weighted by reputation, displayed on stock pages
+- [ ] **Expert AMAs** — scheduled Q&A sessions with analysts/fund managers, with live data overlays
+- [ ] **Moderation pipeline** — LLM-based spam/financial-advice detection (Gemini Flash), auto-flag for review
+
+**Architecture:**
+- New service: `services/forum/` (Go, Cloud Run, separate from shorts API)
+- New tables: `forum_posts`, `forum_comments`, `user_reputation`, `predictions`
+- Real-time: Pub/Sub `forum-events` topic → SSE or polling on frontend (WebSocket later)
+- Moderation: `moderation-queue` Pub/Sub topic, LLM classifier, admin review dashboard
+- New proto: `ForumService` — `CreatePost`, `GetPost`, `ListPosts`, `Vote`, `CreatePrediction`, `GetUserReputation`
+- Frontend: `/community` route tree — feed, stock-specific threads, user profiles with prediction history
+
+**Monetization:** Free = read-only, 1 post/day. Pro = unlimited posting, predictions, data embeds. Enterprise = sentiment aggregation API.
+
+**Regulatory note:** Australian financial regulations require disclaimers on content that could be construed as financial advice. Auto-insert disclaimers on all forum posts.
+
+---
+
+#### 3.2 Social Features & User-Generated Content
+
+**Features:**
+- [ ] Public investor profiles (opt-in) — reputation, prediction accuracy, shared screeners, badges
+- [ ] Follow system (one-way, like Twitter)
+- [ ] Collaborative watchlists — shared between investing clubs
+- [ ] "Trade ideas" structured posts — stock, direction, thesis, time horizon, auto-tracked against performance
+- [ ] User-contributed stock analyses — quality-scored by community votes, featured alongside AI analysis on stock pages
+
+---
+
+### Phase 4: Transparency (Q4 2026 – Q1 2027) — Vigilante Data, Economic Context
+
+#### 4.1 "Shorted Transparency" — Accountability Data
+
+**Vision:** Cross-reference corporate tax, emissions, and mining royalties with short selling data. "Company X paid $0 tax on $2B profit — and their short interest just doubled." The feature that earns media coverage and defines the brand.
+
+**Features:**
+- [ ] **Corporate tax transparency dashboard** — ATO data for entities >$100M income. Per stock: total income, taxable income, tax payable, effective rate. Rank by "tax gap." Overlay with short interest.
+- [ ] **Mining & petroleum royalty tracker** — WA DMIRS, QLD Treasury, NSW Mining royalty data vs. revenue. "Is the market pricing in royalty reform risk?"
+- [ ] **Environmental emissions scoreboard** — Clean Energy Regulator NGER data mapped to ASX companies. Emissions, intensity, trend. "Carbon risk" treemap overlay.
+- [ ] **Government contract exposure** — AusTender data cross-referenced with ASX companies.
+- [ ] **"Follow the money" investigations** — pre-built analyses: "Banks: tax vs profits vs shorts", "Mining: royalties vs dividends vs emissions"
+- [ ] **Transparency scores** — composite per-company score (tax rate vs peers, emissions reporting, disclosure timeliness)
+- [ ] **Media partnerships** — free API access for journalists, attribution in exchange
+
+**Data sources:**
+
+| Source | URL | Frequency |
+|--------|-----|-----------|
+| ATO Corporate Tax Transparency | `data.gov.au/dataset/corporate-transparency` | Annual |
+| Clean Energy Regulator NGER | `cleanenergyregulator.gov.au/NGER` | Annual |
+| WA DMIRS Royalties | `dmp.wa.gov.au/About-Us/Royalty-data` | Annual |
+| QLD Treasury Royalties | `treasury.qld.gov.au/resource/royalty-statistics/` | Annual |
+| AusTender (Federal) | `tenders.gov.au` | Ongoing |
+| APRA Banking Statistics | `apra.gov.au/quarterly-authorised-deposit-taking-institution-statistics` | Quarterly |
+| AEMO Electricity Market | `aemo.com.au/energy-systems/electricity` | Daily |
+
+**Architecture:**
+- New service: `services/transparency-sync/` (Go, Cloud Run Job, annual/quarterly)
+- New tables: `corporate_tax`, `emissions_data`, `royalty_data`, `government_contracts`
+- Critical: ABN-to-stock_code mapping table (`entity_stock_map`) — fuzzy match entity names to `company-metadata.company_name`, LLM disambiguation, manual curation for top 200
+- New RPCs: `GetCorporateTaxData`, `GetEmissionsData`, `GetTransparencyScore`
+- Frontend: `/transparency` route tree, new widgets: `TAX_TRANSPARENCY`, `EMISSIONS_OVERLAY`
+
+---
+
+#### 4.2 Consumer Trends & Economic Data — "Shorted Economy"
+
+**Vision:** Macroeconomic context for why short positions move. ABS economic data, commodity prices, and consumer sentiment overlaid with sector short positions.
+
+**Features:**
+- [ ] **Economic indicators dashboard** — GDP, CPI, unemployment, consumer confidence, housing, retail sales with 5-year sparklines. Overlay with aggregate short interest.
+- [ ] **Consumer sentiment tracker** — Westpac/Melbourne Institute index overlaid with retail sector shorts
+- [ ] **Commodity price feeds** — iron ore, gold, lithium, coal, gas overlaid with resource sector shorts
+- [ ] **Interest rate scenario modelling** — "What happens to bank shorts when rates change?" Historical correlation analysis + user-adjustable scenarios
+- [ ] **Housing market data** — CoreLogic indices alongside bank/REIT short positions
+- [ ] **Employment data by sector** — ABS quarterly, mapped to GICS sectors
+
+**Data sources:**
+
+| Source | URL | Notes |
+|--------|-----|-------|
+| ABS API | `api.data.abs.gov.au` | CPI (6401.0), Labour (6202.0), Retail (8501.0), GDP (5206.0) |
+| RBA Statistics | `rba.gov.au/statistics/tables/` | Rates, monetary aggregates, FX |
+| Commodity Prices | Yahoo Finance (already integrated) | ASX commodity ETFs |
+| Consumer Sentiment | Westpac/Melbourne Institute | Monthly release |
+
+**Architecture:**
+- New service: `services/economic-data-sync/` (Go, Cloud Run Job, monthly + daily for commodities)
+- New table: `economic_indicators` (indicator_name, date, value, source, category)
+- ABS API client: JSON-stat format via `api.data.abs.gov.au/data/{dataflow}/{key}?format=jsondata`
+- New RPCs: `GetEconomicIndicators`, `GetSectorCorrelation(indicator, sector, period)`
+- Frontend: `/economy` route, new widgets: `ECONOMIC_INDICATORS`, `COMMODITY_PRICES`, `MACRO_CORRELATION`
+
+---
+
+### Additional Data Sources Summary
+
+| Category | Source | What It Provides | Phase |
+|----------|--------|-----------------|-------|
+| **Short selling** | ASIC (existing) | Daily short positions | Already live |
+| **Prices** | Yahoo Finance (existing) | OHLCV history | Already live |
+| **Company data** | LLM enrichment (existing) | Summaries, people, risks | Already live |
+| **News** | AFR, Stockhead, Livewire, ASX | Multi-source news | Phase 1 |
+| **Insider trading** | ASX Appendix 3Y | Director buy/sell | Phase 1 |
+| **Dividends** | ASX Appendix 3A.1 | Yield, ex-dates, history | Phase 1 |
+| **Interest rates** | RBA Table A2 | Cash rate decisions | Phase 1 |
+| **Corporate tax** | ATO Transparency | Tax paid vs income | Phase 4 |
+| **Emissions** | Clean Energy Regulator | Scope 1 & 2 emissions | Phase 4 |
+| **Mining royalties** | State treasuries | Royalties paid vs revenue | Phase 4 |
+| **Govt contracts** | AusTender | Contract values by company | Phase 4 |
+| **Banking stats** | APRA | Capital ratios, lending | Phase 4 |
+| **Economic data** | ABS API | GDP, CPI, employment, retail | Phase 4 |
+| **Electricity market** | AEMO | Wholesale prices | Phase 4 |
+| **Commodities** | Yahoo Finance (extend) | Iron ore, gold, lithium | Phase 4 |
+| **Consumer sentiment** | Westpac/MI, ANZ-Roy Morgan | Monthly confidence index | Phase 4 |
+| **Housing** | CoreLogic | Capital city indices | Phase 4 |
+| **Options/derivatives** | ASX | Put/call ratios (future) | Future |
+| **Substantial holders** | ASX announcements | Institutional ownership | Phase 1 |
+
+---
+
+### Revenue Model Evolution
+
+| Current | Phase 1–2 | Phase 3–4 |
+|---------|-----------|-----------|
+| Free / Pro / Enterprise | + Chat API tiers | + Community Pro |
+| Rate-limited API | + News API | + Transparency API |
+| $0 / $29 / $199 | + Chat: $29–$199/mo | + Data Partner: custom |
+
+**New revenue streams:**
+- Chat API (per-message or per-conversation pricing)
+- Transparency data API (ESG research firms, journalists)
+- Community Pro tier (predictions, unlimited posting)
+- Media partnerships (free data for attribution — brand building)
+- Enterprise white-label Pulse digests (for financial advisors)
+
+---
+
+### What Makes This "Bloomberg Terminal for Retail"
+
+1. **Data moat** — 15 years of ASIC short data cross-referenced with tax, emissions, insider trading. Cannot be replicated quickly.
+2. **AI that knows Australia** — function-calling over proprietary data, not a generic GPT wrapper.
+3. **Community network effects** — shared screeners, predictions with tracking, stock-linked discussion.
+4. **Transparency brand** — civic technology positioning earns media coverage and trust.
+5. **Full research workflow** — Data → Analysis → Intelligence → Discussion → Accountability in one platform.

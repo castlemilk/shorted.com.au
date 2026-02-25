@@ -134,6 +134,9 @@ module "shorts_api" {
   postgres_database = var.postgres_database
   postgres_username = var.postgres_username
 
+  scheduler_region             = "australia-southeast1"
+  enable_key_metrics_scheduler = true
+
   depends_on = [
     google_project_service.required_apis,
     google_artifact_registry_repository.shorted

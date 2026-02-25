@@ -70,7 +70,7 @@ resource "google_secret_manager_secret_iam_member" "openai_api_key" {
   project   = var.project_id
 }
 
-# Grant access to internal service secret (for calling shorts API Algolia sync)
+# Grant access to internal service secret (for Algolia sync callback to shorts API)
 resource "google_secret_manager_secret_iam_member" "internal_service_secret" {
   secret_id = "INTERNAL_SERVICE_SECRET"
   role      = "roles/secretmanager.secretAccessor"
@@ -166,11 +166,13 @@ resource "google_cloud_run_v2_service" "enrichment_processor" {
         value = "shorted-company-logos"
       }
 
+      # Shorts API URL for Algolia sync callbacks after enrichment
       env {
         name  = "SHORTS_API_URL"
         value = var.shorts_api_url
       }
 
+      # Internal service secret for authenticating to shorts API
       env {
         name = "INTERNAL_SERVICE_SECRET"
         value_source {
@@ -243,6 +245,7 @@ resource "google_cloud_run_v2_service" "enrichment_processor" {
   depends_on = [
     google_secret_manager_secret_iam_member.postgres_password,
     google_secret_manager_secret_iam_member.openai_api_key,
+    google_secret_manager_secret_iam_member.internal_service_secret,
     google_secret_manager_secret_iam_member.otel_headers,
     google_secret_manager_secret_iam_member.internal_service_secret,
     google_pubsub_subscription_iam_member.processor_subscriber

@@ -77,6 +77,20 @@ type Store interface {
 	GetStocksForPeopleEnrichment(limit int) ([]StockPeopleBackfillRow, error)
 	UpdateKeyPeopleEnriched(stockCode string, keyPeopleJSON []byte) error
 
+	// News methods
+	GetStockNews(stockCode string, limit int32, source, sentiment string) ([]*NewsArticle, int, error)
+	GetMarketNews(limit int32, source string, priceSensitiveOnly bool) ([]*NewsArticle, int, error)
+
+	// Director trade methods
+	GetDirectorTrades(stockCode string, limit int32) ([]*DirectorTrade, int, error)
+
+	// Dividend methods
+	GetDividendHistory(stockCode string, years int32) ([]*DividendRecord, int, error)
+
+	// Peer comparison methods
+	GetPeerComparison(stockCode string, limit int32) (*PeerComparisonResult, error)
+
+
 	// Raw query access (used for Algolia sync)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) Row
 }
@@ -157,6 +171,64 @@ type WeeklyReport struct {
 	RetryCount        int
 	CreatedAt         string
 	PublishedAt       *string
+}
+
+// NewsArticle represents a news article from the database
+type NewsArticle struct {
+	ID               string
+	StockCode        string
+	Source           string
+	Headline         string
+	URL              string
+	PublishedAt      string
+	Sentiment        *string
+	RelevanceScore   float64
+	IsPriceSensitive bool
+	Summary          *string
+	Tags             []byte // JSON
+}
+
+// DirectorTrade represents a director trade from the database
+type DirectorTrade struct {
+	ID              string
+	StockCode       string
+	DirectorName    string
+	TradeType       string
+	SharesTraded    int64
+	PricePerShare   *float64
+	TotalValue      *float64
+	TradeDate       string
+	AnnouncementURL *string
+}
+
+// DividendRecord represents a dividend payment from the database
+type DividendRecord struct {
+	ID                  string
+	StockCode           string
+	ExDate              string
+	PaymentDate         *string
+	AmountPerShare      float64
+	FrankingPercentage  float64
+	DividendType        string
+}
+
+// PeerStock represents a peer stock for comparison
+type PeerStock struct {
+	StockCode            string
+	CompanyName          string
+	Industry             string
+	ShortPositionPercent float64
+	MarketCap            float64
+	PERatio              float64
+	DividendYield        float64
+	PriceChange1M        float64
+}
+
+// PeerComparisonResult holds the subject stock and its peers
+type PeerComparisonResult struct {
+	Subject  *PeerStock
+	Peers    []*PeerStock
+	Industry string
 }
 
 func NewStore(config Config) (Store, error) {

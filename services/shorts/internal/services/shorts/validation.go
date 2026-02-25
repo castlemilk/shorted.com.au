@@ -208,6 +208,58 @@ func ValidateGetAvailableDatesRequest(req *shortsv1alpha1.GetAvailableDatesReque
 	return nil
 }
 
+// ValidateGetStockNewsRequest validates the GetStockNews request parameters
+func ValidateGetStockNewsRequest(req *shortsv1alpha1.GetStockNewsRequest) error {
+	if err := ValidateGetStockRequest(&shortsv1alpha1.GetStockRequest{
+		ProductCode: req.StockCode,
+	}); err != nil {
+		return err
+	}
+	if req.Limit < 0 || req.Limit > 100 {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("limit must be between 0 and 100"))
+	}
+	return nil
+}
+
+// ValidateGetDirectorTradesRequest validates the GetDirectorTrades request parameters
+func ValidateGetDirectorTradesRequest(req *shortsv1alpha1.GetDirectorTradesRequest) error {
+	if err := ValidateGetStockRequest(&shortsv1alpha1.GetStockRequest{
+		ProductCode: req.StockCode,
+	}); err != nil {
+		return err
+	}
+	if req.Limit < 0 || req.Limit > 200 {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("limit must be between 0 and 200"))
+	}
+	return nil
+}
+
+// ValidateGetDividendHistoryRequest validates the GetDividendHistory request parameters
+func ValidateGetDividendHistoryRequest(req *shortsv1alpha1.GetDividendHistoryRequest) error {
+	if err := ValidateGetStockRequest(&shortsv1alpha1.GetStockRequest{
+		ProductCode: req.StockCode,
+	}); err != nil {
+		return err
+	}
+	if req.Years < 0 || req.Years > 20 {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("years must be between 0 and 20"))
+	}
+	return nil
+}
+
+// ValidateGetPeerComparisonRequest validates the GetPeerComparison request parameters
+func ValidateGetPeerComparisonRequest(req *shortsv1alpha1.GetPeerComparisonRequest) error {
+	if err := ValidateGetStockRequest(&shortsv1alpha1.GetStockRequest{
+		ProductCode: req.StockCode,
+	}); err != nil {
+		return err
+	}
+	if req.Limit < 0 || req.Limit > 20 {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("limit must be between 0 and 20"))
+	}
+	return nil
+}
+
 // NormalizeStockCode normalizes a stock code to uppercase and trims whitespace
 func NormalizeStockCode(code string) string {
 	return strings.ToUpper(strings.TrimSpace(code))
@@ -252,6 +304,30 @@ func SetDefaultValues(req interface{}) {
 	case *shortsv1alpha1.GetAvailableDatesRequest:
 		if r.Limit == 0 {
 			r.Limit = 90
+		}
+	case *shortsv1alpha1.GetStockNewsRequest:
+		r.StockCode = NormalizeStockCode(r.StockCode)
+		if r.Limit == 0 {
+			r.Limit = 20
+		}
+	case *shortsv1alpha1.GetMarketNewsRequest:
+		if r.Limit == 0 {
+			r.Limit = 50
+		}
+	case *shortsv1alpha1.GetDirectorTradesRequest:
+		r.StockCode = NormalizeStockCode(r.StockCode)
+		if r.Limit == 0 {
+			r.Limit = 20
+		}
+	case *shortsv1alpha1.GetDividendHistoryRequest:
+		r.StockCode = NormalizeStockCode(r.StockCode)
+		if r.Years == 0 {
+			r.Years = 5
+		}
+	case *shortsv1alpha1.GetPeerComparisonRequest:
+		r.StockCode = NormalizeStockCode(r.StockCode)
+		if r.Limit == 0 {
+			r.Limit = 5
 		}
 	}
 }

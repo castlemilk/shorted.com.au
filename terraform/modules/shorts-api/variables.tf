@@ -56,3 +56,15 @@ variable "otel_endpoint" {
   default     = "https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp"
 }
 
+variable "scheduler_region" {
+  description = "Region for Cloud Scheduler (must be australia-southeast1)"
+  type        = string
+  default     = "australia-southeast1"
+}
+
+variable "enable_key_metrics_scheduler" {
+  description = "Enable daily Cloud Scheduler for key metrics sync"
+  type        = bool
+  default     = false
+}
+

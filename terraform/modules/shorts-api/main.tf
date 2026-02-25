@@ -47,7 +47,7 @@ resource "google_secret_manager_secret_iam_member" "algolia_search_key" {
   project   = var.project_id
 }
 
-# Grant access to Algolia Admin key (for post-enrichment sync)
+# Grant access to Algolia admin key secret (for post-enrichment Algolia sync)
 resource "google_secret_manager_secret_iam_member" "algolia_admin_key" {
   secret_id = "ALGOLIA_ADMIN_KEY"
   role      = "roles/secretmanager.secretAccessor"
@@ -194,6 +194,16 @@ resource "google_cloud_run_v2_service" "shorts_api" {
         value = "stocks"
       }
 
+      env {
+        name = "ALGOLIA_ADMIN_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = "ALGOLIA_ADMIN_KEY"
+            version = "latest"
+          }
+        }
+      }
+
       # OpenAI enrichment
       env {
         name = "OPENAI_API_KEY"
@@ -312,5 +322,64 @@ resource "google_cloud_run_v2_service_iam_member" "public_access" {
   project  = var.project_id
   role     = "roles/run.invoker"
   member   = "allUsers"
+}
+
+# --- Key Metrics Daily Sync Scheduler ---
+
+# Service account for the scheduler to invoke the shorts API
+resource "google_service_account" "key_metrics_scheduler" {
+  count        = var.enable_key_metrics_scheduler ? 1 : 0
+  account_id   = "key-metrics-scheduler"
+  display_name = "Key Metrics Scheduler"
+  description  = "Service account for Cloud Scheduler to trigger daily key metrics sync"
+  project      = var.project_id
+}
+
+# Grant Cloud Run Invoker role to scheduler service account
+resource "google_cloud_run_v2_service_iam_member" "key_metrics_scheduler_invoker" {
+  count    = var.enable_key_metrics_scheduler ? 1 : 0
+  name     = google_cloud_run_v2_service.shorts_api.name
+  location = google_cloud_run_v2_service.shorts_api.location
+  project  = var.project_id
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.key_metrics_scheduler[0].email}"
+}
+
+# Cloud Scheduler Job - Daily Key Metrics Sync at 3 AM AEST (5 PM UTC previous day)
+resource "google_cloud_scheduler_job" "key_metrics_daily" {
+  count            = var.enable_key_metrics_scheduler ? 1 : 0
+  name             = "key-metrics-daily-sync"
+  description      = "Daily sync of key financial metrics for all stocks"
+  schedule         = "0 17 * * *" # 3 AM AEST (5 PM UTC previous day)
+  time_zone        = "UTC"
+  attempt_deadline = "1800s"
+  region           = var.scheduler_region
+  project          = var.project_id
+
+  retry_config {
+    retry_count          = 2
+    max_retry_duration   = "3600s"
+    min_backoff_duration = "30s"
+    max_backoff_duration = "1800s"
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.shorts_api.uri}/shorts.v1alpha1.ShortedStocksService/SyncKeyMetrics"
+    body        = base64encode("{}")
+
+    headers = {
+      "Content-Type" = "application/json"
+    }
+
+    oidc_token {
+      service_account_email = google_service_account.key_metrics_scheduler[0].email
+    }
+  }
+
+  depends_on = [
+    google_cloud_run_v2_service.shorts_api,
+    google_cloud_run_v2_service_iam_member.key_metrics_scheduler_invoker
+  ]
 }
 

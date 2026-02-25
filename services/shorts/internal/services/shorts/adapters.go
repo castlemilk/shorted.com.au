@@ -154,6 +154,27 @@ func (s *StoreAdapter) GetStockFinancialHighlights(stockCodes []string, maxPerSt
 	return s.store.GetStockFinancialHighlights(stockCodes, maxPerStock)
 }
 
+func (s *StoreAdapter) GetStockNews(stockCode string, limit int32, source, sentiment string) ([]*shorts.NewsArticle, int, error) {
+	return s.store.GetStockNews(stockCode, limit, source, sentiment)
+}
+
+func (s *StoreAdapter) GetMarketNews(limit int32, source string, priceSensitiveOnly bool) ([]*shorts.NewsArticle, int, error) {
+	return s.store.GetMarketNews(limit, source, priceSensitiveOnly)
+}
+
+func (s *StoreAdapter) GetDirectorTrades(stockCode string, limit int32) ([]*shorts.DirectorTrade, int, error) {
+	return s.store.GetDirectorTrades(stockCode, limit)
+}
+
+func (s *StoreAdapter) GetDividendHistory(stockCode string, years int32) ([]*shorts.DividendRecord, int, error) {
+	return s.store.GetDividendHistory(stockCode, years)
+}
+
+func (s *StoreAdapter) GetPeerComparison(stockCode string, limit int32) (*shorts.PeerComparisonResult, error) {
+	return s.store.GetPeerComparison(stockCode, limit)
+}
+
+
 // QueryRowContext delegates to the underlying store's QueryRowContext.
 func (s *StoreAdapter) QueryRowContext(ctx context.Context, query string, args ...interface{}) shorts.Row {
 	return s.store.QueryRowContext(ctx, query, args...)

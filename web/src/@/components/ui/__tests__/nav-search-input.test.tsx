@@ -385,8 +385,8 @@ describe("NavSearchInput", () => {
       await userEvent.type(input, "B");
 
       await waitFor(() => {
-        expect(screen.getByText("Materials")).toBeInTheDocument();
-        expect(screen.getByText("Financials")).toBeInTheDocument();
+        expect(screen.getAllByText("Materials").length).toBeGreaterThan(0);
+        expect(screen.getAllByText("Financials").length).toBeGreaterThan(0);
       });
     });
 

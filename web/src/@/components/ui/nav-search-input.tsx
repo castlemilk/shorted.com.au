@@ -104,6 +104,7 @@ export function NavSearchInput() {
   const [results, setResults] = useState<StockResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [activeIndustry, setActiveIndustry] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const mobileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -115,6 +116,7 @@ export function NavSearchInput() {
     if (!q.trim()) {
       setResults([]);
       setLoading(false);
+      setActiveIndustry(null);
       return;
     }
     setLoading(true);
@@ -174,6 +176,7 @@ export function NavSearchInput() {
     setIsOpen(false);
     setIsMobileOpen(false);
     setSelectedIndex(-1);
+    setActiveIndustry(null);
     inputRef.current?.blur();
   };
 
@@ -292,6 +295,8 @@ export function NavSearchInput() {
               reset();
             }}
             shortPercentColor={shortPercentColor}
+            activeIndustry={activeIndustry}
+            onIndustryFilter={setActiveIndustry}
           />
         </div>
       )}
@@ -376,6 +381,8 @@ export function NavSearchInput() {
                   reset();
                 }}
                 shortPercentColor={shortPercentColor}
+                activeIndustry={activeIndustry}
+                onIndustryFilter={setActiveIndustry}
               />
             </div>
           )}
@@ -395,6 +402,8 @@ function ResultsContent({
   onSelect,
   onNavigateDirect,
   shortPercentColor,
+  activeIndustry,
+  onIndustryFilter,
 }: {
   results: StockResult[];
   loading: boolean;
@@ -404,8 +413,21 @@ function ResultsContent({
   onSelect: (stock: StockResult) => void;
   onNavigateDirect: () => void;
   shortPercentColor: (pct: number) => string;
+  activeIndustry: string | null;
+  onIndustryFilter: (industry: string | null) => void;
 }) {
   const [imgErrors, setImgErrors] = useState<Set<string>>(new Set());
+
+  // Compute unique industries from results (for filter chips)
+  const industries = Array.from(
+    new Set(results.map((r) => r.industry).filter(Boolean))
+  ).slice(0, 5); // Show max 5 industry chips
+
+  // Filter results by active industry
+  const filteredResults = activeIndustry
+    ? results.filter((r) => r.industry === activeIndustry)
+    : results;
+
   if (loading && results.length === 0) {
     return (
       <div className="flex items-center justify-center py-8 gap-2.5 text-muted-foreground/50">
@@ -438,12 +460,45 @@ function ResultsContent({
 
   return (
     <>
+      {/* Industry filter chips — shown when 2+ industries in results */}
+      {industries.length >= 2 && (
+        <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border/30 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => onIndustryFilter(null)}
+            className={cn(
+              "flex-shrink-0 text-[10px] font-medium px-2 py-1 rounded-full border transition-colors",
+              activeIndustry === null
+                ? "bg-primary/15 text-primary border-primary/30"
+                : "bg-muted/30 text-muted-foreground/60 border-border/30 hover:bg-muted/50"
+            )}
+          >
+            All
+          </button>
+          {industries.map((ind) => (
+            <button
+              key={ind}
+              onClick={() =>
+                onIndustryFilter(activeIndustry === ind ? null : ind!)
+              }
+              className={cn(
+                "flex-shrink-0 text-[10px] font-medium px-2 py-1 rounded-full border transition-colors truncate max-w-[120px]",
+                activeIndustry === ind
+                  ? "bg-primary/15 text-primary border-primary/30"
+                  : "bg-muted/30 text-muted-foreground/60 border-border/30 hover:bg-muted/50"
+              )}
+            >
+              {ind}
+            </button>
+          ))}
+        </div>
+      )}
+
       <ul
         className="max-h-[340px] overflow-auto py-1"
         role="listbox"
         aria-label="Stock search results"
       >
-        {results.map((stock, index) => (
+        {filteredResults.map((stock, index) => (
           <li
             key={stock.productCode}
             role="option"
@@ -524,7 +579,8 @@ function ResultsContent({
       {/* Footer with keyboard hints */}
       <div className="flex items-center justify-between px-3 py-2 border-t border-border/30 bg-muted/10">
         <span className="text-[10px] text-muted-foreground/40 tabular-nums">
-          {results.length} result{results.length !== 1 ? "s" : ""}
+          {filteredResults.length} result{filteredResults.length !== 1 ? "s" : ""}
+          {activeIndustry && ` in ${activeIndustry}`}
         </span>
         <div className="hidden sm:flex items-center gap-2.5 text-[10px] text-muted-foreground/40">
           <span className="flex items-center gap-1">

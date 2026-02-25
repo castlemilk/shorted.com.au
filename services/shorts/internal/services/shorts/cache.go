@@ -195,3 +195,23 @@ func (c *MemoryCache) GetMarketByDateKey(date string, limit, offset int32) strin
 func (c *MemoryCache) GetAvailableDatesKey(limit int32, before string) string {
 	return c.generateKey("available_dates", limit, before)
 }
+
+func (c *MemoryCache) GetStockNewsKey(stockCode string, limit int32, source, sentiment string) string {
+	return c.generateKey("stock_news", stockCode, limit, source, sentiment)
+}
+
+func (c *MemoryCache) GetMarketNewsKey(limit int32, source string, priceSensitiveOnly bool) string {
+	return c.generateKey("market_news", limit, source, priceSensitiveOnly)
+}
+
+func (c *MemoryCache) GetDirectorTradesKey(stockCode string, limit int32) string {
+	return c.generateKey("director_trades", stockCode, limit)
+}
+
+func (c *MemoryCache) GetDividendHistoryKey(stockCode string, years int32) string {
+	return c.generateKey("dividend_history", stockCode, years)
+}
+
+func (c *MemoryCache) GetPeerComparisonKey(stockCode string, limit int32) string {
+	return c.generateKey("peer_comparison", stockCode, limit)
+}

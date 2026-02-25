@@ -20,10 +20,16 @@ export interface AlgoliaStockHit {
   logo_gcs_url: string;
   percentage_shorted: number;
   summary?: string;
+  market_cap?: string;
+  market_cap_numeric?: number | null;
+  pe_ratio?: number | null;
+  dividend_yield?: number | null;
+  key_people_names?: string;
   _highlightResult?: {
     stock_code?: { value: string; matchLevel: string };
     company_name?: { value: string; matchLevel: string };
     industry?: { value: string; matchLevel: string };
+    key_people_names?: { value: string; matchLevel: string };
   };
 }
 
@@ -38,29 +44,50 @@ export interface AlgoliaSearchResponse {
   hitsPerPage: number;
   processingTimeMS: number;
   query: string;
+  facets?: Record<string, Record<string, number>>;
+}
+
+/**
+ * Options for Algolia search
+ */
+export interface AlgoliaSearchOptions {
+  hitsPerPage?: number;
+  filters?: string;
+  facetFilters?: string[][];
+  facets?: string[];
 }
 
 /**
  * Search stocks using Algolia via the Go backend proxy
- * 
+ *
  * @param query - Search query string
- * @param hitsPerPage - Number of results to return (default: 20)
+ * @param options - Search options (hitsPerPage, filters, facetFilters, facets)
  * @returns Search response from Algolia
  */
 export async function searchStocksAlgolia(
   query: string,
-  hitsPerPage = 20
+  optionsOrHitsPerPage: AlgoliaSearchOptions | number = 20
 ): Promise<AlgoliaSearchResponse> {
+  const options: AlgoliaSearchOptions =
+    typeof optionsOrHitsPerPage === "number"
+      ? { hitsPerPage: optionsOrHitsPerPage }
+      : optionsOrHitsPerPage;
+
+  const body: Record<string, unknown> = {
+    query,
+    hitsPerPage: options.hitsPerPage ?? 20,
+  };
+  if (options.filters) body.filters = options.filters;
+  if (options.facetFilters) body.facetFilters = options.facetFilters;
+  if (options.facets) body.facets = options.facets;
+
   const response = await fetch(`${SHORTS_API_URL}/api/algolia/search`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      query,
-      hitsPerPage,
-    }),
-    signal: AbortSignal.timeout(5000), // 5 second timeout
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(5000),
   });
 
   if (!response.ok) {
