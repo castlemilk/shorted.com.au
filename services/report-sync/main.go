@@ -84,7 +84,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to create GCS client: %v", err)
 		}
-		defer gcsClient.Close()
+		defer func() { _ = gcsClient.Close() }()
 	}
 
 	// HTTP client for downloading PDFs
@@ -305,7 +305,7 @@ func downloadPDF(ctx context.Context, client *http.Client, pdfURL string) ([]byt
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("HTTP %d for %s", resp.StatusCode, pdfURL)
@@ -335,7 +335,7 @@ func resolveASXPDFURL(ctx context.Context, client *http.Client, displayURL strin
 	if err != nil {
 		return "", fmt.Errorf("HTTP request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
 		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
@@ -406,7 +406,7 @@ func updateReports(ctx context.Context, db *pgxpool.Pool, stockCode string, repo
 	if err != nil {
 		return fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	var currentJSON string
 	err = tx.QueryRow(ctx,

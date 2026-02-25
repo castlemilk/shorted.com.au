@@ -88,7 +88,7 @@ func (f *RSSFetcher) Fetch(ctx context.Context, source NewsSource, limit int) ([
 	if err != nil {
 		return nil, fmt.Errorf("fetch RSS: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("RSS returned HTTP %d", resp.StatusCode)

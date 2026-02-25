@@ -200,7 +200,7 @@ func main() {
 		if err != nil {
 			log.Printf("WARNING: Failed to trigger revalidation: %v", err)
 		} else {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			log.Printf("Triggered revalidation for tag=%s (status: %d)", tag, resp.StatusCode)
 		}
 	}

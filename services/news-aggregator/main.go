@@ -65,7 +65,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, "ok")
+		_, _ = fmt.Fprintf(w, "ok")
 	})
 	mux.HandleFunc("/run", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -74,7 +74,7 @@ func main() {
 		}
 		go runAggregation(ctx, fetcher, matcher, store, *limitFlag, *dryRun, *verbose)
 		w.WriteHeader(http.StatusAccepted)
-		fmt.Fprintf(w, "aggregation started")
+		_, _ = fmt.Fprintf(w, "aggregation started")
 	})
 
 	addr := ":" + *portFlag

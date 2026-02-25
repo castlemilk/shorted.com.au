@@ -562,7 +562,7 @@ func mergeReports(ctx context.Context, db *pgxpool.Pool, code string, newReports
 	if err != nil {
 		return false, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	// Re-read under lock to get the latest state
 	var currentJSON string

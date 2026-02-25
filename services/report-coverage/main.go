@@ -482,7 +482,7 @@ func mergeReports(ctx context.Context, db *pgxpool.Pool, code string, newReports
 	if err != nil {
 		return false, fmt.Errorf("begin tx: %w", err)
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	var existingJSON string
 	err = tx.QueryRow(ctx,

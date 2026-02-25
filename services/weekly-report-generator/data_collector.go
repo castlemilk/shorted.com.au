@@ -480,7 +480,7 @@ func (c *DataCollector) getCompanyMetadata(ctx context.Context, codes []string) 
 		}
 		// Parse market_cap from text to int64
 		if marketCapStr != "" {
-			fmt.Sscanf(marketCapStr, "%d", &m.MarketCap)
+			_, _ = fmt.Sscanf(marketCapStr, "%d", &m.MarketCap)
 		}
 		m.ParsedMetrics = parseKeyMetrics(m.KeyMetrics)
 		result[code] = m

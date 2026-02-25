@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -137,13 +136,3 @@ func storeDirectorTrades(ctx context.Context, db *pgxpool.Pool, trades []*Direct
 	return stored, nil
 }
 
-// parseShareCount tries to parse a share count from a string like "1,234,567" or "1234567"
-func parseShareCount(s string) int64 {
-	s = strings.ReplaceAll(s, ",", "")
-	s = strings.TrimSpace(s)
-	n, err := strconv.ParseInt(s, 10, 64)
-	if err != nil {
-		return 0
-	}
-	return n
-}

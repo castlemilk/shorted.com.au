@@ -460,7 +460,7 @@ func (p *enrichmentProcessor) notifyAlgoliaSync(stockCode string) {
 		p.logger.Warnf("Failed to notify Algolia sync for %s: %v", stockCode, err)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusOK {
 		p.logger.Infof("Algolia sync triggered for %s", stockCode)
