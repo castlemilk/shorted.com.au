@@ -1,11 +1,17 @@
 import { type Metadata } from "next";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { FileText, ChevronRight } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { Suspense } from "react";
 import { HomeContent } from "./home-content";
 import { TopShortsFallback } from "./top-shorts-fallback";
-import { BreakingNewsBanner } from "~/@/components/ui/breaking-news-banner";
+
+// Dynamic import to avoid SSR issues — component imports @connectrpc/connect
+const BreakingNewsBanner = dynamic(
+  () => import("~/@/components/ui/breaking-news-banner").then((m) => m.BreakingNewsBanner),
+  { ssr: false }
+);
 import { FAQStructuredData } from "~/@/components/seo/enhanced-structured-data";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { PremiumUpsellBanner } from "~/@/components/premium/premium-upsell-banner";
