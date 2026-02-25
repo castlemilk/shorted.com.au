@@ -11,20 +11,16 @@ plugins:
     out: ../services/gen/proto/go
     opt:
       - paths=source_relative
-  # This will invoke protoc-gen-es v2 and write output to src/gen
-  - name: es
+  # protoc-gen-es v2: generates both message types AND service descriptors in _pb.ts
+  - plugin: protoc-gen-es
+    path: ../web/node_modules/.bin/protoc-gen-es
     out: ../web/src/gen
     opt:
       - target=ts
       - import_extension=none
-  # This will invoke protoc-gen-connect-es v2 for Connect service descriptors
-  - plugin: buf.build/connectrpc/es:v1.6.1
-    out: ../web/src/gen
-    opt:
-      - target=ts
-      - import_extension=none
-    # This will invoke protoc-gen-connect-query
-  - name: connect-query
+  # protoc-gen-connect-query v2: generates TanStack Query hooks
+  - plugin: protoc-gen-connect-query
+    path: ../web/node_modules/.bin/protoc-gen-connect-query
     out: ../web/src/gen
     opt:
       - target=ts
