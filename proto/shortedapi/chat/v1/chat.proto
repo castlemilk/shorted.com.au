@@ -1,0 +1,127 @@
+syntax = "proto3";
+
+package chat.v1;
+
+option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/chat/v1;chatv1";
+
+import "google/protobuf/timestamp.proto";
+import "options/v1/options.proto";
+
+// ChatService provides AI-powered conversational analysis of short selling data.
+// Deployed as an independent Cloud Run service with server-streaming support.
+service ChatService {
+  // Send a message and receive a streaming response
+  rpc SendMessage (SendMessageRequest) returns (stream SendMessageResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Get conversation history for a specific conversation
+  rpc GetConversationHistory (GetConversationHistoryRequest) returns (GetConversationHistoryResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // List all conversations for the authenticated user
+  rpc ListConversations (ListConversationsRequest) returns (ListConversationsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Delete a conversation and all its messages
+  rpc DeleteConversation (DeleteConversationRequest) returns (DeleteConversationResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+}
+
+// ==================== Messages ====================
+
+// Chat message role
+enum MessageRole {
+  MESSAGE_ROLE_UNSPECIFIED = 0;
+  MESSAGE_ROLE_USER = 1;
+  MESSAGE_ROLE_ASSISTANT = 2;
+  MESSAGE_ROLE_SYSTEM = 3;
+}
+
+// A single chat message
+message ChatMessage {
+  string id = 1;
+  MessageRole role = 2;
+  string content = 3;
+  repeated ToolCall tool_calls = 4;
+  repeated Citation citations = 5;
+  google.protobuf.Timestamp created_at = 6;
+}
+
+// A tool/function call made by the assistant
+message ToolCall {
+  string tool_name = 1;           // e.g., "query_short_positions"
+  string arguments = 2;           // JSON-encoded arguments
+  string result = 3;              // JSON-encoded result
+}
+
+// A citation referencing data used in the response
+message Citation {
+  string source_type = 1;         // 'stock_data', 'news', 'report', 'financial'
+  string reference = 2;           // e.g., stock code, report title
+  string url = 3;                 // Link to the referenced data
+}
+
+// Request for SendMessage RPC
+message SendMessageRequest {
+  string conversation_id = 1;     // Empty to start new conversation
+  string message = 2;             // User message text
+  string context_stock_code = 3;  // Optional stock context
+}
+
+// Response chunk for SendMessage streaming RPC
+message SendMessageResponse {
+  string conversation_id = 1;
+  string chunk = 2;               // Text chunk for streaming
+  bool is_complete = 3;           // True when response is finished
+  repeated ToolCall tool_calls = 4;
+  repeated Citation citations = 5;
+}
+
+// Request for GetConversationHistory RPC
+message GetConversationHistoryRequest {
+  string conversation_id = 1;
+}
+
+// Response for GetConversationHistory RPC
+message GetConversationHistoryResponse {
+  string conversation_id = 1;
+  string title = 2;
+  string context_stock_code = 3;
+  repeated ChatMessage messages = 4;
+}
+
+// Request for ListConversations RPC
+message ListConversationsRequest {
+  int32 limit = 1;                // Default 20
+  int32 offset = 2;
+}
+
+// Conversation summary for listing
+message ConversationSummary {
+  string id = 1;
+  string title = 2;
+  string context_stock_code = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+  int32 message_count = 6;
+}
+
+// Response for ListConversations RPC
+message ListConversationsResponse {
+  repeated ConversationSummary conversations = 1;
+  int32 total_count = 2;
+}
+
+// Request for DeleteConversation RPC
+message DeleteConversationRequest {
+  string conversation_id = 1;
+}
+
+// Response for DeleteConversation RPC
+message DeleteConversationResponse {
+  bool success = 1;
+}
