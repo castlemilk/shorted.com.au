@@ -29,6 +29,7 @@ export function NewsFeedWidget({ config, sizeVariant = "standard" }: WidgetProps
     staleTime: 5 * 60 * 1000,
     refetchInterval: refreshInterval,
     enabled: hasBeenVisible,
+    retry: false,
   });
 
   if (isLoading) {
