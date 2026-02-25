@@ -70,6 +70,14 @@ resource "google_secret_manager_secret_iam_member" "openai_api_key" {
   project   = var.project_id
 }
 
+# Grant access to internal service secret (for calling shorts API Algolia sync)
+resource "google_secret_manager_secret_iam_member" "internal_service_secret" {
+  secret_id = "INTERNAL_SERVICE_SECRET"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.enrichment_processor.email}"
+  project   = var.project_id
+}
+
 # Grant access to OpenTelemetry OTLP headers secret
 resource "google_secret_manager_secret_iam_member" "otel_headers" {
   secret_id = "OTEL_EXPORTER_OTLP_HEADERS"
@@ -158,6 +166,21 @@ resource "google_cloud_run_v2_service" "enrichment_processor" {
         value = "shorted-company-logos"
       }
 
+      env {
+        name  = "SHORTS_API_URL"
+        value = var.shorts_api_url
+      }
+
+      env {
+        name = "INTERNAL_SERVICE_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = "INTERNAL_SERVICE_SECRET"
+            version = "latest"
+          }
+        }
+      }
+
       # OpenTelemetry configuration (traces + metrics to Grafana Cloud)
       env {
         name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
@@ -221,6 +244,7 @@ resource "google_cloud_run_v2_service" "enrichment_processor" {
     google_secret_manager_secret_iam_member.postgres_password,
     google_secret_manager_secret_iam_member.openai_api_key,
     google_secret_manager_secret_iam_member.otel_headers,
+    google_secret_manager_secret_iam_member.internal_service_secret,
     google_pubsub_subscription_iam_member.processor_subscriber
   ]
 }
