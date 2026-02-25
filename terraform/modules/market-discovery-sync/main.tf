@@ -31,12 +31,33 @@ resource "google_cloud_run_v2_job" "asx_discovery" {
       service_account = google_service_account.asx_discovery.email
       containers {
         image = var.asx_discovery_image
-        
+
         env {
           name  = "GCS_BUCKET_NAME"
           value = var.bucket_name
         }
-        
+
+        # OpenTelemetry configuration (traces + metrics to Grafana Cloud)
+        env {
+          name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
+          value = var.otel_endpoint
+        }
+
+        env {
+          name  = "OTEL_EXPORTER_OTLP_PROTOCOL"
+          value = "http/protobuf"
+        }
+
+        env {
+          name = "OTEL_EXPORTER_OTLP_HEADERS"
+          value_source {
+            secret_key_ref {
+              secret  = "OTEL_EXPORTER_OTLP_HEADERS"
+              version = "latest"
+            }
+          }
+        }
+
         resources {
           limits = {
             cpu    = "1"
@@ -46,6 +67,10 @@ resource "google_cloud_run_v2_job" "asx_discovery" {
       }
     }
   }
+
+  depends_on = [
+    google_secret_manager_secret_iam_member.asx_discovery_otel_headers
+  ]
 }
 
 # Service Account for Market Data Sync
@@ -72,6 +97,22 @@ resource "google_secret_manager_secret_iam_member" "market_data_sync_db" {
 
 resource "google_secret_manager_secret_iam_member" "market_data_sync_av" {
   secret_id = var.alpha_vantage_api_key_secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.market_data_sync.email}"
+  project   = var.project_id
+}
+
+# Grant access to OpenTelemetry OTLP headers secret (ASX Discovery)
+resource "google_secret_manager_secret_iam_member" "asx_discovery_otel_headers" {
+  secret_id = "OTEL_EXPORTER_OTLP_HEADERS"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.asx_discovery.email}"
+  project   = var.project_id
+}
+
+# Grant access to OpenTelemetry OTLP headers secret (Market Data Sync)
+resource "google_secret_manager_secret_iam_member" "market_data_sync_otel_headers" {
+  secret_id = "OTEL_EXPORTER_OTLP_HEADERS"
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.market_data_sync.email}"
   project   = var.project_id
@@ -136,6 +177,27 @@ resource "google_cloud_run_v2_service" "market_data_sync" {
         }
       }
 
+      # OpenTelemetry configuration (traces + metrics to Grafana Cloud)
+      env {
+        name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
+        value = var.otel_endpoint
+      }
+
+      env {
+        name  = "OTEL_EXPORTER_OTLP_PROTOCOL"
+        value = "http/protobuf"
+      }
+
+      env {
+        name = "OTEL_EXPORTER_OTLP_HEADERS"
+        value_source {
+          secret_key_ref {
+            secret  = "OTEL_EXPORTER_OTLP_HEADERS"
+            version = "latest"
+          }
+        }
+      }
+
       resources {
         limits = {
           cpu    = "1"
@@ -184,6 +246,7 @@ resource "google_cloud_run_v2_service" "market_data_sync" {
   depends_on = [
     google_secret_manager_secret_iam_member.market_data_sync_db,
     google_secret_manager_secret_iam_member.market_data_sync_av,
+    google_secret_manager_secret_iam_member.market_data_sync_otel_headers,
     google_storage_bucket_iam_member.market_data_sync_gcs
   ]
 }

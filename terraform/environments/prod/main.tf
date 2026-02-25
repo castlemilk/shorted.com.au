@@ -94,6 +94,12 @@ import {
   id = "projects/rosy-clover-477102-t5/serviceAccounts/enrichment-processor@rosy-clover-477102-t5.iam.gserviceaccount.com"
 }
 
+# Import existing market-data Cloud Run service (was previously deployed outside Terraform)
+import {
+  to = module.market_data.google_cloud_run_v2_service.market_data
+  id = "projects/rosy-clover-477102-t5/locations/australia-southeast2/services/market-data"
+}
+
 # Note: market_discovery_sync service accounts will be created (don't exist yet in prod)
 
 # Artifact Registry for Docker images
@@ -204,6 +210,23 @@ module "weekly_report_generator" {
   environment      = "production"
   image_url            = var.weekly_report_generator_image
   gemini_secret_exists = false # GEMINI_API_KEY not yet provisioned in prod
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
+# Market Data API Service (Connect-RPC, port 8090)
+module "market_data" {
+  source = "../../modules/market-data"
+
+  project_id    = var.project_id
+  region        = var.region
+  environment   = "production"
+  image_url     = var.market_data_image
+  min_instances = 0
+  max_instances = 10
 
   depends_on = [
     google_project_service.required_apis,

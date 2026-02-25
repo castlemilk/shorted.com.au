@@ -76,6 +76,12 @@ variable "weekly_report_generator_image" {
   default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/weekly-report-generator:latest"
 }
 
+variable "market_data_image" {
+  description = "Docker image URL for market-data API service"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/market-data:latest"
+}
+
 variable "grafana_url" {
   description = "Grafana Cloud instance URL"
   type        = string

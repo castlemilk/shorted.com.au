@@ -70,6 +70,13 @@ resource "google_secret_manager_secret_iam_member" "openai_api_key" {
   project   = var.project_id
 }
 
+# Grant access to OpenTelemetry OTLP headers secret
+resource "google_secret_manager_secret_iam_member" "otel_headers" {
+  secret_id = "OTEL_EXPORTER_OTLP_HEADERS"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.enrichment_processor.email}"
+  project   = var.project_id
+}
 
 # Cloud Run Service (v2) for processing enrichment jobs
 # Runs continuously and polls Pub/Sub subscription for jobs
@@ -151,6 +158,27 @@ resource "google_cloud_run_v2_service" "enrichment_processor" {
         value = "shorted-company-logos"
       }
 
+      # OpenTelemetry configuration (traces + metrics to Grafana Cloud)
+      env {
+        name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
+        value = var.otel_endpoint
+      }
+
+      env {
+        name  = "OTEL_EXPORTER_OTLP_PROTOCOL"
+        value = "http/protobuf"
+      }
+
+      env {
+        name = "OTEL_EXPORTER_OTLP_HEADERS"
+        value_source {
+          secret_key_ref {
+            secret  = "OTEL_EXPORTER_OTLP_HEADERS"
+            version = "latest"
+          }
+        }
+      }
+
       resources {
         limits = {
           cpu    = "4"
@@ -192,6 +220,7 @@ resource "google_cloud_run_v2_service" "enrichment_processor" {
   depends_on = [
     google_secret_manager_secret_iam_member.postgres_password,
     google_secret_manager_secret_iam_member.openai_api_key,
+    google_secret_manager_secret_iam_member.otel_headers,
     google_pubsub_subscription_iam_member.processor_subscriber
   ]
 }

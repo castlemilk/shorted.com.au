@@ -15,6 +15,9 @@ RUN go mod download
 # Copy generated proto files
 COPY gen/ ./gen/
 
+# Copy shared packages
+COPY pkg/ ./pkg/
+
 # Copy market-data source code (only .go files, not Dockerfile.go)
 COPY market-data/main.go market-data/validation.go ./
 

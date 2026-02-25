@@ -561,6 +561,21 @@ func main() {
 	log.Printf("Starting market data service")
 	log.Printf("Database URL configured: %t", dbURL != "")
 
+	// Initialize OpenTelemetry (traces + metrics via OTLP).
+	// If OTEL_EXPORTER_OTLP_ENDPOINT is not set, this is a no-op.
+	otelShutdown, otelErr := shortedotel.InitProvider(ctx, "market-data")
+	if otelErr != nil {
+		log.Printf("WARNING: Failed to initialize OpenTelemetry: %v", otelErr)
+	} else {
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := otelShutdown(shutdownCtx); err != nil {
+				log.Printf("Error shutting down OpenTelemetry: %v", err)
+			}
+		}()
+	}
+
 	// Create connection pool configuration
 	config, err := pgxpool.ParseConfig(dbURL)
 	if err != nil {
@@ -594,10 +609,10 @@ func main() {
 		log.Printf("Attempting to connect to database (simple protocol mode)")
 
 		// Try to connect with context timeout
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		connCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
 
-		pool, err = pgxpool.NewWithConfig(ctx, config)
+		pool, err = pgxpool.NewWithConfig(connCtx, config)
 		if err != nil {
 			log.Printf("WARNING: Failed to create connection pool: %v", err)
 			log.Printf("Service will start but database operations will fail")
@@ -716,7 +731,7 @@ func main() {
 	}
 
 	log.Printf("Starting HTTP server on port %s", port)
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
+	if err := http.ListenAndServe(":"+port, shortedotel.HTTPMiddleware(mux)); err != nil {
 		log.Fatal("Server failed:", err)
 	}
 }
