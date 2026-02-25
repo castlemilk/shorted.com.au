@@ -194,16 +194,6 @@ resource "google_cloud_run_v2_service" "shorts_api" {
         value = "stocks"
       }
 
-      env {
-        name = "ALGOLIA_ADMIN_KEY"
-        value_source {
-          secret_key_ref {
-            secret  = "ALGOLIA_ADMIN_KEY"
-            version = "latest"
-          }
-        }
-      }
-
       # OpenAI enrichment
       env {
         name = "OPENAI_API_KEY"
