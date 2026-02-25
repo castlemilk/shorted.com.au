@@ -284,7 +284,28 @@ build.stock-price-ingestion:
 deploy.gcr.stock-price-ingestion: build.stock-price-ingestion
 	VERSION=${SHORTS_VERSION} IMAGE_NAME=${STOCK_PRICE_IMAGE} envsubst < stock-price-ingestion/service.template.yaml > stock-price-ingestion/service.yaml && \
 	gcloud run services replace stock-price-ingestion/service.yaml --region australia-southeast2
-	
+
+# ko-based image builds (pure Go services)
+KO_DOCKER_REPO_BASE := australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted
+
+.PHONY: ko.build.market-data ko.build.weekly-report ko.local.market-data ko.local.weekly-report
+
+ko.build.market-data:
+	@echo "🏗️ Building market-data with ko..."
+	KO_DOCKER_REPO=$(KO_DOCKER_REPO_BASE)/market-data ko build ./market-data --bare --platform=linux/amd64 --tags="$(SHORTS_VERSION),latest"
+
+ko.build.weekly-report:
+	@echo "🏗️ Building weekly-report-generator with ko..."
+	KO_DOCKER_REPO=$(KO_DOCKER_REPO_BASE)/weekly-report-generator ko build ./weekly-report-generator --bare --platform=linux/amd64 --tags="$(SHORTS_VERSION),latest"
+
+ko.local.market-data:
+	@echo "🏗️ Building market-data locally with ko..."
+	ko build ./market-data --local --bare --platform=linux/amd64
+
+ko.local.weekly-report:
+	@echo "🏗️ Building weekly-report-generator locally with ko..."
+	ko build ./weekly-report-generator --local --bare --platform=linux/amd64
+
 test.gettopshorts:
 	curl \
     --header "Content-Type: application/json" \

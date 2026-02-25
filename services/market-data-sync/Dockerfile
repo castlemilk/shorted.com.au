@@ -2,15 +2,26 @@
 FROM golang:1.24.3-alpine AS builder
 
 WORKDIR /app
-# Copy go mod files from market-data-sync subdirectory
-COPY market-data-sync/go.mod market-data-sync/go.sum ./
+
+# Copy parent module (contains pkg/otel) and market-data-sync module
+COPY go.mod go.sum ./
+COPY market-data-sync/go.mod market-data-sync/go.sum ./market-data-sync/
+
+# Create a Go workspace to wire both modules together
+RUN go work init . ./market-data-sync
+
+# Download dependencies for both modules
 RUN go mod download
+RUN cd market-data-sync && go mod download
 
-# Copy all source code from market-data-sync subdirectory
-COPY market-data-sync/ .
+# Copy shared package source
+COPY pkg/ pkg/
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o market-data-sync .
+# Copy market-data-sync source
+COPY market-data-sync/ market-data-sync/
+
+# Build the application from the workspace
+RUN cd market-data-sync && CGO_ENABLED=0 GOOS=linux go build -o /app/market-data-sync .
 
 # Final stage
 FROM alpine:3.19
