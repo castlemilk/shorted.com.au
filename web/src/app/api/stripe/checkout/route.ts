@@ -14,12 +14,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { priceId } = (await request.json()) as { priceId?: string };
+    // Look up the price ID server-side (env var is not available to client components)
+    const body = (await request.json().catch(() => ({}))) as { tier?: string };
+    const tier = body.tier ?? "premium";
+
+    let priceId: string | null | undefined = null;
+    if (tier === "premium") {
+      priceId = process.env.STRIPE_PREMIUM_PRICE_ID ?? null;
+    }
 
     if (!priceId) {
       return NextResponse.json(
-        { error: "Price ID is required" },
-        { status: 400 }
+        { error: "Premium pricing not configured" },
+        { status: 500 }
       );
     }
 

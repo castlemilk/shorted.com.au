@@ -32,12 +32,6 @@ export function PricingContent() {
   const isLoading = authStatus === "loading" || subLoading;
 
   const handleUpgrade = async () => {
-    const priceId = SUBSCRIPTION_TIERS.premium.priceId;
-    if (!priceId) {
-      setError("Premium pricing not configured");
-      return;
-    }
-
     setCheckoutLoading(true);
     setError(null);
 
@@ -45,7 +39,7 @@ export function PricingContent() {
       const response = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ priceId }),
+        body: JSON.stringify({ tier: "premium" }),
       });
 
       const data = (await response.json()) as { url?: string; error?: string };

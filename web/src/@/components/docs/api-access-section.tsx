@@ -7,10 +7,10 @@ import type { SubscriptionInfo } from "~/app/actions/subscription";
 import { Loader2 } from "lucide-react";
 
 interface ApiAccessSectionProps {
-  priceId: string;
+  priceId?: string;
 }
 
-export function ApiAccessSection({ priceId }: ApiAccessSectionProps) {
+export function ApiAccessSection({ }: ApiAccessSectionProps) {
   const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -40,7 +40,7 @@ export function ApiAccessSection({ priceId }: ApiAccessSectionProps) {
   }
 
   return (
-    <SubscriptionGate subscription={subscription} priceId={priceId}>
+    <SubscriptionGate subscription={subscription}>
       <TokenGenerator />
     </SubscriptionGate>
   );
