@@ -3,6 +3,7 @@ package otel
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -11,6 +12,36 @@ import (
 	otelmetric "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 )
+
+// knownRoutes is the set of registered HTTP endpoint prefixes.
+// Paths not matching any known route are bucketed into "/other" to prevent
+// unbounded cardinality from crawlers, 404 scanners, etc.
+var knownRoutes = []string{
+	"/health",
+	"/ready",
+	"/api/stocks/search",
+	"/api/algolia/search",
+	"/api/admin/sync-status",
+	"/api/admin/cleanup-stuck-runs",
+	"/api/debug/perf",
+	"/api/docs/",
+}
+
+// normalizeRoute maps a raw URL path to a known route pattern.
+// Unknown paths are bucketed into "/other" to bound metric cardinality.
+func normalizeRoute(path string) string {
+	for _, route := range knownRoutes {
+		if path == route || strings.HasPrefix(path, route) {
+			return route
+		}
+	}
+	// Connect-RPC paths are handled by otelconnect, not this middleware,
+	// but if they leak through, bucket them by service prefix.
+	if strings.HasPrefix(path, "/shorts.") || strings.HasPrefix(path, "/register.") {
+		return "/rpc"
+	}
+	return "/other"
+}
 
 // statusRecorder wraps http.ResponseWriter to capture the status code.
 type statusRecorder struct {
@@ -38,14 +69,14 @@ func HTTPMiddleware(next http.Handler) http.Handler {
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		spanName := fmt.Sprintf("HTTP %s %s", r.Method, r.URL.Path)
+		route := normalizeRoute(r.URL.Path)
+		spanName := fmt.Sprintf("HTTP %s %s", r.Method, route)
 
 		ctx, span := tracer.Start(r.Context(), spanName,
 			trace.WithSpanKind(trace.SpanKindServer),
 			trace.WithAttributes(
 				attribute.String("http.method", r.Method),
-				attribute.String("http.route", r.URL.Path),
-				attribute.String("http.url", r.URL.String()),
+				attribute.String("http.route", route),
 			),
 		)
 		defer span.End()
@@ -67,7 +98,7 @@ func HTTPMiddleware(next http.Handler) http.Handler {
 		durationHistogram.Record(ctx, duration,
 			otelmetric.WithAttributes(
 				attribute.String("http.method", r.Method),
-				attribute.String("http.route", r.URL.Path),
+				attribute.String("http.route", route),
 				attribute.Int("http.status_code", rec.statusCode),
 			),
 		)

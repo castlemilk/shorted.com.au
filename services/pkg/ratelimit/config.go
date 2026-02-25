@@ -56,7 +56,8 @@ type Config struct {
 //   - free:       120 req/min, 10000 req/month
 //   - pro/enterprise: unlimited (no rate limiting for browser)
 //
-// The "pro" tier applies to any user with an active or trialing subscription.
+// The "premium" tier applies to consumer premium subscribers ($4/mo).
+// The "pro" tier applies to legacy pro subscribers (treated same as premium).
 func DefaultConfig() Config {
 	return Config{
 		Enabled: false, // Disabled by default for safety
@@ -75,6 +76,10 @@ func DefaultConfig() Config {
 			},
 			"enterprise": {
 				RequestsPerMinute: 300, RequestsPerMonth: 50000, // API limits (5 req/sec)
+				BrowserRequestsPerMinute: 0, BrowserRequestsPerMonth: 0, // Browser: no limits
+			},
+			"premium": {
+				RequestsPerMinute: 120, RequestsPerMonth: 10000, // API limits (same as pro)
 				BrowserRequestsPerMinute: 0, BrowserRequestsPerMonth: 0, // Browser: no limits
 			},
 		},

@@ -389,6 +389,59 @@ service ShortedStocksService {
       description: "Retrieve extracted financial metrics (revenue, NPAT, EPS, dividends, etc.) from company financial reports."
     };
   }
+
+  // ==================== News ====================
+
+  // Get recent news articles for a specific stock
+  rpc GetStockNews (GetStockNewsRequest) returns (GetStockNewsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Stock News",
+      description: "Retrieve recent news articles, announcements, and analysis for a specific ASX stock."
+    };
+  }
+
+  // Get market-wide news across all stocks
+  rpc GetMarketNews (GetMarketNewsRequest) returns (GetMarketNewsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Market News",
+      description: "Retrieve recent market-wide news articles and announcements across all ASX stocks."
+    };
+  }
+
+  // ==================== Director Trades ====================
+
+  // Get director (insider) trades for a specific stock
+  rpc GetDirectorTrades (GetDirectorTradesRequest) returns (GetDirectorTradesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Director Trades",
+      description: "Retrieve director (insider) trading activity from ASX Appendix 3Y filings for a specific stock."
+    };
+  }
+
+  // ==================== Dividend History ====================
+
+  // Get dividend history for a specific stock
+  rpc GetDividendHistory (GetDividendHistoryRequest) returns (GetDividendHistoryResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Dividend History",
+      description: "Retrieve dividend payment history including franking credits for a specific ASX stock."
+    };
+  }
+
+  // ==================== Peer Comparison ====================
+
+  // Get peer comparison for a stock within its industry
+  rpc GetPeerComparison (GetPeerComparisonRequest) returns (GetPeerComparisonResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Peer Comparison",
+      description: "Compare a stock's short position, price, and fundamentals against its industry peers."
+    };
+  }
 }
 
 message MintTokenRequest {
@@ -735,6 +788,7 @@ enum SubscriptionTier {
   SUBSCRIPTION_TIER_FREE = 1;
   SUBSCRIPTION_TIER_PRO = 2;
   SUBSCRIPTION_TIER_ENTERPRISE = 3;
+  SUBSCRIPTION_TIER_PREMIUM = 4;
 }
 
 // Request for HandleStripeCheckoutCompleted RPC (called by webhook)
@@ -934,4 +988,128 @@ message FinancialMetric {
   string metric_type = 1;   // e.g., "revenue", "net_profit", "eps", "dividend"
   string source_text = 2;   // Original text from the report
   map<string, string> attributes = 3; // e.g., {"value_millions": "5142", "period": "H1 FY2025"}
+}
+
+// ==================== News Messages ====================
+
+// A single news article
+message NewsArticle {
+  string id = 1;
+  string stock_code = 2;
+  string source = 3;              // 'asx', 'stockhead', 'livewire', 'afr'
+  string headline = 4;
+  string url = 5;
+  google.protobuf.Timestamp published_at = 6;
+  string sentiment = 7;           // 'positive', 'negative', 'neutral'
+  double relevance_score = 8;
+  bool is_price_sensitive = 9;
+  string summary = 10;
+  repeated string tags = 11;
+}
+
+// Request for GetStockNews RPC
+message GetStockNewsRequest {
+  string stock_code = 1;          // ASX stock code (e.g., "BHP")
+  int32 limit = 2;                // Max articles to return (default 20)
+  string source = 3;              // Optional filter by source
+  string sentiment = 4;           // Optional filter by sentiment
+}
+
+// Response for GetStockNews RPC
+message GetStockNewsResponse {
+  repeated NewsArticle articles = 1;
+  int32 total_count = 2;
+}
+
+// Request for GetMarketNews RPC
+message GetMarketNewsRequest {
+  int32 limit = 1;                // Max articles to return (default 50)
+  string source = 2;              // Optional filter by source
+  bool price_sensitive_only = 3;  // Only return price-sensitive news
+}
+
+// Response for GetMarketNews RPC
+message GetMarketNewsResponse {
+  repeated NewsArticle articles = 1;
+  int32 total_count = 2;
+}
+
+// ==================== Director Trades Messages ====================
+
+// A single director trade record
+message DirectorTrade {
+  string id = 1;
+  string stock_code = 2;
+  string director_name = 3;
+  string trade_type = 4;          // 'buy', 'sell', 'exercise_options'
+  int64 shares_traded = 5;
+  double price_per_share = 6;
+  double total_value = 7;
+  string trade_date = 8;          // YYYY-MM-DD
+  string announcement_url = 9;
+}
+
+// Request for GetDirectorTrades RPC
+message GetDirectorTradesRequest {
+  string stock_code = 1;          // ASX stock code
+  int32 limit = 2;                // Max trades to return (default 20)
+}
+
+// Response for GetDirectorTrades RPC
+message GetDirectorTradesResponse {
+  repeated DirectorTrade trades = 1;
+  int32 total_count = 2;
+}
+
+// ==================== Dividend History Messages ====================
+
+// A single dividend record
+message DividendRecord {
+  string id = 1;
+  string stock_code = 2;
+  string ex_date = 3;             // YYYY-MM-DD
+  string payment_date = 4;        // YYYY-MM-DD
+  double amount_per_share = 5;
+  double franking_percentage = 6;
+  string dividend_type = 7;       // 'ordinary', 'special', 'interim', 'final'
+}
+
+// Request for GetDividendHistory RPC
+message GetDividendHistoryRequest {
+  string stock_code = 1;          // ASX stock code
+  int32 years = 2;                // How many years of history (default 5)
+}
+
+// Response for GetDividendHistory RPC
+message GetDividendHistoryResponse {
+  repeated DividendRecord dividends = 1;
+  int32 total_count = 2;
+  double trailing_yield = 3;      // Calculated trailing 12-month dividend yield
+}
+
+// ==================== Peer Comparison Messages ====================
+
+// A peer stock for comparison
+message PeerStock {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  double short_position_percent = 4;
+  double market_cap = 5;
+  double pe_ratio = 6;
+  double dividend_yield = 7;
+  double price_change_1m = 8;     // 1-month price change %
+}
+
+// Request for GetPeerComparison RPC
+message GetPeerComparisonRequest {
+  string stock_code = 1;          // ASX stock code to compare
+  int32 limit = 2;                // Number of peers (default 5)
+}
+
+// Response for GetPeerComparison RPC
+message GetPeerComparisonResponse {
+  PeerStock subject = 1;          // The stock being compared
+  repeated PeerStock peers = 2;   // Industry peers
+  string industry = 3;            // Common industry
 }

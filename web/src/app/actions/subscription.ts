@@ -5,7 +5,7 @@ import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { SubscriptionStatus as ProtoSubscriptionStatus, SubscriptionTier as ProtoSubscriptionTier } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { auth } from "~/server/auth";
-import { SUBSCRIPTION_TIERS, type SubscriptionStatus, type SubscriptionTier } from "~/lib/stripe";
+import { SUBSCRIPTION_TIERS, isPremiumTier, type SubscriptionStatus, type SubscriptionTier } from "~/lib/stripe";
 import { retryWithBackoff, type RetryOptions } from "@/lib/retry";
 
 // Shorts API URL - falls back to local dev if not set
@@ -43,6 +43,7 @@ export interface SubscriptionInfo {
   status: SubscriptionStatus;
   tier: SubscriptionTier;
   hasActiveSubscription: boolean;
+  isPremium: boolean;
   canMintTokens: boolean;
   currentPeriodEnd: Date | null;
   cancelAtPeriodEnd: boolean;
@@ -75,6 +76,8 @@ function mapProtoStatusToString(status: ProtoSubscriptionStatus): SubscriptionSt
  */
 function mapProtoTierToString(tier: ProtoSubscriptionTier): SubscriptionTier {
   switch (tier) {
+    case ProtoSubscriptionTier.PREMIUM:
+      return "premium";
     case ProtoSubscriptionTier.PRO:
       return "pro";
     case ProtoSubscriptionTier.ENTERPRISE:
@@ -96,6 +99,7 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
       status: "inactive",
       tier: "free",
       hasActiveSubscription: false,
+      isPremium: false,
       canMintTokens: false,
       currentPeriodEnd: null,
       cancelAtPeriodEnd: false,
@@ -124,6 +128,7 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
         status: "inactive",
         tier: "free",
         hasActiveSubscription: false,
+        isPremium: false,
         canMintTokens: false,
         currentPeriodEnd: null,
         cancelAtPeriodEnd: false,
@@ -150,6 +155,7 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
       status,
       tier,
       hasActiveSubscription,
+      isPremium: hasActiveSubscription && isPremiumTier(tier),
       canMintTokens: hasActiveSubscription && tier !== "free",
       currentPeriodEnd,
       cancelAtPeriodEnd: response.cancelAtPeriodEnd,
@@ -163,6 +169,7 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
       status: "inactive",
       tier: "free",
       hasActiveSubscription: false,
+      isPremium: false,
       canMintTokens: false,
       currentPeriodEnd: null,
       cancelAtPeriodEnd: false,

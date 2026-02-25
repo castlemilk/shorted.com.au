@@ -15,6 +15,7 @@ import {
   Grid3X3,
   Activity,
   ListFilter,
+  Newspaper,
 } from "lucide-react";
 import { withErrorBoundary } from "@/components/widgets/with-error-boundary";
 
@@ -55,6 +56,10 @@ const widgetComponents = {
   [WidgetType.MARKET_WATCHLIST]: () =>
     import("@/components/widgets/market-watchlist-widget").then(
       (m) => m.MarketWatchlistWidget,
+    ),
+  [WidgetType.NEWS_FEED]: () =>
+    import("@/components/widgets/news-feed-widget").then(
+      (m) => m.NewsFeedWidget,
     ),
 };
 
@@ -344,6 +349,36 @@ class WidgetRegistry {
             default: 120000,
             description:
               "Refresh interval in milliseconds (default: 2 minutes)",
+          },
+        },
+      },
+    });
+
+    this.register({
+      type: WidgetType.NEWS_FEED,
+      component: {} as ComponentType<WidgetProps>,
+      defaultLayout: { w: 4, h: 8, minW: 3, minH: 6 },
+      icon: Newspaper,
+      category: WidgetCategory.MARKET_DATA,
+      premium: true,
+      configSchema: {
+        type: "object",
+        properties: {
+          limit: {
+            type: "number",
+            default: 10,
+            description: "Number of articles to display",
+          },
+          priceSensitiveOnly: {
+            type: "boolean",
+            default: false,
+            description: "Only show price-sensitive announcements",
+          },
+          refreshInterval: {
+            type: "number",
+            default: 300000,
+            description:
+              "Refresh interval in milliseconds (default: 5 minutes)",
           },
         },
       },

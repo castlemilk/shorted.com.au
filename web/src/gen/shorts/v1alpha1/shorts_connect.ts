@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { EnrichStockRequest, EnrichStockResponse, GetAvailableDatesRequest, GetAvailableDatesResponse, GetEnrichmentJobStatusRequest, GetEnrichmentJobStatusResponse, GetIndustryTreeMapRequest, GetMarketByDateRequest, GetMarketByDateResponse, GetMySubscriptionRequest, GetMySubscriptionResponse, GetPendingEnrichmentRequest, GetPendingEnrichmentResponse, GetStockDataRequest, GetStockDetailsRequest, GetStockFinancialHighlightsRequest, GetStockFinancialHighlightsResponse, GetStockRequest, GetSyncStatusRequest, GetSyncStatusResponse, GetTopShortsRequest, GetTopShortsResponse, GetTopStocksForEnrichmentRequest, GetTopStocksForEnrichmentResponse, GetWeeklyReportRequest, GetWeeklyReportResponse, HandleStripeCheckoutCompletedRequest, HandleStripeCheckoutCompletedResponse, HandleStripeSubscriptionUpdatedRequest, HandleStripeSubscriptionUpdatedResponse, ListEnrichmentJobsRequest, ListEnrichmentJobsResponse, ListPendingEnrichmentsRequest, ListPendingEnrichmentsResponse, MintTokenRequest, MintTokenResponse, ReviewEnrichmentRequest, ReviewEnrichmentResponse, SearchStocksRequest, SearchStocksResponse, SyncKeyMetricsRequest, SyncKeyMetricsResponse } from "./shorts_pb";
+import { EnrichStockRequest, EnrichStockResponse, GetAvailableDatesRequest, GetAvailableDatesResponse, GetDirectorTradesRequest, GetDirectorTradesResponse, GetDividendHistoryRequest, GetDividendHistoryResponse, GetEnrichmentJobStatusRequest, GetEnrichmentJobStatusResponse, GetIndustryTreeMapRequest, GetMarketByDateRequest, GetMarketByDateResponse, GetMarketNewsRequest, GetMarketNewsResponse, GetMySubscriptionRequest, GetMySubscriptionResponse, GetPeerComparisonRequest, GetPeerComparisonResponse, GetPendingEnrichmentRequest, GetPendingEnrichmentResponse, GetStockDataRequest, GetStockDetailsRequest, GetStockFinancialHighlightsRequest, GetStockFinancialHighlightsResponse, GetStockNewsRequest, GetStockNewsResponse, GetStockRequest, GetSyncStatusRequest, GetSyncStatusResponse, GetTopShortsRequest, GetTopShortsResponse, GetTopStocksForEnrichmentRequest, GetTopStocksForEnrichmentResponse, GetWeeklyReportRequest, GetWeeklyReportResponse, HandleStripeCheckoutCompletedRequest, HandleStripeCheckoutCompletedResponse, HandleStripeSubscriptionUpdatedRequest, HandleStripeSubscriptionUpdatedResponse, ListEnrichmentJobsRequest, ListEnrichmentJobsResponse, ListPendingEnrichmentsRequest, ListPendingEnrichmentsResponse, MintTokenRequest, MintTokenResponse, ReviewEnrichmentRequest, ReviewEnrichmentResponse, SearchStocksRequest, SearchStocksResponse, SyncKeyMetricsRequest, SyncKeyMetricsResponse } from "./shorts_pb";
 import { MethodKind } from "@bufbuild/protobuf";
 import { IndustryTreeMap, Stock, StockDetails, TimeSeriesData } from "../../stocks/v1alpha1/stocks_pb";
 
@@ -265,6 +265,61 @@ export const ShortedStocksService = {
       name: "GetStockFinancialHighlights",
       I: GetStockFinancialHighlightsRequest,
       O: GetStockFinancialHighlightsResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Get recent news articles for a specific stock
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetStockNews
+     */
+    getStockNews: {
+      name: "GetStockNews",
+      I: GetStockNewsRequest,
+      O: GetStockNewsResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Get market-wide news across all stocks
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetMarketNews
+     */
+    getMarketNews: {
+      name: "GetMarketNews",
+      I: GetMarketNewsRequest,
+      O: GetMarketNewsResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Get director (insider) trades for a specific stock
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetDirectorTrades
+     */
+    getDirectorTrades: {
+      name: "GetDirectorTrades",
+      I: GetDirectorTradesRequest,
+      O: GetDirectorTradesResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Get dividend history for a specific stock
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetDividendHistory
+     */
+    getDividendHistory: {
+      name: "GetDividendHistory",
+      I: GetDividendHistoryRequest,
+      O: GetDividendHistoryResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * Get peer comparison for a stock within its industry
+     *
+     * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetPeerComparison
+     */
+    getPeerComparison: {
+      name: "GetPeerComparison",
+      I: GetPeerComparisonRequest,
+      O: GetPeerComparisonResponse,
       kind: MethodKind.Unary,
     },
   }

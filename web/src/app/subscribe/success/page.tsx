@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { CheckCircle, ArrowRight, Key, Sparkles } from "lucide-react";
+import { CheckCircle, ArrowRight, Sparkles, MessageSquare, Activity, Bell, LayoutDashboard } from "lucide-react";
 import { Button } from "~/@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/@/components/ui/card";
 
@@ -12,29 +12,33 @@ function SuccessContent() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10">
             <CheckCircle className="h-10 w-10 text-green-500" />
           </div>
-          <CardTitle className="text-2xl">Payment Successful!</CardTitle>
+          <CardTitle className="text-2xl">Welcome to Premium!</CardTitle>
           <CardDescription className="text-base">
-            Welcome to Shorted Pro. Your API access is now active.
+            Your Shorted Premium subscription is now active.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="rounded-lg bg-zinc-100 dark:bg-zinc-900 p-4 space-y-3">
             <h3 className="font-semibold flex items-center gap-2">
               <Sparkles className="h-4 w-4 text-yellow-500" />
-              What&apos;s included in Pro
+              What&apos;s included in Premium
             </h3>
             <ul className="text-sm text-muted-foreground space-y-2">
               <li className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500" />
-                Access to all API endpoints
+                <MessageSquare className="h-4 w-4 text-green-500" />
+                AI Chat assistant
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500" />
-                10,000 requests per day
+                <Activity className="h-4 w-4 text-green-500" />
+                Market Pulse dashboard
               </li>
               <li className="flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 text-green-500" />
-                Token management
+                <Bell className="h-4 w-4 text-green-500" />
+                Price &amp; position alerts
+              </li>
+              <li className="flex items-center gap-2">
+                <LayoutDashboard className="h-4 w-4 text-green-500" />
+                Advanced dashboard widgets
               </li>
               <li className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-green-500" />
@@ -44,10 +48,10 @@ function SuccessContent() {
           </div>
 
           <div className="flex flex-col gap-3">
-            <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
-              <Link href="/docs/api" className="flex items-center justify-center gap-2">
-                <Key className="h-4 w-4" />
-                Generate Your API Key
+            <Button asChild className="w-full">
+              <Link href="/dashboards" className="flex items-center justify-center gap-2">
+                <LayoutDashboard className="h-4 w-4" />
+                Go to Dashboard
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
@@ -58,7 +62,7 @@ function SuccessContent() {
 
           <p className="text-xs text-center text-muted-foreground">
             Your subscription will renew automatically. You can manage your subscription
-            from the API documentation page at any time.
+            from the pricing page at any time.
           </p>
         </CardContent>
       </Card>
