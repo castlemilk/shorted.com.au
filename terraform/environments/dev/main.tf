@@ -158,6 +158,23 @@ module "enrichment_processor" {
   ]
 }
 
+# Market Data API Service (Connect-RPC, port 8090)
+module "market_data" {
+  source = "../../modules/market-data"
+
+  project_id    = var.project_id
+  region        = var.region
+  environment   = "dev"
+  image_url     = var.market_data_image
+  min_instances = 0
+  max_instances = 10
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
 # Market Discovery and Data Sync Jobs
 module "market_discovery_sync" {
   source = "../../modules/market-discovery-sync"

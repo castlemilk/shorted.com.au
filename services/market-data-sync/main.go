@@ -66,6 +66,21 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// Initialize OpenTelemetry (traces + metrics via OTLP).
+	// No-op when OTEL_EXPORTER_OTLP_ENDPOINT is not set.
+	otelShutdown, otelErr := initOTEL(ctx, "market-data-sync")
+	if otelErr != nil {
+		log.Printf("WARNING: Failed to initialize OpenTelemetry: %v", otelErr)
+	} else {
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := otelShutdown(shutdownCtx); err != nil {
+				log.Printf("Error shutting down OpenTelemetry: %v", err)
+			}
+		}()
+	}
+
 	// 2. In API mode, start HTTP server immediately so health probes pass
 	//    while we initialize heavy dependencies (DB, GCS, providers).
 	if !*cliMode {

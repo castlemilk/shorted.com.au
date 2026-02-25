@@ -3,7 +3,7 @@ import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
-export const alt = "Shorted - Official ASIC Short Position Data for ASX Stocks";
+export const alt = "Shorted.com.au - Decode Market Sentiment";
 export const size = {
   width: 1200,
   height: 630,
@@ -15,10 +15,9 @@ let cachedLogo: string | null = null;
 async function getLogoBase64(): Promise<string> {
   if (cachedLogo) return cachedLogo;
 
-  // Try filesystem first (works in dev + Docker)
   try {
     const data = await readFile(
-      join(process.cwd(), "public/assets/logo-small.png"),
+      join(process.cwd(), "public/logo.png"),
     );
     cachedLogo = `data:image/png;base64,${data.toString("base64")}`;
     return cachedLogo;
@@ -26,11 +25,10 @@ async function getLogoBase64(): Promise<string> {
     // ignore
   }
 
-  // Fallback: fetch from own domain (works on Vercel standalone)
   try {
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL ?? "https://shorted.com.au";
-    const res = await fetch(`${siteUrl}/assets/logo-small.png`);
+    const res = await fetch(`${siteUrl}/logo.png`);
     const buf = Buffer.from(await res.arrayBuffer());
     cachedLogo = `data:image/png;base64,${buf.toString("base64")}`;
     return cachedLogo;
@@ -54,172 +52,79 @@ export default async function Image() {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "#0C0C0C",
-          backgroundImage:
-            "radial-gradient(circle at 25% 25%, #1a1a1a 0%, transparent 50%), radial-gradient(circle at 75% 75%, #1a1a1a 0%, transparent 50%)",
+          backgroundColor: "#FFFFFF",
         }}
       >
-        {/* Logo and brand */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            marginBottom: 40,
+            gap: 32,
           }}
         >
-          {logoSrc ? (
+          {logoSrc && (
             <img
               src={logoSrc}
-              width={80}
-              height={80}
-              style={{ marginRight: 24 }}
+              width={220}
+              height={220}
             />
-          ) : (
+          )}
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "baseline" }}>
+              <span
+                style={{
+                  fontSize: 96,
+                  fontWeight: 800,
+                  color: "#E87A1E",
+                  letterSpacing: "-0.02em",
+                  lineHeight: 1,
+                }}
+              >
+                Shorted
+              </span>
+              <span
+                style={{
+                  fontSize: 48,
+                  fontWeight: 700,
+                  color: "#E87A1E",
+                  letterSpacing: "-0.01em",
+                  lineHeight: 1,
+                  marginLeft: 4,
+                }}
+              >
+                .com.au
+              </span>
+            </div>
+
             <div
               style={{
-                width: 80,
-                height: 80,
-                borderRadius: 16,
-                background:
-                  "linear-gradient(135deg, #f97316 0%, #ea580c 100%)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                marginRight: 24,
-                fontSize: 48,
-                color: "white",
+                width: "100%",
+                height: 3,
+                backgroundColor: "#E87A1E",
+                marginTop: 12,
+                marginBottom: 14,
+              }}
+            />
+
+            <span
+              style={{
+                fontSize: 38,
+                fontWeight: 600,
+                color: "#E87A1E",
+                fontStyle: "italic",
+                letterSpacing: "0.02em",
               }}
             >
-              S
-            </div>
-          )}
-          <span
-            style={{
-              fontSize: 72,
-              fontWeight: 700,
-              color: "#ffffff",
-              letterSpacing: "-0.02em",
-            }}
-          >
-            Shorted
-          </span>
-        </div>
-
-        {/* Tagline */}
-        <div
-          style={{
-            fontSize: 36,
-            color: "#a1a1aa",
-            textAlign: "center",
-            maxWidth: 900,
-            lineHeight: 1.4,
-          }}
-        >
-          Official ASIC Short Position Data
-        </div>
-
-        {/* Data source badge */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            marginTop: 16,
-            padding: "8px 20px",
-            borderRadius: 8,
-            backgroundColor: "rgba(249, 115, 22, 0.1)",
-            border: "1px solid rgba(249, 115, 22, 0.3)",
-          }}
-        >
-          <span style={{ fontSize: 18, color: "#f97316" }}>
-            T+4 Delayed Data from ASIC
-          </span>
-        </div>
-
-        {/* Features */}
-        <div
-          style={{
-            display: "flex",
-            gap: 40,
-            marginTop: 48,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              fontSize: 24,
-              color: "#71717a",
-            }}
-          >
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                backgroundColor: "#f97316",
-              }}
-            />
-            Official ASIC Data
+              Decode Market Sentiment
+            </span>
           </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              fontSize: 24,
-              color: "#71717a",
-            }}
-          >
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                backgroundColor: "#f97316",
-              }}
-            />
-            Interactive Charts
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              fontSize: 24,
-              color: "#71717a",
-            }}
-          >
-            <div
-              style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                backgroundColor: "#f97316",
-              }}
-            />
-            Industry Heatmaps
-          </div>
-        </div>
-
-        {/* Footer: URL + author */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 40,
-            display: "flex",
-            alignItems: "center",
-            gap: 16,
-            fontSize: 24,
-            color: "#52525b",
-          }}
-        >
-          <span>shorted.com.au</span>
-          <span style={{ color: "#3f3f46" }}>|</span>
-          <span style={{ fontSize: 20, color: "#3f3f46" }}>
-            By Ben Ebsworth
-          </span>
         </div>
       </div>
     ),
