@@ -525,6 +525,66 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		}
 	}))
 
+	// Add internal Algolia sync endpoint (requires INTERNAL_SERVICE_SECRET auth)
+	// Called by enrichment-processor after auto-approve and by ReviewEnrichment after manual approval.
+	mux.HandleFunc("/api/internal/algolia/sync-stock", adminAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Check if Algolia admin key is configured
+		if s.config.AlgoliaAppID == "" || s.config.AlgoliaAdminKey == "" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"synced":  false,
+				"message": "Algolia admin key not configured",
+			})
+			return
+		}
+
+		var reqBody struct {
+			StockCode string `json:"stock_code"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		stockCode := NormalizeStockCode(reqBody.StockCode)
+		if stockCode == "" {
+			http.Error(w, "stock_code is required", http.StatusBadRequest)
+			return
+		}
+
+		// Sync to Algolia
+		ctx := r.Context()
+		if err := s.syncStockToAlgolia(ctx, stockCode); err != nil {
+			logger.Errorf("Failed to sync %s to Algolia: %v", stockCode, err)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"synced":     false,
+				"stock_code": stockCode,
+				"error":      err.Error(),
+			})
+			return
+		}
+
+		logger.Infof("Synced %s to Algolia via internal API", stockCode)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"synced":     true,
+			"stock_code": stockCode,
+		})
+	}))
+
 	// Add statik file server
 	statikFS, err := fs.New()
 	if err != nil {

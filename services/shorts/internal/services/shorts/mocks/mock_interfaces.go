@@ -10,6 +10,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
@@ -519,6 +520,25 @@ func (m *MockShortsStore) UpdateLogoURLsWithSVG(stockCode, logoGCSURL, logoIconG
 func (mr *MockShortsStoreMockRecorder) UpdateLogoURLsWithSVG(stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateLogoURLsWithSVG", reflect.TypeOf((*MockShortsStore)(nil).UpdateLogoURLsWithSVG), stockCode, logoGCSURL, logoIconGCSURL, logoSVGGCSURL, logoSourceURL, logoFormat)
+}
+
+// QueryRowContext mocks base method.
+func (m *MockShortsStore) QueryRowContext(ctx context.Context, query string, args ...any) shorts.Row {
+	m.ctrl.T.Helper()
+	varargs := []any{ctx, query}
+	for _, a := range args {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "QueryRowContext", varargs...)
+	ret0, _ := ret[0].(shorts.Row)
+	return ret0
+}
+
+// QueryRowContext indicates an expected call of QueryRowContext.
+func (mr *MockShortsStoreMockRecorder) QueryRowContext(ctx, query any, args ...any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	varargs := append([]any{ctx, query}, args...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "QueryRowContext", reflect.TypeOf((*MockShortsStore)(nil).QueryRowContext), varargs...)
 }
 
 // UpsertAPISubscription mocks base method.

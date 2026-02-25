@@ -1,6 +1,7 @@
 package shorts
 
 import (
+	"context"
 	"log"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
@@ -151,6 +152,11 @@ func (s *StoreAdapter) GetWeeklyReport(weekSlug string) (*shorts.WeeklyReport, e
 
 func (s *StoreAdapter) GetStockFinancialHighlights(stockCodes []string, maxPerStock int) (map[string][]shorts.FinancialReportHighlight, error) {
 	return s.store.GetStockFinancialHighlights(stockCodes, maxPerStock)
+}
+
+// QueryRowContext delegates to the underlying store's QueryRowContext.
+func (s *StoreAdapter) QueryRowContext(ctx context.Context, query string, args ...interface{}) shorts.Row {
+	return s.store.QueryRowContext(ctx, query, args...)
 }
 
 // LoggerAdapter adapts the standard logger to the Logger interface

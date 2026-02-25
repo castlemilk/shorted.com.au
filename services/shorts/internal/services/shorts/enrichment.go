@@ -197,6 +197,8 @@ func (s *ShortsServer) ReviewEnrichment(ctx context.Context, req *connect.Reques
 			s.logger.Errorf("failed to apply enrichment for %s: %v", pending.StockCode, err)
 			return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to apply enrichment"))
 		}
+		// Sync to Algolia (fire-and-forget)
+		go s.notifyAlgoliaStockUpdated(pending.StockCode)
 	}
 
 	if err := s.store.ReviewEnrichment(enrichmentID, req.Msg.Approve, reviewer, reviewNotes); err != nil {
