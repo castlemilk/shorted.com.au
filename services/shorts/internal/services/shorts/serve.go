@@ -322,8 +322,11 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		} else {
 			// Parse POST body
 			var reqBody struct {
-				Query       string `json:"query"`
-				HitsPerPage int    `json:"hitsPerPage"`
+				Query        string        `json:"query"`
+				HitsPerPage  int           `json:"hitsPerPage"`
+				Filters      string        `json:"filters"`
+				FacetFilters []interface{} `json:"facetFilters"`
+				Facets       []string      `json:"facets"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
 				http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -332,6 +335,16 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			query = reqBody.Query
 			if reqBody.HitsPerPage > 0 {
 				hitsPerPage = reqBody.HitsPerPage
+			}
+			// Store extra params for forwarding
+			r.Header.Set("X-Algolia-Filters", reqBody.Filters)
+			if len(reqBody.FacetFilters) > 0 {
+				facetFiltersBytes, _ := json.Marshal(reqBody.FacetFilters)
+				r.Header.Set("X-Algolia-FacetFilters", string(facetFiltersBytes))
+			}
+			if len(reqBody.Facets) > 0 {
+				facetsBytes, _ := json.Marshal(reqBody.Facets)
+				r.Header.Set("X-Algolia-Facets", string(facetsBytes))
 			}
 		}
 
@@ -357,6 +370,22 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		algoliaReqBody := map[string]interface{}{
 			"query":       query,
 			"hitsPerPage": hitsPerPage,
+		}
+		// Forward optional filter/facet parameters
+		if filters := r.Header.Get("X-Algolia-Filters"); filters != "" {
+			algoliaReqBody["filters"] = filters
+		}
+		if facetFiltersStr := r.Header.Get("X-Algolia-FacetFilters"); facetFiltersStr != "" {
+			var facetFilters []interface{}
+			if json.Unmarshal([]byte(facetFiltersStr), &facetFilters) == nil {
+				algoliaReqBody["facetFilters"] = facetFilters
+			}
+		}
+		if facetsStr := r.Header.Get("X-Algolia-Facets"); facetsStr != "" {
+			var facets []string
+			if json.Unmarshal([]byte(facetsStr), &facets) == nil {
+				algoliaReqBody["facets"] = facets
+			}
 		}
 		reqBodyBytes, _ := json.Marshal(algoliaReqBody)
 

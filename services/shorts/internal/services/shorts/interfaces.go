@@ -60,6 +60,20 @@ type ShortsStore interface {
 	// Financial highlights
 	GetStockFinancialHighlights(stockCodes []string, maxPerStock int) (map[string][]shortsstore.FinancialReportHighlight, error)
 
+	// News methods
+	GetStockNews(stockCode string, limit int32, source, sentiment string) ([]*shortsstore.NewsArticle, int, error)
+	GetMarketNews(limit int32, source string, priceSensitiveOnly bool) ([]*shortsstore.NewsArticle, int, error)
+
+	// Director trade methods
+	GetDirectorTrades(stockCode string, limit int32) ([]*shortsstore.DirectorTrade, int, error)
+
+	// Dividend methods
+	GetDividendHistory(stockCode string, years int32) ([]*shortsstore.DividendRecord, int, error)
+
+	// Peer comparison methods
+	GetPeerComparison(stockCode string, limit int32) (*shortsstore.PeerComparisonResult, error)
+
+
 	// Raw query access (used for Algolia sync)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) shortsstore.Row
 }
@@ -82,6 +96,11 @@ type Cache interface {
 	GetSearchStocksKey(query string, limit int32) string
 	GetMarketByDateKey(date string, limit, offset int32) string
 	GetAvailableDatesKey(limit int32, before string) string
+	GetStockNewsKey(stockCode string, limit int32, source, sentiment string) string
+	GetMarketNewsKey(limit int32, source string, priceSensitiveOnly bool) string
+	GetDirectorTradesKey(stockCode string, limit int32) string
+	GetDividendHistoryKey(stockCode string, years int32) string
+	GetPeerComparisonKey(stockCode string, limit int32) string
 }
 
 // Logger defines the interface for logging operations

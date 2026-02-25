@@ -128,6 +128,12 @@ func buildStockDetailsQuery(ctx context.Context, db *pgxpool.Pool) (string, erro
 	return fmt.Sprintf(stockDetailsQueryTemplate, logoExpr), nil
 }
 
+// QueryRowContext executes a query that returns at most one row.
+// It wraps the underlying pgxpool.Pool.QueryRow.
+func (s *postgresStore) QueryRowContext(ctx context.Context, query string, args ...interface{}) Row {
+	return s.db.QueryRow(ctx, query, args...)
+}
+
 // GetStock retrieves a single stock by its ID, including metadata.
 func (s *postgresStore) GetStock(productCode string) (*stocksv1alpha1.Stock, error) {
 	query := `
@@ -3035,8 +3041,4 @@ func (s *postgresStore) UpdateKeyPeopleEnriched(stockCode string, keyPeopleJSON 
 	return nil
 }
 
-// QueryRowContext executes a query that is expected to return at most one row.
-func (s *postgresStore) QueryRowContext(ctx context.Context, query string, args ...interface{}) Row {
-	return s.db.QueryRow(ctx, query, args...)
-}
 

@@ -40,7 +40,30 @@ interface StockRecord {
   percentage_shorted: number;
   website: string;
   address: string;
-  market_cap: string; // TEXT in database
+  market_cap: string;
+  // New enriched fields
+  key_people_names: string;
+  key_people_roles: string[];
+  pe_ratio: number | null;
+  eps: number | null;
+  dividend_yield: number | null;
+  market_cap_numeric: number | null;
+}
+
+/** Parse human-readable market cap strings like "1.2B", "500M", "12.3T" to numeric */
+function parseMarketCap(marketCap: string): number | null {
+  if (!marketCap) return null;
+  const cleaned = marketCap.trim().toUpperCase();
+  const match = cleaned.match(/^[\$]?\s*([\d,.]+)\s*([KMBT])?$/);
+  if (!match) {
+    // Try parsing as raw number (some DB entries store raw integers)
+    const raw = parseFloat(cleaned.replace(/[,$]/g, ''));
+    return isNaN(raw) ? null : raw;
+  }
+  const num = parseFloat(match[1]!.replace(/,/g, ''));
+  if (isNaN(num)) return null;
+  const multipliers: Record<string, number> = { K: 1e3, M: 1e6, B: 1e9, T: 1e12 };
+  return num * (multipliers[match[2] ?? ''] ?? 1);
 }
 
 async function fetchStocksFromDatabase(): Promise<StockRecord[]> {
@@ -61,7 +84,7 @@ async function fetchStocksFromDatabase(): Promise<StockRecord[]> {
         FROM shorts
         ORDER BY "PRODUCT_CODE", "DATE" DESC
       )
-      SELECT 
+      SELECT
         m.stock_code,
         COALESCE(m.company_name, '') as company_name,
         COALESCE(m.industry, '') as industry,
@@ -77,7 +100,9 @@ async function fetchStocksFromDatabase(): Promise<StockRecord[]> {
         COALESCE(m.website, '') as website,
         COALESCE(m.address, '') as address,
         COALESCE(m.market_cap, '') as market_cap,
-        COALESCE(s.percentage_shorted, 0) as percentage_shorted
+        COALESCE(s.percentage_shorted, 0) as percentage_shorted,
+        COALESCE(m.key_people, '[]'::jsonb) as key_people,
+        COALESCE(m.key_metrics, '{}'::jsonb) as key_metrics
       FROM "company-metadata" m
       LEFT JOIN latest_shorts s ON m.stock_code = s.product_code
       WHERE m.stock_code IS NOT NULL AND m.stock_code != ''
@@ -87,25 +112,50 @@ async function fetchStocksFromDatabase(): Promise<StockRecord[]> {
     const result = await pool.query(query);
     console.log(`📊 Found ${result.rows.length} stocks in database`);
 
-    return result.rows.map(row => ({
-      objectID: row.stock_code,
-      stock_code: row.stock_code,
-      company_name: row.company_name,
-      industry: row.industry,
-      summary: row.summary,
-      details: row.details,
-      enhanced_summary: row.enhanced_summary,
-      company_history: row.company_history,
-      competitive_advantages: row.competitive_advantages,
-      risk_factors: row.risk_factors,
-      recent_developments: row.recent_developments,
-      tags: row.tags || [],
-      logo_gcs_url: row.logo_gcs_url,
-      percentage_shorted: parseFloat(row.percentage_shorted) || 0,
-      website: row.website,
-      address: row.address,
-      market_cap: row.market_cap || '',
-    }));
+    return result.rows.map(row => {
+      // Parse key_people JSONB — can be an array of {name, role, ...} objects
+      const keyPeople: Array<{ name?: string; role?: string }> = Array.isArray(row.key_people)
+        ? row.key_people
+        : [];
+
+      // Parse key_metrics JSONB — can be { pe_ratio, eps, dividend_yield, ... }
+      const keyMetrics = (typeof row.key_metrics === 'object' && row.key_metrics !== null)
+        ? row.key_metrics as Record<string, unknown>
+        : {};
+
+      const parseMetric = (val: unknown): number | null => {
+        if (val === null || val === undefined || val === '') return null;
+        const n = parseFloat(String(val));
+        return isNaN(n) ? null : n;
+      };
+
+      return {
+        objectID: row.stock_code,
+        stock_code: row.stock_code,
+        company_name: row.company_name,
+        industry: row.industry,
+        summary: row.summary,
+        details: row.details,
+        enhanced_summary: row.enhanced_summary,
+        company_history: row.company_history,
+        competitive_advantages: row.competitive_advantages,
+        risk_factors: row.risk_factors,
+        recent_developments: row.recent_developments,
+        tags: row.tags || [],
+        logo_gcs_url: row.logo_gcs_url,
+        percentage_shorted: parseFloat(row.percentage_shorted) || 0,
+        website: row.website,
+        address: row.address,
+        market_cap: row.market_cap || '',
+        // Enriched fields from JSONB
+        key_people_names: keyPeople.map(p => p.name).filter(Boolean).join(', '),
+        key_people_roles: keyPeople.map(p => `${p.name ?? ''} ${p.role ?? ''}`.trim()).filter(Boolean),
+        pe_ratio: parseMetric(keyMetrics.pe_ratio),
+        eps: parseMetric(keyMetrics.eps),
+        dividend_yield: parseMetric(keyMetrics.dividend_yield),
+        market_cap_numeric: parseMarketCap(row.market_cap || ''),
+      };
+    });
   } finally {
     await pool.end();
   }
@@ -151,23 +201,18 @@ async function syncToAlgolia(records: StockRecord[]): Promise<void> {
   await client.setSettings({
     indexName: ALGOLIA_INDEX,
     indexSettings: {
-      // Searchable attributes - use 'unordered' for elastic search across all fields
-      // This means all fields are searched equally, not in priority order
+      // Searchable attributes in RANKED order (top = highest priority)
+      // This ensures stock_code exact matches rank above body text mentions
       searchableAttributes: [
-        'unordered(stock_code)',
-        'unordered(company_name)',
-        'unordered(industry)',
-        'unordered(tags)',
-        'unordered(summary)',
-        'unordered(details)',
-        'unordered(enhanced_summary)',
-        'unordered(company_history)',
-        'unordered(competitive_advantages)',
-        'unordered(risk_factors)',
-        'unordered(recent_developments)',
-        'unordered(address)',
+        'stock_code',                                         // Tier 1: exact code match
+        'company_name',                                       // Tier 2: company name
+        'unordered(industry, tags)',                           // Tier 3: classification
+        'unordered(key_people_names, key_people_roles)',       // Tier 4: people
+        'unordered(summary, enhanced_summary)',                // Tier 5: descriptions
+        'unordered(company_history, competitive_advantages, risk_factors, recent_developments, details)', // Tier 6: deep content
+        'unordered(address)',                                  // Tier 7: location
       ],
-      
+
       // Attributes to return in search results
       attributesToRetrieve: [
         'objectID',
@@ -179,12 +224,20 @@ async function syncToAlgolia(records: StockRecord[]): Promise<void> {
         'percentage_shorted',
         'summary',
         'market_cap',
+        'market_cap_numeric',
+        'pe_ratio',
+        'dividend_yield',
+        'key_people_names',
       ],
-      
-      // Faceting - enable filtering by industry and tags
+
+      // Faceting — enable filtering by industry, tags, and numeric ranges
       attributesForFaceting: [
-        'searchable(industry)',   // Searchable facet for industry
-        'searchable(tags)',       // Searchable facet for tags
+        'searchable(industry)',
+        'searchable(tags)',
+        'filterOnly(percentage_shorted)',
+        'filterOnly(market_cap_numeric)',
+        'filterOnly(pe_ratio)',
+        'filterOnly(dividend_yield)',
       ],
       
       // Custom ranking (most shorted first by default)
@@ -206,6 +259,7 @@ async function syncToAlgolia(records: StockRecord[]): Promise<void> {
         'industry',
         'tags',
         'summary',
+        'key_people_names',
       ],
       
       // Snippet configuration for long text fields
@@ -246,10 +300,45 @@ async function syncToAlgolia(records: StockRecord[]): Promise<void> {
   });
 
   console.log('✅ Index settings configured!');
-  console.log('   - Elastic search across all fields enabled (unordered)');
-  console.log('   - Facets: industry, tags');
+  console.log('   - Ranked search: stock_code > company_name > industry/tags > people > descriptions');
+  console.log('   - Facets: industry, tags, percentage_shorted, market_cap_numeric, pe_ratio, dividend_yield');
   console.log('   - Typo tolerance enabled');
   console.log('   - Custom ranking by percentage_shorted');
+
+  // Configure synonyms for better matching
+  console.log('📚 Configuring synonyms...');
+  await configureSynonyms(client);
+  console.log('✅ Synonyms configured!');
+}
+
+async function configureSynonyms(client: ReturnType<typeof algoliasearch>): Promise<void> {
+  const synonyms = [
+    // Industry synonyms
+    { objectID: 'syn-mining', type: 'synonym' as const, synonyms: ['mining', 'resources', 'metals', 'minerals'] },
+    { objectID: 'syn-banking', type: 'synonym' as const, synonyms: ['banking', 'financial services', 'finance', 'bank'] },
+    { objectID: 'syn-tech', type: 'synonym' as const, synonyms: ['technology', 'tech', 'software', 'IT'] },
+    { objectID: 'syn-property', type: 'synonym' as const, synonyms: ['real estate', 'property', 'REIT'] },
+    { objectID: 'syn-energy', type: 'synonym' as const, synonyms: ['energy', 'oil', 'gas', 'petroleum'] },
+    { objectID: 'syn-healthcare', type: 'synonym' as const, synonyms: ['healthcare', 'health', 'pharma', 'biotech', 'medical'] },
+    { objectID: 'syn-retail', type: 'synonym' as const, synonyms: ['retail', 'consumer', 'shopping'] },
+    { objectID: 'syn-telco', type: 'synonym' as const, synonyms: ['telecommunications', 'telco', 'telecom'] },
+    // Common abbreviations (one-way: searching the input also matches the synonym)
+    { objectID: 'syn-cba', type: 'oneWaySynonym' as const, input: 'commbank', synonyms: ['commonwealth bank'] },
+    { objectID: 'syn-asx', type: 'oneWaySynonym' as const, input: 'asx', synonyms: ['australian securities exchange'] },
+    { objectID: 'syn-nab', type: 'oneWaySynonym' as const, input: 'nab', synonyms: ['national australia bank'] },
+    { objectID: 'syn-anz-alt', type: 'oneWaySynonym' as const, input: 'anz', synonyms: ['australia and new zealand banking'] },
+    { objectID: 'syn-westpac', type: 'oneWaySynonym' as const, input: 'westpac', synonyms: ['westpac banking corporation'] },
+    { objectID: 'syn-woolies', type: 'oneWaySynonym' as const, input: 'woolies', synonyms: ['woolworths'] },
+    { objectID: 'syn-coles', type: 'oneWaySynonym' as const, input: 'coles', synonyms: ['coles group'] },
+    { objectID: 'syn-lithium', type: 'synonym' as const, synonyms: ['lithium', 'battery metals', 'EV metals'] },
+  ];
+
+  await client.saveSynonyms({
+    indexName: ALGOLIA_INDEX,
+    synonymHits: synonyms,
+    forwardToReplicas: false,
+    replaceExistingSynonyms: true,
+  });
 }
 
 async function main(): Promise<void> {

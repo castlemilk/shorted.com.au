@@ -19,13 +19,32 @@ type Syncer struct {
 	client   *http.Client
 }
 
-// StockRecord represents a stock record for Algolia indexing
+// StockRecord represents a stock record for Algolia indexing.
+// Fields must stay aligned with the TS sync script (web/scripts/sync-algolia.ts).
 type StockRecord struct {
-	ObjectID    string   `json:"objectID"`
-	StockCode   string   `json:"stock_code"`
-	CompanyName string   `json:"company_name"`
-	Industry    string   `json:"industry,omitempty"`
-	Tags        []string `json:"tags,omitempty"`
+	ObjectID              string   `json:"objectID"`
+	StockCode             string   `json:"stock_code"`
+	CompanyName           string   `json:"company_name"`
+	Industry              string   `json:"industry,omitempty"`
+	Tags                  []string `json:"tags,omitempty"`
+	Summary               string   `json:"summary,omitempty"`
+	EnhancedSummary       string   `json:"enhanced_summary,omitempty"`
+	CompanyHistory        string   `json:"company_history,omitempty"`
+	CompetitiveAdvantages string   `json:"competitive_advantages,omitempty"`
+	RiskFactors           string   `json:"risk_factors,omitempty"`
+	RecentDevelopments    string   `json:"recent_developments,omitempty"`
+	Details               string   `json:"details,omitempty"`
+	KeyPeopleNames        string   `json:"key_people_names,omitempty"`
+	KeyPeopleRoles        []string `json:"key_people_roles,omitempty"`
+	LogoGCSURL            string   `json:"logo_gcs_url,omitempty"`
+	PercentageShorted     float64  `json:"percentage_shorted"`
+	Website               string   `json:"website,omitempty"`
+	Address               string   `json:"address,omitempty"`
+	MarketCap             string   `json:"market_cap,omitempty"`
+	MarketCapNumeric      *float64 `json:"market_cap_numeric,omitempty"`
+	PERatio               *float64 `json:"pe_ratio,omitempty"`
+	EPS                   *float64 `json:"eps,omitempty"`
+	DividendYield         *float64 `json:"dividend_yield,omitempty"`
 }
 
 // New creates a new Algolia Syncer
