@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { CheckCircle, ArrowRight, Sparkles, MessageSquare, Activity, Bell, LayoutDashboard } from "lucide-react";
+import Image from "next/image";
 import { Button } from "~/@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "~/@/components/ui/card";
 
@@ -9,8 +10,8 @@ function SuccessContent() {
     <div className="container max-w-2xl py-20">
       <Card className="border-green-500/20 shadow-lg shadow-green-500/5">
         <CardHeader className="text-center pb-2">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10">
-            <CheckCircle className="h-10 w-10 text-green-500" />
+          <div className="mx-auto mb-4">
+            <Image src="/assets/premium-icon-small.png" alt="" width={64} height={64} className="h-16 w-16" />
           </div>
           <CardTitle className="text-2xl">Welcome to Premium!</CardTitle>
           <CardDescription className="text-base">
@@ -48,10 +49,10 @@ function SuccessContent() {
           </div>
 
           <div className="flex flex-col gap-3">
-            <Button asChild className="w-full">
-              <Link href="/dashboards" className="flex items-center justify-center gap-2">
-                <LayoutDashboard className="h-4 w-4" />
-                Go to Dashboard
+            <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
+              <Link href="/docs/api" className="flex items-center justify-center gap-2">
+                <Image src="/assets/api-access-small.png" alt="" width={16} height={16} className="h-4 w-4" />
+                Generate Your API Key
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>

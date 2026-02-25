@@ -54,16 +54,20 @@ export function generatePython(endpoint: ParsedEndpoint, baseUrl: string): strin
 }
 
 export function generateTypescript(endpoint: ParsedEndpoint, baseUrl: string): string {
-  // This could be more elaborate, using generated types
-  return `import { createPromiseClient } from "@connectrpc/connect";
-import { createConnectTransport } from "@connectrpc/connect-web";
+  let ts = `const response = await fetch("${baseUrl}${endpoint.path}", {\n`;
+  ts += `  method: "${endpoint.method}",\n`;
+  ts += `  headers: {\n`;
+  ts += `    "Content-Type": "application/json",\n`;
+  ts += `    "Authorization": "Bearer YOUR_API_KEY",\n`;
+  ts += `  },\n`;
 
-const transport = createConnectTransport({
-  baseUrl: "${baseUrl}",
-});
+  if (endpoint.requestBody?.content?.['application/json']?.schema) {
+    ts += `  body: JSON.stringify(data),\n`;
+  }
 
-// Implementation details would go here based on Connect RPC patterns
-`;
+  ts += `});\n\n`;
+  ts += `const result: Record<string, unknown> = await response.json();`;
+  return ts;
 }
 
 export function generateGo(endpoint: ParsedEndpoint, baseUrl: string): string {

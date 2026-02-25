@@ -10,13 +10,13 @@ import {
   CardTitle,
 } from "~/@/components/ui/card";
 import {
-  Zap,
   Check,
   Loader2,
   CreditCard,
   ExternalLink,
   Settings,
 } from "lucide-react";
+import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { cn } from "~/@/lib/utils";
 import type { SubscriptionInfo } from "~/app/actions/subscription";
@@ -101,7 +101,7 @@ export function SubscriptionGate({
       <Card className="border-dashed">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <Zap className="h-5 w-5 text-yellow-500" />
+            <Image src="/assets/api-access-small.png" alt="" width={24} height={24} className="h-6 w-6" />
             API Access
           </CardTitle>
           <CardDescription>
@@ -175,7 +175,7 @@ export function SubscriptionGate({
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Zap className="h-5 w-5 text-yellow-500" />
+            <Image src="/assets/premium-icon-small.png" alt="" width={24} height={24} className="h-6 w-6" />
             Unlock API Access
           </CardTitle>
           <span className="text-2xl font-bold">

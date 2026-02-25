@@ -20,9 +20,9 @@ import {
   EyeOff,
   AlertTriangle,
   Shield,
-  Zap,
   Terminal,
 } from "lucide-react";
+import Image from "next/image";
 import { mintApiTokenAction } from "~/app/actions/mintToken";
 
 interface RateLimitTier {
@@ -104,9 +104,7 @@ export function ApiKeyManager() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <Key className="h-5 w-5 text-primary" />
-            </div>
+            <Image src="/assets/api-access-small.png" alt="" width={40} height={40} className="h-10 w-10" />
             <div>
               <CardTitle className="text-xl">API Token</CardTitle>
               <CardDescription>
@@ -213,9 +211,7 @@ export function ApiKeyManager() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <Zap className="h-5 w-5 text-primary" />
-            </div>
+            <Image src="/assets/premium-icon-small.png" alt="" width={40} height={40} className="h-10 w-10" />
             <div>
               <CardTitle className="text-xl">Rate Limits</CardTitle>
               <CardDescription>
