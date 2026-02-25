@@ -356,6 +356,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
