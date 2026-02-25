@@ -78,21 +78,65 @@ function formatWeekTitle(slug: string): string {
   return `Week ${parseInt(match[2])}, ${match[1]}`;
 }
 
-export default async function Page() {
-  // Use getAvailableWeekSlugs which excludes the current incomplete week,
-  // then find the first slug that has an enhanced report ready
+async function WeeklyReportBanner() {
   const availableSlugs = await getAvailableWeekSlugs();
+  const candidates = availableSlugs.slice(0, 3);
+  const results = await Promise.all(
+    candidates.map((slug) => getEnhancedWeeklyReportData(slug))
+  );
+
   let report: Awaited<ReturnType<typeof getEnhancedWeeklyReportData>> = null;
   let reportSlug = "";
-  for (const slug of availableSlugs.slice(0, 3)) {
-    const data = await getEnhancedWeeklyReportData(slug);
-    if (data?.headline) {
-      report = data;
+  for (let i = 0; i < candidates.length; i++) {
+    const result = results[i];
+    const slug = candidates[i];
+    if (result?.headline && slug) {
+      report = result;
       reportSlug = slug;
       break;
     }
   }
 
+  if (!report) return null;
+
+  return (
+    <div className="container mx-auto px-4 pb-4">
+      <Link
+        href={`/reports/weekly/${reportSlug}`}
+        className="group block rounded-lg border border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10 p-4 hover:border-primary/40 transition-colors"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 bg-primary/10 rounded-md shrink-0">
+              <FileText className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-primary uppercase tracking-wider">
+                  Latest Report
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {formatWeekTitle(reportSlug)}
+                </span>
+              </div>
+              <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                {report.headline}
+              </p>
+              {report.summary && (
+                <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                  {report.summary}
+                </p>
+              )}
+            </div>
+          </div>
+          <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors shrink-0 ml-2" />
+        </div>
+      </Link>
+    </div>
+  );
+}
+
+export default async function Page() {
   return (
     <main className="min-h-screen flex flex-col bg-transparent">
       {/* FAQ Structured Data for rich snippets */}
@@ -137,42 +181,10 @@ export default async function Page() {
         <BreakingNewsBanner />
       </div>
 
-      {/* Latest Weekly Report Banner */}
-      {report && (
-        <div className="container mx-auto px-4 pb-4">
-          <Link
-            href={`/reports/weekly/${reportSlug}`}
-            className="group block rounded-lg border border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10 p-4 hover:border-primary/40 transition-colors"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="p-2 bg-primary/10 rounded-md shrink-0">
-                  <FileText className="h-5 w-5 text-primary" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-primary uppercase tracking-wider">
-                      Latest Report
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatWeekTitle(reportSlug)}
-                    </span>
-                  </div>
-                  <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
-                    {report.headline}
-                  </p>
-                  {report.summary && (
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                      {report.summary}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors shrink-0 ml-2" />
-            </div>
-          </Link>
-        </div>
-      )}
+      {/* Latest Weekly Report Banner — streamed via Suspense */}
+      <Suspense fallback={null}>
+        <WeeklyReportBanner />
+      </Suspense>
 
       {/* Premium upsell for authenticated free-tier users */}
       <Suspense fallback={null}>
