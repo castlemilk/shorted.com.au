@@ -1,6 +1,6 @@
 {
   "name": "shorted",
-  "version": "v0.2.2-827-g773f7deb-dirty",
+  "version": "v0.2.2-837-gd8985f24-dirty",
   "private": true,
   "type": "module",
   "moduleResolution": "Node",
@@ -132,7 +132,7 @@
     "@radix-ui/react-separator": "^1.0.3",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-switch": "^1.2.5",
-    "@radix-ui/react-tabs": "^1.1.12",
+    "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-toggle": "^1.0.3",
     "@radix-ui/react-toggle-group": "^1.0.4",
     "@radix-ui/react-tooltip": "^1.0.7",

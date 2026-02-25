@@ -14,7 +14,7 @@ import CompanyFinancials,{
   CompanyFinancialsPlaceholder,
 } from "~/@/components/ui/companyFinancials";
 import { EnrichedCompanySection } from "~/@/components/company/enriched-company-section";
-import { EnrichmentTrigger } from "~/@/components/admin/enrichment-trigger";
+import { StockTabs } from "~/@/components/company/stock-tabs";
 import { Suspense } from "react";
 import { StockStructuredData } from "~/@/components/seo/structured-data";
 import {
@@ -214,8 +214,8 @@ const Page = async ({ params }: PageProps) => {
         <Breadcrumbs items={breadcrumbItems} />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-start">
-        {/* Row 1: Profile & Short Stats */}
+      {/* Header: Profile & Stats (always visible above tabs) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-start mb-6">
         <div className="md:col-span-2">
           <Suspense fallback={<CompanyProfilePlaceholder />}>
             <CompanyProfile stockCode={stockCode} />
@@ -226,78 +226,89 @@ const Page = async ({ params }: PageProps) => {
             <CompanyStats stockCode={stockCode} />
           </Suspense>
         </div>
-
-        {/* Row 2: About & Short Trend Chart */}
-        <div className="md:col-span-1 flex flex-col gap-4 md:gap-6">
-          <Suspense fallback={<CompanyInfoPlaceholder />}>
-            <CompanyInfo stockCode={stockCode} />
-          </Suspense>
-          <Suspense fallback={<CompanyFinancialsPlaceholder />}>
-            <CompanyFinancials stockCode={stockCode} />
-          </Suspense>
-          <EnrichmentTrigger stockCode={stockCode} />
-
-          {/* Related stocks for internal linking */}
-          {relatedData.stocks.length > 0 && (
-            <RelatedStocks
-              stocks={relatedData.stocks}
-              currentStock={stockCode}
-              industrySlug={relatedData.industrySlug}
-              title={`More ${relatedData.industry} Stocks`}
-              description="Other shorted stocks in this sector"
-            />
-          )}
-        </div>
-        
-        <div className="md:col-span-2 flex flex-col gap-4 md:gap-6">
-          {/* Short Position Trends */}
-          <Card className="border-l-4 border-l-red-500 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
-            <CardHeader className="pb-4 bg-gradient-to-r from-red-50/50 to-transparent dark:from-red-950/20 dark:to-transparent">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-red-100 dark:bg-red-900/40 rounded-lg shadow-sm">
-                  <TrendingDown className="h-6 w-6 text-red-600 dark:text-red-400" />
-                </div>
-                <div className="flex-1">
-                  <CardTitle className="text-xl text-red-900 dark:text-red-100">
-                    Short Position Trends
-                  </CardTitle>
-                  <CardDescription className="mt-1.5 text-sm">
-                    Track bearish sentiment and short interest over time
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-2">
-              <Chart stockCode={stockCode} />
-            </CardContent>
-          </Card>
-
-          {/* Historical Price Data */}
-          <Card className="border-l-4 border-l-blue-500 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
-            <CardHeader className="pb-4 bg-gradient-to-r from-blue-50/50 to-transparent dark:from-blue-950/20 dark:to-transparent">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-blue-100 dark:bg-blue-900/40 rounded-lg shadow-sm">
-                  <CandlestickChart className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div className="flex-1">
-                  <CardTitle className="text-xl text-blue-900 dark:text-blue-100">
-                    Historical Price Data
-                  </CardTitle>
-                  <CardDescription className="mt-1.5 text-sm">
-                    View stock price movements, volume, and trading patterns
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-2">
-              <MarketChart stockCode={stockCode} />
-            </CardContent>
-          </Card>
-
-          {/* Enriched Company Insights */}
-          <EnrichedCompanySection stockCode={stockCode} />
-        </div>
       </div>
+
+      {/* Tabbed content area */}
+      <StockTabs
+        stockCode={stockCode}
+        overviewContent={
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-start">
+            <div className="md:col-span-1 flex flex-col gap-4 md:gap-6">
+              <Suspense fallback={<CompanyInfoPlaceholder />}>
+                <CompanyInfo stockCode={stockCode} />
+              </Suspense>
+
+              {/* Related stocks for internal linking */}
+              {relatedData.stocks.length > 0 && (
+                <RelatedStocks
+                  stocks={relatedData.stocks}
+                  currentStock={stockCode}
+                  industrySlug={relatedData.industrySlug}
+                  title={`More ${relatedData.industry} Stocks`}
+                  description="Other shorted stocks in this sector"
+                />
+              )}
+            </div>
+
+            <div className="md:col-span-2 flex flex-col gap-4 md:gap-6">
+              {/* Short Position Trends */}
+              <Card className="border-l-4 border-l-red-500 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <CardHeader className="pb-4 bg-gradient-to-r from-red-50/50 to-transparent dark:from-red-950/20 dark:to-transparent">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-red-100 dark:bg-red-900/40 rounded-lg shadow-sm">
+                      <TrendingDown className="h-6 w-6 text-red-600 dark:text-red-400" />
+                    </div>
+                    <div className="flex-1">
+                      <CardTitle className="text-xl text-red-900 dark:text-red-100">
+                        Short Position Trends
+                      </CardTitle>
+                      <CardDescription className="mt-1.5 text-sm">
+                        Track bearish sentiment and short interest over time
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-2">
+                  <Chart stockCode={stockCode} />
+                </CardContent>
+              </Card>
+
+              {/* Historical Price Data */}
+              <Card className="border-l-4 border-l-blue-500 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <CardHeader className="pb-4 bg-gradient-to-r from-blue-50/50 to-transparent dark:from-blue-950/20 dark:to-transparent">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-blue-100 dark:bg-blue-900/40 rounded-lg shadow-sm">
+                      <CandlestickChart className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="flex-1">
+                      <CardTitle className="text-xl text-blue-900 dark:text-blue-100">
+                        Historical Price Data
+                      </CardTitle>
+                      <CardDescription className="mt-1.5 text-sm">
+                        View stock price movements, volume, and trading patterns
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-2">
+                  <MarketChart stockCode={stockCode} />
+                </CardContent>
+              </Card>
+
+              {/* Enriched Company Insights */}
+              <EnrichedCompanySection stockCode={stockCode} />
+            </div>
+          </div>
+        }
+        financialsContent={
+          <div className="flex flex-col gap-4 md:gap-6">
+            <Suspense fallback={<CompanyFinancialsPlaceholder />}>
+              <CompanyFinancials stockCode={stockCode} />
+            </Suspense>
+            <EnrichedCompanySection stockCode={stockCode} />
+          </div>
+        }
+      />
     </DashboardLayout>
   );
 };
