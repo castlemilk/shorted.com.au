@@ -46,6 +46,12 @@ variable "image_tag" {
   default     = ""
 }
 
+variable "shorts_api_url" {
+  description = "URL of the shorts API service (for Algolia sync callbacks after enrichment)"
+  type        = string
+  default     = ""
+}
+
 variable "otel_endpoint" {
   description = "OpenTelemetry OTLP endpoint for traces and metrics"
   type        = string

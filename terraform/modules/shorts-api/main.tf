@@ -47,6 +47,14 @@ resource "google_secret_manager_secret_iam_member" "algolia_search_key" {
   project   = var.project_id
 }
 
+# Grant access to Algolia Admin key (for post-enrichment sync)
+resource "google_secret_manager_secret_iam_member" "algolia_admin_key" {
+  secret_id = "ALGOLIA_ADMIN_KEY"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.shorts_api.email}"
+  project   = var.project_id
+}
+
 # Grant access to OpenAI API key secret (for enrichment)
 resource "google_secret_manager_secret_iam_member" "openai_api_key" {
   secret_id = "OPENAI_API_KEY"
@@ -172,6 +180,16 @@ resource "google_cloud_run_v2_service" "shorts_api" {
       }
 
       env {
+        name = "ALGOLIA_ADMIN_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = "ALGOLIA_ADMIN_KEY"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
         name  = "ALGOLIA_INDEX"
         value = "stocks"
       }
@@ -279,6 +297,7 @@ resource "google_cloud_run_v2_service" "shorts_api" {
     google_secret_manager_secret_iam_member.postgres_password,
     google_secret_manager_secret_iam_member.algolia_app_id,
     google_secret_manager_secret_iam_member.algolia_search_key,
+    google_secret_manager_secret_iam_member.algolia_admin_key,
     google_secret_manager_secret_iam_member.openai_api_key,
     google_secret_manager_secret_iam_member.internal_service_secret,
     google_secret_manager_secret_iam_member.token_secret,
