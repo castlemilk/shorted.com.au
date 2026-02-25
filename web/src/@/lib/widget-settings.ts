@@ -10,6 +10,7 @@ import {
   type SectorPerformanceSettings,
   type CorrelationMatrixSettings,
   type MarketWatchlistSettings,
+  type NewsFeedSettings,
 } from "@/types/dashboard";
 
 /**
@@ -73,6 +74,12 @@ export const defaultWidgetSettings: WidgetSettingsMap = {
     timeInterval: "1m",
     refreshInterval: 120000,
   } as MarketWatchlistSettings,
+
+  [WidgetType.NEWS_FEED]: {
+    limit: 10,
+    priceSensitiveOnly: false,
+    refreshInterval: 300000,
+  } as NewsFeedSettings,
 };
 
 /**
@@ -120,6 +127,8 @@ export function isSettingsOfType<T extends WidgetType>(
       return "stocks" in settings;
     case WidgetType.MARKET_WATCHLIST:
       return "stocks" in settings || "timeInterval" in settings;
+    case WidgetType.NEWS_FEED:
+      return "limit" in settings || "priceSensitiveOnly" in settings;
     default:
       return true;
   }

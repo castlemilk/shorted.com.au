@@ -37,6 +37,10 @@ const shortsApiUrl =
   process.env.NEXT_PUBLIC_API_URL ??
   "http://localhost:9091";
 
+const chatApiUrl =
+  process.env.NEXT_PUBLIC_CHAT_SERVICE_ENDPOINT ??
+  "http://localhost:8080";
+
 const config = {
   output: "standalone", // Enable standalone mode for Docker
   // Proxy Connect-RPC and backend API requests to avoid CORS issues.
@@ -85,6 +89,10 @@ const config = {
       {
         source: "/api/stocks/:path*",
         destination: `${shortsApiUrl}/api/stocks/:path*`,
+      },
+      {
+        source: "/chat.v1.ChatService/:path*",
+        destination: `${chatApiUrl}/chat.v1.ChatService/:path*`,
       },
     ];
   },
