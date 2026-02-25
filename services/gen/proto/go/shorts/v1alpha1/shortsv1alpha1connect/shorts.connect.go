@@ -103,6 +103,21 @@ const (
 	// ShortedStocksServiceGetStockFinancialHighlightsProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetStockFinancialHighlights RPC.
 	ShortedStocksServiceGetStockFinancialHighlightsProcedure = "/shorts.v1alpha1.ShortedStocksService/GetStockFinancialHighlights"
+	// ShortedStocksServiceGetStockNewsProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetStockNews RPC.
+	ShortedStocksServiceGetStockNewsProcedure = "/shorts.v1alpha1.ShortedStocksService/GetStockNews"
+	// ShortedStocksServiceGetMarketNewsProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetMarketNews RPC.
+	ShortedStocksServiceGetMarketNewsProcedure = "/shorts.v1alpha1.ShortedStocksService/GetMarketNews"
+	// ShortedStocksServiceGetDirectorTradesProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetDirectorTrades RPC.
+	ShortedStocksServiceGetDirectorTradesProcedure = "/shorts.v1alpha1.ShortedStocksService/GetDirectorTrades"
+	// ShortedStocksServiceGetDividendHistoryProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetDividendHistory RPC.
+	ShortedStocksServiceGetDividendHistoryProcedure = "/shorts.v1alpha1.ShortedStocksService/GetDividendHistory"
+	// ShortedStocksServiceGetPeerComparisonProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetPeerComparison RPC.
+	ShortedStocksServiceGetPeerComparisonProcedure = "/shorts.v1alpha1.ShortedStocksService/GetPeerComparison"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -131,6 +146,11 @@ var (
 	shortedStocksServiceGetMySubscriptionMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetMySubscription")
 	shortedStocksServiceGetWeeklyReportMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("GetWeeklyReport")
 	shortedStocksServiceGetStockFinancialHighlightsMethodDescriptor     = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockFinancialHighlights")
+	shortedStocksServiceGetStockNewsMethodDescriptor                    = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockNews")
+	shortedStocksServiceGetMarketNewsMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("GetMarketNews")
+	shortedStocksServiceGetDirectorTradesMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetDirectorTrades")
+	shortedStocksServiceGetDividendHistoryMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("GetDividendHistory")
+	shortedStocksServiceGetPeerComparisonMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPeerComparison")
 )
 
 // ShortedStocksServiceClient is a client for the shorts.v1alpha1.ShortedStocksService service.
@@ -182,6 +202,16 @@ type ShortedStocksServiceClient interface {
 	GetWeeklyReport(context.Context, *connect.Request[v1alpha1.GetWeeklyReportRequest]) (*connect.Response[v1alpha1.GetWeeklyReportResponse], error)
 	// Get extracted financial highlights for specific stocks
 	GetStockFinancialHighlights(context.Context, *connect.Request[v1alpha1.GetStockFinancialHighlightsRequest]) (*connect.Response[v1alpha1.GetStockFinancialHighlightsResponse], error)
+	// Get recent news articles for a specific stock
+	GetStockNews(context.Context, *connect.Request[v1alpha1.GetStockNewsRequest]) (*connect.Response[v1alpha1.GetStockNewsResponse], error)
+	// Get market-wide news across all stocks
+	GetMarketNews(context.Context, *connect.Request[v1alpha1.GetMarketNewsRequest]) (*connect.Response[v1alpha1.GetMarketNewsResponse], error)
+	// Get director (insider) trades for a specific stock
+	GetDirectorTrades(context.Context, *connect.Request[v1alpha1.GetDirectorTradesRequest]) (*connect.Response[v1alpha1.GetDirectorTradesResponse], error)
+	// Get dividend history for a specific stock
+	GetDividendHistory(context.Context, *connect.Request[v1alpha1.GetDividendHistoryRequest]) (*connect.Response[v1alpha1.GetDividendHistoryResponse], error)
+	// Get peer comparison for a stock within its industry
+	GetPeerComparison(context.Context, *connect.Request[v1alpha1.GetPeerComparisonRequest]) (*connect.Response[v1alpha1.GetPeerComparisonResponse], error)
 }
 
 // NewShortedStocksServiceClient constructs a client for the shorts.v1alpha1.ShortedStocksService
@@ -332,6 +362,36 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceGetStockFinancialHighlightsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getStockNews: connect.NewClient[v1alpha1.GetStockNewsRequest, v1alpha1.GetStockNewsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetStockNewsProcedure,
+			connect.WithSchema(shortedStocksServiceGetStockNewsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getMarketNews: connect.NewClient[v1alpha1.GetMarketNewsRequest, v1alpha1.GetMarketNewsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetMarketNewsProcedure,
+			connect.WithSchema(shortedStocksServiceGetMarketNewsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getDirectorTrades: connect.NewClient[v1alpha1.GetDirectorTradesRequest, v1alpha1.GetDirectorTradesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetDirectorTradesProcedure,
+			connect.WithSchema(shortedStocksServiceGetDirectorTradesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getDividendHistory: connect.NewClient[v1alpha1.GetDividendHistoryRequest, v1alpha1.GetDividendHistoryResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetDividendHistoryProcedure,
+			connect.WithSchema(shortedStocksServiceGetDividendHistoryMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getPeerComparison: connect.NewClient[v1alpha1.GetPeerComparisonRequest, v1alpha1.GetPeerComparisonResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetPeerComparisonProcedure,
+			connect.WithSchema(shortedStocksServiceGetPeerComparisonMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -360,6 +420,11 @@ type shortedStocksServiceClient struct {
 	getMySubscription               *connect.Client[v1alpha1.GetMySubscriptionRequest, v1alpha1.GetMySubscriptionResponse]
 	getWeeklyReport                 *connect.Client[v1alpha1.GetWeeklyReportRequest, v1alpha1.GetWeeklyReportResponse]
 	getStockFinancialHighlights     *connect.Client[v1alpha1.GetStockFinancialHighlightsRequest, v1alpha1.GetStockFinancialHighlightsResponse]
+	getStockNews                    *connect.Client[v1alpha1.GetStockNewsRequest, v1alpha1.GetStockNewsResponse]
+	getMarketNews                   *connect.Client[v1alpha1.GetMarketNewsRequest, v1alpha1.GetMarketNewsResponse]
+	getDirectorTrades               *connect.Client[v1alpha1.GetDirectorTradesRequest, v1alpha1.GetDirectorTradesResponse]
+	getDividendHistory              *connect.Client[v1alpha1.GetDividendHistoryRequest, v1alpha1.GetDividendHistoryResponse]
+	getPeerComparison               *connect.Client[v1alpha1.GetPeerComparisonRequest, v1alpha1.GetPeerComparisonResponse]
 }
 
 // GetTopShorts calls shorts.v1alpha1.ShortedStocksService.GetTopShorts.
@@ -480,6 +545,31 @@ func (c *shortedStocksServiceClient) GetStockFinancialHighlights(ctx context.Con
 	return c.getStockFinancialHighlights.CallUnary(ctx, req)
 }
 
+// GetStockNews calls shorts.v1alpha1.ShortedStocksService.GetStockNews.
+func (c *shortedStocksServiceClient) GetStockNews(ctx context.Context, req *connect.Request[v1alpha1.GetStockNewsRequest]) (*connect.Response[v1alpha1.GetStockNewsResponse], error) {
+	return c.getStockNews.CallUnary(ctx, req)
+}
+
+// GetMarketNews calls shorts.v1alpha1.ShortedStocksService.GetMarketNews.
+func (c *shortedStocksServiceClient) GetMarketNews(ctx context.Context, req *connect.Request[v1alpha1.GetMarketNewsRequest]) (*connect.Response[v1alpha1.GetMarketNewsResponse], error) {
+	return c.getMarketNews.CallUnary(ctx, req)
+}
+
+// GetDirectorTrades calls shorts.v1alpha1.ShortedStocksService.GetDirectorTrades.
+func (c *shortedStocksServiceClient) GetDirectorTrades(ctx context.Context, req *connect.Request[v1alpha1.GetDirectorTradesRequest]) (*connect.Response[v1alpha1.GetDirectorTradesResponse], error) {
+	return c.getDirectorTrades.CallUnary(ctx, req)
+}
+
+// GetDividendHistory calls shorts.v1alpha1.ShortedStocksService.GetDividendHistory.
+func (c *shortedStocksServiceClient) GetDividendHistory(ctx context.Context, req *connect.Request[v1alpha1.GetDividendHistoryRequest]) (*connect.Response[v1alpha1.GetDividendHistoryResponse], error) {
+	return c.getDividendHistory.CallUnary(ctx, req)
+}
+
+// GetPeerComparison calls shorts.v1alpha1.ShortedStocksService.GetPeerComparison.
+func (c *shortedStocksServiceClient) GetPeerComparison(ctx context.Context, req *connect.Request[v1alpha1.GetPeerComparisonRequest]) (*connect.Response[v1alpha1.GetPeerComparisonResponse], error) {
+	return c.getPeerComparison.CallUnary(ctx, req)
+}
+
 // ShortedStocksServiceHandler is an implementation of the shorts.v1alpha1.ShortedStocksService
 // service.
 type ShortedStocksServiceHandler interface {
@@ -530,6 +620,16 @@ type ShortedStocksServiceHandler interface {
 	GetWeeklyReport(context.Context, *connect.Request[v1alpha1.GetWeeklyReportRequest]) (*connect.Response[v1alpha1.GetWeeklyReportResponse], error)
 	// Get extracted financial highlights for specific stocks
 	GetStockFinancialHighlights(context.Context, *connect.Request[v1alpha1.GetStockFinancialHighlightsRequest]) (*connect.Response[v1alpha1.GetStockFinancialHighlightsResponse], error)
+	// Get recent news articles for a specific stock
+	GetStockNews(context.Context, *connect.Request[v1alpha1.GetStockNewsRequest]) (*connect.Response[v1alpha1.GetStockNewsResponse], error)
+	// Get market-wide news across all stocks
+	GetMarketNews(context.Context, *connect.Request[v1alpha1.GetMarketNewsRequest]) (*connect.Response[v1alpha1.GetMarketNewsResponse], error)
+	// Get director (insider) trades for a specific stock
+	GetDirectorTrades(context.Context, *connect.Request[v1alpha1.GetDirectorTradesRequest]) (*connect.Response[v1alpha1.GetDirectorTradesResponse], error)
+	// Get dividend history for a specific stock
+	GetDividendHistory(context.Context, *connect.Request[v1alpha1.GetDividendHistoryRequest]) (*connect.Response[v1alpha1.GetDividendHistoryResponse], error)
+	// Get peer comparison for a stock within its industry
+	GetPeerComparison(context.Context, *connect.Request[v1alpha1.GetPeerComparisonRequest]) (*connect.Response[v1alpha1.GetPeerComparisonResponse], error)
 }
 
 // NewShortedStocksServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -676,6 +776,36 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceGetStockFinancialHighlightsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceGetStockNewsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetStockNewsProcedure,
+		svc.GetStockNews,
+		connect.WithSchema(shortedStocksServiceGetStockNewsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetMarketNewsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetMarketNewsProcedure,
+		svc.GetMarketNews,
+		connect.WithSchema(shortedStocksServiceGetMarketNewsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetDirectorTradesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetDirectorTradesProcedure,
+		svc.GetDirectorTrades,
+		connect.WithSchema(shortedStocksServiceGetDirectorTradesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetDividendHistoryHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetDividendHistoryProcedure,
+		svc.GetDividendHistory,
+		connect.WithSchema(shortedStocksServiceGetDividendHistoryMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetPeerComparisonHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetPeerComparisonProcedure,
+		svc.GetPeerComparison,
+		connect.WithSchema(shortedStocksServiceGetPeerComparisonMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.ShortedStocksService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ShortedStocksServiceGetTopShortsProcedure:
@@ -724,6 +854,16 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetWeeklyReportHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetStockFinancialHighlightsProcedure:
 			shortedStocksServiceGetStockFinancialHighlightsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetStockNewsProcedure:
+			shortedStocksServiceGetStockNewsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetMarketNewsProcedure:
+			shortedStocksServiceGetMarketNewsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetDirectorTradesProcedure:
+			shortedStocksServiceGetDirectorTradesHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetDividendHistoryProcedure:
+			shortedStocksServiceGetDividendHistoryHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetPeerComparisonProcedure:
+			shortedStocksServiceGetPeerComparisonHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -823,4 +963,24 @@ func (UnimplementedShortedStocksServiceHandler) GetWeeklyReport(context.Context,
 
 func (UnimplementedShortedStocksServiceHandler) GetStockFinancialHighlights(context.Context, *connect.Request[v1alpha1.GetStockFinancialHighlightsRequest]) (*connect.Response[v1alpha1.GetStockFinancialHighlightsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetStockFinancialHighlights is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetStockNews(context.Context, *connect.Request[v1alpha1.GetStockNewsRequest]) (*connect.Response[v1alpha1.GetStockNewsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetStockNews is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetMarketNews(context.Context, *connect.Request[v1alpha1.GetMarketNewsRequest]) (*connect.Response[v1alpha1.GetMarketNewsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetMarketNews is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetDirectorTrades(context.Context, *connect.Request[v1alpha1.GetDirectorTradesRequest]) (*connect.Response[v1alpha1.GetDirectorTradesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetDirectorTrades is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetDividendHistory(context.Context, *connect.Request[v1alpha1.GetDividendHistoryRequest]) (*connect.Response[v1alpha1.GetDividendHistoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetDividendHistory is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetPeerComparison(context.Context, *connect.Request[v1alpha1.GetPeerComparisonRequest]) (*connect.Response[v1alpha1.GetPeerComparisonResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetPeerComparison is not implemented"))
 }

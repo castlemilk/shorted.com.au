@@ -16,7 +16,12 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/market-data-sync/config"
 	"github.com/castlemilk/shorted.com.au/services/market-data-sync/providers"
 	"github.com/castlemilk/shorted.com.au/services/market-data-sync/sync"
+	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	otelmetric "go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/api/option"
 )
 
@@ -24,6 +29,23 @@ func main() {
 	// Parse flags
 	cliMode := flag.Bool("cli", false, "Run in CLI mode (full sync and exit)")
 	flag.Parse()
+
+	// Initialize OpenTelemetry early so spans/metrics are captured for the full run.
+	// The shutdown function flushes all pending spans and metrics before exit —
+	// critical for serverless/Cloud Run Jobs where the process exits after one run.
+	otelShutdown, err := shortedotel.InitProvider(context.Background(), "shorted-market-data-sync")
+	if err != nil {
+		log.Printf("⚠️ Failed to initialize OTel: %v", err)
+	}
+	defer func() {
+		if otelShutdown != nil {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+			if err := otelShutdown(shutdownCtx); err != nil {
+				log.Printf("⚠️ OTel shutdown error: %v", err)
+			}
+		}
+	}()
 
 	// 1. Load configuration
 	cfg := config.Load()
@@ -123,13 +145,44 @@ func main() {
 
 	syncManager := sync.NewSyncManager(pool, gcsClient, cfg, dataProviders)
 	log.Printf("🚀 Starting Market Data Sync (CLI mode)")
-	if err := syncManager.Run(ctx); err != nil {
+
+	// Wrap the sync run in an OTel span and record metrics
+	tracer := otel.Tracer("shorted.sync")
+	syncCtx, span := tracer.Start(ctx, "sync.run",
+		trace.WithSpanKind(trace.SpanKindInternal),
+		trace.WithAttributes(
+			attribute.String("sync.type", "market-data-sync"),
+		),
+	)
+
+	start := time.Now()
+	syncErr := syncManager.Run(syncCtx)
+	duration := time.Since(start).Seconds()
+	span.End()
+
+	// Record sync metrics
+	attrs := otelmetric.WithAttributes(attribute.String("job", "market-data-sync"))
+	shortedotel.SyncDuration.Record(ctx, duration, attrs)
+	if syncErr != nil {
+		shortedotel.SyncStatus.Add(ctx, 1, otelmetric.WithAttributes(
+			attribute.String("job", "market-data-sync"),
+			attribute.String("status", "failure"),
+		))
 		if ctx.Err() != nil {
-			log.Printf("⏹️ Sync interrupted: %v", err)
+			log.Printf("⏹️ Sync interrupted: %v", syncErr)
 			os.Exit(130) // Standard exit code for SIGINT
 		}
-		log.Fatalf("❌ Sync failed: %v", err)
+		log.Fatalf("❌ Sync failed: %v", syncErr)
 	}
+
+	shortedotel.SyncStatus.Add(ctx, 1, otelmetric.WithAttributes(
+		attribute.String("job", "market-data-sync"),
+		attribute.String("status", "success"),
+	))
+	shortedotel.SyncLastSuccess.Record(ctx, time.Now().Unix(), otelmetric.WithAttributes(
+		attribute.String("job", "market-data-sync"),
+	))
+
 	log.Printf("🎉 Market Data Sync completed successfully")
 }
 

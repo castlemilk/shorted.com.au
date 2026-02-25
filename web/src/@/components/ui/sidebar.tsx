@@ -10,16 +10,27 @@ import {
   LineChart,
   FileText,
   Code2,
+  Activity,
+  Bell,
+  Lock,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
+import { useSubscription } from "~/@/hooks/use-subscription";
 
 interface SidebarProps {
   className?: string;
 }
 
-const sidebarItems = [
+interface SidebarItem {
+  title: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  premium?: boolean;
+}
+
+const sidebarItems: SidebarItem[] = [
   {
     title: "Dashboard",
     href: "/dashboards",
@@ -46,6 +57,18 @@ const sidebarItems = [
     icon: Briefcase,
   },
   {
+    title: "Pulse",
+    href: "/pulse",
+    icon: Activity,
+    premium: true,
+  },
+  {
+    title: "Alerts",
+    href: "/alerts",
+    icon: Bell,
+    premium: true,
+  },
+  {
     title: "Developer",
     href: "/developer",
     icon: Code2,
@@ -55,14 +78,15 @@ const sidebarItems = [
 export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname();
   const { data: session, status } = useSession();
+  const { isPremium } = useSubscription();
 
   // Don't render sidebar if user is not authenticated
   if (status === "loading") {
-    return null; // or could return a loading skeleton
+    return null;
   }
 
   if (!session) {
-    return null; // Don't show sidebar for unauthenticated users
+    return null;
   }
 
   const SidebarContent = ({ showLabels = true }: { showLabels?: boolean }) => (
@@ -71,19 +95,28 @@ export function Sidebar({ className }: SidebarProps) {
         {sidebarItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
+          const isLocked = item.premium && !isPremium;
+          const href = isLocked ? "/pricing" : item.href;
+
           return (
-            <Link key={item.href} href={item.href} prefetch={false}>
+            <Link key={item.href} href={href} prefetch={false}>
               <Button
                 variant={isActive ? "secondary" : "ghost"}
                 className={cn(
                   "w-full gap-2",
                   showLabels ? "justify-start" : "justify-center",
                   isActive && "bg-secondary",
+                  isLocked && "opacity-60",
                 )}
                 title={!showLabels ? item.title : undefined}
               >
                 <Icon className="h-4 w-4" />
-                {showLabels && <span>{item.title}</span>}
+                {showLabels && (
+                  <span className="flex items-center gap-1.5">
+                    {item.title}
+                    {isLocked && <Lock className="h-3 w-3 text-muted-foreground" />}
+                  </span>
+                )}
               </Button>
             </Link>
           );

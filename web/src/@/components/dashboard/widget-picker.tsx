@@ -73,6 +73,11 @@ const widgetInfo: Record<
     preview: "Compact price view with mini charts",
     tags: ["market", "prices", "compact"],
   },
+  [WidgetType.NEWS_FEED]: {
+    description: "Latest ASX news and market updates",
+    preview: "Real-time news feed with sentiment analysis",
+    tags: ["news", "market", "sentiment"],
+  },
 };
 
 export function WidgetPicker({

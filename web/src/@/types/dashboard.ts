@@ -66,6 +66,12 @@ export interface MarketWatchlistSettings {
   refreshInterval: number;
 }
 
+export interface NewsFeedSettings {
+  limit: number;
+  priceSensitiveOnly: boolean;
+  refreshInterval: number;
+}
+
 // Map widget types to their settings types
 export type WidgetSettingsMap = {
   [WidgetType.TOP_SHORTS]: TopShortsSettings;
@@ -77,6 +83,7 @@ export type WidgetSettingsMap = {
   [WidgetType.SECTOR_PERFORMANCE]: SectorPerformanceSettings;
   [WidgetType.CORRELATION_MATRIX]: CorrelationMatrixSettings;
   [WidgetType.MARKET_WATCHLIST]: MarketWatchlistSettings;
+  [WidgetType.NEWS_FEED]: NewsFeedSettings;
 };
 
 export interface WidgetConfig {
@@ -117,6 +124,7 @@ export enum WidgetType {
   CORRELATION_MATRIX = "CORRELATION_MATRIX",
   SECTOR_PERFORMANCE = "SECTOR_PERFORMANCE",
   MARKET_WATCHLIST = "MARKET_WATCHLIST",
+  NEWS_FEED = "NEWS_FEED",
 }
 
 export interface WidgetDefinition {
@@ -126,6 +134,8 @@ export interface WidgetDefinition {
   configSchema?: Record<string, unknown>; // JSON Schema for widget configuration
   icon: ComponentType<{ className?: string }>;
   category: WidgetCategory;
+  /** If true, this widget requires a Premium subscription */
+  premium?: boolean;
 }
 
 export enum WidgetCategory {

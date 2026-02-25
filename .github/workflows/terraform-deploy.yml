@@ -36,6 +36,10 @@ permissions:
   pull-requests: write
   deployments: write
 
+concurrency:
+  group: deploy-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   determine-environment:
     runs-on: ubuntu-latest
@@ -222,6 +226,13 @@ jobs:
 
   build-and-push-images:
     needs: [determine-environment, validate-secrets]
+    # Skip Docker builds on PRs unless the 'deploy-preview' label is set.
+    # ci-fast.yml already validates Go compilation; Docker builds are only
+    # needed for actual deployments (main, release, manual, labeled PRs).
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.action == 'closed' ||
+      contains(github.event.pull_request.labels.*.name, 'deploy-preview')
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -267,27 +278,30 @@ jobs:
         run: |
           gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build and push ${{ matrix.service.name }}
-        run: |
-          IMAGE="${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}:${{ needs.determine-environment.outputs.image-tag }}"
-          LATEST="${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}:latest"
-
-          echo "Building ${{ matrix.service.name }}..."
-          docker build \
-            --platform linux/amd64 \
-            -f ${{ matrix.service.dockerfile }} \
-            -t $IMAGE \
-            -t $LATEST \
-            ${{ matrix.service.context }}
-
-          echo "Pushing ${{ matrix.service.name }}..."
-          docker push $IMAGE
-          docker push $LATEST
-
-          echo "✅ Pushed: $IMAGE"
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.service.context }}
+          file: ${{ matrix.service.dockerfile }}
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}:${{ needs.determine-environment.outputs.image-tag }}
+            ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}:latest
+          cache-from: type=gha,scope=${{ matrix.service.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service.name }}
 
   terraform-plan:
     needs: [determine-environment, validate-secrets, build-and-push-images]
+    # Run even when build-and-push-images is skipped (PR without deploy-preview label)
+    if: |
+      always() &&
+      needs.determine-environment.result == 'success' &&
+      needs.validate-secrets.result == 'success' &&
+      (needs.build-and-push-images.result == 'success' || needs.build-and-push-images.result == 'skipped')
     runs-on: ubuntu-latest
     outputs:
       plan-output: ${{ steps.plan.outputs.stdout }}
@@ -425,7 +439,11 @@ jobs:
   deploy-preview:
     needs: [determine-environment, validate-secrets, build-and-push-images]
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && needs.determine-environment.outputs.is-preview == 'true'
+    # Only deploy preview when Docker images were actually built (requires 'deploy-preview' label)
+    if: >-
+      github.event_name == 'pull_request' &&
+      needs.determine-environment.outputs.is-preview == 'true' &&
+      needs.build-and-push-images.result == 'success'
     environment: dev
     outputs:
       shorts-url: ${{ steps.deploy.outputs.shorts_url }}
@@ -767,7 +785,10 @@ jobs:
     # Only apply on main branch push, release, or manual workflow dispatch (unless plan_only)
     # PRs will only plan, not apply
     # Manual dispatches with plan_only=true will skip apply
-    if: github.event_name != 'pull_request' && github.event.inputs.plan_only != 'true'
+    if: >-
+      github.event_name != 'pull_request' &&
+      github.event.inputs.plan_only != 'true' &&
+      needs.terraform-plan.result == 'success'
     environment:
       name: ${{ needs.determine-environment.outputs.environment }}
     outputs:
