@@ -224,7 +224,7 @@ jobs:
             exit 1
           fi
 
-  build-and-push-images:
+  build-docker-images:
     needs: [determine-environment, validate-secrets]
     # Skip Docker builds on PRs unless the 'deploy-preview' label is set.
     # ci-fast.yml already validates Go compilation; Docker builds are only
@@ -240,9 +240,6 @@ jobs:
           - name: shorts
             dockerfile: services/shorts/Dockerfile
             context: services
-          - name: market-data
-            dockerfile: services/market-data/Dockerfile
-            context: services
           - name: stock-price-ingestion
             dockerfile: services/stock-price-ingestion/Dockerfile
             context: services/stock-price-ingestion
@@ -257,9 +254,6 @@ jobs:
             context: services
           - name: enrichment-processor
             dockerfile: services/enrichment-processor/Dockerfile
-            context: services
-          - name: weekly-report-generator
-            dockerfile: services/weekly-report-generator/Dockerfile
             context: services
     steps:
       - name: Checkout code
@@ -294,14 +288,62 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.service.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service.name }}
 
+  build-ko-images:
+    needs: [determine-environment, validate-secrets]
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.action == 'closed' ||
+      contains(github.event.pull_request.labels.*.name, 'deploy-preview')
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - name: market-data
+            importpath: ./market-data
+          - name: weekly-report-generator
+            importpath: ./weekly-report-generator
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: services/go.mod
+          cache-dependency-path: services/go.sum
+
+      - name: Setup ko
+        uses: ko-build/setup-ko@v0.9
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
+          service_account: ${{ needs.determine-environment.outputs.sa-email }}
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
+
+      - name: Build and push ${{ matrix.service.name }}
+        working-directory: services
+        env:
+          KO_DOCKER_REPO: ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}
+        run: |
+          ko build ${{ matrix.service.importpath }} \
+            --bare \
+            --platform=linux/amd64 \
+            --tags="${{ needs.determine-environment.outputs.image-tag }},latest"
+
   terraform-plan:
-    needs: [determine-environment, validate-secrets, build-and-push-images]
-    # Run even when build-and-push-images is skipped (PR without deploy-preview label)
+    needs: [determine-environment, validate-secrets, build-docker-images, build-ko-images]
+    # Run even when image builds are skipped (PR without deploy-preview label)
     if: |
       always() &&
       needs.determine-environment.result == 'success' &&
       needs.validate-secrets.result == 'success' &&
-      (needs.build-and-push-images.result == 'success' || needs.build-and-push-images.result == 'skipped')
+      (needs.build-docker-images.result == 'success' || needs.build-docker-images.result == 'skipped') &&
+      (needs.build-ko-images.result == 'success' || needs.build-ko-images.result == 'skipped')
     runs-on: ubuntu-latest
     outputs:
       plan-output: ${{ steps.plan.outputs.stdout }}
@@ -437,13 +479,14 @@ jobs:
           echo "2. Or re-run this workflow with \`plan_only: false\`" >> $GITHUB_STEP_SUMMARY
 
   deploy-preview:
-    needs: [determine-environment, validate-secrets, build-and-push-images]
+    needs: [determine-environment, validate-secrets, build-docker-images, build-ko-images]
     runs-on: ubuntu-latest
-    # Only deploy preview when Docker images were actually built (requires 'deploy-preview' label)
+    # Only deploy preview when images were actually built (requires 'deploy-preview' label)
     if: >-
       github.event_name == 'pull_request' &&
       needs.determine-environment.outputs.is-preview == 'true' &&
-      needs.build-and-push-images.result == 'success'
+      needs.build-docker-images.result == 'success' &&
+      needs.build-ko-images.result == 'success'
     environment: dev
     outputs:
       shorts-url: ${{ steps.deploy.outputs.shorts_url }}
@@ -1219,7 +1262,7 @@ jobs:
           echo "- **Shorts API**: ${{ steps.resolve-urls.outputs.shorts_url }}" >> $GITHUB_STEP_SUMMARY
 
   run-tests:
-    needs: [determine-environment, build-and-push-images]
+    needs: [determine-environment, build-docker-images, build-ko-images]
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
     steps:
