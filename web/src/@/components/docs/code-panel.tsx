@@ -4,11 +4,13 @@ import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '~/@/components/ui/tabs';
 import { CodeBlock } from './code-block';
 import type { ParsedEndpoint } from '~/lib/openapi/types';
-import { 
-  generateCurl, 
-  generateJavascript, 
-  generatePython, 
-  generateTypescript 
+import {
+  generateCurl,
+  generateJavascript,
+  generatePython,
+  generateTypescript,
+  generateGo,
+  generateJava,
 } from '~/lib/openapi/code-samples';
 import { TryItPanel } from './try-it-panel';
 
@@ -24,6 +26,8 @@ export function CodePanel({ endpoint }: CodePanelProps) {
     { label: 'JavaScript', lang: 'javascript', code: generateJavascript(endpoint, baseUrl) },
     { label: 'Python', lang: 'python', code: generatePython(endpoint, baseUrl) },
     { label: 'TypeScript', lang: 'typescript', code: generateTypescript(endpoint, baseUrl) },
+    { label: 'Go', lang: 'go', code: generateGo(endpoint, baseUrl) },
+    { label: 'Java', lang: 'java', code: generateJava(endpoint, baseUrl) },
   ];
 
   return (

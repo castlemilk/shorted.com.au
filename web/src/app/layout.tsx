@@ -102,7 +102,7 @@ export const metadata = {
   icons: {
     icon: "/favicon.ico",
     shortcut: "/favicon.ico",
-    apple: "/icon-1.webp",
+    apple: "/apple-touch-icon.png",
   },
   manifest: "/manifest.json",
 };

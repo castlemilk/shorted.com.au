@@ -2,7 +2,8 @@ import React from 'react';
 import { parseOpenAPISpec } from '~/lib/openapi/parser';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '~/@/components/ui/card';
-import { ArrowRight, Book, Terminal, Shield, Lock, Gauge, AlertTriangle, Code2, Package } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowRight, Book, Terminal, Shield, Lock, AlertTriangle } from 'lucide-react';
 import { ApiAccessSection } from '~/@/components/docs/api-access-section';
 
 // Pro subscription price ID - set in environment or use placeholder
@@ -25,9 +26,7 @@ export default async function ApiDocsIndex() {
       <div className="grid gap-6 sm:grid-cols-2">
         <Card className="relative overflow-hidden group">
           <CardHeader>
-            <div className="p-2 w-fit rounded-lg bg-blue-500/10 text-blue-500 mb-2">
-              <Terminal className="h-6 w-6" />
-            </div>
+            <Image src="/assets/api-access-small.png" alt="" width={40} height={40} className="h-10 w-10 mb-2" />
             <CardTitle>Quick Start</CardTitle>
             <CardDescription>
               Get up and running with our API in minutes with our cURL and SDK examples.
@@ -125,7 +124,7 @@ export default async function ApiDocsIndex() {
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Gauge className="h-5 w-5 text-blue-500" />
+              <Image src="/assets/premium-icon-small.png" alt="" width={24} height={24} className="h-6 w-6" />
               <CardTitle className="text-xl">Rate Limit Tiers</CardTitle>
             </div>
           </CardHeader>
@@ -242,66 +241,39 @@ export default async function ApiDocsIndex() {
         </Card>
       </section>
 
-      <section id="client-sdks" className="space-y-8 scroll-mt-20">
+      <section id="client-guides" className="space-y-8 scroll-mt-20">
         <div className="space-y-4">
-          <h2 className="text-3xl font-bold tracking-tight">Client SDKs</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Client Guides</h2>
           <p className="text-muted-foreground">
-            Official client libraries for integrating with the Shorted API in your preferred language.
-            SDKs are generated from our protobuf definitions and will be published soon.
+            Detailed guides for calling the Shorted API from your preferred language. All examples use
+            standard HTTP — no SDK installation required.
           </p>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <div className="p-2 w-fit rounded-lg bg-cyan-500/10 text-cyan-500 mb-2">
-                <Code2 className="h-6 w-6" />
-              </div>
-              <CardTitle className="text-lg">Go</CardTitle>
-              <CardDescription>
-                Connect-RPC Go client with full type safety.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-zinc-950 rounded-lg p-3 font-mono text-xs text-zinc-300 border border-zinc-800">
-                go get github.com/castlemilk/shorted/sdks/go
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="p-2 w-fit rounded-lg bg-yellow-500/10 text-yellow-500 mb-2">
-                <Package className="h-6 w-6" />
-              </div>
-              <CardTitle className="text-lg">TypeScript</CardTitle>
-              <CardDescription>
-                Connect-ES client for Node.js and browsers.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-zinc-950 rounded-lg p-3 font-mono text-xs text-zinc-300 border border-zinc-800">
-                npm install @shorted/sdk
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <div className="p-2 w-fit rounded-lg bg-orange-500/10 text-orange-500 mb-2">
-                <Code2 className="h-6 w-6" />
-              </div>
-              <CardTitle className="text-lg">Java</CardTitle>
-              <CardDescription>
-                Protobuf Java client for JVM applications.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-zinc-950 rounded-lg p-3 font-mono text-xs text-zinc-300 border border-zinc-800 text-[10px]">
-                {'<artifactId>shorted-sdk</artifactId>'}
-              </div>
-            </CardContent>
-          </Card>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            { slug: 'curl', name: 'cURL', description: 'Command-line HTTP requests', color: 'text-zinc-400', bg: 'bg-zinc-500/10' },
+            { slug: 'javascript', name: 'JavaScript', description: 'Browser and Node.js with fetch', color: 'text-yellow-500', bg: 'bg-yellow-500/10' },
+            { slug: 'python', name: 'Python', description: 'HTTP requests with the requests library', color: 'text-blue-500', bg: 'bg-blue-500/10' },
+            { slug: 'typescript', name: 'TypeScript', description: 'Type-safe fetch with interfaces', color: 'text-blue-400', bg: 'bg-blue-400/10' },
+            { slug: 'go', name: 'Go', description: 'HTTP examples using net/http', color: 'text-cyan-500', bg: 'bg-cyan-500/10' },
+            { slug: 'java', name: 'Java', description: 'HttpURLConnection for JVM apps', color: 'text-orange-500', bg: 'bg-orange-500/10' },
+          ].map((lang) => (
+            <Link key={lang.slug} href={`/docs/api/clients/${lang.slug}`}>
+              <Card className="h-full hover:bg-accent/50 transition-colors group">
+                <CardHeader className="pb-3">
+                  <div className={`p-2 w-fit rounded-lg ${lang.bg} ${lang.color} mb-2`}>
+                    <Terminal className="h-5 w-5" />
+                  </div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    {lang.name}
+                    <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </CardTitle>
+                  <CardDescription>{lang.description}</CardDescription>
+                </CardHeader>
+              </Card>
+            </Link>
+          ))}
         </div>
       </section>
 

@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '~/@/lib/utils';
 import { ScrollArea } from '~/@/components/ui/scroll-area';
 import type { NavigationGroup } from '~/lib/openapi/types';
-import { Shield, Home } from 'lucide-react';
+import { Shield, Home, Terminal } from 'lucide-react';
 
 interface ApiSidebarProps {
   groups: NavigationGroup[];
@@ -43,6 +43,34 @@ export function ApiSidebar({ groups }: ApiSidebarProps) {
               <Shield className="h-4 w-4 text-blue-500" />
               Authentication
             </Link>
+          </div>
+        </div>
+
+        <div className="pb-4 border-b border-zinc-100 dark:border-zinc-800">
+          <h4 className="mb-2 rounded-md px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Client Guides
+          </h4>
+          <div className="grid grid-flow-row auto-rows-max text-sm gap-1">
+            {[
+              { slug: 'curl', name: 'cURL' },
+              { slug: 'javascript', name: 'JavaScript' },
+              { slug: 'python', name: 'Python' },
+              { slug: 'typescript', name: 'TypeScript' },
+              { slug: 'go', name: 'Go' },
+              { slug: 'java', name: 'Java' },
+            ].map((lang) => (
+              <Link
+                key={lang.slug}
+                href={`/docs/api/clients/${lang.slug}`}
+                className={cn(
+                  "group flex w-full items-center rounded-md border border-transparent px-2 py-1 hover:underline gap-2",
+                  pathname === `/docs/api/clients/${lang.slug}` ? "font-medium text-foreground" : "text-muted-foreground"
+                )}
+              >
+                <Terminal className="h-4 w-4" />
+                {lang.name}
+              </Link>
+            ))}
           </div>
         </div>
 

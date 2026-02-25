@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { SearchDialog } from './search-dialog';
 import { Button } from '~/@/components/ui/button';
-import { Search, Key } from 'lucide-react';
+import { Search } from 'lucide-react';
+import Image from 'next/image';
 import type { ParsedEndpoint } from '~/lib/openapi/types';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
@@ -44,7 +45,7 @@ export function ApiHeader({ endpoints }: ApiHeaderProps) {
             {session && (
               <Button variant="ghost" size="sm" asChild className="hidden md:flex gap-2 text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20">
                 <Link href="/docs/api#authentication">
-                  <Key className="h-4 w-4" />
+                  <Image src="/assets/api-access-small.png" alt="" width={16} height={16} className="h-4 w-4" />
                   Mint Token
                 </Link>
               </Button>

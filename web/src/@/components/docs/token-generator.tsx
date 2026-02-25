@@ -8,7 +8,8 @@
 import React, { useState } from 'react';
 import { Button } from '~/@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/@/components/ui/card';
-import { Key, Loader2, Copy, Check, ShieldCheck } from 'lucide-react';
+import { Loader2, Copy, Check, ShieldCheck } from 'lucide-react';
+import Image from 'next/image';
 import { mintApiTokenAction } from '~/app/actions/mintToken';
 import { useSession } from 'next-auth/react';
 import { cn } from '~/@/lib/utils';
@@ -53,7 +54,7 @@ export function TokenGenerator() {
       <Card className="border-dashed">
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <Key className="h-5 w-5 text-zinc-400" />
+            <Image src="/assets/api-access-small.png" alt="" width={20} height={20} className="h-5 w-5" />
             API Keys
           </CardTitle>
           <CardDescription>
@@ -73,7 +74,7 @@ export function TokenGenerator() {
     <Card className={cn("transition-all duration-300", token && "border-blue-500/50 shadow-lg shadow-blue-500/10")}>
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
-          <Key className="h-5 w-5 text-blue-500" />
+          <Image src="/assets/api-access-small.png" alt="" width={20} height={20} className="h-5 w-5" />
           API Keys
         </CardTitle>
         <CardDescription>

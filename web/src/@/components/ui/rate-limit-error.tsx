@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Clock, AlertTriangle, RefreshCw, Zap } from "lucide-react";
+import { Clock, AlertTriangle, RefreshCw } from "lucide-react";
+import Image from "next/image";
 import { Button } from "~/@/components/ui/button";
 import { Card } from "~/@/components/ui/card";
 import { Progress } from "~/@/components/ui/progress";
@@ -142,9 +143,7 @@ export function RateLimitError({
       {/* Header with gradient */}
       <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-6 text-white">
         <div className="flex items-center gap-3">
-          <div className="rounded-full bg-white/20 p-3">
-            <Zap className="h-6 w-6" />
-          </div>
+          <Image src="/assets/premium-icon-small.png" alt="" width={48} height={48} className="h-12 w-12" />
           <div>
             <h3 className="text-lg font-semibold">
               {isMonthlyLimit ? "Monthly Limit Reached" : "Rate Limit Exceeded"}
