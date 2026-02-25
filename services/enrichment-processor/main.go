@@ -1978,11 +1978,12 @@ func (p *enrichmentProcessor) handleEnrichBatch(w http.ResponseWriter, r *http.R
 
 	writeProgress(fmt.Sprintf("Found %d stocks needing enrichment, processing...", len(candidates)))
 
-	// Use a generous overall timeout but rely on per-job timeouts to bound individual stocks.
-	// Cloud Run has a 1-hour max request timeout, so we budget 55 minutes to leave headroom.
+	// Use a background context so the batch continues even if the HTTP client disconnects.
+	// Cloud Run keeps the instance alive as long as a goroutine is running.
+	// Budget 55 minutes to leave headroom for Cloud Run's 1-hour max request timeout.
 	const batchSafetyMargin = 5 * time.Minute
 	batchDeadline := time.Now().Add(55 * time.Minute)
-	ctx, cancel := context.WithDeadline(r.Context(), batchDeadline)
+	ctx, cancel := context.WithDeadline(context.Background(), batchDeadline)
 	defer cancel()
 
 	successCount := 0
