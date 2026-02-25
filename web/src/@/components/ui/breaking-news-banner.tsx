@@ -19,6 +19,7 @@ export function BreakingNewsBanner() {
     },
     staleTime: 5 * 60 * 1000,
     refetchInterval: 5 * 60 * 1000,
+    retry: false,
   });
 
   if (!data?.articles?.length) return null;
