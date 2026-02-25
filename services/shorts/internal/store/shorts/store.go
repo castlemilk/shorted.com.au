@@ -1,11 +1,17 @@
 package shorts
 
 import (
+	"context"
 	"fmt"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stockv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 )
+
+// Row is a minimal interface for scanning a single database row.
+type Row interface {
+	Scan(dest ...interface{}) error
+}
 
 // SyncStatusFilter defines filtering options for sync status queries
 type SyncStatusFilter struct {
@@ -70,6 +76,9 @@ type Store interface {
 	// Person enrichment backfill
 	GetStocksForPeopleEnrichment(limit int) ([]StockPeopleBackfillRow, error)
 	UpdateKeyPeopleEnriched(stockCode string, keyPeopleJSON []byte) error
+
+	// Raw query access (used for Algolia sync)
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) Row
 }
 
 // StockPeopleBackfillRow represents a stock needing key_people enrichment

@@ -185,6 +185,7 @@ module "enrichment_processor" {
   postgres_address  = var.postgres_address
   postgres_database = var.postgres_database
   postgres_username = var.postgres_username
+  shorts_api_url    = module.shorts_api.service_url
 
   depends_on = [
     google_project_service.required_apis,

@@ -261,6 +261,13 @@ func main() {
 		logger.Infof("Auto-approve disabled (threshold=0)")
 	}
 
+	// Read shorts API URL for post-enrichment Algolia sync
+	shortsAPIURL := strings.TrimSpace(os.Getenv("SHORTS_API_URL"))
+	internalServiceSecret := strings.TrimSpace(os.Getenv("INTERNAL_SERVICE_SECRET"))
+	if shortsAPIURL != "" {
+		logger.Infof("Post-enrichment Algolia sync enabled (shorts API: %s)", shortsAPIURL)
+	}
+
 	// Create processor
 	processor := &enrichmentProcessor{
 		store:                 enrichmentStore,
@@ -277,6 +284,8 @@ func main() {
 		qualityThreshold:      DefaultQualityThreshold,
 		autoApproveThreshold:  autoApproveThreshold,
 		gcsBucket:             gcsBucket,
+		shortsAPIURL:          shortsAPIURL,
+		internalServiceSecret: internalServiceSecret,
 	}
 
 	// Check if running in batch mode (one-shot batch enrichment)
@@ -417,6 +426,45 @@ type enrichmentProcessor struct {
 	qualityThreshold      float64
 	autoApproveThreshold  float64
 	gcsBucket             string
+	shortsAPIURL          string
+	internalServiceSecret string
+}
+
+// notifyAlgoliaSync makes an HTTP POST to the shorts API to sync a stock to Algolia.
+// Fire-and-forget: logs errors but doesn't block the caller.
+func (p *enrichmentProcessor) notifyAlgoliaSync(stockCode string) {
+	if p.shortsAPIURL == "" {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	body := fmt.Sprintf(`{"stock_code":"%s"}`, stockCode)
+	url := fmt.Sprintf("%s/api/internal/algolia/sync-stock", strings.TrimRight(p.shortsAPIURL, "/"))
+
+	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(body))
+	if err != nil {
+		p.logger.Warnf("Failed to create Algolia sync request for %s: %v", stockCode, err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if p.internalServiceSecret != "" {
+		req.Header.Set("Authorization", "Bearer "+p.internalServiceSecret)
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		p.logger.Warnf("Failed to call Algolia sync for %s: %v", stockCode, err)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		p.logger.Warnf("Algolia sync for %s returned status %d", stockCode, resp.StatusCode)
+	} else {
+		p.logger.Infof("Triggered Algolia sync for %s", stockCode)
+	}
 }
 
 func (p *enrichmentProcessor) processMessages(ctx context.Context, subscription *pubsub.Subscription) error {
@@ -669,6 +717,7 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 				p.logger.Warnf("Failed to auto-apply enrichment for %s: %v (approved but not applied)", stockCode, applyErr)
 			} else {
 				p.logger.Infof("Auto-approved and applied enrichment for %s (enrichment_id=%s)", stockCode, enrichmentID)
+				go p.notifyAlgoliaSync(stockCode)
 			}
 		}
 	} else if quality != nil {
@@ -1997,6 +2046,7 @@ func (p *enrichmentProcessor) handleEnrichBatch(w http.ResponseWriter, r *http.R
 				successCount++
 				continue
 			}
+			go p.notifyAlgoliaSync(stockCode)
 
 			writeProgress(fmt.Sprintf("  SUCCESS: %s enriched + auto-approved + applied", stockCode))
 		} else {

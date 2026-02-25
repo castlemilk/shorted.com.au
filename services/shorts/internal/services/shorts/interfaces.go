@@ -1,6 +1,8 @@
 package shorts
 
 import (
+	"context"
+
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	shortsstore "github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
@@ -57,6 +59,9 @@ type ShortsStore interface {
 
 	// Financial highlights
 	GetStockFinancialHighlights(stockCodes []string, maxPerStock int) (map[string][]shortsstore.FinancialReportHighlight, error)
+
+	// Raw query access (used for Algolia sync)
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) shortsstore.Row
 }
 
 // Cache defines the interface for caching operations

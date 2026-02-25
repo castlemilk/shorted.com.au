@@ -3035,3 +3035,8 @@ func (s *postgresStore) UpdateKeyPeopleEnriched(stockCode string, keyPeopleJSON 
 	return nil
 }
 
+// QueryRowContext executes a query that is expected to return at most one row.
+func (s *postgresStore) QueryRowContext(ctx context.Context, query string, args ...interface{}) Row {
+	return s.db.QueryRow(ctx, query, args...)
+}
+
