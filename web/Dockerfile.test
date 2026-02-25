@@ -1,6 +1,8 @@
 # Test-specific Dockerfile for web frontend
 FROM node:18-alpine AS builder
 
+RUN apk add --no-cache git jq
+
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --legacy-peer-deps

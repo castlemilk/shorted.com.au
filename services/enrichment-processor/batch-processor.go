@@ -27,6 +27,7 @@ type batchConfig struct {
 	batchSize   int
 	concurrency int
 	dryRun      bool
+	priority    shortsv1alpha1.EnrichmentPriority
 }
 
 // loadBatchConfig reads batch configuration from environment variables
@@ -53,6 +54,16 @@ func loadBatchConfig() batchConfig {
 		config.dryRun = strings.EqualFold(v, "true") || v == "1"
 	}
 
+	config.priority = shortsv1alpha1.EnrichmentPriority_ENRICHMENT_PRIORITY_UNENRICHED
+	if v := strings.ToLower(strings.TrimSpace(os.Getenv("BATCH_PRIORITY"))); v != "" {
+		switch v {
+		case "short_position":
+			config.priority = shortsv1alpha1.EnrichmentPriority_ENRICHMENT_PRIORITY_SHORT_POSITION
+		case "stale":
+			config.priority = shortsv1alpha1.EnrichmentPriority_ENRICHMENT_PRIORITY_STALE
+		}
+	}
+
 	return config
 }
 
@@ -70,13 +81,13 @@ func runBatchProcessor(ctx context.Context, processor *enrichmentProcessor) erro
 	store := processor.store
 	config := loadBatchConfig()
 
-	logger.Infof("Starting batch enrichment (batch_size=%d, concurrency=%d, dry_run=%v)",
-		config.batchSize, config.concurrency, config.dryRun)
+	logger.Infof("Starting batch enrichment (batch_size=%d, concurrency=%d, dry_run=%v, priority=%s)",
+		config.batchSize, config.concurrency, config.dryRun, config.priority.String())
 
 	// Query for unenriched stocks
 	candidates, err := store.GetTopStocksForEnrichment(
 		int32(config.batchSize),
-		shortsv1alpha1.EnrichmentPriority_ENRICHMENT_PRIORITY_UNENRICHED,
+		config.priority,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get unenriched stocks: %w", err)
