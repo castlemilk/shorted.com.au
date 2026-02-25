@@ -28,26 +28,51 @@ export const SUBSCRIPTION_TIERS = {
   free: {
     name: "Free",
     priceId: null,
+    price: 0,
     requestsPerDay: 100,
-    features: ["Public endpoints only", "100 requests/day", "Community support"],
+    features: [
+      "Short position data",
+      "Weekly reports",
+      "Basic stock pages",
+      "Portfolio tracking",
+    ],
   },
-  pro: {
-    name: "Pro",
-    priceId: process.env.STRIPE_PRO_PRICE_ID,
+  premium: {
+    name: "Premium",
+    priceId: process.env.STRIPE_PREMIUM_PRICE_ID ?? null,
+    price: 4,
     requestsPerDay: 10000,
     features: [
-      "All endpoints",
-      "10,000 requests/day",
+      "Everything in Free",
+      "AI Chat assistant",
+      "Market Pulse dashboard",
+      "Price & position alerts",
+      "Advanced dashboard widgets",
       "Priority support",
-      "Token management",
+    ],
+  },
+  // Backward compat — existing "pro" subscribers treated as premium
+  pro: {
+    name: "Premium",
+    priceId: process.env.STRIPE_PREMIUM_PRICE_ID ?? null,
+    price: 4,
+    requestsPerDay: 10000,
+    features: [
+      "Everything in Free",
+      "AI Chat assistant",
+      "Market Pulse dashboard",
+      "Price & position alerts",
+      "Advanced dashboard widgets",
+      "Priority support",
     ],
   },
   enterprise: {
     name: "Enterprise",
-    priceId: process.env.STRIPE_ENTERPRISE_PRICE_ID,
-    requestsPerDay: -1, // unlimited
+    priceId: process.env.STRIPE_ENTERPRISE_PRICE_ID ?? null,
+    price: 0,
+    requestsPerDay: -1,
     features: [
-      "All endpoints",
+      "Everything in Premium",
       "Unlimited requests",
       "Dedicated support",
       "SLA guarantee",
@@ -63,3 +88,8 @@ export type SubscriptionStatus =
   | "past_due"
   | "inactive"
   | "trialing";
+
+/** Returns true if the given tier has premium-level access */
+export function isPremiumTier(tier: SubscriptionTier): boolean {
+  return tier === "premium" || tier === "pro" || tier === "enterprise";
+}

@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
         },
       ],
       success_url: `${baseUrl}/subscribe/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/docs/api?canceled=true`,
+      cancel_url: `${baseUrl}/pricing?canceled=true`,
       subscription_data: {
         metadata: {
           userId: session.user.id,
