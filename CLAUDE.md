@@ -35,10 +35,13 @@ Shorted.com.au is a platform for tracking short selling positions in the Austral
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         Backend Services                             │
 ├──────────────────┬──────────────────┬───────────────────────────────┤
-│  Shorts API      │  Market Data     │  Enrichment Processor         │
-│  Go (port 9091)  │  Go (port 8090)  │  Go + Python                  │
-│  Main API        │  Stock prices    │  GPT-4 enrichment             │
-└──────────────────┴──────────────────┴───────────────────────────────┘
+│  Shorts API      │  Market Data     │  Chat Service                  │
+│  Go (port 9091)  │  Go (port 8090)  │  Go + Gemini LLM              │
+│  Main API        │  Stock prices    │  AI chat + streaming           │
+├──────────────────┴──────────────────┴───────────────────────────────┤
+│  Enrichment Processor  │  News Aggregator  │  Daily Sync             │
+│  Go + GPT-4            │  Go + Gemini Flash│  Scheduled data updates  │
+└──────────────────────────────────────────────────────────────────────┘
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -56,13 +59,15 @@ Shorted.com.au is a platform for tracking short selling positions in the Austral
 
 ## Key Services
 
-| Service     | Port | Directory                        | Description                             |
-| ----------- | ---- | -------------------------------- | --------------------------------------- |
-| Frontend    | 3020 | `web/`                           | Next.js app with dashboard, stock pages |
-| Shorts API  | 9091 | `services/shorts/`               | Main API for short position data        |
-| Market Data | 8090 | `services/market-data/`          | Historical stock prices                 |
-| Enrichment  | -    | `services/enrichment-processor/` | AI-powered company metadata             |
-| Daily Sync  | -    | `services/daily-sync/`           | Scheduled data updates                  |
+| Service          | Port | Directory                        | Description                                    |
+| ---------------- | ---- | -------------------------------- | ---------------------------------------------- |
+| Frontend         | 3020 | `web/`                           | Next.js app with dashboard, stock pages        |
+| Shorts API       | 9091 | `services/shorts/`               | Main API for short position data               |
+| Market Data      | 8090 | `services/market-data/`          | Historical stock prices                        |
+| Chat Service     | -    | `services/chat-service/`         | AI chat with Gemini LLM + 8 API tools          |
+| News Aggregator  | -    | `services/news-aggregator/`      | RSS news aggregation + Gemini sentiment        |
+| Enrichment       | -    | `services/enrichment-processor/` | AI-powered company metadata                    |
+| Daily Sync       | -    | `services/daily-sync/`           | Scheduled data updates                         |
 
 ## Development Database
 
@@ -301,14 +306,19 @@ cd services && make history.stock-data.backfill
 
 ## Key Files
 
-| File                          | Purpose                           |
-| ----------------------------- | --------------------------------- |
-| `Makefile`                    | Root-level orchestration commands |
-| `services/Makefile`           | Backend-specific commands         |
-| `web/Makefile`                | Frontend-specific commands        |
-| `proto/buf.yaml`              | Protobuf configuration            |
-| `terraform/environments/dev/` | Dev infrastructure config         |
-| `services/migrations/`        | Database migrations               |
+| File                                    | Purpose                                   |
+| --------------------------------------- | ----------------------------------------- |
+| `Makefile`                              | Root-level orchestration commands          |
+| `services/Makefile`                     | Backend-specific commands                  |
+| `web/Makefile`                          | Frontend-specific commands                 |
+| `proto/buf.yaml`                        | Protobuf configuration                     |
+| `terraform/environments/dev/`           | Dev infrastructure config                  |
+| `services/migrations/`                  | Database migrations                        |
+| `services/chat-service/`               | AI chat backend (Gemini + tool calling)    |
+| `services/news-aggregator/`            | RSS news aggregation + sentiment           |
+| `web/src/@/hooks/use-chat.ts`          | Chat hook (auth, streaming, conversations) |
+| `web/src/@/components/chat/`           | Chat UI components                         |
+| `.github/workflows/cost-guardian.yml`  | Daily cost enforcement workflow             |
 
 ## Code Patterns
 
@@ -393,6 +403,47 @@ OPENAI_API_KEY=sk-...
 ### Production (Vercel + Cloud Run)
 
 Set via Vercel dashboard and Terraform for Cloud Run services.
+
+## Chat Service (Shorted AI)
+
+The chat service (`services/chat-service/`) provides an AI assistant powered by Gemini LLM with access to 8 API tools (short positions, top shorts, stock details, search, news, director trades, peer comparison, weekly reports).
+
+### Key Architecture
+
+- **Backend**: Go Connect-RPC with server streaming (`SendMessageStream`)
+- **Frontend**: Global `ChatSidebar` in root `layout.tsx` (available on all pages) + dedicated `/chat` page
+- **Auth**: `X-User-Id` header via Connect transport interceptor from next-auth session
+- **Conversations**: Stored in PostgreSQL (migration 000026), full CRUD via `ListConversations`, `GetConversationHistory`, `DeleteConversation`
+- **Streaming**: Token-by-token via Gemini's `SendMessageStream`, tool call rounds execute synchronously between streaming segments
+- **SSR Safety**: All chat components loaded via `dynamic({ ssr: false })` to prevent Connect-RPC SSR crashes
+
+### Frontend Components
+
+| Component | File |
+|-----------|------|
+| Chat sidebar (global) | `web/src/@/components/chat/chat-sidebar.tsx` |
+| Message rendering | `web/src/@/components/chat/chat-message.tsx` |
+| Markdown renderer | `web/src/@/components/chat/chat-markdown.tsx` |
+| Conversation list | `web/src/@/components/chat/chat-conversation-list.tsx` |
+| Chat hook | `web/src/@/hooks/use-chat.ts` |
+| Chat page | `web/src/app/chat/` |
+
+## News Aggregator
+
+The news aggregator (`services/news-aggregator/`) fetches RSS feeds, matches articles to ASX stocks, and classifies sentiment.
+
+- **Sentiment**: Primary = Gemini 2.0 Flash batch analysis (requires `GEMINI_API_KEY`), fallback = keyword heuristic
+- **Storage**: `news_articles` table with parameterized queries (SQL injection fixed)
+- **Retention**: 90-day TTL via `cleanup_old_news_articles()` (migration 000029)
+
+## Screener
+
+Stock screener with server-side filtering (`services/shorts/internal/services/shorts/screener.go`).
+
+- **Backend**: `ScreenStocks` RPC with filters (short position range, industry, etc.)
+- **Store**: `postgres_screener.go` queries materialized view `mv_screener_data` (migration 000027)
+- **Frontend**: `/screener` page + `screener-widget.tsx` dashboard widget
+- **Days to Cover**: Added in migration 000028
 
 ## Known Issues & Gotchas
 
@@ -534,6 +585,18 @@ Missing probes → "Error code 9: container failed startup probe checks".
 - `withRetryAndNotFound` returns `undefined` for ALL errors — tests should expect `toBeUndefined()`, not `rejects.toThrow()`
 - When changing component API calls (e.g., `searchStocksClient` → `fetch()`), always update corresponding tests
 - Use `getAllBy*` when multiple matching elements exist; use `toContain` for partial CSS class matching
+
+### Pre-commit Hook — golangci-lint OOM and Build Failures
+
+- `golangci-lint` needs `--concurrency 1 --timeout 120s` to avoid OOM (configured in `Makefile` `lint-backend` target)
+- `make build-frontend` may fail locally if Next.js pages try to prerender against `api.shorted.com.au` (TLS cert mismatch in local env) — this is a pre-existing environment issue, not a code issue
+- The hook starts DB + backend automatically, but the API URL in Next.js config may still point to production
+
+### GitHub Actions — Workload Identity Federation
+
+- `google-github-actions/auth@v2` requires `permissions: id-token: write` at the workflow level
+- Without this, all jobs fail with: "GitHub Actions did not inject $ACTIONS_ID_TOKEN_REQUEST_TOKEN"
+- This applies to Cost Guardian, terraform-deploy, and any workflow using GCP WIF auth
 
 ### Vercel Deployment — Root Directory
 
