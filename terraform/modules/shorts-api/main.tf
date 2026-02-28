@@ -253,7 +253,7 @@ resource "google_cloud_run_v2_service" "shorts_api" {
           cpu    = "2"
           memory = "2Gi"
         }
-        cpu_idle          = false
+        cpu_idle          = true  # Throttle CPU when idle to reduce costs
         startup_cpu_boost = true
       }
 

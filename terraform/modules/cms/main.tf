@@ -116,7 +116,7 @@ resource "google_cloud_run_v2_service" "cms" {
           cpu    = "1"
           memory = "1Gi"
         }
-        cpu_idle          = false
+        cpu_idle          = true  # Throttle CPU when idle to reduce costs
         startup_cpu_boost = true
       }
 
