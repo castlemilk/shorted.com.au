@@ -48,8 +48,20 @@ func main() {
 	}
 	log.Printf("Loaded %d stock codes for matching", matcher.Count())
 
+	// Create sentiment analyzer if Gemini API key is available
+	var analyzer *SentimentAnalyzer
+	if geminiKey := os.Getenv("GEMINI_API_KEY"); geminiKey != "" {
+		var analyzerErr error
+		analyzer, analyzerErr = NewSentimentAnalyzer(ctx, geminiKey)
+		if analyzerErr != nil {
+			log.Printf("WARNING: Failed to create sentiment analyzer, falling back to keyword heuristic: %v", analyzerErr)
+		} else {
+			log.Println("Gemini Flash sentiment analyzer initialized")
+		}
+	}
+
 	// Create news store
-	store := NewNewsStore(db, *verbose)
+	store := NewNewsStore(db, *verbose, analyzer)
 
 	// Create RSS fetcher
 	fetcher := NewRSSFetcher(*verbose)
@@ -130,6 +142,16 @@ func runAggregation(ctx context.Context, fetcher *RSSFetcher, matcher *StockMatc
 		if verbose {
 			log.Printf("  Stored %d new articles from %s", stored, source.Name)
 		}
+	}
+
+	// Clean up old articles
+	cleanupCtx, cleanupCancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cleanupCancel()
+	tag, cleanupErr := store.db.Exec(cleanupCtx, "SELECT cleanup_old_news_articles()")
+	if cleanupErr != nil {
+		log.Printf("  WARNING: news cleanup failed (function may not exist yet): %v", cleanupErr)
+	} else {
+		log.Printf("  News cleanup completed: %v", tag)
 	}
 
 	duration := time.Since(startTime)

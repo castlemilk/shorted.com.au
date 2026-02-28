@@ -6,8 +6,10 @@ import { ModeToggle } from "./mode-toggle";
 
 const items = [
   { title: "top shorted", href: "/top" },
+  { title: "screener", href: "/screener" },
   { title: "dashboard", href: "/dashboards", requiresAuth: true },
   { title: "portfolio", href: "/portfolio", requiresAuth: true },
+  { title: "AI chat", href: "/chat", requiresAuth: true },
   { title: "reports", href: "/reports" },
   { title: "about", href: "/about" },
   { title: "blog", href: "/blog" },

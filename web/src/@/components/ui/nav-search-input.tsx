@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Search, X, Loader2, TrendingDown, ArrowRight } from "lucide-react";
+import { useSession } from "next-auth/react";
+import Image from "next/image";
+import Link from "next/link";
+import { Search, X, Loader2, TrendingDown, ArrowRight, LogIn } from "lucide-react";
 import { cn } from "~/@/lib/utils";
 
 interface StockResult {
@@ -97,6 +100,8 @@ async function fetchSearchResults(
 }
 
 export function NavSearchInput() {
+  const { data: session, status: authStatus } = useSession();
+  const isAuthenticated = !!session;
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -109,6 +114,58 @@ export function NavSearchInput() {
   const mobileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // If not authenticated, render a locked search prompt
+  if (authStatus !== "loading" && !isAuthenticated) {
+    return (
+      <div className="relative">
+        {/* Desktop: locked search bar */}
+        <Link
+          href="/signin"
+          className={cn(
+            "hidden md:flex items-center gap-2.5 h-9 rounded-lg px-3 pr-4",
+            "bg-muted/30 border border-border/40",
+            "hover:bg-muted/50 hover:border-primary/30",
+            "transition-all duration-300 ease-out group cursor-pointer",
+            "w-[220px]"
+          )}
+        >
+          <Image
+            src="/search.png"
+            alt=""
+            width={20}
+            height={20}
+            className="shrink-0 opacity-70 group-hover:opacity-100 transition-opacity"
+          />
+          <span className="text-xs text-muted-foreground/60 group-hover:text-muted-foreground transition-colors truncate">
+            Login to search stocks
+          </span>
+          <LogIn className="h-3 w-3 ml-auto text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0" />
+        </Link>
+
+        {/* Mobile: locked search icon */}
+        <div className="md:hidden">
+          <Link
+            href="/signin"
+            className={cn(
+              "flex items-center justify-center h-9 w-9 rounded-lg",
+              "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+              "transition-colors active:scale-95"
+            )}
+            aria-label="Login to search stocks"
+          >
+            <Image
+              src="/search.png"
+              alt=""
+              width={18}
+              height={18}
+              className="opacity-70"
+            />
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // Debounced search
   const search = useCallback((q: string) => {

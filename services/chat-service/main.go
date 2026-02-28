@@ -96,6 +96,7 @@ func main() {
 			"Grpc-Timeout",
 			"X-Grpc-Web",
 			"X-User-Agent",
+			"X-User-Id",
 			"Authorization",
 		},
 		ExposedHeaders: []string{

@@ -9,12 +9,6 @@ const Sidebar = dynamic(
   },
 );
 
-// Dynamically import ChatSidebar (client-only, uses Connect-RPC streaming)
-const ChatSidebar = dynamic(
-  () => import("~/@/components/chat/chat-sidebar").then((mod) => ({ default: mod.ChatSidebar })),
-  { ssr: false },
-);
-
 interface DashboardLayoutProps {
   children: React.ReactNode;
   fullWidth?: boolean;
@@ -32,7 +26,6 @@ export function DashboardLayout({
           {children}
         </div>
       </main>
-      <ChatSidebar />
     </div>
   );
 }

@@ -90,8 +90,19 @@ func (h *ChatServiceHandler) SendMessage(
 	// Build system prompt
 	systemPrompt := BuildSystemPrompt(conv.ContextStockCode)
 
-	// Call LLM
-	llmResp, err := h.llmClient.Chat(ctx, systemPrompt, history, msg.Message)
+	// Stream LLM response token-by-token
+	var fullContent string
+	onChunk := func(text string) {
+		fullContent += text
+		// Send each text chunk as it arrives
+		_ = stream.Send(&chatv1.SendMessageResponse{
+			ConversationId: conv.ID,
+			Chunk:          text,
+			IsComplete:     false,
+		})
+	}
+
+	llmResp, err := h.llmClient.ChatStream(ctx, systemPrompt, history, msg.Message, onChunk)
 	if err != nil {
 		log.Printf("LLM error: %v", err)
 		return connect.NewError(connect.CodeInternal, fmt.Errorf("chat error: %w", err))
@@ -107,12 +118,12 @@ func (h *ChatServiceHandler) SendMessage(
 	}
 
 	// Store assistant message
-	_, err = h.store.AddMessage(ctx, conv.ID, "assistant", llmResp.Content, toolCallsJSON, citationsJSON)
+	_, err = h.store.AddMessage(ctx, conv.ID, "assistant", fullContent, toolCallsJSON, citationsJSON)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, fmt.Errorf("store assistant message: %w", err))
 	}
 
-	// Build proto tool calls
+	// Build proto tool calls for final chunk
 	var protoToolCalls []*chatv1.ToolCall
 	for _, tc := range llmResp.ToolCalls {
 		argsJSON, _ := json.Marshal(tc.Args)
@@ -123,7 +134,7 @@ func (h *ChatServiceHandler) SendMessage(
 		})
 	}
 
-	// Build proto citations
+	// Build proto citations for final chunk
 	var protoCitations []*chatv1.Citation
 	for _, c := range llmResp.Citations {
 		protoCitations = append(protoCitations, &chatv1.Citation{
@@ -132,10 +143,10 @@ func (h *ChatServiceHandler) SendMessage(
 		})
 	}
 
-	// Send final response via stream (single chunk with full response)
+	// Send final completion chunk with tool calls and citations
 	if err := stream.Send(&chatv1.SendMessageResponse{
 		ConversationId: conv.ID,
-		Chunk:          llmResp.Content,
+		Chunk:          "",
 		IsComplete:     true,
 		ToolCalls:      protoToolCalls,
 		Citations:      protoCitations,

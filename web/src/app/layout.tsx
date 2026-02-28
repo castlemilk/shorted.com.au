@@ -2,11 +2,12 @@ import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import "~/styles/globals.css";
 import { criticalCSS } from "~/styles/critical-css";
 
+import dynamic from "next/dynamic";
 import { cn } from "../@/lib/utils";
 import { type Viewport } from "next";
 import { ThemeProvider } from "~/@/components/providers";
 import { ThemeSwitcher } from "~/@/components/theme-switcher";
-import SiteHeader from "~/@/components/ui/site-header";
+import { ConditionalHeader } from "./conditional-header";
 import { ConditionalFooter } from "./conditional-footer";
 import { NextAuthProvider } from "./next-auth-provider";
 import { siteConfig } from "~/@/config/site";
@@ -17,6 +18,13 @@ import {
   EnvironmentBanner,
   DevelopmentBanner,
 } from "~/@/components/ui/environment-banner";
+import { WebVitalsReporter } from "~/@/components/web-vitals-reporter";
+
+// Client-only: uses Connect-RPC streaming which breaks SSR
+const ChatSidebar = dynamic(
+  () => import("~/@/components/chat/chat-sidebar").then((mod) => ({ default: mod.ChatSidebar })),
+  { ssr: false },
+);
 
 // IBM Plex Mono - Primary monospace for terminal aesthetic
 const fontMono = IBM_Plex_Mono({
@@ -174,13 +182,15 @@ export default function RootLayout({
             <div className="relative z-10">
               <EnvironmentBanner />
               <DevelopmentBanner />
-              <SiteHeader />
+              <ConditionalHeader />
               {children}
               <ConditionalFooter />
               <ThemeSwitcher />
               <StructuredData />
               <EnhancedOrganizationSchema />
               <Toaster />
+              <WebVitalsReporter />
+              <ChatSidebar />
             </div>
           </ThemeProvider>
         </NextAuthProvider>

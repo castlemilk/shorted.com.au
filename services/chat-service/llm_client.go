@@ -7,6 +7,7 @@ import (
 	"log"
 
 	"github.com/google/generative-ai-go/genai"
+	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
 
@@ -128,6 +129,107 @@ func (lc *LLMClient) Chat(ctx context.Context, systemPrompt string, history []Me
 
 	return &LLMResponse{
 		Content:   content,
+		ToolCalls: allToolCalls,
+	}, nil
+}
+
+// ChatStream sends a message and streams text chunks via the onChunk callback.
+// Tool call rounds execute synchronously between streaming segments.
+func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, history []Message, userMessage string, onChunk func(text string)) (*LLMResponse, error) {
+	model := lc.client.GenerativeModel(lc.model)
+	model.SystemInstruction = genai.NewUserContent(genai.Text(systemPrompt))
+	model.Tools = buildGeminiTools()
+
+	cs := model.StartChat()
+	cs.History = buildGeminiHistory(history)
+
+	// First call: use streaming
+	iter := cs.SendMessageStream(ctx, genai.Text(userMessage))
+
+	var allToolCalls []ToolCallRecord
+	var pendingFuncCalls []*genai.FunctionCall
+
+	// Consume the streaming response
+	for {
+		resp, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("stream next: %w", err)
+		}
+
+		// Check for function calls
+		funcCalls := extractFunctionCalls(resp)
+		if len(funcCalls) > 0 {
+			pendingFuncCalls = append(pendingFuncCalls, funcCalls...)
+			continue
+		}
+
+		// Stream text chunks
+		text := extractTextContent(resp)
+		if text != "" {
+			onChunk(text)
+		}
+	}
+
+	// Process tool calls in a loop (max 5 rounds)
+	for round := 0; round < 5 && len(pendingFuncCalls) > 0; round++ {
+		var funcResponses []genai.Part
+		for _, fc := range pendingFuncCalls {
+			args := make(map[string]any)
+			for k, v := range fc.Args {
+				args[k] = v
+			}
+
+			log.Printf("Executing tool: %s with args: %v", fc.Name, args)
+			result, execErr := lc.toolExecutor.Execute(ctx, fc.Name, args)
+			if execErr != nil {
+				result = fmt.Sprintf("Error: %s", execErr.Error())
+			}
+
+			allToolCalls = append(allToolCalls, ToolCallRecord{
+				Name:   fc.Name,
+				Args:   args,
+				Result: result,
+			})
+
+			var resultMap map[string]any
+			if json.Unmarshal([]byte(result), &resultMap) != nil {
+				resultMap = map[string]any{"result": result}
+			}
+			funcResponses = append(funcResponses, genai.FunctionResponse{
+				Name:     fc.Name,
+				Response: resultMap,
+			})
+		}
+		pendingFuncCalls = nil
+
+		// Send function responses back to the model, stream the result
+		nextIter := cs.SendMessageStream(ctx, funcResponses...)
+		for {
+			resp, err := nextIter.Next()
+			if err == iterator.Done {
+				break
+			}
+			if err != nil {
+				return nil, fmt.Errorf("stream function response: %w", err)
+			}
+
+			funcCalls := extractFunctionCalls(resp)
+			if len(funcCalls) > 0 {
+				pendingFuncCalls = append(pendingFuncCalls, funcCalls...)
+				continue
+			}
+
+			text := extractTextContent(resp)
+			if text != "" {
+				onChunk(text)
+			}
+		}
+	}
+
+	return &LLMResponse{
 		ToolCalls: allToolCalls,
 	}, nil
 }
