@@ -410,7 +410,7 @@ lint-frontend:
 
 lint-backend: lint-backend-install
 	@echo "🔍 Linting backend with golangci-lint..."
-	@cd services && golangci-lint run ./...
+	@cd services && golangci-lint run --concurrency 1 --timeout 120s ./...
 
 lint-backend-install:
 	@which golangci-lint > /dev/null || { \

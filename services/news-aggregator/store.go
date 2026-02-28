@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -12,13 +11,14 @@ import (
 
 // NewsStore handles inserting news articles into PostgreSQL
 type NewsStore struct {
-	db      *pgxpool.Pool
-	verbose bool
+	db       *pgxpool.Pool
+	verbose  bool
+	analyzer *SentimentAnalyzer
 }
 
 // NewNewsStore creates a new news store
-func NewNewsStore(db *pgxpool.Pool, verbose bool) *NewsStore {
-	return &NewsStore{db: db, verbose: verbose}
+func NewNewsStore(db *pgxpool.Pool, verbose bool, analyzer *SentimentAnalyzer) *NewsStore {
+	return &NewsStore{db: db, verbose: verbose, analyzer: analyzer}
 }
 
 // StoreArticles inserts articles into the news_articles table, deduplicating by URL
@@ -38,30 +38,28 @@ func (s *NewsStore) StoreArticles(ctx context.Context, articles []*NewsArticleRa
 			stockCode = "MARKET" // General market news
 		}
 
-		// Simple sentiment heuristic (to be replaced by Gemini Flash)
-		sentiment := classifySimpleSentiment(a.Headline)
+		// Classify sentiment (use analyzer if available, otherwise simple heuristic)
+		sentiment := s.classifySentiment(ctx, a.Headline)
 
 		relevanceScore := 0.5
 		if a.IsPriceSensitive {
 			relevanceScore = 0.9
 		}
 
-		query := fmt.Sprintf(
+		tag, err := s.db.Exec(ctx,
 			`INSERT INTO news_articles (stock_code, source, headline, url, published_at, sentiment, relevance_score, is_price_sensitive, summary)
-			 VALUES ('%s', '%s', '%s', '%s', '%s'::timestamptz, '%s', %f, %t, '%s')
+			 VALUES ($1, $2, $3, $4, $5::timestamptz, $6, $7, $8, $9)
 			 ON CONFLICT (url) DO NOTHING`,
-			escapeSQLStr(stockCode),
-			escapeSQLStr(a.Source),
-			escapeSQLStr(a.Headline),
-			escapeSQLStr(a.URL),
-			escapeSQLStr(a.PublishedAt),
-			escapeSQLStr(sentiment),
+			stockCode,
+			a.Source,
+			a.Headline,
+			a.URL,
+			a.PublishedAt,
+			sentiment,
 			relevanceScore,
 			a.IsPriceSensitive,
-			escapeSQLStr(truncateStr(a.Summary, 1000)),
+			truncateStr(a.Summary, 1000),
 		)
-
-		tag, err := s.db.Exec(ctx, query)
 		if err != nil {
 			if s.verbose {
 				log.Printf("    WARN: failed to insert article: %v", err)
@@ -74,6 +72,17 @@ func (s *NewsStore) StoreArticles(ctx context.Context, articles []*NewsArticleRa
 	}
 
 	return stored, nil
+}
+
+// classifySentiment uses the AI analyzer if available, falling back to keyword heuristic
+func (s *NewsStore) classifySentiment(ctx context.Context, headline string) string {
+	if s.analyzer != nil {
+		results, err := s.analyzer.AnalyzeBatch(ctx, []string{headline})
+		if err == nil && len(results) > 0 {
+			return results[0]
+		}
+	}
+	return classifySimpleSentiment(headline)
 }
 
 // classifySimpleSentiment does basic keyword-based sentiment analysis
@@ -94,11 +103,6 @@ func classifySimpleSentiment(headline string) string {
 		}
 	}
 	return "neutral"
-}
-
-// escapeSQLStr escapes single quotes for safe SQL string literals
-func escapeSQLStr(s string) string {
-	return strings.ReplaceAll(s, "'", "''")
 }
 
 // truncateStr truncates a string to the given max length
