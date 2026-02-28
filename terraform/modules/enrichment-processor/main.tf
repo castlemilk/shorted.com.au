@@ -237,7 +237,7 @@ resource "google_cloud_run_v2_service" "enrichment_processor" {
     }
 
     scaling {
-      min_instance_count = 1  # Keep one instance warm for processing jobs
+      min_instance_count = 0  # Scale to zero when idle
       max_instance_count = 5  # Allow scaling for concurrent jobs
     }
   }

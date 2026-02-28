@@ -23,7 +23,7 @@ variable "image_url" {
 variable "min_instances" {
   description = "Minimum number of Cloud Run instances"
   type        = number
-  default     = 1
+  default     = 0
 }
 
 variable "max_instances" {

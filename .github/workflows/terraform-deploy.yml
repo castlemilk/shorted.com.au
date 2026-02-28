@@ -37,8 +37,10 @@ permissions:
   deployments: write
 
 concurrency:
-  group: deploy-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Use separate concurrency groups for PR close (cleanup) vs other events
+  # so cleanup runs are never cancelled by new pushes to the PR
+  group: deploy-${{ github.event.pull_request.number || github.ref }}-${{ github.event.action == 'closed' && 'cleanup' || 'deploy' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.action != 'closed' }}
 
 jobs:
   determine-environment:
@@ -229,10 +231,11 @@ jobs:
     # Skip Docker builds on PRs unless the 'deploy-preview' label is set.
     # ci-fast.yml already validates Go compilation; Docker builds are only
     # needed for actual deployments (main, release, manual, labeled PRs).
+    # IMPORTANT: Do NOT build on PR close — cleanup doesn't need images.
     if: >-
-      github.event_name != 'pull_request' ||
-      github.event.action == 'closed' ||
-      contains(github.event.pull_request.labels.*.name, 'deploy-preview')
+      (github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'deploy-preview')) &&
+      github.event.action != 'closed'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -297,10 +300,11 @@ jobs:
 
   build-ko-images:
     needs: [determine-environment, validate-secrets]
+    # IMPORTANT: Do NOT build on PR close — cleanup doesn't need images.
     if: >-
-      github.event_name != 'pull_request' ||
-      github.event.action == 'closed' ||
-      contains(github.event.pull_request.labels.*.name, 'deploy-preview')
+      (github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'deploy-preview')) &&
+      github.event.action != 'closed'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -662,8 +666,30 @@ jobs:
             fi
           fi
 
+          if gcloud run services describe enrichment-processor-pr-${PR_NUMBER} --region=${GCP_REGION} --project=${GCP_PROJECT_ID} &>/dev/null; then
+            if ! is_in_state "module.preview.module.enrichment_processor_preview.google_cloud_run_v2_service.enrichment_processor"; then
+              echo "Deleting orphaned enrichment-processor service (not in Terraform state)..."
+              gcloud run services delete enrichment-processor-pr-${PR_NUMBER} \
+                --region=${GCP_REGION} --project=${GCP_PROJECT_ID} --quiet || true
+            fi
+          fi
+
           # Apply configuration (will create new or update existing)
           terraform apply -auto-approve
+
+          # Cost guardrail: force minScale=0 on all preview services
+          echo "🛡️ Enforcing minScale=0 on preview services..."
+          for svc in shorts-service-pr-${PR_NUMBER} market-data-service-pr-${PR_NUMBER} enrichment-processor-pr-${PR_NUMBER}; do
+            MIN_SCALE=$(gcloud run services describe "$svc" \
+              --region=${GCP_REGION} --project=${GCP_PROJECT_ID} \
+              --format="value(spec.template.metadata.annotations['autoscaling.knative.dev/minScale'])" 2>/dev/null || echo "0")
+            if [ -n "$MIN_SCALE" ] && [ "$MIN_SCALE" != "0" ]; then
+              echo "  Fixing $svc: minScale=$MIN_SCALE -> 0"
+              gcloud run services update "$svc" \
+                --region=${GCP_REGION} --project=${GCP_PROJECT_ID} \
+                --min-instances=0 --quiet 2>&1 || true
+            fi
+          done
 
           # Capture outputs
           SHORTS_URL=$(terraform output -raw shorts_url)
@@ -1074,6 +1100,34 @@ jobs:
           echo "📋 Cloud Scheduler Jobs:"
           gcloud scheduler jobs list --project "$GCP_PROJECT_ID" --location australia-southeast1 --format="table(name,state,schedule)" 2>/dev/null || echo "No scheduler jobs found"
 
+      - name: Enforce minScale=0 on all services
+        env:
+          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
+          GCP_REGION: ${{ env.GCP_REGION }}
+        run: |
+          echo "🛡️ Cost guardrail: verifying all services have minScale=0..."
+          VIOLATIONS=0
+          for svc in $(gcloud run services list --project="$GCP_PROJECT_ID" --region="$GCP_REGION" --format="value(name)"); do
+            MIN_SCALE=$(gcloud run services describe "$svc" \
+              --project="$GCP_PROJECT_ID" \
+              --region="$GCP_REGION" \
+              --format="value(spec.template.metadata.annotations['autoscaling.knative.dev/minScale'])" 2>/dev/null)
+            if [ -n "$MIN_SCALE" ] && [ "$MIN_SCALE" != "0" ]; then
+              VIOLATIONS=$((VIOLATIONS + 1))
+              echo "⚠️ VIOLATION: $svc has minScale=$MIN_SCALE — fixing to 0"
+              gcloud run services update "$svc" \
+                --project="$GCP_PROJECT_ID" \
+                --region="$GCP_REGION" \
+                --min-instances=0 \
+                --quiet 2>&1 || echo "  Failed to fix $svc"
+            fi
+          done
+          if [ "$VIOLATIONS" -eq 0 ]; then
+            echo "✅ All services have minScale=0"
+          else
+            echo "⚠️ Fixed $VIOLATIONS services with non-zero minScale"
+          fi
+
       - name: Health Check Services
         env:
           SHORTS_URL: ${{ steps.outputs.outputs.shorts_url }}
@@ -1369,15 +1423,17 @@ jobs:
           module "preview" {
             source = "../modules/preview"
 
-            project_id             = "${GCP_PROJECT_ID}"
-            region                 = "${GCP_REGION}"
-            pr_number              = "${PR_NUMBER}"
-            shorts_api_image       = "australia-southeast2-docker.pkg.dev/${GCP_PROJECT_ID}/shorted/shorts:pr-${PR_NUMBER}"
-            market_data_image      = "australia-southeast2-docker.pkg.dev/${GCP_PROJECT_ID}/shorted/market-data:pr-${PR_NUMBER}"
-            shorts_service_account = "shorts@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
-            postgres_address       = "dummy:5432"
-            postgres_database      = "dummy"
-            postgres_username      = "dummy"
+            project_id                 = "${GCP_PROJECT_ID}"
+            region                     = "${GCP_REGION}"
+            pr_number                  = "${PR_NUMBER}"
+            shorts_api_image           = "australia-southeast2-docker.pkg.dev/${GCP_PROJECT_ID}/shorted/shorts:pr-${PR_NUMBER}"
+            market_data_image          = "australia-southeast2-docker.pkg.dev/${GCP_PROJECT_ID}/shorted/market-data:pr-${PR_NUMBER}"
+            enrichment_processor_image = "australia-southeast2-docker.pkg.dev/${GCP_PROJECT_ID}/shorted/enrichment-processor:pr-${PR_NUMBER}"
+            shorts_service_account     = "shorts@${GCP_PROJECT_ID}.iam.gserviceaccount.com"
+            postgres_address           = "dummy:5432"
+            postgres_database          = "dummy"
+            postgres_username          = "dummy"
+            image_tag                  = "cleanup"
           }
           EOF
 
@@ -1385,16 +1441,45 @@ jobs:
           terraform init
           terraform destroy -auto-approve || {
             echo "⚠️ Terraform destroy failed, attempting direct cleanup..."
-            gcloud run services delete shorts-service-pr-${PR_NUMBER} \
-              --region ${GCP_REGION} \
-              --project ${GCP_PROJECT_ID} \
-              --quiet || echo "Shorts service not found"
-            
-            gcloud run services delete market-data-service-pr-${PR_NUMBER} \
-              --region ${GCP_REGION} \
-              --project ${GCP_PROJECT_ID} \
-              --quiet || echo "Market data service not found"
           }
+
+          # Always run direct cleanup as belt-and-suspenders
+          # This catches resources that Terraform missed or that were created outside Terraform
+          echo "Running direct resource cleanup..."
+
+          gcloud run services delete shorts-service-pr-${PR_NUMBER} \
+            --region ${GCP_REGION} \
+            --project ${GCP_PROJECT_ID} \
+            --quiet 2>/dev/null || echo "  shorts-service-pr-${PR_NUMBER} not found"
+
+          gcloud run services delete market-data-service-pr-${PR_NUMBER} \
+            --region ${GCP_REGION} \
+            --project ${GCP_PROJECT_ID} \
+            --quiet 2>/dev/null || echo "  market-data-service-pr-${PR_NUMBER} not found"
+
+          gcloud run services delete enrichment-processor-pr-${PR_NUMBER} \
+            --region ${GCP_REGION} \
+            --project ${GCP_PROJECT_ID} \
+            --quiet 2>/dev/null || echo "  enrichment-processor-pr-${PR_NUMBER} not found"
+
+          # Clean up Pub/Sub resources
+          gcloud pubsub subscriptions delete enrichment-jobs-subscription-pr-${PR_NUMBER} \
+            --project ${GCP_PROJECT_ID} \
+            --quiet 2>/dev/null || echo "  enrichment-jobs-subscription-pr-${PR_NUMBER} not found"
+
+          gcloud pubsub topics delete enrichment-jobs-pr-${PR_NUMBER} \
+            --project ${GCP_PROJECT_ID} \
+            --quiet 2>/dev/null || echo "  enrichment-jobs-pr-${PR_NUMBER} not found"
+
+          # Clean up PR-specific Docker images from Artifact Registry
+          for img in shorts market-data enrichment-processor; do
+            gcloud artifacts docker images delete \
+              "australia-southeast2-docker.pkg.dev/${GCP_PROJECT_ID}/shorted/${img}:pr-${PR_NUMBER}" \
+              --quiet 2>/dev/null || echo "  ${img}:pr-${PR_NUMBER} image not found"
+          done
+
+          # Clean up Terraform state for this PR
+          gsutil -m rm -r "gs://${GCP_PROJECT_ID}-terraform-state/preview/pr-${PR_NUMBER}/" 2>/dev/null || echo "  Terraform state not found"
 
           cd ..
           rm -rf preview-pr-${PR_NUMBER}-destroy
@@ -1409,8 +1494,9 @@ jobs:
             Preview services for PR #${{ github.event.pull_request.number }} have been removed:
             - \`shorts-service-pr-${{ github.event.pull_request.number }}\` ❌
             - \`market-data-service-pr-${{ github.event.pull_request.number }}\` ❌
+            - \`enrichment-processor-pr-${{ github.event.pull_request.number }}\` ❌
 
-            *Terraform infrastructure destroyed automatically*
+            *Terraform infrastructure and Pub/Sub resources destroyed automatically*
             `;
 
             await github.rest.issues.createComment({
