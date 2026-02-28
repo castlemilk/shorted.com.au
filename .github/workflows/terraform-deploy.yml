@@ -378,59 +378,38 @@ jobs:
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
         run: terraform init
 
-      - name: Ensure OpenAI secret exists in Secret Manager
+      - name: Ensure secrets exist in Secret Manager
         env:
           GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          if [ -z "$OPENAI_API_KEY" ]; then
-            echo "❌ Missing GitHub secret: OPENAI_API_KEY"
-            exit 1
-          fi
-
-          if gcloud secrets describe OPENAI_API_KEY --project "$GCP_PROJECT_ID" &>/dev/null; then
-            echo "Updating Secret Manager: OPENAI_API_KEY (new version)"
-            printf "%s" "$OPENAI_API_KEY" | gcloud secrets versions add OPENAI_API_KEY --data-file=- --project "$GCP_PROJECT_ID"
-          else
-            echo "Creating Secret Manager secret: OPENAI_API_KEY"
-            printf "%s" "$OPENAI_API_KEY" | gcloud secrets create OPENAI_API_KEY --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-          fi
-
-      - name: Ensure Internal Service Secret exists in Secret Manager
-        env:
-          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
-        run: |
-          if [ -z "$INTERNAL_SERVICE_SECRET" ]; then
-            echo "❌ Missing GitHub secret: INTERNAL_SERVICE_SECRET"
-            exit 1
-          fi
-
-          if gcloud secrets describe INTERNAL_SERVICE_SECRET --project "$GCP_PROJECT_ID" &>/dev/null; then
-            echo "Updating Secret Manager: INTERNAL_SERVICE_SECRET (new version)"
-            printf "%s" "$INTERNAL_SERVICE_SECRET" | gcloud secrets versions add INTERNAL_SERVICE_SECRET --data-file=- --project "$GCP_PROJECT_ID"
-          else
-            echo "Creating Secret Manager secret: INTERNAL_SERVICE_SECRET"
-            printf "%s" "$INTERNAL_SERVICE_SECRET" | gcloud secrets create INTERNAL_SERVICE_SECRET --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-          fi
-
-      - name: Ensure OTEL headers secret exists in Secret Manager
-        env:
-          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
           OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
         run: |
-          if [ -z "$OTEL_EXPORTER_OTLP_HEADERS" ]; then
-            echo "⚠️ OTEL_EXPORTER_OTLP_HEADERS not set, skipping"
-            exit 0
-          fi
+          # Ensure a secret exists and only add a new version if the value has changed.
+          # This prevents version bloat ($0.06/version/month) from identical re-deploys.
+          ensure_secret() {
+            local name="$1" value="$2"
+            if [ -z "$value" ]; then
+              echo "⚠️ $name not set, skipping"
+              return 0
+            fi
+            if ! gcloud secrets describe "$name" --project "$GCP_PROJECT_ID" &>/dev/null; then
+              echo "Creating secret: $name"
+              printf "%s" "$value" | gcloud secrets create "$name" --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+              return 0
+            fi
+            CURRENT=$(gcloud secrets versions access latest --secret="$name" --project "$GCP_PROJECT_ID" 2>/dev/null || true)
+            if [ "$CURRENT" = "$value" ]; then
+              echo "✅ $name unchanged, skipping"
+            else
+              echo "🔄 $name changed, adding new version"
+              printf "%s" "$value" | gcloud secrets versions add "$name" --data-file=- --project "$GCP_PROJECT_ID"
+            fi
+          }
 
-          if gcloud secrets describe OTEL_EXPORTER_OTLP_HEADERS --project "$GCP_PROJECT_ID" &>/dev/null; then
-            echo "Updating Secret Manager: OTEL_EXPORTER_OTLP_HEADERS (new version)"
-            printf "%s" "$OTEL_EXPORTER_OTLP_HEADERS" | gcloud secrets versions add OTEL_EXPORTER_OTLP_HEADERS --data-file=- --project "$GCP_PROJECT_ID"
-          else
-            echo "Creating Secret Manager secret: OTEL_EXPORTER_OTLP_HEADERS"
-            printf "%s" "$OTEL_EXPORTER_OTLP_HEADERS" | gcloud secrets create OTEL_EXPORTER_OTLP_HEADERS --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-          fi
+          ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
+          ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"
+          ensure_secret "OTEL_EXPORTER_OTLP_HEADERS" "$OTEL_EXPORTER_OTLP_HEADERS"
 
       - name: Terraform Plan
         id: plan
@@ -558,31 +537,21 @@ jobs:
           DB_NAME=$(echo $DATABASE_URL | sed -n 's|.*/\([^?]*\).*|\1|p')
           DB_ADDRESS="${DB_HOST}:${DB_PORT}"
 
-          # Ensure Secret Manager has OPENAI_API_KEY for preview services
-          if [ -z "$OPENAI_API_KEY" ]; then
-            echo "❌ Missing GitHub secret: OPENAI_API_KEY"
-            exit 1
-          fi
-          if gcloud secrets describe OPENAI_API_KEY --project "$GCP_PROJECT_ID" &>/dev/null; then
-            echo "Updating Secret Manager: OPENAI_API_KEY (new version)"
-            printf "%s" "$OPENAI_API_KEY" | gcloud secrets versions add OPENAI_API_KEY --data-file=- --project "$GCP_PROJECT_ID"
-          else
-            echo "Creating Secret Manager secret: OPENAI_API_KEY"
-            printf "%s" "$OPENAI_API_KEY" | gcloud secrets create OPENAI_API_KEY --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-          fi
-
-          # Ensure Secret Manager has INTERNAL_SERVICE_SECRET for webhook auth
-          if [ -z "$INTERNAL_SERVICE_SECRET" ]; then
-            echo "❌ Missing GitHub secret: INTERNAL_SERVICE_SECRET"
-            exit 1
-          fi
-          if gcloud secrets describe INTERNAL_SERVICE_SECRET --project "$GCP_PROJECT_ID" &>/dev/null; then
-            echo "Updating Secret Manager: INTERNAL_SERVICE_SECRET (new version)"
-            printf "%s" "$INTERNAL_SERVICE_SECRET" | gcloud secrets versions add INTERNAL_SERVICE_SECRET --data-file=- --project "$GCP_PROJECT_ID"
-          else
-            echo "Creating Secret Manager secret: INTERNAL_SERVICE_SECRET"
-            printf "%s" "$INTERNAL_SERVICE_SECRET" | gcloud secrets create INTERNAL_SERVICE_SECRET --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-          fi
+          # Ensure secrets exist (only add new version if value changed)
+          ensure_secret() {
+            local name="$1" value="$2"
+            if [ -z "$value" ]; then echo "⚠️ $name not set, skipping"; return 0; fi
+            if ! gcloud secrets describe "$name" --project "$GCP_PROJECT_ID" &>/dev/null; then
+              printf "%s" "$value" | gcloud secrets create "$name" --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+              return 0
+            fi
+            CURRENT=$(gcloud secrets versions access latest --secret="$name" --project "$GCP_PROJECT_ID" 2>/dev/null || true)
+            if [ "$CURRENT" = "$value" ]; then echo "✅ $name unchanged"; else
+              printf "%s" "$value" | gcloud secrets versions add "$name" --data-file=- --project "$GCP_PROJECT_ID"
+            fi
+          }
+          ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
+          ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"
 
           # Create preview config directory
           mkdir -p preview-pr-${PR_NUMBER}
@@ -908,152 +877,67 @@ jobs:
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
         run: terraform init
 
-      - name: Ensure OpenAI secret exists in Secret Manager
-        env:
-          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          if [ -z "$OPENAI_API_KEY" ]; then
-            echo "❌ Missing GitHub secret: OPENAI_API_KEY"
-            exit 1
-          fi
-
-          if gcloud secrets describe OPENAI_API_KEY --project "$GCP_PROJECT_ID" &>/dev/null; then
-            echo "Updating Secret Manager: OPENAI_API_KEY (new version)"
-            printf "%s" "$OPENAI_API_KEY" | gcloud secrets versions add OPENAI_API_KEY --data-file=- --project "$GCP_PROJECT_ID"
-          else
-            echo "Creating Secret Manager secret: OPENAI_API_KEY"
-            printf "%s" "$OPENAI_API_KEY" | gcloud secrets create OPENAI_API_KEY --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-          fi
-
-      - name: Ensure Internal Service Secret exists in Secret Manager
-        env:
-          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
-          INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
-        run: |
-          if [ -z "$INTERNAL_SERVICE_SECRET" ]; then
-            echo "❌ Missing GitHub secret: INTERNAL_SERVICE_SECRET"
-            exit 1
-          fi
-
-          if gcloud secrets describe INTERNAL_SERVICE_SECRET --project "$GCP_PROJECT_ID" &>/dev/null; then
-            echo "Updating Secret Manager: INTERNAL_SERVICE_SECRET (new version)"
-            printf "%s" "$INTERNAL_SERVICE_SECRET" | gcloud secrets versions add INTERNAL_SERVICE_SECRET --data-file=- --project "$GCP_PROJECT_ID"
-          else
-            echo "Creating Secret Manager secret: INTERNAL_SERVICE_SECRET"
-            printf "%s" "$INTERNAL_SERVICE_SECRET" | gcloud secrets create INTERNAL_SERVICE_SECRET --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-          fi
-
-      - name: Ensure Database secrets exist in Secret Manager
+      - name: Ensure all secrets exist in Secret Manager
         env:
           GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
           ENVIRONMENT: ${{ needs.determine-environment.outputs.environment }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           DATABASE_URL_DEV: ${{ secrets.DATABASE_URL }}
           DATABASE_URL_PROD: ${{ secrets.DATABASE_URL_PROD }}
-        run: |
-          # Use environment-specific DATABASE_URL (fall back to dev if prod not set)
-          if [ "$ENVIRONMENT" = "prod" ] && [ -n "$DATABASE_URL_PROD" ]; then
-            DATABASE_URL="$DATABASE_URL_PROD"
-            echo "Using DATABASE_URL_PROD for production"
-          else
-            DATABASE_URL="$DATABASE_URL_DEV"
-            echo "Using DATABASE_URL for $ENVIRONMENT"
-          fi
-          
-          # Extract password from DATABASE_URL (strip any newlines)
-          DB_PASS=$(echo "$DATABASE_URL" | sed -n 's|postgresql://[^:]*:\([^@]*\)@.*|\1|p' | tr -d '\n\r')
-          
-          if [ -z "$DB_PASS" ]; then
-            echo "⚠️ Could not extract database password from DATABASE_URL"
-          else
-            echo "Extracted password (length: ${#DB_PASS})"
-            
-            # Create/update postgres-password (legacy name) - strip newlines
-            if gcloud secrets describe postgres-password --project "$GCP_PROJECT_ID" &>/dev/null; then
-              echo "Updating Secret Manager: postgres-password (new version)"
-              printf "%s" "$DB_PASS" | tr -d '\n\r' | gcloud secrets versions add postgres-password --data-file=- --project "$GCP_PROJECT_ID"
-            else
-              echo "Creating Secret Manager secret: postgres-password"
-              printf "%s" "$DB_PASS" | tr -d '\n\r' | gcloud secrets create postgres-password --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-            fi
-            
-            # Create/update APP_STORE_POSTGRES_PASSWORD (used by shorts-api) - strip newlines
-            if gcloud secrets describe APP_STORE_POSTGRES_PASSWORD --project "$GCP_PROJECT_ID" &>/dev/null; then
-              echo "Updating Secret Manager: APP_STORE_POSTGRES_PASSWORD (new version)"
-              printf "%s" "$DB_PASS" | tr -d '\n\r' | gcloud secrets versions add APP_STORE_POSTGRES_PASSWORD --data-file=- --project "$GCP_PROJECT_ID"
-            else
-              echo "Creating Secret Manager secret: APP_STORE_POSTGRES_PASSWORD"
-              printf "%s" "$DB_PASS" | tr -d '\n\r' | gcloud secrets create APP_STORE_POSTGRES_PASSWORD --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-            fi
-          fi
-          
-          # Also store full DATABASE_URL for services that need it - strip newlines
-          DB_URL_CLEAN=$(printf "%s" "$DATABASE_URL" | tr -d '\n\r')
-          if gcloud secrets describe DATABASE_URL --project "$GCP_PROJECT_ID" &>/dev/null; then
-            echo "Updating Secret Manager: DATABASE_URL (new version)"
-            printf "%s" "$DB_URL_CLEAN" | gcloud secrets versions add DATABASE_URL --data-file=- --project "$GCP_PROJECT_ID"
-          else
-            echo "Creating Secret Manager secret: DATABASE_URL"
-            printf "%s" "$DB_URL_CLEAN" | gcloud secrets create DATABASE_URL --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-          fi
-
-      - name: Ensure OTEL headers secret exists in Secret Manager
-        env:
-          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
           OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
-        run: |
-          if [ -z "$OTEL_EXPORTER_OTLP_HEADERS" ]; then
-            echo "⚠️ OTEL_EXPORTER_OTLP_HEADERS not set, skipping"
-            exit 0
-          fi
-
-          if gcloud secrets describe OTEL_EXPORTER_OTLP_HEADERS --project "$GCP_PROJECT_ID" &>/dev/null; then
-            echo "Updating Secret Manager: OTEL_EXPORTER_OTLP_HEADERS (new version)"
-            printf "%s" "$OTEL_EXPORTER_OTLP_HEADERS" | gcloud secrets versions add OTEL_EXPORTER_OTLP_HEADERS --data-file=- --project "$GCP_PROJECT_ID"
-          else
-            echo "Creating Secret Manager secret: OTEL_EXPORTER_OTLP_HEADERS"
-            printf "%s" "$OTEL_EXPORTER_OTLP_HEADERS" | gcloud secrets create OTEL_EXPORTER_OTLP_HEADERS --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-          fi
-
-      - name: Ensure Algolia secrets exist in Secret Manager
-        env:
-          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
           ALGOLIA_APP_ID: ${{ secrets.ALGOLIA_APP_ID }}
           ALGOLIA_SEARCH_KEY: ${{ secrets.ALGOLIA_SEARCH_KEY }}
-        run: |
-          # Create/update ALGOLIA_APP_ID
-          if gcloud secrets describe ALGOLIA_APP_ID --project "$GCP_PROJECT_ID" &>/dev/null; then
-            printf "%s" "$ALGOLIA_APP_ID" | gcloud secrets versions add ALGOLIA_APP_ID --data-file=- --project "$GCP_PROJECT_ID"
-          else
-            printf "%s" "$ALGOLIA_APP_ID" | gcloud secrets create ALGOLIA_APP_ID --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-          fi
-          
-          # Create/update ALGOLIA_SEARCH_KEY
-          if gcloud secrets describe ALGOLIA_SEARCH_KEY --project "$GCP_PROJECT_ID" &>/dev/null; then
-            printf "%s" "$ALGOLIA_SEARCH_KEY" | gcloud secrets versions add ALGOLIA_SEARCH_KEY --data-file=- --project "$GCP_PROJECT_ID"
-          else
-            printf "%s" "$ALGOLIA_SEARCH_KEY" | gcloud secrets create ALGOLIA_SEARCH_KEY --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
-          fi
-          
-          echo "✅ Algolia secrets configured"
-
-      - name: Ensure Alpha Vantage API key exists in Secret Manager
-        env:
-          GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
           ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
         run: |
-          if [ -z "$ALPHA_VANTAGE_API_KEY" ]; then
-            echo "⚠️ ALPHA_VANTAGE_API_KEY not set, creating placeholder"
-            ALPHA_VANTAGE_API_KEY="placeholder-set-in-secret-manager"
-          fi
-          
-          if gcloud secrets describe ALPHA_VANTAGE_API_KEY --project "$GCP_PROJECT_ID" &>/dev/null; then
-            printf "%s" "$ALPHA_VANTAGE_API_KEY" | tr -d '\n\r' | gcloud secrets versions add ALPHA_VANTAGE_API_KEY --data-file=- --project "$GCP_PROJECT_ID"
+          # Only add a new version if the value has actually changed.
+          # This prevents version bloat ($0.06/version/month — was costing $130+/month).
+          ensure_secret() {
+            local name="$1" value="$2"
+            if [ -z "$value" ]; then
+              echo "⚠️ $name not set, skipping"
+              return 0
+            fi
+            if ! gcloud secrets describe "$name" --project "$GCP_PROJECT_ID" &>/dev/null; then
+              echo "🆕 Creating secret: $name"
+              printf "%s" "$value" | gcloud secrets create "$name" --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+              return 0
+            fi
+            CURRENT=$(gcloud secrets versions access latest --secret="$name" --project "$GCP_PROJECT_ID" 2>/dev/null || true)
+            if [ "$CURRENT" = "$value" ]; then
+              echo "✅ $name unchanged, skipping"
+            else
+              echo "🔄 $name changed, adding new version"
+              printf "%s" "$value" | gcloud secrets versions add "$name" --data-file=- --project "$GCP_PROJECT_ID"
+            fi
+          }
+
+          # Core secrets
+          ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
+          ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"
+          ensure_secret "OTEL_EXPORTER_OTLP_HEADERS" "$OTEL_EXPORTER_OTLP_HEADERS"
+          ensure_secret "ALGOLIA_APP_ID" "$ALGOLIA_APP_ID"
+          ensure_secret "ALGOLIA_SEARCH_KEY" "$ALGOLIA_SEARCH_KEY"
+
+          # Alpha Vantage (with placeholder fallback)
+          AV_KEY="${ALPHA_VANTAGE_API_KEY:-placeholder-set-in-secret-manager}"
+          ensure_secret "ALPHA_VANTAGE_API_KEY" "$AV_KEY"
+
+          # Database secrets (environment-specific)
+          if [ "$ENVIRONMENT" = "prod" ] && [ -n "$DATABASE_URL_PROD" ]; then
+            DATABASE_URL="$DATABASE_URL_PROD"
           else
-            printf "%s" "$ALPHA_VANTAGE_API_KEY" | tr -d '\n\r' | gcloud secrets create ALPHA_VANTAGE_API_KEY --data-file=- --replication-policy="automatic" --project "$GCP_PROJECT_ID"
+            DATABASE_URL="$DATABASE_URL_DEV"
           fi
-          
-          echo "✅ Alpha Vantage API key configured"
+
+          DB_URL_CLEAN=$(printf "%s" "$DATABASE_URL" | tr -d '\n\r')
+          ensure_secret "DATABASE_URL" "$DB_URL_CLEAN"
+
+          DB_PASS=$(echo "$DATABASE_URL" | sed -n 's|postgresql://[^:]*:\([^@]*\)@.*|\1|p' | tr -d '\n\r')
+          if [ -n "$DB_PASS" ]; then
+            ensure_secret "postgres-password" "$DB_PASS"
+            ensure_secret "APP_STORE_POSTGRES_PASSWORD" "$DB_PASS"
+          fi
 
       - name: Terraform Apply
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}

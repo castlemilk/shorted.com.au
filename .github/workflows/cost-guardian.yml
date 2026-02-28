@@ -218,3 +218,67 @@ jobs:
 
           echo ""
           echo "=== Cleanup complete ==="
+
+  cleanup-secret-versions:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - project: shorted-dev-aba5688f
+            wip_provider: projects/234770780438/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+            sa_email: github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com
+          - project: rosy-clover-477102-t5
+            wip_provider: projects/334313144667/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+            sa_email: github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ matrix.wip_provider }}
+          service_account: ${{ matrix.sa_email }}
+
+      - name: Destroy old secret versions (keep only latest)
+        env:
+          PROJECT: ${{ matrix.project }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+        run: |
+          echo "=== Secret Manager cleanup: $PROJECT ==="
+          echo "Each active version costs \$0.06/month"
+          echo ""
+
+          TOTAL_DESTROYED=0
+
+          for secret in $(gcloud secrets list --project="$PROJECT" --format="value(name)"); do
+            # Get all enabled versions except the latest, sorted newest first
+            VERSIONS=$(gcloud secrets versions list "$secret" \
+              --project="$PROJECT" \
+              --filter="state=enabled" \
+              --sort-by="~name" \
+              --format="value(name)" 2>/dev/null)
+
+            COUNT=$(echo "$VERSIONS" | grep -c "." 2>/dev/null || echo "0")
+
+            if [ "$COUNT" -le 1 ]; then
+              continue
+            fi
+
+            # Skip the first (latest) version, destroy the rest
+            OLD_VERSIONS=$(echo "$VERSIONS" | tail -n +2)
+            OLD_COUNT=$((COUNT - 1))
+            echo "$secret: destroying $OLD_COUNT old versions (keeping latest)"
+
+            if [ "$DRY_RUN" = "false" ]; then
+              echo "$OLD_VERSIONS" | while read -r ver; do
+                [ -z "$ver" ] && continue
+                gcloud secrets versions destroy "$ver" \
+                  --secret="$secret" \
+                  --project="$PROJECT" \
+                  --quiet 2>/dev/null && \
+                  TOTAL_DESTROYED=$((TOTAL_DESTROYED + 1)) || \
+                  echo "  Failed to destroy $secret version $ver"
+              done
+            fi
+          done
+
+          echo ""
+          echo "=== Secret version cleanup complete ==="
