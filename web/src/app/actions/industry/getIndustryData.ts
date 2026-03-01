@@ -31,6 +31,14 @@ export interface IndustryStats {
   } | null;
 }
 
+// Raw ASIC classifications that should be mapped to "Other"
+const INVALID_INDUSTRIES = new Set([
+  "Class Pend",
+  "Not Applic",
+  "Not Applicable",
+  "",
+]);
+
 // Create URL-friendly slug from industry name
 function createSlug(industry: string): string {
   return industry
@@ -81,7 +89,10 @@ export const getIndustryData = cache(async (): Promise<IndustryStats[]> => {
       >();
 
       for (const stock of response.stocks) {
-        const industry = stock.industry ?? "Other";
+        let industry = stock.industry?.trim() ?? "Other";
+        if (INVALID_INDUSTRIES.has(industry)) {
+          industry = "Other";
+        }
         const shortPercent = stock.shortPosition ?? 0;
 
         if (!industryMap.has(industry)) {
@@ -174,7 +185,10 @@ export const getIndustryStocks = cache(
         }> = [];
 
         for (const stock of response.stocks) {
-          const industry = stock.industry ?? "Other";
+          let industry = stock.industry?.trim() ?? "Other";
+          if (INVALID_INDUSTRIES.has(industry)) {
+            industry = "Other";
+          }
           const slug = createSlug(industry);
 
           if (slug === industrySlug) {

@@ -9,7 +9,7 @@ import {
   SheetTrigger,
 } from "~/@/components/ui/sheet";
 import { Button } from "~/@/components/ui/button";
-import { MessageSquare, RotateCcw, Loader2, ArrowLeft } from "lucide-react";
+import { MessageSquare, RotateCcw, Loader2, ArrowLeft, Lock } from "lucide-react";
 import { useChat } from "~/@/hooks/use-chat";
 import { ChatMessageBubble } from "./chat-message";
 import { ChatInput } from "./chat-input";
@@ -82,6 +82,9 @@ export function ChatSidebar({ stockCode }: ChatSidebarProps) {
           className="fixed bottom-6 right-6 h-12 w-12 rounded-full shadow-lg z-50"
         >
           <MessageSquare className="h-5 w-5" />
+          {!showChat && (
+            <Lock className="absolute -bottom-0.5 -right-0.5 h-4 w-4 text-muted-foreground bg-background rounded-full p-0.5" />
+          )}
         </Button>
       </SheetTrigger>
       <SheetContent className="w-[400px] sm:w-[450px] flex flex-col p-0">
