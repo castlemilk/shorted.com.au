@@ -124,4 +124,52 @@ export function withRetryAndNotFound<TArgs extends unknown[], TReturn>(
   };
 }
 
+/**
+ * Sentinel error indicating a resource was not found (Connect NotFound / gRPC code 5).
+ * Caught by callers who need to distinguish 404 from transient failures.
+ */
+export class NotFoundError extends Error {
+  constructor(message = "Resource not found") {
+    super(message);
+    this.name = "NotFoundError";
+  }
+}
+
+/**
+ * Like withRetryAndNotFound, but throws NotFoundError for NotFound responses
+ * instead of returning undefined. Returns undefined only for transient errors.
+ *
+ * Use this when the caller needs to distinguish "resource doesn't exist"
+ * from "backend temporarily unavailable".
+ */
+export function withRetryAndThrowNotFound<TArgs extends unknown[], TReturn>(
+  fn: (...args: TArgs) => Promise<TReturn>,
+  options?: Partial<RetryOptions>,
+): (...args: TArgs) => Promise<TReturn | undefined> {
+  const retryOptions = { ...DEFAULT_ACTION_RETRY_OPTIONS, ...options };
+
+  return async (...args: TArgs): Promise<TReturn | undefined> => {
+    try {
+      return await retryWithBackoff(() => fn(...args), retryOptions);
+    } catch (err) {
+      // Throw NotFoundError so callers can trigger notFound()
+      if (isConnectError(err) && err.code === CODE_NOT_FOUND) {
+        throw new NotFoundError(err.message);
+      }
+
+      // For other errors, return undefined to let components show retry UI
+      console.error(
+        "[withRetryAndThrowNotFound] All retries exhausted, returning undefined:",
+        err instanceof Error ? err.message : String(err),
+        {
+          args: args
+            .map((a) => (typeof a === "string" ? a : "[object]"))
+            .join(", "),
+        },
+      );
+      return undefined;
+    }
+  };
+}
+
 export { type RetryOptions };

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { APIMockHelper } from './helpers/api-mock';
 import { AuthHelper } from './helpers/auth';
-import testUsers from './fixtures/test-users.json';
+import testUsers from './fixtures/test-users.json' with { type: 'json' };
 
 test.describe('API Integration & Error Handling', () => {
   let apiMock: APIMockHelper;

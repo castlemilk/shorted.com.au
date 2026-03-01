@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { APIMockHelper } from './helpers/api-mock';
 import { AuthHelper } from './helpers/auth';
-import testUsers from './fixtures/test-users.json';
+import testUsers from './fixtures/test-users.json' with { type: 'json' };
 
 test.describe('TreeMap Visualization', () => {
   let apiMock: APIMockHelper;
@@ -684,6 +684,6 @@ test.describe('TreeMap Visualization', () => {
     expect(currentUrl).toMatch(/treemap/);
     
     // URL should be shareable
-    expect(currentUrl).toMatch(/^https?:\\/\\/.+/);
+    expect(currentUrl).toMatch(/^https?:\/\/.+/);
   });
 });

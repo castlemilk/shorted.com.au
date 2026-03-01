@@ -42,7 +42,9 @@ import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { getStock } from "~/app/actions/getStock";
+import { getStock, getStockOrNotFound } from "~/app/actions/getStock";
+import { NotFoundError } from "~/app/actions/withRetry";
+import { notFound } from "next/navigation";
 
 /**
  * Pre-generate ALL stocks with non-zero short positions at build time (~940 stocks).
@@ -169,17 +171,27 @@ const Page = async ({ params }: PageProps) => {
   // This page is public for SEO and discovery - no authentication required
   const stockCode = rawStockCode.toUpperCase();
 
+  // Validate stock code format (ASX codes are 1-4 alphanumeric characters)
+  if (!/^[A-Z0-9]{1,4}$/.test(stockCode)) {
+    notFound();
+  }
+
   // Fetch stock data for StockLLMMeta and related stocks in parallel
-  // Both use withRetryAndNotFound, so they return undefined on failure
+  // getStockOrNotFound throws NotFoundError when the stock doesn't exist,
+  // but returns undefined for transient backend errors.
   let stock: Awaited<ReturnType<typeof getStock>> = undefined;
   let relatedData: Awaited<ReturnType<typeof getRelatedStocks>>;
   try {
     [stock, relatedData] = await Promise.all([
-      getStock(stockCode),
+      getStockOrNotFound(stockCode),
       getRelatedStocks(stockCode),
     ]);
-  } catch {
-    // Fallback if parallel fetch fails during static generation
+  } catch (err) {
+    // Stock genuinely doesn't exist in the database → show 404
+    if (err instanceof NotFoundError) {
+      notFound();
+    }
+    // Transient backend error → render page with fallback UI (retry components)
     relatedData = { stocks: [], industry: null, industrySlug: null };
   }
 

@@ -93,31 +93,38 @@ export function Sparkline({
     return smooth ? smoothData(data, 3) : data;
   }, [data, smooth]);
 
-  if (!smoothedData || smoothedData.length < 2) return null;
-
+  const hasData = !!smoothedData && smoothedData.length >= 2;
   const chartHeight = showMinMax ? height - 24 : height;
-  const margin = { top: 4, right: 4, bottom: 4, left: 4 };
+  const margin = useMemo(() => ({ top: 4, right: 4, bottom: 4, left: 4 }), []);
   const innerWidth = width - margin.left - margin.right;
   const innerHeight = chartHeight - margin.top - margin.bottom;
 
-  // Scales
+  // Scales — use safe defaults when no data
   const xScale = useMemo(
     () =>
       scaleTime({
-        domain: [
-          smoothedData[0]?.date ?? new Date(),
-          smoothedData[smoothedData.length - 1]?.date ?? new Date(),
-        ],
+        domain: hasData
+          ? [
+              smoothedData?.[0]?.date ?? new Date(),
+              smoothedData?.[smoothedData.length - 1]?.date ?? new Date(),
+            ]
+          : [new Date(), new Date()],
         range: [0, innerWidth],
       }),
-    [smoothedData, innerWidth],
+    [smoothedData, hasData, innerWidth],
   );
 
   const { yScale, minValue, maxValue } = useMemo(() => {
+    if (!hasData) {
+      return {
+        yScale: scaleLinear({ domain: [0, 1], range: [innerHeight, 0] }),
+        minValue: 0,
+        maxValue: 0,
+      };
+    }
     const values = smoothedData.map((d) => d.value);
     const min = Math.min(...values);
     const max = Math.max(...values);
-    // Add more padding to prevent clipping at edges
     const range = max - min;
     const padding = range > 0 ? range * 0.15 : 1;
 
@@ -130,7 +137,7 @@ export function Sparkline({
       minValue: min,
       maxValue: max,
     };
-  }, [smoothedData, innerHeight]);
+  }, [smoothedData, hasData, innerHeight]);
 
   // More vibrant colors
   const color = isPositive ? "#22c55e" : "#ef4444";
@@ -170,6 +177,8 @@ export function Sparkline({
     hideTooltip();
     onHover?.(null);
   }, [hideTooltip, onHover]);
+
+  if (!hasData) return null;
 
   return (
     <div style={{ position: "relative", width, height, display: "flex", flexDirection: "column" }}>

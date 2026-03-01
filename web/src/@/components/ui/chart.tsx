@@ -20,10 +20,6 @@ export type ChartProps = {
 };
 
 const Chart = ({ stockCode }: ChartProps) => {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
   const [period, setPeriod] = useState<string>(INITIAL_PERIOD);
   const chartRef = useRef<HandleBrushClearAndReset>(null);
   const [data, setData] = useState<TimeSeriesData | null>(null);
