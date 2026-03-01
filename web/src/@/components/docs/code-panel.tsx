@@ -19,7 +19,7 @@ interface CodePanelProps {
 }
 
 export function CodePanel({ endpoint }: CodePanelProps) {
-  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.shorted.com.au';
+  const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://shorts-uiekqxovma-km.a.run.app';
   
   const samples = [
     { label: 'cURL', lang: 'bash', code: generateCurl(endpoint, baseUrl) },

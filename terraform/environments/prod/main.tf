@@ -169,7 +169,6 @@ module "shorts_api" {
 
   scheduler_region             = "australia-southeast1"
   enable_key_metrics_scheduler = true
-  custom_domain                = "api.shorted.com.au"
 
   depends_on = [
     google_project_service.required_apis,

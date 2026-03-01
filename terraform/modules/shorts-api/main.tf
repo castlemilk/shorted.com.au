@@ -314,26 +314,6 @@ resource "google_cloud_run_v2_service_iam_member" "public_access" {
   member   = "allUsers"
 }
 
-# --- Custom Domain Mapping ---
-
-resource "google_cloud_run_domain_mapping" "api_domain" {
-  count    = var.custom_domain != "" ? 1 : 0
-  name     = var.custom_domain
-  location = var.region
-  project  = var.project_id
-
-  metadata {
-    namespace = var.project_id
-    labels    = local.labels
-  }
-
-  spec {
-    route_name = google_cloud_run_v2_service.shorts_api.name
-  }
-
-  depends_on = [google_cloud_run_v2_service.shorts_api]
-}
-
 # --- Key Metrics Daily Sync Scheduler ---
 
 # Service account for the scheduler to invoke the shorts API

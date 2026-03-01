@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import type { Metadata } from 'next';
 
-const BASE_URL = 'https://api.shorted.com.au';
+const BASE_URL = 'https://shorts-uiekqxovma-km.a.run.app';
 
 interface ClientGuide {
   name: string;
