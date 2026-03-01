@@ -115,6 +115,66 @@ export function NavSearchInput() {
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
+  // All hooks must be called before any early returns (React rules of hooks)
+
+  // Debounced search
+  const search = useCallback((q: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!q.trim()) {
+      setResults([]);
+      setLoading(false);
+      setActiveIndustry(null);
+      return;
+    }
+    setLoading(true);
+    debounceRef.current = setTimeout(() => {
+      void fetchSearchResults(q).then((r) => {
+        setResults(r);
+        setSelectedIndex(-1);
+        setLoading(false);
+      });
+    }, 250);
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    search(query);
+  }, [query, search, isAuthenticated]);
+
+  // Cmd+K / Ctrl+K shortcut
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        if (window.innerWidth < 768) {
+          setIsMobileOpen(true);
+          setTimeout(() => mobileInputRef.current?.focus(), 50);
+        } else {
+          inputRef.current?.focus();
+          setIsOpen(true);
+        }
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [isAuthenticated]);
+
+  // Click outside to close
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const handler = (e: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [isAuthenticated]);
+
   // If not authenticated, render a locked search prompt
   if (authStatus !== "loading" && !isAuthenticated) {
     return (
@@ -166,61 +226,6 @@ export function NavSearchInput() {
       </div>
     );
   }
-
-  // Debounced search
-  const search = useCallback((q: string) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!q.trim()) {
-      setResults([]);
-      setLoading(false);
-      setActiveIndustry(null);
-      return;
-    }
-    setLoading(true);
-    debounceRef.current = setTimeout(() => {
-      void fetchSearchResults(q).then((r) => {
-        setResults(r);
-        setSelectedIndex(-1);
-        setLoading(false);
-      });
-    }, 250);
-  }, []);
-
-  useEffect(() => {
-    search(query);
-  }, [query, search]);
-
-  // Cmd+K / Ctrl+K shortcut
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        if (window.innerWidth < 768) {
-          setIsMobileOpen(true);
-          setTimeout(() => mobileInputRef.current?.focus(), 50);
-        } else {
-          inputRef.current?.focus();
-          setIsOpen(true);
-        }
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, []);
-
-  // Click outside to close
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
 
   const handleSelect = (stock: StockResult) => {
     router.push(`/shorts/${stock.productCode}`);

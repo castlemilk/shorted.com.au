@@ -91,11 +91,8 @@ export function LLMMeta({
 
   return (
     <>
-      {/* Standard meta tags enhanced for LLMs */}
-      <meta name="description" content={description} />
-      {keywords.length > 0 && (
-        <meta name="keywords" content={keywords.join(", ")} />
-      )}
+      {/* Note: description and keywords meta tags are handled by Next.js generateMetadata.
+          Do NOT add <meta name="description"> here — it creates duplicates. */}
 
       {/* LLM-specific meta tags */}
       <meta name="ai:content-type" content="financial-data" />

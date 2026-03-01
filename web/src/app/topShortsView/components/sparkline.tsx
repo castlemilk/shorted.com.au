@@ -62,7 +62,7 @@ const bisectDate = (array: TimeSeriesPointData[], x: Date, lo?: number, hi?: num
 
 const Chart = ({ width, height, data }: SparklineProps) => {
   const points = data.points ?? [];
-  
+
   const {
     tooltipOpen,
     tooltipLeft,
@@ -78,19 +78,17 @@ const Chart = ({ width, height, data }: SparklineProps) => {
   });
 
   const margin = { top: 20, right: 24, bottom: 20, left: 10 };
-  
-  if (points.length === 0) {
-    return <div>Loading or no data available...</div>;
-  }
 
   // Calculate the min and max values
-  const minY = Math.min(...points.map(accessors.yAccessor));
-  const maxY = Math.max(...points.map(accessors.yAccessor));
+  const minY = points.length > 0 ? Math.min(...points.map(accessors.yAccessor)) : 0;
+  const maxY = points.length > 0 ? Math.max(...points.map(accessors.yAccessor)) : 0;
   const padding = (maxY - minY) * 0.1;
 
   // Create scales
   const xScale = scaleTime({
-    domain: [accessors.xAccessor(points[0]), accessors.xAccessor(points[points.length - 1])],
+    domain: points.length > 0
+      ? [accessors.xAccessor(points[0]), accessors.xAccessor(points[points.length - 1])]
+      : [new Date(), new Date()],
     range: [margin.left, width - margin.right],
   });
 
@@ -99,6 +97,7 @@ const Chart = ({ width, height, data }: SparklineProps) => {
     range: [height - margin.bottom, margin.top],
   });
 
+  // All hooks must be called before any early returns (React rules of hooks)
   const handleMouseMove = useCallback(
     (event: React.MouseEvent<SVGSVGElement>) => {
       const point = localPoint(event);
@@ -108,7 +107,7 @@ const Chart = ({ width, height, data }: SparklineProps) => {
       const index = bisectDate(points, x0, 1);
       const d0 = points[index - 1];
       const d1 = points[index];
-      
+
       let d = d0;
       if (d1 && accessors.xAccessor(d1)) {
         d = x0.valueOf() - accessors.xAccessor(d0).valueOf() >
@@ -129,6 +128,10 @@ const Chart = ({ width, height, data }: SparklineProps) => {
     },
     [points, xScale, yScale, showTooltip]
   );
+
+  if (points.length === 0) {
+    return <div>Loading or no data available...</div>;
+  }
 
   return (
     <div ref={portalRef} style={{ position: 'relative', width, height }}>

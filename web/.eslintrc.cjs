@@ -4,7 +4,7 @@ const config = {
   parserOptions: {
     project: true,
   },
-  plugins: ["@typescript-eslint", "jsx-a11y"],
+  plugins: ["@typescript-eslint", "jsx-a11y", "react-hooks"],
   ignorePatterns: ["**/__mocks__/**"],
   extends: [
     "plugin:@next/next/recommended",
@@ -13,6 +13,10 @@ const config = {
     "plugin:jsx-a11y/recommended",
   ],
   rules: {
+    // React hooks rules — prevents hooks-after-early-return (React error #300)
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn",
+
     // Accessibility rules configuration
     // Allow autoFocus in specific cases like search dialogs and modals
     "jsx-a11y/no-autofocus": ["warn", { ignoreNonDOM: true }],

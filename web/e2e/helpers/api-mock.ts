@@ -1,5 +1,5 @@
 import { Page, Route } from '@playwright/test';
-import testUsers from '../fixtures/test-users.json';
+import testUsers from '../fixtures/test-users.json' with { type: 'json' };
 
 export class APIMockHelper {
   constructor(private page: Page) {}
