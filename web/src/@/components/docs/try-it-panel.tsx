@@ -29,7 +29,7 @@ export function TryItPanel({ endpoint }: TryItPanelProps) {
     return '';
   };
 
-  const [token, setToken] = useState(getSavedToken());
+  const [token, setToken] = useState(() => getSavedToken());
 
   const handleSend = async () => {
     setLoading(true);

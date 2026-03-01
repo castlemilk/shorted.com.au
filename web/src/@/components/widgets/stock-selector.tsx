@@ -22,12 +22,14 @@ interface StockSelectorProps {
   showShortsToggle?: boolean;
 }
 
+const EMPTY_VISIBILITY: Record<string, boolean> = {};
+
 export function StockSelector({
   selectedStocks,
   onStocksChange,
   maxStocks = 5,
   className,
-  stockShortsVisibility = {},
+  stockShortsVisibility = EMPTY_VISIBILITY,
   onShortsVisibilityChange,
   showShortsToggle = false,
 }: StockSelectorProps) {

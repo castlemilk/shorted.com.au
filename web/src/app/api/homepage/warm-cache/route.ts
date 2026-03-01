@@ -28,41 +28,21 @@ export async function GET(request: NextRequest) {
   const results: Record<string, { success: boolean; error?: string }> = {};
 
   try {
-    // Warm top shorts cache for default period (3m)
-    try {
-      await getTopShortsData("3m", 50, 0);
-      results["top-shorts-3m"] = { success: true };
-    } catch (error) {
-      results["top-shorts-3m"] = {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
+    // Warm all caches in parallel — these are independent operations
+    const settled = await Promise.allSettled([
+      getTopShortsData("3m", 50, 0),
+      getIndustryTreeMap("3m", 10, VIEW_MODE_CURRENT_CHANGE),
+      getTopShortsData("1m", 50, 0),
+      getTopShortsData("6m", 50, 0),
+      getTopShortsData("1y", 50, 0),
+    ]);
 
-    // Warm treemap cache for default period and view mode
-    try {
-      await getIndustryTreeMap("3m", 10, VIEW_MODE_CURRENT_CHANGE);
-      results["treemap-3m"] = { success: true };
-    } catch (error) {
-      results["treemap-3m"] = {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-
-    // Also warm other common periods
-    const periods = ["1m", "6m", "1y"];
-    for (const period of periods) {
-      try {
-        await getTopShortsData(period, 50, 0);
-        results[`top-shorts-${period}`] = { success: true };
-      } catch (error) {
-        results[`top-shorts-${period}`] = {
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-        };
-      }
-    }
+    const keys = ["top-shorts-3m", "treemap-3m", "top-shorts-1m", "top-shorts-6m", "top-shorts-1y"];
+    settled.forEach((result, i) => {
+      results[keys[i]!] = result.status === "fulfilled"
+        ? { success: true }
+        : { success: false, error: result.reason instanceof Error ? result.reason.message : String(result.reason) };
+    });
 
     const duration = Date.now() - startTime;
     const successCount = Object.values(results).filter((r) => r.success).length;

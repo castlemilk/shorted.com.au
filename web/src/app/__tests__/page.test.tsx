@@ -30,6 +30,9 @@ jest.mock("lucide-react", () => ({
   Search: () => <div />,
   TrendingDown: () => <div />,
   TrendingUp: () => <div />,
+  RefreshCw: () => <div />,
+  BarChart3: () => <div />,
+  Download: () => <div />,
 }));
 
 // Mock the components with correct paths

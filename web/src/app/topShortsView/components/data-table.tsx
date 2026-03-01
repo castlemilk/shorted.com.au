@@ -26,7 +26,7 @@ import {
 import { Button } from "~/@/components/ui/button";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { Loader2 } from "lucide-react";
-import { debounce } from "lodash";
+import debounce from "lodash/debounce";
 
 interface DataTableProps<TData, TValue> {
   loading: boolean;
@@ -47,13 +47,18 @@ export function DataTable<TData, TValue>({
   isRefreshing = false,
   refreshKey,
 }: DataTableProps<TData, TValue>) {
-  const [localData, setLocalData] = React.useState(data);
-  const [, setIsLoading] = React.useState(loading);
+  const stableDataRef = React.useRef(data);
+  if (!isRefreshing) {
+    stableDataRef.current = data;
+  }
+  const localData = stableDataRef.current;
+
   const [isLargeScreen, setIsLargeScreen] = React.useState(false);
-  const [showLoadMore, setShowLoadMore] = React.useState(false);
-  const [, setIsFetching] = React.useState(false);
   const fetchingRef = React.useRef(false);
-  const totalRowsMax = 100; // Define this constant or make it a prop
+  const totalRowsMax = 100;
+
+  // Derive showLoadMore during render — no effect needed
+  const showLoadMore = !isLargeScreen && localData.length < totalRowsMax;
 
   React.useEffect(() => {
     const checkScreenSize = () => {
@@ -65,21 +70,6 @@ export function DataTable<TData, TValue>({
 
     return () => window.removeEventListener("resize", checkScreenSize);
   }, []);
-
-  React.useEffect(() => {
-    // Only update localData if we're not currently refreshing
-    // This keeps the old data visible during the refresh overlay
-    if (!isRefreshing) {
-      setLocalData(data);
-    }
-    setIsLoading(loading);
-    setIsFetching(false);
-    fetchingRef.current = false;
-  }, [data, loading, isRefreshing]);
-
-  React.useEffect(() => {
-    setShowLoadMore(!isLargeScreen && localData.length < totalRowsMax);
-  }, [isLargeScreen, localData.length, totalRowsMax]);
 
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
@@ -119,14 +109,12 @@ export function DataTable<TData, TValue>({
       debounce(() => {
         if (!fetchingRef.current && localData.length < totalRowsMax) {
           fetchingRef.current = true;
-          setIsFetching(true);
           fetchMore()
             .catch((error) => {
               console.error("Error fetching more data:", error);
             })
             .finally(() => {
               fetchingRef.current = false;
-              setIsFetching(false);
             });
         }
       }, 200),

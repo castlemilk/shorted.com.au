@@ -139,9 +139,8 @@ export function MarketWatchlistWidget({
   useEffect(() => {
     if (searchQuery) {
       debouncedSearch(searchQuery);
-    } else {
-      setSearchResults([]);
     }
+    // Clear is handled synchronously in onChange, not via effect
   }, [searchQuery, debouncedSearch]);
 
   // Handle clicking outside to close search
@@ -327,7 +326,11 @@ export function MarketWatchlistWidget({
                 ref={searchInputRef}
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value.toUpperCase())}
+                onChange={(e) => {
+                  const val = e.target.value.toUpperCase();
+                  setSearchQuery(val);
+                  if (!val) setSearchResults([]);
+                }}
                 onKeyDown={handleKeyDown}
                 placeholder="Search stocks to add..."
                 className="h-8 pl-8 pr-8 text-sm"
