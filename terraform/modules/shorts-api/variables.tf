@@ -68,9 +68,3 @@ variable "enable_key_metrics_scheduler" {
   default     = false
 }
 
-variable "custom_domain" {
-  description = "Custom domain to map to the Cloud Run service (e.g. api.shorted.com.au). Leave empty to skip."
-  type        = string
-  default     = ""
-}
-

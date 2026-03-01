@@ -36,7 +36,7 @@ export function TryItPanel({ endpoint }: TryItPanelProps) {
     setError(null);
     setResponse(null);
 
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://api.shorted.com.au';
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://shorts-uiekqxovma-km.a.run.app';
     const url = `${baseUrl}${endpoint.path}`;
 
     const headers: Record<string, string> = {
