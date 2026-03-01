@@ -16,6 +16,7 @@ import {
   Activity,
   ListFilter,
   Newspaper,
+  SlidersHorizontal,
 } from "lucide-react";
 import { withErrorBoundary } from "@/components/widgets/with-error-boundary";
 
@@ -60,6 +61,10 @@ const widgetComponents = {
   [WidgetType.NEWS_FEED]: () =>
     import("@/components/widgets/news-feed-widget").then(
       (m) => m.NewsFeedWidget,
+    ),
+  [WidgetType.SCREENER]: () =>
+    import("@/components/widgets/screener-widget").then(
+      (m) => m.ScreenerWidget,
     ),
 };
 
@@ -379,6 +384,24 @@ class WidgetRegistry {
             default: 300000,
             description:
               "Refresh interval in milliseconds (default: 5 minutes)",
+          },
+        },
+      },
+    });
+
+    this.register({
+      type: WidgetType.SCREENER,
+      component: {} as ComponentType<WidgetProps>,
+      defaultLayout: { w: 6, h: 8, minW: 4, minH: 6 },
+      icon: SlidersHorizontal,
+      category: WidgetCategory.ANALYSIS,
+      configSchema: {
+        type: "object",
+        properties: {
+          limit: {
+            type: "number",
+            default: 10,
+            description: "Number of stocks to display",
           },
         },
       },

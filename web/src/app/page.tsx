@@ -12,10 +12,17 @@ const BreakingNewsBanner = dynamic(
   () => import("~/@/components/ui/breaking-news-banner").then((m) => m.BreakingNewsBanner),
   { ssr: false }
 );
-import { FAQStructuredData } from "~/@/components/seo/enhanced-structured-data";
+import {
+  FAQStructuredData,
+  DatasetStructuredData,
+  EnhancedOrganizationSchema,
+  EnhancedWebSiteSchema,
+} from "~/@/components/seo/enhanced-structured-data";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { PremiumUpsellBanner } from "~/@/components/premium/premium-upsell-banner";
 import { getEnhancedWeeklyReportData, getAvailableWeekSlugs } from "~/app/actions/reports/getReportData";
+import { BrowseByIndustry } from "./browse-by-industry";
+import { TrendingThisWeek } from "./trending-this-week";
 
 export const metadata: Metadata = {
   title: siteConfig.fullTitle,
@@ -139,8 +146,17 @@ async function WeeklyReportBanner() {
 export default async function Page() {
   return (
     <main className="min-h-screen flex flex-col bg-transparent">
-      {/* FAQ Structured Data for rich snippets */}
+      {/* Structured Data for rich snippets and knowledge graph */}
       <FAQStructuredData faqs={homeFAQs} />
+      <DatasetStructuredData
+        datasetInfo={{
+          name: "ASIC Short Position Data for ASX Stocks",
+          description:
+            "Daily short selling position data for Australian Securities Exchange (ASX) listed companies, sourced from official ASIC reports. Covers 4,500+ stocks with data from 2010 to present.",
+        }}
+      />
+      <EnhancedOrganizationSchema />
+      <EnhancedWebSiteSchema />
       <LLMMeta
         title="Shorted - Official ASIC Short Position Data for ASX Stocks"
         description="Track short selling positions on the ASX using official ASIC data. Free daily updates, interactive charts, industry heatmaps, and analysis of the most shorted Australian stocks."
@@ -196,8 +212,18 @@ export default async function Page() {
         <TopShortsFallback />
       </Suspense>
 
+      {/* Trending This Week — biggest short position changes */}
+      <Suspense fallback={null}>
+        <TrendingThisWeek />
+      </Suspense>
+
       {/* Interactive dashboard content */}
       <HomeContent />
+
+      {/* Browse by Industry — server-rendered for SEO internal linking */}
+      <Suspense fallback={null}>
+        <BrowseByIndustry />
+      </Suspense>
     </main>
   );
 }

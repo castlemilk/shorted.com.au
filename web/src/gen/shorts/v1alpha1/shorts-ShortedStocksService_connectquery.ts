@@ -200,3 +200,10 @@ export const getDividendHistory = ShortedStocksService.method.getDividendHistory
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetPeerComparison
  */
 export const getPeerComparison = ShortedStocksService.method.getPeerComparison;
+
+/**
+ * Screen stocks using compound filters across shorts, price, fundamentals, director trades, and news
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ScreenStocks
+ */
+export const screenStocks = ShortedStocksService.method.screenStocks;

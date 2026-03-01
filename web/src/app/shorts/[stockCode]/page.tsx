@@ -76,13 +76,9 @@ export async function generateStaticParams(): Promise<{ stockCode: string }[]> {
       stockCode: code,
     }));
   } catch (error) {
-    console.error("Failed to fetch stock codes for static generation:", error);
-    // Fallback to most popular stocks if API fails
-    const fallbackStocks = [
-      "CBA", "BHP", "CSL", "NAB", "WBC", "ANZ", "WES", "MQG", "WOW", "TLS",
-      "RIO", "FMG", "GMG", "TCL", "WDS", "NCM", "ALL", "COL", "REA", "QBE",
-    ];
-    return fallbackStocks.map((code) => ({ stockCode: code }));
+    console.warn("Failed to fetch stock codes for static generation, pages will be generated on-demand:", error);
+    // Return empty — pages will be generated on-demand at request time
+    return [];
   }
 }
 

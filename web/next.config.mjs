@@ -74,6 +74,24 @@ const config = {
           },
         ],
       },
+      {
+        // Allow embedding of /embed/* routes in iframes
+        source: "/embed/:path*",
+        headers: [
+          {
+            key: "X-Frame-Options",
+            value: "ALLOWALL",
+          },
+          {
+            key: "Content-Security-Policy",
+            value: "frame-ancestors *",
+          },
+          {
+            key: "Cache-Control",
+            value: "public, s-maxage=300, stale-while-revalidate=600",
+          },
+        ],
+      },
     ];
   },
   async rewrites() {

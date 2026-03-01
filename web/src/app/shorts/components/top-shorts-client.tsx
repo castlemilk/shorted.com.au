@@ -58,7 +58,7 @@ export function TopShortsClient({
 
     try {
       const data = await getTopShortsData(newPeriod, LOAD_CHUNK_SIZE, 0);
-      const movers = calculateMovers(data.timeSeries, newPeriod);
+      const movers = calculateMovers(data?.timeSeries ?? [], newPeriod);
       setMoversData(movers);
     } catch (error) {
       console.error("Error fetching top shorts data:", error);

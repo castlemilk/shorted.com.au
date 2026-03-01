@@ -153,7 +153,7 @@ export async function getTopPageData(
     async () => {
       // Fetch raw data
       const response = await getTopShortsData(period, limit, 0);
-      const rawTimeSeries = response.timeSeries ?? [];
+      const rawTimeSeries = response?.timeSeries ?? [];
 
       // Calculate movers from raw data (before serialization)
       const rawMovers = calculateMovers(rawTimeSeries, period);

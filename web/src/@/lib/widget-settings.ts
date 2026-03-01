@@ -11,6 +11,7 @@ import {
   type CorrelationMatrixSettings,
   type MarketWatchlistSettings,
   type NewsFeedSettings,
+  type ScreenerSettings,
 } from "@/types/dashboard";
 
 /**
@@ -80,6 +81,10 @@ export const defaultWidgetSettings: WidgetSettingsMap = {
     priceSensitiveOnly: false,
     refreshInterval: 300000,
   } as NewsFeedSettings,
+
+  [WidgetType.SCREENER]: {
+    limit: 10,
+  } as ScreenerSettings,
 };
 
 /**
@@ -129,6 +134,8 @@ export function isSettingsOfType<T extends WidgetType>(
       return "stocks" in settings || "timeInterval" in settings;
     case WidgetType.NEWS_FEED:
       return "limit" in settings || "priceSensitiveOnly" in settings;
+    case WidgetType.SCREENER:
+      return "limit" in settings;
     default:
       return true;
   }

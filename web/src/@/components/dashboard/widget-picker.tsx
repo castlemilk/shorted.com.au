@@ -78,6 +78,11 @@ const widgetInfo: Record<
     preview: "Real-time news feed with sentiment analysis",
     tags: ["news", "market", "sentiment"],
   },
+  [WidgetType.SCREENER]: {
+    description: "Filter stocks by short positions, fundamentals, and more",
+    preview: "Compound stock screener with presets",
+    tags: ["screener", "filter", "analysis"],
+  },
 };
 
 export function WidgetPicker({

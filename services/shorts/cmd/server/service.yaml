@@ -6,7 +6,7 @@ spec:
   template:
     spec:
       containers:
-      - image: australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/shorts:v0.2.2-726-gee7001f7-dirty
+      - image: australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/shorts:v0.2.2-863-ga6833f62-dirty
         ports:
         - containerPort: 9091
         env:

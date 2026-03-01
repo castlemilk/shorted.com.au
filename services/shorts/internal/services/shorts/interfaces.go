@@ -73,6 +73,8 @@ type ShortsStore interface {
 	// Peer comparison methods
 	GetPeerComparison(stockCode string, limit int32) (*shortsstore.PeerComparisonResult, error)
 
+	// Screener methods
+	ScreenStocks(filters *shortsv1alpha1.ScreenerFilters, sortField shortsv1alpha1.ScreenerSortField, sortDir shortsv1alpha1.SortDirection, limit, offset int32) ([]*shortsstore.ScreenerStock, int, error)
 
 	// Raw query access (used for Algolia sync)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) shortsstore.Row
@@ -101,6 +103,7 @@ type Cache interface {
 	GetDirectorTradesKey(stockCode string, limit int32) string
 	GetDividendHistoryKey(stockCode string, years int32) string
 	GetPeerComparisonKey(stockCode string, limit int32) string
+	GetScreenStocksKey(filters *shortsv1alpha1.ScreenerFilters, sortField shortsv1alpha1.ScreenerSortField, sortDir shortsv1alpha1.SortDirection, limit, offset int32) string
 }
 
 // Logger defines the interface for logging operations

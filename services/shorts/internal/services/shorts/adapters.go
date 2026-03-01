@@ -174,6 +174,9 @@ func (s *StoreAdapter) GetPeerComparison(stockCode string, limit int32) (*shorts
 	return s.store.GetPeerComparison(stockCode, limit)
 }
 
+func (s *StoreAdapter) ScreenStocks(filters *shortsv1alpha1.ScreenerFilters, sortField shortsv1alpha1.ScreenerSortField, sortDir shortsv1alpha1.SortDirection, limit, offset int32) ([]*shorts.ScreenerStock, int, error) {
+	return s.store.ScreenStocks(filters, sortField, sortDir, limit, offset)
+}
 
 // QueryRowContext delegates to the underlying store's QueryRowContext.
 func (s *StoreAdapter) QueryRowContext(ctx context.Context, query string, args ...interface{}) shorts.Row {

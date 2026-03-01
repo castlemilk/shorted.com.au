@@ -40,14 +40,15 @@ export const metadata: Metadata = {
 const DEFAULT_PERIOD: TimePeriod = "3m";
 const LOAD_CHUNK_SIZE = 20;
 
-// This page is behind auth middleware — force dynamic to avoid build-time pre-render failures
+// Force dynamic rendering — this page requires a live backend for data
+// and client components import @connectrpc/connect which breaks static prerendering
 export const dynamic = "force-dynamic";
+export const revalidate = 600;
 
 export default async function TopShortsPage() {
-  // Page is public for SEO - search engines can crawl the top shorts list
-  // Fetch data on server
+  // Fetch data on server — returns undefined if backend is unreachable (e.g. during build)
   const data = await getTopShortsData(DEFAULT_PERIOD, LOAD_CHUNK_SIZE, 0);
-  const timeSeries = data.timeSeries ?? [];
+  const timeSeries = data?.timeSeries ?? [];
   const moversData = calculateMovers(timeSeries, DEFAULT_PERIOD);
 
   return (

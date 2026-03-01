@@ -260,6 +260,17 @@ func ValidateGetPeerComparisonRequest(req *shortsv1alpha1.GetPeerComparisonReque
 	return nil
 }
 
+// ValidateScreenStocksRequest validates the ScreenStocks request parameters
+func ValidateScreenStocksRequest(req *shortsv1alpha1.ScreenStocksRequest) error {
+	if req.Limit < 0 || req.Limit > 200 {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("limit must be between 0 and 200"))
+	}
+	if req.Offset < 0 {
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("offset must be non-negative"))
+	}
+	return nil
+}
+
 // NormalizeStockCode normalizes a stock code to uppercase and trims whitespace
 func NormalizeStockCode(code string) string {
 	return strings.ToUpper(strings.TrimSpace(code))
@@ -328,6 +339,10 @@ func SetDefaultValues(req interface{}) {
 		r.StockCode = NormalizeStockCode(r.StockCode)
 		if r.Limit == 0 {
 			r.Limit = 5
+		}
+	case *shortsv1alpha1.ScreenStocksRequest:
+		if r.Limit == 0 {
+			r.Limit = 50
 		}
 	}
 }
