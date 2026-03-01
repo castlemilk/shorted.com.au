@@ -266,18 +266,41 @@ export interface EnhancedWeeklyReportNarrative {
   qualityScore: number;
 }
 
-// Inner fetch function for enhanced report data — throws on transient errors so unstable_cache
-// doesn't cache failures. Only returns null for genuine "not found" (report doesn't exist).
-async function fetchEnhancedReport(weekSlug: string): Promise<EnhancedWeeklyReportNarrative | null> {
-  const resp = await withSpan(
-    "report.fetch.enhanced",
-    { weekSlug },
-    async () => {
-      const transport = getTransport();
-      const client = createClient(ShortedStocksService, transport);
-      return client.getWeeklyReport({ weekSlug });
-    },
+// gRPC/Connect error code for NotFound - hardcoded to avoid SSR-breaking import
+const CODE_NOT_FOUND = 5;
+
+function isConnectError(error: unknown): error is { code: number; message: string } {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    typeof (error as Record<string, unknown>).code === "number" &&
+    "message" in error
   );
+}
+
+// Inner fetch function for enhanced report data — returns null for "not found" (report doesn't
+// exist) so unstable_cache caches null correctly. Only throws on transient errors.
+async function fetchEnhancedReport(weekSlug: string): Promise<EnhancedWeeklyReportNarrative | null> {
+  let resp;
+  try {
+    resp = await withSpan(
+      "report.fetch.enhanced",
+      { weekSlug },
+      async () => {
+        const transport = getTransport();
+        const client = createClient(ShortedStocksService, transport);
+        return client.getWeeklyReport({ weekSlug });
+      },
+    );
+  } catch (err) {
+    // NotFound means report doesn't exist for this week — safe to cache as null
+    if (isConnectError(err) && err.code === CODE_NOT_FOUND) {
+      return null;
+    }
+    // Re-throw transient errors so unstable_cache doesn't cache failures
+    throw err;
+  }
 
   // Empty response means report doesn't exist for this week — safe to cache as null
   if (!resp.headline && !resp.narrative?.openingHook) {

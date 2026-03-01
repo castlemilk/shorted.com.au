@@ -35,6 +35,10 @@ interface PageProps {
 }
 
 export async function generateStaticParams() {
+  // Skip static generation during local builds (pre-commit hook sets this)
+  if (process.env.SKIP_STATIC_GENERATION === "1") {
+    return [];
+  }
   try {
     const slugs = await getAvailableMonthSlugs();
     // Pre-generate all available months at build time — historical reports are immutable

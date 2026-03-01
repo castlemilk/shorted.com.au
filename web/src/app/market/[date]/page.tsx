@@ -27,6 +27,10 @@ interface PageProps {
 }
 
 export async function generateStaticParams(): Promise<{ date: string }[]> {
+  // Skip static generation during local builds (pre-commit hook sets this)
+  if (process.env.SKIP_STATIC_GENERATION === "1") {
+    return [];
+  }
   try {
     const { createConnectTransport } = await import("@connectrpc/connect-web");
     const { createClient } = await import("@connectrpc/connect");
