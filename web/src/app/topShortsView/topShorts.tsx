@@ -143,17 +143,13 @@ export const TopShorts: FC<TopShortsProps> = ({
     }
   }, [isInitialLoading, isRefreshing, period]);
 
+  // On mount: if no initial data was provided, fetch it
   useEffect(() => {
     if (!initialShortsData || initialShortsData.length === 0) {
       void getTimeSeriesForPeriod(initialPeriod, { keepExisting: false });
-      return;
     }
-
-    offsetRef.current = initialShortsData.length;
-    setDisplayPeriod(initialPeriod);
-    setIsInitialLoading(false);
-    setRefreshKey(Date.now());
-  }, [getTimeSeriesForPeriod, initialPeriod, initialShortsData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handlePeriodChange = useCallback(
     (nextPeriod: string) => {

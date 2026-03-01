@@ -120,11 +120,12 @@ export default async function WeeklyReportPage({ params }: PageProps) {
     notFound();
   }
 
-  // Start independent fetches in parallel immediately — enhanced doesn't depend on data
-  const [data, enhanced] = await Promise.all([
-    getWeeklyReportData(slug),
-    getEnhancedWeeklyReportData(slug),
-  ]);
+  // Start both independent fetches — don't block financialHighlights on enhanced
+  const dataPromise = getWeeklyReportData(slug);
+  const enhancedPromise = getEnhancedWeeklyReportData(slug);
+
+  // Wait for data first (needed for guard + financialHighlights)
+  const data = await dataPromise;
 
   // Show 404 only if there's no market data at all
   // Enhanced narrative is optional — page renders with basic data if AI report isn't ready
@@ -132,11 +133,14 @@ export default async function WeeklyReportPage({ params }: PageProps) {
     notFound();
   }
 
-  // Financial highlights depends on data.topStocks
+  // financialHighlights depends on data.topStocks, runs in parallel with enhanced
   const topCodes = data.topStocks.slice(0, 20).map((s) => s.code);
-  const financialHighlights = topCodes.length > 0
-    ? await getStockFinancialHighlights(topCodes)
-    : {} as Record<string, import("~/app/actions/reports/getReportData").StockFinancialHighlight[]>;
+  const [enhanced, financialHighlights] = await Promise.all([
+    enhancedPromise,
+    topCodes.length > 0
+      ? getStockFinancialHighlights(topCodes)
+      : Promise.resolve({} as Record<string, import("~/app/actions/reports/getReportData").StockFinancialHighlight[]>),
+  ]);
 
   const weekTitle = formatWeekTitle(slug);
   const hasNarrative = !!enhanced?.narrative?.openingHook;

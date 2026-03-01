@@ -21,12 +21,7 @@ import type {
 } from "~/@/types/company-metadata";
 import { SHORTS_API_URL } from "./config";
 import { retryWithBackoff } from "@/lib/retry";
-
-const transport = createConnectTransport({
-  baseUrl: SHORTS_API_URL,
-});
-
-const client = createClient(ShortedStocksService, transport);
+import { cache } from "react";
 
 const RETRY_OPTIONS = {
   maxRetries: 3,
@@ -34,32 +29,42 @@ const RETRY_OPTIONS = {
   maxDelayMs: 5000,
 };
 
-export async function getEnrichedCompanyMetadata(
-  stockCode: string,
-): Promise<EnrichedCompanyMetadata | null> {
-  try {
-    const response = await retryWithBackoff(
-      () =>
-        client.getStockDetails({
-          productCode: stockCode.toUpperCase(),
-        }),
-      RETRY_OPTIONS,
-    );
-    const details = response;
+export const getEnrichedCompanyMetadata = cache(
+  async (stockCode: string): Promise<EnrichedCompanyMetadata | null> => {
+    try {
+      const transport = createConnectTransport({
+        baseUrl: SHORTS_API_URL,
+      });
+      const client = createClient(ShortedStocksService, transport);
 
-    if (!details.productCode) {
+      const response = await retryWithBackoff(
+        () =>
+          client.getStockDetails({
+            productCode: stockCode.toUpperCase(),
+          }),
+        RETRY_OPTIONS,
+      );
+      const details = response;
+
+      if (!details.productCode) {
+        return null;
+      }
+
+      return mapStockDetailsToMetadata(details);
+    } catch (error) {
+      console.error("Error fetching enriched company metadata via API:", error);
       return null;
     }
-
-    return mapStockDetailsToMetadata(details);
-  } catch (error) {
-    console.error("Error fetching enriched company metadata via API:", error);
-    return null;
-  }
-}
+  },
+);
 
 export async function hasEnrichedData(stockCode: string): Promise<boolean> {
   try {
+    const transport = createConnectTransport({
+      baseUrl: SHORTS_API_URL,
+    });
+    const client = createClient(ShortedStocksService, transport);
+
     const response = await retryWithBackoff(
       () =>
         client.getStockDetails({
@@ -67,8 +72,7 @@ export async function hasEnrichedData(stockCode: string): Promise<boolean> {
         }),
       RETRY_OPTIONS,
     );
-    const details = response;
-    return details.enrichmentStatus === "completed";
+    return response.enrichmentStatus === "completed";
   } catch (error) {
     console.error("Error checking enriched data:", error);
     return false;

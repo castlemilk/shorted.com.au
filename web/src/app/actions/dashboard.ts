@@ -106,19 +106,16 @@ export async function getUserDashboards() {
 
 export async function deleteDashboard(dashboardId: string) {
   try {
-    const session = await auth();
-    
+    const [session, dashboardDoc] = await Promise.all([
+      auth(),
+      adminDb.collection(COLLECTION_NAME).doc(dashboardId).get(),
+    ]);
+
     if (!session?.user?.id) {
       return { success: false, error: "User must be authenticated to delete dashboards" };
     }
 
     const userId = session.user.id;
-
-    // Verify ownership
-    const dashboardDoc = await adminDb
-      .collection(COLLECTION_NAME)
-      .doc(dashboardId)
-      .get();
 
     if (!dashboardDoc.exists) {
       return { success: false, error: "Dashboard not found" };
@@ -208,19 +205,16 @@ export async function setDefaultDashboard(dashboardId: string) {
 
 export async function renameDashboard(dashboardId: string, newName: string) {
   try {
-    const session = await auth();
+    const [session, dashboardDoc] = await Promise.all([
+      auth(),
+      adminDb.collection(COLLECTION_NAME).doc(dashboardId).get(),
+    ]);
 
     if (!session?.user?.id) {
       return { success: false, error: "User must be authenticated to rename dashboards" };
     }
 
     const userId = session.user.id;
-
-    // Verify ownership
-    const dashboardDoc = await adminDb
-      .collection(COLLECTION_NAME)
-      .doc(dashboardId)
-      .get();
 
     if (!dashboardDoc.exists) {
       return { success: false, error: "Dashboard not found" };
@@ -256,19 +250,16 @@ export async function renameDashboard(dashboardId: string, newName: string) {
 
 export async function duplicateDashboard(dashboardId: string, newName: string) {
   try {
-    const session = await auth();
+    const [session, dashboardDoc] = await Promise.all([
+      auth(),
+      adminDb.collection(COLLECTION_NAME).doc(dashboardId).get(),
+    ]);
 
     if (!session?.user?.id) {
       return { success: false, error: "User must be authenticated to duplicate dashboards" };
     }
 
     const userId = session.user.id;
-
-    // Get the source dashboard
-    const dashboardDoc = await adminDb
-      .collection(COLLECTION_NAME)
-      .doc(dashboardId)
-      .get();
 
     if (!dashboardDoc.exists) {
       return { success: false, error: "Dashboard not found" };
@@ -308,18 +299,16 @@ export async function duplicateDashboard(dashboardId: string, newName: string) {
 
 export async function exportDashboard(dashboardId: string) {
   try {
-    const session = await auth();
+    const [session, dashboardDoc] = await Promise.all([
+      auth(),
+      adminDb.collection(COLLECTION_NAME).doc(dashboardId).get(),
+    ]);
 
     if (!session?.user?.id) {
       return { success: false, error: "User must be authenticated to export dashboards" };
     }
 
     const userId = session.user.id;
-
-    const dashboardDoc = await adminDb
-      .collection(COLLECTION_NAME)
-      .doc(dashboardId)
-      .get();
 
     if (!dashboardDoc.exists) {
       return { success: false, error: "Dashboard not found" };

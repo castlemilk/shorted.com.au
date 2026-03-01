@@ -152,4 +152,6 @@ const ChartLoadingPlaceholder = ({ withMenu }: { withMenu: boolean }) => (
   </div>
 );
 
+export { ChartLoadingPlaceholder as MarketChartSkeleton };
+
 export default MarketChart;

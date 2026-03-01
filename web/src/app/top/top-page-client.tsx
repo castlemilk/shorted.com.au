@@ -36,7 +36,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/@/components/ui/select";
-import { MiniSparkline } from "./components/mini-sparkline";
+const MiniSparkline = dynamic(
+  () => import("./components/mini-sparkline").then((m) => m.MiniSparkline),
+  {
+    ssr: false,
+    loading: () => <div style={{ width: 180, height: 32 }} />,
+  }
+);
 import { SentimentGauge } from "./components/sentiment-gauge";
 import { MoversCard } from "./components/movers-card";
 import { IndustryBreakdown } from "./components/industry-breakdown";

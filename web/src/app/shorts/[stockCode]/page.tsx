@@ -1,6 +1,10 @@
 import dynamic from "next/dynamic";
 import { type Metadata } from "next";
-import MarketChart from "~/@/components/ui/market-chart";
+import { MarketChartSkeleton } from "~/@/components/ui/market-chart";
+const MarketChart = dynamic(() => import("~/@/components/ui/market-chart"), {
+  ssr: false,
+  loading: () => <MarketChartSkeleton withMenu={true} />,
+});
 import CompanyProfile, {
   CompanyProfilePlaceholder,
 } from "~/@/components/ui/companyProfile";
@@ -42,7 +46,7 @@ import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { getStock, getStockOrNotFound } from "~/app/actions/getStock";
+import { getStockOrNotFound } from "~/app/actions/getStock";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { notFound } from "next/navigation";
 
@@ -101,7 +105,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   let description = `${code} short selling data from official ASIC reports. Current short interest %, historical trends, charts & analysis. Updated daily with T+4 delay. Free ASX short position tracking.`;
 
   try {
-    const stock = await getStock(code);
+    const stock = await getStockOrNotFound(code);
     if (stock) {
       const companyName = stock.name ? `(${stock.name})` : "";
       const shortPct = stock.percentageShorted > 0 ? ` | ${stock.percentageShorted.toFixed(2)}% Shorted` : "";
@@ -183,7 +187,7 @@ const Page = async ({ params }: PageProps) => {
   // Fetch stock data for StockLLMMeta and related stocks in parallel
   // getStockOrNotFound throws NotFoundError when the stock doesn't exist,
   // but returns undefined for transient backend errors.
-  let stock: Awaited<ReturnType<typeof getStock>> = undefined;
+  let stock: Awaited<ReturnType<typeof getStockOrNotFound>> = undefined;
   let relatedData: Awaited<ReturnType<typeof getRelatedStocks>>;
   try {
     [stock, relatedData] = await Promise.all([
