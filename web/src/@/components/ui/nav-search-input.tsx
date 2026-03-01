@@ -195,8 +195,8 @@ export function NavSearchInput() {
           <Image
             src="/search.png"
             alt=""
-            width={20}
-            height={20}
+            width={28}
+            height={28}
             className="shrink-0 opacity-70 group-hover:opacity-100 transition-opacity"
           />
           <span className="text-xs text-muted-foreground/60 group-hover:text-muted-foreground transition-colors truncate">
@@ -223,8 +223,8 @@ export function NavSearchInput() {
               <Image
                 src="/search.png"
                 alt="Search stocks"
-                width={64}
-                height={64}
+                width={96}
+                height={96}
                 className="mb-4 opacity-80"
               />
               <h3 className="text-sm font-semibold mb-1">Search ASX Stocks</h3>
@@ -299,8 +299,8 @@ export function NavSearchInput() {
                 <Image
                   src="/search.png"
                   alt="Search stocks"
-                  width={64}
-                  height={64}
+                  width={96}
+                  height={96}
                   className="mb-4 opacity-80"
                 />
                 <h3 className="text-sm font-semibold mb-1">Search ASX Stocks</h3>

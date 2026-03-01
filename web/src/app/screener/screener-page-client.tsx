@@ -12,6 +12,10 @@ import {
   ChevronDown,
   ChevronUp,
   Search,
+  Download,
+  FileJson,
+  FileText,
+  Printer,
 } from "lucide-react";
 import { create } from "@bufbuild/protobuf";
 import {
@@ -28,6 +32,13 @@ import { cn } from "~/@/lib/utils";
 import { Badge } from "~/@/components/ui/badge";
 import { Button } from "~/@/components/ui/button";
 import { Input } from "~/@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "~/@/components/ui/dropdown-menu";
+import { downloadCSV } from "~/@/lib/csv-export";
 import {
   Table,
   TableBody,
@@ -258,6 +269,69 @@ function formatDollars(value: number): string {
   if (value === 0) return "$0";
   const prefix = value < 0 ? "-$" : "$";
   return `${prefix}${formatCompact(Math.abs(value))}`;
+}
+
+const SCREENER_CSV_HEADERS: Record<string, string> = {
+  stockCode: "Stock Code",
+  companyName: "Company Name",
+  shortPct: "Short %",
+  daysToCover: "Days to Cover",
+  shortPctChange4w: "4W Change",
+  priceChange1m: "1M Price Change",
+  marketCap: "Market Cap",
+  peRatio: "P/E",
+  dividendYield: "Yield",
+  netDirectorBuyValue: "Director Buys",
+  avgSentiment: "Sentiment",
+  industry: "Industry",
+};
+
+function screenerRowsToPlain(stocks: ScreenerStock[]): Record<string, unknown>[] {
+  return stocks.map((s) => ({
+    stockCode: s.stockCode,
+    companyName: s.companyName,
+    shortPct: s.shortPct.toFixed(2),
+    daysToCover: s.daysToCover > 0 ? s.daysToCover.toFixed(1) : "",
+    shortPctChange4w: s.shortPctChange4w.toFixed(2),
+    priceChange1m: s.priceChange1m.toFixed(2),
+    marketCap: s.marketCap > 0 ? s.marketCap : "",
+    peRatio: s.peRatio > 0 ? s.peRatio.toFixed(1) : "",
+    dividendYield: s.dividendYield > 0 ? s.dividendYield.toFixed(2) : "",
+    netDirectorBuyValue: s.netDirectorBuyValue !== 0 ? s.netDirectorBuyValue : "",
+    avgSentiment: s.newsCount30d > 0 ? s.avgSentiment.toFixed(2) : "",
+    industry: s.industry || "",
+  }));
+}
+
+function downloadBlob(content: string, filename: string, mimeType: string) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function downloadJSON(stocks: ScreenerStock[], filename: string) {
+  const rows = screenerRowsToPlain(stocks);
+  downloadBlob(JSON.stringify(rows, null, 2), filename, "application/json");
+}
+
+function downloadYAML(stocks: ScreenerStock[], filename: string) {
+  const rows = screenerRowsToPlain(stocks);
+  const lines: string[] = [];
+  for (const row of rows) {
+    lines.push(`- stockCode: "${String(row.stockCode)}"`);
+    for (const [key, val] of Object.entries(row)) {
+      if (key === "stockCode") continue;
+      const strVal = val === "" || val == null ? '""' : typeof val === "string" && val.includes(",") ? `"${val}"` : String(val);
+      lines.push(`  ${key}: ${strVal}`);
+    }
+  }
+  downloadBlob(lines.join("\n"), filename, "text/yaml");
 }
 
 // RangeFilterInput component
@@ -649,10 +723,56 @@ export function ScreenerPageClient() {
         {hasSearched && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {totalCount.toLocaleString()} stock
-                {totalCount !== 1 ? "s" : ""} found
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm text-muted-foreground">
+                  {totalCount.toLocaleString()} stock
+                  {totalCount !== 1 ? "s" : ""} found
+                </p>
+                {results.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs">
+                        <Download className="h-3 w-3" />
+                        Export
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          const rows = screenerRowsToPlain(results);
+                          const today = new Date().toISOString().slice(0, 10);
+                          downloadCSV(rows, `screener-${today}.csv`, SCREENER_CSV_HEADERS);
+                        }}
+                      >
+                        <Download className="h-3.5 w-3.5 mr-2" />
+                        CSV
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          const today = new Date().toISOString().slice(0, 10);
+                          downloadJSON(results, `screener-${today}.json`);
+                        }}
+                      >
+                        <FileJson className="h-3.5 w-3.5 mr-2" />
+                        JSON
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          const today = new Date().toISOString().slice(0, 10);
+                          downloadYAML(results, `screener-${today}.yaml`);
+                        }}
+                      >
+                        <FileText className="h-3.5 w-3.5 mr-2" />
+                        YAML
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => window.print()}>
+                        <Printer className="h-3.5 w-3.5 mr-2" />
+                        Print / PDF
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
               {totalPages > 1 && (
                 <div className="flex items-center gap-2">
                   <Button
@@ -682,7 +802,7 @@ export function ScreenerPageClient() {
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-[180px] sticky left-0 bg-background z-10">
+                    <TableHead className="w-[240px] sticky left-0 bg-background z-10">
                       Stock
                     </TableHead>
                     <TableHead>
@@ -828,7 +948,7 @@ export function ScreenerPageClient() {
                             <div className="font-medium">
                               {stock.stockCode}
                             </div>
-                            <div className="text-xs text-muted-foreground truncate max-w-[160px]">
+                            <div className="text-xs text-muted-foreground truncate max-w-[220px]">
                               {stock.companyName}
                             </div>
                           </Link>
