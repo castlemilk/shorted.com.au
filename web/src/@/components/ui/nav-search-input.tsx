@@ -143,15 +143,18 @@ export function NavSearchInput() {
 
   // Cmd+K / Ctrl+K shortcut
   useEffect(() => {
-    if (!isAuthenticated) return;
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         if (window.innerWidth < 768) {
           setIsMobileOpen(true);
-          setTimeout(() => mobileInputRef.current?.focus(), 50);
+          if (isAuthenticated) {
+            setTimeout(() => mobileInputRef.current?.focus(), 50);
+          }
         } else {
-          inputRef.current?.focus();
+          if (isAuthenticated) {
+            inputRef.current?.focus();
+          }
           setIsOpen(true);
         }
       }
@@ -162,7 +165,6 @@ export function NavSearchInput() {
 
   // Click outside to close
   useEffect(() => {
-    if (!isAuthenticated) return;
     const handler = (e: MouseEvent) => {
       if (
         containerRef.current &&
@@ -173,15 +175,15 @@ export function NavSearchInput() {
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [isAuthenticated]);
+  }, []);
 
-  // If not authenticated, render a locked search prompt
+  // If not authenticated, render an interactive search splash
   if (authStatus !== "loading" && !isAuthenticated) {
     return (
-      <div className="relative">
-        {/* Desktop: locked search bar */}
-        <Link
-          href="/signin"
+      <div ref={containerRef} className="relative">
+        {/* Desktop: clickable search bar that opens a splash dropdown */}
+        <button
+          onClick={() => setIsOpen((v) => !v)}
           className={cn(
             "hidden md:flex items-center gap-2.5 h-9 rounded-lg px-3 pr-4",
             "bg-muted/30 border border-border/40",
@@ -198,21 +200,63 @@ export function NavSearchInput() {
             className="shrink-0 opacity-70 group-hover:opacity-100 transition-opacity"
           />
           <span className="text-xs text-muted-foreground/60 group-hover:text-muted-foreground transition-colors truncate">
-            Login to search stocks
+            Search stocks...
           </span>
-          <LogIn className="h-3 w-3 ml-auto text-muted-foreground/40 group-hover:text-primary transition-colors shrink-0" />
-        </Link>
+          <kbd className="ml-auto px-1.5 py-0.5 text-[10px] font-mono font-medium text-muted-foreground/40 bg-muted/50 rounded border border-border/50">
+            ⌘K
+          </kbd>
+        </button>
 
-        {/* Mobile: locked search icon */}
+        {/* Desktop: splash dropdown */}
+        {isOpen && (
+          <div
+            className={cn(
+              "hidden md:block",
+              "absolute z-[60] right-0 mt-2 w-[320px]",
+              "rounded-xl border border-border/50 bg-popover/95 backdrop-blur-xl",
+              "shadow-2xl shadow-black/20",
+              "overflow-hidden",
+              "animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"
+            )}
+          >
+            <div className="flex flex-col items-center px-6 py-8 text-center">
+              <Image
+                src="/search.png"
+                alt="Search stocks"
+                width={64}
+                height={64}
+                className="mb-4 opacity-80"
+              />
+              <h3 className="text-sm font-semibold mb-1">Search ASX Stocks</h3>
+              <p className="text-xs text-muted-foreground mb-5">
+                Sign in to search across all ASX-listed companies, track short positions, and more.
+              </p>
+              <Link
+                href="/signin"
+                className={cn(
+                  "inline-flex items-center justify-center gap-2 w-full",
+                  "h-9 rounded-lg px-4 text-sm font-medium",
+                  "bg-primary text-primary-foreground",
+                  "hover:bg-primary/90 transition-colors"
+                )}
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                Sign in to search stocks
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Mobile: search icon trigger */}
         <div className="md:hidden">
-          <Link
-            href="/signin"
+          <button
             className={cn(
               "flex items-center justify-center h-9 w-9 rounded-lg",
               "text-muted-foreground hover:text-foreground hover:bg-muted/50",
               "transition-colors active:scale-95"
             )}
-            aria-label="Login to search stocks"
+            onClick={() => setIsMobileOpen(true)}
+            aria-label="Search stocks"
           >
             <Image
               src="/search.png"
@@ -221,8 +265,64 @@ export function NavSearchInput() {
               height={18}
               className="opacity-70"
             />
-          </Link>
+          </button>
         </div>
+
+        {/* Mobile: fullscreen splash overlay */}
+        {isMobileOpen && (
+          <div className="md:hidden fixed inset-0 z-[60] animate-in fade-in-0 duration-150">
+            {/* Backdrop */}
+            <div
+              role="button"
+              tabIndex={-1}
+              className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+              onClick={() => setIsMobileOpen(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setIsMobileOpen(false);
+              }}
+              aria-label="Close search overlay"
+            />
+
+            {/* Splash content */}
+            <div className="relative z-10 p-3 bg-background border-b border-border/50 animate-in slide-in-from-top-2 duration-200">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm font-medium">Search Stocks</span>
+                <button
+                  onClick={() => setIsMobileOpen(false)}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="flex flex-col items-center py-6 text-center">
+                <Image
+                  src="/search.png"
+                  alt="Search stocks"
+                  width={64}
+                  height={64}
+                  className="mb-4 opacity-80"
+                />
+                <h3 className="text-sm font-semibold mb-1">Search ASX Stocks</h3>
+                <p className="text-xs text-muted-foreground mb-5">
+                  Sign in to search across all ASX-listed companies and track short positions.
+                </p>
+                <Link
+                  href="/signin"
+                  className={cn(
+                    "inline-flex items-center justify-center gap-2 w-full",
+                    "h-10 rounded-lg px-4 text-sm font-medium",
+                    "bg-primary text-primary-foreground",
+                    "hover:bg-primary/90 transition-colors"
+                  )}
+                >
+                  <LogIn className="h-3.5 w-3.5" />
+                  Sign in to search stocks
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

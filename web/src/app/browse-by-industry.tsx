@@ -15,10 +15,13 @@ export async function BrowseByIndustry() {
 
   if (!industries || industries.length === 0) return null;
 
-  // Sort by average short % descending
-  const sorted = [...industries].sort(
-    (a, b) => (b.avgShortPercent ?? 0) - (a.avgShortPercent ?? 0),
-  );
+  // Filter out invalid ASIC classifications that may leak through
+  const HIDDEN_INDUSTRIES = new Set(["Class Pend", "Not Applic", "Not Applicable", "Other"]);
+
+  // Sort by average short % descending, excluding invalid labels
+  const sorted = [...industries]
+    .filter((i) => !HIDDEN_INDUSTRIES.has(i.name))
+    .sort((a, b) => (b.avgShortPercent ?? 0) - (a.avgShortPercent ?? 0));
 
   return (
     <section className="container mx-auto px-4 py-6">
