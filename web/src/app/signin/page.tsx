@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import {
   signInWithEmailAndPassword,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   GoogleAuthProvider,
 } from "firebase/auth";
 import { auth as firebaseAuth } from "@/lib/firebase-client";
@@ -19,7 +20,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Chrome, Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle } from "lucide-react";
+import { GoogleLogo } from "@/components/ui/google-logo";
 import { useSearchParams } from "next/navigation";
 
 function getFirebaseErrorMessage(code: string): string {
@@ -48,46 +50,55 @@ function SignInForm() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isRedirectLoading, setIsRedirectLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const handleGoogleSignIn = async () => {
+  // Handle redirect result on mount (after Google redirects back)
+  useEffect(() => {
+    if (!firebaseAuth) {
+      setIsRedirectLoading(false);
+      return;
+    }
+    getRedirectResult(firebaseAuth)
+      .then(async (userCredential) => {
+        if (!userCredential) {
+          setIsRedirectLoading(false);
+          return;
+        }
+        setIsGoogleLoading(true);
+        const idToken = await userCredential.user.getIdToken();
+        const result = await signIn("credentials", {
+          idToken,
+          email: userCredential.user.email,
+          callbackUrl,
+          redirect: false,
+        });
+        if (result?.error) {
+          setError("Authentication failed. Please try again.");
+          setIsGoogleLoading(false);
+        } else if (result?.ok) {
+          window.location.href = callbackUrl;
+        }
+        setIsRedirectLoading(false);
+      })
+      .catch((err: unknown) => {
+        const code = (err as { code?: string }).code;
+        if (code === "auth/account-exists-with-different-credential") {
+          setError("An account already exists with this email using a different sign-in method.");
+        }
+        setIsRedirectLoading(false);
+      });
+  }, [callbackUrl]);
+
+  const handleGoogleSignIn = () => {
+    if (!firebaseAuth) {
+      setError("Firebase not initialized");
+      return;
+    }
     setIsGoogleLoading(true);
     setError(null);
-    try {
-      if (!firebaseAuth) {
-        throw new Error("Firebase not initialized");
-      }
-      const provider = new GoogleAuthProvider();
-      const userCredential = await signInWithPopup(firebaseAuth, provider);
-      const idToken = await userCredential.user.getIdToken();
-
-      const result = await signIn("credentials", {
-        idToken,
-        email: userCredential.user.email,
-        callbackUrl,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        setError("Authentication failed. Please try again.");
-        setIsGoogleLoading(false);
-      } else if (result?.ok) {
-        window.location.href = callbackUrl;
-      }
-    } catch (err: unknown) {
-      const code = (err as { code?: string }).code;
-      if (code === "auth/popup-closed-by-user") {
-        // User closed the popup, not an error
-        setIsGoogleLoading(false);
-        return;
-      }
-      setError(
-        code === "auth/account-exists-with-different-credential"
-          ? "An account already exists with this email using a different sign-in method."
-          : "Failed to sign in with Google. Please try again.",
-      );
-      setIsGoogleLoading(false);
-    }
+    const provider = new GoogleAuthProvider();
+    void signInWithRedirect(firebaseAuth, provider);
   };
 
   const handleCredentialsSignIn = async (e: React.FormEvent) => {
@@ -162,6 +173,17 @@ function SignInForm() {
     }
   };
 
+  if (isRedirectLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Completing sign in...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20 px-4 py-12">
       <Card className="w-full max-w-md shadow-lg">
@@ -198,7 +220,7 @@ function SignInForm() {
             {isGoogleLoading ? (
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             ) : (
-              <Chrome className="mr-2 h-5 w-5" />
+              <GoogleLogo className="mr-2 h-5 w-5" />
             )}
             Continue with Google
           </Button>

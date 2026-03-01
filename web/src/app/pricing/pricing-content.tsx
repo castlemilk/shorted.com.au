@@ -18,6 +18,7 @@ import {
   Loader2,
   ExternalLink,
   Settings,
+  AlertCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "~/@/lib/utils";
@@ -208,7 +209,10 @@ export function PricingContent() {
             )}
 
             {error && (
-              <p className="text-xs text-red-500 text-center">{error}</p>
+              <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 px-3 py-2 rounded-md">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
             )}
 
             <p className="text-[10px] text-center text-muted-foreground">
