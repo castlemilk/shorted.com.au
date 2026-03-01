@@ -13,3 +13,8 @@ output "service_account_email" {
   value       = google_service_account.shorts_api.email
 }
 
+output "custom_domain_dns_records" {
+  description = "DNS records required for custom domain mapping (CNAME to ghs.googlehosted.com)"
+  value       = var.custom_domain != "" ? google_cloud_run_domain_mapping.api_domain[0].status[0].resource_records : []
+}
+

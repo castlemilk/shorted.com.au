@@ -44,13 +44,10 @@ import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { getStock } from "~/app/actions/getStock";
 
-// Production API URL for static generation during builds
-const PRODUCTION_API_URL = "https://api.shorted.com.au";
-
 /**
- * Pre-generate the top 200 most shorted stocks at build time.
- * This ensures fast page loads and better SEO crawlability for high-traffic pages.
- * Remaining stocks will be generated on-demand with ISR.
+ * Pre-generate ALL stocks with non-zero short positions at build time (~940 stocks).
+ * This ensures every actively-shorted stock is crawlable by Google on first visit.
+ * The mv_top_shorts materialized view contains all stocks with short_position > 0.
  */
 export async function generateStaticParams(): Promise<{ stockCode: string }[]> {
   try {
@@ -58,15 +55,15 @@ export async function generateStaticParams(): Promise<{ stockCode: string }[]> {
       baseUrl:
         process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
         process.env.NEXT_PUBLIC_API_URL ??
-        PRODUCTION_API_URL,
+        "http://localhost:9091",
     });
 
     const client = createClient(ShortedStocksService, transport);
 
-    // Fetch top 200 stocks sorted by short position
+    // Fetch all actively-shorted stocks (mv_top_shorts has ~940 rows)
     const response = await client.getTopShorts({
       period: "max",
-      limit: 200,
+      limit: 1000,
       offset: 0,
     });
 
@@ -105,9 +102,19 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const stock = await getStock(code);
     if (stock) {
       const companyName = stock.name ? `(${stock.name})` : "";
-      const shortPct = stock.percentageShorted > 0 ? ` | ${stock.percentageShorted.toFixed(1)}% Shorted` : "";
+      const shortPct = stock.percentageShorted > 0 ? ` | ${stock.percentageShorted.toFixed(2)}% Shorted` : "";
       title = `${code} ${companyName} Short Position${shortPct} | ASIC Data`;
-      description = `${code}${companyName ? ` ${companyName}` : ""} short selling data from official ASIC reports.${stock.percentageShorted > 0 ? ` Currently ${stock.percentageShorted.toFixed(1)}% shorted.` : ""} Historical trends, charts & analysis. Updated daily with T+4 delay.`;
+
+      const dateStr = new Date().toLocaleDateString("en-AU", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+      const shortInfo = stock.percentageShorted > 0
+        ? `${stock.name || code} has ${stock.percentageShorted.toFixed(2)}% of shares sold short as of ${dateStr}.`
+        : `${stock.name || code} short selling data from official ASIC reports.`;
+      const industryInfo = stock.industry ? ` Industry: ${stock.industry}.` : "";
+      description = `${shortInfo}${industryInfo} Track ${code}'s short position history, price charts, peer comparison, and ASIC data. Updated daily with T+4 delay.`;
     }
   } catch {
     // Fall back to default title/description if fetch fails
