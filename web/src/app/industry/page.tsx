@@ -48,7 +48,8 @@ export const metadata: Metadata = {
   },
 };
 
-// Revalidate every hour
+// Force dynamic rendering — this page requires a live backend for data
+export const dynamic = "force-dynamic";
 export const revalidate = 3600;
 
 const breadcrumbs = [

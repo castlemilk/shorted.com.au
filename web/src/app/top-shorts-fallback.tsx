@@ -15,7 +15,7 @@ export async function TopShortsFallback() {
 
   try {
     const data = await getTopShortsData("3m", 10, 0);
-    stocks = data.timeSeries
+    stocks = (data?.timeSeries ?? [])
       .slice(0, 10)
       .map((ts) => ({
         code: ts.productCode,

@@ -72,6 +72,10 @@ export interface NewsFeedSettings {
   refreshInterval: number;
 }
 
+export interface ScreenerSettings {
+  limit: number;
+}
+
 // Map widget types to their settings types
 export type WidgetSettingsMap = {
   [WidgetType.TOP_SHORTS]: TopShortsSettings;
@@ -84,6 +88,7 @@ export type WidgetSettingsMap = {
   [WidgetType.CORRELATION_MATRIX]: CorrelationMatrixSettings;
   [WidgetType.MARKET_WATCHLIST]: MarketWatchlistSettings;
   [WidgetType.NEWS_FEED]: NewsFeedSettings;
+  [WidgetType.SCREENER]: ScreenerSettings;
 };
 
 export interface WidgetConfig {
@@ -125,6 +130,7 @@ export enum WidgetType {
   SECTOR_PERFORMANCE = "SECTOR_PERFORMANCE",
   MARKET_WATCHLIST = "MARKET_WATCHLIST",
   NEWS_FEED = "NEWS_FEED",
+  SCREENER = "SCREENER",
 }
 
 export interface WidgetDefinition {

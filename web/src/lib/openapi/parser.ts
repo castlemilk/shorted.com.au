@@ -13,6 +13,17 @@ import type { OpenAPISpec, ParsedEndpoint, NavigationGroup, HTTPMethod } from '.
 
 export async function parseOpenAPISpec(): Promise<OpenAPISpec> {
   const specPath = path.join(process.cwd(), '../api/schema/openapi.yaml');
+
+  // Handle missing openapi.yaml gracefully (e.g. in Docker builds)
+  if (!fs.existsSync(specPath)) {
+    return {
+      info: { title: 'API Documentation', version: '1.0.0' },
+      endpoints: [],
+      groups: [],
+      components: { schemas: {} },
+    };
+  }
+
   const fileContents = fs.readFileSync(specPath, 'utf8');
   const rawSpec = yaml.load(fileContents) as any;
 

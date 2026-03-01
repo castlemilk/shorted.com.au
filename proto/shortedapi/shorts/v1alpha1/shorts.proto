@@ -442,6 +442,17 @@ service ShortedStocksService {
       description: "Compare a stock's short position, price, and fundamentals against its industry peers."
     };
   }
+
+  // ==================== Stock Screener ====================
+
+  // Screen stocks using compound filters across shorts, price, fundamentals, director trades, and news
+  rpc ScreenStocks (ScreenStocksRequest) returns (ScreenStocksResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Screen Stocks",
+      description: "Filter and sort stocks using compound criteria across short positions, price changes, fundamentals, director trades, and news sentiment."
+    };
+  }
 }
 
 message MintTokenRequest {
@@ -1112,4 +1123,89 @@ message GetPeerComparisonResponse {
   PeerStock subject = 1;          // The stock being compared
   repeated PeerStock peers = 2;   // Industry peers
   string industry = 3;            // Common industry
+}
+
+// ==================== Stock Screener Messages ====================
+
+// Sort field for screener results
+enum ScreenerSortField {
+  SCREENER_SORT_FIELD_SHORT_PCT = 0;
+  SCREENER_SORT_FIELD_SHORT_PCT_CHANGE = 1;
+  SCREENER_SORT_FIELD_MARKET_CAP = 2;
+  SCREENER_SORT_FIELD_PRICE_CHANGE_1M = 3;
+  SCREENER_SORT_FIELD_PE_RATIO = 4;
+  SCREENER_SORT_FIELD_DIVIDEND_YIELD = 5;
+  SCREENER_SORT_FIELD_NET_DIRECTOR_BUY = 6;
+  SCREENER_SORT_FIELD_NEWS_SENTIMENT = 7;
+  SCREENER_SORT_FIELD_DAYS_TO_COVER = 8;
+}
+
+// Sort direction
+enum SortDirection {
+  SORT_DIRECTION_DESC = 0;
+  SORT_DIRECTION_ASC = 1;
+}
+
+// A numeric range filter with optional min/max bounds
+message RangeFilter {
+  double min = 1;
+  double max = 2;
+  bool has_min = 3;
+  bool has_max = 4;
+}
+
+// Compound filters for the stock screener
+message ScreenerFilters {
+  RangeFilter short_pct = 1;              // Current short position %
+  RangeFilter short_pct_change = 2;       // 4-week short position change
+  RangeFilter market_cap = 3;             // Market capitalization
+  RangeFilter price_change_1m = 4;        // 1-month price change %
+  RangeFilter pe_ratio = 5;               // P/E ratio
+  RangeFilter dividend_yield = 6;         // Dividend yield %
+  RangeFilter net_director_buy = 7;       // Net director buy value ($)
+  RangeFilter avg_sentiment = 8;          // Average news sentiment (-1 to 1)
+  repeated string industries = 9;         // Filter to specific industries
+  bool has_director_buys = 10;            // Only stocks with recent director buys
+  RangeFilter days_to_cover = 11;         // Days to cover (short positions / avg daily volume)
+}
+
+// Request for ScreenStocks RPC
+message ScreenStocksRequest {
+  ScreenerFilters filters = 1;
+  ScreenerSortField sort_field = 2;
+  SortDirection sort_direction = 3;
+  int32 limit = 4;                        // Max results (default 50)
+  int32 offset = 5;                       // Pagination offset
+}
+
+// A single stock result from the screener
+message ScreenerStock {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  double short_pct = 4;
+  double short_pct_change_4w = 5;
+  double latest_price = 6;
+  double price_change_1m = 7;
+  int64 latest_volume = 8;
+  double market_cap = 9;
+  double pe_ratio = 10;
+  double dividend_yield = 11;
+  double net_director_buy_value = 12;
+  int32 director_buy_count = 13;
+  int32 director_sell_count = 14;
+  int32 news_count_30d = 15;
+  double avg_sentiment = 16;
+  int32 price_sensitive_count = 17;
+  double trailing_12m_dividend = 18;
+  double avg_franking_pct = 19;
+  string logo_url = 20;
+  double days_to_cover = 21;              // Short positions / avg 20-day volume
+  int64 avg_volume_20d = 22;              // 20-day average daily trading volume
+}
+
+// Response for ScreenStocks RPC
+message ScreenStocksResponse {
+  repeated ScreenerStock stocks = 1;
+  int32 total_count = 2;
 }

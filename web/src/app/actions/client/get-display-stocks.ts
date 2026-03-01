@@ -34,21 +34,22 @@ export const getTopStocksForDisplay = cache(async (limit = 5): Promise<StockDisp
     const cacheKey = CACHE_KEYS.topStocks(limit);
     const cached = await getCached<GetTopShortsResponse>(cacheKey);
     
-    let response: GetTopShortsResponse;
-    
+    let response: GetTopShortsResponse | undefined;
+
     if (cached) {
       response = cached;
     } else {
       // Cache miss - fetch from backend
-      const fetchedResponse = await getTopShortsData("3m", limit, 0);
-      response = fetchedResponse;
-      
+      response = await getTopShortsData("3m", limit, 0);
+
       // Cache the result (async, don't wait)
-      setCached(cacheKey, response, 300).catch((error) => {
-        console.error("Failed to cache top stocks:", error);
-      });
+      if (response) {
+        setCached(cacheKey, response, 300).catch((error) => {
+          console.error("Failed to cache top stocks:", error);
+        });
+      }
     }
-    
+
     if (!response?.timeSeries || response.timeSeries.length === 0) {
       return [];
     }

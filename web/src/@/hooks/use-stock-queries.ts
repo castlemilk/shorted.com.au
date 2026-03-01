@@ -132,7 +132,7 @@ export function useTopShorts(period: string, limit: number) {
     queryKey: queryKeys.shorts.top(period, limit),
     queryFn: async () => {
       const result = await getTopShortsData(period, limit, 0);
-      return result.timeSeries;
+      return result?.timeSeries ?? [];
     },
     staleTime: 60 * 1000, // 1 minute
   });

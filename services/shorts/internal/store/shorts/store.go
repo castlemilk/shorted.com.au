@@ -90,6 +90,8 @@ type Store interface {
 	// Peer comparison methods
 	GetPeerComparison(stockCode string, limit int32) (*PeerComparisonResult, error)
 
+	// Screener methods
+	ScreenStocks(filters *shortsv1alpha1.ScreenerFilters, sortField shortsv1alpha1.ScreenerSortField, sortDir shortsv1alpha1.SortDirection, limit, offset int32) ([]*ScreenerStock, int, error)
 
 	// Raw query access (used for Algolia sync)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) Row

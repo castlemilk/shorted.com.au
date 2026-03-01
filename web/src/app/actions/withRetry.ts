@@ -3,14 +3,30 @@
  *
  * Wraps server actions with automatic retry logic to handle cold start failures
  * and transient network errors. Works seamlessly with React's cache().
+ *
+ * Note: Uses duck-typing for ConnectError instead of direct imports from
+ * @connectrpc/connect to avoid SSR failures (see CLAUDE.md SSR Issues section).
  */
 
-import { ConnectError, Code } from "@connectrpc/connect";
 import {
   retryWithBackoff,
   shouldRetryConnectError,
   type RetryOptions,
 } from "@/lib/retry";
+
+// gRPC/Connect error code for NotFound - hardcoded to avoid SSR-breaking import
+const CODE_NOT_FOUND = 5;
+
+// Duck-type check for ConnectError shape (avoids importing @connectrpc/connect)
+function isConnectError(error: unknown): error is { code: number; message: string } {
+  return (
+    error !== null &&
+    typeof error === "object" &&
+    "code" in error &&
+    typeof (error as Record<string, unknown>).code === "number" &&
+    "message" in error
+  );
+}
 
 /**
  * Default retry configuration optimized for cold start scenarios
@@ -88,7 +104,7 @@ export function withRetryAndNotFound<TArgs extends unknown[], TReturn>(
       return await retryWithBackoff(() => fn(...args), retryOptions);
     } catch (err) {
       // Return undefined for NotFound errors (expected case)
-      if (err instanceof ConnectError && err.code === Code.NotFound) {
+      if (isConnectError(err) && err.code === CODE_NOT_FOUND) {
         return undefined;
       }
 

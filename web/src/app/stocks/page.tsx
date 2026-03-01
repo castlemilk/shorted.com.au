@@ -1,4 +1,5 @@
 import { type Metadata } from "next";
+import { Suspense } from "react";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { StocksSearchClient } from "./components/stocks-search-client";
 import { siteConfig } from "~/@/config/site";
@@ -36,8 +37,8 @@ export const metadata: Metadata = {
   },
 };
 
-// This page is behind auth middleware — force dynamic to avoid build-time pre-render failures
-export const dynamic = "force-dynamic";
+// Public page for SEO — revalidate every hour
+export const revalidate = 3600;
 
 // Popular ASX stocks for quick access (pre-rendered on server)
 const POPULAR_STOCKS = [
@@ -58,7 +59,9 @@ const POPULAR_STOCKS = [
 export default function StocksPage() {
   return (
     <DashboardLayout>
-      <StocksSearchClient popularStocks={POPULAR_STOCKS} />
+      <Suspense fallback={<div className="h-96 animate-pulse rounded bg-muted" />}>
+        <StocksSearchClient popularStocks={POPULAR_STOCKS} />
+      </Suspense>
     </DashboardLayout>
   );
 }

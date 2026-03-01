@@ -6,14 +6,15 @@ import { formatPeriodForAPI } from "~/lib/period-utils";
 import { SHORTS_API_URL } from "./config";
 import { cache } from "react";
 import { getOrSetCached, CACHE_KEYS, HOMEPAGE_TTL } from "~/@/lib/kv-cache";
-import { withRetry } from "./withRetry";
+import { withRetryAndNotFound } from "./withRetry";
 import { withSpan } from "~/@/lib/tracing";
 
 // React cache() provides request deduplication during a single render
 // This prevents duplicate fetches when the same data is needed by multiple components
 // Now also uses KV cache for faster responses
+// Uses withRetryAndNotFound to gracefully handle backend being unreachable during build
 export const getTopShortsData = cache(
-  withRetry(
+  withRetryAndNotFound(
     async (
       period: string,
       limit: number,

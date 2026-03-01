@@ -88,7 +88,7 @@ describe("Middleware Authentication", () => {
   });
 
   describe("Protected Routes - Authenticated Users", () => {
-    const protectedRoutes = ["/dashboards", "/portfolio", "/stocks"];
+    const protectedRoutes = ["/dashboards", "/portfolio", "/chat"];
 
     protectedRoutes.forEach((route) => {
       it(`allows authenticated user to access ${route}`, async () => {
@@ -118,7 +118,7 @@ describe("Middleware Authentication", () => {
   });
 
   describe("Protected Routes - Unauthenticated Users", () => {
-    const protectedRoutes = ["/dashboards", "/portfolio", "/stocks"];
+    const protectedRoutes = ["/dashboards", "/portfolio", "/chat"];
 
     protectedRoutes.forEach((route) => {
       it(`redirects unauthenticated user from ${route} to signin`, async () => {

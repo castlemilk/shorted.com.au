@@ -19,9 +19,14 @@ import {
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import {
   getIndustryStocks,
+  getIndustryData,
   getAllIndustrySlugs,
 } from "../../actions/industry/getIndustryData";
 import { cn } from "~/@/lib/utils";
+import {
+  ItemListStructuredData,
+} from "~/@/components/seo/enhanced-structured-data";
+import { LLMMeta } from "~/@/components/seo/llm-meta";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -87,11 +92,20 @@ export const revalidate = 3600;
 
 export default async function IndustryPage({ params }: PageProps) {
   const { slug } = await params;
-  const { industry, stocks } = await getIndustryStocks(slug);
+  const [{ industry, stocks }, allIndustries] = await Promise.all([
+    getIndustryStocks(slug),
+    getIndustryData(),
+  ]);
 
   if (!industry) {
     notFound();
   }
+
+  // Find related industries (sorted by avg short %, exclude current)
+  const relatedIndustries = allIndustries
+    .filter((i) => i.slug !== slug)
+    .sort((a, b) => b.avgShortPercent - a.avgShortPercent)
+    .slice(0, 8);
 
   const breadcrumbItems = [
     { label: "Industries", href: "/industry" },
@@ -128,6 +142,28 @@ export default async function IndustryPage({ params }: PageProps) {
     <DashboardLayout>
       <BreadcrumbListSchema items={breadcrumbsSchema} />
       <FAQStructuredData faqs={faqs} />
+      <ItemListStructuredData
+        name={`Most Shorted ${industry.name} Stocks on the ASX`}
+        description={`Ranked list of ${industry.stockCount} ${industry.name.toLowerCase()} stocks by short interest percentage, sourced from official ASIC data.`}
+        items={stocks.slice(0, 20).map((s) => ({
+          name: `${s.code} Short Position`,
+          url: `${siteConfig.url}/shorts/${s.code}`,
+          description: `${s.code} has ${s.shortPercent.toFixed(2)}% of shares sold short`,
+        }))}
+      />
+      <LLMMeta
+        title={`${industry.name} Industry Short Positions - ASX`}
+        description={`Short selling data for ${industry.stockCount} ${industry.name.toLowerCase()} stocks on the ASX. Average short interest: ${industry.avgShortPercent.toFixed(2)}%.`}
+        keywords={[
+          `${industry.name.toLowerCase()} short positions`,
+          `${industry.name.toLowerCase()} ASX`,
+          `most shorted ${industry.name.toLowerCase()} stocks`,
+          "ASIC short data",
+        ]}
+        dataSource="ASIC"
+        dataFrequency="daily"
+        requiresAuth={false}
+      />
 
       <div className="space-y-8">
         {/* Breadcrumbs */}
@@ -281,15 +317,60 @@ export default async function IndustryPage({ params }: PageProps) {
           )}
         </section>
 
+        {/* SEO Content */}
+        <section className="prose prose-sm dark:prose-invert max-w-none">
+          <h2>About {industry.name} Short Selling on the ASX</h2>
+          <p>
+            There are currently {industry.stockCount} {industry.name.toLowerCase()} stocks tracked with
+            short positions on the ASX. The average short interest across the sector
+            is {industry.avgShortPercent.toFixed(2)}%, with {highlyShorted} stocks shorted above 10%.
+            {industry.topStock && (
+              <> The most heavily shorted stock in {industry.name.toLowerCase()} is{" "}
+              <Link href={`/shorts/${industry.topStock.code}`} className="font-semibold">
+                {industry.topStock.code}
+              </Link>{" "}
+              at {industry.topStock.shortPercent.toFixed(2)}% short interest.</>
+            )}
+          </p>
+          <p>
+            Short selling data is sourced from official ASIC reports, published with a T+4 trading day
+            delay. High short interest in {industry.name.toLowerCase()} stocks may reflect sector-specific headwinds,
+            commodity exposure, or broader market sentiment. Use the{" "}
+            <Link href="/screener" className="font-semibold">stock screener</Link>{" "}
+            to filter {industry.name.toLowerCase()} stocks by short interest, days to cover, and more.
+          </p>
+        </section>
+
         {/* Related Industries */}
         <section className="mt-12 pt-8 border-t border-border/40">
-          <h2 className="text-lg font-semibold mb-4">Explore Other Industries</h2>
-          <div className="flex flex-wrap gap-2">
-            <Link href="/industry">
-              <Badge variant="outline" className="hover:bg-primary/10 cursor-pointer">
-                View All Industries
-              </Badge>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Explore Other Industries</h2>
+            <Link
+              href="/industry"
+              className="text-xs text-primary hover:underline"
+            >
+              View all industries
             </Link>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {relatedIndustries.map((ri) => (
+              <Link
+                key={ri.slug}
+                href={`/industry/${ri.slug}`}
+              >
+                <Badge
+                  variant="outline"
+                  className="hover:bg-primary/10 cursor-pointer gap-1.5"
+                >
+                  {ri.name}
+                  {ri.avgShortPercent > 0 && (
+                    <span className="text-muted-foreground">
+                      {ri.avgShortPercent.toFixed(1)}%
+                    </span>
+                  )}
+                </Badge>
+              </Link>
+            ))}
           </div>
         </section>
       </div>

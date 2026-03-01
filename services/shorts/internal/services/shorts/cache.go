@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -214,4 +215,8 @@ func (c *MemoryCache) GetDividendHistoryKey(stockCode string, years int32) strin
 
 func (c *MemoryCache) GetPeerComparisonKey(stockCode string, limit int32) string {
 	return c.generateKey("peer_comparison", stockCode, limit)
+}
+
+func (c *MemoryCache) GetScreenStocksKey(filters *shortsv1alpha1.ScreenerFilters, sortField shortsv1alpha1.ScreenerSortField, sortDir shortsv1alpha1.SortDirection, limit, offset int32) string {
+	return c.generateKey("screen_stocks", filters, sortField, sortDir, limit, offset)
 }

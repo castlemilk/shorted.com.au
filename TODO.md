@@ -588,6 +588,43 @@
 
 ---
 
+### Data Richness: Enrichment Processor & News Aggregator Fixes
+
+**Goal:** Ensure every stock page has rich, reliable data — not just short positions.
+
+#### Tier 1: Quick Wins (< 1 day each)
+
+- [ ] **Add Cloud Scheduler for enrichment auto-runs** — currently enrichment only runs when manually triggered via `/enrich-batch`. Add a daily `priority=unenriched` run and weekly `priority=stale` run via Cloud Scheduler.
+- [ ] **Add `GEMINI_API_KEY` to news-aggregator Terraform** — the env var is missing from `terraform/modules/news-aggregator/main.tf`, so production likely uses the crude 9-keyword sentiment fallback instead of Gemini Flash.
+- [ ] **Fix `AnalyzeBatch` called one article at a time** — `services/news-aggregator/store.go` calls `AnalyzeBatch` in a loop with single headlines. Pass all headlines in one call.
+- [ ] **Surface key people images on frontend** — `web/src/app/actions/company-metadata.ts` `convertKeyPeople()` drops `image_gcs_url`, `linkedin_url`, `source_url`, `source_type` that the backend populates. Add these fields.
+- [ ] **Show key metrics on stock Overview tab** — `CompanyFinancials` (market cap, PE, EPS) only renders in the "Financials" tab, not Overview. Most users never see it.
+- [ ] **Fix peer comparison `price_change_1m` always zero** — `services/shorts/internal/store/shorts/postgres_peers.go` scans 7 columns but proto defines 8 fields. `PriceChange1M` is never populated.
+- [ ] **Fix `total_count` bug in news API** — `GetStockNews` returns `len(articles)` as total, not the actual DB count. Pagination would be broken.
+- [ ] **Fix `is_price_sensitive` always false** — never set by any RSS source, making `BreakingNewsBanner` permanently empty.
+- [ ] **Fix trailing yield calculation** — `postgres_dividends.go` sums all dividends up to 5 years instead of TTM.
+
+#### Tier 2: Fill Empty Tables (1–3 days each)
+
+- [ ] **Build director trades ingestion** — schema + store exist (migration 000024, `postgres_directors.go`) but no service populates them. Parse ASX Appendix 3Y announcements.
+- [ ] **Build dividend history ingestion** — schema + store exist (migration 000025, `postgres_dividends.go`) but no ingestion service. Source from Yahoo Finance or ASX data.
+- [ ] **Add ASX announcements as RSS/API source** — the most relevant per-stock news source isn't in the news aggregator's 4 RSS feeds.
+- [ ] **Fix news stock matching false positives** — first-word company name indexing causes matches like "National" → NAB. Add fuzzy matching and match article bodies, not just headlines.
+- [ ] **Wire up news article tags** — `tags` column is always `[]`. Add topic/event classification in the sentiment analysis step.
+- [ ] **Wire up `relevance_score` properly** — hardcoded 0.5 for all articles. `IsTrusted` flag on sources is defined but never consumed.
+
+#### Tier 3: New Data Dimensions
+
+- [ ] **Financial data parsing** — extract revenue/NPAT/EPS trends from annual reports (enrichment already crawls PDF links but doesn't parse them).
+- [ ] **Analyst consensus integration** — price targets and buy/hold/sell ratings from a data provider.
+- [ ] **Ownership data** — institutional holders, substantial shareholder notices from ASX.
+- [ ] **Earnings calendar** — when the next report is due, from ASX announcements.
+- [ ] **Auto-refresh stale enrichments** — staleness threshold is 30 days but `priority=stale` must be manually triggered. Wire into the scheduled run.
+- [ ] **Deterministic quality scoring** — enrichment quality `overall_score` weighting is decided by the LLM each call. Use a fixed formula instead.
+- [ ] **Add more RSS sources** — only 4 feeds (Stockhead, Livewire, Market Index, Small Caps). Missing AFR, Reuters AU, ASX announcements.
+
+---
+
 ### What Makes This "Bloomberg Terminal for Retail"
 
 1. **Data moat** — 15 years of ASIC short data cross-referenced with tax, emissions, insider trading. Cannot be replicated quickly.
