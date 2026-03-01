@@ -78,6 +78,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 // Generate static pages for all industries
 // Falls back to on-demand generation if API is unavailable (e.g., during CI builds)
 export async function generateStaticParams() {
+  // Skip static generation during local builds (pre-commit hook sets this)
+  if (process.env.SKIP_STATIC_GENERATION === "1") {
+    return [];
+  }
   try {
     const slugs = await getAllIndustrySlugs();
     return slugs.map((slug) => ({ slug }));

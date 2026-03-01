@@ -52,6 +52,10 @@ import { notFound } from "next/navigation";
  * The mv_top_shorts materialized view contains all stocks with short_position > 0.
  */
 export async function generateStaticParams(): Promise<{ stockCode: string }[]> {
+  // Skip static generation during local builds (pre-commit hook sets this)
+  if (process.env.SKIP_STATIC_GENERATION === "1") {
+    return [];
+  }
   try {
     const transport = createConnectTransport({
       baseUrl:

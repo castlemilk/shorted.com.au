@@ -42,6 +42,11 @@ interface PageProps {
 }
 
 export async function generateStaticParams() {
+  // Skip static generation during local builds (pre-commit hook sets this)
+  // Pages still work on-demand via dynamicParams (default true)
+  if (process.env.SKIP_STATIC_GENERATION === "1") {
+    return [];
+  }
   try {
     // getAvailableWeekSlugs already excludes the current incomplete week
     const slugs = await getAvailableWeekSlugs();
