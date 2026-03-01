@@ -27,8 +27,11 @@ const learnArticles = [
   "reading-short-interest-changes",
 ];
 
-// Production API URL for sitemap generation during builds
-const PRODUCTION_API_URL = "https://api.shorted.com.au";
+// API URL for sitemap generation during builds
+const API_URL =
+  process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
+  process.env.NEXT_PUBLIC_API_URL ??
+  "http://localhost:9091";
 
 // API response type for top shorts
 interface TopShortsResponse {
@@ -51,7 +54,7 @@ async function getAllStockCodes(): Promise<string[]> {
     const baseUrl =
       process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
       process.env.NEXT_PUBLIC_API_URL ??
-      PRODUCTION_API_URL;
+      API_URL;
 
     // Use direct fetch with JSON to avoid protobuf-es SSR issues
     const response = await fetch(
@@ -249,7 +252,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       baseUrl:
         process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
         process.env.NEXT_PUBLIC_API_URL ??
-        PRODUCTION_API_URL,
+        API_URL,
     });
     const client = createClient(ShortedStocksService, transport);
     const response = await client.getAvailableDates({ limit: 90, before: "" });
@@ -368,6 +371,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
+  // Screener page + preset URLs for SEO
+  const screenerPresets = [
+    "short-squeeze",
+    "dividend-pressure",
+    "small-cap-bears",
+    "director-buying-shorted",
+    "hard-to-cover",
+  ];
+  const screenerRoutes = [
+    {
+      url: `${baseUrl}/screener`,
+      lastModified: currentDate,
+      changeFrequency: "daily" as const,
+      priority: 0.9,
+    },
+    ...screenerPresets.map((preset) => ({
+      url: `${baseUrl}/screener?preset=${preset}`,
+      lastModified: currentDate,
+      changeFrequency: "daily" as const,
+      priority: 0.7,
+    })),
+  ];
+
   return [
     ...staticRoutes,
     ...topRoutes,
@@ -381,6 +407,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...privacyRoutes,
     ...learnRoutes,
     ...docRoutes,
+    ...screenerRoutes,
     ...feedRoutes,
     ...blogRoutes,
     ...stockRoutes,

@@ -11,8 +11,6 @@ import {
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { cn } from "~/@/lib/utils";
 
-const PRODUCTION_API_URL = "https://api.shorted.com.au";
-
 interface TopShortsTimeSeries {
   productCode?: string;
   name?: string;
@@ -35,7 +33,7 @@ async function getAllStocksForDirectory(): Promise<
     const baseUrl =
       process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
       process.env.NEXT_PUBLIC_API_URL ??
-      PRODUCTION_API_URL;
+      "http://localhost:9091";
 
     const response = await fetch(
       `${baseUrl}/shorts.v1alpha1.ShortedStocksService/GetTopShorts`,

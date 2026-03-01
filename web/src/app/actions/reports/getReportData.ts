@@ -7,10 +7,8 @@ import { SHORTS_API_URL } from "../config";
 import { withRetryAndNotFound, type RetryOptions } from "../withRetry";
 import { withSpan } from "~/@/lib/tracing";
 
-const PRODUCTION_API_URL = "https://api.shorted.com.au";
-
 function getApiUrl() {
-  return process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL ?? PRODUCTION_API_URL;
+  return process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL;
 }
 
 // Shared transport instance — reused across all functions to avoid redundant HTTP/2 connection setup

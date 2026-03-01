@@ -22,9 +22,6 @@ import {
   getMarketByDate,
 } from "~/app/actions/market/getMarketByDate";
 
-// Production API URL for static generation
-const PRODUCTION_API_URL = "https://api.shorted.com.au";
-
 interface PageProps {
   params: Promise<{ date: string }>;
 }
@@ -39,7 +36,7 @@ export async function generateStaticParams(): Promise<{ date: string }[]> {
       baseUrl:
         process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
         process.env.NEXT_PUBLIC_API_URL ??
-        PRODUCTION_API_URL,
+        "http://localhost:9091",
     });
     const client = createClient(ShortedStocksService, transport);
     // Only pre-generate last 10 dates at build time; rest via ISR on-demand

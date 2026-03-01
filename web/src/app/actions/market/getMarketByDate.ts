@@ -5,11 +5,8 @@ import { cache } from "react";
 import { SHORTS_API_URL } from "../config";
 import { withRetry, withRetryAndNotFound } from "../withRetry";
 
-// Production API URL for static generation during builds
-const PRODUCTION_API_URL = "https://api.shorted.com.au";
-
 function getApiUrl() {
-  return process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL ?? PRODUCTION_API_URL;
+  return process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL;
 }
 
 export const getMarketByDate = cache(
