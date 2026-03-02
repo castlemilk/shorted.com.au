@@ -58,8 +58,8 @@ export function DatasetStructuredData({
 }) {
   if (!datasetInfo) return <></>;
 
-  // Use provided dates or fallback to a static date to avoid hydration mismatches
-  const defaultDate = "2024-01-01T00:00:00.000Z";
+  // Use provided dates or fallback to current date (rendered server-side, no hydration mismatch)
+  const defaultDate = new Date().toISOString();
 
   const schema = {
     "@context": "https://schema.org",

@@ -14,7 +14,6 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { Badge } from "~/@/components/ui/badge";
 import {
   BreadcrumbListSchema,
-  FAQStructuredData,
 } from "~/@/components/seo/enhanced-structured-data";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import {
@@ -122,22 +121,6 @@ export default async function IndustryPage({ params }: PageProps) {
     { name: industry.name, url: `${siteConfig.url}/industry/${slug}` },
   ];
 
-  // FAQ data for rich snippets
-  const faqs = [
-    {
-      question: `What are the most shorted ${industry.name.toLowerCase()} stocks on the ASX?`,
-      answer: `The most shorted ${industry.name.toLowerCase()} stocks on the ASX include ${stocks.slice(0, 3).map(s => s.code).join(", ")}. This page shows all ${industry.stockCount} ${industry.name.toLowerCase()} stocks tracked with their current short positions from official ASIC data.`,
-    },
-    {
-      question: `How much short interest is there in ${industry.name.toLowerCase()} stocks?`,
-      answer: `The average short interest across ${industry.stockCount} ${industry.name.toLowerCase()} stocks on the ASX is ${industry.avgShortPercent.toFixed(2)}%. The highest shorted stock in this sector is ${industry.topStock?.code} at ${industry.topStock?.shortPercent.toFixed(2)}%.`,
-    },
-    {
-      question: `Why are ${industry.name.toLowerCase()} stocks heavily shorted?`,
-      answer: `${industry.name} stocks may attract short sellers due to sector-specific factors such as commodity price movements, regulatory changes, or broader market sentiment. High short interest can indicate bearish views but also potential for short squeezes.`,
-    },
-  ];
-
   // Calculate stats
   const highlyShorted = stocks.filter((s) => s.shortPercent > 10).length;
   const increasing = stocks.filter((s) => (s.change ?? 0) > 0).length;
@@ -145,7 +128,6 @@ export default async function IndustryPage({ params }: PageProps) {
   return (
     <DashboardLayout>
       <BreadcrumbListSchema items={breadcrumbsSchema} />
-      <FAQStructuredData faqs={faqs} />
       <ItemListStructuredData
         name={`Most Shorted ${industry.name} Stocks on the ASX`}
         description={`Ranked list of ${industry.stockCount} ${industry.name.toLowerCase()} stocks by short interest percentage, sourced from official ASIC data.`}

@@ -26,7 +26,7 @@ import {
   AccordionTrigger,
 } from "~/@/components/ui/accordion";
 import { Badge } from "~/@/components/ui/badge";
-import { BreadcrumbListSchema, FAQStructuredData } from "~/@/components/seo/enhanced-structured-data";
+import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
 
 export const metadata: Metadata = {
   title: "Frequently Asked Questions | Short Selling & ASIC Data",
@@ -305,19 +305,10 @@ const faqCategories = [
   },
 ];
 
-// Flatten FAQs for structured data
-const allFaqs = faqCategories.flatMap((cat) =>
-  cat.faqs.map((faq) => ({
-    question: faq.question,
-    answer: faq.answer,
-  }))
-);
-
 export default function FAQPage() {
   return (
     <DashboardLayout>
       <BreadcrumbListSchema items={breadcrumbs} />
-      <FAQStructuredData faqs={allFaqs} />
 
       <div className="space-y-8">
         {/* Hero Section */}

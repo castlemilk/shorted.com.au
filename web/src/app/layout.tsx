@@ -11,8 +11,6 @@ import { ConditionalHeader } from "./conditional-header";
 import { ConditionalFooter } from "./conditional-footer";
 import { NextAuthProvider } from "./next-auth-provider";
 import { siteConfig } from "~/@/config/site";
-import { StructuredData } from "~/@/components/seo/structured-data";
-import { EnhancedOrganizationSchema } from "~/@/components/seo/enhanced-structured-data";
 import { Toaster } from "~/@/components/ui/toaster";
 import {
   EnvironmentBanner,
@@ -186,8 +184,6 @@ export default function RootLayout({
               {children}
               <ConditionalFooter />
               <ThemeSwitcher />
-              <StructuredData />
-              <EnhancedOrganizationSchema />
               <Toaster />
               <WebVitalsReporter />
               <ChatSidebar />

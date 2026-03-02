@@ -14,7 +14,6 @@ import { Badge } from "~/@/components/ui/badge";
 import { Button } from "~/@/components/ui/button";
 import {
   BreadcrumbListSchema,
-  FAQStructuredData,
 } from "~/@/components/seo/enhanced-structured-data";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 
@@ -1949,7 +1948,6 @@ export default async function LearnArticlePage({ params }: PageProps) {
   return (
     <DashboardLayout>
       <BreadcrumbListSchema items={breadcrumbsSchema} />
-      <FAQStructuredData faqs={article.faqs} />
 
       <div className="max-w-4xl mx-auto">
         {/* Breadcrumbs */}

@@ -319,6 +319,8 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                                 onClick={() =>
                                   handleRectClick(node.data?.id ?? "")
                                 }
+                                role="link"
+                                aria-label={`${node.data?.id ?? ""} — ${(node.value ?? 0).toFixed(1)}% short interest`}
                               >
                                 <rect
                                   width={nodeWidth}

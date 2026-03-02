@@ -75,7 +75,29 @@ const config = {
         ],
       },
       {
-        // Allow embedding of /embed/* routes in iframes
+        // Security headers for all routes
+        source: "/:path*",
+        headers: [
+          {
+            key: "X-Frame-Options",
+            value: "SAMEORIGIN",
+          },
+          {
+            key: "X-Content-Type-Options",
+            value: "nosniff",
+          },
+          {
+            key: "Referrer-Policy",
+            value: "strict-origin-when-cross-origin",
+          },
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
+          },
+        ],
+      },
+      {
+        // Allow embedding of /embed/* routes in iframes (overrides SAMEORIGIN above)
         source: "/embed/:path*",
         headers: [
           {
