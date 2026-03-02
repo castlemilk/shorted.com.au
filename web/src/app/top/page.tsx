@@ -2,7 +2,6 @@ import { type Metadata } from "next";
 import { Suspense } from "react";
 import { siteConfig } from "~/@/config/site";
 import {
-  FAQStructuredData,
   DatasetStructuredData,
   ItemListStructuredData,
   BreadcrumbListSchema,
@@ -73,30 +72,6 @@ export const metadata: Metadata = {
   },
 };
 
-// FAQ data for rich snippets
-const topPageFAQs = [
-  {
-    question: "What are the most shorted stocks on the ASX right now?",
-    answer:
-      "The most shorted ASX stocks change daily based on ASIC reports. Common heavily shorted sectors include lithium miners, retail, and speculative growth stocks. This page shows the live top 100 most shorted stocks updated daily from official ASIC data.",
-  },
-  {
-    question: "How is short interest percentage calculated?",
-    answer:
-      "Short interest percentage is calculated by dividing the total reported short positions by the total shares on issue, then multiplying by 100. ASIC requires market participants to report positions exceeding $100,000 or 0.01% of issued capital.",
-  },
-  {
-    question: "What does high short interest indicate?",
-    answer:
-      "High short interest indicates that many investors are betting against a stock, expecting its price to fall. However, it can also signal a potential short squeeze if positive news causes short sellers to cover their positions rapidly.",
-  },
-  {
-    question: "How often is this short position data updated?",
-    answer:
-      "Short position data is updated daily based on ASIC reports. ASIC publishes aggregated short positions with a T+4 trading day delay, meaning data reflects positions from 4 trading days prior.",
-  },
-];
-
 // Revalidate every 10 minutes for fresh data (aligned with Redis cache TTL)
 export const revalidate = 600;
 
@@ -146,7 +121,6 @@ export default function TopPage() {
     <main className="min-h-screen bg-background" aria-label="Top 100 Most Shorted ASX Stocks">
       {/* Structured Data for SEO */}
       <BreadcrumbListSchema items={breadcrumbs} />
-      <FAQStructuredData faqs={topPageFAQs} />
 
       <div className="container mx-auto px-4 pt-4">
         <ReportsBanner />

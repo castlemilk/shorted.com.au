@@ -16,7 +16,6 @@ import { siteConfig } from "~/@/config/site";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import {
   BreadcrumbListSchema,
-  FAQStructuredData,
   ItemListStructuredData,
 } from "~/@/components/seo/enhanced-structured-data";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
@@ -139,7 +138,7 @@ export default async function YearlyReportPage({ params }: PageProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
         />
       )}
-      {faqs.length > 0 && <FAQStructuredData faqs={faqs} />}
+      {/* FAQPage schema removed — only eligible for government/healthcare sites since Aug 2023 */}
       <ItemListStructuredData
         name={`Top Shorted ASX Stocks — ${slug} Year End`}
         description={`The most shorted stocks on the ASX at the end of ${slug}`}

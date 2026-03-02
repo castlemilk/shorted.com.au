@@ -7,7 +7,7 @@
 Shorted aggregates and visualises official ASIC (Australian Securities and Investments Commission) short position data for all ASX-listed securities. The platform serves retail investors, researchers, and financial professionals with institutional-grade analytics on short selling activity in the Australian stock market.
 
 - Website: https://shorted.com.au
-- Contact: contact@shorted.com.au
+- Contact: support@shorted.com.au
 
 ## Key Content
 

@@ -2,6 +2,7 @@ import { type Metadata } from "next";
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { siteConfig } from "~/@/config/site";
+import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
 
 const ScreenerPageClient = dynamic(
   () =>
@@ -114,9 +115,52 @@ function ScreenerSkeleton() {
   );
 }
 
+const breadcrumbs = [
+  { name: "Home", url: siteConfig.url },
+  { name: "Stock Screener", url: `${siteConfig.url}/screener` },
+];
+
+const webApplicationSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "ASX Stock Screener",
+  description:
+    "Screen ASX stocks by short interest, price changes, director trades, and news sentiment using official ASIC data.",
+  url: `${siteConfig.url}/screener`,
+  applicationCategory: "FinanceApplication",
+  operatingSystem: "All",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "AUD",
+  },
+  provider: {
+    "@type": "Organization",
+    name: siteConfig.name,
+    url: siteConfig.url,
+  },
+};
+
 export default function ScreenerPage() {
   return (
     <main className="min-h-[calc(100vh-4rem)]">
+      <BreadcrumbListSchema items={breadcrumbs} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(webApplicationSchema) }}
+      />
+      <div className="container mx-auto px-4 pt-6 pb-2 max-w-7xl">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+          ASX Stock Screener
+        </h1>
+        <p className="text-muted-foreground mt-2 max-w-2xl text-sm leading-relaxed">
+          Filter and screen ASX-listed stocks by short interest levels, price
+          movements, director trades, and news sentiment. Use pre-built presets
+          to find short squeeze candidates, dividend stocks under pressure, or
+          hard-to-cover positions. All data is sourced from official ASIC short
+          position reports, updated daily with a T+4 trading day delay.
+        </p>
+      </div>
       <Suspense fallback={<ScreenerSkeleton />}>
         <ScreenerPageClient />
       </Suspense>

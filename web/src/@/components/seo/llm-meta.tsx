@@ -8,6 +8,7 @@ interface LLMMetaProps {
   description: string;
   keywords?: string[];
   content?: string;
+  url?: string;
   dataSource?: string;
   dataFrequency?: string;
   lastUpdated?: string;
@@ -19,6 +20,7 @@ export function LLMMeta({
   description,
   keywords = [],
   content,
+  url,
   dataSource = "ASIC",
   dataFrequency = "daily",
   lastUpdated,
@@ -119,10 +121,6 @@ export function LLMMeta({
         name="access-control"
         content={requiresAuth ? "authenticated" : "public"}
       />
-      <meta
-        name="robots"
-        content={requiresAuth ? "noindex" : "index, follow"}
-      />
 
       {/* Links to documentation */}
       <link rel="documentation" href="/docs/llm-context" />
@@ -147,7 +145,7 @@ export function LLMMeta({
               "@type": "Dataset",
               name: title,
               description: description,
-              url: typeof window !== "undefined" ? window.location.href : "",
+              url: url ?? "https://shorted.com.au",
               keywords: keywords.join(", "),
               license: "https://shorted.com.au/terms",
               creator: {
@@ -168,7 +166,7 @@ export function LLMMeta({
               distribution: {
                 "@type": "DataDownload",
                 encodingFormat: "application/json",
-                contentUrl: "/api",
+                contentUrl: "https://shorted.com.au/api",
               },
             }),
           }}

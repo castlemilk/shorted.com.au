@@ -256,6 +256,8 @@ export function IndustryTreemapWidget({ config }: WidgetProps) {
                             onClick={() =>
                               router.push(`/shorts/${stock.productCode}`)
                             }
+                            role="link"
+                            aria-label={`${stock.productCode} — ${stock.shortPosition.toFixed(1)}% short interest`}
                           >
                             <rect
                               width={nodeWidth}

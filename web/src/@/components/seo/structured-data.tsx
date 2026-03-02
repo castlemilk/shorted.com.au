@@ -26,7 +26,7 @@ export function StructuredData({
             "@type": "SearchAction",
             target: {
               "@type": "EntryPoint",
-              urlTemplate: `${siteConfig.url}/shorts/{search_term_string}`,
+              urlTemplate: `${siteConfig.url}/stocks?q={search_term_string}`,
             },
             "query-input": "required name=search_term_string",
           },
@@ -147,10 +147,6 @@ export function StockStructuredData({
       exchange: "ASX",
     },
     category: "Stock Market Analysis",
-    speakable: {
-      "@type": "SpeakableSpecification",
-      cssSelector: ["h1", ".company-stats", ".short-position-summary"],
-    },
   };
 
   return (

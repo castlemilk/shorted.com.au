@@ -13,7 +13,6 @@ const BreakingNewsBanner = dynamic(
   { ssr: false }
 );
 import {
-  FAQStructuredData,
   DatasetStructuredData,
   EnhancedOrganizationSchema,
   EnhancedWebSiteSchema,
@@ -52,32 +51,12 @@ export const metadata: Metadata = {
   },
   alternates: {
     canonical: siteConfig.url,
+    languages: {
+      "en-AU": siteConfig.url,
+      "x-default": siteConfig.url,
+    },
   },
 };
-
-// FAQ data for rich snippets - targets common search queries
-const homeFAQs = [
-  {
-    question: "What are short positions on the ASX?",
-    answer:
-      "Short positions represent shares borrowed and sold by investors betting a stock's price will fall. On the ASX, short sellers must report positions exceeding $100,000 or 0.01% of issued capital to ASIC. This data is published with a T+4 trading day delay.",
-  },
-  {
-    question: "Where does ASX short selling data come from?",
-    answer:
-      "ASX short selling data is sourced from ASIC (Australian Securities and Investments Commission). Market participants are required to report their short positions daily, and ASIC publishes aggregated data with a 4 trading day delay (T+4).",
-  },
-  {
-    question: "What are the most shorted stocks on the ASX?",
-    answer:
-      "The most shorted ASX stocks change daily based on ASIC reports. Typically, heavily shorted stocks include companies in sectors facing headwinds like lithium miners, retail, and property. Use our tracker to see the current top 100 most shorted stocks updated daily.",
-  },
-  {
-    question: "Why is there a T+4 delay on ASIC short position data?",
-    answer:
-      "ASIC publishes short position data with a T+4 (4 trading day) delay to balance market transparency with preventing potential market manipulation. This means the data shown reflects positions from 4 trading days ago, not real-time figures.",
-  },
-];
 
 function formatWeekTitle(slug: string): string {
   const match = slug.match(/^(\d{4})-W(\d{2})$/);
@@ -147,7 +126,6 @@ export default async function Page() {
   return (
     <main className="min-h-screen flex flex-col bg-transparent">
       {/* Structured Data for rich snippets and knowledge graph */}
-      <FAQStructuredData faqs={homeFAQs} />
       <DatasetStructuredData
         datasetInfo={{
           name: "ASIC Short Position Data for ASX Stocks",
@@ -191,6 +169,36 @@ export default async function Page() {
           shorted companies, and monitor bearish sentiment across the Australian market.
         </p>
       </header>
+
+      {/* Visible intro for SEO — crawlable content explaining the platform */}
+      <section className="container mx-auto px-4 pb-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
+          <div>
+            <h2 className="text-sm font-semibold text-foreground mb-1">Official ASIC Data</h2>
+            <p>
+              All short position data is sourced directly from ASIC (Australian Securities
+              and Investments Commission) daily reports. We track over 4,500 ASX-listed
+              securities with historical data from 2010 to present.
+            </p>
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-foreground mb-1">T+4 Trading Day Delay</h2>
+            <p>
+              ASIC publishes short position data with a 4 trading day delay to balance
+              market transparency with preventing potential manipulation. Data shown
+              reflects positions from 4 trading days ago, not real-time figures.
+            </p>
+          </div>
+          <div>
+            <h2 className="text-sm font-semibold text-foreground mb-1">Charts & Analysis</h2>
+            <p>
+              View interactive historical charts, industry heatmaps, and weekly reports.
+              Screen stocks by short interest, days to cover, director trades, and news
+              sentiment. Track the most shorted ASX stocks with daily updates.
+            </p>
+          </div>
+        </div>
+      </section>
 
       {/* Breaking News - Price Sensitive Announcements */}
       <div className="container mx-auto px-4 pb-4">

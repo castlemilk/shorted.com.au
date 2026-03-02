@@ -47,7 +47,7 @@ export async function TrendingThisWeek() {
   const decreasing = movers.filter((m) => m.change < 0).slice(0, 5);
 
   return (
-    <section className="container mx-auto px-4 py-6">
+    <section className="container mx-auto px-4 py-6 overflow-hidden">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">
@@ -82,7 +82,7 @@ export async function TrendingThisWeek() {
                   href={`/shorts/${stock.code}`}
                   className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-red-500/10 transition-colors group"
                 >
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <span className="font-semibold text-sm group-hover:text-primary transition-colors">
                       {stock.code}
                     </span>
@@ -90,7 +90,7 @@ export async function TrendingThisWeek() {
                       {stock.name !== stock.code ? stock.name : ""}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex items-center gap-3 shrink-0 ml-2">
                     <span className="text-xs text-muted-foreground tabular-nums">
                       {stock.percent.toFixed(2)}%
                     </span>
@@ -120,7 +120,7 @@ export async function TrendingThisWeek() {
                   href={`/shorts/${stock.code}`}
                   className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-green-500/10 transition-colors group"
                 >
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <span className="font-semibold text-sm group-hover:text-primary transition-colors">
                       {stock.code}
                     </span>
@@ -128,7 +128,7 @@ export async function TrendingThisWeek() {
                       {stock.name !== stock.code ? stock.name : ""}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3 shrink-0">
+                  <div className="flex items-center gap-3 shrink-0 ml-2">
                     <span className="text-xs text-muted-foreground tabular-nums">
                       {stock.percent.toFixed(2)}%
                     </span>

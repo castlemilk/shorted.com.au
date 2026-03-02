@@ -7,6 +7,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Search, X, Loader2, TrendingDown, ArrowRight, LogIn } from "lucide-react";
 import { cn } from "~/@/lib/utils";
+import { useClickOutside } from "~/@/hooks/use-click-outside";
 
 interface StockResult {
   productCode: string;
@@ -164,18 +165,7 @@ export function NavSearchInput() {
   }, [isAuthenticated]);
 
   // Click outside to close
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (
-        containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
-      ) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  useClickOutside(containerRef, useCallback(() => setIsOpen(false), []));
 
   // If not authenticated, render an interactive search splash
   if (authStatus !== "loading" && !isAuthenticated) {
@@ -194,7 +184,7 @@ export function NavSearchInput() {
         >
           <Image
             src="/search.png"
-            alt=""
+            alt="Search"
             width={28}
             height={28}
             className="shrink-0 opacity-70 group-hover:opacity-100 transition-opacity"
@@ -260,7 +250,7 @@ export function NavSearchInput() {
           >
             <Image
               src="/search.png"
-              alt=""
+              alt="Search"
               width={18}
               height={18}
               className="opacity-70"
@@ -450,7 +440,7 @@ export function NavSearchInput() {
             loading={loading}
             query={query}
             selectedIndex={selectedIndex}
-            setSelectedIndex={setSelectedIndex}
+            onHighlight={setSelectedIndex}
             onSelect={handleSelect}
             onNavigateDirect={() => {
               router.push(`/shorts/${query.toUpperCase()}`);
@@ -536,7 +526,7 @@ export function NavSearchInput() {
                 loading={loading}
                 query={query}
                 selectedIndex={selectedIndex}
-                setSelectedIndex={setSelectedIndex}
+                onHighlight={setSelectedIndex}
                 onSelect={handleSelect}
                 onNavigateDirect={() => {
                   router.push(`/shorts/${query.toUpperCase()}`);
@@ -560,7 +550,7 @@ function ResultsContent({
   loading,
   query,
   selectedIndex,
-  setSelectedIndex,
+  onHighlight,
   onSelect,
   onNavigateDirect,
   shortPercentColor,
@@ -571,7 +561,7 @@ function ResultsContent({
   loading: boolean;
   query: string;
   selectedIndex: number;
-  setSelectedIndex: (i: number) => void;
+  onHighlight: (i: number) => void;
   onSelect: (stock: StockResult) => void;
   onNavigateDirect: () => void;
   shortPercentColor: (pct: number) => string;
@@ -673,7 +663,7 @@ function ResultsContent({
                 onSelect(stock);
               }
             }}
-            onMouseEnter={() => setSelectedIndex(index)}
+            onMouseEnter={() => onHighlight(index)}
             className={cn(
               "relative flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-all duration-150",
               selectedIndex === index

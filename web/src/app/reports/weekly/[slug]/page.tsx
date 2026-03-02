@@ -18,7 +18,6 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { Badge } from "~/@/components/ui/badge";
 import {
   BreadcrumbListSchema,
-  FAQStructuredData,
   ItemListStructuredData,
   DatasetStructuredData,
 } from "~/@/components/seo/enhanced-structured-data";
@@ -210,7 +209,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
         />
       )}
-      {faqs.length > 0 && <FAQStructuredData faqs={faqs} />}
+      {/* FAQPage schema removed — only eligible for government/healthcare sites since Aug 2023 */}
       <ItemListStructuredData
         name={`Top Shorted ASX Stocks — ${weekTitle}`}
         description={`The most shorted stocks on the ASX for ${weekTitle}`}
