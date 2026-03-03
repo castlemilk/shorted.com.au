@@ -25,3 +25,9 @@ variable "image_url" {
   description = "Docker image URL for the asx-announcement-crawler job"
   type        = string
 }
+
+variable "otel_endpoint" {
+  description = "OpenTelemetry OTLP endpoint for traces and metrics"
+  type        = string
+  default     = "https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp"
+}

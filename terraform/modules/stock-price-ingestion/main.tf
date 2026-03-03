@@ -94,7 +94,7 @@ resource "google_cloud_run_v2_service" "stock_price_ingestion" {
           cpu    = "1"
           memory = "1Gi"
         }
-        cpu_idle          = true  # Throttle CPU when idle to reduce costs
+        cpu_idle          = true # Throttle CPU when idle to reduce costs
         startup_cpu_boost = true
       }
 
@@ -177,6 +177,7 @@ resource "google_cloud_scheduler_job" "daily_sync" {
 
     oidc_token {
       service_account_email = google_service_account.stock_price_ingestion.email
+      audience              = google_cloud_run_v2_service.stock_price_ingestion.uri
     }
   }
 
@@ -214,6 +215,7 @@ resource "google_cloud_scheduler_job" "weekly_backfill" {
 
     oidc_token {
       service_account_email = google_service_account.stock_price_ingestion.email
+      audience              = google_cloud_run_v2_service.stock_price_ingestion.uri
     }
   }
 
