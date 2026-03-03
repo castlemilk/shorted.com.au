@@ -702,7 +702,7 @@ jobs:
       # special characters that break CLI argument parsing.
       - name: Deploy to Vercel (Preview)
         id: vercel-deploy
-        uses: amondnet/vercel-action@v25
+        uses: amondnet/vercel-action@v25.2.0
         env:
           VERCEL_ENV: dev
         with:
@@ -1154,7 +1154,7 @@ jobs:
       # Environment secrets (prod) override repository secrets with same name.
       - name: Deploy to Vercel (Production)
         id: vercel-deploy
-        uses: amondnet/vercel-action@v25
+        uses: amondnet/vercel-action@v25.2.0
         env:
           VERCEL_ENV: production
         with:
