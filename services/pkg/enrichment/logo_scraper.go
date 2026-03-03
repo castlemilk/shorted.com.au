@@ -3,8 +3,6 @@ package enrichment
 import (
 	"context"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
 	"regexp"
 	"sort"
@@ -12,6 +10,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
 )
 
 // LogoCandidate represents a potential logo found on a website
@@ -40,23 +39,31 @@ const (
 
 // DefaultLogoScraper implements LogoScraper with intelligent crawling
 type DefaultLogoScraper struct {
-	httpClient  *http.Client
+	client      *stealthhttp.Client
 	maxPages    int
 	companyName string
 }
 
-// NewLogoScraper creates a new DefaultLogoScraper
+// NewLogoScraper creates a new DefaultLogoScraper with a stealth client.
 func NewLogoScraper(companyName string) *DefaultLogoScraper {
+	client, err := stealthhttp.New(
+		stealthhttp.WithTimeout(ScraperTimeout),
+		stealthhttp.WithMaxRedirects(10),
+	)
+	if err != nil {
+		panic(fmt.Sprintf("stealthhttp: failed to create native client: %v", err))
+	}
 	return &DefaultLogoScraper{
-		httpClient: &http.Client{
-			Timeout: ScraperTimeout,
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				if len(via) >= 10 {
-					return fmt.Errorf("too many redirects")
-				}
-				return nil
-			},
-		},
+		client:      client,
+		maxPages:    DefaultMaxPages,
+		companyName: strings.ToLower(companyName),
+	}
+}
+
+// NewLogoScraperWithClient creates a DefaultLogoScraper with a provided stealth client.
+func NewLogoScraperWithClient(companyName string, client *stealthhttp.Client) *DefaultLogoScraper {
+	return &DefaultLogoScraper{
+		client:      client,
 		maxPages:    DefaultMaxPages,
 		companyName: strings.ToLower(companyName),
 	}
@@ -162,48 +169,8 @@ func (s *DefaultLogoScraper) scanPage(ctx context.Context, pageURL, baseURL stri
 }
 
 func (s *DefaultLogoScraper) fetchPage(ctx context.Context, pageURL string) (*goquery.Document, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", pageURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	// Use a realistic browser User-Agent to avoid blocking
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
-	req.Header.Set("DNT", "1")
-	req.Header.Set("Connection", "keep-alive")
-	req.Header.Set("Upgrade-Insecure-Requests", "1")
-	req.Header.Set("Sec-Fetch-Dest", "document")
-	req.Header.Set("Sec-Fetch-Mode", "navigate")
-	req.Header.Set("Sec-Fetch-Site", "none")
-	req.Header.Set("Cache-Control", "max-age=0")
-
-	resp, err := s.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			// Log error but don't fail - response body close errors are usually non-critical
-			_ = err
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
-	}
-
-	// Limit body size to 10MB
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
-	if err != nil {
-		return nil, err
-	}
-
-	if len(body) == 0 {
-		return nil, fmt.Errorf("empty response body")
-	}
-
-	return goquery.NewDocumentFromReader(strings.NewReader(string(body)))
+	doc, _, err := s.client.FetchHTMLWithLimit(ctx, pageURL, 10*1024*1024)
+	return doc, err
 }
 
 func (s *DefaultLogoScraper) extractImgTags(doc *goquery.Document, pageURL, baseURL string) []LogoCandidate {

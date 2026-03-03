@@ -1,7 +1,9 @@
-FROM golang:1.24.3 as build
+FROM golang:1.26.0 as build
 WORKDIR /helloworld
 # Copy dependencies list
 COPY go.mod go.sum ./
+# Remove local replace directive — Docker fetches stealth from module proxy
+RUN sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
 # Build with optional lambda.norpc tag
 COPY management ./management
 COPY gen ./gen

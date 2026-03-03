@@ -27,6 +27,10 @@ var (
 	SyncRecordsProcessed  otelmetric.Int64Counter
 	SyncStatus            otelmetric.Int64Counter
 	SyncLastSuccess       otelmetric.Int64Gauge
+
+	// Logo discovery metrics
+	LogoDiscoveryTotal    otelmetric.Int64Counter
+	LogoDiscoveryDuration otelmetric.Float64Histogram
 )
 
 // InitCustomMetrics initializes the custom business metric instruments.
@@ -69,6 +73,17 @@ func InitCustomMetrics() {
 	SyncLastSuccess, _ = meter.Int64Gauge(
 		"shorted.sync.last_success",
 		otelmetric.WithDescription("Unix timestamp of last successful sync"),
+	)
+
+	LogoDiscoveryTotal, _ = meter.Int64Counter(
+		"shorted.logo.discovery_total",
+		otelmetric.WithDescription("Total logo discovery attempts by source and result"),
+	)
+
+	LogoDiscoveryDuration, _ = meter.Float64Histogram(
+		"shorted.logo.discovery_duration",
+		otelmetric.WithDescription("Duration of logo discovery in seconds"),
+		otelmetric.WithUnit("s"),
 	)
 }
 

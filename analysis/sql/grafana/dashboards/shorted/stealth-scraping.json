@@ -1,0 +1,368 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Stealth HTTP scraping observability — fetch latency, error rates, logo discovery, and LinkedIn fallback metrics",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "Stealth HTTP Overview",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 100 }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "id": 2,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Total Fetches (1h)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "increase(shorted_stealth_fetch_total[1h])",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.05 },
+              { "color": "red", "value": 0.2 }
+            ]
+          },
+          "unit": "percentunit"
+        }
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "id": 3,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Error Rate (1h)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "increase(shorted_stealth_fetch_errors[1h]) / (increase(shorted_stealth_fetch_total[1h]) > 0)"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 2 },
+              { "color": "red", "value": 5 }
+            ]
+          },
+          "unit": "s"
+        }
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "id": 4,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "P95 Fetch Latency",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(shorted_stealth_fetch_duration_bucket[5m]))"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "blue", "value": null }
+            ]
+          },
+          "unit": "bytes"
+        }
+      },
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "id": 5,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Bytes Fetched (1h)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "increase(shorted_stealth_fetch_bytes[1h])"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10 },
+          "unit": "s"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+      "id": 6,
+      "options": { "tooltip": { "mode": "multi" } },
+      "title": "Fetch Latency by Host",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by(le, http_host) (rate(shorted_stealth_fetch_duration_bucket[5m])))",
+          "legendFormat": "p50 {{http_host}}"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by(le, http_host) (rate(shorted_stealth_fetch_duration_bucket[5m])))",
+          "legendFormat": "p95 {{http_host}}"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "bars", "lineWidth": 1, "fillOpacity": 80, "stacking": { "mode": "normal" } }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+      "id": 7,
+      "options": { "tooltip": { "mode": "multi" } },
+      "title": "Fetch Requests by Status",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by(status) (rate(shorted_stealth_fetch_total[5m]))",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "bars", "lineWidth": 1, "fillOpacity": 80, "stacking": { "mode": "normal" } }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+      "id": 8,
+      "options": { "tooltip": { "mode": "multi" } },
+      "title": "Fetch Errors by Host",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by(http_host) (rate(shorted_stealth_fetch_errors[5m]))",
+          "legendFormat": "{{http_host}}"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10 },
+          "unit": "Bps"
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+      "id": 9,
+      "title": "Fetch Throughput (bytes/sec)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by(stealth_engine) (rate(shorted_stealth_fetch_bytes[5m]))",
+          "legendFormat": "{{stealth_engine}}"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 },
+      "id": 20,
+      "title": "Logo Discovery",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null }
+            ]
+          }
+        }
+      },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 22 },
+      "id": 21,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Logo Discoveries (1h)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(increase(shorted_logo_discovery_total{logo_success=\"true\"}[1h]))"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.3 },
+              { "color": "red", "value": 0.5 }
+            ]
+          },
+          "unit": "percentunit"
+        }
+      },
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 22 },
+      "id": 22,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Logo Failure Rate (1h)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(increase(shorted_logo_discovery_total{logo_success=\"false\"}[1h])) / sum(increase(shorted_logo_discovery_total[1h]))"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 30 }
+            ]
+          },
+          "unit": "s"
+        }
+      },
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 22 },
+      "id": 23,
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "P95 Logo Discovery Latency",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(shorted_logo_discovery_duration_bucket[5m]))"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "bars", "lineWidth": 1, "fillOpacity": 80, "stacking": { "mode": "normal" } }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 26 },
+      "id": 24,
+      "options": { "tooltip": { "mode": "multi" } },
+      "title": "Logo Discovery by Source",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by(logo_source) (rate(shorted_logo_discovery_total{logo_success=\"true\"}[5m]))",
+          "legendFormat": "{{logo_source}}"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "bars", "lineWidth": 1, "fillOpacity": 80, "stacking": { "mode": "normal" } }
+        }
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 26 },
+      "id": 25,
+      "options": { "tooltip": { "mode": "multi" } },
+      "title": "Logo Discovery by Format",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum by(logo_format) (rate(shorted_logo_discovery_total{logo_success=\"true\"}[5m]))",
+          "legendFormat": "{{logo_format}}"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10 },
+          "unit": "s"
+        }
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 34 },
+      "id": 26,
+      "options": { "tooltip": { "mode": "multi" } },
+      "title": "Logo Discovery Latency by Source",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by(le, logo_source) (rate(shorted_logo_discovery_duration_bucket[5m])))",
+          "legendFormat": "p50 {{logo_source}}"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by(le, logo_source) (rate(shorted_logo_discovery_duration_bucket[5m])))",
+          "legendFormat": "p95 {{logo_source}}"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["stealth", "scraping", "enrichment", "logo"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "default", "value": "default" },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Datasource",
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "title": "Stealth Scraping & Logo Discovery",
+  "uid": "stealth-scraping"
+}

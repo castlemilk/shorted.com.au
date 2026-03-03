@@ -68,6 +68,20 @@ func histogramViews() []metric.View {
 				Boundaries: syncBuckets,
 			}},
 		),
+		// Stealth HTTP fetch duration (seconds): web scraping latency
+		metric.NewView(
+			metric.Instrument{Name: "shorted.stealth.fetch_duration"},
+			metric.Stream{Aggregation: metric.AggregationExplicitBucketHistogram{
+				Boundaries: []float64{0.1, 0.25, 0.5, 1, 2, 5, 10, 30},
+			}},
+		),
+		// Logo discovery duration (seconds)
+		metric.NewView(
+			metric.Instrument{Name: "shorted.logo.discovery_duration"},
+			metric.Stream{Aggregation: metric.AggregationExplicitBucketHistogram{
+				Boundaries: syncBuckets,
+			}},
+		),
 	}
 }
 
