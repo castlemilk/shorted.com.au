@@ -117,6 +117,43 @@ resource "google_artifact_registry_repository" "docker_repo" {
   depends_on = [google_project_service.required_apis]
 }
 
+# market-data cloud run
+resource "google_cloud_run_v2_service" "market_data" {
+  name     = "market-data"
+  location = "australia-southeast2"
+  project  = var.project_id
+
+  template {
+    containers {
+      image = "australia-southeast2-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/market-data:latest"
+      ports {
+        container_port = 8080
+        name           = "http1"
+      }
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "256Mi"
+        }
+      }
+    }
+    # Enable CPU throttling
+    scaling {
+      min_instance_count = 0
+    }
+    execution_environment = "EXECUTION_ENVIRONMENT_STANDARD"
+    session_affinity      = false
+
+
+  }
+  traffic {
+    type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
+    percent = 100
+  }
+
+  depends_on = [google_artifact_registry_repository.docker_repo, google_project_iam_member.github_actions_roles]
+}
+
 # Outputs for GitHub Actions configuration
 output "workload_identity_provider" {
   description = "Workload Identity Provider for GitHub Actions"
