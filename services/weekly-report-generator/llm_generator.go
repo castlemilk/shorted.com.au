@@ -379,7 +379,7 @@ func (g *LLMGenerator) amalgamate(ctx context.Context, data *ReportData, gpt, ge
 	sb.WriteString("\n</draft_2_gemini>\n\n")
 
 	if feedback != "" {
-		sb.WriteString(fmt.Sprintf("<editorial_feedback>\n%s\n</editorial_feedback>\n\n", feedback))
+		fmt.Fprintf(&sb, "<editorial_feedback>\n%s\n</editorial_feedback>\n\n", feedback)
 	}
 
 	sb.WriteString("Merge these two drafts into a single, polished weekly short selling report. Take the best from each. Return ONLY valid JSON.")
@@ -418,30 +418,30 @@ func (g *LLMGenerator) amalgamate(ctx context.Context, data *ReportData, gpt, ge
 func buildUserPrompt(data *ReportData, feedback string) string {
 	var sb strings.Builder
 
-	sb.WriteString(fmt.Sprintf("<report_data>\nWeek: %s\nReport Date: %s\nPrevious Date: %s\n\n",
-		data.WeekSlug, data.ReportDate, data.PreviousDate))
+	fmt.Fprintf(&sb, "<report_data>\nWeek: %s\nReport Date: %s\nPrevious Date: %s\n\n",
+		data.WeekSlug, data.ReportDate, data.PreviousDate)
 
 	sb.WriteString("TOP 10 MOST SHORTED STOCKS:\n")
 	for _, s := range data.TopShorted {
-		sb.WriteString(fmt.Sprintf("%d. %s (%s): %.2f%% short (WoW change: %+.2f%%)\n",
-			s.Rank, s.Name, s.Code, s.ShortPct, s.WoWChange))
+		fmt.Fprintf(&sb, "%d. %s (%s): %.2f%% short (WoW change: %+.2f%%)\n",
+			s.Rank, s.Name, s.Code, s.ShortPct, s.WoWChange)
 	}
 
 	sb.WriteString("\nBIGGEST RISERS (increased short interest):\n")
 	for _, m := range data.Risers {
-		sb.WriteString(fmt.Sprintf("- %s (%s): %.2f%% → %.2f%% (change: %+.2f%%)\n",
-			m.Name, m.Code, m.PreviousPct, m.CurrentPct, m.Change))
+		fmt.Fprintf(&sb, "- %s (%s): %.2f%% → %.2f%% (change: %+.2f%%)\n",
+			m.Name, m.Code, m.PreviousPct, m.CurrentPct, m.Change)
 	}
 
 	sb.WriteString("\nBIGGEST FALLERS (decreased short interest):\n")
 	for _, m := range data.Fallers {
-		sb.WriteString(fmt.Sprintf("- %s (%s): %.2f%% → %.2f%% (change: %+.2f%%)\n",
-			m.Name, m.Code, m.PreviousPct, m.CurrentPct, m.Change))
+		fmt.Fprintf(&sb, "- %s (%s): %.2f%% → %.2f%% (change: %+.2f%%)\n",
+			m.Name, m.Code, m.PreviousPct, m.CurrentPct, m.Change)
 	}
 
-	sb.WriteString(fmt.Sprintf("\nMARKET STATISTICS:\n- Total stocks shorted: %d\n- Average short %%: %.2f%%\n- Max short %%: %.2f%% (%s)\n- WoW average change: %+.2f%%\n",
+	fmt.Fprintf(&sb, "\nMARKET STATISTICS:\n- Total stocks shorted: %d\n- Average short %%: %.2f%%\n- Max short %%: %.2f%% (%s)\n- WoW average change: %+.2f%%\n",
 		data.MarketStats.TotalStocksShorted, data.MarketStats.AvgShortPct,
-		data.MarketStats.MaxShortPct, data.MarketStats.MaxShortCode, data.MarketStats.WoWAvgChange))
+		data.MarketStats.MaxShortPct, data.MarketStats.MaxShortCode, data.MarketStats.WoWAvgChange)
 
 	// Include company context
 	if len(data.CompanyContext) > 0 {
@@ -596,7 +596,7 @@ func buildUserPrompt(data *ReportData, feedback string) string {
 	}
 
 	if feedback != "" {
-		sb.WriteString(fmt.Sprintf("\n<quality_feedback>\n%s\n</quality_feedback>\n", feedback))
+		fmt.Fprintf(&sb, "\n<quality_feedback>\n%s\n</quality_feedback>\n", feedback)
 		sb.WriteString("\nPlease regenerate the report addressing the quality feedback above.\n")
 	}
 

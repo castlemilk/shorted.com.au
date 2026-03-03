@@ -14,6 +14,8 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
+	"go.opentelemetry.io/otel/attribute"
+	otelmetric "go.opentelemetry.io/otel/metric"
 )
 
 func main() {
@@ -79,6 +81,24 @@ func main() {
 	}
 	defer db.Close()
 
+	// Track sync metrics for observability
+	syncStart := time.Now()
+	syncAttrs := otelmetric.WithAttributes(attribute.String("sync_job", "weekly-report-generator"))
+	recordSyncResult := func(success bool) {
+		shortedotel.SyncDuration.Record(ctx, time.Since(syncStart).Seconds(), syncAttrs)
+		status := "success"
+		if !success {
+			status = "failure"
+		}
+		shortedotel.SyncStatus.Add(ctx, 1, otelmetric.WithAttributes(
+			attribute.String("sync_job", "weekly-report-generator"),
+			attribute.String("status", status),
+		))
+		if success {
+			shortedotel.SyncLastSuccess.Record(ctx, time.Now().Unix(), syncAttrs)
+		}
+	}
+
 	// Step 1: Collect data
 	log.Println("Step 1: Collecting report data...")
 	var data *ReportData
@@ -93,6 +113,7 @@ func main() {
 		data, err = collector.Collect(ctx, slug)
 	}
 	if err != nil {
+		recordSyncResult(false)
 		log.Fatalf("Failed to collect data: %v", err)
 	}
 	log.Printf("Collected data: %d top stocks, %d risers, %d fallers",
@@ -104,8 +125,10 @@ func main() {
 	if openaiKey == "" {
 		log.Println("OPENAI_API_KEY not set, skipping narrative generation")
 		if err := storeDataOnlyReport(ctx, db, slug, data, *dryRun); err != nil {
+			recordSyncResult(false)
 			log.Fatalf("Failed to store data-only report: %v", err)
 		}
+		recordSyncResult(true)
 		log.Println("Stored data-only report (no narrative)")
 		return
 	}
@@ -116,8 +139,10 @@ func main() {
 		log.Printf("WARNING: LLM generation failed: %v", err)
 		log.Println("Storing data-only report...")
 		if err := storeDataOnlyReport(ctx, db, slug, data, *dryRun); err != nil {
+			recordSyncResult(false)
 			log.Fatalf("Failed to store data-only report: %v", err)
 		}
+		recordSyncResult(true)
 		return
 	}
 
@@ -184,8 +209,10 @@ func main() {
 	}
 
 	if err := storeReport(ctx, db, slug, data, narrative, result); err != nil {
+		recordSyncResult(false)
 		log.Fatalf("Failed to store report: %v", err)
 	}
+	recordSyncResult(true)
 
 	log.Printf("Report stored: %s (quality: %.2f, published: %v)",
 		slug, result.Score, result.PublishReady)

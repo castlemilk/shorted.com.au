@@ -13,9 +13,12 @@ import (
 	"strings"
 	"time"
 
+	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel/attribute"
+	otelmetric "go.opentelemetry.io/otel/metric"
 )
 
 // FinancialReport matches the existing JSONB schema in company-metadata.financial_reports
@@ -81,12 +84,27 @@ var financialKeywords = []string{
 func main() {
 	flag.Parse()
 
+	ctx := context.Background()
+
+	// Initialize OpenTelemetry (traces + metrics via OTLP).
+	// No-op when OTEL_EXPORTER_OTLP_ENDPOINT is not set.
+	otelShutdown, otelErr := shortedotel.InitProvider(ctx, "asx-announcement-crawler")
+	if otelErr != nil {
+		log.Printf("WARNING: Failed to initialize OpenTelemetry: %v", otelErr)
+	} else {
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := otelShutdown(shutdownCtx); err != nil {
+				log.Printf("Error shutting down OpenTelemetry: %v", err)
+			}
+		}()
+	}
+
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
 		log.Fatal("DATABASE_URL environment variable required")
 	}
-
-	ctx := context.Background()
 
 	// Use simple protocol for Supabase compatibility
 	config, err := pgxpool.ParseConfig(dbURL)
@@ -113,6 +131,10 @@ func main() {
 	}
 
 	log.Printf("Will crawl ASX announcements for %d stocks", len(codes))
+
+	// Track sync metrics
+	syncStart := time.Now()
+	syncAttrs := otelmetric.WithAttributes(attribute.String("sync_job", "asx-announcement-crawler"))
 
 	// Parse years
 	var years []string
@@ -260,6 +282,15 @@ func main() {
 
 	log.Printf("Done! Processed: %d, Reports found: %d, DB updated: %d, Announcements: %d (stored: %d), News: %d, Director trades: %d, Dividends: %d, Errors: %d",
 		totalProcessed, totalReports, totalUpdated, totalAnnouncements, totalAnnStored, totalNewsStored, totalDirTrades, totalDividends, totalErrors)
+
+	// Record sync metrics
+	shortedotel.SyncDuration.Record(ctx, time.Since(syncStart).Seconds(), syncAttrs)
+	shortedotel.SyncRecordsProcessed.Add(ctx, int64(totalProcessed), syncAttrs)
+	shortedotel.SyncStatus.Add(ctx, 1, otelmetric.WithAttributes(
+		attribute.String("sync_job", "asx-announcement-crawler"),
+		attribute.String("status", "success"),
+	))
+	shortedotel.SyncLastSuccess.Record(ctx, time.Now().Unix(), syncAttrs)
 }
 
 func getStockCodes(ctx context.Context, db *pgxpool.Pool) ([]string, error) {

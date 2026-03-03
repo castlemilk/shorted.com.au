@@ -161,11 +161,11 @@ func main() {
 	span.End()
 
 	// Record sync metrics
-	attrs := otelmetric.WithAttributes(attribute.String("job", "market-data-sync"))
+	attrs := otelmetric.WithAttributes(attribute.String("sync_job", "market-data-sync"))
 	shortedotel.SyncDuration.Record(ctx, duration, attrs)
 	if syncErr != nil {
 		shortedotel.SyncStatus.Add(ctx, 1, otelmetric.WithAttributes(
-			attribute.String("job", "market-data-sync"),
+			attribute.String("sync_job", "market-data-sync"),
 			attribute.String("status", "failure"),
 		))
 		if ctx.Err() != nil {
@@ -176,11 +176,11 @@ func main() {
 	}
 
 	shortedotel.SyncStatus.Add(ctx, 1, otelmetric.WithAttributes(
-		attribute.String("job", "market-data-sync"),
+		attribute.String("sync_job", "market-data-sync"),
 		attribute.String("status", "success"),
 	))
 	shortedotel.SyncLastSuccess.Record(ctx, time.Now().Unix(), otelmetric.WithAttributes(
-		attribute.String("job", "market-data-sync"),
+		attribute.String("sync_job", "market-data-sync"),
 	))
 
 	log.Printf("🎉 Market Data Sync completed successfully")

@@ -9,8 +9,11 @@ import (
 	"os"
 	"time"
 
+	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel/attribute"
+	otelmetric "go.opentelemetry.io/otel/metric"
 )
 
 func main() {
@@ -21,6 +24,21 @@ func main() {
 	flag.Parse()
 
 	ctx := context.Background()
+
+	// Initialize OpenTelemetry (traces + metrics via OTLP).
+	// No-op when OTEL_EXPORTER_OTLP_ENDPOINT is not set.
+	otelShutdown, otelErr := shortedotel.InitProvider(ctx, "news-aggregator")
+	if otelErr != nil {
+		log.Printf("WARNING: Failed to initialize OpenTelemetry: %v", otelErr)
+	} else {
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := otelShutdown(shutdownCtx); err != nil {
+				log.Printf("Error shutting down OpenTelemetry: %v", err)
+			}
+		}()
+	}
 
 	// Connect to database
 	dbURL := os.Getenv("DATABASE_URL")
@@ -98,6 +116,7 @@ func main() {
 
 func runAggregation(ctx context.Context, fetcher *RSSFetcher, matcher *StockMatcher, store *NewsStore, limit int, dryRun, verbose bool) {
 	startTime := time.Now()
+	syncAttrs := otelmetric.WithAttributes(attribute.String("sync_job", "news-aggregator"))
 	log.Println("Starting news aggregation run...")
 
 	sources := GetDefaultSources()
@@ -157,4 +176,13 @@ func runAggregation(ctx context.Context, fetcher *RSSFetcher, matcher *StockMatc
 	duration := time.Since(startTime)
 	log.Printf("Aggregation complete! Fetched: %d, Stored: %d, Duration: %s",
 		totalFetched, totalStored, duration.Round(time.Millisecond))
+
+	// Record sync metrics
+	shortedotel.SyncDuration.Record(ctx, duration.Seconds(), syncAttrs)
+	shortedotel.SyncRecordsProcessed.Add(ctx, int64(totalStored), syncAttrs)
+	shortedotel.SyncStatus.Add(ctx, 1, otelmetric.WithAttributes(
+		attribute.String("sync_job", "news-aggregator"),
+		attribute.String("status", "success"),
+	))
+	shortedotel.SyncLastSuccess.Record(ctx, time.Now().Unix(), syncAttrs)
 }

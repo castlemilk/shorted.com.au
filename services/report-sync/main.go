@@ -11,7 +11,6 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -363,18 +362,7 @@ func resolveASXPDFURL(ctx context.Context, client *http.Client, displayURL strin
 func newGCSClient(ctx context.Context) (*storage.Client, error) {
 	var opts []option.ClientOption
 
-	if os.Getenv("STORAGE_EMULATOR_HOST") == "" {
-		if credsPath := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS"); credsPath != "" {
-			absPath, err := filepath.Abs(credsPath)
-			if err != nil {
-				return nil, fmt.Errorf("resolve credentials path: %w", err)
-			}
-			if _, err := os.Stat(absPath); os.IsNotExist(err) {
-				return nil, fmt.Errorf("credentials file not found: %s", absPath)
-			}
-			opts = append(opts, option.WithCredentialsFile(absPath))
-		}
-	} else {
+	if os.Getenv("STORAGE_EMULATOR_HOST") != "" {
 		opts = append(opts, option.WithoutAuthentication())
 	}
 
