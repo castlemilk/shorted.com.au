@@ -120,10 +120,6 @@ jobs:
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
 
-      - name: Remove local replace directive for CI
-        working-directory: services
-        run: sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
-
       - name: Run golangci-lint
         working-directory: services
         run: |
@@ -174,10 +170,6 @@ jobs:
 
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
-
-      - name: Remove local replace directive for CI
-        working-directory: services
-        run: sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
 
       - name: Run unit tests
         working-directory: services
@@ -248,10 +240,6 @@ jobs:
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
 
-      - name: Remove local replace directive for CI
-        working-directory: services
-        run: sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
-
       - name: Build all services
         working-directory: services
         run: |
@@ -313,10 +301,6 @@ jobs:
 
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
-
-      - name: Remove local replace directive for CI
-        working-directory: services
-        run: sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
 
       - name: Run integration tests
         working-directory: services

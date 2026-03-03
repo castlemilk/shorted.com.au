@@ -7,9 +7,6 @@ WORKDIR /app
 
 COPY go.mod go.sum ./
 
-# Remove local replace directive — Docker fetches stealth from module proxy
-RUN sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
-
 # Download dependencies (with private module auth if available)
 RUN --mount=type=secret,id=github_token \
     if [ -f /run/secrets/github_token ]; then \
@@ -19,7 +16,6 @@ RUN --mount=type=secret,id=github_token \
     rm -f ~/.gitconfig
 
 COPY . .
-RUN sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o weekly-report-generator ./weekly-report-generator
 

@@ -344,11 +344,6 @@ jobs:
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
 
-      - name: Remove local replace directive for CI build
-        working-directory: services
-        run: |
-          sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
-
       - name: Build and push ${{ matrix.service.name }}
         working-directory: services
         env:
@@ -1258,10 +1253,6 @@ jobs:
 
       - name: Configure private Go module access
         run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
-
-      - name: Remove local replace directive for CI
-        working-directory: services
-        run: sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
 
       - name: Run integration tests
         run: |
