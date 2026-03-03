@@ -17,8 +17,9 @@ RUN --mount=type=secret,id=github_token \
     GOPRIVATE=github.com/skunkworq/* GONOSUMCHECK=github.com/skunkworq/* go mod download && \
     rm -f ~/.gitconfig
 
-# Copy source
+# Copy source (overwrites go.mod, so re-strip replace directive)
 COPY . .
+RUN sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
 
 # Build the chat service
 RUN CGO_ENABLED=0 GOOS=linux go build -o /chat-service ./chat-service/

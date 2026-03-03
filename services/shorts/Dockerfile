@@ -22,8 +22,9 @@ RUN --mount=type=secret,id=github_token \
     GOPRIVATE=github.com/skunkworq/* GONOSUMCHECK=github.com/skunkworq/* go mod download && \
     rm -f ~/.gitconfig
 
-# Copy all source code
+# Copy all source code (overwrites go.mod, so re-strip replace directive)
 COPY . ./
+RUN sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
 
 # Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o shorts-service ./shorts/cmd/server
