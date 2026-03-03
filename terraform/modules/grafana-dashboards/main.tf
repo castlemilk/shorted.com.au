@@ -39,15 +39,17 @@ resource "grafana_dashboard" "operations" {
           type    = "custom"
           current = { text = "All", value = "$__all" }
           includeAll = true
-          allValue   = "shorted-api|market-data|market-data-sync|enrichment-processor|weekly-report-generator|asx-discovery"
+          allValue   = "shorted-api|market-data|shorted-market-data-sync|enrichment-processor|weekly-report-generator|asx-discovery|news-aggregator|asx-announcement-crawler"
           multi      = true
           options = [
             { text = "shorted-api", value = "shorted-api", selected = false },
             { text = "market-data", value = "market-data", selected = false },
-            { text = "market-data-sync", value = "market-data-sync", selected = false },
+            { text = "shorted-market-data-sync", value = "shorted-market-data-sync", selected = false },
             { text = "enrichment-processor", value = "enrichment-processor", selected = false },
             { text = "weekly-report-generator", value = "weekly-report-generator", selected = false },
             { text = "asx-discovery", value = "asx-discovery", selected = false },
+            { text = "news-aggregator", value = "news-aggregator", selected = false },
+            { text = "asx-announcement-crawler", value = "asx-announcement-crawler", selected = false },
             { text = "shorted-web", value = "shorted-web", selected = false },
           ]
         }
@@ -439,6 +441,150 @@ resource "grafana_dashboard" "operations" {
         targets = [{
           expr         = "sum(rate(http_server_duration_milliseconds_count{job=\"shorted-web\"}[$__rate_interval])) by (http_route)"
           legendFormat = "{{ http_route }}"
+          refId        = "A"
+        }]
+      }],
+
+      # Row: Async Jobs & Data Pipeline
+      [{
+        type      = "row"
+        title     = "Async Jobs & Data Pipeline"
+        gridPos   = { h = 1, w = 24, x = 0, y = 48 }
+        collapsed = false
+      }],
+
+      # Panel 18: Job Execution Status
+      [{
+        type  = "timeseries"
+        title = "Job Execution Status"
+        gridPos = { h = 8, w = 12, x = 0, y = 49 }
+        datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
+        fieldConfig = {
+          defaults = {
+            custom = { drawStyle = "bars", fillOpacity = 50, lineWidth = 1 }
+          }
+          overrides = [
+            {
+              matcher    = { id = "byRegexp", options = ".*success.*" }
+              properties = [{ id = "color", value = { mode = "fixed", fixedColor = "green" } }]
+            },
+            {
+              matcher    = { id = "byRegexp", options = ".*failure.*" }
+              properties = [{ id = "color", value = { mode = "fixed", fixedColor = "red" } }]
+            },
+          ]
+        }
+        targets = [{
+          expr         = "sum(increase(shorted_sync_status_total[$__rate_interval])) by (sync_job, status)"
+          legendFormat = "{{ sync_job }} / {{ status }}"
+          refId        = "A"
+        }]
+      }],
+
+      # Panel 19: Job Duration
+      [{
+        type  = "timeseries"
+        title = "Job Duration (avg)"
+        gridPos = { h = 8, w = 12, x = 12, y = 49 }
+        datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
+        fieldConfig = {
+          defaults = {
+            unit = "s"
+            custom = { drawStyle = "line", fillOpacity = 10, lineWidth = 2 }
+          }
+        }
+        targets = [{
+          expr         = "rate(shorted_sync_duration_seconds_sum[$__rate_interval]) / rate(shorted_sync_duration_seconds_count[$__rate_interval])"
+          legendFormat = "{{ sync_job }}"
+          refId        = "A"
+        }]
+      }],
+
+      # Panel 20: Records Processed
+      [{
+        type  = "timeseries"
+        title = "Records Processed"
+        gridPos = { h = 8, w = 12, x = 0, y = 57 }
+        datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
+        fieldConfig = {
+          defaults = {
+            unit = "short"
+            custom = { drawStyle = "line", fillOpacity = 10, lineWidth = 2 }
+          }
+        }
+        targets = [{
+          expr         = "sum(increase(shorted_sync_records_processed_total[$__rate_interval])) by (sync_job)"
+          legendFormat = "{{ sync_job }}"
+          refId        = "A"
+        }]
+      }],
+
+      # Panel 21: Time Since Last Success
+      [{
+        type  = "stat"
+        title = "Time Since Last Success"
+        gridPos = { h = 8, w = 12, x = 12, y = 57 }
+        datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
+        fieldConfig = {
+          defaults = {
+            unit = "h"
+            color = { mode = "thresholds" }
+            thresholds = { steps = [
+              { color = "green", value = null },
+              { color = "yellow", value = 24 },
+              { color = "red", value = 48 },
+            ] }
+          }
+        }
+        options = { colorMode = "background" }
+        targets = [{
+          expr         = "(time() - shorted_sync_last_success) / 3600"
+          legendFormat = "{{ sync_job }}"
+          refId        = "A"
+        }]
+      }],
+
+      # Panel 22: Successful Runs (24h)
+      [{
+        type  = "stat"
+        title = "Successful Runs (24h)"
+        gridPos = { h = 4, w = 12, x = 0, y = 65 }
+        datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
+        fieldConfig = {
+          defaults = {
+            unit  = "short"
+            color = { mode = "fixed", fixedColor = "green" }
+          }
+        }
+        options = { colorMode = "background" }
+        targets = [{
+          expr         = "sum(increase(shorted_sync_status_total{status=\"success\"}[24h])) by (sync_job)"
+          legendFormat = "{{ sync_job }}"
+          refId        = "A"
+        }]
+      }],
+
+      # Panel 23: Failed Runs (24h)
+      [{
+        type  = "stat"
+        title = "Failed Runs (24h)"
+        gridPos = { h = 4, w = 12, x = 12, y = 65 }
+        datasource = { type = "prometheus", uid = var.prometheus_datasource_uid }
+        fieldConfig = {
+          defaults = {
+            unit = "short"
+            color = { mode = "thresholds" }
+            thresholds = { steps = [
+              { color = "green", value = null },
+              { color = "yellow", value = 1 },
+              { color = "red", value = 3 },
+            ] }
+          }
+        }
+        options = { colorMode = "background" }
+        targets = [{
+          expr         = "sum(increase(shorted_sync_status_total{status=\"failure\"}[24h])) by (sync_job)"
+          legendFormat = "{{ sync_job }}"
           refId        = "A"
         }]
       }],

@@ -26,6 +26,8 @@ import (
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/castlemilk/shorted.com.au/services/shorts"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
+	otelmetric "go.opentelemetry.io/otel/metric"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -292,10 +294,23 @@ func main() {
 	runMode := strings.ToLower(strings.TrimSpace(os.Getenv("RUN_MODE")))
 	if runMode == "batch" {
 		logger.Infof("Running in batch mode")
-		if err := runBatchProcessor(ctx, processor); err != nil {
-			logger.Errorf("Batch enrichment failed: %v", err)
+		syncAttrs := otelmetric.WithAttributes(attribute.String("sync_job", "enrichment-processor"))
+		batchStart := time.Now()
+		batchErr := runBatchProcessor(ctx, processor)
+		shortedotel.SyncDuration.Record(ctx, time.Since(batchStart).Seconds(), syncAttrs)
+		if batchErr != nil {
+			shortedotel.SyncStatus.Add(ctx, 1, otelmetric.WithAttributes(
+				attribute.String("sync_job", "enrichment-processor"),
+				attribute.String("status", "failure"),
+			))
+			logger.Errorf("Batch enrichment failed: %v", batchErr)
 			os.Exit(1)
 		}
+		shortedotel.SyncStatus.Add(ctx, 1, otelmetric.WithAttributes(
+			attribute.String("sync_job", "enrichment-processor"),
+			attribute.String("status", "success"),
+		))
+		shortedotel.SyncLastSuccess.Record(ctx, time.Now().Unix(), syncAttrs)
 		logger.Infof("Batch enrichment completed successfully")
 		return
 	}

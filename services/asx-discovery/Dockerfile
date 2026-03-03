@@ -2,15 +2,26 @@
 FROM golang:1.24.3-alpine AS builder
 
 WORKDIR /app
-# Copy go mod files from asx-discovery subdirectory
-COPY asx-discovery/go.mod asx-discovery/go.sum ./
+
+# Copy parent module (contains pkg/otel) and asx-discovery module
+COPY go.mod go.sum ./
+COPY asx-discovery/go.mod asx-discovery/go.sum ./asx-discovery/
+
+# Create a Go workspace to wire both modules together
+RUN go work init . ./asx-discovery
+
+# Download dependencies for both modules
 RUN go mod download
+RUN cd asx-discovery && go mod download
 
-# Copy all source code from asx-discovery subdirectory
-COPY asx-discovery/ .
+# Copy shared package source
+COPY pkg/ pkg/
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o asx-discovery .
+# Copy asx-discovery source
+COPY asx-discovery/ asx-discovery/
+
+# Build the application from the workspace
+RUN cd asx-discovery && CGO_ENABLED=0 GOOS=linux go build -o /app/asx-discovery .
 
 # Final stage - use a Debian-based image for Playwright browser support
 FROM debian:bookworm-slim
