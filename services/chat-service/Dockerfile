@@ -6,9 +6,6 @@ WORKDIR /app
 # Copy go.mod and go.sum for dependency caching
 COPY go.mod go.sum ./
 
-# Remove local replace directive — Docker fetches stealth from module proxy
-RUN sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
-
 # Download dependencies (with private module auth if available)
 RUN --mount=type=secret,id=github_token \
     if [ -f /run/secrets/github_token ]; then \
@@ -17,9 +14,8 @@ RUN --mount=type=secret,id=github_token \
     GOPRIVATE=github.com/skunkworq/* GONOSUMCHECK=github.com/skunkworq/* go mod download && \
     rm -f ~/.gitconfig
 
-# Copy source (overwrites go.mod, so re-strip replace directive)
+# Copy source
 COPY . .
-RUN sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
 
 # Build the chat service
 RUN CGO_ENABLED=0 GOOS=linux go build -o /chat-service ./chat-service/

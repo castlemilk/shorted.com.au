@@ -171,5 +171,3 @@ require (
 )
 
 replace github.com/castlemilk/shorted.com.au/services/shorts => ./shorts
-
-replace github.com/skunkworq/stealth => ../../stealth

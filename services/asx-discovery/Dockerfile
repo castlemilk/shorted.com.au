@@ -10,9 +10,6 @@ WORKDIR /app
 COPY go.mod go.sum ./
 COPY asx-discovery/go.mod asx-discovery/go.sum ./asx-discovery/
 
-# Remove local replace directive — Docker fetches stealth from module proxy
-RUN sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
-
 # Create a Go workspace to wire both modules together
 RUN go work init . ./asx-discovery
 

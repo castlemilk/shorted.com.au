@@ -10,9 +10,6 @@ WORKDIR /app
 COPY go.mod go.sum ./
 COPY market-data-sync/go.mod market-data-sync/go.sum ./market-data-sync/
 
-# Remove local replace directive — Docker fetches stealth from module proxy
-RUN sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
-
 # Create a Go workspace to wire both modules together
 RUN go work init . ./market-data-sync
 
