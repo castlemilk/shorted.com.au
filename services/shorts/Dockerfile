@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.24.3-alpine AS builder
+FROM golang:1.26.0-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git
@@ -9,6 +9,9 @@ WORKDIR /app
 
 # Copy go mod files (from services directory context)
 COPY go.mod go.sum ./
+
+# Remove local replace directive — Docker fetches stealth from module proxy
+RUN sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
 
 # Download dependencies
 RUN go mod download

@@ -2,8 +2,6 @@ package enrichment
 
 import (
 	"context"
-	"io"
-	"net/http"
 	"os"
 	"strings"
 	"testing"
@@ -226,60 +224,28 @@ func TestDefaultLogoScraper_HTTPRequest(t *testing.T) {
 	defer cancel()
 
 	scraper := NewLogoScraper("Test")
-	
+	defer func() { _ = scraper.client.Close() }()
+
 	// Test HTTP request directly - can test different sites
 	testURL := "https://github.com"
 	if testSite := strings.TrimSpace(os.Getenv("TEST_LOGO_SITE")); testSite != "" {
 		testURL = testSite
 		t.Logf("Using custom test site from TEST_LOGO_SITE: %s", testURL)
 	}
-	req, err := http.NewRequestWithContext(ctx, "GET", testURL, nil)
+
+	doc, _, err := scraper.client.FetchHTMLWithLimit(ctx, testURL, 100*1024)
 	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
-	
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-	
-	resp, err := scraper.httpClient.Do(req)
-	if err != nil {
-		t.Fatalf("HTTP request failed: %v", err)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			// Log error but don't fail - response body close errors are usually non-critical
-			_ = err
-		}
-	}()
-	
-	t.Logf("HTTP Status: %d", resp.StatusCode)
-	if resp.StatusCode != 200 {
-		t.Logf("Non-200 status - might be blocking")
+		t.Logf("HTTP request failed (might be blocking): %v", err)
 		return
 	}
-	
-	// Try to parse HTML
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 100*1024)) // Limit to 100KB
-	if err != nil {
-		t.Fatalf("Failed to read body: %v", err)
-	}
-	
-	t.Logf("Body size: %d bytes", len(body))
-	t.Logf("First 500 chars: %s", string(body[:min(500, len(body))]))
-	
-	// Try parsing with goquery
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(body)))
-	if err != nil {
-		t.Fatalf("Failed to parse HTML: %v", err)
-	}
-	
+
 	// Count img tags
 	imgCount := doc.Find("img").Length()
 	svgCount := doc.Find("svg").Length()
 	linkCount := doc.Find("a[href$='.svg']").Length()
-	
+
 	t.Logf("Found: %d img tags, %d svg tags, %d SVG links", imgCount, svgCount, linkCount)
-	
+
 	// Check for common logo patterns
 	doc.Find("img").Each(func(i int, sel *goquery.Selection) {
 		if i >= 5 {
@@ -292,13 +258,6 @@ func TestDefaultLogoScraper_HTTPRequest(t *testing.T) {
 	})
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 func TestDefaultLogoScraper_DebugScanPage(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -306,65 +265,13 @@ func TestDefaultLogoScraper_DebugScanPage(t *testing.T) {
 	testURL := "https://www.dominos.com.au"
 	t.Logf("Debugging scanPage for: %s", testURL)
 
-	// Step 1: Make HTTP request (same as scanPage)
-	req, err := http.NewRequestWithContext(ctx, "GET", testURL, nil)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
-	// Don't set Accept-Encoding - let Go handle gzip automatically (Go doesn't support Brotli)
-	req.Header.Set("DNT", "1")
-	req.Header.Set("Connection", "keep-alive")
-	req.Header.Set("Upgrade-Insecure-Requests", "1")
+	scraper := NewLogoScraper("dominos")
+	defer func() { _ = scraper.client.Close() }()
 
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
+	// Step 1: Fetch HTML via stealth client
+	doc, _, err := scraper.client.FetchHTMLWithLimit(ctx, testURL, 10*1024*1024)
 	if err != nil {
 		t.Fatalf("HTTP request failed: %v", err)
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			// Log error but don't fail - response body close errors are usually non-critical
-			_ = err
-		}
-	}()
-
-	t.Logf("HTTP Status: %d", resp.StatusCode)
-	t.Logf("Content-Type: %s", resp.Header.Get("Content-Type"))
-	t.Logf("Content-Encoding: %s", resp.Header.Get("Content-Encoding"))
-	if resp.StatusCode != 200 {
-		t.Fatalf("Non-200 status: %d", resp.StatusCode)
-	}
-
-	// Step 2: Read body (same as scanPage)
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
-	if err != nil {
-		t.Fatalf("Failed to read body: %v", err)
-	}
-	t.Logf("Body size: %d bytes", len(body))
-	if len(body) == 0 {
-		t.Fatal("Empty body")
-	}
-	
-	// Show first 1000 chars to see what HTML we're getting
-	preview := string(body)
-	if len(preview) > 1000 {
-		preview = preview[:1000]
-	}
-	t.Logf("HTML preview (first 1000 chars):\n%s", preview)
-	
-	// Check if it looks like a SPA/JS-rendered page
-	if strings.Contains(string(body), "react") || strings.Contains(string(body), "vue") || 
-		strings.Contains(string(body), "angular") || strings.Contains(string(body), "__NEXT_DATA__") {
-		t.Logf("⚠ Warning: Page appears to be JavaScript-rendered (SPA)")
-	}
-
-	// Step 3: Parse with goquery (same as scanPage)
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(body)))
-	if err != nil {
-		t.Fatalf("Failed to parse HTML: %v", err)
 	}
 
 	// Step 4: Count img tags
@@ -498,6 +405,29 @@ func TestFilterByFormat(t *testing.T) {
 		if c.Format != "svg" {
 			t.Errorf("Expected SVG format, got %s", c.Format)
 		}
+	}
+}
+
+func TestCompanyNameToLinkedInSlug(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+	}{
+		{"BHP Group Limited", "bhp"},
+		{"Commonwealth Bank", "commonwealth-bank"},
+		{"Rio Tinto Ltd", "rio-tinto"},
+		{"Domino's Pizza Enterprises", "domino-s-pizza-enterprises"},
+		{"", ""},
+		{"  BHP  ", "bhp"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := companyNameToLinkedInSlug(tc.name)
+			if got != tc.want {
+				t.Errorf("companyNameToLinkedInSlug(%q) = %q, want %q", tc.name, got, tc.want)
+			}
+		})
 	}
 }
 

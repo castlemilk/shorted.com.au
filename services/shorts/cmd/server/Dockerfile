@@ -1,5 +1,5 @@
 # Step 1: Build the application in a full Go environment
-FROM --platform=$BUILDPLATFORM golang:1.24.3-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.0-alpine AS builder
 
 # Install git.
 # Git is required for fetching the dependencies.
@@ -10,6 +10,9 @@ WORKDIR /app
 
 # Copy go mod and sum files
 COPY go.mod go.sum ./
+
+# Remove local replace directive — Docker fetches stealth from module proxy
+RUN sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
 
 # Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
 RUN go mod download

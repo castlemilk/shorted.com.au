@@ -3,12 +3,12 @@ package enrichment
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
 )
 
 // ScrapedMetadata contains structured data scraped from company websites
@@ -62,15 +62,22 @@ type CompanyMetadataScraper interface {
 }
 
 type MetadataScraper struct {
-	httpClient *http.Client
+	client *stealthhttp.Client
 }
 
+// NewMetadataScraper creates a MetadataScraper with a default stealth client (15s timeout).
 func NewMetadataScraper() *MetadataScraper {
-	return &MetadataScraper{
-		httpClient: &http.Client{
-			Timeout: 15 * time.Second, // Per-request timeout — keep tight so slow sites don't block the whole scrape
-		},
+	client, err := stealthhttp.New(stealthhttp.WithTimeout(15 * time.Second))
+	if err != nil {
+		// Fallback: this should never fail for native engine
+		panic(fmt.Sprintf("stealthhttp: failed to create native client: %v", err))
 	}
+	return &MetadataScraper{client: client}
+}
+
+// NewMetadataScraperWithClient creates a MetadataScraper with a provided stealth client.
+func NewMetadataScraperWithClient(client *stealthhttp.Client) *MetadataScraper {
+	return &MetadataScraper{client: client}
 }
 
 func (s *MetadataScraper) ScrapeMetadata(ctx context.Context, website, companyName string, exaClient ExaClient) (*ScrapedMetadata, error) {
@@ -94,7 +101,7 @@ func (s *MetadataScraper) ScrapeMetadata(ctx context.Context, website, companyNa
 	seedURLs := buildMetadataSeedURLs(rootURL)
 	
 	// Scrape leadership/board pages
-	leadershipURLs := findLeadershipPages(ctx, s.httpClient, rootURL, seedURLs)
+	leadershipURLs := findLeadershipPages(ctx, s.client, rootURL, seedURLs)
 	for _, u := range leadershipURLs {
 		page, err := s.scrapeLeadershipPage(ctx, u)
 		if err != nil {
@@ -117,7 +124,7 @@ func (s *MetadataScraper) ScrapeMetadata(ctx context.Context, website, companyNa
 	}
 
 	// Scrape about pages
-	aboutURLs := findAboutPages(ctx, s.httpClient, rootURL, seedURLs)
+	aboutURLs := findAboutPages(ctx, s.client, rootURL, seedURLs)
 	for _, u := range aboutURLs {
 		page, err := s.scrapeAboutPage(ctx, u)
 		if err != nil {
@@ -180,7 +187,7 @@ func buildMetadataSeedURLs(root *url.URL) []string {
 	return out
 }
 
-func findLeadershipPages(ctx context.Context, client *http.Client, root *url.URL, seedURLs []string) []string {
+func findLeadershipPages(ctx context.Context, client *stealthhttp.Client, root *url.URL, seedURLs []string) []string {
 	var found []string
 	visited := make(map[string]struct{})
 
@@ -246,7 +253,7 @@ func findLeadershipPages(ctx context.Context, client *http.Client, root *url.URL
 	return found
 }
 
-func findAboutPages(ctx context.Context, client *http.Client, root *url.URL, seedURLs []string) []string {
+func findAboutPages(ctx context.Context, client *stealthhttp.Client, root *url.URL, seedURLs []string) []string {
 	var found []string
 	visited := make(map[string]struct{})
 
@@ -270,7 +277,7 @@ func findAboutPages(ctx context.Context, client *http.Client, root *url.URL, see
 }
 
 func (s *MetadataScraper) scrapeLeadershipPage(ctx context.Context, pageURL string) (*LeadershipPage, error) {
-	doc, _, err := fetchHTML(ctx, s.httpClient, pageURL)
+	doc, _, err := fetchHTML(ctx, s.client, pageURL)
 	if err != nil || doc == nil {
 		return nil, err
 	}
@@ -344,7 +351,7 @@ func (s *MetadataScraper) scrapeLeadershipPage(ctx context.Context, pageURL stri
 }
 
 func (s *MetadataScraper) scrapeAboutPage(ctx context.Context, pageURL string) (*AboutPage, error) {
-	doc, _, err := fetchHTML(ctx, s.httpClient, pageURL)
+	doc, _, err := fetchHTML(ctx, s.client, pageURL)
 	if err != nil || doc == nil {
 		return nil, err
 	}
@@ -381,7 +388,7 @@ func (s *MetadataScraper) findKeyLinks(ctx context.Context, root *url.URL, seedU
 	visited := make(map[string]struct{})
 
 	for _, u := range seedURLs {
-		doc, base, err := fetchHTML(ctx, s.httpClient, u)
+		doc, base, err := fetchHTML(ctx, s.client, u)
 		if err != nil || doc == nil || base == nil {
 			continue
 		}
@@ -667,7 +674,7 @@ func (s *MetadataScraper) ScrapePeoplePages(ctx context.Context, website string)
 
 		// Per-request timeout to avoid slow sites blocking the whole crawl
 		reqCtx, reqCancel := context.WithTimeout(ctx, 10*time.Second)
-		doc, _, fetchErr := fetchHTML(reqCtx, s.httpClient, u)
+		doc, _, fetchErr := fetchHTML(reqCtx, s.client, u)
 		reqCancel()
 
 		if fetchErr != nil || doc == nil {

@@ -24,7 +24,7 @@ on:
 
 env:
   NODE_VERSION: "20"
-  GO_VERSION: "1.23"
+  GO_VERSION: "1.26"
   PYTHON_VERSION: "3.11"
   GCP_REGION: australia-southeast2
   ARTIFACT_REGISTRY: australia-southeast2-docker.pkg.dev
@@ -335,6 +335,11 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: |
           gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
+
+      - name: Remove local replace directive for CI build
+        working-directory: services
+        run: |
+          sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
 
       - name: Build and push ${{ matrix.service.name }}
         working-directory: services
@@ -1242,6 +1247,10 @@ jobs:
           cache-dependency-path: |
             services/go.sum
             test/integration/go.sum
+
+      - name: Remove local replace directive for CI
+        working-directory: services
+        run: sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
 
       - name: Run integration tests
         run: |

@@ -1,20 +1,22 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"math/rand"
-	"net/http"
 	"os"
 	"sort"
 	"strings"
 	"time"
 
-	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/PuerkitoBio/goquery"
+	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
+	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
+	"github.com/skunkworq/stealth/brws/engine"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel/attribute"
@@ -145,10 +147,12 @@ func main() {
 		}
 	}
 
-	// Create HTTP client with sensible timeouts
-	client := &http.Client{
-		Timeout: 30 * time.Second,
+	// Create stealth HTTP client with TLS fingerprinting
+	client, stealthErr := stealthhttp.New(stealthhttp.WithTimeout(30 * time.Second))
+	if stealthErr != nil {
+		log.Fatalf("Failed to create stealth client: %v", stealthErr)
 	}
+	defer func() { _ = client.Close() }()
 
 	// Process stocks
 	var (
@@ -329,7 +333,7 @@ func getStockCodes(ctx context.Context, db *pgxpool.Pool) ([]string, error) {
 }
 
 // crawlStockAnnouncementsFull returns both financial reports and all announcements
-func crawlStockAnnouncementsFull(client *http.Client, code string, years []string) ([]FinancialReport, []ASXAnnouncement, error) {
+func crawlStockAnnouncementsFull(client *stealthhttp.Client, code string, years []string) ([]FinancialReport, []ASXAnnouncement, error) {
 	var allReports []FinancialReport
 	var allAnnouncements []ASXAnnouncement
 
@@ -363,34 +367,31 @@ func crawlStockAnnouncementsFull(client *http.Client, code string, years []strin
 	return allReports, allAnnouncements, nil
 }
 
-func fetchASXAnnouncements(client *http.Client, code, year string) ([]ASXAnnouncement, error) {
-	url := fmt.Sprintf(
+func fetchASXAnnouncements(client *stealthhttp.Client, code, year string) ([]ASXAnnouncement, error) {
+	pageURL := fmt.Sprintf(
 		"https://www.asx.com.au/asx/v2/statistics/announcements.do?by=asxCode&timeframe=Y&year=%s&asxCode=%s",
 		year, code,
 	)
 
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// Set headers to look like a regular browser
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
-	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-	req.Header.Set("Accept-Language", "en-AU,en;q=0.9")
-	req.Header.Set("Referer", "https://www.asx.com.au/")
-
-	resp, err := client.Do(req)
+	// Use stealth engine with custom Referer header for ASX
+	resp, err := client.Do(context.Background(), &engine.Request{
+		Method: "GET",
+		URL:    pageURL,
+		ExtraHeaders: map[string]string{
+			"Referer": "https://www.asx.com.au/",
+		},
+		FollowRedirects: true,
+		MaxRedirects:    10,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+	if resp.Status != 200 {
+		return nil, fmt.Errorf("HTTP %d", resp.Status)
 	}
 
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(resp.Body))
 	if err != nil {
 		return nil, fmt.Errorf("HTML parse failed: %w", err)
 	}

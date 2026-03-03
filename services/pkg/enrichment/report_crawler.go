@@ -2,7 +2,7 @@ package enrichment
 
 import (
 	"context"
-	"net/http"
+	"fmt"
 	"net/url"
 	"regexp"
 	"sort"
@@ -11,6 +11,7 @@ import (
 
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
 )
 
 type crawlQueueItem struct {
@@ -24,15 +25,21 @@ type FinancialReportCrawler interface {
 }
 
 type ReportCrawler struct {
-	httpClient *http.Client
+	client *stealthhttp.Client
 }
 
+// NewReportCrawler creates a ReportCrawler with a default stealth client (25s timeout).
 func NewReportCrawler() *ReportCrawler {
-	return &ReportCrawler{
-		httpClient: &http.Client{
-			Timeout: 25 * time.Second,
-		},
+	client, err := stealthhttp.New(stealthhttp.WithTimeout(25 * time.Second))
+	if err != nil {
+		panic(fmt.Sprintf("stealthhttp: failed to create native client: %v", err))
 	}
+	return &ReportCrawler{client: client}
+}
+
+// NewReportCrawlerWithClient creates a ReportCrawler with a provided stealth client.
+func NewReportCrawlerWithClient(client *stealthhttp.Client) *ReportCrawler {
+	return &ReportCrawler{client: client}
 }
 
 func (c *ReportCrawler) CrawlFinancialReports(ctx context.Context, website string) ([]*stocksv1alpha1.FinancialReport, error) {
@@ -72,7 +79,7 @@ func (c *ReportCrawler) CrawlFinancialReports(ctx context.Context, website strin
 		visited[normalized] = struct{}{}
 		pagesCrawled++
 
-		doc, base, err := fetchHTML(ctx, c.httpClient, item.u)
+		doc, base, err := fetchHTML(ctx, c.client, item.u)
 		if err != nil || doc == nil || base == nil {
 			continue
 		}

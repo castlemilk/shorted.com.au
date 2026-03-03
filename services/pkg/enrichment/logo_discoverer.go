@@ -1,13 +1,26 @@
 package enrichment
 
 import (
+	"bytes"
 	"context"
 	"fmt"
-	"io"
-	"net/http"
+	"net/url"
 	"strings"
 	"time"
+	"unicode"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	otelmetric "go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
+
+	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 )
+
+var logoTracer = otel.Tracer("shorted.enrichment.logo")
 
 // DiscoveredLogo contains information about a logo discovered on a website
 type DiscoveredLogo struct {
@@ -27,32 +40,50 @@ type LogoDiscoverer interface {
 }
 
 type logoDiscoverer struct {
-	httpClient *http.Client
-	scraper    *DefaultLogoScraper
+	client  *stealthhttp.Client
+	scraper *DefaultLogoScraper
 }
 
-// NewLogoDiscoverer creates a new LogoDiscoverer
+// NewLogoDiscoverer creates a new LogoDiscoverer with a stealth client.
 func NewLogoDiscoverer() LogoDiscoverer {
-	return &logoDiscoverer{
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+	client, err := stealthhttp.New(stealthhttp.WithTimeout(30 * time.Second))
+	if err != nil {
+		panic(fmt.Sprintf("stealthhttp: failed to create native client: %v", err))
 	}
+	return &logoDiscoverer{client: client}
 }
 
-// NewLogoDiscovererWithCompanyName creates a LogoDiscoverer with company name for better matching
+// NewLogoDiscovererWithCompanyName creates a LogoDiscoverer with company name for better matching.
 func NewLogoDiscovererWithCompanyName(companyName string) LogoDiscoverer {
+	client, err := stealthhttp.New(stealthhttp.WithTimeout(30 * time.Second))
+	if err != nil {
+		panic(fmt.Sprintf("stealthhttp: failed to create native client: %v", err))
+	}
 	return &logoDiscoverer{
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		client:  client,
 		scraper: NewLogoScraper(companyName),
 	}
 }
 
+// NewLogoDiscovererWithClient creates a LogoDiscoverer with a provided stealth client.
+func NewLogoDiscovererWithClient(client *stealthhttp.Client) LogoDiscoverer {
+	return &logoDiscoverer{client: client}
+}
+
 func (d *logoDiscoverer) DiscoverLogo(ctx context.Context, website, companyName, stockCode string) (*DiscoveredLogo, error) {
+	ctx, span := logoTracer.Start(ctx, "logo.discover",
+		trace.WithAttributes(
+			attribute.String("stock_code", stockCode),
+			attribute.String("company_name", companyName),
+			attribute.String("website", website),
+		),
+	)
+	defer span.End()
+	start := time.Now()
+
 	website = strings.TrimSpace(website)
 	if website == "" {
+		span.SetStatus(codes.Error, "website is empty")
 		return nil, fmt.Errorf("website is empty")
 	}
 
@@ -65,12 +96,14 @@ func (d *logoDiscoverer) DiscoverLogo(ctx context.Context, website, companyName,
 	// Use the intelligent scraper to find all logo candidates
 	candidates, err := scraper.ScrapeLogos(ctx, website)
 	if err != nil {
-		return nil, fmt.Errorf("failed to scrape logos from %s: %w", website, err)
+		span.AddEvent("website_scrape_failed", trace.WithAttributes(
+			attribute.String("error", err.Error()),
+		))
+		// Log but continue — we might find a logo via LinkedIn fallback
+		candidates = nil
 	}
 
-	if len(candidates) == 0 {
-		return nil, fmt.Errorf("no logo candidates found for %s", stockCode)
-	}
+	span.SetAttributes(attribute.Int("logo.candidates_found", len(candidates)))
 
 	// Try candidates in order of score (already sorted by scraper)
 	for _, candidate := range candidates {
@@ -84,40 +117,64 @@ func (d *logoDiscoverer) DiscoverLogo(ctx context.Context, website, companyName,
 			continue
 		}
 
+		span.SetAttributes(
+			attribute.String("logo.source", "website"),
+			attribute.String("logo.format", logo.Format),
+			attribute.Int("logo.size_bytes", len(logo.ImageData)),
+			attribute.Float64("logo.quality_score", logo.QualityScore),
+		)
+		span.SetStatus(codes.Ok, "")
+		d.recordLogoMetrics(ctx, start, stockCode, "website", logo.Format, true)
 		return logo, nil
 	}
 
+	// Fallback: try LinkedIn company page for logo
+	if companyName != "" {
+		span.AddEvent("trying_linkedin_fallback")
+		linkedInLogo, linkedInErr := d.discoverLinkedInLogo(ctx, companyName)
+		if linkedInErr == nil && linkedInLogo != nil {
+			span.SetAttributes(
+				attribute.String("logo.source", "linkedin"),
+				attribute.String("logo.format", linkedInLogo.Format),
+				attribute.Int("logo.size_bytes", len(linkedInLogo.ImageData)),
+			)
+			span.SetStatus(codes.Ok, "")
+			d.recordLogoMetrics(ctx, start, stockCode, "linkedin", linkedInLogo.Format, true)
+			return linkedInLogo, nil
+		}
+		if linkedInErr != nil {
+			span.AddEvent("linkedin_fallback_failed", trace.WithAttributes(
+				attribute.String("error", linkedInErr.Error()),
+			))
+		}
+	}
+
+	span.SetStatus(codes.Error, "no logo found")
+	d.recordLogoMetrics(ctx, start, stockCode, "none", "", false)
 	return nil, fmt.Errorf("no valid logo could be fetched for %s", stockCode)
+}
+
+func (d *logoDiscoverer) recordLogoMetrics(ctx context.Context, start time.Time, stockCode, source, format string, success bool) {
+	duration := time.Since(start).Seconds()
+	attrs := []attribute.KeyValue{
+		attribute.String("stock_code", stockCode),
+		attribute.String("logo.source", source),
+		attribute.String("logo.format", format),
+		attribute.Bool("logo.success", success),
+	}
+	if shortedotel.LogoDiscoveryTotal != nil {
+		shortedotel.LogoDiscoveryTotal.Add(ctx, 1, otelmetric.WithAttributes(attrs...))
+	}
+	if shortedotel.LogoDiscoveryDuration != nil {
+		shortedotel.LogoDiscoveryDuration.Record(ctx, duration, otelmetric.WithAttributes(attrs...))
+	}
 }
 
 // fetchLogo downloads and validates a logo from a candidate
 func (d *logoDiscoverer) fetchLogo(ctx context.Context, candidate LogoCandidate) (*DiscoveredLogo, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", candidate.URL, nil)
+	data, contentType, err := d.client.FetchBytesWithLimit(ctx, candidate.URL, "image/svg+xml,image/*,*/*;q=0.8", 10*1024*1024)
 	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
-	req.Header.Set("Accept", "image/svg+xml,image/*,*/*;q=0.8")
-
-	resp, err := d.httpClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			// Log error but don't fail - response body close errors are usually non-critical
-			_ = err
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("failed to fetch logo: status %d", resp.StatusCode)
-	}
-
-	// Read the data (limit to 10MB)
-	data, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to fetch logo: %w", err)
 	}
 
 	if len(data) == 0 {
@@ -126,8 +183,6 @@ func (d *logoDiscoverer) fetchLogo(ctx context.Context, candidate LogoCandidate)
 
 	// Determine format from content-type or candidate format
 	format := candidate.Format
-	contentType := resp.Header.Get("Content-Type")
-	
 	if format == "unknown" || format == "" {
 		format = detectFormatFromContentType(contentType)
 	}
@@ -149,7 +204,6 @@ func (d *logoDiscoverer) fetchLogo(ctx context.Context, candidate LogoCandidate)
 
 	if format == "svg" {
 		logo.SVGData = data
-		// SVG data can also be in ImageData for compatibility
 		logo.ImageData = data
 	} else {
 		logo.ImageData = data
@@ -192,4 +246,178 @@ func isValidImageFormat(format string) bool {
 		"ico":  true,
 	}
 	return validFormats[format]
+}
+
+// discoverLinkedInLogo attempts to find a company logo from LinkedIn.
+// It uses a Chromium-backed stealth client since LinkedIn requires JS rendering
+// and has aggressive bot detection.
+func (d *logoDiscoverer) discoverLinkedInLogo(ctx context.Context, companyName string) (*DiscoveredLogo, error) {
+	ctx, span := logoTracer.Start(ctx, "logo.discover_linkedin",
+		trace.WithSpanKind(trace.SpanKindClient),
+		trace.WithAttributes(
+			attribute.String("company_name", companyName),
+		),
+	)
+	defer span.End()
+
+	slug := companyNameToLinkedInSlug(companyName)
+	if slug == "" {
+		span.SetStatus(codes.Error, "empty slug")
+		return nil, fmt.Errorf("could not derive LinkedIn slug from company name")
+	}
+
+	linkedInURL := fmt.Sprintf("https://www.linkedin.com/company/%s/", slug)
+	span.SetAttributes(
+		attribute.String("linkedin.slug", slug),
+		attribute.String("linkedin.url", linkedInURL),
+	)
+
+	// Use chromium engine for LinkedIn (requires JS rendering)
+	chromiumClient, err := stealthhttp.NewChromium(stealthhttp.WithTimeout(30 * time.Second))
+	if err != nil {
+		// Chromium engine not available (e.g. no Chromium installed) — graceful fallback
+		return nil, fmt.Errorf("chromium engine not available: %w", err)
+	}
+	defer func() { _ = chromiumClient.Close() }()
+
+	// Fetch the LinkedIn page
+	doc, _, fetchErr := chromiumClient.FetchHTML(ctx, linkedInURL)
+	if fetchErr != nil {
+		return nil, fmt.Errorf("failed to fetch LinkedIn page: %w", fetchErr)
+	}
+
+	// Try to extract logo URL from LinkedIn page
+	logoURL := extractLinkedInLogo(doc, linkedInURL)
+	if logoURL == "" {
+		return nil, fmt.Errorf("no logo found on LinkedIn page for %s", companyName)
+	}
+
+	// Fetch the logo image using the native client (LinkedIn image CDN doesn't need JS)
+	data, contentType, fetchErr := d.client.FetchBytesWithLimit(ctx, logoURL, "image/*,*/*;q=0.8", 10*1024*1024)
+	if fetchErr != nil {
+		return nil, fmt.Errorf("failed to fetch LinkedIn logo image: %w", fetchErr)
+	}
+
+	if len(data) == 0 {
+		return nil, fmt.Errorf("empty LinkedIn logo data")
+	}
+
+	format := detectFormatFromContentType(contentType)
+	if format == "unknown" {
+		format = detectFormat(logoURL)
+	}
+
+	return &DiscoveredLogo{
+		SourceURL:    logoURL,
+		ImageData:    data,
+		Format:       format,
+		QualityScore: 50, // Medium priority — below direct website logos
+		IsSVG:        format == "svg",
+	}, nil
+}
+
+// extractLinkedInLogo extracts the company logo URL from a LinkedIn company page.
+func extractLinkedInLogo(doc *goquery.Document, pageURL string) string {
+	base, _ := url.Parse(pageURL)
+
+	// Try: org-top-card logo image
+	var logoURL string
+	doc.Find("img").EachWithBreak(func(_ int, sel *goquery.Selection) bool {
+		class, _ := sel.Attr("class")
+		alt, _ := sel.Attr("alt")
+
+		// LinkedIn uses classes like "org-top-card-primary-content__logo-image"
+		// or "top-card-layout__entity-image"
+		classLower := strings.ToLower(class)
+		if strings.Contains(classLower, "org-top-card") && strings.Contains(classLower, "logo") {
+			if src, ok := sel.Attr("src"); ok && src != "" {
+				logoURL = resolveLinkedInURL(base, src)
+				return false
+			}
+		}
+		if strings.Contains(classLower, "top-card-layout") && strings.Contains(classLower, "entity-image") {
+			if src, ok := sel.Attr("src"); ok && src != "" {
+				logoURL = resolveLinkedInURL(base, src)
+				return false
+			}
+		}
+		// Also check alt text for "logo"
+		if strings.Contains(strings.ToLower(alt), "logo") {
+			if src, ok := sel.Attr("src"); ok && src != "" {
+				logoURL = resolveLinkedInURL(base, src)
+				return false
+			}
+		}
+		return true
+	})
+
+	if logoURL != "" {
+		return logoURL
+	}
+
+	// Fallback: OG image meta tag
+	doc.Find("meta[property='og:image']").EachWithBreak(func(_ int, sel *goquery.Selection) bool {
+		content, exists := sel.Attr("content")
+		if exists && content != "" {
+			logoURL = content
+			return false
+		}
+		return true
+	})
+
+	return logoURL
+}
+
+// resolveLinkedInURL resolves a potentially relative URL against the LinkedIn base.
+func resolveLinkedInURL(base *url.URL, ref string) string {
+	if strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://") {
+		return ref
+	}
+	if strings.HasPrefix(ref, "data:") {
+		return ""
+	}
+	refURL, err := url.Parse(ref)
+	if err != nil {
+		return ""
+	}
+	return base.ResolveReference(refURL).String()
+}
+
+// companyNameToLinkedInSlug converts a company name to a LinkedIn URL slug.
+// e.g. "BHP Group Limited" → "bhp-group-limited"
+func companyNameToLinkedInSlug(name string) string {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if name == "" {
+		return ""
+	}
+
+	// Remove common suffixes that LinkedIn often omits
+	suffixes := []string{" ltd", " limited", " pty", " inc", " corp", " corporation", " group"}
+	cleaned := name
+	for _, suffix := range suffixes {
+		cleaned = strings.TrimSuffix(cleaned, suffix)
+	}
+	cleaned = strings.TrimSpace(cleaned)
+	if cleaned == "" {
+		cleaned = name // Use original if cleaning removed everything
+	}
+
+	// Replace non-alphanumeric chars with hyphens
+	var b bytes.Buffer
+	prevHyphen := false
+	for _, r := range cleaned {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			b.WriteRune(r)
+			prevHyphen = false
+		} else if !prevHyphen {
+			b.WriteByte('-')
+			prevHyphen = true
+		}
+	}
+
+	slug := strings.Trim(b.String(), "-")
+	if slug == "" {
+		return ""
+	}
+	return slug
 }

@@ -3,42 +3,16 @@ package enrichment
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
 )
 
-// fetchHTML fetches HTML content from a URL.
-func fetchHTML(ctx context.Context, httpClient *http.Client, pageURL string) (*goquery.Document, *url.URL, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pageURL, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36")
-	req.Header.Set("Accept", "text/html,application/xhtml+xml")
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	base, err := url.Parse(pageURL)
-	if err != nil {
-		return nil, nil, err
-	}
-	return doc, base, nil
+// fetchHTML fetches HTML content from a URL using a stealth HTTP client.
+func fetchHTML(ctx context.Context, client *stealthhttp.Client, pageURL string) (*goquery.Document, *url.URL, error) {
+	return client.FetchHTML(ctx, pageURL)
 }
 
 func normalizeWebsiteURL(raw string) (*url.URL, error) {
