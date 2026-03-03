@@ -137,3 +137,44 @@ output "artifact_registry_repository" {
   description = "Full Artifact Registry repository path"
   value       = "${google_artifact_registry_repository.docker_repo.location}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}"
 }
+
+resource "google_cloud_run_v2_service" "uploader" {
+  name     = "uploader"
+  project  = var.project_id
+  location = "australia-southeast2"
+
+  template {
+    containers {
+      image = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/uploader:latest"
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "512Mi"
+        }
+      }
+    }
+    scaling {
+      min_instances = 0
+      max_instances = 5
+    }
+
+    # Enable CPU throttling
+    traffic {
+      type = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
+      percent = 100
+      latest_revision = true
+    }
+    
+    vpc_access {
+        egress = "ALL_TRAFFIC"
+    }
+  }
+
+  traffic {
+    type = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
+    percent = 100
+    latest_revision = true
+  }
+}
+
+
