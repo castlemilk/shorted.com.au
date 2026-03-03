@@ -25,7 +25,7 @@ require (
 	github.com/rakyll/statik v0.1.7
 	github.com/rs/cors v1.11.1
 	github.com/sashabaranov/go-openai v1.40.0
-	github.com/skunkworq/stealth v0.1.0
+	github.com/skunkworq/stealth v0.2.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.18.2
 	go.opentelemetry.io/otel v1.40.0
