@@ -15,6 +15,7 @@ RUN --mount=type=secret,id=github_token \
     GOPRIVATE=github.com/skunkworq/* GONOSUMCHECK=github.com/skunkworq/* go mod download && \
     rm -f ~/.gitconfig
 COPY . .
+RUN sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
 RUN CGO_ENABLED=0 GOOS=linux go build -o /news-aggregator ./news-aggregator/
 
 FROM gcr.io/distroless/static-debian12

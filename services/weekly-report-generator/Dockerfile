@@ -19,6 +19,7 @@ RUN --mount=type=secret,id=github_token \
     rm -f ~/.gitconfig
 
 COPY . .
+RUN sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
 
 RUN CGO_ENABLED=0 GOOS=linux go build -o weekly-report-generator ./weekly-report-generator
 
