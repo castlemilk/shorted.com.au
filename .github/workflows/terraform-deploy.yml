@@ -26,6 +26,7 @@ env:
   NODE_VERSION: "20"
   GO_VERSION: "1.26"
   PYTHON_VERSION: "3.11"
+  GOWORK: "off"
   GOPRIVATE: github.com/skunkworq/*
   GONOSUMCHECK: github.com/skunkworq/*
   GONOSUMDB: github.com/skunkworq/*
