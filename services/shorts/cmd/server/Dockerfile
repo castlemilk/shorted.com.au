@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Step 1: Build the application in a full Go environment
 FROM --platform=$BUILDPLATFORM golang:1.26.0-alpine AS builder
 
@@ -14,8 +15,13 @@ COPY go.mod go.sum ./
 # Remove local replace directive — Docker fetches stealth from module proxy
 RUN sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
 
-# Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed
-RUN go mod download
+# Download dependencies (with private module auth if available)
+RUN --mount=type=secret,id=github_token \
+    if [ -f /run/secrets/github_token ]; then \
+      git config --global url."https://x-access-token:$(cat /run/secrets/github_token)@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; \
+    fi && \
+    GOPRIVATE=github.com/skunkworq/* GONOSUMCHECK=github.com/skunkworq/* go mod download && \
+    rm -f ~/.gitconfig
 
 # Copy the source from the current directory to the Working Directory inside the container
 COPY gen ./gen
