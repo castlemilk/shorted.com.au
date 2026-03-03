@@ -203,7 +203,7 @@ resource "google_cloud_run_v2_service" "market_data_sync" {
           cpu    = "1"
           memory = "2Gi"
         }
-        cpu_idle          = true  # Throttle CPU when idle to reduce costs
+        cpu_idle          = true # Throttle CPU when idle to reduce costs
         startup_cpu_boost = true
       }
 
@@ -306,7 +306,7 @@ resource "google_cloud_scheduler_job" "market_data_sync_daily" {
   description      = "Sync stock prices daily via HTTP API"
   schedule         = "0 10 * * 1-5"
   time_zone        = "UTC"
-  attempt_deadline = "1800s"  # Max allowed is 30 minutes
+  attempt_deadline = "1800s" # Max allowed is 30 minutes
   project          = var.project_id
   region           = var.scheduler_region
 
@@ -319,6 +319,7 @@ resource "google_cloud_scheduler_job" "market_data_sync_daily" {
 
     oidc_token {
       service_account_email = google_service_account.scheduler.email
+      audience              = google_cloud_run_v2_service.market_data_sync.uri
     }
   }
 
