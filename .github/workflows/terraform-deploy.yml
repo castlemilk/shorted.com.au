@@ -26,6 +26,9 @@ env:
   NODE_VERSION: "20"
   GO_VERSION: "1.26"
   PYTHON_VERSION: "3.11"
+  GOPRIVATE: github.com/skunkworq/*
+  GONOSUMCHECK: github.com/skunkworq/*
+  GONOSUMDB: github.com/skunkworq/*
   GCP_REGION: australia-southeast2
   ARTIFACT_REGISTRY: australia-southeast2-docker.pkg.dev
   TF_VERSION: "1.5.0"
@@ -297,6 +300,8 @@ jobs:
             ${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/${{ matrix.service.name }}:latest
           cache-from: type=gha,scope=${{ matrix.service.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service.name }}
+          secrets: |
+            github_token=${{ secrets.STEALTH_PAT }}
 
   build-ko-images:
     needs: [determine-environment, validate-secrets]
@@ -335,6 +340,9 @@ jobs:
       - name: Configure Docker for Artifact Registry
         run: |
           gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
+
+      - name: Configure private Go module access
+        run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
 
       - name: Remove local replace directive for CI build
         working-directory: services
@@ -1247,6 +1255,9 @@ jobs:
           cache-dependency-path: |
             services/go.sum
             test/integration/go.sum
+
+      - name: Configure private Go module access
+        run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
 
       - name: Remove local replace directive for CI
         working-directory: services

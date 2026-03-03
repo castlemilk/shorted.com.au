@@ -13,6 +13,9 @@ on:
 env:
   NODE_VERSION: "20"
   GO_VERSION: "1.26"
+  GOPRIVATE: github.com/skunkworq/*
+  GONOSUMCHECK: github.com/skunkworq/*
+  GONOSUMDB: github.com/skunkworq/*
   # Shared env vars for all frontend jobs
   NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT: "https://shorts-ak2zgjnhlq-km.a.run.app"
   NEXT_PUBLIC_ALGOLIA_APP_ID: "test"
@@ -114,6 +117,9 @@ jobs:
           key: golangci-lint-${{ runner.os }}
           restore-keys: golangci-lint-
 
+      - name: Configure private Go module access
+        run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
+
       - name: Remove local replace directive for CI
         working-directory: services
         run: sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
@@ -165,6 +171,9 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: services/go.sum
+
+      - name: Configure private Go module access
+        run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
 
       - name: Remove local replace directive for CI
         working-directory: services
@@ -236,6 +245,9 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: services/go.sum
 
+      - name: Configure private Go module access
+        run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
+
       - name: Remove local replace directive for CI
         working-directory: services
         run: sed -i '/replace github.com\/skunkworq\/stealth/d' go.mod
@@ -298,6 +310,9 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: services/go.sum
+
+      - name: Configure private Go module access
+        run: git config --global url."https://x-access-token:${{ secrets.STEALTH_PAT }}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"
 
       - name: Remove local replace directive for CI
         working-directory: services
