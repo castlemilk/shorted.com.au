@@ -117,37 +117,6 @@ resource "google_artifact_registry_repository" "docker_repo" {
   depends_on = [google_project_service.required_apis]
 }
 
-# Cloud Run services (example, adjust as needed)
-resource "google_cloud_run_v2_service" "market_data_sync" {
-  name     = "market-data-sync" # Replace with actual service name
-  project  = var.project_id
-  location = "australia-southeast2"
-
-  template {
-    containers {
-      image = "australia-southeast2-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.docker_repo.repository_id}/market-data-sync:latest" # Replace with actual image
-      resources {
-        limits = {
-          cpu    = "1"
-          memory = "256Mi"
-        }
-      }
-    }
-    # Enable CPU throttling to reduce costs during idle periods
-    idle_scaling {
-        cpu_idle = true
-    }
-    scaling {
-      min_instances = 0 # Allow scaling down to zero instances
-    }
-  }
-
-  traffic {
-    type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
-    percent = 100
-  }
-}
-
 # Outputs for GitHub Actions configuration
 output "workload_identity_provider" {
   description = "Workload Identity Provider for GitHub Actions"
