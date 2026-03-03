@@ -1,0 +1,4 @@
+# Exclude go workspace files - these are for local development only.
+# Docker builds that need workspaces (e.g., market-data-sync) create their own.
+go.work
+go.work.sum
