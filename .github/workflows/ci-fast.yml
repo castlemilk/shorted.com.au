@@ -13,6 +13,7 @@ on:
 env:
   NODE_VERSION: "20"
   GO_VERSION: "1.26"
+  GOWORK: "off"
   GOPRIVATE: github.com/skunkworq/*
   GONOSUMCHECK: github.com/skunkworq/*
   GONOSUMDB: github.com/skunkworq/*
