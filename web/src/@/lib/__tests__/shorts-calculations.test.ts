@@ -160,6 +160,36 @@ describe("shorts-calculations", () => {
       expect(result.mostVolatile).toHaveLength(10);
     });
 
+    it("output must be JSON-serializable (no BigInt)", () => {
+      // Regression test: protobuf responses contain BigInt fields (timestamp.seconds).
+      // calculateMovers must strip them via toSerializable() so the output can be
+      // passed as React props and cached via JSON.stringify.
+      // See: memory/ssr-url-regression.md
+      const now = Date.now();
+      const oneMonthAgo = now - 30 * 24 * 60 * 60 * 1000;
+
+      const data = [
+        createMockStock("CBA", "Commonwealth Bank", 10, [
+          { shortPosition: 5, timestamp: { seconds: BigInt(Math.floor(oneMonthAgo / 1000)), nanos: 0 } },
+          { shortPosition: 10, timestamp: { seconds: BigInt(Math.floor(now / 1000)), nanos: 0 } },
+        ]),
+        createMockStock("BHP", "BHP Group", 5, [
+          { shortPosition: 7, timestamp: { seconds: BigInt(Math.floor(oneMonthAgo / 1000)), nanos: 0 } },
+          { shortPosition: 5, timestamp: { seconds: BigInt(Math.floor(now / 1000)), nanos: 0 } },
+        ]),
+      ];
+
+      const result = calculateMovers(data, "3m");
+
+      // JSON.stringify throws "Do not know how to serialize a BigInt" if any BigInt leaks through
+      expect(() => JSON.stringify(result)).not.toThrow();
+
+      // Verify the output is actually populated (not just empty arrays)
+      expect(result.biggestGainers.length).toBeGreaterThan(0);
+      expect(result.biggestLosers.length).toBeGreaterThan(0);
+      expect(result.mostVolatile.length).toBeGreaterThan(0);
+    });
+
     it("should work with different time periods", () => {
       const now = Date.now();
       const periods: TimePeriod[] = ["1m", "3m", "6m", "1y"];

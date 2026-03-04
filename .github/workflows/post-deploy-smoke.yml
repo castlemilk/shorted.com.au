@@ -1,0 +1,68 @@
+name: Post-Deploy Smoke Test
+
+# Runs after Vercel production deployments to catch 500 errors.
+# Triggered manually or on schedule (every 6 hours).
+# Also triggered by pushes to main (Vercel auto-deploys on push).
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    # Every 6 hours — catch regressions from env var changes, Cloud Run redeployments, etc.
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+jobs:
+  smoke-test:
+    name: Production Smoke Test
+    runs-on: ubuntu-latest
+    # Wait for Vercel deploy to complete (triggered by same push)
+    # Vercel typically deploys in 3-7 minutes
+    steps:
+      - name: Wait for deploy to settle
+        if: github.event_name == 'push'
+        run: sleep 300
+
+      - name: Smoke test critical routes
+        run: |
+          FAILED=0
+          BASE_URL="https://shorted.com.au"
+
+          for path in / /shorts /shorts/BHP /shorts/CBA /top /industry /screener /stocks; do
+            status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "${BASE_URL}${path}")
+            if [ "$status" -ge 500 ]; then
+              echo "::error::FAIL: ${path} returned HTTP ${status}"
+              FAILED=1
+            else
+              echo "OK: ${path} returned HTTP ${status}"
+            fi
+          done
+
+          if [ "$FAILED" -eq 1 ]; then
+            echo ""
+            echo "::error::One or more routes returned 5xx. Check Vercel logs: npx vercel logs --follow"
+            exit 1
+          fi
+
+          echo ""
+          echo "All routes healthy."
+
+      - name: Smoke test API endpoints
+        run: |
+          BASE_URL="https://shorted.com.au"
+
+          # Health endpoint
+          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${BASE_URL}/api/health")
+          if [ "$status" -ge 500 ]; then
+            echo "::error::FAIL: /api/health returned HTTP ${status}"
+            exit 1
+          fi
+          echo "OK: /api/health returned HTTP ${status}"
+
+          # Search endpoint
+          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "${BASE_URL}/api/stocks/search?q=BHP&limit=1")
+          if [ "$status" -ge 500 ]; then
+            echo "::error::FAIL: /api/stocks/search returned HTTP ${status}"
+            exit 1
+          fi
+          echo "OK: /api/stocks/search returned HTTP ${status}"

@@ -29,7 +29,7 @@ import {
   formatChange,
   calculateMovers,
 } from "~/@/lib/shorts-calculations";
-import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { getTopShortsDataClient } from "~/app/actions/client/getTopShorts";
 
 const LOAD_CHUNK_SIZE = 20;
 
@@ -57,7 +57,7 @@ export function TopShortsClient({
     setLoading(true);
 
     try {
-      const data = await getTopShortsData(newPeriod, LOAD_CHUNK_SIZE, 0);
+      const data = await getTopShortsDataClient(newPeriod, LOAD_CHUNK_SIZE, 0);
       const movers = calculateMovers(data?.timeSeries ?? [], newPeriod);
       setMoversData(movers);
     } catch (error) {

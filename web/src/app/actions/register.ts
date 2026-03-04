@@ -7,9 +7,7 @@ import { SHORTS_API_URL } from "./config";
 export const registerEmail = cache(async (email: string) => {
   const transport = createConnectTransport({
     fetch,
-    baseUrl:
-      process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-      SHORTS_API_URL,
+    baseUrl: SHORTS_API_URL,
   });
 
   const client = createClient(RegisterService, transport);
