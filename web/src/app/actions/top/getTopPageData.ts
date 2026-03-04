@@ -73,20 +73,29 @@ function serializeTimeSeriesData(data: TimeSeriesData): SerializedTimeSeriesData
 }
 
 /**
- * Serialize movers data for caching
+ * Serialize movers data for caching.
+ * MoversData already contains plain serializable objects (no protobuf bigint),
+ * so we just map the shape to match SerializedMoversData.
  */
 function serializeMoversData(movers: MoversData): SerializedMoversData {
+  const serializeStock = (s: { productCode: string; name: string; latestShortPosition: number; points: Array<{ shortPosition: number }> }): SerializedTimeSeriesData => ({
+    productCode: s.productCode,
+    name: s.name,
+    latestShortPosition: s.latestShortPosition,
+    points: s.points.map((p) => ({ shortPosition: p.shortPosition })),
+  });
+
   return {
     biggestGainers: movers.biggestGainers.map((item) => ({
-      ...serializeTimeSeriesData(item),
+      ...serializeStock(item),
       change: item.change,
     })),
     biggestLosers: movers.biggestLosers.map((item) => ({
-      ...serializeTimeSeriesData(item),
+      ...serializeStock(item),
       change: item.change,
     })),
     mostVolatile: movers.mostVolatile.map((item) => ({
-      ...serializeTimeSeriesData(item),
+      ...serializeStock(item),
       volatility: item.volatility,
     })),
   };

@@ -2,13 +2,21 @@ import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 
 export type TimePeriod = "1m" | "3m" | "6m" | "1y";
 
-type TimeSeriesDataWithChange = TimeSeriesData & { change: number };
-type TimeSeriesDataWithVolatility = TimeSeriesData & { volatility: number };
+/** Plain serializable stock data (no protobuf bigint fields) */
+export interface SerializableStock {
+  productCode: string;
+  name: string;
+  latestShortPosition: number;
+  points: Array<{ shortPosition: number }>;
+}
+
+type StockWithChange = SerializableStock & { change: number };
+type StockWithVolatility = SerializableStock & { volatility: number };
 
 export interface MoversData {
-  biggestGainers: Array<TimeSeriesDataWithChange>;
-  biggestLosers: Array<TimeSeriesDataWithChange>;
-  mostVolatile: Array<TimeSeriesDataWithVolatility>;
+  biggestGainers: Array<StockWithChange>;
+  biggestLosers: Array<StockWithChange>;
+  mostVolatile: Array<StockWithVolatility>;
 }
 
 /**
@@ -93,63 +101,56 @@ function calculateChange(
 /**
  * Calculate the biggest movers in short positions for a given period
  */
+/** Convert a protobuf TimeSeriesData to a plain serializable object */
+function toSerializable(stock: TimeSeriesData): SerializableStock {
+  return {
+    productCode: stock.productCode ?? "",
+    name: stock.name ?? "",
+    latestShortPosition: stock.latestShortPosition ?? 0,
+    points: (stock.points ?? []).map((p) => ({
+      shortPosition: p.shortPosition,
+    })),
+  };
+}
+
 export function calculateMovers(
   data: TimeSeriesData[],
   period: TimePeriod,
 ): MoversData {
-  // Calculate biggest gainers (stocks with largest increase in short position)
+  // Helper: compute change for a stock
+  const withChange = (stock: TimeSeriesData): StockWithChange => {
+    if (!stock.points || stock.points.length === 0) {
+      return { ...toSerializable(stock), change: 0 };
+    }
+
+    const sortedPoints = [...stock.points].sort((a, b) => {
+      const timeA = getTimestampMs(a.timestamp);
+      const timeB = getTimestampMs(b.timestamp);
+      return timeA - timeB;
+    });
+
+    const change = calculateChange(
+      sortedPoints,
+      period,
+      stock.latestShortPosition ?? 0,
+    );
+    return { ...toSerializable(stock), change };
+  };
+
   const gainers = [...data]
-    .map((stock) => {
-      if (!stock.points || stock.points.length === 0) {
-        return { ...stock, change: 0 };
-      }
-
-      // Sort points by timestamp to get chronological order
-      const sortedPoints = [...stock.points].sort((a, b) => {
-        const timeA = getTimestampMs(a.timestamp);
-        const timeB = getTimestampMs(b.timestamp);
-        return timeA - timeB;
-      });
-
-      const change = calculateChange(
-        sortedPoints,
-        period,
-        stock.latestShortPosition ?? 0,
-      );
-      return { ...stock, change };
-    })
+    .map(withChange)
     .sort((a, b) => b.change - a.change)
     .slice(0, 10);
 
-  // Calculate biggest losers (stocks with largest decrease in short position)
   const losers = [...data]
-    .map((stock) => {
-      if (!stock.points || stock.points.length === 0) {
-        return { ...stock, change: 0 };
-      }
-
-      // Sort points by timestamp to get chronological order
-      const sortedPoints = [...stock.points].sort((a, b) => {
-        const timeA = getTimestampMs(a.timestamp);
-        const timeB = getTimestampMs(b.timestamp);
-        return timeA - timeB;
-      });
-
-      const change = calculateChange(
-        sortedPoints,
-        period,
-        stock.latestShortPosition ?? 0,
-      );
-      return { ...stock, change };
-    })
+    .map(withChange)
     .sort((a, b) => a.change - b.change)
     .slice(0, 10);
 
-  // Calculate most volatile (stocks with largest range between min and max in the period)
   const volatile = [...data]
-    .map((stock) => {
+    .map((stock): StockWithVolatility => {
       if (!stock.points || stock.points.length === 0) {
-        return { ...stock, volatility: 0 };
+        return { ...toSerializable(stock), volatility: 0 };
       }
 
       const positions = stock.points.map((point) => point.shortPosition);
@@ -157,7 +158,7 @@ export function calculateMovers(
       const maxPosition = Math.max(...positions);
       const volatility = maxPosition - minPosition;
 
-      return { ...stock, volatility };
+      return { ...toSerializable(stock), volatility };
     })
     .sort((a, b) => b.volatility - a.volatility)
     .slice(0, 10);
