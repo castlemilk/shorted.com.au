@@ -115,6 +115,14 @@ resource "google_artifact_registry_repository" "shorted" {
     managed_by  = "terraform"
   }
 
+  cleanup_policy {
+    id     = "delete-old-images"
+    action = "DELETE"
+    condition {
+      most_recent_versions = 10
+    }
+  }
+
   depends_on = [time_sleep.wait_for_apis]
 }
 
