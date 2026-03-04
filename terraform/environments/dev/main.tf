@@ -82,6 +82,17 @@ resource "google_artifact_registry_repository" "shorted" {
     managed_by  = "terraform"
   }
 
+  cleanup_policy {
+    id     = "keep-latest-10"
+    action = "DELETE"
+    condition {
+      tag_state        = "ANY"
+      version_template = ".*"
+      keep_pks         = 10
+      older_than       = "30d"
+    }
+  }
+
   depends_on = [time_sleep.wait_for_apis]
 }
 
