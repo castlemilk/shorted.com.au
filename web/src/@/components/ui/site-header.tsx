@@ -12,6 +12,8 @@ const items = [
   { title: "AI chat", href: "/chat", requiresAuth: true },
   { title: "reports", href: "/reports" },
   { title: "about", href: "/about" },
+  { title: "technology", href: "/technology" },
+  { title: "metrics", href: "/metrics" },
   { title: "blog", href: "/blog" },
 ];
 

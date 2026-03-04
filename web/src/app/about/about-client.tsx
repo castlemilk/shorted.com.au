@@ -6,20 +6,29 @@ import {
   Activity,
   BarChart3,
   Bell,
+  Bot,
   ChevronRight,
+  Code2,
   Database,
+  ExternalLink,
   FileText,
   Globe,
   Key,
   LineChart,
+  Linkedin,
   Lock,
+  Newspaper,
+  Rocket,
   Search,
   Shield,
+  Sparkles,
   TrendingDown,
+  User,
   Zap,
 } from "lucide-react";
 import { FinanceGridBackground } from "~/@/components/marketing/finance-grid-background";
 import { AnimatedChartDisplay } from "~/@/components/marketing/animated-chart-display";
+import { SpotlightCard } from "~/@/components/marketing/spotlight-card";
 import { type AboutPageStatistics } from "~/lib/statistics";
 import { cn } from "~/@/lib/utils";
 
@@ -269,6 +278,168 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
         </div>
       </section>
 
+      {/* Team & Founder Section */}
+      <section className="w-full py-20 md:py-28 relative z-10">
+        <div className="container px-4 md:px-6">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-12">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium mb-6">
+                <User className="w-4 h-4" />
+                Our Team
+              </div>
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-foreground mb-4">
+                Built by an Engineer, for Investors
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Shorted was born from a simple frustration: ASIC publishes daily short position data,
+                but there was no easy way to explore, visualize, or track it over time.
+              </p>
+            </div>
+
+            <div className="grid lg:grid-cols-5 gap-8 items-start">
+              {/* Founder Card */}
+              <div className="lg:col-span-2">
+                <SpotlightCard className="p-8">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center mb-4">
+                      <User className="w-12 h-12 text-primary-foreground" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-foreground">Ben Ebsworth</h3>
+                    <p className="text-sm text-primary font-medium mb-3">Founder & Engineer</p>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Software engineer with experience in cloud infrastructure, data pipelines,
+                      and AI/ML systems. Building Shorted as a solo founder to democratize
+                      short selling data access in Australia.
+                    </p>
+                    <a
+                      href="https://www.linkedin.com/in/benebsworth/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                    >
+                      <Linkedin className="w-4 h-4" />
+                      LinkedIn Profile
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </SpotlightCard>
+              </div>
+
+              {/* Our Story + Tech Stack */}
+              <div className="lg:col-span-3 space-y-6">
+                <div className="bg-card rounded-2xl border p-6">
+                  <h3 className="text-lg font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <Rocket className="w-5 h-5 text-primary" />
+                    Our Story
+                  </h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    ASIC requires short sellers to report positions above 0.5% of total shares on issue,
+                    but the raw CSV files they publish are difficult to work with. Shorted transforms
+                    this regulatory data into an intuitive platform with historical charts, industry
+                    heatmaps, AI-powered analysis, and real-time alerts — making institutional-grade
+                    short selling intelligence accessible to everyone.
+                  </p>
+                </div>
+
+                <div className="bg-card rounded-2xl border p-6">
+                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                    <Code2 className="w-5 h-5 text-primary" />
+                    Tech Stack
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      "Go",
+                      "Next.js",
+                      "TypeScript",
+                      "GCP Cloud Run",
+                      "Gemini AI",
+                      "PostgreSQL",
+                      "Terraform",
+                      "Connect-RPC",
+                      "Protobuf",
+                      "Docker",
+                    ].map((tech) => (
+                      <span
+                        key={tech}
+                        className="px-3 py-1.5 text-xs font-medium rounded-full bg-primary/10 text-primary border border-primary/20"
+                      >
+                        {tech}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Company Timeline Section */}
+      <section className="w-full py-20 md:py-28 relative z-10 bg-muted/30 backdrop-blur-sm">
+        <div className="container px-4 md:px-6">
+          <div className="max-w-3xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl text-foreground mb-4">
+                Platform Milestones
+              </h2>
+              <p className="text-lg text-muted-foreground">
+                Key moments in building Australia&apos;s short position intelligence platform
+              </p>
+            </div>
+
+            <div className="relative">
+              {/* Vertical line */}
+              <div className="absolute left-4 md:left-1/2 top-0 bottom-0 w-px bg-border md:-translate-x-px" />
+
+              <div className="space-y-8">
+                <TimelineItem
+                  icon={<Database className="w-4 h-4" />}
+                  title="Platform Launch"
+                  description="Shorted.com.au goes live with daily ASIC short position data ingestion, historical charts, and industry heatmaps."
+                  period="2024"
+                  align="left"
+                />
+                <TimelineItem
+                  icon={<Globe className="w-4 h-4" />}
+                  title="500+ Companies Tracked"
+                  description="Coverage expands to track short positions across all reportable ASX-listed companies with full historical data."
+                  period="2024"
+                  align="right"
+                />
+                <TimelineItem
+                  icon={<Bot className="w-4 h-4" />}
+                  title="AI-Powered Chat (Gemini)"
+                  description="Launch of Shorted AI — a conversational assistant powered by Gemini LLM with 8 API tools for real-time stock analysis."
+                  period="2025"
+                  align="left"
+                />
+                <TimelineItem
+                  icon={<Newspaper className="w-4 h-4" />}
+                  title="News Sentiment Analysis"
+                  description="Automated RSS aggregation with Gemini 2.0 Flash batch sentiment classification, matching articles to ASX stocks."
+                  period="2025"
+                  align="right"
+                />
+                <TimelineItem
+                  icon={<Key className="w-4 h-4" />}
+                  title="API Launch with Rate Limiting"
+                  description="Public API with developer tiers (free, paid), Upstash Redis rate limiting, and comprehensive documentation."
+                  period="2025"
+                  align="left"
+                />
+                <TimelineItem
+                  icon={<Sparkles className="w-4 h-4" />}
+                  title="Company Enrichment Engine"
+                  description="GPT-4 powered metadata extraction with competitive analysis, risk factors, and AI-generated company summaries."
+                  period="2026"
+                  align="right"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Data Access & Usage Policy Section */}
       <section className="w-full py-20 md:py-28 relative z-10">
         <div className="container px-4 md:px-6">
@@ -472,6 +643,42 @@ function PolicyCard({ icon, title, description }: PolicyCardProps) {
       </div>
       <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
       <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
+    </div>
+  );
+}
+
+// Timeline Item Component
+interface TimelineItemProps {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+  period: string;
+  align: "left" | "right";
+}
+
+function TimelineItem({ icon, title, description, period, align }: TimelineItemProps) {
+  return (
+    <div className={cn(
+      "relative flex items-start gap-6",
+      "md:gap-0",
+      align === "right" ? "md:flex-row-reverse" : ""
+    )}>
+      {/* Dot on the line */}
+      <div className="absolute left-4 md:left-1/2 w-8 h-8 -translate-x-1/2 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center z-10 text-primary">
+        {icon}
+      </div>
+
+      {/* Content */}
+      <div className={cn(
+        "ml-16 md:ml-0 md:w-1/2",
+        align === "left" ? "md:pr-12 md:text-right" : "md:pl-12"
+      )}>
+        <div className="bg-card rounded-xl border p-4 transition-all hover:shadow-md">
+          <span className="text-xs font-medium text-primary">{period}</span>
+          <h4 className="text-base font-semibold text-foreground mt-1">{title}</h4>
+          <p className="text-sm text-muted-foreground mt-1">{description}</p>
+        </div>
+      </div>
     </div>
   );
 }

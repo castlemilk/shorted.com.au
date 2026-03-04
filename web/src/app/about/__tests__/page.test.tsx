@@ -50,21 +50,37 @@ jest.mock("~/@/components/marketing/animated-chart-display", () => ({
   ),
 }));
 
+jest.mock("~/@/components/marketing/spotlight-card", () => ({
+  SpotlightCard: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <div data-testid="spotlight-card" className={className}>
+      {children}
+    </div>
+  ),
+}));
+
 // Mock Lucide icons
 jest.mock("lucide-react", () => ({
   Activity: () => <span data-testid="icon-activity" />,
   BarChart3: () => <span data-testid="icon-barchart3" />,
   Bell: () => <span data-testid="icon-bell" />,
+  Bot: () => <span data-testid="icon-bot" />,
   ChevronRight: () => <span data-testid="icon-chevron-right" />,
+  Code2: () => <span data-testid="icon-code2" />,
   Database: () => <span data-testid="icon-database" />,
+  ExternalLink: () => <span data-testid="icon-external-link" />,
   FileText: () => <span data-testid="icon-filetext" />,
   Globe: () => <span data-testid="icon-globe" />,
   Key: () => <span data-testid="icon-key" />,
   LineChart: () => <span data-testid="icon-linechart" />,
+  Linkedin: () => <span data-testid="icon-linkedin" />,
   Lock: () => <span data-testid="icon-lock" />,
+  Newspaper: () => <span data-testid="icon-newspaper" />,
+  Rocket: () => <span data-testid="icon-rocket" />,
   Search: () => <span data-testid="icon-search" />,
   Shield: () => <span data-testid="icon-shield" />,
+  Sparkles: () => <span data-testid="icon-sparkles" />,
   TrendingDown: () => <span data-testid="icon-trending-down" />,
+  User: () => <span data-testid="icon-user" />,
   Zap: () => <span data-testid="icon-zap" />,
 }));
 
@@ -262,9 +278,9 @@ describe("About Page", () => {
     it("renders with proper section structure", () => {
       const { container } = render(<AboutClient initialStatistics={mockStatistics} />);
 
-      // Check for 6 sections (hero, value prop, features, data trust, usage policy, cta)
+      // Check for 8 sections (hero, value prop, features, data trust, team, timeline, usage policy, cta)
       const sections = container.querySelectorAll("section");
-      expect(sections.length).toBe(6);
+      expect(sections.length).toBe(8);
     });
 
     it("renders container with proper classes", () => {

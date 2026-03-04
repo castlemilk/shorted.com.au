@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, Terminal, Code2, Home, Info, FileText, LayoutDashboard, Briefcase, TrendingDown, Lock } from "lucide-react";
+import { Menu, Terminal, Code2, Home, Info, FileText, LayoutDashboard, Briefcase, TrendingDown, Lock, Cpu, BarChart3 } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { siteConfig } from "~/@/config/site";
@@ -28,6 +28,8 @@ export function MobileNav({ items }: MobileNavProps) {
       case 'dashboard': return <LayoutDashboard className="h-4 w-4" />;
       case 'portfolio': return <Briefcase className="h-4 w-4" />;
       case 'about': return <Info className="h-4 w-4" />;
+      case 'technology': return <Cpu className="h-4 w-4" />;
+      case 'metrics': return <BarChart3 className="h-4 w-4" />;
       case 'blog': return <FileText className="h-4 w-4" />;
       case 'developer': return <Code2 className="h-4 w-4" />;
       default: return <Home className="h-4 w-4" />;
