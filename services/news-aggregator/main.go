@@ -86,7 +86,7 @@ func main() {
 
 	// For Cloud Run Jobs: process and exit
 	// For Cloud Run Services: serve health check and process on schedule
-	if os.Getenv("CLOUD_RUN_JOB") == "true" {
+	if os.Getenv("CLOUD_RUN_JOB") != "" {
 		runAggregation(ctx, fetcher, matcher, store, *limitFlag, *dryRun, *verbose)
 		return
 	}
