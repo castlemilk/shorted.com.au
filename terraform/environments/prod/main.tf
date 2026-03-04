@@ -110,6 +110,15 @@ resource "google_artifact_registry_repository" "shorted" {
   format        = "DOCKER"
   project       = var.project_id
 
+  cleanup_policy {
+    id     = "keep-latest-10-images"
+    action = "KEEP"
+    mode   = "KEEP_VERSIONS"
+    criteria {
+      most_recent_versions = 10
+    }
+  }
+
   labels = {
     environment = "prod"
     managed_by  = "terraform"
