@@ -75,11 +75,6 @@ resource "google_cloud_run_v2_job" "news_aggregator" {
         }
 
         env {
-          name  = "CLOUD_RUN_JOB"
-          value = "true"
-        }
-
-        env {
           name = "DATABASE_URL"
           value_source {
             secret_key_ref {
