@@ -20,9 +20,9 @@ import {
   Activity,
   Target,
 } from "lucide-react";
-import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import {
   type MoversData,
+  type SerializableStock,
   type TimePeriod,
   PERIOD_LABELS,
   formatPercentage,
@@ -67,7 +67,7 @@ export function TopShortsClient({
     }
   }, []);
 
-  type StockWithMetrics = TimeSeriesData & {
+  type StockWithMetrics = SerializableStock & {
     change?: number;
     volatility?: number;
   };
