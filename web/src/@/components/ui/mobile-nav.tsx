@@ -11,10 +11,10 @@ import { cn } from "~/@/lib/utils";
 import { Button } from "~/@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "~/@/components/ui/sheet";
 import { Icons } from "~/@/components/ui/icons";
-import type { NavItem } from "~/@/types/nav";
+import type { NavItemWithGroup } from "./site-header";
 
 interface MobileNavProps {
-  items?: NavItem[];
+  items?: NavItemWithGroup[];
 }
 
 export function MobileNav({ items }: MobileNavProps) {

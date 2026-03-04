@@ -3,14 +3,22 @@
 import { type FC } from "react";
 import { MainNav } from "./main-nav";
 import { ModeToggle } from "./mode-toggle";
+import { type NavItem } from "~/@/types/nav";
 
-const items = [
-  { title: "top shorted", href: "/top" },
-  { title: "screener", href: "/screener" },
-  { title: "dashboard", href: "/dashboards", requiresAuth: true },
+export interface NavItemWithGroup extends NavItem {
+  /** If true, item shows directly in the nav bar. If false, it goes in "More" dropdown. */
+  primary?: boolean;
+}
+
+const items: NavItemWithGroup[] = [
+  // Primary — always visible in desktop nav
+  { title: "top shorted", href: "/top", primary: true },
+  { title: "screener", href: "/screener", primary: true },
+  { title: "dashboard", href: "/dashboards", requiresAuth: true, primary: true },
+  { title: "AI chat", href: "/chat", requiresAuth: true, primary: true },
+  { title: "reports", href: "/reports", primary: true },
+  // Secondary — grouped under "More" dropdown
   { title: "portfolio", href: "/portfolio", requiresAuth: true },
-  { title: "AI chat", href: "/chat", requiresAuth: true },
-  { title: "reports", href: "/reports" },
   { title: "about", href: "/about" },
   { title: "technology", href: "/technology" },
   { title: "metrics", href: "/metrics" },
