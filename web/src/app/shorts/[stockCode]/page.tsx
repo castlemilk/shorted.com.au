@@ -43,17 +43,15 @@ import { TrendingDown, CandlestickChart } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { RelatedStocks } from "~/@/components/seo/related-stocks";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
-import { createConnectTransport } from "@connectrpc/connect-web";
-import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { getStockOrNotFound } from "~/app/actions/getStock";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { notFound } from "next/navigation";
+import { getTopShortsData } from "~/app/actions/getTopShorts";
 
 /**
  * Pre-generate ALL stocks with non-zero short positions at build time (~940 stocks).
- * This ensures every actively-shorted stock is crawlable by Google on first visit.
- * The mv_top_shorts materialized view contains all stocks with short_position > 0.
+ * Uses getTopShortsData (wrapped in withRetryAndNotFound) to avoid importing
+ * @connectrpc/connect directly in this server component, which causes SSR failures.
  */
 export async function generateStaticParams(): Promise<{ stockCode: string }[]> {
   // Skip static generation during local builds (pre-commit hook sets this)
@@ -61,21 +59,8 @@ export async function generateStaticParams(): Promise<{ stockCode: string }[]> {
     return [];
   }
   try {
-    const transport = createConnectTransport({
-      baseUrl:
-        process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-        process.env.NEXT_PUBLIC_API_URL ??
-        "http://localhost:9091",
-    });
-
-    const client = createClient(ShortedStocksService, transport);
-
-    // Fetch all actively-shorted stocks (mv_top_shorts has ~940 rows)
-    const response = await client.getTopShorts({
-      period: "max",
-      limit: 1000,
-      offset: 0,
-    });
+    const response = await getTopShortsData("max", 1000, 0);
+    if (!response) return [];
 
     const stockCodes = response.timeSeries
       .map((ts) => ts.productCode)

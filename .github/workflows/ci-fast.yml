@@ -18,7 +18,8 @@ env:
   GONOSUMCHECK: github.com/skunkworq/*
   GONOSUMDB: github.com/skunkworq/*
   # Shared env vars for all frontend jobs
-  NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT: "https://shorts-ak2zgjnhlq-km.a.run.app"
+  # NOTE: Do NOT hardcode NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT here — the Cloud Run URL
+  # changes on redeployment. Tests are mocked and builds use SKIP_STATIC_GENERATION=1.
   NEXT_PUBLIC_ALGOLIA_APP_ID: "test"
   NEXT_PUBLIC_ALGOLIA_SEARCH_KEY: "test"
   NEXTAUTH_SECRET: "test-secret-for-ci"
@@ -225,6 +226,8 @@ jobs:
 
       - name: Build Next.js
         working-directory: web
+        env:
+          SKIP_STATIC_GENERATION: "1"
         run: npm run build
 
   build-backend:

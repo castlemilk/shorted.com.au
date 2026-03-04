@@ -1,8 +1,14 @@
+import nextDynamic from "next/dynamic";
 import { type Metadata } from "next";
 import { getTopShortsData } from "../actions/getTopShorts";
 import { calculateMovers, type TimePeriod } from "~/@/lib/shorts-calculations";
-import { TopShortsClient } from "./components/top-shorts-client";
 import { siteConfig } from "~/@/config/site";
+
+// Dynamic import to avoid SSR issues — child imports @connectrpc/connect
+const TopShortsClient = nextDynamic(
+  () => import("./components/top-shorts-client").then((m) => m.TopShortsClient),
+  { ssr: false }
+);
 
 export const metadata: Metadata = {
   title: "ASX Short Positions List | All Shorted Stocks",
@@ -40,9 +46,10 @@ export const metadata: Metadata = {
 const DEFAULT_PERIOD: TimePeriod = "3m";
 const LOAD_CHUNK_SIZE = 20;
 
-// Force dynamic rendering — this page requires a live backend for data
-// and client components import @connectrpc/connect which breaks static prerendering
+// Force dynamic rendering to avoid build-time prerendering (triggers Supabase circuit breaker)
 export const dynamic = "force-dynamic";
+
+// Revalidate every 10 minutes for fresh data
 export const revalidate = 600;
 
 export default async function TopShortsPage() {

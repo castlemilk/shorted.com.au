@@ -46,6 +46,29 @@ test.describe("Smoke Tests - Preview Deployment", () => {
     expect(hasContent).toBeTruthy();
   });
 
+  test("shorts list page loads", async ({ page }) => {
+    // Regression test: /shorts returned 500 for 1+ day due to SSR import issues
+    // See: memory/ssr-url-regression.md
+    await page.goto("/shorts", { timeout: 30000, waitUntil: "domcontentloaded" });
+
+    await page.waitForLoadState("domcontentloaded");
+
+    const pageContent = await page.locator("body").textContent({ timeout: 20000 });
+    expect(pageContent).toBeTruthy();
+
+    // Must not be a 500 error page
+    const hasError500 =
+      pageContent!.includes("500") &&
+      pageContent!.toLowerCase().includes("internal");
+    expect(hasError500).toBeFalsy();
+
+    // Should contain short-selling related content
+    const hasValidContent =
+      pageContent!.toLowerCase().includes("short") ||
+      pageContent!.toLowerCase().includes("position");
+    expect(hasValidContent).toBeTruthy();
+  });
+
   test("stock detail page loads", async ({ page }) => {
     // Test direct navigation to a stock detail page (public route)
     await page.goto("/shorts/CBA", { timeout: 30000, waitUntil: "domcontentloaded" });
