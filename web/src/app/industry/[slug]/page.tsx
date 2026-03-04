@@ -33,11 +33,17 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const { industry } = await getIndustryStocks(slug);
+  let industry: Awaited<ReturnType<typeof getIndustryStocks>>["industry"];
+  try {
+    const result = await getIndustryStocks(slug);
+    industry = result.industry;
+  } catch {
+    industry = null;
+  }
 
   if (!industry) {
     return {
-      title: "Industry Not Found",
+      title: "Industry Short Positions",
     };
   }
 
@@ -101,7 +107,28 @@ export default async function IndustryPage({ params }: PageProps) {
   ]);
 
   if (!industry) {
-    notFound();
+    // During build or when API is unavailable, render minimal page for ISR
+    return (
+      <DashboardLayout>
+        <div className="space-y-8">
+          <section className="relative border-b border-border/40 pb-8">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-primary/10 rounded-lg">
+                <Building2 className="h-8 w-8 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
+                  Industry Short Positions
+                </h1>
+                <p className="text-muted-foreground mt-1">
+                  Loading industry data...
+                </p>
+              </div>
+            </div>
+          </section>
+        </div>
+      </DashboardLayout>
+    );
   }
 
   // Find related industries (sorted by avg short %, exclude current)
