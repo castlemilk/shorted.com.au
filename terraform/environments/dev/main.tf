@@ -77,6 +77,19 @@ resource "google_artifact_registry_repository" "shorted" {
   format        = "DOCKER"
   project       = var.project_id
 
+  cleanup_policy {
+    id     = "keep-latest-10-images"
+    action = "DELETE"
+    condition {
+      tag_state         = "ANY"
+      version_names_latest {
+        count  = 10
+        action = "KEEP"
+      }
+    }
+    mode = "ON_SUCCESS"
+  }
+
   labels = {
     environment = "dev"
     managed_by  = "terraform"
