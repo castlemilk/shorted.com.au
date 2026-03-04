@@ -229,11 +229,12 @@ module "weekly_report_generator" {
 module "news_aggregator" {
   source = "../../modules/news-aggregator"
 
-  project_id       = var.project_id
-  region           = var.region
-  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
-  environment      = "dev"
-  image_url        = var.news_aggregator_image
+  project_id           = var.project_id
+  region               = var.region
+  scheduler_region     = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment          = "dev"
+  image_url            = var.news_aggregator_image
+  gemini_secret_exists = true
 
   depends_on = [
     google_project_service.required_apis,

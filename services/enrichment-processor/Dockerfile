@@ -26,7 +26,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o enrichment-processor ./enrichment-proce
 # Final stage
 FROM python:3.11-slim-bookworm
 
-# Install system dependencies and clean up in one layer to reduce image size
+# Install system dependencies, Chromium (for stealth LinkedIn scraping), and clean up
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     libgl1-mesa-glx \
@@ -42,6 +42,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     git \
     wget \
+    # Chromium and dependencies for stealth chromium engine (LinkedIn logo discovery)
+    chromium \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libatspi2.0-0 \
+    libcups2 \
+    libdbus-1-3 \
+    libdrm2 \
+    libgbm1 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libwayland-client0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxkbcommon0 \
+    libxrandr2 \
     && pip install --upgrade pip setuptools wheel \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /tmp/* \
@@ -86,5 +106,8 @@ COPY enrichment-processor/logo_processor.py .
 # Environment variables
 ENV PYTHONUNBUFFERED=1
 ENV MOBILE_SAM_CHECKPOINT=/app/mobile_sam.pt
+# Chromium path for stealth chromium engine (LinkedIn logo discovery)
+ENV CHROME_PATH=/usr/bin/chromium
+ENV CHROMIUM_PATH=/usr/bin/chromium
 
 CMD ["./enrichment-processor"]

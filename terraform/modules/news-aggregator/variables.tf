@@ -31,3 +31,9 @@ variable "otel_endpoint" {
   type        = string
   default     = "https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp"
 }
+
+variable "gemini_secret_exists" {
+  description = "Whether the GEMINI_API_KEY secret exists in Secret Manager"
+  type        = bool
+  default     = false
+}

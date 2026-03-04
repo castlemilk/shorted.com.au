@@ -15,7 +15,8 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/skunkworq/stealth/brws/engine"
-	_ "github.com/skunkworq/stealth/brws/engine/native" // Register native engine
+	_ "github.com/skunkworq/stealth/brws/engine/chromium" // Register chromium engine (LinkedIn logo discovery)
+	_ "github.com/skunkworq/stealth/brws/engine/native"   // Register native engine
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
