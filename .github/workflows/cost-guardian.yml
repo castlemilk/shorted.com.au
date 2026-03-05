@@ -237,19 +237,23 @@ jobs:
           workload_identity_provider: ${{ matrix.wip_provider }}
           service_account: ${{ matrix.sa_email }}
 
-      - name: Destroy old secret versions (keep only latest)
+      - name: Disable old secret versions (keep latest 2 enabled)
         env:
           PROJECT: ${{ matrix.project }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          # Keep the 2 most recent enabled versions to avoid breaking
+          # Cloud Run services that reference "latest" (which resolves to
+          # a specific version number at deploy time). Destroying the
+          # active version causes container startup failures.
+          KEEP_COUNT: 2
         run: |
           echo "=== Secret Manager cleanup: $PROJECT ==="
-          echo "Each active version costs \$0.06/month"
+          echo "Disabling old versions (keeping $KEEP_COUNT most recent enabled)"
           echo ""
 
-          TOTAL_DESTROYED=0
+          TOTAL_DISABLED=0
 
           for secret in $(gcloud secrets list --project="$PROJECT" --format="value(name)"); do
-            # Get all enabled versions except the latest, sorted newest first
             VERSIONS=$(gcloud secrets versions list "$secret" \
               --project="$PROJECT" \
               --filter="state=enabled" \
@@ -258,24 +262,24 @@ jobs:
 
             COUNT=$(echo "$VERSIONS" | grep -c "." 2>/dev/null || echo "0")
 
-            if [ "$COUNT" -le 1 ]; then
+            if [ "$COUNT" -le "$KEEP_COUNT" ]; then
               continue
             fi
 
-            # Skip the first (latest) version, destroy the rest
-            OLD_VERSIONS=$(echo "$VERSIONS" | tail -n +2)
-            OLD_COUNT=$((COUNT - 1))
-            echo "$secret: destroying $OLD_COUNT old versions (keeping latest)"
+            # Skip the newest KEEP_COUNT versions, disable the rest
+            OLD_VERSIONS=$(echo "$VERSIONS" | tail -n +$((KEEP_COUNT + 1)))
+            OLD_COUNT=$((COUNT - KEEP_COUNT))
+            echo "$secret: disabling $OLD_COUNT old versions (keeping $KEEP_COUNT)"
 
             if [ "$DRY_RUN" = "false" ]; then
               echo "$OLD_VERSIONS" | while read -r ver; do
                 [ -z "$ver" ] && continue
-                gcloud secrets versions destroy "$ver" \
+                gcloud secrets versions disable "$ver" \
                   --secret="$secret" \
                   --project="$PROJECT" \
                   --quiet 2>/dev/null && \
-                  TOTAL_DESTROYED=$((TOTAL_DESTROYED + 1)) || \
-                  echo "  Failed to destroy $secret version $ver"
+                  TOTAL_DISABLED=$((TOTAL_DISABLED + 1)) || \
+                  echo "  Failed to disable $secret version $ver"
               done
             fi
           done
