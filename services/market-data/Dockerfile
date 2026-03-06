@@ -1,4 +1,5 @@
 # syntax=docker/dockerfile:1
+FROM scratch AS stealth
 # Build stage
 FROM golang:1.26.0-alpine AS builder
 
@@ -12,8 +13,13 @@ COPY go.mod go.sum ./
 
 # Download dependencies (with private module auth if available)
 RUN --mount=type=secret,id=github_token \
+    --mount=type=bind,from=stealth,target=/stealth-src \
     if [ -f /run/secrets/github_token ]; then \
       git config --global url."https://x-access-token:$(cat /run/secrets/github_token)@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; \
+    elif [ -f /stealth-src/go.mod ]; then \
+      cp -r /stealth-src /stealth && \
+      go mod edit -replace github.com/skunkworq/stealth=/stealth && \
+      cp go.mod /tmp/go.mod.stealth; \
     fi && \
     GOPRIVATE=github.com/skunkworq/* GONOSUMCHECK=github.com/skunkworq/* go mod download && \
     rm -f ~/.gitconfig

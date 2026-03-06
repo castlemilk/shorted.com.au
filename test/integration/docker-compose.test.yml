@@ -19,6 +19,8 @@ services:
     build:
       context: ../../services
       dockerfile: shorts/Dockerfile.test
+      additional_contexts:
+        stealth: ../../../stealth
     environment:
       DB_HOST: postgres-test
       DB_PORT: 5432
