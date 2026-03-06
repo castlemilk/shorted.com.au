@@ -23,6 +23,13 @@ export const stripe = new Proxy({} as Stripe, {
   },
 });
 
+// Canonical price-id env is STRIPE_PRO_PRICE_ID.
+// Keep STRIPE_PREMIUM_PRICE_ID as a compatibility fallback during migration.
+const PRO_PRICE_ID =
+  process.env.STRIPE_PRO_PRICE_ID ??
+  process.env.STRIPE_PREMIUM_PRICE_ID ??
+  null;
+
 // Subscription tiers configuration
 export const SUBSCRIPTION_TIERS = {
   free: {
@@ -39,7 +46,7 @@ export const SUBSCRIPTION_TIERS = {
   },
   premium: {
     name: "Premium",
-    priceId: process.env.STRIPE_PREMIUM_PRICE_ID ?? null,
+    priceId: PRO_PRICE_ID,
     price: 4,
     requestsPerDay: 10000,
     features: [
@@ -54,7 +61,7 @@ export const SUBSCRIPTION_TIERS = {
   // Backward compat — existing "pro" subscribers treated as premium
   pro: {
     name: "Premium",
-    priceId: process.env.STRIPE_PREMIUM_PRICE_ID ?? null,
+    priceId: PRO_PRICE_ID,
     price: 4,
     requestsPerDay: 10000,
     features: [

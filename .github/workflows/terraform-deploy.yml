@@ -147,6 +147,7 @@ jobs:
           STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
           STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
           STRIPE_PRO_PRICE_ID: ${{ secrets.STRIPE_PRO_PRICE_ID }}
+          STRIPE_API_ACCESS_PRICE_ID: ${{ secrets.STRIPE_API_ACCESS_PRICE_ID || secrets.STRIPE_PRO_PRICE_ID }}
         run: |
           echo "=============================================="
           echo "🔐 Secrets Validation: ${ENVIRONMENT^^}"
@@ -208,6 +209,7 @@ jobs:
           check_secret "STRIPE_PUBLISHABLE_KEY"
           check_secret "STRIPE_WEBHOOK_SECRET"
           check_secret "STRIPE_PRO_PRICE_ID"
+          check_secret "STRIPE_API_ACCESS_PRICE_ID"
           echo "ℹ️  Prod Stripe secrets are in GitHub Environment 'prod'"
           
           # Service authentication checks
@@ -768,11 +770,13 @@ jobs:
             --build-env STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }}
             --build-env STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
             --build-env STRIPE_PRO_PRICE_ID=${{ secrets.STRIPE_PRO_PRICE_ID }}
+            --build-env STRIPE_API_ACCESS_PRICE_ID=${{ secrets.STRIPE_API_ACCESS_PRICE_ID || secrets.STRIPE_PRO_PRICE_ID }}
             --build-env INTERNAL_SERVICE_SECRET=${{ secrets.INTERNAL_SERVICE_SECRET }}
             --env STRIPE_SECRET_KEY=${{ secrets.STRIPE_SECRET_KEY }}
             --env STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }}
             --env STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
             --env STRIPE_PRO_PRICE_ID=${{ secrets.STRIPE_PRO_PRICE_ID }}
+            --env STRIPE_API_ACCESS_PRICE_ID=${{ secrets.STRIPE_API_ACCESS_PRICE_ID || secrets.STRIPE_PRO_PRICE_ID }}
             --env INTERNAL_SERVICE_SECRET=${{ secrets.INTERNAL_SERVICE_SECRET }}
 
       - name: Comment PR with deployment URLs
@@ -1195,6 +1199,7 @@ jobs:
             --build-env STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }}
             --build-env STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
             --build-env STRIPE_PRO_PRICE_ID=${{ secrets.STRIPE_PRO_PRICE_ID }}
+            --build-env STRIPE_API_ACCESS_PRICE_ID=${{ secrets.STRIPE_API_ACCESS_PRICE_ID || secrets.STRIPE_PRO_PRICE_ID }}
             --build-env INTERNAL_SERVICE_SECRET=${{ secrets.INTERNAL_SERVICE_SECRET }}
             --build-env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ steps.resolve-urls.outputs.market_data_url }}
             --build-env MARKET_DATA_API_URL=${{ steps.resolve-urls.outputs.market_data_url }}
@@ -1221,6 +1226,7 @@ jobs:
             --env STRIPE_PUBLISHABLE_KEY=${{ secrets.STRIPE_PUBLISHABLE_KEY }}
             --env STRIPE_WEBHOOK_SECRET=${{ secrets.STRIPE_WEBHOOK_SECRET }}
             --env STRIPE_PRO_PRICE_ID=${{ secrets.STRIPE_PRO_PRICE_ID }}
+            --env STRIPE_API_ACCESS_PRICE_ID=${{ secrets.STRIPE_API_ACCESS_PRICE_ID || secrets.STRIPE_PRO_PRICE_ID }}
             --env INTERNAL_SERVICE_SECRET=${{ secrets.INTERNAL_SERVICE_SECRET }}
             --env NEXT_PUBLIC_MARKET_DATA_API_URL=${{ steps.resolve-urls.outputs.market_data_url }}
             --env MARKET_DATA_API_URL=${{ steps.resolve-urls.outputs.market_data_url }}

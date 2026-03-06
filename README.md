@@ -177,6 +177,34 @@ AUTH_GOOGLE_SECRET=your-client-secret
 
 See [docs/PRODUCTION_DEPLOYMENT.md](docs/PRODUCTION_DEPLOYMENT.md) for full list.
 
+## Stripe Test-Mode Checkout Smoke Bench
+
+Run the isolated Stripe checkout smoke bench locally:
+
+```bash
+# Required (test mode)
+export STRIPE_TEST_SECRET_KEY=sk_test_...
+export STRIPE_TEST_PRO_PRICE_ID=price_...
+
+# Optional legacy alias during migration
+# export STRIPE_TEST_PRICE_ID=price_...
+
+npm run test:e2e:stripe:testmode
+```
+
+The bench:
+- Signs in with the E2E credentials fallback.
+- Opens `/pricing`.
+- Creates a Stripe checkout session via `/api/stripe/checkout`.
+- Verifies redirect to `checkout.stripe.com`.
+
+Notes:
+- This is a checkout smoke test only and does not submit card details or confirm payment.
+- It can create Stripe checkout sessions in your Stripe account.
+- The workflow [`.github/workflows/stripe-testbench.yml`](.github/workflows/stripe-testbench.yml) runs this in CI only when Stripe test secrets are configured.
+- Canonical price env is `STRIPE_PRO_PRICE_ID`; `STRIPE_PREMIUM_PRICE_ID` remains a temporary fallback.
+- Optional dedicated API docs checkout price env: `STRIPE_API_ACCESS_PRICE_ID` (falls back to `STRIPE_PRO_PRICE_ID`).
+
 ## Contributing
 
 ```bash

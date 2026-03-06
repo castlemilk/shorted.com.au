@@ -23,12 +23,13 @@ import type { SubscriptionInfo } from "~/app/actions/subscription";
 
 interface SubscriptionGateProps {
   subscription: SubscriptionInfo | null;
-  priceId?: string;
+  checkoutTier?: "premium" | "api_access";
   children: React.ReactNode;
 }
 
 export function SubscriptionGate({
   subscription,
+  checkoutTier = "premium",
   children,
 }: SubscriptionGateProps) {
   const { data: session, status } = useSession();
@@ -43,7 +44,7 @@ export function SubscriptionGate({
       const response = await fetch("/api/stripe/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tier: "premium" }),
+        body: JSON.stringify({ tier: checkoutTier }),
       });
 
       const data = (await response.json()) as { url?: string; error?: string };

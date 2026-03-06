@@ -289,7 +289,18 @@ make test-integration-local
 
 # E2E tests (Playwright)
 cd web && npm run test:e2e
+
+# Stripe checkout smoke bench (test mode only)
+npm run test:e2e:stripe:testmode
 ```
+
+### Stripe Checkout Memory
+
+- Canonical Stripe price env is `STRIPE_PRO_PRICE_ID`.
+- Keep `STRIPE_PREMIUM_PRICE_ID` only as a temporary compatibility fallback.
+- Optional dedicated API docs checkout price env is `STRIPE_API_ACCESS_PRICE_ID` (fallback to Pro price).
+- Stripe smoke bench scope is checkout creation and redirect to `checkout.stripe.com` only.
+- Do not parse checkout response bodies from Playwright network responses in this bench; cross-origin redirect timing can make bodies unavailable.
 
 ### Populating Data
 

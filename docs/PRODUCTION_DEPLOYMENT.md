@@ -46,6 +46,7 @@ Ensure these secrets are configured in GitHub repository settings:
 | `STRIPE_PUBLISHABLE_KEY` | Stripe publishable key | ✅ |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret | ✅ |
 | `STRIPE_PRO_PRICE_ID` | Stripe Pro plan price ID | ✅ |
+| `STRIPE_API_ACCESS_PRICE_ID` | Dedicated API access plan price ID (falls back to Pro if unset) | ⚪ Optional |
 
 ### 2. GCP Project Setup
 

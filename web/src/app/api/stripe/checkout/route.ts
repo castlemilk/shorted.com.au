@@ -20,7 +20,16 @@ export async function POST(request: NextRequest) {
 
     let priceId: string | null | undefined = null;
     if (tier === "premium") {
-      priceId = process.env.STRIPE_PREMIUM_PRICE_ID ?? null;
+      priceId =
+        process.env.STRIPE_PRO_PRICE_ID ??
+        process.env.STRIPE_PREMIUM_PRICE_ID ??
+        null;
+    } else if (tier === "api_access") {
+      priceId =
+        process.env.STRIPE_API_ACCESS_PRICE_ID ??
+        process.env.STRIPE_PRO_PRICE_ID ??
+        process.env.STRIPE_PREMIUM_PRICE_ID ??
+        null;
     }
 
     if (!priceId) {

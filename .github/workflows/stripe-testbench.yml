@@ -1,0 +1,73 @@
+name: Stripe Testbench
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  stripe-testbench:
+    name: Stripe Test-Mode Checkout Smoke
+    runs-on: ubuntu-latest
+    env:
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      STRIPE_TEST_PRO_PRICE_ID: ${{ secrets.STRIPE_TEST_PRO_PRICE_ID }}
+      STRIPE_TEST_PRICE_ID: ${{ secrets.STRIPE_TEST_PRICE_ID }}
+    steps:
+      - name: Check Stripe testbench secret availability
+        id: bench-guard
+        run: |
+          if [[ -n "${STRIPE_TEST_SECRET_KEY}" && ( -n "${STRIPE_TEST_PRO_PRICE_ID}" || -n "${STRIPE_TEST_PRICE_ID}" ) ]]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip (secrets not configured)
+        if: steps.bench-guard.outputs.enabled != 'true'
+        run: |
+          echo "Stripe testbench skipped."
+          echo "Required: STRIPE_TEST_SECRET_KEY and STRIPE_TEST_PRO_PRICE_ID (or STRIPE_TEST_PRICE_ID)."
+
+      - name: Checkout
+        if: steps.bench-guard.outputs.enabled == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: steps.bench-guard.outputs.enabled == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+
+      - name: Install root dependencies
+        if: steps.bench-guard.outputs.enabled == 'true'
+        run: npm ci
+
+      - name: Install web dependencies
+        if: steps.bench-guard.outputs.enabled == 'true'
+        working-directory: web
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        if: steps.bench-guard.outputs.enabled == 'true'
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Stripe testbench
+        if: steps.bench-guard.outputs.enabled == 'true'
+        run: bash scripts/e2e/run_stripe_testmode_testbench.sh
+
+      - name: Upload Playwright report
+        if: steps.bench-guard.outputs.enabled == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stripe-testbench-playwright-report
+          path: |
+            web/playwright-report
+            web/test-results
+          if-no-files-found: ignore

@@ -6,9 +6,6 @@ import Image from 'next/image';
 import { ArrowRight, Book, Terminal, Shield, Lock, AlertTriangle } from 'lucide-react';
 import { ApiAccessSection } from '~/@/components/docs/api-access-section';
 
-// Pro subscription price ID - set in environment or use placeholder
-const PRO_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID ?? "";
-
 export default async function ApiDocsIndex() {
   const spec = await parseOpenAPISpec();
 
@@ -107,7 +104,7 @@ export default async function ApiDocsIndex() {
           </div>
 
           <div>
-            <ApiAccessSection priceId={PRO_PRICE_ID} />
+            <ApiAccessSection checkoutTier="api_access" />
           </div>
         </div>
       </section>
@@ -313,4 +310,3 @@ export default async function ApiDocsIndex() {
     </div>
   );
 }
-

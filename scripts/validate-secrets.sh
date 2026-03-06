@@ -126,6 +126,7 @@ check_secret "STRIPE_SECRET_KEY" true
 check_secret "STRIPE_PUBLISHABLE_KEY" true
 check_secret "STRIPE_WEBHOOK_SECRET" true
 check_secret "STRIPE_PRO_PRICE_ID" true
+check_secret "STRIPE_API_ACCESS_PRICE_ID" false
 echo ""
 
 # =============================================================================
