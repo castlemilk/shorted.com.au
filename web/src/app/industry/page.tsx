@@ -1,6 +1,7 @@
 import { type Metadata } from "next";
 import Link from "next/link";
-import { Building2, TrendingDown, ChevronRight } from "lucide-react";
+import Image from "next/image";
+import { TrendingDown, ChevronRight } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import {
@@ -13,6 +14,7 @@ import {
 import { Badge } from "~/@/components/ui/badge";
 import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
 import { getIndustryData } from "../actions/industry/getIndustryData";
+import { getSectorImagePath, getSectorImageAlt } from "~/@/lib/sector-images";
 
 export const metadata: Metadata = {
   title: "ASX Short Positions by Industry | Sector Analysis",
@@ -91,8 +93,14 @@ export default async function IndustryIndexPage() {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <Building2 className="h-5 w-5 text-primary" />
+                      <div className="relative h-12 w-12 flex-shrink-0">
+                        <Image
+                          src={getSectorImagePath(industry.name)}
+                          alt={getSectorImageAlt(industry.name)}
+                          width={48}
+                          height={48}
+                          className="rounded-lg object-contain drop-shadow-sm"
+                        />
                       </div>
                       <div>
                         <CardTitle className="text-lg group-hover:text-primary transition-colors">

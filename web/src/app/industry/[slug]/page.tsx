@@ -1,6 +1,6 @@
 import { type Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import Image from "next/image";
 import {
   TrendingUp,
   TrendingDown,
@@ -26,6 +26,7 @@ import {
   ItemListStructuredData,
 } from "~/@/components/seo/enhanced-structured-data";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
+import { getSectorImagePath, getSectorImageAlt } from "~/@/lib/sector-images";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -112,11 +113,17 @@ export default async function IndustryPage({ params }: PageProps) {
       <DashboardLayout>
         <div className="space-y-8">
           <section className="relative border-b border-border/40 pb-8">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-3 bg-primary/10 rounded-lg">
-                <Building2 className="h-8 w-8 text-primary" />
+            <div className="flex items-start gap-5 mb-4">
+              <div className="relative h-20 w-20 md:h-28 md:w-28 flex-shrink-0">
+                <Image
+                  src={getSectorImagePath("other")}
+                  alt="Industry sector icon"
+                  width={112}
+                  height={112}
+                  className="rounded-xl object-contain drop-shadow-md opacity-50"
+                />
               </div>
-              <div>
+              <div className="pt-1">
                 <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
                   Industry Short Positions
                 </h1>
@@ -186,25 +193,31 @@ export default async function IndustryPage({ params }: PageProps) {
 
         {/* Hero Section */}
         <section className="relative border-b border-border/40 pb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 bg-primary/10 rounded-lg">
-              <Building2 className="h-8 w-8 text-primary" />
+          <div className="flex items-start gap-5 mb-4">
+            <div className="relative h-20 w-20 md:h-28 md:w-28 flex-shrink-0">
+              <Image
+                src={getSectorImagePath(industry.name)}
+                alt={getSectorImageAlt(industry.name)}
+                width={112}
+                height={112}
+                priority
+                className="rounded-xl object-contain drop-shadow-md"
+              />
             </div>
-            <div>
+            <div className="pt-1">
               <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
                 {industry.name} Short Positions
               </h1>
               <p className="text-muted-foreground mt-1">
                 {industry.stockCount} ASX stocks tracked in this sector
               </p>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mt-3">
+                <Clock className="h-3.5 w-3.5" />
+                <span>Data delayed T+4 trading days</span>
+                <span>•</span>
+                <span>Source: ASIC</span>
+              </div>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2 text-sm text-muted-foreground mt-4">
-            <Clock className="h-3.5 w-3.5" />
-            <span>Data delayed T+4 trading days</span>
-            <span>•</span>
-            <span>Source: ASIC</span>
           </div>
         </section>
 
@@ -373,8 +386,15 @@ export default async function IndustryPage({ params }: PageProps) {
               >
                 <Badge
                   variant="outline"
-                  className="hover:bg-primary/10 cursor-pointer gap-1.5"
+                  className="hover:bg-primary/10 cursor-pointer gap-1.5 py-1"
                 >
+                  <Image
+                    src={getSectorImagePath(ri.name)}
+                    alt=""
+                    width={16}
+                    height={16}
+                    className="rounded-sm"
+                  />
                   {ri.name}
                   {ri.avgShortPercent > 0 && (
                     <span className="text-muted-foreground">

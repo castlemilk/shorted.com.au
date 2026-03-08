@@ -1,5 +1,7 @@
 import Link from "next/link";
+import Image from "next/image";
 import { getIndustryData } from "~/app/actions/industry/getIndustryData";
+import { getSectorImagePath } from "~/@/lib/sector-images";
 
 /**
  * Server-rendered "Browse by Industry" section for the homepage.
@@ -48,6 +50,13 @@ export async function BrowseByIndustry() {
             href={`/industry/${industry.slug}`}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-border/50 bg-muted/30 hover:bg-muted hover:border-border transition-colors"
           >
+            <Image
+              src={getSectorImagePath(industry.name)}
+              alt=""
+              width={16}
+              height={16}
+              className="rounded-sm"
+            />
             <span>{industry.name}</span>
             {industry.avgShortPercent > 0 && (
               <span className="text-muted-foreground">
