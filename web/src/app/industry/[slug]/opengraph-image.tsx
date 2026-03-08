@@ -48,20 +48,16 @@ async function getLogoImage(): Promise<string> {
   return cachedLogo;
 }
 
-// Map industry slug to sector image filename
-function slugToSectorFilename(slug: string): string {
-  // slug is like "financial-services" → "financial_services"
-  return slug.replace(/-/g, "_");
-}
+// Use the shared sector image mapping to resolve industry name → filename
+import { getSectorImagePathPng } from "~/@/lib/sector-images";
 
-async function getSectorImage(slug: string): Promise<string> {
-  const filename = slugToSectorFilename(slug);
-  // Try PNG first (better quality for OG), fallback to WebP
-  const pngSrc = await getAssetBase64(
-    `public/assets/sectors/${filename}.png`,
-  );
+async function getSectorImage(industryName: string): Promise<string> {
+  // getSectorImagePathPng returns "/assets/sectors/foo.png" — prepend "public"
+  const relPath = getSectorImagePathPng(industryName);
+  const pngSrc = await getAssetBase64(`public${relPath}`);
   if (pngSrc) return pngSrc;
-  return getAssetBase64(`public/assets/sectors/${filename}.webp`);
+  // Fallback to webp
+  return getAssetBase64(`public${relPath.replace(".png", ".webp")}`);
 }
 
 // Fetch industry data from API
@@ -154,14 +150,14 @@ export default async function Image({
 }) {
   const { slug } = await params;
 
-  const [bgSrc, logoSrc, sectorSrc, industryData] = await Promise.all([
+  const [bgSrc, logoSrc, industryData] = await Promise.all([
     getBackgroundImage(),
     getLogoImage(),
-    getSectorImage(slug),
     getIndustryOGData(slug),
   ]);
 
   const industryName = industryData?.name ?? slug.replace(/-/g, " ");
+  const sectorSrc = await getSectorImage(industryName);
   const stockCount = industryData?.stockCount ?? 0;
   const avgShort = industryData?.avgShortPercent ?? 0;
   const topCode = industryData?.topStockCode ?? "";
