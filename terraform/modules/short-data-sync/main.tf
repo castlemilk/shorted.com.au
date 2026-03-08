@@ -119,7 +119,6 @@ resource "google_cloud_run_v2_job" "short_data_sync" {
             cpu    = "2"
             memory = "4Gi"
           }
-          cpu_idle = true
         }
       }
     }
