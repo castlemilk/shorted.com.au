@@ -18,7 +18,6 @@ All services are deployed to Google Cloud Platform using Terraform for infrastru
 │  │  - stock-price-ingestion:latest                        │    │
 │  │  - short-data-sync:latest                              │    │
 │  │  - shorts:latest                                       │    │
-│  │  - cms:latest                                          │    │
 │  └────────────────────────────────────────────────────────┘    │
 │                           │                                      │
 │                           │ pulls images                         │
@@ -67,14 +66,6 @@ All services are deployed to Google Cloud Platform using Terraform for infrastru
 │  │  │  - Public: Yes                               │         │  │
 │  │  └─────────────────────────────────────────────┘         │  │
 │  │                                                           │  │
-│  │  ┌─────────────────────────────────────────────┐         │  │
-│  │  │  CMS Service (Payload)                       │         │  │
-│  │  │  - Type: Cloud Run Service                   │         │  │
-│  │  │  - Port: 3000                                │         │  │
-│  │  │  - Scaling: 0-10 instances                   │         │  │
-│  │  │  - Endpoints: /admin, /api/*                 │         │  │
-│  │  └─────────────────────────────────────────────┘         │  │
-│  │                                                           │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────┐    │
@@ -90,7 +81,6 @@ All services are deployed to Google Cloud Platform using Terraform for infrastru
 │  │  - ALPHA_VANTAGE_API_KEY                               │    │
 │  │  - DATABASE_URL                                        │    │
 │  │  - APP_STORE_POSTGRES_PASSWORD                         │    │
-│  │  - MONGODB_URI (optional)                              │    │
 │  └────────────────────────────────────────────────────────┘    │
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────┐    │
@@ -98,7 +88,6 @@ All services are deployed to Google Cloud Platform using Terraform for infrastru
 │  │  - stock-price-ingestion@...                           │    │
 │  │  - short-data-sync@...                                 │    │
 │  │  - shorts@...                                          │    │
-│  │  - cms@...                                             │    │
 │  └────────────────────────────────────────────────────────┘    │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
@@ -190,7 +179,6 @@ Shorts API Service (gRPC/Connect RPC)
 | stock-price-ingestion | stock-price-ingestion@... | Secret Manager (ALPHA_VANTAGE_API_KEY, DATABASE_URL)      |
 | short-data-sync       | short-data-sync@...       | Secret Manager (DATABASE_URL), Storage Admin (GCS bucket) |
 | shorts                | shorts@...                | Secret Manager (APP_STORE_POSTGRES_PASSWORD)              |
-| cms                   | cms@...                   | Secret Manager (MONGODB_URI, optional)                    |
 
 ### Secret Access Pattern
 
@@ -217,7 +205,6 @@ Cloud Run Service
 ### Public Access
 
 - ✅ **Shorts API**: Public (allUsers can invoke)
-- ✅ **CMS**: Public (allUsers can invoke)
 - ✅ **Stock Price Ingestion**: Public (for scheduler + manual triggers)
 - 🔒 **Short Data Sync**: Private (only scheduler can invoke)
 
@@ -228,7 +215,6 @@ Cloud Run Service
 | stock-price-ingestion | 0   | 10  | HTTP requests               |
 | short-data-sync       | -   | -   | Job execution only          |
 | shorts                | 1   | 100 | HTTP requests (low latency) |
-| cms                   | 0   | 10  | HTTP requests               |
 
 ## Cost Optimization
 
@@ -239,8 +225,6 @@ Cloud Run Service
 ### Scale-to-Zero Services
 
 - **Stock Price Ingestion**: Scales to 0 when not in use
-- **CMS**: Scales to 0 (admin tool, low usage)
-
 ### Batch Processing
 
 - **Short Data Sync**: Cloud Run Job (pay per execution)
@@ -305,7 +289,6 @@ Access via Cloud Console or Cloud Monitoring API.
 | --------------------- | --------------- | --------------------------- |
 | stock-price-ingestion | GET /health     | Startup: 10s, Liveness: 30s |
 | shorts                | GET /health     | Startup: 5s, Liveness: 30s  |
-| cms                   | GET /api/health | Startup: 10s, Liveness: 30s |
 
 ## Disaster Recovery
 

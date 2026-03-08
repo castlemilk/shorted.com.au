@@ -192,10 +192,7 @@
   - FireStore, MemoryStorage, DynamoDB defined but never used
   - Only PostgresStore is implemented
 
-- [ ] **Remove CMS directory** - `/cms/`
-  - Last modified April 2024
-  - Node modules from 10 months ago
-  - Likely abandoned Strapi CMS
+- [x] **Remove CMS directory** - `/cms/` (completed - PayloadCMS fully decommissioned, data migrated to main DB)
 
 - [ ] **Clean up orphaned user.pb.go** - `services/gen/proto/go/user/v1/user.pb.go`
   - Generated code exists without corresponding proto

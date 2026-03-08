@@ -9,8 +9,7 @@ terraform/
 ├── modules/
 │   ├── stock-price-ingestion/    # Stock price data ingestion
 │   ├── short-data-sync/          # ASIC short selling data sync
-│   ├── shorts-api/               # Main Shorts API service
-│   └── cms/                      # Payload CMS
+│   └── shorts-api/               # Main Shorts API service
 │
 └── environments/
     └── dev/                       # Development environment
@@ -43,11 +42,6 @@ terraform/
 - **Always-on** - Min 1 instance for low latency
 - **gRPC/Connect RPC** - Protocol buffer based API
 
-#### 4. CMS (Payload CMS)
-
-- **Cloud Run Service** - Content management system
-- **Admin Interface** - Manage metadata, blog posts, media
-
 ### ✅ Infrastructure
 
 - **Artifact Registry** - Docker image storage
@@ -62,7 +56,6 @@ Terraform references but doesn't create secret values. Create these separately:
 - `ALPHA_VANTAGE_API_KEY` - Alpha Vantage API key
 - `DATABASE_URL` - PostgreSQL connection string
 - `APP_STORE_POSTGRES_PASSWORD` - Postgres password
-- `MONGODB_URI` - MongoDB connection (optional, for CMS)
 
 📚 **For detailed service documentation, see [SERVICES.md](SERVICES.md)**
 

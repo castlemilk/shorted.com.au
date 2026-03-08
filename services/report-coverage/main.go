@@ -46,11 +46,6 @@ func main() {
 		log.Fatal("DATABASE_URL environment variable required")
 	}
 
-	cmsDBURL := os.Getenv("CMS_DATABASE_URL")
-	if cmsDBURL == "" {
-		log.Fatal("CMS_DATABASE_URL environment variable required")
-	}
-
 	ctx := context.Background()
 
 	mainDB, err := connectDB(ctx, mainDBURL)
@@ -59,66 +54,28 @@ func main() {
 	}
 	defer mainDB.Close()
 
-	cmsDB, err := connectDB(ctx, cmsDBURL)
-	if err != nil {
-		log.Fatalf("Failed to connect to CMS DB: %v", err)
-	}
-	defer cmsDB.Close()
-
-	// Step 1: Load CMS data (stock_code → URLs)
-	log.Println("=== Loading CMS investor page URLs ===")
-	cmsLinks, err := loadCMSLinks(ctx, cmsDB)
-	if err != nil {
-		log.Fatalf("Failed to load CMS links: %v", err)
-	}
-	log.Printf("Loaded %d companies with URLs from CMS", len(cmsLinks))
-
-	// Step 2: Load CMS websites
-	cmsWebsites, err := loadCMSWebsites(ctx, cmsDB)
-	if err != nil {
-		log.Fatalf("Failed to load CMS websites: %v", err)
-	}
-	log.Printf("Loaded %d company websites from CMS", len(cmsWebsites))
-
-	// Step 3: Load main DB state (which companies have reports, websites)
-	log.Println("=== Loading main DB company state ===")
+	// Load company state from main DB (includes corporate_links)
+	log.Println("=== Loading company state from main DB ===")
 	mainState, err := loadMainDBState(ctx, mainDB)
 	if err != nil {
 		log.Fatalf("Failed to load main DB state: %v", err)
 	}
 	log.Printf("Main DB: %d companies total", len(mainState))
 
-	// Step 4: Compute gaps
+	// Compute gaps — find companies with corporate links but no reports
 	var (
-		missingReports []gapCompany // companies with CMS URLs but no reports in main DB
-		missingWebsite []gapCompany // companies with CMS website but no website in main DB
-		directPDFs     []gapCompany // companies with direct PDF links in CMS
+		missingReports []gapCompany // companies with investor URLs but no reports
+		directPDFs     []gapCompany // companies with direct PDF links
 	)
 
-	for code, links := range cmsLinks {
-		state, exists := mainState[code]
-		if !exists {
-			continue // CMS company not in main DB
-		}
-
-		// Check for missing website
-		if state.website == "" {
-			if ws, ok := cmsWebsites[code]; ok && ws != "" {
-				missingWebsite = append(missingWebsite, gapCompany{
-					stockCode: code,
-					urls:      []string{ws},
-					shortPct:  state.shortPct,
-				})
-			}
-		}
-
+	for code, state := range mainState {
 		if state.hasReports {
 			continue // already has reports
 		}
 
-		// Separate direct PDFs from crawlable pages
+		// Use investor_relations links from corporate_links JSONB
 		var crawlURLs, pdfURLs []string
-		for _, link := range links {
+		for _, link := range state.investorLinks {
 			lower := strings.ToLower(link)
 			if strings.HasSuffix(lower, ".pdf") {
 				pdfURLs = append(pdfURLs, link)
@@ -140,19 +97,8 @@ func main() {
 				urls:      crawlURLs,
 				shortPct:  state.shortPct,
 			})
-		}
-	}
-
-	// Also add companies that have a website in main DB but no reports, and no CMS links
-	// — use their existing website for crawling
-	for code, state := range mainState {
-		if state.hasReports {
-			continue
-		}
-		if _, hasCMS := cmsLinks[code]; hasCMS {
-			continue // already queued from CMS links
-		}
-		if state.website != "" {
+		} else if state.website != "" {
+			// No corporate links — fall back to company website
 			missingReports = append(missingReports, gapCompany{
 				stockCode: code,
 				urls:      []string{state.website},
@@ -163,42 +109,33 @@ func main() {
 
 	// Sort by short percentage descending (most shorted first)
 	sortByShortPct(missingReports)
-	sortByShortPct(missingWebsite)
 	sortByShortPct(directPDFs)
 
 	// Apply --codes filter
 	if *flagCodes != "" {
 		codeSet := parseCodesFlag(*flagCodes)
 		missingReports = filterByCodes(missingReports, codeSet)
-		missingWebsite = filterByCodes(missingWebsite, codeSet)
+		// missingWebsite removed (was CMS-only)
 		directPDFs = filterByCodes(directPDFs, codeSet)
 	}
 
 	log.Printf("Gap analysis:")
 	log.Printf("  Companies missing reports (crawlable URLs): %d", len(missingReports))
 	log.Printf("  Companies with direct PDF links: %d", len(directPDFs))
-	log.Printf("  Companies missing website in main DB: %d", len(missingWebsite))
 
 	mode := *flagMode
 
-	// Phase A: Update missing websites
-	if mode == "all" || mode == "update-websites" {
-		log.Println("")
-		log.Println("=== Phase A: Updating missing websites from CMS ===")
-		updateMissingWebsites(ctx, mainDB, missingWebsite, cmsWebsites)
-	}
-
-	// Phase B: Import direct PDF links
+	// Phase A: Import direct PDF links
 	if mode == "all" || mode == "direct-only" {
 		log.Println("")
-		log.Println("=== Phase B: Importing direct PDF links from CMS ===")
+		log.Println("=== Phase A: Importing direct PDF links ===")
 		importDirectPDFs(ctx, mainDB, directPDFs)
 	}
 
-	// Phase C: Crawl investor pages
+	// Phase B: Crawl investor pages
 	if mode == "all" || mode == "crawl-only" {
 		log.Println("")
-		log.Println("=== Phase C: Crawling investor pages for reports ===")
+		log.Println("=== Phase B: Crawling investor pages for reports ===")
 		crawlForReports(ctx, mainDB, missingReports)
 	}
 }
@@ -210,10 +147,11 @@ type gapCompany struct {
 }
 
 type mainDBCompany struct {
-	website    string
-	hasReports bool
-	shortPct   float64
-	reports    []FinancialReport
+	website       string
+	hasReports    bool
+	shortPct      float64
+	reports       []FinancialReport
+	investorLinks []string
 }
 
 func connectDB(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
@@ -226,63 +164,13 @@ func connectDB(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
 	return pgxpool.NewWithConfig(ctx, config)
 }
 
-func loadCMSLinks(ctx context.Context, db *pgxpool.Pool) (map[string][]string, error) {
-	rows, err := db.Query(ctx, `
-		SELECT m.stock_code, ml.link
-		FROM metadata m
-		JOIN metadata_links ml ON ml._parent_id = m.id
-		WHERE ml.link IS NOT NULL AND ml.link != ''
-		ORDER BY m.stock_code, ml._order
-	`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	result := make(map[string][]string)
-	for rows.Next() {
-		var code, link string
-		if err := rows.Scan(&code, &link); err != nil {
-			continue
-		}
-		code = strings.ToUpper(strings.TrimSpace(code))
-		link = strings.TrimSpace(link)
-		if code != "" && link != "" {
-			result[code] = append(result[code], link)
-		}
-	}
-	return result, rows.Err()
-}
-
-func loadCMSWebsites(ctx context.Context, db *pgxpool.Pool) (map[string]string, error) {
-	rows, err := db.Query(ctx, `
-		SELECT stock_code, website
-		FROM metadata
-		WHERE website IS NOT NULL AND website != ''
-	`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	result := make(map[string]string)
-	for rows.Next() {
-		var code, website string
-		if err := rows.Scan(&code, &website); err != nil {
-			continue
-		}
-		code = strings.ToUpper(strings.TrimSpace(code))
-		result[code] = strings.TrimSpace(website)
-	}
-	return result, rows.Err()
-}
-
 func loadMainDBState(ctx context.Context, db *pgxpool.Pool) (map[string]mainDBCompany, error) {
 	rows, err := db.Query(ctx, `
 		WITH latest AS (SELECT MAX("DATE") AS max_date FROM shorts)
 		SELECT cm.stock_code,
 			COALESCE(cm.website, '') as website,
 			COALESCE(cm.financial_reports::text, '[]') as financial_reports,
+			COALESCE(cm.corporate_links::text, '{}') as corporate_links,
 			COALESCE(s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS", 0) as short_pct
 		FROM "company-metadata" cm
 		LEFT JOIN latest l ON true
@@ -296,9 +184,9 @@ func loadMainDBState(ctx context.Context, db *pgxpool.Pool) (map[string]mainDBCo
 
 	result := make(map[string]mainDBCompany)
 	for rows.Next() {
-		var code, website, reportsJSON string
+		var code, website, reportsJSON, corporateLinksJSON string
 		var shortPct float64
-		if err := rows.Scan(&code, &website, &reportsJSON, &shortPct); err != nil {
+		if err := rows.Scan(&code, &website, &reportsJSON, &corporateLinksJSON, &shortPct); err != nil {
 			continue
 		}
 
@@ -307,44 +195,20 @@ func loadMainDBState(ctx context.Context, db *pgxpool.Pool) (map[string]mainDBCo
 
 		hasReports := len(reports) > 0 && reportsJSON != "[]" && reportsJSON != "null"
 
+		// Extract investor_relations links from corporate_links JSONB
+		var corporateLinks map[string][]string
+		_ = json.Unmarshal([]byte(corporateLinksJSON), &corporateLinks)
+		investorLinks := corporateLinks["investor_relations"]
+
 		result[code] = mainDBCompany{
-			website:    website,
-			hasReports: hasReports,
-			shortPct:   shortPct,
-			reports:    reports,
+			website:       website,
+			hasReports:    hasReports,
+			shortPct:      shortPct,
+			reports:       reports,
+			investorLinks: investorLinks,
 		}
 	}
 	return result, rows.Err()
-}
-
-func updateMissingWebsites(ctx context.Context, db *pgxpool.Pool, companies []gapCompany, cmsWebsites map[string]string) {
-	updated := 0
-	for _, c := range companies {
-		ws, ok := cmsWebsites[c.stockCode]
-		if !ok || ws == "" {
-			continue
-		}
-
-		if *flagVerbose {
-			log.Printf("  %s: setting website to %s", c.stockCode, ws)
-		}
-
-		if *flagDryRun {
-			updated++
-			continue
-		}
-
-		_, err := db.Exec(ctx,
-			`UPDATE "company-metadata" SET website = $1 WHERE stock_code = $2 AND (website IS NULL OR website = '')`,
-			ws, c.stockCode,
-		)
-		if err != nil {
-			log.Printf("  ERROR updating website for %s: %v", c.stockCode, err)
-			continue
-		}
-		updated++
-	}
-	log.Printf("Updated %d company websites from CMS", updated)
 }
 
 func importDirectPDFs(ctx context.Context, db *pgxpool.Pool, companies []gapCompany) {
@@ -429,7 +293,7 @@ func crawlForReports(ctx context.Context, db *pgxpool.Pool, companies []gapCompa
 					Date:   r.Date,
 					Type:   r.Type,
 					Title:  r.Title,
-					Source: "cms_crawl",
+					Source: "investor_crawl",
 				})
 			}
 
@@ -559,7 +423,7 @@ func buildReportFromPDFURL(pdfURL string) FinancialReport {
 		Date:   date,
 		Type:   reportType,
 		Title:  title,
-		Source: "cms_import",
+		Source: "links_import",
 	}
 }
 
@@ -629,14 +493,12 @@ func sourcePriority(source string) int {
 		return 0
 	case "smart_crawler", "crawler":
 		return 1
-	case "cms_crawl":
+	case "investor_crawl":
 		return 2
 	case "live_crawl":
 		return 3
-	case "cms_import":
-		return 4
 	case "links_import":
-		return 5
+		return 4
 	default:
 		return 6
 	}

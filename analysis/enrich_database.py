@@ -43,7 +43,6 @@ load_dotenv()
 
 # Configuration (must be set in .env file)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-CMS_DATABASE_URL = os.getenv("CMS_DATABASE_URL")
 DATABASE_URL = os.getenv("DATABASE_URL")
 GCS_LOGO_BASE_URL = os.getenv(
     "GCS_LOGO_BASE_URL", "https://storage.googleapis.com/shorted-company-logos/logos"
@@ -58,10 +57,6 @@ if not OPENAI_API_KEY:
     raise ValueError(
         "OPENAI_API_KEY environment variable is required. Please set it in .env file"
     )
-if not CMS_DATABASE_URL:
-    raise ValueError(
-        "CMS_DATABASE_URL environment variable is required. Please set it in .env file"
-    )
 if not DATABASE_URL:
     raise ValueError(
         "DATABASE_URL environment variable is required. Please set it in .env file"
@@ -70,24 +65,9 @@ if not DATABASE_URL:
 # Initialize OpenAI client
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# Create database engines with connection pooling (reuse connections)
+# Create database engine with connection pooling (reuse connections)
 # This prevents "max clients reached" errors
-_cms_engine = None
 _target_engine = None
-
-
-def get_cms_engine():
-    """Get or create CMS database engine with connection pooling"""
-    global _cms_engine
-    if _cms_engine is None:
-        _cms_engine = create_engine(
-            CMS_DATABASE_URL,
-            pool_size=2,  # Small pool for read-only operations
-            max_overflow=0,
-            pool_pre_ping=True,  # Verify connections before using
-            pool_recycle=3600,  # Recycle connections after 1 hour
-        )
-    return _cms_engine
 
 
 def get_target_engine():
@@ -105,60 +85,46 @@ def get_target_engine():
 
 
 def fetch_existing_metadata() -> pd.DataFrame:
-    """Fetch company metadata from Payload CMS with investor links"""
-    engine = get_cms_engine()
+    """Fetch company metadata from the main database with corporate links"""
+    engine = get_target_engine()
 
-    # Fetch base metadata
     query = """
     SELECT
-        m.id,
-        m.stock_code,
-        m.company_name,
-        m.industry,
-        m.market_cap,
-        m.listing_date,
-        m.address,
-        m.summary,
-        m.details,
-        m.website,
-        m.company_logo_link
-    FROM metadata m
-    WHERE m.stock_code IS NOT NULL
-    ORDER BY m.company_name
+        stock_code,
+        company_name,
+        industry,
+        market_cap,
+        listing_date,
+        address,
+        summary,
+        details,
+        website,
+        company_logo_link,
+        logo_gcs_url,
+        corporate_links
+    FROM "company-metadata"
+    WHERE stock_code IS NOT NULL
+    ORDER BY company_name
     """
     df = pd.read_sql(query, engine)
 
-    # Fetch investor links
-    links_query = """
-    SELECT
-        ml._parent_id,
-        ml.link,
-        ml._order
-    FROM metadata_links ml
-    ORDER BY ml._parent_id, ml._order
-    """
-    df_links = pd.read_sql(links_query, engine)
-    # Don't dispose - we're reusing the engine
+    # Extract investor links from corporate_links JSONB
+    def extract_investor_links(corporate_links):
+        if not corporate_links or not isinstance(corporate_links, dict):
+            return []
+        return corporate_links.get("investor_relations", [])
 
-    # Merge links
-    if not df_links.empty:
-        df_links_agg = df_links.groupby("_parent_id")["link"].apply(list).reset_index()
-        df_links_agg.columns = ["id", "investor_links"]
-        df = df.merge(df_links_agg, on="id", how="left")
-    else:
-        df["investor_links"] = None
+    df["investor_links"] = df["corporate_links"].apply(extract_investor_links)
+    df = df.drop(columns=["corporate_links"])
 
-    df["investor_links"] = df["investor_links"].apply(
-        lambda x: x if isinstance(x, list) else []
-    )
-
-    # Add GCS logo URL
-    df["logo_gcs_url"] = df["stock_code"].apply(
-        lambda code: f"{GCS_LOGO_BASE_URL}/{code.upper()}.svg"
+    # Fill logo_gcs_url if missing
+    df["logo_gcs_url"] = df.apply(
+        lambda row: row["logo_gcs_url"] if row["logo_gcs_url"] else f"{GCS_LOGO_BASE_URL}/{row['stock_code'].upper()}.svg",
+        axis=1,
     )
 
     companies_with_links = (df["investor_links"].str.len() > 0).sum()
-    print(f"✓ Fetched {len(df)} companies from Payload CMS")
+    print(f"✓ Fetched {len(df)} companies from main database")
     print(
         f"✓ {companies_with_links} companies have investor links (avg {df['investor_links'].str.len().mean():.1f} links each)"
     )
@@ -346,7 +312,7 @@ def fetch_annual_reports(company: pd.Series) -> List[Dict[str, str]]:
             return True
         return False
 
-    # Use PayloadCMS investor links with SMART CRAWLER
+    # Use investor links with SMART CRAWLER
     investor_links = company.get("investor_links", [])
     if isinstance(investor_links, list) and investor_links:
         for link in investor_links[:3]:  # Try first 3 links

@@ -30,7 +30,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Database connection
-DATABASE_URL = os.environ['CMS_DATABASE_URL']
+DATABASE_URL = os.environ['DATABASE_URL']
 
 # ============================================================================
 # SMART CRAWLER (Copy from notebook)
@@ -203,45 +203,31 @@ def crawl_for_reports(start_url: str, max_depth: int = 2, max_pages: int = 20) -
 # ============================================================================
 
 def fetch_test_companies() -> pd.DataFrame:
-    """Fetch test companies from PayloadCMS"""
+    """Fetch test companies from the main database"""
     engine = create_engine(DATABASE_URL)
-    
+
     query = """
-    SELECT 
-        m.id,
-        m.stock_code,
-        m.company_name,
-        m.website
-    FROM metadata m
-    WHERE m.stock_code IN ('5GN', 'BHP', 'CBA', 'ANZ', 'WBC', 'BAP', 'NSB')
+    SELECT
+        stock_code,
+        company_name,
+        website,
+        corporate_links
+    FROM "company-metadata"
+    WHERE stock_code IN ('5GN', 'BHP', 'CBA', 'ANZ', 'WBC', 'BAP', 'NSB')
     """
-    
+
     df = pd.read_sql(query, engine)
-    
-    # Fetch investor links
-    links_query = """
-    SELECT 
-        ml._parent_id,
-        ml.link
-    FROM metadata_links ml
-    WHERE ml._parent_id IN (
-        SELECT id FROM metadata WHERE stock_code IN ('5GN', 'BHP', 'CBA', 'ANZ', 'WBC', 'BAP', 'NSB')
-    )
-    ORDER BY ml._parent_id, ml._order
-    """
-    
-    df_links = pd.read_sql(links_query, engine)
     engine.dispose()
-    
-    if not df_links.empty:
-        df_links_agg = df_links.groupby('_parent_id')['link'].apply(list).reset_index()
-        df_links_agg.columns = ['id', 'investor_links']
-        df = df.merge(df_links_agg, on='id', how='left')
-    else:
-        df['investor_links'] = None
-    
-    df['investor_links'] = df['investor_links'].apply(lambda x: x if isinstance(x, list) else [])
-    
+
+    # Extract investor_relations links from corporate_links JSONB
+    def extract_investor_links(corporate_links):
+        if not corporate_links or not isinstance(corporate_links, dict):
+            return []
+        return corporate_links.get("investor_relations", [])
+
+    df['investor_links'] = df['corporate_links'].apply(extract_investor_links)
+    df = df.drop(columns=['corporate_links'])
+
     return df
 
 def test_crawler_on_company(stock_code: str, company_name: str, investor_links: List[str]) -> Dict[str, Any]:
@@ -325,7 +311,7 @@ def run_integration_tests():
     print("=" * 80)
     
     # Fetch test companies
-    print("\n📥 Fetching test companies from PayloadCMS...")
+    print("\n📥 Fetching test companies...")
     df_companies = fetch_test_companies()
     print(f"✅ Loaded {len(df_companies)} test companies")
     

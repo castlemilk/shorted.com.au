@@ -8,7 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 import { format, subDays } from 'date-fns';
 
 // Test database connection (can be overridden with env vars)
-const supabaseUrl = process.env.SUPABASE_URL || 'https://vfzzkelbpyjdvuujyrpu.supabase.co';
+const supabaseUrl = process.env.SUPABASE_URL || 'https://xivfykscsdagwsreyqgf.supabase.co';
 const supabaseKey = process.env.SUPABASE_ANON_KEY || 'your-anon-key';
 
 // Test stocks to seed

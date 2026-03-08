@@ -21,7 +21,6 @@ load_dotenv()
 # Configuration
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 DATABASE_URL = os.getenv('DATABASE_URL')
-CMS_DATABASE_URL = os.getenv('CMS_DATABASE_URL', DATABASE_URL)
 GCS_LOGO_BASE_URL = os.getenv('GCS_LOGO_BASE_URL', 'https://storage.googleapis.com/shorted-company-logos/logos')
 
 print("🧪 Company Metadata Enrichment - Test Run")

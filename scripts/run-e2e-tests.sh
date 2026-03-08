@@ -127,7 +127,7 @@ echo -e "${YELLOW}🚀 Starting backend services...${NC}"
 if [ "$TEST_MODE" = "ci" ]; then
     export DATABASE_URL="${TEST_DATABASE_URL:-$DATABASE_URL}"
 else
-    export DATABASE_URL="${DATABASE_URL:-postgres://postgres.vfzzkelbpyjdvuujyrpu:bxmsrFPazXawzeav@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres}"
+    export DATABASE_URL="${DATABASE_URL:-postgresql://admin:password@localhost:5438/shorts}"
 fi
 
 # If a DATABASE_URL is available, parse it and export settings for the shorts service
