@@ -24,7 +24,6 @@ const StockTabs = dynamic(
   () => import("~/@/components/company/stock-tabs").then((m) => m.StockTabs),
   { ssr: false }
 );
-import { StockTabsOverview, StockTabsFinancials } from "~/@/components/company/stock-tabs";
 import { Suspense } from "react";
 import {
   Breadcrumbs,
@@ -241,8 +240,9 @@ const Page = async ({ params }: PageProps) => {
       </div>
 
       {/* Tabbed content area */}
-      <StockTabs stockCode={stockCode}>
-        <StockTabsOverview>
+      <StockTabs
+        stockCode={stockCode}
+        overviewContent={
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-start">
             <div className="md:col-span-1 flex flex-col gap-4 md:gap-6">
               <Suspense fallback={<CompanyInfoPlaceholder />}>
@@ -310,16 +310,16 @@ const Page = async ({ params }: PageProps) => {
               <EnrichedCompanySection stockCode={stockCode} />
             </div>
           </div>
-        </StockTabsOverview>
-        <StockTabsFinancials>
+        }
+        financialsContent={
           <div className="flex flex-col gap-4 md:gap-6">
             <Suspense fallback={<CompanyFinancialsPlaceholder />}>
               <CompanyFinancials stockCode={stockCode} />
             </Suspense>
             <EnrichedCompanySection stockCode={stockCode} />
           </div>
-        </StockTabsFinancials>
-      </StockTabs>
+        }
+      />
     </DashboardLayout>
   );
 };
