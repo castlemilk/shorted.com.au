@@ -53,8 +53,8 @@ export async function BrowseByIndustry() {
             <Image
               src={getSectorImagePath(industry.name)}
               alt=""
-              width={16}
-              height={16}
+              width={20}
+              height={20}
               className="rounded-sm"
             />
             <span>{industry.name}</span>

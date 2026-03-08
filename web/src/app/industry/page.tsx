@@ -93,12 +93,12 @@ export default async function IndustryIndexPage() {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="relative h-12 w-12 flex-shrink-0">
+                      <div className="relative h-16 w-16 flex-shrink-0">
                         <Image
                           src={getSectorImagePath(industry.name)}
                           alt={getSectorImageAlt(industry.name)}
-                          width={48}
-                          height={48}
+                          width={64}
+                          height={64}
                           className="rounded-lg object-contain drop-shadow-sm"
                         />
                       </div>
