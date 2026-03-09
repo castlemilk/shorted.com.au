@@ -92,7 +92,7 @@ resource "google_cloud_run_v2_service" "stock_price_ingestion" {
       resources {
         limits = {
           cpu    = "1"
-          memory = "1Gi"
+          memory = "512Mi"
         }
         cpu_idle          = true # Throttle CPU when idle to reduce costs
         startup_cpu_boost = true

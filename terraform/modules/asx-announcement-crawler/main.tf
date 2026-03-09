@@ -103,7 +103,7 @@ resource "google_cloud_run_v2_job" "asx_announcement_crawler" {
         resources {
           limits = {
             cpu    = "1"
-            memory = "1Gi"
+            memory = "512Mi"
           }
         }
       }
