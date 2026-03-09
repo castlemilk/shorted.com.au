@@ -15,6 +15,7 @@ import { ParentSize } from "@visx/responsive";
 import { scaleLinear } from "@visx/scale";
 import { useRouter } from "next/navigation";
 import { TreemapTooltip } from "./treemap-tooltip";
+import { getSectorImagePath } from "~/@/lib/sector-images";
 
 interface TreeMapDatum {
   id: string;
@@ -306,6 +307,11 @@ export function IndustryTreemapWidget({ config }: WidgetProps) {
                           // Don't render label if section is too small
                           if (nodeWidth < 50 || nodeHeight < 35) return null;
 
+                          const iconSize = 14;
+                          const showIcon = nodeWidth >= 80;
+                          const textX = showIcon ? iconSize + 10 : 6;
+                          const maxChars = Math.floor((nodeWidth - textX - 4) / 7);
+
                           return (
                             <Group
                               key={`sector-label-${i}`}
@@ -330,8 +336,18 @@ export function IndustryTreemapWidget({ config }: WidgetProps) {
                                 stroke="hsl(var(--border))"
                                 strokeWidth={1}
                               />
+                              {/* Sector icon */}
+                              {showIcon && (
+                                <image
+                                  href={getSectorImagePath(node.data.data.id)}
+                                  x={4}
+                                  y={(HEADER_HEIGHT - iconSize) / 2}
+                                  width={iconSize}
+                                  height={iconSize}
+                                />
+                              )}
                               <text
-                                x={6}
+                                x={textX}
                                 y={HEADER_HEIGHT / 2}
                                 dy=".35em"
                                 fontSize={10}
@@ -340,8 +356,8 @@ export function IndustryTreemapWidget({ config }: WidgetProps) {
                                 pointerEvents="none"
                                 fill="hsl(var(--foreground))"
                               >
-                                {`${node.data.data.id.substring(0, Math.floor(nodeWidth / 7))}${
-                                  node.data.data.id.length > Math.floor(nodeWidth / 7)
+                                {`${node.data.data.id.substring(0, maxChars)}${
+                                  node.data.data.id.length > maxChars
                                     ? "..."
                                     : ""
                                 }`}

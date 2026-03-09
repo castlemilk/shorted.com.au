@@ -74,3 +74,17 @@ export function getSectorImagePathPng(industry: string): string {
 export function getSectorImageAlt(industry: string): string {
   return `${industry} sector icon`;
 }
+
+/**
+ * Get the list of all known valid GICS industry names (for filter dropdowns etc).
+ * Excludes invalid ASIC classifications.
+ */
+export function getKnownIndustries(): string[] {
+  const EXCLUDE = new Set(["class pend", "not applic", "not applicable", "", "other"]);
+  return Object.keys(INDUSTRY_TO_IMAGE)
+    .filter((k) => !EXCLUDE.has(k))
+    .map((k) =>
+      k.replace(/\b\w/g, (c) => c.toUpperCase()) // Title Case
+    )
+    .sort();
+}

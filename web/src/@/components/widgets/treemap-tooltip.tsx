@@ -9,6 +9,7 @@ import {
   type SerializedStockDetails,
   type SerializedTimeSeriesData,
 } from "~/app/actions/tooltip/getTooltipData";
+import { getSectorImagePath } from "~/@/lib/sector-images";
 
 interface TreemapTooltipProps {
   productCode: string;
@@ -215,7 +216,14 @@ export function TreemapTooltip({
               </div>
               <div>
                 <p className="text-muted-foreground">Industry</p>
-                <p className="font-semibold truncate" title={industry}>
+                <p className="font-semibold truncate flex items-center gap-1" title={industry}>
+                  <Image
+                    src={getSectorImagePath(industry)}
+                    alt=""
+                    width={14}
+                    height={14}
+                    className="rounded-sm flex-shrink-0"
+                  />
                   {industry}
                 </p>
               </div>

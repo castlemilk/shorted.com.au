@@ -47,9 +47,13 @@ import {
   TableHeader,
   TableRow,
 } from "~/@/components/ui/table";
-// Popover and Checkbox reserved for advanced filter UI
+import { Popover, PopoverContent, PopoverTrigger } from "~/@/components/ui/popover";
+import { Checkbox } from "~/@/components/ui/checkbox";
 import { Switch } from "~/@/components/ui/switch";
 import { Label } from "~/@/components/ui/label";
+import Image from "next/image";
+import { getSectorImagePath } from "~/@/lib/sector-images";
+import { getKnownIndustries } from "~/@/lib/sector-images";
 
 const PAGE_SIZE = 50;
 
@@ -327,7 +331,7 @@ function downloadYAML(stocks: ScreenerStock[], filename: string) {
     lines.push(`- stockCode: "${String(row.stockCode)}"`);
     for (const [key, val] of Object.entries(row)) {
       if (key === "stockCode") continue;
-      const strVal = val === "" || val == null ? '""' : typeof val === "string" && val.includes(",") ? `"${val}"` : String(val);
+      const strVal = val === "" || val === null || val === undefined ? '""' : typeof val === "string" && val.includes(",") ? `"${val}"` : String(val);
       lines.push(`  ${key}: ${strVal}`);
     }
   }
@@ -690,7 +694,67 @@ export function ScreenerPageClient() {
               />
             </div>
 
-            <div className="flex items-center gap-4 pt-2 border-t">
+            <div className="flex flex-wrap items-center gap-4 pt-2 border-t">
+              {/* Industry filter */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs h-8">
+                    <Filter className="h-3 w-3" />
+                    Industry
+                    {filters.industries.length > 0 && (
+                      <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
+                        {filters.industries.length}
+                      </Badge>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-72 p-2 max-h-80 overflow-y-auto" align="start">
+                  <div className="space-y-1">
+                    {getKnownIndustries().map((industry) => {
+                      const checked = filters.industries.some(
+                        (i) => i.toLowerCase() === industry.toLowerCase()
+                      );
+                      return (
+                        <label
+                          key={industry}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer text-xs"
+                        >
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(val) => {
+                              const updated = val
+                                ? [...filters.industries, industry]
+                                : filters.industries.filter(
+                                    (i) => i.toLowerCase() !== industry.toLowerCase()
+                                  );
+                              updateFilter("industries", updated);
+                            }}
+                          />
+                          <Image
+                            src={getSectorImagePath(industry)}
+                            alt=""
+                            width={16}
+                            height={16}
+                            className="rounded-sm flex-shrink-0"
+                          />
+                          <span className="truncate">{industry}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  {filters.industries.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full mt-2 text-xs h-7"
+                      onClick={() => updateFilter("industries", [])}
+                    >
+                      Clear all
+                    </Button>
+                  )}
+                </PopoverContent>
+              </Popover>
+
               <div className="flex items-center gap-2">
                 <Switch
                   id="director-buys"
@@ -1053,8 +1117,23 @@ export function ScreenerPageClient() {
                             </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-right text-xs text-muted-foreground truncate max-w-[120px]">
-                          {stock.industry || "-"}
+                        <TableCell className="text-right text-xs text-muted-foreground max-w-[150px]">
+                          <span className="inline-flex items-center gap-1.5 justify-end">
+                            {stock.industry ? (
+                              <>
+                                <Image
+                                  src={getSectorImagePath(stock.industry)}
+                                  alt=""
+                                  width={14}
+                                  height={14}
+                                  className="rounded-sm flex-shrink-0"
+                                />
+                                <span className="truncate">{stock.industry}</span>
+                              </>
+                            ) : (
+                              "-"
+                            )}
+                          </span>
                         </TableCell>
                       </TableRow>
                     ))
