@@ -15,13 +15,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// Commented out as it's currently not being used
-// func registerOps(config *config.Config, mux *http.ServeMux, hs *health.HTTPServer) {
-// 	hs.RegisterWith(mux)
-// 	mux.HandleFunc("/config.json", config.ServeAsJSON)
-// 	mux.HandleFunc("/config.yaml", config.ServeAsYAML)
-// }
-
 func main() {
 	ctx := context.Background()
 	logger := log.NewLogger()

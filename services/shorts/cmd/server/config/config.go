@@ -1,9 +1,6 @@
 package config
 
 import (
-	"encoding/json"
-	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts"
@@ -13,7 +10,6 @@ import (
 	"github.com/mitchellh/mapstructure"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
@@ -68,7 +64,6 @@ func load(v *viper.Viper, f *flag.FlagSet) (*Config, error) {
 		return nil, err
 	}
 	validate := validator.New()
-	fmt.Printf("config: %+v", config)
 	err := validate.Struct(config)
 
 	if err != nil {
@@ -100,36 +95,3 @@ func getMap(config interface{}) map[string]interface{} {
 	return inInterface
 }
 
-// ServeAsJSON runtime configuration as JSON
-func (c *Config) ServeAsJSON(w http.ResponseWriter, r *http.Request) {
-	payload, err := json.Marshal(c)
-	w.Header().Set("Content-Type", "application/json")
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-
-		_, _ = w.Write(([]byte(`{"Error": "Failed to return config as json"}`)))
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(payload)
-	if err != nil {
-		_, _ = w.Write([]byte(`{"Error": "Failed to write json"}`))
-	}
-}
-
-// ServeAsYAML runetime configuration as YAML
-func (c *Config) ServeAsYAML(w http.ResponseWriter, r *http.Request) {
-	payload, err := yaml.Marshal(c)
-	w.Header().Set("Content-Type", "application/yaml")
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-
-		_, _ = w.Write(([]byte(`{"Error": "Failed to return config as yaml"}`)))
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	_, err = w.Write(payload)
-	if err != nil {
-		_, _ = w.Write([]byte(`{"Error": "Failed to write yaml"}`))
-	}
-}

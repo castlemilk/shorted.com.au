@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"net/http"
-	"os"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -19,16 +18,9 @@ var (
 	adapter *handlerfunc.HandlerFuncAdapter
 )
 
-func registerOps(config *config.Config, mux *http.ServeMux) {
-	mux.HandleFunc("/config.json", config.ServeAsJSON)
-	mux.HandleFunc("/config.yaml", config.ServeAsYAML)
-}
-
 func init() {
 	logger := log.NewLogger()
 	logger.SetLevel("debug")
-	//Get all env variables
-	logger.Info("env: %+v", os.Environ())
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Errorf("error loading config, error: %+v", err)
@@ -42,7 +34,6 @@ func init() {
 	mux := http.NewServeMux()
 	path, handler := shortsv1alpha1connect.NewShortedStocksServiceHandler(server)
 	mux.Handle(path, handler)
-	registerOps(cfg, mux)
 	adapter = handlerfunc.New(mux.ServeHTTP)
 }
 func main() {
