@@ -116,8 +116,8 @@ resource "google_cloud_run_v2_job" "short_data_sync" {
 
         resources {
           limits = {
-            cpu    = "2"
-            memory = "4Gi"
+            cpu    = "1"
+            memory = "512Mi"
           }
         }
       }

@@ -61,7 +61,7 @@ resource "google_cloud_run_v2_job" "asx_discovery" {
         resources {
           limits = {
             cpu    = "1"
-            memory = "2Gi"
+            memory = "512Mi"
           }
         }
       }
@@ -201,7 +201,7 @@ resource "google_cloud_run_v2_service" "market_data_sync" {
       resources {
         limits = {
           cpu    = "1"
-          memory = "2Gi"
+          memory = "512Mi"
         }
         cpu_idle          = true # Throttle CPU when idle to reduce costs
         startup_cpu_boost = true

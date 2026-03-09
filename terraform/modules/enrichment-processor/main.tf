@@ -206,8 +206,8 @@ resource "google_cloud_run_v2_service" "enrichment_processor" {
 
       resources {
         limits = {
-          cpu    = "4"
-          memory = "8Gi"
+          cpu    = "1"
+          memory = "512Mi"
         }
         cpu_idle          = true # Allow CPU to scale down when idle
         startup_cpu_boost = true

@@ -139,7 +139,7 @@ resource "google_cloud_run_v2_job" "weekly_report_generator" {
         resources {
           limits = {
             cpu    = "1"
-            memory = "2Gi"
+            memory = "512Mi"
           }
         }
       }

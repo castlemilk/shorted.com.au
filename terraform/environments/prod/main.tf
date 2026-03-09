@@ -133,7 +133,7 @@ module "stock_price_ingestion" {
   source = "../../modules/stock-price-ingestion"
 
   project_id       = var.project_id
-  region           = var.region
+  region           = "us-central1" # Tier 1 pricing — batch job, latency irrelevant
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment      = "production"
   image_url        = var.stock_price_ingestion_image
@@ -191,7 +191,7 @@ module "enrichment_processor" {
   source = "../../modules/enrichment-processor"
 
   project_id        = var.project_id
-  region            = var.region
+  region            = "us-central1" # Tier 1 pricing — batch job, latency irrelevant
   environment       = "production"
   image_url         = var.enrichment_processor_image
   image_tag         = var.image_tag
@@ -253,7 +253,7 @@ module "market_discovery_sync" {
   source = "../../modules/market-discovery-sync"
 
   project_id             = var.project_id
-  region                 = var.region
+  region                 = "us-central1" # Tier 1 pricing — batch job, latency irrelevant
   scheduler_region       = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment            = "production"
   asx_discovery_image    = var.asx_discovery_image
