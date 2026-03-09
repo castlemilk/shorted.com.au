@@ -22,6 +22,7 @@ import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { TreemapTooltip } from "~/@/components/widgets/treemap-tooltip";
 import { cn } from "~/@/lib/utils";
+import { getSectorImagePath } from "~/@/lib/sector-images";
 
 interface TreeMapProps {
   initialTreeMapData?: IndustryTreeMap; // Optional initial data
@@ -37,7 +38,7 @@ interface TreeMapDatum {
 }
 
 const PADDING = 3;
-const HEADER_HEIGHT = 10; // Height reserved for sector labels
+const HEADER_HEIGHT = 20; // Height reserved for sector labels + icons
 const TREEMAP_HEIGHT = 700;
 
 const clamp = (min: number, v: number, max: number) =>
@@ -365,6 +366,13 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                             // Don't render label if section is too small
                             if (nodeWidth < 60 || nodeHeight < 40) return null;
 
+                            const iconSize = 16;
+                            const showIcon = nodeWidth >= 80;
+                            const textX = showIcon ? iconSize + 10 : 8;
+                            const maxChars = Math.floor(
+                              (nodeWidth - textX - 4) / 8,
+                            );
+
                             return (
                               <Group
                                 key={`node-${i}`}
@@ -389,8 +397,20 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                                   stroke="hsl(var(--border))"
                                   strokeWidth={1}
                                 />
+                                {/* Sector icon */}
+                                {showIcon && (
+                                  <image
+                                    href={getSectorImagePath(
+                                      node.data.id ?? "",
+                                    )}
+                                    x={4}
+                                    y={(HEADER_HEIGHT - iconSize) / 2}
+                                    width={iconSize}
+                                    height={iconSize}
+                                  />
+                                )}
                                 <text
-                                  x={8}
+                                  x={textX}
                                   y={HEADER_HEIGHT / 2}
                                   dy=".35em"
                                   fontSize={parentFontSize}
@@ -399,7 +419,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                                   pointerEvents="none"
                                   fill="hsl(var(--foreground))"
                                 >
-                                  {`${node.data.id?.substring(0, Math.floor(nodeWidth / 8))}${(node.data.id?.length ?? 0) > Math.floor(nodeWidth / 8) ? "..." : ""}`}
+                                  {`${node.data.id?.substring(0, maxChars)}${(node.data.id?.length ?? 0) > maxChars ? "..." : ""}`}
                                 </text>
                               </Group>
                             );

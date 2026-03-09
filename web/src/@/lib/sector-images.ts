@@ -38,6 +38,16 @@ const INDUSTRY_TO_IMAGE: Record<string, string> = {
   "transportation":                                   "transportation",
   "utilities":                                        "utilities",
 
+  // ─── Simplified names used in industry breakdown ──────────────────────
+  "mining":         "materials",
+  "healthcare":     "health_care",
+  "retail":         "retail",
+  "technology":     "software_services",
+  "property":       "reits",
+  "telecom":        "telecommunications",
+  "industrials":    "materials",
+  "food & bev":     "food_beverage",
+
   // ─── Invalid ASIC classifications → "other" ───────────────────────────
   "class pend":     "other",
   "not applic":     "other",

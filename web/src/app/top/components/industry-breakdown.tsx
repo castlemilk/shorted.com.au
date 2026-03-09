@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { PieChart, ChevronRight, Building2 } from "lucide-react";
+import Image from "next/image";
+import { PieChart, ChevronRight } from "lucide-react";
 import { type SerializedTimeSeriesData } from "~/app/actions/top/getTopPageData";
 import { cn } from "~/@/lib/utils";
 import { formatPercentage } from "~/@/lib/shorts-calculations";
+import { getSectorImagePath, getSectorImageAlt } from "~/@/lib/sector-images";
 
 interface IndustryBreakdownProps {
   data: SerializedTimeSeriesData[];
@@ -149,12 +151,12 @@ export function IndustryBreakdown({ data }: IndustryBreakdownProps) {
                   </span>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-3">
-                      <Building2
-                        className={cn(
-                          "h-4 w-4",
-                          isExpanded ? colors.text : "text-muted-foreground"
-                        )}
-                        aria-hidden="true"
+                      <Image
+                        src={getSectorImagePath(industry)}
+                        alt={getSectorImageAlt(industry)}
+                        width={20}
+                        height={20}
+                        className="rounded-sm"
                       />
                       <span className="font-medium">{industry}</span>
                       <span className="text-xs text-muted-foreground">
