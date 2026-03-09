@@ -154,8 +154,8 @@ export function IndustryBreakdown({ data }: IndustryBreakdownProps) {
                       <Image
                         src={getSectorImagePath(industry)}
                         alt={getSectorImageAlt(industry)}
-                        width={20}
-                        height={20}
+                        width={36}
+                        height={36}
                         className="rounded-sm"
                       />
                       <span className="font-medium">{industry}</span>
