@@ -40,8 +40,9 @@ type LogoDiscoverer interface {
 }
 
 type logoDiscoverer struct {
-	client  *stealthhttp.Client
-	scraper *DefaultLogoScraper
+	client      *stealthhttp.Client
+	scraper     *DefaultLogoScraper
+	useChromium bool // whether to fall back to Chromium for JS-heavy sites
 }
 
 // NewLogoDiscoverer creates a new LogoDiscoverer with a stealth client.
@@ -51,6 +52,16 @@ func NewLogoDiscoverer() LogoDiscoverer {
 		panic(fmt.Sprintf("stealthhttp: failed to create native client: %v", err))
 	}
 	return &logoDiscoverer{client: client}
+}
+
+// NewLogoDiscovererWithChromium creates a LogoDiscoverer that falls back to Chromium
+// when native scraping finds no logo candidates (JS-rendered sites).
+func NewLogoDiscovererWithChromium() LogoDiscoverer {
+	client, err := stealthhttp.New(stealthhttp.WithTimeout(30 * time.Second))
+	if err != nil {
+		panic(fmt.Sprintf("stealthhttp: failed to create native client: %v", err))
+	}
+	return &logoDiscoverer{client: client, useChromium: true}
 }
 
 // NewLogoDiscovererWithCompanyName creates a LogoDiscoverer with company name for better matching.
@@ -104,6 +115,23 @@ func (d *logoDiscoverer) DiscoverLogo(ctx context.Context, website, companyName,
 	}
 
 	span.SetAttributes(attribute.Int("logo.candidates_found", len(candidates)))
+
+	// Chromium fallback: if native found no candidates and Chromium is enabled
+	if len(candidates) == 0 && d.useChromium {
+		span.AddEvent("trying_chromium_fallback")
+		chromiumClient, chromErr := stealthhttp.NewChromium(stealthhttp.WithTimeout(30 * time.Second))
+		if chromErr == nil {
+			chromScraper := NewLogoScraperWithClient(companyName, chromiumClient)
+			chromCandidates, chromScrapeErr := chromScraper.ScrapeLogos(ctx, website)
+			_ = chromiumClient.Close()
+			if chromScrapeErr == nil && len(chromCandidates) > 0 {
+				candidates = chromCandidates
+				span.AddEvent("chromium_found_candidates", trace.WithAttributes(
+					attribute.Int("count", len(chromCandidates)),
+				))
+			}
+		}
+	}
 
 	// Try candidates in order of score (already sorted by scraper)
 	for _, candidate := range candidates {
@@ -392,7 +420,12 @@ func companyNameToLinkedInSlug(name string) string {
 	}
 
 	// Remove common suffixes that LinkedIn often omits
-	suffixes := []string{" ltd", " limited", " pty", " inc", " corp", " corporation", " group"}
+	suffixes := []string{
+		" ltd", " limited", " pty ltd", " pty", " inc", " inc.",
+		" corp", " corporation", " group limited", " group",
+		" holdings limited", " holdings", " international",
+		" australia", " nz", " energy", " resources", " mining",
+	}
 	cleaned := name
 	for _, suffix := range suffixes {
 		cleaned = strings.TrimSuffix(cleaned, suffix)

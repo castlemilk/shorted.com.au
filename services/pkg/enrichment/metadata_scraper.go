@@ -61,8 +61,17 @@ type CompanyMetadataScraper interface {
 	ScrapeMetadata(ctx context.Context, website, companyName string, exaClient ExaClient) (*ScrapedMetadata, error)
 }
 
+// PersonImage represents a headshot image discovered on a company team page
+type PersonImage struct {
+	PersonName string `json:"person_name"`
+	ImageURL   string `json:"image_url"`
+	PageURL    string `json:"page_url"`
+	Score      int    `json:"score"` // higher = more confident match
+}
+
 type MetadataScraper struct {
-	client *stealthhttp.Client
+	client         *stealthhttp.Client
+	useChromium    bool // whether to fall back to Chromium for JS-rendered sites
 }
 
 // NewMetadataScraper creates a MetadataScraper with a default stealth client (15s timeout).
@@ -73,6 +82,16 @@ func NewMetadataScraper() *MetadataScraper {
 		panic(fmt.Sprintf("stealthhttp: failed to create native client: %v", err))
 	}
 	return &MetadataScraper{client: client}
+}
+
+// NewMetadataScraperWithChromium creates a MetadataScraper that falls back to Chromium
+// for JS-rendered sites when native scraping returns no meaningful content.
+func NewMetadataScraperWithChromium() *MetadataScraper {
+	client, err := stealthhttp.New(stealthhttp.WithTimeout(15 * time.Second))
+	if err != nil {
+		panic(fmt.Sprintf("stealthhttp: failed to create native client: %v", err))
+	}
+	return &MetadataScraper{client: client, useChromium: true}
 }
 
 // NewMetadataScraperWithClient creates a MetadataScraper with a provided stealth client.
@@ -99,11 +118,24 @@ func (s *MetadataScraper) ScrapeMetadata(ctx context.Context, website, companyNa
 
 	// Build seed URLs for common patterns
 	seedURLs := buildMetadataSeedURLs(rootURL)
-	
-	// Scrape leadership/board pages
-	leadershipURLs := findLeadershipPages(ctx, s.client, rootURL, seedURLs)
+
+	// First pass: native engine (fast, no browser)
+	activeClient := s.client
+	leadershipURLs := findLeadershipPages(ctx, activeClient, rootURL, seedURLs)
+
+	// Chromium fallback: if native found no leadership pages and Chromium is enabled,
+	// retry with Chromium for JS-rendered sites
+	if len(leadershipURLs) == 0 && s.useChromium {
+		chromiumClient, chromErr := stealthhttp.NewChromium(stealthhttp.WithTimeout(30 * time.Second))
+		if chromErr == nil {
+			defer func() { _ = chromiumClient.Close() }()
+			activeClient = chromiumClient
+			leadershipURLs = findLeadershipPages(ctx, activeClient, rootURL, seedURLs)
+		}
+	}
+
 	for _, u := range leadershipURLs {
-		page, err := s.scrapeLeadershipPage(ctx, u)
+		page, err := scrapeLeadershipPageWith(ctx, activeClient, u)
 		if err != nil {
 			continue // Skip failed pages
 		}
@@ -124,9 +156,9 @@ func (s *MetadataScraper) ScrapeMetadata(ctx context.Context, website, companyNa
 	}
 
 	// Scrape about pages
-	aboutURLs := findAboutPages(ctx, s.client, rootURL, seedURLs)
+	aboutURLs := findAboutPages(ctx, activeClient, rootURL, seedURLs)
 	for _, u := range aboutURLs {
-		page, err := s.scrapeAboutPage(ctx, u)
+		page, err := scrapeAboutPageWith(ctx, activeClient, u)
 		if err != nil {
 			continue
 		}
@@ -136,13 +168,167 @@ func (s *MetadataScraper) ScrapeMetadata(ctx context.Context, website, companyNa
 	}
 
 	// Find key links
-	keyLinks := s.findKeyLinks(ctx, rootURL, seedURLs)
+	keyLinks := findKeyLinksWith(ctx, activeClient, rootURL, seedURLs)
 	metadata.KeyLinks = keyLinks
 
 	// Build context text from scraped content
 	metadata.ContextText = s.buildContextText(metadata)
 
 	return metadata, nil
+}
+
+// ScrapePersonImages crawls leadership/team pages looking for headshot images
+// near person names. Returns a map of normalized person name → image URL.
+func (s *MetadataScraper) ScrapePersonImages(ctx context.Context, website string, personNames []string) []PersonImage {
+	if website == "" || len(personNames) == 0 {
+		return nil
+	}
+
+	rootURL, err := normalizeWebsiteURL(website)
+	if err != nil {
+		return nil
+	}
+
+	seedURLs := buildMetadataSeedURLs(rootURL)
+
+	// Try native first, then Chromium if enabled
+	activeClient := s.client
+	leadershipURLs := findLeadershipPages(ctx, activeClient, rootURL, seedURLs)
+
+	if len(leadershipURLs) == 0 && s.useChromium {
+		chromiumClient, chromErr := stealthhttp.NewChromium(stealthhttp.WithTimeout(30 * time.Second))
+		if chromErr == nil {
+			defer func() { _ = chromiumClient.Close() }()
+			activeClient = chromiumClient
+			leadershipURLs = findLeadershipPages(ctx, activeClient, rootURL, seedURLs)
+		}
+	}
+
+	// Build lookup of person names (lowercase)
+	nameLookup := make(map[string]string, len(personNames))
+	for _, name := range personNames {
+		nameLookup[strings.ToLower(strings.TrimSpace(name))] = name
+	}
+
+	var results []PersonImage
+	seen := make(map[string]bool)
+
+	for _, pageURL := range leadershipURLs {
+		if ctx.Err() != nil {
+			break
+		}
+
+		doc, base, fetchErr := fetchHTML(ctx, activeClient, pageURL)
+		if fetchErr != nil || doc == nil || base == nil {
+			continue
+		}
+
+		// Look for images near person names
+		images := extractPersonImagesFromDoc(doc, base, nameLookup, pageURL)
+		for _, img := range images {
+			key := strings.ToLower(img.PersonName)
+			if !seen[key] {
+				seen[key] = true
+				results = append(results, img)
+			}
+		}
+	}
+
+	return results
+}
+
+// extractPersonImagesFromDoc finds headshot images associated with person names on a page.
+func extractPersonImagesFromDoc(doc *goquery.Document, base *url.URL, nameLookup map[string]string, pageURL string) []PersonImage {
+	var results []PersonImage
+
+	// Strategy 1: Look for structured person cards (common patterns)
+	// Many sites use a card/section per person with img + name
+	cardSelectors := []string{
+		".person", ".director", ".executive", ".team-member",
+		"[class*='person']", "[class*='director']", "[class*='executive']",
+		"[class*='team-member']", "[class*='leader']", "[class*='board']",
+		".card", ".profile",
+	}
+
+	for _, selector := range cardSelectors {
+		doc.Find(selector).Each(func(_ int, card *goquery.Selection) {
+			// Get all text in this card
+			cardText := strings.ToLower(card.Text())
+
+			// Check if any known person name appears in this card
+			for nameLower, originalName := range nameLookup {
+				if !strings.Contains(cardText, nameLower) {
+					continue
+				}
+
+				// Found a match — look for img in this card
+				card.Find("img").Each(func(_ int, img *goquery.Selection) {
+					src, _ := img.Attr("src")
+					if src == "" {
+						src, _ = img.Attr("data-src")
+					}
+					if src == "" {
+						return
+					}
+
+					absURL := resolveURL(base, src)
+					if absURL == "" {
+						return
+					}
+
+					// Skip tiny images (likely icons)
+					width := parseImgDimension(img, "width")
+					height := parseImgDimension(img, "height")
+					if (width > 0 && width < 40) || (height > 0 && height < 40) {
+						return
+					}
+
+					results = append(results, PersonImage{
+						PersonName: originalName,
+						ImageURL:   absURL,
+						PageURL:    pageURL,
+						Score:      80, // High confidence from structured card
+					})
+				})
+			}
+		})
+	}
+
+	// Strategy 2: Look for img tags with alt text matching person names
+	doc.Find("img").Each(func(_ int, img *goquery.Selection) {
+		alt := strings.ToLower(strings.TrimSpace(img.AttrOr("alt", "")))
+		if alt == "" {
+			return
+		}
+
+		for nameLower, originalName := range nameLookup {
+			if !strings.Contains(alt, nameLower) {
+				continue
+			}
+
+			src, _ := img.Attr("src")
+			if src == "" {
+				src, _ = img.Attr("data-src")
+			}
+			if src == "" {
+				return
+			}
+
+			absURL := resolveURL(base, src)
+			if absURL == "" {
+				return
+			}
+
+			results = append(results, PersonImage{
+				PersonName: originalName,
+				ImageURL:   absURL,
+				PageURL:    pageURL,
+				Score:      90, // Very high confidence from alt text
+			})
+		}
+	})
+
+	return results
 }
 
 func buildMetadataSeedURLs(root *url.URL) []string {
@@ -276,8 +462,9 @@ func findAboutPages(ctx context.Context, client *stealthhttp.Client, root *url.U
 	return found
 }
 
-func (s *MetadataScraper) scrapeLeadershipPage(ctx context.Context, pageURL string) (*LeadershipPage, error) {
-	doc, _, err := fetchHTML(ctx, s.client, pageURL)
+// scrapeLeadershipPageWith scrapes a leadership page using the given client.
+func scrapeLeadershipPageWith(ctx context.Context, client *stealthhttp.Client, pageURL string) (*LeadershipPage, error) {
+	doc, _, err := fetchHTML(ctx, client, pageURL)
 	if err != nil || doc == nil {
 		return nil, err
 	}
@@ -350,8 +537,9 @@ func (s *MetadataScraper) scrapeLeadershipPage(ctx context.Context, pageURL stri
 	return page, nil
 }
 
-func (s *MetadataScraper) scrapeAboutPage(ctx context.Context, pageURL string) (*AboutPage, error) {
-	doc, _, err := fetchHTML(ctx, s.client, pageURL)
+// scrapeAboutPageWith scrapes an about page using the given client.
+func scrapeAboutPageWith(ctx context.Context, client *stealthhttp.Client, pageURL string) (*AboutPage, error) {
+	doc, _, err := fetchHTML(ctx, client, pageURL)
 	if err != nil || doc == nil {
 		return nil, err
 	}
@@ -383,12 +571,13 @@ func cleanText(text string) string {
 	return strings.Join(cleaned, " ")
 }
 
-func (s *MetadataScraper) findKeyLinks(ctx context.Context, root *url.URL, seedURLs []string) []KeyLink {
+// findKeyLinksWith finds key links using the given client.
+func findKeyLinksWith(ctx context.Context, client *stealthhttp.Client, root *url.URL, seedURLs []string) []KeyLink {
 	var links []KeyLink
 	visited := make(map[string]struct{})
 
 	for _, u := range seedURLs {
-		doc, base, err := fetchHTML(ctx, s.client, u)
+		doc, base, err := fetchHTML(ctx, client, u)
 		if err != nil || doc == nil || base == nil {
 			continue
 		}
@@ -710,6 +899,20 @@ func (s *MetadataScraper) ScrapePeoplePages(ctx context.Context, website string)
 		result = result[:maxTotalChars]
 	}
 	return result, nil
+}
+
+// parseImgDimension extracts a numeric dimension from an img attribute.
+func parseImgDimension(sel *goquery.Selection, attr string) int {
+	val := sel.AttrOr(attr, "")
+	if val == "" {
+		return 0
+	}
+	val = strings.TrimSuffix(val, "px")
+	var n int
+	if _, err := fmt.Sscanf(val, "%d", &n); err != nil {
+		return 0
+	}
+	return n
 }
 
 // Note: normalizeWebsiteURL, resolveURL, normalizeURL, and sameHost are defined in report_crawler.go

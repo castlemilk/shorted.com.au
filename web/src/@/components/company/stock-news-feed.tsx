@@ -12,9 +12,12 @@ import {
   CardTitle,
 } from "~/@/components/ui/card";
 import { SentimentBadge } from "~/@/components/ui/sentiment-badge";
-import { Badge } from "~/@/components/ui/badge";
+import {
+  NewsSourceBadge,
+  isASXSource,
+} from "~/@/components/ui/news-source-badge";
 import { Skeleton } from "~/@/components/ui/skeleton";
-import { Newspaper, ExternalLink, AlertTriangle } from "lucide-react";
+import { Newspaper, ExternalLink, AlertTriangle, Megaphone } from "lucide-react";
 
 interface StockNewsFeedProps {
   stockCode: string;
@@ -82,45 +85,60 @@ export function StockNewsFeed({ stockCode, limit = 10 }: StockNewsFeedProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          {data.articles.map((article) => (
-            <a
-              key={article.id}
-              href={article.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block group"
-            >
-              <div className="flex items-start justify-between gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    {article.isPriceSensitive && (
-                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
-                    )}
-                    <h4 className="text-sm font-medium leading-tight line-clamp-2 group-hover:text-primary">
-                      {article.headline}
-                    </h4>
+        <div className="space-y-1">
+          {data.articles.map((article) => {
+            const isASX = isASXSource(article.source);
+            return (
+              <a
+                key={article.id}
+                href={article.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block group"
+              >
+                <div
+                  className={`flex items-start justify-between gap-3 p-3 rounded-lg border transition-colors ${
+                    isASX
+                      ? "border-yellow-200 dark:border-yellow-800/30 bg-yellow-50/50 dark:bg-yellow-950/10 hover:bg-yellow-50 dark:hover:bg-yellow-950/20"
+                      : "hover:bg-muted/50"
+                  }`}
+                >
+                  <div className="flex gap-2.5 flex-1 min-w-0">
+                    {isASX ? (
+                      <Megaphone className="h-4 w-4 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                    ) : null}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        {article.isPriceSensitive && (
+                          <span className="inline-flex items-center gap-1 rounded bg-amber-100 dark:bg-amber-900/40 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 flex-shrink-0">
+                            <AlertTriangle className="h-2.5 w-2.5" />
+                            Price Sensitive
+                          </span>
+                        )}
+                        <h4 className="text-sm font-medium leading-tight line-clamp-2 group-hover:text-primary">
+                          {article.headline}
+                        </h4>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <NewsSourceBadge source={article.source} />
+                        <SentimentBadge sentiment={article.sentiment} />
+                        <span className="text-[11px] text-muted-foreground">
+                          {article.publishedAt
+                            ? formatRelativeTime(
+                                new Date(
+                                  Number(article.publishedAt.seconds) * 1000,
+                                ),
+                              )
+                            : ""}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                      {article.source}
-                    </Badge>
-                    <SentimentBadge sentiment={article.sentiment} />
-                    <span className="text-[11px] text-muted-foreground">
-                      {article.publishedAt
-                        ? formatRelativeTime(
-                            new Date(
-                              Number(article.publishedAt.seconds) * 1000,
-                            ),
-                          )
-                        : ""}
-                    </span>
-                  </div>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
-                <ExternalLink className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-            </a>
-          ))}
+              </a>
+            );
+          })}
         </div>
       </CardContent>
     </Card>

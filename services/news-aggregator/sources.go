@@ -9,7 +9,9 @@ type NewsSource struct {
 	IsTrusted    bool   // Trusted sources get higher relevance scores
 }
 
-// GetDefaultSources returns the configured RSS feed sources for Australian market news
+// GetDefaultSources returns the configured RSS feed sources for Australian market news.
+// All feeds verified working with native stealth engine (Mar 2026).
+// Chromium engine must NOT be used — it overrides Accept headers and returns HTML.
 func GetDefaultSources() []NewsSource {
 	return []NewsSource{
 		{
@@ -19,22 +21,28 @@ func GetDefaultSources() []NewsSource {
 			IsTrusted: true,
 		},
 		{
-			Name:      "Livewire Markets",
-			URL:       "https://www.livewiremarkets.com/rss",
-			SourceID:  "livewire",
-			IsTrusted: true,
-		},
-		{
-			Name:      "Market Index News",
-			URL:       "https://www.marketindex.com.au/news/rss",
-			SourceID:  "marketindex",
-			IsTrusted: false,
-		},
-		{
 			Name:      "Small Caps",
 			URL:       "https://smallcaps.com.au/feed/",
 			SourceID:  "smallcaps",
 			IsTrusted: false,
+		},
+		{
+			Name:      "Motley Fool AU",
+			URL:       "https://www.fool.com.au/feed/",
+			SourceID:  "motleyfool",
+			IsTrusted: true,
+		},
+		{
+			Name:      "Kalkine Media",
+			URL:       "https://kalkinemedia.com/au/feed",
+			SourceID:  "kalkine",
+			IsTrusted: false,
+		},
+		{
+			Name:      "Google News ASX",
+			URL:       "https://news.google.com/rss/search?q=ASX+stocks&hl=en-AU&gl=AU&ceid=AU:en",
+			SourceID:  "googlenews",
+			IsTrusted: true,
 		},
 	}
 }

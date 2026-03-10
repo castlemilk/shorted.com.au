@@ -19,7 +19,9 @@ type RSSFetcher struct {
 
 // NewRSSFetcher creates a new RSS fetcher backed by stealth HTTP
 func NewRSSFetcher(verbose bool) *RSSFetcher {
-	client, err := stealthhttp.NewChromium(
+	// Use native engine for RSS — Chromium overrides Accept header to prefer HTML,
+	// causing RSS feeds to return HTML pages instead of XML.
+	client, err := stealthhttp.New(
 		stealthhttp.WithTimeout(30*time.Second),
 		stealthhttp.WithMaxRedirects(5),
 	)

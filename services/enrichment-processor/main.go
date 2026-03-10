@@ -17,7 +17,6 @@ import (
 	"syscall"
 	"time"
 
-	"cloud.google.com/go/pubsub" //nolint:staticcheck // TODO: migrate to cloud.google.com/go/pubsub/v2
 	"cloud.google.com/go/storage"
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
@@ -84,18 +83,6 @@ func main() {
 				log.Errorf("error shutting down OpenTelemetry: %v", err)
 			}
 		}()
-	}
-
-	// Load configuration from environment
-	projectID := os.Getenv("GCP_PROJECT_ID")
-	topicName := os.Getenv("ENRICHMENT_PUBSUB_TOPIC")
-	if topicName == "" {
-		topicName = "enrichment-jobs"
-	}
-
-	subscriptionName := os.Getenv("ENRICHMENT_PUBSUB_SUBSCRIPTION")
-	if subscriptionName == "" {
-		subscriptionName = "enrichment-jobs-subscription"
 	}
 
 	// Initialize store
@@ -184,11 +171,11 @@ func main() {
 	// Initialize report crawler
 	reportCrawler := enrichment.NewReportCrawler()
 
-	// Initialize metadata scraper
-	metadataScraper := enrichment.NewMetadataScraper()
+	// Initialize metadata scraper with Chromium fallback for JS-rendered sites
+	metadataScraper := enrichment.NewMetadataScraperWithChromium()
 
-	// Initialize logo discoverer
-	logoDiscoverer := enrichment.NewLogoDiscoverer()
+	// Initialize logo discoverer with Chromium fallback for JS-heavy sites
+	logoDiscoverer := enrichment.NewLogoDiscovererWithChromium()
 
 	// Initialize Exa client (optional)
 	var exaClient enrichment.ExaClient
@@ -204,26 +191,7 @@ func main() {
 		}
 	}
 
-	// Initialize Pub/Sub client (required in production — no polling fallback)
-	var subscription *pubsub.Subscription
-	if projectID != "" {
-		pubsubClient, err := pubsub.NewClient(ctx, projectID)
-		if err != nil {
-			logger.Errorf("Failed to create Pub/Sub client: %v", err)
-		} else {
-			defer func() {
-				if err := pubsubClient.Close(); err != nil {
-					logger.Warnf("Failed to close Pub/Sub client: %v", err)
-				}
-			}()
-
-			// Get subscription - assume it exists (created by Terraform)
-			// If subscription name is provided via env var, we trust it exists
-			// The Receive() call will fail gracefully if it doesn't exist or we lack permissions
-			subscription = pubsubClient.Subscription(subscriptionName)
-			logger.Infof("Using subscription: %s (assuming it exists, created by infrastructure)", subscriptionName)
-		}
-	}
+	// No Pub/Sub pull subscription — uses HTTP push only (scales to zero)
 
 	// Initialize Wikipedia client (always available, no API key needed)
 	wikipediaClient := enrichment.NewWikipediaClient()
@@ -313,59 +281,22 @@ func main() {
 		return
 	}
 
-	// Check if running as Cloud Run Service (PORT env var set)
-	// Use pull subscription mode for queue-based auto-scaling, but also start HTTP server for manual triggers
+	// Cloud Run Service mode: HTTP-only, Pub/Sub push, scales to zero.
+	// No pull subscriptions, no polling, no background goroutines.
 	portStr := os.Getenv("PORT")
-	if portStr != "" {
-		port, err := strconv.Atoi(portStr)
-		if err != nil {
-			log.Fatalf("Invalid PORT environment variable: %v", err)
-		}
-
-		// Require Pub/Sub subscription for Cloud Run Service mode
-		if subscription == nil {
-			log.Fatalf("Pub/Sub subscription required for Cloud Run Service mode (set GCP_PROJECT_ID)")
-		}
-
-		logger.Infof("Running as Cloud Run Service with Pub/Sub pull (topic: %s, subscription: %s)", topicName, subscriptionName)
-		logger.Infof("HTTP server on port %d for manual triggers (/process-queued)", port)
-
-		// Start both pull subscription processor (with reconnect) and HTTP server
-		g, gCtx := errgroup.WithContext(ctx)
-		g.Go(func() error {
-			return processor.processMessagesWithReconnect(gCtx, projectID, subscriptionName)
-		})
-		g.Go(func() error {
-			return processor.startHTTPServer(gCtx, port)
-		})
-		g.Go(signalListener(gCtx))
-
-		if err := g.Wait(); err != nil {
-			logger.Errorf("processor terminated with error: %v", err)
-			os.Exit(1)
-		}
-		return
+	if portStr == "" {
+		portStr = "8080"
+	}
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		log.Fatalf("Invalid PORT: %v", err)
 	}
 
-	// CLI mode (no PORT): require Pub/Sub or idle (no polling fallback)
-	if projectID == "" || subscription == nil {
-		logger.Warnf("Pub/Sub not configured (GCP_PROJECT_ID not set or subscription unavailable)")
-		logger.Warnf("Running in idle mode — no polling, no message processing. Use batch mode or set GCP_PROJECT_ID.")
-		// Wait for signal to exit (no polling)
-		g, gCtx := errgroup.WithContext(ctx)
-		g.Go(signalListener(gCtx))
-		if err := g.Wait(); err != nil {
-			logger.Errorf("processor terminated: %v", err)
-		}
-		return
-	}
+	logger.Infof("Starting enrichment processor (HTTP push mode, port %d) — scales to zero", port)
 
-	logger.Infof("Starting enrichment processor with Pub/Sub pull (topic: %s, subscription: %s)", topicName, subscriptionName)
-
-	// Start processing with pull subscription (auto-reconnects on transient errors)
 	g, gCtx := errgroup.WithContext(ctx)
 	g.Go(func() error {
-		return processor.processMessagesWithReconnect(gCtx, projectID, subscriptionName)
+		return processor.startHTTPServer(gCtx, port)
 	})
 	g.Go(signalListener(gCtx))
 
@@ -434,142 +365,6 @@ func (p *enrichmentProcessor) notifyAlgoliaSync(stockCode string) {
 	}
 }
 
-// processMessagesWithReconnect wraps processMessages with automatic reconnection.
-// If the Pub/Sub subscription disconnects (transient error), it creates a new client
-// and re-subscribes with exponential backoff.
-func (p *enrichmentProcessor) processMessagesWithReconnect(ctx context.Context, projectID, subscriptionName string) error {
-	backoff := 1 * time.Second
-	maxBackoff := 2 * time.Minute
-	consecutiveFailures := 0
-
-	for {
-		// Create a fresh Pub/Sub client for each connection attempt
-		client, err := pubsub.NewClient(ctx, projectID)
-		if err != nil {
-			if ctx.Err() != nil {
-				return ctx.Err()
-			}
-			p.logger.Errorf("Failed to create Pub/Sub client: %v (retrying in %v)", err, backoff)
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(backoff):
-			}
-			backoff = min(backoff*2, maxBackoff)
-			consecutiveFailures++
-			continue
-		}
-
-		sub := client.Subscription(subscriptionName)
-		p.logger.Infof("Connected to Pub/Sub subscription %s (attempt recovery: %d)", subscriptionName, consecutiveFailures)
-
-		err = p.processMessages(ctx, sub)
-		_ = client.Close()
-
-		if ctx.Err() != nil {
-			return ctx.Err() // Graceful shutdown
-		}
-
-		consecutiveFailures++
-		p.logger.Warnf("Pub/Sub subscription disconnected: %v (reconnecting in %v, failure #%d)", err, backoff, consecutiveFailures)
-
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(backoff):
-		}
-		backoff = min(backoff*2, maxBackoff)
-	}
-}
-
-func (p *enrichmentProcessor) processMessages(ctx context.Context, subscription *pubsub.Subscription) error {
-	// Start periodic cleanup of stuck jobs in background
-	go func() {
-		ticker := time.NewTicker(5 * time.Minute) // Check every 5 minutes
-		defer ticker.Stop()
-		
-		// Run immediately on startup
-		if count, err := p.store.ResetStuckJobs(5); err != nil {
-			p.logger.Warnf("Failed to reset stuck jobs on startup: %v", err)
-		} else if count > 0 {
-			p.logger.Infof("Reset %d stuck job(s) on startup", count)
-		}
-		
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				// Reset jobs stuck in processing for more than 5 minutes
-				if count, err := p.store.ResetStuckJobs(5); err != nil {
-					p.logger.Warnf("Failed to reset stuck jobs: %v", err)
-				} else if count > 0 {
-					p.logger.Infof("Reset %d stuck job(s) back to queued", count)
-				}
-			}
-		}
-	}()
-	
-	return subscription.Receive(ctx, func(ctx context.Context, msg *pubsub.Message) {
-		var jobMsg enrichmentJobMessage
-		if err := json.Unmarshal(msg.Data, &jobMsg); err != nil {
-			p.logger.Errorf("failed to unmarshal message: %v", err)
-			msg.Nack()
-			return
-		}
-
-		p.logger.Infof("Processing enrichment job %s for stock %s", jobMsg.JobID, jobMsg.StockCode)
-
-		// Get the job from database to check its current status and force flag
-		// This ensures we use the authoritative source, not just the message
-		job, err := p.store.GetEnrichmentJob(jobMsg.JobID)
-		if err != nil {
-			p.logger.Errorf("failed to get job %s from database: %v", jobMsg.JobID, err)
-			// If job doesn't exist, ACK the message (permanent failure)
-			msg.Ack()
-			return
-		}
-
-		// If job is already in a final state, ACK the message (already handled)
-		if job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_COMPLETED ||
-			job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_FAILED ||
-			job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_CANCELLED {
-			p.logger.Infof("Job %s already in final state %s, acknowledging message", jobMsg.JobID, job.Status)
-			msg.Ack()
-			return
-		}
-
-		// If job is already processing, ACK the message (another worker is handling it)
-		if job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_PROCESSING {
-			p.logger.Infof("Job %s already processing, acknowledging message (duplicate)", jobMsg.JobID)
-			msg.Ack()
-			return
-		}
-
-		// Use the force flag from the database job record (authoritative source)
-		force := job.Force
-
-		// Process the job
-		err = p.processJob(ctx, jobMsg.JobID, jobMsg.StockCode, force)
-		if err != nil {
-			// Check if this is a permanent failure (already enriched without force)
-			// In that case, ACK the message instead of NACKing
-			if strings.Contains(err.Error(), "stock already enriched") && !force {
-				p.logger.Warnf("Job %s failed permanently (already enriched without force), acknowledging message: %v", jobMsg.JobID, err)
-				msg.Ack()
-				return
-			}
-
-			// For transient errors, NACK to retry
-			p.logger.Errorf("failed to process job %s (will retry): %v", jobMsg.JobID, err)
-			msg.Nack()
-			return
-		}
-
-		msg.Ack()
-		p.logger.Infof("Completed enrichment job %s for stock %s", jobMsg.JobID, jobMsg.StockCode)
-	})
-}
 
 func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode string, force bool) (err error) {
 	// Track if we've updated the job status to avoid duplicate updates
@@ -920,10 +715,11 @@ func (p *enrichmentProcessor) runEnrichmentPhases(ctx context.Context, stockCode
 }
 
 // performPersonEnrichmentPhase handles Phase 3.5: Person Image & Data Enrichment
-// Uses free data sources (Yahoo Finance, Wikipedia) to enrich key people:
+// Uses multiple data sources to enrich key people:
 // 1. Yahoo Finance quoteSummary for officer names/titles (cross-reference + fill gaps)
-// 2. Wikipedia for person images (headshots)
-// 3. Upload images to GCS
+// 2. Company website team pages for headshot images (via Chromium stealth)
+// 3. Wikipedia for person images (headshots)
+// 4. Upload images to GCS
 func (p *enrichmentProcessor) performPersonEnrichmentPhase(ctx context.Context, stockCode, companyName string, enriched *shortsv1alpha1.EnrichmentData) {
 	if enriched == nil || len(enriched.KeyPeople) == 0 {
 		p.logger.Infof("Phase 3.5: Skipped for %s (no key people)", stockCode)
@@ -943,8 +739,40 @@ func (p *enrichmentProcessor) performPersonEnrichmentPhase(ctx context.Context, 
 		}
 	}
 
-	// Step 2: For each person, try to find an image via Wikipedia
-	maxPeople := min(3, len(enriched.KeyPeople))
+	// Step 2: Scrape company website team pages for headshot images
+	// This uses the metadata scraper (with Chromium fallback) to find images
+	// associated with person names on leadership/team pages.
+	var websiteImages map[string]string // lowercase name → image URL
+	website := "" // will be set from stock details
+	if scraper, ok := p.metadataScraper.(*enrichment.MetadataScraper); ok {
+		// Get website URL from store
+		details, err := p.store.GetStockDetails(stockCode)
+		if err == nil && details.Website != "" {
+			website = details.Website
+			personNames := make([]string, 0, len(enriched.KeyPeople))
+			for _, person := range enriched.KeyPeople {
+				if person != nil && person.Name != "" {
+					personNames = append(personNames, person.Name)
+				}
+			}
+
+			if len(personNames) > 0 {
+				p.logger.Infof("Phase 3.5: Scraping team pages for headshots (%d people, website: %s)", len(personNames), website)
+				images := scraper.ScrapePersonImages(ctx, website, personNames)
+				if len(images) > 0 {
+					websiteImages = make(map[string]string, len(images))
+					for _, img := range images {
+						key := strings.ToLower(strings.TrimSpace(img.PersonName))
+						websiteImages[key] = img.ImageURL
+						p.logger.Infof("Phase 3.5: Found headshot on team page for %s: %s", img.PersonName, img.ImageURL)
+					}
+				}
+			}
+		}
+	}
+
+	// Step 3: For each person, try to find an image (website headshot > Wikipedia)
+	maxPeople := min(5, len(enriched.KeyPeople))
 
 	for i := 0; i < maxPeople; i++ {
 		person := enriched.KeyPeople[i]
@@ -954,7 +782,18 @@ func (p *enrichmentProcessor) performPersonEnrichmentPhase(ctx context.Context, 
 
 		p.logger.Infof("Phase 3.5: Looking up image for %s (%s)", person.Name, person.Role)
 
-		// Try Wikipedia for person image
+		// Source A: Company website team page headshot (highest quality, most relevant)
+		if person.ImageUrl == "" && websiteImages != nil {
+			key := strings.ToLower(strings.TrimSpace(person.Name))
+			if imgURL, ok := websiteImages[key]; ok {
+				person.ImageUrl = imgURL
+				person.SourceUrl = website
+				person.SourceType = "company_website"
+				p.logger.Infof("Phase 3.5: Found headshot from company website for %s: %s", person.Name, imgURL)
+			}
+		}
+
+		// Source B: Wikipedia (good for well-known executives)
 		if person.ImageUrl == "" && p.wikipediaClient != nil {
 			imageURL, pageURL, err := p.wikipediaClient.GetPersonImage(ctx, person.Name)
 			if err != nil {
@@ -967,7 +806,7 @@ func (p *enrichmentProcessor) performPersonEnrichmentPhase(ctx context.Context, 
 			}
 		}
 
-		// Upload image to GCS if found
+		// Upload image to GCS if found from any source
 		if person.ImageUrl != "" && p.personImageProcessor != nil {
 			gcsURL, err := p.personImageProcessor.ProcessAndUpload(ctx, person.ImageUrl, stockCode, person.Name)
 			if err != nil {
@@ -1778,27 +1617,28 @@ func (p *enrichmentProcessor) handlePubSubPush(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Acknowledge message quickly (Pub/Sub expects fast response)
-	// Then process asynchronously - the warm instance (min_instance_count=1) keeps it alive
+	// Process job synchronously so Cloud Run keeps the instance alive for the
+	// duration of the request. This allows scale-to-zero between messages.
+	// Pub/Sub push ack deadline should be configured to match Cloud Run timeout.
+	force := job.Force
+
+	if err := p.processJob(r.Context(), jobMsg.JobID, jobMsg.StockCode, force); err != nil {
+		if strings.Contains(err.Error(), "stock already enriched") && !force {
+			// Permanent failure — ack the message so Pub/Sub doesn't retry
+			p.logger.Warnf("Job %s failed permanently (already enriched without force): %v", jobMsg.JobID, err)
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("Job already enriched"))
+			return
+		}
+		p.logger.Errorf("Failed to process job %s: %v", jobMsg.JobID, err)
+		// Return 500 so Pub/Sub retries the message
+		http.Error(w, "Job processing failed", http.StatusInternalServerError)
+		return
+	}
+
+	p.logger.Infof("Successfully processed job %s", jobMsg.JobID)
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
-
-	// Process job in background goroutine
-	// With min_instance_count=1, Cloud Run keeps the instance alive for background work
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
-		defer cancel()
-
-		// Use the force flag from the database job record
-		force := job.Force
-
-		// Process the job
-		if err := p.processJob(ctx, jobMsg.JobID, jobMsg.StockCode, force); err != nil {
-			p.logger.Errorf("Failed to process job %s: %v", jobMsg.JobID, err)
-		} else {
-			p.logger.Infof("Successfully processed job %s", jobMsg.JobID)
-		}
-	}()
 }
 
 // handleProcessQueued manually triggers processing of queued jobs

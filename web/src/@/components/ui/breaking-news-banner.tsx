@@ -5,6 +5,7 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { AlertTriangle, ExternalLink } from "lucide-react";
+import { NewsSourceBadge } from "~/@/components/ui/news-source-badge";
 import Link from "next/link";
 
 export function BreakingNewsBanner() {
@@ -42,6 +43,7 @@ export function BreakingNewsBanner() {
             className="flex items-center justify-between gap-2 group"
           >
             <div className="flex items-center gap-2 min-w-0">
+              <NewsSourceBadge source={article.source} showLogo={true} />
               {article.stockCode && article.stockCode !== "MARKET" && (
                 <Link
                   href={`/shorts/${article.stockCode}`}

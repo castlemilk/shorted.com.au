@@ -3,9 +3,6 @@ package main
 import "time"
 
 const (
-	// DefaultStuckJobThreshold is how long a job can be in "processing" before it's considered stuck
-	DefaultStuckJobThreshold = 5 * time.Minute
-
 	// DefaultJobTimeout is the maximum time a single enrichment job is allowed to run
 	DefaultJobTimeout = 10 * time.Minute
 
