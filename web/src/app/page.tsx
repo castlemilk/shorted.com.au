@@ -170,8 +170,41 @@ export default async function Page() {
         </p>
       </header>
 
+      {/* Breaking News - Price Sensitive Announcements */}
+      <div className="container mx-auto px-4 pb-4">
+        <BreakingNewsBanner />
+      </div>
+
+      {/* Latest Weekly Report Banner — streamed via Suspense */}
+      <Suspense fallback={null}>
+        <WeeklyReportBanner />
+      </Suspense>
+
+      {/* Premium upsell for authenticated free-tier users */}
+      <Suspense fallback={null}>
+        <PremiumUpsellBanner />
+      </Suspense>
+
+      {/* SSR fallback table for search engine crawlability */}
+      <Suspense fallback={null}>
+        <TopShortsFallback />
+      </Suspense>
+
+      {/* Interactive dashboard content */}
+      <HomeContent />
+
+      {/* Browse by Industry — server-rendered for SEO internal linking */}
+      <Suspense fallback={null}>
+        <BrowseByIndustry />
+      </Suspense>
+
+      {/* Trending This Week — biggest short position changes */}
+      <Suspense fallback={null}>
+        <TrendingThisWeek />
+      </Suspense>
+
       {/* Visible intro for SEO — crawlable content explaining the platform */}
-      <section className="container mx-auto px-4 pb-4">
+      <section className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
           <div>
             <h2 className="text-sm font-semibold text-foreground mb-1">Official ASIC Data</h2>
@@ -199,39 +232,6 @@ export default async function Page() {
           </div>
         </div>
       </section>
-
-      {/* Breaking News - Price Sensitive Announcements */}
-      <div className="container mx-auto px-4 pb-4">
-        <BreakingNewsBanner />
-      </div>
-
-      {/* Latest Weekly Report Banner — streamed via Suspense */}
-      <Suspense fallback={null}>
-        <WeeklyReportBanner />
-      </Suspense>
-
-      {/* Premium upsell for authenticated free-tier users */}
-      <Suspense fallback={null}>
-        <PremiumUpsellBanner />
-      </Suspense>
-
-      {/* SSR fallback table for search engine crawlability */}
-      <Suspense fallback={null}>
-        <TopShortsFallback />
-      </Suspense>
-
-      {/* Trending This Week — biggest short position changes */}
-      <Suspense fallback={null}>
-        <TrendingThisWeek />
-      </Suspense>
-
-      {/* Interactive dashboard content */}
-      <HomeContent />
-
-      {/* Browse by Industry — server-rendered for SEO internal linking */}
-      <Suspense fallback={null}>
-        <BrowseByIndustry />
-      </Suspense>
     </main>
   );
 }
