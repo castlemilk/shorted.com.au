@@ -208,8 +208,7 @@ run.enrichment-processor: clean.enrichment-processor
 		elif [ -f "$(GOOGLE_APPLICATION_CREDENTIALS)" ]; then \
 			export GOOGLE_APPLICATION_CREDENTIALS="$$(pwd)/$(GOOGLE_APPLICATION_CREDENTIALS)"; \
 		fi; \
-		unset GCP_PROJECT_ID; \
-		go run enrichment-processor/main.go enrichment-processor/local-processor.go enrichment-processor/config.go \
+		go run ./enrichment-processor/ \
 	'
 
 build.short-data-sync:

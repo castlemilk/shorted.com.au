@@ -204,14 +204,12 @@ func main() {
 		}
 	}
 
-	// Initialize Pub/Sub client (only if GCP_PROJECT_ID is set)
-	// If Pub/Sub fails, fall back to local polling mode
+	// Initialize Pub/Sub client (required in production — no polling fallback)
 	var subscription *pubsub.Subscription
 	if projectID != "" {
 		pubsubClient, err := pubsub.NewClient(ctx, projectID)
 		if err != nil {
-			logger.Warnf("Failed to create Pub/Sub client: %v (falling back to local polling mode)", err)
-			projectID = "" // Force local polling mode
+			logger.Errorf("Failed to create Pub/Sub client: %v", err)
 		} else {
 			defer func() {
 				if err := pubsubClient.Close(); err != nil {
@@ -324,65 +322,19 @@ func main() {
 			log.Fatalf("Invalid PORT environment variable: %v", err)
 		}
 
-		// If we have a subscription, use pull mode (better for auto-scaling based on queue depth)
-		// But also start HTTP server for /process-queued endpoint
-		if subscription != nil {
-			logger.Infof("Running as Cloud Run Service with Pub/Sub pull (topic: %s, subscription: %s)", topicName, subscriptionName)
-			logger.Infof("HTTP server on port %d for manual triggers (/process-queued)", port)
-
-			// Start both pull subscription processor and HTTP server
-			g, gCtx := errgroup.WithContext(ctx)
-			g.Go(func() error {
-				return processor.processMessages(gCtx, subscription)
-			})
-			g.Go(func() error {
-				return processor.startHTTPServer(gCtx, port)
-			})
-			g.Go(signalListener(gCtx))
-
-			if err := g.Wait(); err != nil {
-				logger.Errorf("processor terminated with error: %v", err)
-				os.Exit(1)
-			}
-			return
+		// Require Pub/Sub subscription for Cloud Run Service mode
+		if subscription == nil {
+			log.Fatalf("Pub/Sub subscription required for Cloud Run Service mode (set GCP_PROJECT_ID)")
 		}
 
-		// Fallback: HTTP push mode if no subscription (legacy)
-		logger.Infof("Running as Cloud Run Service (HTTP push mode) on port %d", port)
-		logger.Infof("Pub/Sub topic: %s", topicName)
+		logger.Infof("Running as Cloud Run Service with Pub/Sub pull (topic: %s, subscription: %s)", topicName, subscriptionName)
+		logger.Infof("HTTP server on port %d for manual triggers (/process-queued)", port)
 
-		// Process any existing queued jobs on startup (in case they were created before Pub/Sub was configured)
-		logger.Infof("Checking for existing queued jobs on startup...")
-		go func() {
-			startupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-			defer cancel()
-			
-			status := shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_QUEUED
-			jobs, _, err := processor.store.ListEnrichmentJobs(10, 0, &status)
-			if err != nil {
-				logger.Warnf("Failed to list queued jobs on startup: %v", err)
-				return
-			}
-			
-			if len(jobs) > 0 {
-				logger.Infof("Found %d queued job(s) on startup, processing them...", len(jobs))
-				for _, job := range jobs {
-					if job.Status == shortsv1alpha1.EnrichmentJobStatus_ENRICHMENT_JOB_STATUS_QUEUED {
-						logger.Infof("Processing queued job %s for stock %s (force=%v)", job.JobId, job.StockCode, job.Force)
-						if err := processor.processJob(startupCtx, job.JobId, job.StockCode, job.Force); err != nil {
-							logger.Errorf("Failed to process queued job %s on startup: %v", job.JobId, err)
-						} else {
-							logger.Infof("Successfully processed queued job %s on startup", job.JobId)
-						}
-					}
-				}
-			} else {
-				logger.Infof("No queued jobs found on startup")
-			}
-		}()
-
-		// Start HTTP server for Pub/Sub push messages
+		// Start both pull subscription processor (with reconnect) and HTTP server
 		g, gCtx := errgroup.WithContext(ctx)
+		g.Go(func() error {
+			return processor.processMessagesWithReconnect(gCtx, projectID, subscriptionName)
+		})
 		g.Go(func() error {
 			return processor.startHTTPServer(gCtx, port)
 		})
@@ -395,34 +347,31 @@ func main() {
 		return
 	}
 
-	// Check if Pub/Sub is available (GCP_PROJECT_ID set and subscription created successfully)
-	// If not, fall back to local polling mode
+	// CLI mode (no PORT): require Pub/Sub or idle (no polling fallback)
 	if projectID == "" || subscription == nil {
-		logger.Infof("Running in local polling mode (will poll database for queued jobs every %v)", DefaultPollingInterval)
+		logger.Warnf("Pub/Sub not configured (GCP_PROJECT_ID not set or subscription unavailable)")
+		logger.Warnf("Running in idle mode — no polling, no message processing. Use batch mode or set GCP_PROJECT_ID.")
+		// Wait for signal to exit (no polling)
 		g, gCtx := errgroup.WithContext(ctx)
-		g.Go(func() error {
-			return runLocalProcessor(gCtx, processor)
-		})
 		g.Go(signalListener(gCtx))
-
 		if err := g.Wait(); err != nil {
-			logger.Errorf("processor terminated with error: %v", err)
-			os.Exit(1)
+			logger.Errorf("processor terminated: %v", err)
 		}
-	} else {
-		logger.Infof("Starting enrichment processor with Pub/Sub pull (topic: %s, subscription: %s)", topicName, subscriptionName)
+		return
+	}
 
-		// Start processing with pull subscription
-		g, gCtx := errgroup.WithContext(ctx)
-		g.Go(func() error {
-			return processor.processMessages(gCtx, subscription)
-		})
-		g.Go(signalListener(gCtx))
+	logger.Infof("Starting enrichment processor with Pub/Sub pull (topic: %s, subscription: %s)", topicName, subscriptionName)
 
-		if err := g.Wait(); err != nil {
-			logger.Errorf("processor terminated with error: %v", err)
-			os.Exit(1)
-		}
+	// Start processing with pull subscription (auto-reconnects on transient errors)
+	g, gCtx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		return processor.processMessagesWithReconnect(gCtx, projectID, subscriptionName)
+	})
+	g.Go(signalListener(gCtx))
+
+	if err := g.Wait(); err != nil {
+		logger.Errorf("processor terminated with error: %v", err)
+		os.Exit(1)
 	}
 }
 
@@ -482,6 +431,54 @@ func (p *enrichmentProcessor) notifyAlgoliaSync(stockCode string) {
 	} else {
 		respBody, _ := io.ReadAll(resp.Body)
 		p.logger.Warnf("Algolia sync for %s returned status %d: %s", stockCode, resp.StatusCode, string(respBody))
+	}
+}
+
+// processMessagesWithReconnect wraps processMessages with automatic reconnection.
+// If the Pub/Sub subscription disconnects (transient error), it creates a new client
+// and re-subscribes with exponential backoff.
+func (p *enrichmentProcessor) processMessagesWithReconnect(ctx context.Context, projectID, subscriptionName string) error {
+	backoff := 1 * time.Second
+	maxBackoff := 2 * time.Minute
+	consecutiveFailures := 0
+
+	for {
+		// Create a fresh Pub/Sub client for each connection attempt
+		client, err := pubsub.NewClient(ctx, projectID)
+		if err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			p.logger.Errorf("Failed to create Pub/Sub client: %v (retrying in %v)", err, backoff)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(backoff):
+			}
+			backoff = min(backoff*2, maxBackoff)
+			consecutiveFailures++
+			continue
+		}
+
+		sub := client.Subscription(subscriptionName)
+		p.logger.Infof("Connected to Pub/Sub subscription %s (attempt recovery: %d)", subscriptionName, consecutiveFailures)
+
+		err = p.processMessages(ctx, sub)
+		_ = client.Close()
+
+		if ctx.Err() != nil {
+			return ctx.Err() // Graceful shutdown
+		}
+
+		consecutiveFailures++
+		p.logger.Warnf("Pub/Sub subscription disconnected: %v (reconnecting in %v, failure #%d)", err, backoff, consecutiveFailures)
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(backoff):
+		}
+		backoff = min(backoff*2, maxBackoff)
 	}
 }
 
