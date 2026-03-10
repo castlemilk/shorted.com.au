@@ -1,6 +1,7 @@
 "use client";
 
 // Stock data service using market data API
+import { retryWithBackoff } from "~/@/lib/retry";
 
 export interface StockQuote {
   symbol: string;
@@ -64,102 +65,77 @@ const MARKET_DATA_API_URL =
   process.env.NEXT_PUBLIC_MARKET_DATA_API_URL ?? "http://localhost:8090";
 
 /**
- * Check if market data service is available
- */
-async function isMarketDataServiceAvailable(): Promise<boolean> {
-  try {
-    const response = await fetch(`${MARKET_DATA_API_URL}/health`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-      signal: AbortSignal.timeout(5000),
-    });
-    return response.ok;
-  } catch (error) {
-    console.warn("Market data service not available");
-    return false;
-  }
-}
-
-/**
  * Get multiple stock quotes from market data API (Connect RPC)
  */
 export async function getMultipleStockQuotes(
   stockCodes: string[],
 ): Promise<Map<string, StockQuote>> {
-  const quotes = new Map<string, StockQuote>();
-
-  if (stockCodes.length === 0) return quotes;
+  if (stockCodes.length === 0) return new Map();
 
   try {
-    if (!(await isMarketDataServiceAvailable())) {
-      console.warn(
-        `Market data service unavailable for quotes, returning empty data`,
-      );
-      return quotes;
-    }
-
-    const response = await fetch(
-      `${MARKET_DATA_API_URL}/marketdata.v1.MarketDataService/GetMultipleStockPrices`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          stockCodes: stockCodes.map((code) => code.toUpperCase()),
-        }),
-      },
-    );
-
-    if (response.ok) {
-      const apiResponse = (await response.json()) as {
-        prices: Record<
-          string,
+    return await retryWithBackoff(
+      async () => {
+        const response = await fetch(
+          `${MARKET_DATA_API_URL}/marketdata.v1.MarketDataService/GetMultipleStockPrices`,
           {
-            stockCode: string;
-            date: string;
-            open: number;
-            high: number;
-            low: number;
-            close: number;
-            volume: string;
-            adjustedClose: number;
-            change: number;
-            changePercent: number;
-          }
-        >;
-      };
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              stockCodes: stockCodes.map((code) => code.toUpperCase()),
+            }),
+          },
+        );
 
-      if (apiResponse.prices) {
-        Object.entries(apiResponse.prices).forEach(([symbol, price]) => {
-          quotes.set(symbol, {
-            symbol: price.stockCode,
-            price: price.close,
-            change: price.change,
-            changePercent: price.changePercent,
-            previousClose: price.close - price.change,
-            volume: parseInt(price.volume, 10),
-            high: price.high,
-            low: price.low,
-            open: price.open,
+        if (!response.ok) {
+          throw new Error(
+            `Market data API returned ${response.status} for quotes`,
+          );
+        }
+
+        const apiResponse = (await response.json()) as {
+          prices: Record<
+            string,
+            {
+              stockCode: string;
+              date: string;
+              open: number;
+              high: number;
+              low: number;
+              close: number;
+              volume: string;
+              adjustedClose: number;
+              change: number;
+              changePercent: number;
+            }
+          >;
+        };
+
+        const quotes = new Map<string, StockQuote>();
+        if (apiResponse.prices) {
+          Object.entries(apiResponse.prices).forEach(([symbol, price]) => {
+            quotes.set(symbol, {
+              symbol: price.stockCode,
+              price: price.close,
+              change: price.change,
+              changePercent: price.changePercent,
+              previousClose: price.close - price.change,
+              volume: parseInt(price.volume, 10),
+              high: price.high,
+              low: price.low,
+              open: price.open,
+            });
           });
-        });
-
+        }
         return quotes;
-      }
-    }
-
-    // Non-200 response - return empty map gracefully
-    console.warn(
-      `Market data API returned ${response.status} for quotes, returning empty data`,
+      },
+      { maxRetries: 3, initialDelayMs: 500 },
     );
-    return quotes;
   } catch (error) {
     console.warn(
-      "Failed to fetch stock quotes:",
+      "Failed to fetch stock quotes after retries:",
       error instanceof Error ? error.message : String(error),
     );
-    return quotes;
+    return new Map();
   }
 }
 
@@ -171,75 +147,60 @@ export async function getHistoricalData(
   period = "1m",
 ): Promise<HistoricalDataPoint[]> {
   try {
-    if (!(await isMarketDataServiceAvailable())) {
-      console.warn(
-        `Market data service unavailable for ${stockCode}, returning empty data`,
-      );
-      return [];
-    }
+    return await retryWithBackoff(
+      async () => {
+        const response = await fetch("/api/market-data/historical", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            stockCode: stockCode.toUpperCase(),
+            period: period.toLowerCase(),
+          }),
+        });
 
-    // Use the Next.js API route which properly handles Connect RPC
-    const response = await fetch("/api/market-data/historical", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+        if (!response.ok) {
+          throw new Error(
+            `Market data API returned ${response.status} for ${stockCode}`,
+          );
+        }
+
+        const apiResponse = (await response.json()) as {
+          prices?: Array<{
+            stockCode: string;
+            date: string;
+            open: number;
+            high: number;
+            low: number;
+            close: number;
+            volume: string;
+            adjustedClose: number;
+            change: number;
+            changePercent: number;
+          }>;
+        };
+
+        if (!apiResponse.prices || apiResponse.prices.length === 0) {
+          // No data for this stock is not a transient error — don't retry
+          return [];
+        }
+
+        return apiResponse.prices.map((price) => ({
+          date:
+            price.date?.split("T")[0] ??
+            new Date().toISOString().split("T")[0]!,
+          open: price.open,
+          high: price.high,
+          low: price.low,
+          close: price.close,
+          volume: parseInt(price.volume, 10),
+          adjustedClose: price.adjustedClose,
+        }));
       },
-      body: JSON.stringify({
-        stockCode: stockCode.toUpperCase(),
-        period: period.toLowerCase(),
-      }),
-    });
-
-    if (response.ok) {
-      const apiResponse = (await response.json()) as {
-        prices?: Array<{
-          stockCode: string;
-          date: string;
-          open: number;
-          high: number;
-          low: number;
-          close: number;
-          volume: string;
-          adjustedClose: number;
-          change: number;
-          changePercent: number;
-        }>;
-      };
-
-      if (apiResponse.prices && apiResponse.prices.length > 0) {
-        const historicalData: HistoricalDataPoint[] = apiResponse.prices.map(
-          (price) => {
-            const dateStr =
-              price.date?.split("T")[0] ??
-              new Date().toISOString().split("T")[0]!;
-            return {
-              date: dateStr,
-              open: price.open,
-              high: price.high,
-              low: price.low,
-              close: price.close,
-              volume: parseInt(price.volume, 10),
-              adjustedClose: price.adjustedClose,
-            };
-          },
-        );
-
-        return historicalData;
-      }
-
-      // Return empty array if no data available for this stock
-      console.warn(`⚠️ No historical data available for ${stockCode}`);
-      return [];
-    }
-
-    // Non-200 response - return empty data gracefully
-    console.warn(
-      `Market data API returned ${response.status} for ${stockCode}, returning empty data`,
+      { maxRetries: 3, initialDelayMs: 500 },
     );
-    return [];
   } catch (error) {
     console.warn(
-      `Failed to fetch historical data for ${stockCode}:`,
+      `Failed to fetch historical data for ${stockCode} after retries:`,
       error instanceof Error ? error.message : String(error),
     );
     return [];
@@ -253,28 +214,31 @@ export async function getCorrelationMatrix(
   stockCodes: string[],
   period = "1y",
 ): Promise<CorrelationMatrix> {
-  try {
-    if (!(await isMarketDataServiceAvailable())) {
-      throw new Error("Market data service not available");
-    }
-
-    const response = await fetch(
-      `${MARKET_DATA_API_URL}/marketdata.v1.MarketDataService/GetStockCorrelations`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+  return retryWithBackoff(
+    async () => {
+      const response = await fetch(
+        `${MARKET_DATA_API_URL}/marketdata.v1.MarketDataService/GetStockCorrelations`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            stockCodes: stockCodes.map((code) => code.toUpperCase()),
+            period: period.toLowerCase(),
+          }),
         },
-        body: JSON.stringify({
-          stockCodes: stockCodes.map((code) => code.toUpperCase()),
-          period: period.toLowerCase(),
-        }),
-      },
-    );
+      );
 
-    if (response.ok) {
+      if (!response.ok) {
+        throw new Error(
+          `Market data API returned ${response.status} for correlations`,
+        );
+      }
+
       const data = (await response.json()) as {
-        correlations: Record<string, { correlations?: Record<string, number> }>;
+        correlations: Record<
+          string,
+          { correlations?: Record<string, number> }
+        >;
       };
       const matrix: CorrelationMatrix = {};
 
@@ -286,15 +250,10 @@ export async function getCorrelationMatrix(
         },
       );
 
-      console.log("✅ Using market data API for correlation matrix");
       return matrix;
-    }
-
-    throw new Error("Market data API returned invalid response");
-  } catch (error) {
-    console.error("Market data API failed for correlation matrix:", error);
-    throw new Error("Unable to fetch correlation matrix");
-  }
+    },
+    { maxRetries: 3, initialDelayMs: 500 },
+  );
 }
 
 /**
@@ -383,8 +342,15 @@ export async function getStockPrice(
  * Service status for debugging
  */
 export async function getServiceStatus(): Promise<{ marketDataAPI: boolean }> {
-  const marketDataAPI = await isMarketDataServiceAvailable();
-  return { marketDataAPI };
+  try {
+    const response = await fetch(`${MARKET_DATA_API_URL}/health`, {
+      method: "GET",
+      signal: AbortSignal.timeout(5000),
+    });
+    return { marketDataAPI: response.ok };
+  } catch {
+    return { marketDataAPI: false };
+  }
 }
 
 /**
