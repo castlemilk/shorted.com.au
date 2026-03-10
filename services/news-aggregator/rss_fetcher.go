@@ -4,27 +4,40 @@ import (
 	"context"
 	"encoding/xml"
 	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"strings"
 	"time"
+
+	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
 )
 
-// RSSFetcher fetches and parses RSS/Atom feeds
+// RSSFetcher fetches and parses RSS/Atom feeds using stealth HTTP
 type RSSFetcher struct {
-	client  *http.Client
+	client  *stealthhttp.Client
 	verbose bool
 }
 
-// NewRSSFetcher creates a new RSS fetcher
+// NewRSSFetcher creates a new RSS fetcher backed by stealth HTTP
 func NewRSSFetcher(verbose bool) *RSSFetcher {
+	client, err := stealthhttp.New(
+		stealthhttp.WithTimeout(30*time.Second),
+		stealthhttp.WithMaxRedirects(5),
+	)
+	if err != nil {
+		log.Fatalf("failed to create stealth HTTP client: %v", err)
+	}
 	return &RSSFetcher{
-		client: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		client:  client,
 		verbose: verbose,
 	}
+}
+
+// Close releases stealth engine resources
+func (f *RSSFetcher) Close() error {
+	if f.client != nil {
+		return f.client.Close()
+	}
+	return nil
 }
 
 // NewsArticleRaw represents a raw article parsed from an RSS feed
@@ -74,29 +87,12 @@ type atomLink struct {
 	Href string `xml:"href,attr"`
 }
 
-// Fetch retrieves articles from an RSS source
+// Fetch retrieves articles from an RSS source using stealth HTTP
 func (f *RSSFetcher) Fetch(ctx context.Context, source NewsSource, limit int) ([]*NewsArticleRaw, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", source.URL, nil)
-	if err != nil {
-		return nil, fmt.Errorf("create request: %w", err)
-	}
-
-	req.Header.Set("User-Agent", "ShortedNewsAggregator/1.0 (+https://shorted.com.au)")
-	req.Header.Set("Accept", "application/rss+xml, application/atom+xml, application/xml, text/xml")
-
-	resp, err := f.client.Do(req)
+	acceptHeader := "application/rss+xml, application/atom+xml, application/xml, text/xml, */*"
+	body, _, err := f.client.FetchBytes(ctx, source.URL, acceptHeader)
 	if err != nil {
 		return nil, fmt.Errorf("fetch RSS: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("RSS returned HTTP %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("read body: %w", err)
 	}
 
 	// Try RSS 2.0 first, then Atom

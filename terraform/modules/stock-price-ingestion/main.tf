@@ -168,7 +168,7 @@ resource "google_cloud_scheduler_job" "daily_sync" {
 
   http_target {
     http_method = "POST"
-    uri         = "${google_cloud_run_v2_service.stock_price_ingestion.uri}/sync-now"
+    uri         = "${google_cloud_run_v2_service.stock_price_ingestion.uri}/sync-all"
     body        = base64encode("{}")
 
     headers = {
@@ -203,7 +203,7 @@ resource "google_cloud_scheduler_job" "weekly_backfill" {
 
   http_target {
     http_method = "POST"
-    uri         = "${google_cloud_run_v2_service.stock_price_ingestion.uri}/sync-now"
+    uri         = "${google_cloud_run_v2_service.stock_price_ingestion.uri}/sync-all"
     body = base64encode(jsonencode({
       days_back = 7
       mode      = "backfill"

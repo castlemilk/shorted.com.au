@@ -335,6 +335,22 @@ resource "google_cloud_run_v2_service_iam_member" "key_metrics_scheduler_invoker
   member   = "serviceAccount:${google_service_account.key_metrics_scheduler[0].email}"
 }
 
+# Read the internal service secret for key-metrics scheduler auth
+data "google_secret_manager_secret_version" "internal_service_secret" {
+  count   = var.enable_key_metrics_scheduler ? 1 : 0
+  secret  = "INTERNAL_SERVICE_SECRET"
+  project = var.project_id
+}
+
+# Grant Secret Manager access to the key-metrics scheduler SA
+resource "google_secret_manager_secret_iam_member" "key_metrics_secret_access" {
+  count     = var.enable_key_metrics_scheduler ? 1 : 0
+  secret_id = "INTERNAL_SERVICE_SECRET"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.key_metrics_scheduler[0].email}"
+  project   = var.project_id
+}
+
 # Cloud Scheduler Job - Daily Key Metrics Sync at 3 AM AEST (5 PM UTC previous day)
 resource "google_cloud_scheduler_job" "key_metrics_daily" {
   count            = var.enable_key_metrics_scheduler ? 1 : 0
@@ -359,17 +375,23 @@ resource "google_cloud_scheduler_job" "key_metrics_daily" {
     body        = base64encode("{}")
 
     headers = {
-      "Content-Type" = "application/json"
+      "Content-Type"      = "application/json"
+      "x-internal-secret" = data.google_secret_manager_secret_version.internal_service_secret[0].secret_data
+      "x-user-email"      = "scheduler@shorted.com.au"
+      "x-user-id"         = "scheduler"
+      "x-user-roles"      = "admin"
     }
 
     oidc_token {
       service_account_email = google_service_account.key_metrics_scheduler[0].email
+      audience              = google_cloud_run_v2_service.shorts_api.uri
     }
   }
 
   depends_on = [
     google_cloud_run_v2_service.shorts_api,
-    google_cloud_run_v2_service_iam_member.key_metrics_scheduler_invoker
+    google_cloud_run_v2_service_iam_member.key_metrics_scheduler_invoker,
+    google_secret_manager_secret_iam_member.key_metrics_secret_access
   ]
 }
 

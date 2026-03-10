@@ -81,8 +81,9 @@ func main() {
 	// Create news store
 	store := NewNewsStore(db, *verbose, analyzer)
 
-	// Create RSS fetcher
+	// Create RSS fetcher (stealth HTTP backed)
 	fetcher := NewRSSFetcher(*verbose)
+	defer func() { _ = fetcher.Close() }()
 
 	// For Cloud Run Jobs: process and exit
 	// For Cloud Run Services: serve health check and process on schedule
