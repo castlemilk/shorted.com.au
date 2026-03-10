@@ -20,14 +20,15 @@ import (
 
 // SyncManager coordinates the market data sync process
 type SyncManager struct {
-	db          *pgxpool.Pool
-	gcs         *storage.Client
-	config      *config.Config
-	checkpoint  *checkpoint.Store
-	stocklist   *stocklist.Service
-	algolia     *algolia.Syncer
-	providers   []providers.DataProvider
-	gapDetector *GapDetector
+	db             *pgxpool.Pool
+	gcs            *storage.Client
+	config         *config.Config
+	checkpoint     *checkpoint.Store
+	stocklist      *stocklist.Service
+	algolia        *algolia.Syncer
+	providers      []providers.DataProvider
+	gapDetector    *GapDetector
+	failureTracker *FailureTracker
 }
 
 // NewSyncManager creates a new SyncManager with all dependencies
@@ -37,15 +38,17 @@ func NewSyncManager(
 	cfg *config.Config,
 	dataProviders []providers.DataProvider,
 ) *SyncManager {
+	ft := NewFailureTracker(db)
 	return &SyncManager{
-		db:          db,
-		gcs:         gcs,
-		config:      cfg,
-		checkpoint:  checkpoint.NewStore(db),
-		stocklist:   stocklist.New(db, gcs),
-		algolia:     algolia.New(cfg.AlgoliaAppID, cfg.AlgoliaAdminKey, cfg.AlgoliaIndex),
-		providers:   dataProviders,
-		gapDetector: NewGapDetector(db, dataProviders),
+		db:             db,
+		gcs:            gcs,
+		config:         cfg,
+		checkpoint:     checkpoint.NewStore(db),
+		stocklist:      stocklist.New(db, gcs),
+		algolia:        algolia.New(cfg.AlgoliaAppID, cfg.AlgoliaAdminKey, cfg.AlgoliaIndex),
+		providers:      dataProviders,
+		gapDetector:    NewGapDetector(db, dataProviders),
+		failureTracker: ft,
 	}
 }
 
@@ -57,9 +60,18 @@ func (m *SyncManager) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to get stock list: %w", err)
 	}
 
+	// Ensure failure tracking table exists (safety net for environments without migration)
+	m.failureTracker.EnsureTable(ctx)
+
+	// Load blocked symbols upfront for efficient filtering
+	blockedSymbols := m.failureTracker.GetBlockedSymbols(ctx)
+	if len(blockedSymbols) > 0 {
+		log.Printf("🚫 %d symbols blocked due to repeated failures (will retry after block period)", len(blockedSymbols))
+	}
+
 	priorityCount := stocklist.CountPriority(stocks)
-	log.Printf("🚀 Syncing %d stocks (%d priority, %d remaining)",
-		len(stocks), priorityCount, len(stocks)-priorityCount)
+	log.Printf("🚀 Syncing %d stocks (%d priority, %d remaining, %d blocked)",
+		len(stocks), priorityCount, len(stocks)-priorityCount, len(blockedSymbols))
 
 	// 2. Start checkpoint - generate UUID for run ID
 	runID := uuid.New().String()
@@ -81,11 +93,19 @@ func (m *SyncManager) Run(ctx context.Context) error {
 		default:
 		}
 
+		// Skip blocked symbols (known-bad Yahoo Finance symbols)
+		if blockedSymbols[stock.Code] {
+			skipped++
+			continue
+		}
+
 		recordsAdded, err := m.syncStock(ctx, stock.Code)
 		if err != nil {
 			if providers.IsNoDataError(err) {
 				log.Printf("⏭️ [%d/%d] Skipped %s (no data): %v", i+1, len(stocks), stock.Code, err)
 				skipped++
+				// Record the failure — after enough consecutive failures, the symbol will be auto-blocked
+				m.failureTracker.RecordFailure(ctx, stock.Code, err.Error())
 			} else {
 				log.Printf("❌ [%d/%d] Failed to sync %s: %v", i+1, len(stocks), stock.Code, err)
 				failed++
@@ -93,6 +113,9 @@ func (m *SyncManager) Run(ctx context.Context) error {
 		} else {
 			successful++
 			pricesUpdated += recordsAdded
+
+			// Reset failure counter on success
+			m.failureTracker.RecordSuccess(ctx, stock.Code)
 
 			// Collect for Algolia sync if enabled
 			if m.config.SyncAlgolia {
