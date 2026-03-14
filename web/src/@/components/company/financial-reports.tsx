@@ -68,7 +68,8 @@ export function FinancialReports({ reports, stockCode: _stockCode }: FinancialRe
             >
               <div className="flex-1 space-y-1 min-w-0">
                 <a
-                  href={report.gcs_url ?? report.url}
+                  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: proto defaults gcs_url to "" which ?? treats as valid
+                  href={report.gcs_url || report.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm font-medium truncate block hover:underline"
@@ -96,7 +97,8 @@ export function FinancialReports({ reports, stockCode: _stockCode }: FinancialRe
                 </div>
               </div>
               <a
-                href={report.gcs_url ?? report.url}
+                // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: proto defaults gcs_url to "" which ?? treats as valid
+                href={report.gcs_url || report.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={`Open ${report.title}`}

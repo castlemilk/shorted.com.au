@@ -139,7 +139,7 @@ function convertFinancialReports(
     type: report.type ?? "",
     url: report.url ?? "",
     source: report.source ?? null,
-    gcs_url: report.gcsUrl ?? null,
+    gcs_url: report.gcsUrl || null,
   }));
 }
 

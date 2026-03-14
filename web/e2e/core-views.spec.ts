@@ -138,22 +138,18 @@ test.describe("Stock Detail Page", () => {
 
     const count = await reportLinks.count();
     if (count > 0) {
-      // Check that at least one report link has a valid external href
-      let foundValidReportLink = false;
+      // Every external link must have a non-empty, valid href — no "" or "javascript:" allowed
       for (let i = 0; i < Math.min(count, 10); i++) {
         const href = await reportLinks.nth(i).getAttribute("href");
-        if (href && (href.startsWith("http://") || href.startsWith("https://"))) {
-          foundValidReportLink = true;
-          // Verify it's not an empty or javascript: href
-          expect(href).toMatch(/^https?:\/\//);
-          break;
-        }
+        expect(href, `Link ${i} has empty or missing href`).toBeTruthy();
+        expect(href, `Link ${i} href "${href}" is not a valid URL`).toMatch(
+          /^https?:\/\//,
+        );
       }
-      if (foundValidReportLink) {
-        // Verify the link element is actually an <a> tag (not a Button wrapper)
-        const tagName = await reportLinks.first().evaluate((el) => el.tagName);
-        expect(tagName).toBe("A");
-      }
+
+      // Verify link elements are actual <a> tags (not Button wrappers)
+      const tagName = await reportLinks.first().evaluate((el) => el.tagName);
+      expect(tagName).toBe("A");
     }
   });
 
