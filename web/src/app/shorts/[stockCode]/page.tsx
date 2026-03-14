@@ -306,8 +306,8 @@ const Page = async ({ params }: PageProps) => {
                 </CardContent>
               </Card>
 
-              {/* Enriched Company Insights */}
-              <EnrichedCompanySection stockCode={stockCode} />
+              {/* Enriched Company Insights (reports shown in Financials tab) */}
+              <EnrichedCompanySection stockCode={stockCode} hideReports />
             </div>
           </div>
         }

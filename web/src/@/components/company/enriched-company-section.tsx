@@ -15,9 +15,10 @@ import { Info } from "lucide-react";
 
 interface EnrichedCompanySectionProps {
   stockCode: string;
+  hideReports?: boolean;
 }
 
-async function EnrichedCompanyData({ stockCode }: EnrichedCompanySectionProps) {
+async function EnrichedCompanyData({ stockCode, hideReports }: EnrichedCompanySectionProps) {
   const enrichedData = await getEnrichedCompanyMetadata(stockCode);
 
   if (!enrichedData) {
@@ -56,7 +57,8 @@ async function EnrichedCompanyData({ stockCode }: EnrichedCompanySectionProps) {
       )}
 
       {/* Financial Reports */}
-      {enrichedData.financial_reports &&
+      {!hideReports &&
+        enrichedData.financial_reports &&
         enrichedData.financial_reports.length > 0 && (
           <FinancialReports
             reports={enrichedData.financial_reports}
@@ -92,10 +94,11 @@ function EnrichedCompanyFallback() {
 
 export function EnrichedCompanySection({
   stockCode,
+  hideReports,
 }: EnrichedCompanySectionProps) {
   return (
     <Suspense fallback={<EnrichedCompanyFallback />}>
-      <EnrichedCompanyData stockCode={stockCode} />
+      <EnrichedCompanyData stockCode={stockCode} hideReports={hideReports} />
     </Suspense>
   );
 }

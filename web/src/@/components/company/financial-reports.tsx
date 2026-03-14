@@ -13,8 +13,18 @@ interface FinancialReportsProps {
   stockCode: string;
 }
 
+function getReportHref(report: FinancialReport): string | null {
+  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: proto defaults to "" which must be treated as falsy
+  const url = report.gcs_url || report.url;
+  if (!url || !url.startsWith("http")) return null;
+  return url;
+}
+
 export function FinancialReports({ reports, stockCode: _stockCode }: FinancialReportsProps) {
-  if (!reports || reports.length === 0) {
+  // Only show reports that have a valid URL
+  const linkableReports = reports?.filter((r) => getReportHref(r) !== null) ?? [];
+
+  if (linkableReports.length === 0) {
     return null;
   }
 
@@ -56,66 +66,66 @@ export function FinancialReports({ reports, stockCode: _stockCode }: FinancialRe
           Financial Reports
         </CardTitle>
         <CardDescription>
-          {reports.length} report{reports.length !== 1 ? "s" : ""} available
+          {linkableReports.length} report{linkableReports.length !== 1 ? "s" : ""} available
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          {reports.slice(0, 10).map((report, index) => (
-            <div
-              key={index}
-              className="flex items-start justify-between p-3 rounded-lg border hover:bg-accent transition-colors"
-            >
-              <div className="flex-1 space-y-1 min-w-0">
+          {linkableReports.slice(0, 10).map((report, index) => {
+            const href = getReportHref(report)!;
+            return (
+              <div
+                key={index}
+                className="flex items-start justify-between p-3 rounded-lg border hover:bg-accent transition-colors"
+              >
+                <div className="flex-1 space-y-1 min-w-0">
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium truncate block hover:underline"
+                  >
+                    {report.title}
+                  </a>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      className={`text-xs px-2 py-0.5 rounded-full ${getReportTypeColor(
+                        report.type
+                      )}`}
+                    >
+                      {getReportTypeLabel(report.type)}
+                    </span>
+                    {report.date && (
+                      <span className="text-xs text-muted-foreground">
+                        {formatDate(report.date)}
+                      </span>
+                    )}
+                    {report.source && (
+                      <span className="text-xs text-muted-foreground">
+                        via {report.source}
+                      </span>
+                    )}
+                  </div>
+                </div>
                 <a
-                  // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: proto defaults gcs_url to "" which ?? treats as valid
-                  href={report.gcs_url || report.url}
+                  href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm font-medium truncate block hover:underline"
+                  aria-label={`Open ${report.title}`}
+                  className="ml-2 shrink-0 inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
                 >
-                  {report.title}
+                  <ExternalLink className="h-4 w-4" />
                 </a>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full ${getReportTypeColor(
-                      report.type
-                    )}`}
-                  >
-                    {getReportTypeLabel(report.type)}
-                  </span>
-                  {report.date && (
-                    <span className="text-xs text-muted-foreground">
-                      {formatDate(report.date)}
-                    </span>
-                  )}
-                  {report.source && (
-                    <span className="text-xs text-muted-foreground">
-                      via {report.source}
-                    </span>
-                  )}
-                </div>
               </div>
-              <a
-                // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing -- intentional: proto defaults gcs_url to "" which ?? treats as valid
-                href={report.gcs_url || report.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`Open ${report.title}`}
-                className="ml-2 shrink-0 inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-              >
-                <ExternalLink className="h-4 w-4" />
-              </a>
-            </div>
-          ))}
+            );
+          })}
         </div>
-        {reports.length > 10 && (
+        {linkableReports.length > 10 && (
           <p className="text-xs text-muted-foreground mt-3 text-center">
-            Showing 10 of {reports.length} reports
+            Showing 10 of {linkableReports.length} reports
           </p>
         )}
       </CardContent>
     </Card>
   );
 }
-
