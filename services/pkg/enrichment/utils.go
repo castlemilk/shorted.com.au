@@ -62,3 +62,18 @@ func sameHost(root *url.URL, candidate string) bool {
 	return strings.EqualFold(u.Hostname(), root.Hostname())
 }
 
+// sameHostOrSubdomain returns true if the candidate URL is on the same domain
+// or a subdomain of root. E.g., investor.bhp.com matches bhp.com.
+func sameHostOrSubdomain(root *url.URL, candidate string) bool {
+	u, err := url.Parse(candidate)
+	if err != nil {
+		return false
+	}
+	rootHost := strings.ToLower(root.Hostname())
+	candHost := strings.ToLower(u.Hostname())
+	if rootHost == candHost {
+		return true
+	}
+	return strings.HasSuffix(candHost, "."+rootHost) || strings.HasSuffix(rootHost, "."+candHost)
+}
+

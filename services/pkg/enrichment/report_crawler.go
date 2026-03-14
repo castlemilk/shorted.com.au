@@ -3,6 +3,7 @@ package enrichment
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"regexp"
 	"sort"
@@ -67,6 +68,7 @@ func (c *ReportCrawler) CrawlFinancialReports(ctx context.Context, website strin
 
 	var reports []*stocksv1alpha1.FinancialReport
 	pagesCrawled := 0
+	pagesFailed := 0
 
 	for len(queue) > 0 && pagesCrawled < maxPages {
 		item := queue[0]
@@ -81,19 +83,23 @@ func (c *ReportCrawler) CrawlFinancialReports(ctx context.Context, website strin
 
 		doc, base, err := fetchHTML(ctx, c.client, item.u)
 		if err != nil || doc == nil || base == nil {
+			pagesFailed++
+			if err != nil {
+				slog.Debug("report_crawler: failed to fetch page", "url", item.u, "error", err)
+			}
 			continue
 		}
 
 		doc.Find("a[href]").Each(func(_ int, sel *goquery.Selection) {
 			href, _ := sel.Attr("href")
 			href = strings.TrimSpace(href)
-			if href == "" {
+			if href == "" || strings.HasPrefix(href, "#") || strings.HasPrefix(href, "javascript:") || strings.HasPrefix(href, "mailto:") {
 				return
 			}
 			text := strings.TrimSpace(sel.Text())
 
 			abs := resolveURL(base, href)
-			if abs == "" {
+			if abs == "" || !isValidReportURL(abs) {
 				return
 			}
 
@@ -106,7 +112,7 @@ func (c *ReportCrawler) CrawlFinancialReports(ctx context.Context, website strin
 			if item.depth >= maxDepth {
 				return
 			}
-			if !sameHost(rootURL, abs) {
+			if !sameHostOrSubdomain(rootURL, abs) {
 				return
 			}
 			if linkPriority(abs, text) <= 0 {
@@ -121,6 +127,10 @@ func (c *ReportCrawler) CrawlFinancialReports(ctx context.Context, website strin
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		}
+	}
+
+	if pagesFailed > 0 {
+		slog.Info("report_crawler: crawl complete", "website", website, "pages_crawled", pagesCrawled, "pages_failed", pagesFailed, "reports_found", len(reports))
 	}
 
 	// Deduplicate and sort.
@@ -146,13 +156,13 @@ func buildSeedURLs(root *url.URL) []string {
 		"/investors",
 		"/investor",
 		"/investor-centre",
-		"/investor-centre/",
+		"/investor-center",
 		"/investor-relations",
 		"/investors/investor-centre",
 		"/reports",
 		"/annual-reports",
 		"/asx-announcements",
-		"/news",
+		"/financial-reports",
 	}
 
 	seen := make(map[string]struct{}, len(paths))
@@ -171,25 +181,37 @@ func buildSeedURLs(root *url.URL) []string {
 	return out
 }
 
+// isValidReportURL checks that a URL is absolute with an http(s) scheme.
+func isValidReportURL(u string) bool {
+	return strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://")
+}
+
 func isPDFLink(href string, linkText string) bool {
 	h := strings.ToLower(href)
-	t := strings.ToLower(linkText)
-	if strings.Contains(h, "facebook") || strings.Contains(h, "twitter") || strings.Contains(h, "linkedin") {
-		return false
+	// Exclude social media links.
+	for _, social := range []string{"facebook.com", "twitter.com", "linkedin.com", "youtube.com", "instagram.com"} {
+		if strings.Contains(h, social) {
+			return false
+		}
 	}
+	// Direct PDF file link.
 	if strings.HasSuffix(h, ".pdf") || strings.Contains(h, ".pdf?") {
 		return true
 	}
-	// Some sites use download endpoints without .pdf suffix, but label indicates PDF.
-	if strings.Contains(t, "pdf") && (strings.Contains(t, "download") || strings.Contains(t, "report")) {
+	// Some sites use download endpoints without .pdf suffix.
+	// Require the URL itself to look like a download/document endpoint.
+	t := strings.ToLower(linkText)
+	if (strings.Contains(h, "/download") || strings.Contains(h, "/document")) &&
+		(strings.Contains(t, "report") || strings.Contains(t, "annual") || strings.Contains(t, "results")) {
 		return true
 	}
 	return false
 }
 
+var yearRegexp = regexp.MustCompile(`20[0-3]\d`)
+
 func extractYear(text string) string {
-	re := regexp.MustCompile(`20(2[0-5]|1[0-9])`)
-	m := re.FindString(text)
+	m := yearRegexp.FindString(text)
 	return m
 }
 
@@ -199,13 +221,18 @@ func buildReport(href string, linkText string) *stocksv1alpha1.FinancialReport {
 	if year != "" {
 		date = year + "-12-31"
 	}
-	reportType := "financial_report"
-	if strings.Contains(strings.ToLower(linkText), "annual") {
-		reportType = "annual_report"
-	}
+
+	reportType := classifyReportType(linkText)
+
 	title := strings.TrimSpace(linkText)
+	// Collapse excessive whitespace from HTML text extraction.
+	title = strings.Join(strings.Fields(title), " ")
 	if title == "" {
 		title = "Financial Report"
+	}
+	// Truncate excessively long titles (some anchor text includes surrounding content).
+	if len(title) > 200 {
+		title = title[:200]
 	}
 
 	return &stocksv1alpha1.FinancialReport{
@@ -217,17 +244,34 @@ func buildReport(href string, linkText string) *stocksv1alpha1.FinancialReport {
 	}
 }
 
+func classifyReportType(linkText string) string {
+	t := strings.ToLower(linkText)
+	switch {
+	case strings.Contains(t, "annual"):
+		return "annual_report"
+	case strings.Contains(t, "half") || strings.Contains(t, "half-year") || strings.Contains(t, "interim"):
+		return "half_year_report"
+	case strings.Contains(t, "quarterly") || strings.Contains(t, "quarter"):
+		return "quarterly_report"
+	default:
+		return "financial_report"
+	}
+}
+
 func linkPriority(href, text string) int {
-	combined := strings.ToLower(text + " " + href)
-	avoid := []string{"facebook", "twitter", "linkedin", "youtube", "instagram", "news", "media"}
-	for _, a := range avoid {
-		if strings.Contains(combined, a) {
+	hrefLower := strings.ToLower(href)
+	textLower := strings.ToLower(text)
+	combined := textLower + " " + hrefLower
+
+	// Avoid social media links by domain.
+	for _, social := range []string{"facebook.com", "twitter.com", "linkedin.com", "youtube.com", "instagram.com"} {
+		if strings.Contains(hrefLower, social) {
 			return 0
 		}
 	}
 
 	score := 0
-	high := []string{"annual report", "annual-reports", "financial report", "investor", "investors", "results", "reports", "presentations", "asx"}
+	high := []string{"annual report", "annual-reports", "financial report", "financial-reports", "investor", "investors", "results", "reports", "presentations", "asx"}
 	medium := []string{"download", "pdf", "announcement", "shareholder"}
 
 	for _, kw := range high {
@@ -248,7 +292,7 @@ func dedupeReports(in []*stocksv1alpha1.FinancialReport) []*stocksv1alpha1.Finan
 	seen := make(map[string]struct{}, len(in))
 	out := make([]*stocksv1alpha1.FinancialReport, 0, len(in))
 	for _, r := range in {
-		if r == nil || strings.TrimSpace(r.Url) == "" {
+		if r == nil || strings.TrimSpace(r.Url) == "" || !isValidReportURL(r.Url) {
 			continue
 		}
 		key := normalizeURL(r.Url)
@@ -260,4 +304,3 @@ func dedupeReports(in []*stocksv1alpha1.FinancialReport) []*stocksv1alpha1.Finan
 	}
 	return out
 }
-
