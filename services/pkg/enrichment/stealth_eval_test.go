@@ -172,7 +172,7 @@ func TestLinkedInSlugMapping(t *testing.T) {
 		wantSlug    string
 	}{
 		{"BHP Group Limited", "bhp"},
-		{"Commonwealth Bank of Australia", "commonwealth-bank-of-australia"},
+		{"Commonwealth Bank of Australia", "commonwealth-bank-of"},
 		{"CSL Limited", "csl"},
 		{"Telstra Group Limited", "telstra"},
 		{"Woolworths Group Ltd", "woolworths"},

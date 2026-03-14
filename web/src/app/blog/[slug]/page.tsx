@@ -246,12 +246,3 @@ export function generateMetadata({ params }: Params): Metadata {
     },
   };
 }
-
-// Commented out since we're using dynamic rendering
-// export async function generateStaticParams() {
-//   const posts = getAllPosts();
-//
-//   return posts.map((post) => ({
-//     slug: post.slug,
-//   }));
-// }
