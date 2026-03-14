@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useQuery } from "@tanstack/react-query";
 import type { SubscriptionInfo } from "~/app/actions/subscription";
 import { getSubscriptionStatus } from "~/app/actions/subscription";
 
@@ -14,48 +14,29 @@ interface UseSubscriptionResult {
 
 export function useSubscription(): UseSubscriptionResult {
   const { data: session, status: authStatus } = useSession();
-  const [subscription, setSubscription] = useState<SubscriptionInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    if (authStatus === "loading") return;
-
-    if (!session?.user) {
-      setSubscription(null);
-      setIsLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-
-    async function fetchSubscription() {
+  const { data: subscription = null, isLoading: queryLoading } = useQuery<SubscriptionInfo | null>({
+    queryKey: ["subscription", session?.user?.id],
+    queryFn: async () => {
       try {
-        const info = await getSubscriptionStatus();
-        if (!cancelled) {
-          setSubscription(info);
-        }
+        return await getSubscriptionStatus();
       } catch {
-        // Fall back to no subscription on error
-        if (!cancelled) {
-          setSubscription(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+        return null;
       }
-    }
+    },
+    enabled: authStatus !== "loading" && !!session?.user,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: false,
+  });
 
-    void fetchSubscription();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [session?.user, authStatus]);
+  const isLoading = authStatus === "loading" || (!!session?.user && queryLoading);
 
   return {
     isPremium: subscription?.isPremium ?? false,
-    isLoading: authStatus === "loading" || isLoading,
+    isLoading,
     tier: subscription?.tier ?? "free",
     subscription,
   };
