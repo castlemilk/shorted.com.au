@@ -3,12 +3,11 @@ package shorts
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
-	"github.com/castlemilk/shorted.com.au/services/pkg/enrichment"
 	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/register"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
@@ -23,10 +22,9 @@ type ShortsServer struct {
 	shortsv1alpha1connect.UnimplementedShortedStocksServiceHandler
 	registerServer *register.RegisterServer
 	tokenService   *TokenService
-	gptClient      enrichment.GPTClient
-	reportCrawler  enrichment.FinancialReportCrawler
-	pubSubClient   PubSubClient
+	pubSubClient PubSubClient
 	rateLimiter    ratelimit.RateLimiter
+	httpClient     *http.Client
 }
 
 // New creates instance of the Server
@@ -60,22 +58,6 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		tokenSecret = "dev-secret-unsafe-do-not-use-in-production"
 	}
 	tokenService := NewTokenService(tokenSecret)
-
-	// Optional enrichment dependencies (service can run without them)
-	var gptClient enrichment.GPTClient
-	openAIKey := strings.TrimSpace(cfg.OpenAIApiKey)
-	if openAIKey == "" {
-		openAIKey = strings.TrimSpace(os.Getenv("OPENAI_API_KEY"))
-	}
-	if openAIKey != "" {
-		client, err := enrichment.NewOpenAIGPTClient(openAIKey)
-		if err != nil {
-			return nil, err
-		}
-		gptClient = client
-	}
-
-	reportCrawler := enrichment.NewReportCrawler()
 
 	// Initialize Pub/Sub client (optional, service can run without it)
 	var pubSubClient PubSubClient
@@ -115,9 +97,8 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		logger:         logger,
 		registerServer: registerServer,
 		tokenService:   tokenService,
-		gptClient:      gptClient,
-		reportCrawler:  reportCrawler,
-		pubSubClient:   pubSubClient,
+		pubSubClient: pubSubClient,
 		rateLimiter:    rateLimiter,
+		httpClient:     &http.Client{Timeout: 10 * time.Second},
 	}, nil
 }

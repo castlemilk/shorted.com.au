@@ -3021,6 +3021,48 @@ func (s *postgresStore) GetStocksForPeopleEnrichment(limit int) ([]StockPeopleBa
 	return results, rows.Err()
 }
 
+// GetStocksForPeopleReenrichment returns stocks that have already been enriched but
+// have people missing LinkedIn URLs. Used with --force to add LinkedIn data.
+func (s *postgresStore) GetStocksForPeopleReenrichment(limit int, afterStockCode string) ([]StockPeopleBackfillRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Find stocks where at least one person in key_people lacks a linkedin_url.
+	// afterStockCode enables cursor-based pagination (pass "" for first page).
+	query := `
+		SELECT stock_code, COALESCE(company_name, ''), key_people
+		FROM "company-metadata"
+		WHERE enrichment_status = 'completed'
+		  AND key_people IS NOT NULL
+		  AND key_people != '[]'::jsonb
+		  AND stock_code > $2
+		  AND EXISTS (
+		    SELECT 1 FROM jsonb_array_elements(key_people) AS person
+		    WHERE (person->>'linkedin_url' IS NULL OR person->>'linkedin_url' = '')
+		      AND (person->>'name' IS NOT NULL AND person->>'name' != '')
+		  )
+		ORDER BY stock_code
+		LIMIT $1
+	`
+
+	rows, err := s.db.Query(ctx, query, limit, afterStockCode)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query stocks for people re-enrichment: %w", err)
+	}
+	defer rows.Close()
+
+	var results []StockPeopleBackfillRow
+	for rows.Next() {
+		var row StockPeopleBackfillRow
+		if err := rows.Scan(&row.StockCode, &row.CompanyName, &row.KeyPeople); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+		results = append(results, row)
+	}
+
+	return results, rows.Err()
+}
+
 // UpdateKeyPeopleEnriched updates the key_people JSONB and sets key_people_enriched_at
 func (s *postgresStore) UpdateKeyPeopleEnriched(stockCode string, keyPeopleJSON []byte) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -3041,4 +3083,45 @@ func (s *postgresStore) UpdateKeyPeopleEnriched(stockCode string, keyPeopleJSON 
 	return nil
 }
 
+// GetStocksForImageBackfill returns stocks that have people with LinkedIn URLs but no images.
+// Used with --backfill-images to fetch photos from authenticated LinkedIn sessions.
+func (s *postgresStore) GetStocksForImageBackfill(limit int, afterStockCode string) ([]StockPeopleBackfillRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT stock_code, COALESCE(company_name, ''), key_people
+		FROM "company-metadata"
+		WHERE enrichment_status = 'completed'
+		  AND key_people IS NOT NULL
+		  AND key_people != '[]'::jsonb
+		  AND stock_code > $2
+		  AND EXISTS (
+		    SELECT 1 FROM jsonb_array_elements(key_people) AS person
+		    WHERE person->>'linkedin_url' IS NOT NULL
+		      AND person->>'linkedin_url' != ''
+		      AND (person->>'image_gcs_url' IS NULL OR person->>'image_gcs_url' = '')
+		      AND (person->>'name' IS NOT NULL AND person->>'name' != '')
+		  )
+		ORDER BY stock_code
+		LIMIT $1
+	`
+
+	rows, err := s.db.Query(ctx, query, limit, afterStockCode)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query stocks for image backfill: %w", err)
+	}
+	defer rows.Close()
+
+	var results []StockPeopleBackfillRow
+	for rows.Next() {
+		var row StockPeopleBackfillRow
+		if err := rows.Scan(&row.StockCode, &row.CompanyName, &row.KeyPeople); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+		results = append(results, row)
+	}
+
+	return results, rows.Err()
+}
 

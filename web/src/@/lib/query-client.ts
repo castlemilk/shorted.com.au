@@ -62,8 +62,8 @@ function makeQueryClient() {
   return new QueryClient({
     defaultOptions: {
       queries: {
-        // Stale time of 1 minute - data is considered fresh for this duration
-        staleTime: 60 * 1000,
+        // Stale time of 5 minutes - short position data changes at most once per day
+        staleTime: 5 * 60 * 1000,
         // Garbage collection time of 5 minutes
         gcTime: 5 * 60 * 1000,
         // Smart retry logic with rate limit awareness

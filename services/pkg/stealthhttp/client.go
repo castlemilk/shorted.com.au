@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -65,11 +67,13 @@ type Client struct {
 
 // config holds options for creating a Client.
 type config struct {
-	engineName   string
-	timeout      time.Duration
-	maxRedirects int
-	profileName  string
-	headless     bool
+	engineName     string
+	timeout        time.Duration
+	maxRedirects   int
+	profileName    string
+	headless       bool
+	executablePath string
+	proxy          string
 }
 
 // Option configures a Client.
@@ -90,6 +94,17 @@ func WithTLSProfile(profile string) Option {
 	return func(c *config) { c.profileName = profile }
 }
 
+// WithExecPath sets the path to the Chrome/Chromium executable.
+// If empty, chromedp auto-detects the browser location.
+func WithExecPath(path string) Option {
+	return func(c *config) { c.executablePath = path }
+}
+
+// WithProxy sets a proxy server URL (e.g. "socks5://user:pass@host:1080").
+func WithProxy(proxy string) Option {
+	return func(c *config) { c.proxy = proxy }
+}
+
 // New creates a native stealth client with TLS fingerprinting.
 // The native engine is fast, requires no browser process, and handles
 // TLS fingerprint spoofing + realistic browser headers automatically.
@@ -106,11 +121,13 @@ func New(opts ...Option) (*Client, error) {
 	}
 
 	eng, err := engine.New(cfg.engineName, engine.Options{
-		Headless:    cfg.headless,
-		Stealth:     true,
-		StealthTLS:  true,
-		ProfileName: cfg.profileName,
-		Timeout:     cfg.timeout,
+		Headless:       cfg.headless,
+		Stealth:        true,
+		StealthTLS:     true,
+		ProfileName:    cfg.profileName,
+		Timeout:        cfg.timeout,
+		ExecutablePath: cfg.executablePath,
+		Proxy:          cfg.proxy,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("stealthhttp: create engine: %w", err)
@@ -138,12 +155,19 @@ func NewChromium(opts ...Option) (*Client, error) {
 		opt(cfg)
 	}
 
+	// Auto-detect Chrome path if not explicitly set
+	if cfg.executablePath == "" {
+		cfg.executablePath = findChromePath()
+	}
+
 	eng, err := engine.New(cfg.engineName, engine.Options{
-		Headless:    cfg.headless,
-		Stealth:     true,
-		StealthTLS:  true,
-		ProfileName: cfg.profileName,
-		Timeout:     cfg.timeout,
+		Headless:       cfg.headless,
+		Stealth:        true,
+		StealthTLS:     true,
+		ProfileName:    cfg.profileName,
+		Timeout:        cfg.timeout,
+		ExecutablePath: cfg.executablePath,
+		Proxy:          cfg.proxy,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("stealthhttp: create chromium engine: %w", err)
@@ -434,4 +458,30 @@ func StatusError(err error) int {
 		}
 	}
 	return 0
+}
+
+// findChromePath auto-detects the Chrome/Chromium executable path.
+func findChromePath() string {
+	var candidates []string
+	switch runtime.GOOS {
+	case "darwin":
+		candidates = []string{
+			"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+			"/Applications/Chromium.app/Contents/MacOS/Chromium",
+			"/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary",
+		}
+	case "linux":
+		candidates = []string{
+			"/usr/bin/google-chrome",
+			"/usr/bin/google-chrome-stable",
+			"/usr/bin/chromium",
+			"/usr/bin/chromium-browser",
+		}
+	}
+	for _, path := range candidates {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	return "" // Let chromedp try its own auto-detection
 }

@@ -172,7 +172,7 @@ module "shorts_api" {
   environment       = "production"
   image_url         = var.shorts_api_image
   min_instances     = 0 # Scale to zero when idle
-  max_instances     = 100
+  max_instances     = 25
   postgres_address  = var.postgres_address
   postgres_database = var.postgres_database
   postgres_username = var.postgres_username

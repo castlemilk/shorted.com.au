@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { IdCardIcon } from "@radix-ui/react-icons";
 
 interface CompanyLogoProps {
@@ -26,12 +27,12 @@ export function CompanyLogo({
 
   return (
     <div className="mr-4 flex-shrink-0">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <Image
         src={gcsUrl}
         alt={`${companyName ?? stockCode} logo`}
         width={70}
         height={70}
+        priority
         className="object-contain"
         onError={() => setImageError(true)}
       />

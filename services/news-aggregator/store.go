@@ -26,20 +26,26 @@ func (s *NewsStore) StoreArticles(ctx context.Context, articles []*NewsArticleRa
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	stored := 0
+	// Filter valid articles first
+	var valid []*NewsArticleRaw
 	for _, a := range articles {
-		if a.URL == "" || a.Headline == "" {
-			continue
+		if a.URL != "" && a.Headline != "" {
+			valid = append(valid, a)
 		}
+	}
+	if len(valid) == 0 {
+		return 0, nil
+	}
 
-		// Default stock code for market-wide news
+	// Batch sentiment analysis — one Gemini call for all headlines instead of N calls
+	sentiments := s.classifySentimentBatch(ctx, valid)
+
+	stored := 0
+	for i, a := range valid {
 		stockCode := a.StockCode
 		if stockCode == "" {
-			stockCode = "MARKET" // General market news
+			stockCode = "MARKET"
 		}
-
-		// Classify sentiment (use analyzer if available, otherwise simple heuristic)
-		sentiment := s.classifySentiment(ctx, a.Headline)
 
 		relevanceScore := 0.5
 		if a.IsPriceSensitive {
@@ -55,7 +61,7 @@ func (s *NewsStore) StoreArticles(ctx context.Context, articles []*NewsArticleRa
 			a.Headline,
 			a.URL,
 			a.PublishedAt,
-			sentiment,
+			sentiments[i],
 			relevanceScore,
 			a.IsPriceSensitive,
 			truncateStr(a.Summary, 1000),
@@ -74,15 +80,34 @@ func (s *NewsStore) StoreArticles(ctx context.Context, articles []*NewsArticleRa
 	return stored, nil
 }
 
-// classifySentiment uses the AI analyzer if available, falling back to keyword heuristic
-func (s *NewsStore) classifySentiment(ctx context.Context, headline string) string {
+// classifySentimentBatch analyzes all article headlines in a single Gemini call.
+// Falls back to keyword heuristic per-headline on error.
+func (s *NewsStore) classifySentimentBatch(ctx context.Context, articles []*NewsArticleRaw) []string {
+	sentiments := make([]string, len(articles))
+
+	// Collect headlines for batch analysis
+	headlines := make([]string, len(articles))
+	for i, a := range articles {
+		headlines[i] = a.Headline
+	}
+
+	// Try batch AI analysis (single Gemini call for all headlines)
 	if s.analyzer != nil {
-		results, err := s.analyzer.AnalyzeBatch(ctx, []string{headline})
-		if err == nil && len(results) > 0 {
-			return results[0]
+		results, err := s.analyzer.AnalyzeBatch(ctx, headlines)
+		if err == nil && len(results) == len(headlines) {
+			return results
+		}
+		// Partial or failed — fall through to heuristic
+		if s.verbose && err != nil {
+			log.Printf("    WARN: batch sentiment analysis failed: %v, using heuristic", err)
 		}
 	}
-	return classifySimpleSentiment(headline)
+
+	// Fallback: keyword heuristic per headline
+	for i, a := range articles {
+		sentiments[i] = classifySimpleSentiment(a.Headline)
+	}
+	return sentiments
 }
 
 // classifySimpleSentiment does basic keyword-based sentiment analysis

@@ -132,6 +132,38 @@ func (a *enrichmentStoreAdapter) GetStocksForPeopleEnrichment(limit int) ([]enri
 	return result, nil
 }
 
+func (a *enrichmentStoreAdapter) GetStocksForPeopleReenrichment(limit int, afterStockCode string) ([]enrichment.StockPeopleData, error) {
+	rows, err := a.store.GetStocksForPeopleReenrichment(limit, afterStockCode)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]enrichment.StockPeopleData, len(rows))
+	for i, row := range rows {
+		result[i] = enrichment.StockPeopleData{
+			StockCode:   row.StockCode,
+			CompanyName: row.CompanyName,
+			KeyPeople:   row.KeyPeople,
+		}
+	}
+	return result, nil
+}
+
+func (a *enrichmentStoreAdapter) GetStocksForImageBackfill(limit int, afterStockCode string) ([]enrichment.StockPeopleData, error) {
+	rows, err := a.store.GetStocksForImageBackfill(limit, afterStockCode)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]enrichment.StockPeopleData, len(rows))
+	for i, row := range rows {
+		result[i] = enrichment.StockPeopleData{
+			StockCode:   row.StockCode,
+			CompanyName: row.CompanyName,
+			KeyPeople:   row.KeyPeople,
+		}
+	}
+	return result, nil
+}
+
 func (a *enrichmentStoreAdapter) UpdateKeyPeopleEnriched(stockCode string, keyPeopleJSON []byte) error {
 	return a.store.UpdateKeyPeopleEnriched(stockCode, keyPeopleJSON)
 }

@@ -21,7 +21,7 @@ type Config struct {
 func LoadConfig() (*Config, error) {
 	cfg := &Config{
 		Port:               8080,
-		GeminiModel:        "gemini-2.5-pro",
+		GeminiModel:        "gemini-2.5-flash",
 		MaxConversations:   100,
 		MaxMessagesPerConv: 200,
 	}

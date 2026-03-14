@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from "~/@/components/ui/card";
 import type { Person } from "~/@/types/company-metadata";
-import { Users, Linkedin } from "lucide-react";
+import { Users, Linkedin, ExternalLink } from "lucide-react";
 
 interface KeyPeopleProps {
   people: Person[];
@@ -50,6 +50,39 @@ function PersonAvatar({ person }: { person: Person }) {
   );
 }
 
+function SocialBar({ person }: { person: Person }) {
+  const links: { href: string; icon: React.ReactNode; label: string }[] = [];
+
+  if (person.linkedin_url) {
+    links.push({
+      href: person.linkedin_url,
+      icon: <Linkedin className="h-3.5 w-3.5" />,
+      label: "LinkedIn",
+    });
+  }
+
+  if (links.length === 0) return null;
+
+  return (
+    <div className="flex items-center gap-1 mt-1">
+      {links.map((link) => (
+        <a
+          key={link.label}
+          href={link.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`${person.name} on ${link.label}`}
+          className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+        >
+          {link.icon}
+          <span>{link.label}</span>
+          <ExternalLink className="h-2.5 w-2.5 opacity-50" />
+        </a>
+      ))}
+    </div>
+  );
+}
+
 export function KeyPeople({ people, companyName }: KeyPeopleProps) {
   // Filter out entries with empty/missing names (LLM placeholder artifacts)
   const validPeople = people?.filter((p) => p.name?.trim()) ?? [];
@@ -73,24 +106,14 @@ export function KeyPeople({ people, companyName }: KeyPeopleProps) {
             <div key={index} className="flex gap-4">
               <PersonAvatar person={person} />
               <div className="flex-1 space-y-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold text-sm">{person.name}</p>
-                  {person.linkedin_url && (
-                    <a
-                      href={person.linkedin_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-muted-foreground hover:text-primary transition-colors"
-                      aria-label={`${person.name} on LinkedIn`}
-                    >
-                      <Linkedin className="h-4 w-4" />
-                    </a>
-                  )}
-                </div>
+                <p className="font-semibold text-sm">{person.name}</p>
                 <p className="text-xs text-muted-foreground">{person.role}</p>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {person.bio}
-                </p>
+                <SocialBar person={person} />
+                {person.bio && (
+                  <p className="text-sm text-muted-foreground leading-relaxed pt-0.5">
+                    {person.bio}
+                  </p>
+                )}
               </div>
             </div>
           ))}

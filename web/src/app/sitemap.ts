@@ -98,30 +98,42 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const currentDate = new Date().toISOString();
 
   // Static routes
-  const staticRoutes = [
+  const staticRoutes: MetadataRoute.Sitemap = [
     {
       url: baseUrl,
       lastModified: currentDate,
+      changeFrequency: "daily",
+      priority: 1.0,
     },
     {
       url: `${baseUrl}/about`,
       lastModified: currentDate,
+      changeFrequency: "monthly",
+      priority: 0.3,
     },
     {
       url: `${baseUrl}/blog`,
       lastModified: currentDate,
+      changeFrequency: "weekly",
+      priority: 0.6,
     },
     {
       url: `${baseUrl}/terms`,
       lastModified: currentDate,
+      changeFrequency: "monthly",
+      priority: 0.3,
     },
     {
       url: `${baseUrl}/roadmap`,
       lastModified: currentDate,
+      changeFrequency: "monthly",
+      priority: 0.3,
     },
     {
       url: `${baseUrl}/pricing`,
       lastModified: currentDate,
+      changeFrequency: "monthly",
+      priority: 0.3,
     },
   ];
 
@@ -130,6 +142,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const blogRoutes = posts.map((post) => ({
     url: `${baseUrl}/blog/${post.slug}`,
     lastModified: post.date,
+    changeFrequency: "weekly" as const,
+    priority: 0.6,
   }));
 
   // Dynamically fetch all stock codes from the API
@@ -138,6 +152,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const stockRoutes = stockCodes.map((code) => ({
     url: `${baseUrl}/shorts/${code}`,
     lastModified: currentDate,
+    changeFrequency: "daily" as const,
+    priority: 0.8,
   }));
 
   // Add main shorts page

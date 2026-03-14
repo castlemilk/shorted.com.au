@@ -101,15 +101,7 @@ func (s *postgresStore) ScreenStocks(
 	}
 	orderClause := fmt.Sprintf("ORDER BY %s %s", sortColumn, sortDirection)
 
-	// Count query
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM mv_screener_data %s", whereClause)
-	var totalCount int
-	err := s.db.QueryRow(ctx, countQuery, args...).Scan(&totalCount)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to count screener results: %w", err)
-	}
-
-	// Data query
+	// Single query: data + total count via window function (saves a DB round-trip)
 	dataQuery := fmt.Sprintf(`
 		SELECT
 			stock_code, company_name, industry,
@@ -119,7 +111,8 @@ func (s *postgresStore) ScreenStocks(
 			net_director_buy_value, director_buy_count, director_sell_count,
 			news_count_30d, avg_sentiment, price_sensitive_count,
 			trailing_12m_dividend, avg_franking_pct, logo_url,
-			COALESCE(avg_volume_20d, 0), COALESCE(days_to_cover, 0)
+			COALESCE(avg_volume_20d, 0), COALESCE(days_to_cover, 0),
+			COUNT(*) OVER() AS total_count
 		FROM mv_screener_data
 		%s
 		%s
@@ -128,6 +121,7 @@ func (s *postgresStore) ScreenStocks(
 
 	args = append(args, limit, offset)
 
+	var totalCount int
 	rows, err := s.db.Query(ctx, dataQuery, args...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to query screener data: %w", err)
@@ -146,6 +140,7 @@ func (s *postgresStore) ScreenStocks(
 			&stock.NewsCount30d, &stock.AvgSentiment, &stock.PriceSensitiveCount,
 			&stock.Trailing12mDividend, &stock.AvgFrankingPct, &stock.LogoURL,
 			&stock.AvgVolume20d, &stock.DaysToCover,
+			&totalCount,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan screener stock: %w", err)
 		}

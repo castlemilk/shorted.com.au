@@ -247,6 +247,32 @@ func (mr *MockEnrichmentStoreMockRecorder) GetStocksForPeopleEnrichment(limit in
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStocksForPeopleEnrichment", reflect.TypeOf((*MockEnrichmentStore)(nil).GetStocksForPeopleEnrichment), limit)
 }
 
+func (m *MockEnrichmentStore) GetStocksForPeopleReenrichment(limit int, afterStockCode string) ([]enrichment.StockPeopleData, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStocksForPeopleReenrichment", limit, afterStockCode)
+	ret0, _ := ret[0].([]enrichment.StockPeopleData)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (mr *MockEnrichmentStoreMockRecorder) GetStocksForPeopleReenrichment(limit, afterStockCode interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStocksForPeopleReenrichment", reflect.TypeOf((*MockEnrichmentStore)(nil).GetStocksForPeopleReenrichment), limit, afterStockCode)
+}
+
+func (m *MockEnrichmentStore) GetStocksForImageBackfill(limit int, afterStockCode string) ([]enrichment.StockPeopleData, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStocksForImageBackfill", limit, afterStockCode)
+	ret0, _ := ret[0].([]enrichment.StockPeopleData)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (mr *MockEnrichmentStoreMockRecorder) GetStocksForImageBackfill(limit, afterStockCode interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStocksForImageBackfill", reflect.TypeOf((*MockEnrichmentStore)(nil).GetStocksForImageBackfill), limit, afterStockCode)
+}
+
 func (m *MockEnrichmentStore) UpdateKeyPeopleEnriched(stockCode string, keyPeopleJSON []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateKeyPeopleEnriched", stockCode, keyPeopleJSON)

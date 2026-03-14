@@ -22,6 +22,7 @@ import (
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
 	"github.com/castlemilk/shorted.com.au/services/pkg/enrichment"
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
+	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/castlemilk/shorted.com.au/services/shorts"
 	"github.com/google/uuid"
@@ -63,7 +64,11 @@ func findVenvPython() string {
 func main() {
 	// Parse CLI flags
 	backfillPeople := flag.Bool("backfill-people", false, "Run person enrichment backfill on existing stocks")
+	backfillImages := flag.Bool("backfill-images", false, "Fetch LinkedIn profile photos for people with LinkedIn URLs but no images")
 	backfillLimit := flag.Int("limit", 50, "Maximum number of stocks to process in backfill mode")
+	backfillForce := flag.Bool("force", false, "Re-process stocks even if already enriched (adds LinkedIn to existing data)")
+	backfillAfter := flag.String("after", "", "Resume force backfill after this stock code (cursor pagination)")
+	interactive := flag.Bool("interactive", false, "Run browser in non-headless mode (for initial LinkedIn login with verification)")
 	flag.Parse()
 
 	ctx := context.Background()
@@ -121,14 +126,25 @@ func main() {
 			}
 		}
 
+		// LinkedIn person client (no Exa in backfill mode — uses slug guessing)
+		linkedInPersonClient := enrichment.NewLinkedInPersonClient(nil)
+
 		processor := &enrichmentProcessor{
-			store:                enrichmentStore,
-			wikipediaClient:     wikipediaClient,
-			yahooPeopleClient:   yahooPeopleClient,
-			personImageProcessor: personImageProcessor,
-			logger:              logger,
+			store:                  enrichmentStore,
+			wikipediaClient:       wikipediaClient,
+			yahooPeopleClient:     yahooPeopleClient,
+			personImageProcessor:   personImageProcessor,
+			linkedInPersonClient:   linkedInPersonClient,
+			logger:                logger,
 		}
-		runPeopleBackfillMain(processor, *backfillLimit)
+		runPeopleBackfillMain(processor, *backfillLimit, *backfillForce, *backfillAfter)
+		return
+	}
+
+	// Handle --backfill-images mode (authenticated LinkedIn photo scraping)
+	if *backfillImages {
+		logger.Infof("Running in image backfill mode (limit: %d)", *backfillLimit)
+		runImageBackfillMain(enrichmentStore, logger, *backfillLimit, *backfillAfter, !*interactive)
 		return
 	}
 
@@ -214,6 +230,10 @@ func main() {
 		}
 	}
 
+	// Initialize LinkedIn person client (uses Exa + Chromium for profile scraping)
+	linkedInPersonClient := enrichment.NewLinkedInPersonClient(exaClient)
+	logger.Infof("LinkedIn person client initialized (exa: %v)", exaClient != nil)
+
 	// Parse auto-approve threshold from environment
 	autoApproveThreshold := DefaultAutoApproveThreshold
 	if v := os.Getenv("AUTO_APPROVE_THRESHOLD"); v != "" {
@@ -246,7 +266,8 @@ func main() {
 		exaClient:             exaClient,
 		wikipediaClient:       wikipediaClient,
 		yahooPeopleClient:     yahooPeopleClient,
-		personImageProcessor:  personImageProcessor,
+		personImageProcessor:   personImageProcessor,
+		linkedInPersonClient:   linkedInPersonClient,
 		logger:                logger,
 		timeout:               DefaultJobTimeout,
 		qualityThreshold:      DefaultQualityThreshold,
@@ -315,7 +336,12 @@ type enrichmentProcessor struct {
 	exaClient             enrichment.ExaClient
 	wikipediaClient       enrichment.WikipediaClient
 	yahooPeopleClient     enrichment.YahooPeopleClient
-	personImageProcessor  *enrichment.PersonImageProcessor
+	personImageProcessor   *enrichment.PersonImageProcessor
+	linkedInPersonClient   *enrichment.LinkedInPersonClient
+	linkedInPhotoClient    *enrichment.LinkedInPhotoClient
+	stealthClient          *stealthhttp.Client
+	lastScrape             time.Time
+	google429Count         int
 	logger                *log.Logger
 	timeout               time.Duration
 	qualityThreshold      float64
@@ -771,7 +797,8 @@ func (p *enrichmentProcessor) performPersonEnrichmentPhase(ctx context.Context, 
 		}
 	}
 
-	// Step 3: For each person, try to find an image (website headshot > Wikipedia)
+	// Step 3: For each person, try to find an image
+	// Priority: company website headshot > LinkedIn (verified) > Wikipedia
 	maxPeople := min(5, len(enriched.KeyPeople))
 
 	for i := 0; i < maxPeople; i++ {
@@ -793,7 +820,26 @@ func (p *enrichmentProcessor) performPersonEnrichmentPhase(ctx context.Context, 
 			}
 		}
 
-		// Source B: Wikipedia (good for well-known executives)
+		// Source B: LinkedIn profile (verified employment at target company)
+		if person.ImageUrl == "" && p.linkedInPersonClient != nil {
+			liResult, err := p.linkedInPersonClient.FindAndVerifyPerson(ctx, person.Name, person.Role, companyName, stockCode)
+			if err != nil {
+				p.logger.Warnf("Phase 3.5: LinkedIn lookup failed for %s: %v", person.Name, err)
+			} else if liResult != nil && liResult.ImageURL != "" {
+				person.ImageUrl = liResult.ImageURL
+				person.SourceUrl = liResult.ProfileURL
+				person.SourceType = "linkedin"
+				if liResult.ExperienceTitle != "" && person.Role == "" {
+					person.Role = liResult.ExperienceTitle
+				}
+				p.logger.Infof("Phase 3.5: Found verified LinkedIn photo for %s (source: %s, company match: %s): %s",
+					person.Name, liResult.Source, liResult.MatchedCompany, liResult.ImageURL)
+			} else {
+				p.logger.Debugf("Phase 3.5: LinkedIn lookup returned no result for %s", person.Name)
+			}
+		}
+
+		// Source C: Wikipedia (good for well-known executives)
 		if person.ImageUrl == "" && p.wikipediaClient != nil {
 			imageURL, pageURL, err := p.wikipediaClient.GetPersonImage(ctx, person.Name)
 			if err != nil {
@@ -816,6 +862,11 @@ func (p *enrichmentProcessor) performPersonEnrichmentPhase(ctx context.Context, 
 				p.logger.Infof("Phase 3.5: Uploaded image to GCS for %s: %s", person.Name, gcsURL)
 			}
 		}
+	}
+
+	// Close shared Chromium client used for LinkedIn searches
+	if p.linkedInPersonClient != nil {
+		p.linkedInPersonClient.Close()
 	}
 
 	p.logger.Infof("Phase 3.5: Completed person enrichment for %s", stockCode)

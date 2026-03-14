@@ -103,6 +103,40 @@ func (p *PersonImageProcessor) ProcessAndUpload(ctx context.Context, imageURL, s
 	return gcsURL, nil
 }
 
+// UploadFromBytes uploads pre-downloaded image bytes to GCS.
+// Used when images can't be fetched via plain HTTP (e.g., LinkedIn authenticated images).
+func (p *PersonImageProcessor) UploadFromBytes(ctx context.Context, data []byte, contentType, stockCode, personName string) (string, error) {
+	if len(data) < 1024 {
+		return "", fmt.Errorf("image too small (%d bytes)", len(data))
+	}
+
+	ext := extensionFromContentType(contentType)
+	if ext == "" {
+		// Default to jpg for LinkedIn images
+		ext = "jpg"
+		contentType = "image/jpeg"
+	}
+
+	sanitizedName := sanitizePersonName(personName)
+	objectName := fmt.Sprintf("people/%s/%s.%s", strings.ToUpper(stockCode), sanitizedName, ext)
+
+	bucket := p.gcsClient.Bucket(p.bucketName)
+	wc := bucket.Object(objectName).NewWriter(ctx)
+	wc.ContentType = contentType
+	wc.CacheControl = "public, max-age=31536000, immutable"
+
+	if _, err := wc.Write(data); err != nil {
+		_ = wc.Close()
+		return "", fmt.Errorf("failed to write to GCS: %w", err)
+	}
+	if err := wc.Close(); err != nil {
+		return "", fmt.Errorf("failed to close GCS writer: %w", err)
+	}
+
+	gcsURL := fmt.Sprintf("https://storage.googleapis.com/%s/%s", p.bucketName, objectName)
+	return gcsURL, nil
+}
+
 // sanitizePersonName converts a person name to a safe filename
 var nonAlphaNum = regexp.MustCompile(`[^a-z0-9]+`)
 

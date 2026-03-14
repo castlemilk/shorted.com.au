@@ -56,5 +56,7 @@ type EnrichmentStore interface {
 
 	// Person enrichment backfill methods
 	GetStocksForPeopleEnrichment(limit int) ([]StockPeopleData, error)
+	GetStocksForPeopleReenrichment(limit int, afterStockCode string) ([]StockPeopleData, error)
+	GetStocksForImageBackfill(limit int, afterStockCode string) ([]StockPeopleData, error)
 	UpdateKeyPeopleEnriched(stockCode string, keyPeopleJSON []byte) error
 }

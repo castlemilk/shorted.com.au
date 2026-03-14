@@ -2,7 +2,6 @@ package shorts
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
@@ -20,11 +19,6 @@ type Config struct {
 	AlgoliaAdminKey  string `json:"algolia_admin_key"  yaml:"algolia_admin_key"  mapstructure:"algolia_admin_key"`
 	AlgoliaIndex     string `json:"algolia_index"      yaml:"algolia_index"      mapstructure:"algolia_index"`
 
-	// Enrichment configuration
-	OpenAIApiKey               string        `json:"openai_api_key" yaml:"openai_api_key" mapstructure:"openai_api_key"`
-	EnrichmentQualityThreshold float64       `json:"enrichment_quality_threshold" yaml:"enrichment_quality_threshold" mapstructure:"enrichment_quality_threshold"`
-	EnrichmentTimeout          time.Duration `json:"enrichment_timeout" yaml:"enrichment_timeout" mapstructure:"enrichment_timeout"`
-
 	// Rate limiting configuration
 	RateLimitConfig ratelimit.Config `json:"rate_limit" yaml:"rate_limit" mapstructure:"rate_limit"`
 }
@@ -32,8 +26,6 @@ type Config struct {
 const (
 	defaultInsecure = true
 	defaultPort     = 9091
-	defaultEnrichmentQualityThreshold = 0.7
-	defaultEnrichmentTimeout          = 5 * time.Minute
 )
 
 func DefaultConfig() Config {
@@ -41,10 +33,8 @@ func DefaultConfig() Config {
 		Insecure:                   defaultInsecure,
 		Port:                       defaultPort,
 		ShortsStoreConfig:          shorts.DefaultPostgresConfig(),
-		AlgoliaIndex:               "stocks", // Default index name
-		EnrichmentQualityThreshold: defaultEnrichmentQualityThreshold,
-		EnrichmentTimeout:          defaultEnrichmentTimeout,
-		RateLimitConfig:            ratelimit.DefaultConfig(),
+		AlgoliaIndex:    "stocks", // Default index name
+		RateLimitConfig: ratelimit.DefaultConfig(),
 	}
 }
 
@@ -61,11 +51,6 @@ func Env(v *viper.Viper, cfgPrefix, envPrefix string) {
 	_ = v.BindEnv(fmt.Sprintf("%s.algolia_search_key", cfgPrefix), "ALGOLIA_SEARCH_KEY")
 	_ = v.BindEnv(fmt.Sprintf("%s.algolia_admin_key", cfgPrefix), "ALGOLIA_ADMIN_KEY")
 	_ = v.BindEnv(fmt.Sprintf("%s.algolia_index", cfgPrefix), "ALGOLIA_INDEX")
-
-	// Enrichment configuration
-	_ = v.BindEnv(fmt.Sprintf("%s.openai_api_key", cfgPrefix), "OPENAI_API_KEY")
-	_ = v.BindEnv(fmt.Sprintf("%s.enrichment_quality_threshold", cfgPrefix), "ENRICHMENT_QUALITY_THRESHOLD")
-	_ = v.BindEnv(fmt.Sprintf("%s.enrichment_timeout", cfgPrefix), "ENRICHMENT_TIMEOUT")
 
 	// Rate limiting configuration
 	_ = v.BindEnv(fmt.Sprintf("%s.rate_limit.upstash_url", cfgPrefix), "UPSTASH_REDIS_REST_URL")

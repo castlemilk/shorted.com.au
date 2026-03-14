@@ -90,7 +90,7 @@ func (p *enrichmentProcessor) backfillStockPeople(ctx context.Context, stock enr
 		}
 	}
 
-	// Step 2: For top 3 people, try Wikipedia for images
+	// Step 2: For top 3 people, try LinkedIn then Wikipedia for images
 	maxPeople := min(3, len(people))
 	for i := 0; i < maxPeople; i++ {
 		person := &people[i]
@@ -104,9 +104,34 @@ func (p *enrichmentProcessor) backfillStockPeople(ctx context.Context, stock enr
 			continue
 		}
 
+		// Skip placeholder/non-person names (e.g. "John Doe", "READY TO THRIVE?", "Alfabs Group")
+		if enrichment.IsPlaceholderName(person.Name) {
+			p.logger.Infof("  Skipping placeholder name: %s", person.Name)
+			continue
+		}
+
 		p.logger.Infof("  Looking up image for: %s (%s)", person.Name, person.Role)
 
-		// Try Wikipedia for image
+		// Source A: LinkedIn profile (verified employment at target company)
+		if person.LinkedInURL == "" && p.linkedInPersonClient != nil {
+			liResult, err := p.linkedInPersonClient.FindAndVerifyPerson(ctx, person.Name, person.Role, stock.CompanyName, stock.StockCode)
+			if err != nil {
+				p.logger.Warnf("  LinkedIn lookup failed for %s: %v", person.Name, err)
+			} else if liResult != nil {
+				person.LinkedInURL = liResult.ProfileURL
+				person.SourceType = liResult.Source
+				enrichedAny = true
+				p.logger.Infof("  Found LinkedIn profile for %s: %s (source: %s, company: %s)",
+					person.Name, liResult.ProfileURL, liResult.Source, liResult.MatchedCompany)
+				if liResult.ImageURL != "" {
+					person.ImageURL = liResult.ImageURL
+					person.SourceURL = liResult.ProfileURL
+					p.logger.Infof("  Found LinkedIn photo for %s: %s", person.Name, liResult.ImageURL)
+				}
+			}
+		}
+
+		// Source B: Wikipedia (good for well-known executives)
 		if person.ImageURL == "" && p.wikipediaClient != nil {
 			imageURL, pageURL, err := p.wikipediaClient.GetPersonImage(ctx, person.Name)
 			if err != nil {
@@ -114,7 +139,9 @@ func (p *enrichmentProcessor) backfillStockPeople(ctx context.Context, stock enr
 			} else if imageURL != "" {
 				person.ImageURL = imageURL
 				person.SourceURL = pageURL
-				person.SourceType = "wikipedia"
+				if person.SourceType == "" {
+					person.SourceType = "wikipedia"
+				}
 				enrichedAny = true
 			}
 		}
@@ -193,14 +220,70 @@ func normalizeNameForMatch(name string) string {
 }
 
 // runPeopleBackfillMain is the entry point for --backfill-people mode
-func runPeopleBackfillMain(processor *enrichmentProcessor, limit int) {
+func runPeopleBackfillMain(processor *enrichmentProcessor, limit int, force bool, afterStockCode string) {
 	logger := log.NewLogger()
 	logger.SetLevel("debug")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
 	defer cancel()
 
-	if err := processor.runPeopleBackfill(ctx, limit); err != nil {
+	// Close LinkedIn Chromium client when done
+	if processor.linkedInPersonClient != nil {
+		defer processor.linkedInPersonClient.Close()
+	}
+
+	var err error
+	if force {
+		err = processor.runPeopleBackfillForce(ctx, limit, afterStockCode)
+	} else {
+		err = processor.runPeopleBackfill(ctx, limit)
+	}
+	if err != nil {
 		logger.Errorf("People backfill failed: %v", err)
 	}
+}
+
+// runPeopleBackfillForce re-processes stocks that already have key_people_enriched_at
+// but are missing LinkedIn URLs. This adds LinkedIn data to existing enrichment.
+// afterStockCode enables cursor pagination — pass "" for first page.
+func (p *enrichmentProcessor) runPeopleBackfillForce(ctx context.Context, limit int, afterStockCode string) error {
+	if afterStockCode != "" {
+		p.logger.Infof("Starting people backfill FORCE mode (limit: %d, after: %s) — re-enriching with LinkedIn", limit, afterStockCode)
+	} else {
+		p.logger.Infof("Starting people backfill FORCE mode (limit: %d) — re-enriching with LinkedIn", limit)
+	}
+
+	stocks, err := p.store.GetStocksForPeopleReenrichment(limit, afterStockCode)
+	if err != nil {
+		return fmt.Errorf("failed to query stocks for people re-enrichment: %w", err)
+	}
+
+	if len(stocks) == 0 {
+		p.logger.Infof("No stocks need LinkedIn re-enrichment")
+		return nil
+	}
+
+	p.logger.Infof("Found %d stocks needing LinkedIn enrichment", len(stocks))
+
+	successCount := 0
+	failCount := 0
+
+	for i, stock := range stocks {
+		p.logger.Infof("[%d/%d] Processing %s (%s)", i+1, len(stocks), stock.StockCode, stock.CompanyName)
+
+		if err := p.backfillStockPeople(ctx, stock); err != nil {
+			p.logger.Errorf("Failed to backfill %s: %v", stock.StockCode, err)
+			failCount++
+			continue
+		}
+
+		successCount++
+		p.logger.Infof("[%d/%d] Successfully enriched people for %s", i+1, len(stocks), stock.StockCode)
+
+		// Rate limit between stocks
+		time.Sleep(2 * time.Second)
+	}
+
+	p.logger.Infof("People backfill (force) complete: %d succeeded, %d failed, %d total", successCount, failCount, len(stocks))
+	return nil
 }

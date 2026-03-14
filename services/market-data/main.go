@@ -58,12 +58,18 @@ func (s *MarketDataService) GetStockPrice(
 		return nil, err
 	}
 
+	// Single query: fetch latest price + previous close in one round-trip
 	query := `
-		SELECT date, open, high, low, close, volume, adjusted_close
-		FROM stock_prices
-		WHERE stock_code = $1
-		ORDER BY date DESC
-		LIMIT 1
+		WITH latest AS (
+			SELECT date, open, high, low, close, volume, adjusted_close
+			FROM stock_prices
+			WHERE stock_code = $1
+			ORDER BY date DESC
+			LIMIT 1
+		)
+		SELECT l.date, l.open, l.high, l.low, l.close, l.volume, l.adjusted_close,
+			(SELECT close FROM stock_prices WHERE stock_code = $1 AND date < l.date ORDER BY date DESC LIMIT 1) AS prev_close
+		FROM latest l
 	`
 
 	var (
@@ -74,16 +80,11 @@ func (s *MarketDataService) GetStockPrice(
 		close         float64
 		volume        int64
 		adjustedClose sql.NullFloat64
+		prevClose     sql.NullFloat64
 	)
 
 	err := s.db.QueryRow(ctx, query, req.Msg.StockCode).Scan(
-		&date,
-		&open,
-		&high,
-		&low,
-		&close,
-		&volume,
-		&adjustedClose,
+		&date, &open, &high, &low, &close, &volume, &adjustedClose, &prevClose,
 	)
 
 	if err != nil {
@@ -93,8 +94,7 @@ func (s *MarketDataService) GetStockPrice(
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	// Create the price struct with converted timestamp
-	adjClose := close // Default to close if NULL
+	adjClose := close
 	if adjustedClose.Valid {
 		adjClose = adjustedClose.Float64
 	}
@@ -110,20 +110,9 @@ func (s *MarketDataService) GetStockPrice(
 		AdjustedClose: adjClose,
 	}
 
-	// Calculate change from previous close
-	prevQuery := `
-		SELECT close 
-		FROM stock_prices 
-		WHERE stock_code = $1 AND date < $2
-		ORDER BY date DESC 
-		LIMIT 1
-	`
-
-	var prevClose float64
-	err = s.db.QueryRow(ctx, prevQuery, req.Msg.StockCode, date).Scan(&prevClose)
-	if err == nil && prevClose > 0 {
-		price.Change = close - prevClose
-		price.ChangePercent = (price.Change / prevClose) * 100
+	if prevClose.Valid && prevClose.Float64 > 0 {
+		price.Change = close - prevClose.Float64
+		price.ChangePercent = (price.Change / prevClose.Float64) * 100
 	}
 
 	return connect.NewResponse(&marketdatav1.GetStockPriceResponse{
@@ -536,20 +525,6 @@ func calculateCorrelation(x, y []float64) float64 {
 
 func main() {
 	ctx := context.Background()
-
-	// Initialize OpenTelemetry
-	otelShutdown, err := shortedotel.InitProvider(ctx, "shorted-market-data")
-	if err != nil {
-		log.Printf("WARNING: Failed to initialize OTel: %v", err)
-	} else {
-		defer func() {
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-			defer cancel()
-			if err := otelShutdown(shutdownCtx); err != nil {
-				log.Printf("WARNING: OTel shutdown error: %v", err)
-			}
-		}()
-	}
 
 	// Get database URL from environment
 	dbURL := os.Getenv("DATABASE_URL")

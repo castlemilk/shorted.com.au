@@ -12,6 +12,7 @@ Disallow: /admin/
 Disallow: /_next/
 Disallow: /dashboard/
 Disallow: /portfolio/
+Disallow: /embed/
 
 # API endpoints - use authenticated API access instead
 Disallow: /shorts.v1alpha1.ShortedStocksService/

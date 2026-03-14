@@ -122,6 +122,11 @@ function convertKeyPeople(people: ProtoCompanyPerson[]): Person[] {
     name: person.name ?? "",
     role: person.role ?? "",
     bio: person.bio ?? "",
+    image_url: person.imageUrl || undefined,
+    image_gcs_url: person.imageGcsUrl || undefined,
+    linkedin_url: person.linkedinUrl || undefined,
+    source_url: person.sourceUrl || undefined,
+    source_type: person.sourceType || undefined,
   }));
 }
 

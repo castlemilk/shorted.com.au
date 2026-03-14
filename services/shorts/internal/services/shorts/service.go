@@ -346,8 +346,7 @@ func (s *ShortsServer) searchAlgolia(query string, limit int32) ([]*stocksv1alph
 	req.Header.Set("X-Algolia-Application-Id", s.config.AlgoliaAppID)
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("algolia request failed: %w", err)
 	}
