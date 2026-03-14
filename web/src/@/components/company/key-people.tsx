@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from "~/@/components/ui/card";
 import type { Person } from "~/@/types/company-metadata";
-import { Users, Linkedin, ExternalLink } from "lucide-react";
+import { Users, Linkedin, Globe } from "lucide-react";
 
 interface KeyPeopleProps {
   people: Person[];
@@ -50,37 +50,61 @@ function PersonAvatar({ person }: { person: Person }) {
   );
 }
 
-function SocialBar({ person }: { person: Person }) {
-  const links: { href: string; icon: React.ReactNode; label: string }[] = [];
+function WikipediaIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      <path d="M12.09 13.119c-.936 1.932-2.217 4.548-2.853 5.728-.616 1.074-1.127.991-1.532.016C6.532 16.263 4.267 10.884 3.042 7.97c-.146-.27-.283-.55-.413-.824h2.208c.94 2.16 3.054 7.26 3.838 9.166.271-.574 1.14-2.372 1.654-3.494-.508-1.07-1.752-3.722-2.208-4.774-.246-.541-.462-1.058-.624-1.528h2.158c.515 1.246 1.058 2.394 1.565 3.546.506-1.167 1.06-2.312 1.573-3.546h2.066c-.774 1.646-1.548 3.292-2.35 5.042.508 1.082 1.318 2.738 1.817 3.736.785-1.636 2.895-6.684 3.838-9.116h2.208c-.158.36-.34.724-.536 1.098C17.742 10.884 15.477 16.263 14.302 18.863c-.405.975-.916 1.058-1.532-.016-.607-1.18-1.917-3.796-2.853-5.728z" />
+    </svg>
+  );
+}
 
+function PersonSourceLink({ person }: { person: Person }) {
+  // Priority 1: LinkedIn URL
   if (person.linkedin_url) {
-    links.push({
-      href: person.linkedin_url,
-      icon: <Linkedin className="h-3.5 w-3.5" />,
-      label: "LinkedIn",
-    });
+    return (
+      <a
+        href={person.linkedin_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`${person.name} on LinkedIn`}
+        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[#0A66C2] text-white hover:bg-[#004182] transition-colors"
+      >
+        <Linkedin className="h-3 w-3" />
+      </a>
+    );
   }
 
-  if (links.length === 0) return null;
+  // Priority 2: Wikipedia source
+  if (person.source_type === "wikipedia" && person.source_url) {
+    return (
+      <a
+        href={person.source_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`${person.name} on Wikipedia`}
+        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-zinc-700 text-white hover:bg-zinc-600 transition-colors"
+      >
+        <WikipediaIcon className="h-3.5 w-3.5" />
+      </a>
+    );
+  }
 
-  return (
-    <div className="flex items-center gap-1 mt-1">
-      {links.map((link) => (
-        <a
-          key={link.label}
-          href={link.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={`${person.name} on ${link.label}`}
-          className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-0.5 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-        >
-          {link.icon}
-          <span>{link.label}</span>
-          <ExternalLink className="h-2.5 w-2.5 opacity-50" />
-        </a>
-      ))}
-    </div>
-  );
+  // Priority 3: Any other source URL
+  if (person.source_url) {
+    return (
+      <a
+        href={person.source_url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`${person.name} source`}
+        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-zinc-700 text-white hover:bg-zinc-600 transition-colors"
+      >
+        <Globe className="h-3 w-3" />
+      </a>
+    );
+  }
+
+  return null;
 }
 
 export function KeyPeople({ people, companyName }: KeyPeopleProps) {
@@ -106,9 +130,11 @@ export function KeyPeople({ people, companyName }: KeyPeopleProps) {
             <div key={index} className="flex gap-4">
               <PersonAvatar person={person} />
               <div className="flex-1 space-y-1">
-                <p className="font-semibold text-sm">{person.name}</p>
+                <p className="font-semibold text-sm flex items-center gap-1.5">
+                  {person.name}
+                  <PersonSourceLink person={person} />
+                </p>
                 <p className="text-xs text-muted-foreground">{person.role}</p>
-                <SocialBar person={person} />
                 {person.bio && (
                   <p className="text-sm text-muted-foreground leading-relaxed pt-0.5">
                     {person.bio}

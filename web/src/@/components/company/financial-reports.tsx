@@ -5,7 +5,6 @@ import {
   CardHeader,
   CardTitle,
 } from "~/@/components/ui/card";
-import { Button } from "~/@/components/ui/button";
 import type { FinancialReport } from "~/@/types/company-metadata";
 import { FileText, ExternalLink } from "lucide-react";
 
@@ -68,7 +67,14 @@ export function FinancialReports({ reports, stockCode: _stockCode }: FinancialRe
               className="flex items-start justify-between p-3 rounded-lg border hover:bg-accent transition-colors"
             >
               <div className="flex-1 space-y-1 min-w-0">
-                <p className="text-sm font-medium truncate">{report.title}</p>
+                <a
+                  href={report.gcs_url ?? report.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-medium truncate block hover:underline"
+                >
+                  {report.title}
+                </a>
                 <div className="flex items-center gap-2 flex-wrap">
                   <span
                     className={`text-xs px-2 py-0.5 rounded-full ${getReportTypeColor(
@@ -89,21 +95,15 @@ export function FinancialReports({ reports, stockCode: _stockCode }: FinancialRe
                   )}
                 </div>
               </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="ml-2 shrink-0"
-                asChild
+              <a
+                href={report.gcs_url ?? report.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Open ${report.title}`}
+                className="ml-2 shrink-0 inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
               >
-                <a
-                  href={report.gcs_url ?? report.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`Open ${report.title}`}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              </Button>
+                <ExternalLink className="h-4 w-4" />
+              </a>
             </div>
           ))}
         </div>
