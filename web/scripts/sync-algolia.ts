@@ -335,7 +335,7 @@ async function configureSynonyms(client: ReturnType<typeof algoliasearch>): Prom
 
   await client.saveSynonyms({
     indexName: ALGOLIA_INDEX,
-    synonymHits: synonyms,
+    synonymHit: synonyms,
     forwardToReplicas: false,
     replaceExistingSynonyms: true,
   });
