@@ -250,8 +250,8 @@ resource "google_cloud_run_v2_service" "shorts_api" {
 
       resources {
         limits = {
-          cpu    = "1"
-          memory = "1Gi"
+          cpu    = "0.08"
+          memory = "128Mi"
         }
         cpu_idle          = true  # Throttle CPU when idle to reduce costs
         startup_cpu_boost = true
@@ -279,6 +279,8 @@ resource "google_cloud_run_v2_service" "shorts_api" {
         failure_threshold     = 3
       }
     }
+
+    max_instance_request_concurrency = 1  # Required: cpu < 1 requires concurrency = 1
 
     scaling {
       min_instance_count = var.min_instances
