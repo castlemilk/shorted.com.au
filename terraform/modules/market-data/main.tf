@@ -102,8 +102,8 @@ resource "google_cloud_run_v2_service" "market_data" {
 
       resources {
         limits = {
-          cpu    = "1"
-          memory = "512Mi"
+          cpu    = "0.08"
+          memory = "128Mi"
         }
         cpu_idle          = true
         startup_cpu_boost = true
@@ -131,6 +131,8 @@ resource "google_cloud_run_v2_service" "market_data" {
         failure_threshold     = 3
       }
     }
+
+    max_instance_request_concurrency = 1  # Required: cpu < 1 requires concurrency = 1
 
     scaling {
       min_instance_count = var.min_instances
