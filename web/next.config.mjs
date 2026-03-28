@@ -188,6 +188,7 @@ export default withBundleAnalyzer(
     ...config,
     pageExtensions: ["js", "jsx", "mdx", "md", "ts", "tsx"],
     reactStrictMode: true,
+    staticPageGenerationTimeout: 180,
     experimental: {
       instrumentationHook: true,
       // Externalize protobuf and connect packages to prevent SSR bundling issues
