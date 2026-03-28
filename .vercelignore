@@ -1,6 +1,12 @@
 # Data files
 services/data/
 
+# Claude worktrees
+.claude/worktrees/
+
+# Screenshots
+screenshots/
+
 # Go services (not needed for frontend)
 services/*/
 
