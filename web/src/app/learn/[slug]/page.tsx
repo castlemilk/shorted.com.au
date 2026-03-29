@@ -16,6 +16,7 @@ import {
   BreadcrumbListSchema,
 } from "~/@/components/seo/enhanced-structured-data";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
+import { ArticleSchema } from "~/@/components/seo/article-schema";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -1897,14 +1898,27 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       siteName: siteConfig.name,
       type: "article",
       locale: "en_AU",
+      images: [
+        {
+          url: siteConfig.ogImage,
+          width: 1200,
+          height: 630,
+          alt: article.title,
+        },
+      ],
     },
     twitter: {
       card: "summary_large_image",
       title: article.title,
       description: article.description,
+      images: [siteConfig.ogImage],
     },
     alternates: {
       canonical: `${siteConfig.url}/learn/${slug}`,
+      languages: {
+        "en-AU": `${siteConfig.url}/learn/${slug}`,
+        "x-default": `${siteConfig.url}/learn/${slug}`,
+      },
     },
   };
 }
@@ -1948,6 +1962,34 @@ export default async function LearnArticlePage({ params }: PageProps) {
   return (
     <DashboardLayout>
       <BreadcrumbListSchema items={breadcrumbsSchema} />
+      <ArticleSchema
+        title={article.title}
+        description={article.description}
+        datePublished="2024-01-01"
+        url={`${siteConfig.url}/learn/${slug}`}
+        authorName={siteConfig.author}
+        image={siteConfig.ogImage}
+        keywords={[...article.topics, "short selling guide", "ASX education"]}
+      />
+      {article.faqs.length > 0 && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "FAQPage",
+              mainEntity: article.faqs.map((faq) => ({
+                "@type": "Question",
+                name: faq.question,
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: faq.answer,
+                },
+              })),
+            }),
+          }}
+        />
+      )}
 
       <div className="max-w-4xl mx-auto">
         {/* Breadcrumbs */}

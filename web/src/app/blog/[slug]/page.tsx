@@ -18,7 +18,7 @@ import RegisterEmail from "~/@/components/ui/register-email";
 // Lazy load Prism CSS only for blog posts
 import "prismjs/themes/prism-tomorrow.css";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600; // Revalidate hourly — blog posts change infrequently
 
 interface Params {
   params: {
