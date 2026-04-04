@@ -56,7 +56,7 @@ resource "google_cloud_run_v2_job" "asx_announcement_crawler" {
       service_account = google_service_account.asx_announcement_crawler.email
 
       max_retries = 2
-      timeout     = "3600s" # 1 hour - crawling many stocks takes time
+      timeout     = "14400s" # 4 hours - crawling director trades, dividends, and news for 2024-2026 takes significant time
 
       containers {
         image = var.image_url
