@@ -19,6 +19,10 @@ terraform {
       source  = "grafana/grafana"
       version = "~> 3.0"
     }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 4.0"
+    }
   }
 
   backend "gcs" {
@@ -30,6 +34,11 @@ terraform {
 provider "google" {
   project = var.project_id
   region  = var.region
+}
+
+provider "cloudflare" {
+  api_key = var.cloudflare_global_api_key
+  email   = var.cloudflare_email
 }
 
 # Enable required APIs
@@ -248,6 +257,29 @@ module "market_data" {
   ]
 }
 
+# Chat Service (Connect-RPC AI chat, port 8080)
+module "chat_service" {
+  source = "../../modules/chat-service"
+
+  project_id    = var.project_id
+  region        = var.region
+  environment   = "production"
+  image_url     = var.chat_service_image
+  min_instances = 0
+  max_instances = 10
+
+  postgres_address  = var.postgres_address
+  postgres_database = var.postgres_database
+  postgres_username = var.postgres_username
+
+  shorts_api_url = module.shorts_api.service_url
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
 # Market Discovery and Data Sync Jobs
 module "market_discovery_sync" {
   source = "../../modules/market-discovery-sync"
@@ -298,4 +330,46 @@ module "asx_announcement_crawler" {
     google_project_service.required_apis,
     google_artifact_registry_repository.shorted
   ]
+}
+
+# =============================================================================
+# Cloudflare Edge — CDN, WAF, rate limiting, DNS
+# =============================================================================
+
+module "edge" {
+  source = "../../modules/cloudflare-edge"
+
+  cloudflare_zone_id   = var.cloudflare_zone_id
+  domain               = "api.shorted.com.au"
+  environment          = "production"
+
+  shorts_api_origin    = module.shorts_api.service_url
+  chat_service_origin  = module.chat_service.service_url
+  market_data_origin   = module.market_data.service_url
+  frontend_origin      = "https://shorted.com.au"
+  create_frontend_records = true   # Proxy frontend through Cloudflare edge for caching + rate limiting
+
+  cache_ttl_seconds    = 30
+  top_shorts_cache_ttl = 60
+  stock_data_cache_ttl = 30
+  news_cache_ttl       = 120
+
+  rate_limit_enabled   = true
+  api_rate_limit_requests = 60
+  search_rate_limit_requests = 20
+
+  waf_enabled            = true
+  bot_protection_enabled = true
+
+  cache_purge_secret    = var.cache_purge_secret
+}
+
+output "edge_url" {
+  description = "Edge-proxied URL for the API."
+  value       = "https://api.shorted.com.au"
+}
+
+output "edge_worker_name" {
+  description = "Name of the Cloudflare edge worker."
+  value       = module.edge.worker_name
 }
