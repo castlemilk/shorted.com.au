@@ -17,7 +17,7 @@ spec:
 
     # Go lint (golangci-lint v2)
     - id: go-lint
-      image: golangci/golangci-lint:v2.7
+      image: golangci/golangci-lint:v2.11
       script: |
         cd services
         golangci-lint run ./...
@@ -25,14 +25,14 @@ spec:
     # Go unit + integration tests (requires Docker for testcontainers)
     # Note: Runner must have Docker socket enabled for testcontainers
     - id: go-test
-      image: golang:1.24
+      image: golang:1.26
       script: |
         cd services
         go test -race -v -count=1 -timeout=10m ./...
 
     # Go build
     - id: go-build
-      image: golang:1.24
+      image: golang:1.26
       script: |
         cd services
         go build -o /dev/null ./...
