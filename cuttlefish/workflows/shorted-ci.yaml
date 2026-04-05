@@ -16,8 +16,12 @@ spec:
           value: main
 
     # Go lint (golangci-lint v2)
+    # GOWORK=off to avoid local replace directives that break in CI
     - id: go-lint
       image: golangci/golangci-lint:v2.11
+      env:
+        - name: GOWORK
+          value: "off"
       script: |
         cd services
         golangci-lint run ./...
@@ -26,6 +30,9 @@ spec:
     # Note: Runner must have Docker socket enabled for testcontainers
     - id: go-test
       image: golang:1.26
+      env:
+        - name: GOWORK
+          value: "off"
       script: |
         cd services
         go test -race -v -count=1 -timeout=10m ./...
@@ -33,6 +40,9 @@ spec:
     # Go build
     - id: go-build
       image: golang:1.26
+      env:
+        - name: GOWORK
+          value: "off"
       script: |
         cd services
         go build -o /dev/null ./...
