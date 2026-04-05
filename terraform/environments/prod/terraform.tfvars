@@ -7,4 +7,7 @@ cloudflare_zone_id   = "41b338d2d75853d7bedb9a93f1e824f1" # shorted.com.au zone
 # CLOUDFLARE_API_TOKEN        -> cloudflare_api_token
 # CLOUDFLARE_GLOBAL_API_TOKEN -> cloudflare_global_api_key
 cloudflare_api_token     = "prj874JlZaneXp5q2LtYjZWKhWMSHMYiaEABsCo9"
-cloudflare_global_api_key = "0a413744fd5f7f212de4a61484aea3fac0793"
+cloudflare_global_api_key="0a413744fd5f7f212de4a61484aea3fac0793"
+
+# Weekly report generator image (pinned to monthly-fix with REPORT_TYPE support)
+weekly_report_generator_image = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/weekly-report-generator:monthly-fix"
