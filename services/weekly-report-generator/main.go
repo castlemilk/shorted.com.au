@@ -62,20 +62,21 @@ func main() {
 		if reportTypeHint == "" {
 			reportTypeHint = os.Getenv("REPORT_TYPE")
 		}
-		if reportTypeHint == "monthly" {
+		switch reportTypeHint {
+		case "monthly":
 			// Auto monthly: previous month
 			now := time.Now()
 			prev := now.AddDate(0, -1, 0)
 			slug = fmt.Sprintf("%d-%02d", prev.Year(), prev.Month())
 			isMonthly = true
 			log.Printf("Auto-detected monthly report for %s (previous month)", slug)
-		} else if reportTypeHint == "yearly" {
+		case "yearly":
 			// Auto yearly: previous year
 			now := time.Now()
 			slug = fmt.Sprintf("%d", now.Year()-1)
 			isYearly = true
 			log.Printf("Auto-detected yearly report for %s (previous year)", slug)
-		} else {
+		default:
 			// Auto weekly: current ISO week
 			if slug == "" {
 				year, week := time.Now().ISOWeek()

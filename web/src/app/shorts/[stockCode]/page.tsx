@@ -58,7 +58,10 @@ export async function generateStaticParams(): Promise<{ stockCode: string }[]> {
     return [];
   }
   try {
-    const response = await getTopShortsData("max", 1000, 0);
+    // Only pre-generate top 50 stocks at build time.
+    // The rest are generated on-demand via ISR (dynamicParams = true by default).
+    // This saves ~3-5 minutes of Vercel build time vs generating all ~1000.
+    const response = await getTopShortsData("max", 50, 0);
     if (!response) return [];
 
     const stockCodes = response.timeSeries

@@ -705,14 +705,14 @@ lint-fix: lint-install
 
 # Unit tests
 test:
-	go test ./... -short -v
+	go test ./... -v
 
 test.coverage:
-	go test ./... -short -v -coverprofile=coverage.out
+	go test ./... -v -coverprofile=coverage.out
 	go tool cover -html=coverage.out -o coverage.html
 
 test.shorts:
-	go test ./shorts/... -short -v
+	go test ./shorts/... -v
 
 test.topshorts.integration:
 	@echo "🧪 Running top shorts integration tests with testcontainers..."

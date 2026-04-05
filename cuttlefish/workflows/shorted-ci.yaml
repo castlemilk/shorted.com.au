@@ -2,7 +2,7 @@ apiVersion: cuttlefish.dev/v1alpha1
 kind: Workflow
 metadata:
   name: shorted-ci
-  description: "Shorted CI: Go lint/test, frontend lint/test/build, e2e"
+  description: "Shorted CI: Go lint/test, integration tests, frontend lint/test/build, terraform validate"
 spec:
   nodes:
     - id: checkout
@@ -22,12 +22,13 @@ spec:
         cd services
         golangci-lint run ./...
 
-    # Go unit tests (short mode - no Docker required)
+    # Go unit + integration tests (requires Docker for testcontainers)
+    # Note: Runner must have Docker socket enabled for testcontainers
     - id: go-test
       image: golang:1.24
       script: |
         cd services
-        go test -race -short ./... -count=1 -timeout=120s
+        go test -race -v -count=1 -timeout=10m ./...
 
     # Go build
     - id: go-build
