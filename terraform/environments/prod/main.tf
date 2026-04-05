@@ -349,10 +349,10 @@ module "edge" {
   frontend_origin      = "https://shorted.com.au"
   create_frontend_records = true   # Proxy frontend through Cloudflare edge for caching + rate limiting
 
-  cache_ttl_seconds    = 30
-  top_shorts_cache_ttl = 60
-  stock_data_cache_ttl = 30
-  news_cache_ttl       = 120
+  cache_ttl_seconds    = 60
+  top_shorts_cache_ttl = 300
+  stock_data_cache_ttl = 120
+  news_cache_ttl       = 300
 
   rate_limit_enabled   = true
   api_rate_limit_requests = 60
@@ -361,7 +361,7 @@ module "edge" {
   waf_enabled            = true
   bot_protection_enabled = true
 
-  cache_purge_secret    = var.cache_purge_secret
+  cache_purge_secret     = var.cache_purge_secret
 }
 
 output "edge_url" {

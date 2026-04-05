@@ -1,4 +1,5 @@
 {
+  "ignoreCommand": "git diff HEAD^ HEAD --quiet -- web/src/ web/public/ web/package.json web/package-lock.json web/next.config.mjs web/tsconfig.json proto/",
   "crons": [
     {
       "path": "/api/about/warm-cache",

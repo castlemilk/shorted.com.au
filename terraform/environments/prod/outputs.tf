@@ -68,9 +68,31 @@ output "market_data_service_account" {
   value       = module.market_data.service_account_email
 }
 
+# Chat Service Outputs
+output "chat_service_url" {
+  description = "URL of the chat service"
+  value       = module.chat_service.service_url
+}
+
+output "chat_service_service_account" {
+  description = "Service account email for chat service"
+  value       = module.chat_service.service_account_email
+}
+
 # Infrastructure Outputs
 output "artifact_registry_repository" {
   description = "Artifact Registry repository for Docker images"
   value       = "australia-southeast2-docker.pkg.dev/${var.project_id}/shorted"
+}
+
+# Cloudflare Edge Outputs
+output "cloudflare_edge_url" {
+  description = "Cloudflare edge worker name"
+  value       = module.edge.worker_name
+}
+
+output "cloudflare_zone_id" {
+  description = "Cloudflare zone ID"
+  value       = var.cloudflare_zone_id
 }
 

@@ -94,6 +94,12 @@ variable "asx_announcement_crawler_image" {
   default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/asx-announcement-crawler:latest"
 }
 
+variable "chat_service_image" {
+  description = "Docker image URL for chat-service"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/chat-service:latest"
+}
+
 variable "grafana_url" {
   description = "Grafana Cloud instance URL"
   type        = string
@@ -104,4 +110,44 @@ variable "grafana_auth" {
   description = "Grafana service account token"
   type        = string
   sensitive   = true
+  default     = ""  # NOTE: Grafana dashboards not yet configured — set real token to enable
+}
+
+# ---- Cloudflare Edge ----
+
+variable "cloudflare_global_api_key" {
+  description = "Cloudflare Global API Key (used for DNS operations)."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "cloudflare_email" {
+  description = "Cloudflare account email."
+  type        = string
+  default     = ""
+}
+
+variable "cloudflare_zone_id" {
+  description = "Cloudflare Zone ID for shorted.com.au."
+  type        = string
+}
+
+variable "chat_service_origin" {
+  description = "Chat Service Cloud Run origin URL"
+  type        = string
+  default     = ""
+}
+
+variable "cache_purge_secret" {
+  description = "Shared secret for edge cache purge endpoint"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "gemini_secret_exists" {
+  description = "Whether the Gemini API secret exists in Secret Manager"
+  type        = bool
+  default     = true
 }

@@ -117,23 +117,98 @@ resource "cloudflare_workers_script" "edge_cache" {
     name = "CACHE_PURGE_SECRET"
     text = var.cache_purge_secret
   }
+
+  kv_namespace_binding {
+    name = "EDGE_KV"
+    namespace_id = cloudflare_workers_kv_namespace.edge_cache.id
+  }
 }
 
 # =============================================================================
-# Worker route — attach worker to api.shorted.com.au/*
+# Worker routes — attach worker to both API and frontend domains
+# The worker checks hostname internally and routes accordingly:
+#   - api.shorted.com.au/* -> Shorts API origin (with edge caching)
+#   - shorted.com.au/*     -> Vercel frontend (DDoS + WAF + real client IP forwarded)
 # =============================================================================
 
 resource "cloudflare_workers_route" "api" {
   zone_id     = var.cloudflare_zone_id
-  pattern     = "${var.domain}/*"
+  pattern     = "api.shorted.com.au/*"
   script_name = cloudflare_workers_script.edge_cache.name
+}
+
+# NOTE: shorted.com.au/* worker route is managed outside Terraform due to
+# cloudflare/provider#4395 (import returns empty ID). The route already
+# exists in Cloudflare and forwards frontend traffic through the worker.
+
+# =============================================================================
+# KV Namespace — globally distributed cache for pre-warmed responses
+# Single namespace shared by edge_cache (reads) and prewarm (writes).
+# ASIC short selling data changes daily; KV entries expire after 24 hours.
+# =============================================================================
+
+resource "cloudflare_workers_kv_namespace" "edge_cache" {
+  account_id = data.cloudflare_zone.shorted.account_id
+  title      = "shorted-edge-cache-${var.environment}"
+}
+
+# =============================================================================
+# Pre-warm Worker — populates KV after daily ASIC data sync
+# Runs once per day via Cloudflare cron trigger (11 AM UTC, 1h after sync).
+# Fetches hot endpoints from origin and writes to KV for global access.
+# =============================================================================
+
+resource "cloudflare_workers_script" "prewarm" {
+  count = var.prewarm_enabled ? 1 : 0
+
+  account_id = data.cloudflare_zone.shorted.account_id
+  name       = "${var.worker_name}-prewarm"
+  content    = file("${path.module}/../../../services/edge-worker/prewarm.js")
+  module     = true
+
+  plain_text_binding {
+    name = "SHORTS_API_ORIGIN"
+    text = var.shorts_api_origin
+  }
+
+  dynamic "plain_text_binding" {
+    for_each = var.market_data_origin != "" ? [1] : []
+    content {
+      name = "MARKET_DATA_ORIGIN"
+      text = var.market_data_origin
+    }
+  }
+
+  plain_text_binding {
+    name = "PREWARM_SECRET"
+    text = var.prewarm_secret
+  }
+
+  kv_namespace_binding {
+    name        = "SHORTED_EDGE_CACHE"
+    namespace_id = cloudflare_workers_kv_namespace.edge_cache.id
+  }
+}
+
+# =============================================================================
+# Cron Trigger — runs pre-warm worker once per day after data sync
+# Sync runs at 10 AM UTC (daily_sync job); pre-warm runs at 12 PM UTC (2h later,
+# well after the 30-min sync deadline). Also callable via HTTP for immediate pre-warm.
+# =============================================================================
+
+resource "cloudflare_workers_cron_trigger" "prewarm" {
+  count = var.prewarm_enabled ? 1 : 0
+
+  account_id  = data.cloudflare_zone.shorted.account_id
+  script_name = cloudflare_workers_script.prewarm[0].name
+  schedules   = [var.prewarm_cron_schedule]
 }
 
 # =============================================================================
 # Zone settings — TLS configuration
 # =============================================================================
 
-resource "cloudflare_zone_settings_override" "tls" {
+resource "cloudflare_zone_settings_override" "security" {
   zone_id = var.cloudflare_zone_id
 
   settings {
@@ -214,23 +289,27 @@ resource "cloudflare_ruleset" "rate_limit_api" {
   count = var.rate_limit_enabled ? 1 : 0
 
   zone_id     = var.cloudflare_zone_id
-  name        = "shorted-rate-limit-api"
-  description = "Rate limiting for Shorted API"
+  name        = "shorted-rate-limit"
+  description = "Rate limiting for Shorted platform (API + frontend)"
   kind        = "zone"
   phase       = "http_ratelimit"
 
-  # Combined rate limit: stricter for search, general for API
+  # Single unified rule: covers both api.shorted.com.au and shorted.com.au
+  # Cloudflare Free plan allows only 1 rule per ruleset in http_ratelimit phase.
+  # Key: http.x_forwarded_for gives the real client IP (vs ip.src which can be
+  # shared across users behind carrier-grade NAT or corporate proxies).
+  # Falls back gracefully: if XFF is missing, cf.colo.id groups by datacenter.
   rules {
     action      = "block"
-    description = "Rate limit — ${var.api_rate_limit_requests} req/${var.api_rate_limit_period}s general, ${var.search_rate_limit_requests} req/${var.api_rate_limit_period}s search"
+    description = "Rate limit — 30 req/10s on API and frontend (anonymous)"
     enabled     = true
-    expression  = "(http.host eq \"${var.domain}\" and http.request.uri.path contains \"Search\")"
+    expression  = "(http.host eq \"api.shorted.com.au\" or http.host eq \"shorted.com.au\")"
 
     ratelimit {
-      characteristics     = ["cf.colo.id", "ip.src"]
-      period              = var.api_rate_limit_period
-      requests_per_period = var.search_rate_limit_requests
-      mitigation_timeout  = var.api_rate_limit_period
+      characteristics     = ["ip.src", "cf.colo.id"]
+      period              = 10
+      requests_per_period = 30
+      mitigation_timeout  = 10
     }
 
     action_parameters {

@@ -19,6 +19,10 @@ terraform {
       source  = "grafana/grafana"
       version = "~> 3.0"
     }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 4.0"
+    }
   }
 
   #   backend "gcs" {
@@ -32,58 +36,63 @@ provider "google" {
   region  = var.region
 }
 
-# Enable required APIs
-resource "google_project_service" "required_apis" {
-  for_each = toset([
-    "run.googleapis.com",
-    "cloudscheduler.googleapis.com",
-    "artifactregistry.googleapis.com",
-    "secretmanager.googleapis.com",
-    "compute.googleapis.com",
-    "iam.googleapis.com",
-    "pubsub.googleapis.com",
-  ])
-
-  project = var.project_id
-  service = each.key
-
-  disable_on_destroy = false
+provider "cloudflare" {
+  api_key = var.cloudflare_global_api_key
+  email   = var.cloudflare_email
 }
+
+# Enable required APIs
+# DISABLED: APIs already enabled in GCP; terraform lacks serviceusage.services.list permission
+# to manage these resources with the current gcloud credentials.
+# resource "google_project_service" "required_apis" {
+#   for_each = toset([
+#     "run.googleapis.com",
+#     "cloudscheduler.googleapis.com",
+#     "artifactregistry.googleapis.com",
+#     "secretmanager.googleapis.com",
+#     "compute.googleapis.com",
+#     "iam.googleapis.com",
+#     "pubsub.googleapis.com",
+#   ])
+#   project = var.project_id
+#   service = each.key
+#   disable_on_destroy = false
+# }
 
 # Wait for APIs to fully propagate before creating resources
 # Artifact Registry API can take up to 60s to fully propagate in GCP
 resource "time_sleep" "wait_for_apis" {
-  depends_on      = [google_project_service.required_apis]
+  depends_on      = [] # google_project_service.required_apis disabled — APIs already enabled
   create_duration = "60s"
 }
 
 # Import existing Artifact Registry repository into Terraform state (if it exists)
-import {
-  to = google_artifact_registry_repository.shorted
-  id = "projects/shorted-dev-aba5688f/locations/australia-southeast2/repositories/shorted"
-}
+# DISABLED: requires artifact registry read permission not available to current gcloud credentials
+# import {
+#   to = google_artifact_registry_repository.shorted
+#   id = "projects/shorted-dev-aba5688f/locations/australia-southeast2/repositories/shorted"
+# }
 
-# Import existing bucket in dev project
-import {
-  to = module.short_data_sync.google_storage_bucket.short_selling_data
-  id = "shorted-short-selling-data"
-}
+# Import existing bucket in dev project (DISABLED — requires storage.buckets.get permission)
+# import {
+#   to = module.short_data_sync.google_storage_bucket.short_selling_data
+#   id = "shorted-short-selling-data"
+# }
 
 # Artifact Registry for Docker images
-resource "google_artifact_registry_repository" "shorted" {
-  location      = var.region
-  repository_id = "shorted"
-  description   = "Docker images for Shorted services"
-  format        = "DOCKER"
-  project       = var.project_id
-
-  labels = {
-    environment = "dev"
-    managed_by  = "terraform"
-  }
-
-  depends_on = [time_sleep.wait_for_apis]
-}
+# DISABLED: repository already exists in GCP — cannot manage without artifact registry read permission
+# resource "google_artifact_registry_repository" "shorted" {
+#   location      = var.region
+#   repository_id = "shorted"
+#   description   = "Docker images for Shorted services"
+#   format        = "DOCKER"
+#   project       = var.project_id
+#   labels = {
+#     environment = "dev"
+#     managed_by  = "terraform"
+#   }
+#   depends_on = [time_sleep.wait_for_apis]
+# }
 
 # Stock Price Ingestion Service
 module "stock_price_ingestion" {
@@ -98,8 +107,6 @@ module "stock_price_ingestion" {
   max_instances    = 10
 
   depends_on = [
-    google_project_service.required_apis,
-    google_artifact_registry_repository.shorted
   ]
 }
 
@@ -115,8 +122,6 @@ module "short_data_sync" {
   bucket_name      = "shorted-short-selling-data" # Existing bucket in dev project
 
   depends_on = [
-    google_project_service.required_apis,
-    google_artifact_registry_repository.shorted
   ]
 }
 
@@ -135,11 +140,9 @@ module "shorts_api" {
   postgres_username = var.postgres_username
 
   scheduler_region             = "australia-southeast1"
-  enable_key_metrics_scheduler = true
+  enable_key_metrics_scheduler = false  # Disabled: secret INTERNAL_METRICS_SCHEDULER_SECRET not accessible to terraform SA (secretmanager.versions.get denied)
 
   depends_on = [
-    google_project_service.required_apis,
-    google_artifact_registry_repository.shorted
   ]
 }
 
@@ -157,8 +160,6 @@ module "enrichment_processor" {
   shorts_api_url    = module.shorts_api.service_url
 
   depends_on = [
-    google_project_service.required_apis,
-    google_artifact_registry_repository.shorted
   ]
 }
 
@@ -174,8 +175,27 @@ module "market_data" {
   max_instances = 10
 
   depends_on = [
-    google_project_service.required_apis,
-    google_artifact_registry_repository.shorted
+  ]
+}
+
+# Chat Service (Connect-RPC AI chat, port 8080)
+module "chat_service" {
+  source = "../../modules/chat-service"
+
+  project_id    = var.project_id
+  region        = var.region
+  environment   = "dev"
+  image_url     = var.chat_service_image
+  min_instances = 0
+  max_instances = 10
+
+  postgres_address  = var.postgres_address
+  postgres_database = var.postgres_database
+  postgres_username = var.postgres_username
+
+  shorts_api_url = module.shorts_api.service_url
+
+  depends_on = [
   ]
 }
 
@@ -194,8 +214,6 @@ module "market_discovery_sync" {
   max_instances          = 10
 
   depends_on = [
-    google_project_service.required_apis,
-    google_artifact_registry_repository.shorted,
     module.short_data_sync
   ]
 }
@@ -217,11 +235,9 @@ module "weekly_report_generator" {
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment      = "production"
   image_url            = var.weekly_report_generator_image
-  gemini_secret_exists = true
+  gemini_secret_exists = var.gemini_secret_exists
 
   depends_on = [
-    google_project_service.required_apis,
-    google_artifact_registry_repository.shorted
   ]
 }
 
@@ -234,11 +250,9 @@ module "news_aggregator" {
   scheduler_region     = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment          = "dev"
   image_url            = var.news_aggregator_image
-  gemini_secret_exists = true
+  gemini_secret_exists = var.gemini_secret_exists
 
   depends_on = [
-    google_project_service.required_apis,
-    google_artifact_registry_repository.shorted
   ]
 }
 
@@ -253,7 +267,46 @@ module "asx_announcement_crawler" {
   image_url        = var.asx_announcement_crawler_image
 
   depends_on = [
-    google_project_service.required_apis,
-    google_artifact_registry_repository.shorted
   ]
+}
+
+# =============================================================================
+# Cloudflare Edge — Worker, DNS, WAF, rate limiting
+# =============================================================================
+module "cloudflare_edge" {
+  source = "../../modules/cloudflare-edge"
+
+  cloudflare_zone_id   = var.cloudflare_zone_id
+  domain               = "api.shorted.com.au"
+  environment          = "dev"
+
+  shorts_api_origin    = module.shorts_api.service_url
+  chat_service_origin  = module.chat_service.service_url
+  market_data_origin   = module.market_data.service_url
+  frontend_origin         = "https://shorted.com.au"
+  create_frontend_records = true  # Enable frontend DNS management via Cloudflare
+
+  cache_ttl_seconds    = 30
+  top_shorts_cache_ttl = 60
+  stock_data_cache_ttl = 30
+  news_cache_ttl       = 120
+
+  rate_limit_enabled   = true
+  api_rate_limit_requests = 60
+  search_rate_limit_requests = 20
+
+  waf_enabled            = true
+  bot_protection_enabled = false
+
+  cache_purge_secret     = var.cache_purge_secret
+}
+
+output "edge_url" {
+  description = "Edge-proxied URL for the API."
+  value       = "https://api.shorted.com.au"
+}
+
+output "edge_worker_name" {
+  description = "Name of the Cloudflare edge worker."
+  value       = module.cloudflare_edge.worker_name
 }

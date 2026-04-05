@@ -57,21 +57,21 @@ variable "cache_ttl_seconds" {
 }
 
 variable "top_shorts_cache_ttl" {
-  description = "Cache TTL for top shorts / treemap (infrequently changing, high-traffic)"
+  description = "Cache TTL for top shorts / treemap / weekly report (infrequently changing, high-traffic). ASIC data changes daily, so 5min is safe."
   type        = number
-  default     = 60
+  default     = 300
 }
 
 variable "stock_data_cache_ttl" {
-  description = "Cache TTL for individual stock data pages"
+  description = "Cache TTL for individual stock data pages, search, director trades, dividends"
   type        = number
-  default     = 30
+  default     = 120
 }
 
 variable "news_cache_ttl" {
-  description = "Cache TTL for news articles"
+  description = "Cache TTL for news and announcements"
   type        = number
-  default     = 120
+  default     = 300
 }
 
 variable "static_cache_ttl" {
@@ -101,9 +101,21 @@ variable "api_rate_limit_period" {
 }
 
 variable "search_rate_limit_requests" {
-  description = "Max search requests per minute per IP"
+  description = "Deprecated — unused (Cloudflare Free has only 1 rule limit). Kept for compatibility."
   type        = number
   default     = 20
+}
+
+variable "frontend_domain" {
+  description = "Frontend domain behind Cloudflare (e.g. shorted.com.au)"
+  type        = string
+  default     = ""
+}
+
+variable "frontend_rate_limit_requests" {
+  description = "Max requests per period (unified limit for API + frontend)"
+  type        = number
+  default     = 60
 }
 
 # ---- WAF / Security ----
@@ -133,6 +145,27 @@ variable "cache_purge_secret" {
   type        = string
   sensitive   = true
   default     = ""
+}
+
+# ---- KV Edge Cache ----
+
+variable "prewarm_enabled" {
+  description = "Enable KV-based edge cache pre-warming (runs daily after ASIC data sync)"
+  type        = bool
+  default     = true
+}
+
+variable "prewarm_secret" {
+  description = "Shared secret for the pre-warm worker HTTP endpoint (used by Cloudflare cron)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "prewarm_cron_schedule" {
+  description = "Cron schedule for pre-warm trigger (12 PM UTC = 2h after 10 AM UTC daily sync, safe buffer for 30-min sync deadline)"
+  type        = string
+  default     = "0 12 * * *"
 }
 
 # ---- DNS Control ----

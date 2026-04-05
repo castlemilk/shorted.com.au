@@ -1,0 +1,110 @@
+apiVersion: cuttlefish.dev/v1alpha1
+kind: Workflow
+metadata:
+  name: shorted-ci
+  description: "Shorted CI: Go lint/test, frontend lint/test/build, e2e"
+spec:
+  nodes:
+    - id: checkout
+      taskRef:
+        name: pipeline/checkout
+        version: "0.2.0"
+      inputs:
+        repo:
+          value: https://github.com/castlemilk/shorted.com.au
+        ref:
+          value: main
+
+    # Go lint (golangci-lint v2)
+    - id: go-lint
+      image: golangci/golangci-lint:v2.7
+      script: |
+        cd services
+        golangci-lint run ./...
+
+    # Go unit tests (short mode - no Docker required)
+    - id: go-test
+      image: golang:1.24
+      script: |
+        cd services
+        go test -race -short ./... -count=1 -timeout=120s
+
+    # Go build
+    - id: go-build
+      image: golang:1.24
+      script: |
+        cd services
+        go build -o /dev/null ./...
+
+    # Frontend deps
+    - id: frontend-deps
+      image: node:22
+      script: npm ci
+
+    # Frontend lint
+    - id: frontend-lint
+      image: node:22
+      script: npm run lint
+
+    # Frontend typecheck
+    - id: frontend-typecheck
+      image: node:22
+      script: npx tsc --noEmit
+
+    # Frontend test
+    - id: frontend-test
+      image: node:22
+      script: npm test -- --ci
+
+    # Frontend build
+    - id: frontend-build
+      image: node:22
+      script: npm run build
+
+    # Terraform validate
+    - id: terraform-validate
+      image: hashicorp/terraform:latest
+      script: |
+        cd terraform/environments/dev
+        terraform init -backend=false
+        terraform validate
+
+  edges:
+    - id: e1
+      from: { node: checkout, port: workingDir }
+      to: { node: go-lint, port: workingDir }
+    - id: e2
+      from: { node: checkout, port: workingDir }
+      to: { node: go-test, port: workingDir }
+    - id: e3
+      from: { node: checkout, port: workingDir }
+      to: { node: go-build, port: workingDir }
+    - id: e4
+      from: { node: checkout, port: workingDir }
+      to: { node: frontend-deps, port: workingDir }
+    - id: e5
+      from: { node: checkout, port: workingDir }
+      to: { node: terraform-validate, port: workingDir }
+    - id: e6
+      from: { node: frontend-deps, port: workingDir }
+      to: { node: frontend-lint, port: workingDir }
+    - id: e7
+      from: { node: frontend-deps, port: workingDir }
+      to: { node: frontend-typecheck, port: workingDir }
+    - id: e8
+      from: { node: frontend-deps, port: workingDir }
+      to: { node: frontend-test, port: workingDir }
+    - id: e9
+      from: { node: frontend-lint, port: exitCode }
+      to: { node: frontend-build, port: _dependsOn }
+    - id: e10
+      from: { node: frontend-typecheck, port: exitCode }
+      to: { node: frontend-build, port: _dependsOn }
+    - id: e11
+      from: { node: frontend-test, port: exitCode }
+      to: { node: frontend-build, port: _dependsOn }
+
+  triggers:
+    - kind: manual
+    - kind: github
+      events: [push, pull_request]
