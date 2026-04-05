@@ -231,8 +231,10 @@ resource "google_cloud_scheduler_job" "monthly_report" {
     body = base64encode(jsonencode({
       overrides = {
         container_overrides = [{
-          command = ["/weekly-report-generator"]
-          args    = ["-report-type", "monthly"]
+          env = [{
+            name  = "REPORT_TYPE"
+            value = "monthly"
+          }]
         }]
       }
     }))

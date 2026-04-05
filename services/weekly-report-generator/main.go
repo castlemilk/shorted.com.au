@@ -57,14 +57,19 @@ func main() {
 		log.Printf("Generating monthly report for %s", slug)
 	} else {
 		// Auto-detect from report-type hint (used by Cloud Scheduler)
-		if *reportType == "monthly" {
+		// Also check REPORT_TYPE env var for Cloud Scheduler env overrides (which don't support args)
+		reportTypeHint := *reportType
+		if reportTypeHint == "" {
+			reportTypeHint = os.Getenv("REPORT_TYPE")
+		}
+		if reportTypeHint == "monthly" {
 			// Auto monthly: previous month
 			now := time.Now()
 			prev := now.AddDate(0, -1, 0)
 			slug = fmt.Sprintf("%d-%02d", prev.Year(), prev.Month())
 			isMonthly = true
 			log.Printf("Auto-detected monthly report for %s (previous month)", slug)
-		} else if *reportType == "yearly" {
+		} else if reportTypeHint == "yearly" {
 			// Auto yearly: previous year
 			now := time.Now()
 			slug = fmt.Sprintf("%d", now.Year()-1)
