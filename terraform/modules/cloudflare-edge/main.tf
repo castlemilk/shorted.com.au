@@ -12,9 +12,9 @@ terraform {
 # =============================================================================
 
 locals {
-  shorts_api_hostname    = regex("^https?://([^/]+)", var.shorts_api_origin)[0]
-  chat_service_hostname  = var.chat_service_origin != "" ? regex("^https?://([^/]+)", var.chat_service_origin)[0] : ""
-  market_data_hostname   = var.market_data_origin != "" ? regex("^https?://([^/]+)", var.market_data_origin)[0] : ""
+  shorts_api_hostname    = try(regex("^https?://([^/]+)", var.shorts_api_origin)[0], "")
+  chat_service_hostname  = try(var.chat_service_origin != "" ? regex("^https?://([^/]+)", var.chat_service_origin)[0] : "", "")
+  market_data_hostname   = try(var.market_data_origin != "" ? regex("^https?://([^/]+)", var.market_data_origin)[0] : "", "")
 }
 
 # =============================================================================
