@@ -4,7 +4,7 @@
  * Manages:
  * - Cloud Run Job for generating weekly short selling reports (LLM narrative)
  * - Service account and IAM permissions
- * - Cloud Scheduler job (Friday evening AEST trigger)
+ * - Cloud Scheduler jobs: weekly (Friday 9 PM AEST) and monthly (1st of month)
  */
 
 locals {
@@ -194,6 +194,48 @@ resource "google_cloud_scheduler_job" "weekly_report" {
     oauth_token {
       service_account_email = google_service_account.scheduler_invoker.email
     }
+  }
+
+  depends_on = [
+    google_cloud_run_v2_job.weekly_report_generator,
+    google_cloud_run_v2_job_iam_member.scheduler_invoker
+  ]
+}
+
+# Cloud Scheduler Job — Monthly report (1st of each month, ~1 AM UTC = ~11 AM AEST)
+# The job auto-detects the previous month from the current date.
+resource "google_cloud_scheduler_job" "monthly_report" {
+  name             = "${local.service_name}-monthly"
+  description      = "Monthly generation of short selling report — auto-detects previous month"
+  schedule         = "0 1 1 * *" # 1 AM UTC on the 1st of each month (~11 AM AEST)
+  time_zone        = "UTC"
+  attempt_deadline = "1800s"
+  region           = var.scheduler_region
+  project          = var.project_id
+
+  retry_config {
+    retry_count          = 2
+    max_retry_duration   = "3600s"
+    min_backoff_duration = "10s"
+    max_backoff_duration = "1800s"
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.weekly_report_generator.name}:run"
+
+    oauth_token {
+      service_account_email = google_service_account.scheduler_invoker.email
+    }
+
+    body = base64encode(jsonencode({
+      overrides = {
+        container_overrides = [{
+          command = ["/weekly-report-generator"]
+          args    = ["-report-type", "monthly"]
+        }]
+      }
+    }))
   }
 
   depends_on = [

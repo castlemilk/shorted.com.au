@@ -25,6 +25,7 @@ func main() {
 	dryRun := flag.Bool("dry-run", false, "Generate report but don't store it")
 	forceFlag := flag.Bool("force", false, "Re-generate even if report already exists")
 	maxRetries := flag.Int("max-retries", 1, "Maximum retry attempts on quality failure")
+	reportType := flag.String("report-type", "", "Report type hint: 'weekly', 'monthly', or 'yearly'. Used by Cloud Scheduler to disambiguate when no explicit slug is provided.")
 	flag.Parse()
 
 	ctx := context.Background()
@@ -55,11 +56,28 @@ func main() {
 		slug = *monthFlag
 		log.Printf("Generating monthly report for %s", slug)
 	} else {
-		if slug == "" {
-			year, week := time.Now().ISOWeek()
-			slug = fmt.Sprintf("%d-W%02d", year, week)
+		// Auto-detect from report-type hint (used by Cloud Scheduler)
+		if *reportType == "monthly" {
+			// Auto monthly: previous month
+			now := time.Now()
+			prev := now.AddDate(0, -1, 0)
+			slug = fmt.Sprintf("%d-%02d", prev.Year(), prev.Month())
+			isMonthly = true
+			log.Printf("Auto-detected monthly report for %s (previous month)", slug)
+		} else if *reportType == "yearly" {
+			// Auto yearly: previous year
+			now := time.Now()
+			slug = fmt.Sprintf("%d", now.Year()-1)
+			isYearly = true
+			log.Printf("Auto-detected yearly report for %s (previous year)", slug)
+		} else {
+			// Auto weekly: current ISO week
+			if slug == "" {
+				year, week := time.Now().ISOWeek()
+				slug = fmt.Sprintf("%d-W%02d", year, week)
+			}
+			log.Printf("Generating weekly report for %s", slug)
 		}
-		log.Printf("Generating weekly report for %s", slug)
 	}
 
 	// Connect to database
