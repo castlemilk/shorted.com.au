@@ -205,6 +205,115 @@ resource "cloudflare_workers_cron_trigger" "prewarm" {
 }
 
 # =============================================================================
+# Cache Rules — edge caching for frontend static assets
+# These are evaluated BEFORE the Worker, so static assets are served directly
+# from Cloudflare's edge cache without invoking the Worker script.
+# Order matters: more specific rules must come first.
+# =============================================================================
+
+resource "cloudflare_ruleset" "cache_rules" {
+  count = var.cache_rules_enabled ? 1 : 0
+
+  zone_id     = var.cloudflare_zone_id
+  name        = "shorted-cache-rules"
+  description = "Edge cache rules for frontend static assets"
+  kind        = "zone"
+  phase       = "http_request_cache_settings"
+
+  # Rule 1: Next.js static assets — cache at edge
+  # Content-hashed builds (/_next/static/*). Any path containing "/_next/static/"
+  # is a Next.js static asset path — contains is safe here.
+  rules {
+    action      = "set_cache_settings"
+    expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and http.request.uri.path contains \"/_next/static/\""
+    description = "Cache Next.js static assets (JS/CSS/WASM) at edge"
+    enabled     = true
+
+    action_parameters {
+      cache = true
+      cache_key {
+        cache_by_device_type  = false
+        cache_deception_armor = true
+      }
+    }
+  }
+
+  # Rule 2: Next.js page data (RSC payloads) — cache at edge
+  rules {
+    action      = "set_cache_settings"
+    expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and http.request.uri.path contains \"/_next/data/\""
+    description = "Cache Next.js page data (RSC/JSON) at edge"
+    enabled     = true
+
+    action_parameters {
+      cache = true
+      cache_key {
+        cache_by_device_type  = false
+        cache_deception_armor = true
+      }
+    }
+  }
+
+  # Rule 3: Static image assets — cache at edge
+  # Each extension as a contains check. Content-hashed so no collision risk.
+  rules {
+    action      = "set_cache_settings"
+    expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and (http.request.uri.path contains \".png\" or http.request.uri.path contains \".jpg\" or http.request.uri.path contains \".jpeg\" or http.request.uri.path contains \".gif\" or http.request.uri.path contains \".svg\" or http.request.uri.path contains \".webp\" or http.request.uri.path contains \".avif\" or http.request.uri.path contains \".ico\")"
+    description = "Cache static image assets at edge"
+    enabled     = true
+
+    action_parameters {
+      cache = true
+      cache_key {
+        cache_by_device_type  = false
+        cache_deception_armor = true
+      }
+    }
+  }
+
+  # Rule 4: Static font assets — cache at edge
+  rules {
+    action      = "set_cache_settings"
+    expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and (http.request.uri.path contains \".woff\" or http.request.uri.path contains \".woff2\" or http.request.uri.path contains \".ttf\" or http.request.uri.path contains \".eot\")"
+    description = "Cache static font assets at edge"
+    enabled     = true
+
+    action_parameters {
+      cache = true
+      cache_key {
+        cache_by_device_type  = false
+        cache_deception_armor = true
+      }
+    }
+  }
+
+  # Rule 5: Frontend HTML pages — bypass edge cache (Vercel handles this)
+  # Paths without dots in the filename are typically HTML pages (e.g. /about, /dashboard)
+  rules {
+    action      = "set_cache_settings"
+    expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and (http.request.uri.path eq \"/\" or not http.request.uri.path contains \".\")"
+    description = "Bypass edge cache for HTML pages — let Vercel handle it"
+    enabled     = true
+
+    action_parameters {
+      cache = false
+    }
+  }
+
+  # Rule 6: Frontend API routes (/api/*) — never cache, always pass to Vercel
+  rules {
+    action      = "set_cache_settings"
+    expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and http.request.uri.path contains \"/api/\""
+    description = "Bypass edge cache for frontend API routes"
+    enabled     = true
+
+    action_parameters {
+      cache = false
+    }
+  }
+}
+
+# =============================================================================
 # Zone settings — TLS configuration
 # =============================================================================
 
@@ -294,32 +403,30 @@ resource "cloudflare_ruleset" "rate_limit_api" {
   kind        = "zone"
   phase       = "http_ratelimit"
 
-  # Single unified rule: covers both api.shorted.com.au and shorted.com.au
   # Cloudflare Free plan allows only 1 rule per ruleset in http_ratelimit phase.
-  # Key: http.x_forwarded_for gives the real client IP (vs ip.src which can be
-  # shared across users behind carrier-grade NAT or corporate proxies).
-  # Falls back gracefully: if XFF is missing, cf.colo.id groups by datacenter.
+  # Rate limit only the API domain (api.shorted.com.au) — not the Next.js frontend.
+  # Frontend page loads fire 50-80 requests (JS chunks, images, RSC data, auth),
+  # so any rate limit on shorted.com.au risks blocking legitimate users.
+  # The API has its own auth/gRPC layer; this protects against scraping/abuse.
+  # Free plan: period must be 10.
   rules {
     action      = "block"
-    description = "Rate limit — 30 req/10s on API and frontend (anonymous)"
+    description = "Rate limit — API 30 req/10s (frontend not rate limited)"
     enabled     = true
-    expression  = "(http.host eq \"api.shorted.com.au\" or http.host eq \"shorted.com.au\")"
+    expression  = "http.host eq \"api.shorted.com.au\""
 
     ratelimit {
       characteristics     = ["ip.src", "cf.colo.id"]
-      period              = 10
-      requests_per_period = 30
-      mitigation_timeout  = 10
+      period              = var.api_rate_limit_period
+      requests_per_period = var.api_rate_limit_requests
+      mitigation_timeout  = var.api_rate_limit_period
     }
 
     action_parameters {
       response {
         status_code  = 429
         content_type = "application/json"
-        content      = jsonencode({
-          error   = "Too Many Requests"
-          message = "Rate limit exceeded. Please slow down."
-        })
+        content      = jsonencode({ error = "Too Many Requests", message = "Rate limit exceeded. Please slow down." })
       }
     }
   }

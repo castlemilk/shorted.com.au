@@ -7,4 +7,4 @@ cloudflare_zone_id        = "41b338d2d75853d7bedb9a93f1e824f1" # shorted.com.au 
 # cache_purge_secret       = Set via TF_VAR_cache_purge_secret in CI
 
 # Weekly report generator image (pinned to monthly-fix with REPORT_TYPE support)
-weekly_report_generator_image = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/weekly-report-generator:monthly-fix"
+weekly_report_generator_image = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/weekly-report-generator:latest"

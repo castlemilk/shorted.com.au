@@ -63,9 +63,9 @@ variable "top_shorts_cache_ttl" {
 }
 
 variable "stock_data_cache_ttl" {
-  description = "Cache TTL for individual stock data pages, search, director trades, dividends"
+  description = "Cache TTL for individual stock data pages, search, director trades, dividends (3min default for balance of freshness vs origin load)"
   type        = number
-  default     = 120
+  default     = 180
 }
 
 variable "news_cache_ttl" {
@@ -78,6 +78,12 @@ variable "static_cache_ttl" {
   description = "Cache TTL for static assets (images, fonts, JS/CSS)"
   type        = number
   default     = 86400
+}
+
+variable "cache_rules_enabled" {
+  description = "Enable edge cache rules for frontend static assets (evaluated before Worker)"
+  type        = bool
+  default     = true
 }
 
 # ---- Rate Limiting ----

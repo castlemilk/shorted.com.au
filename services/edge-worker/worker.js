@@ -13,9 +13,9 @@
  *   Cloudflare's DDoS + WAF protect all frontend traffic at the proxy layer.
  *
  * Cache TTLs (from env, seconds):
- *   top_shorts  (GetTopShorts, GetShortsTreeMap, GetWeeklyReport) -> 300 (5min)
- *   stock_data  (GetStock*, GetTimeSeries*, GetSearch, etc.)        -> 120 (2min)
- *   news        (GetNews*, GetAnnouncement*)                        -> 300 (5min)
+ *   top_shorts  (GetTopShorts, GetShortsTreeMap, GetWeeklyReport, GetAvailableDates) -> 300 (5min)
+ *   stock_data  (GetStock*, GetTimeSeries*, GetSearch, GetWatchlist, etc.)           -> 180 (3min)
+ *   news        (GetNews*, GetAnnouncement*, GetMarketNews*)                          -> 300 (5min)
  *   default                                                   -> 60
  *
  * Pass-through (never cached):
@@ -37,7 +37,7 @@
 /** @type {Map<string, {body: ArrayBuffer, timestamp: number, ttl: number, contentType: string}>} */
 const hotCache = new Map();
 
-const HOT_CACHE_TTL_MS = 60_000; // 60 seconds — ASIC data doesn't change faster than this
+const HOT_CACHE_TTL_MS = 120_000; // 120 seconds — doubled from 60s for better hit rate
 
 /**
  * Check if a request hits the in-memory hot cache.
@@ -211,14 +211,14 @@ export default worker;
  * TTLs are safe and reduce unnecessary origin fetches.
  */
 function resolveShortsTtl(path, defaults) {
-  if (/GetTopShorts|GetShortsTreeMap|GetWeeklyReport|GetMarketByDate/.test(path)) {
+  if (/GetTopShorts|GetShortsTreeMap|GetWeeklyReport|GetMarketByDate|GetAvailableDates/.test(path)) {
     return defaults.cacheTtlTopShorts; // 300s (5min) — safe for ASIC data
   }
-  if (/GetNews|GetAnnouncement/.test(path)) {
+  if (/GetNews|GetAnnouncement|GetMarketNews/.test(path)) {
     return defaults.cacheTtlNews; // 300s (5min)
   }
   if (/GetStock|GetStockDetails|GetStockData|GetStockNews|GetSearch|GetWatchlist|GetDirectorTrades|GetPeerComparison|GetDividendHistory|GetStockFinancialHighlights/.test(path)) {
-    return defaults.cacheTtlStockData; // 120s (2min)
+    return defaults.cacheTtlStockData; // 180s (3min) — balance freshness vs origin load
   }
   return defaults.cacheTtlDefault;
 }
@@ -354,9 +354,9 @@ async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl) {
       ctx.waitUntil((async () => {
         try {
           const text = new TextDecoder().decode(body);
-          // Use the same TTL as CF cache, capped at 300s for market data freshness.
-          // KV is a safety net between pre-warms; it self-heals on next MISS.
-          const kvTtl = Math.min(cacheTtl, 300);
+          // Use the same TTL as CF cache, capped at 3600s for cache-aside writes.
+          // KV is a safety net between pre-warms; prewarm writes 24h for static data.
+          const kvTtl = Math.min(cacheTtl, 3600); // cap at 1h for cache-aside writes; prewarm uses 24h for static data
           await env.EDGE_KV.put(kvKey, text, { expirationTtl: kvTtl });
         } catch (_) { /* non-fatal */ }
       })());
