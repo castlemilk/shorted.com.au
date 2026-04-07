@@ -1,0 +1,18 @@
+name = "shorted-prewarm"
+main = "prewarm.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+# Default — overridden by terraform in production
+# SHORTS_API_ORIGIN = "https://shorts-xxxxx.australia-southeast2.run.app"
+# PREWARM_SECRET = "" # Set via `wrangler secret put PREWARM_SECRET`
+
+# KV namespace — must be set via terraform bindings
+# kv_namespaces = [
+#   { binding = "SHORTED_EDGE_CACHE", id = "<namespace-id>" }
+# ]
+
+# Cron trigger (alternative to scheduler HTTP call)
+# Uncomment if using wrangler cron instead of GCP Cloud Scheduler
+# [triggers]
+# crons = ["0 11 * * *"] # 11 AM UTC = 9 PM AEST (1 hour after daily sync)
