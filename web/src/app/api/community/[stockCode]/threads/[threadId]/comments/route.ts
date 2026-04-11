@@ -2,8 +2,8 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { rateLimit } from "~/@/lib/rate-limit";
 import {
-  createCommunityPulseItem,
-  listCommunityPulseItems,
+  createCommunityComment,
+  listCommunityComments,
 } from "~/@/lib/community/firestore-community";
 import { moderateCommunityText } from "~/@/lib/community/moderation";
 import { auth } from "~/server/auth";
@@ -12,26 +12,29 @@ const STOCK_CODE_PATTERN = /^[A-Z0-9]{1,4}$/;
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ stockCode: string }> },
+  {
+    params,
+  }: { params: Promise<{ stockCode: string; threadId: string }> },
 ) {
-  const { stockCode: rawStockCode } = await params;
+  const { stockCode: rawStockCode, threadId } = await params;
   const stockCode = rawStockCode.toUpperCase();
 
-  if (!STOCK_CODE_PATTERN.test(stockCode)) {
-    return NextResponse.json({ error: "Invalid stock code" }, { status: 400 });
+  if (!STOCK_CODE_PATTERN.test(stockCode) || !threadId) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
   try {
-    const pulse = await listCommunityPulseItems(stockCode);
+    const comments = await listCommunityComments(stockCode, threadId);
 
     return NextResponse.json({
       stockCode,
-      pulse,
+      threadId,
+      comments,
     });
   } catch (error) {
-    console.error("Failed to fetch community pulse", error);
+    console.error("Failed to fetch community comments", error);
     return NextResponse.json(
-      { error: "Failed to fetch community pulse" },
+      { error: "Failed to fetch community comments" },
       { status: 500 },
     );
   }
@@ -39,13 +42,15 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ stockCode: string }> },
+  {
+    params,
+  }: { params: Promise<{ stockCode: string; threadId: string }> },
 ) {
-  const { stockCode: rawStockCode } = await params;
+  const { stockCode: rawStockCode, threadId } = await params;
   const stockCode = rawStockCode.toUpperCase();
 
-  if (!STOCK_CODE_PATTERN.test(stockCode)) {
-    return NextResponse.json({ error: "Invalid stock code" }, { status: 400 });
+  if (!STOCK_CODE_PATTERN.test(stockCode) || !threadId) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
   const rateLimitResult = await rateLimit(request, {
@@ -62,7 +67,7 @@ export async function POST(
 
   if (!session?.user?.id) {
     return NextResponse.json(
-      { error: "You must be signed in to post" },
+      { error: "You must be signed in to comment" },
       { status: 401 },
     );
   }
@@ -75,14 +80,15 @@ export async function POST(
 
     if (!content) {
       return NextResponse.json(
-        { error: "Invalid pulse payload" },
+        { error: "Invalid comment payload" },
         { status: 400 },
       );
     }
 
     const moderation = moderateCommunityText(content);
-    const pulseItem = await createCommunityPulseItem({
+    const comment = await createCommunityComment({
       stockCode,
+      threadId,
       body: content,
       status: moderation.status,
       author: {
@@ -91,11 +97,11 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({ stockCode, pulse: pulseItem }, { status: 201 });
+    return NextResponse.json({ stockCode, threadId, comment }, { status: 201 });
   } catch (error) {
-    console.error("Failed to create pulse item", error);
+    console.error("Failed to create community comment", error);
     return NextResponse.json(
-      { error: "Failed to create pulse item" },
+      { error: "Failed to create community comment" },
       { status: 500 },
     );
   }

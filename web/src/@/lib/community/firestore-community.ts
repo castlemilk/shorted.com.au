@@ -1,5 +1,7 @@
 import { adminDb } from "~/@/lib/firebase-admin";
 import {
+  type CommunityAuthorSnapshot,
+  type CommunityComment,
   type CommunityOverviewSummary,
   type CommunityPulseItem,
   type CommunityThread,
@@ -24,6 +26,56 @@ type FirestoreDocSnapshot = {
 type FirestoreQuerySnapshot = {
   docs: FirestoreDocSnapshot[];
 };
+
+interface CreateCommunityThreadInput {
+  stockCode: string;
+  type: CommunityThread["type"];
+  title: string;
+  body: string;
+  author: CommunityAuthorSnapshot;
+  status: CommunityThread["status"];
+  sources?: CommunityThread["sources"];
+}
+
+interface CreateCommunityCommentInput {
+  stockCode: string;
+  threadId: string;
+  body: string;
+  author: CommunityAuthorSnapshot;
+  status: CommunityComment["status"];
+}
+
+interface CreateCommunityPulseItemInput {
+  stockCode: string;
+  body: string;
+  author: CommunityAuthorSnapshot;
+  status: CommunityPulseItem["status"];
+}
+
+interface CreateCommunityPulseReplyInput {
+  stockCode: string;
+  pulseId: string;
+  body: string;
+  author: CommunityAuthorSnapshot;
+  status: CommunityComment["status"];
+}
+
+interface CreateCommunityVoteInput {
+  stockCode: string;
+  targetType: "thread" | "comment" | "pulse" | "pulse_reply";
+  targetId: string;
+  value: 1 | -1;
+  userId: string;
+}
+
+interface CreateCommunityReportInput {
+  stockCode: string;
+  targetType: "thread" | "comment" | "pulse" | "pulse_reply";
+  targetId: string;
+  reason: string;
+  details?: string;
+  userId: string;
+}
 
 function communityDoc(stockCode: string) {
   return adminDb.collection("stock_communities").doc(stockCode.toUpperCase());
@@ -174,6 +226,45 @@ function mapPulseItem(snapshot: FirestoreDocSnapshot): CommunityPulseItem {
   };
 }
 
+function mapComment(snapshot: FirestoreDocSnapshot): CommunityComment {
+  const data = snapshot.data() ?? {};
+
+  return {
+    id: snapshot.id,
+    stockCode: String(data.stockCode ?? ""),
+    threadId: String(data.threadId ?? ""),
+    body: String(data.body ?? ""),
+    score: Number(data.score ?? 0),
+    replyCount: Number(data.replyCount ?? 0),
+    createdAt: toDate(data.createdAt as FirestoreValue),
+    updatedAt: toDate(data.updatedAt as FirestoreValue),
+    status: (data.status ?? "active") as CommunityComment["status"],
+    author:
+      data.author && typeof data.author === "object"
+        ? {
+            userId: String(
+              (data.author as Record<string, unknown>).userId ?? "",
+            ),
+            displayName: String(
+              (data.author as Record<string, unknown>).displayName ?? "",
+            ),
+            handle:
+              (data.author as Record<string, unknown>).handle !== undefined
+                ? String((data.author as Record<string, unknown>).handle)
+                : undefined,
+            avatarUrl:
+              (data.author as Record<string, unknown>).avatarUrl !== undefined
+                ? String((data.author as Record<string, unknown>).avatarUrl)
+                : undefined,
+            trustScore:
+              (data.author as Record<string, unknown>).trustScore !== undefined
+                ? Number((data.author as Record<string, unknown>).trustScore)
+                : undefined,
+          }
+        : undefined,
+  };
+}
+
 export async function getStockCommunitySummary(
   stockCode: string,
 ): Promise<CommunityOverviewSummary> {
@@ -223,4 +314,216 @@ export async function listCommunityPulseItems(
     .get()) as FirestoreQuerySnapshot;
 
   return rankPulseItems(snapshot.docs.map(mapPulseItem));
+}
+
+export async function listCommunityComments(
+  stockCode: string,
+  threadId: string,
+): Promise<CommunityComment[]> {
+  const snapshot = (await communityDoc(stockCode)
+    .collection("threads")
+    .doc(threadId)
+    .collection("comments")
+    .where("status", "==", "active")
+    .get()) as FirestoreQuerySnapshot;
+
+  return snapshot.docs
+    .map(mapComment)
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+}
+
+export async function listCommunityPulseReplies(
+  stockCode: string,
+  pulseId: string,
+): Promise<CommunityComment[]> {
+  const snapshot = (await communityDoc(stockCode)
+    .collection("pulse")
+    .doc(pulseId)
+    .collection("replies")
+    .where("status", "==", "active")
+    .get()) as FirestoreQuerySnapshot;
+
+  return snapshot.docs
+    .map(mapComment)
+    .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+}
+
+export async function createCommunityThread({
+  stockCode,
+  type,
+  title,
+  body,
+  author,
+  status,
+  sources,
+}: CreateCommunityThreadInput): Promise<CommunityThread> {
+  const now = new Date();
+  const record: Omit<CommunityThread, "id"> = {
+    stockCode,
+    type,
+    title,
+    body,
+    score: 0,
+    commentCount: 0,
+    sourceCount: sources?.length ?? 0,
+    highSignal: (sources?.length ?? 0) >= 2,
+    createdAt: now,
+    updatedAt: now,
+    lastActivityAt: now,
+    status,
+    author,
+    sources,
+  };
+
+  const reference = await communityDoc(stockCode).collection("threads").add(record);
+
+  return {
+    id: reference.id,
+    ...record,
+  };
+}
+
+export async function createCommunityComment({
+  stockCode,
+  threadId,
+  body,
+  author,
+  status,
+}: CreateCommunityCommentInput): Promise<CommunityComment> {
+  const now = new Date();
+  const record: Omit<CommunityComment, "id"> = {
+    stockCode,
+    threadId,
+    body,
+    score: 0,
+    replyCount: 0,
+    createdAt: now,
+    updatedAt: now,
+    status,
+    author,
+  };
+
+  const reference = await communityDoc(stockCode)
+    .collection("threads")
+    .doc(threadId)
+    .collection("comments")
+    .add(record);
+
+  return {
+    id: reference.id,
+    ...record,
+  };
+}
+
+export async function createCommunityPulseItem({
+  stockCode,
+  body,
+  author,
+  status,
+}: CreateCommunityPulseItemInput): Promise<CommunityPulseItem> {
+  const now = new Date();
+  const record: Omit<CommunityPulseItem, "id"> = {
+    stockCode,
+    body,
+    score: 0,
+    replyCount: 0,
+    createdAt: now,
+    updatedAt: now,
+    status,
+    author,
+  };
+
+  const reference = await communityDoc(stockCode).collection("pulse").add(record);
+
+  return {
+    id: reference.id,
+    ...record,
+  };
+}
+
+export async function createCommunityPulseReply({
+  stockCode,
+  pulseId,
+  body,
+  author,
+  status,
+}: CreateCommunityPulseReplyInput): Promise<CommunityComment> {
+  const now = new Date();
+  const record: Omit<CommunityComment, "id"> = {
+    stockCode,
+    threadId: pulseId,
+    body,
+    score: 0,
+    replyCount: 0,
+    createdAt: now,
+    updatedAt: now,
+    status,
+    author,
+  };
+
+  const reference = await communityDoc(stockCode)
+    .collection("pulse")
+    .doc(pulseId)
+    .collection("replies")
+    .add(record);
+
+  return {
+    id: reference.id,
+    ...record,
+  };
+}
+
+export async function createCommunityVote({
+  stockCode,
+  targetType,
+  targetId,
+  value,
+  userId,
+}: CreateCommunityVoteInput) {
+  const now = new Date();
+  const record = {
+    stockCode,
+    targetType,
+    targetId,
+    value,
+    userId,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const reference = await adminDb.collection("community_votes").add(record);
+
+  return {
+    id: reference.id,
+    ...record,
+  };
+}
+
+export async function createCommunityReport({
+  stockCode,
+  targetType,
+  targetId,
+  reason,
+  details,
+  userId,
+}: CreateCommunityReportInput) {
+  const now = new Date();
+  const record = {
+    stockCode,
+    targetType,
+    targetId,
+    reason,
+    details,
+    userId,
+    createdAt: now,
+    updatedAt: now,
+    status: "open",
+  };
+
+  const reference = await adminDb.collection("community_reports").add(record);
+
+  return {
+    id: reference.id,
+    ...record,
+  };
 }
