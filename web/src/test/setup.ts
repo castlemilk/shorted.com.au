@@ -294,16 +294,32 @@ jest.mock("firebase-admin/auth", () => ({
 }));
 
 // Mock Firebase admin/firestore
+const createFirestoreDocMock = () => ({
+  get: jest.fn(),
+  set: jest.fn(),
+  update: jest.fn(),
+  delete: jest.fn(),
+  collection: jest.fn(() => createFirestoreCollectionMock()),
+});
+
+const createFirestoreCollectionMock = () => {
+  const collection = {
+    doc: jest.fn(() => createFirestoreDocMock()),
+    where: jest.fn(() => collection),
+    orderBy: jest.fn(() => collection),
+    limit: jest.fn(() => collection),
+    get: jest.fn(),
+    add: jest.fn(),
+  };
+
+  return collection;
+};
+
 jest.mock("firebase-admin/firestore", () => ({
   __esModule: true,
   default: jest.fn(() => ({})),
   getFirestore: jest.fn(() => ({
-    collection: jest.fn(() => ({
-      doc: jest.fn(() => ({
-        get: jest.fn(),
-        set: jest.fn(),
-      })),
-    })),
+    collection: jest.fn(() => createFirestoreCollectionMock()),
   })),
   FieldValue: {
     serverTimestamp: jest.fn(),
@@ -500,6 +516,38 @@ jest.mock("lucide-react", () => {
     }),
     Newspaper: jest.fn(({ className }: any) => {
       return React.createElement("div", { className: `newspaper ${className}` });
+    }),
+    MessagesSquare: jest.fn(({ className }: any) => {
+      return React.createElement("div", {
+        className: `messages-square ${className}`,
+      });
+    }),
+    Sparkles: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `sparkles ${className}` });
+    }),
+    Zap: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `zap ${className}` });
+    }),
+    ArrowUpRight: jest.fn(({ className }: any) => {
+      return React.createElement("div", {
+        className: `arrow-up-right ${className}`,
+      });
+    }),
+    Files: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `files ${className}` });
+    }),
+    MessageSquare: jest.fn(({ className }: any) => {
+      return React.createElement("div", {
+        className: `message-square ${className}`,
+      });
+    }),
+    Clock3: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `clock-3 ${className}` });
+    }),
+    MessageCircle: jest.fn(({ className }: any) => {
+      return React.createElement("div", {
+        className: `message-circle ${className}`,
+      });
     }),
   };
 });

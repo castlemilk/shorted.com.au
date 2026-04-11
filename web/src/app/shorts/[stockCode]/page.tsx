@@ -18,6 +18,8 @@ import CompanyFinancials,{
   CompanyFinancialsPlaceholder,
 } from "~/@/components/ui/companyFinancials";
 import { EnrichedCompanySection } from "~/@/components/company/enriched-company-section";
+import { CommunityOverviewTeaser } from "~/@/components/company/community/community-overview-teaser";
+import { CommunityTab } from "~/@/components/company/community/community-tab";
 
 // Dynamic import to avoid SSR issues — child components import @connectrpc/connect
 const StockTabs = dynamic(
@@ -46,6 +48,12 @@ import { getStockOrNotFound } from "~/app/actions/getStock";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { notFound } from "next/navigation";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { getStockCommunitySummary } from "~/@/lib/community/firestore-community";
+import { buildCommunitySummary } from "~/@/lib/community/summary";
+import {
+  listCommunityPulseItems,
+  listCommunityThreads,
+} from "~/@/lib/community/firestore-community";
 
 /**
  * Pre-generate ALL stocks with non-zero short positions at build time (~940 stocks).
@@ -176,6 +184,15 @@ const Page = async ({ params }: PageProps) => {
   // but returns undefined for transient backend errors.
   let stock: Awaited<ReturnType<typeof getStockOrNotFound>> = undefined;
   let relatedData: Awaited<ReturnType<typeof getRelatedStocks>>;
+  const communitySummaryPromise = getStockCommunitySummary(stockCode).catch(() =>
+    buildCommunitySummary({ stockCode, threads: [], pulse: [] }),
+  );
+  const communityThreadsPromise = listCommunityThreads(stockCode).catch(
+    () => [],
+  );
+  const communityPulsePromise = listCommunityPulseItems(stockCode).catch(
+    () => [],
+  );
   try {
     [stock, relatedData] = await Promise.all([
       getStockOrNotFound(stockCode),
@@ -189,6 +206,9 @@ const Page = async ({ params }: PageProps) => {
     // Transient backend error → render page with fallback UI (retry components)
     relatedData = { stocks: [], industry: null, industrySlug: null };
   }
+  const [communitySummary, communityThreads, communityPulse] = await Promise.all(
+    [communitySummaryPromise, communityThreadsPromise, communityPulsePromise],
+  );
 
   const breadcrumbItems = [
     { label: "Stocks", href: "/stocks" },
@@ -287,6 +307,11 @@ const Page = async ({ params }: PageProps) => {
                 </CardContent>
               </Card>
 
+              <CommunityOverviewTeaser
+                stockCode={stockCode}
+                summary={communitySummary}
+              />
+
               {/* Historical Price Data */}
               <Card className="border-l-4 border-l-blue-500 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
                 <CardHeader className="pb-4 bg-gradient-to-r from-blue-50/50 to-transparent dark:from-blue-950/20 dark:to-transparent">
@@ -321,6 +346,13 @@ const Page = async ({ params }: PageProps) => {
             </Suspense>
             <EnrichedCompanySection stockCode={stockCode} />
           </div>
+        }
+        communityContent={
+          <CommunityTab
+            stockCode={stockCode}
+            threads={communityThreads}
+            pulse={communityPulse}
+          />
         }
       />
     </DashboardLayout>

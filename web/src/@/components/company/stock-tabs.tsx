@@ -1,6 +1,7 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Tabs,
   TabsContent,
@@ -16,17 +17,50 @@ interface StockTabsProps {
   stockCode: string;
   overviewContent?: ReactNode;
   financialsContent?: ReactNode;
+  communityContent?: ReactNode;
 }
 
 export function StockTabs({
   stockCode,
   overviewContent,
   financialsContent,
+  communityContent,
 }: StockTabsProps) {
+  const searchParams = useSearchParams();
+  const availableTabs = useMemo(
+    () =>
+      [
+        "overview",
+        communityContent ? "community" : null,
+        "news",
+        "financials",
+        "directors",
+        "dividends",
+        "peers",
+      ].filter((tab): tab is string => Boolean(tab)),
+    [communityContent],
+  );
+
+  const requestedTab = searchParams.get("tab");
+  const initialTab =
+    requestedTab && availableTabs.includes(requestedTab)
+      ? requestedTab
+      : "overview";
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  useEffect(() => {
+    if (requestedTab && availableTabs.includes(requestedTab)) {
+      setActiveTab(requestedTab);
+    }
+  }, [availableTabs, requestedTab]);
+
   return (
-    <Tabs defaultValue="overview" className="w-full">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
       <TabsList className="w-full justify-start overflow-x-auto">
         <TabsTrigger value="overview">Overview</TabsTrigger>
+        {communityContent ? (
+          <TabsTrigger value="community">Community</TabsTrigger>
+        ) : null}
         <TabsTrigger value="news">News</TabsTrigger>
         <TabsTrigger value="financials">Financials</TabsTrigger>
         <TabsTrigger value="directors">Directors</TabsTrigger>
@@ -37,6 +71,12 @@ export function StockTabs({
       <TabsContent value="overview">
         {overviewContent}
       </TabsContent>
+
+      {communityContent ? (
+        <TabsContent value="community">
+          {communityContent}
+        </TabsContent>
+      ) : null}
 
       <TabsContent value="news">
         <StockNewsFeed stockCode={stockCode} limit={20} />
