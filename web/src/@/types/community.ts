@@ -43,3 +43,28 @@ export interface CommunityPulseItem {
   status?: CommunityStatus;
   author?: CommunityAuthorSnapshot;
 }
+
+export interface CommunityModerationResult {
+  normalizedText: string;
+  status: CommunityStatus;
+  reasons: string[];
+}
+
+export interface CommunitySummaryInput {
+  threads: CommunityThread[];
+  pulse: CommunityPulseItem[];
+  stockCode?: string;
+}
+
+export interface CommunityOverviewSummary {
+  headline: string;
+  subheadline: string;
+  ctaLabel: string;
+  threadCount: number;
+  pulseCount: number;
+  topThread?: Pick<
+    CommunityThread,
+    "id" | "title" | "commentCount" | "sourceCount" | "lastActivityAt"
+  >;
+  latestActivityAt?: Date;
+}
