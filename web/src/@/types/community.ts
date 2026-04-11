@@ -15,6 +15,11 @@ export interface CommunityAuthorSnapshot {
   trustScore?: number;
 }
 
+export interface CommunitySourceLink {
+  label: string;
+  url: string;
+}
+
 export interface CommunityThread {
   id: string;
   stockCode: string;
@@ -28,6 +33,20 @@ export interface CommunityThread {
   createdAt: Date;
   updatedAt: Date;
   lastActivityAt: Date;
+  status?: CommunityStatus;
+  author?: CommunityAuthorSnapshot;
+  sources?: CommunitySourceLink[];
+}
+
+export interface CommunityComment {
+  id: string;
+  stockCode: string;
+  threadId: string;
+  body: string;
+  score: number;
+  replyCount: number;
+  createdAt: Date;
+  updatedAt: Date;
   status?: CommunityStatus;
   author?: CommunityAuthorSnapshot;
 }

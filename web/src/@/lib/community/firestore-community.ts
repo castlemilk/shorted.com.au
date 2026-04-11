@@ -122,6 +122,17 @@ function mapThread(snapshot: FirestoreDocSnapshot): CommunityThread {
                 : undefined,
           }
         : undefined,
+    sources: Array.isArray(data.sources)
+      ? data.sources
+          .filter(
+            (source): source is Record<string, unknown> =>
+              typeof source === "object" && source !== null,
+          )
+          .map((source) => ({
+            label: String(source.label ?? ""),
+            url: String(source.url ?? ""),
+          }))
+      : undefined,
   };
 }
 
