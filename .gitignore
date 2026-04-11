@@ -67,3 +67,4 @@ node_modules/
 venv/
 .vercel
 .env*.local
+.worktrees/
