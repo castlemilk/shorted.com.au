@@ -528,6 +528,27 @@ jest.mock("lucide-react", () => {
     Zap: jest.fn(({ className }: any) => {
       return React.createElement("div", { className: `zap ${className}` });
     }),
+    ArrowUpRight: jest.fn(({ className }: any) => {
+      return React.createElement("div", {
+        className: `arrow-up-right ${className}`,
+      });
+    }),
+    Files: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `files ${className}` });
+    }),
+    MessageSquare: jest.fn(({ className }: any) => {
+      return React.createElement("div", {
+        className: `message-square ${className}`,
+      });
+    }),
+    Clock3: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `clock-3 ${className}` });
+    }),
+    MessageCircleMore: jest.fn(({ className }: any) => {
+      return React.createElement("div", {
+        className: `message-circle-more ${className}`,
+      });
+    }),
   };
 });
 
