@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
+import { useSession } from "next-auth/react";
 import { type CommunityComment, type CommunityThread } from "~/@/types/community";
 import { Button } from "~/@/components/ui/button";
 import { Badge } from "~/@/components/ui/badge";
@@ -8,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/@/components/ui/card";
+import { CommunityCommentForm } from "./community-comment-form";
 import { CommunityCommentList } from "./community-comment-list";
 
 interface CommunityThreadDetailProps {
@@ -19,6 +24,9 @@ export function CommunityThreadDetail({
   thread,
   comments,
 }: CommunityThreadDetailProps) {
+  const { data: session } = useSession();
+  const [commentItems, setCommentItems] = useState(comments);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -80,10 +88,28 @@ export function CommunityThreadDetail({
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-xl font-semibold text-foreground">Comments</h2>
               <span className="text-sm text-muted-foreground">
-                {comments.length} replies
+                {commentItems.length} replies
               </span>
             </div>
-            <CommunityCommentList comments={comments} />
+            {session?.user?.id ? (
+              <CommunityCommentForm
+                stockCode={thread.stockCode}
+                threadId={thread.id}
+                onCreated={(comment) =>
+                  setCommentItems((current) => [...current, comment])
+                }
+              />
+            ) : (
+              <Link
+                href={`/signin?callbackUrl=${encodeURIComponent(
+                  `/shorts/${thread.stockCode}/community/${thread.id}`,
+                )}`}
+                className="inline-flex items-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent"
+              >
+                Sign in to reply
+              </Link>
+            )}
+            <CommunityCommentList comments={commentItems} />
           </div>
         </CardContent>
       </Card>
