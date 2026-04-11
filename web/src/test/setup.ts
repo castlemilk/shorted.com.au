@@ -517,6 +517,17 @@ jest.mock("lucide-react", () => {
     Newspaper: jest.fn(({ className }: any) => {
       return React.createElement("div", { className: `newspaper ${className}` });
     }),
+    MessageSquareText: jest.fn(({ className }: any) => {
+      return React.createElement("div", {
+        className: `message-square-text ${className}`,
+      });
+    }),
+    Sparkles: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `sparkles ${className}` });
+    }),
+    Zap: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `zap ${className}` });
+    }),
   };
 });
 
