@@ -7,6 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/@/components/ui/card";
+import { CommunityFeedbackActions } from "./community-feedback-actions";
 import { CommunityEmptyState } from "./community-empty-state";
 
 interface CommunityPulseRailProps {
@@ -60,6 +61,12 @@ export function CommunityPulseRail({ pulse }: CommunityPulseRailProps) {
                     {item.replyCount} replies
                   </span>
                 </div>
+                <CommunityFeedbackActions
+                  stockCode={item.stockCode}
+                  targetType="pulse"
+                  targetId={item.id}
+                  initialScore={item.score}
+                />
               </CardContent>
             </Card>
           ))}

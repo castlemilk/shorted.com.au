@@ -14,6 +14,7 @@ import {
 } from "~/@/components/ui/card";
 import { CommunityCommentForm } from "./community-comment-form";
 import { CommunityCommentList } from "./community-comment-list";
+import { CommunityFeedbackActions } from "./community-feedback-actions";
 
 interface CommunityThreadDetailProps {
   thread: CommunityThread;
@@ -35,14 +36,12 @@ export function CommunityThreadDetail({
             Back to {thread.stockCode} community
           </Link>
         </Button>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" disabled>
-            Vote soon
-          </Button>
-          <Button variant="outline" disabled>
-            Report soon
-          </Button>
-        </div>
+        <CommunityFeedbackActions
+          stockCode={thread.stockCode}
+          targetType="thread"
+          targetId={thread.id}
+          initialScore={thread.score}
+        />
       </div>
 
       <Card className="border-border/70 shadow-lg">

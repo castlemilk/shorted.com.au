@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/@/components/ui/card";
+import { CommunityFeedbackActions } from "./community-feedback-actions";
 
 interface CommunityThreadCardProps {
   thread: CommunityThread;
@@ -42,16 +43,24 @@ export function CommunityThreadCard({ thread }: CommunityThreadCardProps) {
           </p>
         </div>
       </CardHeader>
-      <CardContent className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-        <span className="font-medium text-foreground">{thread.score} score</span>
-        <span className="inline-flex items-center gap-1.5">
-          <MessageSquare className="h-4 w-4" />
-          {thread.commentCount} comments
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <Files className="h-4 w-4" />
-          {thread.sourceCount} sources
-        </span>
+      <CardContent className="flex flex-wrap items-center justify-between gap-4 text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-4">
+          <span className="font-medium text-foreground">{thread.score} score</span>
+          <span className="inline-flex items-center gap-1.5">
+            <MessageSquare className="h-4 w-4" />
+            {thread.commentCount} comments
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <Files className="h-4 w-4" />
+            {thread.sourceCount} sources
+          </span>
+        </div>
+        <CommunityFeedbackActions
+          stockCode={thread.stockCode}
+          targetType="thread"
+          targetId={thread.id}
+          initialScore={thread.score}
+        />
       </CardContent>
     </Card>
   );
