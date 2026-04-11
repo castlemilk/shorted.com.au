@@ -97,7 +97,7 @@ echo "🧪 Running Test Infrastructure Validation..."
 
 # Test 1: Basic database setup
 echo "1. Testing PostgreSQL container setup..."
-if go test ./test/integration/... -v -timeout=3m -run TestDatabaseSetup > /tmp/test_db_setup.log 2>&1; then
+if go test -tags=integration ./test/integration/... -v -timeout=3m -run TestDatabaseSetup > /tmp/test_db_setup.log 2>&1; then
     print_status "success" "PostgreSQL container setup works"
 else
     print_status "error" "PostgreSQL container setup failed"
@@ -107,7 +107,7 @@ fi
 
 # Test 2: Test data loading
 echo "2. Testing test data loading..."
-if go test ./test/integration/... -v -timeout=3m -run TestDatabaseOperations > /tmp/test_db_ops.log 2>&1; then
+if go test -tags=integration ./test/integration/... -v -timeout=3m -run TestDatabaseOperations > /tmp/test_db_ops.log 2>&1; then
     print_status "success" "Test data loading works"
 else
     print_status "error" "Test data loading failed"
@@ -117,7 +117,7 @@ fi
 
 # Test 3: Data consistency
 echo "3. Testing data consistency..."
-if go test ./test/integration/... -v -timeout=3m -run TestDataConsistency > /tmp/test_consistency.log 2>&1; then
+if go test -tags=integration ./test/integration/... -v -timeout=3m -run TestDataConsistency > /tmp/test_consistency.log 2>&1; then
     print_status "success" "Data consistency validation works"
 else
     print_status "error" "Data consistency validation failed"
@@ -127,7 +127,7 @@ fi
 
 # Test 4: Cleanup utilities
 echo "4. Testing cleanup utilities..."
-if go test ./test/integration/... -v -timeout=3m -run TestCleanup > /tmp/test_cleanup.log 2>&1; then
+if go test -tags=integration ./test/integration/... -v -timeout=3m -run TestCleanup > /tmp/test_cleanup.log 2>&1; then
     print_status "success" "Cleanup utilities work"
 else
     print_status "error" "Cleanup utilities failed"

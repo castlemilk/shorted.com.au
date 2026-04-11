@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package testdata
 
 import (
@@ -179,4 +182,3 @@ func (s *Seeder) TruncateAll(ctx context.Context) error {
 
 	return nil
 }
-

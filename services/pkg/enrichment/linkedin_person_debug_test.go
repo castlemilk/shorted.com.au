@@ -14,9 +14,7 @@ import (
 
 // TestDebugStrategies traces all 3 strategies for failing cases.
 func TestDebugStrategies(t *testing.T) {
-	if testing.Short() {
-		t.Skip("requires network + chromium")
-	}
+	requireExternalEnrichmentTests(t, "LinkedIn debug tests")
 
 	tests := []struct {
 		personName  string

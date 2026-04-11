@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package integration
 
 import (
@@ -255,4 +258,3 @@ func TestAlgoliaLive(t *testing.T) {
 		}
 	})
 }
-

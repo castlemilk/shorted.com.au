@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package testdata
 
 import (
@@ -225,4 +228,3 @@ func GetTopShortsTestData(numStocks int, date time.Time) ([]ShortData, []Company
 	
 	return shorts, metadata
 }
-

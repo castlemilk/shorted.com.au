@@ -39,7 +39,7 @@ COPY . .
 RUN [ -f /tmp/go.mod.stealth ] && cp /tmp/go.mod.stealth go.mod || true
 
 # Build test binaries
-RUN go test -c ./test/integration/... -o integration-tests
+RUN go test -tags=integration -c ./test/integration/... -o integration-tests
 
 FROM alpine:3.18
 

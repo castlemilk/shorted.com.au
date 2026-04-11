@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package integration
 
 import (
@@ -238,4 +241,3 @@ func testErrorHandlingWithData(t *testing.T, ctx context.Context, client shortsv
 		assert.Equal(t, connect.CodeInvalidArgument, connectErr.Code())
 	})
 }
-

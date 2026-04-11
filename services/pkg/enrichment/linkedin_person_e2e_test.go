@@ -8,9 +8,7 @@ import (
 
 // TestFindAndVerifyPersonE2E calls the actual FindAndVerifyPerson method end-to-end.
 func TestFindAndVerifyPersonE2E(t *testing.T) {
-	if testing.Short() {
-		t.Skip("requires network + chromium")
-	}
+	requireExternalEnrichmentTests(t, "LinkedIn end-to-end tests")
 
 	tests := []struct {
 		personName  string

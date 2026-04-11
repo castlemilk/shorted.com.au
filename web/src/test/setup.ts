@@ -294,7 +294,24 @@ jest.mock("firebase-admin/auth", () => ({
 }));
 
 // Mock Firebase admin/firestore
-const createFirestoreDocMock = () => ({
+type FirestoreDocMock = {
+  get: jest.Mock;
+  set: jest.Mock;
+  update: jest.Mock;
+  delete: jest.Mock;
+  collection: jest.Mock<FirestoreCollectionMock, []>;
+};
+
+type FirestoreCollectionMock = {
+  doc: jest.Mock<FirestoreDocMock, []>;
+  where: jest.Mock<FirestoreCollectionMock, []>;
+  orderBy: jest.Mock<FirestoreCollectionMock, []>;
+  limit: jest.Mock<FirestoreCollectionMock, []>;
+  get: jest.Mock;
+  add: jest.Mock;
+};
+
+const createFirestoreDocMock = (): FirestoreDocMock => ({
   get: jest.fn(),
   set: jest.fn(),
   update: jest.fn(),
@@ -302,8 +319,8 @@ const createFirestoreDocMock = () => ({
   collection: jest.fn(() => createFirestoreCollectionMock()),
 });
 
-const createFirestoreCollectionMock = () => {
-  const collection = {
+const createFirestoreCollectionMock = (): FirestoreCollectionMock => {
+  const collection: FirestoreCollectionMock = {
     doc: jest.fn(() => createFirestoreDocMock()),
     where: jest.fn(() => collection),
     orderBy: jest.fn(() => collection),

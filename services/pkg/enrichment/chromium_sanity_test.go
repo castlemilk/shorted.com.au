@@ -9,9 +9,7 @@ import (
 )
 
 func TestChromiumSanity(t *testing.T) {
-	if testing.Short() {
-		t.Skip("requires chromium")
-	}
+	requireExternalEnrichmentTests(t, "chromium sanity tests")
 
 	t.Log("Creating Chromium client...")
 	client, err := stealthhttp.NewChromium(

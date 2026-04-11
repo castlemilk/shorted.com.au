@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package integration
 
 import (
@@ -310,4 +313,3 @@ func TestSearchRelevanceRanking(t *testing.T) {
 		})
 	})
 }
-

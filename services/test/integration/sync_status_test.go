@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package integration
 
 import (
@@ -275,4 +278,3 @@ func setupTestDB(t *testing.T) *sql.DB {
 
 	return db
 }
-

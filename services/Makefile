@@ -753,7 +753,7 @@ test-integration-ci:
 # New integration test targets using testcontainers
 test.integration.local:
 	@echo "🧪 Running integration tests with testcontainers..."
-	go test ./test/integration/... -v -timeout=10m
+	go test -tags=integration ./test/integration/... -v -timeout=10m
 
 test.integration.docker:
 	@echo "🐳 Running integration tests in Docker environment..."
@@ -815,7 +815,7 @@ bench:
 # Test coverage with integration tests
 test.coverage.integration:
 	@echo "📊 Running integration tests with coverage..."
-	go test ./test/integration/... -v -timeout=10m -coverprofile=integration-coverage.out
+	go test -tags=integration ./test/integration/... -v -timeout=10m -coverprofile=integration-coverage.out
 	go tool cover -html=integration-coverage.out -o integration-coverage.html
 	@echo "📈 Integration test coverage report generated: integration-coverage.html"
 

@@ -15,9 +15,7 @@ import (
 // Note: These tests make real HTTP requests and may be blocked by bot protection
 
 func TestDefaultLogoScraper_ScrapeLogos_Dominos(t *testing.T) {
-	if testing.Short() {
-		t.Skip("requires network")
-	}
+	requireExternalEnrichmentTests(t, "logo scraper integration tests")
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -97,9 +95,7 @@ func TestDefaultLogoScraper_ScrapeLogos_Dominos(t *testing.T) {
 }
 
 func TestDefaultLogoScraper_ScrapeLogos_CommonPaths(t *testing.T) {
-	if testing.Short() {
-		t.Skip("requires network")
-	}
+	requireExternalEnrichmentTests(t, "logo scraper integration tests")
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
@@ -163,9 +159,7 @@ func TestDefaultLogoScraper_ScrapeLogos_CommonPaths(t *testing.T) {
 }
 
 func TestDefaultLogoScraper_scanPage_Direct(t *testing.T) {
-	if testing.Short() {
-		t.Skip("requires network")
-	}
+	requireExternalEnrichmentTests(t, "logo scraper integration tests")
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -268,9 +262,7 @@ func TestDefaultLogoScraper_HTTPRequest(t *testing.T) {
 }
 
 func TestDefaultLogoScraper_DebugScanPage(t *testing.T) {
-	if testing.Short() {
-		t.Skip("requires network")
-	}
+	requireExternalEnrichmentTests(t, "logo scraper integration tests")
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -442,4 +434,3 @@ func TestCompanyNameToLinkedInSlug(t *testing.T) {
 		})
 	}
 }
-

@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package integration
 
 import (
@@ -544,4 +547,3 @@ func TestSearchPerformance(t *testing.T) {
 		})
 	})
 }
-
