@@ -517,9 +517,9 @@ jest.mock("lucide-react", () => {
     Newspaper: jest.fn(({ className }: any) => {
       return React.createElement("div", { className: `newspaper ${className}` });
     }),
-    MessageSquareText: jest.fn(({ className }: any) => {
+    MessagesSquare: jest.fn(({ className }: any) => {
       return React.createElement("div", {
-        className: `message-square-text ${className}`,
+        className: `messages-square ${className}`,
       });
     }),
     Sparkles: jest.fn(({ className }: any) => {
@@ -544,9 +544,9 @@ jest.mock("lucide-react", () => {
     Clock3: jest.fn(({ className }: any) => {
       return React.createElement("div", { className: `clock-3 ${className}` });
     }),
-    MessageCircleMore: jest.fn(({ className }: any) => {
+    MessageCircle: jest.fn(({ className }: any) => {
       return React.createElement("div", {
-        className: `message-circle-more ${className}`,
+        className: `message-circle ${className}`,
       });
     }),
   };

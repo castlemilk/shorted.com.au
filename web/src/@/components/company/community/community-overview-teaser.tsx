@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MessageSquareText, Sparkles, Zap } from "lucide-react";
+import { MessagesSquare, Sparkles, Zap } from "lucide-react";
 import { type CommunityOverviewSummary } from "~/@/types/community";
 import { Badge } from "~/@/components/ui/badge";
 import { Button } from "~/@/components/ui/button";
@@ -46,7 +46,7 @@ export function CommunityOverviewTeaser({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="rounded-xl bg-emerald-100 p-2.5 text-emerald-700 shadow-sm dark:bg-emerald-900/40 dark:text-emerald-300">
-              <MessageSquareText className="h-5 w-5" />
+              <MessagesSquare className="h-5 w-5" />
             </div>
             <div>
               <CardTitle className="text-xl text-emerald-950 dark:text-emerald-100">

@@ -1,4 +1,4 @@
-import { Clock3, MessageCircleMore } from "lucide-react";
+import { Clock3, MessageCircle } from "lucide-react";
 import { type CommunityPulseItem } from "~/@/types/community";
 import { Badge } from "~/@/components/ui/badge";
 import {
@@ -57,7 +57,7 @@ export function CommunityPulseRail({ pulse }: CommunityPulseRailProps) {
                     {formatPulseTime(item.createdAt)}
                   </span>
                   <span className="inline-flex items-center gap-1.5">
-                    <MessageCircleMore className="h-3.5 w-3.5" />
+                    <MessageCircle className="h-3.5 w-3.5" />
                     {item.replyCount} replies
                   </span>
                 </div>
