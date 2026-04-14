@@ -69,9 +69,27 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       siteName: siteConfig.name,
       type: "article",
       locale: "en_AU",
+      images: [
+        {
+          url: `${siteConfig.url}/reports/opengraph-image`,
+          width: 1200,
+          height: 630,
+          alt: `ASX Short Selling Year in Review: ${slug}`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [`${siteConfig.url}/reports/opengraph-image`],
     },
     alternates: {
       canonical: `${siteConfig.url}/reports/yearly/${slug}`,
+      languages: {
+        "en-AU": `${siteConfig.url}/reports/yearly/${slug}`,
+        "x-default": `${siteConfig.url}/reports/yearly/${slug}`,
+      },
     },
   };
 }

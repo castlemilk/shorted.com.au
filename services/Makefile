@@ -703,9 +703,9 @@ lint-fix: lint-install
 	@echo "🔧 Running golangci-lint with auto-fix..."
 	golangci-lint run --fix ./...
 
-# Unit tests
+# Unit tests (use -short to skip E2E tests requiring network/browser)
 test:
-	go test ./... -v
+	go test ./... -v -short
 
 test.coverage:
 	go test ./... -v -coverprofile=coverage.out

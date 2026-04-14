@@ -85,6 +85,22 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const description = enhanced?.summary
     ?? `Weekly short selling report for the ASX — ${weekTitle}. Top shorted stocks, biggest movers, and industry analysis from official ASIC data.`;
 
+  // Derive publication date from the week slug (Friday of that week)
+  const parsed = slug.match(/^(\d{4})-W(\d{2})$/);
+  let publishedDate: string | undefined;
+  if (parsed?.[1] && parsed[2]) {
+    const year = parseInt(parsed[1]);
+    const week = parseInt(parsed[2]);
+    const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+    const dow = simple.getUTCDay();
+    const monday = new Date(simple);
+    if (dow <= 4) monday.setUTCDate(simple.getUTCDate() - simple.getUTCDay() + 1);
+    else monday.setUTCDate(simple.getUTCDate() + 8 - simple.getUTCDay());
+    const friday = new Date(monday);
+    friday.setUTCDate(monday.getUTCDate() + 4);
+    publishedDate = friday.toISOString();
+  }
+
   return {
     title,
     description,
@@ -103,9 +119,30 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       siteName: siteConfig.name,
       type: "article",
       locale: "en_AU",
+      publishedTime: publishedDate,
+      modifiedTime: publishedDate,
+      authors: [siteConfig.author],
+      images: [
+        {
+          url: `${siteConfig.url}/reports/weekly/${slug}/opengraph-image`,
+          width: 1200,
+          height: 630,
+          alt: `ASX Short Selling Weekly Report — ${weekTitle}`,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [`${siteConfig.url}/reports/weekly/${slug}/opengraph-image`],
     },
     alternates: {
       canonical: `${siteConfig.url}/reports/weekly/${slug}`,
+      languages: {
+        "en-AU": `${siteConfig.url}/reports/weekly/${slug}`,
+        "x-default": `${siteConfig.url}/reports/weekly/${slug}`,
+      },
     },
   };
 }
