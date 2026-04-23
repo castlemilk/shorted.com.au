@@ -2,7 +2,7 @@ import { type Metadata } from "next";
 import { Separator } from "~/@/components/ui/separator";
 
 export const metadata: Metadata = {
-  title: "Terms of Service | Shorted",
+  title: "Terms of Service",
   description:
     "Terms of Service and Privacy Policy for Shorted - Australian short selling data and insights platform.",
 };

@@ -5,7 +5,7 @@ import { type AboutPageStatistics } from "~/lib/statistics";
 import TechnologyClient from "./technology-client";
 
 export const metadata: Metadata = {
-  title: "Technology — AI-Native Architecture | Shorted",
+  title: "Technology — AI-Native Architecture",
   description:
     "Explore the AI and cloud-native technology powering Shorted.com.au. Built on GCP Cloud Run, Gemini AI, and Go microservices to deliver real-time ASX short position intelligence.",
   keywords: [

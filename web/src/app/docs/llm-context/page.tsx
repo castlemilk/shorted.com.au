@@ -11,7 +11,7 @@ import {
 } from "~/@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: "LLM Context Documentation | Shorted",
+  title: "LLM Context Documentation",
   description:
     "Structured documentation for AI assistants and LLMs to understand Shorted.com.au - ASX short position data, terminology, and platform features.",
   keywords: [

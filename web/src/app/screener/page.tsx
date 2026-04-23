@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { siteConfig } from "~/@/config/site";
 import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
+import { ScreenerFallback } from "./screener-fallback";
 
 const ScreenerPageClient = dynamic(
   () =>
@@ -53,9 +54,7 @@ export async function generateMetadata({
   const preset = typeof params.preset === "string" ? params.preset : undefined;
   const presetMeta = preset ? PRESET_META[preset] : undefined;
 
-  const title = presetMeta
-    ? `${presetMeta.title} | ${siteConfig.name}`
-    : `Stock Screener | ${siteConfig.name}`;
+  const title = presetMeta ? presetMeta.title : "Stock Screener";
   const description =
     presetMeta?.description ??
     "Screen ASX stocks using short positions, price changes, fundamentals, director trades, and news sentiment. Pre-built presets for short squeeze candidates, dividend pressure, and more.";
@@ -161,6 +160,7 @@ export default function ScreenerPage() {
           position reports, updated daily with a T+4 trading day delay.
         </p>
       </div>
+      <ScreenerFallback />
       <Suspense fallback={<ScreenerSkeleton />}>
         <ScreenerPageClient />
       </Suspense>

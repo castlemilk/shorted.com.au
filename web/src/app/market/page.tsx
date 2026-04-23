@@ -14,7 +14,7 @@ import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { getAvailableDates } from "~/app/actions/market/getMarketByDate";
 
 export const metadata: Metadata = {
-  title: "Daily ASX Short Position Snapshots | Historical ASIC Data | Shorted",
+  title: "Daily ASX Short Position Snapshots | Historical ASIC Data",
   description:
     "Browse daily snapshots of ASX short positions from official ASIC data. See which stocks were most shorted on any trading day. Historical short selling data since 2010.",
   keywords: [

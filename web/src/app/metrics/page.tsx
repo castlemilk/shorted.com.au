@@ -5,7 +5,7 @@ import { type AboutPageStatistics } from "~/lib/statistics";
 import MetricsClient from "./metrics-client";
 
 export const metadata: Metadata = {
-  title: "Metrics — Platform Traction & Growth | Shorted",
+  title: "Metrics — Platform Traction & Growth",
   description:
     "See the numbers behind Shorted.com.au — companies tracked, data pipeline throughput, infrastructure scale, and growth metrics for Australia's short position intelligence platform.",
   keywords: [

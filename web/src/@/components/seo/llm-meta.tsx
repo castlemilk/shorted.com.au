@@ -135,43 +135,6 @@ export function LLMMeta({
         }}
       />
 
-      {/* Dataset structured data if content is provided */}
-      {content && (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "Dataset",
-              name: title,
-              description: description,
-              url: url ?? "https://shorted.com.au",
-              keywords: keywords.join(", "),
-              license: "https://shorted.com.au/terms",
-              creator: {
-                "@type": "Organization",
-                name: "Shorted",
-                url: "https://shorted.com.au",
-              },
-              provider: {
-                "@type": "GovernmentOrganization",
-                name: "ASIC",
-                url: "https://asic.gov.au",
-              },
-              temporalCoverage: "2010/..",
-              spatialCoverage: {
-                "@type": "Place",
-                name: "Australia",
-              },
-              distribution: {
-                "@type": "DataDownload",
-                encodingFormat: "application/json",
-                contentUrl: "https://shorted.com.au/api",
-              },
-            }),
-          }}
-        />
-      )}
     </>
   );
 }

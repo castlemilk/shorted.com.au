@@ -1888,7 +1888,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   return {
-    title: `${article.title} | ${siteConfig.name}`,
+    title: article.title,
     description: article.description,
     keywords: [...article.topics, "short selling guide", "ASX education", "ASIC data"],
     openGraph: {

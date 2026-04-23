@@ -17,7 +17,7 @@ import {
 } from "~/app/actions/reports/getReportData";
 
 export const metadata: Metadata = {
-  title: "ASX Short Selling Reports | Weekly & Monthly Analysis | Shorted",
+  title: "ASX Short Selling Reports | Weekly & Monthly Analysis",
   description:
     "Weekly and monthly reports on ASX short selling activity. See top movers, industry trends, and aggregate short interest from official ASIC data.",
   keywords: [

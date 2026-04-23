@@ -9,7 +9,7 @@
   },
   "api": {
     "type": "openapi",
-    "url": "https://shorted.com.au/docs/api-reference"
+    "url": "https://shorted.com.au/openapi.json"
   },
   "logo_url": "https://shorted.com.au/logo.png",
   "contact_email": "support@shorted.com.au",

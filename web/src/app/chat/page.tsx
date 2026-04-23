@@ -7,7 +7,7 @@ const ChatPageContent = dynamic(
 );
 
 export const metadata: Metadata = {
-  title: "AI Chat | Shorted",
+  title: "AI Chat",
   description:
     "Chat with Shorted AI to get insights about short positions, stocks, market trends, and more.",
   robots: { index: false, follow: false },

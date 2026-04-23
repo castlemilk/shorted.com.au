@@ -11,7 +11,7 @@ import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-dat
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 
 export const metadata: Metadata = {
-  title: "ASX Stock Directory | All Australian Listed Companies | Shorted",
+  title: "ASX Stock Directory | All Australian Listed Companies",
   description:
     "Browse all Australian Securities Exchange (ASX) listed companies tracked by Shorted. A-Z directory of stocks with current short position data from official ASIC reports.",
   keywords: [

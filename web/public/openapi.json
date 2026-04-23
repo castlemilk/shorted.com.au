@@ -1,0 +1,128 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Shorted.com.au Public API",
+    "version": "1.0.0",
+    "description": "Public read-only endpoints for ASIC short position data on ASX-listed securities. Data sourced from ASIC short position reports with a T+4 trading-day delay.",
+    "contact": {
+      "name": "Shorted Support",
+      "email": "support@shorted.com.au",
+      "url": "https://shorted.com.au"
+    },
+    "license": {
+      "name": "CC BY 4.0",
+      "url": "https://creativecommons.org/licenses/by/4.0/"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://shorted.com.au",
+      "description": "Production"
+    }
+  ],
+  "paths": {
+    "/api/search/stocks": {
+      "get": {
+        "operationId": "searchStocks",
+        "summary": "Search ASX stocks by code or name",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Ticker or partial company name, e.g. 'BHP' or 'Commonwealth'."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 10, "maximum": 50 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching stocks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/StockSummary" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/shorts/{stockCode}": {
+      "get": {
+        "operationId": "getStockPage",
+        "summary": "HTML stock page (human-readable) with short position detail",
+        "parameters": [
+          {
+            "name": "stockCode",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "pattern": "^[A-Z0-9]{1,4}$" }
+          }
+        ],
+        "responses": { "200": { "description": "HTML page" } }
+      }
+    },
+    "/top": {
+      "get": {
+        "operationId": "getTopShorts",
+        "summary": "Top 100 most shorted ASX stocks (HTML)",
+        "responses": { "200": { "description": "HTML page" } }
+      }
+    },
+    "/industry": {
+      "get": {
+        "operationId": "getIndustryTreemap",
+        "summary": "Industry treemap of short positions (HTML)",
+        "responses": { "200": { "description": "HTML page" } }
+      }
+    },
+    "/reports": {
+      "get": {
+        "operationId": "listReports",
+        "summary": "Weekly and monthly short-selling reports",
+        "responses": { "200": { "description": "HTML index" } }
+      }
+    },
+    "/feed.xml": {
+      "get": {
+        "operationId": "getRssFeed",
+        "summary": "RSS feed of blog posts and weekly reports",
+        "responses": {
+          "200": {
+            "description": "RSS XML",
+            "content": { "application/rss+xml": {} }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "StockSummary": {
+        "type": "object",
+        "required": ["code", "name"],
+        "properties": {
+          "code": { "type": "string", "description": "ASX ticker, e.g. 'BHP'" },
+          "name": { "type": "string", "description": "Company name" },
+          "industry": { "type": "string" },
+          "percentageShorted": {
+            "type": "number",
+            "description": "Current short interest % per latest ASIC report"
+          }
+        }
+      }
+    }
+  }
+}

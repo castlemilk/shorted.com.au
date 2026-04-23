@@ -6,6 +6,7 @@ import { type Metadata } from "next";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import { siteConfig } from "~/@/config/site";
 import { ArticleSchema } from "~/@/components/seo/article-schema";
+import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { SocialShare } from "~/@/components/seo/social-share";
 import { RelatedPosts } from "~/@/components/seo/related-posts";
@@ -92,6 +93,12 @@ export default async function Post({ params }: Params) {
 
   return (
     <main>
+      <BreadcrumbStructuredData
+        items={[
+          { label: "Blog", href: "/blog" },
+          { label: post.title, href: `/blog/${params.slug}` },
+        ]}
+      />
       <ArticleSchema
         title={post.title}
         description={
@@ -194,7 +201,7 @@ export function generateMetadata({ params }: Params): Metadata {
     return notFound();
   }
 
-  const title = `${post.title} | ${siteConfig.name}`;
+  const title = post.title;
   const description =
     post.excerpt ||
     `${post.title} - Expert analysis on ASX short positions, market trends, and ASIC regulations. Learn about Australian stock market short selling with data-driven insights.`;

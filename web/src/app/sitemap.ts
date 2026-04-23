@@ -99,54 +99,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Static routes
   const staticRoutes: MetadataRoute.Sitemap = [
-    {
-      url: baseUrl,
-      lastModified: currentDate,
-      changeFrequency: "daily",
-      priority: 1.0,
-    },
-    {
-      url: `${baseUrl}/about`,
-      lastModified: currentDate,
-      changeFrequency: "monthly",
-      priority: 0.4,
-    },
-    {
-      url: `${baseUrl}/blog`,
-      lastModified: currentDate,
-      changeFrequency: "weekly",
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/terms`,
-      lastModified: currentDate,
-      changeFrequency: "yearly",
-      priority: 0.2,
-    },
-    {
-      url: `${baseUrl}/roadmap`,
-      lastModified: currentDate,
-      changeFrequency: "monthly",
-      priority: 0.3,
-    },
-    {
-      url: `${baseUrl}/pricing`,
-      lastModified: currentDate,
-      changeFrequency: "monthly",
-      priority: 0.5,
-    },
-    {
-      url: `${baseUrl}/developer`,
-      lastModified: currentDate,
-      changeFrequency: "monthly",
-      priority: 0.4,
-    },
-    {
-      url: `${baseUrl}/technology`,
-      lastModified: currentDate,
-      changeFrequency: "monthly",
-      priority: 0.3,
-    },
+    { url: baseUrl, lastModified: currentDate },
+    { url: `${baseUrl}/about`, lastModified: currentDate },
+    { url: `${baseUrl}/blog`, lastModified: currentDate },
+    { url: `${baseUrl}/terms`, lastModified: currentDate },
+    { url: `${baseUrl}/roadmap`, lastModified: currentDate },
+    { url: `${baseUrl}/pricing`, lastModified: currentDate },
+    { url: `${baseUrl}/developer`, lastModified: currentDate },
+    { url: `${baseUrl}/technology`, lastModified: currentDate },
+    { url: `${baseUrl}/methodology`, lastModified: currentDate },
+    { url: `${baseUrl}/disclaimer`, lastModified: currentDate },
   ];
 
   // Blog post routes
@@ -154,8 +116,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const blogRoutes = posts.map((post) => ({
     url: `${baseUrl}/blog/${post.slug}`,
     lastModified: post.date,
-    changeFrequency: "weekly" as const,
-    priority: 0.6,
   }));
 
   // Dynamically fetch all stock codes from the API
@@ -164,24 +124,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const stockRoutes = stockCodes.map((code) => ({
     url: `${baseUrl}/shorts/${code}`,
     lastModified: currentDate,
-    changeFrequency: "daily" as const,
-    priority: 0.8,
   }));
 
-  // Add main shorts page
+  // Canonical listing is /shorts; /stocks is not a canonical index.
   const shortsRoutes = [
-    {
-      url: `${baseUrl}/shorts`,
-      lastModified: currentDate,
-      changeFrequency: "daily" as const,
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/stocks`,
-      lastModified: currentDate,
-      changeFrequency: "daily" as const,
-      priority: 0.8,
-    },
+    { url: `${baseUrl}/shorts`, lastModified: currentDate },
   ];
 
   // Documentation routes for LLMs and developers
@@ -189,20 +136,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {
       url: `${baseUrl}/docs/llm-context`,
       lastModified: currentDate,
-      changeFrequency: "monthly" as const,
-      priority: 0.3,
     },
     {
       url: `${baseUrl}/docs/llm-context-raw`,
       lastModified: currentDate,
-      changeFrequency: "monthly" as const,
-      priority: 0.2,
     },
     {
       url: `${baseUrl}/docs/api-reference`,
       lastModified: currentDate,
-      changeFrequency: "monthly" as const,
-      priority: 0.4,
     },
   ];
 
@@ -218,14 +159,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {
       url: `${baseUrl}/industry`,
       lastModified: currentDate,
-      changeFrequency: "daily" as const,
-      priority: 0.8,
     },
     ...industrySlugs.map((slug) => ({
       url: `${baseUrl}/industry/${slug}`,
       lastModified: currentDate,
-      changeFrequency: "daily" as const,
-      priority: 0.7,
     })),
   ];
 
@@ -235,14 +172,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {
       url: `${baseUrl}/glossary`,
       lastModified: currentDate,
-      changeFrequency: "monthly" as const,
-      priority: 0.6,
     },
     ...termSlugs.map((slug) => ({
       url: `${baseUrl}/glossary/${slug}`,
       lastModified: currentDate,
-      changeFrequency: "monthly" as const,
-      priority: 0.5,
     })),
   ];
 
@@ -252,14 +185,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {
       url: `${baseUrl}/directory`,
       lastModified: currentDate,
-      changeFrequency: "monthly" as const,
-      priority: 0.5,
     },
     ...letters.map((letter) => ({
       url: `${baseUrl}/directory/${letter}`,
       lastModified: currentDate,
-      changeFrequency: "monthly" as const,
-      priority: 0.4,
     })),
   ];
 
@@ -283,14 +212,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {
       url: `${baseUrl}/market`,
       lastModified: currentDate,
-      changeFrequency: "daily" as const,
-      priority: 0.7,
     },
     ...marketDates.map((date) => ({
       url: `${baseUrl}/market/${date}`,
       lastModified: currentDate,
-      changeFrequency: "yearly" as const,
-      priority: 0.5,
     })),
   ];
 
@@ -306,30 +231,50 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error("Failed to fetch report slugs for sitemap:", error);
   }
 
+  // Historical reports have fixed publish dates; derive lastmod from slug so
+  // older reports don't churn their lastmod on every regeneration.
+  const weeklyLastMod = (slug: string): string => {
+    // Supports "2026-W17" or "2026-17"
+    const m = /^(\d{4})-W?(\d{1,2})$/.exec(slug);
+    if (!m) return currentDate;
+    const year = parseInt(m[1]!, 10);
+    const week = parseInt(m[2]!, 10);
+    // ISO week 1 = the week containing Jan 4. Approximate to Monday of that week + 5 days (Saturday).
+    const jan4 = new Date(Date.UTC(year, 0, 4));
+    const jan4Day = jan4.getUTCDay() || 7;
+    const mondayWeek1 = new Date(jan4);
+    mondayWeek1.setUTCDate(jan4.getUTCDate() - (jan4Day - 1));
+    const target = new Date(mondayWeek1);
+    target.setUTCDate(mondayWeek1.getUTCDate() + (week - 1) * 7 + 5);
+    return target.toISOString();
+  };
+  const monthlyLastMod = (slug: string): string => {
+    const m = /^(\d{4})-(\d{1,2})$/.exec(slug);
+    if (!m) return currentDate;
+    const year = parseInt(m[1]!, 10);
+    const month = parseInt(m[2]!, 10);
+    // First day of the following month
+    return new Date(Date.UTC(year, month, 1)).toISOString();
+  };
+  const yearlyLastMod = (slug: string): string => {
+    const m = /^(\d{4})$/.exec(slug);
+    if (!m) return currentDate;
+    return new Date(Date.UTC(parseInt(m[1]!, 10) + 1, 0, 1)).toISOString();
+  };
+
   const reportRoutes = [
-    {
-      url: `${baseUrl}/reports`,
-      lastModified: currentDate,
-      changeFrequency: "weekly" as const,
-      priority: 0.8,
-    },
+    { url: `${baseUrl}/reports`, lastModified: currentDate },
     ...weekSlugs.map((slug) => ({
       url: `${baseUrl}/reports/weekly/${slug}`,
-      lastModified: currentDate,
-      changeFrequency: "yearly" as const,
-      priority: 0.7,
+      lastModified: weeklyLastMod(slug),
     })),
     ...monthSlugs.map((slug) => ({
       url: `${baseUrl}/reports/monthly/${slug}`,
-      lastModified: currentDate,
-      changeFrequency: "yearly" as const,
-      priority: 0.6,
+      lastModified: monthlyLastMod(slug),
     })),
     ...yearSlugs.map((slug) => ({
       url: `${baseUrl}/reports/yearly/${slug}`,
-      lastModified: currentDate,
-      changeFrequency: "yearly" as const,
-      priority: 0.7,
+      lastModified: yearlyLastMod(slug),
     })),
   ];
 
@@ -338,8 +283,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {
       url: `${baseUrl}/faq`,
       lastModified: currentDate,
-      changeFrequency: "monthly" as const,
-      priority: 0.5,
     },
   ];
 
@@ -348,8 +291,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {
       url: `${baseUrl}/privacy`,
       lastModified: currentDate,
-      changeFrequency: "yearly" as const,
-      priority: 0.2,
     },
   ];
 
@@ -358,14 +299,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {
       url: `${baseUrl}/learn`,
       lastModified: currentDate,
-      changeFrequency: "monthly" as const,
-      priority: 0.7,
     },
     ...learnArticles.map((slug) => ({
       url: `${baseUrl}/learn/${slug}`,
       lastModified: currentDate,
-      changeFrequency: "monthly" as const,
-      priority: 0.6,
     })),
   ];
 
@@ -382,8 +319,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     {
       url: `${baseUrl}/screener`,
       lastModified: currentDate,
-      changeFrequency: "daily" as const,
-      priority: 0.7,
     },
   ];
 

@@ -36,6 +36,8 @@ const resourceLinks: FooterLink[] = [
 const legalLinks: FooterLink[] = [
   { title: "Terms", href: "/terms" },
   { title: "Privacy", href: "/privacy" },
+  { title: "Disclaimer", href: "/disclaimer" },
+  { title: "Methodology", href: "/methodology" },
   { title: "API Docs", href: "/docs/api" },
 ];
 

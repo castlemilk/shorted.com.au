@@ -244,6 +244,127 @@ const Page = async ({ params }: PageProps) => {
         />
       )}
 
+      {stock && (() => {
+        const shortPct = stock.percentageShorted ?? 0;
+        const shortPositions = stock.reportedShortPositions ?? 0;
+        const companyName = stock.name || stockCode;
+        const industry = stock.industry || "";
+        const asOfIso = new Date().toISOString().slice(0, 10);
+        const asOfDisplay = new Date().toLocaleDateString("en-AU", {
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        });
+        const positionsDisplay = shortPositions > 0
+          ? new Intl.NumberFormat("en-AU").format(Math.round(shortPositions))
+          : "—";
+        const datasetSchema = {
+          "@context": "https://schema.org",
+          "@type": "Dataset",
+          name: `${companyName} (${stockCode}) Short Position History`,
+          description: `Daily ASIC-reported short positions and short interest % for ${companyName} (ASX:${stockCode}).`,
+          url: `${siteConfig.url}/shorts/${stockCode}`,
+          identifier: `ASX:${stockCode}`,
+          isAccessibleForFree: true,
+          keywords: [
+            `${stockCode} short interest`,
+            `${stockCode} short position`,
+            "ASIC short position data",
+            "ASX short selling",
+          ],
+          creator: {
+            "@type": "Organization",
+            name: siteConfig.name,
+            url: siteConfig.url,
+          },
+          sourceOrganization: {
+            "@type": "Organization",
+            name: "Australian Securities and Investments Commission",
+            url: "https://asic.gov.au/regulatory-resources/markets/short-selling/",
+          },
+          temporalCoverage: `2010-06-01/${asOfIso}`,
+          variableMeasured: [
+            { "@type": "PropertyValue", name: "percentShort", unitText: "PERCENT" },
+            { "@type": "PropertyValue", name: "reportedShortPositions", unitText: "shares" },
+          ],
+          license: "https://creativecommons.org/licenses/by/4.0/",
+          about: {
+            "@type": "Corporation",
+            name: companyName,
+            tickerSymbol: stockCode,
+          },
+        };
+        return (
+          <>
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{
+                __html: JSON.stringify(datasetSchema),
+              }}
+            />
+            <section
+              aria-label={`${stockCode} short interest summary`}
+              className="mb-4 rounded-lg border bg-card p-4 md:p-5"
+            >
+              <h1 className="text-xl md:text-2xl font-bold tracking-tight">
+                {companyName} ({stockCode}) Short Interest
+              </h1>
+              <p className="mt-2 text-sm md:text-base text-muted-foreground leading-relaxed">
+                {shortPct > 0 ? (
+                  <>
+                    {companyName} (ASX:{stockCode}) had{" "}
+                    <strong className="text-foreground">
+                      {shortPct.toFixed(2)}%
+                    </strong>{" "}
+                    of shares reported as short positions as of {asOfDisplay},
+                    representing {positionsDisplay} shares.
+                    {industry ? ` ${companyName} operates in the ${industry} industry.` : ""}
+                    {" "}Source: ASIC short position report (T+4 delay).
+                  </>
+                ) : (
+                  <>
+                    {companyName} (ASX:{stockCode}) has no reportable short
+                    positions in the latest ASIC data as of {asOfDisplay}.
+                    {industry ? ` ${companyName} operates in the ${industry} industry.` : ""}
+                  </>
+                )}
+              </p>
+              <dl className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                <div>
+                  <dt className="text-muted-foreground">Short interest</dt>
+                  <dd className="font-semibold text-base">
+                    {shortPct > 0 ? `${shortPct.toFixed(2)}%` : "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Reported positions</dt>
+                  <dd className="font-semibold text-base">{positionsDisplay}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Industry</dt>
+                  <dd className="font-semibold text-base">{industry || "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">As of</dt>
+                  <dd className="font-semibold text-base">{asOfDisplay}</dd>
+                </div>
+              </dl>
+              <p className="mt-4 text-xs text-muted-foreground">
+                Source: official ASIC short position report, T+4 delay.{" "}
+                <a href="/methodology" className="underline hover:no-underline">
+                  Methodology
+                </a>
+                {" · "}
+                <a href="/disclaimer" className="underline hover:no-underline">
+                  Disclaimer — not financial advice
+                </a>
+                .
+              </p>
+            </section>
+          </>
+        );
+      })()}
+
       <div className="mb-4">
         <Breadcrumbs items={breadcrumbItems} />
       </div>
