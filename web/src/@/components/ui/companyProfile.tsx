@@ -70,9 +70,9 @@ const CompanyProfile = async ({ stockCode }: { stockCode: string }) => {
                   </span>
                 )}
               </CardTitle>
-              <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-foreground line-clamp-2 leading-tight" title={stockDetails.companyName ?? stockCode}>
+              <h2 className="text-xl md:text-2xl font-extrabold tracking-tight text-foreground line-clamp-2 leading-tight" title={stockDetails.companyName ?? stockCode}>
                 {stockDetails.companyName ?? stockCode}
-              </h1>
+              </h2>
               <div className="flex flex-wrap gap-1 mt-2">
                 {stockDetails.industry && (
                   <Badge variant="default" className="text-[10px] whitespace-nowrap">
