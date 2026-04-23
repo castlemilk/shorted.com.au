@@ -544,15 +544,6 @@ export function ScreenerPageClient() {
   return (
     <div className="container mx-auto px-4 py-6 max-w-7xl">
       <div className="space-y-5">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Stock Screener</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Filter ASX stocks by short positions, fundamentals, director trades,
-            and news sentiment
-          </p>
-        </div>
-
         {/* Presets */}
         <div className="flex flex-wrap gap-2">
           {SCREENER_PRESETS.map((preset) => (

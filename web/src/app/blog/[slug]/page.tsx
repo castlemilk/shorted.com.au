@@ -39,7 +39,7 @@ export default async function Post({ params }: Params) {
 
   const components = {
     h1: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-      <h1 className="text-4xl font-bold mt-8 mb-4" {...props}>{children}</h1>
+      <h2 className="text-4xl font-bold mt-8 mb-4" {...props}>{children}</h2>
     ),
     h2: ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
       <h2 className="text-3xl font-semibold mt-6 mb-3" {...props}>{children}</h2>
