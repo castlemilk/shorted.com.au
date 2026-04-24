@@ -424,4 +424,34 @@ test.describe("SEO smoke — post-audit fixes", () => {
     expect(pairLocs.length).toBeGreaterThanOrEqual(5);
   });
 
+
+  test("/seasonality ships Article + FAQPage schema and substantive body", async ({
+    request,
+  }) => {
+    const { status, body } = await fetchText(request, "/seasonality");
+    expect(status).toBe(200);
+    const schemas = extractJsonLd(body);
+    const article = schemas.find((s) => s["@type"] === "Article");
+    const faq = schemas.find((s) => s["@type"] === "FAQPage");
+    expect(article, "/seasonality missing Article schema").toBeDefined();
+    expect(faq, "/seasonality missing FAQPage schema").toBeDefined();
+    const faqCount = ((faq?.mainEntity as Array<unknown>) ?? []).length;
+    expect(faqCount).toBeGreaterThanOrEqual(5);
+    // Substantive body content
+    const text = body.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+    expect(text.length).toBeGreaterThan(3000);
+    // Should reference core seasonality topics
+    expect(text).toMatch(/earnings season/i);
+    expect(text).toMatch(/dividend/i);
+    expect(text).toMatch(/tax-loss|EOFY|financial year/i);
+    // Internal links to trust pages
+    expect(body).toContain('href="/methodology"');
+    expect(body).toContain('href="/disclaimer"');
+  });
+
+  test("sitemap contains /seasonality", async ({ request }) => {
+    const { body } = await fetchText(request, "/sitemap.xml");
+    expect(body).toContain("<loc>https://shorted.com.au/seasonality</loc>");
+  });
+
 });

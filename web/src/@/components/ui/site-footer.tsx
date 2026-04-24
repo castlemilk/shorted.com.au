@@ -30,6 +30,7 @@ const resourceLinks: FooterLink[] = [
   { title: "Glossary", href: "/glossary" },
   { title: "FAQ", href: "/faq" },
   { title: "Compare Stocks", href: "/compare" },
+  { title: "Seasonality", href: "/seasonality" },
   { title: "About", href: "/about" },
   { title: "Roadmap", href: "/roadmap" },
 ];

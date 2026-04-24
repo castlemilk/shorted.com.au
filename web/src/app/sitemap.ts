@@ -110,6 +110,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/methodology`, lastModified: currentDate },
     { url: `${baseUrl}/disclaimer`, lastModified: currentDate },
     { url: `${baseUrl}/compare`, lastModified: currentDate },
+    { url: `${baseUrl}/seasonality`, lastModified: currentDate },
   ];
 
   // Blog post routes
