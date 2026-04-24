@@ -355,4 +355,73 @@ test.describe("SEO smoke — post-audit fixes", () => {
     }
   });
 
+
+  test("/compare index lists featured pairs and has CollectionPage schema", async ({
+    request,
+  }) => {
+    const { status, body } = await fetchText(request, "/compare");
+    expect(status).toBe(200);
+    const schemas = extractJsonLd(body);
+    const cp = schemas.find((s) => s["@type"] === "CollectionPage");
+    expect(cp, "/compare missing CollectionPage schema").toBeDefined();
+    const pairLinks = new Set(
+      Array.from(
+        body.matchAll(/href="\/compare\/([A-Z0-9]{1,4}-vs-[A-Z0-9]{1,4})"/g),
+      ).map((m) => m[1]),
+    );
+    expect(pairLinks.size, "/compare should list multiple pairs").toBeGreaterThanOrEqual(5);
+  });
+
+  test("/compare/[pair] renders WebPage schema, both tickers and methodology link", async ({
+    request,
+  }) => {
+    // Use a conservative pair likely to exist in top shorts.
+    const { status, body } = await fetchText(request, "/compare/BHP-vs-CBA");
+    // Both BHP and CBA are huge caps — may or may not have reportable shorts,
+    // but getStock should succeed. If either stock doesn't exist at all, the
+    // page 404s, which is also acceptable behaviour.
+    if (status === 404) {
+      return;
+    }
+    expect(status).toBe(200);
+    expect(body).toContain("BHP");
+    expect(body).toContain("CBA");
+    expect(body).toContain('href="/shorts/BHP"');
+    expect(body).toContain('href="/shorts/CBA"');
+    expect(body).toContain('href="/methodology"');
+    expect(body).toContain('href="/disclaimer"');
+    const schemas = extractJsonLd(body);
+    const webpage = schemas.find((s) => s["@type"] === "WebPage");
+    expect(webpage, "/compare/[pair] missing WebPage schema").toBeDefined();
+  });
+
+  test("weekly report carries Person author in Article schema", async ({
+    request,
+  }) => {
+    const { body } = await fetchText(request, "/reports/weekly/2025-W50");
+    const schemas = extractJsonLd(body);
+    const article = schemas.find((s) => s["@type"] === "Article");
+    if (!article) return; // rich-report absence is already covered elsewhere
+    const author = article.author as
+      | Array<{ "@type": string }>
+      | { "@type": string };
+    const types = Array.isArray(author)
+      ? author.map((a) => a["@type"])
+      : [author?.["@type"]];
+    expect(types).toContain("Person");
+  });
+
+  test("sitemap contains /compare and at least one /compare/ pair", async ({
+    request,
+  }) => {
+    const { body } = await fetchText(request, "/sitemap.xml");
+    expect(body).toContain("<loc>https://shorted.com.au/compare</loc>");
+    const pairLocs = Array.from(
+      body.matchAll(
+        /<loc>https:\/\/shorted\.com\.au\/compare\/([A-Z0-9]{1,4}-vs-[A-Z0-9]{1,4})<\/loc>/g,
+      ),
+    );
+    expect(pairLocs.length).toBeGreaterThanOrEqual(5);
+  });
+
 });

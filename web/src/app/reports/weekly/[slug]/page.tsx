@@ -224,11 +224,20 @@ export default async function WeeklyReportPage({ params }: PageProps) {
     description: enhanced?.summary,
     datePublished: data.endDate,
     dateModified: data.endDate,
-    author: {
-      "@type": "Organization",
-      name: siteConfig.name,
-      url: siteConfig.url,
-    },
+    author: [
+      {
+        "@type": "Person",
+        name: "Shorted AI Research",
+        description: "Automated analysis engine operating over ASIC short position data with human editorial review by the Shorted team.",
+        jobTitle: "Market Research",
+        worksFor: { "@type": "Organization", name: siteConfig.name, url: siteConfig.url },
+      },
+      {
+        "@type": "Organization",
+        name: siteConfig.name,
+        url: siteConfig.url,
+      },
+    ],
     publisher: {
       "@type": "Organization",
       name: siteConfig.name,
@@ -305,6 +314,23 @@ export default async function WeeklyReportPage({ params }: PageProps) {
               {enhanced.summary}
             </p>
           )}
+          <p className="mt-4 text-xs text-muted-foreground">
+            By <span className="font-medium text-foreground">Shorted AI Research</span>
+            {" · "}
+            Published{" "}
+            <time dateTime={data.endDate}>{formatDate(data.endDate)}</time>
+            {" · "}
+            Sourced from official ASIC short position reports (T+4 delay).
+            {" "}
+            <a href="/methodology" className="underline hover:no-underline">
+              Methodology
+            </a>
+            {" · "}
+            <a href="/disclaimer" className="underline hover:no-underline">
+              Not financial advice
+            </a>
+            .
+          </p>
         </section>
 
         {/* Stats */}

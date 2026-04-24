@@ -109,6 +109,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/technology`, lastModified: currentDate },
     { url: `${baseUrl}/methodology`, lastModified: currentDate },
     { url: `${baseUrl}/disclaimer`, lastModified: currentDate },
+    { url: `${baseUrl}/compare`, lastModified: currentDate },
   ];
 
   // Blog post routes
@@ -125,6 +126,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     url: `${baseUrl}/shorts/${code}`,
     lastModified: currentDate,
   }));
+
+  // Seed comparison-page URLs from the top-20 most shorted stocks.
+  // This yields up to 190 pairs (C(20,2)) but we cap at 30 to avoid
+  // index bloat and only include alphabetically-canonical ordering.
+  const top20 = stockCodes.slice(0, 20);
+  const comparePairs: Array<{ url: string; lastModified: string }> = [];
+  outer: for (let i = 0; i < top20.length; i++) {
+    for (let j = i + 1; j < top20.length; j++) {
+      const a = top20[i]!;
+      const b = top20[j]!;
+      const [lo, hi] = a < b ? [a, b] : [b, a];
+      comparePairs.push({
+        url: `${baseUrl}/compare/${lo}-vs-${hi}`,
+        lastModified: currentDate,
+      });
+      if (comparePairs.length >= 30) break outer;
+    }
+  }
 
   // Canonical listing is /shorts; /stocks is not a canonical index.
   const shortsRoutes = [
@@ -338,5 +357,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...screenerRoutes,
     ...blogRoutes,
     ...stockRoutes,
+    ...comparePairs,
   ];
 }

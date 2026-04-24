@@ -137,11 +137,20 @@ export default async function YearlyReportPage({ params }: PageProps) {
     headline: enhanced.headline ?? `ASX Short Selling Year in Review: ${slug}`,
     description: enhanced.summary,
     datePublished: `${slug}-12-31`,
-    author: {
-      "@type": "Organization",
-      name: siteConfig.name,
-      url: siteConfig.url,
-    },
+    author: [
+      {
+        "@type": "Person",
+        name: "Shorted AI Research",
+        description: "Automated analysis engine operating over ASIC short position data with human editorial review by the Shorted team.",
+        jobTitle: "Market Research",
+        worksFor: { "@type": "Organization", name: siteConfig.name, url: siteConfig.url },
+      },
+      {
+        "@type": "Organization",
+        name: siteConfig.name,
+        url: siteConfig.url,
+      },
+    ],
     publisher: {
       "@type": "Organization",
       name: siteConfig.name,
