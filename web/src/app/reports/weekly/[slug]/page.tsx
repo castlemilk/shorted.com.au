@@ -80,8 +80,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const headline = enhanced?.headline;
 
   const title = headline
-    ? `${headline} | ${siteConfig.name}`
-    : `Most Shorted ASX Stocks: ${weekTitle} | Top Shorts & Biggest Movers`;
+    ?? `Most Shorted ASX Stocks: ${weekTitle} — Top Shorts & Biggest Movers`;
   const description = enhanced?.summary
     ?? `Weekly short selling report for the ASX — ${weekTitle}. Top shorted stocks, biggest movers, and industry analysis from official ASIC data.`;
 
@@ -101,9 +100,17 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     publishedDate = friday.toISOString();
   }
 
+  // Thin-content guard: if AI narrative isn't ready yet, tell crawlers not to
+  // index this URL. The page still renders for users; once narrative lands,
+  // ISR will regenerate and this metadata flips to indexable.
+  const noindex = !headline;
+
   return {
     title,
     description,
+    robots: noindex
+      ? { index: false, follow: true, googleBot: { index: false, follow: true } }
+      : undefined,
     keywords: [
       `ASX short selling report ${slug}`,
       `weekly short interest ${weekTitle}`,

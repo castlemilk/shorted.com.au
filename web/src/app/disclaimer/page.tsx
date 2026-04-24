@@ -25,6 +25,21 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     type: "article",
     locale: "en_AU",
+    images: [
+      {
+        url: siteConfig.ogImage,
+        width: 1200,
+        height: 630,
+        alt: "Shorted disclaimer — not financial advice",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Disclaimer — General Information, Not Financial Advice",
+    description:
+      "Terms of reliance for Shorted.com.au content: general information only, not personal financial advice.",
+    images: [siteConfig.ogImage],
   },
   alternates: {
     canonical: `${siteConfig.url}/disclaimer`,
@@ -41,6 +56,48 @@ export default function DisclaimerPage() {
     <main className="min-h-screen">
       <BreadcrumbStructuredData
         items={[{ label: "Disclaimer", href: "/disclaimer" }]}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            name: "Disclaimer — General Information, Not Financial Advice",
+            url: `${siteConfig.url}/disclaimer`,
+            description:
+              "Terms of reliance for Shorted.com.au content: general information only, not personal financial advice per Corporations Act 2001 s766B.",
+            datePublished: "2026-04-22",
+            dateModified: "2026-04-22",
+            inLanguage: "en-AU",
+            isPartOf: {
+              "@type": "WebSite",
+              name: siteConfig.name,
+              url: siteConfig.url,
+            },
+            author: {
+              "@type": "Organization",
+              name: siteConfig.name,
+              url: siteConfig.url,
+            },
+            publisher: {
+              "@type": "Organization",
+              name: siteConfig.name,
+              url: siteConfig.url,
+              logo: { "@type": "ImageObject", url: siteConfig.ogImage },
+            },
+            about: {
+              "@type": "Thing",
+              name: "Financial product advice disclaimer under Corporations Act 2001 (Cth) s766B",
+            },
+            specialty: "FinancialRegulation",
+            significantLink: [
+              `${siteConfig.url}/methodology`,
+              `${siteConfig.url}/terms`,
+              `${siteConfig.url}/privacy`,
+            ],
+          }),
+        }}
       />
       <div className="container mx-auto max-w-3xl px-4 py-8">
         <div className="mb-6">

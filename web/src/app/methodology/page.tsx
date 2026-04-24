@@ -29,6 +29,22 @@ export const metadata: Metadata = {
     siteName: siteConfig.name,
     type: "article",
     locale: "en_AU",
+    images: [
+      {
+        url: siteConfig.ogImage,
+        width: 1200,
+        height: 630,
+        alt: "Shorted methodology — ASIC short position data processing",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title:
+      "Methodology — How Shorted Processes ASIC Short Position Data",
+    description:
+      "Data sources, T+4 delay, calculation methods, and limitations.",
+    images: [siteConfig.ogImage],
   },
   alternates: {
     canonical: `${siteConfig.url}/methodology`,
@@ -81,6 +97,65 @@ export default function MethodologyPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: [
+              {
+                "@type": "Question",
+                name: "Where does Shorted.com.au get its short position data?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "All short position data is sourced directly from the Australian Securities and Investments Commission (ASIC) short position reports. ASIC aggregates individual net short position reports submitted under section 1020AC of the Corporations Act 2001 (Cth) and publishes daily totals for ASX-listed securities.",
+                },
+              },
+              {
+                "@type": "Question",
+                name: "What is the T+4 delay on ASIC short position data?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "ASIC publishes short position data with a four trading day delay, mandated by Regulatory Guide 196. A position held at close of business on day T appears in ASIC's dataset on T+4. This delay is outside Shorted's control; every Shorted page shows the actual ASIC report date, not the date we received it.",
+                },
+              },
+              {
+                "@type": "Question",
+                name: "How is short interest percentage calculated?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "Short interest % = reported short positions divided by total product in issue, multiplied by 100. Both numerator and denominator come directly from ASIC; Shorted republishes the percentage as reported, without recalculation.",
+                },
+              },
+              {
+                "@type": "Question",
+                name: "What is the reporting threshold for ASIC short positions?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "Short positions are only reportable above 0.01% of a company's total issued capital or A$100,000, whichever is less. Positions below this threshold are not included in ASIC's published dataset and therefore do not appear on Shorted.",
+                },
+              },
+              {
+                "@type": "Question",
+                name: "How often does Shorted refresh data?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "Our pipeline runs once per ASX trading day, typically within 60 minutes of ASIC publishing a new daily report. Stock pages, screener, top-shorts ranking, and the industry treemap all refresh automatically.",
+                },
+              },
+              {
+                "@type": "Question",
+                name: "How far back does Shorted's coverage go?",
+                acceptedAnswer: {
+                  "@type": "Answer",
+                  text: "Historical coverage begins 1 June 2010, when ASIC first published daily aggregated short position data following post-GFC reforms. All ASX-listed securities included in the ASX Approved Short Sell Products list are covered.",
+                },
+              },
+            ],
+          }),
+        }}
       />
       <div className="container mx-auto max-w-3xl px-4 py-8">
         <div className="mb-6">

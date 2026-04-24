@@ -70,11 +70,34 @@ export async function generateMetadata({
         : `${siteConfig.url}/screener`,
       siteName: siteConfig.name,
       type: "website",
+      locale: "en_AU",
+      images: [
+        {
+          url: siteConfig.ogImage,
+          width: 1200,
+          height: 630,
+          alt: "ASX Stock Screener — Shorted.com.au",
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [siteConfig.ogImage],
     },
     alternates: {
       canonical: preset
         ? `${siteConfig.url}/screener?preset=${preset}`
         : `${siteConfig.url}/screener`,
+      languages: {
+        "en-AU": preset
+          ? `${siteConfig.url}/screener?preset=${preset}`
+          : `${siteConfig.url}/screener`,
+        "x-default": preset
+          ? `${siteConfig.url}/screener?preset=${preset}`
+          : `${siteConfig.url}/screener`,
+      },
     },
   };
 }

@@ -282,4 +282,77 @@ test.describe("SEO smoke — post-audit fixes", () => {
         .not.toMatch(/\|\s*Shorted\s*\|\s*Shorted/);
     }
   });
+
+  test("og:image present on methodology, disclaimer, screener", async ({
+    request,
+  }) => {
+    for (const path of ["/methodology", "/disclaimer", "/screener"]) {
+      const { body } = await fetchText(request, path);
+      const ogImage = /<meta[^>]+property="og:image"[^>]+content="([^"]+)"/i.exec(
+        body,
+      );
+      expect(ogImage, `${path} missing og:image`).toBeTruthy();
+      expect(ogImage![1]).toMatch(/^https?:\/\//);
+    }
+  });
+
+  test("disclaimer page has WebPage schema", async ({ request }) => {
+    const { body } = await fetchText(request, "/disclaimer");
+    const schemas = extractJsonLd(body);
+    const webpage = schemas.find((s) => s["@type"] === "WebPage");
+    expect(webpage, "disclaimer missing WebPage schema").toBeDefined();
+    expect(webpage?.datePublished).toBeTruthy();
+    expect(webpage?.author).toBeDefined();
+  });
+
+  test("methodology page has FAQPage schema with >=5 Q&As", async ({
+    request,
+  }) => {
+    const { body } = await fetchText(request, "/methodology");
+    const schemas = extractJsonLd(body);
+    const faq = schemas.find((s) => s["@type"] === "FAQPage");
+    expect(faq, "methodology missing FAQPage").toBeDefined();
+    const mainEntity = faq?.mainEntity as Array<unknown> | undefined;
+    expect(Array.isArray(mainEntity)).toBe(true);
+    expect((mainEntity ?? []).length).toBeGreaterThanOrEqual(5);
+  });
+
+  test("weekly reports: missing-narrative slugs are noindex; rich slugs are indexable", async ({
+    request,
+  }) => {
+    // W15 currently has no narrative — should be noindex
+    const thin = await fetchText(request, "/reports/weekly/2026-W15");
+    expect(thin.status).toBe(200);
+    const thinRobots = /<meta[^>]+name="robots"[^>]+content="([^"]+)"/i.exec(
+      thin.body,
+    )?.[1];
+    expect(
+      thinRobots,
+      "thin weekly report should emit robots meta",
+    ).toBeTruthy();
+    expect(thinRobots!.toLowerCase()).toMatch(/noindex/);
+
+    // 2025-W50 has a narrative — should NOT be noindex
+    const rich = await fetchText(request, "/reports/weekly/2025-W50");
+    const richRobots = /<meta[^>]+name="robots"[^>]+content="([^"]+)"/i.exec(
+      rich.body,
+    )?.[1];
+    if (richRobots) {
+      expect(richRobots.toLowerCase()).not.toMatch(/noindex/);
+    }
+  });
+
+  test("self-referencing hreflang on new pages", async ({ request }) => {
+    for (const path of ["/methodology", "/disclaimer", "/screener"]) {
+      const { body } = await fetchText(request, path);
+      const hreflangs = Array.from(
+        body.matchAll(
+          /<link[^>]+rel="alternate"[^>]+hreflang="([^"]+)"/gi,
+        ),
+      ).map((m) => m[1]);
+      expect(hreflangs, `${path} missing hreflang`).toContain("en-AU");
+      expect(hreflangs).toContain("x-default");
+    }
+  });
+
 });

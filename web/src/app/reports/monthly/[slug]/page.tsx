@@ -68,14 +68,18 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const headline = enhanced?.headline;
 
   const title = headline
-    ? `${headline} | ${siteConfig.name}`
-    : `ASX Short Selling Report: ${monthTitle} | ${siteConfig.name}`;
+    ?? `ASX Short Selling Report: ${monthTitle}`;
   const description = enhanced?.summary
     ?? `Monthly short selling report for the ASX — ${monthTitle}. Top shorted stocks, industry analysis, and aggregate short interest from official ASIC data.`;
+
+  const noindex = !headline;
 
   return {
     title,
     description,
+    robots: noindex
+      ? { index: false, follow: true, googleBot: { index: false, follow: true } }
+      : undefined,
     keywords: [
       `ASX short selling report ${monthTitle}`,
       `monthly short interest ${monthTitle}`,
