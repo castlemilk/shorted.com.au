@@ -116,7 +116,14 @@ variable "grafana_auth" {
 # ---- Cloudflare Edge ----
 
 variable "cloudflare_global_api_key" {
-  description = "Cloudflare Global API Key (used for DNS operations)."
+  description = "DEPRECATED: Cloudflare Global API Key. Kept for local-dev compatibility; CI uses cloudflare_api_token."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "cloudflare_api_token" {
+  description = "Cloudflare scoped API Token (preferred). The provider auto-reads CLOUDFLARE_API_TOKEN env var; this var lets callers pass it explicitly when needed."
   type        = string
   sensitive   = true
   default     = ""
