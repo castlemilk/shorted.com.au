@@ -17,6 +17,11 @@ ACCOUNT_ID="2132ccf47ceb5fff234c34d85490470a"
 
 # tf_import <terraform_address> <import_id>
 # Skips if the address already exists in state.
+# Required variables that have no default and would otherwise prompt
+# during terraform import. Read from env (set by the workflow) with safe
+# placeholder fallbacks — values do not affect the imported resources.
+GRAFANA_AUTH_VALUE="${GRAFANA_AUTH:-placeholder}"
+
 tf_import() {
   local addr="$1"
   local id="$2"
@@ -25,7 +30,10 @@ tf_import() {
     return 0
   fi
   echo "  → importing: $addr"
-  if terraform import "$addr" "$id"; then
+  if terraform import \
+       -input=false \
+       -var="grafana_auth=${GRAFANA_AUTH_VALUE}" \
+       "$addr" "$id"; then
     echo "  ✓ imported: $addr"
   else
     echo "  ⚠ import failed for $addr (continuing)" >&2
