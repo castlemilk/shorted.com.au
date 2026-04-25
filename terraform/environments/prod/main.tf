@@ -366,6 +366,7 @@ module "edge" {
   bot_protection_enabled = true
 
   cache_purge_secret     = var.cache_purge_secret
+  prewarm_secret         = var.cache_purge_secret  # reuse same shared secret for both worker bindings
 }
 
 output "edge_url" {

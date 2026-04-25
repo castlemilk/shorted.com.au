@@ -51,19 +51,23 @@ tf_state_rm() {
   fi
 }
 
-echo "=== Cleaning up wrong-address state entries from prior runs ==="
-# Earlier import attempts placed rulesets and the prewarm script at the
-# non-indexed address even though the resources have count = 1, so TF
-# expects [0]. Remove those entries before re-importing at [0].
+echo "=== Cleaning up stale state entries from prior runs ==="
+# Earlier import attempts placed some resources at non-indexed addresses
+# even though they have count = 1; remove those before re-importing.
 tf_state_rm 'module.edge.cloudflare_ruleset.cache_rules'
 tf_state_rm 'module.edge.cloudflare_ruleset.rate_limit_api'
 tf_state_rm 'module.edge.cloudflare_ruleset.waf_managed'
 tf_state_rm 'module.edge.cloudflare_workers_script.prewarm'
+# Remove any stale [0] entries for resources whose Cloudflare-side IDs
+# changed (DNS frontend was deleted+recreated; rulesets were deleted).
+tf_state_rm 'module.edge.cloudflare_record.frontend[0]'
+tf_state_rm 'module.edge.cloudflare_ruleset.cache_rules[0]'
+tf_state_rm 'module.edge.cloudflare_ruleset.rate_limit_api[0]'
 
 echo "=== Importing pre-existing Cloudflare resources ==="
 
 # DNS records (count = create_frontend_records ? 1 : 0 → [0] index)
-tf_import 'module.edge.cloudflare_record.frontend[0]' "${ZONE_ID}/452eb64eb1941f9c231c5b1140b029cc"
+tf_import 'module.edge.cloudflare_record.frontend[0]' "${ZONE_ID}/003b51b8b5a39630b09c5cb663bba1b9"
 tf_import 'module.edge.cloudflare_record.www[0]'      "${ZONE_ID}/8f2b411d8c3bf24cb2c7e603c4fc0bcd"
 tf_import 'module.edge.cloudflare_record.api[0]'      "${ZONE_ID}/91cf9d64108ee15cf2a230c5aab8d909"
 
@@ -71,10 +75,11 @@ tf_import 'module.edge.cloudflare_record.api[0]'      "${ZONE_ID}/91cf9d64108ee1
 tf_import 'module.edge.cloudflare_workers_kv_namespace.edge_cache' "${ACCOUNT_ID}/e08015a2c6324c7b8b3faa810d5b0c73"
 
 # Zone-level rulesets — all have count = 1, so [0] index required.
-# Provider v4 import format: zones/<zone_id>/<ruleset_id>
-tf_import 'module.edge.cloudflare_ruleset.cache_rules[0]'    "zones/${ZONE_ID}/41ee35a0a79e423885b0039e1fd2e7e6"
-tf_import 'module.edge.cloudflare_ruleset.rate_limit_api[0]' "zones/${ZONE_ID}/8fb6b309716c4e01ab70f7962f6bd061"
-tf_import 'module.edge.cloudflare_ruleset.waf_managed[0]'    "zones/${ZONE_ID}/ea95ef9d9d1547d58e2ea004c832f83a"
+# Provider v4 import format: zones/<zone_id>/<ruleset_id>.
+# cache_rules and rate_limit_api were deleted at Cloudflare during this
+# recovery sequence so terraform apply can recreate them cleanly. Only
+# waf_managed survives at Cloudflare and needs importing.
+tf_import 'module.edge.cloudflare_ruleset.waf_managed[0]' "zones/${ZONE_ID}/ea95ef9d9d1547d58e2ea004c832f83a"
 
 # Workers scripts: edge_cache (no count), prewarm (count = 1, has [0])
 tf_import 'module.edge.cloudflare_workers_script.edge_cache' "${ACCOUNT_ID}/shorted-edge-cache"
