@@ -115,7 +115,14 @@ variable "grafana_auth" {
 # ---- Cloudflare Edge ----
 
 variable "cloudflare_global_api_key" {
-  description = "Cloudflare Global API Key (used for DNS operations)."
+  description = "DEPRECATED: Cloudflare Global API Key. Kept for local-dev compatibility; CI uses cloudflare_api_token."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "cloudflare_api_token" {
+  description = "Cloudflare scoped API Token (preferred). Provider auto-reads CLOUDFLARE_API_TOKEN env var; this variable lets callers pass it explicitly."
   type        = string
   sensitive   = true
   default     = ""
@@ -128,8 +135,9 @@ variable "cloudflare_email" {
 }
 
 variable "cloudflare_zone_id" {
-  description = "Cloudflare Zone ID for shorted.com.au."
+  description = "Cloudflare Zone ID for shorted.com.au (public DNS identifier, not a secret)."
   type        = string
+  default     = "41b338d2d75853d7bedb9a93f1e824f1"
 }
 
 variable "chat_service_origin" {

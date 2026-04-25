@@ -37,8 +37,12 @@ provider "google" {
 }
 
 provider "cloudflare" {
-  api_key = var.cloudflare_global_api_key
-  email   = var.cloudflare_email
+  # Prefer the scoped API Token (set CLOUDFLARE_API_TOKEN env var or
+  # var.cloudflare_api_token). Fall back to legacy api_key + email when
+  # neither is provided — keeps existing local-dev tfvars working.
+  api_token = var.cloudflare_api_token != "" ? var.cloudflare_api_token : null
+  api_key   = var.cloudflare_api_token == "" && var.cloudflare_global_api_key != "" ? var.cloudflare_global_api_key : null
+  email     = var.cloudflare_api_token == "" && var.cloudflare_email != "" ? var.cloudflare_email : null
 }
 
 # Enable required APIs
