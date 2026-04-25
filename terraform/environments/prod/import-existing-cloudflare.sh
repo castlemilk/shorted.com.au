@@ -41,6 +41,25 @@ tf_import() {
   fi
 }
 
+# tf_state_rm <addr>
+# Remove a state entry if it exists, no-op otherwise.
+tf_state_rm() {
+  local addr="$1"
+  if terraform state list 2>/dev/null | grep -Fxq "$addr"; then
+    echo "  ✂ removing wrong-addressed state entry: $addr"
+    terraform state rm "$addr" || true
+  fi
+}
+
+echo "=== Cleaning up wrong-address state entries from prior runs ==="
+# Earlier import attempts placed rulesets and the prewarm script at the
+# non-indexed address even though the resources have count = 1, so TF
+# expects [0]. Remove those entries before re-importing at [0].
+tf_state_rm 'module.edge.cloudflare_ruleset.cache_rules'
+tf_state_rm 'module.edge.cloudflare_ruleset.rate_limit_api'
+tf_state_rm 'module.edge.cloudflare_ruleset.waf_managed'
+tf_state_rm 'module.edge.cloudflare_workers_script.prewarm'
+
 echo "=== Importing pre-existing Cloudflare resources ==="
 
 # DNS records (count = create_frontend_records ? 1 : 0 → [0] index)
@@ -48,17 +67,20 @@ tf_import 'module.edge.cloudflare_record.frontend[0]' "${ZONE_ID}/452eb64eb1941f
 tf_import 'module.edge.cloudflare_record.www[0]'      "${ZONE_ID}/8f2b411d8c3bf24cb2c7e603c4fc0bcd"
 tf_import 'module.edge.cloudflare_record.api[0]'      "${ZONE_ID}/91cf9d64108ee15cf2a230c5aab8d909"
 
-# Workers KV namespace
+# Workers KV namespace (no count → no index)
 tf_import 'module.edge.cloudflare_workers_kv_namespace.edge_cache' "${ACCOUNT_ID}/e08015a2c6324c7b8b3faa810d5b0c73"
 
-# Zone-level rulesets (provider v4 import format: zones/<zone_id>/<ruleset_id>)
-tf_import 'module.edge.cloudflare_ruleset.cache_rules'    "zones/${ZONE_ID}/41ee35a0a79e423885b0039e1fd2e7e6"
-tf_import 'module.edge.cloudflare_ruleset.rate_limit_api' "zones/${ZONE_ID}/8fb6b309716c4e01ab70f7962f6bd061"
-tf_import 'module.edge.cloudflare_ruleset.waf_managed'    "zones/${ZONE_ID}/ea95ef9d9d1547d58e2ea004c832f83a"
+# Zone-level rulesets — all have count = 1, so [0] index required.
+# Provider v4 import format: zones/<zone_id>/<ruleset_id>
+tf_import 'module.edge.cloudflare_ruleset.cache_rules[0]'    "zones/${ZONE_ID}/41ee35a0a79e423885b0039e1fd2e7e6"
+tf_import 'module.edge.cloudflare_ruleset.rate_limit_api[0]' "zones/${ZONE_ID}/8fb6b309716c4e01ab70f7962f6bd061"
+tf_import 'module.edge.cloudflare_ruleset.waf_managed[0]'    "zones/${ZONE_ID}/ea95ef9d9d1547d58e2ea004c832f83a"
 
-# Workers scripts and routes
-tf_import 'module.edge.cloudflare_workers_script.edge_cache'        "${ACCOUNT_ID}/shorted-edge-cache"
-tf_import 'module.edge.cloudflare_workers_script.prewarm'           "${ACCOUNT_ID}/shorted-edge-cache-prewarm"
-tf_import 'module.edge.cloudflare_workers_route.api'                "${ZONE_ID}/8d6a2484aeb244d4b55d9bb67c6c0bfc"
+# Workers scripts: edge_cache (no count), prewarm (count = 1, has [0])
+tf_import 'module.edge.cloudflare_workers_script.edge_cache' "${ACCOUNT_ID}/shorted-edge-cache"
+tf_import 'module.edge.cloudflare_workers_script.prewarm[0]' "${ACCOUNT_ID}/shorted-edge-cache-prewarm"
+
+# Workers route (no count → no index)
+tf_import 'module.edge.cloudflare_workers_route.api' "${ZONE_ID}/8d6a2484aeb244d4b55d9bb67c6c0bfc"
 
 echo "=== Import sweep complete ==="

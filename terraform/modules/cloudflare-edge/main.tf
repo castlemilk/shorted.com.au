@@ -38,6 +38,13 @@ resource "cloudflare_record" "frontend" {
   type    = "A"
   proxied = true
   ttl     = 1
+
+  # Cloudflare normalises "@" to the zone name when storing root records,
+  # which causes a perpetual diff. Ignore the name attribute so an existing
+  # imported record matches the @ shorthand in this config.
+  lifecycle {
+    ignore_changes = [name]
+  }
 }
 
 resource "cloudflare_record" "www" {
