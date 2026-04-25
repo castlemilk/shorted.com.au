@@ -956,6 +956,24 @@ jobs:
             ensure_secret "APP_STORE_POSTGRES_PASSWORD" "$DB_PASS"
           fi
 
+      - name: Import pre-existing Cloudflare resources
+        # Idempotent: imports any Cloudflare resources that exist on the
+        # account but are missing from Terraform state. Safe to run on every
+        # apply; each block is a no-op once the resource is in state.
+        # Only runs in the prod environment because the import IDs are
+        # specific to the production Cloudflare zone/account.
+        if: needs.determine-environment.outputs.environment == 'prod'
+        working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -x ./import-existing-cloudflare.sh ]; then
+            ./import-existing-cloudflare.sh
+          else
+            echo "import script not present — skipping"
+          fi
+
       - name: Terraform Apply
         working-directory: terraform/environments/${{ needs.determine-environment.outputs.environment }}
         env:
