@@ -250,8 +250,11 @@ resource "google_cloud_run_v2_service" "shorts_api" {
 
       resources {
         limits = {
-          cpu    = "0.08"
-          memory = "128Mi"
+          # Sized to accommodate the Go runtime AND a transient python+yfinance
+          # subprocess fork during SyncKeyMetrics (containers were OOMing at
+          # 128Mi when the daily key-metrics scheduler fired).
+          cpu    = "0.5"
+          memory = "256Mi"
         }
         cpu_idle          = true  # Throttle CPU when idle to reduce costs
         startup_cpu_boost = true
