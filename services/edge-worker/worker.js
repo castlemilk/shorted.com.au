@@ -153,7 +153,12 @@ const worker = {
     }
 
     // --- 2. MARKET DATA -> cache with stock_data TTL ---
-    if (path.includes("/market_data.v1.")) {
+    // Proto package is `marketdata.v1` (no underscore). Previous matcher
+    // `/market_data.v1.` never fired because the proto path uses no
+    // underscore; the frontend bypassed the worker by hitting market-data
+    // directly. After Cloudflare became the only origin path, this needed
+    // to align with the actual gRPC path.
+    if (path.includes("/marketdata.v1.")) {
       return handleCachedRequest(request, url, env, ctx, marketDataOrigin, defaults.cacheTtlStockData);
     }
 
@@ -563,7 +568,7 @@ function isPublicReadEndpoint(path) {
     /GetStock$|GetStockDetails|GetStockData|GetStockNews|GetStockFinancialHighlights/.test(path) ||
     /GetNews|GetAnnouncement|GetMarketNews/.test(path) ||
     /GetSearch|GetDirectorTrades|GetPeerComparison|GetDividendHistory/.test(path) ||
-    /market_data\.v1\./.test(path)
+    /marketdata\.v1\./.test(path)
   );
 }
 
