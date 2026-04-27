@@ -217,6 +217,19 @@ for entry in "${ROUTES[@]}"; do
     continue
   fi
 
+  # Tighten 403 acceptance — only the anti-bot/anti-scraper 403 is OK.
+  # Any other 403 (IAM lockout, broken auth interceptor, expired secret)
+  # would indicate a real problem we want to surface.
+  if [ "$edge_code" = "403" ]; then
+    if ! echo "$edge_body" | grep -qE "automated access|permission_denied"; then
+      echo "${RED}FAIL${RESET} $pkg $rpc_path — unexpected 403 (not the anti-bot signature)"
+      [ "$VERBOSE" = "true" ] && echo "       body: $edge_body"
+      FAIL=$((FAIL+1))
+      FAILURES+=("$pkg $rpc_path: HTTP 403 with non-anti-bot body — possible auth regression")
+      continue
+    fi
+  fi
+
   # Surface (but don't fail on) edge↔direct status divergence — sometimes
   # the worker rewrites/strips before returning, or auth flows differ.
   if [ "$QUICK" = "false" ] && [ "$direct_code" != "$edge_code" ] && [ "$direct_code" != "000" ]; then
