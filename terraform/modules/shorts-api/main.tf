@@ -63,7 +63,7 @@ resource "google_secret_manager_secret_iam_member" "openai_api_key" {
   project   = var.project_id
 }
 
-# Grant access to internal service secret (for webhook auth from frontend)
+# Grant access to internal service secret (for webhook/server action calls from frontend)
 resource "google_secret_manager_secret_iam_member" "internal_service_secret" {
   secret_id = "INTERNAL_SERVICE_SECRET"
   role      = "roles/secretmanager.secretAccessor"
