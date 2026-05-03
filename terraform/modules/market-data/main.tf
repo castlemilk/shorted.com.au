@@ -102,7 +102,7 @@ resource "google_cloud_run_v2_service" "market_data" {
 
       resources {
         limits = {
-          cpu    = "0.08"
+          cpu    = "1" # Changed from "0.08" to "1"
           memory = "128Mi"
         }
         cpu_idle          = true
