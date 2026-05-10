@@ -170,6 +170,18 @@ resource "google_cloud_run_v2_job_iam_member" "scheduler_invoker" {
   member   = "serviceAccount:${google_service_account.scheduler_invoker.email}"
 }
 
+# The monthly scheduler POSTs a body containing `overrides.container_overrides`
+# (to set REPORT_TYPE=monthly). That code path requires `run.jobs.runWithOverrides`,
+# which is in `roles/run.developer` but NOT in `roles/run.invoker`. Without this
+# binding the monthly scheduler invocation 403s.
+resource "google_cloud_run_v2_job_iam_member" "scheduler_developer" {
+  name     = google_cloud_run_v2_job.weekly_report_generator.name
+  location = google_cloud_run_v2_job.weekly_report_generator.location
+  project  = var.project_id
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${google_service_account.scheduler_invoker.email}"
+}
+
 # Cloud Scheduler Job - Friday 9 PM AEST (11 AM UTC)
 resource "google_cloud_scheduler_job" "weekly_report" {
   name             = "${local.service_name}-weekly"
