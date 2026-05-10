@@ -184,8 +184,13 @@ jobs:
         env:
           PROJECT: ${{ matrix.project }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
-          # Keep the 5 most recent tagged versions per image
-          KEEP_COUNT: 5
+          # Keep the 20 most recent tagged versions per image.
+          # Was 5 — too aggressive: rarely-rebuilt images (short-data-sync,
+          # asx-announcement-crawler, weekly-report-generator, etc.) were
+          # being fully pruned because the matrix builds them all on every
+          # main push but pruning kept only 5, and unrelated rebuilds of
+          # the high-cadence services pushed them out.
+          KEEP_COUNT: 20
         run: |
           echo "=== Artifact Registry cleanup: $PROJECT ==="
           REGISTRY="australia-southeast2-docker.pkg.dev/${PROJECT}/shorted"
