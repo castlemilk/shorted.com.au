@@ -197,6 +197,32 @@ jobs:
 
           TOTAL_DELETED=0
 
+          # Collect image references currently in use by live Cloud Run services
+          # and jobs across all regions. Any image (by repo path or digest) in
+          # this set is protected from deletion regardless of age — this prevents
+          # the 2026-05 incident where rarely-rebuilt images were pruned out
+          # from under their Cloud Run job specs.
+          echo "Collecting live image references across regions..."
+          IN_USE_FILE=$(mktemp)
+          for region in australia-southeast2 us-central1 asia-southeast1; do
+            gcloud run services list --project="$PROJECT" --region="$region" \
+              --format='value(spec.template.spec.containers[0].image)' 2>/dev/null >> "$IN_USE_FILE" || true
+            gcloud run jobs list --project="$PROJECT" --region="$region" \
+              --format='value(spec.template.spec.template.spec.containers[0].image)' 2>/dev/null >> "$IN_USE_FILE" || true
+          done
+          IN_USE_COUNT=$(sort -u "$IN_USE_FILE" | grep -c . || true)
+          echo "  Protected: $IN_USE_COUNT distinct live image references"
+
+          # Sanity floor: if the collection produced near-zero refs the API
+          # listing likely failed (transient blip, IAM, region rename). Refuse
+          # to prune rather than fall through to the original 2026-05 footgun.
+          # Prod has ~13 image refs across regions; 5 is a safe margin.
+          if [ "$IN_USE_COUNT" -lt 5 ]; then
+            echo "ABORT: only $IN_USE_COUNT live image refs collected — collection likely failed; refusing to prune"
+            rm -f "$IN_USE_FILE"
+            exit 1
+          fi
+
           for pkg in $(gcloud artifacts docker images list "$REGISTRY" --format="value(package)" 2>/dev/null | sort -u); do
             IMAGE_NAME=$(basename "$pkg")
             echo ""
@@ -213,6 +239,28 @@ jobs:
             if [ "$COUNT" -gt 0 ] && [ "$DRY_RUN" = "false" ]; then
               echo "$DIGESTS" | while read -r digest; do
                 [ -z "$digest" ] && continue
+                # Skip if this digest OR any of its tags is referenced by a
+                # live Cloud Run service/job. Match by both `pkg@digest` and
+                # `pkg:tag` since job specs typically use tags.
+                if grep -qF "${pkg}@${digest}" "$IN_USE_FILE"; then
+                  echo "  PROTECTED ${digest} — referenced by live Cloud Run resource (by digest)"
+                  continue
+                fi
+                # Check if any tag pointing at this digest is in use
+                TAGS_FOR_DIGEST=$(gcloud artifacts docker tags list "$pkg" \
+                  --filter="version=${digest}" \
+                  --format='value(name)' 2>/dev/null)
+                TAG_PROTECTED=false
+                for tag_name in $TAGS_FOR_DIGEST; do
+                  short_tag=$(basename "$tag_name")
+                  if grep -qF "${pkg}:${short_tag}" "$IN_USE_FILE"; then
+                    echo "  PROTECTED ${digest} — tag ${short_tag} referenced by live Cloud Run resource"
+                    TAG_PROTECTED=true
+                    break
+                  fi
+                done
+                [ "$TAG_PROTECTED" = "true" ] && continue
+
                 gcloud artifacts docker images delete "${pkg}@${digest}" \
                   --quiet --delete-tags 2>/dev/null && \
                   TOTAL_DELETED=$((TOTAL_DELETED + 1)) || \
@@ -220,6 +268,7 @@ jobs:
               done
             fi
           done
+          rm -f "$IN_USE_FILE"
 
           echo ""
           echo "=== Cleanup complete ==="
