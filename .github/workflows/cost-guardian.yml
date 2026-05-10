@@ -237,7 +237,9 @@ jobs:
             echo "  Found $COUNT versions to delete (keeping newest $KEEP_COUNT)"
 
             if [ "$COUNT" -gt 0 ] && [ "$DRY_RUN" = "false" ]; then
-              echo "$DIGESTS" | while read -r digest; do
+              # Use process substitution (not `... | while`) so TOTAL_DELETED
+              # increments persist to the parent shell.
+              while read -r digest; do
                 [ -z "$digest" ] && continue
                 # Skip if this digest OR any of its tags is referenced by a
                 # live Cloud Run service/job. Match by both `pkg@digest` and
@@ -261,17 +263,19 @@ jobs:
                 done
                 [ "$TAG_PROTECTED" = "true" ] && continue
 
-                gcloud artifacts docker images delete "${pkg}@${digest}" \
-                  --quiet --delete-tags 2>/dev/null && \
-                  TOTAL_DELETED=$((TOTAL_DELETED + 1)) || \
+                if gcloud artifacts docker images delete "${pkg}@${digest}" \
+                    --quiet --delete-tags 2>/dev/null; then
+                  TOTAL_DELETED=$((TOTAL_DELETED + 1))
+                else
                   echo "  Failed to delete ${digest}"
-              done
+                fi
+              done < <(echo "$DIGESTS")
             fi
           done
           rm -f "$IN_USE_FILE"
 
           echo ""
-          echo "=== Cleanup complete ==="
+          echo "=== Cleanup complete: deleted $TOTAL_DELETED image versions ==="
 
   cleanup-secret-versions:
     runs-on: ubuntu-latest
