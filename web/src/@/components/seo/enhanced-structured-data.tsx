@@ -99,8 +99,12 @@ export function DatasetStructuredData({
     },
     temporalCoverage: "2010-01-01/..",
     spatialCoverage: {
-      "@type": "Country",
+      "@type": "Place",
       name: "Australia",
+      address: {
+        "@type": "PostalAddress",
+        addressCountry: "AU",
+      },
     },
   };
 
