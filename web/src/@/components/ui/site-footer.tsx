@@ -25,6 +25,7 @@ const productLinks: FooterLink[] = [
 ];
 
 const resourceLinks: FooterLink[] = [
+  { title: "News", href: "/news" },
   { title: "Blog", href: "/blog" },
   { title: "Learn", href: "/learn" },
   { title: "Glossary", href: "/glossary" },

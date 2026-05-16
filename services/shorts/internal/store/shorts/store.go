@@ -190,6 +190,7 @@ type NewsArticle struct {
 	IsPriceSensitive bool
 	Summary          *string
 	Tags             []byte // JSON
+	ImageURL         *string
 }
 
 // DirectorTrade represents a director trade from the database

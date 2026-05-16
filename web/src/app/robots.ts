@@ -39,6 +39,8 @@ export default function robots(): MetadataRoute.Robots {
           "/learn/",
           "/blog/",
           "/docs/",
+          "/news/",
+          "/news",
           "/llms.txt",
           "/llms-full.txt",
           "/ai.txt",
