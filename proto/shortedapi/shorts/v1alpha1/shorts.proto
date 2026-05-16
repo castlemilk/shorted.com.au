@@ -1016,6 +1016,7 @@ message NewsArticle {
   bool is_price_sensitive = 9;
   string summary = 10;
   repeated string tags = 11;
+  string image_url = 12;          // Hero image from RSS or scraped og:image
 }
 
 // Request for GetStockNews RPC

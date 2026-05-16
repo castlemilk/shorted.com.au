@@ -12,7 +12,7 @@ func (s *postgresStore) GetStockNews(stockCode string, limit int32, source, sent
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	query := `SELECT id, stock_code, source, headline, url, published_at, sentiment, relevance_score, is_price_sensitive, summary, tags
+	query := `SELECT id, stock_code, source, headline, url, published_at, sentiment, relevance_score, is_price_sensitive, summary, tags, image_url
 		FROM news_articles
 		WHERE stock_code = $1`
 	args := []interface{}{stockCode}
@@ -49,7 +49,7 @@ func (s *postgresStore) GetStockNews(stockCode string, limit int32, source, sent
 		if err := rows.Scan(
 			&a.ID, &a.StockCode, &a.Source, &a.Headline, &a.URL,
 			&a.PublishedAt, &a.Sentiment, &a.RelevanceScore,
-			&a.IsPriceSensitive, &a.Summary, &tags,
+			&a.IsPriceSensitive, &a.Summary, &tags, &a.ImageURL,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan news article: %w", err)
 		}
@@ -69,7 +69,7 @@ func (s *postgresStore) GetMarketNews(limit int32, source string, priceSensitive
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	query := `SELECT id, stock_code, source, headline, url, published_at, sentiment, relevance_score, is_price_sensitive, summary, tags
+	query := `SELECT id, stock_code, source, headline, url, published_at, sentiment, relevance_score, is_price_sensitive, summary, tags, image_url
 		FROM news_articles WHERE 1=1`
 	args := []interface{}{}
 	argIdx := 1
@@ -103,7 +103,7 @@ func (s *postgresStore) GetMarketNews(limit int32, source string, priceSensitive
 		if err := rows.Scan(
 			&a.ID, &a.StockCode, &a.Source, &a.Headline, &a.URL,
 			&a.PublishedAt, &a.Sentiment, &a.RelevanceScore,
-			&a.IsPriceSensitive, &a.Summary, &tags,
+			&a.IsPriceSensitive, &a.Summary, &tags, &a.ImageURL,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan news article: %w", err)
 		}

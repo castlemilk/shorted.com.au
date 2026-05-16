@@ -4623,6 +4623,7 @@ type NewsArticle struct {
 	IsPriceSensitive bool                   `protobuf:"varint,9,opt,name=is_price_sensitive,json=isPriceSensitive,proto3" json:"is_price_sensitive,omitempty"`
 	Summary          string                 `protobuf:"bytes,10,opt,name=summary,proto3" json:"summary,omitempty"`
 	Tags             []string               `protobuf:"bytes,11,rep,name=tags,proto3" json:"tags,omitempty"`
+	ImageUrl         string                 `protobuf:"bytes,12,opt,name=image_url,json=imageUrl,proto3" json:"image_url,omitempty"` // Hero image from RSS or scraped og:image
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -4732,6 +4733,13 @@ func (x *NewsArticle) GetTags() []string {
 		return x.Tags
 	}
 	return nil
+}
+
+func (x *NewsArticle) GetImageUrl() string {
+	if x != nil {
+		return x.ImageUrl
+	}
+	return ""
 }
 
 // Request for GetStockNews RPC
@@ -6496,7 +6504,7 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"attributes\x1a=\n" +
 	"\x0fAttributesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xe4\x02\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x81\x03\n" +
 	"\vNewsArticle\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -6510,7 +6518,8 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x12is_price_sensitive\x18\t \x01(\bR\x10isPriceSensitive\x12\x18\n" +
 	"\asummary\x18\n" +
 	" \x01(\tR\asummary\x12\x12\n" +
-	"\x04tags\x18\v \x03(\tR\x04tags\"\x80\x01\n" +
+	"\x04tags\x18\v \x03(\tR\x04tags\x12\x1b\n" +
+	"\timage_url\x18\f \x01(\tR\bimageUrl\"\x80\x01\n" +
 	"\x13GetStockNewsRequest\x12\x1d\n" +
 	"\n" +
 	"stock_code\x18\x01 \x01(\tR\tstockCode\x12\x14\n" +

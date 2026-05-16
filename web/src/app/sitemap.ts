@@ -366,6 +366,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
+  // News hub + per-stock news pages. Per-stock news pages share the
+  // same qualified stockCodes list, so the news tree mirrors the
+  // pruned stock list (no thin pages get indexed).
+  const newsRoutes = [
+    { url: `${baseUrl}/news`, lastModified: currentDate },
+    ...stockCodes.map((code) => ({
+      url: `${baseUrl}/shorts/${code}/news`,
+      lastModified: currentDate,
+    })),
+  ];
+
   return [
     ...staticRoutes,
     ...topRoutes,
@@ -375,6 +386,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...directoryRoutes,
     ...marketRoutes,
     ...reportRoutes,
+    ...newsRoutes,
     ...faqRoutes,
     ...privacyRoutes,
     ...learnRoutes,

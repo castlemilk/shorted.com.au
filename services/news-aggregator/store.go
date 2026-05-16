@@ -52,9 +52,16 @@ func (s *NewsStore) StoreArticles(ctx context.Context, articles []*NewsArticleRa
 			relevanceScore = 0.9
 		}
 
+		var imageURL interface{}
+		var imagePulledAt interface{}
+		if a.ImageURL != "" {
+			imageURL = a.ImageURL
+			imagePulledAt = time.Now()
+		}
+
 		tag, err := s.db.Exec(ctx,
-			`INSERT INTO news_articles (stock_code, source, headline, url, published_at, sentiment, relevance_score, is_price_sensitive, summary)
-			 VALUES ($1, $2, $3, $4, $5::timestamptz, $6, $7, $8, $9)
+			`INSERT INTO news_articles (stock_code, source, headline, url, published_at, sentiment, relevance_score, is_price_sensitive, summary, image_url, image_pulled_at)
+			 VALUES ($1, $2, $3, $4, $5::timestamptz, $6, $7, $8, $9, $10, $11)
 			 ON CONFLICT (url) DO NOTHING`,
 			stockCode,
 			a.Source,
@@ -65,6 +72,8 @@ func (s *NewsStore) StoreArticles(ctx context.Context, articles []*NewsArticleRa
 			relevanceScore,
 			a.IsPriceSensitive,
 			truncateStr(a.Summary, 1000),
+			imageURL,
+			imagePulledAt,
 		)
 		if err != nil {
 			if s.verbose {

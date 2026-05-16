@@ -95,6 +95,9 @@ func convertNewsArticles(articles []*shortsstore.NewsArticle) []*shortsv1alpha1.
 		if a.Summary != nil {
 			article.Summary = *a.Summary
 		}
+		if a.ImageURL != nil {
+			article.ImageUrl = *a.ImageURL
+		}
 		if a.PublishedAt != "" {
 			if t, err := time.Parse(time.RFC3339, a.PublishedAt); err == nil {
 				article.PublishedAt = timestamppb.New(t)

@@ -50,10 +50,11 @@ type NewsArticleRaw struct {
 	URL              string
 	PublishedAt      string
 	Summary          string
+	ImageURL         string
 	IsPriceSensitive bool
 }
 
-// rssFeed represents a generic RSS 2.0 feed
+// rssFeed represents a generic RSS 2.0 feed (with optional media:* namespace).
 type rssFeed struct {
 	XMLName xml.Name   `xml:"rss"`
 	Channel rssChannel `xml:"channel"`
@@ -64,11 +65,24 @@ type rssChannel struct {
 }
 
 type rssItem struct {
-	Title       string `xml:"title"`
-	Link        string `xml:"link"`
-	Description string `xml:"description"`
-	PubDate     string `xml:"pubDate"`
-	Category    string `xml:"category"`
+	Title          string         `xml:"title"`
+	Link           string         `xml:"link"`
+	Description    string         `xml:"description"`
+	PubDate        string         `xml:"pubDate"`
+	Category       string         `xml:"category"`
+	Enclosure      rssEnclosure   `xml:"enclosure"`
+	MediaContent   []rssMediaItem `xml:"http://search.yahoo.com/mrss/ content"`
+	MediaThumbnail []rssMediaItem `xml:"http://search.yahoo.com/mrss/ thumbnail"`
+}
+
+type rssEnclosure struct {
+	URL  string `xml:"url,attr"`
+	Type string `xml:"type,attr"`
+}
+
+type rssMediaItem struct {
+	URL    string `xml:"url,attr"`
+	Medium string `xml:"medium,attr"`
 }
 
 // atomFeed represents an Atom feed
@@ -78,15 +92,17 @@ type atomFeed struct {
 }
 
 type atomEntry struct {
-	Title     string   `xml:"title"`
-	Link      atomLink `xml:"link"`
-	Summary   string   `xml:"summary"`
-	Published string   `xml:"published"`
-	Updated   string   `xml:"updated"`
+	Title     string     `xml:"title"`
+	Links     []atomLink `xml:"link"`
+	Summary   string     `xml:"summary"`
+	Published string     `xml:"published"`
+	Updated   string     `xml:"updated"`
 }
 
 type atomLink struct {
 	Href string `xml:"href,attr"`
+	Rel  string `xml:"rel,attr"`
+	Type string `xml:"type,attr"`
 }
 
 // Fetch retrieves articles from an RSS source using stealth HTTP
@@ -134,6 +150,7 @@ func (f *RSSFetcher) parseRSS(body []byte, source NewsSource) ([]*NewsArticleRaw
 			URL:         strings.TrimSpace(item.Link),
 			PublishedAt: publishedAt,
 			Summary:     truncateSummary(stripHTML(item.Description), 500),
+			ImageURL:    extractRSSImage(item),
 		})
 	}
 
@@ -160,13 +177,59 @@ func (f *RSSFetcher) parseAtom(body []byte, source NewsSource) ([]*NewsArticleRa
 		articles = append(articles, &NewsArticleRaw{
 			Source:      source.SourceID,
 			Headline:    strings.TrimSpace(entry.Title),
-			URL:         strings.TrimSpace(entry.Link.Href),
+			URL:         strings.TrimSpace(primaryAtomLink(entry.Links)),
 			PublishedAt: publishedAt,
 			Summary:     truncateSummary(stripHTML(entry.Summary), 500),
+			ImageURL:    extractAtomImage(entry),
 		})
 	}
 
 	return articles, nil
+}
+
+// extractRSSImage returns the best available image URL for an RSS item.
+// Tries media:content (preferred), then media:thumbnail, then enclosure.
+// Returns "" if no image candidate is present.
+func extractRSSImage(item rssItem) string {
+	for _, m := range item.MediaContent {
+		if m.URL != "" && (m.Medium == "" || m.Medium == "image") {
+			return m.URL
+		}
+	}
+	for _, m := range item.MediaThumbnail {
+		if m.URL != "" {
+			return m.URL
+		}
+	}
+	if item.Enclosure.URL != "" && strings.HasPrefix(item.Enclosure.Type, "image/") {
+		return item.Enclosure.URL
+	}
+	return ""
+}
+
+// extractAtomImage returns the first enclosure-type link with an image MIME.
+func extractAtomImage(entry atomEntry) string {
+	for _, l := range entry.Links {
+		if l.Rel == "enclosure" && strings.HasPrefix(l.Type, "image/") && l.Href != "" {
+			return l.Href
+		}
+	}
+	return ""
+}
+
+// primaryAtomLink returns the article URL from an Atom <link> list.
+// Atom entries can have multiple links (alternate, enclosure, related);
+// prefer rel="alternate" (or unset rel), fall back to the first link.
+func primaryAtomLink(links []atomLink) string {
+	for _, l := range links {
+		if (l.Rel == "" || l.Rel == "alternate") && l.Href != "" {
+			return l.Href
+		}
+	}
+	if len(links) > 0 {
+		return links[0].Href
+	}
+	return ""
 }
 
 // parseRSSDate tries multiple date formats commonly used in RSS feeds
