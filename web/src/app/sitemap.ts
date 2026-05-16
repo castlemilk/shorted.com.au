@@ -35,8 +35,17 @@ const API_URL =
 
 // API response type for top shorts
 interface TopShortsResponse {
-  timeSeries: Array<{ productCode?: string }>;
+  // In summary mode (summaryOnly=true), the API returns `latestShortPosition`
+  // populated with `current_percent` from mv_top_shorts, sorted DESC.
+  timeSeries: Array<{ productCode?: string; latestShortPosition?: number }>;
 }
+
+// Sitemap quality bar: only index stocks with meaningful short interest.
+// Stocks below this threshold get crawled but rarely indexed, polluting
+// "Crawled - currently not indexed" in GSC. Tail pages remain accessible
+// but use metadata.robots.noindex on the page itself.
+const SITEMAP_MIN_SHORT_PCT = 0.5;
+const SITEMAP_MAX_STOCKS = 300;
 
 // Popular stock codes as fallback when API is unavailable
 const FALLBACK_STOCK_CODES = [
@@ -81,12 +90,27 @@ async function getAllStockCodes(): Promise<string[]> {
 
     const data = (await response.json()) as TopShortsResponse;
 
-    // Extract unique stock codes from the response
-    const stockCodes = (data.timeSeries || [])
-      .map((ts) => ts.productCode)
-      .filter((code): code is string => typeof code === "string" && code.length > 0);
+    // Filter by quality bar to avoid sitemap bloat:
+    // - must have a current short % >= threshold
+    // - cap total entries so the sitemap stays tight
+    // Page regex on /shorts/[code] only accepts 1-4 char alphanumeric codes;
+    // longer codes (govt bonds GSB*, warrants XCLW*, preference shares like
+    // GSBW30, BENPH, MQGPD) 404 at the page level. Filter them out so we
+    // never advertise a URL the page itself rejects.
+    const VALID_CODE = /^[A-Z0-9]{1,4}$/;
+    const qualified = (data.timeSeries || [])
+      .filter((ts) => {
+        const pct = typeof ts.latestShortPosition === "number" ? ts.latestShortPosition : 0;
+        return (
+          typeof ts.productCode === "string" &&
+          VALID_CODE.test(ts.productCode) &&
+          pct >= SITEMAP_MIN_SHORT_PCT
+        );
+      })
+      .slice(0, SITEMAP_MAX_STOCKS)
+      .map((ts) => ts.productCode!);
 
-    return stockCodes.length > 0 ? [...new Set(stockCodes)] : FALLBACK_STOCK_CODES;
+    return qualified.length > 0 ? [...new Set(qualified)] : FALLBACK_STOCK_CODES;
   } catch (error) {
     console.error("Failed to fetch stock codes for sitemap:", error);
     return FALLBACK_STOCK_CODES;

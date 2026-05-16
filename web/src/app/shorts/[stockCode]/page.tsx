@@ -91,6 +91,11 @@ interface PageProps {
   params: Promise<{ stockCode: string }>;
 }
 
+// Stocks below this short % threshold are noindex'd. They produce thin
+// templated pages with no narrative value, leading to "Crawled - currently
+// not indexed" in GSC. Page remains accessible (no 404), just not indexed.
+const STOCK_PAGE_NOINDEX_THRESHOLD = 0.5;
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { stockCode } = await params;
   const code = stockCode.toUpperCase();
@@ -98,6 +103,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // Try to fetch stock data for enriched metadata
   let title = `${code} Short Position | Official ASIC Data (T+4)`;
   let description = `${code} short selling data from official ASIC reports. Current short interest %, historical trends, charts & analysis. Updated daily with T+4 delay. Free ASX short position tracking.`;
+  let shouldNoindex = false;
 
   try {
     const stock = await getStockOrNotFound(code);
@@ -116,6 +122,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         : `${stock.name || code} short selling data from official ASIC reports.`;
       const industryInfo = stock.industry ? ` Industry: ${stock.industry}.` : "";
       description = `${shortInfo}${industryInfo} Track ${code}'s short position history, price charts, peer comparison, and ASIC data. Updated daily with T+4 delay.`;
+
+      // Noindex thin stocks (no/minimal short interest) — they remain
+      // crawlable but don't pollute the index with templated thin content.
+      if ((stock.percentageShorted ?? 0) < STOCK_PAGE_NOINDEX_THRESHOLD) {
+        shouldNoindex = true;
+      }
     }
   } catch {
     // Fall back to default title/description if fetch fails
@@ -124,6 +136,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title,
     description,
+    robots: shouldNoindex
+      ? { index: false, follow: true, googleBot: { index: false, follow: true } }
+      : undefined,
     keywords: [
       `${code} short position`,
       `${code} short interest`,
