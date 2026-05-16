@@ -725,7 +725,7 @@ jobs:
           vercel-org-id: team_xE5DMN3hIo8aPqyHNkBybg8r
           vercel-project-id: shorted-com-au
           scope: team_xE5DMN3hIo8aPqyHNkBybg8r
-          vercel-version: 47.2.2
+          vercel-version: 54.1.0
           alias-domains: preview.shorted.com.au
           vercel-args: >-
             --build-env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.deploy.outputs.shorts_url }}
@@ -1203,7 +1203,7 @@ jobs:
           vercel-org-id: team_xE5DMN3hIo8aPqyHNkBybg8r
           vercel-project-id: shorted-com-au
           scope: team_xE5DMN3hIo8aPqyHNkBybg8r
-          vercel-version: 47.2.2
+          vercel-version: 54.1.0
           vercel-args: >-
             --prod
             --build-env NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT=${{ steps.resolve-urls.outputs.shorts_url }}
