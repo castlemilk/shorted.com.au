@@ -295,3 +295,51 @@ resource "google_cloud_scheduler_job" "news_aggregator_resolve_googlenews" {
     google_cloud_run_v2_job_iam_member.scheduler_developer,
   ]
 }
+
+# Cloud Scheduler Job — story clustering. Runs every 2 hours just
+# after the main aggregation cycle so newly-ingested articles get
+# clustered into existing same-event groups quickly. Cheap operation
+# (DB-only, no HTTP fetches), 48-hour lookback window.
+resource "google_cloud_scheduler_job" "news_aggregator_cluster" {
+  name             = "${local.service_name}-cluster"
+  description      = "Cluster duplicate-event news coverage into shared cluster_id groups"
+  schedule         = "30 */2 * * *"
+  time_zone        = "UTC"
+  attempt_deadline = "600s"
+  region           = var.scheduler_region
+  project          = var.project_id
+
+  retry_config {
+    retry_count          = 1
+    max_retry_duration   = "1800s"
+    min_backoff_duration = "30s"
+    max_backoff_duration = "300s"
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.news_aggregator.name}:run"
+
+    oauth_token {
+      service_account_email = google_service_account.scheduler_invoker.email
+    }
+
+    body = base64encode(jsonencode({
+      overrides = {
+        container_overrides = [{
+          env = [
+            { name = "RUN_MODE", value = "cluster-news" },
+            { name = "CLUSTER_LOOKBACK_HOURS", value = "48" },
+            { name = "CLUSTER_MIN_OVERLAP", value = "3" },
+          ]
+        }]
+      }
+    }))
+  }
+
+  depends_on = [
+    google_cloud_run_v2_job.news_aggregator,
+    google_cloud_run_v2_job_iam_member.scheduler_invoker,
+    google_cloud_run_v2_job_iam_member.scheduler_developer,
+  ]
+}
