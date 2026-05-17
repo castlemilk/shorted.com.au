@@ -45,6 +45,8 @@ export default function robots(): MetadataRoute.Robots {
           "/insider-trading",
           "/data",
           "/search",
+          "/authors/",
+          "/authors",
           "/llms.txt",
           "/llms-full.txt",
           "/ai.txt",
