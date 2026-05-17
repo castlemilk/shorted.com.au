@@ -57,6 +57,36 @@ const NEWS_SOURCES: Record<string, NewsSourceConfig> = {
     logo: "",
     bgClass: "bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-300 border-teal-200 dark:border-teal-700",
   },
+  abc: {
+    name: "ABC News",
+    url: "https://www.abc.net.au/news",
+    logo: "",
+    bgClass: "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700",
+  },
+  smh: {
+    name: "SMH",
+    url: "https://www.smh.com.au/business",
+    logo: "",
+    bgClass: "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700",
+  },
+  theage: {
+    name: "The Age",
+    url: "https://www.theage.com.au/business",
+    logo: "",
+    bgClass: "bg-cyan-50 dark:bg-cyan-900/20 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-700",
+  },
+  afr: {
+    name: "AFR",
+    url: "https://www.afr.com/markets",
+    logo: "",
+    bgClass: "bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-700",
+  },
+  businessnews: {
+    name: "Business News AU",
+    url: "https://www.businessnewsaustralia.com",
+    logo: "",
+    bgClass: "bg-lime-50 dark:bg-lime-900/20 text-lime-700 dark:text-lime-300 border-lime-200 dark:border-lime-700",
+  },
 };
 
 const DEFAULT_SOURCE: NewsSourceConfig = {
