@@ -85,6 +85,33 @@ func main() {
 	fetcher := NewRSSFetcher(*verbose)
 	defer func() { _ = fetcher.Close() }()
 
+	// One-shot OG-image backfill mode: RUN_MODE=backfill-images
+	// Scrapes og:image from existing article URLs that have no image_url.
+	if os.Getenv("RUN_MODE") == "backfill-images" {
+		limit := *limitFlag
+		if envLimit := os.Getenv("BACKFILL_LIMIT"); envLimit != "" {
+			if n, parseErr := fmt.Sscanf(envLimit, "%d", &limit); parseErr != nil || n != 1 {
+				log.Printf("WARN: invalid BACKFILL_LIMIT %q, using %d", envLimit, limit)
+			}
+		}
+		concurrency := 4
+		if envC := os.Getenv("BACKFILL_CONCURRENCY"); envC != "" {
+			_, _ = fmt.Sscanf(envC, "%d", &concurrency)
+		}
+		// googlenews URLs are redirects through Google — skip them.
+		// asx URLs are PDF announcements with no og:image — skip them.
+		skip := []string{"googlenews", "asx"}
+		if err := BackfillImages(ctx, db, BackfillImagesOpts{
+			Limit:       limit,
+			Concurrency: concurrency,
+			SkipSources: skip,
+			DryRun:      *dryRun,
+		}); err != nil {
+			log.Fatalf("BackfillImages failed: %v", err)
+		}
+		return
+	}
+
 	// For Cloud Run Jobs: process and exit
 	// For Cloud Run Services: serve health check and process on schedule
 	if os.Getenv("CLOUD_RUN_JOB") != "" {
