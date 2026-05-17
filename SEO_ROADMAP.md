@@ -160,14 +160,40 @@ ship date as items close out.
 
 | # | Item | PR | Shipped |
 |---|---|---|---|
-| 6 | WebSite schema + search action | — | — |
-| 3 | sameAs Knowledge Graph anchors | — | — |
-| 1 | Glossary scale-up | — | — |
-| 2 | Programmatic sector hubs | — | — |
-| 5 | Author byline | — | — |
-| 7 | Insider trades hub | — | — |
-| 8 | Weekly report OG images | — | — |
-| 9 | preconnect | — | — |
-| 10 | llms.txt | — | — |
+| 1 | Glossary 26 → 82 terms | #125 | 2026-05-17 |
+| 2 | Programmatic sector hubs | — | **deferred** (needs editorial copy) |
+| 3 | sameAs Knowledge Graph anchors | #119 | 2026-05-17 |
+| 4 | Google News Publisher Center | — | **owner action** |
+| 5 | Author byline + /authors | — | **deferred** (needs editorial identity) |
+| 6 | WebSite schema + Sitelinks search | #118, #126 | 2026-05-17 |
+| 7 | Insider trades hub | #120 | 2026-05-17 |
+| 8 | Weekly + monthly + yearly report OG images | #121 | 2026-05-17 |
+| 9 | preconnect news image CDNs | #126 | 2026-05-17 |
+| 10 | llms.txt expansion | #129 | 2026-05-17 |
+| 11 | NewsCard CLS fix | #128 | 2026-05-17 |
+| 12 | LinkifiedNarrative for weekly reports | #131 | 2026-05-17 |
+| 13 | Price + short interest dual-axis overlay chart | #134 | 2026-05-17 |
+| 14 | /data Dataset Hub | #122 | 2026-05-17 |
+| 15 | Story clustering on /news | #124 | 2026-05-17 |
+| 16 | 5 new ASX news sources (ABC, SMH, Age, AFR, BNA) | #127 | 2026-05-17 |
+| 17 | Googlenews redirect resolver | #123 | 2026-05-17 |
+
+**Plus, not on original roadmap but shipped:**
+
+| What | PR | Shipped |
+|---|---|---|
+| Sitemap quality filter (961 → 300 stocks) | #110 | 2026-05-16 |
+| noindex thin stock pages | #110 | 2026-05-16 |
+| spatialCoverage schema fix | #110 | 2026-05-16 |
+| /news + /shorts/[code]/news | #112 | 2026-05-16 |
+| News hero images (RSS extraction) | #112 | 2026-05-16 |
+| OG-image backfill (daily scheduler) | #117 | 2026-05-17 |
+| Sitemap + robots for new surfaces | #130 | 2026-05-17 |
+| Cloudflare ruleset state imports | #132–#133 | 2026-05-17 |
+
+**Remaining owner-actions:**
+1. Register at [publishercenter.google.com](https://publishercenter.google.com) (item #4)
+2. Decide author identity → I'll build /authors when you give me at least one (item #5)
+3. Re-evaluate sector hubs (item #2) — only blocked on editorial copy
 
 Last updated: 2026-05-17
