@@ -14,6 +14,13 @@ Shorted aggregates and visualises official ASIC (Australian Securities and Inves
 - [Top 100 Most Shorted ASX Stocks](https://shorted.com.au/top): Live rankings of the most shorted stocks on the Australian Securities Exchange, updated daily with ASIC data.
 - [Industry Treemap](https://shorted.com.au/industry): Visual breakdown of short positions by ASX industry sector.
 - [Individual Stock Pages](https://shorted.com.au/shorts/BHP): Detailed short position analysis for each ASX-listed security with historical charts.
+- [Per-stock News Hub](https://shorted.com.au/shorts/BHP/news): Latest news articles tagged to each ASX stock with AI-classified sentiment.
+- [ASX News & Sentiment Hub](https://shorted.com.au/news): Aggregated news from Stockhead, Motley Fool AU, Small Caps, Kalkine Media, ABC, SMH, AFR and Google News with Gemini-classified sentiment.
+- [Weekly Short Selling Reports](https://shorted.com.au/reports): LLM-narrated weekly reports covering biggest movers, sector shifts, and short-position trends.
+- [Stock Screener](https://shorted.com.au/screener): Filter ASX stocks by short %, days-to-cover, industry, and other criteria.
+- [Search ASX Stocks](https://shorted.com.au/search): Search ASX stocks by code or company name.
+- [Insider Trading & Director Trades](https://shorted.com.au/insider-trading): Per-stock director and insider trades sourced from ASX Appendix 3Y filings.
+- [Open Data Hub](https://shorted.com.au/data): Public dataset catalog with Dataset schema for Google Dataset Search.
 - [API Documentation](https://shorted.com.au/docs/api-reference): Developer API for accessing ASIC short position data programmatically.
 - [LLM Context Documentation](https://shorted.com.au/docs/llm-context): Detailed platform and data documentation optimised for AI/LLM consumption.
 
