@@ -29,6 +29,7 @@ import {
   CitationRenderer,
   CitationFootnotes,
 } from "~/@/components/reports/citation-renderer";
+import { LinkifiedNarrative } from "~/@/components/reports/linkified-narrative";
 import {
   getWeeklyReportData,
   getEnhancedWeeklyReportData,
@@ -395,11 +396,11 @@ export default async function WeeklyReportPage({ params }: PageProps) {
           <section className="rounded-lg border border-primary/20 bg-primary/5 p-6">
             <h2 className="text-lg font-semibold mb-3">This Week&apos;s Analysis</h2>
             <p className="text-foreground/90 leading-relaxed">
-              <CitationRenderer text={enhanced.narrative.openingHook} citations={citations} />
+              <LinkifiedNarrative text={enhanced.narrative.openingHook} citations={citations} validCodes={topCodes} />
             </p>
             {enhanced.narrative.topAnalysis && (
               <p className="text-foreground/80 leading-relaxed mt-3">
-                <CitationRenderer text={enhanced.narrative.topAnalysis} citations={citations} />
+                <LinkifiedNarrative text={enhanced.narrative.topAnalysis} citations={citations} validCodes={topCodes} />
               </p>
             )}
           </section>
@@ -586,13 +587,13 @@ export default async function WeeklyReportPage({ params }: PageProps) {
           <section className="rounded-lg border border-border/40 bg-card/50 p-6">
             <h2 className="text-lg font-semibold mb-3">Movers Analysis</h2>
             <p className="text-foreground/80 leading-relaxed">
-              <CitationRenderer text={enhanced.narrative.moversAnalysis} citations={citations} />
+              <LinkifiedNarrative text={enhanced.narrative.moversAnalysis} citations={citations} validCodes={topCodes} />
             </p>
             {enhanced.narrative.industryAnalysis && (
               <>
                 <h3 className="text-base font-semibold mt-4 mb-2">Industry Trends</h3>
                 <p className="text-foreground/80 leading-relaxed">
-                  <CitationRenderer text={enhanced.narrative.industryAnalysis} citations={citations} />
+                  <LinkifiedNarrative text={enhanced.narrative.industryAnalysis} citations={citations} validCodes={topCodes} />
                 </p>
               </>
             )}
@@ -604,7 +605,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
           <section className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-6">
             <h2 className="text-lg font-semibold mb-3">Outlook</h2>
             <p className="text-foreground/80 leading-relaxed">
-              <CitationRenderer text={enhanced.narrative.outlook} citations={citations} />
+              <LinkifiedNarrative text={enhanced.narrative.outlook} citations={citations} validCodes={topCodes} />
             </p>
           </section>
         )}
