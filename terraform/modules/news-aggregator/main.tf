@@ -153,6 +153,17 @@ resource "google_cloud_run_v2_job_iam_member" "scheduler_invoker" {
   member   = "serviceAccount:${google_service_account.scheduler_invoker.email}"
 }
 
+# run.developer is required for runWithOverrides — the backfill scheduler
+# passes container_overrides to set RUN_MODE=backfill-images on the
+# existing news-aggregator job binary.
+resource "google_cloud_run_v2_job_iam_member" "scheduler_developer" {
+  name     = google_cloud_run_v2_job.news_aggregator.name
+  location = google_cloud_run_v2_job.news_aggregator.location
+  project  = var.project_id
+  role     = "roles/run.developer"
+  member   = "serviceAccount:${google_service_account.scheduler_invoker.email}"
+}
+
 # Cloud Scheduler Job - Every 4 hours
 resource "google_cloud_scheduler_job" "news_aggregator" {
   name             = "${local.service_name}-periodic"
@@ -182,5 +193,54 @@ resource "google_cloud_scheduler_job" "news_aggregator" {
   depends_on = [
     google_cloud_run_v2_job.news_aggregator,
     google_cloud_run_v2_job_iam_member.scheduler_invoker
+  ]
+}
+
+# Cloud Scheduler Job — OG-image backfill, daily at 03:00 UTC (~1 PM AEST).
+# Runs the same news-aggregator binary with RUN_MODE=backfill-images via
+# container_overrides, scraping og:image meta tags from articles still
+# missing image_url. Skips asx (PDF announcements) and googlenews
+# (Google redirects) — handled in the Go code's default SkipSources.
+resource "google_cloud_scheduler_job" "news_aggregator_backfill_images" {
+  name             = "${local.service_name}-backfill-images"
+  description      = "Daily og:image backfill for news_articles rows missing image_url"
+  schedule         = "0 3 * * *"
+  time_zone        = "UTC"
+  attempt_deadline = "1800s"
+  region           = var.scheduler_region
+  project          = var.project_id
+
+  retry_config {
+    retry_count          = 1
+    max_retry_duration   = "3600s"
+    min_backoff_duration = "30s"
+    max_backoff_duration = "600s"
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.news_aggregator.name}:run"
+
+    oauth_token {
+      service_account_email = google_service_account.scheduler_invoker.email
+    }
+
+    body = base64encode(jsonencode({
+      overrides = {
+        container_overrides = [{
+          env = [
+            { name = "RUN_MODE", value = "backfill-images" },
+            { name = "BACKFILL_LIMIT", value = "2000" },
+            { name = "BACKFILL_CONCURRENCY", value = "6" },
+          ]
+        }]
+      }
+    }))
+  }
+
+  depends_on = [
+    google_cloud_run_v2_job.news_aggregator,
+    google_cloud_run_v2_job_iam_member.scheduler_invoker,
+    google_cloud_run_v2_job_iam_member.scheduler_developer,
   ]
 }
