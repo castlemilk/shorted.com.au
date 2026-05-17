@@ -168,7 +168,7 @@ const worker = {
 
       // Try hot cache first (only for GET-equivalent read-only requests)
       if (request.method === "POST") {
-        const hotKey = buildHotCacheKey(request, path);
+        const hotKey = await buildHotCacheKey(request, path);
         const hot = getHot(request, hotKey);
         if (hot) {
           const resp = new Response(hot.body, {
@@ -185,7 +185,7 @@ const worker = {
       // After a successful origin fetch, populate hot cache for top shorts + stocks
       // Only for read-only requests that were cache misses
       if (result.headers.get("X-Shorted-Cache") === "MISS" && request.method === "POST") {
-        const hotKey = buildHotCacheKey(request, path);
+        const hotKey = await buildHotCacheKey(request, path);
         try {
           // Clone response body before it's consumed
           const body = await result.clone().arrayBuffer();
@@ -230,17 +230,20 @@ function resolveShortsTtl(path, defaults) {
 
 /**
  * Build a cache key suffix for the in-memory hot cache.
- * Groups by endpoint + key request parameters (not auth).
+ * For POST requests this hashes the request body so different request
+ * parameters (e.g. productCode, period) get distinct cache entries.
+ *
+ * BUG FIX: previously this returned `path` for all POST requests, which
+ * meant the first response cached for /GetStockData served every
+ * subsequent call regardless of the stock code being requested. The
+ * outer Cache API + KV layers correctly hash the body — only the
+ * in-memory hot tier was poisoning across requests.
  */
-function buildHotCacheKey(request, path) {
-  // For POST requests, include the body hash (but not auth — public data)
-  // For GetTopShorts: period + limit + summary_only
-  // For GetStock: product_code
-  // For GetIndustryTreeMap: period + limit + view_mode
+async function buildHotCacheKey(request, path) {
   if (request.method === "POST") {
-    // We'll use a simpler key based on path + key params extracted from body
-    // This avoids parsing JSON for every request
-    return path; // Fallback: just the path
+    const bodyText = await request.clone().text();
+    const bodyHash = hashStringSync(bodyText);
+    return `${path}:${bodyHash}`;
   }
   return path;
 }

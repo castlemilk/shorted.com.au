@@ -1,0 +1,24 @@
+{
+  "name": "@shorted/twitter-bot",
+  "version": "0.1.0",
+  "description": "Twitter/X automation for shorted.com.au — daily top shorts, biggest movers, weekly digests, breaking news.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "post:daily-shorts": "tsx src/index.ts daily-shorts",
+    "post:movers": "tsx src/index.ts movers",
+    "post:weekly-digest": "tsx src/index.ts weekly-digest",
+    "post:breaking-news": "tsx src/index.ts breaking-news",
+    "post:stock-of-the-day": "tsx src/index.ts stock-of-the-day",
+    "preview": "tsx src/index.ts --help"
+  },
+  "dependencies": {
+    "twitter-api-v2": "^1.18.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
