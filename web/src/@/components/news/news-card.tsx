@@ -68,15 +68,20 @@ export function NewsCard({ article, variant = "default", showStockChip = true, c
           target="_blank"
           rel="noopener noreferrer"
           className={cn(
-            "block shrink-0 overflow-hidden bg-muted",
-            isHero ? "md:w-[40%] aspect-[16/9] md:aspect-auto" : "aspect-[16/9]",
+            // Lock aspect ratio at every breakpoint so the image slot has
+            // intrinsic height before the image loads — prevents CLS.
+            "block shrink-0 overflow-hidden bg-muted aspect-[16/9]",
+            isHero && "md:w-[40%] md:aspect-[5/3]",
           )}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={article.imageUrl}
             alt=""
+            width={1600}
+            height={900}
             loading="lazy"
+            decoding="async"
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
           />
         </a>
