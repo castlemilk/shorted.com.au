@@ -225,6 +225,443 @@ export const glossaryTerms: GlossaryCategory[] = [
       },
     ],
   },
+  {
+    category: "Short Selling Mechanics",
+    terms: [
+      {
+        term: "Locate",
+        slug: createSlug("Locate"),
+        definition:
+          "The process of confirming a lender for shares before executing a short sale. Australian law (Corporations Act s1020B) requires sellers to have a securities lending arrangement in place before they short — a 'locate' is the broker's confirmation that shares are available to borrow.",
+        related: ["Securities Lending", "Naked Short Selling"],
+      },
+      {
+        term: "Recall",
+        slug: createSlug("Recall"),
+        definition:
+          "When a securities lender demands the return of shares lent out for short selling, forcing the borrower to close their short position or find shares from a new lender. Recalls often happen around dividend records, AGM voting, and corporate actions.",
+        related: ["Securities Lending", "Short Squeeze", "Short Covering"],
+      },
+      {
+        term: "Rebate Rate",
+        slug: createSlug("Rebate Rate"),
+        definition:
+          "The interest a short seller earns on cash collateral posted to borrow shares, less the borrow fee charged by the lender. For hard-to-borrow stocks the rebate can be negative — the short seller pays to hold the position.",
+        related: ["Borrow Fee", "Hard-to-Borrow", "Securities Lending"],
+      },
+      {
+        term: "Borrow Fee",
+        slug: createSlug("Borrow Fee"),
+        definition:
+          "The annualised cost of borrowing shares to maintain a short position, expressed as a percentage of the position's market value. Highly-shorted or low-float ASX stocks can carry borrow fees of 20-50% or more.",
+        related: ["Rebate Rate", "Hard-to-Borrow", "Utilisation"],
+      },
+      {
+        term: "Hard-to-Borrow",
+        slug: createSlug("Hard-to-Borrow"),
+        definition:
+          "Stocks where shares for short-selling are scarce, driving up borrow fees and increasing recall risk. Often coincides with a building short squeeze setup. On the ASX, hard-to-borrow status is broker-defined and not publicly listed.",
+        related: ["Borrow Fee", "Short Squeeze", "Utilisation"],
+      },
+      {
+        term: "Easy-to-Borrow",
+        slug: createSlug("Easy-to-Borrow"),
+        definition:
+          "Highly-liquid stocks where shares are readily available to short with minimal borrow fees. Most ASX 200 large caps are easy-to-borrow under normal conditions.",
+        related: ["Borrow Fee", "Securities Lending"],
+      },
+      {
+        term: "Stock Loan",
+        slug: createSlug("Stock Loan"),
+        definition:
+          "A transaction in which one party lends shares to another in exchange for collateral (usually cash plus a fee). The borrower can then sell those shares short. Standard documentation uses the Global Master Securities Lending Agreement (GMSLA).",
+        related: ["Securities Lending", "Locate", "Rebate Rate"],
+      },
+    ],
+  },
+  {
+    category: "Ratios & Metrics",
+    terms: [
+      {
+        term: "Utilisation",
+        slug: createSlug("Utilisation"),
+        definition:
+          "The percentage of a stock's lendable float currently out on loan. High utilisation (>90%) indicates supply scarcity and rising borrow fees — a classic precursor to short-squeeze conditions.",
+        related: ["Hard-to-Borrow", "Borrow Fee", "Free Float"],
+      },
+      {
+        term: "Short Interest Ratio",
+        slug: createSlug("Short Interest Ratio"),
+        definition:
+          "Synonym for Days to Cover — measures how many days of average trading volume are needed to close every short position. Widely used in US markets and increasingly in ASX analysis.",
+        related: ["Days to Cover", "Short Interest"],
+      },
+      {
+        term: "Average Daily Volume",
+        slug: createSlug("Average Daily Volume"),
+        definition:
+          "The mean number of shares traded per day over a defined window (typically 30 days). ADV is the denominator in Days to Cover and a key liquidity gauge.",
+        related: ["Days to Cover", "Liquidity"],
+      },
+      {
+        term: "Free Float",
+        slug: createSlug("Free Float"),
+        definition:
+          "The portion of a company's shares available for public trading, excluding insider, strategic, and locked-up holdings. Low free float amplifies short-squeeze potential because shares are harder to source for borrowing.",
+        related: ["Utilisation", "Hard-to-Borrow", "Liquidity"],
+      },
+      {
+        term: "Liquidity",
+        slug: createSlug("Liquidity"),
+        definition:
+          "How easily a stock can be bought or sold without moving the price. Measured by spread, depth, and volume. ASX 200 stocks are typically highly liquid; small and micro-caps less so.",
+        related: ["Average Daily Volume", "Free Float"],
+      },
+      {
+        term: "Beta",
+        slug: createSlug("Beta"),
+        definition:
+          "A measure of a stock's volatility relative to the broader market (e.g., S&P/ASX 200). Beta of 1 moves with the market; >1 is more volatile; <1 less. High-beta names often attract heavier short interest.",
+        related: ["Volatility"],
+      },
+      {
+        term: "Volatility",
+        slug: createSlug("Volatility"),
+        definition:
+          "The degree of price variation over time, typically measured as the annualised standard deviation of returns. Higher volatility increases option premiums and short-selling risk.",
+        related: ["Beta", "Implied Volatility"],
+      },
+    ],
+  },
+  {
+    category: "Market Structure",
+    terms: [
+      {
+        term: "T+2 Settlement",
+        slug: createSlug("T+2 Settlement"),
+        definition:
+          "The ASX settles cash-equity trades two business days after execution. The buyer receives shares and the seller receives cash on T+2. Short sellers must deliver borrowed shares by T+2 to avoid a fail-to-deliver.",
+        related: ["T+4 Delay", "Fail to Deliver"],
+      },
+      {
+        term: "Opening Auction",
+        slug: createSlug("Opening Auction"),
+        definition:
+          "The 10:00am AEST auction that sets ASX opening prices. Pre-open orders accumulate from 7:00am and the matching algorithm calculates a single clearing price. Short sales typically aren't permitted in the opening auction.",
+        related: ["Market on Close", "ASX Trade"],
+      },
+      {
+        term: "Market on Close",
+        slug: createSlug("Market on Close"),
+        definition:
+          "The 4:10pm AEST closing auction that sets official ASX closing prices. MOC orders execute only at the closing print and are widely used for benchmark trading and index rebalancing.",
+        related: ["Opening Auction", "ASX Trade"],
+      },
+      {
+        term: "ASX Trade",
+        slug: createSlug("ASX Trade"),
+        definition:
+          "The matching engine that runs continuous trading on the ASX and Cboe Australia (formerly Chi-X). Handles ~$5B in daily turnover during normal session hours 10:00–16:00 AEST.",
+        related: ["Cboe Australia", "Market on Close"],
+      },
+      {
+        term: "Cboe Australia",
+        slug: createSlug("Cboe Australia"),
+        definition:
+          "The alternative ASX trading venue (rebranded from Chi-X Australia in 2022). Operates a competing lit order book — ASX-listed securities trade on both venues with a single best-bid-offer aggregated across them.",
+        related: ["ASX Trade", "Dark Pool"],
+      },
+      {
+        term: "Dark Pool",
+        slug: createSlug("Dark Pool"),
+        definition:
+          "Private trading venues where buy and sell orders are matched without pre-trade transparency. Used by institutions to execute large block trades without moving the lit market. ASIC requires dark trades over certain size thresholds to be reported.",
+        related: ["Cboe Australia"],
+      },
+      {
+        term: "Fail to Deliver",
+        slug: createSlug("Fail to Deliver"),
+        definition:
+          "A trade that does not settle on T+2 because the seller cannot deliver shares. Persistent fails can indicate naked short selling. The ASX publishes fail statistics and ASIC investigates suspected naked short cases.",
+        related: ["T+2 Settlement", "Naked Short Selling"],
+      },
+    ],
+  },
+  {
+    category: "Risk & Position Management",
+    terms: [
+      {
+        term: "Drawdown",
+        slug: createSlug("Drawdown"),
+        definition:
+          "The peak-to-trough decline in an investment's value, expressed as a percentage. Short sellers track adverse drawdowns to size positions and set stop-losses.",
+        related: ["Volatility", "Stop Loss", "Position Sizing"],
+      },
+      {
+        term: "Stop Loss",
+        slug: createSlug("Stop Loss"),
+        definition:
+          "An order that automatically closes a position once a defined adverse price is reached. For a short, a buy-stop above the entry price caps the loss. Cascading stop-losses contribute to squeeze severity.",
+        related: ["Short Squeeze", "Position Sizing"],
+      },
+      {
+        term: "Position Sizing",
+        slug: createSlug("Position Sizing"),
+        definition:
+          "Determining how much capital to allocate to a single position based on conviction, volatility, and account risk tolerance. Conservative short sellers cap positions at 1-3% of portfolio NAV.",
+        related: ["Drawdown", "Risk-Reward Ratio"],
+      },
+      {
+        term: "Risk-Reward Ratio",
+        slug: createSlug("Risk-Reward Ratio"),
+        definition:
+          "The ratio of potential loss to potential gain on a trade. For shorts, the maximum gain is bounded (price can only fall to zero) while the loss is unbounded (price can rise indefinitely) — making R/R discipline especially important.",
+        related: ["Stop Loss", "Position Sizing"],
+      },
+      {
+        term: "Hedging",
+        slug: createSlug("Hedging"),
+        definition:
+          "Taking an offsetting position to reduce risk in another holding. Pair trades (long one stock, short a peer) are a common hedge against sector or market beta.",
+        related: ["Beta"],
+      },
+      {
+        term: "Gamma Squeeze",
+        slug: createSlug("Gamma Squeeze"),
+        definition:
+          "A rapid stock-price spike driven by option market-makers hedging short-call exposure. As the share price rises, dealers must buy more underlying to remain delta-neutral, accelerating the squeeze. The 2021 US meme-stock rally was the textbook example.",
+        related: ["Short Squeeze", "Implied Volatility"],
+      },
+      {
+        term: "Implied Volatility",
+        slug: createSlug("Implied Volatility"),
+        definition:
+          "The market's forward-looking estimate of a stock's volatility, derived from option prices. Elevated IV signals expected price swings — useful for sizing short positions and timing squeeze setups.",
+        related: ["Volatility", "Gamma Squeeze"],
+      },
+    ],
+  },
+  {
+    category: "Behavioural Finance",
+    terms: [
+      {
+        term: "Capitulation",
+        slug: createSlug("Capitulation"),
+        definition:
+          "Mass surrender by longs after a sustained decline, marked by accelerating volume and panic selling. Short sellers often cover into capitulation lows, as the move has likely exhausted.",
+        related: ["Panic Selling", "Short Covering"],
+      },
+      {
+        term: "Panic Selling",
+        slug: createSlug("Panic Selling"),
+        definition:
+          "Heavy, emotion-driven liquidation of holdings triggered by sharp price declines or bad news. Often associated with capitulation and short-seller profits.",
+        related: ["Capitulation"],
+      },
+      {
+        term: "FOMO",
+        slug: createSlug("FOMO"),
+        definition:
+          "Fear of missing out — the behavioural bias driving investors to chase rising prices. FOMO buying into a heavily-shorted stock can ignite a short squeeze as price-insensitive shorts get forced out.",
+        related: ["Short Squeeze", "Herding"],
+      },
+      {
+        term: "Herding",
+        slug: createSlug("Herding"),
+        definition:
+          "The tendency of investors to follow the crowd rather than independent analysis. Herding amplifies trends and inflates bubbles, which contrarian short sellers seek to fade.",
+        related: ["FOMO", "Contrarian"],
+      },
+      {
+        term: "Contrarian",
+        slug: createSlug("Contrarian"),
+        definition:
+          "An investment style that bets against prevailing sentiment. Short selling overvalued momentum names is a classic contrarian position.",
+        related: ["Herding", "FOMO"],
+      },
+    ],
+  },
+  {
+    category: "Australian Market & Macro",
+    terms: [
+      {
+        term: "RBA Cash Rate",
+        slug: createSlug("RBA Cash Rate"),
+        definition:
+          "The Reserve Bank of Australia's policy interest rate, set monthly by the RBA Board. Influences borrowing costs across the economy and the rebate rate short sellers earn on cash collateral.",
+        related: ["Rebate Rate"],
+      },
+      {
+        term: "Franking Credits",
+        slug: createSlug("Franking Credits"),
+        definition:
+          "Tax credits attached to Australian dividends representing corporate tax already paid. Recipients reduce their personal tax liability by the franking-credit amount. Short sellers must compensate lenders for any franking value missed on the loaned stock — a 'frank' or 'manufactured dividend' adjustment.",
+        related: ["Manufactured Dividend", "Dividend"],
+      },
+      {
+        term: "Manufactured Dividend",
+        slug: createSlug("Manufactured Dividend"),
+        definition:
+          "A cash payment a short seller makes to the share lender to compensate for dividends paid during the loan period. ATO rules govern the tax treatment, and the obligation often spikes around the ex-dividend date.",
+        related: ["Franking Credits", "Ex-Dividend Date"],
+      },
+      {
+        term: "ASX 200",
+        slug: createSlug("ASX 200"),
+        definition:
+          "Australia's benchmark equity index, comprising the 200 largest ASX-listed companies by float-adjusted market cap. Rebalanced quarterly by S&P. Index inclusion drives flows from passive ETFs and superannuation funds.",
+        related: ["Index Rebalance"],
+      },
+      {
+        term: "Index Rebalance",
+        slug: createSlug("Index Rebalance"),
+        definition:
+          "Quarterly adjustment of index constituents and weights. Anticipated additions tend to rally and deletions tend to fall, creating short-selling opportunities around index-effective dates.",
+        related: ["ASX 200"],
+      },
+    ],
+  },
+  {
+    category: "Corporate Actions",
+    terms: [
+      {
+        term: "Ex-Dividend Date",
+        slug: createSlug("Ex-Dividend Date"),
+        definition:
+          "The first trading day a stock trades without the right to its declared dividend. Buyers on or after this date do not receive the dividend. Stocks typically drop by the dividend amount on the ex-date, which short sellers must compensate lenders for.",
+        related: ["Manufactured Dividend", "Dividend"],
+      },
+      {
+        term: "Dividend",
+        slug: createSlug("Dividend"),
+        definition:
+          "A cash distribution from a company to shareholders, usually paid semi-annually for ASX stocks. Most ASX dividends carry franking credits.",
+        related: ["Franking Credits", "Ex-Dividend Date"],
+      },
+      {
+        term: "Rights Issue",
+        slug: createSlug("Rights Issue"),
+        definition:
+          "An offer letting existing shareholders buy new shares at a discount, pro-rata to their holding. Rights issues dilute non-participating holders and often pressure the share price — favourable conditions for short sellers.",
+        related: ["Share Purchase Plan", "Capital Raising"],
+      },
+      {
+        term: "Share Purchase Plan",
+        slug: createSlug("Share Purchase Plan"),
+        definition:
+          "An SPP is a placement to retail shareholders capped at $30,000 per holder. Typically priced at a discount to market and used alongside institutional placements to top up capital.",
+        related: ["Rights Issue", "Capital Raising"],
+      },
+      {
+        term: "Capital Raising",
+        slug: createSlug("Capital Raising"),
+        definition:
+          "Any issuance of new equity, including placements, rights issues, SPPs, and convertibles. Short sellers watch for raisings as they signal balance-sheet stress and often dilute existing holders.",
+        related: ["Rights Issue", "Share Purchase Plan"],
+      },
+      {
+        term: "Buyback",
+        slug: createSlug("Buyback"),
+        definition:
+          "A company repurchases its own shares from the market, reducing shares on issue and lifting EPS. Buybacks can short-squeeze a heavily-shorted name by removing supply.",
+        related: ["Short Squeeze"],
+      },
+      {
+        term: "Profit Warning",
+        slug: createSlug("Profit Warning"),
+        definition:
+          "An ASX disclosure that earnings will materially miss prior guidance. Profit warnings are price-sensitive and frequently trigger sharp gaps lower — short-seller targets.",
+        related: ["Guidance", "Continuous Disclosure"],
+      },
+      {
+        term: "Guidance",
+        slug: createSlug("Guidance"),
+        definition:
+          "Company forecasts for revenue, earnings, or other metrics. ASX continuous-disclosure rules require companies to update guidance when actuals will diverge materially.",
+        related: ["Profit Warning", "Continuous Disclosure"],
+      },
+    ],
+  },
+  {
+    category: "Reporting & Disclosure",
+    terms: [
+      {
+        term: "Continuous Disclosure",
+        slug: createSlug("Continuous Disclosure"),
+        definition:
+          "ASX Listing Rule 3.1 requires listed entities to immediately disclose information a reasonable person would expect to materially affect the share price. Underpins the price-sensitive flag on ASX announcements.",
+        related: ["Guidance", "Profit Warning"],
+      },
+      {
+        term: "Half-Year Report",
+        slug: createSlug("Half-Year Report"),
+        definition:
+          "Unaudited interim financial accounts ASX 200 companies file with ASIC by 31 August (December-balance) or 28 February (June-balance). Half-year reporting is a peak window for guidance updates and short-position rebalancing.",
+        related: ["Full-Year Report", "Continuous Disclosure"],
+      },
+      {
+        term: "Full-Year Report",
+        slug: createSlug("Full-Year Report"),
+        definition:
+          "Audited annual report lodged with ASIC and the ASX. The Annual General Meeting (AGM) typically follows within four months. Heavy short-position adjustments often cluster around full-year results.",
+        related: ["Half-Year Report", "Annual General Meeting"],
+      },
+      {
+        term: "Quarterly Activities Report",
+        slug: createSlug("Quarterly Activities Report"),
+        definition:
+          "Required for mining and biotech 'commitments' companies — quarterly cash-flow and operations updates due 30 days after each quarter-end. Often the catalyst for short-seller theses on early-stage explorers.",
+        related: ["Full-Year Report"],
+      },
+      {
+        term: "Annual General Meeting",
+        slug: createSlug("Annual General Meeting"),
+        definition:
+          "The yearly shareholder meeting where dividends are ratified, directors elected, and the remuneration report is voted on. AGMs often produce price-sensitive Q&A and trading-update disclosures.",
+        related: ["Full-Year Report"],
+      },
+    ],
+  },
+  {
+    category: "Tax & Legal",
+    terms: [
+      {
+        term: "Capital Gains Tax",
+        slug: createSlug("Capital Gains Tax"),
+        definition:
+          "Australian tax on gains realised when selling investments. For short sellers, gains are taxed as ordinary income (not CGT) because the position is closed by buying rather than selling.",
+        related: ["CGT Discount"],
+      },
+      {
+        term: "CGT Discount",
+        slug: createSlug("CGT Discount"),
+        definition:
+          "Australian individuals and trusts holding an asset for >12 months pay CGT on only half their gain. Does not apply to short sellers — short positions are taxed as revenue gains.",
+        related: ["Capital Gains Tax"],
+      },
+      {
+        term: "Wash Sale",
+        slug: createSlug("Wash Sale"),
+        definition:
+          "Selling an asset and rebuying a substantially identical asset within a short window solely to crystallise a tax loss. The ATO can disallow the loss under Part IVA general anti-avoidance rules.",
+        related: ["Capital Gains Tax"],
+      },
+      {
+        term: "Insider Trading",
+        slug: createSlug("Insider Trading"),
+        definition:
+          "Trading on material non-public information, prohibited under Corporations Act s1043A. ASIC actively prosecutes insider-trading cases. Director trades are publicly disclosed via Appendix 3Y notices.",
+        related: ["Director Trade", "Continuous Disclosure"],
+      },
+      {
+        term: "Director Trade",
+        slug: createSlug("Director Trade"),
+        definition:
+          "A purchase or sale of company shares by a director, lodged with the ASX via an Appendix 3Y change-of-interest notice within 14 days. Often watched as a sentiment signal by short sellers.",
+        related: ["Insider Trading", "Continuous Disclosure"],
+      },
+    ],
+  },
 ];
 
 // Flat list of all terms for lookups
