@@ -26,6 +26,11 @@ const StockTabs = dynamic(
   () => import("~/@/components/company/stock-tabs").then((m) => m.StockTabs),
   { ssr: false }
 );
+// Client-only: uses fetchStockDataClient (Connect-RPC) + market-data API.
+const ShortPriceOverlay = dynamic(
+  () => import("~/@/components/company/short-price-overlay").then((m) => m.ShortPriceOverlay),
+  { ssr: false }
+);
 import { Suspense } from "react";
 import {
   Breadcrumbs,
@@ -480,6 +485,9 @@ const Page = async ({ params }: PageProps) => {
                 stockCode={stockCode}
                 summary={communitySummary}
               />
+
+              {/* Price vs Short Interest overlay — dual-axis visualization */}
+              <ShortPriceOverlay stockCode={stockCode} />
 
               {/* Historical Price Data */}
               <Card className="border-l-4 border-l-blue-500 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
