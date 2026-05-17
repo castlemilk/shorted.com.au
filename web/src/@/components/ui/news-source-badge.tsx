@@ -1,3 +1,5 @@
+"use client";
+
 interface NewsSourceConfig {
   name: string;
   url: string;
