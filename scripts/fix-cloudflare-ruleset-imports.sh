@@ -49,13 +49,13 @@ echo ""
 echo "==> Importing cache_rules"
 terraform import \
   'module.edge.cloudflare_ruleset.cache_rules[0]' \
-  "zones/${ZONE_ID}/${CACHE_RULESET_ID}"
+  "zone/${ZONE_ID}/${CACHE_RULESET_ID}"
 
 echo ""
 echo "==> Importing rate_limit_api"
 terraform import \
   'module.edge.cloudflare_ruleset.rate_limit_api[0]' \
-  "zones/${ZONE_ID}/${RATE_LIMIT_RULESET_ID}"
+  "zone/${ZONE_ID}/${RATE_LIMIT_RULESET_ID}"
 
 echo ""
 echo "==> Done. Next: kick off terraform-apply via:"
