@@ -1,0 +1,108 @@
+name: Twitter / X bot
+
+# Posts curated ASX short-selling tweets from @shorted on a fixed cadence.
+# Each job runs the scripts/twitter Node script with a specific subcommand.
+#
+# Times in cron are UTC. ASX trades 10:00–16:00 AEST = 00:00–06:00 UTC
+# (AEDT shifts that by 1h; cron uses fixed UTC so accept a 1-hour drift).
+#
+# Each post type can be disabled by toggling its `if:` guard or
+# commenting out the schedule. The workflow_dispatch input lets you
+# manually trigger any post-type from the Actions UI.
+
+on:
+  schedule:
+    # Daily top shorts — 11:00 AEST = 01:00 UTC
+    - cron: "0 1 * * *"
+    # Daily biggest movers — 16:30 AEST (post-close) = 06:30 UTC
+    - cron: "30 6 * * *"
+    # Stock of the day — 09:00 AEST = 23:00 UTC (previous day)
+    - cron: "0 23 * * *"
+    # Friday weekly digest thread — 17:00 AEST = 07:00 UTC, Fridays
+    - cron: "0 7 * * 5"
+    # Breaking news sweep — every 2h during ASX hours, weekdays
+    - cron: "0 0,2,4,6 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "Which post to run"
+        required: true
+        type: choice
+        options:
+          - daily-shorts
+          - movers
+          - stock-of-the-day
+          - weekly-digest
+          - breaking-news
+      mode:
+        description: "dry-run (default) or live"
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - live
+
+jobs:
+  determine-command:
+    runs-on: ubuntu-latest
+    outputs:
+      command: ${{ steps.resolve.outputs.command }}
+      mode: ${{ steps.resolve.outputs.mode }}
+    steps:
+      - id: resolve
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "command=${{ github.event.inputs.command }}" >> "$GITHUB_OUTPUT"
+            echo "mode=${{ github.event.inputs.mode }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Schedule firing: map cron to a command.
+          case "${{ github.event.schedule }}" in
+            "0 1 * * *")          echo "command=daily-shorts" ;;
+            "30 6 * * *")         echo "command=movers" ;;
+            "0 23 * * *")         echo "command=stock-of-the-day" ;;
+            "0 7 * * 5")          echo "command=weekly-digest" ;;
+            "0 0,2,4,6 * * 1-5")  echo "command=breaking-news" ;;
+            *) echo "command=" ;;
+          esac >> "$GITHUB_OUTPUT"
+          echo "mode=live" >> "$GITHUB_OUTPUT"
+
+  post:
+    needs: determine-command
+    if: needs.determine-command.outputs.command != ''
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: scripts/twitter
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: scripts/twitter/package-lock.json
+
+      - name: Install deps
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Post
+        env:
+          TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+          TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
+          SHORTED_API_URL: https://api.shorted.com.au
+          # Default to dry-run unless the cron explicitly sets mode=live.
+          # workflow_dispatch lets the operator pick dry-run or live.
+          TWITTER_DRY_RUN_DEFAULT: ${{ needs.determine-command.outputs.mode == 'live' && 'false' || 'true' }}
+        run: |
+          MODE="${{ needs.determine-command.outputs.mode }}"
+          CMD="${{ needs.determine-command.outputs.command }}"
+          echo "Running: $CMD ($MODE)"
+          if [ "$MODE" = "live" ]; then
+            npx tsx src/index.ts "$CMD" --live
+          else
+            npx tsx src/index.ts "$CMD"
+          fi

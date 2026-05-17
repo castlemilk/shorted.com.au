@@ -88,11 +88,14 @@ npx tsx src/index.ts insider-trade --stock=BHP --live
 0 7 * * 5 cd /Users/.../shorted/scripts/twitter && npx tsx src/index.ts weekly-digest --live >> /tmp/shorted-twitter.log 2>&1
 ```
 
-### Cloud — GitHub Actions
+### Cloud — GitHub Actions (production)
 
-Drop a workflow at `.github/workflows/twitter.yml` that runs on
-`schedule:` (cron) and stores credentials in repo secrets. Calls
-`tsx scripts/twitter/src/index.ts <command> --live`.
+The scheduled workflow is already in place:
+[`.github/workflows/twitter-bot.yml`](../../.github/workflows/twitter-bot.yml).
+It runs all 5 post types on a fixed cron + supports manual one-off
+runs via `workflow_dispatch`.
+
+Full bootstrap + ops instructions: [`OPERATIONS.md`](OPERATIONS.md).
 
 ---
 
