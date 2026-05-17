@@ -62,8 +62,38 @@ const breadcrumbs = [
 export default async function IndustryIndexPage() {
   const industryData = await getIndustryData();
 
+  // CollectionPage + ItemList — exposes every industry/sector as a
+  // structured child so crawlers can ingest the sector taxonomy.
+  const itemList = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: "ASX Short Positions by Industry",
+    description:
+      "Short selling activity across ASX industry sectors. Aggregated short interest, ranked stock lists, and sector trends from official ASIC data.",
+    url: "https://shorted.com.au/industry",
+    isPartOf: {
+      "@type": "WebSite",
+      name: "Shorted",
+      url: "https://shorted.com.au",
+    },
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: industryData.length,
+      itemListElement: industryData.map((industry, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        url: `https://shorted.com.au/industry/${industry.slug}`,
+        name: `${industry.name} — ASX Short Positions`,
+      })),
+    },
+  };
+
   return (
     <DashboardLayout>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }}
+      />
       <BreadcrumbListSchema items={breadcrumbs} />
 
       <div className="space-y-8">

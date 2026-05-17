@@ -79,8 +79,52 @@ export default async function ReportsIndexPage() {
 
   const breadcrumbItems = [{ label: "Reports", href: "/reports" }];
 
+  // ItemList + CollectionPage schema — gives Google the full inventory
+  // of report URLs so the report archive is indexable as a series.
+  const itemList = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: "ASX Short Selling Reports",
+    description:
+      "Archive of weekly, monthly, and yearly ASX short selling reports with LLM-narrated analysis.",
+    url: "https://shorted.com.au/reports",
+    isPartOf: {
+      "@type": "WebSite",
+      name: "Shorted",
+      url: "https://shorted.com.au",
+    },
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: weekSlugs.length + monthSlugs.length + yearSlugs.length,
+      itemListElement: [
+        ...weekSlugs.slice(0, 20).map((slug, i) => ({
+          "@type": "ListItem",
+          position: i + 1,
+          url: `https://shorted.com.au/reports/weekly/${slug}`,
+          name: `Weekly Short Selling Report ${slug}`,
+        })),
+        ...monthSlugs.slice(0, 12).map((slug, i) => ({
+          "@type": "ListItem",
+          position: 100 + i,
+          url: `https://shorted.com.au/reports/monthly/${slug}`,
+          name: `Monthly Short Selling Report ${slug}`,
+        })),
+        ...yearSlugs.slice(0, 10).map((slug, i) => ({
+          "@type": "ListItem",
+          position: 200 + i,
+          url: `https://shorted.com.au/reports/yearly/${slug}`,
+          name: `Annual Short Selling Report ${slug}`,
+        })),
+      ],
+    },
+  };
+
   return (
     <DashboardLayout>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }}
+      />
       <BreadcrumbListSchema items={breadcrumbs} />
       <LLMMeta
         title="ASX Short Selling Reports - Weekly & Monthly Analysis"

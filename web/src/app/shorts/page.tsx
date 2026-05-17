@@ -58,10 +58,41 @@ export default async function TopShortsPage() {
   const timeSeries = data?.timeSeries ?? [];
   const moversData = calculateMovers(timeSeries, DEFAULT_PERIOD);
 
+  // ItemList schema — declares this URL as the canonical index for the
+  // top shorted ASX stocks so crawlers + AI Overviews can ingest the
+  // ranking as structured data alongside the rendered table.
+  const itemList = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "ASX Short Positions — All Shorted Stocks",
+    description:
+      "Daily-updated rankings of ASX-listed stocks by ASIC-reported short interest %.",
+    numberOfItems: timeSeries.length,
+    url: `${siteConfig.url}/shorts`,
+    itemListOrder: "https://schema.org/ItemListOrderDescending",
+    isPartOf: {
+      "@type": "WebSite",
+      url: siteConfig.url,
+      name: siteConfig.name,
+    },
+    itemListElement: timeSeries.slice(0, 20).map((ts, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      url: ts.productCode ? `${siteConfig.url}/shorts/${ts.productCode}` : undefined,
+      name: ts.name || ts.productCode,
+    })),
+  };
+
   return (
-    <TopShortsClient
-      initialMoversData={moversData}
-      initialPeriod={DEFAULT_PERIOD}
-    />
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }}
+      />
+      <TopShortsClient
+        initialMoversData={moversData}
+        initialPeriod={DEFAULT_PERIOD}
+      />
+    </>
   );
 }
