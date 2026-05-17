@@ -309,12 +309,45 @@ const Page = async ({ params }: PageProps) => {
             tickerSymbol: stockCode,
           },
         };
+        // Corporation schema with sameAs anchors so Google's Knowledge
+        // Graph treats this page as the canonical hub for [stockCode]'s
+        // short-selling entity. ASX + Bloomberg URLs are deterministic.
+        // Wikipedia/Wikidata require per-stock lookup — handled in a
+        // follow-up enrichment pass.
+        const corporationSchema = {
+          "@context": "https://schema.org",
+          "@type": "Corporation",
+          name: companyName,
+          legalName: companyName,
+          tickerSymbol: stockCode,
+          identifier: `ASX:${stockCode}`,
+          ...(stock.logoUrl ? { logo: stock.logoUrl, image: stock.logoUrl } : {}),
+          ...(industry ? { naics: industry } : {}),
+          sameAs: [
+            `https://www.asx.com.au/markets/company/${stockCode}`,
+            `https://www.bloomberg.com/profile/company/${stockCode}:AU`,
+            `https://au.finance.yahoo.com/quote/${stockCode}.AX`,
+            `https://www.google.com/finance/quote/${stockCode}:ASX`,
+            `https://simplywall.st/stocks/au/none/asx-${stockCode.toLowerCase()}`,
+          ],
+          subjectOf: {
+            "@type": "WebPage",
+            url: `${siteConfig.url}/shorts/${stockCode}`,
+            name: `${companyName} (${stockCode}) Short Position`,
+          },
+        };
         return (
           <>
             <script
               type="application/ld+json"
               dangerouslySetInnerHTML={{
                 __html: JSON.stringify(datasetSchema),
+              }}
+            />
+            <script
+              type="application/ld+json"
+              dangerouslySetInnerHTML={{
+                __html: JSON.stringify(corporationSchema),
               }}
             />
             <section
