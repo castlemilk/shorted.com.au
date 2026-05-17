@@ -138,8 +138,15 @@ export async function setCached<T>(
   // Standard Redis via ioredis
   if (ioRedis) {
     try {
-      // ioredis requires manual JSON serialization
-      await ioRedis.setex(key, Number(ttl), JSON.stringify(data));
+      // ioredis requires manual JSON serialization.
+      // BigInt replacer: protobuf Timestamp/int64 fields come back as BigInt
+      // and default JSON.stringify throws on them. Stringify to a plain
+      // number-as-string — read paths already coerce to Number or string.
+      await ioRedis.setex(
+        key,
+        Number(ttl),
+        JSON.stringify(data, (_, v) => (typeof v === "bigint" ? v.toString() : v)),
+      );
       return true;
     } catch (error) {
       console.error(`Cache set error for key ${key}:`, error);

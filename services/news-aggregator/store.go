@@ -62,7 +62,10 @@ func (s *NewsStore) StoreArticles(ctx context.Context, articles []*NewsArticleRa
 		tag, err := s.db.Exec(ctx,
 			`INSERT INTO news_articles (stock_code, source, headline, url, published_at, sentiment, relevance_score, is_price_sensitive, summary, image_url, image_pulled_at)
 			 VALUES ($1, $2, $3, $4, $5::timestamptz, $6, $7, $8, $9, $10, $11)
-			 ON CONFLICT (url) DO NOTHING`,
+			 ON CONFLICT (url) DO UPDATE
+			 SET image_url = COALESCE(news_articles.image_url, EXCLUDED.image_url),
+			     image_pulled_at = COALESCE(news_articles.image_pulled_at, EXCLUDED.image_pulled_at)
+			 WHERE news_articles.image_url IS NULL AND EXCLUDED.image_url IS NOT NULL`,
 			stockCode,
 			a.Source,
 			a.Headline,
