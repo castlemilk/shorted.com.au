@@ -95,7 +95,6 @@ export function NewsCard({ article, variant = "default", showStockChip = true, c
             <Link
               href={`/shorts/${article.stockCode}`}
               className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wide text-foreground transition-colors hover:bg-muted"
-              onClick={(e) => e.stopPropagation()}
             >
               ${article.stockCode}
             </Link>
