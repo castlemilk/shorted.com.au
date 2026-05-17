@@ -377,6 +377,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   ];
 
+  // Insider-trading hub + per-stock director-trades pages.
+  const insiderRoutes = [
+    { url: `${baseUrl}/insider-trading`, lastModified: currentDate },
+    ...stockCodes.map((code) => ({
+      url: `${baseUrl}/insider-trading/${code}`,
+      lastModified: currentDate,
+    })),
+  ];
+
+  // Open data hub.
+  const dataRoutes = [
+    { url: `${baseUrl}/data`, lastModified: currentDate },
+  ];
+
   return [
     ...staticRoutes,
     ...topRoutes,
@@ -387,6 +401,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...marketRoutes,
     ...reportRoutes,
     ...newsRoutes,
+    ...insiderRoutes,
+    ...dataRoutes,
     ...faqRoutes,
     ...privacyRoutes,
     ...learnRoutes,
