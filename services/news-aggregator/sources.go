@@ -44,5 +44,35 @@ func GetDefaultSources() []NewsSource {
 			SourceID:  "googlenews",
 			IsTrusted: true,
 		},
+		{
+			Name:      "ABC News Business",
+			URL:       "https://www.abc.net.au/news/feed/2942460/rss.xml",
+			SourceID:  "abc",
+			IsTrusted: true,
+		},
+		{
+			Name:      "SMH Business",
+			URL:       "https://www.smh.com.au/rss/business.xml",
+			SourceID:  "smh",
+			IsTrusted: true,
+		},
+		{
+			Name:      "The Age Business",
+			URL:       "https://www.theage.com.au/rss/business.xml",
+			SourceID:  "theage",
+			IsTrusted: true,
+		},
+		{
+			Name:      "AFR Markets",
+			URL:       "https://www.afr.com/rss/markets.xml",
+			SourceID:  "afr",
+			IsTrusted: true,
+		},
+		{
+			Name:      "Business News Australia",
+			URL:       "https://www.businessnewsaustralia.com/rss.xml",
+			SourceID:  "businessnews",
+			IsTrusted: false,
+		},
 	}
 }
