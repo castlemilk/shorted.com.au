@@ -142,6 +142,28 @@ func main() {
 		return
 	}
 
+	// One-shot story-clustering mode: RUN_MODE=cluster-news
+	// Groups duplicate-event coverage by (stock_code, 3-gram headline
+	// shingles, 12h window) and writes shared cluster_id markers.
+	if os.Getenv("RUN_MODE") == "cluster-news" {
+		lookbackHours := 48
+		if v := os.Getenv("CLUSTER_LOOKBACK_HOURS"); v != "" {
+			_, _ = fmt.Sscanf(v, "%d", &lookbackHours)
+		}
+		minOverlap := 3
+		if v := os.Getenv("CLUSTER_MIN_OVERLAP"); v != "" {
+			_, _ = fmt.Sscanf(v, "%d", &minOverlap)
+		}
+		if err := ClusterNews(ctx, db, ClusterNewsOpts{
+			LookbackHours:     lookbackHours,
+			MinShingleOverlap: minOverlap,
+			DryRun:            *dryRun,
+		}); err != nil {
+			log.Fatalf("ClusterNews failed: %v", err)
+		}
+		return
+	}
+
 	// For Cloud Run Jobs: process and exit
 	// For Cloud Run Services: serve health check and process on schedule
 	if os.Getenv("CLOUD_RUN_JOB") != "" {
