@@ -64,18 +64,20 @@ export async function getStockHistory(
   stockCode: string,
   period = "3m",
 ): Promise<StockSeries | null> {
+  // protobuf Timestamps serialise to ISO strings over JSON (not the
+  // `{seconds, nanos}` shape used on the wire).
   const resp = await call<{
-    timestamp?: { seconds?: string };
     productCode?: string;
     name?: string;
-    points?: Array<{ timestamp?: { seconds?: string }; shortPosition?: number }>;
+    points?: Array<{ timestamp?: string; shortPosition?: number }>;
   }>("GetStockData", { productCode: stockCode, period });
   if (!resp.productCode) return null;
   const points = (resp.points ?? [])
     .map((p) => ({
-      date: new Date(Number(p.timestamp?.seconds ?? 0) * 1000),
+      date: p.timestamp ? new Date(p.timestamp) : new Date(0),
       shortPosition: p.shortPosition ?? 0,
     }))
+    .filter((p) => !Number.isNaN(p.date.getTime()) && p.date.getTime() > 0)
     .sort((a, b) => a.date.getTime() - b.date.getTime());
   return {
     productCode: resp.productCode,
