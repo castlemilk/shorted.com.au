@@ -58,11 +58,8 @@ tf_state_rm 'module.edge.cloudflare_ruleset.cache_rules'
 tf_state_rm 'module.edge.cloudflare_ruleset.rate_limit_api'
 tf_state_rm 'module.edge.cloudflare_ruleset.waf_managed'
 tf_state_rm 'module.edge.cloudflare_workers_script.prewarm'
-# Remove any stale [0] entries for resources whose Cloudflare-side IDs
-# changed (DNS frontend was deleted+recreated; rulesets were deleted).
+# DNS frontend was deleted+recreated, so strip any stale [0] entry.
 tf_state_rm 'module.edge.cloudflare_record.frontend[0]'
-tf_state_rm 'module.edge.cloudflare_ruleset.cache_rules[0]'
-tf_state_rm 'module.edge.cloudflare_ruleset.rate_limit_api[0]'
 
 echo "=== Importing pre-existing Cloudflare resources ==="
 
@@ -75,11 +72,15 @@ tf_import 'module.edge.cloudflare_record.api[0]'      "${ZONE_ID}/91cf9d64108ee1
 tf_import 'module.edge.cloudflare_workers_kv_namespace.edge_cache' "${ACCOUNT_ID}/e08015a2c6324c7b8b3faa810d5b0c73"
 
 # Zone-level rulesets — all have count = 1, so [0] index required.
-# Provider v4 import format: zones/<zone_id>/<ruleset_id>.
-# cache_rules and rate_limit_api were deleted at Cloudflare during this
-# recovery sequence so terraform apply can recreate them cleanly. Only
-# waf_managed survives at Cloudflare and needs importing.
-tf_import 'module.edge.cloudflare_ruleset.waf_managed[0]' "zones/${ZONE_ID}/ea95ef9d9d1547d58e2ea004c832f83a"
+# Provider v4 import format: zone/<zone_id>/<ruleset_id> (singular).
+# All three rulesets ARE present at Cloudflare and must be imported on
+# every run; previous comment claiming cache_rules + rate_limit_api
+# were deleted was wrong — verified live via Cloudflare API. Without
+# these imports, terraform apply tries to CREATE colliding rulesets
+# and fails with "A similar configuration with rules already exists".
+tf_import 'module.edge.cloudflare_ruleset.waf_managed[0]'     "zone/${ZONE_ID}/ea95ef9d9d1547d58e2ea004c832f83a"
+tf_import 'module.edge.cloudflare_ruleset.cache_rules[0]'     "zone/${ZONE_ID}/debd8a1c7c3c412e89a344801cc57ae3"
+tf_import 'module.edge.cloudflare_ruleset.rate_limit_api[0]'  "zone/${ZONE_ID}/f86ec850c6194005b04b6a8cc8d8dfe5"
 
 # Workers scripts: edge_cache (no count), prewarm (count = 1, has [0])
 tf_import 'module.edge.cloudflare_workers_script.edge_cache' "${ACCOUNT_ID}/shorted-edge-cache"
