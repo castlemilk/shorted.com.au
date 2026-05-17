@@ -112,6 +112,36 @@ func main() {
 		return
 	}
 
+	// One-shot Google News resolver mode: RUN_MODE=resolve-googlenews
+	// Follows the news.google.com redirect to the source publisher,
+	// scrapes og:image, and updates the article row (optionally also
+	// rewriting url to the resolved publisher URL).
+	if os.Getenv("RUN_MODE") == "resolve-googlenews" {
+		limit := 500
+		if envLimit := os.Getenv("BACKFILL_LIMIT"); envLimit != "" {
+			_, _ = fmt.Sscanf(envLimit, "%d", &limit)
+		}
+		concurrency := 4
+		if envC := os.Getenv("BACKFILL_CONCURRENCY"); envC != "" {
+			_, _ = fmt.Sscanf(envC, "%d", &concurrency)
+		}
+		// Defaults to UpdateURL=true so /shorts/[code]/news links go
+		// directly to the publisher rather than Google's redirector.
+		updateURL := true
+		if v := os.Getenv("BACKFILL_UPDATE_URL"); v == "false" || v == "0" {
+			updateURL = false
+		}
+		if err := ResolveGoogleNews(ctx, db, ResolveGoogleNewsOpts{
+			Limit:       limit,
+			Concurrency: concurrency,
+			DryRun:      *dryRun,
+			UpdateURL:   updateURL,
+		}); err != nil {
+			log.Fatalf("ResolveGoogleNews failed: %v", err)
+		}
+		return
+	}
+
 	// For Cloud Run Jobs: process and exit
 	// For Cloud Run Services: serve health check and process on schedule
 	if os.Getenv("CLOUD_RUN_JOB") != "" {
