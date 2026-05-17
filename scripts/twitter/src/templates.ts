@@ -5,6 +5,7 @@
 import {
   getDirectorTrades,
   getMarketNews,
+  getStockHistory,
   getTopShorts,
   type TopShortsItem,
 } from "./shorted-api.js";
@@ -28,12 +29,34 @@ const stocksWithChange = async (
   current: TopShortsItem[],
 ): Promise<Array<TopShortsItem & { wowChange: number | null }>> => {
   // Pull recent history for each to compute week-on-week change.
-  // NOTE: The JSON-over-Connect-RPC variant of GetStockData is currently
-  // returning empty/static time-series (server-side bug, tracked
-  // separately). Until that's fixed the WoW change calc is skipped and
-  // we just emit the current %. Once fixed, restore the per-stock
-  // getStockHistory loop here.
-  return current.map((stock) => ({ ...stock, wowChange: null }));
+  // Restored after PR #139 + #140 fixed the edge-worker hot-cache bug
+  // that was causing per-stock GetStockData calls to return the same
+  // (first-cached) stock's data regardless of the requested code.
+  const out: Array<TopShortsItem & { wowChange: number | null }> = [];
+  for (const stock of current) {
+    let wowChange: number | null = null;
+    try {
+      const series = await getStockHistory(stock.productCode, "1m");
+      if (series && series.points.length >= 2) {
+        const latest = series.points[series.points.length - 1]!;
+        const targetMs = latest.date.getTime() - 7 * 86400000;
+        let prior = series.points[0]!;
+        for (const p of series.points) {
+          if (
+            Math.abs(p.date.getTime() - targetMs) <
+            Math.abs(prior.date.getTime() - targetMs)
+          ) {
+            prior = p;
+          }
+        }
+        wowChange = latest.shortPosition - prior.shortPosition;
+      }
+    } catch {
+      // ignore — leave wowChange null
+    }
+    out.push({ ...stock, wowChange });
+  }
+  return out;
 };
 
 // ============================================================
@@ -52,12 +75,12 @@ export async function buildDailyShortsTweet(): Promise<string> {
     const arrow =
       s.wowChange === null
         ? ""
-        : s.wowChange > 0.01
-          ? `↑${s.wowChange.toFixed(2)}`
-          : s.wowChange < -0.01
-            ? `↓${Math.abs(s.wowChange).toFixed(2)}`
-            : "=";
-    return `${i + 1}. $${s.productCode}  ${pct} ${arrow}`.trim();
+        : s.wowChange > 0.05
+          ? ` ↑${s.wowChange.toFixed(2)}`
+          : s.wowChange < -0.05
+            ? ` ↓${Math.abs(s.wowChange).toFixed(2)}`
+            : " =";
+    return `${i + 1}. $${s.productCode}  ${pct}${arrow}`;
   });
 
   return [
@@ -74,23 +97,50 @@ export async function buildDailyShortsTweet(): Promise<string> {
 // ============================================================
 
 export async function buildMoversTweet(): Promise<string> {
-  // Until the WoW change calculation is restored (see note in
-  // stocksWithChange), fall back to highlighting the #2 and #3
-  // most-shorted stocks as "watchlist" candidates.
-  const raw = await getTopShorts({ period: "1y", limit: 5, summaryOnly: true });
-  if (raw.length === 0) throw new Error("No top-shorts data available");
-  const top = raw[0]!;
-  const rest = raw
-    .slice(1, 4)
-    .map((m) => `$${m.productCode} (${fmtPct(m.latestShortPosition ?? 0)})`)
+  const raw = await getTopShorts({ period: "1y", limit: 30, summaryOnly: true });
+  const enriched = await stocksWithChange(raw);
+  const movers = enriched
+    .filter((s) => s.wowChange !== null)
+    .sort((a, b) => Math.abs(b.wowChange ?? 0) - Math.abs(a.wowChange ?? 0))
+    .slice(0, 3);
+  if (movers.length === 0) {
+    // Fallback: no WoW data, surface the top of the list.
+    const raw5 = raw.slice(0, 4);
+    const top = raw5[0]!;
+    const others = raw5
+      .slice(1)
+      .map((m) => `$${m.productCode} (${fmtPct(m.latestShortPosition ?? 0)})`)
+      .join("  ·  ");
+    return [
+      `$${top.productCode} sits at the top of the ASX short-interest table at ${fmtPct(top.latestShortPosition ?? 0)}.`,
+      "",
+      `Also worth watching: ${others}`,
+      "",
+      `Live updates: ${SITE}/shorts/${top.productCode}`,
+    ].join("\n");
+  }
+
+  const top = movers[0]!;
+  const change = top.wowChange ?? 0;
+  const direction = change > 0 ? "jumped" : "covered";
+  const sign = change > 0 ? "+" : "";
+  const others = movers
+    .slice(1)
+    .map((m) => {
+      const c = m.wowChange ?? 0;
+      const s = c > 0 ? "+" : "";
+      return `$${m.productCode} (${s}${c.toFixed(2)}%)`;
+    })
     .join("  ·  ");
 
   return [
-    `$${top.productCode} sits at the top of the ASX short-interest table at ${fmtPct(top.latestShortPosition ?? 0)}.`,
+    `$${top.productCode} short interest ${direction} ${sign}${change.toFixed(2)}% this week.`,
     "",
-    `Also worth watching: ${rest}`,
+    `Now: ${fmtPct(top.latestShortPosition ?? 0)} of shares outstanding shorted.`,
     "",
-    `Live updates: ${SITE}/shorts/${top.productCode}`,
+    `Other big movers: ${others}`,
+    "",
+    `Chart: ${SITE}/shorts/${top.productCode}`,
   ].join("\n");
 }
 
