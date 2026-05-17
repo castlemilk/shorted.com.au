@@ -391,6 +391,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/data`, lastModified: currentDate },
   ];
 
+  // Authors hub + per-author profile pages — E-E-A-T signal.
+  const { getAllAuthorSlugs } = await import("~/@/data/authors");
+  const authorSlugs = getAllAuthorSlugs();
+  const authorRoutes = [
+    { url: `${baseUrl}/authors`, lastModified: currentDate },
+    ...authorSlugs.map((slug) => ({
+      url: `${baseUrl}/authors/${slug}`,
+      lastModified: currentDate,
+    })),
+  ];
+
   return [
     ...staticRoutes,
     ...topRoutes,
@@ -403,6 +414,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...newsRoutes,
     ...insiderRoutes,
     ...dataRoutes,
+    ...authorRoutes,
     ...faqRoutes,
     ...privacyRoutes,
     ...learnRoutes,
