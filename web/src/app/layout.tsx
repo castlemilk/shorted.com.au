@@ -163,6 +163,47 @@ export default function RootLayout({
         <link rel="preconnect" href="https://www.googletagmanager.com" />
         <link rel="dns-prefetch" href="https://storage.googleapis.com" />
         <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+        {/* News-card image CDNs — improves LCP on /news + per-stock /news. */}
+        <link rel="dns-prefetch" href="https://kalkinemedia.com" />
+        <link rel="dns-prefetch" href="https://stockhead.com.au" />
+        <link rel="dns-prefetch" href="https://www.fool.com.au" />
+        <link rel="dns-prefetch" href="https://smallcaps.com.au" />
+        {/* WebSite schema with Sitelinks Search Action — Google may render
+            a search box directly in SERPs for shorted.com.au. The action
+            target is the /search page (also added in this batch). */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "Shorted",
+              alternateName: "Shorted.com.au",
+              url: "https://shorted.com.au",
+              description:
+                "Australia's ASX short-selling data platform — ASIC short positions, sentiment, and analysis.",
+              inLanguage: "en-AU",
+              publisher: {
+                "@type": "Organization",
+                name: "Shorted",
+                url: "https://shorted.com.au",
+                logo: {
+                  "@type": "ImageObject",
+                  url: "https://shorted.com.au/icon.png",
+                },
+              },
+              potentialAction: {
+                "@type": "SearchAction",
+                target: {
+                  "@type": "EntryPoint",
+                  urlTemplate:
+                    "https://shorted.com.au/search?q={search_term_string}",
+                },
+                "query-input": "required name=search_term_string",
+              },
+            }),
+          }}
+        />
         {/* Mark HTML as loaded to prevent FOUC */}
         <script
           dangerouslySetInnerHTML={{
