@@ -1,0 +1,20 @@
+{
+  "name": "@shorted/take-writer",
+  "version": "0.1.0",
+  "description": "Generate Shorted Take editorial drafts from price-sensitive news headlines via Gemini. Outputs SQL INSERT for editorial_takes; pairs with scripts/image-gen for hero images.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "draft": "tsx src/index.ts draft",
+    "pick": "tsx src/index.ts pick"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

@@ -139,3 +139,65 @@ export async function getDirectorTrades(
   });
   return resp.trades ?? [];
 }
+
+// ============================================================
+// Editorial Takes
+// ============================================================
+
+export interface EditorialTake {
+  id: string;
+  slug: string;
+  headline: string;
+  stockCode?: string;
+  bodyMd: string;
+  sentiment?: string;
+  sourceArticleId?: string;
+  sourceUrl?: string;
+  sourceName?: string;
+  ogImageUrl?: string;
+  heroImageUrl?: string;
+  publishedAt?: string;
+}
+
+/**
+ * Find the most relevant published Take for a (stockCode, headline).
+ * Returns the first published Take for the stock whose headline
+ * substantially matches the source article headline — by exact or
+ * normalised match. Imperfect but cheap; the alternative is matching
+ * source_article_id which requires the bot to know the article UUID.
+ */
+export async function findTakeForStockHeadline(
+  stockCode: string,
+  headline: string,
+): Promise<EditorialTake | null> {
+  try {
+    const resp = await call<{ takes?: EditorialTake[] }>(
+      "ListEditorialTakes",
+      { stockCode, limit: 10, offset: 0 },
+    );
+    const takes = resp.takes ?? [];
+    if (takes.length === 0) return null;
+    const norm = (s: string) =>
+      s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const target = norm(headline);
+    // Exact normalised match wins; otherwise look for shared n-grams.
+    const exact = takes.find((t) => norm(t.headline) === target);
+    if (exact) return exact;
+    const tokens = new Set(target.split(/\s+/).filter((w) => w.length > 3));
+    if (tokens.size === 0) return takes[0] ?? null;
+    let bestScore = 0;
+    let best: EditorialTake | null = null;
+    for (const t of takes) {
+      const tTokens = norm(t.headline).split(/\s+/).filter((w) => w.length > 3);
+      const overlap = tTokens.filter((w) => tokens.has(w)).length;
+      if (overlap > bestScore) {
+        bestScore = overlap;
+        best = t;
+      }
+    }
+    // Need at least 3 shared significant tokens to call it a match.
+    return bestScore >= 3 ? best : null;
+  } catch {
+    return null;
+  }
+}

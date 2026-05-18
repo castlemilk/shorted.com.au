@@ -3,6 +3,7 @@
 // truncated / packed to fit within 280 chars per tweet.
 
 import {
+  findTakeForStockHeadline,
   getDirectorTrades,
   getMarketNews,
   getStockHistory,
@@ -287,10 +288,20 @@ export async function buildBreakingNewsTweet(): Promise<string | null> {
   if (!latest) return null;
 
   const emoji = sentimentEmoji(latest.sentiment);
+
+  // Prefer linking to an internal Shorted Take if one exists for this
+  // story — closes the share-back loop to shorted.com.au. Falls back to
+  // the per-stock news roll-up if no Take matches the headline.
+  const take = await findTakeForStockHeadline(latest.stockCode!, latest.headline);
+  const linkUrl = take
+    ? `${SITE}/news/${take.slug}`
+    : `${SITE}/shorts/${latest.stockCode}/news`;
+  const linkLabel = take ? "Shorted Take" : "Full coverage";
+
   // Twitter wraps URLs to 23 chars; trim headline to fit alongside.
   const stockLine = `$${latest.stockCode} ${emoji}`;
   const sourceLine = `— via ${latest.source}`;
-  const linkLine = `Full coverage: ${SITE}/shorts/${latest.stockCode}/news`;
+  const linkLine = `${linkLabel}: ${linkUrl}`;
   const overhead = stockLine.length + sourceLine.length + linkLine.length + 6; // line breaks
   const headlineBudget = 270 - overhead;
   const headline =
