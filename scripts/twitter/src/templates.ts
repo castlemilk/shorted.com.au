@@ -172,16 +172,74 @@ export async function buildStockOfTheDayTweet(): Promise<string> {
   if (raw.length === 0) throw new Error("No top-shorts data available");
   const top = raw[0]!;
   const pct = fmtPct(top.latestShortPosition ?? 0);
+  const code = top.productCode;
+  const name = top.name;
 
-  return [
-    `🏆 #1 most-shorted ASX stock: $${top.productCode}`,
+  // PERSONA.md: stock-of-day = higher heat. Wry observation, not press
+  // release. Rotate opener by day-of-year so the cron-fired version
+  // doesn't read identically every day. Each opener is followed by the
+  // company name on its own line and the URL — the persona's worked
+  // example pattern.
+  const isEtf = /\bETF\b/i.test(name) || /UNITS$/i.test(name);
+  const isLow = (top.latestShortPosition ?? 0) < 10;
+
+  const generalOpeners = [
+    [
+      `${code} at ${pct} shorted today.`,
+      "",
+      `Top of the ASIC table this morning. ${name}.`,
+    ].join("\n"),
+
+    [
+      `${pct}.`,
+      "",
+      `That's the share of ${code} (${name}) sold short right now — currently the most-shorted name on the ASX by reported position.`,
+    ].join("\n"),
+
+    [
+      `Today's #1 most-shorted: ${code} at ${pct}.`,
+      "",
+      `${name}.`,
+    ].join("\n"),
+
+    [
+      `${code}. ${pct}.`,
+      "",
+      `The position keeps holding the top of the ASIC table.`,
+      "",
+      `${name}.`,
+    ].join("\n"),
+  ];
+
+  const etfOpener = [
+    `${code} (${name}) leads the short table at ${pct}.`,
     "",
-    `${top.name}`,
-    `Short interest: ${pct} of shares on issue`,
+    "Worth flagging that it's an ETF, not a single stock — and shorting a basket usually means a view on the underlying, not the wrapper itself.",
     "",
-    `Sourced from official ASIC reports with T+4 delay.`,
-    `Daily-updated chart: ${SITE}/shorts/${top.productCode}`,
+    "Either way, the borrow is out.",
   ].join("\n");
+
+  const lowPctOpener = [
+    `Today's most-shorted ASX name: ${code} at ${pct}.`,
+    "",
+    `Quiet day at the top of the table when ${pct} wins it. ${name}.`,
+  ].join("\n");
+
+  const doy = Math.floor(
+    (Date.now() - Date.UTC(new Date().getUTCFullYear(), 0, 0)) / 86400000,
+  );
+
+  let body: string;
+  // ETF angle wins on weekends to avoid spamming it every weekday.
+  if (isEtf && doy % 3 === 0) {
+    body = etfOpener;
+  } else if (isLow) {
+    body = lowPctOpener;
+  } else {
+    body = generalOpeners[doy % generalOpeners.length]!;
+  }
+
+  return [body, "", `${SITE}/shorts/${code}`].join("\n");
 }
 
 // ============================================================
