@@ -16,10 +16,16 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Load .env from script root.
-const envPath = resolve(__dirname, "..", ".env");
-if (existsSync(envPath)) {
-  loadDotenv({ path: envPath });
+// Load env from script root first, then fall back to repo root.
+// Repo-root .env is convenient for shared credentials (e.g. the same
+// TWITTER_* vars used by other repo tooling) without copy-pasting.
+const localEnv = resolve(__dirname, "..", ".env");
+const repoEnv = resolve(__dirname, "..", "..", "..", ".env");
+if (existsSync(localEnv)) {
+  loadDotenv({ path: localEnv });
+}
+if (existsSync(repoEnv)) {
+  loadDotenv({ path: repoEnv, override: false });
 }
 
 interface Args {

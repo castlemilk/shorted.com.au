@@ -1,6 +1,6 @@
 # Twitter / X bot — operations runbook
 
-How to bootstrap, schedule, monitor, and modify the @shorted Twitter
+How to bootstrap, schedule, monitor, and modify the @shorted___ Twitter
 automation. Companion to:
 
 - [`PROFILE.md`](PROFILE.md) — account branding (handle, bio, visuals)
@@ -14,7 +14,7 @@ The bot is a Node.js + TypeScript script that runs either locally
 
 ## 1. Bootstrap (one-time)
 
-### 1.1 Register the @shorted account
+### 1.1 Register the @shorted___ account
 
 Follow the activation checklist at the bottom of
 [`PROFILE.md`](PROFILE.md). You need a verified X account before
@@ -23,7 +23,7 @@ anything else.
 ### 1.2 Create an X developer app
 
 1. Go to [developer.x.com](https://developer.x.com) and sign in as
-   the @shorted account.
+   the @shorted___ account.
 2. Apply for a **Free** developer account (sufficient for 17 posts /
    24h — covers the cadence below with headroom).
 3. Create a Project → create an App inside it.

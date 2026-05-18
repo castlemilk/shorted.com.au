@@ -70,10 +70,19 @@ export function createClient(opts: { dryRun: boolean }): TwitterClient {
     return new DryRunTwitterClient();
   }
 
-  const apiKey = process.env.TWITTER_API_KEY;
-  const apiSecret = process.env.TWITTER_API_SECRET;
+  // Accept either of the common naming conventions for OAuth 1.0a:
+  //   API Key / API Key Secret  (X Developer Portal default labels)
+  //   Consumer Key / Consumer Secret  (older tweepy-style naming)
+  const apiKey =
+    process.env.TWITTER_API_KEY ?? process.env.TWITTER_CONSUMER_KEY;
+  const apiSecret =
+    process.env.TWITTER_API_SECRET ??
+    process.env.TWITTER_CONSUMER_SECRET ??
+    process.env.TWITTER_SECRET_KEY;
   const accessToken = process.env.TWITTER_ACCESS_TOKEN;
-  const accessTokenSecret = process.env.TWITTER_ACCESS_TOKEN_SECRET;
+  const accessTokenSecret =
+    process.env.TWITTER_ACCESS_TOKEN_SECRET ??
+    process.env.TWITTER_ACCESS_SECRET;
 
   if (apiKey && apiSecret && accessToken && accessTokenSecret) {
     return new LiveTwitterClient(

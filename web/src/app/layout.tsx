@@ -82,7 +82,7 @@ export const metadata = {
     title: "Shorted - Official ASIC Short Position Data",
     description: siteConfig.description,
     images: [siteConfig.ogImage],
-    creator: "@shorted",
+    creator: "@shorted___",
   },
   robots: {
     index: true,

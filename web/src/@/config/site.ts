@@ -23,7 +23,7 @@ export const siteConfig = {
   creator: "Shorted",
   publisher: "Shorted",
   links: {
-    twitter: "https://twitter.com/shorted",
+    twitter: "https://twitter.com/shorted___",
     github: "https://github.com/shorted",
   },
   contact: {
