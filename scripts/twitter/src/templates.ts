@@ -83,8 +83,27 @@ export async function buildDailyShortsTweet(): Promise<string> {
     return `${i + 1}. ${s.productCode}  ${pct}${arrow}`;
   });
 
-  return [
+  // Rotate the opener so the daily cron doesn't post the same string
+  // every weekday. Picked by day-of-year so it's deterministic per run
+  // but varies across the week. PERSONA.md: variance over rhythm.
+  const top = enriched[0]!;
+  const topPct = (top.latestShortPosition ?? 0).toFixed(2);
+  const openers = [
     "Most shorted ASX stocks today:",
+    "Top of the ASIC short-position table:",
+    `${top.productCode} keeps the top spot. Today's table:`,
+    "Today's top-5 shorted (ASIC, T+4):",
+    `${topPct}% of ${top.productCode} sold short. The rest of the leaderboard:`,
+    "Where the borrow desks are busy this morning:",
+    "Today's most-shorted, in order:",
+  ];
+  const doy = Math.floor(
+    (Date.now() - Date.UTC(new Date().getUTCFullYear(), 0, 0)) / 86400000,
+  );
+  const opener = openers[doy % openers.length]!;
+
+  return [
+    opener,
     "",
     ...lines,
     "",

@@ -1,10 +1,18 @@
 ---
 name: social-post
 description: Compose and post full-stack social posts to @shorted___ on X — text + X-card link preview + generated infographic. Wraps the Twitter bot, /api/og/twitter PNG endpoint, and /news/[slug] editorial pages. Use when the user says "post a tweet", "tweet today's shorts", "share to X", "social post", "compose a tweet about $TICKER", or "/social-post".
-allowed-tools: Read, Write, Bash(npx tsx:*), Bash(curl:*), Bash(gh:*), Edit, Grep, Glob
+allowed-tools: Read, Write, Bash(npx tsx:*), Bash(node:*), Bash(curl:*), Bash(gh:*), Edit, Grep, Glob
 ---
 
 # Social Post — Full-Stack X Pipeline
+
+> **READ FIRST** — before drafting any tweet or Take:
+> 1. [PERSONA.md](PERSONA.md) — the Shorted voice
+> 2. [CHECKLIST.md](CHECKLIST.md) — validation gates run before every `--live`
+>
+> The skill's job is not "generate a tweet". The job is "post something
+> that sounds like Shorted". Most of what makes this work is in those
+> two docs, not in this CLI reference.
 
 This skill posts data-rich tweets to `@shorted___` that include:
 - a card preview when the tweet URL is a `shorted.com.au` page with og/twitter meta
@@ -53,6 +61,8 @@ npx tsx src/index.ts daily-shorts --live --no-image
 
 When the user asks for a tweet that isn't one of the canned commands:
 
+0. **Read PERSONA.md.** Even if you've read it before — re-read the
+   worked examples. You will drift into AI-voice without re-grounding.
 1. **Pick the angle.** One headline, one stock, one chart — never more.
 2. **Pick the destination URL** — must be a `shorted.com.au` page so the card renders:
    - Stock-specific → `https://shorted.com.au/shorts/[CODE]`
@@ -71,11 +81,25 @@ When the user asks for a tweet that isn't one of the canned commands:
    `twitter:card content="summary_large_image"` + `twitter:image` URL ⇒ card will render.
 5. **Pick or generate an infographic** — for ad-hoc posts use an existing PNG variant. If a new variant is needed, edit `web/src/app/api/og/twitter/[type]/route.tsx`.
 6. **Draft tweet copy** — respect the **X 1-cashtag limit**: at most one `$TICKER` per post. Lists of tickers must be plain `JEME / BBAB / LOT` without `$`.
-7. **Dry-run first**:
+7. **Run the lint** — required before showing the user:
+   ```bash
+   node scripts/twitter/scripts/lint-copy.mjs --text "<the draft>"
+   ```
+   - Exits 1 if any HARD gate from CHECKLIST.md fails. Rewrite, re-lint.
+   - Soft warnings: judgement call. State the warning + your reason for
+     keeping the line, or rewrite.
+8. **Walk the manual checklist** — CHECKLIST.md items the lint can't
+   enforce: read-aloud test, "did the bot write this" test, variance
+   from recent posts, emoji discipline.
+9. **Dry-run** the post pipeline (text + card + infographic preview):
    ```bash
    npx tsx src/index.ts <command>
+   # or for ad-hoc text:
+   npx tsx src/index.ts --custom-text "<the draft>"  # if/when this exists
    ```
-8. **Show the user the preview** and ask before `--live`.
+10. **Show the user the preview + checklist results** and ask before
+    `--live`. Never `--live` without explicit user approval on the
+    specific draft you just showed.
 
 ## Authoring a new "Shorted Take" for an ad-hoc post
 
