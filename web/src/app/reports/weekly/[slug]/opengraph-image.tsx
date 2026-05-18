@@ -67,38 +67,48 @@ function getWeekEndDate(year: number, week: number): string {
 async function getTopStockForDate(
   date: string,
 ): Promise<{ code: string; name: string; percentageShorted: number } | null> {
-  try {
-    const apiUrl =
-      process.env.NEXT_PUBLIC_API_URL ??
-      process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-      "http://localhost:9091";
-    const res = await fetch(
-      `${apiUrl}/shorts.v1alpha1.ShortedStocksService/GetMarketByDate`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date, limit: 1, offset: 0 }),
-        next: { revalidate: 86400 },
-      },
-    );
-    if (!res.ok) return null;
-    const data = (await res.json()) as {
-      stocks?: Array<{
-        productCode?: string;
-        name?: string;
-        percentageShorted?: number;
-      }>;
-    };
-    const top = data.stocks?.[0];
-    if (!top) return null;
-    return {
-      code: top.productCode ?? "",
-      name: top.name ?? "",
-      percentageShorted: top.percentageShorted ?? 0,
-    };
-  } catch {
-    return null;
+  const apiUrl =
+    process.env.NEXT_PUBLIC_API_URL ??
+    process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
+    "http://localhost:9091";
+
+  // ASIC data is T+4, weekends/holidays return empty. Follow `previousDate`
+  // up to 5 hops back so the OG always renders real data.
+  let cursor: string | undefined = date;
+  for (let hops = 0; hops < 5 && cursor; hops++) {
+    try {
+      const res = await fetch(
+        `${apiUrl}/shorts.v1alpha1.ShortedStocksService/GetMarketByDate`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ date: cursor, limit: 1, offset: 0 }),
+          next: { revalidate: 86400 },
+        },
+      );
+      if (!res.ok) return null;
+      const data = (await res.json()) as {
+        stocks?: Array<{
+          productCode?: string;
+          name?: string;
+          percentageShorted?: number;
+        }>;
+        previousDate?: string;
+      };
+      const top = data.stocks?.[0];
+      if (top) {
+        return {
+          code: top.productCode ?? "",
+          name: top.name ?? "",
+          percentageShorted: top.percentageShorted ?? 0,
+        };
+      }
+      cursor = data.previousDate;
+    } catch {
+      return null;
+    }
   }
+  return null;
 }
 
 export default async function Image({
