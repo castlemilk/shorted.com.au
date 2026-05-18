@@ -11,17 +11,17 @@ name: Twitter / X bot
 # manually trigger any post-type from the Actions UI.
 
 on:
-  schedule:
-    # Daily top shorts — 11:00 AEST = 01:00 UTC
-    - cron: "0 1 * * *"
-    # Daily biggest movers — 16:30 AEST (post-close) = 06:30 UTC
-    - cron: "30 6 * * *"
-    # Stock of the day — 09:00 AEST = 23:00 UTC (previous day)
-    - cron: "0 23 * * *"
-    # Friday weekly digest thread — 17:00 AEST = 07:00 UTC, Fridays
-    - cron: "0 7 * * 5"
-    # Breaking news sweep — every 2h during ASX hours, weekdays
-    - cron: "0 0,2,4,6 * * 1-5"
+  # NOTE: scheduled crons are intentionally commented out — the bot
+  # currently runs from your local machine via cron/launchd (see
+  # OPERATIONS.md §2). Uncomment when you're ready to migrate to CI
+  # and have populated the TWITTER_* secrets in the repo.
+  #
+  # schedule:
+  #   - cron: "0 1 * * *"          # daily-shorts        11:00 AEST
+  #   - cron: "30 6 * * *"         # movers              16:30 AEST
+  #   - cron: "0 23 * * *"         # stock-of-the-day    09:00 AEST
+  #   - cron: "0 7 * * 5"          # weekly-digest       17:00 AEST Fri
+  #   - cron: "0 0,2,4,6 * * 1-5"  # breaking-news       10:00/12:00/14:00/16:00 AEST
   workflow_dispatch:
     inputs:
       command:
@@ -89,6 +89,13 @@ jobs:
 
       - name: Post
         env:
+          # OAuth 2.0 (preferred). The refresh_token is rotated on every
+          # call to X — the workflow doesn't persist the rotation, so we
+          # re-sync via gh secret set after the post if it changed.
+          TWITTER_CLIENT_ID: ${{ secrets.TWITTER_CLIENT_ID }}
+          TWITTER_CLIENT_SECRET: ${{ secrets.TWITTER_CLIENT_SECRET }}
+          TWITTER_REFRESH_TOKEN: ${{ secrets.TWITTER_REFRESH_TOKEN }}
+          # OAuth 1.0a fallback (in case OAuth 2.0 secret is removed).
           TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
           TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
           TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
@@ -97,6 +104,10 @@ jobs:
           # Default to dry-run unless the cron explicitly sets mode=live.
           # workflow_dispatch lets the operator pick dry-run or live.
           TWITTER_DRY_RUN_DEFAULT: ${{ needs.determine-command.outputs.mode == 'live' && 'false' || 'true' }}
+          # OAuth 2.0 rotates refresh_token on every use. Tell the
+          # script where to write the new token so a follow-up step
+          # can re-store it as a GH Actions secret.
+          TWITTER_REFRESH_TOKEN_OUT: /tmp/twitter-refresh-token
         run: |
           MODE="${{ needs.determine-command.outputs.mode }}"
           CMD="${{ needs.determine-command.outputs.command }}"
@@ -106,3 +117,9 @@ jobs:
           else
             npx tsx src/index.ts "$CMD"
           fi
+
+      # When this workflow is re-enabled for scheduled CI use, an extra
+      # step is needed to persist the rotated OAuth 2.0 refresh_token
+      # back to the GH secret (X rotates the token on every use, so
+      # without re-storing, the next CI run fails). See OPERATIONS.md
+      # §2 — "Switching local cron → GitHub Actions".

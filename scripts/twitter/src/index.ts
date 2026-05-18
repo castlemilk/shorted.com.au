@@ -5,6 +5,7 @@ import { dirname, resolve } from "node:path";
 import { existsSync } from "node:fs";
 
 import { createClient, type TwitterClient } from "./twitter-client.js";
+import { bootstrapOAuth2 } from "./oauth2-bootstrap.js";
 import {
   buildBreakingNewsTweet,
   buildDailyShortsTweet,
@@ -72,6 +73,7 @@ Flags:
   --stock=CBA       For insider-trade alerts, the stock code to check
 
 Commands:
+  bootstrap-oauth2     One-time: get an OAuth 2.0 refresh_token
   daily-shorts
   movers
   stock-of-the-day
@@ -87,6 +89,10 @@ Examples:
 }
 
 async function run(command: string, client: TwitterClient, args: Args) {
+  if (command === "bootstrap-oauth2") {
+    await bootstrapOAuth2();
+    return;
+  }
   switch (command) {
     case "daily-shorts": {
       const text = await buildDailyShortsTweet();
@@ -144,9 +150,13 @@ async function main() {
   }
 
   console.log(`[twitter] command=${args.command} dry_run=${args.dryRun}`);
-  const client = createClient({ dryRun: args.dryRun });
 
   try {
+    if (args.command === "bootstrap-oauth2") {
+      await bootstrapOAuth2();
+      return;
+    }
+    const client = createClient({ dryRun: args.dryRun });
     await run(args.command, client, args);
     console.log(`[twitter] done (${args.dryRun ? "dry-run" : "posted"}).`);
   } catch (err) {
