@@ -62,6 +62,21 @@ export function buildImagePrompt(input: PromptInput): string {
     input.topic.trim(),
     "",
     `Format: ${sizeHint}.`,
+    "",
+    // Trailing reinforcement — the model anchors on the last instructions.
+    // Image models love adding charts/graphs/icons to "financial" subjects
+    // even when told not to. This explicit final pass catches that.
+    "CRITICAL FINAL RULES — apply these to the image you generate:",
+    "1. Do NOT add any charts, graphs, bars, lines, percentages, numbers,",
+    "   ticker symbols, currency symbols, or other data visualisation",
+    "   elements — even if the topic mentions a document, report, or",
+    "   screen. If the subject is a document, it is blank or shows only",
+    "   plain unreadable text.",
+    "2. Do NOT add any text, words, letters, or numbers in the image.",
+    "3. Do NOT add any people, faces, silhouettes, hands, or figures.",
+    "4. Do NOT add any city skylines or recognisable architecture.",
+    "5. Keep the composition minimal — single subject, deep negative",
+    "   space, low-key lighting, one warm orange/amber light source.",
   ];
   if (input.additionalContext) {
     lines.push("", `Additional context: ${input.additionalContext.trim()}`);

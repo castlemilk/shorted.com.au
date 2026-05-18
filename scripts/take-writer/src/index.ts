@@ -117,7 +117,7 @@ function buildInsertSql(t: {
     `  ${srcUrlClause},`,
     `  ${srcNameClause},`,
     `  ${t.wordCount},`,
-    "  'gemini-2.0-flash'",
+    "  'gemini-2.5-flash'",
     ");",
   ].join("\n");
 }
@@ -130,9 +130,12 @@ async function runDraft(args: Args): Promise<void> {
 
   const ai = new GoogleGenerativeAI(key);
   const bodyModel = ai.getGenerativeModel({
-    model: "gemini-2.0-flash",
+    model: "gemini-2.5-flash",
     systemInstruction: TAKE_SYSTEM_PROMPT,
-    generationConfig: { temperature: 0.75, maxOutputTokens: 600 },
+    // Gemini 2.5 includes thinking tokens in maxOutputTokens. 600 was
+    // enough for 2.0-flash but 2.5 burns most of it thinking. Bump to
+    // 4000 to give room for both the reasoning AND the 180-260 word body.
+    generationConfig: { temperature: 0.75, maxOutputTokens: 4000 },
   });
 
   const contextLines = [
@@ -156,8 +159,9 @@ async function runDraft(args: Args): Promise<void> {
 
   // Slug via a separate, lower-temperature call.
   const slugModel = ai.getGenerativeModel({
-    model: "gemini-2.0-flash",
-    generationConfig: { temperature: 0.2, maxOutputTokens: 30 },
+    model: "gemini-2.5-flash",
+    // Same thinking-tokens issue. 500 is plenty for the slug + thinking.
+    generationConfig: { temperature: 0.2, maxOutputTokens: 500 },
   });
   const slugPrompt = SLUG_PROMPT
     .replace("{{HEADLINE}}", args.headline)

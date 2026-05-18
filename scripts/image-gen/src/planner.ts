@@ -20,14 +20,38 @@ const SYSTEM_PROMPT = `You are the visual editor for "Shorted", a financial
 publication covering Australian stock market short positions. You decide
 what images an editorial article needs.
 
-Visual brand rules (DO NOT VIOLATE):
-- Dark backgrounds with orange (#FFA94D) accents
-- Editorial illustration register — modern financial publication
-- Photorealistic OR isometric / abstract data-visualisation
-- NEVER: stock-photo handshakes, generic cityscapes, businessmen, money
-  stacks, gold bars, bull/bear icons, rocket ships, dollar signs,
-  thumbs up/down, text in image, photoreal human faces
-- Australian context cues only when the topic is geographically specific
+Visual brand rules (HARD BANS — your topic descriptions will be
+post-validated and rejected if they include any of these terms):
+
+NEVER write topics containing or implying:
+- Cityscapes, skylines, named cities (London, Tokyo, Sydney, etc.)
+- Arrows, trend lines, upward lines, downward lines, charts crossing
+- Pie charts, bar charts, line graphs, candlestick patterns
+- Stock-photo finance: handshakes, businessmen, suited figures,
+  trading floors, traders, screens with numbers, money stacks, gold
+  bars, coins, banknotes
+- Icons or symbols: bulls, bears, rockets, dollar signs, percent
+  signs, thumbs up/down, target arrows
+- Faces, people, figures (silhouettes are also banned)
+- Any text, words, letters, or numbers in the image
+- Australian flag, Aboriginal flag, opera house, harbour bridge,
+  kangaroos, koalas
+
+PREFER (every topic should pull from this list):
+- Physical materials close-ups: raw ore, processed metal, paper
+  documents on desks, ink on paper, industrial pipes, conveyor belts,
+  storage tanks, shipping containers, mining equipment from
+  unconventional angles
+- Architectural: warehouse interiors, empty corridors, factory floors
+  at low light, document archives, sorting facilities
+- Natural: pit mines from above, salt flats, dry lake beds, mineral
+  outcrops, dust in low light
+- Abstract: paper textures, fabric folds, ceramic surfaces, metallic
+  oxidation, single objects in negative space
+
+Lighting/colour: low-key, deep shadow, single warm light source
+(orange/amber) hitting a small portion of the frame. Editorial photo
+register, not infographic.
 
 For each article, output a small, focused asset plan:
 - Always exactly ONE "hero" asset: 16:9 banner, the article's main image
@@ -75,6 +99,65 @@ export interface PlanInput {
   sentiment?: string;
 }
 
+// Words/phrases that almost always indicate a brand violation in the
+// topic string. Matched case-insensitively; if a topic contains any of
+// these, the planner discards it and falls back to a safe default. This
+// is the last line of defence — Gemini sometimes ignores the system
+// prompt's bans (observed: "Tokyo skyline at night", "upward-trending
+// arrow").
+const BANNED_TOPIC_TERMS = [
+  "skyline",
+  "cityscape",
+  "city",
+  "tokyo",
+  "london",
+  "sydney",
+  "new york",
+  "manhattan",
+  "arrow",
+  "trending line",
+  "trend line",
+  "upward",
+  "downward",
+  "chart",
+  "graph",
+  "candlestick",
+  "pie chart",
+  "bar chart",
+  "businessman",
+  "businesswoman",
+  "trader",
+  "trading floor",
+  "handshake",
+  "rocket",
+  "bull market",
+  "bear market",
+  "dollar sign",
+  "thumbs up",
+  "thumbs down",
+  "money stack",
+  "gold bar",
+  "opera house",
+  "harbour bridge",
+  "kangaroo",
+  "koala",
+];
+
+function scrubTopic(asset: AssetPlan): AssetPlan {
+  const lower = asset.topic.toLowerCase();
+  const hits = BANNED_TOPIC_TERMS.filter((t) => lower.includes(t));
+  if (hits.length === 0) return asset;
+  console.warn(
+    `[planner] topic contained banned terms (${hits.join(", ")}); replacing with safe fallback`,
+  );
+  return {
+    type: asset.type,
+    topic:
+      "Editorial close-up photograph: a single physical object related to the article subject (industrial material, document, raw resource) on a dark surface with deep shadow and a single warm amber light source catching one edge.",
+    rationale: `Original topic rejected for banned terms: ${hits.join(", ")}. ${asset.rationale}`,
+  };
+}
+
 export async function planAssets(input: PlanInput): Promise<AssetPlan[]> {
   const key = process.env.GEMINI_API_KEY;
   if (!key) {
@@ -82,7 +165,7 @@ export async function planAssets(input: PlanInput): Promise<AssetPlan[]> {
   }
   const ai = new GoogleGenerativeAI(key);
   const model = ai.getGenerativeModel({
-    model: "gemini-2.0-flash",
+    model: "gemini-2.5-flash",
     systemInstruction: SYSTEM_PROMPT,
     generationConfig: {
       responseMimeType: "application/json",
@@ -105,7 +188,7 @@ export async function planAssets(input: PlanInput): Promise<AssetPlan[]> {
   const resp = await model.generateContent(userPrompt);
   const text = resp.response.text();
   const parsed = JSON.parse(text) as { assets: AssetPlan[] };
-  const assets = parsed.assets ?? [];
+  const assets = (parsed.assets ?? []).map(scrubTopic);
 
   // Enforce invariants the schema can't:
   // - At most 1 hero. If model returns multiple, keep the first.
