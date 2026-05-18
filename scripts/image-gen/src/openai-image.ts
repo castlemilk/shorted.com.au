@@ -7,7 +7,7 @@
 import OpenAI from "openai";
 import { writeFileSync } from "node:fs";
 
-const DEFAULT_MODEL = "gpt-image-1";
+const DEFAULT_MODEL = "gpt-image-2-2026-04-21";
 const COST_CAP_USD = 0.3; // per single generate call — fail safe
 
 // Approx USD per image. gpt-image-2 (Apr 2026) pricing estimated until

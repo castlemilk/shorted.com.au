@@ -142,8 +142,10 @@ export async function buildMoversTweet(): Promise<string> {
 
   const top = movers[0]!;
   const change = top.wowChange ?? 0;
-  const direction = change > 0 ? "jumped" : "covered";
   const sign = change > 0 ? "+" : "";
+  const abs = Math.abs(change).toFixed(2);
+  const nowPct = fmtPct(top.latestShortPosition ?? 0);
+  const code = top.productCode;
   const others = movers
     .slice(1)
     .map((m) => {
@@ -153,15 +155,57 @@ export async function buildMoversTweet(): Promise<string> {
     })
     .join("  ·  ");
 
-  return [
-    `$${top.productCode} short interest ${direction} ${sign}${change.toFixed(2)}% this week.`,
-    "",
-    `Now: ${fmtPct(top.latestShortPosition ?? 0)} of shares outstanding shorted.`,
-    "",
-    `Other big movers: ${others}`,
-    "",
-    `Chart: ${SITE}/shorts/${top.productCode}`,
-  ].join("\n");
+  // PERSONA.md: movers = lower heat. The numbers do the work; flat
+  // delivery makes the size of the move land harder. Rotate openers by
+  // day-of-year so weekday cron-fired posts vary.
+  const doy = Math.floor(
+    (Date.now() - Date.UTC(new Date().getUTCFullYear(), 0, 0)) / 86400000,
+  );
+
+  const upOpeners = [
+    [
+      `$${code} short interest jumped +${abs}% this week. Now sitting at ${nowPct}.`,
+      "",
+      `Other movers: ${others}.`,
+    ].join("\n"),
+
+    [
+      `+${abs}% in a week is the kind of move that doesn't happen by accident — $${code} is now at ${nowPct} shorted.`,
+      "",
+      `Also worth a look: ${others}.`,
+    ].join("\n"),
+
+    [
+      `$${code} added ${abs}% to its short position over the past seven days. The current read is ${nowPct}.`,
+      "",
+      `Behind it: ${others}.`,
+    ].join("\n"),
+  ];
+
+  const downOpeners = [
+    [
+      `$${code} just had ${abs}% of its short position covered. Now at ${nowPct}.`,
+      "",
+      `Other covers: ${others}.`,
+    ].join("\n"),
+
+    [
+      `Covering of $${code} continued this week — ${sign}${change.toFixed(2)}% off the position, currently ${nowPct}.`,
+      "",
+      `Elsewhere: ${others}.`,
+    ].join("\n"),
+
+    [
+      `$${code} short position dropped ${abs}% over the week. The borrow desk's interest in it has clearly softened.`,
+      "",
+      `Sitting at ${nowPct} now. Other movers: ${others}.`,
+    ].join("\n"),
+  ];
+
+  const openers = change > 0 ? upOpeners : downOpeners;
+  const body = openers[doy % openers.length]!;
+
+  return [body, "", `${SITE}/shorts/${code}`].join("\n");
 }
 
 // ============================================================
@@ -266,13 +310,28 @@ export async function buildWeeklyDigestThread(): Promise<string[]> {
     .slice(3, 7)
     .map((s) => `${s.productCode}`)
     .join("  ·  ");
+  const top = raw[0]!;
+  const topPct = fmtPct(top.latestShortPosition ?? 0);
 
-  return [
-    `ASX short selling — Week ${weekSlug} 📊\n\nFull thread + linked report below ⬇️`,
-    `🔴 This week's top 3 shorted ASX stocks:\n\n${topThree}`,
-    `👀 Other names with elevated short interest worth watching:\n\n${nextFour}`,
-    `Full breakdown — narrative, sector heatmap, days-to-cover for every stock — at ${SITE}/reports/weekly/${weekSlug}`,
-  ];
+  // PERSONA.md: weekly-digest closer = higher heat (it's the kicker
+  // tweet, the one most likely to be screenshotted). Vary the open of
+  // each tweet by week number so consecutive Fridays don't read
+  // identically. Drop the throat-clearing "ASX short selling —" intro.
+  const intro = (() => {
+    const intros = [
+      `📊 Short-position wrap for week ${weekSlug}. ${top.productCode} sat at the top all week (${topPct}).`,
+      `📊 Week ${weekSlug} of the ASIC short table is in the books. ${top.productCode} held the #1 spot at ${topPct}.`,
+      `📊 Five trading days, four lots of T+4 data. Week ${weekSlug} — ${top.productCode} held ${topPct} of the table.`,
+      `📊 ${weekSlug}. ${top.productCode} stayed top of the short table all week at ${topPct}. Quick wrap below.`,
+    ];
+    return intros[weekNo % intros.length]!;
+  })();
+
+  const middle = `🔴 Top 3 shorted ASX stocks this week:\n\n${topThree}`;
+  const tail = `👀 Other names worth watching the next print on:\n\n${nextFour}`;
+  const closer = `Full weekly breakdown — narrative, sector heatmap, days-to-cover — ${SITE}/reports/weekly/${weekSlug}`;
+
+  return [intro, middle, tail, closer];
 }
 
 // ============================================================

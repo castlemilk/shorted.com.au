@@ -132,7 +132,7 @@ async function runGenerate(args: Args): Promise<void> {
   });
   const size = imageSizeFor(args.type);
 
-  console.log(`[image-gen] model=${args.model ?? "gpt-image-1"} type=${args.type} size=${size} quality=${args.quality}`);
+  console.log(`[image-gen] model=${args.model ?? "gpt-image-2-2026-04-21"} type=${args.type} size=${size} quality=${args.quality}`);
   console.log(`[image-gen] prompt (first 200 chars):\n${prompt.slice(0, 200)}…\n`);
 
   const t0 = Date.now();
