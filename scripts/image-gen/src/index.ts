@@ -9,6 +9,7 @@ import { readFileSync } from "node:fs";
 import { buildImagePrompt, imageSizeFor, type PromptInput } from "./brand-prompt.js";
 import { generateImage } from "./openai-image.js";
 import { planAssets, type PlanInput } from "./planner.js";
+import { uploadPng } from "./gcs-upload.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -39,6 +40,10 @@ interface Args {
   bodyText?: string;
   stockCode?: string;
   sentiment?: string;
+  // upload
+  file?: string;
+  slug?: string;
+  inlineIndex?: number;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -70,6 +75,13 @@ function parseArgs(argv: string[]): Args {
       args.stockCode = arg.split("=")[1];
     } else if (arg.startsWith("--sentiment=")) {
       args.sentiment = arg.split("=")[1];
+    } else if (arg.startsWith("--file=")) {
+      args.file = arg.split("=").slice(1).join("=");
+    } else if (arg.startsWith("--slug=")) {
+      args.slug = arg.split("=")[1];
+    } else if (arg.startsWith("--inline-index=")) {
+      const v = arg.split("=")[1];
+      if (v !== undefined) args.inlineIndex = parseInt(v, 10);
     } else if (!arg.startsWith("--") && !args.command) args.command = arg;
   }
   return args;
@@ -157,6 +169,92 @@ async function runPlan(args: Args): Promise<void> {
   console.log(JSON.stringify(plan, null, 2));
 }
 
+interface PipelineResult {
+  slug: string;
+  hero?: { type: "hero"; topic: string; publicUrl: string; bytes: number; estimatedCostUsd: number };
+  thumbnail?: { type: "thumbnail"; topic: string; publicUrl: string; bytes: number; estimatedCostUsd: number };
+  inline: Array<{ type: "inline"; topic: string; publicUrl: string; bytes: number; estimatedCostUsd: number }>;
+  totalCostUsd: number;
+}
+
+async function runPipeline(args: Args): Promise<void> {
+  if (!args.headline) throw new Error("--headline=\"...\" required for pipeline");
+  if (!args.slug) throw new Error("--slug=... required for pipeline");
+  let body = args.bodyText;
+  if (!body && args.bodyFile) body = readFileSync(args.bodyFile, "utf8");
+  if (!body) throw new Error("provide --body=\"...\" or --body-file=path.md");
+
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) throw new Error("OPENAI_API_KEY not set");
+  const openai = new OpenAI({ apiKey: key });
+
+  console.log(`[pipeline] planning assets for: ${args.headline}`);
+  const plan = await planAssets({
+    headline: args.headline,
+    bodyMd: body,
+    stockCode: args.stockCode,
+    sentiment: args.sentiment,
+  });
+  console.log(`[pipeline] planner returned ${plan.length} asset(s)`);
+
+  const result: PipelineResult = { slug: args.slug, inline: [], totalCostUsd: 0 };
+  let inlineCount = 0;
+
+  for (const asset of plan) {
+    const inlineIdx = asset.type === "inline" ? inlineCount++ : undefined;
+    console.log(`[pipeline] generate ${asset.type}${inlineIdx !== undefined ? `[${inlineIdx}]` : ""}: ${asset.topic.slice(0, 80)}…`);
+
+    const prompt = buildImagePrompt({ topic: asset.topic, type: asset.type });
+    const gen = await generateImage(openai, {
+      prompt,
+      size: imageSizeFor(asset.type),
+      quality: args.quality,
+    });
+    console.log(`[pipeline]   generated: $${gen.estimatedCostUsd.toFixed(4)} ${gen.pngBuffer.length}b`);
+
+    const up = await uploadPng({
+      buffer: gen.pngBuffer,
+      slug: args.slug,
+      type: asset.type,
+      inlineIndex: inlineIdx,
+    });
+    console.log(`[pipeline]   uploaded: ${up.publicUrl}`);
+
+    const entry = {
+      type: asset.type,
+      topic: asset.topic,
+      publicUrl: up.publicUrl,
+      bytes: gen.pngBuffer.length,
+      estimatedCostUsd: gen.estimatedCostUsd,
+    };
+    result.totalCostUsd += gen.estimatedCostUsd;
+    if (asset.type === "hero") result.hero = entry as PipelineResult["hero"];
+    else if (asset.type === "thumbnail") result.thumbnail = entry as PipelineResult["thumbnail"];
+    else result.inline.push(entry as PipelineResult["inline"][number]);
+  }
+
+  console.log("");
+  console.log(JSON.stringify(result, null, 2));
+  console.log(`\n[pipeline] total cost: $${result.totalCostUsd.toFixed(4)}`);
+}
+
+async function runUpload(args: Args): Promise<void> {
+  if (!args.file) throw new Error("--file=path.png is required for upload");
+  if (!args.slug) throw new Error("--slug=... is required for upload");
+  const validTypes = ["hero", "thumbnail", "inline"] as const;
+  if (!validTypes.includes(args.type)) {
+    throw new Error(`--type must be one of: ${validTypes.join("|")}`);
+  }
+  console.log(`[image-gen] uploading ${args.file} → takes/${args.slug}-${args.type}.png`);
+  const result = await uploadPng({
+    filePath: args.file,
+    slug: args.slug,
+    type: args.type,
+    inlineIndex: args.inlineIndex,
+  });
+  console.log(JSON.stringify(result, null, 2));
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   if (args.help || !args.command) {
@@ -171,9 +269,11 @@ async function main(): Promise<void> {
       await runPlan(args);
       break;
     case "upload":
+      await runUpload(args);
+      break;
     case "pipeline":
-      console.error(`[image-gen] '${args.command}' not yet implemented — see task list`);
-      process.exit(2);
+      await runPipeline(args);
+      break;
     default:
       console.error(`[image-gen] unknown command: ${args.command}`);
       printHelp();
