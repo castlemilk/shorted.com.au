@@ -83,6 +83,10 @@ type Store interface {
 	GetStockNews(stockCode string, limit int32, source, sentiment string) ([]*NewsArticle, int, error)
 	GetMarketNews(limit int32, source string, priceSensitiveOnly bool) ([]*NewsArticle, int, error)
 
+	// Editorial Take methods
+	GetEditorialTake(slug string) (*EditorialTake, error)
+	ListEditorialTakes(limit, offset int32, stockCode string) ([]*EditorialTake, int, error)
+
 	// Director trade methods
 	GetDirectorTrades(stockCode string, limit int32) ([]*DirectorTrade, int, error)
 
@@ -191,6 +195,24 @@ type NewsArticle struct {
 	Summary          *string
 	Tags             []byte // JSON
 	ImageURL         *string
+}
+
+// EditorialTake is a Shorted Take editorial article.
+type EditorialTake struct {
+	ID              string
+	Slug            string
+	Headline        string
+	StockCode       *string
+	BodyMD          string
+	Sentiment       *string
+	SourceArticleID *string
+	SourceURL       *string
+	SourceName      *string
+	OGImageURL      *string
+	WordCount       *int32
+	Model           *string
+	PublishedAt     *string
+	CreatedAt       string
 }
 
 // DirectorTrade represents a director trade from the database

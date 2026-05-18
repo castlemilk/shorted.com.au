@@ -64,6 +64,10 @@ type ShortsStore interface {
 	GetStockNews(stockCode string, limit int32, source, sentiment string) ([]*shortsstore.NewsArticle, int, error)
 	GetMarketNews(limit int32, source string, priceSensitiveOnly bool) ([]*shortsstore.NewsArticle, int, error)
 
+	// Editorial Take methods
+	GetEditorialTake(slug string) (*shortsstore.EditorialTake, error)
+	ListEditorialTakes(limit, offset int32, stockCode string) ([]*shortsstore.EditorialTake, int, error)
+
 	// Director trade methods
 	GetDirectorTrades(stockCode string, limit int32) ([]*shortsstore.DirectorTrade, int, error)
 

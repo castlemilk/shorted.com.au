@@ -181,6 +181,20 @@ export const getStockNews = ShortedStocksService.method.getStockNews;
 export const getMarketNews = ShortedStocksService.method.getMarketNews;
 
 /**
+ * Get a single published editorial take by slug.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetEditorialTake
+ */
+export const getEditorialTake = ShortedStocksService.method.getEditorialTake;
+
+/**
+ * List recent published editorial takes (paginated).
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListEditorialTakes
+ */
+export const listEditorialTakes = ShortedStocksService.method.listEditorialTakes;
+
+/**
  * Get director (insider) trades for a specific stock
  *
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetDirectorTrades

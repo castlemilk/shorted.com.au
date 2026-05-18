@@ -410,6 +410,26 @@ service ShortedStocksService {
     };
   }
 
+  // ==================== Editorial Takes (Shorted Take) ====================
+
+  // Get a single published editorial take by slug.
+  rpc GetEditorialTake (GetEditorialTakeRequest) returns (GetEditorialTakeResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Editorial Take",
+      description: "Retrieve a published Shorted Take by URL slug."
+    };
+  }
+
+  // List recent published editorial takes (paginated).
+  rpc ListEditorialTakes (ListEditorialTakesRequest) returns (ListEditorialTakesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Editorial Takes",
+      description: "List recent published Shorted Takes, newest first. Optional filter by stock code."
+    };
+  }
+
   // ==================== Director Trades ====================
 
   // Get director (insider) trades for a specific stock
@@ -1043,6 +1063,46 @@ message GetMarketNewsRequest {
 // Response for GetMarketNews RPC
 message GetMarketNewsResponse {
   repeated NewsArticle articles = 1;
+  int32 total_count = 2;
+}
+
+// ==================== Editorial Take Messages ====================
+
+// A single Shorted Take editorial article (Gemini-generated commentary
+// on a price-sensitive news headline).
+message EditorialTake {
+  string id = 1;
+  string slug = 2;
+  string headline = 3;
+  string stock_code = 4;
+  string body_md = 5;             // Markdown body
+  string sentiment = 6;
+  string source_article_id = 7;   // UUID of source news_article, or empty
+  string source_url = 8;          // External publisher URL (attribution)
+  string source_name = 9;         // 'Stockhead', 'Motley Fool', etc.
+  string og_image_url = 10;
+  int32 word_count = 11;
+  string model = 12;              // 'gemini-2.0-flash', etc.
+  google.protobuf.Timestamp published_at = 13;
+  google.protobuf.Timestamp created_at = 14;
+}
+
+message GetEditorialTakeRequest {
+  string slug = 1;
+}
+
+message GetEditorialTakeResponse {
+  EditorialTake take = 1;
+}
+
+message ListEditorialTakesRequest {
+  int32 limit = 1;         // default 20
+  int32 offset = 2;
+  string stock_code = 3;   // optional filter
+}
+
+message ListEditorialTakesResponse {
+  repeated EditorialTake takes = 1;
   int32 total_count = 2;
 }
 

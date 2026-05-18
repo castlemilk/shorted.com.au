@@ -259,6 +259,37 @@ func (mr *MockShortsStoreMockRecorder) GetMarketNews(limit, source, priceSensiti
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketNews", reflect.TypeOf((*MockShortsStore)(nil).GetMarketNews), limit, source, priceSensitiveOnly)
 }
 
+// GetEditorialTake mocks base method.
+func (m *MockShortsStore) GetEditorialTake(slug string) (*shorts.EditorialTake, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEditorialTake", slug)
+	ret0, _ := ret[0].(*shorts.EditorialTake)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetEditorialTake indicates an expected call of GetEditorialTake.
+func (mr *MockShortsStoreMockRecorder) GetEditorialTake(slug any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEditorialTake", reflect.TypeOf((*MockShortsStore)(nil).GetEditorialTake), slug)
+}
+
+// ListEditorialTakes mocks base method.
+func (m *MockShortsStore) ListEditorialTakes(limit, offset int32, stockCode string) ([]*shorts.EditorialTake, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListEditorialTakes", limit, offset, stockCode)
+	ret0, _ := ret[0].([]*shorts.EditorialTake)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListEditorialTakes indicates an expected call of ListEditorialTakes.
+func (mr *MockShortsStoreMockRecorder) ListEditorialTakes(limit, offset, stockCode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEditorialTakes", reflect.TypeOf((*MockShortsStore)(nil).ListEditorialTakes), limit, offset, stockCode)
+}
+
 // GetPeerComparison mocks base method.
 func (m *MockShortsStore) GetPeerComparison(stockCode string, limit int32) (*shorts.PeerComparisonResult, error) {
 	m.ctrl.T.Helper()

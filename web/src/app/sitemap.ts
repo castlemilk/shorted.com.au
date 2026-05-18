@@ -377,6 +377,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   ];
 
+  // Shorted Take editorial pages (DB-backed). Soft-fail if the API is
+  // unavailable so a transient outage doesn't blank the sitemap.
+  let takeRoutes: MetadataRoute.Sitemap = [];
+  try {
+    const { listEditorialTakes } = await import("./actions/getEditorialTake");
+    const takesResp = await listEditorialTakes(200, 0, "");
+    takeRoutes = (takesResp?.takes ?? []).map((t) => {
+      const lastMod =
+        t.publishedAt && typeof t.publishedAt.seconds === "bigint"
+          ? new Date(Number(t.publishedAt.seconds) * 1000).toISOString()
+          : currentDate;
+      return { url: `${baseUrl}/news/${t.slug}`, lastModified: lastMod };
+    });
+  } catch {
+    // ignore — Take pages will appear in the next regeneration
+  }
+
   // Insider-trading hub + per-stock director-trades pages.
   const insiderRoutes = [
     { url: `${baseUrl}/insider-trading`, lastModified: currentDate },
@@ -412,6 +429,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...marketRoutes,
     ...reportRoutes,
     ...newsRoutes,
+    ...takeRoutes,
     ...insiderRoutes,
     ...dataRoutes,
     ...authorRoutes,

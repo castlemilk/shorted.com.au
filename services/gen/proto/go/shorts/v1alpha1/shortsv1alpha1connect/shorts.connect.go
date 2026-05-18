@@ -109,6 +109,12 @@ const (
 	// ShortedStocksServiceGetMarketNewsProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetMarketNews RPC.
 	ShortedStocksServiceGetMarketNewsProcedure = "/shorts.v1alpha1.ShortedStocksService/GetMarketNews"
+	// ShortedStocksServiceGetEditorialTakeProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetEditorialTake RPC.
+	ShortedStocksServiceGetEditorialTakeProcedure = "/shorts.v1alpha1.ShortedStocksService/GetEditorialTake"
+	// ShortedStocksServiceListEditorialTakesProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListEditorialTakes RPC.
+	ShortedStocksServiceListEditorialTakesProcedure = "/shorts.v1alpha1.ShortedStocksService/ListEditorialTakes"
 	// ShortedStocksServiceGetDirectorTradesProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetDirectorTrades RPC.
 	ShortedStocksServiceGetDirectorTradesProcedure = "/shorts.v1alpha1.ShortedStocksService/GetDirectorTrades"
@@ -151,6 +157,8 @@ var (
 	shortedStocksServiceGetStockFinancialHighlightsMethodDescriptor     = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockFinancialHighlights")
 	shortedStocksServiceGetStockNewsMethodDescriptor                    = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockNews")
 	shortedStocksServiceGetMarketNewsMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("GetMarketNews")
+	shortedStocksServiceGetEditorialTakeMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("GetEditorialTake")
+	shortedStocksServiceListEditorialTakesMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ListEditorialTakes")
 	shortedStocksServiceGetDirectorTradesMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetDirectorTrades")
 	shortedStocksServiceGetDividendHistoryMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("GetDividendHistory")
 	shortedStocksServiceGetPeerComparisonMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPeerComparison")
@@ -210,6 +218,10 @@ type ShortedStocksServiceClient interface {
 	GetStockNews(context.Context, *connect.Request[v1alpha1.GetStockNewsRequest]) (*connect.Response[v1alpha1.GetStockNewsResponse], error)
 	// Get market-wide news across all stocks
 	GetMarketNews(context.Context, *connect.Request[v1alpha1.GetMarketNewsRequest]) (*connect.Response[v1alpha1.GetMarketNewsResponse], error)
+	// Get a single published editorial take by slug.
+	GetEditorialTake(context.Context, *connect.Request[v1alpha1.GetEditorialTakeRequest]) (*connect.Response[v1alpha1.GetEditorialTakeResponse], error)
+	// List recent published editorial takes (paginated).
+	ListEditorialTakes(context.Context, *connect.Request[v1alpha1.ListEditorialTakesRequest]) (*connect.Response[v1alpha1.ListEditorialTakesResponse], error)
 	// Get director (insider) trades for a specific stock
 	GetDirectorTrades(context.Context, *connect.Request[v1alpha1.GetDirectorTradesRequest]) (*connect.Response[v1alpha1.GetDirectorTradesResponse], error)
 	// Get dividend history for a specific stock
@@ -380,6 +392,18 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceGetMarketNewsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getEditorialTake: connect.NewClient[v1alpha1.GetEditorialTakeRequest, v1alpha1.GetEditorialTakeResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetEditorialTakeProcedure,
+			connect.WithSchema(shortedStocksServiceGetEditorialTakeMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listEditorialTakes: connect.NewClient[v1alpha1.ListEditorialTakesRequest, v1alpha1.ListEditorialTakesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListEditorialTakesProcedure,
+			connect.WithSchema(shortedStocksServiceListEditorialTakesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		getDirectorTrades: connect.NewClient[v1alpha1.GetDirectorTradesRequest, v1alpha1.GetDirectorTradesResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetDirectorTradesProcedure,
@@ -434,6 +458,8 @@ type shortedStocksServiceClient struct {
 	getStockFinancialHighlights     *connect.Client[v1alpha1.GetStockFinancialHighlightsRequest, v1alpha1.GetStockFinancialHighlightsResponse]
 	getStockNews                    *connect.Client[v1alpha1.GetStockNewsRequest, v1alpha1.GetStockNewsResponse]
 	getMarketNews                   *connect.Client[v1alpha1.GetMarketNewsRequest, v1alpha1.GetMarketNewsResponse]
+	getEditorialTake                *connect.Client[v1alpha1.GetEditorialTakeRequest, v1alpha1.GetEditorialTakeResponse]
+	listEditorialTakes              *connect.Client[v1alpha1.ListEditorialTakesRequest, v1alpha1.ListEditorialTakesResponse]
 	getDirectorTrades               *connect.Client[v1alpha1.GetDirectorTradesRequest, v1alpha1.GetDirectorTradesResponse]
 	getDividendHistory              *connect.Client[v1alpha1.GetDividendHistoryRequest, v1alpha1.GetDividendHistoryResponse]
 	getPeerComparison               *connect.Client[v1alpha1.GetPeerComparisonRequest, v1alpha1.GetPeerComparisonResponse]
@@ -568,6 +594,16 @@ func (c *shortedStocksServiceClient) GetMarketNews(ctx context.Context, req *con
 	return c.getMarketNews.CallUnary(ctx, req)
 }
 
+// GetEditorialTake calls shorts.v1alpha1.ShortedStocksService.GetEditorialTake.
+func (c *shortedStocksServiceClient) GetEditorialTake(ctx context.Context, req *connect.Request[v1alpha1.GetEditorialTakeRequest]) (*connect.Response[v1alpha1.GetEditorialTakeResponse], error) {
+	return c.getEditorialTake.CallUnary(ctx, req)
+}
+
+// ListEditorialTakes calls shorts.v1alpha1.ShortedStocksService.ListEditorialTakes.
+func (c *shortedStocksServiceClient) ListEditorialTakes(ctx context.Context, req *connect.Request[v1alpha1.ListEditorialTakesRequest]) (*connect.Response[v1alpha1.ListEditorialTakesResponse], error) {
+	return c.listEditorialTakes.CallUnary(ctx, req)
+}
+
 // GetDirectorTrades calls shorts.v1alpha1.ShortedStocksService.GetDirectorTrades.
 func (c *shortedStocksServiceClient) GetDirectorTrades(ctx context.Context, req *connect.Request[v1alpha1.GetDirectorTradesRequest]) (*connect.Response[v1alpha1.GetDirectorTradesResponse], error) {
 	return c.getDirectorTrades.CallUnary(ctx, req)
@@ -642,6 +678,10 @@ type ShortedStocksServiceHandler interface {
 	GetStockNews(context.Context, *connect.Request[v1alpha1.GetStockNewsRequest]) (*connect.Response[v1alpha1.GetStockNewsResponse], error)
 	// Get market-wide news across all stocks
 	GetMarketNews(context.Context, *connect.Request[v1alpha1.GetMarketNewsRequest]) (*connect.Response[v1alpha1.GetMarketNewsResponse], error)
+	// Get a single published editorial take by slug.
+	GetEditorialTake(context.Context, *connect.Request[v1alpha1.GetEditorialTakeRequest]) (*connect.Response[v1alpha1.GetEditorialTakeResponse], error)
+	// List recent published editorial takes (paginated).
+	ListEditorialTakes(context.Context, *connect.Request[v1alpha1.ListEditorialTakesRequest]) (*connect.Response[v1alpha1.ListEditorialTakesResponse], error)
 	// Get director (insider) trades for a specific stock
 	GetDirectorTrades(context.Context, *connect.Request[v1alpha1.GetDirectorTradesRequest]) (*connect.Response[v1alpha1.GetDirectorTradesResponse], error)
 	// Get dividend history for a specific stock
@@ -808,6 +848,18 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceGetMarketNewsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceGetEditorialTakeHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetEditorialTakeProcedure,
+		svc.GetEditorialTake,
+		connect.WithSchema(shortedStocksServiceGetEditorialTakeMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListEditorialTakesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListEditorialTakesProcedure,
+		svc.ListEditorialTakes,
+		connect.WithSchema(shortedStocksServiceListEditorialTakesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	shortedStocksServiceGetDirectorTradesHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetDirectorTradesProcedure,
 		svc.GetDirectorTrades,
@@ -884,6 +936,10 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetStockNewsHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetMarketNewsProcedure:
 			shortedStocksServiceGetMarketNewsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetEditorialTakeProcedure:
+			shortedStocksServiceGetEditorialTakeHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListEditorialTakesProcedure:
+			shortedStocksServiceListEditorialTakesHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetDirectorTradesProcedure:
 			shortedStocksServiceGetDirectorTradesHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetDividendHistoryProcedure:
@@ -999,6 +1055,14 @@ func (UnimplementedShortedStocksServiceHandler) GetStockNews(context.Context, *c
 
 func (UnimplementedShortedStocksServiceHandler) GetMarketNews(context.Context, *connect.Request[v1alpha1.GetMarketNewsRequest]) (*connect.Response[v1alpha1.GetMarketNewsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetMarketNews is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetEditorialTake(context.Context, *connect.Request[v1alpha1.GetEditorialTakeRequest]) (*connect.Response[v1alpha1.GetEditorialTakeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetEditorialTake is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListEditorialTakes(context.Context, *connect.Request[v1alpha1.ListEditorialTakesRequest]) (*connect.Response[v1alpha1.ListEditorialTakesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListEditorialTakes is not implemented"))
 }
 
 func (UnimplementedShortedStocksServiceHandler) GetDirectorTrades(context.Context, *connect.Request[v1alpha1.GetDirectorTradesRequest]) (*connect.Response[v1alpha1.GetDirectorTradesResponse], error) {
