@@ -34,7 +34,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 200);
-  const image = take.ogImageUrl || `${siteConfig.url}/opengraph-image`;
+  const image =
+    take.heroImageUrl || take.ogImageUrl || `${siteConfig.url}/opengraph-image`;
   return {
     title: `${take.headline} | Shorted Take`,
     description,
@@ -101,6 +102,19 @@ export default async function ShortedTakePage({ params }: Params) {
 
       <div className="mx-auto max-w-3xl px-4 py-8">
         <Breadcrumbs items={breadcrumbItems} className="mb-6" />
+
+        {take.heroImageUrl ? (
+          <figure className="mb-8 overflow-hidden rounded-lg border border-border">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={take.heroImageUrl}
+              alt={take.headline}
+              width={1536}
+              height={1024}
+              className="h-auto w-full"
+            />
+          </figure>
+        ) : null}
 
         <header className="mb-8 border-b border-border pb-6">
           <div className="mb-3 flex items-center gap-2 text-xs uppercase tracking-wider text-orange-400">

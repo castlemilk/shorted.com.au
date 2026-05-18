@@ -213,6 +213,15 @@ type EditorialTake struct {
 	Model           *string
 	PublishedAt     *string
 	CreatedAt       string
+	HeroImageURL    *string
+	InlineImages    []byte // JSONB raw — service layer decodes to []InlineImage
+}
+
+// InlineImage matches the proto shape for editorial_takes.inline_images.
+type InlineImage struct {
+	URL   string `json:"url"`
+	Topic string `json:"topic"`
+	Alt   string `json:"alt"`
 }
 
 // DirectorTrade represents a director trade from the database

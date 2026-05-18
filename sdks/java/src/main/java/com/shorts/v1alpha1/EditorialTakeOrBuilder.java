@@ -217,4 +217,40 @@ public interface EditorialTakeOrBuilder extends
    * <code>.google.protobuf.Timestamp created_at = 14 [json_name = "createdAt"];</code>
    */
   com.google.protobuf.TimestampOrBuilder getCreatedAtOrBuilder();
+
+  /**
+   * <code>string hero_image_url = 15 [json_name = "heroImageUrl"];</code>
+   * @return The heroImageUrl.
+   */
+  java.lang.String getHeroImageUrl();
+  /**
+   * <code>string hero_image_url = 15 [json_name = "heroImageUrl"];</code>
+   * @return The bytes for heroImageUrl.
+   */
+  com.google.protobuf.ByteString
+      getHeroImageUrlBytes();
+
+  /**
+   * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+   */
+  java.util.List<com.shorts.v1alpha1.InlineImage> 
+      getInlineImagesList();
+  /**
+   * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+   */
+  com.shorts.v1alpha1.InlineImage getInlineImages(int index);
+  /**
+   * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+   */
+  int getInlineImagesCount();
+  /**
+   * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+   */
+  java.util.List<? extends com.shorts.v1alpha1.InlineImageOrBuilder> 
+      getInlineImagesOrBuilderList();
+  /**
+   * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+   */
+  com.shorts.v1alpha1.InlineImageOrBuilder getInlineImagesOrBuilder(
+      int index);
 }

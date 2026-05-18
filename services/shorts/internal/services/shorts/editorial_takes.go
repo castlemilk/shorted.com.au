@@ -2,6 +2,7 @@ package shorts
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -96,6 +97,22 @@ func convertEditorialTake(t *shortsstore.EditorialTake) *shortsv1alpha1.Editoria
 	if t.CreatedAt != "" {
 		if ts, err := time.Parse(time.RFC3339, t.CreatedAt); err == nil {
 			out.CreatedAt = timestamppb.New(ts)
+		}
+	}
+	if t.HeroImageURL != nil {
+		out.HeroImageUrl = *t.HeroImageURL
+	}
+	if len(t.InlineImages) > 0 {
+		var imgs []shortsstore.InlineImage
+		if err := json.Unmarshal(t.InlineImages, &imgs); err == nil {
+			out.InlineImages = make([]*shortsv1alpha1.InlineImage, len(imgs))
+			for i, img := range imgs {
+				out.InlineImages[i] = &shortsv1alpha1.InlineImage{
+					Url:   img.URL,
+					Topic: img.Topic,
+					Alt:   img.Alt,
+				}
+			}
 		}
 	}
 	return out

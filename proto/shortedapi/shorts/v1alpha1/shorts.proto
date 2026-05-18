@@ -1085,6 +1085,15 @@ message EditorialTake {
   string model = 12;              // 'gemini-2.0-flash', etc.
   google.protobuf.Timestamp published_at = 13;
   google.protobuf.Timestamp created_at = 14;
+  string hero_image_url = 15;
+  repeated InlineImage inline_images = 16;
+}
+
+// Inline image embedded in a Take body.
+message InlineImage {
+  string url = 1;
+  string topic = 2;   // editorial brief the image was generated from
+  string alt = 3;     // accessible alt text
 }
 
 message GetEditorialTakeRequest {

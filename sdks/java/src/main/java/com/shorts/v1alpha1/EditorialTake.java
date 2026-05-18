@@ -44,6 +44,8 @@ private static final long serialVersionUID = 0L;
     sourceName_ = "";
     ogImageUrl_ = "";
     model_ = "";
+    heroImageUrl_ = "";
+    inlineImages_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -597,6 +599,86 @@ private static final long serialVersionUID = 0L;
     return createdAt_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : createdAt_;
   }
 
+  public static final int HERO_IMAGE_URL_FIELD_NUMBER = 15;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object heroImageUrl_ = "";
+  /**
+   * <code>string hero_image_url = 15 [json_name = "heroImageUrl"];</code>
+   * @return The heroImageUrl.
+   */
+  @java.lang.Override
+  public java.lang.String getHeroImageUrl() {
+    java.lang.Object ref = heroImageUrl_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      heroImageUrl_ = s;
+      return s;
+    }
+  }
+  /**
+   * <code>string hero_image_url = 15 [json_name = "heroImageUrl"];</code>
+   * @return The bytes for heroImageUrl.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getHeroImageUrlBytes() {
+    java.lang.Object ref = heroImageUrl_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      heroImageUrl_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int INLINE_IMAGES_FIELD_NUMBER = 16;
+  @SuppressWarnings("serial")
+  private java.util.List<com.shorts.v1alpha1.InlineImage> inlineImages_;
+  /**
+   * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<com.shorts.v1alpha1.InlineImage> getInlineImagesList() {
+    return inlineImages_;
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends com.shorts.v1alpha1.InlineImageOrBuilder> 
+      getInlineImagesOrBuilderList() {
+    return inlineImages_;
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+   */
+  @java.lang.Override
+  public int getInlineImagesCount() {
+    return inlineImages_.size();
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.InlineImage getInlineImages(int index) {
+    return inlineImages_.get(index);
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.InlineImageOrBuilder getInlineImagesOrBuilder(
+      int index) {
+    return inlineImages_.get(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -653,6 +735,12 @@ private static final long serialVersionUID = 0L;
     if (((bitField0_ & 0x00000002) != 0)) {
       output.writeMessage(14, getCreatedAt());
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(heroImageUrl_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 15, heroImageUrl_);
+    }
+    for (int i = 0; i < inlineImages_.size(); i++) {
+      output.writeMessage(16, inlineImages_.get(i));
+    }
     getUnknownFields().writeTo(output);
   }
 
@@ -707,6 +795,18 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(14, getCreatedAt());
     }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(heroImageUrl_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(15, heroImageUrl_);
+    }
+
+        {
+          final int count = inlineImages_.size();
+          for (int i = 0; i < count; i++) {
+            size += com.google.protobuf.CodedOutputStream
+              .computeMessageSizeNoTag(inlineImages_.get(i));
+          }
+          size += 2 * count;
+        }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -756,6 +856,10 @@ private static final long serialVersionUID = 0L;
       if (!getCreatedAt()
           .equals(other.getCreatedAt())) return false;
     }
+    if (!getHeroImageUrl()
+        .equals(other.getHeroImageUrl())) return false;
+    if (!getInlineImagesList()
+        .equals(other.getInlineImagesList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -798,6 +902,12 @@ private static final long serialVersionUID = 0L;
     if (hasCreatedAt()) {
       hash = (37 * hash) + CREATED_AT_FIELD_NUMBER;
       hash = (53 * hash) + getCreatedAt().hashCode();
+    }
+    hash = (37 * hash) + HERO_IMAGE_URL_FIELD_NUMBER;
+    hash = (53 * hash) + getHeroImageUrl().hashCode();
+    if (getInlineImagesCount() > 0) {
+      hash = (37 * hash) + INLINE_IMAGES_FIELD_NUMBER;
+      hash = (53 * hash) + getInlineImagesList().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -936,6 +1046,7 @@ private static final long serialVersionUID = 0L;
               .alwaysUseFieldBuilders) {
         internalGetPublishedAtFieldBuilder();
         internalGetCreatedAtFieldBuilder();
+        internalGetInlineImagesFieldBuilder();
       }
     }
     @java.lang.Override
@@ -964,6 +1075,14 @@ private static final long serialVersionUID = 0L;
         createdAtBuilder_.dispose();
         createdAtBuilder_ = null;
       }
+      heroImageUrl_ = "";
+      if (inlineImagesBuilder_ == null) {
+        inlineImages_ = java.util.Collections.emptyList();
+      } else {
+        inlineImages_ = null;
+        inlineImagesBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00008000);
       return this;
     }
 
@@ -990,9 +1109,22 @@ private static final long serialVersionUID = 0L;
     @java.lang.Override
     public com.shorts.v1alpha1.EditorialTake buildPartial() {
       com.shorts.v1alpha1.EditorialTake result = new com.shorts.v1alpha1.EditorialTake(this);
+      buildPartialRepeatedFields(result);
       if (bitField0_ != 0) { buildPartial0(result); }
       onBuilt();
       return result;
+    }
+
+    private void buildPartialRepeatedFields(com.shorts.v1alpha1.EditorialTake result) {
+      if (inlineImagesBuilder_ == null) {
+        if (((bitField0_ & 0x00008000) != 0)) {
+          inlineImages_ = java.util.Collections.unmodifiableList(inlineImages_);
+          bitField0_ = (bitField0_ & ~0x00008000);
+        }
+        result.inlineImages_ = inlineImages_;
+      } else {
+        result.inlineImages_ = inlineImagesBuilder_.build();
+      }
     }
 
     private void buildPartial0(com.shorts.v1alpha1.EditorialTake result) {
@@ -1045,6 +1177,9 @@ private static final long serialVersionUID = 0L;
             ? createdAt_
             : createdAtBuilder_.build();
         to_bitField0_ |= 0x00000002;
+      }
+      if (((from_bitField0_ & 0x00004000) != 0)) {
+        result.heroImageUrl_ = heroImageUrl_;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1124,6 +1259,37 @@ private static final long serialVersionUID = 0L;
       }
       if (other.hasCreatedAt()) {
         mergeCreatedAt(other.getCreatedAt());
+      }
+      if (!other.getHeroImageUrl().isEmpty()) {
+        heroImageUrl_ = other.heroImageUrl_;
+        bitField0_ |= 0x00004000;
+        onChanged();
+      }
+      if (inlineImagesBuilder_ == null) {
+        if (!other.inlineImages_.isEmpty()) {
+          if (inlineImages_.isEmpty()) {
+            inlineImages_ = other.inlineImages_;
+            bitField0_ = (bitField0_ & ~0x00008000);
+          } else {
+            ensureInlineImagesIsMutable();
+            inlineImages_.addAll(other.inlineImages_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.inlineImages_.isEmpty()) {
+          if (inlineImagesBuilder_.isEmpty()) {
+            inlineImagesBuilder_.dispose();
+            inlineImagesBuilder_ = null;
+            inlineImages_ = other.inlineImages_;
+            bitField0_ = (bitField0_ & ~0x00008000);
+            inlineImagesBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetInlineImagesFieldBuilder() : null;
+          } else {
+            inlineImagesBuilder_.addAllMessages(other.inlineImages_);
+          }
+        }
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1225,6 +1391,24 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00002000;
               break;
             } // case 114
+            case 122: {
+              heroImageUrl_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00004000;
+              break;
+            } // case 122
+            case 130: {
+              com.shorts.v1alpha1.InlineImage m =
+                  input.readMessage(
+                      com.shorts.v1alpha1.InlineImage.parser(),
+                      extensionRegistry);
+              if (inlineImagesBuilder_ == null) {
+                ensureInlineImagesIsMutable();
+                inlineImages_.add(m);
+              } else {
+                inlineImagesBuilder_.addMessage(m);
+              }
+              break;
+            } // case 130
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2406,6 +2590,318 @@ private static final long serialVersionUID = 0L;
         createdAt_ = null;
       }
       return createdAtBuilder_;
+    }
+
+    private java.lang.Object heroImageUrl_ = "";
+    /**
+     * <code>string hero_image_url = 15 [json_name = "heroImageUrl"];</code>
+     * @return The heroImageUrl.
+     */
+    public java.lang.String getHeroImageUrl() {
+      java.lang.Object ref = heroImageUrl_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        heroImageUrl_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <code>string hero_image_url = 15 [json_name = "heroImageUrl"];</code>
+     * @return The bytes for heroImageUrl.
+     */
+    public com.google.protobuf.ByteString
+        getHeroImageUrlBytes() {
+      java.lang.Object ref = heroImageUrl_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        heroImageUrl_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <code>string hero_image_url = 15 [json_name = "heroImageUrl"];</code>
+     * @param value The heroImageUrl to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHeroImageUrl(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      heroImageUrl_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string hero_image_url = 15 [json_name = "heroImageUrl"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHeroImageUrl() {
+      heroImageUrl_ = getDefaultInstance().getHeroImageUrl();
+      bitField0_ = (bitField0_ & ~0x00004000);
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>string hero_image_url = 15 [json_name = "heroImageUrl"];</code>
+     * @param value The bytes for heroImageUrl to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHeroImageUrlBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      heroImageUrl_ = value;
+      bitField0_ |= 0x00004000;
+      onChanged();
+      return this;
+    }
+
+    private java.util.List<com.shorts.v1alpha1.InlineImage> inlineImages_ =
+      java.util.Collections.emptyList();
+    private void ensureInlineImagesIsMutable() {
+      if (!((bitField0_ & 0x00008000) != 0)) {
+        inlineImages_ = new java.util.ArrayList<com.shorts.v1alpha1.InlineImage>(inlineImages_);
+        bitField0_ |= 0x00008000;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.InlineImage, com.shorts.v1alpha1.InlineImage.Builder, com.shorts.v1alpha1.InlineImageOrBuilder> inlineImagesBuilder_;
+
+    /**
+     * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.InlineImage> getInlineImagesList() {
+      if (inlineImagesBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(inlineImages_);
+      } else {
+        return inlineImagesBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+     */
+    public int getInlineImagesCount() {
+      if (inlineImagesBuilder_ == null) {
+        return inlineImages_.size();
+      } else {
+        return inlineImagesBuilder_.getCount();
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+     */
+    public com.shorts.v1alpha1.InlineImage getInlineImages(int index) {
+      if (inlineImagesBuilder_ == null) {
+        return inlineImages_.get(index);
+      } else {
+        return inlineImagesBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+     */
+    public Builder setInlineImages(
+        int index, com.shorts.v1alpha1.InlineImage value) {
+      if (inlineImagesBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureInlineImagesIsMutable();
+        inlineImages_.set(index, value);
+        onChanged();
+      } else {
+        inlineImagesBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+     */
+    public Builder setInlineImages(
+        int index, com.shorts.v1alpha1.InlineImage.Builder builderForValue) {
+      if (inlineImagesBuilder_ == null) {
+        ensureInlineImagesIsMutable();
+        inlineImages_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        inlineImagesBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+     */
+    public Builder addInlineImages(com.shorts.v1alpha1.InlineImage value) {
+      if (inlineImagesBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureInlineImagesIsMutable();
+        inlineImages_.add(value);
+        onChanged();
+      } else {
+        inlineImagesBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+     */
+    public Builder addInlineImages(
+        int index, com.shorts.v1alpha1.InlineImage value) {
+      if (inlineImagesBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureInlineImagesIsMutable();
+        inlineImages_.add(index, value);
+        onChanged();
+      } else {
+        inlineImagesBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+     */
+    public Builder addInlineImages(
+        com.shorts.v1alpha1.InlineImage.Builder builderForValue) {
+      if (inlineImagesBuilder_ == null) {
+        ensureInlineImagesIsMutable();
+        inlineImages_.add(builderForValue.build());
+        onChanged();
+      } else {
+        inlineImagesBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+     */
+    public Builder addInlineImages(
+        int index, com.shorts.v1alpha1.InlineImage.Builder builderForValue) {
+      if (inlineImagesBuilder_ == null) {
+        ensureInlineImagesIsMutable();
+        inlineImages_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        inlineImagesBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+     */
+    public Builder addAllInlineImages(
+        java.lang.Iterable<? extends com.shorts.v1alpha1.InlineImage> values) {
+      if (inlineImagesBuilder_ == null) {
+        ensureInlineImagesIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, inlineImages_);
+        onChanged();
+      } else {
+        inlineImagesBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+     */
+    public Builder clearInlineImages() {
+      if (inlineImagesBuilder_ == null) {
+        inlineImages_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00008000);
+        onChanged();
+      } else {
+        inlineImagesBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+     */
+    public Builder removeInlineImages(int index) {
+      if (inlineImagesBuilder_ == null) {
+        ensureInlineImagesIsMutable();
+        inlineImages_.remove(index);
+        onChanged();
+      } else {
+        inlineImagesBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+     */
+    public com.shorts.v1alpha1.InlineImage.Builder getInlineImagesBuilder(
+        int index) {
+      return internalGetInlineImagesFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+     */
+    public com.shorts.v1alpha1.InlineImageOrBuilder getInlineImagesOrBuilder(
+        int index) {
+      if (inlineImagesBuilder_ == null) {
+        return inlineImages_.get(index);  } else {
+        return inlineImagesBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+     */
+    public java.util.List<? extends com.shorts.v1alpha1.InlineImageOrBuilder> 
+         getInlineImagesOrBuilderList() {
+      if (inlineImagesBuilder_ != null) {
+        return inlineImagesBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(inlineImages_);
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+     */
+    public com.shorts.v1alpha1.InlineImage.Builder addInlineImagesBuilder() {
+      return internalGetInlineImagesFieldBuilder().addBuilder(
+          com.shorts.v1alpha1.InlineImage.getDefaultInstance());
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+     */
+    public com.shorts.v1alpha1.InlineImage.Builder addInlineImagesBuilder(
+        int index) {
+      return internalGetInlineImagesFieldBuilder().addBuilder(
+          index, com.shorts.v1alpha1.InlineImage.getDefaultInstance());
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.InlineImage inline_images = 16 [json_name = "inlineImages"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.InlineImage.Builder> 
+         getInlineImagesBuilderList() {
+      return internalGetInlineImagesFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.InlineImage, com.shorts.v1alpha1.InlineImage.Builder, com.shorts.v1alpha1.InlineImageOrBuilder> 
+        internalGetInlineImagesFieldBuilder() {
+      if (inlineImagesBuilder_ == null) {
+        inlineImagesBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            com.shorts.v1alpha1.InlineImage, com.shorts.v1alpha1.InlineImage.Builder, com.shorts.v1alpha1.InlineImageOrBuilder>(
+                inlineImages_,
+                ((bitField0_ & 0x00008000) != 0),
+                getParentForChildren(),
+                isClean());
+        inlineImages_ = null;
+      }
+      return inlineImagesBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.EditorialTake)
