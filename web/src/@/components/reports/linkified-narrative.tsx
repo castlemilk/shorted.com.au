@@ -56,7 +56,7 @@ export function LinkifiedNarrative({
 
   return (
     <span className={className}>
-      {citationSegments.flatMap((segment, segIdx) => {
+      {citationSegments.flatMap<React.ReactNode>((segment, segIdx) => {
         // Citation segment: render the superscript pill (or fall back
         // to plain text if the ref-N has no matching citation).
         const citationMatch = segment.match(/^\[ref-(\d+)\]$/);

@@ -15,18 +15,26 @@ const DEFAULT_HEADERS: Record<string, string> = {
 };
 
 async function call<T>(endpoint: string, body: object): Promise<T> {
-  const res = await fetch(
-    `${API_URL}/shorts.v1alpha1.ShortedStocksService/${endpoint}`,
-    {
-      method: "POST",
-      headers: DEFAULT_HEADERS,
-      body: JSON.stringify(body),
-    },
-  );
-  if (!res.ok) {
-    throw new Error(`${endpoint} -> HTTP ${res.status}: ${await res.text()}`);
+  // Cloudflare edge worker intermittently returns 1101 ("Worker threw
+  // exception") on api.shorted.com.au. Retry transient 5xx with backoff.
+  const maxAttempts = 4;
+  let lastErr: Error | null = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const res = await fetch(
+      `${API_URL}/shorts.v1alpha1.ShortedStocksService/${endpoint}`,
+      {
+        method: "POST",
+        headers: DEFAULT_HEADERS,
+        body: JSON.stringify(body),
+      },
+    );
+    if (res.ok) return (await res.json()) as T;
+    const text = await res.text();
+    lastErr = new Error(`${endpoint} -> HTTP ${res.status}: ${text.slice(0, 200)}`);
+    if (res.status < 500 || attempt === maxAttempts) throw lastErr;
+    await new Promise((r) => setTimeout(r, 1000 * attempt));
   }
-  return (await res.json()) as T;
+  throw lastErr ?? new Error(`${endpoint} failed after ${maxAttempts} attempts`);
 }
 
 export interface TopShortsItem {

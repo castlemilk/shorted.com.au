@@ -80,7 +80,7 @@ export async function buildDailyShortsTweet(): Promise<string> {
           : s.wowChange < -0.05
             ? ` ↓${Math.abs(s.wowChange).toFixed(2)}`
             : " =";
-    return `${i + 1}. $${s.productCode}  ${pct}${arrow}`;
+    return `${i + 1}. ${s.productCode}  ${pct}${arrow}`;
   });
 
   return [
@@ -109,7 +109,7 @@ export async function buildMoversTweet(): Promise<string> {
     const top = raw5[0]!;
     const others = raw5
       .slice(1)
-      .map((m) => `$${m.productCode} (${fmtPct(m.latestShortPosition ?? 0)})`)
+      .map((m) => `${m.productCode} (${fmtPct(m.latestShortPosition ?? 0)})`)
       .join("  ·  ");
     return [
       `$${top.productCode} sits at the top of the ASX short-interest table at ${fmtPct(top.latestShortPosition ?? 0)}.`,
@@ -129,7 +129,7 @@ export async function buildMoversTweet(): Promise<string> {
     .map((m) => {
       const c = m.wowChange ?? 0;
       const s = c > 0 ? "+" : "";
-      return `$${m.productCode} (${s}${c.toFixed(2)}%)`;
+      return `${m.productCode} (${s}${c.toFixed(2)}%)`;
     })
     .join("  ·  ");
 
@@ -182,11 +182,11 @@ export async function buildWeeklyDigestThread(): Promise<string[]> {
 
   const topThree = raw
     .slice(0, 3)
-    .map((s) => `$${s.productCode} ${fmtPct(s.latestShortPosition ?? 0)}`)
+    .map((s) => `${s.productCode} ${fmtPct(s.latestShortPosition ?? 0)}`)
     .join("  ·  ");
   const nextFour = raw
     .slice(3, 7)
-    .map((s) => `$${s.productCode}`)
+    .map((s) => `${s.productCode}`)
     .join("  ·  ");
 
   return [
