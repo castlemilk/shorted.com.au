@@ -1,16 +1,16 @@
 # Shorted Twitter / X Profile Setup
 
 Copy-paste-ready brand assets and content strategy for the
-`@shorted` (or `@shorted_au`) account.
+`@shorted___` (or `@shorted_au`) account.
 
 ---
 
 ## Handle
 
-**Primary**: `@shorted`
+**Primary**: `@shorted___`
 **Fallback if taken**: `@shorted_au`, `@shortedasx`, `@shorteddotcom`
 
-The site already references `@shorted` in `web/src/@/config/site.ts` —
+The site already references `@shorted___` in `web/src/@/config/site.ts` —
 keep that consistent.
 
 ## Display name
@@ -200,7 +200,7 @@ posting.
 
 ## Activation checklist
 
-- [ ] Register `@shorted` (or fallback) on X
+- [ ] Register `@shorted___` (or fallback) on X
 - [ ] Upload profile picture (400×400)
 - [ ] Upload header banner (1500×500)
 - [ ] Bio + location + website

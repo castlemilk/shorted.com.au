@@ -1,6 +1,6 @@
 # Twitter / X bot — operations runbook
 
-How to bootstrap, schedule, monitor, and modify the @shorted Twitter
+How to bootstrap, schedule, monitor, and modify the @shorted___ Twitter
 automation. Companion to:
 
 - [`PROFILE.md`](PROFILE.md) — account branding (handle, bio, visuals)
@@ -14,7 +14,7 @@ The bot is a Node.js + TypeScript script that runs either locally
 
 ## 1. Bootstrap (one-time)
 
-### 1.1 Register the @shorted account
+### 1.1 Register the @shorted___ account
 
 Follow the activation checklist at the bottom of
 [`PROFILE.md`](PROFILE.md). You need a verified X account before
@@ -23,7 +23,7 @@ anything else.
 ### 1.2 Create an X developer app
 
 1. Go to [developer.x.com](https://developer.x.com) and sign in as
-   the @shorted account.
+   the @shorted___ account.
 2. Apply for a **Free** developer account (sufficient for 17 posts /
    24h — covers the cadence below with headroom).
 3. Create a Project → create an App inside it.
@@ -74,10 +74,14 @@ start posting automatically per the cadence below.
 
 ---
 
-## 2. Production schedule
+## 2. Production schedule (local cron)
 
-Five cron triggers run automatically. All times **UTC**; AEST is +10
-(or +11 in daylight-saving).
+Runs from your local machine via cron / launchd. CI scheduling is
+opt-in (see §2.2).
+
+### 2.1 Cron file
+
+All times below are **UTC**; AEST is +10 (or +11 in daylight-saving).
 
 | Cron | Command | AEST | AEDT |
 |---|---|---|---|
@@ -85,7 +89,40 @@ Five cron triggers run automatically. All times **UTC**; AEST is +10
 | `30 6 * * *` | `movers` | 16:30 (post-close) | 17:30 |
 | `0 23 * * *` | `stock-of-the-day` | 09:00 next day | 10:00 |
 | `0 7 * * 5` | `weekly-digest` | 17:00 Fri | 18:00 Fri |
-| `0 0,2,4,6 * * 1-5` | `breaking-news` (every 2h during market hours) | 10:00, 12:00, 14:00, 16:00 | +1h |
+| `0 0,2,4,6 * * 1-5` | `breaking-news` (every 2h during market hours) | 10:00–16:00 | +1h |
+
+Drop into `crontab -e`:
+
+```cron
+SHELL=/bin/bash
+REPO=/Users/<you>/projects/shorted
+LOG=/tmp/shorted-twitter.log
+
+0 1 * * *           cd $REPO/scripts/twitter && /usr/local/bin/npx tsx src/index.ts daily-shorts --live      >> $LOG 2>&1
+30 6 * * *          cd $REPO/scripts/twitter && /usr/local/bin/npx tsx src/index.ts movers --live            >> $LOG 2>&1
+0 23 * * *          cd $REPO/scripts/twitter && /usr/local/bin/npx tsx src/index.ts stock-of-the-day --live  >> $LOG 2>&1
+0 7 * * 5           cd $REPO/scripts/twitter && /usr/local/bin/npx tsx src/index.ts weekly-digest --live     >> $LOG 2>&1
+0 0,2,4,6 * * 1-5   cd $REPO/scripts/twitter && /usr/local/bin/npx tsx src/index.ts breaking-news --live     >> $LOG 2>&1
+```
+
+Tail logs: `tail -f /tmp/shorted-twitter.log`
+
+### 2.2 Switching local cron → GitHub Actions (later)
+
+The workflow at `.github/workflows/twitter-bot.yml` runs **manual
+only** via `workflow_dispatch` today. To enable scheduled CI:
+
+1. Uncomment the `schedule:` block at the top of the workflow file
+2. Add GH Actions secrets: `TWITTER_CLIENT_ID`, `TWITTER_CLIENT_SECRET`,
+   `TWITTER_REFRESH_TOKEN` (from local `bootstrap-oauth2`)
+3. Add a fine-grained PAT at https://github.com/settings/personal-access-tokens/new
+   with `Secrets: Read and write` scope, save as `GH_PAT_FOR_SECRETS`
+4. Append a step that re-stores the rotated refresh token (X rotates
+   on every use). See the workflow file's trailing comment block.
+5. Disable local cron
+
+The local-cron flow has a real advantage: the rotated refresh token
+persists to `.env` automatically — no PAT plumbing required.
 
 Schedule changes? Edit `.github/workflows/twitter-bot.yml` and add a
 corresponding case to the `determine-command` step.

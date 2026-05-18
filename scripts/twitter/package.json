@@ -5,6 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "bootstrap-oauth2": "tsx src/index.ts bootstrap-oauth2",
     "post:daily-shorts": "tsx src/index.ts daily-shorts",
     "post:movers": "tsx src/index.ts movers",
     "post:weekly-digest": "tsx src/index.ts weekly-digest",

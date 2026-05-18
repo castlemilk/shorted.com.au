@@ -5,6 +5,7 @@ import { dirname, resolve } from "node:path";
 import { existsSync } from "node:fs";
 
 import { createClient, type TwitterClient } from "./twitter-client.js";
+import { bootstrapOAuth2 } from "./oauth2-bootstrap.js";
 import {
   buildBreakingNewsTweet,
   buildDailyShortsTweet,
@@ -16,10 +17,16 @@ import {
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Load .env from script root.
-const envPath = resolve(__dirname, "..", ".env");
-if (existsSync(envPath)) {
-  loadDotenv({ path: envPath });
+// Load env from script root first, then fall back to repo root.
+// Repo-root .env is convenient for shared credentials (e.g. the same
+// TWITTER_* vars used by other repo tooling) without copy-pasting.
+const localEnv = resolve(__dirname, "..", ".env");
+const repoEnv = resolve(__dirname, "..", "..", "..", ".env");
+if (existsSync(localEnv)) {
+  loadDotenv({ path: localEnv });
+}
+if (existsSync(repoEnv)) {
+  loadDotenv({ path: repoEnv, override: false });
 }
 
 interface Args {
@@ -66,6 +73,7 @@ Flags:
   --stock=CBA       For insider-trade alerts, the stock code to check
 
 Commands:
+  bootstrap-oauth2     One-time: get an OAuth 2.0 refresh_token
   daily-shorts
   movers
   stock-of-the-day
@@ -81,6 +89,10 @@ Examples:
 }
 
 async function run(command: string, client: TwitterClient, args: Args) {
+  if (command === "bootstrap-oauth2") {
+    await bootstrapOAuth2();
+    return;
+  }
   switch (command) {
     case "daily-shorts": {
       const text = await buildDailyShortsTweet();
@@ -138,9 +150,13 @@ async function main() {
   }
 
   console.log(`[twitter] command=${args.command} dry_run=${args.dryRun}`);
-  const client = createClient({ dryRun: args.dryRun });
 
   try {
+    if (args.command === "bootstrap-oauth2") {
+      await bootstrapOAuth2();
+      return;
+    }
+    const client = createClient({ dryRun: args.dryRun });
     await run(args.command, client, args);
     console.log(`[twitter] done (${args.dryRun ? "dry-run" : "posted"}).`);
   } catch (err) {

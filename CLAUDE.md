@@ -456,6 +456,74 @@ Stock screener with server-side filtering (`services/shorts/internal/services/sh
 - **Frontend**: `/screener` page + `screener-widget.tsx` dashboard widget
 - **Days to Cover**: Added in migration 000028
 
+## Twitter / X Automation
+
+`@shorted___` is the live X handle. The bot is a self-contained Node + TypeScript project at `scripts/twitter/` that pulls live ASIC short data, market news, and director trades from the public shorted.com.au API and posts curated tweets.
+
+### Auth (OAuth 2.0 PKCE)
+
+Credentials live in repo-root `.env`:
+
+| Var | Source |
+|---|---|
+| `TWITTER_CLIENT_ID` | X Developer Portal → Keys and tokens → OAuth 2.0 |
+| `TWITTER_CLIENT_SECRET` | same |
+| `TWITTER_REFRESH_TOKEN` | minted by running `bootstrap-oauth2` once |
+
+The refresh token is **rotated by X on every use** — the script writes the new token back to `.env` on each post. Don't manually edit it.
+
+Re-bootstrap any time the token is invalidated:
+```bash
+cd scripts/twitter
+npx tsx src/index.ts bootstrap-oauth2
+```
+
+The X app must have `http://127.0.0.1:8787/callback` in its callback URIs and the Read+Write permission scope. Required X scopes: `tweet.read tweet.write users.read offline.access`.
+
+OAuth 1.0a is also supported (`TWITTER_API_KEY` / `_SECRET` + `TWITTER_ACCESS_TOKEN` / `_SECRET`) as a fallback — accepts legacy `CONSUMER_KEY`/`SECRET_KEY` naming too.
+
+### Commands
+
+```bash
+cd scripts/twitter
+# Preview (dry-run, default):
+npx tsx src/index.ts daily-shorts
+npx tsx src/index.ts movers
+npx tsx src/index.ts stock-of-the-day
+npx tsx src/index.ts weekly-digest
+npx tsx src/index.ts breaking-news
+npx tsx src/index.ts insider-trade --stock=BHP
+
+# Post for real:
+npx tsx src/index.ts daily-shorts --live
+```
+
+`TWITTER_DRY_RUN_DEFAULT=true` is the safety net — dry-run is on unless `--live` is passed.
+
+### Scheduling
+
+**Local cron** is the production path (see `scripts/twitter/OPERATIONS.md` §2.1 for the full crontab block). Cadence: daily-shorts 11:00 AEST, movers 16:30, stock-of-the-day 09:00, weekly-digest Fri 17:00, breaking-news every 2h during ASX hours.
+
+GitHub Actions workflow at `.github/workflows/twitter-bot.yml` exists but is **manual-only** (`workflow_dispatch`) — the `schedule:` block is commented out. To move to CI scheduling, see `OPERATIONS.md` §2.2 (needs a fine-grained PAT to re-store the rotated refresh token after each run).
+
+### Key files
+
+| File | Purpose |
+|---|---|
+| `scripts/twitter/src/index.ts` | CLI entry, dispatches commands |
+| `scripts/twitter/src/templates.ts` | Tweet text generators (data → string) |
+| `scripts/twitter/src/twitter-client.ts` | X API wrapper, OAuth 2.0 + 1.0a + DryRun stub |
+| `scripts/twitter/src/shorted-api.ts` | Public shorted.com.au API client |
+| `scripts/twitter/src/oauth2-bootstrap.ts` | One-time refresh-token mint flow |
+| `scripts/twitter/PROFILE.md` | Brand setup (handle, bio, header, colours, strategy) |
+| `scripts/twitter/OPERATIONS.md` | Full ops runbook |
+
+### Gotchas
+
+- **WAF rate limit**: bursting >20 requests in a minute to `api.shorted.com.au` triggers Cloudflare's bot protection — returns HTML, not JSON, breaks the script. Production cadence (~5/day) doesn't hit this; local dev does easily.
+- **Refresh token rotation**: every X API call mints a new token. Local cron handles this automatically (writes to `.env`). CI needs a PAT-based persistence step (documented in OPERATIONS.md §2.2).
+- **Edge worker hot-cache bug** (fixed in PR #139): if the bot returns the same stock's data for every productCode, the Cloudflare worker's hot cache key may have regressed — verify `buildHotCacheKey` in `services/edge-worker/worker.js` is hashing the POST body.
+
 ## Known Issues & Gotchas
 
 ### SSR Issues with @connectrpc/connect Imports (CRITICAL)
