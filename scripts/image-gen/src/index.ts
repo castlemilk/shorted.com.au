@@ -32,6 +32,7 @@ interface Args {
   type: PromptInput["type"];
   out?: string;
   quality: Quality;
+  model?: string;
   additionalContext?: string;
   help: boolean;
   // plan
@@ -63,6 +64,8 @@ function parseArgs(argv: string[]): Args {
     else if (arg.startsWith("--quality=")) {
       const v = arg.split("=")[1];
       if (v === "low" || v === "medium" || v === "high" || v === "auto") args.quality = v;
+    } else if (arg.startsWith("--model=")) {
+      args.model = arg.split("=").slice(1).join("=");
     } else if (arg.startsWith("--context=")) {
       args.additionalContext = arg.split("=").slice(1).join("=");
     } else if (arg.startsWith("--headline=")) {
@@ -129,7 +132,7 @@ async function runGenerate(args: Args): Promise<void> {
   });
   const size = imageSizeFor(args.type);
 
-  console.log(`[image-gen] type=${args.type} size=${size} quality=${args.quality}`);
+  console.log(`[image-gen] model=${args.model ?? "gpt-image-1"} type=${args.type} size=${size} quality=${args.quality}`);
   console.log(`[image-gen] prompt (first 200 chars):\n${prompt.slice(0, 200)}…\n`);
 
   const t0 = Date.now();
@@ -138,6 +141,7 @@ async function runGenerate(args: Args): Promise<void> {
     size,
     quality: args.quality,
     n: 1,
+    model: args.model,
   }, args.out);
   const ms = Date.now() - t0;
 
@@ -209,6 +213,7 @@ async function runPipeline(args: Args): Promise<void> {
       prompt,
       size: imageSizeFor(asset.type),
       quality: args.quality,
+      model: args.model,
     });
     console.log(`[pipeline]   generated: $${gen.estimatedCostUsd.toFixed(4)} ${gen.pngBuffer.length}b`);
 
