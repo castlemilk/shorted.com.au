@@ -22,7 +22,7 @@
  *  - Callback URI / Redirect URL includes: http://127.0.0.1:8787/callback
  *  - Type of App: Confidential client (so client_secret is required)
  *  - App permissions: Read and write
- *  - Scopes used: tweet.read, tweet.write, users.read, offline.access
+ *  - Scopes used: tweet.read, tweet.write, users.read, offline.access, media.write
  */
 
 import { TwitterApi } from "twitter-api-v2";
@@ -33,7 +33,13 @@ import { fileURLToPath } from "node:url";
 
 const PORT = 8787;
 const REDIRECT_URI = `http://127.0.0.1:${PORT}/callback`;
-const SCOPES = ["tweet.read", "tweet.write", "users.read", "offline.access"];
+const SCOPES = [
+  "tweet.read",
+  "tweet.write",
+  "users.read",
+  "offline.access",
+  "media.write",
+];
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoEnv = resolve(__dirname, "..", "..", "..", ".env");

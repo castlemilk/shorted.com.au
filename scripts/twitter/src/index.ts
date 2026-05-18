@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { existsSync } from "node:fs";
 
-import { createClient, type TwitterClient } from "./twitter-client.js";
+import { createClient, type TwitterClient, type TweetMedia } from "./twitter-client.js";
 import { bootstrapOAuth2 } from "./oauth2-bootstrap.js";
 import {
   buildBreakingNewsTweet,
@@ -34,6 +34,29 @@ interface Args {
   dryRun: boolean;
   stockCode?: string;
   help: boolean;
+  noImage: boolean;
+}
+
+const SITE_ORIGIN =
+  process.env.SHORTED_SITE_ORIGIN ?? "https://shorted.com.au";
+
+async function fetchInfographic(type: string): Promise<TweetMedia | undefined> {
+  try {
+    const res = await fetch(`${SITE_ORIGIN}/api/og/twitter/${type}`);
+    if (!res.ok) {
+      console.warn(`[twitter] infographic fetch failed (${res.status}); posting text-only`);
+      return undefined;
+    }
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length < 1000) {
+      console.warn(`[twitter] infographic too small (${buf.length}b); posting text-only`);
+      return undefined;
+    }
+    return { buffer: buf, mediaType: "image/png" };
+  } catch (err) {
+    console.warn(`[twitter] infographic error: ${String(err)}; posting text-only`);
+    return undefined;
+  }
 }
 
 function parseArgs(argv: string[]): Args {
@@ -41,11 +64,13 @@ function parseArgs(argv: string[]): Args {
     command: "",
     dryRun: process.env.TWITTER_DRY_RUN_DEFAULT !== "false",
     help: false,
+    noImage: false,
   };
   for (const arg of argv) {
     if (arg === "--help" || arg === "-h") args.help = true;
     else if (arg === "--dry-run") args.dryRun = true;
     else if (arg === "--live") args.dryRun = false;
+    else if (arg === "--no-image") args.noImage = true;
     else if (arg.startsWith("--stock=")) args.stockCode = arg.split("=")[1];
     else if (!arg.startsWith("--") && !args.command) args.command = arg;
   }
@@ -96,7 +121,8 @@ async function run(command: string, client: TwitterClient, args: Args) {
   switch (command) {
     case "daily-shorts": {
       const text = await buildDailyShortsTweet();
-      await client.postTweet(text);
+      const media = args.noImage ? undefined : await fetchInfographic("top-shorts");
+      await client.postTweet(text, media);
       break;
     }
     case "movers": {
@@ -106,7 +132,8 @@ async function run(command: string, client: TwitterClient, args: Args) {
     }
     case "stock-of-the-day": {
       const text = await buildStockOfTheDayTweet();
-      await client.postTweet(text);
+      const media = args.noImage ? undefined : await fetchInfographic("stock-of-day");
+      await client.postTweet(text, media);
       break;
     }
     case "weekly-digest": {

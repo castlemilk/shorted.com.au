@@ -43,8 +43,13 @@ export interface PostedTweet {
   text: string;
 }
 
+export interface TweetMedia {
+  buffer: Buffer;
+  mediaType: "image/png" | "image/jpeg" | "image/webp";
+}
+
 export interface TwitterClient {
-  postTweet(text: string): Promise<PostedTweet>;
+  postTweet(text: string, media?: TweetMedia): Promise<PostedTweet>;
   postThread(items: string[]): Promise<PostedTweet[]>;
 }
 
@@ -55,11 +60,21 @@ class LiveTwitterClient implements TwitterClient {
     this.client = client;
   }
 
-  async postTweet(text: string): Promise<PostedTweet> {
+  async postTweet(text: string, media?: TweetMedia): Promise<PostedTweet> {
     if (text.length > 280) {
       throw new Error(`Tweet too long (${text.length} chars). Trim before posting.`);
     }
-    const { data } = await this.client.v2.tweet(text);
+    let mediaIds: string[] | undefined;
+    if (media) {
+      const id = await this.client.v2.uploadMedia(media.buffer, {
+        media_type: media.mediaType,
+        media_category: "tweet_image",
+      });
+      mediaIds = [id];
+    }
+    const { data } = await this.client.v2.tweet(text, {
+      ...(mediaIds ? { media: { media_ids: mediaIds as [string] } } : {}),
+    });
     return { id: data.id, text: data.text };
   }
 
@@ -81,11 +96,14 @@ class LiveTwitterClient implements TwitterClient {
 }
 
 class DryRunTwitterClient implements TwitterClient {
-  postTweet(text: string): Promise<PostedTweet> {
+  postTweet(text: string, media?: TweetMedia): Promise<PostedTweet> {
     const id = `dryrun-${Date.now()}`;
     console.log("\n──── [DRY RUN] would tweet ────");
     console.log(text);
     console.log(`(${text.length}/280 chars)`);
+    if (media) {
+      console.log(`+ image: ${media.mediaType}, ${media.buffer.length} bytes`);
+    }
     console.log("───────────────────────────────\n");
     return Promise.resolve({ id, text });
   }
@@ -177,12 +195,22 @@ class OAuth2TwitterClient implements TwitterClient {
     return client;
   }
 
-  async postTweet(text: string): Promise<PostedTweet> {
+  async postTweet(text: string, media?: TweetMedia): Promise<PostedTweet> {
     if (text.length > 280) {
       throw new Error(`Tweet too long (${text.length} chars). Trim before posting.`);
     }
     const client = await this.authedClient();
-    const { data } = await client.v2.tweet(text);
+    let mediaIds: string[] | undefined;
+    if (media) {
+      const id = await client.v2.uploadMedia(media.buffer, {
+        media_type: media.mediaType,
+        media_category: "tweet_image",
+      });
+      mediaIds = [id];
+    }
+    const { data } = await client.v2.tweet(text, {
+      ...(mediaIds ? { media: { media_ids: mediaIds as [string] } } : {}),
+    });
     return { id: data.id, text: data.text };
   }
 
