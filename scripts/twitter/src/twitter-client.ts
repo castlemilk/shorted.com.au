@@ -66,11 +66,18 @@ class LiveTwitterClient implements TwitterClient {
     }
     let mediaIds: string[] | undefined;
     if (media) {
-      const id = await this.client.v2.uploadMedia(media.buffer, {
-        media_type: media.mediaType,
-        media_category: "tweet_image",
-      });
-      mediaIds = [id];
+      try {
+        const id = await this.client.v2.uploadMedia(media.buffer, {
+          media_type: media.mediaType,
+          media_category: "tweet_image",
+        });
+        mediaIds = [id];
+      } catch (err) {
+        const msg = (err as { data?: { detail?: string }; message?: string })?.data?.detail
+          ?? (err as Error).message;
+        console.warn(`[twitter] media upload failed (${msg}) — posting text-only`);
+        mediaIds = undefined;
+      }
     }
     const { data } = await this.client.v2.tweet(text, {
       ...(mediaIds ? { media: { media_ids: mediaIds as [string] } } : {}),
@@ -202,11 +209,20 @@ class OAuth2TwitterClient implements TwitterClient {
     const client = await this.authedClient();
     let mediaIds: string[] | undefined;
     if (media) {
-      const id = await client.v2.uploadMedia(media.buffer, {
-        media_type: media.mediaType,
-        media_category: "tweet_image",
-      });
-      mediaIds = [id];
+      try {
+        const id = await client.v2.uploadMedia(media.buffer, {
+          media_type: media.mediaType,
+          media_category: "tweet_image",
+        });
+        mediaIds = [id];
+      } catch (err) {
+        // OAuth 2.0 needs media.write scope (re-bootstrap required).
+        // Don't lose the tweet — drop the media and post text-only.
+        const msg = (err as { data?: { detail?: string }; message?: string })?.data?.detail
+          ?? (err as Error).message;
+        console.warn(`[twitter] media upload failed (${msg}) — posting text-only`);
+        mediaIds = undefined;
+      }
     }
     const { data } = await client.v2.tweet(text, {
       ...(mediaIds ? { media: { media_ids: mediaIds as [string] } } : {}),

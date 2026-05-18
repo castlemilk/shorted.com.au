@@ -2,7 +2,7 @@
 import { config as loadDotenv } from "dotenv";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 
 import { createClient, type TwitterClient, type TweetMedia } from "./twitter-client.js";
 import { bootstrapOAuth2 } from "./oauth2-bootstrap.js";
@@ -35,10 +35,38 @@ interface Args {
   stockCode?: string;
   help: boolean;
   noImage: boolean;
+  imagePath?: string;
 }
 
 const SITE_ORIGIN =
   process.env.SHORTED_SITE_ORIGIN ?? "https://shorted.com.au";
+
+function loadMediaFromPath(p: string): TweetMedia | undefined {
+  try {
+    const buffer = readFileSync(p);
+    const ext = p.toLowerCase().split(".").pop();
+    const mediaType: TweetMedia["mediaType"] =
+      ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "webp" ? "image/webp" : "image/png";
+    const size = statSync(p).size;
+    if (size < 1000) {
+      console.warn(`[twitter] image-path file too small (${size}b); skipping media`);
+      return undefined;
+    }
+    return { buffer, mediaType };
+  } catch (err) {
+    console.warn(`[twitter] could not read --image-path: ${String(err)}`);
+    return undefined;
+  }
+}
+
+async function resolveMedia(
+  args: Args,
+  fallbackType: string,
+): Promise<TweetMedia | undefined> {
+  if (args.noImage) return undefined;
+  if (args.imagePath) return loadMediaFromPath(args.imagePath);
+  return fetchInfographic(fallbackType);
+}
 
 async function fetchInfographic(type: string): Promise<TweetMedia | undefined> {
   try {
@@ -71,6 +99,7 @@ function parseArgs(argv: string[]): Args {
     else if (arg === "--dry-run") args.dryRun = true;
     else if (arg === "--live") args.dryRun = false;
     else if (arg === "--no-image") args.noImage = true;
+    else if (arg.startsWith("--image-path=")) args.imagePath = arg.split("=").slice(1).join("=");
     else if (arg.startsWith("--stock=")) args.stockCode = arg.split("=")[1];
     else if (!arg.startsWith("--") && !args.command) args.command = arg;
   }
@@ -121,7 +150,7 @@ async function run(command: string, client: TwitterClient, args: Args) {
   switch (command) {
     case "daily-shorts": {
       const text = await buildDailyShortsTweet();
-      const media = args.noImage ? undefined : await fetchInfographic("top-shorts");
+      const media = await resolveMedia(args, "top-shorts");
       await client.postTweet(text, media);
       break;
     }
@@ -132,7 +161,7 @@ async function run(command: string, client: TwitterClient, args: Args) {
     }
     case "stock-of-the-day": {
       const text = await buildStockOfTheDayTweet();
-      const media = args.noImage ? undefined : await fetchInfographic("stock-of-day");
+      const media = await resolveMedia(args, "stock-of-day");
       await client.postTweet(text, media);
       break;
     }

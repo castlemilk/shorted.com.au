@@ -5,8 +5,10 @@ import { dirname, resolve } from "node:path";
 import { existsSync } from "node:fs";
 import OpenAI from "openai";
 
+import { readFileSync } from "node:fs";
 import { buildImagePrompt, imageSizeFor, type PromptInput } from "./brand-prompt.js";
 import { generateImage } from "./openai-image.js";
+import { planAssets, type PlanInput } from "./planner.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -31,6 +33,12 @@ interface Args {
   quality: Quality;
   additionalContext?: string;
   help: boolean;
+  // plan
+  headline?: string;
+  bodyFile?: string;
+  bodyText?: string;
+  stockCode?: string;
+  sentiment?: string;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -52,6 +60,16 @@ function parseArgs(argv: string[]): Args {
       if (v === "low" || v === "medium" || v === "high" || v === "auto") args.quality = v;
     } else if (arg.startsWith("--context=")) {
       args.additionalContext = arg.split("=").slice(1).join("=");
+    } else if (arg.startsWith("--headline=")) {
+      args.headline = arg.split("=").slice(1).join("=");
+    } else if (arg.startsWith("--body-file=")) {
+      args.bodyFile = arg.split("=").slice(1).join("=");
+    } else if (arg.startsWith("--body=")) {
+      args.bodyText = arg.split("=").slice(1).join("=");
+    } else if (arg.startsWith("--stock=")) {
+      args.stockCode = arg.split("=")[1];
+    } else if (arg.startsWith("--sentiment=")) {
+      args.sentiment = arg.split("=")[1];
     } else if (!arg.startsWith("--") && !args.command) args.command = arg;
   }
   return args;
@@ -119,6 +137,26 @@ async function runGenerate(args: Args): Promise<void> {
   }
 }
 
+async function runPlan(args: Args): Promise<void> {
+  if (!args.headline) {
+    throw new Error("--headline=\"...\" is required for plan");
+  }
+  let body = args.bodyText;
+  if (!body && args.bodyFile) body = readFileSync(args.bodyFile, "utf8");
+  if (!body) {
+    throw new Error("provide either --body=\"...\" or --body-file=path.md");
+  }
+  const input: PlanInput = {
+    headline: args.headline,
+    bodyMd: body,
+    stockCode: args.stockCode,
+    sentiment: args.sentiment,
+  };
+  console.log(`[image-gen] planning assets for: ${args.headline}`);
+  const plan = await planAssets(input);
+  console.log(JSON.stringify(plan, null, 2));
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   if (args.help || !args.command) {
@@ -130,6 +168,8 @@ async function main(): Promise<void> {
       await runGenerate(args);
       break;
     case "plan":
+      await runPlan(args);
+      break;
     case "upload":
     case "pipeline":
       console.error(`[image-gen] '${args.command}' not yet implemented — see task list`);
