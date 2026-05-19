@@ -11,6 +11,8 @@ import { runOrchestrator } from "./run.js";
 import { Client as PgClient } from "pg";
 import { buildReport } from "./journalism.js";
 import { synthesiseNarrative, narrativeToBodyMd } from "./narrative.js";
+import { buildAgenda, formatAgendaCandidate } from "./agenda.js";
+import { runNewsroom } from "./newsroom.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -43,6 +45,9 @@ interface Args {
   autoTweet?: boolean;
   // narrative
   inspect?: boolean;
+  // newsroom
+  withImages?: boolean;
+  noImages?: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -74,6 +79,10 @@ function parseArgs(argv: string[]): Args {
       args.autoTweet = true;
     } else if (arg === "--inspect") {
       args.inspect = true;
+    } else if (arg === "--with-images") {
+      args.withImages = true;
+    } else if (arg === "--no-images") {
+      args.noImages = true;
     } else if (!arg.startsWith("--") && !args.command) args.command = arg;
   }
   return args;
@@ -87,6 +96,9 @@ Commands:
   draft     Generate a Take body + slug from a headline
   discover  Rank candidate stocks: top-shorted minus ETFs minus no-news
   run       End-to-end: discover headline + draft + image + insert (+ publish + tweet)
+  agenda    Editorial briefing — ranked story candidates with angles
+  newsroom  Loop: agenda → top-N narratives → insert as drafts/publish
+  narrative Multi-section journalism-engine Take for one --stock=CODE
 
 run flags:
   --stock=BHP            (required) ASX stock code
@@ -287,6 +299,46 @@ async function main(): Promise<void> {
     case "discover":
       await runDiscover(args);
       break;
+    case "newsroom": {
+      // Default to images ON when auto-publishing (live page wants a hero),
+      // OFF for drafts (admin can regenerate). --with-images / --no-images
+      // override.
+      const autoPublish = args.autoPublish ?? false;
+      const withImages = args.withImages ?? (autoPublish && !args.noImages);
+      await runNewsroom({
+        poolSize: args.poolSize,
+        topN: args.topN ?? 3,
+        autoPublish,
+        withImages,
+      });
+      break;
+    }
+    case "agenda": {
+      const dbUrl = process.env.DATABASE_URL;
+      if (!dbUrl) throw new Error("DATABASE_URL not set");
+      const pg = new PgClient({ connectionString: dbUrl });
+      await pg.connect();
+      try {
+        const cands = await buildAgenda(pg, {
+          poolSize: args.poolSize,
+          topN: args.topN,
+        });
+        if (cands.length === 0) {
+          console.log("\n[agenda] no candidates above the score threshold today.");
+          break;
+        }
+        console.log("");
+        console.log(`=== Editorial agenda — ${cands.length} story candidates ===`);
+        console.log("");
+        for (const [i, c] of cands.entries()) {
+          console.log(formatAgendaCandidate(c, i));
+          console.log("");
+        }
+      } finally {
+        await pg.end();
+      }
+      break;
+    }
     case "narrative": {
       if (!args.stockCode) throw new Error("--stock=CODE required for narrative");
       const dbUrl = process.env.DATABASE_URL;
