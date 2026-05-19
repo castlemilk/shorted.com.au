@@ -10,6 +10,7 @@ import { discoverCandidates } from "./discover.js";
 import { runOrchestrator } from "./run.js";
 import { Client as PgClient } from "pg";
 import { buildReport } from "./journalism.js";
+import { synthesiseNarrative, narrativeToBodyMd } from "./narrative.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -293,19 +294,39 @@ async function main(): Promise<void> {
       const pg = new PgClient({ connectionString: dbUrl });
       await pg.connect();
       try {
-        const report = await buildReport(pg, args.stockCode.toUpperCase());
+        const code = args.stockCode.toUpperCase();
+        const report = await buildReport(pg, code);
         if (args.inspect) {
-          // Pretty-print everything for inspection.
           console.log(JSON.stringify(report, null, 2));
+          break;
+        }
+        // Run the LLM synthesis.
+        console.error(`[narrative] aggregating ${code}: ${report.bundle.shorts.length} shorts, ${report.bundle.prices.length} prices, ${report.bundle.news.length} news, ${report.bundle.directorTrades.length} trades, ${report.bundle.peers.length} peers`);
+        console.error(`[narrative] synthesising via Gemini…`);
+        const t0 = Date.now();
+        const take = await synthesiseNarrative(report);
+        const ms = Date.now() - t0;
+        console.error(`[narrative] synthesised in ${(ms / 1000).toFixed(1)}s`);
+        const bodyMd = narrativeToBodyMd(take);
+        const out = {
+          slug: take.slug,
+          headline: take.headline,
+          sentiment: take.sentiment,
+          word_count: bodyMd.split(/\s+/).filter(Boolean).length,
+          body_md: bodyMd,
+          citations: take.citations,
+          sections: {
+            background: take.background,
+            recent_events: take.recent_events,
+            the_data: take.the_data,
+            outlook: take.outlook,
+          },
+        };
+        if (args.out) {
+          await import("node:fs").then(({ writeFileSync }) => writeFileSync(args.out!, JSON.stringify(out, null, 2)));
+          console.error(`[narrative] wrote → ${args.out}`);
         } else {
-          // Print a human-readable summary of the signals.
-          console.log(JSON.stringify(report.signals, null, 2));
-          console.log(`\nBundle counts:`);
-          console.log(`  shorts: ${report.bundle.shorts.length}`);
-          console.log(`  prices: ${report.bundle.prices.length}`);
-          console.log(`  news:   ${report.bundle.news.length}`);
-          console.log(`  trades: ${report.bundle.directorTrades.length}`);
-          console.log(`  peers:  ${report.bundle.peers.length}`);
+          console.log(JSON.stringify(out, null, 2));
         }
       } finally {
         await pg.end();
