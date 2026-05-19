@@ -1,6 +1,6 @@
 {
   "name": "shorted",
-  "version": "v0.2.2-947-gf450e843-dirty",
+  "version": "v0.2.2-1039-ga1803494-dirty",
   "private": true,
   "type": "module",
   "moduleResolution": "Node",
@@ -106,6 +106,7 @@
     "@connectrpc/connect": "^2.1.0",
     "@connectrpc/connect-query": "^2.2.0",
     "@connectrpc/connect-web": "^2.1.0",
+    "@google-cloud/storage": "^7.19.0",
     "@hookform/resolvers": "^3.3.4",
     "@mdx-js/loader": "^3.0.1",
     "@mdx-js/react": "^3.0.1",
@@ -189,6 +190,7 @@
     "next-mdx-remote": "^6.0.0",
     "next-plugin-yaml": "^1.0.1",
     "next-themes": "^0.3.0",
+    "openai": "^6.38.0",
     "pg": "^8.16.3",
     "postprocessing": "^6.38.0",
     "prismjs": "^1.29.0",
