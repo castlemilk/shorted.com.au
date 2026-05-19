@@ -102,6 +102,11 @@ func convertEditorialTake(t *shortsstore.EditorialTake) *shortsv1alpha1.Editoria
 	if t.HeroImageURL != nil {
 		out.HeroImageUrl = *t.HeroImageURL
 	}
+	if t.TweetPublishedAt != nil && *t.TweetPublishedAt != "" {
+		if ts, err := time.Parse(time.RFC3339, *t.TweetPublishedAt); err == nil {
+			out.TweetPublishedAt = timestamppb.New(ts)
+		}
+	}
 	if len(t.InlineImages) > 0 {
 		var imgs []shortsstore.InlineImage
 		if err := json.Unmarshal(t.InlineImages, &imgs); err == nil {
@@ -116,4 +121,130 @@ func convertEditorialTake(t *shortsstore.EditorialTake) *shortsv1alpha1.Editoria
 		}
 	}
 	return out
+}
+
+// ===== Admin handlers =====
+
+func (s *ShortsServer) ListEditorialTakesAdmin(
+	ctx context.Context,
+	req *connect.Request[shortsv1alpha1.ListEditorialTakesAdminRequest],
+) (*connect.Response[shortsv1alpha1.ListEditorialTakesAdminResponse], error) {
+	limit := req.Msg.GetLimit()
+	if limit <= 0 || limit > 200 {
+		limit = 50
+	}
+	filter := ""
+	switch req.Msg.GetStatusFilter() {
+	case shortsv1alpha1.TakeStatus_TAKE_STATUS_DRAFT:
+		filter = "draft"
+	case shortsv1alpha1.TakeStatus_TAKE_STATUS_PUBLISHED:
+		filter = "published"
+	case shortsv1alpha1.TakeStatus_TAKE_STATUS_TWEETED:
+		filter = "tweeted"
+	}
+	takes, total, err := s.store.ListEditorialTakesAdmin(limit, req.Msg.GetOffset(), filter)
+	if err != nil {
+		s.logger.Errorf("ListEditorialTakesAdmin: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list takes"))
+	}
+	out := make([]*shortsv1alpha1.EditorialTake, len(takes))
+	for i, t := range takes {
+		out[i] = convertEditorialTake(t)
+	}
+	return connect.NewResponse(&shortsv1alpha1.ListEditorialTakesAdminResponse{
+		Takes: out, TotalCount: int32(total),
+	}), nil
+}
+
+func (s *ShortsServer) PublishEditorialTake(
+	ctx context.Context,
+	req *connect.Request[shortsv1alpha1.PublishEditorialTakeRequest],
+) (*connect.Response[shortsv1alpha1.PublishEditorialTakeResponse], error) {
+	if req.Msg.GetSlug() == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("slug required"))
+	}
+	take, err := s.store.PublishEditorialTake(req.Msg.GetSlug())
+	if err != nil {
+		s.logger.Errorf("PublishEditorialTake: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to publish take"))
+	}
+	return connect.NewResponse(&shortsv1alpha1.PublishEditorialTakeResponse{
+		Take: convertEditorialTake(take),
+	}), nil
+}
+
+func (s *ShortsServer) UpdateEditorialTake(
+	ctx context.Context,
+	req *connect.Request[shortsv1alpha1.UpdateEditorialTakeRequest],
+) (*connect.Response[shortsv1alpha1.UpdateEditorialTakeResponse], error) {
+	if req.Msg.GetSlug() == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("slug required"))
+	}
+	upd := shortsstore.EditorialTakeUpdate{}
+	if v := req.Msg.GetBodyMd(); v != "" {
+		upd.BodyMD = &v
+	}
+	if v := req.Msg.GetHeadline(); v != "" {
+		upd.Headline = &v
+	}
+	if v := req.Msg.GetHeroImageUrl(); v != "" {
+		upd.HeroImageURL = &v
+	}
+	if v := req.Msg.GetSentiment(); v != "" {
+		upd.Sentiment = &v
+	}
+	take, err := s.store.UpdateEditorialTake(req.Msg.GetSlug(), upd)
+	if err != nil {
+		s.logger.Errorf("UpdateEditorialTake: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update take"))
+	}
+	return connect.NewResponse(&shortsv1alpha1.UpdateEditorialTakeResponse{
+		Take: convertEditorialTake(take),
+	}), nil
+}
+
+func (s *ShortsServer) DeleteEditorialTake(
+	ctx context.Context,
+	req *connect.Request[shortsv1alpha1.DeleteEditorialTakeRequest],
+) (*connect.Response[shortsv1alpha1.DeleteEditorialTakeResponse], error) {
+	deleted, err := s.store.DeleteEditorialTake(req.Msg.GetSlug())
+	if err != nil {
+		s.logger.Errorf("DeleteEditorialTake: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete take"))
+	}
+	return connect.NewResponse(&shortsv1alpha1.DeleteEditorialTakeResponse{Deleted: deleted}), nil
+}
+
+func (s *ShortsServer) MarkTakeTweetPublished(
+	ctx context.Context,
+	req *connect.Request[shortsv1alpha1.MarkTakeTweetPublishedRequest],
+) (*connect.Response[shortsv1alpha1.MarkTakeTweetPublishedResponse], error) {
+	take, err := s.store.MarkTakeTweetPublished(req.Msg.GetSlug())
+	if err != nil {
+		s.logger.Errorf("MarkTakeTweetPublished: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to mark tweet published"))
+	}
+	return connect.NewResponse(&shortsv1alpha1.MarkTakeTweetPublishedResponse{
+		Take: convertEditorialTake(take),
+	}), nil
+}
+
+func (s *ShortsServer) ListTweetPublishQueue(
+	ctx context.Context,
+	req *connect.Request[shortsv1alpha1.ListTweetPublishQueueRequest],
+) (*connect.Response[shortsv1alpha1.ListTweetPublishQueueResponse], error) {
+	limit := req.Msg.GetLimit()
+	if limit <= 0 || limit > 50 {
+		limit = 10
+	}
+	takes, err := s.store.ListTweetPublishQueue(limit)
+	if err != nil {
+		s.logger.Errorf("ListTweetPublishQueue: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list publish queue"))
+	}
+	out := make([]*shortsv1alpha1.EditorialTake, len(takes))
+	for i, t := range takes {
+		out[i] = convertEditorialTake(t)
+	}
+	return connect.NewResponse(&shortsv1alpha1.ListTweetPublishQueueResponse{Takes: out}), nil
 }

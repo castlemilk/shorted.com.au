@@ -170,6 +170,30 @@ func (s *StoreAdapter) ListEditorialTakes(limit, offset int32, stockCode string)
 	return s.store.ListEditorialTakes(limit, offset, stockCode)
 }
 
+func (s *StoreAdapter) ListEditorialTakesAdmin(limit, offset int32, statusFilter string) ([]*shorts.EditorialTake, int, error) {
+	return s.store.ListEditorialTakesAdmin(limit, offset, statusFilter)
+}
+
+func (s *StoreAdapter) PublishEditorialTake(slug string) (*shorts.EditorialTake, error) {
+	return s.store.PublishEditorialTake(slug)
+}
+
+func (s *StoreAdapter) UpdateEditorialTake(slug string, f shorts.EditorialTakeUpdate) (*shorts.EditorialTake, error) {
+	return s.store.UpdateEditorialTake(slug, f)
+}
+
+func (s *StoreAdapter) DeleteEditorialTake(slug string) (bool, error) {
+	return s.store.DeleteEditorialTake(slug)
+}
+
+func (s *StoreAdapter) MarkTakeTweetPublished(slug string) (*shorts.EditorialTake, error) {
+	return s.store.MarkTakeTweetPublished(slug)
+}
+
+func (s *StoreAdapter) ListTweetPublishQueue(limit int32) ([]*shorts.EditorialTake, error) {
+	return s.store.ListTweetPublishQueue(limit)
+}
+
 func (s *StoreAdapter) GetDirectorTrades(stockCode string, limit int32) ([]*shorts.DirectorTrade, int, error) {
 	return s.store.GetDirectorTrades(stockCode, limit)
 }

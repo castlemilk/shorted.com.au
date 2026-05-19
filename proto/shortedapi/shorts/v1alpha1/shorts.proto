@@ -430,6 +430,37 @@ service ShortedStocksService {
     };
   }
 
+  // Admin: list all takes including drafts (admin-gated).
+  rpc ListEditorialTakesAdmin (ListEditorialTakesAdminRequest) returns (ListEditorialTakesAdminResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Admin: publish a draft take (sets published_at = NOW()).
+  rpc PublishEditorialTake (PublishEditorialTakeRequest) returns (PublishEditorialTakeResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Admin: partial update of a take's editable fields.
+  rpc UpdateEditorialTake (UpdateEditorialTakeRequest) returns (UpdateEditorialTakeResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Admin: hard delete a take.
+  rpc DeleteEditorialTake (DeleteEditorialTakeRequest) returns (DeleteEditorialTakeResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Admin: mark a take as tweet-published (called by the bot worker).
+  rpc MarkTakeTweetPublished (MarkTakeTweetPublishedRequest) returns (MarkTakeTweetPublishedResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // Admin: list takes in the tweet publish queue (published_at IS NOT NULL,
+  // tweet_published_at IS NULL). Used by the bot worker.
+  rpc ListTweetPublishQueue (ListTweetPublishQueueRequest) returns (ListTweetPublishQueueResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
   // ==================== Director Trades ====================
 
   // Get director (insider) trades for a specific stock
@@ -1087,6 +1118,7 @@ message EditorialTake {
   google.protobuf.Timestamp created_at = 14;
   string hero_image_url = 15;
   repeated InlineImage inline_images = 16;
+  google.protobuf.Timestamp tweet_published_at = 17;
 }
 
 // Inline image embedded in a Take body.
@@ -1114,6 +1146,48 @@ message ListEditorialTakesResponse {
   repeated EditorialTake takes = 1;
   int32 total_count = 2;
 }
+
+// ===== Admin =====
+
+enum TakeStatus {
+  TAKE_STATUS_UNSPECIFIED = 0;
+  TAKE_STATUS_DRAFT = 1;        // published_at IS NULL
+  TAKE_STATUS_PUBLISHED = 2;    // published_at IS NOT NULL, tweet_published_at IS NULL
+  TAKE_STATUS_TWEETED = 3;      // both timestamps set
+}
+
+message ListEditorialTakesAdminRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+  TakeStatus status_filter = 3; // optional
+}
+
+message ListEditorialTakesAdminResponse {
+  repeated EditorialTake takes = 1;
+  int32 total_count = 2;
+}
+
+message PublishEditorialTakeRequest { string slug = 1; }
+message PublishEditorialTakeResponse { EditorialTake take = 1; }
+
+message UpdateEditorialTakeRequest {
+  string slug = 1;
+  // Each optional field is applied only if non-empty.
+  string body_md = 2;
+  string headline = 3;
+  string hero_image_url = 4;
+  string sentiment = 5;
+}
+message UpdateEditorialTakeResponse { EditorialTake take = 1; }
+
+message DeleteEditorialTakeRequest { string slug = 1; }
+message DeleteEditorialTakeResponse { bool deleted = 1; }
+
+message MarkTakeTweetPublishedRequest { string slug = 1; }
+message MarkTakeTweetPublishedResponse { EditorialTake take = 1; }
+
+message ListTweetPublishQueueRequest { int32 limit = 1; }
+message ListTweetPublishQueueResponse { repeated EditorialTake takes = 1; }
 
 // ==================== Director Trades Messages ====================
 

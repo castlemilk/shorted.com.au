@@ -6,23 +6,39 @@
 package com.shorts.v1alpha1;
 
 /**
- * <pre>
- * Sort direction
- * </pre>
- *
- * Protobuf enum {@code shorts.v1alpha1.SortDirection}
+ * Protobuf enum {@code shorts.v1alpha1.TakeStatus}
  */
 @com.google.protobuf.Generated
-public enum SortDirection
+public enum TakeStatus
     implements com.google.protobuf.ProtocolMessageEnum {
   /**
-   * <code>SORT_DIRECTION_DESC = 0;</code>
+   * <code>TAKE_STATUS_UNSPECIFIED = 0;</code>
    */
-  SORT_DIRECTION_DESC(0),
+  TAKE_STATUS_UNSPECIFIED(0),
   /**
-   * <code>SORT_DIRECTION_ASC = 1;</code>
+   * <pre>
+   * published_at IS NULL
+   * </pre>
+   *
+   * <code>TAKE_STATUS_DRAFT = 1;</code>
    */
-  SORT_DIRECTION_ASC(1),
+  TAKE_STATUS_DRAFT(1),
+  /**
+   * <pre>
+   * published_at IS NOT NULL, tweet_published_at IS NULL
+   * </pre>
+   *
+   * <code>TAKE_STATUS_PUBLISHED = 2;</code>
+   */
+  TAKE_STATUS_PUBLISHED(2),
+  /**
+   * <pre>
+   * both timestamps set
+   * </pre>
+   *
+   * <code>TAKE_STATUS_TWEETED = 3;</code>
+   */
+  TAKE_STATUS_TWEETED(3),
   UNRECOGNIZED(-1),
   ;
 
@@ -33,16 +49,36 @@ public enum SortDirection
       /* minor= */ 34,
       /* patch= */ 1,
       /* suffix= */ "",
-      "SortDirection");
+      "TakeStatus");
   }
   /**
-   * <code>SORT_DIRECTION_DESC = 0;</code>
+   * <code>TAKE_STATUS_UNSPECIFIED = 0;</code>
    */
-  public static final int SORT_DIRECTION_DESC_VALUE = 0;
+  public static final int TAKE_STATUS_UNSPECIFIED_VALUE = 0;
   /**
-   * <code>SORT_DIRECTION_ASC = 1;</code>
+   * <pre>
+   * published_at IS NULL
+   * </pre>
+   *
+   * <code>TAKE_STATUS_DRAFT = 1;</code>
    */
-  public static final int SORT_DIRECTION_ASC_VALUE = 1;
+  public static final int TAKE_STATUS_DRAFT_VALUE = 1;
+  /**
+   * <pre>
+   * published_at IS NOT NULL, tweet_published_at IS NULL
+   * </pre>
+   *
+   * <code>TAKE_STATUS_PUBLISHED = 2;</code>
+   */
+  public static final int TAKE_STATUS_PUBLISHED_VALUE = 2;
+  /**
+   * <pre>
+   * both timestamps set
+   * </pre>
+   *
+   * <code>TAKE_STATUS_TWEETED = 3;</code>
+   */
+  public static final int TAKE_STATUS_TWEETED_VALUE = 3;
 
 
   public final int getNumber() {
@@ -59,7 +95,7 @@ public enum SortDirection
    * @deprecated Use {@link #forNumber(int)} instead.
    */
   @java.lang.Deprecated
-  public static SortDirection valueOf(int value) {
+  public static TakeStatus valueOf(int value) {
     return forNumber(value);
   }
 
@@ -67,23 +103,25 @@ public enum SortDirection
    * @param value The numeric wire value of the corresponding enum entry.
    * @return The enum associated with the given numeric wire value.
    */
-  public static SortDirection forNumber(int value) {
+  public static TakeStatus forNumber(int value) {
     switch (value) {
-      case 0: return SORT_DIRECTION_DESC;
-      case 1: return SORT_DIRECTION_ASC;
+      case 0: return TAKE_STATUS_UNSPECIFIED;
+      case 1: return TAKE_STATUS_DRAFT;
+      case 2: return TAKE_STATUS_PUBLISHED;
+      case 3: return TAKE_STATUS_TWEETED;
       default: return null;
     }
   }
 
-  public static com.google.protobuf.Internal.EnumLiteMap<SortDirection>
+  public static com.google.protobuf.Internal.EnumLiteMap<TakeStatus>
       internalGetValueMap() {
     return internalValueMap;
   }
   private static final com.google.protobuf.Internal.EnumLiteMap<
-      SortDirection> internalValueMap =
-        new com.google.protobuf.Internal.EnumLiteMap<SortDirection>() {
-          public SortDirection findValueByNumber(int number) {
-            return SortDirection.forNumber(number);
+      TakeStatus> internalValueMap =
+        new com.google.protobuf.Internal.EnumLiteMap<TakeStatus>() {
+          public TakeStatus findValueByNumber(int number) {
+            return TakeStatus.forNumber(number);
           }
         };
 
@@ -101,12 +139,12 @@ public enum SortDirection
   }
   public static com.google.protobuf.Descriptors.EnumDescriptor
       getDescriptor() {
-    return com.shorts.v1alpha1.ShortsProto.getDescriptor().getEnumType(8);
+    return com.shorts.v1alpha1.ShortsProto.getDescriptor().getEnumType(6);
   }
 
-  private static final SortDirection[] VALUES = values();
+  private static final TakeStatus[] VALUES = values();
 
-  public static SortDirection valueOf(
+  public static TakeStatus valueOf(
       com.google.protobuf.Descriptors.EnumValueDescriptor desc) {
     if (desc.getType() != getDescriptor()) {
       throw new java.lang.IllegalArgumentException(
@@ -120,10 +158,10 @@ public enum SortDirection
 
   private final int value;
 
-  private SortDirection(int value) {
+  private TakeStatus(int value) {
     this.value = value;
   }
 
-  // @@protoc_insertion_point(enum_scope:shorts.v1alpha1.SortDirection)
+  // @@protoc_insertion_point(enum_scope:shorts.v1alpha1.TakeStatus)
 }
 

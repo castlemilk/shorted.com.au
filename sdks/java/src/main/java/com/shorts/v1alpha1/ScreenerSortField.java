@@ -164,7 +164,7 @@ public enum ScreenerSortField
   }
   public static com.google.protobuf.Descriptors.EnumDescriptor
       getDescriptor() {
-    return com.shorts.v1alpha1.ShortsProto.getDescriptor().getEnumType(6);
+    return com.shorts.v1alpha1.ShortsProto.getDescriptor().getEnumType(7);
   }
 
   private static final ScreenerSortField[] VALUES = values();

@@ -253,4 +253,19 @@ public interface EditorialTakeOrBuilder extends
    */
   com.shorts.v1alpha1.InlineImageOrBuilder getInlineImagesOrBuilder(
       int index);
+
+  /**
+   * <code>.google.protobuf.Timestamp tweet_published_at = 17 [json_name = "tweetPublishedAt"];</code>
+   * @return Whether the tweetPublishedAt field is set.
+   */
+  boolean hasTweetPublishedAt();
+  /**
+   * <code>.google.protobuf.Timestamp tweet_published_at = 17 [json_name = "tweetPublishedAt"];</code>
+   * @return The tweetPublishedAt.
+   */
+  com.google.protobuf.Timestamp getTweetPublishedAt();
+  /**
+   * <code>.google.protobuf.Timestamp tweet_published_at = 17 [json_name = "tweetPublishedAt"];</code>
+   */
+  com.google.protobuf.TimestampOrBuilder getTweetPublishedAtOrBuilder();
 }

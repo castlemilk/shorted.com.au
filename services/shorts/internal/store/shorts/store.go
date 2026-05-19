@@ -86,6 +86,12 @@ type Store interface {
 	// Editorial Take methods
 	GetEditorialTake(slug string) (*EditorialTake, error)
 	ListEditorialTakes(limit, offset int32, stockCode string) ([]*EditorialTake, int, error)
+	ListEditorialTakesAdmin(limit, offset int32, statusFilter string) ([]*EditorialTake, int, error)
+	PublishEditorialTake(slug string) (*EditorialTake, error)
+	UpdateEditorialTake(slug string, fields EditorialTakeUpdate) (*EditorialTake, error)
+	DeleteEditorialTake(slug string) (bool, error)
+	MarkTakeTweetPublished(slug string) (*EditorialTake, error)
+	ListTweetPublishQueue(limit int32) ([]*EditorialTake, error)
 
 	// Director trade methods
 	GetDirectorTrades(stockCode string, limit int32) ([]*DirectorTrade, int, error)
@@ -212,9 +218,19 @@ type EditorialTake struct {
 	WordCount       *int32
 	Model           *string
 	PublishedAt     *string
-	CreatedAt       string
-	HeroImageURL    *string
-	InlineImages    []byte // JSONB raw — service layer decodes to []InlineImage
+	CreatedAt        string
+	HeroImageURL     *string
+	InlineImages     []byte // JSONB raw — service layer decodes to []InlineImage
+	TweetPublishedAt *string
+}
+
+// EditorialTakeUpdate is the partial-update payload for UpdateEditorialTake.
+// Pointer fields = "update if set"; nil = "leave as-is".
+type EditorialTakeUpdate struct {
+	BodyMD       *string
+	Headline     *string
+	HeroImageURL *string
+	Sentiment    *string
 }
 
 // InlineImage matches the proto shape for editorial_takes.inline_images.

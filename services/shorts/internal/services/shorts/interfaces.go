@@ -67,6 +67,12 @@ type ShortsStore interface {
 	// Editorial Take methods
 	GetEditorialTake(slug string) (*shortsstore.EditorialTake, error)
 	ListEditorialTakes(limit, offset int32, stockCode string) ([]*shortsstore.EditorialTake, int, error)
+	ListEditorialTakesAdmin(limit, offset int32, statusFilter string) ([]*shortsstore.EditorialTake, int, error)
+	PublishEditorialTake(slug string) (*shortsstore.EditorialTake, error)
+	UpdateEditorialTake(slug string, fields shortsstore.EditorialTakeUpdate) (*shortsstore.EditorialTake, error)
+	DeleteEditorialTake(slug string) (bool, error)
+	MarkTakeTweetPublished(slug string) (*shortsstore.EditorialTake, error)
+	ListTweetPublishQueue(limit int32) ([]*shortsstore.EditorialTake, error)
 
 	// Director trade methods
 	GetDirectorTrades(stockCode string, limit int32) ([]*shortsstore.DirectorTrade, int, error)

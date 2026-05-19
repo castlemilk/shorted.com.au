@@ -290,6 +290,85 @@ func (mr *MockShortsStoreMockRecorder) ListEditorialTakes(limit, offset, stockCo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEditorialTakes", reflect.TypeOf((*MockShortsStore)(nil).ListEditorialTakes), limit, offset, stockCode)
 }
 
+// ListEditorialTakesAdmin mocks base method.
+func (m *MockShortsStore) ListEditorialTakesAdmin(limit, offset int32, statusFilter string) ([]*shorts.EditorialTake, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListEditorialTakesAdmin", limit, offset, statusFilter)
+	ret0, _ := ret[0].([]*shorts.EditorialTake)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+func (mr *MockShortsStoreMockRecorder) ListEditorialTakesAdmin(limit, offset, statusFilter any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEditorialTakesAdmin", reflect.TypeOf((*MockShortsStore)(nil).ListEditorialTakesAdmin), limit, offset, statusFilter)
+}
+
+// PublishEditorialTake mocks base method.
+func (m *MockShortsStore) PublishEditorialTake(slug string) (*shorts.EditorialTake, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PublishEditorialTake", slug)
+	ret0, _ := ret[0].(*shorts.EditorialTake)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+func (mr *MockShortsStoreMockRecorder) PublishEditorialTake(slug any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishEditorialTake", reflect.TypeOf((*MockShortsStore)(nil).PublishEditorialTake), slug)
+}
+
+// UpdateEditorialTake mocks base method.
+func (m *MockShortsStore) UpdateEditorialTake(slug string, fields shorts.EditorialTakeUpdate) (*shorts.EditorialTake, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateEditorialTake", slug, fields)
+	ret0, _ := ret[0].(*shorts.EditorialTake)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+func (mr *MockShortsStoreMockRecorder) UpdateEditorialTake(slug, fields any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateEditorialTake", reflect.TypeOf((*MockShortsStore)(nil).UpdateEditorialTake), slug, fields)
+}
+
+// DeleteEditorialTake mocks base method.
+func (m *MockShortsStore) DeleteEditorialTake(slug string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteEditorialTake", slug)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+func (mr *MockShortsStoreMockRecorder) DeleteEditorialTake(slug any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteEditorialTake", reflect.TypeOf((*MockShortsStore)(nil).DeleteEditorialTake), slug)
+}
+
+// MarkTakeTweetPublished mocks base method.
+func (m *MockShortsStore) MarkTakeTweetPublished(slug string) (*shorts.EditorialTake, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkTakeTweetPublished", slug)
+	ret0, _ := ret[0].(*shorts.EditorialTake)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+func (mr *MockShortsStoreMockRecorder) MarkTakeTweetPublished(slug any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkTakeTweetPublished", reflect.TypeOf((*MockShortsStore)(nil).MarkTakeTweetPublished), slug)
+}
+
+// ListTweetPublishQueue mocks base method.
+func (m *MockShortsStore) ListTweetPublishQueue(limit int32) ([]*shorts.EditorialTake, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListTweetPublishQueue", limit)
+	ret0, _ := ret[0].([]*shorts.EditorialTake)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+func (mr *MockShortsStoreMockRecorder) ListTweetPublishQueue(limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTweetPublishQueue", reflect.TypeOf((*MockShortsStore)(nil).ListTweetPublishQueue), limit)
+}
+
 // GetPeerComparison mocks base method.
 func (m *MockShortsStore) GetPeerComparison(stockCode string, limit int32) (*shorts.PeerComparisonResult, error) {
 	m.ctrl.T.Helper()

@@ -679,6 +679,32 @@ private static final long serialVersionUID = 0L;
     return inlineImages_.get(index);
   }
 
+  public static final int TWEET_PUBLISHED_AT_FIELD_NUMBER = 17;
+  private com.google.protobuf.Timestamp tweetPublishedAt_;
+  /**
+   * <code>.google.protobuf.Timestamp tweet_published_at = 17 [json_name = "tweetPublishedAt"];</code>
+   * @return Whether the tweetPublishedAt field is set.
+   */
+  @java.lang.Override
+  public boolean hasTweetPublishedAt() {
+    return ((bitField0_ & 0x00000004) != 0);
+  }
+  /**
+   * <code>.google.protobuf.Timestamp tweet_published_at = 17 [json_name = "tweetPublishedAt"];</code>
+   * @return The tweetPublishedAt.
+   */
+  @java.lang.Override
+  public com.google.protobuf.Timestamp getTweetPublishedAt() {
+    return tweetPublishedAt_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : tweetPublishedAt_;
+  }
+  /**
+   * <code>.google.protobuf.Timestamp tweet_published_at = 17 [json_name = "tweetPublishedAt"];</code>
+   */
+  @java.lang.Override
+  public com.google.protobuf.TimestampOrBuilder getTweetPublishedAtOrBuilder() {
+    return tweetPublishedAt_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : tweetPublishedAt_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -740,6 +766,9 @@ private static final long serialVersionUID = 0L;
     }
     for (int i = 0; i < inlineImages_.size(); i++) {
       output.writeMessage(16, inlineImages_.get(i));
+    }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      output.writeMessage(17, getTweetPublishedAt());
     }
     getUnknownFields().writeTo(output);
   }
@@ -807,6 +836,10 @@ private static final long serialVersionUID = 0L;
           }
           size += 2 * count;
         }
+    if (((bitField0_ & 0x00000004) != 0)) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeMessageSize(17, getTweetPublishedAt());
+    }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -860,6 +893,11 @@ private static final long serialVersionUID = 0L;
         .equals(other.getHeroImageUrl())) return false;
     if (!getInlineImagesList()
         .equals(other.getInlineImagesList())) return false;
+    if (hasTweetPublishedAt() != other.hasTweetPublishedAt()) return false;
+    if (hasTweetPublishedAt()) {
+      if (!getTweetPublishedAt()
+          .equals(other.getTweetPublishedAt())) return false;
+    }
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -908,6 +946,10 @@ private static final long serialVersionUID = 0L;
     if (getInlineImagesCount() > 0) {
       hash = (37 * hash) + INLINE_IMAGES_FIELD_NUMBER;
       hash = (53 * hash) + getInlineImagesList().hashCode();
+    }
+    if (hasTweetPublishedAt()) {
+      hash = (37 * hash) + TWEET_PUBLISHED_AT_FIELD_NUMBER;
+      hash = (53 * hash) + getTweetPublishedAt().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -1047,6 +1089,7 @@ private static final long serialVersionUID = 0L;
         internalGetPublishedAtFieldBuilder();
         internalGetCreatedAtFieldBuilder();
         internalGetInlineImagesFieldBuilder();
+        internalGetTweetPublishedAtFieldBuilder();
       }
     }
     @java.lang.Override
@@ -1083,6 +1126,11 @@ private static final long serialVersionUID = 0L;
         inlineImagesBuilder_.clear();
       }
       bitField0_ = (bitField0_ & ~0x00008000);
+      tweetPublishedAt_ = null;
+      if (tweetPublishedAtBuilder_ != null) {
+        tweetPublishedAtBuilder_.dispose();
+        tweetPublishedAtBuilder_ = null;
+      }
       return this;
     }
 
@@ -1180,6 +1228,12 @@ private static final long serialVersionUID = 0L;
       }
       if (((from_bitField0_ & 0x00004000) != 0)) {
         result.heroImageUrl_ = heroImageUrl_;
+      }
+      if (((from_bitField0_ & 0x00010000) != 0)) {
+        result.tweetPublishedAt_ = tweetPublishedAtBuilder_ == null
+            ? tweetPublishedAt_
+            : tweetPublishedAtBuilder_.build();
+        to_bitField0_ |= 0x00000004;
       }
       result.bitField0_ |= to_bitField0_;
     }
@@ -1290,6 +1344,9 @@ private static final long serialVersionUID = 0L;
             inlineImagesBuilder_.addAllMessages(other.inlineImages_);
           }
         }
+      }
+      if (other.hasTweetPublishedAt()) {
+        mergeTweetPublishedAt(other.getTweetPublishedAt());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -1409,6 +1466,13 @@ private static final long serialVersionUID = 0L;
               }
               break;
             } // case 130
+            case 138: {
+              input.readMessage(
+                  internalGetTweetPublishedAtFieldBuilder().getBuilder(),
+                  extensionRegistry);
+              bitField0_ |= 0x00010000;
+              break;
+            } // case 138
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -2902,6 +2966,127 @@ private static final long serialVersionUID = 0L;
         inlineImages_ = null;
       }
       return inlineImagesBuilder_;
+    }
+
+    private com.google.protobuf.Timestamp tweetPublishedAt_;
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> tweetPublishedAtBuilder_;
+    /**
+     * <code>.google.protobuf.Timestamp tweet_published_at = 17 [json_name = "tweetPublishedAt"];</code>
+     * @return Whether the tweetPublishedAt field is set.
+     */
+    public boolean hasTweetPublishedAt() {
+      return ((bitField0_ & 0x00010000) != 0);
+    }
+    /**
+     * <code>.google.protobuf.Timestamp tweet_published_at = 17 [json_name = "tweetPublishedAt"];</code>
+     * @return The tweetPublishedAt.
+     */
+    public com.google.protobuf.Timestamp getTweetPublishedAt() {
+      if (tweetPublishedAtBuilder_ == null) {
+        return tweetPublishedAt_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : tweetPublishedAt_;
+      } else {
+        return tweetPublishedAtBuilder_.getMessage();
+      }
+    }
+    /**
+     * <code>.google.protobuf.Timestamp tweet_published_at = 17 [json_name = "tweetPublishedAt"];</code>
+     */
+    public Builder setTweetPublishedAt(com.google.protobuf.Timestamp value) {
+      if (tweetPublishedAtBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        tweetPublishedAt_ = value;
+      } else {
+        tweetPublishedAtBuilder_.setMessage(value);
+      }
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp tweet_published_at = 17 [json_name = "tweetPublishedAt"];</code>
+     */
+    public Builder setTweetPublishedAt(
+        com.google.protobuf.Timestamp.Builder builderForValue) {
+      if (tweetPublishedAtBuilder_ == null) {
+        tweetPublishedAt_ = builderForValue.build();
+      } else {
+        tweetPublishedAtBuilder_.setMessage(builderForValue.build());
+      }
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp tweet_published_at = 17 [json_name = "tweetPublishedAt"];</code>
+     */
+    public Builder mergeTweetPublishedAt(com.google.protobuf.Timestamp value) {
+      if (tweetPublishedAtBuilder_ == null) {
+        if (((bitField0_ & 0x00010000) != 0) &&
+          tweetPublishedAt_ != null &&
+          tweetPublishedAt_ != com.google.protobuf.Timestamp.getDefaultInstance()) {
+          getTweetPublishedAtBuilder().mergeFrom(value);
+        } else {
+          tweetPublishedAt_ = value;
+        }
+      } else {
+        tweetPublishedAtBuilder_.mergeFrom(value);
+      }
+      if (tweetPublishedAt_ != null) {
+        bitField0_ |= 0x00010000;
+        onChanged();
+      }
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp tweet_published_at = 17 [json_name = "tweetPublishedAt"];</code>
+     */
+    public Builder clearTweetPublishedAt() {
+      bitField0_ = (bitField0_ & ~0x00010000);
+      tweetPublishedAt_ = null;
+      if (tweetPublishedAtBuilder_ != null) {
+        tweetPublishedAtBuilder_.dispose();
+        tweetPublishedAtBuilder_ = null;
+      }
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>.google.protobuf.Timestamp tweet_published_at = 17 [json_name = "tweetPublishedAt"];</code>
+     */
+    public com.google.protobuf.Timestamp.Builder getTweetPublishedAtBuilder() {
+      bitField0_ |= 0x00010000;
+      onChanged();
+      return internalGetTweetPublishedAtFieldBuilder().getBuilder();
+    }
+    /**
+     * <code>.google.protobuf.Timestamp tweet_published_at = 17 [json_name = "tweetPublishedAt"];</code>
+     */
+    public com.google.protobuf.TimestampOrBuilder getTweetPublishedAtOrBuilder() {
+      if (tweetPublishedAtBuilder_ != null) {
+        return tweetPublishedAtBuilder_.getMessageOrBuilder();
+      } else {
+        return tweetPublishedAt_ == null ?
+            com.google.protobuf.Timestamp.getDefaultInstance() : tweetPublishedAt_;
+      }
+    }
+    /**
+     * <code>.google.protobuf.Timestamp tweet_published_at = 17 [json_name = "tweetPublishedAt"];</code>
+     */
+    private com.google.protobuf.SingleFieldBuilder<
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> 
+        internalGetTweetPublishedAtFieldBuilder() {
+      if (tweetPublishedAtBuilder_ == null) {
+        tweetPublishedAtBuilder_ = new com.google.protobuf.SingleFieldBuilder<
+            com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder>(
+                getTweetPublishedAt(),
+                getParentForChildren(),
+                isClean());
+        tweetPublishedAt_ = null;
+      }
+      return tweetPublishedAtBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.EditorialTake)

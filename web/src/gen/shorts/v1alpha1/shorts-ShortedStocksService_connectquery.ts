@@ -195,6 +195,49 @@ export const getEditorialTake = ShortedStocksService.method.getEditorialTake;
 export const listEditorialTakes = ShortedStocksService.method.listEditorialTakes;
 
 /**
+ * Admin: list all takes including drafts (admin-gated).
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListEditorialTakesAdmin
+ */
+export const listEditorialTakesAdmin = ShortedStocksService.method.listEditorialTakesAdmin;
+
+/**
+ * Admin: publish a draft take (sets published_at = NOW()).
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.PublishEditorialTake
+ */
+export const publishEditorialTake = ShortedStocksService.method.publishEditorialTake;
+
+/**
+ * Admin: partial update of a take's editable fields.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.UpdateEditorialTake
+ */
+export const updateEditorialTake = ShortedStocksService.method.updateEditorialTake;
+
+/**
+ * Admin: hard delete a take.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.DeleteEditorialTake
+ */
+export const deleteEditorialTake = ShortedStocksService.method.deleteEditorialTake;
+
+/**
+ * Admin: mark a take as tweet-published (called by the bot worker).
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.MarkTakeTweetPublished
+ */
+export const markTakeTweetPublished = ShortedStocksService.method.markTakeTweetPublished;
+
+/**
+ * Admin: list takes in the tweet publish queue (published_at IS NOT NULL,
+ * tweet_published_at IS NULL). Used by the bot worker.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListTweetPublishQueue
+ */
+export const listTweetPublishQueue = ShortedStocksService.method.listTweetPublishQueue;
+
+/**
  * Get director (insider) trades for a specific stock
  *
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetDirectorTrades

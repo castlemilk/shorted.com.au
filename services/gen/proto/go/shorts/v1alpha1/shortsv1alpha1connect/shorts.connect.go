@@ -115,6 +115,24 @@ const (
 	// ShortedStocksServiceListEditorialTakesProcedure is the fully-qualified name of the
 	// ShortedStocksService's ListEditorialTakes RPC.
 	ShortedStocksServiceListEditorialTakesProcedure = "/shorts.v1alpha1.ShortedStocksService/ListEditorialTakes"
+	// ShortedStocksServiceListEditorialTakesAdminProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListEditorialTakesAdmin RPC.
+	ShortedStocksServiceListEditorialTakesAdminProcedure = "/shorts.v1alpha1.ShortedStocksService/ListEditorialTakesAdmin"
+	// ShortedStocksServicePublishEditorialTakeProcedure is the fully-qualified name of the
+	// ShortedStocksService's PublishEditorialTake RPC.
+	ShortedStocksServicePublishEditorialTakeProcedure = "/shorts.v1alpha1.ShortedStocksService/PublishEditorialTake"
+	// ShortedStocksServiceUpdateEditorialTakeProcedure is the fully-qualified name of the
+	// ShortedStocksService's UpdateEditorialTake RPC.
+	ShortedStocksServiceUpdateEditorialTakeProcedure = "/shorts.v1alpha1.ShortedStocksService/UpdateEditorialTake"
+	// ShortedStocksServiceDeleteEditorialTakeProcedure is the fully-qualified name of the
+	// ShortedStocksService's DeleteEditorialTake RPC.
+	ShortedStocksServiceDeleteEditorialTakeProcedure = "/shorts.v1alpha1.ShortedStocksService/DeleteEditorialTake"
+	// ShortedStocksServiceMarkTakeTweetPublishedProcedure is the fully-qualified name of the
+	// ShortedStocksService's MarkTakeTweetPublished RPC.
+	ShortedStocksServiceMarkTakeTweetPublishedProcedure = "/shorts.v1alpha1.ShortedStocksService/MarkTakeTweetPublished"
+	// ShortedStocksServiceListTweetPublishQueueProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListTweetPublishQueue RPC.
+	ShortedStocksServiceListTweetPublishQueueProcedure = "/shorts.v1alpha1.ShortedStocksService/ListTweetPublishQueue"
 	// ShortedStocksServiceGetDirectorTradesProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetDirectorTrades RPC.
 	ShortedStocksServiceGetDirectorTradesProcedure = "/shorts.v1alpha1.ShortedStocksService/GetDirectorTrades"
@@ -159,6 +177,12 @@ var (
 	shortedStocksServiceGetMarketNewsMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("GetMarketNews")
 	shortedStocksServiceGetEditorialTakeMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("GetEditorialTake")
 	shortedStocksServiceListEditorialTakesMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ListEditorialTakes")
+	shortedStocksServiceListEditorialTakesAdminMethodDescriptor         = shortedStocksServiceServiceDescriptor.Methods().ByName("ListEditorialTakesAdmin")
+	shortedStocksServicePublishEditorialTakeMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("PublishEditorialTake")
+	shortedStocksServiceUpdateEditorialTakeMethodDescriptor             = shortedStocksServiceServiceDescriptor.Methods().ByName("UpdateEditorialTake")
+	shortedStocksServiceDeleteEditorialTakeMethodDescriptor             = shortedStocksServiceServiceDescriptor.Methods().ByName("DeleteEditorialTake")
+	shortedStocksServiceMarkTakeTweetPublishedMethodDescriptor          = shortedStocksServiceServiceDescriptor.Methods().ByName("MarkTakeTweetPublished")
+	shortedStocksServiceListTweetPublishQueueMethodDescriptor           = shortedStocksServiceServiceDescriptor.Methods().ByName("ListTweetPublishQueue")
 	shortedStocksServiceGetDirectorTradesMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetDirectorTrades")
 	shortedStocksServiceGetDividendHistoryMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("GetDividendHistory")
 	shortedStocksServiceGetPeerComparisonMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPeerComparison")
@@ -222,6 +246,19 @@ type ShortedStocksServiceClient interface {
 	GetEditorialTake(context.Context, *connect.Request[v1alpha1.GetEditorialTakeRequest]) (*connect.Response[v1alpha1.GetEditorialTakeResponse], error)
 	// List recent published editorial takes (paginated).
 	ListEditorialTakes(context.Context, *connect.Request[v1alpha1.ListEditorialTakesRequest]) (*connect.Response[v1alpha1.ListEditorialTakesResponse], error)
+	// Admin: list all takes including drafts (admin-gated).
+	ListEditorialTakesAdmin(context.Context, *connect.Request[v1alpha1.ListEditorialTakesAdminRequest]) (*connect.Response[v1alpha1.ListEditorialTakesAdminResponse], error)
+	// Admin: publish a draft take (sets published_at = NOW()).
+	PublishEditorialTake(context.Context, *connect.Request[v1alpha1.PublishEditorialTakeRequest]) (*connect.Response[v1alpha1.PublishEditorialTakeResponse], error)
+	// Admin: partial update of a take's editable fields.
+	UpdateEditorialTake(context.Context, *connect.Request[v1alpha1.UpdateEditorialTakeRequest]) (*connect.Response[v1alpha1.UpdateEditorialTakeResponse], error)
+	// Admin: hard delete a take.
+	DeleteEditorialTake(context.Context, *connect.Request[v1alpha1.DeleteEditorialTakeRequest]) (*connect.Response[v1alpha1.DeleteEditorialTakeResponse], error)
+	// Admin: mark a take as tweet-published (called by the bot worker).
+	MarkTakeTweetPublished(context.Context, *connect.Request[v1alpha1.MarkTakeTweetPublishedRequest]) (*connect.Response[v1alpha1.MarkTakeTweetPublishedResponse], error)
+	// Admin: list takes in the tweet publish queue (published_at IS NOT NULL,
+	// tweet_published_at IS NULL). Used by the bot worker.
+	ListTweetPublishQueue(context.Context, *connect.Request[v1alpha1.ListTweetPublishQueueRequest]) (*connect.Response[v1alpha1.ListTweetPublishQueueResponse], error)
 	// Get director (insider) trades for a specific stock
 	GetDirectorTrades(context.Context, *connect.Request[v1alpha1.GetDirectorTradesRequest]) (*connect.Response[v1alpha1.GetDirectorTradesResponse], error)
 	// Get dividend history for a specific stock
@@ -404,6 +441,42 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceListEditorialTakesMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		listEditorialTakesAdmin: connect.NewClient[v1alpha1.ListEditorialTakesAdminRequest, v1alpha1.ListEditorialTakesAdminResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListEditorialTakesAdminProcedure,
+			connect.WithSchema(shortedStocksServiceListEditorialTakesAdminMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		publishEditorialTake: connect.NewClient[v1alpha1.PublishEditorialTakeRequest, v1alpha1.PublishEditorialTakeResponse](
+			httpClient,
+			baseURL+ShortedStocksServicePublishEditorialTakeProcedure,
+			connect.WithSchema(shortedStocksServicePublishEditorialTakeMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		updateEditorialTake: connect.NewClient[v1alpha1.UpdateEditorialTakeRequest, v1alpha1.UpdateEditorialTakeResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceUpdateEditorialTakeProcedure,
+			connect.WithSchema(shortedStocksServiceUpdateEditorialTakeMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		deleteEditorialTake: connect.NewClient[v1alpha1.DeleteEditorialTakeRequest, v1alpha1.DeleteEditorialTakeResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceDeleteEditorialTakeProcedure,
+			connect.WithSchema(shortedStocksServiceDeleteEditorialTakeMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		markTakeTweetPublished: connect.NewClient[v1alpha1.MarkTakeTweetPublishedRequest, v1alpha1.MarkTakeTweetPublishedResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceMarkTakeTweetPublishedProcedure,
+			connect.WithSchema(shortedStocksServiceMarkTakeTweetPublishedMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listTweetPublishQueue: connect.NewClient[v1alpha1.ListTweetPublishQueueRequest, v1alpha1.ListTweetPublishQueueResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListTweetPublishQueueProcedure,
+			connect.WithSchema(shortedStocksServiceListTweetPublishQueueMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		getDirectorTrades: connect.NewClient[v1alpha1.GetDirectorTradesRequest, v1alpha1.GetDirectorTradesResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetDirectorTradesProcedure,
@@ -460,6 +533,12 @@ type shortedStocksServiceClient struct {
 	getMarketNews                   *connect.Client[v1alpha1.GetMarketNewsRequest, v1alpha1.GetMarketNewsResponse]
 	getEditorialTake                *connect.Client[v1alpha1.GetEditorialTakeRequest, v1alpha1.GetEditorialTakeResponse]
 	listEditorialTakes              *connect.Client[v1alpha1.ListEditorialTakesRequest, v1alpha1.ListEditorialTakesResponse]
+	listEditorialTakesAdmin         *connect.Client[v1alpha1.ListEditorialTakesAdminRequest, v1alpha1.ListEditorialTakesAdminResponse]
+	publishEditorialTake            *connect.Client[v1alpha1.PublishEditorialTakeRequest, v1alpha1.PublishEditorialTakeResponse]
+	updateEditorialTake             *connect.Client[v1alpha1.UpdateEditorialTakeRequest, v1alpha1.UpdateEditorialTakeResponse]
+	deleteEditorialTake             *connect.Client[v1alpha1.DeleteEditorialTakeRequest, v1alpha1.DeleteEditorialTakeResponse]
+	markTakeTweetPublished          *connect.Client[v1alpha1.MarkTakeTweetPublishedRequest, v1alpha1.MarkTakeTweetPublishedResponse]
+	listTweetPublishQueue           *connect.Client[v1alpha1.ListTweetPublishQueueRequest, v1alpha1.ListTweetPublishQueueResponse]
 	getDirectorTrades               *connect.Client[v1alpha1.GetDirectorTradesRequest, v1alpha1.GetDirectorTradesResponse]
 	getDividendHistory              *connect.Client[v1alpha1.GetDividendHistoryRequest, v1alpha1.GetDividendHistoryResponse]
 	getPeerComparison               *connect.Client[v1alpha1.GetPeerComparisonRequest, v1alpha1.GetPeerComparisonResponse]
@@ -604,6 +683,36 @@ func (c *shortedStocksServiceClient) ListEditorialTakes(ctx context.Context, req
 	return c.listEditorialTakes.CallUnary(ctx, req)
 }
 
+// ListEditorialTakesAdmin calls shorts.v1alpha1.ShortedStocksService.ListEditorialTakesAdmin.
+func (c *shortedStocksServiceClient) ListEditorialTakesAdmin(ctx context.Context, req *connect.Request[v1alpha1.ListEditorialTakesAdminRequest]) (*connect.Response[v1alpha1.ListEditorialTakesAdminResponse], error) {
+	return c.listEditorialTakesAdmin.CallUnary(ctx, req)
+}
+
+// PublishEditorialTake calls shorts.v1alpha1.ShortedStocksService.PublishEditorialTake.
+func (c *shortedStocksServiceClient) PublishEditorialTake(ctx context.Context, req *connect.Request[v1alpha1.PublishEditorialTakeRequest]) (*connect.Response[v1alpha1.PublishEditorialTakeResponse], error) {
+	return c.publishEditorialTake.CallUnary(ctx, req)
+}
+
+// UpdateEditorialTake calls shorts.v1alpha1.ShortedStocksService.UpdateEditorialTake.
+func (c *shortedStocksServiceClient) UpdateEditorialTake(ctx context.Context, req *connect.Request[v1alpha1.UpdateEditorialTakeRequest]) (*connect.Response[v1alpha1.UpdateEditorialTakeResponse], error) {
+	return c.updateEditorialTake.CallUnary(ctx, req)
+}
+
+// DeleteEditorialTake calls shorts.v1alpha1.ShortedStocksService.DeleteEditorialTake.
+func (c *shortedStocksServiceClient) DeleteEditorialTake(ctx context.Context, req *connect.Request[v1alpha1.DeleteEditorialTakeRequest]) (*connect.Response[v1alpha1.DeleteEditorialTakeResponse], error) {
+	return c.deleteEditorialTake.CallUnary(ctx, req)
+}
+
+// MarkTakeTweetPublished calls shorts.v1alpha1.ShortedStocksService.MarkTakeTweetPublished.
+func (c *shortedStocksServiceClient) MarkTakeTweetPublished(ctx context.Context, req *connect.Request[v1alpha1.MarkTakeTweetPublishedRequest]) (*connect.Response[v1alpha1.MarkTakeTweetPublishedResponse], error) {
+	return c.markTakeTweetPublished.CallUnary(ctx, req)
+}
+
+// ListTweetPublishQueue calls shorts.v1alpha1.ShortedStocksService.ListTweetPublishQueue.
+func (c *shortedStocksServiceClient) ListTweetPublishQueue(ctx context.Context, req *connect.Request[v1alpha1.ListTweetPublishQueueRequest]) (*connect.Response[v1alpha1.ListTweetPublishQueueResponse], error) {
+	return c.listTweetPublishQueue.CallUnary(ctx, req)
+}
+
 // GetDirectorTrades calls shorts.v1alpha1.ShortedStocksService.GetDirectorTrades.
 func (c *shortedStocksServiceClient) GetDirectorTrades(ctx context.Context, req *connect.Request[v1alpha1.GetDirectorTradesRequest]) (*connect.Response[v1alpha1.GetDirectorTradesResponse], error) {
 	return c.getDirectorTrades.CallUnary(ctx, req)
@@ -682,6 +791,19 @@ type ShortedStocksServiceHandler interface {
 	GetEditorialTake(context.Context, *connect.Request[v1alpha1.GetEditorialTakeRequest]) (*connect.Response[v1alpha1.GetEditorialTakeResponse], error)
 	// List recent published editorial takes (paginated).
 	ListEditorialTakes(context.Context, *connect.Request[v1alpha1.ListEditorialTakesRequest]) (*connect.Response[v1alpha1.ListEditorialTakesResponse], error)
+	// Admin: list all takes including drafts (admin-gated).
+	ListEditorialTakesAdmin(context.Context, *connect.Request[v1alpha1.ListEditorialTakesAdminRequest]) (*connect.Response[v1alpha1.ListEditorialTakesAdminResponse], error)
+	// Admin: publish a draft take (sets published_at = NOW()).
+	PublishEditorialTake(context.Context, *connect.Request[v1alpha1.PublishEditorialTakeRequest]) (*connect.Response[v1alpha1.PublishEditorialTakeResponse], error)
+	// Admin: partial update of a take's editable fields.
+	UpdateEditorialTake(context.Context, *connect.Request[v1alpha1.UpdateEditorialTakeRequest]) (*connect.Response[v1alpha1.UpdateEditorialTakeResponse], error)
+	// Admin: hard delete a take.
+	DeleteEditorialTake(context.Context, *connect.Request[v1alpha1.DeleteEditorialTakeRequest]) (*connect.Response[v1alpha1.DeleteEditorialTakeResponse], error)
+	// Admin: mark a take as tweet-published (called by the bot worker).
+	MarkTakeTweetPublished(context.Context, *connect.Request[v1alpha1.MarkTakeTweetPublishedRequest]) (*connect.Response[v1alpha1.MarkTakeTweetPublishedResponse], error)
+	// Admin: list takes in the tweet publish queue (published_at IS NOT NULL,
+	// tweet_published_at IS NULL). Used by the bot worker.
+	ListTweetPublishQueue(context.Context, *connect.Request[v1alpha1.ListTweetPublishQueueRequest]) (*connect.Response[v1alpha1.ListTweetPublishQueueResponse], error)
 	// Get director (insider) trades for a specific stock
 	GetDirectorTrades(context.Context, *connect.Request[v1alpha1.GetDirectorTradesRequest]) (*connect.Response[v1alpha1.GetDirectorTradesResponse], error)
 	// Get dividend history for a specific stock
@@ -860,6 +982,42 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceListEditorialTakesMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceListEditorialTakesAdminHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListEditorialTakesAdminProcedure,
+		svc.ListEditorialTakesAdmin,
+		connect.WithSchema(shortedStocksServiceListEditorialTakesAdminMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServicePublishEditorialTakeHandler := connect.NewUnaryHandler(
+		ShortedStocksServicePublishEditorialTakeProcedure,
+		svc.PublishEditorialTake,
+		connect.WithSchema(shortedStocksServicePublishEditorialTakeMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceUpdateEditorialTakeHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceUpdateEditorialTakeProcedure,
+		svc.UpdateEditorialTake,
+		connect.WithSchema(shortedStocksServiceUpdateEditorialTakeMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceDeleteEditorialTakeHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceDeleteEditorialTakeProcedure,
+		svc.DeleteEditorialTake,
+		connect.WithSchema(shortedStocksServiceDeleteEditorialTakeMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceMarkTakeTweetPublishedHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceMarkTakeTweetPublishedProcedure,
+		svc.MarkTakeTweetPublished,
+		connect.WithSchema(shortedStocksServiceMarkTakeTweetPublishedMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListTweetPublishQueueHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListTweetPublishQueueProcedure,
+		svc.ListTweetPublishQueue,
+		connect.WithSchema(shortedStocksServiceListTweetPublishQueueMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	shortedStocksServiceGetDirectorTradesHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetDirectorTradesProcedure,
 		svc.GetDirectorTrades,
@@ -940,6 +1098,18 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetEditorialTakeHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceListEditorialTakesProcedure:
 			shortedStocksServiceListEditorialTakesHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListEditorialTakesAdminProcedure:
+			shortedStocksServiceListEditorialTakesAdminHandler.ServeHTTP(w, r)
+		case ShortedStocksServicePublishEditorialTakeProcedure:
+			shortedStocksServicePublishEditorialTakeHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceUpdateEditorialTakeProcedure:
+			shortedStocksServiceUpdateEditorialTakeHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceDeleteEditorialTakeProcedure:
+			shortedStocksServiceDeleteEditorialTakeHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceMarkTakeTweetPublishedProcedure:
+			shortedStocksServiceMarkTakeTweetPublishedHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListTweetPublishQueueProcedure:
+			shortedStocksServiceListTweetPublishQueueHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetDirectorTradesProcedure:
 			shortedStocksServiceGetDirectorTradesHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetDividendHistoryProcedure:
@@ -1063,6 +1233,30 @@ func (UnimplementedShortedStocksServiceHandler) GetEditorialTake(context.Context
 
 func (UnimplementedShortedStocksServiceHandler) ListEditorialTakes(context.Context, *connect.Request[v1alpha1.ListEditorialTakesRequest]) (*connect.Response[v1alpha1.ListEditorialTakesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListEditorialTakes is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListEditorialTakesAdmin(context.Context, *connect.Request[v1alpha1.ListEditorialTakesAdminRequest]) (*connect.Response[v1alpha1.ListEditorialTakesAdminResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListEditorialTakesAdmin is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) PublishEditorialTake(context.Context, *connect.Request[v1alpha1.PublishEditorialTakeRequest]) (*connect.Response[v1alpha1.PublishEditorialTakeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.PublishEditorialTake is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) UpdateEditorialTake(context.Context, *connect.Request[v1alpha1.UpdateEditorialTakeRequest]) (*connect.Response[v1alpha1.UpdateEditorialTakeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.UpdateEditorialTake is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) DeleteEditorialTake(context.Context, *connect.Request[v1alpha1.DeleteEditorialTakeRequest]) (*connect.Response[v1alpha1.DeleteEditorialTakeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.DeleteEditorialTake is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) MarkTakeTweetPublished(context.Context, *connect.Request[v1alpha1.MarkTakeTweetPublishedRequest]) (*connect.Response[v1alpha1.MarkTakeTweetPublishedResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.MarkTakeTweetPublished is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListTweetPublishQueue(context.Context, *connect.Request[v1alpha1.ListTweetPublishQueueRequest]) (*connect.Response[v1alpha1.ListTweetPublishQueueResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListTweetPublishQueue is not implemented"))
 }
 
 func (UnimplementedShortedStocksServiceHandler) GetDirectorTrades(context.Context, *connect.Request[v1alpha1.GetDirectorTradesRequest]) (*connect.Response[v1alpha1.GetDirectorTradesResponse], error) {
