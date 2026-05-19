@@ -8,7 +8,7 @@ import {
   BreadcrumbStructuredData,
 } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
-import { ChatMarkdown } from "~/@/components/chat/chat-markdown";
+import { EditorialMarkdown } from "~/@/components/news/editorial-markdown";
 import { getEditorialTake } from "~/app/actions/getEditorialTake";
 
 export const revalidate = 600;
@@ -72,10 +72,15 @@ export default async function ShortedTakePage({ params }: Params) {
   const take = await loadTake(slug);
   if (!take) return notFound();
 
+  // protobuf-es serialises Timestamp.seconds as bigint over the wire but
+  // some transports / cache layers coerce it to number. Handle both.
+  const pubSeconds = take.publishedAt?.seconds;
   const publishedDate =
-    take.publishedAt && typeof take.publishedAt.seconds === "bigint"
-      ? new Date(Number(take.publishedAt.seconds) * 1000)
-      : undefined;
+    typeof pubSeconds === "bigint"
+      ? new Date(Number(pubSeconds) * 1000)
+      : typeof pubSeconds === "number"
+        ? new Date(pubSeconds * 1000)
+        : undefined;
   const publishedISO = publishedDate?.toISOString() ?? "";
   const publishedLabel = publishedDate
     ? publishedDate.toLocaleDateString("en-AU", {
@@ -147,7 +152,7 @@ export default async function ShortedTakePage({ params }: Params) {
         </header>
 
         <article className="mb-12">
-          <ChatMarkdown content={take.bodyMd} />
+          <EditorialMarkdown content={take.bodyMd} />
         </article>
 
         {take.sourceUrl ? (
