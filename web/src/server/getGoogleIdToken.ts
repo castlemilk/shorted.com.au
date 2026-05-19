@@ -95,9 +95,14 @@ export async function getGoogleIdToken(): Promise<string> {
       authClient = await authClientPromise;
     }
 
-    // Get headers which includes the ID token
+    // google-auth-library v10+ returns Fetch Headers; older returned a record.
     const responseHeaders = await authClient.getRequestHeaders();
-    const authHeader = responseHeaders.Authorization ?? responseHeaders.authorization;
+    const asHeaders = responseHeaders as unknown as Headers;
+    const asRecord = responseHeaders as unknown as Record<string, string>;
+    const authHeader =
+      typeof asHeaders.get === "function"
+        ? asHeaders.get("authorization") ?? asHeaders.get("Authorization")
+        : asRecord.Authorization ?? asRecord.authorization;
 
     if (!authHeader) {
       throw new Error("No Authorization header in response");

@@ -6,7 +6,7 @@
 
 import { type NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { Storage } from "@google-cloud/storage";
+import { gcsStorage } from "~/server/gcs-storage";
 import { isAdmin } from "~/server/admin";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
@@ -117,7 +117,7 @@ export async function POST(req: NextRequest) {
   // 3. Upload to GCS.
   const safeSlug = slug.replace(/[^a-z0-9-]+/gi, "-").toLowerCase();
   const objectPath = `takes/${safeSlug}-hero.png`;
-  const storage = new Storage(); // ADC on Vercel via env-injected key
+  const storage = gcsStorage(); // WIF on Vercel, ADC locally
   try {
     await storage.bucket(BUCKET).file(objectPath).save(pngBuffer, {
       contentType: "image/png",

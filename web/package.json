@@ -1,6 +1,6 @@
 {
   "name": "shorted",
-  "version": "v0.2.2-1039-ga1803494-dirty",
+  "version": "v0.2.2-1040-g6473a914-dirty",
   "private": true,
   "type": "module",
   "moduleResolution": "Node",
@@ -176,6 +176,7 @@
     "d3-selection": "^3.0.0",
     "firebase": "^11.9.0",
     "firebase-admin": "^12.7.0",
+    "google-auth-library": "^10.6.2",
     "gray-matter": "^4.0.3",
     "http2": "^3.3.6",
     "ioredis": "^5.9.2",
