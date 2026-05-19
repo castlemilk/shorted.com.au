@@ -10,6 +10,7 @@ import {
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { EditorialMarkdown } from "~/@/components/news/editorial-markdown";
 import { TakeRelated } from "~/@/components/news/take-related";
+import { TakeBody } from "~/@/components/news/take-body";
 import { getEditorialTake } from "~/app/actions/getEditorialTake";
 
 export const revalidate = 600;
@@ -153,14 +154,29 @@ export default async function ShortedTakePage({ params }: Params) {
         </header>
 
         <article className="mb-12">
-          <EditorialMarkdown
-            content={take.bodyMd}
-            inlineImages={(take.inlineImages ?? []).map((i) => ({
-              url: i.url,
-              topic: i.topic,
-              alt: i.alt,
-            }))}
-          />
+          {take.citations && take.citations.length > 0 ? (
+            <TakeBody
+              bodyMd={take.bodyMd}
+              citations={take.citations.map((c) => ({
+                refId: c.refId,
+                url: c.url,
+                source: c.source,
+                headline: c.headline,
+                date: c.date,
+                type: c.type,
+              }))}
+              stockCode={take.stockCode}
+            />
+          ) : (
+            <EditorialMarkdown
+              content={take.bodyMd}
+              inlineImages={(take.inlineImages ?? []).map((i) => ({
+                url: i.url,
+                topic: i.topic,
+                alt: i.alt,
+              }))}
+            />
+          )}
         </article>
 
         {take.sourceUrl ? (

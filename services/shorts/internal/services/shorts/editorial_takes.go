@@ -120,6 +120,22 @@ func convertEditorialTake(t *shortsstore.EditorialTake) *shortsv1alpha1.Editoria
 			}
 		}
 	}
+	if len(t.Citations) > 0 {
+		var cits []shortsstore.TakeCitation
+		if err := json.Unmarshal(t.Citations, &cits); err == nil {
+			out.Citations = make([]*shortsv1alpha1.TakeCitation, len(cits))
+			for i, c := range cits {
+				out.Citations[i] = &shortsv1alpha1.TakeCitation{
+					RefId:    c.RefID,
+					Url:      c.URL,
+					Source:   c.Source,
+					Headline: c.Headline,
+					Date:     c.Date,
+					Type:     c.Type,
+				}
+			}
+		}
+	}
 	return out
 }
 

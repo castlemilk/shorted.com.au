@@ -1119,6 +1119,17 @@ message EditorialTake {
   string hero_image_url = 15;
   repeated InlineImage inline_images = 16;
   google.protobuf.Timestamp tweet_published_at = 17;
+  repeated TakeCitation citations = 18;
+}
+
+// A single cited source referenced by a [ref-N] marker in body_md.
+message TakeCitation {
+  string ref_id = 1;          // "ref-1", "ref-2", …
+  string url = 2;
+  string source = 3;          // 'stockhead', 'motleyfool', etc.
+  string headline = 4;
+  string date = 5;            // YYYY-MM-DD
+  string type = 6;            // 'news' | 'trade' | 'data'
 }
 
 // Inline image embedded in a Take body.

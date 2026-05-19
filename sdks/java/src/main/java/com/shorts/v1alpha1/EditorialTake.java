@@ -46,6 +46,7 @@ private static final long serialVersionUID = 0L;
     model_ = "";
     heroImageUrl_ = "";
     inlineImages_ = java.util.Collections.emptyList();
+    citations_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -705,6 +706,47 @@ private static final long serialVersionUID = 0L;
     return tweetPublishedAt_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : tweetPublishedAt_;
   }
 
+  public static final int CITATIONS_FIELD_NUMBER = 18;
+  @SuppressWarnings("serial")
+  private java.util.List<com.shorts.v1alpha1.TakeCitation> citations_;
+  /**
+   * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<com.shorts.v1alpha1.TakeCitation> getCitationsList() {
+    return citations_;
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends com.shorts.v1alpha1.TakeCitationOrBuilder> 
+      getCitationsOrBuilderList() {
+    return citations_;
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+   */
+  @java.lang.Override
+  public int getCitationsCount() {
+    return citations_.size();
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.TakeCitation getCitations(int index) {
+    return citations_.get(index);
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.TakeCitationOrBuilder getCitationsOrBuilder(
+      int index) {
+    return citations_.get(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -769,6 +811,9 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000004) != 0)) {
       output.writeMessage(17, getTweetPublishedAt());
+    }
+    for (int i = 0; i < citations_.size(); i++) {
+      output.writeMessage(18, citations_.get(i));
     }
     getUnknownFields().writeTo(output);
   }
@@ -840,6 +885,15 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(17, getTweetPublishedAt());
     }
+
+        {
+          final int count = citations_.size();
+          for (int i = 0; i < count; i++) {
+            size += com.google.protobuf.CodedOutputStream
+              .computeMessageSizeNoTag(citations_.get(i));
+          }
+          size += 2 * count;
+        }
     size += getUnknownFields().getSerializedSize();
     memoizedSize = size;
     return size;
@@ -898,6 +952,8 @@ private static final long serialVersionUID = 0L;
       if (!getTweetPublishedAt()
           .equals(other.getTweetPublishedAt())) return false;
     }
+    if (!getCitationsList()
+        .equals(other.getCitationsList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -950,6 +1006,10 @@ private static final long serialVersionUID = 0L;
     if (hasTweetPublishedAt()) {
       hash = (37 * hash) + TWEET_PUBLISHED_AT_FIELD_NUMBER;
       hash = (53 * hash) + getTweetPublishedAt().hashCode();
+    }
+    if (getCitationsCount() > 0) {
+      hash = (37 * hash) + CITATIONS_FIELD_NUMBER;
+      hash = (53 * hash) + getCitationsList().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -1090,6 +1150,7 @@ private static final long serialVersionUID = 0L;
         internalGetCreatedAtFieldBuilder();
         internalGetInlineImagesFieldBuilder();
         internalGetTweetPublishedAtFieldBuilder();
+        internalGetCitationsFieldBuilder();
       }
     }
     @java.lang.Override
@@ -1131,6 +1192,13 @@ private static final long serialVersionUID = 0L;
         tweetPublishedAtBuilder_.dispose();
         tweetPublishedAtBuilder_ = null;
       }
+      if (citationsBuilder_ == null) {
+        citations_ = java.util.Collections.emptyList();
+      } else {
+        citations_ = null;
+        citationsBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00020000);
       return this;
     }
 
@@ -1172,6 +1240,15 @@ private static final long serialVersionUID = 0L;
         result.inlineImages_ = inlineImages_;
       } else {
         result.inlineImages_ = inlineImagesBuilder_.build();
+      }
+      if (citationsBuilder_ == null) {
+        if (((bitField0_ & 0x00020000) != 0)) {
+          citations_ = java.util.Collections.unmodifiableList(citations_);
+          bitField0_ = (bitField0_ & ~0x00020000);
+        }
+        result.citations_ = citations_;
+      } else {
+        result.citations_ = citationsBuilder_.build();
       }
     }
 
@@ -1348,6 +1425,32 @@ private static final long serialVersionUID = 0L;
       if (other.hasTweetPublishedAt()) {
         mergeTweetPublishedAt(other.getTweetPublishedAt());
       }
+      if (citationsBuilder_ == null) {
+        if (!other.citations_.isEmpty()) {
+          if (citations_.isEmpty()) {
+            citations_ = other.citations_;
+            bitField0_ = (bitField0_ & ~0x00020000);
+          } else {
+            ensureCitationsIsMutable();
+            citations_.addAll(other.citations_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.citations_.isEmpty()) {
+          if (citationsBuilder_.isEmpty()) {
+            citationsBuilder_.dispose();
+            citationsBuilder_ = null;
+            citations_ = other.citations_;
+            bitField0_ = (bitField0_ & ~0x00020000);
+            citationsBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetCitationsFieldBuilder() : null;
+          } else {
+            citationsBuilder_.addAllMessages(other.citations_);
+          }
+        }
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1473,6 +1576,19 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00010000;
               break;
             } // case 138
+            case 146: {
+              com.shorts.v1alpha1.TakeCitation m =
+                  input.readMessage(
+                      com.shorts.v1alpha1.TakeCitation.parser(),
+                      extensionRegistry);
+              if (citationsBuilder_ == null) {
+                ensureCitationsIsMutable();
+                citations_.add(m);
+              } else {
+                citationsBuilder_.addMessage(m);
+              }
+              break;
+            } // case 146
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -3087,6 +3203,246 @@ private static final long serialVersionUID = 0L;
         tweetPublishedAt_ = null;
       }
       return tweetPublishedAtBuilder_;
+    }
+
+    private java.util.List<com.shorts.v1alpha1.TakeCitation> citations_ =
+      java.util.Collections.emptyList();
+    private void ensureCitationsIsMutable() {
+      if (!((bitField0_ & 0x00020000) != 0)) {
+        citations_ = new java.util.ArrayList<com.shorts.v1alpha1.TakeCitation>(citations_);
+        bitField0_ |= 0x00020000;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.TakeCitation, com.shorts.v1alpha1.TakeCitation.Builder, com.shorts.v1alpha1.TakeCitationOrBuilder> citationsBuilder_;
+
+    /**
+     * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.TakeCitation> getCitationsList() {
+      if (citationsBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(citations_);
+      } else {
+        return citationsBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+     */
+    public int getCitationsCount() {
+      if (citationsBuilder_ == null) {
+        return citations_.size();
+      } else {
+        return citationsBuilder_.getCount();
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+     */
+    public com.shorts.v1alpha1.TakeCitation getCitations(int index) {
+      if (citationsBuilder_ == null) {
+        return citations_.get(index);
+      } else {
+        return citationsBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+     */
+    public Builder setCitations(
+        int index, com.shorts.v1alpha1.TakeCitation value) {
+      if (citationsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureCitationsIsMutable();
+        citations_.set(index, value);
+        onChanged();
+      } else {
+        citationsBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+     */
+    public Builder setCitations(
+        int index, com.shorts.v1alpha1.TakeCitation.Builder builderForValue) {
+      if (citationsBuilder_ == null) {
+        ensureCitationsIsMutable();
+        citations_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        citationsBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+     */
+    public Builder addCitations(com.shorts.v1alpha1.TakeCitation value) {
+      if (citationsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureCitationsIsMutable();
+        citations_.add(value);
+        onChanged();
+      } else {
+        citationsBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+     */
+    public Builder addCitations(
+        int index, com.shorts.v1alpha1.TakeCitation value) {
+      if (citationsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureCitationsIsMutable();
+        citations_.add(index, value);
+        onChanged();
+      } else {
+        citationsBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+     */
+    public Builder addCitations(
+        com.shorts.v1alpha1.TakeCitation.Builder builderForValue) {
+      if (citationsBuilder_ == null) {
+        ensureCitationsIsMutable();
+        citations_.add(builderForValue.build());
+        onChanged();
+      } else {
+        citationsBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+     */
+    public Builder addCitations(
+        int index, com.shorts.v1alpha1.TakeCitation.Builder builderForValue) {
+      if (citationsBuilder_ == null) {
+        ensureCitationsIsMutable();
+        citations_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        citationsBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+     */
+    public Builder addAllCitations(
+        java.lang.Iterable<? extends com.shorts.v1alpha1.TakeCitation> values) {
+      if (citationsBuilder_ == null) {
+        ensureCitationsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, citations_);
+        onChanged();
+      } else {
+        citationsBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+     */
+    public Builder clearCitations() {
+      if (citationsBuilder_ == null) {
+        citations_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00020000);
+        onChanged();
+      } else {
+        citationsBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+     */
+    public Builder removeCitations(int index) {
+      if (citationsBuilder_ == null) {
+        ensureCitationsIsMutable();
+        citations_.remove(index);
+        onChanged();
+      } else {
+        citationsBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+     */
+    public com.shorts.v1alpha1.TakeCitation.Builder getCitationsBuilder(
+        int index) {
+      return internalGetCitationsFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+     */
+    public com.shorts.v1alpha1.TakeCitationOrBuilder getCitationsOrBuilder(
+        int index) {
+      if (citationsBuilder_ == null) {
+        return citations_.get(index);  } else {
+        return citationsBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+     */
+    public java.util.List<? extends com.shorts.v1alpha1.TakeCitationOrBuilder> 
+         getCitationsOrBuilderList() {
+      if (citationsBuilder_ != null) {
+        return citationsBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(citations_);
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+     */
+    public com.shorts.v1alpha1.TakeCitation.Builder addCitationsBuilder() {
+      return internalGetCitationsFieldBuilder().addBuilder(
+          com.shorts.v1alpha1.TakeCitation.getDefaultInstance());
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+     */
+    public com.shorts.v1alpha1.TakeCitation.Builder addCitationsBuilder(
+        int index) {
+      return internalGetCitationsFieldBuilder().addBuilder(
+          index, com.shorts.v1alpha1.TakeCitation.getDefaultInstance());
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.TakeCitation.Builder> 
+         getCitationsBuilderList() {
+      return internalGetCitationsFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.TakeCitation, com.shorts.v1alpha1.TakeCitation.Builder, com.shorts.v1alpha1.TakeCitationOrBuilder> 
+        internalGetCitationsFieldBuilder() {
+      if (citationsBuilder_ == null) {
+        citationsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            com.shorts.v1alpha1.TakeCitation, com.shorts.v1alpha1.TakeCitation.Builder, com.shorts.v1alpha1.TakeCitationOrBuilder>(
+                citations_,
+                ((bitField0_ & 0x00020000) != 0),
+                getParentForChildren(),
+                isClean());
+        citations_ = null;
+      }
+      return citationsBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.EditorialTake)

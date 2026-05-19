@@ -12,7 +12,7 @@ import (
 
 const editorialTakeColumns = `id::text, slug, headline, stock_code, body_md, sentiment,
 	source_article_id::text, source_url, source_name, og_image_url, word_count, model,
-	published_at, created_at, hero_image_url, inline_images, tweet_published_at`
+	published_at, created_at, hero_image_url, inline_images, tweet_published_at, citations`
 
 // GetEditorialTake fetches a published Take by slug. Returns nil, nil if not found.
 func (s *postgresStore) GetEditorialTake(slug string) (*EditorialTake, error) {
@@ -89,7 +89,7 @@ func scanEditorialTake(r scannable) (*EditorialTake, error) {
 		&t.ID, &t.Slug, &t.Headline, &t.StockCode, &t.BodyMD, &t.Sentiment,
 		&t.SourceArticleID, &t.SourceURL, &t.SourceName, &t.OGImageURL,
 		&t.WordCount, &t.Model, &t.PublishedAt, &t.CreatedAt,
-		&t.HeroImageURL, &t.InlineImages, &t.TweetPublishedAt,
+		&t.HeroImageURL, &t.InlineImages, &t.TweetPublishedAt, &t.Citations,
 	); err != nil {
 		return nil, err
 	}

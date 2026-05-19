@@ -222,6 +222,17 @@ type EditorialTake struct {
 	HeroImageURL     *string
 	InlineImages     []byte // JSONB raw — service layer decodes to []InlineImage
 	TweetPublishedAt *string
+	Citations        []byte // JSONB raw — service layer decodes to []TakeCitation
+}
+
+// TakeCitation matches the proto shape for editorial_takes.citations.
+type TakeCitation struct {
+	RefID    string `json:"refId"`
+	URL      string `json:"url"`
+	Source   string `json:"source"`
+	Headline string `json:"headline"`
+	Date     string `json:"date"`
+	Type     string `json:"type"`
 }
 
 // EditorialTakeUpdate is the partial-update payload for UpdateEditorialTake.

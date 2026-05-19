@@ -308,11 +308,12 @@ async function main(): Promise<void> {
         const ms = Date.now() - t0;
         console.error(`[narrative] synthesised in ${(ms / 1000).toFixed(1)}s`);
         const bodyMd = narrativeToBodyMd(take);
+        const wordCount = bodyMd.split(/\s+/).filter(Boolean).length;
         const out = {
           slug: take.slug,
           headline: take.headline,
           sentiment: take.sentiment,
-          word_count: bodyMd.split(/\s+/).filter(Boolean).length,
+          word_count: wordCount,
           body_md: bodyMd,
           citations: take.citations,
           sections: {
@@ -322,10 +323,31 @@ async function main(): Promise<void> {
             outlook: take.outlook,
           },
         };
+
+        // Persist if --auto-publish, --auto-tweet, or simply asked to.
+        if (args.autoPublish || args.autoTweet) {
+          const publishedClause = args.autoPublish ? "NOW()" : "NULL";
+          await pg.query(
+            `INSERT INTO editorial_takes (
+               slug, headline, stock_code, body_md, sentiment, word_count, model,
+               citations, published_at
+             ) VALUES ($1,$2,$3,$4,$5,$6,'gemini-2.5-flash',$7::jsonb,${publishedClause})
+             ON CONFLICT (slug) DO UPDATE SET
+               headline=EXCLUDED.headline, body_md=EXCLUDED.body_md,
+               sentiment=EXCLUDED.sentiment, word_count=EXCLUDED.word_count,
+               citations=EXCLUDED.citations, updated_at=NOW()`,
+            [take.slug, take.headline, code, bodyMd, take.sentiment, wordCount, JSON.stringify(take.citations)],
+          );
+          console.error(`[narrative] inserted into editorial_takes${args.autoPublish ? " (published)" : " (draft)"}`);
+          console.error("");
+          console.error(`Admin:   https://shorted.com.au/admin/takes/${take.slug}`);
+          console.error(`Public:  https://shorted.com.au/news/${take.slug}${args.autoPublish ? "" : "  (draft)"}`);
+        }
+
         if (args.out) {
           await import("node:fs").then(({ writeFileSync }) => writeFileSync(args.out!, JSON.stringify(out, null, 2)));
           console.error(`[narrative] wrote → ${args.out}`);
-        } else {
+        } else if (!args.autoPublish && !args.autoTweet) {
           console.log(JSON.stringify(out, null, 2));
         }
       } finally {

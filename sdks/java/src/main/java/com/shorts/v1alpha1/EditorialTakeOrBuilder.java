@@ -268,4 +268,28 @@ public interface EditorialTakeOrBuilder extends
    * <code>.google.protobuf.Timestamp tweet_published_at = 17 [json_name = "tweetPublishedAt"];</code>
    */
   com.google.protobuf.TimestampOrBuilder getTweetPublishedAtOrBuilder();
+
+  /**
+   * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+   */
+  java.util.List<com.shorts.v1alpha1.TakeCitation> 
+      getCitationsList();
+  /**
+   * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+   */
+  com.shorts.v1alpha1.TakeCitation getCitations(int index);
+  /**
+   * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+   */
+  int getCitationsCount();
+  /**
+   * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+   */
+  java.util.List<? extends com.shorts.v1alpha1.TakeCitationOrBuilder> 
+      getCitationsOrBuilderList();
+  /**
+   * <code>repeated .shorts.v1alpha1.TakeCitation citations = 18 [json_name = "citations"];</code>
+   */
+  com.shorts.v1alpha1.TakeCitationOrBuilder getCitationsOrBuilder(
+      int index);
 }
