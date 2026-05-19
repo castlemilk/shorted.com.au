@@ -40,11 +40,25 @@ export async function TakeRelated({ stockCode, excludeSlug }: TakeRelatedProps) 
             href={`/shorts/${stockCode}`}
             className="block rounded-lg border border-border bg-card p-4 transition-colors hover:border-orange-500/40"
           >
-            <div className="mb-2 text-base font-semibold text-foreground">
-              {stock.name || stockCode}
-            </div>
-            <div className="mb-3 text-xs text-muted-foreground">
-              {stock.industry || "—"}
+            <div className="mb-3 flex items-start gap-3">
+              {stock.logoUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={stock.logoUrl}
+                  alt={`${stock.name} logo`}
+                  width={48}
+                  height={48}
+                  className="h-12 w-12 flex-shrink-0 rounded border border-border bg-white object-contain p-1"
+                />
+              ) : null}
+              <div className="min-w-0 flex-1">
+                <div className="text-base font-semibold leading-tight text-foreground">
+                  {stock.name || stockCode}
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {stock.industry || "—"}
+                </div>
+              </div>
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-bold text-orange-300">

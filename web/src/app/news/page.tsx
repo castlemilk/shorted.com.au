@@ -9,6 +9,7 @@ import {
 } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { getMarketNews } from "~/app/actions/getStockNews";
+import { TakeCardGrid } from "~/@/components/news/take-card-grid";
 
 export const metadata: Metadata = {
   title: "ASX News & Short Selling Sentiment | Shorted",
@@ -215,6 +216,8 @@ export default async function NewsIndexPage() {
               <NewsCard article={hero} variant="hero" />
             </div>
           )}
+
+          <TakeCardGrid limit={6} />
 
           {groupOrder.map((label) => (
             <section key={label} className="mt-8">

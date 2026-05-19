@@ -153,7 +153,14 @@ export default async function ShortedTakePage({ params }: Params) {
         </header>
 
         <article className="mb-12">
-          <EditorialMarkdown content={take.bodyMd} />
+          <EditorialMarkdown
+            content={take.bodyMd}
+            inlineImages={(take.inlineImages ?? []).map((i) => ({
+              url: i.url,
+              topic: i.topic,
+              alt: i.alt,
+            }))}
+          />
         </article>
 
         {take.sourceUrl ? (
