@@ -48,9 +48,13 @@ export function StockSearchResultItem({
     }
   };
 
+  // Prefer the normalized logo (256×256 trimmed + centred). Falls
+  // through to the validated raw URL only if the normalized one 404s
+  // (handled via onError).
+  const normalizedLogoUrl = `https://storage.googleapis.com/shorted-company-logos/logos-normalized/${stock.product_code}.png`;
   const validLogoUrl = isValidLogoUrl(stock.logoUrl)
-    ? stock.logoUrl
-    : undefined;
+    ? normalizedLogoUrl
+    : normalizedLogoUrl;
 
   // Deterministic gradient generator for placeholder
   const getStockGradient = (code: string) => {

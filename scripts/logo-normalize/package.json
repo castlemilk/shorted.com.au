@@ -1,0 +1,17 @@
+{
+  "name": "@shorted/logo-normalize",
+  "version": "0.1.0",
+  "description": "Batch-normalize company logos in gs://shorted-company-logos/logos/ → logos-normalized/ (trim whitespace, centre on 256x256 transparent canvas).",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "sharp": "^0.34.0",
+    "@google-cloud/storage": "^7.14.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

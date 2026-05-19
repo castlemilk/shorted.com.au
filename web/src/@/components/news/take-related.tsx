@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getStock } from "~/app/actions/getStock";
 import { getStockNews } from "~/app/actions/getStockNews";
 import { listEditorialTakes } from "~/app/actions/getEditorialTake";
+import { normalizedLogoUrl } from "~/@/lib/logo";
 
 interface TakeRelatedProps {
   stockCode: string;
@@ -40,17 +41,15 @@ export async function TakeRelated({ stockCode, excludeSlug }: TakeRelatedProps) 
             href={`/shorts/${stockCode}`}
             className="block rounded-lg border border-border bg-card p-4 transition-colors hover:border-orange-500/40"
           >
-            <div className="mb-3 flex items-start gap-3">
-              {stock.logoUrl ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={stock.logoUrl}
-                  alt={`${stock.name} logo`}
-                  width={48}
-                  height={48}
-                  className="h-12 w-12 flex-shrink-0 rounded border border-border bg-white object-contain p-1"
-                />
-              ) : null}
+            <div className="mb-3 flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={normalizedLogoUrl(stockCode)}
+                alt={`${stock.name} logo`}
+                width={64}
+                height={64}
+                className="h-16 w-16 flex-shrink-0 rounded-lg border border-border bg-card object-contain"
+              />
               <div className="min-w-0 flex-1">
                 <div className="text-base font-semibold leading-tight text-foreground">
                   {stock.name || stockCode}

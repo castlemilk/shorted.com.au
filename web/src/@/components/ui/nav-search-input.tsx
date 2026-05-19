@@ -675,9 +675,9 @@ function ResultsContent({
             {stock.logoUrl && !imgErrors.has(stock.productCode) ? (
               <div className="flex-shrink-0 w-[52px] h-8 rounded-md bg-background border border-border/30 flex items-center justify-center overflow-hidden">
                 <img
-                  src={stock.logoUrl}
+                  src={`https://storage.googleapis.com/shorted-company-logos/logos-normalized/${stock.productCode}.png`}
                   alt={stock.productCode}
-                  className="h-6 w-6 object-contain"
+                  className="h-7 w-7 object-contain"
                   onError={() =>
                     setImgErrors((prev) => new Set(prev).add(stock.productCode))
                   }
