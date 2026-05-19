@@ -6,6 +6,7 @@ import { existsSync, writeFileSync } from "node:fs";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { TAKE_SYSTEM_PROMPT, SLUG_PROMPT } from "./persona.js";
+import { discoverCandidates } from "./discover.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -29,6 +30,10 @@ interface Args {
   sourceArticleId?: string;
   out?: string;
   help: boolean;
+  // discover
+  poolSize?: number;
+  newsWindowHours?: number;
+  topN?: number;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -45,7 +50,16 @@ function parseArgs(argv: string[]): Args {
     else if (arg.startsWith("--source-name=")) args.sourceName = arg.split("=").slice(1).join("=");
     else if (arg.startsWith("--source-article-id=")) args.sourceArticleId = arg.split("=")[1];
     else if (arg.startsWith("--out=")) args.out = arg.split("=")[1];
-    else if (!arg.startsWith("--") && !args.command) args.command = arg;
+    else if (arg.startsWith("--pool=")) {
+      const v = arg.split("=")[1];
+      if (v) args.poolSize = parseInt(v, 10);
+    } else if (arg.startsWith("--window-hours=")) {
+      const v = arg.split("=")[1];
+      if (v) args.newsWindowHours = parseInt(v, 10);
+    } else if (arg.startsWith("--top=")) {
+      const v = arg.split("=")[1];
+      if (v) args.topN = parseInt(v, 10);
+    } else if (!arg.startsWith("--") && !args.command) args.command = arg;
   }
   return args;
 }
@@ -55,7 +69,13 @@ function help(): void {
 @shorted/take-writer — Gemini-driven Shorted Take draft generator
 
 Commands:
-  draft    Generate a Take body + slug from a headline
+  draft     Generate a Take body + slug from a headline
+  discover  Rank candidate stocks: top-shorted minus ETFs minus no-news
+
+discover flags:
+  --pool=30              how many top-shorted stocks to consider
+  --window-hours=168     news-coverage window (default 7 days)
+  --top=5                how many ranked candidates to return
 
 draft flags:
   --headline="..."           (required) the source headline
@@ -208,6 +228,30 @@ async function runDraft(args: Args): Promise<void> {
   }
 }
 
+async function runDiscover(args: Args): Promise<void> {
+  const candidates = await discoverCandidates({
+    poolSize: args.poolSize,
+    newsWindowHours: args.newsWindowHours,
+    topN: args.topN,
+  });
+  if (candidates.length === 0) {
+    console.log("[take-writer] no candidates passed the filter");
+    return;
+  }
+  console.log(`\n[take-writer] ${candidates.length} candidate(s) ranked by signal:\n`);
+  for (const [i, c] of candidates.entries()) {
+    console.log(`${i + 1}. ${c.stockCode}  score=${c.score.toFixed(1)}`);
+    console.log(`   ${c.name}`);
+    console.log(`   ${c.rationale}`);
+    if (c.topHeadline) {
+      console.log(`   latest: "${c.topHeadline.slice(0, 100)}"`);
+      console.log(`   source: ${c.topSource ?? "?"} · sentiment: ${c.topSentiment ?? "?"}`);
+    }
+    console.log("");
+  }
+  console.log("Next step: pick one and run `draft --headline=... --stock=...`");
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   if (args.help || !args.command) {
@@ -217,6 +261,9 @@ async function main(): Promise<void> {
   switch (args.command) {
     case "draft":
       await runDraft(args);
+      break;
+    case "discover":
+      await runDiscover(args);
       break;
     default:
       console.error(`[take-writer] unknown command: ${args.command}`);
