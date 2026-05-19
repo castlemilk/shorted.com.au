@@ -14,17 +14,36 @@ const DEFAULT_HEADERS: Record<string, string> = {
   Referer: "https://shorted.com.au/",
 };
 
-async function call<T>(endpoint: string, body: object): Promise<T> {
+async function call<T>(
+  endpoint: string,
+  body: object,
+  opts: { internal?: boolean } = {},
+): Promise<T> {
   // Cloudflare edge worker intermittently returns 1101 ("Worker threw
   // exception") on api.shorted.com.au. Retry transient 5xx with backoff.
   const maxAttempts = 4;
   let lastErr: Error | null = null;
+
+  const headers: Record<string, string> = { ...DEFAULT_HEADERS };
+  if (opts.internal) {
+    const secret = process.env.INTERNAL_SERVICE_SECRET;
+    const email = process.env.SHORTED_BOT_EMAIL ?? "ben@shorted.com.au";
+    if (!secret) {
+      throw new Error(
+        `${endpoint}: INTERNAL_SERVICE_SECRET not set; admin RPC will be denied`,
+      );
+    }
+    headers["x-internal-secret"] = secret;
+    headers["x-user-email"] = email;
+    headers["x-user-id"] = email;
+  }
+
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const res = await fetch(
       `${API_URL}/shorts.v1alpha1.ShortedStocksService/${endpoint}`,
       {
         method: "POST",
-        headers: DEFAULT_HEADERS,
+        headers,
         body: JSON.stringify(body),
       },
     );
@@ -210,6 +229,7 @@ export async function listTweetPublishQueue(limit = 10): Promise<EditorialTake[]
   const resp = await call<{ takes?: EditorialTake[] }>(
     "ListTweetPublishQueue",
     { limit },
+    { internal: true },
   );
   return resp.takes ?? [];
 }
@@ -218,6 +238,7 @@ export async function markTakeTweetPublished(slug: string): Promise<EditorialTak
   const resp = await call<{ take?: EditorialTake }>(
     "MarkTakeTweetPublished",
     { slug },
+    { internal: true },
   );
   return resp.take ?? null;
 }

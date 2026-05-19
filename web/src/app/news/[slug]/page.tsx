@@ -35,7 +35,9 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
     .trim()
     .slice(0, 200);
   const image =
-    take.heroImageUrl || take.ogImageUrl || `${siteConfig.url}/opengraph-image`;
+    take.heroImageUrl ||
+    take.ogImageUrl ||
+    `${siteConfig.url}/news/${slug}/opengraph-image`;
   return {
     title: `${take.headline} | Shorted Take`,
     description,
