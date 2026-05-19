@@ -9,6 +9,7 @@ import {
 } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { EditorialMarkdown } from "~/@/components/news/editorial-markdown";
+import { TakeRelated } from "~/@/components/news/take-related";
 import { getEditorialTake } from "~/app/actions/getEditorialTake";
 
 export const revalidate = 600;
@@ -107,7 +108,7 @@ export default async function ShortedTakePage({ params }: Params) {
       />
       <BreadcrumbStructuredData items={breadcrumbItems} />
 
-      <div className="mx-auto max-w-3xl px-4 py-8">
+      <div className="mx-auto max-w-4xl px-4 py-8">
         <Breadcrumbs items={breadcrumbItems} className="mb-6" />
 
         {take.heroImageUrl ? (
@@ -180,6 +181,10 @@ export default async function ShortedTakePage({ params }: Params) {
           Not financial advice. Sourced from official ASIC short-position data
           and public news reports.
         </div>
+
+        {take.stockCode ? (
+          <TakeRelated stockCode={take.stockCode} excludeSlug={slug} />
+        ) : null}
       </div>
     </DashboardLayout>
   );
