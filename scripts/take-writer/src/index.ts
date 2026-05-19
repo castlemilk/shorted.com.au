@@ -8,6 +8,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { TAKE_SYSTEM_PROMPT, SLUG_PROMPT } from "./persona.js";
 import { discoverCandidates } from "./discover.js";
 import { runOrchestrator } from "./run.js";
+import { Client as PgClient } from "pg";
+import { buildReport } from "./journalism.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -38,6 +40,8 @@ interface Args {
   // run orchestrator
   autoPublish?: boolean;
   autoTweet?: boolean;
+  // narrative
+  inspect?: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -67,6 +71,8 @@ function parseArgs(argv: string[]): Args {
       args.autoPublish = true;
     } else if (arg === "--auto-tweet") {
       args.autoTweet = true;
+    } else if (arg === "--inspect") {
+      args.inspect = true;
     } else if (!arg.startsWith("--") && !args.command) args.command = arg;
   }
   return args;
@@ -280,6 +286,32 @@ async function main(): Promise<void> {
     case "discover":
       await runDiscover(args);
       break;
+    case "narrative": {
+      if (!args.stockCode) throw new Error("--stock=CODE required for narrative");
+      const dbUrl = process.env.DATABASE_URL;
+      if (!dbUrl) throw new Error("DATABASE_URL not set");
+      const pg = new PgClient({ connectionString: dbUrl });
+      await pg.connect();
+      try {
+        const report = await buildReport(pg, args.stockCode.toUpperCase());
+        if (args.inspect) {
+          // Pretty-print everything for inspection.
+          console.log(JSON.stringify(report, null, 2));
+        } else {
+          // Print a human-readable summary of the signals.
+          console.log(JSON.stringify(report.signals, null, 2));
+          console.log(`\nBundle counts:`);
+          console.log(`  shorts: ${report.bundle.shorts.length}`);
+          console.log(`  prices: ${report.bundle.prices.length}`);
+          console.log(`  news:   ${report.bundle.news.length}`);
+          console.log(`  trades: ${report.bundle.directorTrades.length}`);
+          console.log(`  peers:  ${report.bundle.peers.length}`);
+        }
+      } finally {
+        await pg.end();
+      }
+      break;
+    }
     case "run": {
       if (!args.stockCode) throw new Error("--stock=CODE is required for run");
       await runOrchestrator({
