@@ -55,6 +55,13 @@ VOICE (sticks for the whole article):
   from a news article, write the inline marker [ref-N] right after the
   fact. N is the index in the cited_refs you return.
 - Acknowledge the T+4 ASIC delay where relevant.
+- HARD BAN — NEVER use any of these words/phrases in ANY section including
+  the headline: "navigate / navigates / navigating / navigation", "amidst",
+  "delve / delving", "dive in", "landscape", "unlock / unleash", "leverag*",
+  "robust", "comprehensive", "fascinating", "compelling story", "stay tuned",
+  "ecosystem", "moreover", "furthermore", "game-changer", "in today's".
+  These are reflexes from generic finance copy. Reach for a specific verb
+  or detail instead.
 
 STRUCTURE (must follow exactly):
 - background: 120-180 words. The company, sector, why it's interesting.
@@ -163,6 +170,20 @@ function formatCitations(refs: NewsArticle[]): string {
     .join("\n");
 }
 
+// Phrases the persona forbids. The LLM ignores them sometimes (observed:
+// "navigates", "amidst"). Post-validation rejects + re-tries.
+const BANNED_PHRASES = [
+  "navigat", "amidst", "delve", "dive in", "landscape", "unlock",
+  "unleash", "leverag", "robust", "comprehensive", "fascinating",
+  "compelling story", "stay tuned", "ecosystem", "in today",
+  "let's break it down", "moreover", "furthermore", "game-changer",
+];
+
+function findBanned(text: string): string[] {
+  const lower = text.toLowerCase();
+  return BANNED_PHRASES.filter((p) => lower.includes(p));
+}
+
 export async function synthesiseNarrative(report: JournalismReport): Promise<NarrativeTake> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY not set");
@@ -192,9 +213,21 @@ export async function synthesiseNarrative(report: JournalismReport): Promise<Nar
     "in the order you used them.",
   ].join("\n");
 
-  const resp = await model.generateContent(userPrompt);
-  const parsed = JSON.parse(resp.response.text()) as Omit<NarrativeTake, "slug" | "citations">
-    & { cited_refs: string[] };
+  // Up to 2 attempts: if the first response contains banned phrases,
+  // send a corrective follow-up that calls them out specifically.
+  let parsed: Omit<NarrativeTake, "slug" | "citations"> & { cited_refs: string[] };
+  let attempt = 0;
+  let userPromptForCall = userPrompt;
+  while (true) {
+    attempt++;
+    const resp = await model.generateContent(userPromptForCall);
+    parsed = JSON.parse(resp.response.text());
+    const all = [parsed.headline, parsed.background, parsed.recent_events, parsed.the_data, parsed.outlook].join("\n");
+    const hits = findBanned(all);
+    if (hits.length === 0 || attempt >= 2) break;
+    console.error(`[narrative] retry: banned phrases detected (${hits.join(", ")})`);
+    userPromptForCall = userPrompt + `\n\nIMPORTANT: your previous draft used these banned terms: ${hits.join(", ")}. Re-write removing every one of them. Also re-check the headline.`;
+  }
 
   // Build citations[] from the refs the model actually used.
   const refByIdx = new Map<string, NewsArticle>();
