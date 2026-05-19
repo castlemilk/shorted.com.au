@@ -413,27 +413,13 @@ export async function buildInsiderTradeTweet(
 export function buildTakeTweet(take: EditorialTake): string {
   const stockLine = take.stockCode ? `$${take.stockCode}` : "Shorted Take";
   const urlLine = `${SITE}/news/${take.slug}`;
-  const lead = take.bodyMd
-    .split(/\n\s*\n/)[0]!
-    .replace(/[*_`#>]/g, "")
-    .trim();
-  // Reserve room for stockLine + 2 blank lines + url (URL counts as 23 on X).
-  const overhead = stockLine.length + 23 + 6;
-  const budget = 270 - overhead;
-  const headline = take.headline.length <= budget
-    ? take.headline
-    : take.headline.slice(0, budget - 1) + "…";
-  // Decide between headline-only and headline + lead snippet based on space.
-  const remaining = 270 - overhead - headline.length - 2;
-  const snippet = lead.length > 0 && remaining > 60
-    ? (lead.length <= remaining
-        ? lead
-        : lead.slice(0, remaining - 1) + "…")
-    : null;
-  const parts = [stockLine, "", headline];
-  if (snippet) {
-    parts.push("", snippet);
-  }
-  parts.push("", urlLine);
-  return parts.join("\n");
+  // X counts URLs as 23 chars but our raw string is the literal length.
+  // Build the tweet using literal lengths and stay under 280 strict.
+  const fixedChars = stockLine.length + urlLine.length + 4; // 4 = two \n\n joins
+  const headlineBudget = 280 - fixedChars - 1; // -1 for ellipsis safety
+  const headline =
+    take.headline.length <= headlineBudget
+      ? take.headline
+      : take.headline.slice(0, headlineBudget - 1) + "…";
+  return [stockLine, "", headline, "", urlLine].join("\n");
 }
