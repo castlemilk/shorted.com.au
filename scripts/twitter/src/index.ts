@@ -12,8 +12,13 @@ import {
   buildInsiderTradeTweet,
   buildMoversTweet,
   buildStockOfTheDayTweet,
+  buildTakeTweet,
   buildWeeklyDigestThread,
 } from "./templates.js";
+import {
+  listTweetPublishQueue,
+  markTakeTweetPublished,
+} from "./shorted-api.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -177,6 +182,49 @@ async function run(command: string, client: TwitterClient, args: Args) {
         return;
       }
       await client.postTweet(text);
+      break;
+    }
+    case "process-publish-queue": {
+      const queue = await listTweetPublishQueue(10);
+      if (queue.length === 0) {
+        console.log("[twitter] publish queue empty");
+        return;
+      }
+      console.log(`[twitter] ${queue.length} take(s) to tweet`);
+      for (const take of queue) {
+        const text = buildTakeTweet(take);
+        console.log(`[twitter] tweeting take: ${take.slug} (${text.length} chars)`);
+        let media: ReturnType<typeof loadMediaFromPath> | undefined;
+        if (take.heroImageUrl && !args.noImage) {
+          try {
+            const res = await fetch(take.heroImageUrl);
+            if (res.ok) {
+              const buf = Buffer.from(await res.arrayBuffer());
+              if (buf.length >= 1000) {
+                media = { buffer: buf, mediaType: "image/png" };
+              }
+            }
+          } catch (err) {
+            console.warn(`[twitter] hero fetch failed: ${String(err)}`);
+          }
+        }
+        try {
+          if (args.dryRun) {
+            console.log("──── [DRY RUN] would tweet ────");
+            console.log(text);
+            console.log(`(${text.length}/280 chars)`);
+            if (media) console.log(`+ image: ${media.mediaType}, ${media.buffer.length} bytes`);
+            console.log("───────────────────────────────");
+          } else {
+            await client.postTweet(text, media);
+            await markTakeTweetPublished(take.slug);
+            console.log(`[twitter] marked ${take.slug} tweet-published`);
+          }
+        } catch (err) {
+          console.error(`[twitter] failed to tweet ${take.slug}:`, err);
+          // Don't mark; will retry on next cron pass.
+        }
+      }
       break;
     }
     case "insider-trade": {

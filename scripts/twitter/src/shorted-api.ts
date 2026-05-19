@@ -201,3 +201,23 @@ export async function findTakeForStockHeadline(
     return null;
   }
 }
+
+// ============================================================
+// Admin: tweet publish queue (called by process-publish-queue)
+// ============================================================
+
+export async function listTweetPublishQueue(limit = 10): Promise<EditorialTake[]> {
+  const resp = await call<{ takes?: EditorialTake[] }>(
+    "ListTweetPublishQueue",
+    { limit },
+  );
+  return resp.takes ?? [];
+}
+
+export async function markTakeTweetPublished(slug: string): Promise<EditorialTake | null> {
+  const resp = await call<{ take?: EditorialTake }>(
+    "MarkTakeTweetPublished",
+    { slug },
+  );
+  return resp.take ?? null;
+}

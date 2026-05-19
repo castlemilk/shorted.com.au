@@ -8,6 +8,7 @@ import {
   getMarketNews,
   getStockHistory,
   getTopShorts,
+  type EditorialTake,
   type TopShortsItem,
 } from "./shorted-api.js";
 
@@ -403,4 +404,36 @@ export async function buildInsiderTradeTweet(
     `Source: ASX Appendix 3Y.`,
     `History: ${SITE}/insider-trading/${stockCode}`,
   ].join("\n");
+}
+
+// ============================================================
+// Take publish — tweet a freshly-published /news/[slug] Take
+// ============================================================
+
+export function buildTakeTweet(take: EditorialTake): string {
+  const stockLine = take.stockCode ? `$${take.stockCode}` : "Shorted Take";
+  const urlLine = `${SITE}/news/${take.slug}`;
+  const lead = take.bodyMd
+    .split(/\n\s*\n/)[0]!
+    .replace(/[*_`#>]/g, "")
+    .trim();
+  // Reserve room for stockLine + 2 blank lines + url (URL counts as 23 on X).
+  const overhead = stockLine.length + 23 + 6;
+  const budget = 270 - overhead;
+  const headline = take.headline.length <= budget
+    ? take.headline
+    : take.headline.slice(0, budget - 1) + "…";
+  // Decide between headline-only and headline + lead snippet based on space.
+  const remaining = 270 - overhead - headline.length - 2;
+  const snippet = lead.length > 0 && remaining > 60
+    ? (lead.length <= remaining
+        ? lead
+        : lead.slice(0, remaining - 1) + "…")
+    : null;
+  const parts = [stockLine, "", headline];
+  if (snippet) {
+    parts.push("", snippet);
+  }
+  parts.push("", urlLine);
+  return parts.join("\n");
 }
