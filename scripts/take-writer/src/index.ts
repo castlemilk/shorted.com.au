@@ -7,6 +7,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 import { TAKE_SYSTEM_PROMPT, SLUG_PROMPT } from "./persona.js";
 import { discoverCandidates } from "./discover.js";
+import { runOrchestrator } from "./run.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -34,6 +35,9 @@ interface Args {
   poolSize?: number;
   newsWindowHours?: number;
   topN?: number;
+  // run orchestrator
+  autoPublish?: boolean;
+  autoTweet?: boolean;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -59,6 +63,10 @@ function parseArgs(argv: string[]): Args {
     } else if (arg.startsWith("--top=")) {
       const v = arg.split("=")[1];
       if (v) args.topN = parseInt(v, 10);
+    } else if (arg === "--auto-publish") {
+      args.autoPublish = true;
+    } else if (arg === "--auto-tweet") {
+      args.autoTweet = true;
     } else if (!arg.startsWith("--") && !args.command) args.command = arg;
   }
   return args;
@@ -71,6 +79,13 @@ function help(): void {
 Commands:
   draft     Generate a Take body + slug from a headline
   discover  Rank candidate stocks: top-shorted minus ETFs minus no-news
+  run       End-to-end: discover headline + draft + image + insert (+ publish + tweet)
+
+run flags:
+  --stock=BHP            (required) ASX stock code
+  --headline="..."       optional; defaults to top news mention for the stock
+  --auto-publish         set published_at = NOW() (skip admin review)
+  --auto-tweet           also trigger the tweet queue (requires --auto-publish)
 
 discover flags:
   --pool=30              how many top-shorted stocks to consider
@@ -265,6 +280,16 @@ async function main(): Promise<void> {
     case "discover":
       await runDiscover(args);
       break;
+    case "run": {
+      if (!args.stockCode) throw new Error("--stock=CODE is required for run");
+      await runOrchestrator({
+        stockCode: args.stockCode.toUpperCase(),
+        headline: args.headline,
+        autoPublish: args.autoPublish ?? false,
+        autoTweet: args.autoTweet ?? false,
+      });
+      break;
+    }
     default:
       console.error(`[take-writer] unknown command: ${args.command}`);
       help();
