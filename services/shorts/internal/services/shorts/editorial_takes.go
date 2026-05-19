@@ -90,12 +90,12 @@ func convertEditorialTake(t *shortsstore.EditorialTake) *shortsv1alpha1.Editoria
 		out.Model = *t.Model
 	}
 	if t.PublishedAt != nil && *t.PublishedAt != "" {
-		if ts, err := time.Parse(time.RFC3339, *t.PublishedAt); err == nil {
+		if ts, ok := parseTimestamp(*t.PublishedAt); ok {
 			out.PublishedAt = timestamppb.New(ts)
 		}
 	}
 	if t.CreatedAt != "" {
-		if ts, err := time.Parse(time.RFC3339, t.CreatedAt); err == nil {
+		if ts, ok := parseTimestamp(t.CreatedAt); ok {
 			out.CreatedAt = timestamppb.New(ts)
 		}
 	}
@@ -103,7 +103,7 @@ func convertEditorialTake(t *shortsstore.EditorialTake) *shortsv1alpha1.Editoria
 		out.HeroImageUrl = *t.HeroImageURL
 	}
 	if t.TweetPublishedAt != nil && *t.TweetPublishedAt != "" {
-		if ts, err := time.Parse(time.RFC3339, *t.TweetPublishedAt); err == nil {
+		if ts, ok := parseTimestamp(*t.TweetPublishedAt); ok {
 			out.TweetPublishedAt = timestamppb.New(ts)
 		}
 	}
@@ -247,4 +247,26 @@ func (s *ShortsServer) ListTweetPublishQueue(
 		out[i] = convertEditorialTake(t)
 	}
 	return connect.NewResponse(&shortsv1alpha1.ListTweetPublishQueueResponse{Takes: out}), nil
+}
+
+// parseTimestamp accepts the formats Postgres TIMESTAMPTZ may serialise
+// to a Go string via pgx — RFC3339 (e.g., '2026-05-19T04:03:30Z') OR
+// the default pgx textual format with a space separator and offset
+// ('2026-05-19 04:03:30.929849+00:00'). Returns false on failure.
+func parseTimestamp(s string) (time.Time, bool) {
+	formats := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02 15:04:05.999999-07:00",
+		"2006-01-02 15:04:05.999999-07",
+		"2006-01-02 15:04:05-07:00",
+		"2006-01-02 15:04:05-07",
+		"2006-01-02 15:04:05",
+	}
+	for _, f := range formats {
+		if t, err := time.Parse(f, s); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
 }
