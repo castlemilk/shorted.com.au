@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { normalizedLogoUrl } from "~/@/lib/logo";
 import { Badge } from "~/@/components/ui/badge";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { Sparkline } from "~/@/components/ui/sparkline";
@@ -48,13 +49,12 @@ export function StockSearchResultItem({
     }
   };
 
-  // Prefer the normalized logo (256×256 trimmed + centred). Falls
-  // through to the validated raw URL only if the normalized one 404s
-  // (handled via onError).
-  const normalizedLogoUrl = `https://storage.googleapis.com/shorted-company-logos/logos-normalized/${stock.product_code}.png`;
+  // Prefer the normalized logo (256×256 trimmed + centred). The valid
+  // check still runs against the raw URL we got from the API to decide
+  // whether to render any logo at all (a few stocks have no metadata).
   const validLogoUrl = isValidLogoUrl(stock.logoUrl)
-    ? normalizedLogoUrl
-    : normalizedLogoUrl;
+    ? normalizedLogoUrl(stock.product_code)
+    : null;
 
   // Deterministic gradient generator for placeholder
   const getStockGradient = (code: string) => {

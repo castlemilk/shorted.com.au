@@ -11,18 +11,28 @@
 
 const BUCKET = "shorted-company-logos";
 
+// Deploy-bound cache-bust suffix. Google's edge caches normalized
+// logo objects for hours even when we update them (and re-scrapes
+// happen on demand — see ZIP, which was inherited as the wrong company
+// "ZipTel" from a legacy scrape). Appending the build SHA forces a
+// fresh fetch after every deploy; logos that haven't changed still
+// hit Google's edge cache for the actual bytes — only the URL key
+// changes per deploy.
+const LOGO_VERSION =
+  process.env.NEXT_PUBLIC_LOGO_VERSION ??
+  process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ??
+  "dev";
+
 /**
  * Returns the normalized (256×256, trimmed, centred) logo URL for an
- * ASX stock code. Does NOT verify the file exists — relies on the
- * caller to have an <img onError> fallback or to fall back at render
- * time using rawLogoUrl().
+ * ASX stock code with a deploy-bound cache-bust query string.
  */
 export function normalizedLogoUrl(stockCode: string): string {
   const code = stockCode.toUpperCase();
-  return `https://storage.googleapis.com/${BUCKET}/logos-normalized/${code}.png`;
+  return `https://storage.googleapis.com/${BUCKET}/logos-normalized/${code}.png?v=${LOGO_VERSION}`;
 }
 
-/** Raw, un-processed source logo URL. */
+/** Raw, un-processed source logo URL (no cache bust). */
 export function rawLogoUrl(stockCode: string): string {
   const code = stockCode.toUpperCase();
   return `https://storage.googleapis.com/${BUCKET}/logos/${code}.png`;

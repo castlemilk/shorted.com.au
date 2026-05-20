@@ -228,7 +228,10 @@ async function processOne(
     await dstFile.save(out, {
       contentType: "image/png",
       resumable: false,
-      metadata: { cacheControl: "public, max-age=2592000, immutable" }, // 30d
+      // 1d browser, 7d CDN, longer SWR. Not immutable — logos do get
+      // re-scraped (wrong source, brand refresh) and we want updates to
+      // propagate within a day.
+      metadata: { cacheControl: "public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000" },
     });
     return "normalized";
   } catch (err) {
