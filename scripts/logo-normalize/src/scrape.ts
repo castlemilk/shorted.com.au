@@ -72,6 +72,7 @@ function parseArgs(argv: string[]): Args {
 interface Candidate {
   code: string;
   website: string | null;
+  companyName: string | null;
 }
 
 async function loadCandidates(args: Args): Promise<Candidate[]> {
@@ -105,13 +106,20 @@ async function loadCandidates(args: Args): Promise<Candidate[]> {
   const pg = new PgClient({ connectionString: dbUrl });
   await pg.connect();
   try {
-    const { rows } = await pg.query<{ stock_code: string; website: string | null }>(
-      `SELECT stock_code, website FROM "company-metadata"
+    const { rows } = await pg.query<{ stock_code: string; website: string | null; company_name: string | null }>(
+      `SELECT stock_code, website, company_name FROM "company-metadata"
        WHERE stock_code = ANY($1)`,
       [codes],
     );
-    const websiteByCode = new Map(rows.map((r) => [r.stock_code, r.website]));
-    return codes.map((code) => ({ code, website: websiteByCode.get(code) ?? null }));
+    const byCode = new Map(rows.map((r) => [r.stock_code, r]));
+    return codes.map((code) => {
+      const row = byCode.get(code);
+      return {
+        code,
+        website: row?.website ?? null,
+        companyName: row?.company_name ?? null,
+      };
+    });
   } finally {
     await pg.end();
   }
@@ -154,15 +162,21 @@ async function isNonBlankPng(buf: Buffer): Promise<boolean> {
     const png = await sharp(buf, { failOn: "none" }).png().toBuffer();
     const m = await sharp(png).metadata();
     if (!m.width || !m.height) return false;
-    if (m.width < 32 || m.height < 32) return false;
+    // 16×16 favicons are common — accept and let normalize upscale.
+    if (m.width < 16 || m.height < 16) return false;
+    // Reject Google s2's generic globe placeholder — exactly 16×16, ~600b.
+    if (m.width === 16 && m.height === 16 && buf.length < 700) return false;
     // Check that there's actual content (any non-near-white pixel).
     const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     let nonBlank = 0;
+    // Scale the "enough signal" threshold to image size — 16×16 favicons
+    // can only have ~50 non-white pixels at most, so demand 10.
+    const minSignal = Math.max(10, Math.min(50, Math.floor((m.width * m.height) / 50)));
     for (let p = 0; p < data.length; p += info.channels) {
       const r = data[p]!, g = data[p + 1]!, b = data[p + 2]!, a = data[p + 3]!;
       if (a > 64 && !(r > 245 && g > 245 && b > 245)) {
         nonBlank++;
-        if (nonBlank > 50) return true; // enough signal
+        if (nonBlank > minSignal) return true;
       }
     }
     return false;
@@ -171,26 +185,68 @@ async function isNonBlankPng(buf: Buffer): Promise<boolean> {
   }
 }
 
-async function tryDomainSources(domain: string): Promise<Buffer | null> {
+async function tryWikipediaLogo(companyName: string | null): Promise<Buffer | null> {
+  if (!companyName) return null;
+  // Wikipedia API: get the page image for the company.
+  const search = encodeURIComponent(companyName.replace(/[.,]/g, "").trim());
+  try {
+    const apiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${search}`;
+    const res = await fetch(apiUrl, { headers: { "User-Agent": UA } });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { originalimage?: { source?: string } };
+    const imgUrl = data.originalimage?.source;
+    if (!imgUrl) return null;
+    // Wikipedia commonly serves SVG or 200x200 PNG — both work for our pipeline.
+    const imgRes = await fetch(imgUrl, { headers: { "User-Agent": UA } });
+    if (!imgRes.ok) return null;
+    return Buffer.from(await imgRes.arrayBuffer());
+  } catch {
+    return null;
+  }
+}
+
+async function tryDomainSources(
+  domain: string,
+  companyName: string | null = null,
+): Promise<Buffer | null> {
+  // Try larger / preferred sizes first. Modern sites declare these.
   const candidates = [
+    `https://${domain}/apple-touch-icon-180x180.png`,
+    `https://${domain}/apple-touch-icon-precomposed-180x180.png`,
     `https://${domain}/apple-touch-icon.png`,
     `https://${domain}/apple-touch-icon-precomposed.png`,
+    `https://${domain}/android-chrome-192x192.png`,
+    `https://${domain}/android-chrome-512x512.png`,
+    `https://${domain}/favicon-196x196.png`,
+    `https://${domain}/favicon-192x192.png`,
+    `https://${domain}/favicon-128.png`,
+    `https://${domain}/favicon-96x96.png`,
+    `https://${domain}/logo.png`,
+    `https://${domain}/img/logo.png`,
+    `https://${domain}/images/logo.png`,
     `https://${domain}/favicon.ico`,
-    // Google's favicon service — works even when the site has no
-    // apple-touch-icon and no favicon at the conventional path.
     `https://www.google.com/s2/favicons?domain=${domain}&sz=128`,
     `https://icons.duckduckgo.com/ip3/${domain}.ico`,
   ];
+  // Wikipedia as a final fallback for the company name.
   for (const url of candidates) {
     const buf = await fetchWithTimeout(url);
     if (!buf) continue;
     if (await isNonBlankPng(buf)) {
-      // Ensure output is PNG.
       try {
         return await sharp(buf, { failOn: "none" }).png().toBuffer();
       } catch {
         continue;
       }
+    }
+  }
+  // Wikipedia fallback.
+  const wikiBuf = await tryWikipediaLogo(companyName);
+  if (wikiBuf && (await isNonBlankPng(wikiBuf))) {
+    try {
+      return await sharp(wikiBuf, { failOn: "none" }).png().toBuffer();
+    } catch {
+      // ignore
     }
   }
   return null;
@@ -210,13 +266,20 @@ async function processOne(
   args: Args,
 ): Promise<Result> {
   const domain = domainFromUrl(cand.website);
-  if (!domain) return { code: cand.code, status: "no_website" };
-
-  const buf = await tryDomainSources(domain);
-  if (!buf) return { code: cand.code, status: "no_logo_found", source: domain };
+  // Even without a domain we can still try Wikipedia.
+  let buf: Buffer | null = null;
+  if (domain) {
+    buf = await tryDomainSources(domain, cand.companyName);
+  } else if (cand.companyName) {
+    const wiki = await tryWikipediaLogo(cand.companyName);
+    if (wiki && (await isNonBlankPng(wiki))) {
+      buf = await sharp(wiki, { failOn: "none" }).png().toBuffer();
+    }
+  }
+  if (!buf) return { code: cand.code, status: "no_logo_found", source: domain ?? cand.companyName ?? "?" };
 
   if (args.dryRun) {
-    return { code: cand.code, status: "dry_run", source: domain, bytes: buf.length };
+    return { code: cand.code, status: "dry_run", source: domain ?? undefined, bytes: buf.length };
   }
 
   try {
@@ -225,9 +288,9 @@ async function processOne(
       resumable: false,
       metadata: { cacheControl: "public, max-age=86400" },
     });
-    return { code: cand.code, status: "uploaded", source: domain, bytes: buf.length };
+    return { code: cand.code, status: "uploaded", source: domain ?? undefined, bytes: buf.length };
   } catch (err) {
-    return { code: cand.code, status: "failed", source: domain, message: String(err).slice(0, 100) };
+    return { code: cand.code, status: "failed", source: domain ?? undefined, message: String(err).slice(0, 100) };
   }
 }
 

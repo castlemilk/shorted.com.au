@@ -318,6 +318,9 @@ interface BrokenReport {
 async function analyseLogo(code: string, storage: Storage): Promise<BrokenReport | null> {
   const buf = await downloadLogo(storage, "normalized", code);
   if (!buf) return null;
+  // Count any opaque-enough pixel as content — it'll render against
+  // some background somewhere. Both dark-on-transparent and
+  // light-on-transparent logos pass this test.
   const { data, info } = await sharp(buf).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   const { width: W, height: H, channels: C } = info;
   let contentPixels = 0;
@@ -326,7 +329,7 @@ async function analyseLogo(code: string, storage: Storage): Promise<BrokenReport
   let maxR = 0, maxG = 0, maxB = 0;
   for (let p = 0; p < data.length; p += C) {
     const r = data[p]!, g = data[p + 1]!, b = data[p + 2]!, a = data[p + 3]!;
-    if (a > 32 && !(r > 245 && g > 245 && b > 245)) {
+    if (a > 32) {
       contentPixels++;
       lumaSum += (0.299 * r + 0.587 * g + 0.114 * b);
       if (r < minR) minR = r;
@@ -344,16 +347,14 @@ async function analyseLogo(code: string, storage: Storage): Promise<BrokenReport
 
   let isSuspect = false;
   let reason = "";
-  // Only flag genuinely bad outputs. High content % is fine — many
-  // legitimate marks fill their canvas (circular badges, wordmarks).
-  if (contentPct < 1.5) {
+  // Truly blank: <0.5% opaque pixels — almost certainly a scrape failure.
+  if (contentPct < 0.5) {
     isSuspect = true;
-    reason = `near-blank (${contentPct.toFixed(2)}% content)`;
-  } else if (contentPct > 90 && colourSpread < 15) {
-    // Almost-entirely-uniform-coloured frame — usually a placeholder
-    // or a scraped image of a solid background.
+    reason = `near-blank (${contentPct.toFixed(2)}% opaque pixels)`;
+  } else if (contentPct > 95 && colourSpread < 10) {
+    // Almost-entirely-uniform-coloured frame — usually a placeholder.
     isSuspect = true;
-    reason = `${contentPct.toFixed(0)}% monochrome fill (spread ${colourSpread}) — likely placeholder`;
+    reason = `${contentPct.toFixed(0)}% monochrome fill (spread ${colourSpread})`;
   }
   return { code, contentPct, meanLuma, colourSpread, isSuspect, reason };
 }
