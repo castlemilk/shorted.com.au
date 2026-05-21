@@ -10,9 +10,11 @@ import {
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { getMarketNews } from "~/app/actions/getStockNews";
 import { TakeCardGrid } from "~/@/components/news/take-card-grid";
+import { isValidStockCode } from "~/@/lib/stock-code";
 
 export const metadata: Metadata = {
-  title: "ASX News & Short Selling Sentiment | Shorted",
+  // Root layout applies `%s | Shorted` template — don't include the suffix here.
+  title: "ASX News & Short Selling Sentiment",
   description:
     "Australian stock market news with sentiment analysis. Track ASX short-selling-driven stories, price-sensitive announcements, and editorial coverage from Stockhead, Motley Fool, Kalkine and more.",
   keywords: [
@@ -24,7 +26,7 @@ export const metadata: Metadata = {
     "Australian stocks news today",
   ],
   openGraph: {
-    title: "ASX News & Short Selling Sentiment | Shorted",
+    title: "ASX News & Short Selling Sentiment",
     description:
       "Latest ASX news with sentiment analysis. Track stories, announcements and short-selling coverage from Australian sources.",
     url: `${siteConfig.url}/news`,
@@ -34,7 +36,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "ASX News & Short Selling Sentiment | Shorted",
+    title: "ASX News & Short Selling Sentiment",
     description:
       "Latest ASX news with sentiment analysis from Australian sources.",
   },
@@ -86,7 +88,9 @@ const toCardArticle = (a: ApiArticle): NewsCardArticle => ({
   sentiment: a.sentiment,
   summary: a.summary,
   imageUrl: a.imageUrl,
-  stockCode: a.stockCode,
+  // Drop noise like NEW/BUY/HAS/GOLD that the aggregator misclassifies
+  // as stock codes — keeps cards from linking to /shorts/<stop-word>.
+  stockCode: isValidStockCode(a.stockCode) ? a.stockCode : undefined,
   isPriceSensitive: a.isPriceSensitive,
 });
 
@@ -139,7 +143,7 @@ export default async function NewsIndexPage() {
       "@type": "Organization",
       name: a.source,
     },
-    about: a.stockCode && a.stockCode !== "MARKET"
+    about: a.stockCode
       ? { "@type": "Corporation", tickerSymbol: a.stockCode }
       : undefined,
   }));
