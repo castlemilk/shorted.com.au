@@ -38,6 +38,7 @@ interface Args {
   command: string;
   dryRun: boolean;
   stockCode?: string;
+  slug?: string;
   help: boolean;
   noImage: boolean;
   imagePath?: string;
@@ -106,6 +107,7 @@ function parseArgs(argv: string[]): Args {
     else if (arg === "--no-image") args.noImage = true;
     else if (arg.startsWith("--image-path=")) args.imagePath = arg.split("=").slice(1).join("=");
     else if (arg.startsWith("--stock=")) args.stockCode = arg.split("=")[1];
+    else if (arg.startsWith("--slug=")) args.slug = arg.split("=").slice(1).join("=");
     else if (!arg.startsWith("--") && !args.command) args.command = arg;
   }
   return args;
@@ -130,6 +132,8 @@ Flags:
                     TWITTER_DRY_RUN_DEFAULT=false in .env)
   --live            Override dry-run; actually post the tweet
   --stock=CBA       For insider-trade alerts, the stock code to check
+  --slug=foo-bar    For process-publish-queue: tweet only this one slug
+                    from the queue (leaves the rest untouched)
 
 Commands:
   bootstrap-oauth2     One-time: get an OAuth 2.0 refresh_token
@@ -139,6 +143,8 @@ Commands:
   weekly-digest
   breaking-news
   insider-trade        Requires --stock=CODE
+  process-publish-queue  Tweet queued (published, untweeted) Takes.
+                         Use --slug=foo to target just one.
 
 Examples:
   npm run post:daily-shorts                    # dry-run (default)
@@ -185,12 +191,30 @@ async function run(command: string, client: TwitterClient, args: Args) {
       break;
     }
     case "process-publish-queue": {
-      const queue = await listTweetPublishQueue(10);
-      if (queue.length === 0) {
+      const allQueued = await listTweetPublishQueue(50);
+      const queue = args.slug
+        ? allQueued.filter((t) => t.slug === args.slug)
+        : allQueued;
+      if (allQueued.length === 0) {
         console.log("[twitter] publish queue empty");
         return;
       }
-      console.log(`[twitter] ${queue.length} take(s) to tweet`);
+      if (args.slug && queue.length === 0) {
+        console.log(
+          `[twitter] slug "${args.slug}" not in queue (already tweeted, unpublished, or wrong slug).`,
+        );
+        console.log(
+          `[twitter] ${allQueued.length} other take(s) waiting — not tweeting them.`,
+        );
+        return;
+      }
+      if (args.slug) {
+        console.log(
+          `[twitter] --slug=${args.slug} — tweeting 1 of ${allQueued.length} queued`,
+        );
+      } else {
+        console.log(`[twitter] ${queue.length} take(s) to tweet`);
+      }
       for (const take of queue) {
         const text = buildTakeTweet(take);
         console.log(`[twitter] tweeting take: ${take.slug} (${text.length} chars)`);
