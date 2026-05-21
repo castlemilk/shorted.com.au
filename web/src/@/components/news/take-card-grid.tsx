@@ -42,7 +42,24 @@ export async function TakeCardGrid({ limit = 6 }: { limit?: number }) {
                 />
               </div>
             ) : (
-              <div className="aspect-[16/9] bg-gradient-to-br from-orange-900/20 via-background to-background" />
+              <div className="relative flex aspect-[16/9] items-center justify-center overflow-hidden bg-gradient-to-br from-orange-950/40 via-zinc-950 to-zinc-950">
+                <div
+                  className="pointer-events-none absolute inset-0 opacity-30"
+                  style={{
+                    backgroundImage:
+                      "radial-gradient(circle at 20% 30%, rgba(255,169,77,0.15), transparent 50%), radial-gradient(circle at 80% 70%, rgba(255,169,77,0.08), transparent 60%)",
+                  }}
+                />
+                {t.stockCode ? (
+                  <span className="relative font-mono text-4xl font-bold tracking-tight text-orange-300/80 md:text-5xl">
+                    ${t.stockCode}
+                  </span>
+                ) : (
+                  <span className="relative text-xs font-medium uppercase tracking-[0.2em] text-orange-300/70">
+                    Shorted Take
+                  </span>
+                )}
+              </div>
             )}
             <div className="flex flex-1 flex-col p-4">
               <div className="mb-2 flex items-center gap-2 text-xs">

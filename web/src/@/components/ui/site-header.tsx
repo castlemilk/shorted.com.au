@@ -17,6 +17,7 @@ const items: NavItemWithGroup[] = [
   { title: "dashboard", href: "/dashboards", requiresAuth: true, primary: true },
   { title: "AI chat", href: "/chat", requiresAuth: true, primary: true },
   { title: "reports", href: "/reports", primary: true },
+  { title: "news", href: "/news", primary: true },
   // Secondary — grouped under "More" dropdown
   { title: "portfolio", href: "/portfolio", requiresAuth: true },
   { title: "about", href: "/about" },
