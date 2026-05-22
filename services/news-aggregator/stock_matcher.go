@@ -66,27 +66,58 @@ func (m *StockMatcher) Count() int {
 	return len(m.codeToName)
 }
 
+// ambiguousCodes lists ASX tickers that are also common English words.
+// For these, we only accept matches that appear in the original headline
+// as ALL CAPS or ASX:<code>/$<code> — otherwise "should I buy Zip" matches
+// BUY (Bounty Oil & Gas) and "5 new stocks" matches NEW (New Energy Solar).
+var ambiguousCodes = map[string]bool{
+	"AGO": true, "AND": true, "ARE": true, "ASX": true, "AVG": true,
+	"BIG": true, "BOND": true, "BUY": true, "CEO": true, "FOR": true,
+	"GOLD": true, "HAS": true, "HOT": true, "ITS": true, "NEW": true,
+	"RED": true, "TOP": true, "VLW": true, "ALL": true, "ANY": true,
+	"OLD": true, "LOW": true, "RAW": true, "WHY": true, "HOW": true,
+	"DAY": true, "WAY": true, "ONE": true, "TWO": true, "OUT": true,
+	"GET": true, "WIN": true, "BAD": true, "YOU": true, "OUR": true,
+	"NOW": true, "SELL": true, "USD": true, "AUD": true, "MORE": true,
+	"LESS": true, "THE": true,
+}
+
 // Match tries to find a stock code mentioned in a headline
 func (m *StockMatcher) Match(headline string) string {
-	upper := strings.ToUpper(headline)
-	words := strings.Fields(upper)
+	// Iterate the ORIGINAL headline (case preserved). Only when the token
+	// appears as ALL CAPS in the original (or with an ASX:/$ prefix) do we
+	// consider a stop-word-shaped code a real ticker mention.
+	words := strings.Fields(headline)
 
-	// First pass: look for exact ASX stock code patterns (3-4 uppercase letters)
+	// First pass: look for exact ASX stock code patterns (3-4 letters)
 	for _, word := range words {
-		// Clean punctuation
 		clean := strings.Trim(word, "()[]{}:;,.'\"!?")
-		if len(clean) >= 3 && len(clean) <= 4 {
-			if _, ok := m.codeToName[clean]; ok {
-				return clean
-			}
-		}
-		// Check for "ASX:BHP" or "(ASX:BHP)" patterns
-		if strings.HasPrefix(clean, "ASX:") {
-			code := strings.TrimPrefix(clean, "ASX:")
+		// "ASX:BHP" / "(ASX:BHP)" / "$BHP" — strict ticker prefixes always count
+		if strings.HasPrefix(strings.ToUpper(clean), "ASX:") {
+			code := strings.ToUpper(strings.TrimPrefix(strings.ToUpper(clean), "ASX:"))
 			if _, ok := m.codeToName[code]; ok {
 				return code
 			}
 		}
+		if strings.HasPrefix(clean, "$") && len(clean) >= 4 && len(clean) <= 6 {
+			code := strings.ToUpper(strings.TrimPrefix(clean, "$"))
+			if _, ok := m.codeToName[code]; ok {
+				return code
+			}
+		}
+
+		if len(clean) < 3 || len(clean) > 5 {
+			continue
+		}
+		upper := strings.ToUpper(clean)
+		if _, ok := m.codeToName[upper]; !ok {
+			continue
+		}
+		// Stop-word-shaped code → require ALL CAPS in the original.
+		if ambiguousCodes[upper] && clean != upper {
+			continue
+		}
+		return upper
 	}
 
 	// Second pass: look for company names in headline
