@@ -10,6 +10,8 @@ import {
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { getMarketNews } from "~/app/actions/getStockNews";
 import { TakeCardGrid } from "~/@/components/news/take-card-grid";
+import { TakeHero } from "~/@/components/news/take-hero";
+import { listEditorialTakes } from "~/app/actions/getEditorialTake";
 import { isValidStockCode } from "~/@/lib/stock-code";
 
 export const metadata: Metadata = {
@@ -122,13 +124,19 @@ const groupByDay = (articles: NewsCardArticle[]) => {
 };
 
 export default async function NewsIndexPage() {
-  const response = await getMarketNews(60, false);
+  const [response, takesResp] = await Promise.all([
+    getMarketNews(60, false),
+    listEditorialTakes(1, 0, "").catch(() => undefined),
+  ]);
   const articles: NewsCardArticle[] = (
     (response?.articles ?? []) as unknown as ApiArticle[]
   ).map(toCardArticle);
 
-  const [hero, ...rest] = articles;
-  const grouped = groupByDay(rest);
+  // Hero: latest published Take if one exists, else the first
+  // aggregated news article (graceful degradation).
+  const heroTake = takesResp?.takes?.[0];
+  const [newsHero, ...rest] = articles;
+  const grouped = groupByDay(heroTake ? articles : rest);
   const groupOrder = Object.keys(grouped);
 
   // NewsArticle schema for the top ~10 stories (Google's recommendation).
@@ -215,13 +223,15 @@ export default async function NewsIndexPage() {
         </p>
       ) : (
         <>
-          {hero && (
+          {heroTake ? (
+            <TakeHero take={heroTake} />
+          ) : newsHero ? (
             <div className="mt-4">
-              <NewsCard article={hero} variant="hero" />
+              <NewsCard article={newsHero} variant="hero" />
             </div>
-          )}
+          ) : null}
 
-          <TakeCardGrid limit={6} />
+          <TakeCardGrid limit={6} excludeSlug={heroTake?.slug} />
 
           {groupOrder.map((label) => (
             <section key={label} className="mt-8">

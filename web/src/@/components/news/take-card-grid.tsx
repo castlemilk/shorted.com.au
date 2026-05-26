@@ -21,9 +21,32 @@ const sentimentRing = (s: string | undefined) => {
   }
 };
 
-export async function TakeCardGrid({ limit = 6 }: { limit?: number }) {
-  const resp = await listEditorialTakes(limit, 0, "").catch(() => undefined);
-  const takes = resp?.takes ?? [];
+export async function TakeCardGrid({
+  limit = 6,
+  excludeSlug,
+}: {
+  limit?: number;
+  excludeSlug?: string;
+}) {
+  // Pull more than `limit` so that after deduplication by stock_code +
+  // optional excludeSlug we still have enough cards to fill the grid.
+  const resp = await listEditorialTakes(limit * 4, 0, "").catch(() => undefined);
+  const all = resp?.takes ?? [];
+
+  // Dedupe: keep the newest take per ticker. Untickered ("market" /
+  // null) takes are kept individually since they don't share a slot.
+  const seenStocks = new Set<string>();
+  const takes: typeof all = [];
+  for (const t of all) {
+    if (excludeSlug && t.slug === excludeSlug) continue;
+    const key = (t.stockCode ?? "").trim().toUpperCase();
+    if (key) {
+      if (seenStocks.has(key)) continue;
+      seenStocks.add(key);
+    }
+    takes.push(t);
+    if (takes.length >= limit) break;
+  }
   if (takes.length === 0) return null;
 
   return (
