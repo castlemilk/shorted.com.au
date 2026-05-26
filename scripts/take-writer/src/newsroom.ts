@@ -70,13 +70,53 @@ CRITICAL FINAL RULES — apply these to the image you generate:
 5. Keep the composition minimal — single subject, deep negative space,
    low-key lighting, one warm orange/amber light source.`;
 
+// Sector-appropriate subject vocabulary for the hero prompt. The
+// previous prompt biased toward industrial materials regardless of
+// company sector (Endeavour Group — a liquor retailer — got an ore
+// chunk). Subject hints are passed through to gpt-image-2 as
+// suggestions, with the brand aesthetic (dark + amber, no text/people)
+// holding constant.
+function subjectHintForIndustry(industry: string | null): string {
+  const i = (industry ?? "").toLowerCase();
+  if (i.includes("material") || i.includes("metal") || i.includes("mining")) {
+    return "a chunk of raw ore, ingot, drill core, or processed metal";
+  }
+  if (i.includes("energy") || i.includes("utilities")) {
+    return "a single industrial pipe fitting, valve, transformer coil, or oil drum";
+  }
+  if (i.includes("capital goods") || i.includes("industrial") || i.includes("aerospace") || i.includes("defence")) {
+    return "a tactical electronics enclosure, machined metal component, or industrial sensor housing";
+  }
+  if (i.includes("consumer staples") || i.includes("food") || i.includes("beverage")) {
+    return "a single dark-glass bottle, a stacked retail crate, or a polished bar surface — products lit moodily, no readable labels";
+  }
+  if (i.includes("consumer discretionary") || i.includes("retail") || i.includes("hospitality") || i.includes("travel")) {
+    return "a luxury product still-life: a leather travel case, a hotel key, a folded garment, or shop fixtures in low light";
+  }
+  if (i.includes("financial") || i.includes("bank") || i.includes("insurance")) {
+    return "a leather ledger, a sealed envelope, a vault door fragment, a single wax-sealed document — no readable text";
+  }
+  if (i.includes("health") || i.includes("biotech") || i.includes("pharma")) {
+    return "a single laboratory vial, glass ampoule, scientific instrument component, or sterile petri dish — no labels";
+  }
+  if (i.includes("technology") || i.includes("software") || i.includes("communication")) {
+    return "a circuit board fragment, fibre-optic bundle, or anodised heatsink — macro detail, no logos";
+  }
+  if (i.includes("real estate") || i.includes("property")) {
+    return "an architectural model fragment, concrete sample block, or scaled construction detail";
+  }
+  // Fallback — abstract geometric data art (works for any sector, never wrong)
+  return "an abstract geometric form: a single matte sphere, stacked panels, folded paper sculpture, or layered gradients — no objects from any specific industry";
+}
+
 async function generateHero(
   openai: OpenAI,
   storage: Storage,
   candidate: AgendaCandidate,
   take: NarrativeTake,
 ): Promise<{ url: string; costUsd: number }> {
-  const topic = `Editorial close-up photograph evoking the article subject (ASX: ${candidate.stockCode}): ${take.headline}. A single concrete physical object on a dark surface with deep shadow, lit by a single warm amber light source from one side. No text, no charts, no people.`;
+  const subjectHint = subjectHintForIndustry(candidate.industry);
+  const topic = `Editorial close-up photograph evoking the article subject (ASX: ${candidate.stockCode}, sector: ${candidate.industry ?? "general market"}): ${take.headline}. Subject should be ${subjectHint}. A single concrete object on a dark surface with deep shadow, lit by a single warm amber light source from one side. No text, no charts, no people, no logos.`;
   const prompt = `${BRAND_PROMPT}\n\n${topic}\n\nFormat: 16:9 horizontal hero banner composition.${FINAL_RULES}`;
 
   const resp = await openai.images.generate({
