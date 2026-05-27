@@ -17,7 +17,11 @@ interface LinkifiedNarrativeProps {
 }
 
 const CODE_PATTERN = /\b([A-Z]{2,4})\b/g;
-const CITATION_PATTERN = /\[ref-\d+\]/g;
+// Match both [ref-N] (news/data citations) and [report-N] (financial
+// report citations). Both render as small superscript pills, but the
+// pill text reflects which type ("12" for news, "R2" for reports) so
+// readers can scan which inline numbers point at primary sources.
+const CITATION_PATTERN = /\[(?:ref|report)-\d+\]/g;
 
 /**
  * Renders narrative text with two inline transforms applied in one
@@ -48,39 +52,45 @@ export function LinkifiedNarrative({
   // Stock-code lookup set.
   const codeSet = new Set(validCodes.map((c) => c.toUpperCase()));
 
-  // Combined splitter: capture both [ref-N] and bare stock codes so we
-  // can render them as links while preserving surrounding text.
-  // We scan in two passes — first by citation, then within each plain
-  // segment by stock code — to keep regex complexity low.
-  const citationSegments = text.split(/(\[ref-\d+\])/g);
+  // Combined splitter: capture [ref-N], [report-N] AND bare stock codes
+  // so we can render them as links while preserving surrounding text.
+  const citationSegments = text.split(/(\[(?:ref|report)-\d+\])/g);
 
   return (
     <span className={className}>
       {citationSegments.flatMap<React.ReactNode>((segment, segIdx) => {
         // Citation segment: render the superscript pill (or fall back
         // to plain text if the ref-N has no matching citation).
-        const citationMatch = segment.match(/^\[ref-(\d+)\]$/);
+        const citationMatch = segment.match(/^\[(ref|report)-(\d+)\]$/);
         if (citationMatch) {
-          const refId = `ref-${citationMatch[1]}`;
+          const kind = citationMatch[1]; // 'ref' | 'report'
+          const num = citationMatch[2]!;
+          const refId = `${kind}-${num}`;
           const citation = citationMap.get(refId);
           if (!citation) {
             return [<span key={`s${segIdx}`}>{segment}</span>];
           }
+          const isReport = kind === "report" || citation.type === "report";
           const tooltip = [
-            citation.source,
+            isReport ? "Financial report" : citation.source,
             citation.date ? `(${citation.date})` : "",
             citation.type ? `[${citation.type.replace(/_/g, " ")}]` : "",
           ]
             .filter(Boolean)
             .join(" ");
+          // Reports get an amber pill with an "R" prefix so readers can
+          // tell at a glance which citations are primary-source filings.
+          const pillClass = isReport
+            ? "relative -top-1 inline-flex h-4 min-w-5 items-center justify-center rounded bg-amber-500/15 px-0.5 text-[10px] font-semibold text-amber-300 no-underline transition-colors hover:bg-amber-500/25"
+            : "relative -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded bg-primary/10 px-0.5 text-[10px] font-semibold text-primary no-underline transition-colors hover:bg-primary/20";
           return [
             <a
               key={`c${segIdx}`}
               href={`#${refId}`}
               title={tooltip}
-              className="relative -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded bg-primary/10 px-0.5 text-[10px] font-semibold text-primary no-underline transition-colors hover:bg-primary/20"
+              className={pillClass}
             >
-              {citationMatch[1]}
+              {isReport ? `R${num}` : num}
             </a>,
           ];
         }

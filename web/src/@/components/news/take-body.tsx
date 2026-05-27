@@ -2,6 +2,37 @@
 
 import { LinkifiedNarrative } from "~/@/components/reports/linkified-narrative";
 
+// Friendly display name for raw source slugs from the news aggregator.
+const SOURCE_LABELS: Record<string, string> = {
+  motleyfool: "Motley Fool",
+  stockhead: "Stockhead",
+  kalkine: "Kalkine",
+  smallcaps: "Small Caps",
+  googlenews: "Google News",
+  abc: "ABC News",
+  marketindex: "Market Index",
+  sharecafe: "Sharecafe",
+  half_year_results: "Half-year results",
+  annual_results: "Annual report",
+  quarterly_report: "Quarterly report",
+  report: "Report",
+};
+
+function prettySource(raw: string, isReport: boolean): string {
+  if (isReport) return SOURCE_LABELS[raw] ?? "Financial report";
+  return SOURCE_LABELS[raw] ?? raw;
+}
+
+// Strip protocol + "www." and trim long URLs so the source line stays compact.
+function shortHost(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.hostname.replace(/^www\./, "");
+  } catch {
+    return url.slice(0, 40);
+  }
+}
+
 export interface TakeCitation {
   refId: string;
   url: string;
@@ -59,35 +90,49 @@ export function TakeBody({ bodyMd, citations, stockCode }: TakeBodyProps) {
       </div>
 
       {citations.length > 0 ? (
-        <aside className="mt-10 border-t border-border pt-6">
-          <h2 className="mb-3 text-xs font-bold uppercase tracking-wider text-orange-400">
+        <aside className="mt-12 border-t border-border pt-6">
+          <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-orange-400">
             Sources
           </h2>
-          <ol className="space-y-2 text-sm">
-            {citations.map((c) => (
-              <li
-                key={c.refId}
-                id={c.refId}
-                className="flex gap-3 scroll-mt-20"
-              >
-                <span className="flex-shrink-0 font-mono text-xs text-orange-300">
-                  [{c.refId.replace("ref-", "")}]
-                </span>
-                <div className="min-w-0 flex-1">
-                  <a
-                    href={c.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-foreground hover:text-orange-300"
-                  >
-                    {c.headline}
-                  </a>
-                  <div className="mt-0.5 text-xs text-muted-foreground">
-                    {c.source} · {c.date}
+          <ol className="space-y-3">
+            {citations.map((c) => {
+              const isReport = c.type === "report";
+              const label = isReport ? c.refId.replace("report-", "R") : c.refId.replace("ref-", "");
+              const pillClass = isReport
+                ? "h-5 min-w-6 rounded bg-amber-500/15 px-1 text-amber-300"
+                : "h-5 min-w-5 rounded bg-primary/10 px-1 text-primary";
+              return (
+                <li
+                  key={c.refId}
+                  id={c.refId}
+                  className="flex gap-3 scroll-mt-20"
+                >
+                  <span className={`flex flex-shrink-0 items-center justify-center font-mono text-[11px] font-semibold ${pillClass}`}>
+                    {label}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <a
+                      href={c.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-medium text-foreground hover:text-orange-300"
+                    >
+                      {c.headline}
+                    </a>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                      {isReport ? (
+                        <span className="rounded border border-amber-500/40 bg-amber-500/10 px-1 py-px text-[9px] font-medium uppercase tracking-wider text-amber-300">
+                          Report
+                        </span>
+                      ) : null}
+                      <span>{prettySource(c.source, isReport)}</span>
+                      {c.date ? <span>· {c.date}</span> : null}
+                      <span className="text-muted-foreground/60">· {shortHost(c.url)}</span>
+                    </div>
                   </div>
-                </div>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ol>
         </aside>
       ) : null}

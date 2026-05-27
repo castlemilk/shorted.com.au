@@ -347,36 +347,90 @@ export async function synthesiseNarrative(report: JournalismReport): Promise<Nar
     userPromptForCall = userPrompt + `\n\nIMPORTANT: your previous draft used these banned terms: ${hits.join(", ")}. Re-write removing every one of them. Also re-check the headline.`;
   }
 
-  // Build citations[] from the refs + reports the model actually used.
+  // Renumber [ref-N] + [report-N] markers into a single continuous
+  // [ref-1..M] sequence. The frontend renderer (LinkifiedNarrative)
+  // only recognises [ref-N] today, and the Citation array uses one
+  // refId field — so we unify here. type='report' is preserved on the
+  // Citation so the Sources footer can still distinguish.
   const refByIdx = new Map<string, NewsArticle>();
   refs.forEach((a, i) => refByIdx.set(`ref-${i + 1}`, a));
   const reportByIdx = new Map<string, import("./journalism.js").FinancialReportRow>();
   (report.bundle.reports ?? []).forEach((r, i) => reportByIdx.set(`report-${i + 1}`, r));
 
-  const citations: Citation[] = [];
+  type Pending =
+    | { originalId: string; kind: "news"; article: NewsArticle }
+    | { originalId: string; kind: "report"; report: import("./journalism.js").FinancialReportRow };
+
+  const pending: Pending[] = [];
   for (const refId of parsed.cited_refs ?? []) {
     const a = refByIdx.get(refId);
-    if (!a) continue;
-    citations.push({
-      refId,
-      url: a.url,
-      source: a.source,
-      headline: a.headline,
-      date: a.publishedAt.slice(0, 10),
-      type: "news",
-    });
+    if (a) pending.push({ originalId: refId, kind: "news", article: a });
   }
   for (const refId of parsed.cited_reports ?? []) {
     const r = reportByIdx.get(refId);
-    if (!r) continue;
-    citations.push({
-      refId,
-      url: r.reportUrl,
-      source: r.reportType ?? "report",
-      headline: r.reportTitle ?? "(financial report)",
-      date: r.reportDate ?? "",
-      type: "report",
+    if (r) pending.push({ originalId: refId, kind: "report", report: r });
+  }
+
+  // Walk the prose in source-order and assign continuous numbers based
+  // on first appearance, so the body's [ref-1] is the first marker
+  // encountered (whether news or report).
+  const renumber: { from: string; to: string }[] = [];
+  const seen = new Set<string>();
+  const proseAll = `${parsed.background}\n${parsed.recent_events}\n${parsed.the_data}\n${parsed.outlook}`;
+  let assigned = 0;
+  for (const match of proseAll.matchAll(/\[(ref-\d+|report-\d+)\]/g)) {
+    const id = match[1];
+    if (!id || seen.has(id)) continue;
+    if (!refByIdx.has(id) && !reportByIdx.has(id)) continue;
+    seen.add(id);
+    assigned++;
+    renumber.push({ from: id, to: `ref-${assigned}` });
+  }
+  // Fallback: include any cited refs the model returned but didn't
+  // reference inline (rare but cleanly handled).
+  for (const p of pending) {
+    if (seen.has(p.originalId)) continue;
+    seen.add(p.originalId);
+    assigned++;
+    renumber.push({ from: p.originalId, to: `ref-${assigned}` });
+  }
+
+  // Apply the renumbering to the prose sections.
+  const remap = new Map(renumber.map((r) => [r.from, r.to]));
+  const applyRemap = (s: string) =>
+    s.replace(/\[(ref-\d+|report-\d+)\]/g, (m, id: string) => {
+      const to = remap.get(id);
+      return to ? `[${to}]` : m;
     });
+  parsed.background = applyRemap(parsed.background);
+  parsed.recent_events = applyRemap(parsed.recent_events);
+  parsed.the_data = applyRemap(parsed.the_data);
+  parsed.outlook = applyRemap(parsed.outlook);
+
+  // Build the unified Citation array in the new ref order.
+  const citations: Citation[] = [];
+  for (const r of renumber) {
+    if (refByIdx.has(r.from)) {
+      const a = refByIdx.get(r.from)!;
+      citations.push({
+        refId: r.to,
+        url: a.url,
+        source: a.source,
+        headline: a.headline,
+        date: a.publishedAt.slice(0, 10),
+        type: "news",
+      });
+    } else if (reportByIdx.has(r.from)) {
+      const rep = reportByIdx.get(r.from)!;
+      citations.push({
+        refId: r.to,
+        url: rep.reportUrl,
+        source: rep.reportType ?? "report",
+        headline: rep.reportTitle ?? "(financial report)",
+        date: rep.reportDate ?? "",
+        type: "report",
+      });
+    }
   }
 
   // Slug pass.
@@ -404,40 +458,21 @@ export async function synthesiseNarrative(report: JournalismReport): Promise<Nar
   };
 }
 
-/** Assemble the four sections into a single markdown body (for storage
- *  in body_md). [ref-N] / [report-N] markers in the prose are rewritten
- *  to markdown links pointing at the citation URL — bracketed so they
- *  stay visually distinct from prose links. The EditorialMarkdown
- *  renderer styles these in orange so they read as source references.
- *  A "Sources" footer is appended listing each citation in full. */
+/** Assemble the four sections into a single markdown body. We DELIBERATELY
+ *  do NOT rewrite [ref-N] markers into markdown links here — the
+ *  frontend renderer (LinkifiedNarrative inside TakeBody) already
+ *  detects [ref-N] markers in plain text and renders them as superscript
+ *  citation pills, with a Sources footer auto-built from the
+ *  editorial_takes.citations jsonb column. Adding [ref-N](url) markdown
+ *  on top broke that renderer (the (url) leaked out as raw text). */
 export function narrativeToBodyMd(n: NarrativeTake): string {
-  const byRef = new Map(n.citations.map((c) => [c.refId, c]));
-  const linkify = (s: string) =>
-    s.replace(/\[(ref-\d+|report-\d+)\]/g, (m, id: string) => {
-      const c = byRef.get(id);
-      if (!c) return m;
-      return `[\\[${id}\\]](${c.url})`;
-    });
-
-  const sections = [
-    linkify(n.background),
+  return [
+    n.background,
     "",
-    linkify(n.recent_events),
+    n.recent_events,
     "",
-    linkify(n.the_data),
+    n.the_data,
     "",
-    linkify(n.outlook),
-  ];
-
-  if (n.citations.length > 0) {
-    sections.push("", "---", "", "**Sources**", "");
-    for (const c of n.citations) {
-      const date = c.date ? ` · ${c.date}` : "";
-      const source = c.source ? ` · ${c.source}` : "";
-      const label = c.headline || "(untitled)";
-      sections.push(`- \\[${c.refId}\\] [${label}](${c.url})${source}${date}`);
-    }
-  }
-
-  return sections.join("\n");
+    n.outlook,
+  ].join("\n");
 }
