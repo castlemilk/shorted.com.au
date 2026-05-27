@@ -184,6 +184,11 @@ export default async function ShortedTakePage({ params }: Params) {
                 date: c.date,
                 type: c.type,
               }))}
+              inlineImages={(take.inlineImages ?? []).map((i) => ({
+                url: i.url,
+                topic: i.topic,
+                alt: i.alt,
+              }))}
               stockCode={take.stockCode}
             />
           ) : (

@@ -42,9 +42,16 @@ export interface TakeCitation {
   type: string;
 }
 
+export interface TakeInlineImage {
+  url: string;
+  topic?: string;
+  alt?: string;
+}
+
 interface TakeBodyProps {
   bodyMd: string;
   citations: TakeCitation[];
+  inlineImages?: TakeInlineImage[];
   stockCode?: string;
 }
 
@@ -61,7 +68,7 @@ interface TakeBodyProps {
  * The Sources list renders below the body in a compact ordered list
  * keyed by ref id; clicking a ref pill in the prose anchors here.
  */
-export function TakeBody({ bodyMd, citations, stockCode }: TakeBodyProps) {
+export function TakeBody({ bodyMd, citations, inlineImages = [], stockCode }: TakeBodyProps) {
   const paragraphs = bodyMd.split(/\n\s*\n/).filter((p) => p.trim().length > 0);
 
   // LinkifiedNarrative expects ReportCitation with `id` not `refId`.
@@ -75,18 +82,57 @@ export function TakeBody({ bodyMd, citations, stockCode }: TakeBodyProps) {
   }));
   const validCodes = stockCode ? [stockCode] : [];
 
+  // Decide which paragraph indices get an inline image AFTER them.
+  // With 4 paragraphs and 2 images: after p[0] and after p[2]
+  // (evenly distributed, never at the very end).
+  const imageAfterIdx = new Set<number>();
+  if (inlineImages.length > 0 && paragraphs.length >= 2) {
+    const slots = inlineImages.length;
+    const step = Math.max(1, Math.floor(paragraphs.length / (slots + 1)));
+    for (let i = 1; i <= slots; i++) {
+      const idx = i * step - 1;
+      if (idx >= 0 && idx < paragraphs.length - 1) imageAfterIdx.add(idx);
+    }
+  }
+
   return (
     <div>
       <div className="space-y-5 text-base leading-relaxed">
-        {paragraphs.map((para, i) => (
-          <p key={i} className="text-foreground/90">
-            <LinkifiedNarrative
-              text={para}
-              citations={adapted}
-              validCodes={validCodes}
-            />
-          </p>
-        ))}
+        {paragraphs.flatMap((para, i) => {
+          const nodes: React.ReactNode[] = [
+            <p key={`p-${i}`} className="text-foreground/90">
+              <LinkifiedNarrative
+                text={para}
+                citations={adapted}
+                validCodes={validCodes}
+              />
+            </p>,
+          ];
+          if (imageAfterIdx.has(i)) {
+            // Position derived from the imageAfterIdx Set membership;
+            // count how many image slots have already passed.
+            const slotIndex = [...imageAfterIdx].sort((a, b) => a - b).indexOf(i);
+            const img = inlineImages[slotIndex];
+            if (img) {
+              nodes.push(
+                <figure
+                  key={`img-${i}`}
+                  className="my-2 overflow-hidden rounded-xl border border-border bg-zinc-950"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={img.url}
+                    alt={img.alt ?? img.topic ?? "Editorial illustration"}
+                    className="h-auto w-full"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </figure>,
+              );
+            }
+          }
+          return nodes;
+        })}
       </div>
 
       {citations.length > 0 ? (
