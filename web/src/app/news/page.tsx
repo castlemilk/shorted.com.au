@@ -41,6 +41,8 @@ export const metadata: Metadata = {
     title: "ASX News & Short Selling Sentiment",
     description:
       "Latest ASX news with sentiment analysis from Australian sources.",
+    site: "@shorted___",
+    creator: "@shorted___",
   },
   alternates: {
     canonical: `${siteConfig.url}/news`,

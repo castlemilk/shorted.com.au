@@ -24,24 +24,56 @@ async function loadTake(slug: string) {
   return resp?.take;
 }
 
+/**
+ * Build a short, social-share-friendly description from the body. The
+ * raw body_md contains [ref-N]/[report-N] citation markers, markdown
+ * tokens, and is multiple paragraphs — none of which are useful in a
+ * 155-char SERP preview. We strip everything, take the first paragraph
+ * (the editorial hook), and truncate at a word boundary if needed.
+ */
+function buildDescription(bodyMd: string): string {
+  const firstPara = bodyMd.split(/\n\s*\n/)[0] ?? bodyMd;
+  const clean = firstPara
+    .replace(/\[(?:ref|report)-\d+\]/g, "") // citation markers
+    .replace(/[#*_`>]/g, "") // md tokens
+    .replace(/\s+/g, " ")
+    .trim();
+  // SERP descriptions truncate around 155-160 chars. Trim at word
+  // boundary just before that.
+  const MAX = 155;
+  if (clean.length <= MAX) return clean;
+  const cut = clean.slice(0, MAX);
+  const lastSpace = cut.lastIndexOf(" ");
+  return (lastSpace > 100 ? cut.slice(0, lastSpace) : cut).trimEnd() + "…";
+}
+
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params;
   const take = await loadTake(slug);
   if (!take) {
-    return { title: "Not found | Shorted" };
+    // Root layout template handles the "| Shorted" suffix.
+    return { title: "Take not found" };
   }
   const url = `${siteConfig.url}/news/${slug}`;
-  const description = take.bodyMd
-    .replace(/[#*_`>\-]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 200);
-  const image =
-    take.heroImageUrl ||
-    take.ogImageUrl ||
-    `${siteConfig.url}/news/${slug}/opengraph-image`;
+  const description = buildDescription(take.bodyMd);
+
+  // Use the auto-generated /news/[slug]/opengraph-image route as the
+  // social card — it composes the hero, headline, ticker, sentiment,
+  // sources count, and brand chrome at the correct 1200x630. Falling
+  // back to the raw hero PNG only if the route is unavailable.
+  const image = `${siteConfig.url}/news/${slug}/opengraph-image`;
+  const publishedSeconds = take.publishedAt?.seconds;
+  const publishedISO =
+    typeof publishedSeconds === "bigint"
+      ? new Date(Number(publishedSeconds) * 1000).toISOString()
+      : typeof publishedSeconds === "number"
+        ? new Date(publishedSeconds * 1000).toISOString()
+        : undefined;
+
   return {
-    title: `${take.headline} | Shorted Take`,
+    // Root layout applies '%s | Shorted' template. Append "Shorted Take"
+    // qualifier without the brand suffix.
+    title: `${take.headline} — Shorted Take`,
     description,
     openGraph: {
       title: take.headline,
@@ -50,6 +82,9 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       siteName: siteConfig.name,
       type: "article",
       locale: "en_AU",
+      publishedTime: publishedISO,
+      authors: ["Shorted"],
+      tags: take.stockCode ? [take.stockCode, "ASX", "Short selling"] : ["ASX", "Short selling"],
       images: [{ url: image, width: 1200, height: 630, alt: take.headline }],
     },
     twitter: {
@@ -57,6 +92,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
       title: take.headline,
       description,
       images: [image],
+      site: "@shorted___",
+      creator: "@shorted___",
     },
     alternates: {
       canonical: url,

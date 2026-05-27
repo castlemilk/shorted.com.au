@@ -22,6 +22,33 @@ async function getLogo(): Promise<string> {
   }
 }
 
+// Fetch the take's hero image, downsized via the next/image-style URL
+// approach isn't available in OG runtime — we just fetch the PNG and
+// inline it. Fails gracefully if the network call doesn't return.
+async function getHeroBackdrop(url: string | null | undefined): Promise<string | null> {
+  if (!url) return null;
+  try {
+    const res = await fetch(url, { cache: "force-cache" });
+    if (!res.ok) return null;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length < 1000 || buf.length > 4_000_000) return null;
+    return `data:image/png;base64,${buf.toString("base64")}`;
+  } catch {
+    return null;
+  }
+}
+
+const sentimentChip = (s: string) => {
+  switch (s) {
+    case "positive":
+      return { label: "Positive", color: "#34d399", bg: "rgba(52,211,153,0.12)", border: "rgba(52,211,153,0.4)" };
+    case "negative":
+      return { label: "Negative", color: "#fb7185", bg: "rgba(251,113,133,0.12)", border: "rgba(251,113,133,0.4)" };
+    default:
+      return { label: "Neutral", color: "#FFA94D", bg: "rgba(255,169,77,0.12)", border: "rgba(255,169,77,0.4)" };
+  }
+};
+
 export default async function Image({
   params,
 }: {
@@ -30,10 +57,28 @@ export default async function Image({
   const { slug } = await params;
   const resp = await getEditorialTake(slug);
   const take = resp?.take;
-  const [logoSrc] = await Promise.all([getLogo()]);
+  const [logoSrc, heroSrc] = await Promise.all([
+    getLogo(),
+    getHeroBackdrop(take?.heroImageUrl),
+  ]);
 
   const headline = take?.headline ?? "Shorted Take";
   const stockCode = take?.stockCode ?? "";
+  const sentiment = sentimentChip(take?.sentiment ?? "neutral");
+  // Headline scales down for longer text so it never overflows.
+  const headlineSize =
+    headline.length > 100 ? 40 : headline.length > 75 ? 48 : 56;
+
+  // Citation count, broken into news + report so the OG card can
+  // surface the journalistic investment.
+  const newsRefs = (take?.citations ?? []).filter((c) => c.type !== "report").length;
+  const reportRefs = (take?.citations ?? []).filter((c) => c.type === "report").length;
+  const sourcesLabel =
+    reportRefs > 0
+      ? `${newsRefs} news · ${reportRefs} report${reportRefs === 1 ? "" : "s"}`
+      : newsRefs > 0
+        ? `${newsRefs} article${newsRefs === 1 ? "" : "s"} cited`
+        : "Editorial commentary";
 
   return new ImageResponse(
     (
@@ -43,81 +88,152 @@ export default async function Image({
           height: "100%",
           display: "flex",
           flexDirection: "column",
+          position: "relative",
           backgroundColor: "#0a0a0a",
-          backgroundImage:
-            "radial-gradient(circle at 20% 20%, rgba(255,169,77,0.08) 0%, transparent 50%), radial-gradient(circle at 80% 80%, rgba(255,169,77,0.06) 0%, transparent 60%)",
-          padding: "56px 64px",
           fontFamily: "system-ui, -apple-system, sans-serif",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 36 }}>
-          {logoSrc ? <img src={logoSrc} width={56} height={56} /> : null}
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <div
-              style={{
-                fontSize: 22,
-                fontWeight: 800,
-                color: "#FFA94D",
-                letterSpacing: "0.16em",
-                textTransform: "uppercase",
-              }}
-            >
-              Shorted Take
+        {/* Hero image faded into the background for visual distinction. */}
+        {heroSrc ? (
+          <img
+            src={heroSrc}
+            width={1200}
+            height={630}
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              opacity: 0.32,
+            }}
+          />
+        ) : null}
+
+        {/* Dark overlay so headline text reads cleanly over any hero. */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            backgroundImage:
+              "linear-gradient(135deg, rgba(10,10,10,0.88) 0%, rgba(10,10,10,0.68) 50%, rgba(10,10,10,0.92) 100%)",
+          }}
+        />
+        {/* Subtle amber accents top-left + bottom-right */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            backgroundImage:
+              "radial-gradient(circle at 12% 18%, rgba(255,169,77,0.14) 0%, transparent 45%), radial-gradient(circle at 88% 82%, rgba(255,169,77,0.10) 0%, transparent 55%)",
+          }}
+        />
+
+        <div
+          style={{
+            position: "relative",
+            display: "flex",
+            flexDirection: "column",
+            width: "100%",
+            height: "100%",
+            padding: "52px 60px",
+          }}
+        >
+          {/* Header row: logo + brand label + ticker chip on the right */}
+          <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 32 }}>
+            {logoSrc ? <img src={logoSrc} width={52} height={52} /> : null}
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              <div
+                style={{
+                  fontSize: 22,
+                  fontWeight: 800,
+                  color: "#FFA94D",
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Shorted Take
+              </div>
+              <div style={{ fontSize: 15, color: "#a78b58", letterSpacing: "0.04em" }}>
+                {sourcesLabel}
+              </div>
             </div>
-            <div style={{ fontSize: 16, color: "#d4a017", letterSpacing: "0.04em" }}>
-              Editorial commentary
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 14 }}>
+              <div
+                style={{
+                  display: "flex",
+                  padding: "8px 16px",
+                  borderRadius: 8,
+                  border: `1px solid ${sentiment.border}`,
+                  backgroundColor: sentiment.bg,
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: sentiment.color,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {sentiment.label}
+              </div>
+              {stockCode ? (
+                <div
+                  style={{
+                    display: "flex",
+                    padding: "10px 22px",
+                    borderRadius: 10,
+                    border: "1px solid rgba(255,169,77,0.45)",
+                    backgroundColor: "rgba(255,169,77,0.12)",
+                    fontSize: 30,
+                    fontWeight: 800,
+                    color: "#FFA94D",
+                    letterSpacing: "0.05em",
+                  }}
+                >
+                  ${stockCode}
+                </div>
+              ) : null}
             </div>
           </div>
-          {stockCode ? (
-            <div
-              style={{
-                marginLeft: "auto",
-                display: "flex",
-                padding: "10px 22px",
-                borderRadius: 10,
-                border: "1px solid rgba(255,169,77,0.3)",
-                backgroundColor: "rgba(255,169,77,0.1)",
-                fontSize: 32,
-                fontWeight: 800,
-                color: "#FFA94D",
-                letterSpacing: "0.05em",
-              }}
-            >
-              ${stockCode}
-            </div>
-          ) : null}
-        </div>
 
-        <div
-          style={{
-            display: "flex",
-            fontSize: headline.length > 90 ? 44 : 56,
-            fontWeight: 800,
-            color: "#FFA94D",
-            lineHeight: 1.15,
-            letterSpacing: "-0.01em",
-            flex: 1,
-          }}
-        >
-          {headline}
-        </div>
+          {/* Headline fills the middle. White text reads better over the
+              faded hero than orange did. */}
+          <div
+            style={{
+              display: "flex",
+              fontSize: headlineSize,
+              fontWeight: 800,
+              color: "#ffffff",
+              lineHeight: 1.12,
+              letterSpacing: "-0.015em",
+              flex: 1,
+              maxWidth: 1080,
+            }}
+          >
+            {headline}
+          </div>
 
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginTop: 24,
-            paddingTop: 24,
-            borderTop: "1px solid rgba(255,169,77,0.2)",
-            fontSize: 18,
-            color: "#8a7040",
-          }}
-        >
-          <span>shorted.com.au/news</span>
-          <span style={{ fontStyle: "italic" }}>
-            ASIC data · Not financial advice
-          </span>
+          {/* Footer */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginTop: 24,
+              paddingTop: 22,
+              borderTop: "1px solid rgba(255,169,77,0.22)",
+              fontSize: 17,
+              color: "#a78b58",
+            }}
+          >
+            <span style={{ fontWeight: 600, color: "#FFA94D" }}>
+              shorted.com.au/news
+            </span>
+            <span style={{ fontStyle: "italic" }}>
+              ASIC data · T+4 delayed · Not financial advice
+            </span>
+          </div>
         </div>
       </div>
     ),
