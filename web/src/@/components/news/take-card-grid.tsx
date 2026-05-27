@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listEditorialTakes } from "~/app/actions/getEditorialTake";
+import { stockChipPalette } from "~/@/lib/stock-color";
 
 function fmtDate(ts: { seconds?: bigint | number } | undefined): string {
   if (!ts?.seconds) return "";
@@ -80,7 +81,7 @@ export async function TakeCardGrid({
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent" />
                 {/* Ticker chip — bottom-left over the image */}
                 {t.stockCode ? (
-                  <span className="absolute bottom-2 left-2 rounded-md border border-orange-500/40 bg-zinc-950/80 px-2 py-0.5 font-mono text-xs font-semibold text-orange-300 backdrop-blur">
+                  <span className={`absolute bottom-2 left-2 rounded-md border px-2 py-0.5 font-mono text-xs font-semibold backdrop-blur ${stockChipPalette(t.stockCode).onImage}`}>
                     ${t.stockCode}
                   </span>
                 ) : null}
@@ -99,7 +100,7 @@ export async function TakeCardGrid({
                   }}
                 />
                 {t.stockCode ? (
-                  <span className="relative font-mono text-4xl font-bold tracking-tight text-orange-300/80 md:text-5xl">
+                  <span className={`relative font-mono text-4xl font-bold tracking-tight md:text-5xl ${stockChipPalette(t.stockCode).onImage.split(" ").find((c) => c.startsWith("text-")) ?? "text-orange-300/80"}`}>
                     ${t.stockCode}
                   </span>
                 ) : (

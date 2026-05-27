@@ -109,6 +109,59 @@ function subjectHintForIndustry(industry: string | null): string {
   return "an abstract geometric form: a single matte sphere, stacked panels, folded paper sculpture, or layered gradients — no objects from any specific industry";
 }
 
+// Visual treatment variants — same brand DNA (dark + warm amber, no
+// text/people/logos) but very different compositions. We rotate by
+// deterministic hash on slug so each take gets a distinct look from
+// its neighbours on /news, but the same take always renders the same
+// way (idempotent regens).
+type Treatment = {
+  name: string;
+  composition: string;
+  mood: string;
+};
+
+const TREATMENTS: Treatment[] = [
+  {
+    name: "close-up-object",
+    composition: "Macro photograph of the subject filling about 40% of the frame, off-centre, dramatic single-side amber rim light, deep shadow on the other side, dark textured surface beneath",
+    mood: "tactile, weighty, considered",
+  },
+  {
+    name: "wide-architectural",
+    composition: "Wide-angle architectural still life of the subject in a much larger empty interior space, single amber light source raking across textured walls, strong negative space",
+    mood: "cinematic, austere, late-day",
+  },
+  {
+    name: "abstract-geometric",
+    composition: "Abstract geometric still life — folded paper, stacked dark panels, layered gradient surfaces, isometric blocks — single warm amber light, no recognisable real objects",
+    mood: "design-magazine, restrained, art-school",
+  },
+  {
+    name: "atmospheric-environment",
+    composition: "Atmospheric environment shot with the subject partly obscured by haze, smoke, or low fog — single distant amber light source, painterly, deep shadow",
+    mood: "moody, suggestive, ambient",
+  },
+  {
+    name: "topdown-still-life",
+    composition: "Top-down flat-lay composition on dark stone or weathered metal — subject + two or three related supporting elements arranged with intentional negative space, hard side-light",
+    mood: "editorial magazine spread, deliberate, museum-like",
+  },
+  {
+    name: "isometric-data-art",
+    composition: "Isometric 3D render — stacked translucent slabs, ribbed columns, gradient walls — referencing data visualisation aesthetics without any actual data, charts, numbers or text",
+    mood: "modern, slightly cold, architectural",
+  },
+];
+
+function pickTreatment(slug: string): Treatment {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < slug.length; i++) {
+    h ^= slug.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return TREATMENTS[(h >>> 0) % TREATMENTS.length]!;
+}
+
 async function generateHero(
   openai: OpenAI,
   storage: Storage,
@@ -116,7 +169,15 @@ async function generateHero(
   take: NarrativeTake,
 ): Promise<{ url: string; costUsd: number }> {
   const subjectHint = subjectHintForIndustry(candidate.industry);
-  const topic = `Editorial close-up photograph evoking the article subject (ASX: ${candidate.stockCode}, sector: ${candidate.industry ?? "general market"}): ${take.headline}. Subject should be ${subjectHint}. A single concrete object on a dark surface with deep shadow, lit by a single warm amber light source from one side. No text, no charts, no people, no logos.`;
+  const treatment = pickTreatment(take.slug);
+  const topic = `Editorial illustration for an article about ASX: ${candidate.stockCode} (sector: ${candidate.industry ?? "general market"}). Headline angle: ${take.headline}.
+
+Subject vocabulary: ${subjectHint}.
+
+Composition treatment: ${treatment.composition}.
+Mood: ${treatment.mood}.
+
+The image must read at a glance as related to the company's industry and the headline's angle. No text, no charts, no people, no logos, no recognisable architecture or skylines.`;
   const prompt = `${BRAND_PROMPT}\n\n${topic}\n\nFormat: 16:9 horizontal hero banner composition.${FINAL_RULES}`;
 
   const resp = await openai.images.generate({

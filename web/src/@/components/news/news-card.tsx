@@ -4,6 +4,7 @@ import { NewsSourceBadge } from "~/@/components/ui/news-source-badge";
 import { SentimentBadge } from "~/@/components/ui/sentiment-badge";
 import { cn } from "~/@/lib/utils";
 import { isValidStockCode } from "~/@/lib/stock-code";
+import { stockChipPalette } from "~/@/lib/stock-color";
 
 export interface NewsCardArticle {
   id: string;
@@ -100,7 +101,10 @@ export function NewsCard({ article, variant = "default", showStockChip = true, c
           {showStockChip && isValidStockCode(article.stockCode) && (
             <Link
               href={`/shorts/${article.stockCode}`}
-              className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wide text-foreground transition-colors hover:bg-muted"
+              className={cn(
+                "inline-flex items-center rounded-full px-2 py-0.5 font-mono text-[10px] font-semibold tracking-wide transition-opacity hover:opacity-80",
+                stockChipPalette(article.stockCode).onCard,
+              )}
             >
               ${article.stockCode}
             </Link>

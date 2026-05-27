@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { type EditorialTake } from "~/gen/shorts/v1alpha1/shorts_pb";
+import { stockChipPalette } from "~/@/lib/stock-color";
 
 function fmtDate(ts: { seconds?: bigint | number } | undefined): string {
   if (!ts?.seconds) return "";
@@ -29,6 +30,7 @@ const sentimentLabel = (s: string | undefined) => {
 
 export function TakeHero({ take }: { take: EditorialTake }) {
   const sent = sentimentLabel(take.sentiment);
+  const chip = stockChipPalette(take.stockCode);
   return (
     <Link
       href={`/news/${take.slug}`}
@@ -51,7 +53,7 @@ export function TakeHero({ take }: { take: EditorialTake }) {
             Shorted Take
           </span>
           {take.stockCode ? (
-            <span className="absolute bottom-3 left-3 rounded-md border border-orange-500/40 bg-zinc-950/85 px-2.5 py-1 font-mono text-sm font-bold text-orange-300 backdrop-blur">
+            <span className={`absolute bottom-3 left-3 rounded-md border px-2.5 py-1 font-mono text-sm font-bold backdrop-blur ${chip.onImage}`}>
               ${take.stockCode}
             </span>
           ) : null}
@@ -60,7 +62,7 @@ export function TakeHero({ take }: { take: EditorialTake }) {
         <div className="relative flex items-center justify-center overflow-hidden bg-gradient-to-br from-orange-950/40 via-zinc-950 to-zinc-950 md:col-span-2">
           <div className="aspect-[16/9] w-full md:aspect-auto md:h-full" />
           {take.stockCode ? (
-            <span className="absolute font-mono text-5xl font-bold text-orange-300/80 md:text-6xl">
+            <span className={`absolute font-mono text-5xl font-bold md:text-6xl ${chip.onImage.split(" ").find((c) => c.startsWith("text-")) ?? "text-orange-300/80"}`}>
               ${take.stockCode}
             </span>
           ) : null}
@@ -76,7 +78,7 @@ export function TakeHero({ take }: { take: EditorialTake }) {
             Editorial
           </span>
           {take.stockCode ? (
-            <span className="font-mono font-semibold text-orange-300">
+            <span className={`rounded px-1.5 py-0.5 font-mono text-xs font-semibold ${chip.onCard}`}>
               ${take.stockCode}
             </span>
           ) : null}
