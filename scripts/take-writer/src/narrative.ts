@@ -17,12 +17,12 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { type JournalismReport, type NewsArticle } from "./journalism.js";
 
 export interface Citation {
-  refId: string;             // ref-1, ref-2, …
+  refId: string;             // ref-1, ref-2, … or report-1, report-2
   url: string;
   source: string;
-  headline: string;
+  headline: string;          // for reports: the report title
   date: string;              // YYYY-MM-DD
-  type: "news" | "trade" | "data";
+  type: "news" | "trade" | "data" | "report";
 }
 
 export interface NarrativeTake {
@@ -53,8 +53,16 @@ VOICE (read the worked example below — match the rhythm, not just the rules):
   paragraph is fine if it lands.
 - Dry, not jokey. A raised eyebrow, not a punchline.
 - Australian spelling (organise, behaviour, recognised).
-- Cite real events by ref marker. Wherever you cite a fact from a news
-  article, write [ref-N] right after the fact. N maps to cited_refs.
+- Cite real events by ref marker. Two marker types are available:
+  - [ref-N] = a news article citation (from the candidate news list).
+  - [report-N] = a financial report citation (from the financial reports
+    list — half-year, annual, quarterly results). When you reference a
+    specific reported number — revenue, EBITDA, EPS, dividend changes,
+    guidance — cite the report it came from with [report-N].
+  Both marker types map back to the cited_refs and cited_reports arrays.
+- Prefer reported numbers over news commentary when both are available.
+  Saying "Q3 revenue rose 3% to A$X [report-2]" is stronger than "the
+  company reported a rise in sales [ref-7]".
 - T+4 ASIC delay — name it once if relevant, not twice.
 
 HARD BANS — never use, in any section including the headline:
@@ -158,11 +166,16 @@ const RESPONSE_SCHEMA = {
     outlook: { type: SchemaType.STRING },
     cited_refs: {
       type: SchemaType.ARRAY,
-      items: { type: SchemaType.STRING, description: "ref id like 'ref-1'" },
-      description: "Which ref markers were used, in the order they were used in the prose.",
+      items: { type: SchemaType.STRING, description: "ref id like 'ref-1' for news articles cited in prose" },
+      description: "Which [ref-N] markers were used in the prose, in order.",
+    },
+    cited_reports: {
+      type: SchemaType.ARRAY,
+      items: { type: SchemaType.STRING, description: "report id like 'report-1' for financial reports cited" },
+      description: "Which [report-N] markers were used in the prose, in order. Empty array if none.",
     },
   },
-  required: ["headline", "sentiment", "background", "recent_events", "the_data", "outlook", "cited_refs"],
+  required: ["headline", "sentiment", "background", "recent_events", "the_data", "outlook", "cited_refs", "cited_reports"],
 };
 
 function buildCitationCandidates(report: JournalismReport): NewsArticle[] {
@@ -207,7 +220,46 @@ function formatSignalsForPrompt(report: JournalismReport): string {
     "",
     `Peer sector avg short %: ${fmtNum(s.peerSectorAverageShort, 2, "%")} — ${m.stockCode} is ${s.peerRelative}`,
     `Peers in same industry: ${report.bundle.peers.map((p) => `${p.code}(${p.currentPct.toFixed(2)}%)`).join(", ") || "(none)"}`,
+    "",
+    formatReportsSection(report.bundle.reports),
   ].join("\n");
+}
+
+function formatReportsSection(reports: import("./journalism.js").FinancialReportRow[]): string {
+  if (!reports || reports.length === 0) {
+    return "Financial reports on file: (none)";
+  }
+  const lines = ["Financial reports on file (most recent first — cite as [report-N]):"];
+  reports.forEach((r, i) => {
+    const id = `report-${i + 1}`;
+    const kind = r.reportType ?? "report";
+    const title = r.reportTitle ?? "(untitled)";
+    const date = r.reportDate ?? "(undated)";
+    // Show the metric keys we have; the LLM should weave in actual numbers
+    // it sees in the metrics blob. Stringify shallowly so it stays compact.
+    const metricsPreview = Object.entries(r.metrics ?? {})
+      .slice(0, 8)
+      .map(([k, v]) => `${k}=${stringifyMetric(v)}`)
+      .join("; ");
+    lines.push(`${id} [${kind}] ${date}: ${title}`);
+    if (metricsPreview) lines.push(`        metrics: ${metricsPreview}`);
+  });
+  return lines.join("\n");
+}
+
+function stringifyMetric(v: unknown): string {
+  if (v == null) return "n/a";
+  if (typeof v === "number") return v.toString();
+  if (typeof v === "string") return v.length > 80 ? v.slice(0, 80) + "…" : v;
+  if (typeof v === "object") {
+    try {
+      const s = JSON.stringify(v);
+      return s.length > 100 ? s.slice(0, 100) + "…" : s;
+    } catch {
+      return "(obj)";
+    }
+  }
+  return String(v);
 }
 
 function formatCitations(refs: NewsArticle[]): string {
@@ -268,17 +320,20 @@ export async function synthesiseNarrative(report: JournalismReport): Promise<Nar
     "=== SIGNALS ===",
     formatSignalsForPrompt(report),
     "",
-    "=== CITED REFS (refer to these by ref-N markers in your prose) ===",
+    "=== CITED REFS (news articles — refer to these by [ref-N] markers in prose) ===",
     formatCitations(refs),
     "",
-    "Write the four sections now. Use [ref-N] markers inline whenever a",
-    "fact comes from one of the cited refs. Return the cited_refs array",
-    "in the order you used them.",
+    "Write the four sections now.",
+    "- Use [ref-N] markers inline whenever a fact comes from a news article.",
+    "- Use [report-N] markers inline whenever you quote a number from a",
+    "  financial report listed above in 'Financial reports on file'.",
+    "- Return cited_refs and cited_reports arrays in the order you used them.",
+    "- cited_reports MAY be empty if no report data was relevant.",
   ].join("\n");
 
   // Up to 2 attempts: if the first response contains banned phrases,
   // send a corrective follow-up that calls them out specifically.
-  let parsed: Omit<NarrativeTake, "slug" | "citations"> & { cited_refs: string[] };
+  let parsed: Omit<NarrativeTake, "slug" | "citations"> & { cited_refs: string[]; cited_reports: string[] };
   let attempt = 0;
   let userPromptForCall = userPrompt;
   while (true) {
@@ -292,11 +347,14 @@ export async function synthesiseNarrative(report: JournalismReport): Promise<Nar
     userPromptForCall = userPrompt + `\n\nIMPORTANT: your previous draft used these banned terms: ${hits.join(", ")}. Re-write removing every one of them. Also re-check the headline.`;
   }
 
-  // Build citations[] from the refs the model actually used.
+  // Build citations[] from the refs + reports the model actually used.
   const refByIdx = new Map<string, NewsArticle>();
   refs.forEach((a, i) => refByIdx.set(`ref-${i + 1}`, a));
+  const reportByIdx = new Map<string, import("./journalism.js").FinancialReportRow>();
+  (report.bundle.reports ?? []).forEach((r, i) => reportByIdx.set(`report-${i + 1}`, r));
+
   const citations: Citation[] = [];
-  for (const refId of parsed.cited_refs) {
+  for (const refId of parsed.cited_refs ?? []) {
     const a = refByIdx.get(refId);
     if (!a) continue;
     citations.push({
@@ -306,6 +364,18 @@ export async function synthesiseNarrative(report: JournalismReport): Promise<Nar
       headline: a.headline,
       date: a.publishedAt.slice(0, 10),
       type: "news",
+    });
+  }
+  for (const refId of parsed.cited_reports ?? []) {
+    const r = reportByIdx.get(refId);
+    if (!r) continue;
+    citations.push({
+      refId,
+      url: r.reportUrl,
+      source: r.reportType ?? "report",
+      headline: r.reportTitle ?? "(financial report)",
+      date: r.reportDate ?? "",
+      type: "report",
     });
   }
 
@@ -334,15 +404,40 @@ export async function synthesiseNarrative(report: JournalismReport): Promise<Nar
   };
 }
 
-/** Assemble the four sections into a single markdown body (for storage in body_md). */
+/** Assemble the four sections into a single markdown body (for storage
+ *  in body_md). [ref-N] / [report-N] markers in the prose are rewritten
+ *  to markdown links pointing at the citation URL — bracketed so they
+ *  stay visually distinct from prose links. The EditorialMarkdown
+ *  renderer styles these in orange so they read as source references.
+ *  A "Sources" footer is appended listing each citation in full. */
 export function narrativeToBodyMd(n: NarrativeTake): string {
-  return [
-    n.background,
+  const byRef = new Map(n.citations.map((c) => [c.refId, c]));
+  const linkify = (s: string) =>
+    s.replace(/\[(ref-\d+|report-\d+)\]/g, (m, id: string) => {
+      const c = byRef.get(id);
+      if (!c) return m;
+      return `[\\[${id}\\]](${c.url})`;
+    });
+
+  const sections = [
+    linkify(n.background),
     "",
-    n.recent_events,
+    linkify(n.recent_events),
     "",
-    n.the_data,
+    linkify(n.the_data),
     "",
-    n.outlook,
-  ].join("\n");
+    linkify(n.outlook),
+  ];
+
+  if (n.citations.length > 0) {
+    sections.push("", "---", "", "**Sources**", "");
+    for (const c of n.citations) {
+      const date = c.date ? ` · ${c.date}` : "";
+      const source = c.source ? ` · ${c.source}` : "";
+      const label = c.headline || "(untitled)";
+      sections.push(`- \\[${c.refId}\\] [${label}](${c.url})${source}${date}`);
+    }
+  }
+
+  return sections.join("\n");
 }

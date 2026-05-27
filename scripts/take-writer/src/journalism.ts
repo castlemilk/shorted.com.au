@@ -73,6 +73,14 @@ export interface CompanyMeta {
   website: string | null;
 }
 
+export interface FinancialReportRow {
+  reportUrl: string;
+  reportType: string | null;   // annual_results, half_year_results, quarterly_report, etc.
+  reportTitle: string | null;
+  reportDate: string | null;   // YYYY-MM-DD
+  metrics: Record<string, unknown>;  // jsonb — keys like revenue, ebitda, eps, dividend, guidance, cash_flow, net_profit
+}
+
 export interface DataBundle {
   meta: CompanyMeta;
   shorts: ShortPoint[];
@@ -80,6 +88,7 @@ export interface DataBundle {
   news: NewsArticle[];
   directorTrades: DirectorTradeRow[];
   peers: PeerRow[];
+  reports: FinancialReportRow[];
 }
 
 export interface Signals {
@@ -274,19 +283,46 @@ async function fetchPeers(pg: PgClient, code: string, industry: string | null): 
   }));
 }
 
+async function fetchReports(pg: PgClient, code: string, limit = 6): Promise<FinancialReportRow[]> {
+  const { rows } = await pg.query<{
+    report_url: string;
+    report_type: string | null;
+    report_title: string | null;
+    report_date: string | null;
+    metrics: Record<string, unknown> | null;
+  }>(
+    `SELECT report_url, report_type, report_title,
+            to_char(report_date, 'YYYY-MM-DD') AS report_date,
+            metrics
+     FROM financial_report_extractions
+     WHERE stock_code = $1
+     ORDER BY report_date DESC NULLS LAST, extracted_at DESC
+     LIMIT $2`,
+    [code, limit],
+  );
+  return rows.map((r) => ({
+    reportUrl: r.report_url,
+    reportType: r.report_type,
+    reportTitle: r.report_title,
+    reportDate: r.report_date,
+    metrics: r.metrics ?? {},
+  }));
+}
+
 export async function aggregate(
   pg: PgClient,
   code: string,
 ): Promise<DataBundle> {
   const meta = await fetchMeta(pg, code);
-  const [shorts, prices, news, directorTrades, peers] = await Promise.all([
+  const [shorts, prices, news, directorTrades, peers, reports] = await Promise.all([
     fetchShorts(pg, code, 365),
     fetchPrices(pg, code, 365),
     fetchNews(pg, code, meta.name, 90),
     fetchDirectorTrades(pg, code, 180),
     fetchPeers(pg, code, meta.industry),
+    fetchReports(pg, code, 6),
   ]);
-  return { meta, shorts, prices, news, directorTrades, peers };
+  return { meta, shorts, prices, news, directorTrades, peers, reports };
 }
 
 // --- Signals ---

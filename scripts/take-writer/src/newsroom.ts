@@ -153,13 +153,30 @@ const TREATMENTS: Treatment[] = [
   },
 ];
 
-function pickTreatment(slug: string): Treatment {
+function pickTreatment(seed: string): Treatment {
   let h = 0x811c9dc5;
-  for (let i = 0; i < slug.length; i++) {
-    h ^= slug.charCodeAt(i);
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
     h = Math.imul(h, 0x01000193);
   }
   return TREATMENTS[(h >>> 0) % TREATMENTS.length]!;
+}
+
+// Pick N distinct treatments, deterministic on slug. Used by hero +
+// inline image generation so a single Take has variety inside it.
+function pickTreatments(slug: string, n: number): Treatment[] {
+  const out: Treatment[] = [];
+  for (let i = 0; i < n; i++) {
+    const t = pickTreatment(`${slug}-v${i}`);
+    if (!out.some((x) => x.name === t.name)) {
+      out.push(t);
+    } else {
+      // Collision — walk through the array to find an unused one
+      const idx = TREATMENTS.findIndex((x) => !out.some((y) => y.name === x.name));
+      if (idx >= 0) out.push(TREATMENTS[idx]!);
+    }
+  }
+  return out;
 }
 
 async function generateHero(
@@ -169,7 +186,8 @@ async function generateHero(
   take: NarrativeTake,
 ): Promise<{ url: string; costUsd: number }> {
   const subjectHint = subjectHintForIndustry(candidate.industry);
-  const treatment = pickTreatment(take.slug);
+  // Use the first picked treatment for the hero; inline images use the rest.
+  const treatment = pickTreatments(take.slug, 1)[0]!;
   const topic = `Editorial illustration for an article about ASX: ${candidate.stockCode} (sector: ${candidate.industry ?? "general market"}). Headline angle: ${take.headline}.
 
 Subject vocabulary: ${subjectHint}.
@@ -203,29 +221,110 @@ The image must read at a glance as related to the company's industry and the hea
   };
 }
 
+interface InlineImageRow {
+  url: string;
+  topic: string;
+  alt: string;
+}
+
+async function generateInlineImages(
+  openai: OpenAI,
+  storage: Storage,
+  candidate: AgendaCandidate,
+  take: NarrativeTake,
+  count = 2,
+): Promise<{ images: InlineImageRow[]; costUsd: number }> {
+  // Inline images use treatments DIFFERENT from the hero (we ask
+  // pickTreatments for count+1 and skip the first, which is the hero).
+  // This guarantees the inline pictures don't visually echo the hero.
+  const treatments = pickTreatments(take.slug, count + 1).slice(1);
+  const subjectHint = subjectHintForIndustry(candidate.industry);
+
+  // The two inline images riff on the two later narrative sections —
+  // recent_events (which is "what happened") and the_data (which is
+  // "what the numbers say"). We hint at that to keep them coherent
+  // with the prose they sit next to.
+  const sectionHints = [
+    "supporting the 'recent events' section — gestures at the event the headline names without literally depicting it",
+    "supporting the 'data' section — abstract, restrained, evoking weight or movement without showing any actual data, charts or numbers",
+  ];
+
+  const out: InlineImageRow[] = [];
+  let totalCost = 0;
+  for (let i = 0; i < count; i++) {
+    const treatment = treatments[i] ?? treatments[0]!;
+    const sectionHint = sectionHints[i] ?? sectionHints[0]!;
+    const topic = `Inline editorial illustration #${i + 1} for an article about ASX: ${candidate.stockCode} (sector: ${candidate.industry ?? "general market"}). Headline: ${take.headline}.
+
+Role: ${sectionHint}.
+Subject vocabulary: ${subjectHint}.
+Composition treatment: ${treatment.composition}.
+Mood: ${treatment.mood}.
+
+No text, no charts, no numbers, no people, no logos, no recognisable architecture.`;
+    const prompt = `${BRAND_PROMPT}\n\n${topic}\n\nFormat: 16:9 horizontal banner composition, slightly less dramatic than a hero so it sits well inline.${FINAL_RULES}`;
+
+    try {
+      const resp = await openai.images.generate({
+        model: "gpt-image-2-2026-04-21",
+        prompt,
+        size: "1536x1024",
+        quality: "medium",
+        n: 1,
+      });
+      const b64 = resp.data?.[0]?.b64_json;
+      if (!b64) throw new Error("empty image response");
+      const buf = Buffer.from(b64, "base64");
+      const objectPath = `takes/${take.slug}-inline-${i + 1}.png`;
+      await storage.bucket(GCS_BUCKET).file(objectPath).save(buf, {
+        contentType: "image/png",
+        resumable: false,
+        metadata: { cacheControl: "public, max-age=86400" },
+      });
+      out.push({
+        url: `https://storage.googleapis.com/${GCS_BUCKET}/${objectPath}`,
+        topic: treatment.name,
+        alt: `Editorial illustration: ${treatment.mood}`,
+      });
+      totalCost += 0.075;
+    } catch (err) {
+      // Inline image failures are non-fatal — the article still ships
+      // with the hero. Log and continue.
+      console.warn(`[newsroom]   inline-${i + 1} failed: ${String((err as Error).message ?? err).slice(0, 120)}`);
+    }
+  }
+  return { images: out, costUsd: totalCost };
+}
+
 async function insertTake(
   pg: PgClient,
   candidate: AgendaCandidate,
   take: NarrativeTake,
   bodyMd: string,
   heroUrl: string | null,
+  inlineImages: InlineImageRow[],
   publish: boolean,
 ): Promise<void> {
   const publishedClause = publish ? "NOW()" : "NULL";
   await pg.query(
     `INSERT INTO editorial_takes (
        slug, headline, stock_code, body_md, sentiment, word_count, model,
-       citations, hero_image_url, published_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,'gemini-2.5-flash',$7::jsonb,$8,${publishedClause})
+       citations, hero_image_url, inline_images, published_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,'gemini-2.5-flash',$7::jsonb,$8,$9::jsonb,${publishedClause})
      ON CONFLICT (slug) DO UPDATE SET
        headline=EXCLUDED.headline, body_md=EXCLUDED.body_md,
        sentiment=EXCLUDED.sentiment, word_count=EXCLUDED.word_count,
-       citations=EXCLUDED.citations, hero_image_url=COALESCE(EXCLUDED.hero_image_url, editorial_takes.hero_image_url),
+       citations=EXCLUDED.citations,
+       hero_image_url=COALESCE(EXCLUDED.hero_image_url, editorial_takes.hero_image_url),
+       inline_images=CASE WHEN jsonb_array_length(EXCLUDED.inline_images) > 0
+                          THEN EXCLUDED.inline_images
+                          ELSE editorial_takes.inline_images END,
        updated_at=NOW()`,
     [
       take.slug, take.headline, candidate.stockCode,
       bodyMd, take.sentiment, bodyMd.split(/\s+/).filter(Boolean).length,
       JSON.stringify(take.citations), heroUrl,
+      JSON.stringify(inlineImages),
     ],
   );
 }
@@ -281,14 +380,20 @@ export async function runNewsroom(opts: NewsroomOptions): Promise<NewsroomResult
         console.log(`${tag}   ${bodyMd.split(/\s+/).filter(Boolean).length} words, ${take.citations.length} citations`);
 
         let heroUrl: string | null = null;
+        let inlineImages: InlineImageRow[] = [];
         if (opts.withImages && openai && storage) {
           console.log(`${tag}   generating hero image (~30s, ~$0.075)…`);
           const img = await generateHero(openai, storage, c, take);
           heroUrl = img.url;
           costUsd += img.costUsd;
+
+          console.log(`${tag}   generating 2 inline images (~60s, ~$0.15)…`);
+          const inlines = await generateInlineImages(openai, storage, c, take, 2);
+          inlineImages = inlines.images;
+          costUsd += inlines.costUsd;
         }
 
-        await insertTake(pg, c, take, bodyMd, heroUrl, opts.autoPublish);
+        await insertTake(pg, c, take, bodyMd, heroUrl, inlineImages, opts.autoPublish);
 
         const status: NewsroomResult["status"] = opts.autoPublish ? "published" : "drafted";
         results.push({
