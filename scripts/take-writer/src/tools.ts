@@ -1,0 +1,125 @@
+// Anthropic tool registry for the investigation agent. Each tool wraps
+// a drill-down query. dispatchTool registers every source the tool
+// surfaces into the citation ledger (handing back stable refIds) so the
+// writer can cite only what was actually retrieved.
+
+import type Anthropic from "@anthropic-ai/sdk";
+import type { CitationLedger, LedgerSource } from "./ledger.js";
+import {
+  zoomWindow, reportLine, followPeer, alignEvents, newsDetail, searchNews,
+  type Queryable,
+} from "./drilldowns.js";
+
+export const TOOL_DEFS: Anthropic.Tool[] = [
+  {
+    name: "zoom_window",
+    description: "Zoom into the short %, price, and news in a +/- day window around a specific date — use to investigate a spike or a price move you noticed in the summary.",
+    input_schema: {
+      type: "object",
+      properties: {
+        date: { type: "string", description: "Centre date YYYY-MM-DD" },
+        days: { type: "number", description: "Half-window in days (e.g. 3)" },
+      },
+      required: ["date"],
+    },
+  },
+  {
+    name: "report_line",
+    description: "Pull one reported financial metric (revenue, ebitda, eps, dividend, guidance, cash_flow, net_profit) from the company's most recent filings. Returns the value and a citable source.",
+    input_schema: {
+      type: "object",
+      properties: { metric: { type: "string", description: "Metric key, e.g. 'revenue'" } },
+      required: ["metric"],
+    },
+  },
+  {
+    name: "follow_peer",
+    description: "Pull a named sector peer's short %/price history to compare divergence against the subject stock.",
+    input_schema: {
+      type: "object",
+      properties: { peerCode: { type: "string" }, days: { type: "number" } },
+      required: ["peerCode"],
+    },
+  },
+  {
+    name: "align_events",
+    description: "Return a merged timeline of director trades and price-sensitive news for the subject, newest first — use to align director activity against price/short moves.",
+    input_schema: { type: "object", properties: { days: { type: "number" } } },
+  },
+  {
+    name: "news_detail",
+    description: "Fetch the full record (summary, sentiment, url) for one news article by its id.",
+    input_schema: {
+      type: "object",
+      properties: { articleId: { type: "string" } },
+      required: ["articleId"],
+    },
+  },
+  {
+    name: "search_news",
+    description: "Keyword-search recent news headlines/summaries (optionally scoped to a stock code) to find a specific thread.",
+    input_schema: {
+      type: "object",
+      properties: { query: { type: "string" }, code: { type: "string" } },
+      required: ["query"],
+    },
+  },
+];
+
+/** Register a source and return "[refId] headline (source, date)" for the agent. */
+function cite(ledger: CitationLedger, s: LedgerSource): string {
+  const refId = ledger.register(s);
+  return `[${refId}] ${s.headline} (${s.source}, ${s.date})`;
+}
+
+export async function dispatchTool(
+  pg: Queryable,
+  ledger: CitationLedger,
+  name: string,
+  input: Record<string, unknown>,
+  subjectCode?: string,
+): Promise<string> {
+  try {
+    switch (name) {
+      case "zoom_window": {
+        const code = subjectCode ?? String(input.code ?? "");
+        const w = await zoomWindow(pg, code, String(input.date), Number(input.days ?? 3));
+        const newsLines = w.news.map((n) => cite(ledger, { type: "news", url: n.url, source: n.source, headline: n.headline, date: n.date }));
+        return JSON.stringify({
+          shorts: w.shorts, prices: w.prices,
+          news: newsLines,
+        });
+      }
+      case "report_line": {
+        const code = subjectCode ?? String(input.code ?? "");
+        const r = await reportLine(pg, code, String(input.metric));
+        if (!r) return JSON.stringify({ found: false });
+        const ref = cite(ledger, r.source);
+        return JSON.stringify({ found: true, value: r.value, reportType: r.reportType, date: r.reportDate, citation: ref });
+      }
+      case "follow_peer": {
+        const r = await followPeer(pg, String(input.peerCode), Number(input.days ?? 180));
+        return JSON.stringify(r);
+      }
+      case "align_events": {
+        const code = subjectCode ?? String(input.code ?? "");
+        const items = await alignEvents(pg, code, Number(input.days ?? 180));
+        return JSON.stringify(items.map((it) => ({ date: it.date, kind: it.kind, detail: it.detail, citation: cite(ledger, it.source) })));
+      }
+      case "news_detail": {
+        const r = await newsDetail(pg, String(input.articleId));
+        if (!r) return JSON.stringify({ found: false });
+        const ref = cite(ledger, r.ledgerSource);
+        return JSON.stringify({ found: true, headline: r.headline, summary: r.summary, sentiment: r.sentiment, date: r.date, citation: ref });
+      }
+      case "search_news": {
+        const items = await searchNews(pg, String(input.query), input.code ? String(input.code) : subjectCode);
+        return JSON.stringify(items.map((it) => ({ id: it.id, citation: cite(ledger, it.ledgerSource) })));
+      }
+      default:
+        return `ERROR: unknown tool "${name}"`;
+    }
+  } catch (err) {
+    return `ERROR running ${name}: ${String((err as Error).message ?? err).slice(0, 200)}`;
+  }
+}
