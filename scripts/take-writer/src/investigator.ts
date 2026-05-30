@@ -161,7 +161,16 @@ function finalise(assignment: Assignment, input: Partial<Dossier>): Dossier {
             Array.isArray((t as DossierThread).evidenceRefIds),
         )
       : [],
-    timeline: Array.isArray(input.timeline) ? input.timeline : undefined,
+    timeline: Array.isArray(input.timeline)
+      ? input.timeline
+          .filter(
+            (t): t is DossierTimelineItem =>
+              typeof t === "object" && t !== null &&
+              typeof (t as DossierTimelineItem).date === "string" &&
+              typeof (t as DossierTimelineItem).event === "string",
+          )
+          .map((t) => ({ ...t, refIds: Array.isArray(t.refIds) ? t.refIds : [] }))
+      : undefined,
     keyNumbers: Array.isArray(input.keyNumbers)
       ? input.keyNumbers.filter(
           (n): n is DossierKeyNumber =>

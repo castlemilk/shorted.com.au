@@ -31,6 +31,14 @@ describe("CitationLedger", () => {
     expect(l.has("ref-1")).toBe(true);
     expect(l.has("ref-9")).toBe(false);
   });
+
+  it("does not collapse distinct url-less sources to one refId", () => {
+    const l = new CitationLedger();
+    const a = l.register({ type: "director", url: "", source: "director trade", headline: "Jane Doe sell", date: "2026-05-01" });
+    const b = l.register({ type: "director", url: "", source: "director trade", headline: "John Roe buy", date: "2026-05-02" });
+    expect(a).not.toBe(b);
+    expect(l.size()).toBe(2);
+  });
 });
 
 describe("compactCitations", () => {

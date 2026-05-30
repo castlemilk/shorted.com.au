@@ -67,4 +67,18 @@ describe("investigate", () => {
     expect(dossier.summary).toBe(assignment.angle); // non-string summary -> angle fallback
     expect(dossier.keyNumbers.length).toBe(1);     // only the well-formed keyNumber kept
   });
+
+  it("defaults missing refIds to [] on timeline items", async () => {
+    const pg = { query: vi.fn().mockResolvedValue({ rows: [] }) };
+    const create = vi.fn().mockResolvedValueOnce({
+      stop_reason: "tool_use",
+      content: [{ type: "tool_use", id: "t1", name: "emit_dossier", input: {
+        summary: "s", threads: [], keyNumbers: [],
+        timeline: [{ date: "2026-05-01", event: "probe opened" }],  // no refIds
+      } }],
+    });
+    const ledger = new CitationLedger();
+    const d = await investigate(create as any, pg, { ...assignment, tier: "deep_dive" as const }, ledger, { maxTurns: 4, model: "claude-opus-4-8" });
+    expect(d.timeline![0]!.refIds).toEqual([]);
+  });
 });

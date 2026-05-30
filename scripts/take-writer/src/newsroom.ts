@@ -336,7 +336,10 @@ async function insertTake(
 /** Hold a piece as a draft (don't auto-publish) when grounding is weak:
  *  any dangling citation the writer invented, OR zero retrieved-source
  *  citations at all (regardless of tier). Never auto-publish ungrounded
- *  claims about a named company — a human reviews held drafts. */
+ *  claims about a named company — a human reviews held drafts.
+ *  NOTE: this gates on citation MARKERS resolving, not on every claim
+ *  being cited — an uncited invented number can still pass. Claim-level
+ *  grounding is the model's responsibility via the system prompt. */
 export function shouldHoldAsDraft(t: { droppedCitations: string[]; citations: unknown[]; tier?: "take" | "deep_dive" }): boolean {
   if (t.droppedCitations.length > 0) return true;
   if (t.citations.length === 0) return true;
@@ -388,6 +391,7 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
   if (!dbUrl) throw new Error("DATABASE_URL not set");
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) throw new Error("ANTHROPIC_API_KEY not set");
+  if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set (required by the writer)");
   if (opts.withImages && !process.env.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY not set (required for --with-images)");
   }

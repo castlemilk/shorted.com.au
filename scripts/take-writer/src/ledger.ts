@@ -25,7 +25,10 @@ export class CitationLedger {
   private seq = 0;
 
   private key(s: LedgerSource): string {
-    return `${s.type}:${s.url}`;
+    // Url-less sources (e.g. director trades with no announcement link)
+    // must not all collapse to one key, or distinct trades share a refId
+    // and get mis-attributed. Fall back to date+headline.
+    return s.url ? `${s.type}:${s.url}` : `${s.type}:${s.date}:${s.headline}`;
   }
 
   /** Register a retrieved source; returns its stable refId. Idempotent on type+url. */
