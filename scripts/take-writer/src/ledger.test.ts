@@ -62,4 +62,13 @@ describe("compactCitations", () => {
     const { citations } = compactCitations("see [ref-1]", l);
     expect(citations[0]!.type).toBe("trade");
   });
+
+  it("returns empty results for an empty body", () => {
+    const l = new CitationLedger();
+    l.register({ type: "news", url: "https://ex.com/a", source: "S", headline: "h", date: "2026-05-01" });
+    const { body, citations, dropped } = compactCitations("", l);
+    expect(body).toBe("");
+    expect(citations).toEqual([]);
+    expect(dropped).toEqual([]);
+  });
 });

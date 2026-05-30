@@ -67,7 +67,7 @@ export function compactCitations(
 ): { body: string; citations: Citation[]; dropped: string[] } {
   const remap = new Map<string, string>();
   const ordered: LedgerSource[] = [];
-  const dropped: string[] = [];
+  const dropped = new Set<string>();
   let assigned = 0;
 
   for (const m of body.matchAll(MARKER)) {
@@ -75,7 +75,7 @@ export function compactCitations(
     if (remap.has(id)) continue;
     const srcRec = ledger.get(id);
     if (!srcRec) {
-      if (!dropped.includes(id)) dropped.push(id);
+      dropped.add(id);
       continue;
     }
     assigned += 1;
@@ -98,5 +98,5 @@ export function compactCitations(
     type: s.type === "director" ? "trade" : s.type, // Citation.type has no 'director'; map to 'trade'
   }));
 
-  return { body: outBody, citations, dropped };
+  return { body: outBody, citations, dropped: [...dropped] };
 }
