@@ -1,13 +1,14 @@
-// Investigation agent — the agentic core. Given an assignment, it runs
-// Claude in a tool-calling loop over the drill-down tools, registering
-// every retrieved source into the ledger, and finalises a structured
-// Dossier via a special emit_dossier tool. Turn-capped; if the cap is
-// hit before emit_dossier, we finalise with whatever was gathered.
+// Investigation agent — the agentic core, on Gemini function-calling.
+// Given an assignment, it runs Gemini in a tool-calling loop over the
+// drill-down tools, registering every retrieved source into the ledger,
+// and finalises a structured Dossier via a special emit_dossier tool.
+// Turn-capped; if the cap (or a text-only stop) is hit before
+// emit_dossier, we finalise with whatever was gathered.
 
-import type Anthropic from "@anthropic-ai/sdk";
+import { SchemaType, type FunctionDeclaration, type Content, type Part } from "@google/generative-ai";
 import type { Queryable } from "./drilldowns.js";
 import type { CitationLedger } from "./ledger.js";
-import { TOOL_DEFS, dispatchTool } from "./tools.js";
+import { GEMINI_TOOL_DECLS, dispatchTool } from "./tools.js";
 import type { Assignment } from "./editor.js";
 
 export interface DossierThread { claim: string; evidenceRefIds: string[]; note?: string }
@@ -23,47 +24,69 @@ export interface Dossier {
   keyNumbers: DossierKeyNumber[];
 }
 
-/** The subset of Anthropic's client.messages.create we depend on. */
-export type MessagesCreate = (body: Anthropic.MessageCreateParamsNonStreaming) => Promise<Anthropic.Message>;
+/** One model turn, normalised so the loop + tests don't depend on the
+ *  raw SDK response shape. */
+export interface GeminiTurn {
+  functionCalls(): Array<{ name: string; args: Record<string, unknown> }> | undefined;
+  /** The model Content to append to history (its functionCall parts). */
+  modelContent(): Content;
+}
+
+export interface GenerateParams {
+  systemInstruction: string;
+  tools: FunctionDeclaration[];
+  contents: Content[];
+}
+
+/** Injected so the loop is unit-testable without a live API. The
+ *  production impl (newsroom.ts) builds a Gemini model with the given
+ *  systemInstruction + tools and calls generateContent({ contents }). */
+export type GeminiGenerate = (p: GenerateParams) => Promise<GeminiTurn>;
 
 export interface InvestigateOptions {
   maxTurns?: number;
-  model: string;
-  maxTokens?: number;
 }
 
-const EMIT_DOSSIER_TOOL: Anthropic.Tool = {
+const EMIT_DOSSIER_DECL: FunctionDeclaration = {
   name: "emit_dossier",
   description: "Call this ONCE when your investigation is complete to hand off your findings. Cite evidence ONLY by the refIds returned to you by other tools.",
-  input_schema: {
-    type: "object",
+  parameters: {
+    type: SchemaType.OBJECT,
     properties: {
-      summary: { type: "string", description: "2-3 sentence neutral summary of what you found." },
+      summary: { type: SchemaType.STRING, description: "2-3 sentence neutral summary of what you found." },
       threads: {
-        type: "array",
+        type: SchemaType.ARRAY,
         items: {
-          type: "object",
+          type: SchemaType.OBJECT,
           properties: {
-            claim: { type: "string" },
-            evidenceRefIds: { type: "array", items: { type: "string" } },
-            note: { type: "string" },
+            claim: { type: SchemaType.STRING },
+            evidenceRefIds: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+            note: { type: SchemaType.STRING },
           },
           required: ["claim", "evidenceRefIds"],
         },
       },
       timeline: {
-        type: "array",
+        type: SchemaType.ARRAY,
         items: {
-          type: "object",
-          properties: { date: { type: "string" }, event: { type: "string" }, refIds: { type: "array", items: { type: "string" } } },
+          type: SchemaType.OBJECT,
+          properties: {
+            date: { type: SchemaType.STRING },
+            event: { type: SchemaType.STRING },
+            refIds: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+          },
           required: ["date", "event"],
         },
       },
       keyNumbers: {
-        type: "array",
+        type: SchemaType.ARRAY,
         items: {
-          type: "object",
-          properties: { label: { type: "string" }, value: { type: "string" }, refId: { type: "string" } },
+          type: SchemaType.OBJECT,
+          properties: {
+            label: { type: SchemaType.STRING },
+            value: { type: SchemaType.STRING },
+            refId: { type: SchemaType.STRING },
+          },
           required: ["label", "value"],
         },
       },
@@ -77,73 +100,81 @@ function systemPrompt(a: Assignment): string {
 Assignment: ${a.stockCode} — ${a.angle}
 Tier: ${a.tier} (${a.tier === "deep_dive" ? "rich, multi-thread; build a timeline" : "tight, single sharp thread"}).
 
-Investigate using the tools. Drill into spikes, follow peers, align
-director trades to price, pull reported numbers. Every factual claim in
-your dossier MUST be backed by a refId a tool returned to you — do not
+Start by calling get_overview to orient (current short %, slope, price moves, correlation, sector peers) — these are the numbers Shorted is known for, weave them into your findings. Then drill into the specific events with the other tools. get_overview gives you the numbers but NOT citable sources — you MUST also call align_events and/or search_news to gather the actual news and director trades before you emit_dossier. A dossier with no gathered sources is unacceptable.
+Every factual claim in your dossier MUST be backed by a refId a tool returned to you — do not
 invent sources or numbers. When done, call emit_dossier exactly once.
 Keep it to ${a.tier === "deep_dive" ? "at most 10" : "at most 4"} investigative tool calls before emitting.`;
 }
 
 /**
  * Run the agentic investigation loop and return a Dossier.
- * NOTE: this may THROW if the injected `create` (Anthropic API call)
+ * NOTE: this may THROW if the injected `generate` (Gemini API call)
  * fails — callers running this in a batch MUST wrap each invocation in
  * try/catch so one failed assignment doesn't abort the whole run.
  */
 export async function investigate(
-  create: MessagesCreate,
+  generate: GeminiGenerate,
   pg: Queryable,
   assignment: Assignment,
   ledger: CitationLedger,
-  opts: InvestigateOptions,
+  opts: InvestigateOptions = {},
 ): Promise<Dossier> {
   const maxTurns = opts.maxTurns ?? (assignment.tier === "deep_dive" ? 14 : 6);
-  const tools = [...TOOL_DEFS, EMIT_DOSSIER_TOOL];
-  const messages: Anthropic.MessageParam[] = [{
+  const tools = [...GEMINI_TOOL_DECLS, EMIT_DOSSIER_DECL];
+  const sys = systemPrompt(assignment);
+  const contents: Content[] = [{
     role: "user",
-    content: `Begin your investigation of ${assignment.stockCode}. Angle: ${assignment.angle}.`,
+    parts: [{ text: `Begin your investigation of ${assignment.stockCode}. Angle: ${assignment.angle}.` }],
   }];
+  let nudged = false;
 
   for (let turn = 0; turn < maxTurns; turn++) {
-    const resp = await create({
-      model: opts.model,
-      max_tokens: opts.maxTokens ?? 4000,
-      system: systemPrompt(assignment),
-      tools,
-      messages,
-    });
+    const resp = await generate({ systemInstruction: sys, tools, contents });
+    const calls = resp.functionCalls() ?? [];
 
-    const toolUses = resp.content.filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
-    if (toolUses.length === 0) {
-      // Model replied with text but called no tool. Nudge it back to
-      // emit_dossier once; if it still won't, finalise with what we have
-      // rather than silently discarding the investigation.
-      if (resp.stop_reason === "end_turn" && turn < maxTurns - 1) {
-        messages.push({ role: "assistant", content: resp.content });
-        messages.push({ role: "user", content: "You have not called emit_dossier yet. Call emit_dossier now with your findings, citing only refIds the tools returned." });
+    if (calls.length === 0) {
+      // Model replied with text but called no tool. Nudge once back to
+      // emit_dossier before giving up, rather than silently discarding.
+      if (!nudged && turn < maxTurns - 1) {
+        nudged = true;
+        contents.push(resp.modelContent());
+        contents.push({ role: "user", parts: [{ text: "You have not called emit_dossier yet. Call emit_dossier now with your findings, citing only refIds the tools returned." }] });
         continue;
       }
       break;
     }
 
-    // Did it emit the dossier? Finalise.
-    const emit = toolUses.find((t) => t.name === "emit_dossier");
-    if (emit) {
-      const input = emit.input as Partial<Dossier>;
-      return finalise(assignment, input);
+    const emit = calls.find((c) => c.name === "emit_dossier");
+    if (emit && ledger.size() === 0 && turn < maxTurns - 1) {
+      // get_overview registers no citable sources. Refuse an empty-ledger
+      // dossier while turns remain — force the agent to gather news/trades.
+      contents.push(resp.modelContent());
+      const parts: Part[] = [];
+      for (const c of calls) {
+        if (c.name === "emit_dossier") {
+          parts.push({ functionResponse: { name: c.name, response: { result: "REJECTED: you have gathered zero citable sources. get_overview gives numbers but NO citations. Call align_events and/or search_news to gather the news and director trades that explain this short position, THEN call emit_dossier again." } } });
+        } else {
+          const result = await dispatchTool(pg, ledger, c.name, c.args as Record<string, unknown>, assignment.stockCode);
+          parts.push({ functionResponse: { name: c.name, response: { result } } });
+        }
+      }
+      contents.push({ role: "user", parts });
+      continue;
     }
+    if (emit) return finalise(assignment, emit.args as Partial<Dossier>);
 
-    // Otherwise run the requested tools and feed results back.
-    messages.push({ role: "assistant", content: resp.content });
-    const toolResults: Anthropic.ToolResultBlockParam[] = [];
-    for (const t of toolUses) {
-      const result = await dispatchTool(pg, ledger, t.name, t.input as Record<string, unknown>, assignment.stockCode);
-      toolResults.push({ type: "tool_result", tool_use_id: t.id, content: result });
+    contents.push(resp.modelContent());
+    const parts: Part[] = [];
+    for (const c of calls) {
+      const result = await dispatchTool(pg, ledger, c.name, c.args, assignment.stockCode);
+      parts.push({ functionResponse: { name: c.name, response: { result } } });
     }
-    messages.push({ role: "user", content: toolResults });
+    if (turn >= maxTurns - 2) {
+      parts.push({ text: "You are running low on turns — call emit_dossier on your NEXT response with your findings (include the get_overview numbers in keyNumbers), citing only refIds the tools returned." });
+    }
+    contents.push({ role: "user", parts });
   }
 
-  // Turn cap hit without emit_dossier — finalise minimally with what's gathered.
   return finalise(assignment, {});
 }
 

@@ -71,6 +71,16 @@ describe("compactCitations", () => {
     expect(citations[0]!.type).toBe("trade");
   });
 
+  it("expands combined [ref-a, ref-b] markers and renumbers each", () => {
+    const l = new CitationLedger();
+    l.register({ type: "news", url: "https://ex.com/a", source: "S", headline: "A", date: "2026-05-01" }); // ref-1
+    l.register({ type: "news", url: "https://ex.com/b", source: "S", headline: "B", date: "2026-05-02" }); // ref-2
+    const { body, citations, dropped } = compactCitations("see [ref-1, ref-2] here", l);
+    expect(body).toBe("see [ref-1][ref-2] here");
+    expect(citations.map((c) => c.refId)).toEqual(["ref-1", "ref-2"]);
+    expect(dropped).toEqual([]);
+  });
+
   it("returns empty results for an empty body", () => {
     const l = new CitationLedger();
     l.register({ type: "news", url: "https://ex.com/a", source: "S", headline: "h", date: "2026-05-01" });
@@ -78,5 +88,14 @@ describe("compactCitations", () => {
     expect(body).toBe("");
     expect(citations).toEqual([]);
     expect(dropped).toEqual([]);
+  });
+
+  it("strips and flags [report-N] markers (never valid in the dossier path)", () => {
+    const l = new CitationLedger();
+    l.register({ type: "news", url: "https://ex.com/a", source: "S", headline: "h", date: "2026-05-01" });
+    const { body, dropped, citations } = compactCitations("real [ref-1] bogus report [report-1].", l);
+    expect(body).toBe("real [ref-1] bogus report .");
+    expect(dropped).toContain("report-1");
+    expect(citations).toHaveLength(1);
   });
 });

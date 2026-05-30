@@ -56,7 +56,7 @@ export class CitationLedger {
   }
 }
 
-const MARKER = /\[(ref-\d+)\]/g;
+const MARKER = /\[(ref-\d+|report-\d+)\]/g;
 
 /**
  * Walk the body, drop any [ref-N] not in the ledger, and renumber the
@@ -68,12 +68,20 @@ export function compactCitations(
   body: string,
   ledger: CitationLedger,
 ): { body: string; citations: Citation[]; dropped: string[] } {
+  // Expand combined markers like "[ref-1, ref-2]" -> "[ref-1][ref-2]" so the
+  // single-id matcher below catches every id (otherwise combined markers
+  // bypass renumber+validation and leak with dangling ids).
+  const normalized = body.replace(
+    /\[\s*((?:ref|report)-\d+(?:\s*,\s*(?:ref|report)-\d+)+)\s*\]/g,
+    (_m, inner: string) => inner.split(/\s*,\s*/).map((id) => `[${id}]`).join(""),
+  );
+
   const remap = new Map<string, string>();
   const ordered: LedgerSource[] = [];
   const dropped = new Set<string>();
   let assigned = 0;
 
-  for (const m of body.matchAll(MARKER)) {
+  for (const m of normalized.matchAll(MARKER)) {
     const id = m[1]!;
     if (remap.has(id)) continue;
     const srcRec = ledger.get(id);
@@ -87,7 +95,7 @@ export function compactCitations(
     ordered.push(srcRec);
   }
 
-  const outBody = body.replace(MARKER, (whole, id: string) => {
+  const outBody = normalized.replace(MARKER, (whole, id: string) => {
     if (remap.has(id)) return `[${remap.get(id)}]`;
     return ""; // drop dangling marker
   });

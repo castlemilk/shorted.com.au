@@ -1120,6 +1120,7 @@ message EditorialTake {
   repeated InlineImage inline_images = 16;
   google.protobuf.Timestamp tweet_published_at = 17;
   repeated TakeCitation citations = 18;
+  repeated LayoutImage layout_images = 19;
 }
 
 // A single cited source referenced by a [ref-N] marker in body_md.
@@ -1137,6 +1138,18 @@ message InlineImage {
   string url = 1;
   string topic = 2;   // editorial brief the image was generated from
   string alt = 3;     // accessible alt text
+}
+
+// An art-directed layout image with style/ratio/placement for bespoke
+// editorial rendering. Stored in editorial_takes.layout_images.
+message LayoutImage {
+  string url = 1;
+  string style = 2;              // documentary | aerial | still_life | isometric | archival | abstract | environmental
+  string ratio = 3;              // landscape | portrait | square
+  string brief = 4;              // subject the image was generated from
+  string caption = 5;            // editorial caption
+  string placement = 6;          // full | left | right | inset
+  int32 anchor_after_block = 7;  // render after this 0-based body block
 }
 
 message GetEditorialTakeRequest {

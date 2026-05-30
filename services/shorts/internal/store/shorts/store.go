@@ -223,6 +223,7 @@ type EditorialTake struct {
 	InlineImages     []byte // JSONB raw — service layer decodes to []InlineImage
 	TweetPublishedAt *string
 	Citations        []byte // JSONB raw — service layer decodes to []TakeCitation
+	LayoutImages     []byte // JSONB raw — service layer decodes to []LayoutImage
 }
 
 // TakeCitation matches the proto shape for editorial_takes.citations.
@@ -249,6 +250,17 @@ type InlineImage struct {
 	URL   string `json:"url"`
 	Topic string `json:"topic"`
 	Alt   string `json:"alt"`
+}
+
+// LayoutImage matches the proto shape for editorial_takes.layout_images.
+type LayoutImage struct {
+	URL              string `json:"url"`
+	Style            string `json:"style"`
+	Ratio            string `json:"ratio"`
+	Brief            string `json:"brief"`
+	Caption          string `json:"caption"`
+	Placement        string `json:"placement"`
+	AnchorAfterBlock int    `json:"anchorAfterBlock"`
 }
 
 // DirectorTrade represents a director trade from the database

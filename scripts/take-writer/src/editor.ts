@@ -1,9 +1,9 @@
 // Editor agent — the assignment desk. Reads the day's signal board,
 // applies a novelty gate (don't re-cover a stock without a new
-// development), and asks Claude to commission the day's stories with an
+// development), and asks Gemini to commission the day's stories with an
 // angle and a tier (take | deep_dive).
 
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import type { Client as PgClient } from "pg";
 import { buildSignalBoard, type SignalBoardRow } from "./journalism.js";
 
@@ -59,15 +59,14 @@ export async function commissionAssignments(
 ): Promise<Assignment[]> {
   const maxTakes = opts.maxTakes ?? 10;
   const maxDeepDives = opts.maxDeepDives ?? 2;
-  const model = opts.model ?? process.env.EDITOR_MODEL ?? "claude-sonnet-4-6";
+  const model = opts.model ?? process.env.EDITOR_MODEL ?? "gemini-3.5-flash";
 
   const board = await buildSignalBoard(pg, opts.poolSize ?? 30);
   const fresh = board.filter(hasNewDevelopment);
   if (fresh.length === 0) return [];
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY not set");
-  const client = new Anthropic({ apiKey });
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 
   const boardText = fresh.map((r) => {
     const s = r.signals;
@@ -79,22 +78,40 @@ export async function commissionAssignments(
     ].join("\n");
   }).join("\n\n");
 
-  const resp = await client.messages.create({
+  const ai = new GoogleGenerativeAI(apiKey);
+  const geminiModel = ai.getGenerativeModel({
     model,
-    max_tokens: 2000,
-    system: EDITOR_SYSTEM,
-    messages: [{
-      role: "user",
-      content: `Signal board (${fresh.length} stocks with a new development):\n\n${boardText}\n\nCommission up to ${maxTakes} takes and ${maxDeepDives} deep-dives. Return the JSON now.`,
-    }],
+    systemInstruction: EDITOR_SYSTEM,
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: SchemaType.OBJECT,
+        properties: {
+          assignments: {
+            type: SchemaType.ARRAY,
+            items: {
+              type: SchemaType.OBJECT,
+              properties: {
+                stockCode: { type: SchemaType.STRING },
+                angle: { type: SchemaType.STRING },
+                tier: { type: SchemaType.STRING, enum: ["take", "deep_dive"], format: "enum" },
+                rationale: { type: SchemaType.STRING },
+              },
+              required: ["stockCode", "angle", "tier", "rationale"],
+            },
+          },
+        },
+        required: ["assignments"],
+      },
+      temperature: 0.4,
+    },
   });
+  const resp = await geminiModel.generateContent(
+    `Signal board (${fresh.length} stocks with a new development):\n\n${boardText}\n\nCommission up to ${maxTakes} takes and ${maxDeepDives} deep-dives. Return the JSON now.`,
+  );
+  let parsed: { assignments?: Array<{ stockCode: string; angle: string; tier: "take" | "deep_dive"; rationale: string }> };
+  try { parsed = JSON.parse(resp.response.text()); } catch { return []; }
 
-  const text = resp.content.filter((b): b is Anthropic.Messages.TextBlock => b.type === "text").map((b) => b.text).join("");
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return [];
-  type RawAssignment = { stockCode: string; angle: string; tier: "take" | "deep_dive"; rationale: string };
-  let parsed: { assignments?: RawAssignment[] };
-  try { parsed = JSON.parse(jsonMatch[0]); } catch { return []; }
   const all = (parsed.assignments ?? []).filter((a) => a.stockCode && (a.tier === "take" || a.tier === "deep_dive"));
 
   // Enforce caps defensively (the model may over-commission).

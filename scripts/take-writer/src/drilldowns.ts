@@ -200,3 +200,105 @@ export async function searchNews(pg: Queryable, query: string, code?: string): P
     ...r, ledgerSource: { type: "news", url: r.url, source: r.source, headline: r.headline, date: r.date },
   }));
 }
+
+// --- overview (big-picture signals in one call; mirrors journalism.ts math) ---
+function ov_slope(values: number[]): number | null {
+  if (values.length < 2) return null;
+  const n = values.length, xMean = (n - 1) / 2;
+  const yMean = values.reduce((a, b) => a + b, 0) / n;
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) { num += (i - xMean) * (values[i]! - yMean); den += (i - xMean) ** 2; }
+  return den === 0 ? 0 : num / den;
+}
+function ov_pctChange(series: number[], lookback: number): number | null {
+  if (series.length < lookback + 1) return null;
+  const recent = series[series.length - 1]!, past = series[series.length - 1 - lookback]!;
+  if (past === 0) return null;
+  return ((recent - past) / past) * 100;
+}
+function ov_pearson(xs: number[], ys: number[]): number | null {
+  const n = Math.min(xs.length, ys.length);
+  if (n < 3) return null;
+  let sx = 0, sy = 0;
+  for (let i = 0; i < n; i++) { sx += xs[i]!; sy += ys[i]!; }
+  const mx = sx / n, my = sy / n;
+  let num = 0, dx = 0, dy = 0;
+  for (let i = 0; i < n; i++) { const ex = xs[i]! - mx, ey = ys[i]! - my; num += ex * ey; dx += ex * ex; dy += ey * ey; }
+  if (dx === 0 || dy === 0) return null;
+  return num / Math.sqrt(dx * dy);
+}
+
+export interface OverviewResult {
+  currentShortPct: number | null; shortPct90dAvg: number | null; shortPctChange90d: number | null;
+  shortPctMaxIn90d: number | null;
+  shortSlope7d: number | null; shortSlope30d: number | null; shortSlope90d: number | null;
+  currentPrice: number | null;
+  priceChange1m: number | null; priceChange3m: number | null; priceChange6m: number | null; priceChange12m: number | null;
+  priceShortsCorrelation30d: number | null;
+  newsLast30d: number; newsLast7d: number; priceSensitiveLast30d: number;
+  sentiment: { positive: number; negative: number; neutral: number };
+  directorNetValue90d: number;
+  peerSectorAvgShort: number | null; peerRelative: "above" | "below" | "at" | "n/a";
+  peers: Array<{ code: string; pct: number }>;
+}
+
+/** One-call big-picture signals for the subject stock. These are Shorted's
+ *  OWN computed numbers (not citable news) — no ledger registration. */
+export async function getOverview(pg: Queryable, code: string): Promise<OverviewResult> {
+  const shortsR = await pg.query(
+    `SELECT to_char("DATE",'YYYY-MM-DD') AS date, "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" AS pct
+     FROM shorts WHERE "PRODUCT_CODE"=$1 AND "DATE" > NOW() - interval '365 days' ORDER BY "DATE" ASC`, [code]);
+  const shorts = (shortsR.rows as Array<{ date: string; pct: string }>).map((r) => ({ date: r.date, pct: Number(r.pct) }));
+  const pricesR = await pg.query(
+    `SELECT to_char(date,'YYYY-MM-DD') AS date, close FROM stock_prices
+     WHERE stock_code=$1 AND date > NOW() - interval '365 days' ORDER BY date ASC`, [code]);
+  const prices = (pricesR.rows as Array<{ date: string; close: string }>).map((r) => ({ date: r.date, close: Number(r.close) }));
+  const newsR = await pg.query(
+    `SELECT to_char(published_at,'YYYY-MM-DD') AS date, sentiment, is_price_sensitive
+     FROM news_articles WHERE stock_code=$1 AND published_at > NOW() - interval '30 days'`, [code]);
+  const news = newsR.rows as Array<{ date: string; sentiment: string | null; is_price_sensitive: boolean }>;
+  const dirR = await pg.query(
+    `SELECT trade_type, total_value FROM director_trades WHERE stock_code=$1 AND trade_date > NOW() - interval '90 days'`, [code]);
+  const dirs = dirR.rows as Array<{ trade_type: string; total_value: string | null }>;
+  const peersR = await pg.query(
+    `SELECT cm.stock_code AS code, mv.current_percent AS pct FROM mv_top_shorts mv
+     JOIN "company-metadata" cm ON cm.stock_code = mv.product_code
+     WHERE cm.industry = (SELECT industry FROM "company-metadata" WHERE stock_code=$1) AND mv.product_code <> $1
+     ORDER BY mv.current_percent DESC LIMIT 8`, [code]);
+  const peers = (peersR.rows as Array<{ code: string; pct: string }>).map((r) => ({ code: r.code, pct: Number(r.pct) }));
+
+  const sp = shorts.map((s) => s.pct);
+  const last90 = sp.slice(-90), last30 = sp.slice(-30), last7 = sp.slice(-7);
+  const currentShortPct = sp.length ? sp[sp.length - 1]! : null;
+  const shortPct90dAvg = last90.length ? last90.reduce((a, b) => a + b, 0) / last90.length : null;
+  const closes = prices.map((p) => p.close);
+  const priceByDate = new Map(prices.map((p) => [p.date, p.close]));
+  const pairs: Array<[number, number]> = [];
+  for (let i = 1; i < shorts.length; i++) {
+    const c = priceByDate.get(shorts[i]!.date), pv = priceByDate.get(shorts[i - 1]!.date);
+    if (c && pv) pairs.push([c - pv, shorts[i]!.pct - shorts[i - 1]!.pct]);
+  }
+  const recent = pairs.slice(-30);
+  const corr = recent.length >= 3 ? ov_pearson(recent.map((p) => p[0]), recent.map((p) => p[1])) : null;
+  const sentiment = { positive: 0, negative: 0, neutral: 0 };
+  for (const a of news) { if (a.sentiment === "positive") sentiment.positive++; else if (a.sentiment === "negative") sentiment.negative++; else sentiment.neutral++; }
+  const now = Date.now(), day = 86400000;
+  const newsLast7d = news.filter((a) => now - new Date(a.date).getTime() <= 7 * day).length;
+  const directorNetValue90d = dirs.reduce((acc, t) => { const v = t.total_value ? Number(t.total_value) : 0; return acc + (t.trade_type.toLowerCase() === "buy" ? v : -v); }, 0);
+  const peerSectorAvgShort = peers.length ? peers.reduce((a, p) => a + p.pct, 0) / peers.length : null;
+  let peerRelative: OverviewResult["peerRelative"] = "n/a";
+  if (peerSectorAvgShort !== null && currentShortPct !== null) { const d = currentShortPct - peerSectorAvgShort; peerRelative = Math.abs(d) < 1 ? "at" : d > 0 ? "above" : "below"; }
+
+  return {
+    currentShortPct, shortPct90dAvg,
+    shortPctChange90d: currentShortPct !== null && shortPct90dAvg !== null ? currentShortPct - shortPct90dAvg : null,
+    shortPctMaxIn90d: last90.length ? Math.max(...last90) : null,
+    shortSlope7d: ov_slope(last7), shortSlope30d: ov_slope(last30), shortSlope90d: ov_slope(last90),
+    currentPrice: closes.length ? closes[closes.length - 1]! : null,
+    priceChange1m: ov_pctChange(closes, 22), priceChange3m: ov_pctChange(closes, 66),
+    priceChange6m: ov_pctChange(closes, 132), priceChange12m: ov_pctChange(closes, 252),
+    priceShortsCorrelation30d: corr,
+    newsLast30d: news.length, newsLast7d, priceSensitiveLast30d: news.filter((a) => a.is_price_sensitive).length,
+    sentiment, directorNetValue90d, peerSectorAvgShort, peerRelative, peers,
+  };
+}

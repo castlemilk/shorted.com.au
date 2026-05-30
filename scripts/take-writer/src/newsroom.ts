@@ -13,12 +13,26 @@
 import { Client as PgClient } from "pg";
 import OpenAI from "openai";
 import { Storage } from "@google-cloud/storage";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { buildAgenda, type AgendaCandidate, type AgendaAngle } from "./agenda.js";
 import { synthesiseNarrative, narrativeToBodyMd, type NarrativeTake, synthesiseFromDossier, type DossierTake } from "./narrative.js";
-import Anthropic from "@anthropic-ai/sdk";
 import { commissionAssignments, type Assignment } from "./editor.js";
-import { investigate } from "./investigator.js";
+import { investigate, type GeminiGenerate } from "./investigator.js";
 import { CitationLedger } from "./ledger.js";
+import { getOverview } from "./drilldowns.js";
+import { designImagePlan, generatePlanImages, type ArtContext, type LayoutImage } from "./art-director.js";
+
+function makeGeminiGenerate(ai: GoogleGenerativeAI, modelName: string): GeminiGenerate {
+  return async ({ systemInstruction, tools, contents }) => {
+    const model = ai.getGenerativeModel({ model: modelName, systemInstruction, tools: [{ functionDeclarations: tools }] });
+    const result = await model.generateContent({ contents });
+    return {
+      functionCalls: () =>
+        result.response.functionCalls()?.map((fc) => ({ name: fc.name, args: (fc.args ?? {}) as Record<string, unknown> })),
+      modelContent: () => result.response.candidates?.[0]?.content ?? { role: "model", parts: [] },
+    };
+  };
+}
 
 const GCS_BUCKET = process.env.GCS_LOGO_BUCKET ?? "shorted-company-logos";
 const SITE_URL = process.env.SHORTED_SITE_URL ?? "https://shorted.com.au";
@@ -111,6 +125,92 @@ function subjectHintForIndustry(industry: string | null): string {
   }
   // Fallback — abstract geometric data art (works for any sector, never wrong)
   return "an abstract geometric form: a single matte sphere, stacked panels, folded paper sculpture, or layered gradients — no objects from any specific industry";
+}
+
+const INLINE_BRIEF_MODEL = () => process.env.INLINE_BRIEF_MODEL ?? "gemini-3.5-flash";
+
+/** Turn an article section into a concrete, photographic image concept
+ *  tied to its specific subject/mood. Falls back to the industry hint on
+ *  any error so image generation never hard-fails on the brief step. */
+/** Reject preamble / markdown / mid-fragment junk and keep only a clean
+ *  first sentence. Returns null if what's left isn't a usable scene. */
+function sanitiseBrief(raw: string): string | null {
+  let s = raw.trim().replace(/^["']|["']$/g, "").trim();
+  // Drop obvious instruction-echo / preamble lines.
+  if (/\b(restrictions?|do not|output only|no preamble)\b/i.test(s)) return null;
+  if (s.includes("**") || s.includes("##")) return null;
+  // Drop a leading markdown bullet/heading marker if present.
+  s = s.replace(/^[#>*\-\s]+/, "").trim();
+  // Keep only the first sentence.
+  const m = s.match(/^.*?[.!?](\s|$)/);
+  if (m) s = m[0].trim();
+  // Reject mid-fragment starts (lowercase opener or stray close-paren).
+  if (/^[a-z)]/.test(s)) return null;
+  if (s.includes(")") && !s.includes("(")) return null;
+  return s.length > 15 ? s : null;
+}
+
+async function visualBriefForSection(
+  ai: GoogleGenerativeAI,
+  stockCode: string,
+  industry: string | null,
+  sectionText: string,
+): Promise<string> {
+  try {
+    const model = ai.getGenerativeModel({
+      model: INLINE_BRIEF_MODEL(),
+      // gemini-3.5-flash burns its whole output budget on thinking tokens
+      // unless thinking is disabled — without thinkingBudget:0 the brief
+      // truncates to a few words (finishReason MAX_TOKENS). The cast is
+      // because the SDK's GenerationConfig type predates thinkingConfig;
+      // the field is forwarded to the API at runtime.
+      generationConfig: {
+        temperature: 0.9,
+        maxOutputTokens: 400,
+        thinkingConfig: { thinkingBudget: 0 },
+      } as unknown as Parameters<GoogleGenerativeAI["getGenerativeModel"]>[0]["generationConfig"],
+    });
+    const prompt = `You are an art director for a financial publication. Read this excerpt from an article about ${stockCode} (sector: ${industry ?? "general market"}).
+
+In ONE vivid sentence, describe a single concrete, photographic image that captures THIS excerpt's specific subject or mood — a real scene, object, material, or environment directly tied to what's described (e.g. a halted mine head-frame under ash-grey sky, scattered legal documents on a dark desk, an empty boardroom chair, a sealed laboratory vial, a darkened retail floor). Make it specific to the events, not generic.
+
+It will be shot dark and cinematic with a single warm amber light source. Do NOT mention text, words, numbers, charts, graphs, logos, brand names, readable labels, or human faces. Output ONLY the sentence, no preamble.
+
+Excerpt:
+${sectionText.slice(0, 900)}`;
+    const resp = await model.generateContent(prompt);
+    const brief = sanitiseBrief(resp.response.text());
+    return brief ?? subjectHintForIndustry(industry);
+  } catch {
+    return subjectHintForIndustry(industry);
+  }
+}
+
+/** Split a body into the sections inline images should illustrate.
+ *  Deep-dives: one section per "## heading" (heading + its prose).
+ *  Takes: top-level paragraphs. Returns `count` sections spread across
+ *  the article. */
+function pickSections(bodyMd: string, count: number): string[] {
+  const trimmed = bodyMd.trim();
+  let sections: string[];
+  if (/^##\s/m.test(trimmed)) {
+    // Split on headings, keep heading + following prose together.
+    sections = trimmed
+      .split(/\n(?=##\s)/)
+      .map((s) => s.replace(/^#+\s*/, "").trim())
+      .filter((s) => s.length > 0);
+  } else {
+    sections = trimmed.split(/\n\s*\n/).map((s) => s.trim()).filter((s) => s.length > 0);
+  }
+  if (sections.length === 0) return [];
+  // Spread the picks evenly across available sections.
+  const out: string[] = [];
+  const stepF = sections.length / (count + 1);
+  for (let i = 1; i <= count; i++) {
+    const idx = Math.min(sections.length - 1, Math.max(0, Math.round(i * stepF) - 1));
+    out.push(sections[idx]!);
+  }
+  return out;
 }
 
 // Visual treatment variants — same brand DNA (dark + warm amber, no
@@ -234,40 +334,38 @@ interface InlineImageRow {
 async function generateInlineImages(
   openai: OpenAI,
   storage: Storage,
+  ai: GoogleGenerativeAI,
   candidate: AgendaCandidate,
   take: NarrativeTake,
+  bodyMd: string,
   count = 2,
 ): Promise<{ images: InlineImageRow[]; costUsd: number }> {
-  // Inline images use treatments DIFFERENT from the hero (we ask
-  // pickTreatments for count+1 and skip the first, which is the hero).
-  // This guarantees the inline pictures don't visually echo the hero.
+  // Unlike the hero (an abstract brand thumbnail), inline images are
+  // CONTEXTUAL: each illustrates a specific article section. We derive a
+  // concrete photographic "visual brief" from the section's text via
+  // Gemini, then render that real scene — still dark + cinematic + single
+  // warm amber light, but story-specific rather than generic brand-abstract.
+  //
+  // Treatments still vary composition; we skip the first (the hero's) so
+  // inline pictures don't visually echo the hero.
+  const sections = pickSections(bodyMd, count);
   const treatments = pickTreatments(take.slug, count + 1).slice(1);
-  const subjectHint = subjectHintForIndustry(candidate.industry);
-
-  // The two inline images riff on the two later narrative sections —
-  // recent_events (which is "what happened") and the_data (which is
-  // "what the numbers say"). We hint at that to keep them coherent
-  // with the prose they sit next to.
-  const sectionHints = [
-    "supporting the 'recent events' section — gestures at the event the headline names without literally depicting it",
-    "supporting the 'data' section — abstract, restrained, evoking weight or movement without showing any actual data, charts or numbers",
-  ];
-
   const out: InlineImageRow[] = [];
   let totalCost = 0;
   for (let i = 0; i < count; i++) {
+    const sectionText = sections[i] ?? sections[sections.length - 1] ?? take.headline;
     const treatment = treatments[i] ?? treatments[0]!;
-    const sectionHint = sectionHints[i] ?? sectionHints[0]!;
-    const topic = `Inline editorial illustration #${i + 1} for an article about ASX: ${candidate.stockCode} (sector: ${candidate.industry ?? "general market"}). Headline: ${take.headline}.
+    const brief = await visualBriefForSection(ai, candidate.stockCode, candidate.industry, sectionText);
+    const prompt = `Editorial photograph for a financial publication, dark and cinematic.
 
-Role: ${sectionHint}.
-Subject vocabulary: ${subjectHint}.
-Composition treatment: ${treatment.composition}.
-Mood: ${treatment.mood}.
+Subject (depict this specifically): ${brief}
 
-No text, no charts, no numbers, no people, no logos, no recognisable architecture.`;
-    const prompt = `${BRAND_PROMPT}\n\n${topic}\n\nFormat: 16:9 horizontal banner composition, slightly less dramatic than a hero so it sits well inline.${FINAL_RULES}`;
+Composition: ${treatment.composition}.
+Mood: ${treatment.mood}. Near-black background (#0a0a0a) with a single warm amber (#FFA94D) light source, deep shadow, high contrast, subtle grain.
 
+STRICT: no text, words, numbers, letters, charts, graphs, percentages, logos, brand names, readable labels, ticker symbols, or recognisable human faces. A real, evocative scene tied to the subject above.
+
+Format: 16:9 horizontal banner.`;
     try {
       const resp = await openai.images.generate({
         model: "gpt-image-2-2026-04-21",
@@ -287,8 +385,8 @@ No text, no charts, no numbers, no people, no logos, no recognisable architectur
       });
       out.push({
         url: `https://storage.googleapis.com/${GCS_BUCKET}/${objectPath}`,
-        topic: treatment.name,
-        alt: `Editorial illustration: ${treatment.mood}`,
+        topic: brief.slice(0, 80),
+        alt: brief.slice(0, 140),
       });
       totalCost += 0.075;
     } catch (err) {
@@ -352,6 +450,7 @@ async function insertDossierTake(
   stockCode: string,
   heroUrl: string | null,
   inlineImages: InlineImageRow[],
+  layoutImages: LayoutImage[],
   publish: boolean,
   writerModel: string,
 ): Promise<void> {
@@ -360,8 +459,8 @@ async function insertDossierTake(
   await pg.query(
     `INSERT INTO editorial_takes (
        slug, headline, stock_code, body_md, sentiment, word_count, model, tier,
-       citations, hero_image_url, inline_images, published_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11::jsonb,${publishedClause})
+       citations, hero_image_url, inline_images, layout_images, published_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11::jsonb,$12::jsonb,${publishedClause})
      ON CONFLICT (slug) DO UPDATE SET
        headline=EXCLUDED.headline, body_md=EXCLUDED.body_md, tier=EXCLUDED.tier,
        sentiment=EXCLUDED.sentiment, word_count=EXCLUDED.word_count,
@@ -369,11 +468,14 @@ async function insertDossierTake(
        hero_image_url=COALESCE(EXCLUDED.hero_image_url, editorial_takes.hero_image_url),
        inline_images=CASE WHEN jsonb_array_length(EXCLUDED.inline_images) > 0
                           THEN EXCLUDED.inline_images ELSE editorial_takes.inline_images END,
+       layout_images=CASE WHEN jsonb_array_length(EXCLUDED.layout_images) > 0
+                          THEN EXCLUDED.layout_images ELSE editorial_takes.layout_images END,
        updated_at=NOW()`,
     [
       take.slug, take.headline, stockCode, take.bodyMd, take.sentiment,
       take.bodyMd.split(/\s+/).filter(Boolean).length, writerModel, take.tier,
       JSON.stringify(take.citations), heroUrl, JSON.stringify(inlineImages),
+      JSON.stringify(layoutImages),
     ],
   );
 }
@@ -389,22 +491,19 @@ export interface DailyOptions {
 export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) throw new Error("DATABASE_URL not set");
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (!anthropicKey) throw new Error("ANTHROPIC_API_KEY not set");
-  if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set (required by the writer)");
+  if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
   if (opts.withImages && !process.env.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY not set (required for --with-images)");
   }
 
-  const takeModel = process.env.INVESTIGATOR_MODEL_TAKE ?? "claude-sonnet-4-6";
-  const deepModel = process.env.INVESTIGATOR_MODEL_DEEPDIVE ?? "claude-opus-4-8";
+  const takeModel = process.env.INVESTIGATOR_MODEL_TAKE ?? "gemini-3.5-flash";
+  const deepModel = process.env.INVESTIGATOR_MODEL_DEEPDIVE ?? "gemini-3.5-flash";
   const maxTurnsTake = Number(process.env.MAX_TURNS_TAKE ?? 6);
   const maxTurnsDeep = Number(process.env.MAX_TURNS_DEEPDIVE ?? 14);
 
   const pg = new PgClient({ connectionString: dbUrl });
   await pg.connect();
-  const client = new Anthropic({ apiKey: anthropicKey });
-  const create = (body: Anthropic.MessageCreateParamsNonStreaming) => client.messages.create(body) as Promise<Anthropic.Message>;
+  const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
   let openai: OpenAI | null = null;
   let storage: Storage | null = null;
@@ -437,14 +536,14 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
       const t0 = Date.now();
       try {
         const ledger = new CitationLedger();
-        const dossier = await investigate(create, pg, a, ledger, {
-          model: a.tier === "deep_dive" ? deepModel : takeModel,
+        const dossier = await investigate(makeGeminiGenerate(ai, a.tier === "deep_dive" ? deepModel : takeModel), pg, a, ledger, {
           maxTurns: a.tier === "deep_dive" ? maxTurnsDeep : maxTurnsTake,
         });
         const writerModel = a.tier === "deep_dive"
           ? (process.env.WRITER_MODEL_DEEPDIVE ?? process.env.WRITER_MODEL ?? "gemini-2.5-flash")
           : (process.env.WRITER_MODEL ?? "gemini-2.5-flash");
-        const take = await synthesiseFromDossier(dossier, ledger, a.stockCode);
+        const overview = await getOverview(pg, a.stockCode).catch(() => null);
+        const take = await synthesiseFromDossier(dossier, ledger, a.stockCode, overview);
         console.log(`${tag} -> "${take.headline}" (${take.citations.length} cites, ${take.droppedCitations.length} dropped)`);
 
         const hold = shouldHoldAsDraft(take);
@@ -455,16 +554,37 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
 
         let heroUrl: string | null = null;
         let inlineImages: InlineImageRow[] = [];
+        let layoutImages: LayoutImage[] = [];
         if (opts.withImages && openai && storage) {
           const candidate = { stockCode: a.stockCode, industry: a.industry } as unknown as AgendaCandidate;
           const narrativeShim = { slug: take.slug, headline: take.headline } as unknown as NarrativeTake;
           const img = await generateHero(openai, storage, candidate, narrativeShim);
           heroUrl = img.url; totalCost += img.costUsd;
-          const inl = await generateInlineImages(openai, storage, candidate, narrativeShim, 2);
+          const inl = await generateInlineImages(openai, storage, ai, candidate, narrativeShim, take.bodyMd, 2);
           inlineImages = inl.images; totalCost += inl.costUsd;
+
+          // Art-director stage — content-grounded varied layout images.
+          try {
+            const artCtx: ArtContext = {
+              stockCode: a.stockCode,
+              headline: take.headline,
+              industry: a.industry,
+              description: null,
+              bodyMd: take.bodyMd,
+              dossierSummary: dossier.summary,
+              keyFacts: dossier.threads
+                .map((t) => t.claim)
+                .concat(dossier.keyNumbers.map((n) => `${n.label}: ${n.value}`)),
+            };
+            const plan = await designImagePlan(ai, artCtx, 3);
+            const gen = await generatePlanImages(openai, storage, take.slug, plan);
+            layoutImages = gen.images; totalCost += gen.costUsd;
+          } catch (err) {
+            console.warn(`${tag}   art-director failed: ${String((err as Error).message ?? err).slice(0, 120)}`);
+          }
         }
 
-        await insertDossierTake(pg, take, a.stockCode, heroUrl, inlineImages, publishThis, writerModel);
+        await insertDossierTake(pg, take, a.stockCode, heroUrl, inlineImages, layoutImages, publishThis, writerModel);
         if (publishThis) published++;
         else if (hold) held++;
         else drafted++;
@@ -496,18 +616,16 @@ export interface PreviewOptions {
 export async function runNewsroomPreview(opts: PreviewOptions): Promise<void> {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) throw new Error("DATABASE_URL not set");
-  if (!process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not set");
   if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
 
-  const takeModel = process.env.INVESTIGATOR_MODEL_TAKE ?? "claude-sonnet-4-6";
-  const deepModel = process.env.INVESTIGATOR_MODEL_DEEPDIVE ?? "claude-opus-4-8";
+  const takeModel = process.env.INVESTIGATOR_MODEL_TAKE ?? "gemini-3.5-flash";
+  const deepModel = process.env.INVESTIGATOR_MODEL_DEEPDIVE ?? "gemini-3.5-flash";
   const maxTurnsTake = Number(process.env.MAX_TURNS_TAKE ?? 6);
   const maxTurnsDeep = Number(process.env.MAX_TURNS_DEEPDIVE ?? 14);
 
   const pg = new PgClient({ connectionString: dbUrl });
   await pg.connect();
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const create = (body: Anthropic.MessageCreateParamsNonStreaming) => client.messages.create(body) as Promise<Anthropic.Message>;
+  const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
   try {
     const code = opts.stockCode.toUpperCase();
@@ -518,14 +636,15 @@ export async function runNewsroomPreview(opts: PreviewOptions): Promise<void> {
       tier: opts.tier,
       rationale: "preview",
     };
-    console.error(`[preview] investigating ${code} [${opts.tier}] (model ${opts.tier === "deep_dive" ? deepModel : takeModel})...`);
+    const investigatorModel = opts.tier === "deep_dive" ? deepModel : takeModel;
+    console.error(`[preview] investigating ${code} [${opts.tier}] (model ${investigatorModel})...`);
     const t0 = Date.now();
     const ledger = new CitationLedger();
-    const dossier = await investigate(create, pg, assignment, ledger, {
-      model: opts.tier === "deep_dive" ? deepModel : takeModel,
+    const dossier = await investigate(makeGeminiGenerate(ai, investigatorModel), pg, assignment, ledger, {
       maxTurns: opts.tier === "deep_dive" ? maxTurnsDeep : maxTurnsTake,
     });
-    const take = await synthesiseFromDossier(dossier, ledger, code);
+    const overview = await getOverview(pg, code).catch(() => null);
+    const take = await synthesiseFromDossier(dossier, ledger, code, overview);
     const hold = shouldHoldAsDraft(take);
     const secs = ((Date.now() - t0) / 1000).toFixed(1);
 
@@ -540,6 +659,7 @@ export async function runNewsroomPreview(opts: PreviewOptions): Promise<void> {
 
     console.log(`\n--- DOSSIER ---`);
     console.log(`summary: ${dossier.summary}`);
+    if (overview) console.log(`overview: short ${overview.currentShortPct?.toFixed(2)}% (Δ90d ${overview.shortPctChange90d?.toFixed(2)}), price 3m ${overview.priceChange3m?.toFixed(1)}%, corr ${overview.priceShortsCorrelation30d?.toFixed(2)}, peer ${overview.peerRelative}`);
     if (dossier.threads.length) {
       console.log(`threads:`);
       for (const th of dossier.threads) console.log(`  - ${th.claim} [${th.evidenceRefIds.join(", ")}]${th.note ? ` — ${th.note}` : ""}`);
@@ -564,6 +684,74 @@ export async function runNewsroomPreview(opts: PreviewOptions): Promise<void> {
   }
 }
 
+export async function regenerateImages(opts: { slug: string; inlineCount?: number }): Promise<void> {
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) throw new Error("DATABASE_URL not set");
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) throw new Error("OPENAI_API_KEY not set");
+  if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
+
+  const pg = new PgClient({ connectionString: dbUrl });
+  await pg.connect();
+  const openai = new OpenAI({ apiKey: key });
+  const storage = new Storage();
+  const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+  try {
+    const { rows } = await pg.query<{ slug: string; headline: string; stock_code: string; body_md: string }>(
+      `SELECT slug, headline, stock_code, body_md FROM editorial_takes WHERE slug = $1`,
+      [opts.slug],
+    );
+    const row = rows[0];
+    if (!row) throw new Error(`no editorial_takes row with slug ${opts.slug}`);
+
+    const { rows: metaRows } = await pg.query<{ industry: string | null; summary: string | null }>(
+      `SELECT industry, summary FROM "company-metadata" WHERE stock_code = $1`,
+      [row.stock_code],
+    );
+    const industry = metaRows[0]?.industry ?? null;
+    const summary = metaRows[0]?.summary ?? null;
+
+    const candidate = { stockCode: row.stock_code, industry } as unknown as AgendaCandidate;
+    const take = { slug: row.slug, headline: row.headline } as unknown as NarrativeTake;
+    const count = opts.inlineCount ?? 2;
+
+    console.error(`[regen-images] ${row.stock_code} "${row.headline}" — hero + ${count} inline + art-directed layout…`);
+    const hero = await generateHero(openai, storage, candidate, take);
+    const inl = await generateInlineImages(openai, storage, ai, candidate, take, row.body_md, count);
+
+    // Art-director stage: a varied, content-grounded image plan stored as
+    // layout_images (the frontend prefers this over the legacy inline_images).
+    const artCtx: ArtContext = {
+      stockCode: row.stock_code,
+      headline: row.headline,
+      industry,
+      description: summary,
+      bodyMd: row.body_md,
+    };
+    let layoutImages: LayoutImage[] = [];
+    try {
+      const plan = await designImagePlan(ai, artCtx, 3);
+      console.error(`[regen-images] art-director planned ${plan.length} image(s): ${plan.map((p) => `${p.style}/${p.ratio}`).join(", ") || "(none)"}`);
+      const gen = await generatePlanImages(openai, storage, opts.slug, plan);
+      layoutImages = gen.images;
+    } catch (err) {
+      console.warn(`[regen-images] art-director stage failed: ${String((err as Error).message ?? err).slice(0, 160)}`);
+    }
+
+    await pg.query(
+      `UPDATE editorial_takes SET hero_image_url = $1, inline_images = $2::jsonb, layout_images = $3::jsonb, updated_at = NOW() WHERE slug = $4`,
+      [hero.url, JSON.stringify(inl.images), JSON.stringify(layoutImages), opts.slug],
+    );
+    console.error(`[regen-images] done — hero + ${inl.images.length} inline + ${layoutImages.length} layout, ~$${(hero.costUsd + inl.costUsd).toFixed(3)}`);
+    console.error(`hero: ${hero.url}`);
+    for (const im of inl.images) console.error(`inline: ${im.url}`);
+    for (const im of layoutImages) console.error(`layout [${im.style}/${im.ratio}/${im.placement}@${im.anchorAfterBlock}]: ${im.url}`);
+    console.error(`Public: https://shorted.com.au/news/${opts.slug}`);
+  } finally {
+    await pg.end();
+  }
+}
+
 export async function runNewsroom(opts: NewsroomOptions): Promise<NewsroomResult[]> {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) throw new Error("DATABASE_URL not set");
@@ -572,11 +760,14 @@ export async function runNewsroom(opts: NewsroomOptions): Promise<NewsroomResult
 
   let openai: OpenAI | null = null;
   let storage: Storage | null = null;
+  let ai: GoogleGenerativeAI | null = null;
   if (opts.withImages) {
     const key = process.env.OPENAI_API_KEY;
     if (!key) throw new Error("OPENAI_API_KEY not set (required for --with-images)");
+    if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set (required for --with-images)");
     openai = new OpenAI({ apiKey: key });
     storage = new Storage();
+    ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   }
 
   const results: NewsroomResult[] = [];
@@ -616,14 +807,14 @@ export async function runNewsroom(opts: NewsroomOptions): Promise<NewsroomResult
 
         let heroUrl: string | null = null;
         let inlineImages: InlineImageRow[] = [];
-        if (opts.withImages && openai && storage) {
+        if (opts.withImages && openai && storage && ai) {
           console.log(`${tag}   generating hero image (~30s, ~$0.075)…`);
           const img = await generateHero(openai, storage, c, take);
           heroUrl = img.url;
           costUsd += img.costUsd;
 
           console.log(`${tag}   generating 2 inline images (~60s, ~$0.15)…`);
-          const inlines = await generateInlineImages(openai, storage, c, take, 2);
+          const inlines = await generateInlineImages(openai, storage, ai, c, take, bodyMd, 2);
           inlineImages = inlines.images;
           costUsd += inlines.costUsd;
         }

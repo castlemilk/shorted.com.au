@@ -1,24 +1,29 @@
-// Anthropic tool registry for the investigation agent. Each tool wraps
-// a drill-down query. dispatchTool registers every source the tool
+// Gemini function-call declarations for the investigation agent. Each
+// wraps a drill-down query. dispatchTool registers every source the tool
 // surfaces into the citation ledger (handing back stable refIds) so the
 // writer can cite only what was actually retrieved.
 
-import type Anthropic from "@anthropic-ai/sdk";
+import { SchemaType, type FunctionDeclaration } from "@google/generative-ai";
 import type { CitationLedger, LedgerSource } from "./ledger.js";
 import {
-  zoomWindow, reportLine, followPeer, alignEvents, newsDetail, searchNews,
+  zoomWindow, reportLine, followPeer, alignEvents, newsDetail, searchNews, getOverview,
   type Queryable,
 } from "./drilldowns.js";
 
-export const TOOL_DEFS: Anthropic.Tool[] = [
+export const GEMINI_TOOL_DECLS: FunctionDeclaration[] = [
+  {
+    name: "get_overview",
+    description: "Big-picture short-position signals for the subject stock in ONE call: current short %, 90d avg + change, 7/30/90-day slope, price changes (1m/3m/6m/12m), 30-day price-shorts correlation, news/sentiment counts, director net trade value (AUD), and sector-peer comparison. CALL THIS FIRST to orient. These are Shorted's OWN computed numbers — state them in prose WITHOUT a [ref-N] citation.",
+    parameters: { type: SchemaType.OBJECT, properties: {} },
+  },
   {
     name: "zoom_window",
     description: "Zoom into the short %, price, and news in a +/- day window around a specific date — use to investigate a spike or a price move you noticed in the summary.",
-    input_schema: {
-      type: "object",
+    parameters: {
+      type: SchemaType.OBJECT,
       properties: {
-        date: { type: "string", description: "Centre date YYYY-MM-DD" },
-        days: { type: "number", description: "Half-window in days (e.g. 3)" },
+        date: { type: SchemaType.STRING, description: "Centre date YYYY-MM-DD" },
+        days: { type: SchemaType.NUMBER, description: "Half-window in days (e.g. 3)" },
       },
       required: ["date"],
     },
@@ -26,41 +31,44 @@ export const TOOL_DEFS: Anthropic.Tool[] = [
   {
     name: "report_line",
     description: "Pull one reported financial metric (revenue, ebitda, eps, dividend, guidance, cash_flow, net_profit) from the company's most recent filings. Returns the value and a citable source.",
-    input_schema: {
-      type: "object",
-      properties: { metric: { type: "string", description: "Metric key, e.g. 'revenue'" } },
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: { metric: { type: SchemaType.STRING, description: "Metric key, e.g. 'revenue'" } },
       required: ["metric"],
     },
   },
   {
     name: "follow_peer",
     description: "Pull a named sector peer's short %/price history to compare divergence against the subject stock.",
-    input_schema: {
-      type: "object",
-      properties: { peerCode: { type: "string" }, days: { type: "number" } },
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: { peerCode: { type: SchemaType.STRING }, days: { type: SchemaType.NUMBER } },
       required: ["peerCode"],
     },
   },
   {
     name: "align_events",
     description: "Return a merged timeline of director trades and price-sensitive news for the subject, newest first — use to align director activity against price/short moves.",
-    input_schema: { type: "object", properties: { days: { type: "number" } } },
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: { days: { type: SchemaType.NUMBER } },
+    },
   },
   {
     name: "news_detail",
     description: "Fetch the full record (summary, sentiment, url) for one news article by its id.",
-    input_schema: {
-      type: "object",
-      properties: { articleId: { type: "string" } },
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: { articleId: { type: SchemaType.STRING } },
       required: ["articleId"],
     },
   },
   {
     name: "search_news",
     description: "Keyword-search recent news headlines/summaries (optionally scoped to a stock code) to find a specific thread.",
-    input_schema: {
-      type: "object",
-      properties: { query: { type: "string" }, code: { type: "string" } },
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: { query: { type: SchemaType.STRING }, code: { type: SchemaType.STRING } },
       required: ["query"],
     },
   },
@@ -81,6 +89,11 @@ export async function dispatchTool(
 ): Promise<string> {
   try {
     switch (name) {
+      case "get_overview": {
+        const code = subjectCode ?? String(input.code ?? "");
+        const ov = await getOverview(pg, code);
+        return JSON.stringify(ov);
+      }
       case "zoom_window": {
         const code = subjectCode ?? String(input.code ?? "");
         const w = await zoomWindow(pg, code, String(input.date), Number(input.days ?? 3));
