@@ -55,4 +55,11 @@ describe("compactCitations", () => {
     const { dropped } = compactCitations("ok [ref-1] bad [ref-7]", l);
     expect(dropped).toEqual(["ref-7"]);
   });
+
+  it("maps a director-type source to Citation type 'trade'", () => {
+    const l = new CitationLedger();
+    l.register(src({ url: "https://ex.com/d", type: "director" }));
+    const { citations } = compactCitations("see [ref-1]", l);
+    expect(citations[0]!.type).toBe("trade");
+  });
 });
