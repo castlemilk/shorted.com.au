@@ -6,9 +6,12 @@
   "type": "module",
   "scripts": {
     "draft": "tsx src/index.ts draft",
-    "pick": "tsx src/index.ts pick"
+    "pick": "tsx src/index.ts pick",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.69.0",
     "@google-cloud/storage": "^7.19.0",
     "@google/generative-ai": "^0.21.0",
     "@types/pg": "^8.20.0",
@@ -19,6 +22,7 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
   }
 }
