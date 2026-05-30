@@ -144,7 +144,7 @@ module "shorts_api" {
   postgres_username = var.postgres_username
 
   scheduler_region             = "australia-southeast1"
-  enable_key_metrics_scheduler = false  # Disabled: secret INTERNAL_METRICS_SCHEDULER_SECRET not accessible to terraform SA (secretmanager.versions.get denied)
+  enable_key_metrics_scheduler = false # Disabled: secret INTERNAL_METRICS_SCHEDULER_SECRET not accessible to terraform SA (secretmanager.versions.get denied)
 
   depends_on = [
   ]
@@ -234,10 +234,10 @@ module "grafana_dashboards" {
 module "weekly_report_generator" {
   source = "../../modules/weekly-report-generator"
 
-  project_id       = var.project_id
-  region           = var.region
-  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
-  environment      = "production"
+  project_id           = var.project_id
+  region               = var.region
+  scheduler_region     = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment          = "production"
   image_url            = var.weekly_report_generator_image
   gemini_secret_exists = var.gemini_secret_exists
 
@@ -280,29 +280,29 @@ module "asx_announcement_crawler" {
 module "cloudflare_edge" {
   source = "../../modules/cloudflare-edge"
 
-  cloudflare_zone_id   = var.cloudflare_zone_id
-  domain               = "api.shorted.com.au"
-  environment          = "dev"
+  cloudflare_zone_id = var.cloudflare_zone_id
+  domain             = "api.shorted.com.au"
+  environment        = "dev"
 
-  shorts_api_origin    = module.shorts_api.service_url
-  chat_service_origin  = module.chat_service.service_url
-  market_data_origin   = module.market_data.service_url
+  shorts_api_origin       = module.shorts_api.service_url
+  chat_service_origin     = module.chat_service.service_url
+  market_data_origin      = module.market_data.service_url
   frontend_origin         = "https://shorted.com.au"
-  create_frontend_records = true  # Enable frontend DNS management via Cloudflare
+  create_frontend_records = true # Enable frontend DNS management via Cloudflare
 
   cache_ttl_seconds    = 30
   top_shorts_cache_ttl = 60
   stock_data_cache_ttl = 30
   news_cache_ttl       = 120
 
-  rate_limit_enabled   = true
-  api_rate_limit_requests = 60
+  rate_limit_enabled         = true
+  api_rate_limit_requests    = 60
   search_rate_limit_requests = 20
 
   waf_enabled            = true
   bot_protection_enabled = false
 
-  cache_purge_secret     = var.cache_purge_secret
+  cache_purge_secret = var.cache_purge_secret
 }
 
 output "edge_url" {
@@ -313,4 +313,20 @@ output "edge_url" {
 output "edge_worker_name" {
   description = "Name of the Cloudflare edge worker."
   value       = module.cloudflare_edge.worker_name
+}
+
+# Newsroom Daily Job (take-writer — generates and publishes daily takes)
+module "newsroom_job" {
+  source = "../../modules/newsroom-job"
+
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment      = "production"
+  image_url        = var.newsroom_job_image
+
+  gemini_secret_exists    = var.gemini_secret_exists
+  anthropic_secret_exists = var.anthropic_secret_exists
+
+  depends_on = []
 }

@@ -110,7 +110,7 @@ variable "grafana_auth" {
   description = "Grafana service account token"
   type        = string
   sensitive   = true
-  default     = ""  # NOTE: Grafana dashboards not yet configured — set real token to enable
+  default     = "" # NOTE: Grafana dashboards not yet configured — set real token to enable
 }
 
 # ---- Cloudflare Edge ----
@@ -157,4 +157,16 @@ variable "gemini_secret_exists" {
   description = "Whether the Gemini API secret exists in Secret Manager"
   type        = bool
   default     = true
+}
+
+variable "anthropic_secret_exists" {
+  description = "Whether ANTHROPIC_API_KEY secret exists in Secret Manager"
+  type        = bool
+  default     = true
+}
+
+variable "newsroom_job_image" {
+  description = "Docker image URL for the newsroom daily take-writer job"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/take-writer:latest"
 }
