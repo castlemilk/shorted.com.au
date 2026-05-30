@@ -100,9 +100,8 @@ function systemPrompt(a: Assignment): string {
 Assignment: ${a.stockCode} — ${a.angle}
 Tier: ${a.tier} (${a.tier === "deep_dive" ? "rich, multi-thread; build a timeline" : "tight, single sharp thread"}).
 
-Investigate using the tools. Drill into spikes, follow peers, align
-director trades to price, pull reported numbers. Every factual claim in
-your dossier MUST be backed by a refId a tool returned to you — do not
+Start by calling get_overview to orient (current short %, slope, price moves, correlation, sector peers) — these are the numbers Shorted is known for, weave them into your findings. Then drill into the specific events with the other tools.
+Every factual claim in your dossier MUST be backed by a refId a tool returned to you — do not
 invent sources or numbers. When done, call emit_dossier exactly once.
 Keep it to ${a.tier === "deep_dive" ? "at most 10" : "at most 4"} investigative tool calls before emitting.`;
 }
@@ -153,6 +152,9 @@ export async function investigate(
     for (const c of calls) {
       const result = await dispatchTool(pg, ledger, c.name, c.args, assignment.stockCode);
       parts.push({ functionResponse: { name: c.name, response: { result } } });
+    }
+    if (turn >= maxTurns - 2) {
+      parts.push({ text: "You are running low on turns — call emit_dossier on your NEXT response with your findings (include the get_overview numbers in keyNumbers), citing only refIds the tools returned." });
     }
     contents.push({ role: "user", parts });
   }

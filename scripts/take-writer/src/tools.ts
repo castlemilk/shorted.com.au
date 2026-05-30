@@ -6,11 +6,16 @@
 import { SchemaType, type FunctionDeclaration } from "@google/generative-ai";
 import type { CitationLedger, LedgerSource } from "./ledger.js";
 import {
-  zoomWindow, reportLine, followPeer, alignEvents, newsDetail, searchNews,
+  zoomWindow, reportLine, followPeer, alignEvents, newsDetail, searchNews, getOverview,
   type Queryable,
 } from "./drilldowns.js";
 
 export const GEMINI_TOOL_DECLS: FunctionDeclaration[] = [
+  {
+    name: "get_overview",
+    description: "Big-picture short-position signals for the subject stock in ONE call: current short %, 90d avg + change, 7/30/90-day slope, price changes (1m/3m/6m/12m), 30-day price-shorts correlation, news/sentiment counts, director net trade value (AUD), and sector-peer comparison. CALL THIS FIRST to orient. These are Shorted's OWN computed numbers — state them in prose WITHOUT a [ref-N] citation.",
+    parameters: { type: SchemaType.OBJECT, properties: {} },
+  },
   {
     name: "zoom_window",
     description: "Zoom into the short %, price, and news in a +/- day window around a specific date — use to investigate a spike or a price move you noticed in the summary.",
@@ -84,6 +89,11 @@ export async function dispatchTool(
 ): Promise<string> {
   try {
     switch (name) {
+      case "get_overview": {
+        const code = subjectCode ?? String(input.code ?? "");
+        const ov = await getOverview(pg, code);
+        return JSON.stringify(ov);
+      }
       case "zoom_window": {
         const code = subjectCode ?? String(input.code ?? "");
         const w = await zoomWindow(pg, code, String(input.date), Number(input.days ?? 3));
