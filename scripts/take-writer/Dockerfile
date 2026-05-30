@@ -12,6 +12,14 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
+# The newsroom pipeline (newsroom-daily) runs fully HEADLESS — no browser is
+# needed. The validator's full-page screenshot step uses Playwright/chromium
+# only when available; without a chromium binary it degrades gracefully to
+# per-image judging (see src/validator.ts). We deliberately do NOT install the
+# browser here to keep the image lean. To enable full-page screenshot
+# validation IN the container, uncomment:
+#   RUN npx playwright install --with-deps chromium
+
 COPY tsconfig.json ./
 COPY src ./src
 

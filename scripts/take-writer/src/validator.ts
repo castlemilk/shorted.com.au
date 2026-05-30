@@ -10,7 +10,6 @@
 //     is ISR-cached up to 10 min, so only the image content changed).
 //  4. Report the cohesion score, layout notes, and what was regenerated.
 
-import { chromium } from "playwright";
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import OpenAI from "openai";
 import { Storage } from "@google-cloud/storage";
@@ -23,8 +22,25 @@ import { type LayoutImage, generateOneLayoutImage } from "./art-director.js";
 const JUDGE_MODEL = (): string => process.env.VALIDATOR_MODEL ?? "gemini-3.5-flash";
 const SITE = (): string => process.env.SHORTED_SITE_URL ?? "https://shorted.com.au";
 
-async function screenshotArticle(slug: string): Promise<Buffer> {
-  const browser = await chromium.launch();
+async function screenshotArticle(slug: string): Promise<Buffer | null> {
+  if (process.env.VALIDATOR_SCREENSHOT === "0") return null;
+  // Playwright is an optional, browser-bearing dependency. In a lean
+  // serverless container (no chromium binary) the dynamic import or
+  // launch fails — degrade to per-image-only judging instead of crashing.
+  let chromium: typeof import("playwright").chromium;
+  try {
+    ({ chromium } = await import("playwright"));
+  } catch {
+    console.error("[validate] playwright not installed — skipping full-page screenshot, judging per-image only");
+    return null;
+  }
+  let browser: import("playwright").Browser;
+  try {
+    browser = await chromium.launch();
+  } catch (e) {
+    console.error(`[validate] chromium launch failed (${String((e as Error).message ?? e).slice(0, 80)}) — skipping screenshot, per-image only`);
+    return null;
+  }
   try {
     const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
     await page.goto(`${SITE()}/news/${slug}`, { waitUntil: "networkidle", timeout: 45000 });
@@ -99,7 +115,7 @@ async function judge(
   headline: string,
   bodyMd: string,
   layoutImages: LayoutImage[],
-  screenshot: Buffer,
+  screenshot: Buffer | null,
   imageBufs: Buffer[],
 ): Promise<CohesionVerdict> {
   const model = ai.getGenerativeModel({
@@ -111,21 +127,26 @@ async function judge(
       ...({ thinkingConfig: { thinkingBudget: 0 } } as unknown as Record<string, unknown>),
     } as unknown as Parameters<GoogleGenerativeAI["getGenerativeModel"]>[0]["generationConfig"],
   });
-  const parts: Array<Record<string, unknown>> = [
-    {
-      text:
-        `You are the editor reviewing whether this published article LOOKS GOOD and is cohesive. Headline: "${headline}".\n\n` +
-        `Body (markdown):\n${bodyMd.slice(0, 4000)}\n\n` +
-        `Layout images (index: caption | placement | ratio):\n` +
-        `${layoutImages.map((li, i) => `${i}: "${li.caption}" | ${li.placement} | ${li.ratio}`).join("\n")}\n\n` +
-        `First image below = the FULL-PAGE SCREENSHOT of the rendered article (judge layout/flow/balance). ` +
-        `The remaining images = the individual layout images in order (judge each against its caption + the section it illustrates). ` +
-        `IMPORTANT: the large banner image at the very TOP of the screenshot is the HERO / brand thumbnail — it is INTENTIONALLY an abstract dark-amber brand image (used for social cards + the news grid), NOT meant to be topical. Do NOT penalise the article or lower the cohesion score because the hero is abstract or "off-topic"; ignore the hero entirely. Judge cohesion ONLY on the body layout images and the overall layout/flow. ` +
-        `Flag regenerate=true ONLY for a body layout image that is off-topic, garbled, generic-when-it-should-be-specific, contains text/charts/faces/logos, ` +
-        `or whose caption doesn't match. Give a corrected newBrief + newCaption for any flagged image.`,
-    },
-  ];
-  parts.push({ inlineData: { mimeType: "image/png", data: screenshot.toString("base64") } });
+  const common =
+    `You are the editor reviewing whether this published article LOOKS GOOD and is cohesive. Headline: "${headline}".\n\n` +
+    `Body (markdown):\n${bodyMd.slice(0, 4000)}\n\n` +
+    `Layout images (index: caption | placement | ratio):\n` +
+    `${layoutImages.map((li, i) => `${i}: "${li.caption}" | ${li.placement} | ${li.ratio}`).join("\n")}\n\n`;
+  const tail =
+    `IMPORTANT: the large banner image at the very TOP of the screenshot is the HERO / brand thumbnail — it is INTENTIONALLY an abstract dark-amber brand image (used for social cards + the news grid), NOT meant to be topical. Do NOT penalise the article or lower the cohesion score because the hero is abstract or "off-topic"; ignore the hero entirely. ` +
+    `Flag regenerate=true ONLY for a body layout image that is off-topic, garbled, generic-when-it-should-be-specific, contains text/charts/faces/logos, ` +
+    `or whose caption doesn't match. Give a corrected newBrief + newCaption for any flagged image.`;
+  const promptText = screenshot
+    ? common +
+      `First image below = the FULL-PAGE SCREENSHOT of the rendered article (judge layout/flow/balance). ` +
+      `The remaining images = the individual layout images in order (judge each against its caption + the section it illustrates). ` +
+      `Judge cohesion on the body layout images and the overall layout/flow. ` +
+      tail
+    : common +
+      `The images below are the article's layout images in order. No full-page render is available, so judge per-image fit/caption/quality and infer overall cohesion from the captions + body. Base cohesionScore on the body images. ` +
+      tail;
+  const parts: Array<Record<string, unknown>> = [{ text: promptText }];
+  if (screenshot) parts.push({ inlineData: { mimeType: "image/png", data: screenshot.toString("base64") } });
   for (const b of imageBufs) parts.push({ inlineData: { mimeType: "image/png", data: b.toString("base64") } });
   const resp = await model.generateContent(parts as unknown as Parameters<ReturnType<GoogleGenerativeAI["getGenerativeModel"]>["generateContent"]>[0]);
   return JSON.parse(resp.response.text()) as CohesionVerdict;
@@ -159,6 +180,7 @@ export async function validateArticle(slug: string, opts: { rounds?: number } = 
 
     console.error(`[validate] screenshotting ${slug}…`);
     const shot = await screenshotArticle(slug);
+    console.error("[validate] mode: " + (shot ? "screenshot+per-image" : "per-image only"));
     const imageBufs = await Promise.all(layout.map((li) => fetchPng(li.url)));
 
     for (let round = 1; round <= maxRounds; round++) {
