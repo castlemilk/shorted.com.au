@@ -9,6 +9,7 @@ import { buildSignalBoard, type SignalBoardRow } from "./journalism.js";
 
 export interface Assignment {
   stockCode: string;
+  industry: string | null;
   angle: string;
   tier: "take" | "deep_dive";
   rationale: string;
@@ -91,12 +92,17 @@ export async function commissionAssignments(
   const text = resp.content.filter((b): b is Anthropic.Messages.TextBlock => b.type === "text").map((b) => b.text).join("");
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) return [];
-  let parsed: { assignments?: Assignment[] };
+  type RawAssignment = { stockCode: string; angle: string; tier: "take" | "deep_dive"; rationale: string };
+  let parsed: { assignments?: RawAssignment[] };
   try { parsed = JSON.parse(jsonMatch[0]); } catch { return []; }
   const all = (parsed.assignments ?? []).filter((a) => a.stockCode && (a.tier === "take" || a.tier === "deep_dive"));
 
   // Enforce caps defensively (the model may over-commission).
   const deepDives = all.filter((a) => a.tier === "deep_dive").slice(0, maxDeepDives);
   const takes = all.filter((a) => a.tier === "take").slice(0, maxTakes);
-  return [...deepDives, ...takes].map((a) => ({ ...a, stockCode: a.stockCode.toUpperCase() }));
+  const industryByCode = new Map(fresh.map((r) => [r.stockCode, r.industry]));
+  return [...deepDives, ...takes].map((a) => {
+    const code = a.stockCode.toUpperCase();
+    return { ...a, stockCode: code, industry: industryByCode.get(code) ?? null };
+  });
 }

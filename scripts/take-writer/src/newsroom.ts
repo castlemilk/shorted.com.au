@@ -14,11 +14,10 @@ import { Client as PgClient } from "pg";
 import OpenAI from "openai";
 import { Storage } from "@google-cloud/storage";
 import { buildAgenda, type AgendaCandidate, type AgendaAngle } from "./agenda.js";
-import { synthesiseNarrative, narrativeToBodyMd, type NarrativeTake } from "./narrative.js";
+import { synthesiseNarrative, narrativeToBodyMd, type NarrativeTake, synthesiseFromDossier, type DossierTake } from "./narrative.js";
 import Anthropic from "@anthropic-ai/sdk";
-import { commissionAssignments, type Assignment } from "./editor.js";
+import { commissionAssignments } from "./editor.js";
 import { investigate } from "./investigator.js";
-import { synthesiseFromDossier, type DossierTake } from "./narrative.js";
 import { CitationLedger } from "./ledger.js";
 
 const GCS_BUCKET = process.env.GCS_LOGO_BUCKET ?? "shorted-company-logos";
@@ -335,12 +334,12 @@ async function insertTake(
 }
 
 /** Hold a piece as a draft (don't auto-publish) when grounding is weak:
- *  any dangling citation the writer invented, or a deep-dive with no
- *  citations at all. Never auto-publish ungrounded claims about a named
- *  company. */
+ *  any dangling citation the writer invented, OR zero retrieved-source
+ *  citations at all (regardless of tier). Never auto-publish ungrounded
+ *  claims about a named company — a human reviews held drafts. */
 export function shouldHoldAsDraft(t: { droppedCitations: string[]; citations: unknown[]; tier?: "take" | "deep_dive" }): boolean {
   if (t.droppedCitations.length > 0) return true;
-  if (t.tier === "deep_dive" && t.citations.length === 0) return true;
+  if (t.citations.length === 0) return true;
   return false;
 }
 
@@ -354,6 +353,7 @@ async function insertDossierTake(
   writerModel: string,
 ): Promise<void> {
   const publishedClause = publish ? "NOW()" : "NULL";
+  // ON CONFLICT preserves published_at: re-runs never silently flip a reviewed draft's publish state.
   await pg.query(
     `INSERT INTO editorial_takes (
        slug, headline, stock_code, body_md, sentiment, word_count, model, tier,
@@ -388,6 +388,9 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
   if (!dbUrl) throw new Error("DATABASE_URL not set");
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) throw new Error("ANTHROPIC_API_KEY not set");
+  if (opts.withImages && !process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY not set (required for --with-images)");
+  }
 
   const takeModel = process.env.INVESTIGATOR_MODEL_TAKE ?? "claude-sonnet-4-6";
   const deepModel = process.env.INVESTIGATOR_MODEL_DEEPDIVE ?? "claude-opus-4-8";
@@ -441,15 +444,15 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
         console.log(`${tag} -> "${take.headline}" (${take.citations.length} cites, ${take.droppedCitations.length} dropped)`);
 
         const hold = shouldHoldAsDraft(take);
-        if (hold && opts.autoPublish) {
-          console.warn(`${tag}   holding as draft (grounding weak: dropped ${take.droppedCitations.join(",") || "none"})`);
+        if (hold) {
+          console.warn(`${tag}   weak grounding (dropped ${take.droppedCitations.join(",") || "none"}; ${take.citations.length} cites) — held as draft`);
         }
         const publishThis = opts.autoPublish && !hold;
 
         let heroUrl: string | null = null;
         let inlineImages: InlineImageRow[] = [];
         if (opts.withImages && openai && storage) {
-          const candidate = { stockCode: a.stockCode, industry: null } as unknown as AgendaCandidate;
+          const candidate = { stockCode: a.stockCode, industry: a.industry } as unknown as AgendaCandidate;
           const narrativeShim = { slug: take.slug, headline: take.headline } as unknown as NarrativeTake;
           const img = await generateHero(openai, storage, candidate, narrativeShim);
           heroUrl = img.url; totalCost += img.costUsd;

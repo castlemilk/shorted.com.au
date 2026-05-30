@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { investigate, type MessagesCreate } from "./investigator.js";
 import { CitationLedger } from "./ledger.js";
 
-const assignment = { stockCode: "DRO", angle: "Probe vs shorts", tier: "take" as const, rationale: "x" };
+const assignment = { stockCode: "DRO", industry: null, angle: "Probe vs shorts", tier: "take" as const, rationale: "x" };
 
 describe("investigate", () => {
   it("runs a tool round then finalises the dossier from emit_dossier", async () => {

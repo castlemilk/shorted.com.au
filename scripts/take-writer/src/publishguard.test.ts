@@ -8,6 +8,9 @@ describe("shouldHoldAsDraft", () => {
   it("holds a deep_dive with zero citations (ungrounded long-form)", () => {
     expect(shouldHoldAsDraft({ droppedCitations: [], citations: [], tier: "deep_dive" } as any)).toBe(true);
   });
+  it("holds a take with zero citations (ungrounded)", () => {
+    expect(shouldHoldAsDraft({ droppedCitations: [], citations: [], tier: "take" })).toBe(true);
+  });
   it("allows a clean grounded take through", () => {
     expect(shouldHoldAsDraft({ droppedCitations: [], citations: [{ refId: "ref-1" } as any], tier: "take" } as any)).toBe(false);
   });
