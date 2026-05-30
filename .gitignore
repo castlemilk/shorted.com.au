@@ -19,6 +19,8 @@ coverage.html
 .env
 .env.local
 .env.*.local
+.env.prod
+.env.production
 
 # Terraform state and sensitive files (but not the terraform/ directory itself!)
 **/*.tfstate

@@ -121,11 +121,17 @@ const worker = {
       return proxyWithHeaders(request, shortsApiOrigin, "BYPASS");
     }
 
-    // gRPC/Connect streaming indicators -> pass-through
+    // gRPC/Connect streaming indicators -> pass-through to the Shorts API.
+    // IMPORTANT: chat and market-data Connect requests ALSO carry these headers,
+    // so they must be excluded here and fall through to their own path-based
+    // routes below — otherwise every browser Connect call (which always sends
+    // `connect-protocol-version`) gets misrouted to the Shorts origin and 404s.
     if (
-      request.headers.get("connect-protocol-version") ||
-      request.headers.get("grpc-timeout") ||
-      request.headers.get("x-grpc-web")
+      (request.headers.get("connect-protocol-version") ||
+        request.headers.get("grpc-timeout") ||
+        request.headers.get("x-grpc-web")) &&
+      !path.includes("/chat.v1.") &&
+      !path.includes("/marketdata.v1.")
     ) {
       return proxyWithHeaders(request, shortsApiOrigin, "BYPASS");
     }

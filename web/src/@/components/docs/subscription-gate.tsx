@@ -180,7 +180,7 @@ export function SubscriptionGate({
             Unlock API Access
           </CardTitle>
           <span className="text-2xl font-bold">
-            $29<span className="text-sm font-normal text-muted-foreground">/mo</span>
+            $20<span className="text-sm font-normal text-muted-foreground">/mo</span>
           </span>
         </div>
         <CardDescription>
