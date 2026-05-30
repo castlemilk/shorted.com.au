@@ -84,6 +84,12 @@ invent sources or numbers. When done, call emit_dossier exactly once.
 Keep it to ${a.tier === "deep_dive" ? "at most 10" : "at most 4"} investigative tool calls before emitting.`;
 }
 
+/**
+ * Run the agentic investigation loop and return a Dossier.
+ * NOTE: this may THROW if the injected `create` (Anthropic API call)
+ * fails — callers running this in a batch MUST wrap each invocation in
+ * try/catch so one failed assignment doesn't abort the whole run.
+ */
 export async function investigate(
   create: MessagesCreate,
   pg: Queryable,
@@ -108,7 +114,17 @@ export async function investigate(
     });
 
     const toolUses = resp.content.filter((b): b is Anthropic.ToolUseBlock => b.type === "tool_use");
-    if (toolUses.length === 0) break; // model stopped without tools
+    if (toolUses.length === 0) {
+      // Model replied with text but called no tool. Nudge it back to
+      // emit_dossier once; if it still won't, finalise with what we have
+      // rather than silently discarding the investigation.
+      if (resp.stop_reason === "end_turn" && turn < maxTurns - 1) {
+        messages.push({ role: "assistant", content: resp.content });
+        messages.push({ role: "user", content: "You have not called emit_dossier yet. Call emit_dossier now with your findings, citing only refIds the tools returned." });
+        continue;
+      }
+      break;
+    }
 
     // Did it emit the dossier? Finalise.
     const emit = toolUses.find((t) => t.name === "emit_dossier");
@@ -136,9 +152,23 @@ function finalise(assignment: Assignment, input: Partial<Dossier>): Dossier {
     stockCode: assignment.stockCode,
     tier: assignment.tier,
     angle: assignment.angle,
-    summary: input.summary ?? assignment.angle,
-    threads: input.threads ?? [],
-    timeline: input.timeline,
-    keyNumbers: input.keyNumbers ?? [],
+    summary: typeof input.summary === "string" && input.summary.trim() ? input.summary : assignment.angle,
+    threads: Array.isArray(input.threads)
+      ? input.threads.filter(
+          (t): t is DossierThread =>
+            typeof t === "object" && t !== null &&
+            typeof (t as DossierThread).claim === "string" &&
+            Array.isArray((t as DossierThread).evidenceRefIds),
+        )
+      : [],
+    timeline: Array.isArray(input.timeline) ? input.timeline : undefined,
+    keyNumbers: Array.isArray(input.keyNumbers)
+      ? input.keyNumbers.filter(
+          (n): n is DossierKeyNumber =>
+            typeof n === "object" && n !== null &&
+            typeof (n as DossierKeyNumber).label === "string" &&
+            typeof (n as DossierKeyNumber).value === "string",
+        )
+      : [],
   };
 }

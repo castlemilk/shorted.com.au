@@ -43,4 +43,28 @@ describe("investigate", () => {
     expect(Array.isArray(dossier.threads)).toBe(true);
     expect((create as any).mock.calls.length).toBe(2); // stopped at the cap
   });
+
+  it("nudges once on a text-only stop, then finalises on emit_dossier", async () => {
+    const pg = { query: vi.fn().mockResolvedValue({ rows: [] }) };
+    const create = vi.fn()
+      .mockResolvedValueOnce({ stop_reason: "end_turn", content: [{ type: "text", text: "I think the probe matters." }] })
+      .mockResolvedValueOnce({ stop_reason: "tool_use", content: [{ type: "tool_use", id: "t2", name: "emit_dossier", input: { summary: "Done.", threads: [], keyNumbers: [] } }] });
+    const ledger = new CitationLedger();
+    const dossier = await investigate(create as any, pg, assignment, ledger, { maxTurns: 4, model: "claude-sonnet-4-6" });
+    expect(dossier.summary).toBe("Done.");
+    expect(create.mock.calls.length).toBe(2);
+  });
+
+  it("sanitises malformed emit_dossier output (non-array threads, bad summary)", async () => {
+    const pg = { query: vi.fn().mockResolvedValue({ rows: [] }) };
+    const create = vi.fn().mockResolvedValueOnce({
+      stop_reason: "tool_use",
+      content: [{ type: "tool_use", id: "t1", name: "emit_dossier", input: { summary: 42, threads: "nope", keyNumbers: [{ label: "x", value: "1" }, { bad: true }] } }],
+    });
+    const ledger = new CitationLedger();
+    const dossier = await investigate(create as any, pg, assignment, ledger, { maxTurns: 4, model: "claude-sonnet-4-6" });
+    expect(dossier.threads).toEqual([]);          // non-array dropped
+    expect(dossier.summary).toBe(assignment.angle); // non-string summary -> angle fallback
+    expect(dossier.keyNumbers.length).toBe(1);     // only the well-formed keyNumber kept
+  });
 });
