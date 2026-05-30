@@ -56,7 +56,7 @@ export class CitationLedger {
   }
 }
 
-const MARKER = /\[(ref-\d+)\]/g;
+const MARKER = /\[(ref-\d+|report-\d+)\]/g;
 
 /**
  * Walk the body, drop any [ref-N] not in the ledger, and renumber the

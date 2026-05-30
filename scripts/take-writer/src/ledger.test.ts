@@ -79,4 +79,13 @@ describe("compactCitations", () => {
     expect(citations).toEqual([]);
     expect(dropped).toEqual([]);
   });
+
+  it("strips and flags [report-N] markers (never valid in the dossier path)", () => {
+    const l = new CitationLedger();
+    l.register({ type: "news", url: "https://ex.com/a", source: "S", headline: "h", date: "2026-05-01" });
+    const { body, dropped, citations } = compactCitations("real [ref-1] bogus report [report-1].", l);
+    expect(body).toBe("real [ref-1] bogus report .");
+    expect(dropped).toContain("report-1");
+    expect(citations).toHaveLength(1);
+  });
 });
