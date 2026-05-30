@@ -52,10 +52,21 @@ export interface TakeInlineImage {
   alt?: string;
 }
 
+export interface TakeLayoutImage {
+  url: string;
+  style?: string;
+  ratio: "landscape" | "portrait" | "square" | string;
+  brief?: string;
+  caption?: string;
+  placement: "full" | "left" | "right" | "inset" | string;
+  anchorAfterBlock: number;
+}
+
 interface TakeBodyProps {
   bodyMd: string;
   citations: TakeCitation[];
   inlineImages?: TakeInlineImage[];
+  layoutImages?: TakeLayoutImage[];
   stockCode?: string;
 }
 
@@ -185,6 +196,58 @@ function buildComponents(
   };
 }
 
+function aspectClass(ratio: string): string {
+  if (ratio === "portrait") return "aspect-[2/3]";
+  if (ratio === "square") return "aspect-square";
+  return "aspect-[3/2]"; // landscape
+}
+
+/** Render an art-directed layout image as a bespoke editorial figure
+ *  (full-bleed, floated beside prose, or centered inset) with caption. */
+function renderLayoutImage(li: TakeLayoutImage, key: string): React.ReactNode {
+  const img = (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={li.url}
+      alt={li.caption || li.brief || "Editorial illustration"}
+      className={`w-full ${aspectClass(li.ratio)} object-cover`}
+      loading="lazy"
+      decoding="async"
+    />
+  );
+  const caption = li.caption ? (
+    <figcaption className="mt-2 text-xs italic leading-snug text-muted-foreground">
+      {li.caption}
+    </figcaption>
+  ) : null;
+
+  if (li.placement === "left" || li.placement === "right") {
+    // Float beside the following prose (classic editorial wrap).
+    const side = li.placement === "right" ? "float-right ml-6" : "float-left mr-6";
+    return (
+      <figure key={key} className={`${side} my-2 w-1/2 max-w-[320px] sm:w-2/5`}>
+        <div className="overflow-hidden rounded-xl border border-border bg-zinc-950">{img}</div>
+        {caption}
+      </figure>
+    );
+  }
+  if (li.placement === "inset") {
+    return (
+      <figure key={key} className="clear-both mx-auto my-6 w-full max-w-md">
+        <div className="overflow-hidden rounded-xl border border-border bg-zinc-950">{img}</div>
+        {caption}
+      </figure>
+    );
+  }
+  // "full" (and any unknown placement) — full-bleed within the article column.
+  return (
+    <figure key={key} className="clear-both my-6 -mx-2 sm:-mx-4">
+      <div className="overflow-hidden rounded-xl border border-border bg-zinc-950">{img}</div>
+      {caption}
+    </figure>
+  );
+}
+
 /**
  * Renders an editorial Take body as markdown (headings, lists, emphasis,
  * blockquotes, …) with inline [ref-N] citation pills and auto-linked
@@ -192,8 +255,19 @@ function buildComponents(
  * inline images can be woven between them; each block is rendered with
  * react-markdown. The Sources list renders below, keyed by ref id.
  */
-export function TakeBody({ bodyMd, citations, inlineImages = [], stockCode }: TakeBodyProps) {
+export function TakeBody({ bodyMd, citations, inlineImages = [], layoutImages, stockCode }: TakeBodyProps) {
   const blocks = bodyMd.split(/\n\s*\n/).filter((p) => p.trim().length > 0);
+
+  // Art-directed layout images take precedence. Map each to the block it
+  // is anchored after; older takes without layout images fall back to the
+  // even inline-image weaving below.
+  const layoutByBlock = new Map<number, TakeLayoutImage[]>();
+  for (const li of layoutImages ?? []) {
+    const arr = layoutByBlock.get(li.anchorAfterBlock) ?? [];
+    arr.push(li);
+    layoutByBlock.set(li.anchorAfterBlock, arr);
+  }
+  const useLayout = (layoutImages?.length ?? 0) > 0;
 
   // LinkifiedNarrative-style citation lookup (ReportCitation shape).
   const citationMap = new Map<string, ReportCitation>();
@@ -205,7 +279,7 @@ export function TakeBody({ bodyMd, citations, inlineImages = [], stockCode }: Ta
 
   // Distribute inline images evenly between blocks (never after the last).
   const imageAfterIdx = new Set<number>();
-  if (inlineImages.length > 0 && blocks.length >= 2) {
+  if (!useLayout && inlineImages.length > 0 && blocks.length >= 2) {
     const slots = inlineImages.length;
     const step = Math.max(1, Math.floor(blocks.length / (slots + 1)));
     for (let i = 1; i <= slots; i++) {
@@ -223,7 +297,15 @@ export function TakeBody({ bodyMd, citations, inlineImages = [], stockCode }: Ta
               {escapeMarkers(block)}
             </ReactMarkdown>,
           ];
-          if (imageAfterIdx.has(i)) {
+          if (useLayout) {
+            // Art-directed layout images anchored after this block.
+            const anchored = layoutByBlock.get(i);
+            if (anchored) {
+              anchored.forEach((li, j) => {
+                nodes.push(renderLayoutImage(li, `layout-${i}-${j}`));
+              });
+            }
+          } else if (imageAfterIdx.has(i)) {
             const slotIndex = [...imageAfterIdx].sort((a, b) => a - b).indexOf(i);
             const img = inlineImages[slotIndex];
             if (img) {

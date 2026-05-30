@@ -226,6 +226,15 @@ export default async function ShortedTakePage({ params }: Params) {
                 topic: i.topic,
                 alt: i.alt,
               }))}
+              layoutImages={(take.layoutImages ?? []).map((li) => ({
+                url: li.url,
+                style: li.style,
+                ratio: li.ratio,
+                brief: li.brief,
+                caption: li.caption,
+                placement: li.placement,
+                anchorAfterBlock: li.anchorAfterBlock,
+              }))}
               stockCode={take.stockCode}
             />
           ) : (
