@@ -16,7 +16,7 @@ import { Storage } from "@google-cloud/storage";
 import { buildAgenda, type AgendaCandidate, type AgendaAngle } from "./agenda.js";
 import { synthesiseNarrative, narrativeToBodyMd, type NarrativeTake, synthesiseFromDossier, type DossierTake } from "./narrative.js";
 import Anthropic from "@anthropic-ai/sdk";
-import { commissionAssignments } from "./editor.js";
+import { commissionAssignments, type Assignment } from "./editor.js";
 import { investigate } from "./investigator.js";
 import { CitationLedger } from "./ledger.js";
 
@@ -481,6 +481,87 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
   console.log("\n=== Newsroom-daily briefing ===");
   console.log(`  published: ${published}  drafted: ${drafted}  held(weak grounding): ${held}  failed: ${failed}`);
   console.log(`  image cost: $${totalCost.toFixed(3)} (LLM token cost logged by providers)`);
+}
+
+export interface PreviewOptions {
+  stockCode: string;
+  tier: "take" | "deep_dive";
+  angle?: string;
+}
+
+/** Run editor-less investigate -> write for ONE stock and print the full
+ *  dossier + rendered body + citations to stdout. Does NOT insert into
+ *  editorial_takes and does NOT generate images — safe to point at a
+ *  read-only/prod DB for judging output quality. */
+export async function runNewsroomPreview(opts: PreviewOptions): Promise<void> {
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) throw new Error("DATABASE_URL not set");
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not set");
+  if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
+
+  const takeModel = process.env.INVESTIGATOR_MODEL_TAKE ?? "claude-sonnet-4-6";
+  const deepModel = process.env.INVESTIGATOR_MODEL_DEEPDIVE ?? "claude-opus-4-8";
+  const maxTurnsTake = Number(process.env.MAX_TURNS_TAKE ?? 6);
+  const maxTurnsDeep = Number(process.env.MAX_TURNS_DEEPDIVE ?? 14);
+
+  const pg = new PgClient({ connectionString: dbUrl });
+  await pg.connect();
+  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const create = (body: Anthropic.MessageCreateParamsNonStreaming) => client.messages.create(body) as Promise<Anthropic.Message>;
+
+  try {
+    const code = opts.stockCode.toUpperCase();
+    const assignment: Assignment = {
+      stockCode: code,
+      industry: null,
+      angle: opts.angle ?? `What ${code}'s short position and recent events reveal`,
+      tier: opts.tier,
+      rationale: "preview",
+    };
+    console.error(`[preview] investigating ${code} [${opts.tier}] (model ${opts.tier === "deep_dive" ? deepModel : takeModel})...`);
+    const t0 = Date.now();
+    const ledger = new CitationLedger();
+    const dossier = await investigate(create, pg, assignment, ledger, {
+      model: opts.tier === "deep_dive" ? deepModel : takeModel,
+      maxTurns: opts.tier === "deep_dive" ? maxTurnsDeep : maxTurnsTake,
+    });
+    const take = await synthesiseFromDossier(dossier, ledger, code);
+    const hold = shouldHoldAsDraft(take);
+    const secs = ((Date.now() - t0) / 1000).toFixed(1);
+
+    const line = "=".repeat(72);
+    console.log("\n" + line);
+    console.log(`PREVIEW — ${code} [${take.tier}]   (NOT inserted, no images)   ${secs}s`);
+    console.log(line);
+    console.log(`\nHEADLINE:  ${take.headline}`);
+    console.log(`SENTIMENT: ${take.sentiment}     SLUG: ${take.slug}`);
+    console.log(`GROUNDING: ${take.citations.length} citations, ${take.droppedCitations.length} dropped${take.droppedCitations.length ? ` (${take.droppedCitations.join(", ")})` : ""}`);
+    console.log(`DECISION:  ${hold ? "HOLD as draft (weak grounding)" : "would auto-publish"}`);
+
+    console.log(`\n--- DOSSIER ---`);
+    console.log(`summary: ${dossier.summary}`);
+    if (dossier.threads.length) {
+      console.log(`threads:`);
+      for (const th of dossier.threads) console.log(`  - ${th.claim} [${th.evidenceRefIds.join(", ")}]${th.note ? ` — ${th.note}` : ""}`);
+    }
+    if (dossier.timeline?.length) {
+      console.log(`timeline:`);
+      for (const tl of dossier.timeline) console.log(`  - ${tl.date}: ${tl.event} (${tl.refIds.join(", ")})`);
+    }
+    if (dossier.keyNumbers.length) {
+      console.log(`keyNumbers:`);
+      for (const kn of dossier.keyNumbers) console.log(`  - ${kn.label}: ${kn.value}${kn.refId ? ` [${kn.refId}]` : ""}`);
+    }
+
+    console.log(`\n--- BODY (markdown) ---\n`);
+    console.log(take.bodyMd);
+
+    console.log(`\n--- SOURCES (${take.citations.length}) ---`);
+    for (const c of take.citations) console.log(`  [${c.refId}] (${c.type}) ${c.headline} — ${c.source} ${c.date}\n        ${c.url}`);
+    console.log("");
+  } finally {
+    await pg.end();
+  }
 }
 
 export async function runNewsroom(opts: NewsroomOptions): Promise<NewsroomResult[]> {

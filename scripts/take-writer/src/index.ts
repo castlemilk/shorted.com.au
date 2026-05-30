@@ -12,7 +12,7 @@ import { Client as PgClient } from "pg";
 import { buildReport } from "./journalism.js";
 import { synthesiseNarrative, narrativeToBodyMd } from "./narrative.js";
 import { buildAgenda, formatAgendaCandidate } from "./agenda.js";
-import { runNewsroom, runNewsroomDaily } from "./newsroom.js";
+import { runNewsroom, runNewsroomDaily, runNewsroomPreview } from "./newsroom.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -48,6 +48,8 @@ interface Args {
   // newsroom
   withImages?: boolean;
   noImages?: boolean;
+  tier?: string;
+  angle?: string;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -83,7 +85,9 @@ function parseArgs(argv: string[]): Args {
       args.withImages = true;
     } else if (arg === "--no-images") {
       args.noImages = true;
-    } else if (!arg.startsWith("--") && !args.command) args.command = arg;
+    } else if (arg.startsWith("--tier=")) args.tier = arg.split("=")[1];
+    else if (arg.startsWith("--angle=")) args.angle = arg.split("=").slice(1).join("=");
+    else if (!arg.startsWith("--") && !args.command) args.command = arg;
   }
   return args;
 }
@@ -99,6 +103,7 @@ Commands:
   agenda    Editorial briefing — ranked story candidates with angles
   newsroom        Loop: agenda → top-N narratives → insert as drafts/publish
   newsroom-daily  Investigative daily run: editor -> agentic investigation -> tiered writer
+  newsroom-preview Investigate ONE --stock=CODE and print the report (no DB write, no images)
   narrative Multi-section journalism-engine Take for one --stock=CODE
 
 run flags:
@@ -324,6 +329,12 @@ async function main(): Promise<void> {
         autoPublish,
         withImages,
       });
+      break;
+    }
+    case "newsroom-preview": {
+      if (!args.stockCode) throw new Error("--stock=CODE required for newsroom-preview");
+      const tier = args.tier === "deep_dive" ? "deep_dive" : "take";
+      await runNewsroomPreview({ stockCode: args.stockCode, tier, angle: args.angle });
       break;
     }
     case "agenda": {
