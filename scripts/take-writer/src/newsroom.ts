@@ -20,6 +20,7 @@ import { commissionAssignments, type Assignment } from "./editor.js";
 import { investigate, type GeminiGenerate } from "./investigator.js";
 import { CitationLedger } from "./ledger.js";
 import { getOverview } from "./drilldowns.js";
+import { designImagePlan, generatePlanImages, type ArtContext, type LayoutImage } from "./art-director.js";
 
 function makeGeminiGenerate(ai: GoogleGenerativeAI, modelName: string): GeminiGenerate {
   return async ({ systemInstruction, tools, contents }) => {
@@ -449,6 +450,7 @@ async function insertDossierTake(
   stockCode: string,
   heroUrl: string | null,
   inlineImages: InlineImageRow[],
+  layoutImages: LayoutImage[],
   publish: boolean,
   writerModel: string,
 ): Promise<void> {
@@ -457,8 +459,8 @@ async function insertDossierTake(
   await pg.query(
     `INSERT INTO editorial_takes (
        slug, headline, stock_code, body_md, sentiment, word_count, model, tier,
-       citations, hero_image_url, inline_images, published_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11::jsonb,${publishedClause})
+       citations, hero_image_url, inline_images, layout_images, published_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11::jsonb,$12::jsonb,${publishedClause})
      ON CONFLICT (slug) DO UPDATE SET
        headline=EXCLUDED.headline, body_md=EXCLUDED.body_md, tier=EXCLUDED.tier,
        sentiment=EXCLUDED.sentiment, word_count=EXCLUDED.word_count,
@@ -466,11 +468,14 @@ async function insertDossierTake(
        hero_image_url=COALESCE(EXCLUDED.hero_image_url, editorial_takes.hero_image_url),
        inline_images=CASE WHEN jsonb_array_length(EXCLUDED.inline_images) > 0
                           THEN EXCLUDED.inline_images ELSE editorial_takes.inline_images END,
+       layout_images=CASE WHEN jsonb_array_length(EXCLUDED.layout_images) > 0
+                          THEN EXCLUDED.layout_images ELSE editorial_takes.layout_images END,
        updated_at=NOW()`,
     [
       take.slug, take.headline, stockCode, take.bodyMd, take.sentiment,
       take.bodyMd.split(/\s+/).filter(Boolean).length, writerModel, take.tier,
       JSON.stringify(take.citations), heroUrl, JSON.stringify(inlineImages),
+      JSON.stringify(layoutImages),
     ],
   );
 }
@@ -549,6 +554,7 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
 
         let heroUrl: string | null = null;
         let inlineImages: InlineImageRow[] = [];
+        let layoutImages: LayoutImage[] = [];
         if (opts.withImages && openai && storage) {
           const candidate = { stockCode: a.stockCode, industry: a.industry } as unknown as AgendaCandidate;
           const narrativeShim = { slug: take.slug, headline: take.headline } as unknown as NarrativeTake;
@@ -556,9 +562,29 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
           heroUrl = img.url; totalCost += img.costUsd;
           const inl = await generateInlineImages(openai, storage, ai, candidate, narrativeShim, take.bodyMd, 2);
           inlineImages = inl.images; totalCost += inl.costUsd;
+
+          // Art-director stage — content-grounded varied layout images.
+          try {
+            const artCtx: ArtContext = {
+              stockCode: a.stockCode,
+              headline: take.headline,
+              industry: a.industry,
+              description: null,
+              bodyMd: take.bodyMd,
+              dossierSummary: dossier.summary,
+              keyFacts: dossier.threads
+                .map((t) => t.claim)
+                .concat(dossier.keyNumbers.map((n) => `${n.label}: ${n.value}`)),
+            };
+            const plan = await designImagePlan(ai, artCtx, 3);
+            const gen = await generatePlanImages(openai, storage, take.slug, plan);
+            layoutImages = gen.images; totalCost += gen.costUsd;
+          } catch (err) {
+            console.warn(`${tag}   art-director failed: ${String((err as Error).message ?? err).slice(0, 120)}`);
+          }
         }
 
-        await insertDossierTake(pg, take, a.stockCode, heroUrl, inlineImages, publishThis, writerModel);
+        await insertDossierTake(pg, take, a.stockCode, heroUrl, inlineImages, layoutImages, publishThis, writerModel);
         if (publishThis) published++;
         else if (hold) held++;
         else drafted++;
@@ -678,27 +704,48 @@ export async function regenerateImages(opts: { slug: string; inlineCount?: numbe
     const row = rows[0];
     if (!row) throw new Error(`no editorial_takes row with slug ${opts.slug}`);
 
-    const { rows: metaRows } = await pg.query<{ industry: string | null }>(
-      `SELECT industry FROM "company-metadata" WHERE stock_code = $1`,
+    const { rows: metaRows } = await pg.query<{ industry: string | null; summary: string | null }>(
+      `SELECT industry, summary FROM "company-metadata" WHERE stock_code = $1`,
       [row.stock_code],
     );
     const industry = metaRows[0]?.industry ?? null;
+    const summary = metaRows[0]?.summary ?? null;
 
     const candidate = { stockCode: row.stock_code, industry } as unknown as AgendaCandidate;
     const take = { slug: row.slug, headline: row.headline } as unknown as NarrativeTake;
     const count = opts.inlineCount ?? 2;
 
-    console.error(`[regen-images] ${row.stock_code} "${row.headline}" — hero + ${count} inline…`);
+    console.error(`[regen-images] ${row.stock_code} "${row.headline}" — hero + ${count} inline + art-directed layout…`);
     const hero = await generateHero(openai, storage, candidate, take);
     const inl = await generateInlineImages(openai, storage, ai, candidate, take, row.body_md, count);
 
+    // Art-director stage: a varied, content-grounded image plan stored as
+    // layout_images (the frontend prefers this over the legacy inline_images).
+    const artCtx: ArtContext = {
+      stockCode: row.stock_code,
+      headline: row.headline,
+      industry,
+      description: summary,
+      bodyMd: row.body_md,
+    };
+    let layoutImages: LayoutImage[] = [];
+    try {
+      const plan = await designImagePlan(ai, artCtx, 3);
+      console.error(`[regen-images] art-director planned ${plan.length} image(s): ${plan.map((p) => `${p.style}/${p.ratio}`).join(", ") || "(none)"}`);
+      const gen = await generatePlanImages(openai, storage, opts.slug, plan);
+      layoutImages = gen.images;
+    } catch (err) {
+      console.warn(`[regen-images] art-director stage failed: ${String((err as Error).message ?? err).slice(0, 160)}`);
+    }
+
     await pg.query(
-      `UPDATE editorial_takes SET hero_image_url = $1, inline_images = $2::jsonb, updated_at = NOW() WHERE slug = $3`,
-      [hero.url, JSON.stringify(inl.images), opts.slug],
+      `UPDATE editorial_takes SET hero_image_url = $1, inline_images = $2::jsonb, layout_images = $3::jsonb, updated_at = NOW() WHERE slug = $4`,
+      [hero.url, JSON.stringify(inl.images), JSON.stringify(layoutImages), opts.slug],
     );
-    console.error(`[regen-images] done — hero + ${inl.images.length} inline, ~$${(hero.costUsd + inl.costUsd).toFixed(3)}`);
+    console.error(`[regen-images] done — hero + ${inl.images.length} inline + ${layoutImages.length} layout, ~$${(hero.costUsd + inl.costUsd).toFixed(3)}`);
     console.error(`hero: ${hero.url}`);
     for (const im of inl.images) console.error(`inline: ${im.url}`);
+    for (const im of layoutImages) console.error(`layout [${im.style}/${im.ratio}/${im.placement}@${im.anchorAfterBlock}]: ${im.url}`);
     console.error(`Public: https://shorted.com.au/news/${opts.slug}`);
   } finally {
     await pg.end();
