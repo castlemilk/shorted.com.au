@@ -13,12 +13,24 @@
 import { Client as PgClient } from "pg";
 import OpenAI from "openai";
 import { Storage } from "@google-cloud/storage";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { buildAgenda, type AgendaCandidate, type AgendaAngle } from "./agenda.js";
 import { synthesiseNarrative, narrativeToBodyMd, type NarrativeTake, synthesiseFromDossier, type DossierTake } from "./narrative.js";
-import Anthropic from "@anthropic-ai/sdk";
 import { commissionAssignments, type Assignment } from "./editor.js";
-import { investigate } from "./investigator.js";
+import { investigate, type GeminiGenerate } from "./investigator.js";
 import { CitationLedger } from "./ledger.js";
+
+function makeGeminiGenerate(ai: GoogleGenerativeAI, modelName: string): GeminiGenerate {
+  return async ({ systemInstruction, tools, contents }) => {
+    const model = ai.getGenerativeModel({ model: modelName, systemInstruction, tools: [{ functionDeclarations: tools }] });
+    const result = await model.generateContent({ contents });
+    return {
+      functionCalls: () =>
+        result.response.functionCalls()?.map((fc) => ({ name: fc.name, args: (fc.args ?? {}) as Record<string, unknown> })),
+      modelContent: () => result.response.candidates?.[0]?.content ?? { role: "model", parts: [] },
+    };
+  };
+}
 
 const GCS_BUCKET = process.env.GCS_LOGO_BUCKET ?? "shorted-company-logos";
 const SITE_URL = process.env.SHORTED_SITE_URL ?? "https://shorted.com.au";
@@ -389,22 +401,19 @@ export interface DailyOptions {
 export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) throw new Error("DATABASE_URL not set");
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  if (!anthropicKey) throw new Error("ANTHROPIC_API_KEY not set");
-  if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set (required by the writer)");
+  if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
   if (opts.withImages && !process.env.OPENAI_API_KEY) {
     throw new Error("OPENAI_API_KEY not set (required for --with-images)");
   }
 
-  const takeModel = process.env.INVESTIGATOR_MODEL_TAKE ?? "claude-sonnet-4-6";
-  const deepModel = process.env.INVESTIGATOR_MODEL_DEEPDIVE ?? "claude-opus-4-8";
+  const takeModel = process.env.INVESTIGATOR_MODEL_TAKE ?? "gemini-3.5-flash";
+  const deepModel = process.env.INVESTIGATOR_MODEL_DEEPDIVE ?? "gemini-3.5-flash";
   const maxTurnsTake = Number(process.env.MAX_TURNS_TAKE ?? 6);
   const maxTurnsDeep = Number(process.env.MAX_TURNS_DEEPDIVE ?? 14);
 
   const pg = new PgClient({ connectionString: dbUrl });
   await pg.connect();
-  const client = new Anthropic({ apiKey: anthropicKey });
-  const create = (body: Anthropic.MessageCreateParamsNonStreaming) => client.messages.create(body) as Promise<Anthropic.Message>;
+  const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
   let openai: OpenAI | null = null;
   let storage: Storage | null = null;
@@ -437,8 +446,7 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
       const t0 = Date.now();
       try {
         const ledger = new CitationLedger();
-        const dossier = await investigate(create, pg, a, ledger, {
-          model: a.tier === "deep_dive" ? deepModel : takeModel,
+        const dossier = await investigate(makeGeminiGenerate(ai, a.tier === "deep_dive" ? deepModel : takeModel), pg, a, ledger, {
           maxTurns: a.tier === "deep_dive" ? maxTurnsDeep : maxTurnsTake,
         });
         const writerModel = a.tier === "deep_dive"
@@ -496,18 +504,16 @@ export interface PreviewOptions {
 export async function runNewsroomPreview(opts: PreviewOptions): Promise<void> {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) throw new Error("DATABASE_URL not set");
-  if (!process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not set");
   if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
 
-  const takeModel = process.env.INVESTIGATOR_MODEL_TAKE ?? "claude-sonnet-4-6";
-  const deepModel = process.env.INVESTIGATOR_MODEL_DEEPDIVE ?? "claude-opus-4-8";
+  const takeModel = process.env.INVESTIGATOR_MODEL_TAKE ?? "gemini-3.5-flash";
+  const deepModel = process.env.INVESTIGATOR_MODEL_DEEPDIVE ?? "gemini-3.5-flash";
   const maxTurnsTake = Number(process.env.MAX_TURNS_TAKE ?? 6);
   const maxTurnsDeep = Number(process.env.MAX_TURNS_DEEPDIVE ?? 14);
 
   const pg = new PgClient({ connectionString: dbUrl });
   await pg.connect();
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const create = (body: Anthropic.MessageCreateParamsNonStreaming) => client.messages.create(body) as Promise<Anthropic.Message>;
+  const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
   try {
     const code = opts.stockCode.toUpperCase();
@@ -518,11 +524,11 @@ export async function runNewsroomPreview(opts: PreviewOptions): Promise<void> {
       tier: opts.tier,
       rationale: "preview",
     };
-    console.error(`[preview] investigating ${code} [${opts.tier}] (model ${opts.tier === "deep_dive" ? deepModel : takeModel})...`);
+    const investigatorModel = opts.tier === "deep_dive" ? deepModel : takeModel;
+    console.error(`[preview] investigating ${code} [${opts.tier}] (model ${investigatorModel})...`);
     const t0 = Date.now();
     const ledger = new CitationLedger();
-    const dossier = await investigate(create, pg, assignment, ledger, {
-      model: opts.tier === "deep_dive" ? deepModel : takeModel,
+    const dossier = await investigate(makeGeminiGenerate(ai, investigatorModel), pg, assignment, ledger, {
       maxTurns: opts.tier === "deep_dive" ? maxTurnsDeep : maxTurnsTake,
     });
     const take = await synthesiseFromDossier(dossier, ledger, code);

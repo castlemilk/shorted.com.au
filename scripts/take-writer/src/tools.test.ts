@@ -1,15 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
-import { TOOL_DEFS, dispatchTool } from "./tools.js";
+import { GEMINI_TOOL_DECLS, dispatchTool } from "./tools.js";
+import { SchemaType } from "@google/generative-ai";
 import { CitationLedger } from "./ledger.js";
 
-describe("TOOL_DEFS", () => {
-  it("declares the expected tools with input schemas", () => {
-    const names = TOOL_DEFS.map((t) => t.name).sort();
-    expect(names).toEqual(
-      ["align_events", "follow_peer", "news_detail", "report_line", "search_news", "zoom_window"].sort(),
-    );
-    for (const t of TOOL_DEFS) {
-      expect(t.input_schema.type).toBe("object");
+describe("GEMINI_TOOL_DECLS", () => {
+  it("declares the expected tools with object parameter schemas", () => {
+    const names = GEMINI_TOOL_DECLS.map((t) => t.name).sort();
+    expect(names).toEqual(["align_events", "follow_peer", "news_detail", "report_line", "search_news", "zoom_window"].sort());
+    for (const t of GEMINI_TOOL_DECLS) {
+      expect(t.parameters?.type).toBe(SchemaType.OBJECT);
     }
   });
 });

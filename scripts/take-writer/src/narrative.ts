@@ -481,7 +481,7 @@ export function narrativeToBodyMd(n: NarrativeTake): string {
 
 // ---- Dossier-aware writer (investigative newsroom) ----
 
-const WRITER_MODEL = () => process.env.WRITER_MODEL ?? "gemini-2.5-flash";
+const WRITER_MODEL = () => process.env.WRITER_MODEL ?? "gemini-3.5-flash";
 const WRITER_MODEL_DEEPDIVE = () => process.env.WRITER_MODEL_DEEPDIVE ?? WRITER_MODEL();
 
 /** Build the writer prompt from a dossier + its ledger. The writer may
