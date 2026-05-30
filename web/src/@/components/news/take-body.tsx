@@ -1,6 +1,10 @@
 "use client";
 
-import { LinkifiedNarrative } from "~/@/components/reports/linkified-narrative";
+import React from "react";
+import Link from "next/link";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { type ReportCitation } from "~/app/actions/reports/getReportData";
 
 // Friendly display name for raw source slugs from the news aggregator.
 const SOURCE_LABELS: Record<string, string> = {
@@ -55,106 +59,176 @@ interface TakeBodyProps {
   stockCode?: string;
 }
 
+// Citation markers ([ref-N] / [report-N]) collide with markdown link
+// syntax, so before handing the body to the markdown parser we escape
+// them to a sentinel ({{ref-N}}) that survives parsing untouched, then
+// turn the sentinel back into a citation pill while rendering inline text.
+const CODE_PATTERN = /\b([A-Z]{2,4})\b/g;
+const MARKER_PATTERN = /\[((?:ref|report)-\d+)\]/g;
+const SENTINEL_SPLIT = /(«cite:(?:ref|report)-\d+»)/g;
+const SENTINEL_MATCH = /^«cite:(ref|report)-(\d+)»$/;
+
+function escapeMarkers(md: string): string {
+  return md.replace(MARKER_PATTERN, (_m, id: string) => `«cite:${id}»`);
+}
+
+/** Render a plain string: citation sentinels → pills, bare stock codes → links. */
+function renderInlineString(
+  str: string,
+  citationMap: Map<string, ReportCitation>,
+  codeSet: Set<string>,
+  keyBase: string,
+): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  str.split(SENTINEL_SPLIT).forEach((part, pi) => {
+    if (!part) return;
+    const m = SENTINEL_MATCH.exec(part);
+    if (m) {
+      const kind = m[1];
+      const num = m[2]!;
+      const refId = `${kind}-${num}`;
+      const citation = citationMap.get(refId);
+      if (!citation) {
+        out.push(<span key={`${keyBase}-x${pi}`}>{`[${refId}]`}</span>);
+        return;
+      }
+      const isReport = kind === "report" || citation.type === "report";
+      const tooltip = [
+        isReport ? "Financial report" : citation.source,
+        citation.date ? `(${citation.date})` : "",
+        citation.type ? `[${citation.type.replace(/_/g, " ")}]` : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const pillClass = isReport
+        ? "relative -top-1 inline-flex h-4 min-w-5 items-center justify-center rounded bg-amber-500/15 px-0.5 text-[10px] font-semibold text-amber-300 no-underline transition-colors hover:bg-amber-500/25"
+        : "relative -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded bg-primary/10 px-0.5 text-[10px] font-semibold text-primary no-underline transition-colors hover:bg-primary/20";
+      out.push(
+        <a key={`${keyBase}-c${pi}`} href={`#${refId}`} title={tooltip} className={pillClass}>
+          {isReport ? `R${num}` : num}
+        </a>,
+      );
+      return;
+    }
+    // Plain text — auto-link known stock codes.
+    CODE_PATTERN.lastIndex = 0;
+    let lastEnd = 0;
+    let match: RegExpExecArray | null;
+    let i = 0;
+    while ((match = CODE_PATTERN.exec(part)) !== null) {
+      const code = match[1]!;
+      if (!codeSet.has(code)) continue;
+      if (match.index > lastEnd) {
+        out.push(<span key={`${keyBase}-${pi}-t${i++}`}>{part.slice(lastEnd, match.index)}</span>);
+      }
+      out.push(
+        <Link
+          key={`${keyBase}-${pi}-l${i++}`}
+          href={`/shorts/${code}`}
+          prefetch={false}
+          className="font-semibold text-primary underline-offset-2 hover:underline"
+        >
+          {code}
+        </Link>,
+      );
+      lastEnd = match.index + code.length;
+    }
+    if (lastEnd < part.length) {
+      out.push(<span key={`${keyBase}-${pi}-t${i++}`}>{part.slice(lastEnd)}</span>);
+    }
+  });
+  return out;
+}
+
+/** Apply the inline transform to a node tree's string children (recursing
+ *  into nested markdown elements like <strong>/<em> is handled because
+ *  those elements re-enter their own component override). */
+function linkify(
+  children: React.ReactNode,
+  citationMap: Map<string, ReportCitation>,
+  codeSet: Set<string>,
+): React.ReactNode {
+  return React.Children.map(children, (child, i) => {
+    if (typeof child === "string") {
+      return renderInlineString(child, citationMap, codeSet, `n${i}`);
+    }
+    return child;
+  });
+}
+
+function buildComponents(
+  citationMap: Map<string, ReportCitation>,
+  codeSet: Set<string>,
+): Components {
+  const inline = (children: React.ReactNode) => linkify(children, citationMap, codeSet);
+  return {
+    h1: ({ children }) => <h2 className="mb-2 mt-8 text-2xl font-bold tracking-tight text-foreground">{inline(children)}</h2>,
+    h2: ({ children }) => <h2 className="mb-2 mt-8 text-xl font-bold tracking-tight text-foreground">{inline(children)}</h2>,
+    h3: ({ children }) => <h3 className="mb-1.5 mt-6 text-lg font-semibold tracking-tight text-foreground">{inline(children)}</h3>,
+    h4: ({ children }) => <h4 className="mb-1 mt-4 text-base font-semibold text-foreground">{inline(children)}</h4>,
+    p: ({ children }) => <p className="text-foreground/90">{inline(children)}</p>,
+    ul: ({ children }) => <ul className="ml-5 list-disc space-y-1 text-foreground/90">{children}</ul>,
+    ol: ({ children }) => <ol className="ml-5 list-decimal space-y-1 text-foreground/90">{children}</ol>,
+    li: ({ children }) => <li>{inline(children)}</li>,
+    strong: ({ children }) => <strong className="font-semibold text-foreground">{inline(children)}</strong>,
+    em: ({ children }) => <em>{inline(children)}</em>,
+    blockquote: ({ children }) => (
+      <blockquote className="border-l-2 border-orange-400/50 pl-4 italic text-foreground/80">{children}</blockquote>
+    ),
+    a: ({ href, children }) => (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="text-primary underline-offset-2 hover:underline">
+        {children}
+      </a>
+    ),
+    code: ({ children }) => <code className="rounded bg-muted px-1 py-0.5 font-mono text-sm">{children}</code>,
+    hr: () => <hr className="my-6 border-border" />,
+  };
+}
+
 /**
- * Renders an editorial Take body with inline [ref-N] citations and an
- * auto-linked stock code. Reuses LinkifiedNarrative's ref-pill rendering
- * (originally built for weekly reports) by adapting our TakeCitation
- * shape to the ReportCitation shape it expects.
- *
- * The body is split on blank lines into paragraphs; each paragraph is
- * wrapped in <p> with brand-mono prose styling so it picks up the
- * IBM_Plex_Mono variable + generous line height we use elsewhere.
- *
- * The Sources list renders below the body in a compact ordered list
- * keyed by ref id; clicking a ref pill in the prose anchors here.
+ * Renders an editorial Take body as markdown (headings, lists, emphasis,
+ * blockquotes, …) with inline [ref-N] citation pills and auto-linked
+ * stock codes preserved. The body is split on blank lines into blocks so
+ * inline images can be woven between them; each block is rendered with
+ * react-markdown. The Sources list renders below, keyed by ref id.
  */
 export function TakeBody({ bodyMd, citations, inlineImages = [], stockCode }: TakeBodyProps) {
-  const paragraphs = bodyMd.split(/\n\s*\n/).filter((p) => p.trim().length > 0);
+  const blocks = bodyMd.split(/\n\s*\n/).filter((p) => p.trim().length > 0);
 
-  // LinkifiedNarrative expects ReportCitation with `id` not `refId`.
-  // Adapt; map our TakeCitation.source+date+url onto its shape.
-  const adapted = citations.map((c) => ({
-    id: c.refId,
-    source: c.source,
-    date: c.date,
-    url: c.url,
-    type: c.type,
-  }));
-  const validCodes = stockCode ? [stockCode] : [];
+  // LinkifiedNarrative-style citation lookup (ReportCitation shape).
+  const citationMap = new Map<string, ReportCitation>();
+  for (const c of citations) {
+    citationMap.set(c.refId, { id: c.refId, source: c.source, date: c.date, url: c.url, type: c.type } as ReportCitation);
+  }
+  const codeSet = new Set((stockCode ? [stockCode] : []).map((c) => c.toUpperCase()));
+  const components = buildComponents(citationMap, codeSet);
 
-  // Decide which paragraph indices get an inline image AFTER them.
-  // With 4 paragraphs and 2 images: after p[0] and after p[2]
-  // (evenly distributed, never at the very end).
+  // Distribute inline images evenly between blocks (never after the last).
   const imageAfterIdx = new Set<number>();
-  if (inlineImages.length > 0 && paragraphs.length >= 2) {
+  if (inlineImages.length > 0 && blocks.length >= 2) {
     const slots = inlineImages.length;
-    const step = Math.max(1, Math.floor(paragraphs.length / (slots + 1)));
+    const step = Math.max(1, Math.floor(blocks.length / (slots + 1)));
     for (let i = 1; i <= slots; i++) {
       const idx = i * step - 1;
-      if (idx >= 0 && idx < paragraphs.length - 1) imageAfterIdx.add(idx);
+      if (idx >= 0 && idx < blocks.length - 1) imageAfterIdx.add(idx);
     }
   }
 
   return (
     <div>
       <div className="space-y-5 text-base leading-relaxed">
-        {paragraphs.flatMap((para, i) => {
-          const nodes: React.ReactNode[] = [];
-          // Long-form deep-dives use "## Heading" / "### Heading" blocks.
-          // Render those as real headings instead of literal text. The
-          // writer blank-line-separates headings from prose, so a heading
-          // is its own block; defensively, any prose on later lines of the
-          // same block still renders as a paragraph.
-          const splitLines = para.split("\n");
-          const firstLine = splitLines[0] ?? "";
-          const restLines = splitLines.slice(1);
-          const headingMatch = /^(#{2,4})\s+(.+)$/.exec(firstLine.trim());
-          if (headingMatch) {
-            const level = (headingMatch[1] ?? "##").length;
-            const text = headingMatch[2] ?? "";
-            const HeadingTag = level <= 2 ? "h2" : "h3";
-            nodes.push(
-              <HeadingTag
-                key={`h-${i}`}
-                className={
-                  level <= 2
-                    ? "mt-8 mb-1 text-xl font-bold tracking-tight text-foreground"
-                    : "mt-6 mb-1 text-lg font-semibold tracking-tight text-foreground"
-                }
-              >
-                {text}
-              </HeadingTag>,
-            );
-            const rest = restLines.join("\n").trim();
-            if (rest) {
-              nodes.push(
-                <p key={`p-${i}`} className="text-foreground/90">
-                  <LinkifiedNarrative text={rest} citations={adapted} validCodes={validCodes} />
-                </p>,
-              );
-            }
-          } else {
-            nodes.push(
-              <p key={`p-${i}`} className="text-foreground/90">
-                <LinkifiedNarrative
-                  text={para}
-                  citations={adapted}
-                  validCodes={validCodes}
-                />
-              </p>,
-            );
-          }
+        {blocks.flatMap((block, i) => {
+          const nodes: React.ReactNode[] = [
+            <ReactMarkdown key={`b-${i}`} remarkPlugins={[remarkGfm]} components={components}>
+              {escapeMarkers(block)}
+            </ReactMarkdown>,
+          ];
           if (imageAfterIdx.has(i)) {
-            // Position derived from the imageAfterIdx Set membership;
-            // count how many image slots have already passed.
             const slotIndex = [...imageAfterIdx].sort((a, b) => a - b).indexOf(i);
             const img = inlineImages[slotIndex];
             if (img) {
               nodes.push(
-                <figure
-                  key={`img-${i}`}
-                  className="my-2 overflow-hidden rounded-xl border border-border bg-zinc-950"
-                >
+                <figure key={`img-${i}`} className="my-2 overflow-hidden rounded-xl border border-border bg-zinc-950">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={img.url}
@@ -173,9 +247,7 @@ export function TakeBody({ bodyMd, citations, inlineImages = [], stockCode }: Ta
 
       {citations.length > 0 ? (
         <aside className="mt-12 border-t border-border pt-6">
-          <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-orange-400">
-            Sources
-          </h2>
+          <h2 className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-orange-400">Sources</h2>
           <ol className="space-y-3">
             {citations.map((c) => {
               const isReport = c.type === "report";
@@ -184,11 +256,7 @@ export function TakeBody({ bodyMd, citations, inlineImages = [], stockCode }: Ta
                 ? "h-5 min-w-6 rounded bg-amber-500/15 px-1 text-amber-300"
                 : "h-5 min-w-5 rounded bg-primary/10 px-1 text-primary";
               return (
-                <li
-                  key={c.refId}
-                  id={c.refId}
-                  className="flex gap-3 scroll-mt-20"
-                >
+                <li key={c.refId} id={c.refId} className="flex gap-3 scroll-mt-20">
                   <span className={`flex flex-shrink-0 items-center justify-center font-mono text-[11px] font-semibold ${pillClass}`}>
                     {label}
                   </span>
