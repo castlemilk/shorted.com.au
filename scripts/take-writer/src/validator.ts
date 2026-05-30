@@ -17,7 +17,10 @@ import { Storage } from "@google-cloud/storage";
 import { Client as PgClient } from "pg";
 import { type LayoutImage, generateOneLayoutImage } from "./art-director.js";
 
-const JUDGE_MODEL = (): string => process.env.VALIDATOR_MODEL ?? "gemini-3-pro-preview";
+// gemini-3-pro-preview 404s on the generativelanguage v1beta API as of
+// 2026-05-30; gemini-3.5-flash supports vision + responseSchema and is the
+// working default. Override via VALIDATOR_MODEL when the preview model lands.
+const JUDGE_MODEL = (): string => process.env.VALIDATOR_MODEL ?? "gemini-3.5-flash";
 const SITE = (): string => process.env.SHORTED_SITE_URL ?? "https://shorted.com.au";
 
 async function screenshotArticle(slug: string): Promise<Buffer> {
