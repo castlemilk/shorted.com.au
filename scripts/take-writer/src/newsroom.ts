@@ -131,6 +131,24 @@ const INLINE_BRIEF_MODEL = () => process.env.INLINE_BRIEF_MODEL ?? "gemini-3.5-f
 /** Turn an article section into a concrete, photographic image concept
  *  tied to its specific subject/mood. Falls back to the industry hint on
  *  any error so image generation never hard-fails on the brief step. */
+/** Reject preamble / markdown / mid-fragment junk and keep only a clean
+ *  first sentence. Returns null if what's left isn't a usable scene. */
+function sanitiseBrief(raw: string): string | null {
+  let s = raw.trim().replace(/^["']|["']$/g, "").trim();
+  // Drop obvious instruction-echo / preamble lines.
+  if (/\b(restrictions?|do not|output only|no preamble)\b/i.test(s)) return null;
+  if (s.includes("**") || s.includes("##")) return null;
+  // Drop a leading markdown bullet/heading marker if present.
+  s = s.replace(/^[#>*\-\s]+/, "").trim();
+  // Keep only the first sentence.
+  const m = s.match(/^.*?[.!?](\s|$)/);
+  if (m) s = m[0].trim();
+  // Reject mid-fragment starts (lowercase opener or stray close-paren).
+  if (/^[a-z)]/.test(s)) return null;
+  if (s.includes(")") && !s.includes("(")) return null;
+  return s.length > 15 ? s : null;
+}
+
 async function visualBriefForSection(
   ai: GoogleGenerativeAI,
   stockCode: string,
@@ -140,7 +158,16 @@ async function visualBriefForSection(
   try {
     const model = ai.getGenerativeModel({
       model: INLINE_BRIEF_MODEL(),
-      generationConfig: { temperature: 0.9, maxOutputTokens: 200 },
+      // gemini-3.5-flash burns its whole output budget on thinking tokens
+      // unless thinking is disabled — without thinkingBudget:0 the brief
+      // truncates to a few words (finishReason MAX_TOKENS). The cast is
+      // because the SDK's GenerationConfig type predates thinkingConfig;
+      // the field is forwarded to the API at runtime.
+      generationConfig: {
+        temperature: 0.9,
+        maxOutputTokens: 400,
+        thinkingConfig: { thinkingBudget: 0 },
+      } as unknown as Parameters<GoogleGenerativeAI["getGenerativeModel"]>[0]["generationConfig"],
     });
     const prompt = `You are an art director for a financial publication. Read this excerpt from an article about ${stockCode} (sector: ${industry ?? "general market"}).
 
@@ -151,8 +178,8 @@ It will be shot dark and cinematic with a single warm amber light source. Do NOT
 Excerpt:
 ${sectionText.slice(0, 900)}`;
     const resp = await model.generateContent(prompt);
-    const brief = resp.response.text().trim().replace(/^["']|["']$/g, "");
-    return brief.length > 10 ? brief : subjectHintForIndustry(industry);
+    const brief = sanitiseBrief(resp.response.text());
+    return brief ?? subjectHintForIndustry(industry);
   } catch {
     return subjectHintForIndustry(industry);
   }
