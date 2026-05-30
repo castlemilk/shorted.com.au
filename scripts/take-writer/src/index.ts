@@ -13,6 +13,7 @@ import { buildReport } from "./journalism.js";
 import { synthesiseNarrative, narrativeToBodyMd } from "./narrative.js";
 import { buildAgenda, formatAgendaCandidate } from "./agenda.js";
 import { runNewsroom, runNewsroomDaily, runNewsroomPreview, regenerateImages } from "./newsroom.js";
+import { validateArticle } from "./validator.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -52,6 +53,8 @@ interface Args {
   angle?: string;
   slug?: string;
   inline?: number;
+  // validate-article
+  rounds?: number;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -93,6 +96,9 @@ function parseArgs(argv: string[]): Args {
     else if (arg.startsWith("--inline=")) {
       const v = arg.split("=")[1];
       if (v) args.inline = parseInt(v, 10);
+    } else if (arg.startsWith("--rounds=")) {
+      const v = arg.split("=")[1];
+      if (v) args.rounds = parseInt(v, 10);
     } else if (!arg.startsWith("--") && !args.command) args.command = arg;
   }
   return args;
@@ -111,6 +117,7 @@ Commands:
   newsroom-daily  Investigative daily run: editor -> agentic investigation -> tiered writer
   newsroom-preview Investigate ONE --stock=CODE and print the report (no DB write, no images)
   regen-images    Generate a hero + inline images for an existing take (--slug=SLUG [--inline=2])
+  validate-article Screenshot + Gemini-vision cohesion check with auto-fix loop (--slug=SLUG [--rounds=2])
   narrative Multi-section journalism-engine Take for one --stock=CODE
 
 run flags:
@@ -347,6 +354,11 @@ async function main(): Promise<void> {
     case "regen-images": {
       if (!args.slug && !args.stockCode) throw new Error("--slug=SLUG required for regen-images");
       await regenerateImages({ slug: args.slug ?? "", inlineCount: args.inline });
+      break;
+    }
+    case "validate-article": {
+      if (!args.slug) throw new Error("--slug=SLUG required for validate-article");
+      await validateArticle(args.slug, { rounds: args.rounds });
       break;
     }
     case "agenda": {
