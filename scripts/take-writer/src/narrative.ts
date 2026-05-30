@@ -551,10 +551,13 @@ export interface DossierTake {
   droppedCitations: string[];
 }
 
+const HEADLINE_DESC =
+  "Editorial headline, 6-11 words, sentence case (only proper nouns + ticker codes capitalised). Lead with the specific observation, not company-name boilerplate. Use figures ($600M, 14%, 22%) — never spelled-out numbers ('six-hundred million'). No 'Reacts to', 'Responds to', 'Faces', or other AI-tell verbs. Examples: 'Zip shorts doubled while the chart halved', 'Telix shorts held through the $600M raise', 'Lotus at 18% as Kayelekera burns'.";
+
 const TAKE_DOSSIER_SCHEMA = {
   type: SchemaType.OBJECT,
   properties: {
-    headline: { type: SchemaType.STRING },
+    headline: { type: SchemaType.STRING, description: HEADLINE_DESC },
     sentiment: { type: SchemaType.STRING, enum: ["positive", "negative", "neutral"] },
     background: { type: SchemaType.STRING },
     recent_events: { type: SchemaType.STRING },
@@ -567,7 +570,7 @@ const TAKE_DOSSIER_SCHEMA = {
 const DEEPDIVE_DOSSIER_SCHEMA = {
   type: SchemaType.OBJECT,
   properties: {
-    headline: { type: SchemaType.STRING },
+    headline: { type: SchemaType.STRING, description: HEADLINE_DESC },
     sentiment: { type: SchemaType.STRING, enum: ["positive", "negative", "neutral"] },
     sections: {
       type: SchemaType.ARRAY,
