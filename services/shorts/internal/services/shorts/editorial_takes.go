@@ -136,6 +136,23 @@ func convertEditorialTake(t *shortsstore.EditorialTake) *shortsv1alpha1.Editoria
 			}
 		}
 	}
+	if len(t.LayoutImages) > 0 {
+		var lis []shortsstore.LayoutImage
+		if err := json.Unmarshal(t.LayoutImages, &lis); err == nil {
+			out.LayoutImages = make([]*shortsv1alpha1.LayoutImage, len(lis))
+			for i, li := range lis {
+				out.LayoutImages[i] = &shortsv1alpha1.LayoutImage{
+					Url:              li.URL,
+					Style:            li.Style,
+					Ratio:            li.Ratio,
+					Brief:            li.Brief,
+					Caption:          li.Caption,
+					Placement:        li.Placement,
+					AnchorAfterBlock: int32(li.AnchorAfterBlock),
+				}
+			}
+		}
+	}
 	return out
 }
 
