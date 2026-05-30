@@ -15,6 +15,11 @@ import OpenAI from "openai";
 import { Storage } from "@google-cloud/storage";
 import { buildAgenda, type AgendaCandidate, type AgendaAngle } from "./agenda.js";
 import { synthesiseNarrative, narrativeToBodyMd, type NarrativeTake } from "./narrative.js";
+import Anthropic from "@anthropic-ai/sdk";
+import { commissionAssignments, type Assignment } from "./editor.js";
+import { investigate } from "./investigator.js";
+import { synthesiseFromDossier, type DossierTake } from "./narrative.js";
+import { CitationLedger } from "./ledger.js";
 
 const GCS_BUCKET = process.env.GCS_LOGO_BUCKET ?? "shorted-company-logos";
 const SITE_URL = process.env.SHORTED_SITE_URL ?? "https://shorted.com.au";
@@ -327,6 +332,148 @@ async function insertTake(
       JSON.stringify(inlineImages),
     ],
   );
+}
+
+/** Hold a piece as a draft (don't auto-publish) when grounding is weak:
+ *  any dangling citation the writer invented, or a deep-dive with no
+ *  citations at all. Never auto-publish ungrounded claims about a named
+ *  company. */
+export function shouldHoldAsDraft(t: { droppedCitations: string[]; citations: unknown[]; tier?: "take" | "deep_dive" }): boolean {
+  if (t.droppedCitations.length > 0) return true;
+  if (t.tier === "deep_dive" && t.citations.length === 0) return true;
+  return false;
+}
+
+async function insertDossierTake(
+  pg: PgClient,
+  take: DossierTake,
+  stockCode: string,
+  heroUrl: string | null,
+  inlineImages: InlineImageRow[],
+  publish: boolean,
+  writerModel: string,
+): Promise<void> {
+  const publishedClause = publish ? "NOW()" : "NULL";
+  await pg.query(
+    `INSERT INTO editorial_takes (
+       slug, headline, stock_code, body_md, sentiment, word_count, model, tier,
+       citations, hero_image_url, inline_images, published_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11::jsonb,${publishedClause})
+     ON CONFLICT (slug) DO UPDATE SET
+       headline=EXCLUDED.headline, body_md=EXCLUDED.body_md, tier=EXCLUDED.tier,
+       sentiment=EXCLUDED.sentiment, word_count=EXCLUDED.word_count,
+       citations=EXCLUDED.citations,
+       hero_image_url=COALESCE(EXCLUDED.hero_image_url, editorial_takes.hero_image_url),
+       inline_images=CASE WHEN jsonb_array_length(EXCLUDED.inline_images) > 0
+                          THEN EXCLUDED.inline_images ELSE editorial_takes.inline_images END,
+       updated_at=NOW()`,
+    [
+      take.slug, take.headline, stockCode, take.bodyMd, take.sentiment,
+      take.bodyMd.split(/\s+/).filter(Boolean).length, writerModel, take.tier,
+      JSON.stringify(take.citations), heroUrl, JSON.stringify(inlineImages),
+    ],
+  );
+}
+
+export interface DailyOptions {
+  poolSize?: number;
+  maxTakes?: number;
+  maxDeepDives?: number;
+  autoPublish: boolean;
+  withImages: boolean;
+}
+
+export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) throw new Error("DATABASE_URL not set");
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  if (!anthropicKey) throw new Error("ANTHROPIC_API_KEY not set");
+
+  const takeModel = process.env.INVESTIGATOR_MODEL_TAKE ?? "claude-sonnet-4-6";
+  const deepModel = process.env.INVESTIGATOR_MODEL_DEEPDIVE ?? "claude-opus-4-8";
+  const maxTurnsTake = Number(process.env.MAX_TURNS_TAKE ?? 6);
+  const maxTurnsDeep = Number(process.env.MAX_TURNS_DEEPDIVE ?? 14);
+
+  const pg = new PgClient({ connectionString: dbUrl });
+  await pg.connect();
+  const client = new Anthropic({ apiKey: anthropicKey });
+  const create = (body: Anthropic.MessageCreateParamsNonStreaming) => client.messages.create(body) as Promise<Anthropic.Message>;
+
+  let openai: OpenAI | null = null;
+  let storage: Storage | null = null;
+  if (opts.withImages) {
+    const key = process.env.OPENAI_API_KEY;
+    if (!key) throw new Error("OPENAI_API_KEY not set (required for --with-images)");
+    openai = new OpenAI({ apiKey: key });
+    storage = new Storage();
+  }
+
+  let totalCost = 0;
+  let published = 0, drafted = 0, held = 0, failed = 0;
+
+  try {
+    console.log(`\n[newsroom-daily] commissioning (pool ${opts.poolSize ?? 30}, <=${opts.maxTakes ?? 10} takes, <=${opts.maxDeepDives ?? 2} deep-dives)...`);
+    const assignments = await commissionAssignments(pg, {
+      poolSize: opts.poolSize,
+      maxTakes: opts.maxTakes,
+      maxDeepDives: opts.maxDeepDives,
+    });
+    if (assignments.length === 0) {
+      console.log("[newsroom-daily] nothing new to cover today.");
+      return;
+    }
+    console.log(`[newsroom-daily] ${assignments.length} assignments:`);
+    for (const a of assignments) console.log(`  - ${a.stockCode} [${a.tier}] ${a.angle}`);
+
+    for (const [i, a] of assignments.entries()) {
+      const tag = `[${i + 1}/${assignments.length}] ${a.stockCode}`;
+      const t0 = Date.now();
+      try {
+        const ledger = new CitationLedger();
+        const dossier = await investigate(create, pg, a, ledger, {
+          model: a.tier === "deep_dive" ? deepModel : takeModel,
+          maxTurns: a.tier === "deep_dive" ? maxTurnsDeep : maxTurnsTake,
+        });
+        const writerModel = a.tier === "deep_dive"
+          ? (process.env.WRITER_MODEL_DEEPDIVE ?? process.env.WRITER_MODEL ?? "gemini-2.5-flash")
+          : (process.env.WRITER_MODEL ?? "gemini-2.5-flash");
+        const take = await synthesiseFromDossier(dossier, ledger, a.stockCode);
+        console.log(`${tag} -> "${take.headline}" (${take.citations.length} cites, ${take.droppedCitations.length} dropped)`);
+
+        const hold = shouldHoldAsDraft(take);
+        if (hold && opts.autoPublish) {
+          console.warn(`${tag}   holding as draft (grounding weak: dropped ${take.droppedCitations.join(",") || "none"})`);
+        }
+        const publishThis = opts.autoPublish && !hold;
+
+        let heroUrl: string | null = null;
+        let inlineImages: InlineImageRow[] = [];
+        if (opts.withImages && openai && storage) {
+          const candidate = { stockCode: a.stockCode, industry: null } as unknown as AgendaCandidate;
+          const narrativeShim = { slug: take.slug, headline: take.headline } as unknown as NarrativeTake;
+          const img = await generateHero(openai, storage, candidate, narrativeShim);
+          heroUrl = img.url; totalCost += img.costUsd;
+          const inl = await generateInlineImages(openai, storage, candidate, narrativeShim, 2);
+          inlineImages = inl.images; totalCost += inl.costUsd;
+        }
+
+        await insertDossierTake(pg, take, a.stockCode, heroUrl, inlineImages, publishThis, writerModel);
+        if (publishThis) published++;
+        else if (hold) held++;
+        else drafted++;
+        console.log(`${tag}   ${publishThis ? "published" : "draft"} /news/${take.slug} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
+      } catch (err) {
+        failed++;
+        console.log(`${tag}   FAILED: ${String((err as Error).message ?? err).slice(0, 160)}`);
+      }
+    }
+  } finally {
+    await pg.end();
+  }
+
+  console.log("\n=== Newsroom-daily briefing ===");
+  console.log(`  published: ${published}  drafted: ${drafted}  held(weak grounding): ${held}  failed: ${failed}`);
+  console.log(`  image cost: $${totalCost.toFixed(3)} (LLM token cost logged by providers)`);
 }
 
 export async function runNewsroom(opts: NewsroomOptions): Promise<NewsroomResult[]> {
