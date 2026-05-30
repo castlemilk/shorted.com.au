@@ -55,10 +55,12 @@ export interface TakeInlineImage {
 export interface TakeLayoutImage {
   url: string;
   style?: string;
-  ratio: "landscape" | "portrait" | "square" | string;
+  /** "landscape" | "portrait" | "square" */
+  ratio: string;
   brief?: string;
   caption?: string;
-  placement: "full" | "left" | "right" | "inset" | string;
+  /** "full" | "left" | "right" | "inset" */
+  placement: string;
   anchorAfterBlock: number;
 }
 
@@ -209,7 +211,7 @@ function renderLayoutImage(li: TakeLayoutImage, key: string): React.ReactNode {
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={li.url}
-      alt={li.caption || li.brief || "Editorial illustration"}
+      alt={li.caption ?? li.brief ?? "Editorial illustration"}
       className={`w-full ${aspectClass(li.ratio)} object-cover`}
       loading="lazy"
       decoding="async"
