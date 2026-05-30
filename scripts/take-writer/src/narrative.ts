@@ -15,6 +15,8 @@
 
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { type JournalismReport, type NewsArticle } from "./journalism.js";
+import { CitationLedger, compactCitations } from "./ledger.js";
+import type { Dossier } from "./investigator.js";
 
 export interface Citation {
   refId: string;             // ref-1, ref-2, … or report-1, report-2
@@ -475,4 +477,165 @@ export function narrativeToBodyMd(n: NarrativeTake): string {
     "",
     n.outlook,
   ].join("\n");
+}
+
+// ---- Dossier-aware writer (investigative newsroom) ----
+
+const WRITER_MODEL = () => process.env.WRITER_MODEL ?? "gemini-2.5-flash";
+const WRITER_MODEL_DEEPDIVE = () => process.env.WRITER_MODEL_DEEPDIVE ?? WRITER_MODEL();
+
+/** Build the writer prompt from a dossier + its ledger. The writer may
+ *  only cite the refIds listed here. */
+export function buildDossierPrompt(dossier: Dossier, ledger: CitationLedger): string {
+  const sources: string[] = [];
+  for (let i = 1; ledger.has(`ref-${i}`); i++) {
+    const s = ledger.get(`ref-${i}`)!;
+    sources.push(`[ref-${i}] (${s.date}, ${s.source}, ${s.type}): ${s.headline}`);
+  }
+  const threads = dossier.threads
+    .map((t, i) => `${i + 1}. ${t.claim}${t.note ? ` — ${t.note}` : ""} (evidence: ${t.evidenceRefIds.join(", ") || "none"})`)
+    .join("\n");
+  const numbers = dossier.keyNumbers
+    .map((n) => `- ${n.label}: ${n.value}${n.refId ? ` [${n.refId}]` : ""}`)
+    .join("\n");
+  const timeline = (dossier.timeline ?? [])
+    .map((t) => `- ${t.date}: ${t.event} (${t.refIds.join(", ")})`)
+    .join("\n");
+  return [
+    `Subject: ${dossier.stockCode}`,
+    `Angle: ${dossier.angle}`,
+    `Investigation summary: ${dossier.summary}`,
+    "",
+    "=== FINDINGS (threads) ===",
+    threads || "(none)",
+    "",
+    "=== KEY NUMBERS ===",
+    numbers || "(none)",
+    timeline ? `\n=== TIMELINE ===\n${timeline}` : "",
+    "",
+    "=== CITABLE SOURCES (cite ONLY these refIds, inline as [ref-N]) ===",
+    sources.join("\n") || "(none)",
+  ].join("\n");
+}
+
+export function assembleTakeBody(s: { background: string; recent_events: string; the_data: string; outlook: string }): string {
+  return [s.background, "", s.recent_events, "", s.the_data, "", s.outlook].join("\n");
+}
+
+export function assembleDeepDiveBody(sections: Array<{ heading: string; prose: string }>): string {
+  return sections.map((s) => `## ${s.heading}\n\n${s.prose}`).join("\n\n");
+}
+
+export interface DossierTake {
+  slug: string;
+  headline: string;
+  sentiment: "positive" | "negative" | "neutral";
+  tier: "take" | "deep_dive";
+  bodyMd: string;
+  citations: Citation[];
+  droppedCitations: string[];
+}
+
+const TAKE_DOSSIER_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    headline: { type: SchemaType.STRING },
+    sentiment: { type: SchemaType.STRING, enum: ["positive", "negative", "neutral"] },
+    background: { type: SchemaType.STRING },
+    recent_events: { type: SchemaType.STRING },
+    the_data: { type: SchemaType.STRING },
+    outlook: { type: SchemaType.STRING },
+  },
+  required: ["headline", "sentiment", "background", "recent_events", "the_data", "outlook"],
+};
+
+const DEEPDIVE_DOSSIER_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    headline: { type: SchemaType.STRING },
+    sentiment: { type: SchemaType.STRING, enum: ["positive", "negative", "neutral"] },
+    sections: {
+      type: SchemaType.ARRAY,
+      items: {
+        type: SchemaType.OBJECT,
+        properties: { heading: { type: SchemaType.STRING }, prose: { type: SchemaType.STRING } },
+        required: ["heading", "prose"],
+      },
+    },
+  },
+  required: ["headline", "sentiment", "sections"],
+};
+
+/** Write a tiered Take from a grounded dossier. Cites only ledger refIds;
+ *  compactCitations drops anything invented. */
+export async function synthesiseFromDossier(
+  dossier: Dossier,
+  ledger: CitationLedger,
+  stockCode: string,
+): Promise<DossierTake> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY not set");
+  const ai = new GoogleGenerativeAI(apiKey);
+  const deep = dossier.tier === "deep_dive";
+  const model = ai.getGenerativeModel({
+    model: deep ? WRITER_MODEL_DEEPDIVE() : WRITER_MODEL(),
+    systemInstruction: NARRATIVE_SYSTEM_PROMPT,
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: deep ? DEEPDIVE_DOSSIER_SCHEMA : TAKE_DOSSIER_SCHEMA,
+      temperature: 0.7,
+      maxOutputTokens: deep ? 16000 : 8000,
+    },
+  });
+
+  const prompt = [
+    buildDossierPrompt(dossier, ledger),
+    "",
+    deep
+      ? "Write a long-form investigation (600-1200 words). Derive 3-5 section headings from the findings. Cite [ref-N] inline wherever a fact comes from a source. Only cite refIds in CITABLE SOURCES."
+      : "Write the four sections (background, recent_events, the_data, outlook). Cite [ref-N] inline. Only cite refIds in CITABLE SOURCES.",
+  ].join("\n");
+
+  let raw = "";
+  let parsed: Record<string, unknown> = {};
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const resp = await model.generateContent(
+      attempt === 1 ? prompt : prompt + `\n\nIMPORTANT: your previous draft used banned terms. Remove every one.`,
+    );
+    raw = resp.response.text();
+    parsed = JSON.parse(raw);
+    const proseForBan = deep
+      ? (parsed.sections as Array<{ prose: string }> ?? []).map((s) => s.prose).join("\n") + "\n" + String(parsed.headline ?? "")
+      : [parsed.background, parsed.recent_events, parsed.the_data, parsed.outlook, parsed.headline].join("\n");
+    if (findBanned(proseForBan).length === 0) break;
+  }
+
+  const rawBody = deep
+    ? assembleDeepDiveBody((parsed.sections as Array<{ heading: string; prose: string }>) ?? [])
+    : assembleTakeBody({
+        background: String(parsed.background ?? ""),
+        recent_events: String(parsed.recent_events ?? ""),
+        the_data: String(parsed.the_data ?? ""),
+        outlook: String(parsed.outlook ?? ""),
+      });
+
+  const { body, citations, dropped } = compactCitations(rawBody, ledger);
+
+  // Slug pass (reuse the existing low-temp slug model behaviour).
+  const slugModel = ai.getGenerativeModel({ model: WRITER_MODEL(), generationConfig: { temperature: 0.2, maxOutputTokens: 500 } });
+  const slugResp = await slugModel.generateContent(
+    SLUG_PROMPT.replace("{{HEADLINE}}", String(parsed.headline ?? "")).replace("{{STOCK_CODE}}", stockCode),
+  );
+  const slug = slugResp.response.text().trim().toLowerCase()
+    .replace(/[^a-z0-9\s-]+/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 80);
+
+  return {
+    slug,
+    headline: String(parsed.headline ?? ""),
+    sentiment: (parsed.sentiment as DossierTake["sentiment"]) ?? "neutral",
+    tier: dossier.tier,
+    bodyMd: body,
+    citations,
+    droppedCitations: dropped,
+  };
 }
