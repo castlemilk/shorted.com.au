@@ -120,7 +120,8 @@ async function judge(
         `${layoutImages.map((li, i) => `${i}: "${li.caption}" | ${li.placement} | ${li.ratio}`).join("\n")}\n\n` +
         `First image below = the FULL-PAGE SCREENSHOT of the rendered article (judge layout/flow/balance). ` +
         `The remaining images = the individual layout images in order (judge each against its caption + the section it illustrates). ` +
-        `Flag regenerate=true for any image that is off-topic, garbled, generic-when-it-should-be-specific, contains text/charts/faces/logos, ` +
+        `IMPORTANT: the large banner image at the very TOP of the screenshot is the HERO / brand thumbnail — it is INTENTIONALLY an abstract dark-amber brand image (used for social cards + the news grid), NOT meant to be topical. Do NOT penalise the article or lower the cohesion score because the hero is abstract or "off-topic"; ignore the hero entirely. Judge cohesion ONLY on the body layout images and the overall layout/flow. ` +
+        `Flag regenerate=true ONLY for a body layout image that is off-topic, garbled, generic-when-it-should-be-specific, contains text/charts/faces/logos, ` +
         `or whose caption doesn't match. Give a corrected newBrief + newCaption for any flagged image.`,
     },
   ];
