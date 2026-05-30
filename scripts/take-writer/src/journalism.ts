@@ -506,3 +506,61 @@ export async function buildReport(
   const signals = extractSignals(bundle);
   return { bundle, signals };
 }
+
+// --- Newsroom helpers ---
+
+/** Most recent editorial_takes.created_at for a stock (YYYY-MM-DD), or null. */
+export async function lastTakeDateForStock(
+  pg: PgClient,
+  code: string,
+): Promise<string | null> {
+  const { rows } = await pg.query<{ last: string | null }>(
+    `SELECT to_char(MAX(created_at), 'YYYY-MM-DD') AS last
+     FROM editorial_takes WHERE stock_code = $1`,
+    [code],
+  );
+  return rows[0]?.last ?? null;
+}
+
+export interface SignalBoardRow {
+  stockCode: string;
+  name: string | null;
+  industry: string | null;
+  signals: Signals;
+  lastTakeDate: string | null;
+  recentPriceSensitiveHeadlines: Array<{ date: string; headline: string }>;
+}
+
+/**
+ * Build a compact per-stock board for the editor agent: signals +
+ * when we last covered the stock + the few most recent price-sensitive
+ * headlines (so the editor can judge novelty). Pool comes from
+ * mv_top_shorts (most-shorted first).
+ */
+export async function buildSignalBoard(
+  pg: PgClient,
+  poolSize = 30,
+): Promise<SignalBoardRow[]> {
+  const { rows } = await pg.query<{ product_code: string }>(
+    `SELECT product_code FROM mv_top_shorts ORDER BY current_percent DESC LIMIT $1`,
+    [poolSize],
+  );
+  const board: SignalBoardRow[] = [];
+  for (const r of rows) {
+    const code = r.product_code;
+    const report = await buildReport(pg, code);
+    const lastTakeDate = await lastTakeDateForStock(pg, code);
+    board.push({
+      stockCode: code,
+      name: report.bundle.meta.name,
+      industry: report.bundle.meta.industry,
+      signals: report.signals,
+      lastTakeDate,
+      recentPriceSensitiveHeadlines: report.bundle.news
+        .filter((a) => a.isPriceSensitive)
+        .slice(0, 5)
+        .map((a) => ({ date: a.publishedAt.slice(0, 10), headline: a.headline })),
+    });
+  }
+  return board;
+}
