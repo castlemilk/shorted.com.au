@@ -204,52 +204,6 @@ function aspectClass(ratio: string): string {
   return "aspect-[3/2]"; // landscape
 }
 
-/** Render an art-directed layout image as a bespoke editorial figure
- *  (full-bleed, floated beside prose, or centered inset) with caption. */
-function renderLayoutImage(li: TakeLayoutImage, key: string): React.ReactNode {
-  const img = (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={li.url}
-      alt={li.caption ?? li.brief ?? "Editorial illustration"}
-      className={`w-full ${aspectClass(li.ratio)} object-cover`}
-      loading="lazy"
-      decoding="async"
-    />
-  );
-  const caption = li.caption ? (
-    <figcaption className="mt-2 text-xs italic leading-snug text-muted-foreground">
-      {li.caption}
-    </figcaption>
-  ) : null;
-
-  if (li.placement === "left" || li.placement === "right") {
-    // Float beside the following prose (classic editorial wrap).
-    const side = li.placement === "right" ? "float-right ml-6" : "float-left mr-6";
-    return (
-      <figure key={key} className={`${side} my-2 w-1/2 max-w-[320px] sm:w-2/5`}>
-        <div className="overflow-hidden rounded-xl border border-border bg-zinc-950">{img}</div>
-        {caption}
-      </figure>
-    );
-  }
-  if (li.placement === "inset") {
-    return (
-      <figure key={key} className="clear-both mx-auto my-6 w-full max-w-md">
-        <div className="overflow-hidden rounded-xl border border-border bg-zinc-950">{img}</div>
-        {caption}
-      </figure>
-    );
-  }
-  // "full" (and any unknown placement) — full-bleed within the article column.
-  return (
-    <figure key={key} className="clear-both my-6 -mx-2 sm:-mx-4">
-      <div className="overflow-hidden rounded-xl border border-border bg-zinc-950">{img}</div>
-      {caption}
-    </figure>
-  );
-}
-
 /**
  * Renders an editorial Take body as markdown (headings, lists, emphasis,
  * blockquotes, …) with inline [ref-N] citation pills and auto-linked
@@ -258,17 +212,7 @@ function renderLayoutImage(li: TakeLayoutImage, key: string): React.ReactNode {
  * react-markdown. The Sources list renders below, keyed by ref id.
  */
 export function TakeBody({ bodyMd, citations, inlineImages = [], layoutImages, stockCode }: TakeBodyProps) {
-  const blocks = bodyMd.split(/\n\s*\n/).filter((p) => p.trim().length > 0);
-
-  // Art-directed layout images take precedence. Map each to the block it
-  // is anchored after; older takes without layout images fall back to the
-  // even inline-image weaving below.
-  const layoutByBlock = new Map<number, TakeLayoutImage[]>();
-  for (const li of layoutImages ?? []) {
-    const arr = layoutByBlock.get(li.anchorAfterBlock) ?? [];
-    arr.push(li);
-    layoutByBlock.set(li.anchorAfterBlock, arr);
-  }
+  const blocks = bodyMd.split(/\n\s*\n/).filter((b) => b.trim().length > 0);
   const useLayout = (layoutImages?.length ?? 0) > 0;
 
   // LinkifiedNarrative-style citation lookup (ReportCitation shape).
@@ -279,7 +223,110 @@ export function TakeBody({ bodyMd, citations, inlineImages = [], layoutImages, s
   const codeSet = new Set((stockCode ? [stockCode] : []).map((c) => c.toUpperCase()));
   const components = buildComponents(citationMap, codeSet);
 
-  // Distribute inline images evenly between blocks (never after the last).
+  // --- Magazine layout weaving (art-directed layoutImages) ---------------
+  // Classify each layout image: full-bleed (wide break) vs side-pair
+  // (the primary alternating text|image magazine pattern).
+  const fullAfter = new Map<number, TakeLayoutImage>(); // full-bleed after block N
+  const pairAt = new Map<number, TakeLayoutImage>(); // side-by-side paired with block N
+  if (useLayout) {
+    for (const li of layoutImages!) {
+      const anchor = Math.min(Math.max(0, li.anchorAfterBlock ?? 0), blocks.length - 1);
+      const isFull = li.placement === "full" || li.ratio === "landscape";
+      if (isFull) fullAfter.set(anchor, li);
+      else if (!pairAt.has(anchor)) pairAt.set(anchor, li);
+      else fullAfter.set(anchor, li); // overflow: a second image at same anchor goes full
+    }
+  }
+
+  const isHeading = (b: string) => /^#{2,4}\s/.test(b.trim());
+
+  const layoutImg = (li: TakeLayoutImage) => (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={li.url}
+      alt={li.caption ?? li.brief ?? "Editorial illustration"}
+      className={`w-full ${aspectClass(li.ratio)} object-cover`}
+      loading="lazy"
+      decoding="async"
+    />
+  );
+
+  const bodyNodes: React.ReactNode[] = [];
+  if (useLayout) {
+    const consumed = new Set<number>();
+    let pairCount = 0;
+    for (let i = 0; i < blocks.length; i++) {
+      if (consumed.has(i)) continue;
+      const mdFor = (idx: number | number[]) => {
+        const arr = Array.isArray(idx) ? idx : [idx];
+        return arr.map((k) => (
+          <ReactMarkdown key={`md-${k}`} remarkPlugins={[remarkGfm]} components={components}>
+            {escapeMarkers(blocks[k]!)}
+          </ReactMarkdown>
+        ));
+      };
+
+      if (pairAt.has(i)) {
+        const li = pairAt.get(i)!;
+        // Text column = this block; if it's a heading, also pull in the next prose block.
+        const textIdx = [i];
+        if (
+          isHeading(blocks[i]!) &&
+          i + 1 < blocks.length &&
+          !pairAt.has(i + 1) &&
+          !fullAfter.has(i + 1) &&
+          !isHeading(blocks[i + 1]!)
+        ) {
+          textIdx.push(i + 1);
+          consumed.add(i + 1);
+        }
+        const imageRight = pairCount % 2 === 0; // alternate sides
+        pairCount++;
+        const textCol = <div className="min-w-0">{mdFor(textIdx)}</div>;
+        const imageCol = (
+          <figure className="min-w-0">
+            <div className="overflow-hidden rounded-xl border border-border bg-zinc-950">{layoutImg(li)}</div>
+            {li.caption ? (
+              <figcaption className="mt-2 text-xs italic leading-snug text-muted-foreground">{li.caption}</figcaption>
+            ) : null}
+          </figure>
+        );
+        bodyNodes.push(
+          <div key={`row-${i}`} className="my-2 grid items-center gap-6 md:grid-cols-2">
+            {imageRight ? (
+              <>
+                {textCol}
+                {imageCol}
+              </>
+            ) : (
+              <>
+                {imageCol}
+                {textCol}
+              </>
+            )}
+          </div>,
+        );
+        continue;
+      }
+
+      // Normal block
+      bodyNodes.push(<div key={`b-${i}`}>{mdFor(i)}</div>);
+      // Full-bleed image after this block?
+      if (fullAfter.has(i)) {
+        const li = fullAfter.get(i)!;
+        bodyNodes.push(
+          <figure key={`full-${i}`} className="my-6">
+            <div className="overflow-hidden rounded-xl border border-border bg-zinc-950">{layoutImg(li)}</div>
+            {li.caption ? (
+              <figcaption className="mt-2 text-xs italic leading-snug text-muted-foreground">{li.caption}</figcaption>
+            ) : null}
+          </figure>,
+        );
+      }
+    }
+  }
+
+  // Old-take fallback: distribute inline images evenly between blocks (never after the last).
   const imageAfterIdx = new Set<number>();
   if (!useLayout && inlineImages.length > 0 && blocks.length >= 2) {
     const slots = inlineImages.length;
@@ -293,40 +340,34 @@ export function TakeBody({ bodyMd, citations, inlineImages = [], layoutImages, s
   return (
     <div>
       <div className="space-y-5 text-base leading-relaxed">
-        {blocks.flatMap((block, i) => {
-          const nodes: React.ReactNode[] = [
-            <ReactMarkdown key={`b-${i}`} remarkPlugins={[remarkGfm]} components={components}>
-              {escapeMarkers(block)}
-            </ReactMarkdown>,
-          ];
-          if (useLayout) {
-            // Art-directed layout images anchored after this block.
-            const anchored = layoutByBlock.get(i);
-            if (anchored) {
-              anchored.forEach((li, j) => {
-                nodes.push(renderLayoutImage(li, `layout-${i}-${j}`));
-              });
-            }
-          } else if (imageAfterIdx.has(i)) {
-            const slotIndex = [...imageAfterIdx].sort((a, b) => a - b).indexOf(i);
-            const img = inlineImages[slotIndex];
-            if (img) {
-              nodes.push(
-                <figure key={`img-${i}`} className="my-2 overflow-hidden rounded-xl border border-border bg-zinc-950">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={img.url}
-                    alt={img.alt ?? img.topic ?? "Editorial illustration"}
-                    className="h-auto w-full"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                </figure>,
-              );
-            }
-          }
-          return nodes;
-        })}
+        {useLayout
+          ? bodyNodes
+          : blocks.flatMap((block, i) => {
+              const nodes: React.ReactNode[] = [
+                <ReactMarkdown key={`b-${i}`} remarkPlugins={[remarkGfm]} components={components}>
+                  {escapeMarkers(block)}
+                </ReactMarkdown>,
+              ];
+              if (imageAfterIdx.has(i)) {
+                const slotIndex = [...imageAfterIdx].sort((a, b) => a - b).indexOf(i);
+                const img = inlineImages[slotIndex];
+                if (img) {
+                  nodes.push(
+                    <figure key={`img-${i}`} className="my-2 overflow-hidden rounded-xl border border-border bg-zinc-950">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={img.url}
+                        alt={img.alt ?? img.topic ?? "Editorial illustration"}
+                        className="h-auto w-full"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </figure>,
+                  );
+                }
+              }
+              return nodes;
+            })}
       </div>
 
       {citations.length > 0 ? (
