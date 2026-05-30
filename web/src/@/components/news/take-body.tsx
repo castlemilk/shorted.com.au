@@ -99,15 +99,51 @@ export function TakeBody({ bodyMd, citations, inlineImages = [], stockCode }: Ta
     <div>
       <div className="space-y-5 text-base leading-relaxed">
         {paragraphs.flatMap((para, i) => {
-          const nodes: React.ReactNode[] = [
-            <p key={`p-${i}`} className="text-foreground/90">
-              <LinkifiedNarrative
-                text={para}
-                citations={adapted}
-                validCodes={validCodes}
-              />
-            </p>,
-          ];
+          const nodes: React.ReactNode[] = [];
+          // Long-form deep-dives use "## Heading" / "### Heading" blocks.
+          // Render those as real headings instead of literal text. The
+          // writer blank-line-separates headings from prose, so a heading
+          // is its own block; defensively, any prose on later lines of the
+          // same block still renders as a paragraph.
+          const splitLines = para.split("\n");
+          const firstLine = splitLines[0] ?? "";
+          const restLines = splitLines.slice(1);
+          const headingMatch = /^(#{2,4})\s+(.+)$/.exec(firstLine.trim());
+          if (headingMatch) {
+            const level = (headingMatch[1] ?? "##").length;
+            const text = headingMatch[2] ?? "";
+            const HeadingTag = level <= 2 ? "h2" : "h3";
+            nodes.push(
+              <HeadingTag
+                key={`h-${i}`}
+                className={
+                  level <= 2
+                    ? "mt-8 mb-1 text-xl font-bold tracking-tight text-foreground"
+                    : "mt-6 mb-1 text-lg font-semibold tracking-tight text-foreground"
+                }
+              >
+                {text}
+              </HeadingTag>,
+            );
+            const rest = restLines.join("\n").trim();
+            if (rest) {
+              nodes.push(
+                <p key={`p-${i}`} className="text-foreground/90">
+                  <LinkifiedNarrative text={rest} citations={adapted} validCodes={validCodes} />
+                </p>,
+              );
+            }
+          } else {
+            nodes.push(
+              <p key={`p-${i}`} className="text-foreground/90">
+                <LinkifiedNarrative
+                  text={para}
+                  citations={adapted}
+                  validCodes={validCodes}
+                />
+              </p>,
+            );
+          }
           if (imageAfterIdx.has(i)) {
             // Position derived from the imageAfterIdx Set membership;
             // count how many image slots have already passed.
