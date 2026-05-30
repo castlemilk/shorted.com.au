@@ -566,29 +566,60 @@ const DEEPDIVE_DOSSIER_SCHEMA = {
   required: ["headline", "sentiment", "sections"],
 };
 
+/** Injectable LLM calls so synthesiseFromDossier is unit-testable. */
+export interface DossierWriterDeps {
+  /** Return the raw JSON text from the writer model for the given prompt. */
+  generate(prompt: string, deep: boolean): Promise<string>;
+  /** Return the raw slug text for a headline. */
+  slug(headline: string, stockCode: string): Promise<string>;
+}
+
+function geminiDeps(): DossierWriterDeps {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY not set");
+  const ai = new GoogleGenerativeAI(apiKey);
+  return {
+    async generate(prompt, deep) {
+      const model = ai.getGenerativeModel({
+        model: deep ? WRITER_MODEL_DEEPDIVE() : WRITER_MODEL(),
+        systemInstruction: NARRATIVE_SYSTEM_PROMPT,
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: deep ? DEEPDIVE_DOSSIER_SCHEMA : TAKE_DOSSIER_SCHEMA,
+          temperature: 0.7,
+          maxOutputTokens: deep ? 16000 : 8000,
+        },
+      });
+      const resp = await model.generateContent(prompt);
+      return resp.response.text();
+    },
+    async slug(headline, stockCode) {
+      const slugModel = ai.getGenerativeModel({
+        model: WRITER_MODEL(),
+        generationConfig: { temperature: 0.2, maxOutputTokens: 500 },
+      });
+      const resp = await slugModel.generateContent(
+        SLUG_PROMPT.replace("{{HEADLINE}}", headline).replace("{{STOCK_CODE}}", stockCode),
+      );
+      return resp.response.text();
+    },
+  };
+}
+
 /** Write a tiered Take from a grounded dossier. Cites only ledger refIds;
- *  compactCitations drops anything invented. */
+ *  compactCitations drops anything invented. `deps` is injectable for tests
+ *  (defaults to the Gemini-backed implementation).
+ *  NOTE: deps.generate/deps.slug may THROW on API error — the batch caller
+ *  wraps each assignment in try/catch. */
 export async function synthesiseFromDossier(
   dossier: Dossier,
   ledger: CitationLedger,
   stockCode: string,
+  deps: DossierWriterDeps = geminiDeps(),
 ): Promise<DossierTake> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY not set");
-  const ai = new GoogleGenerativeAI(apiKey);
   const deep = dossier.tier === "deep_dive";
-  const model = ai.getGenerativeModel({
-    model: deep ? WRITER_MODEL_DEEPDIVE() : WRITER_MODEL(),
-    systemInstruction: NARRATIVE_SYSTEM_PROMPT,
-    generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: deep ? DEEPDIVE_DOSSIER_SCHEMA : TAKE_DOSSIER_SCHEMA,
-      temperature: 0.7,
-      maxOutputTokens: deep ? 16000 : 8000,
-    },
-  });
 
-  const prompt = [
+  const basePrompt = [
     buildDossierPrompt(dossier, ledger),
     "",
     deep
@@ -596,18 +627,35 @@ export async function synthesiseFromDossier(
       : "Write the four sections (background, recent_events, the_data, outlook). Cite [ref-N] inline. Only cite refIds in CITABLE SOURCES.",
   ].join("\n");
 
-  let raw = "";
+  const proseFor = (p: Record<string, unknown>): string =>
+    deep
+      ? ((p.sections as Array<{ prose: string }>) ?? []).map((s) => s.prose).join("\n") + "\n" + String(p.headline ?? "")
+      : [p.background, p.recent_events, p.the_data, p.outlook, p.headline].join("\n");
+
   let parsed: Record<string, unknown> = {};
+  let parsedOk = false;
+  let hits: string[] = [];
   for (let attempt = 1; attempt <= 2; attempt++) {
-    const resp = await model.generateContent(
-      attempt === 1 ? prompt : prompt + `\n\nIMPORTANT: your previous draft used banned terms. Remove every one.`,
-    );
-    raw = resp.response.text();
-    parsed = JSON.parse(raw);
-    const proseForBan = deep
-      ? (parsed.sections as Array<{ prose: string }> ?? []).map((s) => s.prose).join("\n") + "\n" + String(parsed.headline ?? "")
-      : [parsed.background, parsed.recent_events, parsed.the_data, parsed.outlook, parsed.headline].join("\n");
-    if (findBanned(proseForBan).length === 0) break;
+    const prompt = attempt === 1
+      ? basePrompt
+      : basePrompt + `\n\nIMPORTANT: your previous draft used these banned terms: ${hits.join(", ")}. Re-write removing every one of them. Also re-check the headline.`;
+    const text = await deps.generate(prompt, deep);
+    let candidate: Record<string, unknown>;
+    try {
+      candidate = JSON.parse(text);
+    } catch {
+      console.error(`[dossierwriter] ${stockCode}: attempt ${attempt} JSON.parse failed`);
+      if (attempt < 2) continue;
+      if (!parsedOk) throw new Error(`writer returned unparseable JSON for ${stockCode} after 2 attempts`);
+      break; // keep the last good parse
+    }
+    parsed = candidate;
+    parsedOk = true;
+    hits = findBanned(proseFor(parsed));
+    if (hits.length === 0) break;
+  }
+  if (hits.length > 0) {
+    console.warn(`[dossierwriter] ${stockCode}: shipping with unresolved banned phrases: ${hits.join(", ")}`);
   }
 
   const rawBody = deep
@@ -621,12 +669,8 @@ export async function synthesiseFromDossier(
 
   const { body, citations, dropped } = compactCitations(rawBody, ledger);
 
-  // Slug pass (reuse the existing low-temp slug model behaviour).
-  const slugModel = ai.getGenerativeModel({ model: WRITER_MODEL(), generationConfig: { temperature: 0.2, maxOutputTokens: 500 } });
-  const slugResp = await slugModel.generateContent(
-    SLUG_PROMPT.replace("{{HEADLINE}}", String(parsed.headline ?? "")).replace("{{STOCK_CODE}}", stockCode),
-  );
-  const slug = slugResp.response.text().trim().toLowerCase()
+  const slugRaw = await deps.slug(String(parsed.headline ?? ""), stockCode);
+  const slug = slugRaw.trim().toLowerCase()
     .replace(/[^a-z0-9\s-]+/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 80);
 
   return {
