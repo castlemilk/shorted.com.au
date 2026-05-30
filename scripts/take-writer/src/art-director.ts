@@ -26,7 +26,7 @@ export interface ArtContext {
   reportMetrics?: string[];     // e.g. ["revenue=A$1.2bn", "net_profit=-A$40m"]
 }
 
-const STYLE_PROMPTS: Record<string, string> = {
+export const STYLE_PROMPTS: Record<string, string> = {
   documentary: "Documentary news photograph, natural available light, photojournalistic realism, candid, 35mm",
   aerial: "High-altitude aerial / satellite-style view from directly above, cartographic clarity, terrain and infrastructure",
   still_life: "Studio still-life, dramatic single-source lighting, deep shadow, tactile materials, high detail",
@@ -105,7 +105,7 @@ export async function designImagePlan(ai: GoogleGenerativeAI, ctx: ArtContext, c
     }));
 }
 
-function sizeForRatio(ratio: string): "1536x1024" | "1024x1536" | "1024x1024" {
+export function sizeForRatio(ratio: string): "1536x1024" | "1024x1536" | "1024x1024" {
   if (ratio === "portrait") return "1024x1536";
   if (ratio === "square") return "1024x1024";
   return "1536x1024";
@@ -142,4 +142,32 @@ STRICT: no text, words, numbers, letters, charts, graphs, logos, brand names, re
     }
   }
   return { images: out, costUsd: cost };
+}
+
+/**
+ * Generate a SINGLE layout image from a full spec (style/ratio/brief/caption/
+ * placement/anchor), upload to GCS at the canonical layout path, and return the
+ * full LayoutImage. Used by the validator's auto-fix loop to re-generate one
+ * flagged image in place.
+ */
+export async function generateOneLayoutImage(
+  openai: OpenAI,
+  storage: Storage,
+  slug: string,
+  index: number,
+  spec: Omit<LayoutImage, "url">,
+): Promise<LayoutImage> {
+  const stylePrefix = STYLE_PROMPTS[spec.style] ?? STYLE_PROMPTS.documentary;
+  const prompt = `${stylePrefix}.
+
+Subject (depict specifically): ${spec.brief}
+
+STRICT: no text, words, numbers, letters, charts, graphs, logos, brand names, readable labels, or recognisable human faces.`;
+  const resp = await openai.images.generate({ model: "gpt-image-2-2026-04-21", prompt, size: sizeForRatio(spec.ratio), quality: "medium", n: 1 });
+  const b64 = resp.data?.[0]?.b64_json;
+  if (!b64) throw new Error("empty image response");
+  const buf = Buffer.from(b64, "base64");
+  const objectPath = `takes/${slug}-layout-${index + 1}.png`;
+  await storage.bucket(GCS_BUCKET).file(objectPath).save(buf, { contentType: "image/png", resumable: false, metadata: { cacheControl: "public, max-age=86400" } });
+  return { ...spec, url: `https://storage.googleapis.com/${GCS_BUCKET}/${objectPath}` };
 }
