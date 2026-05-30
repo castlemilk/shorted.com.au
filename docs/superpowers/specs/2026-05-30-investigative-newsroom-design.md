@@ -90,9 +90,11 @@ Each tool returns records carrying a **stable source ID** (`news_articles.id`, r
 }
 ```
 
-### Stage 3 — Writer (Gemini 2.5, existing voice)
+### Stage 3 — Writer (Gemini, existing voice)
 
 Consumes the dossier and writes the body in the Shorted voice via the existing `narrative.ts` machinery (system prompt, banned-phrase post-validation, slug generation).
+
+**Writer model is env-configurable** (`WRITER_MODEL`), default `gemini-2.5-flash` — the model the voice/banned-phrase rules are calibrated against. A newer generation (e.g. `gemini-3.5-preview`) may be swapped in via this var, but is treated as **opt-in to evaluate, not default**: preview models carry instability risk for an unattended daily cron, and a generational jump (2.5→3.5) likely breaks the banned-phrase calibration, so it requires a voice spot-check + banned-phrase re-validation before becoming the default. Optionally `WRITER_MODEL_DEEPDIVE` can point deep-dive prose at a stronger Gemini tier (e.g. `gemini-2.5-pro`) while Takes stay on Flash.
 
 - **Take tier:** the existing tight 4-section structure (background / recent events / the data / outlook).
 - **Deep-dive tier:** long-form, variable markdown headings the writer derives from the dossier `threads`/`timeline` (e.g. `## The probe timeline`, `## What the shorts saw first`). 600–1200 words.
