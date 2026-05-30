@@ -115,14 +115,18 @@ const SiteFooter = () => {
               <span>Not financial advice.</span>
             </div>
             <p className="text-sm text-muted-foreground mb-3">
-              Built by{" "}
+              Built with{" "}
+              <span aria-label="love" role="img" className="text-rose-500">
+                ❤️
+              </span>{" "}
+              in{" "}
               <a
-                href={siteConfig.links.twitter}
+                href="https://benebsworth.com"
                 target="_blank"
                 rel="noreferrer"
                 className="font-medium underline underline-offset-4 hover:text-foreground transition-colors"
               >
-                Ben Ebsworth
+                Melbourne
               </a>
             </p>
             <Badge
