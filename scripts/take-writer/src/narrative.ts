@@ -594,14 +594,13 @@ function geminiDeps(): DossierWriterDeps {
       return resp.response.text();
     },
     async slug(headline, stockCode) {
-      const slugModel = ai.getGenerativeModel({
-        model: WRITER_MODEL(),
-        generationConfig: { temperature: 0.2, maxOutputTokens: 500 },
-      });
-      const resp = await slugModel.generateContent(
-        SLUG_PROMPT.replace("{{HEADLINE}}", headline).replace("{{STOCK_CODE}}", stockCode),
-      );
-      return resp.response.text();
+      // Derive the slug deterministically from the headline — an LLM slug
+      // call is flaky (gemini-3.5-flash sometimes echoes the slug RULES
+      // instead of a slug). synthesiseFromDossier normalises/truncates the
+      // returned string, so just hand back a code-prefixed headline kebab.
+      const base = headline.toLowerCase().replace(/[^a-z0-9\s-]+/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+      const code = stockCode.toLowerCase();
+      return base.startsWith(`${code}-`) || base === code ? base : `${code}-${base}`;
     },
   };
 }
