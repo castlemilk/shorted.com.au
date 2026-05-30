@@ -643,6 +643,8 @@ export async function synthesiseFromDossier(
     deep
       ? "Write a long-form investigation (600-1200 words). Derive 3-5 section headings from the findings. Cite [ref-N] inline wherever a fact comes from a source. Only cite refIds in CITABLE SOURCES. When SHORT-POSITION DATA is provided, anchor the data observation in those numbers (current short %, the price move, and the correlation), stated without a citation. Use ONLY [ref-N] markers — every source, including financial reports, is listed in CITABLE SOURCES as a ref-N. NEVER use [report-N]. Put each citation in its OWN brackets — write [ref-1][ref-2], never [ref-1, ref-2]."
       : "Write the four sections (background, recent_events, the_data, outlook). Cite [ref-N] inline. Only cite refIds in CITABLE SOURCES. When SHORT-POSITION DATA is provided, anchor the data observation in those numbers (current short %, the price move, and the correlation), stated without a citation. Use ONLY [ref-N] markers — every source, including financial reports, is listed in CITABLE SOURCES as a ref-N. NEVER use [report-N]. Put each citation in its OWN brackets — write [ref-1][ref-2], never [ref-1, ref-2].",
+    "",
+    "The HEADLINE and the opening must foreground the short-selling story — Shorted is a short-position publication, so the short position, its trend, and the price action are the spine. A tangential news item (a lawsuit, a product launch) can feature in the body, but never lead the headline unless it is the direct cause of a short-position move.",
   ].join("\n");
 
   const proseFor = (p: Record<string, unknown>): string =>
