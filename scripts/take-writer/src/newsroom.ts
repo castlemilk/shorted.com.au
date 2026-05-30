@@ -574,6 +574,51 @@ export async function runNewsroomPreview(opts: PreviewOptions): Promise<void> {
   }
 }
 
+export async function regenerateImages(opts: { slug: string; inlineCount?: number }): Promise<void> {
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) throw new Error("DATABASE_URL not set");
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) throw new Error("OPENAI_API_KEY not set");
+
+  const pg = new PgClient({ connectionString: dbUrl });
+  await pg.connect();
+  const openai = new OpenAI({ apiKey: key });
+  const storage = new Storage();
+  try {
+    const { rows } = await pg.query<{ slug: string; headline: string; stock_code: string }>(
+      `SELECT slug, headline, stock_code FROM editorial_takes WHERE slug = $1`,
+      [opts.slug],
+    );
+    const row = rows[0];
+    if (!row) throw new Error(`no editorial_takes row with slug ${opts.slug}`);
+
+    const { rows: metaRows } = await pg.query<{ industry: string | null }>(
+      `SELECT industry FROM "company-metadata" WHERE stock_code = $1`,
+      [row.stock_code],
+    );
+    const industry = metaRows[0]?.industry ?? null;
+
+    const candidate = { stockCode: row.stock_code, industry } as unknown as AgendaCandidate;
+    const take = { slug: row.slug, headline: row.headline } as unknown as NarrativeTake;
+    const count = opts.inlineCount ?? 2;
+
+    console.error(`[regen-images] ${row.stock_code} "${row.headline}" — hero + ${count} inline…`);
+    const hero = await generateHero(openai, storage, candidate, take);
+    const inl = await generateInlineImages(openai, storage, candidate, take, count);
+
+    await pg.query(
+      `UPDATE editorial_takes SET hero_image_url = $1, inline_images = $2::jsonb, updated_at = NOW() WHERE slug = $3`,
+      [hero.url, JSON.stringify(inl.images), opts.slug],
+    );
+    console.error(`[regen-images] done — hero + ${inl.images.length} inline, ~$${(hero.costUsd + inl.costUsd).toFixed(3)}`);
+    console.error(`hero: ${hero.url}`);
+    for (const im of inl.images) console.error(`inline: ${im.url}`);
+    console.error(`Public: https://shorted.com.au/news/${opts.slug}`);
+  } finally {
+    await pg.end();
+  }
+}
+
 export async function runNewsroom(opts: NewsroomOptions): Promise<NewsroomResult[]> {
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) throw new Error("DATABASE_URL not set");

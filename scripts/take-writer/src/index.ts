@@ -12,7 +12,7 @@ import { Client as PgClient } from "pg";
 import { buildReport } from "./journalism.js";
 import { synthesiseNarrative, narrativeToBodyMd } from "./narrative.js";
 import { buildAgenda, formatAgendaCandidate } from "./agenda.js";
-import { runNewsroom, runNewsroomDaily, runNewsroomPreview } from "./newsroom.js";
+import { runNewsroom, runNewsroomDaily, runNewsroomPreview, regenerateImages } from "./newsroom.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -50,6 +50,8 @@ interface Args {
   noImages?: boolean;
   tier?: string;
   angle?: string;
+  slug?: string;
+  inline?: number;
 }
 
 function parseArgs(argv: string[]): Args {
@@ -87,7 +89,11 @@ function parseArgs(argv: string[]): Args {
       args.noImages = true;
     } else if (arg.startsWith("--tier=")) args.tier = arg.split("=")[1];
     else if (arg.startsWith("--angle=")) args.angle = arg.split("=").slice(1).join("=");
-    else if (!arg.startsWith("--") && !args.command) args.command = arg;
+    else if (arg.startsWith("--slug=")) args.slug = arg.split("=")[1];
+    else if (arg.startsWith("--inline=")) {
+      const v = arg.split("=")[1];
+      if (v) args.inline = parseInt(v, 10);
+    } else if (!arg.startsWith("--") && !args.command) args.command = arg;
   }
   return args;
 }
@@ -104,6 +110,7 @@ Commands:
   newsroom        Loop: agenda → top-N narratives → insert as drafts/publish
   newsroom-daily  Investigative daily run: editor -> agentic investigation -> tiered writer
   newsroom-preview Investigate ONE --stock=CODE and print the report (no DB write, no images)
+  regen-images    Generate a hero + inline images for an existing take (--slug=SLUG [--inline=2])
   narrative Multi-section journalism-engine Take for one --stock=CODE
 
 run flags:
@@ -335,6 +342,11 @@ async function main(): Promise<void> {
       if (!args.stockCode) throw new Error("--stock=CODE required for newsroom-preview");
       const tier = args.tier === "deep_dive" ? "deep_dive" : "take";
       await runNewsroomPreview({ stockCode: args.stockCode, tier, angle: args.angle });
+      break;
+    }
+    case "regen-images": {
+      if (!args.slug && !args.stockCode) throw new Error("--slug=SLUG required for regen-images");
+      await regenerateImages({ slug: args.slug ?? "", inlineCount: args.inline });
       break;
     }
     case "agenda": {
