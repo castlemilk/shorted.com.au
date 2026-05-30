@@ -100,7 +100,7 @@ function systemPrompt(a: Assignment): string {
 Assignment: ${a.stockCode} — ${a.angle}
 Tier: ${a.tier} (${a.tier === "deep_dive" ? "rich, multi-thread; build a timeline" : "tight, single sharp thread"}).
 
-Start by calling get_overview to orient (current short %, slope, price moves, correlation, sector peers) — these are the numbers Shorted is known for, weave them into your findings. Then drill into the specific events with the other tools.
+Start by calling get_overview to orient (current short %, slope, price moves, correlation, sector peers) — these are the numbers Shorted is known for, weave them into your findings. Then drill into the specific events with the other tools. get_overview gives you the numbers but NOT citable sources — you MUST also call align_events and/or search_news to gather the actual news and director trades before you emit_dossier. A dossier with no gathered sources is unacceptable.
 Every factual claim in your dossier MUST be backed by a refId a tool returned to you — do not
 invent sources or numbers. When done, call emit_dossier exactly once.
 Keep it to ${a.tier === "deep_dive" ? "at most 10" : "at most 4"} investigative tool calls before emitting.`;
@@ -145,6 +145,22 @@ export async function investigate(
     }
 
     const emit = calls.find((c) => c.name === "emit_dossier");
+    if (emit && ledger.size() === 0 && turn < maxTurns - 1) {
+      // get_overview registers no citable sources. Refuse an empty-ledger
+      // dossier while turns remain — force the agent to gather news/trades.
+      contents.push(resp.modelContent());
+      const parts: Part[] = [];
+      for (const c of calls) {
+        if (c.name === "emit_dossier") {
+          parts.push({ functionResponse: { name: c.name, response: { result: "REJECTED: you have gathered zero citable sources. get_overview gives numbers but NO citations. Call align_events and/or search_news to gather the news and director trades that explain this short position, THEN call emit_dossier again." } } });
+        } else {
+          const result = await dispatchTool(pg, ledger, c.name, c.args as Record<string, unknown>, assignment.stockCode);
+          parts.push({ functionResponse: { name: c.name, response: { result } } });
+        }
+      }
+      contents.push({ role: "user", parts });
+      continue;
+    }
     if (emit) return finalise(assignment, emit.args as Partial<Dossier>);
 
     contents.push(resp.modelContent());

@@ -44,7 +44,7 @@ describe("investigate", () => {
       .mockResolvedValueOnce(textTurn())
       .mockResolvedValueOnce(turn([{ name: "emit_dossier", args: { summary: "Done.", threads: [], keyNumbers: [] } }]));
     const ledger = new CitationLedger();
-    const d = await investigate(generate, pg, assignment, ledger, { maxTurns: 4 });
+    const d = await investigate(generate, pg, assignment, ledger, { maxTurns: 2 });
     expect(d.summary).toBe("Done.");
     expect((generate as any).mock.calls.length).toBe(2);
   });
@@ -53,7 +53,7 @@ describe("investigate", () => {
     const pg = { query: vi.fn().mockResolvedValue({ rows: [] }) };
     const generate: GeminiGenerate = vi.fn().mockResolvedValueOnce(turn([{ name: "emit_dossier", args: { summary: 42, threads: "nope", keyNumbers: [{ label: "x", value: "1" }, { bad: true }] } }]));
     const ledger = new CitationLedger();
-    const d = await investigate(generate, pg, { ...assignment }, ledger, { maxTurns: 4 });
+    const d = await investigate(generate, pg, { ...assignment }, ledger, { maxTurns: 1 });
     expect(d.threads).toEqual([]);
     expect(d.summary).toBe(assignment.angle);
     expect(d.keyNumbers.length).toBe(1);
@@ -63,7 +63,23 @@ describe("investigate", () => {
     const pg = { query: vi.fn().mockResolvedValue({ rows: [] }) };
     const generate: GeminiGenerate = vi.fn().mockResolvedValueOnce(turn([{ name: "emit_dossier", args: { summary: "s", threads: [], keyNumbers: [], timeline: [{ date: "2026-05-01", event: "probe opened" }] } }]));
     const ledger = new CitationLedger();
-    const d = await investigate(generate, pg, { ...assignment, tier: "deep_dive" as const }, ledger, { maxTurns: 4 });
+    const d = await investigate(generate, pg, { ...assignment, tier: "deep_dive" as const }, ledger, { maxTurns: 1 });
     expect(d.timeline![0]!.refIds).toEqual([]);
+  });
+
+  it("rejects emit_dossier when no sources gathered, forcing a gather round", async () => {
+    const pg = { query: vi.fn().mockResolvedValue({ rows: [{ id: "1", date: "2026-05-01", source: "S", headline: "Probe", url: "https://x/1" }] }) };
+    const generate = vi.fn()
+      // turn 0: tries to emit with an empty ledger -> should be rejected
+      .mockResolvedValueOnce(turn([{ name: "emit_dossier", args: { summary: "premature", threads: [], keyNumbers: [] } }]))
+      // turn 1: gathers a source
+      .mockResolvedValueOnce(turn([{ name: "search_news", args: { query: "probe" } }]))
+      // turn 2: emits for real
+      .mockResolvedValueOnce(turn([{ name: "emit_dossier", args: { summary: "Real summary now.", threads: [], keyNumbers: [] } }]));
+    const ledger = new CitationLedger();
+    const d = await investigate(generate as any, pg, assignment, ledger, { maxTurns: 6 });
+    expect(d.summary).toBe("Real summary now.");
+    expect(ledger.size()).toBe(1);          // gathered after the rejection
+    expect(generate.mock.calls.length).toBe(3);
   });
 });
