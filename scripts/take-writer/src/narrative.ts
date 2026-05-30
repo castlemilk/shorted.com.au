@@ -17,6 +17,7 @@ import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { type JournalismReport, type NewsArticle } from "./journalism.js";
 import { CitationLedger, compactCitations } from "./ledger.js";
 import type { Dossier } from "./investigator.js";
+import type { OverviewResult } from "./drilldowns.js";
 
 export interface Citation {
   refId: string;             // ref-1, ref-2, … or report-1, report-2
@@ -486,7 +487,7 @@ const WRITER_MODEL_DEEPDIVE = () => process.env.WRITER_MODEL_DEEPDIVE ?? WRITER_
 
 /** Build the writer prompt from a dossier + its ledger. The writer may
  *  only cite the refIds listed here. */
-export function buildDossierPrompt(dossier: Dossier, ledger: CitationLedger): string {
+export function buildDossierPrompt(dossier: Dossier, ledger: CitationLedger, overview?: OverviewResult | null): string {
   const sources: string[] = [];
   for (let i = 1; ledger.has(`ref-${i}`); i++) {
     const s = ledger.get(`ref-${i}`)!;
@@ -501,6 +502,19 @@ export function buildDossierPrompt(dossier: Dossier, ledger: CitationLedger): st
   const timeline = (dossier.timeline ?? [])
     .map((t) => `- ${t.date}: ${t.event} (${t.refIds.join(", ")})`)
     .join("\n");
+  const fmt = (n: number | null, d = 2, s = "") => (n == null ? "n/a" : `${n.toFixed(d)}${s}`);
+  const dataBlock = overview
+    ? [
+        "",
+        "=== SHORT-POSITION DATA (Shorted's OWN computed numbers — state the relevant ones in prose WITHOUT a [ref-N] citation) ===",
+        `Current short: ${fmt(overview.currentShortPct, 2, "%")} (90d avg ${fmt(overview.shortPct90dAvg, 2, "%")}, change ${fmt(overview.shortPctChange90d, 2, "%")}, 90d high ${fmt(overview.shortPctMaxIn90d, 2, "%")})`,
+        `Short slope %/day: 7d ${fmt(overview.shortSlope7d, 4)}, 30d ${fmt(overview.shortSlope30d, 4)}, 90d ${fmt(overview.shortSlope90d, 4)}`,
+        `Price ${fmt(overview.currentPrice, 2)} AUD | change 1m ${fmt(overview.priceChange1m, 1, "%")}, 3m ${fmt(overview.priceChange3m, 1, "%")}, 6m ${fmt(overview.priceChange6m, 1, "%")}, 12m ${fmt(overview.priceChange12m, 1, "%")}`,
+        `Price–short 30d correlation: ${fmt(overview.priceShortsCorrelation30d, 3)}`,
+        `Sentiment 30d: +${overview.sentiment.positive} -${overview.sentiment.negative} =${overview.sentiment.neutral}; director net 90d A$${fmt(overview.directorNetValue90d, 0)}`,
+        `Peer sector avg short ${fmt(overview.peerSectorAvgShort, 2, "%")} — ${dossier.stockCode} is ${overview.peerRelative}`,
+      ].join("\n")
+    : "";
   return [
     `Subject: ${dossier.stockCode}`,
     `Angle: ${dossier.angle}`,
@@ -512,6 +526,7 @@ export function buildDossierPrompt(dossier: Dossier, ledger: CitationLedger): st
     "=== KEY NUMBERS ===",
     numbers || "(none)",
     timeline ? `\n=== TIMELINE ===\n${timeline}` : "",
+    dataBlock,
     "",
     "=== CITABLE SOURCES (cite ONLY these refIds, inline as [ref-N]) ===",
     sources.join("\n") || "(none)",
@@ -614,16 +629,17 @@ export async function synthesiseFromDossier(
   dossier: Dossier,
   ledger: CitationLedger,
   stockCode: string,
+  overview?: OverviewResult | null,
   deps: DossierWriterDeps = geminiDeps(),
 ): Promise<DossierTake> {
   const deep = dossier.tier === "deep_dive";
 
   const basePrompt = [
-    buildDossierPrompt(dossier, ledger),
+    buildDossierPrompt(dossier, ledger, overview),
     "",
     deep
-      ? "Write a long-form investigation (600-1200 words). Derive 3-5 section headings from the findings. Cite [ref-N] inline wherever a fact comes from a source. Only cite refIds in CITABLE SOURCES."
-      : "Write the four sections (background, recent_events, the_data, outlook). Cite [ref-N] inline. Only cite refIds in CITABLE SOURCES.",
+      ? "Write a long-form investigation (600-1200 words). Derive 3-5 section headings from the findings. Cite [ref-N] inline wherever a fact comes from a source. Only cite refIds in CITABLE SOURCES. When SHORT-POSITION DATA is provided, anchor the data observation in those numbers (current short %, the price move, and the correlation), stated without a citation."
+      : "Write the four sections (background, recent_events, the_data, outlook). Cite [ref-N] inline. Only cite refIds in CITABLE SOURCES. When SHORT-POSITION DATA is provided, anchor the data observation in those numbers (current short %, the price move, and the correlation), stated without a citation.",
   ].join("\n");
 
   const proseFor = (p: Record<string, unknown>): string =>

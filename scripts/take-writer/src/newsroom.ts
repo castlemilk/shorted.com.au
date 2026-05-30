@@ -19,6 +19,7 @@ import { synthesiseNarrative, narrativeToBodyMd, type NarrativeTake, synthesiseF
 import { commissionAssignments, type Assignment } from "./editor.js";
 import { investigate, type GeminiGenerate } from "./investigator.js";
 import { CitationLedger } from "./ledger.js";
+import { getOverview } from "./drilldowns.js";
 
 function makeGeminiGenerate(ai: GoogleGenerativeAI, modelName: string): GeminiGenerate {
   return async ({ systemInstruction, tools, contents }) => {
@@ -452,7 +453,8 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
         const writerModel = a.tier === "deep_dive"
           ? (process.env.WRITER_MODEL_DEEPDIVE ?? process.env.WRITER_MODEL ?? "gemini-2.5-flash")
           : (process.env.WRITER_MODEL ?? "gemini-2.5-flash");
-        const take = await synthesiseFromDossier(dossier, ledger, a.stockCode);
+        const overview = await getOverview(pg, a.stockCode).catch(() => null);
+        const take = await synthesiseFromDossier(dossier, ledger, a.stockCode, overview);
         console.log(`${tag} -> "${take.headline}" (${take.citations.length} cites, ${take.droppedCitations.length} dropped)`);
 
         const hold = shouldHoldAsDraft(take);
@@ -531,7 +533,8 @@ export async function runNewsroomPreview(opts: PreviewOptions): Promise<void> {
     const dossier = await investigate(makeGeminiGenerate(ai, investigatorModel), pg, assignment, ledger, {
       maxTurns: opts.tier === "deep_dive" ? maxTurnsDeep : maxTurnsTake,
     });
-    const take = await synthesiseFromDossier(dossier, ledger, code);
+    const overview = await getOverview(pg, code).catch(() => null);
+    const take = await synthesiseFromDossier(dossier, ledger, code, overview);
     const hold = shouldHoldAsDraft(take);
     const secs = ((Date.now() - t0) / 1000).toFixed(1);
 
@@ -546,6 +549,7 @@ export async function runNewsroomPreview(opts: PreviewOptions): Promise<void> {
 
     console.log(`\n--- DOSSIER ---`);
     console.log(`summary: ${dossier.summary}`);
+    if (overview) console.log(`overview: short ${overview.currentShortPct?.toFixed(2)}% (Δ90d ${overview.shortPctChange90d?.toFixed(2)}), price 3m ${overview.priceChange3m?.toFixed(1)}%, corr ${overview.priceShortsCorrelation30d?.toFixed(2)}, peer ${overview.peerRelative}`);
     if (dossier.threads.length) {
       console.log(`threads:`);
       for (const th of dossier.threads) console.log(`  - ${th.claim} [${th.evidenceRefIds.join(", ")}]${th.note ? ` — ${th.note}` : ""}`);

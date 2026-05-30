@@ -53,7 +53,7 @@ describe("synthesiseFromDossier (grounding + parse retry)", () => {
       }),
       slug: async () => "dro-shorts-held",
     };
-    const out = await synthesiseFromDossier(d, l, "DRO", deps);
+    const out = await synthesiseFromDossier(d, l, "DRO", null, deps);
     expect(out.citations.map((c) => c.refId)).toEqual(["ref-1"]);   // only the real one survives
     expect(out.droppedCitations).toContain("ref-9");                 // invented one dropped
     expect(out.bodyMd).not.toContain("ref-9");
@@ -73,7 +73,7 @@ describe("synthesiseFromDossier (grounding + parse retry)", () => {
       },
       slug: async () => "dro-h",
     };
-    const out = await synthesiseFromDossier(d, l, "DRO", deps);
+    const out = await synthesiseFromDossier(d, l, "DRO", null, deps);
     expect(calls).toBe(2);
     expect(out.headline).toBe("h");
   });
@@ -82,6 +82,6 @@ describe("synthesiseFromDossier (grounding + parse retry)", () => {
     const l = new CitationLedger();
     const d: Dossier = { stockCode: "DRO", tier: "take", angle: "a", summary: "s", threads: [], keyNumbers: [] };
     const deps: DossierWriterDeps = { generate: async () => "garbage", slug: async () => "x" };
-    await expect(synthesiseFromDossier(d, l, "DRO", deps)).rejects.toThrow(/unparseable/);
+    await expect(synthesiseFromDossier(d, l, "DRO", null, deps)).rejects.toThrow(/unparseable/);
   });
 });
