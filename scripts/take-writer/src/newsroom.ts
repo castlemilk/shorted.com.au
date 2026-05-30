@@ -126,6 +126,65 @@ function subjectHintForIndustry(industry: string | null): string {
   return "an abstract geometric form: a single matte sphere, stacked panels, folded paper sculpture, or layered gradients — no objects from any specific industry";
 }
 
+const INLINE_BRIEF_MODEL = () => process.env.INLINE_BRIEF_MODEL ?? "gemini-3.5-flash";
+
+/** Turn an article section into a concrete, photographic image concept
+ *  tied to its specific subject/mood. Falls back to the industry hint on
+ *  any error so image generation never hard-fails on the brief step. */
+async function visualBriefForSection(
+  ai: GoogleGenerativeAI,
+  stockCode: string,
+  industry: string | null,
+  sectionText: string,
+): Promise<string> {
+  try {
+    const model = ai.getGenerativeModel({
+      model: INLINE_BRIEF_MODEL(),
+      generationConfig: { temperature: 0.9, maxOutputTokens: 200 },
+    });
+    const prompt = `You are an art director for a financial publication. Read this excerpt from an article about ${stockCode} (sector: ${industry ?? "general market"}).
+
+In ONE vivid sentence, describe a single concrete, photographic image that captures THIS excerpt's specific subject or mood — a real scene, object, material, or environment directly tied to what's described (e.g. a halted mine head-frame under ash-grey sky, scattered legal documents on a dark desk, an empty boardroom chair, a sealed laboratory vial, a darkened retail floor). Make it specific to the events, not generic.
+
+It will be shot dark and cinematic with a single warm amber light source. Do NOT mention text, words, numbers, charts, graphs, logos, brand names, readable labels, or human faces. Output ONLY the sentence, no preamble.
+
+Excerpt:
+${sectionText.slice(0, 900)}`;
+    const resp = await model.generateContent(prompt);
+    const brief = resp.response.text().trim().replace(/^["']|["']$/g, "");
+    return brief.length > 10 ? brief : subjectHintForIndustry(industry);
+  } catch {
+    return subjectHintForIndustry(industry);
+  }
+}
+
+/** Split a body into the sections inline images should illustrate.
+ *  Deep-dives: one section per "## heading" (heading + its prose).
+ *  Takes: top-level paragraphs. Returns `count` sections spread across
+ *  the article. */
+function pickSections(bodyMd: string, count: number): string[] {
+  const trimmed = bodyMd.trim();
+  let sections: string[];
+  if (/^##\s/m.test(trimmed)) {
+    // Split on headings, keep heading + following prose together.
+    sections = trimmed
+      .split(/\n(?=##\s)/)
+      .map((s) => s.replace(/^#+\s*/, "").trim())
+      .filter((s) => s.length > 0);
+  } else {
+    sections = trimmed.split(/\n\s*\n/).map((s) => s.trim()).filter((s) => s.length > 0);
+  }
+  if (sections.length === 0) return [];
+  // Spread the picks evenly across available sections.
+  const out: string[] = [];
+  const stepF = sections.length / (count + 1);
+  for (let i = 1; i <= count; i++) {
+    const idx = Math.min(sections.length - 1, Math.max(0, Math.round(i * stepF) - 1));
+    out.push(sections[idx]!);
+  }
+  return out;
+}
+
 // Visual treatment variants — same brand DNA (dark + warm amber, no
 // text/people/logos) but very different compositions. We rotate by
 // deterministic hash on slug so each take gets a distinct look from
@@ -247,40 +306,38 @@ interface InlineImageRow {
 async function generateInlineImages(
   openai: OpenAI,
   storage: Storage,
+  ai: GoogleGenerativeAI,
   candidate: AgendaCandidate,
   take: NarrativeTake,
+  bodyMd: string,
   count = 2,
 ): Promise<{ images: InlineImageRow[]; costUsd: number }> {
-  // Inline images use treatments DIFFERENT from the hero (we ask
-  // pickTreatments for count+1 and skip the first, which is the hero).
-  // This guarantees the inline pictures don't visually echo the hero.
+  // Unlike the hero (an abstract brand thumbnail), inline images are
+  // CONTEXTUAL: each illustrates a specific article section. We derive a
+  // concrete photographic "visual brief" from the section's text via
+  // Gemini, then render that real scene — still dark + cinematic + single
+  // warm amber light, but story-specific rather than generic brand-abstract.
+  //
+  // Treatments still vary composition; we skip the first (the hero's) so
+  // inline pictures don't visually echo the hero.
+  const sections = pickSections(bodyMd, count);
   const treatments = pickTreatments(take.slug, count + 1).slice(1);
-  const subjectHint = subjectHintForIndustry(candidate.industry);
-
-  // The two inline images riff on the two later narrative sections —
-  // recent_events (which is "what happened") and the_data (which is
-  // "what the numbers say"). We hint at that to keep them coherent
-  // with the prose they sit next to.
-  const sectionHints = [
-    "supporting the 'recent events' section — gestures at the event the headline names without literally depicting it",
-    "supporting the 'data' section — abstract, restrained, evoking weight or movement without showing any actual data, charts or numbers",
-  ];
-
   const out: InlineImageRow[] = [];
   let totalCost = 0;
   for (let i = 0; i < count; i++) {
+    const sectionText = sections[i] ?? sections[sections.length - 1] ?? take.headline;
     const treatment = treatments[i] ?? treatments[0]!;
-    const sectionHint = sectionHints[i] ?? sectionHints[0]!;
-    const topic = `Inline editorial illustration #${i + 1} for an article about ASX: ${candidate.stockCode} (sector: ${candidate.industry ?? "general market"}). Headline: ${take.headline}.
+    const brief = await visualBriefForSection(ai, candidate.stockCode, candidate.industry, sectionText);
+    const prompt = `Editorial photograph for a financial publication, dark and cinematic.
 
-Role: ${sectionHint}.
-Subject vocabulary: ${subjectHint}.
-Composition treatment: ${treatment.composition}.
-Mood: ${treatment.mood}.
+Subject (depict this specifically): ${brief}
 
-No text, no charts, no numbers, no people, no logos, no recognisable architecture.`;
-    const prompt = `${BRAND_PROMPT}\n\n${topic}\n\nFormat: 16:9 horizontal banner composition, slightly less dramatic than a hero so it sits well inline.${FINAL_RULES}`;
+Composition: ${treatment.composition}.
+Mood: ${treatment.mood}. Near-black background (#0a0a0a) with a single warm amber (#FFA94D) light source, deep shadow, high contrast, subtle grain.
 
+STRICT: no text, words, numbers, letters, charts, graphs, percentages, logos, brand names, readable labels, ticker symbols, or recognisable human faces. A real, evocative scene tied to the subject above.
+
+Format: 16:9 horizontal banner.`;
     try {
       const resp = await openai.images.generate({
         model: "gpt-image-2-2026-04-21",
@@ -300,8 +357,8 @@ No text, no charts, no numbers, no people, no logos, no recognisable architectur
       });
       out.push({
         url: `https://storage.googleapis.com/${GCS_BUCKET}/${objectPath}`,
-        topic: treatment.name,
-        alt: `Editorial illustration: ${treatment.mood}`,
+        topic: brief.slice(0, 80),
+        alt: brief.slice(0, 140),
       });
       totalCost += 0.075;
     } catch (err) {
@@ -470,7 +527,7 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
           const narrativeShim = { slug: take.slug, headline: take.headline } as unknown as NarrativeTake;
           const img = await generateHero(openai, storage, candidate, narrativeShim);
           heroUrl = img.url; totalCost += img.costUsd;
-          const inl = await generateInlineImages(openai, storage, candidate, narrativeShim, 2);
+          const inl = await generateInlineImages(openai, storage, ai, candidate, narrativeShim, take.bodyMd, 2);
           inlineImages = inl.images; totalCost += inl.costUsd;
         }
 
@@ -579,14 +636,16 @@ export async function regenerateImages(opts: { slug: string; inlineCount?: numbe
   if (!dbUrl) throw new Error("DATABASE_URL not set");
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new Error("OPENAI_API_KEY not set");
+  if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set");
 
   const pg = new PgClient({ connectionString: dbUrl });
   await pg.connect();
   const openai = new OpenAI({ apiKey: key });
   const storage = new Storage();
+  const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
   try {
-    const { rows } = await pg.query<{ slug: string; headline: string; stock_code: string }>(
-      `SELECT slug, headline, stock_code FROM editorial_takes WHERE slug = $1`,
+    const { rows } = await pg.query<{ slug: string; headline: string; stock_code: string; body_md: string }>(
+      `SELECT slug, headline, stock_code, body_md FROM editorial_takes WHERE slug = $1`,
       [opts.slug],
     );
     const row = rows[0];
@@ -604,7 +663,7 @@ export async function regenerateImages(opts: { slug: string; inlineCount?: numbe
 
     console.error(`[regen-images] ${row.stock_code} "${row.headline}" — hero + ${count} inline…`);
     const hero = await generateHero(openai, storage, candidate, take);
-    const inl = await generateInlineImages(openai, storage, candidate, take, count);
+    const inl = await generateInlineImages(openai, storage, ai, candidate, take, row.body_md, count);
 
     await pg.query(
       `UPDATE editorial_takes SET hero_image_url = $1, inline_images = $2::jsonb, updated_at = NOW() WHERE slug = $3`,
@@ -627,11 +686,14 @@ export async function runNewsroom(opts: NewsroomOptions): Promise<NewsroomResult
 
   let openai: OpenAI | null = null;
   let storage: Storage | null = null;
+  let ai: GoogleGenerativeAI | null = null;
   if (opts.withImages) {
     const key = process.env.OPENAI_API_KEY;
     if (!key) throw new Error("OPENAI_API_KEY not set (required for --with-images)");
+    if (!process.env.GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not set (required for --with-images)");
     openai = new OpenAI({ apiKey: key });
     storage = new Storage();
+    ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   }
 
   const results: NewsroomResult[] = [];
@@ -671,14 +733,14 @@ export async function runNewsroom(opts: NewsroomOptions): Promise<NewsroomResult
 
         let heroUrl: string | null = null;
         let inlineImages: InlineImageRow[] = [];
-        if (opts.withImages && openai && storage) {
+        if (opts.withImages && openai && storage && ai) {
           console.log(`${tag}   generating hero image (~30s, ~$0.075)…`);
           const img = await generateHero(openai, storage, c, take);
           heroUrl = img.url;
           costUsd += img.costUsd;
 
           console.log(`${tag}   generating 2 inline images (~60s, ~$0.15)…`);
-          const inlines = await generateInlineImages(openai, storage, c, take, 2);
+          const inlines = await generateInlineImages(openai, storage, ai, c, take, bodyMd, 2);
           inlineImages = inlines.images;
           costUsd += inlines.costUsd;
         }
