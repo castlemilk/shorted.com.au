@@ -12,7 +12,7 @@ import { Client as PgClient } from "pg";
 import { buildReport } from "./journalism.js";
 import { synthesiseNarrative, narrativeToBodyMd } from "./narrative.js";
 import { buildAgenda, formatAgendaCandidate } from "./agenda.js";
-import { runNewsroom } from "./newsroom.js";
+import { runNewsroom, runNewsroomDaily } from "./newsroom.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -97,7 +97,8 @@ Commands:
   discover  Rank candidate stocks: top-shorted minus ETFs minus no-news
   run       End-to-end: discover headline + draft + image + insert (+ publish + tweet)
   agenda    Editorial briefing — ranked story candidates with angles
-  newsroom  Loop: agenda → top-N narratives → insert as drafts/publish
+  newsroom        Loop: agenda → top-N narratives → insert as drafts/publish
+  newsroom-daily  Investigative daily run: editor -> agentic investigation -> tiered writer
   narrative Multi-section journalism-engine Take for one --stock=CODE
 
 run flags:
@@ -308,6 +309,18 @@ async function main(): Promise<void> {
       await runNewsroom({
         poolSize: args.poolSize,
         topN: args.topN ?? 3,
+        autoPublish,
+        withImages,
+      });
+      break;
+    }
+    case "newsroom-daily": {
+      const autoPublish = args.autoPublish ?? false;
+      const withImages = args.withImages ?? (autoPublish && !args.noImages);
+      await runNewsroomDaily({
+        poolSize: args.poolSize,
+        maxTakes: args.topN ?? Number(process.env.MAX_TAKES_PER_DAY ?? 10),
+        maxDeepDives: Number(process.env.MAX_DEEPDIVES_PER_DAY ?? 2),
         autoPublish,
         withImages,
       });
