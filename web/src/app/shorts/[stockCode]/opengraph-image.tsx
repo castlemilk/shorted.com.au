@@ -2,6 +2,7 @@
 import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { getStock } from "~/app/actions/getStock";
 
 export const alt = "Stock Short Position Data - Shorted.com.au";
 export const size = {
@@ -9,6 +10,12 @@ export const size = {
   height: 630,
 };
 export const contentType = "image/png";
+
+// Self-healing cache: regenerate the image daily (matches ASIC's T+4 daily
+// data cadence). Without this, Next.js serves the image with
+// `Cache-Control: immutable, max-age=31536000`, which would freeze any
+// transient render failure (e.g. an "N/A" short %) for a full year.
+export const revalidate = 86400;
 
 let cachedBg: string | null = null;
 let cachedLogo: string | null = null;
@@ -51,29 +58,20 @@ async function getStockData(
   percentageShorted: number;
 } | null> {
   try {
-    const apiUrl =
-      process.env.NEXT_PUBLIC_API_URL ??
-      process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-      "http://localhost:9091";
-    const res = await fetch(
-      `${apiUrl}/shorts.v1alpha1.ShortedStocksService/GetStock`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productCode: code }),
-        next: { revalidate: 3600 },
-      },
-    );
-    if (!res.ok) return null;
-    const data = (await res.json()) as {
-      name?: string;
-      percentageShorted?: number;
-    };
+    // Reuse the canonical getStock action: it uses the Connect transport
+    // (which sends the `Connect-Protocol-Version` header the WAF requires —
+    // a bare fetch gets a 403 "automated access detected") and wraps
+    // withRetryAndNotFound to survive Cloud Run cold starts (min instances = 0).
+    const stock = await getStock(code);
+    if (!stock) return null;
     return {
-      name: data.name ?? "",
-      percentageShorted: data.percentageShorted ?? 0,
+      name: stock.name ?? "",
+      percentageShorted: stock.percentageShorted ?? 0,
     };
-  } catch {
+  } catch (err) {
+    // Surface failures in Vercel logs — the previous silent catch is why this
+    // rendered "N/A" undiagnosed.
+    console.error(`[opengraph-image] getStock failed for ${code}:`, err);
     return null;
   }
 }

@@ -10,6 +10,10 @@ export const size = {
 };
 export const contentType = "image/png";
 
+// Self-healing cache: regenerate daily so a transient fetch failure doesn't
+// freeze a broken image for a year via Next.js's default immutable cache.
+export const revalidate = 86400;
+
 let cachedBg: string | null = null;
 let cachedLogo: string | null = null;
 
@@ -82,7 +86,7 @@ async function getIndustryOGData(
       `${apiUrl}/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Connect-Protocol-Version": "1", "User-Agent": "shorted-og/1.0" },
         body: JSON.stringify({
           period: "3m",
           limit: 50,
