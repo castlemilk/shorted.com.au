@@ -109,6 +109,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   let title = `${code} Short Position | Official ASIC Data (T+4)`;
   let description = `${code} short selling data from official ASIC reports. Current short interest %, historical trends, charts & analysis. Updated daily with T+4 delay. Free ASX short position tracking.`;
   let shouldNoindex = false;
+  // Content-addressed OG image version: changes when the short % changes, so
+  // the social card refreshes exactly when data does (and is served from
+  // immutable cache otherwise). Also moves off any stale/frozen cached URL.
+  let ogVersion = "default";
 
   try {
     const stock = await getStockOrNotFound(code);
@@ -116,6 +120,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       const companyName = stock.name ? `(${stock.name})` : "";
       const shortPct = stock.percentageShorted > 0 ? ` | ${stock.percentageShorted.toFixed(2)}% Shorted` : "";
       title = `${code} ${companyName} Short Position${shortPct} | ASIC Data`;
+      if (stock.percentageShorted > 0) ogVersion = stock.percentageShorted.toFixed(2);
 
       const dateStr = new Date().toLocaleDateString("en-AU", {
         month: "short",
@@ -137,6 +142,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   } catch {
     // Fall back to default title/description if fetch fails
   }
+
+  const ogImage = {
+    url: `${siteConfig.url}/shorts/${code}/opengraph-image?p=${ogVersion}`,
+    width: 1200,
+    height: 630,
+    alt: `${code} short position — ${siteConfig.name}`,
+  };
 
   return {
     title,
@@ -164,11 +176,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       siteName: siteConfig.name,
       type: "article",
       locale: "en_AU",
+      images: [ogImage],
     },
     twitter: {
       card: "summary_large_image",
       title: `${title} | ${siteConfig.name}`,
       description,
+      images: [ogImage],
     },
     alternates: {
       canonical: `${siteConfig.url}/shorts/${code}`,
