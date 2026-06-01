@@ -215,34 +215,19 @@ export default async function Image({
               Top Shorted
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                alignItems: "baseline",
-                gap: 40,
-                marginTop: 12,
-              }}
-            >
+            {/* Stock code only — the short % is shown once, in the Short
+                Interest stat below. (Avoids a duplicate number and the Satori
+                flex-gap collapse that jammed "DMP" against the percentage.) */}
+            <div style={{ display: "flex", marginTop: 12 }}>
               <span
                 style={{
                   fontSize: 72,
                   fontWeight: 800,
                   color: "#FFA94D",
-                  letterSpacing: "0.04em",
                   textShadow: "0 0 30px rgba(255,169,77,0.3)",
                 }}
               >
                 {code}
-              </span>
-              <span
-                style={{
-                  fontSize: 56,
-                  fontWeight: 700,
-                  color: "#FFA94D",
-                  textShadow: "0 0 20px rgba(255,169,77,0.3)",
-                }}
-              >
-                {shortPct}
               </span>
             </div>
 
