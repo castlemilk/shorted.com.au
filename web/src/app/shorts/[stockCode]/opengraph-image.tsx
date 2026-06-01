@@ -176,26 +176,18 @@ export default async function Image({
               justifyContent: "center",
             }}
           >
-            <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
+            {/* Single text node: Satori mismeasures adjacent flex spans with
+                synthetic font weights, causing "SHORTED" + "REPORTS" to overlap.
+                One span = one measurement = no overlap. */}
+            <div style={{ display: "flex" }}>
               <span
                 style={{
                   fontSize: 46,
-                  fontWeight: 800,
+                  fontWeight: 700,
                   color: "#FFA94D",
-                  letterSpacing: "0.04em",
                 }}
               >
-                SHORTED
-              </span>
-              <span
-                style={{
-                  fontSize: 46,
-                  fontWeight: 300,
-                  color: "#FFA94D",
-                  letterSpacing: "0.04em",
-                }}
-              >
-                REPORTS
+                SHORTED REPORTS
               </span>
             </div>
 

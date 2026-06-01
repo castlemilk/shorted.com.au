@@ -220,26 +220,9 @@ export default async function Image({
               justifyContent: "center",
             }}
           >
-            <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
-              <span
-                style={{
-                  fontSize: 46,
-                  fontWeight: 800,
-                  color: "#00E5FF",
-                  letterSpacing: "0.04em",
-                }}
-              >
-                SHORTED
-              </span>
-              <span
-                style={{
-                  fontSize: 46,
-                  fontWeight: 300,
-                  color: "#00E5FF",
-                  letterSpacing: "0.04em",
-                }}
-              >
-                MONTHLY
+            <div style={{ display: "flex" }}>
+              <span style={{ fontSize: 46, fontWeight: 700, color: "#00E5FF" }}>
+                SHORTED MONTHLY
               </span>
             </div>
 
