@@ -1,5 +1,4 @@
 import { type Metadata } from "next";
-import { Newspaper } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { NewsCard, type NewsCardArticle } from "~/@/components/news/news-card";
@@ -9,10 +8,13 @@ import {
 } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { getMarketNews } from "~/app/actions/getStockNews";
-import { TakeCardGrid } from "~/@/components/news/take-card-grid";
-import { TakeHero } from "~/@/components/news/take-hero";
 import { listEditorialTakes } from "~/app/actions/getEditorialTake";
 import { isValidStockCode } from "~/@/lib/stock-code";
+import { MastheadHeader } from "~/@/components/news/masthead/masthead-header";
+import { MarketPulse } from "~/@/components/news/masthead/market-pulse";
+import { LeadStory } from "~/@/components/news/masthead/lead-story";
+import { StoryStack } from "~/@/components/news/masthead/story-stack";
+import { WireList } from "~/@/components/news/masthead/wire-list";
 
 export const metadata: Metadata = {
   // Root layout applies `%s | Shorted` template — don't include the suffix here.
@@ -132,18 +134,39 @@ const groupByDay = (articles: NewsCardArticle[]) => {
 export default async function NewsIndexPage() {
   const [response, takesResp] = await Promise.all([
     getMarketNews(60, false),
-    listEditorialTakes(1, 0, "").catch(() => undefined),
+    // Pull a generous batch so the lead + dedupe-by-stock story stack
+    // still fills even when one ticker dominates recent coverage.
+    listEditorialTakes(24, 0, "").catch(() => undefined),
   ]);
   const articles: NewsCardArticle[] = (
     (response?.articles ?? []) as unknown as ApiArticle[]
   ).map(toCardArticle);
 
-  // Hero: latest published Take if one exists, else the first
-  // aggregated news article (graceful degradation).
-  const heroTake = takesResp?.takes?.[0];
+  // Lead story: the newest published Take. Secondary stack: the next
+  // takes, deduped by stock code (newest take wins per ticker —
+  // mirrors take-card-grid's approach). Untickered takes are kept
+  // individually since they don't share a slot.
+  const allTakes = takesResp?.takes ?? [];
+  const leadTake = allTakes[0];
+  const seenStocks = new Set<string>();
+  if (leadTake) {
+    const leadKey = (leadTake.stockCode ?? "").trim().toUpperCase();
+    if (leadKey) seenStocks.add(leadKey);
+  }
+  const secondaryTakes: typeof allTakes = [];
+  for (const t of allTakes.slice(1)) {
+    const key = (t.stockCode ?? "").trim().toUpperCase();
+    if (key) {
+      if (seenStocks.has(key)) continue;
+      seenStocks.add(key);
+    }
+    secondaryTakes.push(t);
+    if (secondaryTakes.length >= 6) break;
+  }
+
+  // Graceful degradation: no takes → first news article becomes the hero.
   const [newsHero, ...rest] = articles;
-  const grouped = groupByDay(heroTake ? articles : rest);
-  const groupOrder = Object.keys(grouped);
+  const grouped = groupByDay(leadTake ? articles : rest);
 
   // NewsArticle schema for the top ~10 stories (Google's recommendation).
   const newsSchema = articles.slice(0, 10).map((a) => ({
@@ -204,55 +227,27 @@ export default async function NewsIndexPage() {
         requiresAuth={false}
       />
 
-      <section className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-primary/10 p-2">
-            <Newspaper className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-              ASX News & Sentiment
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Aggregated from Stockhead, Motley Fool, Small Caps, Kalkine and
-              Google News. Sentiment classified by Gemini 2.0.
-            </p>
-          </div>
-        </div>
-      </section>
-
       <Breadcrumbs items={breadcrumbItems} />
 
-      {articles.length === 0 ? (
-        <p className="rounded-lg border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
-          No news available right now — check back in a few minutes.
-        </p>
-      ) : (
-        <>
-          {heroTake ? (
-            <TakeHero take={heroTake} />
-          ) : newsHero ? (
-            <div className="mt-4">
-              <NewsCard article={newsHero} variant="hero" />
-            </div>
-          ) : null}
+      <div className="mx-auto max-w-7xl space-y-8">
+        <MastheadHeader />
+        <MarketPulse />
 
-          <TakeCardGrid limit={6} excludeSlug={heroTake?.slug} />
+        {leadTake ? (
+          <LeadStory take={leadTake} />
+        ) : newsHero ? (
+          <NewsCard article={newsHero} variant="hero" />
+        ) : (
+          <p className="rounded-lg border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+            No news available right now — check back in a few minutes.
+          </p>
+        )}
 
-          {groupOrder.map((label) => (
-            <section key={label} className="mt-8">
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {label}
-              </h2>
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {grouped[label]!.map((article) => (
-                  <NewsCard key={article.id} article={article} />
-                ))}
-              </div>
-            </section>
-          ))}
-        </>
-      )}
+        <div className="grid gap-10 lg:grid-cols-[2fr,1fr]">
+          <StoryStack takes={secondaryTakes} />
+          <WireList groups={grouped} />
+        </div>
+      </div>
     </DashboardLayout>
   );
 }

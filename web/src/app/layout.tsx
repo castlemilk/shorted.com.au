@@ -1,4 +1,4 @@
-import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
+import { IBM_Plex_Mono, Newsreader, Space_Grotesk } from "next/font/google";
 import "~/styles/globals.css";
 import { criticalCSS } from "~/styles/critical-css";
 
@@ -33,6 +33,17 @@ const fontMono = IBM_Plex_Mono({
   display: "swap",
   preload: true,
   fallback: ["JetBrains Mono", "Fira Code", "ui-monospace", "monospace"],
+});
+
+// Newsreader - Serif display face for the editorial masthead (/news).
+// Only applied via explicit `font-serif` classes — no global effect.
+const fontSerif = Newsreader({
+  subsets: ["latin"],
+  variable: "--font-serif",
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  display: "swap",
+  fallback: ["Georgia", "serif"],
 });
 
 // Space Grotesk - Display font for headings (optional, geometric sans)
@@ -141,7 +152,7 @@ export default function RootLayout({
   `.replace(/\s+/g, " ");
 
   return (
-    <html lang="en-AU" className={`${fontMono.variable} ${fontDisplay.variable}`} suppressHydrationWarning>
+    <html lang="en-AU" className={`${fontMono.variable} ${fontDisplay.variable} ${fontSerif.variable}`} suppressHydrationWarning>
       <head>
         {/* Inline critical CSS to prevent render-blocking */}
         <style dangerouslySetInnerHTML={{ __html: criticalCSS }} />

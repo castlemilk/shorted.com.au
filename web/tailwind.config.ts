@@ -56,6 +56,11 @@ module.exports = {
   			mono: [
   				'var(--font-sans)',
                     ...fontFamily.mono
+                ],
+  			serif: [
+  				'var(--font-serif)',
+  				'Georgia',
+  				'serif'
                 ]
   		},
   		colors: {
