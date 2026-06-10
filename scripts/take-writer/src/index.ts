@@ -14,6 +14,7 @@ import { synthesiseNarrative, narrativeToBodyMd } from "./narrative.js";
 import { buildAgenda, formatAgendaCandidate } from "./agenda.js";
 import { runNewsroom, runNewsroomDaily, runNewsroomPreview, regenerateImages } from "./newsroom.js";
 import { validateArticle } from "./validator.js";
+import { listDrafts, publishTake } from "./publish.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -49,6 +50,9 @@ interface Args {
   // newsroom
   withImages?: boolean;
   noImages?: boolean;
+  // publish
+  noValidate?: boolean;
+  tweet?: boolean;
   tier?: string;
   angle?: string;
   slug?: string;
@@ -90,6 +94,10 @@ function parseArgs(argv: string[]): Args {
       args.withImages = true;
     } else if (arg === "--no-images") {
       args.noImages = true;
+    } else if (arg === "--no-validate") {
+      args.noValidate = true;
+    } else if (arg === "--tweet") {
+      args.tweet = true;
     } else if (arg.startsWith("--tier=")) args.tier = arg.split("=")[1];
     else if (arg.startsWith("--angle=")) args.angle = arg.split("=").slice(1).join("=");
     else if (arg.startsWith("--slug=")) args.slug = arg.split("=")[1];
@@ -118,6 +126,8 @@ Commands:
   newsroom-preview Investigate ONE --stock=CODE and print the report (no DB write, no images)
   regen-images    Generate a hero + inline images for an existing take (--slug=SLUG [--inline=2])
   validate-article Screenshot + Gemini-vision cohesion check with auto-fix loop (--slug=SLUG [--rounds=2])
+  list-drafts     List unpublished drafts; --slug=SLUG prints one draft's full body + citations
+  publish         Publish a draft: images → validate → set published_at → tweet (--slug=SLUG [--no-images] [--no-validate] [--tweet])
   narrative Multi-section journalism-engine Take for one --stock=CODE
 
 run flags:
@@ -359,6 +369,20 @@ async function main(): Promise<void> {
     case "validate-article": {
       if (!args.slug) throw new Error("--slug=SLUG required for validate-article");
       await validateArticle(args.slug, { rounds: args.rounds });
+      break;
+    }
+    case "list-drafts": {
+      await listDrafts({ slug: args.slug });
+      break;
+    }
+    case "publish": {
+      if (!args.slug) throw new Error("--slug=SLUG required for publish");
+      await publishTake({
+        slug: args.slug,
+        noImages: args.noImages,
+        noValidate: args.noValidate,
+        tweet: args.tweet,
+      });
       break;
     }
     case "agenda": {
