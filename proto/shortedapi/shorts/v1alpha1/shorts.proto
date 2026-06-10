@@ -1123,6 +1123,11 @@ message EditorialTake {
   google.protobuf.Timestamp tweet_published_at = 17;
   repeated TakeCitation citations = 18;
   repeated LayoutImage layout_images = 19;
+  string body_format = 20;    // 'markdown' | 'mdx'
+  string standfirst = 21;     // one-sentence dek under the headline
+  string byline = 22;         // e.g. "The Shorted Desk — Mining & Resources"
+  string hero_caption = 23;
+  string hero_credit = 24;    // e.g. "AI-generated illustration"
 }
 
 // A single cited source referenced by a [ref-N] marker in body_md.

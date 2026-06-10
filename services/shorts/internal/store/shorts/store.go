@@ -226,6 +226,11 @@ type EditorialTake struct {
 	TweetPublishedAt *string
 	Citations        []byte // JSONB raw — service layer decodes to []TakeCitation
 	LayoutImages     []byte // JSONB raw — service layer decodes to []LayoutImage
+	BodyFormat       string  // 'markdown' | 'mdx' — NOT NULL DEFAULT 'markdown'
+	Standfirst       *string
+	Byline           *string
+	HeroCaption      *string
+	HeroCredit       *string
 }
 
 // TakeCitation matches the proto shape for editorial_takes.citations.

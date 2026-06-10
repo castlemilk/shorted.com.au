@@ -153,6 +153,19 @@ func convertEditorialTake(t *shortsstore.EditorialTake) *shortsv1alpha1.Editoria
 			}
 		}
 	}
+	out.BodyFormat = t.BodyFormat
+	if t.Standfirst != nil {
+		out.Standfirst = *t.Standfirst
+	}
+	if t.Byline != nil {
+		out.Byline = *t.Byline
+	}
+	if t.HeroCaption != nil {
+		out.HeroCaption = *t.HeroCaption
+	}
+	if t.HeroCredit != nil {
+		out.HeroCredit = *t.HeroCredit
+	}
 	return out
 }
 
