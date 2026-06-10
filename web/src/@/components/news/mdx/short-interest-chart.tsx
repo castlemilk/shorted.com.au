@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { fetchStockDataClient } from "~/@/lib/client-api";
 import { type TimeSeriesPoint } from "~/gen/stocks/v1alpha1/stocks_pb";
@@ -21,6 +21,11 @@ function toSeriesPoints(points: TimeSeriesPoint[]): SeriesPoint[] {
   return result.sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
+async function fetchPoints(code: string, win: Window): Promise<SeriesPoint[]> {
+  const resp = await fetchStockDataClient(code, win);
+  return toSeriesPoints(resp?.points ?? []);
+}
+
 export function ShortInterestChart({
   code,
   window: win = "6m",
@@ -28,31 +33,16 @@ export function ShortInterestChart({
   code: string;
   window?: Window;
 }) {
-  const [points, setPoints] = useState<SeriesPoint[] | null>(null);
-  const [failed, setFailed] = useState(false);
+  const { data: points, isLoading, isError } = useQuery({
+    queryKey: ["mdx-short-interest", code, win],
+    queryFn: () => fetchPoints(code, win),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    setPoints(null);
-    setFailed(false);
-
-    fetchStockDataClient(code, win)
-      .then((resp) => {
-        if (cancelled) return;
-        setPoints(toSeriesPoints(resp?.points ?? []));
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [code, win]);
-
-  if (failed) return null;
-  if (points === null) return <Skeleton className="my-8 h-[280px] w-full" />;
-  if (points.length < 2) return null;
+  if (isError) return null;
+  if (isLoading) return <Skeleton className="my-8 h-[280px] w-full" />;
+  if ((points?.length ?? 0) < 2) return null;
 
   return (
     <figure className="my-8">
@@ -60,10 +50,11 @@ export function ShortInterestChart({
         {code} short interest — {win}
       </figcaption>
       <ArticleSeriesChart
-        points={points}
+        points={points!}
         height={280}
         formatValue={(v) => `${v.toFixed(1)}%`}
         gradientId={`short-interest-gradient-${code}`}
+        ariaLabel={`${code} short interest over ${win}`}
       />
     </figure>
   );

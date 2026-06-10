@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import {
   getHistoricalData,
@@ -20,6 +20,11 @@ function toSeriesPoints(prices: HistoricalDataPoint[]): SeriesPoint[] {
   return result.sort((a, b) => a.date.getTime() - b.date.getTime());
 }
 
+async function fetchPoints(code: string, win: Window): Promise<SeriesPoint[]> {
+  const prices = await getHistoricalData(code, win);
+  return toSeriesPoints(prices ?? []);
+}
+
 export function PriceChart({
   code,
   window: win = "6m",
@@ -27,31 +32,16 @@ export function PriceChart({
   code: string;
   window?: Window;
 }) {
-  const [points, setPoints] = useState<SeriesPoint[] | null>(null);
-  const [failed, setFailed] = useState(false);
+  const { data: points, isLoading, isError } = useQuery({
+    queryKey: ["mdx-price", code, win],
+    queryFn: () => fetchPoints(code, win),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    setPoints(null);
-    setFailed(false);
-
-    getHistoricalData(code, win)
-      .then((prices) => {
-        if (cancelled) return;
-        setPoints(toSeriesPoints(prices ?? []));
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [code, win]);
-
-  if (failed) return null;
-  if (points === null) return <Skeleton className="my-8 h-[280px] w-full" />;
-  if (points.length < 2) return null;
+  if (isError) return null;
+  if (isLoading) return <Skeleton className="my-8 h-[280px] w-full" />;
+  if ((points?.length ?? 0) < 2) return null;
 
   return (
     <figure className="my-8">
@@ -59,10 +49,11 @@ export function PriceChart({
         {code} share price — {win}
       </figcaption>
       <ArticleSeriesChart
-        points={points}
+        points={points!}
         height={280}
         formatValue={(v) => `$${v.toFixed(2)}`}
         gradientId={`price-gradient-${code}`}
+        ariaLabel={`${code} share price over ${win}`}
       />
     </figure>
   );

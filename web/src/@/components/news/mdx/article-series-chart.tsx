@@ -33,6 +33,7 @@ interface ArticleSeriesChartProps {
   height?: number;
   formatValue?: (value: number) => string;
   gradientId?: string;
+  ariaLabel: string;
 }
 
 function ChartInner({
@@ -41,6 +42,7 @@ function ChartInner({
   height,
   formatValue,
   gradientId,
+  ariaLabel,
 }: Required<ArticleSeriesChartProps> & { width: number }) {
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
     useTooltip<SeriesPoint>();
@@ -93,7 +95,7 @@ function ChartInner({
 
   return (
     <div className="relative" style={{ width, height }}>
-      <svg width={width} height={height} role="img">
+      <svg width={width} height={height} role="img" aria-label={ariaLabel}>
         <LinearGradient
           id={gradientId}
           from={ACCENT}
@@ -200,6 +202,7 @@ export function ArticleSeriesChart({
   height = 280,
   formatValue = (v) => v.toFixed(2),
   gradientId = "article-series-gradient",
+  ariaLabel,
 }: ArticleSeriesChartProps) {
   if (points.length < 2) return null;
   return (
@@ -213,6 +216,7 @@ export function ArticleSeriesChart({
               height={height}
               formatValue={formatValue}
               gradientId={gradientId}
+              ariaLabel={ariaLabel}
             />
           ) : null
         }
