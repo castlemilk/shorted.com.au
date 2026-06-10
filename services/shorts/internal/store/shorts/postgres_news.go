@@ -12,24 +12,34 @@ func (s *postgresStore) GetStockNews(stockCode string, limit int32, source, sent
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	query := `SELECT id, stock_code, source, headline, url, published_at, sentiment, relevance_score, is_price_sensitive, summary, tags, image_url
-		FROM news_articles
-		WHERE stock_code = $1`
+	query := `SELECT n.id, n.stock_code, n.source, n.headline, n.url, n.published_at,
+		       n.sentiment, n.relevance_score, n.is_price_sensitive, n.summary, n.tags, n.image_url,
+		       COALESCE(c.cnt, 1) AS syndication_count,
+		       COALESCE(c.sources, '{}')::text[] AS syndicated_sources
+		FROM news_articles n
+		LEFT JOIN LATERAL (
+		    SELECT COUNT(*) AS cnt,
+		           ARRAY_AGG(DISTINCT m.source) FILTER (WHERE m.id <> n.id) AS sources
+		    FROM news_articles m
+		    WHERE m.cluster_id = n.cluster_id
+		) c ON n.cluster_id IS NOT NULL
+		WHERE (n.cluster_id IS NULL OR n.cluster_is_primary = TRUE)
+		AND n.stock_code = $1`
 	args := []interface{}{stockCode}
 	argIdx := 2
 
 	if source != "" {
-		query += fmt.Sprintf(" AND source = $%d", argIdx)
+		query += fmt.Sprintf(" AND n.source = $%d", argIdx)
 		args = append(args, source)
 		argIdx++
 	}
 	if sentiment != "" {
-		query += fmt.Sprintf(" AND sentiment = $%d", argIdx)
+		query += fmt.Sprintf(" AND n.sentiment = $%d", argIdx)
 		args = append(args, sentiment)
 		argIdx++
 	}
 
-	query += " ORDER BY published_at DESC"
+	query += " ORDER BY n.published_at DESC"
 
 	if limit > 0 {
 		query += fmt.Sprintf(" LIMIT $%d", argIdx)
@@ -50,6 +60,7 @@ func (s *postgresStore) GetStockNews(stockCode string, limit int32, source, sent
 			&a.ID, &a.StockCode, &a.Source, &a.Headline, &a.URL,
 			&a.PublishedAt, &a.Sentiment, &a.RelevanceScore,
 			&a.IsPriceSensitive, &a.Summary, &tags, &a.ImageURL,
+			&a.SyndicationCount, &a.SyndicatedSources,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan news article: %w", err)
 		}
@@ -69,21 +80,31 @@ func (s *postgresStore) GetMarketNews(limit int32, source string, priceSensitive
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	query := `SELECT id, stock_code, source, headline, url, published_at, sentiment, relevance_score, is_price_sensitive, summary, tags, image_url
-		FROM news_articles WHERE 1=1`
+	query := `SELECT n.id, n.stock_code, n.source, n.headline, n.url, n.published_at,
+		       n.sentiment, n.relevance_score, n.is_price_sensitive, n.summary, n.tags, n.image_url,
+		       COALESCE(c.cnt, 1) AS syndication_count,
+		       COALESCE(c.sources, '{}')::text[] AS syndicated_sources
+		FROM news_articles n
+		LEFT JOIN LATERAL (
+		    SELECT COUNT(*) AS cnt,
+		           ARRAY_AGG(DISTINCT m.source) FILTER (WHERE m.id <> n.id) AS sources
+		    FROM news_articles m
+		    WHERE m.cluster_id = n.cluster_id
+		) c ON n.cluster_id IS NOT NULL
+		WHERE (n.cluster_id IS NULL OR n.cluster_is_primary = TRUE)`
 	args := []interface{}{}
 	argIdx := 1
 
 	if source != "" {
-		query += fmt.Sprintf(" AND source = $%d", argIdx)
+		query += fmt.Sprintf(" AND n.source = $%d", argIdx)
 		args = append(args, source)
 		argIdx++
 	}
 	if priceSensitiveOnly {
-		query += " AND is_price_sensitive = TRUE"
+		query += " AND n.is_price_sensitive = TRUE"
 	}
 
-	query += " ORDER BY published_at DESC"
+	query += " ORDER BY n.published_at DESC"
 
 	if limit > 0 {
 		query += fmt.Sprintf(" LIMIT $%d", argIdx)
@@ -104,6 +125,7 @@ func (s *postgresStore) GetMarketNews(limit int32, source string, priceSensitive
 			&a.ID, &a.StockCode, &a.Source, &a.Headline, &a.URL,
 			&a.PublishedAt, &a.Sentiment, &a.RelevanceScore,
 			&a.IsPriceSensitive, &a.Summary, &tags, &a.ImageURL,
+			&a.SyndicationCount, &a.SyndicatedSources,
 		); err != nil {
 			return nil, 0, fmt.Errorf("failed to scan news article: %w", err)
 		}

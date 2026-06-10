@@ -198,9 +198,11 @@ type NewsArticle struct {
 	Sentiment        *string
 	RelevanceScore   float64
 	IsPriceSensitive bool
-	Summary          *string
-	Tags             []byte // JSON
-	ImageURL         *string
+	Summary           *string
+	Tags              []byte // JSON
+	ImageURL          *string
+	SyndicationCount  int32
+	SyndicatedSources []string
 }
 
 // EditorialTake is a Shorted Take editorial article.
