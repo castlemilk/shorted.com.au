@@ -1,8 +1,20 @@
+import { Children } from "react";
 import { cn } from "~/@/lib/utils";
 
 export function StatGroup({ children }: { children: React.ReactNode }) {
+  // Size the grid to the number of stats — a fixed 4-col grid leaves empty
+  // tracks (visible as blank boxes) when the writer emits 2 or 3 stats.
+  const count = Children.count(children);
+  const cols =
+    count <= 1
+      ? "grid-cols-1"
+      : count === 2
+        ? "grid-cols-2"
+        : count === 3
+          ? "grid-cols-1 sm:grid-cols-3"
+          : "grid-cols-2 md:grid-cols-4";
   return (
-    <div className="my-8 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border md:grid-cols-4">
+    <div className={cn("my-8 grid gap-px overflow-hidden rounded-lg border border-border bg-border", cols)}>
       {children}
     </div>
   );
