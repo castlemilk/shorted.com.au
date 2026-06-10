@@ -21,6 +21,9 @@ import { investigate, type GeminiGenerate } from "./investigator.js";
 import { CitationLedger } from "./ledger.js";
 import { getOverview } from "./drilldowns.js";
 import { designImagePlan, generatePlanImages, type ArtContext, type LayoutImage } from "./art-director.js";
+import { deskByline } from "./byline.js";
+
+export { deskByline } from "./byline.js";
 
 function makeGeminiGenerate(ai: GoogleGenerativeAI, modelName: string): GeminiGenerate {
   return async ({ systemInstruction, tools, contents }) => {
@@ -408,11 +411,13 @@ async function insertTake(
   publish: boolean,
 ): Promise<void> {
   const publishedClause = publish ? "NOW()" : "NULL";
+  // Legacy NarrativeTake path: body is plain markdown (body_format defaults
+  // to 'markdown' in the DB, no standfirst) — only the desk byline applies.
   await pg.query(
     `INSERT INTO editorial_takes (
        slug, headline, stock_code, body_md, sentiment, word_count, model,
-       citations, hero_image_url, inline_images, published_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,'gemini-2.5-flash',$7::jsonb,$8,$9::jsonb,${publishedClause})
+       citations, hero_image_url, inline_images, byline, published_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,'gemini-2.5-flash',$7::jsonb,$8,$9::jsonb,$10,${publishedClause})
      ON CONFLICT (slug) DO UPDATE SET
        headline=EXCLUDED.headline, body_md=EXCLUDED.body_md,
        sentiment=EXCLUDED.sentiment, word_count=EXCLUDED.word_count,
@@ -421,12 +426,13 @@ async function insertTake(
        inline_images=CASE WHEN jsonb_array_length(EXCLUDED.inline_images) > 0
                           THEN EXCLUDED.inline_images
                           ELSE editorial_takes.inline_images END,
+       byline=EXCLUDED.byline,
        updated_at=NOW()`,
     [
       take.slug, take.headline, candidate.stockCode,
       bodyMd, take.sentiment, bodyMd.split(/\s+/).filter(Boolean).length,
       JSON.stringify(take.citations), heroUrl,
-      JSON.stringify(inlineImages),
+      JSON.stringify(inlineImages), deskByline(candidate.industry),
     ],
   );
 }
@@ -448,6 +454,7 @@ async function insertDossierTake(
   pg: PgClient,
   take: DossierTake,
   stockCode: string,
+  industry: string | null,
   heroUrl: string | null,
   inlineImages: InlineImageRow[],
   layoutImages: LayoutImage[],
@@ -459,8 +466,9 @@ async function insertDossierTake(
   await pg.query(
     `INSERT INTO editorial_takes (
        slug, headline, stock_code, body_md, sentiment, word_count, model, tier,
-       citations, hero_image_url, inline_images, layout_images, published_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11::jsonb,$12::jsonb,${publishedClause})
+       citations, hero_image_url, inline_images, layout_images,
+       body_format, standfirst, byline, published_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11::jsonb,$12::jsonb,$13,$14,$15,${publishedClause})
      ON CONFLICT (slug) DO UPDATE SET
        headline=EXCLUDED.headline, body_md=EXCLUDED.body_md, tier=EXCLUDED.tier,
        sentiment=EXCLUDED.sentiment, word_count=EXCLUDED.word_count,
@@ -470,12 +478,14 @@ async function insertDossierTake(
                           THEN EXCLUDED.inline_images ELSE editorial_takes.inline_images END,
        layout_images=CASE WHEN jsonb_array_length(EXCLUDED.layout_images) > 0
                           THEN EXCLUDED.layout_images ELSE editorial_takes.layout_images END,
+       body_format=EXCLUDED.body_format, standfirst=EXCLUDED.standfirst, byline=EXCLUDED.byline,
        updated_at=NOW()`,
     [
       take.slug, take.headline, stockCode, take.bodyMd, take.sentiment,
       take.bodyMd.split(/\s+/).filter(Boolean).length, writerModel, take.tier,
       JSON.stringify(take.citations), heroUrl, JSON.stringify(inlineImages),
       JSON.stringify(layoutImages),
+      take.bodyFormat, take.standfirst, deskByline(industry),
     ],
   );
 }
@@ -584,7 +594,7 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
           }
         }
 
-        await insertDossierTake(pg, take, a.stockCode, heroUrl, inlineImages, layoutImages, publishThis, writerModel);
+        await insertDossierTake(pg, take, a.stockCode, a.industry, heroUrl, inlineImages, layoutImages, publishThis, writerModel);
         if (publishThis) published++;
         else if (hold) held++;
         else drafted++;

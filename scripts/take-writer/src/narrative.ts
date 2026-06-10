@@ -16,6 +16,7 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { type JournalismReport, type NewsArticle } from "./journalism.js";
 import { CitationLedger, compactCitations } from "./ledger.js";
+import { validateMdx, stripMdxComponents } from "./mdxgate.js";
 import type { Dossier } from "./investigator.js";
 import type { OverviewResult } from "./drilldowns.js";
 
@@ -544,9 +545,11 @@ export function assembleDeepDiveBody(sections: Array<{ heading: string; prose: s
 export interface DossierTake {
   slug: string;
   headline: string;
+  standfirst: string;
   sentiment: "positive" | "negative" | "neutral";
   tier: "take" | "deep_dive";
   bodyMd: string;
+  bodyFormat: "markdown" | "mdx";
   citations: Citation[];
   droppedCitations: string[];
 }
@@ -554,23 +557,28 @@ export interface DossierTake {
 const HEADLINE_DESC =
   "Editorial headline, 6-11 words, sentence case (only proper nouns + ticker codes capitalised). Lead with the specific observation, not company-name boilerplate. Use figures ($600M, 14%, 22%) — never spelled-out numbers ('six-hundred million'). No 'Reacts to', 'Responds to', 'Faces', or other AI-tell verbs. Examples: 'Zip shorts doubled while the chart halved', 'Telix shorts held through the $600M raise', 'Lotus at 18% as Kayelekera burns'.";
 
+const STANDFIRST_DESC =
+  "One-sentence dek under the headline, max 30 words, concrete numbers preferred, no clickbait.";
+
 const TAKE_DOSSIER_SCHEMA = {
   type: SchemaType.OBJECT,
   properties: {
     headline: { type: SchemaType.STRING, description: HEADLINE_DESC },
+    standfirst: { type: SchemaType.STRING, description: STANDFIRST_DESC },
     sentiment: { type: SchemaType.STRING, enum: ["positive", "negative", "neutral"] },
     background: { type: SchemaType.STRING },
     recent_events: { type: SchemaType.STRING },
     the_data: { type: SchemaType.STRING },
     outlook: { type: SchemaType.STRING },
   },
-  required: ["headline", "sentiment", "background", "recent_events", "the_data", "outlook"],
+  required: ["headline", "standfirst", "sentiment", "background", "recent_events", "the_data", "outlook"],
 };
 
 const DEEPDIVE_DOSSIER_SCHEMA = {
   type: SchemaType.OBJECT,
   properties: {
     headline: { type: SchemaType.STRING, description: HEADLINE_DESC },
+    standfirst: { type: SchemaType.STRING, description: STANDFIRST_DESC },
     sentiment: { type: SchemaType.STRING, enum: ["positive", "negative", "neutral"] },
     sections: {
       type: SchemaType.ARRAY,
@@ -581,8 +589,20 @@ const DEEPDIVE_DOSSIER_SCHEMA = {
       },
     },
   },
-  required: ["headline", "sentiment", "sections"],
+  required: ["headline", "standfirst", "sentiment", "sections"],
 };
+
+// Copy of the MDX component palette doc — take-writer cannot import from
+// web/; keep in sync with web/src/@/components/news/mdx/manifest.ts
+// MDX_PALETTE_DOC.
+const MDX_PALETTE_DOC = `
+<ShortInterestChart code="BHP" window="6m" /> — short interest vs price chart. One per article, after the data discussion.
+<PriceChart code="BHP" window="3m" /> — price/volume only; use when price action is the story.
+<StatGroup><Stat label="Short interest" value="12.4%" context="up 3.1pp in 90 days" cite="ref-2" /></StatGroup> — 2-4 key numbers, every value must appear in your sources or the provided data.
+<PullQuote>One striking sentence from your own prose.</PullQuote>
+<Timeline><TimelineEvent date="2026-04-02" label="CEO sells $1.2M" cite="ref-3" /></Timeline> — only for genuine sequences (3+ events).
+Rules: components on their own lines, never inside markdown headings/lists; window one of 1m|3m|6m|1y; cite only [ref-N] ids from CITABLE SOURCES; no other components, no imports, no HTML.
+`.trim();
 
 /** Injectable LLM calls so synthesiseFromDossier is unit-testable. */
 export interface DossierWriterDeps {
@@ -645,6 +665,11 @@ export async function synthesiseFromDossier(
       : "Write the four sections (background, recent_events, the_data, outlook). Cite [ref-N] inline. Only cite refIds in CITABLE SOURCES. When SHORT-POSITION DATA is provided, anchor the data observation in those numbers (current short %, the price move, and the correlation), stated without a citation. Use ONLY [ref-N] markers — every source, including financial reports, is listed in CITABLE SOURCES as a ref-N. NEVER use [report-N]. Put each citation in its OWN brackets — write [ref-1][ref-2], never [ref-1, ref-2].",
     "",
     "The HEADLINE and the opening must foreground the short-selling story — Shorted is a short-position publication, so the short position, its trend, and the price action are the spine. A tangential news item (a lawsuit, a product launch) can feature in the body, but never lead the headline unless it is the direct cause of a short-position move.",
+    "",
+    "=== INTERACTIVE COMPONENTS (MDX) ===",
+    MDX_PALETTE_DOC,
+    "REQUIRED: exactly one <ShortInterestChart> for the subject stock (place after the data discussion) and one <StatGroup> with 2-4 stats whose values come from CITABLE SOURCES or the SHORT-POSITION DATA. Components go in the section prose on their own blank-line-separated lines.",
+    "VOICE: masthead register. Concrete numbers in the first three paragraphs. No hedging filler ('it remains to be seen', 'time will tell'). Use a <PullQuote> only when a sentence earns it.",
   ].join("\n");
 
   const proseFor = (p: Record<string, unknown>): string =>
@@ -689,6 +714,23 @@ export async function synthesiseFromDossier(
 
   const { body, citations, dropped } = compactCitations(rawBody, ledger);
 
+  // MDX compile gate — the security boundary on writer output. Failure
+  // degrades to plain markdown rather than shipping broken/unsafe MDX.
+  const gate = await validateMdx(body, {
+    ledgerRefs: new Set(citations.map((c) => c.refId)),
+    knownCodes: new Set([stockCode, ...(overview?.peers ?? []).map((p) => p.code)]),
+  });
+  let finalBody = body;
+  let bodyFormat: "markdown" | "mdx" = "mdx";
+  if (!gate.ok) {
+    console.warn(`[dossierwriter] ${stockCode}: MDX gate failed (${gate.errors.join(" | ")}) — stripping to markdown`);
+    finalBody = stripMdxComponents(body);
+    bodyFormat = "markdown";
+  } else if (gate.componentCount === 0) {
+    // Valid but component-free — plain markdown article, no MDX render path needed.
+    bodyFormat = "markdown";
+  }
+
   const slugRaw = await deps.slug(String(parsed.headline ?? ""), stockCode);
   const slug = slugRaw.trim().toLowerCase()
     .replace(/[^a-z0-9\s-]+/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "").slice(0, 80);
@@ -696,9 +738,11 @@ export async function synthesiseFromDossier(
   return {
     slug,
     headline: String(parsed.headline ?? ""),
+    standfirst: String(parsed.standfirst ?? ""),
     sentiment: (parsed.sentiment as DossierTake["sentiment"]) ?? "neutral",
     tier: dossier.tier,
-    bodyMd: body,
+    bodyMd: finalBody,
+    bodyFormat,
     citations,
     droppedCitations: dropped,
   };

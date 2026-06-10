@@ -103,6 +103,7 @@ Tier: ${a.tier} (${a.tier === "deep_dive" ? "rich, multi-thread; build a timelin
 Start by calling get_overview to orient (current short %, slope, price moves, correlation, sector peers) — these are the numbers Shorted is known for, weave them into your findings. Then drill into the specific events with the other tools. get_overview gives you the numbers but NOT citable sources — you MUST also call align_events and/or search_news to gather the actual news and director trades before you emit_dossier. A dossier with no gathered sources is unacceptable.
 Every factual claim in your dossier MUST be backed by a refId a tool returned to you — do not
 invent sources or numbers. When done, call emit_dossier exactly once.
+Before emit_dossier you MUST: (a) state the short-interest trajectory from get_overview, and (b) call get_financials and include at least one financial-report citation when any filings exist for the stock. A dossier with zero report citations for a covered company is incomplete.
 Keep it to ${a.tier === "deep_dive" ? "at most 10" : "at most 4"} investigative tool calls before emitting.`;
 }
 

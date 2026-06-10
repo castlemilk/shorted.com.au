@@ -85,3 +85,55 @@ describe("synthesiseFromDossier (grounding + parse retry)", () => {
     await expect(synthesiseFromDossier(d, l, "DRO", null, deps)).rejects.toThrow(/unparseable/);
   });
 });
+
+describe("synthesiseFromDossier (MDX gate)", () => {
+  const mkDossier = (code: string): Dossier =>
+    ({ stockCode: code, tier: "take", angle: "a", summary: "s", threads: [], keyNumbers: [] });
+
+  it("keeps valid MDX and passes the standfirst through (bodyFormat=mdx)", async () => {
+    const l = new CitationLedger();
+    const deps: DossierWriterDeps = {
+      generate: async () => JSON.stringify({
+        headline: "BHP shorts at 12.4%", standfirst: "Test standfirst.", sentiment: "neutral",
+        background: "BHP short interest sits at 12.4%.",
+        recent_events: "Nothing new this week.",
+        the_data: `The data discussion.\n\n<ShortInterestChart code="BHP" window="6m" />\n\n<StatGroup><Stat label="Short %" value="12.4%" /></StatGroup>`,
+        outlook: "Flat.",
+      }),
+      slug: async () => "bhp-shorts",
+    };
+    const out = await synthesiseFromDossier(mkDossier("BHP"), l, "BHP", null, deps);
+    expect(out.bodyFormat).toBe("mdx");
+    expect(out.standfirst).toBe("Test standfirst.");
+    expect(out.bodyMd).toContain("<ShortInterestChart");
+    expect(out.bodyMd).toContain("<StatGroup>");
+  });
+
+  it("strips to markdown when the body contains an unknown component", async () => {
+    const l = new CitationLedger();
+    const deps: DossierWriterDeps = {
+      generate: async () => JSON.stringify({
+        headline: "h", standfirst: "s", sentiment: "neutral",
+        background: "b", recent_events: "r",
+        the_data: `d\n\n<BadComponent />`, outlook: "o",
+      }),
+      slug: async () => "bhp-bad",
+    };
+    const out = await synthesiseFromDossier(mkDossier("BHP"), l, "BHP", null, deps);
+    expect(out.bodyFormat).toBe("markdown");
+    expect(out.bodyMd).not.toContain("<BadComponent");
+  });
+
+  it("marks a component-free body as plain markdown", async () => {
+    const l = new CitationLedger();
+    const deps: DossierWriterDeps = {
+      generate: async () => JSON.stringify({
+        headline: "h", standfirst: "s", sentiment: "neutral",
+        background: "b", recent_events: "r", the_data: "d", outlook: "o",
+      }),
+      slug: async () => "bhp-plain",
+    };
+    const out = await synthesiseFromDossier(mkDossier("BHP"), l, "BHP", null, deps);
+    expect(out.bodyFormat).toBe("markdown");
+  });
+});
