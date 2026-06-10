@@ -109,7 +109,8 @@ func ClusterNews(ctx context.Context, db *pgxpool.Pool, opts ClusterNewsOpts) er
 	}
 
 	const maxTimeGap = 12 * time.Hour
-	for _, group := range byStock {
+	for key, group := range byStock {
+		isMarket := key == "_MARKET"
 		// Within each stock-code bucket, compare each pair within the
 		// time window for shingle overlap.
 		for i := 0; i < len(group); i++ {
@@ -123,7 +124,13 @@ func ClusterNews(ctx context.Context, db *pgxpool.Pool, opts ClusterNewsOpts) er
 				if dt > maxTimeGap {
 					continue
 				}
-				if shingleOverlap(a.shingles, b.shingles) >= opts.MinShingleOverlap {
+				var matched bool
+				if isMarket {
+					matched = sameStoryMarket(a.shingles, b.shingles, opts.MinShingleOverlap)
+				} else {
+					matched = shingleOverlap(a.shingles, b.shingles) >= opts.MinShingleOverlap
+				}
+				if matched {
 					union(a.id, b.id)
 				}
 			}
@@ -256,6 +263,29 @@ func shingleOverlap(a, b map[string]struct{}) int {
 		}
 	}
 	return count
+}
+
+// sameStoryMarket reports whether two headline shingle sets are near-identical
+// for market-wide (no stock code) candidates. Templated headlines about
+// different companies share boilerplate 3-grams (e.g. "insider just sold"),
+// so a flat count threshold falsely merges them. We additionally require that
+// shared shingles cover ≥ 60% of the smaller shingle set — genuine same-story
+// pairs (one word changed, or a syndication suffix added) will easily clear
+// this bar, while template variants won't.
+func sameStoryMarket(a, b map[string]struct{}, minOverlap int) bool {
+	shared := shingleOverlap(a, b)
+	if shared < minOverlap {
+		return false
+	}
+	smaller := len(a)
+	if len(b) < smaller {
+		smaller = len(b)
+	}
+	if smaller == 0 {
+		return false
+	}
+	// shared/smaller >= 0.6, expressed in integer arithmetic to avoid floats.
+	return shared*10 >= smaller*6
 }
 
 // clusterUUIDFromRoot derives a stable cluster UUID from the union-find
