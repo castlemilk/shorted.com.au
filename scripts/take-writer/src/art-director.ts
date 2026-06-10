@@ -31,13 +31,13 @@ export interface ArtContext {
 }
 
 export const STYLE_PROMPTS: Record<string, string> = {
-  documentary: "Documentary news photograph, natural available light, photojournalistic realism, candid, 35mm",
-  aerial: "High-altitude aerial / satellite-style view from directly above, cartographic clarity, terrain and infrastructure",
-  still_life: "Studio still-life, dramatic single-source lighting, deep shadow, tactile materials, high detail",
-  isometric: "Isometric 3D illustration, clean matte vector-like surfaces, muted editorial palette, soft ambient occlusion",
-  archival: "Grainy desaturated archival photograph, vintage film stock, faded contrast, mid-20th-century print feel",
-  abstract: "Abstract conceptual composition, bold minimal forms, generous negative space, editorial art direction",
-  environmental: "Environmental wide shot of a place or facility, shallow depth of field, atmospheric, sense of scale",
+  documentary: "Documentary news photograph. 35mm lens, natural available light, shallow depth of field, off-centre composition with leading lines, Reuters/Bloomberg wire-photo realism, true-to-life colour. NOT: text, charts, logos, readable signage, recognisable faces, watermarks, illustration look, oversaturation, HDR halos.",
+  aerial: "Aerial photograph, golden-hour low sun, long shadows, three-quarter oblique angle (not straight down), atmospheric haze toward the horizon, sense of scale from human-made structures. NOT: text, logos, map labels, drone visible in frame, fisheye distortion, miniature/tilt-shift effect.",
+  still_life: "Editorial still life. Single warm key light from upper left, deep soft shadows, macro detail on material texture, objects on raw stone or brushed steel surface, restrained dark palette with one warm accent. NOT: text, labels, logos, hands, lifestyle props, white studio background.",
+  isometric: "Clean isometric 3D render, translucent layered materials, single amber accent light against near-black, precise geometry, soft global illumination, subtle depth-of-field falloff at edges. NOT: text, numbers, axis labels, cartoon style, bright saturated palette, visible UI elements.",
+  archival: "Archival press photograph, grainy black-and-white or faded period-correct colour, period-correct equipment and dress, slight vignetting, scanned-print texture. NOT: text overlays, modern objects, digital sharpness, watermarks, recognisable faces in close-up.",
+  abstract: "Abstract editorial art: folded paper planes, layered gradients, or long-exposure light forms; brand amber (#FFA94D) accents on near-black (#0a0a0a); generous negative space; matte finish. NOT: text, charts, dollar signs, bulls or bears, logos, glossy 3D chrome, stock-photo clichés.",
+  environmental: "Wide environmental establishing shot, 24mm lens, overcast or dusk light, human-scale but figures distant and anonymous, industrial or landscape context dominating the frame, muted cinematic grade. NOT: text, signage close-ups, logos, recognisable faces, dramatic sky HDR, lens flare.",
 };
 
 const PLAN_SCHEMA = {
