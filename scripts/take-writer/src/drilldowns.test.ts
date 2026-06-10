@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { zoomWindow, reportLine, searchNews, type Queryable } from "./drilldowns.js";
+import { zoomWindow, reportLine, searchNews, getFinancials, type Queryable } from "./drilldowns.js";
 
 function fakePg(capture: { sql: string; params: unknown[] }[], rows: unknown[]): Queryable {
   return {
@@ -49,5 +49,33 @@ describe("searchNews", () => {
     await searchNews(pg, "probe", "DRO");
     expect(cap[0]!.params).toContain("DRO");
     expect(cap[0]!.params.some((p) => String(p).includes("probe"))).toBe(true);
+  });
+});
+
+describe("getFinancials", () => {
+  it("returns per-report metric sets with ledger sources", async () => {
+    const rows = [
+      { report_url: "https://x/a", report_type: "annual_results", report_title: "FY25 results", report_date: "2026-02-20", metrics: { revenue: "1.2B", net_profit: "80M" } },
+      { report_url: "https://x/b", report_type: "half_year_results", report_title: "H1 FY25", report_date: "2025-08-20", metrics: { revenue: "600M" } },
+    ];
+    const pg = fakePg([], rows);
+    const reports = await getFinancials(pg, "BHP", 3);
+    expect(reports).toHaveLength(2);
+    expect(reports[0]!.metrics.revenue).toBe("1.2B");
+    expect(reports[0]!.source.type).toBe("report");
+    expect(reports[1]!.source.headline).toBe("H1 FY25");
+  });
+
+  it("JSON-stringifies object and array metric values", async () => {
+    const rows = [
+      {
+        report_url: "https://x/c", report_type: "annual_results", report_title: "FY26", report_date: "2026-06-01",
+        metrics: { revenue: { value: 1200, unit: "M" }, segments: ["a", "b"] },
+      },
+    ];
+    const pg = fakePg([], rows);
+    const reports = await getFinancials(pg, "BHP", 2);
+    expect(reports[0]!.metrics.revenue).toBe('{"value":1200,"unit":"M"}');
+    expect(reports[0]!.metrics.segments).toBe('["a","b"]');
   });
 });

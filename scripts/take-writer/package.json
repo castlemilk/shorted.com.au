@@ -13,10 +13,12 @@
   "dependencies": {
     "@google-cloud/storage": "^7.19.0",
     "@google/generative-ai": "^0.21.0",
+    "@mdx-js/mdx": "^3.1.1",
     "@types/pg": "^8.20.0",
     "dotenv": "^16.4.5",
     "openai": "^6.38.0",
-    "pg": "^8.21.0"
+    "pg": "^8.21.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

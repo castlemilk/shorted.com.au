@@ -98,4 +98,35 @@ describe("compactCitations", () => {
     expect(dropped).toContain("report-1");
     expect(citations).toHaveLength(1);
   });
+
+  it("renumbers cite= props with the same remap as bracketed markers", () => {
+    const l = new CitationLedger();
+    l.register(src({ url: "https://ex.com/a" })); // ref-1
+    l.register(src({ url: "https://ex.com/b" })); // ref-2
+    l.register(src({ url: "https://ex.com/c" })); // ref-3
+    const body = 'Text [ref-3]. <Stat label="x" value="1" cite="ref-3" /> More [ref-1].';
+    const { body: out, citations } = compactCitations(body, l);
+    expect(out).toBe('Text [ref-1]. <Stat label="x" value="1" cite="ref-1" /> More [ref-2].');
+    expect(citations).toHaveLength(2);
+    expect(citations[0]!.url).toBe("https://ex.com/c");
+  });
+
+  it("includes sources cited only via a cite= prop in the citations array", () => {
+    const l = new CitationLedger();
+    l.register(src({ url: "https://ex.com/a" })); // ref-1
+    l.register(src({ url: "https://ex.com/b" })); // ref-2
+    const body = 'Prose [ref-1]. <Stat label="x" value="1" cite="ref-2" />';
+    const { body: out, citations } = compactCitations(body, l);
+    expect(citations).toHaveLength(2);
+    expect(out).toBe('Prose [ref-1]. <Stat label="x" value="1" cite="ref-2" />');
+    expect(citations[1]!.url).toBe("https://ex.com/b");
+  });
+
+  it("removes the cite attribute (keeping the component) for unknown refs and records them in dropped", () => {
+    const l = new CitationLedger();
+    l.register(src({ url: "https://ex.com/a" })); // ref-1
+    const { body: out, dropped } = compactCitations('<Stat label="x" value="1" cite="ref-9" />', l);
+    expect(out).toBe('<Stat label="x" value="1" />');
+    expect(dropped).toContain("ref-9");
+  });
 });

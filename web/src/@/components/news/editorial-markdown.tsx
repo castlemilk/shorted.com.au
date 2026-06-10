@@ -2,6 +2,7 @@
 
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { DROP_CAP_CONTAINER, firstProseBlockIndex } from "./drop-cap";
 
 export interface InlineImage {
   url: string;
@@ -29,7 +30,7 @@ export function EditorialMarkdown({ content, inlineImages = [] }: EditorialMarkd
 
   if (inlineImages.length === 0) {
     return (
-      <div className={proseClasses}>
+      <div className={`${proseClasses} ${DROP_CAP_CONTAINER}`}>
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
       </div>
     );
@@ -40,11 +41,17 @@ export function EditorialMarkdown({ content, inlineImages = [] }: EditorialMarkd
   // images the layout is: P1, IMG1, P2, P3, IMG2, P4.
   const blocks = content.split(/\n\s*\n/).filter((b) => b.trim().length > 0);
   const segmentsPerImage = Math.max(1, Math.floor(blocks.length / (inlineImages.length + 1)));
+  // Each block renders in its own div, so apply the drop cap to the
+  // first block that is actually prose (the body may open with a heading).
+  const firstProseIdx = firstProseBlockIndex(blocks);
   const nodes: React.ReactNode[] = [];
   let imgIdx = 0;
   for (let i = 0; i < blocks.length; i++) {
     nodes.push(
-      <div key={`p-${i}`} className={proseClasses}>
+      <div
+        key={`p-${i}`}
+        className={i === firstProseIdx ? `${proseClasses} ${DROP_CAP_CONTAINER}` : proseClasses}
+      >
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{blocks[i]!}</ReactMarkdown>
       </div>,
     );

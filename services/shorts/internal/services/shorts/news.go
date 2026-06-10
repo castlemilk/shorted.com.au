@@ -80,14 +80,16 @@ func convertNewsArticles(articles []*shortsstore.NewsArticle) []*shortsv1alpha1.
 	result := make([]*shortsv1alpha1.NewsArticle, len(articles))
 	for i, a := range articles {
 		article := &shortsv1alpha1.NewsArticle{
-			Id:               a.ID,
-			StockCode:        a.StockCode,
+			Id:                a.ID,
+			StockCode:         a.StockCode,
 			Source:            a.Source,
-			Headline:         a.Headline,
-			Url:              a.URL,
-			RelevanceScore:   a.RelevanceScore,
-			IsPriceSensitive: a.IsPriceSensitive,
-			Tags:             shortsstore.NewsArticleToTags(a.Tags),
+			Headline:          a.Headline,
+			Url:               a.URL,
+			RelevanceScore:    a.RelevanceScore,
+			IsPriceSensitive:  a.IsPriceSensitive,
+			Tags:              shortsstore.NewsArticleToTags(a.Tags),
+			SyndicationCount:  a.SyndicationCount,
+			SyndicatedSources: a.SyndicatedSources,
 		}
 		if a.Sentiment != nil {
 			article.Sentiment = *a.Sentiment

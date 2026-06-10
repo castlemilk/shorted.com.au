@@ -198,9 +198,11 @@ type NewsArticle struct {
 	Sentiment        *string
 	RelevanceScore   float64
 	IsPriceSensitive bool
-	Summary          *string
-	Tags             []byte // JSON
-	ImageURL         *string
+	Summary           *string
+	Tags              []byte // JSON
+	ImageURL          *string
+	SyndicationCount  int32
+	SyndicatedSources []string
 }
 
 // EditorialTake is a Shorted Take editorial article.
@@ -224,6 +226,11 @@ type EditorialTake struct {
 	TweetPublishedAt *string
 	Citations        []byte // JSONB raw — service layer decodes to []TakeCitation
 	LayoutImages     []byte // JSONB raw — service layer decodes to []LayoutImage
+	BodyFormat       string  // 'markdown' | 'mdx' — NOT NULL DEFAULT 'markdown'
+	Standfirst       *string
+	Byline           *string
+	HeroCaption      *string
+	HeroCredit       *string
 }
 
 // TakeCitation matches the proto shape for editorial_takes.citations.

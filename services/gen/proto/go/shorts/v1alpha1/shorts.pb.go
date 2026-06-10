@@ -4663,21 +4663,23 @@ func (x *FinancialMetric) GetAttributes() map[string]string {
 
 // A single news article
 type NewsArticle struct {
-	state            protoimpl.MessageState `protogen:"open.v1"`
-	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	StockCode        string                 `protobuf:"bytes,2,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
-	Source           string                 `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"` // 'asx', 'stockhead', 'livewire', 'afr'
-	Headline         string                 `protobuf:"bytes,4,opt,name=headline,proto3" json:"headline,omitempty"`
-	Url              string                 `protobuf:"bytes,5,opt,name=url,proto3" json:"url,omitempty"`
-	PublishedAt      *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=published_at,json=publishedAt,proto3" json:"published_at,omitempty"`
-	Sentiment        string                 `protobuf:"bytes,7,opt,name=sentiment,proto3" json:"sentiment,omitempty"` // 'positive', 'negative', 'neutral'
-	RelevanceScore   float64                `protobuf:"fixed64,8,opt,name=relevance_score,json=relevanceScore,proto3" json:"relevance_score,omitempty"`
-	IsPriceSensitive bool                   `protobuf:"varint,9,opt,name=is_price_sensitive,json=isPriceSensitive,proto3" json:"is_price_sensitive,omitempty"`
-	Summary          string                 `protobuf:"bytes,10,opt,name=summary,proto3" json:"summary,omitempty"`
-	Tags             []string               `protobuf:"bytes,11,rep,name=tags,proto3" json:"tags,omitempty"`
-	ImageUrl         string                 `protobuf:"bytes,12,opt,name=image_url,json=imageUrl,proto3" json:"image_url,omitempty"` // Hero image from RSS or scraped og:image
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Id                string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	StockCode         string                 `protobuf:"bytes,2,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
+	Source            string                 `protobuf:"bytes,3,opt,name=source,proto3" json:"source,omitempty"` // 'asx', 'stockhead', 'livewire', 'afr'
+	Headline          string                 `protobuf:"bytes,4,opt,name=headline,proto3" json:"headline,omitempty"`
+	Url               string                 `protobuf:"bytes,5,opt,name=url,proto3" json:"url,omitempty"`
+	PublishedAt       *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=published_at,json=publishedAt,proto3" json:"published_at,omitempty"`
+	Sentiment         string                 `protobuf:"bytes,7,opt,name=sentiment,proto3" json:"sentiment,omitempty"` // 'positive', 'negative', 'neutral'
+	RelevanceScore    float64                `protobuf:"fixed64,8,opt,name=relevance_score,json=relevanceScore,proto3" json:"relevance_score,omitempty"`
+	IsPriceSensitive  bool                   `protobuf:"varint,9,opt,name=is_price_sensitive,json=isPriceSensitive,proto3" json:"is_price_sensitive,omitempty"`
+	Summary           string                 `protobuf:"bytes,10,opt,name=summary,proto3" json:"summary,omitempty"`
+	Tags              []string               `protobuf:"bytes,11,rep,name=tags,proto3" json:"tags,omitempty"`
+	ImageUrl          string                 `protobuf:"bytes,12,opt,name=image_url,json=imageUrl,proto3" json:"image_url,omitempty"`                            // Hero image from RSS or scraped og:image
+	SyndicationCount  int32                  `protobuf:"varint,13,opt,name=syndication_count,json=syndicationCount,proto3" json:"syndication_count,omitempty"`   // total cluster size INCLUDING this article (1 = unsyndicated); syndicated_sources excludes self, so len(sources) == count-1
+	SyndicatedSources []string               `protobuf:"bytes,14,rep,name=syndicated_sources,json=syndicatedSources,proto3" json:"syndicated_sources,omitempty"` // OTHER mastheads carrying this story (self excluded)
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *NewsArticle) Reset() {
@@ -4792,6 +4794,20 @@ func (x *NewsArticle) GetImageUrl() string {
 		return x.ImageUrl
 	}
 	return ""
+}
+
+func (x *NewsArticle) GetSyndicationCount() int32 {
+	if x != nil {
+		return x.SyndicationCount
+	}
+	return 0
+}
+
+func (x *NewsArticle) GetSyndicatedSources() []string {
+	if x != nil {
+		return x.SyndicatedSources
+	}
+	return nil
 }
 
 // Request for GetStockNews RPC
@@ -5053,6 +5069,11 @@ type EditorialTake struct {
 	TweetPublishedAt *timestamppb.Timestamp `protobuf:"bytes,17,opt,name=tweet_published_at,json=tweetPublishedAt,proto3" json:"tweet_published_at,omitempty"`
 	Citations        []*TakeCitation        `protobuf:"bytes,18,rep,name=citations,proto3" json:"citations,omitempty"`
 	LayoutImages     []*LayoutImage         `protobuf:"bytes,19,rep,name=layout_images,json=layoutImages,proto3" json:"layout_images,omitempty"`
+	BodyFormat       string                 `protobuf:"bytes,20,opt,name=body_format,json=bodyFormat,proto3" json:"body_format,omitempty"` // 'markdown' | 'mdx'
+	Standfirst       string                 `protobuf:"bytes,21,opt,name=standfirst,proto3" json:"standfirst,omitempty"`                   // one-sentence dek under the headline
+	Byline           string                 `protobuf:"bytes,22,opt,name=byline,proto3" json:"byline,omitempty"`                           // e.g. "The Shorted Desk — Mining & Resources"
+	HeroCaption      string                 `protobuf:"bytes,23,opt,name=hero_caption,json=heroCaption,proto3" json:"hero_caption,omitempty"`
+	HeroCredit       string                 `protobuf:"bytes,24,opt,name=hero_credit,json=heroCredit,proto3" json:"hero_credit,omitempty"` // e.g. "AI-generated illustration"
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -5218,6 +5239,41 @@ func (x *EditorialTake) GetLayoutImages() []*LayoutImage {
 		return x.LayoutImages
 	}
 	return nil
+}
+
+func (x *EditorialTake) GetBodyFormat() string {
+	if x != nil {
+		return x.BodyFormat
+	}
+	return ""
+}
+
+func (x *EditorialTake) GetStandfirst() string {
+	if x != nil {
+		return x.Standfirst
+	}
+	return ""
+}
+
+func (x *EditorialTake) GetByline() string {
+	if x != nil {
+		return x.Byline
+	}
+	return ""
+}
+
+func (x *EditorialTake) GetHeroCaption() string {
+	if x != nil {
+		return x.HeroCaption
+	}
+	return ""
+}
+
+func (x *EditorialTake) GetHeroCredit() string {
+	if x != nil {
+		return x.HeroCredit
+	}
+	return ""
 }
 
 // A single cited source referenced by a [ref-N] marker in body_md.
@@ -7771,7 +7827,7 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"attributes\x1a=\n" +
 	"\x0fAttributesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x81\x03\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xdd\x03\n" +
 	"\vNewsArticle\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -7786,7 +7842,9 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\asummary\x18\n" +
 	" \x01(\tR\asummary\x12\x12\n" +
 	"\x04tags\x18\v \x03(\tR\x04tags\x12\x1b\n" +
-	"\timage_url\x18\f \x01(\tR\bimageUrl\"\x80\x01\n" +
+	"\timage_url\x18\f \x01(\tR\bimageUrl\x12+\n" +
+	"\x11syndication_count\x18\r \x01(\x05R\x10syndicationCount\x12-\n" +
+	"\x12syndicated_sources\x18\x0e \x03(\tR\x11syndicatedSources\"\x80\x01\n" +
 	"\x13GetStockNewsRequest\x12\x1d\n" +
 	"\n" +
 	"stock_code\x18\x01 \x01(\tR\tstockCode\x12\x14\n" +
@@ -7804,7 +7862,7 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x15GetMarketNewsResponse\x128\n" +
 	"\barticles\x18\x01 \x03(\v2\x1c.shorts.v1alpha1.NewsArticleR\barticles\x12\x1f\n" +
 	"\vtotal_count\x18\x02 \x01(\x05R\n" +
-	"totalCount\"\x95\x06\n" +
+	"totalCount\"\xb2\a\n" +
 	"\rEditorialTake\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04slug\x18\x02 \x01(\tR\x04slug\x12\x1a\n" +
@@ -7831,7 +7889,16 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\rinline_images\x18\x10 \x03(\v2\x1c.shorts.v1alpha1.InlineImageR\finlineImages\x12H\n" +
 	"\x12tweet_published_at\x18\x11 \x01(\v2\x1a.google.protobuf.TimestampR\x10tweetPublishedAt\x12;\n" +
 	"\tcitations\x18\x12 \x03(\v2\x1d.shorts.v1alpha1.TakeCitationR\tcitations\x12A\n" +
-	"\rlayout_images\x18\x13 \x03(\v2\x1c.shorts.v1alpha1.LayoutImageR\flayoutImages\"\x93\x01\n" +
+	"\rlayout_images\x18\x13 \x03(\v2\x1c.shorts.v1alpha1.LayoutImageR\flayoutImages\x12\x1f\n" +
+	"\vbody_format\x18\x14 \x01(\tR\n" +
+	"bodyFormat\x12\x1e\n" +
+	"\n" +
+	"standfirst\x18\x15 \x01(\tR\n" +
+	"standfirst\x12\x16\n" +
+	"\x06byline\x18\x16 \x01(\tR\x06byline\x12!\n" +
+	"\fhero_caption\x18\x17 \x01(\tR\vheroCaption\x12\x1f\n" +
+	"\vhero_credit\x18\x18 \x01(\tR\n" +
+	"heroCredit\"\x93\x01\n" +
 	"\fTakeCitation\x12\x15\n" +
 	"\x06ref_id\x18\x01 \x01(\tR\x05refId\x12\x10\n" +
 	"\x03url\x18\x02 \x01(\tR\x03url\x12\x16\n" +
