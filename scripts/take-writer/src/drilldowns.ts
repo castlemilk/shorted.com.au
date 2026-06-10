@@ -96,6 +96,46 @@ export async function reportLine(
   return null;
 }
 
+export interface FinancialReport {
+  reportType: string | null;
+  reportDate: string | null;
+  title: string | null;
+  metrics: Record<string, string>;
+  source: LedgerSource;
+}
+
+/** Full key-metric sets for the last n filings in one call (vs report_line's
+ *  one metric per call) so dossiers reliably carry the financial trajectory. */
+export async function getFinancials(pg: Queryable, code: string, n = 4): Promise<FinancialReport[]> {
+  const { rows } = await pg.query(
+    `SELECT report_url, report_type, report_title,
+            to_char(report_date,'YYYY-MM-DD') AS report_date, metrics
+     FROM financial_report_extractions
+     WHERE stock_code=$1
+     ORDER BY report_date DESC NULLS LAST, extracted_at DESC
+     LIMIT $2`,
+    [code, n],
+  );
+  return (rows as Array<{ report_url: string; report_type: string | null; report_title: string | null; report_date: string | null; metrics: Record<string, unknown> | null }>)
+    .map((r) => ({
+      reportType: r.report_type,
+      reportDate: r.report_date,
+      title: r.report_title,
+      metrics: Object.fromEntries(
+        Object.entries(r.metrics ?? {})
+          .filter(([, v]) => v != null)
+          .map(([k, v]) => [k, String(v)]),
+      ),
+      source: {
+        type: "report",
+        url: r.report_url,
+        source: r.report_type ?? "report",
+        headline: r.report_title ?? "(financial report)",
+        date: r.report_date ?? "",
+      } as LedgerSource,
+    }));
+}
+
 export interface FollowPeerResult {
   shorts: Array<{ date: string; pct: number }>;
   prices: Array<{ date: string; close: number }>;

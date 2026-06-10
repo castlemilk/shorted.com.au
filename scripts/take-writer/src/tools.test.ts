@@ -6,7 +6,7 @@ import { CitationLedger } from "./ledger.js";
 describe("GEMINI_TOOL_DECLS", () => {
   it("declares the expected tools with object parameter schemas", () => {
     const names = GEMINI_TOOL_DECLS.map((t) => t.name).sort();
-    expect(names).toEqual(["align_events", "follow_peer", "get_overview", "news_detail", "report_line", "search_news", "zoom_window"].sort());
+    expect(names).toEqual(["align_events", "follow_peer", "get_financials", "get_overview", "news_detail", "report_line", "search_news", "zoom_window"].sort());
     for (const t of GEMINI_TOOL_DECLS) {
       expect(t.parameters?.type).toBe(SchemaType.OBJECT);
     }

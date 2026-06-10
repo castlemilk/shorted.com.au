@@ -6,7 +6,7 @@
 import { SchemaType, type FunctionDeclaration } from "@google/generative-ai";
 import type { CitationLedger, LedgerSource } from "./ledger.js";
 import {
-  zoomWindow, reportLine, followPeer, alignEvents, newsDetail, searchNews, getOverview,
+  zoomWindow, reportLine, followPeer, alignEvents, newsDetail, searchNews, getOverview, getFinancials,
   type Queryable,
 } from "./drilldowns.js";
 
@@ -72,6 +72,14 @@ export const GEMINI_TOOL_DECLS: FunctionDeclaration[] = [
       required: ["query"],
     },
   },
+  {
+    name: "get_financials",
+    description: "Pull the company's last few financial reports with their FULL metric sets (revenue, profit, eps, dividend, guidance, cash flow) in one call. Returns one citable source per report. PREFER this over report_line when building the financial picture; use report_line only for a targeted follow-up.",
+    parameters: {
+      type: SchemaType.OBJECT,
+      properties: { n: { type: SchemaType.NUMBER, description: "How many recent reports (default 4)" } },
+    },
+  },
 ];
 
 /** Register a source and return "[refId] headline (source, date)" for the agent. */
@@ -128,6 +136,11 @@ export async function dispatchTool(
       case "search_news": {
         const items = await searchNews(pg, String(input.query), input.code ? String(input.code) : subjectCode);
         return JSON.stringify(items.map((it) => ({ id: it.id, citation: cite(ledger, it.ledgerSource) })));
+      }
+      case "get_financials": {
+        const code = subjectCode ?? String(input.code ?? "");
+        const reports = await getFinancials(pg, code, Number(input.n ?? 4));
+        return JSON.stringify(reports.map((r) => ({ reportType: r.reportType, date: r.reportDate, metrics: r.metrics, citation: cite(ledger, r.source) })));
       }
       default:
         return `ERROR: unknown tool "${name}"`;
