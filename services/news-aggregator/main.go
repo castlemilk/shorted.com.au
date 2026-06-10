@@ -257,7 +257,7 @@ func runAggregation(ctx context.Context, fetcher *RSSFetcher, matcher *StockMatc
 	// collapse duplicates. Inline so every run leaves the table clustered;
 	// RUN_MODE=cluster-news remains for manual/backfill runs.
 	if !dryRun {
-		if err := ClusterNews(ctx, store.db, ClusterNewsOpts{}); err != nil {
+		if err := ClusterNews(ctx, store.db, ClusterNewsOpts{DryRun: dryRun}); err != nil {
 			log.Printf("  WARNING: clustering failed: %v", err)
 		}
 	}
