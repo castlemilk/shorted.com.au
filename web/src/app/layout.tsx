@@ -1,4 +1,5 @@
-import { IBM_Plex_Mono, Newsreader, Space_Grotesk } from "next/font/google";
+import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
+import localFont from "next/font/local";
 import "~/styles/globals.css";
 import { criticalCSS } from "~/styles/critical-css";
 
@@ -37,13 +38,18 @@ const fontMono = IBM_Plex_Mono({
 
 // Newsreader - Serif display face for the editorial masthead (/news).
 // Only applied via explicit `font-serif` classes — no global effect.
-const fontSerif = Newsreader({
-  subsets: ["latin"],
+// Vendored locally (OFL, web/src/fonts/newsreader): next/font/google broke the
+// Vercel build — Next 14.2 has no fallback-metrics entry for Newsreader and the
+// gstatic fetch failed in CI. adjustFontFallback off for the same reason.
+const fontSerif = localFont({
+  src: [
+    { path: "../fonts/newsreader/Newsreader-Variable.ttf", style: "normal", weight: "200 800" },
+    { path: "../fonts/newsreader/Newsreader-Italic-Variable.ttf", style: "italic", weight: "200 800" },
+  ],
   variable: "--font-serif",
-  weight: ["400", "500", "600", "700"],
-  style: ["normal", "italic"],
   display: "swap",
   fallback: ["Georgia", "serif"],
+  adjustFontFallback: false,
 });
 
 // Space Grotesk - Display font for headings (optional, geometric sans)

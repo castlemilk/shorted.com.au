@@ -61,7 +61,9 @@ export default async function Image({
   // the topical hero for takes that predate the og/hero split.
   const [logoSrc, heroSrc] = await Promise.all([
     getLogo(),
-    getHeroBackdrop(take?.ogImageUrl || take?.heroImageUrl),
+    // Proto3 strings default to "" — empty og must fall through to the hero,
+    // so logical-or semantics are required here (not ??).
+    getHeroBackdrop(take?.ogImageUrl ? take.ogImageUrl : take?.heroImageUrl),
   ]);
 
   const headline = take?.headline ?? "Shorted Take";

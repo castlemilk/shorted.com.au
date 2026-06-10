@@ -43,7 +43,7 @@ export function ArticleHeader({ take }: { take: ArticleHeaderTake }) {
   const meta: React.ReactNode[] = [];
   meta.push(
     <span key="byline" className="text-foreground">
-      {take.byline || "Shorted Editorial"}
+      {take.byline ? take.byline : "Shorted Editorial"}
     </span>,
   );
   if (date) {
@@ -93,14 +93,14 @@ export function ArticleHeader({ take }: { take: ArticleHeaderTake }) {
           <div className="relative aspect-[16/9] overflow-hidden rounded bg-muted/20">
             <Image
               src={take.heroImageUrl}
-              alt={take.heroCaption || take.headline}
+              alt={take.heroCaption ? take.heroCaption : take.headline}
               fill
               priority
               sizes="(max-width: 768px) 100vw, 896px"
               className="object-cover"
             />
           </div>
-          {take.heroCaption || take.heroCredit ? (
+          {Boolean(take.heroCaption) || Boolean(take.heroCredit) ? (
             <figcaption className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               {take.heroCaption ? (
                 <span className="text-xs text-muted-foreground">
