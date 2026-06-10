@@ -56,6 +56,10 @@ export function NewsCard({ article, variant = "default", showStockChip = true, c
   const time = formatRelativeTime(article.publishedAt);
   const isHero = variant === "hero";
   const isCompact = variant === "compact";
+  const syndicationLabel =
+    (article.syndicatedSources?.length ?? 0) > 0
+      ? `Also covered by ${article.syndicatedSources!.join(", ")}`
+      : undefined;
 
   return (
     <article
@@ -97,7 +101,8 @@ export function NewsCard({ article, variant = "default", showStockChip = true, c
           {(article.syndicationCount ?? 1) > 1 && (
             <span
               className="text-[10px] uppercase tracking-wide text-muted-foreground"
-              title={`Also covered by ${(article.syndicatedSources ?? []).join(", ")}`}
+              title={syndicationLabel}
+              aria-label={syndicationLabel}
             >
               +{(article.syndicationCount ?? 1) - 1} source{(article.syndicationCount ?? 1) > 2 ? "s" : ""}
             </span>
