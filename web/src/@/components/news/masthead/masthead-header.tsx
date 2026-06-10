@@ -9,6 +9,7 @@
  */
 export function MastheadHeader() {
   const today = new Date().toLocaleDateString("en-AU", {
+    timeZone: "Australia/Sydney",
     weekday: "long",
     day: "numeric",
     month: "long",

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { stockChipPalette } from "~/@/lib/stock-color";
 import { beatFromByline, fmtTakeDate, type TakeLike } from "./shared";
@@ -26,9 +27,9 @@ export function StoryStack({ takes }: { takes: TakeLike[] }) {
                   {beat}
                 </p>
               ) : null}
-              <h3 className="font-serif text-xl font-medium leading-snug transition-colors group-hover:text-primary md:text-2xl">
+              <h2 className="font-serif text-xl font-medium leading-snug transition-colors group-hover:text-primary md:text-2xl">
                 {take.headline}
-              </h3>
+              </h2>
               {take.standfirst ? (
                 <p className="line-clamp-2 text-sm text-muted-foreground">
                   {take.standfirst}
@@ -41,14 +42,13 @@ export function StoryStack({ takes }: { takes: TakeLike[] }) {
 
             <div className="hidden md:block">
               {take.heroImageUrl ? (
-                <div className="aspect-[3/2] w-[160px] overflow-hidden bg-muted/20">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                <div className="relative aspect-[3/2] w-[160px] overflow-hidden bg-muted/20">
+                  <Image
                     src={take.heroImageUrl}
                     alt=""
-                    loading="lazy"
-                    decoding="async"
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                    fill
+                    sizes="160px"
+                    className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                   />
                 </div>
               ) : (

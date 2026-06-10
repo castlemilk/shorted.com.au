@@ -104,23 +104,31 @@ const toCardArticle = (a: ApiArticle): NewsCardArticle => ({
   syndicatedSources: a.syndicatedSources,
 });
 
+/** Format a Date as YYYY-MM-DD in the Australia/Sydney timezone. */
+const sydneyYMD = (d: Date): string =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Australia/Sydney",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+
 const groupByDay = (articles: NewsCardArticle[]) => {
   const groups: Record<string, NewsCardArticle[]> = {};
+  const todayYMD = sydneyYMD(new Date());
+  const yesterdayYMD = sydneyYMD(new Date(Date.now() - 86400000));
+
   for (const article of articles) {
     const date = new Date(article.publishedAt);
     if (Number.isNaN(date.getTime())) continue;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    const articleDay = new Date(date);
-    articleDay.setHours(0, 0, 0, 0);
 
+    const articleYMD = sydneyYMD(date);
     let label: string;
-    if (articleDay.getTime() === today.getTime()) label = "Today";
-    else if (articleDay.getTime() === yesterday.getTime()) label = "Yesterday";
+    if (articleYMD === todayYMD) label = "Today";
+    else if (articleYMD === yesterdayYMD) label = "Yesterday";
     else
       label = date.toLocaleDateString("en-AU", {
+        timeZone: "Australia/Sydney",
         weekday: "long",
         day: "numeric",
         month: "long",
@@ -166,7 +174,11 @@ export default async function NewsIndexPage() {
 
   // Graceful degradation: no takes → first news article becomes the hero.
   const [newsHero, ...rest] = articles;
-  const grouped = groupByDay(leadTake ? articles : rest);
+  // Cap the wire at 30 articles and strip heavy fields WireList doesn't render.
+  const wireArticles = (leadTake ? articles : rest)
+    .slice(0, 30)
+    .map(({ summary: _summary, imageUrl: _imageUrl, ...a }) => a);
+  const grouped = groupByDay(wireArticles);
 
   // NewsArticle schema for the top ~10 stories (Google's recommendation).
   const newsSchema = articles.slice(0, 10).map((a) => ({

@@ -10,6 +10,7 @@ export function fmtTakeDate(
   if (!ts?.seconds) return "";
   const s = typeof ts.seconds === "bigint" ? Number(ts.seconds) : ts.seconds;
   return new Date(s * 1000).toLocaleDateString("en-AU", {
+    timeZone: "Australia/Sydney",
     day: "numeric",
     month: "long",
     year: "numeric",

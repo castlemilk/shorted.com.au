@@ -15,6 +15,7 @@ const fmtTime = (iso: string): string => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleTimeString("en-AU", {
+    timeZone: "Australia/Sydney",
     hour: "2-digit",
     minute: "2-digit",
   });

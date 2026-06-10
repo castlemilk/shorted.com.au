@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { stockChipPalette } from "~/@/lib/stock-color";
 import {
@@ -23,14 +24,14 @@ export function LeadStory({ take }: { take: TakeLike }) {
       <Link href={`/news/${take.slug}`} className="group block">
         <figure>
           {take.heroImageUrl ? (
-            <div className="aspect-[16/9] overflow-hidden bg-muted/20">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+            <div className="relative aspect-[16/9] overflow-hidden bg-muted/20">
+              <Image
                 src={take.heroImageUrl}
                 alt={take.headline}
-                loading="eager"
-                decoding="async"
-                className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.02]"
+                fill
+                priority
+                sizes="(max-width: 768px) 100vw, (max-width: 1280px) 75vw, 896px"
+                className="object-cover transition-transform duration-700 group-hover:scale-[1.02]"
               />
             </div>
           ) : (
