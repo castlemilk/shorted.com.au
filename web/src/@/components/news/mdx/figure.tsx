@@ -51,7 +51,7 @@ export function Figure({
         />
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={caption ?? ""} loading="lazy" className="h-auto w-full rounded-lg" />
+        <img src={src} alt={caption ?? ""} loading="lazy" className="w-full rounded-lg" style={{ aspectRatio: "3 / 2" }} />
       )}
       {(caption ?? credit) && (
         <figcaption className="mt-2">

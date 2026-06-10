@@ -14,7 +14,13 @@ export function Stat({ label, value, context, cite }: { label: string; value: st
       <div className="font-mono text-2xl font-semibold tracking-tight text-foreground">{value}</div>
       <div className="mt-1 text-[11px] uppercase tracking-wider text-muted-foreground">{label}</div>
       {context && <div className={cn("mt-1 text-xs text-muted-foreground/80")}>{context}</div>}
-      {cite && <sup className="text-[10px] text-primary">[{cite}]</sup>}
+      {cite && (
+        <sup className="text-[10px]">
+          <a href={`#${cite}`} className="text-primary hover:underline" aria-label={`Source ${cite}`}>
+            [{cite}]
+          </a>
+        </sup>
+      )}
     </div>
   );
 }
