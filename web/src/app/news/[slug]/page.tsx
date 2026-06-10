@@ -11,6 +11,7 @@ import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { EditorialMarkdown } from "~/@/components/news/editorial-markdown";
 import { TakeRelated } from "~/@/components/news/take-related";
 import { TakeBody } from "~/@/components/news/take-body";
+import { MdxTakeBody } from "~/@/components/news/mdx-take-body";
 import { getEditorialTake } from "~/app/actions/getEditorialTake";
 
 export const revalidate = 600;
@@ -210,7 +211,19 @@ export default async function ShortedTakePage({ params }: Params) {
         </header>
 
         <article className="mb-12">
-          {take.citations && take.citations.length > 0 ? (
+          {take.bodyFormat === "mdx" ? (
+            <MdxTakeBody
+              body={take.bodyMd}
+              citations={(take.citations ?? []).map((c) => ({
+                refId: c.refId,
+                url: c.url,
+                source: c.source,
+                headline: c.headline,
+                date: c.date,
+                type: c.type,
+              }))}
+            />
+          ) : take.citations && take.citations.length > 0 ? (
             <TakeBody
               bodyMd={take.bodyMd}
               citations={take.citations.map((c) => ({
