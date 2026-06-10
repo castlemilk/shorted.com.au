@@ -61,4 +61,10 @@ describe("stripMdxComponents", () => {
     expect(out).toContain("- 2026-04-02 — CEO sells");
     expect(out).not.toMatch(/<[A-Z]/);
   });
+
+  it("handles props in any order", () => {
+    const out = stripMdxComponents(`<Stat value="12.4%" label="Short interest" />\n<TimelineEvent label="CEO sells" date="2026-04-02" cite="ref-1" />`);
+    expect(out).toContain("**Short interest: 12.4%**");
+    expect(out).toContain("- 2026-04-02 — CEO sells");
+  });
 });

@@ -145,11 +145,11 @@ export function stripMdxComponents(body: string): string {
       (_m, t: string) => `> ${t.trim()}`,
     )
     .replace(
-      /<Stat\b[^>]*label="([^"]*)"[^>]*value="([^"]*)"[^>]*\/>/g,
+      /<Stat\b(?=[^>]*\blabel="([^"]*)")(?=[^>]*\bvalue="([^"]*)")[^>]*\/>/g,
       "**$1: $2**",
     )
     .replace(
-      /<TimelineEvent\b[^>]*date="([^"]*)"[^>]*label="([^"]*)"[^>]*\/>/g,
+      /<TimelineEvent\b(?=[^>]*\bdate="([^"]*)")(?=[^>]*\blabel="([^"]*)")[^>]*\/>/g,
       "- $1 — $2",
     )
     .replace(/<\/?[A-Z][A-Za-z]*\b[^>]*>/g, "")
