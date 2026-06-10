@@ -56,12 +56,20 @@ export class CitationLedger {
   }
 }
 
-const MARKER = /\[(ref-\d+|report-\d+)\]/g;
+// Citation references come in two forms: bracketed prose markers [ref-N]
+// (group 1) and MDX component props cite="ref-N" (groups 2+3: leading
+// whitespace captured so a removed attribute doesn't leave a double space).
+// Both forms participate equally in first-appearance ordering and remapping.
+const MARKER_OR_PROP = /\[(ref-\d+|report-\d+)\]|(\s*)\bcite="(ref-\d+|report-\d+)"/g;
 
 /**
  * Walk the body, drop any [ref-N] not in the ledger, and renumber the
  * cited-and-valid markers into contiguous ref-1..M in first-appearance
- * order. Returns the rewritten body, the ordered Citation[] for the
+ * order. cite="ref-N" props on MDX components count as citations too:
+ * they are remapped with the same old->new table, register their source
+ * in the citations array, and — when dangling — have the cite attribute
+ * removed (component kept) and the id recorded in dropped.
+ * Returns the rewritten body, the ordered Citation[] for the
  * editorial_takes.citations column, and the dropped (dangling) marker ids.
  */
 export function compactCitations(
@@ -81,8 +89,8 @@ export function compactCitations(
   const dropped = new Set<string>();
   let assigned = 0;
 
-  for (const m of normalized.matchAll(MARKER)) {
-    const id = m[1]!;
+  for (const m of normalized.matchAll(MARKER_OR_PROP)) {
+    const id = (m[1] ?? m[3])!; // bracketed marker or cite= prop
     if (remap.has(id)) continue;
     const srcRec = ledger.get(id);
     if (!srcRec) {
@@ -95,10 +103,19 @@ export function compactCitations(
     ordered.push(srcRec);
   }
 
-  const outBody = normalized.replace(MARKER, (whole, id: string) => {
-    if (remap.has(id)) return `[${remap.get(id)}]`;
-    return ""; // drop dangling marker
-  });
+  const outBody = normalized.replace(
+    MARKER_OR_PROP,
+    (_whole, bracketed: string | undefined, ws: string | undefined, prop: string | undefined) => {
+      if (bracketed !== undefined) {
+        const to = remap.get(bracketed);
+        return to ? `[${to}]` : ""; // drop dangling marker
+      }
+      const to = remap.get(prop!);
+      // Dangling cite prop: remove the attribute (whitespace included),
+      // keep the component itself intact.
+      return to ? `${ws}cite="${to}"` : "";
+    },
+  );
 
   const citations: Citation[] = ordered.map((s, i) => ({
     refId: `ref-${i + 1}`,

@@ -674,8 +674,8 @@ export async function synthesiseFromDossier(
 
   const proseFor = (p: Record<string, unknown>): string =>
     deep
-      ? ((p.sections as Array<{ prose: string }>) ?? []).map((s) => s.prose).join("\n") + "\n" + String(p.headline ?? "")
-      : [p.background, p.recent_events, p.the_data, p.outlook, p.headline].join("\n");
+      ? ((p.sections as Array<{ prose: string }>) ?? []).map((s) => s.prose).join("\n") + "\n" + String(p.headline ?? "") + "\n" + String(p.standfirst ?? "")
+      : [p.background, p.recent_events, p.the_data, p.outlook, p.headline, p.standfirst].join("\n");
 
   let parsed: Record<string, unknown> = {};
   let parsedOk = false;
