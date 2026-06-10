@@ -96,7 +96,7 @@ Entrypoint is `npx tsx src/index.ts <command>` (NOT `run.ts`).
    - `npx tsx src/index.ts list-drafts` — aligned table of unpublished drafts (slug, tier, images, citation count) with copy-paste publish commands.
    - `npx tsx src/index.ts list-drafts --slug=SLUG` — full markdown body + citations for one draft.
 3. **Publish**: `npx tsx src/index.ts publish --slug=SLUG --tweet` — chains:
-   - images: `regenerateImages` iff hero missing / layout empty / hero is the brand-OG fallback (skip with `--no-images`)
+   - images: `regenerateImages` iff hero missing / layout empty / hero is the brand-OG fallback (skip with `--no-images`); aborts (article stays draft) if image generation fails — needs OPENAI_API_KEY + legacy ADC; validation failures only warn.
    - validate: `validate-article` 1 round, per-image mode (`VALIDATOR_SCREENSHOT=0` — draft page isn't live); judge failures warn but never block (skip with `--no-validate`)
    - flips `published_at = COALESCE(published_at, NOW())`
    - `--tweet`: spawns `scripts/twitter` `process-publish-queue --live --slug=SLUG` (queue only tweets published+untweeted takes, so re-runs can't double-tweet; a failed tweet prints the manual retry command).

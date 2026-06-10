@@ -228,7 +228,17 @@ export async function publishTake(opts: PublishOptions): Promise<void> {
     console.log("[publish] --no-images — skipping image generation");
   } else if (needsImages(row)) {
     console.log("[publish] images missing or hero is the brand OG fallback — generating…");
-    await regenerateImages({ slug });
+    try {
+      await regenerateImages({ slug });
+    } catch (err) {
+      // Image failure is deliberately FATAL (unlike validation): an article must
+      // not go live without its hero. Validation failures only warn.
+      throw new Error(
+        `image generation failed — publish aborted (article stays draft). ` +
+        `Check OPENAI_API_KEY + GOOGLE_APPLICATION_CREDENTIALS (legacy ADC for GCS). ` +
+        `Cause: ${String((err as Error).message ?? err)}`,
+      );
+    }
   } else {
     console.log("[publish] images present — skipping (use regen-images to redo)");
   }

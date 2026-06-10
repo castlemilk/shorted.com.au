@@ -21,4 +21,8 @@ describe("needsImages", () => {
   it("false when a distinct hero and a non-empty layout plan exist", () => {
     expect(needsImages({ hero_image_url: HERO, og_image_url: OG, layout_images: [{}, {}, {}] })).toBe(false);
   });
+
+  it("false when hero exists, layout is non-empty, and og_image_url is null", () => {
+    expect(needsImages({ hero_image_url: HERO, og_image_url: null, layout_images: [{}] })).toBe(false);
+  });
 });
