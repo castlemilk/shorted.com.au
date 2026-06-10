@@ -253,6 +253,15 @@ func runAggregation(ctx context.Context, fetcher *RSSFetcher, matcher *StockMatc
 		log.Printf("  News cleanup completed: %v", tag)
 	}
 
+	// Cluster syndicated coverage (SMH/Age/WAtoday etc.) so the feed can
+	// collapse duplicates. Inline so every run leaves the table clustered;
+	// RUN_MODE=cluster-news remains for manual/backfill runs.
+	if !dryRun {
+		if err := ClusterNews(ctx, store.db, ClusterNewsOpts{}); err != nil {
+			log.Printf("  WARNING: clustering failed: %v", err)
+		}
+	}
+
 	duration := time.Since(startTime)
 	log.Printf("Aggregation complete! Fetched: %d, Stored: %d, Duration: %s",
 		totalFetched, totalStored, duration.Round(time.Millisecond))
