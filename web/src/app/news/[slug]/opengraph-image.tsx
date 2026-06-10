@@ -57,9 +57,11 @@ export default async function Image({
   const { slug } = await params;
   const resp = await getEditorialTake(slug);
   const take = resp?.take;
+  // Prefer the dedicated abstract brand OG art (og_image_url); fall back to
+  // the topical hero for takes that predate the og/hero split.
   const [logoSrc, heroSrc] = await Promise.all([
     getLogo(),
-    getHeroBackdrop(take?.heroImageUrl),
+    getHeroBackdrop(take?.ogImageUrl || take?.heroImageUrl),
   ]);
 
   const headline = take?.headline ?? "Shorted Take";

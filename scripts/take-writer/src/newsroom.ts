@@ -20,7 +20,7 @@ import { commissionAssignments, type Assignment } from "./editor.js";
 import { investigate, type GeminiGenerate } from "./investigator.js";
 import { CitationLedger } from "./ledger.js";
 import { getOverview } from "./drilldowns.js";
-import { designImagePlan, generatePlanImages, type ArtContext, type LayoutImage } from "./art-director.js";
+import { designImagePlan, generatePlanImages, generatePlanHero, type ArtContext, type LayoutImage, type PlanItem } from "./art-director.js";
 import { deskByline } from "./byline.js";
 
 export { deskByline } from "./byline.js";
@@ -286,7 +286,11 @@ function pickTreatments(slug: string, n: number): Treatment[] {
   return out;
 }
 
-async function generateHero(
+/** Abstract dark-amber BRAND image. Historically this was the hero; it is
+ *  now the OG / social-card backdrop only (og_image_url) — the page-top hero
+ *  is the art-director's topical photojournalistic image. Uploaded to
+ *  takes/{slug}-og.png so it never collides with the topical hero PNG. */
+async function generateBrandOg(
   openai: OpenAI,
   storage: Storage,
   candidate: AgendaCandidate,
@@ -316,7 +320,7 @@ The image must read at a glance as related to the company's industry and the hea
   if (!b64) throw new Error("OpenAI returned no image data");
   const buf = Buffer.from(b64, "base64");
 
-  const objectPath = `takes/${take.slug}-hero.png`;
+  const objectPath = `takes/${take.slug}-og.png`;
   await storage.bucket(GCS_BUCKET).file(objectPath).save(buf, {
     contentType: "image/png",
     resumable: false,
@@ -326,6 +330,36 @@ The image must read at a glance as related to the company's industry and the hea
     url: `https://storage.googleapis.com/${GCS_BUCKET}/${objectPath}`,
     costUsd: 0.075, // gpt-image-2 medium 1536×1024 est.
   };
+}
+
+const HERO_CREDIT = "AI-generated illustration";
+
+/** Generate the topical hero from an art-director plan: the role='hero'
+ *  item renders at high quality to takes/{slug}-hero.png; the remaining
+ *  inline items become layout_images. */
+async function generateHeroAndLayout(
+  openai: OpenAI,
+  storage: Storage,
+  slug: string,
+  plan: PlanItem[],
+): Promise<{ heroUrl: string | null; heroCaption: string | null; layoutImages: LayoutImage[]; costUsd: number }> {
+  let heroUrl: string | null = null;
+  let heroCaption: string | null = null;
+  let cost = 0;
+  const heroSpec = plan.find((p) => p.role === "hero");
+  const inlinePlan = plan.filter((p) => p.role !== "hero");
+  if (heroSpec) {
+    try {
+      const hero = await generatePlanHero(openai, storage, slug, heroSpec);
+      heroUrl = hero.image.url;
+      heroCaption = heroSpec.caption;
+      cost += hero.costUsd;
+    } catch (err) {
+      console.warn(`[newsroom]   hero (${heroSpec.style}) failed: ${String((err as Error).message ?? err).slice(0, 120)}`);
+    }
+  }
+  const gen = await generatePlanImages(openai, storage, slug, inlinePlan);
+  return { heroUrl, heroCaption, layoutImages: gen.images, costUsd: cost + gen.costUsd };
 }
 
 interface InlineImageRow {
@@ -456,24 +490,30 @@ async function insertDossierTake(
   stockCode: string,
   industry: string | null,
   heroUrl: string | null,
+  ogUrl: string | null,
+  heroCaption: string | null,
   inlineImages: InlineImageRow[],
   layoutImages: LayoutImage[],
   publish: boolean,
   writerModel: string,
 ): Promise<void> {
   const publishedClause = publish ? "NOW()" : "NULL";
+  const heroCredit = heroCaption ? HERO_CREDIT : null;
   // ON CONFLICT preserves published_at: re-runs never silently flip a reviewed draft's publish state.
   await pg.query(
     `INSERT INTO editorial_takes (
        slug, headline, stock_code, body_md, sentiment, word_count, model, tier,
-       citations, hero_image_url, inline_images, layout_images,
-       body_format, standfirst, byline, published_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11::jsonb,$12::jsonb,$13,$14,$15,${publishedClause})
+       citations, hero_image_url, og_image_url, inline_images, layout_images,
+       body_format, standfirst, byline, hero_caption, hero_credit, published_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12::jsonb,$13::jsonb,$14,$15,$16,$17,$18,${publishedClause})
      ON CONFLICT (slug) DO UPDATE SET
        headline=EXCLUDED.headline, body_md=EXCLUDED.body_md, tier=EXCLUDED.tier,
        sentiment=EXCLUDED.sentiment, word_count=EXCLUDED.word_count,
        citations=EXCLUDED.citations,
        hero_image_url=COALESCE(EXCLUDED.hero_image_url, editorial_takes.hero_image_url),
+       og_image_url=COALESCE(EXCLUDED.og_image_url, editorial_takes.og_image_url),
+       hero_caption=COALESCE(EXCLUDED.hero_caption, editorial_takes.hero_caption),
+       hero_credit=COALESCE(EXCLUDED.hero_credit, editorial_takes.hero_credit),
        inline_images=CASE WHEN jsonb_array_length(EXCLUDED.inline_images) > 0
                           THEN EXCLUDED.inline_images ELSE editorial_takes.inline_images END,
        layout_images=CASE WHEN jsonb_array_length(EXCLUDED.layout_images) > 0
@@ -483,9 +523,9 @@ async function insertDossierTake(
     [
       take.slug, take.headline, stockCode, take.bodyMd, take.sentiment,
       take.bodyMd.split(/\s+/).filter(Boolean).length, writerModel, take.tier,
-      JSON.stringify(take.citations), heroUrl, JSON.stringify(inlineImages),
+      JSON.stringify(take.citations), heroUrl, ogUrl, JSON.stringify(inlineImages),
       JSON.stringify(layoutImages),
-      take.bodyFormat, take.standfirst, deskByline(industry),
+      take.bodyFormat, take.standfirst, deskByline(industry), heroCaption, heroCredit,
     ],
   );
 }
@@ -563,17 +603,21 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
         const publishThis = opts.autoPublish && !hold;
 
         let heroUrl: string | null = null;
+        let ogUrl: string | null = null;
+        let heroCaption: string | null = null;
         let inlineImages: InlineImageRow[] = [];
         let layoutImages: LayoutImage[] = [];
         if (opts.withImages && openai && storage) {
           const candidate = { stockCode: a.stockCode, industry: a.industry } as unknown as AgendaCandidate;
           const narrativeShim = { slug: take.slug, headline: take.headline } as unknown as NarrativeTake;
-          const img = await generateHero(openai, storage, candidate, narrativeShim);
-          heroUrl = img.url; totalCost += img.costUsd;
+          // Abstract brand art → OG / social card only.
+          const og = await generateBrandOg(openai, storage, candidate, narrativeShim);
+          ogUrl = og.url; totalCost += og.costUsd;
           const inl = await generateInlineImages(openai, storage, ai, candidate, narrativeShim, take.bodyMd, 2);
           inlineImages = inl.images; totalCost += inl.costUsd;
 
-          // Art-director stage — content-grounded varied layout images.
+          // Art-director stage — topical photojournalistic hero (image #1 of
+          // the plan, high quality) + content-grounded varied layout images.
           try {
             const artCtx: ArtContext = {
               stockCode: a.stockCode,
@@ -586,15 +630,19 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
                 .map((t) => t.claim)
                 .concat(dossier.keyNumbers.map((n) => `${n.label}: ${n.value}`)),
             };
-            const plan = await designImagePlan(ai, artCtx, 3);
-            const gen = await generatePlanImages(openai, storage, take.slug, plan);
-            layoutImages = gen.images; totalCost += gen.costUsd;
+            const plan = await designImagePlan(ai, artCtx, 4); // 1 hero + 3 inline
+            const gen = await generateHeroAndLayout(openai, storage, take.slug, plan);
+            heroUrl = gen.heroUrl; heroCaption = gen.heroCaption;
+            layoutImages = gen.layoutImages; totalCost += gen.costUsd;
           } catch (err) {
             console.warn(`${tag}   art-director failed: ${String((err as Error).message ?? err).slice(0, 120)}`);
           }
+          // No topical hero (plan failed / hero render failed) — fall back to
+          // the brand image so the article never ships hero-less.
+          if (!heroUrl) heroUrl = ogUrl;
         }
 
-        await insertDossierTake(pg, take, a.stockCode, a.industry, heroUrl, inlineImages, layoutImages, publishThis, writerModel);
+        await insertDossierTake(pg, take, a.stockCode, a.industry, heroUrl, ogUrl, heroCaption, inlineImages, layoutImages, publishThis, writerModel);
         if (publishThis) published++;
         else if (hold) held++;
         else drafted++;
@@ -729,12 +777,15 @@ export async function regenerateImages(opts: { slug: string; inlineCount?: numbe
     const take = { slug: row.slug, headline: row.headline } as unknown as NarrativeTake;
     const count = opts.inlineCount ?? 2;
 
-    console.error(`[regen-images] ${row.stock_code} "${row.headline}" — hero + ${count} inline + art-directed layout…`);
-    const hero = await generateHero(openai, storage, candidate, take);
+    console.error(`[regen-images] ${row.stock_code} "${row.headline}" — og + ${count} inline + art-directed hero/layout…`);
+    // Abstract brand art → OG / social card only.
+    const og = await generateBrandOg(openai, storage, candidate, take);
     const inl = await generateInlineImages(openai, storage, ai, candidate, take, row.body_md, count);
 
-    // Art-director stage: a varied, content-grounded image plan stored as
-    // layout_images (the frontend prefers this over the legacy inline_images).
+    // Art-director stage: a topical photojournalistic hero (image #1 of the
+    // plan, high quality → hero_image_url) plus a varied, content-grounded
+    // layout plan stored as layout_images (the frontend prefers this over
+    // the legacy inline_images).
     const artCtx: ArtContext = {
       stockCode: row.stock_code,
       headline: row.headline,
@@ -742,22 +793,29 @@ export async function regenerateImages(opts: { slug: string; inlineCount?: numbe
       description: summary,
       bodyMd: row.body_md,
     };
+    let heroUrl: string | null = null;
+    let heroCaption: string | null = null;
     let layoutImages: LayoutImage[] = [];
+    let artCost = 0;
     try {
-      const plan = await designImagePlan(ai, artCtx, 3);
-      console.error(`[regen-images] art-director planned ${plan.length} image(s): ${plan.map((p) => `${p.style}/${p.ratio}`).join(", ") || "(none)"}`);
-      const gen = await generatePlanImages(openai, storage, opts.slug, plan);
-      layoutImages = gen.images;
+      const plan = await designImagePlan(ai, artCtx, 4); // 1 hero + 3 inline
+      console.error(`[regen-images] art-director planned ${plan.length} image(s): ${plan.map((p) => `${p.role}:${p.style}/${p.ratio}`).join(", ") || "(none)"}`);
+      const gen = await generateHeroAndLayout(openai, storage, opts.slug, plan);
+      heroUrl = gen.heroUrl; heroCaption = gen.heroCaption;
+      layoutImages = gen.layoutImages; artCost = gen.costUsd;
     } catch (err) {
       console.warn(`[regen-images] art-director stage failed: ${String((err as Error).message ?? err).slice(0, 160)}`);
     }
+    // No topical hero — fall back to the brand image so the page keeps a hero.
+    if (!heroUrl) heroUrl = og.url;
 
     await pg.query(
-      `UPDATE editorial_takes SET hero_image_url = $1, inline_images = $2::jsonb, layout_images = $3::jsonb, updated_at = NOW() WHERE slug = $4`,
-      [hero.url, JSON.stringify(inl.images), JSON.stringify(layoutImages), opts.slug],
+      `UPDATE editorial_takes SET hero_image_url = $1, og_image_url = $2, hero_caption = $3, hero_credit = $4, inline_images = $5::jsonb, layout_images = $6::jsonb, updated_at = NOW() WHERE slug = $7`,
+      [heroUrl, og.url, heroCaption, heroCaption ? HERO_CREDIT : null, JSON.stringify(inl.images), JSON.stringify(layoutImages), opts.slug],
     );
-    console.error(`[regen-images] done — hero + ${inl.images.length} inline + ${layoutImages.length} layout, ~$${(hero.costUsd + inl.costUsd).toFixed(3)}`);
-    console.error(`hero: ${hero.url}`);
+    console.error(`[regen-images] done — hero + og + ${inl.images.length} inline + ${layoutImages.length} layout, ~$${(og.costUsd + inl.costUsd + artCost).toFixed(3)}`);
+    console.error(`hero: ${heroUrl}${heroCaption ? ` — "${heroCaption}"` : " (brand fallback)"}`);
+    console.error(`og:   ${og.url}`);
     for (const im of inl.images) console.error(`inline: ${im.url}`);
     for (const im of layoutImages) console.error(`layout [${im.style}/${im.ratio}/${im.placement}@${im.anchorAfterBlock}]: ${im.url}`);
     console.error(`Public: https://shorted.com.au/news/${opts.slug}`);
@@ -823,7 +881,9 @@ export async function runNewsroom(opts: NewsroomOptions): Promise<NewsroomResult
         let inlineImages: InlineImageRow[] = [];
         if (opts.withImages && openai && storage && ai) {
           console.log(`${tag}   generating hero image (~30s, ~$0.075)…`);
-          const img = await generateHero(openai, storage, c, take);
+          // Legacy narrative path has no art-director stage — the brand image
+          // doubles as the hero here (it uploads to the -og.png object).
+          const img = await generateBrandOg(openai, storage, c, take);
           heroUrl = img.url;
           costUsd += img.costUsd;
 
