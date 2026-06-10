@@ -85,6 +85,23 @@ Entrypoint is `npx tsx src/index.ts <command>` (NOT `run.ts`).
 | `newsroom [--auto-publish] [--with-images] [--top=N]` | Legacy agenda→narrative loop (no investigator/ledger; brand image doubles as hero). | Prefer `newsroom-daily`. |
 | `agenda`, `narrative --stock=CODE`, `discover`, `draft`, `run` | Older single-purpose paths; still wired but not the investigative pipeline. | |
 
+### Daily operating flow (draft → review → publish → tweet)
+
+1. **Cron drafts** the takes each weekday morning (text only — no images, cheap, reviewable):
+   ```
+   30 7 * * 1-5  /Users/benebsworth/projects/shorted/scripts/take-writer/bin/newsroom-cron.sh >> $HOME/Library/Logs/shorted-newsroom.log 2>&1
+   ```
+   The script (`bin/newsroom-cron.sh`) self-sources `GEMINI_API_KEY` from repo `.env` and `DATABASE_URL` from Secret Manager, then runs `newsroom-daily --top=3`.
+2. **Review** in the terminal:
+   - `npx tsx src/index.ts list-drafts` — aligned table of unpublished drafts (slug, tier, images, citation count) with copy-paste publish commands.
+   - `npx tsx src/index.ts list-drafts --slug=SLUG` — full markdown body + citations for one draft.
+3. **Publish**: `npx tsx src/index.ts publish --slug=SLUG --tweet` — chains:
+   - images: `regenerateImages` iff hero missing / layout empty / hero is the brand-OG fallback (skip with `--no-images`)
+   - validate: `validate-article` 1 round, per-image mode (`VALIDATOR_SCREENSHOT=0` — draft page isn't live); judge failures warn but never block (skip with `--no-validate`)
+   - flips `published_at = COALESCE(published_at, NOW())`
+   - `--tweet`: spawns `scripts/twitter` `process-publish-queue --live --slug=SLUG` (queue only tweets published+untweeted takes, so re-runs can't double-tweet; a failed tweet prints the manual retry command).
+4. Article is live at `/news/SLUG` (ISR ≤10 min) and posted to @shorted___.
+
 Model env knobs: `EDITOR_MODEL`, `INVESTIGATOR_MODEL_TAKE`/`_DEEPDIVE`, `WRITER_MODEL`/`_DEEPDIVE`, `ART_DIRECTOR_MODEL`, `VALIDATOR_MODEL`, `INLINE_BRIEF_MODEL` — all default `gemini-3.5-flash`. `MAX_TURNS_TAKE`=6, `MAX_TURNS_DEEPDIVE`=14, `MAX_TAKES_PER_DAY`=10, `MAX_DEEPDIVES_PER_DAY`=2. (Known wart: `newsroom.ts` records `gemini-2.5-flash` in the DB `model` column when `WRITER_MODEL` is unset, but the writer actually runs `gemini-3.5-flash`.)
 
 ## 4. MDX palette
