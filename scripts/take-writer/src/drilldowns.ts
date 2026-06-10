@@ -107,6 +107,7 @@ export interface FinancialReport {
 /** Full key-metric sets for the last n filings in one call (vs report_line's
  *  one metric per call) so dossiers reliably carry the financial trajectory. */
 export async function getFinancials(pg: Queryable, code: string, n = 4): Promise<FinancialReport[]> {
+  n = Math.max(1, Math.min(n, 20));
   const { rows } = await pg.query(
     `SELECT report_url, report_type, report_title,
             to_char(report_date,'YYYY-MM-DD') AS report_date, metrics
@@ -124,7 +125,7 @@ export async function getFinancials(pg: Queryable, code: string, n = 4): Promise
       metrics: Object.fromEntries(
         Object.entries(r.metrics ?? {})
           .filter(([, v]) => v != null)
-          .map(([k, v]) => [k, String(v)]),
+          .map(([k, v]) => [k, typeof v === "object" ? JSON.stringify(v) : String(v)]),
       ),
       source: {
         type: "report",

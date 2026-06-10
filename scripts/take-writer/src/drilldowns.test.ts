@@ -65,4 +65,17 @@ describe("getFinancials", () => {
     expect(reports[0]!.source.type).toBe("report");
     expect(reports[1]!.source.headline).toBe("H1 FY25");
   });
+
+  it("JSON-stringifies object and array metric values", async () => {
+    const rows = [
+      {
+        report_url: "https://x/c", report_type: "annual_results", report_title: "FY26", report_date: "2026-06-01",
+        metrics: { revenue: { value: 1200, unit: "M" }, segments: ["a", "b"] },
+      },
+    ];
+    const pg = fakePg([], rows);
+    const reports = await getFinancials(pg, "BHP", 2);
+    expect(reports[0]!.metrics.revenue).toBe('{"value":1200,"unit":"M"}');
+    expect(reports[0]!.metrics.segments).toBe('["a","b"]');
+  });
 });
