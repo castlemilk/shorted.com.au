@@ -68,6 +68,8 @@ interface ApiArticle {
   imageUrl?: string;
   stockCode?: string;
   isPriceSensitive?: boolean;
+  syndicationCount?: number;
+  syndicatedSources?: string[];
 }
 
 const toIso = (ts: ApiArticle["publishedAt"]): string => {
@@ -96,6 +98,8 @@ const toCardArticle = (a: ApiArticle): NewsCardArticle => ({
   // as stock codes — keeps cards from linking to /shorts/<stop-word>.
   stockCode: isValidStockCode(a.stockCode) ? a.stockCode : undefined,
   isPriceSensitive: a.isPriceSensitive,
+  syndicationCount: a.syndicationCount,
+  syndicatedSources: a.syndicatedSources,
 });
 
 const groupByDay = (articles: NewsCardArticle[]) => {

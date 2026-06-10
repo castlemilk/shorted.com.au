@@ -43,6 +43,7 @@ export async function zoomWindow(
     `SELECT id::text, to_char(published_at,'YYYY-MM-DD') AS date, source, headline, url, sentiment
      FROM news_articles
      WHERE stock_code=$1 AND published_at BETWEEN $2::timestamp AND $3::timestamp
+       AND (cluster_id IS NULL OR cluster_is_primary = TRUE)
      ORDER BY published_at ASC LIMIT 40`,
     [code, lo, hi],
   );
@@ -145,7 +146,9 @@ export async function alignEvents(
   const newsQ = pg.query(
     `SELECT id::text, to_char(published_at,'YYYY-MM-DD') AS date, source, headline, url
      FROM news_articles WHERE stock_code=$1 AND is_price_sensitive=true
-       AND published_at > NOW() - $2::interval ORDER BY published_at DESC LIMIT 40`,
+       AND published_at > NOW() - $2::interval
+       AND (cluster_id IS NULL OR cluster_is_primary = TRUE)
+     ORDER BY published_at DESC LIMIT 40`,
     [code, `${days} days`],
   );
   const [t, n] = await Promise.all([tradesQ, newsQ]);
@@ -193,6 +196,7 @@ export async function searchNews(pg: Queryable, query: string, code?: string): P
     `SELECT id::text, to_char(published_at,'YYYY-MM-DD') AS date, source, headline, url
      FROM news_articles
      WHERE (headline ILIKE $1 OR summary ILIKE $1) ${codeClause}
+       AND (cluster_id IS NULL OR cluster_is_primary = TRUE)
      ORDER BY published_at DESC LIMIT 25`,
     params,
   );

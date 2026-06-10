@@ -17,6 +17,8 @@ export interface NewsCardArticle {
   imageUrl?: string;
   stockCode?: string;
   isPriceSensitive?: boolean;
+  syndicationCount?: number;
+  syndicatedSources?: string[];
 }
 
 interface NewsCardProps {
@@ -92,6 +94,14 @@ export function NewsCard({ article, variant = "default", showStockChip = true, c
       <div className={cn("flex flex-1 flex-col gap-2 p-4", isHero && "md:p-5")}>
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <NewsSourceBadge source={article.source} />
+          {(article.syndicationCount ?? 1) > 1 && (
+            <span
+              className="text-[10px] uppercase tracking-wide text-muted-foreground"
+              title={`Also covered by ${(article.syndicatedSources ?? []).join(", ")}`}
+            >
+              +{(article.syndicationCount ?? 1) - 1} source{(article.syndicationCount ?? 1) > 2 ? "s" : ""}
+            </span>
+          )}
           {article.isPriceSensitive && (
             <span className="inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
               <Megaphone className="h-3 w-3" />
