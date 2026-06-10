@@ -613,11 +613,10 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
           // Abstract brand art → OG / social card only.
           const og = await generateBrandOg(openai, storage, candidate, narrativeShim);
           ogUrl = og.url; totalCost += og.costUsd;
-          const inl = await generateInlineImages(openai, storage, ai, candidate, narrativeShim, take.bodyMd, 2);
-          inlineImages = inl.images; totalCost += inl.costUsd;
 
           // Art-director stage — topical photojournalistic hero (image #1 of
           // the plan, high quality) + content-grounded varied layout images.
+          // Run FIRST so we can skip the cheaper legacy inline gen when it succeeds.
           try {
             const artCtx: ArtContext = {
               stockCode: a.stockCode,
@@ -640,6 +639,17 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
           // No topical hero (plan failed / hero render failed) — fall back to
           // the brand image so the article never ships hero-less.
           if (!heroUrl) heroUrl = ogUrl;
+
+          // Legacy inline images: only generated when the art-director path
+          // produced no layout images (frontend prefers layout_images and ignores
+          // inline_images when layout_images is non-empty).
+          if (layoutImages.length > 0) {
+            console.log(`${tag}   [images] layout plan ok — skipping legacy inline images`);
+            inlineImages = [];
+          } else {
+            const inl = await generateInlineImages(openai, storage, ai, candidate, narrativeShim, take.bodyMd, 2);
+            inlineImages = inl.images; totalCost += inl.costUsd;
+          }
         }
 
         await insertDossierTake(pg, take, a.stockCode, a.industry, heroUrl, ogUrl, heroCaption, inlineImages, layoutImages, publishThis, writerModel);
@@ -777,15 +787,14 @@ export async function regenerateImages(opts: { slug: string; inlineCount?: numbe
     const take = { slug: row.slug, headline: row.headline } as unknown as NarrativeTake;
     const count = opts.inlineCount ?? 2;
 
-    console.error(`[regen-images] ${row.stock_code} "${row.headline}" — og + ${count} inline + art-directed hero/layout…`);
+    console.error(`[regen-images] ${row.stock_code} "${row.headline}" — og + art-directed hero/layout (inline only as fallback)…`);
     // Abstract brand art → OG / social card only.
     const og = await generateBrandOg(openai, storage, candidate, take);
-    const inl = await generateInlineImages(openai, storage, ai, candidate, take, row.body_md, count);
 
     // Art-director stage: a topical photojournalistic hero (image #1 of the
     // plan, high quality → hero_image_url) plus a varied, content-grounded
     // layout plan stored as layout_images (the frontend prefers this over
-    // the legacy inline_images).
+    // the legacy inline_images). Run FIRST so inline gen can be skipped on success.
     const artCtx: ArtContext = {
       stockCode: row.stock_code,
       headline: row.headline,
@@ -809,14 +818,26 @@ export async function regenerateImages(opts: { slug: string; inlineCount?: numbe
     // No topical hero — fall back to the brand image so the page keeps a hero.
     if (!heroUrl) heroUrl = og.url;
 
+    // Legacy inline images: only generated when the art-director path produced
+    // no layout images (frontend prefers layout_images and ignores inline_images
+    // when layout_images is non-empty).
+    let inlineImages: InlineImageRow[] = [];
+    let inlineCost = 0;
+    if (layoutImages.length > 0) {
+      console.error(`[regen-images] layout plan ok — skipping legacy inline images`);
+    } else {
+      const inl = await generateInlineImages(openai, storage, ai, candidate, take, row.body_md, count);
+      inlineImages = inl.images; inlineCost = inl.costUsd;
+    }
+
     await pg.query(
       `UPDATE editorial_takes SET hero_image_url = $1, og_image_url = $2, hero_caption = $3, hero_credit = $4, inline_images = $5::jsonb, layout_images = $6::jsonb, updated_at = NOW() WHERE slug = $7`,
-      [heroUrl, og.url, heroCaption, heroCaption ? HERO_CREDIT : null, JSON.stringify(inl.images), JSON.stringify(layoutImages), opts.slug],
+      [heroUrl, og.url, heroCaption, heroCaption ? HERO_CREDIT : null, JSON.stringify(inlineImages), JSON.stringify(layoutImages), opts.slug],
     );
-    console.error(`[regen-images] done — hero + og + ${inl.images.length} inline + ${layoutImages.length} layout, ~$${(og.costUsd + inl.costUsd + artCost).toFixed(3)}`);
+    console.error(`[regen-images] done — hero + og + ${inlineImages.length} inline + ${layoutImages.length} layout, ~$${(og.costUsd + inlineCost + artCost).toFixed(3)}`);
     console.error(`hero: ${heroUrl}${heroCaption ? ` — "${heroCaption}"` : " (brand fallback)"}`);
     console.error(`og:   ${og.url}`);
-    for (const im of inl.images) console.error(`inline: ${im.url}`);
+    for (const im of inlineImages) console.error(`inline: ${im.url}`);
     for (const im of layoutImages) console.error(`layout [${im.style}/${im.ratio}/${im.placement}@${im.anchorAfterBlock}]: ${im.url}`);
     console.error(`Public: https://shorted.com.au/news/${opts.slug}`);
   } finally {
