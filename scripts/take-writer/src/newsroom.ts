@@ -663,9 +663,13 @@ export async function runNewsroomPreview(opts: PreviewOptions): Promise<void> {
     console.log(`PREVIEW — ${code} [${take.tier}]   (NOT inserted, no images)   ${secs}s`);
     console.log(line);
     console.log(`\nHEADLINE:  ${take.headline}`);
+    console.log(`STANDFIRST: ${take.standfirst}`);
     console.log(`SENTIMENT: ${take.sentiment}     SLUG: ${take.slug}`);
     console.log(`GROUNDING: ${take.citations.length} citations, ${take.droppedCitations.length} dropped${take.droppedCitations.length ? ` (${take.droppedCitations.join(", ")})` : ""}`);
     console.log(`DECISION:  ${hold ? "HOLD as draft (weak grounding)" : "would auto-publish"}`);
+    // industry is not fetched in the preview path (assignment.industry = null);
+    // deskByline(null) resolves to "The Shorted Desk — Markets" which is printed as-is.
+    console.log(`BYLINE:    ${deskByline(assignment.industry)}`);
 
     console.log(`\n--- DOSSIER ---`);
     console.log(`summary: ${dossier.summary}`);
@@ -683,7 +687,7 @@ export async function runNewsroomPreview(opts: PreviewOptions): Promise<void> {
       for (const kn of dossier.keyNumbers) console.log(`  - ${kn.label}: ${kn.value}${kn.refId ? ` [${kn.refId}]` : ""}`);
     }
 
-    console.log(`\n--- BODY (markdown) ---\n`);
+    console.log(`\n--- BODY (${take.bodyFormat}) ---\n`);
     console.log(take.bodyMd);
 
     console.log(`\n--- SOURCES (${take.citations.length}) ---`);
