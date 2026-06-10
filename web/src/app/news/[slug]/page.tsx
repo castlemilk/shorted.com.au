@@ -1,6 +1,5 @@
 import { type Metadata } from "next";
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { siteConfig } from "~/@/config/site";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import {
@@ -8,7 +7,9 @@ import {
   BreadcrumbStructuredData,
 } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
+import { ArticleHeader } from "~/@/components/news/article-header";
 import { EditorialMarkdown } from "~/@/components/news/editorial-markdown";
+import { RelatedCoverage } from "~/@/components/news/related-coverage";
 import { TakeRelated } from "~/@/components/news/take-related";
 import { TakeBody } from "~/@/components/news/take-body";
 import { MdxTakeBody } from "~/@/components/news/mdx-take-body";
@@ -112,24 +113,6 @@ export default async function ShortedTakePage({ params }: Params) {
   const take = await loadTake(slug);
   if (!take) return notFound();
 
-  // protobuf-es serialises Timestamp.seconds as bigint over the wire but
-  // some transports / cache layers coerce it to number. Handle both.
-  const pubSeconds = take.publishedAt?.seconds;
-  const publishedDate =
-    typeof pubSeconds === "bigint"
-      ? new Date(Number(pubSeconds) * 1000)
-      : typeof pubSeconds === "number"
-        ? new Date(pubSeconds * 1000)
-        : undefined;
-  const publishedISO = publishedDate?.toISOString() ?? "";
-  const publishedLabel = publishedDate
-    ? publishedDate.toLocaleDateString("en-AU", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      })
-    : "";
-
   const breadcrumbItems = [
     { label: "News", href: "/news" },
     ...(take.stockCode
@@ -150,66 +133,10 @@ export default async function ShortedTakePage({ params }: Params) {
       <div className="mx-auto max-w-4xl px-4 py-8">
         <Breadcrumbs items={breadcrumbItems} className="mb-6" />
 
-        {take.heroImageUrl ? (
-          <figure className="mb-8 overflow-hidden rounded-lg border border-border">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={take.heroImageUrl}
-              alt={take.headline}
-              width={1536}
-              height={1024}
-              className="h-auto w-full"
-            />
-          </figure>
-        ) : (
-          <div className="relative mb-8 flex aspect-[16/9] items-center justify-center overflow-hidden rounded-lg border border-border bg-gradient-to-br from-orange-950/40 via-zinc-950 to-zinc-950">
-            <div
-              className="pointer-events-none absolute inset-0 opacity-30"
-              style={{
-                backgroundImage:
-                  "radial-gradient(circle at 20% 30%, rgba(255,169,77,0.18), transparent 55%), radial-gradient(circle at 80% 70%, rgba(255,169,77,0.1), transparent 60%)",
-              }}
-            />
-            {take.stockCode ? (
-              <span className="relative font-mono text-6xl font-bold tracking-tight text-orange-300/80 md:text-7xl">
-                ${take.stockCode}
-              </span>
-            ) : (
-              <span className="relative text-sm font-medium uppercase tracking-[0.3em] text-orange-300/70">
-                Shorted Take
-              </span>
-            )}
-          </div>
-        )}
+        <ArticleHeader take={take} />
 
-        <header className="mb-8 border-b border-border pb-6">
-          <div className="mb-3 flex items-center gap-2 text-xs uppercase tracking-wider text-orange-400">
-            <span>Shorted Take</span>
-            {take.stockCode ? (
-              <>
-                <span className="text-muted-foreground">·</span>
-                <Link
-                  href={`/shorts/${take.stockCode}`}
-                  className="font-bold text-orange-300 hover:text-orange-200"
-                >
-                  ${take.stockCode}
-                </Link>
-              </>
-            ) : null}
-          </div>
-          <h1 className="mb-4 text-3xl font-bold leading-tight md:text-4xl">
-            {take.headline}
-          </h1>
-          {publishedLabel ? (
-            <time
-              dateTime={publishedISO}
-              className="text-sm text-muted-foreground"
-            >
-              Published {publishedLabel}
-            </time>
-          ) : null}
-        </header>
-
+        {/* Drop cap is applied inside the body renderers (see drop-cap.ts) —
+            the three render paths nest their first paragraph differently. */}
         <article className="mb-12">
           {take.bodyFormat === "mdx" ? (
             <MdxTakeBody
@@ -287,6 +214,13 @@ export default async function ShortedTakePage({ params }: Params) {
           Not financial advice. Sourced from official ASIC short-position data
           and public news reports.
         </div>
+
+        {take.stockCode ? (
+          <RelatedCoverage
+            stockCode={take.stockCode}
+            excludeUrl={take.sourceUrl}
+          />
+        ) : null}
 
         {take.stockCode ? (
           <TakeRelated stockCode={take.stockCode} excludeSlug={slug} />

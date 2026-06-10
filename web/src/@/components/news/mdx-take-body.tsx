@@ -8,6 +8,7 @@ import {
   resolveCitation,
   type TakeCitation,
 } from "./citations";
+import { DROP_CAP_CONTAINER } from "./drop-cap";
 import { TakeBody } from "./take-body";
 
 interface MdxTakeBodyProps {
@@ -103,7 +104,12 @@ export async function MdxTakeBody({ body, citations }: MdxTakeBodyProps) {
 
   return (
     <div>
-      <div className="space-y-5 text-base leading-relaxed">{content}</div>
+      {/* Compiled MDX paragraphs are direct children, so the container
+          drop-cap variant (`> p:first-of-type`) hits exactly the first
+          paragraph even when the body opens with a heading. */}
+      <div className={`space-y-5 text-base leading-relaxed ${DROP_CAP_CONTAINER}`}>
+        {content}
+      </div>
       <CitationSources citations={citations} />
     </div>
   );

@@ -11,6 +11,7 @@ import {
   MARKER_PATTERN,
   type TakeCitation,
 } from "./citations";
+import { DROP_CAP_FIRST_LETTER, firstProseBlockIndex } from "./drop-cap";
 
 export type { TakeCitation } from "./citations";
 
@@ -122,14 +123,18 @@ function linkify(
 function buildComponents(
   citationMap: Map<string, ReportCitation>,
   codeSet: Set<string>,
+  dropCap = false,
 ): Components {
   const inline = (children: React.ReactNode) => linkify(children, citationMap, codeSet);
+  const pClass = dropCap
+    ? `text-foreground/90 ${DROP_CAP_FIRST_LETTER}`
+    : "text-foreground/90";
   return {
     h1: ({ children }) => <h2 className="mb-2 mt-8 text-2xl font-bold tracking-tight text-foreground">{inline(children)}</h2>,
     h2: ({ children }) => <h2 className="mb-2 mt-8 text-xl font-bold tracking-tight text-foreground">{inline(children)}</h2>,
     h3: ({ children }) => <h3 className="mb-1.5 mt-6 text-lg font-semibold tracking-tight text-foreground">{inline(children)}</h3>,
     h4: ({ children }) => <h4 className="mb-1 mt-4 text-base font-semibold text-foreground">{inline(children)}</h4>,
-    p: ({ children }) => <p className="text-foreground/90">{inline(children)}</p>,
+    p: ({ children }) => <p className={pClass}>{inline(children)}</p>,
     ul: ({ children }) => <ul className="ml-5 list-disc space-y-1 text-foreground/90">{children}</ul>,
     ol: ({ children }) => <ol className="ml-5 list-decimal space-y-1 text-foreground/90">{children}</ol>,
     li: ({ children }) => <li>{inline(children)}</li>,
@@ -172,6 +177,14 @@ export function TakeBody({ bodyMd, citations, inlineImages = [], layoutImages, s
   }
   const codeSet = new Set((stockCode ? [stockCode] : []).map((c) => c.toUpperCase()));
   const components = buildComponents(citationMap, codeSet);
+  // Drop cap on the first prose paragraph — applied via the p override of
+  // the block that actually holds it (bodies often open with a heading,
+  // and the layout path wraps blocks in divs, so container-level CSS
+  // selectors can't find it reliably).
+  const firstProseIdx = firstProseBlockIndex(blocks);
+  const dropCapComponents = buildComponents(citationMap, codeSet, true);
+  const componentsFor = (k: number) =>
+    k === firstProseIdx ? dropCapComponents : components;
 
   // --- Magazine layout weaving (art-directed layoutImages) ---------------
   // Classify each layout image: full-bleed (wide break) vs side-pair
@@ -210,7 +223,7 @@ export function TakeBody({ bodyMd, citations, inlineImages = [], layoutImages, s
       const mdFor = (idx: number | number[]) => {
         const arr = Array.isArray(idx) ? idx : [idx];
         return arr.map((k) => (
-          <ReactMarkdown key={`md-${k}`} remarkPlugins={[remarkGfm]} components={components}>
+          <ReactMarkdown key={`md-${k}`} remarkPlugins={[remarkGfm]} components={componentsFor(k)}>
             {escapeMarkers(blocks[k]!)}
           </ReactMarkdown>
         ));
@@ -294,7 +307,7 @@ export function TakeBody({ bodyMd, citations, inlineImages = [], layoutImages, s
           ? bodyNodes
           : blocks.flatMap((block, i) => {
               const nodes: React.ReactNode[] = [
-                <ReactMarkdown key={`b-${i}`} remarkPlugins={[remarkGfm]} components={components}>
+                <ReactMarkdown key={`b-${i}`} remarkPlugins={[remarkGfm]} components={componentsFor(i)}>
                   {escapeMarkers(block)}
                 </ReactMarkdown>,
               ];
