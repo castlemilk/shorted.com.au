@@ -1068,8 +1068,8 @@ message NewsArticle {
   string summary = 10;
   repeated string tags = 11;
   string image_url = 12;          // Hero image from RSS or scraped og:image
-  int32 syndication_count = 13;          // total articles in this story cluster (1 = unsyndicated)
-  repeated string syndicated_sources = 14; // other mastheads carrying this story
+  int32 syndication_count = 13;          // total cluster size INCLUDING this article (1 = unsyndicated); syndicated_sources excludes self, so len(sources) == count-1
+  repeated string syndicated_sources = 14; // OTHER mastheads carrying this story (self excluded)
 }
 
 // Request for GetStockNews RPC

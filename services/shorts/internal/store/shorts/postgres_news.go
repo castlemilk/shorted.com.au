@@ -101,6 +101,7 @@ func (s *postgresStore) GetMarketNews(limit int32, source string, priceSensitive
 		argIdx++
 	}
 	if priceSensitiveOnly {
+		// boolean inlined — no argIdx increment needed
 		query += " AND n.is_price_sensitive = TRUE"
 	}
 

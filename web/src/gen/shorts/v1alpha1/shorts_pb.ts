@@ -2284,14 +2284,14 @@ export type NewsArticle = Message<"shorts.v1alpha1.NewsArticle"> & {
   imageUrl: string;
 
   /**
-   * total articles in this story cluster (1 = unsyndicated)
+   * total cluster size INCLUDING this article (1 = unsyndicated); syndicated_sources excludes self, so len(sources) == count-1
    *
    * @generated from field: int32 syndication_count = 13;
    */
   syndicationCount: number;
 
   /**
-   * other mastheads carrying this story
+   * OTHER mastheads carrying this story (self excluded)
    *
    * @generated from field: repeated string syndicated_sources = 14;
    */
