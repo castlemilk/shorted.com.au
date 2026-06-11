@@ -438,3 +438,23 @@ resource "cloudflare_ruleset" "rate_limit_api" {
     }
   }
 }
+
+# =============================================================================
+# AI Crawl Control — bot management
+# =============================================================================
+# Codifies the zone's AI crawler policy so a dashboard toggle can't silently
+# reintroduce the managed robots.txt block (which serves "Disallow: /" to
+# GPTBot/ClaudeBot/CCBot above our own allow rules — observed June 2026).
+#
+# NOTE: provider v4 (last release 4.52.7) does not expose
+# is_robots_txt_managed or the content_converter ("Markdown for Agents")
+# zone setting — both are provider v5 / newer API surface. Markdown for
+# Agents is additionally unavailable on the Free plan (content_converter is
+# editable: false). Revisit both on a provider v5 migration or plan upgrade.
+
+resource "cloudflare_bot_management" "ai_crawl_control" {
+  count = var.manage_ai_crawler_settings ? 1 : 0
+
+  zone_id            = var.cloudflare_zone_id
+  ai_bots_protection = var.ai_bots_protection
+}
