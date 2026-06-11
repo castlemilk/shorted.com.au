@@ -1,0 +1,163 @@
+import { createMcpHandler } from "mcp-handler";
+import { type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
+import { SHORTS_API_URL } from "~/app/actions/config";
+
+export const maxDuration = 60;
+
+// All tools call the public Connect-RPC JSON endpoints server-side with
+// plain fetch — never import @connectrpc/connect here (SSR/bundle hazard).
+
+async function connectRpc<T>(method: string, body: unknown): Promise<T> {
+  const res = await fetch(
+    `${SHORTS_API_URL}/shorts.v1alpha1.ShortedStocksService/${method}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) {
+    throw new Error(`${method} failed: HTTP ${res.status}`);
+  }
+  return (await res.json()) as T;
+}
+
+function textResult(data: unknown) {
+  return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
+}
+
+const PERIODS = ["1m", "3m", "6m", "1y", "2y", "5y", "max"] as const;
+
+// Schemas typed as ZodRawShape (not their literal types): the SDK's
+// ShapeOutput<> conditional types recurse past TS's instantiation limit on
+// zod 3.25 literal shapes (TS2589). Handler args are explicitly typed below;
+// runtime validation still uses the full schemas.
+const topShortsShape: z.ZodRawShape = {
+  limit: z.number().int().min(1).max(100).optional()
+    .describe("Number of stocks to return (1-100, default 20)"),
+};
+const stockShape: z.ZodRawShape = {
+  code: z.string().regex(/^[A-Za-z0-9]{1,4}$/)
+    .describe("ASX ticker code, 1-4 alphanumeric characters"),
+};
+const historyShape: z.ZodRawShape = {
+  code: z.string().regex(/^[A-Za-z0-9]{1,4}$/)
+    .describe("ASX ticker code, 1-4 alphanumeric characters"),
+  period: z.enum(PERIODS).optional()
+    .describe("History window (default 6m)"),
+};
+const treemapShape: z.ZodRawShape = {
+  limit: z.number().int().min(1).max(25).optional()
+    .describe("Stocks per industry (default 10)"),
+};
+
+type ToolResult = { content: Array<{ type: "text"; text: string }> };
+type RegisterTool = (
+  name: string,
+  description: string,
+  shape: z.ZodRawShape,
+  cb: (args: unknown) => Promise<ToolResult>,
+) => void;
+
+const handler = createMcpHandler(
+  (server: McpServer) => {
+    // The SDK's ShapeOutput<> conditional types exceed TS's instantiation
+    // depth with zod 3.25 (TS2589), so register through a plainly-typed
+    // alias — runtime behaviour and validation are identical.
+    const tool = server.tool.bind(server) as unknown as RegisterTool;
+    tool(
+      "get_top_shorts",
+      "List the most shorted stocks on the ASX (Australian Securities Exchange), ranked by percentage of shares sold short. Data comes from official ASIC daily reports (T+4 delay). ETFs, bonds and non-equity instruments are excluded.",
+      topShortsShape,
+      async (args: unknown) => {
+        const { limit } = args as { limit?: number };
+        const data = await connectRpc<{
+          timeSeries?: Array<{
+            productCode?: string;
+            name?: string;
+            latestShortPosition?: number;
+          }>;
+        }>("GetTopShorts", { period: "max", limit: limit ?? 20, offset: 0, summaryOnly: true });
+        const stocks = (data.timeSeries ?? []).map((t, i) => ({
+          rank: i + 1,
+          code: t.productCode,
+          name: t.name,
+          shortPercent: t.latestShortPosition,
+          url: `https://shorted.com.au/shorts/${t.productCode}`,
+        }));
+        return textResult({ source: "ASIC short position reports (T+4)", stocks });
+      },
+    );
+
+    tool(
+      "get_stock",
+      "Get the current short position summary for a single ASX stock by its ticker code (e.g. BHP, LOT, CBA): short interest %, reported short positions, total shares on issue, and industry.",
+      stockShape,
+      async (args: unknown) => {
+        const { code } = args as { code: string };
+        const data = await connectRpc<Record<string, unknown>>("GetStock", {
+          productCode: code.toUpperCase(),
+        });
+        return textResult({
+          ...data,
+          url: `https://shorted.com.au/shorts/${code.toUpperCase()}`,
+        });
+      },
+    );
+
+    tool(
+      "get_stock_history",
+      "Get the short interest time series for an ASX stock over a period. Returns dated percentage-of-shares-shorted observations from ASIC reports.",
+      historyShape,
+      async (args: unknown) => {
+        const { code, period } = args as { code: string; period?: (typeof PERIODS)[number] };
+        const data = await connectRpc<{
+          points?: Array<{ timestamp?: string; shortPosition?: number }>;
+        }>("GetStockData", { productCode: code.toUpperCase(), period: period ?? "6m" });
+        const points = data.points ?? [];
+        // Cap the payload: agents need the shape, not 3,000 raw rows.
+        const MAX_POINTS = 200;
+        const step = Math.max(1, Math.ceil(points.length / MAX_POINTS));
+        const sampled = points.filter((_, i) => i % step === 0 || i === points.length - 1);
+        return textResult({
+          code: code.toUpperCase(),
+          period,
+          totalObservations: points.length,
+          sampled: sampled.length,
+          points: sampled.map((p) => ({
+            date: p.timestamp,
+            shortPercent: p.shortPosition,
+          })),
+        });
+      },
+    );
+
+    tool(
+      "get_industry_treemap",
+      "Get short positions grouped by industry sector across the ASX — useful for questions like 'which sectors are most shorted'.",
+      treemapShape,
+      async (args: unknown) => {
+        const { limit } = args as { limit?: number };
+        const data = await connectRpc<Record<string, unknown>>(
+          "GetIndustryTreeMap",
+          { period: "3m", limit: limit ?? 10, viewMode: "CURRENT_CHANGE" },
+        );
+        return textResult(data);
+      },
+    );
+  },
+  {
+    serverInfo: {
+      name: "shorted-asx-short-positions",
+      version: "1.0.0",
+    },
+  },
+  {
+    basePath: "/api/mcp",
+    maxDuration: 60,
+    verboseLogs: false,
+  },
+);
+
+export { handler as GET, handler as POST, handler as DELETE };

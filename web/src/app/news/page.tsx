@@ -180,23 +180,10 @@ export default async function NewsIndexPage() {
     .map(({ summary: _summary, imageUrl: _imageUrl, ...a }) => a);
   const grouped = groupByDay(wireArticles);
 
-  // NewsArticle schema for the top ~10 stories (Google's recommendation).
-  const newsSchema = articles.slice(0, 10).map((a) => ({
-    "@context": "https://schema.org",
-    "@type": "NewsArticle",
-    headline: a.headline,
-    url: a.url,
-    datePublished: a.publishedAt,
-    image: a.imageUrl ? [a.imageUrl] : undefined,
-    publisher: {
-      "@type": "Organization",
-      name: a.source,
-    },
-    about: a.stockCode
-      ? { "@type": "Corporation", tickerSymbol: a.stockCode }
-      : undefined,
-  }));
-
+  // ItemList only: this is an aggregation page, so asserting NewsArticle
+  // entities for third-party publishers' content (with our render timestamps
+  // as datePublished) is misleading structured data — Google may treat it as
+  // spammy markup. NewsArticle belongs on our own /news/[slug] articles.
   const itemList = {
     "@context": "https://schema.org",
     "@type": "ItemList",
@@ -218,13 +205,6 @@ export default async function NewsIndexPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }}
       />
-      {newsSchema.map((s, i) => (
-        <script
-          key={i}
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(s) }}
-        />
-      ))}
       <LLMMeta
         title="ASX News & Sentiment Hub"
         description="Latest news on Australian stocks with AI-classified sentiment, aggregated from multiple Australian financial publications."

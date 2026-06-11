@@ -206,7 +206,7 @@ describe("About Page", () => {
 
       expect(screen.getByText("Regulatory-Grade Data Pipeline")).toBeInTheDocument();
       expect(
-        screen.getByText(/Short positions above 0.5% of issued capital are required to be reported to ASIC/i)
+        screen.getByText(/Short positions of 0.01% of issued capital or \$100,000 \(whichever is less\) must be reported to ASIC/i)
       ).toBeInTheDocument();
     });
   });
