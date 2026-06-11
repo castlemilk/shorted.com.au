@@ -353,6 +353,12 @@ module "edge" {
   frontend_origin      = "https://shorted.com.au"
   create_frontend_records = true   # Proxy frontend through Cloudflare edge for caching + rate limiting
 
+  # AI crawler policy: allow AI bots (llms.txt / Content-Signals / MCP
+  # discovery strategy). Flip to true once CLOUDFLARE_API_TOKEN has the
+  # "Zone -> Bot Management -> Edit" permission (current token 403s).
+  manage_ai_crawler_settings = false
+  ai_bots_protection         = "disabled"
+
   cache_ttl_seconds    = 60
   top_shorts_cache_ttl = 300
   stock_data_cache_ttl = 120

@@ -199,3 +199,35 @@ variable "create_api_record" {
   type        = bool
   default     = true
 }
+
+# ---- AI crawler policy ----
+
+variable "manage_ai_crawler_settings" {
+  description = <<-EOT
+    Manage the zone's AI Crawl Control via Terraform (cloudflare_bot_management).
+    Requires the Cloudflare API token to have the "Zone → Bot Management → Edit"
+    permission — the default token scoped for Workers/DNS/cache returns 403.
+    Flip to true after re-scoping CLOUDFLARE_API_TOKEN.
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "ai_bots_protection" {
+  description = <<-EOT
+    Cloudflare AI bots protection. "disabled" = allow AI crawlers (GPTBot,
+    ClaudeBot, CCBot…), which is deliberate: the site's discovery strategy
+    depends on AI crawler access (llms.txt, Content-Signals in robots.txt,
+    MCP server). "block" also injects a managed robots.txt with Disallow
+    rules ABOVE our own — which silently defeated the AI-allow policy until
+    it was switched off in June 2026. Keep "disabled" unless that strategy
+    changes.
+  EOT
+  type        = string
+  default     = "disabled"
+
+  validation {
+    condition     = contains(["block", "disabled", "only_on_ad_pages"], var.ai_bots_protection)
+    error_message = "ai_bots_protection must be one of: block, disabled, only_on_ad_pages."
+  }
+}
