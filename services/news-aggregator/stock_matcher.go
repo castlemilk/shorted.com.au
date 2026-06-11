@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -66,39 +67,38 @@ func (m *StockMatcher) Count() int {
 	return len(m.codeToName)
 }
 
-// ambiguousCodes lists ASX tickers that are also common English words.
-// For these, we only accept matches that appear in the original headline
-// as ALL CAPS or ASX:<code>/$<code> — otherwise "should I buy Zip" matches
-// BUY (Bounty Oil & Gas) and "5 new stocks" matches NEW (New Energy Solar).
-var ambiguousCodes = map[string]bool{
-	"AGO": true, "AND": true, "ARE": true, "ASX": true, "AVG": true,
-	"BIG": true, "BOND": true, "BUY": true, "CEO": true, "FOR": true,
-	"GOLD": true, "HAS": true, "HOT": true, "ITS": true, "NEW": true,
-	"RED": true, "TOP": true, "VLW": true, "ALL": true, "ANY": true,
-	"OLD": true, "LOW": true, "RAW": true, "WHY": true, "HOW": true,
-	"DAY": true, "WAY": true, "ONE": true, "TWO": true, "OUT": true,
-	"GET": true, "WIN": true, "BAD": true, "YOU": true, "OUR": true,
-	"NOW": true, "SELL": true, "USD": true, "AUD": true, "MORE": true,
-	"LESS": true, "THE": true,
-}
+// asxRefRe matches explicit ticker references like "ASX:LOT" or
+// "(ASX: LOT)". The ASX prefix is case-insensitive; the captured code's
+// casing is checked separately (must be uppercase).
+var asxRefRe = regexp.MustCompile(`(?i)\bASX\s*:\s*([A-Za-z]{2,5})\b`)
 
-// Match tries to find a stock code mentioned in a headline
+// Match tries to find a stock code mentioned in a headline.
+//
+// ASX tickers in headlines are conventionally UPPERCASE ("LOT", "BHP").
+// A bare ticker token only matches when it appears in the ORIGINAL
+// headline as an exact UPPERCASE word — otherwise common-word collisions
+// ("a lot of confidence" → LOT, "5 new stocks" → NEW, "should I buy" →
+// BUY) produce false tags. Explicit "ASX:CODE" / "$CODE" references and
+// company-name matching are exempt from the casing rule.
 func (m *StockMatcher) Match(headline string) string {
-	// Iterate the ORIGINAL headline (case preserved). Only when the token
-	// appears as ALL CAPS in the original (or with an ASX:/$ prefix) do we
-	// consider a stop-word-shaped code a real ticker mention.
+	// Explicit "ASX:CODE" / "(ASX: CODE)" references — prefix any case,
+	// code must be uppercase.
+	for _, ref := range asxRefRe.FindAllStringSubmatch(headline, -1) {
+		code := ref[1]
+		if code != strings.ToUpper(code) {
+			continue
+		}
+		if _, ok := m.codeToName[code]; ok {
+			return code
+		}
+	}
+
 	words := strings.Fields(headline)
 
-	// First pass: look for exact ASX stock code patterns (3-4 letters)
+	// First pass: look for ticker tokens in the original (case-preserved) headline
 	for _, word := range words {
 		clean := strings.Trim(word, "()[]{}:;,.'\"!?")
-		// "ASX:BHP" / "(ASX:BHP)" / "$BHP" — strict ticker prefixes always count
-		if strings.HasPrefix(strings.ToUpper(clean), "ASX:") {
-			code := strings.ToUpper(strings.TrimPrefix(strings.ToUpper(clean), "ASX:"))
-			if _, ok := m.codeToName[code]; ok {
-				return code
-			}
-		}
+		// "$BHP" cashtag — strict ticker prefix always counts
 		if strings.HasPrefix(clean, "$") && len(clean) >= 4 && len(clean) <= 6 {
 			code := strings.ToUpper(strings.TrimPrefix(clean, "$"))
 			if _, ok := m.codeToName[code]; ok {
@@ -109,15 +109,13 @@ func (m *StockMatcher) Match(headline string) string {
 		if len(clean) < 3 || len(clean) > 5 {
 			continue
 		}
-		upper := strings.ToUpper(clean)
-		if _, ok := m.codeToName[upper]; !ok {
+		// Bare ticker → must be an exact UPPERCASE word in the original.
+		if clean != strings.ToUpper(clean) {
 			continue
 		}
-		// Stop-word-shaped code → require ALL CAPS in the original.
-		if ambiguousCodes[upper] && clean != upper {
-			continue
+		if _, ok := m.codeToName[clean]; ok {
+			return clean
 		}
-		return upper
 	}
 
 	// Second pass: look for company names in headline
