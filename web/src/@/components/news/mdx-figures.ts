@@ -31,7 +31,8 @@ function sanitizeCaption(caption: string): string {
 }
 
 function figureLine(img: LayoutImageLike): string {
-  const placement = img.placement?.trim() || "full";
+  const trimmed = img.placement?.trim();
+  const placement = trimmed ? trimmed : "full";
   const caption = img.caption ? sanitizeCaption(img.caption) : "";
   const captionAttr = caption ? ` caption="${caption}"` : "";
   return `<Figure src="${img.url}" placement="${placement}"${captionAttr} credit="AI-generated illustration" />`;
