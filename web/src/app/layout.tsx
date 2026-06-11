@@ -43,8 +43,8 @@ const fontMono = IBM_Plex_Mono({
 // gstatic fetch failed in CI. adjustFontFallback off for the same reason.
 const fontSerif = localFont({
   src: [
-    { path: "../fonts/newsreader/Newsreader-Variable.ttf", style: "normal", weight: "200 800" },
-    { path: "../fonts/newsreader/Newsreader-Italic-Variable.ttf", style: "italic", weight: "200 800" },
+    { path: "../fonts/newsreader/Newsreader-Variable.woff2", style: "normal", weight: "200 800" },
+    { path: "../fonts/newsreader/Newsreader-Italic-Variable.woff2", style: "italic", weight: "200 800" },
   ],
   variable: "--font-serif",
   display: "swap",
@@ -163,13 +163,8 @@ export default function RootLayout({
         {/* Inline critical CSS to prevent render-blocking */}
         <style dangerouslySetInnerHTML={{ __html: criticalCSS }} />
         {/* Non-critical CSS will be loaded by Next.js automatically */}
-        {/* Resource hints for performance - preconnect to external domains */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
+        {/* No fonts.googleapis/gstatic preconnects: next/font self-hosts all
+            fonts at build time, so those origins are never contacted. */}
         <link
           rel="alternate"
           type="application/rss+xml"
@@ -194,6 +189,7 @@ export default function RootLayout({
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "WebSite",
+              "@id": "https://shorted.com.au/#website",
               name: "Shorted",
               alternateName: "Shorted.com.au",
               url: "https://shorted.com.au",
@@ -202,11 +198,14 @@ export default function RootLayout({
               inLanguage: "en-AU",
               publisher: {
                 "@type": "Organization",
+                "@id": "https://shorted.com.au/#organization",
                 name: "Shorted",
                 url: "https://shorted.com.au",
                 logo: {
                   "@type": "ImageObject",
-                  url: "https://shorted.com.au/icon.png",
+                  url: "https://shorted.com.au/logo.png",
+                  width: 512,
+                  height: 512,
                 },
               },
               potentialAction: {

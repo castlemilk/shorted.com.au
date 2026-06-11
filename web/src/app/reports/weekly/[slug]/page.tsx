@@ -218,21 +218,23 @@ export default async function WeeklyReportPage({ params }: PageProps) {
   const marketStats = enhanced?.marketStats;
 
   // Article schema for SEO (when narrative exists)
+    // Citation markers ([ref-N]/[report-N]) from the grounding pipeline must
+  // not leak into structured data.
+  const cleanSummary = (enhanced?.summary ?? "")
+    .replace(/\[(?:ref|report)-\d+\]/g, "")
+    .replace(/\s+/g, " ")
+    .trim() || undefined;
+
   const articleSchema = hasNarrative ? {
     "@context": "https://schema.org",
     "@type": "Article",
     headline: enhanced?.headline ?? `ASX Short Selling Report: ${weekTitle}`,
-    description: enhanced?.summary,
+    description: cleanSummary,
     datePublished: data.endDate,
     dateModified: data.endDate,
+    // Organization author only — "Shorted AI Research" is not a Person, and
+    // Google's guidance requires author to accurately represent authorship.
     author: [
-      {
-        "@type": "Person",
-        name: "Shorted AI Research",
-        description: "Automated analysis engine operating over ASIC short position data with human editorial review by the Shorted team.",
-        jobTitle: "Market Research",
-        worksFor: { "@type": "Organization", name: siteConfig.name, url: siteConfig.url },
-      },
       {
         "@type": "Organization",
         name: siteConfig.name,
@@ -243,7 +245,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
       "@type": "Organization",
       name: siteConfig.name,
       url: siteConfig.url,
-      logo: { "@type": "ImageObject", url: siteConfig.ogImage },
+      logo: { "@type": "ImageObject", url: `${siteConfig.url}/logo.png`, width: 512, height: 512 },
     },
     isPartOf: {
       "@type": "CreativeWorkSeries",
@@ -251,6 +253,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
       url: `${siteConfig.url}/reports`,
     },
     mainEntityOfPage: `${siteConfig.url}/reports/weekly/${slug}`,
+    image: [siteConfig.ogImage],
   } : null;
 
   return (

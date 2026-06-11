@@ -43,6 +43,7 @@ const chatApiUrl =
 
 const config = {
   output: "standalone", // Enable standalone mode for Docker
+  poweredByHeader: false,
   // Proxy Connect-RPC and backend API requests to avoid CORS issues.
   // Client-side code uses relative URLs; Next.js rewrites proxy them to the backend.
   async headers() {
@@ -55,6 +56,33 @@ const config = {
             key: "Link",
             value:
               '</.well-known/api-catalog>; rel="api-catalog", </openapi.json>; rel="service-desc"; type="application/json", </docs/api>; rel="service-doc"',
+          },
+        ],
+      },
+      {
+        // Security headers. HSTS: all subdomains (api, www) are HTTPS via
+        // Cloudflare; preload directive included but hstspreload.org
+        // submission is a separate manual step. CSP is Report-Only first —
+        // observe violations before enforcing.
+        source: "/:path*",
+        headers: [
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+          {
+            key: "Content-Security-Policy-Report-Only",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googletagmanager.com https://*.google-analytics.com https://va.vercel-scripts.com https://*.cloudflareinsights.com",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "img-src 'self' data: blob: https:",
+              "font-src 'self' data: https://fonts.gstatic.com",
+              "connect-src 'self' https:",
+              "frame-ancestors 'self'",
+              "object-src 'none'",
+              "base-uri 'self'",
+            ].join("; "),
           },
         ],
       },

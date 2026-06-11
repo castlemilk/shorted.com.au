@@ -189,26 +189,11 @@ export function EnhancedOrganizationSchema() {
       "Stock Market Visualization",
       "Investment Research",
     ],
-    serviceType: "Financial Data Analytics Platform",
-    offers: {
-      "@type": "Offer",
-      name: "ASIC Short Position Data",
-      description:
-        "Official ASIC short position data (T+4 delayed) for ASX-listed companies with historical analysis",
-      category: "Financial Data",
-      areaServed: "Australia",
-    },
-    isBasedOn: {
-      "@type": "GovernmentService",
-      name: "ASIC Short Position Reports",
-      provider: {
-        "@type": "GovernmentOrganization",
-        name: "Australian Securities and Investments Commission",
-        alternateName: "ASIC",
-      },
-      url: "https://asic.gov.au/regulatory-resources/markets/short-selling/short-position-reports-table/",
-    },
-    sameAs: [siteConfig.links.twitter, siteConfig.links.github],
+    // serviceType/offers/isBasedOn removed — not valid Organization properties
+    // (Service/CreativeWork props respectively). ASIC provenance lives on the
+    // Dataset schema where it belongs. GitHub sameAs removed: github.com/shorted
+    // is not our account, and a wrong sameAs harms entity reconciliation.
+    sameAs: [siteConfig.links.twitter],
     contactPoint: {
       "@type": "ContactPoint",
       email: siteConfig.contact.email,

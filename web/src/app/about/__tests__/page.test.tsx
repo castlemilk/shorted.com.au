@@ -157,7 +157,7 @@ describe("About Page", () => {
 
       expect(screen.getByText("Sentiment Indicator")).toBeInTheDocument();
       expect(screen.getByText("ASIC-Sourced Data")).toBeInTheDocument();
-      expect(screen.getByText("Real-Time Tracking")).toBeInTheDocument();
+      expect(screen.getByText("Daily Tracking")).toBeInTheDocument();
     });
   });
 
@@ -192,13 +192,13 @@ describe("About Page", () => {
     it("renders trust metrics", () => {
       render(<AboutClient initialStatistics={mockStatistics} />);
 
-      // There are two 99.9% values (Data Accuracy and API Uptime)
-      const accuracyValues = screen.getAllByText("99.9%");
-      expect(accuracyValues.length).toBe(2);
-      expect(screen.getByText("Data Accuracy")).toBeInTheDocument();
-      expect(screen.getByText("API Uptime")).toBeInTheDocument();
-      expect(screen.getByText("5+ Years")).toBeInTheDocument();
+      // Verifiable facts only — no fabricated accuracy/uptime percentages
+      expect(screen.getByText("Data Source")).toBeInTheDocument();
+      expect(screen.getAllByText("ASIC").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText("Since 2010")).toBeInTheDocument();
       expect(screen.getByText("Historical Data")).toBeInTheDocument();
+      expect(screen.getByText("Reporting Lag")).toBeInTheDocument();
+      expect(screen.getByText("T+4 days")).toBeInTheDocument();
     });
 
     it("renders ASIC data pipeline explanation", () => {

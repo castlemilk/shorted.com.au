@@ -131,20 +131,22 @@ export default async function YearlyReportPage({ params }: PageProps) {
     { name: `${slug} Year in Review`, url: `${siteConfig.url}/reports/yearly/${slug}` },
   ];
 
+    // Citation markers ([ref-N]/[report-N]) from the grounding pipeline must
+  // not leak into structured data.
+  const cleanSummary = (enhanced?.summary ?? "")
+    .replace(/\[(?:ref|report)-\d+\]/g, "")
+    .replace(/\s+/g, " ")
+    .trim() || undefined;
+
   const articleSchema = hasNarrative ? {
     "@context": "https://schema.org",
     "@type": "Article",
     headline: enhanced.headline ?? `ASX Short Selling Year in Review: ${slug}`,
-    description: enhanced.summary,
+    description: cleanSummary,
     datePublished: `${slug}-12-31`,
+    // Organization author only — "Shorted AI Research" is not a Person, and
+    // Google's guidance requires author to accurately represent authorship.
     author: [
-      {
-        "@type": "Person",
-        name: "Shorted AI Research",
-        description: "Automated analysis engine operating over ASIC short position data with human editorial review by the Shorted team.",
-        jobTitle: "Market Research",
-        worksFor: { "@type": "Organization", name: siteConfig.name, url: siteConfig.url },
-      },
       {
         "@type": "Organization",
         name: siteConfig.name,
@@ -155,9 +157,10 @@ export default async function YearlyReportPage({ params }: PageProps) {
       "@type": "Organization",
       name: siteConfig.name,
       url: siteConfig.url,
-      logo: { "@type": "ImageObject", url: siteConfig.ogImage },
+      logo: { "@type": "ImageObject", url: `${siteConfig.url}/logo.png`, width: 512, height: 512 },
     },
     mainEntityOfPage: `${siteConfig.url}/reports/yearly/${slug}`,
+    image: [siteConfig.ogImage],
   } : null;
 
   return (

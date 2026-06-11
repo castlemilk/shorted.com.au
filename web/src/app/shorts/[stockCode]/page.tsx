@@ -319,8 +319,18 @@ const Page = async ({ params }: PageProps) => {
           },
           temporalCoverage: `2010-06-01/${asOfIso}`,
           variableMeasured: [
-            { "@type": "PropertyValue", name: "percentShort", unitText: "PERCENT" },
-            { "@type": "PropertyValue", name: "reportedShortPositions", unitText: "shares" },
+            {
+              "@type": "PropertyValue",
+              name: "percentShort",
+              unitText: "PERCENT",
+              ...(shortPct > 0 ? { value: Number(shortPct.toFixed(2)) } : {}),
+            },
+            {
+              "@type": "PropertyValue",
+              name: "reportedShortPositions",
+              unitText: "shares",
+              ...(shortPositions > 0 ? { value: Math.round(shortPositions) } : {}),
+            },
           ],
           license: "https://creativecommons.org/licenses/by/4.0/",
           about: {
@@ -334,15 +344,21 @@ const Page = async ({ params }: PageProps) => {
         // short-selling entity. ASX + Bloomberg URLs are deterministic.
         // Wikipedia/Wikidata require per-stock lookup — handled in a
         // follow-up enrichment pass.
+        // Strip ASIC security-type suffixes ("ORDINARY", "CDI 1:1", "FPO" …)
+        // from the product string for schema name fields — "LOTUS RESOURCES
+        // LTD ORDINARY" is a product label, not a company name.
+        const cleanName = companyName
+          .replace(/\s+(ORDINARY|FPO|CDI(\s+\d+:\d+)?|UNITS?|STAPLED(\s+SECURITIES)?|NON-VOTING.*)$/i, "")
+          .trim() || companyName;
         const corporationSchema = {
           "@context": "https://schema.org",
           "@type": "Corporation",
-          name: companyName,
-          legalName: companyName,
+          name: cleanName,
+          legalName: cleanName,
           tickerSymbol: stockCode,
           identifier: `ASX:${stockCode}`,
           ...(stock.logoUrl ? { logo: stock.logoUrl, image: stock.logoUrl } : {}),
-          ...(industry ? { naics: industry } : {}),
+          // no `naics`: it expects a numeric NAICS code, not a GICS name
           sameAs: [
             `https://www.asx.com.au/markets/company/${stockCode}`,
             `https://www.bloomberg.com/profile/company/${stockCode}:AU`,

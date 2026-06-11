@@ -56,13 +56,16 @@ export function LLMMeta({
     license: "https://shorted.com.au/terms",
     isAccessibleForFree: !requiresAuth,
 
-    // Domain-specific context
+    // Domain-specific context (Thing, not FinancialProduct — short-position
+    // data isn't an offered financial product in the schema.org sense)
     about: [
       {
-        "@type": "FinancialProduct",
+        "@type": "Thing",
         name: "ASX Securities Short Positions",
         description:
           "Short selling data for Australian Securities Exchange listed companies",
+        sameAs:
+          "https://asic.gov.au/regulatory-resources/markets/short-selling/",
       },
     ],
 
@@ -161,51 +164,14 @@ export function StockLLMMeta({
   shortPercentage,
   lastUpdated,
 }: StockLLMMetaProps) {
-  const stockData = {
-    "@context": "https://schema.org",
-    "@type": "FinancialProduct",
-    name: `${companyName} (${stockCode})`,
-    description: `Short position analysis for ${companyName} on the ASX`,
-    url: `https://shorted.com.au/shorts/${stockCode}`,
-
-    // Stock identification
-    identifier: {
-      "@type": "PropertyValue",
-      propertyID: "Ticker Symbol",
-      value: stockCode,
-    },
-
-    // Company details
-    about: {
-      "@type": "Corporation",
-      name: companyName,
-      tickerSymbol: stockCode,
-      exchange: "ASX",
-      industry: industry,
-      sector: sector,
-    },
-
-    // Current metrics
-    ...(currentShortPosition && {
-      additionalProperty: [
-        {
-          "@type": "PropertyValue",
-          name: "currentShortPosition",
-          value: currentShortPosition,
-          unitText: "shares",
-        },
-        {
-          "@type": "PropertyValue",
-          name: "shortPercentage",
-          value: shortPercentage,
-          unitText: "percent",
-        },
-      ],
-    }),
-
-    // Temporal
-    dateModified: lastUpdated,
-  };
+  // No FinancialProduct JSON-LD here: listed equities aren't offered
+  // financial products (schema.org sense), the type has no rich result, and
+  // it duplicated the stock page's Corporation block with invalid props
+  // (exchange/industry/sector aren't Corporation properties). The current
+  // short-position values live on the page's Dataset schema instead.
+  void companyName;
+  void currentShortPosition;
+  void lastUpdated;
 
   return (
     <>
@@ -224,14 +190,6 @@ export function StockLLMMeta({
       {/* LLM context */}
       <meta name="ai:entity-type" content="stock" />
       <meta name="ai:entity-id" content={stockCode} />
-
-      {/* Structured data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(stockData),
-        }}
-      />
     </>
   );
 }
