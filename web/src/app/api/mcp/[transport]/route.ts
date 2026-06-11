@@ -9,16 +9,26 @@ export const maxDuration = 60;
 // plain fetch — never import @connectrpc/connect here (SSR/bundle hazard).
 
 async function connectRpc<T>(method: string, body: unknown): Promise<T> {
+  // .trim(): Vercel env vars can carry trailing newlines (documented gotcha).
+  // Connect-Protocol-Version + a UA are required: api.shorted.com.au sits
+  // behind the Cloudflare WAF, which serves an HTML 500 to bare fetches.
+  const base = SHORTS_API_URL.trim();
   const res = await fetch(
-    `${SHORTS_API_URL}/shorts.v1alpha1.ShortedStocksService/${method}`,
+    `${base}/shorts.v1alpha1.ShortedStocksService/${method}`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Connect-Protocol-Version": "1",
+        "User-Agent":
+          "Mozilla/5.0 (compatible; ShortedMCP/1.0; +https://shorted.com.au)",
+      },
       body: JSON.stringify(body),
     },
   );
   if (!res.ok) {
-    throw new Error(`${method} failed: HTTP ${res.status}`);
+    const snippet = (await res.text()).replace(/<[^>]+>/g, " ").slice(0, 120);
+    throw new Error(`${method} failed: HTTP ${res.status} ${snippet}`);
   }
   return (await res.json()) as T;
 }
