@@ -110,6 +110,7 @@
     "@hookform/resolvers": "^3.3.4",
     "@mdx-js/loader": "^3.0.1",
     "@mdx-js/react": "^3.0.1",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@next/mdx": "^14.2.11",
     "@next/third-parties": "^14.2.2",
     "@opentelemetry/api": "^1.9.0",
@@ -185,6 +186,7 @@
     "js-yaml": "^4.1.0",
     "lodash": "^4.17.21",
     "lucide-react": "^0.294.0",
+    "mcp-handler": "^1.1.0",
     "mobx": "^6.13.7",
     "next": "^14.2.13",
     "next-auth": "^5.0.0-beta.22",
@@ -213,7 +215,7 @@
     "three": "^0.176.0",
     "uuid": "^11.1.0",
     "web-vitals": "^5.1.0",
-    "zod": "^3.22.4"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@bufbuild/protoc-gen-es": "^2.10.1",
@@ -266,5 +268,10 @@
   "ct3aMetadata": {
     "initVersion": "7.24.0"
   },
-  "packageManager": "npm@10.2.0"
+  "packageManager": "npm@10.2.0",
+  "overrides": {
+    "@modelcontextprotocol/sdk": {
+      "zod": "$zod"
+    }
+  }
 }

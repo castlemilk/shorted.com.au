@@ -45,7 +45,9 @@ interface TopShortsResponse {
 // "Crawled - currently not indexed" in GSC. Tail pages remain accessible
 // but use metadata.robots.noindex on the page itself.
 const SITEMAP_MIN_SHORT_PCT = 0.5;
-const SITEMAP_MAX_STOCKS = 300;
+// Effectively uncapped: the equities-only MV filter (migration 000043) caps
+// the universe at ~800 stocks, and the 0.5% quality bar prunes the tail.
+const SITEMAP_MAX_STOCKS = 1000;
 
 // Popular stock codes as fallback when API is unavailable
 const FALLBACK_STOCK_CODES = [
@@ -121,122 +123,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = siteConfig.url;
   const currentDate = new Date().toISOString();
 
-  // Static routes
-  const staticRoutes: MetadataRoute.Sitemap = [
-    { url: baseUrl, lastModified: currentDate },
-    { url: `${baseUrl}/about`, lastModified: currentDate },
-    { url: `${baseUrl}/blog`, lastModified: currentDate },
-    { url: `${baseUrl}/terms`, lastModified: currentDate },
-    { url: `${baseUrl}/roadmap`, lastModified: currentDate },
-    { url: `${baseUrl}/pricing`, lastModified: currentDate },
-    { url: `${baseUrl}/developer`, lastModified: currentDate },
-    { url: `${baseUrl}/technology`, lastModified: currentDate },
-    { url: `${baseUrl}/methodology`, lastModified: currentDate },
-    { url: `${baseUrl}/disclaimer`, lastModified: currentDate },
-    { url: `${baseUrl}/compare`, lastModified: currentDate },
-    { url: `${baseUrl}/seasonality`, lastModified: currentDate },
-  ];
-
-  // Blog post routes
-  const posts = getAllPosts();
-  const blogRoutes = posts.map((post) => ({
-    url: `${baseUrl}/blog/${post.slug}`,
-    lastModified: post.date,
-  }));
-
-  // Dynamically fetch all stock codes from the API
-  const stockCodes = await getAllStockCodes();
-
-  const stockRoutes = stockCodes.map((code) => ({
-    url: `${baseUrl}/shorts/${code}`,
-    lastModified: currentDate,
-  }));
-
-  // Seed comparison-page URLs from the top-20 most shorted stocks.
-  // This yields up to 190 pairs (C(20,2)) but we cap at 30 to avoid
-  // index bloat and only include alphabetically-canonical ordering.
-  const top20 = stockCodes.slice(0, 20);
-  const comparePairs: Array<{ url: string; lastModified: string }> = [];
-  outer: for (let i = 0; i < top20.length; i++) {
-    for (let j = i + 1; j < top20.length; j++) {
-      const a = top20[i]!;
-      const b = top20[j]!;
-      const [lo, hi] = a < b ? [a, b] : [b, a];
-      comparePairs.push({
-        url: `${baseUrl}/compare/${lo}-vs-${hi}`,
-        lastModified: currentDate,
-      });
-      if (comparePairs.length >= 30) break outer;
-    }
-  }
-
-  // Canonical listing is /shorts; /stocks is not a canonical index.
-  const shortsRoutes = [
-    { url: `${baseUrl}/shorts`, lastModified: currentDate },
-  ];
-
-  // Documentation routes for LLMs and developers
-  const docRoutes = [
-    {
-      url: `${baseUrl}/docs/llm-context`,
-      lastModified: currentDate,
-    },
-    {
-      url: `${baseUrl}/docs/llm-context-raw`,
-      lastModified: currentDate,
-    },
-    {
-      url: `${baseUrl}/docs/api-reference`,
-      lastModified: currentDate,
-    },
-  ];
-
-  // Industry pages - index + individual industry pages
-  let industrySlugs: string[] = [];
-  try {
-    industrySlugs = await getAllIndustrySlugs();
-  } catch (error) {
-    console.error("Failed to fetch industry slugs for sitemap:", error);
-  }
-
-  const industryRoutes = [
-    {
-      url: `${baseUrl}/industry`,
-      lastModified: currentDate,
-    },
-    ...industrySlugs.map((slug) => ({
-      url: `${baseUrl}/industry/${slug}`,
-      lastModified: currentDate,
-    })),
-  ];
-
-  // Glossary pages - index + individual terms
-  const termSlugs = getAllTermSlugs();
-  const glossaryRoutes = [
-    {
-      url: `${baseUrl}/glossary`,
-      lastModified: currentDate,
-    },
-    ...termSlugs.map((slug) => ({
-      url: `${baseUrl}/glossary/${slug}`,
-      lastModified: currentDate,
-    })),
-  ];
-
-  // Directory pages - index + per-letter
-  const letters = "abcdefghijklmnopqrstuvwxyz".split("");
-  const directoryRoutes = [
-    {
-      url: `${baseUrl}/directory`,
-      lastModified: currentDate,
-    },
-    ...letters.map((letter) => ({
-      url: `${baseUrl}/directory/${letter}`,
-      lastModified: currentDate,
-    })),
-  ];
-
-  // Market snapshot pages
+  // Latest ASIC data date — the honest lastmod for all data-driven pages.
+  // Google ignores lastmod when it's demonstrably the build timestamp, so
+  // pages whose content changes with the daily sync use the actual data
+  // date, and static marketing pages omit lastModified entirely.
   let marketDates: string[] = [];
   try {
     const transport = createConnectTransport({
@@ -251,15 +141,123 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   } catch (error) {
     console.error("Failed to fetch market dates for sitemap:", error);
   }
+  const latestDataDate = marketDates[0]
+    ? new Date(`${marketDates[0]}T00:00:00Z`).toISOString()
+    : currentDate;
 
+  // Static marketing/documentation pages: no reliable change signal, so no
+  // lastModified (omitting is valid and better than a fabricated date).
+  const staticRoutes: MetadataRoute.Sitemap = [
+    { url: baseUrl, lastModified: latestDataDate },
+    { url: `${baseUrl}/about` },
+    { url: `${baseUrl}/blog` },
+    { url: `${baseUrl}/terms` },
+    { url: `${baseUrl}/roadmap` },
+    { url: `${baseUrl}/pricing` },
+    { url: `${baseUrl}/developer` },
+    { url: `${baseUrl}/technology` },
+    { url: `${baseUrl}/methodology` },
+    { url: `${baseUrl}/disclaimer` },
+    { url: `${baseUrl}/compare` },
+    { url: `${baseUrl}/seasonality`, lastModified: latestDataDate },
+  ];
+
+  // Blog post routes
+  const posts = getAllPosts();
+  const blogRoutes = posts.map((post) => ({
+    url: `${baseUrl}/blog/${post.slug}`,
+    lastModified: post.date,
+  }));
+
+  // Dynamically fetch all stock codes from the API
+  const stockCodes = await getAllStockCodes();
+
+  const stockRoutes = stockCodes.map((code) => ({
+    url: `${baseUrl}/shorts/${code}`,
+    lastModified: latestDataDate,
+  }));
+
+  // Seed comparison-page URLs from the top-20 most shorted stocks.
+  // This yields up to 190 pairs (C(20,2)) but we cap at 30 to avoid
+  // index bloat and only include alphabetically-canonical ordering.
+  const top20 = stockCodes.slice(0, 20);
+  const comparePairs: Array<{ url: string; lastModified: string }> = [];
+  outer: for (let i = 0; i < top20.length; i++) {
+    for (let j = i + 1; j < top20.length; j++) {
+      const a = top20[i]!;
+      const b = top20[j]!;
+      const [lo, hi] = a < b ? [a, b] : [b, a];
+      comparePairs.push({
+        url: `${baseUrl}/compare/${lo}-vs-${hi}`,
+        lastModified: latestDataDate,
+      });
+      if (comparePairs.length >= 30) break outer;
+    }
+  }
+
+  // Canonical listing is /shorts; /stocks is not a canonical index.
+  const shortsRoutes = [
+    { url: `${baseUrl}/shorts`, lastModified: latestDataDate },
+  ];
+
+  // Documentation routes for LLMs and developers
+  const docRoutes = [
+    { url: `${baseUrl}/docs/llm-context` },
+    { url: `${baseUrl}/docs/llm-context-raw` },
+    { url: `${baseUrl}/docs/api-reference` },
+  ];
+
+  // Industry pages - index + individual industry pages
+  let industrySlugs: string[] = [];
+  try {
+    industrySlugs = await getAllIndustrySlugs();
+  } catch (error) {
+    console.error("Failed to fetch industry slugs for sitemap:", error);
+  }
+
+  const industryRoutes = [
+    {
+      url: `${baseUrl}/industry`,
+      lastModified: latestDataDate,
+    },
+    ...industrySlugs.map((slug) => ({
+      url: `${baseUrl}/industry/${slug}`,
+      lastModified: latestDataDate,
+    })),
+  ];
+
+  // Glossary pages - index + individual terms (static content, no lastmod)
+  const termSlugs = getAllTermSlugs();
+  const glossaryRoutes = [
+    { url: `${baseUrl}/glossary` },
+    ...termSlugs.map((slug) => ({
+      url: `${baseUrl}/glossary/${slug}`,
+    })),
+  ];
+
+  // Directory pages - index + per-letter
+  const letters = "abcdefghijklmnopqrstuvwxyz".split("");
+  const directoryRoutes = [
+    {
+      url: `${baseUrl}/directory`,
+      lastModified: latestDataDate,
+    },
+    ...letters.map((letter) => ({
+      url: `${baseUrl}/directory/${letter}`,
+      lastModified: latestDataDate,
+    })),
+  ];
+
+  // Market snapshot pages: each dated snapshot was last modified on its own
+  // date (historical data is immutable once published).
   const marketRoutes = [
     {
       url: `${baseUrl}/market`,
-      lastModified: currentDate,
+      lastModified: latestDataDate,
     },
     ...marketDates.map((date) => ({
       url: `${baseUrl}/market/${date}`,
-      lastModified: currentDate,
+      lastModified: new Date(`${date}T00:00:00Z`).toISOString(),
     })),
   ];
 
@@ -322,39 +320,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   ];
 
-  // FAQ page
-  const faqRoutes = [
-    {
-      url: `${baseUrl}/faq`,
-      lastModified: currentDate,
-    },
-  ];
+  // FAQ + privacy: static content, no reliable change signal.
+  const faqRoutes = [{ url: `${baseUrl}/faq` }];
+  const privacyRoutes = [{ url: `${baseUrl}/privacy` }];
 
-  // Privacy page
-  const privacyRoutes = [
-    {
-      url: `${baseUrl}/privacy`,
-      lastModified: currentDate,
-    },
-  ];
-
-  // Educational content hub
+  // Educational content hub (static articles)
   const learnRoutes = [
-    {
-      url: `${baseUrl}/learn`,
-      lastModified: currentDate,
-    },
+    { url: `${baseUrl}/learn` },
     ...learnArticles.map((slug) => ({
       url: `${baseUrl}/learn/${slug}`,
-      lastModified: currentDate,
     })),
   ];
 
-  // Top page (high priority landing page)
+  // Top page (high priority landing page, refreshed with the daily sync)
   const topRoutes = [
     {
       url: `${baseUrl}/top`,
-      lastModified: currentDate,
+      lastModified: latestDataDate,
     },
   ];
 
@@ -362,13 +344,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const screenerRoutes = [
     {
       url: `${baseUrl}/screener`,
-      lastModified: currentDate,
+      lastModified: latestDataDate,
     },
   ];
 
   // News hub + per-stock news pages. Per-stock news pages share the
   // same qualified stockCodes list, so the news tree mirrors the
-  // pruned stock list (no thin pages get indexed).
+  // pruned stock list (no thin pages get indexed). News flows hourly,
+  // so the render date is genuinely the last modification.
   const newsRoutes = [
     { url: `${baseUrl}/news`, lastModified: currentDate },
     ...stockCodes.map((code) => ({
@@ -396,26 +379,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Insider-trading hub + per-stock director-trades pages.
   const insiderRoutes = [
-    { url: `${baseUrl}/insider-trading`, lastModified: currentDate },
+    { url: `${baseUrl}/insider-trading`, lastModified: latestDataDate },
     ...stockCodes.map((code) => ({
       url: `${baseUrl}/insider-trading/${code}`,
-      lastModified: currentDate,
+      lastModified: latestDataDate,
     })),
   ];
 
   // Open data hub.
   const dataRoutes = [
-    { url: `${baseUrl}/data`, lastModified: currentDate },
+    { url: `${baseUrl}/data`, lastModified: latestDataDate },
   ];
 
-  // Authors hub + per-author profile pages — E-E-A-T signal.
+  // Authors hub + per-author profile pages — E-E-A-T signal (static).
   const { getAllAuthorSlugs } = await import("~/@/data/authors");
   const authorSlugs = getAllAuthorSlugs();
   const authorRoutes = [
-    { url: `${baseUrl}/authors`, lastModified: currentDate },
+    { url: `${baseUrl}/authors` },
     ...authorSlugs.map((slug) => ({
       url: `${baseUrl}/authors/${slug}`,
-      lastModified: currentDate,
     })),
   ];
 

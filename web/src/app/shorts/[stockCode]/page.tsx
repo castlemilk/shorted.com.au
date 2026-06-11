@@ -50,6 +50,7 @@ import { siteConfig } from "~/@/config/site";
 import { RelatedStocks } from "~/@/components/seo/related-stocks";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
 import { getStockOrNotFound } from "~/app/actions/getStock";
+import { ShortInterestHistory } from "./short-interest-history";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { notFound } from "next/navigation";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
@@ -431,6 +432,17 @@ const Page = async ({ params }: PageProps) => {
           </>
         );
       })()}
+
+      {/* SSR history summary + FAQ — crawlable trend facts (30d/90d/1y,
+          all-time extremes, rank). Suspense keeps it off the critical path. */}
+      {stock && (stock.percentageShorted ?? 0) > 0 && (
+        <Suspense fallback={null}>
+          <ShortInterestHistory
+            stockCode={stockCode}
+            companyName={stock.name || stockCode}
+          />
+        </Suspense>
+      )}
 
       <div className="mb-4">
         <Breadcrumbs items={breadcrumbItems} />

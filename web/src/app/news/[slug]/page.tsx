@@ -107,10 +107,60 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   };
 }
 
+function toISO(seconds: bigint | number | undefined): string | undefined {
+  if (typeof seconds === "bigint") return new Date(Number(seconds) * 1000).toISOString();
+  if (typeof seconds === "number") return new Date(seconds * 1000).toISOString();
+  return undefined;
+}
+
 export default async function ShortedTakePage({ params }: Params) {
   const { slug } = await params;
   const take = await loadTake(slug);
   if (!take) return notFound();
+
+  const url = `${siteConfig.url}/news/${slug}`;
+  const publishedISO = toISO(take.publishedAt?.seconds);
+  // Original editorial content — NewsArticle is the highest-value schema on
+  // the site. Author/publisher are the Organization (not a fake Person).
+  const newsArticleSchema = {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    headline: take.headline.slice(0, 110),
+    description: buildDescription(take.bodyMd),
+    url,
+    mainEntityOfPage: url,
+    image: [`${siteConfig.url}/news/${slug}/opengraph-image`],
+    ...(publishedISO
+      ? { datePublished: publishedISO, dateModified: publishedISO }
+      : {}),
+    author: {
+      "@type": "Organization",
+      name: "Shorted",
+      url: `${siteConfig.url}/about`,
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "Shorted",
+      url: siteConfig.url,
+      logo: {
+        "@type": "ImageObject",
+        url: `${siteConfig.url}/logo.png`,
+        width: 512,
+        height: 512,
+      },
+    },
+    isAccessibleForFree: true,
+    inLanguage: "en-AU",
+    ...(take.stockCode
+      ? {
+          about: {
+            "@type": "Corporation",
+            tickerSymbol: take.stockCode,
+            sameAs: `https://www.asx.com.au/markets/company/${take.stockCode}`,
+          },
+        }
+      : {}),
+  };
 
   const breadcrumbItems = [
     { label: "News", href: "/news" },
@@ -128,6 +178,10 @@ export default async function ShortedTakePage({ params }: Params) {
         dataSource="ASIC short-position data + Australian news publishers"
       />
       <BreadcrumbStructuredData items={breadcrumbItems} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(newsArticleSchema) }}
+      />
 
       <div className="mx-auto max-w-4xl px-4 py-8">
         <Breadcrumbs items={breadcrumbItems} className="mb-6" />

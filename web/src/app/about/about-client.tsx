@@ -267,8 +267,8 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
                     Regulatory-Grade Data Pipeline
                   </h3>
                   <p className="text-muted-foreground">
-                    Short positions above 0.5% of issued capital are required to be reported to ASIC. 
-                    We process these daily filings and transform them into actionable insights, 
+                    Short positions of 0.01% of issued capital or $100,000 (whichever is less) must be reported to ASIC.
+                    We process these daily filings and transform them into actionable insights,
                     enriched with company metadata and historical context.
                   </p>
                 </div>
@@ -333,11 +333,11 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
                     Our Story
                   </h3>
                   <p className="text-muted-foreground leading-relaxed">
-                    ASIC requires short sellers to report positions above 0.5% of total shares on issue,
-                    but the raw CSV files they publish are difficult to work with. Shorted transforms
-                    this regulatory data into an intuitive platform with historical charts, industry
-                    heatmaps, AI-powered analysis, and real-time alerts — making institutional-grade
-                    short selling intelligence accessible to everyone.
+                    ASIC requires short sellers to report positions of 0.01% of total shares on issue
+                    or $100,000 (whichever is less), but the raw CSV files they publish are difficult
+                    to work with. Shorted transforms this regulatory data into an intuitive platform
+                    with historical charts, industry heatmaps, AI-powered analysis, and daily
+                    alerts — making institutional-grade short selling intelligence accessible to everyone.
                   </p>
                 </div>
 

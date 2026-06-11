@@ -50,6 +50,15 @@ Australian short selling is regulated under the **Corporations Act 2001** and gu
 
 All short position data is sourced directly from official ASIC publications. Data is updated daily after ASIC releases new reports, typically in the late afternoon Australian Eastern Time. Historical data is available from 2010 onwards when ASIC began publishing daily aggregated short position data following the Global Financial Crisis.
 
+## MCP Server (for AI agents)
+
+Shorted exposes a Model Context Protocol server with read-only tools over the same ASIC data — no authentication required:
+
+- **Endpoint** (streamable HTTP): `https://shorted.com.au/api/mcp/mcp`
+- **Server card**: [https://shorted.com.au/.well-known/mcp/server-card.json](https://shorted.com.au/.well-known/mcp/server-card.json)
+- **Tools**: `get_top_shorts` (most shorted ASX stocks), `get_stock` (single ticker summary), `get_stock_history` (time series), `get_industry_treemap` (sector breakdown)
+- **API catalog** (RFC 9727): [https://shorted.com.au/.well-known/api-catalog](https://shorted.com.au/.well-known/api-catalog) · OpenAPI: [https://shorted.com.au/openapi.json](https://shorted.com.au/openapi.json) · Auth notes: [https://shorted.com.au/auth.md](https://shorted.com.au/auth.md)
+
 ## Reports
 
 - [Weekly Reports](https://shorted.com.au/reports): Weekly and monthly analysis of ASX short selling activity with top movers, industry trends, and AI-generated market narratives.

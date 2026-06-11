@@ -144,6 +144,11 @@ const config = {
         destination: "/api/agent/api-catalog",
       },
       {
+        // MCP server card (SEP-1649) for agent discovery
+        source: "/.well-known/mcp/server-card.json",
+        destination: "/api/agent/mcp-server-card",
+      },
+      {
         source: "/shorts.v1alpha1.ShortedStocksService/:path*",
         destination: `${shortsApiUrl}/shorts.v1alpha1.ShortedStocksService/:path*`,
       },
