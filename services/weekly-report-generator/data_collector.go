@@ -329,6 +329,11 @@ func (c *DataCollector) getStocksForDate(ctx context.Context, date string) ([]st
 		FROM shorts s
 		WHERE s."DATE" >= $1 AND s."DATE" <= $2
 		  AND s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+		  AND s."PRODUCT" NOT ILIKE '%DEFERRED%'
+		  AND s."PRODUCT" !~* 'ETF\M'
+		  AND LENGTH(s."PRODUCT_CODE") <= 4
+		  AND s."PRODUCT" !~ '[0-9]+(\.[0-9]+)?\s*%'
+		  AND (s."TOTAL_PRODUCT_IN_ISSUE" IS NULL OR s."TOTAL_PRODUCT_IN_ISSUE" >= 5000000)
 		ORDER BY s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC
 	`
 

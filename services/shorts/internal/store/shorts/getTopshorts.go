@@ -87,6 +87,10 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, sum
 					AND "DATE" > (SELECT MAX("DATE") FROM shorts) - INTERVAL '1 month'
 					AND "PRODUCT" NOT ILIKE '%DEFERRED SETTLEMENT%'
 					AND "PRODUCT" NOT ILIKE '%DEFERRED%'
+					AND "PRODUCT" !~* 'ETF\M'
+					AND LENGTH("PRODUCT_CODE") <= 4
+					AND "PRODUCT" !~ '[0-9]+(\.[0-9]+)?\s*%'
+					AND ("TOTAL_PRODUCT_IN_ISSUE" IS NULL OR "TOTAL_PRODUCT_IN_ISSUE" >= 5000000)
 				ORDER BY "PRODUCT_CODE", "DATE" DESC
 			)
 			SELECT "PRODUCT", "PRODUCT_CODE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
@@ -142,6 +146,10 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, sum
 				AND "DATE" > (SELECT MAX("DATE") FROM shorts) - INTERVAL '1 month'
 				AND "PRODUCT" NOT ILIKE '%DEFERRED SETTLEMENT%'
 				AND "PRODUCT" NOT ILIKE '%DEFERRED%'
+				AND "PRODUCT" !~* 'ETF\M'
+				AND LENGTH("PRODUCT_CODE") <= 4
+				AND "PRODUCT" !~ '[0-9]+(\.[0-9]+)?\s*%'
+				AND ("TOTAL_PRODUCT_IN_ISSUE" IS NULL OR "TOTAL_PRODUCT_IN_ISSUE" >= 5000000)
 			ORDER BY "PRODUCT_CODE", "DATE" DESC
 		)
 		SELECT "PRODUCT", "PRODUCT_CODE"

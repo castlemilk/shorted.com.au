@@ -72,6 +72,8 @@ func setupSchema(t *testing.T, pool *pgxpool.Pool) {
 		"PRODUCT" VARCHAR(255) NOT NULL,
 		"DATE" TIMESTAMP NOT NULL,
 		"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" NUMERIC(10, 8) NOT NULL,
+		"REPORTED_SHORT_POSITIONS" NUMERIC,
+		"TOTAL_PRODUCT_IN_ISSUE" NUMERIC,
 		PRIMARY KEY ("PRODUCT_CODE", "DATE")
 	);
 
@@ -128,6 +130,11 @@ func loadTestData(t *testing.T, pool *pgxpool.Pool) {
 		{"CBA", "COMMONWEALTH BANK OF AUSTRALIA", 0.0250, true, 180},
 		{"BHP", "BHP GROUP LIMITED", 0.0180, true, 180},
 		{"CSL", "CSL LIMITED", 0.0120, true, 180},
+
+		// ACTIVE non-equity instruments (should NOT appear despite recent data:
+		// ETFs by name, 5-char hybrid/bond codes, coupon-named interest rate securities)
+		{"IVV", "ISHARES S&P 500 ETF UNITS", 0.3000, true, 180},
+		{"ATBHQ", "ASIAN DEVELOPMENT 4.35% 17-JAN-29", 1.6000, true, 180},
 	}
 
 	// Insert data for each stock
@@ -517,6 +524,34 @@ func TestTopShortsQuery_ExcludesDeferredSettlementStocks(t *testing.T) {
 	}
 
 	t.Logf("✓ Verified that no deferred settlement stocks appear in %d results", len(results))
+}
+
+// TestTopShortsQuery_ExcludesNonEquityInstruments tests that ETFs, bonds/hybrids
+// (5+ char codes), and coupon-named interest rate securities are filtered out even
+// when they have recent data and high short percentages (e.g. ATBHQ ranked #1 at a
+// nonsense 160% in prod, June 2026).
+func TestTopShortsQuery_ExcludesNonEquityInstruments(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	pool, cleanup := setupTestDatabase(t)
+	defer cleanup()
+
+	results, _, err := FetchTimeSeriesData(pool, 100, 0, "6M", false)
+	require.NoError(t, err, "FetchTimeSeriesData should not return error")
+	require.NotEmpty(t, results, "Should return results")
+
+	for _, result := range results {
+		assert.NotContains(t, result.Name, "ETF",
+			"ETF %s should not appear in top shorts: %s", result.ProductCode, result.Name)
+		assert.LessOrEqual(t, len(result.ProductCode), 4,
+			"Hybrid/bond code %s (5+ chars) should not appear in top shorts", result.ProductCode)
+		assert.NotEqual(t, "ATBHQ", result.ProductCode,
+			"Coupon-named interest rate security should not appear in top shorts")
+	}
+
+	t.Logf("✓ Verified that no non-equity instruments appear in %d results", len(results))
 }
 
 // TestFetchTimeSeriesData_DataIntegrity validates the integrity of returned data
