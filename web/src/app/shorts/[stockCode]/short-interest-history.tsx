@@ -59,11 +59,19 @@ function computeStats(points: Point[]): HistoryStats | null {
 /** Rank among all shorted ASX equities, from the summary-only top-shorts API. */
 async function getShortRank(stockCode: string): Promise<{ rank: number; total: number } | null> {
   try {
+    // trim + headers: Vercel env vars can carry trailing newlines, and the
+    // Cloudflare WAF in front of api.shorted.com.au serves an HTML 500 to
+    // fetches without a UA and Connect-Protocol-Version header.
     const response = await fetch(
-      `${SHORTS_API_URL}/shorts.v1alpha1.ShortedStocksService/GetTopShorts`,
+      `${SHORTS_API_URL.trim()}/shorts.v1alpha1.ShortedStocksService/GetTopShorts`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Connect-Protocol-Version": "1",
+          "User-Agent":
+            "Mozilla/5.0 (compatible; ShortedBot/1.0; +https://shorted.com.au)",
+        },
         body: JSON.stringify({ period: "max", limit: 1000, offset: 0, summaryOnly: true }),
         next: { revalidate: 3600 },
       },
