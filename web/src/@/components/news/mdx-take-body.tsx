@@ -9,11 +9,14 @@ import {
   type TakeCitation,
 } from "./citations";
 import { DROP_CAP_CONTAINER } from "./drop-cap";
+import { injectLayoutFigures, type LayoutImageLike } from "./mdx-figures";
 import { TakeBody } from "./take-body";
 
 interface MdxTakeBodyProps {
   body: string;
   citations: TakeCitation[];
+  /** Art-directed layout images woven in as <Figure /> blocks (no-op if the writer already placed figures). */
+  layoutImages?: LayoutImageLike[];
 }
 
 /**
@@ -74,8 +77,12 @@ const ELEMENT_COMPONENTS = {
  * try/catch — any failure falls back to the legacy markdown renderer,
  * which handles the body minus custom components gracefully.
  */
-export async function MdxTakeBody({ body, citations }: MdxTakeBodyProps) {
-  const processed = preprocessCitationMarkers(body);
+export async function MdxTakeBody({ body, citations, layoutImages }: MdxTakeBodyProps) {
+  // Weave art-directed layout images into the source as <Figure /> blocks
+  // (skipped entirely when the writer placed its own figures), then resolve
+  // citation markers — order doesn't matter, but both must precede compile.
+  const withFigures = injectLayoutFigures(body, layoutImages ?? []);
+  const processed = preprocessCitationMarkers(withFigures);
 
   // Cite receives the citations array via closure; resolveCitation maps
   // the refId to its citation (pill shows the N in ref-N, amber for reports).

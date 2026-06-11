@@ -9,7 +9,6 @@ import {
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { ArticleHeader } from "~/@/components/news/article-header";
 import { EditorialMarkdown } from "~/@/components/news/editorial-markdown";
-import { RelatedCoverage } from "~/@/components/news/related-coverage";
 import { TakeRelated } from "~/@/components/news/take-related";
 import { TakeBody } from "~/@/components/news/take-body";
 import { MdxTakeBody } from "~/@/components/news/mdx-take-body";
@@ -149,6 +148,12 @@ export default async function ShortedTakePage({ params }: Params) {
                 date: c.date,
                 type: c.type,
               }))}
+              layoutImages={(take.layoutImages ?? []).map((li) => ({
+                url: li.url,
+                caption: li.caption,
+                placement: li.placement,
+                anchorAfterBlock: li.anchorAfterBlock,
+              }))}
             />
           ) : take.citations && take.citations.length > 0 ? (
             <TakeBody
@@ -214,13 +219,6 @@ export default async function ShortedTakePage({ params }: Params) {
           Not financial advice. Sourced from official ASIC short-position data
           and public news reports.
         </div>
-
-        {take.stockCode ? (
-          <RelatedCoverage
-            stockCode={take.stockCode}
-            excludeUrl={take.sourceUrl}
-          />
-        ) : null}
 
         {take.stockCode ? (
           <TakeRelated stockCode={take.stockCode} excludeSlug={slug} />
