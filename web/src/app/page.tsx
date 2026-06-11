@@ -23,6 +23,11 @@ import { getEnhancedWeeklyReportData, getAvailableWeekSlugs } from "~/app/action
 import { BrowseByIndustry } from "./browse-by-industry";
 import { TrendingThisWeek } from "./trending-this-week";
 
+// ISR: serve the cached page instantly (stale-while-revalidate) and regenerate
+// in the background at most hourly. Without this the page is build-time static
+// and a regional cache eviction forces a blocking re-render on a live request.
+export const revalidate = 3600;
+
 export const metadata: Metadata = {
   title: siteConfig.fullTitle,
   description: siteConfig.description,

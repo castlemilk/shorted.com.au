@@ -4,6 +4,7 @@
   "installCommand": "npm run install:frontend",
   "buildCommand": "npm run build:frontend",
   "outputDirectory": "web/.next",
+  "regions": ["syd1"],
   "git": {
     "deploymentEnabled": false
   },
@@ -15,6 +16,10 @@
     {
       "path": "/api/homepage/warm-cache",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/pages/warm-cache",
+      "schedule": "0 17 * * *"
     }
   ]
 }
