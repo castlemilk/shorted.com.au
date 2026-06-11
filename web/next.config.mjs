@@ -48,6 +48,17 @@ const config = {
   async headers() {
     return [
       {
+        // RFC 8288 Link headers for agent discovery (api-catalog per RFC 9727)
+        source: "/",
+        headers: [
+          {
+            key: "Link",
+            value:
+              '</.well-known/api-catalog>; rel="api-catalog", </openapi.json>; rel="service-desc"; type="application/json", </docs/api>; rel="service-doc"',
+          },
+        ],
+      },
+      {
         source: "/_next/static/:path*",
         headers: [
           {
@@ -127,6 +138,11 @@ const config = {
   },
   async rewrites() {
     return [
+      {
+        // RFC 9727 API catalog — app router can't host dot-prefixed paths
+        source: "/.well-known/api-catalog",
+        destination: "/api/agent/api-catalog",
+      },
       {
         source: "/shorts.v1alpha1.ShortedStocksService/:path*",
         destination: `${shortsApiUrl}/shorts.v1alpha1.ShortedStocksService/:path*`,
