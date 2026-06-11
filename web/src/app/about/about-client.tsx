@@ -159,8 +159,8 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
             {/* Value Card 3 */}
             <ValueCard
               icon={<Activity className="w-8 h-8" />}
-              title="Real-Time Tracking"
-              description="Monitor position changes daily as they're reported. Spot trends early and stay ahead of market movements."
+              title="Daily Tracking"
+              description="Monitor position changes daily as they're reported (T+4 delay). Spot trends early and stay ahead of market movements."
               gradient="from-primary to-accent"
             />
           </div>
@@ -213,13 +213,13 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
             <FeatureCard
               icon={<Zap className="w-6 h-6" />}
               title="Fast Performance"
-              description="Optimized infrastructure delivers lightning-fast queries and real-time updates."
+              description="Optimized infrastructure delivers lightning-fast queries and daily data updates."
               color="cyan"
             />
             <FeatureCard
               icon={<Lock className="w-6 h-6" />}
               title="Secure Platform"
-              description="Enterprise-grade security protects your account and watchlist data."
+              description="Google sign-in and industry-standard encryption protect your account and watchlist data."
               color="indigo"
             />
             <FeatureCard
@@ -251,10 +251,10 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
             </div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              <TrustMetric label="Data Accuracy" value="99.9%" />
+              <TrustMetric label="Data Source" value="ASIC" />
               <TrustMetric label="Update Frequency" value="Daily" />
-              <TrustMetric label="Historical Data" value="5+ Years" />
-              <TrustMetric label="API Uptime" value="99.9%" />
+              <TrustMetric label="Historical Data" value="Since 2010" />
+              <TrustMetric label="Reporting Lag" value="T+4 days" />
             </div>
 
             <div className="mt-12 p-6 rounded-2xl bg-card border">

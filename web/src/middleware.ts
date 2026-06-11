@@ -49,6 +49,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Canonicalize stock-code case: /shorts/lot → 301 → /shorts/LOT.
+  // Case variants returning 200 waste crawl budget on duplicate URLs that
+  // only the canonical tag disambiguates.
+  const caseMatch = /^\/(shorts|insider-trading)\/([A-Za-z0-9]{1,5})(\/.*)?$/.exec(pathname);
+  if (caseMatch) {
+    const code = caseMatch[2]!;
+    const upper = code.toUpperCase();
+    if (code !== upper) {
+      const url = request.nextUrl.clone();
+      url.pathname = `/${caseMatch[1]}/${upper}${caseMatch[3] ?? ""}`;
+      return NextResponse.redirect(url, 301);
+    }
+  }
+
   // Check if this is a protected route
   const isProtectedRoute = PROTECTED_ROUTES.some((route) =>
     pathname.startsWith(route),
@@ -185,5 +199,11 @@ export const config = {
     "/developer",
     "/chat",
     "/chat/:path*",
+    /*
+     * Stock pages: case-canonicalization redirect only (public, no auth)
+     */
+    "/shorts/:code",
+    "/shorts/:code/:path*",
+    "/insider-trading/:code",
   ],
 };

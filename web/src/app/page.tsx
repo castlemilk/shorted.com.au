@@ -15,7 +15,6 @@ const BreakingNewsBanner = dynamic(
 import {
   DatasetStructuredData,
   EnhancedOrganizationSchema,
-  EnhancedWebSiteSchema,
 } from "~/@/components/seo/enhanced-structured-data";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { PremiumUpsellBanner } from "~/@/components/premium/premium-upsell-banner";
@@ -138,8 +137,9 @@ export default async function Page() {
             "Daily short selling position data for Australian Securities Exchange (ASX) listed companies, sourced from official ASIC reports. Covers 4,500+ stocks with data from 2010 to present.",
         }}
       />
+      {/* WebSite schema comes from the sitewide block in layout.tsx — a second
+          one here with a different SearchAction target confuses parsers. */}
       <EnhancedOrganizationSchema />
-      <EnhancedWebSiteSchema />
       <LLMMeta
         title="Shorted - Official ASIC Short Position Data for ASX Stocks"
         description="Track short selling positions on the ASX using official ASIC data. Free daily updates, interactive charts, industry heatmaps, and analysis of the most shorted Australian stocks."
