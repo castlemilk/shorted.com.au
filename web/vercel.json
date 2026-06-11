@@ -1,5 +1,6 @@
 {
   "ignoreCommand": "git diff HEAD^ HEAD --quiet -- web/src/ web/public/ web/package.json web/package-lock.json web/next.config.mjs web/tsconfig.json proto/",
+  "regions": ["syd1"],
   "crons": [
     {
       "path": "/api/about/warm-cache",
@@ -8,6 +9,10 @@
     {
       "path": "/api/homepage/warm-cache",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/pages/warm-cache",
+      "schedule": "0 17 * * *"
     }
   ]
 }
