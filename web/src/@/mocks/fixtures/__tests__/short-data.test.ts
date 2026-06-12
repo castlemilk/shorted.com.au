@@ -40,9 +40,15 @@ describe("short-data fixtures", () => {
   it("widget fields have correct semantics and scale", () => {
     const series = topShortsFixture();
     for (const s of series) {
-      // percentageShorted must equal latestShortPosition * 100 (percentage points)
-      // e.g. 0.194 → 19.4 renders as "19.40%" not "1940.00%"
-      expect(s.percentageShorted).toBeCloseTo(s.latestShortPosition * 100, 2);
+      // Both are percentage points (backend serves pp in the proto):
+      // 19.4 renders as "19.40%" in columns.tsx and "19.4%" in compact cards.
+      expect(s.percentageShorted).toBeCloseTo(s.latestShortPosition, 2);
+      expect(s.latestShortPosition).toBeGreaterThan(1); // pp scale, not a fraction
+      // min/max points must be populated (backend always sets them; the
+      // "Short" column renders them as range badges).
+      expect(s.min).toBeDefined();
+      expect(s.max).toBeDefined();
+      expect(s.min!.shortPosition).toBeLessThanOrEqual(s.max!.shortPosition);
       // shortPercentageChange must be finite and within the documented ±2.5 pp range
       expect(Number.isFinite(s.shortPercentageChange)).toBe(true);
       expect(s.shortPercentageChange).toBeGreaterThanOrEqual(-2.5);

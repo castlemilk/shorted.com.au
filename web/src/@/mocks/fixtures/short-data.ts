@@ -32,8 +32,10 @@ export type TimeSeriesDataWithWidgetFields = TimeSeriesData & {
   /**
    * Current short interest as a percentage of total shares in issue.
    * Unit: percentage points — e.g. 19.4 renders as "19.40%".
-   * Derived from latestShortPosition * 100 (latestShortPosition is a decimal
-   * fraction from the proto, e.g. 0.194 → 19.4%).
+   * Equals latestShortPosition: the backend serves percentage points in the
+   * proto too (getTopshorts.go maps mv_top_shorts.current_percent, e.g. 19.4,
+   * straight into LatestShortPosition; columns.tsx renders it with
+   * `.toFixed(2) + "%"`).
    */
   percentageShorted: number;
   /**
@@ -82,21 +84,25 @@ interface StockFixtureDef {
   code: string;
   name: string;
   industry: string;
-  latestShortPosition: number; // as a decimal fraction, e.g. 0.194
+  // Percentage points, matching the backend proto (e.g. 19.4 → "19.40%").
+  // getTopshorts.go maps mv_top_shorts.current_percent (already a percentage)
+  // straight into LatestShortPosition, and point ShortPosition values come
+  // from PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS.
+  latestShortPosition: number;
   basePrice: number; // approximate stock price in AUD
 }
 
 const FIXTURE_STOCKS: StockFixtureDef[] = [
-  { code: "PLS", name: "Pilbara Minerals Limited", industry: "Materials", latestShortPosition: 0.194, basePrice: 2.85 },
-  { code: "SYR", name: "Syrah Resources Limited", industry: "Materials", latestShortPosition: 0.151, basePrice: 0.42 },
-  { code: "IEL", name: "IDP Education Limited", industry: "Consumer Discretionary", latestShortPosition: 0.128, basePrice: 14.20 },
-  { code: "LTR", name: "Liontown Resources Limited", industry: "Materials", latestShortPosition: 0.112, basePrice: 0.68 },
-  { code: "FLT", name: "Flight Centre Travel Group", industry: "Consumer Discretionary", latestShortPosition: 0.097, basePrice: 18.50 },
-  { code: "CTT", name: "Cettire Limited", industry: "Consumer Discretionary", latestShortPosition: 0.089, basePrice: 1.32 },
-  { code: "BOE", name: "Boss Energy Limited", industry: "Energy", latestShortPosition: 0.082, basePrice: 2.97 },
-  { code: "DMP", name: "Domino's Pizza Enterprises", industry: "Consumer Discretionary", latestShortPosition: 0.076, basePrice: 32.40 },
-  { code: "MIN", name: "Mineral Resources Limited", industry: "Materials", latestShortPosition: 0.068, basePrice: 21.10 },
-  { code: "SLX", name: "Silex Systems Limited", industry: "Industrials", latestShortPosition: 0.059, basePrice: 4.65 },
+  { code: "PLS", name: "Pilbara Minerals Limited", industry: "Materials", latestShortPosition: 19.4, basePrice: 2.85 },
+  { code: "SYR", name: "Syrah Resources Limited", industry: "Materials", latestShortPosition: 15.1, basePrice: 0.42 },
+  { code: "IEL", name: "IDP Education Limited", industry: "Consumer Discretionary", latestShortPosition: 12.8, basePrice: 14.20 },
+  { code: "LTR", name: "Liontown Resources Limited", industry: "Materials", latestShortPosition: 11.2, basePrice: 0.68 },
+  { code: "FLT", name: "Flight Centre Travel Group", industry: "Consumer Discretionary", latestShortPosition: 9.7, basePrice: 18.50 },
+  { code: "CTT", name: "Cettire Limited", industry: "Consumer Discretionary", latestShortPosition: 8.9, basePrice: 1.32 },
+  { code: "BOE", name: "Boss Energy Limited", industry: "Energy", latestShortPosition: 8.2, basePrice: 2.97 },
+  { code: "DMP", name: "Domino's Pizza Enterprises", industry: "Consumer Discretionary", latestShortPosition: 7.6, basePrice: 32.40 },
+  { code: "MIN", name: "Mineral Resources Limited", industry: "Materials", latestShortPosition: 6.8, basePrice: 21.10 },
+  { code: "SLX", name: "Silex Systems Limited", industry: "Industrials", latestShortPosition: 5.9, basePrice: 4.65 },
 ];
 
 // Periods supported by historicalDataFixture
@@ -125,13 +131,13 @@ function buildPoints(def: StockFixtureDef): TimeSeriesPoint[] {
   let value = def.latestShortPosition * 0.85; // start slightly below latest
 
   for (let i = 89; i >= 0; i--) {
-    // Random walk: ±0.3% per day
-    value = Math.max(0.001, value + (rand() - 0.5) * 0.006);
+    // Random walk: ±0.3 percentage points per day
+    value = Math.max(0.1, value + (rand() - 0.5) * 0.6);
     const date = daysBeforeBase(i);
     points.push(
       create(TimeSeriesPointSchema, {
         timestamp: timestampFromDate(date),
-        shortPosition: parseFloat(value.toFixed(4)),
+        shortPosition: parseFloat(value.toFixed(2)),
       }),
     );
   }
@@ -151,25 +157,38 @@ function buildPoints(def: StockFixtureDef): TimeSeriesPoint[] {
  * Returns 10 TimeSeriesDataWithWidgetFields entries with deterministic
  * 90-point series, ordered by descending latestShortPosition.
  *
- * Field semantics (verified against top-shorts-widget.tsx:102 and columns.tsx:99):
- * - percentageShorted = latestShortPosition * 100  (e.g. 0.194 → 19.4, renders "19.4%")
+ * Field semantics (verified against top-shorts-widget.tsx:102, columns.tsx:99
+ * and the backend getTopshorts.go, which serves percentage points):
+ * - latestShortPosition / point shortPosition: percentage points (19.4 → "19.40%")
+ * - min/max: lowest/highest point in the series (columns.tsx renders them as badges)
+ * - percentageShorted = latestShortPosition (renders "19.4%")
  * - shortPercentageChange: percentage-point delta, seeded range ±2.5 pp (renders "±X.XX%")
  */
 export function topShortsFixture(): TimeSeriesDataWithWidgetFields[] {
   return FIXTURE_STOCKS.map((def) => {
     const points = buildPoints(def);
+    // The backend always sets min/max (getTopshorts.go); columns.tsx renders
+    // them as the red/green range badges in the "Short" column.
+    const minPoint = points.reduce((a, b) =>
+      b.shortPosition < a.shortPosition ? b : a,
+    );
+    const maxPoint = points.reduce((a, b) =>
+      b.shortPosition > a.shortPosition ? b : a,
+    );
     const series = create(TimeSeriesDataSchema, {
       productCode: def.code,
       name: def.name,
       latestShortPosition: def.latestShortPosition,
       points,
+      min: minPoint,
+      max: maxPoint,
     });
 
     // Extra fields read by widgets (percentageShorted, shortPercentageChange, industry)
     // These are not in the proto but the widget casts to TimeSeriesData & { ... }
     return Object.assign(series, {
-      // percentageShorted: percentage points (0.194 → 19.4), rendered as "19.4%"
-      percentageShorted: parseFloat((def.latestShortPosition * 100).toFixed(2)),
+      // percentageShorted: percentage points (19.4), rendered as "19.4%"
+      percentageShorted: def.latestShortPosition,
       // shortPercentageChange: pp delta in ±2.5 range, rendered as "±X.XX%"
       shortPercentageChange: parseFloat(
         ((mulberry32(hashStr(def.code + "_chg"))() - 0.5) * 5).toFixed(2),
