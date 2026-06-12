@@ -231,3 +231,14 @@ variable "ai_bots_protection" {
     error_message = "ai_bots_protection must be one of: block, disabled, only_on_ad_pages."
   }
 }
+
+variable "markdown_for_agents" {
+  description = "Cloudflare Markdown for Agents (content_converter zone setting). Serves markdown to Accept: text/markdown clients. Requires Pro+ plan."
+  type        = string
+  default     = "on"
+
+  validation {
+    condition     = contains(["on", "off"], var.markdown_for_agents)
+    error_message = "markdown_for_agents must be \"on\" or \"off\"."
+  }
+}
