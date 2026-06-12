@@ -442,7 +442,9 @@ jobs:
             -var="asx_announcement_crawler_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-announcement-crawler:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="grafana_auth=${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}" \
             -out=tfplan
-        continue-on-error: true
+        # No continue-on-error: a failing plan must fail the PR check. This was
+        # advisory-only for months and silently swallowed a missing-variable
+        # error on every PR (fixed by defaulting dev cloudflare_zone_id).
 
       - name: Save plan output
         if: github.event_name == 'pull_request'
