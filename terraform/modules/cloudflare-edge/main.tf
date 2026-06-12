@@ -332,6 +332,20 @@ resource "cloudflare_zone_settings_override" "security" {
     always_use_https         = "on"
     min_tls_version          = "1.2"
     automatic_https_rewrites = "on"
+
+    # ---- Performance (Pro plan, June 2026) ----
+    # 103 Early Hints from cached Link headers — browsers preload before
+    # the full response arrives.
+    early_hints = "on"
+    # QUIC + 0-RTT session resumption at the edge.
+    http3    = "on"
+    zero_rtt = "on"
+    # Speculation-rules prefetch of likely next navigations.
+    speed_brain = "on"
+    # Image recompression at the edge; lossless keeps og-image/PNG fidelity,
+    # webp only serves WebP to clients whose Accept allows it.
+    polish = "lossless"
+    webp   = "on"
   }
 }
 
@@ -457,4 +471,42 @@ resource "cloudflare_bot_management" "ai_crawl_control" {
 
   zone_id            = var.cloudflare_zone_id
   ai_bots_protection = var.ai_bots_protection
+}
+
+
+# =============================================================================
+# Tiered Cache — Smart Topology
+# =============================================================================
+# Cache misses at AU edge colos pull from the nearest upper-tier datacenter
+# to the origin instead of all independently hitting Vercel/Cloud Run —
+# higher effective HIT ratio and lower origin load.
+
+resource "cloudflare_tiered_cache" "smart" {
+  zone_id    = var.cloudflare_zone_id
+  cache_type = "smart"
+}
+
+# =============================================================================
+# Markdown for Agents (content_converter zone setting)
+# =============================================================================
+# Serves a markdown rendition of HTML pages to clients sending
+# Accept: text/markdown — token-efficient pages for AI agents. Pro-plan
+# feature. Provider v4 (frozen at 4.52.7) has no resource for this zone
+# setting, so it is asserted via the API. Re-runs whenever the desired
+# value changes; requires CLOUDFLARE_API_TOKEN in the environment (present
+# in CI and local dev). Replace with a native resource on the provider v5
+# migration.
+
+resource "terraform_data" "markdown_for_agents" {
+  triggers_replace = var.markdown_for_agents
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      curl -sf -X PATCH \
+        "https://api.cloudflare.com/client/v4/zones/${var.cloudflare_zone_id}/settings/content_converter" \
+        -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+        -H "Content-Type: application/json" \
+        --data '{"value":"${var.markdown_for_agents}"}'
+    EOT
+  }
 }

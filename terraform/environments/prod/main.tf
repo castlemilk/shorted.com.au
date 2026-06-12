@@ -354,10 +354,10 @@ module "edge" {
   create_frontend_records = true   # Proxy frontend through Cloudflare edge for caching + rate limiting
 
   # AI crawler policy: allow AI bots (llms.txt / Content-Signals / MCP
-  # discovery strategy). Flip to true once CLOUDFLARE_API_TOKEN has the
-  # "Zone -> Bot Management -> Edit" permission (current token 403s).
-  manage_ai_crawler_settings = false
+  # discovery strategy). Token re-scoped with Bot Management Edit June 2026.
+  manage_ai_crawler_settings = true
   ai_bots_protection         = "disabled"
+  markdown_for_agents        = "on"
 
   cache_ttl_seconds    = 60
   top_shorts_cache_ttl = 300
