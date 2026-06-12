@@ -4,17 +4,17 @@
 
 output "worker_name" {
   description = "Name of the deployed Cloudflare Worker"
-  value       = cloudflare_workers_script.edge_cache.name
+  value       = cloudflare_workers_script.edge_cache.script_name
 }
 
 output "dns_record_hostname" {
   description = "The API hostname pointing to Cloudflare proxy"
-  value       = var.create_api_record ? cloudflare_record.api[0].hostname : var.domain
+  value       = var.create_api_record ? cloudflare_dns_record.api[0].name : var.domain
 }
 
 output "frontend_dns_hostname" {
   description = "The frontend hostname pointing to Cloudflare proxy"
-  value       = var.create_frontend_records ? cloudflare_record.frontend[0].hostname : "shorted.com.au"
+  value       = var.create_frontend_records ? cloudflare_dns_record.frontend[0].name : "shorted.com.au"
 }
 
 output "edge_cache_enabled" {
@@ -54,7 +54,7 @@ output "prewarm_enabled" {
 
 output "prewarm_worker_name" {
   description = "Name of the pre-warm Cloudflare Worker"
-  value       = var.prewarm_enabled ? cloudflare_workers_script.prewarm[0].name : null
+  value       = var.prewarm_enabled ? cloudflare_workers_script.prewarm[0].script_name : null
 }
 
 output "prewarm_cron_schedule" {

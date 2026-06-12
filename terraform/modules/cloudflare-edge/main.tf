@@ -2,7 +2,7 @@ terraform {
   required_providers {
     cloudflare = {
       source  = "cloudflare/cloudflare"
-      version = "~> 4.0"
+      version = ">= 5.19, < 6"
     }
   }
 }
@@ -12,9 +12,9 @@ terraform {
 # =============================================================================
 
 locals {
-  shorts_api_hostname    = try(regex("^https?://([^/]+)", var.shorts_api_origin)[0], "")
-  chat_service_hostname  = try(var.chat_service_origin != "" ? regex("^https?://([^/]+)", var.chat_service_origin)[0] : "", "")
-  market_data_hostname   = try(var.market_data_origin != "" ? regex("^https?://([^/]+)", var.market_data_origin)[0] : "", "")
+  shorts_api_hostname   = try(regex("^https?://([^/]+)", var.shorts_api_origin)[0], "")
+  chat_service_hostname = try(var.chat_service_origin != "" ? regex("^https?://([^/]+)", var.chat_service_origin)[0] : "", "")
+  market_data_hostname  = try(var.market_data_origin != "" ? regex("^https?://([^/]+)", var.market_data_origin)[0] : "", "")
 }
 
 # =============================================================================
@@ -29,106 +29,66 @@ data "cloudflare_zone" "shorted" {
 # DNS — CNAME records for frontend (Vercel) and API
 # =============================================================================
 
-resource "cloudflare_record" "frontend" {
-  count = var.create_frontend_records ? 1 : 0
 
-  zone_id = var.cloudflare_zone_id
-  name    = "@"
-  content = "76.76.21.21" # Vercel anycast IP for apex domains
-  type    = "A"
-  proxied = true
-  ttl     = 1
 
-  # Cloudflare normalises "@" to the zone name when storing root records,
-  # which causes a perpetual diff. Ignore the name attribute so an existing
-  # imported record matches the @ shorthand in this config.
-  lifecycle {
-    ignore_changes = [name]
-  }
-}
-
-resource "cloudflare_record" "www" {
-  count = var.create_frontend_records ? 1 : 0
-
-  zone_id = var.cloudflare_zone_id
-  name    = "www"
-  content = var.vercel_cname
-  type    = "CNAME"
-  proxied = true
-  ttl     = 1
-}
-
-resource "cloudflare_record" "api" {
-  count = var.create_api_record ? 1 : 0
-
-  zone_id = var.cloudflare_zone_id
-  name    = "api"
-  content = local.shorts_api_hostname
-  type    = "CNAME"
-  proxied = true
-  ttl     = 1
-}
 
 # =============================================================================
 # Worker script — edge caching for Shorted multi-origin architecture
 # =============================================================================
 
 resource "cloudflare_workers_script" "edge_cache" {
-  account_id = data.cloudflare_zone.shorted.account_id
-  name       = var.worker_name
+  account_id = data.cloudflare_zone.shorted.account.id
   content    = file("${path.module}/../../../services/edge-worker/worker.js")
-  module     = true
 
-  plain_text_binding {
-    name = "SHORTS_API_ORIGIN"
-    text = var.shorts_api_origin
-  }
 
-  dynamic "plain_text_binding" {
-    for_each = var.chat_service_origin != "" ? [1] : []
-    content {
+
+
+
+
+
+
+
+  script_name = var.worker_name
+  bindings = concat([
+    {
+      type = "plain_text"
+      name = "SHORTS_API_ORIGIN"
+      text = var.shorts_api_origin
+      }, {
+      type = "plain_text"
+      name = "CACHE_TTL_DEFAULT"
+      text = tostring(var.cache_ttl_seconds)
+      }, {
+      type = "plain_text"
+      name = "CACHE_TTL_TOP_SHORTS"
+      text = tostring(var.top_shorts_cache_ttl)
+      }, {
+      type = "plain_text"
+      name = "CACHE_TTL_STOCK_DATA"
+      text = tostring(var.stock_data_cache_ttl)
+      }, {
+      type = "plain_text"
+      name = "CACHE_TTL_NEWS"
+      text = tostring(var.news_cache_ttl)
+      }, {
+      type = "plain_text"
+      name = "CACHE_PURGE_SECRET"
+      text = var.cache_purge_secret
+      }, {
+      type         = "kv_namespace"
+      name         = "EDGE_KV"
+      namespace_id = cloudflare_workers_kv_namespace.edge_cache.id
+    }
+    ], var.chat_service_origin != "" ? [{
+      type = "plain_text"
       name = "CHAT_SERVICE_ORIGIN"
       text = var.chat_service_origin
-    }
-  }
-
-  dynamic "plain_text_binding" {
-    for_each = var.market_data_origin != "" ? [1] : []
-    content {
+      }] : [], var.market_data_origin != "" ? [{
+      type = "plain_text"
       name = "MARKET_DATA_ORIGIN"
       text = var.market_data_origin
-    }
-  }
-
-  plain_text_binding {
-    name = "CACHE_TTL_DEFAULT"
-    text = tostring(var.cache_ttl_seconds)
-  }
-
-  plain_text_binding {
-    name = "CACHE_TTL_TOP_SHORTS"
-    text = tostring(var.top_shorts_cache_ttl)
-  }
-
-  plain_text_binding {
-    name = "CACHE_TTL_STOCK_DATA"
-    text = tostring(var.stock_data_cache_ttl)
-  }
-
-  plain_text_binding {
-    name = "CACHE_TTL_NEWS"
-    text = tostring(var.news_cache_ttl)
-  }
-
-  plain_text_binding {
-    name = "CACHE_PURGE_SECRET"
-    text = var.cache_purge_secret
-  }
-
-  kv_namespace_binding {
-    name = "EDGE_KV"
-    namespace_id = cloudflare_workers_kv_namespace.edge_cache.id
-  }
+  }] : [])
+  main_module = "worker.js"
 }
 
 # =============================================================================
@@ -139,9 +99,9 @@ resource "cloudflare_workers_script" "edge_cache" {
 # =============================================================================
 
 resource "cloudflare_workers_route" "api" {
-  zone_id     = var.cloudflare_zone_id
-  pattern     = "api.shorted.com.au/*"
-  script_name = cloudflare_workers_script.edge_cache.name
+  zone_id = var.cloudflare_zone_id
+  pattern = "api.shorted.com.au/*"
+  script  = cloudflare_workers_script.edge_cache.id
 }
 
 # NOTE: shorted.com.au/* worker route is managed outside Terraform due to
@@ -155,7 +115,7 @@ resource "cloudflare_workers_route" "api" {
 # =============================================================================
 
 resource "cloudflare_workers_kv_namespace" "edge_cache" {
-  account_id = data.cloudflare_zone.shorted.account_id
+  account_id = data.cloudflare_zone.shorted.account.id
   title      = "shorted-edge-cache-${var.environment}"
 }
 
@@ -168,33 +128,33 @@ resource "cloudflare_workers_kv_namespace" "edge_cache" {
 resource "cloudflare_workers_script" "prewarm" {
   count = var.prewarm_enabled ? 1 : 0
 
-  account_id = data.cloudflare_zone.shorted.account_id
-  name       = "${var.worker_name}-prewarm"
+  account_id = data.cloudflare_zone.shorted.account.id
   content    = file("${path.module}/../../../services/edge-worker/prewarm.js")
-  module     = true
 
-  plain_text_binding {
-    name = "SHORTS_API_ORIGIN"
-    text = var.shorts_api_origin
-  }
 
-  dynamic "plain_text_binding" {
-    for_each = var.market_data_origin != "" ? [1] : []
-    content {
+
+
+  script_name = "${var.worker_name}-prewarm"
+  bindings = concat([
+    {
+      type = "plain_text"
+      name = "SHORTS_API_ORIGIN"
+      text = var.shorts_api_origin
+      }, {
+      type = "plain_text"
+      name = "PREWARM_SECRET"
+      text = var.prewarm_secret
+      }, {
+      type         = "kv_namespace"
+      name         = "SHORTED_EDGE_CACHE"
+      namespace_id = cloudflare_workers_kv_namespace.edge_cache.id
+    }
+    ], var.market_data_origin != "" ? [{
+      type = "plain_text"
       name = "MARKET_DATA_ORIGIN"
       text = var.market_data_origin
-    }
-  }
-
-  plain_text_binding {
-    name = "PREWARM_SECRET"
-    text = var.prewarm_secret
-  }
-
-  kv_namespace_binding {
-    name        = "SHORTED_EDGE_CACHE"
-    namespace_id = cloudflare_workers_kv_namespace.edge_cache.id
-  }
+  }] : [])
+  main_module = "worker.js"
 }
 
 # =============================================================================
@@ -206,9 +166,9 @@ resource "cloudflare_workers_script" "prewarm" {
 resource "cloudflare_workers_cron_trigger" "prewarm" {
   count = var.prewarm_enabled ? 1 : 0
 
-  account_id  = data.cloudflare_zone.shorted.account_id
-  script_name = cloudflare_workers_script.prewarm[0].name
-  schedules   = [var.prewarm_cron_schedule]
+  account_id  = data.cloudflare_zone.shorted.account.id
+  script_name = cloudflare_workers_script.prewarm[0].script_name
+  schedules   = [{ cron = var.prewarm_cron_schedule }]
 }
 
 # =============================================================================
@@ -227,128 +187,86 @@ resource "cloudflare_ruleset" "cache_rules" {
   kind        = "zone"
   phase       = "http_request_cache_settings"
 
-  # Rule 1: Next.js static assets — cache at edge
-  # Content-hashed builds (/_next/static/*). Any path containing "/_next/static/"
-  # is a Next.js static asset path — contains is safe here.
-  rules {
-    action      = "set_cache_settings"
-    expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and http.request.uri.path contains \"/_next/static/\""
-    description = "Cache Next.js static assets (JS/CSS/WASM) at edge"
-    enabled     = true
 
-    action_parameters {
-      cache = true
-      cache_key {
-        cache_by_device_type  = false
-        cache_deception_armor = true
+
+
+
+
+  rules = [
+    {
+      action      = "set_cache_settings"
+      expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and http.request.uri.path contains \"/_next/static/\""
+      description = "Cache Next.js static assets (JS/CSS/WASM) at edge"
+      enabled     = true
+      action_parameters = {
+        cache = true
+        cache_key = {
+          cache_by_device_type  = false
+          cache_deception_armor = true
+        }
+      }
+    },
+    {
+      action      = "set_cache_settings"
+      expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and http.request.uri.path contains \"/_next/data/\""
+      description = "Cache Next.js page data (RSC/JSON) at edge"
+      enabled     = true
+      action_parameters = {
+        cache = true
+        cache_key = {
+          cache_by_device_type  = false
+          cache_deception_armor = true
+        }
+      }
+    },
+    {
+      action      = "set_cache_settings"
+      expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and (http.request.uri.path contains \".png\" or http.request.uri.path contains \".jpg\" or http.request.uri.path contains \".jpeg\" or http.request.uri.path contains \".gif\" or http.request.uri.path contains \".svg\" or http.request.uri.path contains \".webp\" or http.request.uri.path contains \".avif\" or http.request.uri.path contains \".ico\")"
+      description = "Cache static image assets at edge"
+      enabled     = true
+      action_parameters = {
+        cache = true
+        cache_key = {
+          cache_by_device_type  = false
+          cache_deception_armor = true
+        }
+      }
+    },
+    {
+      action      = "set_cache_settings"
+      expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and (http.request.uri.path contains \".woff\" or http.request.uri.path contains \".woff2\" or http.request.uri.path contains \".ttf\" or http.request.uri.path contains \".eot\")"
+      description = "Cache static font assets at edge"
+      enabled     = true
+      action_parameters = {
+        cache = true
+        cache_key = {
+          cache_by_device_type  = false
+          cache_deception_armor = true
+        }
+      }
+    },
+    {
+      action      = "set_cache_settings"
+      expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and (http.request.uri.path eq \"/\" or not http.request.uri.path contains \".\")"
+      description = "Bypass edge cache for HTML pages — let Vercel handle it"
+      enabled     = true
+      action_parameters = {
+        cache = false
+      }
+    },
+    {
+      action      = "set_cache_settings"
+      expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and http.request.uri.path contains \"/api/\""
+      description = "Bypass edge cache for frontend API routes"
+      enabled     = true
+      action_parameters = {
+        cache = false
       }
     }
-  }
-
-  # Rule 2: Next.js page data (RSC payloads) — cache at edge
-  rules {
-    action      = "set_cache_settings"
-    expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and http.request.uri.path contains \"/_next/data/\""
-    description = "Cache Next.js page data (RSC/JSON) at edge"
-    enabled     = true
-
-    action_parameters {
-      cache = true
-      cache_key {
-        cache_by_device_type  = false
-        cache_deception_armor = true
-      }
-    }
-  }
-
-  # Rule 3: Static image assets — cache at edge
-  # Each extension as a contains check. Content-hashed so no collision risk.
-  rules {
-    action      = "set_cache_settings"
-    expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and (http.request.uri.path contains \".png\" or http.request.uri.path contains \".jpg\" or http.request.uri.path contains \".jpeg\" or http.request.uri.path contains \".gif\" or http.request.uri.path contains \".svg\" or http.request.uri.path contains \".webp\" or http.request.uri.path contains \".avif\" or http.request.uri.path contains \".ico\")"
-    description = "Cache static image assets at edge"
-    enabled     = true
-
-    action_parameters {
-      cache = true
-      cache_key {
-        cache_by_device_type  = false
-        cache_deception_armor = true
-      }
-    }
-  }
-
-  # Rule 4: Static font assets — cache at edge
-  rules {
-    action      = "set_cache_settings"
-    expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and (http.request.uri.path contains \".woff\" or http.request.uri.path contains \".woff2\" or http.request.uri.path contains \".ttf\" or http.request.uri.path contains \".eot\")"
-    description = "Cache static font assets at edge"
-    enabled     = true
-
-    action_parameters {
-      cache = true
-      cache_key {
-        cache_by_device_type  = false
-        cache_deception_armor = true
-      }
-    }
-  }
-
-  # Rule 5: Frontend HTML pages — bypass edge cache (Vercel handles this)
-  # Paths without dots in the filename are typically HTML pages (e.g. /about, /dashboard)
-  rules {
-    action      = "set_cache_settings"
-    expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and (http.request.uri.path eq \"/\" or not http.request.uri.path contains \".\")"
-    description = "Bypass edge cache for HTML pages — let Vercel handle it"
-    enabled     = true
-
-    action_parameters {
-      cache = false
-    }
-  }
-
-  # Rule 6: Frontend API routes (/api/*) — never cache, always pass to Vercel
-  rules {
-    action      = "set_cache_settings"
-    expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and http.request.uri.path contains \"/api/\""
-    description = "Bypass edge cache for frontend API routes"
-    enabled     = true
-
-    action_parameters {
-      cache = false
-    }
-  }
+  ]
 }
 
 # =============================================================================
-# Zone settings — TLS configuration
-# =============================================================================
-
-resource "cloudflare_zone_settings_override" "security" {
-  zone_id = var.cloudflare_zone_id
-
-  settings {
-    ssl                      = "full"
-    always_use_https         = "on"
-    min_tls_version          = "1.2"
-    automatic_https_rewrites = "on"
-
-    # ---- Performance (Pro plan, June 2026) ----
-    # 103 Early Hints from cached Link headers — browsers preload before
-    # the full response arrives.
-    early_hints = "on"
-    # QUIC + 0-RTT session resumption at the edge.
-    http3    = "on"
-    zero_rtt = "on"
-    # Speculation-rules prefetch of likely next navigations.
-    speed_brain = "on"
-    # Image recompression at the edge; lossless keeps og-image/PNG fidelity,
-    # webp only serves WebP to clients whose Accept allows it.
-    polish = "lossless"
-    webp   = "on"
-  }
-}
-
 # =============================================================================
 # WAF — Managed rules (Cloudflare OWASP Core Ruleset)
 # =============================================================================
@@ -366,49 +284,46 @@ resource "cloudflare_ruleset" "waf_managed" {
     ignore_changes = [rules[0].logging]
   }
 
-  # Skip WAF for known bots (Googlebot, etc.)
-  rules {
-    action      = "skip"
-    expression  = "(cf.client.bot)"
-    description = "Skip WAF for known bots"
-    enabled     = true
-    logging {
-      enabled = false
-    }
-    action_parameters {
-      phases = ["http_request_firewall_managed"]
-    }
-  }
 
-  # Bypass WAF for API domain — the backend has its own authentication (Firebase/API keys).
-  # The Managed Free Ruleset triggers false positives on legitimate server-to-server API calls
-  # (e.g., Vercel server components calling api.shorted.com.au).
-  rules {
-    action      = "skip"
-    expression  = "(http.host eq \"${var.domain}\")"
-    description = "Bypass WAF for API domain — backend has own auth"
-    enabled     = true
-    logging {
-      enabled = false
-    }
-    action_parameters {
-      phases = ["http_request_firewall_managed"]
-    }
-  }
 
-  # Execute Cloudflare Managed Free Ruleset for non-API domains (frontend zone)
-  rules {
-    action      = "execute"
-    expression  = "(http.host ne \"${var.domain}\")"
-    description = "Execute Cloudflare Managed Free Ruleset for frontend domain"
-    enabled     = true
-    action_parameters {
-      id = "77454fe2d30c4220b5701f6fdfb893ba" # Cloudflare Managed Free Ruleset
-      overrides {
-        enabled = true
+  rules = [
+    {
+      action      = "skip"
+      expression  = "(cf.client.bot)"
+      description = "Skip WAF for known bots"
+      enabled     = true
+      action_parameters = {
+        phases = ["http_request_firewall_managed"]
+      }
+      logging = {
+        enabled = false
+      }
+    },
+    {
+      action      = "skip"
+      expression  = "(http.host eq \"${var.domain}\")"
+      description = "Bypass WAF for API domain — backend has own auth"
+      enabled     = true
+      action_parameters = {
+        phases = ["http_request_firewall_managed"]
+      }
+      logging = {
+        enabled = false
+      }
+    },
+    {
+      action      = "execute"
+      expression  = "(http.host ne \"${var.domain}\")"
+      description = "Execute Cloudflare Managed Free Ruleset for frontend domain"
+      enabled     = true
+      action_parameters = {
+        id = "77454fe2d30c4220b5701f6fdfb893ba"
+        overrides = {
+          enabled = true
+        }
       }
     }
-  }
+  ]
 }
 
 # =============================================================================
@@ -424,33 +339,27 @@ resource "cloudflare_ruleset" "rate_limit_api" {
   kind        = "zone"
   phase       = "http_ratelimit"
 
-  # Cloudflare Free plan allows only 1 rule per ruleset in http_ratelimit phase.
-  # Rate limit only the API domain (api.shorted.com.au) — not the Next.js frontend.
-  # Frontend page loads fire 50-80 requests (JS chunks, images, RSC data, auth),
-  # so any rate limit on shorted.com.au risks blocking legitimate users.
-  # The API has its own auth/gRPC layer; this protects against scraping/abuse.
-  # Free plan: period must be 10.
-  rules {
-    action      = "block"
-    description = "Rate limit — API 30 req/10s (frontend not rate limited)"
-    enabled     = true
-    expression  = "http.host eq \"api.shorted.com.au\""
-
-    ratelimit {
-      characteristics     = ["ip.src", "cf.colo.id"]
-      period              = var.api_rate_limit_period
-      requests_per_period = var.api_rate_limit_requests
-      mitigation_timeout  = var.api_rate_limit_period
-    }
-
-    action_parameters {
-      response {
-        status_code  = 429
-        content_type = "application/json"
-        content      = jsonencode({ error = "Too Many Requests", message = "Rate limit exceeded. Please slow down." })
+  rules = [
+    {
+      action      = "block"
+      description = "Rate limit — API 30 req/10s (frontend not rate limited)"
+      enabled     = true
+      expression  = "http.host eq \"api.shorted.com.au\""
+      action_parameters = {
+        response = {
+          status_code  = 429
+          content_type = "application/json"
+          content      = jsonencode({ error = "Too Many Requests", message = "Rate limit exceeded. Please slow down." })
+        }
+      }
+      ratelimit = {
+        characteristics     = ["ip.src", "cf.colo.id"]
+        period              = var.api_rate_limit_period
+        requests_per_period = var.api_rate_limit_requests
+        mitigation_timeout  = var.api_rate_limit_period
       }
     }
-  }
+  ]
 }
 
 # =============================================================================
@@ -471,6 +380,9 @@ resource "cloudflare_bot_management" "ai_crawl_control" {
 
   zone_id            = var.cloudflare_zone_id
   ai_bots_protection = var.ai_bots_protection
+  # Our app serves robots.txt (Content-Signals + explicit AI-allow groups);
+  # Cloudflare's managed robots.txt would prepend conflicting Disallow rules.
+  is_robots_txt_managed = false
 }
 
 
@@ -481,32 +393,141 @@ resource "cloudflare_bot_management" "ai_crawl_control" {
 # to the origin instead of all independently hitting Vercel/Cloud Run —
 # higher effective HIT ratio and lower origin load.
 
-resource "cloudflare_tiered_cache" "smart" {
-  zone_id    = var.cloudflare_zone_id
-  cache_type = "smart"
-}
 
 # =============================================================================
 # Markdown for Agents (content_converter zone setting)
 # =============================================================================
 # Serves a markdown rendition of HTML pages to clients sending
 # Accept: text/markdown — token-efficient pages for AI agents. Pro-plan
-# feature. Provider v4 (frozen at 4.52.7) has no resource for this zone
-# setting, so it is asserted via the API. Re-runs whenever the desired
-# value changes; requires CLOUDFLARE_API_TOKEN in the environment (present
-# in CI and local dev). Replace with a native resource on the provider v5
-# migration.
+# feature; native cloudflare_zone_setting resource since provider v5.
 
-resource "terraform_data" "markdown_for_agents" {
-  triggers_replace = var.markdown_for_agents
+resource "cloudflare_zone_setting" "markdown_for_agents" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "content_converter"
+  value      = var.markdown_for_agents
+}
 
-  provisioner "local-exec" {
-    command = <<-EOT
-      curl -sf -X PATCH \
-        "https://api.cloudflare.com/client/v4/zones/${var.cloudflare_zone_id}/settings/content_converter" \
-        -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-        -H "Content-Type: application/json" \
-        --data '{"value":"${var.markdown_for_agents}"}'
-    EOT
+resource "cloudflare_dns_record" "frontend" {
+  count = var.create_frontend_records ? 1 : 0
+
+  zone_id = var.cloudflare_zone_id
+  name    = "@"
+  content = "76.76.21.21" # Vercel anycast IP for apex domains
+  type    = "A"
+  proxied = true
+  ttl     = 1
+
+  # Cloudflare normalises "@" to the zone name when storing root records,
+  # which causes a perpetual diff. Ignore the name attribute so an existing
+  # imported record matches the @ shorthand in this config.
+  lifecycle {
+    ignore_changes = [name]
   }
+}
+
+moved {
+  from = cloudflare_record.frontend
+  to   = cloudflare_dns_record.frontend
+}
+
+resource "cloudflare_dns_record" "www" {
+  count = var.create_frontend_records ? 1 : 0
+
+  zone_id = var.cloudflare_zone_id
+  name    = "www"
+  content = var.vercel_cname
+  type    = "CNAME"
+  proxied = true
+  ttl     = 1
+}
+
+moved {
+  from = cloudflare_record.www
+  to   = cloudflare_dns_record.www
+}
+
+resource "cloudflare_dns_record" "api" {
+  count = var.create_api_record ? 1 : 0
+
+  zone_id = var.cloudflare_zone_id
+  name    = "api"
+  content = local.shorts_api_hostname
+  type    = "CNAME"
+  proxied = true
+  ttl     = 1
+}
+
+moved {
+  from = cloudflare_record.api
+  to   = cloudflare_dns_record.api
+}
+
+resource "cloudflare_zone_setting" "security_always_use_https" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "always_use_https"
+  value      = "on"
+}
+
+resource "cloudflare_zone_setting" "security_automatic_https_rewrites" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "automatic_https_rewrites"
+  value      = "on"
+}
+
+resource "cloudflare_zone_setting" "security_early_hints" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "early_hints"
+  value      = "on"
+}
+
+resource "cloudflare_zone_setting" "security_http3" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "http3"
+  value      = "on"
+}
+
+resource "cloudflare_zone_setting" "security_min_tls_version" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "min_tls_version"
+  value      = "1.2"
+}
+
+resource "cloudflare_zone_setting" "security_polish" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "polish"
+  value      = "lossless"
+}
+
+resource "cloudflare_zone_setting" "security_speed_brain" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "speed_brain"
+  value      = "on"
+}
+
+resource "cloudflare_zone_setting" "security_ssl" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "ssl"
+  value      = "full"
+}
+
+resource "cloudflare_zone_setting" "security_webp" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "webp"
+  value      = "on"
+}
+
+resource "cloudflare_zone_setting" "security_zero_rtt" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "0rtt"
+  value      = "on"
+}
+
+resource "cloudflare_tiered_cache" "smart" {
+  zone_id = var.cloudflare_zone_id
+  value   = "on"
+}
+
+resource "cloudflare_argo_tiered_caching" "smart" {
+  zone_id = var.cloudflare_zone_id
+  value   = "on"
 }
