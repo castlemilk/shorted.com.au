@@ -43,3 +43,6 @@ yarn-error.log*
 *firebase-admin*.json
 # Playwright auth state
 .auth/*.json
+
+# Storybook build output
+storybook-static/

@@ -43,7 +43,9 @@
     "supabase:stop": "supabase stop",
     "supabase:status": "supabase status",
     "supabase:migrate": "supabase db push",
-    "algolia:sync": "tsx scripts/sync-algolia.ts"
+    "algolia:sync": "tsx scripts/sync-algolia.ts",
+    "storybook": "storybook dev -p 6006",
+    "storybook:build": "storybook build"
   },
   "jest": {
     "preset": "ts-jest",
@@ -223,6 +225,8 @@
     "@next/bundle-analyzer": "^16.0.3",
     "@next/eslint-plugin-next": "^14.0.3",
     "@playwright/test": "^1.52.0",
+    "@storybook/addon-vitest": "^9.1.20",
+    "@storybook/nextjs-vite": "^9.1.20",
     "@supabase/supabase-js": "^2.53.1",
     "@tailwindcss/typography": "^0.5.15",
     "@tanstack/react-query-devtools": "^5.91.3",
@@ -260,10 +264,13 @@
     "postcss": "^8.4.31",
     "prettier": "^3.1.0",
     "prettier-plugin-tailwindcss": "^0.5.7",
+    "storybook": "^9.1.20",
     "tailwindcss": "^3.3.5",
     "ts-jest": "^29.1.2",
     "tsx": "^4.20.3",
-    "typescript": "~5.3.3"
+    "typescript": "~5.3.3",
+    "vite": "^6.4.3",
+    "vite-tsconfig-paths": "^5.1.4"
   },
   "ct3aMetadata": {
     "initVersion": "7.24.0"
