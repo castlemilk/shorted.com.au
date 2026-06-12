@@ -50,6 +50,7 @@ describe("short-data fixtures", () => {
       expect(s.max).toBeDefined();
       expect(s.min!.shortPosition).toBeLessThanOrEqual(s.max!.shortPosition);
       // shortPercentageChange must be finite and within the documented ±2.5 pp range
+      // PRNG yields the open interval (-2.5, 2.5); inclusive matchers are safe
       expect(Number.isFinite(s.shortPercentageChange)).toBe(true);
       expect(s.shortPercentageChange).toBeGreaterThanOrEqual(-2.5);
       expect(s.shortPercentageChange).toBeLessThanOrEqual(2.5);

@@ -169,19 +169,20 @@ export function topShortsFixture(): TimeSeriesDataWithWidgetFields[] {
     const points = buildPoints(def);
     // The backend always sets min/max (getTopshorts.go); columns.tsx renders
     // them as the red/green range badges in the "Short" column.
-    const minPoint = points.reduce((a, b) =>
-      b.shortPosition < a.shortPosition ? b : a,
-    );
-    const maxPoint = points.reduce((a, b) =>
-      b.shortPosition > a.shortPosition ? b : a,
-    );
+    // Guard against empty points arrays: reduce without initial value throws on [].
+    const minPoint = points.length
+      ? points.reduce((a, b) => (b.shortPosition < a.shortPosition ? b : a))
+      : undefined;
+    const maxPoint = points.length
+      ? points.reduce((a, b) => (b.shortPosition > a.shortPosition ? b : a))
+      : undefined;
     const series = create(TimeSeriesDataSchema, {
       productCode: def.code,
       name: def.name,
       latestShortPosition: def.latestShortPosition,
       points,
-      min: minPoint,
-      max: maxPoint,
+      ...(minPoint !== undefined && { min: minPoint }),
+      ...(maxPoint !== undefined && { max: maxPoint }),
     });
 
     // Extra fields read by widgets (percentageShorted, shortPercentageChange, industry)

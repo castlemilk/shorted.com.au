@@ -11,11 +11,11 @@ Every widget gets a `*.stories.tsx` with at least these stories:
 | Story     | How                                                                                       |
 | --------- | ----------------------------------------------------------------------------------------- |
 | `Default` | `mocked(fn).mockResolvedValue(<fixture>)` in `beforeEach`                                  |
-| `Loading` | `mocked(fn).mockReturnValue(never())` — `never()` from `widget-story-helpers`              |
-| `Error`   | `mocked(fn).mockRejectedValue(new Error("..."))`                                           |
+| `Loading` | `mocked(fn).mockReturnValue(never())` — `never()` from `widget-story-helpers`. Uses `animate-pulse` CSS animation; the visual suite (Task 9) disables CSS animations, so Loading stories do NOT need `no-visual` tags. |
+| `Error`   | `mocked(fn).mockRejectedValue(new globalThis.Error("..."))` — use `globalThis.Error`, not bare `Error`; `export const Error` shadows the global, so bare `new Error()` inside that export crashes with "Error is not a constructor". |
 | `Empty`   | resolve with the empty-shaped fixture (e.g. response with `timeSeries: []`)                |
-| `Compact` | `sizeVariant: "compact"` in settings + `decorators: [withGridCell("small")]`               |
-| `Mobile`  | `parameters: { viewport: { defaultViewport: "mobile1" } }` + `withGridCell("small")`       |
+| `Compact` | `args: { sizeVariant: "compact" }` (top-level `WidgetProps` arg, not a widget setting) + `decorators: [withGridCell("small")]` |
+| `Mobile`  | `parameters: { viewport: { defaultViewport: "mobile1" } }` + `withGridCell("small")` — viewport parameter only affects the Storybook manager UI, NOT vitest browser mode; pair with `withGridCell("small")` so the story renders at mobile dimensions in all contexts. |
 
 Plus **at least one `play` function** per widget exercising its primary
 interaction (row click, period toggle, etc.) using `within(canvasElement)` /
@@ -140,3 +140,71 @@ From `~/@/mocks/widget-story-helpers`:
 `preview.tsx` already wraps every story in a fresh `QueryClient`
 (retry off, `staleTime: Infinity`) and `ThemeProvider` (light). Do not add
 your own QueryClientProvider in stories.
+
+## Hard-won learnings from the exemplar (TopShorts widget)
+
+These were discovered while building the first widget story and apply to every
+subsequent widget. Fix them upfront rather than debugging them story-by-story.
+
+### 1 — next/navigation requirement
+
+Widgets that call `useRouter`, `usePathname`, or `useSearchParams` will crash
+Storybook with:
+
+```
+Error: invariant expected app router to be mounted
+```
+
+Fix: add `parameters: { nextjs: { appDirectory: true } }` to the story meta
+(or the individual story). One-liner on the meta object:
+
+```ts
+export default {
+  title: "Widgets/MyWidget",
+  parameters: { nextjs: { appDirectory: true } },
+} satisfies Meta<typeof MyWidget>;
+```
+
+### 2 — Error story: shadow the global constructor
+
+`export const Error = { ... }` shadows the global `Error` constructor inside
+that export's scope. Writing `new Error("msg")` inside it throws
+`"Error is not a constructor"`. Always use `new globalThis.Error("msg")`.
+See the `Error` row of the six-state table above.
+
+### 3 — Compact is an arg, not a widget setting
+
+`sizeVariant: "compact"` is a top-level prop on `WidgetProps`, not part of the
+`settings` object passed to `makeWidgetConfig`. Set it in `args`:
+
+```ts
+export const Compact: Story = {
+  args: { sizeVariant: "compact" },
+  decorators: [withGridCell("small")],
+  // ...
+};
+```
+
+Do NOT put it inside `args.config.settings` — the widget will not pick it up.
+
+### 4 — Viewport parameter caveat
+
+`parameters.viewport.defaultViewport` only affects the Storybook manager UI
+chrome; it does NOT resize the iframe in vitest browser mode or direct iframe
+loads. Mobile stories MUST pair it with `withGridCell("small")` to render at
+mobile dimensions in all contexts. Do not write `play` assertions that depend
+on viewport width.
+
+### 5 — Visibility gating (IntersectionObserver)
+
+Widgets using `useWidgetVisibility` only start fetching data once the component
+enters the viewport (IntersectionObserver). `withGridCell` renders the story
+in-viewport with explicit pixel dimensions, which makes the IO fire and the
+fetch start. This is the primary reason `withGridCell` is mandatory for all
+widget stories.
+
+If a story is stuck showing skeleton UI indefinitely:
+1. Check that `withGridCell` is in `decorators`.
+2. Check the browser console for "Unmocked call to ..." — the IO fired but the
+   mock returned undefined.
+3. Check for missing `beforeEach` setup.
