@@ -39,9 +39,8 @@ Gate: each phase ends with interaction + visual suites green, the perf benchmark
 
 ### Data mocking
 
-- **Connect-RPC**: in-memory transports via `createRouterTransport` from `@connectrpc/connect`, implementing `ShortedStocksService` (+ market-data service) handlers over fixture data. A story decorator injects the mock transport wherever the real transport is created — this requires a small refactor so client transports are resolvable via context/injection rather than module-scope singletons.
-- **Fixtures**: `web/src/@/mocks/fixtures/` — realistic ASIC short data (top shorts, treemap, time series, quotes, news) with enough rows to exercise sorting/scrolling. One canonical fixture module reused by stories, vitest, and the perf benchmark's mock mode if needed.
-- **Plain fetch paths** (news feed, server-action-backed client calls): MSW (`msw` + `msw-storybook-addon`).
+- **Module mocking via Storybook 9 `sb.mock`** (amended 2026-06-12 during planning): widgets fetch through TanStack Query hooks that call server-action-style modules (`~/app/actions/getTopShorts`) and lib fetchers (`@/lib/stock-data-service`, `@/lib/client-api`) — there is no client-side Connect transport to inject, so the originally proposed `createRouterTransport` injection would not intercept anything and would require a needless refactor. Instead, the four data modules are mocked at module level with `sb.mock` and per-story `mocked(fn).mockResolvedValue(fixture)`. No app-code changes needed; MSW not needed.
+- **Fixtures**: `web/src/@/mocks/fixtures/` — realistic ASIC short data (top shorts, treemap, time series, quotes, news) built with protobuf `create()` so types match the generated schemas, deterministic (seeded, fixed base date) so visual snapshots are stable. One canonical fixture module reused by stories, vitest, and jest.
 
 ### Stories
 
