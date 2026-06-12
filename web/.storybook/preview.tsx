@@ -14,6 +14,10 @@ sb.mock(import("../src/app/actions/getIndustryTreeMap"));
 // mock is needed for the module graph to build, not just for hover behavior.
 sb.mock(import("../src/app/actions/tooltip/getTooltipData"));
 sb.mock(import("../src/app/actions/getStock"), { spy: true });
+// Spy mode is safe: getStockData has the same import profile as getStock
+// (connect-web + config + period-utils + withRetry — all browser-safe, no
+// kv-cache). TimeSeriesWidget fetches its series through it.
+sb.mock(import("../src/app/actions/getStockData"), { spy: true });
 // Spy mode is safe here: searchStocks only imports connect-web + config +
 // retry (all browser-safe; same import set getStock already proves out).
 // MarketWatchlistWidget's add-stock autocomplete calls searchStocksClient.
@@ -37,6 +41,7 @@ import {
   getStock,
   getStockOrNotFound,
 } from "../src/app/actions/getStock";
+import { getStockData } from "../src/app/actions/getStockData";
 import {
   searchStocks as searchStocksAction,
   searchStocksClient,
@@ -107,6 +112,7 @@ const preview: Preview = {
     mocked(getTooltipData).mockImplementation(unmocked("getTooltipData"));
     mocked(getStock).mockImplementation(unmocked("getStock"));
     mocked(getStockOrNotFound).mockImplementation(unmocked("getStockOrNotFound"));
+    mocked(getStockData).mockImplementation(unmocked("getStockData"));
     // searchStocksAction is the `searchStocks` export of app/actions/searchStocks
     // (aliased to avoid clashing with stock-data-service's searchStocks below).
     mocked(searchStocksAction).mockImplementation(unmocked("searchStocks (app/actions/searchStocks)"));

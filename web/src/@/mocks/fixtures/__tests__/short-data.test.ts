@@ -7,6 +7,8 @@ import {
   tooltipDataFixture,
   stockFixture,
   searchStocksResponseFixture,
+  timeSeriesDataFixture,
+  correlationMatrixFixture,
 } from "../short-data";
 
 describe("short-data fixtures", () => {
@@ -121,6 +123,54 @@ describe("short-data fixtures", () => {
     const unknown = stockFixture("ZZZ");
     expect(unknown.productCode).toBe("ZZZ");
     expect(unknown.percentageShorted).toBe(5.0);
+  });
+
+  it("timeSeriesDataFixture has period-scaled points with a pinned terminal", () => {
+    // Period scaling matches PERIOD_DAYS (same table historicalDataFixture uses).
+    expect(timeSeriesDataFixture("PLS", "3m").points).toHaveLength(65);
+    expect(timeSeriesDataFixture("PLS", "1y").points).toHaveLength(252);
+    // Unknown period falls back to 3m.
+    expect(timeSeriesDataFixture("PLS", "10y").points).toHaveLength(65);
+
+    const series = timeSeriesDataFixture("PLS", "3m");
+    expect(series.productCode).toBe("PLS");
+    expect(series.name).toBe("Pilbara Minerals Limited");
+    expect(series.latestShortPosition).toBe(19.4);
+    // Terminal point pinned to latestShortPosition at FIXTURE_BASE_DATE so
+    // chart endpoints agree with legend badges ("19.40%").
+    const last = series.points[series.points.length - 1]!;
+    expect(last.shortPosition).toBe(19.4);
+    // All values are positive percentage points (floored at 0.1).
+    for (const p of series.points) {
+      expect(p.shortPosition).toBeGreaterThanOrEqual(0.1);
+    }
+    // Deterministic: two calls produce identical messages.
+    expect(timeSeriesDataFixture("PLS", "3m")).toEqual(series);
+    // Unknown codes keep the requested code with generic fallback values.
+    const unknown = timeSeriesDataFixture("ZZZ", "1m");
+    expect(unknown.productCode).toBe("ZZZ");
+    expect(unknown.latestShortPosition).toBe(5.0);
+    expect(unknown.points).toHaveLength(22);
+  });
+
+  it("correlationMatrixFixture is symmetric with unit diagonal", () => {
+    const codes = ["PLS", "SYR", "IEL", "BOE"];
+    const matrix = correlationMatrixFixture(codes);
+    expect(Object.keys(matrix)).toEqual(codes);
+    for (const a of codes) {
+      expect(Object.keys(matrix[a]!)).toEqual(codes);
+      // Diagonal is exactly 1 (renders "1.00" in the widget).
+      expect(matrix[a]![a]).toBe(1);
+      for (const b of codes) {
+        // Symmetric: seeded by the sorted pair.
+        expect(matrix[a]![b]).toBe(matrix[b]![a]);
+        // Documented range (-0.6, 0.9), 2 dp.
+        expect(matrix[a]![b]).toBeGreaterThanOrEqual(-0.6);
+        expect(matrix[a]![b]).toBeLessThanOrEqual(1);
+      }
+    }
+    // Deterministic.
+    expect(correlationMatrixFixture(codes)).toEqual(matrix);
   });
 
   it("searchStocksResponseFixture matches by code or name substring", () => {

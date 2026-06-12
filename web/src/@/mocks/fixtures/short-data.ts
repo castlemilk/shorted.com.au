@@ -26,7 +26,11 @@ import {
   type GetTopShortsResponse,
   type SearchStocksResponse,
 } from "~/gen/shorts/v1alpha1/shorts_pb";
-import type { StockQuote, HistoricalDataPoint } from "~/@/lib/stock-data-service";
+import type {
+  StockQuote,
+  HistoricalDataPoint,
+  CorrelationMatrix,
+} from "~/@/lib/stock-data-service";
 import type {
   SerializedTimeSeriesPoint,
   TooltipData,
@@ -355,6 +359,84 @@ export function searchStocksResponseFixture(query: string): SearchStocksResponse
     stocks: matches.map((m) => stockFixture(m.code)),
     count: matches.length,
   });
+}
+
+/**
+ * Returns a TimeSeriesData protobuf message for one stock — the shape served
+ * by getStockData (app/actions/getStockData) and fetchStockDataClient
+ * (lib/client-api), consumed by TimeSeriesWidget and StockChartWidget.
+ *
+ * Point counts follow PERIOD_DAYS ("1m" 22, "3m" 65, "6m" 130, "1y" 252,
+ * "2y" 504, "max" 756; unknown periods fall back to "3m"). shortPosition is
+ * in percentage points (19.4 → "19.40%"), random-walked with a per-(code,
+ * period) seed, and the terminal point is pinned to latestShortPosition at
+ * FIXTURE_BASE_DATE so chart endpoints and legend badges agree. Unknown
+ * codes keep the requested code with generic fallback values (5.0%),
+ * mirroring stockFixture.
+ */
+export function timeSeriesDataFixture(
+  code: string,
+  period = "3m",
+): TimeSeriesData {
+  const def = FIXTURE_STOCKS.find((s) => s.code === code);
+  const latest = def?.latestShortPosition ?? 5.0;
+  const days = PERIOD_DAYS[period] ?? PERIOD_DAYS["3m"]!;
+  const rand = mulberry32(hashStr(`${code}_ts_${period}`));
+
+  const points: TimeSeriesPoint[] = [];
+  let value = latest * 0.85;
+  for (let i = days - 1; i >= 1; i--) {
+    // Random walk: ±0.3 percentage points per day, floored at 0.1.
+    value = Math.max(0.1, value + (rand() - 0.5) * 0.6);
+    points.push(
+      create(TimeSeriesPointSchema, {
+        timestamp: timestampFromDate(daysBeforeBase(i)),
+        shortPosition: parseFloat(value.toFixed(2)),
+      }),
+    );
+  }
+  // Terminal point pinned to the declared latest short position.
+  points.push(
+    create(TimeSeriesPointSchema, {
+      timestamp: timestampFromDate(FIXTURE_BASE_DATE),
+      shortPosition: latest,
+    }),
+  );
+
+  return create(TimeSeriesDataSchema, {
+    productCode: code,
+    name: def?.name ?? `${code} Holdings Limited`,
+    latestShortPosition: latest,
+    points,
+  });
+}
+
+/**
+ * Returns a CorrelationMatrix (Record<code, Record<code, number>>) — the
+ * shape served by getCorrelationMatrix in lib/stock-data-service, consumed
+ * by CorrelationMatrixWidget.
+ *
+ * Diagonal is exactly 1; off-diagonal values are symmetric (seeded by the
+ * sorted code pair, so matrix[a][b] === matrix[b][a]) in the range
+ * (-0.6, 0.9) — biased positive like real equity return correlations — and
+ * rounded to 2 dp, matching the widget's `.toFixed(2)` cell labels.
+ */
+export function correlationMatrixFixture(codes: string[]): CorrelationMatrix {
+  const matrix: CorrelationMatrix = {};
+  for (const a of codes) {
+    const row: Record<string, number> = {};
+    for (const b of codes) {
+      if (a === b) {
+        row[b] = 1;
+        continue;
+      }
+      const pairKey = [a, b].sort().join("|");
+      const rand = mulberry32(hashStr(`${pairKey}_corr`));
+      row[b] = parseFloat((rand() * 1.5 - 0.6).toFixed(2));
+    }
+    matrix[a] = row;
+  }
+  return matrix;
 }
 
 /**
