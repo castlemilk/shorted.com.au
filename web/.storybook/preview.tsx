@@ -1,4 +1,4 @@
-import { sb } from "storybook/test";
+import { sb, mocked } from "storybook/test";
 
 // Module mocks for widget data dependencies. Must be registered at the top of
 // the preview file (Storybook's vite plugin statically rewrites these calls).
@@ -16,6 +16,38 @@ import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import "../src/styles/globals.css";
+
+// Lazy imports resolved at runtime after mocks are registered.
+// Each key in this record maps to the spy-wrapped export name used in stories.
+// getTopShortsData is imported from the __mocks__ file (full mock mode).
+import { getTopShortsData } from "../src/app/actions/getTopShorts";
+import {
+  getStock,
+  getStockOrNotFound,
+} from "../src/app/actions/getStock";
+import {
+  getMultipleStockQuotes,
+  getHistoricalData,
+  getStockPrice,
+  getCorrelationMatrix,
+  getSectorPerformance,
+  getServiceStatus,
+  searchStocks,
+  searchStocksEnriched,
+} from "../src/@/lib/stock-data-service";
+import {
+  fetchStockDetailsClient,
+  fetchStockDataClient,
+} from "../src/@/lib/client-api";
+
+/** Installs a throwing default so forgotten mocks surface an actionable error. */
+const unmocked =
+  (name: string) =>
+  (..._args: unknown[]): never => {
+    throw new Error(
+      `Unmocked call to ${name}() — add mocked(${name}).mockResolvedValue(...) in your story's beforeEach`,
+    );
+  };
 
 // Stable QueryClient per story mount: no retries (errors surface immediately),
 // no GC churn, infinite staleTime (fixtures never refetch). Client is created
@@ -48,6 +80,25 @@ const preview: Preview = {
   parameters: {
     layout: "fullscreen",
     backgrounds: { disable: true },
+  },
+  beforeEach: () => {
+    // Install throwing defaults for every spy-wrapped export.
+    // Stories MUST call mocked(fn).mockResolvedValue(...) in their own
+    // beforeEach, or they will get a descriptive error instead of a silent
+    // network request or undefined return.
+    mocked(getTopShortsData).mockImplementation(unmocked("getTopShortsData"));
+    mocked(getStock).mockImplementation(unmocked("getStock"));
+    mocked(getStockOrNotFound).mockImplementation(unmocked("getStockOrNotFound"));
+    mocked(getMultipleStockQuotes).mockImplementation(unmocked("getMultipleStockQuotes"));
+    mocked(getHistoricalData).mockImplementation(unmocked("getHistoricalData"));
+    mocked(getStockPrice).mockImplementation(unmocked("getStockPrice"));
+    mocked(getCorrelationMatrix).mockImplementation(unmocked("getCorrelationMatrix"));
+    mocked(getSectorPerformance).mockImplementation(unmocked("getSectorPerformance"));
+    mocked(getServiceStatus).mockImplementation(unmocked("getServiceStatus"));
+    mocked(searchStocks).mockImplementation(unmocked("searchStocks"));
+    mocked(searchStocksEnriched).mockImplementation(unmocked("searchStocksEnriched"));
+    mocked(fetchStockDetailsClient).mockImplementation(unmocked("fetchStockDetailsClient"));
+    mocked(fetchStockDataClient).mockImplementation(unmocked("fetchStockDataClient"));
   },
 };
 export default preview;

@@ -1,11 +1,15 @@
 import React from "react";
 import type { Decorator } from "@storybook/nextjs-vite";
-import { WidgetType, type WidgetConfig } from "@/types/dashboard";
+import { WidgetType, type WidgetConfig, type WidgetSettingsMap } from "@/types/dashboard";
 
-/** Builds a valid WidgetConfig with sane defaults; override per story. */
-export function makeWidgetConfig(
-  type: WidgetType,
-  settings: Record<string, unknown> = {},
+/** Builds a valid WidgetConfig with sane defaults; override per story.
+ *  The `settings` parameter is type-checked against the widget's own settings
+ *  type via `WidgetSettingsMap`, so typos in setting keys are caught at
+ *  compile time.
+ */
+export function makeWidgetConfig<T extends WidgetType>(
+  type: T,
+  settings?: Partial<WidgetSettingsMap[T]>,
   overrides: Partial<WidgetConfig> = {},
 ): WidgetConfig {
   return {
@@ -14,7 +18,7 @@ export function makeWidgetConfig(
     title: type.replace(/_/g, " "),
     dataSource: { endpoint: "mock" },
     layout: { x: 0, y: 0, w: 8, h: 10 },
-    settings,
+    settings: settings as Record<string, unknown> | undefined,
     ...overrides,
   };
 }

@@ -56,8 +56,27 @@ Notes:
   (`topShortsFixture`, `topShortsResponseFixture`, `stockQuotesFixture`,
   `historicalDataFixture`). Never inline data literals in stories — fixtures
   are seeded/deterministic; inline literals rot and break visual snapshots.
-  The alias form is `~/@/mocks/...` — there is no `@/mocks/*` path in
-  `tsconfig.json`.
+- **Import-alias cheat-sheet:**
+  - `~/app/actions/...` — server actions under `src/app/actions/`
+  - `~/@/...` — everything under `src/@/` (mocks, lib, components, types)
+  - There is **no** `@/mocks/*` alias in `tsconfig.json`; always use `~/@/mocks/...`
+
+### Throwing defaults — what they mean
+
+`preview.tsx` installs a throwing default for every spy-wrapped export (see
+`beforeEach` in `.storybook/preview.tsx`). If a story renders a component that
+calls a mocked function without first setting up a return value, the story will
+error with:
+
+```
+Error: Unmocked call to getStockPrice() — add mocked(getStockPrice).mockResolvedValue(...) in your story's beforeEach
+```
+
+This is intentional: it surfaces forgotten mocks immediately as a visible
+failure rather than a silent network request or an undefined return that
+produces a subtly broken render. **Fix it by adding a `beforeEach` block to
+your story that calls `mocked(fn).mockResolvedValue(...)` for every function
+the component under test exercises.**
 
 ## Registered modules (and their mode)
 
