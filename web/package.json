@@ -26,6 +26,7 @@
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:stripe-testmode": "playwright test --config playwright.stripe-testmode.config.ts",
     "test:e2e:report": "playwright show-report",
+    "test:storybook": "vitest run --project=storybook",
     "test:e2e:full": "bash ../scripts/run-e2e-tests.sh",
     "test:seed": "tsx scripts/test-db-setup.ts",
     "sync-short-data": "node --loader ts-node/esm scripts/sync-short-data.ts",
@@ -249,6 +250,8 @@
     "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^6.11.0",
     "@typescript-eslint/parser": "^6.11.0",
+    "@vitest/browser": "^4.1.8",
+    "@vitest/browser-playwright": "^4.1.8",
     "autoprefixer": "^10.4.14",
     "axios": "^1.11.0",
     "cli-progress": "^3.12.0",
@@ -270,7 +273,8 @@
     "tsx": "^4.20.3",
     "typescript": "~5.3.3",
     "vite": "^6.4.3",
-    "vite-tsconfig-paths": "^5.1.4"
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^4.1.8"
   },
   "ct3aMetadata": {
     "initVersion": "7.24.0"
