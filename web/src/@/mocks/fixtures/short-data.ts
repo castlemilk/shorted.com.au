@@ -11,16 +11,20 @@ import { create } from "@bufbuild/protobuf";
 import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import {
   IndustryTreeMapSchema,
+  StockSchema,
   TimeSeriesDataSchema,
   TimeSeriesPointSchema,
   TreemapShortPositionSchema,
   type IndustryTreeMap,
+  type Stock,
   type TimeSeriesData,
   type TimeSeriesPoint,
 } from "~/gen/stocks/v1alpha1/stocks_pb";
 import {
   GetTopShortsResponseSchema,
+  SearchStocksResponseSchema,
   type GetTopShortsResponse,
+  type SearchStocksResponse,
 } from "~/gen/shorts/v1alpha1/shorts_pb";
 import type { StockQuote, HistoricalDataPoint } from "~/@/lib/stock-data-service";
 import type {
@@ -303,6 +307,54 @@ export function tooltipDataFixture(code: string): TooltipData {
       points,
     },
   };
+}
+
+/**
+ * Returns a Stock protobuf message for the given code — the shape served by
+ * the getStock server action (stocks.v1alpha1.Stock), consumed by the
+ * watchlist widgets' short-position badges via useMultipleStockShortPositions.
+ *
+ * percentageShorted is in percentage points (19.4 → "19.40%"), matching
+ * FIXTURE_STOCKS. totalProductInIssue is seeded per code;
+ * reportedShortPositions is derived so the three fields stay consistent
+ * (reported = total × pct / 100). Unknown codes keep the requested code but
+ * fall back to generic values (5.0% shorted), mirroring stockQuotesFixture.
+ */
+export function stockFixture(code: string): Stock {
+  const def = FIXTURE_STOCKS.find((s) => s.code === code);
+  const rand = mulberry32(hashStr(code + "_stock"));
+  const percentageShorted = def?.latestShortPosition ?? 5.0;
+  const totalProductInIssue = Math.floor(rand() * 2_000_000_000) + 200_000_000;
+  return create(StockSchema, {
+    productCode: code,
+    name: def?.name ?? `${code} Holdings Limited`,
+    industry: def?.industry ?? "Materials",
+    percentageShorted,
+    totalProductInIssue,
+    reportedShortPositions: Math.floor(
+      (totalProductInIssue * percentageShorted) / 100,
+    ),
+  });
+}
+
+/**
+ * Returns a SearchStocksResponse protobuf message for the given query — the
+ * shape served by the searchStocks/searchStocksClient server action. Matches
+ * FIXTURE_STOCKS by case-insensitive substring on code or company name, in
+ * fixture order (descending short position), reusing stockFixture per match.
+ */
+export function searchStocksResponseFixture(query: string): SearchStocksResponse {
+  const q = query.trim().toUpperCase();
+  const matches = q
+    ? FIXTURE_STOCKS.filter(
+        (s) => s.code.includes(q) || s.name.toUpperCase().includes(q),
+      )
+    : [];
+  return create(SearchStocksResponseSchema, {
+    query,
+    stocks: matches.map((m) => stockFixture(m.code)),
+    count: matches.length,
+  });
 }
 
 /**

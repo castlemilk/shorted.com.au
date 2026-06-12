@@ -80,12 +80,15 @@ the component under test exercises.**
 
 ## Registered modules (and their mode)
 
-| Module                          | Mode                  | Mocked exports usable in stories                              |
-| ------------------------------- | --------------------- | ------------------------------------------------------------- |
-| `~/app/actions/getTopShorts`    | **full** (`__mocks__`) | `getTopShortsData`                                            |
-| `~/app/actions/getStock`        | spy                   | `getStock`, `getStockOrNotFound`                              |
-| `~/@/lib/stock-data-service`    | spy                   | `getMultipleStockQuotes`, `getHistoricalData`, `getStockPrice`, plus all other exported fns |
-| `~/@/lib/client-api`            | spy                   | `fetchStockDataClient`, `fetchStockDetailsClient`              |
+| Module                                  | Mode                  | Mocked exports usable in stories                              |
+| --------------------------------------- | --------------------- | ------------------------------------------------------------- |
+| `~/app/actions/getTopShorts`            | **full** (`__mocks__`) | `getTopShortsData`                                            |
+| `~/app/actions/getIndustryTreeMap`      | **full** (`__mocks__`) | `getIndustryTreeMap`                                          |
+| `~/app/actions/tooltip/getTooltipData`  | **full** (`__mocks__`) | `getTooltipData`                                              |
+| `~/app/actions/getStock`                | spy                   | `getStock`, `getStockOrNotFound`                              |
+| `~/app/actions/searchStocks`            | spy                   | `searchStocks`, `searchStocksClient`                          |
+| `~/@/lib/stock-data-service`            | spy                   | `getMultipleStockQuotes`, `getHistoricalData`, `getStockPrice`, plus all other exported fns |
+| `~/@/lib/client-api`                    | spy                   | `fetchStockDataClient`, `fetchStockDetailsClient`              |
 
 ### Spy vs full mock — the decision rule
 

@@ -5,6 +5,8 @@ import {
   historicalDataFixture,
   industryTreemapFixture,
   tooltipDataFixture,
+  stockFixture,
+  searchStocksResponseFixture,
 } from "../short-data";
 
 describe("short-data fixtures", () => {
@@ -99,5 +101,46 @@ describe("short-data fixtures", () => {
     const last = hist[hist.length - 1]!;
     expect(last.close).toBe(2.85);
     expect(last.adjustedClose).toBe(2.85);
+  });
+
+  it("stockFixture is deterministic with internally consistent short fields", () => {
+    const stock = stockFixture("PLS");
+    expect(stock.productCode).toBe("PLS");
+    expect(stock.name).toBe("Pilbara Minerals Limited");
+    expect(stock.industry).toBe("Materials");
+    // Percentage points, matching FIXTURE_STOCKS (renders "19.40%").
+    expect(stock.percentageShorted).toBe(19.4);
+    // reported = total × pct / 100 (floored) so the three fields agree.
+    expect(stock.reportedShortPositions).toBe(
+      Math.floor((stock.totalProductInIssue * 19.4) / 100),
+    );
+    expect(stock.totalProductInIssue).toBeGreaterThanOrEqual(200_000_000);
+    // Deterministic: two calls produce identical messages.
+    expect(stockFixture("PLS")).toEqual(stock);
+    // Unknown codes keep the requested code with generic fallback values.
+    const unknown = stockFixture("ZZZ");
+    expect(unknown.productCode).toBe("ZZZ");
+    expect(unknown.percentageShorted).toBe(5.0);
+  });
+
+  it("searchStocksResponseFixture matches by code or name substring", () => {
+    // Code substring (case-insensitive): "syr" → SYR (also matches its own
+    // name "Syrah..."); nothing else contains "syr".
+    const byCode = searchStocksResponseFixture("syr");
+    expect(byCode.stocks.map((s) => s.productCode)).toEqual(["SYR"]);
+    expect(byCode.count).toBe(1);
+    expect(byCode.query).toBe("syr");
+
+    // Name substring: "mineral" → Pilbara Minerals + Mineral Resources,
+    // in fixture order (descending short position).
+    const byName = searchStocksResponseFixture("mineral");
+    expect(byName.stocks.map((s) => s.productCode)).toEqual(["PLS", "MIN"]);
+
+    // No match / blank query → empty results.
+    expect(searchStocksResponseFixture("XQZ").stocks).toHaveLength(0);
+    expect(searchStocksResponseFixture("  ").stocks).toHaveLength(0);
+
+    // Deterministic.
+    expect(searchStocksResponseFixture("syr")).toEqual(byCode);
   });
 });
