@@ -74,11 +74,7 @@ output "artifact_registry_repository" {
   value       = "australia-southeast2-docker.pkg.dev/${var.project_id}/shorted"
 }
 
-# Cloudflare Edge Outputs
-output "cloudflare_edge_url" {
-  description = "Cloudflare edge worker URL"
-  value       = module.cloudflare_edge.worker_name
-}
+# Cloudflare edge is managed by environments/prod only (single zone).
 
 output "cloudflare_zone_id" {
   description = "Cloudflare zone ID"
