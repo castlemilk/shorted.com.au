@@ -10,8 +10,11 @@
 import { create } from "@bufbuild/protobuf";
 import { timestampFromDate } from "@bufbuild/protobuf/wkt";
 import {
+  IndustryTreeMapSchema,
   TimeSeriesDataSchema,
   TimeSeriesPointSchema,
+  TreemapShortPositionSchema,
+  type IndustryTreeMap,
   type TimeSeriesData,
   type TimeSeriesPoint,
 } from "~/gen/stocks/v1alpha1/stocks_pb";
@@ -20,6 +23,10 @@ import {
   type GetTopShortsResponse,
 } from "~/gen/shorts/v1alpha1/shorts_pb";
 import type { StockQuote, HistoricalDataPoint } from "~/@/lib/stock-data-service";
+import type {
+  SerializedTimeSeriesPoint,
+  TooltipData,
+} from "~/app/actions/tooltip/getTooltipData";
 
 // ---------------------------------------------------------------------------
 // Extended type for widget fields not present in the TimeSeriesData proto
@@ -206,6 +213,96 @@ export function topShortsResponseFixture(): GetTopShortsResponse {
   return create(GetTopShortsResponseSchema, {
     timeSeries: topShortsFixture(),
   });
+}
+
+/**
+ * Returns an IndustryTreeMap protobuf message built from FIXTURE_STOCKS.
+ *
+ * Shape matches what getIndustryTreeMap returns (verified against
+ * industry-treemap-widget.tsx): `industries` is the distinct industry list
+ * (drives the depth-1 sector groups when showSectorGrouping is on) and each
+ * stock's `shortPosition` is in percentage points (sizes the treemap cells
+ * via stratify().sum and feeds the green→red colorScale).
+ *
+ * Covers 4 industries — Materials ×4, Consumer Discretionary ×4, Energy ×1,
+ * Industrials ×1 — so sector grouping renders multi-child and single-child
+ * groups. Fully deterministic: values come straight from FIXTURE_STOCKS.
+ */
+export function industryTreemapFixture(): IndustryTreeMap {
+  const industries = [...new Set(FIXTURE_STOCKS.map((s) => s.industry))];
+  return create(IndustryTreeMapSchema, {
+    industries,
+    stocks: FIXTURE_STOCKS.map((def) =>
+      create(TreemapShortPositionSchema, {
+        industry: def.industry,
+        productCode: def.code,
+        shortPosition: def.latestShortPosition,
+      }),
+    ),
+  });
+}
+
+/**
+ * Returns TooltipData (the serialized JSON shape served by the getTooltipData
+ * server action) for the given stock code. Used by TreemapTooltip, which the
+ * treemap widgets render in a portal on cell hover.
+ *
+ * Unknown codes fall back to the PLS definition. 22 daily points (~1 month,
+ * matching the real action's getStockData(code, "1m") call), seeded PRNG,
+ * timestamps derived from FIXTURE_BASE_DATE.
+ */
+export function tooltipDataFixture(code: string): TooltipData {
+  const def = FIXTURE_STOCKS.find((s) => s.code === code) ?? FIXTURE_STOCKS[0]!;
+  const rand = mulberry32(hashStr(def.code + "_tooltip"));
+
+  const points: SerializedTimeSeriesPoint[] = [];
+  let value = def.latestShortPosition * 0.95;
+  for (let i = 21; i >= 1; i--) {
+    value = Math.max(0.1, value + (rand() - 0.5) * 0.4);
+    points.push({
+      timestamp: daysBeforeBase(i).toISOString(),
+      shortPosition: parseFloat(value.toFixed(2)),
+    });
+  }
+  // Terminal point pinned to the declared latest short position.
+  points.push({
+    timestamp: FIXTURE_BASE_DATE.toISOString(),
+    shortPosition: def.latestShortPosition,
+  });
+
+  return {
+    stockDetails: {
+      productCode: def.code,
+      companyName: def.name,
+      industry: def.industry,
+      address: "",
+      summary: `${def.name} is a fixture company used in Storybook stories.`,
+      details: "",
+      website: "",
+      gcsUrl: "",
+      tags: [],
+      enhancedSummary: "",
+      companyHistory: "",
+      keyPeople: [],
+      financialReports: [],
+      competitiveAdvantages: "",
+      riskFactors: [],
+      recentDevelopments: "",
+      enrichmentStatus: "ENRICHED",
+      enrichmentError: "",
+      logoGcsUrl: "",
+      logoIconGcsUrl: "",
+      logoSvgGcsUrl: "",
+      logoSourceUrl: "",
+      logoFormat: "",
+    },
+    timeSeriesData: {
+      productCode: def.code,
+      name: def.name,
+      latestShortPosition: def.latestShortPosition,
+      points,
+    },
+  };
 }
 
 /**

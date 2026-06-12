@@ -3,6 +3,8 @@ import {
   topShortsResponseFixture,
   stockQuotesFixture,
   historicalDataFixture,
+  industryTreemapFixture,
+  tooltipDataFixture,
 } from "../short-data";
 
 describe("short-data fixtures", () => {
@@ -58,6 +60,37 @@ describe("short-data fixtures", () => {
       expect(s.industry).toBeTruthy();
       expect(typeof s.industry).toBe("string");
     }
+  });
+
+  it("industry treemap fixture spans >=4 industries with positive short positions", () => {
+    const treemap = industryTreemapFixture();
+    // At least 4 distinct industries so sector grouping renders a real hierarchy.
+    expect(new Set(treemap.industries).size).toBeGreaterThanOrEqual(4);
+    expect(treemap.stocks.length).toBeGreaterThanOrEqual(10);
+    for (const stock of treemap.stocks) {
+      // Positive pp sizes — zero/negative would collapse treemap cells.
+      expect(stock.shortPosition).toBeGreaterThan(0);
+      expect(stock.productCode).toBeTruthy();
+      // Every stock's industry must appear in the industries list, or
+      // stratify() in the widget throws on a missing parent node.
+      expect(treemap.industries).toContain(stock.industry);
+    }
+    // Deterministic: two calls produce identical messages.
+    expect(industryTreemapFixture()).toEqual(treemap);
+  });
+
+  it("tooltip data fixture is deterministic and shaped for TreemapTooltip", () => {
+    const data = tooltipDataFixture("PLS");
+    expect(data.stockDetails?.companyName).toBe("Pilbara Minerals Limited");
+    expect(data.stockDetails?.industry).toBe("Materials");
+    expect(data.timeSeriesData?.points).toHaveLength(22);
+    // Terminal point pinned to the declared latest short position.
+    const last = data.timeSeriesData!.points[21]!;
+    expect(last.shortPosition).toBe(19.4);
+    expect(last.timestamp).toBe("2026-06-01T00:00:00.000Z");
+    expect(tooltipDataFixture("PLS")).toEqual(data);
+    // Unknown codes fall back to the PLS definition rather than crashing.
+    expect(tooltipDataFixture("ZZZ").stockDetails?.productCode).toBe("PLS");
   });
 
   it("historicalDataFixture terminal point is pinned to basePrice", () => {

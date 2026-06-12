@@ -7,6 +7,12 @@ import { sb, mocked } from "storybook/test";
 // Full mock (src/app/actions/__mocks__/getTopShorts.ts): the real module
 // imports kv-cache → ioredis (Node-only), which crashes the browser build.
 sb.mock(import("../src/app/actions/getTopShorts"));
+// Full mock: getIndustryTreeMap imports kv-cache → ioredis (Node-only).
+sb.mock(import("../src/app/actions/getIndustryTreeMap"));
+// Full mock: getTooltipData imports kv-cache → ioredis. Transitively imported
+// by every treemap story (widget → TreemapTooltip → getTooltipData), so the
+// mock is needed for the module graph to build, not just for hover behavior.
+sb.mock(import("../src/app/actions/tooltip/getTooltipData"));
 sb.mock(import("../src/app/actions/getStock"), { spy: true });
 sb.mock(import("../src/@/lib/stock-data-service"), { spy: true });
 sb.mock(import("../src/@/lib/client-api"), { spy: true });
@@ -21,6 +27,8 @@ import "../src/styles/globals.css";
 // Each key in this record maps to the spy-wrapped export name used in stories.
 // getTopShortsData is imported from the __mocks__ file (full mock mode).
 import { getTopShortsData } from "../src/app/actions/getTopShorts";
+import { getIndustryTreeMap } from "../src/app/actions/getIndustryTreeMap";
+import { getTooltipData } from "../src/app/actions/tooltip/getTooltipData";
 import {
   getStock,
   getStockOrNotFound,
@@ -87,6 +95,8 @@ const preview: Preview = {
     // beforeEach, or they will get a descriptive error instead of a silent
     // network request or undefined return.
     mocked(getTopShortsData).mockImplementation(unmocked("getTopShortsData"));
+    mocked(getIndustryTreeMap).mockImplementation(unmocked("getIndustryTreeMap"));
+    mocked(getTooltipData).mockImplementation(unmocked("getTooltipData"));
     mocked(getStock).mockImplementation(unmocked("getStock"));
     mocked(getStockOrNotFound).mockImplementation(unmocked("getStockOrNotFound"));
     mocked(getMultipleStockQuotes).mockImplementation(unmocked("getMultipleStockQuotes"));
