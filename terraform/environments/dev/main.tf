@@ -25,10 +25,7 @@ terraform {
     }
   }
 
-  #   backend "gcs" {
-  #     bucket = "shorted-dev-aba5688f-terraform-state"
-  #     prefix = "env/dev"
-  #   }
+  # Backend lives in backend.tf (GCS, re-enabled June 2026).
 }
 
 provider "google" {
@@ -275,45 +272,11 @@ module "asx_announcement_crawler" {
 }
 
 # =============================================================================
-# Cloudflare Edge — Worker, DNS, WAF, rate limiting
+# Cloudflare Edge — managed by environments/prod ONLY.
+# There is a single shorted.com.au zone; dev previously co-managed the same
+# worker/DNS/rulesets, meaning a dev apply could overwrite prod's edge with
+# dev origins. Removed June 2026 when the dev GCS backend was re-enabled.
 # =============================================================================
-module "cloudflare_edge" {
-  source = "../../modules/cloudflare-edge"
-
-  cloudflare_zone_id = var.cloudflare_zone_id
-  domain             = "api.shorted.com.au"
-  environment        = "dev"
-
-  shorts_api_origin       = module.shorts_api.service_url
-  chat_service_origin     = module.chat_service.service_url
-  market_data_origin      = module.market_data.service_url
-  frontend_origin         = "https://shorted.com.au"
-  create_frontend_records = true # Enable frontend DNS management via Cloudflare
-
-  cache_ttl_seconds    = 30
-  top_shorts_cache_ttl = 60
-  stock_data_cache_ttl = 30
-  news_cache_ttl       = 120
-
-  rate_limit_enabled         = true
-  api_rate_limit_requests    = 60
-  search_rate_limit_requests = 20
-
-  waf_enabled            = true
-  bot_protection_enabled = false
-
-  cache_purge_secret = var.cache_purge_secret
-}
-
-output "edge_url" {
-  description = "Edge-proxied URL for the API."
-  value       = "https://api.shorted.com.au"
-}
-
-output "edge_worker_name" {
-  description = "Name of the Cloudflare edge worker."
-  value       = module.cloudflare_edge.worker_name
-}
 
 # Newsroom Daily Job (take-writer — generates and publishes daily takes)
 module "newsroom_job" {
