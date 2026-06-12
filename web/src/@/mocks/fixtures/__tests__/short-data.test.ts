@@ -30,7 +30,34 @@ describe("short-data fixtures", () => {
   it("provides quotes and historical prices for fixture codes", () => {
     const quotes = stockQuotesFixture(["PLS", "BHP"]);
     expect(quotes.get("PLS")?.price).toBeGreaterThan(0);
+    // Fix 4: exact length assertions (3m = 65, 1y = 252)
+    const hist3m = historicalDataFixture("PLS", "3m");
+    expect(hist3m).toHaveLength(65);
+    const hist1y = historicalDataFixture("PLS", "1y");
+    expect(hist1y).toHaveLength(252);
+  });
+
+  it("widget fields have correct semantics and scale", () => {
+    const series = topShortsFixture();
+    for (const s of series) {
+      // percentageShorted must equal latestShortPosition * 100 (percentage points)
+      // e.g. 0.194 → 19.4 renders as "19.40%" not "1940.00%"
+      expect(s.percentageShorted).toBeCloseTo(s.latestShortPosition * 100, 2);
+      // shortPercentageChange must be finite and within the documented ±2.5 pp range
+      expect(Number.isFinite(s.shortPercentageChange)).toBe(true);
+      expect(s.shortPercentageChange).toBeGreaterThanOrEqual(-2.5);
+      expect(s.shortPercentageChange).toBeLessThanOrEqual(2.5);
+      // industry must be a non-empty string
+      expect(s.industry).toBeTruthy();
+      expect(typeof s.industry).toBe("string");
+    }
+  });
+
+  it("historicalDataFixture terminal point is pinned to basePrice", () => {
+    // PLS has basePrice 2.85 — the last point should have close === 2.85
     const hist = historicalDataFixture("PLS", "3m");
-    expect(hist.length).toBeGreaterThan(50);
+    const last = hist[hist.length - 1]!;
+    expect(last.close).toBe(2.85);
+    expect(last.adjustedClose).toBe(2.85);
   });
 });

@@ -22,6 +22,31 @@ import {
 import type { StockQuote, HistoricalDataPoint } from "~/@/lib/stock-data-service";
 
 // ---------------------------------------------------------------------------
+// Extended type for widget fields not present in the TimeSeriesData proto
+// ---------------------------------------------------------------------------
+/**
+ * TimeSeriesData augmented with the extra fields that top-shorts widgets
+ * read at runtime (cast from the API response via Object.assign).
+ */
+export type TimeSeriesDataWithWidgetFields = TimeSeriesData & {
+  /**
+   * Current short interest as a percentage of total shares in issue.
+   * Unit: percentage points — e.g. 19.4 renders as "19.40%".
+   * Derived from latestShortPosition * 100 (latestShortPosition is a decimal
+   * fraction from the proto, e.g. 0.194 → 19.4%).
+   */
+  percentageShorted: number;
+  /**
+   * Percentage-point change in short interest over the trailing period.
+   * Unit: percentage points — e.g. -0.85 renders as "-0.85%".
+   * Realistic range: roughly ±2.5 pp.
+   */
+  shortPercentageChange: number;
+  /** GICS industry string, e.g. "Materials". */
+  industry: string;
+};
+
+// ---------------------------------------------------------------------------
 // Fixed base date — NEVER replace with Date.now()
 // ---------------------------------------------------------------------------
 export const FIXTURE_BASE_DATE = new Date("2026-06-01T00:00:00Z");
@@ -123,10 +148,14 @@ function buildPoints(def: StockFixtureDef): TimeSeriesPoint[] {
 // ---------------------------------------------------------------------------
 
 /**
- * Returns 10 TimeSeriesData entries with deterministic 90-point series,
- * ordered by descending latestShortPosition.
+ * Returns 10 TimeSeriesDataWithWidgetFields entries with deterministic
+ * 90-point series, ordered by descending latestShortPosition.
+ *
+ * Field semantics (verified against top-shorts-widget.tsx:102 and columns.tsx:99):
+ * - percentageShorted = latestShortPosition * 100  (e.g. 0.194 → 19.4, renders "19.4%")
+ * - shortPercentageChange: percentage-point delta, seeded range ±2.5 pp (renders "±X.XX%")
  */
-export function topShortsFixture(): TimeSeriesData[] {
+export function topShortsFixture(): TimeSeriesDataWithWidgetFields[] {
   return FIXTURE_STOCKS.map((def) => {
     const points = buildPoints(def);
     const series = create(TimeSeriesDataSchema, {
@@ -136,16 +165,17 @@ export function topShortsFixture(): TimeSeriesData[] {
       points,
     });
 
-    // Extra fields read by widgets (percentageShorted, shortPercentageChange)
+    // Extra fields read by widgets (percentageShorted, shortPercentageChange, industry)
     // These are not in the proto but the widget casts to TimeSeriesData & { ... }
     return Object.assign(series, {
-      percentageShorted: def.latestShortPosition * 100,
-      // Deterministic change: use seeded rand for a small delta
+      // percentageShorted: percentage points (0.194 → 19.4), rendered as "19.4%"
+      percentageShorted: parseFloat((def.latestShortPosition * 100).toFixed(2)),
+      // shortPercentageChange: pp delta in ±2.5 range, rendered as "±X.XX%"
       shortPercentageChange: parseFloat(
-        ((mulberry32(hashStr(def.code + "_chg"))() - 0.5) * 2).toFixed(2),
+        ((mulberry32(hashStr(def.code + "_chg"))() - 0.5) * 5).toFixed(2),
       ),
       industry: def.industry,
-    });
+    }) as TimeSeriesDataWithWidgetFields;
   });
 }
 
@@ -217,6 +247,15 @@ export function historicalDataFixture(
       volume: Math.floor(rand() * 3_000_000) + 50_000,
       adjustedClose: parseFloat(close.toFixed(3)),
     });
+  }
+
+  // Pin the final point's close/adjustedClose to basePrice so quote cards and
+  // chart endpoints agree on the displayed price.
+  const terminal = points[points.length - 1];
+  if (terminal) {
+    const pinned = parseFloat(basePrice.toFixed(3));
+    terminal.close = pinned;
+    terminal.adjustedClose = pinned;
   }
 
   return points;
