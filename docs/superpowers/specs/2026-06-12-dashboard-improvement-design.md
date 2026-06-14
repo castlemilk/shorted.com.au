@@ -1,8 +1,13 @@
 # Dashboard Improvement: Harness, Performance, Reliability, Responsiveness
 
 **Date:** 2026-06-12
-**Status:** Approved
+**Status:** Approved — **Phase 1 complete (2026-06-14)**, Phases 2–4 pending
 **Scope:** `web/` only — no backend changes. Both dashboard surfaces, `/dashboards` first, homepage second (widgets are shared).
+
+> **Phase 1 done:** Storybook 9 harness, 84 interaction tests, 83 visual baselines,
+> perf benchmark + committed baseline, and CI all shipped. Results and the
+> reliability/caching backlog discovered during story authoring are in
+> `docs/perf/PHASE-1.md`. Phases 2–4 each get their own plan + `PHASE-N.md`.
 
 ## Problem
 
