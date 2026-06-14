@@ -33,6 +33,10 @@ function shortSeries(code: string, period: string): ChartSeriesSpec {
     axis: "right",
     kind: "line",
     points: shortPoints(code, period),
+    // Mirror production: short interest is already a percentage, so the
+    // drag-measure readout reports point delta ("pp"), not relative %.
+    measureMode: "absolute",
+    measureUnit: "pp",
   };
 }
 
@@ -229,6 +233,62 @@ export const LargeHistory: Story = {
       expect(n).toBeGreaterThan(0);
       expect(n).toBeLessThan(756); // decimated below the raw point count
     });
+  },
+};
+
+export const MeasureAndZoom: Story = {
+  tags: ["no-visual"], // interaction-only (overlay shows on drag); no static baseline
+  args: {
+    series: [priceSeries("BHP", "3m"), shortSeries("BHP", "3m")],
+    leftAxis: { side: "left", format: priceFmt },
+    rightAxis: { side: "right", format: shortFmt },
+    height: 420,
+  },
+  decorators: [
+    (Story) => (
+      <div
+        style={{ width: 640, height: 440 }}
+        className="rounded-lg border bg-background p-2"
+      >
+        <Story />
+      </div>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(capture(canvasElement)).toBeTruthy());
+    const rect = capture(canvasElement);
+    const points = () =>
+      Number(canvasElement.querySelector("svg")!.getAttribute("data-points"));
+    const before = await waitFor(() => {
+      const n = points();
+      expect(n).toBeGreaterThan(4);
+      return n;
+    });
+    const box = rect.getBoundingClientRect();
+    const y = box.top + box.height * 0.5;
+
+    // Press-drag across the middle third of the plot.
+    fireEvent.mouseDown(rect, { clientX: box.left + box.width * 0.3, clientY: y, button: 0 });
+    fireEvent.mouseMove(rect, { clientX: box.left + box.width * 0.7, clientY: y });
+
+    // Shaded measure region + a point-to-point readout (price "%" and short "pp").
+    await waitFor(() => {
+      expect(canvasElement.querySelector('[data-chart="measure"]')).toBeTruthy();
+      const readout = document.querySelector('[data-chart="measure-readout"]');
+      expect(readout).toBeTruthy();
+      const text = readout!.textContent ?? "";
+      expect(text).toMatch(/[+-]\d/); // a signed change for each series
+      expect(text).toMatch(/%/); // price → relative %
+      expect(text).toMatch(/pp/); // short → point delta
+    });
+
+    // Release → zoom into the dragged range (fewer points than the full view).
+    fireEvent.mouseUp(rect, { clientX: box.left + box.width * 0.7, clientY: y });
+    await waitFor(() => expect(points()).toBeLessThan(before));
+
+    // Double-click resets back to the full view.
+    fireEvent.doubleClick(rect, { clientX: box.left + box.width * 0.5, clientY: y });
+    await waitFor(() => expect(points()).toBe(before));
   },
 };
 

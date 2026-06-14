@@ -3,6 +3,7 @@
 import React, {
   forwardRef,
   useCallback,
+  useEffect,
   useId,
   useImperativeHandle,
   useMemo,
@@ -14,9 +15,11 @@ import { Group } from "@visx/group";
 import { scaleLinear, scaleTime } from "@visx/scale";
 import { Brush } from "@visx/brush";
 import type BaseBrush from "@visx/brush/lib/BaseBrush";
+import type { UpdateBrush } from "@visx/brush/lib/BaseBrush";
 import type { Bounds } from "@visx/brush/lib/types";
 import { Line, AreaClosed } from "@visx/shape";
 import { curveMonotoneX } from "@visx/curve";
+import { localPoint } from "@visx/event";
 import { decimate } from "./decimate";
 import { useChartScales } from "./use-chart-scales";
 import { normalizeToPercentChange } from "./indicators";
@@ -29,7 +32,7 @@ import {
   SeriesPath,
   VolumePath,
 } from "./chart-primitives";
-import { TooltipContent, useChartPointer } from "./chart-tooltip";
+import { TooltipContent, nearest, useChartPointer } from "./chart-tooltip";
 import type {
   ChartPoint,
   ChartSeriesSpec,
@@ -43,6 +46,16 @@ export interface HandleBrushClearAndReset {
 }
 
 const MOBILE_MAX = 500;
+// Min horizontal drag (px) before a press is treated as a measure/zoom gesture
+// rather than a click — below this we leave the view untouched.
+const MEASURE_MIN_PX = 6;
+
+const measureDateFmt = (t: number) =>
+  new Date(t).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 
 function normalizePoints(points: ChartPoint[]): ChartPoint[] {
   if (!points.length) return points;
@@ -176,6 +189,157 @@ function StockChartInner({
     marginLeft: margin.left,
   });
 
+  // ── Drag-to-measure + zoom ────────────────────────────────────────────────
+  // Press-drag horizontally across the plot: a shaded region tracks the cursor
+  // and reports each visible series' point-to-point change; release zooms into
+  // that range (double-click resets). x0/x1 are inner-plot px (0..innerW).
+  const [measure, setMeasure] = useState<{ x0: number; x1: number } | null>(
+    null,
+  );
+  // Mirror of `measure` for the window mouseup listener, which is bound once per
+  // gesture and must read the latest endpoint without re-subscribing per move.
+  const measureRef = useRef<{ x0: number; x1: number } | null>(null);
+  const setMeasureBoth = useCallback(
+    (m: { x0: number; x1: number } | null) => {
+      measureRef.current = m;
+      setMeasure(m);
+    },
+    [],
+  );
+
+  const innerXFromEvent = useCallback(
+    (
+      e:
+        | React.MouseEvent<SVGRectElement>
+        | React.TouchEvent<SVGRectElement>
+        | MouseEvent,
+    ): number | null => {
+      const pt = localPoint(e);
+      if (!pt) return null;
+      return Math.max(0, Math.min(innerW, pt.x - margin.left));
+    },
+    [innerW, margin.left],
+  );
+
+  // Latest-value refs so the (stable) commit reads the CURRENT scales at
+  // release time — never a closure captured when the gesture began (which would
+  // misfire if the chart reflowed/resized mid-drag). Kept current by an effect
+  // declared below, once `brushDateScale` exists.
+  const dateScaleRef = useRef(dateScale);
+  const brushDateScaleRef = useRef<ReturnType<typeof scaleTime<number>> | null>(
+    null,
+  );
+
+  const commitMeasure = useCallback(() => {
+    const m = measureRef.current;
+    setMeasureBoth(null);
+    if (!m) return;
+    if (Math.abs(m.x1 - m.x0) < MEASURE_MIN_PX) return; // a click, not a drag
+    const ds = dateScaleRef.current;
+    const xa = Math.min(m.x0, m.x1);
+    const xb = Math.max(m.x0, m.x1);
+    const ta = ds.invert(xa).getTime();
+    const tb = ds.invert(xb).getTime();
+    if (tb - ta < 1) return;
+    setFiltered([ta, tb]);
+    // Mirror the zoom in the overview brush band so the two stay in sync (the
+    // band always spans the full dataset, so map through its own scale).
+    const b = brushRef.current;
+    const bds = brushDateScaleRef.current;
+    if (b && bds) {
+      const updater: UpdateBrush = (prev) => {
+        const ext = b.getExtent({ x: bds(new Date(ta)) }, { x: bds(new Date(tb)) });
+        return {
+          ...prev,
+          start: { y: ext.y0, x: ext.x0 },
+          end: { y: ext.y1, x: ext.x1 },
+          extent: ext,
+        };
+      };
+      b.updateBrush(updater);
+    }
+  }, [setMeasureBoth, setFiltered]);
+
+  const resetView = useCallback(() => {
+    setMeasureBoth(null);
+    brushRef.current?.reset();
+    setFiltered(null);
+  }, [setMeasureBoth]);
+
+  const onPlotMouseDown = useCallback(
+    (e: React.MouseEvent<SVGRectElement>) => {
+      if (e.button !== 0) return; // left button only
+      // The 2nd click of a double-click would otherwise start (and the 2nd
+      // mouseup commit) a stray zoom right before onDoubleClick resets it.
+      if (e.detail > 1) return;
+      const x = innerXFromEvent(e);
+      if (x == null) return;
+      onLeave(); // drop the hover crosshair while measuring
+      setMeasureBoth({ x0: x, x1: x });
+    },
+    [innerXFromEvent, onLeave, setMeasureBoth],
+  );
+
+  const onPlotMouseMove = useCallback(
+    (e: React.MouseEvent<SVGRectElement> | React.TouchEvent<SVGRectElement>) => {
+      if (measureRef.current) {
+        const x = innerXFromEvent(e);
+        if (x != null) setMeasureBoth({ x0: measureRef.current.x0, x1: x });
+        return;
+      }
+      onMove(e);
+    },
+    [innerXFromEvent, onMove, setMeasureBoth],
+  );
+
+  const onPlotMouseLeave = useCallback(() => {
+    // Keep the selection alive while dragging outside the plot; the window
+    // mouseup listener commits it. Only clear the hover when not measuring.
+    if (!measureRef.current) onLeave();
+  }, [onLeave]);
+
+  // Commit on release anywhere (handles the cursor leaving the plot mid-drag).
+  // Keyed on the boolean so it re-subscribes only when a gesture starts/ends,
+  // not on every pointer move; commitMeasure reads the latest endpoint via ref.
+  const dragging = measure !== null;
+  useEffect(() => {
+    if (!dragging) return;
+    const onUp = () => commitMeasure();
+    window.addEventListener("mouseup", onUp);
+    return () => window.removeEventListener("mouseup", onUp);
+  }, [dragging, commitMeasure]);
+
+  // Live readout: each visible series' change between the two endpoints. Skip
+  // sub-pixel selections so a plain click never flashes a "+0.0%" panel.
+  const measureInfo = useMemo(() => {
+    if (!measure || Math.abs(measure.x1 - measure.x0) < 1) return null;
+    const xa = Math.min(measure.x0, measure.x1);
+    const xb = Math.max(measure.x0, measure.x1);
+    const ta = dateScale.invert(xa).getTime();
+    const tb = dateScale.invert(xb).getTime();
+    const rows = renderSeries
+      .map((s) => {
+        const pa = nearest(s.points, ta);
+        const pb = nearest(s.points, tb);
+        if (!pa || !pb) return null;
+        const absolute = s.measureMode === "absolute";
+        const rawDelta = absolute
+          ? pb.v - pa.v
+          : pa.v !== 0
+            ? ((pb.v - pa.v) / pa.v) * 100
+            : 0;
+        // Round first so sign, color and digits always agree (and "-0.0" can
+        // never appear — Number("-0.0") is falsy, so `|| 0` normalizes it).
+        const delta = Number(rawDelta.toFixed(1)) || 0;
+        const unit = absolute ? (s.measureUnit ?? "") : "%";
+        const sign = delta > 0 ? "+" : delta < 0 ? "-" : "";
+        const text = `${sign}${Math.abs(delta).toFixed(1)}${unit}`;
+        return { id: s.id, label: s.label, color: s.color, delta, text };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+    return { xa, xb, ta, tb, rows };
+  }, [measure, renderSeries, dateScale]);
+
   // Brush overview: aggregate ALL series' points so the band + selectable range
   // span the full dataset (not just series[0]). Hard-decimated for the overview.
   const brushSeries = useMemo(() => {
@@ -224,6 +388,12 @@ function StockChartInner({
       }),
     [brushDomain, brushH],
   );
+
+  // Keep the commit-time scale refs pointed at the live scales (see above).
+  useEffect(() => {
+    dateScaleRef.current = dateScale;
+    brushDateScaleRef.current = brushDateScale;
+  });
 
   const onBrushChange = useCallback((bounds: Bounds | null) => {
     if (!bounds) {
@@ -322,27 +492,55 @@ function StockChartInner({
             rightFormat={rightAxis?.format}
             compact={compact}
           />
-          {hover && (
-            <Crosshair
-              x={hover.cx}
-              innerH={mainH}
-              dots={hover.entries.map((e) => ({
-                y: scaleForAxis(e.series.axis)(e.point.v) ?? 0,
-                color: e.series.color,
-              }))}
-            />
+          {/* Drag-measure shaded region + endpoints (suppresses the crosshair). */}
+          {measureInfo ? (
+            <g pointerEvents="none" data-chart="measure">
+              <rect
+                x={measureInfo.xa}
+                y={0}
+                width={Math.max(measureInfo.xb - measureInfo.xa, 0)}
+                height={mainH}
+                fill="hsl(var(--primary))"
+                fillOpacity={0.1}
+              />
+              {[measureInfo.xa, measureInfo.xb].map((x, i) => (
+                <Line
+                  key={i}
+                  from={{ x, y: 0 }}
+                  to={{ x, y: mainH }}
+                  stroke="hsl(var(--primary))"
+                  strokeOpacity={0.55}
+                  strokeWidth={1}
+                  strokeDasharray="3,3"
+                />
+              ))}
+            </g>
+          ) : (
+            hover && (
+              <Crosshair
+                x={hover.cx}
+                innerH={mainH}
+                dots={hover.entries.map((e) => ({
+                  y: scaleForAxis(e.series.axis)(e.point.v) ?? 0,
+                  color: e.series.color,
+                }))}
+              />
+            )
           )}
-          {/* pointer capture */}
+          {/* pointer capture — drag to measure + zoom, double-click to reset */}
           <rect
             x={0}
             y={0}
             width={innerW}
             height={mainH}
             fill="transparent"
-            onMouseMove={onMove}
-            onTouchMove={onMove}
-            onMouseLeave={onLeave}
+            style={{ cursor: "crosshair" }}
+            onMouseDown={onPlotMouseDown}
+            onMouseMove={onPlotMouseMove}
+            onTouchMove={onPlotMouseMove}
+            onMouseLeave={onPlotMouseLeave}
             onTouchEnd={onLeave}
+            onDoubleClick={resetView}
           />
         </Group>
 
@@ -395,6 +593,7 @@ function StockChartInner({
       </svg>
 
       {hover &&
+        !measure &&
         (() => {
           // Position the tooltip next to the cursor, INSIDE the chart container.
           // No portal / viewport math (which mis-measured on scrolled, sticky-
@@ -429,6 +628,81 @@ function StockChartInner({
               }}
             >
               <TooltipContent hover={hover} leftAxis={leftAxis} rightAxis={rightAxis} />
+            </div>
+          );
+        })()}
+
+      {measureInfo &&
+        measureInfo.rows.length > 0 &&
+        (() => {
+          // Inline (no portal) — same scrolled-page-safe positioning as the
+          // hover tooltip, anchored to the right edge of the measured range.
+          const TIP_W = 188;
+          const anchorX = measureInfo.xb + margin.left;
+          const left =
+            anchorX + 14 + TIP_W <= width
+              ? anchorX + 14
+              : Math.max(4, anchorX - 14 - TIP_W);
+          return (
+            <div
+              data-chart="measure-readout"
+              style={{
+                position: "absolute",
+                left,
+                top: margin.top + 8,
+                maxWidth: TIP_W,
+                background: chartTheme.tooltipBg,
+                border: "1px solid hsl(var(--border))",
+                borderRadius: 8,
+                padding: "8px 10px",
+                boxShadow: "0 4px 12px hsl(var(--foreground) / 0.1)",
+                pointerEvents: "none",
+                zIndex: 20,
+                color: chartTheme.tooltipFg,
+                fontSize: 12,
+                lineHeight: 1.4,
+              }}
+            >
+              <div style={{ opacity: 0.7, marginBottom: 4 }}>
+                {measureDateFmt(measureInfo.ta)} → {measureDateFmt(measureInfo.tb)}
+              </div>
+              {measureInfo.rows.map((r) => (
+                <div
+                  key={r.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    marginBottom: 2,
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 9999,
+                      background: r.color,
+                      display: "inline-block",
+                    }}
+                  />
+                  <span style={{ opacity: 0.8 }}>{r.label}</span>
+                  <span
+                    style={{
+                      marginLeft: "auto",
+                      fontVariantNumeric: "tabular-nums",
+                      fontWeight: 600,
+                      color:
+                        r.delta > 0
+                          ? "#16a34a"
+                          : r.delta < 0
+                            ? "#dc2626"
+                            : chartTheme.tooltipFg,
+                    }}
+                  >
+                    {r.text}
+                  </span>
+                </div>
+              ))}
             </div>
           );
         })()}

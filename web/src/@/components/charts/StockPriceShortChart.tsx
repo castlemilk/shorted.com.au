@@ -92,6 +92,9 @@ export function StockPriceShortChart({
         axis: "right",
         kind: "line",
         points: short,
+        // Short interest is already a percentage — measure as point delta ("pp").
+        measureMode: "absolute",
+        measureUnit: "pp",
       });
     return arr;
   }, [showPrice, showShort, price, short, stockCode]);

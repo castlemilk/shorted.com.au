@@ -7,7 +7,8 @@ import type { ChartScales } from "./use-chart-scales";
 
 const tBisector = bisector<ChartPoint, number>((d) => d.t);
 
-function nearest(points: ChartPoint[], t: number): ChartPoint | null {
+/** Nearest data point to time `t` (binary search; points must be sorted by t). */
+export function nearest(points: ChartPoint[], t: number): ChartPoint | null {
   if (!points.length) return null;
   const i = tBisector.left(points, t, 1);
   const a = points[i - 1];
