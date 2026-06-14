@@ -2,8 +2,12 @@ export type {
   ChartPoint,
   ChartSeriesSpec,
   AxisSpec,
+  SeriesIndicator,
+  OscillatorSpec,
   StockChartProps,
 } from "./types";
+export { StockChart, default as StockChartDefault } from "./StockChart";
+export type { HandleBrushClearAndReset } from "./StockChart";
 export { decimate, lttbIndices } from "./decimate";
 export { chartTheme, seriesColor } from "./chart-theme";
 export {

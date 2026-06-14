@@ -1,5 +1,3 @@
-import type { IndicatorResult } from "@/lib/technical-indicators";
-
 /** A single chart datum: epoch milliseconds + value. */
 export type ChartPoint = { t: number; v: number };
 
@@ -26,13 +24,39 @@ export interface AxisSpec {
   domain?: [number, number]; // optional hard domain
 }
 
+/**
+ * An overlay indicator drawn on a target series' axis. All value arrays are
+ * aligned 1:1 to that series' RAW points; the core subsamples them by the same
+ * LTTB indices it uses for the series.
+ */
+export interface SeriesIndicator {
+  id: string;
+  seriesId: string; // which series it overlays (axis + decimation alignment)
+  label: string;
+  color: string;
+  values: (number | null)[];
+  dash?: string;
+  upper?: (number | null)[]; // optional band (e.g. Bollinger)
+  middle?: (number | null)[];
+  lower?: (number | null)[];
+}
+
+/** An oscillator drawn in its own sub-panel; values aligned to the first series' raw points. */
+export interface OscillatorSpec {
+  id: string;
+  label: string;
+  color: string;
+  values: (number | null)[];
+  dash?: string;
+  reference?: number[]; // horizontal guide levels (e.g. [30, 50, 70])
+  domain?: [number, number]; // default [0, 100]
+}
+
 export interface StockChartProps {
   series: ChartSeriesSpec[]; // 1..N
   volume?: ChartPoint[]; // single-path; hidden in compact / on mobile
-  /** Overlay indicators (drawn on a series' axis), values aligned to that series' raw points. */
-  indicators?: IndicatorResult[];
-  /** Oscillator indicators (own sub-panel). */
-  oscillators?: IndicatorResult[];
+  indicators?: SeriesIndicator[];
+  oscillators?: OscillatorSpec[];
   leftAxis?: AxisSpec;
   rightAxis?: AxisSpec;
   viewMode?: "absolute" | "normalized"; // default "absolute"
