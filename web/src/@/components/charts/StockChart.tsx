@@ -17,7 +17,6 @@ import type BaseBrush from "@visx/brush/lib/BaseBrush";
 import type { Bounds } from "@visx/brush/lib/types";
 import { Line, AreaClosed } from "@visx/shape";
 import { curveMonotoneX } from "@visx/curve";
-import { useTooltipInPortal } from "@visx/tooltip";
 import { decimate } from "./decimate";
 import { useChartScales } from "./use-chart-scales";
 import { normalizeToPercentChange } from "./indicators";
@@ -75,10 +74,6 @@ function StockChartInner({
   // Unique per-instance prefix so SVG gradient ids never collide when multiple
   // StockCharts render on one page (e.g. several dashboard widgets).
   const gid = useId();
-  const { containerRef, TooltipInPortal } = useTooltipInPortal({
-    detectBounds: true,
-    scroll: true,
-  });
 
   const isMobile = width > 0 && width <= MOBILE_MAX;
   const compact = variant === "compact";
@@ -264,7 +259,7 @@ function StockChartInner({
   const brushTop = height - brushH + 4;
 
   return (
-    <div ref={containerRef} style={{ position: "relative" }}>
+    <div data-chart-container style={{ position: "relative" }}>
       <svg width={width} height={height} data-points={renderSeries[0]?.points.length ?? 0}>
         <Group left={margin.left} top={margin.top}>
           <Grid yScale={leftScale} width={innerW} />
@@ -399,24 +394,44 @@ function StockChartInner({
         )}
       </svg>
 
-      {hover && (
-        <TooltipInPortal
-          key={Math.round(hover.cx)}
-          left={hover.cx + margin.left + 12}
-          top={margin.top + 8}
-          style={{
-            position: "absolute",
-            background: chartTheme.tooltipBg,
-            border: "1px solid hsl(var(--border))",
-            borderRadius: 8,
-            padding: "8px 10px",
-            boxShadow: "0 4px 12px hsl(var(--foreground) / 0.1)",
-            pointerEvents: "none",
-          }}
-        >
-          <TooltipContent hover={hover} leftAxis={leftAxis} rightAxis={rightAxis} />
-        </TooltipInPortal>
-      )}
+      {hover &&
+        (() => {
+          // Position the tooltip next to the cursor, INSIDE the chart container.
+          // No portal / viewport math (which mis-measured on scrolled, sticky-
+          // header pages) — coordinates are relative to this relative wrapper.
+          const TIP_W = 168;
+          const TIP_H = 120;
+          const anchorX = hover.cx + margin.left;
+          const anchorY = hover.cy;
+          const left =
+            anchorX + 14 + TIP_W <= width
+              ? anchorX + 14
+              : Math.max(4, anchorX - 14 - TIP_W);
+          const top = Math.min(
+            Math.max(4, anchorY + 14),
+            Math.max(4, height - TIP_H),
+          );
+          return (
+            <div
+              data-chart-tooltip
+              style={{
+                position: "absolute",
+                left,
+                top,
+                maxWidth: TIP_W,
+                background: chartTheme.tooltipBg,
+                border: "1px solid hsl(var(--border))",
+                borderRadius: 8,
+                padding: "8px 10px",
+                boxShadow: "0 4px 12px hsl(var(--foreground) / 0.1)",
+                pointerEvents: "none",
+                zIndex: 20,
+              }}
+            >
+              <TooltipContent hover={hover} leftAxis={leftAxis} rightAxis={rightAxis} />
+            </div>
+          );
+        })()}
     </div>
   );
 }
