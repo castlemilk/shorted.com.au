@@ -22,6 +22,15 @@ export interface ChartSeriesSpec {
   points: ChartPoint[];
   /** Optional per-point overlay values, length === points.length (subsampled with the series). */
   indicatorValues?: (number | null)[];
+  /**
+   * How the drag-to-measure tool reports change between two points on this series.
+   * "relative" (default): percentage change (vB−vA)/vA, rendered as e.g. "+4.2%".
+   * "absolute": raw delta vB−vA, rendered with `measureUnit` — use for a series
+   * already expressed in percent (short interest) so the readout is "−1.1pp".
+   */
+  measureMode?: "relative" | "absolute";
+  /** Suffix for the measure readout in "absolute" mode (e.g. "pp"). Default "". */
+  measureUnit?: string;
 }
 
 export interface AxisSpec {

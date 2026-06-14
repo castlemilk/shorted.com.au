@@ -87,18 +87,15 @@ jest.mock("next/dynamic", () => {
   });
 });
 
-// Mock client components
-jest.mock("~/@/components/ui/chart", () => ({
+// Mock client components. The per-stock view consolidated onto the shared
+// StockPriceShortChart (#168); the old ui/chart + ui/market-chart were retired.
+jest.mock("~/@/components/charts/StockPriceShortChart", () => ({
   __esModule: true,
-  default: ({ stockCode }: { stockCode: string }) => (
+  StockPriceShortChart: ({ stockCode }: { stockCode: string }) => (
     <div data-testid="chart">{stockCode}</div>
   ),
-}));
-
-jest.mock("~/@/components/ui/market-chart", () => ({
-  __esModule: true,
   default: ({ stockCode }: { stockCode: string }) => (
-    <div data-testid="market-chart">{stockCode}</div>
+    <div data-testid="chart">{stockCode}</div>
   ),
 }));
 

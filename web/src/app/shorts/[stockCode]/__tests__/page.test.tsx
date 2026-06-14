@@ -19,17 +19,14 @@ jest.mock("~/@/lib/kv-cache", () => require("~/@/lib/__mocks__/kv-cache"));
 
 import Page from "../page";
 
-// Mock all child components
-jest.mock("~/@/components/ui/chart", () => ({
+// Mock all child components. The per-stock view consolidated onto the shared
+// StockPriceShortChart (#168); the old ui/chart + ui/market-chart were retired.
+jest.mock("~/@/components/charts/StockPriceShortChart", () => ({
   __esModule: true,
-  default: ({ stockCode }: any) => <div data-testid="chart">{stockCode}</div>,
-}));
-
-jest.mock("~/@/components/ui/market-chart", () => ({
-  __esModule: true,
-  default: ({ stockCode }: any) => (
-    <div data-testid="market-chart">{stockCode}</div>
+  StockPriceShortChart: ({ stockCode }: any) => (
+    <div data-testid="chart">{stockCode}</div>
   ),
+  default: ({ stockCode }: any) => <div data-testid="chart">{stockCode}</div>,
 }));
 
 jest.mock("~/@/components/ui/companyProfile", () => ({
