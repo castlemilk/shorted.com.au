@@ -1,6 +1,6 @@
 import React from "react";
 import type { Decorator } from "@storybook/nextjs-vite";
-import { WidgetType, type WidgetConfig, type WidgetSettingsMap } from "@/types/dashboard";
+import type { WidgetType, WidgetConfig, WidgetSettingsMap } from "@/types/dashboard";
 
 /** Builds a valid WidgetConfig with sane defaults; override per story.
  *  The `settings` parameter is type-checked against the widget's own settings

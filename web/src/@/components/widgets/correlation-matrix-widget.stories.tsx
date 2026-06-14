@@ -111,7 +111,7 @@ export const Default: Story = {
     // the browser-drawn tooltip itself is outside the DOM.
     const firstCell = canvasElement.querySelector("svg g g");
     expect(firstCell).toBeTruthy();
-    await userEvent.hover(firstCell as Element);
+    await userEvent.hover(firstCell!);
     const title = firstCell!.querySelector("title");
     expect(title?.textContent).toContain("PLS vs PLS: 1.000");
     expect(title?.textContent).toContain("Correlation strength: Strong");

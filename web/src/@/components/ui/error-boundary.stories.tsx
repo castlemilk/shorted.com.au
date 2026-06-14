@@ -23,7 +23,7 @@
  *   - error.code === 8 (Code.ResourceExhausted)
  * We construct a plain object that satisfies all five checks.
  */
-import React, { useState } from "react";
+import React from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
@@ -86,7 +86,6 @@ function makeRateLimitError() {
  */
 function ThrowRateLimit(): React.ReactNode {
   const err = makeRateLimitError();
-  // eslint-disable-next-line @typescript-eslint/only-throw-error
   throw err;
 }
 

@@ -17,7 +17,9 @@ export default defineConfig({
     viewport: { width: 1280, height: 800 },
     deviceScaleFactor: 1,
     colorScheme: "light",
-    reducedMotion: "reduce",
+    // Animations are frozen via toHaveScreenshot.animations:"disabled" plus the
+    // per-test freeze stylesheet — no reducedMotion needed (and no storied
+    // component responds to prefers-reduced-motion anyway).
   },
   webServer: {
     command: "npx http-server storybook-static --port 6007 --silent",
