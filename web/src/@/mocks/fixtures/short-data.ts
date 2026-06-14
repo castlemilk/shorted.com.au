@@ -23,13 +23,20 @@ import {
 import {
   GetTopShortsResponseSchema,
   SearchStocksResponseSchema,
+  GetMarketNewsResponseSchema,
+  NewsArticleSchema,
+  ScreenStocksResponseSchema,
+  ScreenerStockSchema,
   type GetTopShortsResponse,
   type SearchStocksResponse,
+  type GetMarketNewsResponse,
+  type ScreenStocksResponse,
 } from "~/gen/shorts/v1alpha1/shorts_pb";
 import type {
   StockQuote,
   HistoricalDataPoint,
   CorrelationMatrix,
+  SectorPerformance,
 } from "~/@/lib/stock-data-service";
 import type {
   SerializedTimeSeriesPoint,
@@ -510,4 +517,153 @@ export function historicalDataFixture(
   }
 
   return points;
+}
+
+// ---------------------------------------------------------------------------
+// Sector performance fixture (SectorPerformanceWidget)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fixed per-sector base values. The six sectors mirror the hardcoded sector
+ * list in lib/stock-data-service.ts getSectorPerformance (the widget's
+ * sectorColors map covers exactly these names). Performance is in percentage
+ * points over the period; a deliberate mix of signs so the pie shows both
+ * Badge variants and the heatmap shows green AND red tiles. Volume renders
+ * as "Vol: X.XB" via (volume / 1e9).toFixed(1).
+ */
+const SECTOR_FIXTURES = [
+  { sector: "Financials", performance: 1.24, volume: 8.4e9, topGainers: ["CBA", "NAB"], topLosers: ["ANZ", "WBC"] },
+  { sector: "Materials", performance: -2.18, volume: 12.1e9, topGainers: ["BHP", "RIO"], topLosers: ["NCM", "FMG"] },
+  { sector: "Healthcare", performance: 0.86, volume: 3.2e9, topGainers: ["CSL", "RMD"], topLosers: ["SHL", "COH"] },
+  { sector: "Consumer Staples", performance: 0.32, volume: 2.7e9, topGainers: ["WOW", "WES"], topLosers: ["TWE", "COL"] },
+  { sector: "Energy", performance: -1.45, volume: 4.9e9, topGainers: ["WDS", "STO"], topLosers: ["OSH", "ORG"] },
+  { sector: "Technology", performance: 2.73, volume: 1.8e9, topGainers: ["XRO", "WTC"], topLosers: ["APT", "CPU"] },
+] as const;
+
+/** Longer periods accumulate larger moves; unknown periods fall back to 1w. */
+const SECTOR_PERIOD_MULTIPLIER: Record<string, number> = {
+  "1d": 0.4,
+  "1w": 1,
+  "1m": 2.1,
+  "3m": 3.6,
+};
+
+/**
+ * Returns SectorPerformance[] — the shape served by getSectorPerformance in
+ * lib/stock-data-service, consumed by SectorPerformanceWidget. Six sectors,
+ * fixed values scaled by a per-period multiplier (2 dp, matching the
+ * widget's `.toFixed(2)` labels). Fully deterministic.
+ */
+export function sectorPerformanceFixture(period = "1w"): SectorPerformance[] {
+  const mult = SECTOR_PERIOD_MULTIPLIER[period] ?? SECTOR_PERIOD_MULTIPLIER["1w"]!;
+  return SECTOR_FIXTURES.map((s) => ({
+    sector: s.sector,
+    performance: parseFloat((s.performance * mult).toFixed(2)),
+    volume: s.volume,
+    topGainers: [...s.topGainers],
+    topLosers: [...s.topLosers],
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Market news fixture (NewsFeedWidget)
+// ---------------------------------------------------------------------------
+
+// Source keys cycle through real NEWS_SOURCES keys (news-source-badge.tsx)
+// so badges render branded names; indices 0 and 5 are "asx", which exercises
+// the isASXSource() highlight branch (yellow card + Megaphone icon).
+const NEWS_SOURCE_CYCLE = ["asx", "stockhead", "livewire", "afr", "smallcaps"] as const;
+const NEWS_SENTIMENT_CYCLE = ["positive", "negative", "neutral"] as const;
+
+/**
+ * Returns a GetMarketNewsResponse protobuf message — the shape served by
+ * ShortedStocksService.GetMarketNews, consumed by NewsFeedWidget (which
+ * calls it via an inline Connect client over fetch; stories stub fetch).
+ *
+ * One article per FIXTURE_STOCKS entry, in fixture order. Deterministic:
+ * - publishedAt = FIXTURE_BASE_DATE minus (index + 1) hours
+ * - sources cycle NEWS_SOURCE_CYCLE; sentiment cycles NEWS_SENTIMENT_CYCLE
+ * - every third article (indices 0, 3, 6, 9) is price-sensitive
+ * - the LAST article (index 9) has stockCode "MARKET", which the widget
+ *   renders without a stock-code link (market-wide news branch)
+ *
+ * priceSensitiveOnly filters before limit is applied, mirroring the backend.
+ * NOTE: the widget renders no timestamps, so stories stay clock-independent.
+ */
+export function marketNewsResponseFixture(
+  opts: { limit?: number; priceSensitiveOnly?: boolean } = {},
+): GetMarketNewsResponse {
+  const { limit = 10, priceSensitiveOnly = false } = opts;
+  const articles = FIXTURE_STOCKS.map((def, i) => {
+    const isMarketWide = i === FIXTURE_STOCKS.length - 1;
+    const sentiment = NEWS_SENTIMENT_CYCLE[i % NEWS_SENTIMENT_CYCLE.length]!;
+    const verb =
+      sentiment === "positive" ? "eases" : sentiment === "negative" ? "climbs" : "holds";
+    return create(NewsArticleSchema, {
+      id: `fixture-news-${i + 1}-${def.code.toLowerCase()}`,
+      stockCode: isMarketWide ? "MARKET" : def.code,
+      source: NEWS_SOURCE_CYCLE[i % NEWS_SOURCE_CYCLE.length]!,
+      headline: isMarketWide
+        ? "ASX market wrap: short interest ticks higher across materials"
+        : `${def.name} short interest ${verb} to ${def.latestShortPosition.toFixed(2)}%`,
+      url: `https://news.example.com/${i + 1}-${def.code.toLowerCase()}-short-report`,
+      publishedAt: timestampFromDate(
+        new Date(FIXTURE_BASE_DATE.getTime() - (i + 1) * 3_600_000),
+      ),
+      sentiment,
+      relevanceScore: parseFloat((1 - i * 0.05).toFixed(2)),
+      isPriceSensitive: i % 3 === 0,
+      summary: `Fixture summary for ${def.name}.`,
+    });
+  });
+  const filtered = priceSensitiveOnly
+    ? articles.filter((a) => a.isPriceSensitive)
+    : articles;
+  return create(GetMarketNewsResponseSchema, {
+    articles: filtered.slice(0, limit),
+    totalCount: filtered.length,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Screener fixture (ScreenerWidget)
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns a ScreenStocksResponse protobuf message — the shape served by the
+ * screenStocks server action, consumed by ScreenerWidget (and reusable by
+ * the full /screener page).
+ *
+ * Rows come from FIXTURE_STOCKS in order (already sorted by descending
+ * shortPct, matching the widget's SHORT_PCT/DESC request). shortPct equals
+ * latestShortPosition (percentage points; 19.4 renders "19.40%").
+ * shortPctChange4w is seeded per code in the ±2.5 pp range (renders
+ * "+X.XX%"/"-X.XX%" with red/green colouring). Secondary fields are seeded
+ * so the fixture also serves richer screener surfaces. totalCount is the
+ * full fixture universe regardless of limit, mirroring the backend.
+ */
+export function screenerResponseFixture(limit = 10): ScreenStocksResponse {
+  const stocks = FIXTURE_STOCKS.slice(0, limit).map((def) => {
+    const rand = mulberry32(hashStr(def.code + "_screener"));
+    const latestVolume = Math.floor(rand() * 5_000_000) + 100_000;
+    return create(ScreenerStockSchema, {
+      stockCode: def.code,
+      companyName: def.name,
+      industry: def.industry,
+      shortPct: def.latestShortPosition,
+      shortPctChange4w: parseFloat(((rand() - 0.5) * 5).toFixed(2)),
+      latestPrice: def.basePrice,
+      priceChange1m: parseFloat(((rand() - 0.5) * 10).toFixed(2)),
+      latestVolume: BigInt(latestVolume),
+      marketCap: Math.floor(def.basePrice * (rand() * 2_000_000_000 + 200_000_000)),
+      peRatio: parseFloat((rand() * 32 + 8).toFixed(1)),
+      dividendYield: parseFloat((rand() * 6).toFixed(2)),
+      daysToCover: parseFloat((rand() * 12 + 1).toFixed(1)),
+      avgVolume20d: BigInt(latestVolume),
+    });
+  });
+  return create(ScreenStocksResponseSchema, {
+    stocks,
+    totalCount: FIXTURE_STOCKS.length,
+  });
 }

@@ -86,6 +86,8 @@ the component under test exercises.**
 | `~/app/actions/getIndustryTreeMap`      | **full** (`__mocks__`) | `getIndustryTreeMap`                                          |
 | `~/app/actions/tooltip/getTooltipData`  | **full** (`__mocks__`) | `getTooltipData`                                              |
 | `~/app/actions/getStock`                | spy                   | `getStock`, `getStockOrNotFound`                              |
+| `~/app/actions/getStockData`            | spy                   | `getStockData`                                                |
+| `~/app/actions/screenStocks`            | spy                   | `screenStocks`                                                |
 | `~/app/actions/searchStocks`            | spy                   | `searchStocks`, `searchStocksClient`                          |
 | `~/@/lib/stock-data-service`            | spy                   | `getMultipleStockQuotes`, `getHistoricalData`, `getStockPrice`, plus all other exported fns |
 | `~/@/lib/client-api`                    | spy                   | `fetchStockDataClient`, `fetchStockDetailsClient`              |

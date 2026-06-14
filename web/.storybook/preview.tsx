@@ -22,6 +22,10 @@ sb.mock(import("../src/app/actions/getStockData"), { spy: true });
 // retry (all browser-safe; same import set getStock already proves out).
 // MarketWatchlistWidget's add-stock autocomplete calls searchStocksClient.
 sb.mock(import("../src/app/actions/searchStocks"), { spy: true });
+// Spy mode is safe: screenStocks imports connect-web + gen pb + React cache +
+// config + withRetry (duck-typed retry, no kv-cache) — all browser-safe.
+// ScreenerWidget fetches its rows through it.
+sb.mock(import("../src/app/actions/screenStocks"), { spy: true });
 sb.mock(import("../src/@/lib/stock-data-service"), { spy: true });
 sb.mock(import("../src/@/lib/client-api"), { spy: true });
 
@@ -46,6 +50,7 @@ import {
   searchStocks as searchStocksAction,
   searchStocksClient,
 } from "../src/app/actions/searchStocks";
+import { screenStocks } from "../src/app/actions/screenStocks";
 import {
   getMultipleStockQuotes,
   getHistoricalData,
@@ -117,6 +122,7 @@ const preview: Preview = {
     // (aliased to avoid clashing with stock-data-service's searchStocks below).
     mocked(searchStocksAction).mockImplementation(unmocked("searchStocks (app/actions/searchStocks)"));
     mocked(searchStocksClient).mockImplementation(unmocked("searchStocksClient"));
+    mocked(screenStocks).mockImplementation(unmocked("screenStocks"));
     mocked(getMultipleStockQuotes).mockImplementation(unmocked("getMultipleStockQuotes"));
     mocked(getHistoricalData).mockImplementation(unmocked("getHistoricalData"));
     mocked(getStockPrice).mockImplementation(unmocked("getStockPrice"));

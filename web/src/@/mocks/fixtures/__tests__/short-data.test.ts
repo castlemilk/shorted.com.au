@@ -9,6 +9,9 @@ import {
   searchStocksResponseFixture,
   timeSeriesDataFixture,
   correlationMatrixFixture,
+  sectorPerformanceFixture,
+  marketNewsResponseFixture,
+  screenerResponseFixture,
 } from "../short-data";
 
 describe("short-data fixtures", () => {
@@ -192,5 +195,122 @@ describe("short-data fixtures", () => {
 
     // Deterministic.
     expect(searchStocksResponseFixture("syr")).toEqual(byCode);
+  });
+});
+
+describe("sectorPerformanceFixture", () => {
+  it("returns 6 sectors with a deterministic mix of signs", () => {
+    const sectors = sectorPerformanceFixture("1w");
+    expect(sectors.map((s) => s.sector)).toEqual([
+      "Financials",
+      "Materials",
+      "Healthcare",
+      "Consumer Staples",
+      "Energy",
+      "Technology",
+    ]);
+    // Mix of signs so the pie shows both badge variants and the heatmap
+    // shows both green and red tiles.
+    expect(sectors.some((s) => s.performance > 0)).toBe(true);
+    expect(sectors.some((s) => s.performance < 0)).toBe(true);
+    for (const s of sectors) {
+      expect(s.volume).toBeGreaterThan(0);
+      expect(s.topGainers).toHaveLength(2);
+      expect(s.topLosers).toHaveLength(2);
+    }
+    // Deterministic.
+    expect(sectorPerformanceFixture("1w")).toEqual(sectors);
+  });
+
+  it("scales magnitudes by period and falls back to 1w for unknown periods", () => {
+    const day = sectorPerformanceFixture("1d");
+    const week = sectorPerformanceFixture("1w");
+    const quarter = sectorPerformanceFixture("3m");
+    for (let i = 0; i < week.length; i++) {
+      expect(Math.abs(day[i]!.performance)).toBeLessThan(
+        Math.abs(week[i]!.performance),
+      );
+      expect(Math.abs(quarter[i]!.performance)).toBeGreaterThan(
+        Math.abs(week[i]!.performance),
+      );
+      // Sign is stable across periods.
+      expect(Math.sign(day[i]!.performance)).toBe(Math.sign(week[i]!.performance));
+    }
+    expect(sectorPerformanceFixture("bogus")).toEqual(week);
+  });
+});
+
+describe("marketNewsResponseFixture", () => {
+  it("returns 10 deterministic articles with one MARKET-wide entry", () => {
+    const res = marketNewsResponseFixture();
+    expect(res.articles).toHaveLength(10);
+    expect(res.totalCount).toBe(10);
+    // First article: PLS from the asx source (exercises the isASXSource
+    // highlight branch in the widget).
+    expect(res.articles[0]!.stockCode).toBe("PLS");
+    expect(res.articles[0]!.source).toBe("asx");
+    expect(res.articles[0]!.isPriceSensitive).toBe(true);
+    // Exactly one market-wide article, and it is the last one.
+    const market = res.articles.filter((a) => a.stockCode === "MARKET");
+    expect(market).toHaveLength(1);
+    expect(res.articles[9]!.stockCode).toBe("MARKET");
+    // Sentiments come from the known cycle.
+    for (const a of res.articles) {
+      expect(["positive", "negative", "neutral"]).toContain(a.sentiment);
+      expect(a.url).toMatch(/^https:\/\/news\.example\.com\//);
+      expect(a.publishedAt).toBeDefined();
+    }
+    // Deterministic.
+    expect(marketNewsResponseFixture()).toEqual(res);
+  });
+
+  it("filters price-sensitive before applying limit", () => {
+    const sensitive = marketNewsResponseFixture({ priceSensitiveOnly: true });
+    // Indices 0, 3, 6, 9 are price-sensitive.
+    expect(sensitive.articles).toHaveLength(4);
+    expect(sensitive.totalCount).toBe(4);
+    expect(sensitive.articles.every((a) => a.isPriceSensitive)).toBe(true);
+
+    const limited = marketNewsResponseFixture({ limit: 3 });
+    expect(limited.articles).toHaveLength(3);
+    expect(limited.totalCount).toBe(10);
+    expect(limited.articles.map((a) => a.stockCode)).toEqual([
+      "PLS",
+      "SYR",
+      "IEL",
+    ]);
+  });
+});
+
+describe("screenerResponseFixture", () => {
+  it("returns rows ordered by descending shortPct with seeded 4w change", () => {
+    const res = screenerResponseFixture();
+    expect(res.stocks).toHaveLength(10);
+    expect(res.totalCount).toBe(10);
+    expect(res.stocks[0]!.stockCode).toBe("PLS");
+    expect(res.stocks[0]!.shortPct).toBe(19.4);
+    const pcts = res.stocks.map((s) => s.shortPct);
+    expect([...pcts].sort((a, b) => b - a)).toEqual(pcts);
+    for (const s of res.stocks) {
+      // Documented ±2.5 pp range, 2 dp.
+      expect(Math.abs(s.shortPctChange4w)).toBeLessThanOrEqual(2.5);
+      expect(s.companyName).not.toBe("");
+      expect(s.latestPrice).toBeGreaterThan(0);
+      expect(s.latestVolume).toBeGreaterThan(0n);
+    }
+    // Deterministic.
+    expect(screenerResponseFixture()).toEqual(res);
+  });
+
+  it("honours limit while keeping the full-universe totalCount", () => {
+    const res = screenerResponseFixture(5);
+    expect(res.stocks.map((s) => s.stockCode)).toEqual([
+      "PLS",
+      "SYR",
+      "IEL",
+      "LTR",
+      "FLT",
+    ]);
+    expect(res.totalCount).toBe(10);
   });
 });
