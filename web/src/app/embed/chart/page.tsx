@@ -4,12 +4,18 @@ import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 
-const Chart = dynamic(() => import("~/@/components/ui/chart"), {
-  ssr: false,
-  loading: () => (
-    <div className="h-[400px] w-full bg-muted animate-pulse rounded" />
-  ),
-});
+const ShortChartEmbed = dynamic(
+  () =>
+    import("~/@/components/charts/ShortChartEmbed").then(
+      (m) => m.ShortChartEmbed,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[400px] w-full bg-muted animate-pulse rounded" />
+    ),
+  },
+);
 
 function EmbedChartInner() {
   const searchParams = useSearchParams();
@@ -20,9 +26,7 @@ function EmbedChartInner() {
       <h2 className="text-sm font-semibold mb-2">
         {code} Short Position History
       </h2>
-      <div className="h-[400px]">
-        <Chart stockCode={code} />
-      </div>
+      <ShortChartEmbed stockCode={code} height={400} />
     </div>
   );
 }
