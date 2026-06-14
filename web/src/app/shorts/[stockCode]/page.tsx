@@ -385,9 +385,13 @@ const Page = async ({ params }: PageProps) => {
                 __html: JSON.stringify(corporationSchema),
               }}
             />
+            {/* Crawler/LLM summary — kept in the SSR DOM for SEO + AI bots but
+                visually hidden (sr-only, not display:none, so it stays indexed
+                and in the a11y tree). The same facts are shown visibly below in
+                CompanyProfile / CompanyStats / the chart. */}
             <section
               aria-label={`${stockCode} short interest summary`}
-              className="mb-4 rounded-lg border bg-card p-4 md:p-5"
+              className="sr-only"
             >
               <h1 className="text-xl md:text-2xl font-bold tracking-tight">
                 {companyName} ({stockCode}) Short Interest
