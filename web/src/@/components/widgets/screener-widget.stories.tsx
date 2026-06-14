@@ -44,8 +44,8 @@ const signedPct = (value: number) =>
 /** Honour the widget's requested limit so Compact really gets 5 rows. */
 const resolveFixture = () => {
   mocked(screenStocks).mockImplementation(
-    // React's cache() wrapper erases the parameter tuple, so args arrive as
-    // unknown — narrow the limit before handing it to the fixture.
+    // The spy replaces the whole cache()-wrapped export, so the mock receives
+    // the widget's real call args; narrow `limit` defensively before using it.
     (_filters, _sortField, _sortDirection, limit) =>
       Promise.resolve(
         screenerResponseFixture(typeof limit === "number" ? limit : 10),
