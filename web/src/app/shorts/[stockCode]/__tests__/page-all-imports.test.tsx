@@ -97,13 +97,13 @@ describe("Page Component Imports - All Components", () => {
   it("should import all UI components", async () => {
     const [
       CardModule,
-      StockPriceShortChartModule,
+      StockChartPanelModule,
       CompanyInfoModule,
       CompanyProfileModule,
       CompanyStatsModule,
     ] = await Promise.all([
       import("~/@/components/ui/card"),
-      import("~/@/components/charts/StockPriceShortChart"),
+      import("~/@/components/charts/StockChartPanel"),
       import("~/@/components/ui/companyInfo"),
       import("~/@/components/ui/companyProfile"),
       import("~/@/components/ui/companyStats"),
@@ -115,8 +115,8 @@ describe("Page Component Imports - All Components", () => {
     expect(CardModule.CardContent).toBeDefined();
     expect(CardModule.CardDescription).toBeDefined();
 
-    expect(StockPriceShortChartModule.StockPriceShortChart).toBeDefined();
-    expect(typeof StockPriceShortChartModule.StockPriceShortChart).toBe("function");
+    expect(StockChartPanelModule.StockChartPanel).toBeDefined();
+    expect(typeof StockChartPanelModule.StockChartPanel).toBe("function");
 
     expect(CompanyInfoModule.default).toBeDefined();
     expect(CompanyInfoModule.CompanyInfoPlaceholder).toBeDefined();
@@ -138,7 +138,7 @@ describe("Page Component Imports - All Components", () => {
   it("should import all components exactly as page.tsx does", async () => {
     // Import exactly as page.tsx does
     const [
-      StockPriceShortChart,
+      StockChartPanel,
       CompanyProfile,
       CompanyProfilePlaceholder,
       CompanyStats,
@@ -157,7 +157,7 @@ describe("Page Component Imports - All Components", () => {
       CardHeader,
       CardTitle,
     ] = await Promise.all([
-      import("~/@/components/charts/StockPriceShortChart").then(m => m.StockPriceShortChart),
+      import("~/@/components/charts/StockChartPanel").then(m => m.StockChartPanel),
       import("~/@/components/ui/companyProfile").then(m => m.default),
       import("~/@/components/ui/companyProfile").then(m => m.CompanyProfilePlaceholder),
       import("~/@/components/ui/companyStats").then(m => m.default),
@@ -179,7 +179,7 @@ describe("Page Component Imports - All Components", () => {
 
     // Verify none are undefined
     const components = {
-      StockPriceShortChart,
+      StockChartPanel,
       CompanyProfile,
       CompanyProfilePlaceholder,
       CompanyStats,
