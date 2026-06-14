@@ -120,7 +120,8 @@ export function fromMultiSeries(data: MultiSeriesInput): FromMultiSeriesResult {
 
   const series: ChartSeriesSpec[] = data.series.map((s) => ({
     id: seriesId(s),
-    label: s.stockCode,
+    // Market series carry a "PRICE:" prefix on their stockCode; strip it for display.
+    label: s.stockCode.replace(/^PRICE:/, ""),
     color: s.color,
     axis:
       hasDualAxis && s.seriesType === "market"
