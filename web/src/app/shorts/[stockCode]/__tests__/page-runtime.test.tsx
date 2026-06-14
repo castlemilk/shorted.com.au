@@ -32,13 +32,13 @@ describe("Stock Detail Page Runtime Imports", () => {
       CompanyInfoModule,
       CompanyProfileModule,
       CompanyStatsModule,
-      StockPriceShortChartModule,
+      StockChartPanelModule,
       EnrichedCompanySectionModule,
     ] = await Promise.all([
       import("~/@/components/ui/companyInfo"),
       import("~/@/components/ui/companyProfile"),
       import("~/@/components/ui/companyStats"),
-      import("~/@/components/charts/StockPriceShortChart"),
+      import("~/@/components/charts/StockChartPanel"),
       import("~/@/components/company/enriched-company-section"),
     ]);
 
@@ -52,8 +52,8 @@ describe("Stock Detail Page Runtime Imports", () => {
     expect(CompanyStatsModule.default).toBeDefined();
     expect(typeof CompanyStatsModule.default).toBe("function");
     
-    expect(StockPriceShortChartModule.StockPriceShortChart).toBeDefined();
-    expect(typeof StockPriceShortChartModule.StockPriceShortChart).toBe("function");
+    expect(StockChartPanelModule.StockChartPanel).toBeDefined();
+    expect(typeof StockChartPanelModule.StockChartPanel).toBe("function");
 
     // Verify named exports exist
     expect(CompanyInfoModule.CompanyInfoPlaceholder).toBeDefined();

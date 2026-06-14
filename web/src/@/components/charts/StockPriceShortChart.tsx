@@ -1,13 +1,11 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { useShortTimeSeries, useHistoricalData } from "@/hooks/use-stock-queries";
 import { cn } from "@/lib/utils";
 import { StockChart } from "./StockChart";
 import { seriesColor } from "./chart-theme";
-import { shortSeriesToPoints, historicalToPoints, mergeByDay } from "./adapters";
-import { pearson } from "./correlation";
 import { calculateSMA } from "./indicators";
+import { useStockChartData } from "./use-stock-chart-data";
 import type { ChartSeriesSpec, SeriesIndicator } from "./types";
 
 const PERIODS = ["1m", "3m", "6m", "1y", "2y", "max"] as const;
@@ -72,14 +70,8 @@ export function StockPriceShortChart({
   const [showVolume, setShowVolume] = useState(true);
   const [showMA, setShowMA] = useState(false);
 
-  const shortQ = useShortTimeSeries(stockCode, period);
-  const histQ = useHistoricalData(stockCode, period);
-
-  const short = useMemo(() => shortSeriesToPoints(shortQ.data), [shortQ.data]);
-  const { price, volume } = useMemo(
-    () => historicalToPoints(histQ.data),
-    [histQ.data],
-  );
+  const { short, price, volume, correlation, anyLoading, isError } =
+    useStockChartData(stockCode, period);
 
   const series = useMemo(() => {
     const arr: ChartSeriesSpec[] = [];
@@ -120,18 +112,6 @@ export function StockPriceShortChart({
     ];
   }, [showMA, showPrice, price, stockCode]);
 
-  const correlation = useMemo(() => {
-    const merged = mergeByDay(price, short);
-    if (merged.length < 3) return null;
-    return pearson(
-      merged.map((m) => m.a),
-      merged.map((m) => m.b),
-    );
-  }, [price, short]);
-
-  const anyLoading = shortQ.isLoading || histQ.isLoading;
-  // Error card only when BOTH fail (one success → render the partial series).
-  const isError = shortQ.isError && histQ.isError;
   const hasData = series.length > 0;
 
   return (

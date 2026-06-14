@@ -2,10 +2,10 @@ import dynamic from "next/dynamic";
 import { type Metadata } from "next";
 // Consolidated per-stock chart (price + short interest, dual-axis, volume, brush).
 // Client-only: uses Connect-RPC + market-data hooks.
-const StockPriceShortChart = dynamic(
+const StockChartPanel = dynamic(
   () =>
-    import("~/@/components/charts/StockPriceShortChart").then(
-      (m) => m.StockPriceShortChart,
+    import("~/@/components/charts/StockChartPanel").then(
+      (m) => m.StockChartPanel,
     ),
   {
     ssr: false,
@@ -412,26 +412,6 @@ const Page = async ({ params }: PageProps) => {
                   </>
                 )}
               </p>
-              <dl className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                <div>
-                  <dt className="text-muted-foreground">Short interest</dt>
-                  <dd className="font-semibold text-base">
-                    {shortPct > 0 ? `${shortPct.toFixed(2)}%` : "—"}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Reported positions</dt>
-                  <dd className="font-semibold text-base">{positionsDisplay}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Industry</dt>
-                  <dd className="font-semibold text-base">{industry || "—"}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">As of</dt>
-                  <dd className="font-semibold text-base">{asOfDisplay}</dd>
-                </div>
-              </dl>
               <p className="mt-4 text-xs text-muted-foreground">
                 Source: official ASIC short position report, T+4 delay.{" "}
                 <a href="/methodology" className="underline hover:no-underline">
@@ -447,17 +427,6 @@ const Page = async ({ params }: PageProps) => {
           </>
         );
       })()}
-
-      {/* SSR history summary + FAQ — crawlable trend facts (30d/90d/1y,
-          all-time extremes, rank). Suspense keeps it off the critical path. */}
-      {stock && (stock.percentageShorted ?? 0) > 0 && (
-        <Suspense fallback={null}>
-          <ShortInterestHistory
-            stockCode={stockCode}
-            companyName={stock.name || stockCode}
-          />
-        </Suspense>
-      )}
 
       <div className="mb-4">
         <Breadcrumbs items={breadcrumbItems} />
@@ -516,9 +485,34 @@ const Page = async ({ params }: PageProps) => {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-2">
-                  <StockPriceShortChart stockCode={stockCode} />
+                  <StockChartPanel stockCode={stockCode} />
                 </CardContent>
               </Card>
+
+              {/* SSR short-interest history + FAQ — crawlable trend facts, moved
+                  here from above the breadcrumb. Native <details open> keeps the
+                  content in the DOM (crawlable) whether expanded or collapsed. */}
+              {stock && (stock.percentageShorted ?? 0) > 0 && (
+                <details
+                  open
+                  className="group rounded-lg border bg-card [&_summary::-webkit-details-marker]:hidden"
+                >
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium">
+                    Short interest history &amp; FAQ
+                    <span className="text-muted-foreground transition-transform group-open:rotate-180">
+                      ▾
+                    </span>
+                  </summary>
+                  <div className="border-t px-4 py-3">
+                    <Suspense fallback={null}>
+                      <ShortInterestHistory
+                        stockCode={stockCode}
+                        companyName={stock.name || stockCode}
+                      />
+                    </Suspense>
+                  </div>
+                </details>
+              )}
 
               <CommunityOverviewTeaser
                 stockCode={stockCode}
