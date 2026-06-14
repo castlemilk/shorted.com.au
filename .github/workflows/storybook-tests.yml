@@ -20,6 +20,12 @@ concurrency:
   group: storybook-${{ github.ref }}
   cancel-in-progress: true
 
+# Storybook mocks all data modules, so no real backend/env is needed. Skip the
+# t3-env validation (src/env.js) that otherwise fails the build/test in CI where
+# the local .env vars are absent.
+env:
+  SKIP_ENV_VALIDATION: "1"
+
 jobs:
   interaction:
     name: Interaction tests (Vitest)
