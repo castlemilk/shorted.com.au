@@ -2,13 +2,16 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { type WidgetProps } from "~/@/types/dashboard";
-import ParentSize from "@visx/responsive/lib/components/ParentSize";
-import MultiSeriesChart, {
+import {
+  StockChart,
   type HandleBrushClearAndReset,
-  type MultiSeriesChartData,
-  type ChartSeries,
-  type IndicatorOverlay,
-} from "~/@/components/ui/multi-series-chart";
+} from "~/@/components/charts";
+import {
+  fromMultiSeries,
+  type MultiSeriesInput,
+  type MultiSeriesSeries,
+  type MultiSeriesIndicator,
+} from "~/@/components/charts/from-multi-series";
 import { Button } from "~/@/components/ui/button";
 import { Badge } from "~/@/components/ui/badge";
 import { Skeleton } from "~/@/components/ui/skeleton";
@@ -80,12 +83,12 @@ const getShortsColor = (index: number): string => {
   return shortsColors[index % shortsColors.length] ?? "#ef4444";
 };
 
-// Transform market data to ChartSeries format
+// Transform market data to series format
 const transformMarketDataToSeries = (
   code: string,
   data: HistoricalDataPoint[],
   index: number,
-): ChartSeries | null => {
+): MultiSeriesSeries | null => {
   if (!data || data.length === 0) return null;
 
   return {
@@ -245,8 +248,8 @@ export function StockChartWidget({ config, onSettingsChange }: WidgetProps) {
   }, [stocks, period, dataTypes]);
 
   // Build chart data
-  const chartData = useMemo<MultiSeriesChartData>(() => {
-    const series: ChartSeries[] = [];
+  const chartData = useMemo<MultiSeriesInput>(() => {
+    const series: MultiSeriesSeries[] = [];
     const hasDualAxis =
       dataTypes.includes("shorts") && dataTypes.includes("market");
 
@@ -275,7 +278,9 @@ export function StockChartWidget({ config, onSettingsChange }: WidgetProps) {
             seriesType: "shorts" as const,
           };
         })
-        .filter((s): s is ChartSeries & { seriesType: "shorts" } => s !== null);
+        .filter(
+          (s): s is MultiSeriesSeries & { seriesType: "shorts" } => s !== null,
+        );
       series.push(...shortsSeries);
     }
 
@@ -287,13 +292,13 @@ export function StockChartWidget({ config, onSettingsChange }: WidgetProps) {
           if (!data || data.length === 0) return null;
           return transformMarketDataToSeries(code, data, index);
         })
-        .filter((s): s is ChartSeries => s !== null)
+        .filter((s): s is MultiSeriesSeries => s !== null)
         .map((s) => ({ ...s, seriesType: "market" as const }));
       series.push(...marketSeries);
     }
 
     // Calculate indicators based on data source
-    const indicatorOverlays: IndicatorOverlay[] = indicators
+    const indicatorOverlays: MultiSeriesIndicator[] = indicators
       .filter((ind) => ind.enabled !== false)
       .map((ind) => {
         // Determine which data source to use
@@ -757,16 +762,24 @@ export function StockChartWidget({ config, onSettingsChange }: WidgetProps) {
             </div>
           </div>
         ) : (
-          <ParentSize className="min-w-0">
-            {({ width, height }) => (
-              <MultiSeriesChart
-                ref={chartRef}
-                data={chartData}
-                width={width}
-                height={Math.max(height, 300)}
-              />
-            )}
-          </ParentSize>
+          <StockChart
+            ref={chartRef}
+            {...fromMultiSeries(chartData)}
+            leftAxis={{
+              side: "left",
+              format: (v) =>
+                viewMode === "normalized"
+                  ? `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`
+                  : `${v.toFixed(2)}%`,
+            }}
+            rightAxis={
+              chartData.hasDualAxis
+                ? { side: "right", format: (v) => formatPrice(v) }
+                : undefined
+            }
+            showBrush
+            height={300}
+          />
         )}
       </div>
 

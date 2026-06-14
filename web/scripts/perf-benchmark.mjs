@@ -34,7 +34,16 @@ function parseArgs(argv) {
   return args;
 }
 
-const PAGES = ["/", "/dashboards"];
+// A real stock code renders the consolidated price+short chart on /shorts/<code>.
+// Override with --code, or the whole list with --pages "/,/shorts/BHP".
+const STOCK_CODE = process.argv.includes("--code")
+  ? process.argv[process.argv.indexOf("--code") + 1]
+  : "BHP";
+const PAGES = (() => {
+  const i = process.argv.indexOf("--pages");
+  if (i >= 0 && process.argv[i + 1]) return process.argv[i + 1].split(",");
+  return ["/", "/dashboards", `/shorts/${STOCK_CODE}`];
+})();
 const SETTLE_MS = 4000; // let LCP/CLS settle + hydration finish
 
 // Metrics where "bigger is worse" (used for regression flagging).

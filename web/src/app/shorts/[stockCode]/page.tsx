@@ -1,10 +1,19 @@
 import dynamic from "next/dynamic";
 import { type Metadata } from "next";
-import { MarketChartSkeleton } from "~/@/components/ui/market-chart";
-const MarketChart = dynamic(() => import("~/@/components/ui/market-chart"), {
-  ssr: false,
-  loading: () => <MarketChartSkeleton withMenu={true} />,
-});
+// Consolidated per-stock chart (price + short interest, dual-axis, volume, brush).
+// Client-only: uses Connect-RPC + market-data hooks.
+const StockPriceShortChart = dynamic(
+  () =>
+    import("~/@/components/charts/StockPriceShortChart").then(
+      (m) => m.StockPriceShortChart,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[420px] animate-pulse rounded-lg bg-muted/40" />
+    ),
+  },
+);
 import CompanyProfile, {
   CompanyProfilePlaceholder,
 } from "~/@/components/ui/companyProfile";
@@ -26,11 +35,6 @@ const StockTabs = dynamic(
   () => import("~/@/components/company/stock-tabs").then((m) => m.StockTabs),
   { ssr: false }
 );
-// Client-only: uses fetchStockDataClient (Connect-RPC) + market-data API.
-const ShortPriceOverlay = dynamic(
-  () => import("~/@/components/company/short-price-overlay").then((m) => m.ShortPriceOverlay),
-  { ssr: false }
-);
 import { Suspense } from "react";
 import {
   Breadcrumbs,
@@ -45,7 +49,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/@/components/ui/card";
-import { TrendingDown, CandlestickChart } from "lucide-react";
+import { CandlestickChart } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { RelatedStocks } from "~/@/components/seo/related-stocks";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
@@ -198,11 +202,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 // ISR: revalidate daily. On-demand revalidation via /api/revalidate?scope=all after daily sync.
 export const revalidate = 86400;
-
-const Chart = dynamic(() => import("~/@/components/ui/chart"), {
-  ssr: false,
-  loading: () => <ChartSkeleton />,
-});
 
 const Page = async ({ params }: PageProps) => {
   const { stockCode: rawStockCode } = await params;
@@ -501,25 +500,23 @@ const Page = async ({ params }: PageProps) => {
             </div>
 
             <div className="md:col-span-2 flex flex-col gap-4 md:gap-6">
-              {/* Short Position Trends */}
-              <Card className="border-l-4 border-l-red-500 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
-                <CardHeader className="pb-4 bg-gradient-to-r from-red-50/50 to-transparent dark:from-red-950/20 dark:to-transparent">
+              {/* Price & Short Interest — consolidated dual-axis chart */}
+              <Card className="border-l-4 border-l-primary shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <CardHeader className="pb-4 bg-gradient-to-r from-primary/5 to-transparent">
                   <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-red-100 dark:bg-red-900/40 rounded-lg shadow-sm">
-                      <TrendingDown className="h-6 w-6 text-red-600 dark:text-red-400" />
+                    <div className="p-2.5 bg-primary/10 rounded-lg shadow-sm">
+                      <CandlestickChart className="h-6 w-6 text-primary" />
                     </div>
                     <div className="flex-1">
-                      <CardTitle className="text-xl text-red-900 dark:text-red-100">
-                        Short Position Trends
-                      </CardTitle>
+                      <CardTitle className="text-xl">Price &amp; Short Interest</CardTitle>
                       <CardDescription className="mt-1.5 text-sm">
-                        Track bearish sentiment and short interest over time
+                        Price, short interest, and volume over time — toggle series, zoom, and compare
                       </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-2">
-                  <Chart stockCode={stockCode} />
+                  <StockPriceShortChart stockCode={stockCode} />
                 </CardContent>
               </Card>
 
@@ -527,31 +524,6 @@ const Page = async ({ params }: PageProps) => {
                 stockCode={stockCode}
                 summary={communitySummary}
               />
-
-              {/* Price vs Short Interest overlay — dual-axis visualization */}
-              <ShortPriceOverlay stockCode={stockCode} />
-
-              {/* Historical Price Data */}
-              <Card className="border-l-4 border-l-blue-500 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
-                <CardHeader className="pb-4 bg-gradient-to-r from-blue-50/50 to-transparent dark:from-blue-950/20 dark:to-transparent">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-blue-100 dark:bg-blue-900/40 rounded-lg shadow-sm">
-                      <CandlestickChart className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-xl text-blue-900 dark:text-blue-100">
-                        Historical Price Data
-                      </CardTitle>
-                      <CardDescription className="mt-1.5 text-sm">
-                        View stock price movements, volume, and trading patterns
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-2">
-                  <MarketChart stockCode={stockCode} />
-                </CardContent>
-              </Card>
 
               {/* Enriched Company Insights (reports shown in Financials tab) */}
               <EnrichedCompanySection stockCode={stockCode} hideReports />
@@ -579,22 +551,3 @@ const Page = async ({ params }: PageProps) => {
 };
 
 export default Page;
-
-const ChartSkeleton = () => (
-  <div className="grid">
-    <div className="flex flex-row-reverse">
-      <div className="flex">
-        <div className="h-10 w-[60px] ml-2 rounded bg-muted animate-pulse" />
-        <div className="h-10 w-[60px] ml-2 rounded bg-muted animate-pulse" />
-      </div>
-      <div className="flex space-x-2">
-        {Array.from({ length: 8 }).map((_, idx) => (
-          <div key={idx} className="h-10 w-12 rounded bg-muted animate-pulse" />
-        ))}
-      </div>
-    </div>
-    <div>
-      <div className="h-[500px] min-h-[500px] w-full mt-2 rounded bg-muted animate-pulse" />
-    </div>
-  </div>
-);

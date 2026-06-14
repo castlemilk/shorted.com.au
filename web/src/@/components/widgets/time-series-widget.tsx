@@ -2,13 +2,16 @@
 
 import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { type WidgetProps } from "~/@/types/dashboard";
-import { ParentSize } from "@visx/responsive";
-import MultiSeriesChart, {
+import {
+  StockChart,
   type HandleBrushClearAndReset,
-  type MultiSeriesChartData,
-  type ChartSeries,
-  type IndicatorOverlay,
-} from "~/@/components/ui/multi-series-chart";
+} from "~/@/components/charts";
+import {
+  fromMultiSeries,
+  type MultiSeriesInput,
+  type MultiSeriesSeries,
+  type MultiSeriesIndicator,
+} from "~/@/components/charts/from-multi-series";
 import { getStockData } from "~/app/actions/getStockData";
 import {
   type TimeSeriesData,
@@ -103,8 +106,8 @@ export function TimeSeriesWidget({ config, onSettingsChange }: WidgetProps) {
   }, [stocks, period]);
 
   // Build chart data
-  const chartData = useMemo<MultiSeriesChartData>(() => {
-    const series: ChartSeries[] = [];
+  const chartData = useMemo<MultiSeriesInput>(() => {
+    const series: MultiSeriesSeries[] = [];
 
     stocks.forEach((code, index) => {
       const data = stockData.get(code);
@@ -125,7 +128,7 @@ export function TimeSeriesWidget({ config, onSettingsChange }: WidgetProps) {
     });
 
     // Calculate indicators
-    const indicatorOverlays: IndicatorOverlay[] = indicators
+    const indicatorOverlays: MultiSeriesIndicator[] = indicators
       .filter((ind) => ind.enabled !== false)
       .map((ind) => {
         const seriesData = series.find((s) => s.stockCode === ind.stockCode);
@@ -444,16 +447,19 @@ export function TimeSeriesWidget({ config, onSettingsChange }: WidgetProps) {
             </div>
           </div>
         ) : (
-          <ParentSize className="min-w-0">
-            {({ width, height }) => (
-              <MultiSeriesChart
-                ref={chartRef}
-                data={chartData}
-                width={width}
-                height={Math.max(height, 250)}
-              />
-            )}
-          </ParentSize>
+          <StockChart
+            ref={chartRef}
+            {...fromMultiSeries(chartData)}
+            leftAxis={{
+              side: "left",
+              format: (v) =>
+                viewMode === "normalized"
+                  ? `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`
+                  : `${v.toFixed(2)}%`,
+            }}
+            showBrush
+            height={250}
+          />
         )}
       </div>
 
