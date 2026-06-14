@@ -129,7 +129,8 @@ export function StockPriceShortChart({
     );
   }, [price, short]);
 
-  const isLoading = shortQ.isLoading && histQ.isLoading;
+  const anyLoading = shortQ.isLoading || histQ.isLoading;
+  // Error card only when BOTH fail (one success → render the partial series).
   const isError = shortQ.isError && histQ.isError;
   const hasData = series.length > 0;
 
@@ -152,7 +153,7 @@ export function StockPriceShortChart({
           </Toggle>
         </div>
         <div className="flex items-center gap-2">
-          {correlation != null && (
+          {correlation != null && showPrice && showShort && (
             <span
               className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground"
               title="Pearson correlation between price and short interest over the selected period"
@@ -190,13 +191,7 @@ export function StockPriceShortChart({
         >
           Unable to load chart data. Please try again later.
         </div>
-      ) : isLoading || !hasData ? (
-        <div
-          className="animate-pulse rounded-lg bg-muted/40"
-          style={{ height }}
-          aria-label="Loading chart"
-        />
-      ) : (
+      ) : hasData ? (
         <StockChart
           series={series}
           volume={showVolume ? volume : undefined}
@@ -205,6 +200,19 @@ export function StockPriceShortChart({
           rightAxis={{ side: "right", format: shortFmt }}
           height={height}
         />
+      ) : anyLoading ? (
+        <div
+          className="animate-pulse rounded-lg bg-muted/40"
+          style={{ height }}
+          aria-label="Loading chart"
+        />
+      ) : (
+        <div
+          className="flex items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground"
+          style={{ height }}
+        >
+          No chart data available for {stockCode} in this period.
+        </div>
       )}
     </div>
   );

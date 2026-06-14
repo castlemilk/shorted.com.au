@@ -96,26 +96,49 @@ export function TooltipContent({
   return (
     <div style={{ color: chartTheme.tooltipFg, fontSize: 12, lineHeight: 1.4 }}>
       <div style={{ opacity: 0.7, marginBottom: 4 }}>{dateLabel}</div>
-      {hover.entries.map((e) => (
-        <div
-          key={e.series.id}
-          style={{ display: "flex", alignItems: "center", gap: 6 }}
-        >
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: 9999,
-              background: e.series.color,
-              display: "inline-block",
-            }}
-          />
-          <span style={{ opacity: 0.8 }}>{e.series.label}</span>
-          <span style={{ marginLeft: "auto", fontVariantNumeric: "tabular-nums" }}>
-            {fmt(e)}
-          </span>
-        </div>
-      ))}
+      {hover.entries.map((e) => {
+        const p = e.point;
+        const hasOHLC =
+          p.open != null && p.high != null && p.low != null && p.close != null;
+        return (
+          <div key={e.series.id} style={{ marginBottom: 2 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 9999,
+                  background: e.series.color,
+                  display: "inline-block",
+                }}
+              />
+              <span style={{ opacity: 0.8 }}>{e.series.label}</span>
+              <span style={{ marginLeft: "auto", fontVariantNumeric: "tabular-nums" }}>
+                {fmt(e)}
+              </span>
+            </div>
+            {hasOHLC && (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "0 10px",
+                  paddingLeft: 14,
+                  marginTop: 2,
+                  opacity: 0.65,
+                  fontSize: 11,
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                <span>O {p.open!.toFixed(2)}</span>
+                <span>H {p.high!.toFixed(2)}</span>
+                <span>L {p.low!.toFixed(2)}</span>
+                <span>C {p.close!.toFixed(2)}</span>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -456,6 +456,17 @@ function OscillatorPanel({
           strokeOpacity={0.6}
         />
       ))}
+      {(osc.extraLines ?? []).map((ln, i) => (
+        <IndicatorPath
+          key={i}
+          points={points}
+          values={refIndices.map((idx) => ln.values[idx] ?? null)}
+          xScale={xScale}
+          yScale={yScale}
+          color={ln.color}
+          dash={ln.dash}
+        />
+      ))}
       <IndicatorPath
         points={points}
         values={oscValues}

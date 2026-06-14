@@ -161,15 +161,22 @@ export function fromMultiSeries(data: MultiSeriesInput): FromMultiSeriesResult {
 
     if (isOscillator(ind.config.type)) {
       const { reference, domain } = oscillatorAxis(ind.config.type);
-      // Stochastic exposes %K (primary) and %D in the oscillator panel; the
-      // core renders a single oscillator line, so prefer %K (primary values).
+      const mo = ind.multiOutput;
+      // Secondary lines: STOCH %D (signal), ADX +DI/-DI. Dashed/colored to
+      // distinguish from the primary line.
+      const extraLines: { values: (number | null)[]; color: string; dash?: string }[] = [];
+      if (mo?.percentD) extraLines.push({ values: mo.percentD, color: "#f59e0b", dash: "4,3" });
+      if (mo?.plusDI) extraLines.push({ values: mo.plusDI, color: "#10b981" });
+      if (mo?.minusDI) extraLines.push({ values: mo.minusDI, color: "#ef4444" });
       oscillators.push({
         id: indicatorId(ind.config),
         label: indicatorLabel(ind.config),
         color: ind.config.color,
-        values: ind.values,
+        // For STOCH, the primary line is %K (percentK); fall back to values.
+        values: mo?.percentK ?? ind.values,
         reference,
         domain,
+        extraLines: extraLines.length ? extraLines : undefined,
       });
       continue;
     }

@@ -27,6 +27,29 @@ function config(over: Partial<IndicatorConfig> = {}): IndicatorConfig {
 }
 
 describe("fromMultiSeries", () => {
+  it("maps STOCH %D into oscillator extraLines (parity with legacy)", () => {
+    const input: MultiSeriesInput = {
+      viewMode: "absolute",
+      showOscillatorPanel: true,
+      series: [{ stockCode: "CBA", color: "#f00", points: points(10), seriesType: "shorts" }],
+      indicators: [
+        {
+          config: config({ type: "STOCH", period: 14 }),
+          values: Array(10).fill(50),
+          multiOutput: {
+            primary: Array(10).fill(50),
+            percentK: Array(10).fill(50),
+            percentD: Array(10).fill(55),
+          },
+        },
+      ],
+    };
+    const { oscillators } = fromMultiSeries(input);
+    expect(oscillators).toHaveLength(1);
+    expect(oscillators[0]!.values).toEqual(Array(10).fill(50)); // %K primary
+    expect(oscillators[0]!.extraLines?.[0]?.values).toEqual(Array(10).fill(55)); // %D
+  });
+
   it("maps legacy points (Date) to {t,v} epoch-ms points", () => {
     const input: MultiSeriesInput = {
       viewMode: "absolute",

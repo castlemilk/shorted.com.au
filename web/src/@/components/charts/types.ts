@@ -1,5 +1,12 @@
-/** A single chart datum: epoch milliseconds + value. */
-export type ChartPoint = { t: number; v: number };
+/** A single chart datum: epoch milliseconds + value (+ optional OHLC for price tooltips). */
+export type ChartPoint = {
+  t: number;
+  v: number;
+  open?: number;
+  high?: number;
+  low?: number;
+  close?: number;
+};
 
 /**
  * One renderable series. `points` are raw (pre-decimation), ascending by `t`.
@@ -50,6 +57,8 @@ export interface OscillatorSpec {
   dash?: string;
   reference?: number[]; // horizontal guide levels (e.g. [30, 50, 70])
   domain?: [number, number]; // default [0, 100]
+  /** Additional lines on the same panel (e.g. STOCH %D, ADX +DI/-DI). */
+  extraLines?: { values: (number | null)[]; color: string; dash?: string }[];
 }
 
 export interface StockChartProps {
