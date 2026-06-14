@@ -22,7 +22,8 @@ export interface HoverEntry {
   point: ChartPoint;
 }
 export interface HoverState {
-  cx: number; // crosshair x (px, inner coords)
+  cx: number; // crosshair x (px, relative to the svg/container)
+  cy: number; // cursor y (px, relative to the svg/container) — tooltip follows it
   t: number; // hovered time
   entries: HoverEntry[];
 }
@@ -59,7 +60,7 @@ export function useChartPointer(opts: {
         return;
       }
       const cx = xScale(new Date(entries[0]!.point.t)) ?? innerX;
-      setHover({ cx, t, entries });
+      setHover({ cx, cy: pt.y, t, entries });
     },
     [xScale, series, marginLeft],
   );

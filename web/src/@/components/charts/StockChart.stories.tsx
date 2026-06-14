@@ -86,11 +86,59 @@ export const DualAxis: Story = {
     await waitFor(() =>
       expect(canvasElement.querySelectorAll("circle").length).toBeGreaterThanOrEqual(2),
     );
-    // Tooltip (portal) shows both series labels.
+    // Tooltip shows both series labels.
     await waitFor(() => {
       expect(document.body.textContent).toMatch(/Price/);
       expect(document.body.textContent).toMatch(/Short %/);
     });
+  },
+};
+
+// Regression: the tooltip must follow the cursor vertically (not sit at a fixed
+// top anchor). A fixed anchor detaches the tooltip from the hovered point and,
+// on scrolled/sticky-header pages, floats it above the chart entirely.
+export const TooltipTracksCursor: Story = {
+  tags: ["no-visual"], // interaction-only regression; visuals covered by DualAxis
+  args: {
+    series: [priceSeries("PLS", "6m"), shortSeries("PLS", "6m")],
+    leftAxis: { side: "left", format: priceFmt },
+    rightAxis: { side: "right", format: shortFmt },
+    height: 400,
+  },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(capture(canvasElement)).toBeTruthy());
+    const rect = capture(canvasElement);
+    const box = rect.getBoundingClientRect();
+    const tipTop = () =>
+      canvasElement
+        .querySelector("[data-chart-tooltip]")
+        ?.getBoundingClientRect().top ?? null;
+
+    fireEvent.mouseMove(rect, {
+      clientX: box.left + box.width * 0.5,
+      clientY: box.top + box.height * 0.25,
+    });
+    let highTop: number | null = null;
+    await waitFor(() => {
+      highTop = tipTop();
+      expect(highTop).not.toBeNull();
+    });
+
+    fireEvent.mouseMove(rect, {
+      clientX: box.left + box.width * 0.5,
+      clientY: box.top + box.height * 0.75,
+    });
+    await waitFor(() => {
+      const lowTop = tipTop();
+      expect(lowTop).not.toBeNull();
+      // Tooltip moved down with the cursor.
+      expect(lowTop!).toBeGreaterThan(highTop! + 20);
+    });
+    // And it stays within the chart container (never floats above it).
+    const containerTop = canvasElement
+      .querySelector("[data-chart-container]")!
+      .getBoundingClientRect().top;
+    expect(highTop!).toBeGreaterThanOrEqual(containerTop - 1);
   },
 };
 
