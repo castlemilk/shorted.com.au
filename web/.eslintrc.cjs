@@ -81,6 +81,28 @@ const config = {
   },
   overrides: [
     {
+      // Storybook stories. `storybook/test`'s `expect(...).toBeInTheDocument()`
+      // (and sibling jest-dom matchers) are typed as thenable, so every sync
+      // assertion in a `play` function trips no-floating-promises as a false
+      // positive. Stories are test artifacts, not shipped code — relax the
+      // promise/type-safety rules the way the test-file override does.
+      files: ["**/*.stories.tsx"],
+      rules: {
+        "@typescript-eslint/no-floating-promises": "off",
+        // Error-boundary stories throw plain objects shaped like Connect/
+        // rate-limit errors to drive fallback UIs — non-Error throws are
+        // intentional here. (Rule is `no-throw-literal` in @typescript-eslint
+        // v6; it was renamed `only-throw-error` in v8.)
+        "@typescript-eslint/no-throw-literal": "off",
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-unsafe-assignment": "off",
+        "@typescript-eslint/no-unsafe-call": "off",
+        "@typescript-eslint/no-unsafe-member-access": "off",
+        "@typescript-eslint/no-unsafe-return": "off",
+        "@typescript-eslint/no-unsafe-argument": "off",
+      },
+    },
+    {
       files: ["**/__tests__/**/*", "**/*.test.*", "**/test/**/*"],
       rules: {
         "@typescript-eslint/no-explicit-any": "off",

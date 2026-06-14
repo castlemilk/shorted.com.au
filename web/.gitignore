@@ -43,3 +43,15 @@ yarn-error.log*
 *firebase-admin*.json
 # Playwright auth state
 .auth/*.json
+
+# Storybook build output
+storybook-static/
+
+# Playwright visual-regression artifacts (baselines under
+# tests/visual/__screenshots__/ ARE committed and must NOT be ignored)
+test-results/
+playwright-report/
+blob-report/
+
+# Performance benchmark output (committed baselines live in ../docs/perf/)
+perf-results/

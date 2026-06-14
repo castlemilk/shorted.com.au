@@ -1,0 +1,86 @@
+name: Storybook Tests
+
+# Runs the dashboard component harness on every PR that touches the frontend:
+#  - interaction tests (Storybook play functions via the Vitest browser runner)
+#  - visual regression (Playwright screenshots vs committed PNG baselines)
+#
+# The visual job MUST run in the same image the baselines were generated in
+# (node:20-bookworm-slim) — pixel output depends on the OS freetype/fontconfig
+# stack, so ubuntu-latest (Ubuntu 24.04) would diff against bookworm baselines.
+# If you intentionally change widget appearance, regenerate baselines in that
+# same image: see web/tests/visual/README.md.
+
+on:
+  pull_request:
+    paths:
+      - "web/**"
+      - ".github/workflows/storybook-tests.yml"
+
+concurrency:
+  group: storybook-${{ github.ref }}
+  cancel-in-progress: true
+
+# Storybook mocks all data modules, so no real backend/env is needed. Skip the
+# t3-env validation (src/env.js) that otherwise fails the build/test in CI where
+# the local .env vars are absent.
+env:
+  SKIP_ENV_VALIDATION: "1"
+
+jobs:
+  interaction:
+    name: Interaction tests (Vitest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Storybook interaction tests
+        run: npm run test:storybook
+
+  visual:
+    name: Visual regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Render in the exact image the committed baselines were generated in, so
+    # screenshots are byte-comparable (font anti-aliasing is OS-specific).
+    container:
+      image: node:20-bookworm-slim
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run visual regression
+        run: npm run test:visual
+
+      - name: Upload diffs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-diffs
+          path: |
+            web/test-results/
+            web/playwright-report/
+          retention-days: 7
