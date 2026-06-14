@@ -2,7 +2,7 @@ import React from "react";
 import { LinePath, AreaClosed, Line } from "@visx/shape";
 import { LinearGradient } from "@visx/gradient";
 import { AxisBottom, AxisLeft, AxisRight } from "@visx/axis";
-import { curveMonotoneX } from "@visx/curve";
+import { curveLinear } from "@visx/curve";
 import { chartTheme } from "./chart-theme";
 import type { ChartPoint, ChartSeriesSpec } from "./types";
 import type { ChartScales } from "./use-chart-scales";
@@ -13,8 +13,12 @@ type LinearScale = ChartScales["leftScale"];
 const sx = (xScale: TimeScale) => (d: ChartPoint) => xScale(new Date(d.t)) ?? 0;
 const sy = (yScale: LinearScale) => (d: ChartPoint) => yScale(d.v) ?? 0;
 
+// Primitives are React.memo'd: on pointer-move StockChart re-renders, but the
+// (memoized) scales/series props are stable, so these heavy path renderers skip
+// regenerating their `d` attributes — only the Crosshair (hover-dependent) redraws.
+
 /** Horizontal grid lines off a value scale's ticks (no @visx/grid dependency). */
-export function Grid({
+export const Grid = React.memo(function Grid({
   yScale,
   width,
   ticks = 4,
@@ -37,9 +41,9 @@ export function Grid({
       ))}
     </g>
   );
-}
+});
 
-export function Axes({
+export const Axes = React.memo(function Axes({
   xScale,
   leftScale,
   rightScale,
@@ -60,11 +64,6 @@ export function Axes({
   rightFormat?: (v: number) => string;
   compact?: boolean;
 }) {
-  const labelProps = (anchor: "start" | "middle" | "end") => () => ({
-    fill: chartTheme.axisLabel,
-    fontSize: compact ? 9 : 10,
-    textAnchor: anchor,
-  });
   return (
     <g pointerEvents="none">
       <AxisBottom
@@ -73,7 +72,11 @@ export function Axes({
         numTicks={compact ? 3 : 5}
         stroke={chartTheme.axis}
         tickStroke={chartTheme.axis}
-        tickLabelProps={labelProps("middle")}
+        tickLabelProps={() => ({
+          fill: chartTheme.axisLabel,
+          fontSize: compact ? 9 : 10,
+          textAnchor: "middle" as const,
+        })}
       />
       <AxisLeft
         scale={leftScale}
@@ -108,28 +111,29 @@ export function Axes({
       )}
     </g>
   );
-}
+});
 
 /** One path per series (line, or area+gradient). Never per-point nodes. */
-export function SeriesPath({
+export const SeriesPath = React.memo(function SeriesPath({
   series,
   xScale,
   yScale,
+  gradientId,
 }: {
   series: ChartSeriesSpec;
   xScale: TimeScale;
   yScale: LinearScale;
+  gradientId: string;
 }) {
   if (!series.points.length) return null;
   const x = sx(xScale);
   const y = sy(yScale);
-  const gradId = `grad-${series.id.replace(/[^a-z0-9]/gi, "")}`;
   return (
     <g data-series={series.id}>
       {series.kind === "area" && (
         <>
           <LinearGradient
-            id={gradId}
+            id={gradientId}
             from={series.color}
             to={series.color}
             fromOpacity={0.28}
@@ -140,9 +144,9 @@ export function SeriesPath({
             x={x}
             y={y}
             yScale={yScale}
-            fill={`url(#${gradId})`}
+            fill={`url(#${gradientId})`}
             stroke="none"
-            curve={curveMonotoneX}
+            curve={curveLinear}
           />
         </>
       )}
@@ -152,14 +156,14 @@ export function SeriesPath({
         y={y}
         stroke={series.color}
         strokeWidth={1.75}
-        curve={curveMonotoneX}
+        curve={curveLinear}
       />
     </g>
   );
-}
+});
 
 /** Single AreaClosed for volume (replaces the per-point <Bar> map). */
-export function VolumePath({
+export const VolumePath = React.memo(function VolumePath({
   data,
   xScale,
   yScale,
@@ -179,14 +183,14 @@ export function VolumePath({
         fill={chartTheme.volume}
         fillOpacity={chartTheme.volumeOpacity}
         stroke="none"
-        curve={curveMonotoneX}
+        curve={curveLinear}
       />
     </g>
   );
-}
+});
 
 /** Indicator overlay line, index-aligned to the decimated series points. */
-export function IndicatorPath({
+export const IndicatorPath = React.memo(function IndicatorPath({
   points,
   values,
   xScale,
@@ -216,10 +220,10 @@ export function IndicatorPath({
       strokeWidth={1.25}
       strokeDasharray={dash}
       opacity={0.9}
-      curve={curveMonotoneX}
+      curve={curveLinear}
     />
   );
-}
+});
 
 /** Vertical guide + a dot per series at the hovered x. */
 export function Crosshair({

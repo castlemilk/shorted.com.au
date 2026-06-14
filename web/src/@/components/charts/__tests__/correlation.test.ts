@@ -10,4 +10,8 @@ describe("pearson", () => {
     expect(pearson([1, 1, 1], [2, 3, 4])).toBe(0);
     expect(pearson([], [])).toBe(0);
   });
+  it("returns 0 (not NaN) when any input value is non-finite", () => {
+    expect(pearson([1, NaN, 3], [1, 2, 3])).toBe(0);
+    expect(pearson([1, 2, 3], [1, Infinity, 3])).toBe(0);
+  });
 });

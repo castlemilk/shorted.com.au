@@ -3,6 +3,7 @@
 import React, {
   forwardRef,
   useCallback,
+  useId,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -71,6 +72,9 @@ function StockChartInner({
 }) {
   const brushRef = useRef<BaseBrush | null>(null);
   const [filtered, setFiltered] = useState<[number, number] | null>(null);
+  // Unique per-instance prefix so SVG gradient ids never collide when multiple
+  // StockCharts render on one page (e.g. several dashboard widgets).
+  const gid = useId();
   const { containerRef, TooltipInPortal } = useTooltipInPortal({
     detectBounds: true,
     scroll: true,
@@ -177,26 +181,54 @@ function StockChartInner({
     marginLeft: margin.left,
   });
 
-  // Brush overview scales (full, hard-decimated).
+  // Brush overview: aggregate ALL series' points so the band + selectable range
+  // span the full dataset (not just series[0]). Hard-decimated for the overview.
   const brushSeries = useMemo(() => {
-    const ref = series[0];
-    if (!ref) return [] as ChartPoint[];
-    return decimate(ref.points, Math.max(innerW / 2, 2)).points;
+    const all: ChartPoint[] = [];
+    for (const s of series) for (const p of s.points) all.push(p);
+    if (!all.length) return [] as ChartPoint[];
+    all.sort((a, b) => a.t - b.t);
+    return decimate(all, Math.max(Math.floor(innerW / 2), 2)).points;
   }, [series, innerW]);
 
-  const brushDateScale = useMemo(() => {
-    const ts = brushSeries.map((p) => p.t);
-    const lo = ts.length ? Math.min(...ts) : 0;
-    const hi = ts.length ? Math.max(...ts) : 1;
-    return scaleTime<number>({ domain: [new Date(lo), new Date(hi)], range: [0, innerW] });
-  }, [brushSeries, innerW]);
+  // Reduce loops (not Math.min(...arr) spread) — safe for any point count.
+  const brushDomain = useMemo(() => {
+    let tLo = Infinity;
+    let tHi = -Infinity;
+    let vLo = Infinity;
+    let vHi = -Infinity;
+    for (const p of brushSeries) {
+      if (p.t < tLo) tLo = p.t;
+      if (p.t > tHi) tHi = p.t;
+      if (p.v < vLo) vLo = p.v;
+      if (p.v > vHi) vHi = p.v;
+    }
+    if (!Number.isFinite(tLo)) {
+      tLo = 0;
+      tHi = 1;
+      vLo = 0;
+      vHi = 1;
+    }
+    return { tLo, tHi, vLo, vHi };
+  }, [brushSeries]);
 
-  const brushValueScale = useMemo(() => {
-    const vs = brushSeries.map((p) => p.v);
-    const lo = vs.length ? Math.min(...vs) : 0;
-    const hi = vs.length ? Math.max(...vs) : 1;
-    return scaleLinear<number>({ domain: [lo, hi], range: [brushH - 16, 0] });
-  }, [brushSeries, brushH]);
+  const brushDateScale = useMemo(
+    () =>
+      scaleTime<number>({
+        domain: [new Date(brushDomain.tLo), new Date(brushDomain.tHi)],
+        range: [0, innerW],
+      }),
+    [brushDomain, innerW],
+  );
+
+  const brushValueScale = useMemo(
+    () =>
+      scaleLinear<number>({
+        domain: [brushDomain.vLo, brushDomain.vHi],
+        range: [brushH - 16, 0],
+      }),
+    [brushDomain, brushH],
+  );
 
   const onBrushChange = useCallback((bounds: Bounds | null) => {
     if (!bounds) {
@@ -239,18 +271,32 @@ function StockChartInner({
           {showVolume && (
             <VolumePath data={decVolume} xScale={dateScale} yScale={volumeScale} />
           )}
-          {renderSeries.map((s) => (
+          {renderSeries.map((s, i) => (
             <SeriesPath
               key={s.id}
               series={s}
               xScale={dateScale}
               yScale={scaleForAxis(s.axis)}
+              gradientId={`${gid}-grad-${i}`}
             />
           ))}
           {indicators.map((ind) => {
             const d = decBySeries.get(ind.seriesId);
             const target = series.find((s) => s.id === ind.seriesId);
             if (!d || !target) return null;
+            // Indicator value arrays must be aligned 1:1 to the target series'
+            // RAW points; a length mismatch means a caller contract violation
+            // that would silently produce gaps — skip + warn rather than corrupt.
+            if (
+              process.env.NODE_ENV !== "production" &&
+              ind.values.length !== target.points.length
+            ) {
+              console.error(
+                `StockChart: indicator "${ind.id}" values length (${ind.values.length}) ` +
+                  `!= series "${ind.seriesId}" points (${target.points.length}); skipping.`,
+              );
+            }
+            if (ind.values.length !== target.points.length) return null;
             const yScale = scaleForAxis(target.axis);
             const sub = (arr?: (number | null)[]) =>
               arr ? d.indices.map((i) => arr[i] ?? null) : undefined;
@@ -359,7 +405,6 @@ function StockChartInner({
           left={hover.cx + margin.left + 12}
           top={margin.top + 8}
           style={{
-            ...({} as React.CSSProperties),
             position: "absolute",
             background: chartTheme.tooltipBg,
             border: "1px solid hsl(var(--border))",
@@ -395,6 +440,9 @@ function OscillatorPanel({
   if (!osc || !points.length) return null;
   const domain = osc.domain ?? [0, 100];
   const yScale = scaleLinear<number>({ domain, range: [height, 0] });
+  // Subsample the original-length oscillator values by the same original indices
+  // used for the reference series (mirrors the indicator subsampling contract).
+  const oscValues = refIndices.map((i) => osc.values[i] ?? null);
   return (
     <g>
       <rect x={0} y={0} width={width} height={height} fill="hsl(var(--muted))" fillOpacity={0.25} rx={4} />
@@ -410,7 +458,7 @@ function OscillatorPanel({
       ))}
       <IndicatorPath
         points={points}
-        values={refIndices.map((i) => osc.values[i] ?? null)}
+        values={oscValues}
         xScale={xScale}
         yScale={yScale}
         color={osc.color}

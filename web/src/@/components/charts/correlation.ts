@@ -2,6 +2,9 @@
 export function pearson(xs: number[], ys: number[]): number {
   const n = Math.min(xs.length, ys.length);
   if (n < 2) return 0;
+  for (let i = 0; i < n; i++) {
+    if (!Number.isFinite(xs[i]!) || !Number.isFinite(ys[i]!)) return 0;
+  }
   let sx = 0;
   let sy = 0;
   let sxx = 0;

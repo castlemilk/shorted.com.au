@@ -24,8 +24,13 @@ export function historicalToPoints(rows: HistoricalDataPoint[] | undefined): {
   const sorted = [...rows].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
   );
-  const price = sorted.map((r) => ({ t: new Date(r.date).getTime(), v: r.close }));
-  const volume = sorted.map((r) => ({ t: new Date(r.date).getTime(), v: r.volume }));
+  const ok = (p: ChartPoint) => p.t > 0 && Number.isFinite(p.v);
+  const price = sorted
+    .map((r) => ({ t: new Date(r.date).getTime(), v: r.close }))
+    .filter(ok);
+  const volume = sorted
+    .map((r) => ({ t: new Date(r.date).getTime(), v: r.volume }))
+    .filter(ok);
   return { price, volume };
 }
 
