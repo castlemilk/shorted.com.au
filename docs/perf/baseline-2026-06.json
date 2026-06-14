@@ -1,0 +1,89 @@
+{
+  "url": "http://localhost:3020",
+  "capturedAt": "2026-06-14T02:31:12.381Z",
+  "gitRef": "0a11bb02",
+  "pages": {
+    "/": {
+      "runs": 5,
+      "status": 200,
+      "redirected": false,
+      "finalUrl": "http://localhost:3020/",
+      "metrics": {
+        "ttfb": {
+          "median": 6.8,
+          "p75": 11.6
+        },
+        "fcp": {
+          "median": 84,
+          "p75": 88
+        },
+        "lcp": {
+          "median": 84,
+          "p75": 88
+        },
+        "cls": {
+          "median": 0,
+          "p75": 0
+        },
+        "domContentLoaded": {
+          "median": 54.5,
+          "p75": 63.4
+        },
+        "load": {
+          "median": 113.5,
+          "p75": 186.5
+        },
+        "transferKB": {
+          "median": 4646.58,
+          "p75": 4646.58
+        },
+        "requestCount": {
+          "median": 102,
+          "p75": 102
+        }
+      },
+      "sampleWidgetMarks": []
+    },
+    "/dashboards": {
+      "runs": 5,
+      "status": 200,
+      "redirected": true,
+      "finalUrl": "http://localhost:3020/signin?callbackUrl=%2Fdashboards",
+      "metrics": {
+        "ttfb": {
+          "median": 6.9,
+          "p75": 8.4
+        },
+        "fcp": {
+          "median": 56,
+          "p75": 68
+        },
+        "lcp": {
+          "median": 172,
+          "p75": 468
+        },
+        "cls": {
+          "median": 0,
+          "p75": 0
+        },
+        "domContentLoaded": {
+          "median": 46.3,
+          "p75": 46.9
+        },
+        "load": {
+          "median": 101,
+          "p75": 114.3
+        },
+        "transferKB": {
+          "median": 3887.43,
+          "p75": 3887.43
+        },
+        "requestCount": {
+          "median": 61,
+          "p75": 61
+        }
+      },
+      "sampleWidgetMarks": []
+    }
+  }
+}

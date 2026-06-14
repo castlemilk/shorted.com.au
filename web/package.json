@@ -1,6 +1,6 @@
 {
   "name": "shorted",
-  "version": "v0.2.2-1126-gaf46ab7e-dirty",
+  "version": "v0.2.2-1206-g0a11bb02-dirty",
   "private": true,
   "type": "module",
   "moduleResolution": "Node",
@@ -11,6 +11,8 @@
     "build:analyze": "ANALYZE=true next build",
     "lighthouse": "node scripts/lighthouse-ci.js",
     "perf:check": "npm run build && npm run start & sleep 5 && npm run lighthouse",
+    "perf:bench": "node scripts/perf-benchmark.mjs",
+    "perf:compare": "node scripts/perf-benchmark.mjs --compare ../docs/perf/baseline-2026-06.json",
     "dev": "APP_VERSION=`git describe --tags --always --dirty` next dev -p 3020",
     "bump-version": "sh ./scripts/bump-version.sh",
     "lint": "next lint --max-warnings=1000",

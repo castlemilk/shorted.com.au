@@ -52,3 +52,6 @@ storybook-static/
 test-results/
 playwright-report/
 blob-report/
+
+# Performance benchmark output (committed baselines live in ../docs/perf/)
+perf-results/
