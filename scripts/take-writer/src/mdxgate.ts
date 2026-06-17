@@ -87,6 +87,13 @@ export async function validateMdx(
     errors.push("import/export statements are forbidden");
   if (/<script\b/i.test(body)) errors.push("script tags are forbidden");
 
+  // Fail-closed backstop: a literal \n / \t / \r escape sequence glued to a
+  // JSX component means escape-normalisation (narrative.normaliseEscapeSequences)
+  // was bypassed — the component won't render on its own line and "\n" prints on
+  // the page. Reject so the body degrades to markdown rather than shipping broken.
+  if (/\\[nrt]\s*<[A-Z]/.test(body) || /\/>\s*\\[nrt]/.test(body))
+    errors.push("literal escape sequence (\\n/\\t) adjacent to a component — body not normalised");
+
   const comps = extractComponents(body);
 
   for (const c of comps) {

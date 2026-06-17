@@ -136,4 +136,26 @@ describe("synthesiseFromDossier (MDX gate)", () => {
     const out = await synthesiseFromDossier(mkDossier("BHP"), l, "BHP", null, deps);
     expect(out.bodyFormat).toBe("markdown");
   });
+
+  it("normalises literal \\n escape sequences so glued components still render as mdx", async () => {
+    const l = new CitationLedger();
+    // Reproduces the 4DX bug: the writer emitted literal backslash-n pairs
+    // instead of real newlines, gluing the components to prose.
+    const glued =
+      "The data discussion." + "\\n\\n" +
+      '<ShortInterestChart code="BHP" window="6m" />' + "\\n\\n" +
+      '<StatGroup><Stat label="Short %" value="12.4%" /></StatGroup>';
+    const deps: DossierWriterDeps = {
+      generate: async () => JSON.stringify({
+        headline: "BHP shorts at 12.4%", standfirst: "s", sentiment: "neutral",
+        background: "b", recent_events: "r", the_data: glued, outlook: "o",
+      }),
+      slug: async () => "bhp-glued",
+    };
+    const out = await synthesiseFromDossier(mkDossier("BHP"), l, "BHP", null, deps);
+    expect(out.bodyFormat).toBe("mdx");
+    expect(out.bodyMd).not.toContain("\\n"); // no literal backslash-n survives
+    expect(out.bodyMd).toContain("<ShortInterestChart");
+    expect(out.bodyMd).toContain("<StatGroup>");
+  });
 });

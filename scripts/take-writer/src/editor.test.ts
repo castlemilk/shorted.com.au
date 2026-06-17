@@ -7,6 +7,7 @@ const baseRow = (over: Partial<SignalBoardRow> = {}): SignalBoardRow => ({
   name: "BHP",
   industry: "Materials",
   lastTakeDate: "2026-05-20",
+  hasRecentUnpublishedDraft: false,
   recentPriceSensitiveHeadlines: [],
   signals: {
     shortSlope90d: 0, shortSlope30d: 0, shortSlope7d: 0,
