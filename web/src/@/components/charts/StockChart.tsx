@@ -70,6 +70,7 @@ function StockChartInner({
   volume,
   indicators = [],
   oscillators = [],
+  regions = [],
   leftAxis,
   rightAxis,
   viewMode = "absolute",
@@ -433,6 +434,28 @@ function StockChartInner({
       <svg width={width} height={height} data-points={renderSeries[0]?.points.length ?? 0}>
         <Group left={margin.left} top={margin.top}>
           <Grid yScale={leftScale} width={innerW} />
+          {/* Divergence bands sit UNDER the data: short-vs-price regimes. */}
+          {regions.map((r, i) => {
+            const xa = dateScale(r.start);
+            const xb = dateScale(r.end);
+            const x = Math.max(0, Math.min(xa, xb));
+            const cw = Math.min(Math.max(xa, xb), innerW) - x;
+            if (cw <= 0) return null;
+            return (
+              <rect
+                key={`region-${i}`}
+                x={x}
+                y={0}
+                width={cw}
+                height={mainH}
+                fill={r.tone === "bearish" ? "#ef4444" : "#22c55e"}
+                fillOpacity={0.1}
+                pointerEvents="none"
+              >
+                {r.label ? <title>{r.label}</title> : null}
+              </rect>
+            );
+          })}
           {showVolume && (
             <VolumePath data={decVolume} xScale={dateScale} yScale={volumeScale} />
           )}

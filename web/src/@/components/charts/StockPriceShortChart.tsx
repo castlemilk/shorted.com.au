@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { StockChart } from "./StockChart";
 import { seriesColor } from "./chart-theme";
 import { calculateSMA } from "./indicators";
+import { computeDivergenceRegions } from "./divergence";
 import { useStockChartData } from "./use-stock-chart-data";
 import type { ChartSeriesSpec, SeriesIndicator } from "./types";
 
@@ -69,9 +70,21 @@ export function StockPriceShortChart({
   const [showShort, setShowShort] = useState(true);
   const [showVolume, setShowVolume] = useState(true);
   const [showMA, setShowMA] = useState(false);
+  const [showDivergence, setShowDivergence] = useState(false);
 
   const { short, price, volume, correlation, anyLoading, isError } =
     useStockChartData(stockCode, period);
+
+  // Shorted-only overlay: shade spans where short interest and price trend the
+  // SAME way — shorts building into a rally (bearish) or covering into a slide
+  // (bullish). Needs both legs; only computed when toggled on.
+  const regions = useMemo(
+    () =>
+      showDivergence && short.length && price.length
+        ? computeDivergenceRegions(price, short)
+        : [],
+    [showDivergence, short, price],
+  );
 
   const series = useMemo(() => {
     const arr: ChartSeriesSpec[] = [];
@@ -134,6 +147,9 @@ export function StockPriceShortChart({
           <Toggle active={showMA} onClick={() => setShowMA((v) => !v)} color="#f59e0b">
             SMA 20
           </Toggle>
+          <Toggle active={showDivergence} onClick={() => setShowDivergence((v) => !v)}>
+            Divergence
+          </Toggle>
         </div>
         <div className="flex items-center gap-2">
           {correlation != null && showPrice && showShort && (
@@ -166,6 +182,26 @@ export function StockPriceShortChart({
         </div>
       </div>
 
+      {/* Divergence legend (only when the overlay is on and found something) */}
+      {showDivergence && regions.length > 0 && (
+        <div className="-mt-1 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <span
+              className="h-2.5 w-2.5 rounded-sm"
+              style={{ background: "#ef444433", border: "1px solid #ef4444" }}
+            />
+            Shorts building into price strength
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span
+              className="h-2.5 w-2.5 rounded-sm"
+              style={{ background: "#22c55e33", border: "1px solid #22c55e" }}
+            />
+            Shorts covering into price weakness
+          </span>
+        </div>
+      )}
+
       {/* Chart */}
       {isError ? (
         <div
@@ -179,6 +215,7 @@ export function StockPriceShortChart({
           series={series}
           volume={showVolume ? volume : undefined}
           indicators={indicators}
+          regions={regions}
           leftAxis={{ side: "left", format: priceFmt }}
           rightAxis={{ side: "right", format: shortFmt }}
           height={height}
