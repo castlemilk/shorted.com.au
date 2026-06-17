@@ -398,7 +398,10 @@ const BrushChart = forwardRef<HandleBrushClearAndReset, BrushProps>(
         {tooltipData && (
           <>
             <TooltipWithBounds
-              key={Math.random()}
+              // Stable position-derived key: lets TooltipWithBounds recompute its
+              // bounds when the anchor moves, without unmount/remounting the DOM
+              // node on every render (the old key={Math.random()} did the latter).
+              key={`${Math.round(tooltipLeft)}_${Math.round(tooltipTop)}`}
               top={tooltipTop}
               left={tooltipLeft}
               style={{

@@ -14,6 +14,12 @@ import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { getStock } from "~/app/actions/getStock";
 import type { TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 
+// Short positions (ASIC T+4, refreshed by the daily sync), end-of-day prices,
+// top-shorts MV, and company details all change at most once per trading day.
+// Keep them fresh for 30 minutes so revisiting a stock/widget doesn't refetch
+// data that is identical all day. Intraday quotes keep their own short window.
+const DAILY_STALE = 30 * 60 * 1000;
+
 /**
  * Hook for fetching multiple stock quotes with automatic deduplication
  * Uses sorted, comma-joined codes as cache key for deduplication
@@ -47,7 +53,7 @@ export function useHistoricalData(code: string, period: string) {
     queryKey: queryKeys.market.historical(code, period),
     queryFn: () => getHistoricalData(code, period),
     enabled: !!code && !!period,
-    staleTime: 5 * 60 * 1000, // 5 minutes for historical data
+    staleTime: DAILY_STALE, // daily end-of-day prices
   });
 }
 
@@ -61,7 +67,7 @@ export function useMultipleHistoricalData(codes: string[], period: string) {
       queryKey: queryKeys.market.historical(code, period),
       queryFn: () => getHistoricalData(code, period),
       enabled: !!code && !!period,
-      staleTime: 5 * 60 * 1000,
+      staleTime: DAILY_STALE,
     })),
     combine: (results) => ({
       data: new Map(
@@ -84,7 +90,7 @@ export function useShortTimeSeries(code: string, period: string) {
     queryKey: queryKeys.stock.timeSeries(code, period),
     queryFn: () => fetchStockDataClient(code, period),
     enabled: !!code && !!period,
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: DAILY_STALE, // daily (ASIC T+4)
   });
 }
 
@@ -97,7 +103,7 @@ export function useMultipleShortTimeSeries(codes: string[], period: string) {
       queryKey: queryKeys.stock.timeSeries(code, period),
       queryFn: () => fetchStockDataClient(code, period),
       enabled: !!code && !!period,
-      staleTime: 60 * 1000,
+      staleTime: DAILY_STALE,
     })),
     combine: (results) => ({
       data: new Map(
@@ -120,7 +126,7 @@ export function useStockDetails(code: string) {
     queryKey: queryKeys.stock.details(code),
     queryFn: () => fetchStockDetailsClient(code),
     enabled: !!code,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: DAILY_STALE, // company details change rarely
   });
 }
 
@@ -134,7 +140,7 @@ export function useTopShorts(period: string, limit: number) {
       const result = await getTopShortsData(period, limit, 0);
       return result?.timeSeries ?? [];
     },
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: DAILY_STALE, // daily (ASIC T+4)
   });
 }
 
@@ -146,7 +152,7 @@ export function useStockShortPosition(code: string) {
     queryKey: queryKeys.shorts.stock(code),
     queryFn: () => getStock(code),
     enabled: !!code,
-    staleTime: 60 * 1000,
+    staleTime: DAILY_STALE,
   });
 }
 
@@ -159,7 +165,7 @@ export function useMultipleStockShortPositions(codes: string[]) {
       queryKey: queryKeys.shorts.stock(code),
       queryFn: () => getStock(code),
       enabled: !!code,
-      staleTime: 60 * 1000,
+      staleTime: DAILY_STALE,
     })),
     combine: (results) => ({
       data: new Map(
