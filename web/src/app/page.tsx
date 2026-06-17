@@ -6,6 +6,9 @@ import { siteConfig } from "~/@/config/site";
 import { Suspense } from "react";
 import { HomeContent } from "./home-content";
 import { TopShortsFallback } from "./top-shorts-fallback";
+import { toJson } from "@bufbuild/protobuf";
+import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { TimeSeriesDataSchema } from "~/gen/stocks/v1alpha1/stocks_pb";
 
 // Dynamic import to avoid SSR issues — component imports @connectrpc/connect
 const BreakingNewsBanner = dynamic(
@@ -127,6 +130,14 @@ async function WeeklyReportBanner() {
 }
 
 export default async function Page() {
+  // Prefetch the homepage top-shorts (same query the client TopShorts widget
+  // makes on mount: "3m", 10 rows) and hand it to HomeContent as protobuf JSON.
+  // This removes the render->hydrate->fetch waterfall for the lead widget.
+  // getTopShortsData is cached, so the TopShortsFallback call below is ~free.
+  const initialTopShorts = await getTopShortsData("3m", 10, 0)
+    .then((res) => res?.timeSeries?.map((d) => toJson(TimeSeriesDataSchema, d)))
+    .catch(() => undefined);
+
   return (
     <main className="min-h-screen flex flex-col bg-transparent">
       {/* Structured Data for rich snippets and knowledge graph */}
@@ -196,7 +207,7 @@ export default async function Page() {
       </Suspense>
 
       {/* Interactive dashboard content */}
-      <HomeContent />
+      <HomeContent initialTopShorts={initialTopShorts} />
 
       {/* Browse by Industry — server-rendered for SEO internal linking */}
       <Suspense fallback={null}>

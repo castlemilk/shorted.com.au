@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
+import type { JsonValue } from "@bufbuild/protobuf";
 import { RefreshCw, BarChart3 } from "lucide-react";
 import { Button } from "~/@/components/ui/button";
 import { clearSessionCache } from "~/@/lib/session-cache";
@@ -45,7 +46,15 @@ const IndustryTreeMapView = dynamic(
   }
 );
 
-export function HomeContent() {
+export function HomeContent({
+  initialTopShorts,
+}: {
+  // Top-shorts data prefetched by the server page (protobuf JSON) — seeds the
+  // first render so TopShorts skips its mount fetch. Forwarded as-is to the
+  // client-only TopShorts, which deserializes it (keeps protobuf-es out of this
+  // SSR'd shell).
+  initialTopShorts?: JsonValue[];
+}) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -82,7 +91,11 @@ export function HomeContent() {
       </div>
       <div className="flex flex-col lg:flex-row">
         <div className="lg:w-2/5">
-          <TopShorts key={`ts-${refreshKey}`} initialPeriod="3m" />
+          <TopShorts
+            key={`ts-${refreshKey}`}
+            initialPeriod="3m"
+            initialShortsDataJson={refreshKey === 0 ? initialTopShorts : undefined}
+          />
         </div>
         <div className="lg:w-3/5">
           <IndustryTreeMapView

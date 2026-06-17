@@ -5,9 +5,11 @@ import React, {
   useEffect,
   useState,
   useCallback,
+  useMemo,
   Suspense,
   useRef,
 } from "react";
+import { fromJson, type JsonValue } from "@bufbuild/protobuf";
 import {
   Select,
   SelectContent,
@@ -15,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "~/@/components/ui/select";
-import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
+import { type TimeSeriesData, TimeSeriesDataSchema } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { Label } from "~/@/components/ui/label";
 import { getTopShortsDataClient } from "../actions/client/getTopShorts";
 import { DataTable } from "./components/data-table";
@@ -50,6 +52,10 @@ const getPeriodString = (period: string) => {
 
 interface TopShortsProps {
   initialShortsData?: TimeSeriesData[]; // Data for multiple series (optional)
+  // RSC-safe serialized form (protobuf JSON) for server-side prefetch — converted
+  // back to TimeSeriesData[] on the client. Lets the homepage seed the initial
+  // render from data already fetched server-side, skipping the mount fetch.
+  initialShortsDataJson?: JsonValue[];
   initialPeriod?: string; // Add initial period prop
   className?: string; // Allow custom class name
 }
@@ -58,19 +64,29 @@ const LOAD_CHUNK_SIZE = 10;
 
 export const TopShorts: FC<TopShortsProps> = ({
   initialShortsData,
+  initialShortsDataJson,
   initialPeriod = "3m",
   className,
 }) => {
+  // Prefer pre-parsed data; otherwise deserialize the RSC-safe JSON once.
+  const initialData = useMemo<TimeSeriesData[] | undefined>(() => {
+    if (initialShortsData) return initialShortsData;
+    if (initialShortsDataJson) {
+      return initialShortsDataJson.map((j) => fromJson(TimeSeriesDataSchema, j));
+    }
+    return undefined;
+  }, [initialShortsData, initialShortsDataJson]);
+
   const [period, setPeriod] = useState<string>(initialPeriod);
   const [displayPeriod, setDisplayPeriod] = useState<string>(initialPeriod);
   const [isInitialLoading, setIsInitialLoading] =
-    useState<boolean>(!initialShortsData);
+    useState<boolean>(!initialData);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [shortsData, setShortsData] = useState<TimeSeriesData[]>(
-    initialShortsData ?? [],
+    initialData ?? [],
   );
   const requestIdRef = useRef(0);
-  const offsetRef = useRef<number>(initialShortsData?.length ?? 0);
+  const offsetRef = useRef<number>(initialData?.length ?? 0);
   const [refreshKey, setRefreshKey] = useState<number>(() => Date.now());
 
   const getTimeSeriesForPeriod = useCallback(
@@ -145,7 +161,7 @@ export const TopShorts: FC<TopShortsProps> = ({
 
   // On mount: if no initial data was provided, fetch it
   useEffect(() => {
-    if (!initialShortsData || initialShortsData.length === 0) {
+    if (!initialData || initialData.length === 0) {
       void getTimeSeriesForPeriod(initialPeriod, { keepExisting: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
