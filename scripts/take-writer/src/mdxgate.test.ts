@@ -28,6 +28,16 @@ describe("validateMdx", () => {
     expect(r.ok).toBe(false);
   });
 
+  it("fails closed when a literal escape sequence is glued to a component", async () => {
+    // body contains literal backslash-n (not a real newline) before <StatGroup>
+    const r = await validateMdx(
+      'Sector average 6.82%.\\n\\n<StatGroup><Stat label="Short %" value="12.4%" cite="ref-2" /></StatGroup>',
+      OPTS,
+    );
+    expect(r.ok).toBe(false);
+    expect(r.errors.some((e) => e.includes("not normalised"))).toBe(true);
+  });
+
   it("rejects a chart for an unknown stock code or bad window", async () => {
     const r = await validateMdx(`<ShortInterestChart code="XYZ" window="6m" />`, OPTS);
     expect(r.ok).toBe(false);

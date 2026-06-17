@@ -62,7 +62,10 @@ export async function commissionAssignments(
   const model = opts.model ?? process.env.EDITOR_MODEL ?? "gemini-3.5-flash";
 
   const board = await buildSignalBoard(pg, opts.poolSize ?? 30);
-  const fresh = board.filter(hasNewDevelopment);
+  // Novelty gate AND no fresh unreviewed draft already covering the stock — the
+  // latter stops volatile names (whose |Δ90d short| >= 2pp re-fires the novelty
+  // gate daily) from piling up near-duplicate drafts in the review queue.
+  const fresh = board.filter((r) => hasNewDevelopment(r) && !r.hasRecentUnpublishedDraft);
   if (fresh.length === 0) return [];
 
   const apiKey = process.env.GEMINI_API_KEY;

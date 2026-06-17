@@ -15,7 +15,7 @@ import OpenAI from "openai";
 import { Storage } from "@google-cloud/storage";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { buildAgenda, type AgendaCandidate, type AgendaAngle } from "./agenda.js";
-import { synthesiseNarrative, narrativeToBodyMd, type NarrativeTake, synthesiseFromDossier, type DossierTake } from "./narrative.js";
+import { synthesiseNarrative, narrativeToBodyMd, type NarrativeTake, synthesiseFromDossier, type DossierTake, resolveWriterModel } from "./narrative.js";
 import { commissionAssignments, type Assignment } from "./editor.js";
 import { investigate, type GeminiGenerate } from "./investigator.js";
 import { CitationLedger } from "./ledger.js";
@@ -589,9 +589,7 @@ export async function runNewsroomDaily(opts: DailyOptions): Promise<void> {
         const dossier = await investigate(makeGeminiGenerate(ai, a.tier === "deep_dive" ? deepModel : takeModel), pg, a, ledger, {
           maxTurns: a.tier === "deep_dive" ? maxTurnsDeep : maxTurnsTake,
         });
-        const writerModel = a.tier === "deep_dive"
-          ? (process.env.WRITER_MODEL_DEEPDIVE ?? process.env.WRITER_MODEL ?? "gemini-2.5-flash")
-          : (process.env.WRITER_MODEL ?? "gemini-2.5-flash");
+        const writerModel = resolveWriterModel(a.tier);
         const overview = await getOverview(pg, a.stockCode).catch(() => null);
         const take = await synthesiseFromDossier(dossier, ledger, a.stockCode, overview);
         console.log(`${tag} -> "${take.headline}" (${take.citations.length} cites, ${take.droppedCitations.length} dropped)`);

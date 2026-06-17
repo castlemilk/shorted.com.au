@@ -522,12 +522,42 @@ export async function lastTakeDateForStock(
   return rows[0]?.last ?? null;
 }
 
+/** Days within which an unpublished draft suppresses re-commissioning. */
+export const DRAFT_SUPPRESS_DAYS = Number(process.env.NEWSROOM_DRAFT_SUPPRESS_DAYS) || 7;
+
+/** True when a still-UNPUBLISHED draft for this stock was created within the
+ *  last `days` days. The novelty gate (hasNewDevelopment) re-fires daily for
+ *  volatile names (|Δ90d short| >= 2pp, or a fresh price-sensitive headline),
+ *  and each day's new headline yields a new slug, so the ON CONFLICT (slug)
+ *  upsert never matches — a brand-new draft row is INSERTed every day and the
+ *  review queue fills with near-duplicates. The editor uses this flag to skip a
+ *  stock that already has a fresh draft waiting, forcing a human to clear it
+ *  first. A stock whose only prior take is already PUBLISHED still flows through
+ *  normally on a genuine new development. */
+export async function hasRecentUnpublishedDraft(
+  pg: PgClient,
+  code: string,
+  days: number = DRAFT_SUPPRESS_DAYS,
+): Promise<boolean> {
+  const { rows } = await pg.query<{ exists: boolean }>(
+    `SELECT EXISTS(
+       SELECT 1 FROM editorial_takes
+       WHERE stock_code = $1 AND published_at IS NULL
+         AND created_at > NOW() - ($2 || ' days')::interval
+     ) AS exists`,
+    [code, days],
+  );
+  return rows[0]?.exists ?? false;
+}
+
 export interface SignalBoardRow {
   stockCode: string;
   name: string | null;
   industry: string | null;
   signals: Signals;
   lastTakeDate: string | null;
+  /** A still-unpublished draft for this stock exists within DRAFT_SUPPRESS_DAYS. */
+  hasRecentUnpublishedDraft: boolean;
   recentPriceSensitiveHeadlines: Array<{ date: string; headline: string }>;
 }
 
@@ -550,12 +580,14 @@ export async function buildSignalBoard(
     const code = r.product_code;
     const report = await buildReport(pg, code);
     const lastTakeDate = await lastTakeDateForStock(pg, code);
+    const recentDraft = await hasRecentUnpublishedDraft(pg, code);
     board.push({
       stockCode: code,
       name: report.bundle.meta.name,
       industry: report.bundle.meta.industry,
       signals: report.signals,
       lastTakeDate,
+      hasRecentUnpublishedDraft: recentDraft,
       recentPriceSensitiveHeadlines: report.bundle.news
         .filter((a) => a.isPriceSensitive)
         .slice(0, 5)

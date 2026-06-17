@@ -56,7 +56,14 @@ VOICE (read the worked example below — match the rhythm, not just the rules):
 - Cut things short when they deserve cutting short. A four-word
   paragraph is fine if it lands.
 - Dry, not jokey. A raised eyebrow, not a punchline.
-- Australian spelling (organise, behaviour, recognised).
+- Australian spelling (organise, behaviour, recognised, fuelled, signalling).
+- Percentage POINTS vs percent. Short interest is a percent-of-issue. A move
+  from 6.4% to 9.2% is "+2.8 percentage points" (or "+2.8pp"), NEVER "+2.8%".
+  Reserve a bare "%" for a level (9.2% short) or a price/return move (-29%).
+- Money takes a leading symbol: $5.27, A$83M, $600M, 36 cents — never a
+  trailing "5.27 AUD".
+- A short position is a "position", never a "stake" (a stake implies ownership;
+  short sellers are short, not holders).
 - Cite real events by ref marker. Two marker types are available:
   - [ref-N] = a news article citation (from the candidate news list).
   - [report-N] = a financial report citation (from the financial reports
@@ -296,6 +303,11 @@ const BANNED_PHRASES = [
   "frequently attracts", "consistently attracts",
   "reacts to", "responds to",
   "it's worth noting", "important to note",
+  // US-spelling tells for an ASX/Australian masthead (AU: fuelled, signalling,
+  // labelled, modelling). Seen leaking into output (e.g. "fueled", "signaling").
+  "fueled", "fueling", "signaling", "signaled", "labeled", "modeling",
+  // AI-tell verbs HEADLINE_DESC nominally bans but findBanned never enforced.
+  "faces a", "set to soar", "poised to",
 ];
 
 function findBanned(text: string): string[] {
@@ -483,8 +495,15 @@ export function narrativeToBodyMd(n: NarrativeTake): string {
 
 // ---- Dossier-aware writer (investigative newsroom) ----
 
-const WRITER_MODEL = () => process.env.WRITER_MODEL ?? "gemini-3.5-flash";
-const WRITER_MODEL_DEEPDIVE = () => process.env.WRITER_MODEL_DEEPDIVE ?? WRITER_MODEL();
+export const WRITER_MODEL = () => process.env.WRITER_MODEL ?? "gemini-3.5-flash";
+export const WRITER_MODEL_DEEPDIVE = () => process.env.WRITER_MODEL_DEEPDIVE ?? WRITER_MODEL();
+
+/** Single source of truth for the writer model actually used for a tier.
+ *  newsroom.ts persists this into editorial_takes.model — it must match the
+ *  model geminiDeps() instantiates, not a divergent local fallback. */
+export function resolveWriterModel(tier: "take" | "deep_dive"): string {
+  return tier === "deep_dive" ? WRITER_MODEL_DEEPDIVE() : WRITER_MODEL();
+}
 
 /** Build the writer prompt from a dossier + its ledger. The writer may
  *  only cite the refIds listed here. */
@@ -542,6 +561,17 @@ export function assembleDeepDiveBody(sections: Array<{ heading: string; prose: s
   return sections.map((s) => `## ${s.heading}\n\n${s.prose}`).join("\n\n");
 }
 
+/** Some writer outputs emit literal "\n"/"\r\n"/"\t" two-character escape
+ *  sequences inside prose instead of real whitespace. Left as-is they print on
+ *  the page and glue MDX components to text — the palette requires components on
+ *  their own blank-line-separated lines. Normalise stray escapes to real
+ *  whitespace BEFORE the MDX gate (and before compactCitations, so cite-marker
+ *  offsets are computed on the cleaned text). Real newlines already present are
+ *  untouched; only the literal backslash-escape pairs are converted. */
+export function normaliseEscapeSequences(s: string): string {
+  return s.replace(/\\r\\n/g, "\n").replace(/\\n/g, "\n").replace(/\\t/g, "  ");
+}
+
 export interface DossierTake {
   slug: string;
   headline: string;
@@ -555,7 +585,7 @@ export interface DossierTake {
 }
 
 const HEADLINE_DESC =
-  "Editorial headline, 6-11 words, sentence case (only proper nouns + ticker codes capitalised). Lead with the specific observation, not company-name boilerplate. Use figures ($600M, 14%, 22%) — never spelled-out numbers ('six-hundred million'). No 'Reacts to', 'Responds to', 'Faces', or other AI-tell verbs. Examples: 'Zip shorts doubled while the chart halved', 'Telix shorts held through the $600M raise', 'Lotus at 18% as Kayelekera burns'.";
+  "Editorial headline, 6-11 words, sentence case (only proper nouns + ticker codes capitalised). Lead with the specific observation, not company-name boilerplate, and NOT a bare generic 'Shorts ...' opener — name the company/ticker or lead with the standout number. Use figures ($600M, 14%, 22%) — never spelled-out numbers ('six-hundred million'). No 'Reacts to', 'Responds to', 'Faces', or other AI-tell verbs, and no mixed metaphors (a raise dilutes equity, not a 'chart'). Examples: 'Zip shorts doubled while the chart halved', 'Telix shorts held through the $600M raise', 'Lotus at 18% as Kayelekera burns'.";
 
 const STANDFIRST_DESC =
   "One-sentence dek under the headline, max 30 words, concrete numbers preferred, no clickbait.";
@@ -712,7 +742,7 @@ export async function synthesiseFromDossier(
         outlook: String(parsed.outlook ?? ""),
       });
 
-  const { body, citations, dropped } = compactCitations(rawBody, ledger);
+  const { body, citations, dropped } = compactCitations(normaliseEscapeSequences(rawBody), ledger);
 
   // MDX compile gate — the security boundary on writer output. Failure
   // degrades to plain markdown rather than shipping broken/unsafe MDX.
