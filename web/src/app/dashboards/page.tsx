@@ -1,9 +1,28 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 import { useSession } from "next-auth/react";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
-import { DashboardGrid } from "~/@/components/dashboard/dashboard-grid";
+// react-grid-layout + react-resizable (~764KB) live inside DashboardGrid and are
+// useless until the user's dashboards load from the network. Code-split the grid
+// into its own chunk so it never blocks first paint / hydration of the page shell.
+const DashboardGrid = dynamic(
+  () => import("~/@/components/dashboard/dashboard-grid").then((m) => m.DashboardGrid),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="grid grid-cols-12 gap-4">
+        <div className="col-span-12 lg:col-span-5">
+          <Skeleton className="h-[400px] w-full rounded-lg" />
+        </div>
+        <div className="col-span-12 lg:col-span-7">
+          <Skeleton className="h-[400px] w-full rounded-lg" />
+        </div>
+      </div>
+    ),
+  },
+);
 import { WidgetConfigDialog } from "~/@/components/dashboard/widget-config-dialog";
 import { WidgetPicker } from "~/@/components/dashboard/widget-picker";
 import { DashboardSwitcher } from "~/@/components/dashboard/dashboard-switcher";
