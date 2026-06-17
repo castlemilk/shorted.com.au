@@ -6,6 +6,11 @@ import { siteConfig } from "~/@/config/site";
 import { Suspense } from "react";
 import { HomeContent } from "./home-content";
 import { TopShortsFallback } from "./top-shorts-fallback";
+import { toJson } from "@bufbuild/protobuf";
+import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { getIndustryTreeMap } from "~/app/actions/getIndustryTreeMap";
+import { TimeSeriesDataSchema, IndustryTreeMapSchema } from "~/gen/stocks/v1alpha1/stocks_pb";
+import type { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
 
 // Dynamic import to avoid SSR issues — component imports @connectrpc/connect
 const BreakingNewsBanner = dynamic(
@@ -127,6 +132,20 @@ async function WeeklyReportBanner() {
 }
 
 export default async function Page() {
+  // Prefetch the homepage widgets server-side (the same queries TopShorts and
+  // the IndustryTreeMap make on mount: "3m", 10 rows / 8 tiles, CURRENT_CHANGE)
+  // and hand them to HomeContent as protobuf JSON (RSC-safe, no bigint across
+  // the boundary). This removes the render->hydrate->fetch waterfall for both
+  // lead widgets. Both actions are cached, so the TopShortsFallback call is free.
+  const [initialTopShorts, initialTreeMap] = await Promise.all([
+    getTopShortsData("3m", 10, 0)
+      .then((res) => res?.timeSeries?.map((d) => toJson(TimeSeriesDataSchema, d)))
+      .catch(() => undefined),
+    getIndustryTreeMap("3m", 8, 0 as ViewMode)
+      .then((tm) => (tm ? toJson(IndustryTreeMapSchema, tm) : undefined))
+      .catch(() => undefined),
+  ]);
+
   return (
     <main className="min-h-screen flex flex-col bg-transparent">
       {/* Structured Data for rich snippets and knowledge graph */}
@@ -196,7 +215,10 @@ export default async function Page() {
       </Suspense>
 
       {/* Interactive dashboard content */}
-      <HomeContent />
+      <HomeContent
+        initialTopShorts={initialTopShorts}
+        initialTreeMap={initialTreeMap}
+      />
 
       {/* Browse by Industry — server-rendered for SEO internal linking */}
       <Suspense fallback={null}>

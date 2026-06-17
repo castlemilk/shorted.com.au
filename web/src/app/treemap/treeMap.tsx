@@ -1,6 +1,7 @@
 "use client";
 
-import React, { type FC, useEffect, useState, Suspense, useRef } from "react";
+import React, { type FC, useEffect, useState, useMemo, Suspense, useRef } from "react";
+import { fromJson, type JsonValue } from "@bufbuild/protobuf";
 import {
   Select,
   SelectContent,
@@ -15,7 +16,7 @@ import { Treemap, hierarchy, stratify, treemapSquarify } from "@visx/hierarchy";
 import { Group } from "@visx/group";
 import { ParentSize } from "@visx/responsive";
 import { scaleLinear } from "@visx/scale";
-import { type IndustryTreeMap } from "~/gen/stocks/v1alpha1/stocks_pb";
+import { type IndustryTreeMap, IndustryTreeMapSchema } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { getIndustryTreeMapClient } from "../actions/client/getIndustryTreeMap";
 import { useRouter } from "next/navigation";
 import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
@@ -26,6 +27,10 @@ import { getSectorImagePath } from "~/@/lib/sector-images";
 
 interface TreeMapProps {
   initialTreeMapData?: IndustryTreeMap; // Optional initial data
+  // RSC-safe serialized form (protobuf JSON) for server-side prefetch — converted
+  // back to IndustryTreeMap on the client so the homepage can seed the first
+  // render from data already fetched server-side, skipping the mount fetch.
+  initialTreeMapDataJson?: JsonValue;
   initialPeriod?: string; // Add initial period prop
   initialViewMode?: ViewMode; // Add initial view mode prop
   className?: string; // Allow custom class name
@@ -48,18 +53,30 @@ type TreeMapDataType = IndustryTreeMap | null | undefined;
 
 export const IndustryTreeMapView: FC<TreeMapProps> = ({
   initialTreeMapData,
+  initialTreeMapDataJson,
   initialPeriod = "3m",
   initialViewMode = ViewMode.CURRENT_CHANGE,
   className,
 }) => {
-  const firstUpdate = useRef(!initialTreeMapData); // If no initial data, fetch on mount
+  // Prefer pre-parsed data; otherwise deserialize the RSC-safe JSON once.
+  const initialData = useMemo<IndustryTreeMap | undefined>(() => {
+    if (initialTreeMapData) return initialTreeMapData;
+    if (initialTreeMapDataJson)
+      return fromJson(IndustryTreeMapSchema, initialTreeMapDataJson);
+    return undefined;
+  }, [initialTreeMapData, initialTreeMapDataJson]);
+
+  // Always true on the first effect run. When seeded with initialData the mount
+  // effect bails before fetching. (Previously useRef(!initialTreeMapData) was
+  // inverted, so seeded data fell through to the else branch and fetched anyway.)
+  const firstUpdate = useRef(true);
   const router = useRouter();
   const [period, setPeriod] = useState<string>(initialPeriod);
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [treeMapData, setTreeMapData] = useState<TreeMapDataType>(
-    initialTreeMapData ?? null,
+    initialData ?? null,
   );
-  const [loading, setLoading] = useState<boolean>(!initialTreeMapData);
+  const [loading, setLoading] = useState<boolean>(!initialData);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
   const [tooltipState, setTooltipState] = useState<{
@@ -78,7 +95,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
 
   useEffect(() => {
     // Fetch data on mount if no initial data, or when period/viewMode changes
-    if (firstUpdate.current && initialTreeMapData) {
+    if (firstUpdate.current && initialData) {
       firstUpdate.current = false;
       return;
     }
@@ -103,7 +120,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
         setLoading(false);
         setIsRefreshing(false);
       });
-  }, [period, viewMode, initialTreeMapData]);
+  }, [period, viewMode, initialData]);
 
   if (loading || !treeMapData) {
     return (
