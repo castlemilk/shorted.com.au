@@ -48,12 +48,15 @@ const IndustryTreeMapView = dynamic(
 
 export function HomeContent({
   initialTopShorts,
+  initialTreeMap,
 }: {
   // Top-shorts data prefetched by the server page (protobuf JSON) — seeds the
   // first render so TopShorts skips its mount fetch. Forwarded as-is to the
   // client-only TopShorts, which deserializes it (keeps protobuf-es out of this
   // SSR'd shell).
   initialTopShorts?: JsonValue[];
+  // Same, for the industry treemap.
+  initialTreeMap?: JsonValue;
 }) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -102,6 +105,7 @@ export function HomeContent({
             key={`tm-${refreshKey}`}
             initialPeriod="3m"
             initialViewMode={VIEW_MODE_CURRENT_CHANGE}
+            initialTreeMapDataJson={refreshKey === 0 ? initialTreeMap : undefined}
           />
         </div>
       </div>
