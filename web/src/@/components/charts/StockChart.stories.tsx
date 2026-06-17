@@ -98,6 +98,35 @@ export const DualAxis: Story = {
   },
 };
 
+// Short-vs-price divergence shading: bearish (red) where shorts build into a
+// rally, bullish (green) where shorts cover into a slide. Explicit regions here
+// for a deterministic visual; the computation is unit-tested in divergence.test.
+export const WithDivergenceRegions: Story = {
+  tags: ["no-visual"], // interaction-only until a visual baseline is generated
+  args: {
+    series: [priceSeries("PLS", "1y"), shortSeries("PLS", "1y")],
+    leftAxis: { side: "left", format: priceFmt },
+    rightAxis: { side: "right", format: shortFmt },
+    regions: (() => {
+      const price = priceParts("PLS", "1y").price;
+      const t0 = price[0]?.t ?? 0;
+      const t1 = price[price.length - 1]?.t ?? 0;
+      const span = t1 - t0;
+      return [
+        { start: t0 + span * 0.08, end: t0 + span * 0.34, tone: "bearish" as const, label: "Shorts building into price strength" },
+        { start: t0 + span * 0.55, end: t0 + span * 0.82, tone: "bullish" as const, label: "Shorts covering into price weakness" },
+      ];
+    })(),
+    height: 400,
+  },
+  play: async ({ canvasElement }) => {
+    await waitFor(() => expect(capture(canvasElement)).toBeTruthy());
+    // One bearish (red) + one bullish (green) band rendered under the series.
+    expect(canvasElement.querySelector('rect[fill="#ef4444"]')).toBeTruthy();
+    expect(canvasElement.querySelector('rect[fill="#22c55e"]')).toBeTruthy();
+  },
+};
+
 // Regression: the tooltip must follow the cursor vertically (not sit at a fixed
 // top anchor). A fixed anchor detaches the tooltip from the hovered point and,
 // on scrolled/sticky-header pages, floats it above the chart entirely.

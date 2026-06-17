@@ -33,6 +33,18 @@ export interface ChartSeriesSpec {
   measureUnit?: string;
 }
 
+/**
+ * A shaded time-span drawn UNDER the series (full plot height). Generic on
+ * purpose — the caller decides what a region means (e.g. short-vs-price
+ * divergence) and the core just paints it by `tone`.
+ */
+export interface ChartRegion {
+  start: number; // epoch ms (inclusive)
+  end: number; // epoch ms (inclusive)
+  tone: "bearish" | "bullish";
+  label?: string;
+}
+
 export interface AxisSpec {
   side: "left" | "right";
   label?: string;
@@ -75,6 +87,8 @@ export interface StockChartProps {
   volume?: ChartPoint[]; // single-path; hidden in compact / on mobile
   indicators?: SeriesIndicator[];
   oscillators?: OscillatorSpec[];
+  /** Shaded time-spans drawn under the series (e.g. short-vs-price divergence). */
+  regions?: ChartRegion[];
   leftAxis?: AxisSpec;
   rightAxis?: AxisSpec;
   viewMode?: "absolute" | "normalized"; // default "absolute"
