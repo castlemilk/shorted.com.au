@@ -63,9 +63,12 @@ function makeQueryClient() {
     defaultOptions: {
       queries: {
         // Stale time of 5 minutes - short position data changes at most once per day
+        // (per-hook overrides in use-stock-queries.ts lengthen this for daily data).
         staleTime: 5 * 60 * 1000,
-        // Garbage collection time of 5 minutes
-        gcTime: 5 * 60 * 1000,
+        // Retention is decoupled from freshness: keep inactive query data for 30
+        // minutes so back/forward navigation and tab switches are instant instead
+        // of refetching from scratch. gcTime is memory retention, NOT freshness.
+        gcTime: 30 * 60 * 1000,
         // Smart retry logic with rate limit awareness
         retry: shouldRetryQuery,
         retryDelay: calculateRetryDelay,
