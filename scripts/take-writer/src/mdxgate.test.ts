@@ -50,6 +50,24 @@ describe("validateMdx", () => {
     expect(r.ok).toBe(false);
   });
 
+  it("accepts BankShortBasket with a known basket or no banks prop", async () => {
+    const r = await validateMdx(`<BankShortBasket banks="BHP,ZIP" window="1y" mode="dollar" />`, OPTS);
+    expect(r.ok).toBe(true);
+    expect(r.errors).toEqual([]);
+    const r2 = await validateMdx(`<BankShortBasket />`, OPTS);
+    expect(r2.ok).toBe(true);
+  });
+
+  it("rejects BankShortBasket with an unknown code, window, or mode", async () => {
+    const bad = await validateMdx(`<BankShortBasket banks="BHP,XYZ" />`, OPTS);
+    expect(bad.ok).toBe(false);
+    expect(bad.errors.some((e) => e.includes('"XYZ"'))).toBe(true);
+    const badWin = await validateMdx(`<BankShortBasket banks="BHP" window="2y" />`, OPTS);
+    expect(badWin.ok).toBe(false);
+    const badMode = await validateMdx(`<BankShortBasket banks="BHP" mode="sideways" />`, OPTS);
+    expect(badMode.ok).toBe(false);
+  });
+
   it("rejects MDX that fails to compile", async () => {
     const r = await validateMdx(`<StatGroup>\n<Stat label="x" value="1"`, OPTS);
     expect(r.ok).toBe(false);
@@ -76,5 +94,12 @@ describe("stripMdxComponents", () => {
     const out = stripMdxComponents(`<Stat value="12.4%" label="Short interest" />\n<TimelineEvent label="CEO sells" date="2026-04-02" cite="ref-1" />`);
     expect(out).toContain("**Short interest: 12.4%**");
     expect(out).toContain("- 2026-04-02 — CEO sells");
+  });
+
+  it("strips BankShortBasket cleanly", () => {
+    const out = stripMdxComponents(`before\n\n<BankShortBasket banks="CBA,WBC,NAB,ANZ" window="1y" mode="dollar" />\n\nafter`);
+    expect(out).not.toContain("<BankShortBasket");
+    expect(out).toContain("before");
+    expect(out).toContain("after");
   });
 });

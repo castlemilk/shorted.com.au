@@ -17,6 +17,15 @@ export const COMPONENT_SCHEMAS: Record<string, z.ZodTypeAny> = {
     code: z.string().regex(/^[A-Z0-9]{2,5}$/),
     window: z.enum(WINDOWS).optional(),
   }),
+  BankShortBasket: z.object({
+    banks: z
+      .string()
+      .regex(/^[A-Z0-9]{2,5}(,[A-Z0-9]{2,5}){0,5}$/)
+      .optional(),
+    window: z.enum(["3m", "6m", "1y"]).optional(),
+    mode: z.enum(["dollar", "percent"]).optional(),
+    title: z.string().optional(),
+  }),
   StatGroup: z.object({}),
   Stat: z.object({
     label: z.string().min(1),
@@ -119,6 +128,17 @@ export async function validateMdx(
       errors.push(
         `<${c.name}> unknown stock code "${c.props.code}"`,
       );
+    }
+
+    // BankShortBasket carries a comma-separated `banks` list instead of a
+    // single `code` — validate each member against the known-codes set.
+    // Absent banks => component defaults to the big four (all top-50 shorts).
+    if (c.name === "BankShortBasket" && c.props.banks) {
+      for (const code of c.props.banks.split(",").map((s) => s.trim())) {
+        if (!opts.knownCodes.has(code)) {
+          errors.push(`<BankShortBasket> unknown stock code "${code}"`);
+        }
+      }
     }
 
     // Verify cites against the ledger
