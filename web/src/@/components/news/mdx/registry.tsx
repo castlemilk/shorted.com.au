@@ -12,10 +12,15 @@ const ShortInterestChart = dynamic(
 const PriceChart = dynamic(() => import("./price-chart").then((m) => m.PriceChart), {
   ssr: false,
 });
+const BankShortBasket = dynamic(
+  () => import("./bank-short-basket").then((m) => m.BankShortBasket),
+  { ssr: false },
+);
 
 export const MDX_COMPONENTS = {
   ShortInterestChart,
   PriceChart,
+  BankShortBasket,
   StatGroup,
   Stat,
   PullQuote,
