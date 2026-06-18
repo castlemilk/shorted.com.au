@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
@@ -164,6 +165,41 @@ func main() {
 		return
 	}
 
+	// One-shot embedding backfill mode: RUN_MODE=embed-backfill
+	// Generates Gemini text-embedding-004 vectors for articles that have none yet.
+	if os.Getenv("RUN_MODE") == "embed-backfill" {
+		apiKey := os.Getenv("GEMINI_API_KEY")
+		if apiKey == "" {
+			log.Fatal("embed-backfill requires GEMINI_API_KEY")
+		}
+		embedder, err := NewEmbedder(ctx, apiKey)
+		if err != nil {
+			log.Fatalf("NewEmbedder failed: %v", err)
+		}
+		defer embedder.Close()
+
+		limit := 500
+		if v := os.Getenv("BACKFILL_LIMIT"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil {
+				limit = n
+			}
+		}
+		total := 0
+		for {
+			n, err := EmbedBackfill(ctx, db, embedder, EmbedBackfillOpts{Limit: 50})
+			if err != nil {
+				log.Fatalf("EmbedBackfill failed: %v", err)
+			}
+			total += n
+			if n == 0 || total >= limit {
+				break
+			}
+			log.Printf("embed-backfill: %d embedded so far", total)
+		}
+		log.Printf("embed-backfill complete: %d articles embedded", total)
+		return
+	}
+
 	// For Cloud Run Jobs: process and exit
 	// For Cloud Run Services: serve health check and process on schedule
 	if os.Getenv("CLOUD_RUN_JOB") != "" {
@@ -259,6 +295,20 @@ func runAggregation(ctx context.Context, fetcher *RSSFetcher, matcher *StockMatc
 	if !dryRun {
 		if err := ClusterNews(ctx, store.db, ClusterNewsOpts{DryRun: dryRun}); err != nil {
 			log.Printf("  WARNING: clustering failed: %v", err)
+		}
+	}
+
+	// EMBED: generate vectors for any new, unembedded articles (best-effort)
+	if apiKey := os.Getenv("GEMINI_API_KEY"); apiKey != "" && !dryRun {
+		if embedder, err := NewEmbedder(ctx, apiKey); err != nil {
+			log.Printf("  WARNING: embedder init failed: %v", err)
+		} else {
+			defer embedder.Close()
+			if n, err := EmbedBackfill(ctx, store.db, embedder, EmbedBackfillOpts{Limit: 200}); err != nil {
+				log.Printf("  WARNING: embedding step failed: %v", err)
+			} else {
+				log.Printf("  embedded %d new articles", n)
+			}
 		}
 	}
 
