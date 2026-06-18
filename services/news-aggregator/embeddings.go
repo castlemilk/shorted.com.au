@@ -143,5 +143,8 @@ func EmbedBackfill(ctx context.Context, db *pgxpool.Pool, embedder *Embedder, op
 		}
 		written++
 	}
+	if failed := len(ids) - written; failed > 0 {
+		log.Printf("  WARN: failed to write %d/%d embeddings", failed, len(ids))
+	}
 	return written, nil
 }

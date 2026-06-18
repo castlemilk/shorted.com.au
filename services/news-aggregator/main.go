@@ -182,11 +182,13 @@ func main() {
 		if v := os.Getenv("BACKFILL_LIMIT"); v != "" {
 			if n, err := strconv.Atoi(v); err == nil {
 				limit = n
+			} else {
+				log.Printf("WARN: invalid BACKFILL_LIMIT %q, using %d", v, limit)
 			}
 		}
 		total := 0
 		for {
-			n, err := EmbedBackfill(ctx, db, embedder, EmbedBackfillOpts{Limit: 50})
+			n, err := EmbedBackfill(ctx, db, embedder, EmbedBackfillOpts{Limit: embedBatchSize})
 			if err != nil {
 				log.Fatalf("EmbedBackfill failed: %v", err)
 			}
