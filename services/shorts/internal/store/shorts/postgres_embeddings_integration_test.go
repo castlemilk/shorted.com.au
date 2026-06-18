@@ -5,6 +5,8 @@ package shorts
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -66,7 +68,8 @@ func startPgvector(t *testing.T) (*pgxpool.Pool, func()) {
 			embedding vector(3) NOT NULL,
 			model TEXT NOT NULL,
 			UNIQUE (object_type, object_id, chunk_idx)
-		);`)
+		);
+		CREATE INDEX idx_embeddings_hnsw ON embeddings USING hnsw (embedding vector_cosine_ops);`)
 	require.NoError(t, err)
 
 	cleanup := func() {
@@ -138,4 +141,61 @@ func TestGetRelatedNews_AutoResolvesAnchor(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, got, 1, "anchor auto-resolved to the latest article and excluded from results")
 	require.Equal(t, olderID, got[0].ID)
+}
+
+// TestGetRelatedNews_UsesHNSWIndex is a SCALE-REGRESSION guard. It EXPLAINs the exact
+// production ANN query against a non-trivial dataset and asserts the planner uses the
+// pgvector HNSW index. The original implementation took the anchor vector from a CROSS
+// JOIN, which silently defeated the index and did a full-scan KNN that only timed out
+// at scale — the small-row tests above could not catch it.
+func TestGetRelatedNews_UsesHNSWIndex(t *testing.T) {
+	pool, cleanup := startPgvector(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	// Seed a non-trivial dataset so a seq-scan plan is clearly distinguishable.
+	const n = 300
+	for i := 0; i < n; i++ {
+		id := fmt.Sprintf("00000000-0000-0000-0000-%012d", i)
+		vec := fmt.Sprintf("[%f,%f,%f]", float64(i%7)/7, float64(i%5)/5, float64(i%3)/3)
+		_, err := pool.Exec(ctx, `INSERT INTO news_articles (id, stock_code, source, headline, url, published_at)
+			VALUES ($1, 'BHP', 'stockhead', 'h', $2, now())`, id, "http://x/"+id)
+		require.NoError(t, err)
+		_, err = pool.Exec(ctx, `INSERT INTO embeddings (object_type, object_id, embedding, model)
+			VALUES ('news_article', $1, $2::vector, 'test')`, id, vec)
+		require.NoError(t, err)
+	}
+
+	// Pick any embedded article as the anchor and grab its embedding literal.
+	var anchorID, emb string
+	require.NoError(t, pool.QueryRow(ctx, `SELECT object_id, embedding::text FROM embeddings LIMIT 1`).Scan(&anchorID, &emb))
+
+	// EXPLAIN the EXACT production query. Disable seq scans on this connection so the
+	// planner must reveal whether the query is index-USABLE: the literal-vector form
+	// can use idx_embeddings_hnsw; the old CROSS JOIN form cannot and would seq-scan.
+	conn, err := pool.Acquire(ctx)
+	require.NoError(t, err)
+	defer conn.Release()
+	// With seq scans AND sorts disabled, the literal-vector ORDER BY can only be
+	// satisfied by the HNSW index; the old CROSS JOIN form (non-constant vector) cannot
+	// use it and falls back to a (penalised) seq scan + sort — exposing the regression.
+	_, err = conn.Exec(ctx, "SET enable_seqscan = off")
+	require.NoError(t, err)
+	_, err = conn.Exec(ctx, "SET enable_sort = off")
+	require.NoError(t, err)
+
+	rows, err := conn.Query(ctx, "EXPLAIN "+relatedNewsANNQuery, emb, anchorID, int32(6))
+	require.NoError(t, err)
+	var plan strings.Builder
+	for rows.Next() {
+		var line string
+		require.NoError(t, rows.Scan(&line))
+		plan.WriteString(line)
+		plan.WriteByte('\n')
+	}
+	require.NoError(t, rows.Err())
+
+	require.Contains(t, plan.String(), "idx_embeddings_hnsw",
+		"GetRelatedNews ANN query must use the HNSW index (guards against a regression to the "+
+			"CROSS JOIN / exact-KNN form that times out at scale). EXPLAIN plan:\n"+plan.String())
 }
