@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:14
+    image: pgvector/pgvector:pg14
     container_name: shorted_db
     environment:
       POSTGRES_DB: shorts # Your database name
