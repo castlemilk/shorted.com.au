@@ -922,6 +922,20 @@ func (mr *MockCacheMockRecorder) GetMarketNewsKey(limit, source, priceSensitiveO
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketNewsKey", reflect.TypeOf((*MockCache)(nil).GetMarketNewsKey), limit, source, priceSensitiveOnly)
 }
 
+// GetRelatedNewsKey mocks base method.
+func (m *MockCache) GetRelatedNewsKey(stockCode, articleID string, limit int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelatedNewsKey", stockCode, articleID, limit)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetRelatedNewsKey indicates an expected call of GetRelatedNewsKey.
+func (mr *MockCacheMockRecorder) GetRelatedNewsKey(stockCode, articleID, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelatedNewsKey", reflect.TypeOf((*MockCache)(nil).GetRelatedNewsKey), stockCode, articleID, limit)
+}
+
 // GetOrSet mocks base method.
 func (m *MockCache) GetOrSet(key string, computeFn func() (any, error)) (any, error) {
 	m.ctrl.T.Helper()

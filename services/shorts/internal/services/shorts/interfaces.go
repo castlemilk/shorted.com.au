@@ -111,6 +111,7 @@ type Cache interface {
 	GetAvailableDatesKey(limit int32, before string) string
 	GetStockNewsKey(stockCode string, limit int32, source, sentiment string) string
 	GetMarketNewsKey(limit int32, source string, priceSensitiveOnly bool) string
+	GetRelatedNewsKey(stockCode, articleID string, limit int32) string
 	GetDirectorTradesKey(stockCode string, limit int32) string
 	GetDividendHistoryKey(stockCode string, years int32) string
 	GetPeerComparisonKey(stockCode string, limit int32) string
