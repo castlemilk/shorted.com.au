@@ -121,27 +121,37 @@ func EmbedBackfill(ctx context.Context, db *pgxpool.Pool, embedder *Embedder, op
 		return 0, nil
 	}
 
-	vectors, err := embedder.EmbedBatch(ctx, texts)
-	if err != nil {
-		return 0, err
-	}
-	if len(vectors) != len(ids) {
-		return 0, fmt.Errorf("embedding count mismatch: got %d for %d articles", len(vectors), len(ids))
-	}
-
+	// Embed + write in chunks of embedBatchSize so a large Limit never exceeds
+	// the model's per-request batch cap (the candidate set can be > one batch).
 	written := 0
-	for i, id := range ids {
-		_, err := db.Exec(ctx, `
-			INSERT INTO embeddings (object_type, object_id, chunk_idx, embedding, model)
-			VALUES ('news_article', $1, 0, $2::vector, $3)
-			ON CONFLICT (object_type, object_id, chunk_idx)
-			DO UPDATE SET embedding = EXCLUDED.embedding, model = EXCLUDED.model`,
-			id, formatVector(vectors[i]), embeddingModel)
-		if err != nil {
-			log.Printf("  WARN: failed to write embedding for %s: %v", id, err)
-			continue
+	for start := 0; start < len(ids); start += embedBatchSize {
+		end := start + embedBatchSize
+		if end > len(ids) {
+			end = len(ids)
 		}
-		written++
+		batchIDs, batchTexts := ids[start:end], texts[start:end]
+
+		vectors, err := embedder.EmbedBatch(ctx, batchTexts)
+		if err != nil {
+			return written, err
+		}
+		if len(vectors) != len(batchIDs) {
+			return written, fmt.Errorf("embedding count mismatch: got %d for %d articles", len(vectors), len(batchIDs))
+		}
+
+		for i, id := range batchIDs {
+			_, err := db.Exec(ctx, `
+				INSERT INTO embeddings (object_type, object_id, chunk_idx, embedding, model)
+				VALUES ('news_article', $1, 0, $2::vector, $3)
+				ON CONFLICT (object_type, object_id, chunk_idx)
+				DO UPDATE SET embedding = EXCLUDED.embedding, model = EXCLUDED.model`,
+				id, formatVector(vectors[i]), embeddingModel)
+			if err != nil {
+				log.Printf("  WARN: failed to write embedding for %s: %v", id, err)
+				continue
+			}
+			written++
+		}
 	}
 	if failed := len(ids) - written; failed > 0 {
 		log.Printf("  WARN: failed to write %d/%d embeddings", failed, len(ids))
