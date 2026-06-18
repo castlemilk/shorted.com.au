@@ -2,8 +2,11 @@ package shorts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // GetRelatedNews returns news articles semantically nearest to an anchor article.
@@ -27,8 +30,11 @@ func (s *postgresStore) GetRelatedNews(stockCode, articleID string, limit int32)
 			ORDER BY published_at DESC
 			LIMIT 1`, stockCode).Scan(&articleID)
 		if err != nil {
-			// No news for this stock yet → no related news (not an error to the caller).
-			return nil, nil
+			if errors.Is(err, pgx.ErrNoRows) {
+				// No news for this stock yet → no related news (not an error to the caller).
+				return nil, nil
+			}
+			return nil, fmt.Errorf("failed to resolve anchor article: %w", err)
 		}
 	}
 
