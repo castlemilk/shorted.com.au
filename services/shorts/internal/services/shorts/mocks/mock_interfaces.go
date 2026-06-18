@@ -490,6 +490,21 @@ func (mr *MockShortsStoreMockRecorder) GetStockNews(stockCode, limit, source, se
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockNews", reflect.TypeOf((*MockShortsStore)(nil).GetStockNews), stockCode, limit, source, sentiment)
 }
 
+// GetRelatedNews mocks base method.
+func (m *MockShortsStore) GetRelatedNews(stockCode, articleID string, limit int32) ([]*shorts.NewsArticle, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelatedNews", stockCode, articleID, limit)
+	ret0, _ := ret[0].([]*shorts.NewsArticle)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRelatedNews indicates an expected call of GetRelatedNews.
+func (mr *MockShortsStoreMockRecorder) GetRelatedNews(stockCode, articleID, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelatedNews", reflect.TypeOf((*MockShortsStore)(nil).GetRelatedNews), stockCode, articleID, limit)
+}
+
 // GetSyncStatus mocks base method.
 func (m *MockShortsStore) GetSyncStatus(filter shorts.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error) {
 	m.ctrl.T.Helper()

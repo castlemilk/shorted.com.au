@@ -162,6 +162,10 @@ func (s *StoreAdapter) GetMarketNews(limit int32, source string, priceSensitiveO
 	return s.store.GetMarketNews(limit, source, priceSensitiveOnly)
 }
 
+func (s *StoreAdapter) GetRelatedNews(stockCode, articleID string, limit int32) ([]*shorts.NewsArticle, error) {
+	return s.store.GetRelatedNews(stockCode, articleID, limit)
+}
+
 func (s *StoreAdapter) GetEditorialTake(slug string) (*shorts.EditorialTake, error) {
 	return s.store.GetEditorialTake(slug)
 }

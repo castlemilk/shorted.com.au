@@ -82,6 +82,7 @@ type Store interface {
 	// News methods
 	GetStockNews(stockCode string, limit int32, source, sentiment string) ([]*NewsArticle, int, error)
 	GetMarketNews(limit int32, source string, priceSensitiveOnly bool) ([]*NewsArticle, int, error)
+	GetRelatedNews(stockCode, articleID string, limit int32) ([]*NewsArticle, error)
 
 	// Editorial Take methods
 	GetEditorialTake(slug string) (*EditorialTake, error)
