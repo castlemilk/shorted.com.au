@@ -12,6 +12,12 @@ export const MDX_COMPONENT_SCHEMAS = {
     mode: z.enum(["dollar", "percent"]).default("dollar"),
     title: z.string().optional(),
   }),
+  ShortBasket: z.object({
+    basket: z.string().regex(/^[a-z][a-z0-9-]{1,20}$/).optional(),
+    window: z.enum(BASKET_WINDOWS).default("1y"),
+    mode: z.enum(["dollar", "percent"]).default("dollar"),
+    title: z.string().optional(),
+  }),
   StatGroup: z.object({}),
   Stat: z.object({ label: z.string().min(1), value: z.string().min(1), context: z.string().optional(), cite: z.string().regex(/^ref-\d+$/).optional() }),
   PullQuote: z.object({}),
@@ -28,6 +34,7 @@ export const MDX_PALETTE_DOC = `
 <ShortInterestChart code="BHP" window="6m" /> — short interest vs price chart. One per article, after the data discussion.
 <PriceChart code="BHP" window="3m" /> — price/volume only; use when price action is the story.
 <BankShortBasket banks="CBA,WBC,NAB,ANZ" window="1y" mode="dollar" /> — interactive comparison of short positions across a BASKET of stocks, with a $/% toggle (stacked dollar value vs overlaid percent). Only for multi-stock/sector stories; window one of 3m|6m|1y. One per article.
+<ShortBasket basket="lithium" window="1y" mode="dollar" /> — same interactive $/% basket chart for a named SECTOR. basket one of: banks | lithium | ironore. Use for sector/thematic stories; one per article.
 <StatGroup><Stat label="Short interest" value="12.4%" context="up 3.1pp in 90 days" cite="ref-2" /></StatGroup> — 2-4 key numbers, every value must appear in your sources or the provided data.
 <PullQuote>One striking sentence from your own prose.</PullQuote>
 <Timeline><TimelineEvent date="2026-04-02" label="CEO sells $1.2M" cite="ref-3" /></Timeline> — only for genuine sequences (3+ events).

@@ -68,6 +68,17 @@ describe("validateMdx", () => {
     expect(badMode.ok).toBe(false);
   });
 
+  it("accepts ShortBasket with a sector key or none, rejects bad keys", async () => {
+    const ok = await validateMdx(`<ShortBasket basket="lithium" window="1y" mode="dollar" />`, OPTS);
+    expect(ok.ok).toBe(true);
+    const ok2 = await validateMdx(`<ShortBasket />`, OPTS);
+    expect(ok2.ok).toBe(true);
+    const bad = await validateMdx(`<ShortBasket basket="Lithium" />`, OPTS); // uppercase
+    expect(bad.ok).toBe(false);
+    const badWin = await validateMdx(`<ShortBasket basket="lithium" window="5y" />`, OPTS);
+    expect(badWin.ok).toBe(false);
+  });
+
   it("rejects MDX that fails to compile", async () => {
     const r = await validateMdx(`<StatGroup>\n<Stat label="x" value="1"`, OPTS);
     expect(r.ok).toBe(false);
@@ -96,9 +107,10 @@ describe("stripMdxComponents", () => {
     expect(out).toContain("- 2026-04-02 — CEO sells");
   });
 
-  it("strips BankShortBasket cleanly", () => {
-    const out = stripMdxComponents(`before\n\n<BankShortBasket banks="CBA,WBC,NAB,ANZ" window="1y" mode="dollar" />\n\nafter`);
+  it("strips BankShortBasket and ShortBasket cleanly", () => {
+    const out = stripMdxComponents(`before\n\n<BankShortBasket banks="CBA,WBC,NAB,ANZ" window="1y" mode="dollar" />\n\n<ShortBasket basket="lithium" />\n\nafter`);
     expect(out).not.toContain("<BankShortBasket");
+    expect(out).not.toContain("<ShortBasket");
     expect(out).toContain("before");
     expect(out).toContain("after");
   });
