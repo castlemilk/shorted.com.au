@@ -13,7 +13,12 @@ import (
 )
 
 const (
-	embeddingModel = "text-embedding-004" // 768-dim, matches embeddings.vector(768)
+	// gemini-embedding-001 is MRL-trained (3072 default dims). We truncate to the
+	// first embeddingDims — a valid lower-dim embedding — to match embeddings.vector(768).
+	// (text-embedding-004 was retired; this model only supports embedContent, not the
+	// synchronous batch method, so EmbedBatch loops single calls.)
+	embeddingModel = "gemini-embedding-001"
+	embeddingDims  = 768
 	embedBatchSize = 50
 )
 
@@ -35,19 +40,26 @@ func NewEmbedder(ctx context.Context, apiKey string) (*Embedder, error) {
 // Close releases the underlying client.
 func (e *Embedder) Close() error { return e.client.Close() }
 
-// EmbedBatch returns one 768-float vector per input text, preserving order.
+// EmbedBatch returns one embeddingDims-length vector per input text, preserving
+// order. gemini-embedding-001 only supports single embedContent (no synchronous
+// batch), so this loops; callers already chunk via embedBatchSize.
 func (e *Embedder) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
-	b := e.model.NewBatch()
-	for _, t := range texts {
-		b.AddContent(genai.Text(t))
-	}
-	res, err := e.model.BatchEmbedContents(ctx, b)
-	if err != nil {
-		return nil, fmt.Errorf("batch embed: %w", err)
-	}
-	out := make([][]float32, len(res.Embeddings))
-	for i, emb := range res.Embeddings {
-		out[i] = emb.Values
+	out := make([][]float32, len(texts))
+	for i, t := range texts {
+		res, err := e.model.EmbedContent(ctx, genai.Text(t))
+		if err != nil {
+			return nil, fmt.Errorf("embed content: %w", err)
+		}
+		if res.Embedding == nil || len(res.Embedding.Values) < embeddingDims {
+			got := 0
+			if res.Embedding != nil {
+				got = len(res.Embedding.Values)
+			}
+			return nil, fmt.Errorf("embedding too short: got %d, need %d", got, embeddingDims)
+		}
+		// MRL prefix truncation to embeddingDims; cosine distance is scale-invariant
+		// so no renormalization is required.
+		out[i] = res.Embedding.Values[:embeddingDims]
 	}
 	return out, nil
 }
