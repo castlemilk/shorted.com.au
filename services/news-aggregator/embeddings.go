@@ -100,8 +100,16 @@ func (e *Embedder) EmbedBatch(ctx context.Context, texts []string) ([][]float32,
 	sem := make(chan struct{}, embedConcurrency)
 	var wg sync.WaitGroup
 	for i, t := range texts {
+		// Acquire a slot before Add() so the WaitGroup stays balanced if ctx
+		// is cancelled mid-dispatch (a deadline-carrying ctx from a future
+		// query-time caller).
+		select {
+		case sem <- struct{}{}:
+		case <-ctx.Done():
+			wg.Wait()
+			return out, ctx.Err()
+		}
 		wg.Add(1)
-		sem <- struct{}{}
 		go func(i int, t string) {
 			defer wg.Done()
 			defer func() { <-sem }()
