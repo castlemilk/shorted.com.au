@@ -9,9 +9,19 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// GetRelatedNews returns news articles semantically nearest to an anchor article.
-// If articleID is empty, the stock's latest primary article is used as the anchor.
-// Results exclude the anchor itself and prefer cluster-primary rows.
+// GetRelatedNews returns news articles semantically nearest to an anchor article,
+// ranked by cosine distance over the embeddings table.
+//
+// If articleID is empty, the stock's latest cluster-primary article is used as the
+// anchor. Results exclude the anchor itself and prefer cluster-primary rows.
+//
+// By design, results are NOT scoped to stockCode — the rail surfaces semantically
+// related coverage across the market (the caller may render the foreign ticker).
+// stockCode is used only to resolve the anchor when articleID is empty.
+//
+// Contract: if the anchor article has no embedding row yet (backfill lag), the
+// anchor CTE is empty and this returns (nil, nil). Callers should treat an empty
+// result as "not ready yet", not "no related news exists".
 func (s *postgresStore) GetRelatedNews(stockCode, articleID string, limit int32) ([]*NewsArticle, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

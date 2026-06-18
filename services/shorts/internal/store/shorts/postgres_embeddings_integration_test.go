@@ -112,3 +112,30 @@ func TestGetRelatedNews_NoNewsReturnsNil(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, got)
 }
+
+// TestGetRelatedNews_AutoResolvesAnchor covers the articleID=="" path the frontend
+// uses: the stock's latest article becomes the anchor and is excluded from results.
+func TestGetRelatedNews_AutoResolvesAnchor(t *testing.T) {
+	pool, cleanup := startPgvector(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	seed := func(id, vec, publishedAt string) {
+		_, err := pool.Exec(ctx, `INSERT INTO news_articles (id, stock_code, source, headline, url, published_at)
+			VALUES ($1, 'BHP', 'stockhead', 'h', $2, $3::timestamptz)`, id, "http://x/"+id, publishedAt)
+		require.NoError(t, err)
+		_, err = pool.Exec(ctx, `INSERT INTO embeddings (object_type, object_id, embedding, model)
+			VALUES ('news_article', $1, $2::vector, 'test')`, id, vec)
+		require.NoError(t, err)
+	}
+	latestID := "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" // newest → becomes the anchor
+	olderID := "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+	seed(latestID, "[1,0,0]", "2026-06-18T00:00:00Z")
+	seed(olderID, "[0.8,0.2,0]", "2026-06-10T00:00:00Z")
+
+	store := &postgresStore{db: pool}
+	got, err := store.GetRelatedNews("BHP", "", 6) // empty articleID → auto-resolve latest as anchor
+	require.NoError(t, err)
+	require.Len(t, got, 1, "anchor auto-resolved to the latest article and excluded from results")
+	require.Equal(t, olderID, got[0].ID)
+}
