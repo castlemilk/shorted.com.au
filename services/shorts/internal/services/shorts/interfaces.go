@@ -63,6 +63,7 @@ type ShortsStore interface {
 	// News methods
 	GetStockNews(stockCode string, limit int32, source, sentiment string) ([]*shortsstore.NewsArticle, int, error)
 	GetMarketNews(limit int32, source string, priceSensitiveOnly bool) ([]*shortsstore.NewsArticle, int, error)
+	GetRelatedNews(stockCode, articleID string, limit int32) ([]*shortsstore.NewsArticle, error)
 
 	// Editorial Take methods
 	GetEditorialTake(slug string) (*shortsstore.EditorialTake, error)
@@ -110,6 +111,7 @@ type Cache interface {
 	GetAvailableDatesKey(limit int32, before string) string
 	GetStockNewsKey(stockCode string, limit int32, source, sentiment string) string
 	GetMarketNewsKey(limit int32, source string, priceSensitiveOnly bool) string
+	GetRelatedNewsKey(stockCode, articleID string, limit int32) string
 	GetDirectorTradesKey(stockCode string, limit int32) string
 	GetDividendHistoryKey(stockCode string, years int32) string
 	GetPeerComparisonKey(stockCode string, limit int32) string

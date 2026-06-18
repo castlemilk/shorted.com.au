@@ -174,6 +174,13 @@ export const getStockFinancialHighlights = ShortedStocksService.method.getStockF
 export const getStockNews = ShortedStocksService.method.getStockNews;
 
 /**
+ * Get news semantically related to a stock (or to a specific article)
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetRelatedNews
+ */
+export const getRelatedNews = ShortedStocksService.method.getRelatedNews;
+
+/**
  * Get market-wide news across all stocks
  *
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetMarketNews

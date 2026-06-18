@@ -401,6 +401,15 @@ service ShortedStocksService {
     };
   }
 
+  // Get news semantically related to a stock (or to a specific article)
+  rpc GetRelatedNews (GetRelatedNewsRequest) returns (GetRelatedNewsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Related News",
+      description: "Retrieve news articles semantically related to a stock or a given article, via vector similarity."
+    };
+  }
+
   // Get market-wide news across all stocks
   rpc GetMarketNews (GetMarketNewsRequest) returns (GetMarketNewsResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
@@ -1084,6 +1093,18 @@ message GetStockNewsRequest {
 message GetStockNewsResponse {
   repeated NewsArticle articles = 1;
   int32 total_count = 2;
+}
+
+// Request for GetRelatedNews RPC
+message GetRelatedNewsRequest {
+  string stock_code = 1;          // ASX stock code (e.g., "BHP")
+  string article_id = 2;          // Optional anchor article id; if empty, uses the stock's latest article
+  int32 limit = 3;                // Max related articles to return (default 6)
+}
+
+// Response for GetRelatedNews RPC
+message GetRelatedNewsResponse {
+  repeated NewsArticle articles = 1;   // ordered nearest-first by semantic similarity
 }
 
 // Request for GetMarketNews RPC

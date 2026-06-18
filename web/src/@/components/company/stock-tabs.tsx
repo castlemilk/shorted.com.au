@@ -9,6 +9,7 @@ import {
   TabsTrigger,
 } from "~/@/components/ui/tabs";
 import { StockNewsFeed } from "./stock-news-feed";
+import { RelatedNewsRail } from "./related-news-rail";
 import { DirectorTradesTable } from "./director-trades-table";
 import { DividendHistory } from "./dividend-history";
 import { PeerComparisonTable } from "./peer-comparison-table";
@@ -79,7 +80,10 @@ export function StockTabs({
       ) : null}
 
       <TabsContent value="news">
-        <StockNewsFeed stockCode={stockCode} limit={20} />
+        <div className="space-y-4">
+          <StockNewsFeed stockCode={stockCode} limit={20} />
+          <RelatedNewsRail stockCode={stockCode} limit={6} />
+        </div>
       </TabsContent>
 
       <TabsContent value="financials">
