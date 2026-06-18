@@ -106,6 +106,9 @@ const (
 	// ShortedStocksServiceGetStockNewsProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetStockNews RPC.
 	ShortedStocksServiceGetStockNewsProcedure = "/shorts.v1alpha1.ShortedStocksService/GetStockNews"
+	// ShortedStocksServiceGetRelatedNewsProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetRelatedNews RPC.
+	ShortedStocksServiceGetRelatedNewsProcedure = "/shorts.v1alpha1.ShortedStocksService/GetRelatedNews"
 	// ShortedStocksServiceGetMarketNewsProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetMarketNews RPC.
 	ShortedStocksServiceGetMarketNewsProcedure = "/shorts.v1alpha1.ShortedStocksService/GetMarketNews"
@@ -174,6 +177,7 @@ var (
 	shortedStocksServiceGetWeeklyReportMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("GetWeeklyReport")
 	shortedStocksServiceGetStockFinancialHighlightsMethodDescriptor     = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockFinancialHighlights")
 	shortedStocksServiceGetStockNewsMethodDescriptor                    = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockNews")
+	shortedStocksServiceGetRelatedNewsMethodDescriptor                  = shortedStocksServiceServiceDescriptor.Methods().ByName("GetRelatedNews")
 	shortedStocksServiceGetMarketNewsMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("GetMarketNews")
 	shortedStocksServiceGetEditorialTakeMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("GetEditorialTake")
 	shortedStocksServiceListEditorialTakesMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ListEditorialTakes")
@@ -240,6 +244,8 @@ type ShortedStocksServiceClient interface {
 	GetStockFinancialHighlights(context.Context, *connect.Request[v1alpha1.GetStockFinancialHighlightsRequest]) (*connect.Response[v1alpha1.GetStockFinancialHighlightsResponse], error)
 	// Get recent news articles for a specific stock
 	GetStockNews(context.Context, *connect.Request[v1alpha1.GetStockNewsRequest]) (*connect.Response[v1alpha1.GetStockNewsResponse], error)
+	// Get news semantically related to a stock (or to a specific article)
+	GetRelatedNews(context.Context, *connect.Request[v1alpha1.GetRelatedNewsRequest]) (*connect.Response[v1alpha1.GetRelatedNewsResponse], error)
 	// Get market-wide news across all stocks
 	GetMarketNews(context.Context, *connect.Request[v1alpha1.GetMarketNewsRequest]) (*connect.Response[v1alpha1.GetMarketNewsResponse], error)
 	// Get a single published editorial take by slug.
@@ -423,6 +429,12 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceGetStockNewsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getRelatedNews: connect.NewClient[v1alpha1.GetRelatedNewsRequest, v1alpha1.GetRelatedNewsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetRelatedNewsProcedure,
+			connect.WithSchema(shortedStocksServiceGetRelatedNewsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		getMarketNews: connect.NewClient[v1alpha1.GetMarketNewsRequest, v1alpha1.GetMarketNewsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetMarketNewsProcedure,
@@ -530,6 +542,7 @@ type shortedStocksServiceClient struct {
 	getWeeklyReport                 *connect.Client[v1alpha1.GetWeeklyReportRequest, v1alpha1.GetWeeklyReportResponse]
 	getStockFinancialHighlights     *connect.Client[v1alpha1.GetStockFinancialHighlightsRequest, v1alpha1.GetStockFinancialHighlightsResponse]
 	getStockNews                    *connect.Client[v1alpha1.GetStockNewsRequest, v1alpha1.GetStockNewsResponse]
+	getRelatedNews                  *connect.Client[v1alpha1.GetRelatedNewsRequest, v1alpha1.GetRelatedNewsResponse]
 	getMarketNews                   *connect.Client[v1alpha1.GetMarketNewsRequest, v1alpha1.GetMarketNewsResponse]
 	getEditorialTake                *connect.Client[v1alpha1.GetEditorialTakeRequest, v1alpha1.GetEditorialTakeResponse]
 	listEditorialTakes              *connect.Client[v1alpha1.ListEditorialTakesRequest, v1alpha1.ListEditorialTakesResponse]
@@ -668,6 +681,11 @@ func (c *shortedStocksServiceClient) GetStockNews(ctx context.Context, req *conn
 	return c.getStockNews.CallUnary(ctx, req)
 }
 
+// GetRelatedNews calls shorts.v1alpha1.ShortedStocksService.GetRelatedNews.
+func (c *shortedStocksServiceClient) GetRelatedNews(ctx context.Context, req *connect.Request[v1alpha1.GetRelatedNewsRequest]) (*connect.Response[v1alpha1.GetRelatedNewsResponse], error) {
+	return c.getRelatedNews.CallUnary(ctx, req)
+}
+
 // GetMarketNews calls shorts.v1alpha1.ShortedStocksService.GetMarketNews.
 func (c *shortedStocksServiceClient) GetMarketNews(ctx context.Context, req *connect.Request[v1alpha1.GetMarketNewsRequest]) (*connect.Response[v1alpha1.GetMarketNewsResponse], error) {
 	return c.getMarketNews.CallUnary(ctx, req)
@@ -785,6 +803,8 @@ type ShortedStocksServiceHandler interface {
 	GetStockFinancialHighlights(context.Context, *connect.Request[v1alpha1.GetStockFinancialHighlightsRequest]) (*connect.Response[v1alpha1.GetStockFinancialHighlightsResponse], error)
 	// Get recent news articles for a specific stock
 	GetStockNews(context.Context, *connect.Request[v1alpha1.GetStockNewsRequest]) (*connect.Response[v1alpha1.GetStockNewsResponse], error)
+	// Get news semantically related to a stock (or to a specific article)
+	GetRelatedNews(context.Context, *connect.Request[v1alpha1.GetRelatedNewsRequest]) (*connect.Response[v1alpha1.GetRelatedNewsResponse], error)
 	// Get market-wide news across all stocks
 	GetMarketNews(context.Context, *connect.Request[v1alpha1.GetMarketNewsRequest]) (*connect.Response[v1alpha1.GetMarketNewsResponse], error)
 	// Get a single published editorial take by slug.
@@ -964,6 +984,12 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceGetStockNewsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceGetRelatedNewsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetRelatedNewsProcedure,
+		svc.GetRelatedNews,
+		connect.WithSchema(shortedStocksServiceGetRelatedNewsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	shortedStocksServiceGetMarketNewsHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetMarketNewsProcedure,
 		svc.GetMarketNews,
@@ -1092,6 +1118,8 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetStockFinancialHighlightsHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetStockNewsProcedure:
 			shortedStocksServiceGetStockNewsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetRelatedNewsProcedure:
+			shortedStocksServiceGetRelatedNewsHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetMarketNewsProcedure:
 			shortedStocksServiceGetMarketNewsHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetEditorialTakeProcedure:
@@ -1221,6 +1249,10 @@ func (UnimplementedShortedStocksServiceHandler) GetStockFinancialHighlights(cont
 
 func (UnimplementedShortedStocksServiceHandler) GetStockNews(context.Context, *connect.Request[v1alpha1.GetStockNewsRequest]) (*connect.Response[v1alpha1.GetStockNewsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetStockNews is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetRelatedNews(context.Context, *connect.Request[v1alpha1.GetRelatedNewsRequest]) (*connect.Response[v1alpha1.GetRelatedNewsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetRelatedNews is not implemented"))
 }
 
 func (UnimplementedShortedStocksServiceHandler) GetMarketNews(context.Context, *connect.Request[v1alpha1.GetMarketNewsRequest]) (*connect.Response[v1alpha1.GetMarketNewsResponse], error) {
