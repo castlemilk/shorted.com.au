@@ -2,13 +2,17 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/google/generative-ai-go/genai"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
 )
 
@@ -17,9 +21,11 @@ const (
 	// first embeddingDims — a valid lower-dim embedding — to match embeddings.vector(768).
 	// (text-embedding-004 was retired; this model only supports embedContent, not the
 	// synchronous batch method, so EmbedBatch loops single calls.)
-	embeddingModel = "gemini-embedding-001"
-	embeddingDims  = 768
-	embedBatchSize = 50
+	embeddingModel   = "gemini-embedding-001"
+	embeddingDims    = 768
+	embedBatchSize   = 200 // rows selected + written per backfill chunk
+	embedConcurrency = 8   // parallel EmbedContent calls per chunk
+	embedMaxRetries  = 5   // retry/backoff on rate-limit / 5xx
 )
 
 // Embedder wraps a Gemini embedding model.
@@ -40,15 +46,28 @@ func NewEmbedder(ctx context.Context, apiKey string) (*Embedder, error) {
 // Close releases the underlying client.
 func (e *Embedder) Close() error { return e.client.Close() }
 
-// EmbedBatch returns one embeddingDims-length vector per input text, preserving
-// order. gemini-embedding-001 only supports single embedContent (no synchronous
-// batch), so this loops; callers already chunk via embedBatchSize.
-func (e *Embedder) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
-	out := make([][]float32, len(texts))
-	for i, t := range texts {
-		res, err := e.model.EmbedContent(ctx, genai.Text(t))
+// embedOne embeds a single text (gemini-embedding-001 only supports single
+// embedContent), MRL-truncated to embeddingDims, with retry/backoff on transient
+// errors. Cosine distance is scale-invariant so the truncated vector needs no
+// renormalization.
+func (e *Embedder) embedOne(ctx context.Context, text string) ([]float32, error) {
+	var lastErr error
+	for attempt := 0; attempt <= embedMaxRetries; attempt++ {
+		if attempt > 0 {
+			backoff := time.Duration(1<<(attempt-1)) * 400 * time.Millisecond
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(backoff):
+			}
+		}
+		res, err := e.model.EmbedContent(ctx, genai.Text(text))
 		if err != nil {
-			return nil, fmt.Errorf("embed content: %w", err)
+			lastErr = err
+			if isRetryableEmbedErr(err) {
+				continue
+			}
+			return nil, err
 		}
 		if res.Embedding == nil || len(res.Embedding.Values) < embeddingDims {
 			got := 0
@@ -57,10 +76,52 @@ func (e *Embedder) EmbedBatch(ctx context.Context, texts []string) ([][]float32,
 			}
 			return nil, fmt.Errorf("embedding too short: got %d, need %d", got, embeddingDims)
 		}
-		// MRL prefix truncation to embeddingDims; cosine distance is scale-invariant
-		// so no renormalization is required.
-		out[i] = res.Embedding.Values[:embeddingDims]
+		return res.Embedding.Values[:embeddingDims], nil
 	}
+	return nil, fmt.Errorf("embed failed after %d retries: %w", embedMaxRetries, lastErr)
+}
+
+// isRetryableEmbedErr reports whether a Gemini error is transient (rate limit or
+// 5xx) and worth retrying.
+func isRetryableEmbedErr(err error) bool {
+	var gerr *googleapi.Error
+	if errors.As(err, &gerr) {
+		return gerr.Code == 429 || gerr.Code >= 500
+	}
+	return false
+}
+
+// EmbedBatch returns one embeddingDims-length vector per input text, preserving
+// order, fanning the per-text embedContent calls across embedConcurrency workers.
+// Items that fail after retries are left nil — callers skip them and the
+// idempotent backfill retries them on a later run.
+func (e *Embedder) EmbedBatch(ctx context.Context, texts []string) ([][]float32, error) {
+	out := make([][]float32, len(texts))
+	sem := make(chan struct{}, embedConcurrency)
+	var wg sync.WaitGroup
+	for i, t := range texts {
+		// Acquire a slot before Add() so the WaitGroup stays balanced if ctx
+		// is cancelled mid-dispatch (a deadline-carrying ctx from a future
+		// query-time caller).
+		select {
+		case sem <- struct{}{}:
+		case <-ctx.Done():
+			wg.Wait()
+			return out, ctx.Err()
+		}
+		wg.Add(1)
+		go func(i int, t string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+			v, err := e.embedOne(ctx, t)
+			if err != nil {
+				log.Printf("  WARN: embed failed (item %d): %v", i, err)
+				return // leave out[i] nil; retried on a later run
+			}
+			out[i] = v
+		}(i, t)
+	}
+	wg.Wait()
 	return out, nil
 }
 
@@ -152,6 +213,9 @@ func EmbedBackfill(ctx context.Context, db *pgxpool.Pool, embedder *Embedder, op
 		}
 
 		for i, id := range batchIDs {
+			if vectors[i] == nil {
+				continue // embed failed after retries; retried on a later run
+			}
 			_, err := db.Exec(ctx, `
 				INSERT INTO embeddings (object_type, object_id, chunk_idx, embedding, model)
 				VALUES ('news_article', $1, 0, $2::vector, $3)
