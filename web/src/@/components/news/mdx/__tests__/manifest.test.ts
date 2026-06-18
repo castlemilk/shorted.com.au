@@ -18,3 +18,11 @@ test("BankShortBasket schema validates basket props", () => {
   expect(s.safeParse({ window: "2y" }).success).toBe(false);
   expect(s.safeParse({ mode: "sideways" }).success).toBe(false);
 });
+
+test("ShortBasket schema validates sector props", () => {
+  const s = MDX_COMPONENT_SCHEMAS.ShortBasket;
+  expect(s.safeParse({ basket: "lithium", window: "1y", mode: "dollar" }).success).toBe(true);
+  expect(s.safeParse({}).success).toBe(true); // all optional / defaulted
+  expect(s.safeParse({ basket: "Banks" }).success).toBe(false); // uppercase
+  expect(s.safeParse({ window: "2y" }).success).toBe(false);
+});

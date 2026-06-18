@@ -26,6 +26,15 @@ export const COMPONENT_SCHEMAS: Record<string, z.ZodTypeAny> = {
     mode: z.enum(["dollar", "percent"]).optional(),
     title: z.string().optional(),
   }),
+  ShortBasket: z.object({
+    basket: z
+      .string()
+      .regex(/^[a-z][a-z0-9-]{1,20}$/)
+      .optional(),
+    window: z.enum(["3m", "6m", "1y"]).optional(),
+    mode: z.enum(["dollar", "percent"]).optional(),
+    title: z.string().optional(),
+  }),
   StatGroup: z.object({}),
   Stat: z.object({
     label: z.string().min(1),
