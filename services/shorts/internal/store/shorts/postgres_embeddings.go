@@ -12,8 +12,10 @@ import (
 // GetRelatedNews returns news articles semantically nearest to an anchor article,
 // ranked by cosine distance over the embeddings table.
 //
-// If articleID is empty, the stock's latest cluster-primary article is used as the
-// anchor. Results exclude the anchor itself and prefer cluster-primary rows.
+// If articleID is empty, the anchor is the stock's latest cluster-primary article
+// that already has an embedding (not the absolute-latest, which is often a
+// just-arrived, not-yet-embedded row). Results exclude the anchor and prefer
+// cluster-primary rows.
 //
 // By design, results are NOT scoped to stockCode — the rail surfaces semantically
 // related coverage across the market (the caller may render the foreign ticker).
@@ -34,38 +36,37 @@ func (s *postgresStore) GetRelatedNews(stockCode, articleID string, limit int32)
 		limit = 6
 	}
 
-	// Resolve the anchor article if not supplied.
-	if articleID == "" {
-		err := s.db.QueryRow(ctx, `
-			SELECT id::text
-			FROM news_articles
-			WHERE stock_code = $1
-			  AND (cluster_id IS NULL OR cluster_is_primary = TRUE)
-			ORDER BY published_at DESC
-			LIMIT 1`, stockCode).Scan(&articleID)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				// No news for this stock yet → no related news (not an error to the caller).
-				return nil, nil
-			}
-			return nil, fmt.Errorf("failed to resolve anchor article: %w", err)
-		}
-	}
-
-	// Fetch the anchor's embedding as a pgvector text literal ('[v1,v2,...]'). Passing
-	// it back as a $1::vector literal lets the planner use the HNSW index; a correlated
-	// CROSS JOIN / subquery forces an exact full-scan KNN that times out at scale.
+	// Resolve the anchor + its embedding. The text-form embedding ('[v1,v2,...]') is
+	// passed back as a $1::vector LITERAL so the planner uses the HNSW index (a
+	// correlated CROSS JOIN / subquery forces an exact full-scan KNN that times out).
 	var anchorEmbedding string
-	if err := s.db.QueryRow(ctx, `
-		SELECT embedding::text
-		FROM embeddings
-		WHERE object_type = 'news_article' AND object_id = $1
-		LIMIT 1`, articleID).Scan(&anchorEmbedding); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			// Anchor not embedded yet (backfill lag) → "not ready", not an error.
-			return nil, nil
+	if articleID == "" {
+		// Anchor on the latest cluster-primary article for the stock that ALREADY has
+		// an embedding. Anchoring on the absolute-latest article would frequently hit
+		// a just-arrived, not-yet-embedded row (embed lag) and return an empty rail.
+		if err := s.db.QueryRow(ctx, `
+			SELECT n.id::text, e.embedding::text
+			FROM news_articles n
+			JOIN embeddings e ON e.object_type = 'news_article' AND e.object_id = n.id::text
+			WHERE n.stock_code = $1 AND (n.cluster_id IS NULL OR n.cluster_is_primary = TRUE)
+			ORDER BY n.published_at DESC
+			LIMIT 1`, stockCode).Scan(&articleID, &anchorEmbedding); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, nil // no embedded news for this stock yet → "not ready"
+			}
+			return nil, fmt.Errorf("failed to resolve anchor: %w", err)
 		}
-		return nil, fmt.Errorf("failed to fetch anchor embedding: %w", err)
+	} else {
+		if err := s.db.QueryRow(ctx, `
+			SELECT embedding::text
+			FROM embeddings
+			WHERE object_type = 'news_article' AND object_id = $1
+			LIMIT 1`, articleID).Scan(&anchorEmbedding); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return nil, nil // explicit anchor not embedded yet → "not ready"
+			}
+			return nil, fmt.Errorf("failed to fetch anchor embedding: %w", err)
+		}
 	}
 
 	query := `
