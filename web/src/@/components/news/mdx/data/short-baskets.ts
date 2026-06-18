@@ -7,6 +7,7 @@ import type { BasketDef } from "./short-baskets-types";
 import { BANK_BASKET_SERIES, BASKET_RECORD } from "./bank-basket-series";
 import { BASKET as lithium } from "./short-basket-lithium";
 import { BASKET as ironore } from "./short-basket-ironore";
+import { BASKET as rareearth } from "./short-basket-rareearth";
 
 const banks: BasketDef = {
   key: "banks",
@@ -20,7 +21,7 @@ const banks: BasketDef = {
   recordDate: BASKET_RECORD.date,
 };
 
-export const BASKETS: Record<string, BasketDef> = { banks, lithium, ironore };
+export const BASKETS: Record<string, BasketDef> = { banks, lithium, ironore, rareearth };
 export const BASKET_KEYS = Object.keys(BASKETS);
 
 export type { BasketDef };
