@@ -176,7 +176,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("NewEmbedder failed: %v", err)
 		}
-		defer embedder.Close()
+		defer func() { _ = embedder.Close() }()
 
 		limit := 500
 		if v := os.Getenv("BACKFILL_LIMIT"); v != "" {
@@ -305,7 +305,7 @@ func runAggregation(ctx context.Context, fetcher *RSSFetcher, matcher *StockMatc
 		if embedder, err := NewEmbedder(ctx, apiKey); err != nil {
 			log.Printf("  WARNING: embedder init failed: %v", err)
 		} else {
-			defer embedder.Close()
+			defer func() { _ = embedder.Close() }()
 			if n, err := EmbedBackfill(ctx, store.db, embedder, EmbedBackfillOpts{Limit: 200}); err != nil {
 				log.Printf("  WARNING: embedding step failed: %v", err)
 			} else {
