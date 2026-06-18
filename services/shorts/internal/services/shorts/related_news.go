@@ -11,11 +11,14 @@ import (
 
 // ValidateGetRelatedNewsRequest validates and normalizes the request.
 func ValidateGetRelatedNewsRequest(req *shortsv1alpha1.GetRelatedNewsRequest) error {
+	req.StockCode = NormalizeStockCode(req.StockCode)
 	if req.StockCode == "" {
 		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("stock_code is required"))
 	}
-	if req.Limit <= 0 || req.Limit > 50 {
+	if req.Limit <= 0 {
 		req.Limit = 6
+	} else if req.Limit > 50 {
+		req.Limit = 50
 	}
 	return nil
 }

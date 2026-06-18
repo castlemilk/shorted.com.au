@@ -40,8 +40,10 @@ func TestGetRelatedNews_HandlerReturnsArticles(t *testing.T) {
 		}, nil)
 
 	srv := newTestServer(t, mockStore)
+	// Lowercase input proves the handler normalizes before hitting the store
+	// (the mock above expects "BHP").
 	resp, err := srv.GetRelatedNews(context.Background(), connect.NewRequest(&shortsv1alpha1.GetRelatedNewsRequest{
-		StockCode: "BHP",
+		StockCode: "bhp",
 		Limit:     6,
 	}))
 
@@ -56,4 +58,5 @@ func TestGetRelatedNews_HandlerRejectsEmptyStock(t *testing.T) {
 	srv := newTestServer(t, mocks.NewMockShortsStore(ctrl))
 	_, err := srv.GetRelatedNews(context.Background(), connect.NewRequest(&shortsv1alpha1.GetRelatedNewsRequest{}))
 	require.Error(t, err)
+	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 }

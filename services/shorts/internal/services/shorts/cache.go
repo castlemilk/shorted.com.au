@@ -207,7 +207,7 @@ func (c *MemoryCache) GetMarketNewsKey(limit int32, source string, priceSensitiv
 
 // GetRelatedNewsKey builds a cache key for GetRelatedNews responses.
 func (c *MemoryCache) GetRelatedNewsKey(stockCode, articleID string, limit int32) string {
-	return fmt.Sprintf("related-news:%s:%s:%d", stockCode, articleID, limit)
+	return c.generateKey("related_news", stockCode, articleID, limit)
 }
 
 func (c *MemoryCache) GetDirectorTradesKey(stockCode string, limit int32) string {
