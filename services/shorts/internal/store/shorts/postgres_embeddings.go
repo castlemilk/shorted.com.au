@@ -9,6 +9,23 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// relatedNewsANNQuery is the cosine-ANN query behind GetRelatedNews. The anchor
+// embedding is passed as the $1::vector LITERAL ($2 = anchor id to exclude, $3 =
+// limit) so the planner can use the pgvector HNSW index (idx_embeddings_hnsw) —
+// a correlated CROSS JOIN / subquery forces an exact full-scan KNN that times out
+// at scale. Kept as a package constant so the integration test EXPLAINs the exact
+// query and asserts the index is used.
+const relatedNewsANNQuery = `
+	SELECT n.id, n.stock_code, n.source, n.headline, n.url, n.published_at,
+	       n.sentiment, n.relevance_score, n.is_price_sensitive, n.summary, n.tags, n.image_url
+	FROM embeddings e
+	JOIN news_articles n ON n.id = e.object_id::uuid
+	WHERE e.object_type = 'news_article'
+	  AND e.object_id <> $2
+	  AND (n.cluster_id IS NULL OR n.cluster_is_primary = TRUE)
+	ORDER BY e.embedding <=> $1::vector
+	LIMIT $3`
+
 // GetRelatedNews returns news articles semantically nearest to an anchor article,
 // ranked by cosine distance over the embeddings table.
 //
@@ -69,18 +86,7 @@ func (s *postgresStore) GetRelatedNews(stockCode, articleID string, limit int32)
 		}
 	}
 
-	query := `
-		SELECT n.id, n.stock_code, n.source, n.headline, n.url, n.published_at,
-		       n.sentiment, n.relevance_score, n.is_price_sensitive, n.summary, n.tags, n.image_url
-		FROM embeddings e
-		JOIN news_articles n ON n.id = e.object_id::uuid
-		WHERE e.object_type = 'news_article'
-		  AND e.object_id <> $2
-		  AND (n.cluster_id IS NULL OR n.cluster_is_primary = TRUE)
-		ORDER BY e.embedding <=> $1::vector
-		LIMIT $3`
-
-	rows, err := s.db.Query(ctx, query, anchorEmbedding, articleID, limit)
+	rows, err := s.db.Query(ctx, relatedNewsANNQuery, anchorEmbedding, articleID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query related news: %w", err)
 	}
