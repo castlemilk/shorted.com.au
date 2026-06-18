@@ -19,9 +19,13 @@ import (
 // related coverage across the market (the caller may render the foreign ticker).
 // stockCode is used only to resolve the anchor when articleID is empty.
 //
-// Contract: if the anchor article has no embedding row yet (backfill lag), the
-// anchor CTE is empty and this returns (nil, nil). Callers should treat an empty
-// result as "not ready yet", not "no related news exists".
+// Contract: if the anchor article has no embedding row yet (backfill lag), this
+// returns (nil, nil). Callers should treat an empty result as "not ready yet",
+// not "no related news exists".
+//
+// The anchor embedding is fetched and passed back as a $N::vector LITERAL (not a
+// correlated subquery / CROSS JOIN) so the planner uses the pgvector HNSW index;
+// an exact KNN over the full table would otherwise time out at scale.
 func (s *postgresStore) GetRelatedNews(stockCode, articleID string, limit int32) ([]*NewsArticle, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -48,25 +52,34 @@ func (s *postgresStore) GetRelatedNews(stockCode, articleID string, limit int32)
 		}
 	}
 
+	// Fetch the anchor's embedding as a pgvector text literal ('[v1,v2,...]'). Passing
+	// it back as a $1::vector literal lets the planner use the HNSW index; a correlated
+	// CROSS JOIN / subquery forces an exact full-scan KNN that times out at scale.
+	var anchorEmbedding string
+	if err := s.db.QueryRow(ctx, `
+		SELECT embedding::text
+		FROM embeddings
+		WHERE object_type = 'news_article' AND object_id = $1
+		LIMIT 1`, articleID).Scan(&anchorEmbedding); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			// Anchor not embedded yet (backfill lag) → "not ready", not an error.
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to fetch anchor embedding: %w", err)
+	}
+
 	query := `
-		WITH anchor AS (
-			SELECT embedding
-			FROM embeddings
-			WHERE object_type = 'news_article' AND object_id = $1
-			LIMIT 1
-		)
 		SELECT n.id, n.stock_code, n.source, n.headline, n.url, n.published_at,
 		       n.sentiment, n.relevance_score, n.is_price_sensitive, n.summary, n.tags, n.image_url
 		FROM embeddings e
 		JOIN news_articles n ON n.id = e.object_id::uuid
-		CROSS JOIN anchor a
 		WHERE e.object_type = 'news_article'
-		  AND e.object_id <> $1
+		  AND e.object_id <> $2
 		  AND (n.cluster_id IS NULL OR n.cluster_is_primary = TRUE)
-		ORDER BY e.embedding <=> a.embedding
-		LIMIT $2`
+		ORDER BY e.embedding <=> $1::vector
+		LIMIT $3`
 
-	rows, err := s.db.Query(ctx, query, articleID, limit)
+	rows, err := s.db.Query(ctx, query, anchorEmbedding, articleID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query related news: %w", err)
 	}
