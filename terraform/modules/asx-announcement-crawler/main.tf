@@ -61,8 +61,10 @@ resource "google_cloud_run_v2_job" "asx_announcement_crawler" {
       containers {
         image = var.image_url
 
-        # Enable director trades, dividends, and news extraction
-        args = ["-director-trades", "-dividends", "-news-table", "-years", "2024,2025,2026"]
+        # Enable director trades, dividends, news, and all-announcements extraction.
+        # -all-announcements populates the asx_announcements table (material events:
+        # trading halts, capital raises, takeovers) which feeds the event timeline.
+        args = ["-director-trades", "-dividends", "-news-table", "-all-announcements", "-years", "2024,2025,2026"]
 
         env {
           name  = "ENVIRONMENT"
