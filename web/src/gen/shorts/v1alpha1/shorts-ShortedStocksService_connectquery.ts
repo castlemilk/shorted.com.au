@@ -271,3 +271,10 @@ export const getPeerComparison = ShortedStocksService.method.getPeerComparison;
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.ScreenStocks
  */
 export const screenStocks = ShortedStocksService.method.screenStocks;
+
+/**
+ * Get a stock's people (with their other companies) and narrative-similar companies
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetStockGraph
+ */
+export const getStockGraph = ShortedStocksService.method.getStockGraph;

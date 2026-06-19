@@ -513,6 +513,17 @@ service ShortedStocksService {
       description: "Filter and sort stocks using compound criteria across short positions, price changes, fundamentals, director trades, and news sentiment."
     };
   }
+
+  // ==================== Stock Graph ====================
+
+  // Get a stock's people (with their other companies) and narrative-similar companies
+  rpc GetStockGraph (GetStockGraphRequest) returns (GetStockGraphResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Stock Graph",
+      description: "Retrieve a stock's connected people (directors/officers and their other ASX roles) and semantically similar companies via vector similarity."
+    };
+  }
 }
 
 message MintTokenRequest {
@@ -1406,4 +1417,35 @@ message ScreenerStock {
 message ScreenStocksResponse {
   repeated ScreenerStock stocks = 1;
   int32 total_count = 2;
+}
+
+// ==================== Stock Graph Messages ====================
+
+// Request for GetStockGraph RPC
+message GetStockGraphRequest {
+  string stock_code = 1;
+  int32 limit = 2; // max people / similar companies to return (default 12)
+}
+
+// Response for GetStockGraph RPC
+message GetStockGraphResponse {
+  repeated GraphPerson people = 1;
+  repeated GraphPeer similar_companies = 2;
+}
+
+// A person connected to the stock (director/officer) with their other ASX roles
+message GraphPerson {
+  string name = 1;
+  string role = 2;
+  string image_url = 3;
+  string linkedin_url = 4;
+  repeated string also_at = 5; // OTHER stock codes this person is connected to
+}
+
+// A narratively/semantically similar company
+message GraphPeer {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  double similarity = 4;
 }

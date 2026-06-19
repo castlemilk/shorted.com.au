@@ -59,6 +59,10 @@ func (s *StoreAdapter) CleanupStuckSyncRuns() (int, error) {
 	return s.store.CleanupStuckSyncRuns()
 }
 
+func (s *StoreAdapter) GetJobsOverview() ([]*shorts.JobHealth, error) {
+	return s.store.GetJobsOverview()
+}
+
 // GetAllStockCodes wraps the store's GetAllStockCodes
 func (s *StoreAdapter) GetAllStockCodes() ([]string, error) {
 	return s.store.GetAllStockCodes()
@@ -212,6 +216,10 @@ func (s *StoreAdapter) GetPeerComparison(stockCode string, limit int32) (*shorts
 
 func (s *StoreAdapter) ScreenStocks(filters *shortsv1alpha1.ScreenerFilters, sortField shortsv1alpha1.ScreenerSortField, sortDir shortsv1alpha1.SortDirection, limit, offset int32) ([]*shorts.ScreenerStock, int, error) {
 	return s.store.ScreenStocks(filters, sortField, sortDir, limit, offset)
+}
+
+func (s *StoreAdapter) GetStockGraph(stockCode string, limit int32) (*shorts.StockGraphResult, error) {
+	return s.store.GetStockGraph(stockCode, limit)
 }
 
 // QueryRowContext delegates to the underlying store's QueryRowContext.
