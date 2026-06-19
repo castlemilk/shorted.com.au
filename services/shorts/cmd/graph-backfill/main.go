@@ -102,7 +102,7 @@ func main() {
 		log.Fatal("DATABASE_URL environment variable is required")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Minute)
 	defer cancel()
 
 	pool, err := newPool(ctx, dbURL)
@@ -190,7 +190,7 @@ func backfillCompanies(ctx context.Context, pool *pgxpool.Pool, c *counts) (map[
 	// not by company_name (names drift, codes don't).
 	const upsertSQL = `
 INSERT INTO entities (type, canonical_name, normalized_name, stock_code)
-SELECT
+SELECT DISTINCT ON (lower(trim(stock_code)))
     'company',
     company_name,
     lower(trim(stock_code)),
@@ -198,6 +198,7 @@ SELECT
 FROM "company-metadata"
 WHERE company_name IS NOT NULL
   AND stock_code   IS NOT NULL
+ORDER BY lower(trim(stock_code))
 ON CONFLICT (type, normalized_name)
 DO UPDATE SET
     stock_code  = EXCLUDED.stock_code,
