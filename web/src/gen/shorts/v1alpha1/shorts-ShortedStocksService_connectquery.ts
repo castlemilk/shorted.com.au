@@ -278,3 +278,10 @@ export const screenStocks = ShortedStocksService.method.screenStocks;
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetStockGraph
  */
 export const getStockGraph = ShortedStocksService.method.getStockGraph;
+
+/**
+ * Get a chronological feed of events for a stock (announcements, director trades, news, short spikes)
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetEventTimeline
+ */
+export const getEventTimeline = ShortedStocksService.method.getEventTimeline;

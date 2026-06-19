@@ -134,6 +134,64 @@ func (s *postgresStore) QueryRowContext(ctx context.Context, query string, args 
 	return s.db.QueryRow(ctx, query, args...)
 }
 
+// GetJobsOverview returns the current health of all registered jobs by reading
+// from the v_job_health view (migration 000046). If the view does not yet exist
+// in the local dev database, an empty slice is returned rather than an error.
+func (s *postgresStore) GetJobsOverview() ([]*JobHealth, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	const query = `
+		SELECT
+			job_name, display_name, description, category,
+			schedule_cron, schedule_human, critical, expected_interval_seconds,
+			last_status, last_run_id, last_started_at, last_completed_at,
+			last_duration_seconds, last_records_processed, last_records_failed,
+			last_error, last_environment, last_hostname, last_success_at,
+			recent_avg_records, seconds_since_success,
+			has_ever_run, is_failed, is_stuck, is_stale, is_zero_record, alert_level
+		FROM v_job_health
+		ORDER BY category, job_name`
+
+	rows, err := s.db.Query(ctx, query)
+	if err != nil {
+		// Gracefully degrade when the view has not yet been created (local dev).
+		if strings.Contains(err.Error(), "v_job_health") ||
+			strings.Contains(err.Error(), "does not exist") ||
+			strings.Contains(err.Error(), "relation") {
+			return []*JobHealth{}, nil
+		}
+		return nil, fmt.Errorf("GetJobsOverview: query failed: %w", err)
+	}
+	defer rows.Close()
+
+	var jobs []*JobHealth
+	for rows.Next() {
+		j := &JobHealth{}
+		var lastRunID, lastStartedAt, lastCompletedAt, lastSuccessAt string
+		if err := rows.Scan(
+			&j.JobName, &j.DisplayName, &j.Description, &j.Category,
+			&j.ScheduleCron, &j.ScheduleHuman, &j.Critical, &j.ExpectedIntervalSeconds,
+			&j.LastStatus, &lastRunID, &lastStartedAt, &lastCompletedAt,
+			&j.LastDurationSeconds, &j.LastRecordsProcessed, &j.LastRecordsFailed,
+			&j.LastError, &j.LastEnvironment, &j.LastHostname, &lastSuccessAt,
+			&j.RecentAvgRecords, &j.SecondsSinceSuccess,
+			&j.HasEverRun, &j.IsFailed, &j.IsStuck, &j.IsStale, &j.IsZeroRecord, &j.AlertLevel,
+		); err != nil {
+			return nil, fmt.Errorf("GetJobsOverview: scan row: %w", err)
+		}
+		j.LastRunId = lastRunID
+		j.LastStartedAt = lastStartedAt
+		j.LastCompletedAt = lastCompletedAt
+		j.LastSuccessAt = lastSuccessAt
+		jobs = append(jobs, j)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("GetJobsOverview: iterate rows: %w", err)
+	}
+	return jobs, nil
+}
+
 // GetStock retrieves a single stock by its ID, including metadata.
 func (s *postgresStore) GetStock(productCode string) (*stocksv1alpha1.Stock, error) {
 	query := `

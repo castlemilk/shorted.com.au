@@ -49,6 +49,12 @@ func (te *ToolExecutor) Execute(ctx context.Context, toolName string, args map[s
 		return te.callRPC(ctx, "GetPeerComparison", args)
 	case "get_weekly_report":
 		return te.callRPC(ctx, "GetWeeklyReport", args)
+	case "get_related_news":
+		return te.callRPC(ctx, "GetRelatedNews", args)
+	case "get_stock_graph":
+		return te.callRPC(ctx, "GetStockGraph", args)
+	case "get_event_timeline":
+		return te.callRPC(ctx, "GetEventTimeline", args)
 	default:
 		return "", fmt.Errorf("unknown tool: %s", toolName)
 	}
@@ -155,6 +161,41 @@ func mapArgsToRequest(method string, args map[string]interface{}) map[string]int
 	case "GetWeeklyReport":
 		if v, ok := args["week"]; ok {
 			req["weekSlug"] = v
+		}
+	case "GetRelatedNews":
+		if v, ok := args["stock_code"]; ok {
+			req["stockCode"] = v
+		}
+		if v, ok := args["article_id"]; ok {
+			req["articleId"] = v
+		}
+		if v, ok := args["limit"]; ok {
+			req["limit"] = v
+		} else {
+			req["limit"] = 5
+		}
+	case "GetStockGraph":
+		if v, ok := args["stock_code"]; ok {
+			req["stockCode"] = v
+		}
+		if v, ok := args["limit"]; ok {
+			req["limit"] = v
+		} else {
+			req["limit"] = 10
+		}
+	case "GetEventTimeline":
+		if v, ok := args["stock_code"]; ok {
+			req["stockCode"] = v
+		}
+		if v, ok := args["days_back"]; ok {
+			req["daysBack"] = v
+		} else {
+			req["daysBack"] = 90
+		}
+		if v, ok := args["limit"]; ok {
+			req["limit"] = v
+		} else {
+			req["limit"] = 20
 		}
 	}
 

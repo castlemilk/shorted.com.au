@@ -144,6 +144,9 @@ type Store interface {
 	// Stock graph methods
 	GetStockGraph(stockCode string, limit int32) (*StockGraphResult, error)
 
+	// Event timeline methods
+	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*TimelineEventRow, error)
+
 	// Raw query access (used for Algolia sync)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) Row
 }
@@ -375,6 +378,17 @@ type GraphPeerRow struct {
 type StockGraphResult struct {
 	People          []*GraphPersonRow
 	SimilarCompanies []*GraphPeerRow
+}
+
+// TimelineEventRow holds a single event from any source for the event timeline
+type TimelineEventRow struct {
+	Date             string // YYYY-MM-DD
+	Type             string // 'announcement' | 'director_trade' | 'news' | 'short_spike'
+	Title            string
+	Detail           string
+	URL              string
+	Sentiment        string
+	IsPriceSensitive bool
 }
 
 func NewStore(config Config) (Store, error) {
