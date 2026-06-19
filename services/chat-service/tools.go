@@ -113,5 +113,14 @@ func GetToolDefinitions() []ToolDefinition {
 			},
 			Required: []string{"stock_code"},
 		},
+		{
+			Name:        "get_stock_signals",
+			Description: "Get a stock's risk and reputation signals — adverse items (court cases, sanctions, regulatory actions, complaints, safety incidents) and positive items (awards, favourable press), each with a severity rating and source citations. Use when the user asks about a company's risks, controversies, legal issues, or reputation.",
+			Parameters: map[string]ToolParameter{
+				"stock_code": {Type: "string", Description: "ASX stock code"},
+				"limit":      {Type: "integer", Description: "Max signals per polarity (default 10, max 50)"},
+			},
+			Required: []string{"stock_code"},
+		},
 	}
 }
