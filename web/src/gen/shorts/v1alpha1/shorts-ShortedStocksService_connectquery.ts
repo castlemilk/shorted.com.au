@@ -285,3 +285,10 @@ export const getStockGraph = ShortedStocksService.method.getStockGraph;
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetEventTimeline
  */
 export const getEventTimeline = ShortedStocksService.method.getEventTimeline;
+
+/**
+ * Get a stock's reputation/risk signals (adverse: court/sanctions/complaints; positive: awards/press)
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetStockSignals
+ */
+export const getStockSignals = ShortedStocksService.method.getStockSignals;

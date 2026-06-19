@@ -215,6 +215,11 @@ func (c *MemoryCache) GetStockGraphKey(stockCode string, limit int32) string {
 	return c.generateKey("stock_graph", stockCode, limit)
 }
 
+// GetStockSignalsKey builds a cache key for GetStockSignals responses.
+func (c *MemoryCache) GetStockSignalsKey(stockCode string, limit int32) string {
+	return c.generateKey("stock_signals", stockCode, limit)
+}
+
 // GetEventTimelineKey builds a cache key for GetEventTimeline responses.
 func (c *MemoryCache) GetEventTimelineKey(stockCode string, daysBack, limit int32) string {
 	return c.generateKey("event_timeline", stockCode, daysBack, limit)

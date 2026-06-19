@@ -154,6 +154,9 @@ const (
 	// ShortedStocksServiceGetEventTimelineProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetEventTimeline RPC.
 	ShortedStocksServiceGetEventTimelineProcedure = "/shorts.v1alpha1.ShortedStocksService/GetEventTimeline"
+	// ShortedStocksServiceGetStockSignalsProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetStockSignals RPC.
+	ShortedStocksServiceGetStockSignalsProcedure = "/shorts.v1alpha1.ShortedStocksService/GetStockSignals"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -199,6 +202,7 @@ var (
 	shortedStocksServiceScreenStocksMethodDescriptor                    = shortedStocksServiceServiceDescriptor.Methods().ByName("ScreenStocks")
 	shortedStocksServiceGetStockGraphMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockGraph")
 	shortedStocksServiceGetEventTimelineMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("GetEventTimeline")
+	shortedStocksServiceGetStockSignalsMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockSignals")
 )
 
 // ShortedStocksServiceClient is a client for the shorts.v1alpha1.ShortedStocksService service.
@@ -285,6 +289,8 @@ type ShortedStocksServiceClient interface {
 	GetStockGraph(context.Context, *connect.Request[v1alpha1.GetStockGraphRequest]) (*connect.Response[v1alpha1.GetStockGraphResponse], error)
 	// Get a chronological feed of events for a stock (announcements, director trades, news, short spikes)
 	GetEventTimeline(context.Context, *connect.Request[v1alpha1.GetEventTimelineRequest]) (*connect.Response[v1alpha1.GetEventTimelineResponse], error)
+	// Get a stock's reputation/risk signals (adverse: court/sanctions/complaints; positive: awards/press)
+	GetStockSignals(context.Context, *connect.Request[v1alpha1.GetStockSignalsRequest]) (*connect.Response[v1alpha1.GetStockSignalsResponse], error)
 }
 
 // NewShortedStocksServiceClient constructs a client for the shorts.v1alpha1.ShortedStocksService
@@ -537,6 +543,12 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceGetEventTimelineMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getStockSignals: connect.NewClient[v1alpha1.GetStockSignalsRequest, v1alpha1.GetStockSignalsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetStockSignalsProcedure,
+			connect.WithSchema(shortedStocksServiceGetStockSignalsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -582,6 +594,7 @@ type shortedStocksServiceClient struct {
 	screenStocks                    *connect.Client[v1alpha1.ScreenStocksRequest, v1alpha1.ScreenStocksResponse]
 	getStockGraph                   *connect.Client[v1alpha1.GetStockGraphRequest, v1alpha1.GetStockGraphResponse]
 	getEventTimeline                *connect.Client[v1alpha1.GetEventTimelineRequest, v1alpha1.GetEventTimelineResponse]
+	getStockSignals                 *connect.Client[v1alpha1.GetStockSignalsRequest, v1alpha1.GetStockSignalsResponse]
 }
 
 // GetTopShorts calls shorts.v1alpha1.ShortedStocksService.GetTopShorts.
@@ -787,6 +800,11 @@ func (c *shortedStocksServiceClient) GetEventTimeline(ctx context.Context, req *
 	return c.getEventTimeline.CallUnary(ctx, req)
 }
 
+// GetStockSignals calls shorts.v1alpha1.ShortedStocksService.GetStockSignals.
+func (c *shortedStocksServiceClient) GetStockSignals(ctx context.Context, req *connect.Request[v1alpha1.GetStockSignalsRequest]) (*connect.Response[v1alpha1.GetStockSignalsResponse], error) {
+	return c.getStockSignals.CallUnary(ctx, req)
+}
+
 // ShortedStocksServiceHandler is an implementation of the shorts.v1alpha1.ShortedStocksService
 // service.
 type ShortedStocksServiceHandler interface {
@@ -872,6 +890,8 @@ type ShortedStocksServiceHandler interface {
 	GetStockGraph(context.Context, *connect.Request[v1alpha1.GetStockGraphRequest]) (*connect.Response[v1alpha1.GetStockGraphResponse], error)
 	// Get a chronological feed of events for a stock (announcements, director trades, news, short spikes)
 	GetEventTimeline(context.Context, *connect.Request[v1alpha1.GetEventTimelineRequest]) (*connect.Response[v1alpha1.GetEventTimelineResponse], error)
+	// Get a stock's reputation/risk signals (adverse: court/sanctions/complaints; positive: awards/press)
+	GetStockSignals(context.Context, *connect.Request[v1alpha1.GetStockSignalsRequest]) (*connect.Response[v1alpha1.GetStockSignalsResponse], error)
 }
 
 // NewShortedStocksServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -1120,6 +1140,12 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceGetEventTimelineMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceGetStockSignalsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetStockSignalsProcedure,
+		svc.GetStockSignals,
+		connect.WithSchema(shortedStocksServiceGetStockSignalsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.ShortedStocksService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ShortedStocksServiceGetTopShortsProcedure:
@@ -1202,6 +1228,8 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetStockGraphHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetEventTimelineProcedure:
 			shortedStocksServiceGetEventTimelineHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetStockSignalsProcedure:
+			shortedStocksServiceGetStockSignalsHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1369,4 +1397,8 @@ func (UnimplementedShortedStocksServiceHandler) GetStockGraph(context.Context, *
 
 func (UnimplementedShortedStocksServiceHandler) GetEventTimeline(context.Context, *connect.Request[v1alpha1.GetEventTimelineRequest]) (*connect.Response[v1alpha1.GetEventTimelineResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetEventTimeline is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetStockSignals(context.Context, *connect.Request[v1alpha1.GetStockSignalsRequest]) (*connect.Response[v1alpha1.GetStockSignalsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetStockSignals is not implemented"))
 }

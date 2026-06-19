@@ -535,6 +535,17 @@ service ShortedStocksService {
       description: "Retrieve a chronological feed of events for a stock, merging ASX announcements, director trades, price-sensitive news, and short position spikes."
     };
   }
+
+  // ==================== Risk / Reputation Signals ====================
+
+  // Get a stock's reputation/risk signals (adverse: court/sanctions/complaints; positive: awards/press)
+  rpc GetStockSignals (GetStockSignalsRequest) returns (GetStockSignalsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Stock Signals",
+      description: "Retrieve a stock's reputation/risk signals — adverse (court matters, regulator sanctions, complaints) and positive (awards, press), each with citations, severity and confidence. Sourced from grounded web research."
+    };
+  }
 }
 
 message MintTokenRequest {
@@ -1484,4 +1495,26 @@ message TimelineEvent {
   string url = 5;
   string sentiment = 6;         // for news events; '' otherwise
   bool   is_price_sensitive = 7;
+}
+
+message GetStockSignalsRequest {
+  string stock_code = 1;
+  int32  limit = 2;             // max signals per polarity (default 10)
+}
+
+message GetStockSignalsResponse {
+  repeated StockSignal adverse = 1;
+  repeated StockSignal positive = 2;
+}
+
+// A single reputation/risk signal for a stock
+message StockSignal {
+  string polarity = 1;          // 'adverse' | 'positive'
+  string kind = 2;              // 'court' | 'sanction' | 'complaint' | 'award' | 'press' | ...
+  string headline = 3;
+  string detail = 4;
+  string event_date = 5;        // 'YYYY-MM-DD' or 'YYYY'
+  string severity = 6;          // 'high' | 'medium' | 'low' (adverse only)
+  double confidence = 7;
+  repeated string citations = 8;
 }

@@ -143,6 +143,7 @@ type Store interface {
 
 	// Stock graph methods
 	GetStockGraph(stockCode string, limit int32) (*StockGraphResult, error)
+	GetStockSignals(stockCode string, limit int32) (*StockSignalsResult, error)
 
 	// Event timeline methods
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*TimelineEventRow, error)
@@ -378,6 +379,24 @@ type GraphPeerRow struct {
 type StockGraphResult struct {
 	People          []*GraphPersonRow
 	SimilarCompanies []*GraphPeerRow
+}
+
+// StockSignalRow represents a single reputation/risk signal for a stock.
+type StockSignalRow struct {
+	Polarity   string // 'adverse' | 'positive'
+	Kind       string
+	Headline   string
+	Detail     string
+	EventDate  string
+	Severity   string
+	Confidence float64
+	Citations  []string
+}
+
+// StockSignalsResult holds adverse + positive signals for a stock.
+type StockSignalsResult struct {
+	Adverse  []*StockSignalRow
+	Positive []*StockSignalRow
 }
 
 // TimelineEventRow holds a single event from any source for the event timeline
