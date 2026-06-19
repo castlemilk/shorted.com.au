@@ -168,6 +168,10 @@ func (a *enrichmentStoreAdapter) UpdateKeyPeopleEnriched(stockCode string, keyPe
 	return a.store.UpdateKeyPeopleEnriched(stockCode, keyPeopleJSON)
 }
 
+func (a *enrichmentStoreAdapter) UpdateKeyPeopleIfEmpty(stockCode string, keyPeopleJSON []byte) (bool, error) {
+	return a.store.UpdateKeyPeopleIfEmpty(stockCode, keyPeopleJSON)
+}
+
 // Explicit interface check to ensure enrichmentStoreAdapter implements enrichment.EnrichmentStore
 var _ enrichment.EnrichmentStore = (*enrichmentStoreAdapter)(nil)
 

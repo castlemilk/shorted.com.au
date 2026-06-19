@@ -249,6 +249,28 @@ func main() {
 		logger.Infof("Auto-approve disabled (threshold=0)")
 	}
 
+	// §6.5 People-only write: serve discovered key_people even when the whole-company
+	// quality score is below the auto-approve gate (Yahoo-officer leadership ~0.74).
+	writePeopleBelowGate := DefaultWritePeopleBelowGate
+	if v := os.Getenv("WRITE_PEOPLE_BELOW_GATE"); v != "" {
+		if parsed, parseErr := strconv.ParseBool(v); parseErr == nil {
+			writePeopleBelowGate = parsed
+		} else {
+			logger.Warnf("Invalid WRITE_PEOPLE_BELOW_GATE value: %s (using default %v)", v, DefaultWritePeopleBelowGate)
+		}
+	}
+	minPeopleWriteScore := DefaultMinPeopleWriteScore
+	if v := os.Getenv("MIN_PEOPLE_WRITE_SCORE"); v != "" {
+		if parsed, parseErr := strconv.ParseFloat(v, 64); parseErr == nil && parsed >= 0 && parsed <= 1 {
+			minPeopleWriteScore = parsed
+		} else {
+			logger.Warnf("Invalid MIN_PEOPLE_WRITE_SCORE value: %s (using default %.2f)", v, DefaultMinPeopleWriteScore)
+		}
+	}
+	if writePeopleBelowGate {
+		logger.Infof("People-only write enabled: discovered key_people served below the auto-approve gate (min score %.2f, additive — fills empty rows only)", minPeopleWriteScore)
+	}
+
 	// Read shorts API URL for Algolia sync callbacks
 	shortsAPIURL := strings.TrimSpace(os.Getenv("SHORTS_API_URL"))
 	internalServiceSecret := strings.TrimSpace(os.Getenv("INTERNAL_SERVICE_SECRET"))
@@ -272,6 +294,8 @@ func main() {
 		timeout:               DefaultJobTimeout,
 		qualityThreshold:      DefaultQualityThreshold,
 		autoApproveThreshold:  autoApproveThreshold,
+		writePeopleBelowGate:  writePeopleBelowGate,
+		minPeopleWriteScore:   minPeopleWriteScore,
 		gcsBucket:             gcsBucket,
 		shortsAPIURL:          shortsAPIURL,
 		internalServiceSecret: internalServiceSecret,
@@ -346,9 +370,46 @@ type enrichmentProcessor struct {
 	timeout               time.Duration
 	qualityThreshold      float64
 	autoApproveThreshold  float64
+	writePeopleBelowGate  bool    // §6.5 write discovered key_people even below the auto-approve gate
+	minPeopleWriteScore   float64 // floor below which even the people-only write is suppressed
 	gcsBucket             string
 	shortsAPIURL          string // URL of the shorts API (for Algolia sync callbacks)
 	internalServiceSecret string // Auth secret for internal API calls
+}
+
+// buildPeopleOnlyWriteJSON converts discovered key_people into the served key_people
+// JSON shape (matching backfillPerson / the DB parser), dropping empty and placeholder
+// names. Returns the marshalled JSON and the number of people written; (nil, 0) when there
+// is nothing worth writing. Used by the §6.5 below-gate people-only write.
+func buildPeopleOnlyWriteJSON(people []*stocksv1alpha1.CompanyPerson) ([]byte, int) {
+	out := make([]backfillPerson, 0, len(people))
+	for _, person := range people {
+		if person == nil {
+			continue
+		}
+		name := strings.TrimSpace(person.GetName())
+		if name == "" || enrichment.IsPlaceholderName(name) {
+			continue
+		}
+		out = append(out, backfillPerson{
+			Name:        person.GetName(),
+			Role:        person.GetRole(),
+			Bio:         person.GetBio(),
+			ImageURL:    person.GetImageUrl(),
+			ImageGCSURL: person.GetImageGcsUrl(),
+			LinkedInURL: person.GetLinkedinUrl(),
+			SourceURL:   person.GetSourceUrl(),
+			SourceType:  person.GetSourceType(),
+		})
+	}
+	if len(out) == 0 {
+		return nil, 0
+	}
+	j, err := json.Marshal(out)
+	if err != nil {
+		return nil, 0
+	}
+	return j, len(out)
 }
 
 // notifyAlgoliaSync sends an HTTP POST to the shorts API to sync a stock's enriched data to Algolia.
@@ -560,6 +621,24 @@ func (p *enrichmentProcessor) processJob(ctx context.Context, jobID, stockCode s
 	} else if quality != nil {
 		p.logger.Infof("Enrichment for %s saved as pending review (quality score %.2f < threshold %.2f)",
 			stockCode, quality.OverallScore, p.autoApproveThreshold)
+
+		// §6.5 People-only write: leadership shouldn't be gated behind the whole-company
+		// quality score. Even though the full enrichment stays in pending review, write the
+		// discovered key_people to the served column — but ADDITIVELY (only when the row has
+		// none), so a better prior people list is never clobbered. enrichment_status is left
+		// untouched, so the rest of the enrichment is still gated and can be approved later.
+		if p.writePeopleBelowGate && quality.OverallScore >= p.minPeopleWriteScore {
+			if peopleJSON, count := buildPeopleOnlyWriteJSON(enriched.GetKeyPeople()); count > 0 {
+				if wrote, perr := p.store.UpdateKeyPeopleIfEmpty(stockCode, peopleJSON); perr != nil {
+					p.logger.Warnf("People-only write failed for %s: %v", stockCode, perr)
+				} else if wrote {
+					p.logger.Infof("People-only write for %s: served %d people below gate (score %.2f, status left pending)",
+						stockCode, count, quality.OverallScore)
+				} else {
+					p.logger.Debugf("People-only write skipped for %s: served row already has people", stockCode)
+				}
+			}
+		}
 	}
 
 	// Update job status to completed

@@ -113,6 +113,9 @@ type Store interface {
 	GetStocksForPeopleReenrichment(limit int, afterStockCode string) ([]StockPeopleBackfillRow, error)
 	GetStocksForImageBackfill(limit int, afterStockCode string) ([]StockPeopleBackfillRow, error)
 	UpdateKeyPeopleEnriched(stockCode string, keyPeopleJSON []byte) error
+	// UpdateKeyPeopleIfEmpty writes key_people only when the served row currently has
+	// none (§6.5 additive below-gate people write). Returns true when a row was written.
+	UpdateKeyPeopleIfEmpty(stockCode string, keyPeopleJSON []byte) (bool, error)
 
 	// News methods
 	GetStockNews(stockCode string, limit int32, source, sentiment string) ([]*NewsArticle, int, error)

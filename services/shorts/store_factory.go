@@ -168,6 +168,10 @@ func (a *enrichmentStoreAdapter) UpdateKeyPeopleEnriched(stockCode string, keyPe
 	return a.store.UpdateKeyPeopleEnriched(stockCode, keyPeopleJSON)
 }
 
+func (a *enrichmentStoreAdapter) UpdateKeyPeopleIfEmpty(stockCode string, keyPeopleJSON []byte) (bool, error) {
+	return a.store.UpdateKeyPeopleIfEmpty(stockCode, keyPeopleJSON)
+}
+
 type ErrStoreCreationFailed struct{}
 
 func (e *ErrStoreCreationFailed) Error() string {
