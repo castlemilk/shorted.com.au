@@ -1,7 +1,8 @@
 # Supabase Configuration
 
-[project]
-# Project ID from Supabase dashboard
+# Project ID from the Supabase dashboard. Top-level key — the [project] wrapper
+# was removed from the Supabase CLI config schema (v2.x); keeping it made
+# `supabase inspect db ...` / `supabase start` fail to parse this file.
 project_id = "xivfykscsdagwsreyqgf"
 
 [api]
@@ -38,17 +39,8 @@ enable_confirmations = true
 enable_signup = false
 enable_confirmations = false
 
-# Environment-specific settings
-[environments.production]
-api_url = "https://xivfykscsdagwsreyqgf.supabase.co"
-db_url = "postgresql://postgres.[project-ref]:[password]@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres"
-
-[environments.preview]
-api_url = "https://xivfykscsdagwsreyqgf.supabase.co"
-# Use a separate schema or database for preview
-db_schema = "preview"
-
-[environments.test]
-# Local test database for CI
-api_url = "http://localhost:54321"
-db_url = "postgresql://postgres:postgres@localhost:54322/postgres"
+# NOTE: per-environment connection settings ([environments.*]) are NOT part of
+# the Supabase CLI config schema and were rejected by the CLI. Production /
+# preview connection strings live in GCP Secret Manager (DATABASE_URL); the
+# canonical migrations live in services/migrations (this supabase/migrations
+# tree is legacy — see docs/db-performance.md).

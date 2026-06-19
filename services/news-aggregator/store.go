@@ -37,11 +37,46 @@ func (s *NewsStore) StoreArticles(ctx context.Context, articles []*NewsArticleRa
 		return 0, nil
 	}
 
-	// Batch sentiment analysis — one Gemini call for all headlines instead of N calls
-	sentiments := s.classifySentimentBatch(ctx, valid)
+	// Pre-filter: skip URLs already stored. The aggregator re-sees the same RSS
+	// items every run, so without this it re-attempted ~every article every run
+	// (tens of millions of no-op INSERTs against the url unique index — the
+	// single most-called statement in prod). Image backfill for existing rows is
+	// handled separately by RUN_MODE=backfill-images. On error this degrades to
+	// the previous "insert all" behaviour (no regression).
+	urls := make([]string, len(valid))
+	for i, a := range valid {
+		urls[i] = a.URL
+	}
+	existing := make(map[string]struct{}, len(urls))
+	if rows, err := s.db.Query(ctx, `SELECT url FROM news_articles WHERE url = ANY($1)`, urls); err != nil {
+		if s.verbose {
+			log.Printf("    WARN: pre-filter of existing urls failed, inserting all: %v", err)
+		}
+	} else {
+		for rows.Next() {
+			var u string
+			if rows.Scan(&u) == nil {
+				existing[u] = struct{}{}
+			}
+		}
+		rows.Close()
+	}
+
+	var fresh []*NewsArticleRaw
+	for _, a := range valid {
+		if _, seen := existing[a.URL]; !seen {
+			fresh = append(fresh, a)
+		}
+	}
+	if len(fresh) == 0 {
+		return 0, nil
+	}
+
+	// Sentiment analysis only for the new articles (also saves Gemini tokens).
+	sentiments := s.classifySentimentBatch(ctx, fresh)
 
 	stored := 0
-	for i, a := range valid {
+	for i, a := range fresh {
 		stockCode := a.StockCode
 		if stockCode == "" {
 			stockCode = "MARKET"
@@ -62,10 +97,7 @@ func (s *NewsStore) StoreArticles(ctx context.Context, articles []*NewsArticleRa
 		tag, err := s.db.Exec(ctx,
 			`INSERT INTO news_articles (stock_code, source, headline, url, published_at, sentiment, relevance_score, is_price_sensitive, summary, image_url, image_pulled_at)
 			 VALUES ($1, $2, $3, $4, $5::timestamptz, $6, $7, $8, $9, $10, $11)
-			 ON CONFLICT (url) DO UPDATE
-			 SET image_url = COALESCE(news_articles.image_url, EXCLUDED.image_url),
-			     image_pulled_at = COALESCE(news_articles.image_pulled_at, EXCLUDED.image_pulled_at)
-			 WHERE news_articles.image_url IS NULL AND EXCLUDED.image_url IS NOT NULL`,
+			 ON CONFLICT (url) DO NOTHING`,
 			stockCode,
 			a.Source,
 			a.Headline,
