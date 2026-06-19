@@ -1226,29 +1226,43 @@ func (s *postgresStore) GetAvailableDates(limit int, before string) ([]string, s
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Get dates with optional "before" filter — use timestamp range for index usage
+	// Fast path: the mv_available_dates materialized view (migration 000049).
+	// The equivalent DISTINCT scan over the 2.2M-row shorts table was ~60% of
+	// total DB execution time (~1.5-2s/call); the MV serves it in ~1ms. Falls
+	// back to the raw DISTINCT query if the MV doesn't exist yet.
 	var datesQuery string
 	var args []interface{}
 	if before != "" {
-		datesQuery = `
-			SELECT DISTINCT "DATE"::date as date
-			FROM shorts
-			WHERE "DATE" < $1::timestamp
-			ORDER BY date DESC
-			LIMIT $2`
-		args = []interface{}{before + " 00:00:00", limit}
+		datesQuery = `SELECT date FROM mv_available_dates WHERE date < $1::date ORDER BY date DESC LIMIT $2`
+		args = []interface{}{before, limit}
 	} else {
-		datesQuery = `
-			SELECT DISTINCT "DATE"::date as date
-			FROM shorts
-			ORDER BY date DESC
-			LIMIT $1`
+		datesQuery = `SELECT date FROM mv_available_dates ORDER BY date DESC LIMIT $1`
 		args = []interface{}{limit}
 	}
 
 	rows, err := s.db.Query(ctx, datesQuery, args...)
 	if err != nil {
-		return nil, "", "", 0, fmt.Errorf("failed to query available dates: %w", err)
+		log.Infof("mv_available_dates not available, using fallback query: %v", err)
+		if before != "" {
+			datesQuery = `
+				SELECT DISTINCT "DATE"::date as date
+				FROM shorts
+				WHERE "DATE" < $1::timestamp
+				ORDER BY date DESC
+				LIMIT $2`
+			args = []interface{}{before + " 00:00:00", limit}
+		} else {
+			datesQuery = `
+				SELECT DISTINCT "DATE"::date as date
+				FROM shorts
+				ORDER BY date DESC
+				LIMIT $1`
+			args = []interface{}{limit}
+		}
+		rows, err = s.db.Query(ctx, datesQuery, args...)
+		if err != nil {
+			return nil, "", "", 0, fmt.Errorf("failed to query available dates: %w", err)
+		}
 	}
 	defer rows.Close()
 
