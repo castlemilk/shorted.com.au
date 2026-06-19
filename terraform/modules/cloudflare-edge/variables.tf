@@ -242,3 +242,49 @@ variable "markdown_for_agents" {
     error_message = "markdown_for_agents must be \"on\" or \"off\"."
   }
 }
+
+# ---- DNS email-security records (SPF / DMARC) ----
+
+variable "dns_security_enabled" {
+  description = "Create the SPF and DMARC TXT records for the apex domain. The domain uses Google Workspace for mail; these records harden it against spoofing and improve deliverability."
+  type        = bool
+  default     = true
+}
+
+variable "spf_record" {
+  description = <<-EOT
+    SPF policy published as an apex TXT record. Default authorises Google
+    Workspace only and soft-fails everything else (~all) — the safe first
+    policy. Tighten to -all once DMARC aggregate reports confirm no
+    legitimate senders are missed. Add include: mechanisms here if a
+    transactional-email provider (e.g. Resend, SendGrid) is later wired up.
+  EOT
+  type        = string
+  default     = "v=spf1 include:_spf.google.com ~all"
+}
+
+variable "dmarc_record" {
+  description = <<-EOT
+    DMARC policy published as a _dmarc TXT record. Default is p=none
+    (monitor only — does not affect delivery) with aggregate reports sent to
+    dmarc-reports@shorted.com.au. The rua mailbox must exist in Google
+    Workspace (a mailbox or a Group) or reports bounce. Move to p=quarantine
+    then p=reject after observing reports.
+  EOT
+  type        = string
+  default     = "v=DMARC1; p=none; rua=mailto:dmarc-reports@shorted.com.au; ruf=mailto:dmarc-reports@shorted.com.au; fo=1; adkim=r; aspf=r"
+}
+
+# ---- DNSSEC ----
+
+variable "manage_dnssec" {
+  description = <<-EOT
+    Enable DNSSEC signing on the Cloudflare zone. Creating the resource makes
+    Cloudflare sign the zone and exposes the DS record (see the dnssec_ds_record
+    output). DNSSEC only becomes active once that DS record is published at the
+    domain registrar — a manual, outward-facing step. Enabling signing alone is
+    safe and breaks nothing until the DS is published.
+  EOT
+  type        = bool
+  default     = true
+}
