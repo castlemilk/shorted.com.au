@@ -56,8 +56,9 @@ export const metadata: Metadata = {
   },
 };
 
-// Revalidate every 10 minutes — news is fresh-ish but doesn't change every request.
-export const revalidate = 600;
+// Event-driven ISR: 24h safety net. News is busted on-demand when the aggregator
+// stores new articles / the sync runs (POST /api/revalidate?path=/news).
+export const revalidate = 86400;
 
 interface ApiArticle {
   id: string;

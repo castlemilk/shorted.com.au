@@ -242,11 +242,17 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, sum
 		// Require at least 2 points to draw a meaningful line chart
 		if len(points) >= 2 {
 			minMax := minMaxMap[productCode]
+			latest := points[len(points)-1].ShortPosition
 			tsData := &stocksv1alpha1.TimeSeriesData{
-				ProductCode:         productCode,
-				Name:                productNames[productCode],
-				Points:              points,
-				LatestShortPosition: points[len(points)-1].ShortPosition,
+				ProductCode: productCode,
+				Name:        productNames[productCode],
+				// Decimate the series to a sparkline-appropriate resolution. These
+				// are list sparklines (not the full per-stock chart), so full daily
+				// resolution just bloats the payload (a 50-stock 6mo response was
+				// ~370KB). Min/Max/Latest are computed from the FULL series, so
+				// the markers and current value stay exact.
+				Points:              decimatePoints(points, topShortsSparklineMaxPoints),
+				LatestShortPosition: latest,
 				Max:                 minMax.max,
 				Min:                 minMax.min,
 			}
@@ -255,4 +261,25 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, sum
 	}
 
 	return timeSeriesDataSlice, newOffset, nil
+}
+
+// topShortsSparklineMaxPoints caps the number of series points returned per
+// stock in the top-shorts list. ~60 points renders a smooth sparkline at a
+// fraction of the bytes of full daily resolution.
+const topShortsSparklineMaxPoints = 60
+
+// decimatePoints evenly downsamples points to at most maxPoints, always keeping
+// the first and last point so the line spans the full period. Returns the input
+// unchanged when it's already small enough.
+func decimatePoints(points []*stocksv1alpha1.TimeSeriesPoint, maxPoints int) []*stocksv1alpha1.TimeSeriesPoint {
+	if maxPoints <= 1 || len(points) <= maxPoints {
+		return points
+	}
+	out := make([]*stocksv1alpha1.TimeSeriesPoint, 0, maxPoints)
+	step := float64(len(points)-1) / float64(maxPoints-1)
+	for i := 0; i < maxPoints-1; i++ {
+		out = append(out, points[int(float64(i)*step)])
+	}
+	out = append(out, points[len(points)-1]) // always include the most recent point
+	return out
 }

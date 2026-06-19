@@ -70,9 +70,21 @@ const HOMEPAGE_CACHE_PREFIX = "cache:homepage:";
 const TOOLTIP_CACHE_PREFIX = "tooltip:stock:";
 const TOP_PAGE_CACHE_PREFIX = "cache:top:";
 const DEFAULT_TTL = 300; // 5 minutes
-export const HOMEPAGE_TTL = 600; // 10 minutes - homepage data changes less frequently
-export const TOOLTIP_TTL = 300; // 5 minutes - tooltip data refreshes reasonably often
-export const TOP_PAGE_TTL = 600; // 10 minutes - top page data aligned with ISR
+// Event-driven caching: the underlying ASIC short data changes ~once/day, so we
+// cache hard (24h ceiling) and flush these prefixes on the daily data-change
+// event via /api/revalidate (see deleteCachedByPrefix + SHORTS_DATA_CACHE_PREFIXES).
+// The 24h ceiling bounds staleness if a flush is ever missed.
+export const HOMEPAGE_TTL = 86400; // 24h, flushed on data change
+export const TOOLTIP_TTL = 86400; // 24h, flushed on data change
+export const TOP_PAGE_TTL = 86400; // 24h, flushed on data change
+
+// Prefixes covering all data derived from the `shorts` table — flushed together
+// when a sync writes new ASIC data.
+export const SHORTS_DATA_CACHE_PREFIXES = [
+  HOMEPAGE_CACHE_PREFIX,
+  TOP_PAGE_CACHE_PREFIX,
+  TOOLTIP_CACHE_PREFIX,
+] as const;
 
 /**
  * Cache keys for various data types
@@ -205,6 +217,64 @@ export async function deleteCached(key: string): Promise<boolean> {
   }
 
   return false;
+}
+
+/**
+ * Delete all cached keys matching a prefix (event-driven invalidation).
+ * Returns the number of keys deleted. Best-effort — logs and returns 0 on error.
+ */
+export async function deleteCachedByPrefix(prefix: string): Promise<number> {
+  // Standard Redis via ioredis — SCAN + DEL in batches
+  if (ioRedis) {
+    try {
+      let cursor = "0";
+      let deleted = 0;
+      do {
+        const [next, keys] = await ioRedis.scan(
+          cursor,
+          "MATCH",
+          `${prefix}*`,
+          "COUNT",
+          200,
+        );
+        cursor = next;
+        if (keys.length > 0) {
+          await ioRedis.del(...keys);
+          deleted += keys.length;
+        }
+      } while (cursor !== "0");
+      return deleted;
+    } catch (error) {
+      console.error(`Cache prefix-delete error for ${prefix}:`, error);
+      return 0;
+    }
+  }
+
+  // Upstash REST API — SCAN + DEL
+  if (upstashRedis) {
+    try {
+      let cursor = 0;
+      let deleted = 0;
+      do {
+        const [next, keys] = await upstashRedis.scan(cursor, {
+          match: `${prefix}*`,
+          count: 200,
+        });
+        cursor = Number(next);
+        if (keys.length > 0) {
+          await upstashRedis.del(...keys);
+          deleted += keys.length;
+        }
+      } while (cursor !== 0);
+      return deleted;
+    } catch (error) {
+      console.error(`Cache prefix-delete error for ${prefix}:`, error);
+      return 0;
+    }
+  }
+
+  // In-memory fallback (dev) has no prefix iteration; dev doesn't need flushing.
+  return 0;
 }
 
 /**

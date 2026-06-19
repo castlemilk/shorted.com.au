@@ -73,6 +73,14 @@ resource "google_secret_manager_secret_iam_member" "database_url" {
   project   = var.project_id
 }
 
+# Grant access to the revalidation secret (event-driven cache invalidation)
+resource "google_secret_manager_secret_iam_member" "revalidation_secret" {
+  secret_id = "REVALIDATION_SECRET"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.short_data_sync.email}"
+  project   = var.project_id
+}
+
 # Cloud Run Job (v2)
 resource "google_cloud_run_v2_job" "short_data_sync" {
   name     = local.service_name
@@ -114,6 +122,23 @@ resource "google_cloud_run_v2_job" "short_data_sync" {
           }
         }
 
+        # Event-driven cache revalidation: after writing new ASIC data, ping the
+        # frontend to bust the cached SSR pages (fires only when data changed).
+        env {
+          name  = "REVALIDATION_URL"
+          value = var.revalidation_url
+        }
+
+        env {
+          name = "REVALIDATION_SECRET"
+          value_source {
+            secret_key_ref {
+              secret  = "REVALIDATION_SECRET"
+              version = "latest"
+            }
+          }
+        }
+
         resources {
           limits = {
             cpu    = "1"
@@ -126,6 +151,7 @@ resource "google_cloud_run_v2_job" "short_data_sync" {
 
   depends_on = [
     google_secret_manager_secret_iam_member.database_url,
+    google_secret_manager_secret_iam_member.revalidation_secret,
     google_storage_bucket_iam_member.short_data_sync_bucket
   ]
 }
