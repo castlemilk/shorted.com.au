@@ -24,6 +24,7 @@ import json
 import logging
 import os
 import threading
+import time
 
 import psycopg2
 import psycopg2.extras
@@ -84,21 +85,33 @@ def select_stocks(conn, priority: str, limit: int, max_age_days: int) -> list[di
     return [dict(r) for r in cur.fetchall()]
 
 
-def resolve_signals(company_name: str) -> dict | None:
-    """Call brandbrain ResolveBusinessSignals. Returns parsed response or None."""
-    try:
-        resp = _session().post(
-            BRANDBRAIN_URL,
-            data=json.dumps({"business_name": company_name, "state": ""}),
-            timeout=150,
-        )
-        if resp.status_code != 200:
+def resolve_signals(company_name: str, retries: int = 3) -> dict | None:
+    """Call brandbrain ResolveBusinessSignals with 5xx retry/backoff.
+
+    brandbrain runs on a single instance and 502s under concurrency, so retry
+    transient 5xx with exponential backoff (these grounded calls are slow).
+    """
+    for attempt in range(retries):
+        try:
+            resp = _session().post(
+                BRANDBRAIN_URL,
+                data=json.dumps({"business_name": company_name, "state": ""}),
+                timeout=180,
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            if 500 <= resp.status_code < 600 and attempt < retries - 1:
+                time.sleep(2 ** attempt + attempt)  # 1s, 3s, 6s
+                continue
             log.warning("  brandbrain HTTP %d for %s", resp.status_code, company_name)
             return None
-        return resp.json()
-    except Exception as e:  # noqa: BLE001
-        log.warning("  brandbrain call failed for %s: %s", company_name, e)
-        return None
+        except Exception as e:  # noqa: BLE001
+            if attempt < retries - 1:
+                time.sleep(2 ** attempt + attempt)
+                continue
+            log.warning("  brandbrain call failed for %s: %s", company_name, e)
+            return None
+    return None
 
 
 def _hash(stock_code: str, polarity: str, headline: str) -> str:
