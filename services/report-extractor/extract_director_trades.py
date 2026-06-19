@@ -114,13 +114,46 @@ def extract_3y(text: str) -> dict | None:
         raw = (resp.text or "").strip()
         raw = re.sub(r"^```(?:json)?\s*", "", raw)
         raw = re.sub(r"\s*```$", "", raw).strip()
-        return json.loads(raw)
+        parsed = json.loads(raw)
+        # Some 3Y notices have several changes; the model occasionally returns a
+        # JSON ARRAY of change-objects instead of the requested single object.
+        # Merge them: sum the quantities/consideration, take the first name.
+        if isinstance(parsed, list):
+            parsed = _merge_changes([c for c in parsed if isinstance(c, dict)])
+        return parsed if isinstance(parsed, dict) else None
     except json.JSONDecodeError as e:
         log.warning("  JSON parse failed: %s", e)
         return None
     except Exception as e:
         log.warning("  gemini extract failed: %s", e)
         return None
+
+
+def _merge_changes(changes: list) -> dict | None:
+    """Collapse a list of 3Y change-objects into one summed record."""
+    if not changes:
+        return None
+    out: dict = {}
+    acq = dis = val = 0.0
+    have_qty = False
+    for c in changes:
+        for k in ("director_name", "date_of_change", "securities_class",
+                  "nature_of_change", "interest_type", "confidence"):
+            if not out.get(k) and c.get(k) is not None:
+                out[k] = c[k]
+        a, d, v = _num(c.get("number_acquired")), _num(c.get("number_disposed")), _num(c.get("consideration_aud"))
+        if a:
+            acq += a; have_qty = True
+        if d:
+            dis += d; have_qty = True
+        if v:
+            val += v
+    out["number_acquired"] = acq or None
+    out["number_disposed"] = dis or None
+    out["consideration_aud"] = val or None
+    if not have_qty:
+        out.setdefault("confidence", out.get("confidence", 0.5))
+    return out
 
 
 def _num(v) -> float | None:
