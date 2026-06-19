@@ -33,6 +33,7 @@ Health was otherwise fine: cache hit 0.98/0.97, no long-running/blocking queries
 | **`mv_available_dates`** | Materialize `DISTINCT "DATE"` (≈60% of read load → ~1ms). `GetAvailableDates` queries the MV with raw fallback. Added to `refresh_all_materialized_views()`. | `000049_*`, `postgres.go` |
 | **`director_trades` dedup** | Collapse to one row per natural key, add `uq_director_trades_natural` so re-crawls dedup. Reclaims ~1 GB. | `000050_*` |
 | **news pre-filter** | `StoreArticles` skips already-stored URLs before inserting (72M attempts → new-only). Safe fallback to insert-all on error. | `news-aggregator/store.go` |
+| **price-sync N+1** | `Run` prefetches latest date per stock in one `GROUP BY` (was 992k per-stock `SELECT MAX(date)` queries); the single-stock API path falls back to a direct lookup. | `market-data-sync/sync/sync.go` |
 | **drop unused index** | `idx_company_metadata_financial_statements` (0 scans). | `000051_*` |
 | **supabase config** | Remove CLI-rejected `[project]` + `[environments.*]` from `config.toml`. | `supabase/config.toml` |
 
@@ -55,13 +56,15 @@ Then redeploy **shorts** (MV-backed `GetAvailableDates`) and **news-aggregator**
 (pre-filter). The MV is refreshed automatically by `refresh_all_materialized_views()`
 after each sync.
 
-## Recommended follow-ups (not in this branch)
+## Follow-ups
 
-- **Reset `pg_stat_statements`** (`SELECT pg_stat_statements_reset();`) so the next
-  measurement reflects current (post-fix) load rather than 658 days of history.
-- **N+1 in price sync:** `SELECT MAX(date) FROM stock_prices WHERE stock_code=$1`
-  ran 992k times — replace with one `GROUP BY stock_code`. `SELECT DISTINCT
-  stock_code FROM stock_prices` (~3.3s/call) → source from `company-metadata`.
+- ✅ **Reset `pg_stat_statements`** — done 2026-06-19 (1729 → 1 rows); the
+  measurement window now starts fresh. Re-run after deploying this branch for a
+  clean post-fix comparison.
+- ✅ **Price-sync N+1** — done (the 992k-call per-stock `SELECT MAX(date)`; see the
+  fixes table). Still open but low-priority: `SELECT DISTINCT stock_code FROM
+  stock_prices` (~3.3s/call) lives only in one-off backfill/audit scripts —
+  source from `company-metadata` if it ever moves to the hot path.
 - **Connection churn:** `pgbouncer.get_auth` ran 1.25M times (per-instance Cloud
   Run pools / cold starts); watch against the 60-conn cap.
 - **Migration tracking:** prod migrations are applied by hand with no recorded

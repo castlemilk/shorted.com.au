@@ -69,6 +69,15 @@ func (m *SyncManager) Run(ctx context.Context) error {
 		log.Printf("🚫 %d symbols blocked due to repeated failures (will retry after block period)", len(blockedSymbols))
 	}
 
+	// Prefetch the latest stored date per stock in ONE query, replacing a
+	// per-stock SELECT MAX(date) inside the loop below (the N+1 — this was
+	// ~992k calls over the DB's lifetime). Falls back to per-stock lookups.
+	latestDates, err := m.getLatestPriceDates(ctx)
+	if err != nil {
+		log.Printf("⚠️ Failed to prefetch latest price dates (%v); falling back to per-stock lookup", err)
+		latestDates = nil
+	}
+
 	priorityCount := stocklist.CountPriority(stocks)
 	log.Printf("🚀 Syncing %d stocks (%d priority, %d remaining, %d blocked)",
 		len(stocks), priorityCount, len(stocks)-priorityCount, len(blockedSymbols))
@@ -99,7 +108,7 @@ func (m *SyncManager) Run(ctx context.Context) error {
 			continue
 		}
 
-		recordsAdded, err := m.syncStock(ctx, stock.Code)
+		recordsAdded, err := m.syncStock(ctx, stock.Code, latestDates)
 		if err != nil {
 			if providers.IsNoDataError(err) {
 				log.Printf("⏭️ [%d/%d] Skipped %s (no data): %v", i+1, len(stocks), stock.Code, err)
@@ -201,27 +210,55 @@ func (m *SyncManager) Run(ctx context.Context) error {
 	return nil
 }
 
+// getLatestPriceDates returns the most recent stored date per stock_code in a
+// single GROUP BY query, replacing the per-stock SELECT MAX(date) N+1.
+func (m *SyncManager) getLatestPriceDates(ctx context.Context) (map[string]time.Time, error) {
+	rows, err := m.db.Query(ctx, "SELECT stock_code, MAX(date) FROM stock_prices GROUP BY stock_code")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[string]time.Time, 4096)
+	for rows.Next() {
+		var code string
+		var d time.Time
+		if err := rows.Scan(&code, &d); err != nil {
+			return nil, err
+		}
+		result[code] = d
+	}
+	return result, rows.Err()
+}
+
 // SyncStock syncs price data for a single stock, returns number of records added
 // This is a public method that can be called from the API
 func (m *SyncManager) SyncStock(ctx context.Context, symbol string) (int, error) {
-	return m.syncStock(ctx, symbol)
+	return m.syncStock(ctx, symbol, nil)
 }
 
-// syncStock syncs price data for a single stock, returns number of records added
-func (m *SyncManager) syncStock(ctx context.Context, symbol string) (int, error) {
+// syncStock syncs price data for a single stock, returns number of records added.
+// latestDates is an optional prefetched stock_code -> latest stored date map
+// (built once per Run) to avoid a per-stock SELECT MAX(date) N+1; pass nil for
+// the single-stock API path to look it up directly.
+func (m *SyncManager) syncStock(ctx context.Context, symbol string, latestDates map[string]time.Time) (int, error) {
 	totalRecords := 0
 
 	// STEP 1: Check for gaps FIRST - this determines if we need to sync even if "up to date"
 	gaps := m.detectGapsQuietly(ctx, symbol)
 	hasGaps := len(gaps) > 0
 
-	// STEP 2: Check if stock exists and its latest date
+	// STEP 2: Determine the stock's latest stored date.
 	var latestDate time.Time
-	err := m.db.QueryRow(ctx, "SELECT MAX(date) FROM stock_prices WHERE stock_code = $1", symbol).Scan(&latestDate)
+	if latestDates != nil {
+		latestDate = latestDates[symbol] // zero value when absent → treated as a new stock
+	} else {
+		_ = m.db.QueryRow(ctx, "SELECT MAX(date) FROM stock_prices WHERE stock_code = $1", symbol).Scan(&latestDate)
+	}
 
 	startDate := time.Now().AddDate(-10, 0, 0) // Default 10 years of history
 	isNewStock := true
-	if err == nil && !latestDate.IsZero() {
+	if !latestDate.IsZero() {
 		startDate = latestDate.AddDate(0, 0, 1)
 		isNewStock = false
 	}
