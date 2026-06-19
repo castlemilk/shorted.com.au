@@ -22,6 +22,7 @@ type ShortsStore interface {
 	GetAvailableDates(limit int, before string) ([]string, string, string, int, error)
 	GetSyncStatus(filter shortsstore.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
 	CleanupStuckSyncRuns() (int, error)
+	GetJobsOverview() ([]*shortsstore.JobHealth, error)
 
 	// Key metrics sync methods
 	GetAllStockCodes() ([]string, error)
@@ -87,6 +88,9 @@ type ShortsStore interface {
 	// Screener methods
 	ScreenStocks(filters *shortsv1alpha1.ScreenerFilters, sortField shortsv1alpha1.ScreenerSortField, sortDir shortsv1alpha1.SortDirection, limit, offset int32) ([]*shortsstore.ScreenerStock, int, error)
 
+	// Stock graph methods
+	GetStockGraph(stockCode string, limit int32) (*shortsstore.StockGraphResult, error)
+
 	// Raw query access (used for Algolia sync)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) shortsstore.Row
 }
@@ -112,6 +116,7 @@ type Cache interface {
 	GetStockNewsKey(stockCode string, limit int32, source, sentiment string) string
 	GetMarketNewsKey(limit int32, source string, priceSensitiveOnly bool) string
 	GetRelatedNewsKey(stockCode, articleID string, limit int32) string
+	GetStockGraphKey(stockCode string, limit int32) string
 	GetDirectorTradesKey(stockCode string, limit int32) string
 	GetDividendHistoryKey(stockCode string, years int32) string
 	GetPeerComparisonKey(stockCode string, limit int32) string

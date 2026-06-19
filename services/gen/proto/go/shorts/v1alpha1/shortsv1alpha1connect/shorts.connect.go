@@ -148,6 +148,9 @@ const (
 	// ShortedStocksServiceScreenStocksProcedure is the fully-qualified name of the
 	// ShortedStocksService's ScreenStocks RPC.
 	ShortedStocksServiceScreenStocksProcedure = "/shorts.v1alpha1.ShortedStocksService/ScreenStocks"
+	// ShortedStocksServiceGetStockGraphProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetStockGraph RPC.
+	ShortedStocksServiceGetStockGraphProcedure = "/shorts.v1alpha1.ShortedStocksService/GetStockGraph"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -191,6 +194,7 @@ var (
 	shortedStocksServiceGetDividendHistoryMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("GetDividendHistory")
 	shortedStocksServiceGetPeerComparisonMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetPeerComparison")
 	shortedStocksServiceScreenStocksMethodDescriptor                    = shortedStocksServiceServiceDescriptor.Methods().ByName("ScreenStocks")
+	shortedStocksServiceGetStockGraphMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockGraph")
 )
 
 // ShortedStocksServiceClient is a client for the shorts.v1alpha1.ShortedStocksService service.
@@ -273,6 +277,8 @@ type ShortedStocksServiceClient interface {
 	GetPeerComparison(context.Context, *connect.Request[v1alpha1.GetPeerComparisonRequest]) (*connect.Response[v1alpha1.GetPeerComparisonResponse], error)
 	// Screen stocks using compound filters across shorts, price, fundamentals, director trades, and news
 	ScreenStocks(context.Context, *connect.Request[v1alpha1.ScreenStocksRequest]) (*connect.Response[v1alpha1.ScreenStocksResponse], error)
+	// Get a stock's people (with their other companies) and narrative-similar companies
+	GetStockGraph(context.Context, *connect.Request[v1alpha1.GetStockGraphRequest]) (*connect.Response[v1alpha1.GetStockGraphResponse], error)
 }
 
 // NewShortedStocksServiceClient constructs a client for the shorts.v1alpha1.ShortedStocksService
@@ -513,6 +519,12 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceScreenStocksMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getStockGraph: connect.NewClient[v1alpha1.GetStockGraphRequest, v1alpha1.GetStockGraphResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetStockGraphProcedure,
+			connect.WithSchema(shortedStocksServiceGetStockGraphMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -556,6 +568,7 @@ type shortedStocksServiceClient struct {
 	getDividendHistory              *connect.Client[v1alpha1.GetDividendHistoryRequest, v1alpha1.GetDividendHistoryResponse]
 	getPeerComparison               *connect.Client[v1alpha1.GetPeerComparisonRequest, v1alpha1.GetPeerComparisonResponse]
 	screenStocks                    *connect.Client[v1alpha1.ScreenStocksRequest, v1alpha1.ScreenStocksResponse]
+	getStockGraph                   *connect.Client[v1alpha1.GetStockGraphRequest, v1alpha1.GetStockGraphResponse]
 }
 
 // GetTopShorts calls shorts.v1alpha1.ShortedStocksService.GetTopShorts.
@@ -751,6 +764,11 @@ func (c *shortedStocksServiceClient) ScreenStocks(ctx context.Context, req *conn
 	return c.screenStocks.CallUnary(ctx, req)
 }
 
+// GetStockGraph calls shorts.v1alpha1.ShortedStocksService.GetStockGraph.
+func (c *shortedStocksServiceClient) GetStockGraph(ctx context.Context, req *connect.Request[v1alpha1.GetStockGraphRequest]) (*connect.Response[v1alpha1.GetStockGraphResponse], error) {
+	return c.getStockGraph.CallUnary(ctx, req)
+}
+
 // ShortedStocksServiceHandler is an implementation of the shorts.v1alpha1.ShortedStocksService
 // service.
 type ShortedStocksServiceHandler interface {
@@ -832,6 +850,8 @@ type ShortedStocksServiceHandler interface {
 	GetPeerComparison(context.Context, *connect.Request[v1alpha1.GetPeerComparisonRequest]) (*connect.Response[v1alpha1.GetPeerComparisonResponse], error)
 	// Screen stocks using compound filters across shorts, price, fundamentals, director trades, and news
 	ScreenStocks(context.Context, *connect.Request[v1alpha1.ScreenStocksRequest]) (*connect.Response[v1alpha1.ScreenStocksResponse], error)
+	// Get a stock's people (with their other companies) and narrative-similar companies
+	GetStockGraph(context.Context, *connect.Request[v1alpha1.GetStockGraphRequest]) (*connect.Response[v1alpha1.GetStockGraphResponse], error)
 }
 
 // NewShortedStocksServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -1068,6 +1088,12 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceScreenStocksMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceGetStockGraphHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetStockGraphProcedure,
+		svc.GetStockGraph,
+		connect.WithSchema(shortedStocksServiceGetStockGraphMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.ShortedStocksService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ShortedStocksServiceGetTopShortsProcedure:
@@ -1146,6 +1172,8 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetPeerComparisonHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceScreenStocksProcedure:
 			shortedStocksServiceScreenStocksHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetStockGraphProcedure:
+			shortedStocksServiceGetStockGraphHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1305,4 +1333,8 @@ func (UnimplementedShortedStocksServiceHandler) GetPeerComparison(context.Contex
 
 func (UnimplementedShortedStocksServiceHandler) ScreenStocks(context.Context, *connect.Request[v1alpha1.ScreenStocksRequest]) (*connect.Response[v1alpha1.ScreenStocksResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ScreenStocks is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetStockGraph(context.Context, *connect.Request[v1alpha1.GetStockGraphRequest]) (*connect.Response[v1alpha1.GetStockGraphResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetStockGraph is not implemented"))
 }

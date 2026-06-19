@@ -210,6 +210,11 @@ func (c *MemoryCache) GetRelatedNewsKey(stockCode, articleID string, limit int32
 	return c.generateKey("related_news", stockCode, articleID, limit)
 }
 
+// GetStockGraphKey builds a cache key for GetStockGraph responses.
+func (c *MemoryCache) GetStockGraphKey(stockCode string, limit int32) string {
+	return c.generateKey("stock_graph", stockCode, limit)
+}
+
 func (c *MemoryCache) GetDirectorTradesKey(stockCode string, limit int32) string {
 	return c.generateKey("director_trades", stockCode, limit)
 }

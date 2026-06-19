@@ -72,6 +72,21 @@ func (mr *MockShortsStoreMockRecorder) CleanupStuckSyncRuns() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanupStuckSyncRuns", reflect.TypeOf((*MockShortsStore)(nil).CleanupStuckSyncRuns))
 }
 
+// GetJobsOverview mocks base method.
+func (m *MockShortsStore) GetJobsOverview() ([]*shorts.JobHealth, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetJobsOverview")
+	ret0, _ := ret[0].([]*shorts.JobHealth)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetJobsOverview indicates an expected call of GetJobsOverview.
+func (mr *MockShortsStoreMockRecorder) GetJobsOverview() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetJobsOverview", reflect.TypeOf((*MockShortsStore)(nil).GetJobsOverview))
+}
+
 // CreateEnrichmentJob mocks base method.
 func (m *MockShortsStore) CreateEnrichmentJob(stockCode string, force bool) (string, error) {
 	m.ctrl.T.Helper()
@@ -505,6 +520,21 @@ func (mr *MockShortsStoreMockRecorder) GetRelatedNews(stockCode, articleID, limi
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelatedNews", reflect.TypeOf((*MockShortsStore)(nil).GetRelatedNews), stockCode, articleID, limit)
 }
 
+// GetStockGraph mocks base method.
+func (m *MockShortsStore) GetStockGraph(stockCode string, limit int32) (*shorts.StockGraphResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStockGraph", stockCode, limit)
+	ret0, _ := ret[0].(*shorts.StockGraphResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStockGraph indicates an expected call of GetStockGraph.
+func (mr *MockShortsStoreMockRecorder) GetStockGraph(stockCode, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockGraph", reflect.TypeOf((*MockShortsStore)(nil).GetStockGraph), stockCode, limit)
+}
+
 // GetSyncStatus mocks base method.
 func (m *MockShortsStore) GetSyncStatus(filter shorts.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error) {
 	m.ctrl.T.Helper()
@@ -934,6 +964,20 @@ func (m *MockCache) GetRelatedNewsKey(stockCode, articleID string, limit int32) 
 func (mr *MockCacheMockRecorder) GetRelatedNewsKey(stockCode, articleID, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelatedNewsKey", reflect.TypeOf((*MockCache)(nil).GetRelatedNewsKey), stockCode, articleID, limit)
+}
+
+// GetStockGraphKey mocks base method.
+func (m *MockCache) GetStockGraphKey(stockCode string, limit int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStockGraphKey", stockCode, limit)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetStockGraphKey indicates an expected call of GetStockGraphKey.
+func (mr *MockCacheMockRecorder) GetStockGraphKey(stockCode, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockGraphKey", reflect.TypeOf((*MockCache)(nil).GetStockGraphKey), stockCode, limit)
 }
 
 // GetOrSet mocks base method.

@@ -20,6 +20,40 @@ type SyncStatusFilter struct {
 	ExcludeLocal bool   // if true, exclude runs from local hostnames
 }
 
+// JobHealth is one row of the v_job_health view (migration 000046): a job's
+// definition joined to its latest run, with precomputed alert flags. It powers
+// the admin Jobs overview and is the same shape the email watchdog reads.
+// JSON tags are camelCase to match the admin REST conventions.
+type JobHealth struct {
+	JobName                 string  `json:"jobName"`
+	DisplayName             string  `json:"displayName"`
+	Description             string  `json:"description"`
+	Category                string  `json:"category"`
+	ScheduleCron            string  `json:"scheduleCron"`
+	ScheduleHuman           string  `json:"scheduleHuman"`
+	Critical                bool    `json:"critical"`
+	ExpectedIntervalSeconds int64   `json:"expectedIntervalSeconds"`
+	LastStatus              string  `json:"lastStatus"`
+	LastRunId               string  `json:"lastRunId"`
+	LastStartedAt           string  `json:"lastStartedAt"`
+	LastCompletedAt         string  `json:"lastCompletedAt"`
+	LastDurationSeconds     float64 `json:"lastDurationSeconds"`
+	LastRecordsProcessed    int64   `json:"lastRecordsProcessed"`
+	LastRecordsFailed       int64   `json:"lastRecordsFailed"`
+	LastError               string  `json:"lastError"`
+	LastEnvironment         string  `json:"lastEnvironment"`
+	LastHostname            string  `json:"lastHostname"`
+	LastSuccessAt           string  `json:"lastSuccessAt"`
+	RecentAvgRecords        float64 `json:"recentAvgRecords"`
+	SecondsSinceSuccess     float64 `json:"secondsSinceSuccess"`
+	HasEverRun              bool    `json:"hasEverRun"`
+	IsFailed                bool    `json:"isFailed"`
+	IsStuck                 bool    `json:"isStuck"`
+	IsStale                 bool    `json:"isStale"`
+	IsZeroRecord            bool    `json:"isZeroRecord"`
+	AlertLevel              string  `json:"alertLevel"` // critical | warning | no_data | ok
+}
+
 type Store interface {
 	GetStock(string) (*stockv1alpha1.Stock, error)
 	GetTopShorts(period string, limit, offset int32, summaryOnly bool) ([]*stockv1alpha1.TimeSeriesData, int, error)
@@ -32,6 +66,7 @@ type Store interface {
 	GetAvailableDates(limit int, before string) ([]string, string, string, int, error)
 	GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error)
 	CleanupStuckSyncRuns() (int, error)
+	GetJobsOverview() ([]*JobHealth, error)
 
 	// Key metrics sync methods
 	GetAllStockCodes() ([]string, error)
@@ -105,6 +140,9 @@ type Store interface {
 
 	// Screener methods
 	ScreenStocks(filters *shortsv1alpha1.ScreenerFilters, sortField shortsv1alpha1.ScreenerSortField, sortDir shortsv1alpha1.SortDirection, limit, offset int32) ([]*ScreenerStock, int, error)
+
+	// Stock graph methods
+	GetStockGraph(stockCode string, limit int32) (*StockGraphResult, error)
 
 	// Raw query access (used for Algolia sync)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) Row
@@ -314,6 +352,29 @@ type PeerComparisonResult struct {
 	Subject  *PeerStock
 	Peers    []*PeerStock
 	Industry string
+}
+
+// GraphPersonRow represents a person connected to a stock, with their other company roles
+type GraphPersonRow struct {
+	Name        string
+	Role        string
+	ImageURL    string
+	LinkedInURL string
+	AlsoAt      []string // OTHER stock codes this person is connected to
+}
+
+// GraphPeerRow represents a semantically similar company
+type GraphPeerRow struct {
+	StockCode   string
+	CompanyName string
+	Industry    string
+	Similarity  float64
+}
+
+// StockGraphResult holds the full graph result for a stock
+type StockGraphResult struct {
+	People          []*GraphPersonRow
+	SimilarCompanies []*GraphPeerRow
 }
 
 func NewStore(config Config) (Store, error) {
