@@ -84,7 +84,7 @@ function getEventConfig(type: string) {
 
 export function EventTimeline({
   stockCode,
-  daysBack = 90,
+  daysBack = 365,
   limit = 40,
 }: EventTimelineProps) {
   const { data, isLoading } = useQuery({
@@ -135,7 +135,7 @@ export function EventTimeline({
           Event timeline
         </CardTitle>
         <CardDescription>
-          Key events over the last {daysBack} days
+          Key events over the last {daysBack >= 365 ? "year" : `${daysBack} days`}
         </CardDescription>
       </CardHeader>
       <CardContent>
