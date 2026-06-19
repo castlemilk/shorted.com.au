@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/castlemilk/shorted.com.au/services/pkg/jobstatus"
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -202,6 +203,52 @@ func main() {
 		return
 	}
 
+	// One-shot company-summary embedding + similar-company edge computation:
+	// RUN_MODE=embed-company-summaries
+	//
+	// Step 1 — embed: select company-metadata rows with enhanced_summary that
+	//           have no company_summary embedding yet, embed via Gemini
+	//           (gemini-embedding-001, MRL-truncated to 768), write to embeddings.
+	// Step 2 — similar: for each company_summary embedding that has a matching
+	//           entities row (type='company'), find top-6 nearest neighbours via
+	//           the HNSW index (anchor embedding passed as $1::vector literal,
+	//           never a CROSS JOIN) and write similar_to edges to entity_edges.
+	if os.Getenv("RUN_MODE") == "embed-company-summaries" {
+		apiKey := os.Getenv("GEMINI_API_KEY")
+		if apiKey == "" {
+			log.Fatal("embed-company-summaries requires GEMINI_API_KEY")
+		}
+		embedder, err := NewEmbedder(ctx, apiKey)
+		if err != nil {
+			log.Fatalf("NewEmbedder failed: %v", err)
+		}
+		defer func() { _ = embedder.Close() }()
+
+		limit := 0 // 0 = all eligible companies
+		if v := os.Getenv("BACKFILL_LIMIT"); v != "" {
+			if n, err := strconv.Atoi(v); err == nil {
+				limit = n
+			} else {
+				log.Printf("WARN: invalid BACKFILL_LIMIT %q, processing all companies", v)
+			}
+		}
+
+		embedded, err := EmbedCompanySummaries(ctx, db, embedder, CompanyEmbedOpts{Limit: limit})
+		if err != nil {
+			log.Fatalf("EmbedCompanySummaries failed: %v", err)
+		}
+		log.Printf("embed-company-summaries: step 1 complete — %d company summaries embedded", embedded)
+
+		edges, err := ComputeSimilarCompanies(ctx, db)
+		if err != nil {
+			log.Fatalf("ComputeSimilarCompanies failed: %v", err)
+		}
+		log.Printf("embed-company-summaries: step 2 complete — %d similar_to edges written", edges)
+
+		log.Printf("embed-company-summaries complete: embedded=%d edges=%d", embedded, edges)
+		return
+	}
+
 	// For Cloud Run Jobs: process and exit
 	// For Cloud Run Services: serve health check and process on schedule
 	if os.Getenv("CLOUD_RUN_JOB") != "" {
@@ -236,6 +283,19 @@ func runAggregation(ctx context.Context, fetcher *RSSFetcher, matcher *StockMatc
 	startTime := time.Now()
 	syncAttrs := otelmetric.WithAttributes(attribute.String("sync_job", "news-aggregator"))
 	log.Println("Starting news aggregation run...")
+
+	// Record this run in job_runs (skip dry-runs / local previews). Panic-safe:
+	// a crash still lands a 'failed' row before propagating.
+	var run *jobstatus.Run
+	if !dryRun {
+		run = jobstatus.Start(store.db, "news-aggregator", "")
+		defer func() {
+			if rec := recover(); rec != nil {
+				run.Fail(fmt.Errorf("panic: %v", rec))
+				panic(rec)
+			}
+		}()
+	}
 
 	sources := GetDefaultSources()
 	totalFetched := 0
@@ -317,6 +377,13 @@ func runAggregation(ctx context.Context, fetcher *RSSFetcher, matcher *StockMatc
 	duration := time.Since(startTime)
 	log.Printf("Aggregation complete! Fetched: %d, Stored: %d, Duration: %s",
 		totalFetched, totalStored, duration.Round(time.Millisecond))
+
+	if run != nil {
+		run.CompleteWith(totalStored, 0, map[string]any{
+			"fetched": totalFetched,
+			"sources": len(sources),
+		})
+	}
 
 	// Record sync metrics
 	shortedotel.SyncDuration.Record(ctx, duration.Seconds(), syncAttrs)

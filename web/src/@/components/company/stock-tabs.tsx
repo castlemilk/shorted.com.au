@@ -10,6 +10,7 @@ import {
 } from "~/@/components/ui/tabs";
 import { StockNewsFeed } from "./stock-news-feed";
 import { RelatedNewsRail } from "./related-news-rail";
+import { StockConnections } from "./stock-connections";
 import { DirectorTradesTable } from "./director-trades-table";
 import { DividendHistory } from "./dividend-history";
 import { PeerComparisonTable } from "./peer-comparison-table";
@@ -71,6 +72,9 @@ export function StockTabs({
 
       <TabsContent value="overview">
         {overviewContent}
+        <div className="mt-4 md:mt-6">
+          <StockConnections stockCode={stockCode} />
+        </div>
       </TabsContent>
 
       {communityContent ? (
