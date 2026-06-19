@@ -85,5 +85,33 @@ func GetToolDefinitions() []ToolDefinition {
 				"week": {Type: "string", Description: "Week slug in YYYY-WNN format (e.g., '2026-W08'). Omit for the latest report."},
 			},
 		},
+		{
+			Name:        "get_related_news",
+			Description: "Find news articles semantically related to a stock (cross-outlet, by meaning). Uses vector similarity to surface thematically relevant coverage beyond simple keyword matching.",
+			Parameters: map[string]ToolParameter{
+				"stock_code": {Type: "string", Description: "ASX stock code (e.g., 'BHP', 'CBA')"},
+				"limit":      {Type: "integer", Description: "Number of related articles to return (default 5)"},
+			},
+			Required: []string{"stock_code"},
+		},
+		{
+			Name:        "get_stock_graph",
+			Description: "Get a stock's key people (directors/executives and their OTHER ASX board seats) and narrative-similar companies. Useful for mapping corporate networks and finding structurally similar peers.",
+			Parameters: map[string]ToolParameter{
+				"stock_code": {Type: "string", Description: "ASX stock code"},
+				"limit":      {Type: "integer", Description: "Number of results to return (default 10)"},
+			},
+			Required: []string{"stock_code"},
+		},
+		{
+			Name:        "get_event_timeline",
+			Description: "Get a merged chronological timeline of a stock's events: announcements, director trades, price-sensitive news, and short-position spikes. Good for understanding what drove recent moves.",
+			Parameters: map[string]ToolParameter{
+				"stock_code": {Type: "string", Description: "ASX stock code"},
+				"days_back":  {Type: "integer", Description: "How many calendar days back to include (default 90)"},
+				"limit":      {Type: "integer", Description: "Maximum number of events to return (default 20)"},
+			},
+			Required: []string{"stock_code"},
+		},
 	}
 }

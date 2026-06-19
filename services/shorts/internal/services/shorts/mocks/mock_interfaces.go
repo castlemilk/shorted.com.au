@@ -520,6 +520,21 @@ func (mr *MockShortsStoreMockRecorder) GetRelatedNews(stockCode, articleID, limi
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelatedNews", reflect.TypeOf((*MockShortsStore)(nil).GetRelatedNews), stockCode, articleID, limit)
 }
 
+// GetEventTimeline mocks base method.
+func (m *MockShortsStore) GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shorts.TimelineEventRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEventTimeline", stockCode, daysBack, limit)
+	ret0, _ := ret[0].([]*shorts.TimelineEventRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetEventTimeline indicates an expected call of GetEventTimeline.
+func (mr *MockShortsStoreMockRecorder) GetEventTimeline(stockCode, daysBack, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEventTimeline", reflect.TypeOf((*MockShortsStore)(nil).GetEventTimeline), stockCode, daysBack, limit)
+}
+
 // GetStockGraph mocks base method.
 func (m *MockShortsStore) GetStockGraph(stockCode string, limit int32) (*shorts.StockGraphResult, error) {
 	m.ctrl.T.Helper()
@@ -964,6 +979,20 @@ func (m *MockCache) GetRelatedNewsKey(stockCode, articleID string, limit int32) 
 func (mr *MockCacheMockRecorder) GetRelatedNewsKey(stockCode, articleID, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelatedNewsKey", reflect.TypeOf((*MockCache)(nil).GetRelatedNewsKey), stockCode, articleID, limit)
+}
+
+// GetEventTimelineKey mocks base method.
+func (m *MockCache) GetEventTimelineKey(stockCode string, daysBack, limit int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEventTimelineKey", stockCode, daysBack, limit)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetEventTimelineKey indicates an expected call of GetEventTimelineKey.
+func (mr *MockCacheMockRecorder) GetEventTimelineKey(stockCode, daysBack, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEventTimelineKey", reflect.TypeOf((*MockCache)(nil).GetEventTimelineKey), stockCode, daysBack, limit)
 }
 
 // GetStockGraphKey mocks base method.

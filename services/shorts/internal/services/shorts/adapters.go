@@ -222,6 +222,10 @@ func (s *StoreAdapter) GetStockGraph(stockCode string, limit int32) (*shorts.Sto
 	return s.store.GetStockGraph(stockCode, limit)
 }
 
+func (s *StoreAdapter) GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shorts.TimelineEventRow, error) {
+	return s.store.GetEventTimeline(stockCode, daysBack, limit)
+}
+
 // QueryRowContext delegates to the underlying store's QueryRowContext.
 func (s *StoreAdapter) QueryRowContext(ctx context.Context, query string, args ...interface{}) shorts.Row {
 	return s.store.QueryRowContext(ctx, query, args...)

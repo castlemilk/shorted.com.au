@@ -524,6 +524,17 @@ service ShortedStocksService {
       description: "Retrieve a stock's connected people (directors/officers and their other ASX roles) and semantically similar companies via vector similarity."
     };
   }
+
+  // ==================== Event Timeline ====================
+
+  // Get a chronological feed of events for a stock (announcements, director trades, news, short spikes)
+  rpc GetEventTimeline (GetEventTimelineRequest) returns (GetEventTimelineResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Event Timeline",
+      description: "Retrieve a chronological feed of events for a stock, merging ASX announcements, director trades, price-sensitive news, and short position spikes."
+    };
+  }
 }
 
 message MintTokenRequest {
@@ -1448,4 +1459,29 @@ message GraphPeer {
   string company_name = 2;
   string industry = 3;
   double similarity = 4;
+}
+
+// ==================== Event Timeline Messages ====================
+
+// Request for GetEventTimeline RPC
+message GetEventTimelineRequest {
+  string stock_code = 1;
+  int32 days_back = 2; // number of days to look back (default 90)
+  int32 limit = 3;     // max events to return (default 50)
+}
+
+// Response for GetEventTimeline RPC
+message GetEventTimelineResponse {
+  repeated TimelineEvent events = 1;
+}
+
+// A single event in the stock's timeline
+message TimelineEvent {
+  string date = 1;              // YYYY-MM-DD
+  string type = 2;              // 'announcement' | 'director_trade' | 'news' | 'short_spike'
+  string title = 3;
+  string detail = 4;
+  string url = 5;
+  string sentiment = 6;         // for news events; '' otherwise
+  bool   is_price_sensitive = 7;
 }

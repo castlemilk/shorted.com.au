@@ -91,6 +91,9 @@ type ShortsStore interface {
 	// Stock graph methods
 	GetStockGraph(stockCode string, limit int32) (*shortsstore.StockGraphResult, error)
 
+	// Event timeline methods
+	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shortsstore.TimelineEventRow, error)
+
 	// Raw query access (used for Algolia sync)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) shortsstore.Row
 }
@@ -117,6 +120,7 @@ type Cache interface {
 	GetMarketNewsKey(limit int32, source string, priceSensitiveOnly bool) string
 	GetRelatedNewsKey(stockCode, articleID string, limit int32) string
 	GetStockGraphKey(stockCode string, limit int32) string
+	GetEventTimelineKey(stockCode string, daysBack, limit int32) string
 	GetDirectorTradesKey(stockCode string, limit int32) string
 	GetDividendHistoryKey(stockCode string, years int32) string
 	GetPeerComparisonKey(stockCode string, limit int32) string

@@ -215,6 +215,11 @@ func (c *MemoryCache) GetStockGraphKey(stockCode string, limit int32) string {
 	return c.generateKey("stock_graph", stockCode, limit)
 }
 
+// GetEventTimelineKey builds a cache key for GetEventTimeline responses.
+func (c *MemoryCache) GetEventTimelineKey(stockCode string, daysBack, limit int32) string {
+	return c.generateKey("event_timeline", stockCode, daysBack, limit)
+}
+
 func (c *MemoryCache) GetDirectorTradesKey(stockCode string, limit int32) string {
 	return c.generateKey("director_trades", stockCode, limit)
 }
