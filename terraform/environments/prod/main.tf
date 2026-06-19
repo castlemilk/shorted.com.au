@@ -359,6 +359,12 @@ module "edge" {
   ai_bots_protection         = "disabled"
   markdown_for_agents        = "on"
 
+  # DNS hardening — SPF (Google Workspace) + DMARC (p=none monitor) + DNSSEC
+  # signing. DNSSEC is not enforced until the DS record (edge_dnssec_ds_record
+  # output) is published at the .com.au registrar.
+  dns_security_enabled = true
+  manage_dnssec        = true
+
   cache_ttl_seconds    = 60
   top_shorts_cache_ttl = 300
   stock_data_cache_ttl = 120
@@ -383,4 +389,9 @@ output "edge_url" {
 output "edge_worker_name" {
   description = "Name of the Cloudflare edge worker."
   value       = module.edge.worker_name
+}
+
+output "edge_dnssec_ds_record" {
+  description = "DNSSEC DS record to publish at the .com.au registrar to activate DNSSEC. Run: terraform output -raw edge_dnssec_ds_record"
+  value       = module.edge.dnssec_ds_record
 }

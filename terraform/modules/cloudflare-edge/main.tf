@@ -462,6 +462,58 @@ moved {
   to   = cloudflare_dns_record.api
 }
 
+# =============================================================================
+# Email-security DNS records — SPF + DMARC
+# =============================================================================
+# The domain receives/sends mail via Google Workspace (MX -> smtp.google.com)
+# but had no SPF or DMARC, leaving it open to spoofing and hurting deliverability.
+# These coexist with the existing google-site-verification TXT record (multiple
+# TXT records per name are valid). NOTE: cloudflare provider v5 has an
+# undocumented TXT-quoting quirk (provider issues #5351/#6354) — if `plan` shows
+# a perpetual diff, wrap content in escaped quotes: "\"v=spf1 ...\"".
+
+resource "cloudflare_dns_record" "spf" {
+  count = var.dns_security_enabled ? 1 : 0
+
+  zone_id = var.cloudflare_zone_id
+  name    = "@"
+  type    = "TXT"
+  content = var.spf_record
+  ttl     = 1 # automatic; TXT records can't be proxied
+  comment = "SPF — managed by Terraform (cloudflare-edge module)"
+
+  # Cloudflare normalises "@" to the zone name on read (perpetual-diff guard,
+  # same as the apex A record above).
+  lifecycle {
+    ignore_changes = [name]
+  }
+}
+
+resource "cloudflare_dns_record" "dmarc" {
+  count = var.dns_security_enabled ? 1 : 0
+
+  zone_id = var.cloudflare_zone_id
+  name    = "_dmarc"
+  type    = "TXT"
+  content = var.dmarc_record
+  ttl     = 1
+  comment = "DMARC — managed by Terraform (cloudflare-edge module)"
+}
+
+# =============================================================================
+# DNSSEC — zone signing
+# =============================================================================
+# Creating this resource makes Cloudflare sign the zone. DNSSEC is not actually
+# enforced until the DS record (dnssec_ds_record output) is published at the
+# .com.au registrar — a manual step. Signing alone changes nothing for
+# resolvers, so this is safe to apply ahead of the registrar update.
+
+resource "cloudflare_zone_dnssec" "shorted" {
+  count = var.manage_dnssec ? 1 : 0
+
+  zone_id = var.cloudflare_zone_id
+}
+
 resource "cloudflare_zone_setting" "security_always_use_https" {
   zone_id    = var.cloudflare_zone_id
   setting_id = "always_use_https"

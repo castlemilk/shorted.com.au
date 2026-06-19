@@ -61,3 +61,24 @@ output "prewarm_cron_schedule" {
   description = "Cron schedule for the pre-warm trigger"
   value       = var.prewarm_enabled ? tolist(cloudflare_workers_cron_trigger.prewarm[0].schedules)[0] : null
 }
+
+output "dnssec_ds_record" {
+  description = <<-EOT
+    DNSSEC DS record to publish at the .com.au registrar to activate DNSSEC.
+    Empty until manage_dnssec = true is applied. After apply, run
+    `terraform output -raw edge_dnssec_ds_record` and enter it at the registrar.
+  EOT
+  value       = var.manage_dnssec ? cloudflare_zone_dnssec.shorted[0].ds : null
+}
+
+output "dnssec_details" {
+  description = "DNSSEC key material for registrar DS entry (key_tag, algorithm, digest_type, digest)."
+  value = var.manage_dnssec ? {
+    key_tag          = cloudflare_zone_dnssec.shorted[0].key_tag
+    algorithm        = cloudflare_zone_dnssec.shorted[0].algorithm
+    digest_type      = cloudflare_zone_dnssec.shorted[0].digest_type
+    digest           = cloudflare_zone_dnssec.shorted[0].digest
+    digest_algorithm = cloudflare_zone_dnssec.shorted[0].digest_algorithm
+    public_key       = cloudflare_zone_dnssec.shorted[0].public_key
+  } : null
+}
