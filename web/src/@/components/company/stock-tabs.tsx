@@ -14,6 +14,7 @@ import { StockConnections } from "./stock-connections";
 import { DirectorTradesTable } from "./director-trades-table";
 import { DividendHistory } from "./dividend-history";
 import { PeerComparisonTable } from "./peer-comparison-table";
+import { EventTimeline } from "./event-timeline";
 
 interface StockTabsProps {
   stockCode: string;
@@ -35,6 +36,7 @@ export function StockTabs({
         "overview",
         communityContent ? "community" : null,
         "news",
+        "timeline",
         "financials",
         "directors",
         "dividends",
@@ -64,6 +66,7 @@ export function StockTabs({
           <TabsTrigger value="community">Community</TabsTrigger>
         ) : null}
         <TabsTrigger value="news">News</TabsTrigger>
+        <TabsTrigger value="timeline">Timeline</TabsTrigger>
         <TabsTrigger value="financials">Financials</TabsTrigger>
         <TabsTrigger value="directors">Directors</TabsTrigger>
         <TabsTrigger value="dividends">Dividends</TabsTrigger>
@@ -88,6 +91,10 @@ export function StockTabs({
           <StockNewsFeed stockCode={stockCode} limit={20} />
           <RelatedNewsRail stockCode={stockCode} limit={6} />
         </div>
+      </TabsContent>
+
+      <TabsContent value="timeline">
+        <EventTimeline stockCode={stockCode} />
       </TabsContent>
 
       <TabsContent value="financials">
