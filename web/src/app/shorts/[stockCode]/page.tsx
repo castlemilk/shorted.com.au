@@ -27,6 +27,7 @@ import CompanyFinancials,{
   CompanyFinancialsPlaceholder,
 } from "~/@/components/ui/companyFinancials";
 import { EnrichedCompanySection } from "~/@/components/company/enriched-company-section";
+import { FinancialDigest } from "~/@/components/company/financial-digest";
 import { CommunityOverviewTeaser } from "~/@/components/company/community/community-overview-teaser";
 import { CommunityTab } from "~/@/components/company/community/community-tab";
 
@@ -58,6 +59,7 @@ import { ShortInterestHistory } from "./short-interest-history";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { notFound } from "next/navigation";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { getStockFinancialHighlights } from "~/app/actions/reports/getReportData";
 import { getStockCommunitySummary } from "~/@/lib/community/firestore-community";
 import { buildCommunitySummary } from "~/@/lib/community/summary";
 import {
@@ -243,6 +245,12 @@ const Page = async ({ params }: PageProps) => {
   const [communitySummary, communityThreads, communityPulse] = await Promise.all(
     [communitySummaryPromise, communityThreadsPromise, communityPulsePromise],
   );
+
+  // Financial highlights — fetched server-side, cached 24h, degrades gracefully
+  const financialHighlightsMap = await getStockFinancialHighlights([stockCode]).catch(
+    (): Record<string, import("~/app/actions/reports/getReportData").StockFinancialHighlight[]> => ({}),
+  );
+  const financialHighlights = financialHighlightsMap?.[stockCode] ?? [];
 
   const breadcrumbItems = [
     { label: "Stocks", href: "/stocks" },
@@ -530,6 +538,7 @@ const Page = async ({ params }: PageProps) => {
         }
         financialsContent={
           <div className="flex flex-col gap-4 md:gap-6">
+            <FinancialDigest highlights={financialHighlights} />
             <Suspense fallback={<CompanyFinancialsPlaceholder />}>
               <CompanyFinancials stockCode={stockCode} />
             </Suspense>

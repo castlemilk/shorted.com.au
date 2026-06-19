@@ -4538,6 +4538,8 @@ type FinancialReportHighlight struct {
 	ReportType    string                 `protobuf:"bytes,2,opt,name=report_type,json=reportType,proto3" json:"report_type,omitempty"` // e.g., "annual_results", "half_year_results"
 	ReportDate    string                 `protobuf:"bytes,3,opt,name=report_date,json=reportDate,proto3" json:"report_date,omitempty"` // YYYY-MM-DD
 	Metrics       []*FinancialMetric     `protobuf:"bytes,4,rep,name=metrics,proto3" json:"metrics,omitempty"`
+	Digest        string                 `protobuf:"bytes,5,opt,name=digest,proto3" json:"digest,omitempty"`           // compressed Flash-distilled summary of the report
+	Confidence    float64                `protobuf:"fixed64,6,opt,name=confidence,proto3" json:"confidence,omitempty"` // digest confidence 0.0-1.0
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -4598,6 +4600,20 @@ func (x *FinancialReportHighlight) GetMetrics() []*FinancialMetric {
 		return x.Metrics
 	}
 	return nil
+}
+
+func (x *FinancialReportHighlight) GetDigest() string {
+	if x != nil {
+		return x.Digest
+	}
+	return ""
+}
+
+func (x *FinancialReportHighlight) GetConfidence() float64 {
+	if x != nil {
+		return x.Confidence
+	}
+	return 0
 }
 
 // A single extracted financial metric
@@ -7915,14 +7931,18 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12?\n" +
 	"\x05value\x18\x02 \x01(\v2).shorts.v1alpha1.StockFinancialHighlightsR\x05value:\x028\x01\"_\n" +
 	"\x18StockFinancialHighlights\x12C\n" +
-	"\areports\x18\x01 \x03(\v2).shorts.v1alpha1.FinancialReportHighlightR\areports\"\xbb\x01\n" +
+	"\areports\x18\x01 \x03(\v2).shorts.v1alpha1.FinancialReportHighlightR\areports\"\xf3\x01\n" +
 	"\x18FinancialReportHighlight\x12!\n" +
 	"\freport_title\x18\x01 \x01(\tR\vreportTitle\x12\x1f\n" +
 	"\vreport_type\x18\x02 \x01(\tR\n" +
 	"reportType\x12\x1f\n" +
 	"\vreport_date\x18\x03 \x01(\tR\n" +
 	"reportDate\x12:\n" +
-	"\ametrics\x18\x04 \x03(\v2 .shorts.v1alpha1.FinancialMetricR\ametrics\"\xe4\x01\n" +
+	"\ametrics\x18\x04 \x03(\v2 .shorts.v1alpha1.FinancialMetricR\ametrics\x12\x16\n" +
+	"\x06digest\x18\x05 \x01(\tR\x06digest\x12\x1e\n" +
+	"\n" +
+	"confidence\x18\x06 \x01(\x01R\n" +
+	"confidence\"\xe4\x01\n" +
 	"\x0fFinancialMetric\x12\x1f\n" +
 	"\vmetric_type\x18\x01 \x01(\tR\n" +
 	"metricType\x12\x1f\n" +

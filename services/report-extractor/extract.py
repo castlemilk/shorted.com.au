@@ -21,9 +21,11 @@ Usage:
 """
 
 import argparse
+import hashlib
 import json
 import logging
 import os
+import re
 import sys
 import time
 from datetime import datetime
@@ -386,23 +388,124 @@ def extractions_to_metrics(extractions: list[dict]) -> dict:
     return metrics
 
 
-def store_extraction(conn, report: dict, metrics: dict, raw_text_length: int, dry_run: bool = False):
+DIGEST_MODEL = "gemini-2.5-flash"
+
+DIGEST_PROMPT = """You are summarising an ASX-listed company's financial report for a retail investor.
+In 2-3 plain-English sentences, lead with the headline result (revenue and net profit direction with % change),
+then the dividend, then any guidance. Be concrete with the numbers from the metrics.
+Output STRICT JSON: {"digest": "...", "confidence": 0.0-1.0, "key_takeaways": ["...", "..."]}"""
+
+
+def summarize_report(metrics: dict, page_text: str, model_id: str = DIGEST_MODEL) -> dict:
+    """Generate a plain-English digest of the financial report using a single Gemini call.
+
+    Returns a dict with keys: digest (str), confidence (float), key_takeaways (list[str]).
+    On any failure returns digest="" confidence=0.0 key_takeaways=[].
+    """
+    try:
+        from google import genai
+        from google.genai import types as genai_types
+    except ImportError:
+        log.warning("  google-genai not available; skipping digest generation")
+        return {"digest": "", "confidence": 0.0, "key_takeaways": []}
+
+    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("LANGEXTRACT_API_KEY")
+    if not api_key:
+        log.warning("  No GEMINI_API_KEY / LANGEXTRACT_API_KEY set; skipping digest")
+        return {"digest": "", "confidence": 0.0, "key_takeaways": []}
+
+    # Build context: structured metrics + truncated raw text
+    metrics_json = json.dumps(metrics, indent=2)
+    # Limit page text to 8000 chars to stay well within token budget
+    truncated_text = page_text[:8000] if page_text else ""
+
+    user_content = (
+        f"## Extracted metrics (JSON)\n{metrics_json}\n\n"
+        f"## Report text excerpt\n{truncated_text}"
+    )
+
+    try:
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model=model_id,
+            contents=user_content,
+            config=genai_types.GenerateContentConfig(
+                system_instruction=DIGEST_PROMPT,
+                temperature=0.2,
+            ),
+        )
+        raw = response.text.strip()
+
+        # Strip markdown fences if present
+        raw = re.sub(r"^```(?:json)?\s*", "", raw)
+        raw = re.sub(r"\s*```$", "", raw)
+        raw = raw.strip()
+
+        parsed = json.loads(raw)
+        return {
+            "digest": str(parsed.get("digest", "")),
+            "confidence": float(parsed.get("confidence", 0.0)),
+            "key_takeaways": list(parsed.get("key_takeaways", [])),
+        }
+    except json.JSONDecodeError as e:
+        log.warning("  Digest JSON parse failed: %s — raw: %.200s", e, raw if "raw" in dir() else "")
+        return {"digest": "", "confidence": 0.0, "key_takeaways": []}
+    except Exception as e:
+        log.warning("  Digest generation failed: %s", e)
+        return {"digest": "", "confidence": 0.0, "key_takeaways": []}
+
+
+def upload_raw_text_to_gcs(stock_code: str, report_url: str, text: str) -> Optional[str]:
+    """Upload raw page text to GCS and return the gs:// URI.
+
+    Bucket: shorted-financial-reports (from env GCS_REPORTS_BUCKET or default).
+    Object path: digests/<stock_code>/<sha1-of-report_url>.txt
+
+    Returns the gs:// URI on success, None on failure (best-effort — never raises).
+    """
+    bucket_name = os.environ.get("GCS_REPORTS_BUCKET", "shorted-financial-reports")
+    url_sha1 = hashlib.sha1(report_url.encode()).hexdigest()
+    blob_path = f"digests/{stock_code}/{url_sha1}.txt"
+    gcs_uri = f"gs://{bucket_name}/{blob_path}"
+
+    try:
+        from google.cloud import storage as gcs
+        client = gcs.Client()
+        bucket = client.bucket(bucket_name)
+        blob = bucket.blob(blob_path)
+        blob.upload_from_string(text, content_type="text/plain; charset=utf-8")
+        log.info("  Uploaded raw text to %s", gcs_uri)
+        return gcs_uri
+    except Exception as e:
+        log.warning("  GCS upload failed (non-fatal): %s", e)
+        return None
+
+
+def store_extraction(conn, report: dict, metrics: dict, raw_text_length: int, dry_run: bool = False, digest_result: Optional[dict] = None, raw_text_gcs_url: Optional[str] = None):
     """Store extraction results in the database."""
     if dry_run:
         log.info("  [DRY RUN] Would store %d metrics for %s", len(metrics), report["stock_code"])
+        if digest_result:
+            log.info("  [DRY RUN] Digest: %.120s", digest_result.get("digest", ""))
         return
 
+    dr = digest_result or {}
     cur = conn.cursor()
     cur.execute(
         """
         INSERT INTO financial_report_extractions
             (stock_code, report_url, report_type, report_title, report_date,
-             metrics, raw_text_length, extracted_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+             metrics, raw_text_length, extracted_at,
+             digest, digest_confidence, digest_model, raw_text_gcs_url)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (report_url) DO UPDATE SET
             metrics = EXCLUDED.metrics,
             raw_text_length = EXCLUDED.raw_text_length,
-            extracted_at = EXCLUDED.extracted_at
+            extracted_at = EXCLUDED.extracted_at,
+            digest = EXCLUDED.digest,
+            digest_confidence = EXCLUDED.digest_confidence,
+            digest_model = EXCLUDED.digest_model,
+            raw_text_gcs_url = EXCLUDED.raw_text_gcs_url
         """,
         (
             report["stock_code"],
@@ -413,6 +516,10 @@ def store_extraction(conn, report: dict, metrics: dict, raw_text_length: int, dr
             json.dumps(metrics),
             raw_text_length,
             datetime.utcnow(),
+            dr.get("digest") or None,
+            dr.get("confidence") if dr.get("confidence") is not None else None,
+            DIGEST_MODEL if dr.get("digest") else None,
+            raw_text_gcs_url,
         ),
     )
     conn.commit()
@@ -464,7 +571,8 @@ def main():
     mode = "codes" if codes else args.mode
 
     conn = get_db_connection()
-    ensure_table(conn)
+    # Schema is now managed by migration 000045; ensure_table() is a no-op here.
+    # ensure_table(conn)
 
     reports = get_reports_to_process(conn, mode, codes, args.limit, recent=args.recent)
     log.info("Found %d reports to process (mode=%s)", len(reports), mode)
@@ -516,8 +624,9 @@ def main():
         if not extractions:
             log.info("  No financial metrics found")
             total_processed += 1
-            # Still store empty result to mark as processed
-            store_extraction(conn, report, {}, len(text), args.dry_run)
+            # Still store empty result to mark as processed (no digest — nothing to summarise)
+            raw_text_gcs_url = upload_raw_text_to_gcs(report["stock_code"], report["url"], text)
+            store_extraction(conn, report, {}, len(text), args.dry_run, digest_result=None, raw_text_gcs_url=raw_text_gcs_url)
             continue
 
         # Step 3: Convert to structured metrics
@@ -525,15 +634,24 @@ def main():
         log.info("  Found %d metric types: %s", len(metrics), ", ".join(metrics.keys()))
 
         if args.verbose:
-            for cls, data in metrics.items():
-                if isinstance(data, list):
-                    for d in data:
+            for cls, mdata in metrics.items():
+                if isinstance(mdata, list):
+                    for d in mdata:
                         log.debug("    %s: %s", cls, d.get("source_text", "")[:80])
                 else:
-                    log.debug("    %s: %s", cls, data.get("source_text", "")[:80])
+                    log.debug("    %s: %s", cls, mdata.get("source_text", "")[:80])
 
-        # Step 4: Store results
-        store_extraction(conn, report, metrics, len(text), args.dry_run)
+        # Step 4: Generate digest summary
+        log.info("  Generating digest...")
+        digest_result = summarize_report(metrics, text, model_id=args.model)
+        if digest_result.get("digest"):
+            log.info("  Digest (confidence=%.2f): %.120s", digest_result["confidence"], digest_result["digest"])
+
+        # Step 5: Upload raw text to GCS (best-effort)
+        raw_text_gcs_url = upload_raw_text_to_gcs(report["stock_code"], report["url"], text)
+
+        # Step 6: Store results
+        store_extraction(conn, report, metrics, len(text), args.dry_run, digest_result=digest_result, raw_text_gcs_url=raw_text_gcs_url)
         total_processed += 1
         total_extracted += 1
 

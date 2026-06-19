@@ -1052,6 +1052,8 @@ message FinancialReportHighlight {
   string report_type = 2;  // e.g., "annual_results", "half_year_results"
   string report_date = 3;  // YYYY-MM-DD
   repeated FinancialMetric metrics = 4;
+  string digest = 5;      // compressed Flash-distilled summary of the report
+  double confidence = 6;  // digest confidence 0.0-1.0
 }
 
 // A single extracted financial metric

@@ -404,6 +404,8 @@ export interface StockFinancialHighlight {
     sourceText: string;
     attributes: Record<string, string>; // e.g., {value_millions: "5142", period: "H1 FY2025"}
   }>;
+  digest: string;       // Flash-distilled 2-3 sentence plain-English summary
+  confidence: number;   // 0.0–1.0 digest confidence score
 }
 
 // Inner fetch for financial highlights
@@ -432,6 +434,8 @@ async function fetchStockFinancialHighlights(
             Object.entries(m.attributes),
           ),
         })),
+        digest: r.digest,
+        confidence: r.confidence,
       }));
     }
     return result;

@@ -49,6 +49,8 @@ func (s *ShortsServer) GetStockFinancialHighlights(ctx context.Context, req *con
 				ReportType:  r.ReportType,
 				ReportDate:  r.ReportDate,
 				Metrics:     protoMetrics,
+				Digest:      r.Digest,
+				Confidence:  r.Confidence,
 			})
 		}
 		response.Highlights[code] = &shortsv1alpha1.StockFinancialHighlights{
