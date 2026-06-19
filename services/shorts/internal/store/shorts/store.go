@@ -133,6 +133,8 @@ type FinancialReportHighlight struct {
 	ReportType  string
 	ReportDate  string
 	Metrics     []FinancialMetricEntry
+	Digest      string
+	Confidence  float64
 }
 
 // FinancialMetricEntry represents a single extracted metric

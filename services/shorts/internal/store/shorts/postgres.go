@@ -2145,7 +2145,7 @@ func (s *postgresStore) GetStockFinancialHighlights(stockCodes []string, maxPerS
 	defer cancel()
 
 	query := `
-		SELECT stock_code, report_title, COALESCE(report_type, ''), report_date::text, COALESCE(metrics::text, '{}')
+		SELECT stock_code, report_title, COALESCE(report_type, ''), report_date::text, COALESCE(metrics::text, '{}'), COALESCE(digest, ''), COALESCE(digest_confidence, 0)
 		FROM financial_report_extractions
 		WHERE stock_code = ANY($1)
 		  AND metrics::text != '{}'
@@ -2160,8 +2160,9 @@ func (s *postgresStore) GetStockFinancialHighlights(stockCodes []string, maxPerS
 
 	result := make(map[string][]FinancialReportHighlight)
 	for rows.Next() {
-		var code, title, reportType, reportDate, metricsJSON string
-		if err := rows.Scan(&code, &title, &reportType, &reportDate, &metricsJSON); err != nil {
+		var code, title, reportType, reportDate, metricsJSON, digest string
+		var confidence float64
+		if err := rows.Scan(&code, &title, &reportType, &reportDate, &metricsJSON, &digest, &confidence); err != nil {
 			continue
 		}
 
@@ -2210,6 +2211,8 @@ func (s *postgresStore) GetStockFinancialHighlights(stockCodes []string, maxPerS
 			ReportType:  reportType,
 			ReportDate:  reportDate,
 			Metrics:     metrics,
+			Digest:      digest,
+			Confidence:  confidence,
 		})
 	}
 
