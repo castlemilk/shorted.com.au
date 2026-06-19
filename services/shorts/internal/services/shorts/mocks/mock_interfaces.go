@@ -550,6 +550,21 @@ func (mr *MockShortsStoreMockRecorder) GetStockGraph(stockCode, limit any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockGraph", reflect.TypeOf((*MockShortsStore)(nil).GetStockGraph), stockCode, limit)
 }
 
+// GetStockSignals mocks base method.
+func (m *MockShortsStore) GetStockSignals(stockCode string, limit int32) (*shorts.StockSignalsResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStockSignals", stockCode, limit)
+	ret0, _ := ret[0].(*shorts.StockSignalsResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStockSignals indicates an expected call of GetStockSignals.
+func (mr *MockShortsStoreMockRecorder) GetStockSignals(stockCode, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockSignals", reflect.TypeOf((*MockShortsStore)(nil).GetStockSignals), stockCode, limit)
+}
+
 // GetSyncStatus mocks base method.
 func (m *MockShortsStore) GetSyncStatus(filter shorts.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error) {
 	m.ctrl.T.Helper()
@@ -1007,6 +1022,20 @@ func (m *MockCache) GetStockGraphKey(stockCode string, limit int32) string {
 func (mr *MockCacheMockRecorder) GetStockGraphKey(stockCode, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockGraphKey", reflect.TypeOf((*MockCache)(nil).GetStockGraphKey), stockCode, limit)
+}
+
+// GetStockSignalsKey mocks base method.
+func (m *MockCache) GetStockSignalsKey(stockCode string, limit int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStockSignalsKey", stockCode, limit)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetStockSignalsKey indicates an expected call of GetStockSignalsKey.
+func (mr *MockCacheMockRecorder) GetStockSignalsKey(stockCode, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockSignalsKey", reflect.TypeOf((*MockCache)(nil).GetStockSignalsKey), stockCode, limit)
 }
 
 // GetOrSet mocks base method.

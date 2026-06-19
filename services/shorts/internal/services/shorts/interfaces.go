@@ -91,6 +91,9 @@ type ShortsStore interface {
 	// Stock graph methods
 	GetStockGraph(stockCode string, limit int32) (*shortsstore.StockGraphResult, error)
 
+	// Stock signals (risk/reputation) methods
+	GetStockSignals(stockCode string, limit int32) (*shortsstore.StockSignalsResult, error)
+
 	// Event timeline methods
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shortsstore.TimelineEventRow, error)
 
@@ -120,6 +123,7 @@ type Cache interface {
 	GetMarketNewsKey(limit int32, source string, priceSensitiveOnly bool) string
 	GetRelatedNewsKey(stockCode, articleID string, limit int32) string
 	GetStockGraphKey(stockCode string, limit int32) string
+	GetStockSignalsKey(stockCode string, limit int32) string
 	GetEventTimelineKey(stockCode string, daysBack, limit int32) string
 	GetDirectorTradesKey(stockCode string, limit int32) string
 	GetDividendHistoryKey(stockCode string, years int32) string
