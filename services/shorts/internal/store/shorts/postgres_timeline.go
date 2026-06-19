@@ -19,7 +19,7 @@ func (s *postgresStore) GetEventTimeline(stockCode string, daysBack, limit int32
 
 	stockCode = strings.ToUpper(strings.TrimSpace(stockCode))
 	if daysBack <= 0 {
-		daysBack = 90
+		daysBack = 365
 	}
 	if limit <= 0 {
 		limit = 50
@@ -106,16 +106,20 @@ func (s *postgresStore) GetEventTimeline(stockCode string, daysBack, limit int32
 	}
 
 	// ---- Query 3: Price-sensitive news ----
+	// NOTE: is_price_sensitive is not currently populated by the news-aggregator
+	// (it is FALSE for every row), so we do NOT filter on it — that would make the
+	// news source contribute nothing. We surface the flag in the row instead, and
+	// rely on cluster de-duplication (primary article only) to keep the feed clean.
 	const newsQuery = `
 		SELECT
 			published_at::date::text,
 			COALESCE(headline, ''),
 			COALESCE(url, ''),
 			COALESCE(sentiment, ''),
-			COALESCE(summary, '')
+			COALESCE(summary, ''),
+			COALESCE(is_price_sensitive, FALSE)
 		FROM news_articles
 		WHERE stock_code = $1
-		  AND is_price_sensitive = TRUE
 		  AND published_at >= CURRENT_TIMESTAMP - ($2::int * interval '1 day')
 		  AND (cluster_id IS NULL OR cluster_is_primary = TRUE)
 		ORDER BY published_at DESC`
@@ -128,7 +132,8 @@ func (s *postgresStore) GetEventTimeline(stockCode string, daysBack, limit int32
 
 	for newsRows.Next() {
 		var date, headline, newsURL, sentiment, summary string
-		if err := newsRows.Scan(&date, &headline, &newsURL, &sentiment, &summary); err != nil {
+		var isPriceSensitive bool
+		if err := newsRows.Scan(&date, &headline, &newsURL, &sentiment, &summary, &isPriceSensitive); err != nil {
 			return nil, fmt.Errorf("GetEventTimeline: scan news row: %w", err)
 		}
 		events = append(events, &TimelineEventRow{
@@ -138,7 +143,7 @@ func (s *postgresStore) GetEventTimeline(stockCode string, daysBack, limit int32
 			Detail:           summary,
 			URL:              newsURL,
 			Sentiment:        sentiment,
-			IsPriceSensitive: true,
+			IsPriceSensitive: isPriceSensitive,
 		})
 	}
 	if err := newsRows.Err(); err != nil {

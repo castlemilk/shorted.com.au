@@ -17,7 +17,9 @@ func ValidateGetEventTimelineRequest(req *shortsv1alpha1.GetEventTimelineRequest
 		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("stock_code is required"))
 	}
 	if req.DaysBack <= 0 {
-		req.DaysBack = 90
+		// Default to a full year: announcements/director-trades/price-sensitive
+		// news are sparse, so a 90-day window leaves most stocks' timelines empty.
+		req.DaysBack = 365
 	} else if req.DaysBack > 365 {
 		req.DaysBack = 365
 	}
