@@ -27,10 +27,11 @@ import { getEnhancedWeeklyReportData, getAvailableWeekSlugs } from "~/app/action
 import { BrowseByIndustry } from "./browse-by-industry";
 import { TrendingThisWeek } from "./trending-this-week";
 
-// ISR: serve the cached page instantly (stale-while-revalidate) and regenerate
-// in the background at most hourly. Without this the page is build-time static
-// and a regional cache eviction forces a blocking re-render on a live request.
-export const revalidate = 3600;
+// Event-driven ISR: serve the cached page instantly and hold it for up to 24h
+// as a safety net. The real refresh is on-demand — the daily ASIC sync busts
+// this page (POST /api/revalidate?path=/&flush=shorts) only when data changes,
+// so we're not blindly regenerating hourly for data that updates once a day.
+export const revalidate = 86400;
 
 export const metadata: Metadata = {
   title: siteConfig.fullTitle,

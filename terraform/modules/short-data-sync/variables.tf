@@ -32,3 +32,9 @@ variable "bucket_name" {
   default     = "" # If empty, defaults to 'shorted-short-selling-data'
 }
 
+variable "revalidation_url" {
+  description = "Frontend on-demand revalidation endpoint, pinged after a sync writes new data to bust cached SSR pages."
+  type        = string
+  default     = "https://shorted.com.au/api/revalidate"
+}
+

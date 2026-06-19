@@ -72,8 +72,9 @@ export const metadata: Metadata = {
   },
 };
 
-// Revalidate every 10 minutes for fresh data (aligned with Redis cache TTL)
-export const revalidate = 600;
+// Event-driven ISR: 24h safety net, busted on-demand by the daily sync
+// (POST /api/revalidate?path=/top&flush=shorts) when ASIC data changes.
+export const revalidate = 86400;
 
 // Breadcrumbs for structured data
 const breadcrumbs = [
