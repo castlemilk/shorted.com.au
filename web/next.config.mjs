@@ -60,25 +60,44 @@ const config = {
         ],
       },
       {
-        // Security headers. HSTS: all subdomains (api, www) are HTTPS via
+        // HSTS for every path. All subdomains (api, www) are HTTPS via
         // Cloudflare; preload directive included but hstspreload.org
-        // submission is a separate manual step. CSP is Report-Only first —
-        // observe violations before enforcing.
+        // submission is a separate manual step.
         source: "/:path*",
         headers: [
           {
             key: "Strict-Transport-Security",
             value: "max-age=63072000; includeSubDomains; preload",
           },
+        ],
+      },
+      {
+        // Enforced Content-Security-Policy.
+        //
+        // Scoped to everything EXCEPT /embed/* via negative lookahead: embed
+        // routes need `frame-ancestors *` to be iframe-embeddable, and emitting
+        // a second CSP header there (the browser intersects multiple CSPs) with
+        // a global `frame-ancestors 'self'` would silently break embedding.
+        //
+        // 'unsafe-inline' / 'unsafe-eval' are required by Next.js hydration and
+        // GTM. `frame-src` allowlists the Firebase Auth handler iframe used by
+        // signInWithPopup (authDomain *.firebaseapp.com) and Google accounts —
+        // without it, Google sign-in breaks. `connect-src https:` covers the
+        // Connect-RPC API, Firebase, Algolia and Upstash (proxied via API routes).
+        // Promoted from Content-Security-Policy-Report-Only after auditing every
+        // external origin the app loads (Feb–Jun 2026).
+        source: "/((?!embed).*)",
+        headers: [
           {
-            key: "Content-Security-Policy-Report-Only",
+            key: "Content-Security-Policy",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googletagmanager.com https://*.google-analytics.com https://va.vercel-scripts.com https://*.cloudflareinsights.com",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googletagmanager.com https://*.google-analytics.com https://va.vercel-scripts.com https://*.cloudflareinsights.com https://apis.google.com https://accounts.google.com https://www.gstatic.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: blob: https:",
               "font-src 'self' data: https://fonts.gstatic.com",
               "connect-src 'self' https:",
+              "frame-src 'self' https://*.firebaseapp.com https://accounts.google.com https://*.google.com",
               "frame-ancestors 'self'",
               "object-src 'none'",
               "base-uri 'self'",
@@ -131,6 +150,13 @@ const config = {
             value: "SAMEORIGIN",
           },
           {
+            // Legacy header — a no-op on modern browsers (which dropped the XSS
+            // auditor) but still graded by scanners; harmless and the safe value
+            // for the older browsers that honour it.
+            key: "X-XSS-Protection",
+            value: "1; mode=block",
+          },
+          {
             key: "X-Content-Type-Options",
             value: "nosniff",
           },
@@ -145,7 +171,10 @@ const config = {
         ],
       },
       {
-        // Allow embedding of /embed/* routes in iframes (overrides SAMEORIGIN above)
+        // Allow embedding of /embed/* routes in iframes (overrides SAMEORIGIN
+        // above). These routes are excluded from the global enforced CSP, so
+        // they carry their own full policy here — identical hardening but with
+        // `frame-ancestors *` so the chart widgets are embeddable anywhere.
         source: "/embed/:path*",
         headers: [
           {
@@ -154,7 +183,17 @@ const config = {
           },
           {
             key: "Content-Security-Policy",
-            value: "frame-ancestors *",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googletagmanager.com https://*.google-analytics.com https://va.vercel-scripts.com https://*.cloudflareinsights.com",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "img-src 'self' data: blob: https:",
+              "font-src 'self' data: https://fonts.gstatic.com",
+              "connect-src 'self' https:",
+              "frame-ancestors *",
+              "object-src 'none'",
+              "base-uri 'self'",
+            ].join("; "),
           },
           {
             key: "Cache-Control",
