@@ -172,6 +172,10 @@ func (a *enrichmentStoreAdapter) UpdateKeyPeopleIfEmpty(stockCode string, keyPeo
 	return a.store.UpdateKeyPeopleIfEmpty(stockCode, keyPeopleJSON)
 }
 
+// Compile-time guard that the adapter fully implements EnrichmentStore (mirrors the
+// check in shorts/pkg/store_factory.go).
+var _ enrichment.EnrichmentStore = (*enrichmentStoreAdapter)(nil)
+
 type ErrStoreCreationFailed struct{}
 
 func (e *ErrStoreCreationFailed) Error() string {

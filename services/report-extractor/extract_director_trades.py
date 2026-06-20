@@ -79,6 +79,17 @@ def _session() -> requests.Session:
     return s
 
 
+def _conn():
+    """Thread-local DB connection. psycopg2 connections are NOT thread-safe, so each
+    worker gets its own — this removes the shared-connection + lock race where a failed
+    commit in one worker would poison another worker's transaction."""
+    c = getattr(_thread_local, "conn", None)
+    if c is None:
+        c = extract.get_db_connection()
+        _thread_local.conn = c
+    return c
+
+
 def _genai_client():
     """One genai client per thread (the SDK client is not guaranteed thread-safe)."""
     c = getattr(_thread_local, "genai", None)
@@ -263,8 +274,10 @@ def select_urls(conn, priority: str, limit: int, retry_after_days: int = 0) -> l
     return [dict(r) for r in cur.fetchall()]
 
 
-def record_attempt(conn, url: str, outcome: str, lock: threading.Lock):
-    """Upsert the §6.9 failure-budget marker for a URL (no-op if the table is absent)."""
+def record_attempt(url: str, outcome: str):
+    """Upsert the §6.9 failure-budget marker for a URL (no-op if the table is absent).
+    Uses the worker's thread-local connection."""
+    conn = _conn()
     sql = """
         INSERT INTO director_extract_attempts (announcement_url, attempts, last_outcome, last_attempted_at)
         VALUES (%s, 1, %s, NOW())
@@ -273,17 +286,16 @@ def record_attempt(conn, url: str, outcome: str, lock: threading.Lock):
             last_outcome = EXCLUDED.last_outcome,
             last_attempted_at = NOW()
     """
-    with lock:
-        try:
-            cur = conn.cursor()
-            cur.execute(sql, (url, outcome))
-            conn.commit()
-            cur.close()
-        except psycopg2.Error:
-            conn.rollback()  # table missing / transient — never fail the run on the marker
+    try:
+        cur = conn.cursor()
+        cur.execute(sql, (url, outcome))
+        conn.commit()
+        cur.close()
+    except psycopg2.Error:
+        conn.rollback()  # table missing / transient — never fail the run on the marker
 
 
-def update_trade(conn, url: str, d: dict, lock: threading.Lock, dry_run: bool):
+def update_trade(url: str, d: dict, dry_run: bool):
     if dry_run:
         log.info("  [dry-run] %s -> %s %s shares=%s $%s conf=%.2f",
                  url[-40:], d["director_name"], d["trade_type"],
@@ -299,23 +311,28 @@ def update_trade(conn, url: str, d: dict, lock: threading.Lock, dry_run: bool):
             trade_date = COALESCE(%s::date, trade_date)
         WHERE announcement_url = %s
     """
-    with lock:
+    conn = _conn()
+    try:
         cur = conn.cursor()
         cur.execute(sql, (d["director_name"], d["trade_type"], d["shares_traded"],
                           d["total_value"], d["price_per_share"], d["trade_date"], url))
         conn.commit()
+        cur.close()
+    except psycopg2.Error:
+        conn.rollback()  # keep this worker's connection usable for the next row
+        raise
 
 
-def process_one(row: dict, conn, lock: threading.Lock, dry_run: bool, record_attempts: bool) -> str:
+def process_one(row: dict, dry_run: bool, record_attempts: bool) -> str:
     url = row["announcement_url"]
-    outcome = _process_one_inner(row, conn, lock, dry_run)
-    # §6.9 Record the attempt (under lock) so persistent failures are skipped next run.
+    outcome = _process_one_inner(row, dry_run)
+    # §6.9 Record the attempt so persistent failures are skipped next run.
     if record_attempts and not dry_run:
-        record_attempt(conn, url, outcome, lock)
+        record_attempt(url, outcome)
     return outcome
 
 
-def _process_one_inner(row: dict, conn, lock: threading.Lock, dry_run: bool) -> str:
+def _process_one_inner(row: dict, dry_run: bool) -> str:
     url = row["announcement_url"]
     text = extract.download_pdf_text(_session(), url, max_pages=4)
     if not text:
@@ -326,7 +343,7 @@ def _process_one_inner(row: dict, conn, lock: threading.Lock, dry_run: bool) -> 
     d = derive_trade(parsed)
     if not d:
         return "low_conf"
-    update_trade(conn, url, d, lock, dry_run)
+    update_trade(url, d, dry_run)
     return "ok"
 
 
@@ -348,11 +365,10 @@ def main():
     log.info("Director-trade extraction: %d PDFs to process (priority=%s, retry_after_days=%d)",
              len(rows), args.priority, args.retry_after_days)
 
-    lock = threading.Lock()
     counts: dict[str, int] = {}
     done = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as ex:
-        futs = {ex.submit(process_one, r, conn, lock, args.dry_run, record_attempts): r for r in rows}
+        futs = {ex.submit(process_one, r, args.dry_run, record_attempts): r for r in rows}
         for fut in concurrent.futures.as_completed(futs):
             try:
                 outcome = fut.result()

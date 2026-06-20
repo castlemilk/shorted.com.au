@@ -3176,7 +3176,6 @@ func (s *postgresStore) UpdateKeyPeopleIfEmpty(stockCode string, keyPeopleJSON [
 		    key_people IS NULL
 		    OR key_people = '[]'::jsonb
 		    OR jsonb_typeof(key_people) <> 'array'
-		    OR jsonb_array_length(key_people) = 0
 		  )
 	`
 

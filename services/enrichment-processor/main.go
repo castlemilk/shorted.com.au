@@ -392,8 +392,8 @@ func buildPeopleOnlyWriteJSON(people []*stocksv1alpha1.CompanyPerson) ([]byte, i
 			continue
 		}
 		out = append(out, backfillPerson{
-			Name:        person.GetName(),
-			Role:        person.GetRole(),
+			Name:        name,
+			Role:        strings.TrimSpace(person.GetRole()),
 			Bio:         person.GetBio(),
 			ImageURL:    person.GetImageUrl(),
 			ImageGCSURL: person.GetImageGcsUrl(),
