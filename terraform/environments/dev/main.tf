@@ -271,6 +271,35 @@ module "asx_announcement_crawler" {
   ]
 }
 
+# Signals collector — brandbrain risk/reputation signals (§6.9). Scale-to-zero job.
+module "signals_collector" {
+  source = "../../modules/signals-collector"
+
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1"
+  environment      = "dev"
+  image_url        = var.signals_collector_image
+
+  depends_on = [
+  ]
+}
+
+# Report extractor — director-trade + financial-report digest jobs (§6.9). Scale-to-zero.
+module "report_extractor" {
+  source = "../../modules/report-extractor"
+
+  project_id           = var.project_id
+  region               = var.region
+  scheduler_region     = "australia-southeast1"
+  environment          = "dev"
+  image_url            = var.report_extractor_image
+  gemini_secret_exists = var.gemini_secret_exists
+
+  depends_on = [
+  ]
+}
+
 # =============================================================================
 # Cloudflare Edge — managed by environments/prod ONLY.
 # There is a single shorted.com.au zone; dev previously co-managed the same

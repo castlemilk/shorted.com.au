@@ -94,6 +94,18 @@ variable "asx_announcement_crawler_image" {
   default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/asx-announcement-crawler:latest"
 }
 
+variable "signals_collector_image" {
+  description = "Docker image URL for the signals-collector job"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/signals-collector:latest"
+}
+
+variable "report_extractor_image" {
+  description = "Docker image URL shared by both report-extractor jobs"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/report-extractor:latest"
+}
+
 variable "chat_service_image" {
   description = "Docker image URL for chat-service"
   type        = string
