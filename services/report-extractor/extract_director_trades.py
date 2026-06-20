@@ -79,6 +79,17 @@ def _session() -> requests.Session:
     return s
 
 
+def _conn():
+    """Thread-local DB connection. psycopg2 connections are NOT thread-safe, so each
+    worker gets its own — this removes the shared-connection + lock race where a failed
+    commit in one worker would poison another worker's transaction."""
+    c = getattr(_thread_local, "conn", None)
+    if c is None:
+        c = extract.get_db_connection()
+        _thread_local.conn = c
+    return c
+
+
 def _genai_client():
     """One genai client per thread (the SDK client is not guaranteed thread-safe)."""
     c = getattr(_thread_local, "genai", None)
@@ -205,17 +216,29 @@ def derive_trade(parsed: dict) -> dict | None:
     }
 
 
-def select_urls(conn, priority: str, limit: int) -> list[dict]:
+def attempts_table_exists(conn) -> bool:
+    """Whether the §6.9 failure-budget marker table is present (migration 000053).
+    The script degrades gracefully when it isn't (no skip, no recording)."""
+    cur = conn.cursor()
+    cur.execute("SELECT to_regclass('public.director_extract_attempts')")
+    exists = cur.fetchone()[0] is not None
+    cur.close()
+    return exists
+
+
+def select_urls(conn, priority: str, limit: int, retry_after_days: int = 0) -> list[dict]:
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    base = """
-        SELECT DISTINCT ON (announcement_url)
-               announcement_url, stock_code, trade_date
-        FROM director_trades
-        WHERE announcement_url ~ '^https?://'
-          AND (director_name = 'Unknown Director' OR total_value IS NULL)
-    """
-    if priority == "unknown":
-        base += " AND director_name = 'Unknown Director'"
+    # §6.9 Skip URLs attempted within the cool-off window so the scheduled job converges
+    # instead of re-burning Gemini on the same persistent no_pdf/no_extract failures.
+    skip = ""
+    params: list = []
+    if retry_after_days > 0 and attempts_table_exists(conn):
+        skip = (
+            " AND NOT EXISTS (SELECT 1 FROM director_extract_attempts a "
+            "WHERE a.announcement_url = {col} "
+            "AND a.last_attempted_at > NOW() - make_interval(days => %s))"
+        )
+
     if priority == "top-shorted":
         base = """
             SELECT DISTINCT ON (dt.announcement_url)
@@ -225,16 +248,54 @@ def select_urls(conn, priority: str, limit: int) -> list[dict]:
             WHERE dt.announcement_url ~ '^https?://'
               AND (dt.director_name = 'Unknown Director' OR dt.total_value IS NULL)
         """
-    order_col = "trade_date" if priority == "top-shorted" else "trade_date"
-    base += f" ORDER BY announcement_url, {order_col} DESC" if priority != "top-shorted" \
-        else " ORDER BY dt.announcement_url, dt.trade_date DESC"
+        if skip:
+            base += skip.format(col="dt.announcement_url")
+            params.append(retry_after_days)
+        base += " ORDER BY dt.announcement_url, dt.trade_date DESC"
+    else:
+        base = """
+            SELECT DISTINCT ON (announcement_url)
+                   announcement_url, stock_code, trade_date
+            FROM director_trades
+            WHERE announcement_url ~ '^https?://'
+              AND (director_name = 'Unknown Director' OR total_value IS NULL)
+        """
+        if priority == "unknown":
+            base += " AND director_name = 'Unknown Director'"
+        if skip:
+            base += skip.format(col="director_trades.announcement_url")
+            params.append(retry_after_days)
+        base += " ORDER BY announcement_url, trade_date DESC"
+
     # Re-sort the de-duplicated set by recency and cap.
     outer = f"SELECT * FROM ({base}) s ORDER BY trade_date DESC LIMIT %s"
-    cur.execute(outer, (limit,))
+    params.append(limit)
+    cur.execute(outer, tuple(params))
     return [dict(r) for r in cur.fetchall()]
 
 
-def update_trade(conn, url: str, d: dict, lock: threading.Lock, dry_run: bool):
+def record_attempt(url: str, outcome: str):
+    """Upsert the §6.9 failure-budget marker for a URL (no-op if the table is absent).
+    Uses the worker's thread-local connection."""
+    conn = _conn()
+    sql = """
+        INSERT INTO director_extract_attempts (announcement_url, attempts, last_outcome, last_attempted_at)
+        VALUES (%s, 1, %s, NOW())
+        ON CONFLICT (announcement_url) DO UPDATE SET
+            attempts = director_extract_attempts.attempts + 1,
+            last_outcome = EXCLUDED.last_outcome,
+            last_attempted_at = NOW()
+    """
+    try:
+        cur = conn.cursor()
+        cur.execute(sql, (url, outcome))
+        conn.commit()
+        cur.close()
+    except psycopg2.Error:
+        conn.rollback()  # table missing / transient — never fail the run on the marker
+
+
+def update_trade(url: str, d: dict, dry_run: bool):
     if dry_run:
         log.info("  [dry-run] %s -> %s %s shares=%s $%s conf=%.2f",
                  url[-40:], d["director_name"], d["trade_type"],
@@ -250,14 +311,28 @@ def update_trade(conn, url: str, d: dict, lock: threading.Lock, dry_run: bool):
             trade_date = COALESCE(%s::date, trade_date)
         WHERE announcement_url = %s
     """
-    with lock:
+    conn = _conn()
+    try:
         cur = conn.cursor()
         cur.execute(sql, (d["director_name"], d["trade_type"], d["shares_traded"],
                           d["total_value"], d["price_per_share"], d["trade_date"], url))
         conn.commit()
+        cur.close()
+    except psycopg2.Error:
+        conn.rollback()  # keep this worker's connection usable for the next row
+        raise
 
 
-def process_one(row: dict, conn, lock: threading.Lock, dry_run: bool) -> str:
+def process_one(row: dict, dry_run: bool, record_attempts: bool) -> str:
+    url = row["announcement_url"]
+    outcome = _process_one_inner(row, dry_run)
+    # §6.9 Record the attempt so persistent failures are skipped next run.
+    if record_attempts and not dry_run:
+        record_attempt(url, outcome)
+    return outcome
+
+
+def _process_one_inner(row: dict, dry_run: bool) -> str:
     url = row["announcement_url"]
     text = extract.download_pdf_text(_session(), url, max_pages=4)
     if not text:
@@ -268,7 +343,7 @@ def process_one(row: dict, conn, lock: threading.Lock, dry_run: bool) -> str:
     d = derive_trade(parsed)
     if not d:
         return "low_conf"
-    update_trade(conn, url, d, lock, dry_run)
+    update_trade(url, d, dry_run)
     return "ok"
 
 
@@ -277,18 +352,23 @@ def main():
     ap.add_argument("--limit", type=int, default=200)
     ap.add_argument("--priority", choices=["recent", "unknown", "top-shorted"], default="recent")
     ap.add_argument("--workers", type=int, default=6)
+    ap.add_argument("--retry-after-days", type=int, default=30,
+                    help="§6.9 skip URLs attempted within this many days (0=disable, retry everything)")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
     conn = extract.get_db_connection()
-    rows = select_urls(conn, args.priority, args.limit)
-    log.info("Director-trade extraction: %d PDFs to process (priority=%s)", len(rows), args.priority)
+    rows = select_urls(conn, args.priority, args.limit, retry_after_days=args.retry_after_days)
+    record_attempts = args.retry_after_days > 0 and attempts_table_exists(conn)
+    if args.retry_after_days > 0 and not record_attempts:
+        log.warning("director_extract_attempts table missing (apply migration 000053) — failure-budget disabled this run")
+    log.info("Director-trade extraction: %d PDFs to process (priority=%s, retry_after_days=%d)",
+             len(rows), args.priority, args.retry_after_days)
 
-    lock = threading.Lock()
     counts: dict[str, int] = {}
     done = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as ex:
-        futs = {ex.submit(process_one, r, conn, lock, args.dry_run): r for r in rows}
+        futs = {ex.submit(process_one, r, args.dry_run, record_attempts): r for r in rows}
         for fut in concurrent.futures.as_completed(futs):
             try:
                 outcome = fut.result()

@@ -94,6 +94,18 @@ variable "asx_announcement_crawler_image" {
   default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/asx-announcement-crawler:latest"
 }
 
+variable "signals_collector_image" {
+  description = "Docker image URL for the signals-collector job"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/signals-collector:latest"
+}
+
+variable "report_extractor_image" {
+  description = "Docker image URL shared by both report-extractor jobs"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/report-extractor:latest"
+}
+
 variable "chat_service_image" {
   description = "Docker image URL for chat-service"
   type        = string
@@ -138,7 +150,7 @@ variable "cloudflare_email" {
 variable "cloudflare_zone_id" {
   # Public DNS identifier for the single shorted.com.au zone (not a secret).
   # Defaulted so PR terraform-plan runs without tfvars — mirrors prod.
-  default = "41b338d2d75853d7bedb9a93f1e824f1"
+  default     = "41b338d2d75853d7bedb9a93f1e824f1"
   description = "Cloudflare Zone ID for shorted.com.au."
   type        = string
 }
