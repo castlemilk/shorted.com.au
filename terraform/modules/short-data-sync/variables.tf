@@ -38,3 +38,16 @@ variable "revalidation_url" {
   default     = "https://shorted.com.au/api/revalidate"
 }
 
+variable "manage_revalidation_secret" {
+  description = <<-EOT
+    Whether the REVALIDATION_SECRET Secret Manager secret exists and should be
+    mounted into the job + granted to its SA. Defaults to false because the
+    secret is not yet provisioned in prod; main.py skips revalidation gracefully
+    when it is unset (pages self-heal on the ISR TTL). Set true once the secret
+    is created AND the matching value is set in the frontend (Vercel) env to
+    enable event-driven cache invalidation.
+  EOT
+  type        = bool
+  default     = false
+}
+

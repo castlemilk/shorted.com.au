@@ -51,11 +51,17 @@ resource "google_secret_manager_secret_iam_member" "gemini_api_key" {
   project   = var.project_id
 }
 
-# Digest raw-text is uploaded to the reports bucket by extract_reports_concurrent.py.
-resource "google_storage_bucket_iam_member" "reports_bucket" {
-  bucket = var.reports_bucket
-  role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:${google_service_account.report_extractor.email}"
+# NOTE: the financial-reports bucket lives in the shorted-dev project, so the
+# prod deploy SA cannot read/set its IAM policy (getIamPolicy 403) — managing a
+# cross-project bucket binding from prod was the cause of the terraform-apply
+# failure. Stop managing it here (forget from state without destroying the live
+# binding). The report_extractor SA's access to that bucket should be granted in
+# the project that OWNS the bucket. See infra follow-up.
+removed {
+  from = google_storage_bucket_iam_member.reports_bucket
+  lifecycle {
+    destroy = false
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -230,7 +236,6 @@ resource "google_cloud_run_v2_job" "financial_report_extractor" {
   depends_on = [
     google_secret_manager_secret_iam_member.database_url,
     google_secret_manager_secret_iam_member.otel_headers,
-    google_storage_bucket_iam_member.reports_bucket,
   ]
 }
 

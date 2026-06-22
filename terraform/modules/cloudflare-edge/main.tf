@@ -574,6 +574,16 @@ resource "cloudflare_zone_setting" "security_zero_rtt" {
   value      = "on"
 }
 
+# Crawler Hints: Cloudflare auto-emits IndexNow signals to Bing/Yandex when
+# content changes, so freshly-indexable stock pages get picked up faster on
+# those engines. (Google does not consume IndexNow; for Google we rely on the
+# sitemap + Search Console.)
+resource "cloudflare_zone_setting" "crawler_hints" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "crawlhints"
+  value      = "on"
+}
+
 resource "cloudflare_tiered_cache" "smart" {
   zone_id = var.cloudflare_zone_id
   value   = "on"

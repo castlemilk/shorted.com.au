@@ -11,7 +11,7 @@ import {
   getAvailableMonthSlugs,
   getAvailableYearSlugs,
 } from "./actions/reports/getReportData";
-import { isStockSitemapEligible } from "~/@/lib/seo/stock-indexability";
+import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 
 // Educational articles for sitemap
 const learnArticles = [
@@ -38,16 +38,17 @@ const API_URL =
 interface TopShortsResponse {
   // In summary mode (summaryOnly=true), the API returns `latestShortPosition`
   // populated with `current_percent` from mv_top_shorts (sorted DESC) plus the
-  // company `name`.
+  // company `name` and `industry`.
   timeSeries: Array<{
     productCode?: string;
     name?: string;
     latestShortPosition?: number;
+    industry?: string;
   }>;
 }
 
-// Cap on stock URLs in the sitemap. The shared short-interest floor
-// (~0.1%, see stock-indexability) keeps the set to genuinely-shorted stocks
+// Cap on stock URLs in the sitemap. The indexability gate (see
+// stock-indexability) keeps the set to enriched / genuinely-shorted stocks
 // (~1k) which is well under this cap; the equities-only MV filter
 // (migration 000043) already excludes ETFs/bonds.
 const SITEMAP_MAX_STOCKS = 1000;
@@ -107,9 +108,10 @@ async function getAllStockCodes(): Promise<string[]> {
     // This guarantees the sitemap never advertises a noindexed URL.
     const qualified = (data.timeSeries || [])
       .filter((ts) =>
-        isStockSitemapEligible({
+        isStockIndexable({
           code: ts.productCode ?? "",
           name: ts.name,
+          industry: ts.industry,
           percentShorted:
             typeof ts.latestShortPosition === "number"
               ? ts.latestShortPosition

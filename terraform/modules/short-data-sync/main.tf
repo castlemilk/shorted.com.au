@@ -73,8 +73,10 @@ resource "google_secret_manager_secret_iam_member" "database_url" {
   project   = var.project_id
 }
 
-# Grant access to the revalidation secret (event-driven cache invalidation)
+# Grant access to the revalidation secret (event-driven cache invalidation).
+# Guarded: only when the secret actually exists (see manage_revalidation_secret).
 resource "google_secret_manager_secret_iam_member" "revalidation_secret" {
+  count     = var.manage_revalidation_secret ? 1 : 0
   secret_id = "REVALIDATION_SECRET"
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.short_data_sync.email}"
@@ -129,12 +131,17 @@ resource "google_cloud_run_v2_job" "short_data_sync" {
           value = var.revalidation_url
         }
 
-        env {
-          name = "REVALIDATION_SECRET"
-          value_source {
-            secret_key_ref {
-              secret  = "REVALIDATION_SECRET"
-              version = "latest"
+        # Mounted only when the secret exists; otherwise main.py skips
+        # revalidation gracefully (see manage_revalidation_secret).
+        dynamic "env" {
+          for_each = var.manage_revalidation_secret ? [1] : []
+          content {
+            name = "REVALIDATION_SECRET"
+            value_source {
+              secret_key_ref {
+                secret  = "REVALIDATION_SECRET"
+                version = "latest"
+              }
             }
           }
         }
