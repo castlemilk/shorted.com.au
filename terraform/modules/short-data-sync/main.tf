@@ -103,6 +103,9 @@ resource "google_cloud_run_v2_job" "short_data_sync" {
       containers {
         image = var.image_url
         # Use Dockerfile's default CMD: python comprehensive_daily_sync.py
+        # NOTE: the deployed image is built from services/daily-sync/Dockerfile
+        # (CMD ["python","comprehensive_daily_sync.py"]) — NOT services/short-data-sync/.
+        # Do not override the command here unless you also repoint the build.
 
         env {
           name  = "ENVIRONMENT"

@@ -55,6 +55,8 @@ resource "google_project_service" "required_apis" {
     "compute.googleapis.com",
     "iam.googleapis.com",
     "pubsub.googleapis.com",
+    "monitoring.googleapis.com",
+    "logging.googleapis.com",
   ])
 
   project = var.project_id
@@ -356,8 +358,9 @@ module "signals_collector" {
 }
 
 # Report extractor — director-trade + financial-report digest jobs (§6.9). Scale-to-zero.
-# gemini_secret_exists=false: GEMINI_API_KEY is not yet provisioned in prod, so both jobs
-# deploy but exit early until the secret exists (same posture as weekly-report-generator).
+# gemini_secret_exists=true: the GEMINI_API_KEY secret IS provisioned in prod (enabled
+# version 1, also used by news-aggregator + chat-service). Without it both jobs exit(1)
+# on startup (director) / silently produce zero digests (financial), so it must be wired.
 module "report_extractor" {
   source = "../../modules/report-extractor"
 
@@ -366,12 +369,27 @@ module "report_extractor" {
   scheduler_region     = "australia-southeast1"
   environment          = "production"
   image_url            = var.report_extractor_image
-  gemini_secret_exists = false
+  gemini_secret_exists = true
 
   depends_on = [
     google_project_service.required_apis,
     google_artifact_registry_repository.shorted
   ]
+}
+
+# =============================================================================
+# Observability — Cloud Monitoring alerting on Cloud Run Job failures
+# =============================================================================
+# GCP-native, free, no DB dependency. Pages on hard execution failures AND on
+# ERROR-log / timeout terminations (the "exit 0 but did nothing" class, e.g. the
+# short-data-sync uvicorn-zombie). No-op until alert_recipient_email is set.
+module "job_monitoring" {
+  source = "../../modules/job-monitoring"
+
+  project_id            = var.project_id
+  alert_recipient_email = var.alert_recipient_email
+
+  depends_on = [google_project_service.required_apis]
 }
 
 # =============================================================================
