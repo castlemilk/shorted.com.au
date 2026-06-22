@@ -15,7 +15,11 @@ import {
   formatReadingTime,
 } from "~/@/utils/reading-time";
 import Info from "~/@/components/ui/info";
-import RegisterEmail from "~/@/components/ui/register-email";
+// SSR-safe wrapper: the raw RegisterEmail is a client component that imports a
+// Connect-RPC server action, which crashes RSC rendering inside MDXRemote
+// (see CLAUDE.md "SSR Issues with @connectrpc/connect"). The dynamic ssr:false
+// wrapper is what the blog index already uses.
+import RegisterEmailClient from "~/@/components/ui/register-email-client";
 // Lazy load Prism CSS only for blog posts
 import "prismjs/themes/prism-tomorrow.css";
 
@@ -84,7 +88,7 @@ export default async function Post({ params }: Params) {
       <td className="px-4 py-2 text-left" {...props} />
     ),
     RegisterEmail: (props: Record<string, unknown>) => (
-      <RegisterEmail {...props} />
+      <RegisterEmailClient {...props} />
     ),
     Info: (props: { title: string; children: React.ReactNode }) => (
       <Info {...props} />

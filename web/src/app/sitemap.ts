@@ -11,6 +11,7 @@ import {
   getAvailableMonthSlugs,
   getAvailableYearSlugs,
 } from "./actions/reports/getReportData";
+import { isStockSitemapEligible } from "~/@/lib/seo/stock-indexability";
 
 // Educational articles for sitemap
 const learnArticles = [
@@ -36,17 +37,19 @@ const API_URL =
 // API response type for top shorts
 interface TopShortsResponse {
   // In summary mode (summaryOnly=true), the API returns `latestShortPosition`
-  // populated with `current_percent` from mv_top_shorts, sorted DESC.
-  timeSeries: Array<{ productCode?: string; latestShortPosition?: number }>;
+  // populated with `current_percent` from mv_top_shorts (sorted DESC) plus the
+  // company `name`.
+  timeSeries: Array<{
+    productCode?: string;
+    name?: string;
+    latestShortPosition?: number;
+  }>;
 }
 
-// Sitemap quality bar: only index stocks with meaningful short interest.
-// Stocks below this threshold get crawled but rarely indexed, polluting
-// "Crawled - currently not indexed" in GSC. Tail pages remain accessible
-// but use metadata.robots.noindex on the page itself.
-const SITEMAP_MIN_SHORT_PCT = 0.5;
-// Effectively uncapped: the equities-only MV filter (migration 000043) caps
-// the universe at ~800 stocks, and the 0.5% quality bar prunes the tail.
+// Cap on stock URLs in the sitemap. The shared short-interest floor
+// (~0.1%, see stock-indexability) keeps the set to genuinely-shorted stocks
+// (~1k) which is well under this cap; the equities-only MV filter
+// (migration 000043) already excludes ETFs/bonds.
 const SITEMAP_MAX_STOCKS = 1000;
 
 // Popular stock codes as fallback when API is unavailable
@@ -67,13 +70,18 @@ async function getAllStockCodes(): Promise<string[]> {
       process.env.NEXT_PUBLIC_API_URL ??
       API_URL;
 
-    // Use direct fetch with JSON to avoid protobuf-es SSR issues
+    // Use direct fetch with JSON to avoid protobuf-es SSR issues.
+    // Send Connect protocol + UA headers — the Cloudflare WAF 403s bare
+    // server-side fetches to api.shorted.com.au (see CLAUDE.md / mcp-server),
+    // which would otherwise silently fall back to FALLBACK_STOCK_CODES.
     const response = await fetch(
       `${baseUrl}/shorts.v1alpha1.ShortedStocksService/GetTopShorts`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Connect-Protocol-Version": "1",
+          "User-Agent": "shorted-sitemap/1.0 (+https://shorted.com.au)",
         },
         body: JSON.stringify({
           period: "1y",
@@ -92,23 +100,22 @@ async function getAllStockCodes(): Promise<string[]> {
 
     const data = (await response.json()) as TopShortsResponse;
 
-    // Filter by quality bar to avoid sitemap bloat:
-    // - must have a current short % >= threshold
-    // - cap total entries so the sitemap stays tight
-    // Page regex on /shorts/[code] only accepts 1-4 char alphanumeric codes;
-    // longer codes (govt bonds GSB*, warrants XCLW*, preference shares like
-    // GSBW30, BENPH, MQGPD) 404 at the page level. Filter them out so we
-    // never advertise a URL the page itself rejects.
-    const VALID_CODE = /^[A-Z0-9]{1,4}$/;
+    // Only list URLs the page itself indexes (see stock-indexability):
+    // named stocks at/above the shared short-interest floor and with a code
+    // the /shorts/[code] route serves (1-4 alnum — longer codes like govt
+    // bonds GSB*, warrants XCLW*, preference shares GSBW30/BENPH/MQGPD 404).
+    // This guarantees the sitemap never advertises a noindexed URL.
     const qualified = (data.timeSeries || [])
-      .filter((ts) => {
-        const pct = typeof ts.latestShortPosition === "number" ? ts.latestShortPosition : 0;
-        return (
-          typeof ts.productCode === "string" &&
-          VALID_CODE.test(ts.productCode) &&
-          pct >= SITEMAP_MIN_SHORT_PCT
-        );
-      })
+      .filter((ts) =>
+        isStockSitemapEligible({
+          code: ts.productCode ?? "",
+          name: ts.name,
+          percentShorted:
+            typeof ts.latestShortPosition === "number"
+              ? ts.latestShortPosition
+              : 0,
+        }),
+      )
       .slice(0, SITEMAP_MAX_STOCKS)
       .map((ts) => ts.productCode!);
 
