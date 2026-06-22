@@ -917,6 +917,7 @@ jobs:
           ALGOLIA_APP_ID: ${{ secrets.ALGOLIA_APP_ID }}
           ALGOLIA_SEARCH_KEY: ${{ secrets.ALGOLIA_SEARCH_KEY }}
           ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
+          REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
         run: |
           # Only add a new version if the value has actually changed.
           # This prevents version bloat ($0.06/version/month — was costing $130+/month).
@@ -950,6 +951,10 @@ jobs:
           # Alpha Vantage (with placeholder fallback)
           AV_KEY="${ALPHA_VANTAGE_API_KEY:-placeholder-set-in-secret-manager}"
           ensure_secret "ALPHA_VANTAGE_API_KEY" "$AV_KEY"
+
+          # Revalidation secret (event-driven cache invalidation; must match the
+          # frontend Vercel REVALIDATION_SECRET env). Maintained from the GH secret.
+          ensure_secret "REVALIDATION_SECRET" "$REVALIDATION_SECRET"
 
           # Database secrets (environment-specific)
           if [ "$ENVIRONMENT" = "prod" ] && [ -n "$DATABASE_URL_PROD" ]; then

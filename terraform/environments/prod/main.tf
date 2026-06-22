@@ -169,6 +169,9 @@ module "short_data_sync" {
   environment      = "production"
   image_url        = var.short_data_sync_image
   bucket_name      = "shorted-short-selling-data-prod" # Prod-specific bucket
+  # REVALIDATION_SECRET now exists in prod Secret Manager + the matching value
+  # is set in the Vercel frontend env, so enable event-driven cache busting.
+  manage_revalidation_secret = true
 
   depends_on = [
     google_project_service.required_apis,
