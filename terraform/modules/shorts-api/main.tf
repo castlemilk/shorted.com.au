@@ -24,6 +24,21 @@ resource "google_service_account" "shorts_api" {
   project      = var.project_id
 }
 
+# Read-only access to Cloud Run Jobs/Executions + Cloud Scheduler so the
+# /api/admin/jobs endpoint can report the status of every scheduled async job
+# from GCP's own execution history (no per-job DB instrumentation required).
+resource "google_project_iam_member" "shorts_api_run_viewer" {
+  project = var.project_id
+  role    = "roles/run.viewer"
+  member  = "serviceAccount:${google_service_account.shorts_api.email}"
+}
+
+resource "google_project_iam_member" "shorts_api_scheduler_viewer" {
+  project = var.project_id
+  role    = "roles/cloudscheduler.viewer"
+  member  = "serviceAccount:${google_service_account.shorts_api.email}"
+}
+
 # Grant Secret Manager access to service account
 resource "google_secret_manager_secret_iam_member" "postgres_password" {
   secret_id = "APP_STORE_POSTGRES_PASSWORD"
@@ -98,10 +113,10 @@ resource "google_secret_manager_secret_iam_member" "otel_headers" {
 
 # Grant Pub/Sub Publisher role to shorts API service account (for publishing enrichment jobs)
 resource "google_pubsub_topic_iam_member" "enrichment_jobs_publisher" {
-  topic    = "enrichment-jobs"
-  role     = "roles/pubsub.publisher"
-  member   = "serviceAccount:${google_service_account.shorts_api.email}"
-  project  = var.project_id
+  topic   = "enrichment-jobs"
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${google_service_account.shorts_api.email}"
+  project = var.project_id
 }
 
 # Cloud Run Service
@@ -131,6 +146,24 @@ resource "google_cloud_run_v2_service" "shorts_api" {
       env {
         name  = "GCP_PROJECT_ID"
         value = var.project_id
+      }
+
+      # Job-status monitor (/api/admin/jobs): which project/regions to inspect.
+      # Cloud Run Jobs live in this service's region; Cloud Scheduler is in
+      # australia-southeast1 (scheduler is unavailable in -southeast2).
+      env {
+        name  = "JOBS_GCP_PROJECT"
+        value = var.project_id
+      }
+
+      env {
+        name  = "JOBS_RUN_REGION"
+        value = var.region
+      }
+
+      env {
+        name  = "JOBS_SCHEDULER_REGION"
+        value = "australia-southeast1"
       }
 
       env {
@@ -256,7 +289,7 @@ resource "google_cloud_run_v2_service" "shorts_api" {
           cpu    = "0.5"
           memory = "256Mi"
         }
-        cpu_idle          = true  # Throttle CPU when idle to reduce costs
+        cpu_idle          = true # Throttle CPU when idle to reduce costs
         startup_cpu_boost = true
       }
 
@@ -283,7 +316,7 @@ resource "google_cloud_run_v2_service" "shorts_api" {
       }
     }
 
-    max_instance_request_concurrency = 1  # Required: cpu < 1 requires concurrency = 1
+    max_instance_request_concurrency = 1 # Required: cpu < 1 requires concurrency = 1
 
     scaling {
       min_instance_count = var.min_instances

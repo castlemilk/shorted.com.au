@@ -4,6 +4,9 @@ import { cache } from "react";
 import { SHORTS_API_URL } from "./config";
 import { retryWithBackoff } from "@/lib/retry";
 
+// Internal service secret for admin endpoints (same var used by subscription.ts).
+const INTERNAL_SECRET = process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-secret";
+
 // Define SyncRun type locally until proto is regenerated
 export interface SyncRun {
   runId: string;
@@ -67,6 +70,11 @@ export const getSyncStatus = cache(
             method: "GET",
             headers: {
               "Content-Type": "application/json",
+              // Admin endpoint requires INTERNAL_SERVICE_SECRET; a browser-like
+              // UA avoids the Cloudflare WAF blocking the bare server fetch.
+              Authorization: `Bearer ${INTERNAL_SECRET}`,
+              "x-internal-secret": INTERNAL_SECRET,
+              "User-Agent": "Mozilla/5.0 (compatible; ShortedAdmin)",
             },
             cache: "no-store",
           },

@@ -1,5 +1,7 @@
 import { getSyncStatus, type SyncRun } from "~/app/actions/getSyncStatus";
+import { getJobsOverview, type JobsOverview as JobsOverviewData } from "~/app/actions/getJobsOverview";
 import { isStuckRun, isZeroRecordRun, getRunHealth } from "./sync-utils";
+import { JobsOverview } from "./jobs-overview";
 import Container from "@/components/ui/container";
 import {
   Card,
@@ -24,11 +26,9 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
-  AlertCircle,
   Activity,
   Server,
   Database,
-  Zap,
 } from "lucide-react";
 import { AdminFilters } from "./admin-filters";
 
@@ -41,87 +41,43 @@ interface AdminPageProps {
   }>;
 }
 
-function getSystemHealthStatus(runs: SyncRun[]): {
+interface FleetHealth {
   status: "healthy" | "degraded" | "critical";
   message: string;
   issues: string[];
-} {
-  if (runs.length === 0) {
+}
+
+// getFleetHealth derives the overall banner from the all-jobs overview (the
+// primary signal), not the single market-data sync_status feed.
+function getFleetHealth(overview: JobsOverviewData): FleetHealth {
+  if (overview.errored) {
     return {
       status: "critical",
-      message: "No sync data available",
-      issues: ["No sync runs found - scheduler may not be running"],
+      message: "Couldn't load job status",
+      issues: ["The /api/admin/jobs call failed — see the All Async Jobs card below."],
     };
   }
 
-  const issues: string[] = [];
-  const recentRuns = runs.slice(0, 10);
+  const failing = overview.jobs.filter((j) => j.health === "critical");
+  const attention = overview.jobs.filter((j) => j.health === "warning");
 
-  // Check for stuck runs
-  const stuckRuns = recentRuns.filter(isStuckRun);
-  if (stuckRuns.length > 0) {
-    issues.push(`${stuckRuns.length} job(s) stuck in running state`);
-  }
-
-  // Check for failed runs
-  const failedRuns = recentRuns.filter((r) => r.status === "failed");
-  if (failedRuns.length > 0) {
-    issues.push(`${failedRuns.length} recent job failure(s)`);
-  }
-
-  // Check for zero-record completions (suspicious)
-  const zeroRecordRuns = recentRuns.filter(isZeroRecordRun);
-  if (zeroRecordRuns.length >= 3) {
-    issues.push(`${zeroRecordRuns.length} completed jobs with 0 records`);
-  }
-
-  // Check last successful run age
-  const lastSuccessful = runs.find(
-    (r) => r.status === "completed" && !isZeroRecordRun(r)
-  );
-  if (lastSuccessful) {
-    const hoursSinceSuccess = differenceInMinutes(
-      new Date(),
-      new Date(lastSuccessful.startedAt)
-    ) / 60;
-    if (hoursSinceSuccess > 48) {
-      issues.push(`No successful sync in ${Math.round(hoursSinceSuccess)} hours`);
-    }
-  } else {
-    issues.push("No successful syncs with data found");
-  }
-
-  // Check if latest run is healthy
-  const latestRun = runs[0];
-  if (latestRun && getRunHealth(latestRun) === "error") {
-    issues.push("Latest job has errors");
-  }
-
-  // Determine overall status
-  if (
-    issues.length >= 3 ||
-    stuckRuns.length > 2 ||
-    failedRuns.length > 3 ||
-    issues.some((i) => i.includes("No successful"))
-  ) {
+  if (failing.length > 0) {
     return {
       status: "critical",
-      message: "System requires immediate attention",
-      issues,
+      message: `${failing.length} job${failing.length > 1 ? "s" : ""} failing`,
+      issues: failing.map((j) => `${j.displayName}: ${j.message || "last run failed"}`),
     };
-  } else if (issues.length > 0) {
+  }
+  if (attention.length > 0) {
     return {
       status: "degraded",
-      message: "System has some issues",
-      issues,
+      message: `${attention.length} job${attention.length > 1 ? "s" : ""} need attention`,
+      issues: attention.map(
+        (j) => `${j.displayName}: ${j.message || (j.schedulerState === "PAUSED" ? "scheduler paused" : "stale")}`,
+      ),
     };
   }
-
-  return {
-    status: "healthy",
-    message: "All systems operational",
-    issues: [],
-  };
+  return { status: "healthy", message: "All jobs healthy", issues: [] };
 }
 
 function StatusIcon({ status }: { status: "healthy" | "degraded" | "critical" }) {
@@ -162,8 +118,8 @@ function RunHealthBadge({ run }: { run: SyncRun }) {
   if (run.status === "running") {
     const startedAt = new Date(run.startedAt);
     const runningMins = differenceInMinutes(new Date(), startedAt);
-    const progress = run.checkpointStocksTotal > 0 
-      ? Math.round((run.checkpointStocksProcessed / run.checkpointStocksTotal) * 100) 
+    const progress = run.checkpointStocksTotal > 0
+      ? Math.round((run.checkpointStocksProcessed / run.checkpointStocksTotal) * 100)
       : 0;
 
     return (
@@ -186,8 +142,8 @@ function RunHealthBadge({ run }: { run: SyncRun }) {
   }
 
   if (run.status === "partial") {
-    const progress = run.checkpointStocksTotal > 0 
-      ? Math.round((run.checkpointStocksProcessed / run.checkpointStocksTotal) * 100) 
+    const progress = run.checkpointStocksTotal > 0
+      ? Math.round((run.checkpointStocksProcessed / run.checkpointStocksTotal) * 100)
       : 0;
 
     return (
@@ -216,7 +172,7 @@ function RunHealthBadge({ run }: { run: SyncRun }) {
           variant="secondary"
           className="gap-1 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
         >
-          <AlertCircle className="h-3 w-3" />
+          <AlertTriangle className="h-3 w-3" />
           0 records
         </Badge>
       </div>
@@ -234,7 +190,7 @@ function RunHealthBadge({ run }: { run: SyncRun }) {
 function EnvironmentBadge({ environment, hostname }: { environment: string; hostname: string }) {
   const isProduction = environment === "production";
   const isCloudRun = hostname && !hostname.includes("local") && !hostname.includes(".local");
-  
+
   return (
     <div className="flex flex-col gap-0.5">
       <Badge
@@ -263,78 +219,70 @@ function EnvironmentBadge({ environment, hostname }: { environment: string; host
 
 export default async function AdminDashboard({ searchParams }: AdminPageProps) {
   const params = await searchParams;
-  const environment = params.environment ?? "production";
-  const showLocal = params.showLocal === "true";
+  // Market-data sync_status detail: default to "all" because the active writer
+  // (market-data-sync) leaves environment/hostname NULL, so the production
+  // filter would hide every real run.
+  const environment = params.environment ?? "all";
+  const showLocal = params.showLocal !== "false";
 
-  const runs = await getSyncStatus({
-    limit: 30,
-    environment: environment === "all" ? "" : environment,
-    excludeLocal: !showLocal,
-  }) || [];
+  const [jobsOverview, runs] = await Promise.all([
+    getJobsOverview(),
+    getSyncStatus({
+      limit: 20,
+      environment: environment === "all" ? "" : environment,
+      excludeLocal: !showLocal,
+    }).then((r) => r ?? []),
+  ]);
 
-  const systemHealth = getSystemHealthStatus(runs);
+  const fleet = getFleetHealth(jobsOverview);
 
-  // Calculate stats from production runs
-  const lastRun = runs[0];
-  const completedRuns = runs.filter((r) => r.status === "completed");
-  const successfulRuns = completedRuns.filter((r) => !isZeroRecordRun(r));
-  const failedRuns = runs.filter(
-    (r) => r.status === "failed" || isStuckRun(r)
-  );
-  const stuckRuns = runs.filter(isStuckRun);
-
-  // Find last successful run with actual data
+  // Market-data sync detail stats
   const lastSuccessfulWithData = runs.find(
-    (r) => r.status === "completed" && !isZeroRecordRun(r)
+    (r) => r.status === "completed" && !isZeroRecordRun(r),
   );
 
   return (
     <Container>
       <div className="space-y-6 py-8">
-        {/* Header with System Status */}
+        {/* Header with fleet status */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
             <p className="text-muted-foreground mt-1">
-              Cloud Run job monitoring and sync status
+              Sync status across all scheduled async jobs
             </p>
           </div>
 
-          {/* System Health Badge */}
           <div
             className={`flex items-center gap-3 rounded-lg border p-3 ${
-              systemHealth.status === "healthy"
+              fleet.status === "healthy"
                 ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30"
-                : systemHealth.status === "degraded"
+                : fleet.status === "degraded"
                   ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30"
                   : "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30"
             }`}
           >
-            <StatusIcon status={systemHealth?.status ?? "critical"} />
+            <StatusIcon status={fleet.status} />
             <div>
-              <div className="font-semibold text-sm capitalize">
-                {systemHealth?.status ?? "unknown"}
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {systemHealth?.message ?? "Unknown status"}
-              </div>
+              <div className="font-semibold text-sm capitalize">{fleet.status}</div>
+              <div className="text-xs text-muted-foreground">{fleet.message}</div>
             </div>
           </div>
         </div>
 
-        {/* Issues Alert */}
-        {systemHealth?.issues && systemHealth.issues.length > 0 && (
+        {/* Issues alert */}
+        {fleet.issues.length > 0 && (
           <Card className="border-amber-200 bg-amber-50/50 dark:border-amber-800 dark:bg-amber-950/20">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-400">
                 <AlertTriangle className="h-4 w-4" />
-                Detected Issues
+                Needs attention
               </CardTitle>
             </CardHeader>
             <CardContent>
               <ul className="list-disc list-inside space-y-1">
-                {systemHealth.issues.map((issue, i) => (
-                  <li key={i} className="text-sm text-amber-700 dark:text-amber-400">
+                {fleet.issues.map((issue, i) => (
+                  <li key={i} className="text-sm text-amber-700 dark:text-amber-400 truncate" title={issue}>
                     {issue}
                   </li>
                 ))}
@@ -343,116 +291,25 @@ export default async function AdminDashboard({ searchParams }: AdminPageProps) {
           </Card>
         )}
 
-        {/* Filters */}
-        <AdminFilters
-          currentEnvironment={environment}
-          showLocal={showLocal}
-        />
+        {/* PRIMARY: all async jobs */}
+        <JobsOverview overview={jobsOverview} />
 
-        {/* Stats Cards */}
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Last Sync</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {lastRun
-                  ? formatDistanceToNow(new Date(lastRun.startedAt), {
-                      addSuffix: true,
-                    })
-                  : "Never"}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {lastRun ? (
-                  <span className="flex items-center gap-1">
-                    Status: <RunHealthBadge run={lastRun} />
-                  </span>
-                ) : (
-                  "N/A"
-                )}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Last Successful</CardTitle>
-              <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {lastSuccessfulWithData
-                  ? formatDistanceToNow(new Date(lastSuccessfulWithData.startedAt), {
-                      addSuffix: true,
-                    })
-                  : "Never"}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {lastSuccessfulWithData
-                  ? `${(
-                      lastSuccessfulWithData.shortsRecordsUpdated +
-                      lastSuccessfulWithData.pricesRecordsUpdated +
-                      lastSuccessfulWithData.metricsRecordsUpdated
-                    ).toLocaleString()} records updated`
-                  : "No successful syncs found"}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Success Rate</CardTitle>
-              <Zap className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {runs.length > 0
-                  ? Math.round((successfulRuns.length / runs.length) * 100)
-                  : 0}
-                %
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {successfulRuns.length} successful, {failedRuns.length} failed
-                {stuckRuns.length > 0 && `, ${stuckRuns.length} stuck`}
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Records (Last)</CardTitle>
-              <Database className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {lastSuccessfulWithData
-                  ? (
-                      lastSuccessfulWithData.shortsRecordsUpdated +
-                      lastSuccessfulWithData.pricesRecordsUpdated +
-                      lastSuccessfulWithData.metricsRecordsUpdated
-                    ).toLocaleString()
-                  : 0}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                S: {lastSuccessfulWithData?.shortsRecordsUpdated ?? 0} | P:{" "}
-                {lastSuccessfulWithData?.pricesRecordsUpdated ?? 0} | M:{" "}
-                {lastSuccessfulWithData?.metricsRecordsUpdated ?? 0}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Sync History Table */}
+        {/* SECONDARY: market-data sync_status record detail */}
         <Card>
           <CardHeader>
-            <CardTitle>Sync History</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Database className="h-5 w-5" />
+              Market Data Sync — record detail
+            </CardTitle>
             <CardDescription>
-              Recent Cloud Run scheduler job executions ({environment === "all" ? "all environments" : environment})
+              Per-run record counts written to <code>sync_status</code> by the market-data sync
+              {lastSuccessfulWithData
+                ? ` · last successful ${formatDistanceToNow(new Date(lastSuccessfulWithData.startedAt), { addSuffix: true })}`
+                : ""}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
+            <AdminFilters currentEnvironment={environment} showLocal={showLocal} />
             <Table>
               <TableHeader>
                 <TableRow>
@@ -513,28 +370,17 @@ export default async function AdminDashboard({ searchParams }: AdminPageProps) {
                         {run.algoliaRecordsSynced.toLocaleString()}
                       </TableCell>
                       <TableCell>
-                        <EnvironmentBadge
-                          environment={run.environment}
-                          hostname={run.hostname}
-                        />
+                        <EnvironmentBadge environment={run.environment} hostname={run.hostname} />
                       </TableCell>
                     </TableRow>
                   );
                 })}
                 {runs.length === 0 && (
                   <TableRow>
-                    <TableCell
-                      colSpan={8}
-                      className="text-center text-muted-foreground h-24"
-                    >
+                    <TableCell colSpan={8} className="text-center text-muted-foreground h-24">
                       <div className="flex flex-col items-center gap-2">
                         <Database className="h-8 w-8 text-muted-foreground/50" />
-                        <span>No sync history available for selected filters.</span>
-                        {environment !== "all" && (
-                          <span className="text-xs">
-                            Try selecting &quot;All Environments&quot; to see more data.
-                          </span>
-                        )}
+                        <span>No market-data sync runs recorded.</span>
                       </div>
                     </TableCell>
                   </TableRow>
