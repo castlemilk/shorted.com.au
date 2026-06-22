@@ -164,3 +164,9 @@ variable "cache_purge_secret" {
   sensitive   = true
   default     = ""
 }
+
+variable "alert_recipient_email" {
+  description = "Email for Cloud Run Job failure + ERROR-log/timeout alerts. Empty disables all alerting (the job_monitoring module becomes a no-op)."
+  type        = string
+  default     = ""
+}
