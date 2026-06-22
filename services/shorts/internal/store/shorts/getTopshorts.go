@@ -67,7 +67,7 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, sum
 	// Returns ~5-10KB instead of ~10MB for 1000 stocks.
 	if summaryOnly {
 		summaryQuery := `
-		SELECT product_name, product_code, current_percent
+		SELECT product_name, product_code, current_percent, COALESCE(industry, '')
 		FROM mv_top_shorts
 		ORDER BY current_percent DESC
 		LIMIT $1 OFFSET $2`
@@ -93,9 +93,10 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, sum
 					AND ("TOTAL_PRODUCT_IN_ISSUE" IS NULL OR "TOTAL_PRODUCT_IN_ISSUE" >= 5000000)
 				ORDER BY "PRODUCT_CODE", "DATE" DESC
 			)
-			SELECT "PRODUCT", "PRODUCT_CODE", "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
-			FROM latest_shorts
-			ORDER BY "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC
+			SELECT ls."PRODUCT", ls."PRODUCT_CODE", ls."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS", COALESCE(cm.industry, '')
+			FROM latest_shorts ls
+			LEFT JOIN "company-metadata" cm ON cm.stock_code = ls."PRODUCT_CODE"
+			ORDER BY ls."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" DESC
 			LIMIT $1 OFFSET $2`
 			rows, err = connection.Query(ctx, summaryQuery, limit, offset)
 			if err != nil {
@@ -106,15 +107,16 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, sum
 
 		result := make([]*stocksv1alpha1.TimeSeriesData, 0, limit)
 		for rows.Next() {
-			var productName, productCode string
+			var productName, productCode, industry string
 			var currentPercent float64
-			if err := rows.Scan(&productName, &productCode, &currentPercent); err != nil {
+			if err := rows.Scan(&productName, &productCode, &currentPercent, &industry); err != nil {
 				return nil, 0, err
 			}
 			result = append(result, &stocksv1alpha1.TimeSeriesData{
 				ProductCode:         productCode,
 				Name:                productName,
 				LatestShortPosition: currentPercent,
+				Industry:            industry,
 			})
 		}
 		if rows.Err() != nil {
