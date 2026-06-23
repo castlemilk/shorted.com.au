@@ -220,6 +220,23 @@ module "shorts_api" {
   ]
 }
 
+# Reconcile pre-existing project-level IAM grants for the shorts SA into state.
+# These bindings (run.viewer + cloudscheduler.viewer, added in #206 so the
+# /api/admin/jobs endpoint can read Cloud Run executions + schedulers) already
+# exist in prod (granted out-of-band). The CI deploy SA can getIamPolicy (read)
+# but not setIamPolicy (write) at the project level, so a plain create 403s.
+# Importing reconciles state without a write — after this applies once, there
+# is no diff and the apply stays green. (import blocks are inert once in state.)
+import {
+  to = module.shorts_api.google_project_iam_member.shorts_api_run_viewer
+  id = "rosy-clover-477102-t5 roles/run.viewer serviceAccount:shorts@rosy-clover-477102-t5.iam.gserviceaccount.com"
+}
+
+import {
+  to = module.shorts_api.google_project_iam_member.shorts_api_scheduler_viewer
+  id = "rosy-clover-477102-t5 roles/cloudscheduler.viewer serviceAccount:shorts@rosy-clover-477102-t5.iam.gserviceaccount.com"
+}
+
 # Enrichment Processor Service
 module "enrichment_processor" {
   source = "../../modules/enrichment-processor"
