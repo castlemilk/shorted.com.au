@@ -29,7 +29,7 @@ National real/nominal index, capital-city medians, debt-to-income, price-to-inco
 2. ✅ **Go collector `services/house-price-collector/`** — ABS backbone (RES_DWELL_ST / RES_DWELL / RPPI). Verified: 2,486 real obs, MV QoQ/YoY correct. [4de330f6]
 3. ✅ **RBA debt-to-income** (`rba.go`) — 151 obs, peak 2018-Q2 187.7. [cbda99a4]
 4. ✅ **RPC `GetHousingOverview` + `GetHousePriceSeries`** (proto → handler → 4-layer store + regenerated Go/TS). **Verified end-to-end over Connect-RPC** (Sydney $1.485M +2.4%YoY, national mean $490.8k→$1.11M). [d6f3fdfb] — NOTE: shorts API has a bot-detection interceptor; clients need a browser-ish User-Agent + `Connect-Protocol-Version: 1`.
-5. ⬜ Web: `getHousing` server/client actions + `/housing` dashboard page (reuse housing-feature chart components).
+5. ✅ **Web `/housing` dashboard** — `getHousing` server/client actions + dashboard (3 headline stats + capital-city median grid + national-price & debt-to-income charts). **Verified live in the running app** (tiles + charts render real data, 0 console errors). [e15c902f] NOTE: SSR uses `NEXT_PUBLIC_API_URL`, client charts use the rewrite proxy which reads `NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT` — set BOTH to the local shorts server for local verification. Functions can't cross the RSC boundary → chart `format` passed as a key.
 6. ⬜ Wire the Widow-Maker feature charts to live data (baked SSR fallback).
 7. ⬜ State-govt granular (VIC VPSR / SA metro medians; NSW gated) + Domain API.
 8. ⬜ Stealth crawl tier (`crawl.go` via `stealthhttp`, Chromium for REA's Kasada, ABS cross-validation).
