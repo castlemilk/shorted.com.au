@@ -226,6 +226,14 @@ func (s *StoreAdapter) GetStockSignals(stockCode string, limit int32) (*shorts.S
 	return s.store.GetStockSignals(stockCode, limit)
 }
 
+func (s *StoreAdapter) GetHousingOverview(regionType string) ([]*shorts.HousingMetricRow, error) {
+	return s.store.GetHousingOverview(regionType)
+}
+
+func (s *StoreAdapter) GetHousePriceSeries(regionCode, measure, dwellingType string) (*shorts.HousePriceSeriesResult, error) {
+	return s.store.GetHousePriceSeries(regionCode, measure, dwellingType)
+}
+
 func (s *StoreAdapter) GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shorts.TimelineEventRow, error) {
 	return s.store.GetEventTimeline(stockCode, daysBack, limit)
 }

@@ -220,6 +220,16 @@ func (c *MemoryCache) GetStockSignalsKey(stockCode string, limit int32) string {
 	return c.generateKey("stock_signals", stockCode, limit)
 }
 
+// GetHousingOverviewKey builds a cache key for GetHousingOverview responses.
+func (c *MemoryCache) GetHousingOverviewKey(regionType string) string {
+	return c.generateKey("housing_overview", regionType)
+}
+
+// GetHousePriceSeriesKey builds a cache key for GetHousePriceSeries responses.
+func (c *MemoryCache) GetHousePriceSeriesKey(regionCode, measure, dwellingType string) string {
+	return c.generateKey("house_price_series", regionCode, measure, dwellingType)
+}
+
 // GetEventTimelineKey builds a cache key for GetEventTimeline responses.
 func (c *MemoryCache) GetEventTimelineKey(stockCode string, daysBack, limit int32) string {
 	return c.generateKey("event_timeline", stockCode, daysBack, limit)

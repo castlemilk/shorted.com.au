@@ -72,21 +72,6 @@ func (mr *MockShortsStoreMockRecorder) CleanupStuckSyncRuns() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CleanupStuckSyncRuns", reflect.TypeOf((*MockShortsStore)(nil).CleanupStuckSyncRuns))
 }
 
-// GetJobsOverview mocks base method.
-func (m *MockShortsStore) GetJobsOverview() ([]*shorts.JobHealth, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetJobsOverview")
-	ret0, _ := ret[0].([]*shorts.JobHealth)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetJobsOverview indicates an expected call of GetJobsOverview.
-func (mr *MockShortsStoreMockRecorder) GetJobsOverview() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetJobsOverview", reflect.TypeOf((*MockShortsStore)(nil).GetJobsOverview))
-}
-
 // CreateEnrichmentJob mocks base method.
 func (m *MockShortsStore) CreateEnrichmentJob(stockCode string, force bool) (string, error) {
 	m.ctrl.T.Helper()
@@ -100,6 +85,21 @@ func (m *MockShortsStore) CreateEnrichmentJob(stockCode string, force bool) (str
 func (mr *MockShortsStoreMockRecorder) CreateEnrichmentJob(stockCode, force any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateEnrichmentJob", reflect.TypeOf((*MockShortsStore)(nil).CreateEnrichmentJob), stockCode, force)
+}
+
+// DeleteEditorialTake mocks base method.
+func (m *MockShortsStore) DeleteEditorialTake(slug string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteEditorialTake", slug)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteEditorialTake indicates an expected call of DeleteEditorialTake.
+func (mr *MockShortsStoreMockRecorder) DeleteEditorialTake(slug any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteEditorialTake", reflect.TypeOf((*MockShortsStore)(nil).DeleteEditorialTake), slug)
 }
 
 // GetAPISubscription mocks base method.
@@ -212,6 +212,21 @@ func (mr *MockShortsStoreMockRecorder) GetDividendHistory(stockCode, years any) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDividendHistory", reflect.TypeOf((*MockShortsStore)(nil).GetDividendHistory), stockCode, years)
 }
 
+// GetEditorialTake mocks base method.
+func (m *MockShortsStore) GetEditorialTake(slug string) (*shorts.EditorialTake, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEditorialTake", slug)
+	ret0, _ := ret[0].(*shorts.EditorialTake)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetEditorialTake indicates an expected call of GetEditorialTake.
+func (mr *MockShortsStoreMockRecorder) GetEditorialTake(slug any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEditorialTake", reflect.TypeOf((*MockShortsStore)(nil).GetEditorialTake), slug)
+}
+
 // GetEnrichmentJob mocks base method.
 func (m *MockShortsStore) GetEnrichmentJob(jobID string) (*shortsv1alpha1.EnrichmentJob, error) {
 	m.ctrl.T.Helper()
@@ -227,6 +242,51 @@ func (mr *MockShortsStoreMockRecorder) GetEnrichmentJob(jobID any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEnrichmentJob", reflect.TypeOf((*MockShortsStore)(nil).GetEnrichmentJob), jobID)
 }
 
+// GetEventTimeline mocks base method.
+func (m *MockShortsStore) GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shorts.TimelineEventRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEventTimeline", stockCode, daysBack, limit)
+	ret0, _ := ret[0].([]*shorts.TimelineEventRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetEventTimeline indicates an expected call of GetEventTimeline.
+func (mr *MockShortsStoreMockRecorder) GetEventTimeline(stockCode, daysBack, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEventTimeline", reflect.TypeOf((*MockShortsStore)(nil).GetEventTimeline), stockCode, daysBack, limit)
+}
+
+// GetHousePriceSeries mocks base method.
+func (m *MockShortsStore) GetHousePriceSeries(regionCode, measure, dwellingType string) (*shorts.HousePriceSeriesResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHousePriceSeries", regionCode, measure, dwellingType)
+	ret0, _ := ret[0].(*shorts.HousePriceSeriesResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetHousePriceSeries indicates an expected call of GetHousePriceSeries.
+func (mr *MockShortsStoreMockRecorder) GetHousePriceSeries(regionCode, measure, dwellingType any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHousePriceSeries", reflect.TypeOf((*MockShortsStore)(nil).GetHousePriceSeries), regionCode, measure, dwellingType)
+}
+
+// GetHousingOverview mocks base method.
+func (m *MockShortsStore) GetHousingOverview(regionType string) ([]*shorts.HousingMetricRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHousingOverview", regionType)
+	ret0, _ := ret[0].([]*shorts.HousingMetricRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetHousingOverview indicates an expected call of GetHousingOverview.
+func (mr *MockShortsStoreMockRecorder) GetHousingOverview(regionType any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHousingOverview", reflect.TypeOf((*MockShortsStore)(nil).GetHousingOverview), regionType)
+}
+
 // GetIndustryTreeMap mocks base method.
 func (m *MockShortsStore) GetIndustryTreeMap(limit int32, period, viewMode string) (*stocksv1alpha1.IndustryTreeMap, error) {
 	m.ctrl.T.Helper()
@@ -240,6 +300,21 @@ func (m *MockShortsStore) GetIndustryTreeMap(limit int32, period, viewMode strin
 func (mr *MockShortsStoreMockRecorder) GetIndustryTreeMap(limit, period, viewMode any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIndustryTreeMap", reflect.TypeOf((*MockShortsStore)(nil).GetIndustryTreeMap), limit, period, viewMode)
+}
+
+// GetJobsOverview mocks base method.
+func (m *MockShortsStore) GetJobsOverview() ([]*shorts.JobHealth, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetJobsOverview")
+	ret0, _ := ret[0].([]*shorts.JobHealth)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetJobsOverview indicates an expected call of GetJobsOverview.
+func (mr *MockShortsStoreMockRecorder) GetJobsOverview() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetJobsOverview", reflect.TypeOf((*MockShortsStore)(nil).GetJobsOverview))
 }
 
 // GetMarketByDate mocks base method.
@@ -272,116 +347,6 @@ func (m *MockShortsStore) GetMarketNews(limit int32, source string, priceSensiti
 func (mr *MockShortsStoreMockRecorder) GetMarketNews(limit, source, priceSensitiveOnly any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketNews", reflect.TypeOf((*MockShortsStore)(nil).GetMarketNews), limit, source, priceSensitiveOnly)
-}
-
-// GetEditorialTake mocks base method.
-func (m *MockShortsStore) GetEditorialTake(slug string) (*shorts.EditorialTake, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetEditorialTake", slug)
-	ret0, _ := ret[0].(*shorts.EditorialTake)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetEditorialTake indicates an expected call of GetEditorialTake.
-func (mr *MockShortsStoreMockRecorder) GetEditorialTake(slug any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEditorialTake", reflect.TypeOf((*MockShortsStore)(nil).GetEditorialTake), slug)
-}
-
-// ListEditorialTakes mocks base method.
-func (m *MockShortsStore) ListEditorialTakes(limit, offset int32, stockCode string) ([]*shorts.EditorialTake, int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListEditorialTakes", limit, offset, stockCode)
-	ret0, _ := ret[0].([]*shorts.EditorialTake)
-	ret1, _ := ret[1].(int)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-
-// ListEditorialTakes indicates an expected call of ListEditorialTakes.
-func (mr *MockShortsStoreMockRecorder) ListEditorialTakes(limit, offset, stockCode any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEditorialTakes", reflect.TypeOf((*MockShortsStore)(nil).ListEditorialTakes), limit, offset, stockCode)
-}
-
-// ListEditorialTakesAdmin mocks base method.
-func (m *MockShortsStore) ListEditorialTakesAdmin(limit, offset int32, statusFilter string) ([]*shorts.EditorialTake, int, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListEditorialTakesAdmin", limit, offset, statusFilter)
-	ret0, _ := ret[0].([]*shorts.EditorialTake)
-	ret1, _ := ret[1].(int)
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
-}
-func (mr *MockShortsStoreMockRecorder) ListEditorialTakesAdmin(limit, offset, statusFilter any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEditorialTakesAdmin", reflect.TypeOf((*MockShortsStore)(nil).ListEditorialTakesAdmin), limit, offset, statusFilter)
-}
-
-// PublishEditorialTake mocks base method.
-func (m *MockShortsStore) PublishEditorialTake(slug string) (*shorts.EditorialTake, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PublishEditorialTake", slug)
-	ret0, _ := ret[0].(*shorts.EditorialTake)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-func (mr *MockShortsStoreMockRecorder) PublishEditorialTake(slug any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishEditorialTake", reflect.TypeOf((*MockShortsStore)(nil).PublishEditorialTake), slug)
-}
-
-// UpdateEditorialTake mocks base method.
-func (m *MockShortsStore) UpdateEditorialTake(slug string, fields shorts.EditorialTakeUpdate) (*shorts.EditorialTake, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "UpdateEditorialTake", slug, fields)
-	ret0, _ := ret[0].(*shorts.EditorialTake)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-func (mr *MockShortsStoreMockRecorder) UpdateEditorialTake(slug, fields any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateEditorialTake", reflect.TypeOf((*MockShortsStore)(nil).UpdateEditorialTake), slug, fields)
-}
-
-// DeleteEditorialTake mocks base method.
-func (m *MockShortsStore) DeleteEditorialTake(slug string) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteEditorialTake", slug)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-func (mr *MockShortsStoreMockRecorder) DeleteEditorialTake(slug any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteEditorialTake", reflect.TypeOf((*MockShortsStore)(nil).DeleteEditorialTake), slug)
-}
-
-// MarkTakeTweetPublished mocks base method.
-func (m *MockShortsStore) MarkTakeTweetPublished(slug string) (*shorts.EditorialTake, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MarkTakeTweetPublished", slug)
-	ret0, _ := ret[0].(*shorts.EditorialTake)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-func (mr *MockShortsStoreMockRecorder) MarkTakeTweetPublished(slug any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkTakeTweetPublished", reflect.TypeOf((*MockShortsStore)(nil).MarkTakeTweetPublished), slug)
-}
-
-// ListTweetPublishQueue mocks base method.
-func (m *MockShortsStore) ListTweetPublishQueue(limit int32) ([]*shorts.EditorialTake, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListTweetPublishQueue", limit)
-	ret0, _ := ret[0].([]*shorts.EditorialTake)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-func (mr *MockShortsStoreMockRecorder) ListTweetPublishQueue(limit any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTweetPublishQueue", reflect.TypeOf((*MockShortsStore)(nil).ListTweetPublishQueue), limit)
 }
 
 // GetPeerComparison mocks base method.
@@ -427,6 +392,21 @@ func (m *MockShortsStore) GetPendingEnrichmentByStockCode(stockCode string) (*sh
 func (mr *MockShortsStoreMockRecorder) GetPendingEnrichmentByStockCode(stockCode any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPendingEnrichmentByStockCode", reflect.TypeOf((*MockShortsStore)(nil).GetPendingEnrichmentByStockCode), stockCode)
+}
+
+// GetRelatedNews mocks base method.
+func (m *MockShortsStore) GetRelatedNews(stockCode, articleID string, limit int32) ([]*shorts.NewsArticle, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelatedNews", stockCode, articleID, limit)
+	ret0, _ := ret[0].([]*shorts.NewsArticle)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetRelatedNews indicates an expected call of GetRelatedNews.
+func (mr *MockShortsStoreMockRecorder) GetRelatedNews(stockCode, articleID, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelatedNews", reflect.TypeOf((*MockShortsStore)(nil).GetRelatedNews), stockCode, articleID, limit)
 }
 
 // GetStock mocks base method.
@@ -489,6 +469,21 @@ func (mr *MockShortsStoreMockRecorder) GetStockFinancialHighlights(stockCodes, m
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockFinancialHighlights", reflect.TypeOf((*MockShortsStore)(nil).GetStockFinancialHighlights), stockCodes, maxPerStock)
 }
 
+// GetStockGraph mocks base method.
+func (m *MockShortsStore) GetStockGraph(stockCode string, limit int32) (*shorts.StockGraphResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStockGraph", stockCode, limit)
+	ret0, _ := ret[0].(*shorts.StockGraphResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetStockGraph indicates an expected call of GetStockGraph.
+func (mr *MockShortsStoreMockRecorder) GetStockGraph(stockCode, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockGraph", reflect.TypeOf((*MockShortsStore)(nil).GetStockGraph), stockCode, limit)
+}
+
 // GetStockNews mocks base method.
 func (m *MockShortsStore) GetStockNews(stockCode string, limit int32, source, sentiment string) ([]*shorts.NewsArticle, int, error) {
 	m.ctrl.T.Helper()
@@ -503,51 +498,6 @@ func (m *MockShortsStore) GetStockNews(stockCode string, limit int32, source, se
 func (mr *MockShortsStoreMockRecorder) GetStockNews(stockCode, limit, source, sentiment any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockNews", reflect.TypeOf((*MockShortsStore)(nil).GetStockNews), stockCode, limit, source, sentiment)
-}
-
-// GetRelatedNews mocks base method.
-func (m *MockShortsStore) GetRelatedNews(stockCode, articleID string, limit int32) ([]*shorts.NewsArticle, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRelatedNews", stockCode, articleID, limit)
-	ret0, _ := ret[0].([]*shorts.NewsArticle)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetRelatedNews indicates an expected call of GetRelatedNews.
-func (mr *MockShortsStoreMockRecorder) GetRelatedNews(stockCode, articleID, limit any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelatedNews", reflect.TypeOf((*MockShortsStore)(nil).GetRelatedNews), stockCode, articleID, limit)
-}
-
-// GetEventTimeline mocks base method.
-func (m *MockShortsStore) GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shorts.TimelineEventRow, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetEventTimeline", stockCode, daysBack, limit)
-	ret0, _ := ret[0].([]*shorts.TimelineEventRow)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetEventTimeline indicates an expected call of GetEventTimeline.
-func (mr *MockShortsStoreMockRecorder) GetEventTimeline(stockCode, daysBack, limit any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEventTimeline", reflect.TypeOf((*MockShortsStore)(nil).GetEventTimeline), stockCode, daysBack, limit)
-}
-
-// GetStockGraph mocks base method.
-func (m *MockShortsStore) GetStockGraph(stockCode string, limit int32) (*shorts.StockGraphResult, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetStockGraph", stockCode, limit)
-	ret0, _ := ret[0].(*shorts.StockGraphResult)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// GetStockGraph indicates an expected call of GetStockGraph.
-func (mr *MockShortsStoreMockRecorder) GetStockGraph(stockCode, limit any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockGraph", reflect.TypeOf((*MockShortsStore)(nil).GetStockGraph), stockCode, limit)
 }
 
 // GetStockSignals mocks base method.
@@ -626,6 +576,38 @@ func (mr *MockShortsStoreMockRecorder) GetWeeklyReport(weekSlug any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWeeklyReport", reflect.TypeOf((*MockShortsStore)(nil).GetWeeklyReport), weekSlug)
 }
 
+// ListEditorialTakes mocks base method.
+func (m *MockShortsStore) ListEditorialTakes(limit, offset int32, stockCode string) ([]*shorts.EditorialTake, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListEditorialTakes", limit, offset, stockCode)
+	ret0, _ := ret[0].([]*shorts.EditorialTake)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListEditorialTakes indicates an expected call of ListEditorialTakes.
+func (mr *MockShortsStoreMockRecorder) ListEditorialTakes(limit, offset, stockCode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEditorialTakes", reflect.TypeOf((*MockShortsStore)(nil).ListEditorialTakes), limit, offset, stockCode)
+}
+
+// ListEditorialTakesAdmin mocks base method.
+func (m *MockShortsStore) ListEditorialTakesAdmin(limit, offset int32, statusFilter string) ([]*shorts.EditorialTake, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListEditorialTakesAdmin", limit, offset, statusFilter)
+	ret0, _ := ret[0].([]*shorts.EditorialTake)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ListEditorialTakesAdmin indicates an expected call of ListEditorialTakesAdmin.
+func (mr *MockShortsStoreMockRecorder) ListEditorialTakesAdmin(limit, offset, statusFilter any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListEditorialTakesAdmin", reflect.TypeOf((*MockShortsStore)(nil).ListEditorialTakesAdmin), limit, offset, statusFilter)
+}
+
 // ListEnrichmentJobs mocks base method.
 func (m *MockShortsStore) ListEnrichmentJobs(limit, offset int32, status *shortsv1alpha1.EnrichmentJobStatus) ([]*shortsv1alpha1.EnrichmentJob, int32, error) {
 	m.ctrl.T.Helper()
@@ -655,6 +637,51 @@ func (m *MockShortsStore) ListPendingEnrichments(limit, offset int32) ([]*shorts
 func (mr *MockShortsStoreMockRecorder) ListPendingEnrichments(limit, offset any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPendingEnrichments", reflect.TypeOf((*MockShortsStore)(nil).ListPendingEnrichments), limit, offset)
+}
+
+// ListTweetPublishQueue mocks base method.
+func (m *MockShortsStore) ListTweetPublishQueue(limit int32) ([]*shorts.EditorialTake, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListTweetPublishQueue", limit)
+	ret0, _ := ret[0].([]*shorts.EditorialTake)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListTweetPublishQueue indicates an expected call of ListTweetPublishQueue.
+func (mr *MockShortsStoreMockRecorder) ListTweetPublishQueue(limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListTweetPublishQueue", reflect.TypeOf((*MockShortsStore)(nil).ListTweetPublishQueue), limit)
+}
+
+// MarkTakeTweetPublished mocks base method.
+func (m *MockShortsStore) MarkTakeTweetPublished(slug string) (*shorts.EditorialTake, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MarkTakeTweetPublished", slug)
+	ret0, _ := ret[0].(*shorts.EditorialTake)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MarkTakeTweetPublished indicates an expected call of MarkTakeTweetPublished.
+func (mr *MockShortsStoreMockRecorder) MarkTakeTweetPublished(slug any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MarkTakeTweetPublished", reflect.TypeOf((*MockShortsStore)(nil).MarkTakeTweetPublished), slug)
+}
+
+// PublishEditorialTake mocks base method.
+func (m *MockShortsStore) PublishEditorialTake(slug string) (*shorts.EditorialTake, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PublishEditorialTake", slug)
+	ret0, _ := ret[0].(*shorts.EditorialTake)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PublishEditorialTake indicates an expected call of PublishEditorialTake.
+func (mr *MockShortsStoreMockRecorder) PublishEditorialTake(slug any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PublishEditorialTake", reflect.TypeOf((*MockShortsStore)(nil).PublishEditorialTake), slug)
 }
 
 // QueryRowContext mocks base method.
@@ -763,6 +790,21 @@ func (m *MockShortsStore) UpdateAPISubscriptionByCustomer(stripeCustomerID strin
 func (mr *MockShortsStoreMockRecorder) UpdateAPISubscriptionByCustomer(stripeCustomerID, update any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateAPISubscriptionByCustomer", reflect.TypeOf((*MockShortsStore)(nil).UpdateAPISubscriptionByCustomer), stripeCustomerID, update)
+}
+
+// UpdateEditorialTake mocks base method.
+func (m *MockShortsStore) UpdateEditorialTake(slug string, fields shorts.EditorialTakeUpdate) (*shorts.EditorialTake, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateEditorialTake", slug, fields)
+	ret0, _ := ret[0].(*shorts.EditorialTake)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateEditorialTake indicates an expected call of UpdateEditorialTake.
+func (mr *MockShortsStoreMockRecorder) UpdateEditorialTake(slug, fields any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateEditorialTake", reflect.TypeOf((*MockShortsStore)(nil).UpdateEditorialTake), slug, fields)
 }
 
 // UpdateEnrichmentJobStatus mocks base method.
@@ -940,6 +982,48 @@ func (mr *MockCacheMockRecorder) GetDividendHistoryKey(stockCode, years any) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetDividendHistoryKey", reflect.TypeOf((*MockCache)(nil).GetDividendHistoryKey), stockCode, years)
 }
 
+// GetEventTimelineKey mocks base method.
+func (m *MockCache) GetEventTimelineKey(stockCode string, daysBack, limit int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetEventTimelineKey", stockCode, daysBack, limit)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetEventTimelineKey indicates an expected call of GetEventTimelineKey.
+func (mr *MockCacheMockRecorder) GetEventTimelineKey(stockCode, daysBack, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEventTimelineKey", reflect.TypeOf((*MockCache)(nil).GetEventTimelineKey), stockCode, daysBack, limit)
+}
+
+// GetHousePriceSeriesKey mocks base method.
+func (m *MockCache) GetHousePriceSeriesKey(regionCode, measure, dwellingType string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHousePriceSeriesKey", regionCode, measure, dwellingType)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetHousePriceSeriesKey indicates an expected call of GetHousePriceSeriesKey.
+func (mr *MockCacheMockRecorder) GetHousePriceSeriesKey(regionCode, measure, dwellingType any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHousePriceSeriesKey", reflect.TypeOf((*MockCache)(nil).GetHousePriceSeriesKey), regionCode, measure, dwellingType)
+}
+
+// GetHousingOverviewKey mocks base method.
+func (m *MockCache) GetHousingOverviewKey(regionType string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHousingOverviewKey", regionType)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetHousingOverviewKey indicates an expected call of GetHousingOverviewKey.
+func (mr *MockCacheMockRecorder) GetHousingOverviewKey(regionType any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHousingOverviewKey", reflect.TypeOf((*MockCache)(nil).GetHousingOverviewKey), regionType)
+}
+
 // GetIndustryTreeMapKey mocks base method.
 func (m *MockCache) GetIndustryTreeMapKey(limit int32, period, viewMode string) string {
 	m.ctrl.T.Helper()
@@ -982,62 +1066,6 @@ func (mr *MockCacheMockRecorder) GetMarketNewsKey(limit, source, priceSensitiveO
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetMarketNewsKey", reflect.TypeOf((*MockCache)(nil).GetMarketNewsKey), limit, source, priceSensitiveOnly)
 }
 
-// GetRelatedNewsKey mocks base method.
-func (m *MockCache) GetRelatedNewsKey(stockCode, articleID string, limit int32) string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetRelatedNewsKey", stockCode, articleID, limit)
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// GetRelatedNewsKey indicates an expected call of GetRelatedNewsKey.
-func (mr *MockCacheMockRecorder) GetRelatedNewsKey(stockCode, articleID, limit any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelatedNewsKey", reflect.TypeOf((*MockCache)(nil).GetRelatedNewsKey), stockCode, articleID, limit)
-}
-
-// GetEventTimelineKey mocks base method.
-func (m *MockCache) GetEventTimelineKey(stockCode string, daysBack, limit int32) string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetEventTimelineKey", stockCode, daysBack, limit)
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// GetEventTimelineKey indicates an expected call of GetEventTimelineKey.
-func (mr *MockCacheMockRecorder) GetEventTimelineKey(stockCode, daysBack, limit any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetEventTimelineKey", reflect.TypeOf((*MockCache)(nil).GetEventTimelineKey), stockCode, daysBack, limit)
-}
-
-// GetStockGraphKey mocks base method.
-func (m *MockCache) GetStockGraphKey(stockCode string, limit int32) string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetStockGraphKey", stockCode, limit)
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// GetStockGraphKey indicates an expected call of GetStockGraphKey.
-func (mr *MockCacheMockRecorder) GetStockGraphKey(stockCode, limit any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockGraphKey", reflect.TypeOf((*MockCache)(nil).GetStockGraphKey), stockCode, limit)
-}
-
-// GetStockSignalsKey mocks base method.
-func (m *MockCache) GetStockSignalsKey(stockCode string, limit int32) string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetStockSignalsKey", stockCode, limit)
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// GetStockSignalsKey indicates an expected call of GetStockSignalsKey.
-func (mr *MockCacheMockRecorder) GetStockSignalsKey(stockCode, limit any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockSignalsKey", reflect.TypeOf((*MockCache)(nil).GetStockSignalsKey), stockCode, limit)
-}
-
 // GetOrSet mocks base method.
 func (m *MockCache) GetOrSet(key string, computeFn func() (any, error)) (any, error) {
 	m.ctrl.T.Helper()
@@ -1065,6 +1093,20 @@ func (m *MockCache) GetPeerComparisonKey(stockCode string, limit int32) string {
 func (mr *MockCacheMockRecorder) GetPeerComparisonKey(stockCode, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPeerComparisonKey", reflect.TypeOf((*MockCache)(nil).GetPeerComparisonKey), stockCode, limit)
+}
+
+// GetRelatedNewsKey mocks base method.
+func (m *MockCache) GetRelatedNewsKey(stockCode, articleID string, limit int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetRelatedNewsKey", stockCode, articleID, limit)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetRelatedNewsKey indicates an expected call of GetRelatedNewsKey.
+func (mr *MockCacheMockRecorder) GetRelatedNewsKey(stockCode, articleID, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelatedNewsKey", reflect.TypeOf((*MockCache)(nil).GetRelatedNewsKey), stockCode, articleID, limit)
 }
 
 // GetScreenStocksKey mocks base method.
@@ -1123,6 +1165,20 @@ func (mr *MockCacheMockRecorder) GetStockDetailsKey(productCode any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockDetailsKey", reflect.TypeOf((*MockCache)(nil).GetStockDetailsKey), productCode)
 }
 
+// GetStockGraphKey mocks base method.
+func (m *MockCache) GetStockGraphKey(stockCode string, limit int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStockGraphKey", stockCode, limit)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetStockGraphKey indicates an expected call of GetStockGraphKey.
+func (mr *MockCacheMockRecorder) GetStockGraphKey(stockCode, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockGraphKey", reflect.TypeOf((*MockCache)(nil).GetStockGraphKey), stockCode, limit)
+}
+
 // GetStockKey mocks base method.
 func (m *MockCache) GetStockKey(productCode string) string {
 	m.ctrl.T.Helper()
@@ -1149,6 +1205,20 @@ func (m *MockCache) GetStockNewsKey(stockCode string, limit int32, source, senti
 func (mr *MockCacheMockRecorder) GetStockNewsKey(stockCode, limit, source, sentiment any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockNewsKey", reflect.TypeOf((*MockCache)(nil).GetStockNewsKey), stockCode, limit, source, sentiment)
+}
+
+// GetStockSignalsKey mocks base method.
+func (m *MockCache) GetStockSignalsKey(stockCode string, limit int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStockSignalsKey", stockCode, limit)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetStockSignalsKey indicates an expected call of GetStockSignalsKey.
+func (mr *MockCacheMockRecorder) GetStockSignalsKey(stockCode, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockSignalsKey", reflect.TypeOf((*MockCache)(nil).GetStockSignalsKey), stockCode, limit)
 }
 
 // GetTopShortsKey mocks base method.

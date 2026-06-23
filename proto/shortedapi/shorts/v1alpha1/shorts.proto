@@ -546,6 +546,24 @@ service ShortedStocksService {
       description: "Retrieve a stock's reputation/risk signals — adverse (court matters, regulator sanctions, complaints) and positive (awards, press), each with citations, severity and confidence. Sourced from grounded web research."
     };
   }
+
+  // Latest house-price headline metrics by region (national/state/capital city).
+  rpc GetHousingOverview (GetHousingOverviewRequest) returns (GetHousingOverviewResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Housing Overview",
+      description: "Latest Australian house-price headline metrics by region (national, state, capital city) — mean/median price and price index with QoQ and YoY change. Sourced from the ABS Data API and RBA."
+    };
+  }
+
+  // A single house-price time series for a region and measure.
+  rpc GetHousePriceSeries (GetHousePriceSeriesRequest) returns (GetHousePriceSeriesResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get House Price Series",
+      description: "A single house-price time series for a region and measure (national mean price, capital-city median, household debt-to-income, price index), quarterly."
+    };
+  }
 }
 
 message MintTokenRequest {
@@ -1517,4 +1535,55 @@ message StockSignal {
   string severity = 6;          // 'high' | 'medium' | 'low' (adverse only)
   double confidence = 7;
   repeated string citations = 8;
+}
+
+// ── Housing (house-price tracker) ────────────────────────────────────────────
+
+message GetHousingOverviewRequest {
+  // Filter to one region_type ('national'|'state'|'gccsa'); empty = all key regions.
+  string region_type = 1;
+}
+
+// Latest observation for a region × measure with QoQ/YoY change (from mv_housing_headline).
+message HousingMetric {
+  string region_code = 1;       // 'AUS' | 'NSW' | '1GSYD'
+  string region_name = 2;
+  string region_type = 3;       // 'national' | 'state' | 'gccsa'
+  string state_code = 4;
+  string measure = 5;           // 'mean_price' | 'median_price' | 'price_index' | 'debt_to_income'
+  string dwelling_type = 6;     // 'all' | 'established_house' | 'attached'
+  double value = 7;
+  string unit = 8;              // 'AUD' | 'index' | 'ratio'
+  google.protobuf.Timestamp period = 9;
+  bool is_preliminary = 10;
+  double qoq_pct = 11;
+  double yoy_pct = 12;
+}
+
+message GetHousingOverviewResponse {
+  repeated HousingMetric metrics = 1;
+  google.protobuf.Timestamp as_of = 2;
+}
+
+message GetHousePriceSeriesRequest {
+  string region_code = 1;       // 'AUS' | 'NSW' | '1GSYD'
+  string measure = 2;           // 'mean_price' | 'median_price' | 'price_index' | 'debt_to_income'
+  string dwelling_type = 3;     // optional; default 'all'
+}
+
+message HousePricePoint {
+  google.protobuf.Timestamp period = 1;
+  double value = 2;
+  bool is_preliminary = 3;
+}
+
+message GetHousePriceSeriesResponse {
+  string region_code = 1;
+  string region_name = 2;
+  string measure = 3;
+  string dwelling_type = 4;
+  string unit = 5;
+  string source = 6;
+  string source_licence = 7;
+  repeated HousePricePoint points = 8;
 }
