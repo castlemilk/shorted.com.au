@@ -12,6 +12,8 @@ import { listEditorialTakes } from "~/app/actions/getEditorialTake";
 import { isValidStockCode } from "~/@/lib/stock-code";
 import { MastheadHeader } from "~/@/components/news/masthead/masthead-header";
 import { MarketPulse } from "~/@/components/news/masthead/market-pulse";
+import { FeaturedStory } from "~/@/components/news/masthead/featured-story";
+import { FEATURED } from "~/@/components/news/masthead/featured";
 import { LeadStory } from "~/@/components/news/masthead/lead-story";
 import { StoryStack } from "~/@/components/news/masthead/story-stack";
 import { WireList } from "~/@/components/news/masthead/wire-list";
@@ -225,6 +227,8 @@ export default async function NewsIndexPage() {
       <div className="mx-auto max-w-7xl space-y-8">
         <MastheadHeader />
         <MarketPulse />
+
+        {FEATURED[0] ? <FeaturedStory item={FEATURED[0]} /> : null}
 
         {leadTake ? (
           <LeadStory take={leadTake} />
