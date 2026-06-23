@@ -169,6 +169,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/disclaimer` },
     { url: `${baseUrl}/compare` },
     { url: `${baseUrl}/seasonality`, lastModified: latestDataDate },
+    { url: `${baseUrl}/features/the-widow-maker`, lastModified: "2026-06-23" },
   ];
 
   // Blog post routes
