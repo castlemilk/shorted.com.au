@@ -157,6 +157,12 @@ const (
 	// ShortedStocksServiceGetStockSignalsProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetStockSignals RPC.
 	ShortedStocksServiceGetStockSignalsProcedure = "/shorts.v1alpha1.ShortedStocksService/GetStockSignals"
+	// ShortedStocksServiceGetHousingOverviewProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetHousingOverview RPC.
+	ShortedStocksServiceGetHousingOverviewProcedure = "/shorts.v1alpha1.ShortedStocksService/GetHousingOverview"
+	// ShortedStocksServiceGetHousePriceSeriesProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetHousePriceSeries RPC.
+	ShortedStocksServiceGetHousePriceSeriesProcedure = "/shorts.v1alpha1.ShortedStocksService/GetHousePriceSeries"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -203,6 +209,8 @@ var (
 	shortedStocksServiceGetStockGraphMethodDescriptor                   = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockGraph")
 	shortedStocksServiceGetEventTimelineMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("GetEventTimeline")
 	shortedStocksServiceGetStockSignalsMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockSignals")
+	shortedStocksServiceGetHousingOverviewMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("GetHousingOverview")
+	shortedStocksServiceGetHousePriceSeriesMethodDescriptor             = shortedStocksServiceServiceDescriptor.Methods().ByName("GetHousePriceSeries")
 )
 
 // ShortedStocksServiceClient is a client for the shorts.v1alpha1.ShortedStocksService service.
@@ -291,6 +299,10 @@ type ShortedStocksServiceClient interface {
 	GetEventTimeline(context.Context, *connect.Request[v1alpha1.GetEventTimelineRequest]) (*connect.Response[v1alpha1.GetEventTimelineResponse], error)
 	// Get a stock's reputation/risk signals (adverse: court/sanctions/complaints; positive: awards/press)
 	GetStockSignals(context.Context, *connect.Request[v1alpha1.GetStockSignalsRequest]) (*connect.Response[v1alpha1.GetStockSignalsResponse], error)
+	// Latest house-price headline metrics by region (national/state/capital city).
+	GetHousingOverview(context.Context, *connect.Request[v1alpha1.GetHousingOverviewRequest]) (*connect.Response[v1alpha1.GetHousingOverviewResponse], error)
+	// A single house-price time series for a region and measure.
+	GetHousePriceSeries(context.Context, *connect.Request[v1alpha1.GetHousePriceSeriesRequest]) (*connect.Response[v1alpha1.GetHousePriceSeriesResponse], error)
 }
 
 // NewShortedStocksServiceClient constructs a client for the shorts.v1alpha1.ShortedStocksService
@@ -549,6 +561,18 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceGetStockSignalsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getHousingOverview: connect.NewClient[v1alpha1.GetHousingOverviewRequest, v1alpha1.GetHousingOverviewResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetHousingOverviewProcedure,
+			connect.WithSchema(shortedStocksServiceGetHousingOverviewMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		getHousePriceSeries: connect.NewClient[v1alpha1.GetHousePriceSeriesRequest, v1alpha1.GetHousePriceSeriesResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetHousePriceSeriesProcedure,
+			connect.WithSchema(shortedStocksServiceGetHousePriceSeriesMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -595,6 +619,8 @@ type shortedStocksServiceClient struct {
 	getStockGraph                   *connect.Client[v1alpha1.GetStockGraphRequest, v1alpha1.GetStockGraphResponse]
 	getEventTimeline                *connect.Client[v1alpha1.GetEventTimelineRequest, v1alpha1.GetEventTimelineResponse]
 	getStockSignals                 *connect.Client[v1alpha1.GetStockSignalsRequest, v1alpha1.GetStockSignalsResponse]
+	getHousingOverview              *connect.Client[v1alpha1.GetHousingOverviewRequest, v1alpha1.GetHousingOverviewResponse]
+	getHousePriceSeries             *connect.Client[v1alpha1.GetHousePriceSeriesRequest, v1alpha1.GetHousePriceSeriesResponse]
 }
 
 // GetTopShorts calls shorts.v1alpha1.ShortedStocksService.GetTopShorts.
@@ -805,6 +831,16 @@ func (c *shortedStocksServiceClient) GetStockSignals(ctx context.Context, req *c
 	return c.getStockSignals.CallUnary(ctx, req)
 }
 
+// GetHousingOverview calls shorts.v1alpha1.ShortedStocksService.GetHousingOverview.
+func (c *shortedStocksServiceClient) GetHousingOverview(ctx context.Context, req *connect.Request[v1alpha1.GetHousingOverviewRequest]) (*connect.Response[v1alpha1.GetHousingOverviewResponse], error) {
+	return c.getHousingOverview.CallUnary(ctx, req)
+}
+
+// GetHousePriceSeries calls shorts.v1alpha1.ShortedStocksService.GetHousePriceSeries.
+func (c *shortedStocksServiceClient) GetHousePriceSeries(ctx context.Context, req *connect.Request[v1alpha1.GetHousePriceSeriesRequest]) (*connect.Response[v1alpha1.GetHousePriceSeriesResponse], error) {
+	return c.getHousePriceSeries.CallUnary(ctx, req)
+}
+
 // ShortedStocksServiceHandler is an implementation of the shorts.v1alpha1.ShortedStocksService
 // service.
 type ShortedStocksServiceHandler interface {
@@ -892,6 +928,10 @@ type ShortedStocksServiceHandler interface {
 	GetEventTimeline(context.Context, *connect.Request[v1alpha1.GetEventTimelineRequest]) (*connect.Response[v1alpha1.GetEventTimelineResponse], error)
 	// Get a stock's reputation/risk signals (adverse: court/sanctions/complaints; positive: awards/press)
 	GetStockSignals(context.Context, *connect.Request[v1alpha1.GetStockSignalsRequest]) (*connect.Response[v1alpha1.GetStockSignalsResponse], error)
+	// Latest house-price headline metrics by region (national/state/capital city).
+	GetHousingOverview(context.Context, *connect.Request[v1alpha1.GetHousingOverviewRequest]) (*connect.Response[v1alpha1.GetHousingOverviewResponse], error)
+	// A single house-price time series for a region and measure.
+	GetHousePriceSeries(context.Context, *connect.Request[v1alpha1.GetHousePriceSeriesRequest]) (*connect.Response[v1alpha1.GetHousePriceSeriesResponse], error)
 }
 
 // NewShortedStocksServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -1146,6 +1186,18 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceGetStockSignalsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceGetHousingOverviewHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetHousingOverviewProcedure,
+		svc.GetHousingOverview,
+		connect.WithSchema(shortedStocksServiceGetHousingOverviewMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceGetHousePriceSeriesHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetHousePriceSeriesProcedure,
+		svc.GetHousePriceSeries,
+		connect.WithSchema(shortedStocksServiceGetHousePriceSeriesMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.ShortedStocksService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ShortedStocksServiceGetTopShortsProcedure:
@@ -1230,6 +1282,10 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetEventTimelineHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetStockSignalsProcedure:
 			shortedStocksServiceGetStockSignalsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetHousingOverviewProcedure:
+			shortedStocksServiceGetHousingOverviewHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetHousePriceSeriesProcedure:
+			shortedStocksServiceGetHousePriceSeriesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1401,4 +1457,12 @@ func (UnimplementedShortedStocksServiceHandler) GetEventTimeline(context.Context
 
 func (UnimplementedShortedStocksServiceHandler) GetStockSignals(context.Context, *connect.Request[v1alpha1.GetStockSignalsRequest]) (*connect.Response[v1alpha1.GetStockSignalsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetStockSignals is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetHousingOverview(context.Context, *connect.Request[v1alpha1.GetHousingOverviewRequest]) (*connect.Response[v1alpha1.GetHousingOverviewResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetHousingOverview is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetHousePriceSeries(context.Context, *connect.Request[v1alpha1.GetHousePriceSeriesRequest]) (*connect.Response[v1alpha1.GetHousePriceSeriesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetHousePriceSeries is not implemented"))
 }

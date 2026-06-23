@@ -292,3 +292,17 @@ export const getEventTimeline = ShortedStocksService.method.getEventTimeline;
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetStockSignals
  */
 export const getStockSignals = ShortedStocksService.method.getStockSignals;
+
+/**
+ * Latest house-price headline metrics by region (national/state/capital city).
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetHousingOverview
+ */
+export const getHousingOverview = ShortedStocksService.method.getHousingOverview;
+
+/**
+ * A single house-price time series for a region and measure.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetHousePriceSeries
+ */
+export const getHousePriceSeries = ShortedStocksService.method.getHousePriceSeries;
