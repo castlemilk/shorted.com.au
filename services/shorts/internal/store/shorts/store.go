@@ -148,6 +148,10 @@ type Store interface {
 	GetStockGraph(stockCode string, limit int32) (*StockGraphResult, error)
 	GetStockSignals(stockCode string, limit int32) (*StockSignalsResult, error)
 
+	// House-price tracker methods
+	GetHousingOverview(regionType string) ([]*HousingMetricRow, error)
+	GetHousePriceSeries(regionCode, measure, dwellingType string) (*HousePriceSeriesResult, error)
+
 	// Event timeline methods
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*TimelineEventRow, error)
 
