@@ -111,3 +111,49 @@ func (s *postgresStore) GetHousePriceSeries(regionCode, measure, dwellingType st
 	}
 	return result, rows.Err()
 }
+
+// HousingRegionRow is a selectable house-price region (for the suburb explorer).
+type HousingRegionRow struct {
+	RegionCode string
+	RegionName string
+	RegionType string
+	StateCode  string
+	Postcode   string
+}
+
+// GetHousingRegions lists regions from house_price_regions, optionally filtered
+// by region_type, state_code, and a case-insensitive name query.
+func (s *postgresStore) GetHousingRegions(regionType, stateCode, query string, limit int32) ([]*HousingRegionRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if limit <= 0 || limit > 5000 {
+		limit = 2000
+	}
+
+	const q = `
+		SELECT region_code, COALESCE(region_name, ''), COALESCE(region_type, ''),
+		       COALESCE(state_code, ''), COALESCE(postcode, '')
+		FROM house_price_regions
+		WHERE ($1 = '' OR region_type = $1)
+		  AND ($2 = '' OR state_code = $2)
+		  AND ($3 = '' OR region_name ILIKE '%' || $3 || '%')
+		ORDER BY region_name
+		LIMIT $4`
+
+	rows, err := s.db.Query(ctx, q, regionType, stateCode, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*HousingRegionRow
+	for rows.Next() {
+		var r HousingRegionRow
+		if err := rows.Scan(&r.RegionCode, &r.RegionName, &r.RegionType, &r.StateCode, &r.Postcode); err != nil {
+			return nil, err
+		}
+		out = append(out, &r)
+	}
+	return out, rows.Err()
+}

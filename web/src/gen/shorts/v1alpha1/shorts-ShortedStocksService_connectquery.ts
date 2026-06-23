@@ -306,3 +306,10 @@ export const getHousingOverview = ShortedStocksService.method.getHousingOverview
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetHousePriceSeries
  */
 export const getHousePriceSeries = ShortedStocksService.method.getHousePriceSeries;
+
+/**
+ * List house-price regions (suburbs/LGAs/etc) for the suburb explorer.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListHousingRegions
+ */
+export const listHousingRegions = ShortedStocksService.method.listHousingRegions;

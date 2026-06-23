@@ -272,6 +272,21 @@ func (mr *MockShortsStoreMockRecorder) GetHousePriceSeries(regionCode, measure, 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHousePriceSeries", reflect.TypeOf((*MockShortsStore)(nil).GetHousePriceSeries), regionCode, measure, dwellingType)
 }
 
+// GetHousingRegions mocks base method.
+func (m *MockShortsStore) GetHousingRegions(regionType, stateCode, query string, limit int32) ([]*shorts.HousingRegionRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHousingRegions", regionType, stateCode, query, limit)
+	ret0, _ := ret[0].([]*shorts.HousingRegionRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetHousingRegions indicates an expected call of GetHousingRegions.
+func (mr *MockShortsStoreMockRecorder) GetHousingRegions(regionType, stateCode, query, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHousingRegions", reflect.TypeOf((*MockShortsStore)(nil).GetHousingRegions), regionType, stateCode, query, limit)
+}
+
 // GetHousingOverview mocks base method.
 func (m *MockShortsStore) GetHousingOverview(regionType string) ([]*shorts.HousingMetricRow, error) {
 	m.ctrl.T.Helper()

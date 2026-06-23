@@ -564,6 +564,15 @@ service ShortedStocksService {
       description: "A single house-price time series for a region and measure (national mean price, capital-city median, household debt-to-income, price index), quarterly."
     };
   }
+
+  // List house-price regions (suburbs/LGAs/etc) for the suburb explorer.
+  rpc ListHousingRegions (ListHousingRegionsRequest) returns (ListHousingRegionsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Housing Regions",
+      description: "List house-price regions, optionally filtered by region_type, state, or a name query — powers the suburb explorer. Suburb medians are sourced from state Valuer-General offices (CC BY)."
+    };
+  }
 }
 
 message MintTokenRequest {
@@ -1586,4 +1595,24 @@ message GetHousePriceSeriesResponse {
   string source = 6;
   string source_licence = 7;
   repeated HousePricePoint points = 8;
+}
+
+message ListHousingRegionsRequest {
+  string region_type = 1; // optional filter, e.g. 'suburb' | 'gccsa' | 'state'
+  string state_code = 2;  // optional filter, e.g. 'SA' | 'VIC'
+  string query = 3;       // optional case-insensitive name substring
+  int32 limit = 4;        // optional; default 2000
+}
+
+// A selectable house-price region (for the suburb explorer).
+message HousingRegion {
+  string region_code = 1; // 'SUBURB:VIC-RICHMOND' | 'AUS' | '1GSYD'
+  string region_name = 2;
+  string region_type = 3; // 'national' | 'state' | 'gccsa' | 'suburb' | 'lga'
+  string state_code = 4;
+  string postcode = 5;
+}
+
+message ListHousingRegionsResponse {
+  repeated HousingRegion regions = 1;
 }
