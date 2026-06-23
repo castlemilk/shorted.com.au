@@ -66,7 +66,13 @@ func runOfficial(ctx context.Context, pool *pgxpool.Pool) {
 		{"abs_res_dwell_st", ingestRESDWELLST},
 		{"abs_res_dwell", ingestRESDWELL},
 		{"abs_rppi", ingestRPPI},
+		{"abs_lend_housing", ingestLENDHOUSING},
+		{"abs_derived_index", ingestDerivedPriceIndex},
 		{"rba", ingestRBADebtToIncome},
+		{"rba_f6_rates", ingestRBAMortgageRates},
+		{"rba_cash_rate", ingestRBACashRate},
+		{"rba_housing_credit", ingestRBAHousingCredit},
+		{"rba_balance_sheet", ingestRBAHouseholdBalanceSheet},
 	}
 	for _, j := range jobs {
 		obs, err := j.fn(ctx)
