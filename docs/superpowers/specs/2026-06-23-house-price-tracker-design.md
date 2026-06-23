@@ -25,15 +25,18 @@
 National real/nominal index, capital-city medians, debt-to-income, price-to-income → **LIVE**. Investor-share + Japan/China/US indices → **stay baked** (no AU source).
 
 ## Build sequence & progress
-1. ✅ **Migration 000053** (schema + MV + refresh fn) — applied to local DB.
-2. ✅ **Go collector `services/house-price-collector/`** — ABS backbone (RES_DWELL_ST / RES_DWELL / RPPI). Verified: 2,486 real obs landed, MV QoQ/YoY correct (AUS mean $1.11M, Sydney median $1.485M).
-3. ⬜ RBA debt-to-income ingest (`rba.go`).
-4. ⬜ RPC: `GetHousingOverview` + `GetHousePriceSeries` (proto → handler → 4-layer store) + web actions.
-5. ⬜ `/housing` dashboard page (reuse the housing-feature chart components).
+1. ✅ **Migration 000053** (schema + MV + refresh fn) — applied to local DB. [commit 4de330f6]
+2. ✅ **Go collector `services/house-price-collector/`** — ABS backbone (RES_DWELL_ST / RES_DWELL / RPPI). Verified: 2,486 real obs, MV QoQ/YoY correct. [4de330f6]
+3. ✅ **RBA debt-to-income** (`rba.go`) — 151 obs, peak 2018-Q2 187.7. [cbda99a4]
+4. ✅ **RPC `GetHousingOverview` + `GetHousePriceSeries`** (proto → handler → 4-layer store + regenerated Go/TS). **Verified end-to-end over Connect-RPC** (Sydney $1.485M +2.4%YoY, national mean $490.8k→$1.11M). [d6f3fdfb] — NOTE: shorts API has a bot-detection interceptor; clients need a browser-ish User-Agent + `Connect-Protocol-Version: 1`.
+5. ⬜ Web: `getHousing` server/client actions + `/housing` dashboard page (reuse housing-feature chart components).
 6. ⬜ Wire the Widow-Maker feature charts to live data (baked SSR fallback).
-7. ⬜ State-govt granular (VIC/SA medians; NSW gated) + Domain API.
-8. ⬜ Stealth crawl tier (`crawl.go` via `stealthhttp`, Chromium for REA, ABS cross-validation).
+7. ⬜ State-govt granular (VIC VPSR / SA metro medians; NSW gated) + Domain API.
+8. ⬜ Stealth crawl tier (`crawl.go` via `stealthhttp`, Chromium for REA's Kasada, ABS cross-validation).
 9. ⬜ Terraform `house-price-collector` Cloud Run Job + Scheduler (copy `short-data-sync`).
+10. ⬜ Collector Dockerfile (`FROM scratch AS stealth` pattern, golang:1.26.0) — needed for #7/#8/#9.
+
+**Status:** the full **data backbone + API is built, verified end-to-end, and committed** (branch `feat/house-price-tracker`, off the widow-maker branch). Remaining = web surface (#5/#6) + granular/crawl tiers (#7/#8) + deploy (#9/#10).
 
 ## Open decisions (carry from research)
 - NSW PSI **CC BY-NC-ND** → legal sign-off before surfacing computed medians commercially (ingest gated via `source_licence`).
