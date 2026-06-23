@@ -21,8 +21,10 @@ export default function Image() {
           flexDirection: "column",
           justifyContent: "space-between",
           backgroundColor: "#0C0C0C",
+          // satori (next/og) doesn't parse sized radial-gradients — a linear
+          // glow from the top-left gives the same amber bloom safely.
           backgroundImage:
-            "radial-gradient(900px 520px at 50% -10%, rgba(255,169,77,0.18), transparent)",
+            "linear-gradient(150deg, rgba(255,169,77,0.18) 0%, rgba(12,12,12,0) 45%)",
           padding: "64px 72px",
           color: "#E8DDB5",
           fontFamily: "Georgia, serif",
