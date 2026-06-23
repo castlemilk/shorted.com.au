@@ -65,15 +65,15 @@ func absColIndex(header []string) map[string]int {
 }
 
 func absCode(cell string) string {
-	if i := strings.Index(cell, ":"); i >= 0 {
-		return strings.TrimSpace(cell[:i])
+	if code, _, ok := strings.Cut(cell, ":"); ok {
+		return strings.TrimSpace(code)
 	}
 	return strings.TrimSpace(cell)
 }
 
 func absLabel(cell string) string {
-	if i := strings.Index(cell, ":"); i >= 0 {
-		return strings.TrimSpace(cell[i+1:])
+	if _, label, ok := strings.Cut(cell, ":"); ok {
+		return strings.TrimSpace(label)
 	}
 	return strings.TrimSpace(cell)
 }

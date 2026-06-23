@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "all", "abs | refresh | all")
+	mode := flag.String("mode", "all", "official | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -33,13 +33,13 @@ func main() {
 	defer pool.Close()
 
 	switch *mode {
-	case "abs", "all":
-		runABS(ctx, pool)
+	case "official", "abs", "all":
+		runOfficial(ctx, pool)
 		refresh(ctx, pool)
 	case "refresh":
 		refresh(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want abs|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|refresh|all)", *mode)
 	}
 }
 
@@ -51,8 +51,9 @@ func refresh(ctx context.Context, pool *pgxpool.Pool) {
 	log.Println("refreshed mv_housing_headline")
 }
 
-// runABS pulls each ABS dataflow, upserts regions + facts, and records the run.
-func runABS(ctx context.Context, pool *pgxpool.Pool) {
+// runOfficial pulls each official (ABS + RBA) source, upserts regions + facts,
+// and records the run cursor.
+func runOfficial(ctx context.Context, pool *pgxpool.Pool) {
 	jobs := []struct {
 		name string
 		fn   func(context.Context) ([]Observation, error)
@@ -60,6 +61,7 @@ func runABS(ctx context.Context, pool *pgxpool.Pool) {
 		{"abs_res_dwell_st", ingestRESDWELLST},
 		{"abs_res_dwell", ingestRESDWELL},
 		{"abs_rppi", ingestRPPI},
+		{"rba", ingestRBADebtToIncome},
 	}
 	for _, j := range jobs {
 		obs, err := j.fn(ctx)

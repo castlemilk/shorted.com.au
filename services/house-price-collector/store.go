@@ -42,8 +42,8 @@ func connect(ctx context.Context, dbURL string) (*pgxpool.Pool, error) {
 }
 
 func contentHash(o Observation) string {
-	h := sha1.Sum([]byte(fmt.Sprintf("%s|%s|%s|%s|%s|%.4f",
-		o.RegionCode, o.Measure, o.DwellingType, o.Period.Format("2006-01-02"), o.Source, o.Value)))
+	h := sha1.Sum(fmt.Appendf(nil, "%s|%s|%s|%s|%s|%.4f",
+		o.RegionCode, o.Measure, o.DwellingType, o.Period.Format("2006-01-02"), o.Source, o.Value))
 	return hex.EncodeToString(h[:])
 }
 
