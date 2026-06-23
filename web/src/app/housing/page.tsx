@@ -234,10 +234,10 @@ export default async function HousingPage() {
 
         <p className="border-t border-border pt-4 text-xs text-muted-foreground">
           Sources: Australian Bureau of Statistics (Residential Dwellings &amp;
-          Lending Indicators, CC BY 4.0), Reserve Bank of Australia (Tables E1, E2,
-          D1, F1.1, F6) and the South Australian Valuer-General (metro suburb
-          medians, CC BY). The most recent period may be preliminary. Not financial
-          advice.
+          Lending Indicators, WPI, CPI; CC BY 4.0), Reserve Bank of Australia
+          (Tables E1, E2, D1, F1.1, F6) and the South Australian &amp; Victorian
+          Valuer-General offices (suburb medians, CC BY). The most recent period
+          may be preliminary. Not financial advice.
         </p>
       </div>
     </DashboardLayout>
