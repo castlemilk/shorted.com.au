@@ -14,6 +14,7 @@ const items: NavItemWithGroup[] = [
   // Primary — always visible in desktop nav
   { title: "top shorted", href: "/top", primary: true },
   { title: "screener", href: "/screener", primary: true },
+  { title: "housing", href: "/housing", primary: true },
   { title: "dashboard", href: "/dashboards", requiresAuth: true, primary: true },
   { title: "AI chat", href: "/chat", requiresAuth: true, primary: true },
   { title: "reports", href: "/reports", primary: true },
