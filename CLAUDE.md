@@ -456,6 +456,55 @@ Stock screener with server-side filtering (`services/shorts/internal/services/sh
 - **Frontend**: `/screener` page + `screener-widget.tsx` dashboard widget
 - **Days to Cover**: Added in migration 000028
 
+## Housing (feature + price tracker)
+
+The housing surface has two distinct deliverables that share a data layer and a chart system:
+
+1. **`/features/the-widow-maker`** — a hand-built investigative editorial feature ("Why betting against Australian housing keeps failing"). Six numbered sections of prose with 4 embedded interactive `@visx` dashboards. Data is **baked** (curated research arrays, no RPC). Pinned into the `/news` masthead as a "Featured investigation" card.
+2. **`/housing`** — a live **Australian House Prices Tracker** dashboard (BigStat tiles + capital-city medians + amber series charts), fed by a real ABS/RBA ingest pipeline (`house-price-collector` → `house_prices` table → `GetHousingOverview`/`GetHousePriceSeries` RPCs).
+
+A **Tier-3 stealth crawl** of REA/Domain suburb medians exists in the collector but is **opt-in, anti-poisoning, licence-gated, and does not yet actually scrape** (Kasada/Akamai serve poison/403; no solver wired).
+
+### Key files
+
+| File | Purpose |
+|------|---------|
+| `web/src/app/features/the-widow-maker/page.tsx` | Editorial feature server page (6 sections, JSON-LD, `revalidate: 3600`) |
+| `web/src/@/components/features/housing/` | Editorial primitives: `hero`, `section`, `pull-quote`, `cite`, `stat-strip`, `feature-chart-frame`, `scroll-reveal`, `sources-list` |
+| `web/src/@/components/features/housing/dashboards.tsx` | `"use client"` `dynamic(ssr:false)` wrappers for the 4 feature charts + BankShortBasket |
+| `web/src/@/components/features/housing/charts/` | `policy-price-chart`, `buying-power-chart`, `international-corrections-chart`, `borrowing-power-slider` + `chart-theme.ts`, `chart-ui.tsx` |
+| `web/src/@/components/features/housing/data/` | `series.ts` (baked arrays), `sources.ts` (27-source bibliography + `getSource`), `stats.ts`, `types.ts` |
+| `web/src/@/components/news/masthead/featured.ts` | `FEATURED[]` registry — masthead pins `FEATURED[0]` |
+| `web/src/app/housing/page.tsx` | Live tracker SSR page (tiles + charts) |
+| `web/src/@/components/housing/` | `housing-tiles.tsx`, `housing-charts.tsx` (dynamic wrapper), `housing-series-chart.tsx` (live RPC + format-key) |
+| `web/src/app/actions/getHousing.ts` / `client/getHousingClient.ts` | SSR action (`cache()`+retry) / client action (session cache + backoff) |
+| `services/migrations/000053_add_house_prices.up.sql` | `house_price_regions`, `house_prices` (EAV), `house_price_ingest_runs`, `mv_housing_headline`, `refresh_housing_materialized_views()` |
+| `services/house-price-collector/` | `main.go` (`-mode official\|crawl\|refresh\|all`), `abs.go`, `rba.go`, `store.go`, `crawl*.go` |
+| `services/shorts/internal/services/shorts/house_prices.go` + `store/shorts/postgres_house_prices.go` | RPC handlers + queries |
+| `proto/shortedapi/shorts/v1alpha1/shorts.proto` | `GetHousingOverview` / `GetHousePriceSeries` |
+| `terraform/modules/house-price-collector/` | Cloud Run Job + monthly scheduler (built, **NOT yet wired** into envs/CI) |
+
+### Data sources & live-vs-baked
+
+- **LIVE** (collector fetches each run): ABS `RES_DWELL_ST` (mean_price, total_value — national+states), ABS `RES_DWELL` (median_price by dwelling for GCCSAs), ABS `RPPI` (price_index, but frozen at 2021-Q4 upstream), RBA `E2` (debt_to_income). All CC-BY-4.0.
+- **BAKED** (transcribed arrays in `data/series.ts`, only the feature uses these): BIS real HPI for AUS/JPN/USA/CHN (FRED, never fetched), OECD price-to-income, ABS Lending Indicators investor share, ATO negatively-geared landlords.
+- **CRAWL** (`source_licence='proprietary-tos-restricted'`, never republished): `crawl_rea`, `crawl_domain` — currently blocked, no values stored.
+
+### Prod-ops gotchas
+
+- **DDL on prod Supabase**: apply `000053` via the **session pooler port 5432** (not the txn pooler 6543) with `PGOPTIONS="-c statement_timeout=0"` so `REFRESH MATERIALIZED VIEW CONCURRENTLY` can run. The collector's `store.go` uses port 6543 + `QueryExecModeSimpleProtocol` for normal writes.
+- **ABS WAF**: `abs.go` MUST send `User-Agent: shorted-housing/1.0 (+https://shorted.com.au)` + `Accept: application/vnd.sdmx.data+csv;labels=both`; bare requests are WAF-blocked (same posture as other project fetches). The crawl tier gets browser-realistic TLS/headers automatically from `stealthhttp`'s native engine — don't hand-set a UA there.
+- **SSR vs rewrite env split**: server components/actions read `NEXT_PUBLIC_API_URL` (internal rewrite-proxy) first; client components fall back to `NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT`. Use `getShortsApiUrl()` from `app/actions/config.ts`, never the env var directly.
+- **Charts can't SSR**: every interactive chart is imported via `dynamic(..., { ssr: false })` from a `"use client"` module (`dashboards.tsx`, `housing-charts.tsx`) — connect-web + measure-on-client crash SSR otherwise.
+- **Functions can't cross the RSC boundary**: `housing-series-chart.tsx` passes a serializable `format="aud"|"percent"|"index"` key and looks up the formatter in a client-side `FORMATTERS` map — never pass a formatter function as a prop from the server page.
+- **Satori OG limitation**: `opengraph-image.tsx` uses `linear-gradient` (not sized `radial-gradient`, which satori can't parse) and Georgia/system fonts (no webfont). The `/news` featured card recreates the same bloom with a CSS `radial-gradient` (which is fine in the browser, just not in OG).
+- **MV refresh is decoupled**: `refresh_housing_materialized_views()` is separate from the daily shorts `refresh_all_materialized_views()`; the collector calls it post-ingest.
+
+### Pointers
+
+- Full architecture + extension recipes: `docs/housing-architecture.md`.
+- Adding a new feature dashboard, a new ABS measure/region, a new RPC, or wiring the feature charts to live data: see the "Future extensions" section of that doc.
+
 ## Twitter / X Automation
 
 `@shorted___` is the live X handle. The bot is a self-contained Node + TypeScript project at `scripts/twitter/` that pulls live ASIC short data, market news, and director trades from the public shorted.com.au API and posts curated tweets.
