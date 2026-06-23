@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { getHousingOverview } from "~/app/actions/getHousing";
@@ -187,6 +188,12 @@ export default async function HousingPage() {
                 area. YoY change shown; quarter change below.
               </p>
               <HousingTiles tiles={capitalTiles} />
+              <Link
+                href="/housing/suburbs"
+                className="inline-flex items-center gap-1 text-sm font-medium text-foreground underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-foreground"
+              >
+                Explore median prices by suburb (SA &amp; VIC) →
+              </Link>
             </section>
 
             <section className="grid gap-6 lg:grid-cols-2">

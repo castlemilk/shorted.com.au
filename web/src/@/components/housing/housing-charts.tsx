@@ -13,3 +13,11 @@ export const HousingSeriesChart = dynamic(
     loading: () => <div className="h-[280px] w-full animate-pulse rounded bg-muted" />,
   },
 );
+
+export const SuburbExplorer = dynamic(
+  () => import("./suburb-explorer").then((m) => m.SuburbExplorer),
+  {
+    ssr: false,
+    loading: () => <div className="h-[520px] w-full animate-pulse rounded-xl bg-muted" />,
+  },
+);
