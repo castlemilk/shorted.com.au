@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"connectrpc.com/connect"
 	connectcors "connectrpc.com/cors"
@@ -17,6 +18,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/pkg/log"
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/jobmonitor"
 
 	"github.com/castlemilk/shorted.com.au/services/gen/proto/go/register/v1/registerv1connect"
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
@@ -203,7 +205,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 
 		// Check cache first
 		cacheKey := s.cache.GetSearchStocksKey(query, limit)
-		
+
 		// Use cached result or fetch from Algolia/database
 		cachedResult, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
 			// Try Algolia first if configured
@@ -215,7 +217,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 				}
 				logger.Warnf("Algolia search failed or returned no results for '%s', falling back to PostgreSQL: %v", query, algoliaErr)
 			}
-			
+
 			// Fall back to PostgreSQL
 			logger.Debugf("cache miss for SearchStocks, fetching from database: query='%s'", query)
 			return s.store.SearchStocks(query, limit)
@@ -231,7 +233,7 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			}
 			return
 		}
-		
+
 		stocks := cachedResult.([]*stocksv1alpha1.Stock)
 
 		// Convert to JSON response
@@ -449,10 +451,10 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		if limit > 100 {
 			limit = 100
 		}
-		
+
 		// Environment filter: "production", "development", or empty for all
 		environment := r.URL.Query().Get("environment")
-		
+
 		// Exclude local runs by default for cleaner production view
 		excludeLocal := r.URL.Query().Get("excludeLocal") != "false"
 
@@ -510,6 +512,52 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(Response{Runs: runResponses}); err != nil {
 			logger.Errorf("Error encoding JSON response: %v", err)
+			return
+		}
+	}))
+
+	// Add admin jobs overview endpoint (requires INTERNAL_SERVICE_SECRET auth).
+	// Reports the run status of EVERY scheduled async job by reading Cloud Run
+	// Job executions + Cloud Scheduler triggers directly — no per-job DB
+	// instrumentation required, so the whole fleet is visible immediately.
+	mux.HandleFunc("/api/admin/jobs", adminAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+		defer cancel()
+
+		jobs, err := s.jobsCollector.Collect(ctx)
+		stale := false
+		if err != nil {
+			if jobs == nil {
+				logger.Errorf("Failed to collect job status: %v", err)
+				http.Error(w, "Failed to get job status", http.StatusInternalServerError)
+				return
+			}
+			// Serving last-known-good data on a transient GCP error.
+			stale = true
+			logger.Warnf("Serving stale job status after collect error: %v", err)
+		}
+
+		type Response struct {
+			Jobs  []jobmonitor.JobStatus `json:"jobs"`
+			Stale bool                   `json:"stale"`
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(Response{Jobs: jobs, Stale: stale}); err != nil {
+			logger.Errorf("Error encoding job status response: %v", err)
 			return
 		}
 	}))

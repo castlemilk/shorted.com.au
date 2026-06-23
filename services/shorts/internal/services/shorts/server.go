@@ -9,6 +9,7 @@ import (
 
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
 	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/jobmonitor"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/register"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/store/shorts"
 )
@@ -22,9 +23,10 @@ type ShortsServer struct {
 	shortsv1alpha1connect.UnimplementedShortedStocksServiceHandler
 	registerServer *register.RegisterServer
 	tokenService   *TokenService
-	pubSubClient PubSubClient
+	pubSubClient   PubSubClient
 	rateLimiter    ratelimit.RateLimiter
 	httpClient     *http.Client
+	jobsCollector  *jobmonitor.Collector
 }
 
 // New creates instance of the Server
@@ -97,8 +99,9 @@ func New(ctx context.Context, cfg Config) (*ShortsServer, error) {
 		logger:         logger,
 		registerServer: registerServer,
 		tokenService:   tokenService,
-		pubSubClient: pubSubClient,
+		pubSubClient:   pubSubClient,
 		rateLimiter:    rateLimiter,
 		httpClient:     &http.Client{Timeout: 10 * time.Second},
+		jobsCollector:  jobmonitor.NewCollector(jobmonitor.ConfigFromEnv()),
 	}, nil
 }
