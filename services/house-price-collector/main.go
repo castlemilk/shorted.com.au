@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "all", "official | refresh | all")
+	mode := flag.String("mode", "all", "official | crawl | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -36,10 +36,15 @@ func main() {
 	case "official", "abs", "all":
 		runOfficial(ctx, pool)
 		refresh(ctx, pool)
+	case "crawl":
+		// Supplementary suburb crawl — opt-in only, never part of the default
+		// scheduled run (it's slow, adversarial and licence-gated).
+		runCrawl(ctx, pool)
+		refresh(ctx, pool)
 	case "refresh":
 		refresh(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want official|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|crawl|refresh|all)", *mode)
 	}
 }
 
