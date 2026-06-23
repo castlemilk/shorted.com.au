@@ -126,6 +126,17 @@ module "short_data_sync" {
   ]
 }
 
+# House-price collector (ABS/RBA quarterly ingest + MV refresh)
+module "house_price_collector" {
+  source = "../../modules/house-price-collector"
+
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment      = "production"
+  image_url        = var.house_price_collector_image
+}
+
 # Shorts API Service
 module "shorts_api" {
   source = "../../modules/shorts-api"

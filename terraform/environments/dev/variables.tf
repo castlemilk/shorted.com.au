@@ -22,6 +22,12 @@ variable "short_data_sync_image" {
   default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/short-data-sync:latest"
 }
 
+variable "house_price_collector_image" {
+  description = "Docker image URL for house-price-collector job"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/shorted-dev-aba5688f/shorted/house-price-collector:latest"
+}
+
 variable "shorts_api_image" {
   description = "Docker image URL for shorts API service"
   type        = string

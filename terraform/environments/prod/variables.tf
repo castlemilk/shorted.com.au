@@ -22,6 +22,12 @@ variable "short_data_sync_image" {
   default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/short-data-sync:latest"
 }
 
+variable "house_price_collector_image" {
+  description = "Docker image URL for house-price-collector job"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/house-price-collector:latest"
+}
+
 variable "shorts_api_image" {
   description = "Docker image URL for shorts API service"
   type        = string
