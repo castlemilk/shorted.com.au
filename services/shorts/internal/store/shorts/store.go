@@ -15,8 +15,8 @@ type Row interface {
 
 // SyncStatusFilter defines filtering options for sync status queries
 type SyncStatusFilter struct {
-	Limit       int
-	Environment string // "production", "development", or empty for all
+	Limit        int
+	Environment  string // "production", "development", or empty for all
 	ExcludeLocal bool   // if true, exclude runs from local hostnames
 }
 
@@ -151,6 +151,7 @@ type Store interface {
 	// House-price tracker methods
 	GetHousingOverview(regionType string) ([]*HousingMetricRow, error)
 	GetHousePriceSeries(regionCode, measure, dwellingType string) (*HousePriceSeriesResult, error)
+	GetHousingRegions(regionType, stateCode, query string, limit int32) ([]*HousingRegionRow, error)
 
 	// Event timeline methods
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*TimelineEventRow, error)
@@ -199,8 +200,8 @@ type APISubscription struct {
 	UserEmail            string
 	StripeCustomerID     string
 	StripeSubscriptionID string
-	Status               string  // active, canceled, past_due, inactive, trialing
-	Tier                 string  // free, pro, enterprise
+	Status               string // active, canceled, past_due, inactive, trialing
+	Tier                 string // free, pro, enterprise
 	CurrentPeriodStart   *string
 	CurrentPeriodEnd     *string
 	CancelAtPeriodEnd    bool
@@ -241,15 +242,15 @@ type WeeklyReport struct {
 
 // NewsArticle represents a news article from the database
 type NewsArticle struct {
-	ID               string
-	StockCode        string
-	Source           string
-	Headline         string
-	URL              string
-	PublishedAt      string
-	Sentiment        *string
-	RelevanceScore   float64
-	IsPriceSensitive bool
+	ID                string
+	StockCode         string
+	Source            string
+	Headline          string
+	URL               string
+	PublishedAt       string
+	Sentiment         *string
+	RelevanceScore    float64
+	IsPriceSensitive  bool
 	Summary           *string
 	Tags              []byte // JSON
 	ImageURL          *string
@@ -259,26 +260,26 @@ type NewsArticle struct {
 
 // EditorialTake is a Shorted Take editorial article.
 type EditorialTake struct {
-	ID              string
-	Slug            string
-	Headline        string
-	StockCode       *string
-	BodyMD          string
-	Sentiment       *string
-	SourceArticleID *string
-	SourceURL       *string
-	SourceName      *string
-	OGImageURL      *string
-	WordCount       *int32
-	Model           *string
-	PublishedAt     *string
+	ID               string
+	Slug             string
+	Headline         string
+	StockCode        *string
+	BodyMD           string
+	Sentiment        *string
+	SourceArticleID  *string
+	SourceURL        *string
+	SourceName       *string
+	OGImageURL       *string
+	WordCount        *int32
+	Model            *string
+	PublishedAt      *string
 	CreatedAt        string
 	HeroImageURL     *string
 	InlineImages     []byte // JSONB raw — service layer decodes to []InlineImage
 	TweetPublishedAt *string
 	Citations        []byte // JSONB raw — service layer decodes to []TakeCitation
 	LayoutImages     []byte // JSONB raw — service layer decodes to []LayoutImage
-	BodyFormat       string  // 'markdown' | 'mdx' — NOT NULL DEFAULT 'markdown'
+	BodyFormat       string // 'markdown' | 'mdx' — NOT NULL DEFAULT 'markdown'
 	Standfirst       *string
 	Byline           *string
 	HeroCaption      *string
@@ -337,13 +338,13 @@ type DirectorTrade struct {
 
 // DividendRecord represents a dividend payment from the database
 type DividendRecord struct {
-	ID                  string
-	StockCode           string
-	ExDate              string
-	PaymentDate         *string
-	AmountPerShare      float64
-	FrankingPercentage  float64
-	DividendType        string
+	ID                 string
+	StockCode          string
+	ExDate             string
+	PaymentDate        *string
+	AmountPerShare     float64
+	FrankingPercentage float64
+	DividendType       string
 }
 
 // PeerStock represents a peer stock for comparison
@@ -384,7 +385,7 @@ type GraphPeerRow struct {
 
 // StockGraphResult holds the full graph result for a stock
 type StockGraphResult struct {
-	People          []*GraphPersonRow
+	People           []*GraphPersonRow
 	SimilarCompanies []*GraphPeerRow
 }
 

@@ -3,6 +3,7 @@ import { createClient } from "@connectrpc/connect";
 import {
   ShortedStocksService,
   type GetHousePriceSeriesResponse,
+  type ListHousingRegionsResponse,
 } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { SHORTS_API_URL } from "../config";
 import { retryWithBackoff } from "@/lib/retry";
@@ -28,6 +29,34 @@ export async function getHousePriceSeriesClient(
   try {
     const result = await retryWithBackoff(
       () => client.getHousePriceSeries({ regionCode, measure, dwellingType }),
+      RETRY_OPTIONS,
+    );
+    setSessionCached(cacheKey, result);
+    return result;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Browser-side housing-region list (powers the suburb explorer selector). */
+export async function listHousingRegionsClient(
+  regionType = "",
+  stateCode = "",
+  query = "",
+  limit = 2000,
+): Promise<ListHousingRegionsResponse | undefined> {
+  const cacheKey = `housingRegions:${regionType}:${stateCode}:${query}:${limit}`;
+  const cached = getSessionCached<ListHousingRegionsResponse>(cacheKey);
+  if (cached) return cached;
+
+  const transport = createConnectTransport({
+    baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL,
+  });
+  const client = createClient(ShortedStocksService, transport);
+
+  try {
+    const result = await retryWithBackoff(
+      () => client.listHousingRegions({ regionType, stateCode, query, limit }),
       RETRY_OPTIONS,
     );
     setSessionCached(cacheKey, result);

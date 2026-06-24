@@ -234,6 +234,10 @@ func (s *StoreAdapter) GetHousePriceSeries(regionCode, measure, dwellingType str
 	return s.store.GetHousePriceSeries(regionCode, measure, dwellingType)
 }
 
+func (s *StoreAdapter) GetHousingRegions(regionType, stateCode, query string, limit int32) ([]*shorts.HousingRegionRow, error) {
+	return s.store.GetHousingRegions(regionType, stateCode, query, limit)
+}
+
 func (s *StoreAdapter) GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shorts.TimelineEventRow, error) {
 	return s.store.GetEventTimeline(stockCode, daysBack, limit)
 }

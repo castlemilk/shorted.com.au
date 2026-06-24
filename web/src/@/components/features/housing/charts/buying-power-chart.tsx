@@ -14,6 +14,7 @@ import { APRA_MARKERS, DEBT_TO_INCOME, DTI_PEAK, PRICE_TO_INCOME } from "../data
 import type { YearValue } from "../data/types";
 import { AMBER, AXIS_LINE, AXIS_TEXT, MARKER, TOOLTIP_STYLE } from "./chart-theme";
 import { LegendDot } from "./chart-ui";
+import { useLiveYearValues } from "./use-live-year-values";
 
 const P2I = "#06b6d4"; // cyan — price-to-income
 const MARGIN = { top: 20, right: 46, bottom: 28, left: 36 };
@@ -36,6 +37,9 @@ function nearest(data: YearValue[], year: number): YearValue | undefined {
 }
 
 function ChartInner({ width }: { width: number }) {
+  // price-to-income splices the live ABS-derived index (2015=100) onto the
+  // baked OECD spine; falls back to baked if live is absent.
+  const priceToIncome = useLiveYearValues("price_to_income", PRICE_TO_INCOME);
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
     useTooltip<{ year: number; dti: number; p2i?: number }>();
 
@@ -43,17 +47,26 @@ function ChartInner({ width }: { width: number }) {
   const innerHeight = HEIGHT - MARGIN.top - MARGIN.bottom;
   const small = width < 520;
 
+  const lastYear = useMemo(
+    () => Math.max(2025, ...priceToIncome.map((d) => d.year), ...DEBT_TO_INCOME.map((d) => d.year)),
+    [priceToIncome],
+  );
   const xScale = useMemo(
-    () => scaleLinear({ domain: [1990, 2025], range: [0, innerWidth] }),
-    [innerWidth],
+    () => scaleLinear({ domain: [1990, lastYear], range: [0, innerWidth] }),
+    [innerWidth, lastYear],
   );
   const dtiScale = useMemo(
     () => scaleLinear({ domain: [0, 200], range: [innerHeight, 0], nice: true }),
     [innerHeight],
   );
   const p2iScale = useMemo(
-    () => scaleLinear({ domain: [0, 130], range: [innerHeight, 0], nice: true }),
-    [innerHeight],
+    () =>
+      scaleLinear({
+        domain: [0, Math.max(130, Math.ceil(Math.max(...priceToIncome.map((d) => d.value)) / 10) * 10)],
+        range: [innerHeight, 0],
+        nice: true,
+      }),
+    [innerHeight, priceToIncome],
   );
 
   const handleMove = useCallback(
@@ -66,7 +79,7 @@ function ChartInner({ width }: { width: number }) {
       const b = DEBT_TO_INCOME[idx];
       const dti = b && Math.abs(b.year - year) < Math.abs((a?.year ?? -Infinity) - year) ? b : a;
       if (!dti) return;
-      const p2iPoint = nearest(PRICE_TO_INCOME, dti.year);
+      const p2iPoint = nearest(priceToIncome, dti.year);
       showTooltip({
         tooltipData: {
           year: dti.year,
@@ -77,7 +90,7 @@ function ChartInner({ width }: { width: number }) {
         tooltipTop: dtiScale(dti.value) + MARGIN.top,
       });
     },
-    [xScale, dtiScale, showTooltip],
+    [xScale, dtiScale, showTooltip, priceToIncome],
   );
 
   if (innerWidth <= 0) return null;
@@ -123,7 +136,7 @@ function ChartInner({ width }: { width: number }) {
 
           {/* price-to-income (right) */}
           <LinePath<YearValue>
-            data={PRICE_TO_INCOME}
+            data={priceToIncome}
             x={(d) => xScale(d.year)}
             y={(d) => p2iScale(d.value)}
             curve={curveMonotoneX}

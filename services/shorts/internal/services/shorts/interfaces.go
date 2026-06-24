@@ -97,6 +97,7 @@ type ShortsStore interface {
 	// House-price tracker methods
 	GetHousingOverview(regionType string) ([]*shortsstore.HousingMetricRow, error)
 	GetHousePriceSeries(regionCode, measure, dwellingType string) (*shortsstore.HousePriceSeriesResult, error)
+	GetHousingRegions(regionType, stateCode, query string, limit int32) ([]*shortsstore.HousingRegionRow, error)
 
 	// Event timeline methods
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shortsstore.TimelineEventRow, error)
@@ -130,6 +131,7 @@ type Cache interface {
 	GetStockSignalsKey(stockCode string, limit int32) string
 	GetHousingOverviewKey(regionType string) string
 	GetHousePriceSeriesKey(regionCode, measure, dwellingType string) string
+	GetHousingRegionsKey(regionType, stateCode, query string, limit int32) string
 	GetEventTimelineKey(stockCode string, daysBack, limit int32) string
 	GetDirectorTradesKey(stockCode string, limit int32) string
 	GetDividendHistoryKey(stockCode string, years int32) string

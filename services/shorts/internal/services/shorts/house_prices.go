@@ -93,3 +93,41 @@ func (s *ShortsServer) GetHousePriceSeries(ctx context.Context, req *connect.Req
 	}
 	return connect.NewResponse(cached.(*shortsv1alpha1.GetHousePriceSeriesResponse)), nil
 }
+
+// ListHousingRegions lists selectable house-price regions (suburbs/LGAs/etc),
+// optionally filtered by region_type, state, or name — powers the suburb explorer.
+func (s *ShortsServer) ListHousingRegions(ctx context.Context, req *connect.Request[shortsv1alpha1.ListHousingRegionsRequest]) (*connect.Response[shortsv1alpha1.ListHousingRegionsResponse], error) {
+	m := req.Msg
+
+	cacheKey := s.cache.GetHousingRegionsKey(m.RegionType, m.StateCode, m.Query, m.Limit)
+	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+		rows, err := s.store.GetHousingRegions(m.RegionType, m.StateCode, m.Query, m.Limit)
+		if err != nil {
+			return nil, err
+		}
+		regions := make([]*shortsv1alpha1.HousingRegion, 0, len(rows))
+		for _, r := range rows {
+			if r == nil {
+				continue
+			}
+			hr := &shortsv1alpha1.HousingRegion{
+				RegionCode:  r.RegionCode,
+				RegionName:  r.RegionName,
+				RegionType:  r.RegionType,
+				StateCode:   r.StateCode,
+				Postcode:    r.Postcode,
+				LatestValue: r.LatestValue,
+			}
+			if r.LatestPeriod != nil {
+				hr.LatestPeriod = timestamppb.New(*r.LatestPeriod)
+			}
+			regions = append(regions, hr)
+		}
+		return &shortsv1alpha1.ListHousingRegionsResponse{Regions: regions}, nil
+	})
+	if err != nil {
+		s.logger.Errorf("database error in ListHousingRegions: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list housing regions"))
+	}
+	return connect.NewResponse(cached.(*shortsv1alpha1.ListHousingRegionsResponse)), nil
+}
