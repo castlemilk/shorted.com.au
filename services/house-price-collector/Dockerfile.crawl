@@ -1,0 +1,101 @@
+# syntax=docker/dockerfile:1
+#
+# Dockerfile.crawl — the Tier-3 RESIDENTIAL crawl image.
+#
+# ┌──────────────────────────────────────────────────────────────────────────┐
+# │ THIS IMAGE RUNS ONLY ON THE RESIDENTIAL "CUTTLEFISH" RUNNER — NEVER ON     │
+# │ CLOUD RUN.                                                                 │
+# │                                                                            │
+# │ The Tier-3 crawl drives a HEADED, persistent-profile Chromium (the only    │
+# │ client posture that survives realestate.com.au's Kasada and                │
+# │ domain.com.au's Akamai from a residential IP). A datacentre egress (Cloud  │
+# │ Run / GCP) is blocked/poisoned regardless of the browser, so deploying     │
+# │ this anywhere but the residential rig is pointless and will only burn      │
+# │ the IP. The official ABS/RBA backbone image (../Dockerfile, distroless,    │
+# │ -mode all) is the one that runs on Cloud Run.                              │
+# └──────────────────────────────────────────────────────────────────────────┘
+#
+# It bakes: the Go collector binary + Node + the Playwright CHROMIUM browser +
+# its OS deps + xvfb, and runs the collector under a virtual X display so the
+# "headed" browser has somewhere to draw.
+#
+# The persistent browser profile (CRAWL_PROFILE_DIR, default /data/pw-profile)
+# MUST be a MOUNTED VOLUME on the runner so the Kasada clearance cookie / warm
+# context survives across runs — a cold profile re-triggers the JS challenge
+# every time. Example:
+#   docker run --rm \
+#     -e DATABASE_URL=... -e BRANDBRAIN_URL=... \
+#     -e CRAWL_MAX_SUBURBS=3 -e CRAWL_DRY_RUN=true \
+#     -v /srv/pw-profile:/data/pw-profile \
+#     house-price-collector-crawl
+#
+# NOTE: do NOT build this in CI / on the disk-constrained dev box — the
+# Playwright browser download is large and the image only has a home on the
+# residential rig. Build + first paced live run happen there.
+
+# --- stealth source bind-mount (collector still imports services/pkg/stealthhttp
+#     via the VIC official tier; same PAT/bind pattern as ../Dockerfile) ---
+FROM scratch AS stealth
+
+FROM golang:1.26.0 AS builder
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN --mount=type=secret,id=github_token \
+    --mount=type=bind,from=stealth,target=/stealth-src \
+    if [ -f /run/secrets/github_token ]; then \
+      git config --global url."https://x-access-token:$(cat /run/secrets/github_token)@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; \
+    elif [ -f /stealth-src/go.mod ]; then \
+      cp -r /stealth-src /stealth && \
+      go mod edit -replace github.com/skunkworq/stealth=/stealth && \
+      cp go.mod /tmp/go.mod.stealth; \
+    fi && \
+    GOPRIVATE=github.com/skunkworq/* GONOSUMCHECK=github.com/skunkworq/* go mod download && \
+    rm -f ~/.gitconfig
+COPY . .
+RUN [ -f /tmp/go.mod.stealth ] && cp /tmp/go.mod.stealth go.mod || true
+RUN CGO_ENABLED=0 GOOS=linux go build -o /collector ./house-price-collector/
+
+# --- runtime: Debian slim + Node + Playwright(-go) driver + chromium + xvfb ---
+FROM debian:bookworm-slim
+
+# Node (for the playwright-go driver, which is the Node Playwright CLI under the
+# hood) + xvfb (virtual display for the HEADED browser) + ca-certs. The chromium
+# OS dependencies themselves are installed by `playwright install --with-deps`
+# below, so we don't hand-maintain that long, brittle apt list here.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        xvfb \
+        nodejs \
+        npm \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install the playwright-go driver + the CHROMIUM browser (and its OS deps) at
+# BUILD time. The collector calls only playwright.Run() at runtime (never
+# .Install()), so the driver + browser MUST be baked in here. The CLI version is
+# pinned to match the go module (v0.5700.1) so the driver and the library agree.
+#   - PLAYWRIGHT_BROWSERS_PATH=0 keeps the browser next to the driver so a single
+#     well-known location holds both (no per-user cache surprises under xvfb).
+ENV PLAYWRIGHT_DRIVER_PATH=/opt/ms-playwright-go
+RUN GOBIN=/usr/local/bin \
+    && curl -fsSL https://go.dev/dl/go1.26.0.linux-amd64.tar.gz | tar -C /usr/local -xz \
+    && /usr/local/go/bin/go run github.com/playwright-community/playwright-go/cmd/playwright@v0.5700.1 install --with-deps chromium \
+    && rm -rf /usr/local/go /root/go /root/.cache/go-build
+# (If the above go-toolchain bootstrap is undesirable on the rig, the alternative
+# is to COPY a pre-fetched driver dir into PLAYWRIGHT_DRIVER_PATH; either way the
+# driver + chromium are present before runtime and .Install() is never called.)
+
+WORKDIR /app
+COPY --from=builder /collector /collector
+
+# Warm-profile volume (mount a host dir here on the runner) so the Kasada
+# clearance cookie / warm context survives across runs. Created so a missing
+# mount still has a writable default path.
+RUN mkdir -p /data/pw-profile
+ENV CRAWL_PROFILE_DIR=/data/pw-profile
+VOLUME ["/data/pw-profile"]
+
+# Run the collector's crawl mode under a virtual display so the HEADED Chromium
+# has an X server to render into. xvfb-run picks a free display and tears it down
+# when the collector exits.
+ENTRYPOINT ["xvfb-run", "-a", "--server-args=-screen 0 1440x900x24", "/collector", "-mode", "crawl"]
