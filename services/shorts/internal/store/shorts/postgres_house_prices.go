@@ -85,12 +85,16 @@ func (s *postgresStore) GetHousePriceSeries(regionCode, measure, dwellingType st
 		dwellingType = "all"
 	}
 
+	// publicLicenceFilter excludes internal, ToS-restricted rows (REA/Domain
+	// crawl + brandbrain, source_licence = 'proprietary-tos-restricted') from
+	// every public read path — those rows may NEVER reach a public surface.
 	const query = `
 		SELECT hp.period, hp.value, hp.is_preliminary, COALESCE(hp.unit, ''),
 		       hp.source, hp.source_licence, COALESCE(r.region_name, '')
 		FROM house_prices hp
 		JOIN house_price_regions r ON r.region_code = hp.region_code
 		WHERE hp.region_code = $1 AND hp.measure = $2 AND hp.dwelling_type = $3
+		  AND hp.source_licence <> 'proprietary-tos-restricted'
 		ORDER BY hp.period ASC`
 
 	rows, err := s.db.Query(ctx, query, regionCode, measure, dwellingType)
@@ -135,6 +139,10 @@ func (s *postgresStore) GetHousingRegions(regionType, stateCode, query string, l
 		limit = 2000
 	}
 
+	// Gate out internal, ToS-restricted REA/Domain/brandbrain rows
+	// (source_licence = 'proprietary-tos-restricted'): the latest-median lateral
+	// only considers public-licence observations, and the EXISTS guard drops
+	// regions whose entire footprint is proprietary so they never surface here.
 	const q = `
 		SELECT r.region_code, COALESCE(r.region_name, ''), COALESCE(r.region_type, ''),
 		       COALESCE(r.state_code, ''), COALESCE(r.postcode, ''),
@@ -143,12 +151,21 @@ func (s *postgresStore) GetHousingRegions(regionType, stateCode, query string, l
 		LEFT JOIN LATERAL (
 			SELECT value, period FROM house_prices hp
 			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price'
+			  AND hp.source_licence <> 'proprietary-tos-restricted'
 			ORDER BY hp.period DESC
 			LIMIT 1
 		) lp ON true
 		WHERE ($1 = '' OR r.region_type = $1)
 		  AND ($2 = '' OR r.state_code = $2)
 		  AND ($3 = '' OR r.region_name ILIKE '%' || $3 || '%')
+		  AND (
+		    NOT EXISTS (SELECT 1 FROM house_prices hp WHERE hp.region_code = r.region_code)
+		    OR EXISTS (
+		      SELECT 1 FROM house_prices hp
+		      WHERE hp.region_code = r.region_code
+		        AND hp.source_licence <> 'proprietary-tos-restricted'
+		    )
+		  )
 		ORDER BY r.region_name
 		LIMIT $4`
 

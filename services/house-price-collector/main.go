@@ -38,7 +38,9 @@ func main() {
 		refresh(ctx, pool)
 	case "crawl":
 		// Supplementary suburb crawl — opt-in only, never part of the default
-		// scheduled run (it's slow, adversarial and licence-gated).
+		// scheduled run (it's slow, adversarial and licence-gated). Drives a HEADED,
+		// persistent-profile Playwright browser, so it runs ONLY on the residential
+		// cuttlefish rig under xvfb (see Dockerfile.crawl), never on Cloud Run.
 		runCrawl(ctx, pool)
 		refresh(ctx, pool)
 	case "refresh":

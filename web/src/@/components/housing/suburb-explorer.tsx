@@ -38,9 +38,17 @@ function pointDate(p: { period?: { seconds?: bigint } }): number {
  * housing-charts.tsx because it pulls in connect-web.
  */
 export function SuburbExplorer() {
+  const [stateFilter, setStateFilter] = useState("VIC");
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<string | null>(null);
+
+  // State is filtered SERVER-SIDE: the selected state_code is passed to
+  // ListHousingRegions so the SQL WHERE narrows the result set. (Previously the
+  // client fetched all suburbs with an empty state_code and tried to filter in
+  // memory, which let mixed SA+VIC results through.)
   const { data: regionsResp, isLoading } = useQuery({
-    queryKey: ["housing-regions", "suburb"],
-    queryFn: () => listHousingRegionsClient("suburb", "", "", 2000),
+    queryKey: ["housing-regions", "suburb", stateFilter],
+    queryFn: () => listHousingRegionsClient("suburb", stateFilter, "", 2000),
     staleTime: 60 * 60 * 1000,
   });
 
@@ -55,11 +63,8 @@ export function SuburbExplorer() {
     [regionsResp],
   );
 
-  const [stateFilter, setStateFilter] = useState("VIC");
-  const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<string | null>(null);
-
-  // map shows the whole state (no text filter); the list narrows by search.
+  // Server already narrows by state_code; this stays as a defensive guard
+  // (and a no-op pass-through for the "All" selection).
   const stateFiltered = useMemo(
     () => regions.filter((r) => !stateFilter || r.stateCode === stateFilter),
     [regions, stateFilter],

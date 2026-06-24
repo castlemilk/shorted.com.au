@@ -6,44 +6,112 @@ import (
 	"math/rand"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
 )
 
 // The Tier-3 crawl. SUPPLEMENTARY and OPTIONAL: realestate.com.au (Kasada) and
 // domain.com.au (Akamai) actively block and — in REA's case — feed false data to
-// suspected bots. So this tier is built to FAIL SAFE: it never blocks the
-// pipeline, never stores a value that fails validation, and self-throttles via a
-// per-site circuit breaker. The official ABS/RBA backbone is the source of truth;
-// the crawl only ever adds licence-gated suburb detail on top.
+// suspected bots. The stealth native/chromedp waterfall this tier originally used
+// is reliably DETECTED and blocked/poisoned from a residential IP, so the page
+// FETCH is now done with a real, HEADED, persistent-profile browser (see
+// crawl_playwright.go) — the only client that survives Kasada/Akamai from a
+// residential egress. The rendered HTML is then handed to brandbrain's
+// ExtractRealEstate LLM (crawl_brandbrain.go) for the suburb-aggregate fields.
+//
+// This tier is built to FAIL SAFE: it never blocks the pipeline, never stores a
+// value that fails validation, and self-throttles via a per-site circuit breaker.
+// The official ABS/RBA backbone is the source of truth; the crawl only ever adds
+// licence-gated suburb detail on top.
+
+// htmlFetcher fetches a fully-rendered page and returns its HTML, the final URL
+// after any redirects, and an error. The orchestration depends only on this seam
+// (not on any concrete engine), which keeps the crawl flow unit-testable with a
+// fake fetcher and lets the real fetch be a headed Playwright browser.
+type htmlFetcher interface {
+	fetch(ctx context.Context, url string) (html []byte, finalURL string, err error)
+}
+
+// crawlFetcher is the lifecycle-owning fetcher returned by newCrawlFetcher: a
+// concrete browser-backed fetcher that the run owns and must Close(). Both
+// fetchers (CDP-to-host-Chrome and self-launched persistent Chromium) satisfy it.
+type crawlFetcher interface {
+	htmlFetcher
+	Close()
+}
+
+// fetcherMode names the browser-execution model selected for a run.
+type fetcherMode int
+
+const (
+	// fetcherModePlaywright launches a self-contained, headed persistent
+	// Chromium inside this process (native/launchd fallback).
+	fetcherModePlaywright fetcherMode = iota
+	// fetcherModeCDP connects over CDP to an already-running Chrome — in
+	// option (b), the HOST's macOS Chrome reached via host.docker.internal.
+	fetcherModeCDP
+)
+
+// selectFetcherMode is the pure, testable selection rule: CRAWL_CDP_URL set ->
+// drive the host Chrome over CDP; empty -> self-launch a persistent Chromium.
+func selectFetcherMode(cfg crawlConfig) fetcherMode {
+	if cfg.cdpURL != "" {
+		return fetcherModeCDP
+	}
+	return fetcherModePlaywright
+}
+
+func crawlFetcherMode(cfg crawlConfig) string {
+	if selectFetcherMode(cfg) == fetcherModeCDP {
+		return "cdp-host-chrome"
+	}
+	return "headed-playwright"
+}
+
+// newCrawlFetcher constructs the browser-backed fetcher for the run, branching on
+// CRAWL_CDP_URL. Errors are returned (never panics) so runCrawl can fail
+// non-fatally — the official ABS/RBA backbone is unaffected either way.
+func newCrawlFetcher(cfg crawlConfig) (crawlFetcher, error) {
+	if selectFetcherMode(cfg) == fetcherModeCDP {
+		return newCDPFetcher(cfg)
+	}
+	return newPlaywrightFetcher(cfg)
+}
 
 type crawlConfig struct {
 	maxSuburbs      int
 	minDelay        time.Duration
 	maxDelay        time.Duration
-	proxy           string
-	disableChromium bool
 	dryRun          bool
 	maxConsecBlocks int
-	perFetchRetries int
 	fetchTimeout    time.Duration
+	brandbrainURL   string
+	profileDir      string
+	// cdpURL, when set, selects the "option (b)" local-agent execution model:
+	// instead of the container rendering pages itself, the collector drives the
+	// HOST's macOS-native Chrome over CDP (the only browser proven to beat
+	// Kasada/Akamai). The container reaches the host via host.docker.internal.
+	// Empty -> launch a self-contained persistent Chromium (native/launchd
+	// fallback). See newCDPFetcher / newPlaywrightFetcher.
+	cdpURL string
 }
 
 func loadCrawlConfig() crawlConfig {
 	return crawlConfig{
-		maxSuburbs:      envInt("CRAWL_MAX_SUBURBS", len(crawlTargets)),
-		minDelay:        time.Duration(envInt("CRAWL_MIN_DELAY_MS", 5000)) * time.Millisecond,
-		maxDelay:        time.Duration(envInt("CRAWL_MAX_DELAY_MS", 15000)) * time.Millisecond,
-		proxy:           os.Getenv("CRAWL_PROXY"),
-		disableChromium: os.Getenv("CRAWL_DISABLE_CHROMIUM") == "true",
+		maxSuburbs: envInt("CRAWL_MAX_SUBURBS", len(crawlTargets)),
+		// HEAVIER pacing than the old stealth tier: a headed browser hitting a
+		// Kasada/Akamai-protected site must look human (20–45s between suburbs).
+		minDelay:        time.Duration(envInt("CRAWL_MIN_DELAY_MS", 20000)) * time.Millisecond,
+		maxDelay:        time.Duration(envInt("CRAWL_MAX_DELAY_MS", 45000)) * time.Millisecond,
 		dryRun:          os.Getenv("CRAWL_DRY_RUN") == "true",
 		maxConsecBlocks: envInt("CRAWL_MAX_CONSEC_BLOCKS", 3),
-		perFetchRetries: envInt("CRAWL_FETCH_RETRIES", 2),
-		fetchTimeout:    time.Duration(envInt("CRAWL_FETCH_TIMEOUT_S", 30)) * time.Second,
+		fetchTimeout:    time.Duration(envInt("CRAWL_FETCH_TIMEOUT_S", 60)) * time.Second,
+		brandbrainURL:   os.Getenv("BRANDBRAIN_URL"), // "" -> brandbrainEndpoint() default
+		profileDir:      envStr("CRAWL_PROFILE_DIR", "/data/pw-profile"),
+		cdpURL:          os.Getenv("CRAWL_CDP_URL"), // e.g. http://host.docker.internal:9222
 	}
 }
 
@@ -52,6 +120,13 @@ func envInt(key string, def int) int {
 		if n, err := strconv.Atoi(v); err == nil {
 			return n
 		}
+	}
+	return def
+}
+
+func envStr(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
 	}
 	return def
 }
@@ -69,9 +144,8 @@ type crawlStats struct {
 }
 
 type crawler struct {
-	native    *stealthhttp.Client
-	chromium  *stealthhttp.Client // nil if unavailable
-	baselines map[string]float64  // capital GCCSA region_code -> trusted ABS median
+	fetcher   htmlFetcher        // headed Playwright in prod; a fake in tests
+	baselines map[string]float64 // capital GCCSA region_code -> trusted ABS median
 	cfg       crawlConfig
 	reaBlocks int // consecutive-block counters for the circuit breaker
 	domBlocks int
@@ -88,37 +162,27 @@ func runCrawl(ctx context.Context, pool *pgxpool.Pool) {
 		baselines = map[string]float64{}
 	}
 
-	nativeOpts := []stealthhttp.Option{stealthhttp.WithTimeout(cfg.fetchTimeout)}
-	if cfg.proxy != "" {
-		nativeOpts = append(nativeOpts, stealthhttp.WithProxy(cfg.proxy))
-	}
-	native, err := stealthhttp.New(nativeOpts...)
+	// A real, headed Chrome is the ONLY client that survives Kasada/Akamai from a
+	// residential IP. With CRAWL_CDP_URL set we drive the HOST's macOS Chrome over
+	// CDP (option (b)); otherwise we launch a self-contained persistent Chromium
+	// (native/launchd fallback). If the chosen client can't init (e.g. driver
+	// missing, host Chrome not on :9222), fail non-fatally — the official backbone
+	// is unaffected.
+	fetcher, err := newCrawlFetcher(cfg)
 	if err != nil {
-		log.Printf("[crawl] native client init failed: %v — aborting crawl (non-fatal)", err)
-		_ = updateRun(ctx, pool, "crawl", nil, 0, "error", "native client init: "+err.Error())
+		log.Printf("[crawl] crawl fetcher init failed (%v) — aborting crawl (non-fatal; official backbone unaffected)", err)
+		_ = updateRun(ctx, pool, "crawl", nil, 0, "error", "fetcher init: "+err.Error())
 		return
 	}
+	defer fetcher.Close()
 
-	var chromium *stealthhttp.Client
-	if !cfg.disableChromium {
-		copts := []stealthhttp.Option{stealthhttp.WithTimeout(cfg.fetchTimeout + 30*time.Second)}
-		if cfg.proxy != "" {
-			copts = append(copts, stealthhttp.WithProxy(cfg.proxy))
-		}
-		if c, cerr := stealthhttp.NewChromium(copts...); cerr != nil {
-			log.Printf("[crawl] chromium unavailable (%v) — REA/Kasada likely unreachable; native-only", cerr)
-		} else {
-			chromium = c
-		}
-	}
-
-	cr := &crawler{native: native, chromium: chromium, baselines: baselines, cfg: cfg}
+	cr := &crawler{fetcher: fetcher, baselines: baselines, cfg: cfg}
 
 	targets := crawlTargets
 	if cfg.maxSuburbs >= 0 && cfg.maxSuburbs < len(targets) {
 		targets = targets[:cfg.maxSuburbs]
 	}
-	log.Printf("[crawl] start: %d suburbs · chromium=%v · proxy=%v · dryRun=%v", len(targets), chromium != nil, cfg.proxy != "", cfg.dryRun)
+	log.Printf("[crawl] start: %d suburbs · %s · profile=%s · dryRun=%v", len(targets), crawlFetcherMode(cfg), cfg.profileDir, cfg.dryRun)
 
 	var obs []Observation
 	for i, t := range targets {
@@ -149,46 +213,33 @@ func runCrawl(ctx context.Context, pool *pgxpool.Pool) {
 		s.attempted, s.accepted, s.blocked, s.rejected, s.diverged)
 }
 
-// crawlSuburb fetches both sources, validates, and applies the cross-source
-// trust rule. Returns the observations to store (0, 1, or 2).
+// crawlSuburb fetches both sources via the headed browser, hands each rendered
+// page to brandbrain's ExtractRealEstate, and maps the returned suburb-aggregate
+// fields into validated Observations. Returns everything to store (0..N).
 func (cr *crawler) crawlSuburb(ctx context.Context, t CrawlTarget) []Observation {
 	cr.stats.attempted++
-	base := cr.baselines[t.Capital] // 0 == unknown -> capital-band check skipped
 
-	reaMed, reaOK := cr.siteMedian(ctx, "rea", t.reaURL(), base, &cr.reaBlocks)
-	domMed, domOK := cr.siteMedian(ctx, "domain", t.domainURL(), base, &cr.domBlocks)
+	var obs []Observation
+	obs = append(obs, cr.crawlSource(ctx, t, "rea", t.reaURL(), &cr.reaBlocks)...)
+	obs = append(obs, cr.crawlSource(ctx, t, "domain", t.domainURL(), &cr.domBlocks)...)
 
-	switch {
-	case reaOK && domOK:
-		if !crossSourceAgrees(reaMed, domMed) {
-			cr.stats.diverged++
-			log.Printf("[crawl] %s: REA $%.0f vs Domain $%.0f diverge — rejecting BOTH (possible poisoning)", t.Display, reaMed, domMed)
-			return nil
-		}
+	if len(obs) > 0 {
 		cr.stats.accepted++
-		log.Printf("[crawl] %s: accepted (REA $%.0f ~ Domain $%.0f)", t.Display, reaMed, domMed)
-		return []Observation{cr.obs(t, reaMed, "crawl_rea", false), cr.obs(t, domMed, "crawl_domain", false)}
-	case reaOK:
-		cr.stats.accepted++
-		log.Printf("[crawl] %s: accepted single-source REA $%.0f (preliminary)", t.Display, reaMed)
-		return []Observation{cr.obs(t, reaMed, "crawl_rea", true)}
-	case domOK:
-		cr.stats.accepted++
-		log.Printf("[crawl] %s: accepted single-source Domain $%.0f (preliminary)", t.Display, domMed)
-		return []Observation{cr.obs(t, domMed, "crawl_domain", true)}
-	default:
-		return nil
+		log.Printf("[crawl] %s: accepted %d observation(s)", t.Display, len(obs))
 	}
+	return obs
 }
 
-// siteMedian fetches one source (with the circuit breaker), extracts candidate
-// medians and returns the validated robust median for that page.
-func (cr *crawler) siteMedian(ctx context.Context, site, url string, baseline float64, blockCounter *int) (float64, bool) {
+// crawlSource fetches ONE source's rendered page (honouring the per-site circuit
+// breaker), routes the HTML through brandbrain's extractor, and returns the
+// validated brandbrain Observations. The legacy extractSaleMedians path is run as
+// a non-blocking cross-check against the same rendered HTML (logged only).
+func (cr *crawler) crawlSource(ctx context.Context, t CrawlTarget, site, url string, blockCounter *int) []Observation {
 	if *blockCounter >= cr.cfg.maxConsecBlocks {
-		return 0, false // breaker open: stop hammering this source for the rest of the run
+		return nil // breaker open: stop hammering this source for the rest of the run
 	}
 
-	doc, outcome := cr.fetchWaterfall(ctx, url)
+	html, finalURL, outcome := cr.fetchPage(ctx, url)
 	switch outcome {
 	case outcomeBlocked:
 		*blockCounter++
@@ -196,85 +247,77 @@ func (cr *crawler) siteMedian(ctx context.Context, site, url string, baseline fl
 		if *blockCounter == cr.cfg.maxConsecBlocks {
 			log.Printf("[crawl] %s circuit-breaker tripped (%d consecutive blocks) — skipping remaining %s fetches", site, *blockCounter, site)
 		}
-		return 0, false
+		return nil
 	case outcomeError:
-		return 0, false
+		return nil
 	}
 	*blockCounter = 0 // a success resets the breaker
 
+	x, err := extractRealEstate(ctx, cr.cfg.brandbrainURL, string(html), finalURL, t.Display, t.State)
+	if err != nil {
+		log.Printf("[crawl] %s %s: brandbrain extract failed: %v", t.Display, site, err)
+		return nil
+	}
+
+	obs := cr.brandbrainObservations(t, site, x)
+	if len(obs) == 0 {
+		cr.stats.rejected++ // page rendered but nothing survived extraction/validation
+	}
+
+	// Optional, non-blocking cross-check: the schema-agnostic median harvester on
+	// the SAME rendered HTML. If it finds a robust median that diverges sharply
+	// from brandbrain's, log it as a poisoning/extraction-drift signal — but never
+	// drop the brandbrain observations on it (the capital-band gate already ran).
+	cr.crossCheck(t, site, html, obs)
+
+	return obs
+}
+
+// fetchPage fetches one URL via the injected htmlFetcher and classifies the
+// outcome. A block (Kasada/Akamai 403/429-style) trips the circuit breaker; any
+// other error is transient and simply skips this source for this run.
+func (cr *crawler) fetchPage(ctx context.Context, url string) ([]byte, string, fetchOutcome) {
+	html, finalURL, err := cr.fetcher.fetch(ctx, url)
+	if err != nil {
+		if isBlockError(err) {
+			return nil, "", outcomeBlocked
+		}
+		return nil, "", outcomeError
+	}
+	if looksBlocked(html, finalURL) {
+		return nil, "", outcomeBlocked
+	}
+	return html, finalURL, outcomeOK
+}
+
+// crossCheck runs the legacy extractSaleMedians harvester over the rendered HTML
+// and logs (only) when its robust median diverges from brandbrain's house median.
+// It is deliberately advisory — extraction drift on an adversarial page is a
+// signal, not a reason to discard the already-capital-band-gated value.
+func (cr *crawler) crossCheck(t CrawlTarget, site string, html []byte, obs []Observation) {
+	var bbHouse float64
+	for _, o := range obs {
+		if o.Measure == "median_price" && o.DwellingType == "house" {
+			bbHouse = o.Value
+			break
+		}
+	}
+	if bbHouse == 0 {
+		return
+	}
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(string(html)))
+	if err != nil {
+		return
+	}
 	candidates := extractSaleMedians(doc)
-	med, ok := robustMedian(candidates, baseline)
+	raw, ok := robustMedian(candidates, cr.baselines[t.Capital])
 	if !ok {
-		if len(candidates) > 0 {
-			cr.stats.rejected++ // page returned numbers but none survived validation (poison / wrong page)
-		}
-		return 0, false
+		return
 	}
-	return med, true
-}
-
-// fetchWaterfall tries the cheap native engine first, then escalates to Chromium
-// (for JS challenges) only if the native fetch was actively blocked.
-func (cr *crawler) fetchWaterfall(ctx context.Context, url string) (*goquery.Document, fetchOutcome) {
-	doc, oc := cr.fetchOne(ctx, cr.native, url)
-	if oc == outcomeOK {
-		return doc, outcomeOK
-	}
-	if oc == outcomeBlocked && cr.chromium != nil {
-		if doc2, oc2 := cr.fetchOne(ctx, cr.chromium, url); oc2 == outcomeOK {
-			return doc2, outcomeOK
-		} else if oc2 == outcomeBlocked {
-			return nil, outcomeBlocked
-		}
-	}
-	return nil, oc
-}
-
-// fetchOne fetches with one engine, retrying transient failures with quadratic
-// backoff but returning immediately on a hard block (403/429/401).
-func (cr *crawler) fetchOne(ctx context.Context, client *stealthhttp.Client, url string) (*goquery.Document, fetchOutcome) {
-	if client == nil {
-		return nil, outcomeError
-	}
-	for attempt := 0; attempt <= cr.cfg.perFetchRetries; attempt++ {
-		if attempt > 0 {
-			select {
-			case <-time.After(time.Duration(attempt*attempt) * time.Second):
-			case <-ctx.Done():
-				return nil, outcomeError
-			}
-		}
-		doc, _, err := client.FetchHTML(ctx, url)
-		if err == nil {
-			return doc, outcomeOK
-		}
-		switch stealthhttp.StatusError(err) {
-		case 401, 403, 429:
-			return nil, outcomeBlocked // hard block — don't retry the same engine
-		}
-		// otherwise transient (timeout / 5xx / network) — retry
-	}
-	return nil, outcomeError
-}
-
-func (cr *crawler) obs(t CrawlTarget, value float64, source string, prelim bool) Observation {
-	return Observation{
-		RegionCode:    t.regionCode(),
-		RegionType:    "suburb",
-		RegionName:    t.regionName(),
-		StateCode:     t.State,
-		Postcode:      t.Postcode,
-		Measure:       "median_price",
-		DwellingType:  "all",
-		Period:        currentQuarterEnd(),
-		PeriodFreq:    "Q",
-		Value:         value,
-		Unit:          "AUD",
-		IsPreliminary: prelim,
-		Source:        source,
-		// ToS-restricted: gated out of any commercial/republished surface via
-		// the house_prices.source_licence column.
-		SourceLicence: "proprietary-tos-restricted",
+	if !crossSourceAgrees(bbHouse, raw) {
+		cr.stats.diverged++
+		log.Printf("[crawl] %s %s: brandbrain $%.0f vs page-harvest $%.0f diverge (>%.0f%%) — extraction-drift signal (value kept; capital-band gate passed)",
+			t.Display, site, bbHouse, raw, maxCrossSourceDivergence*100)
 	}
 }
 
