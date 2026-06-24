@@ -10,22 +10,25 @@ import (
 	"github.com/playwright-community/playwright-go"
 )
 
-// crawl_playwright.go is the real-browser FETCH for the Tier-3 crawl. It drives a
-// HEADED, PERSISTENT-PROFILE Chromium via playwright-go — empirically the only
-// client posture that survives realestate.com.au's Kasada and domain.com.au's
-// Akamai from a residential IP (headless Chromium and chromedp are both detected
-// and blocked/poisoned).
+// crawl_playwright.go is the SELF-LAUNCHED real-browser FETCH for the Tier-3
+// crawl: it launches its OWN headed, persistent-profile Chromium via playwright-go.
+// This is the native/launchd FALLBACK path (used when CRAWL_CDP_URL is NOT set).
+// The primary, "option (b)" path is crawl_cdp.go, which instead drives the HOST
+// macOS Chrome over CDP — empirically the only client that survives
+// realestate.com.au's Kasada and domain.com.au's Akamai from a residential IP
+// (headless Chromium and chromedp are both detected and blocked/poisoned).
 //
-// Persistence is the whole point: the user-data-dir (CRAWL_PROFILE_DIR, a mounted
-// volume in the cuttlefish image) lets the Kasada clearance cookie survive across
-// runs, so a warm profile rarely re-triggers the JS challenge. We reuse ONE
-// browser context for the whole run and open a fresh page per suburb.
+// Persistence is the whole point of this fallback: the user-data-dir
+// (CRAWL_PROFILE_DIR) lets the Kasada clearance cookie survive across runs, so a
+// warm profile rarely re-triggers the JS challenge. We reuse ONE browser context
+// for the whole run and open a fresh page per suburb — the SAME fetch/settle logic
+// (fetchInContext, below) that the CDP fetcher reuses.
 //
 // This file is compiled everywhere but only does real work when the Playwright
-// driver + chromium browser are present (baked into Dockerfile.crawl). We NEVER
-// call playwright.Install() here — that would download browsers at runtime; the
-// image provides them. A missing driver yields a clear error so runCrawl can fail
-// non-fatally and tests can verify the build without any browser.
+// driver + chromium browser are present. We NEVER call playwright.Install() here —
+// that would download browsers at runtime. A missing driver yields a clear error
+// so runCrawl can fail non-fatally and tests can verify the build without any
+// browser.
 
 // realistic, current desktop Chrome on Windows UA (matches the headed Chromium we
 // launch closely enough to avoid trivial UA/engine mismatch heuristics).
@@ -83,18 +86,29 @@ func newPlaywrightFetcher(cfg crawlConfig) (*playwrightFetcher, error) {
 func (f *playwrightFetcher) fetch(ctx context.Context, url string) ([]byte, string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	return fetchInContext(ctx, f.ctx, f.cfg, url)
+}
 
+// fetchInContext is the SHARED page-fetch/settle logic used by BOTH browser
+// fetchers (the self-launched persistent Chromium and the CDP-to-host-Chrome
+// fetcher). It opens a fresh page on the given BrowserContext, navigates with a
+// floored DOMContentLoaded timeout, waits a bounded network-idle settle (Kasada/
+// Akamai beacons keep the network "busy", so the settle is best-effort), and
+// returns the rendered DOM + final URL. Bounded by the page timeout and the
+// caller's context; it never hangs. The same looksBlocked detection (in crawl.go's
+// fetchPage) classifies the result for both fetchers.
+func fetchInContext(ctx context.Context, bctx playwright.BrowserContext, cfg crawlConfig, url string) ([]byte, string, error) {
 	if ctx.Err() != nil {
 		return nil, "", ctx.Err()
 	}
 
-	page, err := f.ctx.NewPage()
+	page, err := bctx.NewPage()
 	if err != nil {
 		return nil, "", fmt.Errorf("new page: %w", err)
 	}
 	defer func() { _ = page.Close() }()
 
-	gotoTimeout := float64(f.cfg.fetchTimeout / time.Millisecond)
+	gotoTimeout := float64(cfg.fetchTimeout / time.Millisecond)
 	if gotoTimeout < 45000 {
 		gotoTimeout = 45000 // floor: a real first navigation through a JS challenge is slow
 	}
@@ -187,5 +201,8 @@ func looksBlocked(html []byte, finalURL string) bool {
 	return false
 }
 
-// compile-time assertion that playwrightFetcher satisfies the seam.
-var _ htmlFetcher = (*playwrightFetcher)(nil)
+// compile-time assertions that playwrightFetcher satisfies both seams.
+var (
+	_ htmlFetcher  = (*playwrightFetcher)(nil)
+	_ crawlFetcher = (*playwrightFetcher)(nil)
+)

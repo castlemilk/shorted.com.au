@@ -35,6 +35,52 @@ type htmlFetcher interface {
 	fetch(ctx context.Context, url string) (html []byte, finalURL string, err error)
 }
 
+// crawlFetcher is the lifecycle-owning fetcher returned by newCrawlFetcher: a
+// concrete browser-backed fetcher that the run owns and must Close(). Both
+// fetchers (CDP-to-host-Chrome and self-launched persistent Chromium) satisfy it.
+type crawlFetcher interface {
+	htmlFetcher
+	Close()
+}
+
+// fetcherMode names the browser-execution model selected for a run.
+type fetcherMode int
+
+const (
+	// fetcherModePlaywright launches a self-contained, headed persistent
+	// Chromium inside this process (native/launchd fallback).
+	fetcherModePlaywright fetcherMode = iota
+	// fetcherModeCDP connects over CDP to an already-running Chrome — in
+	// option (b), the HOST's macOS Chrome reached via host.docker.internal.
+	fetcherModeCDP
+)
+
+// selectFetcherMode is the pure, testable selection rule: CRAWL_CDP_URL set ->
+// drive the host Chrome over CDP; empty -> self-launch a persistent Chromium.
+func selectFetcherMode(cfg crawlConfig) fetcherMode {
+	if cfg.cdpURL != "" {
+		return fetcherModeCDP
+	}
+	return fetcherModePlaywright
+}
+
+func crawlFetcherMode(cfg crawlConfig) string {
+	if selectFetcherMode(cfg) == fetcherModeCDP {
+		return "cdp-host-chrome"
+	}
+	return "headed-playwright"
+}
+
+// newCrawlFetcher constructs the browser-backed fetcher for the run, branching on
+// CRAWL_CDP_URL. Errors are returned (never panics) so runCrawl can fail
+// non-fatally — the official ABS/RBA backbone is unaffected either way.
+func newCrawlFetcher(cfg crawlConfig) (crawlFetcher, error) {
+	if selectFetcherMode(cfg) == fetcherModeCDP {
+		return newCDPFetcher(cfg)
+	}
+	return newPlaywrightFetcher(cfg)
+}
+
 type crawlConfig struct {
 	maxSuburbs      int
 	minDelay        time.Duration
@@ -44,6 +90,13 @@ type crawlConfig struct {
 	fetchTimeout    time.Duration
 	brandbrainURL   string
 	profileDir      string
+	// cdpURL, when set, selects the "option (b)" local-agent execution model:
+	// instead of the container rendering pages itself, the collector drives the
+	// HOST's macOS-native Chrome over CDP (the only browser proven to beat
+	// Kasada/Akamai). The container reaches the host via host.docker.internal.
+	// Empty -> launch a self-contained persistent Chromium (native/launchd
+	// fallback). See newCDPFetcher / newPlaywrightFetcher.
+	cdpURL string
 }
 
 func loadCrawlConfig() crawlConfig {
@@ -58,6 +111,7 @@ func loadCrawlConfig() crawlConfig {
 		fetchTimeout:    time.Duration(envInt("CRAWL_FETCH_TIMEOUT_S", 60)) * time.Second,
 		brandbrainURL:   os.Getenv("BRANDBRAIN_URL"), // "" -> brandbrainEndpoint() default
 		profileDir:      envStr("CRAWL_PROFILE_DIR", "/data/pw-profile"),
+		cdpURL:          os.Getenv("CRAWL_CDP_URL"), // e.g. http://host.docker.internal:9222
 	}
 }
 
@@ -108,13 +162,16 @@ func runCrawl(ctx context.Context, pool *pgxpool.Pool) {
 		baselines = map[string]float64{}
 	}
 
-	// The headed Playwright browser is the ONLY client that survives Kasada/Akamai
-	// from a residential IP. If its driver/browser is missing (e.g. running outside
-	// the cuttlefish image), fail non-fatally — the official backbone is unaffected.
-	fetcher, err := newPlaywrightFetcher(cfg)
+	// A real, headed Chrome is the ONLY client that survives Kasada/Akamai from a
+	// residential IP. With CRAWL_CDP_URL set we drive the HOST's macOS Chrome over
+	// CDP (option (b)); otherwise we launch a self-contained persistent Chromium
+	// (native/launchd fallback). If the chosen client can't init (e.g. driver
+	// missing, host Chrome not on :9222), fail non-fatally — the official backbone
+	// is unaffected.
+	fetcher, err := newCrawlFetcher(cfg)
 	if err != nil {
-		log.Printf("[crawl] playwright fetcher init failed (%v) — aborting crawl (non-fatal; official backbone unaffected)", err)
-		_ = updateRun(ctx, pool, "crawl", nil, 0, "error", "playwright init: "+err.Error())
+		log.Printf("[crawl] crawl fetcher init failed (%v) — aborting crawl (non-fatal; official backbone unaffected)", err)
+		_ = updateRun(ctx, pool, "crawl", nil, 0, "error", "fetcher init: "+err.Error())
 		return
 	}
 	defer fetcher.Close()
@@ -125,7 +182,7 @@ func runCrawl(ctx context.Context, pool *pgxpool.Pool) {
 	if cfg.maxSuburbs >= 0 && cfg.maxSuburbs < len(targets) {
 		targets = targets[:cfg.maxSuburbs]
 	}
-	log.Printf("[crawl] start: %d suburbs · headed-playwright · profile=%s · dryRun=%v", len(targets), cfg.profileDir, cfg.dryRun)
+	log.Printf("[crawl] start: %d suburbs · %s · profile=%s · dryRun=%v", len(targets), crawlFetcherMode(cfg), cfg.profileDir, cfg.dryRun)
 
 	var obs []Observation
 	for i, t := range targets {
