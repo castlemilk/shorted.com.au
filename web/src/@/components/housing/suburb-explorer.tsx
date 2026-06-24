@@ -55,7 +55,7 @@ export function SuburbExplorer() {
     [regionsResp],
   );
 
-  const [stateFilter, setStateFilter] = useState("VIC");
+  const [stateFilter, setStateFilter] = useState("SA");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
 
