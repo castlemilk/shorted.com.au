@@ -110,13 +110,18 @@ func (s *ShortsServer) ListHousingRegions(ctx context.Context, req *connect.Requ
 			if r == nil {
 				continue
 			}
-			regions = append(regions, &shortsv1alpha1.HousingRegion{
-				RegionCode: r.RegionCode,
-				RegionName: r.RegionName,
-				RegionType: r.RegionType,
-				StateCode:  r.StateCode,
-				Postcode:   r.Postcode,
-			})
+			hr := &shortsv1alpha1.HousingRegion{
+				RegionCode:  r.RegionCode,
+				RegionName:  r.RegionName,
+				RegionType:  r.RegionType,
+				StateCode:   r.StateCode,
+				Postcode:    r.Postcode,
+				LatestValue: r.LatestValue,
+			}
+			if r.LatestPeriod != nil {
+				hr.LatestPeriod = timestamppb.New(*r.LatestPeriod)
+			}
+			regions = append(regions, hr)
 		}
 		return &shortsv1alpha1.ListHousingRegionsResponse{Regions: regions}, nil
 	})

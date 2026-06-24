@@ -112,17 +112,21 @@ func (s *postgresStore) GetHousePriceSeries(regionCode, measure, dwellingType st
 	return result, rows.Err()
 }
 
-// HousingRegionRow is a selectable house-price region (for the suburb explorer).
+// HousingRegionRow is a selectable house-price region (for the suburb explorer),
+// with its latest median price for at-a-glance display + the choropleth.
 type HousingRegionRow struct {
-	RegionCode string
-	RegionName string
-	RegionType string
-	StateCode  string
-	Postcode   string
+	RegionCode   string
+	RegionName   string
+	RegionType   string
+	StateCode    string
+	Postcode     string
+	LatestValue  float64
+	LatestPeriod *time.Time
 }
 
 // GetHousingRegions lists regions from house_price_regions, optionally filtered
-// by region_type, state_code, and a case-insensitive name query.
+// by region_type, state_code, and a case-insensitive name query, each joined to
+// its latest median_price observation.
 func (s *postgresStore) GetHousingRegions(regionType, stateCode, query string, limit int32) ([]*HousingRegionRow, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -132,13 +136,20 @@ func (s *postgresStore) GetHousingRegions(regionType, stateCode, query string, l
 	}
 
 	const q = `
-		SELECT region_code, COALESCE(region_name, ''), COALESCE(region_type, ''),
-		       COALESCE(state_code, ''), COALESCE(postcode, '')
-		FROM house_price_regions
-		WHERE ($1 = '' OR region_type = $1)
-		  AND ($2 = '' OR state_code = $2)
-		  AND ($3 = '' OR region_name ILIKE '%' || $3 || '%')
-		ORDER BY region_name
+		SELECT r.region_code, COALESCE(r.region_name, ''), COALESCE(r.region_type, ''),
+		       COALESCE(r.state_code, ''), COALESCE(r.postcode, ''),
+		       COALESCE(lp.value, 0), lp.period
+		FROM house_price_regions r
+		LEFT JOIN LATERAL (
+			SELECT value, period FROM house_prices hp
+			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price'
+			ORDER BY hp.period DESC
+			LIMIT 1
+		) lp ON true
+		WHERE ($1 = '' OR r.region_type = $1)
+		  AND ($2 = '' OR r.state_code = $2)
+		  AND ($3 = '' OR r.region_name ILIKE '%' || $3 || '%')
+		ORDER BY r.region_name
 		LIMIT $4`
 
 	rows, err := s.db.Query(ctx, q, regionType, stateCode, query, limit)
@@ -150,7 +161,8 @@ func (s *postgresStore) GetHousingRegions(regionType, stateCode, query string, l
 	var out []*HousingRegionRow
 	for rows.Next() {
 		var r HousingRegionRow
-		if err := rows.Scan(&r.RegionCode, &r.RegionName, &r.RegionType, &r.StateCode, &r.Postcode); err != nil {
+		if err := rows.Scan(&r.RegionCode, &r.RegionName, &r.RegionType, &r.StateCode, &r.Postcode,
+			&r.LatestValue, &r.LatestPeriod); err != nil {
 			return nil, err
 		}
 		out = append(out, &r)

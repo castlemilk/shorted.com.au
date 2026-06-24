@@ -7,10 +7,11 @@ import {
   getHousePriceSeriesClient,
 } from "~/app/actions/client/getHousingClient";
 import { HousingSeriesChart } from "./housing-series-chart";
+import { SuburbMap } from "./suburb-map";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-type Region = { regionCode: string; regionName: string; stateCode: string };
+type Region = { regionCode: string; regionName: string; stateCode: string; value: number };
 
 const STATE_FILTERS = [
   { code: "", label: "All" },
@@ -49,24 +50,28 @@ export function SuburbExplorer() {
         regionCode: r.regionCode,
         regionName: r.regionName,
         stateCode: r.stateCode,
+        value: r.latestValue ?? 0,
       })),
     [regionsResp],
   );
 
-  const [stateFilter, setStateFilter] = useState("");
+  const [stateFilter, setStateFilter] = useState("VIC");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
 
+  // map shows the whole state (no text filter); the list narrows by search.
+  const stateFiltered = useMemo(
+    () => regions.filter((r) => !stateFilter || r.stateCode === stateFilter),
+    [regions, stateFilter],
+  );
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return regions
-      .filter((r) => !stateFilter || r.stateCode === stateFilter)
-      .filter((r) => !q || r.regionName.toLowerCase().includes(q));
-  }, [regions, stateFilter, search]);
+    return stateFiltered.filter((r) => !q || r.regionName.toLowerCase().includes(q));
+  }, [stateFiltered, search]);
 
   const active = useMemo(
-    () => regions.find((r) => r.regionCode === selected) ?? filtered[0],
-    [regions, selected, filtered],
+    () => stateFiltered.find((r) => r.regionCode === selected) ?? filtered[0],
+    [stateFiltered, selected, filtered],
   );
   const activeCode = active?.regionCode;
 
@@ -133,7 +138,9 @@ export function SuburbExplorer() {
               )}
             >
               <span className="truncate capitalize">{r.regionName.toLowerCase()}</span>
-              <span className="ml-2 shrink-0 font-mono text-[10px] uppercase text-muted-foreground">{r.stateCode}</span>
+              <span className="ml-2 shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+                {r.value > 0 ? fmtAUD(r.value) : r.stateCode}
+              </span>
             </button>
           ))}
           {filtered.length > MAX_LIST ? (
@@ -144,9 +151,22 @@ export function SuburbExplorer() {
         </div>
       </div>
 
-      {/* detail */}
-      <div className="rounded-xl border border-border bg-card p-5">
-        {active ? (
+      {/* right column: state map + selected-suburb detail */}
+      <div className="space-y-6">
+        <div className="rounded-xl border border-border bg-card p-5">
+          <div className="mb-3">
+            <h3 className="font-serif text-lg text-foreground">
+              {stateFilter === "SA" ? "South Australia" : stateFilter === "VIC" ? "Victoria" : "SA & VIC"} · median by suburb
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Each suburb shaded by its latest median price — click a cell to inspect its history.
+            </p>
+          </div>
+          <SuburbMap regions={stateFiltered} selectedCode={activeCode} onSelect={setSelected} />
+        </div>
+
+        <div className="rounded-xl border border-border bg-card p-5">
+          {active ? (
           <>
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
               <div>
@@ -186,6 +206,7 @@ export function SuburbExplorer() {
             Select a suburb to see its median-price history.
           </div>
         )}
+        </div>
       </div>
     </div>
   );

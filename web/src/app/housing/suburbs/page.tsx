@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
-import { SuburbExplorer } from "@/components/housing/housing-charts";
+import { SuburbExplorer } from "@/components/housing/suburb-explorer-loader";
 import { LLMMeta } from "@/components/seo/llm-meta";
 
 const URL = "https://shorted.com.au/housing/suburbs";

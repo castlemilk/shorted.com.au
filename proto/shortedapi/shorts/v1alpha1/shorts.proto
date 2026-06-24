@@ -1611,6 +1611,8 @@ message HousingRegion {
   string region_type = 3; // 'national' | 'state' | 'gccsa' | 'suburb' | 'lga'
   string state_code = 4;
   string postcode = 5;
+  double latest_value = 6;                  // latest median_price (0 if none)
+  google.protobuf.Timestamp latest_period = 7;
 }
 
 message ListHousingRegionsResponse {
