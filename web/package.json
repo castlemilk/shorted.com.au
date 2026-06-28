@@ -67,6 +67,10 @@
       "^next-auth/react$": "<rootDir>/src/test/__mocks__/next-auth-react.js",
       "^uncrypto$": "<rootDir>/src/test/__mocks__/uncrypto.js",
       "^@radix-ui/react-progress$": "<rootDir>/src/test/__mocks__/@radix-ui/react-progress.js",
+      "^d3-geo$": "<rootDir>/src/test/__mocks__/d3-geo.js",
+      "^d3-zoom$": "<rootDir>/src/test/__mocks__/d3-zoom.js",
+      "^d3-selection$": "<rootDir>/src/test/__mocks__/d3-selection.js",
+      "^topojson-client$": "<rootDir>/src/test/__mocks__/topojson-client.js",
       "^@/lib/utils$": "<rootDir>/src/@/lib/utils.ts",
       "^@/(.*)$": "<rootDir>/src/@/$1",
       "^~/(.*)$": "<rootDir>/src/$1"
