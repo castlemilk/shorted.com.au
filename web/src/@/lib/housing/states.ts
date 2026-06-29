@@ -19,3 +19,13 @@ export const GCCSA_TO_STATE: Record<string, string> = {
   "1GSYD": "NSW", "2GMEL": "VIC", "3GBRI": "QLD", "4GADE": "SA",
   "5GPER": "WA", "6GHOB": "TAS", "7GDAR": "NT", "8ACTE": "ACT",
 };
+
+/** Canonical suburb slug (kebab name + postcode), used in every suburb URL. */
+export const suburbSlug = (salName: string, postcode: string) =>
+  `${salName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}${postcode ? `-${postcode}` : ""}`;
+
+/** The single source of truth for a suburb's URL — load-bearing `?sal=`. */
+export const suburbHref = (
+  stateCode: string,
+  s: { salName: string; postcode: string; salCode: string },
+) => `/housing/${stateSlug(stateCode)}/${suburbSlug(s.salName, s.postcode)}?sal=${s.salCode}`;

@@ -47,7 +47,7 @@ export default async function StatePage({ params }: PageProps) {
         <HousingBreadcrumb trail={[{ label: "Housing", href: "/housing" }, { label: name }]} />
         <header>
           <h1 className="font-serif text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">{name} suburbs</h1>
-          <p className="mt-3 max-w-2xl text-muted-foreground">Each suburb shaded by its latest median house price. Hover for demographics, click to open its full profile.</p>
+          <p className="mt-3 max-w-2xl text-muted-foreground">Suburbs shaded by their latest median house price where available, over an ABS Census base. Hover for demographics, click to open the full profile.</p>
         </header>
         <StateSuburbExplorer stateCode={code} />
       </div>
