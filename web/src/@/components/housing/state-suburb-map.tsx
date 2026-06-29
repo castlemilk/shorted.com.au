@@ -19,6 +19,8 @@ export type SuburbDatum = {
   latestMedianPrice: number; yoyPct: number;
   population: number; medianAge: number; medianWeeklyHhdIncome: number;
   pctBornOverseas: number; topReligion: string; topLanguage: string; pctTopLanguage: number;
+  federalDivision: string; federalMember: string; federalParty: string;
+  federalPartyAb: string; federalTppAlp: number;
   regionCode?: string;
 };
 
@@ -71,9 +73,12 @@ export function StateSuburbMap({
       m.set(s.salCode, v);
       if (v != null) vals.push(v);
     }
-    const min = vals.length ? Math.min(...vals) : 0;
-    const max = vals.length ? Math.max(...vals) : 1;
-    return { valueById: m, scale: amberScale(min, max, metric.sqrt), min, max };
+    const [min, max] = metric.domain ?? [
+      vals.length ? Math.min(...vals) : 0,
+      vals.length ? Math.max(...vals) : 1,
+    ];
+    const scale = metric.makeScale ? metric.makeScale(min, max) : amberScale(min, max, metric.sqrt);
+    return { valueById: m, scale, min, max };
   }, [metric, suburbs, priceValueById, priceScale]);
 
   // Categorical metric → category map + the legend entries actually present.

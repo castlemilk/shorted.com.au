@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "all", "official | crawl | census | refresh | all")
+	mode := flag.String("mode", "all", "official | crawl | census | electorates | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -46,11 +46,33 @@ func main() {
 	case "census":
 		// ABS 2021 Census GCP SAL demographics — boundary-anchored suburb rows.
 		runCensus(ctx, pool)
+	case "electorates":
+		// AEC federal electoral representation, spatially joined per suburb.
+		runElectorates(ctx, pool)
 	case "refresh":
 		refresh(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want official|crawl|census|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|crawl|census|electorates|refresh|all)", *mode)
 	}
+}
+
+// runElectorates loads the precomputed suburb→division join + division roll-up
+// and upserts each suburb's federal representation into suburb_demographics.
+func runElectorates(ctx context.Context, pool *pgxpool.Pool) {
+	rows, err := ingestElectorates()
+	if err != nil {
+		log.Printf("[electorates] ingest error: %v", err)
+		_ = updateRun(ctx, pool, "aec_federal", nil, 0, "error", err.Error())
+		return
+	}
+	n, err := upsertElectorates(ctx, pool, rows)
+	if err != nil {
+		log.Printf("[electorates] upsert error after %d: %v", n, err)
+		_ = updateRun(ctx, pool, "aec_federal", nil, n, "error", err.Error())
+		return
+	}
+	log.Printf("[electorates] upserted %d", n)
+	_ = updateRun(ctx, pool, "aec_federal", nil, n, "ok", "")
 }
 
 func refresh(ctx context.Context, pool *pgxpool.Pool) {

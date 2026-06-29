@@ -33,6 +33,8 @@ export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
       population: s.population, medianAge: s.medianAge, medianWeeklyHhdIncome: s.medianWeeklyHhdIncome,
       pctBornOverseas: s.pctBornOverseas, topReligion: s.topReligion,
       topLanguage: s.topLanguage, pctTopLanguage: s.pctTopLanguage,
+      federalDivision: s.federalDivision, federalMember: s.federalMember,
+      federalParty: s.federalParty, federalPartyAb: s.federalPartyAb, federalTppAlp: s.federalTppAlp,
       regionCode: s.regionCode,
     })),
     [data],

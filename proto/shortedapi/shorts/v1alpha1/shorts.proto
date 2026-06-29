@@ -1639,6 +1639,12 @@ message SuburbSummary {
   string top_religion = 13;                  // dominant religious affiliation, '' if none
   string top_language = 14;                  // top language other than English at home, '' if none
   double pct_top_language = 15;              // 0..100 share speaking top_language
+  // Federal electoral representation (AEC 2025 election), spatially joined.
+  string federal_division = 16;              // Commonwealth Electoral Division
+  string federal_member = 17;                // sitting House of Reps member
+  string federal_party = 18;                 // member's party (full name)
+  string federal_party_ab = 19;              // party abbreviation (palette key)
+  double federal_tpp_alp = 20;               // 0..100 Labor two-party-preferred %
 }
 
 message ListStateSuburbsResponse {
