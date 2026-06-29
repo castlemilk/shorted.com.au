@@ -118,6 +118,8 @@ func (s *ShortsServer) ListStateSuburbs(ctx context.Context, req *connect.Reques
 				Postcode: r.Postcode, LatestMedianPrice: r.LatestMedianPrice,
 				YoyPct: r.YoYPct, Population: r.Population, MedianAge: r.MedianAge,
 				MedianWeeklyHhdIncome: r.MedianWeeklyHhdIncome, RegionCode: r.RegionCode,
+				PctBornOverseas: r.PctBornOverseas, TopReligion: r.TopReligion,
+				TopLanguage: r.TopLanguage, PctTopLanguage: r.PctTopLanguage,
 			}
 			if r.LatestPeriod != nil {
 				ss.LatestPeriod = timestamppb.New(*r.LatestPeriod)
@@ -150,6 +152,8 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 			Postcode: p.Summary.Postcode, LatestMedianPrice: p.Summary.LatestMedianPrice,
 			YoyPct: p.Summary.YoYPct, Population: p.Summary.Population, MedianAge: p.Summary.MedianAge,
 			MedianWeeklyHhdIncome: p.Summary.MedianWeeklyHhdIncome, RegionCode: p.Summary.RegionCode,
+			PctBornOverseas: p.Summary.PctBornOverseas, TopReligion: p.Summary.TopReligion,
+			TopLanguage: p.Summary.TopLanguage, PctTopLanguage: p.Summary.PctTopLanguage,
 		}
 		if p.Summary.LatestPeriod != nil {
 			summary.LatestPeriod = timestamppb.New(*p.Summary.LatestPeriod)
@@ -163,6 +167,10 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 				MedianMonthlyMortgage: p.MedianMonthlyMortgage, PctOwnedOutright: p.PctOwnedOutright,
 				PctOwnedMortgage: p.PctOwnedMortgage, PctRented: p.PctRented,
 				DwellingCount: p.DwellingCount, CensusYear: p.CensusYear,
+				PctBornOverseas: p.Summary.PctBornOverseas, PctEnglishOnly: p.PctEnglishOnly,
+				TopReligion: p.Summary.TopReligion, PctTopReligion: p.PctTopReligion,
+				PctNoReligion: p.PctNoReligion, TopLanguage: p.Summary.TopLanguage,
+				PctTopLanguage: p.Summary.PctTopLanguage,
 			},
 			Baselines: &shortsv1alpha1.ComparisonBaselines{
 				StateMedianPrice: p.StateMedianPrice, NationalMedianPrice: p.NationalMedianPrice,

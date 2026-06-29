@@ -47,6 +47,15 @@ type CensusRow struct {
 	MedianWeeklyPerIncome *float64
 	MedianWeeklyRent      *float64
 	MedianMonthlyMortgage *float64
+
+	// Cultural demographics (G01 birthplace/language summary, G13 language, G14 religion)
+	PctBornOverseas *float64
+	PctEnglishOnly  *float64
+	TopReligion     *string
+	PctTopReligion  *float64
+	PctNoReligion   *float64
+	TopLanguage     *string
+	PctTopLanguage  *float64
 }
 
 // suburbIdentity is the name + state for a SAL code, sourced from boundaries.
@@ -232,27 +241,44 @@ func censusMoney(s string) *float64 {
 	return &v
 }
 
-// parseG01 → map[bareSALCode]population.
-func parseG01(rows [][]string) (map[string]*int, error) {
+// g01Row holds the G01 fields we keep: population plus the birthplace and
+// language-used-at-home summaries (counts; nil pop = blank).
+type g01Row struct {
+	pop         *int
+	bpAus       int
+	bpElse      int
+	langEngOnly int
+	langOther   int
+}
+
+// parseG01 → map[bareSALCode]g01Row.
+func parseG01(rows [][]string) (map[string]g01Row, error) {
 	if len(rows) < 2 {
 		return nil, fmt.Errorf("G01: no data rows")
 	}
 	c := csvColIndex(rows[0])
-	codeIdx, ok := c["SAL_CODE_2021"]
-	if !ok {
-		return nil, fmt.Errorf("G01: missing SAL_CODE_2021 column")
+	need := []string{
+		"SAL_CODE_2021", "Tot_P_P", "Birthplace_Australia_P", "Birthplace_Elsewhere_P",
+		"Lang_used_home_Eng_only_P", "Lang_used_home_Oth_Lang_P",
 	}
-	popIdx, ok := c["Tot_P_P"]
-	if !ok {
-		return nil, fmt.Errorf("G01: missing Tot_P_P column")
+	for _, n := range need {
+		if _, ok := c[n]; !ok {
+			return nil, fmt.Errorf("G01: missing %s column", n)
+		}
 	}
-	out := map[string]*int{}
+	out := map[string]g01Row{}
 	for _, row := range rows[1:] {
-		code := stripSALPrefix(cell(row, codeIdx))
+		code := stripSALPrefix(cell(row, c["SAL_CODE_2021"]))
 		if code == "" {
 			continue
 		}
-		out[code] = parseCount(cell(row, popIdx))
+		out[code] = g01Row{
+			pop:         parseCount(cell(row, c["Tot_P_P"])),
+			bpAus:       atoiCell(cell(row, c["Birthplace_Australia_P"])),
+			bpElse:      atoiCell(cell(row, c["Birthplace_Elsewhere_P"])),
+			langEngOnly: atoiCell(cell(row, c["Lang_used_home_Eng_only_P"])),
+			langOther:   atoiCell(cell(row, c["Lang_used_home_Oth_Lang_P"])),
+		}
 	}
 	return out, nil
 }
@@ -307,7 +333,7 @@ func ingestCensus(ctx context.Context) ([]CensusRow, error) {
 	if err != nil {
 		return nil, err
 	}
-	pop, err := parseG01(g01Rows)
+	g01, err := parseG01(g01Rows)
 	if err != nil {
 		return nil, err
 	}
@@ -321,6 +347,20 @@ func ingestCensus(ctx context.Context) ([]CensusRow, error) {
 		return nil, err
 	}
 
+	g14Rows, err := readZipCSV(zr, censusG14Entry)
+	if err != nil {
+		return nil, err
+	}
+	religion, err := parseG14(g14Rows)
+	if err != nil {
+		return nil, err
+	}
+
+	language, err := parseG13(zr)
+	if err != nil {
+		return nil, err
+	}
+
 	rows := make([]CensusRow, 0, len(registry))
 	for code, id := range registry {
 		row := CensusRow{
@@ -328,8 +368,10 @@ func ingestCensus(ctx context.Context) ([]CensusRow, error) {
 			SALName:   id.salName,
 			StateCode: id.stateCode,
 		}
-		if p, ok := pop[code]; ok {
-			row.Population = p
+		if g, ok := g01[code]; ok {
+			row.Population = g.pop
+			row.PctBornOverseas = pctOf(g.bpElse, g.bpAus+g.bpElse)
+			row.PctEnglishOnly = pctOf(g.langEngOnly, g.langEngOnly+g.langOther)
 		}
 		if m, ok := medians[code]; ok {
 			row.MedianAge = m.age
@@ -337,6 +379,19 @@ func ingestCensus(ctx context.Context) ([]CensusRow, error) {
 			row.MedianWeeklyPerIncome = m.weeklyPerInc
 			row.MedianWeeklyRent = m.weeklyRent
 			row.MedianWeeklyHhdIncome = m.weeklyHhdInc
+		}
+		if rel, ok := religion[code]; ok {
+			top := rel.top
+			row.TopReligion = &top
+			row.PctTopReligion = rel.pctTop
+			row.PctNoReligion = rel.pctNoRel
+		}
+		if lang, ok := language[code]; ok && lang.count > 0 {
+			top := lang.top
+			row.TopLanguage = &top
+			if row.Population != nil && *row.Population > 0 {
+				row.PctTopLanguage = pctOf(lang.count, *row.Population)
+			}
 		}
 		rows = append(rows, row)
 	}

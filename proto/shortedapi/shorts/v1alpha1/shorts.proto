@@ -1625,6 +1625,11 @@ message SuburbSummary {
   double median_age = 9;
   double median_weekly_hhd_income = 10;
   string region_code = 11;                   // priced-region code (for the price series), '' if unpriced
+  // Cultural demographics for the map's "highlight" toggle (ABS Census 2021).
+  double pct_born_overseas = 12;             // 0..100
+  string top_religion = 13;                  // dominant religious affiliation, '' if none
+  string top_language = 14;                  // top language other than English at home, '' if none
+  double pct_top_language = 15;              // 0..100 share speaking top_language
 }
 
 message ListStateSuburbsResponse {
@@ -1647,6 +1652,14 @@ message SuburbDemographics {
   double pct_rented = 9;
   int32  dwelling_count = 10;
   int32  census_year = 11;
+  // Cultural demographics (ABS Census 2021: G01 birthplace/language, G13, G14).
+  double pct_born_overseas = 12;             // 0..100
+  double pct_english_only = 13;              // 0..100 (speaks English only at home)
+  string top_religion = 14;                  // dominant religious affiliation
+  double pct_top_religion = 15;              // 0..100 share of the dominant religion
+  double pct_no_religion = 16;               // 0..100 ("No religion")
+  string top_language = 17;                  // top language other than English at home
+  double pct_top_language = 18;              // 0..100 share speaking top_language
 }
 
 // State + national reference medians for the profile's comparison bars.

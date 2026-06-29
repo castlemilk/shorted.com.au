@@ -125,6 +125,10 @@ type SuburbSummaryRow struct {
 	MedianAge             float64
 	MedianWeeklyHhdIncome float64
 	RegionCode            string
+	PctBornOverseas       float64
+	TopReligion           string
+	TopLanguage           string
+	PctTopLanguage        float64
 }
 
 // SuburbProfileRow is the full per-suburb profile (demographics + headline price).
@@ -139,6 +143,11 @@ type SuburbProfileRow struct {
 	PctRented             float64
 	DwellingCount         int32
 	CensusYear            int32
+	// cultural demographics — profile-only extras (born-overseas, top religion,
+	// top language and their shares live on the embedded Summary).
+	PctEnglishOnly float64
+	PctTopReligion float64
+	PctNoReligion  float64
 	// baselines
 	StateMedianPrice        float64
 	NationalMedianPrice     float64
@@ -158,7 +167,9 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 		SELECT d.sal_code, d.sal_name, d.state_code, COALESCE(d.postcode, ''),
 		       COALESCE(h.value, 0), h.period, COALESCE(h.yoy_pct, 0),
 		       COALESCE(d.population, 0), COALESCE(d.median_age, 0),
-		       COALESCE(d.median_weekly_hhd_income, 0), COALESCE(r.region_code, '')
+		       COALESCE(d.median_weekly_hhd_income, 0), COALESCE(r.region_code, ''),
+		       COALESCE(d.pct_born_overseas, 0), COALESCE(d.top_religion, ''),
+		       COALESCE(d.top_language, ''), COALESCE(d.pct_top_language, 0)
 		FROM suburb_demographics d
 		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
 		-- Latest median from house_prices directly (NOT the quarterly-only MV) so annual
@@ -188,7 +199,8 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 		var r SuburbSummaryRow
 		if err := rows.Scan(&r.SALCode, &r.SALName, &r.StateCode, &r.Postcode,
 			&r.LatestMedianPrice, &r.LatestPeriod, &r.YoYPct,
-			&r.Population, &r.MedianAge, &r.MedianWeeklyHhdIncome, &r.RegionCode); err != nil {
+			&r.Population, &r.MedianAge, &r.MedianWeeklyHhdIncome, &r.RegionCode,
+			&r.PctBornOverseas, &r.TopReligion, &r.TopLanguage, &r.PctTopLanguage); err != nil {
 			return nil, err
 		}
 		out = append(out, &r)
@@ -206,10 +218,14 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE(h.value, 0), h.period, COALESCE(h.yoy_pct, 0),
 		       COALESCE(d.population, 0), COALESCE(d.median_age, 0),
 		       COALESCE(d.median_weekly_hhd_income, 0), COALESCE(r.region_code, ''),
+		       COALESCE(d.pct_born_overseas, 0), COALESCE(d.top_religion, ''),
+		       COALESCE(d.top_language, ''), COALESCE(d.pct_top_language, 0),
 		       COALESCE(d.median_weekly_per_income, 0), COALESCE(d.median_weekly_rent, 0),
 		       COALESCE(d.median_monthly_mortgage, 0), COALESCE(d.pct_owned_outright, 0),
 		       COALESCE(d.pct_owned_mortgage, 0), COALESCE(d.pct_rented, 0),
 		       COALESCE(d.dwelling_count, 0), COALESCE(d.census_year, 2021),
+		       COALESCE(d.pct_english_only, 0), COALESCE(d.pct_top_religion, 0),
+		       COALESCE(d.pct_no_religion, 0),
 		       -- state baseline: avg of the LATEST median per priced suburb in the state (covers VIC annual)
 		       COALESCE((SELECT avg(latest) FROM (
 		                 SELECT DISTINCT ON (hp.region_code) hp.value AS latest
@@ -248,8 +264,10 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		&p.Summary.SALCode, &p.Summary.SALName, &p.Summary.StateCode, &p.Summary.Postcode,
 		&p.Summary.LatestMedianPrice, &p.Summary.LatestPeriod, &p.Summary.YoYPct,
 		&p.Summary.Population, &p.Summary.MedianAge, &p.Summary.MedianWeeklyHhdIncome, &p.Summary.RegionCode,
+		&p.Summary.PctBornOverseas, &p.Summary.TopReligion, &p.Summary.TopLanguage, &p.Summary.PctTopLanguage,
 		&p.MedianWeeklyPerIncome, &p.MedianWeeklyRent, &p.MedianMonthlyMortgage,
 		&p.PctOwnedOutright, &p.PctOwnedMortgage, &p.PctRented, &p.DwellingCount, &p.CensusYear,
+		&p.PctEnglishOnly, &p.PctTopReligion, &p.PctNoReligion,
 		&p.StateMedianPrice, &p.NationalMedianPrice, &p.StateMedianHhdIncome, &p.NationalMedianHhdIncome,
 	); err != nil {
 		return nil, err

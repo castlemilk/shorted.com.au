@@ -8777,8 +8777,13 @@ type SuburbSummary struct {
 	MedianAge             float64                `protobuf:"fixed64,9,opt,name=median_age,json=medianAge,proto3" json:"median_age,omitempty"`
 	MedianWeeklyHhdIncome float64                `protobuf:"fixed64,10,opt,name=median_weekly_hhd_income,json=medianWeeklyHhdIncome,proto3" json:"median_weekly_hhd_income,omitempty"`
 	RegionCode            string                 `protobuf:"bytes,11,opt,name=region_code,json=regionCode,proto3" json:"region_code,omitempty"` // priced-region code (for the price series), '' if unpriced
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// Cultural demographics for the map's "highlight" toggle (ABS Census 2021).
+	PctBornOverseas float64 `protobuf:"fixed64,12,opt,name=pct_born_overseas,json=pctBornOverseas,proto3" json:"pct_born_overseas,omitempty"` // 0..100
+	TopReligion     string  `protobuf:"bytes,13,opt,name=top_religion,json=topReligion,proto3" json:"top_religion,omitempty"`                 // dominant religious affiliation, '' if none
+	TopLanguage     string  `protobuf:"bytes,14,opt,name=top_language,json=topLanguage,proto3" json:"top_language,omitempty"`                 // top language other than English at home, '' if none
+	PctTopLanguage  float64 `protobuf:"fixed64,15,opt,name=pct_top_language,json=pctTopLanguage,proto3" json:"pct_top_language,omitempty"`    // 0..100 share speaking top_language
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *SuburbSummary) Reset() {
@@ -8888,6 +8893,34 @@ func (x *SuburbSummary) GetRegionCode() string {
 	return ""
 }
 
+func (x *SuburbSummary) GetPctBornOverseas() float64 {
+	if x != nil {
+		return x.PctBornOverseas
+	}
+	return 0
+}
+
+func (x *SuburbSummary) GetTopReligion() string {
+	if x != nil {
+		return x.TopReligion
+	}
+	return ""
+}
+
+func (x *SuburbSummary) GetTopLanguage() string {
+	if x != nil {
+		return x.TopLanguage
+	}
+	return ""
+}
+
+func (x *SuburbSummary) GetPctTopLanguage() float64 {
+	if x != nil {
+		return x.PctTopLanguage
+	}
+	return 0
+}
+
 type ListStateSuburbsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Suburbs       []*SuburbSummary       `protobuf:"bytes,1,rep,name=suburbs,proto3" json:"suburbs,omitempty"`
@@ -8989,8 +9022,16 @@ type SuburbDemographics struct {
 	PctRented             float64                `protobuf:"fixed64,9,opt,name=pct_rented,json=pctRented,proto3" json:"pct_rented,omitempty"`
 	DwellingCount         int32                  `protobuf:"varint,10,opt,name=dwelling_count,json=dwellingCount,proto3" json:"dwelling_count,omitempty"`
 	CensusYear            int32                  `protobuf:"varint,11,opt,name=census_year,json=censusYear,proto3" json:"census_year,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// Cultural demographics (ABS Census 2021: G01 birthplace/language, G13, G14).
+	PctBornOverseas float64 `protobuf:"fixed64,12,opt,name=pct_born_overseas,json=pctBornOverseas,proto3" json:"pct_born_overseas,omitempty"` // 0..100
+	PctEnglishOnly  float64 `protobuf:"fixed64,13,opt,name=pct_english_only,json=pctEnglishOnly,proto3" json:"pct_english_only,omitempty"`    // 0..100 (speaks English only at home)
+	TopReligion     string  `protobuf:"bytes,14,opt,name=top_religion,json=topReligion,proto3" json:"top_religion,omitempty"`                 // dominant religious affiliation
+	PctTopReligion  float64 `protobuf:"fixed64,15,opt,name=pct_top_religion,json=pctTopReligion,proto3" json:"pct_top_religion,omitempty"`    // 0..100 share of the dominant religion
+	PctNoReligion   float64 `protobuf:"fixed64,16,opt,name=pct_no_religion,json=pctNoReligion,proto3" json:"pct_no_religion,omitempty"`       // 0..100 ("No religion")
+	TopLanguage     string  `protobuf:"bytes,17,opt,name=top_language,json=topLanguage,proto3" json:"top_language,omitempty"`                 // top language other than English at home
+	PctTopLanguage  float64 `protobuf:"fixed64,18,opt,name=pct_top_language,json=pctTopLanguage,proto3" json:"pct_top_language,omitempty"`    // 0..100 share speaking top_language
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *SuburbDemographics) Reset() {
@@ -9096,6 +9137,55 @@ func (x *SuburbDemographics) GetDwellingCount() int32 {
 func (x *SuburbDemographics) GetCensusYear() int32 {
 	if x != nil {
 		return x.CensusYear
+	}
+	return 0
+}
+
+func (x *SuburbDemographics) GetPctBornOverseas() float64 {
+	if x != nil {
+		return x.PctBornOverseas
+	}
+	return 0
+}
+
+func (x *SuburbDemographics) GetPctEnglishOnly() float64 {
+	if x != nil {
+		return x.PctEnglishOnly
+	}
+	return 0
+}
+
+func (x *SuburbDemographics) GetTopReligion() string {
+	if x != nil {
+		return x.TopReligion
+	}
+	return ""
+}
+
+func (x *SuburbDemographics) GetPctTopReligion() float64 {
+	if x != nil {
+		return x.PctTopReligion
+	}
+	return 0
+}
+
+func (x *SuburbDemographics) GetPctNoReligion() float64 {
+	if x != nil {
+		return x.PctNoReligion
+	}
+	return 0
+}
+
+func (x *SuburbDemographics) GetTopLanguage() string {
+	if x != nil {
+		return x.TopLanguage
+	}
+	return ""
+}
+
+func (x *SuburbDemographics) GetPctTopLanguage() float64 {
+	if x != nil {
+		return x.PctTopLanguage
 	}
 	return 0
 }
@@ -9949,7 +10039,7 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\n" +
 	"state_code\x18\x01 \x01(\tR\tstateCode\x12\x14\n" +
 	"\x05query\x18\x02 \x01(\tR\x05query\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xa3\x03\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xbf\x04\n" +
 	"\rSuburbSummary\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +
 	"\bsal_name\x18\x02 \x01(\tR\asalName\x12\x1d\n" +
@@ -9967,11 +10057,15 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x18median_weekly_hhd_income\x18\n" +
 	" \x01(\x01R\x15medianWeeklyHhdIncome\x12\x1f\n" +
 	"\vregion_code\x18\v \x01(\tR\n" +
-	"regionCode\"T\n" +
+	"regionCode\x12*\n" +
+	"\x11pct_born_overseas\x18\f \x01(\x01R\x0fpctBornOverseas\x12!\n" +
+	"\ftop_religion\x18\r \x01(\tR\vtopReligion\x12!\n" +
+	"\ftop_language\x18\x0e \x01(\tR\vtopLanguage\x12(\n" +
+	"\x10pct_top_language\x18\x0f \x01(\x01R\x0epctTopLanguage\"T\n" +
 	"\x18ListStateSuburbsResponse\x128\n" +
 	"\asuburbs\x18\x01 \x03(\v2\x1e.shorts.v1alpha1.SuburbSummaryR\asuburbs\"4\n" +
 	"\x17GetSuburbProfileRequest\x12\x19\n" +
-	"\bsal_code\x18\x01 \x01(\tR\asalCode\"\xee\x03\n" +
+	"\bsal_code\x18\x01 \x01(\tR\asalCode\"\x86\x06\n" +
 	"\x12SuburbDemographics\x12\x1e\n" +
 	"\n" +
 	"population\x18\x01 \x01(\x05R\n" +
@@ -9989,7 +10083,14 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x0edwelling_count\x18\n" +
 	" \x01(\x05R\rdwellingCount\x12\x1f\n" +
 	"\vcensus_year\x18\v \x01(\x05R\n" +
-	"censusYear\"\x85\x02\n" +
+	"censusYear\x12*\n" +
+	"\x11pct_born_overseas\x18\f \x01(\x01R\x0fpctBornOverseas\x12(\n" +
+	"\x10pct_english_only\x18\r \x01(\x01R\x0epctEnglishOnly\x12!\n" +
+	"\ftop_religion\x18\x0e \x01(\tR\vtopReligion\x12(\n" +
+	"\x10pct_top_religion\x18\x0f \x01(\x01R\x0epctTopReligion\x12&\n" +
+	"\x0fpct_no_religion\x18\x10 \x01(\x01R\rpctNoReligion\x12!\n" +
+	"\ftop_language\x18\x11 \x01(\tR\vtopLanguage\x12(\n" +
+	"\x10pct_top_language\x18\x12 \x01(\x01R\x0epctTopLanguage\"\x85\x02\n" +
 	"\x13ComparisonBaselines\x12,\n" +
 	"\x12state_median_price\x18\x01 \x01(\x01R\x10stateMedianPrice\x122\n" +
 	"\x15national_median_price\x18\x02 \x01(\x01R\x13nationalMedianPrice\x12B\n" +
