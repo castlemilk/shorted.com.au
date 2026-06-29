@@ -107,6 +107,48 @@ func upsertObservations(ctx context.Context, pool *pgxpool.Pool, obs []Observati
 	return n, nil
 }
 
+// upsertDemographics idempotently writes one row per boundary suburb (PK =
+// sal_code). v1 populates identity + population + the five G02 medians; the
+// tenure/dwelling columns are left to default NULL until those tables are
+// mapped. Nullable *int/*float64 fields bind directly (pgx maps nil → NULL).
+func upsertDemographics(ctx context.Context, pool *pgxpool.Pool, rows []CensusRow) (int, error) {
+	const q = `
+		INSERT INTO suburb_demographics
+			(sal_code, sal_name, state_code, population, median_age,
+			 median_weekly_hhd_income, median_weekly_per_income, median_weekly_rent,
+			 median_monthly_mortgage, census_year, source, source_licence)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+		ON CONFLICT (sal_code) DO UPDATE SET
+			sal_name                 = EXCLUDED.sal_name,
+			state_code               = EXCLUDED.state_code,
+			population               = EXCLUDED.population,
+			median_age               = EXCLUDED.median_age,
+			median_weekly_hhd_income = EXCLUDED.median_weekly_hhd_income,
+			median_weekly_per_income = EXCLUDED.median_weekly_per_income,
+			median_weekly_rent       = EXCLUDED.median_weekly_rent,
+			median_monthly_mortgage  = EXCLUDED.median_monthly_mortgage,
+			census_year              = EXCLUDED.census_year,
+			source                   = EXCLUDED.source,
+			source_licence           = EXCLUDED.source_licence,
+			fetched_at               = now()`
+	batch := &pgx.Batch{}
+	for _, r := range rows {
+		batch.Queue(q, r.SALCode, r.SALName, r.StateCode, r.Population, r.MedianAge,
+			r.MedianWeeklyHhdIncome, r.MedianWeeklyPerIncome, r.MedianWeeklyRent,
+			r.MedianMonthlyMortgage, censusYear, censusSource, censusLicence)
+	}
+	br := pool.SendBatch(ctx, batch)
+	defer br.Close()
+	n := 0
+	for range rows {
+		if _, err := br.Exec(); err != nil {
+			return n, err
+		}
+		n++
+	}
+	return n, nil
+}
+
 func updateRun(ctx context.Context, pool *pgxpool.Pool, source string, lastPeriod *time.Time, rows int, status, detail string) error {
 	_, err := pool.Exec(ctx, `
 		INSERT INTO house_price_ingest_runs (source, last_period, last_fetched_at, rows_upserted, status, detail)
