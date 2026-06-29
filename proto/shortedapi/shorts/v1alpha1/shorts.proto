@@ -564,6 +564,24 @@ service ShortedStocksService {
       description: "A single house-price time series for a region and measure (national mean price, capital-city median, household debt-to-income, price index), quarterly."
     };
   }
+
+  // List all suburbs in a state with latest median price + key demographics.
+  rpc ListStateSuburbs (ListStateSuburbsRequest) returns (ListStateSuburbsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List State Suburbs",
+      description: "Every suburb (ABS SAL) in a state with its latest median house price and key ABS Census demographics — powers the state choropleth + suburb list."
+    };
+  }
+
+  // Full per-suburb profile: identity, demographics, headline price, comparison baselines.
+  rpc GetSuburbProfile (GetSuburbProfileRequest) returns (GetSuburbProfileResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Suburb Profile",
+      description: "A single suburb's rich profile — ABS Census demographics, latest median house price with QoQ/YoY, and state/national comparison baselines."
+    };
+  }
 }
 
 message MintTokenRequest {
@@ -1586,4 +1604,60 @@ message GetHousePriceSeriesResponse {
   string source = 6;
   string source_licence = 7;
   repeated HousePricePoint points = 8;
+}
+
+message ListStateSuburbsRequest {
+  string state_code = 1; // 'NSW' | 'VIC' | ... (required)
+  string query = 2;      // optional case-insensitive name substring
+  int32 limit = 3;       // optional; default 5000
+}
+
+// One suburb summary for the map + list (keyed by ABS SAL code).
+message SuburbSummary {
+  string sal_code = 1;
+  string sal_name = 2;
+  string state_code = 3;
+  string postcode = 4;
+  double latest_median_price = 5;            // 0 if no price data
+  google.protobuf.Timestamp latest_period = 6;
+  double yoy_pct = 7;
+  int32  population = 8;
+  double median_age = 9;
+  double median_weekly_hhd_income = 10;
+}
+
+message ListStateSuburbsResponse {
+  repeated SuburbSummary suburbs = 1;
+}
+
+message GetSuburbProfileRequest {
+  string sal_code = 1; // required
+}
+
+message SuburbDemographics {
+  int32  population = 1;
+  double median_age = 2;
+  double median_weekly_hhd_income = 3;
+  double median_weekly_per_income = 4;
+  double median_weekly_rent = 5;
+  double median_monthly_mortgage = 6;
+  double pct_owned_outright = 7;
+  double pct_owned_mortgage = 8;
+  double pct_rented = 9;
+  int32  dwelling_count = 10;
+  int32  census_year = 11;
+}
+
+// State + national reference medians for the profile's comparison bars.
+message ComparisonBaselines {
+  double state_median_price = 1;
+  double national_median_price = 2;
+  double state_median_weekly_hhd_income = 3;
+  double national_median_weekly_hhd_income = 4;
+}
+
+message GetSuburbProfileResponse {
+  SuburbSummary summary = 1;
+  SuburbDemographics demographics = 2;
+  ComparisonBaselines baselines = 3;
 }
