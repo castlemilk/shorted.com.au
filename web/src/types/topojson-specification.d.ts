@@ -1,7 +1,7 @@
 // Vendored ambient declaration: the npm `topojson-specification` types package was
 // unpublished (2023-03-15), but @types/topojson-client still imports from it.
 declare module "topojson-specification" {
-  import * as GeoJSON from "geojson";
+  import type * as GeoJSON from "geojson";
 
   export interface Topology<T extends Objects = Objects> {
     type: "Topology";
@@ -11,7 +11,7 @@ declare module "topojson-specification" {
     bbox?: GeoJSON.BBox | undefined;
   }
   export interface Transform { scale: [number, number]; translate: [number, number]; }
-  export interface Objects { [key: string]: GeometryObject; }
+  export type Objects = Record<string, GeometryObject>;
   export type Position = number[];
   export type Properties = GeoJSON.GeoJsonProperties;
 
