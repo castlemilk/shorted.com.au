@@ -203,6 +203,11 @@ const config = {
       },
     ];
   },
+  async redirects() {
+    return [
+      { source: "/housing/suburbs", destination: "/housing", permanent: true },
+    ];
+  },
   async rewrites() {
     return [
       {
