@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import { geoMercator, geoPath } from "d3-geo";
-import { zoom as d3zoom } from "d3-zoom";
+import { zoom as d3zoom, type D3ZoomEvent } from "d3-zoom";
 import { select } from "d3-selection";
 import { feature } from "topojson-client";
 import type { Topology, GeometryCollection } from "topojson-specification";
@@ -66,7 +66,8 @@ function ChoroplethInner({
     const g = select(gRef.current);
     const zoomBehavior = d3zoom<SVGSVGElement, unknown>()
       .scaleExtent([1, 12])
-      .on("zoom", (e) => g.attr("transform", e.transform.toString()));
+      .on("zoom", (e: D3ZoomEvent<SVGSVGElement, unknown>) =>
+        g.attr("transform", e.transform.toString()));
     const svg = select(svgRef.current);
     svg.call(zoomBehavior);
     svg.on("dblclick.zoom", null);

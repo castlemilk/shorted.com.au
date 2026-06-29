@@ -13,7 +13,7 @@ export function useTopojson(url: string | null) {
     queryFn: async (): Promise<Topology> => {
       const res = await fetch(url!);
       if (!res.ok) throw new Error(`topojson ${url}: ${res.status}`);
-      return res.json();
+      return (await res.json()) as Topology;
     },
   });
 }
