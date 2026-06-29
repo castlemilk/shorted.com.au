@@ -4,6 +4,7 @@ import Container from "~/@/components/ui/container";
 import { PostHeader } from "~/@/components/ui/post-header";
 import { type Metadata } from "next";
 import { MDXRemote } from "next-mdx-remote/rsc";
+import remarkGfm from "remark-gfm";
 import { siteConfig } from "~/@/config/site";
 import { ArticleSchema } from "~/@/components/seo/article-schema";
 import { BreadcrumbStructuredData } from "~/@/components/seo/breadcrumbs";
@@ -172,7 +173,7 @@ export default async function Post({ params }: Params) {
               options={{
                 parseFrontmatter: false,
                 mdxOptions: {
-                  remarkPlugins: [],
+                  remarkPlugins: [remarkGfm],
                   rehypePlugins: [],
                 },
               }}
