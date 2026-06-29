@@ -190,26 +190,12 @@ module "market_data" {
   ]
 }
 
-# Chat Service (Connect-RPC AI chat, port 8080)
-module "chat_service" {
-  source = "../../modules/chat-service"
-
-  project_id    = var.project_id
-  region        = var.region
-  environment   = "dev"
-  image_url     = var.chat_service_image
-  min_instances = 0
-  max_instances = 10
-
-  postgres_address  = var.postgres_address
-  postgres_database = var.postgres_database
-  postgres_username = var.postgres_username
-
-  shorts_api_url = module.shorts_api.service_url
-
-  depends_on = [
-  ]
-}
+# =============================================================================
+# Chat Service — NOT managed in dev. The chat-service image is not built by the
+# dev CI matrix (its :latest tag no longer exists in the dev registry), so every
+# apply tainted/failed on it. The live dev service was `state rm`'d (left running,
+# unmanaged) rather than destroyed. Chat is exercised in prod; dev doesn't need it.
+# =============================================================================
 
 # Market Discovery and Data Sync Jobs
 module "market_discovery_sync" {
@@ -230,13 +216,13 @@ module "market_discovery_sync" {
   ]
 }
 
-# Grafana Cloud Dashboards
-module "grafana_dashboards" {
-  source = "../../modules/grafana-dashboards"
-
-  grafana_url  = var.grafana_url
-  grafana_auth = var.grafana_auth
-}
+# =============================================================================
+# Grafana Cloud Dashboards — managed by environments/prod ONLY. There is a single
+# Grafana Cloud org (skunkworq.grafana.net); dev co-managing the same folder meant
+# a dev apply could delete/overwrite prod's dashboards, and dev CI has no Grafana
+# token (the folder read 403'd every plan). Removed alongside the dev cleanup;
+# the folder resource was `state rm`'d, not destroyed. (Same posture as Cloudflare.)
+# =============================================================================
 
 # Weekly Report Generator Job
 module "weekly_report_generator" {
@@ -318,18 +304,9 @@ module "report_extractor" {
 # dev origins. Removed June 2026 when the dev GCS backend was re-enabled.
 # =============================================================================
 
-# Newsroom Daily Job (take-writer — generates and publishes daily takes)
-module "newsroom_job" {
-  source = "../../modules/newsroom-job"
-
-  project_id       = var.project_id
-  region           = var.region
-  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
-  environment      = "production"
-  image_url        = var.newsroom_job_image
-
-  gemini_secret_exists    = var.gemini_secret_exists
-  anthropic_secret_exists = var.anthropic_secret_exists
-
-  depends_on = []
-}
+# =============================================================================
+# Newsroom Daily Job — NOT managed in dev. It requires the ANTHROPIC_API_KEY
+# secret (absent in dev → apply 403'd), and we don't want a dev scheduler
+# publishing daily takes. The newsroom runs in prod (and locally/manually).
+# The tainted dev job was `state rm`'d (left unmanaged), not destroyed.
+# =============================================================================
