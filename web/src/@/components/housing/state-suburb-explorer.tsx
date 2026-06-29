@@ -68,11 +68,12 @@ export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
     return out;
   }, [suburbs, search, sortBy, pricedOnly]);
 
-  // map hover → scroll the matching list row into view
+  // map hover (or ?sal= deep-link) → scroll the matching list row into view.
+  // depend on `filtered` so a deep-link set before rows render still scrolls once they do.
   useEffect(() => {
     if (!hovered) return;
     rowRefs.current.get(hovered)?.scrollIntoView({ block: "nearest" });
-  }, [hovered]);
+  }, [hovered, filtered]);
 
   const goToSuburb = (s: SuburbDatum) => router.push(suburbHref(stateCode, s));
   const noPrice = !isLoading && stats.pricedCount === 0;

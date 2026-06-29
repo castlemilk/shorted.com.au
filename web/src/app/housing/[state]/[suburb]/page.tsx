@@ -5,7 +5,7 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import { HousingBreadcrumb } from "@/components/housing/housing-breadcrumb";
 import { SuburbProfile } from "@/components/housing/suburb-profile-loader";
-import { getSuburbProfile } from "~/app/actions/getHousing";
+import { getSuburbProfile, resolveSuburbSalCode } from "~/app/actions/getHousing";
 import { STATE_NAMES, slugToState, stateSlug } from "@/lib/housing/states";
 
 export const revalidate = 86400;
@@ -17,10 +17,10 @@ interface PageProps {
 
 export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
   const { state, suburb } = await params;
-  const { sal } = await searchParams;
   const code = slugToState(state);
-  if (!code || !sal) return {};
-  const profile = await getSuburbProfile(sal).catch(() => null);
+  if (!code) return {};
+  const sal = (await searchParams).sal ?? (await resolveSuburbSalCode(code, suburb));
+  const profile = sal ? await getSuburbProfile(sal).catch(() => null) : null;
   const name = profile?.summary?.salName ?? suburb.replace(/-/g, " ");
   const url = `https://shorted.com.au/housing/${stateSlug(code)}/${suburb}`;
   const title = `${name} House Prices & Demographics`;
@@ -34,9 +34,12 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
 
 export default async function SuburbPage({ params, searchParams }: PageProps) {
   const { state, suburb } = await params;
-  const { sal } = await searchParams;
   const code = slugToState(state);
-  if (!code || !sal) notFound();
+  if (!code) notFound();
+  // ?sal= is a fast-path; otherwise resolve the SAL from the slug so the clean
+  // (canonical) URL renders for shared/crawled links.
+  const sal = (await searchParams).sal ?? (await resolveSuburbSalCode(code, suburb));
+  if (!sal) notFound();
   const profile = await getSuburbProfile(sal).catch(() => null);
   if (!profile?.summary) notFound();
   const name = profile.summary.salName;

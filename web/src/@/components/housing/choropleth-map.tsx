@@ -195,7 +195,7 @@ function ChoroplethInner({
       <svg
         ref={svgRef} width={width} height={height}
         role={interactive ? "group" : "img"} aria-label={ariaLabel}
-        style={{ touchAction: interactive ? "pan-y" : "none", display: "block" }}
+        style={{ touchAction: interactive ? "pan-y" : "auto", display: "block" }}
       >
         <defs>
           <pattern id="nodata-hatch" width={6} height={6} patternUnits="userSpaceOnUse"

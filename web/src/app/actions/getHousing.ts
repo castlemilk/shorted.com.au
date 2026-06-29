@@ -10,6 +10,7 @@ import {
 import { cache } from "react";
 import { SHORTS_API_URL } from "./config";
 import { withRetryAndNotFound } from "./withRetry";
+import { suburbSlug } from "@/lib/housing/states";
 
 /** Latest house-price headline metrics per region (optionally filtered by type). */
 export const getHousingOverview = cache(
@@ -57,4 +58,17 @@ export const getSuburbProfile = cache(
       return client.getSuburbProfile({ salCode });
     },
   ),
+);
+
+/**
+ * Resolve a suburb's SAL code from its URL slug + state — lets the clean
+ * /housing/[state]/[suburb] URL render WITHOUT the ?sal= fast-path (so the
+ * canonical we advertise to crawlers actually resolves). Cached per (state,slug).
+ */
+export const resolveSuburbSalCode = cache(
+  async (stateCode: string, slug: string): Promise<string | null> => {
+    const res = await listStateSuburbs(stateCode, "", 5000).catch(() => null);
+    const match = res?.suburbs.find((s) => suburbSlug(s.salName, s.postcode) === slug);
+    return match?.salCode ?? null;
+  },
 );

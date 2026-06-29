@@ -148,7 +148,7 @@ export function SuburbProfile({
                 label="Median house price" suburb={s.latestMedianPrice}
                 state={b?.stateMedianPrice ?? 0} nation={b?.nationalMedianPrice ?? 0}
                 stateHref={st ? `/housing/${stateSlug(st)}` : undefined} nationHref="/housing"
-                fmt={fmtAUD} deltaNation={pctVs(b?.nationalMedianPrice)} deltaState={pctVs(b?.stateMedianPrice)}
+                fmt={fmtAUD} deltaNation={pctVs(b?.nationalMedianPrice)}
               />
             ) : null}
             <CompareBar
@@ -204,10 +204,10 @@ function DemoGroup({ title, stats }: { title: string; stats: [string, string][] 
 }
 
 function CompareBar({
-  label, suburb, state, nation, fmt, stateHref, nationHref, deltaNation, deltaState,
+  label, suburb, state, nation, fmt, stateHref, nationHref, deltaNation,
 }: {
   label: string; suburb: number; state: number; nation: number; fmt: (v: number) => string;
-  stateHref?: string; nationHref?: string; deltaNation?: number | null; deltaState?: number | null;
+  stateHref?: string; nationHref?: string; deltaNation?: number | null;
 }) {
   const max = Math.max(suburb, state, nation, 1);
   const Row = ({ name, v, cls, href }: { name: string; v: number; cls: string; href?: string }) => (

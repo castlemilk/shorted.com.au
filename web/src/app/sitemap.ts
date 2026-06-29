@@ -402,7 +402,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const housingRoutes = [
     ...housingStateSlugs.map((slug) => ({ url: `${baseUrl}/housing/${slug}`, lastModified: latestDataDate })),
-    ...housingSuburbUrls.map((s) => ({ url: `${baseUrl}/housing/${s.state}/${s.suburb}?sal=${s.sal}`, lastModified: latestDataDate })),
+    // clean canonical URLs (the page resolves the SAL from the slug; ?sal= is only a fast-path)
+    ...housingSuburbUrls.map((s) => ({ url: `${baseUrl}/housing/${s.state}/${s.suburb}`, lastModified: latestDataDate })),
   ];
 
   // Authors hub + per-author profile pages — E-E-A-T signal (static).
