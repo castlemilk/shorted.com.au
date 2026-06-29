@@ -151,6 +151,8 @@ type Store interface {
 	// House-price tracker methods
 	GetHousingOverview(regionType string) ([]*HousingMetricRow, error)
 	GetHousePriceSeries(regionCode, measure, dwellingType string) (*HousePriceSeriesResult, error)
+	ListStateSuburbs(stateCode, query string, limit int32) ([]*SuburbSummaryRow, error)
+	GetSuburbProfile(salCode string) (*SuburbProfileRow, error)
 	GetHousingRegions(regionType, stateCode, query string, limit int32) ([]*HousingRegionRow, error)
 
 	// Event timeline methods

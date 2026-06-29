@@ -122,3 +122,56 @@ func refreshHousingMV(ctx context.Context, pool *pgxpool.Pool) error {
 	_, err := pool.Exec(ctx, `SELECT refresh_housing_materialized_views()`)
 	return err
 }
+
+// upsertDemographics idempotently writes one row per boundary suburb (PK =
+// sal_code). v1 populates identity + population + the five G02 medians; the
+// tenure/dwelling columns are left to default NULL until those tables are
+// mapped. Nullable *int/*float64 fields bind directly (pgx maps nil → NULL).
+func upsertDemographics(ctx context.Context, pool *pgxpool.Pool, rows []CensusRow) (int, error) {
+	const q = `
+		INSERT INTO suburb_demographics
+			(sal_code, sal_name, state_code, population, median_age,
+			 median_weekly_hhd_income, median_weekly_per_income, median_weekly_rent,
+			 median_monthly_mortgage, census_year, source, source_licence,
+			 pct_born_overseas, pct_english_only, top_religion, pct_top_religion,
+			 pct_no_religion, top_language, pct_top_language)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+		ON CONFLICT (sal_code) DO UPDATE SET
+			sal_name                 = EXCLUDED.sal_name,
+			state_code               = EXCLUDED.state_code,
+			population               = EXCLUDED.population,
+			median_age               = EXCLUDED.median_age,
+			median_weekly_hhd_income = EXCLUDED.median_weekly_hhd_income,
+			median_weekly_per_income = EXCLUDED.median_weekly_per_income,
+			median_weekly_rent       = EXCLUDED.median_weekly_rent,
+			median_monthly_mortgage  = EXCLUDED.median_monthly_mortgage,
+			census_year              = EXCLUDED.census_year,
+			source                   = EXCLUDED.source,
+			source_licence           = EXCLUDED.source_licence,
+			pct_born_overseas        = EXCLUDED.pct_born_overseas,
+			pct_english_only         = EXCLUDED.pct_english_only,
+			top_religion             = EXCLUDED.top_religion,
+			pct_top_religion         = EXCLUDED.pct_top_religion,
+			pct_no_religion          = EXCLUDED.pct_no_religion,
+			top_language             = EXCLUDED.top_language,
+			pct_top_language         = EXCLUDED.pct_top_language,
+			fetched_at               = now()`
+	batch := &pgx.Batch{}
+	for _, r := range rows {
+		batch.Queue(q, r.SALCode, r.SALName, r.StateCode, r.Population, r.MedianAge,
+			r.MedianWeeklyHhdIncome, r.MedianWeeklyPerIncome, r.MedianWeeklyRent,
+			r.MedianMonthlyMortgage, censusYear, censusSource, censusLicence,
+			r.PctBornOverseas, r.PctEnglishOnly, r.TopReligion, r.PctTopReligion,
+			r.PctNoReligion, r.TopLanguage, r.PctTopLanguage)
+	}
+	br := pool.SendBatch(ctx, batch)
+	defer func() { _ = br.Close() }()
+	n := 0
+	for range rows {
+		if _, err := br.Exec(); err != nil {
+			return n, err
+		}
+		n++
+	}
+	return n, nil
+}

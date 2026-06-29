@@ -55,3 +55,6 @@ blob-report/
 
 # Performance benchmark output (committed baselines live in ../docs/perf/)
 perf-results/
+
+# ABS shapefile inputs for the housing boundary build (download per README; large)
+/scripts/geo/src/

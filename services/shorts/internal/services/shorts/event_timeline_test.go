@@ -19,7 +19,7 @@ func TestGetEventTimeline_HandlerReturnsEvents(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := mocks.NewMockShortsStore(ctrl)
-	// Lowercase input → handler normalizes to "BHP"
+	// Lowercase input → handler normalizes to "BHP"; DaysBack=0 defaults to a full year (365).
 	mockStore.EXPECT().
 		GetEventTimeline("BHP", int32(365), int32(50)).
 		Return([]*shortsstore.TimelineEventRow{

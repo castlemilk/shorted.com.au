@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import Link from "next/link";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { getHousingOverview } from "~/app/actions/getHousing";
 import { HousingTiles, type HousingTile } from "@/components/housing/housing-tiles";
 import { HousingSeriesChart } from "@/components/housing/housing-charts";
+import { NationalHousingMap } from "@/components/housing/national-housing-map-loader";
+import { GCCSA_TO_STATE } from "@/lib/housing/states";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import { cn } from "@/lib/utils";
 
@@ -81,21 +82,29 @@ export default async function HousingPage() {
   const national = metrics.find((m) => m.regionCode === "AUS" && m.measure === "mean_price");
   const dti = metrics.find((m) => m.regionCode === "AUS" && m.measure === "debt_to_income");
   const index = metrics.find((m) => m.regionCode === "AUS" && m.measure === "price_index");
-  const investorShare = metrics.find((m) => m.regionCode === "AUS" && m.measure === "investor_loan_share");
   const capitals = metrics
     .filter((m) => m.regionType === "gccsa" && m.measure === "median_price" && m.dwellingType === "established_house")
     .sort((a, b) => b.value - a.value);
 
   const asOf = quarterLabel(overview?.asOf?.seconds);
 
+  // Map GCCSA medians onto their state for the national choropleth.
+  const valueByStateCode = new Map<string, number>();
+  for (const m of capitals) {
+    const st = GCCSA_TO_STATE[m.regionCode];
+    if (st) valueByStateCode.set(st, m.value);
+  }
+
   const capitalTiles: HousingTile[] = capitals.map((m) => {
     const d = yoyDelta(m.yoyPct);
+    const st = GCCSA_TO_STATE[m.regionCode];
     return {
       label: m.regionName.replace("Greater ", ""),
       value: fmtAUD(m.value),
       delta: d.delta,
       tone: d.tone,
       sub: `${m.qoqPct >= 0 ? "+" : ""}${m.qoqPct.toFixed(1)}% qtr`,
+      href: st ? `/housing/${st.toLowerCase()}` : undefined,
     };
   });
 
@@ -145,7 +154,7 @@ export default async function HousingPage() {
           </p>
         ) : (
           <>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-3">
               {national ? (
                 <BigStat
                   label="National mean dwelling"
@@ -163,15 +172,6 @@ export default async function HousingPage() {
                   sub="RBA — among the world's highest"
                 />
               ) : null}
-              {investorShare ? (
-                <BigStat
-                  label="Investor share of new lending"
-                  value={`${investorShare.value.toFixed(0)}%`}
-                  delta={`${investorShare.yoyPct >= 0 ? "+" : ""}${investorShare.yoyPct.toFixed(1)}pp yr`}
-                  tone={investorShare.yoyPct >= 0 ? "down" : "up"}
-                  sub="ABS Lending Indicators — investor vs owner-occupier"
-                />
-              ) : null}
               {index ? (
                 <BigStat
                   label="8-capital price index"
@@ -181,6 +181,16 @@ export default async function HousingPage() {
               ) : null}
             </div>
 
+            <section className="space-y-3">
+              <h2 className="font-serif text-2xl text-foreground">Explore by state</h2>
+              <p className="text-sm text-muted-foreground">
+                Shaded by greater-capital median house price. Click a state to drill into its suburbs.
+              </p>
+              <div className="rounded-xl border border-border bg-card p-3">
+                <NationalHousingMap valueByStateCode={valueByStateCode} />
+              </div>
+            </section>
+
             <section className="space-y-4">
               <h2 className="font-serif text-2xl text-foreground">Capital-city medians</h2>
               <p className="text-sm text-muted-foreground">
@@ -188,12 +198,6 @@ export default async function HousingPage() {
                 area. YoY change shown; quarter change below.
               </p>
               <HousingTiles tiles={capitalTiles} />
-              <Link
-                href="/housing/suburbs"
-                className="inline-flex items-center gap-1 text-sm font-medium text-foreground underline decoration-muted-foreground/40 underline-offset-4 transition-colors hover:decoration-foreground"
-              >
-                Explore median prices by suburb (SA &amp; VIC) →
-              </Link>
             </section>
 
             <section className="grid gap-6 lg:grid-cols-2">
@@ -204,47 +208,13 @@ export default async function HousingPage() {
                 <HousingSeriesChart regionCode="AUS" measure="debt_to_income" ariaLabel="Household debt to income ratio" format="percent" />
               </ChartCard>
             </section>
-
-            <section className="space-y-4">
-              <h2 className="font-serif text-2xl text-foreground">Lending, rates &amp; credit</h2>
-              <p className="text-sm text-muted-foreground">
-                What drives the price spine: who is borrowing, at what cost, and how
-                fast housing credit is growing — from the ABS Lending Indicators and
-                the RBA.
-              </p>
-              <div className="grid gap-6 lg:grid-cols-2">
-                <ChartCard title="Investor share of new housing lending" subtitle="ABS Lending Indicators · investor ÷ (investor + owner-occupier) · quarterly">
-                  <HousingSeriesChart regionCode="AUS" measure="investor_loan_share" ariaLabel="Investor share of new housing loan commitments" format="percent" />
-                </ChartCard>
-                <ChartCard title="Cash rate target" subtitle="RBA Table F1.1 · monthly">
-                  <HousingSeriesChart regionCode="AUS" measure="cash_rate" ariaLabel="RBA cash rate target" format="percent" />
-                </ChartCard>
-                <ChartCard title="Owner-occupier mortgage rate" subtitle="RBA Table F6 · outstanding, all institutions · monthly">
-                  <HousingSeriesChart regionCode="AUS" measure="mortgage_rate_oo" ariaLabel="Owner-occupier outstanding mortgage rate" format="percent" />
-                </ChartCard>
-                <ChartCard title="Housing credit growth" subtitle="RBA Table D1 · 12-month change · monthly">
-                  <HousingSeriesChart regionCode="AUS" measure="housing_credit_growth" ariaLabel="Housing credit 12-month growth" format="percent" />
-                </ChartCard>
-              </div>
-            </section>
-
-            <section className="grid gap-6 lg:grid-cols-2">
-              <ChartCard title="National price index (derived)" subtitle="ABS mean price rebased to 100 · a live proxy while the hedonic RPPI is frozen at 2021">
-                <HousingSeriesChart regionCode="AUS" measure="price_index_derived" ariaLabel="Derived national price index" format="index" />
-              </ChartCard>
-              <ChartCard title="Household dwelling assets" subtitle="RBA Table E1 · total value of household-held dwellings · quarterly">
-                <HousingSeriesChart regionCode="AUS" measure="household_dwelling_assets" ariaLabel="Household dwelling assets" format="aud" />
-              </ChartCard>
-            </section>
           </>
         )}
 
         <p className="border-t border-border pt-4 text-xs text-muted-foreground">
-          Sources: Australian Bureau of Statistics (Residential Dwellings &amp;
-          Lending Indicators, WPI, CPI; CC BY 4.0), Reserve Bank of Australia
-          (Tables E1, E2, D1, F1.1, F6) and the South Australian &amp; Victorian
-          Valuer-General offices (suburb medians, CC BY). The most recent period
-          may be preliminary. Not financial advice.
+          Sources: Australian Bureau of Statistics (Residential Dwellings, CC BY 4.0)
+          and Reserve Bank of Australia. Quarterly; the most recent quarter may be
+          preliminary. Not financial advice.
         </p>
       </div>
     </DashboardLayout>

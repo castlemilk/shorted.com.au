@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "all", "official | crawl | refresh | all")
+	mode := flag.String("mode", "all", "official | crawl | census | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -43,10 +43,13 @@ func main() {
 		// cuttlefish rig under xvfb (see Dockerfile.crawl), never on Cloud Run.
 		runCrawl(ctx, pool)
 		refresh(ctx, pool)
+	case "census":
+		// ABS 2021 Census GCP SAL demographics — boundary-anchored suburb rows.
+		runCensus(ctx, pool)
 	case "refresh":
 		refresh(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want official|crawl|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|crawl|census|refresh|all)", *mode)
 	}
 }
 
@@ -126,4 +129,23 @@ func fmtPeriod(t *time.Time) string {
 		return "n/a"
 	}
 	return t.Format("2006-01-02")
+}
+
+// runCensus ingests ABS 2021 Census suburb demographics and upserts them into
+// suburb_demographics, recording the run cursor under "abs_census".
+func runCensus(ctx context.Context, pool *pgxpool.Pool) {
+	rows, err := ingestCensus(ctx)
+	if err != nil {
+		log.Printf("[census] ingest error: %v", err)
+		_ = updateRun(ctx, pool, "abs_census", nil, 0, "error", err.Error())
+		return
+	}
+	n, err := upsertDemographics(ctx, pool, rows)
+	if err != nil {
+		log.Printf("[census] upsert error after %d: %v", n, err)
+		_ = updateRun(ctx, pool, "abs_census", nil, n, "error", err.Error())
+		return
+	}
+	log.Printf("[census] upserted %d", n)
+	_ = updateRun(ctx, pool, "abs_census", nil, n, "ok", "")
 }

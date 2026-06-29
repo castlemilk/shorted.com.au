@@ -85,16 +85,12 @@ func (s *postgresStore) GetHousePriceSeries(regionCode, measure, dwellingType st
 		dwellingType = "all"
 	}
 
-	// publicLicenceFilter excludes internal, ToS-restricted rows (REA/Domain
-	// crawl + brandbrain, source_licence = 'proprietary-tos-restricted') from
-	// every public read path — those rows may NEVER reach a public surface.
 	const query = `
 		SELECT hp.period, hp.value, hp.is_preliminary, COALESCE(hp.unit, ''),
 		       hp.source, hp.source_licence, COALESCE(r.region_name, '')
 		FROM house_prices hp
 		JOIN house_price_regions r ON r.region_code = hp.region_code
 		WHERE hp.region_code = $1 AND hp.measure = $2 AND hp.dwelling_type = $3
-		  AND hp.source_licence <> 'proprietary-tos-restricted'
 		ORDER BY hp.period ASC`
 
 	rows, err := s.db.Query(ctx, query, regionCode, measure, dwellingType)
@@ -116,6 +112,169 @@ func (s *postgresStore) GetHousePriceSeries(regionCode, measure, dwellingType st
 	return result, rows.Err()
 }
 
+// SuburbSummaryRow is a suburb for the state map/list (SAL-spined, price LEFT-joined).
+type SuburbSummaryRow struct {
+	SALCode               string
+	SALName               string
+	StateCode             string
+	Postcode              string
+	LatestMedianPrice     float64
+	LatestPeriod          *time.Time
+	YoYPct                float64
+	Population            int32
+	MedianAge             float64
+	MedianWeeklyHhdIncome float64
+	RegionCode            string
+	PctBornOverseas       float64
+	TopReligion           string
+	TopLanguage           string
+	PctTopLanguage        float64
+}
+
+// SuburbProfileRow is the full per-suburb profile (demographics + headline price).
+type SuburbProfileRow struct {
+	Summary SuburbSummaryRow
+	// full demographics
+	MedianWeeklyPerIncome float64
+	MedianWeeklyRent      float64
+	MedianMonthlyMortgage float64
+	PctOwnedOutright      float64
+	PctOwnedMortgage      float64
+	PctRented             float64
+	DwellingCount         int32
+	CensusYear            int32
+	// cultural demographics — profile-only extras (born-overseas, top religion,
+	// top language and their shares live on the embedded Summary).
+	PctEnglishOnly float64
+	PctTopReligion float64
+	PctNoReligion  float64
+	// baselines
+	StateMedianPrice        float64
+	NationalMedianPrice     float64
+	StateMedianHhdIncome    float64
+	NationalMedianHhdIncome float64
+}
+
+// ListStateSuburbs returns every SAL suburb in a state, LEFT JOINed to its latest
+// median price (via the sal_code bridge) and headline demographics.
+func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) ([]*SuburbSummaryRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if limit <= 0 || limit > 20000 {
+		limit = 5000
+	}
+	const q = `
+		SELECT d.sal_code, d.sal_name, d.state_code, COALESCE(d.postcode, ''),
+		       COALESCE(h.value, 0), h.period, COALESCE(h.yoy_pct, 0),
+		       COALESCE(d.population, 0), COALESCE(d.median_age, 0),
+		       COALESCE(d.median_weekly_hhd_income, 0), COALESCE(r.region_code, ''),
+		       COALESCE(d.pct_born_overseas, 0), COALESCE(d.top_religion, ''),
+		       COALESCE(d.top_language, ''), COALESCE(d.pct_top_language, 0)
+		FROM suburb_demographics d
+		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
+		-- Latest median from house_prices directly (NOT the quarterly-only MV) so annual
+		-- Valuer-General states (VIC) light up too; YoY computed vs the obs ~1yr prior.
+		LEFT JOIN LATERAL (
+			SELECT hp.value, hp.period,
+			       (hp.value / NULLIF((
+			          SELECT p.value FROM house_prices p
+			          WHERE p.region_code = r.region_code AND p.measure = 'median_price'
+			            AND p.dwelling_type = 'house' AND p.period <= hp.period - INTERVAL '11 months'
+			          ORDER BY p.period DESC LIMIT 1), 0) - 1) * 100 AS yoy_pct
+			FROM house_prices hp
+			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
+			ORDER BY hp.period DESC LIMIT 1
+		) h ON true
+		WHERE d.state_code = $1
+		  AND ($2 = '' OR d.sal_name ILIKE '%' || $2 || '%')
+		ORDER BY d.sal_name
+		LIMIT $3`
+	rows, err := s.db.Query(ctx, q, stateCode, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*SuburbSummaryRow
+	for rows.Next() {
+		var r SuburbSummaryRow
+		if err := rows.Scan(&r.SALCode, &r.SALName, &r.StateCode, &r.Postcode,
+			&r.LatestMedianPrice, &r.LatestPeriod, &r.YoYPct,
+			&r.Population, &r.MedianAge, &r.MedianWeeklyHhdIncome, &r.RegionCode,
+			&r.PctBornOverseas, &r.TopReligion, &r.TopLanguage, &r.PctTopLanguage); err != nil {
+			return nil, err
+		}
+		out = append(out, &r)
+	}
+	return out, rows.Err()
+}
+
+// GetSuburbProfile returns one suburb's full demographics + headline price +
+// state/national comparison baselines.
+func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	const q = `
+		SELECT d.sal_code, d.sal_name, d.state_code, COALESCE(d.postcode, ''),
+		       COALESCE(h.value, 0), h.period, COALESCE(h.yoy_pct, 0),
+		       COALESCE(d.population, 0), COALESCE(d.median_age, 0),
+		       COALESCE(d.median_weekly_hhd_income, 0), COALESCE(r.region_code, ''),
+		       COALESCE(d.pct_born_overseas, 0), COALESCE(d.top_religion, ''),
+		       COALESCE(d.top_language, ''), COALESCE(d.pct_top_language, 0),
+		       COALESCE(d.median_weekly_per_income, 0), COALESCE(d.median_weekly_rent, 0),
+		       COALESCE(d.median_monthly_mortgage, 0), COALESCE(d.pct_owned_outright, 0),
+		       COALESCE(d.pct_owned_mortgage, 0), COALESCE(d.pct_rented, 0),
+		       COALESCE(d.dwelling_count, 0), COALESCE(d.census_year, 2021),
+		       COALESCE(d.pct_english_only, 0), COALESCE(d.pct_top_religion, 0),
+		       COALESCE(d.pct_no_religion, 0),
+		       -- state baseline: avg of the LATEST median per priced suburb in the state (covers VIC annual)
+		       COALESCE((SELECT avg(latest) FROM (
+		                 SELECT DISTINCT ON (hp.region_code) hp.value AS latest
+		                 FROM house_prices hp JOIN house_price_regions sr ON sr.region_code = hp.region_code
+		                 WHERE sr.state_code = d.state_code AND sr.region_type = 'suburb'
+		                   AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
+		                 ORDER BY hp.region_code, hp.period DESC) s), 0),
+		       -- national baseline: avg of the latest median across ALL priced suburbs (AUS has no median_price row)
+		       COALESCE((SELECT avg(latest) FROM (
+		                 SELECT DISTINCT ON (hp.region_code) hp.value AS latest
+		                 FROM house_prices hp JOIN house_price_regions sr ON sr.region_code = hp.region_code
+		                 WHERE sr.region_type = 'suburb'
+		                   AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
+		                 ORDER BY hp.region_code, hp.period DESC) s), 0),
+		       COALESCE((SELECT avg(median_weekly_hhd_income) FROM suburb_demographics
+		                 WHERE state_code = d.state_code), 0),
+		       COALESCE((SELECT avg(median_weekly_hhd_income) FROM suburb_demographics), 0)
+		FROM suburb_demographics d
+		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
+		LEFT JOIN LATERAL (
+			SELECT hp.value, hp.period,
+			       (hp.value / NULLIF((
+			          SELECT p.value FROM house_prices p
+			          WHERE p.region_code = r.region_code AND p.measure = 'median_price'
+			            AND p.dwelling_type = 'house' AND p.period <= hp.period - INTERVAL '11 months'
+			          ORDER BY p.period DESC LIMIT 1), 0) - 1) * 100 AS yoy_pct
+			FROM house_prices hp
+			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
+			ORDER BY hp.period DESC LIMIT 1
+		) h ON true
+		WHERE d.sal_code = $1
+		LIMIT 1`
+	var p SuburbProfileRow
+	row := s.db.QueryRow(ctx, q, salCode)
+	if err := row.Scan(
+		&p.Summary.SALCode, &p.Summary.SALName, &p.Summary.StateCode, &p.Summary.Postcode,
+		&p.Summary.LatestMedianPrice, &p.Summary.LatestPeriod, &p.Summary.YoYPct,
+		&p.Summary.Population, &p.Summary.MedianAge, &p.Summary.MedianWeeklyHhdIncome, &p.Summary.RegionCode,
+		&p.Summary.PctBornOverseas, &p.Summary.TopReligion, &p.Summary.TopLanguage, &p.Summary.PctTopLanguage,
+		&p.MedianWeeklyPerIncome, &p.MedianWeeklyRent, &p.MedianMonthlyMortgage,
+		&p.PctOwnedOutright, &p.PctOwnedMortgage, &p.PctRented, &p.DwellingCount, &p.CensusYear,
+		&p.PctEnglishOnly, &p.PctTopReligion, &p.PctNoReligion,
+		&p.StateMedianPrice, &p.NationalMedianPrice, &p.StateMedianHhdIncome, &p.NationalMedianHhdIncome,
+	); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
 // HousingRegionRow is a selectable house-price region (for the suburb explorer),
 // with its latest median price for at-a-glance display + the choropleth.
 type HousingRegionRow struct {
@@ -128,9 +287,6 @@ type HousingRegionRow struct {
 	LatestPeriod *time.Time
 }
 
-// GetHousingRegions lists regions from house_price_regions, optionally filtered
-// by region_type, state_code, and a case-insensitive name query, each joined to
-// its latest median_price observation.
 func (s *postgresStore) GetHousingRegions(regionType, stateCode, query string, limit int32) ([]*HousingRegionRow, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

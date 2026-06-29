@@ -308,6 +308,20 @@ export const getHousingOverview = ShortedStocksService.method.getHousingOverview
 export const getHousePriceSeries = ShortedStocksService.method.getHousePriceSeries;
 
 /**
+ * List all suburbs in a state with latest median price + key demographics.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListStateSuburbs
+ */
+export const listStateSuburbs = ShortedStocksService.method.listStateSuburbs;
+
+/**
+ * Full per-suburb profile: identity, demographics, headline price, comparison baselines.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetSuburbProfile
+ */
+export const getSuburbProfile = ShortedStocksService.method.getSuburbProfile;
+
+/**
  * List house-price regions (suburbs/LGAs/etc) for the suburb explorer.
  *
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListHousingRegions

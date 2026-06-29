@@ -110,7 +110,13 @@ const config = {
         headers: [
           {
             key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
+            // Prod chunks are content-hashed → safe to cache immutably forever.
+            // Dev chunks have STABLE names, so `immutable` makes the browser pin
+            // stale chunks for a year (breaks HMR/refresh) — never cache in dev.
+            value:
+              process.env.NODE_ENV === "production"
+                ? "public, max-age=31536000, immutable"
+                : "no-store, must-revalidate",
           },
         ],
       },
@@ -201,6 +207,11 @@ const config = {
           },
         ],
       },
+    ];
+  },
+  async redirects() {
+    return [
+      { source: "/housing/suburbs", destination: "/housing", permanent: true },
     ];
   },
   async rewrites() {
