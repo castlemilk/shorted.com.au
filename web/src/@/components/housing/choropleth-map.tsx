@@ -170,6 +170,9 @@ function ChoroplethInner({
           cursor: interactive && onFeatureClick ? "pointer" : "default",
           stroke: emphasized ? "hsl(var(--foreground))" : "hsl(var(--border))",
           pointerEvents: opts.overlay ? "none" : undefined,
+          // SVG focus outlines render as the path's rectangular bbox ("square") —
+          // suppress it; keyboard focus is shown via the stroke highlight (onFocus).
+          outline: "none",
           transition: prefersReducedMotion() ? undefined : "stroke-width 120ms ease",
         }}
         tabIndex={interactive && onFeatureClick && v != null ? 0 : -1}
@@ -187,8 +190,10 @@ function ChoroplethInner({
     );
   };
 
-  // overlay the emphasized features on top so their thicker stroke isn't clipped
-  const emphasizedIds = [hoveredId, selectedId].filter(Boolean) as string[];
+  // overlay the emphasized features on top so their thicker stroke isn't clipped.
+  // dedupe: hoveredId often === selectedId, which would emit duplicate React keys
+  // (o-<id>) and leave a stuck overlay path that doesn't clear on hover-out.
+  const emphasizedIds = [...new Set([hoveredId, selectedId].filter(Boolean) as string[])];
 
   return (
     <>
