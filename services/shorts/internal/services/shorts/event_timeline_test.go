@@ -19,9 +19,9 @@ func TestGetEventTimeline_HandlerReturnsEvents(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockStore := mocks.NewMockShortsStore(ctrl)
-	// Lowercase input → handler normalizes to "BHP"
+	// Lowercase input → handler normalizes to "BHP"; DaysBack=0 defaults to a full year (365).
 	mockStore.EXPECT().
-		GetEventTimeline("BHP", int32(90), int32(50)).
+		GetEventTimeline("BHP", int32(365), int32(50)).
 		Return([]*shortsstore.TimelineEventRow{
 			{
 				Date:             "2026-06-15",
@@ -60,7 +60,7 @@ func TestGetEventTimeline_HandlerReturnsEvents(t *testing.T) {
 	srv := newTestServer(t, mockStore)
 	resp, err := srv.GetEventTimeline(context.Background(), connect.NewRequest(&shortsv1alpha1.GetEventTimelineRequest{
 		StockCode: "bhp",
-		// DaysBack and Limit at zero → handler applies defaults (90 and 50)
+		// DaysBack and Limit at zero → handler applies defaults (365 and 50)
 	}))
 
 	require.NoError(t, err)
