@@ -450,6 +450,7 @@ jobs:
             -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="news_aggregator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/news-aggregator:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="asx_announcement_crawler_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-announcement-crawler:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="weekly_report_generator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/weekly-report-generator:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="house_price_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/house-price-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="signals_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/signals-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="report_extractor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/report-extractor:${{ needs.determine-environment.outputs.image-tag }}" \
@@ -1014,6 +1015,7 @@ jobs:
             -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="news_aggregator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/news-aggregator:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="asx_announcement_crawler_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-announcement-crawler:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="weekly_report_generator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/weekly-report-generator:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="house_price_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/house-price-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="signals_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/signals-collector:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="report_extractor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/report-extractor:${{ needs.determine-environment.outputs.image-tag }}" \

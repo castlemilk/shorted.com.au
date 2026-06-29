@@ -61,7 +61,7 @@ resource "google_cloud_run_v2_job" "asx_discovery" {
         resources {
           limits = {
             cpu    = "1"
-            memory = "512Mi"
+            memory = "1Gi"
           }
         }
       }
