@@ -242,6 +242,10 @@ func (s *StoreAdapter) GetSuburbProfile(salCode string) (*shorts.SuburbProfileRo
 	return s.store.GetSuburbProfile(salCode)
 }
 
+func (s *StoreAdapter) GetHousingRegions(regionType, stateCode, query string, limit int32) ([]*shorts.HousingRegionRow, error) {
+	return s.store.GetHousingRegions(regionType, stateCode, query, limit)
+}
+
 func (s *StoreAdapter) GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shorts.TimelineEventRow, error) {
 	return s.store.GetEventTimeline(stockCode, daysBack, limit)
 }

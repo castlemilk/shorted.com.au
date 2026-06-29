@@ -22,6 +22,12 @@ variable "short_data_sync_image" {
   default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/short-data-sync:latest"
 }
 
+variable "house_price_collector_image" {
+  description = "Docker image URL for house-price-collector job"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/house-price-collector:latest"
+}
+
 variable "shorts_api_image" {
   description = "Docker image URL for shorts API service"
   type        = string
@@ -94,6 +100,18 @@ variable "asx_announcement_crawler_image" {
   default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/asx-announcement-crawler:latest"
 }
 
+variable "signals_collector_image" {
+  description = "Docker image URL for the signals-collector job"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/signals-collector:latest"
+}
+
+variable "report_extractor_image" {
+  description = "Docker image URL shared by both report-extractor jobs"
+  type        = string
+  default     = "australia-southeast2-docker.pkg.dev/rosy-clover-477102-t5/shorted/report-extractor:latest"
+}
+
 variable "chat_service_image" {
   description = "Docker image URL for chat-service"
   type        = string
@@ -150,5 +168,11 @@ variable "cache_purge_secret" {
   description = "Shared secret for edge cache purge endpoint"
   type        = string
   sensitive   = true
+  default     = ""
+}
+
+variable "alert_recipient_email" {
+  description = "Email for Cloud Run Job failure + ERROR-log/timeout alerts. Empty disables all alerting (the job_monitoring module becomes a no-op)."
+  type        = string
   default     = ""
 }

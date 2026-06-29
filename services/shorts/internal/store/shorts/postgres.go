@@ -3158,6 +3158,34 @@ func (s *postgresStore) UpdateKeyPeopleEnriched(stockCode string, keyPeopleJSON 
 	return nil
 }
 
+// UpdateKeyPeopleIfEmpty writes key_people ONLY when the served row currently has no
+// people (NULL / '[]' / empty array). This backs the §6.5 additive people-only write:
+// discovered leadership is served even when the whole-company quality score is below the
+// auto-approve gate, but an existing (higher-quality) people list is never clobbered.
+// It deliberately does NOT set key_people_enriched_at, leaving person-level photo/LinkedIn
+// backfill free to run later. Returns true when a row was actually updated.
+func (s *postgresStore) UpdateKeyPeopleIfEmpty(stockCode string, keyPeopleJSON []byte) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	query := `
+		UPDATE "company-metadata"
+		SET key_people = $1::jsonb
+		WHERE stock_code = $2
+		  AND (
+		    key_people IS NULL
+		    OR key_people = '[]'::jsonb
+		    OR jsonb_typeof(key_people) <> 'array'
+		  )
+	`
+
+	tag, err := s.db.Exec(ctx, query, string(keyPeopleJSON), stockCode)
+	if err != nil {
+		return false, fmt.Errorf("failed to conditionally update key_people for %s: %w", stockCode, err)
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
 // GetStocksForImageBackfill returns stocks that have people with LinkedIn URLs but no images.
 // Used with --backfill-images to fetch photos from authenticated LinkedIn sessions.
 func (s *postgresStore) GetStocksForImageBackfill(limit int, afterStockCode string) ([]StockPeopleBackfillRow, error) {

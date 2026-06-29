@@ -148,6 +148,22 @@ ladder and citations. Shorted runs *two* discovery stacks; only one is intellige
 
 ## 9. Research & improvement areas (prioritised)
 
+> **Status (2026-06-20, branch `feat/enrichment-uplift`):** §6.3 ✅, §6.5 ✅, §6.9 ✅
+> shipped (code + IaC only — prod migrations / `terraform apply` / merge still to run).
+> §6.7 **re-scoped & deferred** (the job-monitoring stack was never merged — see §6.7).
+> §6.1/§6.2/§6.10 and §6.4/§6.6/§6.8 untouched.
+> - **§6.3 ✅** title noise-filter (keeps presentations; statutory keep-overrides for
+>   Appendix 4D/4E / "Financial Report" / "Results Announcement") + digest decoupled from
+>   metric extraction + `--backfill-digests` mode to recover the ~4,740 existing
+>   `digest=NULL` rows (prefers stored GCS text). `test_extract.py` added. (c) not done.
+> - **§6.5 ✅** additive `UpdateKeyPeopleIfEmpty` people-only write below the 0.80 gate
+>   (env `WRITE_PEOPLE_BELOW_GATE`; never clobbers an existing list; status left pending).
+>   The historical 178-stock gap still needs a re-run / pending-people backfill to realise.
+> - **§6.9 ✅** signals-collector + report-extractor containerised as scale-to-zero Cloud
+>   Run **jobs** (Python, NOT a Go rewrite — deferred to §6.2); `get_stock_signals` chat
+>   tool; migration 000053 `director_extract_attempts` failure-budget so the daily director
+>   job converges instead of re-burning Gemini on persistent 3Y-PDF failures.
+
 ### 6.1 Adopt stealth's `semantic` extraction across crawlers — HIGH
 Replace brittle CSS-selector scraping (metadata_scraper, report_crawler, 3Y/report parsers)
 with `stealth/brws/semantic.HTMLToSemanticTree` (LLM hierarchical extraction, ~99% token
@@ -183,21 +199,33 @@ shorted v0.4.0 vs brandbrain v0.5.2. Bump shorted to v0.5.x to share evasion-FSM
 waterfall improvements and avoid two engine behaviours. Mind the `go.work` replace + Docker
 bind-mount pattern.
 
-### 6.7 Pipeline observability — MED
-`job_runs` telemetry (migration 000046) is **not applied in prod**, so staleness/coverage gaps
-are invisible (this is why the financial/people gaps lingered). Apply it + wire every
-pipeline + a coverage dashboard (per-source freshness + % coverage). Distinguishes real lag
-from the ASIC **T+4** false-alarm.
+### 6.7 Pipeline observability — MED (re-scoped 2026-06-20)
+**Correction:** `job_runs` telemetry (migration 000046) is not merely "not applied in prod" —
+it is **not in the tree at all**. Migrations jump 000045→000047, and `services/pkg/jobstatus`
+is a 71-line **stub** writing to a `job_runs` table no migration creates (schema incompatible
+with the real design). The full stack lives only on **unmerged branch `feat/job-monitoring`
+(f1b15079)**. So §6.7 is three jobs: (1) land that branch (resolving the stub conflict + ~24-file
+store-layer conflicts vs the knowledge-graph work), (2) apply 000046 to prod manually + wire the
+still-unwired pipelines (enrichment-processor, signals-collector, report-extractor×3, daily-sync)
++ fix the short-data-sync uvicorn-as-job landmine, (3) build the genuinely-new per-source
+freshness + %coverage view that distinguishes real lag from the ASIC **T+4** false alarm.
+Deferred: landing an unmerged branch + manual prod migration + prod TF apply deserves its own
+focused effort, not a side-quest.
 
 ### 6.8 Cost-tiering for all AI calls — MED
 brandbrain's free-index → cheap-search → DeepSeek → Gemini-grounded ladder vs shorted's
 always-LLM enrichment. Adopt a tier-0 cache/heuristic before paid calls across enrichment +
 signals + digests.
 
-### 6.9 Productionise the new collectors — MED
-`signals-collector`, `extract_director_trades`, `extract_reports_concurrent` are run manually.
-Port to Go Cloud Run **jobs** on schedulers (mind brandbrain concurrency limits), incremental
-(skip-fresh) by default. Add a `get_stock_signals` chat tool.
+### 6.9 Productionise the new collectors — MED ✅ (2026-06-20)
+Shipped: `signals-collector` + `report-extractor` (two jobs) containerised as scale-to-zero
+Cloud Run **jobs** (`terraform/modules/{signals-collector,report-extractor}`, wired dev+prod,
+CI build-matrix). Chose **Python containers, not a Go rewrite** — the scripts depend on
+Python-only libs (pymupdf/langextract), don't use stealth, and are already concurrent +
+incremental + idempotent; Go is best deferred to §6.2's brandbrain/stealth unification.
+`get_stock_signals` chat tool added. Failure-budget (migration 000053) lands so the daily
+director job converges. **Prod note:** `gemini_secret_exists=false` in prod — the two report
+jobs deploy but exit early until `GEMINI_API_KEY` is provisioned in prod Secret Manager.
 
 ### 6.10 brandbrain horizontal scale — prerequisite for §6.2
 Single DigitalOcean instance 502s above ~2 concurrent grounded calls. Research: scale-out +
@@ -206,8 +234,10 @@ through it.
 
 ---
 
-**TL;DR for the next session:** the highest-leverage move is **§6.2 + §6.1** — collapse
-shorted's bespoke discovery into brandbrain (over stealth) and adopt stealth's semantic
-extraction — but it's gated on **§6.10** (brandbrain must scale first). Quick wins available
-now: **§6.3** (digest decoupling — recovers the 4,740 no-metric reports) and **§6.5** (people
-write-gate — unlocks the discovered-but-unwritten leadership).
+**TL;DR for the next session:** §6.3 / §6.5 / §6.9 are shipped on `feat/enrichment-uplift`
+(merge + run the prod migrations 000053 / `terraform apply` / provision prod `GEMINI_API_KEY`
+to realise them). The next highest-leverage move is **§6.2 + §6.1** — collapse shorted's
+bespoke discovery into brandbrain (over stealth) + adopt stealth's semantic extraction — gated
+on **§6.10** (brandbrain must scale first). **§6.7** is now a known bigger lift (land the
+unmerged `feat/job-monitoring` branch + prod migration). To *realise* §6.5's coverage gain,
+re-run the enrichment batch with `WRITE_PEOPLE_BELOW_GATE=true` (or a pending-people backfill).

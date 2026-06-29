@@ -55,6 +55,8 @@ resource "google_project_service" "required_apis" {
     "compute.googleapis.com",
     "iam.googleapis.com",
     "pubsub.googleapis.com",
+    "monitoring.googleapis.com",
+    "logging.googleapis.com",
   ])
 
   project = var.project_id
@@ -146,7 +148,7 @@ module "stock_price_ingestion" {
   source = "../../modules/stock-price-ingestion"
 
   project_id       = var.project_id
-  region           = "us-central1" # Tier 1 pricing — batch job, latency irrelevant
+  region           = "us-central1"          # Tier 1 pricing — batch job, latency irrelevant
   scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment      = "production"
   image_url        = var.stock_price_ingestion_image
@@ -169,6 +171,25 @@ module "short_data_sync" {
   environment      = "production"
   image_url        = var.short_data_sync_image
   bucket_name      = "shorted-short-selling-data-prod" # Prod-specific bucket
+  # REVALIDATION_SECRET now exists in prod Secret Manager + the matching value
+  # is set in the Vercel frontend env, so enable event-driven cache busting.
+  manage_revalidation_secret = true
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
+# House-price collector (ABS/RBA quarterly ingest + MV refresh)
+module "house_price_collector" {
+  source = "../../modules/house-price-collector"
+
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment      = "production"
+  image_url        = var.house_price_collector_image
 
   depends_on = [
     google_project_service.required_apis,
@@ -197,6 +218,23 @@ module "shorts_api" {
     google_project_service.required_apis,
     google_artifact_registry_repository.shorted
   ]
+}
+
+# Reconcile pre-existing project-level IAM grants for the shorts SA into state.
+# These bindings (run.viewer + cloudscheduler.viewer, added in #206 so the
+# /api/admin/jobs endpoint can read Cloud Run executions + schedulers) already
+# exist in prod (granted out-of-band). The CI deploy SA can getIamPolicy (read)
+# but not setIamPolicy (write) at the project level, so a plain create 403s.
+# Importing reconciles state without a write — after this applies once, there
+# is no diff and the apply stays green. (import blocks are inert once in state.)
+import {
+  to = module.shorts_api.google_project_iam_member.shorts_api_run_viewer
+  id = "rosy-clover-477102-t5 roles/run.viewer serviceAccount:shorts@rosy-clover-477102-t5.iam.gserviceaccount.com"
+}
+
+import {
+  to = module.shorts_api.google_project_iam_member.shorts_api_scheduler_viewer
+  id = "rosy-clover-477102-t5 roles/cloudscheduler.viewer serviceAccount:shorts@rosy-clover-477102-t5.iam.gserviceaccount.com"
 }
 
 # Enrichment Processor Service
@@ -231,10 +269,10 @@ module "grafana_dashboards" {
 module "weekly_report_generator" {
   source = "../../modules/weekly-report-generator"
 
-  project_id       = var.project_id
-  region           = var.region
-  scheduler_region = "australia-southeast1" # Cloud Scheduler only available in southeast1
-  environment      = "production"
+  project_id           = var.project_id
+  region               = var.region
+  scheduler_region     = "australia-southeast1" # Cloud Scheduler only available in southeast1
+  environment          = "production"
   image_url            = var.weekly_report_generator_image
   gemini_secret_exists = false # GEMINI_API_KEY not yet provisioned in prod
 
@@ -289,7 +327,7 @@ module "market_discovery_sync" {
   source = "../../modules/market-discovery-sync"
 
   project_id             = var.project_id
-  region                 = "us-central1" # Tier 1 pricing — batch job, latency irrelevant
+  region                 = "us-central1"          # Tier 1 pricing — batch job, latency irrelevant
   scheduler_region       = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment            = "production"
   asx_discovery_image    = var.asx_discovery_image
@@ -336,6 +374,57 @@ module "asx_announcement_crawler" {
   ]
 }
 
+# Signals collector — brandbrain risk/reputation signals (§6.9). Scale-to-zero job.
+module "signals_collector" {
+  source = "../../modules/signals-collector"
+
+  project_id       = var.project_id
+  region           = var.region
+  scheduler_region = "australia-southeast1"
+  environment      = "production"
+  image_url        = var.signals_collector_image
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
+# Report extractor — director-trade + financial-report digest jobs (§6.9). Scale-to-zero.
+# gemini_secret_exists=true: the GEMINI_API_KEY secret IS provisioned in prod (enabled
+# version 1, also used by news-aggregator + chat-service). Without it both jobs exit(1)
+# on startup (director) / silently produce zero digests (financial), so it must be wired.
+module "report_extractor" {
+  source = "../../modules/report-extractor"
+
+  project_id           = var.project_id
+  region               = var.region
+  scheduler_region     = "australia-southeast1"
+  environment          = "production"
+  image_url            = var.report_extractor_image
+  gemini_secret_exists = true
+
+  depends_on = [
+    google_project_service.required_apis,
+    google_artifact_registry_repository.shorted
+  ]
+}
+
+# =============================================================================
+# Observability — Cloud Monitoring alerting on Cloud Run Job failures
+# =============================================================================
+# GCP-native, free, no DB dependency. Pages on hard execution failures AND on
+# ERROR-log / timeout terminations (the "exit 0 but did nothing" class, e.g. the
+# short-data-sync uvicorn-zombie). No-op until alert_recipient_email is set.
+module "job_monitoring" {
+  source = "../../modules/job-monitoring"
+
+  project_id            = var.project_id
+  alert_recipient_email = var.alert_recipient_email
+
+  depends_on = [google_project_service.required_apis]
+}
+
 # =============================================================================
 # Cloudflare Edge — CDN, WAF, rate limiting, DNS
 # =============================================================================
@@ -343,15 +432,15 @@ module "asx_announcement_crawler" {
 module "edge" {
   source = "../../modules/cloudflare-edge"
 
-  cloudflare_zone_id   = var.cloudflare_zone_id
-  domain               = "api.shorted.com.au"
-  environment          = "production"
+  cloudflare_zone_id = var.cloudflare_zone_id
+  domain             = "api.shorted.com.au"
+  environment        = "production"
 
-  shorts_api_origin    = module.shorts_api.service_url
-  chat_service_origin  = module.chat_service.service_url
-  market_data_origin   = module.market_data.service_url
-  frontend_origin      = "https://shorted.com.au"
-  create_frontend_records = true   # Proxy frontend through Cloudflare edge for caching + rate limiting
+  shorts_api_origin       = module.shorts_api.service_url
+  chat_service_origin     = module.chat_service.service_url
+  market_data_origin      = module.market_data.service_url
+  frontend_origin         = "https://shorted.com.au"
+  create_frontend_records = true # Proxy frontend through Cloudflare edge for caching + rate limiting
 
   # AI crawler policy: allow AI bots (llms.txt / Content-Signals / MCP
   # discovery strategy). Token re-scoped with Bot Management Edit June 2026.
@@ -370,15 +459,15 @@ module "edge" {
   stock_data_cache_ttl = 120
   news_cache_ttl       = 300
 
-  rate_limit_enabled   = true
-  api_rate_limit_requests = 60
+  rate_limit_enabled         = true
+  api_rate_limit_requests    = 60
   search_rate_limit_requests = 20
 
   waf_enabled            = true
   bot_protection_enabled = true
 
-  cache_purge_secret     = var.cache_purge_secret
-  prewarm_secret         = var.cache_purge_secret  # reuse same shared secret for both worker bindings
+  cache_purge_secret = var.cache_purge_secret
+  prewarm_secret     = var.cache_purge_secret # reuse same shared secret for both worker bindings
 }
 
 output "edge_url" {

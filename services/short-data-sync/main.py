@@ -307,6 +307,48 @@ app = FastAPI()
 client = httpx.Client()
 
 
+def refresh_materialized_views(connection_string):
+    """Refresh materialized views (mv_top_shorts, mv_treemap_data,
+    mv_available_dates, ...) so freshly-synced ASIC data is reflected in the
+    cached frontend. Best-effort — never fails the sync."""
+    try:
+        from sqlalchemy import create_engine, text
+
+        engine = create_engine(connection_string)
+        with engine.begin() as conn:
+            conn.execute(text("SELECT refresh_all_materialized_views()"))
+        print("Refreshed materialized views.")
+    except Exception as e:  # noqa: BLE001 - best-effort
+        print(f"WARNING: failed to refresh materialized views: {e}")
+
+
+def trigger_revalidation(record_count):
+    """Event-driven cache invalidation: when new ASIC short data is written, tell
+    the frontend so it re-renders the cached SSR pages immediately instead of
+    waiting for the 24h ISR ceiling. Only fires when data actually changed
+    (record_count > 0); a no-new-files run does nothing."""
+    if not record_count or record_count <= 0:
+        print("No new records; skipping cache revalidation.")
+        return
+    url = os.environ.get("REVALIDATION_URL")
+    secret = os.environ.get("REVALIDATION_SECRET")
+    if not url or not secret:
+        print("REVALIDATION_URL/REVALIDATION_SECRET not set; skipping revalidation.")
+        return
+    try:
+        resp = client.post(
+            url,
+            params={
+                "secret": secret,
+                "path": "/,/top,/news,/screener,/industry,/shorts/[stockCode]",
+                "flush": "shorts",
+            },
+        )
+        print(f"Triggered cache revalidation (status {resp.status_code}): {resp.text[:200]}")
+    except Exception as e:  # noqa: BLE001 - best-effort
+        print(f"WARNING: failed to trigger revalidation: {e}")
+
+
 @app.post("/process")
 async def process_full_workflow():
     """
@@ -332,7 +374,11 @@ async def process_full_workflow():
             os.environ["DATABASE_URL"],
         )
 
-        return {"message": "Workflow completed successfully."}
+        count = len(df) if df is not None else 0
+        refresh_materialized_views(os.environ["DATABASE_URL"])
+        trigger_revalidation(count)
+
+        return {"message": "Workflow completed successfully.", "records": count}
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"An error occurred during the workflow: {str(e)}"
@@ -376,7 +422,10 @@ if __name__ == "__main__":
             TABLE_NAME,
             os.environ.get("DATABASE_URL"),
         )
-        print(f"Workflow completed successfully. added ${len(processed_data)} records.")
+        count = len(processed_data)
+        refresh_materialized_views(os.environ.get("DATABASE_URL"))
+        trigger_revalidation(count)
+        print(f"Workflow completed successfully. added {count} records.")
         exit(0)
     else:
         print("No new files to process.")

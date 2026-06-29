@@ -38,7 +38,9 @@ func main() {
 		refresh(ctx, pool)
 	case "crawl":
 		// Supplementary suburb crawl — opt-in only, never part of the default
-		// scheduled run (it's slow, adversarial and licence-gated).
+		// scheduled run (it's slow, adversarial and licence-gated). Drives a HEADED,
+		// persistent-profile Playwright browser, so it runs ONLY on the residential
+		// cuttlefish rig under xvfb (see Dockerfile.crawl), never on Cloud Run.
 		runCrawl(ctx, pool)
 		refresh(ctx, pool)
 	case "census":
@@ -49,25 +51,6 @@ func main() {
 	default:
 		log.Fatalf("unknown -mode %q (want official|crawl|census|refresh|all)", *mode)
 	}
-}
-
-// runCensus ingests ABS 2021 Census suburb demographics and upserts them into
-// suburb_demographics, recording the run cursor under "abs_census".
-func runCensus(ctx context.Context, pool *pgxpool.Pool) {
-	rows, err := ingestCensus(ctx)
-	if err != nil {
-		log.Printf("[census] ingest error: %v", err)
-		_ = updateRun(ctx, pool, "abs_census", nil, 0, "error", err.Error())
-		return
-	}
-	n, err := upsertDemographics(ctx, pool, rows)
-	if err != nil {
-		log.Printf("[census] upsert error after %d: %v", n, err)
-		_ = updateRun(ctx, pool, "abs_census", nil, n, "error", err.Error())
-		return
-	}
-	log.Printf("[census] upserted %d", n)
-	_ = updateRun(ctx, pool, "abs_census", nil, n, "ok", "")
 }
 
 func refresh(ctx context.Context, pool *pgxpool.Pool) {
@@ -88,7 +71,18 @@ func runOfficial(ctx context.Context, pool *pgxpool.Pool) {
 		{"abs_res_dwell_st", ingestRESDWELLST},
 		{"abs_res_dwell", ingestRESDWELL},
 		{"abs_rppi", ingestRPPI},
+		{"abs_lend_housing", ingestLENDHOUSING},
+		{"abs_derived_index", ingestDerivedPriceIndex},
 		{"rba", ingestRBADebtToIncome},
+		{"rba_f6_rates", ingestRBAMortgageRates},
+		{"rba_cash_rate", ingestRBACashRate},
+		{"rba_housing_credit", ingestRBAHousingCredit},
+		{"rba_balance_sheet", ingestRBAHouseholdBalanceSheet},
+		{"abs_wpi", ingestWPI},
+		{"abs_cpi_rents", ingestCPIRents},
+		{"abs_price_to_income", ingestPriceToIncome},
+		{"vg_sa", ingestSAMetroMedians},
+		{"vg_vic", ingestVICSuburbMedians},
 	}
 	for _, j := range jobs {
 		obs, err := j.fn(ctx)
@@ -135,4 +129,23 @@ func fmtPeriod(t *time.Time) string {
 		return "n/a"
 	}
 	return t.Format("2006-01-02")
+}
+
+// runCensus ingests ABS 2021 Census suburb demographics and upserts them into
+// suburb_demographics, recording the run cursor under "abs_census".
+func runCensus(ctx context.Context, pool *pgxpool.Pool) {
+	rows, err := ingestCensus(ctx)
+	if err != nil {
+		log.Printf("[census] ingest error: %v", err)
+		_ = updateRun(ctx, pool, "abs_census", nil, 0, "error", err.Error())
+		return
+	}
+	n, err := upsertDemographics(ctx, pool, rows)
+	if err != nil {
+		log.Printf("[census] upsert error after %d: %v", n, err)
+		_ = updateRun(ctx, pool, "abs_census", nil, n, "error", err.Error())
+		return
+	}
+	log.Printf("[census] upserted %d", n)
+	_ = updateRun(ctx, pool, "abs_census", nil, n, "ok", "")
 }

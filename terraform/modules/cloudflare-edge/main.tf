@@ -574,6 +574,13 @@ resource "cloudflare_zone_setting" "security_zero_rtt" {
   value      = "on"
 }
 
+# NOTE: Crawler Hints (IndexNow for Bing/Yandex) is NOT settable via
+# cloudflare_zone_setting in provider v5 — the API rejects a PATCH with
+# setting_id="crawlhints" ("failed to make http request"), which broke
+# terraform apply. Enable it via the Cloudflare dashboard instead
+# (Caching → Configuration → Crawler Hints). Google does not consume IndexNow,
+# so this only affects Bing/Yandex; for Google we rely on the sitemap + GSC.
+
 resource "cloudflare_tiered_cache" "smart" {
   zone_id = var.cloudflare_zone_id
   value   = "on"

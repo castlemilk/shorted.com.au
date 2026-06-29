@@ -128,6 +128,80 @@ FY2025 guidance: Revenue growth of 6-8% expected.""",
     ),
 ]
 
+# --- §6.3 Report selection: title-based noise filter ---------------------------
+# The ASX-announcement crawler types an announcement as a "results"/"report" via
+# substring matching on the headline (asx-announcement-crawler/main.go:
+# financialKeywords + classifyReportType). That over-classifies: a "Half Year
+# Results Media Release" or "Full Year Results — Chairman's Letter" is typed
+# half_year_results / full_year_results even though it carries no financial
+# statements. We keep presentations (they summarise well via the digest) but
+# drop hard non-statement noise here, on the *title*, regardless of `type`.
+NOISE_TITLE_PATTERNS = [
+    r"media release",
+    r"media announcement",
+    r"letter to (?:share|security)\s?holders",
+    r"chair(?:man|woman|person)?'?s? letter",
+    r"ceo'?s? letter",
+    r"letter from the chair",
+    r"chair(?:man|woman|person)?'?s? address",
+    r"ceo'?s? address",
+    r"address to (?:share|security)\s?holders",
+    r"agm address",
+    r"notice of (?:annual general )?meeting",
+    r"notice of agm",
+    r"proxy form",
+    r"cleansing (?:notice|statement)",
+    r"trading halt",
+    r"suspension (?:from|of) (?:quotation|trading)",
+    r"appendix 3[xyz]",
+    r"change (?:of|in) director'?s? interest",
+    r"director'?s? interest notice",
+    r"(?:becoming|ceasing).{0,30}substantial (?:holder|holding)",
+    r"change (?:in|to) substantial holding",
+    r"substantial (?:holder|holding) notice",
+    r"on-?market buy-?back",
+    r"buy-?back (?:notice|booklet)",
+]
+_NOISE_TITLE_RE = re.compile("|".join(NOISE_TITLE_PATTERNS), re.IGNORECASE)
+
+# Strong statement signals that ALWAYS win over the noise patterns. ASX filers
+# sometimes pack the statutory form name and an accompanying-press-release mention
+# into one headline ("Appendix 4E Full Year Results — Media Release"); the substring
+# noise match would wrongly drop it, so a keep-override is checked first.
+# Only HARD statutory document identifiers belong here — names a media release/letter
+# never carries. Deliberately NOT bare "results" (a "Full Year Results Media Release"
+# legitimately contains "results" yet is noise), so the override can't readmit noise.
+KEEP_OVERRIDE_PATTERNS = [
+    r"appendix 4[de]",
+    r"preliminary final report",
+    r"annual report",
+    r"(?:annual|half[\s-]?year|full[\s-]?year|interim) financial (?:report|statements)",
+    r"financial (?:report|statements)",
+    r"results announcement",
+]
+_KEEP_OVERRIDE_RE = re.compile("|".join(KEEP_OVERRIDE_PATTERNS), re.IGNORECASE)
+
+
+def is_financial_report_title(title: str) -> bool:
+    """Return False for headlines that are clearly NOT a financial statement/results
+    document (media releases, letters/addresses, notices of meeting, director/holder
+    notices, trading halts, buy-backs). Presentations are intentionally KEPT — they
+    summarise well and the digest is generated from raw text even without a metric table.
+
+    A strong statement signal (Appendix 4D/4E, "Financial Report", "Results
+    Announcement", "Half Year Results", …) overrides the noise patterns so a genuine
+    filing whose headline also mentions an accompanying media release is not dropped.
+
+    An empty/whitespace title is treated as acceptable (we can't judge it; the digest
+    step will still produce something useful).
+    """
+    if not title or not title.strip():
+        return True
+    if _KEEP_OVERRIDE_RE.search(title):
+        return True
+    return _NOISE_TITLE_RE.search(title) is None
+
+
 # ASX PDF download headers
 ASX_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
@@ -216,6 +290,12 @@ def get_reports_to_process(conn, mode: str, codes: list[str], limit: int, recent
                 "annual_report",
                 "financial_report",
             ):
+                continue
+            # §6.3(a) Drop non-statement noise (media releases, letters, notices,
+            # director/holder notices, halts) that the crawler mistyped as a report.
+            title = r.get("title", "")
+            if not is_financial_report_title(title):
+                log.debug("  skip noise title: %s (%s) %s", stock_code, rtype, title[:80])
                 continue
             reports.append(
                 {
@@ -390,9 +470,19 @@ def extractions_to_metrics(extractions: list[dict]) -> dict:
 
 DIGEST_MODEL = "gemini-2.5-flash"
 
-DIGEST_PROMPT = """You are summarising an ASX-listed company's financial report for a retail investor.
+# §6.3(b) The digest is generated from raw report text even when langextract finds
+# no structured metric table (most "results presentations" lack a clean table but
+# still state the headline numbers in prose). Give the model a wider text window so
+# it can find figures on its own, and tell it how to behave when metrics are empty.
+DIGEST_TEXT_CHARS = 16000
+MIN_DIGEST_CHARS = 400  # below this the PDF text is too thin to summarise meaningfully
+
+DIGEST_PROMPT = """You are summarising an ASX-listed company's financial report or results document for a retail investor.
 In 2-3 plain-English sentences, lead with the headline result (revenue and net profit direction with % change),
-then the dividend, then any guidance. Be concrete with the numbers from the metrics.
+then the dividend, then any guidance. Be concrete with the numbers.
+Prefer the figures in the extracted metrics JSON when present. If the metrics JSON is empty, read the figures
+directly from the report text excerpt. If the document states no financial results at all (e.g. it is a cover
+note or administrative document), set confidence below 0.3 and concisely summarise what the document covers.
 Output STRICT JSON: {"digest": "...", "confidence": 0.0-1.0, "key_takeaways": ["...", "..."]}"""
 
 
@@ -416,8 +506,9 @@ def summarize_report(metrics: dict, page_text: str, model_id: str = DIGEST_MODEL
 
     # Build context: structured metrics + truncated raw text
     metrics_json = json.dumps(metrics, indent=2)
-    # Limit page text to 8000 chars to stay well within token budget
-    truncated_text = page_text[:8000] if page_text else ""
+    # Limit page text to stay within token budget (wider window when there are no
+    # structured metrics, since the model must find the figures in prose itself).
+    truncated_text = page_text[:DIGEST_TEXT_CHARS] if page_text else ""
 
     user_content = (
         f"## Extracted metrics (JSON)\n{metrics_json}\n\n"
@@ -481,6 +572,29 @@ def upload_raw_text_to_gcs(stock_code: str, report_url: str, text: str) -> Optio
         return None
 
 
+def download_text_from_gcs(gcs_uri: str) -> Optional[str]:
+    """Fetch previously-stored raw page text from a gs:// URI (written by
+    upload_raw_text_to_gcs). Used by the digest backfill so it can re-summarise
+    existing rows without re-downloading the PDF — important because older (2024)
+    ASX announcement URLs no longer resolve. Returns None on any failure.
+    """
+    if not gcs_uri or not gcs_uri.startswith("gs://"):
+        return None
+    try:
+        from google.cloud import storage as gcs
+        without_scheme = gcs_uri[len("gs://"):]
+        bucket_name, _, blob_path = without_scheme.partition("/")
+        if not bucket_name or not blob_path:
+            return None
+        client = gcs.Client()
+        blob = client.bucket(bucket_name).blob(blob_path)
+        text = blob.download_as_text()
+        return text if text and text.strip() else None
+    except Exception as e:  # noqa: BLE001
+        log.debug("  GCS text fetch failed for %s: %s", gcs_uri, e)
+        return None
+
+
 def store_extraction(conn, report: dict, metrics: dict, raw_text_length: int, dry_run: bool = False, digest_result: Optional[dict] = None, raw_text_gcs_url: Optional[str] = None):
     """Store extraction results in the database."""
     if dry_run:
@@ -517,7 +631,9 @@ def store_extraction(conn, report: dict, metrics: dict, raw_text_length: int, dr
             raw_text_length,
             datetime.utcnow(),
             dr.get("digest") or None,
-            dr.get("confidence") if dr.get("confidence") is not None else None,
+            # Only persist confidence alongside an actual digest; a 0.0 from a failed
+            # digest call must stay NULL so it isn't confused with a genuine low-confidence one.
+            dr.get("confidence") if (dr.get("digest") and dr.get("confidence") is not None) else None,
             DIGEST_MODEL if dr.get("digest") else None,
             raw_text_gcs_url,
         ),
@@ -622,11 +738,19 @@ def main():
         # Step 2: Extract financial data with langextract
         extractions = extract_financial_data(text, report["stock_code"], model_id=args.model)
         if not extractions:
-            log.info("  No financial metrics found")
+            log.info("  No structured metrics found")
             total_processed += 1
-            # Still store empty result to mark as processed (no digest — nothing to summarise)
+            # §6.3(b) Decouple the digest from metric extraction: still summarise from
+            # raw text (most results presentations state numbers in prose, not tables).
+            digest_result = None
+            if len(text) >= MIN_DIGEST_CHARS:
+                log.info("  Generating digest from raw text (no metrics)...")
+                digest_result = summarize_report({}, text, model_id=args.model)
+                if digest_result.get("digest"):
+                    log.info("  Digest (confidence=%.2f): %.120s", digest_result["confidence"], digest_result["digest"])
+                    total_extracted += 1
             raw_text_gcs_url = upload_raw_text_to_gcs(report["stock_code"], report["url"], text)
-            store_extraction(conn, report, {}, len(text), args.dry_run, digest_result=None, raw_text_gcs_url=raw_text_gcs_url)
+            store_extraction(conn, report, {}, len(text), args.dry_run, digest_result=digest_result, raw_text_gcs_url=raw_text_gcs_url)
             continue
 
         # Step 3: Convert to structured metrics

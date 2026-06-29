@@ -285,6 +285,19 @@ func (mr *MockEnrichmentStoreMockRecorder) UpdateKeyPeopleEnriched(stockCode, ke
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateKeyPeopleEnriched", reflect.TypeOf((*MockEnrichmentStore)(nil).UpdateKeyPeopleEnriched), stockCode, keyPeopleJSON)
 }
 
+func (m *MockEnrichmentStore) UpdateKeyPeopleIfEmpty(stockCode string, keyPeopleJSON []byte) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateKeyPeopleIfEmpty", stockCode, keyPeopleJSON)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (mr *MockEnrichmentStoreMockRecorder) UpdateKeyPeopleIfEmpty(stockCode, keyPeopleJSON interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateKeyPeopleIfEmpty", reflect.TypeOf((*MockEnrichmentStore)(nil).UpdateKeyPeopleIfEmpty), stockCode, keyPeopleJSON)
+}
+
 // MockGPTClient is a mock of GPTClient interface
 type MockGPTClient struct {
 	ctrl     *gomock.Controller

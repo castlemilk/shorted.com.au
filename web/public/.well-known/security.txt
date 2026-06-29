@@ -1,7 +1,6 @@
 # Security policy for shorted.com.au — RFC 9116
 # https://www.rfc-editor.org/rfc/rfc9116
 
-Contact: mailto:security@shorted.com.au
 Contact: mailto:support@shorted.com.au
 Expires: 2027-06-18T00:00:00.000Z
 Preferred-Languages: en

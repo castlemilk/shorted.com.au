@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -40,7 +41,7 @@ func fetchABSCSV(ctx context.Context, dataflow, key, startPeriod string) ([][]st
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return nil, fmt.Errorf("ABS %s/%s: HTTP %d: %s", dataflow, key, resp.StatusCode, strings.TrimSpace(string(body)))
@@ -139,8 +140,8 @@ func ingestRESDWELLST(ctx context.Context) ([]Observation, error) {
 		}
 		regCode := absCode(cell(row, c["REGION"]))
 		var rType, canonical, state string
-		switch regCode {
-		case "AUS":
+		switch {
+		case regCode == "AUS":
 			rType, canonical = "national", "AUS"
 		default:
 			ab, ok := absStateAbbrev[regCode]
@@ -251,4 +252,186 @@ func ingestRPPI(ctx context.Context) ([]Observation, error) {
 		})
 	}
 	return obs, nil
+}
+
+// ── LEND_HOUSING: new housing loan commitments (value), owner-occupier vs ─────
+// investor, seasonally adjusted, national + state. Emits loan_commitments_oo,
+// loan_commitments_investor, and a derived investor_loan_share (%) per region.
+// Key dims (live order): MEASURE.DATA_ITEM.LOAN_TYPE.LOAN_PURPOSE.LENDER_TYPE.
+// HOUSING_PURPOSE.TSEST.REGION.FREQ — parsed by column NAME, never position.
+func ingestLENDHOUSING(ctx context.Context) ([]Observation, error) {
+	// FIN_VAL=value, NEWCOMMITS=new commitments, DV8368=total fixed+revolving,
+	// TOTDWELL=total dwellings ex-refinancing, TOT=all lenders,
+	// DV5167=owner occupier, DV5168=investor, 20=seasonally adjusted.
+	const key = "FIN_VAL.NEWCOMMITS.DV8368.TOTDWELL.TOT.DV5167+DV5168.20.AUS+1+2+3+4+5+6+7+8.Q"
+	rows, err := fetchABSCSV(ctx, "LEND_HOUSING", key, "2011-Q3")
+	if err != nil {
+		return nil, err
+	}
+	return parseLENDHOUSING(rows), nil
+}
+
+// parseLENDHOUSING turns labelled LEND_HOUSING CSV rows into OO/investor
+// commitment observations plus a derived investor_loan_share per region/period.
+func parseLENDHOUSING(rows [][]string) []Observation {
+	if len(rows) < 2 {
+		return nil
+	}
+	c := absColIndex(rows[0])
+
+	type leg struct {
+		oo, inv         float64
+		haveOO, haveInv bool
+	}
+	type rk struct {
+		region string
+		period time.Time
+	}
+	regMeta := map[string]Observation{}
+	pairs := map[rk]*leg{}
+
+	var obs []Observation
+	for _, row := range rows[1:] {
+		regCode := absCode(cell(row, c["REGION"]))
+		var rType, canonical, state string
+		switch {
+		case regCode == "AUS":
+			rType, canonical = "national", "AUS"
+		default:
+			ab, ok := absStateAbbrev[regCode]
+			if !ok {
+				continue
+			}
+			rType, canonical, state = "state", ab, ab
+		}
+		var measure string
+		switch absCode(cell(row, c["HOUSING_PURPOSE"])) {
+		case "DV5167":
+			measure = "loan_commitments_oo"
+		case "DV5168":
+			measure = "loan_commitments_investor"
+		default:
+			continue // ignore FHB sub-splits etc.
+		}
+		val, err := strconv.ParseFloat(strings.TrimSpace(cell(row, c["OBS_VALUE"])), 64)
+		if err != nil {
+			continue
+		}
+		val = applyMult(val, cell(row, c["UNIT_MULT"]))
+		period, err := quarterEnd(cell(row, c["TIME_PERIOD"]))
+		if err != nil {
+			continue
+		}
+		o := Observation{
+			RegionCode: canonical, RegionType: rType, RegionName: absLabel(cell(row, c["REGION"])), StateCode: state,
+			Measure: measure, DwellingType: "all", Period: period, PeriodFreq: "Q",
+			Value: val, Unit: "AUD", IsPreliminary: isPrelim(cell(row, c["OBS_STATUS"])),
+			Source: "abs_lend_housing", SourceLicence: absLicence,
+		}
+		obs = append(obs, o)
+		if _, ok := regMeta[canonical]; !ok {
+			regMeta[canonical] = o
+		}
+		k := rk{canonical, period}
+		l := pairs[k]
+		if l == nil {
+			l = &leg{}
+			pairs[k] = l
+		}
+		if measure == "loan_commitments_oo" {
+			l.oo, l.haveOO = val, true
+		} else {
+			l.inv, l.haveInv = val, true
+		}
+	}
+
+	// Derived investor share of new commitments (%), where both legs present.
+	for k, l := range pairs {
+		if !l.haveOO || !l.haveInv || (l.oo+l.inv) == 0 {
+			continue
+		}
+		m := regMeta[k.region]
+		obs = append(obs, Observation{
+			RegionCode: k.region, RegionType: m.RegionType, RegionName: m.RegionName, StateCode: m.StateCode,
+			Measure: "investor_loan_share", DwellingType: "all", Period: k.period, PeriodFreq: "Q",
+			Value: l.inv / (l.oo + l.inv) * 100, Unit: "percent", IsPreliminary: false,
+			Source: "abs_lend_housing", SourceLicence: absLicence,
+		})
+	}
+	return obs
+}
+
+// ── Derived price index: RES_DWELL_ST mean_price rebased to 100 at each ───────
+// region's earliest quarter. The hedonic RPPI is frozen at 2021-Q4 with no
+// successor dataflow, so this gives /housing a current-quarter index line.
+// Labelled "derived" — a mean-price rebase, NOT the RPPI hedonic methodology.
+func ingestDerivedPriceIndex(ctx context.Context) ([]Observation, error) {
+	rows, err := fetchABSCSV(ctx, "RES_DWELL_ST", "5..Q", "2011-Q3") // MEASURE=5 mean_price
+	if err != nil {
+		return nil, err
+	}
+	return parseDerivedPriceIndex(rows), nil
+}
+
+// parseDerivedPriceIndex rebases each region's mean_price series to 100 at its
+// earliest available quarter, emitting a price_index_derived series.
+func parseDerivedPriceIndex(rows [][]string) []Observation {
+	if len(rows) < 2 {
+		return nil
+	}
+	c := absColIndex(rows[0])
+	type pt struct {
+		period time.Time
+		value  float64
+	}
+	series := map[string][]pt{}
+	meta := map[string]Observation{}
+	for _, row := range rows[1:] {
+		if absCode(cell(row, c["MEASURE"])) != "5" {
+			continue
+		}
+		regCode := absCode(cell(row, c["REGION"]))
+		var rType, canonical, state string
+		switch {
+		case regCode == "AUS":
+			rType, canonical = "national", "AUS"
+		default:
+			ab, ok := absStateAbbrev[regCode]
+			if !ok {
+				continue
+			}
+			rType, canonical, state = "state", ab, ab
+		}
+		val, err := strconv.ParseFloat(strings.TrimSpace(cell(row, c["OBS_VALUE"])), 64)
+		if err != nil {
+			continue
+		}
+		val = applyMult(val, cell(row, c["UNIT_MULT"]))
+		period, err := quarterEnd(cell(row, c["TIME_PERIOD"]))
+		if err != nil {
+			continue
+		}
+		series[canonical] = append(series[canonical], pt{period, val})
+		if _, ok := meta[canonical]; !ok {
+			meta[canonical] = Observation{RegionType: rType, RegionName: absLabel(cell(row, c["REGION"])), StateCode: state}
+		}
+	}
+	var obs []Observation
+	for region, pts := range series {
+		sort.Slice(pts, func(i, j int) bool { return pts[i].period.Before(pts[j].period) })
+		if len(pts) == 0 || pts[0].value == 0 {
+			continue
+		}
+		base := pts[0].value
+		m := meta[region]
+		for _, p := range pts {
+			obs = append(obs, Observation{
+				RegionCode: region, RegionType: m.RegionType, RegionName: m.RegionName, StateCode: m.StateCode,
+				Measure: "price_index_derived", DwellingType: "all", Period: p.period, PeriodFreq: "Q",
+				Value: p.value / base * 100, Unit: "index", IsPreliminary: false,
+				Source: "abs_derived", SourceLicence: absLicence,
+			})
+		}
+	}
+	return obs
 }

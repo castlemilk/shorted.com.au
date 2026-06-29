@@ -271,6 +271,15 @@ jobs:
           - name: asx-announcement-crawler
             dockerfile: services/asx-announcement-crawler/Dockerfile
             context: services
+          - name: house-price-collector
+            dockerfile: services/house-price-collector/Dockerfile
+            context: services
+          - name: signals-collector
+            dockerfile: services/signals-collector/Dockerfile
+            context: services/signals-collector
+          - name: report-extractor
+            dockerfile: services/report-extractor/Dockerfile
+            context: services/report-extractor
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -429,6 +438,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_cache_purge_secret: ${{ secrets.CACHE_PURGE_SECRET }}
+          TF_VAR_alert_recipient_email: ${{ secrets.ALERT_RECIPIENT_EMAIL }}
         run: |
           terraform plan \
             -var="stock_price_ingestion_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/stock-price-ingestion:${{ needs.determine-environment.outputs.image-tag }}" \
@@ -440,6 +450,10 @@ jobs:
             -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="news_aggregator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/news-aggregator:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="asx_announcement_crawler_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-announcement-crawler:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="weekly_report_generator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/weekly-report-generator:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="house_price_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/house-price-collector:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="signals_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/signals-collector:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="report_extractor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/report-extractor:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="grafana_auth=${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}" \
             -out=tfplan
         # No continue-on-error: a failing plan must fail the PR check. This was
@@ -909,6 +923,7 @@ jobs:
           ALGOLIA_APP_ID: ${{ secrets.ALGOLIA_APP_ID }}
           ALGOLIA_SEARCH_KEY: ${{ secrets.ALGOLIA_SEARCH_KEY }}
           ALPHA_VANTAGE_API_KEY: ${{ secrets.ALPHA_VANTAGE_API_KEY }}
+          REVALIDATION_SECRET: ${{ secrets.REVALIDATION_SECRET }}
         run: |
           # Only add a new version if the value has actually changed.
           # This prevents version bloat ($0.06/version/month — was costing $130+/month).
@@ -942,6 +957,10 @@ jobs:
           # Alpha Vantage (with placeholder fallback)
           AV_KEY="${ALPHA_VANTAGE_API_KEY:-placeholder-set-in-secret-manager}"
           ensure_secret "ALPHA_VANTAGE_API_KEY" "$AV_KEY"
+
+          # Revalidation secret (event-driven cache invalidation; must match the
+          # frontend Vercel REVALIDATION_SECRET env). Maintained from the GH secret.
+          ensure_secret "REVALIDATION_SECRET" "$REVALIDATION_SECRET"
 
           # Database secrets (environment-specific)
           if [ "$ENVIRONMENT" = "prod" ] && [ -n "$DATABASE_URL_PROD" ]; then
@@ -984,6 +1003,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_cache_purge_secret: ${{ secrets.CACHE_PURGE_SECRET }}
+          TF_VAR_alert_recipient_email: ${{ secrets.ALERT_RECIPIENT_EMAIL }}
         run: |
           terraform apply \
             -var="stock_price_ingestion_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/stock-price-ingestion:${{ needs.determine-environment.outputs.image-tag }}" \
@@ -995,6 +1015,10 @@ jobs:
             -var="enrichment_processor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/enrichment-processor:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="news_aggregator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/news-aggregator:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="asx_announcement_crawler_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/asx-announcement-crawler:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="weekly_report_generator_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/weekly-report-generator:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="house_price_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/house-price-collector:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="signals_collector_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/signals-collector:${{ needs.determine-environment.outputs.image-tag }}" \
+            -var="report_extractor_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/report-extractor:${{ needs.determine-environment.outputs.image-tag }}" \
             -var="grafana_auth=${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}" \
             -var="image_tag=${{ needs.determine-environment.outputs.image-tag }}" \
             -auto-approve

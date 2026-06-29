@@ -69,7 +69,7 @@ func upsertRegions(ctx context.Context, pool *pgxpool.Pool, obs []Observation) e
 			o.RegionCode, o.RegionType, o.RegionName, o.StateCode, o.Postcode)
 	}
 	br := pool.SendBatch(ctx, batch)
-	defer func() { _ = br.Close() }()
+	defer br.Close()
 	for range seen {
 		if _, err := br.Exec(); err != nil {
 			return err
@@ -96,7 +96,7 @@ func upsertObservations(ctx context.Context, pool *pgxpool.Pool, obs []Observati
 			o.Value, o.Unit, o.IsPreliminary, o.Source, o.SourceLicence, contentHash(o))
 	}
 	br := pool.SendBatch(ctx, batch)
-	defer func() { _ = br.Close() }()
+	defer br.Close()
 	n := 0
 	for range obs {
 		if _, err := br.Exec(); err != nil {
@@ -105,6 +105,22 @@ func upsertObservations(ctx context.Context, pool *pgxpool.Pool, obs []Observati
 		n++
 	}
 	return n, nil
+}
+
+func updateRun(ctx context.Context, pool *pgxpool.Pool, source string, lastPeriod *time.Time, rows int, status, detail string) error {
+	_, err := pool.Exec(ctx, `
+		INSERT INTO house_price_ingest_runs (source, last_period, last_fetched_at, rows_upserted, status, detail)
+		VALUES ($1, $2, now(), $3, $4, NULLIF($5, ''))
+		ON CONFLICT (source) DO UPDATE SET
+			last_period = EXCLUDED.last_period, last_fetched_at = now(),
+			rows_upserted = EXCLUDED.rows_upserted, status = EXCLUDED.status, detail = EXCLUDED.detail`,
+		source, lastPeriod, rows, status, detail)
+	return err
+}
+
+func refreshHousingMV(ctx context.Context, pool *pgxpool.Pool) error {
+	_, err := pool.Exec(ctx, `SELECT refresh_housing_materialized_views()`)
+	return err
 }
 
 // upsertDemographics idempotently writes one row per boundary suburb (PK =
@@ -158,20 +174,4 @@ func upsertDemographics(ctx context.Context, pool *pgxpool.Pool, rows []CensusRo
 		n++
 	}
 	return n, nil
-}
-
-func updateRun(ctx context.Context, pool *pgxpool.Pool, source string, lastPeriod *time.Time, rows int, status, detail string) error {
-	_, err := pool.Exec(ctx, `
-		INSERT INTO house_price_ingest_runs (source, last_period, last_fetched_at, rows_upserted, status, detail)
-		VALUES ($1, $2, now(), $3, $4, NULLIF($5, ''))
-		ON CONFLICT (source) DO UPDATE SET
-			last_period = EXCLUDED.last_period, last_fetched_at = now(),
-			rows_upserted = EXCLUDED.rows_upserted, status = EXCLUDED.status, detail = EXCLUDED.detail`,
-		source, lastPeriod, rows, status, detail)
-	return err
-}
-
-func refreshHousingMV(ctx context.Context, pool *pgxpool.Pool) error {
-	_, err := pool.Exec(ctx, `SELECT refresh_housing_materialized_views()`)
-	return err
 }

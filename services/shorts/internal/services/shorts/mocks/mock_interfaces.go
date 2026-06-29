@@ -287,6 +287,21 @@ func (mr *MockShortsStoreMockRecorder) GetHousingOverview(regionType any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHousingOverview", reflect.TypeOf((*MockShortsStore)(nil).GetHousingOverview), regionType)
 }
 
+// GetHousingRegions mocks base method.
+func (m *MockShortsStore) GetHousingRegions(regionType, stateCode, query string, limit int32) ([]*shorts.HousingRegionRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHousingRegions", regionType, stateCode, query, limit)
+	ret0, _ := ret[0].([]*shorts.HousingRegionRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetHousingRegions indicates an expected call of GetHousingRegions.
+func (mr *MockShortsStoreMockRecorder) GetHousingRegions(regionType, stateCode, query, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHousingRegions", reflect.TypeOf((*MockShortsStore)(nil).GetHousingRegions), regionType, stateCode, query, limit)
+}
+
 // GetIndustryTreeMap mocks base method.
 func (m *MockShortsStore) GetIndustryTreeMap(limit int32, period, viewMode string) (*stocksv1alpha1.IndustryTreeMap, error) {
 	m.ctrl.T.Helper()
@@ -1052,6 +1067,20 @@ func (m *MockCache) GetHousingOverviewKey(regionType string) string {
 func (mr *MockCacheMockRecorder) GetHousingOverviewKey(regionType any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHousingOverviewKey", reflect.TypeOf((*MockCache)(nil).GetHousingOverviewKey), regionType)
+}
+
+// GetHousingRegionsKey mocks base method.
+func (m *MockCache) GetHousingRegionsKey(regionType, stateCode, query string, limit int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetHousingRegionsKey", regionType, stateCode, query, limit)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetHousingRegionsKey indicates an expected call of GetHousingRegionsKey.
+func (mr *MockCacheMockRecorder) GetHousingRegionsKey(regionType, stateCode, query, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetHousingRegionsKey", reflect.TypeOf((*MockCache)(nil).GetHousingRegionsKey), regionType, stateCode, query, limit)
 }
 
 // GetIndustryTreeMapKey mocks base method.

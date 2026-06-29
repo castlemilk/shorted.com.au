@@ -320,3 +320,10 @@ export const listStateSuburbs = ShortedStocksService.method.listStateSuburbs;
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetSuburbProfile
  */
 export const getSuburbProfile = ShortedStocksService.method.getSuburbProfile;
+
+/**
+ * List house-price regions (suburbs/LGAs/etc) for the suburb explorer.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListHousingRegions
+ */
+export const listHousingRegions = ShortedStocksService.method.listHousingRegions;

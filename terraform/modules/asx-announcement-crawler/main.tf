@@ -56,7 +56,11 @@ resource "google_cloud_run_v2_job" "asx_announcement_crawler" {
       service_account = google_service_account.asx_announcement_crawler.email
 
       max_retries = 2
-      timeout     = "14400s" # 4 hours - crawling director trades, dividends, and news for 2024-2026 takes significant time
+      # 90 min cap. The crawl now runs a 6-worker pool (see -workers), finishing
+      # ~4471 stocks in ~1h instead of the old sequential >4h that silently hit
+      # the 14400s timeout at ~3000 stocks. A tighter cap turns a hang into a
+      # fast, visible failure instead of a 4h zombie.
+      timeout = "5400s"
 
       containers {
         image = var.image_url
@@ -64,7 +68,9 @@ resource "google_cloud_run_v2_job" "asx_announcement_crawler" {
         # Enable director trades, dividends, news, and all-announcements extraction.
         # -all-announcements populates the asx_announcements table (material events:
         # trading halts, capital raises, takeovers) which feeds the event timeline.
-        args = ["-director-trades", "-dividends", "-news-table", "-all-announcements", "-years", "2024,2025,2026"]
+        # -workers 6: bounded concurrent crawl pool (network-bound; respects ASX
+        # rate limits via the per-stock jittered delay inside each worker).
+        args = ["-director-trades", "-dividends", "-news-table", "-all-announcements", "-years", "2024,2025,2026", "-workers", "6"]
 
         env {
           name  = "ENVIRONMENT"
@@ -104,8 +110,10 @@ resource "google_cloud_run_v2_job" "asx_announcement_crawler" {
 
         resources {
           limits = {
-            cpu    = "1"
-            memory = "512Mi"
+            # 2 vCPU + 1Gi for the 6-worker pool (concurrent HTML parsing with
+            # goquery + several in-flight response bodies). 512Mi was tight.
+            cpu    = "2"
+            memory = "1Gi"
           }
         }
       }

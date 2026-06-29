@@ -55,6 +55,8 @@ func (te *ToolExecutor) Execute(ctx context.Context, toolName string, args map[s
 		return te.callRPC(ctx, "GetStockGraph", args)
 	case "get_event_timeline":
 		return te.callRPC(ctx, "GetEventTimeline", args)
+	case "get_stock_signals":
+		return te.callRPC(ctx, "GetStockSignals", args)
 	default:
 		return "", fmt.Errorf("unknown tool: %s", toolName)
 	}
@@ -196,6 +198,15 @@ func mapArgsToRequest(method string, args map[string]interface{}) map[string]int
 			req["limit"] = v
 		} else {
 			req["limit"] = 20
+		}
+	case "GetStockSignals":
+		if v, ok := args["stock_code"]; ok {
+			req["stockCode"] = v
+		}
+		if v, ok := args["limit"]; ok {
+			req["limit"] = v
+		} else {
+			req["limit"] = 10
 		}
 	}
 

@@ -55,6 +55,7 @@ import { siteConfig } from "~/@/config/site";
 import { RelatedStocks } from "~/@/components/seo/related-stocks";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
 import { getStockOrNotFound } from "~/app/actions/getStock";
+import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { ShortInterestHistory } from "./short-interest-history";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { notFound } from "next/navigation";
@@ -78,10 +79,11 @@ export async function generateStaticParams(): Promise<{ stockCode: string }[]> {
     return [];
   }
   try {
-    // Only pre-generate top 50 stocks at build time.
-    // The rest are generated on-demand via ISR (dynamicParams = true by default).
-    // This saves ~3-5 minutes of Vercel build time vs generating all ~1000.
-    const response = await getTopShortsData("max", 50, 0);
+    // Pre-generate the most-shorted stocks at build time so Googlebot rarely
+    // triggers cold on-demand ISR generation (the source of intermittent 5xx
+    // when the Cloud Run backend is cold). The long tail is still generated
+    // on-demand via ISR (dynamicParams = true by default).
+    const response = await getTopShortsData("max", 500, 0);
     if (!response) return [];
 
     const stockCodes = response.timeSeries
@@ -102,11 +104,6 @@ export async function generateStaticParams(): Promise<{ stockCode: string }[]> {
 interface PageProps {
   params: Promise<{ stockCode: string }>;
 }
-
-// Stocks below this short % threshold are noindex'd. They produce thin
-// templated pages with no narrative value, leading to "Crawled - currently
-// not indexed" in GSC. Page remains accessible (no 404), just not indexed.
-const STOCK_PAGE_NOINDEX_THRESHOLD = 0.5;
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { stockCode } = await params;
@@ -140,11 +137,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       const industryInfo = stock.industry ? ` Industry: ${stock.industry}.` : "";
       description = `${shortInfo}${industryInfo} Track ${code}'s short position history, price charts, peer comparison, and ASIC data. Updated daily with T+4 delay.`;
 
-      // Noindex thin stocks (no/minimal short interest) — they remain
-      // crawlable but don't pollute the index with templated thin content.
-      if ((stock.percentageShorted ?? 0) < STOCK_PAGE_NOINDEX_THRESHOLD) {
-        shouldNoindex = true;
-      }
+      // Index real companies (named + enriched OR meaningfully shorted), only
+      // noindex genuinely thin stubs. Shared with the sitemap so the two never
+      // disagree. See ~/@/lib/seo/stock-indexability.
+      shouldNoindex = !isStockIndexable({
+        code,
+        name: stock.name,
+        industry: stock.industry,
+        percentShorted: stock.percentageShorted,
+      });
     }
   } catch {
     // Fall back to default title/description if fetch fails

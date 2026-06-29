@@ -99,6 +99,7 @@ type ShortsStore interface {
 	GetHousePriceSeries(regionCode, measure, dwellingType string) (*shortsstore.HousePriceSeriesResult, error)
 	ListStateSuburbs(stateCode, query string, limit int32) ([]*shortsstore.SuburbSummaryRow, error)
 	GetSuburbProfile(salCode string) (*shortsstore.SuburbProfileRow, error)
+	GetHousingRegions(regionType, stateCode, query string, limit int32) ([]*shortsstore.HousingRegionRow, error)
 
 	// Event timeline methods
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shortsstore.TimelineEventRow, error)
@@ -134,6 +135,7 @@ type Cache interface {
 	GetHousePriceSeriesKey(regionCode, measure, dwellingType string) string
 	GetStateSuburbsKey(stateCode, query string, limit int32) string
 	GetSuburbProfileKey(salCode string) string
+	GetHousingRegionsKey(regionType, stateCode, query string, limit int32) string
 	GetEventTimelineKey(stockCode string, daysBack, limit int32) string
 	GetDirectorTradesKey(stockCode string, limit int32) string
 	GetDividendHistoryKey(stockCode string, years int32) string

@@ -59,4 +59,8 @@ type EnrichmentStore interface {
 	GetStocksForPeopleReenrichment(limit int, afterStockCode string) ([]StockPeopleData, error)
 	GetStocksForImageBackfill(limit int, afterStockCode string) ([]StockPeopleData, error)
 	UpdateKeyPeopleEnriched(stockCode string, keyPeopleJSON []byte) error
+	// UpdateKeyPeopleIfEmpty writes key_people ONLY when the served row currently has
+	// none (§6.5 additive people-only write, used when the whole-company quality score
+	// is below the auto-approve gate). Returns true when a row was actually written.
+	UpdateKeyPeopleIfEmpty(stockCode string, keyPeopleJSON []byte) (bool, error)
 }

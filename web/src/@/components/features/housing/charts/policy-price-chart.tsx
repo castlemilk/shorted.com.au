@@ -19,6 +19,7 @@ import {
 import type { YearValue } from "../data/types";
 import { AMBER, AXIS_LINE, AXIS_TEXT, MARKER, OLIVE, RUST, TOOLTIP_STYLE } from "./chart-theme";
 import { LegendDot, SegmentedToggle } from "./chart-ui";
+import { useLiveYearValues } from "./use-live-year-values";
 
 type SecKey = "investor" | "landlords";
 
@@ -71,7 +72,13 @@ function nearest(data: YearValue[], year: number): YearValue | undefined {
 }
 
 function ChartInner({ width, secKey }: { width: number; secKey: SecKey }) {
-  const sec = SECONDARY[secKey];
+  // Investor share splices live ABS Lending Indicators onto the baked spine;
+  // landlords stays baked (ATO, annual). Falls back to baked if live is absent.
+  const investorLive = useLiveYearValues("investor_loan_share", INVESTOR_SHARE);
+  const sec = useMemo(
+    () => (secKey === "investor" ? { ...SECONDARY.investor, data: investorLive } : SECONDARY[secKey]),
+    [secKey, investorLive],
+  );
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
     useTooltip<{ year: number; price: number; secVal?: number }>();
 

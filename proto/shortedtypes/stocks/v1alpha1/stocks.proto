@@ -28,7 +28,7 @@ message TimeSeriesData {
   repeated TimeSeriesPoint points = 10;            // The time series points.
   TimeSeriesPoint max = 11;                        // The maximum short position in the range
   TimeSeriesPoint min = 12;                        // The minimum short position in the range
-
+  string industry = 13;                            // Industry classification (populated in summary mode from company metadata).
 }
   
 // TimeSeriesPoint represents a single point in time for the time series data.

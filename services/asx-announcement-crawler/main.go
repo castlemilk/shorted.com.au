@@ -11,14 +11,16 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
-	"github.com/skunkworq/stealth/brws/engine"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/skunkworq/stealth/brws/engine"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 )
@@ -35,26 +37,42 @@ type FinancialReport struct {
 
 // ASXAnnouncement represents a parsed announcement from the ASX HTML page
 type ASXAnnouncement struct {
-	Date           string
-	IsPriceSens    bool
-	Headline       string
-	PDFURL         string
-	Pages          string
-	FileSize       string
+	Date        string
+	IsPriceSens bool
+	Headline    string
+	PDFURL      string
+	Pages       string
+	FileSize    string
 }
 
 var (
-	flagDryRun     = flag.Bool("dry-run", false, "Parse and display results without updating the database")
-	flagCodes      = flag.String("codes", "", "Comma-separated stock codes to crawl (default: all from company-metadata)")
-	flagYears      = flag.String("years", "2024,2025", "Comma-separated years to crawl")
-	flagLimit      = flag.Int("limit", 0, "Limit number of stocks to process (0 = all)")
-	flagDelay = flag.Duration("delay", 1500*time.Millisecond, "Delay between requests")
-	flagVerbose    = flag.Bool("verbose", false, "Verbose output")
+	flagDryRun           = flag.Bool("dry-run", false, "Parse and display results without updating the database")
+	flagCodes            = flag.String("codes", "", "Comma-separated stock codes to crawl (default: all from company-metadata)")
+	flagYears            = flag.String("years", "2024,2025", "Comma-separated years to crawl")
+	flagLimit            = flag.Int("limit", 0, "Limit number of stocks to process (0 = all)")
+	flagDelay            = flag.Duration("delay", 1500*time.Millisecond, "Delay between requests")
+	flagVerbose          = flag.Bool("verbose", false, "Verbose output")
 	flagAllAnnouncements = flag.Bool("all-announcements", false, "Store all announcements to asx_announcements table (not just financial reports)")
 	flagNewsTable        = flag.Bool("news-table", false, "Also write announcements into news_articles table")
 	flagDirectorTrades   = flag.Bool("director-trades", false, "Extract director trades from Appendix 3Y announcements into director_trades table")
 	flagDividends        = flag.Bool("dividends", false, "Extract dividend announcements into dividend_history table")
+	flagWorkers          = flag.Int("workers", 6, "Number of concurrent crawl workers (network-bound; keep modest to respect ASX rate limits)")
 )
+
+// crawlStats holds the cross-worker tallies. All fields are int64 and updated
+// only via sync/atomic so the worker pool can share one instance safely.
+// (int64 fields are kept first so they stay 8-byte aligned for atomic ops.)
+type crawlStats struct {
+	processed      int64
+	reports        int64
+	reportsUpdated int64
+	errors         int64
+	announcements  int64
+	annStored      int64
+	newsStored     int64
+	dirTrades      int64
+	dividends      int64
+}
 
 // Financial report headline keywords/patterns
 var financialKeywords = []string{
@@ -114,7 +132,14 @@ func main() {
 		log.Fatalf("Failed to parse DATABASE_URL: %v", err)
 	}
 	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
-	config.MaxConns = 3
+	// Size the pool to cover the worker fan-out (each worker does several short
+	// INSERT/UPDATEs per stock); otherwise a 3-conn pool serializes DB writes and
+	// negates the parallelism. Safe against the Supabase transaction pooler.
+	numWorkers := *flagWorkers
+	if numWorkers < 1 {
+		numWorkers = 1
+	}
+	config.MaxConns = int32(numWorkers + 2)
 
 	db, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
@@ -154,142 +179,169 @@ func main() {
 	}
 	defer func() { _ = client.Close() }()
 
-	// Process stocks
-	var (
-		totalProcessed      int
-		totalReports        int
-		totalUpdated        int
-		totalErrors         int
-		totalAnnouncements  int
-		totalAnnStored      int
-		totalNewsStored     int
-		totalDirTrades      int
-		totalDividends      int
-	)
+	// Process stocks concurrently with a bounded worker pool. The crawl is
+	// network-bound (one ASX page fetch per year per stock), so a small pool cuts
+	// wall-clock ~Nx and keeps the job well inside its timeout instead of running
+	// sequentially for >4h. Each worker owns its own stealth client (the engine is
+	// not guaranteed concurrency-safe) and keeps the per-stock jittered delay, so
+	// the aggregate request rate stays ~workers/delay — modest enough for ASX.
+	stats := &crawlStats{}
+	codesCh := make(chan string)
+	var wg sync.WaitGroup
+	var progress int64
 
-	for i, code := range codes {
-		if i > 0 && i%50 == 0 {
-			log.Printf("Progress: %d/%d stocks processed, %d reports found, %d updated, %d errors",
-				i, len(codes), totalReports, totalUpdated, totalErrors)
+	worker := func() {
+		defer wg.Done()
+		wClient, werr := stealthhttp.New(stealthhttp.WithTimeout(30 * time.Second))
+		if werr != nil {
+			log.Printf("worker: failed to create stealth client, using shared: %v", werr)
+			wClient = client
+		} else {
+			defer func() { _ = wClient.Close() }()
 		}
 
-		reports, allAnns, err := crawlStockAnnouncementsFull(client, code, years)
-		if err != nil {
-			if *flagVerbose {
-				log.Printf("  ERROR %s: %v", code, err)
+		for code := range codesCh {
+			if n := atomic.AddInt64(&progress, 1); n%50 == 0 {
+				log.Printf("Progress: %d/%d stocks | ann stored: %d, news: %d, dir-trades: %d, dividends: %d, reports: %d, errors: %d",
+					n, len(codes),
+					atomic.LoadInt64(&stats.annStored), atomic.LoadInt64(&stats.newsStored),
+					atomic.LoadInt64(&stats.dirTrades), atomic.LoadInt64(&stats.dividends),
+					atomic.LoadInt64(&stats.reports), atomic.LoadInt64(&stats.errors))
 			}
-			totalErrors++
-			continue
-		}
 
-		totalProcessed++
-
-		// Store all announcements to asx_announcements table
-		if *flagAllAnnouncements && len(allAnns) > 0 {
-			totalAnnouncements += len(allAnns)
-			if !*flagDryRun {
-				stored, err := storeAnnouncements(ctx, db, code, allAnns)
-				if err != nil {
-					log.Printf("  ERROR storing announcements for %s: %v", code, err)
-				} else {
-					totalAnnStored += stored
-				}
-			} else if *flagVerbose {
-				log.Printf("  %s: %d total announcements", code, len(allAnns))
-			}
-		}
-
-		// Write announcements as news articles
-		if *flagNewsTable && len(allAnns) > 0 && !*flagDryRun {
-			stored, err := storeAsNewsArticles(ctx, db, code, allAnns)
+			reports, allAnns, err := crawlStockAnnouncementsFull(wClient, code, years)
 			if err != nil {
-				log.Printf("  ERROR storing news for %s: %v", code, err)
-			} else {
-				totalNewsStored += stored
+				if *flagVerbose {
+					log.Printf("  ERROR %s: %v", code, err)
+				}
+				atomic.AddInt64(&stats.errors, 1)
+				continue
 			}
-		}
 
-		// Extract director trades from Appendix 3Y announcements
-		if *flagDirectorTrades && !*flagDryRun {
-			var trades []*DirectorTradeRecord
-			for _, ann := range allAnns {
-				if isAppendix3Y(ann.Headline) {
-					trade := parseDirectorTradeFromHeadline(ann, code)
-					trades = append(trades, trade)
+			atomic.AddInt64(&stats.processed, 1)
+
+			// Store all announcements to asx_announcements table
+			if *flagAllAnnouncements && len(allAnns) > 0 {
+				atomic.AddInt64(&stats.announcements, int64(len(allAnns)))
+				if !*flagDryRun {
+					stored, err := storeAnnouncements(ctx, db, code, allAnns)
+					if err != nil {
+						log.Printf("  ERROR storing announcements for %s: %v", code, err)
+					} else {
+						atomic.AddInt64(&stats.annStored, int64(stored))
+					}
+				} else if *flagVerbose {
+					log.Printf("  %s: %d total announcements", code, len(allAnns))
 				}
 			}
-			if len(trades) > 0 {
-				stored, err := storeDirectorTrades(ctx, db, trades)
+
+			// Write announcements as news articles
+			if *flagNewsTable && len(allAnns) > 0 && !*flagDryRun {
+				stored, err := storeAsNewsArticles(ctx, db, code, allAnns)
 				if err != nil {
-					log.Printf("  ERROR storing director trades for %s: %v", code, err)
+					log.Printf("  ERROR storing news for %s: %v", code, err)
 				} else {
-					totalDirTrades += stored
+					atomic.AddInt64(&stats.newsStored, int64(stored))
 				}
 			}
-		}
 
-		// Extract dividend announcements
-		if *flagDividends && !*flagDryRun {
-			var dividends []*DividendParseResult
-			for _, ann := range allAnns {
-				if isDividendAnnouncement(ann.Headline) {
-					div := parseDividendFromHeadline(ann, code)
-					if div.AmountPerShare != nil {
-						dividends = append(dividends, div)
+			// Extract director trades from Appendix 3Y announcements
+			if *flagDirectorTrades && !*flagDryRun {
+				var trades []*DirectorTradeRecord
+				for _, ann := range allAnns {
+					if isAppendix3Y(ann.Headline) {
+						trade := parseDirectorTradeFromHeadline(ann, code)
+						trades = append(trades, trade)
+					}
+				}
+				if len(trades) > 0 {
+					stored, err := storeDirectorTrades(ctx, db, trades)
+					if err != nil {
+						log.Printf("  ERROR storing director trades for %s: %v", code, err)
+					} else {
+						atomic.AddInt64(&stats.dirTrades, int64(stored))
 					}
 				}
 			}
-			if len(dividends) > 0 {
-				stored, err := storeDividends(ctx, db, dividends)
-				if err != nil {
-					log.Printf("  ERROR storing dividends for %s: %v", code, err)
-				} else {
-					totalDividends += stored
+
+			// Extract dividend announcements
+			if *flagDividends && !*flagDryRun {
+				var dividends []*DividendParseResult
+				for _, ann := range allAnns {
+					if isDividendAnnouncement(ann.Headline) {
+						div := parseDividendFromHeadline(ann, code)
+						if div.AmountPerShare != nil {
+							dividends = append(dividends, div)
+						}
+					}
+				}
+				if len(dividends) > 0 {
+					stored, err := storeDividends(ctx, db, dividends)
+					if err != nil {
+						log.Printf("  ERROR storing dividends for %s: %v", code, err)
+					} else {
+						atomic.AddInt64(&stats.dividends, int64(stored))
+					}
 				}
 			}
-		}
 
-		if len(reports) == 0 {
+			if len(reports) == 0 {
+				// Jittered delay to be polite
+				jitter := time.Duration(rand.Int63n(int64(*flagDelay / 2)))
+				time.Sleep(*flagDelay + jitter)
+				continue
+			}
+
+			atomic.AddInt64(&stats.reports, int64(len(reports)))
+
+			if *flagDryRun {
+				log.Printf("  %s: found %d financial reports", code, len(reports))
+				for _, r := range reports {
+					log.Printf("    [%s] %s — %s", r.Date, r.Title, r.URL)
+				}
+				jitter := time.Duration(rand.Int63n(int64(*flagDelay / 2)))
+				time.Sleep(*flagDelay + jitter)
+				continue
+			}
+
+			// Merge with existing reports and update DB
+			updated, err := mergeAndUpdateReports(ctx, db, code, reports)
+			if err != nil {
+				log.Printf("  ERROR updating %s: %v", code, err)
+				atomic.AddInt64(&stats.errors, 1)
+				continue
+			}
+			if updated {
+				atomic.AddInt64(&stats.reportsUpdated, 1)
+			}
+
 			// Jittered delay to be polite
 			jitter := time.Duration(rand.Int63n(int64(*flagDelay / 2)))
 			time.Sleep(*flagDelay + jitter)
-			continue
 		}
-
-		totalReports += len(reports)
-
-		if *flagDryRun {
-			log.Printf("  %s: found %d financial reports", code, len(reports))
-			for _, r := range reports {
-				log.Printf("    [%s] %s — %s", r.Date, r.Title, r.URL)
-			}
-			jitter := time.Duration(rand.Int63n(int64(*flagDelay / 2)))
-			time.Sleep(*flagDelay + jitter)
-			continue
-		}
-
-		// Merge with existing reports and update DB
-		updated, err := mergeAndUpdateReports(ctx, db, code, reports)
-		if err != nil {
-			log.Printf("  ERROR updating %s: %v", code, err)
-			totalErrors++
-			continue
-		}
-		if updated {
-			totalUpdated++
-		}
-
-		// Jittered delay to be polite
-		jitter := time.Duration(rand.Int63n(int64(*flagDelay / 2)))
-		time.Sleep(*flagDelay + jitter)
 	}
 
-	log.Printf("Done! Processed: %d, Reports found: %d, DB updated: %d, Announcements: %d (stored: %d), News: %d, Director trades: %d, Dividends: %d, Errors: %d",
-		totalProcessed, totalReports, totalUpdated, totalAnnouncements, totalAnnStored, totalNewsStored, totalDirTrades, totalDividends, totalErrors)
+	wg.Add(numWorkers)
+	for w := 0; w < numWorkers; w++ {
+		go worker()
+	}
+	for _, code := range codes {
+		codesCh <- code
+	}
+	close(codesCh)
+	wg.Wait()
+
+	// NOTE: "financial_reports updated" is legitimately near-zero on steady-state
+	// runs (the JSONB merge is idempotent once a stock's report URLs are known).
+	// The real work is the announcements/news/dir-trades/dividends written below.
+	log.Printf("Done! Processed: %d, Reports found: %d (financial_reports updated: %d), Announcements: %d (stored: %d), News: %d, Director trades: %d, Dividends: %d, Errors: %d",
+		atomic.LoadInt64(&stats.processed), atomic.LoadInt64(&stats.reports), atomic.LoadInt64(&stats.reportsUpdated),
+		atomic.LoadInt64(&stats.announcements), atomic.LoadInt64(&stats.annStored), atomic.LoadInt64(&stats.newsStored),
+		atomic.LoadInt64(&stats.dirTrades), atomic.LoadInt64(&stats.dividends), atomic.LoadInt64(&stats.errors))
 
 	// Record sync metrics
 	shortedotel.SyncDuration.Record(ctx, time.Since(syncStart).Seconds(), syncAttrs)
-	shortedotel.SyncRecordsProcessed.Add(ctx, int64(totalProcessed), syncAttrs)
+	shortedotel.SyncRecordsProcessed.Add(ctx, atomic.LoadInt64(&stats.processed), syncAttrs)
 	shortedotel.SyncStatus.Add(ctx, 1, otelmetric.WithAttributes(
 		attribute.String("sync_job", "asx-announcement-crawler"),
 		attribute.String("status", "success"),
