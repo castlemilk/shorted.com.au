@@ -234,6 +234,14 @@ func (s *StoreAdapter) GetHousePriceSeries(regionCode, measure, dwellingType str
 	return s.store.GetHousePriceSeries(regionCode, measure, dwellingType)
 }
 
+func (s *StoreAdapter) ListStateSuburbs(stateCode, query string, limit int32) ([]*shorts.SuburbSummaryRow, error) {
+	return s.store.ListStateSuburbs(stateCode, query, limit)
+}
+
+func (s *StoreAdapter) GetSuburbProfile(salCode string) (*shorts.SuburbProfileRow, error) {
+	return s.store.GetSuburbProfile(salCode)
+}
+
 func (s *StoreAdapter) GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shorts.TimelineEventRow, error) {
 	return s.store.GetEventTimeline(stockCode, daysBack, limit)
 }

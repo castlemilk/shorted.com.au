@@ -515,6 +515,21 @@ func (mr *MockShortsStoreMockRecorder) GetStockSignals(stockCode, limit any) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockSignals", reflect.TypeOf((*MockShortsStore)(nil).GetStockSignals), stockCode, limit)
 }
 
+// GetSuburbProfile mocks base method.
+func (m *MockShortsStore) GetSuburbProfile(salCode string) (*shorts.SuburbProfileRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSuburbProfile", salCode)
+	ret0, _ := ret[0].(*shorts.SuburbProfileRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSuburbProfile indicates an expected call of GetSuburbProfile.
+func (mr *MockShortsStoreMockRecorder) GetSuburbProfile(salCode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSuburbProfile", reflect.TypeOf((*MockShortsStore)(nil).GetSuburbProfile), salCode)
+}
+
 // GetSyncStatus mocks base method.
 func (m *MockShortsStore) GetSyncStatus(filter shorts.SyncStatusFilter) ([]*shortsv1alpha1.SyncRun, error) {
 	m.ctrl.T.Helper()
@@ -637,6 +652,21 @@ func (m *MockShortsStore) ListPendingEnrichments(limit, offset int32) ([]*shorts
 func (mr *MockShortsStoreMockRecorder) ListPendingEnrichments(limit, offset any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListPendingEnrichments", reflect.TypeOf((*MockShortsStore)(nil).ListPendingEnrichments), limit, offset)
+}
+
+// ListStateSuburbs mocks base method.
+func (m *MockShortsStore) ListStateSuburbs(stateCode, query string, limit int32) ([]*shorts.SuburbSummaryRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListStateSuburbs", stateCode, query, limit)
+	ret0, _ := ret[0].([]*shorts.SuburbSummaryRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListStateSuburbs indicates an expected call of ListStateSuburbs.
+func (mr *MockShortsStoreMockRecorder) ListStateSuburbs(stateCode, query, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListStateSuburbs", reflect.TypeOf((*MockShortsStore)(nil).ListStateSuburbs), stateCode, query, limit)
 }
 
 // ListTweetPublishQueue mocks base method.
@@ -1137,6 +1167,20 @@ func (mr *MockCacheMockRecorder) GetSearchStocksKey(query, limit any) *gomock.Ca
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSearchStocksKey", reflect.TypeOf((*MockCache)(nil).GetSearchStocksKey), query, limit)
 }
 
+// GetStateSuburbsKey mocks base method.
+func (m *MockCache) GetStateSuburbsKey(stateCode, query string, limit int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetStateSuburbsKey", stateCode, query, limit)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetStateSuburbsKey indicates an expected call of GetStateSuburbsKey.
+func (mr *MockCacheMockRecorder) GetStateSuburbsKey(stateCode, query, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStateSuburbsKey", reflect.TypeOf((*MockCache)(nil).GetStateSuburbsKey), stateCode, query, limit)
+}
+
 // GetStockDataKey mocks base method.
 func (m *MockCache) GetStockDataKey(productCode, period string) string {
 	m.ctrl.T.Helper()
@@ -1219,6 +1263,20 @@ func (m *MockCache) GetStockSignalsKey(stockCode string, limit int32) string {
 func (mr *MockCacheMockRecorder) GetStockSignalsKey(stockCode, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockSignalsKey", reflect.TypeOf((*MockCache)(nil).GetStockSignalsKey), stockCode, limit)
+}
+
+// GetSuburbProfileKey mocks base method.
+func (m *MockCache) GetSuburbProfileKey(salCode string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSuburbProfileKey", salCode)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetSuburbProfileKey indicates an expected call of GetSuburbProfileKey.
+func (mr *MockCacheMockRecorder) GetSuburbProfileKey(salCode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSuburbProfileKey", reflect.TypeOf((*MockCache)(nil).GetSuburbProfileKey), salCode)
 }
 
 // GetTopShortsKey mocks base method.
