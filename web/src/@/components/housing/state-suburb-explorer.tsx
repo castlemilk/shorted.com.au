@@ -26,6 +26,7 @@ export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
       salCode: s.salCode, salName: s.salName, postcode: s.postcode,
       latestMedianPrice: s.latestMedianPrice, yoyPct: s.yoyPct,
       population: s.population, medianAge: s.medianAge, medianWeeklyHhdIncome: s.medianWeeklyHhdIncome,
+      regionCode: s.regionCode,
     })),
     [data],
   );

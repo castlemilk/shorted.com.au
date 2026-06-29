@@ -117,7 +117,7 @@ func (s *ShortsServer) ListStateSuburbs(ctx context.Context, req *connect.Reques
 				SalCode: r.SALCode, SalName: r.SALName, StateCode: r.StateCode,
 				Postcode: r.Postcode, LatestMedianPrice: r.LatestMedianPrice,
 				YoyPct: r.YoYPct, Population: r.Population, MedianAge: r.MedianAge,
-				MedianWeeklyHhdIncome: r.MedianWeeklyHhdIncome,
+				MedianWeeklyHhdIncome: r.MedianWeeklyHhdIncome, RegionCode: r.RegionCode,
 			}
 			if r.LatestPeriod != nil {
 				ss.LatestPeriod = timestamppb.New(*r.LatestPeriod)
@@ -149,7 +149,7 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 			SalCode: p.Summary.SALCode, SalName: p.Summary.SALName, StateCode: p.Summary.StateCode,
 			Postcode: p.Summary.Postcode, LatestMedianPrice: p.Summary.LatestMedianPrice,
 			YoyPct: p.Summary.YoYPct, Population: p.Summary.Population, MedianAge: p.Summary.MedianAge,
-			MedianWeeklyHhdIncome: p.Summary.MedianWeeklyHhdIncome,
+			MedianWeeklyHhdIncome: p.Summary.MedianWeeklyHhdIncome, RegionCode: p.Summary.RegionCode,
 		}
 		if p.Summary.LatestPeriod != nil {
 			summary.LatestPeriod = timestamppb.New(*p.Summary.LatestPeriod)

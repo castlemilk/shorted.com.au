@@ -18,6 +18,8 @@ export function SuburbProfile({ salCode, regionCode }: { salCode: string; region
   const p = data;
   if (!p?.summary) return <p className="text-sm text-muted-foreground">No data for this suburb yet.</p>;
   const s = p.summary, d = p.demographics, b = p.baselines;
+  // Prefer the region_code carried on the profile (lights up the price series for priced suburbs).
+  const chartRegion = s.regionCode || regionCode;
 
   return (
     <div className="space-y-6">
@@ -34,10 +36,10 @@ export function SuburbProfile({ salCode, regionCode }: { salCode: string; region
         ) : null}
       </div>
 
-      {regionCode ? (
+      {chartRegion ? (
         <div className="rounded-xl border border-border bg-card p-5">
           <h2 className="mb-3 font-serif text-lg text-foreground">Median house price</h2>
-          <HousingSeriesChart regionCode={regionCode} measure="median_price" dwellingType="house" ariaLabel={`${s.salName} median house price`} format="aud" height={300} />
+          <HousingSeriesChart regionCode={chartRegion} measure="median_price" dwellingType="house" ariaLabel={`${s.salName} median house price`} format="aud" height={300} />
         </div>
       ) : null}
 

@@ -11,6 +11,7 @@ export type SuburbDatum = {
   salCode: string; salName: string; postcode: string;
   latestMedianPrice: number; yoyPct: number;
   population: number; medianAge: number; medianWeeklyHhdIncome: number;
+  regionCode?: string;
 };
 
 export function StateSuburbMap({
@@ -60,7 +61,7 @@ export function StateSuburbMap({
       />
       {hover ? (
         <div className="fixed z-50" style={{ left: hover.x + 14, top: hover.y + 14 }}>
-          <SuburbTooltip summary={hover.d} regionCode={undefined} />
+          <SuburbTooltip summary={hover.d} regionCode={hover.d.regionCode} />
         </div>
       ) : null}
     </div>

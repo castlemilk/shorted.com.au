@@ -8776,6 +8776,7 @@ type SuburbSummary struct {
 	Population            int32                  `protobuf:"varint,8,opt,name=population,proto3" json:"population,omitempty"`
 	MedianAge             float64                `protobuf:"fixed64,9,opt,name=median_age,json=medianAge,proto3" json:"median_age,omitempty"`
 	MedianWeeklyHhdIncome float64                `protobuf:"fixed64,10,opt,name=median_weekly_hhd_income,json=medianWeeklyHhdIncome,proto3" json:"median_weekly_hhd_income,omitempty"`
+	RegionCode            string                 `protobuf:"bytes,11,opt,name=region_code,json=regionCode,proto3" json:"region_code,omitempty"` // priced-region code (for the price series), '' if unpriced
 	unknownFields         protoimpl.UnknownFields
 	sizeCache             protoimpl.SizeCache
 }
@@ -8878,6 +8879,13 @@ func (x *SuburbSummary) GetMedianWeeklyHhdIncome() float64 {
 		return x.MedianWeeklyHhdIncome
 	}
 	return 0
+}
+
+func (x *SuburbSummary) GetRegionCode() string {
+	if x != nil {
+		return x.RegionCode
+	}
+	return ""
 }
 
 type ListStateSuburbsResponse struct {
@@ -9941,7 +9949,7 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\n" +
 	"state_code\x18\x01 \x01(\tR\tstateCode\x12\x14\n" +
 	"\x05query\x18\x02 \x01(\tR\x05query\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\x82\x03\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xa3\x03\n" +
 	"\rSuburbSummary\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +
 	"\bsal_name\x18\x02 \x01(\tR\asalName\x12\x1d\n" +
@@ -9957,7 +9965,9 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\n" +
 	"median_age\x18\t \x01(\x01R\tmedianAge\x127\n" +
 	"\x18median_weekly_hhd_income\x18\n" +
-	" \x01(\x01R\x15medianWeeklyHhdIncome\"T\n" +
+	" \x01(\x01R\x15medianWeeklyHhdIncome\x12\x1f\n" +
+	"\vregion_code\x18\v \x01(\tR\n" +
+	"regionCode\"T\n" +
 	"\x18ListStateSuburbsResponse\x128\n" +
 	"\asuburbs\x18\x01 \x03(\v2\x1e.shorts.v1alpha1.SuburbSummaryR\asuburbs\"4\n" +
 	"\x17GetSuburbProfileRequest\x12\x19\n" +

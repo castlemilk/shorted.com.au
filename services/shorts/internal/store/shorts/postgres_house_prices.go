@@ -124,6 +124,7 @@ type SuburbSummaryRow struct {
 	Population             int32
 	MedianAge             float64
 	MedianWeeklyHhdIncome float64
+	RegionCode            string
 }
 
 // SuburbProfileRow is the full per-suburb profile (demographics + headline price).
@@ -157,11 +158,11 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 		SELECT d.sal_code, d.sal_name, d.state_code, COALESCE(d.postcode, ''),
 		       COALESCE(h.value, 0), h.period, COALESCE(h.yoy_pct, 0),
 		       COALESCE(d.population, 0), COALESCE(d.median_age, 0),
-		       COALESCE(d.median_weekly_hhd_income, 0)
+		       COALESCE(d.median_weekly_hhd_income, 0), COALESCE(r.region_code, '')
 		FROM suburb_demographics d
 		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
 		LEFT JOIN mv_housing_headline h ON h.region_code = r.region_code
-		       AND h.measure = 'median_price'
+		       AND h.measure = 'median_price' AND h.dwelling_type = 'house'
 		WHERE d.state_code = $1
 		  AND ($2 = '' OR d.sal_name ILIKE '%' || $2 || '%')
 		ORDER BY d.sal_name
@@ -176,7 +177,7 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 		var r SuburbSummaryRow
 		if err := rows.Scan(&r.SALCode, &r.SALName, &r.StateCode, &r.Postcode,
 			&r.LatestMedianPrice, &r.LatestPeriod, &r.YoYPct,
-			&r.Population, &r.MedianAge, &r.MedianWeeklyHhdIncome); err != nil {
+			&r.Population, &r.MedianAge, &r.MedianWeeklyHhdIncome, &r.RegionCode); err != nil {
 			return nil, err
 		}
 		out = append(out, &r)
@@ -193,7 +194,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		SELECT d.sal_code, d.sal_name, d.state_code, COALESCE(d.postcode, ''),
 		       COALESCE(h.value, 0), h.period, COALESCE(h.yoy_pct, 0),
 		       COALESCE(d.population, 0), COALESCE(d.median_age, 0),
-		       COALESCE(d.median_weekly_hhd_income, 0),
+		       COALESCE(d.median_weekly_hhd_income, 0), COALESCE(r.region_code, ''),
 		       COALESCE(d.median_weekly_per_income, 0), COALESCE(d.median_weekly_rent, 0),
 		       COALESCE(d.median_monthly_mortgage, 0), COALESCE(d.pct_owned_outright, 0),
 		       COALESCE(d.pct_owned_mortgage, 0), COALESCE(d.pct_rented, 0),
@@ -201,7 +202,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE((SELECT avg(value) FROM mv_housing_headline sh JOIN house_price_regions sr
 		                 ON sr.region_code = sh.region_code
 		                 WHERE sr.state_code = d.state_code AND sr.region_type = 'suburb'
-		                 AND sh.measure = 'median_price'), 0),
+		                 AND sh.measure = 'median_price' AND sh.dwelling_type = 'house'), 0),
 		       COALESCE((SELECT value FROM mv_housing_headline WHERE region_code = 'AUS'
 		                 AND measure = 'median_price' LIMIT 1), 0),
 		       COALESCE((SELECT avg(median_weekly_hhd_income) FROM suburb_demographics
@@ -209,7 +210,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE((SELECT avg(median_weekly_hhd_income) FROM suburb_demographics), 0)
 		FROM suburb_demographics d
 		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
-		LEFT JOIN mv_housing_headline h ON h.region_code = r.region_code AND h.measure = 'median_price'
+		LEFT JOIN mv_housing_headline h ON h.region_code = r.region_code AND h.measure = 'median_price' AND h.dwelling_type = 'house'
 		WHERE d.sal_code = $1
 		LIMIT 1`
 	var p SuburbProfileRow
@@ -217,7 +218,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 	if err := row.Scan(
 		&p.Summary.SALCode, &p.Summary.SALName, &p.Summary.StateCode, &p.Summary.Postcode,
 		&p.Summary.LatestMedianPrice, &p.Summary.LatestPeriod, &p.Summary.YoYPct,
-		&p.Summary.Population, &p.Summary.MedianAge, &p.Summary.MedianWeeklyHhdIncome,
+		&p.Summary.Population, &p.Summary.MedianAge, &p.Summary.MedianWeeklyHhdIncome, &p.Summary.RegionCode,
 		&p.MedianWeeklyPerIncome, &p.MedianWeeklyRent, &p.MedianMonthlyMortgage,
 		&p.PctOwnedOutright, &p.PctOwnedMortgage, &p.PctRented, &p.DwellingCount, &p.CensusYear,
 		&p.StateMedianPrice, &p.NationalMedianPrice, &p.StateMedianHhdIncome, &p.NationalMedianHhdIncome,

@@ -1624,6 +1624,7 @@ message SuburbSummary {
   int32  population = 8;
   double median_age = 9;
   double median_weekly_hhd_income = 10;
+  string region_code = 11;                   // priced-region code (for the price series), '' if unpriced
 }
 
 message ListStateSuburbsResponse {
