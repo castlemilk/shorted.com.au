@@ -41,8 +41,8 @@ test("national map supports wheel zoom", async ({ page }) => {
 test("state page drills into a suburb profile with breadcrumb", async ({ page }) => {
   await page.goto("/housing/sa");
   await expect(page.getByRole("heading", { name: /South Australia suburbs/i })).toBeVisible();
-  // breadcrumb present
-  await expect(page.locator('nav[aria-label="Breadcrumb"]')).toContainText("Housing");
+  // breadcrumb present (Australia › State switcher)
+  await expect(page.locator('nav[aria-label="Breadcrumb"]')).toContainText("Australia");
 
   // suburb choropleth renders real polygons
   const map = page.locator('svg[aria-label*="suburbs"]');
