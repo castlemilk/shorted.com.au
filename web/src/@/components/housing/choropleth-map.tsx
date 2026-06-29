@@ -80,8 +80,9 @@ function ChoroplethInner({
       <defs>
         <pattern id="nodata-hatch" width={6} height={6} patternUnits="userSpaceOnUse"
           patternTransform="rotate(45)">
-          <rect width={6} height={6} fill="var(--muted)" />
-          <line x1={0} y1={0} x2={0} y2={6} stroke="var(--border)" strokeWidth={1} />
+          {/* var() only resolves in CSS, and these tokens are HSL triplets → hsl(var(--x)) via style */}
+          <rect width={6} height={6} style={{ fill: "hsl(var(--muted))" }} />
+          <line x1={0} y1={0} x2={0} y2={6} strokeWidth={1} style={{ stroke: "hsl(var(--border))" }} />
         </pattern>
       </defs>
       <g ref={gRef}>
@@ -94,9 +95,11 @@ function ChoroplethInner({
               key={id}
               d={pathFor(f)}
               fill={featureFill(v, colorScale)}
-              stroke={selected ? "var(--foreground)" : "var(--border)"}
               strokeWidth={selected ? 1.5 : 0.4}
-              style={{ cursor: onFeatureClick ? "pointer" : "default", outline: "none" }}
+              style={{
+                cursor: onFeatureClick ? "pointer" : "default", outline: "none",
+                stroke: selected ? "hsl(var(--foreground))" : "hsl(var(--border))",
+              }}
               tabIndex={onFeatureClick ? 0 : -1}
               aria-label={nameById?.get(id) ?? id}
               onClick={() => onFeatureClick?.(id)}
