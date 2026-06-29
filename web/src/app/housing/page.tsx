@@ -5,6 +5,8 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { getHousingOverview } from "~/app/actions/getHousing";
 import { HousingTiles, type HousingTile } from "@/components/housing/housing-tiles";
 import { HousingSeriesChart } from "@/components/housing/housing-charts";
+import { NationalHousingMap } from "@/components/housing/national-housing-map-loader";
+import { GCCSA_TO_STATE } from "@/lib/housing/states";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import { cn } from "@/lib/utils";
 
@@ -85,6 +87,13 @@ export default async function HousingPage() {
     .sort((a, b) => b.value - a.value);
 
   const asOf = quarterLabel(overview?.asOf?.seconds);
+
+  // Map GCCSA medians onto their state for the national choropleth.
+  const valueByStateCode = new Map<string, number>();
+  for (const m of capitals) {
+    const st = GCCSA_TO_STATE[m.regionCode];
+    if (st) valueByStateCode.set(st, m.value);
+  }
 
   const capitalTiles: HousingTile[] = capitals.map((m) => {
     const d = yoyDelta(m.yoyPct);
@@ -169,6 +178,16 @@ export default async function HousingPage() {
                 />
               ) : null}
             </div>
+
+            <section className="space-y-3">
+              <h2 className="font-serif text-2xl text-foreground">Explore by state</h2>
+              <p className="text-sm text-muted-foreground">
+                Shaded by greater-capital median house price. Click a state to drill into its suburbs.
+              </p>
+              <div className="rounded-xl border border-border bg-card p-3">
+                <NationalHousingMap valueByStateCode={valueByStateCode} />
+              </div>
+            </section>
 
             <section className="space-y-4">
               <h2 className="font-serif text-2xl text-foreground">Capital-city medians</h2>
