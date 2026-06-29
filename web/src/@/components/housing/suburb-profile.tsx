@@ -5,6 +5,8 @@ import { getSuburbProfileClient } from "~/app/actions/client/getHousingClient";
 import { HousingSeriesChart } from "./housing-series-chart";
 
 const fmtAUD = (v: number) => (v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(2)}M` : v >= 1_000 ? `$${Math.round(v / 1000)}k` : `$${Math.round(v)}`);
+// Precise dollars for weekly/monthly amounts (incomes, rent) — k-rounding is misleading at this scale.
+const fmtMoney = (v: number) => `$${Math.round(v).toLocaleString()}`;
 
 export function SuburbProfile({ salCode, regionCode }: { salCode: string; regionCode?: string }) {
   const { data, isLoading } = useQuery({
@@ -42,8 +44,8 @@ export function SuburbProfile({ salCode, regionCode }: { salCode: string; region
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Population" value={d?.population ? d.population.toLocaleString() : "—"} />
         <Stat label="Median age" value={d?.medianAge ? String(d.medianAge) : "—"} />
-        <Stat label="Hhd income / wk" value={d?.medianWeeklyHhdIncome ? fmtAUD(d.medianWeeklyHhdIncome) : "—"} />
-        <Stat label="Median rent / wk" value={d?.medianWeeklyRent ? fmtAUD(d.medianWeeklyRent) : "—"} />
+        <Stat label="Hhd income / wk" value={d?.medianWeeklyHhdIncome ? fmtMoney(d.medianWeeklyHhdIncome) : "—"} />
+        <Stat label="Median rent / wk" value={d?.medianWeeklyRent ? fmtMoney(d.medianWeeklyRent) : "—"} />
         <Stat label="Owned outright" value={d?.pctOwnedOutright ? `${d.pctOwnedOutright.toFixed(0)}%` : "—"} />
         <Stat label="With mortgage" value={d?.pctOwnedMortgage ? `${d.pctOwnedMortgage.toFixed(0)}%` : "—"} />
         <Stat label="Rented" value={d?.pctRented ? `${d.pctRented.toFixed(0)}%` : "—"} />
@@ -53,7 +55,7 @@ export function SuburbProfile({ salCode, regionCode }: { salCode: string; region
       <div className="rounded-xl border border-border bg-card p-5">
         <h2 className="mb-3 font-serif text-lg text-foreground">vs state &amp; nation</h2>
         <CompareBar label="Median price" suburb={s.latestMedianPrice} state={b?.stateMedianPrice ?? 0} nation={b?.nationalMedianPrice ?? 0} fmt={fmtAUD} />
-        <CompareBar label="Hhd income / wk" suburb={d?.medianWeeklyHhdIncome ?? 0} state={b?.stateMedianWeeklyHhdIncome ?? 0} nation={b?.nationalMedianWeeklyHhdIncome ?? 0} fmt={fmtAUD} />
+        <CompareBar label="Hhd income / wk" suburb={d?.medianWeeklyHhdIncome ?? 0} state={b?.stateMedianWeeklyHhdIncome ?? 0} nation={b?.nationalMedianWeeklyHhdIncome ?? 0} fmt={fmtMoney} />
       </div>
 
       <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-xs text-muted-foreground">

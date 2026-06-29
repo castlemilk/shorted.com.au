@@ -11,6 +11,8 @@ type Summary = {
 function fmtAUD(v: number) {
   return v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(2)}M` : v >= 1_000 ? `$${Math.round(v / 1000)}k` : `$${Math.round(v)}`;
 }
+// Precise dollars for weekly amounts — k-rounding is misleading at income scale.
+const fmtMoney = (v: number) => `$${Math.round(v).toLocaleString()}`;
 
 /** Hover card: zero-latency stats + a lazy price sparkline keyed by region code. */
 export function SuburbTooltip({ summary, regionCode }: { summary: Summary; regionCode?: string }) {
@@ -39,7 +41,7 @@ export function SuburbTooltip({ summary, regionCode }: { summary: Summary; regio
       <dl className="mt-2 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[11px]">
         <dt className="text-muted-foreground">Population</dt><dd className="text-right tabular-nums">{summary.population.toLocaleString()}</dd>
         <dt className="text-muted-foreground">Median age</dt><dd className="text-right tabular-nums">{summary.medianAge || "—"}</dd>
-        <dt className="text-muted-foreground">Hhd income/wk</dt><dd className="text-right tabular-nums">{summary.medianWeeklyHhdIncome ? fmtAUD(summary.medianWeeklyHhdIncome) : "—"}</dd>
+        <dt className="text-muted-foreground">Hhd income/wk</dt><dd className="text-right tabular-nums">{summary.medianWeeklyHhdIncome ? fmtMoney(summary.medianWeeklyHhdIncome) : "—"}</dd>
       </dl>
     </div>
   );
