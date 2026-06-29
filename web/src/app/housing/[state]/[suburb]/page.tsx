@@ -47,7 +47,7 @@ export default async function SuburbPage({ params, searchParams }: PageProps) {
         keywords={[`${name} house prices`, `${name} demographics`]} />
       <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
         <HousingBreadcrumb stateCode={code} suburb={name} />
-        <SuburbProfile salCode={sal} regionCode={undefined} />
+        <SuburbProfile salCode={sal} regionCode={undefined} stateCode={code} />
       </div>
     </DashboardLayout>
   );

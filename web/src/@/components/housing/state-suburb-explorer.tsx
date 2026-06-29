@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { listStateSuburbsClient } from "~/app/actions/client/getHousingClient";
 import { StateSuburbMap, type SuburbDatum } from "./state-suburb-map";
@@ -36,10 +36,12 @@ export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
     [data],
   );
 
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("price");
   const [pricedOnly, setPricedOnly] = useState(false);
-  const [hovered, setHovered] = useState<string | undefined>(undefined);
+  // ?sal= (e.g. from a suburb profile's "view on map") pre-highlights a suburb
+  const [hovered, setHovered] = useState<string | undefined>(searchParams.get("sal") ?? undefined);
   const rowRefs = useRef(new Map<string, HTMLButtonElement>());
 
   const stats = useMemo(() => {

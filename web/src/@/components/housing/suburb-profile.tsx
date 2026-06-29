@@ -1,91 +1,256 @@
 "use client";
 
+import { useMemo } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { getSuburbProfileClient } from "~/app/actions/client/getHousingClient";
+import {
+  getSuburbProfileClient, listStateSuburbsClient,
+} from "~/app/actions/client/getHousingClient";
 import { HousingSeriesChart } from "./housing-series-chart";
+import { SuburbLocatorMap } from "./suburb-locator-map";
+import { STATE_NAMES, stateSlug, suburbHref } from "@/lib/housing/states";
+import { fmtPriceShort } from "@/lib/housing/price-scale";
 
-const fmtAUD = (v: number) => (v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(2)}M` : v >= 1_000 ? `$${Math.round(v / 1000)}k` : `$${Math.round(v)}`);
-// Precise dollars for weekly/monthly amounts (incomes, rent) — k-rounding is misleading at this scale.
+const fmtAUD = (v: number) =>
+  v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(2)}M` : v >= 1_000 ? `$${Math.round(v / 1000)}k` : `$${Math.round(v)}`;
 const fmtMoney = (v: number) => `$${Math.round(v).toLocaleString()}`;
 
-export function SuburbProfile({ salCode, regionCode }: { salCode: string; regionCode?: string }) {
+function fmtPeriod(seconds?: number | bigint): string | null {
+  const n = Number(seconds ?? 0);
+  if (!n) return null;
+  return new Date(n * 1000).toLocaleDateString("en-AU", { month: "short", year: "numeric" });
+}
+
+export function SuburbProfile({
+  salCode, regionCode, stateCode,
+}: {
+  salCode: string; regionCode?: string; stateCode?: string;
+}) {
   const { data, isLoading } = useQuery({
     queryKey: ["suburb-profile", salCode],
     queryFn: () => getSuburbProfileClient(salCode),
     staleTime: 60 * 60 * 1000,
   });
-  if (isLoading) return <div className="h-[520px] w-full animate-pulse rounded-xl bg-muted" />;
-  const p = data;
-  if (!p?.summary) return <p className="text-sm text-muted-foreground">No data for this suburb yet.</p>;
-  const s = p.summary, d = p.demographics, b = p.baselines;
-  // Prefer the region_code carried on the profile (lights up the price series for priced suburbs).
+  const st = stateCode ?? data?.summary?.stateCode ?? "";
+  const { data: stateList } = useQuery({
+    queryKey: ["state-suburbs", st],
+    queryFn: () => listStateSuburbsClient(st, "", 5000),
+    enabled: !!st,
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const s = data?.summary;
+  const nearby = useMemo(() => {
+    if (!s) return [];
+    const all = (stateList?.suburbs ?? []).filter((x) => x.salCode !== s.salCode);
+    if (s.postcode) {
+      const same = all.filter((x) => x.postcode === s.postcode);
+      if (same.length) return same.slice(0, 6);
+    }
+    if (s.latestMedianPrice > 0) {
+      return [...all].filter((x) => x.latestMedianPrice > 0)
+        .sort((a, b) => Math.abs(a.latestMedianPrice - s.latestMedianPrice) - Math.abs(b.latestMedianPrice - s.latestMedianPrice))
+        .slice(0, 6);
+    }
+    return [];
+  }, [stateList, s]);
+
+  if (isLoading) return <ProfileSkeleton />;
+  if (!data?.summary || !s) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+        No data for this suburb yet.{" "}
+        {st ? <Link href={`/housing/${stateSlug(st)}`} className="text-foreground underline">Back to {STATE_NAMES[st]}</Link> : null}
+      </div>
+    );
+  }
+  const d = data.demographics, b = data.baselines;
   const chartRegion = s.regionCode || regionCode;
+  const priced = s.latestMedianPrice > 0;
+  const asOf = fmtPeriod(s.latestPeriod?.seconds);
+  const stateName = STATE_NAMES[st] ?? s.stateCode;
+
+  const pctVs = (base?: number) => (priced && base && base > 0)
+    ? Math.round((s.latestMedianPrice / base - 1) * 100) : null;
 
   return (
     <div className="space-y-6">
+      {/* back affordance */}
+      {st ? (
+        <Link href={`/housing/${stateSlug(st)}`} className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground">
+          ‹ Back to {stateName} map
+        </Link>
+      ) : null}
+
+      {/* header */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-serif text-4xl font-semibold capitalize text-foreground">{s.salName.toLowerCase()}</h1>
-          <p className="text-sm text-muted-foreground">{s.stateCode} · {s.postcode}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {stateName}{s.postcode ? ` · ${s.postcode}` : ""}{d?.censusYear ? ` · Census ${d.censusYear}` : ""}
+          </p>
         </div>
-        {s.latestMedianPrice > 0 ? (
+        {priced ? (
           <div className="text-right">
             <div className="font-mono text-3xl font-semibold tabular-nums text-foreground">{fmtAUD(s.latestMedianPrice)}</div>
-            {s.yoyPct !== 0 ? <div className={s.yoyPct >= 0 ? "text-[color:var(--semantic-green)]" : "text-[color:var(--semantic-red)]"}>{s.yoyPct >= 0 ? "+" : ""}{s.yoyPct.toFixed(1)}% yr</div> : null}
+            <div className="text-xs">
+              {s.yoyPct === 0 ? (
+                <span className="text-muted-foreground">flat yr</span>
+              ) : (
+                <span className={s.yoyPct >= 0 ? "text-[color:var(--semantic-green)]" : "text-[color:var(--semantic-red)]"}>
+                  {s.yoyPct >= 0 ? "+" : ""}{s.yoyPct.toFixed(1)}% yr
+                </span>
+              )}
+              <span className="text-muted-foreground"> · median house{asOf ? ` · ${asOf}` : ""}</span>
+            </div>
           </div>
-        ) : null}
+        ) : (
+          <span className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground">Price not tracked</span>
+        )}
       </div>
 
-      {chartRegion ? (
-        <div className="rounded-xl border border-border bg-card p-5">
-          <h2 className="mb-3 font-serif text-lg text-foreground">Median house price</h2>
-          <HousingSeriesChart regionCode={chartRegion} measure="median_price" dwellingType="house" ariaLabel={`${s.salName} median house price`} format="aud" height={300} />
+      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+        {/* main column */}
+        <div className="space-y-6">
+          {/* price chart or empty-state */}
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h2 className="mb-3 font-serif text-lg text-foreground">Median house price</h2>
+            {chartRegion ? (
+              <HousingSeriesChart regionCode={chartRegion} measure="median_price" dwellingType="house" ariaLabel={`${s.salName} median house price`} format="aud" height={280} />
+            ) : (
+              <div className="flex h-[160px] flex-col items-center justify-center gap-1 text-center text-sm text-muted-foreground">
+                <p>No median price series for {stateName} suburbs yet.</p>
+                <p className="text-xs">Valuer-General price coverage currently spans <span className="text-foreground">SA &amp; VIC</span>.{b?.stateMedianPrice ? ` ${stateName} suburb median: ${fmtPriceShort(b.stateMedianPrice)}.` : ""}</p>
+              </div>
+            )}
+          </div>
+
+          {/* demographics — grouped */}
+          <div className="space-y-4">
+            <DemoGroup title="People" stats={[
+              ["Population", d?.population ? d.population.toLocaleString() : "—"],
+              ["Median age", d?.medianAge ? `${d.medianAge} yrs` : "—"],
+              ["Income / person / wk", d?.medianWeeklyPerIncome ? fmtMoney(d.medianWeeklyPerIncome) : "—"],
+              ["Household income / wk", d?.medianWeeklyHhdIncome ? fmtMoney(d.medianWeeklyHhdIncome) : "—"],
+            ]} />
+            <DemoGroup title="Housing" stats={[
+              ["Dwellings", d?.dwellingCount ? d.dwellingCount.toLocaleString() : "—"],
+              ["Median rent / wk", d?.medianWeeklyRent ? fmtMoney(d.medianWeeklyRent) : "—"],
+              ["Mortgage / month", d?.medianMonthlyMortgage ? fmtMoney(d.medianMonthlyMortgage) : "—"],
+            ]} />
+          </div>
+
+          {/* comparison */}
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h2 className="mb-3 font-serif text-lg text-foreground">How it compares</h2>
+            {priced ? (
+              <CompareBar
+                label="Median house price" suburb={s.latestMedianPrice}
+                state={b?.stateMedianPrice ?? 0} nation={b?.nationalMedianPrice ?? 0}
+                stateHref={st ? `/housing/${stateSlug(st)}` : undefined} nationHref="/housing"
+                fmt={fmtAUD} deltaNation={pctVs(b?.nationalMedianPrice)} deltaState={pctVs(b?.stateMedianPrice)}
+              />
+            ) : null}
+            <CompareBar
+              label="Household income / wk" suburb={d?.medianWeeklyHhdIncome ?? 0}
+              state={b?.stateMedianWeeklyHhdIncome ?? 0} nation={b?.nationalMedianWeeklyHhdIncome ?? 0}
+              stateHref={st ? `/housing/${stateSlug(st)}` : undefined} nationHref="/housing" fmt={fmtMoney}
+            />
+          </div>
         </div>
-      ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Population" value={d?.population ? d.population.toLocaleString() : "—"} />
-        <Stat label="Median age" value={d?.medianAge ? String(d.medianAge) : "—"} />
-        <Stat label="Hhd income / wk" value={d?.medianWeeklyHhdIncome ? fmtMoney(d.medianWeeklyHhdIncome) : "—"} />
-        <Stat label="Median rent / wk" value={d?.medianWeeklyRent ? fmtMoney(d.medianWeeklyRent) : "—"} />
-        <Stat label="Owned outright" value={d?.pctOwnedOutright ? `${d.pctOwnedOutright.toFixed(0)}%` : "—"} />
-        <Stat label="With mortgage" value={d?.pctOwnedMortgage ? `${d.pctOwnedMortgage.toFixed(0)}%` : "—"} />
-        <Stat label="Rented" value={d?.pctRented ? `${d.pctRented.toFixed(0)}%` : "—"} />
-        <Stat label="Dwellings" value={d?.dwellingCount ? d.dwellingCount.toLocaleString() : "—"} />
-      </div>
+        {/* right rail */}
+        <div className="space-y-6">
+          {st ? <SuburbLocatorMap stateCode={st} salCode={s.salCode} salName={s.salName} /> : null}
 
-      <div className="rounded-xl border border-border bg-card p-5">
-        <h2 className="mb-3 font-serif text-lg text-foreground">vs state &amp; nation</h2>
-        <CompareBar label="Median price" suburb={s.latestMedianPrice} state={b?.stateMedianPrice ?? 0} nation={b?.nationalMedianPrice ?? 0} fmt={fmtAUD} />
-        <CompareBar label="Hhd income / wk" suburb={d?.medianWeeklyHhdIncome ?? 0} state={b?.stateMedianWeeklyHhdIncome ?? 0} nation={b?.nationalMedianWeeklyHhdIncome ?? 0} fmt={fmtMoney} />
-      </div>
+          {nearby.length ? (
+            <div className="rounded-xl border border-border bg-card p-4">
+              <h2 className="mb-2 font-serif text-base text-foreground">Nearby &amp; comparable</h2>
+              <div className="flex flex-col">
+                {nearby.map((n) => (
+                  <Link key={n.salCode} href={suburbHref(st, n)}
+                    className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground">
+                    <span className="truncate capitalize">{n.salName.toLowerCase()}</span>
+                    <span className="shrink-0 font-mono text-[11px] tabular-nums">{n.latestMedianPrice > 0 ? fmtPriceShort(n.latestMedianPrice) : "—"}</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
-      <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-xs text-muted-foreground">
-        Rental yield & days-on-market coming soon (from property-portal data).
+          <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-xs text-muted-foreground">
+            Rental yield &amp; days-on-market coming soon (from property-portal data).
+          </div>
+        </div>
       </div>
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return <div className="rounded-lg border border-border bg-card p-4"><div className="text-xs text-muted-foreground">{label}</div><div className="mt-1 font-mono text-xl tabular-nums text-foreground">{value}</div></div>;
+function DemoGroup({ title, stats }: { title: string; stats: [string, string][] }) {
+  return (
+    <div>
+      <h3 className="mb-2 font-serif text-sm text-muted-foreground">{title}</h3>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {stats.map(([label, value]) => (
+          <div key={label} className="rounded-lg border border-border bg-card p-4">
+            <div className="text-xs text-muted-foreground">{label}</div>
+            <div className="mt-1 font-mono text-lg tabular-nums text-foreground">{value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
-function CompareBar({ label, suburb, state, nation, fmt }: { label: string; suburb: number; state: number; nation: number; fmt: (v: number) => string }) {
+function CompareBar({
+  label, suburb, state, nation, fmt, stateHref, nationHref, deltaNation, deltaState,
+}: {
+  label: string; suburb: number; state: number; nation: number; fmt: (v: number) => string;
+  stateHref?: string; nationHref?: string; deltaNation?: number | null; deltaState?: number | null;
+}) {
   const max = Math.max(suburb, state, nation, 1);
-  const Row = ({ name, v, cls }: { name: string; v: number; cls: string }) => (
+  const Row = ({ name, v, cls, href }: { name: string; v: number; cls: string; href?: string }) => (
     <div className="flex items-center gap-2 py-1 text-xs">
-      <span className="w-16 shrink-0 text-muted-foreground">{name}</span>
-      <div className="h-3 flex-1 rounded bg-muted"><div className={cls} style={{ width: `${(v / max) * 100}%`, height: "100%", borderRadius: 4 }} /></div>
-      <span className="w-16 shrink-0 text-right font-mono tabular-nums">{v > 0 ? fmt(v) : "—"}</span>
+      <span className="w-14 shrink-0">
+        {href ? <Link href={href} className="text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">{name}</Link> : <span className="text-muted-foreground">{name}</span>}
+      </span>
+      <div className="h-3 flex-1 rounded bg-muted">
+        <div className={cls} style={{ width: `${(v / max) * 100}%`, height: "100%", borderRadius: 4 }} />
+      </div>
+      <span className="w-20 shrink-0 whitespace-nowrap text-right font-mono tabular-nums">{v > 0 ? fmt(v) : "—"}</span>
     </div>
   );
   return (
-    <div className="mb-3">
-      <div className="mb-1 text-sm text-foreground">{label}</div>
-      <Row name="Suburb" v={suburb} cls="bg-[color:var(--accent-amber,#f59e0b)]" />
-      <Row name="State" v={state} cls="bg-foreground/40" />
-      <Row name="Nation" v={nation} cls="bg-foreground/20" />
+    <div className="mb-4 last:mb-0">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="text-sm text-foreground">{label}</span>
+        {typeof deltaNation === "number" ? (
+          <span className={deltaNation >= 0 ? "text-[10px] text-[color:var(--semantic-green)]" : "text-[10px] text-[color:var(--semantic-red)]"}>
+            {deltaNation >= 0 ? "+" : ""}{deltaNation}% vs AU
+          </span>
+        ) : null}
+      </div>
+      <Row name="Suburb" v={suburb} cls="bg-[hsl(24_92%_50%)]" />
+      <Row name="State" v={state} cls="bg-foreground/40" href={stateHref} />
+      <Row name="Nation" v={nation} cls="bg-foreground/20" href={nationHref} />
+    </div>
+  );
+}
+
+function ProfileSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="h-10 w-1/3 animate-pulse rounded bg-muted" />
+      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+        <div className="space-y-6">
+          <div className="h-[340px] animate-pulse rounded-xl bg-muted" />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-20 animate-pulse rounded-lg bg-muted" />)}
+          </div>
+        </div>
+        <div className="h-[280px] animate-pulse rounded-xl bg-muted" />
+      </div>
     </div>
   );
 }
