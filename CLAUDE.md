@@ -810,6 +810,16 @@ terraform plan
 terraform apply
 ```
 
+### Cross-repo: this repo's Cloudflare creds feed cuttlefish's shared-droplet IaC
+
+The repo-root `.env` Cloudflare creds (`TF_VAR_cloudflare_email` + `TF_VAR_cloudflare_global_api_key`)
+are **also used by cuttlefish's shared-droplet Terraform** to manage the `telesis.dev` DNS records
+(`api`/`origin.telesis.dev`). It needs the **global key** because shorted's zone-scoped Cloudflare
+token (`TF_VAR_cloudflare_api_token`, shorted.com.au) gets an *auth error* on the `telesis.dev` zone.
+**Don't rotate/remove the global key + email without updating cuttlefish's stack** (or its `terraform
+plan` for that box will fail). Full story: `~/projects/cuttlefish/DROPLET.md`. (Follow-up there: mint a
+telesis.dev-scoped token so this cross-dependency on shorted's account-wide key can be dropped.)
+
 ## External Services
 
 | Service   | Purpose               | Config Location                    |
