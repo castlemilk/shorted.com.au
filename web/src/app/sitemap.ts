@@ -6,6 +6,7 @@ import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { getAllIndustrySlugs } from "./actions/industry/getIndustryData";
 import { getAllTermSlugs } from "~/@/data/glossary-terms";
+import { getHousingStateSlugs, getHousingSuburbUrls } from "./actions/getHousingSitemap";
 import {
   getAvailableWeekSlugs,
   getAvailableMonthSlugs,
@@ -393,6 +394,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/data`, lastModified: latestDataDate },
   ];
 
+  // Housing pages: state drilldowns + priced suburbs (thin pages excluded).
+  let housingStateSlugs: string[] = [];
+  let housingSuburbUrls: { state: string; suburb: string; sal: string }[] = [];
+  try { housingStateSlugs = await getHousingStateSlugs(); } catch (e) { console.error("housing state slugs:", e); }
+  try { housingSuburbUrls = await getHousingSuburbUrls(); } catch (e) { console.error("housing suburb urls:", e); }
+
+  const housingRoutes = [
+    ...housingStateSlugs.map((slug) => ({ url: `${baseUrl}/housing/${slug}`, lastModified: latestDataDate })),
+    ...housingSuburbUrls.map((s) => ({ url: `${baseUrl}/housing/${s.state}/${s.suburb}?sal=${s.sal}`, lastModified: latestDataDate })),
+  ];
+
   // Authors hub + per-author profile pages — E-E-A-T signal (static).
   const { getAllAuthorSlugs } = await import("~/@/data/authors");
   const authorSlugs = getAllAuthorSlugs();
@@ -422,6 +434,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...learnRoutes,
     ...docRoutes,
     ...screenerRoutes,
+    ...housingRoutes,
     ...blogRoutes,
     ...stockRoutes,
     ...comparePairs,
