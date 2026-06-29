@@ -161,8 +161,19 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 		       COALESCE(d.median_weekly_hhd_income, 0), COALESCE(r.region_code, '')
 		FROM suburb_demographics d
 		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
-		LEFT JOIN mv_housing_headline h ON h.region_code = r.region_code
-		       AND h.measure = 'median_price' AND h.dwelling_type = 'house'
+		-- Latest median from house_prices directly (NOT the quarterly-only MV) so annual
+		-- Valuer-General states (VIC) light up too; YoY computed vs the obs ~1yr prior.
+		LEFT JOIN LATERAL (
+			SELECT hp.value, hp.period,
+			       (hp.value / NULLIF((
+			          SELECT p.value FROM house_prices p
+			          WHERE p.region_code = r.region_code AND p.measure = 'median_price'
+			            AND p.dwelling_type = 'house' AND p.period <= hp.period - INTERVAL '11 months'
+			          ORDER BY p.period DESC LIMIT 1), 0) - 1) * 100 AS yoy_pct
+			FROM house_prices hp
+			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
+			ORDER BY hp.period DESC LIMIT 1
+		) h ON true
 		WHERE d.state_code = $1
 		  AND ($2 = '' OR d.sal_name ILIKE '%' || $2 || '%')
 		ORDER BY d.sal_name
@@ -199,18 +210,36 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE(d.median_monthly_mortgage, 0), COALESCE(d.pct_owned_outright, 0),
 		       COALESCE(d.pct_owned_mortgage, 0), COALESCE(d.pct_rented, 0),
 		       COALESCE(d.dwelling_count, 0), COALESCE(d.census_year, 2021),
-		       COALESCE((SELECT avg(value) FROM mv_housing_headline sh JOIN house_price_regions sr
-		                 ON sr.region_code = sh.region_code
+		       -- state baseline: avg of the LATEST median per priced suburb in the state (covers VIC annual)
+		       COALESCE((SELECT avg(latest) FROM (
+		                 SELECT DISTINCT ON (hp.region_code) hp.value AS latest
+		                 FROM house_prices hp JOIN house_price_regions sr ON sr.region_code = hp.region_code
 		                 WHERE sr.state_code = d.state_code AND sr.region_type = 'suburb'
-		                 AND sh.measure = 'median_price' AND sh.dwelling_type = 'house'), 0),
-		       COALESCE((SELECT value FROM mv_housing_headline WHERE region_code = 'AUS'
-		                 AND measure = 'median_price' LIMIT 1), 0),
+		                   AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
+		                 ORDER BY hp.region_code, hp.period DESC) s), 0),
+		       -- national baseline: avg of the latest median across ALL priced suburbs (AUS has no median_price row)
+		       COALESCE((SELECT avg(latest) FROM (
+		                 SELECT DISTINCT ON (hp.region_code) hp.value AS latest
+		                 FROM house_prices hp JOIN house_price_regions sr ON sr.region_code = hp.region_code
+		                 WHERE sr.region_type = 'suburb'
+		                   AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
+		                 ORDER BY hp.region_code, hp.period DESC) s), 0),
 		       COALESCE((SELECT avg(median_weekly_hhd_income) FROM suburb_demographics
 		                 WHERE state_code = d.state_code), 0),
 		       COALESCE((SELECT avg(median_weekly_hhd_income) FROM suburb_demographics), 0)
 		FROM suburb_demographics d
 		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
-		LEFT JOIN mv_housing_headline h ON h.region_code = r.region_code AND h.measure = 'median_price' AND h.dwelling_type = 'house'
+		LEFT JOIN LATERAL (
+			SELECT hp.value, hp.period,
+			       (hp.value / NULLIF((
+			          SELECT p.value FROM house_prices p
+			          WHERE p.region_code = r.region_code AND p.measure = 'median_price'
+			            AND p.dwelling_type = 'house' AND p.period <= hp.period - INTERVAL '11 months'
+			          ORDER BY p.period DESC LIMIT 1), 0) - 1) * 100 AS yoy_pct
+			FROM house_prices hp
+			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
+			ORDER BY hp.period DESC LIMIT 1
+		) h ON true
 		WHERE d.sal_code = $1
 		LIMIT 1`
 	var p SuburbProfileRow
