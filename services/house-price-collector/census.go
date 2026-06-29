@@ -158,7 +158,7 @@ func openDataPack(ctx context.Context) (*zip.ReadCloser, func(), error) {
 		cleanupTmp()
 		return nil, nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		_ = tmp.Close()
 		cleanupTmp()
@@ -192,7 +192,7 @@ func readZipCSV(zr *zip.ReadCloser, name string) ([][]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer rc.Close()
+		defer func() { _ = rc.Close() }()
 		r := csv.NewReader(rc)
 		r.FieldsPerRecord = -1
 		return r.ReadAll()

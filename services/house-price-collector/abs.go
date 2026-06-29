@@ -40,7 +40,7 @@ func fetchABSCSV(ctx context.Context, dataflow, key, startPeriod string) ([][]st
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return nil, fmt.Errorf("ABS %s/%s: HTTP %d: %s", dataflow, key, resp.StatusCode, strings.TrimSpace(string(body)))
@@ -139,8 +139,8 @@ func ingestRESDWELLST(ctx context.Context) ([]Observation, error) {
 		}
 		regCode := absCode(cell(row, c["REGION"]))
 		var rType, canonical, state string
-		switch {
-		case regCode == "AUS":
+		switch regCode {
+		case "AUS":
 			rType, canonical = "national", "AUS"
 		default:
 			ab, ok := absStateAbbrev[regCode]
