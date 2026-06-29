@@ -54,10 +54,15 @@ export function HousingTiles({
               </div>
             ) : null}
             {t.sub ? <div className="mt-0.5 text-[11px] text-muted-foreground">{t.sub}</div> : null}
+            {t.href ? (
+              <div className="mt-2 text-[11px] font-medium text-muted-foreground transition-colors group-hover:text-foreground">
+                View suburbs →
+              </div>
+            ) : null}
           </>
         );
         return t.href ? (
-          <Link key={i} href={t.href} className="block bg-card p-4 transition-colors hover:bg-muted/40 sm:p-5">{inner}</Link>
+          <Link key={i} href={t.href} className="group block bg-card p-4 transition-colors hover:bg-muted/40 sm:p-5">{inner}</Link>
         ) : (
           <div key={i} className="bg-card p-4 sm:p-5">{inner}</div>
         );

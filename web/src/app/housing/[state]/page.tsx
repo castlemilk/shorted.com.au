@@ -44,7 +44,7 @@ export default async function StatePage({ params }: PageProps) {
         url={url} dataSource="ABS Census, state Valuer-General" dataFrequency="quarterly / 5-yearly"
         keywords={[`${name} suburb house prices`, "median house price by suburb"]} />
       <div className="mx-auto max-w-6xl space-y-6 px-4 py-8">
-        <HousingBreadcrumb trail={[{ label: "Housing", href: "/housing" }, { label: name }]} />
+        <HousingBreadcrumb stateCode={code} />
         <header>
           <h1 className="font-serif text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">{name} suburbs</h1>
           <p className="mt-3 max-w-2xl text-muted-foreground">Suburbs shaded by their latest median house price where available, over an ABS Census base. Hover for demographics, click to open the full profile.</p>

@@ -46,7 +46,7 @@ export default async function SuburbPage({ params, searchParams }: PageProps) {
         url={`https://shorted.com.au/housing/${stateSlug(code)}/${suburb}`} dataSource="ABS Census, Valuer-General" dataFrequency="quarterly / 5-yearly"
         keywords={[`${name} house prices`, `${name} demographics`]} />
       <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
-        <HousingBreadcrumb trail={[{ label: "Housing", href: "/housing" }, { label: STATE_NAMES[code]!, href: `/housing/${stateSlug(code)}` }, { label: name }]} />
+        <HousingBreadcrumb stateCode={code} suburb={name} />
         <SuburbProfile salCode={sal} regionCode={undefined} />
       </div>
     </DashboardLayout>
