@@ -97,12 +97,14 @@ export default async function HousingPage() {
 
   const capitalTiles: HousingTile[] = capitals.map((m) => {
     const d = yoyDelta(m.yoyPct);
+    const st = GCCSA_TO_STATE[m.regionCode];
     return {
       label: m.regionName.replace("Greater ", ""),
       value: fmtAUD(m.value),
       delta: d.delta,
       tone: d.tone,
       sub: `${m.qoqPct >= 0 ? "+" : ""}${m.qoqPct.toFixed(1)}% qtr`,
+      href: st ? `/housing/${st.toLowerCase()}` : undefined,
     };
   });
 
