@@ -20,15 +20,15 @@ export function HousingBreadcrumb({
 }) {
   const router = useRouter();
   return (
-    <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-      <Link href="/housing" className="transition-colors hover:text-foreground">Australia</Link>
+    <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
+      <Link href="/housing" className="shrink-0 transition-colors hover:text-foreground">Australia</Link>
       {stateCode ? (
         <>
           <Sep />
           <Select value={stateCode} onValueChange={(c) => router.push(`/housing/${stateSlug(c)}`)}>
             <SelectTrigger
               aria-label="Switch state"
-              className="h-6 gap-1 border-none bg-transparent px-1 py-0 text-xs font-medium text-foreground shadow-none hover:text-foreground focus:ring-0 focus:ring-offset-0"
+              className="inline-flex h-6 w-auto shrink-0 justify-start gap-1 rounded border-none bg-transparent px-1.5 py-0 text-xs font-medium text-foreground shadow-none hover:bg-muted focus:ring-0 focus:ring-offset-0 [&>svg]:h-3 [&>svg]:w-3 [&>svg]:opacity-60"
             >
               <SelectValue>{STATE_NAMES[stateCode] ?? stateCode}</SelectValue>
             </SelectTrigger>

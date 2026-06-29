@@ -18,7 +18,13 @@ export function featureFill(
   return colorScale(value);
 }
 
-const MAX_SCALE = 14;
+// Deep enough to read an individual suburb's shape; non-scaling-stroke keeps
+// borders crisp at the ceiling.
+const MAX_SCALE = 48;
+// A selected suburb frames to ~40% of the viewport so its neighbours stay
+// visible for context (a single-suburb fill of 0.9 feels disorientating).
+const FOCUS_PADDING = 0.4;
+const FOCUS_MAX_SCALE = 30;
 
 function prefersReducedMotion(): boolean {
   if (typeof window === "undefined") return false;
@@ -30,12 +36,24 @@ export interface ChoroplethMapProps {
   objectName: string;
   /** keyed by feature id (string) → metric value, or null for "no data". */
   valueById: Map<string, number | null>;
+  /** continuous colour scale for valueById. */
+  colorScale: (v: number) => string;
+  /** categorical mode: feature id → category label (null = no data). When set,
+   *  this drives the fill instead of valueById/colorScale. */
+  categoryById?: Map<string, string | null>;
+  /** colour for a category label (categorical mode). */
+  categoryColor?: (category: string) => string;
   /** id → display name for accessibility / hover routing. */
   nameById?: Map<string, string>;
-  colorScale: (v: number) => string;
+  /** Stable values used ONLY to frame the fitToData view — kept independent of
+   *  the toggled highlight metric so switching metrics never resets the zoom. */
+  fitValueById?: Map<string, number | null>;
   selectedId?: string;
   /** externally-driven hover highlight (e.g. from a sibling list) */
   hoveredId?: string;
+  /** smoothly zoom+pan the map to frame this feature; returns to the overview
+   *  when cleared. */
+  focusId?: string;
   onFeatureClick?: (id: string) => void;
   onFeatureHover?: (id: string | null, evt?: React.PointerEvent) => void;
   height?: number;
@@ -46,22 +64,28 @@ export interface ChoroplethMapProps {
   fitToId?: string;
   /** false = static inset: no zoom, no controls, no pointer interaction. */
   interactive?: boolean;
+  /** Fill the parent's height (flex) instead of a fixed px height. */
+  fill?: boolean;
   /** Optional legend node rendered as a bottom-left overlay. */
   legend?: ReactNode;
 }
 
 export function ChoroplethMap(props: ChoroplethMapProps) {
   return (
-    <div className="relative" style={{ width: "100%", height: props.height ?? 460 }}>
+    <div
+      className={props.fill ? "relative h-full w-full min-h-[460px]" : "relative"}
+      style={props.fill ? undefined : { width: "100%", height: props.height ?? 460 }}
+    >
       <ParentSize>{({ width, height }) =>
-        width > 0 ? <ChoroplethInner {...props} width={width} height={height} /> : null
+        width > 0 && height > 0 ? <ChoroplethInner {...props} width={width} height={height} /> : null
       }</ParentSize>
     </div>
   );
 }
 
 function ChoroplethInner({
-  topology, objectName, valueById, nameById, colorScale, selectedId, hoveredId: hoveredIdProp,
+  topology, objectName, valueById, categoryById, categoryColor, nameById, colorScale,
+  fitValueById, selectedId, hoveredId: hoveredIdProp, focusId,
   onFeatureClick, onFeatureHover, width, height, ariaLabel,
   fitToData, fitToId, interactive = true, legend,
 }: ChoroplethMapProps & { width: number; height: number }) {
@@ -72,7 +96,12 @@ function ChoroplethInner({
   const [localHover, setLocalHover] = useState<string | null>(null);
   const hoveredId = hoveredIdProp ?? localHover ?? undefined;
 
-  const { features, pathFor, initialTransform, byId } = useMemo(() => {
+  // Geometry + framing — deliberately independent of the per-metric colour
+  // inputs (valueById/categoryById) so toggling the highlight metric doesn't
+  // recompute the projection or reset the zoom. `fitData` is the stable set the
+  // overview frames to (the priced cluster), falling back to valueById.
+  const fitData = fitValueById ?? valueById;
+  const { features, pathFor, initialTransform, byId, focusTransformFor } = useMemo(() => {
     const obj = topology.objects[objectName] as GeometryCollection;
     const fc = feature(topology, obj) as unknown as { features: Feature<Geometry>[] };
     const projection = geoMercator().fitSize([width, height], {
@@ -82,26 +111,27 @@ function ChoroplethInner({
     const idMap = new Map<string, Feature<Geometry>>();
     for (const f of fc.features) idMap.set(String(f.id), f);
 
-    // Compute an initial zoom transform that frames the signal.
-    let transform = zoomIdentity;
-    const fitBoundsOf = (geo: unknown) => {
+    const fitBoundsOf = (geo: unknown, padding: number, cap: number) => {
       const [[x0, y0], [x1, y1]] = path.bounds(geo as never);
       const bw = x1 - x0, bh = y1 - y0;
       if (!(bw > 0) || !(bh > 0)) return null;
-      const scale = Math.min(MAX_SCALE, Math.max(1, 0.9 / Math.max(bw / width, bh / height)));
+      const scale = Math.min(cap, Math.max(1, padding / Math.max(bw / width, bh / height)));
       const tx = width / 2 - scale * (x0 + x1) / 2;
       const ty = height / 2 - scale * (y0 + y1) / 2;
       return zoomIdentity.translate(tx, ty).scale(scale);
     };
+
+    // Compute an initial zoom transform that frames the signal.
+    let transform = zoomIdentity;
     if (fitToId && idMap.has(fitToId)) {
-      transform = fitBoundsOf(idMap.get(fitToId)) ?? transform;
+      transform = fitBoundsOf(idMap.get(fitToId), 0.9, MAX_SCALE) ?? transform;
     } else if (fitToData) {
       const dataFeatures = fc.features.filter((f) => {
-        const v = valueById.get(String(f.id));
+        const v = fitData.get(String(f.id));
         return v !== null && v !== undefined;
       });
       if (dataFeatures.length) {
-        transform = fitBoundsOf({ type: "FeatureCollection", features: dataFeatures }) ?? transform;
+        transform = fitBoundsOf({ type: "FeatureCollection", features: dataFeatures }, 0.9, MAX_SCALE) ?? transform;
       }
     }
     return {
@@ -109,10 +139,16 @@ function ChoroplethInner({
       byId: idMap,
       pathFor: (f: Feature<Geometry>) => path(f) ?? "",
       initialTransform: transform,
+      focusTransformFor: (id: string) => {
+        const f = idMap.get(id);
+        return f ? fitBoundsOf(f, FOCUS_PADDING, FOCUS_MAX_SCALE) : null;
+      },
     };
-  }, [topology, objectName, width, height, fitToData, fitToId, valueById]);
+  }, [topology, objectName, width, height, fitToData, fitToId, fitData]);
 
   initialTransformRef.current = initialTransform;
+  const focusTransformForRef = useRef(focusTransformFor);
+  focusTransformForRef.current = focusTransformFor;
 
   // d3-zoom + pan, with the computed initial framing.
   useEffect(() => {
@@ -130,6 +166,21 @@ function ChoroplethInner({
     zoomBehavior.transform(svg, initialTransformRef.current);
     return () => { svg.on(".zoom", null); zoomRef.current = null; };
   }, [interactive, width, height, initialTransform]);
+
+  // Selected suburb → smoothly zoom to frame it; deselect → ease back to overview.
+  const prevFocusRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!interactive || !zoomRef.current || !svgRef.current) return;
+    const svg = select(svgRef.current);
+    const dur = prefersReducedMotion() ? 0 : 600;
+    if (focusId) {
+      const t = focusTransformForRef.current(focusId);
+      if (t) zoomRef.current.transform(svg.transition().duration(dur), t);
+    } else if (prevFocusRef.current) {
+      zoomRef.current.transform(svg.transition().duration(dur), initialTransformRef.current);
+    }
+    prevFocusRef.current = focusId;
+  }, [focusId, interactive]);
 
   // Static inset (locator): apply the fit transform directly to the group.
   useEffect(() => {
@@ -157,6 +208,11 @@ function ChoroplethInner({
   const renderPath = (f: Feature<Geometry>, opts: { overlay?: boolean }) => {
     const id = String(f.id);
     const v = valueById.get(id);
+    const cat = categoryById?.get(id);
+    const hasData = categoryById ? cat != null : v != null;
+    const baseFill = categoryById
+      ? (cat != null ? (categoryColor?.(cat) ?? "url(#nodata-hatch)") : "url(#nodata-hatch)")
+      : featureFill(v, colorScale);
     const selected = id === selectedId;
     const hovered = id === hoveredId;
     const emphasized = selected || hovered;
@@ -164,18 +220,22 @@ function ChoroplethInner({
       <path
         key={opts.overlay ? `o-${id}` : id}
         d={pathFor(f)}
-        fill={opts.overlay ? "none" : featureFill(v, colorScale)}
+        fill={opts.overlay ? "none" : baseFill}
         strokeWidth={selected ? 1.6 : hovered ? 1.2 : 0.4}
         style={{
           cursor: interactive && onFeatureClick ? "pointer" : "default",
           stroke: emphasized ? "hsl(var(--foreground))" : "hsl(var(--border))",
+          // strokeWidth is in user-space units; the group is d3-zoomed up to 48×, so
+          // a 1.6u emphasis stroke renders ~22px wide and swallows small suburbs into
+          // a solid dark blob. Pin stroke to screen px so it stays a crisp outline.
+          vectorEffect: "non-scaling-stroke",
           pointerEvents: opts.overlay ? "none" : undefined,
           // SVG focus outlines render as the path's rectangular bbox ("square") —
           // suppress it; keyboard focus is shown via the stroke highlight (onFocus).
           outline: "none",
           transition: prefersReducedMotion() ? undefined : "stroke-width 120ms ease",
         }}
-        tabIndex={interactive && onFeatureClick && v != null ? 0 : -1}
+        tabIndex={interactive && onFeatureClick && hasData ? 0 : -1}
         role={interactive && onFeatureClick ? "button" : undefined}
         aria-label={nameById?.get(id) ?? id}
         onClick={interactive ? () => onFeatureClick?.(id) : undefined}
@@ -221,8 +281,8 @@ function ChoroplethInner({
 
       {interactive && (
         <div className="absolute right-2 top-2 flex flex-col gap-1">
-          <ZoomBtn label="Zoom in" onClick={() => zoomBy(1.6)}>+</ZoomBtn>
-          <ZoomBtn label="Zoom out" onClick={() => zoomBy(0.625)}>−</ZoomBtn>
+          <ZoomBtn label="Zoom in" onClick={() => zoomBy(2)}>+</ZoomBtn>
+          <ZoomBtn label="Zoom out" onClick={() => zoomBy(0.5)}>−</ZoomBtn>
           <ZoomBtn label="Reset view" onClick={resetZoom}>
             <span className="text-[10px] leading-none">⤢</span>
           </ZoomBtn>

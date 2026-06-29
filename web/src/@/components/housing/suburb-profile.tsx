@@ -138,6 +138,7 @@ export function SuburbProfile({
               ["Median rent / wk", d?.medianWeeklyRent ? fmtMoney(d.medianWeeklyRent) : "—"],
               ["Mortgage / month", d?.medianMonthlyMortgage ? fmtMoney(d.medianMonthlyMortgage) : "—"],
             ]} />
+            {d ? <CultureStats d={d} /> : null}
           </div>
 
           {/* comparison */}
@@ -183,6 +184,43 @@ export function SuburbProfile({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+type Demographics = NonNullable<NonNullable<Awaited<ReturnType<typeof getSuburbProfileClient>>>["demographics"]>;
+
+function CultureStats({ d }: { d: Demographics }) {
+  const pct = (v?: number) => (v && v > 0 ? `${Math.round(v)}%` : "—");
+  const religion = d.topReligion
+    ? `${d.topReligion}${d.pctTopReligion ? ` · ${Math.round(d.pctTopReligion)}%` : ""}`
+    : "—";
+  const language = d.topLanguage
+    ? `${d.topLanguage}${d.pctTopLanguage ? ` · ${Math.round(d.pctTopLanguage)}%` : ""}`
+    : "English only";
+  // Nothing cultural to show (suppressed small suburb) → skip the section.
+  if (!d.topReligion && !d.topLanguage && !(d.pctBornOverseas > 0)) return null;
+  return (
+    <div>
+      <h3 className="mb-2 font-serif text-sm text-muted-foreground">Culture &amp; community</h3>
+      <div className="rounded-lg border border-border bg-card p-4">
+        <dl className="grid grid-cols-1 gap-x-8 gap-y-2.5 text-sm sm:grid-cols-2">
+          <CultureRow label="Dominant religion" value={religion} />
+          <CultureRow label="Top language at home" value={language} />
+          <CultureRow label="No religion" value={pct(d.pctNoReligion)} />
+          <CultureRow label="Born overseas" value={pct(d.pctBornOverseas)} />
+          <CultureRow label="English only at home" value={pct(d.pctEnglishOnly)} />
+        </dl>
+      </div>
+    </div>
+  );
+}
+
+function CultureRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <dt className="shrink-0 text-muted-foreground">{label}</dt>
+      <dd className="truncate text-right font-medium text-foreground">{value}</dd>
     </div>
   );
 }

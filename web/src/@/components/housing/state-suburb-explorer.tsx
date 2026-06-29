@@ -31,6 +31,8 @@ export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
       salCode: s.salCode, salName: s.salName, postcode: s.postcode,
       latestMedianPrice: s.latestMedianPrice, yoyPct: s.yoyPct,
       population: s.population, medianAge: s.medianAge, medianWeeklyHhdIncome: s.medianWeeklyHhdIncome,
+      pctBornOverseas: s.pctBornOverseas, topReligion: s.topReligion,
+      topLanguage: s.topLanguage, pctTopLanguage: s.pctTopLanguage,
       regionCode: s.regionCode,
     })),
     [data],
@@ -40,8 +42,9 @@ export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("price");
   const [pricedOnly, setPricedOnly] = useState(false);
-  // ?sal= (e.g. from a suburb profile's "view on map") pre-highlights a suburb
-  const [hovered, setHovered] = useState<string | undefined>(searchParams.get("sal") ?? undefined);
+  const [hovered, setHovered] = useState<string | undefined>(undefined);
+  // ?sal= (e.g. from a suburb profile's "view on map") pre-selects + frames a suburb
+  const [selected, setSelected] = useState<string | undefined>(searchParams.get("sal") ?? undefined);
   const rowRefs = useRef(new Map<string, HTMLButtonElement>());
 
   const stats = useMemo(() => {
@@ -68,12 +71,13 @@ export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
     return out;
   }, [suburbs, search, sortBy, pricedOnly]);
 
-  // map hover (or ?sal= deep-link) → scroll the matching list row into view.
+  // selection/hover (or ?sal= deep-link) → scroll the matching list row into view.
   // depend on `filtered` so a deep-link set before rows render still scrolls once they do.
   useEffect(() => {
-    if (!hovered) return;
-    rowRefs.current.get(hovered)?.scrollIntoView({ block: "nearest" });
-  }, [hovered, filtered]);
+    const target = selected ?? hovered;
+    if (!target) return;
+    rowRefs.current.get(target)?.scrollIntoView({ block: "nearest" });
+  }, [selected, hovered, filtered]);
 
   const goToSuburb = (s: SuburbDatum) => router.push(suburbHref(stateCode, s));
   const noPrice = !isLoading && stats.pricedCount === 0;
@@ -139,9 +143,13 @@ export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
                   ref={(el) => { if (el) rowRefs.current.set(s.salCode, el); }}
                   onMouseEnter={() => setHovered(s.salCode)}
                   onMouseLeave={() => setHovered(undefined)}
-                  onClick={() => goToSuburb(s)}
+                  onClick={() => setSelected(s.salCode)}
+                  onDoubleClick={() => goToSuburb(s)}
+                  aria-pressed={s.salCode === selected}
                   className={cn("flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors",
-                    s.salCode === hovered ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/50")}>
+                    s.salCode === selected ? "bg-foreground/10 font-medium text-foreground ring-1 ring-foreground/20"
+                      : s.salCode === hovered ? "bg-muted font-medium text-foreground"
+                      : "text-muted-foreground hover:bg-muted/50")}>
                   <span className="truncate capitalize">{s.salName.toLowerCase()}</span>
                   {priced ? (
                     <span className="ml-2 shrink-0 font-mono text-[11px] tabular-nums text-foreground">{fmtPriceShort(s.latestMedianPrice)}</span>
@@ -157,14 +165,15 @@ export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
         </div>
 
         {/* right: map */}
-        <div className="rounded-xl border border-border bg-card p-3 sm:p-5">
+        <div className="flex flex-col rounded-xl border border-border bg-card p-3 sm:p-5">
           <StateSuburbMap
             stateCode={stateCode}
             suburbs={suburbs}
-            selectedSalCode={hovered}
+            selectedSalCode={selected}
             hoveredSalCode={hovered}
             onHover={(sal) => setHovered(sal ?? undefined)}
-            onSelect={(sal) => {
+            onSelect={(sal) => setSelected(sal ?? undefined)}
+            onOpenProfile={(sal) => {
               const s = suburbs.find((x) => x.salCode === sal);
               if (s) goToSuburb(s);
             }}

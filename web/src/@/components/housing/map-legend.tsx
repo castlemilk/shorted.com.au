@@ -9,12 +9,16 @@ import { fmtPriceShort } from "@/lib/housing/price-scale";
  */
 export function MapLegend({
   colorScale, min, max, label = "Median house price", showNoData = true,
+  format = fmtPriceShort, noDataLabel = "No price data",
 }: {
   colorScale: (v: number) => string;
   min: number;
   max: number;
   label?: string;
   showNoData?: boolean;
+  /** tick formatter — defaults to compact AUD for the price ramp. */
+  format?: (v: number) => string;
+  noDataLabel?: string;
 }) {
   const lo = min > 0 ? min : 0;
   const stops = Array.from({ length: 10 }, (_, i) => i / 9);
@@ -30,9 +34,9 @@ export function MapLegend({
       </div>
       <div className="mt-1 h-2 w-40 rounded-sm" style={{ background: gradient }} />
       <div className="mt-0.5 flex w-40 justify-between font-mono text-[10px] tabular-nums text-muted-foreground">
-        <span>{fmtPriceShort(lo)}</span>
-        <span>{fmtPriceShort(mid)}</span>
-        <span>{fmtPriceShort(max)}</span>
+        <span>{format(lo)}</span>
+        <span>{format(mid)}</span>
+        <span>{format(max)}</span>
       </div>
       {showNoData ? (
         <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
@@ -43,7 +47,7 @@ export function MapLegend({
                 "repeating-linear-gradient(45deg, hsl(var(--muted)), hsl(var(--muted)) 2px, hsl(var(--border)) 2px, hsl(var(--border)) 3px)",
             }}
           />
-          No price data
+          {noDataLabel}
         </div>
       ) : null}
     </div>
