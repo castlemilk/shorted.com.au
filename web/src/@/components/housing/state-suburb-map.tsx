@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { scaleSequentialSqrt } from "d3-scale";
-import { interpolateYlOrRd } from "d3-scale-chromatic";
 import { ChoroplethMap } from "./choropleth-map";
+import { MapLegend } from "./map-legend";
+import { makePriceScale } from "@/lib/housing/price-scale";
 import { useTopojson } from "./use-topojson";
 import { SuburbTooltip } from "./suburb-tooltip";
 
@@ -14,15 +14,20 @@ export type SuburbDatum = {
   regionCode?: string;
 };
 
+const TOOLTIP_W = 224;
+const TOOLTIP_H = 200;
+
 export function StateSuburbMap({
-  stateCode, suburbs, selectedSalCode, onSelect,
+  stateCode, suburbs, selectedSalCode, hoveredSalCode, onSelect, onHover,
 }: {
   stateCode: string; // e.g. "NSW"
   suburbs: SuburbDatum[];
   selectedSalCode?: string;
+  hoveredSalCode?: string;
   onSelect: (salCode: string) => void;
+  onHover?: (salCode: string | null) => void;
 }) {
-  const { data: topo } = useTopojson(`/geo/suburbs/${stateCode}.topojson`);
+  const { data: topo, isLoading, isError } = useTopojson(`/geo/suburbs/${stateCode}.topojson`);
   const [hover, setHover] = useState<{ d: SuburbDatum; x: number; y: number } | null>(null);
 
   const byCode = useMemo(() => new Map(suburbs.map((s) => [s.salCode, s])), [suburbs]);
@@ -33,14 +38,23 @@ export function StateSuburbMap({
   }, [suburbs]);
   const nameById = useMemo(() => new Map(suburbs.map((s) => [s.salCode, s.salName])), [suburbs]);
 
-  const colorScale = useMemo(() => {
+  const { scale, priceMin, priceMax } = useMemo(() => {
     const vals = suburbs.map((s) => s.latestMedianPrice).filter((v) => v > 0);
-    const max = Math.max(1, ...vals);
-    return scaleSequentialSqrt(interpolateYlOrRd).domain([0, max]);
+    const max = vals.length ? Math.max(...vals) : 1;
+    const min = vals.length ? Math.min(...vals) : 0;
+    return { scale: makePriceScale(max), priceMin: min, priceMax: max };
   }, [suburbs]);
 
-  if (!topo) return <div className="h-[460px] w-full animate-pulse rounded-xl bg-muted" />;
+  if (isError) {
+    return (
+      <div className="flex h-[460px] w-full items-center justify-center rounded-xl border border-border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+        Map unavailable — browse suburbs in the list.
+      </div>
+    );
+  }
+  if (isLoading || !topo) return <div className="h-[460px] w-full animate-pulse rounded-xl bg-muted" />;
   const objectName = Object.keys(topo.objects)[0]!;
+  const hasPrice = priceMax > 1;
 
   return (
     <div className="relative">
@@ -49,18 +63,28 @@ export function StateSuburbMap({
         objectName={objectName}
         valueById={valueById}
         nameById={nameById}
-        colorScale={(v) => colorScale(v)}
+        colorScale={(v) => scale(v)}
         selectedId={selectedSalCode}
+        hoveredId={hoveredSalCode}
+        fitToData
         ariaLabel={`${stateCode} suburbs by median house price`}
+        legend={hasPrice ? <MapLegend colorScale={(v) => scale(v)} min={priceMin} max={priceMax} /> : null}
         onFeatureClick={(id) => onSelect(id)}
         onFeatureHover={(id, evt) => {
+          onHover?.(id);
           if (!id || !evt) return setHover(null);
           const d = byCode.get(id);
           if (d) setHover({ d, x: evt.clientX, y: evt.clientY });
         }}
       />
       {hover ? (
-        <div className="fixed z-50" style={{ left: hover.x + 14, top: hover.y + 14 }}>
+        <div
+          className="pointer-events-none fixed z-50"
+          style={{
+            left: hover.x + TOOLTIP_W + 18 > window.innerWidth ? hover.x - TOOLTIP_W - 14 : hover.x + 14,
+            top: hover.y + TOOLTIP_H + 18 > window.innerHeight ? hover.y - TOOLTIP_H : hover.y + 14,
+          }}
+        >
           <SuburbTooltip summary={hover.d} regionCode={hover.d.regionCode} />
         </div>
       ) : null}

@@ -2,9 +2,9 @@
 
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { scaleSequential } from "d3-scale";
-import { interpolateBlues } from "d3-scale-chromatic";
 import { ChoroplethMap } from "./choropleth-map";
+import { MapLegend } from "./map-legend";
+import { makePriceScale } from "@/lib/housing/price-scale";
 import { useTopojson } from "./use-topojson";
 import { STE_CODE_TO_STATE, STATE_NAMES, stateSlug } from "@/lib/housing/states";
 
@@ -33,10 +33,11 @@ export function NationalHousingMap({
     return m;
   }, []);
 
-  const colorScale = useMemo(() => {
-    const vals = [...valueByStateCode.values()];
-    const max = Math.max(1, ...vals);
-    return scaleSequential(interpolateBlues).domain([0, max]);
+  const { scale, priceMin, priceMax } = useMemo(() => {
+    const vals = [...valueByStateCode.values()].filter((v) => v > 0);
+    const max = vals.length ? Math.max(...vals) : 1;
+    const min = vals.length ? Math.min(...vals) : 0;
+    return { scale: makePriceScale(max), priceMin: min, priceMax: max };
   }, [valueByStateCode]);
 
   if (!topo) return <div className="h-[460px] w-full animate-pulse rounded-xl bg-muted" />;
@@ -48,8 +49,9 @@ export function NationalHousingMap({
       objectName={objectName}
       valueById={valueById}
       nameById={nameById}
-      colorScale={(v) => colorScale(v)}
-      ariaLabel="Australian states by median house price — click a state to drill in"
+      colorScale={(v) => scale(v)}
+      ariaLabel="Australian states by greater-capital median house price — click a state to drill in"
+      legend={priceMax > 1 ? <MapLegend colorScale={(v) => scale(v)} min={priceMin} max={priceMax} label="Capital median price" showNoData={false} /> : null}
       onFeatureClick={(steCode) => {
         const state = STE_CODE_TO_STATE[steCode];
         if (state) router.push(`/housing/${stateSlug(state)}`);
