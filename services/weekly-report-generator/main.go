@@ -243,12 +243,11 @@ func main() {
 
 	// Insert a draft broadcast row so an admin can review + send the email.
 	// Non-fatal: a broadcast draft failure must never abort the report run.
-	if result.PublishReady {
+	// Yearly reports are not broadcast (type not in CHECK constraint).
+	if result.PublishReady && !isYearly {
 		kind := "weekly_report"
 		if isMonthly {
 			kind = "monthly_report"
-		} else if isYearly {
-			kind = "yearly_report"
 		}
 		if err := insertReportBroadcastDraft(ctx, db, kind, slug, narrative.Headline, narrative.Summary); err != nil {
 			log.Printf("broadcast draft (non-fatal): %v", err)

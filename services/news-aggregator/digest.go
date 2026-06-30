@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"html"
 	"log"
 	"strings"
 	"time"
@@ -37,7 +38,7 @@ func runDigest(ctx context.Context, db *pgxpool.Pool) error {
 			newsRows.Close()
 			return fmt.Errorf("digest: scan news row: %w", err)
 		}
-		fmt.Fprintf(&news, `<li><a href="%s">%s</a></li>`, url, title)
+		fmt.Fprintf(&news, `<li><a href="%s">%s</a></li>`, html.EscapeString(url), html.EscapeString(title))
 		fmt.Fprintf(&newsText, "- %s (%s)\n", title, url)
 		n++
 	}
@@ -68,7 +69,7 @@ func runDigest(ctx context.Context, db *pgxpool.Pool) error {
 			takeRows.Close()
 			return fmt.Errorf("digest: scan takes row: %w", err)
 		}
-		fmt.Fprintf(&takes, `<li><a href="https://shorted.com.au/news/%s">%s</a></li>`, slug, headline)
+		fmt.Fprintf(&takes, `<li><a href="https://shorted.com.au/news/%s">%s</a></li>`, html.EscapeString(slug), html.EscapeString(headline))
 		fmt.Fprintf(&takesText, "- %s (https://shorted.com.au/news/%s)\n", headline, slug)
 	}
 	takeRows.Close()
