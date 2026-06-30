@@ -138,6 +138,18 @@ type SuburbSummaryRow struct {
 	StateMember           string
 	StateParty            string
 	StatePartyAb          string
+	// amenity/lifestyle metrics (Local Insights); 0 when not yet ingested
+	SchoolsTotal         int32
+	SupermarketsTotal    int32
+	ColesCount           int32
+	WoolworthsCount      int32
+	AldiCount            int32
+	IgaCount             int32
+	PubsBars             int32
+	ParksCount           int32
+	LibrariesCount       int32
+	NearestSupermarketKm float64
+	AmenityDensityScore  float64
 }
 
 // SuburbProfileRow is the full per-suburb profile (demographics + headline price).
@@ -182,9 +194,14 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 		       COALESCE(d.federal_division, ''), COALESCE(d.federal_member, ''),
 		       COALESCE(d.federal_party, ''), COALESCE(d.federal_party_ab, ''),
 		       COALESCE(d.federal_tpp_alp, 0), COALESCE(d.state_district, ''),
-		       COALESCE(d.state_member, ''), COALESCE(d.state_party, ''), COALESCE(d.state_party_ab, '')
+		       COALESCE(d.state_member, ''), COALESCE(d.state_party, ''), COALESCE(d.state_party_ab, ''),
+		       COALESCE(a.schools_total,0), COALESCE(a.supermarkets_total,0), COALESCE(a.coles_count,0),
+		       COALESCE(a.woolworths_count,0), COALESCE(a.aldi_count,0), COALESCE(a.iga_count,0),
+		       COALESCE(a.pubs_bars,0), COALESCE(a.parks_count,0), COALESCE(a.libraries_count,0),
+		       COALESCE(a.nearest_supermarket_km,0), COALESCE(a.amenity_density_score,0)
 		FROM suburb_demographics d
 		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
+		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
 		-- Latest median from house_prices directly (NOT the quarterly-only MV) so annual
 		-- Valuer-General states (VIC) light up too; YoY computed vs the obs ~1yr prior.
 		LEFT JOIN LATERAL (
@@ -215,7 +232,9 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 			&r.Population, &r.MedianAge, &r.MedianWeeklyHhdIncome, &r.RegionCode,
 			&r.PctBornOverseas, &r.TopReligion, &r.TopLanguage, &r.PctTopLanguage,
 			&r.FederalDivision, &r.FederalMember, &r.FederalParty, &r.FederalPartyAb, &r.FederalTppAlp,
-			&r.StateDistrict, &r.StateMember, &r.StateParty, &r.StatePartyAb); err != nil {
+			&r.StateDistrict, &r.StateMember, &r.StateParty, &r.StatePartyAb,
+			&r.SchoolsTotal, &r.SupermarketsTotal, &r.ColesCount, &r.WoolworthsCount, &r.AldiCount, &r.IgaCount,
+			&r.PubsBars, &r.ParksCount, &r.LibrariesCount, &r.NearestSupermarketKm, &r.AmenityDensityScore); err != nil {
 			return nil, err
 		}
 		out = append(out, &r)

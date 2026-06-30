@@ -124,6 +124,13 @@ func (s *ShortsServer) ListStateSuburbs(ctx context.Context, req *connect.Reques
 				FederalParty: r.FederalParty, FederalPartyAb: r.FederalPartyAb,
 				FederalTppAlp: r.FederalTppAlp, StateDistrict: r.StateDistrict,
 				StateMember: r.StateMember, StateParty: r.StateParty, StatePartyAb: r.StatePartyAb,
+				Amenities: &shortsv1alpha1.SuburbAmenities{
+					SchoolsTotal: r.SchoolsTotal, SupermarketsTotal: r.SupermarketsTotal,
+					ColesCount: r.ColesCount, WoolworthsCount: r.WoolworthsCount,
+					AldiCount: r.AldiCount, IgaCount: r.IgaCount, PubsBars: r.PubsBars,
+					ParksCount: r.ParksCount, LibrariesCount: r.LibrariesCount,
+					NearestSupermarketKm: r.NearestSupermarketKm, AmenityDensityScore: r.AmenityDensityScore,
+				},
 			}
 			if r.LatestPeriod != nil {
 				ss.LatestPeriod = timestamppb.New(*r.LatestPeriod)
