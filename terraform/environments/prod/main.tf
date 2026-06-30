@@ -214,6 +214,10 @@ module "shorts_api" {
   scheduler_region             = "australia-southeast1"
   enable_key_metrics_scheduler = true
 
+  # Operator email on each newsletter subscribe — RESEND_API_KEY secret is
+  # provisioned in prod, so bind it (from/to default to support@shorted.com.au).
+  resend_secret_exists = true
+
   depends_on = [
     google_project_service.required_apis,
     google_artifact_registry_repository.shorted

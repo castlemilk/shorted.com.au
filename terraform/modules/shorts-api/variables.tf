@@ -75,14 +75,14 @@ variable "resend_secret_exists" {
 }
 
 variable "resend_to" {
-  description = "Recipient address for new-subscriber notification emails."
+  description = "Recipient address for new-subscriber notification emails (support@ is a Google Workspace inbox on shorted.com.au)."
   type        = string
-  default     = "ben.ebsworth@gmail.com"
+  default     = "support@shorted.com.au"
 }
 
 variable "resend_from" {
-  description = "From address for new-subscriber notification emails (must be on a Resend-verified domain; shorted.com.au is SPF/DMARC-ready)."
+  description = "From address for new-subscriber notification emails. shorted.com.au is a Resend-verified sending domain (resend._domainkey + send.shorted.com.au SES SPF in DNS)."
   type        = string
-  default     = "Shorted <notifications@shorted.com.au>"
+  default     = "Shorted <support@shorted.com.au>"
 }
 
