@@ -22,7 +22,7 @@ type federalDivision struct {
 	Swing   float64 `json:"swing"`
 }
 
-// ElectorateRow is one suburb's federal representation (UPDATE target).
+// ElectorateRow is one suburb's electoral representation (UPDATE target).
 type ElectorateRow struct {
 	SALCode         string
 	FederalDivision string
@@ -30,6 +30,13 @@ type ElectorateRow struct {
 	FederalParty    string
 	FederalPartyAb  string
 	FederalTppAlp   *float64
+	StateDistrict   string // ABS State Electoral Division (member/party = follow-up)
+}
+
+// sedEntry is one suburb's state electoral division (from the SED spatial join).
+type sedEntry struct {
+	State    string `json:"state"`
+	District string `json:"district"`
 }
 
 // electoratesDir resolves the committed electorate data dir (sibling of the
@@ -71,27 +78,43 @@ func ingestElectorates() ([]ElectorateRow, error) {
 	for name := range divisions {
 		canon[strings.ToLower(name)] = name
 	}
-	rows := make([]ElectorateRow, 0, len(salToDiv))
+	// State electoral division per suburb (ABS SED spatial join).
+	sed := map[string]sedEntry{}
+	if err := readJSONFile(filepath.Join(dir, "suburb-sed.json"), &sed); err != nil {
+		return nil, err
+	}
+	// One row per suburb present in EITHER mapping.
+	byCode := make(map[string]*ElectorateRow, len(salToDiv))
+	get := func(sal string) *ElectorateRow {
+		r := byCode[sal]
+		if r == nil {
+			r = &ElectorateRow{SALCode: sal}
+			byCode[sal] = r
+		}
+		return r
+	}
 	for sal, div := range salToDiv {
 		name, ok := canon[strings.ToLower(div)]
 		if !ok {
 			continue
 		}
 		d := divisions[name]
-		div = name
-		tpp := d.TppAlp
-		var tppPtr *float64
-		if tpp > 0 {
-			tppPtr = &tpp
+		r := get(sal)
+		r.FederalDivision = name
+		r.FederalMember = d.Member
+		r.FederalParty = d.Party
+		r.FederalPartyAb = d.PartyAb
+		if d.TppAlp > 0 {
+			tpp := d.TppAlp
+			r.FederalTppAlp = &tpp
 		}
-		rows = append(rows, ElectorateRow{
-			SALCode:         sal,
-			FederalDivision: div,
-			FederalMember:   d.Member,
-			FederalParty:    d.Party,
-			FederalPartyAb:  d.PartyAb,
-			FederalTppAlp:   tppPtr,
-		})
+	}
+	for sal, e := range sed {
+		get(sal).StateDistrict = e.District
+	}
+	rows := make([]ElectorateRow, 0, len(byCode))
+	for _, r := range byCode {
+		rows = append(rows, *r)
 	}
 	return rows, nil
 }

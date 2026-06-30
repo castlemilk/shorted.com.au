@@ -1645,6 +1645,7 @@ message SuburbSummary {
   string federal_party = 18;                 // member's party (full name)
   string federal_party_ab = 19;              // party abbreviation (palette key)
   double federal_tpp_alp = 20;               // 0..100 Labor two-party-preferred %
+  string state_district = 21;                // ABS State Electoral Division (member/party = follow-up)
 }
 
 message ListStateSuburbsResponse {

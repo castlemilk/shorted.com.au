@@ -35,6 +35,7 @@ export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
       topLanguage: s.topLanguage, pctTopLanguage: s.pctTopLanguage,
       federalDivision: s.federalDivision, federalMember: s.federalMember,
       federalParty: s.federalParty, federalPartyAb: s.federalPartyAb, federalTppAlp: s.federalTppAlp,
+      stateDistrict: s.stateDistrict,
       regionCode: s.regionCode,
     })),
     [data],
