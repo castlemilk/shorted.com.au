@@ -3228,3 +3228,23 @@ func (s *postgresStore) GetStocksForImageBackfill(limit int, afterStockCode stri
 	return results, rows.Err()
 }
 
+
+func (s *postgresStore) UnsubscribeByID(id string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, err := s.db.Exec(ctx,
+		`UPDATE subscriptions SET unsubscribed_at = now()
+		 WHERE id = $1 AND unsubscribed_at IS NULL`, id)
+	return err
+}
+
+func (s *postgresStore) GetSubscriberByID(id string) (string, *time.Time, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	var email string
+	var unsub *time.Time
+	err := s.db.QueryRow(ctx,
+		`SELECT email, unsubscribed_at FROM subscriptions WHERE id = $1`, id).
+		Scan(&email, &unsub)
+	return email, unsub, err
+}

@@ -3,6 +3,7 @@ package shorts
 import (
 	"context"
 	"fmt"
+	"time"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stockv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
@@ -61,6 +62,9 @@ type Store interface {
 	GetStockData(string, string) (*stockv1alpha1.TimeSeriesData, error)
 	GetIndustryTreeMap(int32, string, string) (*stockv1alpha1.IndustryTreeMap, error)
 	RegisterEmail(string) error
+	// Newsletter / broadcasts
+	UnsubscribeByID(id string) error
+	GetSubscriberByID(id string) (email string, unsubscribedAt *time.Time, err error)
 	SearchStocks(string, int32) ([]*stockv1alpha1.Stock, error)
 	GetMarketByDate(date string, limit, offset int32) ([]*stockv1alpha1.Stock, int, error)
 	GetAvailableDates(limit int, before string) ([]string, string, string, int, error)
