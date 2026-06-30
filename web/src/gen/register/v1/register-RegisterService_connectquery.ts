@@ -5,6 +5,13 @@
 import { RegisterService } from "./register_pb";
 
 /**
+ * Unsubscribe from the newsletter using a signed token. Public (anonymous).
+ *
+ * @generated from rpc register.v1.RegisterService.Unsubscribe
+ */
+export const unsubscribe = RegisterService.method.unsubscribe;
+
+/**
  * Register an email address to receive updates.
  *
  * @generated from rpc register.v1.RegisterService.RegisterEmail

@@ -9,6 +9,11 @@ import "gnostic/openapi/v3/annotations.proto";
 import "options/v1/options.proto";
 
 service RegisterService {
+  // Unsubscribe from the newsletter using a signed token. Public (anonymous).
+  rpc Unsubscribe (UnsubscribeRequest) returns (UnsubscribeResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+  }
+
   // Register an email address to receive updates.
   rpc RegisterEmail (RegisterEmailRequest) returns (RegisterEmailResponse) {
     // Newsletter signup must be callable by anonymous site visitors.
@@ -44,5 +49,12 @@ message RegisterEmailRequest {
 }
 
 message RegisterEmailResponse {
+    bool success = 1;
+}
+
+message UnsubscribeRequest {
+    string token = 1;
+}
+message UnsubscribeResponse {
     bool success = 1;
 }

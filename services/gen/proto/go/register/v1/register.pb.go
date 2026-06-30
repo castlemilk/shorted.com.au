@@ -112,6 +112,94 @@ func (x *RegisterEmailResponse) GetSuccess() bool {
 	return false
 }
 
+type UnsubscribeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnsubscribeRequest) Reset() {
+	*x = UnsubscribeRequest{}
+	mi := &file_register_v1_register_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnsubscribeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnsubscribeRequest) ProtoMessage() {}
+
+func (x *UnsubscribeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_register_v1_register_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnsubscribeRequest.ProtoReflect.Descriptor instead.
+func (*UnsubscribeRequest) Descriptor() ([]byte, []int) {
+	return file_register_v1_register_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *UnsubscribeRequest) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+type UnsubscribeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnsubscribeResponse) Reset() {
+	*x = UnsubscribeResponse{}
+	mi := &file_register_v1_register_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnsubscribeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnsubscribeResponse) ProtoMessage() {}
+
+func (x *UnsubscribeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_register_v1_register_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnsubscribeResponse.ProtoReflect.Descriptor instead.
+func (*UnsubscribeResponse) Descriptor() ([]byte, []int) {
+	return file_register_v1_register_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *UnsubscribeResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
 var File_register_v1_register_proto protoreflect.FileDescriptor
 
 const file_register_v1_register_proto_rawDesc = "" +
@@ -120,8 +208,13 @@ const file_register_v1_register_proto_rawDesc = "" +
 	"\x14RegisterEmailRequest\x12\x14\n" +
 	"\x05email\x18\x01 \x01(\tR\x05email\"1\n" +
 	"\x15RegisterEmailResponse\x12\x18\n" +
-	"\asuccess\x18\x01 \x01(\bR\asuccess2\xb6\x02\n" +
-	"\x0fRegisterService\x12\xa2\x02\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\"*\n" +
+	"\x12UnsubscribeRequest\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\"/\n" +
+	"\x13UnsubscribeResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess2\x8e\x03\n" +
+	"\x0fRegisterService\x12V\n" +
+	"\vUnsubscribe\x12\x1f.register.v1.UnsubscribeRequest\x1a .register.v1.UnsubscribeResponse\"\x04\x80\xb5\x18\x01\x12\xa2\x02\n" +
 	"\rRegisterEmail\x12!.register.v1.RegisterEmailRequest\x1a\".register.v1.RegisterEmailResponse\"\xc9\x01\xbaG\xc1\x01\x12\x0eRegister Email\x1aSRegister an email address to receive notifications and market updates from Shorted.BZ\x12.\n" +
 	"\x03200\x12'\n" +
 	"%\n" +
@@ -143,16 +236,20 @@ func file_register_v1_register_proto_rawDescGZIP() []byte {
 	return file_register_v1_register_proto_rawDescData
 }
 
-var file_register_v1_register_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_register_v1_register_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_register_v1_register_proto_goTypes = []any{
 	(*RegisterEmailRequest)(nil),  // 0: register.v1.RegisterEmailRequest
 	(*RegisterEmailResponse)(nil), // 1: register.v1.RegisterEmailResponse
+	(*UnsubscribeRequest)(nil),    // 2: register.v1.UnsubscribeRequest
+	(*UnsubscribeResponse)(nil),   // 3: register.v1.UnsubscribeResponse
 }
 var file_register_v1_register_proto_depIdxs = []int32{
-	0, // 0: register.v1.RegisterService.RegisterEmail:input_type -> register.v1.RegisterEmailRequest
-	1, // 1: register.v1.RegisterService.RegisterEmail:output_type -> register.v1.RegisterEmailResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
+	2, // 0: register.v1.RegisterService.Unsubscribe:input_type -> register.v1.UnsubscribeRequest
+	0, // 1: register.v1.RegisterService.RegisterEmail:input_type -> register.v1.RegisterEmailRequest
+	3, // 2: register.v1.RegisterService.Unsubscribe:output_type -> register.v1.UnsubscribeResponse
+	1, // 3: register.v1.RegisterService.RegisterEmail:output_type -> register.v1.RegisterEmailResponse
+	2, // [2:4] is the sub-list for method output_type
+	0, // [0:2] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -169,7 +266,7 @@ func file_register_v1_register_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_register_v1_register_proto_rawDesc), len(file_register_v1_register_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

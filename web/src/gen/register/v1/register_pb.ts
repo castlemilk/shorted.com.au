@@ -13,7 +13,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file register/v1/register.proto.
  */
 export const file_register_v1_register: GenFile = /*@__PURE__*/
-  fileDesc("ChpyZWdpc3Rlci92MS9yZWdpc3Rlci5wcm90bxILcmVnaXN0ZXIudjEiJQoUUmVnaXN0ZXJFbWFpbFJlcXVlc3QSDQoFZW1haWwYASABKAkiKAoVUmVnaXN0ZXJFbWFpbFJlc3BvbnNlEg8KB3N1Y2Nlc3MYASABKAgytgIKD1JlZ2lzdGVyU2VydmljZRKiAgoNUmVnaXN0ZXJFbWFpbBIhLnJlZ2lzdGVyLnYxLlJlZ2lzdGVyRW1haWxSZXF1ZXN0GiIucmVnaXN0ZXIudjEuUmVnaXN0ZXJFbWFpbFJlc3BvbnNlIskBukfBARIOUmVnaXN0ZXIgRW1haWwaU1JlZ2lzdGVyIGFuIGVtYWlsIGFkZHJlc3MgdG8gcmVjZWl2ZSBub3RpZmljYXRpb25zIGFuZCBtYXJrZXQgdXBkYXRlcyBmcm9tIFNob3J0ZWQuQloSLgoDMjAwEicKJQojQSBzdWNjZXNzZnVsIHJlZ2lzdHJhdGlvbiByZXNwb25zZS4SKAoDNDAwEiEKHwodSW52YWxpZCBlbWFpbCBhZGRyZXNzIGZvcm1hdC6AtRgBQsABCg9jb20ucmVnaXN0ZXIudjFCDVJlZ2lzdGVyUHJvdG9QAVpRZ2l0aHViLmNvbS9jYXN0bGVtaWxrL3Nob3J0ZWQuY29tLmF1L3NlcnZpY2VzL2dlbi9wcm90by9nby9yZWdpc3Rlci92MTtyZWdpc3RlcnYxogIDUlhYqgILUmVnaXN0ZXIuVjHKAgtSZWdpc3RlclxWMeICF1JlZ2lzdGVyXFYxXEdQQk1ldGFkYXRh6gIMUmVnaXN0ZXI6OlYxYgZwcm90bzM", [file_google_api_annotations, file_gnostic_openapi_v3_annotations, file_options_v1_options]);
+  fileDesc("ChpyZWdpc3Rlci92MS9yZWdpc3Rlci5wcm90bxILcmVnaXN0ZXIudjEiJQoUUmVnaXN0ZXJFbWFpbFJlcXVlc3QSDQoFZW1haWwYASABKAkiKAoVUmVnaXN0ZXJFbWFpbFJlc3BvbnNlEg8KB3N1Y2Nlc3MYASABKAgiIwoSVW5zdWJzY3JpYmVSZXF1ZXN0Eg0KBXRva2VuGAEgASgJIiYKE1Vuc3Vic2NyaWJlUmVzcG9uc2USDwoHc3VjY2VzcxgBIAEoCDKOAwoPUmVnaXN0ZXJTZXJ2aWNlElYKC1Vuc3Vic2NyaWJlEh8ucmVnaXN0ZXIudjEuVW5zdWJzY3JpYmVSZXF1ZXN0GiAucmVnaXN0ZXIudjEuVW5zdWJzY3JpYmVSZXNwb25zZSIEgLUYARKiAgoNUmVnaXN0ZXJFbWFpbBIhLnJlZ2lzdGVyLnYxLlJlZ2lzdGVyRW1haWxSZXF1ZXN0GiIucmVnaXN0ZXIudjEuUmVnaXN0ZXJFbWFpbFJlc3BvbnNlIskBukfBARIOUmVnaXN0ZXIgRW1haWwaU1JlZ2lzdGVyIGFuIGVtYWlsIGFkZHJlc3MgdG8gcmVjZWl2ZSBub3RpZmljYXRpb25zIGFuZCBtYXJrZXQgdXBkYXRlcyBmcm9tIFNob3J0ZWQuQloSLgoDMjAwEicKJQojQSBzdWNjZXNzZnVsIHJlZ2lzdHJhdGlvbiByZXNwb25zZS4SKAoDNDAwEiEKHwodSW52YWxpZCBlbWFpbCBhZGRyZXNzIGZvcm1hdC6AtRgBQsABCg9jb20ucmVnaXN0ZXIudjFCDVJlZ2lzdGVyUHJvdG9QAVpRZ2l0aHViLmNvbS9jYXN0bGVtaWxrL3Nob3J0ZWQuY29tLmF1L3NlcnZpY2VzL2dlbi9wcm90by9nby9yZWdpc3Rlci92MTtyZWdpc3RlcnYxogIDUlhYqgILUmVnaXN0ZXIuVjHKAgtSZWdpc3RlclxWMeICF1JlZ2lzdGVyXFYxXEdQQk1ldGFkYXRh6gIMUmVnaXN0ZXI6OlYxYgZwcm90bzM", [file_google_api_annotations, file_gnostic_openapi_v3_annotations, file_options_v1_options]);
 
 /**
  * @generated from message register.v1.RegisterEmailRequest
@@ -50,9 +50,53 @@ export const RegisterEmailResponseSchema: GenMessage<RegisterEmailResponse> = /*
   messageDesc(file_register_v1_register, 1);
 
 /**
+ * @generated from message register.v1.UnsubscribeRequest
+ */
+export type UnsubscribeRequest = Message<"register.v1.UnsubscribeRequest"> & {
+  /**
+   * @generated from field: string token = 1;
+   */
+  token: string;
+};
+
+/**
+ * Describes the message register.v1.UnsubscribeRequest.
+ * Use `create(UnsubscribeRequestSchema)` to create a new message.
+ */
+export const UnsubscribeRequestSchema: GenMessage<UnsubscribeRequest> = /*@__PURE__*/
+  messageDesc(file_register_v1_register, 2);
+
+/**
+ * @generated from message register.v1.UnsubscribeResponse
+ */
+export type UnsubscribeResponse = Message<"register.v1.UnsubscribeResponse"> & {
+  /**
+   * @generated from field: bool success = 1;
+   */
+  success: boolean;
+};
+
+/**
+ * Describes the message register.v1.UnsubscribeResponse.
+ * Use `create(UnsubscribeResponseSchema)` to create a new message.
+ */
+export const UnsubscribeResponseSchema: GenMessage<UnsubscribeResponse> = /*@__PURE__*/
+  messageDesc(file_register_v1_register, 3);
+
+/**
  * @generated from service register.v1.RegisterService
  */
 export const RegisterService: GenService<{
+  /**
+   * Unsubscribe from the newsletter using a signed token. Public (anonymous).
+   *
+   * @generated from rpc register.v1.RegisterService.Unsubscribe
+   */
+  unsubscribe: {
+    methodKind: "unary";
+    input: typeof UnsubscribeRequestSchema;
+    output: typeof UnsubscribeResponseSchema;
+  },
   /**
    * Register an email address to receive updates.
    *
