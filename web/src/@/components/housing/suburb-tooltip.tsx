@@ -8,6 +8,7 @@ type Summary = {
   salName: string; postcode: string; latestMedianPrice: number; yoyPct: number;
   population: number; medianAge: number; medianWeeklyHhdIncome: number;
   pctBornOverseas?: number; topReligion?: string; topLanguage?: string; pctTopLanguage?: number;
+  federalDivision?: string; federalMember?: string; federalPartyAb?: string;
 };
 
 function fmtAUD(v: number) {
@@ -15,6 +16,8 @@ function fmtAUD(v: number) {
 }
 // Precise dollars for weekly amounts — k-rounding is misleading at income scale.
 const fmtMoney = (v: number) => `$${Math.round(v).toLocaleString()}`;
+// AEC member names come as "Steve GEORGANAS" (UPPER surname) → title-case.
+const fmtName = (n: string) => n.toLowerCase().replace(/(^|[\s'-])([a-z])/g, (_, p: string, c: string) => p + c.toUpperCase());
 
 /**
  * Suburb hover card: zero-latency stats + a lazy price sparkline keyed by region
@@ -71,7 +74,7 @@ export function SuburbTooltip({
           <><dt className="text-muted-foreground">Born overseas</dt><dd className="text-right tabular-nums">{Math.round(summary.pctBornOverseas)}%</dd></>
         ) : null}
       </dl>
-      {[summary.topReligion, summary.topLanguage].some(Boolean) ? (
+      {[summary.topReligion, summary.topLanguage, summary.federalMember].some(Boolean) ? (
         <dl className="mt-1.5 space-y-0.5 border-t border-border/60 pt-1.5 text-[11px]">
           {summary.topReligion ? (
             <div className="flex items-baseline justify-between gap-2">
@@ -86,6 +89,14 @@ export function SuburbTooltip({
                 : "English only"}
             </dd>
           </div>
+          {summary.federalMember ? (
+            <div className="flex items-baseline justify-between gap-2">
+              <dt className="text-muted-foreground">Federal MP</dt>
+              <dd className="truncate text-right text-foreground">
+                {fmtName(summary.federalMember)}{summary.federalPartyAb ? ` (${summary.federalPartyAb})` : ""}
+              </dd>
+            </div>
+          ) : null}
         </dl>
       ) : null}
       {onOpenProfile ? (

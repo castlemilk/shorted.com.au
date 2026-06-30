@@ -8782,6 +8782,12 @@ type SuburbSummary struct {
 	TopReligion     string  `protobuf:"bytes,13,opt,name=top_religion,json=topReligion,proto3" json:"top_religion,omitempty"`                 // dominant religious affiliation, '' if none
 	TopLanguage     string  `protobuf:"bytes,14,opt,name=top_language,json=topLanguage,proto3" json:"top_language,omitempty"`                 // top language other than English at home, '' if none
 	PctTopLanguage  float64 `protobuf:"fixed64,15,opt,name=pct_top_language,json=pctTopLanguage,proto3" json:"pct_top_language,omitempty"`    // 0..100 share speaking top_language
+	// Federal electoral representation (AEC 2025 election), spatially joined.
+	FederalDivision string  `protobuf:"bytes,16,opt,name=federal_division,json=federalDivision,proto3" json:"federal_division,omitempty"` // Commonwealth Electoral Division
+	FederalMember   string  `protobuf:"bytes,17,opt,name=federal_member,json=federalMember,proto3" json:"federal_member,omitempty"`       // sitting House of Reps member
+	FederalParty    string  `protobuf:"bytes,18,opt,name=federal_party,json=federalParty,proto3" json:"federal_party,omitempty"`          // member's party (full name)
+	FederalPartyAb  string  `protobuf:"bytes,19,opt,name=federal_party_ab,json=federalPartyAb,proto3" json:"federal_party_ab,omitempty"`  // party abbreviation (palette key)
+	FederalTppAlp   float64 `protobuf:"fixed64,20,opt,name=federal_tpp_alp,json=federalTppAlp,proto3" json:"federal_tpp_alp,omitempty"`   // 0..100 Labor two-party-preferred %
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -8917,6 +8923,41 @@ func (x *SuburbSummary) GetTopLanguage() string {
 func (x *SuburbSummary) GetPctTopLanguage() float64 {
 	if x != nil {
 		return x.PctTopLanguage
+	}
+	return 0
+}
+
+func (x *SuburbSummary) GetFederalDivision() string {
+	if x != nil {
+		return x.FederalDivision
+	}
+	return ""
+}
+
+func (x *SuburbSummary) GetFederalMember() string {
+	if x != nil {
+		return x.FederalMember
+	}
+	return ""
+}
+
+func (x *SuburbSummary) GetFederalParty() string {
+	if x != nil {
+		return x.FederalParty
+	}
+	return ""
+}
+
+func (x *SuburbSummary) GetFederalPartyAb() string {
+	if x != nil {
+		return x.FederalPartyAb
+	}
+	return ""
+}
+
+func (x *SuburbSummary) GetFederalTppAlp() float64 {
+	if x != nil {
+		return x.FederalTppAlp
 	}
 	return 0
 }
@@ -10244,7 +10285,7 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\n" +
 	"state_code\x18\x01 \x01(\tR\tstateCode\x12\x14\n" +
 	"\x05query\x18\x02 \x01(\tR\x05query\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xbf\x04\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\x88\x06\n" +
 	"\rSuburbSummary\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +
 	"\bsal_name\x18\x02 \x01(\tR\asalName\x12\x1d\n" +
@@ -10266,7 +10307,12 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x11pct_born_overseas\x18\f \x01(\x01R\x0fpctBornOverseas\x12!\n" +
 	"\ftop_religion\x18\r \x01(\tR\vtopReligion\x12!\n" +
 	"\ftop_language\x18\x0e \x01(\tR\vtopLanguage\x12(\n" +
-	"\x10pct_top_language\x18\x0f \x01(\x01R\x0epctTopLanguage\"T\n" +
+	"\x10pct_top_language\x18\x0f \x01(\x01R\x0epctTopLanguage\x12)\n" +
+	"\x10federal_division\x18\x10 \x01(\tR\x0ffederalDivision\x12%\n" +
+	"\x0efederal_member\x18\x11 \x01(\tR\rfederalMember\x12#\n" +
+	"\rfederal_party\x18\x12 \x01(\tR\ffederalParty\x12(\n" +
+	"\x10federal_party_ab\x18\x13 \x01(\tR\x0efederalPartyAb\x12&\n" +
+	"\x0ffederal_tpp_alp\x18\x14 \x01(\x01R\rfederalTppAlp\"T\n" +
 	"\x18ListStateSuburbsResponse\x128\n" +
 	"\asuburbs\x18\x01 \x03(\v2\x1e.shorts.v1alpha1.SuburbSummaryR\asuburbs\"4\n" +
 	"\x17GetSuburbProfileRequest\x12\x19\n" +

@@ -175,3 +175,26 @@ func upsertDemographics(ctx context.Context, pool *pgxpool.Pool, rows []CensusRo
 	}
 	return n, nil
 }
+
+// upsertElectorates updates each matched suburb's federal representation columns.
+func upsertElectorates(ctx context.Context, pool *pgxpool.Pool, rows []ElectorateRow) (int, error) {
+	const q = `
+		UPDATE suburb_demographics SET
+			federal_division = $2, federal_member = $3, federal_party = $4,
+			federal_party_ab = $5, federal_tpp_alp = $6, fetched_at = now()
+		WHERE sal_code = $1`
+	batch := &pgx.Batch{}
+	for _, r := range rows {
+		batch.Queue(q, r.SALCode, r.FederalDivision, r.FederalMember, r.FederalParty, r.FederalPartyAb, r.FederalTppAlp)
+	}
+	br := pool.SendBatch(ctx, batch)
+	defer func() { _ = br.Close() }()
+	n := 0
+	for range rows {
+		if _, err := br.Exec(); err != nil {
+			return n, err
+		}
+		n++
+	}
+	return n, nil
+}

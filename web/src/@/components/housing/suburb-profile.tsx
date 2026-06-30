@@ -139,6 +139,7 @@ export function SuburbProfile({
               ["Mortgage / month", d?.medianMonthlyMortgage ? fmtMoney(d.medianMonthlyMortgage) : "—"],
             ]} />
             {d ? <CultureStats d={d} /> : null}
+            <FederalRep s={s} />
           </div>
 
           {/* comparison */}
@@ -189,6 +190,29 @@ export function SuburbProfile({
 }
 
 type Demographics = NonNullable<NonNullable<Awaited<ReturnType<typeof getSuburbProfileClient>>>["demographics"]>;
+
+type Summary = NonNullable<NonNullable<Awaited<ReturnType<typeof getSuburbProfileClient>>>["summary"]>;
+const fmtMemberName = (n: string) => n.toLowerCase().replace(/(^|[\s'-])([a-z])/g, (_, p: string, c: string) => p + c.toUpperCase());
+
+function FederalRep({ s }: { s: Summary }) {
+  if (!s.federalDivision) return null;
+  const lean = s.federalTppAlp > 0
+    ? (s.federalTppAlp >= 50 ? `Labor ${Math.round(s.federalTppAlp)}% 2PP` : `Coalition ${Math.round(100 - s.federalTppAlp)}% 2PP`)
+    : "—";
+  return (
+    <div>
+      <h3 className="mb-2 font-serif text-sm text-muted-foreground">Federal representation</h3>
+      <div className="rounded-lg border border-border bg-card p-4">
+        <dl className="grid grid-cols-1 gap-x-8 gap-y-2.5 text-sm sm:grid-cols-2">
+          <CultureRow label="Division" value={s.federalDivision} />
+          <CultureRow label="Member" value={s.federalMember ? `${fmtMemberName(s.federalMember)}${s.federalPartyAb ? ` (${s.federalPartyAb})` : ""}` : "—"} />
+          <CultureRow label="Party" value={s.federalParty || "—"} />
+          <CultureRow label="Two-party-preferred" value={lean} />
+        </dl>
+      </div>
+    </div>
+  );
+}
 
 function CultureStats({ d }: { d: Demographics }) {
   const pct = (v?: number) => (v && v > 0 ? `${Math.round(v)}%` : "—");

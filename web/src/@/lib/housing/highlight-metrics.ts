@@ -1,5 +1,5 @@
-import { scaleSequential, scaleSequentialSqrt, type ScaleSequential } from "d3-scale";
-import { interpolateOranges } from "d3-scale-chromatic";
+import { scaleSequential, scaleSequentialSqrt, scaleDiverging } from "d3-scale";
+import { interpolateOranges, interpolateRdBu } from "d3-scale-chromatic";
 import { fmtPriceShort } from "./price-scale";
 
 /**
@@ -21,10 +21,13 @@ export type SuburbMetricInput = {
   topReligion: string; // '' if none
   topLanguage: string; // '' if none (no language other than English)
   pctTopLanguage: number;
+  federalPartyAb: string; // '' if none — party holding the federal division
+  federalTppAlp: number;  // 0..100 Labor two-party-preferred (0 = unknown)
 };
 
 export type MetricKey =
-  | "price" | "population" | "age" | "income" | "born_overseas" | "religion" | "language";
+  | "price" | "population" | "age" | "income" | "born_overseas" | "religion" | "language"
+  | "federal_party" | "federal_lean";
 
 type Base = { key: MetricKey; label: string; legendLabel: string };
 
@@ -33,6 +36,10 @@ export type ContinuousMetric = Base & {
   value: (s: SuburbMetricInput) => number | null; // null = no data (hatch)
   format: (v: number) => string;
   sqrt?: boolean; // sqrt ramp for long-tailed metrics (price, population)
+  /** fixed [min,max] (e.g. [0,100] for a percentage) instead of the data range. */
+  domain?: [number, number];
+  /** custom colour scale (e.g. diverging) instead of the amber ramp. */
+  makeScale?: (min: number, max: number) => (v: number) => string;
 };
 
 export type CategoricalMetric = Base & {
@@ -110,6 +117,25 @@ export function languageColor(cat: string): string {
   return LANGUAGE_COLORS[cat] ?? C.slate;
 }
 
+// --- Federal party palette (categorical) ---
+// AEC party abbreviation → readable label; the map colours by these labels.
+const PARTY_LABEL: Record<string, string> = {
+  ALP: "Labor", LP: "Liberal", LNP: "Liberal National", NP: "Nationals",
+  GRN: "Greens", IND: "Independent", KAP: "Katter's", XEN: "Centre Alliance",
+};
+export const PARTY_COLORS: Record<string, string> = {
+  "Labor": "#d9544d", "Liberal": "#2f6fb0", "Liberal National": "#3f5e96",
+  "Nationals": "#c79a3a", "Greens": "#5aa05a", "Independent": "#1fa89f",
+  "Katter's": "#9c6b4f", "Centre Alliance": "#d98a3d", "Other": C.stone,
+};
+const PARTY_ORDER = [
+  "Labor", "Liberal", "Liberal National", "Nationals",
+  "Greens", "Independent", "Katter's", "Centre Alliance", "Other",
+];
+export function partyColor(label: string): string {
+  return PARTY_COLORS[label] ?? C.stone;
+}
+
 export const HIGHLIGHT_METRICS: HighlightMetric[] = [
   {
     kind: "continuous", key: "price", label: "Median house price",
@@ -157,14 +183,33 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
     },
     colorFor: languageColor, order: LANGUAGE_ORDER,
   },
+  {
+    kind: "categorical", key: "federal_party", label: "Federal party",
+    legendLabel: "Party holding the seat",
+    category: (s) => (s.federalPartyAb ? (PARTY_LABEL[s.federalPartyAb] ?? "Other") : null),
+    colorFor: partyColor, order: PARTY_ORDER,
+  },
+  {
+    kind: "continuous", key: "federal_lean", label: "Federal lean (2PP)",
+    legendLabel: "Labor two-party-preferred",
+    value: (s) => (s.federalTppAlp > 0 ? s.federalTppAlp : null),
+    format: (v) => `${Math.round(v)}%`,
+    domain: [0, 100], makeScale: () => politicalLeanScale(),
+  },
 ];
 
 export const METRIC_BY_KEY: Record<MetricKey, HighlightMetric> =
   Object.fromEntries(HIGHLIGHT_METRICS.map((m) => [m.key, m])) as Record<MetricKey, HighlightMetric>;
 
 /** Amber sequential ramp over [min,max] for a continuous metric. */
-export function amberScale(min: number, max: number, sqrt = false): ScaleSequential<string> {
+export function amberScale(min: number, max: number, sqrt = false): (v: number) => string {
   const interp = (t: number) => interpolateOranges(0.18 + 0.74 * t);
   const s = sqrt ? scaleSequentialSqrt(interp) : scaleSequential(interp);
   return s.domain([min, Math.max(min + 1, max)]);
+}
+
+/** Diverging red(Labor)↔white↔blue(Coalition) for two-party-preferred %. */
+export function politicalLeanScale(): (v: number) => string {
+  // RdBu: 0=red, 0.5=white, 1=blue. We want high ALP-TPP → red, low → blue.
+  return scaleDiverging<string>([0, 50, 100], (t) => interpolateRdBu(1 - t));
 }
