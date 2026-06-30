@@ -249,6 +249,17 @@ func main() {
 		return
 	}
 
+	// One-shot weekly digest mode: RUN_MODE=digest
+	// Assembles the past 7 days' top news (cluster primaries) + new
+	// editorial takes into a draft 'news_digest' broadcast row,
+	// idempotent on ISO week via (type, source_ref) unique index.
+	if os.Getenv("RUN_MODE") == "digest" {
+		if err := runDigest(ctx, db); err != nil {
+			log.Fatalf("digest mode failed: %v", err)
+		}
+		return
+	}
+
 	// For Cloud Run Jobs: process and exit
 	// For Cloud Run Services: serve health check and process on schedule
 	if os.Getenv("CLOUD_RUN_JOB") != "" {

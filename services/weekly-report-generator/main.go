@@ -241,6 +241,19 @@ func main() {
 	log.Printf("Report stored: %s (quality: %.2f, published: %v)",
 		slug, result.Score, result.PublishReady)
 
+	// Insert a draft broadcast row so an admin can review + send the email.
+	// Non-fatal: a broadcast draft failure must never abort the report run.
+	// Yearly reports are not broadcast (type not in CHECK constraint).
+	if result.PublishReady && !isYearly {
+		kind := "weekly_report"
+		if isMonthly {
+			kind = "monthly_report"
+		}
+		if err := insertReportBroadcastDraft(ctx, db, kind, slug, narrative.Headline, narrative.Summary); err != nil {
+			log.Printf("broadcast draft (non-fatal): %v", err)
+		}
+	}
+
 	// Trigger Next.js on-demand revalidation (if configured)
 	revalidateURL := os.Getenv("REVALIDATION_URL")
 	revalidateSecret := os.Getenv("REVALIDATION_SECRET")

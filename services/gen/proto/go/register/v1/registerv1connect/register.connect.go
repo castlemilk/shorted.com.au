@@ -33,6 +33,9 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
+	// RegisterServiceUnsubscribeProcedure is the fully-qualified name of the RegisterService's
+	// Unsubscribe RPC.
+	RegisterServiceUnsubscribeProcedure = "/register.v1.RegisterService/Unsubscribe"
 	// RegisterServiceRegisterEmailProcedure is the fully-qualified name of the RegisterService's
 	// RegisterEmail RPC.
 	RegisterServiceRegisterEmailProcedure = "/register.v1.RegisterService/RegisterEmail"
@@ -41,11 +44,14 @@ const (
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
 var (
 	registerServiceServiceDescriptor             = v1.File_register_v1_register_proto.Services().ByName("RegisterService")
+	registerServiceUnsubscribeMethodDescriptor   = registerServiceServiceDescriptor.Methods().ByName("Unsubscribe")
 	registerServiceRegisterEmailMethodDescriptor = registerServiceServiceDescriptor.Methods().ByName("RegisterEmail")
 )
 
 // RegisterServiceClient is a client for the register.v1.RegisterService service.
 type RegisterServiceClient interface {
+	// Unsubscribe from the newsletter using a signed token. Public (anonymous).
+	Unsubscribe(context.Context, *connect.Request[v1.UnsubscribeRequest]) (*connect.Response[v1.UnsubscribeResponse], error)
 	// Register an email address to receive updates.
 	RegisterEmail(context.Context, *connect.Request[v1.RegisterEmailRequest]) (*connect.Response[v1.RegisterEmailResponse], error)
 }
@@ -60,6 +66,12 @@ type RegisterServiceClient interface {
 func NewRegisterServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) RegisterServiceClient {
 	baseURL = strings.TrimRight(baseURL, "/")
 	return &registerServiceClient{
+		unsubscribe: connect.NewClient[v1.UnsubscribeRequest, v1.UnsubscribeResponse](
+			httpClient,
+			baseURL+RegisterServiceUnsubscribeProcedure,
+			connect.WithSchema(registerServiceUnsubscribeMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		registerEmail: connect.NewClient[v1.RegisterEmailRequest, v1.RegisterEmailResponse](
 			httpClient,
 			baseURL+RegisterServiceRegisterEmailProcedure,
@@ -71,7 +83,13 @@ func NewRegisterServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 
 // registerServiceClient implements RegisterServiceClient.
 type registerServiceClient struct {
+	unsubscribe   *connect.Client[v1.UnsubscribeRequest, v1.UnsubscribeResponse]
 	registerEmail *connect.Client[v1.RegisterEmailRequest, v1.RegisterEmailResponse]
+}
+
+// Unsubscribe calls register.v1.RegisterService.Unsubscribe.
+func (c *registerServiceClient) Unsubscribe(ctx context.Context, req *connect.Request[v1.UnsubscribeRequest]) (*connect.Response[v1.UnsubscribeResponse], error) {
+	return c.unsubscribe.CallUnary(ctx, req)
 }
 
 // RegisterEmail calls register.v1.RegisterService.RegisterEmail.
@@ -81,6 +99,8 @@ func (c *registerServiceClient) RegisterEmail(ctx context.Context, req *connect.
 
 // RegisterServiceHandler is an implementation of the register.v1.RegisterService service.
 type RegisterServiceHandler interface {
+	// Unsubscribe from the newsletter using a signed token. Public (anonymous).
+	Unsubscribe(context.Context, *connect.Request[v1.UnsubscribeRequest]) (*connect.Response[v1.UnsubscribeResponse], error)
 	// Register an email address to receive updates.
 	RegisterEmail(context.Context, *connect.Request[v1.RegisterEmailRequest]) (*connect.Response[v1.RegisterEmailResponse], error)
 }
@@ -91,6 +111,12 @@ type RegisterServiceHandler interface {
 // By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
 // and JSON codecs. They also support gzip compression.
 func NewRegisterServiceHandler(svc RegisterServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	registerServiceUnsubscribeHandler := connect.NewUnaryHandler(
+		RegisterServiceUnsubscribeProcedure,
+		svc.Unsubscribe,
+		connect.WithSchema(registerServiceUnsubscribeMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	registerServiceRegisterEmailHandler := connect.NewUnaryHandler(
 		RegisterServiceRegisterEmailProcedure,
 		svc.RegisterEmail,
@@ -99,6 +125,8 @@ func NewRegisterServiceHandler(svc RegisterServiceHandler, opts ...connect.Handl
 	)
 	return "/register.v1.RegisterService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case RegisterServiceUnsubscribeProcedure:
+			registerServiceUnsubscribeHandler.ServeHTTP(w, r)
 		case RegisterServiceRegisterEmailProcedure:
 			registerServiceRegisterEmailHandler.ServeHTTP(w, r)
 		default:
@@ -109,6 +137,10 @@ func NewRegisterServiceHandler(svc RegisterServiceHandler, opts ...connect.Handl
 
 // UnimplementedRegisterServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedRegisterServiceHandler struct{}
+
+func (UnimplementedRegisterServiceHandler) Unsubscribe(context.Context, *connect.Request[v1.UnsubscribeRequest]) (*connect.Response[v1.UnsubscribeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("register.v1.RegisterService.Unsubscribe is not implemented"))
+}
 
 func (UnimplementedRegisterServiceHandler) RegisterEmail(context.Context, *connect.Request[v1.RegisterEmailRequest]) (*connect.Response[v1.RegisterEmailResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("register.v1.RegisterService.RegisterEmail is not implemented"))

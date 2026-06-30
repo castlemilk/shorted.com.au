@@ -218,6 +218,9 @@ module "shorts_api" {
   # provisioned in prod, so bind it (from/to default to support@shorted.com.au).
   resend_secret_exists = true
 
+  # Unsubscribe HMAC secret for broadcast emails — provisioned in prod Secret Manager.
+  unsubscribe_secret_exists = true
+
   depends_on = [
     google_project_service.required_apis,
     google_artifact_registry_repository.shorted

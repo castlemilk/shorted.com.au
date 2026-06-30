@@ -89,6 +89,16 @@ resource "google_secret_manager_secret_iam_member" "resend_api_key" {
   project   = var.project_id
 }
 
+# Grant access to the unsubscribe HMAC secret used to verify unsubscribe links in
+# broadcast emails. Gated so apply is safe before the secret is provisioned.
+resource "google_secret_manager_secret_iam_member" "unsubscribe_secret" {
+  count     = var.unsubscribe_secret_exists ? 1 : 0
+  secret_id = "UNSUBSCRIBE_SECRET"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.shorts_api.email}"
+  project   = var.project_id
+}
+
 # Grant access to internal service secret (for webhook auth from frontend)
 resource "google_secret_manager_secret_iam_member" "internal_service_secret" {
   secret_id = "INTERNAL_SERVICE_SECRET"
@@ -271,6 +281,33 @@ resource "google_cloud_run_v2_service" "shorts_api" {
       env {
         name  = "RESEND_FROM"
         value = var.resend_from
+      }
+
+      # Broadcast unsubscribe HMAC secret. Gated on unsubscribe_secret_exists so
+      # the service still deploys before the secret is provisioned.
+      dynamic "env" {
+        for_each = var.unsubscribe_secret_exists ? [1] : []
+        content {
+          name = "UNSUBSCRIBE_SECRET"
+          value_source {
+            secret_key_ref {
+              secret  = "UNSUBSCRIBE_SECRET"
+              version = "latest"
+            }
+          }
+        }
+      }
+      env {
+        name  = "BROADCAST_FROM"
+        value = var.broadcast_from
+      }
+      env {
+        name  = "BROADCAST_REPLY_TO"
+        value = var.broadcast_reply_to
+      }
+      env {
+        name  = "PUBLIC_SITE_URL"
+        value = "https://shorted.com.au"
       }
 
       # Internal service authentication (for webhook/server action calls from frontend)

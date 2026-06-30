@@ -19,6 +19,8 @@ import (
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/castlemilk/shorted.com.au/services/pkg/ratelimit"
 	"github.com/castlemilk/shorted.com.au/services/shorts/internal/jobmonitor"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/register"
+	"github.com/castlemilk/shorted.com.au/services/shorts/internal/services/shorts/broadcast"
 
 	"github.com/castlemilk/shorted.com.au/services/gen/proto/go/register/v1/registerv1connect"
 	shortsv1alpha1connect "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1/shortsv1alpha1connect"
@@ -91,6 +93,15 @@ func adminAuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 
 		next(w, r)
 	}
+}
+
+// envOr returns the value of the environment variable named by key, or
+// fallback if the variable is unset or empty.
+func envOr(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }
 
 func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address string) error {
@@ -560,6 +571,83 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			logger.Errorf("Error encoding job status response: %v", err)
 			return
 		}
+	}))
+
+	// Admin: list broadcasts
+	mux.HandleFunc("/api/admin/broadcasts", adminAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		items, err := s.store.ListBroadcasts(50)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if items == nil {
+			items = []shortsstore.Broadcast{}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(items)
+	}))
+
+	// Admin: send a broadcast — POST /api/admin/broadcasts/send?id=UUID
+	mux.HandleFunc("/api/admin/broadcasts/send", adminAuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			http.Error(w, "missing id", http.StatusBadRequest)
+			return
+		}
+		if os.Getenv("UNSUBSCRIBE_SECRET") == "" {
+			http.Error(w, "unsubscribe secret not configured; refusing to send", http.StatusInternalServerError)
+			return
+		}
+		b, err := s.store.GetBroadcast(id)
+		if err != nil {
+			http.Error(w, "broadcast not found", http.StatusNotFound)
+			return
+		}
+		claimed, err := s.store.ClaimBroadcastForSending(id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if !claimed {
+			http.Error(w, "broadcast already sent or sending", http.StatusConflict)
+			return
+		}
+		subs, err := s.store.ListActiveSubscribers()
+		if err != nil {
+			if markErr := s.store.SetBroadcastStatus(id, "failed", err.Error(), 0); markErr != nil {
+				log.Errorf("broadcast %s: failed to mark failed after subscriber list error: %v", id, markErr)
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		cfg := broadcast.Config{
+			APIKey:            os.Getenv("RESEND_API_KEY"),
+			From:              envOr("BROADCAST_FROM", "Shorted <updates@shorted.com.au>"),
+			ReplyTo:           envOr("BROADCAST_REPLY_TO", "support@shorted.com.au"),
+			UnsubscribeSecret: os.Getenv("UNSUBSCRIBE_SECRET"),
+			BaseURL:           envOr("PUBLIC_SITE_URL", "https://shorted.com.au"),
+		}
+		recips := make([]broadcast.Recipient, len(subs))
+		for i, su := range subs {
+			recips[i] = broadcast.Recipient{ID: su.ID, Email: su.Email}
+		}
+		sent, sendErr := broadcast.Send(r.Context(), cfg, b.Subject, b.Subject, b.HTMLBody, b.TextBody, recips, register.SignUnsubscribeToken)
+		if sendErr != nil {
+			if err := s.store.SetBroadcastStatus(id, "failed", sendErr.Error(), sent); err != nil {
+				log.Errorf("broadcast %s: failed to mark failed: %v", id, err)
+			}
+			http.Error(w, sendErr.Error(), http.StatusInternalServerError)
+			return
+		}
+		if err := s.store.SetBroadcastStatus(id, "sent", "", sent); err != nil {
+			log.Errorf("broadcast %s: failed to mark sent: %v", id, err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"sent": sent})
 	}))
 
 	// Add admin cleanup endpoint for stuck sync runs (requires INTERNAL_SERVICE_SECRET auth)
