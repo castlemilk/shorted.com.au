@@ -104,6 +104,12 @@ type ShortsStore interface {
 	// Event timeline methods
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shortsstore.TimelineEventRow, error)
 
+	// Broadcast methods
+	ListBroadcasts(limit int) ([]shortsstore.Broadcast, error)
+	GetBroadcast(id string) (*shortsstore.Broadcast, error)
+	SetBroadcastStatus(id, status, errMsg string, recipientCount int) error
+	ListActiveSubscribers() ([]shortsstore.Subscriber, error)
+
 	// Raw query access (used for Algolia sync)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) shortsstore.Row
 }

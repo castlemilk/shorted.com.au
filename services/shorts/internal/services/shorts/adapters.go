@@ -255,6 +255,26 @@ func (s *StoreAdapter) QueryRowContext(ctx context.Context, query string, args .
 	return s.store.QueryRowContext(ctx, query, args...)
 }
 
+// ListBroadcasts delegates to the underlying store.
+func (s *StoreAdapter) ListBroadcasts(limit int) ([]shorts.Broadcast, error) {
+	return s.store.ListBroadcasts(limit)
+}
+
+// GetBroadcast delegates to the underlying store.
+func (s *StoreAdapter) GetBroadcast(id string) (*shorts.Broadcast, error) {
+	return s.store.GetBroadcast(id)
+}
+
+// SetBroadcastStatus delegates to the underlying store.
+func (s *StoreAdapter) SetBroadcastStatus(id, status, errMsg string, recipientCount int) error {
+	return s.store.SetBroadcastStatus(id, status, errMsg, recipientCount)
+}
+
+// ListActiveSubscribers delegates to the underlying store.
+func (s *StoreAdapter) ListActiveSubscribers() ([]shorts.Subscriber, error) {
+	return s.store.ListActiveSubscribers()
+}
+
 // LoggerAdapter adapts the standard logger to the Logger interface
 type LoggerAdapter struct{}
 

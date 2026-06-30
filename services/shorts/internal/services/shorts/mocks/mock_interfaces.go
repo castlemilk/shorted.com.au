@@ -606,6 +606,65 @@ func (mr *MockShortsStoreMockRecorder) GetWeeklyReport(weekSlug any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetWeeklyReport", reflect.TypeOf((*MockShortsStore)(nil).GetWeeklyReport), weekSlug)
 }
 
+// ListBroadcasts mocks base method.
+func (m *MockShortsStore) ListBroadcasts(limit int) ([]shorts.Broadcast, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListBroadcasts", limit)
+	ret0, _ := ret[0].([]shorts.Broadcast)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListBroadcasts indicates an expected call of ListBroadcasts.
+func (mr *MockShortsStoreMockRecorder) ListBroadcasts(limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListBroadcasts", reflect.TypeOf((*MockShortsStore)(nil).ListBroadcasts), limit)
+}
+
+// GetBroadcast mocks base method.
+func (m *MockShortsStore) GetBroadcast(id string) (*shorts.Broadcast, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBroadcast", id)
+	ret0, _ := ret[0].(*shorts.Broadcast)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetBroadcast indicates an expected call of GetBroadcast.
+func (mr *MockShortsStoreMockRecorder) GetBroadcast(id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBroadcast", reflect.TypeOf((*MockShortsStore)(nil).GetBroadcast), id)
+}
+
+// SetBroadcastStatus mocks base method.
+func (m *MockShortsStore) SetBroadcastStatus(id, status, errMsg string, recipientCount int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetBroadcastStatus", id, status, errMsg, recipientCount)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetBroadcastStatus indicates an expected call of SetBroadcastStatus.
+func (mr *MockShortsStoreMockRecorder) SetBroadcastStatus(id, status, errMsg, recipientCount any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBroadcastStatus", reflect.TypeOf((*MockShortsStore)(nil).SetBroadcastStatus), id, status, errMsg, recipientCount)
+}
+
+// ListActiveSubscribers mocks base method.
+func (m *MockShortsStore) ListActiveSubscribers() ([]shorts.Subscriber, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListActiveSubscribers")
+	ret0, _ := ret[0].([]shorts.Subscriber)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListActiveSubscribers indicates an expected call of ListActiveSubscribers.
+func (mr *MockShortsStoreMockRecorder) ListActiveSubscribers() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListActiveSubscribers", reflect.TypeOf((*MockShortsStore)(nil).ListActiveSubscribers))
+}
+
 // ListEditorialTakes mocks base method.
 func (m *MockShortsStore) ListEditorialTakes(limit, offset int32, stockCode string) ([]*shorts.EditorialTake, int, error) {
 	m.ctrl.T.Helper()
