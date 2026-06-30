@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { listStateSuburbsClient } from "~/app/actions/client/getHousingClient";
 import { StateSuburbMap, type SuburbDatum } from "./state-suburb-map";
+import { DataAttribution } from "./data-attribution";
 import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -182,6 +183,7 @@ export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
               if (s) goToSuburb(s);
             }}
           />
+          <DataAttribution />
         </div>
       </div>
     </div>
