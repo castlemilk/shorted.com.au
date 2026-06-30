@@ -6,10 +6,13 @@ option go_package = "github.com/castlemilk/shorted.com.au/services/gen/proto/go/
 
 import "google/api/annotations.proto";
 import "gnostic/openapi/v3/annotations.proto";
+import "options/v1/options.proto";
 
 service RegisterService {
   // Register an email address to receive updates.
   rpc RegisterEmail (RegisterEmailRequest) returns (RegisterEmailResponse) {
+    // Newsletter signup must be callable by anonymous site visitors.
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
     option (gnostic.openapi.v3.operation) = {
       deprecated: false,
       summary: "Register Email",

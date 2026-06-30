@@ -78,6 +78,17 @@ resource "google_secret_manager_secret_iam_member" "openai_api_key" {
   project   = var.project_id
 }
 
+# Grant access to the Resend API key used to email the operator on each new
+# newsletter subscribe. Guarded by resend_secret_exists so `apply` doesn't break
+# before the secret is provisioned (same posture as the gemini/anthropic gates).
+resource "google_secret_manager_secret_iam_member" "resend_api_key" {
+  count     = var.resend_secret_exists ? 1 : 0
+  secret_id = "RESEND_API_KEY"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.shorts_api.email}"
+  project   = var.project_id
+}
+
 # Grant access to internal service secret (for webhook auth from frontend)
 resource "google_secret_manager_secret_iam_member" "internal_service_secret" {
   secret_id = "INTERNAL_SERVICE_SECRET"
@@ -236,6 +247,30 @@ resource "google_cloud_run_v2_service" "shorts_api" {
             version = "latest"
           }
         }
+      }
+
+      # Resend — operator notification on each newsletter subscribe.
+      # Gated on resend_secret_exists so the service still deploys before the
+      # secret is provisioned (the handler no-ops when RESEND_API_KEY is empty).
+      dynamic "env" {
+        for_each = var.resend_secret_exists ? [1] : []
+        content {
+          name = "RESEND_API_KEY"
+          value_source {
+            secret_key_ref {
+              secret  = "RESEND_API_KEY"
+              version = "latest"
+            }
+          }
+        }
+      }
+      env {
+        name  = "RESEND_TO"
+        value = var.resend_to
+      }
+      env {
+        name  = "RESEND_FROM"
+        value = var.resend_from
       }
 
       # Internal service authentication (for webhook/server action calls from frontend)

@@ -30,6 +30,11 @@ func (s *RegisterServer) RegisterEmail(ctx context.Context, req *connect.Request
 		log.Errorf("error registering email: %v, error: %v", req.Msg.Email, err)
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+
+	// Best-effort operator notification on each new subscribe (no-op until
+	// RESEND_API_KEY is configured; never fails the subscribe).
+	notifyNewSubscriber(req.Msg.Email)
+
 	return connect.NewResponse(&registerv1.RegisterEmailResponse{
 		Success: true,
 	}), nil

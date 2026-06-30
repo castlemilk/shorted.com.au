@@ -26,6 +26,7 @@ import { PremiumUpsellBanner } from "~/@/components/premium/premium-upsell-banne
 import { getEnhancedWeeklyReportData, getAvailableWeekSlugs } from "~/app/actions/reports/getReportData";
 import { BrowseByIndustry } from "./browse-by-industry";
 import { TrendingThisWeek } from "./trending-this-week";
+import { LatestFromBlog } from "./latest-from-blog";
 
 // Event-driven ISR: serve the cached page instantly and hold it for up to 24h
 // as a safety net. The real refresh is on-demand — the daily ASIC sync busts
@@ -229,6 +230,11 @@ export default async function Page() {
       {/* Trending This Week — biggest short position changes */}
       <Suspense fallback={null}>
         <TrendingThisWeek />
+      </Suspense>
+
+      {/* Latest from the blog — surfaces freshly published posts on the homepage */}
+      <Suspense fallback={null}>
+        <LatestFromBlog />
       </Suspense>
 
       {/* Visible intro for SEO — crawlable content explaining the platform */}

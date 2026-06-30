@@ -37,7 +37,12 @@ export function getAllPosts(): Post[] {
         content,
         slug: fileName.replace(/\.(mdx?)$/i, ""),
       } as Post;
-    });
+    })
+    // Newest first. fs.readdirSync order is not chronological (and differs
+    // between local APFS and Vercel's Linux build), so without this the hero
+    // post + "More Stories" order is effectively arbitrary and a freshly
+    // published post may not surface at the top.
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return allPosts;
 }
