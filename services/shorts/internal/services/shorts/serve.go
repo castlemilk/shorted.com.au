@@ -598,6 +598,10 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			http.Error(w, "missing id", http.StatusBadRequest)
 			return
 		}
+		if os.Getenv("UNSUBSCRIBE_SECRET") == "" {
+			http.Error(w, "unsubscribe secret not configured; refusing to send", http.StatusInternalServerError)
+			return
+		}
 		b, err := s.store.GetBroadcast(id)
 		if err != nil {
 			http.Error(w, "broadcast not found", http.StatusNotFound)
@@ -614,6 +618,9 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		}
 		subs, err := s.store.ListActiveSubscribers()
 		if err != nil {
+			if markErr := s.store.SetBroadcastStatus(id, "failed", err.Error(), 0); markErr != nil {
+				log.Errorf("broadcast %s: failed to mark failed after subscriber list error: %v", id, markErr)
+			}
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
