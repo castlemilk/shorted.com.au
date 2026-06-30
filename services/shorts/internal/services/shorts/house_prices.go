@@ -122,7 +122,7 @@ func (s *ShortsServer) ListStateSuburbs(ctx context.Context, req *connect.Reques
 				TopLanguage: r.TopLanguage, PctTopLanguage: r.PctTopLanguage,
 				FederalDivision: r.FederalDivision, FederalMember: r.FederalMember,
 				FederalParty: r.FederalParty, FederalPartyAb: r.FederalPartyAb,
-				FederalTppAlp: r.FederalTppAlp,
+				FederalTppAlp: r.FederalTppAlp, StateDistrict: r.StateDistrict,
 			}
 			if r.LatestPeriod != nil {
 				ss.LatestPeriod = timestamppb.New(*r.LatestPeriod)
@@ -159,7 +159,7 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 			TopLanguage: p.Summary.TopLanguage, PctTopLanguage: p.Summary.PctTopLanguage,
 			FederalDivision: p.Summary.FederalDivision, FederalMember: p.Summary.FederalMember,
 			FederalParty: p.Summary.FederalParty, FederalPartyAb: p.Summary.FederalPartyAb,
-			FederalTppAlp: p.Summary.FederalTppAlp,
+			FederalTppAlp: p.Summary.FederalTppAlp, StateDistrict: p.Summary.StateDistrict,
 		}
 		if p.Summary.LatestPeriod != nil {
 			summary.LatestPeriod = timestamppb.New(*p.Summary.LatestPeriod)

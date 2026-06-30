@@ -8788,6 +8788,7 @@ type SuburbSummary struct {
 	FederalParty    string  `protobuf:"bytes,18,opt,name=federal_party,json=federalParty,proto3" json:"federal_party,omitempty"`          // member's party (full name)
 	FederalPartyAb  string  `protobuf:"bytes,19,opt,name=federal_party_ab,json=federalPartyAb,proto3" json:"federal_party_ab,omitempty"`  // party abbreviation (palette key)
 	FederalTppAlp   float64 `protobuf:"fixed64,20,opt,name=federal_tpp_alp,json=federalTppAlp,proto3" json:"federal_tpp_alp,omitempty"`   // 0..100 Labor two-party-preferred %
+	StateDistrict   string  `protobuf:"bytes,21,opt,name=state_district,json=stateDistrict,proto3" json:"state_district,omitempty"`       // ABS State Electoral Division (member/party = follow-up)
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -8960,6 +8961,13 @@ func (x *SuburbSummary) GetFederalTppAlp() float64 {
 		return x.FederalTppAlp
 	}
 	return 0
+}
+
+func (x *SuburbSummary) GetStateDistrict() string {
+	if x != nil {
+		return x.StateDistrict
+	}
+	return ""
 }
 
 type ListStateSuburbsResponse struct {
@@ -10285,7 +10293,7 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\n" +
 	"state_code\x18\x01 \x01(\tR\tstateCode\x12\x14\n" +
 	"\x05query\x18\x02 \x01(\tR\x05query\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\x88\x06\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xaf\x06\n" +
 	"\rSuburbSummary\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +
 	"\bsal_name\x18\x02 \x01(\tR\asalName\x12\x1d\n" +
@@ -10312,7 +10320,8 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x0efederal_member\x18\x11 \x01(\tR\rfederalMember\x12#\n" +
 	"\rfederal_party\x18\x12 \x01(\tR\ffederalParty\x12(\n" +
 	"\x10federal_party_ab\x18\x13 \x01(\tR\x0efederalPartyAb\x12&\n" +
-	"\x0ffederal_tpp_alp\x18\x14 \x01(\x01R\rfederalTppAlp\"T\n" +
+	"\x0ffederal_tpp_alp\x18\x14 \x01(\x01R\rfederalTppAlp\x12%\n" +
+	"\x0estate_district\x18\x15 \x01(\tR\rstateDistrict\"T\n" +
 	"\x18ListStateSuburbsResponse\x128\n" +
 	"\asuburbs\x18\x01 \x03(\v2\x1e.shorts.v1alpha1.SuburbSummaryR\asuburbs\"4\n" +
 	"\x17GetSuburbProfileRequest\x12\x19\n" +
