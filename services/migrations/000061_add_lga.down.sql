@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS suburb_lga;
+DROP TABLE IF EXISTS lga;
