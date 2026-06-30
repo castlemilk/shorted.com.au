@@ -456,12 +456,13 @@ Stock screener with server-side filtering (`services/shorts/internal/services/sh
 - **Frontend**: `/screener` page + `screener-widget.tsx` dashboard widget
 - **Days to Cover**: Added in migration 000028
 
-## Housing (feature + price tracker)
+## Housing (feature + price tracker + suburb explorer)
 
-The housing surface has two distinct deliverables that share a data layer and a chart system:
+The housing surface has three distinct deliverables that share a data layer and a chart system:
 
 1. **`/features/the-widow-maker`** — a hand-built investigative editorial feature ("Why betting against Australian housing keeps failing"). Six numbered sections of prose with 4 embedded interactive `@visx` dashboards. Data is **baked** (curated research arrays, no RPC). Pinned into the `/news` masthead as a "Featured investigation" card.
 2. **`/housing`** — a live **Australian House Prices Tracker** dashboard (BigStat tiles + capital-city medians + amber series charts), fed by a real ABS/RBA ingest pipeline (`house-price-collector` → `house_prices` table → `GetHousingOverview`/`GetHousePriceSeries` RPCs).
+3. **The suburb explorer** (`/housing` national states map → `/housing/[state]` suburb choropleth + list → `/housing/[state]/[suburb]` profile) — a national→state→suburb **choropleth drilldown** over real ABS TopoJSON boundaries, with a **"Colour by" metric toggle** across house price, ABS Census demographics + culture (religion/language/born-overseas), and **electoral representation** (federal + state member/party + two-party-preferred lean). One `suburb_demographics` table (keyed by ABS `sal_code`) → `ListStateSuburbs`/`GetSuburbProfile` RPCs. **LIVE on prod.**
 
 A **Tier-3 stealth crawl** of REA/Domain suburb medians exists in the collector but is **opt-in, anti-poisoning, licence-gated, and does not yet actually scrape** (Kasada/Akamai serve poison/403; no solver wired).
 
@@ -478,10 +479,16 @@ A **Tier-3 stealth crawl** of REA/Domain suburb medians exists in the collector 
 | `web/src/app/housing/page.tsx` | Live tracker SSR page (tiles + charts) |
 | `web/src/@/components/housing/` | `housing-tiles.tsx`, `housing-charts.tsx` (dynamic wrapper), `housing-series-chart.tsx` (live RPC + format-key) |
 | `web/src/app/actions/getHousing.ts` / `client/getHousingClient.ts` | SSR action (`cache()`+retry) / client action (session cache + backoff) |
-| `services/migrations/000053_add_house_prices.up.sql` | `house_price_regions`, `house_prices` (EAV), `house_price_ingest_runs`, `mv_housing_headline`, `refresh_housing_materialized_views()` |
-| `services/house-price-collector/` | `main.go` (`-mode official\|crawl\|refresh\|all`), `abs.go`, `rba.go`, `store.go`, `crawl*.go` |
+| `web/src/@/components/housing/choropleth-map.tsx` | Shared d3-geo/d3-zoom choropleth (continuous **or** categorical fill, `focusId` zoom-to-feature, `MAX_SCALE=48`, `non-scaling-stroke`) |
+| `web/src/@/components/housing/` (suburb) | `national-housing-map.tsx`, `state-suburb-explorer.tsx`, `state-suburb-map.tsx`, `suburb-tooltip.tsx`, `suburb-profile.tsx`, `categorical-legend.tsx`, `map-legend.tsx` |
+| `web/src/@/lib/housing/highlight-metrics.ts` | `HIGHLIGHT_METRICS` "Colour by" registry — continuous (amber/diverging `federal_lean`) + categorical (religion/language/`federal_party`/`state_party` palettes) |
+| `web/public/geo/{states.topojson,suburbs/<ST>.topojson}` | ABS ASGS 2021 boundaries (built by `web/scripts/geo/build-boundaries.mjs`) |
+| `web/public/geo/electorates/*.json` | Precomputed federal/state spatial-join output (see data-prep below) |
+| `web/scripts/geo/` | One-time data prep: `build-boundaries.mjs`, `join-electorates.mjs`, `join-sed.mjs`, `fetch-state-members.py` (+ `README.md`) |
+| `services/migrations/000053…000060` | `000053/054` price tracker (`house_prices` EAV + `mv_housing_headline` + licence gate); `000055` `suburb_demographics` + `house_price_regions.sal_code`; `000056` sal_code backfill; `000057` culture; `000058/059/060` federal/state-district/state-member electoral |
+| `services/house-price-collector/` | `main.go` (`-mode official\|census\|electorates\|crawl\|refresh\|all`), `abs.go`, `rba.go`, `census*.go`, `electorates.go`, `store.go`, `crawl*.go` |
 | `services/shorts/internal/services/shorts/house_prices.go` + `store/shorts/postgres_house_prices.go` | RPC handlers + queries |
-| `proto/shortedapi/shorts/v1alpha1/shorts.proto` | `GetHousingOverview` / `GetHousePriceSeries` |
+| `proto/shortedapi/shorts/v1alpha1/shorts.proto` | `GetHousingOverview` / `GetHousePriceSeries` / `ListStateSuburbs` / `GetSuburbProfile` (+ `ListHousingRegions`) |
 | `terraform/modules/house-price-collector/` | Cloud Run Job + monthly scheduler (built, **NOT yet wired** into envs/CI) |
 
 ### Data sources & live-vs-baked
@@ -489,6 +496,7 @@ A **Tier-3 stealth crawl** of REA/Domain suburb medians exists in the collector 
 - **LIVE** (collector fetches each run): ABS `RES_DWELL_ST` (mean_price, total_value — national+states), ABS `RES_DWELL` (median_price by dwelling for GCCSAs), ABS `RPPI` (price_index, but frozen at 2021-Q4 upstream), RBA `E2` (debt_to_income). All CC-BY-4.0.
 - **BAKED** (transcribed arrays in `data/series.ts`, only the feature uses these): BIS real HPI for AUS/JPN/USA/CHN (FRED, never fetched), OECD price-to-income, ABS Lending Indicators investor share, ATO negatively-geared landlords.
 - **CRAWL** (`source_licence='proprietary-tos-restricted'`, never republished): `crawl_rea`, `crawl_domain` — currently blocked, no values stored.
+- **SUBURB EXPLORER** (`suburb_demographics`, keyed by ABS `sal_code`): ABS Census 2021 GCP **SAL DataPack** (G01 birthplace/language, G02 medians, G13A–E language, G14 religion — `-mode census`); AEC 2025 election (boundaries + tally-room **event 31496** members + 2PP) + ABS `SED_2025` state districts, both joined to suburbs by **centroid point-in-polygon** in `web/scripts/geo/` (`-mode electorates`); state members from each state's Wikipedia "Members of the Legislative Assembly" table (`fetch-state-members.py`, 6 single-member states; TAS/ACT Hare-Clark → `state_member` NULL by design). All ABS/AEC CC-BY-4.0.
 
 ### Prod-ops gotchas
 
@@ -499,11 +507,14 @@ A **Tier-3 stealth crawl** of REA/Domain suburb medians exists in the collector 
 - **Functions can't cross the RSC boundary**: `housing-series-chart.tsx` passes a serializable `format="aud"|"percent"|"index"` key and looks up the formatter in a client-side `FORMATTERS` map — never pass a formatter function as a prop from the server page.
 - **Satori OG limitation**: `opengraph-image.tsx` uses `linear-gradient` (not sized `radial-gradient`, which satori can't parse) and Georgia/system fonts (no webfont). The `/news` featured card recreates the same bloom with a CSS `radial-gradient` (which is fine in the browser, just not in OG).
 - **MV refresh is decoupled**: `refresh_housing_materialized_views()` is separate from the daily shorts `refresh_all_materialized_views()`; the collector calls it post-ingest.
+- **Suburb explorer is manual-ingest**: `-mode census` needs `CENSUS_DATAPACK_PATH` (ABS GCP SAL zip) + `CENSUS_GEO_DIR` (the boundary TopoJSON, used as the authoritative `sal_code` registry); `-mode electorates` needs `ELECTORATES_DIR` (the committed `web/public/geo/electorates/*.json`). The boundary→suburb spatial join is **precomputed once** by the `web/scripts/geo/*.mjs` scripts — the collector only loads + upserts, no GIS at ingest time. After re-running `-mode census`, re-apply migration `000056` (the `house_price_regions.sal_code` backfill reads the now-populated `suburb_demographics`).
+- **Electoral data-prep landmines** (when refreshing after an election/redistribution): AEC boundary file casing (`O'connor`) differs from the results CSV (`O'Connor`) — match **case-insensitively**, keep the CSV name (skipping this drops ~950 suburbs); ABS SED names carry a `District (Region)` qualifier (`Bass (Launceston)`) that `join-sed.mjs` strips; party-abbreviation matching in `fetch-state-members.py` substring-matches surnames unless restricted to full party names (len>4) with abbreviations exact-only (`LNP`/`CLP`/`ON` are exact keys).
+- **Choropleth fill modes + no function props**: `choropleth-map.tsx` takes either `valueById`+`colorScale` (continuous) or `categoryById`+`categoryColor` (categorical — religion/language/party use **distinct colours per category, not gradients**). The metric is dispatched by a serializable `MetricKey` from `highlight-metrics.ts` — never pass a scale/formatter function across the RSC boundary (same rule as the price-tracker format-key). Suburb paths need `vector-effect: non-scaling-stroke` or the emphasis stroke swallows small suburbs at deep zoom.
 
 ### Pointers
 
-- Full architecture + extension recipes: `docs/housing-architecture.md`.
-- Adding a new feature dashboard, a new ABS measure/region, a new RPC, or wiring the feature charts to live data: see the "Future extensions" section of that doc.
+- Full architecture + extension recipes: `docs/housing-architecture.md` (§5 = the suburb explorer data model; §7 = data model & licensing; §9 = extension recipes).
+- Adding a new feature dashboard, a new ABS measure/region, a new RPC, wiring the feature charts to live data, **a new suburb-map highlight metric (recipe G), a new ABS Census measure (recipe H), or refreshing the electoral layer after an election (recipe I)**: see the "Future extensions" section of that doc.
 
 ## Twitter / X Automation
 
