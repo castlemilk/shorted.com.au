@@ -169,6 +169,13 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 			FederalParty: p.Summary.FederalParty, FederalPartyAb: p.Summary.FederalPartyAb,
 			FederalTppAlp: p.Summary.FederalTppAlp, StateDistrict: p.Summary.StateDistrict,
 			StateMember: p.Summary.StateMember, StateParty: p.Summary.StateParty, StatePartyAb: p.Summary.StatePartyAb,
+			Amenities: &shortsv1alpha1.SuburbAmenities{
+				SchoolsTotal: p.Summary.SchoolsTotal, SupermarketsTotal: p.Summary.SupermarketsTotal,
+				ColesCount: p.Summary.ColesCount, WoolworthsCount: p.Summary.WoolworthsCount,
+				AldiCount: p.Summary.AldiCount, IgaCount: p.Summary.IgaCount, PubsBars: p.Summary.PubsBars,
+				ParksCount: p.Summary.ParksCount, LibrariesCount: p.Summary.LibrariesCount,
+				NearestSupermarketKm: p.Summary.NearestSupermarketKm, AmenityDensityScore: p.Summary.AmenityDensityScore,
+			},
 		}
 		if p.Summary.LatestPeriod != nil {
 			summary.LatestPeriod = timestamppb.New(*p.Summary.LatestPeriod)

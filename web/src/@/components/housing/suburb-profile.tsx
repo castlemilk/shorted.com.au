@@ -139,6 +139,7 @@ export function SuburbProfile({
               ["Mortgage / month", d?.medianMonthlyMortgage ? fmtMoney(d.medianMonthlyMortgage) : "—"],
             ]} />
             {d ? <CultureStats d={d} /> : null}
+            {s.amenities ? <AmenitiesGroup a={s.amenities} /> : null}
             <FederalRep s={s} />
           </div>
 
@@ -211,6 +212,43 @@ function FederalRep({ s }: { s: Summary }) {
           <CultureRow label="State MP" value={s.stateMember ? `${fmtMemberName(s.stateMember)}${s.statePartyAb ? ` (${s.statePartyAb})` : ""}` : "—"} />
         </dl>
       </div>
+    </div>
+  );
+}
+
+function AmenitiesGroup({ a }: { a: NonNullable<Summary["amenities"]> }) {
+  // Nothing meaningful (un-ingested / no amenities) → skip the section.
+  if (!(a.schoolsTotal || a.supermarketsTotal || a.pubsBars || a.parksCount || a.librariesCount)) return null;
+  const brands = [
+    a.colesCount ? `${a.colesCount} Coles` : "",
+    a.woolworthsCount ? `${a.woolworthsCount} Woolworths` : "",
+    a.aldiCount ? `${a.aldiCount} Aldi` : "",
+    a.igaCount ? `${a.igaCount} IGA` : "",
+  ].filter(Boolean).join(" · ");
+  const stats: [string, string][] = [
+    ["Amenity score", a.amenityDensityScore > 0 ? `${Math.round(a.amenityDensityScore)}/100` : "—"],
+    ["Schools", `${a.schoolsTotal}`],
+    ["Supermarkets", `${a.supermarketsTotal}`],
+    ["Pubs & bars", `${a.pubsBars}`],
+    ["Parks", `${a.parksCount}`],
+    ["Libraries", `${a.librariesCount}`],
+    ["Nearest supermarket", a.nearestSupermarketKm > 0 ? `${a.nearestSupermarketKm.toFixed(1)} km` : "—"],
+  ];
+  return (
+    <div>
+      <h3 className="mb-2 font-serif text-sm text-muted-foreground">Local amenities</h3>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {stats.map(([label, value]) => (
+          <div key={label} className="rounded-lg border border-border bg-card p-4">
+            <div className="text-xs text-muted-foreground">{label}</div>
+            <div className="mt-1 font-mono text-lg tabular-nums text-foreground">{value}</div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        {brands ? <>Grocery mix: {brands}. </> : null}
+        <span className="opacity-70">Amenity counts via © OpenStreetMap contributors (ODbL).</span>
+      </p>
     </div>
   );
 }

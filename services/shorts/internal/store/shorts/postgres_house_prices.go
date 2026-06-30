@@ -258,6 +258,10 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE(d.federal_party, ''), COALESCE(d.federal_party_ab, ''),
 		       COALESCE(d.federal_tpp_alp, 0), COALESCE(d.state_district, ''),
 		       COALESCE(d.state_member, ''), COALESCE(d.state_party, ''), COALESCE(d.state_party_ab, ''),
+		       COALESCE(a.schools_total,0), COALESCE(a.supermarkets_total,0), COALESCE(a.coles_count,0),
+		       COALESCE(a.woolworths_count,0), COALESCE(a.aldi_count,0), COALESCE(a.iga_count,0),
+		       COALESCE(a.pubs_bars,0), COALESCE(a.parks_count,0), COALESCE(a.libraries_count,0),
+		       COALESCE(a.nearest_supermarket_km,0), COALESCE(a.amenity_density_score,0),
 		       COALESCE(d.median_weekly_per_income, 0), COALESCE(d.median_weekly_rent, 0),
 		       COALESCE(d.median_monthly_mortgage, 0), COALESCE(d.pct_owned_outright, 0),
 		       COALESCE(d.pct_owned_mortgage, 0), COALESCE(d.pct_rented, 0),
@@ -283,6 +287,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE((SELECT avg(median_weekly_hhd_income) FROM suburb_demographics), 0)
 		FROM suburb_demographics d
 		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
+		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
 		LEFT JOIN LATERAL (
 			SELECT hp.value, hp.period,
 			       (hp.value / NULLIF((
@@ -305,6 +310,8 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		&p.Summary.PctBornOverseas, &p.Summary.TopReligion, &p.Summary.TopLanguage, &p.Summary.PctTopLanguage,
 		&p.Summary.FederalDivision, &p.Summary.FederalMember, &p.Summary.FederalParty, &p.Summary.FederalPartyAb, &p.Summary.FederalTppAlp,
 		&p.Summary.StateDistrict, &p.Summary.StateMember, &p.Summary.StateParty, &p.Summary.StatePartyAb,
+		&p.Summary.SchoolsTotal, &p.Summary.SupermarketsTotal, &p.Summary.ColesCount, &p.Summary.WoolworthsCount, &p.Summary.AldiCount, &p.Summary.IgaCount,
+		&p.Summary.PubsBars, &p.Summary.ParksCount, &p.Summary.LibrariesCount, &p.Summary.NearestSupermarketKm, &p.Summary.AmenityDensityScore,
 		&p.MedianWeeklyPerIncome, &p.MedianWeeklyRent, &p.MedianMonthlyMortgage,
 		&p.PctOwnedOutright, &p.PctOwnedMortgage, &p.PctRented, &p.DwellingCount, &p.CensusYear,
 		&p.PctEnglishOnly, &p.PctTopReligion, &p.PctNoReligion,
