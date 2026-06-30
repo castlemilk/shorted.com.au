@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "all", "official | crawl | census | electorates | refresh | all")
+	mode := flag.String("mode", "all", "official | crawl | census | electorates | amenities | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -49,11 +49,34 @@ func main() {
 	case "electorates":
 		// AEC federal electoral representation, spatially joined per suburb.
 		runElectorates(ctx, pool)
+	case "amenities":
+		// Per-suburb amenity/lifestyle metrics, spatially joined offline
+		// (web/scripts/geo/join-amenities.mjs) and upserted into suburb_amenities.
+		runAmenities(ctx, pool)
 	case "refresh":
 		refresh(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want official|crawl|census|electorates|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|crawl|census|electorates|amenities|refresh|all)", *mode)
 	}
+}
+
+// runAmenities loads the precomputed per-suburb amenity metrics and upserts
+// them into suburb_amenities, recording the run cursor under "local_amenities".
+func runAmenities(ctx context.Context, pool *pgxpool.Pool) {
+	rows, err := ingestAmenities()
+	if err != nil {
+		log.Printf("[amenities] ingest error: %v", err)
+		_ = updateRun(ctx, pool, "local_amenities", nil, 0, "error", err.Error())
+		return
+	}
+	n, err := upsertAmenities(ctx, pool, rows)
+	if err != nil {
+		log.Printf("[amenities] upsert error after %d: %v", n, err)
+		_ = updateRun(ctx, pool, "local_amenities", nil, n, "error", err.Error())
+		return
+	}
+	log.Printf("[amenities] upserted %d", n)
+	_ = updateRun(ctx, pool, "local_amenities", nil, n, "ok", "")
 }
 
 // runElectorates loads the precomputed suburb→division join + division roll-up

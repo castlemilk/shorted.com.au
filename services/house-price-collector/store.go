@@ -200,3 +200,57 @@ func upsertElectorates(ctx context.Context, pool *pgxpool.Pool, rows []Electorat
 	}
 	return n, nil
 }
+
+// upsertAmenities idempotently writes one suburb_amenities row per suburb
+// (PK = sal_code). Nil pointer fields bind to NULL; explicit 0 counts persist.
+func upsertAmenities(ctx context.Context, pool *pgxpool.Pool, rows []AmenityRow) (int, error) {
+	const q = `
+		INSERT INTO suburb_amenities (
+			sal_code, schools_total, schools_primary, schools_secondary, schools_gov,
+			schools_catholic, schools_independent, nearest_secondary_km,
+			supermarkets_total, coles_count, woolworths_count, aldi_count, iga_count,
+			nearest_supermarket_km, pubs_bars, clubs, parks_count, green_space_ratio,
+			libraries_count, nearest_train_km, hospitals_count, gp_count, pharmacy_count,
+			nearest_hospital_km, dist_to_coast_km, grocery_access_score,
+			amenity_density_score, walkability_score, family_friendly_score, source, source_licence)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
+			$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
+		ON CONFLICT (sal_code) DO UPDATE SET
+			schools_total = EXCLUDED.schools_total, schools_primary = EXCLUDED.schools_primary,
+			schools_secondary = EXCLUDED.schools_secondary, schools_gov = EXCLUDED.schools_gov,
+			schools_catholic = EXCLUDED.schools_catholic, schools_independent = EXCLUDED.schools_independent,
+			nearest_secondary_km = EXCLUDED.nearest_secondary_km,
+			supermarkets_total = EXCLUDED.supermarkets_total, coles_count = EXCLUDED.coles_count,
+			woolworths_count = EXCLUDED.woolworths_count, aldi_count = EXCLUDED.aldi_count,
+			iga_count = EXCLUDED.iga_count, nearest_supermarket_km = EXCLUDED.nearest_supermarket_km,
+			pubs_bars = EXCLUDED.pubs_bars, clubs = EXCLUDED.clubs, parks_count = EXCLUDED.parks_count,
+			green_space_ratio = EXCLUDED.green_space_ratio, libraries_count = EXCLUDED.libraries_count,
+			nearest_train_km = EXCLUDED.nearest_train_km, hospitals_count = EXCLUDED.hospitals_count,
+			gp_count = EXCLUDED.gp_count, pharmacy_count = EXCLUDED.pharmacy_count,
+			nearest_hospital_km = EXCLUDED.nearest_hospital_km, dist_to_coast_km = EXCLUDED.dist_to_coast_km,
+			grocery_access_score = EXCLUDED.grocery_access_score,
+			amenity_density_score = EXCLUDED.amenity_density_score,
+			walkability_score = EXCLUDED.walkability_score,
+			family_friendly_score = EXCLUDED.family_friendly_score,
+			source = EXCLUDED.source, source_licence = EXCLUDED.source_licence, fetched_at = now()`
+	batch := &pgx.Batch{}
+	for _, r := range rows {
+		batch.Queue(q, r.SALCode, r.SchoolsTotal, r.SchoolsPrimary, r.SchoolsSecondary, r.SchoolsGov,
+			r.SchoolsCatholic, r.SchoolsIndependent, r.NearestSecondaryKm, r.SupermarketsTotal,
+			r.ColesCount, r.WoolworthsCount, r.AldiCount, r.IgaCount, r.NearestSupermarketKm,
+			r.PubsBars, r.Clubs, r.ParksCount, r.GreenSpaceRatio, r.LibrariesCount, r.NearestTrainKm,
+			r.HospitalsCount, r.GpCount, r.PharmacyCount, r.NearestHospitalKm, r.DistToCoastKm,
+			r.GroceryAccessScore, r.AmenityDensityScore, r.WalkabilityScore, r.FamilyFriendlyScore,
+			"local_insights", "mixed")
+	}
+	br := pool.SendBatch(ctx, batch)
+	defer func() { _ = br.Close() }()
+	n := 0
+	for range rows {
+		if _, err := br.Exec(); err != nil {
+			return n, err
+		}
+		n++
+	}
+	return n, nil
+}
