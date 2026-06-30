@@ -8,7 +8,8 @@ type Summary = {
   salName: string; postcode: string; latestMedianPrice: number; yoyPct: number;
   population: number; medianAge: number; medianWeeklyHhdIncome: number;
   pctBornOverseas?: number; topReligion?: string; topLanguage?: string; pctTopLanguage?: number;
-  federalDivision?: string; federalMember?: string; federalPartyAb?: string; stateDistrict?: string;
+  federalDivision?: string; federalMember?: string; federalPartyAb?: string;
+  stateDistrict?: string; stateMember?: string; statePartyAb?: string;
 };
 
 function fmtAUD(v: number) {
@@ -97,7 +98,14 @@ export function SuburbTooltip({
               </dd>
             </div>
           ) : null}
-          {summary.stateDistrict ? (
+          {summary.stateMember ? (
+            <div className="flex items-baseline justify-between gap-2">
+              <dt className="text-muted-foreground">State MP</dt>
+              <dd className="truncate text-right text-foreground">
+                {fmtName(summary.stateMember)}{summary.statePartyAb ? ` (${summary.statePartyAb})` : ""}
+              </dd>
+            </div>
+          ) : summary.stateDistrict ? (
             <div className="flex items-baseline justify-between gap-2">
               <dt className="text-muted-foreground">State seat</dt>
               <dd className="truncate text-right text-foreground">{summary.stateDistrict}</dd>

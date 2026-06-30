@@ -208,6 +208,7 @@ function FederalRep({ s }: { s: Summary }) {
           <CultureRow label="Federal MP" value={s.federalMember ? `${fmtMemberName(s.federalMember)}${s.federalPartyAb ? ` (${s.federalPartyAb})` : ""}` : "—"} />
           <CultureRow label="Two-party-preferred" value={lean} />
           <CultureRow label="State electorate" value={s.stateDistrict || "—"} />
+          <CultureRow label="State MP" value={s.stateMember ? `${fmtMemberName(s.stateMember)}${s.statePartyAb ? ` (${s.statePartyAb})` : ""}` : "—"} />
         </dl>
       </div>
     </div>

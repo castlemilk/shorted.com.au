@@ -135,6 +135,9 @@ type SuburbSummaryRow struct {
 	FederalPartyAb        string
 	FederalTppAlp         float64
 	StateDistrict         string
+	StateMember           string
+	StateParty            string
+	StatePartyAb          string
 }
 
 // SuburbProfileRow is the full per-suburb profile (demographics + headline price).
@@ -178,7 +181,8 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 		       COALESCE(d.top_language, ''), COALESCE(d.pct_top_language, 0),
 		       COALESCE(d.federal_division, ''), COALESCE(d.federal_member, ''),
 		       COALESCE(d.federal_party, ''), COALESCE(d.federal_party_ab, ''),
-		       COALESCE(d.federal_tpp_alp, 0), COALESCE(d.state_district, '')
+		       COALESCE(d.federal_tpp_alp, 0), COALESCE(d.state_district, ''),
+		       COALESCE(d.state_member, ''), COALESCE(d.state_party, ''), COALESCE(d.state_party_ab, '')
 		FROM suburb_demographics d
 		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
 		-- Latest median from house_prices directly (NOT the quarterly-only MV) so annual
@@ -211,7 +215,7 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 			&r.Population, &r.MedianAge, &r.MedianWeeklyHhdIncome, &r.RegionCode,
 			&r.PctBornOverseas, &r.TopReligion, &r.TopLanguage, &r.PctTopLanguage,
 			&r.FederalDivision, &r.FederalMember, &r.FederalParty, &r.FederalPartyAb, &r.FederalTppAlp,
-			&r.StateDistrict); err != nil {
+			&r.StateDistrict, &r.StateMember, &r.StateParty, &r.StatePartyAb); err != nil {
 			return nil, err
 		}
 		out = append(out, &r)
@@ -234,6 +238,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE(d.federal_division, ''), COALESCE(d.federal_member, ''),
 		       COALESCE(d.federal_party, ''), COALESCE(d.federal_party_ab, ''),
 		       COALESCE(d.federal_tpp_alp, 0), COALESCE(d.state_district, ''),
+		       COALESCE(d.state_member, ''), COALESCE(d.state_party, ''), COALESCE(d.state_party_ab, ''),
 		       COALESCE(d.median_weekly_per_income, 0), COALESCE(d.median_weekly_rent, 0),
 		       COALESCE(d.median_monthly_mortgage, 0), COALESCE(d.pct_owned_outright, 0),
 		       COALESCE(d.pct_owned_mortgage, 0), COALESCE(d.pct_rented, 0),
@@ -280,7 +285,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		&p.Summary.Population, &p.Summary.MedianAge, &p.Summary.MedianWeeklyHhdIncome, &p.Summary.RegionCode,
 		&p.Summary.PctBornOverseas, &p.Summary.TopReligion, &p.Summary.TopLanguage, &p.Summary.PctTopLanguage,
 		&p.Summary.FederalDivision, &p.Summary.FederalMember, &p.Summary.FederalParty, &p.Summary.FederalPartyAb, &p.Summary.FederalTppAlp,
-		&p.Summary.StateDistrict,
+		&p.Summary.StateDistrict, &p.Summary.StateMember, &p.Summary.StateParty, &p.Summary.StatePartyAb,
 		&p.MedianWeeklyPerIncome, &p.MedianWeeklyRent, &p.MedianMonthlyMortgage,
 		&p.PctOwnedOutright, &p.PctOwnedMortgage, &p.PctRented, &p.DwellingCount, &p.CensusYear,
 		&p.PctEnglishOnly, &p.PctTopReligion, &p.PctNoReligion,

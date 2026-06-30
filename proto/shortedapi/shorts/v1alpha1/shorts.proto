@@ -1645,7 +1645,10 @@ message SuburbSummary {
   string federal_party = 18;                 // member's party (full name)
   string federal_party_ab = 19;              // party abbreviation (palette key)
   double federal_tpp_alp = 20;               // 0..100 Labor two-party-preferred %
-  string state_district = 21;                // ABS State Electoral Division (member/party = follow-up)
+  string state_district = 21;                // ABS State Electoral Division
+  string state_member = 22;                  // state lower-house member ('' for Hare-Clark TAS/ACT)
+  string state_party = 23;                   // state member's party (full name)
+  string state_party_ab = 24;                // state party abbreviation (palette key)
 }
 
 message ListStateSuburbsResponse {

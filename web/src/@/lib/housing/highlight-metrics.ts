@@ -23,11 +23,12 @@ export type SuburbMetricInput = {
   pctTopLanguage: number;
   federalPartyAb: string; // '' if none — party holding the federal division
   federalTppAlp: number;  // 0..100 Labor two-party-preferred (0 = unknown)
+  statePartyAb: string;   // '' if none/Hare-Clark — party holding the state seat
 };
 
 export type MetricKey =
   | "price" | "population" | "age" | "income" | "born_overseas" | "religion" | "language"
-  | "federal_party" | "federal_lean";
+  | "federal_party" | "federal_lean" | "state_party";
 
 type Base = { key: MetricKey; label: string; legendLabel: string };
 
@@ -120,17 +121,19 @@ export function languageColor(cat: string): string {
 // --- Federal party palette (categorical) ---
 // AEC party abbreviation → readable label; the map colours by these labels.
 const PARTY_LABEL: Record<string, string> = {
-  ALP: "Labor", LP: "Liberal", LNP: "Liberal National", NP: "Nationals",
-  GRN: "Greens", IND: "Independent", KAP: "Katter's", XEN: "Centre Alliance",
+  ALP: "Labor", LP: "Liberal", LIB: "Liberal", LNP: "Liberal National",
+  NP: "Nationals", NAT: "Nationals", GRN: "Greens", IND: "Independent",
+  KAP: "Katter's", XEN: "Centre Alliance", ON: "One Nation", CLP: "Country Liberal",
 };
 export const PARTY_COLORS: Record<string, string> = {
   "Labor": "#d9544d", "Liberal": "#2f6fb0", "Liberal National": "#3f5e96",
   "Nationals": "#c79a3a", "Greens": "#5aa05a", "Independent": "#1fa89f",
-  "Katter's": "#9c6b4f", "Centre Alliance": "#d98a3d", "Other": C.stone,
+  "Katter's": "#9c6b4f", "Centre Alliance": "#d98a3d", "One Nation": "#e8842a",
+  "Country Liberal": "#7d5aa0", "Other": C.stone,
 };
 const PARTY_ORDER = [
-  "Labor", "Liberal", "Liberal National", "Nationals",
-  "Greens", "Independent", "Katter's", "Centre Alliance", "Other",
+  "Labor", "Liberal", "Liberal National", "Country Liberal", "Nationals",
+  "Greens", "Independent", "One Nation", "Katter's", "Centre Alliance", "Other",
 ];
 export function partyColor(label: string): string {
   return PARTY_COLORS[label] ?? C.stone;
@@ -195,6 +198,12 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
     value: (s) => (s.federalTppAlp > 0 ? s.federalTppAlp : null),
     format: (v) => `${Math.round(v)}%`,
     domain: [0, 100], makeScale: () => politicalLeanScale(),
+  },
+  {
+    kind: "categorical", key: "state_party", label: "State party",
+    legendLabel: "Party holding the state seat",
+    category: (s) => (s.statePartyAb ? (PARTY_LABEL[s.statePartyAb] ?? "Other") : null),
+    colorFor: partyColor, order: PARTY_ORDER,
   },
 ];
 

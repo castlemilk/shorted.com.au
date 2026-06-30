@@ -21,6 +21,7 @@ export type SuburbDatum = {
   pctBornOverseas: number; topReligion: string; topLanguage: string; pctTopLanguage: number;
   federalDivision: string; federalMember: string; federalParty: string;
   federalPartyAb: string; federalTppAlp: number; stateDistrict: string;
+  stateMember: string; stateParty: string; statePartyAb: string;
   regionCode?: string;
 };
 
