@@ -68,3 +68,21 @@ variable "enable_key_metrics_scheduler" {
   default     = false
 }
 
+variable "resend_secret_exists" {
+  description = "Whether the RESEND_API_KEY secret exists in Secret Manager. Gates binding the secret env (so apply doesn't fail before it's provisioned). The handler no-ops when the key is absent."
+  type        = bool
+  default     = false
+}
+
+variable "resend_to" {
+  description = "Recipient address for new-subscriber notification emails."
+  type        = string
+  default     = "ben.ebsworth@gmail.com"
+}
+
+variable "resend_from" {
+  description = "From address for new-subscriber notification emails (must be on a Resend-verified domain; shorted.com.au is SPF/DMARC-ready)."
+  type        = string
+  default     = "Shorted <notifications@shorted.com.au>"
+}
+
