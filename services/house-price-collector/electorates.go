@@ -30,13 +30,30 @@ type ElectorateRow struct {
 	FederalParty    string
 	FederalPartyAb  string
 	FederalTppAlp   *float64
-	StateDistrict   string // ABS State Electoral Division (member/party = follow-up)
+	StateDistrict   string // ABS State Electoral Division
+	StateMember     string // single-member states only (TAS/ACT Hare-Clark = '')
+	StateParty      string
+	StatePartyAb    string
 }
 
 // sedEntry is one suburb's state electoral division (from the SED spatial join).
 type sedEntry struct {
 	State    string `json:"state"`
 	District string `json:"district"`
+}
+
+// stateMember is one district's sitting state lower-house member.
+type stateMember struct {
+	Member  string `json:"member"`
+	Party   string `json:"party"`
+	PartyAb string `json:"partyAb"`
+}
+
+// absStateToCode maps the ABS state name (in the SED join) to our 2-3 letter code.
+var absStateToCode = map[string]string{
+	"New South Wales": "NSW", "Victoria": "VIC", "Queensland": "QLD",
+	"South Australia": "SA", "Western Australia": "WA", "Tasmania": "TAS",
+	"Northern Territory": "NT", "Australian Capital Territory": "ACT",
 }
 
 // electoratesDir resolves the committed electorate data dir (sibling of the
@@ -83,6 +100,11 @@ func ingestElectorates() ([]ElectorateRow, error) {
 	if err := readJSONFile(filepath.Join(dir, "suburb-sed.json"), &sed); err != nil {
 		return nil, err
 	}
+	// State member+party per district, keyed by state code → district.
+	stateMembers := map[string]map[string]stateMember{}
+	if err := readJSONFile(filepath.Join(dir, "state-members.json"), &stateMembers); err != nil {
+		return nil, err
+	}
 	// One row per suburb present in EITHER mapping.
 	byCode := make(map[string]*ElectorateRow, len(salToDiv))
 	get := func(sal string) *ElectorateRow {
@@ -110,7 +132,15 @@ func ingestElectorates() ([]ElectorateRow, error) {
 		}
 	}
 	for sal, e := range sed {
-		get(sal).StateDistrict = e.District
+		r := get(sal)
+		r.StateDistrict = e.District
+		if byDist, ok := stateMembers[absStateToCode[e.State]]; ok {
+			if m, ok := byDist[e.District]; ok {
+				r.StateMember = m.Member
+				r.StateParty = m.Party
+				r.StatePartyAb = m.PartyAb
+			}
+		}
 	}
 	rows := make([]ElectorateRow, 0, len(byCode))
 	for _, r := range byCode {

@@ -8788,7 +8788,10 @@ type SuburbSummary struct {
 	FederalParty    string  `protobuf:"bytes,18,opt,name=federal_party,json=federalParty,proto3" json:"federal_party,omitempty"`          // member's party (full name)
 	FederalPartyAb  string  `protobuf:"bytes,19,opt,name=federal_party_ab,json=federalPartyAb,proto3" json:"federal_party_ab,omitempty"`  // party abbreviation (palette key)
 	FederalTppAlp   float64 `protobuf:"fixed64,20,opt,name=federal_tpp_alp,json=federalTppAlp,proto3" json:"federal_tpp_alp,omitempty"`   // 0..100 Labor two-party-preferred %
-	StateDistrict   string  `protobuf:"bytes,21,opt,name=state_district,json=stateDistrict,proto3" json:"state_district,omitempty"`       // ABS State Electoral Division (member/party = follow-up)
+	StateDistrict   string  `protobuf:"bytes,21,opt,name=state_district,json=stateDistrict,proto3" json:"state_district,omitempty"`       // ABS State Electoral Division
+	StateMember     string  `protobuf:"bytes,22,opt,name=state_member,json=stateMember,proto3" json:"state_member,omitempty"`             // state lower-house member ('' for Hare-Clark TAS/ACT)
+	StateParty      string  `protobuf:"bytes,23,opt,name=state_party,json=stateParty,proto3" json:"state_party,omitempty"`                // state member's party (full name)
+	StatePartyAb    string  `protobuf:"bytes,24,opt,name=state_party_ab,json=statePartyAb,proto3" json:"state_party_ab,omitempty"`        // state party abbreviation (palette key)
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -8966,6 +8969,27 @@ func (x *SuburbSummary) GetFederalTppAlp() float64 {
 func (x *SuburbSummary) GetStateDistrict() string {
 	if x != nil {
 		return x.StateDistrict
+	}
+	return ""
+}
+
+func (x *SuburbSummary) GetStateMember() string {
+	if x != nil {
+		return x.StateMember
+	}
+	return ""
+}
+
+func (x *SuburbSummary) GetStateParty() string {
+	if x != nil {
+		return x.StateParty
+	}
+	return ""
+}
+
+func (x *SuburbSummary) GetStatePartyAb() string {
+	if x != nil {
+		return x.StatePartyAb
 	}
 	return ""
 }
@@ -10293,7 +10317,7 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\n" +
 	"state_code\x18\x01 \x01(\tR\tstateCode\x12\x14\n" +
 	"\x05query\x18\x02 \x01(\tR\x05query\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xaf\x06\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\x99\a\n" +
 	"\rSuburbSummary\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +
 	"\bsal_name\x18\x02 \x01(\tR\asalName\x12\x1d\n" +
@@ -10321,7 +10345,11 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\rfederal_party\x18\x12 \x01(\tR\ffederalParty\x12(\n" +
 	"\x10federal_party_ab\x18\x13 \x01(\tR\x0efederalPartyAb\x12&\n" +
 	"\x0ffederal_tpp_alp\x18\x14 \x01(\x01R\rfederalTppAlp\x12%\n" +
-	"\x0estate_district\x18\x15 \x01(\tR\rstateDistrict\"T\n" +
+	"\x0estate_district\x18\x15 \x01(\tR\rstateDistrict\x12!\n" +
+	"\fstate_member\x18\x16 \x01(\tR\vstateMember\x12\x1f\n" +
+	"\vstate_party\x18\x17 \x01(\tR\n" +
+	"stateParty\x12$\n" +
+	"\x0estate_party_ab\x18\x18 \x01(\tR\fstatePartyAb\"T\n" +
 	"\x18ListStateSuburbsResponse\x128\n" +
 	"\asuburbs\x18\x01 \x03(\v2\x1e.shorts.v1alpha1.SuburbSummaryR\asuburbs\"4\n" +
 	"\x17GetSuburbProfileRequest\x12\x19\n" +

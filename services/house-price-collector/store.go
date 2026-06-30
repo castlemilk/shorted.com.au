@@ -181,11 +181,13 @@ func upsertElectorates(ctx context.Context, pool *pgxpool.Pool, rows []Electorat
 	const q = `
 		UPDATE suburb_demographics SET
 			federal_division = $2, federal_member = $3, federal_party = $4,
-			federal_party_ab = $5, federal_tpp_alp = $6, state_district = $7, fetched_at = now()
+			federal_party_ab = $5, federal_tpp_alp = $6, state_district = $7,
+			state_member = $8, state_party = $9, state_party_ab = $10, fetched_at = now()
 		WHERE sal_code = $1`
 	batch := &pgx.Batch{}
 	for _, r := range rows {
-		batch.Queue(q, r.SALCode, r.FederalDivision, r.FederalMember, r.FederalParty, r.FederalPartyAb, r.FederalTppAlp, r.StateDistrict)
+		batch.Queue(q, r.SALCode, r.FederalDivision, r.FederalMember, r.FederalParty, r.FederalPartyAb,
+			r.FederalTppAlp, r.StateDistrict, r.StateMember, r.StateParty, r.StatePartyAb)
 	}
 	br := pool.SendBatch(ctx, batch)
 	defer func() { _ = br.Close() }()
