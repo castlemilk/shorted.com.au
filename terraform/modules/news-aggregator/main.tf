@@ -343,3 +343,49 @@ resource "google_cloud_scheduler_job" "news_aggregator_cluster" {
     google_cloud_run_v2_job_iam_member.scheduler_developer,
   ]
 }
+
+# Cloud Scheduler Job — weekly news digest. Runs the news-aggregator binary
+# with RUN_MODE=digest on Fridays at 01:00 UTC (~11 AM AEST), assembling the
+# past 7 days' top news (cluster primaries) + published editorial takes into a
+# draft 'news_digest' broadcast row. Idempotent on ISO week.
+resource "google_cloud_scheduler_job" "news_aggregator_digest" {
+  name             = "${local.service_name}-digest"
+  description      = "Weekly news digest: assemble draft broadcast for the current ISO week"
+  schedule         = "0 1 * * 5"
+  time_zone        = "UTC"
+  attempt_deadline = "600s"
+  region           = var.scheduler_region
+  project          = var.project_id
+
+  retry_config {
+    retry_count          = 1
+    max_retry_duration   = "1800s"
+    min_backoff_duration = "30s"
+    max_backoff_duration = "300s"
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.news_aggregator.name}:run"
+
+    oauth_token {
+      service_account_email = google_service_account.scheduler_invoker.email
+    }
+
+    body = base64encode(jsonencode({
+      overrides = {
+        container_overrides = [{
+          env = [
+            { name = "RUN_MODE", value = "digest" },
+          ]
+        }]
+      }
+    }))
+  }
+
+  depends_on = [
+    google_cloud_run_v2_job.news_aggregator,
+    google_cloud_run_v2_job_iam_member.scheduler_invoker,
+    google_cloud_run_v2_job_iam_member.scheduler_developer,
+  ]
+}
