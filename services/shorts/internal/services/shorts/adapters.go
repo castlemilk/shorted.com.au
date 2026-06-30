@@ -270,6 +270,11 @@ func (s *StoreAdapter) SetBroadcastStatus(id, status, errMsg string, recipientCo
 	return s.store.SetBroadcastStatus(id, status, errMsg, recipientCount)
 }
 
+// ClaimBroadcastForSending delegates to the underlying store.
+func (s *StoreAdapter) ClaimBroadcastForSending(id string) (bool, error) {
+	return s.store.ClaimBroadcastForSending(id)
+}
+
 // ListActiveSubscribers delegates to the underlying store.
 func (s *StoreAdapter) ListActiveSubscribers() ([]shorts.Subscriber, error) {
 	return s.store.ListActiveSubscribers()

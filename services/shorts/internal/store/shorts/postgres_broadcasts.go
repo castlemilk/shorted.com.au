@@ -71,6 +71,21 @@ func (s *postgresStore) GetBroadcast(id string) (*Broadcast, error) {
 	return &b, nil
 }
 
+// ClaimBroadcastForSending atomically flips a draft/failed broadcast to 'sending'.
+// Returns false if no row was claimable (already sent/sending, or missing) — prevents
+// concurrent double-sends.
+func (s *postgresStore) ClaimBroadcastForSending(id string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	ct, err := s.db.Exec(ctx, `
+		UPDATE broadcasts SET status = 'sending'
+		WHERE id = $1 AND status IN ('draft','failed')`, id)
+	if err != nil {
+		return false, err
+	}
+	return ct.RowsAffected() > 0, nil
+}
+
 func (s *postgresStore) SetBroadcastStatus(id, status, errMsg string, recipientCount int) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

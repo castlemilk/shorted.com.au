@@ -108,6 +108,7 @@ type ShortsStore interface {
 	ListBroadcasts(limit int) ([]shortsstore.Broadcast, error)
 	GetBroadcast(id string) (*shortsstore.Broadcast, error)
 	SetBroadcastStatus(id, status, errMsg string, recipientCount int) error
+	ClaimBroadcastForSending(id string) (bool, error)
 	ListActiveSubscribers() ([]shortsstore.Subscriber, error)
 
 	// Raw query access (used for Algolia sync)

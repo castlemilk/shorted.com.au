@@ -69,6 +69,7 @@ type Store interface {
 	ListBroadcasts(limit int) ([]Broadcast, error)
 	GetBroadcast(id string) (*Broadcast, error)
 	SetBroadcastStatus(id, status, errMsg string, recipientCount int) error
+	ClaimBroadcastForSending(id string) (bool, error)
 	ListActiveSubscribers() ([]Subscriber, error)
 	SearchStocks(string, int32) ([]*stockv1alpha1.Stock, error)
 	GetMarketByDate(date string, limit, offset int32) ([]*stockv1alpha1.Stock, int, error)

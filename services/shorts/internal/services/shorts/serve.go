@@ -594,13 +594,22 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			return
 		}
 		id := r.URL.Query().Get("id")
+		if id == "" {
+			http.Error(w, "missing id", http.StatusBadRequest)
+			return
+		}
 		b, err := s.store.GetBroadcast(id)
 		if err != nil {
 			http.Error(w, "broadcast not found", http.StatusNotFound)
 			return
 		}
-		if b.Status == "sent" || b.Status == "sending" {
-			http.Error(w, "broadcast already "+b.Status, http.StatusConflict)
+		claimed, err := s.store.ClaimBroadcastForSending(id)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if !claimed {
+			http.Error(w, "broadcast already sent or sending", http.StatusConflict)
 			return
 		}
 		subs, err := s.store.ListActiveSubscribers()
@@ -608,7 +617,6 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		_ = s.store.SetBroadcastStatus(id, "sending", "", 0)
 		cfg := broadcast.Config{
 			APIKey:            os.Getenv("RESEND_API_KEY"),
 			From:              envOr("BROADCAST_FROM", "Shorted <updates@shorted.com.au>"),
@@ -622,11 +630,15 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 		}
 		sent, sendErr := broadcast.Send(r.Context(), cfg, b.Subject, b.Subject, b.HTMLBody, b.TextBody, recips, register.SignUnsubscribeToken)
 		if sendErr != nil {
-			_ = s.store.SetBroadcastStatus(id, "failed", sendErr.Error(), sent)
+			if err := s.store.SetBroadcastStatus(id, "failed", sendErr.Error(), sent); err != nil {
+				log.Errorf("broadcast %s: failed to mark failed: %v", id, err)
+			}
 			http.Error(w, sendErr.Error(), http.StatusInternalServerError)
 			return
 		}
-		_ = s.store.SetBroadcastStatus(id, "sent", "", sent)
+		if err := s.store.SetBroadcastStatus(id, "sent", "", sent); err != nil {
+			log.Errorf("broadcast %s: failed to mark sent: %v", id, err)
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"sent": sent})
 	}))

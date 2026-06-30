@@ -650,6 +650,21 @@ func (mr *MockShortsStoreMockRecorder) SetBroadcastStatus(id, status, errMsg, re
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBroadcastStatus", reflect.TypeOf((*MockShortsStore)(nil).SetBroadcastStatus), id, status, errMsg, recipientCount)
 }
 
+// ClaimBroadcastForSending mocks base method.
+func (m *MockShortsStore) ClaimBroadcastForSending(id string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ClaimBroadcastForSending", id)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ClaimBroadcastForSending indicates an expected call of ClaimBroadcastForSending.
+func (mr *MockShortsStoreMockRecorder) ClaimBroadcastForSending(id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClaimBroadcastForSending", reflect.TypeOf((*MockShortsStore)(nil).ClaimBroadcastForSending), id)
+}
+
 // ListActiveSubscribers mocks base method.
 func (m *MockShortsStore) ListActiveSubscribers() ([]shorts.Subscriber, error) {
 	m.ctrl.T.Helper()
