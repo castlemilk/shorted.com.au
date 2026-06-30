@@ -28,7 +28,7 @@
 ## File Structure
 
 **Phase A**
-- Create: `services/migrations/000061_add_broadcasts.up.sql` / `.down.sql` — `subscriptions` ALTER + `broadcasts` table.
+- Create: `services/migrations/000065_add_broadcasts.up.sql` / `.down.sql` — `subscriptions` ALTER + `broadcasts` table.
 - Create: `services/shorts/internal/services/register/token.go` — HMAC unsubscribe token sign/verify.
 - Create: `services/shorts/internal/services/register/token_test.go`.
 - Modify: `proto/shortedapi/register/v1/register.proto` — add `Unsubscribe` RPC (PUBLIC).
@@ -62,12 +62,12 @@
 ### Task A1: Migration — subscriptions columns + broadcasts table
 
 **Files:**
-- Create: `services/migrations/000061_add_broadcasts.up.sql`
-- Create: `services/migrations/000061_add_broadcasts.down.sql`
+- Create: `services/migrations/000065_add_broadcasts.up.sql`
+- Create: `services/migrations/000065_add_broadcasts.down.sql`
 
 - [ ] **Step 1: Write the up migration**
 
-`services/migrations/000061_add_broadcasts.up.sql`:
+`services/migrations/000065_add_broadcasts.up.sql`:
 ```sql
 -- Mailing-list broadcasts + unsubscribe support.
 -- NOTE: written IF NOT EXISTS against the REAL prod subscriptions shape
@@ -106,7 +106,7 @@ COMMIT;
 
 - [ ] **Step 2: Write the down migration**
 
-`services/migrations/000061_add_broadcasts.down.sql`:
+`services/migrations/000065_add_broadcasts.down.sql`:
 ```sql
 BEGIN;
 DROP TABLE IF EXISTS broadcasts;
@@ -120,7 +120,7 @@ COMMIT;
 
 Run:
 ```bash
-cd services && psql "postgresql://admin:password@localhost:5438/shorts" -f migrations/000061_add_broadcasts.up.sql
+cd services && psql "postgresql://admin:password@localhost:5438/shorts" -f migrations/000065_add_broadcasts.up.sql
 psql "postgresql://admin:password@localhost:5438/shorts" -c "\d broadcasts" -c "\d subscriptions"
 ```
 Expected: `broadcasts` table exists; `subscriptions` shows `unsubscribed_at`, `created_at`.
@@ -128,7 +128,7 @@ Expected: `broadcasts` table exists; `subscriptions` shows `unsubscribed_at`, `c
 - [ ] **Step 4: Commit**
 
 ```bash
-git add services/migrations/000061_add_broadcasts.*.sql
+git add services/migrations/000065_add_broadcasts.*.sql
 git commit --no-verify -m "feat(broadcasts): migration — subscriptions unsubscribe cols + broadcasts table"
 ```
 
@@ -1419,10 +1419,10 @@ git commit --no-verify -m "feat(broadcasts): weekly Cloud Scheduler for news-dig
 ```bash
 openssl rand -hex 32 | tr -d '\n' | gcloud secrets create UNSUBSCRIBE_SECRET --data-file=- --replication-policy=automatic --project=rosy-clover-477102-t5 --account=ben@shorted.com.au
 ```
-- [ ] Apply migration 000061 to prod (session pooler 5432):
+- [ ] Apply migration 000065 to prod (session pooler 5432):
 ```bash
 PGURL=$(gcloud secrets versions access latest --secret=DATABASE_URL --project=rosy-clover-477102-t5 --account=ben@shorted.com.au | sed -E 's/:6543/:5432/')
-PGOPTIONS="-c statement_timeout=0" psql "$PGURL" -f services/migrations/000061_add_broadcasts.up.sql
+PGOPTIONS="-c statement_timeout=0" psql "$PGURL" -f services/migrations/000065_add_broadcasts.up.sql
 PGOPTIONS="-c statement_timeout=0" psql "$PGURL" -c "\d broadcasts" -c "\d subscriptions"
 ```
 
