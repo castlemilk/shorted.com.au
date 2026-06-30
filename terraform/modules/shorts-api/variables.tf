@@ -86,3 +86,21 @@ variable "resend_from" {
   default     = "Shorted <support@shorted.com.au>"
 }
 
+variable "unsubscribe_secret_exists" {
+  description = "Whether the UNSUBSCRIBE_SECRET secret exists in Secret Manager (gates the secret env binding)."
+  type        = bool
+  default     = false
+}
+
+variable "broadcast_from" {
+  description = "From header for newsletter broadcasts."
+  type        = string
+  default     = "Shorted <updates@shorted.com.au>"
+}
+
+variable "broadcast_reply_to" {
+  description = "Reply-To for newsletter broadcasts."
+  type        = string
+  default     = "support@shorted.com.au"
+}
+
