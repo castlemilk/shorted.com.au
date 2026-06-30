@@ -65,6 +65,11 @@ type Store interface {
 	// Newsletter / broadcasts
 	UnsubscribeByID(id string) error
 	GetSubscriberByID(id string) (email string, unsubscribedAt *time.Time, err error)
+	CreateBroadcastDraft(b Broadcast) (id string, err error)
+	ListBroadcasts(limit int) ([]Broadcast, error)
+	GetBroadcast(id string) (*Broadcast, error)
+	SetBroadcastStatus(id, status, errMsg string, recipientCount int) error
+	ListActiveSubscribers() ([]Subscriber, error)
 	SearchStocks(string, int32) ([]*stockv1alpha1.Stock, error)
 	GetMarketByDate(date string, limit, offset int32) ([]*stockv1alpha1.Stock, int, error)
 	GetAvailableDates(limit int, before string) ([]string, string, string, int, error)
@@ -164,6 +169,28 @@ type Store interface {
 
 	// Raw query access (used for Algolia sync)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) Row
+}
+
+// Broadcast represents a mailing-list broadcast stored in the database.
+// JSON tags are camelCase to match the admin REST conventions expected by the web TS client.
+type Broadcast struct {
+	ID             string     `json:"id"`
+	Type           string     `json:"type"`
+	Subject        string     `json:"subject"`
+	HTMLBody       string     `json:"htmlBody"`
+	TextBody       string     `json:"textBody"`
+	SourceRef      string     `json:"sourceRef"`
+	Status         string     `json:"status"`
+	RecipientCount int        `json:"recipientCount"`
+	Error          string     `json:"error"`
+	CreatedAt      time.Time  `json:"createdAt"`
+	SentAt         *time.Time `json:"sentAt"`
+}
+
+// Subscriber represents an active newsletter subscriber.
+type Subscriber struct {
+	ID    string `json:"id"`
+	Email string `json:"email"`
 }
 
 // StockPeopleBackfillRow represents a stock needing key_people enrichment
