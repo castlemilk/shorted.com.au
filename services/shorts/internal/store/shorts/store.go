@@ -64,7 +64,6 @@ type Store interface {
 	RegisterEmail(string) error
 	// Newsletter / broadcasts
 	UnsubscribeByID(id string) error
-	GetSubscriberByID(id string) (email string, unsubscribedAt *time.Time, err error)
 	CreateBroadcastDraft(b Broadcast) (id string, err error)
 	ListBroadcasts(limit int) ([]Broadcast, error)
 	GetBroadcast(id string) (*Broadcast, error)
