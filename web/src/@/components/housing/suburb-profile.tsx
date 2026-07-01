@@ -339,7 +339,7 @@ function SchoolSectorCard({ a }: { a: NonNullable<Summary["amenities"]> }) {
         ))}
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground opacity-70">
-        School sector via VIC &amp; QLD Departments of Education open data (CC BY 4.0). Coverage: VIC &amp; QLD.
+        School sector &amp; type: ACARA (Australian Curriculum, Assessment and Reporting Authority), School Location dataset.
       </p>
     </div>
   );

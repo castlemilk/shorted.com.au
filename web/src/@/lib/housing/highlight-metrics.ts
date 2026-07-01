@@ -291,7 +291,7 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
   },
   {
     kind: "categorical", key: "school_sector", label: "School sector",
-    legendLabel: "Dominant school sector (VIC & QLD)",
+    legendLabel: "Dominant school sector",
     category: (s) => {
       const g = s.schoolsGov, c = s.schoolsCatholic, i = s.schoolsIndependent;
       if (g + c + i <= 0) return null; // no sector data (uncovered state / no schools)
