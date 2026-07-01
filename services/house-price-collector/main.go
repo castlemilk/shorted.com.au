@@ -84,7 +84,10 @@ func runLGA(ctx context.Context, pool *pgxpool.Pool) {
 		_ = updateRun(ctx, pool, "abs_lga", nil, ns, "error", err.Error())
 		return
 	}
-	log.Printf("[lga] upserted %d councils + %d suburb links", nl, ns)
+	if err := refreshLGAPopulation(ctx, pool); err != nil {
+		log.Printf("[lga] population rollup failed: %v", err)
+	}
+	log.Printf("[lga] upserted %d councils + %d suburb links (+ population rollup)", nl, ns)
 	_ = updateRun(ctx, pool, "abs_lga", nil, ns, "ok", "")
 }
 

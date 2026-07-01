@@ -1719,6 +1719,7 @@ message LgaInfo {
   string lga_name = 2;
   string state_code = 3;
   double area_sqkm = 4;
+  int32  population = 5;            // summed from member-suburb Census populations
 }
 
 // A suburb with a similar demographic + amenity profile (feature-vector kNN).

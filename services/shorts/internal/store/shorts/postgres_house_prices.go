@@ -180,10 +180,11 @@ type SuburbProfileRow struct {
 	StateMedianHhdIncome    float64
 	NationalMedianHhdIncome float64
 	// council (LGA)
-	LgaCode     string
-	LgaName     string
-	LgaState    string
-	LgaAreaSqkm float64
+	LgaCode       string
+	LgaName       string
+	LgaState      string
+	LgaAreaSqkm   float64
+	LgaPopulation int32
 	// most-similar suburbs (feature-vector kNN — the knowledge-graph "similar_to")
 	Similar []SimilarSuburbRow
 }
@@ -312,7 +313,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE((SELECT avg(median_weekly_hhd_income) FROM suburb_demographics
 		                 WHERE state_code = d.state_code), 0),
 		       COALESCE((SELECT avg(median_weekly_hhd_income) FROM suburb_demographics), 0),
-		       COALESCE(lg.lga_code24,''), COALESCE(lg.lga_name,''), COALESCE(lg.state_code,''), COALESCE(lg.area_sqkm,0)
+		       COALESCE(lg.lga_code24,''), COALESCE(lg.lga_name,''), COALESCE(lg.state_code,''), COALESCE(lg.area_sqkm,0), COALESCE(lg.population,0)
 		FROM suburb_demographics d
 		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
 		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
@@ -347,7 +348,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		&p.PctOwnedOutright, &p.PctOwnedMortgage, &p.PctRented, &p.DwellingCount, &p.CensusYear,
 		&p.PctEnglishOnly, &p.PctTopReligion, &p.PctNoReligion,
 		&p.StateMedianPrice, &p.NationalMedianPrice, &p.StateMedianHhdIncome, &p.NationalMedianHhdIncome,
-		&p.LgaCode, &p.LgaName, &p.LgaState, &p.LgaAreaSqkm,
+		&p.LgaCode, &p.LgaName, &p.LgaState, &p.LgaAreaSqkm, &p.LgaPopulation,
 	); err != nil {
 		return nil, err
 	}

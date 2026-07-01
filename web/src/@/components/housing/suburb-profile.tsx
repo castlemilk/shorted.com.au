@@ -246,7 +246,9 @@ function CouncilCard({ c }: { c: Council }) {
       <div className="rounded-lg border border-border bg-card p-4">
         <dl className="grid grid-cols-1 gap-x-8 gap-y-2.5 text-sm sm:grid-cols-2">
           <CultureRow label="Council (LGA)" value={c.lgaName} />
+          <CultureRow label="Council population" value={c.population > 0 ? c.population.toLocaleString() : "—"} />
           <CultureRow label="Council area" value={c.areaSqkm > 0 ? `${Math.round(c.areaSqkm).toLocaleString()} km²` : "—"} />
+          <CultureRow label="Density" value={c.population > 0 && c.areaSqkm > 0 ? `${Math.round(c.population / c.areaSqkm).toLocaleString()}/km²` : "—"} />
         </dl>
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground opacity-70">Council boundary: ABS ASGS LGA 2024 (CC BY 4.0).</p>

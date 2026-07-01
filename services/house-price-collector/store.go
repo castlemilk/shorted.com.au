@@ -201,6 +201,19 @@ func upsertElectorates(ctx context.Context, pool *pgxpool.Pool, rows []Electorat
 	return n, nil
 }
 
+// refreshLGAPopulation derives each council's population by summing its member
+// suburbs' Census populations (SALs tile the LGA) — no external fetch needed.
+func refreshLGAPopulation(ctx context.Context, pool *pgxpool.Pool) error {
+	_, err := pool.Exec(ctx, `
+		UPDATE lga SET population = sub.pop FROM (
+			SELECT sl.lga_code24, SUM(sd.population)::int AS pop
+			FROM suburb_lga sl JOIN suburb_demographics sd ON sd.sal_code = sl.sal_code
+			WHERE sd.population IS NOT NULL
+			GROUP BY sl.lga_code24
+		) sub WHERE lga.lga_code24 = sub.lga_code24`)
+	return err
+}
+
 // upsertLGADimension writes the LGA (council) dimension rows.
 func upsertLGADimension(ctx context.Context, pool *pgxpool.Pool, rows []LGARow) (int, error) {
 	const q = `

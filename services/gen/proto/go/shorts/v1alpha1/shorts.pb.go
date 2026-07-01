@@ -9515,6 +9515,7 @@ type LgaInfo struct {
 	LgaName       string                 `protobuf:"bytes,2,opt,name=lga_name,json=lgaName,proto3" json:"lga_name,omitempty"`
 	StateCode     string                 `protobuf:"bytes,3,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`
 	AreaSqkm      float64                `protobuf:"fixed64,4,opt,name=area_sqkm,json=areaSqkm,proto3" json:"area_sqkm,omitempty"`
+	Population    int32                  `protobuf:"varint,5,opt,name=population,proto3" json:"population,omitempty"` // summed from member-suburb Census populations
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -9573,6 +9574,13 @@ func (x *LgaInfo) GetStateCode() string {
 func (x *LgaInfo) GetAreaSqkm() float64 {
 	if x != nil {
 		return x.AreaSqkm
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetPopulation() int32 {
+	if x != nil {
+		return x.Population
 	}
 	return 0
 }
@@ -10751,13 +10759,16 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x12state_median_price\x18\x01 \x01(\x01R\x10stateMedianPrice\x122\n" +
 	"\x15national_median_price\x18\x02 \x01(\x01R\x13nationalMedianPrice\x12B\n" +
 	"\x1estate_median_weekly_hhd_income\x18\x03 \x01(\x01R\x1astateMedianWeeklyHhdIncome\x12H\n" +
-	"!national_median_weekly_hhd_income\x18\x04 \x01(\x01R\x1dnationalMedianWeeklyHhdIncome\"{\n" +
+	"!national_median_weekly_hhd_income\x18\x04 \x01(\x01R\x1dnationalMedianWeeklyHhdIncome\"\x9b\x01\n" +
 	"\aLgaInfo\x12\x19\n" +
 	"\blga_code\x18\x01 \x01(\tR\algaCode\x12\x19\n" +
 	"\blga_name\x18\x02 \x01(\tR\algaName\x12\x1d\n" +
 	"\n" +
 	"state_code\x18\x03 \x01(\tR\tstateCode\x12\x1b\n" +
-	"\tarea_sqkm\x18\x04 \x01(\x01R\bareaSqkm\"\xd5\x01\n" +
+	"\tarea_sqkm\x18\x04 \x01(\x01R\bareaSqkm\x12\x1e\n" +
+	"\n" +
+	"population\x18\x05 \x01(\x05R\n" +
+	"population\"\xd5\x01\n" +
 	"\rSimilarSuburb\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +
 	"\bsal_name\x18\x02 \x01(\tR\asalName\x12\x1d\n" +
