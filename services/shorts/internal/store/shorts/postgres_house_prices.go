@@ -155,6 +155,9 @@ type SuburbSummaryRow struct {
 	PharmacyCount        int32
 	NearestTrainKm       float64
 	NearestHospitalKm    float64
+	// NBN connectivity (Local Insights)
+	DominantNbnTech          string
+	ConnectivityQualityScore float64
 }
 
 // SuburbProfileRow is the full per-suburb profile (demographics + headline price).
@@ -223,10 +226,12 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 		       COALESCE(a.pubs_bars,0), COALESCE(a.parks_count,0), COALESCE(a.libraries_count,0),
 		       COALESCE(a.nearest_supermarket_km,0), COALESCE(a.amenity_density_score,0),
 		       COALESCE(a.hospitals_count,0), COALESCE(a.gp_count,0), COALESCE(a.pharmacy_count,0),
-		       COALESCE(a.nearest_train_km,0), COALESCE(a.nearest_hospital_km,0)
+		       COALESCE(a.nearest_train_km,0), COALESCE(a.nearest_hospital_km,0),
+		       COALESCE(c.dominant_nbn_tech,''), COALESCE(c.connectivity_quality_score,0)
 		FROM suburb_demographics d
 		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
 		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
+		LEFT JOIN suburb_connectivity c ON c.sal_code = d.sal_code
 		-- Latest median from house_prices directly (NOT the quarterly-only MV) so annual
 		-- Valuer-General states (VIC) light up too; YoY computed vs the obs ~1yr prior.
 		LEFT JOIN LATERAL (
@@ -260,7 +265,8 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 			&r.StateDistrict, &r.StateMember, &r.StateParty, &r.StatePartyAb,
 			&r.SchoolsTotal, &r.SupermarketsTotal, &r.ColesCount, &r.WoolworthsCount, &r.AldiCount, &r.IgaCount,
 			&r.PubsBars, &r.ParksCount, &r.LibrariesCount, &r.NearestSupermarketKm, &r.AmenityDensityScore,
-			&r.HospitalsCount, &r.GpCount, &r.PharmacyCount, &r.NearestTrainKm, &r.NearestHospitalKm); err != nil {
+			&r.HospitalsCount, &r.GpCount, &r.PharmacyCount, &r.NearestTrainKm, &r.NearestHospitalKm,
+			&r.DominantNbnTech, &r.ConnectivityQualityScore); err != nil {
 			return nil, err
 		}
 		out = append(out, &r)
@@ -290,6 +296,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE(a.nearest_supermarket_km,0), COALESCE(a.amenity_density_score,0),
 		       COALESCE(a.hospitals_count,0), COALESCE(a.gp_count,0), COALESCE(a.pharmacy_count,0),
 		       COALESCE(a.nearest_train_km,0), COALESCE(a.nearest_hospital_km,0),
+		       COALESCE(c.dominant_nbn_tech,''), COALESCE(c.connectivity_quality_score,0),
 		       COALESCE(d.median_weekly_per_income, 0), COALESCE(d.median_weekly_rent, 0),
 		       COALESCE(d.median_monthly_mortgage, 0), COALESCE(d.pct_owned_outright, 0),
 		       COALESCE(d.pct_owned_mortgage, 0), COALESCE(d.pct_rented, 0),
@@ -317,6 +324,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		FROM suburb_demographics d
 		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
 		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
+		LEFT JOIN suburb_connectivity c ON c.sal_code = d.sal_code
 		LEFT JOIN suburb_lga sl ON sl.sal_code = d.sal_code
 		LEFT JOIN lga lg ON lg.lga_code24 = sl.lga_code24
 		LEFT JOIN LATERAL (
@@ -344,6 +352,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		&p.Summary.SchoolsTotal, &p.Summary.SupermarketsTotal, &p.Summary.ColesCount, &p.Summary.WoolworthsCount, &p.Summary.AldiCount, &p.Summary.IgaCount,
 		&p.Summary.PubsBars, &p.Summary.ParksCount, &p.Summary.LibrariesCount, &p.Summary.NearestSupermarketKm, &p.Summary.AmenityDensityScore,
 		&p.Summary.HospitalsCount, &p.Summary.GpCount, &p.Summary.PharmacyCount, &p.Summary.NearestTrainKm, &p.Summary.NearestHospitalKm,
+		&p.Summary.DominantNbnTech, &p.Summary.ConnectivityQualityScore,
 		&p.MedianWeeklyPerIncome, &p.MedianWeeklyRent, &p.MedianMonthlyMortgage,
 		&p.PctOwnedOutright, &p.PctOwnedMortgage, &p.PctRented, &p.DwellingCount, &p.CensusYear,
 		&p.PctEnglishOnly, &p.PctTopReligion, &p.PctNoReligion,

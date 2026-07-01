@@ -139,7 +139,7 @@ export function SuburbProfile({
               ["Mortgage / month", d?.medianMonthlyMortgage ? fmtMoney(d.medianMonthlyMortgage) : "—"],
             ]} />
             {d ? <CultureStats d={d} /> : null}
-            {s.amenities ? <AmenitiesGroup a={s.amenities} /> : null}
+            {s.amenities ? <AmenitiesGroup a={s.amenities} nbn={s.dominantNbnTech} /> : null}
             {data.council?.lgaName ? <CouncilCard c={data.council} /> : null}
             <FederalRep s={s} />
           </div>
@@ -256,7 +256,7 @@ function CouncilCard({ c }: { c: Council }) {
   );
 }
 
-function AmenitiesGroup({ a }: { a: NonNullable<Summary["amenities"]> }) {
+function AmenitiesGroup({ a, nbn }: { a: NonNullable<Summary["amenities"]>; nbn?: string }) {
   // Nothing meaningful (un-ingested / no amenities) → skip the section.
   if (!(a.schoolsTotal || a.supermarketsTotal || a.pubsBars || a.parksCount || a.librariesCount)) return null;
   const brands = [
@@ -278,6 +278,7 @@ function AmenitiesGroup({ a }: { a: NonNullable<Summary["amenities"]> }) {
     ["Nearest supermarket", a.nearestSupermarketKm > 0 ? `${a.nearestSupermarketKm.toFixed(1)} km` : "—"],
     ["Nearest train", a.nearestTrainKm > 0 ? `${a.nearestTrainKm.toFixed(1)} km` : "—"],
     ["Nearest hospital", a.nearestHospitalKm > 0 ? `${a.nearestHospitalKm.toFixed(1)} km` : "—"],
+    ...(nbn ? [["NBN", nbn] as [string, string]] : []),
   ];
   return (
     <div>

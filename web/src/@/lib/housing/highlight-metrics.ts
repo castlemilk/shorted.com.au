@@ -32,12 +32,13 @@ export type SuburbMetricInput = {
   amenityDensityScore: number; // 0..100
   gpCount: number;
   nearestTrainKm: number;
+  dominantNbnTech: string; // '' | Fixed Line | Fixed Wireless | Satellite
 };
 
 export type MetricKey =
   | "price" | "population" | "age" | "income" | "born_overseas" | "religion" | "language"
   | "federal_party" | "federal_lean" | "state_party"
-  | "amenity_density" | "supermarkets" | "pubs" | "grocery" | "healthcare" | "nearest_train";
+  | "amenity_density" | "supermarkets" | "pubs" | "grocery" | "healthcare" | "nearest_train" | "nbn";
 
 type Base = { key: MetricKey; label: string; legendLabel: string };
 
@@ -161,6 +162,17 @@ export function groceryColor(cat: string): string {
   return GROCERY_COLORS[cat] ?? C.stone;
 }
 
+// --- NBN technology palette (categorical, tech-tier coloured) ---
+export const NBN_COLORS: Record<string, string> = {
+  "Fixed Line": C.teal,       // best (FTTP/HFC/FTTC/FTTN)
+  "Fixed Wireless": C.gold,   // middle
+  "Satellite": C.clay,        // remote / lowest
+};
+const NBN_ORDER = ["Fixed Line", "Fixed Wireless", "Satellite"];
+export function nbnColor(cat: string): string {
+  return NBN_COLORS[cat] ?? C.stone;
+}
+
 export const HIGHLIGHT_METRICS: HighlightMetric[] = [
   {
     kind: "continuous", key: "price", label: "Median house price",
@@ -269,6 +281,12 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
     legendLabel: "Distance to nearest train station (km)",
     value: (s) => (s.population > 0 && s.nearestTrainKm > 0 ? s.nearestTrainKm : null),
     format: (v) => `${v.toFixed(1)} km`, sqrt: true,
+  },
+  {
+    kind: "categorical", key: "nbn", label: "NBN technology",
+    legendLabel: "Dominant NBN technology",
+    category: (s) => s.dominantNbnTech || null,
+    colorFor: nbnColor, order: NBN_ORDER,
   },
 ];
 

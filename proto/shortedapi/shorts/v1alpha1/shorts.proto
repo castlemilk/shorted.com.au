@@ -1673,6 +1673,9 @@ message SuburbSummary {
   string state_party_ab = 24;                // state party abbreviation (palette key)
   // Amenity/lifestyle metrics (Local Insights); null/absent until ingested.
   SuburbAmenities amenities = 25;
+  // NBN connectivity (Local Insights); '' until ingested.
+  string dominant_nbn_tech = 26;             // Fixed Line | Fixed Wireless | Satellite
+  double connectivity_quality_score = 27;    // 0..100 (tech-tier proxy)
 }
 
 message ListStateSuburbsResponse {

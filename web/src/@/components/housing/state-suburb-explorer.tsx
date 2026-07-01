@@ -50,6 +50,7 @@ export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
       hospitalsCount: s.amenities?.hospitalsCount ?? 0, gpCount: s.amenities?.gpCount ?? 0,
       pharmacyCount: s.amenities?.pharmacyCount ?? 0,
       nearestTrainKm: s.amenities?.nearestTrainKm ?? 0, nearestHospitalKm: s.amenities?.nearestHospitalKm ?? 0,
+      dominantNbnTech: s.dominantNbnTech, connectivityQualityScore: s.connectivityQualityScore,
     })),
     [data],
   );

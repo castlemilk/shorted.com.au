@@ -124,6 +124,7 @@ func (s *ShortsServer) ListStateSuburbs(ctx context.Context, req *connect.Reques
 				FederalParty: r.FederalParty, FederalPartyAb: r.FederalPartyAb,
 				FederalTppAlp: r.FederalTppAlp, StateDistrict: r.StateDistrict,
 				StateMember: r.StateMember, StateParty: r.StateParty, StatePartyAb: r.StatePartyAb,
+				DominantNbnTech: r.DominantNbnTech, ConnectivityQualityScore: r.ConnectivityQualityScore,
 				Amenities: &shortsv1alpha1.SuburbAmenities{
 					SchoolsTotal: r.SchoolsTotal, SupermarketsTotal: r.SupermarketsTotal,
 					ColesCount: r.ColesCount, WoolworthsCount: r.WoolworthsCount,
@@ -171,6 +172,7 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 			FederalParty: p.Summary.FederalParty, FederalPartyAb: p.Summary.FederalPartyAb,
 			FederalTppAlp: p.Summary.FederalTppAlp, StateDistrict: p.Summary.StateDistrict,
 			StateMember: p.Summary.StateMember, StateParty: p.Summary.StateParty, StatePartyAb: p.Summary.StatePartyAb,
+			DominantNbnTech: p.Summary.DominantNbnTech, ConnectivityQualityScore: p.Summary.ConnectivityQualityScore,
 			Amenities: &shortsv1alpha1.SuburbAmenities{
 				SchoolsTotal: p.Summary.SchoolsTotal, SupermarketsTotal: p.Summary.SupermarketsTotal,
 				ColesCount: p.Summary.ColesCount, WoolworthsCount: p.Summary.WoolworthsCount,

@@ -8960,9 +8960,12 @@ type SuburbSummary struct {
 	StateParty      string  `protobuf:"bytes,23,opt,name=state_party,json=stateParty,proto3" json:"state_party,omitempty"`                // state member's party (full name)
 	StatePartyAb    string  `protobuf:"bytes,24,opt,name=state_party_ab,json=statePartyAb,proto3" json:"state_party_ab,omitempty"`        // state party abbreviation (palette key)
 	// Amenity/lifestyle metrics (Local Insights); null/absent until ingested.
-	Amenities     *SuburbAmenities `protobuf:"bytes,25,opt,name=amenities,proto3" json:"amenities,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Amenities *SuburbAmenities `protobuf:"bytes,25,opt,name=amenities,proto3" json:"amenities,omitempty"`
+	// NBN connectivity (Local Insights); ” until ingested.
+	DominantNbnTech          string  `protobuf:"bytes,26,opt,name=dominant_nbn_tech,json=dominantNbnTech,proto3" json:"dominant_nbn_tech,omitempty"`                              // Fixed Line | Fixed Wireless | Satellite
+	ConnectivityQualityScore float64 `protobuf:"fixed64,27,opt,name=connectivity_quality_score,json=connectivityQualityScore,proto3" json:"connectivity_quality_score,omitempty"` // 0..100 (tech-tier proxy)
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *SuburbSummary) Reset() {
@@ -9168,6 +9171,20 @@ func (x *SuburbSummary) GetAmenities() *SuburbAmenities {
 		return x.Amenities
 	}
 	return nil
+}
+
+func (x *SuburbSummary) GetDominantNbnTech() string {
+	if x != nil {
+		return x.DominantNbnTech
+	}
+	return ""
+}
+
+func (x *SuburbSummary) GetConnectivityQualityScore() float64 {
+	if x != nil {
+		return x.ConnectivityQualityScore
+	}
+	return 0
 }
 
 type ListStateSuburbsResponse struct {
@@ -10692,7 +10709,7 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\bgp_count\x18\r \x01(\x05R\agpCount\x12%\n" +
 	"\x0epharmacy_count\x18\x0e \x01(\x05R\rpharmacyCount\x12(\n" +
 	"\x10nearest_train_km\x18\x0f \x01(\x01R\x0enearestTrainKm\x12.\n" +
-	"\x13nearest_hospital_km\x18\x10 \x01(\x01R\x11nearestHospitalKm\"\xd9\a\n" +
+	"\x13nearest_hospital_km\x18\x10 \x01(\x01R\x11nearestHospitalKm\"\xc3\b\n" +
 	"\rSuburbSummary\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +
 	"\bsal_name\x18\x02 \x01(\tR\asalName\x12\x1d\n" +
@@ -10725,7 +10742,9 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\vstate_party\x18\x17 \x01(\tR\n" +
 	"stateParty\x12$\n" +
 	"\x0estate_party_ab\x18\x18 \x01(\tR\fstatePartyAb\x12>\n" +
-	"\tamenities\x18\x19 \x01(\v2 .shorts.v1alpha1.SuburbAmenitiesR\tamenities\"T\n" +
+	"\tamenities\x18\x19 \x01(\v2 .shorts.v1alpha1.SuburbAmenitiesR\tamenities\x12*\n" +
+	"\x11dominant_nbn_tech\x18\x1a \x01(\tR\x0fdominantNbnTech\x12<\n" +
+	"\x1aconnectivity_quality_score\x18\x1b \x01(\x01R\x18connectivityQualityScore\"T\n" +
 	"\x18ListStateSuburbsResponse\x128\n" +
 	"\asuburbs\x18\x01 \x03(\v2\x1e.shorts.v1alpha1.SuburbSummaryR\asuburbs\"4\n" +
 	"\x17GetSuburbProfileRequest\x12\x19\n" +
