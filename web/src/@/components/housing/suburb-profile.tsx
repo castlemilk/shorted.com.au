@@ -249,9 +249,11 @@ function CouncilCard({ c }: { c: Council }) {
           <CultureRow label="Council population" value={c.population > 0 ? c.population.toLocaleString() : "—"} />
           <CultureRow label="Council area" value={c.areaSqkm > 0 ? `${Math.round(c.areaSqkm).toLocaleString()} km²` : "—"} />
           <CultureRow label="Density" value={c.population > 0 && c.areaSqkm > 0 ? `${Math.round(c.population / c.areaSqkm).toLocaleString()}/km²` : "—"} />
+          <CultureRow label="Federal grants" value={c.fedFagAud > 0 ? `${fmtAUD(c.fedFagAud)}/yr${c.fedFagYear ? ` (${c.fedFagYear})` : ""}` : "—"} />
+          <CultureRow label="Grants per resident" value={c.fedFagAud > 0 && c.population > 0 ? `$${Math.round(c.fedFagAud / c.population).toLocaleString()}/yr` : "—"} />
         </dl>
       </div>
-      <p className="mt-2 text-[11px] text-muted-foreground opacity-70">Council boundary: ABS ASGS LGA 2024 (CC BY 4.0).</p>
+      <p className="mt-2 text-[11px] text-muted-foreground opacity-70">Council boundary: ABS ASGS LGA 2024. Federal grants: Financial Assistance Grants, Dept of Infrastructure. Both CC BY 4.0.</p>
     </div>
   );
 }

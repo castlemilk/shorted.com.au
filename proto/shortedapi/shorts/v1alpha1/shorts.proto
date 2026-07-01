@@ -1723,6 +1723,8 @@ message LgaInfo {
   string state_code = 3;
   double area_sqkm = 4;
   int32  population = 5;            // summed from member-suburb Census populations
+  double fed_fag_aud = 6;          // federal Financial Assistance Grant (latest yr), AUD; 0 if unmatched
+  string fed_fag_year = 7;         // e.g. '2025-26'
 }
 
 // A suburb with a similar demographic + amenity profile (feature-vector kNN).
