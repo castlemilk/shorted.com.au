@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "all", "official | crawl | census | electorates | amenities | refresh | all")
+	mode := flag.String("mode", "all", "official | crawl | census | electorates | amenities | lga | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -53,11 +53,39 @@ func main() {
 		// Per-suburb amenity/lifestyle metrics, spatially joined offline
 		// (web/scripts/geo/join-amenities.mjs) and upserted into suburb_amenities.
 		runAmenities(ctx, pool)
+	case "lga":
+		// Council/LGA dimension + suburb→council bridge (ABS LGA_2024 PiP join).
+		runLGA(ctx, pool)
 	case "refresh":
 		refresh(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want official|crawl|census|electorates|amenities|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|crawl|census|electorates|amenities|lga|refresh|all)", *mode)
 	}
+}
+
+// runLGA loads the precomputed council dimension + suburb→council bridge and
+// upserts them (lga + suburb_lga), recording the run cursor under "abs_lga".
+func runLGA(ctx context.Context, pool *pgxpool.Pool) {
+	lgas, subs, err := ingestLGA()
+	if err != nil {
+		log.Printf("[lga] ingest error: %v", err)
+		_ = updateRun(ctx, pool, "abs_lga", nil, 0, "error", err.Error())
+		return
+	}
+	nl, err := upsertLGADimension(ctx, pool, lgas)
+	if err != nil {
+		log.Printf("[lga] dimension upsert error after %d: %v", nl, err)
+		_ = updateRun(ctx, pool, "abs_lga", nil, nl, "error", err.Error())
+		return
+	}
+	ns, err := upsertSuburbLGA(ctx, pool, subs)
+	if err != nil {
+		log.Printf("[lga] bridge upsert error after %d: %v", ns, err)
+		_ = updateRun(ctx, pool, "abs_lga", nil, ns, "error", err.Error())
+		return
+	}
+	log.Printf("[lga] upserted %d councils + %d suburb links", nl, ns)
+	_ = updateRun(ctx, pool, "abs_lga", nil, ns, "ok", "")
 }
 
 // runAmenities loads the precomputed per-suburb amenity metrics and upserts

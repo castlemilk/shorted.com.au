@@ -201,6 +201,51 @@ func upsertElectorates(ctx context.Context, pool *pgxpool.Pool, rows []Electorat
 	return n, nil
 }
 
+// upsertLGADimension writes the LGA (council) dimension rows.
+func upsertLGADimension(ctx context.Context, pool *pgxpool.Pool, rows []LGARow) (int, error) {
+	const q = `
+		INSERT INTO lga (lga_code24, lga_name, state_code, area_sqkm)
+		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (lga_code24) DO UPDATE SET
+			lga_name = EXCLUDED.lga_name, state_code = EXCLUDED.state_code,
+			area_sqkm = EXCLUDED.area_sqkm, fetched_at = now()`
+	batch := &pgx.Batch{}
+	for _, r := range rows {
+		batch.Queue(q, r.Code, r.Name, r.StateCode, r.AreaSqkm)
+	}
+	br := pool.SendBatch(ctx, batch)
+	defer func() { _ = br.Close() }()
+	n := 0
+	for range rows {
+		if _, err := br.Exec(); err != nil {
+			return n, err
+		}
+		n++
+	}
+	return n, nil
+}
+
+// upsertSuburbLGA writes the suburb→dominant-council bridge.
+func upsertSuburbLGA(ctx context.Context, pool *pgxpool.Pool, rows []SuburbLGARow) (int, error) {
+	const q = `
+		INSERT INTO suburb_lga (sal_code, lga_code24) VALUES ($1, $2)
+		ON CONFLICT (sal_code) DO UPDATE SET lga_code24 = EXCLUDED.lga_code24`
+	batch := &pgx.Batch{}
+	for _, r := range rows {
+		batch.Queue(q, r.SALCode, r.LGACode)
+	}
+	br := pool.SendBatch(ctx, batch)
+	defer func() { _ = br.Close() }()
+	n := 0
+	for range rows {
+		if _, err := br.Exec(); err != nil {
+			return n, err
+		}
+		n++
+	}
+	return n, nil
+}
+
 // upsertAmenities idempotently writes one suburb_amenities row per suburb
 // (PK = sal_code). Nil pointer fields bind to NULL; explicit 0 counts persist.
 func upsertAmenities(ctx context.Context, pool *pgxpool.Pool, rows []AmenityRow) (int, error) {
