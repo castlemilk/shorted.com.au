@@ -218,6 +218,8 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 			Council: &shortsv1alpha1.LgaInfo{
 				LgaCode: p.LgaCode, LgaName: p.LgaName, StateCode: p.LgaState, AreaSqkm: p.LgaAreaSqkm,
 				Population: p.LgaPopulation, FedFagAud: p.LgaFagAud, FedFagYear: p.LgaFagYear,
+				AvgRates: p.LgaAvgRates, OpSurplusRatio: p.LgaOpSurplusRatio,
+				AssetRenewalRatio: p.LgaAssetRenewalRatio, FinSource: p.LgaFinSource, FinYear: p.LgaFinYear,
 			},
 			Similar: similar,
 		}, nil

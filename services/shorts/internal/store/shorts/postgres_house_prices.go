@@ -191,6 +191,12 @@ type SuburbProfileRow struct {
 	LgaPopulation int32
 	LgaFagAud     float64
 	LgaFagYear    string
+	// per-council financials (VIC LGPRF; 0/'' for states not yet sourced)
+	LgaAvgRates          float64
+	LgaOpSurplusRatio    float64
+	LgaAssetRenewalRatio float64
+	LgaFinSource         string
+	LgaFinYear           string
 	// most-similar suburbs (feature-vector kNN — the knowledge-graph "similar_to")
 	Similar []SimilarSuburbRow
 }
@@ -327,7 +333,9 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		                 WHERE state_code = d.state_code), 0),
 		       COALESCE((SELECT avg(median_weekly_hhd_income) FROM suburb_demographics), 0),
 		       COALESCE(lg.lga_code24,''), COALESCE(lg.lga_name,''), COALESCE(lg.state_code,''), COALESCE(lg.area_sqkm,0), COALESCE(lg.population,0),
-		       COALESCE(lg.fed_fag_aud,0), COALESCE(lg.fed_fag_year,'')
+		       COALESCE(lg.fed_fag_aud,0), COALESCE(lg.fed_fag_year,''),
+		       COALESCE(lg.avg_rates,0), COALESCE(lg.op_surplus_ratio,0), COALESCE(lg.asset_renewal_ratio,0),
+		       COALESCE(lg.fin_source,''), COALESCE(lg.fin_year,'')
 		FROM suburb_demographics d
 		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
 		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
@@ -367,6 +375,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		&p.StateMedianPrice, &p.NationalMedianPrice, &p.StateMedianHhdIncome, &p.NationalMedianHhdIncome,
 		&p.LgaCode, &p.LgaName, &p.LgaState, &p.LgaAreaSqkm, &p.LgaPopulation,
 		&p.LgaFagAud, &p.LgaFagYear,
+		&p.LgaAvgRates, &p.LgaOpSurplusRatio, &p.LgaAssetRenewalRatio, &p.LgaFinSource, &p.LgaFinYear,
 	); err != nil {
 		return nil, err
 	}

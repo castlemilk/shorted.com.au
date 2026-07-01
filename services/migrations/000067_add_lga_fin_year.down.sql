@@ -1,0 +1,1 @@
+ALTER TABLE lga DROP COLUMN IF EXISTS fin_year;

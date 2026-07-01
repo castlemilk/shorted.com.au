@@ -28,6 +28,12 @@ func TestNormCouncil(t *testing.T) {
 		{"City of Albany", "albany"},
 		{"Alpine Shire Council", "alpine"},
 		{"The Corporation of the City of Adelaide", "adelaide"},
+		// Bare type words (LGPRF form: '<Name> City' / '<Name> Shire', no 'Council').
+		{"Melbourne City", "melbourne"},
+		{"Greater Geelong City", "greater geelong"},
+		{"Yarra City", "yarra"},
+		{"Alpine Shire", "alpine"},
+		{"Ararat Rural City", "ararat"},
 	}
 	for _, c := range cases {
 		if got := normCouncil(c.in); got != c.want {

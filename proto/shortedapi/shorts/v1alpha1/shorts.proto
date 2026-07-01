@@ -1726,6 +1726,12 @@ message LgaInfo {
   int32  population = 5;            // summed from member-suburb Census populations
   double fed_fag_aud = 6;          // federal Financial Assistance Grant (latest yr), AUD; 0 if unmatched
   string fed_fag_year = 7;         // e.g. '2025-26'
+  // Per-council financials (VIC LGPRF, CC-BY; 0/'' for states not yet sourced).
+  double avg_rates = 8;            // average rate per property assessment, AUD
+  double op_surplus_ratio = 9;     // adjusted underlying (operating) result, % (negative = deficit)
+  double asset_renewal_ratio = 10; // asset renewal + upgrade vs depreciation, %
+  string fin_source = 11;          // financials provenance ('vic_lgprf'), '' if none
+  string fin_year = 12;            // financials reporting year, e.g. '2024-25'
 }
 
 // A suburb with a similar demographic + amenity profile (feature-vector kNN).

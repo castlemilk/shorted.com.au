@@ -54,6 +54,9 @@ func normCouncil(s string) string {
 		"the corporation of the city of", "corporation of the city of", "corporation of",
 		"city of", "shire of", "town of", "district of", "municipality of", "region of",
 		"rural city", "regional", "council", "shire", "borough", "municipality",
+		// bare type words (LGPRF names councils 'Melbourne City' / 'Alpine Shire',
+		// no 'Council' suffix) — lifts VIC LGPRF matches 46→79/79 and FAG 525→527.
+		"city", "town", "district",
 		"(c)", "(rc)", "(s)", "(dc)", "(m)", "(b)", "(t)", "(a)", "(rgc)", "(ac)",
 	} {
 		s = strings.ReplaceAll(s, tok, " ")
@@ -175,4 +178,3 @@ func parseAUD(s string) float64 {
 	}
 	return v
 }
-

@@ -9535,16 +9535,22 @@ func (x *ComparisonBaselines) GetNationalMedianWeeklyHhdIncome() float64 {
 
 // Local Government Area (council) a suburb belongs to (Local Insights, W2).
 type LgaInfo struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	LgaCode       string                 `protobuf:"bytes,1,opt,name=lga_code,json=lgaCode,proto3" json:"lga_code,omitempty"`
-	LgaName       string                 `protobuf:"bytes,2,opt,name=lga_name,json=lgaName,proto3" json:"lga_name,omitempty"`
-	StateCode     string                 `protobuf:"bytes,3,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`
-	AreaSqkm      float64                `protobuf:"fixed64,4,opt,name=area_sqkm,json=areaSqkm,proto3" json:"area_sqkm,omitempty"`
-	Population    int32                  `protobuf:"varint,5,opt,name=population,proto3" json:"population,omitempty"`                    // summed from member-suburb Census populations
-	FedFagAud     float64                `protobuf:"fixed64,6,opt,name=fed_fag_aud,json=fedFagAud,proto3" json:"fed_fag_aud,omitempty"`  // federal Financial Assistance Grant (latest yr), AUD; 0 if unmatched
-	FedFagYear    string                 `protobuf:"bytes,7,opt,name=fed_fag_year,json=fedFagYear,proto3" json:"fed_fag_year,omitempty"` // e.g. '2025-26'
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	LgaCode    string                 `protobuf:"bytes,1,opt,name=lga_code,json=lgaCode,proto3" json:"lga_code,omitempty"`
+	LgaName    string                 `protobuf:"bytes,2,opt,name=lga_name,json=lgaName,proto3" json:"lga_name,omitempty"`
+	StateCode  string                 `protobuf:"bytes,3,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`
+	AreaSqkm   float64                `protobuf:"fixed64,4,opt,name=area_sqkm,json=areaSqkm,proto3" json:"area_sqkm,omitempty"`
+	Population int32                  `protobuf:"varint,5,opt,name=population,proto3" json:"population,omitempty"`                    // summed from member-suburb Census populations
+	FedFagAud  float64                `protobuf:"fixed64,6,opt,name=fed_fag_aud,json=fedFagAud,proto3" json:"fed_fag_aud,omitempty"`  // federal Financial Assistance Grant (latest yr), AUD; 0 if unmatched
+	FedFagYear string                 `protobuf:"bytes,7,opt,name=fed_fag_year,json=fedFagYear,proto3" json:"fed_fag_year,omitempty"` // e.g. '2025-26'
+	// Per-council financials (VIC LGPRF, CC-BY; 0/” for states not yet sourced).
+	AvgRates          float64 `protobuf:"fixed64,8,opt,name=avg_rates,json=avgRates,proto3" json:"avg_rates,omitempty"`                               // average rate per property assessment, AUD
+	OpSurplusRatio    float64 `protobuf:"fixed64,9,opt,name=op_surplus_ratio,json=opSurplusRatio,proto3" json:"op_surplus_ratio,omitempty"`           // adjusted underlying (operating) result, % (negative = deficit)
+	AssetRenewalRatio float64 `protobuf:"fixed64,10,opt,name=asset_renewal_ratio,json=assetRenewalRatio,proto3" json:"asset_renewal_ratio,omitempty"` // asset renewal + upgrade vs depreciation, %
+	FinSource         string  `protobuf:"bytes,11,opt,name=fin_source,json=finSource,proto3" json:"fin_source,omitempty"`                             // financials provenance ('vic_lgprf'), '' if none
+	FinYear           string  `protobuf:"bytes,12,opt,name=fin_year,json=finYear,proto3" json:"fin_year,omitempty"`                                   // financials reporting year, e.g. '2024-25'
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *LgaInfo) Reset() {
@@ -9622,6 +9628,41 @@ func (x *LgaInfo) GetFedFagAud() float64 {
 func (x *LgaInfo) GetFedFagYear() string {
 	if x != nil {
 		return x.FedFagYear
+	}
+	return ""
+}
+
+func (x *LgaInfo) GetAvgRates() float64 {
+	if x != nil {
+		return x.AvgRates
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetOpSurplusRatio() float64 {
+	if x != nil {
+		return x.OpSurplusRatio
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetAssetRenewalRatio() float64 {
+	if x != nil {
+		return x.AssetRenewalRatio
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetFinSource() string {
+	if x != nil {
+		return x.FinSource
+	}
+	return ""
+}
+
+func (x *LgaInfo) GetFinYear() string {
+	if x != nil {
+		return x.FinYear
 	}
 	return ""
 }
@@ -10803,7 +10844,7 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x12state_median_price\x18\x01 \x01(\x01R\x10stateMedianPrice\x122\n" +
 	"\x15national_median_price\x18\x02 \x01(\x01R\x13nationalMedianPrice\x12B\n" +
 	"\x1estate_median_weekly_hhd_income\x18\x03 \x01(\x01R\x1astateMedianWeeklyHhdIncome\x12H\n" +
-	"!national_median_weekly_hhd_income\x18\x04 \x01(\x01R\x1dnationalMedianWeeklyHhdIncome\"\xdd\x01\n" +
+	"!national_median_weekly_hhd_income\x18\x04 \x01(\x01R\x1dnationalMedianWeeklyHhdIncome\"\x8e\x03\n" +
 	"\aLgaInfo\x12\x19\n" +
 	"\blga_code\x18\x01 \x01(\tR\algaCode\x12\x19\n" +
 	"\blga_name\x18\x02 \x01(\tR\algaName\x12\x1d\n" +
@@ -10815,7 +10856,14 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"population\x12\x1e\n" +
 	"\vfed_fag_aud\x18\x06 \x01(\x01R\tfedFagAud\x12 \n" +
 	"\ffed_fag_year\x18\a \x01(\tR\n" +
-	"fedFagYear\"\xd5\x01\n" +
+	"fedFagYear\x12\x1b\n" +
+	"\tavg_rates\x18\b \x01(\x01R\bavgRates\x12(\n" +
+	"\x10op_surplus_ratio\x18\t \x01(\x01R\x0eopSurplusRatio\x12.\n" +
+	"\x13asset_renewal_ratio\x18\n" +
+	" \x01(\x01R\x11assetRenewalRatio\x12\x1d\n" +
+	"\n" +
+	"fin_source\x18\v \x01(\tR\tfinSource\x12\x19\n" +
+	"\bfin_year\x18\f \x01(\tR\afinYear\"\xd5\x01\n" +
 	"\rSimilarSuburb\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +
 	"\bsal_name\x18\x02 \x01(\tR\asalName\x12\x1d\n" +
