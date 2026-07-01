@@ -201,6 +201,30 @@ func upsertElectorates(ctx context.Context, pool *pgxpool.Pool, rows []Electorat
 	return n, nil
 }
 
+// upsertConnectivity writes each suburb's dominant NBN tech + quality proxy.
+func upsertConnectivity(ctx context.Context, pool *pgxpool.Pool, rows []ConnectivityRow) (int, error) {
+	const q = `
+		INSERT INTO suburb_connectivity (sal_code, dominant_nbn_tech, connectivity_quality_score)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (sal_code) DO UPDATE SET
+			dominant_nbn_tech = EXCLUDED.dominant_nbn_tech,
+			connectivity_quality_score = EXCLUDED.connectivity_quality_score, fetched_at = now()`
+	batch := &pgx.Batch{}
+	for _, r := range rows {
+		batch.Queue(q, r.SALCode, r.Tech, r.Score)
+	}
+	br := pool.SendBatch(ctx, batch)
+	defer func() { _ = br.Close() }()
+	n := 0
+	for range rows {
+		if _, err := br.Exec(); err != nil {
+			return n, err
+		}
+		n++
+	}
+	return n, nil
+}
+
 // refreshLGAPopulation derives each council's population by summing its member
 // suburbs' Census populations (SALs tile the LGA) — no external fetch needed.
 func refreshLGAPopulation(ctx context.Context, pool *pgxpool.Pool) error {

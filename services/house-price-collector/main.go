@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "all", "official | crawl | census | electorates | amenities | lga | refresh | all")
+	mode := flag.String("mode", "all", "official | crawl | census | electorates | amenities | lga | connectivity | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -56,11 +56,33 @@ func main() {
 	case "lga":
 		// Council/LGA dimension + suburb→council bridge (ABS LGA_2024 PiP join).
 		runLGA(ctx, pool)
+	case "connectivity":
+		// Dominant NBN access technology per suburb (centroid→footprint join).
+		runConnectivity(ctx, pool)
 	case "refresh":
 		refresh(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want official|crawl|census|electorates|amenities|lga|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|crawl|census|electorates|amenities|lga|connectivity|refresh|all)", *mode)
 	}
+}
+
+// runConnectivity loads the precomputed per-suburb NBN tech and upserts it into
+// suburb_connectivity, recording the run cursor under "nbn_footprint".
+func runConnectivity(ctx context.Context, pool *pgxpool.Pool) {
+	rows, err := ingestConnectivity()
+	if err != nil {
+		log.Printf("[connectivity] ingest error: %v", err)
+		_ = updateRun(ctx, pool, "nbn_footprint", nil, 0, "error", err.Error())
+		return
+	}
+	n, err := upsertConnectivity(ctx, pool, rows)
+	if err != nil {
+		log.Printf("[connectivity] upsert error after %d: %v", n, err)
+		_ = updateRun(ctx, pool, "nbn_footprint", nil, n, "error", err.Error())
+		return
+	}
+	log.Printf("[connectivity] upserted %d", n)
+	_ = updateRun(ctx, pool, "nbn_footprint", nil, n, "ok", "")
 }
 
 // runLGA loads the precomputed council dimension + suburb→council bridge and
