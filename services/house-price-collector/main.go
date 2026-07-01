@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "all", "official | crawl | census | electorates | amenities | lga | connectivity | refresh | all")
+	mode := flag.String("mode", "all", "official | crawl | census | electorates | amenities | lga | connectivity | funding | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -59,11 +59,33 @@ func main() {
 	case "connectivity":
 		// Dominant NBN access technology per suburb (centroid→footprint join).
 		runConnectivity(ctx, pool)
+	case "funding":
+		// Federal Financial Assistance Grants per council → lga dimension.
+		runFAGs(ctx, pool)
 	case "refresh":
 		refresh(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want official|crawl|census|electorates|amenities|lga|connectivity|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|crawl|census|electorates|amenities|lga|connectivity|funding|refresh|all)", *mode)
 	}
+}
+
+// runFAGs fetches the national Financial Assistance Grants and attaches each
+// council's latest total to the lga dimension.
+func runFAGs(ctx context.Context, pool *pgxpool.Pool) {
+	rows, err := ingestFAGs(ctx)
+	if err != nil {
+		log.Printf("[funding] ingest error: %v", err)
+		_ = updateRun(ctx, pool, fagSource, nil, 0, "error", err.Error())
+		return
+	}
+	n, err := applyFAGs(ctx, pool, rows)
+	if err != nil {
+		log.Printf("[funding] apply error after %d: %v", n, err)
+		_ = updateRun(ctx, pool, fagSource, nil, n, "error", err.Error())
+		return
+	}
+	log.Printf("[funding] matched %d/%d councils to FAG grants", n, len(rows))
+	_ = updateRun(ctx, pool, fagSource, nil, n, "ok", "")
 }
 
 // runConnectivity loads the precomputed per-suburb NBN tech and upserts it into

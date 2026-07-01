@@ -201,6 +201,47 @@ func upsertElectorates(ctx context.Context, pool *pgxpool.Pool, rows []Electorat
 	return n, nil
 }
 
+// applyFAGs matches each council's Financial Assistance Grant (by normalised
+// name + state) to the lga dimension and updates fed_fag_aud/year.
+func applyFAGs(ctx context.Context, pool *pgxpool.Pool, rows []FagRow) (int, error) {
+	type lgaKey struct{ norm, state string }
+	idx := map[lgaKey]string{}
+	q, err := pool.Query(ctx, `SELECT lga_code24, lga_name, state_code FROM lga`)
+	if err != nil {
+		return 0, err
+	}
+	for q.Next() {
+		var code, name, state string
+		if err := q.Scan(&code, &name, &state); err != nil {
+			q.Close()
+			return 0, err
+		}
+		idx[lgaKey{normCouncil(name), state}] = code
+	}
+	q.Close()
+
+	batch := &pgx.Batch{}
+	matched := 0
+	for _, r := range rows {
+		code, ok := idx[lgaKey{normCouncil(r.LGAName), r.StateCode}]
+		if !ok {
+			continue
+		}
+		batch.Queue(`UPDATE lga SET fed_fag_aud=$2, fed_fag_year=$3,
+			fin_source='fed_fags', fin_source_licence='CC-BY-4.0', fetched_at=now() WHERE lga_code24=$1`,
+			code, r.TotalAud, r.Year)
+		matched++
+	}
+	br := pool.SendBatch(ctx, batch)
+	defer func() { _ = br.Close() }()
+	for i := 0; i < matched; i++ {
+		if _, err := br.Exec(); err != nil {
+			return i, err
+		}
+	}
+	return matched, nil
+}
+
 // upsertConnectivity writes each suburb's dominant NBN tech + quality proxy.
 func upsertConnectivity(ctx context.Context, pool *pgxpool.Pool, rows []ConnectivityRow) (int, error) {
 	const q = `

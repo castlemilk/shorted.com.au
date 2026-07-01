@@ -1,0 +1,1 @@
+ALTER TABLE lga DROP COLUMN IF EXISTS fed_fag_aud, DROP COLUMN IF EXISTS fed_fag_year;
