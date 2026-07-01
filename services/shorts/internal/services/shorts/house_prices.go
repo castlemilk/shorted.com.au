@@ -203,6 +203,9 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 				StateMedianWeeklyHhdIncome:    p.StateMedianHhdIncome,
 				NationalMedianWeeklyHhdIncome: p.NationalMedianHhdIncome,
 			},
+			Council: &shortsv1alpha1.LgaInfo{
+				LgaCode: p.LgaCode, LgaName: p.LgaName, StateCode: p.LgaState, AreaSqkm: p.LgaAreaSqkm,
+			},
 		}, nil
 	})
 	if err != nil {

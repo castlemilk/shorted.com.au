@@ -1713,10 +1713,19 @@ message ComparisonBaselines {
   double national_median_weekly_hhd_income = 4;
 }
 
+// Local Government Area (council) a suburb belongs to (Local Insights, W2).
+message LgaInfo {
+  string lga_code = 1;
+  string lga_name = 2;
+  string state_code = 3;
+  double area_sqkm = 4;
+}
+
 message GetSuburbProfileResponse {
   SuburbSummary summary = 1;
   SuburbDemographics demographics = 2;
   ComparisonBaselines baselines = 3;
+  LgaInfo council = 4;              // council this suburb sits in ('' if unmatched)
 }
 
 message ListHousingRegionsRequest {
