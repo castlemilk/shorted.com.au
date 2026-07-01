@@ -30,12 +30,14 @@ export type SuburbMetricInput = {
   colesCount: number; woolworthsCount: number; aldiCount: number; igaCount: number;
   pubsBars: number;
   amenityDensityScore: number; // 0..100
+  gpCount: number;
+  nearestTrainKm: number;
 };
 
 export type MetricKey =
   | "price" | "population" | "age" | "income" | "born_overseas" | "religion" | "language"
   | "federal_party" | "federal_lean" | "state_party"
-  | "amenity_density" | "supermarkets" | "pubs" | "grocery";
+  | "amenity_density" | "supermarkets" | "pubs" | "grocery" | "healthcare" | "nearest_train";
 
 type Base = { key: MetricKey; label: string; legendLabel: string };
 
@@ -255,6 +257,18 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
       return "Single major";
     },
     colorFor: groceryColor, order: GROCERY_ORDER,
+  },
+  {
+    kind: "continuous", key: "healthcare", label: "GP access",
+    legendLabel: "GP clinics in suburb",
+    value: (s) => (s.population > 0 ? s.gpCount : null),
+    format: (v) => `${Math.round(v)}`, sqrt: true,
+  },
+  {
+    kind: "continuous", key: "nearest_train", label: "Distance to train",
+    legendLabel: "Distance to nearest train station (km)",
+    value: (s) => (s.population > 0 && s.nearestTrainKm > 0 ? s.nearestTrainKm : null),
+    format: (v) => `${v.toFixed(1)} km`, sqrt: true,
   },
 ];
 

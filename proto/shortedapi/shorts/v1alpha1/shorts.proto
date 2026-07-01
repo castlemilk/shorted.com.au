@@ -1637,6 +1637,11 @@ message SuburbAmenities {
   int32  libraries_count = 9;
   double nearest_supermarket_km = 10;
   double amenity_density_score = 11;        // 0..100
+  int32  hospitals_count = 12;
+  int32  gp_count = 13;                      // general practices
+  int32  pharmacy_count = 14;
+  double nearest_train_km = 15;             // nearest railway station
+  double nearest_hospital_km = 16;
 }
 
 message SuburbSummary {

@@ -28,6 +28,8 @@ export type SuburbDatum = {
   colesCount: number; woolworthsCount: number; aldiCount: number; igaCount: number;
   pubsBars: number; parksCount: number; librariesCount: number;
   nearestSupermarketKm: number; amenityDensityScore: number;
+  hospitalsCount: number; gpCount: number; pharmacyCount: number;
+  nearestTrainKm: number; nearestHospitalKm: number;
 };
 
 const TOOLTIP_W = 224;

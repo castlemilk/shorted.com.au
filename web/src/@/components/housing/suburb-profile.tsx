@@ -232,7 +232,12 @@ function AmenitiesGroup({ a }: { a: NonNullable<Summary["amenities"]> }) {
     ["Pubs & bars", `${a.pubsBars}`],
     ["Parks", `${a.parksCount}`],
     ["Libraries", `${a.librariesCount}`],
+    ["GP clinics", `${a.gpCount}`],
+    ["Pharmacies", `${a.pharmacyCount}`],
+    ["Hospitals", `${a.hospitalsCount}`],
     ["Nearest supermarket", a.nearestSupermarketKm > 0 ? `${a.nearestSupermarketKm.toFixed(1)} km` : "—"],
+    ["Nearest train", a.nearestTrainKm > 0 ? `${a.nearestTrainKm.toFixed(1)} km` : "—"],
+    ["Nearest hospital", a.nearestHospitalKm > 0 ? `${a.nearestHospitalKm.toFixed(1)} km` : "—"],
   ];
   return (
     <div>
@@ -247,7 +252,7 @@ function AmenitiesGroup({ a }: { a: NonNullable<Summary["amenities"]> }) {
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground">
         {brands ? <>Grocery mix: {brands}. </> : null}
-        <span className="opacity-70">Amenity counts via © OpenStreetMap contributors (ODbL).</span>
+        <span className="opacity-70">Amenity counts via © OpenStreetMap contributors (ODbL) &amp; Geoscience Australia HealthDirect (CC BY 4.0).</span>
       </p>
     </div>
   );

@@ -8780,6 +8780,11 @@ type SuburbAmenities struct {
 	LibrariesCount       int32                  `protobuf:"varint,9,opt,name=libraries_count,json=librariesCount,proto3" json:"libraries_count,omitempty"`
 	NearestSupermarketKm float64                `protobuf:"fixed64,10,opt,name=nearest_supermarket_km,json=nearestSupermarketKm,proto3" json:"nearest_supermarket_km,omitempty"`
 	AmenityDensityScore  float64                `protobuf:"fixed64,11,opt,name=amenity_density_score,json=amenityDensityScore,proto3" json:"amenity_density_score,omitempty"` // 0..100
+	HospitalsCount       int32                  `protobuf:"varint,12,opt,name=hospitals_count,json=hospitalsCount,proto3" json:"hospitals_count,omitempty"`
+	GpCount              int32                  `protobuf:"varint,13,opt,name=gp_count,json=gpCount,proto3" json:"gp_count,omitempty"` // general practices
+	PharmacyCount        int32                  `protobuf:"varint,14,opt,name=pharmacy_count,json=pharmacyCount,proto3" json:"pharmacy_count,omitempty"`
+	NearestTrainKm       float64                `protobuf:"fixed64,15,opt,name=nearest_train_km,json=nearestTrainKm,proto3" json:"nearest_train_km,omitempty"` // nearest railway station
+	NearestHospitalKm    float64                `protobuf:"fixed64,16,opt,name=nearest_hospital_km,json=nearestHospitalKm,proto3" json:"nearest_hospital_km,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -8887,6 +8892,41 @@ func (x *SuburbAmenities) GetNearestSupermarketKm() float64 {
 func (x *SuburbAmenities) GetAmenityDensityScore() float64 {
 	if x != nil {
 		return x.AmenityDensityScore
+	}
+	return 0
+}
+
+func (x *SuburbAmenities) GetHospitalsCount() int32 {
+	if x != nil {
+		return x.HospitalsCount
+	}
+	return 0
+}
+
+func (x *SuburbAmenities) GetGpCount() int32 {
+	if x != nil {
+		return x.GpCount
+	}
+	return 0
+}
+
+func (x *SuburbAmenities) GetPharmacyCount() int32 {
+	if x != nil {
+		return x.PharmacyCount
+	}
+	return 0
+}
+
+func (x *SuburbAmenities) GetNearestTrainKm() float64 {
+	if x != nil {
+		return x.NearestTrainKm
+	}
+	return 0
+}
+
+func (x *SuburbAmenities) GetNearestHospitalKm() float64 {
+	if x != nil {
+		return x.NearestHospitalKm
 	}
 	return 0
 }
@@ -10453,7 +10493,7 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\n" +
 	"state_code\x18\x01 \x01(\tR\tstateCode\x12\x14\n" +
 	"\x05query\x18\x02 \x01(\tR\x05query\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xbe\x03\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\x83\x05\n" +
 	"\x0fSuburbAmenities\x12#\n" +
 	"\rschools_total\x18\x01 \x01(\x05R\fschoolsTotal\x12-\n" +
 	"\x12supermarkets_total\x18\x02 \x01(\x05R\x11supermarketsTotal\x12\x1f\n" +
@@ -10469,7 +10509,12 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x0flibraries_count\x18\t \x01(\x05R\x0elibrariesCount\x124\n" +
 	"\x16nearest_supermarket_km\x18\n" +
 	" \x01(\x01R\x14nearestSupermarketKm\x122\n" +
-	"\x15amenity_density_score\x18\v \x01(\x01R\x13amenityDensityScore\"\xd9\a\n" +
+	"\x15amenity_density_score\x18\v \x01(\x01R\x13amenityDensityScore\x12'\n" +
+	"\x0fhospitals_count\x18\f \x01(\x05R\x0ehospitalsCount\x12\x19\n" +
+	"\bgp_count\x18\r \x01(\x05R\agpCount\x12%\n" +
+	"\x0epharmacy_count\x18\x0e \x01(\x05R\rpharmacyCount\x12(\n" +
+	"\x10nearest_train_km\x18\x0f \x01(\x01R\x0enearestTrainKm\x12.\n" +
+	"\x13nearest_hospital_km\x18\x10 \x01(\x01R\x11nearestHospitalKm\"\xd9\a\n" +
 	"\rSuburbSummary\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +
 	"\bsal_name\x18\x02 \x01(\tR\asalName\x12\x1d\n" +

@@ -47,6 +47,9 @@ export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
       librariesCount: s.amenities?.librariesCount ?? 0,
       nearestSupermarketKm: s.amenities?.nearestSupermarketKm ?? 0,
       amenityDensityScore: s.amenities?.amenityDensityScore ?? 0,
+      hospitalsCount: s.amenities?.hospitalsCount ?? 0, gpCount: s.amenities?.gpCount ?? 0,
+      pharmacyCount: s.amenities?.pharmacyCount ?? 0,
+      nearestTrainKm: s.amenities?.nearestTrainKm ?? 0, nearestHospitalKm: s.amenities?.nearestHospitalKm ?? 0,
     })),
     [data],
   );
