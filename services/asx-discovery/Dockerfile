@@ -71,10 +71,15 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Playwright browsers to a specific path
+# Pre-bundle the Chromium build that playwright-go v0.5200.1 (driver 1.57.0) expects.
+# Pin the npm playwright version to 1.57.0 so the bundled build matches the one the Go
+# runtime wants (build v1200). With `playwright@latest` the bundled build (e.g. 1228)
+# mismatched, so playwright-go deleted it and re-downloaded ~165 MiB of Chromium on every
+# run (a startup memory spike + a hard dependency on cdn.playwright.dev). Keep the driver
+# version in lockstep with services/asx-discovery/go.mod on any playwright-go bump.
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-RUN PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx --yes playwright@latest install chromium \
-    && PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx --yes playwright@latest install-deps chromium || true \
+RUN PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx --yes playwright@1.57.0 install chromium \
+    && PLAYWRIGHT_BROWSERS_PATH=/ms-playwright npx --yes playwright@1.57.0 install-deps chromium || true \
     && rm -rf /root/.npm /root/.cache
 
 WORKDIR /app
