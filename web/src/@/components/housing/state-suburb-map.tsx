@@ -23,6 +23,14 @@ export type SuburbDatum = {
   federalPartyAb: string; federalTppAlp: number; stateDistrict: string;
   stateMember: string; stateParty: string; statePartyAb: string;
   regionCode?: string;
+  // amenity/lifestyle metrics (Local Insights)
+  schoolsTotal: number; supermarketsTotal: number;
+  colesCount: number; woolworthsCount: number; aldiCount: number; igaCount: number;
+  pubsBars: number; parksCount: number; librariesCount: number;
+  nearestSupermarketKm: number; amenityDensityScore: number;
+  hospitalsCount: number; gpCount: number; pharmacyCount: number;
+  nearestTrainKm: number; nearestHospitalKm: number;
+  dominantNbnTech: string; connectivityQualityScore: number;
 };
 
 const TOOLTIP_W = 224;

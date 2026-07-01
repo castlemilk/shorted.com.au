@@ -24,11 +24,21 @@ export type SuburbMetricInput = {
   federalPartyAb: string; // '' if none — party holding the federal division
   federalTppAlp: number;  // 0..100 Labor two-party-preferred (0 = unknown)
   statePartyAb: string;   // '' if none/Hare-Clark — party holding the state seat
+  // amenity/lifestyle metrics (Local Insights)
+  schoolsTotal: number;
+  supermarketsTotal: number;
+  colesCount: number; woolworthsCount: number; aldiCount: number; igaCount: number;
+  pubsBars: number;
+  amenityDensityScore: number; // 0..100
+  gpCount: number;
+  nearestTrainKm: number;
+  dominantNbnTech: string; // '' | Fixed Line | Fixed Wireless | Satellite
 };
 
 export type MetricKey =
   | "price" | "population" | "age" | "income" | "born_overseas" | "religion" | "language"
-  | "federal_party" | "federal_lean" | "state_party";
+  | "federal_party" | "federal_lean" | "state_party"
+  | "amenity_density" | "supermarkets" | "pubs" | "grocery" | "healthcare" | "nearest_train" | "nbn";
 
 type Base = { key: MetricKey; label: string; legendLabel: string };
 
@@ -139,6 +149,30 @@ export function partyColor(label: string): string {
   return PARTY_COLORS[label] ?? C.stone;
 }
 
+// --- Grocery competition palette (categorical) ---
+export const GROCERY_COLORS: Record<string, string> = {
+  "Aldi present": C.moss,           // discount competition
+  "Coles + Woolworths": C.clay,     // the duopoly
+  "IGA / independent": C.indigo,
+  "Single major": C.stone,
+  "No supermarket": C.sand,         // neutral base
+};
+const GROCERY_ORDER = ["Aldi present", "Coles + Woolworths", "IGA / independent", "Single major", "No supermarket"];
+export function groceryColor(cat: string): string {
+  return GROCERY_COLORS[cat] ?? C.stone;
+}
+
+// --- NBN technology palette (categorical, tech-tier coloured) ---
+export const NBN_COLORS: Record<string, string> = {
+  "Fixed Line": C.teal,       // best (FTTP/HFC/FTTC/FTTN)
+  "Fixed Wireless": C.gold,   // middle
+  "Satellite": C.clay,        // remote / lowest
+};
+const NBN_ORDER = ["Fixed Line", "Fixed Wireless", "Satellite"];
+export function nbnColor(cat: string): string {
+  return NBN_COLORS[cat] ?? C.stone;
+}
+
 export const HIGHLIGHT_METRICS: HighlightMetric[] = [
   {
     kind: "continuous", key: "price", label: "Median house price",
@@ -204,6 +238,55 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
     legendLabel: "Party holding the state seat",
     category: (s) => (s.statePartyAb ? (PARTY_LABEL[s.statePartyAb] ?? "Other") : null),
     colorFor: partyColor, order: PARTY_ORDER,
+  },
+  {
+    kind: "continuous", key: "amenity_density", label: "Amenity density",
+    legendLabel: "Amenity density (0–100)",
+    value: (s) => (s.population > 0 ? s.amenityDensityScore : null),
+    format: (v) => `${Math.round(v)}`, domain: [0, 100],
+  },
+  {
+    kind: "continuous", key: "supermarkets", label: "Supermarkets",
+    legendLabel: "Supermarkets in suburb",
+    value: (s) => (s.population > 0 ? s.supermarketsTotal : null),
+    format: (v) => `${Math.round(v)}`, sqrt: true,
+  },
+  {
+    kind: "continuous", key: "pubs", label: "Pubs & bars",
+    legendLabel: "Pubs & bars in suburb",
+    value: (s) => (s.population > 0 ? s.pubsBars : null),
+    format: (v) => `${Math.round(v)}`, sqrt: true,
+  },
+  {
+    kind: "categorical", key: "grocery", label: "Grocery competition",
+    legendLabel: "Supermarket competition",
+    category: (s) => {
+      if (s.population <= 0) return null;
+      if (s.supermarketsTotal <= 0) return "No supermarket";
+      if (s.aldiCount > 0) return "Aldi present";
+      if (s.colesCount > 0 && s.woolworthsCount > 0) return "Coles + Woolworths";
+      if (s.igaCount > 0) return "IGA / independent";
+      return "Single major";
+    },
+    colorFor: groceryColor, order: GROCERY_ORDER,
+  },
+  {
+    kind: "continuous", key: "healthcare", label: "GP access",
+    legendLabel: "GP clinics in suburb",
+    value: (s) => (s.population > 0 ? s.gpCount : null),
+    format: (v) => `${Math.round(v)}`, sqrt: true,
+  },
+  {
+    kind: "continuous", key: "nearest_train", label: "Distance to train",
+    legendLabel: "Distance to nearest train station (km)",
+    value: (s) => (s.population > 0 && s.nearestTrainKm > 0 ? s.nearestTrainKm : null),
+    format: (v) => `${v.toFixed(1)} km`, sqrt: true,
+  },
+  {
+    kind: "categorical", key: "nbn", label: "NBN technology",
+    legendLabel: "Dominant NBN technology",
+    category: (s) => s.dominantNbnTech || null,
+    colorFor: nbnColor, order: NBN_ORDER,
   },
 ];
 

@@ -1622,6 +1622,28 @@ message ListStateSuburbsRequest {
 }
 
 // One suburb summary for the map + list (keyed by ABS SAL code).
+// Per-suburb amenity counts + derived lifestyle indices (Local Insights).
+// OSM-derived counts (ODbL Produced Work) + ACARA/GA sources; see the
+// Local Insights design doc.
+message SuburbAmenities {
+  int32  schools_total = 1;
+  int32  supermarkets_total = 2;
+  int32  coles_count = 3;
+  int32  woolworths_count = 4;
+  int32  aldi_count = 5;
+  int32  iga_count = 6;
+  int32  pubs_bars = 7;
+  int32  parks_count = 8;
+  int32  libraries_count = 9;
+  double nearest_supermarket_km = 10;
+  double amenity_density_score = 11;        // 0..100
+  int32  hospitals_count = 12;
+  int32  gp_count = 13;                      // general practices
+  int32  pharmacy_count = 14;
+  double nearest_train_km = 15;             // nearest railway station
+  double nearest_hospital_km = 16;
+}
+
 message SuburbSummary {
   string sal_code = 1;
   string sal_name = 2;
@@ -1649,6 +1671,11 @@ message SuburbSummary {
   string state_member = 22;                  // state lower-house member ('' for Hare-Clark TAS/ACT)
   string state_party = 23;                   // state member's party (full name)
   string state_party_ab = 24;                // state party abbreviation (palette key)
+  // Amenity/lifestyle metrics (Local Insights); null/absent until ingested.
+  SuburbAmenities amenities = 25;
+  // NBN connectivity (Local Insights); '' until ingested.
+  string dominant_nbn_tech = 26;             // Fixed Line | Fixed Wireless | Satellite
+  double connectivity_quality_score = 27;    // 0..100 (tech-tier proxy)
 }
 
 message ListStateSuburbsResponse {
@@ -1689,10 +1716,33 @@ message ComparisonBaselines {
   double national_median_weekly_hhd_income = 4;
 }
 
+// Local Government Area (council) a suburb belongs to (Local Insights, W2).
+message LgaInfo {
+  string lga_code = 1;
+  string lga_name = 2;
+  string state_code = 3;
+  double area_sqkm = 4;
+  int32  population = 5;            // summed from member-suburb Census populations
+  double fed_fag_aud = 6;          // federal Financial Assistance Grant (latest yr), AUD; 0 if unmatched
+  string fed_fag_year = 7;         // e.g. '2025-26'
+}
+
+// A suburb with a similar demographic + amenity profile (feature-vector kNN).
+message SimilarSuburb {
+  string sal_code = 1;
+  string sal_name = 2;
+  string state_code = 3;
+  double latest_median_price = 4;   // 0 if unpriced
+  double similarity = 5;            // 0..1 (1 = near-identical profile)
+  string region_code = 6;
+}
+
 message GetSuburbProfileResponse {
   SuburbSummary summary = 1;
   SuburbDemographics demographics = 2;
   ComparisonBaselines baselines = 3;
+  LgaInfo council = 4;              // council this suburb sits in ('' if unmatched)
+  repeated SimilarSuburb similar = 5; // most-similar suburbs nationally (knowledge graph)
 }
 
 message ListHousingRegionsRequest {

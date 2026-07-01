@@ -1,12 +1,17 @@
 # Housing Architecture
 
-The "housing" surface on Shorted is two products plus a speculative data tier, all sharing one chart system and one data model:
+The "housing" surface on Shorted is three products plus a speculative data tier, all sharing one chart system and one Connect-RPC service:
 
-1. **The Widow-Maker editorial feature** (`/features/the-widow-maker`) — a hand-built investigative long-read with embedded interactive dashboards. Data is **baked** (curated research arrays).
-2. **The House Prices Tracker** (`/housing`) — a **live** dashboard fed by a real ABS/RBA ingest pipeline through Connect-RPC.
-3. **A Tier-3 stealth crawl** of REA/Domain suburb medians — present in the collector, **opt-in**, anti-poisoning, licence-gated, and **not yet actually scraping**.
+1. **The Widow-Maker editorial feature** (`/features/the-widow-maker`) — a hand-built investigative long-read with embedded interactive dashboards. Data is **baked** (curated research arrays). — §1
+2. **The House Prices Tracker** (`/housing`) — a **live** national/state/GCCSA price dashboard fed by a real ABS/RBA/Valuer-General ingest pipeline. — §4
+3. **The suburb explorer** (`/housing` national map → `/housing/[state]` → `/housing/[state]/[suburb]`) — a national → state → suburb **choropleth drilldown** over real ABS boundaries, with a "Colour by" toggle across house price, ABS Census demographics + culture (religion, language, born-overseas), and **electoral representation** (federal + state member/party + two-party-preferred). — §5
+4. **A Tier-3 stealth crawl** of REA/Domain suburb medians — present in the collector, **opt-in**, anti-poisoning, licence-gated, and **not yet actually scraping**. — §6
 
-This document is an extension guide. Read the section matching what you're building, then the matching "Future extensions" recipe at the end.
+Products 2 + 3 share one fact/dimension data model (`house_prices` + `house_price_regions` + `suburb_demographics`) and one collector (`house-price-collector`, `-mode official|census|electorates|amenities|crawl|refresh|all`).
+
+> **Local Insights (in progress).** A program to enrich the suburb explorer with amenities (schools/supermarkets/pubs/parks/transport/health), council/LGA context, NBN connectivity, federal funding, and a geographic knowledge graph. New tables `lga`, `suburb_lga`, `suburb_amenities`, `suburb_connectivity`, `suburb_funding` (migrations **000061–000064**); a reusable spatial-join harness at `web/scripts/geo/geo-index.mjs` (grid point-in-polygon + haversine nearest); collector `-mode amenities`. Full design: `docs/superpowers/specs/2026-06-30-local-insights-design.md`; W0 plan: `docs/superpowers/plans/2026-06-30-local-insights-w0-foundation.md`.
+
+This document is an extension guide. Read the section matching what you're building, then the matching "Future extensions" recipe at the end (§9).
 
 ---
 
@@ -110,7 +115,7 @@ All feature charts live in `web/src/@/components/features/housing/charts/`. They
 
 The masthead renders `FEATURED[0]` only (`web/src/app/news/page.tsx`, ~line 230: `{FEATURED[0] ? <FeaturedStory item={FEATURED[0]} /> : null}`), after `<MastheadHeader/>` + `<MarketPulse/>`, before the lead story. **Newest first** — to publish a new flagship feature, unshift one entry to the top of `FEATURED`; it auto-pins.
 
-`featured-story.tsx` is a two-column card: left = 16:9 visual using the OG image route as a **CSS `background-image`** layered over a base gradient + an amber `radial-gradient` bloom; right = kicker/headline/standfirst/meta/CTA, hover scale 1.02x. (The browser-side `radial-gradient` bloom here is unrelated to the OG-image satori limitation in §6.)
+`featured-story.tsx` is a two-column card: left = 16:9 visual using the OG image route as a **CSS `background-image`** layered over a base gradient + an amber `radial-gradient` bloom; right = kicker/headline/standfirst/meta/CTA, hover scale 1.02x. (The browser-side `radial-gradient` bloom here is unrelated to the OG-image satori limitation in §7.)
 
 ---
 
@@ -162,7 +167,85 @@ Always add a new key to this map, never thread a function through props. The sam
 
 ---
 
-## 5. The Tier-3 stealth crawl
+## 5. The suburb explorer (national → state → suburb map)
+
+The third live product: a choropleth drilldown over real ABS boundaries. `/housing` shows a national **states** map (click a state to drill in); `/housing/[state]` shows a **suburb** choropleth + searchable list + a **"Colour by" metric toggle**; `/housing/[state]/[suburb]` is a rich profile. One table — `suburb_demographics`, keyed by ABS `sal_code` (SAL_CODE21) — holds three data families.
+
+### 5.1 The suburb data model (`suburb_demographics`)
+
+Migrations **000055** (base) + **000057** (culture) + **000058/000059/000060** (electoral). Every column is keyed by `sal_code`. (Full column inventory in §7.)
+
+| Family | Migration | Columns | Source |
+|--------|-----------|---------|--------|
+| **Census demographics** | 000055 | `population`, `median_age`, `median_weekly_hhd_income`, `median_weekly_per_income`, `median_weekly_rent`, `median_monthly_mortgage`, `pct_owned_outright`, `pct_owned_mortgage`, `pct_rented`, `dwelling_count`, `census_year` | ABS Census 2021 GCP (CC-BY-4.0) |
+| **Census culture** | 000057 | `pct_born_overseas`, `pct_english_only`, `top_religion`, `pct_top_religion`, `pct_no_religion`, `top_language`, `pct_top_language` | ABS Census 2021 G01/G13/G14 |
+| **Federal electoral** | 000058 | `federal_division`, `federal_member`, `federal_party`, `federal_party_ab`, `federal_tpp_alp` | AEC 2025 election (CC-BY-4.0) |
+| **State electoral** | 000059 + 000060 | `state_district` (000059); `state_member`, `state_party`, `state_party_ab` (000060) | ABS SED_2025 + each state parliament |
+
+The `sal_code` **bridge** links priced regions to demographics: `house_price_regions.sal_code` (added 000055, backfilled 000056 by normalized name + state) → `suburb_demographics.sal_code`. So a suburb's median price joins its census/electoral data. `state_member/party/party_ab` are **NULL for TAS/ACT** (Hare-Clark multi-member — no single member per area).
+
+### 5.2 Boundaries
+
+Real ABS ASGS 2021 boundaries as TopoJSON: `web/public/geo/states.topojson` (8 states/territories) + `web/public/geo/suburbs/<STATE>.topojson` (~15k SAL suburbs), built once by `web/scripts/geo/build-boundaries.mjs` (mapshaper simplify; ~3% metro states, 8–12% sparse). Rendered by the shared `ChoroplethMap` (d3-geo `geoMercator`/`geoPath` + d3-zoom); SAL feature `id` is the bare code.
+
+### 5.3 Census ingest (`-mode census`)
+
+`runCensus` (collector) reads the **ABS 2021 Census GCP SAL DataPack ZIP** (`CENSUS_DATAPACK_PATH`, else downloaded) + the boundary TopoJSON (`CENSUS_GEO_DIR`) for the authoritative `sal_code → {name, state}` registry. DataPack tables read:
+
+- **G01** — population (`Tot_P_P`) + `Birthplace_Australia/Elsewhere_P` (→ `pct_born_overseas`) + `Lang_used_home_Eng_only/Oth_Lang_P` (→ `pct_english_only`).
+- **G02** — `median_age`, `median_weekly_hhd_income/per_income`, `median_weekly_rent`, `median_monthly_mortgage`.
+- **G13A–E** (5 parts) — language at home. `top_language` = argmax over individual-language `MOL_<lang>_Tot` columns, **excluding** `_UOLSE_Tot` (proficiency sub-totals), `_Tot_Tot` (group rollups) and `_Oth` catch-alls; short codes mapped to names via `langDisplay`.
+- **G14** — religion. `top_religion` = argmax over {Catholic, Anglican, **Other Christian** (= `Christianity_Tot_P` − Catholic − Anglican), No religion (`SB_OSB_NRA_NR_P`), Islam, Hinduism, Buddhism, Judaism, Other}; `pct_no_religion` from `SB_OSB_NRA_NR_P / Tot_P`.
+
+ABS-suppressed (blank/0) values bind as `NULL`. `upsertDemographics` (store.go) writes the identity + demographics + culture columns.
+
+### 5.4 Electoral ingest (`-mode electorates`) + the data-prep pipeline
+
+The boundary→suburb spatial join + member/party roll-up are **precomputed once** (committed JSON under `web/public/geo/electorates/`); the collector then just loads + upserts — no GIS at ingest time.
+
+**Data prep (one-time, `web/scripts/geo/`):** AEC 2025 federal division boundaries (`AUS-March-2025-esri.zip`) + ABS `SED_2025` state-district boundaries → mapshaper → GeoJSON → **spatial join** (centroid point-in-polygon ray-casting): `join-electorates.mjs` (suburbs → federal division, 99.9% matched) and `join-sed.mjs` (suburbs → state district). Federal members + two-party-preferred from the **AEC tally-room event 31496** CSVs (`HouseMembersElectedDownload-31496.csv`, `HouseTppByDivisionDownload-31496.csv`). State members from the **Wikipedia "Members of the X Legislative Assembly" tables** (`fetch-state-members.py`, value-matched to the SED districts + party names; 6 single-member states only).
+
+**Committed derived files** (`web/public/geo/electorates/`):
+| File | Shape |
+|------|-------|
+| `federal-divisions.json` | `{ division: { member, party, partyAb, state, tppAlp, swing } }` (~150) |
+| `suburb-federal-division.json` | `{ salCode: division }` (~15.3k) |
+| `suburb-sed.json` | `{ salCode: { state, district } }` (~15.3k) |
+| `state-members.json` | `{ stateCode: { district: { member, party, partyAb } } }` (~404, 6 states) |
+
+`ingestElectorates` unions the two suburb mappings; `upsertElectorates` (store.go) UPDATEs the `federal_*` + `state_*` columns by `sal_code`.
+
+**Landmines:**
+- **AEC name-casing** — boundary file has `O'connor`/`Mcpherson`, results CSV has `O'Connor`/`McPherson`; match **case-insensitively**, keep the canonical (CSV) name. Skipping this drops ~950 suburbs.
+- **ABS SED `District (Region)` qualifier** — VIC/TAS seats are named `Bass (Launceston)` / `Melbourne (Northern Metropolitan)`; `join-sed.mjs` strips the trailing `(...)` so TAS resolves to its 5 Hare-Clark divisions and VIC to its 88 assembly seats.
+- **Party-abbreviation substring matching** — short codes (`on`, `ind`, `nat`) substring-match member surnames ("Aitchis**on**"); the substring fallback is restricted to full party names (len > 4), abbreviations are exact-only. QLD/NT tables use the abbreviation (`LNP`/`CLP`) so those are added as exact keys.
+- **Hare-Clark TAS/ACT** — multi-member, no single party per area → `state_member/party` stay NULL (the state **district** still shows).
+- **SA 2025 redistribution** — SA's `SED_2025` districts were renamed vs its 2022-term member list, so ~7% of SA suburbs show the state district but no state MP.
+
+### 5.5 RPCs
+
+- `ListStateSuburbs(state_code, query, limit)` → `SuburbSummary[]` — the 24-field summary (identity + latest price + headline demographics + culture + federal + state) that powers the state choropleth + list.
+- `GetSuburbProfile(sal_code)` → `{ SuburbSummary, SuburbDemographics, ComparisonBaselines }` — the profile page (full demographics + state/national comparison bars).
+- `ListHousingRegions(region_type, state_code, query, limit)` → `HousingRegion[]` — a **parallel, older** regions-based explorer (merged from `main` before the suburb map landed). Kept alongside the suburb map (which supersedes it for the UI; `/housing/suburbs` 301-redirects to `/housing`). New work should use `ListStateSuburbs`/`GetSuburbProfile`.
+
+Handlers in `house_prices.go`, queries in `postgres_house_prices.go`. The suburb queries LEFT-JOIN the latest median via a LATERAL subquery (covers VIC annual + national quarterly), with YoY vs the obs ~1yr prior; baselines are the avg latest median per priced suburb (state + national). All cached via `s.cache.Get<Name>Key`.
+
+### 5.6 Frontend: the choropleth + highlight metrics
+
+- **`ChoroplethMap`** (`choropleth-map.tsx`, `"use client"`) — one shared map at every level. Continuous mode (`valueById` + `colorScale`) or categorical mode (`categoryById` + `categoryColor`); `fill` (flex height), `focusId` (smoothly zoom to a feature + ease back), `fitValueById` (stable framing kept independent of the toggled metric so zoom persists), `fitToData`/`fitToId`, `MAX_SCALE=48`, **`vector-effect: non-scaling-stroke`** (so the 1.6u emphasis stroke stays a crisp outline at deep zoom rather than swallowing small suburbs). No-data → hatch.
+- **`HIGHLIGHT_METRICS`** (`lib/housing/highlight-metrics.ts`) — the "Colour by" toggle:
+  - **Continuous → amber sequential** (`amberScale`, sqrt for long-tail): `price`, `population`, `age`, `income`, `born_overseas`.
+  - **Continuous → diverging**: `federal_lean` (Labor 2PP, `politicalLeanScale()` = `scaleDiverging([0,50,100], t ⇒ interpolateRdBu(1-t))`, fixed `domain:[0,100]`, `makeScale` override).
+  - **Categorical → qualitative palette + swatch legend**: `religion` (`RELIGION_COLORS`), `language` (`LANGUAGE_COLORS`, English-neutral base below `LANGUAGE_MIN_PCT=5` so non-English pockets pop), `federal_party` + `state_party` (`PARTY_COLORS`, `party_ab → label` via `PARTY_LABEL`).
+  - `ContinuousMetric` carries optional `domain` + `makeScale`; `CategoricalMetric` carries `category`/`colorFor`/`order`.
+- **Component tree**: `NationalHousingMap` (states drilldown) → `StateSuburbExplorer` (search/sort/filter list ⟷ `StateSuburbMap` → `ChoroplethMap`, two-way hover/select, `?sal=` deep-link) → `SuburbTooltip` (hover/selected card: stats + lazy price sparkline + Culture + federal MP + State seat + "Open profile →") / `SuburbProfile` (People · Housing · **Culture & community** · **Representation** [federal division + MP + 2PP + state seat + state MP] · compare bars · locator inset · nearby rail).
+- **SSR**: every map/chart is `dynamic(ssr:false)` from a `"use client"` module; metrics are dispatched by a serializable `MetricKey` (never a function prop across the RSC boundary; see §4's format-key gotcha).
+
+To add a metric, demographic measure, or electoral source, see §9.
+
+---
+
+## 6. The Tier-3 stealth crawl
 
 `services/house-price-collector/crawl*.go` adds an **opt-in, supplementary** suburb-median crawl of realestate.com.au (Kasada) and domain.com.au (Akamai). It is fail-safe by design — it never blocks the ABS/RBA backbone and never stores an unvalidated value.
 
@@ -192,21 +275,41 @@ REA (Kasada) actively serves **false** medians to suspected bots; Domain (Akamai
 
 ---
 
-## 6. Data model & licensing summary
+## 7. Data model & licensing summary
 
-| Source | Measure(s) | Region | Live/Baked | Licence | Gate |
+Two tables hold the live data: **`house_prices`** (narrow EAV: one row per region × measure × dwelling × period × source) + **`house_price_regions`** (location dimension), and **`suburb_demographics`** (wide, one row per ABS SAL suburb). Source/licence per row:
+
+| Source | Measure(s) / data | Region | Live/Baked | Licence | Gate |
 |--------|-----------|--------|-----------|---------|------|
 | ABS RES_DWELL_ST | mean_price, total_value | national + states | LIVE | CC-BY-4.0 | none |
 | ABS RES_DWELL | median_price (est. house / attached) | GCCSAs + rest-of-state | LIVE | CC-BY-4.0 | none |
 | ABS RPPI | price_index | national | LIVE (frozen 2021-Q4 upstream) | CC-BY-4.0 | none |
-| RBA E2 | debt_to_income | national | LIVE | CC-BY-4.0 | none |
+| RBA E2/F1/F6/D1/E1 | debt_to_income, cash/mortgage rates, housing credit, balance sheet | national | LIVE | CC-BY-4.0 | none |
+| ABS WPI / CPI / Lending | wage_index, rents_index, loan commitments, price_to_income | national | LIVE | CC-BY-4.0 | none |
+| State Valuer-General (SA CKAN, VIC XLSX) | median_price | suburb (SA, VIC) | LIVE | CC-BY-4.0 | none |
+| **ABS Census 2021 GCP SAL** (G01/G02/G13/G14) | population, medians, tenure, religion, language, born-overseas | suburb (SAL) | LIVE (`-mode census`) | CC-BY-4.0 | none |
+| **AEC 2025 election** (boundaries + event 31496 CSVs) | federal division, member, party, two-party-preferred | suburb (SAL via spatial join) | LIVE (`-mode electorates`) | CC-BY-4.0 | none |
+| **ABS SED_2025** | state electoral district | suburb (SAL via spatial join) | LIVE (`-mode electorates`) | CC-BY-4.0 | none |
+| **State parliaments** (via Wikipedia members tables) | state member + party (6 single-member states) | suburb (SAL) | LIVE (`-mode electorates`) | CC-BY-SA (attribute) | none |
 | BIS/FRED HPI | price_index (2010=100) | AUS/JPN/USA/CHN | BAKED (`series.ts`, never fetched) | public domain | none |
-| OECD | price_to_income (2015=100) | AUS | BAKED | OECD open | none |
-| ABS Lending Indicators | investor_share | national | BAKED | CC-BY-4.0 | none |
-| ATO Tax Stats | neg_geared_count | AUS | BAKED | CC-BY-4.0 | none |
+| OECD / ABS Lending / ATO | price_to_income, investor_share, neg_geared_count | AUS | BAKED (`series.ts`) | open | none |
 | REA/Domain crawl | median_price | suburb | crawl (blocked) | proprietary-tos-restricted | **no republish** |
 
-All `source_licence` values are stored on every `house_prices` row for audit. The feature's baked arrays are **not** in the DB — they live only in `series.ts`.
+`source_licence` is stored on every `house_prices` row for audit; `mv_housing_headline` and the public read paths **exclude `proprietary-tos-restricted`**. The feature's baked arrays (§1) are **not** in the DB — they live only in `series.ts`.
+
+### `suburb_demographics` column inventory
+
+Keyed by `sal_code` (ABS SAL_CODE21, PK). Indexed on `(state_code)` and `(sal_name)`.
+
+| Migration | Columns |
+|-----------|---------|
+| **000055** (identity + census base) | `sal_code`, `sal_name`, `state_code`, `postcode`, `population`, `median_age`, `median_weekly_hhd_income`, `median_weekly_per_income`, `median_weekly_rent`, `median_monthly_mortgage`, `pct_owned_outright`, `pct_owned_mortgage`, `pct_rented`, `dwelling_count`, `census_year`, `source`, `source_licence`, `fetched_at` |
+| **000057** (culture) | `pct_born_overseas`, `pct_english_only`, `top_religion`, `pct_top_religion`, `pct_no_religion`, `top_language`, `pct_top_language` |
+| **000058** (federal) | `federal_division`, `federal_member`, `federal_party`, `federal_party_ab`, `federal_tpp_alp` |
+| **000059** (state district) | `state_district` |
+| **000060** (state member) | `state_member`, `state_party`, `state_party_ab` *(NULL for TAS/ACT)* |
+
+> Note: `pct_owned_*` / `pct_rented` / `dwelling_count` columns exist (000055) but `-mode census` does **not** populate them (tenure tables G33/G37 aren't parsed) — they're reserved/NULL.
 
 ### Satori OG limitation
 
@@ -214,7 +317,7 @@ All `source_licence` values are stored on every `house_prices` row for audit. Th
 
 ---
 
-## 7. Deployment
+## 8. Deployment
 
 ### Collector container
 
@@ -228,18 +331,43 @@ All `source_licence` values are stored on every `house_prices` row for audit. Th
 
 ### Prod DDL procedure
 
-Apply `000053` against prod Supabase via the **session pooler port 5432** (not txn pooler 6543) with `PGOPTIONS="-c statement_timeout=0"`:
+Housing migrations are applied **manually** against prod Supabase via the **session pooler port 5432** (not txn pooler 6543) with `PGOPTIONS="-c statement_timeout=0"` (needed for `REFRESH … CONCURRENTLY`). The full housing migration set:
+
+| Migration | Adds |
+|-----------|------|
+| `000053` | `house_prices`, `house_price_regions`, `house_price_ingest_runs`, `mv_housing_headline`, refresh fn |
+| `000054` | licence gate (excludes `proprietary-tos-restricted` from the MV) |
+| `000055` | `suburb_demographics` + `house_price_regions.sal_code` bridge column |
+| `000056` | backfill `house_price_regions.sal_code` (name+state match) — run **after** census ingest |
+| `000057` | culture columns (religion, language, born-overseas) |
+| `000058` / `000059` / `000060` | federal electoral / state district / state member+party |
 
 ```bash
 PGOPTIONS="-c statement_timeout=0" psql "postgresql://…@…:5432/postgres" \
-  < services/migrations/000053_add_house_prices.up.sql
+  -f services/migrations/000057_add_suburb_culture_demographics.up.sql
 ```
 
-Manual collector run: `cd services/house-price-collector && DATABASE_URL="…" go run . -mode=all` (~2 min for official ingest). `-mode=refresh` for MV-only.
+### Manual ingest runs
+
+The collector ingest is manual (the Cloud Run Job is built but not yet wired — see below). DDL on `:5432`, bulk upserts on the **txn pooler `:6543`** (the collector's `store.go` forces `SimpleProtocol` for it):
+
+```bash
+cd services
+DATABASE_URL="…:6543/postgres" go run ./house-price-collector -mode official     # ABS/RBA/VG price ingest (~2 min) + MV refresh
+DATABASE_URL="…:6543/postgres" \
+  CENSUS_DATAPACK_PATH=/path/2021_GCP_SAL_for_AUS_short-header.zip \
+  CENSUS_GEO_DIR=$(pwd)/../web/public/geo/suburbs \
+  go run ./house-price-collector -mode census                                     # ABS Census → suburb_demographics
+DATABASE_URL="…:6543/postgres" \
+  ELECTORATES_DIR=$(pwd)/../web/public/geo/electorates \
+  go run ./house-price-collector -mode electorates                                # federal + state representation
+```
+
+`-mode refresh` = MV-only. After a **census** re-run, also re-apply `000056` (the sal_code backfill reads the now-populated `suburb_demographics`).
 
 ---
 
-## 8. Future extensions (concrete recipes)
+## 9. Future extensions (concrete recipes)
 
 ### A. Wire the **feature** charts to live data
 The feature's 4 charts are baked. To make (say) `policy-price-chart` live: ingest the underlying series into `house_prices` (new ABS measures — recipe C), expose them via `GetHousePriceSeries`, and fetch client-side **using the format-key pattern from `housing-series-chart.tsx`** (string `format`, never a function prop). Keep the `dashboards.tsx` `dynamic(ssr:false)` wrapper. The cleanest path is to generalize `housing-series-chart.tsx` rather than rewrite each `@visx` feature chart.
@@ -265,3 +393,22 @@ The module is built; to schedule the collector in prod:
 3. **Module** — instantiate `module "house_price_collector"` in `environments/{dev,prod}/main.tf` (`source = "../../modules/house-price-collector"`, `scheduler_region = "australia-southeast1"`, `image_url = var.house_price_collector_image`).
 4. **Plan var** — add `-var="house_price_collector_image=…:${image-tag}"` to the `terraform-plan` step.
 Follow the existing `short_data_sync` module/variable/image-tag flow as the template. Confirm `min_instance_count` stays 0 per the project cost guardrail (Cloud Run **Jobs** scale to zero by nature, but keep the rule in mind for any added service).
+
+### G. Add a **new suburb-map highlight metric** (§5.6)
+
+1. Ensure the field reaches the client: add it to `suburb_demographics` (migration) → `census`/`electorates` ingest → `SuburbSummary` proto + the store `SELECT`/`Scan` + the RPC mapping → `SuburbDatum` (`state-suburb-map.tsx`) + the explorer mapping → `SuburbMetricInput` (`highlight-metrics.ts`).
+2. Add the metric to `HIGHLIGHT_METRICS`:
+   - **Continuous** → `{ kind:"continuous", value, format, sqrt? }`; for a fixed-range or non-amber scale add `domain` + `makeScale` (e.g. a diverging scale like `politicalLeanScale`).
+   - **Categorical** → `{ kind:"categorical", category, colorFor, order }`; add a palette + a `*_LABEL`/`*_COLORS` map. `category` returns `null` for no-data (→ hatch).
+3. The selector, legend (gradient vs swatch), and `ChoroplethMap` continuous/categorical dispatch are automatic — `state-suburb-map.tsx` reads `metric.kind`.
+
+### H. Add a **new ABS Census measure** (`-mode census`, §5.3)
+
+1. In `census.go`/`census_culture.go`, parse the new GCP table (find the exact `_AUST_SAL.csv` entry + the short-header column codes by inspecting the DataPack ZIP — the codes are non-obvious). Add fields to `CensusRow` + the relevant `parseGNN`.
+2. Add the column(s) to `suburb_demographics` (migration) + the `upsertDemographics` INSERT/`ON CONFLICT`.
+3. Thread to the API only if the map/profile needs it (proto + store + RPC + frontend, per recipe G). Re-run `-mode census` then re-apply the `000056` sal_code backfill.
+
+### I. Finish the **state member + party** layer / refresh electoral data
+
+- **State party** currently covers the 6 single-member states (NSW/VIC/QLD/WA/SA/NT) via `fetch-state-members.py` scraping the Wikipedia members tables. TAS/ACT are Hare-Clark multi-member — to surface them you'd model multiple members/parties per district (not a single `state_party`), so the map would need a different (e.g. dominant-party or "mixed") treatment.
+- **Refresh after an election / redistribution**: re-run the data-prep (new AEC boundaries + tally-room event id, new ABS `SED` edition, re-scrape `fetch-state-members.py` for the new term), re-commit the `web/public/geo/electorates/*.json`, then `-mode electorates`. No schema change. Watch the `fetch-state-members.py` page-title year ranges + the party-abbreviation map.

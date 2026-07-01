@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "all", "official | crawl | census | electorates | refresh | all")
+	mode := flag.String("mode", "all", "official | crawl | census | electorates | amenities | lga | connectivity | funding | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -49,11 +49,109 @@ func main() {
 	case "electorates":
 		// AEC federal electoral representation, spatially joined per suburb.
 		runElectorates(ctx, pool)
+	case "amenities":
+		// Per-suburb amenity/lifestyle metrics, spatially joined offline
+		// (web/scripts/geo/join-amenities.mjs) and upserted into suburb_amenities.
+		runAmenities(ctx, pool)
+	case "lga":
+		// Council/LGA dimension + suburb→council bridge (ABS LGA_2024 PiP join).
+		runLGA(ctx, pool)
+	case "connectivity":
+		// Dominant NBN access technology per suburb (centroid→footprint join).
+		runConnectivity(ctx, pool)
+	case "funding":
+		// Federal Financial Assistance Grants per council → lga dimension.
+		runFAGs(ctx, pool)
 	case "refresh":
 		refresh(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want official|crawl|census|electorates|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|crawl|census|electorates|amenities|lga|connectivity|funding|refresh|all)", *mode)
 	}
+}
+
+// runFAGs fetches the national Financial Assistance Grants and attaches each
+// council's latest total to the lga dimension.
+func runFAGs(ctx context.Context, pool *pgxpool.Pool) {
+	rows, err := ingestFAGs(ctx)
+	if err != nil {
+		log.Printf("[funding] ingest error: %v", err)
+		_ = updateRun(ctx, pool, fagSource, nil, 0, "error", err.Error())
+		return
+	}
+	n, err := applyFAGs(ctx, pool, rows)
+	if err != nil {
+		log.Printf("[funding] apply error after %d: %v", n, err)
+		_ = updateRun(ctx, pool, fagSource, nil, n, "error", err.Error())
+		return
+	}
+	log.Printf("[funding] matched %d/%d councils to FAG grants", n, len(rows))
+	_ = updateRun(ctx, pool, fagSource, nil, n, "ok", "")
+}
+
+// runConnectivity loads the precomputed per-suburb NBN tech and upserts it into
+// suburb_connectivity, recording the run cursor under "nbn_footprint".
+func runConnectivity(ctx context.Context, pool *pgxpool.Pool) {
+	rows, err := ingestConnectivity()
+	if err != nil {
+		log.Printf("[connectivity] ingest error: %v", err)
+		_ = updateRun(ctx, pool, "nbn_footprint", nil, 0, "error", err.Error())
+		return
+	}
+	n, err := upsertConnectivity(ctx, pool, rows)
+	if err != nil {
+		log.Printf("[connectivity] upsert error after %d: %v", n, err)
+		_ = updateRun(ctx, pool, "nbn_footprint", nil, n, "error", err.Error())
+		return
+	}
+	log.Printf("[connectivity] upserted %d", n)
+	_ = updateRun(ctx, pool, "nbn_footprint", nil, n, "ok", "")
+}
+
+// runLGA loads the precomputed council dimension + suburb→council bridge and
+// upserts them (lga + suburb_lga), recording the run cursor under "abs_lga".
+func runLGA(ctx context.Context, pool *pgxpool.Pool) {
+	lgas, subs, err := ingestLGA()
+	if err != nil {
+		log.Printf("[lga] ingest error: %v", err)
+		_ = updateRun(ctx, pool, "abs_lga", nil, 0, "error", err.Error())
+		return
+	}
+	nl, err := upsertLGADimension(ctx, pool, lgas)
+	if err != nil {
+		log.Printf("[lga] dimension upsert error after %d: %v", nl, err)
+		_ = updateRun(ctx, pool, "abs_lga", nil, nl, "error", err.Error())
+		return
+	}
+	ns, err := upsertSuburbLGA(ctx, pool, subs)
+	if err != nil {
+		log.Printf("[lga] bridge upsert error after %d: %v", ns, err)
+		_ = updateRun(ctx, pool, "abs_lga", nil, ns, "error", err.Error())
+		return
+	}
+	if err := refreshLGAPopulation(ctx, pool); err != nil {
+		log.Printf("[lga] population rollup failed: %v", err)
+	}
+	log.Printf("[lga] upserted %d councils + %d suburb links (+ population rollup)", nl, ns)
+	_ = updateRun(ctx, pool, "abs_lga", nil, ns, "ok", "")
+}
+
+// runAmenities loads the precomputed per-suburb amenity metrics and upserts
+// them into suburb_amenities, recording the run cursor under "local_amenities".
+func runAmenities(ctx context.Context, pool *pgxpool.Pool) {
+	rows, err := ingestAmenities()
+	if err != nil {
+		log.Printf("[amenities] ingest error: %v", err)
+		_ = updateRun(ctx, pool, "local_amenities", nil, 0, "error", err.Error())
+		return
+	}
+	n, err := upsertAmenities(ctx, pool, rows)
+	if err != nil {
+		log.Printf("[amenities] upsert error after %d: %v", n, err)
+		_ = updateRun(ctx, pool, "local_amenities", nil, n, "error", err.Error())
+		return
+	}
+	log.Printf("[amenities] upserted %d", n)
+	_ = updateRun(ctx, pool, "local_amenities", nil, n, "ok", "")
 }
 
 // runElectorates loads the precomputed suburb→division join + division roll-up

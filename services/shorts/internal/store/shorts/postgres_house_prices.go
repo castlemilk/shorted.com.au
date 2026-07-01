@@ -138,6 +138,26 @@ type SuburbSummaryRow struct {
 	StateMember           string
 	StateParty            string
 	StatePartyAb          string
+	// amenity/lifestyle metrics (Local Insights); 0 when not yet ingested
+	SchoolsTotal         int32
+	SupermarketsTotal    int32
+	ColesCount           int32
+	WoolworthsCount      int32
+	AldiCount            int32
+	IgaCount             int32
+	PubsBars             int32
+	ParksCount           int32
+	LibrariesCount       int32
+	NearestSupermarketKm float64
+	AmenityDensityScore  float64
+	HospitalsCount       int32
+	GpCount              int32
+	PharmacyCount        int32
+	NearestTrainKm       float64
+	NearestHospitalKm    float64
+	// NBN connectivity (Local Insights)
+	DominantNbnTech          string
+	ConnectivityQualityScore float64
 }
 
 // SuburbProfileRow is the full per-suburb profile (demographics + headline price).
@@ -162,6 +182,26 @@ type SuburbProfileRow struct {
 	NationalMedianPrice     float64
 	StateMedianHhdIncome    float64
 	NationalMedianHhdIncome float64
+	// council (LGA)
+	LgaCode       string
+	LgaName       string
+	LgaState      string
+	LgaAreaSqkm   float64
+	LgaPopulation int32
+	LgaFagAud     float64
+	LgaFagYear    string
+	// most-similar suburbs (feature-vector kNN — the knowledge-graph "similar_to")
+	Similar []SimilarSuburbRow
+}
+
+// SimilarSuburbRow is one near-neighbour in demographic+amenity feature space.
+type SimilarSuburbRow struct {
+	SALCode           string
+	SALName           string
+	StateCode         string
+	LatestMedianPrice float64
+	RegionCode        string
+	Distance          float64
 }
 
 // ListStateSuburbs returns every SAL suburb in a state, LEFT JOINed to its latest
@@ -182,9 +222,18 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 		       COALESCE(d.federal_division, ''), COALESCE(d.federal_member, ''),
 		       COALESCE(d.federal_party, ''), COALESCE(d.federal_party_ab, ''),
 		       COALESCE(d.federal_tpp_alp, 0), COALESCE(d.state_district, ''),
-		       COALESCE(d.state_member, ''), COALESCE(d.state_party, ''), COALESCE(d.state_party_ab, '')
+		       COALESCE(d.state_member, ''), COALESCE(d.state_party, ''), COALESCE(d.state_party_ab, ''),
+		       COALESCE(a.schools_total,0), COALESCE(a.supermarkets_total,0), COALESCE(a.coles_count,0),
+		       COALESCE(a.woolworths_count,0), COALESCE(a.aldi_count,0), COALESCE(a.iga_count,0),
+		       COALESCE(a.pubs_bars,0), COALESCE(a.parks_count,0), COALESCE(a.libraries_count,0),
+		       COALESCE(a.nearest_supermarket_km,0), COALESCE(a.amenity_density_score,0),
+		       COALESCE(a.hospitals_count,0), COALESCE(a.gp_count,0), COALESCE(a.pharmacy_count,0),
+		       COALESCE(a.nearest_train_km,0), COALESCE(a.nearest_hospital_km,0),
+		       COALESCE(c.dominant_nbn_tech,''), COALESCE(c.connectivity_quality_score,0)
 		FROM suburb_demographics d
 		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
+		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
+		LEFT JOIN suburb_connectivity c ON c.sal_code = d.sal_code
 		-- Latest median from house_prices directly (NOT the quarterly-only MV) so annual
 		-- Valuer-General states (VIC) light up too; YoY computed vs the obs ~1yr prior.
 		LEFT JOIN LATERAL (
@@ -215,7 +264,11 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 			&r.Population, &r.MedianAge, &r.MedianWeeklyHhdIncome, &r.RegionCode,
 			&r.PctBornOverseas, &r.TopReligion, &r.TopLanguage, &r.PctTopLanguage,
 			&r.FederalDivision, &r.FederalMember, &r.FederalParty, &r.FederalPartyAb, &r.FederalTppAlp,
-			&r.StateDistrict, &r.StateMember, &r.StateParty, &r.StatePartyAb); err != nil {
+			&r.StateDistrict, &r.StateMember, &r.StateParty, &r.StatePartyAb,
+			&r.SchoolsTotal, &r.SupermarketsTotal, &r.ColesCount, &r.WoolworthsCount, &r.AldiCount, &r.IgaCount,
+			&r.PubsBars, &r.ParksCount, &r.LibrariesCount, &r.NearestSupermarketKm, &r.AmenityDensityScore,
+			&r.HospitalsCount, &r.GpCount, &r.PharmacyCount, &r.NearestTrainKm, &r.NearestHospitalKm,
+			&r.DominantNbnTech, &r.ConnectivityQualityScore); err != nil {
 			return nil, err
 		}
 		out = append(out, &r)
@@ -239,6 +292,13 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE(d.federal_party, ''), COALESCE(d.federal_party_ab, ''),
 		       COALESCE(d.federal_tpp_alp, 0), COALESCE(d.state_district, ''),
 		       COALESCE(d.state_member, ''), COALESCE(d.state_party, ''), COALESCE(d.state_party_ab, ''),
+		       COALESCE(a.schools_total,0), COALESCE(a.supermarkets_total,0), COALESCE(a.coles_count,0),
+		       COALESCE(a.woolworths_count,0), COALESCE(a.aldi_count,0), COALESCE(a.iga_count,0),
+		       COALESCE(a.pubs_bars,0), COALESCE(a.parks_count,0), COALESCE(a.libraries_count,0),
+		       COALESCE(a.nearest_supermarket_km,0), COALESCE(a.amenity_density_score,0),
+		       COALESCE(a.hospitals_count,0), COALESCE(a.gp_count,0), COALESCE(a.pharmacy_count,0),
+		       COALESCE(a.nearest_train_km,0), COALESCE(a.nearest_hospital_km,0),
+		       COALESCE(c.dominant_nbn_tech,''), COALESCE(c.connectivity_quality_score,0),
 		       COALESCE(d.median_weekly_per_income, 0), COALESCE(d.median_weekly_rent, 0),
 		       COALESCE(d.median_monthly_mortgage, 0), COALESCE(d.pct_owned_outright, 0),
 		       COALESCE(d.pct_owned_mortgage, 0), COALESCE(d.pct_rented, 0),
@@ -261,9 +321,15 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		                 ORDER BY hp.region_code, hp.period DESC) s), 0),
 		       COALESCE((SELECT avg(median_weekly_hhd_income) FROM suburb_demographics
 		                 WHERE state_code = d.state_code), 0),
-		       COALESCE((SELECT avg(median_weekly_hhd_income) FROM suburb_demographics), 0)
+		       COALESCE((SELECT avg(median_weekly_hhd_income) FROM suburb_demographics), 0),
+		       COALESCE(lg.lga_code24,''), COALESCE(lg.lga_name,''), COALESCE(lg.state_code,''), COALESCE(lg.area_sqkm,0), COALESCE(lg.population,0),
+		       COALESCE(lg.fed_fag_aud,0), COALESCE(lg.fed_fag_year,'')
 		FROM suburb_demographics d
 		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
+		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
+		LEFT JOIN suburb_connectivity c ON c.sal_code = d.sal_code
+		LEFT JOIN suburb_lga sl ON sl.sal_code = d.sal_code
+		LEFT JOIN lga lg ON lg.lga_code24 = sl.lga_code24
 		LEFT JOIN LATERAL (
 			SELECT hp.value, hp.period,
 			       (hp.value / NULLIF((
@@ -286,14 +352,80 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		&p.Summary.PctBornOverseas, &p.Summary.TopReligion, &p.Summary.TopLanguage, &p.Summary.PctTopLanguage,
 		&p.Summary.FederalDivision, &p.Summary.FederalMember, &p.Summary.FederalParty, &p.Summary.FederalPartyAb, &p.Summary.FederalTppAlp,
 		&p.Summary.StateDistrict, &p.Summary.StateMember, &p.Summary.StateParty, &p.Summary.StatePartyAb,
+		&p.Summary.SchoolsTotal, &p.Summary.SupermarketsTotal, &p.Summary.ColesCount, &p.Summary.WoolworthsCount, &p.Summary.AldiCount, &p.Summary.IgaCount,
+		&p.Summary.PubsBars, &p.Summary.ParksCount, &p.Summary.LibrariesCount, &p.Summary.NearestSupermarketKm, &p.Summary.AmenityDensityScore,
+		&p.Summary.HospitalsCount, &p.Summary.GpCount, &p.Summary.PharmacyCount, &p.Summary.NearestTrainKm, &p.Summary.NearestHospitalKm,
+		&p.Summary.DominantNbnTech, &p.Summary.ConnectivityQualityScore,
 		&p.MedianWeeklyPerIncome, &p.MedianWeeklyRent, &p.MedianMonthlyMortgage,
 		&p.PctOwnedOutright, &p.PctOwnedMortgage, &p.PctRented, &p.DwellingCount, &p.CensusYear,
 		&p.PctEnglishOnly, &p.PctTopReligion, &p.PctNoReligion,
 		&p.StateMedianPrice, &p.NationalMedianPrice, &p.StateMedianHhdIncome, &p.NationalMedianHhdIncome,
+		&p.LgaCode, &p.LgaName, &p.LgaState, &p.LgaAreaSqkm, &p.LgaPopulation,
+		&p.LgaFagAud, &p.LgaFagYear,
 	); err != nil {
 		return nil, err
 	}
+	if sim, err := s.similarSuburbs(ctx, salCode, 6); err == nil {
+		p.Similar = sim
+	}
 	return &p, nil
+}
+
+// similarSuburbs finds the k nearest suburbs nationally in a z-scored feature
+// space (age, income, born-overseas, amenity density, log-population) — the
+// knowledge-graph "similar_to" relation, computed at query time.
+func (s *postgresStore) similarSuburbs(ctx context.Context, salCode string, limit int32) ([]SimilarSuburbRow, error) {
+	const q = `
+		WITH stats AS (
+			SELECT NULLIF(stddev_pop(d.median_age),0) sage,
+			       NULLIF(stddev_pop(d.median_weekly_hhd_income),0) sinc,
+			       NULLIF(stddev_pop(d.pct_born_overseas),0) sbo,
+			       NULLIF(stddev_pop(COALESCE(a.amenity_density_score,0)),0) sden,
+			       NULLIF(stddev_pop(ln(GREATEST(d.population,1))),0) spop
+			FROM suburb_demographics d LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
+			WHERE d.population > 200
+		),
+		tgt AS (
+			SELECT d.median_age ma, d.median_weekly_hhd_income mi, d.pct_born_overseas mb,
+			       COALESCE(a.amenity_density_score,0) md, ln(GREATEST(d.population,1)) mp
+			FROM suburb_demographics d LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
+			WHERE d.sal_code = $1
+		)
+		SELECT d.sal_code, d.sal_name, d.state_code, COALESCE(h.value,0), COALESCE(r.region_code,''),
+		       sqrt(
+		         COALESCE(pow((d.median_age - tgt.ma)/stats.sage,2),0) +
+		         COALESCE(pow((d.median_weekly_hhd_income - tgt.mi)/stats.sinc,2),0) +
+		         COALESCE(pow((d.pct_born_overseas - tgt.mb)/stats.sbo,2),0) +
+		         COALESCE(pow((COALESCE(a.amenity_density_score,0) - tgt.md)/stats.sden,2),0) +
+		         COALESCE(pow((ln(GREATEST(d.population,1)) - tgt.mp)/stats.spop,2),0)
+		       ) AS dist
+		FROM suburb_demographics d
+		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
+		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
+		LEFT JOIN LATERAL (
+			SELECT hp.value FROM house_prices hp
+			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
+			ORDER BY hp.period DESC LIMIT 1
+		) h ON true
+		CROSS JOIN tgt CROSS JOIN stats
+		WHERE d.sal_code <> $1 AND d.population > 200
+		  AND d.median_age IS NOT NULL AND d.median_weekly_hhd_income IS NOT NULL
+		ORDER BY dist ASC NULLS LAST
+		LIMIT $2`
+	rows, err := s.db.Query(ctx, q, salCode, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []SimilarSuburbRow
+	for rows.Next() {
+		var r SimilarSuburbRow
+		if err := rows.Scan(&r.SALCode, &r.SALName, &r.StateCode, &r.LatestMedianPrice, &r.RegionCode, &r.Distance); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }
 
 // HousingRegionRow is a selectable house-price region (for the suburb explorer),

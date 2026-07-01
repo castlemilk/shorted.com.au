@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { listStateSuburbsClient } from "~/app/actions/client/getHousingClient";
 import { StateSuburbMap, type SuburbDatum } from "./state-suburb-map";
+import { DataAttribution } from "./data-attribution";
 import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -38,6 +39,18 @@ export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
       stateDistrict: s.stateDistrict, stateMember: s.stateMember,
       stateParty: s.stateParty, statePartyAb: s.statePartyAb,
       regionCode: s.regionCode,
+      schoolsTotal: s.amenities?.schoolsTotal ?? 0,
+      supermarketsTotal: s.amenities?.supermarketsTotal ?? 0,
+      colesCount: s.amenities?.colesCount ?? 0, woolworthsCount: s.amenities?.woolworthsCount ?? 0,
+      aldiCount: s.amenities?.aldiCount ?? 0, igaCount: s.amenities?.igaCount ?? 0,
+      pubsBars: s.amenities?.pubsBars ?? 0, parksCount: s.amenities?.parksCount ?? 0,
+      librariesCount: s.amenities?.librariesCount ?? 0,
+      nearestSupermarketKm: s.amenities?.nearestSupermarketKm ?? 0,
+      amenityDensityScore: s.amenities?.amenityDensityScore ?? 0,
+      hospitalsCount: s.amenities?.hospitalsCount ?? 0, gpCount: s.amenities?.gpCount ?? 0,
+      pharmacyCount: s.amenities?.pharmacyCount ?? 0,
+      nearestTrainKm: s.amenities?.nearestTrainKm ?? 0, nearestHospitalKm: s.amenities?.nearestHospitalKm ?? 0,
+      dominantNbnTech: s.dominantNbnTech, connectivityQualityScore: s.connectivityQualityScore,
     })),
     [data],
   );
@@ -182,6 +195,7 @@ export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
               if (s) goToSuburb(s);
             }}
           />
+          <DataAttribution />
         </div>
       </div>
     </div>

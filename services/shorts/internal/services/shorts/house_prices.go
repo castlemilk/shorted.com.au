@@ -124,6 +124,16 @@ func (s *ShortsServer) ListStateSuburbs(ctx context.Context, req *connect.Reques
 				FederalParty: r.FederalParty, FederalPartyAb: r.FederalPartyAb,
 				FederalTppAlp: r.FederalTppAlp, StateDistrict: r.StateDistrict,
 				StateMember: r.StateMember, StateParty: r.StateParty, StatePartyAb: r.StatePartyAb,
+				DominantNbnTech: r.DominantNbnTech, ConnectivityQualityScore: r.ConnectivityQualityScore,
+				Amenities: &shortsv1alpha1.SuburbAmenities{
+					SchoolsTotal: r.SchoolsTotal, SupermarketsTotal: r.SupermarketsTotal,
+					ColesCount: r.ColesCount, WoolworthsCount: r.WoolworthsCount,
+					AldiCount: r.AldiCount, IgaCount: r.IgaCount, PubsBars: r.PubsBars,
+					ParksCount: r.ParksCount, LibrariesCount: r.LibrariesCount,
+					NearestSupermarketKm: r.NearestSupermarketKm, AmenityDensityScore: r.AmenityDensityScore,
+					HospitalsCount: r.HospitalsCount, GpCount: r.GpCount, PharmacyCount: r.PharmacyCount,
+					NearestTrainKm: r.NearestTrainKm, NearestHospitalKm: r.NearestHospitalKm,
+				},
 			}
 			if r.LatestPeriod != nil {
 				ss.LatestPeriod = timestamppb.New(*r.LatestPeriod)
@@ -162,9 +172,27 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 			FederalParty: p.Summary.FederalParty, FederalPartyAb: p.Summary.FederalPartyAb,
 			FederalTppAlp: p.Summary.FederalTppAlp, StateDistrict: p.Summary.StateDistrict,
 			StateMember: p.Summary.StateMember, StateParty: p.Summary.StateParty, StatePartyAb: p.Summary.StatePartyAb,
+			DominantNbnTech: p.Summary.DominantNbnTech, ConnectivityQualityScore: p.Summary.ConnectivityQualityScore,
+			Amenities: &shortsv1alpha1.SuburbAmenities{
+				SchoolsTotal: p.Summary.SchoolsTotal, SupermarketsTotal: p.Summary.SupermarketsTotal,
+				ColesCount: p.Summary.ColesCount, WoolworthsCount: p.Summary.WoolworthsCount,
+				AldiCount: p.Summary.AldiCount, IgaCount: p.Summary.IgaCount, PubsBars: p.Summary.PubsBars,
+				ParksCount: p.Summary.ParksCount, LibrariesCount: p.Summary.LibrariesCount,
+				NearestSupermarketKm: p.Summary.NearestSupermarketKm, AmenityDensityScore: p.Summary.AmenityDensityScore,
+				HospitalsCount: p.Summary.HospitalsCount, GpCount: p.Summary.GpCount, PharmacyCount: p.Summary.PharmacyCount,
+				NearestTrainKm: p.Summary.NearestTrainKm, NearestHospitalKm: p.Summary.NearestHospitalKm,
+			},
 		}
 		if p.Summary.LatestPeriod != nil {
 			summary.LatestPeriod = timestamppb.New(*p.Summary.LatestPeriod)
+		}
+		similar := make([]*shortsv1alpha1.SimilarSuburb, 0, len(p.Similar))
+		for _, sm := range p.Similar {
+			similar = append(similar, &shortsv1alpha1.SimilarSuburb{
+				SalCode: sm.SALCode, SalName: sm.SALName, StateCode: sm.StateCode,
+				LatestMedianPrice: sm.LatestMedianPrice, RegionCode: sm.RegionCode,
+				Similarity: 1.0 / (1.0 + sm.Distance),
+			})
 		}
 		return &shortsv1alpha1.GetSuburbProfileResponse{
 			Summary: summary,
@@ -185,6 +213,11 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 				StateMedianWeeklyHhdIncome:    p.StateMedianHhdIncome,
 				NationalMedianWeeklyHhdIncome: p.NationalMedianHhdIncome,
 			},
+			Council: &shortsv1alpha1.LgaInfo{
+				LgaCode: p.LgaCode, LgaName: p.LgaName, StateCode: p.LgaState, AreaSqkm: p.LgaAreaSqkm,
+				Population: p.LgaPopulation, FedFagAud: p.LgaFagAud, FedFagYear: p.LgaFagYear,
+			},
+			Similar: similar,
 		}, nil
 	})
 	if err != nil {

@@ -139,6 +139,8 @@ export function SuburbProfile({
               ["Mortgage / month", d?.medianMonthlyMortgage ? fmtMoney(d.medianMonthlyMortgage) : "—"],
             ]} />
             {d ? <CultureStats d={d} /> : null}
+            {s.amenities ? <AmenitiesGroup a={s.amenities} nbn={s.dominantNbnTech} /> : null}
+            {data.council?.lgaName ? <CouncilCard c={data.council} /> : null}
             <FederalRep s={s} />
           </div>
 
@@ -180,6 +182,26 @@ export function SuburbProfile({
             </div>
           ) : null}
 
+          {data.similar?.length ? (
+            <div className="rounded-xl border border-border bg-card p-4">
+              <h2 className="mb-1 font-serif text-base text-foreground">Similar suburbs</h2>
+              <p className="mb-2 text-[11px] text-muted-foreground">Closest demographic &amp; amenity profile, nationally.</p>
+              <div className="flex flex-col">
+                {data.similar.map((n) => (
+                  <Link key={n.salCode} href={suburbHref(n.stateCode, { salName: n.salName, salCode: n.salCode, postcode: "" })}
+                    className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground">
+                    <span className="truncate capitalize">
+                      {n.salName.toLowerCase()} <span className="text-[10px] uppercase opacity-60">{n.stateCode}</span>
+                    </span>
+                    <span className="shrink-0 font-mono text-[11px] tabular-nums">
+                      {n.latestMedianPrice > 0 ? fmtPriceShort(n.latestMedianPrice) : `${Math.round(n.similarity * 100)}% match`}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-xs text-muted-foreground">
             Rental yield &amp; days-on-market coming soon (from property-portal data).
           </div>
@@ -211,6 +233,70 @@ function FederalRep({ s }: { s: Summary }) {
           <CultureRow label="State MP" value={s.stateMember ? `${fmtMemberName(s.stateMember)}${s.statePartyAb ? ` (${s.statePartyAb})` : ""}` : "—"} />
         </dl>
       </div>
+    </div>
+  );
+}
+
+type Council = NonNullable<NonNullable<Awaited<ReturnType<typeof getSuburbProfileClient>>>["council"]>;
+function CouncilCard({ c }: { c: Council }) {
+  if (!c.lgaName) return null;
+  return (
+    <div>
+      <h3 className="mb-2 font-serif text-sm text-muted-foreground">Local council</h3>
+      <div className="rounded-lg border border-border bg-card p-4">
+        <dl className="grid grid-cols-1 gap-x-8 gap-y-2.5 text-sm sm:grid-cols-2">
+          <CultureRow label="Council (LGA)" value={c.lgaName} />
+          <CultureRow label="Council population" value={c.population > 0 ? c.population.toLocaleString() : "—"} />
+          <CultureRow label="Council area" value={c.areaSqkm > 0 ? `${Math.round(c.areaSqkm).toLocaleString()} km²` : "—"} />
+          <CultureRow label="Density" value={c.population > 0 && c.areaSqkm > 0 ? `${Math.round(c.population / c.areaSqkm).toLocaleString()}/km²` : "—"} />
+          <CultureRow label="Federal grants" value={c.fedFagAud > 0 ? `${fmtAUD(c.fedFagAud)}/yr${c.fedFagYear ? ` (${c.fedFagYear})` : ""}` : "—"} />
+          <CultureRow label="Grants per resident" value={c.fedFagAud > 0 && c.population > 0 ? `$${Math.round(c.fedFagAud / c.population).toLocaleString()}/yr` : "—"} />
+        </dl>
+      </div>
+      <p className="mt-2 text-[11px] text-muted-foreground opacity-70">Council boundary: ABS ASGS LGA 2024. Federal grants: Financial Assistance Grants, Dept of Infrastructure. Both CC BY 4.0.</p>
+    </div>
+  );
+}
+
+function AmenitiesGroup({ a, nbn }: { a: NonNullable<Summary["amenities"]>; nbn?: string }) {
+  // Nothing meaningful (un-ingested / no amenities) → skip the section.
+  if (!(a.schoolsTotal || a.supermarketsTotal || a.pubsBars || a.parksCount || a.librariesCount)) return null;
+  const brands = [
+    a.colesCount ? `${a.colesCount} Coles` : "",
+    a.woolworthsCount ? `${a.woolworthsCount} Woolworths` : "",
+    a.aldiCount ? `${a.aldiCount} Aldi` : "",
+    a.igaCount ? `${a.igaCount} IGA` : "",
+  ].filter(Boolean).join(" · ");
+  const stats: [string, string][] = [
+    ["Amenity score", a.amenityDensityScore > 0 ? `${Math.round(a.amenityDensityScore)}/100` : "—"],
+    ["Schools", `${a.schoolsTotal}`],
+    ["Supermarkets", `${a.supermarketsTotal}`],
+    ["Pubs & bars", `${a.pubsBars}`],
+    ["Parks", `${a.parksCount}`],
+    ["Libraries", `${a.librariesCount}`],
+    ["GP clinics", `${a.gpCount}`],
+    ["Pharmacies", `${a.pharmacyCount}`],
+    ["Hospitals", `${a.hospitalsCount}`],
+    ["Nearest supermarket", a.nearestSupermarketKm > 0 ? `${a.nearestSupermarketKm.toFixed(1)} km` : "—"],
+    ["Nearest train", a.nearestTrainKm > 0 ? `${a.nearestTrainKm.toFixed(1)} km` : "—"],
+    ["Nearest hospital", a.nearestHospitalKm > 0 ? `${a.nearestHospitalKm.toFixed(1)} km` : "—"],
+    ...(nbn ? [["NBN", nbn] as [string, string]] : []),
+  ];
+  return (
+    <div>
+      <h3 className="mb-2 font-serif text-sm text-muted-foreground">Local amenities</h3>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {stats.map(([label, value]) => (
+          <div key={label} className="rounded-lg border border-border bg-card p-4">
+            <div className="text-xs text-muted-foreground">{label}</div>
+            <div className="mt-1 font-mono text-lg tabular-nums text-foreground">{value}</div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        {brands ? <>Grocery mix: {brands}. </> : null}
+        <span className="opacity-70">Amenity counts via © OpenStreetMap contributors (ODbL) &amp; Geoscience Australia HealthDirect (CC BY 4.0).</span>
+      </p>
     </div>
   );
 }

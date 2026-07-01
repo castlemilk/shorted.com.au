@@ -1,0 +1,5 @@
+# Raw OSM / source extracts used by the insight join scripts — NEVER committed
+# (ODbL: we publish derived per-suburb metrics only, not raw geometry).
+.staging/
+*.osm.pbf
+*.osm
