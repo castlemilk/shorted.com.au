@@ -26,6 +26,7 @@ export type SuburbMetricInput = {
   statePartyAb: string;   // '' if none/Hare-Clark — party holding the state seat
   // amenity/lifestyle metrics (Local Insights)
   schoolsTotal: number;
+  schoolsGov: number; schoolsCatholic: number; schoolsIndependent: number;
   supermarketsTotal: number;
   colesCount: number; woolworthsCount: number; aldiCount: number; igaCount: number;
   pubsBars: number;
@@ -39,7 +40,7 @@ export type SuburbMetricInput = {
 export type MetricKey =
   | "price" | "population" | "age" | "income" | "born_overseas" | "religion" | "language"
   | "federal_party" | "federal_lean" | "state_party"
-  | "amenity_density" | "supermarkets" | "pubs" | "grocery" | "healthcare" | "nearest_train" | "distance_to_coast" | "nbn";
+  | "amenity_density" | "supermarkets" | "pubs" | "grocery" | "healthcare" | "school_sector" | "nearest_train" | "distance_to_coast" | "nbn";
 
 type Base = { key: MetricKey; label: string; legendLabel: string };
 
@@ -163,6 +164,17 @@ export function groceryColor(cat: string): string {
   return GROCERY_COLORS[cat] ?? C.stone;
 }
 
+// --- School sector palette (categorical; VIC + QLD coverage) ---
+export const SCHOOL_SECTOR_COLORS: Record<string, string> = {
+  "Government": C.sky,
+  "Catholic": C.plum,
+  "Independent": C.moss,
+};
+const SCHOOL_SECTOR_ORDER = ["Government", "Catholic", "Independent"];
+export function schoolSectorColor(cat: string): string {
+  return SCHOOL_SECTOR_COLORS[cat] ?? C.stone;
+}
+
 // --- NBN technology palette (categorical, tech-tier coloured) ---
 export const NBN_COLORS: Record<string, string> = {
   "Fixed Line": C.teal,       // best (FTTP/HFC/FTTC/FTTN)
@@ -276,6 +288,18 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
     legendLabel: "GP clinics in suburb",
     value: (s) => (s.population > 0 ? s.gpCount : null),
     format: (v) => `${Math.round(v)}`, sqrt: true,
+  },
+  {
+    kind: "categorical", key: "school_sector", label: "School sector",
+    legendLabel: "Dominant school sector (VIC & QLD)",
+    category: (s) => {
+      const g = s.schoolsGov, c = s.schoolsCatholic, i = s.schoolsIndependent;
+      if (g + c + i <= 0) return null; // no sector data (uncovered state / no schools)
+      if (g >= c && g >= i) return "Government";
+      if (c >= i) return "Catholic";
+      return "Independent";
+    },
+    colorFor: schoolSectorColor, order: SCHOOL_SECTOR_ORDER,
   },
   {
     kind: "continuous", key: "nearest_train", label: "Distance to train",

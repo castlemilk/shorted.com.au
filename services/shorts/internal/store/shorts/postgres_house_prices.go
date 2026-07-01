@@ -156,6 +156,13 @@ type SuburbSummaryRow struct {
 	NearestTrainKm       float64
 	NearestHospitalKm    float64
 	DistToCoastKm        float64
+	// school sector/type split (per-state CC-BY open data)
+	SchoolsGov         int32
+	SchoolsCatholic    int32
+	SchoolsIndependent int32
+	SchoolsPrimary     int32
+	SchoolsSecondary   int32
+	NearestSecondaryKm float64
 	// NBN connectivity (Local Insights)
 	DominantNbnTech          string
 	ConnectivityQualityScore float64
@@ -237,6 +244,8 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 		       COALESCE(a.hospitals_count,0), COALESCE(a.gp_count,0), COALESCE(a.pharmacy_count,0),
 		       COALESCE(a.nearest_train_km,0), COALESCE(a.nearest_hospital_km,0),
 		       COALESCE(a.dist_to_coast_km,0),
+		       COALESCE(a.schools_gov,0), COALESCE(a.schools_catholic,0), COALESCE(a.schools_independent,0),
+		       COALESCE(a.schools_primary,0), COALESCE(a.schools_secondary,0), COALESCE(a.nearest_secondary_km,0),
 		       COALESCE(c.dominant_nbn_tech,''), COALESCE(c.connectivity_quality_score,0)
 		FROM suburb_demographics d
 		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
@@ -277,6 +286,7 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 			&r.PubsBars, &r.ParksCount, &r.LibrariesCount, &r.NearestSupermarketKm, &r.AmenityDensityScore,
 			&r.HospitalsCount, &r.GpCount, &r.PharmacyCount, &r.NearestTrainKm, &r.NearestHospitalKm,
 			&r.DistToCoastKm,
+			&r.SchoolsGov, &r.SchoolsCatholic, &r.SchoolsIndependent, &r.SchoolsPrimary, &r.SchoolsSecondary, &r.NearestSecondaryKm,
 			&r.DominantNbnTech, &r.ConnectivityQualityScore); err != nil {
 			return nil, err
 		}
@@ -308,6 +318,8 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE(a.hospitals_count,0), COALESCE(a.gp_count,0), COALESCE(a.pharmacy_count,0),
 		       COALESCE(a.nearest_train_km,0), COALESCE(a.nearest_hospital_km,0),
 		       COALESCE(a.dist_to_coast_km,0),
+		       COALESCE(a.schools_gov,0), COALESCE(a.schools_catholic,0), COALESCE(a.schools_independent,0),
+		       COALESCE(a.schools_primary,0), COALESCE(a.schools_secondary,0), COALESCE(a.nearest_secondary_km,0),
 		       COALESCE(c.dominant_nbn_tech,''), COALESCE(c.connectivity_quality_score,0),
 		       COALESCE(d.median_weekly_per_income, 0), COALESCE(d.median_weekly_rent, 0),
 		       COALESCE(d.median_monthly_mortgage, 0), COALESCE(d.pct_owned_outright, 0),
@@ -368,6 +380,7 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		&p.Summary.PubsBars, &p.Summary.ParksCount, &p.Summary.LibrariesCount, &p.Summary.NearestSupermarketKm, &p.Summary.AmenityDensityScore,
 		&p.Summary.HospitalsCount, &p.Summary.GpCount, &p.Summary.PharmacyCount, &p.Summary.NearestTrainKm, &p.Summary.NearestHospitalKm,
 		&p.Summary.DistToCoastKm,
+		&p.Summary.SchoolsGov, &p.Summary.SchoolsCatholic, &p.Summary.SchoolsIndependent, &p.Summary.SchoolsPrimary, &p.Summary.SchoolsSecondary, &p.Summary.NearestSecondaryKm,
 		&p.Summary.DominantNbnTech, &p.Summary.ConnectivityQualityScore,
 		&p.MedianWeeklyPerIncome, &p.MedianWeeklyRent, &p.MedianMonthlyMortgage,
 		&p.PctOwnedOutright, &p.PctOwnedMortgage, &p.PctRented, &p.DwellingCount, &p.CensusYear,

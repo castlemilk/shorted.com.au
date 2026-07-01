@@ -8786,8 +8786,15 @@ type SuburbAmenities struct {
 	NearestTrainKm       float64                `protobuf:"fixed64,15,opt,name=nearest_train_km,json=nearestTrainKm,proto3" json:"nearest_train_km,omitempty"` // nearest railway station
 	NearestHospitalKm    float64                `protobuf:"fixed64,16,opt,name=nearest_hospital_km,json=nearestHospitalKm,proto3" json:"nearest_hospital_km,omitempty"`
 	DistToCoastKm        float64                `protobuf:"fixed64,17,opt,name=dist_to_coast_km,json=distToCoastKm,proto3" json:"dist_to_coast_km,omitempty"` // straight-line km to the national coastline
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// School sector/type split (per-state CC-BY open data; 0 until ingested).
+	SchoolsGov         int32   `protobuf:"varint,18,opt,name=schools_gov,json=schoolsGov,proto3" json:"schools_gov,omitempty"`                            // government schools
+	SchoolsCatholic    int32   `protobuf:"varint,19,opt,name=schools_catholic,json=schoolsCatholic,proto3" json:"schools_catholic,omitempty"`             // Catholic-sector schools
+	SchoolsIndependent int32   `protobuf:"varint,20,opt,name=schools_independent,json=schoolsIndependent,proto3" json:"schools_independent,omitempty"`    // Independent-sector schools
+	SchoolsPrimary     int32   `protobuf:"varint,21,opt,name=schools_primary,json=schoolsPrimary,proto3" json:"schools_primary,omitempty"`                // primary (incl. combined)
+	SchoolsSecondary   int32   `protobuf:"varint,22,opt,name=schools_secondary,json=schoolsSecondary,proto3" json:"schools_secondary,omitempty"`          // secondary (incl. combined)
+	NearestSecondaryKm float64 `protobuf:"fixed64,23,opt,name=nearest_secondary_km,json=nearestSecondaryKm,proto3" json:"nearest_secondary_km,omitempty"` // nearest secondary school
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *SuburbAmenities) Reset() {
@@ -8935,6 +8942,48 @@ func (x *SuburbAmenities) GetNearestHospitalKm() float64 {
 func (x *SuburbAmenities) GetDistToCoastKm() float64 {
 	if x != nil {
 		return x.DistToCoastKm
+	}
+	return 0
+}
+
+func (x *SuburbAmenities) GetSchoolsGov() int32 {
+	if x != nil {
+		return x.SchoolsGov
+	}
+	return 0
+}
+
+func (x *SuburbAmenities) GetSchoolsCatholic() int32 {
+	if x != nil {
+		return x.SchoolsCatholic
+	}
+	return 0
+}
+
+func (x *SuburbAmenities) GetSchoolsIndependent() int32 {
+	if x != nil {
+		return x.SchoolsIndependent
+	}
+	return 0
+}
+
+func (x *SuburbAmenities) GetSchoolsPrimary() int32 {
+	if x != nil {
+		return x.SchoolsPrimary
+	}
+	return 0
+}
+
+func (x *SuburbAmenities) GetSchoolsSecondary() int32 {
+	if x != nil {
+		return x.SchoolsSecondary
+	}
+	return 0
+}
+
+func (x *SuburbAmenities) GetNearestSecondaryKm() float64 {
+	if x != nil {
+		return x.NearestSecondaryKm
 	}
 	return 0
 }
@@ -10753,7 +10802,7 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\n" +
 	"state_code\x18\x01 \x01(\tR\tstateCode\x12\x14\n" +
 	"\x05query\x18\x02 \x01(\tR\x05query\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xac\x05\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xb1\a\n" +
 	"\x0fSuburbAmenities\x12#\n" +
 	"\rschools_total\x18\x01 \x01(\x05R\fschoolsTotal\x12-\n" +
 	"\x12supermarkets_total\x18\x02 \x01(\x05R\x11supermarketsTotal\x12\x1f\n" +
@@ -10775,7 +10824,14 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x0epharmacy_count\x18\x0e \x01(\x05R\rpharmacyCount\x12(\n" +
 	"\x10nearest_train_km\x18\x0f \x01(\x01R\x0enearestTrainKm\x12.\n" +
 	"\x13nearest_hospital_km\x18\x10 \x01(\x01R\x11nearestHospitalKm\x12'\n" +
-	"\x10dist_to_coast_km\x18\x11 \x01(\x01R\rdistToCoastKm\"\xc3\b\n" +
+	"\x10dist_to_coast_km\x18\x11 \x01(\x01R\rdistToCoastKm\x12\x1f\n" +
+	"\vschools_gov\x18\x12 \x01(\x05R\n" +
+	"schoolsGov\x12)\n" +
+	"\x10schools_catholic\x18\x13 \x01(\x05R\x0fschoolsCatholic\x12/\n" +
+	"\x13schools_independent\x18\x14 \x01(\x05R\x12schoolsIndependent\x12'\n" +
+	"\x0fschools_primary\x18\x15 \x01(\x05R\x0eschoolsPrimary\x12+\n" +
+	"\x11schools_secondary\x18\x16 \x01(\x05R\x10schoolsSecondary\x120\n" +
+	"\x14nearest_secondary_km\x18\x17 \x01(\x01R\x12nearestSecondaryKm\"\xc3\b\n" +
 	"\rSuburbSummary\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +
 	"\bsal_name\x18\x02 \x01(\tR\asalName\x12\x1d\n" +

@@ -134,6 +134,8 @@ func (s *ShortsServer) ListStateSuburbs(ctx context.Context, req *connect.Reques
 					HospitalsCount: r.HospitalsCount, GpCount: r.GpCount, PharmacyCount: r.PharmacyCount,
 					NearestTrainKm: r.NearestTrainKm, NearestHospitalKm: r.NearestHospitalKm,
 					DistToCoastKm: r.DistToCoastKm,
+					SchoolsGov: r.SchoolsGov, SchoolsCatholic: r.SchoolsCatholic, SchoolsIndependent: r.SchoolsIndependent,
+					SchoolsPrimary: r.SchoolsPrimary, SchoolsSecondary: r.SchoolsSecondary, NearestSecondaryKm: r.NearestSecondaryKm,
 				},
 			}
 			if r.LatestPeriod != nil {
@@ -183,6 +185,8 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 				HospitalsCount: p.Summary.HospitalsCount, GpCount: p.Summary.GpCount, PharmacyCount: p.Summary.PharmacyCount,
 				NearestTrainKm: p.Summary.NearestTrainKm, NearestHospitalKm: p.Summary.NearestHospitalKm,
 				DistToCoastKm: p.Summary.DistToCoastKm,
+				SchoolsGov: p.Summary.SchoolsGov, SchoolsCatholic: p.Summary.SchoolsCatholic, SchoolsIndependent: p.Summary.SchoolsIndependent,
+				SchoolsPrimary: p.Summary.SchoolsPrimary, SchoolsSecondary: p.Summary.SchoolsSecondary, NearestSecondaryKm: p.Summary.NearestSecondaryKm,
 			},
 		}
 		if p.Summary.LatestPeriod != nil {

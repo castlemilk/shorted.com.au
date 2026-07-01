@@ -32,6 +32,7 @@ console.log("building suburb index …");
 const feats = loadSuburbFeatures(suburbsDir);
 const idx = makePolygonIndex(feats);
 const centroids = idx.centroids();
+const salState = new Map(feats.map((f) => [String(f.id), f.state]));
 
 // Initialise every suburb to 0 (a real "no amenity here", not no-data).
 const rows = new Map();
@@ -118,6 +119,42 @@ if (fs.existsSync(statesPath)) {
     const km = coastDist(lon, lat);
     if (km != null) rows.get(sal).distToCoastKm = km < 20 ? Math.round(km * 10) / 10 : Math.round(km);
   }
+}
+
+// School sector/type split (per-state CC-BY, VIC + QLD only — the states that
+// publish a complete geocoded all-sector list). Covered-state suburbs get explicit
+// 0s (0 = genuinely none); other states stay absent → NULL → the frontend scopes
+// the sector card to covered states (mirrors the SA/VIC price-coverage scope).
+const schoolPts = readStaged("schools-sector");
+if (schoolPts.length) {
+  const secondaries = schoolPts.filter((p) => p.s);
+  for (const [sal, st] of salState) {
+    if (st !== "VIC" && st !== "QLD") continue;
+    const r = rows.get(sal);
+    if (r) Object.assign(r, { schoolsGov: 0, schoolsCatholic: 0, schoolsIndependent: 0, schoolsPrimary: 0, schoolsSecondary: 0 });
+  }
+  const secKey = { gov: "schoolsGov", catholic: "schoolsCatholic", independent: "schoolsIndependent" };
+  let hit = 0;
+  for (const p of schoolPts) {
+    const sal = idx.locate(p.lon, p.lat);
+    if (!sal) continue;
+    const st = salState.get(sal);
+    if (st !== "VIC" && st !== "QLD") continue; // ignore rare cross-border locates
+    const r = rows.get(sal);
+    if (!r) continue;
+    r[secKey[p.sector]]++;
+    if (p.p) r.schoolsPrimary++;
+    if (p.s) r.schoolsSecondary++;
+    hit++;
+  }
+  for (const [sal, [lon, lat]] of centroids) {
+    const st = salState.get(sal);
+    if (st !== "VIC" && st !== "QLD") continue;
+    const n = nearestPoint(lon, lat, secondaries);
+    if (n) rows.get(sal).nearestSecondaryKm = Math.round(n.distKm * 10) / 10;
+  }
+  const covered = [...salState.values()].filter((s) => s === "VIC" || s === "QLD").length;
+  console.log(`  schools-sector: ${hit}/${schoolPts.length} joined across ${covered} VIC/QLD suburbs`);
 }
 
 // amenity-density score 0..100: weighted raw, scaled by the 95th percentile so

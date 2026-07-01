@@ -1643,6 +1643,13 @@ message SuburbAmenities {
   double nearest_train_km = 15;             // nearest railway station
   double nearest_hospital_km = 16;
   double dist_to_coast_km = 17;             // straight-line km to the national coastline
+  // School sector/type split (per-state CC-BY open data; 0 until ingested).
+  int32  schools_gov = 18;                   // government schools
+  int32  schools_catholic = 19;              // Catholic-sector schools
+  int32  schools_independent = 20;           // Independent-sector schools
+  int32  schools_primary = 21;               // primary (incl. combined)
+  int32  schools_secondary = 22;             // secondary (incl. combined)
+  double nearest_secondary_km = 23;          // nearest secondary school
 }
 
 message SuburbSummary {
