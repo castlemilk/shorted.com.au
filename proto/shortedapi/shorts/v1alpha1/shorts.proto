@@ -1721,11 +1721,22 @@ message LgaInfo {
   double area_sqkm = 4;
 }
 
+// A suburb with a similar demographic + amenity profile (feature-vector kNN).
+message SimilarSuburb {
+  string sal_code = 1;
+  string sal_name = 2;
+  string state_code = 3;
+  double latest_median_price = 4;   // 0 if unpriced
+  double similarity = 5;            // 0..1 (1 = near-identical profile)
+  string region_code = 6;
+}
+
 message GetSuburbProfileResponse {
   SuburbSummary summary = 1;
   SuburbDemographics demographics = 2;
   ComparisonBaselines baselines = 3;
   LgaInfo council = 4;              // council this suburb sits in ('' if unmatched)
+  repeated SimilarSuburb similar = 5; // most-similar suburbs nationally (knowledge graph)
 }
 
 message ListHousingRegionsRequest {

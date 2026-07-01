@@ -184,6 +184,18 @@ type SuburbProfileRow struct {
 	LgaName     string
 	LgaState    string
 	LgaAreaSqkm float64
+	// most-similar suburbs (feature-vector kNN — the knowledge-graph "similar_to")
+	Similar []SimilarSuburbRow
+}
+
+// SimilarSuburbRow is one near-neighbour in demographic+amenity feature space.
+type SimilarSuburbRow struct {
+	SALCode           string
+	SALName           string
+	StateCode         string
+	LatestMedianPrice float64
+	RegionCode        string
+	Distance          float64
 }
 
 // ListStateSuburbs returns every SAL suburb in a state, LEFT JOINed to its latest
@@ -339,7 +351,67 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 	); err != nil {
 		return nil, err
 	}
+	if sim, err := s.similarSuburbs(ctx, salCode, 6); err == nil {
+		p.Similar = sim
+	}
 	return &p, nil
+}
+
+// similarSuburbs finds the k nearest suburbs nationally in a z-scored feature
+// space (age, income, born-overseas, amenity density, log-population) — the
+// knowledge-graph "similar_to" relation, computed at query time.
+func (s *postgresStore) similarSuburbs(ctx context.Context, salCode string, limit int32) ([]SimilarSuburbRow, error) {
+	const q = `
+		WITH stats AS (
+			SELECT NULLIF(stddev_pop(d.median_age),0) sage,
+			       NULLIF(stddev_pop(d.median_weekly_hhd_income),0) sinc,
+			       NULLIF(stddev_pop(d.pct_born_overseas),0) sbo,
+			       NULLIF(stddev_pop(COALESCE(a.amenity_density_score,0)),0) sden,
+			       NULLIF(stddev_pop(ln(GREATEST(d.population,1))),0) spop
+			FROM suburb_demographics d LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
+			WHERE d.population > 200
+		),
+		tgt AS (
+			SELECT d.median_age ma, d.median_weekly_hhd_income mi, d.pct_born_overseas mb,
+			       COALESCE(a.amenity_density_score,0) md, ln(GREATEST(d.population,1)) mp
+			FROM suburb_demographics d LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
+			WHERE d.sal_code = $1
+		)
+		SELECT d.sal_code, d.sal_name, d.state_code, COALESCE(h.value,0), COALESCE(r.region_code,''),
+		       sqrt(
+		         COALESCE(pow((d.median_age - tgt.ma)/stats.sage,2),0) +
+		         COALESCE(pow((d.median_weekly_hhd_income - tgt.mi)/stats.sinc,2),0) +
+		         COALESCE(pow((d.pct_born_overseas - tgt.mb)/stats.sbo,2),0) +
+		         COALESCE(pow((COALESCE(a.amenity_density_score,0) - tgt.md)/stats.sden,2),0) +
+		         COALESCE(pow((ln(GREATEST(d.population,1)) - tgt.mp)/stats.spop,2),0)
+		       ) AS dist
+		FROM suburb_demographics d
+		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
+		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
+		LEFT JOIN LATERAL (
+			SELECT hp.value FROM house_prices hp
+			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
+			ORDER BY hp.period DESC LIMIT 1
+		) h ON true
+		CROSS JOIN tgt CROSS JOIN stats
+		WHERE d.sal_code <> $1 AND d.population > 200
+		  AND d.median_age IS NOT NULL AND d.median_weekly_hhd_income IS NOT NULL
+		ORDER BY dist ASC NULLS LAST
+		LIMIT $2`
+	rows, err := s.db.Query(ctx, q, salCode, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []SimilarSuburbRow
+	for rows.Next() {
+		var r SimilarSuburbRow
+		if err := rows.Scan(&r.SALCode, &r.SALName, &r.StateCode, &r.LatestMedianPrice, &r.RegionCode, &r.Distance); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }
 
 // HousingRegionRow is a selectable house-price region (for the suburb explorer),

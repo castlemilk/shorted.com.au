@@ -182,6 +182,26 @@ export function SuburbProfile({
             </div>
           ) : null}
 
+          {data.similar?.length ? (
+            <div className="rounded-xl border border-border bg-card p-4">
+              <h2 className="mb-1 font-serif text-base text-foreground">Similar suburbs</h2>
+              <p className="mb-2 text-[11px] text-muted-foreground">Closest demographic &amp; amenity profile, nationally.</p>
+              <div className="flex flex-col">
+                {data.similar.map((n) => (
+                  <Link key={n.salCode} href={suburbHref(n.stateCode, { salName: n.salName, salCode: n.salCode, postcode: "" })}
+                    className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground">
+                    <span className="truncate capitalize">
+                      {n.salName.toLowerCase()} <span className="text-[10px] uppercase opacity-60">{n.stateCode}</span>
+                    </span>
+                    <span className="shrink-0 font-mono text-[11px] tabular-nums">
+                      {n.latestMedianPrice > 0 ? fmtPriceShort(n.latestMedianPrice) : `${Math.round(n.similarity * 100)}% match`}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <div className="rounded-xl border border-dashed border-border bg-muted/30 p-4 text-xs text-muted-foreground">
             Rental yield &amp; days-on-market coming soon (from property-portal data).
           </div>

@@ -184,6 +184,14 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 		if p.Summary.LatestPeriod != nil {
 			summary.LatestPeriod = timestamppb.New(*p.Summary.LatestPeriod)
 		}
+		similar := make([]*shortsv1alpha1.SimilarSuburb, 0, len(p.Similar))
+		for _, sm := range p.Similar {
+			similar = append(similar, &shortsv1alpha1.SimilarSuburb{
+				SalCode: sm.SALCode, SalName: sm.SALName, StateCode: sm.StateCode,
+				LatestMedianPrice: sm.LatestMedianPrice, RegionCode: sm.RegionCode,
+				Similarity: 1.0 / (1.0 + sm.Distance),
+			})
+		}
 		return &shortsv1alpha1.GetSuburbProfileResponse{
 			Summary: summary,
 			Demographics: &shortsv1alpha1.SuburbDemographics{
@@ -206,6 +214,7 @@ func (s *ShortsServer) GetSuburbProfile(ctx context.Context, req *connect.Reques
 			Council: &shortsv1alpha1.LgaInfo{
 				LgaCode: p.LgaCode, LgaName: p.LgaName, StateCode: p.LgaState, AreaSqkm: p.LgaAreaSqkm,
 			},
+			Similar: similar,
 		}, nil
 	})
 	if err != nil {
