@@ -1642,6 +1642,14 @@ message SuburbAmenities {
   int32  pharmacy_count = 14;
   double nearest_train_km = 15;             // nearest railway station
   double nearest_hospital_km = 16;
+  double dist_to_coast_km = 17;             // straight-line km to the national coastline
+  // School sector/type split (per-state CC-BY open data; 0 until ingested).
+  int32  schools_gov = 18;                   // government schools
+  int32  schools_catholic = 19;              // Catholic-sector schools
+  int32  schools_independent = 20;           // Independent-sector schools
+  int32  schools_primary = 21;               // primary (incl. combined)
+  int32  schools_secondary = 22;             // secondary (incl. combined)
+  double nearest_secondary_km = 23;          // nearest secondary school
 }
 
 message SuburbSummary {
@@ -1725,6 +1733,12 @@ message LgaInfo {
   int32  population = 5;            // summed from member-suburb Census populations
   double fed_fag_aud = 6;          // federal Financial Assistance Grant (latest yr), AUD; 0 if unmatched
   string fed_fag_year = 7;         // e.g. '2025-26'
+  // Per-council financials (VIC LGPRF, CC-BY; 0/'' for states not yet sourced).
+  double avg_rates = 8;            // average rate per property assessment, AUD
+  double op_surplus_ratio = 9;     // adjusted underlying (operating) result, % (negative = deficit)
+  double asset_renewal_ratio = 10; // asset renewal + upgrade vs depreciation, %
+  string fin_source = 11;          // financials provenance ('vic_lgprf'), '' if none
+  string fin_year = 12;            // financials reporting year, e.g. '2024-25'
 }
 
 // A suburb with a similar demographic + amenity profile (feature-vector kNN).

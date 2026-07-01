@@ -8785,8 +8785,16 @@ type SuburbAmenities struct {
 	PharmacyCount        int32                  `protobuf:"varint,14,opt,name=pharmacy_count,json=pharmacyCount,proto3" json:"pharmacy_count,omitempty"`
 	NearestTrainKm       float64                `protobuf:"fixed64,15,opt,name=nearest_train_km,json=nearestTrainKm,proto3" json:"nearest_train_km,omitempty"` // nearest railway station
 	NearestHospitalKm    float64                `protobuf:"fixed64,16,opt,name=nearest_hospital_km,json=nearestHospitalKm,proto3" json:"nearest_hospital_km,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	DistToCoastKm        float64                `protobuf:"fixed64,17,opt,name=dist_to_coast_km,json=distToCoastKm,proto3" json:"dist_to_coast_km,omitempty"` // straight-line km to the national coastline
+	// School sector/type split (per-state CC-BY open data; 0 until ingested).
+	SchoolsGov         int32   `protobuf:"varint,18,opt,name=schools_gov,json=schoolsGov,proto3" json:"schools_gov,omitempty"`                            // government schools
+	SchoolsCatholic    int32   `protobuf:"varint,19,opt,name=schools_catholic,json=schoolsCatholic,proto3" json:"schools_catholic,omitempty"`             // Catholic-sector schools
+	SchoolsIndependent int32   `protobuf:"varint,20,opt,name=schools_independent,json=schoolsIndependent,proto3" json:"schools_independent,omitempty"`    // Independent-sector schools
+	SchoolsPrimary     int32   `protobuf:"varint,21,opt,name=schools_primary,json=schoolsPrimary,proto3" json:"schools_primary,omitempty"`                // primary (incl. combined)
+	SchoolsSecondary   int32   `protobuf:"varint,22,opt,name=schools_secondary,json=schoolsSecondary,proto3" json:"schools_secondary,omitempty"`          // secondary (incl. combined)
+	NearestSecondaryKm float64 `protobuf:"fixed64,23,opt,name=nearest_secondary_km,json=nearestSecondaryKm,proto3" json:"nearest_secondary_km,omitempty"` // nearest secondary school
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *SuburbAmenities) Reset() {
@@ -8927,6 +8935,55 @@ func (x *SuburbAmenities) GetNearestTrainKm() float64 {
 func (x *SuburbAmenities) GetNearestHospitalKm() float64 {
 	if x != nil {
 		return x.NearestHospitalKm
+	}
+	return 0
+}
+
+func (x *SuburbAmenities) GetDistToCoastKm() float64 {
+	if x != nil {
+		return x.DistToCoastKm
+	}
+	return 0
+}
+
+func (x *SuburbAmenities) GetSchoolsGov() int32 {
+	if x != nil {
+		return x.SchoolsGov
+	}
+	return 0
+}
+
+func (x *SuburbAmenities) GetSchoolsCatholic() int32 {
+	if x != nil {
+		return x.SchoolsCatholic
+	}
+	return 0
+}
+
+func (x *SuburbAmenities) GetSchoolsIndependent() int32 {
+	if x != nil {
+		return x.SchoolsIndependent
+	}
+	return 0
+}
+
+func (x *SuburbAmenities) GetSchoolsPrimary() int32 {
+	if x != nil {
+		return x.SchoolsPrimary
+	}
+	return 0
+}
+
+func (x *SuburbAmenities) GetSchoolsSecondary() int32 {
+	if x != nil {
+		return x.SchoolsSecondary
+	}
+	return 0
+}
+
+func (x *SuburbAmenities) GetNearestSecondaryKm() float64 {
+	if x != nil {
+		return x.NearestSecondaryKm
 	}
 	return 0
 }
@@ -9527,16 +9584,22 @@ func (x *ComparisonBaselines) GetNationalMedianWeeklyHhdIncome() float64 {
 
 // Local Government Area (council) a suburb belongs to (Local Insights, W2).
 type LgaInfo struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	LgaCode       string                 `protobuf:"bytes,1,opt,name=lga_code,json=lgaCode,proto3" json:"lga_code,omitempty"`
-	LgaName       string                 `protobuf:"bytes,2,opt,name=lga_name,json=lgaName,proto3" json:"lga_name,omitempty"`
-	StateCode     string                 `protobuf:"bytes,3,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`
-	AreaSqkm      float64                `protobuf:"fixed64,4,opt,name=area_sqkm,json=areaSqkm,proto3" json:"area_sqkm,omitempty"`
-	Population    int32                  `protobuf:"varint,5,opt,name=population,proto3" json:"population,omitempty"`                    // summed from member-suburb Census populations
-	FedFagAud     float64                `protobuf:"fixed64,6,opt,name=fed_fag_aud,json=fedFagAud,proto3" json:"fed_fag_aud,omitempty"`  // federal Financial Assistance Grant (latest yr), AUD; 0 if unmatched
-	FedFagYear    string                 `protobuf:"bytes,7,opt,name=fed_fag_year,json=fedFagYear,proto3" json:"fed_fag_year,omitempty"` // e.g. '2025-26'
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	LgaCode    string                 `protobuf:"bytes,1,opt,name=lga_code,json=lgaCode,proto3" json:"lga_code,omitempty"`
+	LgaName    string                 `protobuf:"bytes,2,opt,name=lga_name,json=lgaName,proto3" json:"lga_name,omitempty"`
+	StateCode  string                 `protobuf:"bytes,3,opt,name=state_code,json=stateCode,proto3" json:"state_code,omitempty"`
+	AreaSqkm   float64                `protobuf:"fixed64,4,opt,name=area_sqkm,json=areaSqkm,proto3" json:"area_sqkm,omitempty"`
+	Population int32                  `protobuf:"varint,5,opt,name=population,proto3" json:"population,omitempty"`                    // summed from member-suburb Census populations
+	FedFagAud  float64                `protobuf:"fixed64,6,opt,name=fed_fag_aud,json=fedFagAud,proto3" json:"fed_fag_aud,omitempty"`  // federal Financial Assistance Grant (latest yr), AUD; 0 if unmatched
+	FedFagYear string                 `protobuf:"bytes,7,opt,name=fed_fag_year,json=fedFagYear,proto3" json:"fed_fag_year,omitempty"` // e.g. '2025-26'
+	// Per-council financials (VIC LGPRF, CC-BY; 0/” for states not yet sourced).
+	AvgRates          float64 `protobuf:"fixed64,8,opt,name=avg_rates,json=avgRates,proto3" json:"avg_rates,omitempty"`                               // average rate per property assessment, AUD
+	OpSurplusRatio    float64 `protobuf:"fixed64,9,opt,name=op_surplus_ratio,json=opSurplusRatio,proto3" json:"op_surplus_ratio,omitempty"`           // adjusted underlying (operating) result, % (negative = deficit)
+	AssetRenewalRatio float64 `protobuf:"fixed64,10,opt,name=asset_renewal_ratio,json=assetRenewalRatio,proto3" json:"asset_renewal_ratio,omitempty"` // asset renewal + upgrade vs depreciation, %
+	FinSource         string  `protobuf:"bytes,11,opt,name=fin_source,json=finSource,proto3" json:"fin_source,omitempty"`                             // financials provenance ('vic_lgprf'), '' if none
+	FinYear           string  `protobuf:"bytes,12,opt,name=fin_year,json=finYear,proto3" json:"fin_year,omitempty"`                                   // financials reporting year, e.g. '2024-25'
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *LgaInfo) Reset() {
@@ -9614,6 +9677,41 @@ func (x *LgaInfo) GetFedFagAud() float64 {
 func (x *LgaInfo) GetFedFagYear() string {
 	if x != nil {
 		return x.FedFagYear
+	}
+	return ""
+}
+
+func (x *LgaInfo) GetAvgRates() float64 {
+	if x != nil {
+		return x.AvgRates
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetOpSurplusRatio() float64 {
+	if x != nil {
+		return x.OpSurplusRatio
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetAssetRenewalRatio() float64 {
+	if x != nil {
+		return x.AssetRenewalRatio
+	}
+	return 0
+}
+
+func (x *LgaInfo) GetFinSource() string {
+	if x != nil {
+		return x.FinSource
+	}
+	return ""
+}
+
+func (x *LgaInfo) GetFinYear() string {
+	if x != nil {
+		return x.FinYear
 	}
 	return ""
 }
@@ -10704,7 +10802,7 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\n" +
 	"state_code\x18\x01 \x01(\tR\tstateCode\x12\x14\n" +
 	"\x05query\x18\x02 \x01(\tR\x05query\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\x83\x05\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xb1\a\n" +
 	"\x0fSuburbAmenities\x12#\n" +
 	"\rschools_total\x18\x01 \x01(\x05R\fschoolsTotal\x12-\n" +
 	"\x12supermarkets_total\x18\x02 \x01(\x05R\x11supermarketsTotal\x12\x1f\n" +
@@ -10725,7 +10823,15 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\bgp_count\x18\r \x01(\x05R\agpCount\x12%\n" +
 	"\x0epharmacy_count\x18\x0e \x01(\x05R\rpharmacyCount\x12(\n" +
 	"\x10nearest_train_km\x18\x0f \x01(\x01R\x0enearestTrainKm\x12.\n" +
-	"\x13nearest_hospital_km\x18\x10 \x01(\x01R\x11nearestHospitalKm\"\xc3\b\n" +
+	"\x13nearest_hospital_km\x18\x10 \x01(\x01R\x11nearestHospitalKm\x12'\n" +
+	"\x10dist_to_coast_km\x18\x11 \x01(\x01R\rdistToCoastKm\x12\x1f\n" +
+	"\vschools_gov\x18\x12 \x01(\x05R\n" +
+	"schoolsGov\x12)\n" +
+	"\x10schools_catholic\x18\x13 \x01(\x05R\x0fschoolsCatholic\x12/\n" +
+	"\x13schools_independent\x18\x14 \x01(\x05R\x12schoolsIndependent\x12'\n" +
+	"\x0fschools_primary\x18\x15 \x01(\x05R\x0eschoolsPrimary\x12+\n" +
+	"\x11schools_secondary\x18\x16 \x01(\x05R\x10schoolsSecondary\x120\n" +
+	"\x14nearest_secondary_km\x18\x17 \x01(\x01R\x12nearestSecondaryKm\"\xc3\b\n" +
 	"\rSuburbSummary\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +
 	"\bsal_name\x18\x02 \x01(\tR\asalName\x12\x1d\n" +
@@ -10794,7 +10900,7 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\x12state_median_price\x18\x01 \x01(\x01R\x10stateMedianPrice\x122\n" +
 	"\x15national_median_price\x18\x02 \x01(\x01R\x13nationalMedianPrice\x12B\n" +
 	"\x1estate_median_weekly_hhd_income\x18\x03 \x01(\x01R\x1astateMedianWeeklyHhdIncome\x12H\n" +
-	"!national_median_weekly_hhd_income\x18\x04 \x01(\x01R\x1dnationalMedianWeeklyHhdIncome\"\xdd\x01\n" +
+	"!national_median_weekly_hhd_income\x18\x04 \x01(\x01R\x1dnationalMedianWeeklyHhdIncome\"\x8e\x03\n" +
 	"\aLgaInfo\x12\x19\n" +
 	"\blga_code\x18\x01 \x01(\tR\algaCode\x12\x19\n" +
 	"\blga_name\x18\x02 \x01(\tR\algaName\x12\x1d\n" +
@@ -10806,7 +10912,14 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"population\x12\x1e\n" +
 	"\vfed_fag_aud\x18\x06 \x01(\x01R\tfedFagAud\x12 \n" +
 	"\ffed_fag_year\x18\a \x01(\tR\n" +
-	"fedFagYear\"\xd5\x01\n" +
+	"fedFagYear\x12\x1b\n" +
+	"\tavg_rates\x18\b \x01(\x01R\bavgRates\x12(\n" +
+	"\x10op_surplus_ratio\x18\t \x01(\x01R\x0eopSurplusRatio\x12.\n" +
+	"\x13asset_renewal_ratio\x18\n" +
+	" \x01(\x01R\x11assetRenewalRatio\x12\x1d\n" +
+	"\n" +
+	"fin_source\x18\v \x01(\tR\tfinSource\x12\x19\n" +
+	"\bfin_year\x18\f \x01(\tR\afinYear\"\xd5\x01\n" +
 	"\rSimilarSuburb\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +
 	"\bsal_name\x18\x02 \x01(\tR\asalName\x12\x1d\n" +

@@ -227,8 +227,10 @@ func applyFAGs(ctx context.Context, pool *pgxpool.Pool, rows []FagRow) (int, err
 		if !ok {
 			continue
 		}
-		batch.Queue(`UPDATE lga SET fed_fag_aud=$2, fed_fag_year=$3,
-			fin_source='fed_fags', fin_source_licence='CC-BY-4.0', fetched_at=now() WHERE lga_code24=$1`,
+		// FAG writes only the grant columns; fin_source/fin_source_licence describe
+		// the per-council FINANCIAL columns (avg_rates/op_surplus/asset_renewal) and
+		// are owned by the state financials ingest (e.g. vic_lgprf), so leave them.
+		batch.Queue(`UPDATE lga SET fed_fag_aud=$2, fed_fag_year=$3, fetched_at=now() WHERE lga_code24=$1`,
 			code, r.TotalAud, r.Year)
 		matched++
 	}

@@ -7,6 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { loadSuburbFeatures, makePolygonIndex, nearestPoint } from "./geo-index.mjs";
+import { loadCoastlinePoints, makeCoastDistanceFn } from "./coastline.mjs";
 
 const suburbsDir = process.argv[2] || "web/public/geo/suburbs";
 const stagingDir = process.argv[3] || path.join(import.meta.dirname, ".staging");
@@ -103,6 +104,48 @@ if (stations.length || hospitals.length) {
     if (stations.length) { const n = nearestPoint(lon, lat, stations); if (n) r.nearestTrainKm = Math.round(n.distKm * 10) / 10; }
     if (hospitals.length) { const n = nearestPoint(lon, lat, hospitals); if (n) r.nearestHospitalKm = Math.round(n.distKm * 10) / 10; }
   }
+}
+
+// distance-to-coast (km) from each suburb centroid to the national coastline,
+// derived from the committed ABS state boundaries (see coastline.mjs — no
+// external dataset). Rounded to 0.1km near the coast, whole km inland.
+const statesPath = path.join(suburbsDir, "..", "states.topojson");
+if (fs.existsSync(statesPath)) {
+  const coast = loadCoastlinePoints(statesPath);
+  console.log(`coastline: ${coast.length} sampled points …`);
+  const coastDist = makeCoastDistanceFn(coast);
+  for (const [sal, [lon, lat]] of centroids) {
+    const km = coastDist(lon, lat);
+    if (km != null) rows.get(sal).distToCoastKm = km < 20 ? Math.round(km * 10) / 10 : Math.round(km);
+  }
+}
+
+// School sector/type split — ACARA national all-sector list (Government / Catholic
+// / Independent + Primary/Secondary/Combined). Every suburb is zero-initialised so
+// 0 = genuinely none (authoritative nationwide), not no-data.
+const schoolPts = readStaged("schools-sector");
+if (schoolPts.length) {
+  const secondaries = schoolPts.filter((p) => p.s);
+  for (const r of rows.values()) {
+    Object.assign(r, { schoolsGov: 0, schoolsCatholic: 0, schoolsIndependent: 0, schoolsPrimary: 0, schoolsSecondary: 0 });
+  }
+  const secKey = { gov: "schoolsGov", catholic: "schoolsCatholic", independent: "schoolsIndependent" };
+  let hit = 0;
+  for (const p of schoolPts) {
+    const sal = idx.locate(p.lon, p.lat);
+    if (!sal) continue;
+    const r = rows.get(sal);
+    if (!r) continue;
+    r[secKey[p.sector]]++;
+    if (p.p) r.schoolsPrimary++;
+    if (p.s) r.schoolsSecondary++;
+    hit++;
+  }
+  for (const [sal, [lon, lat]] of centroids) {
+    const n = nearestPoint(lon, lat, secondaries);
+    if (n) rows.get(sal).nearestSecondaryKm = Math.round(n.distKm * 10) / 10;
+  }
+  console.log(`  schools-sector (ACARA): ${hit}/${schoolPts.length} joined nationally`);
 }
 
 // amenity-density score 0..100: weighted raw, scaled by the 95th percentile so

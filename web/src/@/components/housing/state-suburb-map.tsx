@@ -24,12 +24,15 @@ export type SuburbDatum = {
   stateMember: string; stateParty: string; statePartyAb: string;
   regionCode?: string;
   // amenity/lifestyle metrics (Local Insights)
-  schoolsTotal: number; supermarketsTotal: number;
+  schoolsTotal: number;
+  schoolsGov: number; schoolsCatholic: number; schoolsIndependent: number;
+  schoolsPrimary: number; schoolsSecondary: number; nearestSecondaryKm: number;
+  supermarketsTotal: number;
   colesCount: number; woolworthsCount: number; aldiCount: number; igaCount: number;
   pubsBars: number; parksCount: number; librariesCount: number;
   nearestSupermarketKm: number; amenityDensityScore: number;
   hospitalsCount: number; gpCount: number; pharmacyCount: number;
-  nearestTrainKm: number; nearestHospitalKm: number;
+  nearestTrainKm: number; nearestHospitalKm: number; distToCoastKm: number;
   dominantNbnTech: string; connectivityQualityScore: number;
 };
 

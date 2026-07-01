@@ -14,6 +14,7 @@ import { fmtPriceShort } from "@/lib/housing/price-scale";
 const fmtAUD = (v: number) =>
   v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(2)}M` : v >= 1_000 ? `$${Math.round(v / 1000)}k` : `$${Math.round(v)}`;
 const fmtMoney = (v: number) => `$${Math.round(v).toLocaleString()}`;
+const fmtSignedPct = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
 
 function fmtPeriod(seconds?: number | bigint): string | null {
   const n = Number(seconds ?? 0);
@@ -140,6 +141,7 @@ export function SuburbProfile({
             ]} />
             {d ? <CultureStats d={d} /> : null}
             {s.amenities ? <AmenitiesGroup a={s.amenities} nbn={s.dominantNbnTech} /> : null}
+            {s.amenities ? <SchoolSectorCard a={s.amenities} /> : null}
             {data.council?.lgaName ? <CouncilCard c={data.council} /> : null}
             <FederalRep s={s} />
           </div>
@@ -251,9 +253,19 @@ function CouncilCard({ c }: { c: Council }) {
           <CultureRow label="Density" value={c.population > 0 && c.areaSqkm > 0 ? `${Math.round(c.population / c.areaSqkm).toLocaleString()}/km²` : "—"} />
           <CultureRow label="Federal grants" value={c.fedFagAud > 0 ? `${fmtAUD(c.fedFagAud)}/yr${c.fedFagYear ? ` (${c.fedFagYear})` : ""}` : "—"} />
           <CultureRow label="Grants per resident" value={c.fedFagAud > 0 && c.population > 0 ? `$${Math.round(c.fedFagAud / c.population).toLocaleString()}/yr` : "—"} />
+          {c.avgRates > 0 ? (
+            <>
+              <CultureRow label="Avg rates / property" value={fmtMoney(c.avgRates)} />
+              <CultureRow label="Operating result" value={fmtSignedPct(c.opSurplusRatio)} />
+              <CultureRow label="Asset renewal" value={`${Math.round(c.assetRenewalRatio)}%`} />
+            </>
+          ) : null}
         </dl>
       </div>
-      <p className="mt-2 text-[11px] text-muted-foreground opacity-70">Council boundary: ABS ASGS LGA 2024. Federal grants: Financial Assistance Grants, Dept of Infrastructure. Both CC BY 4.0.</p>
+      <p className="mt-2 text-[11px] text-muted-foreground opacity-70">
+        Council boundary: ABS ASGS LGA 2024. Federal grants: Financial Assistance Grants, Dept of Infrastructure.
+        {c.finSource === "vic_lgprf" ? ` Financials: VIC Local Government Performance Reporting${c.finYear ? ` ${c.finYear}` : ""}, Local Government Victoria.` : ""} All CC BY 4.0.
+      </p>
     </div>
   );
 }
@@ -280,6 +292,7 @@ function AmenitiesGroup({ a, nbn }: { a: NonNullable<Summary["amenities"]>; nbn?
     ["Nearest supermarket", a.nearestSupermarketKm > 0 ? `${a.nearestSupermarketKm.toFixed(1)} km` : "—"],
     ["Nearest train", a.nearestTrainKm > 0 ? `${a.nearestTrainKm.toFixed(1)} km` : "—"],
     ["Nearest hospital", a.nearestHospitalKm > 0 ? `${a.nearestHospitalKm.toFixed(1)} km` : "—"],
+    ["Distance to coast", a.distToCoastKm > 0 ? (a.distToCoastKm < 20 ? `${a.distToCoastKm.toFixed(1)} km` : `${Math.round(a.distToCoastKm)} km`) : "On the coast"],
     ...(nbn ? [["NBN", nbn] as [string, string]] : []),
   ];
   return (
@@ -295,7 +308,38 @@ function AmenitiesGroup({ a, nbn }: { a: NonNullable<Summary["amenities"]>; nbn?
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground">
         {brands ? <>Grocery mix: {brands}. </> : null}
-        <span className="opacity-70">Amenity counts via © OpenStreetMap contributors (ODbL) &amp; Geoscience Australia HealthDirect (CC BY 4.0).</span>
+        <span className="opacity-70">Amenity counts via © OpenStreetMap contributors (ODbL) &amp; Geoscience Australia HealthDirect (CC BY 4.0). Distance to coast derived from ABS state boundaries (CC BY 4.0).</span>
+      </p>
+    </div>
+  );
+}
+
+function SchoolSectorCard({ a }: { a: NonNullable<Summary["amenities"]> }) {
+  const total = a.schoolsGov + a.schoolsCatholic + a.schoolsIndependent;
+  // Coverage signal: uncovered states scan to 0 across the board; require some
+  // sector data (or a nearest-secondary) before rendering. Scoped to VIC & QLD.
+  if (total <= 0 && !(a.nearestSecondaryKm > 0)) return null;
+  const stats: [string, string][] = [
+    ["Government", `${a.schoolsGov}`],
+    ["Catholic", `${a.schoolsCatholic}`],
+    ["Independent", `${a.schoolsIndependent}`],
+    ["Primary", `${a.schoolsPrimary}`],
+    ["Secondary", `${a.schoolsSecondary}`],
+    ["Nearest secondary", a.nearestSecondaryKm > 0 ? `${a.nearestSecondaryKm.toFixed(1)} km` : "—"],
+  ];
+  return (
+    <div>
+      <h3 className="mb-2 font-serif text-sm text-muted-foreground">Schools by sector</h3>
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+        {stats.map(([label, value]) => (
+          <div key={label} className="rounded-lg border border-border bg-card p-4">
+            <div className="text-xs text-muted-foreground">{label}</div>
+            <div className="mt-1 font-mono text-lg tabular-nums text-foreground">{value}</div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-[11px] text-muted-foreground opacity-70">
+        School sector &amp; type: ACARA (Australian Curriculum, Assessment and Reporting Authority), School Location dataset.
       </p>
     </div>
   );

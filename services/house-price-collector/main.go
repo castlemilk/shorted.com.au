@@ -15,7 +15,7 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "all", "official | crawl | census | electorates | amenities | lga | connectivity | funding | refresh | all")
+	mode := flag.String("mode", "all", "official | crawl | census | electorates | amenities | lga | connectivity | funding | council-financials | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -62,11 +62,33 @@ func main() {
 	case "funding":
 		// Federal Financial Assistance Grants per council → lga dimension.
 		runFAGs(ctx, pool)
+	case "council-financials":
+		// VIC LGPRF per-council financials (rates, surplus, asset renewal) → lga.
+		runVICFinancials(ctx, pool)
 	case "refresh":
 		refresh(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want official|crawl|census|electorates|amenities|lga|connectivity|funding|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|crawl|census|electorates|amenities|lga|connectivity|funding|council-financials|refresh|all)", *mode)
 	}
+}
+
+// runVICFinancials fetches the VIC LGPRF full council data set and attaches each
+// council's latest-year financials to the lga dimension.
+func runVICFinancials(ctx context.Context, pool *pgxpool.Pool) {
+	rows, year, err := ingestVICCouncilFinancials(ctx)
+	if err != nil {
+		log.Printf("[council-financials] ingest error: %v", err)
+		_ = updateRun(ctx, pool, vicFinSource, nil, 0, "error", err.Error())
+		return
+	}
+	n, err := applyVICFinancials(ctx, pool, rows)
+	if err != nil {
+		log.Printf("[council-financials] apply error after %d: %v", n, err)
+		_ = updateRun(ctx, pool, vicFinSource, nil, n, "error", err.Error())
+		return
+	}
+	log.Printf("[council-financials] matched %d/%d VIC councils to LGPRF %s financials", n, len(rows), year)
+	_ = updateRun(ctx, pool, vicFinSource, nil, n, "ok", "")
 }
 
 // runFAGs fetches the national Financial Assistance Grants and attaches each
