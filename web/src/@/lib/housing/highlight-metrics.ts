@@ -32,13 +32,14 @@ export type SuburbMetricInput = {
   amenityDensityScore: number; // 0..100
   gpCount: number;
   nearestTrainKm: number;
+  distToCoastKm: number; // km to the national coastline (0 = beachfront)
   dominantNbnTech: string; // '' | Fixed Line | Fixed Wireless | Satellite
 };
 
 export type MetricKey =
   | "price" | "population" | "age" | "income" | "born_overseas" | "religion" | "language"
   | "federal_party" | "federal_lean" | "state_party"
-  | "amenity_density" | "supermarkets" | "pubs" | "grocery" | "healthcare" | "nearest_train" | "nbn";
+  | "amenity_density" | "supermarkets" | "pubs" | "grocery" | "healthcare" | "nearest_train" | "distance_to_coast" | "nbn";
 
 type Base = { key: MetricKey; label: string; legendLabel: string };
 
@@ -281,6 +282,12 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
     legendLabel: "Distance to nearest train station (km)",
     value: (s) => (s.population > 0 && s.nearestTrainKm > 0 ? s.nearestTrainKm : null),
     format: (v) => `${v.toFixed(1)} km`, sqrt: true,
+  },
+  {
+    kind: "continuous", key: "distance_to_coast", label: "Distance to coast",
+    legendLabel: "Distance to coastline (km)",
+    value: (s) => (s.population > 0 ? s.distToCoastKm : null),
+    format: (v) => (v < 20 ? `${v.toFixed(1)} km` : `${Math.round(v)} km`), sqrt: true,
   },
   {
     kind: "categorical", key: "nbn", label: "NBN technology",

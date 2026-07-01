@@ -280,6 +280,7 @@ function AmenitiesGroup({ a, nbn }: { a: NonNullable<Summary["amenities"]>; nbn?
     ["Nearest supermarket", a.nearestSupermarketKm > 0 ? `${a.nearestSupermarketKm.toFixed(1)} km` : "—"],
     ["Nearest train", a.nearestTrainKm > 0 ? `${a.nearestTrainKm.toFixed(1)} km` : "—"],
     ["Nearest hospital", a.nearestHospitalKm > 0 ? `${a.nearestHospitalKm.toFixed(1)} km` : "—"],
+    ["Distance to coast", a.distToCoastKm > 0 ? (a.distToCoastKm < 20 ? `${a.distToCoastKm.toFixed(1)} km` : `${Math.round(a.distToCoastKm)} km`) : "On the coast"],
     ...(nbn ? [["NBN", nbn] as [string, string]] : []),
   ];
   return (
@@ -295,7 +296,7 @@ function AmenitiesGroup({ a, nbn }: { a: NonNullable<Summary["amenities"]>; nbn?
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground">
         {brands ? <>Grocery mix: {brands}. </> : null}
-        <span className="opacity-70">Amenity counts via © OpenStreetMap contributors (ODbL) &amp; Geoscience Australia HealthDirect (CC BY 4.0).</span>
+        <span className="opacity-70">Amenity counts via © OpenStreetMap contributors (ODbL) &amp; Geoscience Australia HealthDirect (CC BY 4.0). Distance to coast derived from ABS state boundaries (CC BY 4.0).</span>
       </p>
     </div>
   );

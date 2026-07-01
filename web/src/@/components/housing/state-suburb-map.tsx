@@ -29,7 +29,7 @@ export type SuburbDatum = {
   pubsBars: number; parksCount: number; librariesCount: number;
   nearestSupermarketKm: number; amenityDensityScore: number;
   hospitalsCount: number; gpCount: number; pharmacyCount: number;
-  nearestTrainKm: number; nearestHospitalKm: number;
+  nearestTrainKm: number; nearestHospitalKm: number; distToCoastKm: number;
   dominantNbnTech: string; connectivityQualityScore: number;
 };
 

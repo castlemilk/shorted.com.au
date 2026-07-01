@@ -7,6 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { loadSuburbFeatures, makePolygonIndex, nearestPoint } from "./geo-index.mjs";
+import { loadCoastlinePoints, makeCoastDistanceFn } from "./coastline.mjs";
 
 const suburbsDir = process.argv[2] || "web/public/geo/suburbs";
 const stagingDir = process.argv[3] || path.join(import.meta.dirname, ".staging");
@@ -102,6 +103,20 @@ if (stations.length || hospitals.length) {
     const r = rows.get(sal);
     if (stations.length) { const n = nearestPoint(lon, lat, stations); if (n) r.nearestTrainKm = Math.round(n.distKm * 10) / 10; }
     if (hospitals.length) { const n = nearestPoint(lon, lat, hospitals); if (n) r.nearestHospitalKm = Math.round(n.distKm * 10) / 10; }
+  }
+}
+
+// distance-to-coast (km) from each suburb centroid to the national coastline,
+// derived from the committed ABS state boundaries (see coastline.mjs — no
+// external dataset). Rounded to 0.1km near the coast, whole km inland.
+const statesPath = path.join(suburbsDir, "..", "states.topojson");
+if (fs.existsSync(statesPath)) {
+  const coast = loadCoastlinePoints(statesPath);
+  console.log(`coastline: ${coast.length} sampled points …`);
+  const coastDist = makeCoastDistanceFn(coast);
+  for (const [sal, [lon, lat]] of centroids) {
+    const km = coastDist(lon, lat);
+    if (km != null) rows.get(sal).distToCoastKm = km < 20 ? Math.round(km * 10) / 10 : Math.round(km);
   }
 }
 

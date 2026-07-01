@@ -8785,6 +8785,7 @@ type SuburbAmenities struct {
 	PharmacyCount        int32                  `protobuf:"varint,14,opt,name=pharmacy_count,json=pharmacyCount,proto3" json:"pharmacy_count,omitempty"`
 	NearestTrainKm       float64                `protobuf:"fixed64,15,opt,name=nearest_train_km,json=nearestTrainKm,proto3" json:"nearest_train_km,omitempty"` // nearest railway station
 	NearestHospitalKm    float64                `protobuf:"fixed64,16,opt,name=nearest_hospital_km,json=nearestHospitalKm,proto3" json:"nearest_hospital_km,omitempty"`
+	DistToCoastKm        float64                `protobuf:"fixed64,17,opt,name=dist_to_coast_km,json=distToCoastKm,proto3" json:"dist_to_coast_km,omitempty"` // straight-line km to the national coastline
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -8927,6 +8928,13 @@ func (x *SuburbAmenities) GetNearestTrainKm() float64 {
 func (x *SuburbAmenities) GetNearestHospitalKm() float64 {
 	if x != nil {
 		return x.NearestHospitalKm
+	}
+	return 0
+}
+
+func (x *SuburbAmenities) GetDistToCoastKm() float64 {
+	if x != nil {
+		return x.DistToCoastKm
 	}
 	return 0
 }
@@ -10704,7 +10712,7 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\n" +
 	"state_code\x18\x01 \x01(\tR\tstateCode\x12\x14\n" +
 	"\x05query\x18\x02 \x01(\tR\x05query\x12\x14\n" +
-	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\x83\x05\n" +
+	"\x05limit\x18\x03 \x01(\x05R\x05limit\"\xac\x05\n" +
 	"\x0fSuburbAmenities\x12#\n" +
 	"\rschools_total\x18\x01 \x01(\x05R\fschoolsTotal\x12-\n" +
 	"\x12supermarkets_total\x18\x02 \x01(\x05R\x11supermarketsTotal\x12\x1f\n" +
@@ -10725,7 +10733,8 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\bgp_count\x18\r \x01(\x05R\agpCount\x12%\n" +
 	"\x0epharmacy_count\x18\x0e \x01(\x05R\rpharmacyCount\x12(\n" +
 	"\x10nearest_train_km\x18\x0f \x01(\x01R\x0enearestTrainKm\x12.\n" +
-	"\x13nearest_hospital_km\x18\x10 \x01(\x01R\x11nearestHospitalKm\"\xc3\b\n" +
+	"\x13nearest_hospital_km\x18\x10 \x01(\x01R\x11nearestHospitalKm\x12'\n" +
+	"\x10dist_to_coast_km\x18\x11 \x01(\x01R\rdistToCoastKm\"\xc3\b\n" +
 	"\rSuburbSummary\x12\x19\n" +
 	"\bsal_code\x18\x01 \x01(\tR\asalCode\x12\x19\n" +
 	"\bsal_name\x18\x02 \x01(\tR\asalName\x12\x1d\n" +
