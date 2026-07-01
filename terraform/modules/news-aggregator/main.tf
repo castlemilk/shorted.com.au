@@ -49,6 +49,17 @@ resource "google_secret_manager_secret_iam_member" "gemini_api_key" {
   project   = var.project_id
 }
 
+# Grant Secret Manager access for EMAIL_IMG_SECRET — HMAC key the digest uses to
+# sign /api/email/img thumbnail URLs (verified by the web app). Gated so the
+# module applies safely before the secret exists (default false).
+resource "google_secret_manager_secret_iam_member" "email_img_secret" {
+  count     = var.email_img_secret_exists ? 1 : 0
+  secret_id = "EMAIL_IMG_SECRET"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.news_aggregator.email}"
+  project   = var.project_id
+}
+
 # Cloud Run Job (v2)
 resource "google_cloud_run_v2_job" "news_aggregator" {
   name     = local.service_name
@@ -98,6 +109,28 @@ resource "google_cloud_run_v2_job" "news_aggregator" {
           }
         }
 
+        # Public origin used by the weekly digest (RUN_MODE=digest) to build
+        # absolute article links and signed /api/email/img thumbnail URLs.
+        env {
+          name  = "PUBLIC_SITE_URL"
+          value = var.public_site_url
+        }
+
+        # HMAC key for signing digest thumbnail proxy URLs (must match the web
+        # app's EMAIL_IMG_SECRET). Gated so apply is safe before the secret exists.
+        dynamic "env" {
+          for_each = var.email_img_secret_exists ? [1] : []
+          content {
+            name = "EMAIL_IMG_SECRET"
+            value_source {
+              secret_key_ref {
+                secret  = "EMAIL_IMG_SECRET"
+                version = "latest"
+              }
+            }
+          }
+        }
+
         # OpenTelemetry configuration (traces + metrics to Grafana Cloud)
         env {
           name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
@@ -133,6 +166,7 @@ resource "google_cloud_run_v2_job" "news_aggregator" {
     google_secret_manager_secret_iam_member.database_url,
     google_secret_manager_secret_iam_member.otel_headers,
     google_secret_manager_secret_iam_member.gemini_api_key,
+    google_secret_manager_secret_iam_member.email_img_secret,
   ]
 }
 

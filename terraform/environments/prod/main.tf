@@ -358,6 +358,11 @@ module "news_aggregator" {
   environment          = "production"
   image_url            = var.news_aggregator_image
   gemini_secret_exists = true
+  # EMAIL_IMG_SECRET must be provisioned in Secret Manager BEFORE this is applied
+  # (push-to-main = prod CD). The same value must also be set as a Vercel env var
+  # so /api/email/img can verify the digest's signed thumbnail URLs.
+  email_img_secret_exists = true
+  public_site_url         = "https://shorted.com.au"
 
   depends_on = [
     google_project_service.required_apis,
