@@ -86,7 +86,7 @@ func parseFAGs(xlsxBytes []byte) ([]FagRow, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	sheet := "All data"
 	if !slices.Contains(f.GetSheetList(), sheet) {
@@ -101,7 +101,7 @@ func parseFAGs(xlsxBytes []byte) ([]FagRow, error) {
 	// Find the header row (has Jurisdiction + LGA + Year) and the total column.
 	hdr, jurCol, lgaCol, yrCol, totCol := -1, -1, -1, -1, -1
 	for i, row := range rows {
-		var fj, fl, fy int = -1, -1, -1
+		fj, fl, fy := -1, -1, -1
 		for j, c := range row {
 			switch strings.ToLower(strings.TrimSpace(c)) {
 			case "jurisdiction":
