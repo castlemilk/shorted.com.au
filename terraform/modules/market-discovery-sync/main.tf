@@ -59,9 +59,16 @@ resource "google_cloud_run_v2_job" "asx_discovery" {
         }
 
         resources {
+          # asx-discovery drives a headless Chromium (Playwright) to scrape ASX
+          # listings. At 1Gi every weekly run OOM-killed ("configured memory limit
+          # was reached") — headless Chrome needs several GB, and the job also
+          # transiently re-downloads a ~165 MiB Chromium at startup. 4Gi/2 CPU gives
+          # comfortable headroom; the job runs weekly for a couple of minutes, so the
+          # cost is negligible. (Follow-up: bundle the browser at the playwright-go
+          # version so it stops re-downloading at runtime.)
           limits = {
-            cpu    = "1"
-            memory = "1Gi"
+            cpu    = "2"
+            memory = "4Gi"
           }
         }
       }
