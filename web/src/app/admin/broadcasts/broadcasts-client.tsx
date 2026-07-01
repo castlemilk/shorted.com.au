@@ -85,6 +85,23 @@ export function BroadcastsClient({ initial }: { initial: Broadcast[] }) {
     }
   }
 
+  async function onTest(b: Broadcast) {
+    const to = prompt(
+      `Send a TEST of "${b.subject}" to a single address.\n\nThe address must already be an active subscriber. This does NOT email the list and does NOT mark the broadcast sent.`,
+      "",
+    );
+    if (!to) return;
+    setBusy(b.id);
+    setMsg(null);
+    const res = await sendBroadcast(b.id, to.trim());
+    setBusy(null);
+    setMsg(
+      res.ok
+        ? { text: `Test sent to ${to.trim()} — the draft is unchanged.`, ok: true }
+        : { text: `Test failed: ${res.error ?? "unknown error"}`, ok: false },
+    );
+  }
+
   if (broadcasts.length === 0) {
     return (
       <div className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
@@ -117,7 +134,7 @@ export function BroadcastsClient({ initial }: { initial: Broadcast[] }) {
             <TableHead className="w-[80px] text-right">Recipients</TableHead>
             <TableHead className="w-[160px]">Created</TableHead>
             <TableHead className="w-[160px]">Sent</TableHead>
-            <TableHead className="w-[90px]">Action</TableHead>
+            <TableHead className="w-[170px]">Action</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -163,23 +180,38 @@ export function BroadcastsClient({ initial }: { initial: Broadcast[] }) {
                 <TableCell className="text-sm text-muted-foreground">{fmtDate(b.createdAt)}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">{fmtDate(b.sentAt)}</TableCell>
                 <TableCell>
-                  {canSend ? (
+                  <div className="flex items-center gap-1.5">
                     <Button
                       size="sm"
+                      variant="outline"
                       disabled={isBusy || busy !== null}
-                      onClick={() => onSend(b)}
+                      onClick={() => onTest(b)}
                       className="gap-1.5"
+                      title="Send a test to one address (does not email the list)"
                     >
                       {isBusy ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
-                        <Send className="h-3.5 w-3.5" />
+                        <Mail className="h-3.5 w-3.5" />
                       )}
-                      Send
+                      Test
                     </Button>
-                  ) : (
-                    <span className="text-muted-foreground/30 text-xs">—</span>
-                  )}
+                    {canSend ? (
+                      <Button
+                        size="sm"
+                        disabled={isBusy || busy !== null}
+                        onClick={() => onSend(b)}
+                        className="gap-1.5"
+                      >
+                        {isBusy ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Send className="h-3.5 w-3.5" />
+                        )}
+                        Send
+                      </Button>
+                    ) : null}
+                  </div>
                 </TableCell>
               </TableRow>
             );

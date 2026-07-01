@@ -607,6 +607,45 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			http.Error(w, "broadcast not found", http.StatusNotFound)
 			return
 		}
+		cfg := broadcast.Config{
+			APIKey:            os.Getenv("RESEND_API_KEY"),
+			From:              envOr("BROADCAST_FROM", "Shorted <updates@shorted.com.au>"),
+			ReplyTo:           envOr("BROADCAST_REPLY_TO", "support@shorted.com.au"),
+			UnsubscribeSecret: os.Getenv("UNSUBSCRIBE_SECRET"),
+			BaseURL:           envOr("PUBLIC_SITE_URL", "https://shorted.com.au"),
+		}
+
+		// TEST SEND: ?to=<email> delivers to that ONE address only. It must be an
+		// active subscriber (so the unsubscribe link is real). This never claims,
+		// never touches the subscriber list, and never changes the broadcast status
+		// — the draft stays sendable for the real blast.
+		if to := r.URL.Query().Get("to"); to != "" {
+			subs, err := s.store.ListActiveSubscribers()
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			var recip *broadcast.Recipient
+			for _, su := range subs {
+				if su.Email == to {
+					recip = &broadcast.Recipient{ID: su.ID, Email: su.Email}
+					break
+				}
+			}
+			if recip == nil {
+				http.Error(w, "test recipient must be an active subscriber", http.StatusBadRequest)
+				return
+			}
+			sent, sendErr := broadcast.Send(r.Context(), cfg, b.Subject, b.Subject, b.HTMLBody, b.TextBody, []broadcast.Recipient{*recip}, register.SignUnsubscribeToken)
+			if sendErr != nil {
+				http.Error(w, sendErr.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"sent": sent, "test": true, "to": to})
+			return
+		}
+
 		claimed, err := s.store.ClaimBroadcastForSending(id)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -623,13 +662,6 @@ func (s *ShortsServer) Serve(ctx context.Context, logger *log.Logger, address st
 			}
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
-		}
-		cfg := broadcast.Config{
-			APIKey:            os.Getenv("RESEND_API_KEY"),
-			From:              envOr("BROADCAST_FROM", "Shorted <updates@shorted.com.au>"),
-			ReplyTo:           envOr("BROADCAST_REPLY_TO", "support@shorted.com.au"),
-			UnsubscribeSecret: os.Getenv("UNSUBSCRIBE_SECRET"),
-			BaseURL:           envOr("PUBLIC_SITE_URL", "https://shorted.com.au"),
 		}
 		recips := make([]broadcast.Recipient, len(subs))
 		for i, su := range subs {

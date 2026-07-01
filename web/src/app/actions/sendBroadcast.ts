@@ -7,10 +7,15 @@ const INTERNAL_SECRET = process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-sec
 
 export async function sendBroadcast(
   id: string,
+  to?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   try {
+    // When `to` is set the backend delivers only to that one address (a test
+    // send): it must be an active subscriber, the subscriber list is untouched,
+    // and the broadcast stays a draft (not marked sent).
+    const testParam = to ? `&to=${encodeURIComponent(to)}` : "";
     const response = await fetch(
-      `${SHORTS_API_URL}/api/admin/broadcasts/send?id=${encodeURIComponent(id)}`,
+      `${SHORTS_API_URL}/api/admin/broadcasts/send?id=${encodeURIComponent(id)}${testParam}`,
       {
         method: "POST",
         headers: {
