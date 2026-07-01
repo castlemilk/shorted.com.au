@@ -110,12 +110,16 @@ class SyncStatusRecorder:
         """Record start of sync run."""
         self.started_at = time.time()
         
-        # Get hostname - prefer Cloud Run identifiers over socket.gethostname()
-        # Cloud Run sets K_SERVICE for services and CLOUD_RUN_JOB for jobs
+        # Identify the run by its Cloud Run *execution* id (e.g.
+        # "shorts-data-sync-hztgm"), which is identical across every task retry of one
+        # execution but unique per daily execution. This is what lets a retry find and
+        # resume its own in-progress run (see get_or_create_daily_sync_run).
+        # CLOUD_RUN_JOB is the same every day, so it must NOT be preferred here — doing
+        # so is what previously made resume rely on the started_at calendar date.
         hostname = (
-            os.getenv("CLOUD_RUN_JOB") or 
-            os.getenv("K_SERVICE") or 
             os.getenv("CLOUD_RUN_EXECUTION") or
+            os.getenv("K_SERVICE") or
+            os.getenv("CLOUD_RUN_JOB") or
             socket.gethostname()
         )
         environment = os.getenv("ENVIRONMENT", "development")
@@ -1363,22 +1367,52 @@ async def cleanup_stuck_runs(conn) -> int:
 
 
 async def get_or_create_daily_sync_run(conn, batch_size: int = 500) -> Optional[str]:
-    """Get existing incomplete daily sync run or return None to create new one."""
-    today = date.today()
+    """Return the in-progress run for THIS Cloud Run execution, or None for a fresh run.
 
-    # Find incomplete sync from today
-    incomplete = await conn.fetchrow(
-        """
-        SELECT run_id, checkpoint_resume_from, checkpoint_stocks_total,
-               checkpoint_stocks_processed, checkpoint_stocks_successful
-        FROM sync_status
-        WHERE DATE(started_at) = $1
-          AND status IN ('running', 'partial')
-        ORDER BY started_at DESC
-        LIMIT 1
-    """,
-        today,
-    )
+    Resume is keyed on the Cloud Run execution id (CLOUD_RUN_EXECUTION), stored in the
+    sync_status.hostname column. That id is identical across every task retry of one
+    execution but unique per daily execution, so a retry always finds its own run and a
+    new day's execution correctly starts fresh.
+
+    Why not the previous approach: it scoped the lookup to `DATE(started_at) = today`
+    (UTC). The job starts at 10:00 UTC and each ~500-stock attempt takes ~5h, so any run
+    needing 3-4 retries inevitably crosses UTC midnight. Once an attempt ran on the next
+    calendar day it could no longer see the (yesterday-dated) in-progress run, silently
+    restarted from index 0, burned its remaining retry budget re-doing the first 500
+    stocks, and the execution ended non-zero -> "Cloud Run Job execution failed" alert.
+
+    We order by stocks processed so the furthest-along row wins if more than one exists.
+    """
+    execution_id = os.getenv("CLOUD_RUN_EXECUTION")
+
+    if execution_id:
+        incomplete = await conn.fetchrow(
+            """
+            SELECT run_id, checkpoint_resume_from, checkpoint_stocks_total,
+                   checkpoint_stocks_processed, checkpoint_stocks_successful
+            FROM sync_status
+            WHERE hostname = $1
+              AND status IN ('running', 'partial')
+            ORDER BY checkpoint_stocks_processed DESC, started_at DESC
+            LIMIT 1
+        """,
+            execution_id,
+        )
+    else:
+        # Local/dev fallback (no Cloud Run execution id): resume any recent incomplete
+        # run within a rolling window. Deliberately NOT a calendar-date filter — that is
+        # the bug this function fixes.
+        incomplete = await conn.fetchrow(
+            """
+            SELECT run_id, checkpoint_resume_from, checkpoint_stocks_total,
+                   checkpoint_stocks_processed, checkpoint_stocks_successful
+            FROM sync_status
+            WHERE started_at > NOW() - INTERVAL '20 hours'
+              AND status IN ('running', 'partial')
+            ORDER BY checkpoint_stocks_processed DESC, started_at DESC
+            LIMIT 1
+        """,
+        )
 
     if incomplete:
         # checkpoint_stocks_processed is now an INTEGER, not an array

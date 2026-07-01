@@ -97,8 +97,15 @@ resource "google_cloud_run_v2_job" "short_data_sync" {
     template {
       service_account = google_service_account.short_data_sync.email
 
-      max_retries = 3
-      timeout     = "28800s" # 8 hours - processing 4471 stocks with Yahoo Finance API calls takes ~5-6 hours
+      # The script processes SYNC_BATCH_SIZE (500) stocks per attempt (~5h each) and
+      # exits 2 to trigger the next retry, resuming from a DB checkpoint. ~1,850 active
+      # stocks need ~4 attempts, so 3 retries (4 attempts) left zero slack: one attempt
+      # cut short (e.g. a Cloud Run maintenance cycle) meant the execution ran out of
+      # retries still partial and paged. 5 retries (6 attempts) gives comfortable margin;
+      # attempts stop as soon as the sync completes, so the extra retries cost nothing on
+      # a healthy day.
+      max_retries = 5
+      timeout     = "28800s" # 8h per attempt — a full 500-stock batch takes ~5h via the rate-limited Yahoo/Alpha price fetches
 
       containers {
         image = var.image_url
