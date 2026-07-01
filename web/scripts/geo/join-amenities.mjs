@@ -38,6 +38,7 @@ for (const sal of centroids.keys()) {
   rows.set(sal, {
     schoolsTotal: 0, supermarketsTotal: 0, colesCount: 0, woolworthsCount: 0,
     aldiCount: 0, igaCount: 0, pubsBars: 0, parksCount: 0, librariesCount: 0,
+    hospitalsCount: 0, gpCount: 0, pharmacyCount: 0,
   });
 }
 
@@ -72,6 +73,35 @@ if (supers.length) {
   for (const [sal, [lon, lat]] of centroids) {
     const n = nearestPoint(lon, lat, supers);
     if (n) rows.get(sal).nearestSupermarketKm = Math.round(n.distKm * 10) / 10;
+  }
+}
+
+// GA HealthDirect facilities (CC-BY) → point-in-polygon counts.
+const readStaged = (name) => {
+  const f = path.join(stagingDir, `${name}.json`);
+  return fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, "utf8")) : [];
+};
+for (const [file, field] of [["ga-gp", "gpCount"], ["ga-hospital", "hospitalsCount"], ["ga-pharmacy", "pharmacyCount"]]) {
+  let hit = 0;
+  for (const p of readStaged(file)) {
+    const sal = idx.locate(p.lon, p.lat);
+    if (!sal) continue;
+    const r = rows.get(sal);
+    if (!r) continue;
+    r[field]++; hit++;
+  }
+  console.log(`  ${file}: ${hit} joined to a suburb`);
+}
+
+// nearest train station + nearest hospital (km from each suburb centroid).
+const stations = readStaged("osm-station");
+const hospitals = readStaged("ga-hospital");
+if (stations.length || hospitals.length) {
+  console.log(`nearest train (${stations.length}) / hospital (${hospitals.length}) …`);
+  for (const [sal, [lon, lat]] of centroids) {
+    const r = rows.get(sal);
+    if (stations.length) { const n = nearestPoint(lon, lat, stations); if (n) r.nearestTrainKm = Math.round(n.distKm * 10) / 10; }
+    if (hospitals.length) { const n = nearestPoint(lon, lat, hospitals); if (n) r.nearestHospitalKm = Math.round(n.distKm * 10) / 10; }
   }
 }
 

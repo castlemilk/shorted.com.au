@@ -31,6 +31,7 @@ const CATS = {
   school: `nwr["amenity"="school"]`,
   library: `nwr["amenity"="library"]`,
   park: `nwr["leisure"="park"]`,
+  station: `nwr["railway"="station"]`,
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
