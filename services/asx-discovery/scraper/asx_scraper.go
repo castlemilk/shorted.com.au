@@ -40,8 +40,10 @@ func (s *ASXScraper) DownloadCSV(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
-	// Install Playwright driver if not already installed
-	if err := playwright.Install(); err != nil {
+	// Install the Playwright driver if not already installed. Restrict to Chromium:
+	// the default (no options) downloads Chromium + Firefox + WebKit, but this scraper
+	// only ever launches Chromium — so Firefox/WebKit were pure waste (~150 MiB) each run.
+	if err := playwright.Install(&playwright.RunOptions{Browsers: []string{"chromium"}}); err != nil {
 		log.Printf("Warning: failed to install Playwright driver: %v (continuing anyway)", err)
 	}
 
