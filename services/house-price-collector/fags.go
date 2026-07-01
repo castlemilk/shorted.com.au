@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -14,6 +15,15 @@ import (
 
 	"github.com/castlemilk/shorted.com.au/services/pkg/stealthhttp"
 )
+
+// fagParenRe strips parenthetical aliases/qualifiers the FAG workbook appends to
+// council names — 'Melbourne City Council (City of Melbourne)', 'Merri-bek City
+// Council (formerly Moreland City Council)', 'Central Coast Council (NSW)'. The
+// same strip runs over the ABS LGA names (which carry '(NSW)'/'(SA)' disambiguation
+// suffixes), so both sides normalise consistently. Verified: lifts the FAG↔LGA
+// match from 510 to 525 of 549 with no new same-state collisions, while doubled
+// names ('Wagga Wagga', 'Baw Baw') are preserved (only bracketed spans are cut).
+var fagParenRe = regexp.MustCompile(`\([^)]*\)`)
 
 // Federal Financial Assistance Grants (FAGs) to local government — the untied
 // Commonwealth grants every Australian council receives. National, all states,
@@ -37,6 +47,7 @@ type FagRow struct {
 // ('Albury', 'Albany', 'Alpine').
 func normCouncil(s string) string {
 	s = strings.ToLower(s)
+	s = fagParenRe.ReplaceAllString(s, " ") // drop '(City of Melbourne)'-style aliases
 	for _, tok := range []string{
 		"aboriginal shire council", "rural city council", "regional council", "municipal council",
 		"district council", "shire council", "city council", "town council", "borough council",
