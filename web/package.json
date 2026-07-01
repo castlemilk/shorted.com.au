@@ -223,6 +223,7 @@
     "rehype-prism-plus": "^2.0.0",
     "remark-gfm": "^4.0.1",
     "request": "^2.88.2",
+    "sharp": "^0.33.5",
     "stripe": "^20.2.0",
     "styled-components": "^6.1.18",
     "tailwind-merge": "^2.1.0",

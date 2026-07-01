@@ -57,7 +57,7 @@ func Send(ctx context.Context, cfg Config, subject, title, bodyHTML, bodyText st
 				To:      []string{r.Email},
 				ReplyTo: cfg.ReplyTo,
 				Subject: subject,
-				HTML:    RenderHTML(title, bodyHTML, unsubURL),
+				HTML:    RenderHTML(cfg.BaseURL, title, bodyHTML, unsubURL),
 				Text:    RenderText(title, bodyText, unsubURL),
 				Headers: map[string]string{
 					"List-Unsubscribe":      fmt.Sprintf("<%s>", oneClick),

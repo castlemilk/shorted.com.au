@@ -37,3 +37,15 @@ variable "gemini_secret_exists" {
   type        = bool
   default     = false
 }
+
+variable "email_img_secret_exists" {
+  description = "Whether the EMAIL_IMG_SECRET secret exists in Secret Manager (HMAC key for signing digest thumbnail proxy URLs)"
+  type        = bool
+  default     = false
+}
+
+variable "public_site_url" {
+  description = "Public origin used by the weekly digest for absolute links and signed image URLs"
+  type        = string
+  default     = "https://shorted.com.au"
+}
