@@ -32,11 +32,12 @@ import (
 const (
 	nswPSIBase  = "https://www.valuergeneral.nsw.gov.au/__psi/yearly/"
 	nswAccept   = "application/zip,application/octet-stream,*/*"
-	nswSource   = "vg_nsw"
-	nswLicence  = "CC-BY" // bundled creative_commons.txt; attribute "NSW Valuer-General"
-	nswMinSales = 10      // suppress thin suburbs (a median off <10 sales is noise)
-	nswMinPrice = 50000.0 // drop non-market transfers ($1 family transfers, etc.)
-	nswYears    = 3       // trailing complete calendar years → annual series + YoY
+	nswSource    = "vg_nsw"
+	nswLicence   = "CC-BY" // bundled creative_commons.txt; attribute "NSW Valuer-General"
+	nswMinSales  = 5       // per-year sales for a suburb's annual median
+	nswMinPooled = 6       // pooled-window sales for a thin suburb's single fallback median
+	nswMinPrice  = 50000.0 // drop non-market transfers ($1 family transfers, etc.)
+	nswYears     = 3       // trailing complete calendar years → annual series + YoY
 )
 
 type nswSale struct {
@@ -98,24 +99,51 @@ func ingestNSWSuburbMedians(ctx context.Context) ([]Observation, error) {
 		return nil, fmt.Errorf("no NSW PSI years fetched")
 	}
 
+	years := nswRecentYears(nswYears)
+	latestYr := years[len(years)-1]
+
+	// For well-traded suburbs emit an annual median per year (series + YoY). For
+	// THIN suburbs (no single year clears nswMinSales) pool the whole window into
+	// one current median so the map still paints them — flagged preliminary.
 	var obs []Observation
-	for name, years := range agg {
-		for yr, a := range years {
+	pooledN := 0
+	for name, byYear := range agg {
+		emitted := false
+		for yr, a := range byYear {
 			if len(a.prices) < nswMinSales {
 				continue
 			}
-			obs = append(obs, Observation{
-				RegionCode: "SUBURB:NSW-" + name, RegionType: "suburb",
-				RegionName: nswTitleCase(name), StateCode: "NSW", Postcode: modalKey(a.postcodes),
-				Measure: "median_price", DwellingType: "house",
-				Period: time.Date(yr, 12, 31, 0, 0, 0, 0, time.UTC), PeriodFreq: "A",
-				Value: medianFloat(a.prices), Unit: "AUD", IsPreliminary: false,
-				Source: nswSource, SourceLicence: nswLicence,
-			})
+			obs = append(obs, nswObs(name, yr, a.prices, modalKey(a.postcodes), false))
+			emitted = true
+		}
+		if !emitted {
+			var pooled []float64
+			pc := map[string]int{}
+			for _, a := range byYear {
+				pooled = append(pooled, a.prices...)
+				for k, v := range a.postcodes {
+					pc[k] += v
+				}
+			}
+			if len(pooled) >= nswMinPooled {
+				obs = append(obs, nswObs(name, latestYr, pooled, modalKey(pc), true))
+				pooledN++
+			}
 		}
 	}
-	log.Printf("[vg_nsw] %d suburb-year medians (>=%d sales/yr) across %d years", len(obs), nswMinSales, fetched)
+	log.Printf("[vg_nsw] %d suburb-year medians (%d thin suburbs via %dyr pool) across %d years", len(obs), pooledN, nswYears, fetched)
 	return obs, nil
+}
+
+func nswObs(name string, year int, prices []float64, postcode string, preliminary bool) Observation {
+	return Observation{
+		RegionCode: "SUBURB:NSW-" + name, RegionType: "suburb",
+		RegionName: nswTitleCase(name), StateCode: "NSW", Postcode: postcode,
+		Measure: "median_price", DwellingType: "house",
+		Period: time.Date(year, 12, 31, 0, 0, 0, 0, time.UTC), PeriodFreq: "A",
+		Value: medianFloat(prices), Unit: "AUD", IsPreliminary: preliminary,
+		Source: nswSource, SourceLicence: nswLicence,
+	}
 }
 
 // parseNSWYearSales walks the nested yearly zip and returns established-house sales.
