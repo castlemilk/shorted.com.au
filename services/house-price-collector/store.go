@@ -123,6 +123,34 @@ func refreshHousingMV(ctx context.Context, pool *pgxpool.Pool) error {
 	return err
 }
 
+// linkSuburbSalCodes backfills house_price_regions.sal_code for suburb regions by
+// matching the region NAME to an ABS SAL name — the same logic as migrations 000056
+// (exact) + 000068 (parenthetical-stripped fallback for ABS names like
+// "Abbotsford (NSW)"). Run every ingest so newly-added suburbs (any state)
+// self-link without a manual SQL step. Idempotent: only touches NULL sal_codes.
+func linkSuburbSalCodes(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
+	var total int64
+	tag, err := pool.Exec(ctx, `
+		UPDATE house_price_regions r SET sal_code = d.sal_code
+		FROM suburb_demographics d
+		WHERE r.sal_code IS NULL AND r.region_type = 'suburb' AND r.state_code = d.state_code
+		  AND upper(trim(r.region_name)) = upper(trim(d.sal_name))`)
+	if err != nil {
+		return total, fmt.Errorf("sal link (exact): %w", err)
+	}
+	total += tag.RowsAffected()
+	tag, err = pool.Exec(ctx, `
+		UPDATE house_price_regions r SET sal_code = d.sal_code
+		FROM suburb_demographics d
+		WHERE r.sal_code IS NULL AND r.region_type = 'suburb' AND r.state_code = d.state_code
+		  AND upper(trim(r.region_name)) = upper(trim(regexp_replace(d.sal_name, '\s*\(.*\)\s*$', '')))`)
+	if err != nil {
+		return total, fmt.Errorf("sal link (stripped): %w", err)
+	}
+	total += tag.RowsAffected()
+	return total, nil
+}
+
 // upsertDemographics idempotently writes one row per boundary suburb (PK =
 // sal_code). v1 populates identity + population + the five G02 medians; the
 // tenure/dwelling columns are left to default NULL until those tables are
