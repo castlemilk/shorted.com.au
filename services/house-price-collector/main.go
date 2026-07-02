@@ -196,6 +196,14 @@ func runElectorates(ctx context.Context, pool *pgxpool.Pool) {
 }
 
 func refresh(ctx context.Context, pool *pgxpool.Pool) {
+	// Link any newly-ingested suburb regions to their ABS sal_code first, so the
+	// suburb map (which reads house_prices via the sal_code bridge) paints without
+	// a manual backfill step.
+	if n, err := linkSuburbSalCodes(ctx, pool); err != nil {
+		log.Printf("suburb sal_code link failed: %v", err)
+	} else {
+		log.Printf("linked %d suburb region(s) to sal_code", n)
+	}
 	if err := refreshHousingMV(ctx, pool); err != nil {
 		log.Printf("mv refresh failed: %v", err)
 		return
