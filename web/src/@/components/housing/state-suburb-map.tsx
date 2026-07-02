@@ -6,8 +6,9 @@ import { MapLegend } from "./map-legend";
 import { CategoricalLegend } from "./categorical-legend";
 import { makePriceScale } from "@/lib/housing/price-scale";
 import {
-  HIGHLIGHT_METRICS, METRIC_BY_KEY, amberScale, type MetricKey,
+  HIGHLIGHT_METRICS, METRIC_BY_KEY, METRIC_ICON, amberScale, type MetricKey,
 } from "@/lib/housing/highlight-metrics";
+import { HousingIcon } from "./housing-icon";
 import { useTopojson } from "./use-topojson";
 import { SuburbTooltip } from "./suburb-tooltip";
 import {
@@ -114,7 +115,12 @@ export function StateSuburbMap({
       </SelectTrigger>
       <SelectContent>
         {HIGHLIGHT_METRICS.map((m) => (
-          <SelectItem key={m.key} value={m.key}>{m.label}</SelectItem>
+          <SelectItem key={m.key} value={m.key}>
+            <span className="flex items-center gap-2">
+              <HousingIcon name={METRIC_ICON[m.key]} size={16} />
+              {m.label}
+            </span>
+          </SelectItem>
         ))}
       </SelectContent>
     </Select>

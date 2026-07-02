@@ -10,6 +10,7 @@ import { HousingSeriesChart } from "./housing-series-chart";
 import { SuburbLocatorMap } from "./suburb-locator-map";
 import { STATE_NAMES, stateSlug, suburbHref } from "@/lib/housing/states";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
+import { HousingIcon, type HousingIconName } from "./housing-icon";
 
 const fmtAUD = (v: number) =>
   v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(2)}M` : v >= 1_000 ? `$${Math.round(v / 1000)}k` : `$${Math.round(v)}`;
@@ -115,7 +116,9 @@ export function SuburbProfile({
         <div className="space-y-6">
           {/* price chart or empty-state */}
           <div className="rounded-xl border border-border bg-card p-5">
-            <h2 className="mb-3 font-serif text-lg text-foreground">Median house price</h2>
+            <h2 className="mb-3 flex items-center gap-2 font-serif text-lg text-foreground">
+              <HousingIcon name="median-price" size={20} /> Median house price
+            </h2>
             {chartRegion ? (
               <HousingSeriesChart regionCode={chartRegion} measure="median_price" dwellingType="house" ariaLabel={`${s.salName} median house price`} format="aud" height={280} />
             ) : (
@@ -128,13 +131,13 @@ export function SuburbProfile({
 
           {/* demographics — grouped */}
           <div className="space-y-4">
-            <DemoGroup title="People" stats={[
+            <DemoGroup title="People" icon="population" stats={[
               ["Population", d?.population ? d.population.toLocaleString() : "—"],
               ["Median age", d?.medianAge ? `${d.medianAge} yrs` : "—"],
               ["Income / person / wk", d?.medianWeeklyPerIncome ? fmtMoney(d.medianWeeklyPerIncome) : "—"],
               ["Household income / wk", d?.medianWeeklyHhdIncome ? fmtMoney(d.medianWeeklyHhdIncome) : "—"],
             ]} />
-            <DemoGroup title="Housing" stats={[
+            <DemoGroup title="Housing" icon="dwellings" stats={[
               ["Dwellings", d?.dwellingCount ? d.dwellingCount.toLocaleString() : "—"],
               ["Median rent / wk", d?.medianWeeklyRent ? fmtMoney(d.medianWeeklyRent) : "—"],
               ["Mortgage / month", d?.medianMonthlyMortgage ? fmtMoney(d.medianMonthlyMortgage) : "—"],
@@ -148,7 +151,9 @@ export function SuburbProfile({
 
           {/* comparison */}
           <div className="rounded-xl border border-border bg-card p-5">
-            <h2 className="mb-3 font-serif text-lg text-foreground">How it compares</h2>
+            <h2 className="mb-3 flex items-center gap-2 font-serif text-lg text-foreground">
+              <HousingIcon name="compare" size={20} /> How it compares
+            </h2>
             {priced ? (
               <CompareBar
                 label="Median house price" suburb={s.latestMedianPrice}
@@ -171,7 +176,9 @@ export function SuburbProfile({
 
           {nearby.length ? (
             <div className="rounded-xl border border-border bg-card p-4">
-              <h2 className="mb-2 font-serif text-base text-foreground">Nearby &amp; comparable</h2>
+              <h2 className="mb-2 flex items-center gap-1.5 font-serif text-base text-foreground">
+                <HousingIcon name="nearby" size={18} /> Nearby &amp; comparable
+              </h2>
               <div className="flex flex-col">
                 {nearby.map((n) => (
                   <Link key={n.salCode} href={suburbHref(st, n)}
@@ -186,7 +193,9 @@ export function SuburbProfile({
 
           {data.similar?.length ? (
             <div className="rounded-xl border border-border bg-card p-4">
-              <h2 className="mb-1 font-serif text-base text-foreground">Similar suburbs</h2>
+              <h2 className="mb-1 flex items-center gap-1.5 font-serif text-base text-foreground">
+                <HousingIcon name="similar" size={18} /> Similar suburbs
+              </h2>
               <p className="mb-2 text-[11px] text-muted-foreground">Closest demographic &amp; amenity profile, nationally.</p>
               <div className="flex flex-col">
                 {data.similar.map((n) => (
@@ -225,7 +234,9 @@ function FederalRep({ s }: { s: Summary }) {
     : "—";
   return (
     <div>
-      <h3 className="mb-2 font-serif text-sm text-muted-foreground">Representation</h3>
+      <h3 className="mb-2 flex items-center gap-1.5 font-serif text-sm text-muted-foreground">
+        <HousingIcon name="representation" size={15} /> Representation
+      </h3>
       <div className="rounded-lg border border-border bg-card p-4">
         <dl className="grid grid-cols-1 gap-x-8 gap-y-2.5 text-sm sm:grid-cols-2">
           <CultureRow label="Federal division" value={s.federalDivision || "—"} />
@@ -244,7 +255,9 @@ function CouncilCard({ c }: { c: Council }) {
   if (!c.lgaName) return null;
   return (
     <div>
-      <h3 className="mb-2 font-serif text-sm text-muted-foreground">Local council</h3>
+      <h3 className="mb-2 flex items-center gap-1.5 font-serif text-sm text-muted-foreground">
+        <HousingIcon name="council" size={15} /> Local council
+      </h3>
       <div className="rounded-lg border border-border bg-card p-4">
         <dl className="grid grid-cols-1 gap-x-8 gap-y-2.5 text-sm sm:grid-cols-2">
           <CultureRow label="Council (LGA)" value={c.lgaName} />
@@ -297,7 +310,9 @@ function AmenitiesGroup({ a, nbn }: { a: NonNullable<Summary["amenities"]>; nbn?
   ];
   return (
     <div>
-      <h3 className="mb-2 font-serif text-sm text-muted-foreground">Local amenities</h3>
+      <h3 className="mb-2 flex items-center gap-1.5 font-serif text-sm text-muted-foreground">
+        <HousingIcon name="amenity-density" size={15} /> Local amenities
+      </h3>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {stats.map(([label, value]) => (
           <div key={label} className="rounded-lg border border-border bg-card p-4">
@@ -329,7 +344,9 @@ function SchoolSectorCard({ a }: { a: NonNullable<Summary["amenities"]> }) {
   ];
   return (
     <div>
-      <h3 className="mb-2 font-serif text-sm text-muted-foreground">Schools by sector</h3>
+      <h3 className="mb-2 flex items-center gap-1.5 font-serif text-sm text-muted-foreground">
+        <HousingIcon name="school" size={15} /> Schools by sector
+      </h3>
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
         {stats.map(([label, value]) => (
           <div key={label} className="rounded-lg border border-border bg-card p-4">
@@ -357,7 +374,9 @@ function CultureStats({ d }: { d: Demographics }) {
   if (!d.topReligion && !d.topLanguage && !(d.pctBornOverseas > 0)) return null;
   return (
     <div>
-      <h3 className="mb-2 font-serif text-sm text-muted-foreground">Culture &amp; community</h3>
+      <h3 className="mb-2 flex items-center gap-1.5 font-serif text-sm text-muted-foreground">
+        <HousingIcon name="culture" size={15} /> Culture &amp; community
+      </h3>
       <div className="rounded-lg border border-border bg-card p-4">
         <dl className="grid grid-cols-1 gap-x-8 gap-y-2.5 text-sm sm:grid-cols-2">
           <CultureRow label="Dominant religion" value={religion} />
@@ -380,10 +399,12 @@ function CultureRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DemoGroup({ title, stats }: { title: string; stats: [string, string][] }) {
+function DemoGroup({ title, icon, stats }: { title: string; icon: HousingIconName; stats: [string, string][] }) {
   return (
     <div>
-      <h3 className="mb-2 font-serif text-sm text-muted-foreground">{title}</h3>
+      <h3 className="mb-2 flex items-center gap-1.5 font-serif text-sm text-muted-foreground">
+        <HousingIcon name={icon} size={15} /> {title}
+      </h3>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {stats.map(([label, value]) => (
           <div key={label} className="rounded-lg border border-border bg-card p-4">
