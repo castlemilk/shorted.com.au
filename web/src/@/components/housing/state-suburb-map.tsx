@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChoroplethMap } from "./choropleth-map";
 import { MapLegend } from "./map-legend";
 import { CategoricalLegend } from "./categorical-legend";
@@ -56,6 +56,18 @@ export function StateSuburbMap({
   const [metricKey, setMetricKey] = useState<MetricKey>("price");
   const metric = METRIC_BY_KEY[metricKey];
 
+  // Suburb-level price coverage is SA & VIC only; other states have 0 priced
+  // suburbs, so defaulting to "price" paints a blank map. When a state has no
+  // priced suburbs, fall back to colouring by population (always populated from
+  // the Census) so the map is immediately useful — unless the user has picked a
+  // metric themselves.
+  const userPickedMetric = useRef(false);
+  useEffect(() => {
+    if (userPickedMetric.current || suburbs.length === 0) return;
+    const anyPriced = suburbs.some((s) => s.latestMedianPrice > 0);
+    setMetricKey(anyPriced ? "price" : "population");
+  }, [suburbs]);
+
   const byCode = useMemo(() => new Map(suburbs.map((s) => [s.salCode, s])), [suburbs]);
 
   // Stable price map — drives the price metric AND the fitToData framing (kept
@@ -109,9 +121,11 @@ export function StateSuburbMap({
   }, [metric, suburbs]);
 
   const metricSelect = (
-    <Select value={metricKey} onValueChange={(v) => setMetricKey(v as MetricKey)}>
-      <SelectTrigger aria-label="Colour the map by" className="h-8 w-[190px] text-xs">
-        <span className="text-muted-foreground">Colour by:&nbsp;</span><SelectValue />
+    <div className="flex items-center gap-2">
+      <span className="shrink-0 text-xs text-muted-foreground">Colour by</span>
+      <Select value={metricKey} onValueChange={(v) => { userPickedMetric.current = true; setMetricKey(v as MetricKey); }}>
+      <SelectTrigger aria-label="Colour the map by" className="h-8 w-[220px] text-xs">
+        <SelectValue />
       </SelectTrigger>
       <SelectContent>
         {HIGHLIGHT_METRICS.map((m) => (
@@ -123,7 +137,8 @@ export function StateSuburbMap({
           </SelectItem>
         ))}
       </SelectContent>
-    </Select>
+      </Select>
+    </div>
   );
 
   if (isError) {
