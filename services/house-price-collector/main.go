@@ -225,6 +225,7 @@ func runOfficial(ctx context.Context, pool *pgxpool.Pool) {
 		{"abs_price_to_income", ingestPriceToIncome},
 		{"vg_sa", ingestSAMetroMedians},
 		{"vg_vic", ingestVICSuburbMedians},
+		{"vg_nsw", ingestNSWSuburbMedians},
 	}
 	for _, j := range jobs {
 		obs, err := j.fn(ctx)
