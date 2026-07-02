@@ -5,7 +5,7 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { getHousingOverview } from "~/app/actions/getHousing";
 import { HousingTiles, type HousingTile } from "@/components/housing/housing-tiles";
 import { HousingSeriesChart } from "@/components/housing/housing-charts";
-import { NationalHousingMap } from "@/components/housing/national-housing-map-loader";
+import { HousingZoomMap } from "@/components/housing/housing-zoom-map-loader";
 import { GCCSA_TO_STATE } from "@/lib/housing/states";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import { cn } from "@/lib/utils";
@@ -194,10 +194,10 @@ export default async function HousingPage() {
                 <HousingIcon name="location" size={22} /> Explore by state
               </h2>
               <p className="text-sm text-muted-foreground">
-                Shaded by greater-capital median house price. Click a state to drill into its suburbs.
+                Shaded by greater-capital median house price. Click a state to fly into its suburbs — and zoom back out.
               </p>
-              <div className="rounded-xl border border-border bg-card p-3">
-                <NationalHousingMap valueByStateCode={valueByStateCode} />
+              <div className="overflow-hidden rounded-xl border border-border bg-card p-3">
+                <HousingZoomMap valueByStateCode={valueByStateCode} />
               </div>
             </section>
 
