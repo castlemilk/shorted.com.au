@@ -13,6 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { STATE_NAMES, suburbHref } from "@/lib/housing/states";
 import { fmtPriceShort } from "@/lib/housing/price-scale";
+import { HousingIcon, type HousingIconName } from "./housing-icon";
 
 const MAX_LIST = 400;
 const fmtCompact = (v: number) =>
@@ -119,10 +120,10 @@ export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
     <div className="space-y-5">
       {/* state summary stat-strip */}
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-4">
-        <Stat label="Suburbs priced" value={isLoading ? "…" : `${stats.pricedCount.toLocaleString()} / ${stats.total.toLocaleString()}`} />
-        <Stat label="Median (priced)" value={isLoading ? "…" : stats.median > 0 ? fmtPriceShort(stats.median) : "—"} />
-        <Stat label="Price range" value={isLoading ? "…" : stats.max > 0 ? `${fmtPriceShort(stats.min)}–${fmtPriceShort(stats.max)}` : "—"} />
-        <Stat label="Population" value={isLoading ? "…" : `${fmtCompact(stats.population)}`} />
+        <Stat icon="dwellings" label="Suburbs priced" value={isLoading ? "…" : `${stats.pricedCount.toLocaleString()} / ${stats.total.toLocaleString()}`} />
+        <Stat icon="median-price" label="Median (priced)" value={isLoading ? "…" : stats.median > 0 ? fmtPriceShort(stats.median) : "—"} />
+        <Stat icon="price-index" label="Price range" value={isLoading ? "…" : stats.max > 0 ? `${fmtPriceShort(stats.min)}–${fmtPriceShort(stats.max)}` : "—"} />
+        <Stat icon="population" label="Population" value={isLoading ? "…" : `${fmtCompact(stats.population)}`} />
       </div>
 
       {noPrice ? (
@@ -141,9 +142,9 @@ export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
               <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
                 <SelectTrigger className="h-8 flex-1 text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="price">Sort: Price</SelectItem>
-                  <SelectItem value="name">Sort: Name</SelectItem>
-                  <SelectItem value="population">Sort: Population</SelectItem>
+                  <SelectItem value="price"><span className="flex items-center gap-2"><HousingIcon name="median-price" size={14} /> Sort: Price</span></SelectItem>
+                  <SelectItem value="name"><span className="flex items-center gap-2"><HousingIcon name="location" size={14} /> Sort: Name</span></SelectItem>
+                  <SelectItem value="population"><span className="flex items-center gap-2"><HousingIcon name="population" size={14} /> Sort: Population</span></SelectItem>
                 </SelectContent>
               </Select>
               <button
@@ -207,10 +208,12 @@ export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({ label, value, icon }: { label: string; value: string; icon?: HousingIconName }) {
   return (
     <div className="bg-card p-3 sm:p-4">
-      <div className="text-[11px] font-medium text-muted-foreground">{label}</div>
+      <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+        {icon ? <HousingIcon name={icon} size={14} /> : null}{label}
+      </div>
       <div className="mt-1 font-mono text-base font-semibold tabular-nums text-foreground sm:text-lg">{value}</div>
     </div>
   );

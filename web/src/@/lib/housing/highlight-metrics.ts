@@ -1,6 +1,7 @@
 import { scaleSequential, scaleSequentialSqrt, scaleDiverging } from "d3-scale";
 import { interpolateOranges, interpolateRdBu } from "d3-scale-chromatic";
 import { fmtPriceShort } from "./price-scale";
+import type { HousingIconName } from "@/components/housing/housing-icons.generated";
 
 /**
  * The suburb map's "highlight" toggle. Continuous metrics (price, population,
@@ -323,6 +324,17 @@ export const HIGHLIGHT_METRICS: HighlightMetric[] = [
 
 export const METRIC_BY_KEY: Record<MetricKey, HighlightMetric> =
   Object.fromEntries(HIGHLIGHT_METRICS.map((m) => [m.key, m])) as Record<MetricKey, HighlightMetric>;
+
+/** Icon (from the housing sprite) for each highlight metric — used in the
+ * "Colour by" dropdown. Kept as a side map so the metric defs stay presentation-free. */
+export const METRIC_ICON: Record<MetricKey, HousingIconName> = {
+  price: "median-price", population: "population", age: "age", income: "income",
+  born_overseas: "born-overseas", religion: "religion", language: "language",
+  federal_party: "party", federal_lean: "federal-lean", state_party: "party",
+  amenity_density: "amenity-density", supermarkets: "supermarket", pubs: "pubs",
+  grocery: "grocery", healthcare: "healthcare", school_sector: "school",
+  nearest_train: "train", distance_to_coast: "coast", nbn: "nbn",
+};
 
 /** Amber sequential ramp over [min,max] for a continuous metric. */
 export function amberScale(min: number, max: number, sqrt = false): (v: number) => string {

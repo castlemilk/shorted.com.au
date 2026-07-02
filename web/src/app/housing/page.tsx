@@ -9,6 +9,7 @@ import { NationalHousingMap } from "@/components/housing/national-housing-map-lo
 import { GCCSA_TO_STATE } from "@/lib/housing/states";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import { cn } from "@/lib/utils";
+import { HousingIcon, type HousingIconName } from "@/components/housing/housing-icon";
 
 const URL = "https://shorted.com.au/housing";
 const TITLE = "Australian House Prices Tracker";
@@ -48,10 +49,12 @@ function quarterLabel(seconds?: bigint): string {
   return `Q${Math.floor(d.getUTCMonth() / 3) + 1} ${d.getUTCFullYear()}`;
 }
 
-function BigStat({ label, value, delta, tone, sub }: { label: string; value: string; delta?: string; tone?: "up" | "down"; sub?: string }) {
+function BigStat({ label, value, delta, tone, sub, icon }: { label: string; value: string; delta?: string; tone?: "up" | "down"; sub?: string; icon?: HousingIconName }) {
   return (
     <div className="rounded-xl border border-border bg-card p-5">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {icon ? <HousingIcon name={icon} size={15} /> : null}{label}
+      </div>
       <div className="mt-2 font-mono text-3xl font-semibold tabular-nums text-foreground">{value}</div>
       {delta ? (
         <div className={cn("mt-1 font-mono text-sm tabular-nums", tone === "up" ? "text-[color:var(--semantic-green)]" : "text-[color:var(--semantic-red)]")}>
@@ -63,11 +66,13 @@ function BigStat({ label, value, delta, tone, sub }: { label: string; value: str
   );
 }
 
-function ChartCard({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
+function ChartCard({ title, subtitle, children, icon }: { title: string; subtitle: string; children: ReactNode; icon?: HousingIconName }) {
   return (
     <div className="rounded-xl border border-border bg-card p-5">
       <div className="mb-3">
-        <h3 className="font-serif text-lg text-foreground">{title}</h3>
+        <h3 className="flex items-center gap-2 font-serif text-lg text-foreground">
+          {icon ? <HousingIcon name={icon} size={18} /> : null}{title}
+        </h3>
         <p className="text-xs text-muted-foreground">{subtitle}</p>
       </div>
       {children}
@@ -157,6 +162,7 @@ export default async function HousingPage() {
             <div className="grid gap-4 sm:grid-cols-3">
               {national ? (
                 <BigStat
+                  icon="median-price"
                   label="National mean dwelling"
                   value={fmtAUD(national.value)}
                   {...yoyDelta(national.yoyPct)}
@@ -165,6 +171,7 @@ export default async function HousingPage() {
               ) : null}
               {dti ? (
                 <BigStat
+                  icon="debt"
                   label="Household debt-to-income"
                   value={`${dti.value.toFixed(0)}%`}
                   delta={`${dti.yoyPct >= 0 ? "+" : ""}${dti.yoyPct.toFixed(1)}pp yr`}
@@ -174,6 +181,7 @@ export default async function HousingPage() {
               ) : null}
               {index ? (
                 <BigStat
+                  icon="price-index"
                   label="8-capital price index"
                   value={index.value.toFixed(1)}
                   sub="ABS RPPI (2011–12 = 100, to 2021)"
@@ -182,7 +190,9 @@ export default async function HousingPage() {
             </div>
 
             <section className="space-y-3">
-              <h2 className="font-serif text-2xl text-foreground">Explore by state</h2>
+              <h2 className="flex items-center gap-2 font-serif text-2xl text-foreground">
+                <HousingIcon name="location" size={22} /> Explore by state
+              </h2>
               <p className="text-sm text-muted-foreground">
                 Shaded by greater-capital median house price. Click a state to drill into its suburbs.
               </p>
@@ -192,7 +202,9 @@ export default async function HousingPage() {
             </section>
 
             <section className="space-y-4">
-              <h2 className="font-serif text-2xl text-foreground">Capital-city medians</h2>
+              <h2 className="flex items-center gap-2 font-serif text-2xl text-foreground">
+                <HousingIcon name="city" size={22} /> Capital-city medians
+              </h2>
               <p className="text-sm text-muted-foreground">
                 Median price of established house transfers, by greater capital-city
                 area. YoY change shown; quarter change below.
@@ -201,10 +213,10 @@ export default async function HousingPage() {
             </section>
 
             <section className="grid gap-6 lg:grid-cols-2">
-              <ChartCard title="National mean dwelling price" subtitle="ABS Total Value of Dwellings · quarterly">
+              <ChartCard icon="median-price" title="National mean dwelling price" subtitle="ABS Total Value of Dwellings · quarterly">
                 <HousingSeriesChart regionCode="AUS" measure="mean_price" ariaLabel="National mean dwelling price" format="aud" />
               </ChartCard>
-              <ChartCard title="Household debt-to-income" subtitle="RBA Table E2 · quarterly">
+              <ChartCard icon="debt" title="Household debt-to-income" subtitle="RBA Table E2 · quarterly">
                 <HousingSeriesChart regionCode="AUS" measure="debt_to_income" ariaLabel="Household debt to income ratio" format="percent" />
               </ChartCard>
             </section>
