@@ -1,5 +1,5 @@
 import { TwitterApi } from "twitter-api-v2";
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, renameSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { upsertEnv } from "./oauth2-bootstrap.js";
@@ -13,29 +13,38 @@ const repoEnvPath = resolve(__dirname, "..", "..", "..", ".env");
  * tokens on every use — losing the new one means we'd be locked out
  * the next time the access token expires.
  */
+/**
+ * Atomically write `content` to `path`: write a temp file in the SAME directory,
+ * then rename over the target. A crash mid-write can then never truncate the
+ * (multi-secret) destination — it either has the old bytes or the new ones.
+ */
+function atomicWrite(path: string, content: string): void {
+  const tmp = `${path}.${process.pid}.tmp`;
+  writeFileSync(tmp, content, { mode: 0o600 });
+  renameSync(tmp, path);
+}
+
 function persistRefreshToken(token: string): void {
-  // In CI we can't easily write to a repo file — instead the workflow
-  // sets TWITTER_REFRESH_TOKEN_OUT to a tmpfile path and a follow-up
-  // step re-stores it as a GH Actions secret via the `gh` CLI.
+  // The token has ALREADY been rotated by X (the old one is now invalid), so a
+  // failed persist is FATAL: throw instead of warning, or the next run reads a
+  // stale token and is locked out with no signal at failure time.
+  // In CI we can't easily write to a repo file — the workflow sets
+  // TWITTER_REFRESH_TOKEN_OUT to a tmpfile a follow-up step re-stores as a
+  // GH Actions secret via the `gh` CLI.
   const outPath = process.env.TWITTER_REFRESH_TOKEN_OUT;
   if (outPath) {
-    try {
-      writeFileSync(outPath, token, { mode: 0o600 });
-      console.log(`[twitter] wrote rotated refresh token to ${outPath}`);
-    } catch (err) {
-      console.warn(`[twitter] could not write refresh token: ${String(err)}`);
-    }
+    atomicWrite(outPath, token);
+    console.log(`[twitter] wrote rotated refresh token to ${outPath}`);
     return;
   }
-  if (!existsSync(repoEnvPath)) return;
-  try {
-    const body = readFileSync(repoEnvPath, "utf8");
-    writeFileSync(repoEnvPath, upsertEnv(body, "TWITTER_REFRESH_TOKEN", token), {
-      mode: 0o600,
-    });
-  } catch (err) {
-    console.warn(`[twitter] could not persist refresh token: ${String(err)}`);
+  if (!existsSync(repoEnvPath)) {
+    throw new Error(
+      `[twitter] cannot persist rotated refresh token: ${repoEnvPath} does not exist`,
+    );
   }
+  const body = readFileSync(repoEnvPath, "utf8");
+  // Never O_TRUNC the shared multi-secret .env in place — write atomically.
+  atomicWrite(repoEnvPath, upsertEnv(body, "TWITTER_REFRESH_TOKEN", token));
 }
 
 export interface PostedTweet {
