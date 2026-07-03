@@ -1,6 +1,7 @@
 "use server";
 
 import { SHORTS_API_URL } from "./config";
+import { requireAdmin } from "~/server/admin";
 
 // Internal service secret for admin endpoints (same var used by getJobsOverview.ts).
 const INTERNAL_SECRET = process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-secret";
@@ -9,6 +10,9 @@ export async function sendBroadcast(
   id: string,
   to?: string,
 ): Promise<{ ok: boolean; error?: string }> {
+  // Admin-only. Gate in-action (server actions are globally addressable by
+  // action-id, so the /admin route middleware is not a sufficient boundary).
+  await requireAdmin();
   try {
     // When `to` is set the backend delivers only to that one address (a test
     // send): it must be an active subscriber, the subscriber list is untouched,

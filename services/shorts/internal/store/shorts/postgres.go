@@ -2707,9 +2707,16 @@ func (s *postgresStore) ListEnrichmentJobs(limit, offset int32, status *shortsv1
 		jobs = append(jobs, job)
 	}
 
-	// Get total count
-	countQuery := `SELECT COUNT(*) FROM "enrichment-jobs"` + whereClause
-	countArgs := args[2:] // Skip limit and offset
+	// Get total count. Build a count-specific WHERE clause with its own $1
+	// placeholder: the main query reserves $1/$2 for LIMIT/OFFSET so its
+	// whereClause references $3, and reusing it here (with a single bound arg)
+	// would error "there is no parameter $3" and silently zero the total.
+	countQuery := `SELECT COUNT(*) FROM "enrichment-jobs"`
+	var countArgs []interface{}
+	if status != nil {
+		countQuery += " WHERE status = $1"
+		countArgs = append(countArgs, enrichmentJobStatusToDB(*status))
+	}
 	var totalCount int32
 	if len(countArgs) > 0 {
 		err = s.db.QueryRow(ctx, countQuery, countArgs...).Scan(&totalCount)
@@ -2717,7 +2724,8 @@ func (s *postgresStore) ListEnrichmentJobs(limit, offset int32, status *shortsv1
 		err = s.db.QueryRow(ctx, countQuery).Scan(&totalCount)
 	}
 	if err != nil {
-		return jobs, int32(len(jobs)), nil // Return partial count if query fails
+		log.Errorf("ListEnrichmentJobs count query failed: %v", err)
+		return jobs, int32(len(jobs)), nil // Fall back to partial count
 	}
 
 	return jobs, totalCount, nil

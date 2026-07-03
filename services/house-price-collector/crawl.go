@@ -106,7 +106,11 @@ func loadCrawlConfig() crawlConfig {
 		// Kasada/Akamai-protected site must look human (20–45s between suburbs).
 		minDelay:        time.Duration(envInt("CRAWL_MIN_DELAY_MS", 20000)) * time.Millisecond,
 		maxDelay:        time.Duration(envInt("CRAWL_MAX_DELAY_MS", 45000)) * time.Millisecond,
-		dryRun:          os.Getenv("CRAWL_DRY_RUN") == "true",
+		// Default to dry-run ON for this ToS-restricted tier: it only WRITES to
+		// house_prices when CRAWL_DRY_RUN is explicitly "false". An accidental
+		// `-mode crawl` is then a no-op harvest, never a silent persist of
+		// proprietary REA/Domain medians.
+		dryRun:          os.Getenv("CRAWL_DRY_RUN") != "false",
 		maxConsecBlocks: envInt("CRAWL_MAX_CONSEC_BLOCKS", 3),
 		fetchTimeout:    time.Duration(envInt("CRAWL_FETCH_TIMEOUT_S", 60)) * time.Second,
 		brandbrainURL:   os.Getenv("BRANDBRAIN_URL"), // "" -> brandbrainEndpoint() default

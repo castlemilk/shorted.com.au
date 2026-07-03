@@ -2,6 +2,7 @@
 
 import { cache } from "react";
 import { SHORTS_API_URL } from "./config";
+import { requireAdmin } from "~/server/admin";
 
 export interface Broadcast {
   id: string;
@@ -19,6 +20,8 @@ export interface Broadcast {
 const INTERNAL_SECRET = process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-secret";
 
 export const getBroadcasts = cache(async (): Promise<Broadcast[]> => {
+  // Admin-only (see sendBroadcast): authorize the caller in-action.
+  await requireAdmin();
   try {
     const response = await fetch(`${SHORTS_API_URL}/api/admin/broadcasts`, {
       method: "GET",

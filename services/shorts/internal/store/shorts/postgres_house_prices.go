@@ -91,6 +91,7 @@ func (s *postgresStore) GetHousePriceSeries(regionCode, measure, dwellingType st
 		FROM house_prices hp
 		JOIN house_price_regions r ON r.region_code = hp.region_code
 		WHERE hp.region_code = $1 AND hp.measure = $2 AND hp.dwelling_type = $3
+		  AND hp.source_licence <> 'proprietary-tos-restricted'
 		ORDER BY hp.period ASC`
 
 	rows, err := s.db.Query(ctx, query, regionCode, measure, dwellingType)
@@ -258,10 +259,11 @@ func (s *postgresStore) ListStateSuburbs(stateCode, query string, limit int32) (
 			       (hp.value / NULLIF((
 			          SELECT p.value FROM house_prices p
 			          WHERE p.region_code = r.region_code AND p.measure = 'median_price'
-			            AND p.dwelling_type = 'house' AND p.period <= hp.period - INTERVAL '11 months'
+			            AND p.dwelling_type = 'house' AND p.source_licence <> 'proprietary-tos-restricted' AND p.period <= hp.period - INTERVAL '11 months'
 			          ORDER BY p.period DESC LIMIT 1), 0) - 1) * 100 AS yoy_pct
 			FROM house_prices hp
 			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
+			  AND hp.source_licence <> 'proprietary-tos-restricted'
 			ORDER BY hp.period DESC LIMIT 1
 		) h ON true
 		WHERE d.state_code = $1
@@ -331,14 +333,14 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 		       COALESCE((SELECT avg(latest) FROM (
 		                 SELECT DISTINCT ON (hp.region_code) hp.value AS latest
 		                 FROM house_prices hp JOIN house_price_regions sr ON sr.region_code = hp.region_code
-		                 WHERE sr.state_code = d.state_code AND sr.region_type = 'suburb'
+		                 WHERE sr.state_code = d.state_code AND sr.region_type = 'suburb' AND hp.source_licence <> 'proprietary-tos-restricted'
 		                   AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
 		                 ORDER BY hp.region_code, hp.period DESC) s), 0),
 		       -- national baseline: avg of the latest median across ALL priced suburbs (AUS has no median_price row)
 		       COALESCE((SELECT avg(latest) FROM (
 		                 SELECT DISTINCT ON (hp.region_code) hp.value AS latest
 		                 FROM house_prices hp JOIN house_price_regions sr ON sr.region_code = hp.region_code
-		                 WHERE sr.region_type = 'suburb'
+		                 WHERE sr.region_type = 'suburb' AND hp.source_licence <> 'proprietary-tos-restricted'
 		                   AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
 		                 ORDER BY hp.region_code, hp.period DESC) s), 0),
 		       COALESCE((SELECT avg(median_weekly_hhd_income) FROM suburb_demographics
@@ -359,10 +361,11 @@ func (s *postgresStore) GetSuburbProfile(salCode string) (*SuburbProfileRow, err
 			       (hp.value / NULLIF((
 			          SELECT p.value FROM house_prices p
 			          WHERE p.region_code = r.region_code AND p.measure = 'median_price'
-			            AND p.dwelling_type = 'house' AND p.period <= hp.period - INTERVAL '11 months'
+			            AND p.dwelling_type = 'house' AND p.source_licence <> 'proprietary-tos-restricted' AND p.period <= hp.period - INTERVAL '11 months'
 			          ORDER BY p.period DESC LIMIT 1), 0) - 1) * 100 AS yoy_pct
 			FROM house_prices hp
 			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
+			  AND hp.source_licence <> 'proprietary-tos-restricted'
 			ORDER BY hp.period DESC LIMIT 1
 		) h ON true
 		WHERE d.sal_code = $1
@@ -436,6 +439,7 @@ func (s *postgresStore) similarSuburbs(ctx context.Context, salCode string, limi
 		LEFT JOIN LATERAL (
 			SELECT hp.value FROM house_prices hp
 			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
+			  AND hp.source_licence <> 'proprietary-tos-restricted'
 			ORDER BY hp.period DESC LIMIT 1
 		) h ON true
 		CROSS JOIN tgt CROSS JOIN stats

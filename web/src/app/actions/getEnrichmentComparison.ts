@@ -3,7 +3,7 @@
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { auth } from "~/server/auth";
+import { requireAdmin } from "~/server/admin";
 import { SHORTS_API_URL } from "./config";
 import { retryWithBackoff } from "@/lib/retry";
 
@@ -17,10 +17,8 @@ export async function getEnrichmentComparison(
   stockCode: string,
   enrichmentId: string,
 ) {
-  const session = await auth();
-  if (!session?.user?.email) {
-    throw new Error("Unauthorized");
-  }
+  // Admin-only (enrichment review); gate in-action, not just via /admin middleware.
+  const admin = await requireAdmin();
 
   const transport = createConnectTransport({
     fetch,
@@ -31,8 +29,8 @@ export async function getEnrichmentComparison(
 
   const headers = {
     "X-Internal-Secret": internalSecret,
-    "X-User-Email": session.user.email ?? "",
-    "X-User-Id": session.user.id,
+    "X-User-Email": admin.email,
+    "X-User-Id": admin.userId,
   };
 
   const [current, pendingResp] = await Promise.all([

@@ -5,7 +5,7 @@ import { createClient } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { auth } from "~/server/auth";
+import { requireAdmin } from "~/server/admin";
 import { SHORTS_API_URL } from "./config";
 import { retryWithBackoff } from "@/lib/retry";
 
@@ -16,10 +16,10 @@ const RETRY_OPTIONS = {
 };
 
 export async function reviewEnrichmentAction(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.email) {
-    throw new Error("Unauthorized");
-  }
+  // Admin-only. Authorize the caller in-action (not just via route middleware):
+  // server actions are globally addressable by action-id and can be POSTed to a
+  // route outside the /admin matcher, so the middleware gate alone is bypassable.
+  const admin = await requireAdmin();
 
   const enrichmentId = String(formData.get("enrichmentId") ?? "");
   const stockCode = String(formData.get("stockCode") ?? "");
@@ -53,8 +53,8 @@ export async function reviewEnrichmentAction(formData: FormData) {
         {
             headers: {
               "X-Internal-Secret": internalSecret,
-              "X-User-Email": session.user.email ?? "",
-              "X-User-Id": session.user.id,
+              "X-User-Email": admin.email,
+              "X-User-Id": admin.userId,
             },
         },
       ),

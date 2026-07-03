@@ -278,7 +278,7 @@ export function Sparkline({
 
       {tooltipOpen && tooltipData && (
         <TooltipWithBounds
-          key={Math.random()}
+          key={`${Math.round(tooltipLeft ?? 0)}_${Math.round(tooltipTop ?? 0)}`}
           top={tooltipTop}
           left={tooltipLeft}
           offsetLeft={10}

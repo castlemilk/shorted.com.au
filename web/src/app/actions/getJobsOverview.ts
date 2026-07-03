@@ -3,6 +3,7 @@
 import { cache } from "react";
 import { SHORTS_API_URL } from "./config";
 import { retryWithBackoff } from "@/lib/retry";
+import { requireAdmin } from "~/server/admin";
 
 /**
  * Unified status of a single scheduled async job, as reported by the backend
@@ -54,6 +55,9 @@ const RETRY_OPTIONS = {
 };
 
 export const getJobsOverview = cache(async (): Promise<JobsOverview> => {
+  // Admin-only: this leaks infra/job status + Cloud Run log URIs. Gate in-action
+  // because server actions are addressable by action-id outside /admin middleware.
+  await requireAdmin();
   try {
     const data = await retryWithBackoff<JobsResponse>(async () => {
       const response = await fetch(`${SHORTS_API_URL}/api/admin/jobs`, {

@@ -267,6 +267,12 @@ func (s *MarketDataService) GetMultipleStockPrices(
 	ctx context.Context,
 	req *connect.Request[marketdatav1.GetMultipleStockPricesRequest],
 ) (*connect.Response[marketdatav1.GetMultipleStockPricesResponse], error) {
+	// Check if database connection is available
+	if s.db == nil {
+		log.Printf("ERROR: Database connection is nil for GetMultipleStockPrices request")
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("database connection not available"))
+	}
+
 	// Set defaults and normalize input
 	SetDefaultValues(req.Msg)
 
@@ -377,6 +383,12 @@ func (s *MarketDataService) GetStockCorrelations(
 	ctx context.Context,
 	req *connect.Request[marketdatav1.GetStockCorrelationsRequest],
 ) (*connect.Response[marketdatav1.GetStockCorrelationsResponse], error) {
+	// Check if database connection is available
+	if s.db == nil {
+		log.Printf("ERROR: Database connection is nil for GetStockCorrelations request")
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("database connection not available"))
+	}
+
 	// Set defaults and normalize input
 	SetDefaultValues(req.Msg)
 

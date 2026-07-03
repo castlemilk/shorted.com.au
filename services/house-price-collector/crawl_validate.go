@@ -8,15 +8,19 @@ import (
 // The crawl tier's trust model: realestate.com.au (Kasada) is known to serve
 // DELIBERATELY FALSE data to clients it suspects are bots, and domain.com.au
 // (Akamai) blocks outright. So a crawled number is guilty until proven innocent.
-// Every candidate must survive THREE independent checks before it is stored:
+// Each candidate must pass TWO drop-gates before it is stored:
 //
 //  1. Absolute sanity bounds (a suburb median is never < $100k or > $50M).
 //  2. Plausibility vs the TRUSTED ABS capital-city median for that market
 //     (a real suburb sits within a sane band of its capital's median).
-//  3. Cross-source agreement (REA vs Domain) where both are available.
 //
-// A value that fails any check is dropped, never stored. This is what makes the
-// crawl safe to run despite the adversarial, poisoning data source.
+// A value that fails either gate is dropped, never stored. A THIRD signal —
+// cross-source agreement — is ADVISORY ONLY: crossCheck() logs and counts
+// divergence between extractors but does NOT drop the value. In-band poison (a
+// false median that still sits inside the capital band) can therefore be
+// stored; this is tolerated only because the tier is opt-in and its output is
+// gated out of every republished/commercial surface by source_licence. A real
+// REA-vs-Domain drop-gate is a TODO.
 
 const (
 	minPlausibleMedian       = 100_000.0    // $100k absolute floor

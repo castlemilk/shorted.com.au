@@ -190,6 +190,11 @@ func applyVICFinancials(ctx context.Context, pool *pgxpool.Pool, rows []VicFinRo
 		idx[normCouncil(name)] = code
 	}
 	q.Close()
+	// A mid-stream read error surfaces only via Err(); guard against a silently
+	// truncated match index being recorded as a successful ingest.
+	if err := q.Err(); err != nil {
+		return 0, err
+	}
 
 	batch := &pgx.Batch{}
 	matched := 0

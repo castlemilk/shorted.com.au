@@ -46,6 +46,19 @@ const (
 	userKey contextKey = "user"
 )
 
+// internalOnlyMethods are procedures that must be reachable ONLY via internal
+// service-to-service authentication (a matching x-internal-secret), never by a
+// generic end-user credential. Declaring a method PRIVATE in the proto is not
+// sufficient: the interceptor treats PRIVATE with no required_role as "any
+// authenticated user", so these Stripe webhook handlers — which trust the
+// request body for identity + tier — would otherwise let any logged-in user
+// self-grant a paid subscription or mutate another customer's record.
+// Keyed by protobuf full method name.
+var internalOnlyMethods = map[string]bool{
+	"shorts.v1alpha1.ShortedStocksService.HandleStripeCheckoutCompleted":   true,
+	"shorts.v1alpha1.ShortedStocksService.HandleStripeSubscriptionUpdated": true,
+}
+
 // SubscriptionLookup is a function that looks up a user's subscription tier by user ID.
 // Returns the tier (e.g., "free", "pro", "enterprise") or empty string if not found.
 type SubscriptionLookup func(userID string) (tier string, err error)
@@ -212,6 +225,14 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 				}
 			}
 
+			// Internal-only procedures must authenticate via the internal service
+			// secret. Reaching here means that branch did not authenticate the
+			// request, so reject regardless of any user credential presented.
+			if internalOnlyMethods[name] {
+				return nil, connect.NewError(connect.CodePermissionDenied,
+					fmt.Errorf("endpoint requires internal service authentication"))
+			}
+
 			// If it's public and doesn't require a specific role, allow unauthenticated access
 			if visibility == optionsv1.Visibility_VISIBILITY_PUBLIC && requiredRole == "" {
 				if shortedotel.AuthMethod != nil {
@@ -239,10 +260,11 @@ func NewAuthInterceptorWithOptions(opts AuthInterceptorOptions) connect.UnaryInt
 						otelmetric.WithAttributes(attribute.String("method", "token")),
 					)
 				}
-				// API tokens already have tier embedded, but refresh from DB if lookup available
-				if claims.Tier == "" {
-					lookupTier(claims)
-				}
+				// Always re-resolve tier from the subscription store — never trust the
+				// tier embedded in the (30-day, non-revocable) token. A canceled or
+				// downgraded subscription then loses paid limits immediately instead of
+				// at token expiry. The lookup returns "free" for absent/inactive subs.
+				lookupTier(claims)
 				ctx = context.WithValue(ctx, userKey, claims)
 				if requiredRole != "" && !hasRole(claims, requiredRole) {
 					return nil, connect.NewError(connect.CodePermissionDenied, fmt.Errorf("%s role required", requiredRole))

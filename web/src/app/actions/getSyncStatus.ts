@@ -3,6 +3,7 @@
 import { cache } from "react";
 import { SHORTS_API_URL } from "./config";
 import { retryWithBackoff } from "@/lib/retry";
+import { requireAdmin } from "~/server/admin";
 
 // Internal service secret for admin endpoints (same var used by subscription.ts).
 const INTERNAL_SECRET = process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-secret";
@@ -45,6 +46,8 @@ const RETRY_OPTIONS = {
 
 export const getSyncStatus = cache(
   async (filter: SyncStatusFilter = {}): Promise<SyncRun[]> => {
+    // Admin-only ops data (hostnames, record counts, error messages).
+    await requireAdmin();
     const {
       limit = 20,
       environment = "production",

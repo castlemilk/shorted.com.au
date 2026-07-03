@@ -247,6 +247,11 @@ func applyFAGs(ctx context.Context, pool *pgxpool.Pool, rows []FagRow) (int, err
 		idx[lgaKey{normCouncil(name), state}] = code
 	}
 	q.Close()
+	// A mid-stream read error surfaces only via Err() (Next() just returns false);
+	// without this the match index is silently truncated and the run still reports ok.
+	if err := q.Err(); err != nil {
+		return 0, err
+	}
 
 	batch := &pgx.Batch{}
 	matched := 0

@@ -73,8 +73,16 @@ export function ChatSidebar({ stockCode }: ChatSidebarProps) {
     setShowHistory(false);
   };
 
+  // Closing the panel mid-stream must abort the in-flight generation: the hook
+  // lives in the persistent layout and does NOT unmount when the sheet closes,
+  // so its own unmount-cleanup wouldn't fire here.
+  const handleOpenChange = (open: boolean) => {
+    if (!open && isLoading) stopGeneration();
+    setIsOpen(open);
+  };
+
   return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+    <Sheet open={isOpen} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
         <Button
           variant="outline"

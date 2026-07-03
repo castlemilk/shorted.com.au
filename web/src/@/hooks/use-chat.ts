@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { ChatService } from "~/gen/chat/v1/chat_pb";
@@ -64,6 +64,11 @@ export function useChat(options: UseChatOptions = {}) {
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
+  // Abort any in-flight stream if the hook unmounts, so a dismissed chat does not
+  // keep consuming server-side generation. (Panel-close is handled separately in
+  // ChatSidebar, since the hook itself lives in the persistent layout.)
+  useEffect(() => () => abortRef.current?.abort(), []);
+
   const sendMessage = useCallback(
     async (content: string) => {
       if (!content.trim() || isLoading) return;
@@ -80,12 +85,14 @@ export function useChat(options: UseChatOptions = {}) {
       };
       setMessages((prev) => [...prev, userMsg]);
 
-      // Add streaming placeholder
-      const streamingMsgId = `streaming-${Date.now()}`;
+      // Add streaming placeholder. Use a STABLE id (kept across the streaming ->
+      // final transition, tracked via isStreaming) so the React key doesn't change
+      // and force a remount of the just-completed message bubble.
+      const assistantMsgId = `msg-${Date.now()}`;
       setMessages((prev) => [
         ...prev,
         {
-          id: streamingMsgId,
+          id: assistantMsgId,
           role: "assistant",
           content: "",
           isStreaming: true,
@@ -121,7 +128,7 @@ export function useChat(options: UseChatOptions = {}) {
             // Update streaming message incrementally
             setMessages((prev) =>
               prev.map((m) =>
-                m.id === streamingMsgId
+                m.id === assistantMsgId
                   ? { ...m, content: fullContent }
                   : m,
               ),
@@ -159,10 +166,9 @@ export function useChat(options: UseChatOptions = {}) {
         // Replace streaming placeholder with final message
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === streamingMsgId
+            m.id === assistantMsgId
               ? {
                   ...m,
-                  id: `msg-${Date.now()}`,
                   content: fullContent,
                   toolCalls: toolCalls?.length ? toolCalls : undefined,
                   citations: citations.length ? citations : undefined,
@@ -175,7 +181,7 @@ export function useChat(options: UseChatOptions = {}) {
         if (err instanceof Error && err.name === "AbortError") {
           // Remove the streaming placeholder on abort
           setMessages((prev) =>
-            prev.filter((m) => m.id !== streamingMsgId),
+            prev.filter((m) => m.id !== assistantMsgId),
           );
           return;
         }
@@ -185,7 +191,7 @@ export function useChat(options: UseChatOptions = {}) {
         // Remove the optimistic user message and streaming placeholder on error
         setMessages((prev) =>
           prev.filter(
-            (m) => m.id !== userMsg.id && m.id !== streamingMsgId,
+            (m) => m.id !== userMsg.id && m.id !== assistantMsgId,
           ),
         );
       } finally {
