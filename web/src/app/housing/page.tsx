@@ -7,6 +7,7 @@ import { HousingTiles, type HousingTile } from "@/components/housing/housing-til
 import { HousingSeriesChart } from "@/components/housing/housing-charts";
 import { HousingZoomMap } from "@/components/housing/housing-zoom-map-loader";
 import { GCCSA_TO_STATE } from "@/lib/housing/states";
+import type { StateStat } from "@/lib/housing/map-lod";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import { cn } from "@/lib/utils";
 import { HousingIcon, type HousingIconName } from "@/components/housing/housing-icon";
@@ -93,11 +94,11 @@ export default async function HousingPage() {
 
   const asOf = quarterLabel(overview?.asOf?.seconds);
 
-  // Map GCCSA medians onto their state for the national choropleth.
-  const valueByStateCode = new Map<string, number>();
+  // Map GCCSA medians + change onto their state for the national choropleth hover.
+  const stateStats = new Map<string, StateStat>();
   for (const m of capitals) {
     const st = GCCSA_TO_STATE[m.regionCode];
-    if (st) valueByStateCode.set(st, m.value);
+    if (st) stateStats.set(st, { median: m.value, yoyPct: m.yoyPct, qoqPct: m.qoqPct, capital: m.regionName });
   }
 
   const capitalTiles: HousingTile[] = capitals.map((m) => {
@@ -197,7 +198,7 @@ export default async function HousingPage() {
                 Shaded by greater-capital median house price. Click a state to fly into its suburbs — and zoom back out.
               </p>
               <div className="overflow-hidden rounded-xl border border-border bg-card p-3">
-                <HousingZoomMap valueByStateCode={valueByStateCode} />
+                <HousingZoomMap stateStats={stateStats} />
               </div>
             </section>
 

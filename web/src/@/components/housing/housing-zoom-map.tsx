@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { geoMercator, geoPath } from "d3-geo";
-import { zoom as d3zoom, zoomIdentity, type ZoomBehavior, type D3ZoomEvent } from "d3-zoom";
+import { zoom as d3zoom, zoomIdentity, type ZoomBehavior, type D3ZoomEvent, type ZoomTransform } from "d3-zoom";
 import { select } from "d3-selection";
 import { easeCubicInOut } from "d3-ease";
 import { feature } from "topojson-client";
@@ -16,25 +16,32 @@ import { makePriceScale, fmtPriceShort } from "@/lib/housing/price-scale";
 import {
   STE_CODE_TO_STATE, STATE_NAMES, stateSlug, suburbHref,
 } from "@/lib/housing/states";
+import { suburbLayerStatus } from "@/lib/housing/suburb-layer-status";
+import {
+  detailLevelForScale, viewportInProjected, projectedCenter, cullFeatures,
+  focusedStateFor, boundsArea, CULL_CAP,
+  type Bounds, type BoundedFeature, type StateStat,
+} from "@/lib/housing/map-lod";
 import { featureFill } from "./choropleth-map";
 import { useTopojson } from "./use-topojson";
 import { MapLegend } from "./map-legend";
 
 /**
- * One continuously-zoomable Australia map: states (coloured by capital-city
- * median), and when you enter a state it flies in and reveals that state's
- * suburb medians in-place — a SINGLE national projection + one persistent
- * d3-zoom, so it feels like moving elastically in and out of states rather than
- * hopping between separate maps. Suburbs are projected with the same national
- * projection, so they sit exactly where the state is when you zoom in.
+ * One continuously-zoomable Australia map with LEVEL-OF-DETAIL rendering:
+ * - National view: 8 state paths, coloured by capital-city median; hovering a
+ *   state shows a stat card. No suburbs are rendered.
+ * - Zoom past the switch scale (by scroll/pinch OR by clicking a state), and the
+ *   focused state's suburbs fade in — but ONLY the suburbs whose bounds fall in
+ *   the current viewport (capped), so the DOM stays small at any state size.
+ * Zoom back out and the suburb layer unmounts entirely.
  */
-export function HousingZoomMap({ valueByStateCode }: { valueByStateCode: Map<string, number> }) {
+export function HousingZoomMap({ stateStats }: { stateStats: Map<string, StateStat> }) {
   const { data: statesTopo } = useTopojson("/geo/states.topojson");
   return (
     <div className="relative h-[520px] w-full">
       <ParentSize>{({ width, height }) =>
         width > 0 && height > 0 && statesTopo
-          ? <ZoomInner statesTopo={statesTopo} valueByStateCode={valueByStateCode} width={width} height={height} />
+          ? <ZoomInner statesTopo={statesTopo} stateStats={stateStats} width={width} height={height} />
           : <div className="h-full w-full animate-pulse rounded-xl bg-muted" />
       }</ParentSize>
     </div>
@@ -43,23 +50,45 @@ export function HousingZoomMap({ valueByStateCode }: { valueByStateCode: Map<str
 
 const ENTER_MS = 850;
 const EXIT_MS = 650;
+const EXIT_SCALE = 1.5; // zoom back out below this and we drop the entered state
+const VIEW_THROTTLE_MS = 120; // cap suburb re-cull re-renders during a gesture
 
 function reduceMotion() {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+// A suburb feature with its precomputed projected path string + bounds (so we
+// never recompute geometry per culled frame).
+type SuburbFeat = BoundedFeature<Feature<Geometry>> & { d: string };
+
+const STROKE = "hsl(var(--border))";
+
 function ZoomInner({
-  statesTopo, valueByStateCode, width, height,
+  statesTopo, stateStats, width, height,
 }: {
-  statesTopo: Topology; valueByStateCode: Map<string, number>; width: number; height: number;
+  statesTopo: Topology; stateStats: Map<string, StateStat>; width: number; height: number;
 }) {
   const router = useRouter();
   const svgRef = useRef<SVGSVGElement>(null);
   const gRef = useRef<SVGGElement>(null);
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const transformRef = useRef<ZoomTransform>(zoomIdentity);
 
-  const [active, setActive] = useState<string | null>(null); // active state code (NSW…)
-  const [hover, setHover] = useState<{ name: string; price: number; x: number; y: number } | null>(null);
+  // Live view (drives LOD + culling). The zoom handler moves the <g> via d3 every
+  // frame; React only re-renders on a throttled cadence + at gesture end.
+  const [view, setView] = useState({ k: 1, x: 0, y: 0 });
+  const lastViewAt = useRef(0);
+  const pendingTimer = useRef<number | null>(null);
+
+  // A state the user explicitly clicked into — keeps suburb detail even if that
+  // big state frames below the pure-zoom switch scale. Cleared on zoom-out.
+  const [enteredState, setEnteredState] = useState<string | null>(null);
+
+  const [hover, setHover] = useState<
+    | { kind: "state"; state: string; x: number; y: number }
+    | { kind: "suburb"; name: string; price: number; x: number; y: number }
+    | null
+  >(null);
 
   // One national projection for EVERYTHING (states + any state's suburbs).
   const { projection, path, stateFeatures, stateById } = useMemo(() => {
@@ -72,19 +101,45 @@ function ZoomInner({
     return { projection: proj, path: p, stateFeatures: fc.features, stateById: byId };
   }, [statesTopo, width, height]);
 
-  // Active state's suburbs: data (medians) + boundaries, both lazy.
-  const { data: suburbResp } = useQuery({
-    queryKey: ["zoom-state-suburbs", active],
-    queryFn: () => listStateSuburbsClient(active!, "", 5000),
-    enabled: !!active,
+  // State projected bounds, for resolving which state the viewport is centred on.
+  const stateBounds = useMemo(
+    () => stateFeatures.map((f) => ({ id: String(f.id), bounds: path.bounds(f as never) as Bounds })),
+    [stateFeatures, path],
+  );
+
+  // Derive the level of detail + focused state from the live view. Suburb detail
+  // when zoomed past the switch scale OR when a state was explicitly entered.
+  const pastSwitch = detailLevelForScale(view.k) === "suburb";
+  const detail: "national" | "suburb" = pastSwitch || enteredState ? "suburb" : "national";
+  // Past the switch scale follow the state under the viewport centre (so panning
+  // across a border loads the right state); below it, stick to the entered state.
+  const centerState = pastSwitch
+    ? STE_CODE_TO_STATE[focusedStateFor(projectedCenter(view.k, view.x, view.y, width, height), stateBounds) ?? ""] ?? null
+    : null;
+  const focusedState = pastSwitch ? (centerState ?? enteredState) : enteredState;
+
+  // Ref so the (resize-triggered) zoom-setup effect can reframe the focused state.
+  const focusedStateRef = useRef<string | null>(null);
+  focusedStateRef.current = focusedState;
+
+  // Focused state's suburbs: medians + boundaries, both lazy + cached.
+  const { data: suburbResp, isFetching: suburbFetching, refetch: refetchSuburbs } = useQuery({
+    queryKey: ["zoom-state-suburbs", focusedState],
+    queryFn: () => listStateSuburbsClient(focusedState!, "", 5000),
+    enabled: !!focusedState,
     staleTime: 60 * 60 * 1000,
   });
-  const { data: suburbTopo } = useTopojson(active ? `/geo/suburbs/${active}.topojson` : null);
+  const { data: suburbTopo, isFetching: topoFetching, refetch: refetchTopo } = useTopojson(
+    focusedState ? `/geo/suburbs/${focusedState}.topojson` : null,
+  );
 
+  // Build the suburb layer: price/name lookups, a colour scale over ALL values
+  // (stable legend), and each feature's precomputed path + projected bounds.
   const suburb = useMemo(() => {
-    if (!active || !suburbTopo || !suburbResp?.suburbs) return null;
+    if (!focusedState || !suburbTopo || !suburbResp?.suburbs) return null;
     const priceById = new Map<string, number | null>();
     const nameById = new Map<string, string>();
+    const byCode = new Map(suburbResp.suburbs.map((s) => [s.salCode, s]));
     const vals: number[] = [];
     for (const s of suburbResp.suburbs) {
       const v = s.latestMedianPrice > 0 ? s.latestMedianPrice : null;
@@ -94,20 +149,30 @@ function ZoomInner({
     }
     const obj = suburbTopo.objects[Object.keys(suburbTopo.objects)[0]!] as GeometryCollection;
     const fc = feature(suburbTopo, obj) as unknown as { features: Feature<Geometry>[] };
+    const bounded: SuburbFeat[] = fc.features.map((f) => {
+      const b = path.bounds(f as never) as Bounds;
+      return { id: String(f.id), feature: f, bounds: b, area: boundsArea(b), d: path(f as never) ?? "" };
+    });
     const max = vals.length ? Math.max(...vals) : 1;
     const min = vals.length ? Math.min(...vals) : 0;
-    const byCode = new Map(suburbResp.suburbs.map((s) => [s.salCode, s]));
-    return { features: fc.features, priceById, nameById, byCode, scale: makePriceScale(max), min, max };
-  }, [active, suburbTopo, suburbResp]);
+    return { bounded, priceById, nameById, byCode, scale: makePriceScale(max), min, max };
+  }, [focusedState, suburbTopo, suburbResp, path]);
 
-  // Colour scale for the national (state) layer.
+  // Viewport-culled subset actually rendered (the efficiency win).
+  const visibleSuburbs = useMemo(() => {
+    if (detail !== "suburb" || !suburb) return [];
+    const vp = viewportInProjected(view.k, view.x, view.y, width, height);
+    return cullFeatures(suburb.bounded, vp, CULL_CAP);
+  }, [detail, suburb, view, width, height]);
+
+  // Colour scale for the national (state) layer, by capital-city median.
   const stateScale = useMemo(() => {
-    const vals = [...valueByStateCode.values()].filter((v) => v > 0);
+    const vals = [...stateStats.values()].map((s) => s.median).filter((v) => v > 0);
     const max = vals.length ? Math.max(...vals) : 1;
     return makePriceScale(max);
-  }, [valueByStateCode]);
+  }, [stateStats]);
 
-  // Transform that frames a feature's bounds into the viewport (like ChoroplethMap).
+  // Transform that frames a feature into the viewport.
   function frameOf(f: Feature<Geometry>, padding: number) {
     const [[x0, y0], [x1, y1]] = path.bounds(f as never);
     const bw = x1 - x0, bh = y1 - y0;
@@ -116,19 +181,65 @@ function ZoomInner({
     return zoomIdentity.translate(width / 2 - scale * (x0 + x1) / 2, height / 2 - scale * (y0 + y1) / 2).scale(scale);
   }
 
-  // Set up the persistent d3-zoom once per projection.
+  // Keep URL in sync with the focused state (deep-link + back-button friendly).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const url = focusedState ? `/housing/${stateSlug(focusedState)}` : "/housing";
+    if (window.location.pathname !== url) window.history.replaceState(null, "", url);
+  }, [focusedState]);
+
+  // Persistent d3-zoom, re-created when the projection changes (resize). View
+  // updates are throttled; a resize re-applies the focused state's framing so the
+  // viewport doesn't snap back to national while the controls still show a state.
   useEffect(() => {
     if (!svgRef.current || !gRef.current) return;
     const svg = select(svgRef.current);
     const g = select(gRef.current);
+
+    const flushView = () => {
+      lastViewAt.current = performance.now();
+      const t = transformRef.current;
+      setView({ k: t.k, x: t.x, y: t.y });
+    };
+    const scheduleView = () => {
+      const dt = performance.now() - lastViewAt.current;
+      if (dt >= VIEW_THROTTLE_MS) { flushView(); return; }
+      if (pendingTimer.current == null) {
+        pendingTimer.current = window.setTimeout(() => { pendingTimer.current = null; flushView(); }, VIEW_THROTTLE_MS - dt);
+      }
+    };
+
     const zoomBehavior = d3zoom<SVGSVGElement, unknown>()
       .scaleExtent([1, 60])
-      .on("zoom", (e: D3ZoomEvent<SVGSVGElement, unknown>) => g.attr("transform", e.transform.toString()));
+      .on("zoom", (e: D3ZoomEvent<SVGSVGElement, unknown>) => {
+        g.attr("transform", e.transform.toString());
+        transformRef.current = e.transform;
+        scheduleView();
+      })
+      .on("end", () => {
+        flushView();
+        if (transformRef.current.k < EXIT_SCALE) setEnteredState(null);
+      });
     zoomRef.current = zoomBehavior;
     svg.call(zoomBehavior);
     svg.on("dblclick.zoom", null);
-    zoomBehavior.transform(svg, zoomIdentity);
-    return () => { svg.on(".zoom", null); zoomRef.current = null; };
+
+    const activeFeature = focusedStateRef.current
+      ? stateFeatures.find((f) => STE_CODE_TO_STATE[String(f.id)] === focusedStateRef.current)
+      : undefined;
+    const initial = activeFeature ? frameOf(activeFeature, 0.82) : zoomIdentity;
+    zoomBehavior.transform(svg, initial);
+    transformRef.current = initial;
+    flushView();
+
+    return () => {
+      svg.on(".zoom", null);
+      zoomRef.current = null;
+      if (pendingTimer.current != null) { clearTimeout(pendingTimer.current); pendingTimer.current = null; }
+    };
+    // `focusedStateRef`/`frameOf`/`stateFeatures` are intentionally read but omitted
+    // from deps: this must re-run ONLY on projection/size change, not per view tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projection, width, height]);
 
   function flyTo(transform: ReturnType<typeof frameOf>, ms: number) {
@@ -142,68 +253,68 @@ function ZoomInner({
     const state = STE_CODE_TO_STATE[steCode];
     const f = stateById.get(steCode);
     if (!state || !f) return;
-    setActive(state);
+    setEnteredState(state);
     setHover(null);
     flyTo(frameOf(f, 0.82), ENTER_MS);
-    if (typeof window !== "undefined") window.history.replaceState(null, "", `/housing/${stateSlug(state)}`);
   }
   function exitToAustralia() {
-    setActive(null);
+    setEnteredState(null);
     setHover(null);
     flyTo(zoomIdentity, EXIT_MS);
-    if (typeof window !== "undefined") window.history.replaceState(null, "", "/housing");
   }
+
+  const layerStatus = suburbLayerStatus(focusedState, !!suburb, suburbFetching || topoFetching);
+  const focusedName = focusedState ? STATE_NAMES[focusedState] ?? focusedState : "";
 
   return (
     <>
       <svg
         ref={svgRef} width={width} height={height} role="group"
-        aria-label="Zoomable map of Australian house prices — click a state to fly into its suburbs"
-        style={{ touchAction: "pan-y", display: "block", cursor: active ? "default" : "pointer" }}
+        aria-label="Zoomable map of Australian house prices — click or zoom into a state to reveal its suburbs"
+        style={{ touchAction: "pan-y", display: "block", cursor: detail === "suburb" ? "default" : "pointer" }}
         onPointerLeave={() => setHover(null)}
       >
         <defs>
           <pattern id="zoom-nodata" width={6} height={6} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <rect width={6} height={6} style={{ fill: "hsl(var(--muted))" }} />
-            <line x1={0} y1={0} x2={0} y2={6} strokeWidth={1} style={{ stroke: "hsl(var(--border))" }} />
+            <line x1={0} y1={0} x2={0} y2={6} strokeWidth={1} style={{ stroke: STROKE }} />
           </pattern>
         </defs>
         <g ref={gRef}>
           {/* National states layer — dims out as you enter a state */}
-          <g style={{ opacity: active ? 0.12 : 1, transition: reduceMotion() ? undefined : "opacity 500ms ease", pointerEvents: active ? "none" : undefined }}>
+          <g style={{ opacity: detail === "suburb" ? 0.12 : 1, transition: reduceMotion() ? undefined : "opacity 500ms ease", pointerEvents: detail === "suburb" ? "none" : undefined }}>
             {stateFeatures.map((f) => {
               const state = STE_CODE_TO_STATE[String(f.id)];
-              const v = state ? valueByStateCode.get(state) ?? null : null;
+              const v = state ? stateStats.get(state)?.median ?? null : null;
               return (
                 <path
                   key={String(f.id)} d={path(f as never) ?? ""}
                   fill={featureFill(v && v > 0 ? v : null, (x) => stateScale(x))}
-                  style={{ stroke: "hsl(var(--border))", strokeWidth: 0.6, vectorEffect: "non-scaling-stroke" }}
+                  style={{ stroke: STROKE, strokeWidth: 0.6, vectorEffect: "non-scaling-stroke" }}
                   onClick={() => enterState(String(f.id))}
                   onPointerMove={(e) => {
-                    if (active !== null || !state) return;
-                    setHover({ name: STATE_NAMES[state] ?? state, price: v ?? 0, x: e.clientX, y: e.clientY });
+                    if (detail === "suburb" || !state) return;
+                    setHover({ kind: "state", state, x: e.clientX, y: e.clientY });
                   }}
                 />
               );
             })}
           </g>
 
-          {/* Active state's suburb layer — fades in on top, in the same projection */}
-          {suburb ? (
-            <g style={{ opacity: 1, transition: reduceMotion() ? undefined : "opacity 500ms ease" }}>
-              {suburb.features.map((f) => {
-                const id = String(f.id);
-                const v = suburb.priceById.get(id);
+          {/* Focused state's suburb layer — viewport-culled, only in suburb detail */}
+          {detail === "suburb" && suburb ? (
+            <g>
+              {visibleSuburbs.map((bf) => {
+                const v = suburb.priceById.get(bf.id);
                 return (
                   <path
-                    key={id} d={path(f as never) ?? ""}
+                    key={bf.id} d={bf.d}
                     fill={featureFill(v, (x) => suburb.scale(x))}
-                    style={{ stroke: "hsl(var(--border))", strokeWidth: 0.4, vectorEffect: "non-scaling-stroke", cursor: "pointer" }}
-                    onPointerMove={(e) => setHover({ name: suburb.nameById.get(id) ?? id, price: v ?? 0, x: e.clientX, y: e.clientY })}
+                    style={{ stroke: STROKE, strokeWidth: 0.4, vectorEffect: "non-scaling-stroke", cursor: "pointer" }}
+                    onPointerMove={(e) => setHover({ kind: "suburb", name: suburb.nameById.get(bf.id) ?? bf.id, price: v ?? 0, x: e.clientX, y: e.clientY })}
                     onClick={() => {
-                      const s = suburb.byCode.get(id);
-                      if (s && active) router.push(suburbHref(active, { salName: s.salName, salCode: s.salCode, postcode: s.postcode }));
+                      const s = suburb.byCode.get(bf.id);
+                      if (s && focusedState) router.push(suburbHref(focusedState, { salName: s.salName, salCode: s.salCode, postcode: s.postcode }));
                     }}
                   />
                 );
@@ -214,25 +325,49 @@ function ZoomInner({
       </svg>
 
       {/* Back-to-Australia control */}
-      {active ? (
+      {detail === "suburb" ? (
         <button
           type="button" onClick={exitToAustralia}
           className="absolute left-2 top-2 z-20 flex items-center gap-1.5 rounded-md border border-border bg-card/90 px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm backdrop-blur transition-colors hover:bg-muted"
         >
           ‹ Australia
-          <span className="text-muted-foreground">· {STATE_NAMES[active] ?? active} suburbs</span>
+          {focusedName ? <span className="text-muted-foreground">· {focusedName} suburbs</span> : null}
         </button>
       ) : null}
 
       {/* Legend */}
-      {active && suburb && suburb.max > 1 ? (
+      {detail === "suburb" && suburb && suburb.max > 1 ? (
         <div className="absolute bottom-2 left-2 z-10">
-          <MapLegend colorScale={(v) => suburb.scale(v)} min={suburb.min} max={suburb.max} label={`${STATE_NAMES[active]} median house price`} />
+          <MapLegend colorScale={(v) => suburb.scale(v)} min={suburb.min} max={suburb.max} label={`${focusedName} median house price`} />
         </div>
       ) : null}
 
-      {/* Hover tooltip */}
-      {hover ? (
+      {/* Suburb layer loading / error affordance while drilled into a state */}
+      {focusedState && layerStatus === "loading" ? (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <div className="rounded-md border border-border bg-card/90 px-3 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur">
+            Loading {focusedName} suburbs…
+          </div>
+        </div>
+      ) : focusedState && layerStatus === "error" ? (
+        <div className="absolute inset-0 z-10 flex items-center justify-center">
+          <div className="flex items-center gap-2 rounded-md border border-border bg-card/90 px-3 py-1.5 text-xs text-muted-foreground shadow-sm backdrop-blur">
+            <span>Couldn’t load {focusedName} suburbs.</span>
+            <button
+              type="button"
+              onClick={() => { void refetchSuburbs(); void refetchTopo(); }}
+              className="font-medium text-foreground underline underline-offset-2 hover:no-underline"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Hover: rich state card (national) or suburb tooltip (suburb detail) */}
+      {hover?.kind === "state" ? (
+        <StateHoverCard name={STATE_NAMES[hover.state] ?? hover.state} stat={stateStats.get(hover.state)} x={hover.x} y={hover.y} />
+      ) : hover?.kind === "suburb" ? (
         <div
           className="pointer-events-none fixed z-50 rounded-md border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow-md"
           style={{ left: hover.x + 12, top: hover.y + 12 }}
@@ -243,11 +378,43 @@ function ZoomInner({
       ) : null}
 
       {/* Hint */}
-      {!active ? (
+      {detail === "national" ? (
         <div className="pointer-events-none absolute bottom-2 right-2 z-10 rounded-md bg-card/80 px-2 py-1 text-[11px] text-muted-foreground backdrop-blur">
-          Click a state to fly in
+          Scroll or click a state to zoom in
         </div>
       ) : null}
     </>
+  );
+}
+
+/** Rich hover card for the national state layer. */
+function StateHoverCard({ name, stat, x, y }: { name: string; stat: StateStat | undefined; x: number; y: number }) {
+  return (
+    <div
+      className="pointer-events-none fixed z-50 min-w-[9rem] rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-md"
+      style={{ left: x + 12, top: y + 12 }}
+    >
+      <div className="font-medium">{name}</div>
+      {stat ? (
+        <>
+          <div className="mt-0.5 flex items-baseline justify-between gap-3">
+            <span className="text-muted-foreground">{stat.capital.replace("Greater ", "")} median</span>
+            <span className="font-mono tabular-nums">{fmtPriceShort(stat.median)}</span>
+          </div>
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-muted-foreground">Year</span>
+            <span className={`font-mono tabular-nums ${stat.yoyPct >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
+              {stat.yoyPct >= 0 ? "+" : ""}{stat.yoyPct.toFixed(1)}%
+            </span>
+          </div>
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-muted-foreground">Quarter</span>
+            <span className="font-mono tabular-nums text-muted-foreground">{stat.qoqPct >= 0 ? "+" : ""}{stat.qoqPct.toFixed(1)}%</span>
+          </div>
+        </>
+      ) : (
+        <div className="mt-0.5 text-muted-foreground">no data</div>
+      )}
+    </div>
   );
 }
