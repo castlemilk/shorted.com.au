@@ -273,6 +273,13 @@ export const getPeerComparison = ShortedStocksService.method.getPeerComparison;
 export const screenStocks = ShortedStocksService.method.screenStocks;
 
 /**
+ * Get squeeze-radar and battleground (price up + shorts building) ranked stocks
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetBattlegroundStocks
+ */
+export const getBattlegroundStocks = ShortedStocksService.method.getBattlegroundStocks;
+
+/**
  * Get a stock's people (with their other companies) and narrative-similar companies
  *
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetStockGraph
