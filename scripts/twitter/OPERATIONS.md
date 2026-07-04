@@ -90,6 +90,7 @@ All times below are **UTC**; AEST is +10 (or +11 in daylight-saving).
 | `0 23 * * *` | `stock-of-the-day` | 09:00 next day | 10:00 |
 | `0 7 * * 5` | `weekly-digest` | 17:00 Fri | 18:00 Fri |
 | `0 0,2,4,6 * * 1-5` | `breaking-news` (every 2h during market hours) | 10:00–16:00 | +1h |
+| `30 0 * * 1-5` | `squeeze-alert` — **disabled until `GetBattlegroundStocks` is deployed to prod** (no-ops gracefully until then) | 10:30 Mon–Fri | 11:30 |
 
 Drop into `crontab -e`:
 
@@ -103,6 +104,12 @@ LOG=/tmp/shorted-twitter.log
 0 23 * * *          cd $REPO/scripts/twitter && /usr/local/bin/npx tsx src/index.ts stock-of-the-day --live  >> $LOG 2>&1
 0 7 * * 5           cd $REPO/scripts/twitter && /usr/local/bin/npx tsx src/index.ts weekly-digest --live     >> $LOG 2>&1
 0 0,2,4,6 * * 1-5   cd $REPO/scripts/twitter && /usr/local/bin/npx tsx src/index.ts breaking-news --live     >> $LOG 2>&1
+
+# ⚠️ ENABLE ONLY AFTER `GetBattlegroundStocks` IS DEPLOYED TO PROD.
+# Until then this command no-ops (prints "endpoint unavailable" and exits 0),
+# so leaving it off just avoids noise in the log. squeeze-alert dedups any
+# code alerted in the last 72h and posts at most one cashtag per tweet.
+# 30 0 * * 1-5      cd $REPO/scripts/twitter && /usr/local/bin/npx tsx src/index.ts squeeze-alert --live     >> $LOG 2>&1
 ```
 
 Tail logs: `tail -f /tmp/shorted-twitter.log`
@@ -226,9 +233,13 @@ npm run post:movers
 npm run post:weekly-digest
 npm run post:stock-of-the-day
 npm run post:breaking-news
+npm run post:squeeze-alert   # no-ops until GetBattlegroundStocks ships to prod
 
 # Actually post (BE CAREFUL):
 npx tsx src/index.ts daily-shorts --live
+
+# Squeeze alert with a custom score threshold (default 70):
+npx tsx src/index.ts squeeze-alert --threshold=80
 ```
 
 `TWITTER_DRY_RUN_DEFAULT=true` is the safety net — dry-run is

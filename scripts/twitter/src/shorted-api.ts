@@ -242,3 +242,115 @@ export async function markTakeTweetPublished(slug: string): Promise<EditorialTak
   );
   return resp.take ?? null;
 }
+
+// ============================================================
+// Battleground / Squeeze radar
+// ============================================================
+
+export type BattlegroundView =
+  | "BATTLEGROUND_VIEW_SQUEEZE"
+  | "BATTLEGROUND_VIEW_DIVERGENCE"
+  | "BATTLEGROUND_VIEW_UNSPECIFIED";
+
+export interface BattlegroundStock {
+  stockCode: string;
+  companyName?: string;
+  industry?: string;
+  shortPct?: number;
+  shortPctChange4w?: number;
+  priceChange1m?: number;
+  daysToCover?: number;
+  squeezeScore?: number;
+  divergenceScore?: number;
+}
+
+/**
+ * Heuristic: a Cloudflare WAF challenge / edge-worker error page (or any
+ * non-JSON body) comes back as HTML, not JSON. `res.json()` would throw a
+ * SyntaxError on it — same failure mode the other methods rely on — but for
+ * the graceful path we sniff the body/content-type first so we can return a
+ * clean "unavailable" signal instead of a stack trace.
+ */
+function looksLikeNonJson(contentType: string | null, body: string): boolean {
+  if (contentType && /text\/html|text\/plain/i.test(contentType)) return true;
+  const head = body.trimStart().slice(0, 1).toLowerCase();
+  return head === "<"; // "<!doctype html>" / "<html" / Cloudflare challenge
+}
+
+/**
+ * Fetch squeeze/divergence battleground candidates.
+ *
+ * Returns `null` (NOT throw) when the endpoint is unavailable — a 404
+ * (GetBattlegroundStocks is not yet deployed to prod), a WAF/edge HTML
+ * response, or any non-JSON body. Callers treat `null` as "skip quietly".
+ * A deployed-but-empty result is `[]`, which is distinct from `null`.
+ *
+ * Mirrors `call()`'s conventions: same base URL + browser-ish headers, plus
+ * the `Connect-Protocol-Version: 1` header a Connect JSON POST expects, and
+ * the same transient-5xx retry/backoff.
+ */
+export async function getBattlegroundStocks(
+  view: BattlegroundView,
+  limit = 5,
+): Promise<BattlegroundStock[] | null> {
+  const endpoint = "GetBattlegroundStocks";
+  const maxAttempts = 4;
+  const headers: Record<string, string> = {
+    ...DEFAULT_HEADERS,
+    "Connect-Protocol-Version": "1",
+  };
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let res: Response;
+    try {
+      res = await fetch(
+        `${API_URL}/shorts.v1alpha1.ShortedStocksService/${endpoint}`,
+        { method: "POST", headers, body: JSON.stringify({ view, limit }) },
+      );
+    } catch (err) {
+      // Network error — retry transiently, then give up gracefully.
+      if (attempt === maxAttempts) {
+        console.warn(`[twitter] ${endpoint} network error: ${String(err)}`);
+        return null;
+      }
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
+      continue;
+    }
+
+    const contentType = res.headers.get("content-type");
+
+    if (res.ok) {
+      const text = await res.text();
+      // WAF can return HTTP 200 with an HTML interstitial — treat as down.
+      if (looksLikeNonJson(contentType, text)) {
+        console.warn(`[twitter] ${endpoint} returned non-JSON (WAF?) — skipping`);
+        return null;
+      }
+      try {
+        const resp = JSON.parse(text) as { stocks?: BattlegroundStock[] };
+        return resp.stocks ?? [];
+      } catch {
+        console.warn(`[twitter] ${endpoint} JSON parse failed — skipping`);
+        return null;
+      }
+    }
+
+    // 404 = not deployed yet; 501/CodeUnimplemented likewise → unavailable.
+    if (res.status === 404 || res.status === 501) return null;
+
+    // Retry transient 5xx; otherwise (403/WAF/etc.) degrade gracefully.
+    if (res.status >= 500 && attempt < maxAttempts) {
+      await new Promise((r) => setTimeout(r, 1000 * attempt));
+      continue;
+    }
+
+    const text = await res.text().catch(() => "");
+    console.warn(
+      `[twitter] ${endpoint} -> HTTP ${res.status}${
+        looksLikeNonJson(contentType, text) ? " (WAF HTML)" : ""
+      } — skipping`,
+    );
+    return null;
+  }
+  return null;
+}

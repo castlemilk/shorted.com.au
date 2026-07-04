@@ -11,14 +11,21 @@ import {
   buildDailyShortsTweet,
   buildInsiderTradeTweet,
   buildMoversTweet,
+  buildSqueezeAlertTweet,
   buildStockOfTheDayTweet,
   buildTakeTweet,
   buildWeeklyDigestThread,
 } from "./templates.js";
 import {
+  getBattlegroundStocks,
   listTweetPublishQueue,
   markTakeTweetPublished,
 } from "./shorted-api.js";
+import { recentlyAlerted, recordAlerted } from "./squeeze-state.js";
+
+// Default minimum squeeze score for `squeeze-alert` (0–100). Override with
+// --threshold=N.
+const DEFAULT_SQUEEZE_THRESHOLD = 70;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -42,6 +49,7 @@ interface Args {
   help: boolean;
   noImage: boolean;
   imagePath?: string;
+  threshold?: number;
 }
 
 const SITE_ORIGIN =
@@ -107,7 +115,10 @@ function parseArgs(argv: string[]): Args {
     else if (arg === "--no-image") args.noImage = true;
     else if (arg.startsWith("--image-path=")) args.imagePath = arg.split("=").slice(1).join("=");
     else if (arg.startsWith("--stock=")) args.stockCode = arg.split("=")[1];
-    else if (arg.startsWith("--slug=")) args.slug = arg.split("=").slice(1).join("=");
+    else if (arg.startsWith("--threshold=")) {
+      const n = Number(arg.split("=")[1]);
+      if (!Number.isNaN(n)) args.threshold = n;
+    } else if (arg.startsWith("--slug=")) args.slug = arg.split("=").slice(1).join("=");
     else if (!arg.startsWith("--") && !args.command) args.command = arg;
   }
   return args;
@@ -132,6 +143,8 @@ Flags:
                     TWITTER_DRY_RUN_DEFAULT=false in .env)
   --live            Override dry-run; actually post the tweet
   --stock=CBA       For insider-trade alerts, the stock code to check
+  --threshold=N     For squeeze-alert: minimum squeeze score (0-100,
+                    default 70)
   --slug=foo-bar    For process-publish-queue: tweet only this one slug
                     from the queue (leaves the rest untouched)
 
@@ -143,6 +156,10 @@ Commands:
   weekly-digest
   breaking-news
   insider-trade        Requires --stock=CODE
+  squeeze-alert        Top short-squeeze candidates above a score
+                       threshold (--threshold=N, default 70). Dedups
+                       codes alerted in the last 72h. No-ops (exit 0)
+                       until GetBattlegroundStocks is deployed to prod.
   process-publish-queue  Tweet queued (published, untweeted) Takes.
                          Use --slug=foo to target just one.
 
@@ -263,6 +280,49 @@ async function run(command: string, client: TwitterClient, args: Args) {
         return;
       }
       await client.postTweet(text);
+      break;
+    }
+    case "squeeze-alert": {
+      const threshold = args.threshold ?? DEFAULT_SQUEEZE_THRESHOLD;
+      const stocks = await getBattlegroundStocks("BATTLEGROUND_VIEW_SQUEEZE", 5);
+      // null = endpoint unavailable (not deployed to prod / WAF HTML). Degrade
+      // gracefully: clear message, no post, exit 0.
+      if (stocks === null) {
+        console.log(
+          "[twitter] GetBattlegroundStocks unavailable (endpoint not deployed " +
+            "to prod, or a WAF/edge response) — skipping squeeze-alert.",
+        );
+        return;
+      }
+      // Keep only candidates at/above the squeeze-score threshold, best first.
+      const qualifying = stocks
+        .filter((s) => (s.squeezeScore ?? 0) >= threshold)
+        .sort((a, b) => (b.squeezeScore ?? 0) - (a.squeezeScore ?? 0));
+      if (qualifying.length === 0) {
+        console.log(
+          `[twitter] no candidates above threshold (squeeze score >= ${threshold}).`,
+        );
+        return;
+      }
+      // Dedup: drop any code we already alerted on in the last 72h.
+      const suppressed = recentlyAlerted();
+      const fresh = qualifying.filter(
+        (s) => !suppressed.has(s.stockCode.toUpperCase()),
+      );
+      if (fresh.length === 0) {
+        console.log(
+          "[twitter] all qualifying candidates were alerted in the last 72h — skipping.",
+        );
+        return;
+      }
+      const picks = fresh.slice(0, 3);
+      const text = buildSqueezeAlertTweet(picks);
+      await client.postTweet(text);
+      // Only persist dedup state for a real post — a dry-run must be a pure
+      // preview, and must not suppress the next live run.
+      if (!args.dryRun) {
+        recordAlerted(picks.map((s) => s.stockCode));
+      }
       break;
     }
     default:

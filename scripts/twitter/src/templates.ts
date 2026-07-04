@@ -8,6 +8,7 @@ import {
   getMarketNews,
   getStockHistory,
   getTopShorts,
+  type BattlegroundStock,
   type EditorialTake,
   type TopShortsItem,
 } from "./shorted-api.js";
@@ -404,6 +405,58 @@ export async function buildInsiderTradeTweet(
     `Source: ASX Appendix 3Y.`,
     `History: ${SITE}/insider-trading/${stockCode}`,
   ].join("\n");
+}
+
+// ============================================================
+// Squeeze Alert — 1 tweet on top short-squeeze candidates
+// ============================================================
+
+const TWEET_MAX = 280;
+
+/**
+ * Format one battleground stock as a squeeze line, e.g.
+ *   "$BHP 12.4% shorted, 9.2 days to cover, +8% this month - squeeze score 84"
+ *
+ * CRITICAL X rule: at most ONE cashtag per tweet. Only the first stock in the
+ * tweet gets a `$` prefix; every other ticker is rendered as plain uppercase
+ * (same convention as buildMoversTweet's "others").
+ */
+function squeezeLine(s: BattlegroundStock, isFirst: boolean): string {
+  const ticker = isFirst ? `$${s.stockCode}` : s.stockCode;
+  const clauses: string[] = [`${fmtPct(s.shortPct ?? 0, 1)} shorted`];
+  if (s.daysToCover && s.daysToCover > 0) {
+    clauses.push(`${s.daysToCover.toFixed(1)} days to cover`);
+  }
+  const chg = s.priceChange1m ?? 0;
+  clauses.push(`${chg >= 0 ? "+" : ""}${Math.round(chg)}% this month`);
+  const score = Math.round(s.squeezeScore ?? 0);
+  return `${ticker} ${clauses.join(", ")} - squeeze score ${score}`;
+}
+
+/**
+ * Compose a single squeeze-watch tweet from up-to-3 already-filtered
+ * candidates (threshold + dedup applied by the caller, sorted by squeeze
+ * score descending). Trims the stock list until the whole tweet fits under
+ * 280 literal chars — never drops below the single top candidate.
+ */
+export function buildSqueezeAlertTweet(stocks: BattlegroundStock[]): string {
+  if (stocks.length === 0) throw new Error("No squeeze candidates to tweet");
+  const hook = "Squeeze watch on the ASX 🔥";
+  const closer = `Source: ASIC (T+4) · ${SITE}`;
+
+  // Start with up to 3, trim from the tail until it fits.
+  let picks = stocks.slice(0, 3);
+  const compose = (rows: BattlegroundStock[]): string => {
+    const lines = rows.map((s, i) => squeezeLine(s, i === 0));
+    return [hook, "", ...lines, "", closer].join("\n");
+  };
+
+  let tweet = compose(picks);
+  while (tweet.length > TWEET_MAX && picks.length > 1) {
+    picks = picks.slice(0, picks.length - 1);
+    tweet = compose(picks);
+  }
+  return tweet;
 }
 
 // ============================================================

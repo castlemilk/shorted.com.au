@@ -143,7 +143,9 @@ director trades, news sentiment.
       filters.
 - [x] `/battlegrounds` surface (or dashboard widget + screener filters) ranking
       live bull-vs-bear conflicts; squeeze-risk badge on stock pages.
-- [ ] Alerts: squeeze-risk threshold crossings (Pro-tier email/X bot hook).
+- [x] Alerts: squeeze-risk threshold crossings (Pro-tier email/X bot hook).
+      (X bot `squeeze-alert` command shipped — `scripts/twitter/`, dedups 72h,
+      no-ops until `GetBattlegroundStocks` deploys; email alerts still TODO.)
 
 ## Phase B2 — Bear/Bull verdict + short-seller scoreboard
 
