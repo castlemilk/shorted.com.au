@@ -514,6 +514,21 @@ service ShortedStocksService {
     };
   }
 
+  // ==================== Battleground Stocks ====================
+
+  // Get squeeze-radar and battleground (price up + shorts building) ranked stocks
+  rpc GetBattlegroundStocks (GetBattlegroundStocksRequest) returns (GetBattlegroundStocksResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (google.api.http) = {
+      post: "/v1/battlegrounds"
+      body: "*"
+    };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Battleground Stocks",
+      description: "Rank stocks by squeeze risk (days-to-cover, short interest, crowding, momentum) or by bull-vs-bear divergence (price rising while shorts build)."
+    };
+  }
+
   // ==================== Stock Graph ====================
 
   // Get a stock's people (with their other companies) and narrative-similar companies
@@ -1483,6 +1498,44 @@ message ScreenerStock {
 // Response for ScreenStocks RPC
 message ScreenStocksResponse {
   repeated ScreenerStock stocks = 1;
+  int32 total_count = 2;
+}
+
+// ==================== Battleground Messages ====================
+
+// View mode for GetBattlegroundStocks
+enum BattlegroundView {
+  BATTLEGROUND_VIEW_UNSPECIFIED = 0;
+  BATTLEGROUND_VIEW_SQUEEZE = 1;      // rank by squeeze_score
+  BATTLEGROUND_VIEW_DIVERGENCE = 2;   // rank by divergence_score (price up + shorts building only)
+}
+
+// Request for GetBattlegroundStocks RPC
+message GetBattlegroundStocksRequest {
+  BattlegroundView view = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+// A single stock result from the squeeze radar / battlegrounds ranking
+message BattlegroundStock {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  string logo_url = 4;
+  double short_pct = 5;
+  double short_pct_change_4w = 6;
+  double latest_price = 7;
+  double price_change_1m = 8;
+  double days_to_cover = 9;
+  double squeeze_score = 10;     // 0-100
+  double divergence_score = 11;  // 0-100, 0 unless price up AND shorts building
+  double market_cap = 12;
+}
+
+// Response for GetBattlegroundStocks RPC
+message GetBattlegroundStocksResponse {
+  repeated BattlegroundStock stocks = 1;
   int32 total_count = 2;
 }
 

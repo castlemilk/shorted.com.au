@@ -263,3 +263,8 @@ func (c *MemoryCache) GetPeerComparisonKey(stockCode string, limit int32) string
 func (c *MemoryCache) GetScreenStocksKey(filters *shortsv1alpha1.ScreenerFilters, sortField shortsv1alpha1.ScreenerSortField, sortDir shortsv1alpha1.SortDirection, limit, offset int32) string {
 	return c.generateKey("screen_stocks", filters, sortField, sortDir, limit, offset)
 }
+
+// GetBattlegroundStocksKey builds a cache key for GetBattlegroundStocks responses.
+func (c *MemoryCache) GetBattlegroundStocksKey(view shortsv1alpha1.BattlegroundView, limit, offset int32) string {
+	return c.generateKey("battleground_stocks", view, limit, offset)
+}

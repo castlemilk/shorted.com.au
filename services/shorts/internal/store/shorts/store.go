@@ -153,6 +153,9 @@ type Store interface {
 	// Screener methods
 	ScreenStocks(filters *shortsv1alpha1.ScreenerFilters, sortField shortsv1alpha1.ScreenerSortField, sortDir shortsv1alpha1.SortDirection, limit, offset int32) ([]*ScreenerStock, int, error)
 
+	// Battleground methods
+	GetBattlegroundStocks(view shortsv1alpha1.BattlegroundView, limit, offset int32) ([]*BattlegroundStock, int, error)
+
 	// Stock graph methods
 	GetStockGraph(stockCode string, limit int32) (*StockGraphResult, error)
 	GetStockSignals(stockCode string, limit int32) (*StockSignalsResult, error)

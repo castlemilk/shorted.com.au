@@ -851,6 +851,22 @@ func (mr *MockShortsStoreMockRecorder) SavePendingEnrichment(enrichmentID, stock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SavePendingEnrichment", reflect.TypeOf((*MockShortsStore)(nil).SavePendingEnrichment), enrichmentID, stockCode, status, data, quality)
 }
 
+// GetBattlegroundStocks mocks base method.
+func (m *MockShortsStore) GetBattlegroundStocks(view shortsv1alpha1.BattlegroundView, limit, offset int32) ([]*shorts.BattlegroundStock, int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBattlegroundStocks", view, limit, offset)
+	ret0, _ := ret[0].([]*shorts.BattlegroundStock)
+	ret1, _ := ret[1].(int)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetBattlegroundStocks indicates an expected call of GetBattlegroundStocks.
+func (mr *MockShortsStoreMockRecorder) GetBattlegroundStocks(view, limit, offset any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBattlegroundStocks", reflect.TypeOf((*MockShortsStore)(nil).GetBattlegroundStocks), view, limit, offset)
+}
+
 // ScreenStocks mocks base method.
 func (m *MockShortsStore) ScreenStocks(filters *shortsv1alpha1.ScreenerFilters, sortField shortsv1alpha1.ScreenerSortField, sortDir shortsv1alpha1.SortDirection, limit, offset int32) ([]*shorts.ScreenerStock, int, error) {
 	m.ctrl.T.Helper()
@@ -1240,6 +1256,20 @@ func (m *MockCache) GetRelatedNewsKey(stockCode, articleID string, limit int32) 
 func (mr *MockCacheMockRecorder) GetRelatedNewsKey(stockCode, articleID, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetRelatedNewsKey", reflect.TypeOf((*MockCache)(nil).GetRelatedNewsKey), stockCode, articleID, limit)
+}
+
+// GetBattlegroundStocksKey mocks base method.
+func (m *MockCache) GetBattlegroundStocksKey(view shortsv1alpha1.BattlegroundView, limit, offset int32) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetBattlegroundStocksKey", view, limit, offset)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetBattlegroundStocksKey indicates an expected call of GetBattlegroundStocksKey.
+func (mr *MockCacheMockRecorder) GetBattlegroundStocksKey(view, limit, offset any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetBattlegroundStocksKey", reflect.TypeOf((*MockCache)(nil).GetBattlegroundStocksKey), view, limit, offset)
 }
 
 // GetScreenStocksKey mocks base method.

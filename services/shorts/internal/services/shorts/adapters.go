@@ -218,6 +218,10 @@ func (s *StoreAdapter) ScreenStocks(filters *shortsv1alpha1.ScreenerFilters, sor
 	return s.store.ScreenStocks(filters, sortField, sortDir, limit, offset)
 }
 
+func (s *StoreAdapter) GetBattlegroundStocks(view shortsv1alpha1.BattlegroundView, limit, offset int32) ([]*shorts.BattlegroundStock, int, error) {
+	return s.store.GetBattlegroundStocks(view, limit, offset)
+}
+
 func (s *StoreAdapter) GetStockGraph(stockCode string, limit int32) (*shorts.StockGraphResult, error) {
 	return s.store.GetStockGraph(stockCode, limit)
 }

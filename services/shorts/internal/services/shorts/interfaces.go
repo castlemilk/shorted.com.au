@@ -88,6 +88,9 @@ type ShortsStore interface {
 	// Screener methods
 	ScreenStocks(filters *shortsv1alpha1.ScreenerFilters, sortField shortsv1alpha1.ScreenerSortField, sortDir shortsv1alpha1.SortDirection, limit, offset int32) ([]*shortsstore.ScreenerStock, int, error)
 
+	// Battleground methods
+	GetBattlegroundStocks(view shortsv1alpha1.BattlegroundView, limit, offset int32) ([]*shortsstore.BattlegroundStock, int, error)
+
 	// Stock graph methods
 	GetStockGraph(stockCode string, limit int32) (*shortsstore.StockGraphResult, error)
 
@@ -148,6 +151,7 @@ type Cache interface {
 	GetDividendHistoryKey(stockCode string, years int32) string
 	GetPeerComparisonKey(stockCode string, limit int32) string
 	GetScreenStocksKey(filters *shortsv1alpha1.ScreenerFilters, sortField shortsv1alpha1.ScreenerSortField, sortDir shortsv1alpha1.SortDirection, limit, offset int32) string
+	GetBattlegroundStocksKey(view shortsv1alpha1.BattlegroundView, limit, offset int32) string
 }
 
 // Logger defines the interface for logging operations
