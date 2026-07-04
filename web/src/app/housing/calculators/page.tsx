@@ -5,6 +5,7 @@ import { getHousingOverview } from "~/app/actions/getHousing";
 import {
   DepositCalculator,
   MortgageSimulator,
+  RentVsBuyCalculator,
   StampDutyCalculator,
 } from "@/components/housing/calculators/calculators";
 import { isStampDutyState, type StampDutyState } from "@/lib/housing/stamp-duty";
@@ -14,7 +15,7 @@ import { HousingIcon } from "@/components/housing/housing-icon";
 const URL = "https://shorted.com.au/housing/calculators";
 const TITLE = "Home Loan & Deposit Calculators — Australian House Prices";
 const DESCRIPTION =
-  "Free Australian mortgage, deposit and stamp-duty calculators — simulate repayments with extra payments and an offset, see rate-shock scenarios, work out years to a deposit, and estimate transfer duty in every state.";
+  "Free Australian mortgage, deposit, stamp-duty and rent-vs-buy calculators — simulate repayments with extra payments and an offset, see rate-shock scenarios, work out years to a deposit, estimate transfer duty in every state, and project whether buying or renting leaves you better off.";
 
 export const revalidate = 3600;
 
@@ -27,6 +28,7 @@ export const metadata: Metadata = {
     "home deposit savings calculator",
     "offset account calculator",
     "extra repayments calculator",
+    "rent vs buy calculator Australia",
   ],
   alternates: { canonical: URL },
   openGraph: { type: "website", url: URL, title: TITLE, description: DESCRIPTION, siteName: "Shorted", locale: "en_AU" },
@@ -98,10 +100,11 @@ export default async function HousingCalculatorsPage({ searchParams }: PageProps
             <HousingIcon name="mortgage" size={36} /> Home loan calculators
           </h1>
           <p className="mt-3 max-w-2xl text-muted-foreground">
-            Three calculators for Australian buyers: simulate mortgage
+            Four calculators for Australian buyers: simulate mortgage
             repayments (with extra payments, a lump sum and an offset account),
-            work out how long a deposit will take to save, and estimate stamp
-            duty in every state and territory.
+            work out how long a deposit will take to save, estimate stamp
+            duty in every state and territory, and compare whether buying or
+            renting leaves you better off.
             {prefilled ? (
               <> Prefilled with a median price of{" "}
                 <span className="font-mono text-foreground">${price.toLocaleString("en-AU")}</span>
@@ -116,11 +119,14 @@ export default async function HousingCalculatorsPage({ searchParams }: PageProps
         <MortgageSimulator initialLoan={initialLoan} />
         <DepositCalculator initialPrice={price} initialState={state} />
         <StampDutyCalculator initialPrice={price} initialState={state} />
+        <RentVsBuyCalculator initialPrice={price} initialState={state} />
 
         <p className="border-t border-border pt-4 text-xs text-muted-foreground">
           Estimates only, not financial advice; excludes LMI, fees; verify duty
           with your state revenue office. Duty schedules baked from the 2025–26
-          general rates; thresholds in some states are indexed annually.
+          general rates; thresholds in some states are indexed annually. The
+          rent-vs-buy projection is highly assumption-sensitive — treat it as a
+          scenario tool, not a forecast.
         </p>
       </div>
     </DashboardLayout>

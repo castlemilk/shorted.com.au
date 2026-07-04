@@ -26,3 +26,8 @@ export const StampDutyCalculator = dynamic(
   () => import("./stamp-duty-calculator").then((m) => m.StampDutyCalculator),
   { ssr: false, loading: skeleton(320) },
 );
+
+export const RentVsBuyCalculator = dynamic(
+  () => import("./rent-vs-buy-calculator").then((m) => m.RentVsBuyCalculator),
+  { ssr: false, loading: skeleton(620) },
+);
