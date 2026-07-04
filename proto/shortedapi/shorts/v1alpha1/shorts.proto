@@ -636,6 +636,21 @@ service ShortedStocksService {
       description: "List house-price regions, optionally filtered by region_type, state, or a name query — powers the suburb explorer. Suburb medians are sourced from state Valuer-General offices (CC BY)."
     };
   }
+
+  // ==================== Corporate Tax (Influence layer) ====================
+
+  // Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
+  rpc GetCompanyTaxProfile (GetCompanyTaxProfileRequest) returns (GetCompanyTaxProfileResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (google.api.http) = {
+      post: "/v1/companyTaxProfile"
+      body: "*"
+    };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Company Tax Profile",
+      description: "An ASX-listed entity's annual corporate-tax profile from the ATO Corporate Tax Transparency dataset (total income, taxable income, tax payable per income year). Entities are matched to ASX codes only on exact ABN or exact normalized-name mapping. Nil/absent taxable income or tax payable is meaningful and often legitimate (losses/offsets) — total income is always reported."
+    };
+  }
 }
 
 message MintTokenRequest {
@@ -1600,6 +1615,33 @@ message GetStockVerdictResponse {
   double composite = 2; // -100..100, bullish positive
   VerdictLabel label = 3;
   repeated VerdictComponent components = 4;
+}
+
+// ==================== Corporate Tax Messages ====================
+
+// Request for GetCompanyTaxProfile RPC
+message GetCompanyTaxProfileRequest {
+  string product_code = 1;
+}
+
+// One income year of ATO corporate-tax transparency data for an entity.
+// has_taxable_income / has_tax_payable distinguish a genuine zero from
+// "not reported" (the ATO leaves these blank; blank is meaningful, not zero).
+message CompanyTaxYear {
+  int32 income_year = 1;         // e.g. 2024 for the 2023-24 report
+  double total_income = 2;       // always reported (A$)
+  bool has_taxable_income = 3;
+  double taxable_income = 4;     // valid only when has_taxable_income
+  bool has_tax_payable = 5;
+  double tax_payable = 6;        // valid only when has_tax_payable
+}
+
+// Response for GetCompanyTaxProfile RPC
+message GetCompanyTaxProfileResponse {
+  string entity_name = 1;
+  string abn = 2;
+  repeated CompanyTaxYear years = 3;
+  string source_attribution = 4;
 }
 
 // ==================== Short Campaign Scoreboard Messages ====================

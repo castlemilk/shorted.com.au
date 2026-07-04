@@ -226,6 +226,10 @@ func (s *StoreAdapter) GetStockVerdictInputs(productCode string) (*shorts.Verdic
 	return s.store.GetStockVerdictInputs(productCode)
 }
 
+func (s *StoreAdapter) GetCompanyTaxProfile(productCode string) (*shorts.CompanyTaxProfile, error) {
+	return s.store.GetCompanyTaxProfile(productCode)
+}
+
 func (s *StoreAdapter) GetShortCampaignScoreboard(industry string, limit, offset int32) ([]*shorts.ShortCampaign, int, *shorts.ScoreboardStats, error) {
 	return s.store.GetShortCampaignScoreboard(industry, limit, offset)
 }

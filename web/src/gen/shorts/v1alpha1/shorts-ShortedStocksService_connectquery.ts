@@ -348,3 +348,10 @@ export const getSuburbProfile = ShortedStocksService.method.getSuburbProfile;
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListHousingRegions
  */
 export const listHousingRegions = ShortedStocksService.method.listHousingRegions;
+
+/**
+ * Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile
+ */
+export const getCompanyTaxProfile = ShortedStocksService.method.getCompanyTaxProfile;

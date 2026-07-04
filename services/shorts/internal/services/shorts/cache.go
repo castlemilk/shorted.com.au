@@ -274,6 +274,11 @@ func (c *MemoryCache) GetStockVerdictKey(productCode string) string {
 	return c.generateKey("stock_verdict", productCode)
 }
 
+// GetCompanyTaxProfileKey builds a cache key for GetCompanyTaxProfile responses.
+func (c *MemoryCache) GetCompanyTaxProfileKey(productCode string) string {
+	return c.generateKey("company_tax_profile", productCode)
+}
+
 // GetShortCampaignScoreboardKey builds a cache key for GetShortCampaignScoreboard responses.
 func (c *MemoryCache) GetShortCampaignScoreboardKey(industry string, limit, offset int32) string {
 	return c.generateKey("short_campaign_scoreboard", industry, limit, offset)

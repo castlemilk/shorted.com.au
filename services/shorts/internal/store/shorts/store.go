@@ -159,6 +159,9 @@ type Store interface {
 	// Bear/bull verdict methods
 	GetStockVerdictInputs(productCode string) (*VerdictInputs, error)
 
+	// Corporate tax (influence layer) methods
+	GetCompanyTaxProfile(productCode string) (*CompanyTaxProfile, error)
+
 	// Short-seller scoreboard methods
 	GetShortCampaignScoreboard(industry string, limit, offset int32) ([]*ShortCampaign, int, *ScoreboardStats, error)
 

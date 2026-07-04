@@ -882,6 +882,21 @@ func (mr *MockShortsStoreMockRecorder) GetStockVerdictInputs(productCode any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockVerdictInputs", reflect.TypeOf((*MockShortsStore)(nil).GetStockVerdictInputs), productCode)
 }
 
+// GetCompanyTaxProfile mocks base method.
+func (m *MockShortsStore) GetCompanyTaxProfile(productCode string) (*shorts.CompanyTaxProfile, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCompanyTaxProfile", productCode)
+	ret0, _ := ret[0].(*shorts.CompanyTaxProfile)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCompanyTaxProfile indicates an expected call of GetCompanyTaxProfile.
+func (mr *MockShortsStoreMockRecorder) GetCompanyTaxProfile(productCode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCompanyTaxProfile", reflect.TypeOf((*MockShortsStore)(nil).GetCompanyTaxProfile), productCode)
+}
+
 // GetShortCampaignScoreboard mocks base method.
 func (m *MockShortsStore) GetShortCampaignScoreboard(industry string, limit, offset int32) ([]*shorts.ShortCampaign, int, *shorts.ScoreboardStats, error) {
 	m.ctrl.T.Helper()
@@ -1316,6 +1331,20 @@ func (m *MockCache) GetStockVerdictKey(productCode string) string {
 func (mr *MockCacheMockRecorder) GetStockVerdictKey(productCode any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetStockVerdictKey", reflect.TypeOf((*MockCache)(nil).GetStockVerdictKey), productCode)
+}
+
+// GetCompanyTaxProfileKey mocks base method.
+func (m *MockCache) GetCompanyTaxProfileKey(productCode string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCompanyTaxProfileKey", productCode)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// GetCompanyTaxProfileKey indicates an expected call of GetCompanyTaxProfileKey.
+func (mr *MockCacheMockRecorder) GetCompanyTaxProfileKey(productCode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCompanyTaxProfileKey", reflect.TypeOf((*MockCache)(nil).GetCompanyTaxProfileKey), productCode)
 }
 
 // GetShortCampaignScoreboardKey mocks base method.

@@ -94,6 +94,9 @@ type ShortsStore interface {
 	// Bear/bull verdict methods
 	GetStockVerdictInputs(productCode string) (*shortsstore.VerdictInputs, error)
 
+	// Corporate tax (influence layer) methods
+	GetCompanyTaxProfile(productCode string) (*shortsstore.CompanyTaxProfile, error)
+
 	// Short-seller scoreboard methods
 	GetShortCampaignScoreboard(industry string, limit, offset int32) ([]*shortsstore.ShortCampaign, int, *shortsstore.ScoreboardStats, error)
 
@@ -159,6 +162,7 @@ type Cache interface {
 	GetScreenStocksKey(filters *shortsv1alpha1.ScreenerFilters, sortField shortsv1alpha1.ScreenerSortField, sortDir shortsv1alpha1.SortDirection, limit, offset int32) string
 	GetBattlegroundStocksKey(view shortsv1alpha1.BattlegroundView, limit, offset int32) string
 	GetStockVerdictKey(productCode string) string
+	GetCompanyTaxProfileKey(productCode string) string
 	GetShortCampaignScoreboardKey(industry string, limit, offset int32) string
 }
 

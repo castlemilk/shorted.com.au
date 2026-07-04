@@ -181,6 +181,9 @@ const (
 	// ShortedStocksServiceListHousingRegionsProcedure is the fully-qualified name of the
 	// ShortedStocksService's ListHousingRegions RPC.
 	ShortedStocksServiceListHousingRegionsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListHousingRegions"
+	// ShortedStocksServiceGetCompanyTaxProfileProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetCompanyTaxProfile RPC.
+	ShortedStocksServiceGetCompanyTaxProfileProcedure = "/shorts.v1alpha1.ShortedStocksService/GetCompanyTaxProfile"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -235,6 +238,7 @@ var (
 	shortedStocksServiceListStateSuburbsMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("ListStateSuburbs")
 	shortedStocksServiceGetSuburbProfileMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("GetSuburbProfile")
 	shortedStocksServiceListHousingRegionsMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ListHousingRegions")
+	shortedStocksServiceGetCompanyTaxProfileMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetCompanyTaxProfile")
 )
 
 // ShortedStocksServiceClient is a client for the shorts.v1alpha1.ShortedStocksService service.
@@ -339,6 +343,8 @@ type ShortedStocksServiceClient interface {
 	GetSuburbProfile(context.Context, *connect.Request[v1alpha1.GetSuburbProfileRequest]) (*connect.Response[v1alpha1.GetSuburbProfileResponse], error)
 	// List house-price regions (suburbs/LGAs/etc) for the suburb explorer.
 	ListHousingRegions(context.Context, *connect.Request[v1alpha1.ListHousingRegionsRequest]) (*connect.Response[v1alpha1.ListHousingRegionsResponse], error)
+	// Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
+	GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error)
 }
 
 // NewShortedStocksServiceClient constructs a client for the shorts.v1alpha1.ShortedStocksService
@@ -645,6 +651,12 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceListHousingRegionsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getCompanyTaxProfile: connect.NewClient[v1alpha1.GetCompanyTaxProfileRequest, v1alpha1.GetCompanyTaxProfileResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetCompanyTaxProfileProcedure,
+			connect.WithSchema(shortedStocksServiceGetCompanyTaxProfileMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -699,6 +711,7 @@ type shortedStocksServiceClient struct {
 	listStateSuburbs                *connect.Client[v1alpha1.ListStateSuburbsRequest, v1alpha1.ListStateSuburbsResponse]
 	getSuburbProfile                *connect.Client[v1alpha1.GetSuburbProfileRequest, v1alpha1.GetSuburbProfileResponse]
 	listHousingRegions              *connect.Client[v1alpha1.ListHousingRegionsRequest, v1alpha1.ListHousingRegionsResponse]
+	getCompanyTaxProfile            *connect.Client[v1alpha1.GetCompanyTaxProfileRequest, v1alpha1.GetCompanyTaxProfileResponse]
 }
 
 // GetTopShorts calls shorts.v1alpha1.ShortedStocksService.GetTopShorts.
@@ -949,6 +962,11 @@ func (c *shortedStocksServiceClient) ListHousingRegions(ctx context.Context, req
 	return c.listHousingRegions.CallUnary(ctx, req)
 }
 
+// GetCompanyTaxProfile calls shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile.
+func (c *shortedStocksServiceClient) GetCompanyTaxProfile(ctx context.Context, req *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error) {
+	return c.getCompanyTaxProfile.CallUnary(ctx, req)
+}
+
 // ShortedStocksServiceHandler is an implementation of the shorts.v1alpha1.ShortedStocksService
 // service.
 type ShortedStocksServiceHandler interface {
@@ -1052,6 +1070,8 @@ type ShortedStocksServiceHandler interface {
 	GetSuburbProfile(context.Context, *connect.Request[v1alpha1.GetSuburbProfileRequest]) (*connect.Response[v1alpha1.GetSuburbProfileResponse], error)
 	// List house-price regions (suburbs/LGAs/etc) for the suburb explorer.
 	ListHousingRegions(context.Context, *connect.Request[v1alpha1.ListHousingRegionsRequest]) (*connect.Response[v1alpha1.ListHousingRegionsResponse], error)
+	// Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
+	GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error)
 }
 
 // NewShortedStocksServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -1354,6 +1374,12 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceListHousingRegionsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceGetCompanyTaxProfileHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetCompanyTaxProfileProcedure,
+		svc.GetCompanyTaxProfile,
+		connect.WithSchema(shortedStocksServiceGetCompanyTaxProfileMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.ShortedStocksService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ShortedStocksServiceGetTopShortsProcedure:
@@ -1454,6 +1480,8 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetSuburbProfileHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceListHousingRegionsProcedure:
 			shortedStocksServiceListHousingRegionsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetCompanyTaxProfileProcedure:
+			shortedStocksServiceGetCompanyTaxProfileHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1657,4 +1685,8 @@ func (UnimplementedShortedStocksServiceHandler) GetSuburbProfile(context.Context
 
 func (UnimplementedShortedStocksServiceHandler) ListHousingRegions(context.Context, *connect.Request[v1alpha1.ListHousingRegionsRequest]) (*connect.Response[v1alpha1.ListHousingRegionsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListHousingRegions is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile is not implemented"))
 }
