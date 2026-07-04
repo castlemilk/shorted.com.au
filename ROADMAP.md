@@ -40,11 +40,11 @@ Two parallel tracks:
 Source: [ATO Corporate Tax Transparency](https://data.gov.au/data/dataset/corporate-transparency)
 — annual XLSX, ~4,100 entities: name, ABN, total income, taxable income, tax payable.
 
-- [ ] Collector `-mode tax` (new `influence-collector` service or extend an existing
+- [x] Collector `-mode tax` (new `influence-collector` service or extend an existing
       collector): ingest all 11 annual reports (2013-14 → 2023-24).
-- [ ] Migration: `corporate_tax` table keyed by ABN + income_year; join view to ASX
-      codes via the entity spine.
-- [ ] RPC `GetCompanyTaxProfile` + "Tax paid" card on `/shorts/[code]` stock pages
+- [x] Migration: `corporate_tax` table keyed by ABN + income_year; join view to ASX
+      codes via the entity spine (`entity_asx_map`, exact-ABN/exact-name only).
+- [x] RPC `GetCompanyTaxProfile` + "Tax paid" card on `/shorts/[code]` stock pages
       (income vs taxable income vs tax payable, multi-year sparkline).
 - [ ] Editorial feature: **"The $0 Tax Club"** — heavily-shorted companies paying no
       tax (widow-maker-style `/features/*` page, baked + live hybrid).
