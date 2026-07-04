@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { getHousingOverview } from "~/app/actions/getHousing";
@@ -211,6 +212,27 @@ export default async function HousingPage() {
                 area. YoY change shown; quarter change below.
               </p>
               <HousingTiles tiles={capitalTiles} />
+            </section>
+
+            <section>
+              <Link
+                href="/housing/calculators"
+                className="group flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/50"
+              >
+                <div>
+                  <h2 className="flex items-center gap-2 font-serif text-xl text-foreground">
+                    <HousingIcon name="mortgage" size={20} /> Home loan &amp; deposit calculators
+                  </h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Simulate repayments with extras and an offset, see rate-shock
+                    scenarios, count the years to a deposit, and estimate stamp
+                    duty in every state.
+                  </p>
+                </div>
+                <span className="font-mono text-sm text-primary transition-transform group-hover:translate-x-0.5">
+                  Open calculators →
+                </span>
+              </Link>
             </section>
 
             <section className="grid gap-6 lg:grid-cols-2">

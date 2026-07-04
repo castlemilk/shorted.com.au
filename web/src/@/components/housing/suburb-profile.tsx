@@ -105,6 +105,12 @@ export function SuburbProfile({
               )}
               <span className="text-muted-foreground"> · median house{asOf ? ` · ${asOf}` : ""}</span>
             </div>
+            <Link
+              href={`/housing/calculators?price=${Math.round(s.latestMedianPrice)}${st ? `&state=${st}` : ""}`}
+              className="mt-1 inline-block text-xs text-primary transition-colors hover:text-foreground"
+            >
+              Estimate repayments for this suburb →
+            </Link>
           </div>
         ) : (
           <span className="rounded-md border border-border px-2.5 py-1 text-xs text-muted-foreground">Price not tracked</span>
