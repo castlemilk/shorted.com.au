@@ -26,12 +26,12 @@ Two parallel tracks:
 - [ ] **Entity resolution pass**: fuzzy-match ATO/AEC/AusTender entity names to
       ABNs where the source lacks them; store match confidence. Set-based SQL where
       possible (see graph-backfill landmines in memory).
-- [ ] **Editorial-standards doc** (`docs/influence-editorial-standards.md`):
+- [x] **Editorial-standards doc** (`docs/influence-editorial-standards.md`):
       defamation posture — primary-source facts + citations only, juxtaposition not
       imputation, never attach "corruption" to a named entity. Australia is the most
       plaintiff-friendly defamation jurisdiction in the anglosphere; truth is a
       defence, imputation is the risk.
-- [ ] **Licensing audit**: confirm reuse terms per source (ATO/data.gov.au CC-BY,
+- [x] **Licensing audit**: confirm reuse terms per source (ATO/data.gov.au CC-BY,
       AEC use statement, AusTender, APH register PDFs). Record in the same
       `source_licence` pattern used by `house_prices`.
 
@@ -134,22 +134,22 @@ All inputs already exist: short % history (`shorts`), days-to-cover
 (`mv_screener_data`, migration 000028), price momentum (`stock_prices`),
 director trades, news sentiment.
 
-- [ ] **Squeeze-risk score**: days-to-cover × short-interest change × price
+- [x] **Squeeze-risk score**: days-to-cover × short-interest change × price
       momentum → 0-100 score. Computed in a new MV (follow `mv_screener_data`
       pattern + fallback raw query).
-- [ ] **Battleground detector**: price rising while shorts building (divergence).
+- [x] **Battleground detector**: price rising while shorts building (divergence).
       Rank by divergence magnitude; track resolution over time.
-- [ ] RPC `GetSqueezeCandidates` / extend `ScreenStocks` with squeeze + divergence
+- [x] RPC `GetSqueezeCandidates` / extend `ScreenStocks` with squeeze + divergence
       filters.
-- [ ] `/battlegrounds` surface (or dashboard widget + screener filters) ranking
+- [x] `/battlegrounds` surface (or dashboard widget + screener filters) ranking
       live bull-vs-bear conflicts; squeeze-risk badge on stock pages.
 - [ ] Alerts: squeeze-risk threshold crossings (Pro-tier email/X bot hook).
 
 ## Phase B2 — Bear/Bull verdict + short-seller scoreboard
 
-- [ ] **Verdict gauge** per stock: composite of short-interest trend, director
+- [x] **Verdict gauge** per stock: composite of short-interest trend, director
       buying/selling, news sentiment, squeeze risk — one glanceable dial.
-- [ ] **Short seller scoreboard**: historical outcomes of crowded shorts — when
+- [x] **Short seller scoreboard**: historical outcomes of crowded shorts — when
       short interest peaked, what did price do next? Win-rate by stock/sector.
       Evergreen editorial + novel dataset (nobody computes ASX short-campaign
       outcomes).

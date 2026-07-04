@@ -280,6 +280,20 @@ export const screenStocks = ShortedStocksService.method.screenStocks;
 export const getBattlegroundStocks = ShortedStocksService.method.getBattlegroundStocks;
 
 /**
+ * Get a composite bear-vs-bull verdict for a single stock
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetStockVerdict
+ */
+export const getStockVerdict = ShortedStocksService.method.getStockVerdict;
+
+/**
+ * Get the short-seller scoreboard: historic short campaigns and whether shorts won
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetShortCampaignScoreboard
+ */
+export const getShortCampaignScoreboard = ShortedStocksService.method.getShortCampaignScoreboard;
+
+/**
  * Get a stock's people (with their other companies) and narrative-similar companies
  *
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetStockGraph

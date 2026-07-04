@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { BattlegroundView } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { getBattlegroundsClient } from "~/app/actions/client/getBattlegroundsClient";
+import { getScoreboardClient } from "~/app/actions/client/getScoreboardClient";
 import {
   Table,
   TableBody,
@@ -19,13 +20,20 @@ import { Badge } from "~/@/components/ui/badge";
 import { Skeleton } from "~/@/components/ui/skeleton";
 import { cn } from "~/@/lib/utils";
 import { normalizedLogoUrl } from "~/@/lib/logo";
-import { toBattlegroundRows, type BattlegroundRow } from "./types";
+import {
+  toBattlegroundRows,
+  toScoreboardData,
+  type BattlegroundRow,
+  type ScoreboardData,
+  type ScoreboardRow,
+} from "./types";
 
 const PAGE_LIMIT = 25;
+const SCOREBOARD_LIMIT = 50;
 
-type ViewKey = "squeeze" | "divergence";
+type ViewKey = "squeeze" | "divergence" | "scoreboard";
 
-const VIEW_TO_ENUM: Record<ViewKey, BattlegroundView> = {
+const VIEW_TO_ENUM: Record<"squeeze" | "divergence", BattlegroundView> = {
   squeeze: BattlegroundView.SQUEEZE,
   divergence: BattlegroundView.DIVERGENCE,
 };
@@ -107,11 +115,191 @@ function TableSkeleton() {
   );
 }
 
+function WinBadge({ won }: { won: boolean | null }) {
+  if (won === null) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "whitespace-nowrap",
+        won
+          ? "border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400"
+          : "border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+      )}
+    >
+      {won ? "Shorts won" : "Shorts lost"}
+    </Badge>
+  );
+}
+
+function ReturnCell({ value }: { value: number | null }) {
+  if (value === null) {
+    return (
+      <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
+        —
+      </TableCell>
+    );
+  }
+  return (
+    <TableCell
+      className={cn(
+        "text-right font-mono tabular-nums",
+        // Price falling after the peak = shorts were right
+        changeColor(value),
+      )}
+    >
+      {formatPercent(value, true)}
+    </TableCell>
+  );
+}
+
+function ScoreboardStatsStrip({ data }: { data: ScoreboardData }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-3">
+      <div className="rounded-lg border p-4">
+        <p className="text-2xl font-bold tabular-nums">{data.campaignsTotal}</p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Short campaigns (peak short interest ≥ 5% in the last 3 years)
+        </p>
+      </div>
+      <div className="rounded-lg border p-4">
+        <p className="text-2xl font-bold tabular-nums">
+          {data.shortsWinRate3m.toFixed(0)}%
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Shorts were right 3 months later — the price fell in{" "}
+          {data.shortsWinRate3m.toFixed(0)}% of campaigns
+        </p>
+      </div>
+      <div className="rounded-lg border p-4">
+        <p className="text-2xl font-bold tabular-nums">
+          {data.shortsWinRate6m.toFixed(0)}%
+        </p>
+        <p className="text-xs text-muted-foreground mt-1">
+          Shorts were right 6 months later — the price fell in{" "}
+          {data.shortsWinRate6m.toFixed(0)}% of campaigns
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ScoreboardTable({ rows }: { rows: ScoreboardRow[] }) {
+  return (
+    <div className="rounded-lg border overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Stock</TableHead>
+            <TableHead className="hidden md:table-cell">Industry</TableHead>
+            <TableHead className="text-right">Peak date</TableHead>
+            <TableHead className="text-right">Peak short %</TableHead>
+            <TableHead className="text-right">3m return</TableHead>
+            <TableHead className="text-right">6m return</TableHead>
+            <TableHead className="text-right">Outcome</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((row) => (
+            <TableRow key={row.stockCode}>
+              <TableCell>
+                <Link
+                  href={`/shorts/${row.stockCode}`}
+                  className="flex items-center gap-2.5 group"
+                >
+                  <StockLogo stockCode={row.stockCode} />
+                  <span className="flex flex-col">
+                    <span className="font-semibold group-hover:underline">
+                      {row.stockCode}
+                    </span>
+                    <span className="text-xs text-muted-foreground line-clamp-1 max-w-[180px]">
+                      {row.companyName}
+                    </span>
+                  </span>
+                </Link>
+              </TableCell>
+              <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+                {row.industry || "—"}
+              </TableCell>
+              <TableCell className="text-right font-mono tabular-nums text-sm">
+                {row.peakDate}
+              </TableCell>
+              <TableCell className="text-right font-mono tabular-nums">
+                {formatPercent(row.peakShortPct)}
+              </TableCell>
+              <ReturnCell value={row.return3m} />
+              <ReturnCell value={row.return6m} />
+              <TableCell className="text-right">
+                <WinBadge won={row.shortsWon6m ?? row.shortsWon3m} />
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function ScoreboardSection() {
+  const { data, isLoading, isError } = useQuery<ScoreboardData>({
+    queryKey: ["scoreboard", SCOREBOARD_LIMIT],
+    queryFn: async () =>
+      toScoreboardData(await getScoreboardClient(SCOREBOARD_LIMIT, 0)),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (isError) {
+    return (
+      <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-sm text-muted-foreground">
+        Failed to load the short-seller scoreboard. Please try again shortly.
+      </div>
+    );
+  }
+
+  if (isLoading || !data) {
+    return (
+      <div className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-20 w-full" />
+          ))}
+        </div>
+        <TableSkeleton />
+      </div>
+    );
+  }
+
+  if (data.rows.length === 0) {
+    return (
+      <div className="rounded-lg border p-6 text-sm text-muted-foreground">
+        No short campaigns recorded yet — campaigns appear once a stock&apos;s
+        short interest has peaked above 5%.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <ScoreboardStatsStrip data={data} />
+      <ScoreboardTable rows={data.rows} />
+      {data.totalCount > data.rows.length && (
+        <p className="text-xs text-muted-foreground">
+          Showing top {data.rows.length} of {data.totalCount} campaigns by peak
+          short interest.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function BattlegroundsClient({
   initialRows,
   initialTotalCount,
 }: BattlegroundsClientProps) {
   const [view, setView] = useState<ViewKey>("squeeze");
+  const isScoreboard = view === "scoreboard";
 
   const initialData: ViewData | undefined =
     initialRows !== undefined
@@ -122,7 +310,7 @@ export function BattlegroundsClient({
     queryKey: ["battlegrounds", view, PAGE_LIMIT],
     queryFn: async () => {
       const response = await getBattlegroundsClient(
-        VIEW_TO_ENUM[view],
+        VIEW_TO_ENUM[view as "squeeze" | "divergence"],
         PAGE_LIMIT,
         0,
       );
@@ -134,6 +322,7 @@ export function BattlegroundsClient({
     // Only the squeeze view is SSR-prefetched
     ...(view === "squeeze" && initialData ? { initialData } : {}),
     staleTime: 5 * 60 * 1000,
+    enabled: !isScoreboard,
   });
 
   const isSqueeze = view === "squeeze";
@@ -148,16 +337,21 @@ export function BattlegroundsClient({
         <TabsList>
           <TabsTrigger value="squeeze">Squeeze radar</TabsTrigger>
           <TabsTrigger value="divergence">Battlegrounds</TabsTrigger>
+          <TabsTrigger value="scoreboard">Scoreboard</TabsTrigger>
         </TabsList>
       </Tabs>
 
       <p className="text-sm text-muted-foreground max-w-3xl">
         {isSqueeze
           ? "Stocks ranked by squeeze risk — a 0-100 score combining days-to-cover, short interest, recent price momentum, and short-position crowding."
-          : "Live bull-vs-bear conflicts — stocks where the price is rising while short sellers keep building positions. Ranked by divergence intensity (0-100)."}
+          : isScoreboard
+            ? "The short-seller scoreboard — every campaign where short interest peaked above 5% in the last 3 years, and what the price did 3 and 6 months later."
+            : "Live bull-vs-bear conflicts — stocks where the price is rising while short sellers keep building positions. Ranked by divergence intensity (0-100)."}
       </p>
 
-      {isError ? (
+      {isScoreboard ? (
+        <ScoreboardSection />
+      ) : isError ? (
         <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-6 text-sm text-muted-foreground">
           Failed to load battleground data. Please try again shortly.
         </div>
