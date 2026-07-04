@@ -13,6 +13,7 @@ import { RelatedNewsRail } from "./related-news-rail";
 import { StockConnections } from "./stock-connections";
 import { StockSignals } from "./stock-signals";
 import { StockVerdict } from "./stock-verdict";
+import { CompanyTaxCard } from "./company-tax-card";
 import { DirectorTradesTable } from "./director-trades-table";
 import { DividendHistory } from "./dividend-history";
 import { PeerComparisonTable } from "./peer-comparison-table";
@@ -79,6 +80,9 @@ export function StockTabs({
         {overviewContent}
         <div className="mt-4 md:mt-6">
           <StockVerdict stockCode={stockCode} />
+        </div>
+        <div className="mt-4 md:mt-6">
+          <CompanyTaxCard stockCode={stockCode} />
         </div>
         <div className="mt-4 md:mt-6">
           <StockSignals stockCode={stockCode} />
