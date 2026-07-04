@@ -529,6 +529,36 @@ service ShortedStocksService {
     };
   }
 
+  // ==================== Bear/Bull Verdict ====================
+
+  // Get a composite bear-vs-bull verdict for a single stock
+  rpc GetStockVerdict (GetStockVerdictRequest) returns (GetStockVerdictResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (google.api.http) = {
+      post: "/v1/stockVerdict"
+      body: "*"
+    };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Stock Verdict",
+      description: "Composite bear-vs-bull verdict (-100..100) for a single stock, combining short-position trend and level, director trading, news sentiment, and squeeze pressure — with a per-component breakdown."
+    };
+  }
+
+  // ==================== Short Seller Scoreboard ====================
+
+  // Get the short-seller scoreboard: historic short campaigns and whether shorts won
+  rpc GetShortCampaignScoreboard (GetShortCampaignScoreboardRequest) returns (GetShortCampaignScoreboardResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (google.api.http) = {
+      post: "/v1/shortCampaignScoreboard"
+      body: "*"
+    };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Short Campaign Scoreboard",
+      description: "Historic short campaigns (peak short interest >= 5% over the last 3 years) with price outcomes 3 and 6 months after the peak, and overall short-seller win rates."
+    };
+  }
+
   // ==================== Stock Graph ====================
 
   // Get a stock's people (with their other companies) and narrative-similar companies
@@ -1537,6 +1567,78 @@ message BattlegroundStock {
 message GetBattlegroundStocksResponse {
   repeated BattlegroundStock stocks = 1;
   int32 total_count = 2;
+}
+
+// ==================== Verdict Messages ====================
+
+// Verdict band derived from the composite score
+enum VerdictLabel {
+  VERDICT_LABEL_UNSPECIFIED = 0;
+  VERDICT_LABEL_STRONG_BEARISH = 1; // composite <= -40
+  VERDICT_LABEL_BEARISH = 2;        // -40 < composite <= -10
+  VERDICT_LABEL_NEUTRAL = 3;        // -10 < composite < 10
+  VERDICT_LABEL_BULLISH = 4;        // 10 <= composite < 40
+  VERDICT_LABEL_STRONG_BULLISH = 5; // composite >= 40
+}
+
+// Request for GetStockVerdict RPC
+message GetStockVerdictRequest {
+  string product_code = 1;
+}
+
+// A single component of the composite verdict
+message VerdictComponent {
+  string name = 1;         // e.g. "short_trend"
+  double score = 2;        // normalized -1..1, bullish positive
+  double weight = 3;       // 0..1
+  double contribution = 4; // weight * score * 100 (points of the composite)
+}
+
+// Response for GetStockVerdict RPC
+message GetStockVerdictResponse {
+  string product_code = 1;
+  double composite = 2; // -100..100, bullish positive
+  VerdictLabel label = 3;
+  repeated VerdictComponent components = 4;
+}
+
+// ==================== Short Campaign Scoreboard Messages ====================
+
+// Request for GetShortCampaignScoreboard RPC
+message GetShortCampaignScoreboardRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+  string industry = 3; // optional exact industry filter
+}
+
+// A historic short campaign: the peak short position and what the price did after
+message ShortCampaign {
+  string stock_code = 1;
+  string company_name = 2;
+  string industry = 3;
+  string logo_url = 4;
+  string peak_date = 5;      // YYYY-MM-DD
+  double peak_short_pct = 6;
+  double price_at_peak = 7;  // 0 when unknown
+  double price_3m_after = 8; // meaningful only when has_3m
+  double price_6m_after = 9; // meaningful only when has_6m
+  double return_3m = 10;     // percent price change 3 months after the peak
+  double return_6m = 11;     // percent price change 6 months after the peak
+  bool has_3m = 12;          // enough price history to score the 3-month outcome
+  bool has_6m = 13;          // enough price history to score the 6-month outcome
+  bool shorts_won_3m = 14;   // price fell 3 months after the peak
+  bool shorts_won_6m = 15;   // price fell 6 months after the peak
+  double current_short_pct = 16;
+  double latest_price = 17;
+}
+
+// Response for GetShortCampaignScoreboard RPC
+message GetShortCampaignScoreboardResponse {
+  repeated ShortCampaign campaigns = 1;
+  int32 total_count = 2;          // campaigns matching the filter
+  int32 campaigns_total = 3;      // campaigns considered for the win-rate stats
+  double shorts_win_rate_3m = 4;  // percent (0-100) of scored campaigns where the price fell after 3 months
+  double shorts_win_rate_6m = 5;  // percent (0-100) of scored campaigns where the price fell after 6 months
 }
 
 // ==================== Stock Graph Messages ====================

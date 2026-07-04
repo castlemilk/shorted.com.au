@@ -268,3 +268,13 @@ func (c *MemoryCache) GetScreenStocksKey(filters *shortsv1alpha1.ScreenerFilters
 func (c *MemoryCache) GetBattlegroundStocksKey(view shortsv1alpha1.BattlegroundView, limit, offset int32) string {
 	return c.generateKey("battleground_stocks", view, limit, offset)
 }
+
+// GetStockVerdictKey builds a cache key for GetStockVerdict responses.
+func (c *MemoryCache) GetStockVerdictKey(productCode string) string {
+	return c.generateKey("stock_verdict", productCode)
+}
+
+// GetShortCampaignScoreboardKey builds a cache key for GetShortCampaignScoreboard responses.
+func (c *MemoryCache) GetShortCampaignScoreboardKey(industry string, limit, offset int32) string {
+	return c.generateKey("short_campaign_scoreboard", industry, limit, offset)
+}

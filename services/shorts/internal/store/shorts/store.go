@@ -156,6 +156,12 @@ type Store interface {
 	// Battleground methods
 	GetBattlegroundStocks(view shortsv1alpha1.BattlegroundView, limit, offset int32) ([]*BattlegroundStock, int, error)
 
+	// Bear/bull verdict methods
+	GetStockVerdictInputs(productCode string) (*VerdictInputs, error)
+
+	// Short-seller scoreboard methods
+	GetShortCampaignScoreboard(industry string, limit, offset int32) ([]*ShortCampaign, int, *ScoreboardStats, error)
+
 	// Stock graph methods
 	GetStockGraph(stockCode string, limit int32) (*StockGraphResult, error)
 	GetStockSignals(stockCode string, limit int32) (*StockSignalsResult, error)

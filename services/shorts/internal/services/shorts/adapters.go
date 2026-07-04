@@ -222,6 +222,14 @@ func (s *StoreAdapter) GetBattlegroundStocks(view shortsv1alpha1.BattlegroundVie
 	return s.store.GetBattlegroundStocks(view, limit, offset)
 }
 
+func (s *StoreAdapter) GetStockVerdictInputs(productCode string) (*shorts.VerdictInputs, error) {
+	return s.store.GetStockVerdictInputs(productCode)
+}
+
+func (s *StoreAdapter) GetShortCampaignScoreboard(industry string, limit, offset int32) ([]*shorts.ShortCampaign, int, *shorts.ScoreboardStats, error) {
+	return s.store.GetShortCampaignScoreboard(industry, limit, offset)
+}
+
 func (s *StoreAdapter) GetStockGraph(stockCode string, limit int32) (*shorts.StockGraphResult, error) {
 	return s.store.GetStockGraph(stockCode, limit)
 }

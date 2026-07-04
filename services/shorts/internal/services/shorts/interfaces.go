@@ -91,6 +91,12 @@ type ShortsStore interface {
 	// Battleground methods
 	GetBattlegroundStocks(view shortsv1alpha1.BattlegroundView, limit, offset int32) ([]*shortsstore.BattlegroundStock, int, error)
 
+	// Bear/bull verdict methods
+	GetStockVerdictInputs(productCode string) (*shortsstore.VerdictInputs, error)
+
+	// Short-seller scoreboard methods
+	GetShortCampaignScoreboard(industry string, limit, offset int32) ([]*shortsstore.ShortCampaign, int, *shortsstore.ScoreboardStats, error)
+
 	// Stock graph methods
 	GetStockGraph(stockCode string, limit int32) (*shortsstore.StockGraphResult, error)
 
@@ -152,6 +158,8 @@ type Cache interface {
 	GetPeerComparisonKey(stockCode string, limit int32) string
 	GetScreenStocksKey(filters *shortsv1alpha1.ScreenerFilters, sortField shortsv1alpha1.ScreenerSortField, sortDir shortsv1alpha1.SortDirection, limit, offset int32) string
 	GetBattlegroundStocksKey(view shortsv1alpha1.BattlegroundView, limit, offset int32) string
+	GetStockVerdictKey(productCode string) string
+	GetShortCampaignScoreboardKey(industry string, limit, offset int32) string
 }
 
 // Logger defines the interface for logging operations
