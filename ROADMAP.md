@@ -194,14 +194,15 @@ Reuses the Gemini PDF-extraction pipeline (`services/report-extractor/`) and
 Differentiator vs bank calculators: pre-filled from `house_prices` +
 `suburb_demographics`, deep-linked from suburb profile pages.
 
-- [ ] **Mortgage simulator**: extra repayments, offset balance, lump sums,
+- [x] **Mortgage simulator**: extra repayments, offset balance, lump sums,
       rate-shock slider (generalise the widow-maker borrowing-power @visx
       pattern).
 - [ ] **"Years to a deposit" choropleth**: time to save 20% deposit on median
       household income per suburb (both inputs already in DB) — new
       `highlight-metrics.ts` entry (recipe G).
-- [ ] Rent-vs-buy + stamp-duty-by-state calculators (baked state rule tables).
-- [ ] SEO surfaces per calculator (broad first-home-buyer audience).
+- [x] Stamp-duty-by-state + years-to-deposit calculators (baked state rule
+      tables; rent-vs-buy still TODO).
+- [x] SEO surfaces per calculator (broad first-home-buyer audience).
 
 ## Phase B7 — Policy tagging + crowd sentiment
 
