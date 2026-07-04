@@ -30,6 +30,16 @@ CREATE TABLE IF NOT EXISTS "company-metadata" (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Dev containers may pre-seed company-metadata via analysis/sql/init-db.sql with an
+-- older shape; the IF NOT EXISTS above then no-ops, so backfill required columns.
+ALTER TABLE "company-metadata" ADD COLUMN IF NOT EXISTS sector VARCHAR(100);
+ALTER TABLE "company-metadata" ADD COLUMN IF NOT EXISTS market_cap BIGINT;
+ALTER TABLE "company-metadata" ADD COLUMN IF NOT EXISTS logo_url VARCHAR(500);
+ALTER TABLE "company-metadata" ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE "company-metadata" ADD COLUMN IF NOT EXISTS exchange VARCHAR(50);
+ALTER TABLE "company-metadata" ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE "company-metadata" ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
 -- Create index for company metadata
 CREATE INDEX IF NOT EXISTS idx_metadata_stock_code ON "company-metadata"(stock_code);
 
@@ -41,6 +51,11 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Dev containers may pre-seed subscriptions via analysis/sql/init-db.sql with an
+-- older shape; the IF NOT EXISTS above then no-ops, so backfill required columns.
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active';
+ALTER TABLE subscriptions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 
 -- Create index for subscriptions
 CREATE INDEX IF NOT EXISTS idx_subscriptions_email ON subscriptions(email);

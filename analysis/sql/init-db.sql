@@ -26,14 +26,24 @@ CREATE TABLE IF NOT EXISTS "company-metadata" (
     logo_gcs_url TEXT,
     industry TEXT,
     tags TEXT[] DEFAULT ARRAY[]::TEXT[],
-    search_vector TSVECTOR
+    search_vector TSVECTOR,
+    -- Columns below keep this shape convergent with services/migrations/000001
+    sector VARCHAR(100),
+    market_cap BIGINT,
+    logo_url VARCHAR(500),
+    description TEXT,
+    exchange VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create the subscriptions table
+-- Create the subscriptions table (shape must match services/migrations/000001)
 CREATE TABLE IF NOT EXISTS subscriptions (
     id SERIAL PRIMARY KEY,
     email TEXT UNIQUE NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW()
+    status VARCHAR(50) DEFAULT 'active',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Create the stock_prices table (required by search query's valid_stocks CTE)

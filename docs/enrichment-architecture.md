@@ -161,7 +161,7 @@ ladder and citations. Shorted runs *two* discovery stacks; only one is intellige
 >   The historical 178-stock gap still needs a re-run / pending-people backfill to realise.
 > - **§6.9 ✅** signals-collector + report-extractor containerised as scale-to-zero Cloud
 >   Run **jobs** (Python, NOT a Go rewrite — deferred to §6.2); `get_stock_signals` chat
->   tool; migration 000053 `director_extract_attempts` failure-budget so the daily director
+>   tool; migration 000069 `director_extract_attempts` failure-budget so the daily director
 >   job converges instead of re-burning Gemini on persistent 3Y-PDF failures.
 
 ### 6.1 Adopt stealth's `semantic` extraction across crawlers — HIGH
@@ -223,7 +223,7 @@ Cloud Run **jobs** (`terraform/modules/{signals-collector,report-extractor}`, wi
 CI build-matrix). Chose **Python containers, not a Go rewrite** — the scripts depend on
 Python-only libs (pymupdf/langextract), don't use stealth, and are already concurrent +
 incremental + idempotent; Go is best deferred to §6.2's brandbrain/stealth unification.
-`get_stock_signals` chat tool added. Failure-budget (migration 000053) lands so the daily
+`get_stock_signals` chat tool added. Failure-budget (migration 000069) lands so the daily
 director job converges. **Prod note:** `gemini_secret_exists=false` in prod — the two report
 jobs deploy but exit early until `GEMINI_API_KEY` is provisioned in prod Secret Manager.
 
@@ -235,7 +235,7 @@ through it.
 ---
 
 **TL;DR for the next session:** §6.3 / §6.5 / §6.9 are shipped on `feat/enrichment-uplift`
-(merge + run the prod migrations 000053 / `terraform apply` / provision prod `GEMINI_API_KEY`
+(merge + run the prod migrations 000069 / `terraform apply` / provision prod `GEMINI_API_KEY`
 to realise them). The next highest-leverage move is **§6.2 + §6.1** — collapse shorted's
 bespoke discovery into brandbrain (over stealth) + adopt stealth's semantic extraction — gated
 on **§6.10** (brandbrain must scale first). **§6.7** is now a known bigger lift (land the

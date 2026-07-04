@@ -217,7 +217,7 @@ def derive_trade(parsed: dict) -> dict | None:
 
 
 def attempts_table_exists(conn) -> bool:
-    """Whether the §6.9 failure-budget marker table is present (migration 000053).
+    """Whether the §6.9 failure-budget marker table is present (migration 000069).
     The script degrades gracefully when it isn't (no skip, no recording)."""
     cur = conn.cursor()
     cur.execute("SELECT to_regclass('public.director_extract_attempts')")
@@ -361,7 +361,7 @@ def main():
     rows = select_urls(conn, args.priority, args.limit, retry_after_days=args.retry_after_days)
     record_attempts = args.retry_after_days > 0 and attempts_table_exists(conn)
     if args.retry_after_days > 0 and not record_attempts:
-        log.warning("director_extract_attempts table missing (apply migration 000053) — failure-budget disabled this run")
+        log.warning("director_extract_attempts table missing (apply migration 000069) — failure-budget disabled this run")
     log.info("Director-trade extraction: %d PDFs to process (priority=%s, retry_after_days=%d)",
              len(rows), args.priority, args.retry_after_days)
 
