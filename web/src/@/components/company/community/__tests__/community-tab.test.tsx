@@ -1,5 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactElement } from "react";
 import { StockTabs } from "../../stock-tabs";
 import { CommunityTab } from "../community-tab";
 import { useSession } from "next-auth/react";
@@ -12,6 +14,60 @@ jest.mock("next/link", () => ({
     </a>
   ),
 }));
+
+jest.mock("../../stock-verdict", () => ({
+  StockVerdict: () => <div data-testid="stock-verdict" />,
+}));
+
+jest.mock("../../company-tax-card", () => ({
+  CompanyTaxCard: () => <div data-testid="company-tax-card" />,
+}));
+
+jest.mock("../../stock-signals", () => ({
+  StockSignals: () => <div data-testid="stock-signals" />,
+}));
+
+jest.mock("../../stock-connections", () => ({
+  StockConnections: () => <div data-testid="stock-connections" />,
+}));
+
+jest.mock("../../stock-news-feed", () => ({
+  StockNewsFeed: () => <div data-testid="stock-news-feed" />,
+}));
+
+jest.mock("../../related-news-rail", () => ({
+  RelatedNewsRail: () => <div data-testid="related-news-rail" />,
+}));
+
+jest.mock("../../event-timeline", () => ({
+  EventTimeline: () => <div data-testid="event-timeline" />,
+}));
+
+jest.mock("../../director-trades-table", () => ({
+  DirectorTradesTable: () => <div data-testid="director-trades-table" />,
+}));
+
+jest.mock("../../dividend-history", () => ({
+  DividendHistory: () => <div data-testid="dividend-history" />,
+}));
+
+jest.mock("../../peer-comparison-table", () => ({
+  PeerComparisonTable: () => <div data-testid="peer-comparison-table" />,
+}));
+
+function renderWithQueryClient(ui: ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+    },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+  );
+}
 
 describe("StockTabs community integration", () => {
   beforeEach(() => {
@@ -32,7 +88,7 @@ describe("StockTabs community integration", () => {
   it("renders the Community trigger and displays community content when selected", async () => {
     const user = userEvent.setup();
 
-    render(
+    renderWithQueryClient(
       <StockTabs
         stockCode="BHP"
         overviewContent={<div>Overview content</div>}
@@ -93,7 +149,7 @@ describe("StockTabs community integration", () => {
       status: "unauthenticated",
     });
 
-    render(
+    renderWithQueryClient(
       <StockTabs
         stockCode="BHP"
         overviewContent={<div>Overview content</div>}
@@ -134,7 +190,7 @@ describe("StockTabs community integration", () => {
       }),
     });
 
-    render(
+    renderWithQueryClient(
       <StockTabs
         stockCode="BHP"
         overviewContent={<div>Overview content</div>}

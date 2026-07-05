@@ -20,7 +20,7 @@ jest.mock("~/@/lib/kv-cache", () => ({
     topShorts: (period: string, limit: number, offset: number) =>
       `cache:homepage:top-shorts:${period}:${limit}:${offset}`,
   },
-  HOMEPAGE_TTL: 600,
+  HOMEPAGE_TTL: 86400,
 }));
 
 // Mock Connect transport

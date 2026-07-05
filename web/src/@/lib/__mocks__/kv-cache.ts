@@ -11,7 +11,7 @@ export const CACHE_KEYS = {
     `cache:homepage:treemap:${period}:${limit}:${viewMode}`,
 };
 
-export const HOMEPAGE_TTL = 600;
+export const HOMEPAGE_TTL = 86400;
 
 export const getCached = jest.fn().mockResolvedValue(null);
 export const setCached = jest.fn().mockResolvedValue(true);

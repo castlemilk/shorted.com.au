@@ -57,7 +57,9 @@ func buildXLSX(t *testing.T) []byte {
 	_, _ = f.NewSheet("Information")
 	sheet := "Income tax details"
 	_, _ = f.NewSheet(sheet)
-	f.DeleteSheet("Sheet1")
+	if err := f.DeleteSheet("Sheet1"); err != nil {
+		t.Fatalf("delete default sheet: %v", err)
+	}
 
 	set := func(cell, v string) { _ = f.SetCellValue(sheet, cell, v) }
 	// Header

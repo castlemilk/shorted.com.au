@@ -55,7 +55,7 @@ func parseVICSuburbMedians(xlsxBytes []byte) ([]Observation, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	sheets := f.GetSheetList()
 	if len(sheets) == 0 {

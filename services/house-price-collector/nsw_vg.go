@@ -26,12 +26,13 @@ import (
 // (the main sale row) and keep established houses only.
 //
 // Field layout (verified from live 2024 data), 0-indexed on ";" split:
-//   [9]=suburb [10]=postcode [15]=purchase price [16]=zoning [18]=purpose
-//   [19]=strata-lot (non-empty ⇒ unit/apartment). purpose="RESIDENCE" cleanly
-//   marks houses; "VACANT LAND"/"COMMERCIAL"/"FARM"/… are excluded.
+//
+//	[9]=suburb [10]=postcode [15]=purchase price [16]=zoning [18]=purpose
+//	[19]=strata-lot (non-empty ⇒ unit/apartment). purpose="RESIDENCE" cleanly
+//	marks houses; "VACANT LAND"/"COMMERCIAL"/"FARM"/… are excluded.
 const (
-	nswPSIBase  = "https://www.valuergeneral.nsw.gov.au/__psi/yearly/"
-	nswAccept   = "application/zip,application/octet-stream,*/*"
+	nswPSIBase   = "https://www.valuergeneral.nsw.gov.au/__psi/yearly/"
+	nswAccept    = "application/zip,application/octet-stream,*/*"
 	nswSource    = "vg_nsw"
 	nswLicence   = "CC-BY" // bundled creative_commons.txt; attribute "NSW Valuer-General"
 	nswMinSales  = 5       // per-year sales for a suburb's annual median
@@ -162,7 +163,7 @@ func parseNSWYearSales(outer []byte) ([]nswSale, error) {
 			continue
 		}
 		wb, err := io.ReadAll(rc)
-		rc.Close()
+		_ = rc.Close()
 		if err != nil {
 			continue
 		}
@@ -179,7 +180,7 @@ func parseNSWYearSales(outer []byte) ([]nswSale, error) {
 				continue
 			}
 			db, err := io.ReadAll(dc)
-			dc.Close()
+			_ = dc.Close()
 			if err != nil {
 				continue
 			}
