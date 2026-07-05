@@ -16,8 +16,8 @@ locals {
   chat_service_hostname            = try(var.chat_service_origin != "" ? regex("^https?://([^/]+)", var.chat_service_origin)[0] : "", "")
   market_data_hostname             = try(var.market_data_origin != "" ? regex("^https?://([^/]+)", var.market_data_origin)[0] : "", "")
   api_rate_limit_host_expression   = "http.host eq \"api.shorted.com.au\""
-  rate_limit_testing_bypass_clause = var.rate_limit_testing_bypass_secret != "" ? " and not (http.user_agent contains \"${var.rate_limit_testing_bypass_user_agent}\" and any(http.request.headers[\"${var.rate_limit_testing_bypass_header_name}\"][*] eq \"${var.rate_limit_testing_bypass_secret}\"))" : ""
-  api_rate_limit_expression        = "${local.api_rate_limit_host_expression}${local.rate_limit_testing_bypass_clause}"
+  api_rate_limit_expression        = local.api_rate_limit_host_expression
+  testing_bypass_expression        = var.rate_limit_testing_bypass_secret != "" ? "(http.user_agent contains \"${var.rate_limit_testing_bypass_user_agent}\" and any(http.request.headers[\"${var.rate_limit_testing_bypass_header_name}\"][*] eq \"${var.rate_limit_testing_bypass_secret}\"))" : "false"
 }
 
 # =============================================================================
@@ -349,6 +349,26 @@ resource "cloudflare_ruleset" "app_api_security_skip" {
         )
       EOT
       description = "Allow app API/RPC traffic through SBFM, BIC, and Security Level checks"
+      enabled     = true
+      action_parameters = {
+        phases   = ["http_request_sbfm"]
+        products = ["bic", "securityLevel"]
+      }
+      logging = {
+        enabled = false
+      }
+    },
+    {
+      action      = "skip"
+      expression  = <<-EOT
+        (
+          http.host eq "${var.domain}"
+          or http.host eq "shorted.com.au"
+          or http.host eq "www.shorted.com.au"
+        )
+        and ${local.testing_bypass_expression}
+      EOT
+      description = "Allow trusted E2E/load-test traffic through SBFM, BIC, and Security Level checks"
       enabled     = true
       action_parameters = {
         phases   = ["http_request_sbfm"]

@@ -9,9 +9,12 @@ import {
   type StockQuote,
   type HistoricalDataPoint,
 } from "@/lib/stock-data-service";
-import { fetchStockDataClient, fetchStockDetailsClient } from "@/lib/client-api";
-import { getTopShortsData } from "~/app/actions/getTopShorts";
-import { getStock } from "~/app/actions/getStock";
+import {
+  fetchStockClient,
+  fetchStockDataClient,
+  fetchStockDetailsClient,
+  fetchTopShortsClient,
+} from "@/lib/client-api";
 import type { TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 
 // Short positions (ASIC T+4, refreshed by the daily sync), end-of-day prices,
@@ -137,7 +140,7 @@ export function useTopShorts(period: string, limit: number) {
   return useQuery({
     queryKey: queryKeys.shorts.top(period, limit),
     queryFn: async () => {
-      const result = await getTopShortsData(period, limit, 0);
+      const result = await fetchTopShortsClient(period, limit, 0);
       return result?.timeSeries ?? [];
     },
     staleTime: DAILY_STALE, // daily (ASIC T+4)
@@ -150,7 +153,7 @@ export function useTopShorts(period: string, limit: number) {
 export function useStockShortPosition(code: string) {
   return useQuery({
     queryKey: queryKeys.shorts.stock(code),
-    queryFn: () => getStock(code),
+    queryFn: () => fetchStockClient(code),
     enabled: !!code,
     staleTime: DAILY_STALE,
   });
@@ -163,7 +166,7 @@ export function useMultipleStockShortPositions(codes: string[]) {
   return useQueries({
     queries: codes.map((code) => ({
       queryKey: queryKeys.shorts.stock(code),
-      queryFn: () => getStock(code),
+      queryFn: () => fetchStockClient(code),
       enabled: !!code,
       staleTime: DAILY_STALE,
     })),

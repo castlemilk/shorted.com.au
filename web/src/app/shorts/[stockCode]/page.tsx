@@ -55,7 +55,6 @@ import { siteConfig } from "~/@/config/site";
 import { RelatedStocks } from "~/@/components/seo/related-stocks";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
 import { getStockOrNotFound } from "~/app/actions/getStock";
-import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { ShortInterestHistory } from "./short-interest-history";
 import { NotFoundError } from "~/app/actions/withRetry";
@@ -64,26 +63,6 @@ import { getStockFinancialHighlights } from "~/app/actions/reports/getReportData
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;
-}
-
-const HOT_STOCK_STATIC_PARAMS_LIMIT = 30;
-
-export async function generateStaticParams(): Promise<{ stockCode: string }[]> {
-  const topShorts = await getTopShortsData(
-    "max",
-    HOT_STOCK_STATIC_PARAMS_LIMIT,
-    0,
-  );
-  const stockCodes = new Set<string>();
-
-  for (const series of topShorts?.timeSeries ?? []) {
-    const stockCode = series.productCode?.toUpperCase();
-    if (stockCode && /^[A-Z0-9]{1,4}$/.test(stockCode)) {
-      stockCodes.add(stockCode);
-    }
-  }
-
-  return Array.from(stockCodes).map((stockCode) => ({ stockCode }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -184,9 +163,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-// ASIC-derived stock pages change on the daily data sync, so serve warm pages
-// from ISR and bust them via /api/revalidate when new records land.
-export const revalidate = 86400;
+// Connect RPC calls use no-store fetches, which are incompatible with ISR for
+// uncached dynamicParams. Cloudflare caches public stock HTML at the edge for
+// 24h, so keep Next dynamic and let the edge absorb repeat traffic.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 export const dynamicParams = true;
 
 const Page = async ({ params }: PageProps) => {

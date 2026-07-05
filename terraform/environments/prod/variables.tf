@@ -172,14 +172,14 @@ variable "cache_purge_secret" {
 }
 
 variable "rate_limit_testing_bypass_secret" {
-  description = "Optional shared secret for trusted E2E/load-test traffic to bypass Cloudflare API rate limits. Leave empty to disable."
+  description = "Optional shared secret for trusted E2E/load-test traffic to bypass Cloudflare bot/browser challenges. Leave empty to disable."
   type        = string
   sensitive   = true
   default     = ""
 }
 
 variable "rate_limit_testing_bypass_header_name" {
-  description = "Lowercase HTTP header carrying the Cloudflare rate-limit testing bypass secret."
+  description = "Lowercase HTTP header carrying the Cloudflare trusted testing bypass secret."
   type        = string
   default     = "x-shorted-testing-bypass"
 }

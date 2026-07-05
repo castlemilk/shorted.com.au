@@ -87,14 +87,14 @@ Responses include `X-Shorted-Cache` header:
 ### API Rate Limits
 | Rule | Expression | Limit | Period | Action |
 |------|------------|-------|--------|--------|
-| General API | `local.api_rate_limit_expression` -> `http.host eq "api.shorted.com.au"` plus optional trusted-test bypass | 60 req | 10s in prod | Block (429) |
+| General API | `local.api_rate_limit_expression` -> `http.host eq "api.shorted.com.au"` | 60 req | 10s in prod | Block (429) |
 | Search | Deprecated/unused | 20 req | n/a | Kept only for module compatibility |
 
 Rate limits are enforced per IP address at the Cloudflare edge.
 
 ### Trusted Testing Bypass
 
-Cloudflare API rate-limit bypass is available for E2E/load testing, but it is intentionally **not** user-agent-only. A request bypasses the Cloudflare `http_ratelimit` rule only when both of these are true:
+Cloudflare trusted testing bypass is available for E2E/load testing, but it is intentionally **not** user-agent-only. A request bypasses Cloudflare bot/browser challenge products only when both of these are true:
 
 1. `User-Agent` contains the configured test marker, default `Shorted-E2E`.
 2. The configured secret header matches, default header name `x-shorted-testing-bypass`.
@@ -108,7 +108,7 @@ terraform plan
 terraform apply
 ```
 
-Use it from test clients with both headers:
+Use it from API and browser test clients with both headers:
 
 ```bash
 curl \
@@ -121,7 +121,7 @@ Relevant Terraform inputs:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `rate_limit_testing_bypass_secret` | `""` | Secret required to enable and use the bypass. Empty means no bypass clause is emitted. |
+| `rate_limit_testing_bypass_secret` | `""` | Secret required to enable and use the bot/browser challenge bypass. Empty means trusted-test bypass clauses do not match. |
 | `rate_limit_testing_bypass_header_name` | `x-shorted-testing-bypass` | Lowercase header name used in the Cloudflare expression. HTTP clients may send any case. |
 | `rate_limit_testing_bypass_user_agent` | `Shorted-E2E` | Required user-agent substring. |
 
@@ -129,7 +129,7 @@ Security notes:
 - Never create a user-agent-only bypass; UAs are trivial to spoof.
 - Do not commit the bypass secret to tracked `*.tfvars` files.
 - The secret is embedded in the Cloudflare rule/Terraform state, so rotate it if shared broadly or exposed in CI logs.
-- This bypass only excludes requests from the Cloudflare edge rate-limit rule; it does not bypass app authentication, permissions, subscriptions, or backend guardrails.
+- This bypass excludes trusted test requests from Super Bot Fight Mode, Browser Integrity Check, and Security Level challenges. It does not skip Cloudflare API rate limiting on the current plan, the managed WAF, app authentication, permissions, subscriptions, or backend guardrails.
 
 Regression test:
 

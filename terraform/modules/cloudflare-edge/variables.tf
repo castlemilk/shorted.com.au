@@ -142,7 +142,7 @@ variable "frontend_rate_limit_requests" {
 }
 
 variable "rate_limit_testing_bypass_secret" {
-  description = "Optional shared secret that allows trusted E2E/load-test traffic to bypass Cloudflare API rate limits when paired with the configured test user-agent. Leave empty to disable."
+  description = "Optional shared secret that allows trusted E2E/load-test traffic to bypass Cloudflare bot/browser challenges when paired with the configured test user-agent. Leave empty to disable."
   type        = string
   sensitive   = true
   default     = ""
@@ -157,7 +157,7 @@ variable "rate_limit_testing_bypass_secret" {
 }
 
 variable "rate_limit_testing_bypass_header_name" {
-  description = "Lowercase HTTP header name carrying the Cloudflare rate-limit testing bypass secret."
+  description = "Lowercase HTTP header name carrying the Cloudflare trusted testing bypass secret."
   type        = string
   default     = "x-shorted-testing-bypass"
 
