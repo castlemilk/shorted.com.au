@@ -16,8 +16,8 @@ locals {
   chat_service_hostname          = try(var.chat_service_origin != "" ? regex("^https?://([^/]+)", var.chat_service_origin)[0] : "", "")
   market_data_hostname           = try(var.market_data_origin != "" ? regex("^https?://([^/]+)", var.market_data_origin)[0] : "", "")
   api_rate_limit_host_expression = "http.host eq \"api.shorted.com.au\""
-  api_rate_limit_expression      = local.api_rate_limit_host_expression
   testing_bypass_expression      = var.rate_limit_testing_bypass_secret != "" ? "(http.user_agent contains \"${var.rate_limit_testing_bypass_user_agent}\" and any(http.request.headers[\"${var.rate_limit_testing_bypass_header_name}\"][*] eq \"${var.rate_limit_testing_bypass_secret}\"))" : "false"
+  api_rate_limit_expression      = "${local.api_rate_limit_host_expression} and not ${local.testing_bypass_expression}"
 }
 
 # =============================================================================

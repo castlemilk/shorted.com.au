@@ -40,7 +40,7 @@ test("strict Cloudflare rate limit only targets the API hostname", () => {
 test("Cloudflare testing bypass requires both a test user-agent and secret header", () => {
   const localsBlock = mainTf.match(/locals \{[\s\S]*?\n\}/)?.[0] ?? "";
 
-  assert.match(localsBlock, /api_rate_limit_expression\s+=\s+local\.api_rate_limit_host_expression/);
+  assert.match(localsBlock, /api_rate_limit_expression\s+=\s+"\$\{local\.api_rate_limit_host_expression\} and not \$\{local\.testing_bypass_expression\}"/);
   assert.doesNotMatch(localsBlock, /rate_limit_testing_bypass_clause/);
   assert.match(mainTf, /testing_bypass_expression/);
   assert.match(mainTf, /var\.rate_limit_testing_bypass_secret != ""/);
@@ -69,7 +69,7 @@ test("production environment passes testing bypass inputs into Cloudflare edge m
   assert.match(prodMainTf, /rate_limit_testing_bypass_user_agent\s+=\s+var\.rate_limit_testing_bypass_user_agent/);
 });
 
-test("frontend and API app endpoints skip bot challenges without skipping WAF or rate limits", () => {
+test("frontend and API app endpoints skip bot/browser challenges without broad WAF skips", () => {
   const skipRulesetMatch = mainTf.match(
     /resource "cloudflare_ruleset" "app_api_security_skip" \{[\s\S]*?\n\}/,
   );

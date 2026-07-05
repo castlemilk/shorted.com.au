@@ -6,6 +6,15 @@ sdks/
 docs/
 scripts/
 supabase/
+bin/
+node_modules/
+.next/
+.turbo/
+coverage/
+playwright-report/
+test-results/
+.vercel/output/
+.vercel/node/
 .playwright-cli/
 .playwright-mcp/
 .serena/

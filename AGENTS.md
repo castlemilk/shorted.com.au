@@ -129,7 +129,7 @@ Security notes:
 - Never create a user-agent-only bypass; UAs are trivial to spoof.
 - Do not commit the bypass secret to tracked `*.tfvars` files.
 - The secret is embedded in the Cloudflare rule/Terraform state, so rotate it if shared broadly or exposed in CI logs.
-- This bypass excludes trusted test requests from Super Bot Fight Mode, Browser Integrity Check, and Security Level challenges. It does not skip Cloudflare API rate limiting on the current plan, the managed WAF, app authentication, permissions, subscriptions, or backend guardrails.
+- This bypass excludes trusted test requests from Super Bot Fight Mode, Browser Integrity Check, Security Level challenges, and the Cloudflare API-host rate-limit expression. It does not skip the managed WAF, app authentication, permissions, subscriptions, or backend guardrails.
 
 Regression test:
 
