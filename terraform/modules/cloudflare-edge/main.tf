@@ -12,12 +12,12 @@ terraform {
 # =============================================================================
 
 locals {
-  shorts_api_hostname              = try(regex("^https?://([^/]+)", var.shorts_api_origin)[0], "")
-  chat_service_hostname            = try(var.chat_service_origin != "" ? regex("^https?://([^/]+)", var.chat_service_origin)[0] : "", "")
-  market_data_hostname             = try(var.market_data_origin != "" ? regex("^https?://([^/]+)", var.market_data_origin)[0] : "", "")
-  api_rate_limit_host_expression   = "http.host eq \"api.shorted.com.au\""
-  api_rate_limit_expression        = local.api_rate_limit_host_expression
-  testing_bypass_expression        = var.rate_limit_testing_bypass_secret != "" ? "(http.user_agent contains \"${var.rate_limit_testing_bypass_user_agent}\" and any(http.request.headers[\"${var.rate_limit_testing_bypass_header_name}\"][*] eq \"${var.rate_limit_testing_bypass_secret}\"))" : "false"
+  shorts_api_hostname            = try(regex("^https?://([^/]+)", var.shorts_api_origin)[0], "")
+  chat_service_hostname          = try(var.chat_service_origin != "" ? regex("^https?://([^/]+)", var.chat_service_origin)[0] : "", "")
+  market_data_hostname           = try(var.market_data_origin != "" ? regex("^https?://([^/]+)", var.market_data_origin)[0] : "", "")
+  api_rate_limit_host_expression = "http.host eq \"api.shorted.com.au\""
+  api_rate_limit_expression      = local.api_rate_limit_host_expression
+  testing_bypass_expression      = var.rate_limit_testing_bypass_secret != "" ? "(http.user_agent contains \"${var.rate_limit_testing_bypass_user_agent}\" and any(http.request.headers[\"${var.rate_limit_testing_bypass_header_name}\"][*] eq \"${var.rate_limit_testing_bypass_secret}\"))" : "false"
 }
 
 # =============================================================================
@@ -640,6 +640,20 @@ resource "cloudflare_zone_setting" "markdown_for_agents" {
   zone_id    = var.cloudflare_zone_id
   setting_id = "content_converter"
   value      = var.markdown_for_agents
+}
+
+# =============================================================================
+# Cloudflare Web Analytics / RUM
+# =============================================================================
+# Enables Cloudflare's automatic RUM beacon injection for proxied hostnames.
+# Keep the app-managed manual beacon disabled unless a manual token is confirmed
+# for the exact browser hostname; cross-origin manual beacons fail noisily when
+# the Web Analytics site token does not match.
+
+resource "cloudflare_zone_setting" "web_analytics_rum" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "rum"
+  value      = var.web_analytics_rum
 }
 
 resource "cloudflare_dns_record" "frontend" {

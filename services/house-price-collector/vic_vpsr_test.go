@@ -14,18 +14,24 @@ func vicFixture(t *testing.T) []byte {
 	t.Helper()
 	f := excelize.NewFile()
 	sh := f.GetSheetName(0)
+	setCell := func(cell string, value any) {
+		t.Helper()
+		if err := f.SetCellValue(sh, cell, value); err != nil {
+			t.Fatal(err)
+		}
+	}
 	// header: Locality + scattered year columns (mimics the real wide layout)
-	f.SetCellValue(sh, "A1", "Locality")
-	f.SetCellValue(sh, "C1", "2020")
-	f.SetCellValue(sh, "E1", "2021")
+	setCell("A1", "Locality")
+	setCell("C1", "2020")
+	setCell("E1", "2021")
 	// data rows
-	f.SetCellValue(sh, "A2", "ABBOTSFORD")
-	f.SetCellValue(sh, "C2", 862500)
-	f.SetCellValue(sh, "E2", 925000)
-	f.SetCellValue(sh, "A3", "TESTBURG")
-	f.SetCellValue(sh, "C3", "-")         // no data → skip
-	f.SetCellValue(sh, "E3", "^ 595000")  // low-count footnote → preliminary
-	f.SetCellValue(sh, "A4", "1,234,000") // a numeric-looking non-suburb row label is fine; only data cols read
+	setCell("A2", "ABBOTSFORD")
+	setCell("C2", 862500)
+	setCell("E2", 925000)
+	setCell("A3", "TESTBURG")
+	setCell("C3", "-")         // no data → skip
+	setCell("E3", "^ 595000")  // low-count footnote → preliminary
+	setCell("A4", "1,234,000") // a numeric-looking non-suburb row label is fine; only data cols read
 	var buf bytes.Buffer
 	if err := f.Write(&buf); err != nil {
 		t.Fatal(err)

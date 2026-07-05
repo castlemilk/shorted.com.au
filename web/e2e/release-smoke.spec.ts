@@ -92,14 +92,12 @@ function isIgnorableFailedRequest(url: string, errorText: string): boolean {
     errorText.includes("net::ERR_ABORTED") ||
     url.includes("google-analytics.com") ||
     url.includes("googletagmanager.com") ||
-    url.includes("cloudflareinsights.com") ||
     url.includes("/_vercel/insights/")
   );
 }
 
 function isIgnorableConsoleError(text: string): boolean {
   return (
-    text.includes("cloudflareinsights.com/cdn-cgi/rum") ||
     text.includes("Failed to fetch RSC payload") ||
     text.includes("https://errors.authjs.dev#autherror") ||
     text === "Failed to load resource: net::ERR_FAILED"
@@ -129,11 +127,15 @@ async function assertManualCloudflareRumBeacon(page: Page, path: string): Promis
   await expect(script, `${path} missing Cloudflare Web Analytics beacon`).toHaveCount(1);
 
   const config = JSON.parse((await script.first().getAttribute("data-cf-beacon")) || "{}") as {
+    send?: { to?: unknown };
     token?: string;
     spa?: unknown;
   };
   expect(config.token, `${path} has invalid Cloudflare Web Analytics token`).toMatch(
     /^[a-z0-9]{32}$/i,
+  );
+  expect(config.send?.to, `${path} should post RUM to the same-origin Cloudflare endpoint`).toBe(
+    "/cdn-cgi/rum",
   );
   expect(config.spa, `${path} should use Cloudflare's default SPA tracking`).toBeUndefined();
 }

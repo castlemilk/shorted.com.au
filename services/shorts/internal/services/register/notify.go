@@ -65,7 +65,7 @@ func notifyNewSubscriber(email string) {
 		log.Warnf("notifyNewSubscriber: resend POST failed for %s: %v", email, err)
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode >= 300 {
 		log.Warnf("notifyNewSubscriber: resend returned status %d for %s", resp.StatusCode, email)
 		return

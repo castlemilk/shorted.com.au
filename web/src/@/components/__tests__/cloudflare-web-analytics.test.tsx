@@ -24,7 +24,7 @@ describe("CloudflareWebAnalytics", () => {
     expect(container.querySelector("script")).toBeNull();
   });
 
-  it("renders the official Cloudflare beacon script when manual mode is enabled", () => {
+  it("renders the official Cloudflare beacon script with the same-origin RUM endpoint", () => {
     render(<CloudflareWebAnalytics enabled token="abc123" />);
 
     const script = screen.getByTestId("cloudflare-web-analytics");
@@ -32,7 +32,16 @@ describe("CloudflareWebAnalytics", () => {
     expect(script).toHaveAttribute("defer");
     expect(script).toHaveAttribute(
       "data-cf-beacon",
-      JSON.stringify({ token: "abc123" }),
+      JSON.stringify({ token: "abc123", send: { to: "/cdn-cgi/rum" } }),
+    );
+  });
+
+  it("supports overriding the same-origin beacon endpoint for tests", () => {
+    render(<CloudflareWebAnalytics enabled token="abc123" sendTo="/custom-rum" />);
+
+    expect(screen.getByTestId("cloudflare-web-analytics")).toHaveAttribute(
+      "data-cf-beacon",
+      JSON.stringify({ token: "abc123", send: { to: "/custom-rum" } }),
     );
   });
 
@@ -44,7 +53,7 @@ describe("CloudflareWebAnalytics", () => {
 
     expect(screen.getByTestId("cloudflare-web-analytics")).toHaveAttribute(
       "data-cf-beacon",
-      JSON.stringify({ token: "configured123" }),
+      JSON.stringify({ token: "configured123", send: { to: "/cdn-cgi/rum" } }),
     );
   });
 });

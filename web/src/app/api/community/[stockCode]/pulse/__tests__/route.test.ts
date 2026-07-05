@@ -47,6 +47,60 @@ describe("/api/community/[stockCode]/pulse", () => {
     expect(data.pulse[0]?.id).toBe("pulse-1");
   });
 
+  it("returns an empty public pulse list when Firestore credentials are unavailable", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    (listCommunityPulseItems as jest.Mock).mockRejectedValue(
+      Object.assign(
+        new Error("16 UNAUTHENTICATED: Request had invalid authentication credentials."),
+        { code: 16 },
+      ),
+    );
+
+    const request = new NextRequest(
+      "http://localhost:3020/api/community/CBA/pulse",
+    );
+    const response = await GET(request, {
+      params: Promise.resolve({ stockCode: "CBA" }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toContain("s-maxage=60");
+    expect(data.stockCode).toBe("CBA");
+    expect(data.pulse).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('"route":"pulse"'),
+    );
+
+    warn.mockRestore();
+  });
+
+  it("returns an empty public pulse list while Firestore indexes are unavailable", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    (listCommunityPulseItems as jest.Mock).mockRejectedValue(
+      Object.assign(
+        new Error("9 FAILED_PRECONDITION: The query requires an index."),
+        { code: 9 },
+      ),
+    );
+
+    const request = new NextRequest(
+      "http://localhost:3020/api/community/CBA/pulse",
+    );
+    const response = await GET(request, {
+      params: Promise.resolve({ stockCode: "CBA" }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.pulse).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('"route":"pulse"'),
+    );
+
+    warn.mockRestore();
+  });
+
   it("rejects invalid pulse content", async () => {
     (auth as jest.Mock).mockResolvedValue({
       user: {

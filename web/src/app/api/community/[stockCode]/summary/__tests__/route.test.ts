@@ -33,4 +33,34 @@ describe("/api/community/[stockCode]/summary", () => {
     expect(data.stockCode).toBe("CBA");
     expect(data.summary.headline).toBe("Most active thread right now");
   });
+
+  it("returns an empty public summary when Firestore credentials are unavailable", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    (getCachedStockCommunitySummary as jest.Mock).mockRejectedValue(
+      Object.assign(
+        new Error("16 UNAUTHENTICATED: Request had invalid authentication credentials."),
+        { code: 16 },
+      ),
+    );
+
+    const request = new NextRequest(
+      "http://localhost:3020/api/community/CBA/summary",
+    );
+    const response = await GET(request, {
+      params: Promise.resolve({ stockCode: "CBA" }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toContain("s-maxage=60");
+    expect(data.stockCode).toBe("CBA");
+    expect(data.summary.threadCount).toBe(0);
+    expect(data.summary.pulseCount).toBe(0);
+    expect(data.summary.headline).toContain("CBA");
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('"type":"community_read_fallback"'),
+    );
+
+    warn.mockRestore();
+  });
 });

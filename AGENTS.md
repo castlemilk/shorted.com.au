@@ -155,7 +155,7 @@ Frontend traffic (`shorted.com.au`, `www.shorted.com.au`) is proxied through Clo
 
 ### Cloudflare Web Analytics / RUM
 
-Cloudflare Web Analytics can be enabled either by Cloudflare dashboard injection or by the app's explicit manual beacon. The app renders `web/src/@/components/cloudflare-web-analytics.tsx` with the public production site token by default; `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN` in the web/Vercel environment can override it if the Cloudflare site token changes.
+Cloudflare Web Analytics should use Cloudflare automatic injection for the proxied production hostnames (`shorted.com.au` and `www.shorted.com.au`). Terraform manages the zone RUM switch through `cloudflare_zone_setting.web_analytics_rum` (`setting_id = "rum"`). The app component `web/src/@/components/cloudflare-web-analytics.tsx` is a disabled-by-default app-managed fallback; it only renders when `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_MANUAL_ENABLED=1` and `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN` is set to a token confirmed for the exact browser hostname. The fallback must configure `data-cf-beacon` with `send: { to: "/cdn-cgi/rum" }`; the stock manual config posts to `cloudflareinsights.com/cdn-cgi/rum` and can fail CORS on the proxied production app.
 
 Use Cloudflare RUM page views as the route-level denominator for cost attribution, then join with Worker `edge_request`, Firestore `firestore_operation`, web/backend `product_event`, and backend `cost_event` logs as described in `docs/observability/cost-attribution.md`.
 

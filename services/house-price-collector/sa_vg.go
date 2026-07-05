@@ -47,7 +47,7 @@ func fetchCKANJSON(ctx context.Context, url string, out any) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
 		return fmt.Errorf("CKAN %s: HTTP %d: %s", url, resp.StatusCode, strings.TrimSpace(string(body)))

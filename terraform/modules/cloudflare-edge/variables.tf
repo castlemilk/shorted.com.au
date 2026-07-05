@@ -297,6 +297,17 @@ variable "markdown_for_agents" {
   }
 }
 
+variable "web_analytics_rum" {
+  description = "Cloudflare Web Analytics RUM zone setting. \"on\" enables automatic beacon injection for proxied hostnames when Web Analytics is configured for the zone."
+  type        = string
+  default     = "on"
+
+  validation {
+    condition     = contains(["on", "off"], var.web_analytics_rum)
+    error_message = "web_analytics_rum must be \"on\" or \"off\"."
+  }
+}
+
 # ---- DNS email-security records (SPF / DMARC) ----
 
 variable "dns_security_enabled" {

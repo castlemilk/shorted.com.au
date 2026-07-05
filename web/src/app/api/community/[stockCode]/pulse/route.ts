@@ -5,6 +5,11 @@ import {
   createCommunityPulseItem,
   listCommunityPulseItems,
 } from "~/@/lib/community/firestore-community";
+import {
+  COMMUNITY_PUBLIC_READ_FALLBACK_CACHE_CONTROL,
+  isFirestoreReadUnavailable,
+  warnCommunityReadFallback,
+} from "~/@/lib/community/public-read-fallback";
 import { moderateCommunityText } from "~/@/lib/community/moderation";
 import { auth } from "~/server/auth";
 
@@ -29,6 +34,26 @@ export async function GET(
       pulse,
     });
   } catch (error) {
+    if (isFirestoreReadUnavailable(error)) {
+      warnCommunityReadFallback({
+        route: "pulse",
+        stockCode,
+        error,
+      });
+
+      return NextResponse.json(
+        {
+          stockCode,
+          pulse: [],
+        },
+        {
+          headers: {
+            "Cache-Control": COMMUNITY_PUBLIC_READ_FALLBACK_CACHE_CONTROL,
+          },
+        },
+      );
+    }
+
     console.error("Failed to fetch community pulse", error);
     return NextResponse.json(
       { error: "Failed to fetch community pulse" },
