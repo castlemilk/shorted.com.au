@@ -26,33 +26,6 @@ interface PageProps {
   params: Promise<{ date: string }>;
 }
 
-export async function generateStaticParams(): Promise<{ date: string }[]> {
-  // Skip static generation during local builds (pre-commit hook sets this)
-  if (process.env.SKIP_STATIC_GENERATION === "1") {
-    return [];
-  }
-  try {
-    const { createConnectTransport } = await import("@connectrpc/connect-web");
-    const { createClient } = await import("@connectrpc/connect");
-    const { ShortedStocksService } = await import("~/gen/shorts/v1alpha1/shorts_pb");
-
-    const transport = createConnectTransport({
-      baseUrl:
-        process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-        process.env.NEXT_PUBLIC_API_URL ??
-        "http://localhost:9091",
-    });
-    const client = createClient(ShortedStocksService, transport);
-    // Only pre-generate last 10 dates at build time; rest via ISR on-demand
-    const response = await client.getAvailableDates({ limit: 10, before: "" });
-
-    return response.dates.map((date) => ({ date }));
-  } catch (error) {
-    console.warn("Failed to fetch dates for static generation:", error);
-    return [];
-  }
-}
-
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { date } = await params;
   const formattedDate = formatDate(date);
@@ -89,8 +62,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-// Historical dates are immutable, so we can cache them indefinitely
-export const revalidate = 86400;
+// Market date pages depend on Connect-RPC POST fetches from server components.
+// Keep them dynamic so Next never tries to prerender no-store backend calls.
+export const dynamic = "force-dynamic";
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr + "T00:00:00");

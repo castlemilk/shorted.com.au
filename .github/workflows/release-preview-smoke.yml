@@ -1,0 +1,157 @@
+name: Release Preview Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      promote:
+        description: "Promote the smoked preview deployment to production"
+        required: true
+        type: boolean
+        default: false
+      ref:
+        description: "Git ref to release. Defaults to the selected workflow ref."
+        required: false
+        type: string
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+permissions:
+  contents: read
+  deployments: write
+  pull-requests: write
+
+env:
+  VERCEL_SCOPE: document-analyser
+  VERCEL_ORG_ID: team_xE5DMN3hIo8aPqyHNkBybg8r
+  VERCEL_PROJECT_ID: prj_FbJ12yJO63YCIG5wnUYh4Fbte20L
+  RELEASE_API_BASE_URL: https://api.shorted.com.au
+
+jobs:
+  deploy-preview:
+    name: Deploy Release Candidate Preview
+    runs-on: ubuntu-latest
+    outputs:
+      preview-url: ${{ steps.deploy.outputs.preview-url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Link Vercel project
+        run: |
+          mkdir -p .vercel
+          cat > .vercel/project.json <<JSON
+          {"projectId":"${VERCEL_PROJECT_ID}","orgId":"${VERCEL_ORG_ID}","projectName":"shorted-com-au"}
+          JSON
+
+      - name: Deploy preview
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          RELEASE_SHORTS_SERVICE_ENDPOINT: ${{ secrets.RELEASE_SHORTS_SERVICE_ENDPOINT }}
+          RELEASE_MARKET_DATA_API_URL: ${{ secrets.RELEASE_MARKET_DATA_API_URL }}
+          CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
+        run: |
+          set -euo pipefail
+          deploy_args=(
+            --yes
+            --target production
+            --force
+            --skip-domain
+            --scope "$VERCEL_SCOPE"
+            --archive=tgz
+            --token "$VERCEL_TOKEN"
+          )
+
+          add_env_pair() {
+            local name="$1"
+            local value="$2"
+            if [ -n "$value" ]; then
+              deploy_args+=(--env "${name}=${value}")
+              export "${name}=${value}"
+            fi
+          }
+
+          add_env_pair "SHORTS_SERVICE_ENDPOINT" "${RELEASE_SHORTS_SERVICE_ENDPOINT:-}"
+          add_env_pair "NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT" "${RELEASE_SHORTS_SERVICE_ENDPOINT:-}"
+          add_env_pair "NEXT_PUBLIC_SHORTS_API_URL" "${RELEASE_SHORTS_SERVICE_ENDPOINT:-}"
+          add_env_pair "MARKET_DATA_API_URL" "${RELEASE_MARKET_DATA_API_URL:-}"
+          add_env_pair "NEXT_PUBLIC_MARKET_DATA_API_URL" "${RELEASE_MARKET_DATA_API_URL:-}"
+          add_env_pair "SHORTED_CLOUDFLARE_TESTING_BYPASS_SECRET" "${CLOUDFLARE_TESTING_BYPASS_SECRET:-}"
+
+          npx -p vercel@54.10.2 vercel build \
+            --yes \
+            --target production \
+            --scope "$VERCEL_SCOPE" \
+            --token "$VERCEL_TOKEN"
+
+          npx -p vercel@54.10.2 vercel deploy --prebuilt "${deploy_args[@]}" | tee /tmp/vercel-preview.log
+          preview_url="$(grep -Eo 'https://[a-zA-Z0-9.-]+\.vercel\.app' /tmp/vercel-preview.log | tail -n 1)"
+          if [ -z "$preview_url" ]; then
+            echo "::error::Could not extract Vercel preview URL"
+            exit 1
+          fi
+          echo "preview-url=$preview_url" >> "$GITHUB_OUTPUT"
+          echo "Preview URL: $preview_url" >> "$GITHUB_STEP_SUMMARY"
+
+  smoke-preview:
+    name: Smoke Preview
+    runs-on: ubuntu-latest
+    needs: deploy-preview
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Install Playwright
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Run release smoke
+        working-directory: web
+        env:
+          BASE_URL: ${{ needs.deploy-preview.outputs.preview-url }}
+          RELEASE_API_BASE_URL: ${{ env.RELEASE_API_BASE_URL }}
+          CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
+        run: npx playwright test e2e/release-smoke.spec.ts --project=chromium
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-smoke-playwright-report
+          path: web/playwright-report
+          retention-days: 7
+
+  promote-production:
+    name: Promote Production
+    runs-on: ubuntu-latest
+    needs: [deploy-preview, smoke-preview]
+    if: github.event_name == 'workflow_dispatch' && inputs.promote == true
+    environment: prod
+    steps:
+      - name: Promote smoked deployment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PREVIEW_URL: ${{ needs.deploy-preview.outputs.preview-url }}
+        run: |
+          npx -p vercel@54.10.2 vercel promote "$PREVIEW_URL" \
+            --scope "$VERCEL_SCOPE" \
+            --yes \
+            --token "$VERCEL_TOKEN"
+
+      - name: Production release summary
+        run: |
+          echo "Promoted smoked deployment to production:" >> "$GITHUB_STEP_SUMMARY"
+          echo "${{ needs.deploy-preview.outputs.preview-url }}" >> "$GITHUB_STEP_SUMMARY"

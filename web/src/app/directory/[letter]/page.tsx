@@ -10,6 +10,11 @@ import {
 } from "~/@/components/seo/enhanced-structured-data";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { cn } from "~/@/lib/utils";
+import {
+  SHORTS_API_URL,
+  buildApiUrl,
+  serverFetchWithUserAgent,
+} from "~/app/actions/config";
 
 interface TopShortsTimeSeries {
   productCode?: string;
@@ -30,13 +35,13 @@ async function getAllStocksForDirectory(): Promise<
   Array<{ code: string; name: string; shortPercent: number }>
 > {
   try {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-      process.env.NEXT_PUBLIC_API_URL ??
-      "http://localhost:9091";
+    const baseUrl = SHORTS_API_URL;
 
-    const response = await fetch(
-      `${baseUrl}/shorts.v1alpha1.ShortedStocksService/GetTopShorts`,
+    const response = await serverFetchWithUserAgent(
+      buildApiUrl(
+        baseUrl,
+        "/shorts.v1alpha1.ShortedStocksService/GetTopShorts",
+      ),
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -1,0 +1,204 @@
+import { expect, test, type APIResponse, type Page } from "@playwright/test";
+
+test.setTimeout(90_000);
+
+const apiBaseUrl =
+  process.env.RELEASE_API_BASE_URL ||
+  process.env.API_BASE_URL ||
+  "https://api.shorted.com.au";
+
+const cloudflareBypassSecret =
+  process.env.CLOUDFLARE_TESTING_BYPASS_SECRET ||
+  process.env.SHORTED_CLOUDFLARE_TESTING_BYPASS_SECRET ||
+  process.env.TF_VAR_rate_limit_testing_bypass_secret ||
+  "";
+
+const releaseUserAgent =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
+  "AppleWebKit/537.36 (KHTML, like Gecko) " +
+  "Chrome/131.0.0.0 Safari/537.36 Shorted-E2E/1.0";
+
+const appApiPattern =
+  /\/(shorts\.v1alpha1\.|marketdata\.v1\.|chat\.v1\.|register\.v1\.|api\/)/;
+
+const forbiddenPageText = [
+  /Application error/i,
+  /Element type is invalid/i,
+  /Page changed from static to dynamic/i,
+  /cf-mitigated/i,
+  /Just a moment/i,
+  /No data available/i,
+  /NEXT_NOT_FOUND/i,
+  /Page Not Found/i,
+  /\b404\b/i,
+];
+
+const pageScenarios = [
+  {
+    path: "/shorts/LOT",
+    requiredText: [/LOTUS RESOURCES|LOT/i, /Short Interest|Shorted/i],
+  },
+  {
+    path: "/housing",
+    requiredText: [/Australian house prices|Housing/i, /Sydney|Melbourne|Brisbane|Perth|Adelaide|Hobart|Canberra|Darwin/i],
+  },
+  {
+    path: "/news",
+    requiredText: [/News|Shorted Newsroom/i, /MOST SHORTED|FEATURED INVESTIGATION|Market/i],
+  },
+  {
+    path: "/market/2024-08-21",
+    requiredText: [/ASX Short Positions|Market/i, /Top 50 Most Shorted Stocks|Stocks with Short Positions/i],
+  },
+  {
+    path: "/reports",
+    requiredText: [/Short Selling Reports/i, /Week 25, 2026/i],
+  },
+  {
+    path: "/reports/weekly/2026-W25",
+    requiredText: [/Top Shorted Stocks This Week/i, /Stocks Shorted/i, /Week 25, 2026/i],
+  },
+  {
+    path: "/reports/monthly/2026-06",
+    requiredText: [/Top Shorted Stocks This Month/i, /Stocks Shorted/i, /June 2026/i],
+  },
+  {
+    path: "/reports/yearly/2025",
+    requiredText: [/Year in Review/i, /ASX Short Selling/i, /Top Shorted Stocks/i],
+  },
+] as const;
+
+function releaseHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    "User-Agent": releaseUserAgent,
+  };
+  if (cloudflareBypassSecret) {
+    headers["X-Shorted-Testing-Bypass"] = cloudflareBypassSecret;
+  }
+  return headers;
+}
+
+function isIgnorableFailedRequest(url: string, errorText: string): boolean {
+  return (
+    errorText.includes("net::ERR_ABORTED") ||
+    url.includes("google-analytics.com") ||
+    url.includes("googletagmanager.com") ||
+    url.includes("cloudflareinsights.com") ||
+    url.includes("/_vercel/insights/")
+  );
+}
+
+function isIgnorableConsoleError(text: string): boolean {
+  return (
+    text.includes("cloudflareinsights.com/cdn-cgi/rum") ||
+    text === "Failed to load resource: net::ERR_FAILED"
+  );
+}
+
+async function assertNoCloudflareChallenge(response: APIResponse): Promise<string> {
+  expect(response.headers()["cf-mitigated"] ?? "").not.toBe("challenge");
+  const text = await response.text();
+  expect(text).not.toContain("Just a moment");
+  return text;
+}
+
+async function pageText(page: Page): Promise<string> {
+  await page.waitForTimeout(1_500);
+  return page.locator("body").innerText({ timeout: 20_000 });
+}
+
+for (const scenario of pageScenarios) {
+  test(`${scenario.path} renders real data without runtime/API regressions`, async ({ page }) => {
+    const apiFailures: string[] = [];
+    const failedRequests: string[] = [];
+    const consoleErrors: string[] = [];
+
+    await page.setExtraHTTPHeaders(releaseHeaders());
+
+    page.on("response", (response) => {
+      const url = response.url();
+      if (appApiPattern.test(url) && response.status() >= 400) {
+        apiFailures.push(`${response.status()} ${url}`);
+      }
+    });
+
+    page.on("requestfailed", (request) => {
+      const failure = request.failure()?.errorText || "";
+      const url = request.url();
+      if (!isIgnorableFailedRequest(url, failure)) {
+        failedRequests.push(`${request.method()} ${url} ${failure}`);
+      }
+    });
+
+    page.on("console", (message) => {
+      if (message.type() === "error" && !isIgnorableConsoleError(message.text())) {
+        consoleErrors.push(message.text());
+      }
+    });
+
+    const response = await page.goto(scenario.path, {
+      waitUntil: "domcontentloaded",
+      timeout: 45_000,
+    });
+
+    expect(response?.status(), `${scenario.path} HTTP status`).toBeLessThan(400);
+
+    const text = await pageText(page);
+    for (const required of scenario.requiredText) {
+      expect(text, `${scenario.path} missing required text ${required}`).toMatch(required);
+    }
+    for (const forbidden of forbiddenPageText) {
+      expect(text, `${scenario.path} contains forbidden text ${forbidden}`).not.toMatch(forbidden);
+    }
+
+    expect(apiFailures, `${scenario.path} had failing app API/RPC responses`).toEqual([]);
+    expect(failedRequests, `${scenario.path} had non-ignorable failed requests`).toEqual([]);
+    expect(consoleErrors, `${scenario.path} had console errors`).toEqual([]);
+  });
+}
+
+test("Cloudflare API edge returns data without bot challenges", async ({ request }) => {
+  const health = await request.get(`${apiBaseUrl}/health`, {
+    headers: releaseHeaders(),
+  });
+  expect(health.status()).toBe(200);
+  await assertNoCloudflareChallenge(health);
+
+  const stockData = await request.post(
+    `${apiBaseUrl}/shorts.v1alpha1.ShortedStocksService/GetStockData`,
+    {
+      headers: {
+        ...releaseHeaders(),
+        "Content-Type": "application/json",
+      },
+      data: { productCode: "BHP" },
+    },
+  );
+  expect(stockData.status()).toBe(200);
+  const stockText = await assertNoCloudflareChallenge(stockData);
+  const stockJson = JSON.parse(stockText) as {
+    productCode?: string;
+    points?: unknown[];
+  };
+  expect(stockJson.productCode).toBe("BHP");
+  expect(Array.isArray(stockJson.points)).toBe(true);
+  expect(stockJson.points?.length ?? 0).toBeGreaterThan(0);
+
+  const topShorts = await request.post(
+    `${apiBaseUrl}/shorts.v1alpha1.ShortedStocksService/GetTopShorts`,
+    {
+      headers: {
+        ...releaseHeaders(),
+        "Content-Type": "application/json",
+      },
+      data: { limit: 7 },
+    },
+  );
+  expect(topShorts.status()).toBe(200);
+  const topText = await assertNoCloudflareChallenge(topShorts);
+  const topJson = JSON.parse(topText) as {
+    timeSeries?: unknown[];
+  };
+  expect(Array.isArray(topJson.timeSeries)).toBe(true);
+  expect(topJson.timeSeries?.length ?? 0).toBeGreaterThan(0);
+});

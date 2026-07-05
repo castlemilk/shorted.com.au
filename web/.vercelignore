@@ -1,0 +1,27 @@
+# Vercel builds from this `web/` root. Keep local/generated artifacts and
+# large source-data helpers out of CLI uploads.
+
+node_modules/
+.next/
+.turbo/
+coverage/
+playwright-report/
+test-results/
+.vercel/output/
+.cache/
+tmp/
+temp/
+tsconfig.tsbuildinfo
+lighthouse-report.json
+home-page.png
+dashboard-page.png
+.env*
+
+# Local generation inputs; production serves the generated files from public/.
+scripts/geo/
+scripts/housing-icons/
+
+# Local-only diagnostics and scratch scripts.
+.playwright*/
+scripts/dbg-*.mjs
+scripts/verify-*.mjs

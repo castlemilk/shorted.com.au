@@ -171,6 +171,25 @@ variable "cache_purge_secret" {
   default     = ""
 }
 
+variable "rate_limit_testing_bypass_secret" {
+  description = "Optional shared secret for trusted E2E/load-test traffic to bypass Cloudflare API rate limits. Leave empty to disable."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "rate_limit_testing_bypass_header_name" {
+  description = "Lowercase HTTP header carrying the Cloudflare rate-limit testing bypass secret."
+  type        = string
+  default     = "x-shorted-testing-bypass"
+}
+
+variable "rate_limit_testing_bypass_user_agent" {
+  description = "User-agent substring required with the bypass secret for trusted E2E/load-test traffic."
+  type        = string
+  default     = "Shorted-E2E"
+}
+
 variable "alert_recipient_email" {
   description = "Email for Cloud Run Job failure + ERROR-log/timeout alerts. Empty disables all alerting (the job_monitoring module becomes a no-op)."
   type        = string

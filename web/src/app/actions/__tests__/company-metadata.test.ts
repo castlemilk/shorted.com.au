@@ -19,6 +19,10 @@ jest.mock("@connectrpc/connect-web", () => ({
   createConnectTransport: jest.fn(() => ({})),
 }));
 
+jest.mock("next/cache", () => ({
+  unstable_cache: jest.fn((loader: () => Promise<unknown>) => loader),
+}));
+
 jest.mock("@connectrpc/connect", () => {
   const mockClient = {
     getStockDetails: jest.fn(),

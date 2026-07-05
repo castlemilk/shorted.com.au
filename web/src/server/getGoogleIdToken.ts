@@ -10,6 +10,7 @@
  */
 
 import { GoogleAuth, type IdTokenClient } from "google-auth-library";
+import { getServerShortsApiUrl } from "~/app/actions/config";
 
 // Cache the auth client to avoid re-initialization
 let authClient: IdTokenClient | null = null;
@@ -22,12 +23,9 @@ let authClientPromise: Promise<IdTokenClient> | null = null;
 function getTargetAudience(): string {
   // Use the shorts service URL as the audience
   // Cloud Run services expect the service URL as the audience
-  return (
-    process.env.NEXT_PUBLIC_API_URL ??
-    process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-    process.env.SHORTS_SERVICE_URL ??
-    "https://shorts-service-pr-44-ak2zgjnhlq-km.a.run.app"
-  );
+  const serviceUrl = process.env.SHORTS_SERVICE_URL?.trim();
+  if (serviceUrl) return serviceUrl;
+  return getServerShortsApiUrl();
 }
 
 /**

@@ -19,6 +19,7 @@ import {
 } from "~/@/components/ui/environment-banner";
 import { WebVitalsReporter } from "~/@/components/web-vitals-reporter";
 import { GoogleAnalytics } from "@next/third-parties/google";
+import { CloudflareWebAnalytics } from "~/@/components/cloudflare-web-analytics";
 
 // Client-only: uses Connect-RPC streaming which breaks SSR
 const ChatSidebar = dynamic(
@@ -248,9 +249,10 @@ export default function RootLayout({
             </div>
           </ThemeProvider>
         </NextAuthProvider>
-      {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
-        <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
-      )}
+        {process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+          <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
+        )}
+        <CloudflareWebAnalytics />
       </body>
     </html>
   );

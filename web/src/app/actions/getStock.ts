@@ -3,18 +3,40 @@ import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { type Stock } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { cache } from "react";
-import { SHORTS_API_URL } from "./config";
+import { unstable_cache } from "next/cache";
+import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { withRetryAndNotFound, withRetryAndThrowNotFound } from "./withRetry";
+import {
+  STOCK_PAGE_CACHE_SECONDS,
+  normalizeStockPageCacheCode,
+  stockPageCacheTags,
+  toNextDataCacheValue,
+} from "./stockPageCache";
+
+async function fetchStock(productCode: string): Promise<Stock> {
+  const transport = createConnectTransport({
+    fetch: serverFetchWithUserAgent,
+    baseUrl: SHORTS_API_URL,
+  });
+  const client = createClient(ShortedStocksService, transport);
+  return client.getStock({ productCode });
+}
+
+function getCachedStock(productCode: string): Promise<Stock> {
+  const cacheCode = normalizeStockPageCacheCode(productCode);
+  return unstable_cache(
+    async () => toNextDataCacheValue(await fetchStock(cacheCode)) as Stock,
+    ["stock", cacheCode],
+    {
+      tags: stockPageCacheTags("stock", cacheCode),
+      revalidate: STOCK_PAGE_CACHE_SECONDS,
+    },
+  )();
+}
 
 export const getStock = cache(
   withRetryAndNotFound(async (productCode: string): Promise<Stock> => {
-    const transport = createConnectTransport({
-      fetch,
-      baseUrl: SHORTS_API_URL,
-    });
-    const client = createClient(ShortedStocksService, transport);
-    const response = await client.getStock({ productCode });
-    return response;
+    return getCachedStock(productCode);
   }),
 );
 
@@ -25,12 +47,6 @@ export const getStock = cache(
  */
 export const getStockOrNotFound = cache(
   withRetryAndThrowNotFound(async (productCode: string): Promise<Stock> => {
-    const transport = createConnectTransport({
-      fetch,
-      baseUrl: SHORTS_API_URL,
-    });
-    const client = createClient(ShortedStocksService, transport);
-    const response = await client.getStock({ productCode });
-    return response;
+    return getCachedStock(productCode);
   }),
 );

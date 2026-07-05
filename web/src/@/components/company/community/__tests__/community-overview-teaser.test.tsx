@@ -11,6 +11,20 @@ jest.mock("next/link", () => ({
 }));
 
 describe("CommunityOverviewTeaser", () => {
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ summary: null }),
+    });
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    jest.clearAllMocks();
+  });
+
   it("renders a populated teaser with an open community CTA", () => {
     render(
       <CommunityOverviewTeaser
@@ -54,5 +68,31 @@ describe("CommunityOverviewTeaser", () => {
       screen.getByText(/be the first to discuss bhp/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/start the research thread/i)).toBeInTheDocument();
+  });
+
+  it("hydrates summary data from the community API", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        summary: {
+          headline: "Fresh community read",
+          subheadline: "2 threads and 4 pulse updates live now",
+          ctaLabel: "Join the discussion",
+          threadCount: 2,
+          pulseCount: 4,
+          latestActivityAt: "2026-07-05T05:00:00.000Z",
+        },
+      }),
+    });
+
+    render(<CommunityOverviewTeaser stockCode="LOT" />);
+
+    expect(await screen.findByText("Fresh community read")).toBeInTheDocument();
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/community/LOT/summary",
+      expect.objectContaining({
+        headers: { Accept: "application/json" },
+      }),
+    );
   });
 });

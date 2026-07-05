@@ -127,13 +127,22 @@ function ContributionBar({ contribution }: { contribution: number }) {
   );
 }
 
+function isStockVerdictEnabled() {
+  return process.env.NEXT_PUBLIC_STOCK_VERDICT_ENABLED === "1";
+}
+
 export function StockVerdict({ stockCode }: StockVerdictProps) {
+  const enabled = isStockVerdictEnabled();
+
   const { data, isLoading, isError } = useQuery({
     queryKey: ["stock-verdict", stockCode],
     queryFn: () => getStockVerdictClient(stockCode),
     staleTime: 5 * 60 * 1000,
     retry: false,
+    enabled,
   });
+
+  if (!enabled) return null;
 
   if (isLoading) {
     return (

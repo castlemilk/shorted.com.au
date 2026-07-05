@@ -580,7 +580,7 @@ GitHub Actions workflow at `.github/workflows/twitter-bot.yml` exists but is **m
 
 ### Gotchas
 
-- **WAF rate limit**: bursting >20 requests in a minute to `api.shorted.com.au` triggers Cloudflare's bot protection — returns HTML, not JSON, breaks the script. Production cadence (~5/day) doesn't hit this; local dev does easily.
+- **Cloudflare API rate limit**: rapid bursts to `api.shorted.com.au` trigger the Cloudflare edge `http_ratelimit` rule before origin. For trusted E2E/load tests, use the Terraform-managed bypass: set `TF_VAR_rate_limit_testing_bypass_secret`, apply `terraform/environments/prod`, then send both `User-Agent: Shorted-E2E/1.0` and `X-Shorted-Testing-Bypass: <secret>`. Never make this UA-only; the rule must require both UA and secret header.
 - **Refresh token rotation**: every X API call mints a new token. Local cron handles this automatically (writes to `.env`). CI needs a PAT-based persistence step (documented in OPERATIONS.md §2.2).
 - **Edge worker hot-cache bug** (fixed in PR #139): if the bot returns the same stock's data for every productCode, the Cloudflare worker's hot cache key may have regressed — verify `buildHotCacheKey` in `services/edge-worker/worker.js` is hashing the POST body.
 
@@ -771,6 +771,14 @@ cd web && rm -rf node_modules && npm install
 
 ### Production 500 errors after deployment?
 
+Use the project troubleshooting skill first:
+
+```text
+Use $shorted-prod-troubleshooting
+```
+
+This skill is installed at `/Users/benebsworth/.codex/skills/shorted-prod-troubleshooting/SKILL.md` and contains the current checklist for release smoke, Vercel logs, Cloudflare Worker/wrangler diagnostics, API edge checks, RUM/metrics, database/data freshness, and closeout evidence. Use it before adding fallbacks or making release/promote decisions.
+
 If the site returns 500 on all routes after a deployment:
 
 1. **Check Vercel function logs**:
@@ -894,6 +902,39 @@ UPSTASH_REDIS_REST_URL=https://amazed-cow-5075.upstash.io
 UPSTASH_REDIS_REST_TOKEN=<token>
 RATE_LIMIT_ENABLED=true
 ```
+
+### Cloudflare Edge Test Bypass
+
+The Cloudflare edge rate limit is separate from the app/Upstash limits. It can be bypassed for trusted E2E/load testing, but only with both a user-agent marker and a secret header.
+
+Setup:
+```bash
+cd terraform/environments/prod
+export TF_VAR_rate_limit_testing_bypass_secret="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
+terraform plan
+terraform apply
+```
+
+Use:
+```bash
+curl \
+  -H "User-Agent: Shorted-E2E/1.0" \
+  -H "X-Shorted-Testing-Bypass: $TF_VAR_rate_limit_testing_bypass_secret" \
+  https://api.shorted.com.au/health
+```
+
+Defaults live in `terraform/modules/cloudflare-edge/variables.tf`:
+- `rate_limit_testing_bypass_secret = ""` disables the bypass.
+- `rate_limit_testing_bypass_header_name = "x-shorted-testing-bypass"`.
+- `rate_limit_testing_bypass_user_agent = "Shorted-E2E"`.
+
+The secret is embedded in the Cloudflare rule/Terraform state. Keep it out of tracked tfvars and rotate it if it leaks. Regression coverage: `node --test terraform/modules/cloudflare-edge/rate-limit-expression.test.mjs`.
+
+### Cost Attribution Observability
+
+Cloudflare RUM is explicit in the app when `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN` is set; the beacon component is `web/src/@/components/cloudflare-web-analytics.tsx`. Cost attribution joins Cloudflare RUM page views with Worker `edge_request`, Firestore `firestore_operation`, product funnel `product_event`, and backend AI `cost_event` JSON logs. Query examples and field contracts live in `docs/observability/cost-attribution.md`.
+
+For production incident triage, use `$shorted-prod-troubleshooting` to combine RUM/analytics with Vercel logs, Worker versions, release-smoke results, API edge checks, and database verification.
 
 ### Key Files
 

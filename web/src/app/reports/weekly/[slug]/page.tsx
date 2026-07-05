@@ -25,37 +25,20 @@ import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { cn } from "~/@/lib/utils";
 import { MoversTable } from "~/@/components/reports/movers-table";
 import { WeekNavigation } from "~/@/components/reports/week-navigation";
-import {
-  CitationRenderer,
-  CitationFootnotes,
-} from "~/@/components/reports/citation-renderer";
+import { CitationFootnotes } from "~/@/components/reports/citation-renderer";
 import { LinkifiedNarrative } from "~/@/components/reports/linkified-narrative";
 import {
   getWeeklyReportData,
   getEnhancedWeeklyReportData,
-  getAvailableWeekSlugs,
   getStockFinancialHighlights,
+  type StockFinancialHighlight,
 } from "~/app/actions/reports/getReportData";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-export async function generateStaticParams() {
-  // Skip static generation during local builds (pre-commit hook sets this)
-  // Pages still work on-demand via dynamicParams (default true)
-  if (process.env.SKIP_STATIC_GENERATION === "1") {
-    return [];
-  }
-  try {
-    // getAvailableWeekSlugs already excludes the current incomplete week
-    const slugs = await getAvailableWeekSlugs();
-    // Pre-generate all available weeks at build time — historical reports are immutable
-    return slugs.map((slug) => ({ slug }));
-  } catch {
-    return [];
-  }
-}
+export const dynamic = "force-dynamic";
 
 function formatWeekTitle(slug: string): string {
   const match = slug.match(/^(\d{4})-W(\d{2})$/);
@@ -155,8 +138,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export const revalidate = 86400; // Historical weeks are immutable
-
 export default async function WeeklyReportPage({ params }: PageProps) {
   const { slug } = await params;
 
@@ -183,7 +164,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
     enhancedPromise,
     topCodes.length > 0
       ? getStockFinancialHighlights(topCodes)
-      : Promise.resolve({} as Record<string, import("~/app/actions/reports/getReportData").StockFinancialHighlight[]>),
+      : Promise.resolve({} as Record<string, StockFinancialHighlight[]>),
   ]);
 
   const weekTitle = formatWeekTitle(slug);

@@ -10,7 +10,7 @@ import {
   Breadcrumbs,
   BreadcrumbStructuredData,
 } from "~/@/components/seo/breadcrumbs";
-import { SHORTS_API_URL } from "~/app/actions/config";
+import { SHORTS_API_URL, serverFetchWithUserAgent } from "~/app/actions/config";
 
 export const revalidate = 300;
 
@@ -52,7 +52,7 @@ async function searchStocks(query: string): Promise<SearchResultStock[]> {
   if (!query) return [];
   try {
     const transport = createConnectTransport({
-      fetch,
+      fetch: serverFetchWithUserAgent,
       baseUrl: SHORTS_API_URL,
     });
     const client = createClient(ShortedStocksService, transport);

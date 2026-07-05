@@ -38,9 +38,12 @@ const RATE_LIMIT_TIERS: { api: RateLimitTier[]; browser: RateLimitTier[] } = {
     { name: "Paid", perMinute: "Unlimited", perMonth: "10,000" },
   ],
   browser: [
-    { name: "Anonymous", perMinute: "60", perMonth: "5,000" },
-    { name: "Free", perMinute: "120", perMonth: "10,000" },
-    { name: "Paid", perMinute: "Unlimited", perMonth: "Unlimited" },
+    {
+      name: "Anonymous",
+      perMinute: "600 refill / 3,000 burst",
+      perMonth: "Fair use",
+    },
+    { name: "Signed in", perMinute: "3,000", perMonth: "Fair use" },
   ],
 };
 
@@ -70,7 +73,7 @@ export function ApiKeyManager() {
       setIsRevealed(true);
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to generate token."
+        err instanceof Error ? err.message : "Failed to generate token.",
       );
     } finally {
       setIsGenerating(false);
@@ -104,7 +107,13 @@ export function ApiKeyManager() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <Image src="/assets/api-access-small.png" alt="" width={40} height={40} className="h-10 w-10" />
+            <Image
+              src="/assets/api-access-small.png"
+              alt=""
+              width={40}
+              height={40}
+              className="h-10 w-10"
+            />
             <div>
               <CardTitle className="text-xl">API Token</CardTitle>
               <CardDescription>
@@ -211,7 +220,13 @@ export function ApiKeyManager() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
-            <Image src="/assets/premium-icon-small.png" alt="" width={40} height={40} className="h-10 w-10" />
+            <Image
+              src="/assets/premium-icon-small.png"
+              alt=""
+              width={40}
+              height={40}
+              className="h-10 w-10"
+            />
             <div>
               <CardTitle className="text-xl">Rate Limits</CardTitle>
               <CardDescription>
@@ -304,8 +319,8 @@ export function ApiKeyManager() {
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Rate limit headers are included in all API responses. When limits are
-            exceeded, requests return HTTP 429 with a Retry-After header.
+            Rate limit headers are included in all API responses. When limits
+            are exceeded, requests return HTTP 429 with a Retry-After header.
           </p>
         </CardContent>
       </Card>

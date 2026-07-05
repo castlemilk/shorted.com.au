@@ -40,6 +40,13 @@ resource "google_secret_manager_secret_iam_member" "gemini_api_key" {
   project   = var.project_id
 }
 
+resource "google_secret_manager_secret_iam_member" "otel_headers" {
+  secret_id = "OTEL_EXPORTER_OTLP_HEADERS"
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.chat_service.email}"
+  project   = var.project_id
+}
+
 # Cloud Run Service
 resource "google_cloud_run_v2_service" "chat_service" {
   name     = local.service_name
@@ -49,7 +56,8 @@ resource "google_cloud_run_v2_service" "chat_service" {
   labels = local.labels
 
   template {
-    service_account = google_service_account.chat_service.email
+    service_account                  = google_service_account.chat_service.email
+    max_instance_request_concurrency = var.max_instance_request_concurrency
 
     containers {
       image = var.image_url
@@ -104,6 +112,46 @@ resource "google_cloud_run_v2_service" "chat_service" {
         value = var.shorts_api_url
       }
 
+      env {
+        name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
+        value = var.otel_endpoint
+      }
+
+      env {
+        name  = "OTEL_EXPORTER_OTLP_PROTOCOL"
+        value = "http/protobuf"
+      }
+
+      env {
+        name = "OTEL_EXPORTER_OTLP_HEADERS"
+        value_source {
+          secret_key_ref {
+            secret  = "OTEL_EXPORTER_OTLP_HEADERS"
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name  = "GEMINI_MAX_OUTPUT_TOKENS"
+        value = tostring(var.gemini_max_output_tokens)
+      }
+
+      env {
+        name  = "CHAT_MAX_INPUT_CHARS"
+        value = tostring(var.chat_max_input_chars)
+      }
+
+      env {
+        name  = "CHAT_HISTORY_LIMIT"
+        value = tostring(var.chat_history_limit)
+      }
+
+      env {
+        name  = "CHAT_MAX_MESSAGES_PER_CONVERSATION"
+        value = tostring(var.chat_max_messages_per_conversation)
+      }
+
       resources {
         limits = {
           cpu    = "1"
@@ -151,7 +199,8 @@ resource "google_cloud_run_v2_service" "chat_service" {
 
   depends_on = [
     google_secret_manager_secret_iam_member.postgres_password,
-    google_secret_manager_secret_iam_member.gemini_api_key
+    google_secret_manager_secret_iam_member.gemini_api_key,
+    google_secret_manager_secret_iam_member.otel_headers
   ]
 }
 

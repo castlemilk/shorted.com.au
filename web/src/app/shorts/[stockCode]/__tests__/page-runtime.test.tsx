@@ -1,5 +1,7 @@
 /// <reference types="jest" />
 import "@testing-library/jest-dom";
+import fs from "node:fs";
+import path from "node:path";
 
 // Mock Connect RPC before any imports
 jest.mock("@connectrpc/connect", () => ({
@@ -78,6 +80,35 @@ describe("Stock Detail Page Runtime Imports", () => {
     expect(typeof PageModule.default).toBe("function");
   });
 
+  it("renders stock pages through ISR so warm stock pages serve from cache", async () => {
+    const PageModule = await import("../page");
+
+    expect(PageModule.revalidate).toBe(86400);
+    expect(PageModule.dynamic).toBeUndefined();
+    expect(PageModule.fetchCache).toBeUndefined();
+    expect(typeof PageModule.generateStaticParams).toBe("function");
+  });
+
+  it("keeps volatile community data out of the stock page HTML cache path", () => {
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "../page.tsx"),
+      "utf8",
+    );
+
+    expect(source).not.toContain("community-summary-cache");
+    expect(source).not.toContain("getCachedStockCommunitySummary");
+  });
+
+  it("does not let stock-page child fetches lower the 24h ISR window", () => {
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "../short-interest-history.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("STOCK_PAGE_CACHE_SECONDS");
+    expect(source).not.toContain("revalidate: 3600");
+  });
+
   it("should import child components used by EnrichedCompanySection", async () => {
     const [
       CompanyOverviewModule,
@@ -99,4 +130,3 @@ describe("Stock Detail Page Runtime Imports", () => {
     expect(typeof FinancialReportsModule.FinancialReports).toBe("function");
   });
 });
-

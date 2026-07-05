@@ -32,6 +32,42 @@ variable "max_instances" {
   default     = 5
 }
 
+variable "max_instance_request_concurrency" {
+  description = "Maximum concurrent requests per chat-service instance"
+  type        = number
+  default     = 8
+}
+
+variable "otel_endpoint" {
+  description = "OpenTelemetry OTLP endpoint for traces and metrics"
+  type        = string
+  default     = "https://otlp-gateway-prod-au-southeast-1.grafana.net/otlp"
+}
+
+variable "gemini_max_output_tokens" {
+  description = "Maximum output tokens per Gemini chat model call"
+  type        = number
+  default     = 1024
+}
+
+variable "chat_max_input_chars" {
+  description = "Maximum user message length accepted by chat"
+  type        = number
+  default     = 2000
+}
+
+variable "chat_history_limit" {
+  description = "Maximum recent chat messages included in the Gemini prompt"
+  type        = number
+  default     = 20
+}
+
+variable "chat_max_messages_per_conversation" {
+  description = "Maximum retained messages per chat conversation"
+  type        = number
+  default     = 100
+}
+
 variable "postgres_address" {
   description = "PostgreSQL server address (transaction pooler port 6543)"
   type        = string

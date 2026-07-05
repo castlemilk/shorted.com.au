@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/cors"
 
@@ -26,6 +27,20 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	otelShutdown, otelErr := shortedotel.InitProvider(ctx, "chat-service")
+	if otelErr != nil {
+		log.Printf("WARNING: Failed to initialize OpenTelemetry: %v", otelErr)
+	}
+	if otelShutdown != nil {
+		defer func() {
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer shutdownCancel()
+			if err := otelShutdown(shutdownCtx); err != nil {
+				log.Printf("Error shutting down OpenTelemetry: %v", err)
+			}
+		}()
+	}
+
 	// Connect to database
 	var store *ConversationStore
 	if cfg.DatabaseURL != "" {
@@ -33,7 +48,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to parse database URL: %v", err)
 		}
-		poolCfg.MaxConns = 5 // Budget: shorts(25) + chat(5) + news(3) + enrichment(3) = 36 < 60
+		poolCfg.MaxConns = 5                        // Budget: shorts(25) + chat(5) + news(3) + enrichment(3) = 36 < 60
 		poolCfg.ConnConfig.DefaultQueryExecMode = 4 // pgx.QueryExecModeSimpleProtocol for Supabase
 
 		pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
@@ -48,6 +63,7 @@ func main() {
 		log.Println("Connected to database")
 
 		store = NewConversationStore(pool)
+		shortedotel.RegisterDBPoolMetrics(pool)
 	} else {
 		log.Println("WARNING: No database configured, chat history will not be persisted")
 	}
@@ -58,24 +74,24 @@ func main() {
 	// Create LLM client
 	var llmClient *LLMClient
 	if cfg.GeminiAPIKey != "" {
-		llmClient, err = NewLLMClient(ctx, cfg.GeminiAPIKey, cfg.GeminiModel, toolExecutor)
+		llmClient, err = NewLLMClient(ctx, cfg.GeminiAPIKey, cfg.GeminiModel, cfg.GeminiMaxOutputTokens, toolExecutor)
 		if err != nil {
 			log.Fatalf("Failed to create LLM client: %v", err)
 		}
 		defer llmClient.Close()
-		log.Printf("LLM client initialized (model: %s)", cfg.GeminiModel)
+		log.Printf("LLM client initialized (model: %s, max_output_tokens: %d)", cfg.GeminiModel, cfg.GeminiMaxOutputTokens)
 	} else {
 		log.Println("WARNING: No GEMINI_API_KEY configured, chat will not work")
 	}
 
 	// Create handler
-	handler := NewChatServiceHandler(store, llmClient)
+	handler := NewChatServiceHandler(store, llmClient, cfg)
 
 	// Create mux with Connect-RPC handler
 	mux := http.NewServeMux()
 
 	// Register the chat service
-	path, h := chatv1connect.NewChatServiceHandler(handler, connect.WithInterceptors())
+	path, h := chatv1connect.NewChatServiceHandler(handler, connect.WithInterceptors(shortedotel.OTelInterceptor()))
 	mux.Handle(path, h)
 
 	// Health check

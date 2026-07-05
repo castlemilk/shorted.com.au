@@ -3,7 +3,7 @@ import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { type IndustryTreeMap } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { type ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { SHORTS_API_URL } from "./config";
+import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { formatPeriodForAPI } from "~/lib/period-utils";
 import { cache } from "react";
 import { getOrSetCached, CACHE_KEYS, HOMEPAGE_TTL } from "~/@/lib/kv-cache";
@@ -29,6 +29,7 @@ export const getIndustryTreeMap = cache(
         cacheKey,
         async () => {
           const transport = createConnectTransport({
+            fetch: serverFetchWithUserAgent,
             baseUrl: SHORTS_API_URL,
           });
           const client = createClient(ShortedStocksService, transport);

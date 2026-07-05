@@ -1,9 +1,10 @@
 import { NextRequest } from "next/server";
 import { GET } from "../route";
-import { getStockCommunitySummary } from "~/@/lib/community/firestore-community";
+import { getCachedStockCommunitySummary } from "~/@/lib/community/community-summary-cache";
 
-jest.mock("~/@/lib/community/firestore-community", () => ({
-  getStockCommunitySummary: jest.fn(),
+jest.mock("~/@/lib/community/community-summary-cache", () => ({
+  COMMUNITY_SUMMARY_CACHE_SECONDS: 120,
+  getCachedStockCommunitySummary: jest.fn(),
 }));
 
 describe("/api/community/[stockCode]/summary", () => {
@@ -12,7 +13,7 @@ describe("/api/community/[stockCode]/summary", () => {
   });
 
   it("returns the public stock community summary payload", async () => {
-    (getStockCommunitySummary as jest.Mock).mockResolvedValue({
+    (getCachedStockCommunitySummary as jest.Mock).mockResolvedValue({
       headline: "Most active thread right now",
       subheadline: "6 threads and 14 pulse updates live now",
       ctaLabel: "Open community",

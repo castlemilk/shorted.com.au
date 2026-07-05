@@ -3,6 +3,7 @@
 import { auth } from "@/auth";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
+import { withFirestoreCost } from "@/lib/firestore-cost";
 
 // Types
 export interface PortfolioHolding {
@@ -22,6 +23,54 @@ export interface WatchlistItem {
   };
 }
 
+function trackPortfolioRead<T>(operation: () => Promise<T>) {
+  return withFirestoreCost(
+    {
+      feature: "portfolio",
+      collection: "portfolios",
+      operation: "doc_get",
+      documentsRead: 1,
+    },
+    operation,
+  );
+}
+
+function trackPortfolioWrite<T>(operation: () => Promise<T>) {
+  return withFirestoreCost(
+    {
+      feature: "portfolio",
+      collection: "portfolios",
+      operation: "set",
+      documentsWritten: 1,
+    },
+    operation,
+  );
+}
+
+function trackWatchlistRead<T>(operation: () => Promise<T>) {
+  return withFirestoreCost(
+    {
+      feature: "watchlist",
+      collection: "watchlists",
+      operation: "doc_get",
+      documentsRead: 1,
+    },
+    operation,
+  );
+}
+
+function trackWatchlistWrite<T>(operation: () => Promise<T>) {
+  return withFirestoreCost(
+    {
+      feature: "watchlist",
+      collection: "watchlists",
+      operation: "set",
+      documentsWritten: 1,
+    },
+    operation,
+  );
+}
+
 // Portfolio Management
 export async function getPortfolio() {
   const session = await auth();
@@ -34,23 +83,23 @@ export async function getPortfolio() {
   
   try {
     // First try with current user ID
-    const doc = await adminDb
+    const doc = await trackPortfolioRead(() => adminDb
       .collection("portfolios")
       .doc(userId)
-      .get();
+      .get());
 
     // If not found and we have an email, try looking up by email as fallback
     // This handles cases where data was stored under email instead of OAuth ID
     if (!doc.exists && userEmail && userId !== userEmail) {
-      const emailDoc = await adminDb
+      const emailDoc = await trackPortfolioRead(() => adminDb
         .collection("portfolios")
         .doc(userEmail)
-        .get();
+        .get());
       
       if (emailDoc.exists) {
         // Migrate the data to the correct userId
         const portfolioData = emailDoc.data();
-        await adminDb
+        await trackPortfolioWrite(() => adminDb
           .collection("portfolios")
           .doc(userId)
           .set({
@@ -58,7 +107,7 @@ export async function getPortfolio() {
             userId: userId,
             migratedFrom: userEmail,
             migratedAt: FieldValue.serverTimestamp(),
-          });
+          }));
         
         return {
           holdings: (portfolioData?.holdings as PortfolioHolding[]) ?? [],
@@ -91,14 +140,14 @@ export async function savePortfolio(holdings: PortfolioHolding[]) {
   const userId = session.user.id;
   
   try {
-    await adminDb
+    await trackPortfolioWrite(() => adminDb
       .collection("portfolios")
       .doc(userId)
       .set({
         holdings,
         userId,
         updatedAt: FieldValue.serverTimestamp(),
-      });
+      }));
 
     return { success: true };
   } catch (error) {
@@ -114,10 +163,10 @@ export async function addHolding(holding: PortfolioHolding) {
   }
 
   const userId = session.user.id;
-  
+
   try {
     const docRef = adminDb.collection("portfolios").doc(userId);
-    const doc = await docRef.get();
+    const doc = await trackPortfolioRead(() => docRef.get());
     
     const currentHoldings = doc.exists ? ((doc.data()?.holdings as PortfolioHolding[]) ?? []) : [];
     
@@ -143,11 +192,11 @@ export async function addHolding(holding: PortfolioHolding) {
       currentHoldings.push(holding);
     }
     
-    await docRef.set({
+    await trackPortfolioWrite(() => docRef.set({
       holdings: currentHoldings,
       userId,
       updatedAt: FieldValue.serverTimestamp(),
-    });
+    }));
 
     return { success: true };
   } catch (error) {
@@ -163,10 +212,10 @@ export async function removeHolding(symbol: string) {
   }
 
   const userId = session.user.id;
-  
+
   try {
     const docRef = adminDb.collection("portfolios").doc(userId);
-    const doc = await docRef.get();
+    const doc = await trackPortfolioRead(() => docRef.get());
     
     if (!doc.exists) {
       throw new Error("Portfolio not found");
@@ -177,11 +226,11 @@ export async function removeHolding(symbol: string) {
       (h: PortfolioHolding) => h.symbol !== symbol
     );
     
-    await docRef.set({
+    await trackPortfolioWrite(() => docRef.set({
       holdings: updatedHoldings,
       userId,
       updatedAt: FieldValue.serverTimestamp(),
-    });
+    }));
 
     return { success: true };
   } catch (error) {
@@ -202,22 +251,22 @@ export async function getWatchlist() {
   
   try {
     // First try with current user ID
-    const doc = await adminDb
+    const doc = await trackWatchlistRead(() => adminDb
       .collection("watchlists")
       .doc(userId)
-      .get();
+      .get());
 
     // If not found and we have an email, try looking up by email as fallback
     if (!doc.exists && userEmail && userId !== userEmail) {
-      const emailDoc = await adminDb
+      const emailDoc = await trackWatchlistRead(() => adminDb
         .collection("watchlists")
         .doc(userEmail)
-        .get();
+        .get());
       
       if (emailDoc.exists) {
         // Migrate the data to the correct userId
         const watchlistData = emailDoc.data();
-        await adminDb
+        await trackWatchlistWrite(() => adminDb
           .collection("watchlists")
           .doc(userId)
           .set({
@@ -225,7 +274,7 @@ export async function getWatchlist() {
             userId: userId,
             migratedFrom: userEmail,
             migratedAt: FieldValue.serverTimestamp(),
-          });
+          }));
         
         return {
           items: (watchlistData?.items as WatchlistItem[]) ?? [],
@@ -256,10 +305,10 @@ export async function addToWatchlist(symbol: string) {
   }
 
   const userId = session.user.id;
-  
+
   try {
     const docRef = adminDb.collection("watchlists").doc(userId);
-    const doc = await docRef.get();
+    const doc = await trackWatchlistRead(() => docRef.get());
     
     const currentItems = doc.exists ? ((doc.data()?.items as WatchlistItem[]) ?? []) : [];
     
@@ -273,11 +322,11 @@ export async function addToWatchlist(symbol: string) {
       addedAt: new Date(),
     });
     
-    await docRef.set({
+    await trackWatchlistWrite(() => docRef.set({
       items: currentItems,
       userId,
       updatedAt: FieldValue.serverTimestamp(),
-    });
+    }));
 
     return { success: true };
   } catch (error) {
@@ -293,10 +342,10 @@ export async function removeFromWatchlist(symbol: string) {
   }
 
   const userId = session.user.id;
-  
+
   try {
     const docRef = adminDb.collection("watchlists").doc(userId);
-    const doc = await docRef.get();
+    const doc = await trackWatchlistRead(() => docRef.get());
     
     if (!doc.exists) {
       throw new Error("Watchlist not found");
@@ -307,11 +356,11 @@ export async function removeFromWatchlist(symbol: string) {
       (item: WatchlistItem) => item.symbol !== symbol
     );
     
-    await docRef.set({
+    await trackWatchlistWrite(() => docRef.set({
       items: updatedItems,
       userId,
       updatedAt: FieldValue.serverTimestamp(),
-    });
+    }));
 
     return { success: true };
   } catch (error) {

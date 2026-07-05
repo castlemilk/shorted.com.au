@@ -1,17 +1,16 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { getMarketDataApiUrl } from "~/app/actions/config";
-import { rateLimit } from "~/@/lib/rate-limit";
+import {
+  buildApiUrl,
+  getServerMarketDataApiUrl,
+  serverFetchWithUserAgent,
+} from "~/app/actions/config";
+import { BROWSER_READ_RATE_LIMIT, rateLimit } from "~/@/lib/rate-limit";
 
-const MARKET_DATA_API_URL = getMarketDataApiUrl();
+const MARKET_DATA_API_URL = getServerMarketDataApiUrl();
 
 export async function POST(request: NextRequest) {
-  // Apply rate limiting: 10 requests/min for anonymous, 100 for authenticated
-  const rateLimitResult = await rateLimit(request, {
-    anonymousLimit: 10,
-    authenticatedLimit: 100,
-    windowSeconds: 60,
-  });
+  const rateLimitResult = await rateLimit(request, BROWSER_READ_RATE_LIMIT);
 
   if (!rateLimitResult.success) {
     return rateLimitResult.response;
@@ -20,14 +19,19 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as Record<string, unknown>;
 
     // Forward the request to the market data service
-    const response = await fetch(
-      `${MARKET_DATA_API_URL}/marketdata.v1.MarketDataService/GetStockCorrelations`,
+    const response = await serverFetchWithUserAgent(
+      buildApiUrl(
+        MARKET_DATA_API_URL,
+        "/marketdata.v1.MarketDataService/GetStockCorrelations",
+      ),
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Connect-Protocol-Version": "1",
         },
         body: JSON.stringify(body),
+        cache: "no-store",
       },
     );
 

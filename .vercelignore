@@ -1,36 +1,37 @@
-# Data files
-services/data/
-
-# Claude worktrees
-.claude/worktrees/
-
-# Screenshots
-screenshots/
-
-# Go services (not needed for frontend)
-services/*/
-
-# Terraform
+# Vercel project root is configured as `web/`. Exclude unrelated monorepo
+# areas and local/generated artifacts from CLI uploads.
+services/
 terraform/
+sdks/
+docs/
+scripts/
+supabase/
+.playwright-cli/
+.playwright-mcp/
+.serena/
+.worktrees/
+2026-*.txt
 
-# Python
-*.pyc
-__pycache__/
+# Local/generated web app artifacts
+web/.next/
+web/node_modules/
+web/.turbo/
+web/coverage/
+web/playwright-report/
+web/test-results/
+web/.vercel/output/
+web/.cache/
+web/tmp/
+web/temp/
+web/tsconfig.tsbuildinfo
+web/lighthouse-report.json
+web/home-page.png
+web/dashboard-page.png
+web/.env*
 
-# IDE
-.idea/
-.vscode/
-
-# Build artifacts
-*.o
-*.a
-
-# Test artifacts
-coverage/
-
-# Logs
-*.log
-
-# OS files
-.DS_Store
-Thumbs.db
+# Local-only diagnostics and scratch files
+web/.playwright*/
+web/scripts/geo/
+web/scripts/housing-icons/
+web/scripts/dbg-*.mjs
+web/scripts/verify-*.mjs

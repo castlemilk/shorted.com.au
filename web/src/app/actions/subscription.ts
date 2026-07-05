@@ -7,9 +7,7 @@ import { SubscriptionStatus as ProtoSubscriptionStatus, SubscriptionTier as Prot
 import { auth } from "~/server/auth";
 import { SUBSCRIPTION_TIERS, isPremiumTier, type SubscriptionStatus, type SubscriptionTier } from "~/lib/stripe";
 import { retryWithBackoff, type RetryOptions } from "@/lib/retry";
-
-// Shorts API URL - falls back to local dev if not set
-const SHORTS_API_URL = process.env.SHORTS_SERVICE_ENDPOINT ?? "http://localhost:9091";
+import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 
 // Internal auth secret for service-to-service calls
 const INTERNAL_SECRET = process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-secret";
@@ -19,6 +17,7 @@ const INTERNAL_SECRET = process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-sec
  */
 function createAuthTransport(userId: string, userEmail: string) {
   return createConnectTransport({
+    fetch: serverFetchWithUserAgent,
     baseUrl: SHORTS_API_URL,
     interceptors: [
       (next) => async (req) => {

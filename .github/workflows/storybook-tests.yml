@@ -5,7 +5,7 @@ name: Storybook Tests
 #  - visual regression (Playwright screenshots vs committed PNG baselines)
 #
 # The visual job MUST run in the same image the baselines were generated in
-# (node:20-bookworm-slim) — pixel output depends on the OS freetype/fontconfig
+# (node:24-bookworm-slim) — pixel output depends on the OS freetype/fontconfig
 # stack, so ubuntu-latest (Ubuntu 24.04) would diff against bookworm baselines.
 # If you intentionally change widget appearance, regenerate baselines in that
 # same image: see web/tests/visual/README.md.
@@ -39,7 +39,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
           cache-dependency-path: web/package-lock.json
 
@@ -59,7 +59,7 @@ jobs:
     # Render in the exact image the committed baselines were generated in, so
     # screenshots are byte-comparable (font anti-aliasing is OS-specific).
     container:
-      image: node:20-bookworm-slim
+      image: node:24-bookworm-slim
     defaults:
       run:
         working-directory: web

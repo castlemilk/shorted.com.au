@@ -47,7 +47,6 @@ export function CompanyLogo({
         alt={`${companyName ?? stockCode} logo`}
         width={70}
         height={70}
-        priority
         className="object-contain"
         onError={() => setStage((s) => (s === "normalized" ? "raw" : "icon"))}
       />

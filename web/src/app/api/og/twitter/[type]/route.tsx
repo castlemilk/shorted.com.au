@@ -3,6 +3,7 @@ import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { type NextRequest } from "next/server";
+import { getServerShortsApiUrl } from "~/app/actions/config";
 
 // Twitter in-stream image recommendation: 16:9, 1200x675 minimum.
 const WIDTH = 1200;
@@ -12,10 +13,7 @@ const ORANGE = "#FFA94D";
 const ORANGE_DIM = "#d4a017";
 const BG = "#0a0a0a";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ??
-  process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-  "http://localhost:9091";
+const API_URL = getServerShortsApiUrl();
 
 let cachedLogo: string | null = null;
 async function getLogo(): Promise<string> {

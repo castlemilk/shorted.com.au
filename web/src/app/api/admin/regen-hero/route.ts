@@ -11,7 +11,7 @@ import { isAdmin } from "~/server/admin";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { SHORTS_API_URL } from "~/app/actions/config";
+import { SHORTS_API_URL, serverFetchWithUserAgent } from "~/app/actions/config";
 
 export const maxDuration = 60; // seconds — Vercel function timeout
 
@@ -60,7 +60,10 @@ async function buildHeroTopicForTake(headline: string, stockCode: string): Promi
 function adminClient() {
   return createClient(
     ShortedStocksService,
-    createConnectTransport({ fetch, baseUrl: SHORTS_API_URL }),
+    createConnectTransport({
+      fetch: serverFetchWithUserAgent,
+      baseUrl: SHORTS_API_URL,
+    }),
   );
 }
 

@@ -17,10 +17,12 @@
     "test": "npm run test:frontend && npm run test:backend",
     "test:frontend": "cd web && npm test",
     "test:backend": "cd services && make test",
+    "test:release-pipeline": "node --test scripts/release-pipeline.test.mjs",
     "test:e2e:stripe:testmode": "bash scripts/e2e/run_stripe_testmode_testbench.sh",
     "lint": "npm run lint:frontend",
     "lint:frontend": "cd web && npm run lint",
     "build": "npm run build:frontend",
+    "release:web": "bash scripts/release-web.sh",
     "build:frontend": "cd web && npm run build"
   },
   "devDependencies": {
@@ -28,7 +30,7 @@
     "concurrently": "^8.2.2"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": "24.x"
   },
   "dependencies": {
     "framer-motion": "^12.23.24"

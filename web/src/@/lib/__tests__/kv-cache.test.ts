@@ -209,7 +209,7 @@ describe("KV Cache", () => {
 
   describe("HOMEPAGE_TTL", () => {
     it("should export HOMEPAGE_TTL constant", () => {
-      expect(HOMEPAGE_TTL).toBe(600); // 10 minutes
+      expect(HOMEPAGE_TTL).toBe(86400); // 24h, flushed on data change
     });
   });
 });

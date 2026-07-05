@@ -3,17 +3,16 @@ import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
-import { SHORTS_API_URL } from "../config";
+import { SHORTS_API_URL, serverFetchWithUserAgent } from "../config";
 import { withRetryAndNotFound, type RetryOptions } from "../withRetry";
 import { withSpan } from "~/@/lib/tracing";
 
-function getApiUrl() {
-  return process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL;
-}
-
 // Shared transport instance — reused across all functions to avoid redundant HTTP/2 connection setup
 function getTransport() {
-  return createConnectTransport({ baseUrl: getApiUrl() });
+  return createConnectTransport({
+    fetch: serverFetchWithUserAgent,
+    baseUrl: SHORTS_API_URL,
+  });
 }
 
 // Lighter retry config for report data that's typically pre-cached

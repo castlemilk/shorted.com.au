@@ -5,8 +5,15 @@
  * The backend handles authentication with Algolia.
  */
 
-// API URL for the Go backend proxy
-const SHORTS_API_URL = process.env.NEXT_PUBLIC_SHORTS_API_URL ?? "http://localhost:9091";
+// API URL for the Go backend proxy. Browser calls use a relative URL so Next.js
+// rewrites can proxy to the backend without CORS.
+const SHORTS_API_URL =
+  typeof window !== "undefined"
+    ? ""
+    : process.env.SHORTS_SERVICE_ENDPOINT ??
+      process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
+      process.env.NEXT_PUBLIC_API_URL ??
+      "http://localhost:9091";
 
 /**
  * Stock hit returned from Algolia search
@@ -130,4 +137,3 @@ export function algoliaHitToSearchResult(hit: AlgoliaStockHit) {
     companyName: hit.company_name,
   };
 }
-

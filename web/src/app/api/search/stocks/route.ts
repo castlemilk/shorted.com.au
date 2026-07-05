@@ -1,5 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { rateLimit } from "~/@/lib/rate-limit";
+import { BROWSER_READ_RATE_LIMIT, rateLimit } from "~/@/lib/rate-limit";
+import {
+  bucketCount,
+  bucketStringLength,
+  recordProductEvent,
+} from "~/@/lib/product-events";
 
 // Note: Cannot use Edge Runtime because auth() requires Node.js runtime
 
@@ -88,14 +93,17 @@ const ASX_STOCKS = [
 ];
 
 export async function GET(request: NextRequest) {
-  // Apply rate limiting: 50 requests/min for anonymous, 500 for authenticated
-  const rateLimitResult = await rateLimit(request, {
-    anonymousLimit: 50,
-    authenticatedLimit: 500,
-    windowSeconds: 60,
-  });
+  const started = Date.now();
+
+  const rateLimitResult = await rateLimit(request, BROWSER_READ_RATE_LIMIT);
 
   if (!rateLimitResult.success) {
+    recordProductEvent({
+      feature: "search",
+      action: "query",
+      status: "rate_limited",
+      properties: { route_group: "/api/search/*" },
+    });
     return rateLimitResult.response;
   }
 
@@ -104,6 +112,17 @@ export async function GET(request: NextRequest) {
     const query = searchParams.get("q");
 
     if (!query || query.length < 1) {
+      recordProductEvent({
+        feature: "search",
+        action: "query",
+        status: "success",
+        properties: {
+          route_group: "/api/search/*",
+          query_length_bucket: "0",
+          result_count_bucket: "0",
+          duration_ms: Date.now() - started,
+        },
+      });
       return NextResponse.json({ results: [] });
     }
 
@@ -114,9 +133,31 @@ export async function GET(request: NextRequest) {
         stock.name.toLowerCase().includes(query.toLowerCase()),
     ).slice(0, 10); // Limit to 10 results
 
+    recordProductEvent({
+      feature: "search",
+      action: "query",
+      status: "success",
+      properties: {
+        route_group: "/api/search/*",
+        query_length_bucket: bucketStringLength(query),
+        result_count_bucket: bucketCount(results.length),
+        duration_ms: Date.now() - started,
+      },
+    });
+
     return NextResponse.json({ results });
   } catch (error) {
     console.error("Error searching stocks:", error);
+    recordProductEvent({
+      feature: "search",
+      action: "query",
+      status: "error",
+      properties: {
+        route_group: "/api/search/*",
+        duration_ms: Date.now() - started,
+        error_name: error instanceof Error ? error.name : "Unknown",
+      },
+    });
     return NextResponse.json(
       { error: "Failed to search stocks" },
       { status: 500 },

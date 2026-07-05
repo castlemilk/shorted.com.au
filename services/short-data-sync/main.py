@@ -340,6 +340,7 @@ def trigger_revalidation(record_count):
             url,
             params={
                 "secret": secret,
+                "tag": "shorts-data",
                 "path": "/,/top,/news,/screener,/industry,/shorts/[stockCode]",
                 "flush": "shorts",
             },

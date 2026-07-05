@@ -4,19 +4,89 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"strings"
 	"time"
 
 	shortsv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/shorts/v1alpha1"
 	stocksv1alpha1 "github.com/castlemilk/shorted.com.au/services/gen/proto/go/stocks/v1alpha1"
+	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
 	"github.com/google/generative-ai-go/genai"
+	"go.opentelemetry.io/otel/attribute"
+	otelmetric "go.opentelemetry.io/otel/metric"
 	"google.golang.org/api/option"
 )
 
 type GeminiGPTClient struct {
 	client *genai.Client
 	model  string
+}
+
+func recordEnrichmentGeminiGeneration(ctx context.Context, model, phase, status string, usage *genai.UsageMetadata) {
+	attrs := []attribute.KeyValue{
+		attribute.String("feature", "enrichment"),
+		attribute.String("model", model),
+		attribute.String("phase", phase),
+		attribute.String("status", status),
+	}
+	if shortedotel.AIRequestsTotal != nil {
+		shortedotel.AIRequestsTotal.Add(ctx, 1, otelmetric.WithAttributes(attrs...))
+	}
+	billablePromptTokens := int64(0)
+	if usage != nil {
+		recordEnrichmentTokenCount(ctx, attrs, "prompt", int64(usage.PromptTokenCount))
+		recordEnrichmentTokenCount(ctx, attrs, "cached_prompt", int64(usage.CachedContentTokenCount))
+		billablePrompt := int64(usage.PromptTokenCount - usage.CachedContentTokenCount)
+		if billablePrompt < 0 {
+			billablePrompt = 0
+		}
+		billablePromptTokens = billablePrompt
+		recordEnrichmentTokenCount(ctx, attrs, "billable_prompt", billablePrompt)
+		recordEnrichmentTokenCount(ctx, attrs, "candidate", int64(usage.CandidatesTokenCount))
+		recordEnrichmentTokenCount(ctx, attrs, "total", int64(usage.TotalTokenCount))
+	}
+
+	promptTokens, cachedTokens, candidateTokens, totalTokens := int32(0), int32(0), int32(0), int32(0)
+	if usage != nil {
+		promptTokens = usage.PromptTokenCount
+		cachedTokens = usage.CachedContentTokenCount
+		candidateTokens = usage.CandidatesTokenCount
+		totalTokens = usage.TotalTokenCount
+	}
+	log.Printf(
+		"%s",
+		mustMarshalEnrichmentLogEvent(map[string]any{
+			"type":                   "cost_event",
+			"event_type":             "gemini_request",
+			"feature":                "enrichment",
+			"model":                  model,
+			"phase":                  phase,
+			"status":                 status,
+			"prompt_tokens":          promptTokens,
+			"cached_prompt_tokens":   cachedTokens,
+			"billable_prompt_tokens": billablePromptTokens,
+			"candidate_tokens":       candidateTokens,
+			"total_tokens":           totalTokens,
+		}),
+	)
+}
+
+func recordEnrichmentTokenCount(ctx context.Context, baseAttrs []attribute.KeyValue, tokenType string, value int64) {
+	if value <= 0 || shortedotel.AITokensTotal == nil {
+		return
+	}
+	attrs := append([]attribute.KeyValue{}, baseAttrs...)
+	attrs = append(attrs, attribute.String("token_type", tokenType))
+	shortedotel.AITokensTotal.Add(ctx, value, otelmetric.WithAttributes(attrs...))
+}
+
+func mustMarshalEnrichmentLogEvent(event map[string]any) string {
+	data, err := json.Marshal(event)
+	if err != nil {
+		return `{"type":"instrumentation_error","error_name":"json_marshal_failed"}`
+	}
+	return string(data)
 }
 
 // retryableGeminiCall wraps a Gemini API call with exponential backoff retry logic.
@@ -151,7 +221,7 @@ IMPORTANT rules for key_people:
 	// Create model
 	model := c.client.GenerativeModel(c.model)
 	model.SetTemperature(0.2)
-	
+
 	// Set system instruction
 	model.SystemInstruction = &genai.Content{
 		Parts: []genai.Part{genai.Text(systemPrompt)},
@@ -166,8 +236,10 @@ IMPORTANT rules for key_people:
 		return model.GenerateContent(callCtx, genai.Text(userPrompt))
 	})
 	if err != nil {
+		recordEnrichmentGeminiGeneration(ctx, c.model, "company_enrichment", "error", nil)
 		return nil, fmt.Errorf("gemini enrichment failed: %w", err)
 	}
+	recordEnrichmentGeminiGeneration(ctx, c.model, "company_enrichment", "success", resp.UsageMetadata)
 
 	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
 		return nil, fmt.Errorf("gemini enrichment returned no content")
@@ -184,18 +256,18 @@ IMPORTANT rules for key_people:
 	raw = extractLikelyJSON(raw)
 
 	var parsed struct {
-		Tags                  []string `json:"tags"`
-		EnhancedSummary       *string  `json:"enhanced_summary"`
-		CompanyHistory        *string  `json:"company_history"`
-		KeyPeople             []struct {
+		Tags            []string `json:"tags"`
+		EnhancedSummary *string  `json:"enhanced_summary"`
+		CompanyHistory  *string  `json:"company_history"`
+		KeyPeople       []struct {
 			Name string `json:"name"`
 			Role string `json:"role"`
 			Bio  string `json:"bio"`
 		} `json:"key_people"`
-		CompetitiveAdvantages *string                `json:"competitive_advantages"`
-		RiskFactors           []string               `json:"risk_factors"`
-		RecentDevelopments    *string                `json:"recent_developments"`
-		SocialMediaLinks      map[string]*string     `json:"social_media_links"`
+		CompetitiveAdvantages *string            `json:"competitive_advantages"`
+		RiskFactors           []string           `json:"risk_factors"`
+		RecentDevelopments    *string            `json:"recent_developments"`
+		SocialMediaLinks      map[string]*string `json:"social_media_links"`
 	}
 
 	if err := json.Unmarshal([]byte(raw), &parsed); err != nil {
@@ -203,13 +275,13 @@ IMPORTANT rules for key_people:
 	}
 
 	data := &shortsv1alpha1.EnrichmentData{
-		Tags:                parsed.Tags,
-		EnhancedSummary:     derefString(parsed.EnhancedSummary),
-		CompanyHistory:      derefString(parsed.CompanyHistory),
+		Tags:                  parsed.Tags,
+		EnhancedSummary:       derefString(parsed.EnhancedSummary),
+		CompanyHistory:        derefString(parsed.CompanyHistory),
 		CompetitiveAdvantages: derefString(parsed.CompetitiveAdvantages),
-		RiskFactors:         parsed.RiskFactors,
-		RecentDevelopments:  derefString(parsed.RecentDevelopments),
-		FinancialReports:    reports,
+		RiskFactors:           parsed.RiskFactors,
+		RecentDevelopments:    derefString(parsed.RecentDevelopments),
+		FinancialReports:      reports,
 	}
 
 	people := make([]*stocksv1alpha1.CompanyPerson, 0, len(parsed.KeyPeople))
@@ -285,7 +357,7 @@ Enrichment JSON:
 
 	model := c.client.GenerativeModel(c.model)
 	model.SetTemperature(0.0)
-	
+
 	// Set system instruction
 	model.SystemInstruction = &genai.Content{
 		Parts: []genai.Part{genai.Text(systemPrompt)},
@@ -298,8 +370,10 @@ Enrichment JSON:
 		return model.GenerateContent(callCtx, genai.Text(userPrompt))
 	})
 	if err != nil {
+		recordEnrichmentGeminiGeneration(ctx, c.model, "quality_evaluation", "error", nil)
 		return nil, fmt.Errorf("gemini quality evaluation failed: %w", err)
 	}
+	recordEnrichmentGeminiGeneration(ctx, c.model, "quality_evaluation", "success", resp.UsageMetadata)
 
 	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
 		return nil, fmt.Errorf("gemini quality evaluation returned no content")
@@ -381,8 +455,10 @@ Return ONLY the website URL or "UNKNOWN" if you cannot determine it.`, companyNa
 		return model.GenerateContent(callCtx, genai.Text(userPrompt))
 	})
 	if err != nil {
+		recordEnrichmentGeminiGeneration(ctx, c.model, "website_discovery", "error", nil)
 		return "", fmt.Errorf("website discovery failed: %w", err)
 	}
+	recordEnrichmentGeminiGeneration(ctx, c.model, "website_discovery", "success", resp.UsageMetadata)
 
 	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
 		return "", fmt.Errorf("website discovery returned no content")
@@ -459,8 +535,10 @@ Website content:
 		return model.GenerateContent(callCtx, genai.Text(userPrompt))
 	})
 	if err != nil {
+		recordEnrichmentGeminiGeneration(ctx, c.model, "people_extraction", "error", nil)
 		return nil, fmt.Errorf("people extraction failed: %w", err)
 	}
+	recordEnrichmentGeminiGeneration(ctx, c.model, "people_extraction", "success", resp.UsageMetadata)
 
 	if len(resp.Candidates) == 0 || len(resp.Candidates[0].Content.Parts) == 0 {
 		return nil, fmt.Errorf("people extraction returned no content")
@@ -509,4 +587,3 @@ func (c *GeminiGPTClient) Close() error {
 	}
 	return nil
 }
-

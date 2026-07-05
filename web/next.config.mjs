@@ -32,14 +32,32 @@ if (process.env.ANALYZE === "true") {
   }
 }
 /** @type {import("next").NextConfig} */
+const normalizeApiBaseUrl = (value) => {
+  const compact = value?.trim().replace(/\s+/g, "");
+  if (!compact) return undefined;
+  return compact.replace(/\/+$/, "");
+};
+
+const firstNonEmpty = (...values) => {
+  for (const value of values) {
+    const normalized = normalizeApiBaseUrl(value);
+    if (normalized) return normalized;
+  }
+  return undefined;
+};
+
 const shortsApiUrl =
-  process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:9091";
+  firstNonEmpty(
+    process.env.SHORTS_SERVICE_ENDPOINT,
+    process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT,
+    process.env.NEXT_PUBLIC_API_URL,
+  ) ?? "http://localhost:9091";
 
 const chatApiUrl =
-  process.env.NEXT_PUBLIC_CHAT_SERVICE_ENDPOINT ??
-  "http://localhost:8080";
+  normalizeApiBaseUrl(process.env.NEXT_PUBLIC_CHAT_SERVICE_ENDPOINT) ??
+  (process.env.NODE_ENV === "production"
+    ? "https://api.shorted.com.au"
+    : "http://localhost:8080");
 
 const config = {
   output: "standalone", // Enable standalone mode for Docker
@@ -239,6 +257,10 @@ const config = {
         destination: `${shortsApiUrl}/api/stocks/:path*`,
       },
       {
+        source: "/api/algolia/:path*",
+        destination: `${shortsApiUrl}/api/algolia/:path*`,
+      },
+      {
         source: "/chat.v1.ChatService/:path*",
         destination: `${chatApiUrl}/chat.v1.ChatService/:path*`,
       },
@@ -252,7 +274,7 @@ const config = {
                "local",
     gitBranch: process.env.VERCEL_GIT_COMMIT_REF || "local",
     environment: process.env.VERCEL_ENV || process.env.NODE_ENV || "development",
-    shortsUrl: process.env.SHORTS_SERVICE_ENDPOINT ?? "http://localhost:9091",
+    shortsUrl: shortsApiUrl,
   },
   // Optionally, add any other Next.js config below
   images: {

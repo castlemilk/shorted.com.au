@@ -4,7 +4,7 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { requireAdmin } from "~/server/admin";
-import { SHORTS_API_URL } from "./config";
+import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { retryWithBackoff } from "@/lib/retry";
 
 const RETRY_OPTIONS = {
@@ -21,7 +21,7 @@ export async function getEnrichmentComparison(
   const admin = await requireAdmin();
 
   const transport = createConnectTransport({
-    fetch,
+    fetch: serverFetchWithUserAgent,
     baseUrl: SHORTS_API_URL,
   });
   const client = createClient(ShortedStocksService, transport);

@@ -189,6 +189,71 @@ func (s *ConversationStore) GetMessages(ctx context.Context, conversationID stri
 	return msgs, nil
 }
 
+// GetRecentMessages returns the most recent messages for a conversation in
+// chronological order, suitable for feeding bounded context back to the model.
+func (s *ConversationStore) GetRecentMessages(ctx context.Context, conversationID string, limit int) ([]Message, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, conversation_id, role, content, tool_calls, citations, created_at
+		 FROM (
+		     SELECT id, conversation_id, role, content, tool_calls, citations, created_at
+		     FROM chat_messages
+		     WHERE conversation_id = $1
+		     ORDER BY created_at DESC
+		     LIMIT $2
+		 ) recent
+		 ORDER BY created_at ASC`,
+		conversationID, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get recent messages: %w", err)
+	}
+	defer rows.Close()
+
+	var msgs []Message
+	for rows.Next() {
+		var msg Message
+		var tc, cit *json.RawMessage
+		if err := rows.Scan(&msg.ID, &msg.ConversationID, &msg.Role, &msg.Content, &tc, &cit, &msg.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan recent message: %w", err)
+		}
+		if tc != nil {
+			msg.ToolCalls = *tc
+		}
+		if cit != nil {
+			msg.Citations = *cit
+		}
+		msgs = append(msgs, msg)
+	}
+	return msgs, nil
+}
+
+// PruneMessages deletes old messages beyond maxMessages for a conversation.
+func (s *ConversationStore) PruneMessages(ctx context.Context, conversationID string, maxMessages int) (int64, error) {
+	if maxMessages <= 0 {
+		return 0, nil
+	}
+	tag, err := s.pool.Exec(ctx,
+		`WITH keep AS (
+		     SELECT id
+		     FROM chat_messages
+		     WHERE conversation_id = $1
+		     ORDER BY created_at DESC
+		     LIMIT $2
+		 )
+		 DELETE FROM chat_messages
+		 WHERE conversation_id = $1
+		   AND id NOT IN (SELECT id FROM keep)`,
+		conversationID, maxMessages,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("prune messages: %w", err)
+	}
+	return tag.RowsAffected(), nil
+}
+
 func nullIfEmpty(s string) *string {
 	if s == "" {
 		return nil

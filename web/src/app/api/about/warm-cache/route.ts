@@ -2,6 +2,11 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { CACHE_KEYS, setCached } from "~/@/lib/kv-cache";
 import { fetchAndCacheStatistics } from "~/lib/statistics";
+import {
+  SHORTS_API_URL,
+  buildApiUrl,
+  serverFetchWithUserAgent,
+} from "~/app/actions/config";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -32,12 +37,12 @@ export async function GET(request: NextRequest) {
 
   // Check if backend services are available (skip in development if not running)
   const isDevelopment = process.env.NODE_ENV === "development";
-  const backendUrl = process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? "http://localhost:9091";
+  const backendUrl = SHORTS_API_URL;
   
   // In development, check if backend is available before attempting to warm cache
   if (isDevelopment) {
     try {
-      const healthCheck = await fetch(`${backendUrl.replace(/\/$/, "")}/health`, {
+      const healthCheck = await serverFetchWithUserAgent(buildApiUrl(backendUrl, "/health"), {
         signal: AbortSignal.timeout(2000),
       }).catch(() => null);
       
