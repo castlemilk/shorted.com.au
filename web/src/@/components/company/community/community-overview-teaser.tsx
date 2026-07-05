@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { MessagesSquare, Sparkles, Zap } from "lucide-react";
 import { type CommunityOverviewSummary } from "~/@/types/community";
 import { Badge } from "~/@/components/ui/badge";
@@ -14,7 +17,58 @@ import { CommunityEmptyState } from "./community-empty-state";
 
 interface CommunityOverviewTeaserProps {
   stockCode: string;
-  summary: CommunityOverviewSummary;
+  summary?: CommunityOverviewSummary;
+}
+
+function emptySummary(stockCode: string): CommunityOverviewSummary {
+  return {
+    headline: `Be the first to discuss ${stockCode}`,
+    subheadline:
+      "Start the research thread, post a catalyst, or add the first pulse update.",
+    ctaLabel: "Open community",
+    threadCount: 0,
+    pulseCount: 0,
+  };
+}
+
+function parseDate(value: unknown): Date | undefined {
+  if (value instanceof Date) return value;
+  if (typeof value === "string" || typeof value === "number") {
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? undefined : date;
+  }
+  return undefined;
+}
+
+function normalizeSummary(
+  value: unknown,
+  stockCode: string,
+): CommunityOverviewSummary | null {
+  if (!value || typeof value !== "object") return null;
+
+  const summary = value as Partial<CommunityOverviewSummary> & {
+    topThread?: CommunityOverviewSummary["topThread"] & {
+      lastActivityAt?: unknown;
+    };
+  };
+
+  return {
+    headline: summary.headline ?? `Be the first to discuss ${stockCode}`,
+    subheadline:
+      summary.subheadline ??
+      "Start the research thread, post a catalyst, or add the first pulse update.",
+    ctaLabel: summary.ctaLabel ?? "Open community",
+    threadCount: summary.threadCount ?? 0,
+    pulseCount: summary.pulseCount ?? 0,
+    topThread: summary.topThread
+      ? {
+          ...summary.topThread,
+          lastActivityAt:
+            parseDate(summary.topThread.lastActivityAt) ?? new Date(0),
+        }
+      : undefined,
+    latestActivityAt: parseDate(summary.latestActivityAt),
+  };
 }
 
 function formatActivityLabel(summary: CommunityOverviewSummary): string {
@@ -36,8 +90,38 @@ function formatActivityLabel(summary: CommunityOverviewSummary): string {
 
 export function CommunityOverviewTeaser({
   stockCode,
-  summary,
+  summary: initialSummary,
 }: CommunityOverviewTeaserProps) {
+  const fallbackSummary = useMemo(() => emptySummary(stockCode), [stockCode]);
+  const [summary, setSummary] = useState<CommunityOverviewSummary>(
+    initialSummary ?? fallbackSummary,
+  );
+
+  useEffect(() => {
+    if (typeof fetch !== "function") return;
+
+    const controller = new AbortController();
+
+    fetch(`/api/community/${stockCode}/summary`, {
+      signal: controller.signal,
+      headers: { Accept: "application/json" },
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: unknown) => {
+        if (!payload || controller.signal.aborted) return;
+        const response = payload as { summary?: unknown };
+        const nextSummary = normalizeSummary(response.summary, stockCode);
+        if (nextSummary) setSummary(nextSummary);
+      })
+      .catch((error: unknown) => {
+        if ((error as { name?: string }).name !== "AbortError") {
+          console.error("Failed to load community summary", error);
+        }
+      });
+
+    return () => controller.abort();
+  }, [stockCode]);
+
   const isEmpty = summary.threadCount === 0 && summary.pulseCount === 0;
 
   return (

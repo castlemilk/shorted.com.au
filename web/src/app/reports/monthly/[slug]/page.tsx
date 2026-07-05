@@ -26,26 +26,13 @@ import { MoversTable } from "~/@/components/reports/movers-table";
 import {
   getMonthlyReportData,
   getEnhancedWeeklyReportData,
-  getAvailableMonthSlugs,
 } from "~/app/actions/reports/getReportData";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-export async function generateStaticParams() {
-  // Skip static generation during local builds (pre-commit hook sets this)
-  if (process.env.SKIP_STATIC_GENERATION === "1") {
-    return [];
-  }
-  try {
-    const slugs = await getAvailableMonthSlugs();
-    // Pre-generate all available months at build time — historical reports are immutable
-    return slugs.map((slug) => ({ slug }));
-  } catch {
-    return [];
-  }
-}
+export const dynamic = "force-dynamic";
 
 function formatMonthTitle(slug: string): string {
   const date = new Date(`${slug}-01T00:00:00`);
@@ -117,8 +104,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     },
   };
 }
-
-export const revalidate = 86400;
 
 export default async function MonthlyReportPage({ params }: PageProps) {
   const { slug } = await params;

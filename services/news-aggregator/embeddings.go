@@ -63,12 +63,14 @@ func (e *Embedder) embedOne(ctx context.Context, text string) ([]float32, error)
 		}
 		res, err := e.model.EmbedContent(ctx, genai.Text(text))
 		if err != nil {
+			recordNewsGeminiEmbedding(ctx, "news_embedding", embeddingModel, "embed_content", "error", len([]rune(text)))
 			lastErr = err
 			if isRetryableEmbedErr(err) {
 				continue
 			}
 			return nil, err
 		}
+		recordNewsGeminiEmbedding(ctx, "news_embedding", embeddingModel, "embed_content", "success", len([]rune(text)))
 		if res.Embedding == nil || len(res.Embedding.Values) < embeddingDims {
 			got := 0
 			if res.Embedding != nil {

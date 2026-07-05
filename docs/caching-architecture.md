@@ -8,11 +8,16 @@ and refresh **on the data-change event** rather than on a timer.
 | Layer | Holds | TTL ceiling | Busted on change by |
 |---|---|---|---|
 | **Next.js ISR / Full Route Cache** | rendered SSR pages (`/`, `/top`, `/news`, `/shorts/[code]`) | 24h (`export const revalidate = 86400`) | `revalidatePath` via `/api/revalidate` |
+| **Next.js Data Cache** | per-stock core RPC data (`GetStock`, `GetStockDetails`, `GetStockData`, enriched metadata) | 24h (`STOCK_PAGE_CACHE_SECONDS`) | `revalidateTag("shorts-data")` via `/api/revalidate?tag=shorts-data` |
 | **Redis (Upstash/ioredis)** | API responses (`getOrSetCached`) | 24h (`HOMEPAGE_TTL`…) | `deleteCachedByPrefix` via `/api/revalidate?flush=shorts` |
-| **Cloudflare edge worker** | API responses | 2–5m (unchanged) | self-expires; edge-purge is a follow-up |
+| **Cloudflare edge** | API responses and public `/shorts/[code]` HTML | API: 2–5m; stock HTML: 24h | API self-expires; stock HTML follows cache rule + daily revalidation/purge path |
 
 The 24h ceilings are a **safety net** — if a revalidation event is ever missed,
 nothing stays stale longer than a day. The real refresh is event-driven.
+
+`/shorts/[stockCode]` pre-generates the top 30 shorted stocks at build time via
+`generateStaticParams()`. The long tail keeps `dynamicParams = true`, so the
+first uncached request can still render on demand and then be cached.
 
 ## The data-change event
 
@@ -20,12 +25,12 @@ nothing stays stale longer than a day. The real refresh is event-driven.
 "data actually changed" signal (a no-new-files run does nothing). After a
 successful write it:
 1. `SELECT refresh_all_materialized_views()` — so the MVs reflect the new data.
-2. `POST $REVALIDATION_URL?secret=…&path=/,/top,/news,/screener,/industry,/shorts/[stockCode]&flush=shorts`.
+2. `POST $REVALIDATION_URL?secret=…&tag=shorts-data&path=/,/top,/news,/screener,/industry,/shorts/[stockCode]&flush=shorts`.
 
-`/api/revalidate` (enhanced) then `revalidatePath`s each page (patterns with
-`[..]` bust the whole dynamic route) and prefix-flushes the shorts-data Redis
-keys. Backward-compatible with the existing single-`tag` callers
-(weekly-report-generator still works).
+`/api/revalidate` (enhanced) then invalidates the shared stock data tag,
+`revalidatePath`s each page (patterns with `[..]` bust the whole dynamic route),
+and prefix-flushes the shorts-data Redis keys. Backward-compatible with the
+existing single-`tag` callers (weekly-report-generator still works).
 
 ## GetTopShorts payload
 
@@ -48,8 +53,9 @@ response drops from ~370KB to a fraction.
    "Triggered cache revalidation (status 200)".
 
 ## Follow-ups (not in this change)
-- **Edge**: raise the worker TTLs + purge on the same event (`/api/cache/purge`
-  with `cache_purge_secret`) for end-to-end hard caching.
+- **Edge purge**: wire `/api/cache/purge` into the same data-change event if the
+  Cloudflare stock-page HTML rule needs immediate global eviction rather than
+  relying on the 24h ceiling plus route/data revalidation.
 - **Stock pages on price change**: have `market-data-sync` revalidate
   `/shorts/[stockCode]` after a price sync (currently only the daily short-data
   event busts them).

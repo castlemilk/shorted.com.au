@@ -25,6 +25,7 @@
  */
 import React from "react";
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { SessionProvider } from "next-auth/react";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
 import { ErrorBoundary } from "./error-boundary";
@@ -109,9 +110,11 @@ const meta = {
   },
   decorators: [
     (Story) => (
-      <div className="flex min-h-[300px] items-center justify-center p-8">
-        <Story />
-      </div>
+      <SessionProvider session={null}>
+        <div className="flex min-h-[300px] items-center justify-center p-8">
+          <Story />
+        </div>
+      </SessionProvider>
     ),
   ],
 } satisfies Meta<typeof ErrorBoundary>;

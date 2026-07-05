@@ -17,7 +17,10 @@ export const config = {
 
   // API endpoints
   api: {
-    shorts: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:9091",
+    shorts:
+      process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
+      process.env.NEXT_PUBLIC_API_URL ??
+      "http://localhost:9091",
     marketData:
       process.env.NEXT_PUBLIC_MARKET_DATA_API_URL ??
       process.env.NEXT_PUBLIC_MARKET_DATA_URL ??

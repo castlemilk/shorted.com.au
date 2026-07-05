@@ -1,6 +1,9 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { getStockCommunitySummary } from "~/@/lib/community/firestore-community";
+import {
+  COMMUNITY_SUMMARY_CACHE_SECONDS,
+  getCachedStockCommunitySummary,
+} from "~/@/lib/community/community-summary-cache";
 
 const STOCK_CODE_PATTERN = /^[A-Z0-9]{1,4}$/;
 
@@ -16,12 +19,19 @@ export async function GET(
   }
 
   try {
-    const summary = await getStockCommunitySummary(stockCode);
+    const summary = await getCachedStockCommunitySummary(stockCode);
 
-    return NextResponse.json({
-      stockCode,
-      summary,
-    });
+    return NextResponse.json(
+      {
+        stockCode,
+        summary,
+      },
+      {
+        headers: {
+          "Cache-Control": `public, s-maxage=${COMMUNITY_SUMMARY_CACHE_SECONDS}, stale-while-revalidate=600`,
+        },
+      },
+    );
   } catch (error) {
     console.error("Failed to fetch community summary", error);
     return NextResponse.json(

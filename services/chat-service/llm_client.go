@@ -13,9 +13,10 @@ import (
 
 // LLMClient wraps the Gemini API for chat completions with function calling.
 type LLMClient struct {
-	client       *genai.Client
-	model        string
-	toolExecutor *ToolExecutor
+	client          *genai.Client
+	model           string
+	maxOutputTokens int32
+	toolExecutor    *ToolExecutor
 }
 
 // LLMResponse represents a response from the LLM.
@@ -23,6 +24,7 @@ type LLMResponse struct {
 	Content   string
 	ToolCalls []ToolCallRecord
 	Citations []Citation
+	Usage     GeminiUsage
 }
 
 // ToolCallRecord records a tool call made during the conversation.
@@ -39,16 +41,17 @@ type Citation struct {
 }
 
 // NewLLMClient creates a new LLM client.
-func NewLLMClient(ctx context.Context, apiKey, model string, toolExecutor *ToolExecutor) (*LLMClient, error) {
+func NewLLMClient(ctx context.Context, apiKey, model string, maxOutputTokens int32, toolExecutor *ToolExecutor) (*LLMClient, error) {
 	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
 	if err != nil {
 		return nil, fmt.Errorf("create genai client: %w", err)
 	}
 
 	return &LLMClient{
-		client:       client,
-		model:        model,
-		toolExecutor: toolExecutor,
+		client:          client,
+		model:           model,
+		maxOutputTokens: maxOutputTokens,
+		toolExecutor:    toolExecutor,
 	}, nil
 }
 
@@ -57,14 +60,19 @@ func (lc *LLMClient) Close() {
 	_ = lc.client.Close()
 }
 
-// Chat sends a message and processes tool calls, returning the final response.
-func (lc *LLMClient) Chat(ctx context.Context, systemPrompt string, history []Message, userMessage string) (*LLMResponse, error) {
+func (lc *LLMClient) newModel(systemPrompt string) *genai.GenerativeModel {
 	model := lc.client.GenerativeModel(lc.model)
 	model.SystemInstruction = genai.NewUserContent(genai.Text(systemPrompt))
+	if lc.maxOutputTokens > 0 {
+		model.SetMaxOutputTokens(lc.maxOutputTokens)
+	}
+	model.Tools = buildGeminiTools()
+	return model
+}
 
-	// Configure tools
-	tools := buildGeminiTools()
-	model.Tools = tools
+// Chat sends a message and processes tool calls, returning the final response.
+func (lc *LLMClient) Chat(ctx context.Context, systemPrompt string, history []Message, userMessage string) (*LLMResponse, error) {
+	model := lc.newModel(systemPrompt)
 
 	// Build chat session with history
 	cs := model.StartChat()
@@ -73,10 +81,15 @@ func (lc *LLMClient) Chat(ctx context.Context, systemPrompt string, history []Me
 	// Send user message
 	resp, err := cs.SendMessage(ctx, genai.Text(userMessage))
 	if err != nil {
+		recordGeminiRequest(ctx, lc.model, "initial", "error", GeminiUsage{})
 		return nil, fmt.Errorf("send message: %w", err)
 	}
+	initialUsage := geminiUsageFromResponse(resp)
+	recordGeminiRequest(ctx, lc.model, "initial", "success", initialUsage)
 
 	var allToolCalls []ToolCallRecord
+	var totalUsage GeminiUsage
+	totalUsage.Add(initialUsage)
 
 	// Process tool calls in a loop (max 5 rounds to prevent infinite loops)
 	for round := 0; round < 5; round++ {
@@ -95,9 +108,12 @@ func (lc *LLMClient) Chat(ctx context.Context, systemPrompt string, history []Me
 
 			log.Printf("Executing tool: %s with args: %v", fc.Name, args)
 			result, execErr := lc.toolExecutor.Execute(ctx, fc.Name, args)
+			status := "success"
 			if execErr != nil {
+				status = "error"
 				result = fmt.Sprintf("Error: %s", execErr.Error())
 			}
+			recordToolCall(ctx, fc.Name, len([]byte(result)), status)
 
 			allToolCalls = append(allToolCalls, ToolCallRecord{
 				Name:   fc.Name,
@@ -120,8 +136,12 @@ func (lc *LLMClient) Chat(ctx context.Context, systemPrompt string, history []Me
 		// Send function responses back to the model
 		resp, err = cs.SendMessage(ctx, funcResponses...)
 		if err != nil {
+			recordGeminiRequest(ctx, lc.model, "tool_response", "error", GeminiUsage{})
 			return nil, fmt.Errorf("send function response: %w", err)
 		}
+		toolUsage := geminiUsageFromResponse(resp)
+		recordGeminiRequest(ctx, lc.model, "tool_response", "success", toolUsage)
+		totalUsage.Add(toolUsage)
 	}
 
 	// Extract final text response
@@ -130,15 +150,14 @@ func (lc *LLMClient) Chat(ctx context.Context, systemPrompt string, history []Me
 	return &LLMResponse{
 		Content:   content,
 		ToolCalls: allToolCalls,
+		Usage:     totalUsage,
 	}, nil
 }
 
 // ChatStream sends a message and streams text chunks via the onChunk callback.
 // Tool call rounds execute synchronously between streaming segments.
 func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, history []Message, userMessage string, onChunk func(text string)) (*LLMResponse, error) {
-	model := lc.client.GenerativeModel(lc.model)
-	model.SystemInstruction = genai.NewUserContent(genai.Text(systemPrompt))
-	model.Tools = buildGeminiTools()
+	model := lc.newModel(systemPrompt)
 
 	cs := model.StartChat()
 	cs.History = buildGeminiHistory(history)
@@ -148,6 +167,8 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 
 	var allToolCalls []ToolCallRecord
 	var pendingFuncCalls []*genai.FunctionCall
+	var totalUsage GeminiUsage
+	var initialUsage GeminiUsage
 
 	// Consume the streaming response
 	for {
@@ -156,7 +177,11 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 			break
 		}
 		if err != nil {
+			recordGeminiRequest(ctx, lc.model, "initial", "error", initialUsage)
 			return nil, fmt.Errorf("stream next: %w", err)
+		}
+		if usage := geminiUsageFromResponse(resp); usage.hasTokens() {
+			initialUsage = usage
 		}
 
 		// Check for function calls
@@ -172,6 +197,8 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 			onChunk(text)
 		}
 	}
+	recordGeminiRequest(ctx, lc.model, "initial", "success", initialUsage)
+	totalUsage.Add(initialUsage)
 
 	// Process tool calls in a loop (max 5 rounds)
 	for round := 0; round < 5 && len(pendingFuncCalls) > 0; round++ {
@@ -184,9 +211,12 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 
 			log.Printf("Executing tool: %s with args: %v", fc.Name, args)
 			result, execErr := lc.toolExecutor.Execute(ctx, fc.Name, args)
+			status := "success"
 			if execErr != nil {
+				status = "error"
 				result = fmt.Sprintf("Error: %s", execErr.Error())
 			}
+			recordToolCall(ctx, fc.Name, len([]byte(result)), status)
 
 			allToolCalls = append(allToolCalls, ToolCallRecord{
 				Name:   fc.Name,
@@ -207,13 +237,18 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 
 		// Send function responses back to the model, stream the result
 		nextIter := cs.SendMessageStream(ctx, funcResponses...)
+		var toolUsage GeminiUsage
 		for {
 			resp, err := nextIter.Next()
 			if err == iterator.Done {
 				break
 			}
 			if err != nil {
+				recordGeminiRequest(ctx, lc.model, "tool_response", "error", toolUsage)
 				return nil, fmt.Errorf("stream function response: %w", err)
+			}
+			if usage := geminiUsageFromResponse(resp); usage.hasTokens() {
+				toolUsage = usage
 			}
 
 			funcCalls := extractFunctionCalls(resp)
@@ -227,10 +262,13 @@ func (lc *LLMClient) ChatStream(ctx context.Context, systemPrompt string, histor
 				onChunk(text)
 			}
 		}
+		recordGeminiRequest(ctx, lc.model, "tool_response", "success", toolUsage)
+		totalUsage.Add(toolUsage)
 	}
 
 	return &LLMResponse{
 		ToolCalls: allToolCalls,
+		Usage:     totalUsage,
 	}, nil
 }
 

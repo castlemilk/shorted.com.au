@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { getToken } from "next-auth/jwt";
+import { getUpstashRedisRestConfig } from "./@/lib/redis-env";
 
 // Initialize Redis client for rate limiting
 // Will use in-memory fallback if KV not configured (development)
@@ -10,36 +11,73 @@ let redis: Redis | null = null;
 let anonymousLimiter: Ratelimit | null = null;
 let authenticatedLimiter: Ratelimit | null = null;
 
-// Only initialize if Vercel KV is configured
-if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+export const BROWSER_RATE_LIMITS = {
+  anonymousRequestsPerMinute: 600,
+  anonymousRefillRequestsPerWindow: 600,
+  anonymousBurstMaxTokens: 3000,
+  authenticatedRequestsPerMinute: 3000,
+  windowSeconds: 60,
+};
+
+const redisConfig = getUpstashRedisRestConfig(process.env);
+
+// Only initialize if Vercel KV/Upstash Redis is configured
+if (redisConfig) {
   redis = new Redis({
-    url: process.env.KV_REST_API_URL,
-    token: process.env.KV_REST_API_TOKEN,
+    url: redisConfig.url,
+    token: redisConfig.token,
   });
 
-  // Anonymous users: 20 requests per minute
+  // Browser traffic is intentionally bucketed generously. Strict API usage is
+  // handled at api.shorted.com.au by Cloudflare's API-host rate limit.
   anonymousLimiter = new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(20, "60 s"),
+    limiter: Ratelimit.tokenBucket(
+      BROWSER_RATE_LIMITS.anonymousRefillRequestsPerWindow,
+      `${BROWSER_RATE_LIMITS.windowSeconds} s`,
+      BROWSER_RATE_LIMITS.anonymousBurstMaxTokens,
+    ),
     analytics: true,
-    prefix: "ratelimit:anon",
+    prefix: `ratelimit:browser:anon:burst:${BROWSER_RATE_LIMITS.anonymousRefillRequestsPerWindow}:${BROWSER_RATE_LIMITS.windowSeconds}:${BROWSER_RATE_LIMITS.anonymousBurstMaxTokens}`,
   });
 
-  // Authenticated users: 200 requests per minute
   authenticatedLimiter = new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(200, "60 s"),
+    limiter: Ratelimit.slidingWindow(
+      BROWSER_RATE_LIMITS.authenticatedRequestsPerMinute,
+      `${BROWSER_RATE_LIMITS.windowSeconds} s`,
+    ),
     analytics: true,
-    prefix: "ratelimit:auth",
+    prefix: `ratelimit:browser:auth:${BROWSER_RATE_LIMITS.authenticatedRequestsPerMinute}:${BROWSER_RATE_LIMITS.windowSeconds}`,
   });
 }
 
 // Paths that should be rate limited
-const RATE_LIMITED_PATHS = ["/api/market-data", "/api/search"];
+const RATE_LIMITED_PATHS = [
+  "/api/market-data",
+  "/api/search",
+  "/api/community",
+  "/api/stripe/checkout",
+  "/api/stripe/portal",
+  "/chat.v1.ChatService",
+];
 
 // Protected page routes that require authentication
 // Note: /shorts and /stocks are public for SEO (Googlebot needs to crawl them)
-const PROTECTED_ROUTES = ["/dashboards", "/portfolio", "/admin", "/developer", "/chat"];
+const PROTECTED_ROUTES = [
+  "/dashboards",
+  "/portfolio",
+  "/admin",
+  "/developer",
+  "/chat",
+];
+
+// Protected API/RPC routes should return API-shaped 401 responses, not signin redirects.
+const AUTH_REQUIRED_API_PATHS = [
+  "/api/stripe/checkout",
+  "/api/stripe/portal",
+  "/chat.v1.ChatService",
+];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -52,7 +90,8 @@ export async function middleware(request: NextRequest) {
   // Canonicalize stock-code case: /shorts/lot → 301 → /shorts/LOT.
   // Case variants returning 200 waste crawl budget on duplicate URLs that
   // only the canonical tag disambiguates.
-  const caseMatch = /^\/(shorts|insider-trading)\/([A-Za-z0-9]{1,5})(\/.*)?$/.exec(pathname);
+  const caseMatch =
+    /^\/(shorts|insider-trading)\/([A-Za-z0-9]{1,5})(\/.*)?$/.exec(pathname);
   if (caseMatch) {
     const code = caseMatch[2]!;
     const upper = code.toUpperCase();
@@ -64,21 +103,37 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check if this is a protected route
-  const isProtectedRoute = PROTECTED_ROUTES.some((route) =>
-    pathname.startsWith(route),
+  const requiresApiAuth = AUTH_REQUIRED_API_PATHS.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
   );
 
-  // Enforce authentication for protected routes
+  if (requiresApiAuth) {
+    try {
+      const token = await readSessionToken(request);
+
+      if (!token?.sub) {
+        return NextResponse.json(
+          { error: "Authentication required" },
+          { status: 401 },
+        );
+      }
+    } catch (error) {
+      console.error("[Middleware] API auth check error:", error);
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
+    }
+  }
+
+  const isProtectedRoute = PROTECTED_ROUTES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
+
+  // Enforce authentication for protected page routes
   if (isProtectedRoute) {
     try {
-      const token = await getToken({
-        req: request,
-        secret: process.env.NEXTAUTH_SECRET,
-        cookieName:
-          process.env.NODE_ENV === "production"
-            ? "__Secure-next-auth.session-token"
-            : "next-auth.session-token",
-      });
+      const token = await readSessionToken(request);
 
       // If no valid session, redirect to signin
       if (!token?.sub) {
@@ -106,20 +161,33 @@ export async function middleware(request: NextRequest) {
   );
 
   // Apply rate limiting if configured and path matches
+  if (
+    shouldRateLimit &&
+    (!redis || !anonymousLimiter || !authenticatedLimiter)
+  ) {
+    if (shouldFailClosedWithoutRedis()) {
+      return NextResponse.json(
+        {
+          error: "Rate limiting unavailable",
+          message: "Please try again shortly.",
+        },
+        {
+          status: 503,
+          headers: {
+            "Retry-After": "60",
+          },
+        },
+      );
+    }
+  }
+
   if (shouldRateLimit && redis && anonymousLimiter && authenticatedLimiter) {
     try {
       // Check authentication - but don't call getToken if we're near auth routes
       // to avoid any cookie/session interference
       let token = null;
       try {
-        token = await getToken({
-          req: request,
-          secret: process.env.NEXTAUTH_SECRET,
-          cookieName:
-            process.env.NODE_ENV === "production"
-              ? "__Secure-next-auth.session-token"
-              : "next-auth.session-token",
-        });
+        token = await readSessionToken(request);
       } catch (error) {
         // If getToken fails, treat as anonymous user
       }
@@ -169,13 +237,46 @@ export async function middleware(request: NextRequest) {
       response.headers.set("X-RateLimit-Reset", new Date(reset).toISOString());
       return response;
     } catch (error) {
-      // Don't block requests if rate limiting fails
+      if (shouldFailClosedWithoutRedis()) {
+        return NextResponse.json(
+          {
+            error: "Rate limiting unavailable",
+            message: "Please try again shortly.",
+          },
+          {
+            status: 503,
+            headers: {
+              "Retry-After": "60",
+            },
+          },
+        );
+      }
+
+      // Don't block requests if rate limiting fails outside production
       return NextResponse.next();
     }
   }
 
   // No rate limiting applied, continue
   return NextResponse.next();
+}
+
+function readSessionToken(request: NextRequest) {
+  return getToken({
+    req: request,
+    secret: process.env.NEXTAUTH_SECRET,
+    cookieName:
+      process.env.NODE_ENV === "production"
+        ? "__Secure-next-auth.session-token"
+        : "next-auth.session-token",
+  });
+}
+
+function shouldFailClosedWithoutRedis(): boolean {
+  return (
+    process.env.RATE_LIMIT_REQUIRE_DISTRIBUTED === "true" &&
+    process.env.RATE_LIMIT_FAIL_OPEN !== "true"
+  );
 }
 
 // Configure which routes use this middleware
@@ -186,6 +287,10 @@ export const config = {
      */
     "/api/market-data/:path*",
     "/api/search/:path*",
+    "/api/community/:path*",
+    "/api/stripe/checkout",
+    "/api/stripe/portal",
+    "/chat.v1.ChatService/:path*",
     /*
      * Protected page routes (require authentication)
      * Note: /shorts, /stocks, and /shorts/[stockCode] are public for SEO

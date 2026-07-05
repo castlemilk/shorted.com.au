@@ -57,6 +57,7 @@ echo "=== Cleaning up stale state entries from prior runs ==="
 tf_state_rm 'module.edge.cloudflare_ruleset.cache_rules'
 tf_state_rm 'module.edge.cloudflare_ruleset.rate_limit_api'
 tf_state_rm 'module.edge.cloudflare_ruleset.waf_managed'
+tf_state_rm 'module.edge.cloudflare_ruleset.app_api_security_skip'
 tf_state_rm 'module.edge.cloudflare_workers_script.prewarm'
 # DNS frontend was deleted+recreated, so strip any stale [0] entry.
 tf_state_rm 'module.edge.cloudflare_record.frontend[0]'
@@ -73,12 +74,13 @@ tf_import 'module.edge.cloudflare_workers_kv_namespace.edge_cache' "${ACCOUNT_ID
 
 # Zone-level rulesets — all have count = 1, so [0] index required.
 # Provider v4 import format: zone/<zone_id>/<ruleset_id> (singular).
-# All three rulesets ARE present at Cloudflare and must be imported on
+# All four rulesets ARE present at Cloudflare and must be imported on
 # every run; previous comment claiming cache_rules + rate_limit_api
 # were deleted was wrong — verified live via Cloudflare API. Without
 # these imports, terraform apply tries to CREATE colliding rulesets
 # and fails with "A similar configuration with rules already exists".
 tf_import 'module.edge.cloudflare_ruleset.waf_managed[0]'     "zone/${ZONE_ID}/ea95ef9d9d1547d58e2ea004c832f83a"
+tf_import 'module.edge.cloudflare_ruleset.app_api_security_skip[0]' "zone/${ZONE_ID}/dd8d8eba62d44f7f9362e5553b2b57f8"
 tf_import 'module.edge.cloudflare_ruleset.cache_rules[0]'     "zone/${ZONE_ID}/debd8a1c7c3c412e89a344801cc57ae3"
 tf_import 'module.edge.cloudflare_ruleset.rate_limit_api[0]'  "zone/${ZONE_ID}/f86ec850c6194005b04b6a8cc8d8dfe5"
 

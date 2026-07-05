@@ -310,18 +310,26 @@ module "market_data" {
 module "chat_service" {
   source = "../../modules/chat-service"
 
-  project_id    = var.project_id
-  region        = var.region
-  environment   = "production"
-  image_url     = var.chat_service_image
-  min_instances = 0
-  max_instances = 10
+  project_id                       = var.project_id
+  region                           = var.region
+  environment                      = "production"
+  image_url                        = var.chat_service_image
+  min_instances                    = 0
+  max_instances                    = 5
+  max_instance_request_concurrency = 8
 
   postgres_address  = var.postgres_address
   postgres_database = var.postgres_database
   postgres_username = var.postgres_username
 
-  shorts_api_url = module.shorts_api.service_url
+  # Route chat tool calls through the Cloudflare Worker so repeated read tools
+  # benefit from edge cache rather than always hitting the Shorts API origin.
+  shorts_api_url = "https://api.shorted.com.au"
+
+  gemini_max_output_tokens           = 1024
+  chat_max_input_chars               = 2000
+  chat_history_limit                 = 20
+  chat_max_messages_per_conversation = 100
 
   depends_on = [
     google_project_service.required_apis,
@@ -474,6 +482,10 @@ module "edge" {
   rate_limit_enabled         = true
   api_rate_limit_requests    = 60
   search_rate_limit_requests = 20
+
+  rate_limit_testing_bypass_secret      = var.rate_limit_testing_bypass_secret
+  rate_limit_testing_bypass_header_name = var.rate_limit_testing_bypass_header_name
+  rate_limit_testing_bypass_user_agent  = var.rate_limit_testing_bypass_user_agent
 
   waf_enabled            = true
   bot_protection_enabled = true

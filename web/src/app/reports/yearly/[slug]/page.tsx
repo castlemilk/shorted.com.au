@@ -29,18 +29,7 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-export async function generateStaticParams() {
-  // Skip static generation during local builds (pre-commit hook sets this)
-  if (process.env.SKIP_STATIC_GENERATION === "1") {
-    return [];
-  }
-  // Pre-generate completed years (current year excluded — it's incomplete)
-  return [
-    { slug: "2025" },
-    { slug: "2024" },
-    { slug: "2023" },
-  ];
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
@@ -97,8 +86,6 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     },
   };
 }
-
-export const revalidate = 86400;
 
 export default async function YearlyReportPage({ params }: PageProps) {
   const { slug } = await params;

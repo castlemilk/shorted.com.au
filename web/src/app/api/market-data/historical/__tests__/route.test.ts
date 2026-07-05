@@ -10,6 +10,10 @@ import {
   mockEmptyResponse,
 } from "~/__tests__/fixtures/market-data";
 
+jest.mock("next/cache", () => ({
+  unstable_cache: jest.fn((loader: () => Promise<unknown>) => loader),
+}));
+
 // Mock the market data service
 global.fetch = jest.fn();
 
@@ -131,6 +135,30 @@ describe("/api/market-data/historical", () => {
           body: expect.stringContaining('"period":"3m"'),
         }),
       );
+    });
+
+    it("should cache successful historical responses at the server edge", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => mockHistoricalPrices.CBA.sixMonths,
+      });
+
+      const request = new NextRequest(
+        "http://localhost:3020/api/market-data/historical",
+        {
+          method: "POST",
+          body: JSON.stringify({ stockCode: "cba", period: "6m" }),
+        },
+      );
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("Cache-Control")).toBe(
+        "public, s-maxage=86400, stale-while-revalidate=86400",
+      );
+      expect(response.headers.get("X-Shorted-Market-Cache")).toBe("HITABLE");
     });
   });
 

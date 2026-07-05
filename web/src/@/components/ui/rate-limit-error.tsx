@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Clock, AlertTriangle, RefreshCw } from "lucide-react";
-import Image from "next/image";
+import { AlertTriangle, Clock, LogIn, RefreshCw, TrendingUp } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { Button } from "~/@/components/ui/button";
 import { Card } from "~/@/components/ui/card";
 import { Progress } from "~/@/components/ui/progress";
@@ -17,6 +17,12 @@ interface RateLimitErrorProps {
   isRetrying?: boolean;
   /** Compact mode for inline display */
   compact?: boolean;
+  /** Override the current authentication state, primarily for known API responses */
+  isAuthenticated?: boolean;
+  /** Override where anonymous users should be sent to sign in */
+  signInHref?: string;
+  /** Override where authenticated users should be sent for higher limits */
+  pricingHref?: string;
 }
 
 /**
@@ -56,7 +62,11 @@ export function RateLimitError({
   onRetry,
   isRetrying = false,
   compact = false,
+  isAuthenticated,
+  signInHref,
+  pricingHref = "/pricing",
 }: RateLimitErrorProps) {
+  const { status } = useSession();
   const [countdown, setCountdown] = useState<number | null>(null);
   const [autoRetryEnabled, setAutoRetryEnabled] = useState(false);
 
@@ -108,6 +118,18 @@ export function RateLimitError({
         ((rateLimitInfo.monthlyUsed ?? 0) / rateLimitInfo.monthlyLimit) * 100
       )
     : 0;
+  const resolvedIsAuthenticated =
+    isAuthenticated ?? (status === "authenticated");
+  const isKnownAnonymous =
+    isAuthenticated === false ||
+    (isAuthenticated === undefined && status === "unauthenticated");
+  const currentPath =
+    typeof window !== "undefined"
+      ? `${window.location.pathname}${window.location.search}`
+      : "/";
+  const resolvedSignInHref =
+    signInHref ??
+    `/signin?callbackUrl=${encodeURIComponent(currentPath || "/")}`;
 
   if (compact) {
     return (
@@ -118,7 +140,25 @@ export function RateLimitError({
           {countdown !== null && countdown > 0 && (
             <span className="ml-1">Retry in {formatDuration(countdown)}</span>
           )}
+          {isKnownAnonymous && (
+            <span className="ml-1">
+              Sign in to get a larger request bucket.
+            </span>
+          )}
         </div>
+        {isKnownAnonymous && (
+          <Button
+            size="sm"
+            variant="outline"
+            asChild
+            className="h-7 border-amber-300 hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900"
+          >
+            <a href={resolvedSignInHref} aria-label="Sign in for higher limits">
+              <LogIn className="mr-1 h-3 w-3" />
+              Sign in
+            </a>
+          </Button>
+        )}
         {onRetry && countdown === 0 && (
           <Button
             size="sm"
@@ -143,7 +183,9 @@ export function RateLimitError({
       {/* Header with gradient */}
       <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-6 text-white">
         <div className="flex items-center gap-3">
-          <Image src="/assets/premium-icon-small.png" alt="" width={48} height={48} className="h-12 w-12" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/20">
+            <AlertTriangle className="h-6 w-6" />
+          </div>
           <div>
             <h3 className="text-lg font-semibold">
               {isMonthlyLimit ? "Monthly Limit Reached" : "Rate Limit Exceeded"}
@@ -209,8 +251,36 @@ export function RateLimitError({
           </div>
         )}
 
+        {isKnownAnonymous && !isMonthlyLimit && (
+          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-100">
+            <p className="font-medium">Sign in to get a larger request bucket.</p>
+            <p className="mt-1 text-blue-800 dark:text-blue-200">
+              Browser traffic is bucketed generously, but signed-in users get
+              higher limits and fewer interruptions during busy periods.
+            </p>
+          </div>
+        )}
+
         {/* Action buttons */}
         <div className="flex flex-col gap-3">
+          {isKnownAnonymous && !isMonthlyLimit && (
+            <Button asChild className="w-full">
+              <a href={resolvedSignInHref}>
+                <LogIn className="mr-2 h-4 w-4" />
+                Sign in for higher limits
+              </a>
+            </Button>
+          )}
+
+          {resolvedIsAuthenticated && isMonthlyLimit && (
+            <Button asChild className="w-full">
+              <a href={pricingHref}>
+                <TrendingUp className="mr-2 h-4 w-4" />
+                View higher limit plans
+              </a>
+            </Button>
+          )}
+
           {onRetry && !isMonthlyLimit && (
             <>
               <Button

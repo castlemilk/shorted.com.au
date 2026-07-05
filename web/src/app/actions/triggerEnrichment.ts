@@ -4,7 +4,7 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { auth } from "~/server/auth";
-import { SHORTS_API_URL } from "./config";
+import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { revalidatePath } from "next/cache";
 import { retryWithBackoff } from "@/lib/retry";
 
@@ -28,7 +28,7 @@ export async function triggerEnrichmentAction(formData: FormData) {
   }
 
   const transport = createConnectTransport({
-    fetch,
+    fetch: serverFetchWithUserAgent,
     baseUrl: SHORTS_API_URL,
   });
   const client = createClient(ShortedStocksService, transport);

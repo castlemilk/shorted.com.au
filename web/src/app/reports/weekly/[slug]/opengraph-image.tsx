@@ -2,6 +2,7 @@
 import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { getServerShortsApiUrl } from "~/app/actions/config";
 
 export const alt = "Weekly Short Selling Report - Shorted.com.au";
 export const size = {
@@ -71,10 +72,7 @@ function getWeekEndDate(year: number, week: number): string {
 async function getTopStockForDate(
   date: string,
 ): Promise<{ code: string; name: string; percentageShorted: number } | null> {
-  const apiUrl =
-    process.env.NEXT_PUBLIC_API_URL ??
-    process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-    "http://localhost:9091";
+  const apiUrl = getServerShortsApiUrl();
 
   // ASIC data is T+4, weekends/holidays return empty. Follow `previousDate`
   // up to 5 hops back so the OG always renders real data.

@@ -1,17 +1,69 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { getMarketDataApiUrl } from "~/app/actions/config";
-import { rateLimit } from "~/@/lib/rate-limit";
+import { unstable_cache } from "next/cache";
+import {
+  buildApiUrl,
+  getServerMarketDataApiUrl,
+  serverFetchWithUserAgent,
+} from "~/app/actions/config";
+import { BROWSER_READ_RATE_LIMIT, rateLimit } from "~/@/lib/rate-limit";
 
-const MARKET_DATA_API_URL = getMarketDataApiUrl();
+const MARKET_DATA_API_URL = getServerMarketDataApiUrl();
+const HISTORICAL_MARKET_DATA_CACHE_SECONDS = 86400;
+const CACHE_HEADERS = {
+  "Cache-Control": `public, s-maxage=${HISTORICAL_MARKET_DATA_CACHE_SECONDS}, stale-while-revalidate=${HISTORICAL_MARKET_DATA_CACHE_SECONDS}`,
+  "X-Shorted-Market-Cache": "HITABLE",
+};
+
+interface HistoricalPricesRequest {
+  stockCode: string;
+  period: string;
+}
+
+async function fetchHistoricalPrices({
+  stockCode,
+  period,
+}: HistoricalPricesRequest): Promise<Record<string, unknown>> {
+  const response = await serverFetchWithUserAgent(
+    buildApiUrl(
+      MARKET_DATA_API_URL,
+      "/marketdata.v1.MarketDataService/GetHistoricalPrices",
+    ),
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Connect-Protocol-Version": "1",
+      },
+      body: JSON.stringify({ stockCode, period }),
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    if (response.status === 400 || response.status === 404) {
+      return { prices: [] };
+    }
+    throw new Error(
+      `Market data API responded with status: ${response.status}`,
+    );
+  }
+
+  const data = (await response.json()) as unknown;
+
+  if (
+    !data ||
+    typeof data !== "object" ||
+    Object.keys(data as Record<string, unknown>).length === 0
+  ) {
+    return { prices: [] };
+  }
+
+  return data as Record<string, unknown>;
+}
 
 export async function POST(request: NextRequest) {
-  // Apply rate limiting: 20 requests/min for anonymous, 200 for authenticated
-  const rateLimitResult = await rateLimit(request, {
-    anonymousLimit: 20,
-    authenticatedLimit: 200,
-    windowSeconds: 60,
-  });
+  const rateLimitResult = await rateLimit(request, BROWSER_READ_RATE_LIMIT);
 
   if (!rateLimitResult.success) {
     return rateLimitResult.response;
@@ -28,41 +80,24 @@ export async function POST(request: NextRequest) {
       period: body.period?.toLowerCase() ?? "3m",
     };
 
-    // Forward the request to the market data service
-    const response = await fetch(
-      `${MARKET_DATA_API_URL}/marketdata.v1.MarketDataService/GetHistoricalPrices`,
+    const data = await unstable_cache(
+      () => fetchHistoricalPrices(requestBody),
+      [
+        "market-data",
+        "historical",
+        requestBody.stockCode,
+        requestBody.period,
+      ],
       {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(requestBody),
+        tags: [
+          "market-data",
+          `market-historical:${requestBody.stockCode}:${requestBody.period}`,
+        ],
+        revalidate: HISTORICAL_MARKET_DATA_CACHE_SECONDS,
       },
-    );
+    )();
 
-    // If the market data service returns 400/404, the stock doesn't have data
-    // Return empty array instead of erroring
-    if (!response.ok) {
-      if (response.status === 400 || response.status === 404) {
-        return NextResponse.json({ prices: [] });
-      }
-      throw new Error(
-        `Market data API responded with status: ${response.status}`,
-      );
-    }
-
-    const data = (await response.json()) as unknown;
-
-    // Handle empty response from market data service (stock not found)
-    if (
-      !data ||
-      typeof data !== "object" ||
-      Object.keys(data as Record<string, unknown>).length === 0
-    ) {
-      return NextResponse.json({ prices: [] });
-    }
-
-    return NextResponse.json(data as Record<string, unknown>);
+    return NextResponse.json(data, { headers: CACHE_HEADERS });
   } catch (error) {
     console.error("Market data proxy error:", error);
     return NextResponse.json(

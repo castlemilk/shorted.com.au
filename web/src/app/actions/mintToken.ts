@@ -4,7 +4,7 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { auth } from "~/server/auth";
-import { SHORTS_API_URL } from "./config";
+import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 
 export async function mintApiTokenAction() {
   const session = await auth();
@@ -21,7 +21,7 @@ export async function mintApiTokenAction() {
   // if it provides a specific internal secret or if we've configured it to do so.
 
   const transport = createConnectTransport({
-    fetch,
+    fetch: serverFetchWithUserAgent,
     baseUrl: SHORTS_API_URL,
   });
 

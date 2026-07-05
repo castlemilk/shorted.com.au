@@ -19,9 +19,16 @@ import type {
   Person,
   SocialMediaLinks,
 } from "~/@/types/company-metadata";
-import { SHORTS_API_URL } from "./config";
+import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { retryWithBackoff } from "@/lib/retry";
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
+import {
+  STOCK_PAGE_CACHE_SECONDS,
+  normalizeStockPageCacheCode,
+  stockPageCacheTags,
+  toNextDataCacheValue,
+} from "./stockPageCache";
 
 const RETRY_OPTIONS = {
   maxRetries: 3,
@@ -29,28 +36,46 @@ const RETRY_OPTIONS = {
   maxDelayMs: 5000,
 };
 
+async function fetchEnrichedCompanyMetadata(
+  stockCode: string,
+): Promise<EnrichedCompanyMetadata | null> {
+  const transport = createConnectTransport({
+    fetch: serverFetchWithUserAgent,
+    baseUrl: SHORTS_API_URL,
+  });
+  const client = createClient(ShortedStocksService, transport);
+
+  const details = await retryWithBackoff(
+    () =>
+      client.getStockDetails({
+        productCode: stockCode,
+      }),
+    RETRY_OPTIONS,
+  );
+
+  if (!details.productCode) {
+    return null;
+  }
+
+  return mapStockDetailsToMetadata(details);
+}
+
 export const getEnrichedCompanyMetadata = cache(
   async (stockCode: string): Promise<EnrichedCompanyMetadata | null> => {
+    const cacheCode = normalizeStockPageCacheCode(stockCode);
+
     try {
-      const transport = createConnectTransport({
-        baseUrl: SHORTS_API_URL,
-      });
-      const client = createClient(ShortedStocksService, transport);
-
-      const response = await retryWithBackoff(
-        () =>
-          client.getStockDetails({
-            productCode: stockCode.toUpperCase(),
-          }),
-        RETRY_OPTIONS,
-      );
-      const details = response;
-
-      if (!details.productCode) {
-        return null;
-      }
-
-      return mapStockDetailsToMetadata(details);
+      return await unstable_cache(
+        async () =>
+          toNextDataCacheValue(
+            await fetchEnrichedCompanyMetadata(cacheCode),
+          ) as EnrichedCompanyMetadata | null,
+        ["company-metadata", cacheCode],
+        {
+          tags: stockPageCacheTags("company-metadata", cacheCode),
+          revalidate: STOCK_PAGE_CACHE_SECONDS,
+        },
+      )();
     } catch (error) {
       console.error("Error fetching enriched company metadata via API:", error);
       return null;
@@ -61,6 +86,7 @@ export const getEnrichedCompanyMetadata = cache(
 export async function hasEnrichedData(stockCode: string): Promise<boolean> {
   try {
     const transport = createConnectTransport({
+      fetch: serverFetchWithUserAgent,
       baseUrl: SHORTS_API_URL,
     });
     const client = createClient(ShortedStocksService, transport);

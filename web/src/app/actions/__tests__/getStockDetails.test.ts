@@ -22,6 +22,10 @@ jest.mock("@connectrpc/connect-web", () => ({
   createConnectTransport: jest.fn(() => ({})),
 }));
 
+jest.mock("next/cache", () => ({
+  unstable_cache: jest.fn((loader: () => Promise<unknown>) => loader),
+}));
+
 jest.mock("@connectrpc/connect", () => {
   const mockClient = {
     getStockDetails: jest.fn(),
@@ -90,7 +94,7 @@ describe("getStockDetails", () => {
     expect(result).toBeUndefined();
   });
 
-  it("should normalize stock code to uppercase", async () => {
+  it("should canonicalize stock code to uppercase", async () => {
     const mockStockDetails: StockDetails = {
       productCode: "CBA",
       companyName: "Commonwealth Bank",
@@ -101,7 +105,7 @@ describe("getStockDetails", () => {
     await getStockDetails("cba");
 
     expect(mockClient.getStockDetails).toHaveBeenCalledWith({
-      productCode: "cba", // Should be passed as-is, normalization happens in backend
+      productCode: "CBA",
     });
   });
 
@@ -185,4 +189,3 @@ describe("getStockDetails", () => {
     expect(result?.gcsUrl).toBeTruthy(); // Should have a logo URL
   });
 });
-

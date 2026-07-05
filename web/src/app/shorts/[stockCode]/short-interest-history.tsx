@@ -1,5 +1,10 @@
 import { getStockData } from "~/app/actions/getStockData";
-import { SHORTS_API_URL } from "~/app/actions/config";
+import {
+  SHORTS_API_URL,
+  buildApiUrl,
+  serverFetchWithUserAgent,
+} from "~/app/actions/config";
+import { STOCK_PAGE_CACHE_SECONDS } from "~/app/actions/stockPageCache";
 
 interface Point {
   date: Date;
@@ -62,18 +67,19 @@ async function getShortRank(stockCode: string): Promise<{ rank: number; total: n
     // trim + headers: Vercel env vars can carry trailing newlines, and the
     // Cloudflare WAF in front of api.shorted.com.au serves an HTML 500 to
     // fetches without a UA and Connect-Protocol-Version header.
-    const response = await fetch(
-      `${SHORTS_API_URL.trim()}/shorts.v1alpha1.ShortedStocksService/GetTopShorts`,
+    const response = await serverFetchWithUserAgent(
+      buildApiUrl(
+        SHORTS_API_URL,
+        "/shorts.v1alpha1.ShortedStocksService/GetTopShorts",
+      ),
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Connect-Protocol-Version": "1",
-          "User-Agent":
-            "Mozilla/5.0 (compatible; ShortedBot/1.0; +https://shorted.com.au)",
         },
         body: JSON.stringify({ period: "max", limit: 1000, offset: 0, summaryOnly: true }),
-        next: { revalidate: 3600 },
+        next: { revalidate: STOCK_PAGE_CACHE_SECONDS },
       },
     );
     if (!response.ok) return null;

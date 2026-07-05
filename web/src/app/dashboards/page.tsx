@@ -159,7 +159,7 @@ export default function Dashboards() {
     saveNow,
     isOnline,
   } = useAutoSave({
-    debounceMs: 1500,
+    debounceMs: 5000,
     onSave: handleSave,
     onSaveSuccess: handleSaveSuccess,
     onSaveError: handleSaveError,

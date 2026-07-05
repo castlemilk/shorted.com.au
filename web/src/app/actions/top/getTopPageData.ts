@@ -1,17 +1,19 @@
 "use server";
 
-import { getOrSetCached, CACHE_KEYS, TOP_PAGE_TTL } from "~/@/lib/kv-cache";
+import {
+  CACHE_KEYS,
+  TOP_PAGE_TTL,
+  deleteCached,
+  getCached,
+  setCached,
+} from "~/@/lib/kv-cache";
 import { getTopShortsData } from "../getTopShorts";
 import {
   calculateMovers,
   type TimePeriod,
   type MoversData,
 } from "~/@/lib/shorts-calculations";
-import { toJson } from "@bufbuild/protobuf";
-import {
-  TimeSeriesDataSchema,
-  type TimeSeriesData,
-} from "~/gen/stocks/v1alpha1/stocks_pb";
+import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { siteConfig } from "~/@/config/site";
 
 /**
@@ -68,8 +70,62 @@ export interface TopPageData {
 /**
  * Serialize TimeSeriesData to plain object for caching
  */
+function toFiniteNumber(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+function serializeTimestamp(value: unknown): string | undefined {
+  if (!value) return undefined;
+  if (typeof value === "string") return value;
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "object" && "seconds" in value) {
+    const timestamp = value as { seconds?: bigint | number | string; nanos?: number };
+    const seconds = Number(timestamp.seconds ?? 0);
+    if (!Number.isFinite(seconds) || seconds <= 0) return undefined;
+    const nanos = Number(timestamp.nanos ?? 0);
+    return new Date(seconds * 1000 + nanos / 1000000).toISOString();
+  }
+  return undefined;
+}
+
+function serializeTimeSeriesPoint(point: unknown): SerializedTimeSeriesPoint {
+  const raw =
+    point && typeof point === "object"
+      ? (point as { timestamp?: unknown; shortPosition?: unknown })
+      : {};
+  return {
+    timestamp: serializeTimestamp(raw.timestamp),
+    shortPosition: toFiniteNumber(raw.shortPosition),
+  };
+}
+
 function serializeTimeSeriesData(data: TimeSeriesData): SerializedTimeSeriesData {
-  return toJson(TimeSeriesDataSchema, data) as unknown as SerializedTimeSeriesData;
+  const raw = data as TimeSeriesData & {
+    points?: unknown[];
+    max?: unknown;
+    min?: unknown;
+    latestShortPosition?: unknown;
+    percentageShorted?: unknown;
+  };
+  const points = Array.isArray(raw.points)
+    ? raw.points.map(serializeTimeSeriesPoint)
+    : [];
+
+  return {
+    productCode: raw.productCode ?? "",
+    name: raw.name ?? raw.productCode ?? "",
+    latestShortPosition: toFiniteNumber(
+      raw.latestShortPosition ?? raw.percentageShorted,
+    ),
+    points,
+    max: raw.max ? serializeTimeSeriesPoint(raw.max) : undefined,
+    min: raw.min ? serializeTimeSeriesPoint(raw.min) : undefined,
+  };
 }
 
 /**
@@ -143,6 +199,47 @@ function getLastUpdatedTimestamp(timeSeries: SerializedTimeSeriesData[]): string
     : new Date().toISOString();
 }
 
+function isUsableTopPageData(data: TopPageData | null): data is TopPageData {
+  return (
+    !!data &&
+    Array.isArray(data.timeSeries) &&
+    data.timeSeries.some(
+      (stock) =>
+        !!stock?.productCode && toFiniteNumber(stock.latestShortPosition) > 0,
+    )
+  );
+}
+
+async function buildTopPageData(
+  period: TimePeriod,
+  limit: number,
+): Promise<TopPageData> {
+  // Fetch raw data
+  const response = await getTopShortsData(period, limit, 0);
+  const rawTimeSeries = response?.timeSeries ?? [];
+
+  // Calculate movers from raw data (before serialization)
+  const rawMovers = calculateMovers(rawTimeSeries, period);
+
+  // Serialize for caching
+  const timeSeries = rawTimeSeries.map(serializeTimeSeriesData);
+  const movers = serializeMoversData(rawMovers);
+
+  // Generate SEO items for structured data
+  const stockListItems = generateStockListItems(timeSeries, 20);
+
+  // Get last updated timestamp
+  const lastUpdated = getLastUpdatedTimestamp(timeSeries);
+
+  return {
+    timeSeries,
+    movers,
+    stockListItems,
+    lastUpdated,
+    period,
+  };
+}
+
 /**
  * Fetches all data needed for the /top page with Redis caching.
  * Combines getTopShortsData + calculateMovers into a single cached response.
@@ -157,36 +254,22 @@ export async function getTopPageData(
 ): Promise<TopPageData> {
   const cacheKey = CACHE_KEYS.topPageData(period, limit);
 
-  return getOrSetCached(
-    cacheKey,
-    async () => {
-      // Fetch raw data
-      const response = await getTopShortsData(period, limit, 0);
-      const rawTimeSeries = response?.timeSeries ?? [];
+  const cached = await getCached<TopPageData>(cacheKey);
+  if (isUsableTopPageData(cached)) {
+    return cached;
+  }
+  if (cached !== null) {
+    await deleteCached(cacheKey);
+  }
 
-      // Calculate movers from raw data (before serialization)
-      const rawMovers = calculateMovers(rawTimeSeries, period);
+  const pageData = await buildTopPageData(period, limit);
+  if (isUsableTopPageData(pageData)) {
+    setCached(cacheKey, pageData, TOP_PAGE_TTL).catch((error) => {
+      console.error(`Failed to cache top page data for key ${cacheKey}:`, error);
+    });
+  }
 
-      // Serialize for caching
-      const timeSeries = rawTimeSeries.map(serializeTimeSeriesData);
-      const movers = serializeMoversData(rawMovers);
-
-      // Generate SEO items for structured data
-      const stockListItems = generateStockListItems(timeSeries, 20);
-
-      // Get last updated timestamp
-      const lastUpdated = getLastUpdatedTimestamp(timeSeries);
-
-      return {
-        timeSeries,
-        movers,
-        stockListItems,
-        lastUpdated,
-        period,
-      };
-    },
-    TOP_PAGE_TTL
-  );
+  return pageData;
 }
 
 /**

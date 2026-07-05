@@ -167,6 +167,75 @@ describe("StockTabs community integration", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("loads threads and pulse from the community APIs when initial lists are omitted", async () => {
+    const user = userEvent.setup();
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          threads: [
+            {
+              id: "thread-from-api",
+              stockCode: "BHP",
+              type: "bear",
+              title: "Borrow remains tight",
+              body: "The borrow setup is still worth tracking.",
+              score: 3,
+              commentCount: 2,
+              sourceCount: 1,
+              highSignal: false,
+              createdAt: "2026-04-10T08:00:00Z",
+              updatedAt: "2026-04-10T08:00:00Z",
+              lastActivityAt: "2026-04-10T09:00:00Z",
+              status: "active",
+            },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          pulse: [
+            {
+              id: "pulse-from-api",
+              stockCode: "BHP",
+              body: "Fresh note just crossed the tape.",
+              score: 4,
+              replyCount: 0,
+              createdAt: "2026-04-11T08:00:00Z",
+              updatedAt: "2026-04-11T08:00:00Z",
+              status: "active",
+            },
+          ],
+        }),
+      });
+
+    render(
+      <StockTabs
+        stockCode="BHP"
+        overviewContent={<div>Overview content</div>}
+        communityContent={<CommunityTab stockCode="BHP" />}
+      />,
+    );
+
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("tab", { name: "Community" }));
+
+    expect(global.fetch).toHaveBeenCalledWith("/api/community/BHP/threads", {
+      cache: "no-store",
+      signal: expect.any(AbortSignal),
+    });
+    expect(global.fetch).toHaveBeenCalledWith("/api/community/BHP/pulse", {
+      cache: "no-store",
+      signal: expect.any(AbortSignal),
+    });
+    expect(await screen.findByText("Borrow remains tight")).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Fresh note just crossed the tape/i),
+    ).toBeInTheDocument();
+  });
+
   it("lets an authenticated user open the composer and append a new thread locally", async () => {
     const user = userEvent.setup();
     (global.fetch as jest.Mock).mockResolvedValue({

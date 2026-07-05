@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { requireAdmin } from "~/server/admin";
-import { SHORTS_API_URL } from "./config";
+import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { retryWithBackoff } from "@/lib/retry";
 
 const RETRY_OPTIONS = {
@@ -35,7 +35,7 @@ export async function reviewEnrichmentAction(formData: FormData) {
   }
 
   const transport = createConnectTransport({
-    fetch,
+    fetch: serverFetchWithUserAgent,
     baseUrl: SHORTS_API_URL,
   });
   const client = createClient(ShortedStocksService, transport);

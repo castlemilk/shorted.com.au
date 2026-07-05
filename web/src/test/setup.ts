@@ -47,14 +47,14 @@ global.Response = class Response {
   body: any;
   status: number;
   statusText: string;
-  headers: Map<string, string>;
+  headers: Headers;
   ok: boolean;
 
   constructor(body?: any, init?: any) {
     this.body = body;
     this.status = init?.status || 200;
     this.statusText = init?.statusText || "OK";
-    this.headers = new Map();
+    this.headers = new Headers(init?.headers);
     this.ok = this.status >= 200 && this.status < 300;
   }
 
@@ -533,6 +533,12 @@ jest.mock("lucide-react", () => {
     }),
     AlertTriangle: jest.fn(({ className }: any) => {
       return React.createElement("div", { className: `alert-triangle ${className}` });
+    }),
+    Clock: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `clock ${className}` });
+    }),
+    LogIn: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `log-in ${className}` });
     }),
     Newspaper: jest.fn(({ className }: any) => {
       return React.createElement("div", { className: `newspaper ${className}` });

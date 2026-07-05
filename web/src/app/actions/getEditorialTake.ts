@@ -6,17 +6,21 @@ import {
   type ListEditorialTakesResponse,
 } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { cache } from "react";
-import { SHORTS_API_URL } from "./config";
+import { SERVER_SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { withRetryAndNotFound } from "./withRetry";
+
+function createEditorialClient() {
+  const transport = createConnectTransport({
+    fetch: serverFetchWithUserAgent,
+    baseUrl: SERVER_SHORTS_API_URL,
+  });
+  return createClient(ShortedStocksService, transport);
+}
 
 export const getEditorialTake = cache(
   withRetryAndNotFound(
     async (slug: string): Promise<GetEditorialTakeResponse> => {
-      const transport = createConnectTransport({
-        fetch,
-        baseUrl: SHORTS_API_URL,
-      });
-      const client = createClient(ShortedStocksService, transport);
+      const client = createEditorialClient();
       return await client.getEditorialTake({ slug });
     },
   ),
@@ -29,11 +33,7 @@ export const listEditorialTakes = cache(
       offset: number = 0, // eslint-disable-line @typescript-eslint/no-inferrable-types
       stockCode: string = "", // eslint-disable-line @typescript-eslint/no-inferrable-types
     ): Promise<ListEditorialTakesResponse> => {
-      const transport = createConnectTransport({
-        fetch,
-        baseUrl: SHORTS_API_URL,
-      });
-      const client = createClient(ShortedStocksService, transport);
+      const client = createEditorialClient();
       return await client.listEditorialTakes({ limit, offset, stockCode });
     },
   ),

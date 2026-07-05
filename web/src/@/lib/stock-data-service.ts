@@ -60,10 +60,6 @@ export interface StockSearchResponse {
   count: number;
 }
 
-// Market Data API configuration - call backend directly
-const MARKET_DATA_API_URL =
-  process.env.NEXT_PUBLIC_MARKET_DATA_API_URL ?? "http://localhost:8090";
-
 /**
  * Get multiple stock quotes from market data API (Connect RPC)
  */
@@ -75,16 +71,13 @@ export async function getMultipleStockQuotes(
   try {
     return await retryWithBackoff(
       async () => {
-        const response = await fetch(
-          `${MARKET_DATA_API_URL}/marketdata.v1.MarketDataService/GetMultipleStockPrices`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              stockCodes: stockCodes.map((code) => code.toUpperCase()),
-            }),
-          },
-        );
+        const response = await fetch("/api/market-data/multiple-quotes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            stockCodes: stockCodes.map((code) => code.toUpperCase()),
+          }),
+        });
 
         if (!response.ok) {
           throw new Error(
@@ -216,17 +209,14 @@ export async function getCorrelationMatrix(
 ): Promise<CorrelationMatrix> {
   return retryWithBackoff(
     async () => {
-      const response = await fetch(
-        `${MARKET_DATA_API_URL}/marketdata.v1.MarketDataService/GetStockCorrelations`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            stockCodes: stockCodes.map((code) => code.toUpperCase()),
-            period: period.toLowerCase(),
-          }),
-        },
-      );
+      const response = await fetch("/api/market-data/correlations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stockCodes: stockCodes.map((code) => code.toUpperCase()),
+          period: period.toLowerCase(),
+        }),
+      });
 
       if (!response.ok) {
         throw new Error(
@@ -343,7 +333,7 @@ export async function getStockPrice(
  */
 export async function getServiceStatus(): Promise<{ marketDataAPI: boolean }> {
   try {
-    const response = await fetch(`${MARKET_DATA_API_URL}/health`, {
+    const response = await fetch("/api/health", {
       method: "GET",
       signal: AbortSignal.timeout(5000),
     });

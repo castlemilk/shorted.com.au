@@ -95,6 +95,7 @@ const worker = {
     const url = new URL(request.url);
     const path = url.pathname;
     const hostname = url.hostname;
+    const started = Date.now();
 
     const defaults = {
       cacheTtlDefault: parseInt(env.CACHE_TTL_DEFAULT || "60", 10),
@@ -111,14 +112,14 @@ const worker = {
     // Forward CF-Connecting-IP so Vercel Upstash rate limiting gets the real client IP.
     // Cloudflare DDoS + WAF protect this traffic at the proxy layer.
     if (hostname === FRONTEND_HOST || hostname === `www.${FRONTEND_HOST}`) {
-      return proxyFrontend(request, env, FRONTEND_ORIGIN);
+      return withEdgeAnalytics(request, env, proxyFrontend(request, env, FRONTEND_ORIGIN), "frontend", 0, started);
     }
 
     // --- 1. BYPASS: never cache these ---
 
     // Health checks -> Shorts API
     if (path === "/health" || path === "/healthz") {
-      return proxyWithHeaders(request, shortsApiOrigin, "BYPASS");
+      return withEdgeAnalytics(request, env, proxyWithHeaders(request, shortsApiOrigin, "BYPASS"), "shorts", 0, started);
     }
 
     // gRPC/Connect streaming indicators -> pass-through to the Shorts API.
@@ -133,29 +134,29 @@ const worker = {
       !path.includes("/chat.v1.") &&
       !path.includes("/marketdata.v1.")
     ) {
-      return proxyWithHeaders(request, shortsApiOrigin, "BYPASS");
+      return withEdgeAnalytics(request, env, proxyWithHeaders(request, shortsApiOrigin, "BYPASS"), "shorts", 0, started);
     }
 
     // Cache purge endpoint (requires shared secret)
     if (path === "/api/cache/purge" && request.method === "POST") {
       const purgeBody = await request.text();
       if (!env.CACHE_PURGE_SECRET || purgeBody !== env.CACHE_PURGE_SECRET) {
-        return new Response("Unauthorized", { status: 401 });
+        return withEdgeAnalytics(request, env, new Response("Unauthorized", { status: 401 }), "edge-control", 0, started);
       }
-      return handlePurge();
+      return withEdgeAnalytics(request, env, handlePurge(), "edge-control", 0, started);
     }
 
     // Chat service -> Chat Service origin (streaming, never cache)
     if (path.includes("/chat.v1.")) {
       if (!chatServiceOrigin) {
-        return new Response("Chat service not configured", { status: 404 });
+        return withEdgeAnalytics(request, env, new Response("Chat service not configured", { status: 404 }), "chat", 0, started);
       }
-      return proxyWithHeaders(request, chatServiceOrigin, "BYPASS");
+      return withEdgeAnalytics(request, env, proxyWithHeaders(request, chatServiceOrigin, "BYPASS"), "chat", 0, started);
     }
 
     // Auth/register -> Shorts API (never cache)
     if (path.includes("/register.v1.")) {
-      return proxyWithHeaders(request, shortsApiOrigin, "BYPASS");
+      return withEdgeAnalytics(request, env, proxyWithHeaders(request, shortsApiOrigin, "BYPASS"), "shorts", 0, started);
     }
 
     // --- 2. MARKET DATA -> cache with stock_data TTL ---
@@ -165,16 +166,24 @@ const worker = {
     // directly. After Cloudflare became the only origin path, this needed
     // to align with the actual gRPC path.
     if (path.includes("/marketdata.v1.")) {
-      return handleCachedRequest(request, url, env, ctx, marketDataOrigin, defaults.cacheTtlStockData);
+      return withEdgeAnalytics(
+        request,
+        env,
+        handleCachedRequest(request, url, env, ctx, marketDataOrigin, defaults.cacheTtlStockData),
+        "market-data",
+        defaults.cacheTtlStockData,
+        started
+      );
     }
 
     // --- 3. SHORTS API -> endpoint-aware caching with hot path ---
     if (path.includes("/shorts.v1alpha1.")) {
       const ttl = resolveShortsTtl(path, defaults);
+      let hotKey = null;
 
       // Try hot cache first (only for GET-equivalent read-only requests)
       if (request.method === "POST") {
-        const hotKey = await buildHotCacheKey(request, path);
+        hotKey = await buildHotCacheKey(request, path);
         const hot = getHot(request, hotKey);
         if (hot) {
           const resp = new Response(hot.body, {
@@ -182,7 +191,7 @@ const worker = {
             headers: { "Content-Type": hot.contentType },
           });
           stampEdgeHeaders(resp, "HOT");
-          return resp;
+          return withEdgeAnalytics(request, env, resp, "shorts", ttl, started);
         }
       }
 
@@ -190,8 +199,7 @@ const worker = {
 
       // After a successful origin fetch, populate hot cache for top shorts + stocks
       // Only for read-only requests that were cache misses
-      if (result.headers.get("X-Shorted-Cache") === "MISS" && request.method === "POST") {
-        const hotKey = await buildHotCacheKey(request, path);
+      if (result.headers.get("X-Shorted-Cache") === "MISS" && request.method === "POST" && hotKey) {
         try {
           // Clone response body before it's consumed
           const body = await result.clone().arrayBuffer();
@@ -202,11 +210,11 @@ const worker = {
         }
       }
 
-      return result;
+      return withEdgeAnalytics(request, env, result, "shorts", ttl, started);
     }
 
     // --- 4. UNKNOWN -> pass-through to Shorts API ---
-    return proxyWithHeaders(request, shortsApiOrigin, "BYPASS");
+    return withEdgeAnalytics(request, env, proxyWithHeaders(request, shortsApiOrigin, "BYPASS"), "shorts", 0, started);
   },
 };
 
@@ -215,6 +223,171 @@ export default worker;
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+async function withEdgeAnalytics(request, env, responseOrPromise, origin, cacheTtl, started) {
+  const response = await responseOrPromise;
+  logEdgeAnalytics(request, env, response, origin, cacheTtl, started);
+  return response;
+}
+
+function logEdgeAnalytics(request, env, response, origin, cacheTtl, started) {
+  const sampleRate = clampSampleRate(parseFloat(env.EDGE_ANALYTICS_SAMPLE_RATE || "0.01"));
+  if (sampleRate <= 0 || Math.random() > sampleRate) {
+    return;
+  }
+
+  try {
+    console.log(JSON.stringify(buildEdgeAnalyticsEvent(request, response, {
+      origin,
+      cacheTtl,
+      started,
+      now: Date.now(),
+    })));
+  } catch (_) {
+    // Analytics must never affect request handling.
+  }
+}
+
+function clampSampleRate(value) {
+  if (!Number.isFinite(value)) return 0.01;
+  if (value < 0) return 0;
+  if (value > 1) return 1;
+  return value;
+}
+
+function normalizeAnalyticsPath(path) {
+  if (path.includes("/shorts.v1alpha1.") || path.includes("/marketdata.v1.") || path.includes("/chat.v1.") || path.includes("/register.v1.")) {
+    return path;
+  }
+  if (path.startsWith("/_next/static/")) return "/_next/static/*";
+  if (path.startsWith("/_next/data/")) return "/_next/data/*";
+  if (/\.(png|jpe?g|gif|svg|webp|avif|ico)$/i.test(path)) return "/*image";
+  if (/\.(woff2?|ttf|eot)$/i.test(path)) return "/*font";
+  return path === "/" ? "/" : "/*page";
+}
+
+export function buildEdgeAnalyticsEvent(request, response, options) {
+  const url = new URL(request.url);
+  const cacheStatus = response.headers.get("X-Shorted-Cache") || "UNKNOWN";
+  const rpc = parseRpcPath(url.pathname);
+  const routeGroup = normalizeRouteGroup(url.hostname, url.pathname);
+  const contentLength = parseInt(response.headers.get("content-length") || "0", 10);
+  const cf = request.cf || {};
+
+  return {
+    type: "edge_request",
+    host: url.hostname,
+    path: normalizeAnalyticsPath(url.pathname),
+    route_group: routeGroup,
+    referer_group: normalizeRefererGroup(request.headers.get("referer")),
+    feature: resolveFeature(url.pathname, options.origin, rpc.api_family),
+    api_family: rpc.api_family || (url.pathname.startsWith("/api/") ? "next-api" : ""),
+    rpc_method: rpc.rpc_method,
+    method: request.method,
+    origin: options.origin,
+    cache_status: cacheStatus,
+    cacheable: isCacheableAnalyticsEvent(cacheStatus, options.cacheTtl || 0),
+    status: response.status,
+    cache_ttl_seconds: options.cacheTtl || 0,
+    duration_ms: Math.max(0, options.now - options.started),
+    response_bytes: Number.isFinite(contentLength) ? contentLength : 0,
+    cf_ray: request.headers.get("cf-ray") || "",
+    cf_colo: typeof cf.colo === "string" ? cf.colo : "",
+    cf_client_bot: Boolean(cf.clientBot),
+  };
+}
+
+export function normalizeRouteGroup(host, path) {
+  const rpc = parseRpcPath(path);
+  if (rpc.api_family && rpc.rpc_method) {
+    return `/rpc/${rpc.api_family}/${rpc.rpc_method}`;
+  }
+
+  if (path === "/") return "/";
+  if (path.startsWith("/_next/static/")) return "/_next/static/*";
+  if (path.startsWith("/_next/data/")) return "/_next/data/*";
+  if (/\.(png|jpe?g|gif|svg|webp|avif|ico)$/i.test(path)) return "/*image";
+  if (/\.(woff2?|ttf|eot)$/i.test(path)) return "/*font";
+
+  if (/^\/shorts\/[^/]+\/community\/[^/]+/.test(path)) return "/shorts/[code]/community/[threadId]";
+  if (/^\/shorts\/[^/]+\/news/.test(path)) return "/shorts/[code]/news";
+  if (/^\/shorts\/[^/]+/.test(path)) return "/shorts/[code]";
+  if (/^\/insider-trading\/[^/]+/.test(path)) return "/insider-trading/[code]";
+
+  if (/^\/api\/community\/reports/.test(path)) return "/api/community/reports";
+  if (/^\/api\/community\/votes/.test(path)) return "/api/community/votes";
+  if (/^\/api\/community\/[^/]+\/threads\/[^/]+\/comments/.test(path)) return "/api/community/[code]/threads/[threadId]/comments";
+  if (/^\/api\/community\/[^/]+\/threads\/[^/]+/.test(path)) return "/api/community/[code]/threads/[threadId]";
+  if (/^\/api\/community\/[^/]+\/threads/.test(path)) return "/api/community/[code]/threads";
+  if (/^\/api\/community\/[^/]+\/pulse\/[^/]+\/replies/.test(path)) return "/api/community/[code]/pulse/[pulseId]/replies";
+  if (/^\/api\/community\/[^/]+\/pulse/.test(path)) return "/api/community/[code]/pulse";
+  if (/^\/api\/community\/[^/]+\/summary/.test(path)) return "/api/community/[code]/summary";
+
+  if (path.startsWith("/api/market-data/")) return "/api/market-data/*";
+  if (path.startsWith("/api/search/")) return "/api/search/*";
+  if (path.startsWith("/api/stocks/multiple")) return "/api/stocks/multiple";
+  if (path.startsWith("/api/admin/")) return "/api/admin/*";
+  if (path.startsWith("/api/")) return "/api/*";
+
+  if (path.startsWith("/portfolio")) return "/portfolio";
+  if (path.startsWith("/dashboards")) return "/dashboards";
+  if (path.startsWith("/chat")) return "/chat";
+  if (path.startsWith("/search")) return "/search";
+  if (path.startsWith("/stocks")) return "/stocks";
+  if (path.startsWith("/topShortsView")) return "/top-shorts";
+
+  return host === FRONTEND_HOST || host === `www.${FRONTEND_HOST}` ? "/*page" : path;
+}
+
+function normalizeRefererGroup(referer) {
+  if (!referer) return "";
+  try {
+    const url = new URL(referer);
+    return normalizeRouteGroup(url.hostname, url.pathname);
+  } catch (_) {
+    return "";
+  }
+}
+
+function parseRpcPath(path) {
+  const match = /^\/([^/]+)\/([^/]+)$/.exec(path);
+  if (!match) {
+    return { api_family: "", rpc_method: "" };
+  }
+
+  const service = match[1];
+  const rpcMethod = match[2];
+  if (service.includes("shorts.v1alpha1.")) {
+    return { api_family: "shorts", rpc_method: rpcMethod };
+  }
+  if (service.includes("marketdata.v1.")) {
+    return { api_family: "market-data", rpc_method: rpcMethod };
+  }
+  if (service.includes("chat.v1.")) {
+    return { api_family: "chat", rpc_method: rpcMethod };
+  }
+  if (service.includes("register.v1.")) {
+    return { api_family: "auth", rpc_method: rpcMethod };
+  }
+  return { api_family: "", rpc_method: "" };
+}
+
+function resolveFeature(path, origin, apiFamily) {
+  if (apiFamily) return apiFamily;
+  if (path.startsWith("/api/community/") || /^\/shorts\/[^/]+\/community/.test(path)) return "community";
+  if (path.startsWith("/portfolio")) return "portfolio";
+  if (path.startsWith("/dashboards")) return "dashboards";
+  if (path.startsWith("/chat")) return "chat";
+  if (path.startsWith("/api/search/") || path.startsWith("/search")) return "search";
+  if (path.startsWith("/api/market-data/")) return "market-data";
+  if (path.startsWith("/shorts") || path.startsWith("/topShortsView")) return "shorts";
+  if (path.startsWith("/api/admin/") || path.startsWith("/admin")) return "admin";
+  return origin || "unknown";
+}
+
+function isCacheableAnalyticsEvent(cacheStatus, cacheTtl) {
+  return cacheTtl > 0 || ["HIT", "MISS", "KV", "HOT"].includes(cacheStatus);
+}
 
 /**
  * Determine the cache TTL for a Shorts API path based on the RPC method name.
@@ -262,6 +435,10 @@ async function buildHotCacheKey(request, path) {
 async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl) {
   const path = url.pathname;
   let kvKey = null; // declared early so both KV-hit and MISS branches can use it
+  const requestBody = request.method !== "GET" && request.method !== "HEAD"
+    ? await request.clone().arrayBuffer()
+    : undefined;
+  const freshBody = () => requestBody ? requestBody.slice(0) : undefined;
 
   try {
     const cache = caches.default;
@@ -297,9 +474,7 @@ async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl) {
               const originResp = await fetch(originUrl, {
                 method: request.method,
                 headers: filterRequestHeaders(request.headers),
-                body: request.method !== "GET" && request.method !== "HEAD"
-                  ? await request.arrayBuffer()
-                  : undefined,
+                body: freshBody(),
               });
               if (originResp.ok) {
                 const body = await originResp.arrayBuffer();
@@ -326,9 +501,7 @@ async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl) {
     const originResp = await fetch(originUrl, {
       method: request.method,
       headers: filterRequestHeaders(request.headers),
-      body: request.method !== "GET" && request.method !== "HEAD"
-        ? await request.arrayBuffer()
-        : undefined,
+      body: freshBody(),
     });
 
     // Only cache successful responses
@@ -380,7 +553,11 @@ async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl) {
   } catch {
     // If caching fails, fall through to origin
     const originUrl = buildOriginUrl(origin, url);
-    return fetch(originUrl, request);
+    return fetch(originUrl, {
+      method: request.method,
+      headers: filterRequestHeaders(request.headers),
+      body: freshBody(),
+    });
   }
 }
 
@@ -390,17 +567,19 @@ async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl) {
  * Returns null if the endpoint is not KV-cacheable.
  *
  * Cacheable endpoints:
- *   - Shorts API: GetTopShorts, GetIndustryTreeMap, GetStock
+ *   - Shorts API: GetTopShorts, GetIndustryTreeMap, GetWeeklyReport,
+ *                 GetAvailableDates, GetStock, GetNews, GetAnnouncement
  *   - Market Data: GetStockPrice, GetMultipleStockPrices, GetHistoricalPrices
  */
 async function buildKvCacheKey(request, path) {
-  if (!/GetTopShorts|GetIndustryTreeMap|GetStock$|GetStockPrice|GetMultipleStockPrices|GetHistoricalPrices/.test(path)) {
+  if (!/GetTopShorts|GetIndustryTreeMap|GetWeeklyReport|GetAvailableDates|GetStock$|GetNews|GetAnnouncement|GetStockPrice|GetMultipleStockPrices|GetHistoricalPrices/.test(path)) {
     return null;
   }
   if (request.method === "POST") {
     const bodyText = await request.clone().text();
     const bodyHash = hashStringSync(bodyText);
-    return `prewarm:${path}:${bodyHash}`;
+    const pathClean = path.replace(/\//g, "_").replace(/^_/, "");
+    return `prewarm:${pathClean}:${bodyHash}`;
   }
   return null;
 }
@@ -423,20 +602,26 @@ function hashStringSync(text) {
 async function proxyWithHeaders(request, origin, cacheStatus) {
   const reqUrl = new URL(request.url);
   const originUrl = buildOriginUrl(origin, reqUrl);
+  const requestBody = request.method !== "GET" && request.method !== "HEAD"
+    ? await request.clone().arrayBuffer()
+    : undefined;
+  const freshBody = () => requestBody ? requestBody.slice(0) : undefined;
 
   try {
     const resp = await fetch(originUrl, {
       method: request.method,
       headers: filterRequestHeaders(request.headers),
-      body: request.method !== "GET" && request.method !== "HEAD"
-        ? await request.arrayBuffer()
-        : undefined,
+      body: freshBody(),
     });
     const clientResp = new Response(resp.body, resp);
     stampEdgeHeaders(clientResp, cacheStatus);
     return clientResp;
   } catch {
-    return fetch(originUrl, request);
+    return fetch(originUrl, {
+      method: request.method,
+      headers: filterRequestHeaders(request.headers),
+      body: freshBody(),
+    });
   }
 }
 
@@ -451,6 +636,10 @@ async function proxyWithHeaders(request, origin, cacheStatus) {
 async function proxyFrontend(request, env, frontendOrigin) {
   const reqUrl = new URL(request.url);
   const originUrl = buildOriginUrl(frontendOrigin, reqUrl);
+  const requestBody = request.method !== "GET" && request.method !== "HEAD"
+    ? await request.clone().arrayBuffer()
+    : undefined;
+  const freshBody = () => requestBody ? requestBody.slice(0) : undefined;
 
   // Build headers for Vercel — forward the real client IP
   const headers = new Headers();
@@ -476,9 +665,7 @@ async function proxyFrontend(request, env, frontendOrigin) {
     const resp = await fetch(originUrl, {
       method: request.method,
       headers,
-      body: request.method !== "GET" && request.method !== "HEAD"
-        ? await request.arrayBuffer()
-        : undefined,
+      body: freshBody(),
     });
 
     const clientResp = new Response(resp.body, resp);
@@ -487,7 +674,11 @@ async function proxyFrontend(request, env, frontendOrigin) {
     clientResp.headers.set("X-Shorted-Cache", "BYPASS");
     return clientResp;
   } catch {
-    return fetch(originUrl, request);
+    return fetch(originUrl, {
+      method: request.method,
+      headers,
+      body: freshBody(),
+    });
   }
 }
 

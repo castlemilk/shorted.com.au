@@ -23,14 +23,25 @@ var (
 	ScraperBlocked otelmetric.Int64Counter
 
 	// Sync job metrics
-	SyncDuration          otelmetric.Float64Histogram
-	SyncRecordsProcessed  otelmetric.Int64Counter
-	SyncStatus            otelmetric.Int64Counter
-	SyncLastSuccess       otelmetric.Int64Gauge
+	SyncDuration         otelmetric.Float64Histogram
+	SyncRecordsProcessed otelmetric.Int64Counter
+	SyncStatus           otelmetric.Int64Counter
+	SyncLastSuccess      otelmetric.Int64Gauge
 
 	// Logo discovery metrics
 	LogoDiscoveryTotal    otelmetric.Int64Counter
 	LogoDiscoveryDuration otelmetric.Float64Histogram
+
+	// AI request cost-attribution metrics. Keep attributes bounded at call sites:
+	// feature, model, phase, status, token_type, and tool_name are acceptable;
+	// user IDs, IPs, prompts, conversation IDs, and stock codes are not.
+	AIRequestsTotal    otelmetric.Int64Counter
+	AITokensTotal      otelmetric.Int64Counter
+	AIInputCharsTotal  otelmetric.Int64Counter
+	AIToolCallsTotal   otelmetric.Int64Counter
+	AIToolResultBytes  otelmetric.Int64Counter
+	ChatStorageWrites  otelmetric.Int64Counter
+	ChatMessagesPruned otelmetric.Int64Counter
 )
 
 // InitCustomMetrics initializes the custom business metric instruments.
@@ -84,6 +95,42 @@ func InitCustomMetrics() {
 		"shorted.logo.discovery_duration",
 		otelmetric.WithDescription("Duration of logo discovery in seconds"),
 		otelmetric.WithUnit("s"),
+	)
+
+	AIRequestsTotal, _ = meter.Int64Counter(
+		"shorted.ai.requests_total",
+		otelmetric.WithDescription("Total AI model requests by feature, model, phase, and status"),
+	)
+
+	AITokensTotal, _ = meter.Int64Counter(
+		"shorted.ai.tokens_total",
+		otelmetric.WithDescription("Total AI tokens by feature, model, phase, status, and token type"),
+	)
+
+	AIInputCharsTotal, _ = meter.Int64Counter(
+		"shorted.ai.input_chars_total",
+		otelmetric.WithDescription("Total AI input characters by feature, model, phase, and status"),
+	)
+
+	AIToolCallsTotal, _ = meter.Int64Counter(
+		"shorted.ai.tool_calls_total",
+		otelmetric.WithDescription("Total AI tool calls by feature, tool, and status"),
+	)
+
+	AIToolResultBytes, _ = meter.Int64Counter(
+		"shorted.ai.tool_result_bytes_total",
+		otelmetric.WithDescription("Total bytes returned from AI tool calls by feature, tool, and status"),
+		otelmetric.WithUnit("By"),
+	)
+
+	ChatStorageWrites, _ = meter.Int64Counter(
+		"shorted.chat.storage_writes_total",
+		otelmetric.WithDescription("Total chat persistence writes by role"),
+	)
+
+	ChatMessagesPruned, _ = meter.Int64Counter(
+		"shorted.chat.messages_pruned_total",
+		otelmetric.WithDescription("Total old chat messages pruned by retention guardrails"),
 	)
 }
 

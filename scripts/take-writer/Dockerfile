@@ -3,7 +3,7 @@
 #   ["newsroom-daily", "--auto-publish", "--with-images"]
 # Env (DATABASE_URL, GEMINI_API_KEY, OPENAI_API_KEY, GCS_LOGO_BUCKET) is
 # injected by the job; GCS auth uses the job's service-account ADC.
-FROM node:22-slim
+FROM node:24-slim
 
 WORKDIR /app
 

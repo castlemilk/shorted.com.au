@@ -8,6 +8,11 @@ import { getAllIndustrySlugs } from "./actions/industry/getIndustryData";
 import { getAllTermSlugs } from "~/@/data/glossary-terms";
 import { getHousingStateSlugs, getHousingSuburbUrls } from "./actions/getHousingSitemap";
 import {
+  buildApiUrl,
+  getServerShortsApiUrl,
+  serverFetchWithUserAgent,
+} from "./actions/config";
+import {
   getAvailableWeekSlugs,
   getAvailableMonthSlugs,
   getAvailableYearSlugs,
@@ -31,9 +36,7 @@ const learnArticles = [
 
 // API URL for sitemap generation during builds
 const API_URL =
-  process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:9091";
+  getServerShortsApiUrl();
 
 // API response type for top shorts
 interface TopShortsResponse {
@@ -67,17 +70,17 @@ const FALLBACK_STOCK_CODES = [
  */
 async function getAllStockCodes(): Promise<string[]> {
   try {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-      process.env.NEXT_PUBLIC_API_URL ??
-      API_URL;
+    const baseUrl = API_URL;
 
     // Use direct fetch with JSON to avoid protobuf-es SSR issues.
     // Send Connect protocol + UA headers — the Cloudflare WAF 403s bare
     // server-side fetches to api.shorted.com.au (see CLAUDE.md / mcp-server),
     // which would otherwise silently fall back to FALLBACK_STOCK_CODES.
-    const response = await fetch(
-      `${baseUrl}/shorts.v1alpha1.ShortedStocksService/GetTopShorts`,
+    const response = await serverFetchWithUserAgent(
+      buildApiUrl(
+        baseUrl,
+        "/shorts.v1alpha1.ShortedStocksService/GetTopShorts",
+      ),
       {
         method: "POST",
         headers: {
@@ -140,10 +143,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let marketDates: string[] = [];
   try {
     const transport = createConnectTransport({
-      baseUrl:
-        process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-        process.env.NEXT_PUBLIC_API_URL ??
-        API_URL,
+      fetch: serverFetchWithUserAgent,
+      baseUrl: API_URL,
     });
     const client = createClient(ShortedStocksService, transport);
     const response = await client.getAvailableDates({ limit: 90, before: "" });

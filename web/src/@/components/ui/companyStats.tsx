@@ -45,8 +45,14 @@ export const CompanyStatsPlaceholder = () => (
   </Card>
 );
 
-const CompanyStats = async ({ stockCode }: { stockCode: string }) => {
-  const stockResult = await getStock(stockCode);
+const CompanyStats = async ({
+  stockCode,
+  initialStock,
+}: {
+  stockCode: string;
+  initialStock?: Stock | null;
+}) => {
+  const stockResult = initialStock ?? (await getStock(stockCode));
   
   // If SSR failed or returned null, use client-side retry component
   if (!stockResult) {

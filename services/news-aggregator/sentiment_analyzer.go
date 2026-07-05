@@ -53,8 +53,10 @@ Headlines:
 
 	resp, err := model.GenerateContent(ctx, genai.Text(prompt))
 	if err != nil {
+		recordNewsGeminiGeneration(ctx, "news_sentiment", sa.model, "batch", "error", nil)
 		return nil, fmt.Errorf("generate content: %w", err)
 	}
+	recordNewsGeminiGeneration(ctx, "news_sentiment", sa.model, "batch", "success", resp.UsageMetadata)
 
 	// Parse response
 	text := extractGeminiText(resp)

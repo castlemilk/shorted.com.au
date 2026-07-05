@@ -4,23 +4,63 @@ import { auth } from "@/auth";
 import { type DashboardConfig } from "~/@/types/dashboard";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
+import {
+  querySnapshotReadCount,
+  withFirestoreCost,
+} from "@/lib/firestore-cost";
 
 const COLLECTION_NAME = "dashboards";
 
+function trackDashboardRead<T>(operation: () => Promise<T>) {
+  return withFirestoreCost(
+    {
+      feature: "dashboard",
+      collection: COLLECTION_NAME,
+      operation: "doc_get",
+      documentsRead: 1,
+    },
+    operation,
+  );
+}
+
+function trackDashboardQuery<T extends { docs?: unknown[] }>(operation: () => Promise<T>) {
+  return withFirestoreCost(
+    {
+      feature: "dashboard",
+      collection: COLLECTION_NAME,
+      operation: "query_get",
+      documentsRead: querySnapshotReadCount,
+    },
+    operation,
+  );
+}
+
+function trackDashboardWrite<T>(
+  operationName: "set" | "update" | "delete" | "batch_commit",
+  documentsWritten: number,
+  operation: () => Promise<T>,
+) {
+  return withFirestoreCost(
+    {
+      feature: "dashboard",
+      collection: COLLECTION_NAME,
+      operation: operationName,
+      documentsWritten,
+    },
+    operation,
+  );
+}
+
 export async function saveDashboard(dashboard: DashboardConfig) {
-  console.log("saveDashboard called with:", dashboard.id);
-  
   try {
     const session = await auth();
-    console.log("Session:", session);
-    
+
     if (!session?.user?.id) {
       console.error("No user session found");
       return { success: false, error: "User must be authenticated to save dashboards" };
     }
 
     const userId = session.user.id;
-    console.log("Saving dashboard for user:", userId, dashboard.id);
 
     const dashboardData = {
       name: dashboard.name,
@@ -35,18 +75,9 @@ export async function saveDashboard(dashboard: DashboardConfig) {
     const docRef = adminDb
       .collection(COLLECTION_NAME)
       .doc(dashboard.id);
-      
-    console.log("Writing to collection:", COLLECTION_NAME);
-    console.log("Document ID:", dashboard.id);
-    console.log("Dashboard data:", dashboardData);
-    
-    await docRef.set(dashboardData);
 
-    // Verify the write
-    const savedDoc = await docRef.get();
-    console.log("Document exists after write:", savedDoc.exists);
-    console.log("Dashboard saved successfully");
-    
+    await trackDashboardWrite("set", 1, () => docRef.set(dashboardData));
+
     return { success: true, id: dashboard.id };
   } catch (error) {
     console.error("Error saving dashboard:", error);
@@ -75,10 +106,10 @@ export async function getUserDashboards() {
   const userId = session.user.id;
 
   try {
-    const dashboardsSnapshot = await adminDb
+    const dashboardsSnapshot = await trackDashboardQuery(() => adminDb
       .collection(COLLECTION_NAME)
       .where("userId", "==", userId)
-      .get();
+      .get());
 
     const dashboards: DashboardConfig[] = [];
     
@@ -108,7 +139,7 @@ export async function deleteDashboard(dashboardId: string) {
   try {
     const [session, dashboardDoc] = await Promise.all([
       auth(),
-      adminDb.collection(COLLECTION_NAME).doc(dashboardId).get(),
+      trackDashboardRead(() => adminDb.collection(COLLECTION_NAME).doc(dashboardId).get()),
     ]);
 
     if (!session?.user?.id) {
@@ -126,10 +157,10 @@ export async function deleteDashboard(dashboardId: string) {
       return { success: false, error: "Unauthorized" };
     }
 
-    await adminDb
+    await trackDashboardWrite("delete", 1, () => adminDb
       .collection(COLLECTION_NAME)
       .doc(dashboardId)
-      .delete();
+      .delete());
 
     return { success: true };
   } catch (error) {
@@ -158,16 +189,18 @@ export async function setDefaultDashboard(dashboardId: string) {
     const userId = session.user.id;
 
     // First, unset all other default dashboards for this user
-    const dashboardsSnapshot = await adminDb
+    const dashboardsSnapshot = await trackDashboardQuery(() => adminDb
       .collection(COLLECTION_NAME)
       .where("userId", "==", userId)
       .where("isDefault", "==", true)
-      .get();
+      .get());
 
     const batch = adminDb.batch();
+    let batchWriteCount = 1;
 
     dashboardsSnapshot.forEach((doc) => {
       if (doc.id !== dashboardId) {
+        batchWriteCount += 1;
         batch.update(doc.ref, {
           isDefault: false,
           updatedAt: FieldValue.serverTimestamp()
@@ -185,7 +218,7 @@ export async function setDefaultDashboard(dashboardId: string) {
       updatedAt: FieldValue.serverTimestamp()
     });
 
-    await batch.commit();
+    await trackDashboardWrite("batch_commit", batchWriteCount, () => batch.commit());
 
     return { success: true };
   } catch (error) {
@@ -207,7 +240,7 @@ export async function renameDashboard(dashboardId: string, newName: string) {
   try {
     const [session, dashboardDoc] = await Promise.all([
       auth(),
-      adminDb.collection(COLLECTION_NAME).doc(dashboardId).get(),
+      trackDashboardRead(() => adminDb.collection(COLLECTION_NAME).doc(dashboardId).get()),
     ]);
 
     if (!session?.user?.id) {
@@ -225,13 +258,13 @@ export async function renameDashboard(dashboardId: string, newName: string) {
       return { success: false, error: "Unauthorized" };
     }
 
-    await adminDb
+    await trackDashboardWrite("update", 1, () => adminDb
       .collection(COLLECTION_NAME)
       .doc(dashboardId)
       .update({
         name: newName,
         updatedAt: FieldValue.serverTimestamp()
-      });
+      }));
 
     return { success: true };
   } catch (error) {
@@ -252,7 +285,7 @@ export async function duplicateDashboard(dashboardId: string, newName: string) {
   try {
     const [session, dashboardDoc] = await Promise.all([
       auth(),
-      adminDb.collection(COLLECTION_NAME).doc(dashboardId).get(),
+      trackDashboardRead(() => adminDb.collection(COLLECTION_NAME).doc(dashboardId).get()),
     ]);
 
     if (!session?.user?.id) {
@@ -272,7 +305,7 @@ export async function duplicateDashboard(dashboardId: string, newName: string) {
 
     // Create the duplicate
     const newDashboardRef = adminDb.collection(COLLECTION_NAME).doc();
-    await newDashboardRef.set({
+    await trackDashboardWrite("set", 1, () => newDashboardRef.set({
       name: newName,
       description: data?.description as string | undefined ?? "",
       widgets: data?.widgets as unknown[] ?? [],
@@ -280,7 +313,7 @@ export async function duplicateDashboard(dashboardId: string, newName: string) {
       isDefault: false, // Duplicates are never default
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
-    });
+    }));
 
     return { success: true, id: newDashboardRef.id };
   } catch (error) {
@@ -301,7 +334,7 @@ export async function exportDashboard(dashboardId: string) {
   try {
     const [session, dashboardDoc] = await Promise.all([
       auth(),
-      adminDb.collection(COLLECTION_NAME).doc(dashboardId).get(),
+      trackDashboardRead(() => adminDb.collection(COLLECTION_NAME).doc(dashboardId).get()),
     ]);
 
     if (!session?.user?.id) {
@@ -367,7 +400,7 @@ export async function importDashboard(jsonString: string) {
 
     // Create the new dashboard
     const newDashboardRef = adminDb.collection(COLLECTION_NAME).doc();
-    await newDashboardRef.set({
+    await trackDashboardWrite("set", 1, () => newDashboardRef.set({
       name: importData.name,
       description: importData.description ?? "",
       widgets: importData.widgets,
@@ -375,7 +408,7 @@ export async function importDashboard(jsonString: string) {
       isDefault: false,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
-    });
+    }));
 
     return { success: true, id: newDashboardRef.id };
   } catch (error) {

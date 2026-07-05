@@ -1,6 +1,6 @@
 "use server";
 
-import { SHORTS_API_URL } from "../config";
+import { SHORTS_API_URL, serverFetchWithUserAgent } from "../config";
 import { cache } from "react";
 import { getOrSetCached, CACHE_KEYS } from "~/@/lib/kv-cache";
 
@@ -55,9 +55,9 @@ export const getIndustryData = cache(async (): Promise<IndustryStats[]> => {
     cacheKey,
     async () => {
       try {
-        const baseUrl = process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL;
+        const baseUrl = SHORTS_API_URL;
 
-        const fetchResponse = await fetch(
+        const fetchResponse = await serverFetchWithUserAgent(
           `${baseUrl}/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap`,
           {
             method: "POST",
@@ -158,9 +158,9 @@ export const getIndustryStocks = cache(
       cacheKey,
       async () => {
         try {
-          const baseUrl = process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ?? SHORTS_API_URL;
+          const baseUrl = SHORTS_API_URL;
 
-          const fetchResponse = await fetch(
+          const fetchResponse = await serverFetchWithUserAgent(
             `${baseUrl}/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap`,
             {
               method: "POST",

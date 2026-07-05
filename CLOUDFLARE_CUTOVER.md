@@ -14,7 +14,7 @@ api.shorted.com.au ─► Cloudflare Proxy (orange-cloud) ──► Edge Worker 
 ### Edge Worker Capabilities
 - **Multi-origin routing**: Routes traffic to Vercel, Shorts API, Chat Service, or Market Data API
 - **Edge caching**: 4-tier caching (hot memory → CF Cache API → KV → origin)
-- **Rate limiting**: 30 req/10s unified limit for anonymous API + frontend traffic
+- **Rate limiting**: Cloudflare API-host limit is 60 req/10s in prod; browser traffic uses generous Vercel/Upstash buckets (anonymous 3000 burst with 600/min refill, authenticated 3000/min)
 - **WAF protection**: Cloudflare Managed Free Ruleset + bot protection
 - **Real IP forwarding**: CF-Connecting-IP forwarded to Vercel for Upstash rate limiting
 
@@ -91,7 +91,7 @@ terraform apply
 - `cloudflare_workers_route.api` — Route: `shorted.com.au/*` → `shorted-edge-cache`
 - `cloudflare_workers_cron_trigger.prewarm[0]` — Daily cron (12 PM UTC)
 - `cloudflare_ruleset.waf_managed` — WAF managed rules
-- `cloudflare_ruleset.rate_limit_api` — Rate limiting (30 req/10s)
+- `cloudflare_ruleset.rate_limit_api` — API-host rate limiting (60 req/10s in prod, optional trusted-test bypass)
 - `cloudflare_zone_settings_override.tls` — TLS: Full (strict)
 
 ### Step 2: Verify DNS Records
@@ -147,15 +147,44 @@ curl -I https://api.shorted.com.au/shorts.v1alpha1.GetTopShorts -H "Content-Type
 
 ### Step 8: Test Rate Limiting
 ```bash
-# Send rapid requests (should get 429 after 30 requests in 10 seconds)
-for i in {1..35}; do
+# Send rapid requests (should get 429 after the prod limit, currently 60 requests in 10 seconds)
+for i in {1..70}; do
   curl -s -o /dev/null -w "%{http_code}\n" https://api.shorted.com.au/health
 done
 ```
 
+### Step 8b: Test Trusted Rate-Limit Bypass
+The Cloudflare rate-limit bypass is for trusted E2E/load testing. It is disabled unless `TF_VAR_rate_limit_testing_bypass_secret` is set and applied in `terraform/environments/prod`.
+
+Setup:
+```bash
+cd terraform/environments/prod
+export TF_VAR_rate_limit_testing_bypass_secret="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
+terraform plan
+terraform apply
+```
+
+Use both headers on test traffic:
+```bash
+curl -I https://api.shorted.com.au/health \
+  -H "User-Agent: Shorted-E2E/1.0" \
+  -H "X-Shorted-Testing-Bypass: $TF_VAR_rate_limit_testing_bypass_secret"
+```
+
+Verify bypass under burst:
+```bash
+for i in {1..100}; do
+  curl -s -o /dev/null -w "%{http_code}\n" https://api.shorted.com.au/health \
+    -H "User-Agent: Shorted-E2E/1.0" \
+    -H "X-Shorted-Testing-Bypass: $TF_VAR_rate_limit_testing_bypass_secret"
+done
+```
+
+Security rule: never use a user-agent-only bypass. The Cloudflare expression must require both `http.user_agent contains "Shorted-E2E"` and `any(http.request.headers["x-shorted-testing-bypass"][*] eq "<secret>")`.
+
 ### Step 9: Verify Vercel Rate Limiting
 The middleware at `web/src/middleware.ts` uses `request.ip` which reads `CF-Connecting-IP` when traffic comes through Cloudflare proxy. Verify:
-1. Frontend rate limiting still works (20 req/min anonymous, 200 req/min authenticated)
+1. Frontend rate limiting still works with generous browser buckets (anonymous 3000 burst with 600/min refill, authenticated 3000/min)
 2. Check Vercel logs to confirm real client IPs are being captured
 
 ### Step 10: Verify Pre-warm Worker
@@ -242,8 +271,12 @@ terraform apply
 ### Rate Limiting Issues
 1. Verify rate limit rules in Cloudflare dashboard → Security → WAF → Rate limiting
 2. Check `X-Shorted-Cache` header to confirm requests hit the Worker
-3. Verify `http.x_forwarded_for` is in the rate limit characteristics
-4. Vercel Upstash rate limiting should still work via CF-Connecting-IP
+3. Verify rate limit characteristics are `ip.src` and `cf.colo.id`
+4. If trusted tests are being limited, confirm all three are true:
+   - `TF_VAR_rate_limit_testing_bypass_secret` was set before `terraform apply`
+   - test requests send `User-Agent: Shorted-E2E/1.0`
+   - test requests send `X-Shorted-Testing-Bypass: <same-secret>`
+5. Vercel Upstash rate limiting should still work via CF-Connecting-IP
 
 ### Worker Not Responding
 1. Check Worker route in Cloudflare dashboard: `shorted.com.au/*` → `shorted-edge-cache`

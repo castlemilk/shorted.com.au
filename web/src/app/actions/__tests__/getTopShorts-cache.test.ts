@@ -12,10 +12,14 @@ jest.mock("react", () => ({
 }));
 
 // Mock KV cache
-const mockGetOrSetCached = jest.fn();
+const mockGetCached = jest.fn();
+const mockSetCached = jest.fn();
+const mockDeleteCached = jest.fn();
 
 jest.mock("~/@/lib/kv-cache", () => ({
-  getOrSetCached: (...args: any[]) => mockGetOrSetCached(...args),
+  getCached: (...args: any[]) => mockGetCached(...args),
+  setCached: (...args: any[]) => mockSetCached(...args),
+  deleteCached: (...args: any[]) => mockDeleteCached(...args),
   CACHE_KEYS: {
     topShorts: (period: string, limit: number, offset: number) =>
       `cache:homepage:top-shorts:${period}:${limit}:${offset}`,
@@ -38,12 +42,20 @@ jest.mock("~/gen/shorts/v1alpha1/shorts_pb", () => ({
 
 // Note: toPlainMessage is no longer needed in v2 - responses are already plain
 
-import { getTopShortsData } from "../getTopShorts";
+jest.unmock("~/app/actions/getTopShorts");
+
+import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { HOMEPAGE_TTL } from "~/@/lib/kv-cache";
 
 describe("getTopShortsData with KV Cache", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetOrSetCached.mockClear();
+    mockGetCached.mockReset();
+    mockSetCached.mockReset();
+    mockDeleteCached.mockReset();
+    mockGetCached.mockResolvedValue(null);
+    mockSetCached.mockResolvedValue(true);
+    mockDeleteCached.mockResolvedValue(true);
   });
 
   it("should be callable and return data structure", async () => {
@@ -52,7 +64,7 @@ describe("getTopShortsData with KV Cache", () => {
       offset: 0,
     };
 
-    mockGetOrSetCached.mockResolvedValue(testData);
+    mockGetCached.mockResolvedValue(testData);
 
     const result = await getTopShortsData("3m", 50, 0);
 
@@ -68,14 +80,6 @@ describe("getTopShortsData with KV Cache", () => {
       offset: 0,
     };
 
-    // Simulate cache miss
-    mockGetOrSetCached.mockImplementation(async (key, fallback) => {
-      if (typeof fallback === "function") {
-        return await fallback();
-      }
-      return null;
-    });
-
     const { createClient } = require("@connectrpc/connect");
     const mockClient = {
       getTopShorts: jest.fn().mockResolvedValue(apiResponse),
@@ -87,11 +91,23 @@ describe("getTopShortsData with KV Cache", () => {
     // Verify function returns expected structure
     expect(result).toHaveProperty("timeSeries");
     expect(result).toHaveProperty("offset");
-    // Note: API call verification may not work due to React cache() memoization
+    expect(mockClient.getTopShorts).toHaveBeenCalledWith({
+      period: "3M",
+      limit: 50,
+      offset: 0,
+    });
+    expect(mockSetCached).toHaveBeenCalledWith(
+      "cache:homepage:top-shorts:3m:50:0",
+      apiResponse,
+      HOMEPAGE_TTL,
+    );
   });
 
   it("should handle different input parameters", async () => {
-    mockGetOrSetCached.mockResolvedValue({ timeSeries: [], offset: 0 });
+    mockGetCached.mockResolvedValue({
+      timeSeries: [{ productCode: "LOT", name: "Lotus" }],
+      offset: 0,
+    });
 
     // Test different periods - function should execute without errors
     const result1 = await getTopShortsData("1m", 20, 10);
@@ -105,17 +121,10 @@ describe("getTopShortsData with KV Cache", () => {
   });
 
   it("should format period for API correctly", async () => {
-    mockGetOrSetCached.mockImplementation(async (key, fallback) => {
-      if (typeof fallback === "function") {
-        return await fallback();
-      }
-      return null;
-    });
-
     const { createClient } = require("@connectrpc/connect");
     const mockClient = {
       getTopShorts: jest.fn().mockResolvedValue({
-        timeSeries: [],
+        timeSeries: [{ productCode: "ZIP", name: "ZIP Co" }],
         offset: 0,
       }),
     };
@@ -126,8 +135,40 @@ describe("getTopShortsData with KV Cache", () => {
     // Verify function returns expected structure
     expect(result).toHaveProperty("timeSeries");
     expect(result).toHaveProperty("offset");
+    expect(mockClient.getTopShorts).toHaveBeenCalledWith({
+      period: "3M",
+      limit: 50,
+      offset: 0,
+    });
+  });
 
-    // Note: Due to React cache() memoization, we can't reliably test API calls
-    // The cache integration is tested in kv-cache.test.ts
+  it("refreshes stale empty top-shorts cache entries from the API", async () => {
+    const staleCachedResponse = { timeSeries: [], offset: 0 };
+    const apiResponse = {
+      timeSeries: [
+        {
+          productCode: "LOT",
+          name: "Lotus Resources",
+          latestShortPosition: 22.82,
+        },
+      ],
+      offset: 0,
+    };
+    mockGetCached.mockResolvedValue(staleCachedResponse);
+
+    const { createClient } = require("@connectrpc/connect");
+    const mockClient = {
+      getTopShorts: jest.fn().mockResolvedValue(apiResponse),
+    };
+    createClient.mockReturnValue(mockClient);
+
+    const result = await getTopShortsData("3m", 100, 0);
+
+    expect(result.timeSeries).toHaveLength(1);
+    expect(result.timeSeries[0]?.productCode).toBe("LOT");
+    expect(mockDeleteCached).toHaveBeenCalledWith(
+      "cache:homepage:top-shorts:3m:100:0",
+    );
+    expect(mockClient.getTopShorts).toHaveBeenCalled();
   });
 });

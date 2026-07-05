@@ -80,10 +80,27 @@ variable "static_cache_ttl" {
   default     = 86400
 }
 
+variable "stock_page_cache_ttl" {
+  description = "Cloudflare edge cache TTL for public stock detail HTML pages"
+  type        = number
+  default     = 86400
+}
+
 variable "cache_rules_enabled" {
   description = "Enable edge cache rules for frontend static assets (evaluated before Worker)"
   type        = bool
   default     = true
+}
+
+variable "edge_analytics_sample_rate" {
+  description = "Sample rate for JSON edge request analytics logs emitted by the Worker (0 disables, 1 logs every request)"
+  type        = number
+  default     = 0.01
+
+  validation {
+    condition     = var.edge_analytics_sample_rate >= 0 && var.edge_analytics_sample_rate <= 1
+    error_message = "edge_analytics_sample_rate must be between 0 and 1."
+  }
 }
 
 # ---- Rate Limiting ----
@@ -122,6 +139,43 @@ variable "frontend_rate_limit_requests" {
   description = "Max requests per period (unified limit for API + frontend)"
   type        = number
   default     = 60
+}
+
+variable "rate_limit_testing_bypass_secret" {
+  description = "Optional shared secret that allows trusted E2E/load-test traffic to bypass Cloudflare API rate limits when paired with the configured test user-agent. Leave empty to disable."
+  type        = string
+  sensitive   = true
+  default     = ""
+
+  validation {
+    condition = var.rate_limit_testing_bypass_secret == "" || (
+      length(var.rate_limit_testing_bypass_secret) >= 16 &&
+      can(regex("^[A-Za-z0-9._~:-]+$", var.rate_limit_testing_bypass_secret))
+    )
+    error_message = "rate_limit_testing_bypass_secret must be empty or a URL-safe token of at least 16 characters."
+  }
+}
+
+variable "rate_limit_testing_bypass_header_name" {
+  description = "Lowercase HTTP header name carrying the Cloudflare rate-limit testing bypass secret."
+  type        = string
+  default     = "x-shorted-testing-bypass"
+
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9-]*$", var.rate_limit_testing_bypass_header_name))
+    error_message = "rate_limit_testing_bypass_header_name must be lowercase letters, numbers, and hyphens only."
+  }
+}
+
+variable "rate_limit_testing_bypass_user_agent" {
+  description = "User-agent substring required with the bypass secret for trusted E2E/load-test traffic."
+  type        = string
+  default     = "Shorted-E2E"
+
+  validation {
+    condition     = length(var.rate_limit_testing_bypass_user_agent) > 0 && can(regex("^[A-Za-z0-9._~+/-]+$", var.rate_limit_testing_bypass_user_agent))
+    error_message = "rate_limit_testing_bypass_user_agent must be a non-empty token without spaces, quotes, or backslashes."
+  }
 }
 
 # ---- WAF / Security ----

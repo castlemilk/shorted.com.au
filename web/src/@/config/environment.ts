@@ -41,6 +41,9 @@ export const config = {
     showEnvironmentBanner: isPreview() || isDevelopment()
   },
   api: {
-    url: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:9091'
+    url:
+      process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
+      process.env.NEXT_PUBLIC_API_URL ??
+      'http://localhost:9091'
   }
 };

@@ -87,10 +87,55 @@ Responses include `X-Shorted-Cache` header:
 ### API Rate Limits
 | Rule | Expression | Limit | Period | Action |
 |------|------------|-------|--------|--------|
-| General API | `http.host eq "api.shorted.com.au"` | 60 req | 60s | Block (429) |
-| Search | Contains "Search" in path | 20 req | 60s | Block (429) |
+| General API | `local.api_rate_limit_expression` -> `http.host eq "api.shorted.com.au"` plus optional trusted-test bypass | 60 req | 10s in prod | Block (429) |
+| Search | Deprecated/unused | 20 req | n/a | Kept only for module compatibility |
 
 Rate limits are enforced per IP address at the Cloudflare edge.
+
+### Trusted Testing Bypass
+
+Cloudflare API rate-limit bypass is available for E2E/load testing, but it is intentionally **not** user-agent-only. A request bypasses the Cloudflare `http_ratelimit` rule only when both of these are true:
+
+1. `User-Agent` contains the configured test marker, default `Shorted-E2E`.
+2. The configured secret header matches, default header name `x-shorted-testing-bypass`.
+
+The bypass is disabled by default. Enable it in prod Terraform by setting a non-empty secret:
+
+```bash
+cd terraform/environments/prod
+export TF_VAR_rate_limit_testing_bypass_secret="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
+terraform plan
+terraform apply
+```
+
+Use it from test clients with both headers:
+
+```bash
+curl \
+  -H "User-Agent: Shorted-E2E/1.0" \
+  -H "X-Shorted-Testing-Bypass: $TF_VAR_rate_limit_testing_bypass_secret" \
+  https://api.shorted.com.au/health
+```
+
+Relevant Terraform inputs:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `rate_limit_testing_bypass_secret` | `""` | Secret required to enable and use the bypass. Empty means no bypass clause is emitted. |
+| `rate_limit_testing_bypass_header_name` | `x-shorted-testing-bypass` | Lowercase header name used in the Cloudflare expression. HTTP clients may send any case. |
+| `rate_limit_testing_bypass_user_agent` | `Shorted-E2E` | Required user-agent substring. |
+
+Security notes:
+- Never create a user-agent-only bypass; UAs are trivial to spoof.
+- Do not commit the bypass secret to tracked `*.tfvars` files.
+- The secret is embedded in the Cloudflare rule/Terraform state, so rotate it if shared broadly or exposed in CI logs.
+- This bypass only excludes requests from the Cloudflare edge rate-limit rule; it does not bypass app authentication, permissions, subscriptions, or backend guardrails.
+
+Regression test:
+
+```bash
+node --test terraform/modules/cloudflare-edge/rate-limit-expression.test.mjs
+```
 
 ## WAF Configuration
 
@@ -107,6 +152,12 @@ Frontend traffic (`shorted.com.au`, `www.shorted.com.au`) is proxied through Clo
 - Real client IP forwarded via `CF-Connecting-IP` header
 - Vercel's Upstash rate limiting uses the real client IP
 - Cloudflare DDoS + WAF protection applies to all frontend traffic
+
+### Cloudflare Web Analytics / RUM
+
+Cloudflare Web Analytics can be enabled either by Cloudflare dashboard injection or by the app's explicit manual beacon. The app renders `web/src/@/components/cloudflare-web-analytics.tsx` only when `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN` is set in the web/Vercel environment.
+
+Use Cloudflare RUM page views as the route-level denominator for cost attribution, then join with Worker `edge_request`, Firestore `firestore_operation`, web/backend `product_event`, and backend `cost_event` logs as described in `docs/observability/cost-attribution.md`.
 
 ## Provider Authentication
 
@@ -172,6 +223,14 @@ curl -X POST https://api.shorted.com.au/api/cache/purge \
 ```
 
 ## Troubleshooting
+
+For any production, preview, release-smoke, Cloudflare Worker, Vercel, RUM/metrics, API data, 403/404/500, timeout, or cache regression, load the Codex skill first:
+
+```text
+Use $shorted-prod-troubleshooting
+```
+
+Skill path: `/Users/benebsworth/.codex/skills/shorted-prod-troubleshooting/SKILL.md`. It contains the current evidence checklist for logs, metrics, RUM analytics, build/hook success, E2E smoke, Vercel deployments, Cloudflare wrangler checks, Supabase/data validation, and closeout.
 
 ### Worker Not Responding
 1. Check Worker route in Cloudflare dashboard: `api.shorted.com.au/*` → `shorted-edge-cache`

@@ -28,7 +28,7 @@ same code runs identically in a lean container.
 
 ## Image
 
-`Dockerfile` (node:22-slim). The entrypoint is `npx tsx src/index.ts`, so the
+`Dockerfile` (node:24-slim). The entrypoint is `npx tsx src/index.ts`, so the
 Cloud Run Job passes the command + flags as container args, e.g.
 `["newsroom-daily", "--auto-publish", "--with-images"]`.
 

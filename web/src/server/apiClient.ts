@@ -10,15 +10,7 @@ import { createClient, type Client } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { getGoogleIdToken, isGoogleAuthAvailable } from "./getGoogleIdToken";
 import { auth } from "./auth";
-
-// Get the Shorts API URL
-function getShortsApiUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_API_URL ??
-    process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-    "http://localhost:9091"
-  );
-}
+import { getServerShortsApiUrl, serverFetchWithUserAgent } from "~/app/actions/config";
 
 export type AuthenticatedClient = Client<typeof ShortedStocksService>;
 
@@ -89,8 +81,8 @@ export async function createAuthenticatedClient(): Promise<AuthenticatedClient> 
   const headers = await getAuthHeaders();
 
   const transport = createConnectTransport({
-    fetch,
-    baseUrl: getShortsApiUrl(),
+    fetch: serverFetchWithUserAgent,
+    baseUrl: getServerShortsApiUrl(),
   });
 
   // Create a client with default headers

@@ -1,8 +1,8 @@
-import dynamic from "next/dynamic";
+import nextDynamic from "next/dynamic";
 import { type Metadata } from "next";
 // Consolidated per-stock chart (price + short interest, dual-axis, volume, brush).
 // Client-only: uses Connect-RPC + market-data hooks.
-const StockChartPanel = dynamic(
+const StockChartPanel = nextDynamic(
   () =>
     import("~/@/components/charts/StockChartPanel").then(
       (m) => m.StockChartPanel,
@@ -32,7 +32,7 @@ import { CommunityOverviewTeaser } from "~/@/components/company/community/commun
 import { CommunityTab } from "~/@/components/company/community/community-tab";
 
 // Dynamic import to avoid SSR issues — child components import @connectrpc/connect
-const StockTabs = dynamic(
+const StockTabs = nextDynamic(
   () => import("~/@/components/company/stock-tabs").then((m) => m.StockTabs),
   { ssr: false }
 );
@@ -55,54 +55,35 @@ import { siteConfig } from "~/@/config/site";
 import { RelatedStocks } from "~/@/components/seo/related-stocks";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
 import { getStockOrNotFound } from "~/app/actions/getStock";
+import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { ShortInterestHistory } from "./short-interest-history";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { notFound } from "next/navigation";
-import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { getStockFinancialHighlights } from "~/app/actions/reports/getReportData";
-import { getStockCommunitySummary } from "~/@/lib/community/firestore-community";
-import { buildCommunitySummary } from "~/@/lib/community/summary";
-import {
-  listCommunityPulseItems,
-  listCommunityThreads,
-} from "~/@/lib/community/firestore-community";
-
-/**
- * Pre-generate ALL stocks with non-zero short positions at build time (~940 stocks).
- * Uses getTopShortsData (wrapped in withRetryAndNotFound) to avoid importing
- * @connectrpc/connect directly in this server component, which causes SSR failures.
- */
-export async function generateStaticParams(): Promise<{ stockCode: string }[]> {
-  // Skip static generation during local builds (pre-commit hook sets this)
-  if (process.env.SKIP_STATIC_GENERATION === "1") {
-    return [];
-  }
-  try {
-    // Pre-generate the most-shorted stocks at build time so Googlebot rarely
-    // triggers cold on-demand ISR generation (the source of intermittent 5xx
-    // when the Cloud Run backend is cold). The long tail is still generated
-    // on-demand via ISR (dynamicParams = true by default).
-    const response = await getTopShortsData("max", 500, 0);
-    if (!response) return [];
-
-    const stockCodes = response.timeSeries
-      .map((ts) => ts.productCode)
-      .filter((code): code is string => !!code && /^[A-Z0-9]{1,4}$/.test(code));
-
-    // Return unique stock codes
-    return [...new Set(stockCodes)].map((code) => ({
-      stockCode: code,
-    }));
-  } catch (error) {
-    console.warn("Failed to fetch stock codes for static generation, pages will be generated on-demand:", error);
-    // Return empty — pages will be generated on-demand at request time
-    return [];
-  }
-}
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;
+}
+
+const HOT_STOCK_STATIC_PARAMS_LIMIT = 30;
+
+export async function generateStaticParams(): Promise<{ stockCode: string }[]> {
+  const topShorts = await getTopShortsData(
+    "max",
+    HOT_STOCK_STATIC_PARAMS_LIMIT,
+    0,
+  );
+  const stockCodes = new Set<string>();
+
+  for (const series of topShorts?.timeSeries ?? []) {
+    const stockCode = series.productCode?.toUpperCase();
+    if (stockCode && /^[A-Z0-9]{1,4}$/.test(stockCode)) {
+      stockCodes.add(stockCode);
+    }
+  }
+
+  return Array.from(stockCodes).map((stockCode) => ({ stockCode }));
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -203,8 +184,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-// ISR: revalidate daily. On-demand revalidation via /api/revalidate?scope=all after daily sync.
+// ASIC-derived stock pages change on the daily data sync, so serve warm pages
+// from ISR and bust them via /api/revalidate when new records land.
 export const revalidate = 86400;
+export const dynamicParams = true;
 
 const Page = async ({ params }: PageProps) => {
   const { stockCode: rawStockCode } = await params;
@@ -221,15 +204,6 @@ const Page = async ({ params }: PageProps) => {
   // but returns undefined for transient backend errors.
   let stock: Awaited<ReturnType<typeof getStockOrNotFound>> = undefined;
   let relatedData: Awaited<ReturnType<typeof getRelatedStocks>>;
-  const communitySummaryPromise = getStockCommunitySummary(stockCode).catch(() =>
-    buildCommunitySummary({ stockCode, threads: [], pulse: [] }),
-  );
-  const communityThreadsPromise = listCommunityThreads(stockCode).catch(
-    () => [],
-  );
-  const communityPulsePromise = listCommunityPulseItems(stockCode).catch(
-    () => [],
-  );
   try {
     [stock, relatedData] = await Promise.all([
       getStockOrNotFound(stockCode),
@@ -243,9 +217,6 @@ const Page = async ({ params }: PageProps) => {
     // Transient backend error → render page with fallback UI (retry components)
     relatedData = { stocks: [], industry: null, industrySlug: null };
   }
-  const [communitySummary, communityThreads, communityPulse] = await Promise.all(
-    [communitySummaryPromise, communityThreadsPromise, communityPulsePromise],
-  );
 
   // Financial highlights — fetched server-side, cached 24h, degrades gracefully
   const financialHighlightsMap = await getStockFinancialHighlights([stockCode]).catch(
@@ -454,7 +425,7 @@ const Page = async ({ params }: PageProps) => {
         </div>
         <div className="md:col-span-1 h-full">
           <Suspense fallback={<CompanyStatsPlaceholder />}>
-            <CompanyStats stockCode={stockCode} />
+            <CompanyStats stockCode={stockCode} initialStock={stock} />
           </Suspense>
         </div>
       </div>
@@ -527,10 +498,7 @@ const Page = async ({ params }: PageProps) => {
                 </details>
               )}
 
-              <CommunityOverviewTeaser
-                stockCode={stockCode}
-                summary={communitySummary}
-              />
+              <CommunityOverviewTeaser stockCode={stockCode} />
 
               {/* Enriched Company Insights (reports shown in Financials tab) */}
               <EnrichedCompanySection stockCode={stockCode} hideReports />
@@ -549,8 +517,6 @@ const Page = async ({ params }: PageProps) => {
         communityContent={
           <CommunityTab
             stockCode={stockCode}
-            threads={communityThreads}
-            pulse={communityPulse}
           />
         }
       />

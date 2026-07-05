@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"unicode/utf8"
 
 	"connectrpc.com/connect"
 
@@ -16,18 +17,44 @@ import (
 
 // ChatServiceHandler implements the ChatService Connect-RPC interface.
 type ChatServiceHandler struct {
-	store     *ConversationStore
-	llmClient *LLMClient
+	store              *ConversationStore
+	llmClient          *LLMClient
+	maxInputChars      int
+	historyLimit       int
+	maxMessagesPerConv int
+	maxConversations   int
 }
 
 var _ chatv1connect.ChatServiceHandler = (*ChatServiceHandler)(nil)
 
 // NewChatServiceHandler creates a new handler.
-func NewChatServiceHandler(store *ConversationStore, llmClient *LLMClient) *ChatServiceHandler {
-	return &ChatServiceHandler{
-		store:     store,
-		llmClient: llmClient,
+func NewChatServiceHandler(store *ConversationStore, llmClient *LLMClient, cfg *Config) *ChatServiceHandler {
+	if cfg == nil {
+		cfg = &Config{
+			ChatMaxInputChars:  2000,
+			ChatHistoryLimit:   20,
+			MaxMessagesPerConv: 100,
+			MaxConversations:   100,
+		}
 	}
+	return &ChatServiceHandler{
+		store:              store,
+		llmClient:          llmClient,
+		maxInputChars:      cfg.ChatMaxInputChars,
+		historyLimit:       cfg.ChatHistoryLimit,
+		maxMessagesPerConv: cfg.MaxMessagesPerConv,
+		maxConversations:   cfg.MaxConversations,
+	}
+}
+
+func validateChatMessage(message string, maxChars int) error {
+	if message == "" {
+		return fmt.Errorf("message is required")
+	}
+	if maxChars > 0 && utf8.RuneCountInString(message) > maxChars {
+		return fmt.Errorf("message exceeds %d characters", maxChars)
+	}
+	return nil
 }
 
 // SendMessage handles a chat message, executing tools and returning the assistant response.
@@ -37,9 +64,16 @@ func (h *ChatServiceHandler) SendMessage(
 	stream *connect.ServerStream[chatv1.SendMessageResponse],
 ) error {
 	msg := req.Msg
-	if msg.Message == "" {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("message is required"))
+	if err := validateChatMessage(msg.Message, h.maxInputChars); err != nil {
+		return connect.NewError(connect.CodeInvalidArgument, err)
 	}
+	if h.store == nil {
+		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("chat persistence is not configured"))
+	}
+	if h.llmClient == nil {
+		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("chat model is not configured"))
+	}
+	recordChatExperienceEvent("send_message", "attempt", "")
 
 	// Extract user ID from headers (set by auth middleware/frontend)
 	userID := req.Header().Get("X-User-Id")
@@ -75,9 +109,10 @@ func (h *ChatServiceHandler) SendMessage(
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, fmt.Errorf("store user message: %w", err))
 	}
+	recordChatStorageWrite(ctx, "user")
 
 	// Get conversation history
-	history, err := h.store.GetMessages(ctx, conv.ID, 50)
+	history, err := h.store.GetRecentMessages(ctx, conv.ID, h.historyLimit)
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, fmt.Errorf("get history: %w", err))
 	}
@@ -105,6 +140,7 @@ func (h *ChatServiceHandler) SendMessage(
 	llmResp, err := h.llmClient.ChatStream(ctx, systemPrompt, history, msg.Message, onChunk)
 	if err != nil {
 		log.Printf("LLM error: %v", err)
+		recordChatExperienceEvent("send_message", "error", "llm_error")
 		return connect.NewError(connect.CodeInternal, fmt.Errorf("chat error: %w", err))
 	}
 
@@ -122,6 +158,13 @@ func (h *ChatServiceHandler) SendMessage(
 	if err != nil {
 		return connect.NewError(connect.CodeInternal, fmt.Errorf("store assistant message: %w", err))
 	}
+	recordChatStorageWrite(ctx, "assistant")
+	if pruned, pruneErr := h.store.PruneMessages(ctx, conv.ID, h.maxMessagesPerConv); pruneErr != nil {
+		log.Printf("chat prune failed for conversation %s: %v", conv.ID, pruneErr)
+	} else {
+		recordChatMessagesPruned(ctx, pruned)
+	}
+	recordChatExperienceEvent("send_message", "success", "")
 
 	// Build proto tool calls for final chunk
 	var protoToolCalls []*chatv1.ToolCall
@@ -174,7 +217,7 @@ func (h *ChatServiceHandler) GetConversationHistory(
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("conversation not found"))
 	}
 
-	messages, err := h.store.GetMessages(ctx, req.Msg.ConversationId, 200)
+	messages, err := h.store.GetMessages(ctx, req.Msg.ConversationId, h.maxMessagesPerConv)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -238,6 +281,9 @@ func (h *ChatServiceHandler) ListConversations(
 	limit := int(req.Msg.Limit)
 	if limit <= 0 {
 		limit = 20
+	}
+	if h.maxConversations > 0 && limit > h.maxConversations {
+		limit = h.maxConversations
 	}
 
 	convs, err := h.store.ListConversations(ctx, userID, limit)

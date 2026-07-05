@@ -4,12 +4,12 @@ import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { revalidatePath } from "next/cache";
 import { ShortedStocksService, TakeStatus } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { SHORTS_API_URL } from "~/app/actions/config";
+import { SHORTS_API_URL, serverFetchWithUserAgent } from "~/app/actions/config";
 import { requireAdmin } from "~/server/admin";
 
 function adminClient() {
   const transport = createConnectTransport({
-    fetch,
+    fetch: serverFetchWithUserAgent,
     baseUrl: SHORTS_API_URL,
   });
   return createClient(ShortedStocksService, transport);

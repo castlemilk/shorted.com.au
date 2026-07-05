@@ -3,8 +3,16 @@ import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { type GetStockNewsResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { cache } from "react";
-import { SHORTS_API_URL } from "./config";
+import { SERVER_SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { withRetryAndNotFound } from "./withRetry";
+
+function createNewsClient() {
+  const transport = createConnectTransport({
+    fetch: serverFetchWithUserAgent,
+    baseUrl: SERVER_SHORTS_API_URL,
+  });
+  return createClient(ShortedStocksService, transport);
+}
 
 export const getStockNews = cache(
   withRetryAndNotFound(
@@ -12,11 +20,7 @@ export const getStockNews = cache(
       stockCode: string,
       limit: number = 20, // eslint-disable-line @typescript-eslint/no-inferrable-types
     ): Promise<GetStockNewsResponse> => {
-      const transport = createConnectTransport({
-        fetch,
-        baseUrl: SHORTS_API_URL,
-      });
-      const client = createClient(ShortedStocksService, transport);
+      const client = createNewsClient();
       const response = await client.getStockNews({ stockCode, limit });
       return response;
     },
@@ -29,11 +33,7 @@ export const getMarketNews = cache(
       limit: number = 50, // eslint-disable-line @typescript-eslint/no-inferrable-types
       priceSensitiveOnly: boolean = false, // eslint-disable-line @typescript-eslint/no-inferrable-types
     ): Promise<GetStockNewsResponse> => {
-      const transport = createConnectTransport({
-        fetch,
-        baseUrl: SHORTS_API_URL,
-      });
-      const client = createClient(ShortedStocksService, transport);
+      const client = createNewsClient();
       const response = await client.getMarketNews({
         limit,
         priceSensitiveOnly,

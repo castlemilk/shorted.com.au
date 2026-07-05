@@ -1,4 +1,9 @@
+import { createHash } from "node:crypto";
 import { adminDb } from "~/@/lib/firebase-admin";
+import {
+  querySnapshotReadCount,
+  withFirestoreCost,
+} from "~/@/lib/firestore-cost";
 import {
   type CommunityAuthorSnapshot,
   type CommunityComment,
@@ -8,6 +13,10 @@ import {
 } from "~/@/types/community";
 import { rankPulseItems, rankResearchThreads } from "~/@/lib/community/ranking";
 import { buildCommunitySummary } from "~/@/lib/community/summary";
+
+const COMMUNITY_THREAD_LIST_LIMIT = 50;
+const COMMUNITY_PULSE_LIST_LIMIT = 50;
+const COMMUNITY_COMMENT_LIST_LIMIT = 100;
 
 type FirestoreValue =
   | Date
@@ -268,27 +277,41 @@ function mapComment(snapshot: FirestoreDocSnapshot): CommunityComment {
 export async function getStockCommunitySummary(
   stockCode: string,
 ): Promise<CommunityOverviewSummary> {
-  const summaryDoc = (await communityDoc(stockCode).get()) as FirestoreDocSnapshot;
+  const summaryDoc = await withFirestoreCost(
+    {
+      feature: "community",
+      collection: "stock_communities",
+      operation: "doc_get",
+      documentsRead: 1,
+    },
+    async () => (await communityDoc(stockCode).get()) as FirestoreDocSnapshot,
+  );
 
   if (summaryDoc.exists) {
     return mapSummary(summaryDoc.data() ?? {});
   }
 
-  const [threads, pulse] = await Promise.all([
-    listCommunityThreads(stockCode),
-    listCommunityPulseItems(stockCode),
-  ]);
-
-  return buildCommunitySummary({ stockCode, threads, pulse });
+  return buildCommunitySummary({ stockCode, threads: [], pulse: [] });
 }
 
 export async function listCommunityThreads(
   stockCode: string,
 ): Promise<CommunityThread[]> {
-  const snapshot = (await communityDoc(stockCode)
-    .collection("threads")
-    .where("status", "==", "active")
-    .get()) as FirestoreQuerySnapshot;
+  const snapshot = await withFirestoreCost(
+    {
+      feature: "community",
+      collection: "stock_communities/threads",
+      operation: "query_get",
+      documentsRead: querySnapshotReadCount,
+    },
+    async () =>
+      (await communityDoc(stockCode)
+        .collection("threads")
+        .where("status", "==", "active")
+        .orderBy("lastActivityAt", "desc")
+        .limit(COMMUNITY_THREAD_LIST_LIMIT)
+        .get()) as FirestoreQuerySnapshot,
+  );
 
   return rankResearchThreads(snapshot.docs.map(mapThread));
 }
@@ -297,10 +320,19 @@ export async function getCommunityThread(
   stockCode: string,
   threadId: string,
 ): Promise<CommunityThread | null> {
-  const snapshot = (await communityDoc(stockCode)
-    .collection("threads")
-    .doc(threadId)
-    .get()) as FirestoreDocSnapshot;
+  const snapshot = await withFirestoreCost(
+    {
+      feature: "community",
+      collection: "stock_communities/threads",
+      operation: "doc_get",
+      documentsRead: 1,
+    },
+    async () =>
+      (await communityDoc(stockCode)
+        .collection("threads")
+        .doc(threadId)
+        .get()) as FirestoreDocSnapshot,
+  );
 
   return snapshot.exists ? mapThread(snapshot) : null;
 }
@@ -308,10 +340,21 @@ export async function getCommunityThread(
 export async function listCommunityPulseItems(
   stockCode: string,
 ): Promise<CommunityPulseItem[]> {
-  const snapshot = (await communityDoc(stockCode)
-    .collection("pulse")
-    .where("status", "==", "active")
-    .get()) as FirestoreQuerySnapshot;
+  const snapshot = await withFirestoreCost(
+    {
+      feature: "community",
+      collection: "stock_communities/pulse",
+      operation: "query_get",
+      documentsRead: querySnapshotReadCount,
+    },
+    async () =>
+      (await communityDoc(stockCode)
+        .collection("pulse")
+        .where("status", "==", "active")
+        .orderBy("createdAt", "desc")
+        .limit(COMMUNITY_PULSE_LIST_LIMIT)
+        .get()) as FirestoreQuerySnapshot,
+  );
 
   return rankPulseItems(snapshot.docs.map(mapPulseItem));
 }
@@ -320,12 +363,23 @@ export async function listCommunityComments(
   stockCode: string,
   threadId: string,
 ): Promise<CommunityComment[]> {
-  const snapshot = (await communityDoc(stockCode)
-    .collection("threads")
-    .doc(threadId)
-    .collection("comments")
-    .where("status", "==", "active")
-    .get()) as FirestoreQuerySnapshot;
+  const snapshot = await withFirestoreCost(
+    {
+      feature: "community",
+      collection: "stock_communities/threads/comments",
+      operation: "query_get",
+      documentsRead: querySnapshotReadCount,
+    },
+    async () =>
+      (await communityDoc(stockCode)
+        .collection("threads")
+        .doc(threadId)
+        .collection("comments")
+        .where("status", "==", "active")
+        .orderBy("createdAt", "asc")
+        .limit(COMMUNITY_COMMENT_LIST_LIMIT)
+        .get()) as FirestoreQuerySnapshot,
+  );
 
   return snapshot.docs
     .map(mapComment)
@@ -336,12 +390,23 @@ export async function listCommunityPulseReplies(
   stockCode: string,
   pulseId: string,
 ): Promise<CommunityComment[]> {
-  const snapshot = (await communityDoc(stockCode)
-    .collection("pulse")
-    .doc(pulseId)
-    .collection("replies")
-    .where("status", "==", "active")
-    .get()) as FirestoreQuerySnapshot;
+  const snapshot = await withFirestoreCost(
+    {
+      feature: "community",
+      collection: "stock_communities/pulse/replies",
+      operation: "query_get",
+      documentsRead: querySnapshotReadCount,
+    },
+    async () =>
+      (await communityDoc(stockCode)
+        .collection("pulse")
+        .doc(pulseId)
+        .collection("replies")
+        .where("status", "==", "active")
+        .orderBy("createdAt", "asc")
+        .limit(COMMUNITY_COMMENT_LIST_LIMIT)
+        .get()) as FirestoreQuerySnapshot,
+  );
 
   return snapshot.docs
     .map(mapComment)
@@ -375,7 +440,15 @@ export async function createCommunityThread({
     sources,
   };
 
-  const reference = await communityDoc(stockCode).collection("threads").add(record);
+  const reference = await withFirestoreCost(
+    {
+      feature: "community",
+      collection: "stock_communities/threads",
+      operation: "add",
+      documentsWritten: 1,
+    },
+    async () => communityDoc(stockCode).collection("threads").add(record),
+  );
 
   return {
     id: reference.id,
@@ -403,11 +476,20 @@ export async function createCommunityComment({
     author,
   };
 
-  const reference = await communityDoc(stockCode)
-    .collection("threads")
-    .doc(threadId)
-    .collection("comments")
-    .add(record);
+  const reference = await withFirestoreCost(
+    {
+      feature: "community",
+      collection: "stock_communities/threads/comments",
+      operation: "add",
+      documentsWritten: 1,
+    },
+    async () =>
+      communityDoc(stockCode)
+        .collection("threads")
+        .doc(threadId)
+        .collection("comments")
+        .add(record),
+  );
 
   return {
     id: reference.id,
@@ -433,7 +515,15 @@ export async function createCommunityPulseItem({
     author,
   };
 
-  const reference = await communityDoc(stockCode).collection("pulse").add(record);
+  const reference = await withFirestoreCost(
+    {
+      feature: "community",
+      collection: "stock_communities/pulse",
+      operation: "add",
+      documentsWritten: 1,
+    },
+    async () => communityDoc(stockCode).collection("pulse").add(record),
+  );
 
   return {
     id: reference.id,
@@ -461,11 +551,20 @@ export async function createCommunityPulseReply({
     author,
   };
 
-  const reference = await communityDoc(stockCode)
-    .collection("pulse")
-    .doc(pulseId)
-    .collection("replies")
-    .add(record);
+  const reference = await withFirestoreCost(
+    {
+      feature: "community",
+      collection: "stock_communities/pulse/replies",
+      operation: "add",
+      documentsWritten: 1,
+    },
+    async () =>
+      communityDoc(stockCode)
+        .collection("pulse")
+        .doc(pulseId)
+        .collection("replies")
+        .add(record),
+  );
 
   return {
     id: reference.id,
@@ -490,13 +589,33 @@ export async function createCommunityVote({
     createdAt: now,
     updatedAt: now,
   };
+  const voteId = stableCommunityVoteId(userId, targetType, targetId);
 
-  const reference = await adminDb.collection("community_votes").add(record);
+  await withFirestoreCost(
+    {
+      feature: "community",
+      collection: "community_votes",
+      operation: "set",
+      documentsWritten: 1,
+    },
+    async () =>
+      adminDb.collection("community_votes").doc(voteId).set(record, { merge: true }),
+  );
 
   return {
-    id: reference.id,
+    id: voteId,
     ...record,
   };
+}
+
+function stableCommunityVoteId(
+  userId: string,
+  targetType: CreateCommunityVoteInput["targetType"],
+  targetId: string,
+): string {
+  return createHash("sha1")
+    .update(`${userId}\u0000${targetType}\u0000${targetId}`)
+    .digest("hex");
 }
 
 export async function createCommunityReport({
@@ -520,7 +639,15 @@ export async function createCommunityReport({
     status: "open",
   };
 
-  const reference = await adminDb.collection("community_reports").add(record);
+  const reference = await withFirestoreCost(
+    {
+      feature: "community",
+      collection: "community_reports",
+      operation: "add",
+      documentsWritten: 1,
+    },
+    async () => adminDb.collection("community_reports").add(record),
+  );
 
   return {
     id: reference.id,

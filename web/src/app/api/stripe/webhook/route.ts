@@ -9,15 +9,15 @@ import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { SubscriptionStatus, SubscriptionTier } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { retryWithBackoff, type RetryOptions } from "@/lib/retry";
 import { timestampFromDate } from "@bufbuild/protobuf/wkt";
-
-// Shorts API URL - falls back to local dev if not set
-const SHORTS_API_URL = process.env.SHORTS_SERVICE_ENDPOINT ?? "http://localhost:9091";
+import { recordProductEvent } from "~/@/lib/product-events";
+import { SHORTS_API_URL, serverFetchWithUserAgent } from "~/app/actions/config";
 
 // Internal auth secret for service-to-service calls
 const INTERNAL_SECRET = process.env.INTERNAL_SERVICE_SECRET ?? "dev-internal-secret";
 
 // Create transport for gRPC calls with internal auth headers
 const transport = createConnectTransport({
+  fetch: serverFetchWithUserAgent,
   baseUrl: SHORTS_API_URL,
   // Add internal auth headers for webhook -> backend calls
   // Use lowercase header names for HTTP/2 compatibility
@@ -63,8 +63,16 @@ const WEBHOOK_RETRY_OPTIONS: RetryOptions = {
 };
 
 export async function POST(request: NextRequest) {
+  const started = Date.now();
+
   if (!webhookSecret) {
     console.error("STRIPE_WEBHOOK_SECRET is not set");
+    recordProductEvent({
+      feature: "payment",
+      action: "webhook_process",
+      status: "error",
+      properties: { error_type: "webhook_secret_missing" },
+    });
     return NextResponse.json(
       { error: "Webhook secret not configured" },
       { status: 500 }
@@ -76,6 +84,12 @@ export async function POST(request: NextRequest) {
   const signature = headersList.get("stripe-signature");
 
   if (!signature) {
+    recordProductEvent({
+      feature: "payment",
+      action: "webhook_process",
+      status: "error",
+      properties: { error_type: "missing_signature" },
+    });
     return NextResponse.json(
       { error: "Missing stripe-signature header" },
       { status: 400 }
@@ -89,6 +103,12 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error(`Webhook signature verification failed: ${message}`);
+    recordProductEvent({
+      feature: "payment",
+      action: "webhook_process",
+      status: "error",
+      properties: { error_type: "signature_verification_failed" },
+    });
     return NextResponse.json(
       { error: `Webhook Error: ${message}` },
       { status: 400 }
@@ -96,6 +116,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    recordProductEvent({
+      feature: "payment",
+      action: "webhook_process",
+      status: "attempt",
+      properties: { event_type: normalizeStripeEventType(event.type) },
+    });
+
     switch (event.type) {
       case "checkout.session.completed": {
         await handleCheckoutCompleted(event.data.object);
@@ -127,14 +154,38 @@ export async function POST(request: NextRequest) {
         // Unhandled event type - ignore
     }
 
+    recordProductEvent({
+      feature: "payment",
+      action: "webhook_process",
+      status: "success",
+      properties: {
+        event_type: normalizeStripeEventType(event.type),
+        duration_ms: Date.now() - started,
+      },
+    });
+
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error("Error processing webhook:", error);
+    recordProductEvent({
+      feature: "payment",
+      action: "webhook_process",
+      status: "error",
+      properties: {
+        event_type: normalizeStripeEventType(event.type),
+        duration_ms: Date.now() - started,
+        error_name: error instanceof Error ? error.name : "Unknown",
+      },
+    });
     return NextResponse.json(
       { error: "Webhook handler failed" },
       { status: 500 }
     );
   }
+}
+
+function normalizeStripeEventType(type: string): string {
+  return type.toLowerCase().replace(/[^a-z0-9_.:-]+/g, "_");
 }
 
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {

@@ -2,6 +2,7 @@
 import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { getServerShortsApiUrl } from "~/app/actions/config";
 
 export const alt = "Industry Short Positions - Shorted.com.au";
 export const size = {
@@ -78,10 +79,7 @@ async function getIndustryOGData(
   slug: string,
 ): Promise<IndustryOGData | null> {
   try {
-    const apiUrl =
-      process.env.NEXT_PUBLIC_API_URL ??
-      process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT ??
-      "http://localhost:9091";
+    const apiUrl = getServerShortsApiUrl();
     const res = await fetch(
       `${apiUrl}/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap`,
       {

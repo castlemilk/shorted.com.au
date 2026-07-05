@@ -12,9 +12,12 @@ terraform {
 # =============================================================================
 
 locals {
-  shorts_api_hostname   = try(regex("^https?://([^/]+)", var.shorts_api_origin)[0], "")
-  chat_service_hostname = try(var.chat_service_origin != "" ? regex("^https?://([^/]+)", var.chat_service_origin)[0] : "", "")
-  market_data_hostname  = try(var.market_data_origin != "" ? regex("^https?://([^/]+)", var.market_data_origin)[0] : "", "")
+  shorts_api_hostname              = try(regex("^https?://([^/]+)", var.shorts_api_origin)[0], "")
+  chat_service_hostname            = try(var.chat_service_origin != "" ? regex("^https?://([^/]+)", var.chat_service_origin)[0] : "", "")
+  market_data_hostname             = try(var.market_data_origin != "" ? regex("^https?://([^/]+)", var.market_data_origin)[0] : "", "")
+  api_rate_limit_host_expression   = "http.host eq \"api.shorted.com.au\""
+  rate_limit_testing_bypass_clause = var.rate_limit_testing_bypass_secret != "" ? " and not (http.user_agent contains \"${var.rate_limit_testing_bypass_user_agent}\" and any(http.request.headers[\"${var.rate_limit_testing_bypass_header_name}\"][*] eq \"${var.rate_limit_testing_bypass_secret}\"))" : ""
+  api_rate_limit_expression        = "${local.api_rate_limit_host_expression}${local.rate_limit_testing_bypass_clause}"
 }
 
 # =============================================================================
@@ -70,6 +73,10 @@ resource "cloudflare_workers_script" "edge_cache" {
       type = "plain_text"
       name = "CACHE_TTL_NEWS"
       text = tostring(var.news_cache_ttl)
+      }, {
+      type = "plain_text"
+      name = "EDGE_ANALYTICS_SAMPLE_RATE"
+      text = tostring(var.edge_analytics_sample_rate)
       }, {
       type = "plain_text"
       name = "CACHE_PURGE_SECRET"
@@ -247,6 +254,41 @@ resource "cloudflare_ruleset" "cache_rules" {
     },
     {
       action      = "set_cache_settings"
+      expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and starts_with(http.request.uri.path, \"/shorts/\") and not http.request.uri.path contains \"/news\" and not http.request.uri.path contains \"/community\" and not http.request.uri.path contains \".\""
+      description = "Cache public stock detail HTML pages at edge"
+      enabled     = true
+      action_parameters = {
+        cache = true
+        edge_ttl = {
+          mode    = "override_origin"
+          default = var.stock_page_cache_ttl
+          status_code_ttl = [
+            {
+              status_code_range = {
+                from = 200
+                to   = 299
+              }
+              value = var.stock_page_cache_ttl
+            },
+            {
+              status_code_range = {
+                from = 300
+              }
+              value = 0
+            }
+          ]
+        }
+        browser_ttl = {
+          mode = "respect_origin"
+        }
+        cache_key = {
+          cache_by_device_type  = false
+          cache_deception_armor = true
+        }
+      }
+    },
+    {
+      action      = "set_cache_settings"
       expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and (http.request.uri.path eq \"/\" or not http.request.uri.path contains \".\")"
       description = "Bypass edge cache for HTML pages — let Vercel handle it"
       enabled     = true
@@ -267,6 +309,58 @@ resource "cloudflare_ruleset" "cache_rules" {
 }
 
 # =============================================================================
+# =============================================================================
+# Custom security skips — app API/RPC endpoints
+# =============================================================================
+# Cloudflare Super Bot Fight Mode and Browser Integrity/Security Level checks can
+# managed-challenge non-browser service traffic before the Worker or Vercel
+# rewrites see it. These paths are app-owned API surfaces; keep managed WAF and
+# current rate limits intact, but skip bot/browser challenge products that break
+# SSR, client RPCs, health checks, and trusted E2E probes.
+
+resource "cloudflare_ruleset" "app_api_security_skip" {
+  count = var.waf_enabled ? 1 : 0
+
+  zone_id     = var.cloudflare_zone_id
+  name        = "shorted-app-api-security-skip"
+  description = "Skip bot/security challenges for app API and RPC paths"
+  kind        = "zone"
+  phase       = "http_request_firewall_custom"
+
+  rules = [
+    {
+      action      = "skip"
+      expression  = <<-EOT
+        (
+          http.host eq "${var.domain}"
+          or (
+            (http.host eq "shorted.com.au" or http.host eq "www.shorted.com.au")
+            and (
+              starts_with(http.request.uri.path, "/shorts.v1alpha1.")
+              or starts_with(http.request.uri.path, "/marketdata.v1.")
+              or starts_with(http.request.uri.path, "/chat.v1.")
+              or starts_with(http.request.uri.path, "/register.v1.")
+              or starts_with(http.request.uri.path, "/api/auth/")
+              or starts_with(http.request.uri.path, "/api/market-data/")
+              or starts_with(http.request.uri.path, "/api/stocks/")
+              or starts_with(http.request.uri.path, "/api/algolia/")
+            )
+          )
+        )
+      EOT
+      description = "Allow app API/RPC traffic through SBFM, BIC, and Security Level checks"
+      enabled     = true
+      action_parameters = {
+        phases   = ["http_request_sbfm"]
+        products = ["bic", "securityLevel"]
+      }
+      logging = {
+        enabled = false
+      }
+    }
+  ]
+}
+
 # =============================================================================
 # WAF — Managed rules (Cloudflare OWASP Core Ruleset)
 # =============================================================================
@@ -335,16 +429,16 @@ resource "cloudflare_ruleset" "rate_limit_api" {
 
   zone_id     = var.cloudflare_zone_id
   name        = "shorted-rate-limit"
-  description = "Rate limiting for Shorted platform (API + frontend)"
+  description = "Rate limiting for Shorted API host"
   kind        = "zone"
   phase       = "http_ratelimit"
 
   rules = [
     {
       action      = "block"
-      description = "Rate limit — API 30 req/10s (frontend not rate limited)"
+      description = "Rate limit — API host usage"
       enabled     = true
-      expression  = "http.host eq \"api.shorted.com.au\""
+      expression  = local.api_rate_limit_expression
       action_parameters = {
         response = {
           status_code  = 429
