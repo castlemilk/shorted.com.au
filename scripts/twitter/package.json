@@ -12,6 +12,7 @@
     "post:breaking-news": "tsx src/index.ts breaking-news",
     "post:stock-of-the-day": "tsx src/index.ts stock-of-the-day",
     "post:squeeze-alert": "tsx src/index.ts squeeze-alert",
+    "test": "node --import tsx --test src/**/*.test.ts",
     "typecheck": "tsc --noEmit",
     "preview": "tsx src/index.ts --help"
   },
