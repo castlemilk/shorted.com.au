@@ -52,9 +52,13 @@ function TaxableCell({ year }: { year: CompanyTaxYear }) {
 }
 
 function TaxPayableCell({ year }: { year: CompanyTaxYear }) {
-  // Nil / not-reported tax payable is meaningful and often legitimate — flag it
-  // with a muted badge, but the income columns beside it always remain visible.
-  if (!year.hasTaxPayable || year.taxPayable === 0) {
+  if (!year.hasTaxPayable) {
+    return <span className="text-muted-foreground">not reported</span>;
+  }
+
+  // A reported zero is meaningful and often legitimate. Keep it distinct from
+  // an absent ATO cell so the has_tax_payable contract remains visible.
+  if (year.taxPayable === 0) {
     return (
       <Badge variant="secondary" className="font-normal">
         nil tax payable

@@ -525,6 +525,9 @@ jest.mock("lucide-react", () => {
     Building2: jest.fn(({ className }: any) => {
       return React.createElement("div", { className: `building2 ${className}` });
     }),
+    Landmark: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `landmark ${className}` });
+    }),
     TrendingUp: jest.fn(({ className }: any) => {
       return React.createElement("div", { className: `trending-up ${className}` });
     }),
