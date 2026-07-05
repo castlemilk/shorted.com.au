@@ -1028,7 +1028,7 @@ jobs:
                 -v "${PWD}/services:/app" \
                 -w /app \
                 golang:1.26.0 \
-                sh -c 'if [ -n "$STEALTH_PAT" ]; then git config --global url."https://x-access-token:${STEALTH_PAT}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; fi; GOPRIVATE=github.com/skunkworq/* GONOSUMCHECK=github.com/skunkworq/* go run ./influence-collector -mode all'
+                sh -c 'if [ -n "$STEALTH_PAT" ]; then git config --global url."https://x-access-token:${STEALTH_PAT}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; fi; GOWORK=off GOPRIVATE=github.com/skunkworq/* GONOSUMDB=github.com/skunkworq/* go run ./influence-collector -mode all'
             else
               echo "corporate_tax already has ${TAX_ROWS} rows; skipping bootstrap."
             fi
