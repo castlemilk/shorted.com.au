@@ -28,8 +28,10 @@ import {
   Settings2,
   RotateCcw,
 } from "lucide-react";
-import { fetchStockDataClient } from "~/@/lib/client-api";
-import { getStock } from "~/app/actions/getStock";
+import {
+  fetchStockClient,
+  fetchStockDataClient,
+} from "~/@/lib/client-api";
 import {
   getMultipleStockQuotes,
   getHistoricalData,
@@ -177,7 +179,7 @@ export function StockChartWidget({ config, onSettingsChange }: WidgetProps) {
           fetchStockDataClient(code, period).catch(() => null),
         );
         const infoPromises = stocks.map((code) =>
-          getStock(code).catch(() => null),
+          fetchStockClient(code).catch(() => null),
         );
 
         const [dataResults, infoResults, quotesResult] = await Promise.all([

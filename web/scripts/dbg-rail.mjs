@@ -1,0 +1,10 @@
+import { chromium } from "@playwright/test";
+const browser = await chromium.launch({ headless: true });
+const page = await (await browser.newContext({ viewport:{width:1280,height:1600} })).newPage();
+await page.goto("https://shorted.com.au/shorts/ASX", { waitUntil:"networkidle", timeout:60000 });
+await page.waitForTimeout(6000);
+const tabs = await page.getByRole("tab").allInnerTexts().catch(()=>[]);
+const hasRelated = await page.getByText("Related coverage").count().catch(()=>0);
+console.log(JSON.stringify({ tabs, hasRelated }));
+await page.screenshot({ path:"/tmp/dbg-rail.png", fullPage:true });
+await browser.close();

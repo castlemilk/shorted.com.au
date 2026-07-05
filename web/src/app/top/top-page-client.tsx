@@ -69,6 +69,8 @@ interface TopPageClientProps {
   initialPeriod: TimePeriod;
 }
 
+const TOP_PAGE_CLIENT_ASSET_REVISION = "2026-07-05-cf-static-404";
+
 export function TopPageClient({
   initialData,
   initialMoversData,
@@ -141,7 +143,7 @@ export function TopPageClient({
   };
 
   return (
-    <div className="relative">
+    <div className="relative" data-asset-revision={TOP_PAGE_CLIENT_ASSET_REVISION}>
       {/* Hero Section */}
       <section className="relative border-b border-border/40 overflow-hidden" aria-labelledby="hero-title">
         {/* Background gradient effects */}

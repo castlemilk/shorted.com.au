@@ -162,9 +162,9 @@ func parseNSWYearSales(outer []byte) ([]nswSale, error) {
 		if err != nil {
 			continue
 		}
-		wb, err := io.ReadAll(rc)
-		_ = rc.Close()
-		if err != nil {
+		wb, readErr := io.ReadAll(rc)
+		closeErr := rc.Close()
+		if readErr != nil || closeErr != nil {
 			continue
 		}
 		wzr, err := zip.NewReader(bytes.NewReader(wb), int64(len(wb)))
@@ -179,9 +179,9 @@ func parseNSWYearSales(outer []byte) ([]nswSale, error) {
 			if err != nil {
 				continue
 			}
-			db, err := io.ReadAll(dc)
-			_ = dc.Close()
-			if err != nil {
+			db, readErr := io.ReadAll(dc)
+			closeErr := dc.Close()
+			if readErr != nil || closeErr != nil {
 				continue
 			}
 			sales = append(sales, parseNSWDAT(db)...)

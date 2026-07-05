@@ -80,13 +80,13 @@ describe("Stock Detail Page Runtime Imports", () => {
     expect(typeof PageModule.default).toBe("function");
   });
 
-  it("renders stock pages through ISR so warm stock pages serve from cache", async () => {
+  it("renders stock pages dynamically so uncached codes do not hit ISR no-store failures", async () => {
     const PageModule = await import("../page");
 
-    expect(PageModule.revalidate).toBe(86400);
-    expect(PageModule.dynamic).toBeUndefined();
+    expect(PageModule.dynamic).toBe("force-dynamic");
+    expect(PageModule.revalidate).toBe(0);
     expect(PageModule.fetchCache).toBeUndefined();
-    expect(typeof PageModule.generateStaticParams).toBe("function");
+    expect(PageModule.generateStaticParams).toBeUndefined();
   });
 
   it("keeps volatile community data out of the stock page HTML cache path", () => {
@@ -99,7 +99,7 @@ describe("Stock Detail Page Runtime Imports", () => {
     expect(source).not.toContain("getCachedStockCommunitySummary");
   });
 
-  it("does not let stock-page child fetches lower the 24h ISR window", () => {
+  it("keeps stock-page child fetches aligned with the public edge cache window", () => {
     const source = fs.readFileSync(
       path.resolve(__dirname, "../short-interest-history.tsx"),
       "utf8",

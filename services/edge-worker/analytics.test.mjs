@@ -146,6 +146,85 @@ test("cached Shorts POST fallback reuses a buffered body after origin fetch fail
   }
 });
 
+test("cache write failures do not fail successful Shorts responses", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalCaches = globalThis.caches;
+  const waitUntilPromises = [];
+  const originCalls = [];
+
+  globalThis.caches = {
+    default: {
+      async match() {
+        return undefined;
+      },
+      put() {
+        throw new Error("cache put rejected response headers");
+      },
+    },
+  };
+  globalThis.fetch = async (url, init) => {
+    originCalls.push({ url: String(url), method: init?.method, hasBody: Boolean(init?.body) });
+    return new Response(JSON.stringify({ timeSeries: [{ productCode: "BHP" }] }), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+        "cache-control": "private, max-age=0, no-store, no-cache, must-revalidate",
+        vary: "Origin, accept-encoding",
+      },
+    });
+  };
+
+  try {
+    const env = {
+      SHORTS_API_ORIGIN: "https://shorts-origin.test",
+      EDGE_ANALYTICS_SAMPLE_RATE: "0",
+      EDGE_KV: {
+        async get() {
+          return null;
+        },
+        async put() {},
+      },
+    };
+    const ctx = {
+      waitUntil(promise) {
+        waitUntilPromises.push(Promise.resolve(promise));
+      },
+    };
+    const url = "https://api.shorted.com.au/shorts.v1alpha1.ShortedStocksService/GetTopShorts";
+
+    const response = await worker.fetch(
+      new Request(url, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "user-agent": "Mozilla/5.0 Shorted-E2E/1.0",
+        },
+        body: JSON.stringify({ limit: 3 }),
+      }),
+      env,
+      ctx,
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("x-shorted-cache"), "MISS");
+    assert.deepEqual(await response.json(), { timeSeries: [{ productCode: "BHP" }] });
+    assert.equal(originCalls.length, 1);
+    assert.equal(originCalls[0].hasBody, true);
+    assert.equal(waitUntilPromises.length, 1);
+    assert.deepEqual(
+      (await Promise.allSettled(waitUntilPromises)).map((result) => result.status),
+      ["fulfilled"],
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalCaches === undefined) {
+      delete globalThis.caches;
+    } else {
+      globalThis.caches = originalCaches;
+    }
+  }
+});
+
 test("normalizes user-facing routes into low-cardinality groups", () => {
   assert.equal(normalizeRouteGroup("shorted.com.au", "/"), "/");
   assert.equal(normalizeRouteGroup("shorted.com.au", "/shorts/BHP"), "/shorts/[code]");

@@ -4,6 +4,12 @@ import {
   COMMUNITY_SUMMARY_CACHE_SECONDS,
   getCachedStockCommunitySummary,
 } from "~/@/lib/community/community-summary-cache";
+import {
+  COMMUNITY_PUBLIC_READ_FALLBACK_CACHE_CONTROL,
+  emptyCommunitySummary,
+  isFirestoreReadUnavailable,
+  warnCommunityReadFallback,
+} from "~/@/lib/community/public-read-fallback";
 
 const STOCK_CODE_PATTERN = /^[A-Z0-9]{1,4}$/;
 
@@ -33,6 +39,26 @@ export async function GET(
       },
     );
   } catch (error) {
+    if (isFirestoreReadUnavailable(error)) {
+      warnCommunityReadFallback({
+        route: "summary",
+        stockCode,
+        error,
+      });
+
+      return NextResponse.json(
+        {
+          stockCode,
+          summary: emptyCommunitySummary(stockCode),
+        },
+        {
+          headers: {
+            "Cache-Control": COMMUNITY_PUBLIC_READ_FALLBACK_CACHE_CONTROL,
+          },
+        },
+      );
+    }
+
     console.error("Failed to fetch community summary", error);
     return NextResponse.json(
       { error: "Failed to fetch community summary" },

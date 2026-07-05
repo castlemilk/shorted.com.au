@@ -434,13 +434,14 @@ async function buildHotCacheKey(request, path) {
  */
 async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl) {
   const path = url.pathname;
-  let kvKey = null; // declared early so both KV-hit and MISS branches can use it
-  const requestBody = request.method !== "GET" && request.method !== "HEAD"
-    ? await request.clone().arrayBuffer()
-    : undefined;
-  const freshBody = () => requestBody ? requestBody.slice(0) : undefined;
+  let requestBody = undefined;
 
   try {
+    let kvKey = null; // declared early so both KV-hit and MISS branches can use it
+    requestBody = request.method !== "GET" && request.method !== "HEAD"
+      ? await request.clone().arrayBuffer()
+      : undefined;
+    const freshBody = () => requestBody ? requestBody.slice(0) : undefined;
     const cache = caches.default;
     const cacheKey = await buildCacheKey(request, url);
 
@@ -468,7 +469,7 @@ async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl) {
           clientResp.headers.set("Cache-Control", `s-maxage=${cacheTtl}, stale-while-revalidate=${cacheTtl}`);
 
           // Non-blocking: repopulate CF cache for this PoP
-          ctx.waitUntil((async () => {
+          safeWaitUntil(ctx, (async () => {
             try {
               const originUrl = buildOriginUrl(origin, url);
               const originResp = await fetch(originUrl, {
@@ -523,22 +524,21 @@ async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl) {
     clientResp.headers.set("Cache-Control", `s-maxage=${cacheTtl}, stale-while-revalidate=${cacheTtl}`);
 
     // Response to store in CF cache
-    const cacheResp = new Response(body, {
+    const cacheResp = new Response(body.slice(0), {
       status: originResp.status,
-      headers: new Headers(originResp.headers),
+      headers: cacheableResponseHeaders(originResp, cacheTtl),
     });
     stampEdgeHeaders(cacheResp, "HIT");
-    cacheResp.headers.set("Cache-Control", `s-maxage=${cacheTtl}, stale-while-revalidate=${cacheTtl}`);
 
     // Store in CF edge cache (non-blocking)
-    ctx.waitUntil(cache.put(cacheKey, cacheResp));
+    safeWaitUntil(ctx, () => cache.put(cacheKey, cacheResp));
 
     // Cache-aside: async write to KV on MISS.
     // Next user (any geo) hits KV instead of origin.
     // Body has already been read into `body` ArrayBuffer — convert back to text for KV.
     // kvKey is already computed above in this function.
     if (kvKey && env.EDGE_KV) {
-      ctx.waitUntil((async () => {
+      safeWaitUntil(ctx, (async () => {
         try {
           const text = new TextDecoder().decode(body);
           // Use the same TTL as CF cache, capped at 3600s for cache-aside writes.
@@ -553,12 +553,35 @@ async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl) {
   } catch {
     // If caching fails, fall through to origin
     const originUrl = buildOriginUrl(origin, url);
+    if (requestBody === undefined && request.method !== "GET" && request.method !== "HEAD") {
+      requestBody = await request.clone().arrayBuffer();
+    }
     return fetch(originUrl, {
       method: request.method,
       headers: filterRequestHeaders(request.headers),
-      body: freshBody(),
+      body: requestBody ? requestBody.slice(0) : undefined,
     });
   }
+}
+
+function safeWaitUntil(ctx, task) {
+  try {
+    const promise = typeof task === "function" ? task() : task;
+    if (!promise || typeof promise.then !== "function") return;
+    ctx.waitUntil(promise.catch(() => {}));
+  } catch (_) {
+    // Background cache/KV writes must never fail the user request.
+  }
+}
+
+function cacheableResponseHeaders(originResp, cacheTtl) {
+  const headers = new Headers();
+  const contentType = originResp.headers.get("Content-Type") || originResp.headers.get("content-type");
+  if (contentType) {
+    headers.set("Content-Type", contentType);
+  }
+  headers.set("Cache-Control", `s-maxage=${cacheTtl}, stale-while-revalidate=${cacheTtl}`);
+  return headers;
 }
 
 /**

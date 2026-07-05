@@ -12,12 +12,12 @@ terraform {
 # =============================================================================
 
 locals {
-  shorts_api_hostname              = try(regex("^https?://([^/]+)", var.shorts_api_origin)[0], "")
-  chat_service_hostname            = try(var.chat_service_origin != "" ? regex("^https?://([^/]+)", var.chat_service_origin)[0] : "", "")
-  market_data_hostname             = try(var.market_data_origin != "" ? regex("^https?://([^/]+)", var.market_data_origin)[0] : "", "")
-  api_rate_limit_host_expression   = "http.host eq \"api.shorted.com.au\""
-  rate_limit_testing_bypass_clause = var.rate_limit_testing_bypass_secret != "" ? " and not (http.user_agent contains \"${var.rate_limit_testing_bypass_user_agent}\" and any(http.request.headers[\"${var.rate_limit_testing_bypass_header_name}\"][*] eq \"${var.rate_limit_testing_bypass_secret}\"))" : ""
-  api_rate_limit_expression        = "${local.api_rate_limit_host_expression}${local.rate_limit_testing_bypass_clause}"
+  shorts_api_hostname            = try(regex("^https?://([^/]+)", var.shorts_api_origin)[0], "")
+  chat_service_hostname          = try(var.chat_service_origin != "" ? regex("^https?://([^/]+)", var.chat_service_origin)[0] : "", "")
+  market_data_hostname           = try(var.market_data_origin != "" ? regex("^https?://([^/]+)", var.market_data_origin)[0] : "", "")
+  api_rate_limit_host_expression = "http.host eq \"api.shorted.com.au\""
+  api_rate_limit_expression      = local.api_rate_limit_host_expression
+  testing_bypass_expression      = var.rate_limit_testing_bypass_secret != "" ? "(http.user_agent contains \"${var.rate_limit_testing_bypass_user_agent}\" and any(http.request.headers[\"${var.rate_limit_testing_bypass_header_name}\"][*] eq \"${var.rate_limit_testing_bypass_secret}\"))" : "false"
 }
 
 # =============================================================================
@@ -207,6 +207,28 @@ resource "cloudflare_ruleset" "cache_rules" {
       enabled     = true
       action_parameters = {
         cache = true
+        edge_ttl = {
+          mode    = "override_origin"
+          default = 31536000
+          status_code_ttl = [
+            {
+              status_code_range = {
+                from = 200
+                to   = 299
+              }
+              value = 31536000
+            },
+            {
+              status_code_range = {
+                from = 300
+              }
+              value = 0
+            }
+          ]
+        }
+        browser_ttl = {
+          mode = "respect_origin"
+        }
         cache_key = {
           cache_by_device_type  = false
           cache_deception_armor = true
@@ -220,6 +242,28 @@ resource "cloudflare_ruleset" "cache_rules" {
       enabled     = true
       action_parameters = {
         cache = true
+        edge_ttl = {
+          mode    = "override_origin"
+          default = 31536000
+          status_code_ttl = [
+            {
+              status_code_range = {
+                from = 200
+                to   = 299
+              }
+              value = 31536000
+            },
+            {
+              status_code_range = {
+                from = 300
+              }
+              value = 0
+            }
+          ]
+        }
+        browser_ttl = {
+          mode = "respect_origin"
+        }
         cache_key = {
           cache_by_device_type  = false
           cache_deception_armor = true
@@ -233,6 +277,28 @@ resource "cloudflare_ruleset" "cache_rules" {
       enabled     = true
       action_parameters = {
         cache = true
+        edge_ttl = {
+          mode    = "override_origin"
+          default = 31536000
+          status_code_ttl = [
+            {
+              status_code_range = {
+                from = 200
+                to   = 299
+              }
+              value = 31536000
+            },
+            {
+              status_code_range = {
+                from = 300
+              }
+              value = 0
+            }
+          ]
+        }
+        browser_ttl = {
+          mode = "respect_origin"
+        }
         cache_key = {
           cache_by_device_type  = false
           cache_deception_armor = true
@@ -246,6 +312,28 @@ resource "cloudflare_ruleset" "cache_rules" {
       enabled     = true
       action_parameters = {
         cache = true
+        edge_ttl = {
+          mode    = "override_origin"
+          default = 31536000
+          status_code_ttl = [
+            {
+              status_code_range = {
+                from = 200
+                to   = 299
+              }
+              value = 31536000
+            },
+            {
+              status_code_range = {
+                from = 300
+              }
+              value = 0
+            }
+          ]
+        }
+        browser_ttl = {
+          mode = "respect_origin"
+        }
         cache_key = {
           cache_by_device_type  = false
           cache_deception_armor = true
@@ -309,6 +397,38 @@ resource "cloudflare_ruleset" "cache_rules" {
 }
 
 # =============================================================================
+# Response Header Transforms — prevent browser-retained asset error responses
+# =============================================================================
+
+resource "cloudflare_ruleset" "response_header_transforms" {
+  count = var.cache_rules_enabled ? 1 : 0
+
+  zone_id     = var.cloudflare_zone_id
+  name        = "shorted-response-header-transforms"
+  description = "Response header transforms for frontend cache safety"
+  kind        = "zone"
+  phase       = "http_response_headers_transform"
+
+  rules = [
+    {
+      ref         = "no_store_missing_next_static_assets"
+      action      = "rewrite"
+      expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and http.request.uri.path contains \"/_next/static/\" and http.response.code ge 400"
+      description = "Prevent browser caching of missing Next.js static assets"
+      enabled     = true
+      action_parameters = {
+        headers = {
+          "Cache-Control" = {
+            operation = "set"
+            value     = "no-store, max-age=0, must-revalidate"
+          }
+        }
+      }
+    }
+  ]
+}
+
+# =============================================================================
 # =============================================================================
 # Custom security skips — app API/RPC endpoints
 # =============================================================================
@@ -343,12 +463,33 @@ resource "cloudflare_ruleset" "app_api_security_skip" {
               or starts_with(http.request.uri.path, "/api/auth/")
               or starts_with(http.request.uri.path, "/api/market-data/")
               or starts_with(http.request.uri.path, "/api/stocks/")
+              or starts_with(http.request.uri.path, "/api/community/")
               or starts_with(http.request.uri.path, "/api/algolia/")
             )
           )
         )
       EOT
       description = "Allow app API/RPC traffic through SBFM, BIC, and Security Level checks"
+      enabled     = true
+      action_parameters = {
+        phases   = ["http_request_sbfm"]
+        products = ["bic", "securityLevel"]
+      }
+      logging = {
+        enabled = false
+      }
+    },
+    {
+      action      = "skip"
+      expression  = <<-EOT
+        (
+          http.host eq "${var.domain}"
+          or http.host eq "shorted.com.au"
+          or http.host eq "www.shorted.com.au"
+        )
+        and ${local.testing_bypass_expression}
+      EOT
+      description = "Allow trusted E2E/load-test traffic through SBFM, BIC, and Security Level checks"
       enabled     = true
       action_parameters = {
         phases   = ["http_request_sbfm"]
@@ -499,6 +640,20 @@ resource "cloudflare_zone_setting" "markdown_for_agents" {
   zone_id    = var.cloudflare_zone_id
   setting_id = "content_converter"
   value      = var.markdown_for_agents
+}
+
+# =============================================================================
+# Cloudflare Web Analytics / RUM
+# =============================================================================
+# Enables Cloudflare's automatic RUM beacon injection for proxied hostnames.
+# Keep the app-managed manual beacon disabled unless a manual token is confirmed
+# for the exact browser hostname; cross-origin manual beacons fail noisily when
+# the Web Analytics site token does not match.
+
+resource "cloudflare_zone_setting" "web_analytics_rum" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "rum"
+  value      = var.web_analytics_rum
 }
 
 resource "cloudflare_dns_record" "frontend" {

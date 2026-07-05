@@ -3,6 +3,10 @@ import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { CommunityThreadDetail } from "~/@/components/company/community/community-thread-detail";
 import { getCommunityThread } from "~/@/lib/community/firestore-community";
+import {
+  isFirestoreReadUnavailable,
+  warnCommunityReadFallback,
+} from "~/@/lib/community/public-read-fallback";
 
 interface PageProps {
   params: Promise<{ stockCode: string; threadId: string }>;
@@ -18,7 +22,21 @@ export default async function CommunityThreadPage({ params }: PageProps) {
     notFound();
   }
 
-  const thread = await getCommunityThread(stockCode, threadId);
+  let thread;
+  try {
+    thread = await getCommunityThread(stockCode, threadId);
+  } catch (error) {
+    if (isFirestoreReadUnavailable(error)) {
+      warnCommunityReadFallback({
+        route: "thread_page",
+        stockCode,
+        error,
+      });
+      notFound();
+    }
+
+    throw error;
+  }
 
   if (!thread) {
     notFound();

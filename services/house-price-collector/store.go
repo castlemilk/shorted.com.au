@@ -69,13 +69,13 @@ func upsertRegions(ctx context.Context, pool *pgxpool.Pool, obs []Observation) e
 			o.RegionCode, o.RegionType, o.RegionName, o.StateCode, o.Postcode)
 	}
 	br := pool.SendBatch(ctx, batch)
-	defer func() { _ = br.Close() }()
 	for range seen {
 		if _, err := br.Exec(); err != nil {
+			_ = br.Close()
 			return err
 		}
 	}
-	return nil
+	return br.Close()
 }
 
 // upsertObservations idempotently writes facts (UNIQUE key = region, measure,
@@ -96,13 +96,16 @@ func upsertObservations(ctx context.Context, pool *pgxpool.Pool, obs []Observati
 			o.Value, o.Unit, o.IsPreliminary, o.Source, o.SourceLicence, contentHash(o))
 	}
 	br := pool.SendBatch(ctx, batch)
-	defer func() { _ = br.Close() }()
 	n := 0
 	for range obs {
 		if _, err := br.Exec(); err != nil {
+			_ = br.Close()
 			return n, err
 		}
 		n++
+	}
+	if err := br.Close(); err != nil {
+		return n, err
 	}
 	return n, nil
 }

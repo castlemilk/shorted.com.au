@@ -58,6 +58,7 @@ tf_state_rm 'module.edge.cloudflare_ruleset.cache_rules'
 tf_state_rm 'module.edge.cloudflare_ruleset.rate_limit_api'
 tf_state_rm 'module.edge.cloudflare_ruleset.waf_managed'
 tf_state_rm 'module.edge.cloudflare_ruleset.app_api_security_skip'
+tf_state_rm 'module.edge.cloudflare_ruleset.response_header_transforms'
 tf_state_rm 'module.edge.cloudflare_workers_script.prewarm'
 # DNS frontend was deleted+recreated, so strip any stale [0] entry.
 tf_state_rm 'module.edge.cloudflare_record.frontend[0]'
@@ -82,6 +83,7 @@ tf_import 'module.edge.cloudflare_workers_kv_namespace.edge_cache' "${ACCOUNT_ID
 tf_import 'module.edge.cloudflare_ruleset.waf_managed[0]'     "zone/${ZONE_ID}/ea95ef9d9d1547d58e2ea004c832f83a"
 tf_import 'module.edge.cloudflare_ruleset.app_api_security_skip[0]' "zone/${ZONE_ID}/dd8d8eba62d44f7f9362e5553b2b57f8"
 tf_import 'module.edge.cloudflare_ruleset.cache_rules[0]'     "zone/${ZONE_ID}/debd8a1c7c3c412e89a344801cc57ae3"
+tf_import 'module.edge.cloudflare_ruleset.response_header_transforms[0]' "zone/${ZONE_ID}/048851bae4b3489aafb5744e6392906f"
 tf_import 'module.edge.cloudflare_ruleset.rate_limit_api[0]'  "zone/${ZONE_ID}/f86ec850c6194005b04b6a8cc8d8dfe5"
 
 # Workers scripts: edge_cache (no count), prewarm (count = 1, has [0])

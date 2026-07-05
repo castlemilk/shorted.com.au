@@ -52,6 +52,60 @@ describe("/api/community/[stockCode]/threads", () => {
     expect(data.threads[0]?.id).toBe("thread-1");
   });
 
+  it("returns an empty public thread list when Firestore credentials are unavailable", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    (listCommunityThreads as jest.Mock).mockRejectedValue(
+      Object.assign(
+        new Error("16 UNAUTHENTICATED: Request had invalid authentication credentials."),
+        { code: 16 },
+      ),
+    );
+
+    const request = new NextRequest(
+      "http://localhost:3020/api/community/CBA/threads",
+    );
+    const response = await GET(request, {
+      params: Promise.resolve({ stockCode: "CBA" }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toContain("s-maxage=60");
+    expect(data.stockCode).toBe("CBA");
+    expect(data.threads).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('"route":"threads"'),
+    );
+
+    warn.mockRestore();
+  });
+
+  it("returns an empty public thread list while Firestore indexes are unavailable", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    (listCommunityThreads as jest.Mock).mockRejectedValue(
+      Object.assign(
+        new Error("9 FAILED_PRECONDITION: The query requires an index."),
+        { code: 9 },
+      ),
+    );
+
+    const request = new NextRequest(
+      "http://localhost:3020/api/community/CBA/threads",
+    );
+    const response = await GET(request, {
+      params: Promise.resolve({ stockCode: "CBA" }),
+    });
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.threads).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('"route":"threads"'),
+    );
+
+    warn.mockRestore();
+  });
+
   it("rejects unauthenticated thread creation", async () => {
     (auth as jest.Mock).mockResolvedValue(null);
 

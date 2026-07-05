@@ -8,7 +8,7 @@ import {
   type TreemapShortPosition,
 } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { getIndustryTreeMap } from "~/app/actions/getIndustryTreeMap";
+import { fetchIndustryTreeMapClient } from "~/@/lib/client-api";
 import { Treemap, hierarchy, stratify, treemapSquarify } from "@visx/hierarchy";
 import { Group } from "@visx/group";
 import { ParentSize } from "@visx/responsive";
@@ -64,8 +64,8 @@ export function IndustryTreemapWidget({ config }: WidgetProps) {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const data = await getIndustryTreeMap(period, 10, viewMode);
-        setTreeMapData(data);
+        const data = await fetchIndustryTreeMapClient(period, 10, viewMode);
+        setTreeMapData(data ?? null);
       } catch (error) {
         console.error("Error fetching treemap data:", error);
       } finally {

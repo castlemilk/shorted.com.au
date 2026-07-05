@@ -12,7 +12,7 @@ import {
   type MultiSeriesSeries,
   type MultiSeriesIndicator,
 } from "~/@/components/charts/from-multi-series";
-import { getStockData } from "~/app/actions/getStockData";
+import { fetchStockDataClient } from "~/@/lib/client-api";
 import {
   type TimeSeriesData,
   type TimeSeriesPoint,
@@ -88,7 +88,7 @@ export function TimeSeriesWidget({ config, onSettingsChange }: WidgetProps) {
       try {
         await Promise.all(
           stocks.map(async (stockCode) => {
-            const data = await getStockData(stockCode, period);
+            const data = await fetchStockDataClient(stockCode, period);
             if (data) {
               newData.set(stockCode, data);
             }

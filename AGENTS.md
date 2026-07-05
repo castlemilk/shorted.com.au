@@ -87,14 +87,14 @@ Responses include `X-Shorted-Cache` header:
 ### API Rate Limits
 | Rule | Expression | Limit | Period | Action |
 |------|------------|-------|--------|--------|
-| General API | `local.api_rate_limit_expression` -> `http.host eq "api.shorted.com.au"` plus optional trusted-test bypass | 60 req | 10s in prod | Block (429) |
+| General API | `local.api_rate_limit_expression` -> `http.host eq "api.shorted.com.au"` | 60 req | 10s in prod | Block (429) |
 | Search | Deprecated/unused | 20 req | n/a | Kept only for module compatibility |
 
 Rate limits are enforced per IP address at the Cloudflare edge.
 
 ### Trusted Testing Bypass
 
-Cloudflare API rate-limit bypass is available for E2E/load testing, but it is intentionally **not** user-agent-only. A request bypasses the Cloudflare `http_ratelimit` rule only when both of these are true:
+Cloudflare trusted testing bypass is available for E2E/load testing, but it is intentionally **not** user-agent-only. A request bypasses Cloudflare bot/browser challenge products only when both of these are true:
 
 1. `User-Agent` contains the configured test marker, default `Shorted-E2E`.
 2. The configured secret header matches, default header name `x-shorted-testing-bypass`.
@@ -108,7 +108,7 @@ terraform plan
 terraform apply
 ```
 
-Use it from test clients with both headers:
+Use it from API and browser test clients with both headers:
 
 ```bash
 curl \
@@ -121,7 +121,7 @@ Relevant Terraform inputs:
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `rate_limit_testing_bypass_secret` | `""` | Secret required to enable and use the bypass. Empty means no bypass clause is emitted. |
+| `rate_limit_testing_bypass_secret` | `""` | Secret required to enable and use the bot/browser challenge bypass. Empty means trusted-test bypass clauses do not match. |
 | `rate_limit_testing_bypass_header_name` | `x-shorted-testing-bypass` | Lowercase header name used in the Cloudflare expression. HTTP clients may send any case. |
 | `rate_limit_testing_bypass_user_agent` | `Shorted-E2E` | Required user-agent substring. |
 
@@ -129,7 +129,7 @@ Security notes:
 - Never create a user-agent-only bypass; UAs are trivial to spoof.
 - Do not commit the bypass secret to tracked `*.tfvars` files.
 - The secret is embedded in the Cloudflare rule/Terraform state, so rotate it if shared broadly or exposed in CI logs.
-- This bypass only excludes requests from the Cloudflare edge rate-limit rule; it does not bypass app authentication, permissions, subscriptions, or backend guardrails.
+- This bypass excludes trusted test requests from Super Bot Fight Mode, Browser Integrity Check, and Security Level challenges. It does not skip Cloudflare API rate limiting on the current plan, the managed WAF, app authentication, permissions, subscriptions, or backend guardrails.
 
 Regression test:
 
@@ -155,7 +155,7 @@ Frontend traffic (`shorted.com.au`, `www.shorted.com.au`) is proxied through Clo
 
 ### Cloudflare Web Analytics / RUM
 
-Cloudflare Web Analytics can be enabled either by Cloudflare dashboard injection or by the app's explicit manual beacon. The app renders `web/src/@/components/cloudflare-web-analytics.tsx` only when `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN` is set in the web/Vercel environment.
+Cloudflare Web Analytics should use Cloudflare automatic injection for the proxied production hostnames (`shorted.com.au` and `www.shorted.com.au`). Terraform manages the zone RUM switch through `cloudflare_zone_setting.web_analytics_rum` (`setting_id = "rum"`). The app component `web/src/@/components/cloudflare-web-analytics.tsx` is a disabled-by-default app-managed fallback; it only renders when `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_MANUAL_ENABLED=1` and `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN` is set to a token confirmed for the exact browser hostname. The fallback must configure `data-cf-beacon` with `send: { to: "/cdn-cgi/rum" }`; the stock manual config posts to `cloudflareinsights.com/cdn-cgi/rum` and can fail CORS on the proxied production app.
 
 Use Cloudflare RUM page views as the route-level denominator for cost attribution, then join with Worker `edge_request`, Firestore `firestore_operation`, web/backend `product_event`, and backend `cost_event` logs as described in `docs/observability/cost-attribution.md`.
 

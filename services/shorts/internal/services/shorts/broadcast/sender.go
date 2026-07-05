@@ -88,7 +88,9 @@ func postBatch(ctx context.Context, client *http.Client, apiKey string, batch []
 		if err != nil {
 			return err
 		}
-		_ = resp.Body.Close()
+		if err := resp.Body.Close(); err != nil {
+			return err
+		}
 		if resp.StatusCode == 429 && attempt == 0 {
 			time.Sleep(time.Second)
 			continue

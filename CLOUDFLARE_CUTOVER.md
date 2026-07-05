@@ -91,7 +91,7 @@ terraform apply
 - `cloudflare_workers_route.api` — Route: `shorted.com.au/*` → `shorted-edge-cache`
 - `cloudflare_workers_cron_trigger.prewarm[0]` — Daily cron (12 PM UTC)
 - `cloudflare_ruleset.waf_managed` — WAF managed rules
-- `cloudflare_ruleset.rate_limit_api` — API-host rate limiting (60 req/10s in prod, optional trusted-test bypass)
+- `cloudflare_ruleset.rate_limit_api` — API-host rate limiting (60 req/10s in prod)
 - `cloudflare_zone_settings_override.tls` — TLS: Full (strict)
 
 ### Step 2: Verify DNS Records
@@ -153,8 +153,8 @@ for i in {1..70}; do
 done
 ```
 
-### Step 8b: Test Trusted Rate-Limit Bypass
-The Cloudflare rate-limit bypass is for trusted E2E/load testing. It is disabled unless `TF_VAR_rate_limit_testing_bypass_secret` is set and applied in `terraform/environments/prod`.
+### Step 8b: Test Trusted Bot/Browser Challenge Bypass
+The Cloudflare trusted-test bypass is for bot/browser challenges during E2E/load testing. It is disabled unless `TF_VAR_rate_limit_testing_bypass_secret` is set and applied in `terraform/environments/prod`.
 
 Setup:
 ```bash
@@ -171,16 +171,18 @@ curl -I https://api.shorted.com.au/health \
   -H "X-Shorted-Testing-Bypass: $TF_VAR_rate_limit_testing_bypass_secret"
 ```
 
-Verify bypass under burst:
+Note: on the current Cloudflare plan, `http_ratelimit` expressions cannot inspect request headers or user-agent, so this secret does not bypass the API-host rate-limit rule. Run API smoke serially or wait for the rate-limit window to cool down.
+
+Verify challenge bypass:
 ```bash
 for i in {1..100}; do
-  curl -s -o /dev/null -w "%{http_code}\n" https://api.shorted.com.au/health \
+  curl -s -o /dev/null -w "%{http_code}\n" https://shorted.com.au/shorts/LOT \
     -H "User-Agent: Shorted-E2E/1.0" \
     -H "X-Shorted-Testing-Bypass: $TF_VAR_rate_limit_testing_bypass_secret"
 done
 ```
 
-Security rule: never use a user-agent-only bypass. The Cloudflare expression must require both `http.user_agent contains "Shorted-E2E"` and `any(http.request.headers["x-shorted-testing-bypass"][*] eq "<secret>")`.
+Security rule: never use a user-agent-only bypass. The Cloudflare challenge-skip expression must require both `http.user_agent contains "Shorted-E2E"` and `any(http.request.headers["x-shorted-testing-bypass"][*] eq "<secret>")`.
 
 ### Step 9: Verify Vercel Rate Limiting
 The middleware at `web/src/middleware.ts` uses `request.ip` which reads `CF-Connecting-IP` when traffic comes through Cloudflare proxy. Verify:
