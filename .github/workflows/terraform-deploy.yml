@@ -978,6 +978,31 @@ jobs:
             ensure_secret "APP_STORE_POSTGRES_PASSWORD" "$DB_PASS"
           fi
 
+      - name: Run database migrations
+        env:
+          ENVIRONMENT: ${{ needs.determine-environment.outputs.environment }}
+          DATABASE_URL_DEV: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL_PROD: ${{ secrets.DATABASE_URL_PROD }}
+        run: |
+          if [ "$ENVIRONMENT" = "prod" ] && [ -n "$DATABASE_URL_PROD" ]; then
+            DATABASE_URL="$DATABASE_URL_PROD"
+          else
+            DATABASE_URL="$DATABASE_URL_DEV"
+          fi
+
+          DB_URL_CLEAN=$(printf "%s" "$DATABASE_URL" | tr -d '\n\r')
+          if [ -z "$DB_URL_CLEAN" ]; then
+            echo "DATABASE_URL is required to run migrations"
+            exit 1
+          fi
+
+          docker run --rm \
+            -v "${PWD}/services/migrations:/migrations:ro" \
+            migrate/migrate:v4.16.2 \
+            -path=/migrations \
+            -database "$DB_URL_CLEAN" \
+            up
+
       - name: Import pre-existing Cloudflare resources
         # Idempotent: imports any Cloudflare resources that exist on the
         # account but are missing from Terraform state. Safe to run on every
