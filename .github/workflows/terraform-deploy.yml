@@ -996,12 +996,35 @@ jobs:
             exit 1
           fi
 
+          run_migrate() {
+            docker run --rm \
+              -v "${PWD}/services/migrations:/migrations:ro" \
+              migrate/migrate:v4.16.2 \
+              -path=/migrations \
+              -database "$DB_URL_CLEAN" \
+              "$@"
+          }
+
+          if run_migrate up; then
+            exit 0
+          fi
+
+          if [ "$ENVIRONMENT" != "prod" ]; then
+            echo "Database migration failed"
+            exit 1
+          fi
+
+          echo "Primary migration pass failed; applying prod legacy baseline repair for migrations 70 and 71."
           docker run --rm \
             -v "${PWD}/services/migrations:/migrations:ro" \
-            migrate/migrate:v4.16.2 \
-            -path=/migrations \
-            -database "$DB_URL_CLEAN" \
-            up
+            postgres:15-alpine \
+            psql "$DB_URL_CLEAN" \
+            -v ON_ERROR_STOP=1 \
+            -f /migrations/000070_add_short_campaigns_mv.up.sql \
+            -f /migrations/000071_add_corporate_tax.up.sql
+
+          run_migrate force 71
+          run_migrate up
 
       - name: Import pre-existing Cloudflare resources
         # Idempotent: imports any Cloudflare resources that exist on the
