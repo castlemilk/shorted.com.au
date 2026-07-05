@@ -2,6 +2,7 @@
 // This ensures Redis is initialized when kv-cache module loads
 process.env.KV_REST_API_URL = "https://test-redis.upstash.io";
 process.env.KV_REST_API_TOKEN = "test-token";
+delete process.env.REDIS_URL;
 
 // Create shared mock data Map outside of mock factory
 // This ensures all Redis instances share the same data
@@ -67,6 +68,7 @@ describe("KV Cache", () => {
     // Ensure environment variables are set (already set at top level, but ensure they're still set)
     process.env.KV_REST_API_URL = "https://test-redis.upstash.io";
     process.env.KV_REST_API_TOKEN = "test-token";
+    delete process.env.REDIS_URL;
   });
 
   afterEach(() => {

@@ -27,11 +27,18 @@ describe("housing server actions", () => {
   const originalEnv = process.env;
   const originalFetch = global.fetch;
 
+  function withoutTestingBypassEnv() {
+    const env = { ...originalEnv };
+    delete env.SHORTED_CLOUDFLARE_TESTING_BYPASS_SECRET;
+    delete env.TF_VAR_rate_limit_testing_bypass_secret;
+    return env;
+  }
+
   beforeEach(() => {
     jest.resetModules();
     jest.clearAllMocks();
     process.env = {
-      ...originalEnv,
+      ...withoutTestingBypassEnv(),
       SHORTS_SERVICE_ENDPOINT: "https://shorts-prod.run.app",
       NEXT_PUBLIC_API_URL: "https://api.shorted.com.au",
     };

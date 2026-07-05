@@ -7,6 +7,13 @@ describe("server API surface", () => {
   const originalFetch = global.fetch;
   const webRoot = path.resolve(__dirname, "../../../..");
 
+  function withoutTestingBypassEnv() {
+    const env = { ...originalEnv };
+    delete env.SHORTED_CLOUDFLARE_TESTING_BYPASS_SECRET;
+    delete env.TF_VAR_rate_limit_testing_bypass_secret;
+    return env;
+  }
+
   afterEach(() => {
     process.env = originalEnv;
     global.fetch = originalFetch;
@@ -78,7 +85,7 @@ describe("server API surface", () => {
 
   it("normalizes server fetch URLs and disables Next fetch caching for Connect POST streams", async () => {
     process.env = {
-      ...originalEnv,
+      ...withoutTestingBypassEnv(),
       VERCEL_REGION: "iad1",
     };
     const fetchMock = jest.fn().mockResolvedValue(new Response("{}"));
