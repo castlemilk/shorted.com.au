@@ -131,4 +131,23 @@ describe("rentVsBuy — monotonic sensitivities", () => {
     expect(res.deposit).toBeCloseTo(800_000, 6);
     expect(Number.isFinite(res.buyNetFinal)).toBe(true);
   });
+
+  it("invests the buyer's surplus when rent is higher than ownership costs", () => {
+    const res = rentVsBuy({
+      ...BASE,
+      depositPct: 100,
+      weeklyRent: 2_000,
+      appreciationPct: 0,
+      investmentReturnPct: 6,
+      ownershipCostPct: 1,
+      horizonYears: 5,
+    });
+
+    // With no loan and no appreciation, any buy-path net worth above the house
+    // value must be the buyer investing the shared-budget surplus.
+    expect(res.monthlyMortgage).toBe(0);
+    expect(res.buyNetFinal).toBeGreaterThan(BASE.price);
+    expect(res.difference).toBeGreaterThan(0);
+    expect(res.breakevenYear).toBe(1);
+  });
 });

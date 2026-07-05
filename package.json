@@ -14,7 +14,8 @@
     "dev:stripe": "command -v stripe >/dev/null 2>&1 && stripe listen --forward-to localhost:3020/api/stripe/webhook || echo '💳 Stripe CLI not installed - skipping webhook forwarding'",
     "install": "npm run install:frontend",
     "install:frontend": "cd web && npm install",
-    "test": "npm run test:frontend && npm run test:backend",
+    "test": "npm run test:workflow && npm run test:frontend && npm run test:backend",
+    "test:workflow": "node --test scripts/tests/*.test.mjs",
     "test:frontend": "cd web && npm test",
     "test:backend": "cd services && make test",
     "test:e2e:stripe:testmode": "bash scripts/e2e/run_stripe_testmode_testbench.sh",
@@ -25,7 +26,8 @@
   },
   "devDependencies": {
     "@types/jest": "^30.0.0",
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "yaml": "^2.9.0"
   },
   "engines": {
     "node": ">=18.0.0"
