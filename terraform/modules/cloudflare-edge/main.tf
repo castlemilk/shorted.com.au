@@ -463,6 +463,7 @@ resource "cloudflare_ruleset" "app_api_security_skip" {
               or starts_with(http.request.uri.path, "/api/auth/")
               or starts_with(http.request.uri.path, "/api/market-data/")
               or starts_with(http.request.uri.path, "/api/stocks/")
+              or starts_with(http.request.uri.path, "/api/community/")
               or starts_with(http.request.uri.path, "/api/algolia/")
             )
           )

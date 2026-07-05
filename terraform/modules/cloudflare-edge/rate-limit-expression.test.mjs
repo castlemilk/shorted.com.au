@@ -92,6 +92,7 @@ test("frontend and API app endpoints skip bot challenges without skipping WAF or
   assert.match(skipRuleset, /\/chat\.v1\./);
   assert.match(skipRuleset, /\/api\/auth\//);
   assert.match(skipRuleset, /\/api\/market-data\//);
+  assert.match(skipRuleset, /\/api\/community\//);
 
   assert.doesNotMatch(skipRuleset, /http_ratelimit/);
   assert.doesNotMatch(skipRuleset, /http_request_firewall_managed/);
