@@ -207,6 +207,28 @@ resource "cloudflare_ruleset" "cache_rules" {
       enabled     = true
       action_parameters = {
         cache = true
+        edge_ttl = {
+          mode    = "override_origin"
+          default = 31536000
+          status_code_ttl = [
+            {
+              status_code_range = {
+                from = 200
+                to   = 299
+              }
+              value = 31536000
+            },
+            {
+              status_code_range = {
+                from = 300
+              }
+              value = 0
+            }
+          ]
+        }
+        browser_ttl = {
+          mode = "respect_origin"
+        }
         cache_key = {
           cache_by_device_type  = false
           cache_deception_armor = true
@@ -220,6 +242,28 @@ resource "cloudflare_ruleset" "cache_rules" {
       enabled     = true
       action_parameters = {
         cache = true
+        edge_ttl = {
+          mode    = "override_origin"
+          default = 31536000
+          status_code_ttl = [
+            {
+              status_code_range = {
+                from = 200
+                to   = 299
+              }
+              value = 31536000
+            },
+            {
+              status_code_range = {
+                from = 300
+              }
+              value = 0
+            }
+          ]
+        }
+        browser_ttl = {
+          mode = "respect_origin"
+        }
         cache_key = {
           cache_by_device_type  = false
           cache_deception_armor = true
@@ -233,6 +277,28 @@ resource "cloudflare_ruleset" "cache_rules" {
       enabled     = true
       action_parameters = {
         cache = true
+        edge_ttl = {
+          mode    = "override_origin"
+          default = 31536000
+          status_code_ttl = [
+            {
+              status_code_range = {
+                from = 200
+                to   = 299
+              }
+              value = 31536000
+            },
+            {
+              status_code_range = {
+                from = 300
+              }
+              value = 0
+            }
+          ]
+        }
+        browser_ttl = {
+          mode = "respect_origin"
+        }
         cache_key = {
           cache_by_device_type  = false
           cache_deception_armor = true
@@ -246,6 +312,28 @@ resource "cloudflare_ruleset" "cache_rules" {
       enabled     = true
       action_parameters = {
         cache = true
+        edge_ttl = {
+          mode    = "override_origin"
+          default = 31536000
+          status_code_ttl = [
+            {
+              status_code_range = {
+                from = 200
+                to   = 299
+              }
+              value = 31536000
+            },
+            {
+              status_code_range = {
+                from = 300
+              }
+              value = 0
+            }
+          ]
+        }
+        browser_ttl = {
+          mode = "respect_origin"
+        }
         cache_key = {
           cache_by_device_type  = false
           cache_deception_armor = true
@@ -303,6 +391,38 @@ resource "cloudflare_ruleset" "cache_rules" {
       enabled     = true
       action_parameters = {
         cache = false
+      }
+    }
+  ]
+}
+
+# =============================================================================
+# Response Header Transforms — prevent browser-retained asset error responses
+# =============================================================================
+
+resource "cloudflare_ruleset" "response_header_transforms" {
+  count = var.cache_rules_enabled ? 1 : 0
+
+  zone_id     = var.cloudflare_zone_id
+  name        = "shorted-response-header-transforms"
+  description = "Response header transforms for frontend cache safety"
+  kind        = "zone"
+  phase       = "http_response_headers_transform"
+
+  rules = [
+    {
+      ref         = "no_store_missing_next_static_assets"
+      action      = "rewrite"
+      expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and http.request.uri.path contains \"/_next/static/\" and http.response.code ge 400"
+      description = "Prevent browser caching of missing Next.js static assets"
+      enabled     = true
+      action_parameters = {
+        headers = {
+          "Cache-Control" = {
+            operation = "set"
+            value     = "no-store, max-age=0, must-revalidate"
+          }
+        }
       }
     }
   ]

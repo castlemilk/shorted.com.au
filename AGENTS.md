@@ -155,7 +155,7 @@ Frontend traffic (`shorted.com.au`, `www.shorted.com.au`) is proxied through Clo
 
 ### Cloudflare Web Analytics / RUM
 
-Cloudflare Web Analytics can be enabled either by Cloudflare dashboard injection or by the app's explicit manual beacon. The app renders `web/src/@/components/cloudflare-web-analytics.tsx` only when `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN` is set in the web/Vercel environment.
+Cloudflare Web Analytics can be enabled either by Cloudflare dashboard injection or by the app's explicit manual beacon. The app renders `web/src/@/components/cloudflare-web-analytics.tsx` with the public production site token by default; `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN` in the web/Vercel environment can override it if the Cloudflare site token changes.
 
 Use Cloudflare RUM page views as the route-level denominator for cost attribution, then join with Worker `edge_request`, Firestore `firestore_operation`, web/backend `product_event`, and backend `cost_event` logs as described in `docs/observability/cost-attribution.md`.
 

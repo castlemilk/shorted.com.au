@@ -15,6 +15,15 @@ const shortDataSyncPy = readFileSync(
   "utf8",
 );
 
+function ruleBlockByDescription(description) {
+  const descriptionIndex = mainTf.indexOf(`description = "${description}"`);
+  assert.ok(descriptionIndex > 0, `${description} rule should be present`);
+
+  const start = mainTf.lastIndexOf("action      = \"set_cache_settings\"", descriptionIndex);
+  const nextRule = mainTf.indexOf("\n    {", descriptionIndex + description.length);
+  return mainTf.slice(start, nextRule > -1 ? nextRule : mainTf.length);
+}
+
 test("strict Cloudflare rate limit only targets the API hostname", () => {
   const rateLimitBlockMatch = mainTf.match(
     /description\s+=\s+"Rate limit — API host usage"[\s\S]*?ratelimit\s+=\s+\{/,
@@ -95,6 +104,50 @@ test("production Cloudflare import sweep covers the app API security skip rulese
     prodImportCloudflareSh,
     /module\.edge\.cloudflare_ruleset\.app_api_security_skip\[0\]/,
   );
+  assert.match(
+    prodImportCloudflareSh,
+    /module\.edge\.cloudflare_ruleset\.response_header_transforms\[0\]/,
+  );
+});
+
+test("Cloudflare static asset cache rules do not cache non-2xx responses", () => {
+  const cachedAssetRules = [
+    "Cache Next.js static assets (JS/CSS/WASM) at edge",
+    "Cache Next.js page data (RSC/JSON) at edge",
+    "Cache static image assets at edge",
+    "Cache static font assets at edge",
+  ];
+
+  for (const description of cachedAssetRules) {
+    const rule = ruleBlockByDescription(description);
+
+    assert.match(rule, /cache\s+=\s+true/);
+    assert.match(rule, /edge_ttl\s+=\s+\{/);
+    assert.match(rule, /mode\s+=\s+"override_origin"/);
+    assert.match(rule, /default\s+=\s+31536000/);
+    assert.match(rule, /from\s+=\s+200[\s\S]*to\s+=\s+299[\s\S]*value\s+=\s+31536000/);
+    assert.match(rule, /from\s+=\s+300[\s\S]*value\s+=\s+0/);
+    assert.match(rule, /browser_ttl\s+=\s+\{[\s\S]*mode\s+=\s+"respect_origin"/);
+  }
+});
+
+test("Cloudflare strips immutable browser caching from missing Next.js assets", () => {
+  assert.match(mainTf, /cloudflare_ruleset" "response_header_transforms"/);
+
+  const transformIndex = mainTf.indexOf("Prevent browser caching of missing Next.js static assets");
+  assert.ok(transformIndex > 0, "missing Next.js asset response transform should be present");
+
+  const transformRuleStart = mainTf.lastIndexOf(
+    'resource "cloudflare_ruleset" "response_header_transforms"',
+    transformIndex,
+  );
+  const transformRule = mainTf.slice(transformRuleStart, mainTf.indexOf("# =============================================================================", transformIndex));
+  assert.match(transformRule, /phase\s+=\s+"http_response_headers_transform"/);
+  assert.match(transformRule, /http\.request\.uri\.path contains \\"\/_next\/static\/\\"/);
+  assert.match(transformRule, /http\.response\.code ge 400/);
+  assert.match(transformRule, /"Cache-Control"\s+=\s+\{/);
+  assert.match(transformRule, /operation\s+=\s+"set"/);
+  assert.match(transformRule, /value\s+=\s+"no-store, max-age=0, must-revalidate"/);
 });
 
 test("Cloudflare caches stock detail HTML before the broad HTML bypass", () => {

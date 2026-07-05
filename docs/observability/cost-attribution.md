@@ -12,9 +12,30 @@ Do not add user IDs, stock codes, thread IDs, dashboard IDs, raw URLs, or query 
 
 ## Cloudflare RUM Setup
 
-Cloudflare Web Analytics can inject RUM automatically for proxied sites, but the app also has an explicit manual beacon so visibility does not depend on dashboard-side injection. Configure `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN` in the web/Vercel environment to render `web/src/@/components/cloudflare-web-analytics.tsx`.
+Shorted production traffic is proxied through Cloudflare, so prefer Cloudflare Web Analytics automatic setup for `shorted.com.au` and `www.shorted.com.au`. Automatic setup injects the beacon at the Cloudflare edge and reports to the same production hostname's `/cdn-cgi/rum` endpoint, avoiding cross-origin `cloudflareinsights.com` CORS failures.
 
-The script is not rendered when the token is empty. Cloudflare's SPA support tracks client-side route changes through the History API, so use Cloudflare Web Analytics page views as the real-user denominator for cost-per-route queries.
+The app component `web/src/@/components/cloudflare-web-analytics.tsx` exists only as an explicit manual fallback. It is disabled by default. Enable it only when Cloudflare Web Analytics is configured for manual snippet installation with a confirmed apex-domain site token:
+
+```bash
+NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_MANUAL_ENABLED=1
+NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN=<shorted.com.au-site-token>
+```
+
+When manual mode is enabled, the rendered app beacon intentionally matches Cloudflare's manual snippet shape:
+
+```html
+<script
+  defer
+  src="https://static.cloudflareinsights.com/beacon.min.js"
+  data-cf-beacon='{"token":"<site-token>"}'
+></script>
+```
+
+The manual script is not rendered unless manual mode is enabled and the token is non-empty. Cloudflare's SPA support tracks client-side route changes through the History API by default, so do not add `spa: true`; only set `spa: false` if route-change tracking must be disabled.
+
+If browser console logs show `POST https://cloudflareinsights.com/cdn-cgi/rum` with `404`/CORS from `shorted.com.au`, disable the app manual beacon and verify the Cloudflare dashboard site registration. Cloudflare documents this error as a hostname mismatch between the browser origin and the configured Web Analytics site, or missing `Referer`/`Origin` headers. The app sends `Referrer-Policy: strict-origin-when-cross-origin`, which is compatible with Cloudflare's requirement.
+
+Use Cloudflare Web Analytics page views as the real-user denominator for cost-per-route queries.
 
 ## Edge Request Event
 

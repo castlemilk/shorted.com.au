@@ -932,7 +932,7 @@ The secret is embedded in the Cloudflare rule/Terraform state. Keep it out of tr
 
 ### Cost Attribution Observability
 
-Cloudflare RUM is explicit in the app when `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN` is set; the beacon component is `web/src/@/components/cloudflare-web-analytics.tsx`. Cost attribution joins Cloudflare RUM page views with Worker `edge_request`, Firestore `firestore_operation`, product funnel `product_event`, and backend AI `cost_event` JSON logs. Query examples and field contracts live in `docs/observability/cost-attribution.md`.
+Cloudflare RUM is explicit in the app through `web/src/@/components/cloudflare-web-analytics.tsx`, which renders with the public production site token by default; `NEXT_PUBLIC_CLOUDFLARE_WEB_ANALYTICS_TOKEN` can override it when the Cloudflare site token changes. Cost attribution joins Cloudflare RUM page views with Worker `edge_request`, Firestore `firestore_operation`, product funnel `product_event`, and backend AI `cost_event` JSON logs. Query examples and field contracts live in `docs/observability/cost-attribution.md`.
 
 For production incident triage, use `$shorted-prod-troubleshooting` to combine RUM/analytics with Vercel logs, Worker versions, release-smoke results, API edge checks, and database verification.
 

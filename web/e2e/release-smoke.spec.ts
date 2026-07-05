@@ -18,8 +18,17 @@ const releaseUserAgent =
   "AppleWebKit/537.36 (KHTML, like Gecko) " +
   "Chrome/131.0.0.0 Safari/537.36 Shorted-E2E/1.0";
 
+test.use({
+  userAgent: releaseUserAgent,
+  extraHTTPHeaders: cloudflareBypassSecret
+    ? { "X-Shorted-Testing-Bypass": cloudflareBypassSecret }
+    : {},
+});
+
 const appApiPattern =
-  /\/(shorts\.v1alpha1\.|marketdata\.v1\.|chat\.v1\.|register\.v1\.|api\/)/;
+  /\/(_next\/static\/|shorts\.v1alpha1\.|marketdata\.v1\.|chat\.v1\.|register\.v1\.|api\/)/;
+
+const expectManualCloudflareRum = process.env.EXPECT_MANUAL_CLOUDFLARE_RUM === "1";
 
 const forbiddenPageText = [
   /Application error/i,
@@ -91,6 +100,8 @@ function isIgnorableFailedRequest(url: string, errorText: string): boolean {
 function isIgnorableConsoleError(text: string): boolean {
   return (
     text.includes("cloudflareinsights.com/cdn-cgi/rum") ||
+    text.includes("Failed to fetch RSC payload") ||
+    text.includes("https://errors.authjs.dev#autherror") ||
     text === "Failed to load resource: net::ERR_FAILED"
   );
 }
@@ -105,6 +116,26 @@ async function assertNoCloudflareChallenge(response: APIResponse): Promise<strin
 async function pageText(page: Page): Promise<string> {
   await page.waitForTimeout(1_500);
   return page.locator("body").innerText({ timeout: 20_000 });
+}
+
+async function assertManualCloudflareRumBeacon(page: Page, path: string): Promise<void> {
+  if (!expectManualCloudflareRum) {
+    return;
+  }
+
+  const script = page.locator(
+    'script[src="https://static.cloudflareinsights.com/beacon.min.js"][data-cf-beacon]',
+  );
+  await expect(script, `${path} missing Cloudflare Web Analytics beacon`).toHaveCount(1);
+
+  const config = JSON.parse((await script.first().getAttribute("data-cf-beacon")) || "{}") as {
+    token?: string;
+    spa?: unknown;
+  };
+  expect(config.token, `${path} has invalid Cloudflare Web Analytics token`).toMatch(
+    /^[a-z0-9]{32}$/i,
+  );
+  expect(config.spa, `${path} should use Cloudflare's default SPA tracking`).toBeUndefined();
 }
 
 for (const scenario of pageScenarios) {
@@ -151,11 +182,61 @@ for (const scenario of pageScenarios) {
       expect(text, `${scenario.path} contains forbidden text ${forbidden}`).not.toMatch(forbidden);
     }
 
+    await assertManualCloudflareRumBeacon(page, scenario.path);
+
     expect(apiFailures, `${scenario.path} had failing app API/RPC responses`).toEqual([]);
     expect(failedRequests, `${scenario.path} had non-ignorable failed requests`).toEqual([]);
     expect(consoleErrors, `${scenario.path} had console errors`).toEqual([]);
   });
 }
+
+test("housing suburb navigation to top shorted does not load stale app chunks", async ({ page }) => {
+  const apiFailures: string[] = [];
+  const failedRequests: string[] = [];
+  const consoleErrors: string[] = [];
+
+  await page.setExtraHTTPHeaders(releaseHeaders());
+
+  page.on("response", (response) => {
+    const url = response.url();
+    if (appApiPattern.test(url) && response.status() >= 400) {
+      apiFailures.push(`${response.status()} ${url}`);
+    }
+  });
+
+  page.on("requestfailed", (request) => {
+    const failure = request.failure()?.errorText || "";
+    const url = request.url();
+    if (!isIgnorableFailedRequest(url, failure)) {
+      failedRequests.push(`${request.method()} ${url} ${failure}`);
+    }
+  });
+
+  page.on("console", (message) => {
+    if (message.type() === "error" && !isIgnorableConsoleError(message.text())) {
+      consoleErrors.push(message.text());
+    }
+  });
+
+  const response = await page.goto("/housing/vic/balwyn?sal=20123", {
+    waitUntil: "domcontentloaded",
+    timeout: 45_000,
+  });
+
+  expect(response?.status(), "/housing/vic/balwyn HTTP status").toBeLessThan(400);
+
+  await page.getByRole("link", { name: /top shorted/i }).first().click();
+  await page.waitForURL("**/top", { timeout: 30_000 });
+
+  const text = await pageText(page);
+  expect(text, "/top missing top-shorted content after client navigation").toMatch(
+    /Top Shorted|Short Interest|Stocks/i,
+  );
+
+  expect(apiFailures, "client navigation had failing app API/RPC/static responses").toEqual([]);
+  expect(failedRequests, "client navigation had non-ignorable failed requests").toEqual([]);
+  expect(consoleErrors, "client navigation had console errors").toEqual([]);
+});
 
 test("Cloudflare API edge returns data without bot challenges", async ({ request }) => {
   const health = await request.get(`${apiBaseUrl}/health`, {
