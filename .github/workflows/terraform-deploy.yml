@@ -983,6 +983,7 @@ jobs:
           ENVIRONMENT: ${{ needs.determine-environment.outputs.environment }}
           DATABASE_URL_DEV: ${{ secrets.DATABASE_URL }}
           DATABASE_URL_PROD: ${{ secrets.DATABASE_URL_PROD }}
+          STEALTH_PAT: ${{ secrets.STEALTH_PAT }}
         run: |
           if [ "$ENVIRONMENT" = "prod" ] && [ -n "$DATABASE_URL_PROD" ]; then
             DATABASE_URL="$DATABASE_URL_PROD"
@@ -996,35 +997,48 @@ jobs:
             exit 1
           fi
 
-          run_migrate() {
+          run_psql() {
             docker run --rm \
               -v "${PWD}/services/migrations:/migrations:ro" \
-              migrate/migrate:v4.16.2 \
-              -path=/migrations \
-              -database "$DB_URL_CLEAN" \
+              postgres:15-alpine \
+              psql "$DB_URL_CLEAN" \
+              -v ON_ERROR_STOP=1 \
               "$@"
           }
 
-          if run_migrate up; then
+          # The prod DATABASE_URL uses a pooler that works with psql/simple protocol
+          # and the app collectors, but golang-migrate's advisory-lock path can fail
+          # with prepared-statement errors. Keep non-prod on migrate; repair prod via
+          # direct, idempotent SQL and keep schema_migrations aligned.
+          if [ "$ENVIRONMENT" = "prod" ]; then
+            run_psql \
+              -f /migrations/000070_add_short_campaigns_mv.up.sql \
+              -f /migrations/000071_add_corporate_tax.up.sql
+
+            run_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL); DELETE FROM schema_migrations; INSERT INTO schema_migrations (version, dirty) VALUES (71, false);"
+
+            TAX_ROWS=$(docker run --rm postgres:15-alpine psql "$DB_URL_CLEAN" -Atqc "SELECT COUNT(*) FROM corporate_tax")
+            if [ "${TAX_ROWS:-0}" = "0" ]; then
+              echo "corporate_tax is empty; bootstrapping ATO corporate-tax data."
+              docker run --rm \
+                -e DATABASE_URL="$DB_URL_CLEAN" \
+                -e STEALTH_PAT="${STEALTH_PAT:-}" \
+                -v "${PWD}/services:/app" \
+                -w /app \
+                golang:1.26.0 \
+                sh -c 'if [ -n "$STEALTH_PAT" ]; then git config --global url."https://x-access-token:${STEALTH_PAT}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; fi; GOPRIVATE=github.com/skunkworq/* GONOSUMCHECK=github.com/skunkworq/* go run ./influence-collector -mode all'
+            else
+              echo "corporate_tax already has ${TAX_ROWS} rows; skipping bootstrap."
+            fi
             exit 0
           fi
 
-          if [ "$ENVIRONMENT" != "prod" ]; then
-            echo "Database migration failed"
-            exit 1
-          fi
-
-          echo "Primary migration pass failed; applying prod legacy baseline repair for migrations 70 and 71."
           docker run --rm \
             -v "${PWD}/services/migrations:/migrations:ro" \
-            postgres:15-alpine \
-            psql "$DB_URL_CLEAN" \
-            -v ON_ERROR_STOP=1 \
-            -f /migrations/000070_add_short_campaigns_mv.up.sql \
-            -f /migrations/000071_add_corporate_tax.up.sql
-
-          run_migrate force 71
-          run_migrate up
+            migrate/migrate:v4.16.2 \
+            -path=/migrations \
+            -database "$DB_URL_CLEAN" \
+            up
 
       - name: Import pre-existing Cloudflare resources
         # Idempotent: imports any Cloudflare resources that exist on the
