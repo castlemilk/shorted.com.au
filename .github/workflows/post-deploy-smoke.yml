@@ -23,14 +23,23 @@ jobs:
         if: github.event_name == 'push'
         run: sleep 300
 
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Smoke test critical routes
+        env:
+          CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
         run: |
           FAILED=0
           BASE_URL="https://shorted.com.au"
+          CURL_ARGS=(-A "Mozilla/5.0 Shorted-E2E/1.0")
+          if [ -n "${CLOUDFLARE_TESTING_BYPASS_SECRET:-}" ]; then
+            CURL_ARGS+=(-H "X-Shorted-Testing-Bypass: ${CLOUDFLARE_TESTING_BYPASS_SECRET}")
+          fi
 
           for path in / /shorts /shorts/BHP /shorts/CBA /top /industry /screener /stocks; do
-            status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "${BASE_URL}${path}")
-            if [ "$status" -ge 500 ]; then
+            status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "${CURL_ARGS[@]}" "${BASE_URL}${path}")
+            if [ "$status" -ge 400 ]; then
               echo "::error::FAIL: ${path} returned HTTP ${status}"
               FAILED=1
             else
@@ -40,7 +49,7 @@ jobs:
 
           if [ "$FAILED" -eq 1 ]; then
             echo ""
-            echo "::error::One or more routes returned 5xx. Check Vercel logs: npx vercel logs --follow"
+            echo "::error::One or more routes returned 4xx/5xx. Check Cloudflare challenges/rate limits and Vercel logs."
             exit 1
           fi
 
@@ -48,21 +57,64 @@ jobs:
           echo "All routes healthy."
 
       - name: Smoke test API endpoints
+        env:
+          CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
         run: |
           BASE_URL="https://shorted.com.au"
+          CURL_ARGS=(-A "Mozilla/5.0 Shorted-E2E/1.0")
+          if [ -n "${CLOUDFLARE_TESTING_BYPASS_SECRET:-}" ]; then
+            CURL_ARGS+=(-H "X-Shorted-Testing-Bypass: ${CLOUDFLARE_TESTING_BYPASS_SECRET}")
+          fi
 
           # Health endpoint
-          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${BASE_URL}/api/health")
-          if [ "$status" -ge 500 ]; then
+          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${CURL_ARGS[@]}" "${BASE_URL}/api/health")
+          if [ "$status" -ge 400 ]; then
             echo "::error::FAIL: /api/health returned HTTP ${status}"
             exit 1
           fi
           echo "OK: /api/health returned HTTP ${status}"
 
           # Search endpoint
-          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "${BASE_URL}/api/stocks/search?q=BHP&limit=1")
-          if [ "$status" -ge 500 ]; then
+          status=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "${CURL_ARGS[@]}" "${BASE_URL}/api/stocks/search?q=BHP&limit=1")
+          if [ "$status" -ge 400 ]; then
             echo "::error::FAIL: /api/stocks/search returned HTTP ${status}"
             exit 1
           fi
           echo "OK: /api/stocks/search returned HTTP ${status}"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Install Playwright
+        working-directory: web
+        run: npx playwright install --with-deps chromium
+
+      - name: Run production release smoke
+        working-directory: web
+        env:
+          BASE_URL: https://shorted.com.au
+          RELEASE_API_BASE_URL: https://api.shorted.com.au
+          CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
+        run: |
+          if [ -z "${CLOUDFLARE_TESTING_BYPASS_SECRET:-}" ]; then
+            echo "::error::CLOUDFLARE_TESTING_BYPASS_SECRET is required for production smoke through Cloudflare"
+            exit 1
+          fi
+
+          npx playwright test e2e/release-smoke.spec.ts --project=chromium --reporter=line
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: post-deploy-smoke-playwright-report
+          path: web/playwright-report
+          retention-days: 7

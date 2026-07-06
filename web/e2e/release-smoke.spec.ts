@@ -1,4 +1,8 @@
 import { expect, test, type APIResponse, type Page } from "@playwright/test";
+import {
+  cloudflareTestingBypassHeaders,
+  cloudflareTestingDefaultUserAgent,
+} from "./helpers/cloudflare-testing-bypass";
 
 test.setTimeout(90_000);
 
@@ -7,22 +11,9 @@ const apiBaseUrl =
   process.env.API_BASE_URL ||
   "https://api.shorted.com.au";
 
-const cloudflareBypassSecret =
-  process.env.CLOUDFLARE_TESTING_BYPASS_SECRET ||
-  process.env.SHORTED_CLOUDFLARE_TESTING_BYPASS_SECRET ||
-  process.env.TF_VAR_rate_limit_testing_bypass_secret ||
-  "";
-
-const releaseUserAgent =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) " +
-  "AppleWebKit/537.36 (KHTML, like Gecko) " +
-  "Chrome/131.0.0.0 Safari/537.36 Shorted-E2E/1.0";
-
 test.use({
-  userAgent: releaseUserAgent,
-  extraHTTPHeaders: cloudflareBypassSecret
-    ? { "X-Shorted-Testing-Bypass": cloudflareBypassSecret }
-    : {},
+  userAgent: cloudflareTestingDefaultUserAgent,
+  extraHTTPHeaders: cloudflareTestingBypassHeaders(),
 });
 
 const appApiPattern =
@@ -78,13 +69,7 @@ const pageScenarios = [
 ] as const;
 
 function releaseHeaders(): Record<string, string> {
-  const headers: Record<string, string> = {
-    "User-Agent": releaseUserAgent,
-  };
-  if (cloudflareBypassSecret) {
-    headers["X-Shorted-Testing-Bypass"] = cloudflareBypassSecret;
-  }
-  return headers;
+  return cloudflareTestingBypassHeaders({ includeUserAgent: true });
 }
 
 function isIgnorableFailedRequest(url: string, errorText: string): boolean {

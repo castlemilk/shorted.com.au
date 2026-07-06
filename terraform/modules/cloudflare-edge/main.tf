@@ -17,7 +17,11 @@ locals {
   market_data_hostname           = try(var.market_data_origin != "" ? regex("^https?://([^/]+)", var.market_data_origin)[0] : "", "")
   api_rate_limit_host_expression = "http.host eq \"api.shorted.com.au\""
   testing_bypass_expression      = var.rate_limit_testing_bypass_secret != "" ? "(http.user_agent contains \"${var.rate_limit_testing_bypass_user_agent}\" and any(http.request.headers[\"${var.rate_limit_testing_bypass_header_name}\"][*] eq \"${var.rate_limit_testing_bypass_secret}\"))" : "false"
-  api_rate_limit_expression      = "${local.api_rate_limit_host_expression} and not ${local.testing_bypass_expression}"
+  # Cloudflare's basic rate-limit phase does not allow request header or
+  # user-agent fields in rate-limit expressions. Trusted tests bypass that
+  # phase via the custom skip ruleset below, while normal API traffic remains
+  # limited by host.
+  api_rate_limit_expression = local.api_rate_limit_host_expression
 }
 
 # =============================================================================
@@ -434,9 +438,8 @@ resource "cloudflare_ruleset" "response_header_transforms" {
 # =============================================================================
 # Cloudflare Super Bot Fight Mode and Browser Integrity/Security Level checks can
 # managed-challenge non-browser service traffic before the Worker or Vercel
-# rewrites see it. These paths are app-owned API surfaces; keep managed WAF and
-# current rate limits intact, but skip bot/browser challenge products that break
-# SSR, client RPCs, health checks, and trusted E2E probes.
+# rewrites see it. These paths are app-owned API surfaces; keep managed WAF
+# intact, and let only trusted E2E/load-test probes skip rate limiting.
 
 resource "cloudflare_ruleset" "app_api_security_skip" {
   count = var.waf_enabled ? 1 : 0
@@ -489,10 +492,10 @@ resource "cloudflare_ruleset" "app_api_security_skip" {
         )
         and ${local.testing_bypass_expression}
       EOT
-      description = "Allow trusted E2E/load-test traffic through SBFM, BIC, and Security Level checks"
+      description = "Allow trusted E2E/load-test traffic through SBFM, BIC, Security Level, and rate-limit checks"
       enabled     = true
       action_parameters = {
-        phases   = ["http_request_sbfm"]
+        phases   = ["http_request_sbfm", "http_ratelimit"]
         products = ["bic", "securityLevel"]
       }
       logging = {

@@ -171,7 +171,7 @@ curl -I https://api.shorted.com.au/health \
   -H "X-Shorted-Testing-Bypass: $TF_VAR_rate_limit_testing_bypass_secret"
 ```
 
-The Terraform module excludes requests that present both the `Shorted-E2E` user-agent marker and the configured secret header from the API-host rate-limit expression. Keep API smoke serial anyway so backend/application guardrails are still exercised realistically.
+The Terraform module skips the Cloudflare API-host rate-limit phase for requests that present both the `Shorted-E2E` user-agent marker and the configured secret header. Keep API smoke serial anyway so backend/application guardrails are still exercised realistically.
 
 Verify challenge bypass:
 ```bash

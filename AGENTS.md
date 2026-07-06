@@ -94,7 +94,7 @@ Rate limits are enforced per IP address at the Cloudflare edge.
 
 ### Trusted Testing Bypass
 
-Cloudflare trusted testing bypass is available for E2E/load testing, but it is intentionally **not** user-agent-only. A request bypasses Cloudflare bot/browser challenge products only when both of these are true:
+Cloudflare trusted testing bypass is available for E2E/load testing, but it is intentionally **not** user-agent-only. A request bypasses Cloudflare bot/browser challenge products and the Cloudflare API-host rate-limit phase only when both of these are true:
 
 1. `User-Agent` contains the configured test marker, default `Shorted-E2E`.
 2. The configured secret header matches, default header name `x-shorted-testing-bypass`.
@@ -129,7 +129,7 @@ Security notes:
 - Never create a user-agent-only bypass; UAs are trivial to spoof.
 - Do not commit the bypass secret to tracked `*.tfvars` files.
 - The secret is embedded in the Cloudflare rule/Terraform state, so rotate it if shared broadly or exposed in CI logs.
-- This bypass excludes trusted test requests from Super Bot Fight Mode, Browser Integrity Check, Security Level challenges, and the Cloudflare API-host rate-limit expression. It does not skip the managed WAF, app authentication, permissions, subscriptions, or backend guardrails.
+- This bypass excludes trusted test requests from Super Bot Fight Mode, Browser Integrity Check, Security Level challenges, and the Cloudflare API-host rate-limit phase. It does not skip the managed WAF, app authentication, permissions, subscriptions, or backend guardrails.
 
 Regression test:
 
