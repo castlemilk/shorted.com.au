@@ -1,9 +1,17 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useChat as useAIChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { ChatService } from "~/gen/chat/v1/chat_pb";
+import {
+  chatMessageToUIMessage,
+  getShortedFinalData,
+  uiMessageToChatMessage,
+  type ShortedChatUIMessage,
+} from "./chat-ui-message-adapter";
 
 export interface ChatCitation {
   sourceType: string;
@@ -34,196 +42,128 @@ interface UseChatOptions {
   userId?: string;
 }
 
-function createChatTransport(userId?: string) {
+function createChatTransport() {
   return createConnectTransport({
     baseUrl: "",
-    interceptors: userId
-      ? [
-          (next) => async (req) => {
-            req.header.set("X-User-Id", userId);
-            return next(req);
-          },
-        ]
-      : [],
   });
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getChatClient(userId?: string): any {
-  const transport = createChatTransport(userId);
+function getChatClient(): any {
+  const transport = createChatTransport();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-return
   return createClient(ChatService as any, transport) as any;
 }
 
 export function useChat(options: UseChatOptions = {}) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [manualError, setManualError] = useState<string | null>(null);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
-  const abortRef = useRef<AbortController | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const transport = useMemo(
+    () =>
+      new DefaultChatTransport<ShortedChatUIMessage>({
+        api: "/api/chat",
+      }),
+    [],
+  );
+  const {
+    messages: uiMessages,
+    setMessages: setUIMessages,
+    sendMessage: sendAIMessage,
+    stop,
+    clearError,
+    status,
+    error: aiError,
+  } = useAIChat<ShortedChatUIMessage>({
+    transport,
+  });
 
-  // Abort any in-flight stream if the hook unmounts, so a dismissed chat does not
-  // keep consuming server-side generation. (Panel-close is handled separately in
-  // ChatSidebar, since the hook itself lives in the persistent layout.)
-  useEffect(() => () => abortRef.current?.abort(), []);
+  const generationInFlight = status === "submitted" || status === "streaming";
+  const isLoading = generationInFlight || isLoadingHistory;
+  const messages = useMemo(
+    () => uiMessages.map(uiMessageToChatMessage),
+    [uiMessages],
+  );
+  const error = manualError ?? (aiError ? aiError.message : null);
+
+  useEffect(() => {
+    return () => {
+      void stop();
+    };
+  }, [stop]);
+
+  useEffect(() => {
+    for (let index = uiMessages.length - 1; index >= 0; index -= 1) {
+      const uiMessage = uiMessages[index];
+      if (!uiMessage) {
+        continue;
+      }
+      const data = getShortedFinalData(uiMessage);
+      if (data?.conversationId) {
+        setConversationId(data.conversationId);
+        return;
+      }
+    }
+  }, [uiMessages]);
 
   const sendMessage = useCallback(
     async (content: string) => {
-      if (!content.trim() || isLoading) return;
+      const trimmedContent = content.trim();
+      if (!trimmedContent || generationInFlight) return;
 
-      setError(null);
-      setIsLoading(true);
-
-      // Add user message optimistically
-      const userMsg: ChatMessage = {
-        id: `temp-${Date.now()}`,
-        role: "user",
-        content,
-        createdAt: new Date(),
-      };
-      setMessages((prev) => [...prev, userMsg]);
-
-      // Add streaming placeholder. Use a STABLE id (kept across the streaming ->
-      // final transition, tracked via isStreaming) so the React key doesn't change
-      // and force a remount of the just-completed message bubble.
-      const assistantMsgId = `msg-${Date.now()}`;
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: assistantMsgId,
-          role: "assistant",
-          content: "",
-          isStreaming: true,
-          createdAt: new Date(),
-        },
-      ]);
+      setManualError(null);
+      clearError();
 
       try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        const client = getChatClient(options.userId);
-
-        abortRef.current = new AbortController();
-
-        let fullContent = "";
-        let finalConvId = conversationId ?? "";
-        let toolCalls: ChatMessage["toolCalls"] = [];
-        let citations: ChatCitation[] = [];
-
-        /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
-        for await (const chunk of client.sendMessage(
+        await sendAIMessage(
+          { text: trimmedContent },
           {
-            conversationId: conversationId ?? "",
-            message: content,
-            contextStockCode: options.contextStockCode ?? "",
+            body: {
+              conversationId: conversationId ?? "",
+              contextStockCode: options.contextStockCode ?? "",
+            },
           },
-          { signal: abortRef.current.signal },
-        )) {
-          if (chunk.conversationId) {
-            finalConvId = chunk.conversationId;
-          }
-          if (chunk.chunk) {
-            fullContent += chunk.chunk;
-            // Update streaming message incrementally
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantMsgId
-                  ? { ...m, content: fullContent }
-                  : m,
-              ),
-            );
-          }
-          if (chunk.toolCalls?.length) {
-            toolCalls = chunk.toolCalls.map(
-              (tc: {
-                toolName: string;
-                arguments: string;
-                result: string;
-              }) => ({
-                toolName: tc.toolName,
-                arguments: tc.arguments,
-                result: tc.result,
-              }),
-            );
-          }
-          if (chunk.citations?.length) {
-            citations = chunk.citations.map(
-              (c: { sourceType: string; reference: string; url: string }) => ({
-                sourceType: c.sourceType,
-                reference: c.reference,
-                url: c.url,
-              }),
-            );
-          }
-        }
-        /* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
-
-        if (finalConvId) {
-          setConversationId(finalConvId);
-        }
-
-        // Replace streaming placeholder with final message
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMsgId
-              ? {
-                  ...m,
-                  content: fullContent,
-                  toolCalls: toolCalls?.length ? toolCalls : undefined,
-                  citations: citations.length ? citations : undefined,
-                  isStreaming: false,
-                }
-              : m,
-          ),
         );
       } catch (err) {
         if (err instanceof Error && err.name === "AbortError") {
-          // Remove the streaming placeholder on abort
-          setMessages((prev) =>
-            prev.filter((m) => m.id !== assistantMsgId),
-          );
           return;
         }
-        const errorMessage =
-          err instanceof Error ? err.message : "Failed to send message";
-        setError(errorMessage);
-        // Remove the optimistic user message and streaming placeholder on error
-        setMessages((prev) =>
-          prev.filter(
-            (m) => m.id !== userMsg.id && m.id !== assistantMsgId,
-          ),
+        setManualError(
+          err instanceof Error ? err.message : "Failed to send message",
         );
-      } finally {
-        setIsLoading(false);
-        abortRef.current = null;
       }
     },
-    [isLoading, conversationId, options.contextStockCode, options.userId],
+    [
+      clearError,
+      conversationId,
+      generationInFlight,
+      options.contextStockCode,
+      sendAIMessage,
+    ],
   );
 
   const clearChat = useCallback(() => {
-    setMessages([]);
+    setUIMessages([]);
     setConversationId(null);
-    setError(null);
-  }, []);
+    setManualError(null);
+    clearError();
+  }, [clearError, setUIMessages]);
 
   const stopGeneration = useCallback(() => {
-    abortRef.current?.abort();
-    setIsLoading(false);
-  }, []);
+    void stop();
+  }, [stop]);
 
   const fetchConversations = useCallback(async () => {
     if (!options.userId) return;
     setIsLoadingConversations(true);
     try {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-      const client = getChatClient(options.userId);
+      const client = getChatClient();
       /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
       const resp = await client.listConversations({ limit: 30, offset: 0 });
-      const convs: ConversationSummary[] = (
-        resp.conversations ?? []
-      ).map(
+      const convs: ConversationSummary[] = (resp.conversations ?? []).map(
         (c: {
           id: string;
           title: string;
@@ -252,11 +192,12 @@ export function useChat(options: UseChatOptions = {}) {
   const loadConversation = useCallback(
     async (convId: string) => {
       if (!options.userId) return;
-      setIsLoading(true);
-      setError(null);
+      setIsLoadingHistory(true);
+      setManualError(null);
+      clearError();
       try {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        const client = getChatClient(options.userId);
+        const client = getChatClient();
         /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
         const resp = await client.getConversationHistory({
           conversationId: convId,
@@ -289,17 +230,17 @@ export function useChat(options: UseChatOptions = {}) {
           }),
         );
         /* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment */
-        setMessages(loadedMessages);
+        setUIMessages(loadedMessages.map(chatMessageToUIMessage));
         setConversationId(convId);
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Failed to load conversation";
-        setError(errorMessage);
+        setManualError(
+          err instanceof Error ? err.message : "Failed to load conversation",
+        );
       } finally {
-        setIsLoading(false);
+        setIsLoadingHistory(false);
       }
     },
-    [options.userId],
+    [clearError, options.userId, setUIMessages],
   );
 
   const deleteConversation = useCallback(
@@ -307,12 +248,11 @@ export function useChat(options: UseChatOptions = {}) {
       if (!options.userId) return;
       try {
         // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        const client = getChatClient(options.userId);
+        const client = getChatClient();
         /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
         await client.deleteConversation({ conversationId: convId });
         /* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call */
         setConversations((prev) => prev.filter((c) => c.id !== convId));
-        // If we deleted the active conversation, clear it
         if (conversationId === convId) {
           clearChat();
         }
