@@ -105,7 +105,6 @@ const worker = {
     };
 
     const shortsApiOrigin = env.SHORTS_API_ORIGIN;
-    const chatServiceOrigin = env.CHAT_SERVICE_ORIGIN;
     const marketDataOrigin = env.MARKET_DATA_ORIGIN;
 
     // --- 0. FRONTEND: shorted.com.au -> proxy to Vercel
@@ -146,12 +145,13 @@ const worker = {
       return withEdgeAnalytics(request, env, handlePurge(), "edge-control", 0, started);
     }
 
-    // Chat service -> Chat Service origin (streaming, never cache)
+    // Chat service is intentionally not exposed through the public API host.
+    // Browser chat must go through the same-origin Next.js guarded route so
+    // auth, paid entitlement, CSRF, and per-user quota checks run first.
     if (path.includes("/chat.v1.")) {
-      if (!chatServiceOrigin) {
-        return withEdgeAnalytics(request, env, new Response("Chat service not configured", { status: 404 }), "chat", 0, started);
-      }
-      return withEdgeAnalytics(request, env, proxyWithHeaders(request, chatServiceOrigin, "BYPASS"), "chat", 0, started);
+      const response = new Response("Not found", { status: 404 });
+      stampEdgeHeaders(response, "BYPASS");
+      return withEdgeAnalytics(request, env, response, "chat", 0, started);
     }
 
     // Auth/register -> Shorts API (never cache)

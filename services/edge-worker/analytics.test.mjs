@@ -225,6 +225,37 @@ test("cache write failures do not fail successful Shorts responses", async () =>
   }
 });
 
+test("direct API chat RPC requests are blocked at the edge", async () => {
+  const originalFetch = globalThis.fetch;
+  let originCalled = false;
+
+  globalThis.fetch = async () => {
+    originCalled = true;
+    return new Response("origin", { status: 200 });
+  };
+
+  try {
+    const response = await worker.fetch(
+      new Request("https://api.shorted.com.au/chat.v1.ChatService/SendMessage", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ message: "hello" }),
+      }),
+      {
+        CHAT_SERVICE_ORIGIN: "https://chat-origin.test",
+        EDGE_ANALYTICS_SAMPLE_RATE: "0",
+      },
+      { waitUntil() {} },
+    );
+
+    assert.equal(response.status, 404);
+    assert.equal(originCalled, false);
+    assert.equal(response.headers.get("x-shorted-edge"), "cloudflare");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("normalizes user-facing routes into low-cardinality groups", () => {
   assert.equal(normalizeRouteGroup("shorted.com.au", "/"), "/");
   assert.equal(normalizeRouteGroup("shorted.com.au", "/shorts/BHP"), "/shorts/[code]");

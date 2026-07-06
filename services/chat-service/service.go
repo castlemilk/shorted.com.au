@@ -78,7 +78,7 @@ func (h *ChatServiceHandler) SendMessage(
 	// Extract user ID from headers (set by auth middleware/frontend)
 	userID := req.Header().Get("X-User-Id")
 	if userID == "" {
-		userID = "anonymous"
+		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("X-User-Id header is required"))
 	}
 
 	// Get or create conversation

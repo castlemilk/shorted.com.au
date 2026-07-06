@@ -3,7 +3,15 @@
 import { useState } from "react";
 import { type ChatMessage } from "~/@/hooks/use-chat";
 import { cn } from "~/@/lib/utils";
-import { Bot, User, Wrench, ChevronDown, ChevronRight, ExternalLink, Loader2 } from "lucide-react";
+import {
+  Bot,
+  User,
+  Wrench,
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  Loader2,
+} from "lucide-react";
 import {
   Collapsible,
   CollapsibleContent,
@@ -11,6 +19,7 @@ import {
 } from "~/@/components/ui/collapsible";
 import { Badge } from "~/@/components/ui/badge";
 import { ChatMarkdown } from "./chat-markdown";
+import { ChatRichToolResults } from "./chat-rich-tool-results";
 
 interface ChatMessageBubbleProps {
   message: ChatMessage;
@@ -59,6 +68,8 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
           )}
         </div>
 
+        <ChatRichToolResults toolCalls={message.toolCalls} />
+
         {/* Citations */}
         {message.citations && message.citations.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-0.5">
@@ -70,9 +81,7 @@ export function ChatMessageBubble({ message }: ChatMessageBubbleProps) {
               >
                 {c.sourceType}
                 {c.reference && (
-                  <span className="text-muted-foreground">
-                    {c.reference}
-                  </span>
+                  <span className="text-muted-foreground">{c.reference}</span>
                 )}
                 {c.url && (
                   <a

@@ -18,6 +18,7 @@ type Config struct {
 	ChatHistoryLimit      int
 	MaxConversations      int
 	MaxMessagesPerConv    int
+	InternalServiceSecret string
 }
 
 // LoadConfig loads configuration from environment variables.
@@ -58,6 +59,7 @@ func LoadConfig() (*Config, error) {
 	}
 
 	cfg.GeminiAPIKey = os.Getenv("GEMINI_API_KEY")
+	cfg.InternalServiceSecret = os.Getenv("INTERNAL_SERVICE_SECRET")
 
 	if model := os.Getenv("GEMINI_MODEL"); model != "" {
 		cfg.GeminiModel = model

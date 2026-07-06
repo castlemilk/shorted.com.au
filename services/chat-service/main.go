@@ -87,12 +87,15 @@ func main() {
 	// Create handler
 	handler := NewChatServiceHandler(store, llmClient, cfg)
 
-	// Create mux with Connect-RPC handler
+	// Create mux with Connect-RPC handler. Health remains public for Cloud Run
+	// probes; all chat RPCs require the service-to-service secret.
 	mux := http.NewServeMux()
+	chatMux := http.NewServeMux()
 
 	// Register the chat service
 	path, h := chatv1connect.NewChatServiceHandler(handler, connect.WithInterceptors(shortedotel.OTelInterceptor()))
-	mux.Handle(path, h)
+	chatMux.Handle(path, h)
+	mux.Handle("/", requireInternalSecret(cfg.InternalServiceSecret, chatMux))
 
 	// Health check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -113,6 +116,8 @@ func main() {
 			"X-Grpc-Web",
 			"X-User-Agent",
 			"X-User-Id",
+			"X-User-Email",
+			"X-Internal-Secret",
 			"Authorization",
 		},
 		ExposedHeaders: []string{

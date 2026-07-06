@@ -7,6 +7,8 @@ import IORedis from "ioredis";
 import { getUpstashRedisRestConfig } from "./redis-env";
 
 export interface RateLimitConfig {
+  /** Optional namespace so equal limits on different products do not share counters. */
+  bucketName?: string;
   /** Requests allowed per window for unauthenticated users */
   anonymousLimit: number;
   /** Tokens refilled per window for unauthenticated burst buckets */
@@ -288,6 +290,7 @@ function getLimiterPair(redisClient: UpstashRedis, config: RateLimitConfig) {
   const anonymousRefillLimit =
     config.anonymousRefillLimit ?? config.anonymousLimit;
   const key = [
+    bucketPrefix(config),
     config.anonymousLimit,
     anonymousRefillLimit,
     config.anonymousBurstMaxTokens ?? "window",
@@ -308,7 +311,7 @@ function getLimiterPair(redisClient: UpstashRedis, config: RateLimitConfig) {
           config.anonymousBurstMaxTokens,
         ),
         analytics: true,
-        prefix: `ratelimit:api:anon:burst:${anonymousRefillLimit}:${config.windowSeconds}:${config.anonymousBurstMaxTokens}`,
+        prefix: `${bucketPrefix(config)}:anon:burst:${anonymousRefillLimit}:${config.windowSeconds}:${config.anonymousBurstMaxTokens}`,
       })
     : new Ratelimit({
         redis: redisClient,
@@ -317,7 +320,7 @@ function getLimiterPair(redisClient: UpstashRedis, config: RateLimitConfig) {
           `${config.windowSeconds} s`,
         ),
         analytics: true,
-        prefix: `ratelimit:api:anon:${config.anonymousLimit}:${config.windowSeconds}`,
+        prefix: `${bucketPrefix(config)}:anon:${config.anonymousLimit}:${config.windowSeconds}`,
       });
 
   const pair = {
@@ -329,7 +332,7 @@ function getLimiterPair(redisClient: UpstashRedis, config: RateLimitConfig) {
         `${config.windowSeconds} s`,
       ),
       analytics: true,
-      prefix: `ratelimit:api:auth:${config.authenticatedLimit}:${config.windowSeconds}`,
+      prefix: `${bucketPrefix(config)}:auth:${config.authenticatedLimit}:${config.windowSeconds}`,
     }),
   };
 
@@ -351,8 +354,8 @@ async function limitWithRedisUrl(
     ? config.authenticatedLimit
     : config.anonymousLimit;
   const keyPrefix = isAuthenticated
-    ? `ratelimit:api:auth:${config.authenticatedLimit}:${config.windowSeconds}`
-    : `ratelimit:api:anon:${config.anonymousLimit}:${config.windowSeconds}`;
+    ? `${bucketPrefix(config)}:auth:${config.authenticatedLimit}:${config.windowSeconds}`
+    : `${bucketPrefix(config)}:anon:${config.anonymousLimit}:${config.windowSeconds}`;
   const key = `${keyPrefix}:${identifier}`;
   const current = await redisClient.incr(key);
   if (current === 1) {
@@ -412,7 +415,7 @@ async function limitWithRedisTokenBucket(
   const ttlMs = fullRefillWindows * windowMs * 2;
   const now = Date.now();
   const key = [
-    `ratelimit:api:anon:burst:${refillLimit}:${config.windowSeconds}:${maxTokens}`,
+    `${bucketPrefix(config)}:anon:burst:${refillLimit}:${config.windowSeconds}:${maxTokens}`,
     identifier,
   ].join(":");
   const result = await redisClient.eval(
@@ -490,6 +493,17 @@ function buildRateLimitUnavailableResponse(): {
       },
     ),
   };
+}
+
+function bucketPrefix(config: RateLimitConfig): string {
+  const bucketName = config.bucketName?.trim();
+  if (!bucketName) {
+    return "ratelimit:api";
+  }
+  if (!/^[a-z0-9][a-z0-9_-]{0,63}$/i.test(bucketName)) {
+    return "ratelimit:api";
+  }
+  return `ratelimit:api:${bucketName}`;
 }
 
 function shouldFailClosedWithoutRedis(env: NodeJS.ProcessEnv): boolean {

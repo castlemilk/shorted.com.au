@@ -333,4 +333,48 @@ describe("rate-limit production safety", () => {
       ]),
     );
   });
+
+  it("uses explicit bucket names to isolate user quota counters with identical limits", async () => {
+    const { rateLimit } =
+      jest.requireActual<typeof import("../rate-limit")>("../rate-limit");
+
+    (auth as jest.Mock).mockResolvedValue({
+      user: { id: "user-1" },
+      expires: "2099-01-01T00:00:00.000Z",
+    });
+
+    await rateLimit(
+      new NextRequest("https://shorted.com.au/api/chat"),
+      {
+        bucketName: "chat-send-minute",
+        anonymousLimit: 0,
+        authenticatedLimit: 4,
+        windowSeconds: 60,
+      },
+      {
+        REDIS_URL:
+          "redis://default:secret@redis-11815.c291.ap-southeast-2-1.ec2.cloud.redislabs.com:11815",
+      } as NodeJS.ProcessEnv,
+    );
+    await rateLimit(
+      new NextRequest("https://shorted.com.au/api/other-expensive-action"),
+      {
+        bucketName: "other-expensive-minute",
+        anonymousLimit: 0,
+        authenticatedLimit: 4,
+        windowSeconds: 60,
+      },
+      {
+        REDIS_URL:
+          "redis://default:secret@redis-11815.c291.ap-southeast-2-1.ec2.cloud.redislabs.com:11815",
+      } as NodeJS.ProcessEnv,
+    );
+
+    expect(mockIoRedisClient.incr).toHaveBeenCalledWith(
+      "ratelimit:api:chat-send-minute:auth:4:60:user:user-1",
+    );
+    expect(mockIoRedisClient.incr).toHaveBeenCalledWith(
+      "ratelimit:api:other-expensive-minute:auth:4:60:user:user-1",
+    );
+  });
 });
