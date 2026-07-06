@@ -16,6 +16,7 @@ jobs:
   smoke-test:
     name: Production Smoke Test
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     # Wait for Vercel deploy to complete (triggered by same push)
     # Vercel typically deploys in 3-7 minutes
     steps:
@@ -99,6 +100,7 @@ jobs:
 
       - name: Run production release smoke
         working-directory: web
+        timeout-minutes: 12
         env:
           BASE_URL: https://shorted.com.au
           RELEASE_API_BASE_URL: https://api.shorted.com.au
@@ -109,7 +111,7 @@ jobs:
             exit 1
           fi
 
-          npx playwright test e2e/release-smoke.spec.ts --project=chromium --reporter=line
+          node e2e/release-smoke-ci.mjs
 
       - name: Upload Playwright report
         if: always()

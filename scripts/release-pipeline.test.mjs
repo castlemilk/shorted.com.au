@@ -6,6 +6,9 @@ function read(path) {
   return readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 }
 
+const boundedReleaseSmokePattern =
+  /node e2e\/release-smoke-ci\.mjs/;
+
 test("local web release script enforces build, preview deploy, smoke, and explicit promotion", () => {
   const script = read("scripts/release-web.sh");
 
@@ -23,7 +26,7 @@ test("local web release script enforces build, preview deploy, smoke, and explic
   assert.match(script, /"--skip-domain"/);
   assert.match(script, /vercel promote/);
   assert.match(script, /RELEASE_CONFIRM_PROMOTE=1/);
-  assert.match(script, /npx playwright test e2e\/release-smoke\.spec\.ts/);
+  assert.match(script, boundedReleaseSmokePattern);
   assert.match(script, /src\/app\/reports\/__tests__\/page-runtime\.test\.tsx/);
 
   const buildIndex = script.indexOf('stage "build"');
@@ -51,8 +54,11 @@ test("GitHub release workflow gates production promotion on preview smoke", () =
   assert.match(workflow, /--target\s+production/);
   assert.match(workflow, /--force/);
   assert.match(workflow, /--skip-domain/);
+  assert.match(workflow, /NPM_CONFIG_FETCH_RETRIES:\s*"5"/);
   assert.match(workflow, /vercel promote/);
-  assert.match(workflow, /npx playwright test e2e\/release-smoke\.spec\.ts/);
+  assert.match(workflow, /smoke-preview:[\s\S]*timeout-minutes:\s*25/);
+  assert.match(workflow, /Run release smoke[\s\S]*timeout-minutes:\s*12/);
+  assert.match(workflow, boundedReleaseSmokePattern);
   assert.match(workflow, /CLOUDFLARE_TESTING_BYPASS_SECRET/);
 });
 
@@ -69,9 +75,11 @@ test("post-deploy smoke uses trusted-test headers and full production release sm
   assert.match(workflow, /node-version:\s*"24"/);
   assert.match(workflow, /npm ci/);
   assert.match(workflow, /npx playwright install --with-deps chromium/);
+  assert.match(workflow, /timeout-minutes:\s*25/);
+  assert.match(workflow, /timeout-minutes:\s*12/);
   assert.match(workflow, /BASE_URL:\s*https:\/\/shorted\.com\.au/);
   assert.match(workflow, /RELEASE_API_BASE_URL:\s*https:\/\/api\.shorted\.com\.au/);
-  assert.match(workflow, /npx playwright test e2e\/release-smoke\.spec\.ts --project=chromium --reporter=line/);
+  assert.match(workflow, boundedReleaseSmokePattern);
   assert.match(workflow, /CLOUDFLARE_TESTING_BYPASS_SECRET is required/);
   assert.match(workflow, /post-deploy-smoke-playwright-report/);
 });
@@ -89,8 +97,10 @@ test("legacy terraform production web deploy also smokes a preview before promot
   assert.match(prodJob, /--target\s+production/);
   assert.match(prodJob, /--force/);
   assert.match(prodJob, /--skip-domain/);
+  assert.match(prodJob, /NPM_CONFIG_FETCH_RETRIES:\s*"5"/);
   assert.match(prodJob, /Smoke release candidate preview/);
-  assert.match(prodJob, /npx playwright test e2e\/release-smoke\.spec\.ts/);
+  assert.match(prodJob, /Smoke release candidate preview[\s\S]*timeout-minutes:\s*12/);
+  assert.match(prodJob, boundedReleaseSmokePattern);
   assert.match(prodJob, /Promote smoked Vercel deployment to production/);
   assert.match(prodJob, /vercel promote/);
 
@@ -121,6 +131,13 @@ test("release smoke covers prior regression surfaces and Cloudflare API checks",
   assert.match(spec, /api\.shorted\.com\.au/);
   assert.match(spec, /cloudflareTestingBypassHeaders/);
   assert.match(spec, /setExtraHTTPHeaders\(releaseHeaders\(\)\)/);
+  const ciRunner = read("web/e2e/release-smoke-ci.mjs");
+  assert.match(ciRunner, /release smoke passed/);
+  assert.match(ciRunner, /GetCompanyTaxProfile/);
+  assert.match(ciRunner, /cdn-cgi\/rum/);
+  assert.match(spec, /GetCompanyTaxProfile/);
+  assert.match(spec, /isIgnorableAppApiFailure/);
+  assert.match(spec, /cdn-cgi\/rum/);
   assert.match(spec, /Element type is invalid/);
   assert.match(spec, /Page changed from static to dynamic/);
   assert.match(spec, /cf-mitigated/);

@@ -52,6 +52,9 @@ jobs:
           RELEASE_SHORTS_SERVICE_ENDPOINT: ${{ secrets.RELEASE_SHORTS_SERVICE_ENDPOINT }}
           RELEASE_MARKET_DATA_API_URL: ${{ secrets.RELEASE_MARKET_DATA_API_URL }}
           CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
+          NPM_CONFIG_FETCH_RETRIES: "5"
+          NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: "20000"
+          NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: "120000"
         run: |
           set -euo pipefail
           deploy_args=(
@@ -98,6 +101,7 @@ jobs:
   smoke-preview:
     name: Smoke Preview
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     needs: deploy-preview
     steps:
       - name: Checkout
@@ -120,11 +124,12 @@ jobs:
 
       - name: Run release smoke
         working-directory: web
+        timeout-minutes: 12
         env:
           BASE_URL: ${{ needs.deploy-preview.outputs.preview-url }}
           RELEASE_API_BASE_URL: ${{ env.RELEASE_API_BASE_URL }}
           CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
-        run: npx playwright test e2e/release-smoke.spec.ts --project=chromium
+        run: node e2e/release-smoke-ci.mjs
 
       - name: Upload Playwright report
         if: always()

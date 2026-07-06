@@ -128,7 +128,7 @@ stage "smoke"
   BASE_URL="$PREVIEW_URL" \
   RELEASE_API_BASE_URL="$RELEASE_API_BASE_URL" \
   CLOUDFLARE_TESTING_BYPASS_SECRET="${CLOUDFLARE_TESTING_BYPASS_SECRET:-}" \
-  npx playwright test e2e/release-smoke.spec.ts --project=chromium
+  node e2e/release-smoke-ci.mjs
 )
 
 stage "promote-prod"
