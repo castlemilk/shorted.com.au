@@ -60,31 +60,31 @@ tf_state_rm 'module.edge.cloudflare_ruleset.waf_managed'
 tf_state_rm 'module.edge.cloudflare_ruleset.app_api_security_skip'
 tf_state_rm 'module.edge.cloudflare_ruleset.response_header_transforms'
 tf_state_rm 'module.edge.cloudflare_workers_script.prewarm'
-# DNS frontend was deleted+recreated, so strip any stale [0] entry.
+# DNS frontend was deleted+recreated, so strip any stale provider-v4 entry.
 tf_state_rm 'module.edge.cloudflare_record.frontend[0]'
 
 echo "=== Importing pre-existing Cloudflare resources ==="
 
 # DNS records (count = create_frontend_records ? 1 : 0 → [0] index)
-tf_import 'module.edge.cloudflare_record.frontend[0]' "${ZONE_ID}/003b51b8b5a39630b09c5cb663bba1b9"
-tf_import 'module.edge.cloudflare_record.www[0]'      "${ZONE_ID}/8f2b411d8c3bf24cb2c7e603c4fc0bcd"
-tf_import 'module.edge.cloudflare_record.api[0]'      "${ZONE_ID}/91cf9d64108ee15cf2a230c5aab8d909"
+tf_import 'module.edge.cloudflare_dns_record.frontend[0]' "zones/${ZONE_ID}/dns_records/003b51b8b5a39630b09c5cb663bba1b9"
+tf_import 'module.edge.cloudflare_dns_record.www[0]'      "zones/${ZONE_ID}/dns_records/8f2b411d8c3bf24cb2c7e603c4fc0bcd"
+tf_import 'module.edge.cloudflare_dns_record.api[0]'      "zones/${ZONE_ID}/dns_records/91cf9d64108ee15cf2a230c5aab8d909"
 
 # Workers KV namespace (no count → no index)
 tf_import 'module.edge.cloudflare_workers_kv_namespace.edge_cache' "${ACCOUNT_ID}/e08015a2c6324c7b8b3faa810d5b0c73"
 
 # Zone-level rulesets — all have count = 1, so [0] index required.
-# Provider v4 import format: zone/<zone_id>/<ruleset_id> (singular).
+# Provider v5 import format: zones/<zone_id>/<ruleset_id>.
 # All four rulesets ARE present at Cloudflare and must be imported on
 # every run; previous comment claiming cache_rules + rate_limit_api
 # were deleted was wrong — verified live via Cloudflare API. Without
 # these imports, terraform apply tries to CREATE colliding rulesets
 # and fails with "A similar configuration with rules already exists".
-tf_import 'module.edge.cloudflare_ruleset.waf_managed[0]'     "zone/${ZONE_ID}/ea95ef9d9d1547d58e2ea004c832f83a"
-tf_import 'module.edge.cloudflare_ruleset.app_api_security_skip[0]' "zone/${ZONE_ID}/dd8d8eba62d44f7f9362e5553b2b57f8"
-tf_import 'module.edge.cloudflare_ruleset.cache_rules[0]'     "zone/${ZONE_ID}/debd8a1c7c3c412e89a344801cc57ae3"
-tf_import 'module.edge.cloudflare_ruleset.response_header_transforms[0]' "zone/${ZONE_ID}/048851bae4b3489aafb5744e6392906f"
-tf_import 'module.edge.cloudflare_ruleset.rate_limit_api[0]'  "zone/${ZONE_ID}/f86ec850c6194005b04b6a8cc8d8dfe5"
+tf_import 'module.edge.cloudflare_ruleset.waf_managed[0]'     "zones/${ZONE_ID}/ea95ef9d9d1547d58e2ea004c832f83a"
+tf_import 'module.edge.cloudflare_ruleset.app_api_security_skip[0]' "zones/${ZONE_ID}/dd8d8eba62d44f7f9362e5553b2b57f8"
+tf_import 'module.edge.cloudflare_ruleset.cache_rules[0]'     "zones/${ZONE_ID}/debd8a1c7c3c412e89a344801cc57ae3"
+tf_import 'module.edge.cloudflare_ruleset.response_header_transforms[0]' "zones/${ZONE_ID}/048851bae4b3489aafb5744e6392906f"
+tf_import 'module.edge.cloudflare_ruleset.rate_limit_api[0]'  "zones/${ZONE_ID}/f86ec850c6194005b04b6a8cc8d8dfe5"
 
 # Workers scripts: edge_cache (no count), prewarm (count = 1, has [0])
 tf_import 'module.edge.cloudflare_workers_script.edge_cache' "${ACCOUNT_ID}/shorted-edge-cache"

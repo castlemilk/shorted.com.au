@@ -1,6 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 import path from "path";
 import { fileURLToPath } from "url";
+import {
+  cloudflareTestingBypassHeaders,
+  withCloudflareTestingUserAgent,
+} from "./e2e/helpers/cloudflare-testing-bypass";
 
 // ES module compatible __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -8,6 +12,23 @@ const __dirname = path.dirname(__filename);
 
 // Auth state file path
 const AUTH_FILE = path.join(__dirname, ".auth/user.json");
+
+const baseExtraHTTPHeaders: Record<string, string> = {
+  ...cloudflareTestingBypassHeaders(),
+  ...(process.env.SHORTS_URL
+    ? {
+        "X-Test-Shorts-URL": process.env.SHORTS_URL,
+        "X-Test-Market-Data-URL": process.env.MARKET_DATA_URL || "",
+      }
+    : {}),
+};
+
+function deviceUse(device: typeof devices[keyof typeof devices]) {
+  return {
+    ...device,
+    userAgent: withCloudflareTestingUserAgent(device.userAgent),
+  };
+}
 
 export default defineConfig({
   testDir: "./e2e",
@@ -30,13 +51,8 @@ export default defineConfig({
     screenshot: "only-on-failure",
     video: "retain-on-failure",
 
-    // Add backend URLs as extra context for tests
-    extraHTTPHeaders: process.env.SHORTS_URL
-      ? {
-          "X-Test-Shorts-URL": process.env.SHORTS_URL,
-          "X-Test-Market-Data-URL": process.env.MARKET_DATA_URL || "",
-        }
-      : {},
+    // Add Cloudflare trusted-test and backend-routing headers as context for tests.
+    extraHTTPHeaders: baseExtraHTTPHeaders,
   },
 
   projects: [
@@ -54,7 +70,7 @@ export default defineConfig({
     {
       name: "chromium-authenticated",
       use: {
-        ...devices["Desktop Chrome"],
+        ...deviceUse(devices["Desktop Chrome"]),
         storageState: AUTH_FILE,
       },
       dependencies: ["setup"],
@@ -70,7 +86,7 @@ export default defineConfig({
     // ============================================
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: deviceUse(devices["Desktop Chrome"]),
       testIgnore: [
         /auth\.setup\.ts/,
         /.*\.(authenticated|protected)\.spec\.ts/,
@@ -79,7 +95,7 @@ export default defineConfig({
 
     {
       name: "firefox",
-      use: { ...devices["Desktop Firefox"] },
+      use: deviceUse(devices["Desktop Firefox"]),
       testIgnore: [
         /auth\.setup\.ts/,
         /.*\.(authenticated|protected)\.spec\.ts/,
@@ -88,7 +104,7 @@ export default defineConfig({
 
     {
       name: "webkit",
-      use: { ...devices["Desktop Safari"] },
+      use: deviceUse(devices["Desktop Safari"]),
       testIgnore: [
         /auth\.setup\.ts/,
         /.*\.(authenticated|protected)\.spec\.ts/,
@@ -97,7 +113,7 @@ export default defineConfig({
 
     {
       name: "Mobile Chrome",
-      use: { ...devices["Pixel 5"] },
+      use: deviceUse(devices["Pixel 5"]),
       testIgnore: [
         /auth\.setup\.ts/,
         /.*\.(authenticated|protected)\.spec\.ts/,
@@ -106,7 +122,7 @@ export default defineConfig({
 
     {
       name: "Mobile Safari",
-      use: { ...devices["iPhone 12"] },
+      use: deviceUse(devices["iPhone 12"]),
       testIgnore: [
         /auth\.setup\.ts/,
         /.*\.(authenticated|protected)\.spec\.ts/,
