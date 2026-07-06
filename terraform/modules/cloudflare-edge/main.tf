@@ -16,7 +16,7 @@ locals {
   chat_service_hostname          = try(var.chat_service_origin != "" ? regex("^https?://([^/]+)", var.chat_service_origin)[0] : "", "")
   market_data_hostname           = try(var.market_data_origin != "" ? regex("^https?://([^/]+)", var.market_data_origin)[0] : "", "")
   api_rate_limit_host_expression = "http.host eq \"api.shorted.com.au\""
-  testing_bypass_expression      = var.rate_limit_testing_bypass_secret != "" ? "(http.user_agent contains \"${var.rate_limit_testing_bypass_user_agent}\" and any(http.request.headers[\"${var.rate_limit_testing_bypass_header_name}\"][*] eq \"${var.rate_limit_testing_bypass_secret}\"))" : "false"
+  testing_bypass_expression      = var.rate_limit_testing_bypass_secret != "" ? "(http.user_agent contains \"${var.rate_limit_testing_bypass_user_agent}\" and any(http.request.headers[\"${var.rate_limit_testing_bypass_header_name}\"][*] eq \"${var.rate_limit_testing_bypass_secret}\"))" : "(http.host eq \"__shorted-testing-bypass-disabled.invalid__\")"
   # Cloudflare's basic rate-limit phase does not allow request header or
   # user-agent fields in rate-limit expressions. Trusted tests bypass that
   # phase via the custom skip ruleset below, while normal API traffic remains
