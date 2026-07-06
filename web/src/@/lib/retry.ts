@@ -272,6 +272,7 @@ export async function retryWithBackoff<T>(
   };
 
   let lastError: unknown;
+  const shouldRetryError = shouldRetry ?? shouldRetryConnectError;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -280,7 +281,7 @@ export async function retryWithBackoff<T>(
       lastError = error;
 
       // Check if we should retry this error
-      if (shouldRetry && !shouldRetry(error)) {
+      if (!shouldRetryError(error)) {
         throw error;
       }
 

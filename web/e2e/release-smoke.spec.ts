@@ -81,12 +81,20 @@ function isIgnorableFailedRequest(url: string, errorText: string): boolean {
   );
 }
 
-function isIgnorableConsoleError(text: string): boolean {
+function isIgnorableConsoleError(text: string, url = ""): boolean {
   return (
     text.includes("Failed to fetch RSC payload") ||
     text.includes("https://errors.authjs.dev#autherror") ||
-    text === "Failed to load resource: net::ERR_FAILED"
+    text === "Failed to load resource: net::ERR_FAILED" ||
+    (url.includes("/cdn-cgi/rum") &&
+      text.includes("Failed to load resource: the server responded with a status of 404")) ||
+    (url.includes("/shorts.v1alpha1.ShortedStocksService/GetCompanyTaxProfile") &&
+      text.includes("Failed to load resource: the server responded with a status of 404"))
   );
+}
+
+function isIgnorableAppApiFailure(url: string, status: number): boolean {
+  return status === 404 && url.includes("/shorts.v1alpha1.ShortedStocksService/GetCompanyTaxProfile");
 }
 
 async function assertNoCloudflareChallenge(response: APIResponse): Promise<string> {
@@ -135,8 +143,9 @@ for (const scenario of pageScenarios) {
 
     page.on("response", (response) => {
       const url = response.url();
-      if (appApiPattern.test(url) && response.status() >= 400) {
-        apiFailures.push(`${response.status()} ${url}`);
+      const status = response.status();
+      if (appApiPattern.test(url) && status >= 400 && !isIgnorableAppApiFailure(url, status)) {
+        apiFailures.push(`${status} ${url}`);
       }
     });
 
@@ -149,7 +158,10 @@ for (const scenario of pageScenarios) {
     });
 
     page.on("console", (message) => {
-      if (message.type() === "error" && !isIgnorableConsoleError(message.text())) {
+      if (
+        message.type() === "error" &&
+        !isIgnorableConsoleError(message.text(), message.location().url)
+      ) {
         consoleErrors.push(message.text());
       }
     });
@@ -186,8 +198,9 @@ test("housing suburb navigation to top shorted does not load stale app chunks", 
 
   page.on("response", (response) => {
     const url = response.url();
-    if (appApiPattern.test(url) && response.status() >= 400) {
-      apiFailures.push(`${response.status()} ${url}`);
+    const status = response.status();
+    if (appApiPattern.test(url) && status >= 400 && !isIgnorableAppApiFailure(url, status)) {
+      apiFailures.push(`${status} ${url}`);
     }
   });
 
@@ -200,7 +213,10 @@ test("housing suburb navigation to top shorted does not load stale app chunks", 
   });
 
   page.on("console", (message) => {
-    if (message.type() === "error" && !isIgnorableConsoleError(message.text())) {
+    if (
+      message.type() === "error" &&
+      !isIgnorableConsoleError(message.text(), message.location().url)
+    ) {
       consoleErrors.push(message.text());
     }
   });

@@ -90,7 +90,7 @@ cd web
 BASE_URL=https://shorted.com.au \
 RELEASE_API_BASE_URL=https://api.shorted.com.au \
 CLOUDFLARE_TESTING_BYPASS_SECRET="$CLOUDFLARE_TESTING_BYPASS_SECRET" \
-npx playwright test e2e/release-smoke.spec.ts --project=chromium --reporter=line
+node e2e/release-smoke-ci.mjs
 ```
 
 ## GitHub Release

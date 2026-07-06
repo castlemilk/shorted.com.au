@@ -1290,6 +1290,9 @@ jobs:
           SHORTS_URL: ${{ steps.resolve-urls.outputs.shorts_url }}
           MARKET_DATA_URL: ${{ steps.resolve-urls.outputs.market_data_url }}
           CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
+          NPM_CONFIG_FETCH_RETRIES: "5"
+          NPM_CONFIG_FETCH_RETRY_MINTIMEOUT: "20000"
+          NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT: "120000"
           AUTH_GOOGLE_ID: ${{ secrets.AUTH_GOOGLE_ID }}
           AUTH_GOOGLE_SECRET: ${{ secrets.AUTH_GOOGLE_SECRET }}
           AUTH_FIREBASE_PROJECT_ID: ${{ secrets.AUTH_FIREBASE_PROJECT_ID_PROD }}
@@ -1394,11 +1397,12 @@ jobs:
 
       - name: Smoke release candidate preview
         working-directory: web
+        timeout-minutes: 12
         env:
           BASE_URL: ${{ steps.vercel-deploy.outputs.preview-url }}
           RELEASE_API_BASE_URL: https://api.shorted.com.au
           CLOUDFLARE_TESTING_BYPASS_SECRET: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
-        run: npx playwright test e2e/release-smoke.spec.ts --project=chromium
+        run: node e2e/release-smoke-ci.mjs
 
       - name: Promote smoked Vercel deployment to production
         env:
