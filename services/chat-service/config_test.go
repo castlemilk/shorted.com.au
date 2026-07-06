@@ -33,6 +33,7 @@ func TestLoadConfigParsesCostGuardrails(t *testing.T) {
 	t.Setenv("CHAT_MAX_INPUT_CHARS", "3500")
 	t.Setenv("CHAT_HISTORY_LIMIT", "12")
 	t.Setenv("CHAT_MAX_MESSAGES_PER_CONVERSATION", "80")
+	t.Setenv("INTERNAL_SERVICE_SECRET", "server-secret")
 
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -50,6 +51,9 @@ func TestLoadConfigParsesCostGuardrails(t *testing.T) {
 	}
 	if cfg.MaxMessagesPerConv != 80 {
 		t.Fatalf("MaxMessagesPerConv = %d, want 80", cfg.MaxMessagesPerConv)
+	}
+	if cfg.InternalServiceSecret != "server-secret" {
+		t.Fatalf("InternalServiceSecret = %q, want configured secret", cfg.InternalServiceSecret)
 	}
 }
 

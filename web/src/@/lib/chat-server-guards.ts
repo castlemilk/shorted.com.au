@@ -23,6 +23,9 @@ const HOP_BY_HOP_HEADERS = new Set([
   "trailer",
   "transfer-encoding",
   "upgrade",
+  "authorization",
+  "cookie",
+  "set-cookie",
   "host",
   "content-length",
   "x-user-id",
@@ -32,6 +35,7 @@ const HOP_BY_HOP_HEADERS = new Set([
 
 const DEFAULT_SENDS_PER_MINUTE = 4;
 const DEFAULT_SENDS_PER_DAY = 40;
+const DEFAULT_SENDS_PER_MONTH = 600;
 const DEFAULT_READS_PER_MINUTE = 60;
 const VALID_CHAT_STATUSES = new Set<SubscriptionInfo["status"]>([
   "active",
@@ -47,6 +51,7 @@ export interface AuthorizedChatRequest {
   userID: string;
   userEmail: string;
   internalSecret: string;
+  chatServiceBaseURL: string;
 }
 
 export async function authorizeChatRequest(
@@ -85,6 +90,11 @@ export async function authorizeChatRequest(
     return { ok: false, response: premiumRequiredResponse() };
   }
 
+  const originResponse = enforceSameOriginChatRequest(request, process.env);
+  if (originResponse) {
+    return { ok: false, response: originResponse };
+  }
+
   const rateLimitResponse = await enforceChatRateLimits(request, method);
   if (rateLimitResponse) {
     return { ok: false, response: rateLimitResponse };
@@ -107,12 +117,30 @@ export async function authorizeChatRequest(
     };
   }
 
+  const chatServiceBaseURL = resolveChatServiceBaseURLConfig(process.env);
+  if (!chatServiceBaseURL.ok) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        {
+          error: "Chat unavailable",
+          message: "Chat is temporarily unavailable.",
+        },
+        {
+          status: 503,
+          headers: { "Retry-After": "60" },
+        },
+      ),
+    };
+  }
+
   return {
     ok: true,
     value: {
       userID,
       userEmail: session.user.email ?? "",
       internalSecret: internalSecret.value,
+      chatServiceBaseURL: chatServiceBaseURL.value,
     },
   };
 }
@@ -170,6 +198,7 @@ export function chatRateLimitConfigs(
   if (method === "SendMessage") {
     return [
       {
+        bucketName: "chat-send-minute",
         anonymousLimit: 0,
         authenticatedLimit: positiveIntEnv(
           env.CHAT_SENDS_PER_MINUTE,
@@ -178,6 +207,7 @@ export function chatRateLimitConfigs(
         windowSeconds: 60,
       },
       {
+        bucketName: "chat-send-day",
         anonymousLimit: 0,
         authenticatedLimit: positiveIntEnv(
           env.CHAT_SENDS_PER_DAY,
@@ -185,11 +215,21 @@ export function chatRateLimitConfigs(
         ),
         windowSeconds: 86_400,
       },
+      {
+        bucketName: "chat-send-month",
+        anonymousLimit: 0,
+        authenticatedLimit: positiveIntEnv(
+          env.CHAT_SENDS_PER_MONTH,
+          DEFAULT_SENDS_PER_MONTH,
+        ),
+        windowSeconds: 2_592_000,
+      },
     ];
   }
 
   return [
     {
+      bucketName: "chat-read-minute",
       anonymousLimit: 0,
       authenticatedLimit: positiveIntEnv(
         env.CHAT_READS_PER_MINUTE,
@@ -214,15 +254,29 @@ export function resolveInternalSecret(
 }
 
 export function resolveChatServiceBaseURL(env: NodeJS.ProcessEnv): string {
+  const result = resolveChatServiceBaseURLConfig(env);
+  if (result.ok) {
+    return result.value;
+  }
+  throw new Error("CHAT_SERVICE_INTERNAL_URL is required in production");
+}
+
+export function resolveChatServiceBaseURLConfig(
+  env: NodeJS.ProcessEnv,
+): { ok: true; value: string } | { ok: false } {
+  const internalURL = firstNonEmpty(env.CHAT_SERVICE_INTERNAL_URL);
+  if (internalURL) {
+    return { ok: true, value: internalURL.replace(/\/+$/, "") };
+  }
+  if (isProductionEnvironment(env)) {
+    return { ok: false };
+  }
   const value =
     firstNonEmpty(
-      env.CHAT_SERVICE_INTERNAL_URL,
       env.NEXT_PUBLIC_CHAT_SERVICE_ENDPOINT,
     ) ??
-    (env.NODE_ENV === "production"
-      ? "https://api.shorted.com.au"
-      : "http://localhost:8080");
-  return value.replace(/\/+$/, "");
+    "http://localhost:8080";
+  return { ok: true, value: value.replace(/\/+$/, "") };
 }
 
 export function buildUpstreamHeaders(
@@ -262,6 +316,76 @@ export function filterResponseHeaders(source: Headers): Headers {
 function positiveIntEnv(value: string | undefined, fallback: number): number {
   const parsed = Number.parseInt(value ?? "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function enforceSameOriginChatRequest(
+  request: NextRequest,
+  env: NodeJS.ProcessEnv,
+): NextResponse | undefined {
+  const requestOrigin = new URL(request.url).origin;
+  const allowedOrigins = new Set([
+    requestOrigin,
+    ...configuredAllowedOrigins(env),
+  ]);
+
+  const origin = normalizeOrigin(request.headers.get("origin"));
+  if (origin) {
+    return allowedOrigins.has(origin) ? undefined : forbiddenOriginResponse();
+  }
+
+  const referer = request.headers.get("referer");
+  if (referer) {
+    try {
+      return allowedOrigins.has(new URL(referer).origin)
+        ? undefined
+        : forbiddenOriginResponse();
+    } catch {
+      return forbiddenOriginResponse();
+    }
+  }
+
+  return isProductionEnvironment(env) ? forbiddenOriginResponse() : undefined;
+}
+
+function configuredAllowedOrigins(env: NodeJS.ProcessEnv): string[] {
+  return [
+    "https://shorted.com.au",
+    "https://www.shorted.com.au",
+    env.NEXTAUTH_URL,
+    csvValues(env.CHAT_ALLOWED_ORIGINS),
+  ]
+    .flat()
+    .map((value) => normalizeOrigin(value))
+    .filter((value): value is string => Boolean(value));
+}
+
+function csvValues(value: string | undefined): string[] {
+  return value
+    ? value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+    : [];
+}
+
+function forbiddenOriginResponse(): NextResponse {
+  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+}
+
+function normalizeOrigin(value: string | undefined | null): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  try {
+    return new URL(trimmed).origin;
+  } catch {
+    return trimmed.replace(/\/+$/, "");
+  }
+}
+
+function isProductionEnvironment(env: NodeJS.ProcessEnv): boolean {
+  return env.NODE_ENV === "production" || env.VERCEL_ENV === "production";
 }
 
 function firstNonEmpty(...values: Array<string | undefined>): string | undefined {

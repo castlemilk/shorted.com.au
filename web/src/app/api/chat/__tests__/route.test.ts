@@ -70,22 +70,28 @@ function subscription(
 }
 
 function request(body: Record<string, unknown> = {}) {
-  return new NextRequest("https://shorted.com.au/api/chat", {
+  const payload = {
+    conversationId: "conv-existing",
+    contextStockCode: "ZIP",
+    messages: [
+      {
+        id: "user-1",
+        role: "user",
+        parts: [{ type: "text", text: "Show me ZIP short interest" }],
+      },
+    ],
+    ...body,
+  };
+  return {
+    url: "https://shorted.com.au/api/chat",
     method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      conversationId: "conv-existing",
-      contextStockCode: "ZIP",
-      messages: [
-        {
-          id: "user-1",
-          role: "user",
-          parts: [{ type: "text", text: "Show me ZIP short interest" }],
-        },
-      ],
-      ...body,
+    headers: new Headers({
+      "content-type": "application/json",
+      origin: "https://shorted.com.au",
     }),
-  });
+    signal: new AbortController().signal,
+    json: async () => payload,
+  } as unknown as NextRequest;
 }
 
 async function* upstreamChunks() {
@@ -161,24 +167,35 @@ describe("AI SDK chat route", () => {
     expect(mockStreamChatFromUpstream).not.toHaveBeenCalled();
   });
 
-  it("applies per-user minute and daily send limits", async () => {
+  it("applies isolated per-user minute, daily, and monthly send limits", async () => {
     await POST(request());
 
-    expect(mockRateLimit).toHaveBeenCalledTimes(2);
+    expect(mockRateLimit).toHaveBeenCalledTimes(3);
     expect(mockRateLimit).toHaveBeenNthCalledWith(
       1,
-      expect.any(NextRequest),
+      expect.objectContaining({ url: "https://shorted.com.au/api/chat" }),
       expect.objectContaining({
+        bucketName: "chat-send-minute",
         authenticatedLimit: 4,
         windowSeconds: 60,
       }),
     );
     expect(mockRateLimit).toHaveBeenNthCalledWith(
       2,
-      expect.any(NextRequest),
+      expect.objectContaining({ url: "https://shorted.com.au/api/chat" }),
       expect.objectContaining({
+        bucketName: "chat-send-day",
         authenticatedLimit: 40,
         windowSeconds: 86_400,
+      }),
+    );
+    expect(mockRateLimit).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({ url: "https://shorted.com.au/api/chat" }),
+      expect.objectContaining({
+        bucketName: "chat-send-month",
+        authenticatedLimit: 600,
+        windowSeconds: 2_592_000,
       }),
     );
   });
@@ -192,6 +209,42 @@ describe("AI SDK chat route", () => {
     const response = await POST(request());
 
     expect(response.status).toBe(429);
+    expect(mockStreamChatFromUpstream).not.toHaveBeenCalled();
+  });
+
+  it("rejects cross-site chat requests before generation", async () => {
+    const crossSite = {
+      url: "https://shorted.com.au/api/chat",
+      method: "POST",
+      headers: new Headers({
+        "content-type": "application/json",
+        origin: "https://evil.example",
+      }),
+      signal: new AbortController().signal,
+      json: async () => ({
+        messages: [
+          {
+            id: "user-1",
+            role: "user",
+            parts: [{ type: "text", text: "hello" }],
+          },
+        ],
+      }),
+    } as unknown as NextRequest;
+
+    const response = await POST(crossSite);
+
+    expect(response.status).toBe(403);
+    expect(mockStreamChatFromUpstream).not.toHaveBeenCalled();
+  });
+
+  it("fails closed in production when the internal chat service URL is missing", async () => {
+    delete process.env.CHAT_SERVICE_INTERNAL_URL;
+    process.env.NEXT_PUBLIC_CHAT_SERVICE_ENDPOINT = "https://api.shorted.com.au";
+
+    const response = await POST(request());
+
+    expect(response.status).toBe(503);
     expect(mockStreamChatFromUpstream).not.toHaveBeenCalled();
   });
 

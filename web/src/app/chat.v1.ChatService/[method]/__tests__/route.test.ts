@@ -40,17 +40,21 @@ function subscription(
 }
 
 function requestFor(method: string, headers: Record<string, string> = {}) {
-  return new NextRequest(
-    `https://shorted.com.au/chat.v1.ChatService/${method}`,
-    {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        ...headers,
-      },
-      body: JSON.stringify({ message: "hello" }),
-    },
-  );
+  const requestHeaders = new Headers({
+    "content-type": "application/json",
+    origin: "https://shorted.com.au",
+  });
+  Object.entries(headers).forEach(([key, value]) => {
+    requestHeaders.set(key, value);
+  });
+
+  return {
+    url: `https://shorted.com.au/chat.v1.ChatService/${method}`,
+    method: "POST",
+    headers: requestHeaders,
+    body: JSON.stringify({ message: "hello" }),
+    signal: new AbortController().signal,
+  } as unknown as NextRequest;
 }
 
 describe("chat RPC proxy", () => {
@@ -207,26 +211,43 @@ describe("chat RPC proxy", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("applies per-user minute and daily send limits", async () => {
+  it("applies isolated per-user minute, daily, and monthly send limits", async () => {
     await POST(requestFor("SendMessage"), {
       params: { method: "SendMessage" },
     });
 
-    expect(mockRateLimit).toHaveBeenCalledTimes(2);
+    expect(mockRateLimit).toHaveBeenCalledTimes(3);
     expect(mockRateLimit).toHaveBeenNthCalledWith(
       1,
-      expect.any(NextRequest),
       expect.objectContaining({
+        url: "https://shorted.com.au/chat.v1.ChatService/SendMessage",
+      }),
+      expect.objectContaining({
+        bucketName: "chat-send-minute",
         authenticatedLimit: 4,
         windowSeconds: 60,
       }),
     );
     expect(mockRateLimit).toHaveBeenNthCalledWith(
       2,
-      expect.any(NextRequest),
       expect.objectContaining({
+        url: "https://shorted.com.au/chat.v1.ChatService/SendMessage",
+      }),
+      expect.objectContaining({
+        bucketName: "chat-send-day",
         authenticatedLimit: 40,
         windowSeconds: 86_400,
+      }),
+    );
+    expect(mockRateLimit).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        url: "https://shorted.com.au/chat.v1.ChatService/SendMessage",
+      }),
+      expect.objectContaining({
+        bucketName: "chat-send-month",
+        authenticatedLimit: 600,
+        windowSeconds: 2_592_000,
       }),
     );
   });
@@ -245,10 +266,71 @@ describe("chat RPC proxy", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("injects trusted identity headers and overwrites client-supplied user id", async () => {
-    await POST(requestFor("SendMessage", { "x-user-id": "attacker" }), {
+  it("rejects cross-site chat RPC requests after auth and entitlement checks", async () => {
+    const response = await POST(
+      requestFor("SendMessage", { origin: "https://evil.example" }),
+      {
+        params: { method: "SendMessage" },
+      },
+    );
+
+    expect(response.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("uses isolated chat quota bucket names including a monthly user bucket", async () => {
+    await POST(requestFor("SendMessage"), {
       params: { method: "SendMessage" },
     });
+
+    expect(mockRateLimit).toHaveBeenCalledTimes(3);
+    expect(mockRateLimit).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        url: "https://shorted.com.au/chat.v1.ChatService/SendMessage",
+      }),
+      expect.objectContaining({
+        bucketName: "chat-send-minute",
+        authenticatedLimit: 4,
+        windowSeconds: 60,
+      }),
+    );
+    expect(mockRateLimit).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        url: "https://shorted.com.au/chat.v1.ChatService/SendMessage",
+      }),
+      expect.objectContaining({
+        bucketName: "chat-send-day",
+        authenticatedLimit: 40,
+        windowSeconds: 86_400,
+      }),
+    );
+    expect(mockRateLimit).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        url: "https://shorted.com.au/chat.v1.ChatService/SendMessage",
+      }),
+      expect.objectContaining({
+        bucketName: "chat-send-month",
+        authenticatedLimit: 600,
+        windowSeconds: 2_592_000,
+      }),
+    );
+  });
+
+  it("injects trusted identity headers and overwrites client-supplied user id", async () => {
+    await POST(
+      requestFor("SendMessage", {
+        authorization: "Bearer browser-token",
+        cookie: "session=browser-cookie",
+        "x-internal-secret": "attacker-secret",
+        "x-user-id": "attacker",
+      }),
+      {
+        params: { method: "SendMessage" },
+      },
+    );
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -258,10 +340,24 @@ describe("chat RPC proxy", () => {
     expect(headers.get("x-internal-secret")).toBe("server-secret");
     expect(headers.get("x-user-id")).toBe("user-1");
     expect(headers.get("x-user-email")).toBe("user@example.com");
+    expect(headers.get("authorization")).toBeNull();
+    expect(headers.get("cookie")).toBeNull();
   });
 
   it("fails closed in production when the internal secret is missing", async () => {
     delete process.env.INTERNAL_SERVICE_SECRET;
+
+    const response = await POST(requestFor("SendMessage"), {
+      params: { method: "SendMessage" },
+    });
+
+    expect(response.status).toBe(503);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("fails closed in production when the internal chat service URL is missing", async () => {
+    delete process.env.CHAT_SERVICE_INTERNAL_URL;
+    process.env.NEXT_PUBLIC_CHAT_SERVICE_ENDPOINT = "https://api.shorted.com.au";
 
     const response = await POST(requestFor("SendMessage"), {
       params: { method: "SendMessage" },

@@ -5,7 +5,6 @@ import {
   authorizeChatRequest,
   buildUpstreamHeaders,
   filterResponseHeaders,
-  resolveChatServiceBaseURL,
 } from "@/lib/chat-server-guards";
 
 export const runtime = "nodejs";
@@ -30,7 +29,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const upstreamURL = new URL(
     `/chat.v1.ChatService/${method}`,
-    resolveChatServiceBaseURL(process.env),
+    access.value.chatServiceBaseURL,
   );
   const headers = buildUpstreamHeaders(request.headers, {
     internalSecret: access.value.internalSecret,

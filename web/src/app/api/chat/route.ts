@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
         userID: access.value.userID,
         userEmail: access.value.userEmail,
         internalSecret: access.value.internalSecret,
+        chatServiceBaseURL: access.value.chatServiceBaseURL,
         signal: request.signal,
       })) {
         if (chunk.conversationId) {

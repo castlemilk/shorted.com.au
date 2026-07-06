@@ -1,7 +1,6 @@
 import { createClient } from "@connectrpc/connect";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { ChatService } from "~/gen/chat/v1/chat_pb";
-import { resolveChatServiceBaseURL } from "@/lib/chat-server-guards";
 
 export interface UpstreamToolCall {
   toolName: string;
@@ -30,6 +29,7 @@ export interface StreamChatFromUpstreamOptions {
   userID: string;
   userEmail: string;
   internalSecret: string;
+  chatServiceBaseURL: string;
   signal?: AbortSignal;
 }
 
@@ -48,7 +48,7 @@ export async function* streamChatFromUpstream(
   options: StreamChatFromUpstreamOptions,
 ): AsyncIterable<UpstreamChatChunk> {
   const transport = createConnectTransport({
-    baseUrl: resolveChatServiceBaseURL(process.env),
+    baseUrl: options.chatServiceBaseURL,
     interceptors: [
       (next) => async (request) => {
         if (options.internalSecret) {
