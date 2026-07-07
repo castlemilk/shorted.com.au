@@ -325,7 +325,30 @@ async function handlePublicEdgeRead(request, url, env, ctx, defaults, shortsApiO
 
   const ttl = positiveInt(defaults.cacheTtlPublicDaily, 3600);
   const staleTtl = positiveInt(defaults.cacheTtlPublicStale, 86400);
-  const response = await handleCachedRequest(rpcRequest, rpcUrl, env, ctx, origin, ttl);
+  const cacheVersion = await getCacheVersion(env);
+  const hotKey = await buildHotCacheKey(rpcRequest, route.path, cacheVersion);
+  const hot = getHot(rpcRequest, hotKey);
+  if (hot) {
+    const response = new Response(hot.body, {
+      status: 200,
+      headers: { "Content-Type": hot.contentType },
+    });
+    stampEdgeHeaders(response, "HOT");
+    promotePublicEdgeReadResponse(response, ttl, staleTtl);
+    return response;
+  }
+
+  const response = await handleCachedRequest(rpcRequest, rpcUrl, env, ctx, origin, ttl, cacheVersion);
+  const cacheStatus = response.headers.get("X-Shorted-Cache");
+  if (response.ok && ["MISS", "HIT", "KV"].includes(cacheStatus || "")) {
+    try {
+      const body = await response.clone().arrayBuffer();
+      const contentType = response.headers.get("Content-Type") || "application/json";
+      setHot(hotKey, body, contentType);
+    } catch (_) {
+      // Non-fatal — hot cache population is best-effort.
+    }
+  }
   promotePublicEdgeReadResponse(response, ttl, staleTtl);
   return response;
 }

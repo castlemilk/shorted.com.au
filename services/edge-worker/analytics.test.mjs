@@ -340,6 +340,124 @@ test("public GET edge read facade maps top shorts to cached Connect RPC with pub
   }
 });
 
+test("public GET edge read facade reuses hot cache after first origin miss", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalCaches = globalThis.caches;
+  const waitUntilPromises = [];
+  const originCalls = [];
+
+  globalThis.caches = {
+    default: {
+      async match() {
+        return undefined;
+      },
+      async put() {
+        return undefined;
+      },
+    },
+  };
+  globalThis.fetch = async (url, init) => {
+    originCalls.push({ url: String(url), method: init?.method, body: init?.body });
+    return new Response(JSON.stringify({ timeSeries: [{ productCode: "BHP" }] }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  try {
+    const env = {
+      SHORTS_API_ORIGIN: "https://shorts-origin.test",
+      CACHE_TTL_PUBLIC_DAILY: "3600",
+      EDGE_ANALYTICS_SAMPLE_RATE: "0",
+    };
+    const ctx = {
+      waitUntil(promise) {
+        waitUntilPromises.push(Promise.resolve(promise));
+      },
+    };
+    const requestUrl = "https://api.shorted.com.au/edge/v1/top-shorts?period=6m&limit=21&summaryOnly=1";
+
+    const first = await worker.fetch(new Request(requestUrl), env, ctx);
+    assert.equal(first.status, 200);
+    assert.equal(first.headers.get("x-shorted-cache"), "MISS");
+    assert.equal(first.headers.get("x-shorted-fast-path"), "edge-read");
+    assert.match(first.headers.get("cache-control") || "", /public, max-age=3600/);
+    assert.deepEqual(await first.json(), { timeSeries: [{ productCode: "BHP" }] });
+
+    const second = await worker.fetch(new Request(requestUrl), env, ctx);
+    assert.equal(second.status, 200);
+    assert.equal(second.headers.get("x-shorted-cache"), "HOT");
+    assert.equal(second.headers.get("x-shorted-fast-path"), "edge-read");
+    assert.match(second.headers.get("cache-control") || "", /public, max-age=3600/);
+    assert.deepEqual(await second.json(), { timeSeries: [{ productCode: "BHP" }] });
+
+    assert.equal(originCalls.length, 1);
+    assert.equal(originCalls[0].url, "https://shorts-origin.test/shorts.v1alpha1.ShortedStocksService/GetTopShorts");
+    assert.equal(originCalls[0].method, "POST");
+    assert.equal(await bodyToText(originCalls[0].body), '{"period":"6m","limit":21,"summary_only":true}');
+    assert.deepEqual(
+      (await Promise.allSettled(waitUntilPromises)).map((result) => result.status),
+      ["fulfilled"],
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalCaches === undefined) delete globalThis.caches;
+    else globalThis.caches = originalCaches;
+  }
+});
+
+test("public GET edge read facade promotes Cache API hits into hot cache", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalCaches = globalThis.caches;
+  let cacheMatchCalls = 0;
+
+  globalThis.caches = {
+    default: {
+      async match() {
+        cacheMatchCalls++;
+        return new Response(JSON.stringify({ timeSeries: [{ productCode: "BHP" }] }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      },
+      async put() {
+        return undefined;
+      },
+    },
+  };
+  globalThis.fetch = async () => {
+    throw new Error("origin should not be called for Cache API hits");
+  };
+
+  try {
+    const env = {
+      SHORTS_API_ORIGIN: "https://shorts-origin.test",
+      CACHE_TTL_PUBLIC_DAILY: "3600",
+      EDGE_ANALYTICS_SAMPLE_RATE: "0",
+    };
+    const ctx = { waitUntil() {} };
+    const requestUrl = "https://api.shorted.com.au/edge/v1/top-shorts?period=6m&limit=20&summaryOnly=1";
+
+    const first = await worker.fetch(new Request(requestUrl), env, ctx);
+    assert.equal(first.status, 200);
+    assert.equal(first.headers.get("x-shorted-cache"), "HIT");
+    assert.equal(first.headers.get("x-shorted-fast-path"), "edge-read");
+    assert.deepEqual(await first.json(), { timeSeries: [{ productCode: "BHP" }] });
+
+    const second = await worker.fetch(new Request(requestUrl), env, ctx);
+    assert.equal(second.status, 200);
+    assert.equal(second.headers.get("x-shorted-cache"), "HOT");
+    assert.equal(second.headers.get("x-shorted-fast-path"), "edge-read");
+    assert.match(second.headers.get("cache-control") || "", /public, max-age=3600/);
+    assert.deepEqual(await second.json(), { timeSeries: [{ productCode: "BHP" }] });
+    assert.equal(cacheMatchCalls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalCaches === undefined) delete globalThis.caches;
+    else globalThis.caches = originalCaches;
+  }
+});
+
 test("public GET edge read facade can reuse prewarmed KV stock data", async () => {
   const originalFetch = globalThis.fetch;
   const originalCaches = globalThis.caches;
@@ -398,7 +516,7 @@ test("public GET edge read facade can reuse prewarmed KV stock data", async () =
 test("KV cache covers stock detail page RPCs beyond the summary endpoint", async () => {
   const originalFetch = globalThis.fetch;
   const originalCaches = globalThis.caches;
-  const body = JSON.stringify({ product_code: "BHP", period: "3m" });
+  const body = JSON.stringify({ product_code: "CBA", period: "3m" });
   const path = "/shorts.v1alpha1.ShortedStocksService/GetStockData";
   const key = versionedPrewarmKey(path, body, "v1");
   let originCalls = 0;
