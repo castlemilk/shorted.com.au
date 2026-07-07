@@ -117,6 +117,30 @@ test("production Cloudflare import sweep covers the app API security skip rulese
   );
 });
 
+test("production Cloudflare import sweep skips already-managed addresses without importing", () => {
+  assert.match(
+    prodImportCloudflareSh,
+    /terraform state show -no-color "\$addr" >\/dev\/null 2>&1/,
+  );
+  assert.doesNotMatch(
+    prodImportCloudflareSh,
+    /terraform state list 2>\/dev\/null \| grep -Fxq "\$addr"/,
+  );
+});
+
+test("production Cloudflare DNS imports use provider v5 zone and record IDs", () => {
+  const dnsImports = prodImportCloudflareSh.match(
+    /tf_import 'module\.edge\.cloudflare_dns_record\.[^']+'[^\n]+/g,
+  ) ?? [];
+
+  assert.equal(dnsImports.length, 3);
+
+  for (const line of dnsImports) {
+    assert.match(line, /"\$\{ZONE_ID\}\/[0-9a-f]{32}"/);
+    assert.doesNotMatch(line, /zones\/\$\{ZONE_ID\}\/dns_records/);
+  }
+});
+
 test("Cloudflare static asset cache rules do not cache non-2xx responses", () => {
   const cachedAssetRules = [
     "Cache Next.js static assets (JS/CSS/WASM) at edge",
