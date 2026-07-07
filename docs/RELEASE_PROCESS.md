@@ -9,7 +9,7 @@ This is the required release shape for the Shorted web app:
 3. Deploy that artifact as a production-target release candidate with `vercel deploy --prebuilt --target production --skip-domain`.
 4. Run `web/e2e/release-smoke.spec.ts` against that exact preview URL.
 5. Promote the same Vercel deployment to production only after smoke passes.
-6. Keep post-production smoke as monitoring, not as the first gate.
+6. Run post-deployment verification against production after the alias moves.
 
 ## Local Release
 
@@ -43,7 +43,59 @@ export RELEASE_MARKET_DATA_API_URL="https://market-data-...a.run.app"
 - `User-Agent: ... Shorted-E2E/1.0`
 - `X-Shorted-Testing-Bypass: <secret>`
 
+To create or rotate the bypass, apply the same generated value to Cloudflare Terraform and GitHub Actions:
+
+```bash
+export CLOUDFLARE_TESTING_BYPASS_SECRET="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
+
+cd terraform/environments/prod
+export TF_VAR_rate_limit_testing_bypass_secret="$CLOUDFLARE_TESTING_BYPASS_SECRET"
+terraform plan
+terraform apply
+
+gh secret set CLOUDFLARE_TESTING_BYPASS_SECRET \
+  --repo castlemilk/shorted.com.au \
+  --body "$CLOUDFLARE_TESTING_BYPASS_SECRET"
+```
+
 Smoke against `https://shorted.com.au` should include that secret. Without it, Cloudflare may return 403s for browser-loaded resources during Playwright runs; smoke the emitted Vercel deployment URL when the secret is not available locally.
+
+The shared Playwright config applies the same bypass automatically for all browser/API test contexts when the secret is present. The helper lives at `web/e2e/helpers/cloudflare-testing-bypass.ts` and reads, in order:
+
+- `CLOUDFLARE_TESTING_BYPASS_SECRET`
+- `SHORTED_CLOUDFLARE_TESTING_BYPASS_SECRET`
+- `TF_VAR_rate_limit_testing_bypass_secret`
+
+GitHub post-deploy curl smoke also sends `User-Agent: Mozilla/5.0 Shorted-E2E/1.0` and the secret header when the repository secret is configured.
+
+## Post-Deployment Verification
+
+The **Post-Deploy Smoke Test** workflow is the production health check after main-branch deploys, scheduled checks, and manual verification runs. It performs two layers:
+
+1. Fast curl checks for key pages and lightweight API endpoints through `https://shorted.com.au`, always with the trusted-test user-agent and secret header.
+2. The full `web/e2e/release-smoke.spec.ts` suite against `BASE_URL=https://shorted.com.au` and `RELEASE_API_BASE_URL=https://api.shorted.com.au`.
+
+The workflow must fail if `CLOUDFLARE_TESTING_BYPASS_SECRET` is missing. Browser-based production smoke goes through Cloudflare, so the secret is required to avoid false failures from bot challenges or rate limits while preserving managed WAF and app-level permissions.
+
+Run it manually after infrastructure or release-process changes:
+
+```bash
+gh workflow run post-deploy-smoke.yml --ref main
+```
+
+For local production verification, use the same command shape:
+
+```bash
+cd web
+set -a; source ../.env; set +a
+export CLOUDFLARE_TESTING_BYPASS_SECRET="${CLOUDFLARE_TESTING_BYPASS_SECRET:-$TF_VAR_rate_limit_testing_bypass_secret}"
+BASE_URL=https://shorted.com.au \
+RELEASE_API_BASE_URL=https://api.shorted.com.au \
+CLOUDFLARE_TESTING_BYPASS_SECRET="$CLOUDFLARE_TESTING_BYPASS_SECRET" \
+npx playwright test e2e/release-smoke.spec.ts --project=chromium --reporter=line
+```
+
+If production smoke sees a Cloudflare challenge despite both headers, verify the live `shorted-app-api-security-skip` ruleset in phase `http_request_firewall_custom` is not using the disabled sentinel expression `http.host eq "__shorted-testing-bypass-disabled.invalid__"`. The GitHub repository secret `CLOUDFLARE_TESTING_BYPASS_SECRET` and Terraform variable `TF_VAR_rate_limit_testing_bypass_secret` must match after any rotation. Re-check this after Terraform or Cloudflare deploys, because applying Terraform without the Terraform secret variable can restore the disabled expression.
 
 ## GitHub Release
 

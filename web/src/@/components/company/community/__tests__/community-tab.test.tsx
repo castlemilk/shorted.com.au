@@ -223,11 +223,9 @@ describe("StockTabs community integration", () => {
     await user.click(screen.getByRole("tab", { name: "Community" }));
 
     expect(global.fetch).toHaveBeenCalledWith("/api/community/BHP/threads", {
-      cache: "no-store",
       signal: expect.any(AbortSignal),
     });
     expect(global.fetch).toHaveBeenCalledWith("/api/community/BHP/pulse", {
-      cache: "no-store",
       signal: expect.any(AbortSignal),
     });
     expect(await screen.findByText("Borrow remains tight")).toBeInTheDocument();

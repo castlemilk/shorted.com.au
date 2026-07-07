@@ -113,6 +113,7 @@ func main() {
 			"X-Grpc-Web",
 			"X-User-Agent",
 			"X-User-Id",
+			"X-Internal-Secret",
 			"Authorization",
 		},
 		ExposedHeaders: []string{

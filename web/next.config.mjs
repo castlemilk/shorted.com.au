@@ -53,12 +53,6 @@ const shortsApiUrl =
     process.env.NEXT_PUBLIC_API_URL,
   ) ?? "http://localhost:9091";
 
-const chatApiUrl =
-  normalizeApiBaseUrl(process.env.NEXT_PUBLIC_CHAT_SERVICE_ENDPOINT) ??
-  (process.env.NODE_ENV === "production"
-    ? "https://api.shorted.com.au"
-    : "http://localhost:8080");
-
 const config = {
   output: "standalone", // Enable standalone mode for Docker
   poweredByHeader: false,
@@ -166,6 +160,24 @@ const config = {
         ],
       },
       {
+        source: "/geo/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, s-maxage=31536000, stale-while-revalidate=604800",
+          },
+        ],
+      },
+      {
+        source: "/housing-icons/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
         // Security headers for all routes
         source: "/:path*",
         headers: [
@@ -259,10 +271,6 @@ const config = {
       {
         source: "/api/algolia/:path*",
         destination: `${shortsApiUrl}/api/algolia/:path*`,
-      },
-      {
-        source: "/chat.v1.ChatService/:path*",
-        destination: `${chatApiUrl}/chat.v1.ChatService/:path*`,
       },
     ];
   },

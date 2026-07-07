@@ -2,7 +2,13 @@
 
 import dynamic from "next/dynamic";
 
-export const StateSuburbExplorer = dynamic(
+import type { StateSuburbExplorerProps } from "./state-suburb-explorer";
+import { StateSuburbExplorerSkeleton } from "./state-suburb-explorer-skeleton";
+
+export const StateSuburbExplorer = dynamic<StateSuburbExplorerProps>(
   () => import("./state-suburb-explorer").then((m) => m.StateSuburbExplorer),
-  { ssr: false, loading: () => <div className="h-[520px] w-full animate-pulse rounded-xl bg-muted" /> },
+  { ssr: false, loading: () => <StateSuburbExplorerSkeleton /> },
 );
+
+export type { StateSuburbExplorerProps };
+export { StateSuburbExplorerSkeleton };

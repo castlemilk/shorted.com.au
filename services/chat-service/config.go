@@ -9,8 +9,10 @@ import (
 // Config holds the service configuration.
 type Config struct {
 	Port                  int
+	Environment           string
 	DatabaseURL           string
 	ShortsAPIURL          string
+	InternalServiceSecret string
 	GeminiAPIKey          string
 	GeminiModel           string
 	GeminiMaxOutputTokens int32
@@ -24,6 +26,7 @@ type Config struct {
 func LoadConfig() (*Config, error) {
 	cfg := &Config{
 		Port:                  8080,
+		Environment:           "development",
 		GeminiModel:           "gemini-2.5-flash",
 		GeminiMaxOutputTokens: 1024,
 		ChatMaxInputChars:     2000,
@@ -38,6 +41,10 @@ func LoadConfig() (*Config, error) {
 			return nil, fmt.Errorf("invalid PORT: %w", err)
 		}
 		cfg.Port = p
+	}
+
+	if environment := os.Getenv("ENVIRONMENT"); environment != "" {
+		cfg.Environment = environment
 	}
 
 	cfg.DatabaseURL = os.Getenv("DATABASE_URL")
@@ -58,6 +65,7 @@ func LoadConfig() (*Config, error) {
 	}
 
 	cfg.GeminiAPIKey = os.Getenv("GEMINI_API_KEY")
+	cfg.InternalServiceSecret = os.Getenv("INTERNAL_SERVICE_SECRET")
 
 	if model := os.Getenv("GEMINI_MODEL"); model != "" {
 		cfg.GeminiModel = model

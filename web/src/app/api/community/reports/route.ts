@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { rateLimit } from "~/@/lib/rate-limit";
-import { createCommunityReport } from "~/@/lib/community/firestore-community";
+import { createCommunityReport } from "~/@/lib/community/community-repository";
 import { auth } from "~/server/auth";
 
 const TARGET_TYPES = new Set(["thread", "comment", "pulse", "pulse_reply"]);

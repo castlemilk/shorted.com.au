@@ -98,9 +98,13 @@ func (g *GapDetector) DetectGaps(ctx context.Context, stockCode string, minGapDa
 // DetectAllGaps finds gaps for all stocks with data
 func (g *GapDetector) DetectAllGaps(ctx context.Context, minGapDays int) (map[string][]Gap, error) {
 	// Get all stocks with price data
-	rows, err := g.db.Query(ctx, "SELECT DISTINCT stock_code FROM stock_prices")
+	rows, err := g.db.Query(ctx, stockCodesWithPriceDataQuery)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get stock list: %w", err)
+		logCoverageFallback(err)
+		rows, err = g.db.Query(ctx, stockCodesWithPriceDataFallbackQuery)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get stock list: %w", err)
+		}
 	}
 	defer rows.Close()
 
@@ -225,13 +229,13 @@ func (g *GapDetector) RepairAllGaps(ctx context.Context, stockCode string, minGa
 
 // GapReport provides a summary of data gaps
 type GapReport struct {
-	StockCode     string    `json:"stock_code"`
-	TotalGaps     int       `json:"total_gaps"`
-	TotalMissing  int       `json:"total_missing_days"`
-	Gaps          []GapInfo `json:"gaps"`
-	EarliestData  string    `json:"earliest_data"`
-	LatestData    string    `json:"latest_data"`
-	TotalRecords  int       `json:"total_records"`
+	StockCode    string    `json:"stock_code"`
+	TotalGaps    int       `json:"total_gaps"`
+	TotalMissing int       `json:"total_missing_days"`
+	Gaps         []GapInfo `json:"gaps"`
+	EarliestData string    `json:"earliest_data"`
+	LatestData   string    `json:"latest_data"`
+	TotalRecords int       `json:"total_records"`
 }
 
 type GapInfo struct {

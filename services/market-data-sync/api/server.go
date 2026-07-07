@@ -20,13 +20,14 @@ import (
 
 // Server provides HTTP API for market data sync
 type Server struct {
-	syncManager *msync.SyncManager
-	checkpoint  *checkpoint.Store
-	gapDetector *msync.GapDetector
-	db          *pgxpool.Pool
-	port        int
-	ready       atomic.Bool
-	httpServer  *http.Server
+	syncManager    *msync.SyncManager
+	checkpoint     *checkpoint.Store
+	gapDetector    *msync.GapDetector
+	db             *pgxpool.Pool
+	port           int
+	ready          atomic.Bool
+	syncAllRunning atomic.Bool
+	httpServer     *http.Server
 }
 
 // NewServer creates a new API server. Call Start() to begin serving health
@@ -108,6 +109,14 @@ func (s *Server) requireReady(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func (s *Server) beginSyncAll() bool {
+	return s.syncAllRunning.CompareAndSwap(false, true)
+}
+
+func (s *Server) finishSyncAll() {
+	s.syncAllRunning.Store(false)
+}
+
 // corsMiddleware adds CORS headers
 func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -162,12 +171,12 @@ type SyncStockRequest struct {
 
 // SyncStockResponse represents the response from syncing a stock
 type SyncStockResponse struct {
-	RunID      string    `json:"run_id"`
-	Symbol     string    `json:"symbol"`
-	Status     string    `json:"status"`
-	RecordsAdded int     `json:"records_added,omitempty"`
-	Error      string    `json:"error,omitempty"`
-	StartedAt  time.Time `json:"started_at"`
+	RunID        string    `json:"run_id"`
+	Symbol       string    `json:"symbol"`
+	Status       string    `json:"status"`
+	RecordsAdded int       `json:"records_added,omitempty"`
+	Error        string    `json:"error,omitempty"`
+	StartedAt    time.Time `json:"started_at"`
 }
 
 // handleSyncStock handles POST /api/sync/stock/{symbol}
@@ -203,18 +212,18 @@ func (s *Server) handleSyncStock(w http.ResponseWriter, r *http.Request) {
 
 	// Sync the stock
 	recordsAdded, err := s.syncManager.SyncStock(r.Context(), symbol)
-	
+
 	response := SyncStockResponse{
-		RunID:      runID,
-		Symbol:     symbol,
-		StartedAt:  time.Now(),
+		RunID:     runID,
+		Symbol:    symbol,
+		StartedAt: time.Now(),
 	}
 
 	if err != nil {
 		log.Printf("❌ Failed to sync %s: %v", symbol, err)
 		response.Status = "failed"
 		response.Error = err.Error()
-		
+
 		// Update checkpoint
 		if updateErr := s.checkpoint.UpdateProgress(r.Context(), runID, 1, 0, 1, 0, 0); updateErr != nil {
 			log.Printf("⚠️ Failed to update checkpoint: %v", updateErr)
@@ -232,7 +241,7 @@ func (s *Server) handleSyncStock(w http.ResponseWriter, r *http.Request) {
 	// Success
 	response.Status = "success"
 	response.RecordsAdded = recordsAdded
-	
+
 	// Update checkpoint
 	if err := s.checkpoint.UpdateProgress(r.Context(), runID, 1, 1, 0, 0, 0); err != nil {
 		log.Printf("⚠️ Failed to update checkpoint: %v", err)
@@ -325,8 +334,19 @@ func (s *Server) handleSyncAll(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("📥 Received full sync request")
 
+	if !s.beginSyncAll() {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusConflict)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":  "already_running",
+			"message": "Full sync is already running",
+		})
+		return
+	}
+
 	// Run sync in background goroutine
 	go func() {
+		defer s.finishSyncAll()
 		ctx := context.Background()
 		if err := s.syncManager.Run(ctx); err != nil {
 			log.Printf("❌ Full sync failed: %v", err)
@@ -434,9 +454,9 @@ func (s *Server) handleRepairGaps(w http.ResponseWriter, r *http.Request) {
 
 	if len(gaps) == 0 {
 		response := map[string]interface{}{
-			"stock_code":      symbol,
-			"status":          "no_gaps",
-			"message":         "No gaps found to repair",
+			"stock_code":       symbol,
+			"status":           "no_gaps",
+			"message":          "No gaps found to repair",
 			"records_repaired": 0,
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -540,10 +560,10 @@ func (s *Server) handleDetectAllGaps(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := map[string]interface{}{
-		"min_gap_days":      minGapDays,
-		"stocks_with_gaps":  len(allGaps),
-		"total_gaps":        totalGaps,
-		"gaps_by_stock":     allGaps,
+		"min_gap_days":     minGapDays,
+		"stocks_with_gaps": len(allGaps),
+		"total_gaps":       totalGaps,
+		"gaps_by_stock":    allGaps,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

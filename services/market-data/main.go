@@ -9,6 +9,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"connectrpc.com/connect"
@@ -26,6 +27,41 @@ import (
 
 type MarketDataService struct {
 	db *pgxpool.Pool
+}
+
+func applyMarketDataPoolConfig(config *pgxpool.Config) {
+	maxConns := envInt("MARKET_DATA_DB_MAX_CONNS", 3)
+	if maxConns < 1 {
+		maxConns = 3
+	}
+
+	minConns := envInt("MARKET_DATA_DB_MIN_CONNS", 0)
+	if minConns < 0 {
+		minConns = 0
+	}
+	if minConns > maxConns {
+		minConns = maxConns
+	}
+
+	config.MaxConns = int32(maxConns)
+	config.MinConns = int32(minConns)
+	config.MaxConnLifetime = 30 * time.Minute
+	config.MaxConnIdleTime = 5 * time.Minute
+	config.HealthCheckPeriod = 1 * time.Minute
+	config.ConnConfig.ConnectTimeout = 10 * time.Second
+	config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+}
+
+func envInt(key string, defaultValue int) int {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return defaultValue
+	}
+	return parsed
 }
 
 // withCORS adds CORS support to a Connect HTTP handler.
@@ -574,17 +610,7 @@ func main() {
 	var pool *pgxpool.Pool
 
 	if config != nil {
-		// Configure connection pool settings
-		config.MaxConns = 10
-		config.MinConns = 2
-		config.MaxConnLifetime = 30 * time.Minute
-		config.MaxConnIdleTime = 5 * time.Minute
-		config.HealthCheckPeriod = 1 * time.Minute
-		config.ConnConfig.ConnectTimeout = 10 * time.Second // Increased timeout
-
-		// CRITICAL: Disable prepared statements for Supabase transaction pooler (port 6543)
-		// This prevents "prepared statement already exists" errors
-		config.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+		applyMarketDataPoolConfig(config)
 
 		// Add OTel tracing to pgx queries
 		config.ConnConfig.Tracer = otelpgx.NewTracer(

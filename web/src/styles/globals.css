@@ -1,6 +1,7 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+@source "../../node_modules/streamdown/dist/*.js";
 /* Font is loaded via Next.js font optimization - no need for CSS import */
 
 @layer base {

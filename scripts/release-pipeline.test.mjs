@@ -56,6 +56,26 @@ test("GitHub release workflow gates production promotion on preview smoke", () =
   assert.match(workflow, /CLOUDFLARE_TESTING_BYPASS_SECRET/);
 });
 
+test("post-deploy smoke uses trusted-test headers and full production release smoke", () => {
+  const workflow = read(".github/workflows/post-deploy-smoke.yml");
+
+  assert.match(workflow, /CLOUDFLARE_TESTING_BYPASS_SECRET/);
+  assert.match(workflow, /Shorted-E2E\/1\.0/);
+  assert.match(workflow, /X-Shorted-Testing-Bypass/);
+  assert.match(workflow, /CURL_ARGS/);
+  assert.match(workflow, /\[\s*"\$status"\s*-ge 400\s*\]/);
+  assert.doesNotMatch(workflow, /\[\s*"\$status"\s*-ge 500\s*\]/);
+  assert.match(workflow, /actions\/checkout@v4/);
+  assert.match(workflow, /node-version:\s*"24"/);
+  assert.match(workflow, /npm ci/);
+  assert.match(workflow, /npx playwright install --with-deps chromium/);
+  assert.match(workflow, /BASE_URL:\s*https:\/\/shorted\.com\.au/);
+  assert.match(workflow, /RELEASE_API_BASE_URL:\s*https:\/\/api\.shorted\.com\.au/);
+  assert.match(workflow, /npx playwright test e2e\/release-smoke\.spec\.ts --project=chromium --reporter=line/);
+  assert.match(workflow, /CLOUDFLARE_TESTING_BYPASS_SECRET is required/);
+  assert.match(workflow, /post-deploy-smoke-playwright-report/);
+});
+
 test("legacy terraform production web deploy also smokes a preview before promotion", () => {
   const workflow = read(".github/workflows/terraform-deploy.yml");
   const prodJobStart = workflow.indexOf("deploy-vercel-prod:");
@@ -83,6 +103,7 @@ test("legacy terraform production web deploy also smokes a preview before promot
 
 test("release smoke covers prior regression surfaces and Cloudflare API checks", () => {
   const spec = read("web/e2e/release-smoke.spec.ts");
+  const helper = read("web/e2e/helpers/cloudflare-testing-bypass.ts");
 
   for (const path of [
     "/shorts/LOT",
@@ -98,8 +119,7 @@ test("release smoke covers prior regression surfaces and Cloudflare API checks",
   }
 
   assert.match(spec, /api\.shorted\.com\.au/);
-  assert.match(spec, /X-Shorted-Testing-Bypass/);
-  assert.match(spec, /Shorted-E2E\/1\.0/);
+  assert.match(spec, /cloudflareTestingBypassHeaders/);
   assert.match(spec, /setExtraHTTPHeaders\(releaseHeaders\(\)\)/);
   assert.match(spec, /Element type is invalid/);
   assert.match(spec, /Page changed from static to dynamic/);
@@ -108,4 +128,27 @@ test("release smoke covers prior regression surfaces and Cloudflare API checks",
   assert.match(spec, /GetTopShorts/);
   assert.match(spec, /cloudflareinsights\.com/);
   assert.match(spec, /isIgnorableConsoleError/);
+
+  assert.match(helper, /X-Shorted-Testing-Bypass/);
+  assert.match(helper, /Shorted-E2E\/1\.0/);
+});
+
+test("Playwright config applies Cloudflare trusted-test headers across browser projects", () => {
+  const config = read("web/playwright.config.ts");
+  const helper = read("web/e2e/helpers/cloudflare-testing-bypass.ts");
+
+  assert.match(config, /cloudflareTestingBypassHeaders/);
+  assert.match(config, /withCloudflareTestingUserAgent/);
+  assert.match(config, /extraHTTPHeaders:\s*baseExtraHTTPHeaders/);
+  assert.match(config, /deviceUse\(devices\["Desktop Chrome"\]\)/);
+  assert.match(config, /deviceUse\(devices\["Desktop Firefox"\]\)/);
+  assert.match(config, /deviceUse\(devices\["Desktop Safari"\]\)/);
+  assert.match(config, /deviceUse\(devices\["Pixel 5"\]\)/);
+  assert.match(config, /deviceUse\(devices\["iPhone 12"\]\)/);
+
+  assert.match(helper, /CLOUDFLARE_TESTING_BYPASS_SECRET/);
+  assert.match(helper, /SHORTED_CLOUDFLARE_TESTING_BYPASS_SECRET/);
+  assert.match(helper, /TF_VAR_rate_limit_testing_bypass_secret/);
+  assert.match(helper, /X-Shorted-Testing-Bypass/);
+  assert.match(helper, /Shorted-E2E\/1\.0/);
 });

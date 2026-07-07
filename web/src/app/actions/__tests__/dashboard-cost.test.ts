@@ -1,10 +1,15 @@
-import { saveDashboard } from "../dashboard";
+import {
+  getUserDashboards,
+  saveDashboard,
+  setDefaultDashboard,
+} from "../dashboard";
 import { auth } from "@/auth";
 import { adminDb } from "@/lib/firebase-admin";
 import { WidgetType, type DashboardConfig } from "~/@/types/dashboard";
 
 jest.mock("@/lib/firebase-admin", () => ({
   adminDb: {
+    batch: jest.fn(),
     collection: jest.fn(),
   },
 }));
@@ -60,5 +65,47 @@ describe("dashboard cost controls", () => {
     expect(result).toEqual({ success: true, id: "dashboard-1" });
     expect(set).toHaveBeenCalledTimes(1);
     expect(get).not.toHaveBeenCalled();
+  });
+
+  it("bounds dashboard list reads", async () => {
+    const get = jest.fn().mockResolvedValue({
+      forEach: jest.fn(),
+    });
+    const limit = jest.fn(() => ({ get }));
+    const where = jest.fn(() => ({ limit }));
+    (adminDb.collection as jest.Mock).mockReturnValue({ where });
+    (auth as jest.Mock).mockResolvedValue({ user: { id: "user-123" } });
+
+    await getUserDashboards();
+
+    expect(where).toHaveBeenCalledWith("userId", "==", "user-123");
+    expect(limit).toHaveBeenCalledWith(50);
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+
+  it("bounds default-dashboard scans before batch updates", async () => {
+    const get = jest.fn().mockResolvedValue({
+      forEach: jest.fn(),
+    });
+    const limit = jest.fn(() => ({ get }));
+    const whereDefault = jest.fn(() => ({ limit }));
+    const whereUser = jest.fn(() => ({ where: whereDefault }));
+    const doc = jest.fn(() => ({ id: "dashboard-1" }));
+    const update = jest.fn();
+    const commit = jest.fn().mockResolvedValue(undefined);
+    (adminDb.collection as jest.Mock).mockReturnValue({
+      doc,
+      where: whereUser,
+    });
+    (adminDb.batch as jest.Mock).mockReturnValue({ commit, update });
+    (auth as jest.Mock).mockResolvedValue({ user: { id: "user-123" } });
+
+    const result = await setDefaultDashboard("dashboard-1");
+
+    expect(result).toEqual({ success: true });
+    expect(whereUser).toHaveBeenCalledWith("userId", "==", "user-123");
+    expect(whereDefault).toHaveBeenCalledWith("isDefault", "==", true);
+    expect(limit).toHaveBeenCalledWith(20);
+    expect(commit).toHaveBeenCalledTimes(1);
   });
 });

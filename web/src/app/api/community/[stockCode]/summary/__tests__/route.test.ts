@@ -3,7 +3,7 @@ import { GET } from "../route";
 import { getCachedStockCommunitySummary } from "~/@/lib/community/community-summary-cache";
 
 jest.mock("~/@/lib/community/community-summary-cache", () => ({
-  COMMUNITY_SUMMARY_CACHE_SECONDS: 120,
+  COMMUNITY_SUMMARY_CACHE_SECONDS: 300,
   getCachedStockCommunitySummary: jest.fn(),
 }));
 

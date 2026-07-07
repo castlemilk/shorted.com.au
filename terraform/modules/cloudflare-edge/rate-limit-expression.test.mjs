@@ -40,7 +40,8 @@ test("strict Cloudflare rate limit only targets the API hostname", () => {
 test("Cloudflare testing bypass requires both a test user-agent and secret header", () => {
   const localsBlock = mainTf.match(/locals \{[\s\S]*?\n\}/)?.[0] ?? "";
 
-  assert.match(localsBlock, /api_rate_limit_expression\s+=\s+"\$\{local\.api_rate_limit_host_expression\} and not \$\{local\.testing_bypass_expression\}"/);
+  assert.match(localsBlock, /api_rate_limit_expression\s+=\s+local\.api_rate_limit_host_expression/);
+  assert.doesNotMatch(localsBlock, /api_rate_limit_expression\s+=\s+"\$\{local\.api_rate_limit_host_expression\} and not \$\{local\.testing_bypass_expression\}"/);
   assert.doesNotMatch(localsBlock, /rate_limit_testing_bypass_clause/);
   assert.match(mainTf, /testing_bypass_expression/);
   assert.match(mainTf, /var\.rate_limit_testing_bypass_secret != ""/);
@@ -79,6 +80,7 @@ test("frontend and API app endpoints skip bot/browser challenges without broad W
   assert.match(skipRuleset, /phase\s+=\s+"http_request_firewall_custom"/);
   assert.match(skipRuleset, /action\s+=\s+"skip"/);
   assert.match(skipRuleset, /phases\s+=\s+\["http_request_sbfm"\]/);
+  assert.match(skipRuleset, /phases\s+=\s+\["http_request_sbfm", "http_ratelimit"\]/);
   assert.match(skipRuleset, /products\s+=\s+\["bic", "securityLevel"\]/);
   assert.match(skipRuleset, /local\.testing_bypass_expression/);
   assert.match(skipRuleset, /Allow trusted E2E\/load-test traffic/);
@@ -94,7 +96,6 @@ test("frontend and API app endpoints skip bot/browser challenges without broad W
   assert.match(skipRuleset, /\/api\/market-data\//);
   assert.match(skipRuleset, /\/api\/community\//);
 
-  assert.doesNotMatch(skipRuleset, /http_ratelimit/);
   assert.doesNotMatch(skipRuleset, /http_request_firewall_managed/);
   assert.doesNotMatch(skipRuleset, /"waf"/);
   assert.doesNotMatch(skipRuleset, /"rateLimit"/);

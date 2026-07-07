@@ -21,7 +21,11 @@ const fmtCompact = (v: number) =>
 
 type SortKey = "price" | "name" | "population";
 
-export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
+export type StateSuburbExplorerProps = {
+  stateCode: string;
+};
+
+export function StateSuburbExplorer({ stateCode }: StateSuburbExplorerProps) {
   const router = useRouter();
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["state-suburbs", stateCode],
@@ -188,7 +192,7 @@ export function StateSuburbExplorer({ stateCode }: { stateCode: string }) {
         </div>
 
         {/* right: map */}
-        <div className="flex flex-col rounded-xl border border-border bg-card p-3 sm:p-5">
+        <div className="flex min-h-[560px] flex-col rounded-xl border border-border bg-card p-3 sm:p-5">
           <StateSuburbMap
             stateCode={stateCode}
             suburbs={suburbs}

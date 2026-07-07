@@ -15,14 +15,14 @@ import (
 )
 
 type StockGapSummary struct {
-	StockCode      string
-	TotalRecords   int
-	EarliestDate   time.Time
-	LatestDate     time.Time
-	DataSpanDays   int
-	GapCount       int
-	TotalGapDays   int
-	Gaps           []GapInfo
+	StockCode    string
+	TotalRecords int
+	EarliestDate time.Time
+	LatestDate   time.Time
+	DataSpanDays int
+	GapCount     int
+	TotalGapDays int
+	Gaps         []GapInfo
 }
 
 type GapInfo struct {
@@ -53,12 +53,21 @@ func main() {
 	log.Printf("✅ Connected to database")
 	log.Printf("📊 Auditing all stocks for gaps (minGapDays=%d, expectedYears=%d)...", *minGapDays, *years)
 
-	// Get all stocks
+	// Get all stocks. Prefer mv_stock_price_coverage when the migration has
+	// landed; fall back for older/local databases.
 	rows, err := pool.Query(ctx, `
-		SELECT DISTINCT stock_code 
-		FROM stock_prices 
+		SELECT stock_code
+		FROM mv_stock_price_coverage
 		ORDER BY stock_code
 	`)
+	if err != nil {
+		log.Printf("⚠️ mv_stock_price_coverage unavailable (%v); falling back to stock_prices scan", err)
+		rows, err = pool.Query(ctx, `
+			SELECT DISTINCT stock_code
+			FROM stock_prices
+			ORDER BY stock_code
+		`)
+	}
 	if err != nil {
 		log.Fatalf("❌ Failed to get stock list: %v", err)
 	}
@@ -105,19 +114,19 @@ func main() {
 	})
 
 	// Print summary
-	log.Printf("\n" + strings.Repeat("=", 80))
+	log.Print("\n" + strings.Repeat("=", 80))
 	log.Printf("📊 AUDIT SUMMARY")
-	log.Printf(strings.Repeat("=", 80))
+	log.Print(strings.Repeat("=", 80))
 	log.Printf("Total stocks audited: %d", len(stocks))
 	log.Printf("Stocks with gaps: %d (%.1f%%)", totalStocksWithGaps, float64(totalStocksWithGaps)/float64(len(stocks))*100)
 	log.Printf("Total gaps found: %d", totalGaps)
 	log.Printf("Total missing days: %d", totalGapDays)
-	log.Printf(strings.Repeat("=", 80))
+	log.Print(strings.Repeat("=", 80))
 
 	// Show stocks with gaps
 	if totalStocksWithGaps > 0 {
 		log.Printf("\n📋 STOCKS WITH GAPS (showing top 20):")
-		log.Printf(strings.Repeat("-", 80))
+		log.Print(strings.Repeat("-", 80))
 		shown := 0
 		for _, s := range summaries {
 			if s.GapCount > 0 && shown < 20 {

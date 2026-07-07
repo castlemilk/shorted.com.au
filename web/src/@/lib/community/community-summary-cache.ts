@@ -1,7 +1,7 @@
 import { unstable_cache } from "next/cache";
-import { getStockCommunitySummary } from "./firestore-community";
+import { getStockCommunitySummary } from "./community-repository";
 
-export const COMMUNITY_SUMMARY_CACHE_SECONDS = 120;
+export const COMMUNITY_SUMMARY_CACHE_SECONDS = 300;
 
 export function communitySummaryCacheTag(stockCode: string) {
   return `community-summary:${stockCode.toUpperCase()}`;

@@ -38,6 +38,12 @@ variable "gemini_secret_exists" {
   default     = false
 }
 
+variable "gemini_secret_name" {
+  description = "Secret Manager secret name containing this job's Gemini API key"
+  type        = string
+  default     = "GEMINI_API_KEY"
+}
+
 variable "email_img_secret_exists" {
   description = "Whether the EMAIL_IMG_SECRET secret exists in Secret Manager (HMAC key for signing digest thumbnail proxy URLs)"
   type        = bool

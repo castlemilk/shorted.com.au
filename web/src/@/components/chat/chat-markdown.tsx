@@ -1,7 +1,6 @@
 "use client";
 
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { MessageResponse } from "~/@/components/ai-elements/message";
 
 interface ChatMarkdownProps {
   content: string;
@@ -9,108 +8,24 @@ interface ChatMarkdownProps {
 
 export function ChatMarkdown({ content }: ChatMarkdownProps) {
   return (
-    <div className="prose prose-sm dark:prose-invert max-w-none break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      components={{
-        table: ({ children, ...props }) => (
-          <div className="overflow-x-auto my-2">
-            <table
-              className="min-w-full text-xs border-collapse"
-              {...props}
-            >
-              {children}
-            </table>
-          </div>
-        ),
-        th: ({ children, ...props }) => (
-          <th
-            className="border border-border px-2 py-1 bg-muted font-medium text-left"
-            {...props}
-          >
-            {children}
-          </th>
-        ),
-        td: ({ children, ...props }) => (
-          <td className="border border-border px-2 py-1" {...props}>
-            {children}
-          </td>
-        ),
-        a: ({ children, href, ...props }) => (
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary underline underline-offset-2"
-            {...props}
-          >
-            {children}
-          </a>
-        ),
-        code: ({ children, className, ...props }) => {
-          const isInline = !className;
-          if (isInline) {
-            return (
-              <code
-                className="bg-muted rounded px-1 py-0.5 text-xs font-mono"
-                {...props}
-              >
-                {children}
-              </code>
-            );
-          }
-          return (
-            <code
-              className="block bg-muted rounded p-2 text-xs font-mono overflow-x-auto"
-              {...props}
-            >
-              {children}
-            </code>
-          );
-        },
-        ul: ({ children, ...props }) => (
-          <ul className="list-disc pl-4 my-1 space-y-0.5" {...props}>
-            {children}
-          </ul>
-        ),
-        ol: ({ children, ...props }) => (
-          <ol className="list-decimal pl-4 my-1 space-y-0.5" {...props}>
-            {children}
-          </ol>
-        ),
-        p: ({ children, ...props }) => (
-          <p className="my-1.5 leading-relaxed" {...props}>
-            {children}
-          </p>
-        ),
-        h1: ({ children, ...props }) => (
-          <h1 className="text-base font-bold mt-3 mb-1" {...props}>
-            {children}
-          </h1>
-        ),
-        h2: ({ children, ...props }) => (
-          <h2 className="text-sm font-bold mt-2.5 mb-1" {...props}>
-            {children}
-          </h2>
-        ),
-        h3: ({ children, ...props }) => (
-          <h3 className="text-sm font-semibold mt-2 mb-0.5" {...props}>
-            {children}
-          </h3>
-        ),
-        blockquote: ({ children, ...props }) => (
-          <blockquote
-            className="border-l-2 border-border pl-3 my-2 text-muted-foreground italic"
-            {...props}
-          >
-            {children}
-          </blockquote>
-        ),
-        hr: (props) => <hr className="my-3 border-border" {...props} />,
-      }}
+    <MessageResponse
+      className="prose prose-sm dark:prose-invert max-w-none break-words
+        [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-2
+        [&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground
+        [&_code]:rounded [&_code]:bg-background/70 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs
+        [&_h1]:mb-1 [&_h1]:mt-3 [&_h1]:text-base [&_h1]:font-bold
+        [&_h2]:mb-1 [&_h2]:mt-2.5 [&_h2]:text-sm [&_h2]:font-bold
+        [&_h3]:mb-0.5 [&_h3]:mt-2 [&_h3]:text-sm [&_h3]:font-semibold
+        [&_hr]:my-3 [&_hr]:border-border
+        [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:space-y-0.5 [&_ol]:pl-4
+        [&_p]:my-1.5 [&_p]:leading-relaxed
+        [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-background/70 [&_pre]:p-2
+        [&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_table]:text-xs
+        [&_td]:border [&_td]:border-border [&_td]:px-2 [&_td]:py-1
+        [&_th]:border [&_th]:border-border [&_th]:bg-background/70 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-medium
+        [&_ul]:my-1 [&_ul]:list-disc [&_ul]:space-y-0.5 [&_ul]:pl-4"
     >
       {content}
-    </ReactMarkdown>
-    </div>
+    </MessageResponse>
   );
 }

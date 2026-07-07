@@ -246,7 +246,7 @@ describe("firestore-community repository", () => {
 
     const threads = await listCommunityThreads("BHP");
 
-    expect(threadsQuery.limit).toHaveBeenCalledWith(50);
+    expect(threadsQuery.limit).toHaveBeenCalledWith(25);
     expect(threads[0]?.id).toBe("supported");
     expect(threads).toHaveLength(2);
   });
@@ -304,7 +304,7 @@ describe("firestore-community repository", () => {
     const pulse = await listCommunityPulseItems("BHP");
 
     expect(pulseQuery.orderBy).toHaveBeenCalledWith("createdAt", "desc");
-    expect(pulseQuery.limit).toHaveBeenCalledWith(50);
+    expect(pulseQuery.limit).toHaveBeenCalledWith(25);
     expect(pulse[0]?.id).toBe("newer");
     expect(pulse).toHaveLength(2);
   });
@@ -333,9 +333,9 @@ describe("firestore-community repository", () => {
     await listCommunityPulseReplies("BHP", "pulse-1");
 
     expect(commentsQuery.orderBy).toHaveBeenCalledWith("createdAt", "asc");
-    expect(commentsQuery.limit).toHaveBeenCalledWith(100);
+    expect(commentsQuery.limit).toHaveBeenCalledWith(50);
     expect(pulseRepliesQuery.orderBy).toHaveBeenCalledWith("createdAt", "asc");
-    expect(pulseRepliesQuery.limit).toHaveBeenCalledWith(100);
+    expect(pulseRepliesQuery.limit).toHaveBeenCalledWith(50);
   });
 
   it("upserts community votes by deterministic id instead of adding unbounded documents", async () => {

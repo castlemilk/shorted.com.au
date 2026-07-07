@@ -34,7 +34,14 @@ resource "google_secret_manager_secret_iam_member" "postgres_password" {
 
 # Grant access to Gemini API key
 resource "google_secret_manager_secret_iam_member" "gemini_api_key" {
-  secret_id = "GEMINI_API_KEY"
+  secret_id = var.gemini_secret_name
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.chat_service.email}"
+  project   = var.project_id
+}
+
+resource "google_secret_manager_secret_iam_member" "internal_service_secret" {
+  secret_id = var.internal_service_secret_name
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.chat_service.email}"
   project   = var.project_id
@@ -101,7 +108,17 @@ resource "google_cloud_run_v2_service" "chat_service" {
         name = "GEMINI_API_KEY"
         value_source {
           secret_key_ref {
-            secret  = "GEMINI_API_KEY"
+            secret  = var.gemini_secret_name
+            version = "latest"
+          }
+        }
+      }
+
+      env {
+        name = "INTERNAL_SERVICE_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = var.internal_service_secret_name
             version = "latest"
           }
         }
@@ -200,6 +217,7 @@ resource "google_cloud_run_v2_service" "chat_service" {
   depends_on = [
     google_secret_manager_secret_iam_member.postgres_password,
     google_secret_manager_secret_iam_member.gemini_api_key,
+    google_secret_manager_secret_iam_member.internal_service_secret,
     google_secret_manager_secret_iam_member.otel_headers
   ]
 }

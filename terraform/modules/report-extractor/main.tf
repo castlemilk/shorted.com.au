@@ -45,7 +45,7 @@ resource "google_secret_manager_secret_iam_member" "otel_headers" {
 # Optional — only when the GEMINI_API_KEY secret exists in this project.
 resource "google_secret_manager_secret_iam_member" "gemini_api_key" {
   count     = var.gemini_secret_exists ? 1 : 0
-  secret_id = "GEMINI_API_KEY"
+  secret_id = var.gemini_secret_name
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.report_extractor.email}"
   project   = var.project_id
@@ -77,13 +77,13 @@ resource "google_cloud_run_v2_job" "director_trade_extractor" {
     task_count = 1
     template {
       service_account = google_service_account.report_extractor.email
-      max_retries     = 2
+      max_retries     = 0
       timeout         = "3600s"
 
       containers {
         image   = var.image_url
         command = ["python", "extract_director_trades.py"]
-        args    = ["--priority", "recent", "--limit", tostring(var.director_limit), "--workers", "6"]
+        args    = ["--priority", "recent", "--limit", tostring(var.director_limit), "--workers", "2"]
 
         env {
           name  = "ENVIRONMENT"
@@ -104,11 +104,19 @@ resource "google_cloud_run_v2_job" "director_trade_extractor" {
             name = "GEMINI_API_KEY"
             value_source {
               secret_key_ref {
-                secret  = "GEMINI_API_KEY"
+                secret  = var.gemini_secret_name
                 version = "latest"
               }
             }
           }
+        }
+        env {
+          name  = "GEMINI_MAX_RUN_ITEMS"
+          value = tostring(var.director_limit)
+        }
+        env {
+          name  = "GEMINI_MAX_RUN_WORKERS"
+          value = "2"
         }
         env {
           name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
@@ -156,13 +164,13 @@ resource "google_cloud_run_v2_job" "financial_report_extractor" {
     task_count = 1
     template {
       service_account = google_service_account.report_extractor.email
-      max_retries     = 2
+      max_retries     = 0
       timeout         = "3600s"
 
       containers {
         image   = var.image_url
         command = ["python", "extract_reports_concurrent.py"]
-        args    = ["--recent", "2", "--limit", tostring(var.reports_limit), "--workers", "8", "--top-shorted-first"]
+        args    = ["--recent", "2", "--limit", tostring(var.reports_limit), "--workers", "2", "--max-pages", "6", "--top-shorted-first"]
 
         env {
           name  = "ENVIRONMENT"
@@ -183,7 +191,7 @@ resource "google_cloud_run_v2_job" "financial_report_extractor" {
             name = "GEMINI_API_KEY"
             value_source {
               secret_key_ref {
-                secret  = "GEMINI_API_KEY"
+                secret  = var.gemini_secret_name
                 version = "latest"
               }
             }
@@ -196,11 +204,19 @@ resource "google_cloud_run_v2_job" "financial_report_extractor" {
             name = "LANGEXTRACT_API_KEY"
             value_source {
               secret_key_ref {
-                secret  = "GEMINI_API_KEY"
+                secret  = var.gemini_secret_name
                 version = "latest"
               }
             }
           }
+        }
+        env {
+          name  = "GEMINI_MAX_RUN_ITEMS"
+          value = tostring(var.reports_limit)
+        }
+        env {
+          name  = "GEMINI_MAX_RUN_WORKERS"
+          value = "2"
         }
         env {
           name  = "GCS_REPORTS_BUCKET"
@@ -277,7 +293,7 @@ resource "google_cloud_scheduler_job" "director_trade_extractor" {
   project          = var.project_id
 
   retry_config {
-    retry_count          = 1
+    retry_count          = 0
     min_backoff_duration = "30s"
     max_backoff_duration = "1800s"
   }
@@ -304,7 +320,7 @@ resource "google_cloud_scheduler_job" "financial_report_extractor" {
   project          = var.project_id
 
   retry_config {
-    retry_count          = 1
+    retry_count          = 0
     min_backoff_duration = "30s"
     max_backoff_duration = "1800s"
   }

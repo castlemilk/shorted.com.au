@@ -178,6 +178,12 @@ func (m *SyncManager) Run(ctx context.Context) error {
 		log.Printf("⚠️ Failed to update prices count: %v", err)
 	}
 
+	if pricesUpdated > 0 {
+		if err := m.refreshStockPriceCoverage(ctx); err != nil {
+			log.Printf("⚠️ Failed to refresh stock price coverage view: %v", err)
+		}
+	}
+
 	// 4. Sync Algolia if enabled — fetch enriched metadata from DB
 	if m.config.SyncAlgolia && len(algoliaRecords) > 0 {
 		log.Printf("🔍 Enriching %d Algolia records from company-metadata...", len(algoliaRecords))
@@ -213,22 +219,16 @@ func (m *SyncManager) Run(ctx context.Context) error {
 // getLatestPriceDates returns the most recent stored date per stock_code in a
 // single GROUP BY query, replacing the per-stock SELECT MAX(date) N+1.
 func (m *SyncManager) getLatestPriceDates(ctx context.Context) (map[string]time.Time, error) {
-	rows, err := m.db.Query(ctx, "SELECT stock_code, MAX(date) FROM stock_prices GROUP BY stock_code")
+	rows, err := m.db.Query(ctx, latestPriceDatesQuery)
 	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	result := make(map[string]time.Time, 4096)
-	for rows.Next() {
-		var code string
-		var d time.Time
-		if err := rows.Scan(&code, &d); err != nil {
+		logCoverageFallback(err)
+		rows, err = m.db.Query(ctx, latestPriceDatesFallbackQuery)
+		if err != nil {
 			return nil, err
 		}
-		result[code] = d
 	}
-	return result, rows.Err()
+
+	return scanLatestPriceDates(rows)
 }
 
 // SyncStock syncs price data for a single stock, returns number of records added
@@ -375,7 +375,6 @@ func (m *SyncManager) repairGaps(ctx context.Context, symbol string, gaps []Gap)
 	return totalRepaired
 }
 
-
 // buildEnrichedAlgoliaRecords queries company-metadata to populate all enriched fields
 // for Algolia records, ensuring the Go syncer produces the same rich data as the TS sync script.
 func (m *SyncManager) buildEnrichedAlgoliaRecords(ctx context.Context, basicRecords []algolia.StockRecord) ([]algolia.StockRecord, error) {
@@ -426,13 +425,13 @@ func (m *SyncManager) buildEnrichedAlgoliaRecords(ctx context.Context, basicReco
 	enriched := make(map[string]algolia.StockRecord, len(codes))
 	for rows.Next() {
 		var (
-			stockCode, companyName, industry, summary, details        string
-			enhancedSummary, companyHistory, competitiveAdvantages    string
-			riskFactors, recentDevelopments                           string
-			logoGCSURL, website, address, marketCap                   string
-			percentageShorted                                         float64
-			tags                                                      []string
-			keyPeopleJSON, keyMetricsJSON                             []byte
+			stockCode, companyName, industry, summary, details     string
+			enhancedSummary, companyHistory, competitiveAdvantages string
+			riskFactors, recentDevelopments                        string
+			logoGCSURL, website, address, marketCap                string
+			percentageShorted                                      float64
+			tags                                                   []string
+			keyPeopleJSON, keyMetricsJSON                          []byte
 		)
 
 		if err := rows.Scan(

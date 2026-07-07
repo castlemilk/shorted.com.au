@@ -1,14 +1,24 @@
 import { NextRequest } from "next/server";
 import { GET, POST } from "../route";
+import { createCommunityPulseItem } from "~/@/lib/community/community-repository";
 import {
-  createCommunityPulseItem,
-  listCommunityPulseItems,
-} from "~/@/lib/community/firestore-community";
+  getCachedCommunityPulseItems,
+  revalidateCommunityCacheTags,
+} from "~/@/lib/community/community-activity-cache";
 import { auth } from "~/server/auth";
 
-jest.mock("~/@/lib/community/firestore-community", () => ({
-  listCommunityPulseItems: jest.fn(),
+jest.mock("~/@/lib/community/community-repository", () => ({
   createCommunityPulseItem: jest.fn(),
+}));
+
+jest.mock("~/@/lib/community/community-activity-cache", () => ({
+  COMMUNITY_PUBLIC_READ_CACHE_CONTROL:
+    "public, s-maxage=60, stale-while-revalidate=300",
+  communityPulseCacheTag: jest.fn(
+    (stockCode: string) => `community-pulse:${stockCode.toUpperCase()}`,
+  ),
+  getCachedCommunityPulseItems: jest.fn(),
+  revalidateCommunityCacheTags: jest.fn(),
 }));
 
 jest.mock("~/server/auth", () => ({
@@ -21,7 +31,7 @@ describe("/api/community/[stockCode]/pulse", () => {
   });
 
   it("returns the public pulse payload", async () => {
-    (listCommunityPulseItems as jest.Mock).mockResolvedValue([
+    (getCachedCommunityPulseItems as jest.Mock).mockResolvedValue([
       {
         id: "pulse-1",
         stockCode: "CBA",
@@ -42,6 +52,7 @@ describe("/api/community/[stockCode]/pulse", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toContain("s-maxage=60");
     expect(data.stockCode).toBe("CBA");
     expect(data.pulse).toHaveLength(1);
     expect(data.pulse[0]?.id).toBe("pulse-1");
@@ -49,7 +60,7 @@ describe("/api/community/[stockCode]/pulse", () => {
 
   it("returns an empty public pulse list when Firestore credentials are unavailable", async () => {
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
-    (listCommunityPulseItems as jest.Mock).mockRejectedValue(
+    (getCachedCommunityPulseItems as jest.Mock).mockRejectedValue(
       Object.assign(
         new Error("16 UNAUTHENTICATED: Request had invalid authentication credentials."),
         { code: 16 },
@@ -77,7 +88,7 @@ describe("/api/community/[stockCode]/pulse", () => {
 
   it("returns an empty public pulse list while Firestore indexes are unavailable", async () => {
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
-    (listCommunityPulseItems as jest.Mock).mockRejectedValue(
+    (getCachedCommunityPulseItems as jest.Mock).mockRejectedValue(
       Object.assign(
         new Error("9 FAILED_PRECONDITION: The query requires an index."),
         { code: 9 },
@@ -157,6 +168,9 @@ describe("/api/community/[stockCode]/pulse", () => {
     });
 
     expect(response.status).toBe(201);
+    expect(revalidateCommunityCacheTags).toHaveBeenCalledWith([
+      "community-pulse:CBA",
+    ]);
     expect(createCommunityPulseItem).toHaveBeenCalledWith(
       expect.objectContaining({
         stockCode: "CBA",

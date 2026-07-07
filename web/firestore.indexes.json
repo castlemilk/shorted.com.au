@@ -15,6 +15,20 @@
       ]
     },
     {
+      "collectionGroup": "dashboards",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isDefault",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "threads",
       "queryScope": "COLLECTION",
       "fields": [

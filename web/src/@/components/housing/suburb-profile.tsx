@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { fromJson, type JsonValue } from "@bufbuild/protobuf";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
   getSuburbProfileClient, listStateSuburbsClient,
 } from "~/app/actions/client/getHousingClient";
+import { GetSuburbProfileResponseSchema } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { HousingSeriesChart } from "./housing-series-chart";
 import { SuburbLocatorMap } from "./suburb-locator-map";
 import { STATE_NAMES, stateSlug, suburbHref } from "@/lib/housing/states";
@@ -23,21 +25,51 @@ function fmtPeriod(seconds?: number | bigint): string | null {
   return new Date(n * 1000).toLocaleDateString("en-AU", { month: "short", year: "numeric" });
 }
 
+type IdleWindow = Window & typeof globalThis & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout?: number }) => number;
+  cancelIdleCallback?: (id: number) => void;
+};
+
+export type SuburbProfileProps = {
+  salCode: string;
+  regionCode?: string;
+  stateCode?: string;
+  initialProfileJson?: JsonValue;
+};
+
 export function SuburbProfile({
-  salCode, regionCode, stateCode,
-}: {
-  salCode: string; regionCode?: string; stateCode?: string;
-}) {
+  salCode, regionCode, stateCode, initialProfileJson,
+}: SuburbProfileProps) {
+  const initialProfile = useMemo(
+    () => initialProfileJson ? fromJson(GetSuburbProfileResponseSchema, initialProfileJson) : undefined,
+    [initialProfileJson],
+  );
+  const initialProfileUpdatedAt = useMemo(() => initialProfile ? Date.now() : undefined, [initialProfile]);
+  const [loadNearby, setLoadNearby] = useState(false);
+
+  useEffect(() => {
+    const start = () => setLoadNearby(true);
+    const idleWindow = window as IdleWindow;
+    if (idleWindow.requestIdleCallback) {
+      const idleId = idleWindow.requestIdleCallback(start, { timeout: 2000 });
+      return () => idleWindow.cancelIdleCallback?.(idleId);
+    }
+    const timeoutId = window.setTimeout(start, 1200);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
   const { data, isLoading } = useQuery({
     queryKey: ["suburb-profile", salCode],
     queryFn: () => getSuburbProfileClient(salCode),
+    initialData: initialProfile,
+    initialDataUpdatedAt: initialProfileUpdatedAt,
     staleTime: 60 * 60 * 1000,
   });
   const st = stateCode ?? data?.summary?.stateCode ?? "";
   const { data: stateList } = useQuery({
     queryKey: ["state-suburbs", st],
     queryFn: () => listStateSuburbsClient(st, "", 5000),
-    enabled: !!st,
+    enabled: !!st && loadNearby,
     staleTime: 60 * 60 * 1000,
   });
 

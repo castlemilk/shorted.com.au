@@ -38,6 +38,14 @@
 const hotCache = new Map();
 
 const HOT_CACHE_TTL_MS = 120_000; // 120 seconds — doubled from 60s for better hit rate
+const CACHE_VERSION_KEY = "control:cache-version";
+const DEFAULT_CACHE_VERSION = "v1";
+const CACHE_VERSION_MEMO_MS = 5_000;
+
+let cacheVersionMemo = {
+  value: null,
+  expiresAt: 0,
+};
 
 /**
  * Check if a request hits the in-memory hot cache.
@@ -81,6 +89,41 @@ function setHot(cacheKeySuffix, body, contentType) {
     ttl: HOT_CACHE_TTL_MS,
     contentType,
   });
+}
+
+async function getCacheVersion(env) {
+  const fallback = env.CACHE_VERSION || DEFAULT_CACHE_VERSION;
+  if (!env.EDGE_KV) {
+    return fallback;
+  }
+
+  const now = Date.now();
+  if (cacheVersionMemo.value && cacheVersionMemo.expiresAt > now) {
+    return cacheVersionMemo.value;
+  }
+
+  try {
+    const version = await env.EDGE_KV.get(CACHE_VERSION_KEY);
+    const activeVersion = version || fallback;
+    setCacheVersionMemo(activeVersion);
+    return activeVersion;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function setCacheVersionMemo(value) {
+  cacheVersionMemo = {
+    value,
+    expiresAt: Date.now() + CACHE_VERSION_MEMO_MS,
+  };
+}
+
+function newCacheVersion() {
+  const random = typeof crypto !== "undefined" && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2);
+  return `${Date.now().toString(36)}-${random}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -143,7 +186,7 @@ const worker = {
       if (!env.CACHE_PURGE_SECRET || purgeBody !== env.CACHE_PURGE_SECRET) {
         return withEdgeAnalytics(request, env, new Response("Unauthorized", { status: 401 }), "edge-control", 0, started);
       }
-      return withEdgeAnalytics(request, env, handlePurge(), "edge-control", 0, started);
+      return withEdgeAnalytics(request, env, handlePurge(env), "edge-control", 0, started);
     }
 
     // Chat service -> Chat Service origin (streaming, never cache)
@@ -179,11 +222,12 @@ const worker = {
     // --- 3. SHORTS API -> endpoint-aware caching with hot path ---
     if (path.includes("/shorts.v1alpha1.")) {
       const ttl = resolveShortsTtl(path, defaults);
+      const cacheVersion = await getCacheVersion(env);
       let hotKey = null;
 
       // Try hot cache first (only for GET-equivalent read-only requests)
       if (request.method === "POST") {
-        hotKey = await buildHotCacheKey(request, path);
+        hotKey = await buildHotCacheKey(request, path, cacheVersion);
         const hot = getHot(request, hotKey);
         if (hot) {
           const resp = new Response(hot.body, {
@@ -195,7 +239,7 @@ const worker = {
         }
       }
 
-      const result = await handleCachedRequest(request, url, env, ctx, shortsApiOrigin, ttl);
+      const result = await handleCachedRequest(request, url, env, ctx, shortsApiOrigin, ttl, cacheVersion);
 
       // After a successful origin fetch, populate hot cache for top shorts + stocks
       // Only for read-only requests that were cache misses
@@ -418,13 +462,13 @@ function resolveShortsTtl(path, defaults) {
  * outer Cache API + KV layers correctly hash the body — only the
  * in-memory hot tier was poisoning across requests.
  */
-async function buildHotCacheKey(request, path) {
+async function buildHotCacheKey(request, path, cacheVersion = DEFAULT_CACHE_VERSION) {
   if (request.method === "POST") {
     const bodyText = await request.clone().text();
     const bodyHash = hashStringSync(bodyText);
-    return `${path}:${bodyHash}`;
+    return `${cacheVersion}:${path}:${bodyHash}`;
   }
-  return path;
+  return `${cacheVersion}:${path}`;
 }
 
 /**
@@ -432,18 +476,19 @@ async function buildHotCacheKey(request, path) {
  * KV is checked on Cache API miss for pre-warmed endpoints.
  * This means users get KV responses even when CF cache has expired between pre-warms.
  */
-async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl) {
+async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl, cacheVersion) {
   const path = url.pathname;
   let requestBody = undefined;
 
   try {
+    const activeCacheVersion = cacheVersion || await getCacheVersion(env);
     let kvKey = null; // declared early so both KV-hit and MISS branches can use it
     requestBody = request.method !== "GET" && request.method !== "HEAD"
       ? await request.clone().arrayBuffer()
       : undefined;
     const freshBody = () => requestBody ? requestBody.slice(0) : undefined;
     const cache = caches.default;
-    const cacheKey = await buildCacheKey(request, url);
+    const cacheKey = await buildCacheKey(request, url, activeCacheVersion);
 
     // Check edge cache (fastest, per-PoP)
     const cached = await cache.match(cacheKey);
@@ -455,7 +500,7 @@ async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl) {
 
     // Cache miss — check KV if this is a pre-warmed endpoint
     // KV is globally consistent: any PoP can read the same pre-warmed data
-    kvKey = await buildKvCacheKey(request, path);
+    kvKey = await buildKvCacheKey(request, path, activeCacheVersion);
     if (kvKey && env.EDGE_KV) {
       try {
         const kvValue = await env.EDGE_KV.get(kvKey);
@@ -468,25 +513,17 @@ async function handleCachedRequest(request, url, env, ctx, origin, cacheTtl) {
           stampEdgeHeaders(clientResp, "KV");
           clientResp.headers.set("Cache-Control", `s-maxage=${cacheTtl}, stale-while-revalidate=${cacheTtl}`);
 
-          // Non-blocking: repopulate CF cache for this PoP
+          // Non-blocking: repopulate CF cache for this PoP from KV. A KV hit
+          // should not immediately create another origin request.
           safeWaitUntil(ctx, (async () => {
             try {
-              const originUrl = buildOriginUrl(origin, url);
-              const originResp = await fetch(originUrl, {
-                method: request.method,
-                headers: filterRequestHeaders(request.headers),
-                body: freshBody(),
+              const cacheResp = new Response(kvValue, {
+                status: 200,
+                headers: { "Content-Type": "application/json" },
               });
-              if (originResp.ok) {
-                const body = await originResp.arrayBuffer();
-                const cacheResp = new Response(body, {
-                  status: 200,
-                  headers: { "Content-Type": "application/json" },
-                });
-                stampEdgeHeaders(cacheResp, "HIT");
-                cacheResp.headers.set("Cache-Control", `s-maxage=${cacheTtl}, stale-while-revalidate=${cacheTtl}`);
-                await cache.put(cacheKey, cacheResp);
-              }
+              stampEdgeHeaders(cacheResp, "HIT");
+              cacheResp.headers.set("Cache-Control", `s-maxage=${cacheTtl}, stale-while-revalidate=${cacheTtl}`);
+              await cache.put(cacheKey, cacheResp);
             } catch (_) { /* non-fatal */ }
           })());
 
@@ -594,15 +631,15 @@ function cacheableResponseHeaders(originResp, cacheTtl) {
  *                 GetAvailableDates, GetStock, GetNews, GetAnnouncement
  *   - Market Data: GetStockPrice, GetMultipleStockPrices, GetHistoricalPrices
  */
-async function buildKvCacheKey(request, path) {
-  if (!/GetTopShorts|GetIndustryTreeMap|GetWeeklyReport|GetAvailableDates|GetStock$|GetNews|GetAnnouncement|GetStockPrice|GetMultipleStockPrices|GetHistoricalPrices/.test(path)) {
+async function buildKvCacheKey(request, path, cacheVersion = DEFAULT_CACHE_VERSION) {
+  if (!/GetTopShorts|GetIndustryTreeMap|GetShortsTreeMap|GetWeeklyReport|GetAvailableDates|GetMarketByDate|GetStock$|GetStockDetails|GetStockData|GetStockNews|GetStockFinancialHighlights|GetNews|GetAnnouncement|GetMarketNews|GetStockPrice|GetMultipleStockPrices|GetHistoricalPrices/.test(path)) {
     return null;
   }
   if (request.method === "POST") {
     const bodyText = await request.clone().text();
     const bodyHash = hashStringSync(bodyText);
     const pathClean = path.replace(/\//g, "_").replace(/^_/, "");
-    return `prewarm:${pathClean}:${bodyHash}`;
+    return `prewarm:${cacheVersion}:${pathClean}:${bodyHash}`;
   }
   return null;
 }
@@ -755,9 +792,10 @@ function stampEdgeHeaders(resp, cacheStatus) {
  *
  * Auth IS included for private endpoints (enrichment, admin, sync status).
  */
-async function buildCacheKey(request, url) {
+async function buildCacheKey(request, url, cacheVersion = DEFAULT_CACHE_VERSION) {
   const cacheUrl = new URL(url.toString());
   const path = cacheUrl.pathname;
+  cacheUrl.searchParams.set("_cv", cacheVersion);
 
   // For public read endpoints, cache key does NOT include auth.
   // This means unauthenticated and authenticated users share the same cache entry,
@@ -797,13 +835,51 @@ function isPublicReadEndpoint(path) {
 
 /**
  * Handle cache purge requests.
- * Returns an acknowledgement — cache entries expire within their TTL.
+ * Bumps a shared cache version so hot cache, Cache API, and KV reads stop
+ * resolving stale entries immediately. Old Cache API objects expire by TTL.
  */
-function handlePurge() {
+async function handlePurge(env) {
+  const hotEntriesCleared = hotCache.size;
+  hotCache.clear();
+
+  if (!env.EDGE_KV) {
+    return new Response(
+      JSON.stringify({
+        status: "failed",
+        message: "EDGE_KV is required to purge shared edge caches",
+        hotEntriesCleared,
+      }),
+      {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
+
+  const cacheVersion = newCacheVersion();
+  try {
+    await env.EDGE_KV.put(CACHE_VERSION_KEY, cacheVersion);
+    setCacheVersionMemo(cacheVersion);
+  } catch (err) {
+    return new Response(
+      JSON.stringify({
+        status: "failed",
+        message: "Unable to update shared cache version",
+        error: err instanceof Error ? err.message : String(err),
+        hotEntriesCleared,
+      }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      }
+    );
+  }
+
   return new Response(
     JSON.stringify({
-      status: "acknowledged",
-      message: "Cache will expire within TTL. Use longer TTLs to reduce purge frequency.",
+      status: "purged",
+      cacheVersion,
+      hotEntriesCleared,
     }),
     {
       status: 200,

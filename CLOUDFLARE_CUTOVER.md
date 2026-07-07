@@ -171,7 +171,7 @@ curl -I https://api.shorted.com.au/health \
   -H "X-Shorted-Testing-Bypass: $TF_VAR_rate_limit_testing_bypass_secret"
 ```
 
-The Terraform module excludes requests that present both the `Shorted-E2E` user-agent marker and the configured secret header from the API-host rate-limit expression. Keep API smoke serial anyway so backend/application guardrails are still exercised realistically.
+The Terraform module skips the Cloudflare API-host rate-limit phase for requests that present both the `Shorted-E2E` user-agent marker and the configured secret header. Keep API smoke serial anyway so backend/application guardrails are still exercised realistically.
 
 Verify challenge bypass:
 ```bash
@@ -183,6 +183,13 @@ done
 ```
 
 Security rule: never use a user-agent-only bypass. The Cloudflare challenge-skip expression must require both `http.user_agent contains "Shorted-E2E"` and `any(http.request.headers["x-shorted-testing-bypass"][*] eq "<secret>")`.
+
+Operational notes for local and CI smoke:
+- Local `.env` commonly holds the same secret as `TF_VAR_rate_limit_testing_bypass_secret`; export `CLOUDFLARE_TESTING_BYPASS_SECRET="$TF_VAR_rate_limit_testing_bypass_secret"` before Playwright production smoke.
+- GitHub Actions must have `CLOUDFLARE_TESTING_BYPASS_SECRET` set to the same value used by Terraform.
+- If both headers are present but Cloudflare still challenges, inspect the `shorted-app-api-security-skip` ruleset in phase `http_request_firewall_custom`; the disabled sentinel expression is `http.host eq "__shorted-testing-bypass-disabled.invalid__"`.
+- Re-check the ruleset after Terraform or Cloudflare deploys. Applying Terraform without `TF_VAR_rate_limit_testing_bypass_secret` can overwrite a direct API fix and restore the disabled sentinel expression.
+- Cloudflare Web Analytics can emit test-only beacon noise when the bypass header is attached cross-origin. Treat only `static.cloudflareinsights.com/beacon.min.js` failures and CORS messages mentioning `x-shorted-testing-bypass` as non-app noise.
 
 ### Step 9: Verify Vercel Rate Limiting
 The middleware at `web/src/middleware.ts` uses `request.ip` which reads `CF-Connecting-IP` when traffic comes through Cloudflare proxy. Verify:

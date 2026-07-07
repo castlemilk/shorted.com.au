@@ -1,10 +1,13 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { rateLimit } from "~/@/lib/rate-limit";
+import { createCommunityThread } from "~/@/lib/community/community-repository";
 import {
-  createCommunityThread,
-  listCommunityThreads,
-} from "~/@/lib/community/firestore-community";
+  COMMUNITY_PUBLIC_READ_CACHE_CONTROL,
+  communityThreadsCacheTag,
+  getCachedCommunityThreads,
+  revalidateCommunityCacheTags,
+} from "~/@/lib/community/community-activity-cache";
 import {
   COMMUNITY_PUBLIC_READ_FALLBACK_CACHE_CONTROL,
   isFirestoreReadUnavailable,
@@ -34,12 +37,19 @@ export async function GET(
   }
 
   try {
-    const threads = await listCommunityThreads(stockCode);
+    const threads = await getCachedCommunityThreads(stockCode);
 
-    return NextResponse.json({
-      stockCode,
-      threads,
-    });
+    return NextResponse.json(
+      {
+        stockCode,
+        threads,
+      },
+      {
+        headers: {
+          "Cache-Control": COMMUNITY_PUBLIC_READ_CACHE_CONTROL,
+        },
+      },
+    );
   } catch (error) {
     if (isFirestoreReadUnavailable(error)) {
       warnCommunityReadFallback({
@@ -145,6 +155,8 @@ export async function POST(
         displayName: session.user.name ?? session.user.email ?? "Anonymous",
       },
     });
+
+    revalidateCommunityCacheTags([communityThreadsCacheTag(stockCode)]);
 
     return NextResponse.json({ stockCode, thread }, { status: 201 });
   } catch (error) {

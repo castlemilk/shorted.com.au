@@ -45,7 +45,7 @@ function normalizePulseItem(item: CommunityPulseItem): CommunityPulseItem {
 }
 
 async function fetchCommunityJson<T>(url: string, signal: AbortSignal): Promise<T> {
-  const response = await fetch(url, { cache: "no-store", signal });
+  const response = await fetch(url, { signal });
   if (!response.ok) {
     throw new Error(`Community request failed with ${response.status}`);
   }
