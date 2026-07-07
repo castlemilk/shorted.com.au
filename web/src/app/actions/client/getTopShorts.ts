@@ -6,6 +6,10 @@ import { formatPeriodForAPI } from "~/lib/period-utils";
 import { SHORTS_API_URL } from "../config";
 import { retryWithBackoff } from "@/lib/retry";
 import { getSessionCached, setSessionCached } from "@/lib/session-cache";
+import {
+  filterTopShortsResponse,
+  hasOnlyEligibleTopShortsInstruments,
+} from "@/lib/top-shorts-filter";
 
 const RETRY_OPTIONS = {
   maxRetries: 3,
@@ -29,7 +33,13 @@ export const getTopShortsDataClient = async (
 
   if (!forceRefresh) {
     const cached = getSessionCached<GetTopShortsResponse>(cacheKey);
-    if (cached) return cached;
+    if (
+      cached &&
+      Array.isArray(cached.timeSeries) &&
+      hasOnlyEligibleTopShortsInstruments(cached.timeSeries)
+    ) {
+      return cached;
+    }
   }
 
   // Use relative URL so requests go through Next.js rewrites (avoids CORS)
@@ -49,6 +59,7 @@ export const getTopShortsDataClient = async (
     RETRY_OPTIONS,
   );
 
-  setSessionCached(cacheKey, result);
-  return result;
+  const filteredResult = filterTopShortsResponse(result);
+  setSessionCached(cacheKey, filteredResult);
+  return filteredResult;
 };

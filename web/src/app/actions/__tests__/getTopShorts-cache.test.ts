@@ -171,4 +171,94 @@ describe("getTopShortsData with KV Cache", () => {
     );
     expect(mockClient.getTopShorts).toHaveBeenCalled();
   });
+
+  it("refreshes stale cached top-shorts entries containing invalid instruments", async () => {
+    const staleCachedResponse = {
+      timeSeries: [
+        {
+          productCode: "ATBHQ",
+          name: "ASIAN DEVELOPMENT 4.35% 17-JAN-29",
+          latestShortPosition: 100,
+        },
+        {
+          productCode: "LOT",
+          name: "LOTUS RESOURCES LTD ORDINARY",
+          latestShortPosition: 22.82,
+        },
+      ],
+      offset: 0,
+    };
+    const apiResponse = {
+      timeSeries: [
+        {
+          productCode: "LOT",
+          name: "LOTUS RESOURCES LTD ORDINARY",
+          latestShortPosition: 22.82,
+        },
+      ],
+      offset: 0,
+    };
+    mockGetCached.mockResolvedValue(staleCachedResponse);
+
+    const { createClient } = require("@connectrpc/connect");
+    const mockClient = {
+      getTopShorts: jest.fn().mockResolvedValue(apiResponse),
+    };
+    createClient.mockReturnValue(mockClient);
+
+    const result = await getTopShortsData("3m", 20, 0);
+
+    expect(result.timeSeries.map((stock) => stock.productCode)).toEqual(["LOT"]);
+    expect(mockDeleteCached).toHaveBeenCalledWith(
+      "cache:homepage:top-shorts:3m:20:0",
+    );
+    expect(mockClient.getTopShorts).toHaveBeenCalled();
+  });
+
+  it("filters invalid instruments before caching fresh top-shorts responses", async () => {
+    const apiResponse = {
+      timeSeries: [
+        {
+          productCode: "ATBHQ",
+          name: "ASIAN DEVELOPMENT 4.35% 17-JAN-29",
+          latestShortPosition: 100,
+        },
+        {
+          productCode: "OOO",
+          name: "BETASHARES CRUDE OIL INDEX ETF-CURRENCY HEDGED",
+          latestShortPosition: 15,
+        },
+        {
+          productCode: "LOT",
+          name: "LOTUS RESOURCES LTD ORDINARY",
+          latestShortPosition: 22.82,
+        },
+      ],
+      offset: 0,
+    };
+
+    const { createClient } = require("@connectrpc/connect");
+    const mockClient = {
+      getTopShorts: jest.fn().mockResolvedValue(apiResponse),
+    };
+    createClient.mockReturnValue(mockClient);
+
+    const result = await getTopShortsData("3m", 20, 0);
+
+    expect(result.timeSeries.map((stock) => stock.productCode)).toEqual(["LOT"]);
+    expect(mockSetCached).toHaveBeenCalledWith(
+      "cache:homepage:top-shorts:3m:20:0",
+      {
+        ...apiResponse,
+        timeSeries: [
+          {
+            productCode: "LOT",
+            name: "LOTUS RESOURCES LTD ORDINARY",
+            latestShortPosition: 22.82,
+          },
+        ],
+      },
+      HOMEPAGE_TTL,
+    );
+  });
 });

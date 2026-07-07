@@ -15,6 +15,7 @@ import {
 } from "~/@/lib/shorts-calculations";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { siteConfig } from "~/@/config/site";
+import { isEligibleTopShortsInstrument } from "~/@/lib/top-shorts-filter";
 
 /**
  * Serialized time series point for caching
@@ -65,26 +66,6 @@ export interface TopPageData {
   stockListItems: StockListItem[];
   lastUpdated: string;
   period: TimePeriod;
-}
-
-interface InstrumentCandidate {
-  productCode?: string;
-  name?: string;
-}
-
-const LISTED_EQUITY_CODE_PATTERN = /^[A-Z0-9]{3,4}$/;
-const ETF_NAME_PATTERN = /\bETF\b/i;
-const COUPON_PERCENT_NAME_PATTERN = /[0-9]+(\.[0-9]+)?\s*%/;
-
-function isEligibleTopPageInstrument(stock: InstrumentCandidate): boolean {
-  const productCode = (stock.productCode ?? "").trim().toUpperCase();
-  const name = stock.name ?? "";
-
-  return (
-    LISTED_EQUITY_CODE_PATTERN.test(productCode) &&
-    !ETF_NAME_PATTERN.test(name) &&
-    !COUPON_PERCENT_NAME_PATTERN.test(name)
-  );
 }
 
 /**
@@ -227,11 +208,11 @@ function isUsableTopPageData(data: TopPageData | null): data is TopPageData {
       (stock) =>
         !!stock?.productCode && toFiniteNumber(stock.latestShortPosition) > 0,
     ) &&
-    data.timeSeries.every(isEligibleTopPageInstrument) &&
-    data.stockListItems.every(isEligibleTopPageInstrument) &&
-    data.movers.biggestGainers.every(isEligibleTopPageInstrument) &&
-    data.movers.biggestLosers.every(isEligibleTopPageInstrument) &&
-    data.movers.mostVolatile.every(isEligibleTopPageInstrument)
+    data.timeSeries.every(isEligibleTopShortsInstrument) &&
+    data.stockListItems.every(isEligibleTopShortsInstrument) &&
+    data.movers.biggestGainers.every(isEligibleTopShortsInstrument) &&
+    data.movers.biggestLosers.every(isEligibleTopShortsInstrument) &&
+    data.movers.mostVolatile.every(isEligibleTopShortsInstrument)
   );
 }
 
@@ -242,7 +223,7 @@ async function buildTopPageData(
   // Fetch raw data
   const response = await getTopShortsData(period, limit, 0);
   const rawTimeSeries = (response?.timeSeries ?? []).filter(
-    isEligibleTopPageInstrument,
+    isEligibleTopShortsInstrument,
   );
 
   // Calculate movers from raw data (before serialization)
