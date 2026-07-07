@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { CommunityThreadDetail } from "~/@/components/company/community/community-thread-detail";
-import { getCommunityThread } from "~/@/lib/community/firestore-community";
+import { getCachedCommunityThread } from "~/@/lib/community/community-activity-cache";
 import {
   isFirestoreReadUnavailable,
   warnCommunityReadFallback,
@@ -24,7 +24,7 @@ export default async function CommunityThreadPage({ params }: PageProps) {
 
   let thread;
   try {
-    thread = await getCommunityThread(stockCode, threadId);
+    thread = await getCachedCommunityThread(stockCode, threadId);
   } catch (error) {
     if (isFirestoreReadUnavailable(error)) {
       warnCommunityReadFallback({

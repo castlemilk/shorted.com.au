@@ -11,6 +11,8 @@ func TestLoad(t *testing.T) {
 	// Clear environment
 	envVars := []string{
 		"DATABASE_URL",
+		"DB_MAX_CONNS",
+		"DB_MIN_CONNS",
 		"GCS_BUCKET_NAME",
 		"PRIORITY_STOCK_COUNT",
 		"YAHOO_RATE_LIMIT_MS",
@@ -42,6 +44,8 @@ func TestLoad(t *testing.T) {
 		cfg := Load()
 
 		assert.Equal(t, "", cfg.DatabaseURL)
+		assert.Equal(t, 3, cfg.DBMaxConns)
+		assert.Equal(t, 0, cfg.DBMinConns)
 		assert.Equal(t, "shorted-data", cfg.GCSBucketName)
 		assert.Equal(t, 100, cfg.PriorityStockCount)
 		assert.Equal(t, 2000, cfg.YahooRateLimitMs)
@@ -55,6 +59,8 @@ func TestLoad(t *testing.T) {
 
 	t.Run("with environment variables", func(t *testing.T) {
 		os.Setenv("DATABASE_URL", "postgres://test:test@localhost/test")
+		os.Setenv("DB_MAX_CONNS", "4")
+		os.Setenv("DB_MIN_CONNS", "1")
 		os.Setenv("GCS_BUCKET_NAME", "custom-bucket")
 		os.Setenv("PRIORITY_STOCK_COUNT", "50")
 		os.Setenv("YAHOO_RATE_LIMIT_MS", "3000")
@@ -72,6 +78,8 @@ func TestLoad(t *testing.T) {
 		cfg := Load()
 
 		assert.Equal(t, "postgres://test:test@localhost/test", cfg.DatabaseURL)
+		assert.Equal(t, 4, cfg.DBMaxConns)
+		assert.Equal(t, 1, cfg.DBMinConns)
 		assert.Equal(t, "custom-bucket", cfg.GCSBucketName)
 		assert.Equal(t, 50, cfg.PriorityStockCount)
 		assert.Equal(t, 3000, cfg.YahooRateLimitMs)

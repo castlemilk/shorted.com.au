@@ -326,6 +326,7 @@ module "chat_service" {
   # benefit from edge cache rather than always hitting the Shorts API origin.
   shorts_api_url = "https://api.shorted.com.au"
 
+  gemini_secret_name                 = "GEMINI_API_KEY_CHAT"
   gemini_max_output_tokens           = 1024
   chat_max_input_chars               = 2000
   chat_history_limit                 = 20
@@ -366,6 +367,7 @@ module "news_aggregator" {
   environment          = "production"
   image_url            = var.news_aggregator_image
   gemini_secret_exists = true
+  gemini_secret_name   = "GEMINI_API_KEY_NEWS"
   # EMAIL_IMG_SECRET must be provisioned in Secret Manager BEFORE this is applied
   # (push-to-main = prod CD). The same value must also be set as a Vercel env var
   # so /api/email/img can verify the digest's signed thumbnail URLs.
@@ -423,6 +425,9 @@ module "report_extractor" {
   environment          = "production"
   image_url            = var.report_extractor_image
   gemini_secret_exists = true
+  gemini_secret_name   = "GEMINI_API_KEY_REPORT_EXTRACTOR"
+  director_limit       = 20
+  reports_limit        = 10
 
   depends_on = [
     google_project_service.required_apis,

@@ -11,12 +11,13 @@ import {
   type CommunityPulseItem,
   type CommunityThread,
 } from "~/@/types/community";
+import { type CommunityStore } from "./community-store";
 import { rankPulseItems, rankResearchThreads } from "~/@/lib/community/ranking";
 import { buildCommunitySummary } from "~/@/lib/community/summary";
 
-const COMMUNITY_THREAD_LIST_LIMIT = 50;
-const COMMUNITY_PULSE_LIST_LIMIT = 50;
-const COMMUNITY_COMMENT_LIST_LIMIT = 100;
+const COMMUNITY_THREAD_LIST_LIMIT = 25;
+const COMMUNITY_PULSE_LIST_LIMIT = 25;
+const COMMUNITY_COMMENT_LIST_LIMIT = 50;
 
 type FirestoreValue =
   | Date
@@ -654,3 +655,18 @@ export async function createCommunityReport({
     ...record,
   };
 }
+
+export const firestoreCommunityStore: CommunityStore = {
+  getStockCommunitySummary,
+  listCommunityThreads,
+  getCommunityThread,
+  listCommunityPulseItems,
+  listCommunityComments,
+  listCommunityPulseReplies,
+  createCommunityThread,
+  createCommunityComment,
+  createCommunityPulseItem,
+  createCommunityPulseReply,
+  createCommunityVote,
+  createCommunityReport,
+};

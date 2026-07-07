@@ -1,9 +1,9 @@
 import { NextRequest } from "next/server";
 import { POST } from "../route";
-import { createCommunityVote } from "~/@/lib/community/firestore-community";
+import { createCommunityVote } from "~/@/lib/community/community-repository";
 import { auth } from "~/server/auth";
 
-jest.mock("~/@/lib/community/firestore-community", () => ({
+jest.mock("~/@/lib/community/community-repository", () => ({
   createCommunityVote: jest.fn(),
 }));
 

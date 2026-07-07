@@ -17,6 +17,7 @@ import (
 	"github.com/castlemilk/shorted.com.au/services/market-data-sync/providers"
 	"github.com/castlemilk/shorted.com.au/services/market-data-sync/sync"
 	shortedotel "github.com/castlemilk/shorted.com.au/services/pkg/otel"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -65,21 +66,6 @@ func main() {
 	// Set up context with signal handling
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-
-	// Initialize OpenTelemetry (traces + metrics via OTLP).
-	// No-op when OTEL_EXPORTER_OTLP_ENDPOINT is not set.
-	otelShutdown, otelErr := initOTEL(ctx, "market-data-sync")
-	if otelErr != nil {
-		log.Printf("WARNING: Failed to initialize OpenTelemetry: %v", otelErr)
-	} else {
-		defer func() {
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if err := otelShutdown(shutdownCtx); err != nil {
-				log.Printf("Error shutting down OpenTelemetry: %v", err)
-			}
-		}()
-	}
 
 	// 2. In API mode, start HTTP server immediately so health probes pass
 	//    while we initialize heavy dependencies (DB, GCS, providers).
@@ -194,7 +180,12 @@ func initDependencies(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, *
 	defer cancel()
 
 	// Database
-	pool, err := pgxpool.New(initCtx, cfg.DatabaseURL)
+	poolConfig, err := buildDBPoolConfig(cfg)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("parse DB config: %w", err)
+	}
+
+	pool, err := pgxpool.NewWithConfig(initCtx, poolConfig)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("connect to DB: %w", err)
 	}
@@ -231,4 +222,33 @@ func initDependencies(ctx context.Context, cfg *config.Config) (*pgxpool.Pool, *
 	}
 
 	return pool, gcsClient, dataProviders, nil
+}
+
+func buildDBPoolConfig(cfg *config.Config) (*pgxpool.Config, error) {
+	poolConfig, err := pgxpool.ParseConfig(cfg.DatabaseURL)
+	if err != nil {
+		return nil, err
+	}
+
+	maxConns := cfg.DBMaxConns
+	if maxConns < 1 {
+		maxConns = 3
+	}
+	minConns := cfg.DBMinConns
+	if minConns < 0 {
+		minConns = 0
+	}
+	if minConns > maxConns {
+		minConns = maxConns
+	}
+
+	poolConfig.MaxConns = int32(maxConns)
+	poolConfig.MinConns = int32(minConns)
+	poolConfig.MaxConnLifetime = 30 * time.Minute
+	poolConfig.MaxConnIdleTime = 5 * time.Minute
+	poolConfig.HealthCheckPeriod = time.Minute
+	poolConfig.ConnConfig.ConnectTimeout = 10 * time.Second
+	poolConfig.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
+
+	return poolConfig, nil
 }

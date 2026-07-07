@@ -50,6 +50,18 @@ variable "gemini_max_output_tokens" {
   default     = 1024
 }
 
+variable "gemini_secret_name" {
+  description = "Secret Manager secret name containing this service's Gemini API key"
+  type        = string
+  default     = "GEMINI_API_KEY"
+}
+
+variable "internal_service_secret_name" {
+  description = "Secret Manager secret name containing the internal service auth secret"
+  type        = string
+  default     = "INTERNAL_SERVICE_SECRET"
+}
+
 variable "chat_max_input_chars" {
   description = "Maximum user message length accepted by chat"
   type        = number

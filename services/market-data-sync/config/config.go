@@ -9,6 +9,8 @@ import (
 type Config struct {
 	// Database
 	DatabaseURL string
+	DBMaxConns  int
+	DBMinConns  int
 
 	// GCS
 	GCSBucketName string
@@ -37,6 +39,8 @@ type Config struct {
 func Load() *Config {
 	return &Config{
 		DatabaseURL:             os.Getenv("DATABASE_URL"),
+		DBMaxConns:              getEnvIntOrDefault("DB_MAX_CONNS", 3),
+		DBMinConns:              getEnvIntOrDefault("DB_MIN_CONNS", 0),
 		GCSBucketName:           getEnvOrDefault("GCS_BUCKET_NAME", "shorted-data"),
 		PriorityStockCount:      getEnvIntOrDefault("PRIORITY_STOCK_COUNT", 100),
 		YahooRateLimitMs:        getEnvIntOrDefault("YAHOO_RATE_LIMIT_MS", 2000),

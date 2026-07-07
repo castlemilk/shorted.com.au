@@ -44,6 +44,37 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
+
+def _positive_int_env(name: str, default: int) -> int:
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        value = int(raw)
+    except ValueError as e:
+        raise ValueError(f"{name} must be a positive integer") from e
+    if value <= 0:
+        raise ValueError(f"{name} must be a positive integer")
+    return value
+
+
+def resolve_gemini_run_budget(
+    limit: int,
+    workers: int,
+    default_max_items: int,
+    default_max_workers: int,
+    max_items_env: str = "GEMINI_MAX_RUN_ITEMS",
+    max_workers_env: str = "GEMINI_MAX_RUN_WORKERS",
+) -> tuple[int, int]:
+    """Cap paid Gemini batch size/concurrency even when CLI args are too broad."""
+    max_items = _positive_int_env(max_items_env, default_max_items)
+    max_workers = _positive_int_env(max_workers_env, default_max_workers)
+
+    guarded_limit = max_items if limit <= 0 or limit > max_items else limit
+    guarded_workers = min(max(workers, 1), max_workers)
+    return guarded_limit, guarded_workers
+
+
 # Financial data extraction prompt
 EXTRACTION_PROMPT = """Extract key financial metrics from this ASX company financial report.
 For each metric found, extract the exact text containing the number and classify it.
@@ -682,6 +713,16 @@ def main():
 
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
+
+    original_limit = args.limit
+    args.limit, _ = resolve_gemini_run_budget(
+        limit=args.limit,
+        workers=1,
+        default_max_items=10,
+        default_max_workers=1,
+    )
+    if args.limit != original_limit:
+        log.warning("Gemini run budget capped --limit from %s to %s", original_limit, args.limit)
 
     codes = [c.strip().upper() for c in args.codes.split(",") if c.strip()] if args.codes else []
     mode = "codes" if codes else args.mode

@@ -4,6 +4,10 @@ import { auth } from "@/auth";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase-admin";
 import { withFirestoreCost } from "@/lib/firestore-cost";
+import {
+  rememberLegacyEmailLookupMiss,
+  shouldTryLegacyEmailLookup,
+} from "@/lib/firestore-legacy-email-lookup-cache";
 
 // Types
 export interface PortfolioHolding {
@@ -90,10 +94,11 @@ export async function getPortfolio() {
 
     // If not found and we have an email, try looking up by email as fallback
     // This handles cases where data was stored under email instead of OAuth ID
-    if (!doc.exists && userEmail && userId !== userEmail) {
+    const legacyUserEmail = userEmail ?? "";
+    if (shouldTryLegacyEmailLookup("portfolios", userId, legacyUserEmail)) {
       const emailDoc = await trackPortfolioRead(() => adminDb
         .collection("portfolios")
-        .doc(userEmail)
+        .doc(legacyUserEmail)
         .get());
       
       if (emailDoc.exists) {
@@ -105,7 +110,7 @@ export async function getPortfolio() {
           .set({
             ...portfolioData,
             userId: userId,
-            migratedFrom: userEmail,
+            migratedFrom: legacyUserEmail,
             migratedAt: FieldValue.serverTimestamp(),
           }));
         
@@ -114,6 +119,8 @@ export async function getPortfolio() {
           updatedAt: portfolioData?.updatedAt ? (portfolioData.updatedAt as { toDate(): Date }).toDate() : new Date(),
         };
       }
+
+      rememberLegacyEmailLookupMiss("portfolios", userId, legacyUserEmail);
     }
 
     if (!doc.exists) {
@@ -257,10 +264,11 @@ export async function getWatchlist() {
       .get());
 
     // If not found and we have an email, try looking up by email as fallback
-    if (!doc.exists && userEmail && userId !== userEmail) {
+    const legacyUserEmail = userEmail ?? "";
+    if (shouldTryLegacyEmailLookup("watchlists", userId, legacyUserEmail)) {
       const emailDoc = await trackWatchlistRead(() => adminDb
         .collection("watchlists")
-        .doc(userEmail)
+        .doc(legacyUserEmail)
         .get());
       
       if (emailDoc.exists) {
@@ -272,7 +280,7 @@ export async function getWatchlist() {
           .set({
             ...watchlistData,
             userId: userId,
-            migratedFrom: userEmail,
+            migratedFrom: legacyUserEmail,
             migratedAt: FieldValue.serverTimestamp(),
           }));
         
@@ -281,6 +289,8 @@ export async function getWatchlist() {
           updatedAt: watchlistData?.updatedAt ? (watchlistData.updatedAt as { toDate(): Date }).toDate() : new Date(),
         };
       }
+
+      rememberLegacyEmailLookupMiss("watchlists", userId, legacyUserEmail);
     }
 
     if (!doc.exists) {

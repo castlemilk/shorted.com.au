@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "~/@/components/ui/button";
 
@@ -19,52 +19,82 @@ export function CommunityFeedbackActions({
 }: CommunityFeedbackActionsProps) {
   const { data: session } = useSession();
   const [score, setScore] = useState(initialScore);
+  const [voteStatus, setVoteStatus] = useState<"idle" | "pending" | "voted">(
+    "idle",
+  );
   const [hasReported, setHasReported] = useState(false);
+  const [isReporting, setIsReporting] = useState(false);
+  const voteLockedRef = useRef(false);
+  const reportLockedRef = useRef(false);
 
   async function handleUpvote() {
-    if (!session?.user?.id) {
+    if (!session?.user?.id || voteLockedRef.current) {
       return;
     }
 
-    const response = await fetch("/api/community/votes", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        stockCode,
-        targetType,
-        targetId,
-        value: 1,
-      }),
-    });
+    voteLockedRef.current = true;
+    setVoteStatus("pending");
 
-    if (response.ok) {
-      setScore((current) => current + 1);
+    try {
+      const response = await fetch("/api/community/votes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          stockCode,
+          targetType,
+          targetId,
+          value: 1,
+        }),
+      });
+
+      if (response.ok) {
+        setScore((current) => current + 1);
+        setVoteStatus("voted");
+        return;
+      }
+    } catch {
+      // Keep the control retryable when the write fails.
     }
+
+    voteLockedRef.current = false;
+    setVoteStatus("idle");
   }
 
   async function handleReport() {
-    if (!session?.user?.id || hasReported) {
+    if (!session?.user?.id || hasReported || reportLockedRef.current) {
       return;
     }
 
-    const response = await fetch("/api/community/reports", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        stockCode,
-        targetType,
-        targetId,
-        reason: "user_report",
-      }),
-    });
+    reportLockedRef.current = true;
+    setIsReporting(true);
 
-    if (response.ok) {
-      setHasReported(true);
+    try {
+      const response = await fetch("/api/community/reports", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          stockCode,
+          targetType,
+          targetId,
+          reason: "user_report",
+        }),
+      });
+
+      if (response.ok) {
+        setHasReported(true);
+        return;
+      }
+    } catch {
+      // Keep the control retryable when the write fails.
+    } finally {
+      setIsReporting(false);
     }
+
+    reportLockedRef.current = false;
   }
 
   return (
@@ -74,18 +104,22 @@ export function CommunityFeedbackActions({
         variant="outline"
         size="sm"
         onClick={handleUpvote}
-        disabled={!session?.user?.id}
+        disabled={!session?.user?.id || voteStatus !== "idle"}
       >
-        Upvote {score}
+        {voteStatus === "pending"
+          ? "Voting..."
+          : voteStatus === "voted"
+            ? `Upvoted ${score}`
+            : `Upvote ${score}`}
       </Button>
       <Button
         type="button"
         variant="ghost"
         size="sm"
         onClick={handleReport}
-        disabled={!session?.user?.id || hasReported}
+        disabled={!session?.user?.id || hasReported || isReporting}
       >
-        {hasReported ? "Reported" : "Report"}
+        {hasReported ? "Reported" : isReporting ? "Reporting..." : "Report"}
       </Button>
     </div>
   );

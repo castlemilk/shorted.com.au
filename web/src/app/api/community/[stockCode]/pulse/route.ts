@@ -1,10 +1,13 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { rateLimit } from "~/@/lib/rate-limit";
+import { createCommunityPulseItem } from "~/@/lib/community/community-repository";
 import {
-  createCommunityPulseItem,
-  listCommunityPulseItems,
-} from "~/@/lib/community/firestore-community";
+  COMMUNITY_PUBLIC_READ_CACHE_CONTROL,
+  communityPulseCacheTag,
+  getCachedCommunityPulseItems,
+  revalidateCommunityCacheTags,
+} from "~/@/lib/community/community-activity-cache";
 import {
   COMMUNITY_PUBLIC_READ_FALLBACK_CACHE_CONTROL,
   isFirestoreReadUnavailable,
@@ -27,12 +30,19 @@ export async function GET(
   }
 
   try {
-    const pulse = await listCommunityPulseItems(stockCode);
+    const pulse = await getCachedCommunityPulseItems(stockCode);
 
-    return NextResponse.json({
-      stockCode,
-      pulse,
-    });
+    return NextResponse.json(
+      {
+        stockCode,
+        pulse,
+      },
+      {
+        headers: {
+          "Cache-Control": COMMUNITY_PUBLIC_READ_CACHE_CONTROL,
+        },
+      },
+    );
   } catch (error) {
     if (isFirestoreReadUnavailable(error)) {
       warnCommunityReadFallback({
@@ -115,6 +125,8 @@ export async function POST(
         displayName: session.user.name ?? session.user.email ?? "Anonymous",
       },
     });
+
+    revalidateCommunityCacheTags([communityPulseCacheTag(stockCode)]);
 
     return NextResponse.json({ stockCode, pulse: pulseItem }, { status: 201 });
   } catch (error) {

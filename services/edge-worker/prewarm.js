@@ -18,6 +18,10 @@
  */
 
 const PREWARM_KV = "SHORTED_EDGE_CACHE"; // KV namespace binding name
+const CACHE_VERSION_KEY = "control:cache-version";
+const DEFAULT_CACHE_VERSION = "v1";
+
+const STOCK_DETAIL_PREWARM_CODES = ["CBA", "BHP", "PLS", "LYC", "MIN", "ANZ", "WBC", "RIO", "CSL", "FMG"];
 
 // Hot endpoints to pre-warm after daily sync
 const PREWARM_ENDPOINTS = [
@@ -54,6 +58,12 @@ const PREWARM_ENDPOINTS = [
   { path: "/shorts.v1alpha1.ShortedStocksService/GetStock", body: { product_code: "SUN" }, origin: "shorts" },
   { path: "/shorts.v1alpha1.ShortedStocksService/GetStock", body: { product_code: "ALQ" }, origin: "shorts" },
   { path: "/shorts.v1alpha1.ShortedStocksService/GetStock", body: { product_code: "BXB" }, origin: "shorts" },
+  // Detail page RPCs: these sit behind the most expensive user-facing stock pages.
+  ...STOCK_DETAIL_PREWARM_CODES.flatMap((code) => [
+    { path: "/shorts.v1alpha1.ShortedStocksService/GetStockDetails", body: { product_code: code }, origin: "shorts" },
+    { path: "/shorts.v1alpha1.ShortedStocksService/GetStockData", body: { product_code: code, period: "3m" }, origin: "shorts" },
+    { path: "/shorts.v1alpha1.ShortedStocksService/GetStockNews", body: { stock_code: code, limit: 10 }, origin: "shorts" },
+  ]),
   // Market news (2 entries — news is highly cacheable)
   { path: "/shorts.v1alpha1.ShortedStocksService/GetNews", body: { limit: 20 }, origin: "shorts" },
   { path: "/shorts.v1alpha1.ShortedStocksService/GetAnnouncement", body: { limit: 20 }, origin: "shorts" },
@@ -89,7 +99,7 @@ const PREWARM_ENDPOINTS = [
   { path: "/marketdata.v1.MarketDataService/GetHistoricalPrices", body: { stock_code: "RIO", period: "3m" }, origin: "market" },
   { path: "/marketdata.v1.MarketDataService/GetHistoricalPrices", body: { stock_code: "CSL", period: "3m" }, origin: "market" },
   // Bulk price fetch (already covers top 20)
-  { path: "/marketdata.v1.MarketDataService/GetMultipleStockPrices", body: { stock_codes: ["CBA", "BHP", "PLS", "LYC", "MIN", "NCM", "ANZ", "WBC", "RIO", "CSL", "FMG", "FMG", "WOW", "TLS", "NAB", "MQG", "WES", "SUN", "ALQ", "BXB"] }, origin: "market" },
+  { path: "/marketdata.v1.MarketDataService/GetMultipleStockPrices", body: { stock_codes: ["CBA", "BHP", "PLS", "LYC", "MIN", "NCM", "ANZ", "WBC", "RIO", "CSL", "FMG", "QAN", "WOW", "TLS", "NAB", "MQG", "WES", "SUN", "ALQ", "BXB"] }, origin: "market" },
 ];
 
 const worker = {
@@ -116,6 +126,7 @@ const worker = {
 
     const summary = {
       timestamp: new Date().toISOString(),
+      cacheVersion: results.cacheVersion,
       total: results.length,
       succeeded: results.filter(r => r.ok).length,
       failed: results.filter(r => !r.ok).length,
@@ -153,10 +164,12 @@ async function prewarmAll(env, origins) {
     throw new Error(`KV namespace ${PREWARM_KV} not bound`);
   }
 
+  const cacheVersion = await getCacheVersion(kv);
   const results = [];
+  results.cacheVersion = cacheVersion;
 
   for (const endpoint of PREWARM_ENDPOINTS) {
-    const key = buildKvKey(endpoint);
+    const key = buildKvKey(endpoint, cacheVersion);
     const origin = origins[endpoint.origin] || origins.shorts;
     if (!origin) {
       results.push({ key, ok: false, error: `No origin for ${endpoint.origin}` });
@@ -189,10 +202,18 @@ async function prewarmAll(env, origins) {
 /**
  * Build a deterministic KV key for an endpoint.
  */
-function buildKvKey(endpoint) {
+function buildKvKey(endpoint, cacheVersion = DEFAULT_CACHE_VERSION) {
   const bodyHash = hashStringSync(JSON.stringify(endpoint.body));
   const pathClean = endpoint.path.replace(/\//g, "_").replace(/^_/, "");
-  return `prewarm:${pathClean}:${bodyHash}`;
+  return `prewarm:${cacheVersion}:${pathClean}:${bodyHash}`;
+}
+
+async function getCacheVersion(kv) {
+  try {
+    return await kv.get(CACHE_VERSION_KEY) || DEFAULT_CACHE_VERSION;
+  } catch (_) {
+    return DEFAULT_CACHE_VERSION;
+  }
 }
 
 /**

@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -59,6 +61,99 @@ WHERE stock_code = $1
 LIMIT 1`
 )
 
+const searchStocksQuery = `
+	WITH latest_shorts AS (
+		SELECT DISTINCT ON ("PRODUCT_CODE")
+			"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS",
+			"PRODUCT_CODE",
+			"PRODUCT",
+			"TOTAL_PRODUCT_IN_ISSUE",
+			"REPORTED_SHORT_POSITIONS",
+			"DATE"
+		FROM shorts
+		ORDER BY "PRODUCT_CODE", "DATE" DESC
+	),
+	search_results AS (
+		SELECT
+			s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
+			s."PRODUCT_CODE" as product_code,
+			s."PRODUCT" as name,
+			s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue,
+			s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
+			COALESCE(m.industry, '') as industry,
+			COALESCE(m.tags, ARRAY[]::text[]) as tags,
+			COALESCE(m.logo_gcs_url, '') as logo_url,
+			CASE
+				WHEN s."PRODUCT_CODE" = $1 THEN 100
+				WHEN s."PRODUCT_CODE" ILIKE $2 THEN 50
+				WHEN m.search_vector @@ plainto_tsquery('english', $1) THEN ts_rank(m.search_vector, plainto_tsquery('english', $1)) * 10
+				WHEN s."PRODUCT" ILIKE $2 THEN 20
+				ELSE 1
+			END as relevance
+		FROM latest_shorts s
+		LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
+		WHERE
+			EXISTS (
+				SELECT 1
+				FROM stock_prices p
+				WHERE p.stock_code = s."PRODUCT_CODE"
+			) AND (
+				s."PRODUCT_CODE" = $1 OR
+				s."PRODUCT_CODE" ILIKE $2 OR
+				s."PRODUCT" ILIKE $2 OR
+				m.search_vector @@ plainto_tsquery('english', $1)
+			)
+	)
+	SELECT
+		percentage_shorted,
+		product_code,
+		name,
+		total_product_in_issue,
+		reported_short_positions,
+		industry,
+		tags,
+		logo_url
+	FROM search_results
+	ORDER BY relevance DESC, percentage_shorted DESC
+	LIMIT $3`
+
+type postgresPoolSettings struct {
+	maxConns int32
+	minConns int32
+}
+
+func postgresPoolSettingsFromEnv() postgresPoolSettings {
+	maxConns := envInt("SHORTS_DB_MAX_CONNS", 3)
+	if maxConns < 1 {
+		maxConns = 3
+	}
+
+	minConns := envInt("SHORTS_DB_MIN_CONNS", 0)
+	if minConns < 0 {
+		minConns = 0
+	}
+	if minConns > maxConns {
+		minConns = maxConns
+	}
+
+	return postgresPoolSettings{
+		maxConns: int32(maxConns),
+		minConns: int32(minConns),
+	}
+}
+
+func envInt(key string, defaultValue int) int {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return defaultValue
+	}
+	return parsed
+}
+
 // postgresStore implements the Store interface for a PostgreSQL backend.
 type postgresStore struct {
 	db                *pgxpool.Pool
@@ -82,10 +177,11 @@ func newPostgresStore(config Config) (Store, error) {
 	//   ERROR: prepared statement "stmtcache_..." already exists (SQLSTATE 42P05)
 	poolConfig.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
-	// Set connection pool settings for better concurrency
-	// Supabase max_connections is 60, shared across multiple services — keep per-service pool small
-	poolConfig.MaxConns = 10                      // Maximum number of connections
-	poolConfig.MinConns = 2                       // Minimum number of connections
+	// Supabase max_connections is shared across services. Keep the per-instance
+	// pool conservative and tune via env if Cloud Run scaling changes.
+	poolSettings := postgresPoolSettingsFromEnv()
+	poolConfig.MaxConns = poolSettings.maxConns
+	poolConfig.MinConns = poolSettings.minConns
 	poolConfig.MaxConnLifetime = time.Hour        // Maximum connection lifetime
 	poolConfig.MaxConnIdleTime = time.Minute * 30 // Maximum idle time
 
@@ -457,7 +553,7 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stocksv1alpha1.Stock
 
 	// Parse financial statements
 	fs := parseFinancialStatements(financialStatementsJSON)
-	
+
 	// Parse key_metrics and merge with financial_statements info
 	if !isEmptyJSON(keyMetricsJSON) {
 		var keyMetrics map[string]interface{}
@@ -472,7 +568,7 @@ func (s *postgresStore) GetStockDetails(stockCode string) (*stocksv1alpha1.Stock
 			fs.Info = mergeKeyMetricsToInfo(keyMetrics, fs.Info)
 		}
 	}
-	
+
 	if fs != nil {
 		detailsProto.FinancialStatements = fs
 	}
@@ -1038,7 +1134,7 @@ func (s *postgresStore) UpdateKeyMetrics(stockCode string, metrics map[string]in
 			key_metrics_updated_at = CURRENT_TIMESTAMP
 		WHERE stock_code = $1
 	`
-	
+
 	result, err := s.db.Exec(ctx, query, stockCode, metricsJSON)
 	if err != nil {
 		return fmt.Errorf("failed to update key_metrics: %w", err)
@@ -1053,65 +1149,6 @@ func (s *postgresStore) UpdateKeyMetrics(stockCode string, metrics map[string]in
 
 // SearchStocks searches for stocks by symbol or company name, including industry and tags
 func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alpha1.Stock, error) {
-	// Optimized search query using full-text search across rich metadata
-	// Only returns stocks that have price data (valid tradeable stocks)
-	searchQuery := `
-		WITH latest_shorts AS (
-			SELECT DISTINCT ON ("PRODUCT_CODE")
-				"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS",
-				"PRODUCT_CODE",
-				"PRODUCT",
-				"TOTAL_PRODUCT_IN_ISSUE",
-				"REPORTED_SHORT_POSITIONS",
-				"DATE"
-			FROM shorts
-			ORDER BY "PRODUCT_CODE", "DATE" DESC
-		),
-		valid_stocks AS (
-			-- Only include stocks that have at least one price record
-			SELECT DISTINCT stock_code
-			FROM stock_prices
-			WHERE stock_code IS NOT NULL
-		),
-		search_results AS (
-			SELECT
-				s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" as percentage_shorted,
-				s."PRODUCT_CODE" as product_code,
-				s."PRODUCT" as name,
-				s."TOTAL_PRODUCT_IN_ISSUE" as total_product_in_issue,
-				s."REPORTED_SHORT_POSITIONS" as reported_short_positions,
-				COALESCE(m.industry, '') as industry,
-				COALESCE(m.tags, ARRAY[]::text[]) as tags,
-				COALESCE(m.logo_gcs_url, '') as logo_url,
-				CASE
-					WHEN s."PRODUCT_CODE" = $1 THEN 100  -- Exact Code Match (Highest Priority)
-					WHEN s."PRODUCT_CODE" ILIKE $2 THEN 50  -- Partial Code Match
-					WHEN m.search_vector @@ plainto_tsquery('english', $1) THEN ts_rank(m.search_vector, plainto_tsquery('english', $1)) * 10
-					WHEN s."PRODUCT" ILIKE $2 THEN 20       -- Name Match (fallback if not in search vector)
-					ELSE 1
-				END as relevance
-			FROM latest_shorts s
-			LEFT JOIN "company-metadata" m ON s."PRODUCT_CODE" = m.stock_code
-			INNER JOIN valid_stocks v ON s."PRODUCT_CODE" = v.stock_code
-			WHERE
-				s."PRODUCT_CODE" = $1 OR
-				s."PRODUCT_CODE" ILIKE $2 OR
-				s."PRODUCT" ILIKE $2 OR
-				m.search_vector @@ plainto_tsquery('english', $1)
-		)
-		SELECT
-			percentage_shorted,
-			product_code,
-			name,
-			total_product_in_issue,
-			reported_short_positions,
-			industry,
-			tags,
-			logo_url
-		FROM search_results
-		ORDER BY relevance DESC, percentage_shorted DESC
-		LIMIT $3`
-
 	// Create context with timeout to prevent hanging
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -1120,7 +1157,7 @@ func (s *postgresStore) SearchStocks(query string, limit int32) ([]*stocksv1alph
 	exactQuery := query
 	partialQuery := "%" + query + "%"
 
-	rows, err := s.db.Query(ctx, searchQuery, exactQuery, partialQuery, limit)
+	rows, err := s.db.Query(ctx, searchStocksQuery, exactQuery, partialQuery, limit)
 	if err != nil {
 		log.Errorf("Database query failed for search '%s': %v", query, err)
 		// Check if it's a context timeout
@@ -1315,25 +1352,25 @@ func (s *postgresStore) GetSyncStatus(filter SyncStatusFilter) ([]*shortsv1alpha
 		FROM sync_status
 		WHERE 1=1
 	`
-	
+
 	var args []interface{}
 	argIndex := 1
-	
+
 	// Filter by environment if specified
 	if filter.Environment != "" {
 		baseQuery += fmt.Sprintf(" AND environment = $%d", argIndex)
 		args = append(args, filter.Environment)
 		argIndex++
 	}
-	
+
 	// Exclude local/development hostnames if requested
 	// Local runs typically have hostnames like "localhost", local machine names, or ".local" suffix
 	if filter.ExcludeLocal {
 		baseQuery += fmt.Sprintf(" AND hostname NOT LIKE '%%local%%' AND hostname NOT LIKE '%%.local' AND hostname IS NOT NULL AND hostname != ''")
 	}
-	
+
 	baseQuery += " ORDER BY started_at DESC"
-	
+
 	// Apply limit
 	limit := filter.Limit
 	if limit <= 0 {
@@ -1472,13 +1509,13 @@ func (s *postgresStore) GetTopStocksForEnrichment(limit int32, priority shortsv1
 	var results []*shortsv1alpha1.StockEnrichmentCandidate
 	for rows.Next() {
 		var (
-			stockCode             string
-			companyName           string
-			industry              string
-			marketCap             float64
-			shortPositionPercent  float64
-			enrichmentStatus      string
-			lastEnriched          pgtype.Timestamptz
+			stockCode            string
+			companyName          string
+			industry             string
+			marketCap            float64
+			shortPositionPercent float64
+			enrichmentStatus     string
+			lastEnriched         pgtype.Timestamptz
 		)
 		if err := rows.Scan(
 			&stockCode,
@@ -1493,12 +1530,12 @@ func (s *postgresStore) GetTopStocksForEnrichment(limit int32, priority shortsv1
 		}
 
 		candidate := &shortsv1alpha1.StockEnrichmentCandidate{
-			StockCode:           stockCode,
-			CompanyName:         companyName,
-			Industry:            industry,
-			MarketCap:           marketCap,
+			StockCode:            stockCode,
+			CompanyName:          companyName,
+			Industry:             industry,
+			MarketCap:            marketCap,
 			ShortPositionPercent: shortPositionPercent,
-			EnrichmentStatus:    enrichmentStatus,
+			EnrichmentStatus:     enrichmentStatus,
 		}
 		if lastEnriched.Status == pgtype.Present {
 			candidate.LastEnriched = timestamppb.New(lastEnriched.Time)
@@ -1576,7 +1613,7 @@ func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, st
 		EmitUnpopulated: true,
 		UseProtoNames:   true,
 	}
-	
+
 	dataJSON, err := marshaler.Marshal(data)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal enrichment data: %w", err)
@@ -1599,7 +1636,7 @@ func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, st
 	if err := json.Unmarshal(dataJSON, &testData); err != nil {
 		return "", fmt.Errorf("enrichment data produced invalid JSON: %w (JSON: %s)", err, string(dataJSON))
 	}
-	
+
 	qualityJSON, err := marshaler.Marshal(quality)
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal quality score: %w", err)
@@ -1660,7 +1697,7 @@ func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, st
 	// This ensures proper encoding and avoids any byte-level issues
 	dataJSONStr := string(dataJSON)
 	qualityJSONStr := string(qualityJSON)
-	
+
 	// Log the JSON being inserted for debugging (truncated to avoid huge logs)
 	dataJSONPreview := dataJSONStr
 	qualityJSONPreview := qualityJSONStr
@@ -1673,11 +1710,11 @@ func (s *postgresStore) SavePendingEnrichment(enrichmentID, stockCode string, st
 	log.Debugf("Saving enrichment for %s: dataJSON length=%d, qualityJSON length=%d", stockCode, len(dataJSON), len(qualityJSON))
 	log.Debugf("Data JSON (first 500 chars): %s", dataJSONPreview)
 	log.Debugf("Quality JSON (first 500 chars): %s", qualityJSONPreview)
-	
+
 	_, err = s.db.Exec(ctx, query, finalEnrichmentID, stockCode, dataJSONStr, qualityJSONStr, dbStatus)
 	if err != nil {
 		// Include JSON snippets in error for debugging
-		return "", fmt.Errorf("failed to save pending enrichment: %w (dataJSON length: %d, qualityJSON length: %d, dataJSON preview: %s)", 
+		return "", fmt.Errorf("failed to save pending enrichment: %w (dataJSON length: %d, qualityJSON length: %d, dataJSON preview: %s)",
 			err, len(dataJSON), len(qualityJSON), dataJSONStr)
 	}
 	return finalEnrichmentID, nil
@@ -2449,16 +2486,16 @@ func (s *postgresStore) GetEnrichmentJob(jobID string) (*shortsv1alpha1.Enrichme
 	`
 
 	var (
-		dbJobID        string
-		stockCode      string
-		status         string
-		priority       int32
-		force          bool
-		createdAt      pgtype.Timestamptz
-		startedAt      pgtype.Timestamptz
-		completedAt    pgtype.Timestamptz
-		errorMessage   sql.NullString
-		enrichmentID   sql.NullString
+		dbJobID      string
+		stockCode    string
+		status       string
+		priority     int32
+		force        bool
+		createdAt    pgtype.Timestamptz
+		startedAt    pgtype.Timestamptz
+		completedAt  pgtype.Timestamptz
+		errorMessage sql.NullString
+		enrichmentID sql.NullString
 	)
 
 	err := s.db.QueryRow(ctx, query, jobID).Scan(
@@ -2571,17 +2608,17 @@ func (s *postgresStore) UpdateEnrichmentJobStatus(jobID string, status shortsv1a
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		
+
 		_, err := s.db.Exec(ctx, query, args...)
 		cancel()
-		
+
 		if err == nil {
 			// Success - status updated
 			return nil
 		}
 
 		lastErr = err
-		
+
 		// Don't retry on the last attempt
 		if attempt < maxRetries-1 {
 			// Exponential backoff with jitter
@@ -2590,8 +2627,8 @@ func (s *postgresStore) UpdateEnrichmentJobStatus(jobID string, status shortsv1a
 			if backoff > maxBackoff {
 				backoff = maxBackoff
 			}
-			
-			log.Warnf("Failed to update enrichment job %s status to %s (attempt %d/%d), retrying: %v", 
+
+			log.Warnf("Failed to update enrichment job %s status to %s (attempt %d/%d), retrying: %v",
 				jobID, dbStatus, attempt+1, maxRetries, err)
 		}
 	}
@@ -2745,7 +2782,7 @@ func (s *postgresStore) ResetStuckJobs(stuckThresholdMinutes int) (int, error) {
 		RETURNING job_id
 	`
 	errorMsg := fmt.Sprintf("Job was stuck in processing for > %d minutes, reset to queued", stuckThresholdMinutes)
-	
+
 	rows, err := s.db.Query(ctx, query, errorMsg, stuckThresholdMinutes)
 	if err != nil {
 		return 0, fmt.Errorf("failed to reset stuck jobs: %w", err)
@@ -2756,11 +2793,11 @@ func (s *postgresStore) ResetStuckJobs(stuckThresholdMinutes int) (int, error) {
 	for rows.Next() {
 		count++
 	}
-	
+
 	if count > 0 {
 		log.Infof("Reset %d stuck enrichment job(s) back to queued", count)
 	}
-	
+
 	return count, nil
 }
 
@@ -2784,7 +2821,7 @@ func (s *postgresStore) CleanupOldCompletedJobs(keepPerStock int) (int, error) {
 		)
 		RETURNING job_id
 	`
-	
+
 	rows, err := s.db.Query(ctx, query, keepPerStock)
 	if err != nil {
 		return 0, fmt.Errorf("failed to cleanup old completed jobs: %w", err)
@@ -2795,11 +2832,11 @@ func (s *postgresStore) CleanupOldCompletedJobs(keepPerStock int) (int, error) {
 	for rows.Next() {
 		count++
 	}
-	
+
 	if count > 0 {
 		log.Infof("Cleaned up %d old completed enrichment job(s) (kept %d most recent per stock)", count, keepPerStock)
 	}
-	
+
 	return count, nil
 }
 
@@ -3236,7 +3273,6 @@ func (s *postgresStore) GetStocksForImageBackfill(limit int, afterStockCode stri
 	return results, rows.Err()
 }
 
-
 func (s *postgresStore) UnsubscribeByID(id string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -3245,4 +3281,3 @@ func (s *postgresStore) UnsubscribeByID(id string) error {
 		 WHERE id = $1 AND unsubscribed_at IS NULL`, id)
 	return err
 }
-

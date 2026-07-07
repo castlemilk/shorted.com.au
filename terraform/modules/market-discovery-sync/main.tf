@@ -165,6 +165,16 @@ resource "google_cloud_run_v2_service" "market_data_sync" {
       }
 
       env {
+        name  = "DB_MAX_CONNS"
+        value = "3"
+      }
+
+      env {
+        name  = "DB_MIN_CONNS"
+        value = "0"
+      }
+
+      env {
         name  = "GCS_BUCKET_NAME"
         value = var.bucket_name
       }
@@ -256,15 +266,6 @@ resource "google_cloud_run_v2_service" "market_data_sync" {
     google_secret_manager_secret_iam_member.market_data_sync_otel_headers,
     google_storage_bucket_iam_member.market_data_sync_gcs
   ]
-}
-
-# Allow public access to the API (or restrict as needed)
-resource "google_cloud_run_v2_service_iam_member" "market_data_sync_public" {
-  name     = google_cloud_run_v2_service.market_data_sync.name
-  location = google_cloud_run_v2_service.market_data_sync.location
-  project  = var.project_id
-  role     = "roles/run.invoker"
-  member   = "allUsers"
 }
 
 # Scheduler Service Account

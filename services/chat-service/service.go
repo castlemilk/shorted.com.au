@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
+	"strings"
 	"unicode/utf8"
 
 	"connectrpc.com/connect"
@@ -23,6 +26,8 @@ type ChatServiceHandler struct {
 	historyLimit       int
 	maxMessagesPerConv int
 	maxConversations   int
+	internalSecret     string
+	environment        string
 }
 
 var _ chatv1connect.ChatServiceHandler = (*ChatServiceHandler)(nil)
@@ -35,6 +40,7 @@ func NewChatServiceHandler(store *ConversationStore, llmClient *LLMClient, cfg *
 			ChatHistoryLimit:   20,
 			MaxMessagesPerConv: 100,
 			MaxConversations:   100,
+			Environment:        "development",
 		}
 	}
 	return &ChatServiceHandler{
@@ -44,6 +50,8 @@ func NewChatServiceHandler(store *ConversationStore, llmClient *LLMClient, cfg *
 		historyLimit:       cfg.ChatHistoryLimit,
 		maxMessagesPerConv: cfg.MaxMessagesPerConv,
 		maxConversations:   cfg.MaxConversations,
+		internalSecret:     cfg.InternalServiceSecret,
+		environment:        cfg.Environment,
 	}
 }
 
@@ -55,6 +63,54 @@ func validateChatMessage(message string, maxChars int) error {
 		return fmt.Errorf("message exceeds %d characters", maxChars)
 	}
 	return nil
+}
+
+func validateInternalServiceSecret(headers http.Header, expectedSecret string, environment string) error {
+	expected := strings.TrimSpace(expectedSecret)
+	if expected == "" {
+		if strings.EqualFold(environment, "production") {
+			return fmt.Errorf("internal service secret is not configured")
+		}
+		return nil
+	}
+
+	provided := strings.TrimSpace(headers.Get("X-Internal-Secret"))
+	if provided == "" {
+		return fmt.Errorf("internal service secret is required")
+	}
+	if subtle.ConstantTimeCompare([]byte(provided), []byte(expected)) != 1 {
+		return fmt.Errorf("internal service secret is invalid")
+	}
+	return nil
+}
+
+func trustedChatUserID(headers http.Header) (string, error) {
+	userID := strings.TrimSpace(headers.Get("X-User-Id"))
+	if userID == "" {
+		return "", fmt.Errorf("X-User-Id header is required")
+	}
+	return userID, nil
+}
+
+func ensureConversationOwner(conv *Conversation, userID string) error {
+	if conv == nil {
+		return nil
+	}
+	if conv.UserID != userID {
+		return fmt.Errorf("conversation not found")
+	}
+	return nil
+}
+
+func (h *ChatServiceHandler) authorizeChatRequest(headers http.Header) (string, error) {
+	if err := validateInternalServiceSecret(headers, h.internalSecret, h.environment); err != nil {
+		return "", connect.NewError(connect.CodeUnauthenticated, err)
+	}
+	userID, err := trustedChatUserID(headers)
+	if err != nil {
+		return "", connect.NewError(connect.CodeUnauthenticated, err)
+	}
+	return userID, nil
 }
 
 // SendMessage handles a chat message, executing tools and returning the assistant response.
@@ -75,15 +131,13 @@ func (h *ChatServiceHandler) SendMessage(
 	}
 	recordChatExperienceEvent("send_message", "attempt", "")
 
-	// Extract user ID from headers (set by auth middleware/frontend)
-	userID := req.Header().Get("X-User-Id")
-	if userID == "" {
-		return connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("X-User-Id header is required"))
+	userID, err := h.authorizeChatRequest(req.Header())
+	if err != nil {
+		return err
 	}
 
 	// Get or create conversation
 	var conv *Conversation
-	var err error
 	if msg.ConversationId != "" {
 		conv, err = h.store.GetConversation(ctx, msg.ConversationId)
 		if err != nil {
@@ -91,6 +145,9 @@ func (h *ChatServiceHandler) SendMessage(
 		}
 		if conv == nil {
 			return connect.NewError(connect.CodeNotFound, fmt.Errorf("conversation not found"))
+		}
+		if err := ensureConversationOwner(conv, userID); err != nil {
+			return connect.NewError(connect.CodePermissionDenied, err)
 		}
 	} else {
 		// Create new conversation with first message as title
@@ -205,6 +262,10 @@ func (h *ChatServiceHandler) GetConversationHistory(
 	ctx context.Context,
 	req *connect.Request[chatv1.GetConversationHistoryRequest],
 ) (*connect.Response[chatv1.GetConversationHistoryResponse], error) {
+	userID, authErr := h.authorizeChatRequest(req.Header())
+	if authErr != nil {
+		return nil, authErr
+	}
 	if req.Msg.ConversationId == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("conversation_id is required"))
 	}
@@ -215,6 +276,9 @@ func (h *ChatServiceHandler) GetConversationHistory(
 	}
 	if conv == nil {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("conversation not found"))
+	}
+	if err := ensureConversationOwner(conv, userID); err != nil {
+		return nil, connect.NewError(connect.CodePermissionDenied, err)
 	}
 
 	messages, err := h.store.GetMessages(ctx, req.Msg.ConversationId, h.maxMessagesPerConv)
@@ -272,10 +336,9 @@ func (h *ChatServiceHandler) ListConversations(
 	ctx context.Context,
 	req *connect.Request[chatv1.ListConversationsRequest],
 ) (*connect.Response[chatv1.ListConversationsResponse], error) {
-	// Extract user ID from headers
-	userID := req.Header().Get("X-User-Id")
-	if userID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("X-User-Id header is required"))
+	userID, authErr := h.authorizeChatRequest(req.Header())
+	if authErr != nil {
+		return nil, authErr
 	}
 
 	limit := int(req.Msg.Limit)
@@ -313,14 +376,12 @@ func (h *ChatServiceHandler) DeleteConversation(
 	ctx context.Context,
 	req *connect.Request[chatv1.DeleteConversationRequest],
 ) (*connect.Response[chatv1.DeleteConversationResponse], error) {
+	userID, authErr := h.authorizeChatRequest(req.Header())
+	if authErr != nil {
+		return nil, authErr
+	}
 	if req.Msg.ConversationId == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("conversation_id is required"))
-	}
-
-	// Extract user ID from headers
-	userID := req.Header().Get("X-User-Id")
-	if userID == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("X-User-Id header is required"))
 	}
 
 	if err := h.store.DeleteConversation(ctx, req.Msg.ConversationId, userID); err != nil {

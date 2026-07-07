@@ -357,6 +357,22 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
+    original_limit, original_workers = args.limit, args.workers
+    args.limit, args.workers = extract.resolve_gemini_run_budget(
+        limit=args.limit,
+        workers=args.workers,
+        default_max_items=20,
+        default_max_workers=2,
+    )
+    if (args.limit, args.workers) != (original_limit, original_workers):
+        log.warning(
+            "Gemini run budget capped --limit/--workers from %s/%s to %s/%s",
+            original_limit,
+            original_workers,
+            args.limit,
+            args.workers,
+        )
+
     conn = extract.get_db_connection()
     rows = select_urls(conn, args.priority, args.limit, retry_after_days=args.retry_after_days)
     record_attempts = args.retry_after_days > 0 and attempts_table_exists(conn)

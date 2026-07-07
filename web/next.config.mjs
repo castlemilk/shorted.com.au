@@ -160,6 +160,24 @@ const config = {
         ],
       },
       {
+        source: "/geo/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, s-maxage=31536000, stale-while-revalidate=604800",
+          },
+        ],
+      },
+      {
+        source: "/housing-icons/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
         // Security headers for all routes
         source: "/:path*",
         headers: [

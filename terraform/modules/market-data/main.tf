@@ -79,6 +79,16 @@ resource "google_cloud_run_v2_service" "market_data" {
         }
       }
 
+      env {
+        name  = "MARKET_DATA_DB_MAX_CONNS"
+        value = "3"
+      }
+
+      env {
+        name  = "MARKET_DATA_DB_MIN_CONNS"
+        value = "0"
+      }
+
       # OpenTelemetry configuration (traces + metrics to Grafana Cloud)
       env {
         name  = "OTEL_EXPORTER_OTLP_ENDPOINT"
@@ -132,7 +142,7 @@ resource "google_cloud_run_v2_service" "market_data" {
       }
     }
 
-    max_instance_request_concurrency = 1  # Required: cpu < 1 requires concurrency = 1
+    max_instance_request_concurrency = 1 # Required: cpu < 1 requires concurrency = 1
 
     scaling {
       min_instance_count = var.min_instances

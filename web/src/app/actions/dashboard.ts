@@ -10,6 +10,8 @@ import {
 } from "@/lib/firestore-cost";
 
 const COLLECTION_NAME = "dashboards";
+const DASHBOARD_LIST_LIMIT = 50;
+const DASHBOARD_DEFAULT_SCAN_LIMIT = 20;
 
 function trackDashboardRead<T>(operation: () => Promise<T>) {
   return withFirestoreCost(
@@ -109,6 +111,7 @@ export async function getUserDashboards() {
     const dashboardsSnapshot = await trackDashboardQuery(() => adminDb
       .collection(COLLECTION_NAME)
       .where("userId", "==", userId)
+      .limit(DASHBOARD_LIST_LIMIT)
       .get());
 
     const dashboards: DashboardConfig[] = [];
@@ -193,6 +196,7 @@ export async function setDefaultDashboard(dashboardId: string) {
       .collection(COLLECTION_NAME)
       .where("userId", "==", userId)
       .where("isDefault", "==", true)
+      .limit(DASHBOARD_DEFAULT_SCAN_LIMIT)
       .get());
 
     const batch = adminDb.batch();

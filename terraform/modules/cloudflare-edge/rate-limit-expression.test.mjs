@@ -62,9 +62,9 @@ test("testing bypass inputs are explicit and safe by default", () => {
   assert.match(variablesTf, /default\s+=\s+"Shorted-E2E"/);
   assert.match(
     mainTf,
-    /: "\(\s*http\.host eq \\"__shorted-testing-bypass-disabled\.invalid__\\"\s*\)"/,
+    /: "false"/,
   );
-  assert.doesNotMatch(mainTf, /: "false"/);
+  assert.doesNotMatch(mainTf, /__shorted-testing-bypass-disabled\.invalid__/);
 });
 
 test("production environment passes testing bypass inputs into Cloudflare edge module", () => {

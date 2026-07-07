@@ -43,7 +43,7 @@ resource "google_secret_manager_secret_iam_member" "otel_headers" {
 # Grant Secret Manager access for GEMINI_API_KEY (AI-powered sentiment analysis)
 resource "google_secret_manager_secret_iam_member" "gemini_api_key" {
   count     = var.gemini_secret_exists ? 1 : 0
-  secret_id = "GEMINI_API_KEY"
+  secret_id = var.gemini_secret_name
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.news_aggregator.email}"
   project   = var.project_id
@@ -102,7 +102,7 @@ resource "google_cloud_run_v2_job" "news_aggregator" {
             name = "GEMINI_API_KEY"
             value_source {
               secret_key_ref {
-                secret  = "GEMINI_API_KEY"
+                secret  = var.gemini_secret_name
                 version = "latest"
               }
             }

@@ -6,6 +6,20 @@ import worker, {
   normalizeRouteGroup,
 } from "./worker.js";
 
+function hashStringSyncForTest(text) {
+  let hash = 5381;
+  for (let i = 0; i < text.length; i++) {
+    hash = ((hash << 5) + hash) ^ text.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function versionedPrewarmKey(path, body, version) {
+  const bodyHash = hashStringSyncForTest(body);
+  const pathClean = path.replace(/\//g, "_").replace(/^_/, "");
+  return `prewarm:${version}:${pathClean}:${bodyHash}`;
+}
+
 test("uncached Shorts POST returns MISS and warms hot cache without re-reading the consumed body", async () => {
   const originalFetch = globalThis.fetch;
   const originalCaches = globalThis.caches;
@@ -253,6 +267,152 @@ test("direct API chat RPC requests are blocked at the edge", async () => {
     assert.equal(response.headers.get("x-shorted-edge"), "cloudflare");
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("KV cache covers stock detail page RPCs beyond the summary endpoint", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalCaches = globalThis.caches;
+  const body = JSON.stringify({ product_code: "BHP", period: "3m" });
+  const path = "/shorts.v1alpha1.ShortedStocksService/GetStockData";
+  const key = versionedPrewarmKey(path, body, "v1");
+  let originCalls = 0;
+
+  globalThis.caches = {
+    default: {
+      async match() {
+        return undefined;
+      },
+      async put() {
+        return undefined;
+      },
+    },
+  };
+  globalThis.fetch = async () => {
+    originCalls++;
+    return new Response(JSON.stringify({ origin: true }), { status: 200 });
+  };
+
+  try {
+    const response = await worker.fetch(
+      new Request(`https://api.shorted.com.au${path}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body,
+      }),
+      {
+        SHORTS_API_ORIGIN: "https://shorts-origin.test",
+        EDGE_ANALYTICS_SAMPLE_RATE: "0",
+        EDGE_KV: {
+          async get(k) {
+            if (k === "control:cache-version") return "v1";
+            if (k === key) return JSON.stringify({ fromKv: true });
+            return null;
+          },
+          async put() {},
+        },
+      },
+      { waitUntil() {} },
+    );
+
+    assert.equal(response.headers.get("x-shorted-cache"), "KV");
+    assert.deepEqual(await response.json(), { fromKv: true });
+    assert.equal(originCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalCaches === undefined) delete globalThis.caches;
+    else globalThis.caches = originalCaches;
+  }
+});
+
+test("cache purge clears hot cache and bumps the shared cache version", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalCaches = globalThis.caches;
+  const originBodies = [{ value: "before" }, { value: "after" }];
+  const puts = [];
+  let originCalls = 0;
+
+  globalThis.caches = {
+    default: {
+      async match() {
+        return undefined;
+      },
+      async put() {
+        return undefined;
+      },
+    },
+  };
+  globalThis.fetch = async () => {
+    const body = originBodies[Math.min(originCalls, originBodies.length - 1)];
+    originCalls++;
+    return new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  const env = {
+    SHORTS_API_ORIGIN: "https://shorts-origin.test",
+    CACHE_PURGE_SECRET: "secret",
+    EDGE_ANALYTICS_SAMPLE_RATE: "0",
+    EDGE_KV: {
+      version: "v1",
+      async get(k) {
+        if (k === "control:cache-version") return this.version;
+        return null;
+      },
+      async put(k, v) {
+        puts.push({ k, v });
+        if (k === "control:cache-version") this.version = v;
+      },
+    },
+  };
+  const ctx = { waitUntil() {} };
+  const url = "https://api.shorted.com.au/shorts.v1alpha1.ShortedStocksService/GetAvailableDates";
+
+  try {
+    const first = await worker.fetch(
+      new Request(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ marker: "purge-test" }),
+      }),
+      env,
+      ctx,
+    );
+    assert.equal(first.headers.get("x-shorted-cache"), "MISS");
+    assert.deepEqual(await first.json(), { value: "before" });
+
+    const purge = await worker.fetch(
+      new Request("https://api.shorted.com.au/api/cache/purge", {
+        method: "POST",
+        body: "secret",
+      }),
+      env,
+      ctx,
+    );
+    assert.equal(purge.status, 200);
+    const purgeBody = await purge.json();
+    assert.equal(purgeBody.status, "purged");
+    assert.ok(purgeBody.cacheVersion);
+    assert.equal(puts.some((put) => put.k === "control:cache-version"), true);
+
+    const second = await worker.fetch(
+      new Request(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ marker: "purge-test" }),
+      }),
+      env,
+      ctx,
+    );
+    assert.equal(second.headers.get("x-shorted-cache"), "MISS");
+    assert.deepEqual(await second.json(), { value: "after" });
+    assert.equal(originCalls, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalCaches === undefined) delete globalThis.caches;
+    else globalThis.caches = originalCaches;
   }
 });
 

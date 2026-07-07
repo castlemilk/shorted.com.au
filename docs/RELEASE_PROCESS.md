@@ -87,11 +87,15 @@ For local production verification, use the same command shape:
 
 ```bash
 cd web
+set -a; source ../.env; set +a
+export CLOUDFLARE_TESTING_BYPASS_SECRET="${CLOUDFLARE_TESTING_BYPASS_SECRET:-$TF_VAR_rate_limit_testing_bypass_secret}"
 BASE_URL=https://shorted.com.au \
 RELEASE_API_BASE_URL=https://api.shorted.com.au \
 CLOUDFLARE_TESTING_BYPASS_SECRET="$CLOUDFLARE_TESTING_BYPASS_SECRET" \
 node e2e/release-smoke-ci.mjs
 ```
+
+If production smoke sees a Cloudflare challenge despite both headers, verify the live `shorted-app-api-security-skip` ruleset in phase `http_request_firewall_custom` is not using the disabled sentinel expression `http.host eq "__shorted-testing-bypass-disabled.invalid__"`. The GitHub repository secret `CLOUDFLARE_TESTING_BYPASS_SECRET` and Terraform variable `TF_VAR_rate_limit_testing_bypass_secret` must match after any rotation. Re-check this after Terraform or Cloudflare deploys, because applying Terraform without the Terraform secret variable can restore the disabled expression.
 
 ## GitHub Release
 

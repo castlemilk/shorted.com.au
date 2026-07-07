@@ -4,13 +4,13 @@ import {
   communitySummaryCacheTag,
   getCachedStockCommunitySummary,
 } from "../community-summary-cache";
-import { getStockCommunitySummary } from "../firestore-community";
+import { getStockCommunitySummary } from "../community-repository";
 
 jest.mock("next/cache", () => ({
   unstable_cache: jest.fn((loader) => loader),
 }));
 
-jest.mock("../firestore-community", () => ({
+jest.mock("../community-repository", () => ({
   getStockCommunitySummary: jest.fn(),
 }));
 

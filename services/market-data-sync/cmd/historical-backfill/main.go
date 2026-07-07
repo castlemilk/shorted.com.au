@@ -53,26 +53,26 @@ func main() {
 	if err != nil {
 		log.Fatalf("❌ Failed to parse database URL: %v", err)
 	}
-	
+
 	// Limit pool size to avoid exhausting Supabase connections
 	// Transaction mode typically allows ~15-20 connections
-	poolConfig.MaxConns = 3                          // Very conservative for backfill
-	poolConfig.MinConns = 1                          // Keep 1 connection ready
-	poolConfig.MaxConnLifetime = 30 * time.Minute    // Rotate connections
-	poolConfig.MaxConnIdleTime = 5 * time.Minute     // Release idle connections
-	poolConfig.HealthCheckPeriod = 1 * time.Minute   // Check connection health
-	
+	poolConfig.MaxConns = 3                        // Very conservative for backfill
+	poolConfig.MinConns = 1                        // Keep 1 connection ready
+	poolConfig.MaxConnLifetime = 30 * time.Minute  // Rotate connections
+	poolConfig.MaxConnIdleTime = 5 * time.Minute   // Release idle connections
+	poolConfig.HealthCheckPeriod = 1 * time.Minute // Check connection health
+
 	// CRITICAL: Use simple protocol to avoid prepared statement issues with Supabase pooler
 	// Transaction mode pooler can switch backend connections, breaking prepared statements
 	poolConfig.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
-	
+
 	// Create pool with config
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		log.Fatalf("❌ Failed to connect to database: %v", err)
 	}
 	defer pool.Close()
-	
+
 	// Test connection
 	if err := pool.Ping(ctx); err != nil {
 		log.Fatalf("❌ Failed to ping database: %v", err)
@@ -121,22 +121,26 @@ func main() {
 	} else {
 		log.Printf("📋 Fetching stock list from GCS...")
 	}
-	
+
 	allStocks, stockListErr := stocklistService.GetPrioritizedStocks(ctx, cfg.GCSBucketName, cfg.PriorityStockCount)
 	if stockListErr != nil {
 		log.Printf("⚠️ Failed to get stock list from GCS/local CSV: %v", stockListErr)
 		log.Printf("💡 Tip: Set LOCAL_ASX_CSV environment variable to use a local CSV file")
 		log.Printf("💡 Example: export LOCAL_ASX_CSV=../../analysis/data/ASX_Listed_Companies_07-04-2024_11-03-45_AEST.csv")
 		log.Printf("💡 Falling back to database...")
-		
+
 		// Fallback: Get stocks from database
 		log.Printf("📋 Fetching stock codes from database...")
-		rows, dbErr := pool.Query(ctx, `SELECT DISTINCT stock_code FROM stock_prices ORDER BY stock_code`)
+		rows, dbErr := pool.Query(ctx, `SELECT stock_code FROM mv_stock_price_coverage ORDER BY stock_code`)
+		if dbErr != nil {
+			log.Printf("⚠️ mv_stock_price_coverage unavailable (%v); falling back to stock_prices scan", dbErr)
+			rows, dbErr = pool.Query(ctx, `SELECT DISTINCT stock_code FROM stock_prices ORDER BY stock_code`)
+		}
 		if dbErr != nil {
 			log.Fatalf("❌ Failed to get stocks from database: %v", dbErr)
 		}
 		defer rows.Close()
-		
+
 		var dbStocks []string
 		for rows.Next() {
 			var code string
@@ -149,14 +153,14 @@ func main() {
 		if rowsErr := rows.Err(); rowsErr != nil {
 			log.Fatalf("❌ Error reading stock codes: %v", rowsErr)
 		}
-		
+
 		if len(dbStocks) == 0 {
 			log.Fatalf("❌ No stocks found in database. Please provide stock list via:")
 			log.Fatalf("   1. Set LOCAL_ASX_CSV environment variable")
 			log.Fatalf("   2. Ensure GCS bucket has asx-stocks/latest.csv")
 			log.Fatalf("   3. Or populate database with some stocks first")
 		}
-		
+
 		log.Printf("✅ Found %d stocks in database (using as fallback)", len(dbStocks))
 		// Convert to Stock format
 		allStocks = make([]stocklist.Stock, len(dbStocks))
@@ -173,7 +177,7 @@ func main() {
 
 	// Extract stock codes
 	stocks := make([]string, 0, len(allStocks))
-	
+
 	// If -symbol is provided, only process that specific stock
 	if *symbol != "" {
 		// Remove .AX suffix if present (for consistency)
@@ -204,11 +208,11 @@ func main() {
 
 	// Initialize checkpoint system (for progress tracking only)
 	checkpointStore := checkpoint.NewStore(pool)
-	
+
 	// Always create a new run - we use database state, not checkpoints, for skip decisions
 	runID := uuid.New().String()
 	var successful, failed int
-	
+
 	// Mark any incomplete runs as superseded
 	if incompleteRun, err := checkpointStore.GetIncompleteRun(ctx); err == nil && incompleteRun != nil {
 		log.Printf("📋 Found old incomplete run %s - marking as superseded", incompleteRun.RunID)
@@ -216,7 +220,7 @@ func main() {
 			log.Printf("⚠️ Failed to mark old run: %v", markErr)
 		}
 	}
-	
+
 	log.Printf("🆕 Starting run: %s", runID)
 	if err := checkpointStore.StartRun(ctx, runID, len(stocks), 0); err != nil {
 		log.Printf("⚠️ Failed to create checkpoint: %v (continuing anyway)", err)

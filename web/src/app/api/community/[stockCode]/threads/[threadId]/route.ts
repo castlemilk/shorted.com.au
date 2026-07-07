@@ -1,6 +1,9 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { getCommunityThread } from "~/@/lib/community/firestore-community";
+import {
+  COMMUNITY_PUBLIC_READ_CACHE_CONTROL,
+  getCachedCommunityThread,
+} from "~/@/lib/community/community-activity-cache";
 import {
   COMMUNITY_PUBLIC_READ_FALLBACK_CACHE_CONTROL,
   isFirestoreReadUnavailable,
@@ -23,7 +26,7 @@ export async function GET(
   }
 
   try {
-    const thread = await getCommunityThread(stockCode, threadId);
+    const thread = await getCachedCommunityThread(stockCode, threadId);
 
     if (!thread) {
       return NextResponse.json(
@@ -32,10 +35,17 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({
-      stockCode,
-      thread,
-    });
+    return NextResponse.json(
+      {
+        stockCode,
+        thread,
+      },
+      {
+        headers: {
+          "Cache-Control": COMMUNITY_PUBLIC_READ_CACHE_CONTROL,
+        },
+      },
+    );
   } catch (error) {
     if (isFirestoreReadUnavailable(error)) {
       warnCommunityReadFallback({

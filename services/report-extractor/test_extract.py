@@ -10,6 +10,8 @@ Run:  python -m pytest test_extract.py -q     (or)   python test_extract.py
 """
 import sys
 import types
+import os
+from contextlib import contextmanager
 
 
 def _stub_missing_deps() -> None:
@@ -127,6 +129,50 @@ def test_digest_window_widened_and_threshold_present():
     assert extract.MIN_DIGEST_CHARS > 0
     # Prompt must instruct the model to read figures from text when metrics are empty.
     assert "metrics JSON is empty" in extract.DIGEST_PROMPT
+
+
+@contextmanager
+def _patched_env(**values):
+    original = {k: os.environ.get(k) for k in values}
+    try:
+        for key, value in values.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+        yield
+    finally:
+        for key, value in original.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+
+def test_gemini_run_budget_caps_unbounded_limits_and_workers():
+    with _patched_env(GEMINI_MAX_RUN_ITEMS=None, GEMINI_MAX_RUN_WORKERS=None):
+        limit, workers = extract.resolve_gemini_run_budget(
+            limit=0,
+            workers=8,
+            default_max_items=25,
+            default_max_workers=2,
+        )
+
+    assert limit == 25
+    assert workers == 2
+
+
+def test_gemini_run_budget_honours_explicit_env_caps():
+    with _patched_env(GEMINI_MAX_RUN_ITEMS="7", GEMINI_MAX_RUN_WORKERS="1"):
+        limit, workers = extract.resolve_gemini_run_budget(
+            limit=500,
+            workers=6,
+            default_max_items=25,
+            default_max_workers=2,
+        )
+
+    assert limit == 7
+    assert workers == 1
 
 
 def test_keep_override_beats_noise_for_compound_titles():

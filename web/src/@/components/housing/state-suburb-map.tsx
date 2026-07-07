@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChoroplethMap } from "./choropleth-map";
 import { MapLegend } from "./map-legend";
 import { CategoricalLegend } from "./categorical-legend";
@@ -54,7 +54,24 @@ export function StateSuburbMap({
   const { data: topo, isLoading, isError } = useTopojson(`/geo/suburbs/${stateCode}.topojson`);
   const [hover, setHover] = useState<{ d: SuburbDatum; x: number; y: number } | null>(null);
   const [metricKey, setMetricKey] = useState<MetricKey>("price");
+  const [mapReady, setMapReady] = useState(false);
   const metric = METRIC_BY_KEY[metricKey];
+
+  useEffect(() => {
+    setMapReady(false);
+    if (!topo) return;
+
+    let firstFrame = 0;
+    let secondFrame = 0;
+    firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => setMapReady(true));
+    });
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+  }, [topo]);
 
   // Suburb-level price coverage is SA & VIC only; other states have 0 priced
   // suburbs, so defaulting to "price" paints a blank map. When a state has no
@@ -121,10 +138,10 @@ export function StateSuburbMap({
   }, [metric, suburbs]);
 
   const metricSelect = (
-    <div className="flex items-center gap-2">
+    <div className="flex w-full items-center gap-2">
       <span className="shrink-0 text-xs text-muted-foreground">Colour by</span>
       <Select value={metricKey} onValueChange={(v) => { userPickedMetric.current = true; setMetricKey(v as MetricKey); }}>
-      <SelectTrigger aria-label="Colour the map by" className="h-8 w-[220px] text-xs">
+      <SelectTrigger aria-label="Colour the map by" className="h-8 min-w-0 flex-1 text-xs sm:w-[220px] sm:flex-none">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -148,12 +165,20 @@ export function StateSuburbMap({
       </div>
     );
   }
-  if (isLoading || !topo) {
-    return (
-      <div className="flex flex-1 flex-col">
-        <div className="mb-2">{metricSelect}</div>
-        <div className="h-full min-h-[460px] w-full animate-pulse rounded-xl bg-muted" />
+  const mapFrame = (children: ReactNode) => (
+    <div className="flex min-h-[520px] flex-1 flex-col">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        {metricSelect}
       </div>
+      <div className="relative flex min-h-[460px] flex-1 flex-col overflow-hidden rounded-xl">
+        {children}
+      </div>
+    </div>
+  );
+
+  if (isLoading || !topo || !mapReady) {
+    return (
+      mapFrame(<div className="absolute inset-0 animate-pulse bg-muted" />)
     );
   }
   const objectName = Object.keys(topo.objects)[0]!;
@@ -170,13 +195,8 @@ export function StateSuburbMap({
             noDataLabel={metric.key === "price" ? "No price data" : "No data"} />
         : null);
 
-  return (
-    <div className="flex flex-1 flex-col">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        {metricSelect}
-      </div>
-
-      <div className="relative flex flex-1 flex-col">
+  return mapFrame(
+    <>
         <ChoroplethMap
           fill
           topology={topo}
@@ -226,7 +246,6 @@ export function StateSuburbMap({
             <SuburbTooltip summary={hover.d} regionCode={hover.d.regionCode} />
           </div>
         ) : null}
-      </div>
-    </div>
+    </>,
   );
 }

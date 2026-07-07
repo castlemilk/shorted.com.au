@@ -1,14 +1,24 @@
 import { NextRequest } from "next/server";
 import { GET, POST } from "../route";
+import { createCommunityThread } from "~/@/lib/community/community-repository";
 import {
-  createCommunityThread,
-  listCommunityThreads,
-} from "~/@/lib/community/firestore-community";
+  getCachedCommunityThreads,
+  revalidateCommunityCacheTags,
+} from "~/@/lib/community/community-activity-cache";
 import { auth } from "~/server/auth";
 
-jest.mock("~/@/lib/community/firestore-community", () => ({
-  listCommunityThreads: jest.fn(),
+jest.mock("~/@/lib/community/community-repository", () => ({
   createCommunityThread: jest.fn(),
+}));
+
+jest.mock("~/@/lib/community/community-activity-cache", () => ({
+  COMMUNITY_PUBLIC_READ_CACHE_CONTROL:
+    "public, s-maxage=60, stale-while-revalidate=300",
+  communityThreadsCacheTag: jest.fn(
+    (stockCode: string) => `community-threads:${stockCode.toUpperCase()}`,
+  ),
+  getCachedCommunityThreads: jest.fn(),
+  revalidateCommunityCacheTags: jest.fn(),
 }));
 
 jest.mock("~/server/auth", () => ({
@@ -21,7 +31,7 @@ describe("/api/community/[stockCode]/threads", () => {
   });
 
   it("returns the public thread list payload", async () => {
-    (listCommunityThreads as jest.Mock).mockResolvedValue([
+    (getCachedCommunityThreads as jest.Mock).mockResolvedValue([
       {
         id: "thread-1",
         stockCode: "CBA",
@@ -47,6 +57,7 @@ describe("/api/community/[stockCode]/threads", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toContain("s-maxage=60");
     expect(data.stockCode).toBe("CBA");
     expect(data.threads).toHaveLength(1);
     expect(data.threads[0]?.id).toBe("thread-1");
@@ -54,7 +65,7 @@ describe("/api/community/[stockCode]/threads", () => {
 
   it("returns an empty public thread list when Firestore credentials are unavailable", async () => {
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
-    (listCommunityThreads as jest.Mock).mockRejectedValue(
+    (getCachedCommunityThreads as jest.Mock).mockRejectedValue(
       Object.assign(
         new Error("16 UNAUTHENTICATED: Request had invalid authentication credentials."),
         { code: 16 },
@@ -82,7 +93,7 @@ describe("/api/community/[stockCode]/threads", () => {
 
   it("returns an empty public thread list while Firestore indexes are unavailable", async () => {
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
-    (listCommunityThreads as jest.Mock).mockRejectedValue(
+    (getCachedCommunityThreads as jest.Mock).mockRejectedValue(
       Object.assign(
         new Error("9 FAILED_PRECONDITION: The query requires an index."),
         { code: 9 },
@@ -169,6 +180,9 @@ describe("/api/community/[stockCode]/threads", () => {
     });
 
     expect(response.status).toBe(201);
+    expect(revalidateCommunityCacheTags).toHaveBeenCalledWith([
+      "community-threads:CBA",
+    ]);
     expect(createCommunityThread).toHaveBeenCalledWith(
       expect.objectContaining({
         stockCode: "CBA",

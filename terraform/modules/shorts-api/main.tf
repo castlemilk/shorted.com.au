@@ -198,6 +198,16 @@ resource "google_cloud_run_v2_service" "shorts_api" {
       }
 
       env {
+        name  = "SHORTS_DB_MAX_CONNS"
+        value = "3"
+      }
+
+      env {
+        name  = "SHORTS_DB_MIN_CONNS"
+        value = "0"
+      }
+
+      env {
         name  = "APP_STORE_POSTGRES_USERNAME"
         value = var.postgres_username
       }
@@ -504,4 +514,3 @@ resource "google_cloud_scheduler_job" "key_metrics_daily" {
     google_secret_manager_secret_iam_member.key_metrics_secret_access
   ]
 }
-
