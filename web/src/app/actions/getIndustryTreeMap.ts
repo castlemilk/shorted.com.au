@@ -4,6 +4,7 @@ import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { type IndustryTreeMap } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { type ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
+import { fetchEdgeReadJson } from "./edgeRead";
 import { formatPeriodForAPI } from "~/lib/period-utils";
 import { cache } from "react";
 import { getOrSetCached, CACHE_KEYS, HOMEPAGE_TTL } from "~/@/lib/kv-cache";
@@ -28,6 +29,17 @@ export const getIndustryTreeMap = cache(
       return getOrSetCached(
         cacheKey,
         async () => {
+          const apiPeriod = formatPeriodForAPI(period);
+          const edgeResponse = await fetchEdgeReadJson<IndustryTreeMap>(
+            "/edge/v1/industry-treemap",
+            {
+              period: apiPeriod,
+              limit,
+              viewMode,
+            },
+          );
+          if (edgeResponse) return edgeResponse;
+
           const transport = createConnectTransport({
             fetch: serverFetchWithUserAgent,
             baseUrl: SHORTS_API_URL,
@@ -35,7 +47,7 @@ export const getIndustryTreeMap = cache(
           const client = createClient(ShortedStocksService, transport);
 
           const response = await client.getIndustryTreeMap({
-            period: formatPeriodForAPI(period),
+            period: apiPeriod,
             limit,
             viewMode,
           });

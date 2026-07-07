@@ -74,6 +74,18 @@ variable "news_cache_ttl" {
   default     = 300
 }
 
+variable "public_daily_cache_ttl" {
+  description = "Public GET edge-read max-age/s-maxage for daily-updated API data"
+  type        = number
+  default     = 3600
+}
+
+variable "public_stale_cache_ttl" {
+  description = "Public GET edge-read stale-while-revalidate window for daily-updated API data"
+  type        = number
+  default     = 86400
+}
+
 variable "static_cache_ttl" {
   description = "Cache TTL for static assets (images, fonts, JS/CSS)"
   type        = number

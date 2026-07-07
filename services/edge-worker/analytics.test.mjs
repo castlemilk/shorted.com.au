@@ -20,6 +20,17 @@ function versionedPrewarmKey(path, body, version) {
   return `prewarm:${version}:${pathClean}:${bodyHash}`;
 }
 
+async function bodyToText(body) {
+  if (!body) return "";
+  if (typeof body === "string") return body;
+  if (body instanceof ArrayBuffer) return new TextDecoder().decode(body);
+  if (ArrayBuffer.isView(body)) {
+    return new TextDecoder().decode(body);
+  }
+  if (typeof body.text === "function") return body.text();
+  return String(body);
+}
+
 test("uncached Shorts POST returns MISS and warms hot cache without re-reading the consumed body", async () => {
   const originalFetch = globalThis.fetch;
   const originalCaches = globalThis.caches;
@@ -267,6 +278,120 @@ test("direct API chat RPC requests are blocked at the edge", async () => {
     assert.equal(response.headers.get("x-shorted-edge"), "cloudflare");
   } finally {
     globalThis.fetch = originalFetch;
+  }
+});
+
+test("public GET edge read facade maps top shorts to cached Connect RPC with public cache headers", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalCaches = globalThis.caches;
+  const waitUntilPromises = [];
+  const originCalls = [];
+
+  globalThis.caches = {
+    default: {
+      async match() {
+        return undefined;
+      },
+      async put() {
+        return undefined;
+      },
+    },
+  };
+  globalThis.fetch = async (url, init) => {
+    originCalls.push({ url: String(url), method: init?.method, body: init?.body });
+    return new Response(JSON.stringify({ timeSeries: [{ productCode: "BHP" }], offset: 5 }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  try {
+    const response = await worker.fetch(
+      new Request("https://api.shorted.com.au/edge/v1/top-shorts?period=6m&limit=20&offset=5&summaryOnly=1"),
+      {
+        SHORTS_API_ORIGIN: "https://shorts-origin.test",
+        CACHE_TTL_PUBLIC_DAILY: "3600",
+        EDGE_ANALYTICS_SAMPLE_RATE: "0",
+      },
+      {
+        waitUntil(promise) {
+          waitUntilPromises.push(Promise.resolve(promise));
+        },
+      },
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("x-shorted-cache"), "MISS");
+    assert.equal(response.headers.get("x-shorted-fast-path"), "edge-read");
+    assert.match(response.headers.get("cache-control") || "", /public, max-age=3600/);
+    assert.deepEqual(await response.json(), { timeSeries: [{ productCode: "BHP" }], offset: 5 });
+    assert.equal(originCalls.length, 1);
+    assert.equal(originCalls[0].url, "https://shorts-origin.test/shorts.v1alpha1.ShortedStocksService/GetTopShorts");
+    assert.equal(originCalls[0].method, "POST");
+    assert.equal(await bodyToText(originCalls[0].body), '{"period":"6m","limit":20,"offset":5,"summary_only":true}');
+    assert.deepEqual(
+      (await Promise.allSettled(waitUntilPromises)).map((result) => result.status),
+      ["fulfilled"],
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalCaches === undefined) delete globalThis.caches;
+    else globalThis.caches = originalCaches;
+  }
+});
+
+test("public GET edge read facade can reuse prewarmed KV stock data", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalCaches = globalThis.caches;
+  const body = JSON.stringify({ product_code: "BHP", period: "3m" });
+  const path = "/shorts.v1alpha1.ShortedStocksService/GetStockData";
+  const key = versionedPrewarmKey(path, body, "v1");
+  let originCalls = 0;
+
+  globalThis.caches = {
+    default: {
+      async match() {
+        return undefined;
+      },
+      async put() {
+        return undefined;
+      },
+    },
+  };
+  globalThis.fetch = async () => {
+    originCalls++;
+    return new Response(JSON.stringify({ origin: true }), { status: 200 });
+  };
+
+  try {
+    const response = await worker.fetch(
+      new Request("https://api.shorted.com.au/edge/v1/stock/BHP/data?period=3m"),
+      {
+        SHORTS_API_ORIGIN: "https://shorts-origin.test",
+        CACHE_TTL_PUBLIC_DAILY: "3600",
+        EDGE_ANALYTICS_SAMPLE_RATE: "0",
+        EDGE_KV: {
+          async get(k) {
+            if (k === "control:cache-version") return "v1";
+            if (k === key) return JSON.stringify({ productCode: "BHP", points: [] });
+            return null;
+          },
+          async put() {},
+        },
+      },
+      { waitUntil() {} },
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("x-shorted-cache"), "KV");
+    assert.equal(response.headers.get("x-shorted-fast-path"), "edge-read");
+    assert.match(response.headers.get("cache-control") || "", /public, max-age=3600/);
+    assert.deepEqual(await response.json(), { productCode: "BHP", points: [] });
+    assert.equal(originCalls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalCaches === undefined) delete globalThis.caches;
+    else globalThis.caches = originalCaches;
   }
 });
 

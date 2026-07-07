@@ -13,6 +13,7 @@ if (!globalThis.TextDecoder) {
 import { describe, it, expect, beforeEach } from "@jest/globals";
 import { getStockDetails } from "../getStockDetails";
 import { type StockDetails } from "~/gen/stocks/v1alpha1/stocks_pb";
+import { fetchEdgeReadJson } from "../edgeRead";
 
 // Mock fetch for Node.js test environment
 global.fetch = jest.fn() as jest.Mock;
@@ -24,6 +25,10 @@ jest.mock("@connectrpc/connect-web", () => ({
 
 jest.mock("next/cache", () => ({
   unstable_cache: jest.fn((loader: () => Promise<unknown>) => loader),
+}));
+
+jest.mock("../edgeRead", () => ({
+  fetchEdgeReadJson: jest.fn(),
 }));
 
 jest.mock("@connectrpc/connect", () => {
@@ -41,10 +46,14 @@ const { __mockClient: mockClient } = jest.requireMock("@connectrpc/connect") as 
     getStockDetails: jest.Mock;
   };
 };
+const mockFetchEdgeReadJson = fetchEdgeReadJson as jest.MockedFunction<
+  typeof fetchEdgeReadJson
+>;
 
 describe("getStockDetails", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockFetchEdgeReadJson.mockResolvedValue(undefined);
   });
 
   it("should fetch stock details successfully", async () => {
@@ -68,6 +77,23 @@ describe("getStockDetails", () => {
     expect(mockClient.getStockDetails).toHaveBeenCalledWith({
       productCode: "CBA",
     });
+  });
+
+  it("should use the Cloudflare edge read path before falling back to Connect RPC", async () => {
+    const edgeStockDetails: StockDetails = {
+      productCode: "BHP",
+      companyName: "BHP Group",
+      industry: "Materials",
+    };
+    mockFetchEdgeReadJson.mockResolvedValueOnce(edgeStockDetails);
+
+    const result = await getStockDetails("bhp");
+
+    expect(result).toEqual(edgeStockDetails);
+    expect(mockFetchEdgeReadJson).toHaveBeenCalledWith(
+      "/edge/v1/stock/BHP/details",
+    );
+    expect(mockClient.getStockDetails).not.toHaveBeenCalled();
   });
 
   it("should handle missing stock details gracefully", async () => {

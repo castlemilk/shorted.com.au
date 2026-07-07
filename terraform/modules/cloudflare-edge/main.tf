@@ -79,6 +79,14 @@ resource "cloudflare_workers_script" "edge_cache" {
       text = tostring(var.news_cache_ttl)
       }, {
       type = "plain_text"
+      name = "CACHE_TTL_PUBLIC_DAILY"
+      text = tostring(var.public_daily_cache_ttl)
+      }, {
+      type = "plain_text"
+      name = "CACHE_TTL_PUBLIC_STALE"
+      text = tostring(var.public_stale_cache_ttl)
+      }, {
+      type = "plain_text"
       name = "EDGE_ANALYTICS_SAMPLE_RATE"
       text = tostring(var.edge_analytics_sample_rate)
       }, {

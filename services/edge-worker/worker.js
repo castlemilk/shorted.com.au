@@ -132,6 +132,8 @@ function newCacheVersion() {
 
 const FRONTEND_ORIGIN = "https://shorted.com.au";
 const FRONTEND_HOST = "shorted.com.au";
+const API_HOST = "api.shorted.com.au";
+const EDGE_READ_PREFIX = "/edge/v1";
 
 const worker = {
   async fetch(request, env, ctx) {
@@ -145,6 +147,8 @@ const worker = {
       cacheTtlTopShorts: parseInt(env.CACHE_TTL_TOP_SHORTS || "300", 10),
       cacheTtlStockData: parseInt(env.CACHE_TTL_STOCK_DATA || "120", 10),
       cacheTtlNews: parseInt(env.CACHE_TTL_NEWS || "300", 10),
+      cacheTtlPublicDaily: parseInt(env.CACHE_TTL_PUBLIC_DAILY || "3600", 10),
+      cacheTtlPublicStale: parseInt(env.CACHE_TTL_PUBLIC_STALE || "86400", 10),
     };
 
     const shortsApiOrigin = env.SHORTS_API_ORIGIN;
@@ -155,6 +159,20 @@ const worker = {
     // Cloudflare DDoS + WAF protect this traffic at the proxy layer.
     if (hostname === FRONTEND_HOST || hostname === `www.${FRONTEND_HOST}`) {
       return withEdgeAnalytics(request, env, proxyFrontend(request, env, FRONTEND_ORIGIN), "frontend", 0, started);
+    }
+
+    // --- 0.5. PUBLIC EDGE READS: GET facade over public Connect RPC reads
+    // The frontend can call these as normal GETs while the worker reuses the
+    // same POST RPC cache keys that prewarm.js populates in KV.
+    if (hostname === API_HOST && path.startsWith(EDGE_READ_PREFIX)) {
+      return withEdgeAnalytics(
+        request,
+        env,
+        handlePublicEdgeRead(request, url, env, ctx, defaults, shortsApiOrigin, marketDataOrigin),
+        "edge-read",
+        defaults.cacheTtlPublicDaily,
+        started
+      );
     }
 
     // --- 1. BYPASS: never cache these ---
@@ -268,6 +286,273 @@ export default worker;
 // Helpers
 // ---------------------------------------------------------------------------
 
+async function handlePublicEdgeRead(request, url, env, ctx, defaults, shortsApiOrigin, marketDataOrigin) {
+  if (request.method !== "GET") {
+    const response = new Response("Method Not Allowed", {
+      status: 405,
+      headers: { Allow: "GET" },
+    });
+    stampEdgeHeaders(response, "BYPASS");
+    response.headers.set("Cache-Control", "no-store");
+    return response;
+  }
+
+  const route = resolvePublicEdgeReadRoute(url);
+  if (!route) {
+    const response = new Response("Not found", { status: 404 });
+    stampEdgeHeaders(response, "BYPASS");
+    response.headers.set("Cache-Control", "no-store");
+    return response;
+  }
+
+  const origin = route.origin === "market" ? marketDataOrigin : shortsApiOrigin;
+  if (!origin) {
+    const response = new Response("Origin not configured", { status: 503 });
+    stampEdgeHeaders(response, "BYPASS");
+    response.headers.set("Cache-Control", "no-store");
+    return response;
+  }
+
+  const rpcUrl = new URL(url.toString());
+  rpcUrl.pathname = route.path;
+  rpcUrl.search = "";
+  rpcUrl.hash = "";
+  const rpcRequest = new Request(rpcUrl.toString(), {
+    method: "POST",
+    headers: buildPublicEdgeReadHeaders(request),
+    body: JSON.stringify(route.body),
+  });
+
+  const ttl = positiveInt(defaults.cacheTtlPublicDaily, 3600);
+  const staleTtl = positiveInt(defaults.cacheTtlPublicStale, 86400);
+  const response = await handleCachedRequest(rpcRequest, rpcUrl, env, ctx, origin, ttl);
+  promotePublicEdgeReadResponse(response, ttl, staleTtl);
+  return response;
+}
+
+function buildPublicEdgeReadHeaders(request) {
+  const headers = new Headers();
+  headers.set("Accept", "application/json");
+  headers.set("Content-Type", "application/json");
+  const userAgent = request.headers.get("user-agent");
+  headers.set("User-Agent", userAgent || "Shorted-Edge-Read/1.0");
+  return headers;
+}
+
+function promotePublicEdgeReadResponse(response, ttl, staleTtl) {
+  if (response.ok) {
+    response.headers.delete("Set-Cookie");
+    response.headers.set(
+      "Cache-Control",
+      `public, max-age=${ttl}, s-maxage=${ttl}, stale-while-revalidate=${staleTtl}`
+    );
+  } else {
+    response.headers.set("Cache-Control", "no-store");
+  }
+  response.headers.set("X-Shorted-Fast-Path", "edge-read");
+  if (!response.headers.has("X-Shorted-Cache")) {
+    stampEdgeHeaders(response, response.ok ? "MISS" : "BYPASS");
+  }
+}
+
+function resolvePublicEdgeReadRoute(url) {
+  const path = url.pathname;
+  const params = url.searchParams;
+
+  if (path === `${EDGE_READ_PREFIX}/top-shorts`) {
+    const body = {
+      period: edgePeriod(params, "period", "3m"),
+      limit: edgeInt(params, "limit", 10, 1, 500),
+    };
+    const offset = edgeInt(params, "offset", 0, 0, 10000);
+    if (offset > 0) body.offset = offset;
+    if (edgeBool(params, "summaryOnly") || edgeBool(params, "summary_only")) {
+      body.summary_only = true;
+    }
+    return {
+      origin: "shorts",
+      path: "/shorts.v1alpha1.ShortedStocksService/GetTopShorts",
+      body,
+    };
+  }
+
+  if (path === `${EDGE_READ_PREFIX}/industry-treemap`) {
+    const body = {
+      period: edgePeriod(params, "period", "3m"),
+      limit: edgeInt(params, "limit", 20, 1, 500),
+    };
+    const viewMode = params.get("viewMode") ?? params.get("view_mode");
+    if (viewMode !== null && viewMode !== "") {
+      const numericViewMode = Number(viewMode);
+      body.view_mode = Number.isFinite(numericViewMode) ? numericViewMode : viewMode;
+    }
+    return {
+      origin: "shorts",
+      path: "/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap",
+      body,
+    };
+  }
+
+  if (path === `${EDGE_READ_PREFIX}/available-dates`) {
+    const body = {};
+    const limit = params.get("limit");
+    const before = params.get("before");
+    if (limit !== null && limit !== "") body.limit = edgeInt(params, "limit", 20, 1, 500);
+    if (before) body.before = before;
+    return {
+      origin: "shorts",
+      path: "/shorts.v1alpha1.ShortedStocksService/GetAvailableDates",
+      body,
+    };
+  }
+
+  if (path === `${EDGE_READ_PREFIX}/market-by-date`) {
+    const date = params.get("date");
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+    return {
+      origin: "shorts",
+      path: "/shorts.v1alpha1.ShortedStocksService/GetMarketByDate",
+      body: {
+        date,
+        limit: edgeInt(params, "limit", 50, 1, 1000),
+        offset: edgeInt(params, "offset", 0, 0, 100000),
+      },
+    };
+  }
+
+  if (path === `${EDGE_READ_PREFIX}/weekly-report`) {
+    const weekSlug = params.get("weekSlug") ?? params.get("week_slug");
+    const period = params.get("period");
+    return {
+      origin: "shorts",
+      path: "/shorts.v1alpha1.ShortedStocksService/GetWeeklyReport",
+      body: weekSlug ? { week_slug: weekSlug } : { period: period || "1w" },
+    };
+  }
+
+  if (path === `${EDGE_READ_PREFIX}/news`) {
+    return {
+      origin: "shorts",
+      path: "/shorts.v1alpha1.ShortedStocksService/GetNews",
+      body: { limit: edgeInt(params, "limit", 20, 1, 100) },
+    };
+  }
+
+  if (path === `${EDGE_READ_PREFIX}/announcements`) {
+    return {
+      origin: "shorts",
+      path: "/shorts.v1alpha1.ShortedStocksService/GetAnnouncement",
+      body: { limit: edgeInt(params, "limit", 20, 1, 100) },
+    };
+  }
+
+  if (path === `${EDGE_READ_PREFIX}/news/market`) {
+    const body = { limit: edgeInt(params, "limit", 50, 1, 100) };
+    if (edgeBool(params, "priceSensitiveOnly") || edgeBool(params, "price_sensitive_only")) {
+      body.price_sensitive_only = true;
+    }
+    return {
+      origin: "shorts",
+      path: "/shorts.v1alpha1.ShortedStocksService/GetMarketNews",
+      body,
+    };
+  }
+
+  const stockMatch = new RegExp(`^${EDGE_READ_PREFIX}/stock/([^/]+)(?:/(details|data|news))?$`).exec(path);
+  if (stockMatch) {
+    const code = edgeStockCode(stockMatch[1]);
+    if (!code) return null;
+    const variant = stockMatch[2] || "summary";
+    if (variant === "details") {
+      return {
+        origin: "shorts",
+        path: "/shorts.v1alpha1.ShortedStocksService/GetStockDetails",
+        body: { product_code: code },
+      };
+    }
+    if (variant === "data") {
+      return {
+        origin: "shorts",
+        path: "/shorts.v1alpha1.ShortedStocksService/GetStockData",
+        body: { product_code: code, period: edgePeriod(params, "period", "3m") },
+      };
+    }
+    if (variant === "news") {
+      return {
+        origin: "shorts",
+        path: "/shorts.v1alpha1.ShortedStocksService/GetStockNews",
+        body: { stock_code: code, limit: edgeInt(params, "limit", 10, 1, 100) },
+      };
+    }
+    return {
+      origin: "shorts",
+      path: "/shorts.v1alpha1.ShortedStocksService/GetStock",
+      body: { product_code: code },
+    };
+  }
+
+  const marketStockMatch = new RegExp(`^${EDGE_READ_PREFIX}/market/stock/([^/]+)/(price|history)$`).exec(path);
+  if (marketStockMatch) {
+    const code = edgeStockCode(marketStockMatch[1]);
+    if (!code) return null;
+    if (marketStockMatch[2] === "price") {
+      return {
+        origin: "market",
+        path: "/marketdata.v1.MarketDataService/GetStockPrice",
+        body: { stock_code: code },
+      };
+    }
+    return {
+      origin: "market",
+      path: "/marketdata.v1.MarketDataService/GetHistoricalPrices",
+      body: { stock_code: code, period: edgePeriod(params, "period", "3m") },
+    };
+  }
+
+  if (path === `${EDGE_READ_PREFIX}/market/stocks/prices`) {
+    const codes = (params.get("codes") || "")
+      .split(",")
+      .map((code) => edgeStockCode(code))
+      .filter(Boolean)
+      .slice(0, 50);
+    if (codes.length === 0) return null;
+    return {
+      origin: "market",
+      path: "/marketdata.v1.MarketDataService/GetMultipleStockPrices",
+      body: { stock_codes: codes },
+    };
+  }
+
+  return null;
+}
+
+function edgePeriod(params, key, fallback) {
+  const raw = params.get(key);
+  return (raw && raw.trim() ? raw.trim().toLowerCase() : fallback).replace(/\s+/g, "");
+}
+
+function edgeInt(params, key, fallback, min, max) {
+  const raw = params.get(key);
+  const value = raw === null || raw === "" ? fallback : Number(raw);
+  if (!Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(value)));
+}
+
+function edgeBool(params, key) {
+  const raw = params.get(key);
+  if (raw === null) return false;
+  return ["1", "true", "yes", "y", "on"].includes(raw.trim().toLowerCase());
+}
+
+function edgeStockCode(value) {
+  const code = decodeURIComponent(value || "").trim().toUpperCase();
+  return /^[A-Z0-9.-]{1,16}$/.test(code) ? code : "";
+}
+
+function positiveInt(value, fallback) {
+  return Number.isFinite(value) && value > 0 ? Math.trunc(value) : fallback;
+}
+
 async function withEdgeAnalytics(request, env, responseOrPromise, origin, cacheTtl, started) {
   const response = await responseOrPromise;
   logEdgeAnalytics(request, env, response, origin, cacheTtl, started);
@@ -303,6 +588,7 @@ function normalizeAnalyticsPath(path) {
   if (path.includes("/shorts.v1alpha1.") || path.includes("/marketdata.v1.") || path.includes("/chat.v1.") || path.includes("/register.v1.")) {
     return path;
   }
+  if (path.startsWith(`${EDGE_READ_PREFIX}/`)) return `${EDGE_READ_PREFIX}/*`;
   if (path.startsWith("/_next/static/")) return "/_next/static/*";
   if (path.startsWith("/_next/data/")) return "/_next/data/*";
   if (/\.(png|jpe?g|gif|svg|webp|avif|ico)$/i.test(path)) return "/*image";
@@ -373,6 +659,7 @@ export function normalizeRouteGroup(host, path) {
   if (path.startsWith("/api/admin/")) return "/api/admin/*";
   if (path.startsWith("/api/")) return "/api/*";
 
+  if (path.startsWith(`${EDGE_READ_PREFIX}/`)) return `${EDGE_READ_PREFIX}/*`;
   if (path.startsWith("/portfolio")) return "/portfolio";
   if (path.startsWith("/dashboards")) return "/dashboards";
   if (path.startsWith("/chat")) return "/chat";
@@ -424,6 +711,7 @@ function resolveFeature(path, origin, apiFamily) {
   if (path.startsWith("/chat")) return "chat";
   if (path.startsWith("/api/search/") || path.startsWith("/search")) return "search";
   if (path.startsWith("/api/market-data/")) return "market-data";
+  if (path.startsWith(`${EDGE_READ_PREFIX}/`)) return "edge-read";
   if (path.startsWith("/shorts") || path.startsWith("/topShortsView")) return "shorts";
   if (path.startsWith("/api/admin/") || path.startsWith("/admin")) return "admin";
   return origin || "unknown";

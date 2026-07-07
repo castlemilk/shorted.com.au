@@ -5,6 +5,7 @@ import { type GetTopShortsResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { formatPeriodForAPI } from "~/lib/period-utils";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 import { cache } from "react";
+import { fetchEdgeReadJson } from "./edgeRead";
 import {
   CACHE_KEYS,
   HOMEPAGE_TTL,
@@ -55,6 +56,17 @@ export const getTopShortsData = cache(
         "shorts.fetch.top",
         { period, limit, offset },
         async () => {
+          const apiPeriod = formatPeriodForAPI(period);
+          const edgeResponse = await fetchEdgeReadJson<GetTopShortsResponse>(
+            "/edge/v1/top-shorts",
+            {
+              period: apiPeriod,
+              limit,
+              offset: offset > 0 ? offset : undefined,
+            },
+          );
+          if (edgeResponse) return edgeResponse;
+
           const transport = createConnectTransport({
             fetch: serverFetchWithUserAgent,
             baseUrl: SHORTS_API_URL,
@@ -62,7 +74,7 @@ export const getTopShortsData = cache(
 
           const client = createClient(ShortedStocksService, transport);
           return client.getTopShorts({
-            period: formatPeriodForAPI(period),
+            period: apiPeriod,
             limit,
             offset,
           });
