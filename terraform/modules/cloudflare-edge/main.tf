@@ -56,9 +56,6 @@ resource "cloudflare_workers_script" "edge_cache" {
 
 
   script_name = var.worker_name
-  placement = {
-    mode = "smart"
-  }
   bindings = concat([
     {
       type = "plain_text"
