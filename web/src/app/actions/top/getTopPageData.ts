@@ -67,6 +67,26 @@ export interface TopPageData {
   period: TimePeriod;
 }
 
+interface InstrumentCandidate {
+  productCode?: string;
+  name?: string;
+}
+
+const LISTED_EQUITY_CODE_PATTERN = /^[A-Z0-9]{3,4}$/;
+const ETF_NAME_PATTERN = /\bETF\b/i;
+const COUPON_PERCENT_NAME_PATTERN = /[0-9]+(\.[0-9]+)?\s*%/;
+
+function isEligibleTopPageInstrument(stock: InstrumentCandidate): boolean {
+  const productCode = (stock.productCode ?? "").trim().toUpperCase();
+  const name = stock.name ?? "";
+
+  return (
+    LISTED_EQUITY_CODE_PATTERN.test(productCode) &&
+    !ETF_NAME_PATTERN.test(name) &&
+    !COUPON_PERCENT_NAME_PATTERN.test(name)
+  );
+}
+
 /**
  * Serialize TimeSeriesData to plain object for caching
  */
@@ -206,7 +226,12 @@ function isUsableTopPageData(data: TopPageData | null): data is TopPageData {
     data.timeSeries.some(
       (stock) =>
         !!stock?.productCode && toFiniteNumber(stock.latestShortPosition) > 0,
-    )
+    ) &&
+    data.timeSeries.every(isEligibleTopPageInstrument) &&
+    data.stockListItems.every(isEligibleTopPageInstrument) &&
+    data.movers.biggestGainers.every(isEligibleTopPageInstrument) &&
+    data.movers.biggestLosers.every(isEligibleTopPageInstrument) &&
+    data.movers.mostVolatile.every(isEligibleTopPageInstrument)
   );
 }
 
@@ -216,7 +241,9 @@ async function buildTopPageData(
 ): Promise<TopPageData> {
   // Fetch raw data
   const response = await getTopShortsData(period, limit, 0);
-  const rawTimeSeries = response?.timeSeries ?? [];
+  const rawTimeSeries = (response?.timeSeries ?? []).filter(
+    isEligibleTopPageInstrument,
+  );
 
   // Calculate movers from raw data (before serialization)
   const rawMovers = calculateMovers(rawTimeSeries, period);
