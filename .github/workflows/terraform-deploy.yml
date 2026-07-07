@@ -441,6 +441,7 @@ jobs:
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_cache_purge_secret: ${{ secrets.CACHE_PURGE_SECRET }}
           TF_VAR_alert_recipient_email: ${{ secrets.ALERT_RECIPIENT_EMAIL }}
+          TF_VAR_rate_limit_testing_bypass_secret: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
         run: |
           terraform plan \
             -var="stock_price_ingestion_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/stock-price-ingestion:${{ needs.determine-environment.outputs.image-tag }}" \
@@ -1068,6 +1069,7 @@ jobs:
           TF_VAR_cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_cache_purge_secret: ${{ secrets.CACHE_PURGE_SECRET }}
           TF_VAR_alert_recipient_email: ${{ secrets.ALERT_RECIPIENT_EMAIL }}
+          TF_VAR_rate_limit_testing_bypass_secret: ${{ secrets.CLOUDFLARE_TESTING_BYPASS_SECRET }}
         run: |
           terraform apply \
             -var="stock_price_ingestion_image=${{ env.ARTIFACT_REGISTRY }}/${{ needs.determine-environment.outputs.project-id }}/shorted/stock-price-ingestion:${{ needs.determine-environment.outputs.image-tag }}" \

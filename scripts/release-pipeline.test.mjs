@@ -89,6 +89,9 @@ test("legacy terraform production web deploy also smokes a preview before promot
   const prodJobStart = workflow.indexOf("deploy-vercel-prod:");
   assert.notEqual(prodJobStart, -1, "deploy-vercel-prod job should exist");
   const prodJob = workflow.slice(prodJobStart);
+  const bypassEnvMatches = workflow.match(
+    /TF_VAR_rate_limit_testing_bypass_secret:\s*\$\{\{\s*secrets\.CLOUDFLARE_TESTING_BYPASS_SECRET\s*\}\}/g,
+  ) ?? [];
 
   assert.match(prodJob, /Deploy to Vercel \(Release Candidate Preview\)/);
   assert.doesNotMatch(prodJob, /Deploy to Vercel \(Production\)[\s\S]*--prod/);
@@ -103,6 +106,10 @@ test("legacy terraform production web deploy also smokes a preview before promot
   assert.match(prodJob, boundedReleaseSmokePattern);
   assert.match(prodJob, /Promote smoked Vercel deployment to production/);
   assert.match(prodJob, /vercel promote/);
+  assert.ok(
+    bypassEnvMatches.length >= 2,
+    "terraform plan/apply must preserve the Cloudflare trusted-test bypass secret",
+  );
 
   const previewIndex = prodJob.indexOf("Deploy to Vercel (Release Candidate Preview)");
   const smokeIndex = prodJob.indexOf("Smoke release candidate preview");
