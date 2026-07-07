@@ -97,11 +97,11 @@ func loadTestData(t *testing.T, pool *pgxpool.Pool) {
 	// Define test stocks with various scenarios
 	// Note: Values are stored as fractions (0.2159 = 21.59%) in the database
 	testStocks := []struct {
-		code         string
-		name         string
-		latestShort  float64 // Stored as fraction, not percentage
-		isRecent     bool    // Has data within last month
-		daysOfData   int     // Number of days of historical data
+		code        string
+		name        string
+		latestShort float64 // Stored as fraction, not percentage
+		isRecent    bool    // Has data within last month
+		daysOfData  int     // Number of days of historical data
 	}{
 		// Active stocks with high short positions (should appear in results)
 		{"BOE", "BOSS ENERGY LTD ORDINARY", 0.2159, true, 180},
@@ -148,11 +148,11 @@ func loadTestData(t *testing.T, pool *pgxpool.Pool) {
 		// Generate daily data points
 		for i := 0; i < stock.daysOfData; i++ {
 			date := baseDate.AddDate(0, 0, -i)
-			
+
 			// Add some variance to short position (±10%)
 			variance := (float64(i%10) - 5) / 50.0 // -10% to +10%
 			shortPosition := stock.latestShort * (1 + variance)
-			
+
 			// Ensure positive values
 			if shortPosition < 0 {
 				shortPosition = 0.1
@@ -466,12 +466,12 @@ func TestTopShortsQuery_ExcludesDelistedStocks(t *testing.T) {
 
 	// Known delisted/stale stocks that should NOT appear (from our test data)
 	delistedStocks := []string{
-		"EEU",    // BetaShares Euro ETF - stale data
-		"ENY",    // AII200 Energy ETF - stale data
-		"BBFD",   // Beta Geared Short UST - stale data
-		"MAM",    // AII300 Metals & Mining - stale data
-		"GNSPA",  // Gunns Limited - stale data
-		"FIX",    // AII200 FinXAREIT - stale data
+		"EEU",   // BetaShares Euro ETF - stale data
+		"ENY",   // AII200 Energy ETF - stale data
+		"BBFD",  // Beta Geared Short UST - stale data
+		"MAM",   // AII300 Metals & Mining - stale data
+		"GNSPA", // Gunns Limited - stale data
+		"FIX",   // AII200 FinXAREIT - stale data
 	}
 
 	results, _, err := FetchTimeSeriesData(pool, 50, 0, "6M", false) // Get more results to be thorough
@@ -554,6 +554,85 @@ func TestTopShortsQuery_ExcludesNonEquityInstruments(t *testing.T) {
 	t.Logf("✓ Verified that no non-equity instruments appear in %d results", len(results))
 }
 
+func TestTopShortsFastPath_ExcludesNonEquityInstrumentsFromMaterializedView(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	pool, cleanup := setupTestDatabase(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `
+		CREATE TABLE mv_top_shorts (
+			product_name text NOT NULL,
+			product_code text NOT NULL,
+			current_percent double precision NOT NULL,
+			industry text,
+			total_in_issue double precision
+		);
+		INSERT INTO mv_top_shorts (product_name, product_code, current_percent, industry, total_in_issue)
+		VALUES
+			('ASIAN DEVELOPMENT 4.35% 17-JAN-29', 'ATBHQ', 160.0, '', 200000),
+			('BOSS ENERGY LTD ORDINARY', 'BOE', 21.59, 'Energy', 352000000),
+			('DOMINO PIZZA ENTERPR ORDINARY', 'DMP', 17.51, 'Consumer Discretionary', 100000000),
+			('PILBARA MIN LTD ORDINARY', 'PLS', 14.47, 'Materials', 3000000000);
+	`)
+	require.NoError(t, err, "failed to create mv_top_shorts fast-path fixture")
+
+	results, _, err := FetchTimeSeriesData(pool, 4, 0, "6M", false)
+	require.NoError(t, err, "FetchTimeSeriesData should not return error")
+	require.NotEmpty(t, results, "Should return valid equity results")
+
+	for _, result := range results {
+		assert.NotEqual(t, "ATBHQ", result.ProductCode,
+			"fast-path mv_top_shorts rows must still exclude coupon-named 5-char bond instruments")
+		assert.LessOrEqual(t, len(result.ProductCode), 4,
+			"fast-path mv_top_shorts row %s should use a stock-page-compatible code", result.ProductCode)
+		assert.NotContains(t, result.Name, "ETF",
+			"fast-path mv_top_shorts row %s should not be an ETF: %s", result.ProductCode, result.Name)
+	}
+}
+
+func TestTopShortsSummaryFastPath_ExcludesNonEquityInstrumentsFromMaterializedView(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	pool, cleanup := setupTestDatabase(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	_, err := pool.Exec(ctx, `
+		CREATE TABLE mv_top_shorts (
+			product_name text NOT NULL,
+			product_code text NOT NULL,
+			current_percent double precision NOT NULL,
+			industry text,
+			total_in_issue double precision
+		);
+		INSERT INTO mv_top_shorts (product_name, product_code, current_percent, industry, total_in_issue)
+		VALUES
+			('ASIAN DEVELOPMENT 4.35% 17-JAN-29', 'ATBHQ', 160.0, '', 200000),
+			('BOSS ENERGY LTD ORDINARY', 'BOE', 21.59, 'Energy', 352000000),
+			('DOMINO PIZZA ENTERPR ORDINARY', 'DMP', 17.51, 'Consumer Discretionary', 100000000);
+	`)
+	require.NoError(t, err, "failed to create mv_top_shorts summary fast-path fixture")
+
+	results, _, err := FetchTimeSeriesData(pool, 3, 0, "6M", true)
+	require.NoError(t, err, "summary FetchTimeSeriesData should not return error")
+	require.NotEmpty(t, results, "Should return valid equity summaries")
+
+	for _, result := range results {
+		assert.NotEqual(t, "ATBHQ", result.ProductCode,
+			"summary fast-path mv_top_shorts rows must exclude 5-char bond instruments")
+		assert.LessOrEqual(t, len(result.ProductCode), 4,
+			"summary fast-path mv_top_shorts row %s should use a stock-page-compatible code", result.ProductCode)
+		assert.NotContains(t, result.Name, "ETF",
+			"summary fast-path mv_top_shorts row %s should not be an ETF: %s", result.ProductCode, result.Name)
+	}
+}
+
 // TestFetchTimeSeriesData_DataIntegrity validates the integrity of returned data
 func TestFetchTimeSeriesData_DataIntegrity(t *testing.T) {
 	if testing.Short() {
@@ -607,7 +686,7 @@ func TestFetchTimeSeriesData_DataIntegrity(t *testing.T) {
 func BenchmarkFetchTimeSeriesData(b *testing.B) {
 	// Setup is excluded from benchmark timing
 	b.StopTimer()
-	
+
 	ctx := context.Background()
 	postgresContainer, err := postgres.Run(ctx,
 		"postgres:14-alpine",
@@ -642,7 +721,7 @@ func BenchmarkFetchTimeSeriesData(b *testing.B) {
 	loadTestData(&testing.T{}, pool)
 
 	b.StartTimer()
-	
+
 	// Run the benchmark
 	for i := 0; i < b.N; i++ {
 		_, _, err := FetchTimeSeriesData(pool, 10, 0, "6M", false)

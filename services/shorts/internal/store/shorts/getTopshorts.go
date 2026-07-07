@@ -67,10 +67,14 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, sum
 	// Returns ~5-10KB instead of ~10MB for 1000 stocks.
 	if summaryOnly {
 		summaryQuery := `
-		SELECT product_name, product_code, current_percent, COALESCE(industry, '')
-		FROM mv_top_shorts
-		ORDER BY current_percent DESC
-		LIMIT $1 OFFSET $2`
+			SELECT product_name, product_code, current_percent, COALESCE(industry, '')
+			FROM mv_top_shorts
+			WHERE product_code ~ '^[A-Z0-9]{3,4}$'
+				AND product_name !~* 'ETF\M'
+				AND product_name !~ '[0-9]+(\.[0-9]+)?\s*%'
+				AND (total_in_issue IS NULL OR total_in_issue >= 5000000)
+			ORDER BY current_percent DESC
+			LIMIT $1 OFFSET $2`
 
 		rows, err := connection.Query(ctx, summaryQuery, limit, offset)
 		if err != nil {
@@ -130,6 +134,10 @@ func FetchTimeSeriesData(db *pgxpool.Pool, limit, offset int, period string, sum
 	topCodesQuery := `
 	SELECT product_name, product_code
 	FROM mv_top_shorts
+	WHERE product_code ~ '^[A-Z0-9]{3,4}$'
+		AND product_name !~* 'ETF\M'
+		AND product_name !~ '[0-9]+(\.[0-9]+)?\s*%'
+		AND (total_in_issue IS NULL OR total_in_issue >= 5000000)
 	ORDER BY current_percent DESC
 	LIMIT $1 OFFSET $2`
 
