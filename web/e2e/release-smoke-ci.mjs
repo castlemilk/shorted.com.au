@@ -77,6 +77,7 @@ function isIgnorableFailedRequest(url, errorText) {
     errorText.includes("net::ERR_ABORTED") ||
     url.includes("google-analytics.com") ||
     url.includes("googletagmanager.com") ||
+    url.includes("static.cloudflareinsights.com/beacon.min.js") ||
     url.includes("/_vercel/insights/")
   );
 }
@@ -89,6 +90,8 @@ function isIgnorableConsoleError(text, url = "") {
   return (
     text.includes("Failed to fetch RSC payload") ||
     text.includes("https://errors.authjs.dev#autherror") ||
+    (text.includes("static.cloudflareinsights.com/beacon.min.js") &&
+      text.includes("x-shorted-testing-bypass")) ||
     text === "Failed to load resource: net::ERR_FAILED" ||
     (url.includes("/cdn-cgi/rum") &&
       text.includes("Failed to load resource: the server responded with a status of 404")) ||
