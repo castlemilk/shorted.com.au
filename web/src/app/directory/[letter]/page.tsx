@@ -34,6 +34,10 @@ interface TopShortsResponse {
 async function getAllStocksForDirectory(): Promise<
   Array<{ code: string; name: string; shortPercent: number }>
 > {
+  if (process.env.SKIP_STATIC_GENERATION === "1") {
+    return [];
+  }
+
   try {
     const baseUrl = SHORTS_API_URL;
 

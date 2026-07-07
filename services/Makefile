@@ -722,7 +722,7 @@ test.topshorts.integration:
 
 test.integration:
 	@echo "🧪 Running all integration tests (including market-data)..."
-	go test ./... -v -tags=integration
+	go test ./... -v -count=1 -tags=integration
 
 # Integration tests - LOCAL development (fully self-contained with testcontainers)
 test-integration-local:
@@ -735,25 +735,25 @@ test-integration-local:
 	@echo ""
 	@$(MAKE) clean.shorts
 	@echo "Running test/integration tests..."
-	@cd ../test/integration && go test -v -timeout=20m ./...
+	@cd ../test/integration && go test -v -count=1 -timeout=20m ./...
 	@echo ""
 	@echo "Running market-data integration tests (with testcontainers)..."
-	@cd market-data && go test -v -tags=integration -timeout=10m ./...
+	@cd market-data && go test -v -count=1 -tags=integration -timeout=10m ./...
 	@echo ""
 
 # Integration tests - CI (self-contained via testcontainers)
 test-integration-ci:
 	@echo "🧪 Running integration tests (testcontainers)..."
 	@echo "Running test/integration tests..."
-	@cd ../test/integration && go test -v -timeout=10m ./...
+	@cd ../test/integration && go test -v -count=1 -timeout=10m ./...
 	@echo ""
 	@echo "Running market-data integration tests (with testcontainers)..."
-	@cd market-data && go test -v -tags=integration -timeout=10m ./...
+	@cd market-data && go test -v -count=1 -tags=integration -timeout=10m ./...
 
 # New integration test targets using testcontainers
 test.integration.local:
 	@echo "🧪 Running integration tests with testcontainers..."
-	go test -tags=integration ./test/integration/... -v -timeout=10m
+	go test -count=1 -tags=integration ./test/integration/... -v -timeout=10m
 
 test.integration.docker:
 	@echo "🐳 Running integration tests in Docker environment..."
@@ -815,7 +815,7 @@ bench:
 # Test coverage with integration tests
 test.coverage.integration:
 	@echo "📊 Running integration tests with coverage..."
-	go test -tags=integration ./test/integration/... -v -timeout=10m -coverprofile=integration-coverage.out
+	go test -count=1 -tags=integration ./test/integration/... -v -timeout=10m -coverprofile=integration-coverage.out
 	go tool cover -html=integration-coverage.out -o integration-coverage.html
 	@echo "📈 Integration test coverage report generated: integration-coverage.html"
 

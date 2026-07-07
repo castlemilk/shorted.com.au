@@ -1,5 +1,10 @@
 #!/bin/sh
 
+if [ "${SKIP_VERSION_BUMP:-}" = "1" ]; then
+  echo "Skipping version bump"
+  exit 0
+fi
+
 # Get the current version from git when available. CLI deploy staging
 # directories may not include .git, so keep the existing package version there.
 VERSION=$(git describe --tags --always --dirty 2>/dev/null)

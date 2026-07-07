@@ -4,6 +4,11 @@
 
 set -e
 
+if [ "${SKIP_CACHE_WARM:-0}" = "1" ]; then
+  echo "Skipping cache warm"
+  exit 0
+fi
+
 echo "🔥 Warming cache on deployment..."
 
 # Skip in development if backend services aren't running
@@ -42,4 +47,3 @@ curl -f -s --max-time 30 "${HOME_URL}" > /dev/null || {
 }
 
 echo "✅ Cache warming complete"
-

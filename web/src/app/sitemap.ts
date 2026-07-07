@@ -69,6 +69,10 @@ const FALLBACK_STOCK_CODES = [
  * Falls back to popular stock codes if API is unavailable.
  */
 async function getAllStockCodes(): Promise<string[]> {
+  if (process.env.SKIP_STATIC_GENERATION === "1") {
+    return FALLBACK_STOCK_CODES;
+  }
+
   try {
     const baseUrl = API_URL;
 
@@ -141,16 +145,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // pages whose content changes with the daily sync use the actual data
   // date, and static marketing pages omit lastModified entirely.
   let marketDates: string[] = [];
-  try {
-    const transport = createConnectTransport({
-      fetch: serverFetchWithUserAgent,
-      baseUrl: API_URL,
-    });
-    const client = createClient(ShortedStocksService, transport);
-    const response = await client.getAvailableDates({ limit: 90, before: "" });
-    marketDates = response.dates;
-  } catch (error) {
-    console.error("Failed to fetch market dates for sitemap:", error);
+  if (process.env.SKIP_STATIC_GENERATION !== "1") {
+    try {
+      const transport = createConnectTransport({
+        fetch: serverFetchWithUserAgent,
+        baseUrl: API_URL,
+      });
+      const client = createClient(ShortedStocksService, transport);
+      const response = await client.getAvailableDates({ limit: 90, before: "" });
+      marketDates = response.dates;
+    } catch (error) {
+      console.error("Failed to fetch market dates for sitemap:", error);
+    }
   }
   const latestDataDate = marketDates[0]
     ? new Date(`${marketDates[0]}T00:00:00Z`).toISOString()

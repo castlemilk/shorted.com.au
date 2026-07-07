@@ -1,7 +1,7 @@
 # Shorted.com.au Root Makefile
 # Orchestrates testing and building for both frontend and backend
 
-.PHONY: help run test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down install install-hooks clean clean-cache clean-all clean-ports build dev dev-clean dev-script dev-frontend dev-backend lint format populate-data populate-data-quick backfill-websites backfill-websites-dry db-diagnose db-optimize db-analyze algolia-sync algolia-sync-prod algolia-search enrich-metadata enrich-metadata-all enrich-metadata-stocks pipeline-local pipeline-prod pipeline-daily pipeline-help
+.PHONY: help run test test-frontend test-backend test-coverage test-watch test-integration test-e2e test-e2e-ui test-e2e-headed test-stack-up test-stack-down verify-fast verify-full verify-integration install install-hooks clean clean-cache clean-all clean-ports build dev dev-clean dev-script dev-frontend dev-backend lint format populate-data populate-data-quick backfill-websites backfill-websites-dry db-diagnose db-optimize db-analyze algolia-sync algolia-sync-prod algolia-search enrich-metadata enrich-metadata-all enrich-metadata-stocks pipeline-local pipeline-prod pipeline-daily pipeline-help
 
 define kill_pids_in_project_by_pattern
 for pid in $$(pgrep -f "$(1)" 2>/dev/null); do \
@@ -49,6 +49,9 @@ help:
 	@echo "  test-watch    - Run frontend tests in watch mode"
 	@echo "  test-integration-local - Run integration tests with local backend (self-contained)"
 	@echo "  test-integration - Run full-stack integration tests"
+	@echo "  verify-fast  - Run fast local verification without booting services"
+	@echo "  verify-full  - Run full local verification; testcontainers run when Docker is available"
+	@echo "  verify-integration - Run testcontainers integration only"
 	@echo "  test-e2e      - Run E2E tests with all dependencies"
 	@echo "  test-e2e-ui   - Run E2E tests in Playwright UI mode"
 	@echo "  test-stack-up - Start test environment"
@@ -92,6 +95,15 @@ test: lint build-frontend test-unit
 
 # Unit tests only (no linting, no integration)
 test-unit: test-frontend test-backend
+
+verify-fast:
+	@bash scripts/local-verify.sh fast
+
+verify-full:
+	@bash scripts/local-verify.sh full
+
+verify-integration:
+	@bash scripts/local-verify.sh integration
 
 test-frontend:
 	@echo "🧪 Running frontend tests..."
@@ -486,7 +498,7 @@ test-integration-local:
 test-integration: test-stack-up
 	@echo "🧪 Running full-stack integration tests..."
 	@sleep 15  # Give services time to start and be ready
-	@cd test/integration && go mod download && go test -v ./...
+	@cd test/integration && go mod download && go test -v -count=1 ./...
 	@make test-stack-down
 
 test-e2e: test-stack-up

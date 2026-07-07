@@ -65,13 +65,15 @@ export default async function MarketIndexPage() {
   let latestDate = "";
   let earliestDate = "";
 
-  try {
-    const response = await getAvailableDates(90);
-    dates = response.dates;
-    latestDate = response.latestDate;
-    earliestDate = response.earliestDate;
-  } catch (error) {
-    console.error("Failed to fetch available dates:", error);
+  if (process.env.SKIP_STATIC_GENERATION !== "1") {
+    try {
+      const response = await getAvailableDates(90);
+      dates = response.dates;
+      latestDate = response.latestDate;
+      earliestDate = response.earliestDate;
+    } catch (error) {
+      console.error("Failed to fetch available dates:", error);
+    }
   }
 
   const breadcrumbItems = [

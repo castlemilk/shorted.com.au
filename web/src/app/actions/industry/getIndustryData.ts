@@ -49,6 +49,10 @@ function createSlug(industry: string): string {
 
 // Get aggregated industry statistics using IndustryTreeMap endpoint
 export const getIndustryData = cache(async (): Promise<IndustryStats[]> => {
+  if (process.env.SKIP_STATIC_GENERATION === "1") {
+    return [];
+  }
+
   const cacheKey = `${CACHE_KEYS.industryTreeMap("max", 50, "current")}:industries-index`;
 
   return getOrSetCached(
