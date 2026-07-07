@@ -106,6 +106,11 @@ test("legacy terraform production web deploy also smokes a preview before promot
   assert.match(prodJob, boundedReleaseSmokePattern);
   assert.match(prodJob, /Promote smoked Vercel deployment to production/);
   assert.match(prodJob, /vercel promote/);
+  assert.match(workflow, /check_secret "GEMINI_API_KEY"/);
+  assert.match(workflow, /GEMINI_API_KEY:\s*\$\{\{\s*secrets\.GEMINI_API_KEY\s*\}\}/);
+  assert.match(workflow, /ensure_secret "GEMINI_API_KEY_CHAT" "\$GEMINI_API_KEY"/);
+  assert.match(workflow, /ensure_secret "GEMINI_API_KEY_NEWS" "\$GEMINI_API_KEY"/);
+  assert.match(workflow, /ensure_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "\$GEMINI_API_KEY"/);
   assert.ok(
     bypassEnvMatches.length >= 2,
     "terraform plan/apply must preserve the Cloudflare trusted-test bypass secret",

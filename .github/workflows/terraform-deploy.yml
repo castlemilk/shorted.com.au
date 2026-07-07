@@ -141,6 +141,7 @@ jobs:
           # Deployment
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           # Stripe (dev - prod uses environment secrets)
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
@@ -201,6 +202,7 @@ jobs:
           echo "-------------------------------------------"
           check_secret "VERCEL_TOKEN"
           check_secret "OPENAI_API_KEY"
+          check_secret "GEMINI_API_KEY"
           
           echo ""
           echo "📋 Stripe Secrets (repo-level for dev)"
@@ -404,6 +406,7 @@ jobs:
         env:
           GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
         run: |
@@ -430,6 +433,9 @@ jobs:
           }
 
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
+          ensure_secret "GEMINI_API_KEY_CHAT" "$GEMINI_API_KEY"
+          ensure_secret "GEMINI_API_KEY_NEWS" "$GEMINI_API_KEY"
+          ensure_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
           ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"
           ensure_secret "OTEL_EXPORTER_OTLP_HEADERS" "$OTEL_EXPORTER_OTLP_HEADERS"
 
@@ -919,6 +925,7 @@ jobs:
           GCP_PROJECT_ID: ${{ needs.determine-environment.outputs.project-id }}
           ENVIRONMENT: ${{ needs.determine-environment.outputs.environment }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           INTERNAL_SERVICE_SECRET: ${{ secrets.INTERNAL_SERVICE_SECRET }}
           DATABASE_URL_DEV: ${{ secrets.DATABASE_URL }}
           DATABASE_URL_PROD: ${{ secrets.DATABASE_URL_PROD }}
@@ -952,6 +959,9 @@ jobs:
 
           # Core secrets
           ensure_secret "OPENAI_API_KEY" "$OPENAI_API_KEY"
+          ensure_secret "GEMINI_API_KEY_CHAT" "$GEMINI_API_KEY"
+          ensure_secret "GEMINI_API_KEY_NEWS" "$GEMINI_API_KEY"
+          ensure_secret "GEMINI_API_KEY_REPORT_EXTRACTOR" "$GEMINI_API_KEY"
           ensure_secret "INTERNAL_SERVICE_SECRET" "$INTERNAL_SERVICE_SECRET"
           ensure_secret "OTEL_EXPORTER_OTLP_HEADERS" "$OTEL_EXPORTER_OTLP_HEADERS"
           ensure_secret "ALGOLIA_APP_ID" "$ALGOLIA_APP_ID"
