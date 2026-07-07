@@ -2,9 +2,13 @@
 
 import { cache } from "react";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
-import { CACHE_KEYS, getCached, setCached } from "~/@/lib/kv-cache";
+import { CACHE_KEYS, deleteCached, getCached, setCached } from "~/@/lib/kv-cache";
 import type { TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import type { GetTopShortsResponse } from "~/gen/shorts/v1alpha1/shorts_pb";
+import {
+  filterTopShortsResponse,
+  hasOnlyEligibleTopShortsInstruments,
+} from "~/@/lib/top-shorts-filter";
 
 export interface StockDisplayData {
   code: string;
@@ -36,15 +40,23 @@ export const getTopStocksForDisplay = cache(async (limit = 5): Promise<StockDisp
     
     let response: GetTopShortsResponse | undefined;
 
-    if (cached) {
+    if (
+      cached &&
+      Array.isArray(cached.timeSeries) &&
+      hasOnlyEligibleTopShortsInstruments(cached.timeSeries)
+    ) {
       response = cached;
     } else {
+      if (cached) {
+        await deleteCached(cacheKey);
+      }
+
       // Cache miss - fetch from backend
       response = await getTopShortsData("3m", limit, 0);
 
       // Cache the result (async, don't wait)
       if (response) {
-        setCached(cacheKey, response, 300).catch((error) => {
+        setCached(cacheKey, filterTopShortsResponse(response), 300).catch((error) => {
           console.error("Failed to cache top stocks:", error);
         });
       }

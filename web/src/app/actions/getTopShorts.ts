@@ -14,13 +14,20 @@ import {
 } from "~/@/lib/kv-cache";
 import { withRetryAndNotFound } from "./withRetry";
 import { withSpan } from "~/@/lib/tracing";
+import {
+  filterTopShortsResponse,
+  hasOnlyEligibleTopShortsInstruments,
+} from "~/@/lib/top-shorts-filter";
 
 function isUsableTopShortsResponse(
   response: GetTopShortsResponse | null,
   offset: number,
 ): response is GetTopShortsResponse {
   if (!response || !Array.isArray(response.timeSeries)) return false;
-  return response.timeSeries.length > 0 || offset > 0;
+  return (
+    (response.timeSeries.length > 0 || offset > 0) &&
+    hasOnlyEligibleTopShortsInstruments(response.timeSeries)
+  );
 }
 
 // React cache() provides request deduplication during a single render
@@ -62,13 +69,15 @@ export const getTopShortsData = cache(
         },
       );
 
-      if (isUsableTopShortsResponse(response, offset)) {
-        setCached(cacheKey, response, Number(HOMEPAGE_TTL)).catch((error) => {
+      const filteredResponse = filterTopShortsResponse(response);
+
+      if (isUsableTopShortsResponse(filteredResponse, offset)) {
+        setCached(cacheKey, filteredResponse, Number(HOMEPAGE_TTL)).catch((error) => {
           console.error(`Failed to cache top shorts for key ${cacheKey}:`, error);
         });
       }
 
-      return response;
+      return filteredResponse;
     },
   ),
 );
