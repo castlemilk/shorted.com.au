@@ -47,13 +47,6 @@ resource "google_secret_manager_secret_iam_member" "internal_service_secret" {
   project   = var.project_id
 }
 
-resource "google_secret_manager_secret_iam_member" "internal_service_secret" {
-  secret_id = "INTERNAL_SERVICE_SECRET"
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.chat_service.email}"
-  project   = var.project_id
-}
-
 resource "google_secret_manager_secret_iam_member" "otel_headers" {
   secret_id = "OTEL_EXPORTER_OTLP_HEADERS"
   role      = "roles/secretmanager.secretAccessor"
@@ -126,16 +119,6 @@ resource "google_cloud_run_v2_service" "chat_service" {
         value_source {
           secret_key_ref {
             secret  = var.internal_service_secret_name
-            version = "latest"
-          }
-        }
-      }
-
-      env {
-        name = "INTERNAL_SERVICE_SECRET"
-        value_source {
-          secret_key_ref {
-            secret  = "INTERNAL_SERVICE_SECRET"
             version = "latest"
           }
         }
