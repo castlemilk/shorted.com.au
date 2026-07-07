@@ -91,4 +91,83 @@ describe("getTopPageData", () => {
     expect(mockDeleteCached).toHaveBeenCalledWith("cache:top:3m:100");
     expect(mockGetTopShortsData).toHaveBeenCalledWith("3m", 100, 0);
   });
+
+  it("refreshes cached top-page data containing invalid instruments", async () => {
+    mockGetCached.mockResolvedValueOnce({
+      timeSeries: [
+        {
+          productCode: "ATBHQ",
+          name: "ASIAN DEVELOPMENT 4.35% 17-JAN-29",
+          latestShortPosition: 100,
+          points: [{ shortPosition: 100 }],
+        },
+      ],
+      movers: {
+        biggestGainers: [],
+        biggestLosers: [
+          {
+            productCode: "ATBHQ",
+            name: "ASIAN DEVELOPMENT 4.35% 17-JAN-29",
+            latestShortPosition: 100,
+            points: [{ shortPosition: 100 }],
+            change: -60,
+          },
+        ],
+        mostVolatile: [],
+      },
+      stockListItems: [],
+      lastUpdated: "2026-07-01T00:00:00.000Z",
+      period: "3m",
+    });
+
+    const result = await getTopPageData("3m", 100);
+
+    expect(result.timeSeries.map((stock) => stock.productCode)).toEqual(["LOT"]);
+    expect(result.movers.biggestLosers.map((stock) => stock.productCode)).toEqual(["LOT"]);
+    expect(mockDeleteCached).toHaveBeenCalledWith("cache:top:3m:100");
+    expect(mockGetTopShortsData).toHaveBeenCalledWith("3m", 100, 0);
+  });
+
+  it("filters invalid instruments before deriving top-page stats and movers", async () => {
+    mockGetTopShortsData.mockResolvedValueOnce({
+      timeSeries: [
+        {
+          productCode: "ATBHQ",
+          name: "ASIAN DEVELOPMENT 4.35% 17-JAN-29",
+          latestShortPosition: 100,
+          points: [
+            { timestamp: "2026-04-01T00:00:00Z", shortPosition: 160 },
+            { timestamp: "2026-07-01T00:00:00Z", shortPosition: 100 },
+          ],
+        },
+        {
+          productCode: "OOO",
+          name: "BETASHARESCRUDEOIL ETF UNITS",
+          latestShortPosition: 20,
+          points: [
+            { timestamp: "2026-04-01T00:00:00Z", shortPosition: 10 },
+            { timestamp: "2026-07-01T00:00:00Z", shortPosition: 20 },
+          ],
+        },
+        {
+          productCode: "LOT",
+          name: "LOTUS RESOURCES LTD ORDINARY",
+          latestShortPosition: 22.82,
+          points: [
+            { timestamp: "2026-04-01T00:00:00Z", shortPosition: 10 },
+            { timestamp: "2026-07-01T00:00:00Z", shortPosition: 22.82 },
+          ],
+        },
+      ],
+      offset: 0,
+    });
+
+    const result = await getTopPageData("3m", 100);
+
+    expect(result.timeSeries.map((stock) => stock.productCode)).toEqual(["LOT"]);
+    expect(result.stockListItems.map((stock) => stock.productCode)).toEqual(["LOT"]);
+    expect(result.movers.biggestGainers.map((stock) => stock.productCode)).toEqual(["LOT"]);
+    expect(result.movers.biggestLosers.map((stock) => stock.productCode)).toEqual(["LOT"]);
+    expect(result.movers.mostVolatile.map((stock) => stock.productCode)).toEqual(["LOT"]);
+  });
 });
