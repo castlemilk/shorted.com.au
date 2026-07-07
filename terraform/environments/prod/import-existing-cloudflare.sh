@@ -22,10 +22,15 @@ ACCOUNT_ID="2132ccf47ceb5fff234c34d85490470a"
 # placeholder fallbacks — values do not affect the imported resources.
 GRAFANA_AUTH_VALUE="${GRAFANA_AUTH:-placeholder}"
 
+tf_state_has_addr() {
+  local addr="$1"
+  terraform state show -no-color "$addr" >/dev/null 2>&1
+}
+
 tf_import() {
   local addr="$1"
   local id="$2"
-  if terraform state list 2>/dev/null | grep -Fxq "$addr"; then
+  if tf_state_has_addr "$addr"; then
     echo "  ✓ already in state: $addr"
     return 0
   fi
@@ -45,7 +50,7 @@ tf_import() {
 # Remove a state entry if it exists, no-op otherwise.
 tf_state_rm() {
   local addr="$1"
-  if terraform state list 2>/dev/null | grep -Fxq "$addr"; then
+  if tf_state_has_addr "$addr"; then
     echo "  ✂ removing wrong-addressed state entry: $addr"
     terraform state rm "$addr" || true
   fi
@@ -66,9 +71,10 @@ tf_state_rm 'module.edge.cloudflare_record.frontend[0]'
 echo "=== Importing pre-existing Cloudflare resources ==="
 
 # DNS records (count = create_frontend_records ? 1 : 0 → [0] index)
-tf_import 'module.edge.cloudflare_dns_record.frontend[0]' "zones/${ZONE_ID}/dns_records/003b51b8b5a39630b09c5cb663bba1b9"
-tf_import 'module.edge.cloudflare_dns_record.www[0]'      "zones/${ZONE_ID}/dns_records/8f2b411d8c3bf24cb2c7e603c4fc0bcd"
-tf_import 'module.edge.cloudflare_dns_record.api[0]'      "zones/${ZONE_ID}/dns_records/91cf9d64108ee15cf2a230c5aab8d909"
+# Provider v5 import format for cloudflare_dns_record: <zone_id>/<dns_record_id>.
+tf_import 'module.edge.cloudflare_dns_record.frontend[0]' "${ZONE_ID}/003b51b8b5a39630b09c5cb663bba1b9"
+tf_import 'module.edge.cloudflare_dns_record.www[0]'      "${ZONE_ID}/8f2b411d8c3bf24cb2c7e603c4fc0bcd"
+tf_import 'module.edge.cloudflare_dns_record.api[0]'      "${ZONE_ID}/91cf9d64108ee15cf2a230c5aab8d909"
 
 # Workers KV namespace (no count → no index)
 tf_import 'module.edge.cloudflare_workers_kv_namespace.edge_cache' "${ACCOUNT_ID}/e08015a2c6324c7b8b3faa810d5b0c73"
