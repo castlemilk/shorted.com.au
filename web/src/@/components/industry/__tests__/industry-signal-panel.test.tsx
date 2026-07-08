@@ -3,7 +3,9 @@ import { render, screen } from "@testing-library/react";
 import { IndustrySignalPanel } from "../industry-signal-panel";
 import type { IndustryIntelligenceStory } from "~/@/lib/industry-intelligence";
 
-function makeStory(overrides: Partial<IndustryIntelligenceStory> = {}): IndustryIntelligenceStory {
+function makeStory(
+  overrides: Partial<IndustryIntelligenceStory> = {},
+): IndustryIntelligenceStory {
   return {
     industry: {
       name: "Materials",
@@ -47,13 +49,21 @@ function makeStory(overrides: Partial<IndustryIntelligenceStory> = {}): Industry
       label: "Trade Exposure",
       status: "source-ready",
       value: null,
-      source: { name: "ABS, DFAT, UN Comtrade", asAt: null, cadence: "Planned import" },
+      source: {
+        name: "ABS, DFAT, UN Comtrade",
+        asAt: null,
+        cadence: "Planned import",
+      },
     },
     publicMoney: {
       label: "Public Money",
       status: "source-ready",
       value: null,
-      source: { name: "AusTender, GrantConnect", asAt: null, cadence: "Planned import" },
+      source: {
+        name: "AusTender, GrantConnect",
+        asAt: null,
+        cadence: "Planned import",
+      },
     },
     taxEnvironment: {
       label: "Tax Environment",
@@ -65,7 +75,11 @@ function makeStory(overrides: Partial<IndustryIntelligenceStory> = {}): Industry
       label: "Policy Footprint",
       status: "source-ready",
       value: null,
-      source: { name: "AEC, AGD, FITS, APH", asAt: null, cadence: "Planned import" },
+      source: {
+        name: "AEC, AGD, FITS, APH",
+        asAt: null,
+        cadence: "Planned import",
+      },
     },
     entitlement: {
       free: true,
@@ -84,19 +98,33 @@ describe("IndustrySignalPanel", () => {
   it("renders top stocks with stock detail links and canonical CTAs", () => {
     render(<IndustrySignalPanel story={makeStory()} />);
 
-    expect(screen.getByRole("heading", { name: "Top Stocks In This Industry" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /MIN Mineral Resources/ })).toHaveAttribute("href", "/shorts/MIN");
+    expect(
+      screen.getByRole("heading", { name: "Top Stocks In This Industry" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /MIN.*Mineral Resources/ }),
+    ).toHaveAttribute("href", "/shorts/MIN");
     expect(screen.getByText("Crowded")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "View all top shorts" })).toHaveAttribute("href", "/top");
-    expect(screen.getByRole("link", { name: "Find a stock" })).toHaveAttribute("href", "/stocks");
-    expect(screen.getByRole("link", { name: "Open industry view" })).toHaveAttribute("href", "/industry/materials");
+    expect(
+      screen.getByRole("link", { name: "View all top shorts" }),
+    ).toHaveAttribute("href", "/top");
+    expect(screen.getByRole("link", { name: "Find a stock" })).toHaveAttribute(
+      "href",
+      "/stocks",
+    );
+    expect(
+      screen.getByRole("link", { name: "Open industry view" }),
+    ).toHaveAttribute("href", "/industry/materials");
   });
 
   it("renders an empty state without stock links when the industry has no rows", () => {
     render(<IndustrySignalPanel story={makeStory({ topShortedStocks: [] })} />);
 
-    expect(screen.getByText("No ranked stocks are available for this industry yet.")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /MIN Mineral Resources/ })).not.toBeInTheDocument();
+    expect(
+      screen.getByText("No ranked stocks are available for this industry yet."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /MIN.*Mineral Resources/ }),
+    ).not.toBeInTheDocument();
   });
 });
-

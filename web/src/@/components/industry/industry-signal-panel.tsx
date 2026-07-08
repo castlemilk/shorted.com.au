@@ -43,10 +43,11 @@ export function IndustrySignalPanel({
   return (
     <section
       className={cn(
-        "rounded-lg border border-border/60 bg-card/70 p-4 shadow-amber-sm backdrop-blur-sm",
+        "rounded-lg border border-border/60 bg-card/80 p-4 shadow-amber-sm backdrop-blur-sm",
         className,
       )}
       aria-labelledby="industry-signal-panel-title"
+      data-testid="industry-top-stocks-panel"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
@@ -83,40 +84,49 @@ export function IndustrySignalPanel({
                 key={stock.code}
                 href={stock.href}
                 prefetch={false}
-                className="group grid grid-cols-[32px_minmax(0,1fr)_72px_88px_24px] items-center gap-3 px-3 py-3 text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                className="group grid grid-cols-[30px_minmax(0,1fr)_74px_18px] items-center gap-3 px-3 py-3 text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               >
                 <span className="font-mono text-sm font-semibold tabular-nums text-muted-foreground">
                   {stock.rank}
                 </span>
                 <span className="min-w-0">
-                  <span className="block font-semibold text-foreground transition-colors group-hover:text-primary">
-                    {stock.code}
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="font-semibold text-foreground transition-colors group-hover:text-primary">
+                      {stock.code}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "hidden shrink-0 justify-center whitespace-nowrap px-1.5 py-0.5 font-mono text-[10px] sm:inline-flex",
+                        STATUS_CLASSES[stock.status],
+                      )}
+                    >
+                      {STATUS_LABELS[stock.status]}
+                    </Badge>
                   </span>
-                  <span className="block truncate text-xs text-muted-foreground">
+                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                     {stock.name}
                   </span>
                 </span>
-                <span className="text-right font-mono font-semibold tabular-nums">
-                  {formatPercent(stock.shortPercent)}
-                </span>
-                <span className="flex justify-end">
-                  <Badge
-                    variant="outline"
+                <span className="text-right">
+                  <span className="block font-mono font-semibold tabular-nums">
+                    {formatPercent(stock.shortPercent)}
+                  </span>
+                  <span
                     className={cn(
-                      "justify-center whitespace-nowrap px-2 py-0.5 font-mono text-[10px]",
-                      STATUS_CLASSES[stock.status],
+                      "block font-mono text-[11px] tabular-nums",
+                      stock.change > 0 && "text-red-500",
+                      stock.change < 0 && "text-green-600",
+                      stock.change === 0 && "text-muted-foreground",
                     )}
                   >
-                    {STATUS_LABELS[stock.status]}
-                  </Badge>
+                    {formatChange(stock.change)}
+                  </span>
                 </span>
                 <ChevronRight
                   className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary"
                   aria-hidden="true"
                 />
-                <span className="sr-only">
-                  {formatChange(stock.change)} change
-                </span>
               </Link>
             ))}
           </div>
@@ -127,20 +137,35 @@ export function IndustrySignalPanel({
         )}
       </div>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-3">
-        <Button asChild variant="outline" size="sm" className="min-h-10 justify-between">
+      <div className="mt-4 grid gap-2">
+        <Button
+          asChild
+          variant="outline"
+          size="sm"
+          className="min-h-10 justify-between"
+        >
           <Link href="/top" prefetch={false}>
             View all top shorts
             <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
           </Link>
         </Button>
-        <Button asChild variant="outline" size="sm" className="min-h-10 justify-between">
+        <Button
+          asChild
+          variant="outline"
+          size="sm"
+          className="min-h-10 justify-between"
+        >
           <Link href="/stocks" prefetch={false}>
             Find a stock
             <Files className="h-3.5 w-3.5" aria-hidden="true" />
           </Link>
         </Button>
-        <Button asChild variant="outline" size="sm" className="min-h-10 justify-between">
+        <Button
+          asChild
+          variant="outline"
+          size="sm"
+          className="min-h-10 justify-between"
+        >
           <Link href={`/industry/${story.industry.slug}`} prefetch={false}>
             Open industry view
             <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />

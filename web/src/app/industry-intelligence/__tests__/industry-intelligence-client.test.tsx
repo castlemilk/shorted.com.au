@@ -1,9 +1,13 @@
 import "@testing-library/jest-dom";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { IndustryIntelligenceClient } from "../industry-intelligence-client";
 import type { IndustryIntelligenceStory } from "~/@/lib/industry-intelligence";
 
-function story(slug: string, name: string, code: string): IndustryIntelligenceStory {
+function story(
+  slug: string,
+  name: string,
+  code: string,
+): IndustryIntelligenceStory {
   return {
     industry: {
       name,
@@ -34,13 +38,21 @@ function story(slug: string, name: string, code: string): IndustryIntelligenceSt
       label: "Trade Exposure",
       status: "source-ready",
       value: null,
-      source: { name: "ABS, DFAT, UN Comtrade", asAt: null, cadence: "Planned import" },
+      source: {
+        name: "ABS, DFAT, UN Comtrade",
+        asAt: null,
+        cadence: "Planned import",
+      },
     },
     publicMoney: {
       label: "Public Money",
       status: "source-ready",
       value: null,
-      source: { name: "AusTender, GrantConnect", asAt: null, cadence: "Planned import" },
+      source: {
+        name: "AusTender, GrantConnect",
+        asAt: null,
+        cadence: "Planned import",
+      },
     },
     taxEnvironment: {
       label: "Tax Environment",
@@ -52,7 +64,11 @@ function story(slug: string, name: string, code: string): IndustryIntelligenceSt
       label: "Policy Footprint",
       status: "source-ready",
       value: null,
-      source: { name: "AEC, AGD, FITS, APH", asAt: null, cadence: "Planned import" },
+      source: {
+        name: "AEC, AGD, FITS, APH",
+        asAt: null,
+        cadence: "Planned import",
+      },
     },
     entitlement: {
       free: true,
@@ -70,11 +86,24 @@ describe("IndustryIntelligenceClient", () => {
   it("keeps users moving when industry data is unavailable", () => {
     render(<IndustryIntelligenceClient stories={[]} />);
 
-    expect(screen.getByRole("heading", { name: "Industry Intelligence" })).toBeInTheDocument();
-    expect(screen.getByText(/The next ASIC-backed industry sync will populate this page/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "View top shorts" })).toHaveAttribute("href", "/top");
-    expect(screen.getByRole("link", { name: "Browse industries" })).toHaveAttribute("href", "/industry");
-    expect(screen.getByRole("link", { name: "Find a stock" })).toHaveAttribute("href", "/stocks");
+    expect(
+      screen.getByRole("heading", { name: "Industry Intelligence" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /The next ASIC-backed industry sync will populate this page/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "View top shorts" }),
+    ).toHaveAttribute("href", "/top");
+    expect(
+      screen.getByRole("link", { name: "Browse industries" }),
+    ).toHaveAttribute("href", "/industry");
+    expect(screen.getByRole("link", { name: "Find a stock" })).toHaveAttribute(
+      "href",
+      "/stocks",
+    );
   });
 
   it("updates the top-stocks panel when a different industry is selected", () => {
@@ -87,11 +116,23 @@ describe("IndustryIntelligenceClient", () => {
       />,
     );
 
-    expect(screen.getByRole("link", { name: /MIN MIN Limited/ })).toHaveAttribute("href", "/shorts/MIN");
+    expect(
+      within(screen.getByTestId("industry-top-stocks-panel")).getByRole(
+        "link",
+        {
+          name: /MIN.*MIN Limited/,
+        },
+      ),
+    ).toHaveAttribute("href", "/shorts/MIN");
 
     fireEvent.click(screen.getByRole("button", { name: /Health Care/ }));
 
-    expect(screen.getByRole("link", { name: /CSL CSL Limited/ })).toHaveAttribute("href", "/shorts/CSL");
-    expect(screen.queryByRole("link", { name: /MIN MIN Limited/ })).not.toBeInTheDocument();
+    const panel = within(screen.getByTestId("industry-top-stocks-panel"));
+    expect(
+      panel.getByRole("link", { name: /CSL.*CSL Limited/ }),
+    ).toHaveAttribute("href", "/shorts/CSL");
+    expect(
+      panel.queryByRole("link", { name: /MIN.*MIN Limited/ }),
+    ).not.toBeInTheDocument();
   });
 });

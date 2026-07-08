@@ -1,7 +1,12 @@
 import { type Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { TrendingDown, ChevronRight } from "lucide-react";
+import {
+  ArrowUpRight,
+  ChevronRight,
+  Sparkles,
+  TrendingDown,
+} from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import {
@@ -42,8 +47,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "ASX Short Positions by Industry | Sector Analysis",
-    description:
-      "Explore short selling activity across ASX industry sectors.",
+    description: "Explore short selling activity across ASX industry sectors.",
   },
   alternates: {
     canonical: `${siteConfig.url}/industry`,
@@ -61,6 +65,9 @@ const breadcrumbs = [
 
 export default async function IndustryIndexPage() {
   const industryData = await getIndustryData();
+  const topIndustries = [...industryData]
+    .sort((a, b) => b.avgShortPercent - a.avgShortPercent)
+    .slice(0, 5);
 
   // CollectionPage + ItemList — exposes every industry/sector as a
   // structured child so crawlers can ingest the sector taxonomy.
@@ -98,20 +105,143 @@ export default async function IndustryIndexPage() {
 
       <div className="space-y-8">
         {/* Hero Section */}
-        <section className="relative border-b border-border/40 pb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="h-10 w-1 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full" />
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-              Short Positions by Industry
-            </h1>
+        <section className="overflow-hidden rounded-lg border border-border/60 bg-card/80 shadow-amber-sm">
+          <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.55fr)]">
+            <div className="p-6 md:p-8">
+              <div className="mb-5 flex flex-wrap items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className="border-primary/25 bg-primary/10 text-primary"
+                >
+                  Industry Intelligence
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className="border-border/60 bg-background/70"
+                >
+                  ASIC daily T+4
+                </Badge>
+              </div>
+              <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-balance md:text-5xl">
+                Short Positions by Industry
+              </h1>
+              <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground text-pretty md:text-lg">
+                Compare short-interest crowding across ASX sectors, then open
+                the Industry Intelligence story to connect each sector with top
+                stocks, source-ready public data modules, and premium alerts.
+              </p>
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/industry-intelligence"
+                  prefetch={false}
+                  className="inline-flex min-h-11 items-center justify-center rounded-md bg-primary px-5 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                >
+                  Open Industry Intelligence
+                  <ArrowUpRight className="ml-2 h-4 w-4" aria-hidden="true" />
+                </Link>
+                <Link
+                  href="/top"
+                  prefetch={false}
+                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-border bg-background px-5 py-2 text-sm font-medium transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                >
+                  Compare top shorts
+                </Link>
+              </div>
+            </div>
+
+            <div className="border-t border-border/60 bg-zinc-950 p-5 text-zinc-100 lg:border-l lg:border-t-0 md:p-6">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-300">
+                    Live sector board
+                  </p>
+                  <h2 className="mt-2 text-xl font-semibold tracking-tight text-white">
+                    Highest average short interest
+                  </h2>
+                </div>
+                <TrendingDown
+                  className="h-5 w-5 text-amber-300"
+                  aria-hidden="true"
+                />
+              </div>
+              <div className="mt-5 overflow-hidden rounded-md border border-zinc-800">
+                {topIndustries.map((industry, index) => (
+                  <Link
+                    key={industry.slug}
+                    href={`/industry/${industry.slug}`}
+                    className="grid grid-cols-[34px_minmax(0,1fr)_64px] items-center gap-3 border-b border-zinc-800 px-3 py-3 text-sm last:border-b-0 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/50"
+                  >
+                    <span className="font-mono text-xs text-zinc-500">
+                      #{index + 1}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate font-semibold text-white">
+                        {industry.name}
+                      </span>
+                      <span className="block text-xs text-zinc-500">
+                        {industry.stockCount} stocks tracked
+                      </span>
+                    </span>
+                    <span className="text-right font-mono font-semibold tabular-nums text-amber-100">
+                      {industry.avgShortPercent.toFixed(2)}%
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </div>
           </div>
-          <p className="text-muted-foreground text-lg max-w-2xl">
-            Explore short selling activity across different ASX industry sectors.
-            Click on any industry to see the most shorted stocks in that sector.
-          </p>
+        </section>
+
+        <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.45fr)]">
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-5 shadow-amber-sm">
+            <div className="mb-3 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-primary">
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+              New evidence story
+            </div>
+            <h2 className="text-2xl font-semibold tracking-tight text-balance">
+              Turn any industry table into a cited sector story
+            </h2>
+            <p className="mt-3 max-w-[74ch] text-sm leading-6 text-muted-foreground text-pretty">
+              Industry Intelligence keeps the live ASIC short-interest layer
+              free, while premium evidence packs and alerts create the upgrade
+              path for deeper monitoring.
+            </p>
+          </div>
+          <Link
+            href="/industry-intelligence"
+            prefetch={false}
+            className="group flex min-h-[150px] flex-col justify-between rounded-lg border border-border/60 bg-card/80 p-5 shadow-amber-sm transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          >
+            <div>
+              <div className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                Story route
+              </div>
+              <div className="mt-2 text-xl font-semibold tracking-tight group-hover:text-primary">
+                Explore crowding, top stocks, evidence modules, and alerts
+              </div>
+            </div>
+            <div className="mt-4 inline-flex items-center text-sm font-medium text-primary">
+              Open the story
+              <ChevronRight className="ml-2 h-4 w-4" aria-hidden="true" />
+            </div>
+          </Link>
         </section>
 
         {/* Industry Grid */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+              Industry index
+            </p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-tight">
+              Browse every sector
+            </h2>
+          </div>
+          <p className="max-w-xl text-sm text-muted-foreground">
+            Each card opens the canonical industry page with ranked top-shorted
+            stocks and a shortcut back into the story view.
+          </p>
+        </div>
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {industryData.map((industry) => (
             <Link
@@ -149,20 +279,27 @@ export default async function IndustryIndexPage() {
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Avg Short %</span>
                       <Badge
-                        variant={industry.avgShortPercent > 10 ? "destructive" : "secondary"}
+                        variant={
+                          industry.avgShortPercent > 10
+                            ? "destructive"
+                            : "secondary"
+                        }
                       >
                         {industry.avgShortPercent.toFixed(2)}%
                       </Badge>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Top Shorted</span>
-                      <span className="font-medium">{industry.topStock?.code ?? "N/A"}</span>
+                      <span className="font-medium">
+                        {industry.topStock?.code ?? "N/A"}
+                      </span>
                     </div>
                     {industry.topStock && (
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <TrendingDown className="h-3 w-3 text-red-500" />
                         <span>
-                          {industry.topStock.code}: {industry.topStock.shortPercent.toFixed(2)}%
+                          {industry.topStock.code}:{" "}
+                          {industry.topStock.shortPercent.toFixed(2)}%
                         </span>
                       </div>
                     )}
@@ -177,21 +314,23 @@ export default async function IndustryIndexPage() {
         <section className="prose prose-sm dark:prose-invert max-w-none mt-12 pt-8 border-t border-border/40">
           <h2>Understanding Industry Short Positions</h2>
           <p>
-            Short selling activity varies significantly across different industry sectors on the ASX.
-            Understanding which industries are heavily shorted can provide valuable insights into
-            market sentiment and potential opportunities.
+            Short selling activity varies significantly across different
+            industry sectors on the ASX. Understanding which industries are
+            heavily shorted can provide valuable insights into market sentiment
+            and potential opportunities.
           </p>
           <h3>High Short Interest Industries</h3>
           <p>
-            Sectors like mining (especially lithium and rare earths), speculative technology,
-            and retail often see higher short interest due to their volatile nature and
-            sensitivity to commodity prices or consumer spending patterns.
+            Sectors like mining (especially lithium and rare earths),
+            speculative technology, and retail often see higher short interest
+            due to their volatile nature and sensitivity to commodity prices or
+            consumer spending patterns.
           </p>
           <h3>Lower Short Interest Industries</h3>
           <p>
-            Defensive sectors such as utilities, healthcare, and essential consumer staples
-            typically maintain lower short interest levels due to their stable revenue streams
-            and lower volatility.
+            Defensive sectors such as utilities, healthcare, and essential
+            consumer staples typically maintain lower short interest levels due
+            to their stable revenue streams and lower volatility.
           </p>
         </section>
       </div>
