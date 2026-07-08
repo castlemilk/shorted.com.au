@@ -21,6 +21,7 @@ const items: NavItemWithGroup[] = [
   { title: "reports", href: "/reports", primary: true },
   { title: "news", href: "/news", primary: true },
   // Secondary — grouped under "More" dropdown
+  { title: "industry intel", href: "/industry-intelligence" },
   { title: "portfolio", href: "/portfolio", requiresAuth: true },
   { title: "about", href: "/about" },
   { title: "technology", href: "/technology" },

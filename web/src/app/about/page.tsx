@@ -5,21 +5,23 @@ import { type AboutPageStatistics } from "~/lib/statistics";
 import { siteConfig } from "~/@/config/site";
 
 export const metadata: Metadata = {
-  title: "About Shorted - ASX Short Position Data Platform",
+  title: "About Shorted - ASX Short Position & Industry Intelligence",
   description:
-    "Learn about Shorted.com.au, Australia's free short position tracking platform. We provide daily ASIC short selling data, interactive visualizations, and analysis tools for ASX-listed stocks.",
+    "Learn about Shorted.com.au, Australia's short position intelligence platform for daily ASIC data, industry crowding signals, top stocks, evidence packs, and alerts.",
   keywords: [
     "about Shorted",
     "ASX short selling data",
     "ASIC short positions",
+    "industry intelligence",
+    "ASX industry short interest",
     "Australian stock market",
     "short interest tracker",
     "free stock data Australia",
   ],
   openGraph: {
-    title: "About Shorted - ASX Short Position Data Platform",
+    title: "About Shorted - ASX Short Position & Industry Intelligence",
     description:
-      "Learn about Shorted.com.au, Australia's free short position tracking platform providing daily ASIC short selling data.",
+      "Learn about Shorted.com.au, Australia's short position platform for ASIC-backed stock and industry intelligence.",
     url: `${siteConfig.url}/about`,
     siteName: siteConfig.name,
     type: "website",
@@ -27,9 +29,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "About Shorted - ASX Short Position Data Platform",
+    title: "About Shorted - ASX Short Position & Industry Intelligence",
     description:
-      "Learn about Shorted.com.au, Australia's free short position tracking platform.",
+      "Learn about Shorted.com.au, Australia's short position platform for stock and industry intelligence.",
   },
   alternates: {
     canonical: `${siteConfig.url}/about`,

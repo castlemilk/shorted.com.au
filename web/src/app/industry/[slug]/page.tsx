@@ -8,10 +8,12 @@ import {
   ChevronRight,
   BarChart3,
   Clock,
+  Sparkles,
 } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { Badge } from "~/@/components/ui/badge";
+import { IndustrySignalPanel } from "~/@/components/industry/industry-signal-panel";
 import {
   BreadcrumbListSchema,
 } from "~/@/components/seo/enhanced-structured-data";
@@ -27,6 +29,7 @@ import {
 } from "~/@/components/seo/enhanced-structured-data";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { getSectorImagePath, getSectorImageAlt } from "~/@/lib/sector-images";
+import { buildIndustryIntelligenceStory } from "~/@/lib/industry-intelligence";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -158,6 +161,11 @@ export default async function IndustryPage({ params }: PageProps) {
   // Calculate stats
   const highlyShorted = stocks.filter((s) => s.shortPercent > 10).length;
   const increasing = stocks.filter((s) => (s.change ?? 0) > 0).length;
+  const industryStory = buildIndustryIntelligenceStory({
+    industry,
+    stocks,
+    asAt: new Date().toISOString().slice(0, 10),
+  });
 
   return (
     <DashboardLayout>
@@ -249,6 +257,32 @@ export default async function IndustryPage({ params }: PageProps) {
             color="orange"
             subtext="vs 3 months ago"
           />
+        </section>
+
+        <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)]">
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-5 shadow-amber-sm">
+            <div className="mb-3 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-primary">
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+              Industry Intelligence
+            </div>
+            <h2 className="text-2xl font-semibold tracking-tight text-balance">
+              Read {industry.name} in the wider evidence story
+            </h2>
+            <p className="mt-3 max-w-[68ch] text-sm text-muted-foreground text-pretty">
+              Connect this sector table to the top-shorts leaderboard, stock
+              detail pages, source-ready public data modules, and premium alert
+              workflows.
+            </p>
+            <Link
+              href={`/industry-intelligence?industry=${slug}`}
+              prefetch={false}
+              className="mt-5 inline-flex min-h-10 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              Open Industry Intelligence
+              <ChevronRight className="ml-2 h-4 w-4" aria-hidden="true" />
+            </Link>
+          </div>
+          <IndustrySignalPanel story={industryStory} stockLimit={5} />
         </section>
 
         {/* Stock Table */}
