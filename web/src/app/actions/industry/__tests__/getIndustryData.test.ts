@@ -49,8 +49,20 @@ describe("industry data cache loading", () => {
     }
   });
 
-  it("fetches live industry data at runtime even when static generation is skipped", async () => {
+  it("skips backend industry fetches during static generation bypass", async () => {
     process.env.SKIP_STATIC_GENERATION = "1";
+
+    await expect(getIndustryData()).resolves.toEqual([]);
+    await expect(getIndustryStocks("materials")).resolves.toEqual({
+      industry: null,
+      stocks: [],
+    });
+
+    expect(mockGetOrSetCached).not.toHaveBeenCalled();
+    expect(mockServerFetchWithUserAgent).not.toHaveBeenCalled();
+  });
+
+  it("fetches live industry data at runtime", async () => {
     mockTreemapResponse([
       { productCode: "MIN", industry: "Materials", shortPosition: 12.4 },
       { productCode: "LTR", industry: "Materials", shortPosition: 7.8 },

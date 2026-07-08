@@ -98,7 +98,7 @@ export function IndustrySignalPanel({
                 key={stock.code}
                 href={stock.href}
                 prefetch={false}
-                className="group grid grid-cols-[28px_34px_minmax(0,1fr)_74px_18px] items-center gap-3 px-3 py-3 text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                className="group grid min-w-0 grid-cols-[24px_34px_minmax(0,1fr)_70px_16px] items-center gap-2 px-3 py-3 text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:grid-cols-[28px_34px_minmax(0,1fr)_74px_18px] sm:gap-3"
               >
                 <span className="font-mono text-sm font-semibold tabular-nums text-muted-foreground">
                   {stock.rank}
@@ -111,14 +111,14 @@ export function IndustrySignalPanel({
                   imageClassName="h-full w-full"
                 />
                 <span className="min-w-0">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className="font-semibold text-foreground transition-colors group-hover:text-primary">
+                  <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="min-w-0 break-words font-semibold text-foreground transition-colors group-hover:text-primary">
                       {stock.code}
                     </span>
                     <Badge
                       variant="outline"
                       className={cn(
-                        "hidden shrink-0 justify-center whitespace-nowrap px-1.5 py-0.5 font-mono text-[10px] sm:inline-flex",
+                        "hidden shrink-0 justify-center px-1.5 py-0.5 font-mono text-[10px] leading-4 sm:inline-flex",
                         STATUS_CLASSES[stock.status],
                       )}
                     >

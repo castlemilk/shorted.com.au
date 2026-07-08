@@ -1,4 +1,57 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
+
+async function expectNoVisibleTextOverflow(page: Page) {
+  const overflowIssues = await page.evaluate(() =>
+    Array.from(
+      document.querySelectorAll(
+        [
+          'nav[aria-label="Industry intelligence story sections"] a',
+          "#industry-explorer button",
+          '[data-testid="industry-top-stocks-panel"] a',
+          '[data-testid="industry-crowding-chart"] a',
+          "#industry-explorer h2",
+          "#industry-explorer p",
+          "#industry-explorer span",
+        ].join(","),
+      ),
+    )
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = window.getComputedStyle(element);
+        const text = (element.textContent ?? "").replace(/\s+/g, " ").trim();
+
+        return {
+          tag: element.tagName.toLowerCase(),
+          text: text.slice(0, 80),
+          clientWidth: element.clientWidth,
+          scrollWidth: element.scrollWidth,
+          overflowX: style.overflowX,
+          right: Math.round(rect.right),
+          left: Math.round(rect.left),
+          width: Math.round(rect.width),
+          visible:
+            rect.width > 0 &&
+            rect.height > 0 &&
+            style.display !== "none" &&
+            style.visibility !== "hidden" &&
+            text.length > 0,
+        };
+      })
+      .filter((issue) => {
+        if (!issue.visible) return false;
+
+        const outsideViewport =
+          issue.left < -1 || issue.right > window.innerWidth + 1;
+        const visibleScrollOverflow =
+          issue.scrollWidth > issue.clientWidth + 1 &&
+          issue.overflowX === "visible";
+
+        return outsideViewport || visibleScrollOverflow;
+      }),
+  );
+
+  expect(overflowIssues).toEqual([]);
+}
 
 test.describe("Industry Intelligence", () => {
   test("renders the story route and validates the linked panel when data is available", async ({
@@ -76,6 +129,29 @@ test.describe("Industry Intelligence", () => {
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
     ).toBe(true);
+  });
+
+  test("keeps story rail and explorer text contained at compressed desktop widths", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1024, height: 720 });
+
+    const response = await page.goto("/industry-intelligence", {
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
+    });
+
+    expect(response?.status()).toBeLessThan(400);
+    await expect(
+      page.getByRole("heading", { name: "Industry Intelligence" }),
+    ).toBeVisible();
+    await expect(
+      page.locator('nav[aria-label="Industry intelligence story sections"] li'),
+    ).toHaveCount(6);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+    ).toBe(true);
+    await expectNoVisibleTextOverflow(page);
   });
 
   test("is promoted from the about landing page", async ({ page }) => {

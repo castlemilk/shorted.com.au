@@ -476,12 +476,12 @@ function NarrativeStepper() {
       className="rounded-lg border border-border/60 bg-card/80 p-3 shadow-amber-sm"
       aria-label="Industry intelligence story sections"
     >
-      <ol className="flex snap-x gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 md:overflow-visible lg:grid-cols-6">
+      <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
         {narrativeSteps.map((step, index) => (
-          <li key={step.label} className="min-w-[210px] snap-start md:min-w-0">
+          <li key={step.label} className="min-w-0">
             <a
               href={index < 2 ? "#industry-explorer" : "#source-ready-modules"}
-              className="group grid min-h-[86px] grid-cols-[24px_minmax(0,1fr)] gap-2 rounded-md border border-border/50 bg-background/55 px-3 py-3 text-left transition-colors hover:border-primary/25 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="group grid h-full min-h-[108px] grid-cols-[24px_minmax(0,1fr)] gap-2 rounded-md border border-border/50 bg-background/55 px-3 py-3 text-left transition-colors hover:border-primary/25 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
               <span
                 className={cn(
@@ -494,13 +494,13 @@ function NarrativeStepper() {
                 {index + 1}
               </span>
               <span className="min-w-0">
-                <span className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-foreground">
+                <span className="flex min-w-0 flex-wrap items-start gap-2">
+                  <span className="min-w-0 flex-1 break-words font-medium leading-5 text-foreground">
                     {step.label}
                   </span>
                   <span
                     className={cn(
-                      "rounded border px-1.5 py-0.5 text-[10px] uppercase tracking-[0.12em]",
+                      "max-w-full rounded border px-1.5 py-0.5 text-[10px] uppercase leading-4 tracking-[0.08em] break-words",
                       step.status === "Live"
                         ? "border-primary/25 bg-primary/10 text-primary"
                         : "border-border/60 text-muted-foreground",
@@ -509,7 +509,7 @@ function NarrativeStepper() {
                     {step.status}
                   </span>
                 </span>
-                <span className="mt-1 block text-xs leading-4 text-muted-foreground">
+                <span className="mt-2 block break-words text-xs leading-4 text-muted-foreground">
                   {step.detail}
                 </span>
               </span>
@@ -552,58 +552,59 @@ function IndustrySelector({
           asChild
           variant="ghost"
           size="sm"
-          className="justify-start sm:justify-center"
+          className="h-auto min-h-10 justify-start whitespace-normal text-left sm:justify-center"
         >
           <Link href="/industry" prefetch={false}>
-            Open full industry index
-            <ArrowUpRight className="ml-2 h-3.5 w-3.5" aria-hidden="true" />
+            <span>Open full industry index</span>
+            <ArrowUpRight
+              className="ml-2 h-3.5 w-3.5 shrink-0"
+              aria-hidden="true"
+            />
           </Link>
         </Button>
       </div>
-      <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0 sm:pb-0">
-        <div className="flex min-w-max gap-2 sm:grid sm:min-w-0 sm:grid-cols-2 lg:grid-cols-4">
-          {stories.map((story) => {
-            const selected = story.industry.slug === selectedSlug;
+      <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        {stories.map((story) => {
+          const selected = story.industry.slug === selectedSlug;
 
-            return (
-              <button
-                key={story.industry.slug}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => onSelect(story.industry.slug)}
-                className={cn(
-                  "min-h-[88px] w-[238px] rounded-md border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:w-auto",
-                  selected
-                    ? "border-primary/40 bg-primary/10"
-                    : "border-border/60 bg-background/60 hover:border-primary/25 hover:bg-muted/60",
-                )}
-              >
-                <span className="flex min-w-0 items-start gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border/60 bg-card p-1">
-                    <Image
-                      src={getSectorImagePath(story.industry.name)}
-                      alt={getSectorImageAlt(story.industry.name)}
-                      width={32}
-                      height={32}
-                      className="h-full w-full object-contain"
-                    />
+          return (
+            <button
+              key={story.industry.slug}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => onSelect(story.industry.slug)}
+              className={cn(
+                "min-h-[96px] w-full overflow-hidden rounded-md border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+                selected
+                  ? "border-primary/40 bg-primary/10"
+                  : "border-border/60 bg-background/60 hover:border-primary/25 hover:bg-muted/60",
+              )}
+            >
+              <span className="flex min-w-0 items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border/60 bg-card p-1">
+                  <Image
+                    src={getSectorImagePath(story.industry.name)}
+                    alt={getSectorImageAlt(story.industry.name)}
+                    width={32}
+                    height={32}
+                    className="h-full w-full object-contain"
+                  />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="line-clamp-2 break-words font-medium leading-5">
+                    {story.industry.name}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">
-                      {story.industry.name}
-                    </span>
-                    <span className="mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                      <span>{story.industry.stockCount} stocks</span>
-                      <span className="font-mono tabular-nums">
-                        {formatPercent(story.industry.avgShortPercent)}
-                      </span>
+                  <span className="mt-3 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <span>{story.industry.stockCount} stocks</span>
+                    <span className="shrink-0 font-mono tabular-nums">
+                      {formatPercent(story.industry.avgShortPercent)}
                     </span>
                   </span>
                 </span>
-              </button>
-            );
-          })}
-        </div>
+              </span>
+            </button>
+          );
+        })}
       </div>
     </section>
   );

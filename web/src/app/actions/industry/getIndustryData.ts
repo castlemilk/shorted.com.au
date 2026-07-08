@@ -59,6 +59,10 @@ function createSlug(industry: string): string {
 
 // Get aggregated industry statistics using IndustryTreeMap endpoint
 export const getIndustryData = cache(async (): Promise<IndustryStats[]> => {
+  if (process.env.SKIP_STATIC_GENERATION === "1") {
+    return [];
+  }
+
   const cacheKey = `${CACHE_KEYS.industryTreeMap("max", 50, "current")}:industries-index:v2`;
 
   try {
@@ -168,6 +172,10 @@ export const getIndustryData = cache(async (): Promise<IndustryStats[]> => {
 // Get stocks for a specific industry
 export const getIndustryStocks = cache(
   async (industrySlug: string): Promise<IndustryStocksResult> => {
+    if (process.env.SKIP_STATIC_GENERATION === "1") {
+      return { industry: null, stocks: [] };
+    }
+
     const cacheKey = `${CACHE_KEYS.industryTreeMap("3m", 50, "current")}:industry:${industrySlug}:v2`;
 
     try {
