@@ -66,6 +66,15 @@ const pageScenarios = [
     path: "/reports/yearly/2025",
     requiredText: [/Year in Review/i, /ASX Short Selling/i, /Top Shorted Stocks/i],
   },
+  {
+    path: "/industry-intelligence",
+    requiredText: [
+      /Industry Intelligence/i,
+      /Top Stocks In This Industry/i,
+      /ASIC live signal/i,
+      /Policy Footprint/i,
+    ],
+  },
 ] as const;
 
 function releaseHeaders(): Record<string, string> {

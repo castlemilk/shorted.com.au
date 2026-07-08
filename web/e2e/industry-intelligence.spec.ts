@@ -20,6 +20,9 @@ test.describe("Industry Intelligence", () => {
     await expect(
       page.getByRole("heading", { name: "Industry Intelligence" }),
     ).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+    ).toBe(true);
 
     const body = await page.locator("body").innerText({ timeout: 15_000 });
     expect(body).not.toMatch(/Application error|Element type is invalid|Page Not Found|\b500\b/i);
@@ -27,16 +30,10 @@ test.describe("Industry Intelligence", () => {
     const panel = page.getByRole("heading", {
       name: "Top Stocks In This Industry",
     });
-    const hasLivePanel = (await panel.count()) > 0;
-
-    if (!hasLivePanel) {
-      await expect(
-        page.getByText(/The next ASIC-backed industry sync will populate this page/i),
-      ).toBeVisible();
-      return;
-    }
-
     await expect(panel).toBeVisible();
+    await expect(
+      page.getByText(/The next ASIC-backed industry sync will populate this page/i),
+    ).toHaveCount(0);
     await expect(page.getByRole("link", { name: "View all top shorts" })).toHaveAttribute(
       "href",
       "/top",

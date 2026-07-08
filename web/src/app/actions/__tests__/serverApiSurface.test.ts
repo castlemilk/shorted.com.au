@@ -67,6 +67,25 @@ describe("server API surface", () => {
     );
   });
 
+  it("falls back to the public edge API on Vercel when no direct shorts origin is configured", async () => {
+    process.env = {
+      ...originalEnv,
+      VERCEL: "1",
+      VERCEL_ENV: "preview",
+      SHORTS_SERVICE_ENDPOINT: "",
+      NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT: "",
+      SHORTS_API_URL: "",
+      NEXT_PUBLIC_API_URL: "",
+    };
+
+    const { SHORTS_API_URL, SERVER_SHORTS_API_URL, getServerShortsApiUrl } =
+      await import("../config");
+
+    expect(getServerShortsApiUrl()).toBe("https://api.shorted.com.au");
+    expect(SERVER_SHORTS_API_URL).toBe("https://api.shorted.com.au");
+    expect(SHORTS_API_URL).toBe("https://api.shorted.com.au");
+  });
+
   it("sends both documented Cloudflare testing bypass headers when a bypass secret is configured", async () => {
     process.env = {
       ...originalEnv,
