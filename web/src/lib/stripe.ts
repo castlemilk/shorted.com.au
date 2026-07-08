@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { getPremiumPriceId } from "./stripe-plans";
 
 // Defer the check to runtime to allow builds to succeed
 // The actual Stripe client is only used in API routes at runtime
@@ -25,10 +26,7 @@ export const stripe = new Proxy({} as Stripe, {
 
 // Canonical price-id env is STRIPE_PRO_PRICE_ID.
 // Keep STRIPE_PREMIUM_PRICE_ID as a compatibility fallback during migration.
-const PRO_PRICE_ID =
-  process.env.STRIPE_PRO_PRICE_ID ??
-  process.env.STRIPE_PREMIUM_PRICE_ID ??
-  null;
+const PRO_PRICE_ID = getPremiumPriceId();
 
 // Subscription tiers configuration
 export const SUBSCRIPTION_TIERS = {

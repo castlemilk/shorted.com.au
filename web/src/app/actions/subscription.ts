@@ -6,6 +6,7 @@ import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { SubscriptionStatus as ProtoSubscriptionStatus, SubscriptionTier as ProtoSubscriptionTier } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { auth } from "~/server/auth";
 import { SUBSCRIPTION_TIERS, isPremiumTier, type SubscriptionStatus, type SubscriptionTier } from "~/lib/stripe";
+import type { CheckoutTier } from "~/lib/stripe-plans";
 import { retryWithBackoff, type RetryOptions } from "@/lib/retry";
 import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
 
@@ -181,7 +182,9 @@ export async function getSubscriptionStatus(): Promise<SubscriptionInfo> {
 /**
  * Create a checkout session and redirect to Stripe
  */
-export async function createCheckoutSession(priceId: string): Promise<{ url: string | null; error?: string }> {
+export async function createCheckoutSession(
+  tier: CheckoutTier = "premium",
+): Promise<{ url: string | null; error?: string }> {
   const session = await auth();
 
   if (!session?.user?.email) {
@@ -195,7 +198,7 @@ export async function createCheckoutSession(priceId: string): Promise<{ url: str
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ priceId }),
+      body: JSON.stringify({ tier }),
     });
 
     const data = await response.json() as { url?: string; error?: string };

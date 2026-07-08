@@ -184,7 +184,8 @@ export function SubscriptionGate({
           </span>
         </div>
         <CardDescription>
-          Get full access to the Shorted API with 10,000 requests per day.
+          Dedicated API plan for programmatic access. Premium subscribers can
+          create tokens here without a separate API subscription.
         </CardDescription>
       </CardHeader>
 
@@ -218,7 +219,7 @@ export function SubscriptionGate({
           ) : (
             <CreditCard className="h-4 w-4 mr-2" />
           )}
-          Subscribe to Pro
+          Subscribe to API Access
           <ExternalLink className="h-3 w-3 ml-2" />
         </Button>
 

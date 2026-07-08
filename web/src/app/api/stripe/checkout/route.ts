@@ -4,6 +4,10 @@ import { stripe } from "~/lib/stripe";
 import { auth } from "~/server/auth";
 import { rateLimit } from "~/@/lib/rate-limit";
 import { recordProductEvent } from "~/@/lib/product-events";
+import {
+  resolveCheckoutPriceId,
+  validateCheckoutPriceForTier,
+} from "~/lib/stripe-plans";
 
 export async function POST(request: NextRequest) {
   const started = Date.now();
@@ -24,9 +28,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Look up the price ID server-side (env var is not available to client components)
-    const body = (await request.json().catch(() => ({}))) as { tier?: string };
-    tier = body.tier ?? "premium";
+    // Look up the price ID server-side; price IDs are never trusted from clients.
+    const body = (await request.json().catch(() => ({}))) as { tier?: unknown };
+    const priceResolution = resolveCheckoutPriceId(body.tier);
+    tier = priceResolution.tier;
 
     recordProductEvent({
       feature: "payment",
@@ -50,29 +55,37 @@ export async function POST(request: NextRequest) {
       return rateLimitResult.response;
     }
 
-    let priceId: string | null | undefined = null;
-    if (tier === "premium") {
-      priceId =
-        process.env.STRIPE_PRO_PRICE_ID ??
-        process.env.STRIPE_PREMIUM_PRICE_ID ??
-        null;
-    } else if (tier === "api_access") {
-      priceId =
-        process.env.STRIPE_API_ACCESS_PRICE_ID ??
-        process.env.STRIPE_PRO_PRICE_ID ??
-        process.env.STRIPE_PREMIUM_PRICE_ID ??
-        null;
-    }
-
-    if (!priceId) {
+    if (!priceResolution.ok) {
       recordProductEvent({
         feature: "payment",
         action: "checkout_create",
         status: "error",
-        properties: { tier, error_type: "price_not_configured" },
+        properties: { tier, error_type: priceResolution.errorType },
       });
       return NextResponse.json(
-        { error: "Premium pricing not configured" },
+        { error: priceResolution.message },
+        { status: priceResolution.status }
+      );
+    }
+
+    const { priceId } = priceResolution;
+    const stripePrice = await stripe.prices.retrieve(priceId);
+    const priceValidation = validateCheckoutPriceForTier(
+      priceResolution.tier,
+      stripePrice
+    );
+    if (!priceValidation.ok) {
+      recordProductEvent({
+        feature: "payment",
+        action: "checkout_create",
+        status: "error",
+        properties: { tier, error_type: priceValidation.errorType },
+      });
+      return NextResponse.json(
+        {
+          error:
+            "Payment pricing is misconfigured. Please contact support before subscribing.",
+        },
         { status: 500 }
       );
     }
@@ -102,6 +115,7 @@ export async function POST(request: NextRequest) {
       metadata: {
         userId: session.user.id,
         userEmail: session.user.email,
+        tier,
       },
       line_items: [
         {
@@ -115,6 +129,7 @@ export async function POST(request: NextRequest) {
         metadata: {
           userId: session.user.id,
           userEmail: session.user.email,
+          tier,
         },
       },
     });
