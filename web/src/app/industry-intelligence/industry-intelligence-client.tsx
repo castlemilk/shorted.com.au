@@ -58,34 +58,76 @@ const narrativeSteps = [
   },
 ];
 
-function SourceReadyCard({ module }: { module: SourceReadyModule }) {
+function EvidenceMatrix({ modules }: { modules: SourceReadyModule[] }) {
   return (
-    <div className="group rounded-lg border border-border/60 bg-card/80 p-4 shadow-amber-sm transition-colors hover:border-primary/30">
-      <div className="mb-4 flex items-start justify-between gap-3">
+    <section
+      id="source-ready-modules"
+      className="min-w-0 overflow-hidden rounded-lg border border-border/60 bg-card/80 shadow-amber-sm xl:col-start-1"
+      aria-labelledby="source-ready-modules-title"
+    >
+      <div className="grid gap-4 border-b border-border/60 bg-muted/20 p-5 md:grid-cols-[minmax(0,1fr)_minmax(220px,0.45fr)] md:items-end">
         <div>
-          <h3 className="font-semibold tracking-tight">{module.label}</h3>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            {module.source.name}
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">
+            Evidence matrix
+          </p>
+          <h2
+            id="source-ready-modules-title"
+            className="mt-2 text-2xl font-semibold tracking-tight text-balance"
+          >
+            Planned public-data layers stay clearly labelled
+          </h2>
+          <p className="mt-2 max-w-[68ch] text-sm leading-6 text-muted-foreground text-pretty">
+            V1 publishes only the live ASIC-backed signal. Trade, public-money,
+            tax, and policy modules remain source-ready until imported,
+            reconciled, reviewed, and dated.
           </p>
         </div>
-        <Badge
-          variant="outline"
-          className="border-primary/25 bg-primary/10 text-primary"
-        >
-          Source-ready
-        </Badge>
+        <div className="rounded-md border border-border/60 bg-background/70 p-3">
+          <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+            Published precision
+          </div>
+          <div className="mt-2 text-sm font-semibold">
+            No unsourced public-data values
+          </div>
+        </div>
       </div>
-      <p className="text-sm leading-6 text-muted-foreground text-pretty">
-        Primary-source pipeline identified. Published values stay blank until
-        imported, reconciled, reviewed, and dated.
-      </p>
-      <div className="mt-4 flex items-center justify-between border-t border-border/50 pt-3 text-xs text-muted-foreground">
-        <span>Cadence</span>
-        <span className="font-medium text-foreground">
-          {module.source.cadence}
-        </span>
+
+      <div className="divide-y divide-border/60">
+        {modules.map((module) => (
+          <div
+            key={module.label}
+            className="grid gap-3 p-4 md:grid-cols-[190px_minmax(0,1fr)_160px] md:items-center"
+          >
+            <div className="flex items-start justify-between gap-3 md:block">
+              <div>
+                <h3 className="font-semibold tracking-tight">{module.label}</h3>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                  {module.source.name}
+                </p>
+              </div>
+              <Badge
+                variant="outline"
+                className="shrink-0 border-primary/25 bg-primary/10 text-primary md:mt-3"
+              >
+                Source-ready
+              </Badge>
+            </div>
+            <p className="text-sm leading-6 text-muted-foreground text-pretty">
+              Primary-source pipeline identified. Values publish only after
+              exact entity resolution and review.
+            </p>
+            <div className="rounded-md border border-border/60 bg-background/60 px-3 py-2 text-xs">
+              <div className="uppercase tracking-[0.14em] text-muted-foreground">
+                Cadence
+              </div>
+              <div className="mt-1 font-medium text-foreground">
+                {module.source.cadence}
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -161,8 +203,8 @@ export function IndustryIntelligenceClient({
     <div className="space-y-8" data-testid="industry-intelligence-story">
       <section className="relative isolate overflow-hidden rounded-lg border border-border/60 bg-card/80 shadow-amber-sm">
         <div className="absolute inset-x-0 top-0 h-1 bg-primary" />
-        <div className="grid min-h-[430px] gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(390px,0.72fr)]">
-          <div className="flex flex-col justify-between p-6 md:p-8">
+        <div className="grid min-h-[430px] min-w-0 gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(390px,0.72fr)]">
+          <div className="min-w-0 flex flex-col justify-between p-6 md:p-8">
             <div>
               <div className="mb-5 flex flex-wrap items-center gap-2">
                 <Badge
@@ -184,7 +226,7 @@ export function IndustryIntelligenceClient({
                   Evidence packs planned
                 </Badge>
               </div>
-              <h1 className="max-w-4xl text-4xl font-bold tracking-tight text-balance md:text-6xl">
+              <h1 className="max-w-4xl break-words text-3xl font-bold leading-tight tracking-tight text-balance sm:text-4xl md:text-6xl">
                 Industry Intelligence
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground text-pretty md:text-lg">
@@ -193,10 +235,14 @@ export function IndustryIntelligenceClient({
                 workflows.
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                <Button asChild className="min-h-11 px-5">
+                <Button asChild className="min-h-11 w-full px-5 sm:w-auto">
                   <Link href="#industry-explorer">Explore industries</Link>
                 </Button>
-                <Button asChild variant="outline" className="min-h-11 px-5">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="min-h-11 w-full px-5 sm:w-auto"
+                >
                   <Link
                     href={`/alerts?industry=${selectedStory.industry.slug}`}
                     prefetch={false}
@@ -230,22 +276,26 @@ export function IndustryIntelligenceClient({
         </div>
       </section>
 
-      <section
-        id="industry-explorer"
-        className="grid gap-6 lg:grid-cols-[230px_minmax(0,1fr)_minmax(360px,0.78fr)]"
-      >
-        <NarrativeRail />
+      <section id="industry-explorer" className="space-y-5">
+        <NarrativeStepper />
 
-        <div className="space-y-6">
+        <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(380px,0.44fr)]">
           <IndustrySelector
             stories={stories}
             selectedSlug={selectedStory.industry.slug}
             onSelect={setSelectedSlug}
+            className="xl:col-start-1"
           />
 
-          <section className="overflow-hidden rounded-lg border border-border/60 bg-card/80 shadow-amber-sm">
+          <IndustrySignalPanel
+            story={selectedStory}
+            stockLimit={8}
+            className="min-w-0 xl:sticky xl:top-24 xl:col-start-2 xl:row-span-4 xl:row-start-1 xl:self-start"
+          />
+
+          <section className="min-w-0 overflow-hidden rounded-lg border border-border/60 bg-card/80 shadow-amber-sm xl:col-start-1">
             <div className="border-b border-border/60 p-5">
-              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="mb-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">
                     Crowding
@@ -261,7 +311,7 @@ export function IndustryIntelligenceClient({
                 </div>
                 <Badge
                   variant="outline"
-                  className="border-primary/25 bg-primary/10 text-primary"
+                  className="w-fit border-primary/25 bg-primary/10 text-primary"
                 >
                   Primary-source live
                 </Badge>
@@ -288,23 +338,10 @@ export function IndustryIntelligenceClient({
             <CrowdingChart story={selectedStory} />
           </section>
 
-          <section
-            id="source-ready-modules"
-            className="grid gap-3 md:grid-cols-2"
-            aria-label="Source-ready public data modules"
-          >
-            {sourceModules.map((module) => (
-              <SourceReadyCard key={module.label} module={module} />
-            ))}
-          </section>
+          <EvidenceMatrix modules={sourceModules} />
 
           <EvidencePackPanel story={selectedStory} />
         </div>
-
-        <IndustrySignalPanel
-          story={selectedStory}
-          className="lg:sticky lg:top-24 lg:self-start"
-        />
       </section>
 
       <section className="rounded-lg border border-border/60 bg-card/80 p-5 shadow-amber-sm">
@@ -338,7 +375,7 @@ function HeroSignalBoard({ story }: { story: IndustryIntelligenceStory }) {
   const topStocks = story.topShortedStocks.slice(0, 4);
 
   return (
-    <div className="border-t border-border/60 bg-zinc-950 p-5 text-zinc-100 lg:border-l lg:border-t-0 md:p-6">
+    <div className="min-w-0 border-t border-border/60 bg-zinc-950 p-5 text-zinc-100 lg:border-l lg:border-t-0 md:p-6">
       <div className="flex h-full flex-col">
         <div className="flex items-start justify-between gap-4">
           <div>
@@ -412,20 +449,18 @@ function HeroSignalBoard({ story }: { story: IndustryIntelligenceStory }) {
   );
 }
 
-function NarrativeRail() {
+function NarrativeStepper() {
   return (
-    <aside className="rounded-lg border border-border/60 bg-card/80 p-3 shadow-amber-sm lg:sticky lg:top-24 lg:self-start">
-      <div className="px-2 pb-3">
-        <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-          Narrative rail
-        </p>
-      </div>
-      <ol className="space-y-1">
+    <nav
+      className="rounded-lg border border-border/60 bg-card/80 p-3 shadow-amber-sm"
+      aria-label="Industry intelligence story sections"
+    >
+      <ol className="flex snap-x gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 md:overflow-visible lg:grid-cols-6">
         {narrativeSteps.map((step, index) => (
-          <li key={step.label}>
+          <li key={step.label} className="min-w-[210px] snap-start md:min-w-0">
             <a
               href={index < 2 ? "#industry-explorer" : "#source-ready-modules"}
-              className="group grid grid-cols-[24px_minmax(0,1fr)] gap-2 rounded-md px-2 py-2 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="group grid min-h-[86px] grid-cols-[24px_minmax(0,1fr)] gap-2 rounded-md border border-border/50 bg-background/55 px-3 py-3 text-left transition-colors hover:border-primary/25 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
               <span
                 className={cn(
@@ -461,7 +496,7 @@ function NarrativeRail() {
           </li>
         ))}
       </ol>
-    </aside>
+    </nav>
   );
 }
 
@@ -469,14 +504,21 @@ function IndustrySelector({
   stories,
   selectedSlug,
   onSelect,
+  className,
 }: {
   stories: IndustryIntelligenceStory[];
   selectedSlug: string;
   onSelect: (slug: string) => void;
+  className?: string;
 }) {
   return (
-    <section className="rounded-lg border border-border/60 bg-card/80 p-4 shadow-amber-sm">
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <section
+      className={cn(
+        "min-w-0 rounded-lg border border-border/60 bg-card/80 p-4 shadow-amber-sm",
+        className,
+      )}
+    >
+      <div className="mb-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
         <div>
           <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">
             Main explorer
@@ -497,35 +539,37 @@ function IndustrySelector({
           </Link>
         </Button>
       </div>
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        {stories.map((story) => {
-          const selected = story.industry.slug === selectedSlug;
+      <div className="-mx-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:overflow-visible sm:px-0 sm:pb-0">
+        <div className="flex min-w-max gap-2 sm:grid sm:min-w-0 sm:grid-cols-2 lg:grid-cols-4">
+          {stories.map((story) => {
+            const selected = story.industry.slug === selectedSlug;
 
-          return (
-            <button
-              key={story.industry.slug}
-              type="button"
-              aria-pressed={selected}
-              onClick={() => onSelect(story.industry.slug)}
-              className={cn(
-                "min-h-[76px] rounded-md border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                selected
-                  ? "border-primary/40 bg-primary/10"
-                  : "border-border/60 bg-background/60 hover:border-primary/25 hover:bg-muted/60",
-              )}
-            >
-              <span className="block truncate font-medium">
-                {story.industry.name}
-              </span>
-              <span className="mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                <span>{story.industry.stockCount} stocks</span>
-                <span className="font-mono tabular-nums">
-                  {formatPercent(story.industry.avgShortPercent)}
+            return (
+              <button
+                key={story.industry.slug}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => onSelect(story.industry.slug)}
+                className={cn(
+                  "min-h-[80px] w-[210px] rounded-md border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:w-auto",
+                  selected
+                    ? "border-primary/40 bg-primary/10"
+                    : "border-border/60 bg-background/60 hover:border-primary/25 hover:bg-muted/60",
+                )}
+              >
+                <span className="block truncate font-medium">
+                  {story.industry.name}
                 </span>
-              </span>
-            </button>
-          );
-        })}
+                <span className="mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                  <span>{story.industry.stockCount} stocks</span>
+                  <span className="font-mono tabular-nums">
+                    {formatPercent(story.industry.avgShortPercent)}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
@@ -586,55 +630,89 @@ function CrowdingChart({ story }: { story: IndustryIntelligenceStory }) {
 
 function EvidencePackPanel({ story }: { story: IndustryIntelligenceStory }) {
   return (
-    <section className="rounded-lg border border-primary/25 bg-primary/5 p-5 shadow-amber-sm">
-      <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(300px,0.7fr)] 2xl:items-start">
-        <div>
+    <section className="min-w-0 overflow-hidden rounded-lg border border-primary/25 bg-primary/5 shadow-amber-sm xl:col-start-1">
+      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="p-5">
           <div className="mb-2 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-primary">
             <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
             Premium evidence pack
           </div>
-          <h2 className="text-xl font-semibold tracking-tight text-balance">
+          <h2 className="text-2xl font-semibold tracking-tight text-balance">
             Unlock deeper evidence for {story.industry.name}
           </h2>
-          <p className="mt-2 max-w-[62ch] text-sm leading-6 text-muted-foreground text-pretty">
+          <p className="mt-2 max-w-[68ch] text-sm leading-6 text-muted-foreground text-pretty">
             Premium adds cited evidence tables, daily or weekly alerts, change
             timelines, and exportable summaries. API Access stays reserved for
             bulk feeds and automation.
           </p>
-          <div className="mt-4 grid gap-2 md:grid-cols-3 lg:grid-cols-1 2xl:grid-cols-3">
+
+          <div className="mt-5 grid gap-2 sm:grid-cols-3">
             <EntitlementPill label="Free" value="Live crowding" />
             <EntitlementPill label="Premium" value="Alerts and packs" />
             <EntitlementPill label="API Access" value="Bulk feeds" />
           </div>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-1">
-          <Button asChild className="min-h-10 justify-start">
-            <Link href="/pricing" prefetch={false}>
-              <LogIn className="mr-2 h-4 w-4" aria-hidden="true" />
-              Unlock evidence pack
-            </Link>
-          </Button>
-          <Button asChild variant="outline" className="min-h-10 justify-start">
-            <Link
-              href={`/alerts?industry=${story.industry.slug}`}
-              prefetch={false}
+
+        <div className="border-t border-primary/20 bg-background/75 p-5 lg:border-l lg:border-t-0">
+          <div className="rounded-md border border-border/60 bg-card p-3">
+            <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+              Alert cadence
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {story.alerts.premiumCadences.map((cadence) => (
+                <span
+                  key={cadence}
+                  className="rounded-md border border-primary/25 bg-primary/10 px-3 py-2 text-center text-sm font-medium text-primary"
+                >
+                  {cadence}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-3 grid gap-2">
+            <Button asChild className="min-h-10 justify-start">
+              <Link href="/pricing" prefetch={false}>
+                <LogIn className="mr-2 h-4 w-4" aria-hidden="true" />
+                Unlock evidence pack
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="min-h-10 justify-start"
             >
-              <AlertCircle className="mr-2 h-4 w-4" aria-hidden="true" />
-              Create daily alert
-            </Link>
-          </Button>
-          <Button asChild variant="outline" className="min-h-10 justify-start">
-            <Link href="/pricing" prefetch={false}>
-              <Landmark className="mr-2 h-4 w-4" aria-hidden="true" />
-              Track this industry
-            </Link>
-          </Button>
-          <Button asChild variant="outline" className="min-h-10 justify-start">
-            <Link href="/pricing" prefetch={false}>
-              <Files className="mr-2 h-4 w-4" aria-hidden="true" />
-              Export evidence summary
-            </Link>
-          </Button>
+              <Link
+                href={`/alerts?industry=${story.industry.slug}`}
+                prefetch={false}
+              >
+                <AlertCircle className="mr-2 h-4 w-4" aria-hidden="true" />
+                Create daily alert
+              </Link>
+            </Button>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+              <Button
+                asChild
+                variant="outline"
+                className="min-h-10 justify-start"
+              >
+                <Link href="/pricing" prefetch={false}>
+                  <Landmark className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Track this industry
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                className="min-h-10 justify-start"
+              >
+                <Link href="/pricing" prefetch={false}>
+                  <Files className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Export evidence summary
+                </Link>
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -651,7 +729,7 @@ function HeroProofPoint({
   value: string;
 }) {
   return (
-    <div className="rounded-md border border-border/60 bg-background/70 p-3">
+    <div className="min-w-0 rounded-md border border-border/60 bg-background/70 p-3">
       <div className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
         {icon}
         <span>{label}</span>

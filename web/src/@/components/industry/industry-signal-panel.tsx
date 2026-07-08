@@ -43,7 +43,7 @@ export function IndustrySignalPanel({
   return (
     <section
       className={cn(
-        "rounded-lg border border-border/60 bg-card/80 p-4 shadow-amber-sm backdrop-blur-sm",
+        "min-w-0 rounded-lg border border-border/60 bg-card/80 p-4 shadow-amber-sm backdrop-blur-sm",
         className,
       )}
       aria-labelledby="industry-signal-panel-title"
