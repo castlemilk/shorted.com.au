@@ -9,12 +9,14 @@ const Dither = dynamic(() => import("~/@/components/marketing/dither"), {
 });
 
 type FeatureStatus = "done" | "in-progress" | "planned" | "exploring";
+type FeatureEntitlement = "free" | "account" | "premium" | "api_access" | "enterprise";
 
 interface Feature {
   id: string;
   name: string;
   description?: string;
   status: FeatureStatus;
+  entitlement?: FeatureEntitlement;
   x?: number;
   y?: number;
   children?: Feature[];
@@ -57,8 +59,17 @@ const roadmapData: Feature = {
           id: "indicators",
           name: "Indicators",
           description:
-            "Advanced technical indicators including RSI, MACD, Bollinger Bands, and more",
+            "Premium technical indicators including RSI, MACD, Bollinger Bands, and short-interest overlays",
           status: "planned",
+          entitlement: "premium",
+        },
+        {
+          id: "advanced-dashboards",
+          name: "Dashboards",
+          description:
+            "Premium dashboard widgets for repeat monitoring workflows, saved layouts, and richer cross-stock comparisons",
+          status: "in-progress",
+          entitlement: "premium",
         },
       ],
     },
@@ -97,6 +108,22 @@ const roadmapData: Feature = {
             "Real-time news feeds and ASX announcements for companies",
           status: "planned",
         },
+        {
+          id: "ai-chat",
+          name: "AI Chat",
+          description:
+            "Premium conversational research assistant for stock questions, market context, and portfolio investigation",
+          status: "done",
+          entitlement: "premium",
+        },
+        {
+          id: "market-pulse",
+          name: "Pulse",
+          description:
+            "Premium market pulse view for surfacing unusual short interest, crowded trades, and emerging risk signals",
+          status: "done",
+          entitlement: "premium",
+        },
       ],
     },
     {
@@ -105,11 +132,11 @@ const roadmapData: Feature = {
       description:
         "Powerful search and discovery tools to find and explore ASX stocks efficiently",
       status: "done",
-          children: [
-            {
+      children: [
+        {
           id: "search",
           name: "Search",
-              description:
+          description:
             "Advanced search functionality to find ASX stocks by code, company name, or industry",
           status: "done",
         },
@@ -139,8 +166,9 @@ const roadmapData: Feature = {
           id: "rest-api",
           name: "REST API",
           description:
-            "RESTful API endpoints for programmatic access to short position and stock data",
+            "Paid API Access endpoints for programmatic short position and stock data usage",
           status: "done",
+          entitlement: "api_access",
         },
         {
           id: "llm-docs",
@@ -148,6 +176,22 @@ const roadmapData: Feature = {
           description:
             "AI-optimized documentation designed for LLM agents and copilots",
           status: "done",
+        },
+        {
+          id: "api-tokens",
+          name: "API Tokens",
+          description:
+            "Paid API token management with request limits tied to subscription tier",
+          status: "done",
+          entitlement: "api_access",
+        },
+        {
+          id: "api-overages",
+          name: "Overages",
+          description:
+            "Usage-based API overages for high-volume customers once request volume justifies metered billing",
+          status: "exploring",
+          entitlement: "api_access",
         },
       ],
     },
@@ -169,15 +213,58 @@ const roadmapData: Feature = {
           id: "alerts",
           name: "Alerts",
           description:
-            "Customizable notifications for short position changes and stock movements",
+            "Premium notifications for short position changes, price targets, portfolio moves, and watchlist events",
           status: "planned",
+          entitlement: "premium",
         },
         {
           id: "watchlists",
           name: "Watchlists",
           description:
-            "Create and manage personalized watchlists for tracking specific stocks",
+            "Account-based watchlists that become a conversion path into Premium alerts and monitoring",
           status: "exploring",
+          entitlement: "account",
+        },
+      ],
+    },
+    {
+      id: "commercial",
+      name: "Commercial",
+      description:
+        "Monetisation roadmap for converting investor workflows and developer usage into recurring revenue",
+      status: "in-progress",
+      children: [
+        {
+          id: "premium-plan",
+          name: "Premium",
+          description:
+            "$4/mo investor workflow tier bundling AI Chat, Pulse, alerts, advanced dashboards, and priority support",
+          status: "done",
+          entitlement: "premium",
+        },
+        {
+          id: "api-access-plan",
+          name: "API Access",
+          description:
+            "$20/mo developer tier for API tokens, higher request limits, and programmatic data access",
+          status: "done",
+          entitlement: "api_access",
+        },
+        {
+          id: "team-licenses",
+          name: "Teams",
+          description:
+            "Multi-seat plans for funds, advisory teams, and research groups that need shared watchlists and alerts",
+          status: "exploring",
+          entitlement: "enterprise",
+        },
+        {
+          id: "data-licensing",
+          name: "Data Licensing",
+          description:
+            "Enterprise feeds, bulk exports, and commercial data licensing for high-volume professional users",
+          status: "exploring",
+          entitlement: "enterprise",
         },
       ],
     },
@@ -204,6 +291,42 @@ const statusColors: Record<
     fill: "var(--line-stroke)",
     stroke: "var(--line-stroke)",
     text: "hsl(var(--foreground))",
+  },
+};
+
+const entitlementMeta: Record<
+  FeatureEntitlement,
+  { label: string; shortLabel: string; fill: string; text: string }
+> = {
+  free: {
+    label: "Free",
+    shortLabel: "F",
+    fill: "hsl(var(--muted-foreground))",
+    text: "hsl(var(--background))",
+  },
+  account: {
+    label: "Account",
+    shortLabel: "A",
+    fill: "hsl(var(--secondary))",
+    text: "hsl(var(--secondary-foreground))",
+  },
+  premium: {
+    label: "Premium",
+    shortLabel: "P",
+    fill: "hsl(var(--primary))",
+    text: "hsl(var(--primary-foreground))",
+  },
+  api_access: {
+    label: "API Access",
+    shortLabel: "API",
+    fill: "var(--green)",
+    text: "hsl(var(--background))",
+  },
+  enterprise: {
+    label: "Enterprise",
+    shortLabel: "E",
+    fill: "hsl(var(--foreground))",
+    text: "hsl(var(--background))",
   },
 };
 
@@ -252,6 +375,9 @@ function TreeNode({
 }) {
   const colors = statusColors[node.status];
   const isRoot = node.id === ROOT_NODE_ID;
+  const entitlement = node.entitlement ?? "free";
+  const entitlementBadge = entitlementMeta[entitlement];
+  const showEntitlementBadge = !isRoot && entitlement !== "free";
   const clipId = `clip-${node.id}`;
   const isDone = node.status === "done";
 
@@ -273,6 +399,7 @@ function TreeNode({
       style={{ transformOrigin: `${node.x}px ${node.y}px` }}
       data-node-id={node.id}
       data-testid={`node-${node.id}`}
+      data-entitlement={entitlement}
       onMouseEnter={handleMouseEnter}
       onMouseMove={handleMouseMove}
       onMouseLeave={onLeave}
@@ -380,6 +507,34 @@ function TreeNode({
         </>
       )}
 
+      {showEntitlementBadge && (
+        <>
+          <circle
+            cx={node.x! + NODE_RADIUS - 3}
+            cy={node.y! - NODE_RADIUS + 3}
+            r={11}
+            fill={entitlementBadge.fill}
+            stroke="hsl(var(--background))"
+            strokeWidth={2}
+            filter="url(#dotGlow)"
+            pointerEvents="none"
+          />
+          <text
+            x={node.x! + NODE_RADIUS - 3}
+            y={node.y! - NODE_RADIUS + 6}
+            textAnchor="middle"
+            fill={entitlementBadge.text}
+            fontSize={entitlement === "api_access" ? 7 : 9}
+            fontWeight={900}
+            fontFamily="system-ui"
+            letterSpacing="0"
+            pointerEvents="none"
+          >
+            {entitlementBadge.shortLabel}
+          </text>
+        </>
+      )}
+
       {/* Label */}
       <text
         x={node.x}
@@ -403,6 +558,7 @@ function TreeNode({
       {!isRoot && (
         <title>
           {node.description ? `${node.name}: ${node.description}` : node.name}
+          {entitlement !== "free" ? ` (${entitlementBadge.label})` : ""}
         </title>
       )}
     </g>
@@ -672,7 +828,7 @@ export default function Roadmap() {
           Roadmap Tree
         </h1>
         <p className="text-sm mt-2 text-white/80 drop-shadow-[0_6px_18px_rgba(0,0,0,0.75)]">
-          Drag to pan • Use +/- to zoom • Hover nodes for details
+          Drag to pan • Use +/- to zoom • Hover nodes for details and access tier
         </p>
       </div>
 
@@ -876,6 +1032,14 @@ export default function Roadmap() {
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">
                   {tooltip.node.status.replace("-", " ")}
                 </span>
+                {tooltip.node.entitlement && tooltip.node.entitlement !== "free" && (
+                  <>
+                    <span className="text-foreground/35">/</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-wider text-foreground/70">
+                      {entitlementMeta[tooltip.node.entitlement].label}
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -907,6 +1071,26 @@ export default function Roadmap() {
               </span>
             </div>
           ))}
+        </div>
+        <div data-testid="roadmap-access-key">
+          <h4 className="text-sm font-bold text-foreground mt-4 mb-3">ACCESS</h4>
+          <div className="space-y-2">
+            {(["premium", "api_access", "enterprise"] as const).map((entitlement) => (
+              <div
+                key={entitlement}
+                className="flex items-center gap-2"
+                data-testid={`roadmap-access-${entitlement}`}
+              >
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: entitlementMeta[entitlement].fill }}
+                />
+                <span className="text-xs text-muted-foreground uppercase">
+                  {entitlementMeta[entitlement].label}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

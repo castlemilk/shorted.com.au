@@ -4,7 +4,7 @@ import { siteConfig } from "~/@/config/site";
 export const metadata: Metadata = {
   title: "Product Roadmap | Shorted Feature Development",
   description:
-    "Explore the Shorted product roadmap. See completed features like short position charts, AI insights, and portfolio tracking, plus planned features like alerts and advanced indicators.",
+    "Explore the Shorted product roadmap, including completed free tools, Premium investor workflows, API Access, and planned monetisation features.",
   keywords: [
     "Shorted roadmap",
     "ASX short selling features",
