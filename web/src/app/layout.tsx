@@ -20,6 +20,7 @@ import {
 import { WebVitalsReporter } from "~/@/components/web-vitals-reporter";
 import { GoogleAnalytics } from "@next/third-parties/google";
 import { CloudflareWebAnalytics } from "~/@/components/cloudflare-web-analytics";
+import { CloudflareJsDetections } from "~/@/components/cloudflare-js-detections";
 
 // Client-only: uses Connect-RPC streaming which breaks SSR
 const ChatSidebar = dynamic(
@@ -253,6 +254,7 @@ export default function RootLayout({
           <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID} />
         )}
         <CloudflareWebAnalytics />
+        <CloudflareJsDetections />
       </body>
     </html>
   );

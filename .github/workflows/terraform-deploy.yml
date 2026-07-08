@@ -1318,6 +1318,7 @@ jobs:
           NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET_PROD }}
           NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID_PROD }}
           NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID_PROD }}
+          NEXT_PUBLIC_CLOUDFLARE_JSD_MANUAL_ENABLED: ${{ needs.terraform-apply.result == 'success' && '1' || '' }}
           ALGOLIA_INDEX: stocks
           NEXTAUTH_URL: https://shorted.com.au
           ADMIN_EMAILS: ben.ebsworth@gmail.com
@@ -1366,6 +1367,7 @@ jobs:
           add_env_pair "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET" "${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:-}"
           add_env_pair "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID" "${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:-}"
           add_env_pair "NEXT_PUBLIC_FIREBASE_APP_ID" "${NEXT_PUBLIC_FIREBASE_APP_ID:-}"
+          add_env_pair "NEXT_PUBLIC_CLOUDFLARE_JSD_MANUAL_ENABLED" "${NEXT_PUBLIC_CLOUDFLARE_JSD_MANUAL_ENABLED:-}"
           add_env_pair "ALGOLIA_INDEX" "${ALGOLIA_INDEX:-}"
           add_env_pair "NEXTAUTH_URL" "${NEXTAUTH_URL:-}"
           add_env_pair "ADMIN_EMAILS" "${ADMIN_EMAILS:-}"

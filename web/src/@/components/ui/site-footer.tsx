@@ -63,7 +63,7 @@ function FooterLinkItem({
         className={cn(
           "text-sm transition-colors inline-flex items-center gap-1.5",
           isLocked
-            ? "text-muted-foreground/30 hover:text-muted-foreground/50"
+            ? "text-muted-foreground hover:text-foreground"
             : "text-muted-foreground hover:text-foreground"
         )}
       >
@@ -110,7 +110,7 @@ const SiteFooter = () => {
               Official ASIC short position data for ASX stocks. Updated daily
               with T+4 delay.
             </p>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground/60 mb-4">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-4">
               <AlertCircle className="h-3 w-3 flex-shrink-0" />
               <span>Not financial advice.</span>
             </div>
@@ -145,7 +145,7 @@ const SiteFooter = () => {
 
           {/* Product */}
           <div>
-            <h4 className="text-sm font-semibold mb-4">Product</h4>
+            <p className="text-sm font-semibold mb-4">Product</p>
             <ul className="space-y-2.5">
               {productLinks.map((link) => (
                 <FooterLinkItem
@@ -159,7 +159,7 @@ const SiteFooter = () => {
 
           {/* Resources */}
           <div>
-            <h4 className="text-sm font-semibold mb-4">Resources</h4>
+            <p className="text-sm font-semibold mb-4">Resources</p>
             <ul className="space-y-2.5">
               {resourceLinks.map((link) => (
                 <FooterLinkItem
@@ -173,7 +173,7 @@ const SiteFooter = () => {
 
           {/* Legal & Dev */}
           <div>
-            <h4 className="text-sm font-semibold mb-4">Legal & Dev</h4>
+            <p className="text-sm font-semibold mb-4">Legal & Dev</p>
             <ul className="space-y-2.5">
               {legalLinks.map((link) => (
                 <FooterLinkItem
@@ -189,7 +189,7 @@ const SiteFooter = () => {
 
       {/* Bottom bar */}
       <div className="border-t border-border/40">
-        <div className="container px-4 md:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground/60">
+        <div className="container px-4 md:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
           <p>
             Data sourced from{" "}
             <a

@@ -3,7 +3,7 @@
 import { type StockDetails } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { useClientRetry } from "@/hooks/use-client-retry";
 import { fetchStockDetailsClient } from "~/app/actions/client/getStockDetails";
-import { Card, CardHeader, CardTitle, CardDescription } from "./card";
+import { Card, CardHeader, CardDescription } from "./card";
 import { Badge } from "./badge";
 import { Skeleton } from "./skeleton";
 import { Sparkles, RefreshCwIcon, AlertCircleIcon } from "lucide-react";
@@ -46,7 +46,7 @@ export function CompanyProfileWithRetry({ stockCode, initialData }: CompanyProfi
     return (
       <Card className="sm:col-span-4">
         <CardHeader className="pb-3">
-          <CardTitle className="flex">{stockCode}</CardTitle>
+          <div className="flex text-lg font-semibold leading-none tracking-tight">{stockCode}</div>
           <CardDescription className="flex text-xs">
             Company profile not available
           </CardDescription>
@@ -101,10 +101,10 @@ function CompanyProfileError({ onRetry, stockCode }: { onRetry: () => void; stoc
   return (
     <Card className="sm:col-span-4 border-amber-200 dark:border-amber-800">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2">
+        <div className="flex items-center gap-2 text-lg font-semibold leading-none tracking-tight">
           <AlertCircleIcon className="h-5 w-5 text-amber-500" />
           {stockCode}
-        </CardTitle>
+        </div>
         <CardDescription className="flex text-xs text-amber-600 dark:text-amber-400">
           Failed to load company profile
         </CardDescription>
@@ -142,14 +142,14 @@ function CompanyProfileContent({ stockCode, stockDetails }: { stockCode: string;
               stockCode={stockCode}
             />
             <div className="flex flex-col min-w-0 flex-1">
-              <CardTitle className="flex items-center gap-2 text-xl font-bold truncate">
+              <div className="flex items-center gap-2 text-xl font-bold truncate">
                 <span>{stockCode}</span>
                 {isEnriched && (
                   <span title="AI-Enhanced Data Available" className="shrink-0">
                     <Sparkles className="h-4 w-4 text-purple-500" />
                   </span>
                 )}
-              </CardTitle>
+              </div>
               <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-foreground line-clamp-2 leading-tight" title={stockDetails.companyName ?? stockCode}>
                 {stockDetails.companyName ?? stockCode}
               </h1>

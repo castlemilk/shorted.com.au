@@ -70,8 +70,8 @@ export async function TrendingThisWeek() {
         {increasing.length > 0 && (
           <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4">
             <div className="flex items-center gap-2 mb-3">
-              <TrendingUp className="h-4 w-4 text-red-500" />
-              <span className="text-sm font-medium text-red-600 dark:text-red-400">
+              <TrendingUp className="h-4 w-4 text-red-700 dark:text-red-400" />
+              <span className="text-sm font-medium text-red-700 dark:text-red-400">
                 Rising Short Interest
               </span>
             </div>
@@ -94,7 +94,7 @@ export async function TrendingThisWeek() {
                     <span className="text-xs text-muted-foreground tabular-nums">
                       {stock.percent.toFixed(2)}%
                     </span>
-                    <span className="text-xs font-medium text-red-500 tabular-nums">
+                    <span className="text-xs font-medium text-red-700 dark:text-red-400 tabular-nums">
                       +{stock.change.toFixed(2)}%
                     </span>
                   </div>
@@ -108,8 +108,8 @@ export async function TrendingThisWeek() {
         {decreasing.length > 0 && (
           <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-4">
             <div className="flex items-center gap-2 mb-3">
-              <TrendingDown className="h-4 w-4 text-green-500" />
-              <span className="text-sm font-medium text-green-600 dark:text-green-400">
+              <TrendingDown className="h-4 w-4 text-green-700 dark:text-green-400" />
+              <span className="text-sm font-medium text-green-700 dark:text-green-400">
                 Falling Short Interest
               </span>
             </div>
@@ -134,7 +134,7 @@ export async function TrendingThisWeek() {
                     </span>
                     <span className={cn(
                       "text-xs font-medium tabular-nums",
-                      "text-green-500"
+                      "text-green-700 dark:text-green-400"
                     )}>
                       {stock.change.toFixed(2)}%
                     </span>

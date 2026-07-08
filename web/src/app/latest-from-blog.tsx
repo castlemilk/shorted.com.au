@@ -55,7 +55,7 @@ export function LatestFromBlog() {
               {post.date && (
                 <time
                   dateTime={post.date}
-                  className="mt-3 text-[11px] uppercase tracking-wider text-muted-foreground/70"
+                  className="mt-3 text-[11px] uppercase tracking-wider text-muted-foreground"
                 >
                   {new Date(post.date).toLocaleDateString("en-AU", {
                     year: "numeric",

@@ -1,6 +1,6 @@
 import { getStockDetails } from "~/app/actions/getStockDetails";
 import { type StockDetails } from "~/gen/stocks/v1alpha1/stocks_pb";
-import { Card, CardHeader, CardTitle } from "./card";
+import { Card, CardHeader } from "./card";
 import { Badge } from "./badge";
 import { Skeleton } from "./skeleton";
 import { Sparkles } from "lucide-react";
@@ -62,14 +62,14 @@ const CompanyProfile = async ({ stockCode }: { stockCode: string }) => {
               stockCode={stockCode}
             />
             <div className="flex flex-col min-w-0 flex-1">
-              <CardTitle className="flex items-center gap-2 text-xl font-bold truncate">
+              <div className="flex items-center gap-2 text-xl font-bold truncate">
                 <span>{stockCode}</span>
                 {isEnriched && (
                   <span title="AI-Enhanced Data Available" className="shrink-0">
                     <Sparkles className="h-4 w-4 text-purple-500" />
                   </span>
                 )}
-              </CardTitle>
+              </div>
               <h2 className="text-xl md:text-2xl font-extrabold tracking-tight text-foreground line-clamp-2 leading-tight" title={stockDetails.companyName ?? stockCode}>
                 {stockDetails.companyName ?? stockCode}
               </h2>

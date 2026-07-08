@@ -21,9 +21,9 @@
     --popover: 40 25% 98%;             /* Subtle warm popover */
     --popover-foreground: 19 18% 24%;
 
-    /* Primary - Amber Orange (CTA buttons, links) */
-    --primary: 32 100% 65%;            /* #FFA94D - Warm amber */
-    --primary-foreground: 19 40% 12%;  /* Dark brown for contrast */
+    /* Primary - Burnt amber, dark enough for links on light backgrounds */
+    --primary: 28 82% 34%;             /* Accessible amber for text and controls */
+    --primary-foreground: 40 25% 97%;  /* Warm white for filled controls */
 
     /* Secondary - Avocado Green (toggles, secondary actions) */
     --secondary: 93 26% 54%;           /* #87A96B - Muted olive */
@@ -35,7 +35,7 @@
 
     /* Muted elements */
     --muted: 40 15% 94%;               /* Very subtle warm gray */
-    --muted-foreground: 19 10% 45%;    /* Muted chocolate */
+    --muted-foreground: 19 12% 40%;    /* Muted chocolate with AA contrast */
 
     /* Destructive - keep rust-adjacent */
     --destructive: 0 72% 51%;          /* Deep red */

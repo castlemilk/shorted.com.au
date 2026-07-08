@@ -174,6 +174,7 @@ export function NavSearchInput() {
       <div ref={containerRef} className="relative">
         {/* Desktop: clickable search bar that opens a splash dropdown */}
         <button
+          type="button"
           onClick={() => setIsOpen((v) => !v)}
           className={cn(
             "hidden md:flex items-center gap-2.5 h-9 rounded-lg px-3 pr-4",
@@ -186,14 +187,14 @@ export function NavSearchInput() {
           <Image
             src="/search.png"
             alt="Search"
-            width={28}
-            height={28}
+            width={27}
+            height={18}
             className="shrink-0 opacity-70 group-hover:opacity-100 transition-opacity"
           />
-          <span className="text-xs text-muted-foreground/60 group-hover:text-muted-foreground transition-colors truncate">
+          <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors truncate">
             Search stocks...
           </span>
-          <kbd className="ml-auto px-1.5 py-0.5 text-[10px] font-mono font-medium text-muted-foreground/40 bg-muted/50 rounded border border-border/50">
+          <kbd className="ml-auto px-1.5 py-0.5 text-[10px] font-mono font-medium text-muted-foreground bg-muted/50 rounded border border-border/50">
             ⌘K
           </kbd>
         </button>
@@ -215,7 +216,7 @@ export function NavSearchInput() {
                 src="/search.png"
                 alt="Search stocks"
                 width={96}
-                height={96}
+                height={64}
                 className="mb-4 opacity-80"
               />
               <h3 className="text-sm font-semibold mb-1">Search ASX Stocks</h3>
@@ -241,6 +242,7 @@ export function NavSearchInput() {
         {/* Mobile: search icon trigger */}
         <div className="md:hidden">
           <button
+            type="button"
             className={cn(
               "flex items-center justify-center h-9 w-9 rounded-lg",
               "text-muted-foreground hover:text-foreground hover:bg-muted/50",
@@ -253,7 +255,7 @@ export function NavSearchInput() {
               src="/search.png"
               alt="Search"
               width={18}
-              height={18}
+              height={12}
               className="opacity-70"
             />
           </button>
@@ -279,6 +281,7 @@ export function NavSearchInput() {
               <div className="flex items-center justify-between mb-4">
                 <span className="text-sm font-medium">Search Stocks</span>
                 <button
+                  type="button"
                   onClick={() => setIsMobileOpen(false)}
                   className="text-muted-foreground hover:text-foreground transition-colors"
                   aria-label="Close"
@@ -291,7 +294,7 @@ export function NavSearchInput() {
                   src="/search.png"
                   alt="Search stocks"
                   width={96}
-                  height={96}
+                  height={64}
                   className="mb-4 opacity-80"
                 />
                 <h3 className="text-sm font-semibold mb-1">Search ASX Stocks</h3>
@@ -359,8 +362,8 @@ export function NavSearchInput() {
   };
 
   const shortPercentColor = (pct: number) => {
-    if (pct >= 10) return "text-red-400 bg-red-500/10 border-red-500/20";
-    if (pct >= 5) return "text-orange-400 bg-orange-500/10 border-orange-500/20";
+    if (pct >= 10) return "text-red-700 bg-red-50 border-red-200 dark:text-red-400 dark:bg-red-950/30 dark:border-red-900/50";
+    if (pct >= 5) return "text-orange-700 bg-orange-50 border-orange-200 dark:text-orange-400 dark:bg-orange-950/30 dark:border-orange-900/50";
     return "text-muted-foreground bg-muted/50 border-border/50";
   };
 
@@ -373,7 +376,7 @@ export function NavSearchInput() {
     <div ref={containerRef} className="relative">
       {/* ─── Desktop: inline search input ─── */}
       <div className="relative group hidden md:block">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/50 pointer-events-none transition-colors duration-200 group-focus-within:text-primary" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none transition-colors duration-200 group-focus-within:text-primary" />
         <input
           ref={inputRef}
           type="text"
@@ -392,7 +395,7 @@ export function NavSearchInput() {
           className={cn(
             "h-9 rounded-lg pl-9 pr-16 text-sm",
             "bg-muted/30 border border-border/40",
-            "placeholder:text-muted-foreground/40",
+            "placeholder:text-muted-foreground",
             "focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 focus:bg-background/80",
             "transition-all duration-300 ease-out",
             "w-[200px] focus:w-[280px]"
@@ -400,7 +403,7 @@ export function NavSearchInput() {
         />
         {/* ⌘K badge */}
         {!query && (
-          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 pointer-events-none opacity-50 transition-opacity group-focus-within:opacity-0">
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 pointer-events-none transition-opacity group-focus-within:opacity-0">
             <kbd className="px-1.5 py-0.5 text-[10px] font-mono font-medium text-muted-foreground bg-muted/50 rounded border border-border/50">
               ⌘K
             </kbd>
@@ -410,11 +413,12 @@ export function NavSearchInput() {
         {query && (
           <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex">
             {loading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground/50" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
             ) : (
               <button
+                type="button"
                 onClick={reset}
-                className="text-muted-foreground/50 hover:text-foreground transition-colors"
+                className="text-muted-foreground hover:text-foreground transition-colors"
                 aria-label="Clear search"
               >
                 <X className="h-3.5 w-3.5" />
@@ -459,6 +463,7 @@ export function NavSearchInput() {
           button layout (flex) to avoid display property conflicts */}
       <div className="md:hidden">
         <button
+          type="button"
           className={cn(
             "flex items-center justify-center h-9 w-9 rounded-lg",
             "text-muted-foreground hover:text-foreground hover:bg-muted/50",
@@ -492,7 +497,7 @@ export function NavSearchInput() {
           {/* Search bar */}
           <div className="relative z-10 p-3 bg-background border-b border-border/50 animate-in slide-in-from-top-2 duration-200">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/50 pointer-events-none" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <input
                 ref={mobileInputRef}
                 type="text"
@@ -505,11 +510,12 @@ export function NavSearchInput() {
                 className={cn(
                   "w-full h-11 rounded-xl pl-10 pr-10 text-sm",
                   "bg-muted/30 border border-border/50",
-                  "placeholder:text-muted-foreground/40",
+                  "placeholder:text-muted-foreground",
                   "focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40"
                 )}
               />
               <button
+                type="button"
                 onClick={reset}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 aria-label="Close search"
@@ -583,7 +589,7 @@ function ResultsContent({
 
   if (loading && results.length === 0) {
     return (
-      <div className="flex items-center justify-center py-8 gap-2.5 text-muted-foreground/50">
+      <div className="flex items-center justify-center py-8 gap-2.5 text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" />
         <span className="text-sm">Searching...</span>
       </div>
@@ -593,12 +599,13 @@ function ResultsContent({
   if (results.length === 0 && query.length >= 2) {
     return (
       <div className="flex flex-col items-center justify-center py-8 gap-2">
-        <TrendingDown className="h-5 w-5 text-muted-foreground/30" />
-        <p className="text-sm text-muted-foreground/50">
+        <TrendingDown className="h-5 w-5 text-muted-foreground" />
+        <p className="text-sm text-muted-foreground">
           No stocks found for &ldquo;{query}&rdquo;
         </p>
         {query.length >= 2 && query.length <= 4 && (
           <button
+            type="button"
             onClick={onNavigateDirect}
             className="text-xs text-primary hover:text-primary/80 hover:underline underline-offset-2 mt-1 transition-colors"
           >
@@ -617,18 +624,20 @@ function ResultsContent({
       {industries.length >= 2 && (
         <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border/30 overflow-x-auto no-scrollbar">
           <button
+            type="button"
             onClick={() => onIndustryFilter(null)}
             className={cn(
               "flex-shrink-0 text-[10px] font-medium px-2 py-1 rounded-full border transition-colors",
               activeIndustry === null
                 ? "bg-primary/15 text-primary border-primary/30"
-                : "bg-muted/30 text-muted-foreground/60 border-border/30 hover:bg-muted/50"
+                : "bg-muted/30 text-muted-foreground border-border/30 hover:bg-muted/50"
             )}
           >
             All
           </button>
           {industries.map((ind) => (
             <button
+              type="button"
               key={ind}
               onClick={() =>
                 onIndustryFilter(activeIndustry === ind ? null : ind!)
@@ -637,7 +646,7 @@ function ResultsContent({
                 "flex-shrink-0 text-[10px] font-medium px-2 py-1 rounded-full border transition-colors truncate max-w-[120px]",
                 activeIndustry === ind
                   ? "bg-primary/15 text-primary border-primary/30"
-                  : "bg-muted/30 text-muted-foreground/60 border-border/30 hover:bg-muted/50"
+                  : "bg-muted/30 text-muted-foreground border-border/30 hover:bg-muted/50"
               )}
             >
               {ind}
@@ -698,7 +707,7 @@ function ResultsContent({
                 {stock.name}
               </p>
               {stock.industry && (
-                <p className="text-[11px] text-muted-foreground/60 truncate mt-0.5">
+                <p className="text-[11px] text-muted-foreground truncate mt-0.5">
                   {stock.industry}
                 </p>
               )}
@@ -721,7 +730,7 @@ function ResultsContent({
               className={cn(
                 "flex-shrink-0 h-3.5 w-3.5 transition-all duration-150",
                 selectedIndex === index
-                  ? "opacity-100 text-muted-foreground/60 translate-x-0"
+                  ? "opacity-100 text-muted-foreground translate-x-0"
                   : "opacity-0 -translate-x-1"
               )}
             />
@@ -731,11 +740,11 @@ function ResultsContent({
 
       {/* Footer with keyboard hints */}
       <div className="flex items-center justify-between px-3 py-2 border-t border-border/30 bg-muted/10">
-        <span className="text-[10px] text-muted-foreground/40 tabular-nums">
+        <span className="text-[10px] text-muted-foreground tabular-nums">
           {filteredResults.length} result{filteredResults.length !== 1 ? "s" : ""}
           {activeIndustry && ` in ${activeIndustry}`}
         </span>
-        <div className="hidden sm:flex items-center gap-2.5 text-[10px] text-muted-foreground/40">
+        <div className="hidden sm:flex items-center gap-2.5 text-[10px] text-muted-foreground">
           <span className="flex items-center gap-1">
             <kbd className="px-1 py-0.5 rounded bg-muted/40 font-mono border border-border/30 text-[9px]">
               ↑↓

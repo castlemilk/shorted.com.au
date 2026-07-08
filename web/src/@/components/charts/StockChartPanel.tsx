@@ -167,7 +167,7 @@ export function StockChartPanel({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div
           className="flex items-center gap-0.5 rounded-md border p-0.5"
-          role="tablist"
+          role="group"
           aria-label="Chart view"
         >
           {VIEWS.map((v) => (

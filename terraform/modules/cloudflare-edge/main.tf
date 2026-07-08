@@ -626,6 +626,7 @@ resource "cloudflare_bot_management" "ai_crawl_control" {
 
   zone_id            = var.cloudflare_zone_id
   ai_bots_protection = var.ai_bots_protection
+  enable_js          = var.javascript_detections_enabled
   # Our app serves robots.txt (Content-Signals + explicit AI-allow groups);
   # Cloudflare's managed robots.txt would prepend conflicting Disallow rules.
   is_robots_txt_managed = false

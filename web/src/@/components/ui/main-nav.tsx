@@ -105,7 +105,7 @@ export const MainNav = ({ items, modeToggle }: MainNavProps) => {
                         className={cn(
                           "px-3 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2",
                           isLocked
-                            ? "text-muted-foreground/40 hover:text-muted-foreground/60"
+                            ? "text-muted-foreground hover:text-foreground"
                             : isActive
                               ? "bg-secondary text-foreground"
                               : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"
@@ -159,7 +159,7 @@ function NavLink({
       className={cn(
         "px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center gap-1.5 whitespace-nowrap",
         isLocked
-          ? "text-muted-foreground/40 hover:text-muted-foreground/60"
+          ? "text-muted-foreground hover:text-foreground"
           : pathname === item.href
             ? "bg-secondary text-foreground"
             : "text-muted-foreground hover:text-foreground hover:bg-secondary/50",

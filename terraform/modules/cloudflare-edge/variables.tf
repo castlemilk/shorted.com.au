@@ -298,6 +298,16 @@ variable "ai_bots_protection" {
   }
 }
 
+variable "javascript_detections_enabled" {
+  description = <<-EOT
+    Cloudflare Bot Management JavaScript Detections zone toggle. Keep true for
+    zone-wide automatic injection. Set false only when the frontend is deployed
+    with manual JavaScript Detections on sensitive browser paths.
+  EOT
+  type        = bool
+  default     = true
+}
+
 variable "markdown_for_agents" {
   description = "Cloudflare Markdown for Agents (content_converter zone setting). Serves markdown to Accept: text/markdown clients. Requires Pro+ plan."
   type        = string

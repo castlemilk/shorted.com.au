@@ -469,9 +469,10 @@ module "edge" {
 
   # AI crawler policy: allow AI bots (llms.txt / Content-Signals / MCP
   # discovery strategy). Token re-scoped with Bot Management Edit June 2026.
-  manage_ai_crawler_settings = true
-  ai_bots_protection         = "disabled"
-  markdown_for_agents        = "on"
+  manage_ai_crawler_settings    = true
+  ai_bots_protection            = "disabled"
+  javascript_detections_enabled = false
+  markdown_for_agents           = "on"
 
   # DNS hardening — SPF (Google Workspace) + DMARC (p=none monitor) + DNSSEC
   # signing. DNSSEC is not enforced until the DS record (edge_dnssec_ds_record

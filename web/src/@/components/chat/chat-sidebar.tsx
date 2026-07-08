@@ -88,6 +88,7 @@ export function ChatSidebar({ stockCode }: ChatSidebarProps) {
           variant="outline"
           size="icon"
           className="fixed bottom-6 right-6 h-12 w-12 rounded-full shadow-lg z-50"
+          aria-label={showChat ? "Open Shorted AI chat" : "Open AI chat upgrade prompt"}
         >
           <MessageSquare className="h-5 w-5" />
           {!showChat && (
