@@ -1,8 +1,11 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowUpRight, ChevronRight, Files, TrendingDown } from "lucide-react";
 
 import { Badge } from "~/@/components/ui/badge";
 import { Button } from "~/@/components/ui/button";
+import { CompanyLogo } from "~/@/components/ui/company-logo";
+import { getSectorImageAlt, getSectorImagePath } from "~/@/lib/sector-images";
 import { cn } from "~/@/lib/utils";
 import type {
   IndustryIntelligenceStory,
@@ -50,21 +53,32 @@ export function IndustrySignalPanel({
       data-testid="industry-top-stocks-panel"
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <div className="mb-2 inline-flex items-center gap-2 rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-primary">
-            <TrendingDown className="h-3 w-3" aria-hidden="true" />
-            ASIC live signal
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-md border border-primary/20 bg-primary/10 p-1.5">
+            <Image
+              src={getSectorImagePath(story.industry.name)}
+              alt={getSectorImageAlt(story.industry.name)}
+              width={40}
+              height={40}
+              className="h-full w-full object-contain"
+            />
+          </span>
+          <div className="min-w-0">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-primary">
+              <TrendingDown className="h-3 w-3" aria-hidden="true" />
+              ASIC live signal
+            </div>
+            <h2
+              id="industry-signal-panel-title"
+              className="text-xl font-semibold tracking-tight text-balance"
+            >
+              Top Stocks In This Industry
+            </h2>
+            <p className="mt-1 max-w-[58ch] text-sm text-muted-foreground text-pretty">
+              Ranked short-interest leaders for {story.industry.name}, linked
+              into company pages and the broader top-shorts view.
+            </p>
           </div>
-          <h2
-            id="industry-signal-panel-title"
-            className="text-xl font-semibold tracking-tight text-balance"
-          >
-            Top Stocks In This Industry
-          </h2>
-          <p className="mt-1 max-w-[58ch] text-sm text-muted-foreground text-pretty">
-            Ranked short-interest leaders for {story.industry.name}, linked into
-            company pages and the broader top-shorts view.
-          </p>
         </div>
         <div className="rounded-md border border-border/60 bg-background/60 px-3 py-2 text-right">
           <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
@@ -84,11 +98,18 @@ export function IndustrySignalPanel({
                 key={stock.code}
                 href={stock.href}
                 prefetch={false}
-                className="group grid grid-cols-[30px_minmax(0,1fr)_74px_18px] items-center gap-3 px-3 py-3 text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                className="group grid grid-cols-[28px_34px_minmax(0,1fr)_74px_18px] items-center gap-3 px-3 py-3 text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               >
                 <span className="font-mono text-sm font-semibold tabular-nums text-muted-foreground">
                   {stock.rank}
                 </span>
+                <CompanyLogo
+                  stockCode={stock.code}
+                  companyName={stock.name}
+                  size={28}
+                  className="flex h-8 w-8 items-center justify-center rounded-md border border-border/60 bg-card p-1"
+                  imageClassName="h-full w-full"
+                />
                 <span className="min-w-0">
                   <span className="flex min-w-0 items-center gap-2">
                     <span className="font-semibold text-foreground transition-colors group-hover:text-primary">

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   AlertCircle,
   ArrowUpRight,
@@ -15,6 +16,8 @@ import {
 import { IndustrySignalPanel } from "~/@/components/industry/industry-signal-panel";
 import { Badge } from "~/@/components/ui/badge";
 import { Button } from "~/@/components/ui/button";
+import { CompanyLogo } from "~/@/components/ui/company-logo";
+import { getSectorImageAlt, getSectorImagePath } from "~/@/lib/sector-images";
 import { cn } from "~/@/lib/utils";
 import type {
   IndustryIntelligenceStory,
@@ -378,13 +381,24 @@ function HeroSignalBoard({ story }: { story: IndustryIntelligenceStory }) {
     <div className="min-w-0 border-t border-border/60 bg-zinc-950 p-5 text-zinc-100 lg:border-l lg:border-t-0 md:p-6">
       <div className="flex h-full flex-col">
         <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-300">
-              Live industry board
-            </p>
-            <h2 className="mt-2 max-w-[13ch] text-2xl font-semibold tracking-tight text-white">
-              {story.industry.name}
-            </h2>
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md border border-amber-300/20 bg-amber-300/10 p-1.5">
+              <Image
+                src={getSectorImagePath(story.industry.name)}
+                alt={getSectorImageAlt(story.industry.name)}
+                width={46}
+                height={46}
+                className="h-full w-full object-contain"
+              />
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-300">
+                Live industry board
+              </p>
+              <h2 className="mt-2 max-w-[13ch] text-2xl font-semibold tracking-tight text-white">
+                {story.industry.name}
+              </h2>
+            </div>
           </div>
           <div className="rounded-md border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-right">
             <div className="text-[11px] uppercase tracking-[0.14em] text-amber-200">
@@ -420,11 +434,18 @@ function HeroSignalBoard({ story }: { story: IndustryIntelligenceStory }) {
               key={stock.code}
               href={stock.href}
               prefetch={false}
-              className="grid grid-cols-[42px_minmax(0,1fr)_72px] items-center gap-3 border-b border-zinc-800 px-3 py-3 text-sm last:border-b-0 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/50"
+              className="grid grid-cols-[38px_34px_minmax(0,1fr)_72px] items-center gap-3 border-b border-zinc-800 px-3 py-3 text-sm last:border-b-0 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/50"
             >
               <span className="font-mono text-xs text-zinc-500">
                 #{stock.rank}
               </span>
+              <CompanyLogo
+                stockCode={stock.code}
+                companyName={stock.name}
+                size={28}
+                className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-800 bg-white/[0.03] p-1"
+                imageClassName="h-full w-full"
+              />
               <span className="min-w-0">
                 <span className="block font-semibold text-white">
                   {stock.code}
@@ -551,19 +572,32 @@ function IndustrySelector({
                 aria-pressed={selected}
                 onClick={() => onSelect(story.industry.slug)}
                 className={cn(
-                  "min-h-[80px] w-[210px] rounded-md border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:w-auto",
+                  "min-h-[88px] w-[238px] rounded-md border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:w-auto",
                   selected
                     ? "border-primary/40 bg-primary/10"
                     : "border-border/60 bg-background/60 hover:border-primary/25 hover:bg-muted/60",
                 )}
               >
-                <span className="block truncate font-medium">
-                  {story.industry.name}
-                </span>
-                <span className="mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                  <span>{story.industry.stockCount} stocks</span>
-                  <span className="font-mono tabular-nums">
-                    {formatPercent(story.industry.avgShortPercent)}
+                <span className="flex min-w-0 items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border/60 bg-card p-1">
+                    <Image
+                      src={getSectorImagePath(story.industry.name)}
+                      alt={getSectorImageAlt(story.industry.name)}
+                      width={32}
+                      height={32}
+                      className="h-full w-full object-contain"
+                    />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">
+                      {story.industry.name}
+                    </span>
+                    <span className="mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <span>{story.industry.stockCount} stocks</span>
+                      <span className="font-mono tabular-nums">
+                        {formatPercent(story.industry.avgShortPercent)}
+                      </span>
+                    </span>
                   </span>
                 </span>
               </button>
@@ -597,10 +631,19 @@ function CrowdingChart({ story }: { story: IndustryIntelligenceStory }) {
               key={stock.code}
               href={stock.href}
               prefetch={false}
-              className="grid grid-cols-[56px_minmax(0,1fr)_70px] items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="grid grid-cols-[92px_minmax(0,1fr)_70px] items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
-              <span className="font-mono text-sm font-semibold text-foreground">
-                {stock.code}
+              <span className="flex min-w-0 items-center gap-2">
+                <CompanyLogo
+                  stockCode={stock.code}
+                  companyName={stock.name}
+                  size={24}
+                  className="flex h-7 w-7 items-center justify-center rounded-md border border-border/60 bg-card p-1"
+                  imageClassName="h-full w-full"
+                />
+                <span className="truncate font-mono text-sm font-semibold text-foreground">
+                  {stock.code}
+                </span>
               </span>
               <span
                 className="h-3 overflow-hidden rounded-full bg-muted"
