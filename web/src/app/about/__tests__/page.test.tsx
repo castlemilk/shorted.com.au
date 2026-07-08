@@ -167,12 +167,12 @@ describe("About Page", () => {
 
       expect(
         screen.getByRole("heading", {
-          name: "Industry Intelligence turns sectors into evidence stories",
+          name: "Industry Intelligence connects sectors to stocks",
         })
       ).toBeInTheDocument();
-      expect(screen.getByText("Policy Footprint")).toBeInTheDocument();
-      expect(screen.getByText("Public Money")).toBeInTheDocument();
-      expect(screen.getByText("Trade Exposure")).toBeInTheDocument();
+      expect(screen.getByText("Industry crowding")).toBeInTheDocument();
+      expect(screen.getByText("Ranked companies")).toBeInTheDocument();
+      expect(screen.getByText("Alert monitors")).toBeInTheDocument();
       expect(
         screen.getByRole("link", { name: /Open Industry Intelligence/i })
       ).toHaveAttribute("href", "/industry-intelligence");

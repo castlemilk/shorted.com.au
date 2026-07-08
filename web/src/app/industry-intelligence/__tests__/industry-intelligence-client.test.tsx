@@ -22,6 +22,7 @@ function story(
         rank: 1,
         code,
         name: `${code} Limited`,
+        detail: `${name} company`,
         shortPercent: 8.5,
         change: 0.4,
         status: "elevated",
@@ -34,50 +35,9 @@ function story(
       risingCount: 1,
       source: { name: "ASIC", asAt: "2026-07-08", cadence: "Daily, T+4" },
     },
-    tradeExposure: {
-      label: "Trade Exposure",
-      status: "source-ready",
-      value: null,
-      source: {
-        name: "ABS, DFAT, UN Comtrade",
-        asAt: null,
-        cadence: "Planned import",
-      },
-    },
-    publicMoney: {
-      label: "Public Money",
-      status: "source-ready",
-      value: null,
-      source: {
-        name: "AusTender, GrantConnect",
-        asAt: null,
-        cadence: "Planned import",
-      },
-    },
-    taxEnvironment: {
-      label: "Tax Environment",
-      status: "source-ready",
-      value: null,
-      source: { name: "ATO, NGER, NPI", asAt: null, cadence: "Planned import" },
-    },
-    policyFootprint: {
-      label: "Policy Footprint",
-      status: "source-ready",
-      value: null,
-      source: {
-        name: "AEC, AGD, FITS, APH",
-        asAt: null,
-        cadence: "Planned import",
-      },
-    },
-    entitlement: {
-      free: true,
-      premiumRequiredForEvidencePack: true,
-      apiRequiredForBulkFeeds: true,
-    },
     alerts: {
       previewEnabled: true,
-      premiumCadences: ["Daily", "Weekly"],
+      cadences: ["Daily", "Weekly"],
     },
   };
 }
@@ -91,7 +51,7 @@ describe("IndustryIntelligenceClient", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        /The next ASIC-backed industry sync will populate this page/i,
+        /Industry data is syncing/i,
       ),
     ).toBeInTheDocument();
     expect(

@@ -54,7 +54,7 @@ export const metadata: Metadata = {
   },
 };
 
-// Force dynamic rendering — this page requires a live backend for data
+// Force dynamic rendering: this page requires a live backend for data
 export const dynamic = "force-dynamic";
 export const revalidate = 3600;
 
@@ -69,7 +69,7 @@ export default async function IndustryIndexPage() {
     .sort((a, b) => b.avgShortPercent - a.avgShortPercent)
     .slice(0, 5);
 
-  // CollectionPage + ItemList — exposes every industry/sector as a
+  // CollectionPage + ItemList: exposes every industry/sector as a
   // structured child so crawlers can ingest the sector taxonomy.
   const itemList = {
     "@context": "https://schema.org",
@@ -90,7 +90,7 @@ export default async function IndustryIndexPage() {
         "@type": "ListItem",
         position: i + 1,
         url: `https://shorted.com.au/industry/${industry.slug}`,
-        name: `${industry.name} — ASX Short Positions`,
+        name: `${industry.name} - ASX Short Positions`,
       })),
     },
   };
@@ -128,7 +128,7 @@ export default async function IndustryIndexPage() {
               <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground text-pretty md:text-lg">
                 Compare short-interest crowding across ASX sectors, then open
                 the Industry Intelligence story to connect each sector with top
-                stocks, source-ready public data modules, and premium alerts.
+                stocks, company pages, and alert monitors.
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <Link
@@ -196,15 +196,15 @@ export default async function IndustryIndexPage() {
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-5 shadow-amber-sm">
             <div className="mb-3 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-primary">
               <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-              New evidence story
+              Industry Intelligence
             </div>
             <h2 className="text-2xl font-semibold tracking-tight text-balance">
               Turn any industry table into a cited sector story
             </h2>
             <p className="mt-3 max-w-[74ch] text-sm leading-6 text-muted-foreground text-pretty">
               Industry Intelligence keeps the live ASIC short-interest layer
-              free, while premium evidence packs and alerts create the upgrade
-              path for deeper monitoring.
+              free, with industry alerting available when users want ongoing
+              monitoring.
             </p>
           </div>
           <Link
@@ -217,7 +217,7 @@ export default async function IndustryIndexPage() {
                 Story route
               </div>
               <div className="mt-2 text-xl font-semibold tracking-tight group-hover:text-primary">
-                Explore crowding, top stocks, evidence modules, and alerts
+                Explore crowding, top stocks, and alerts
               </div>
             </div>
             <div className="mt-4 inline-flex items-center text-sm font-medium text-primary">

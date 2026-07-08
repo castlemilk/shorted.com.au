@@ -71,8 +71,8 @@ const pageScenarios = [
     requiredText: [
       /Industry Intelligence/i,
       /Top Stocks In This Industry/i,
-      /ASIC live signal/i,
-      /Policy Footprint/i,
+      /Industry ranking/i,
+      /Create daily alert/i,
     ],
   },
 ] as const;

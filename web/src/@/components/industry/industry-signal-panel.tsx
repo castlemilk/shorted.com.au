@@ -36,15 +36,18 @@ export function IndustrySignalPanel({
   story,
   stockLimit = 8,
   className,
+  id,
 }: {
   story: IndustryIntelligenceStory;
   stockLimit?: number;
   className?: string;
+  id?: string;
 }) {
   const stocks = story.topShortedStocks.slice(0, stockLimit);
 
   return (
     <section
+      id={id}
       className={cn(
         "min-w-0 rounded-lg border border-border/60 bg-card/80 p-4 shadow-amber-sm backdrop-blur-sm",
         className,
@@ -66,7 +69,7 @@ export function IndustrySignalPanel({
           <div className="min-w-0">
             <div className="mb-2 inline-flex items-center gap-2 rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-[11px] font-medium uppercase tracking-[0.16em] text-primary">
               <TrendingDown className="h-3 w-3" aria-hidden="true" />
-              ASIC live signal
+              Industry ranking
             </div>
             <h2
               id="industry-signal-panel-title"
@@ -75,8 +78,8 @@ export function IndustrySignalPanel({
               Top Stocks In This Industry
             </h2>
             <p className="mt-1 max-w-[58ch] text-sm text-muted-foreground text-pretty">
-              Ranked short-interest leaders for {story.industry.name}, linked
-              into company pages and the broader top-shorts view.
+              Ranked companies in {story.industry.name}, linked into company
+              pages and the broader top-shorts view.
             </p>
           </div>
         </div>
@@ -98,7 +101,7 @@ export function IndustrySignalPanel({
                 key={stock.code}
                 href={stock.href}
                 prefetch={false}
-                className="group grid min-w-0 grid-cols-[24px_34px_minmax(0,1fr)_70px_16px] items-center gap-2 px-3 py-3 text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:grid-cols-[28px_34px_minmax(0,1fr)_74px_18px] sm:gap-3"
+                className="group grid min-w-0 grid-cols-[24px_34px_minmax(0,1fr)_70px_16px] items-center gap-2 px-3 py-3 text-sm transition-[background-color,transform] hover:bg-muted/60 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:grid-cols-[28px_34px_minmax(0,1fr)_74px_18px] sm:gap-3 2xl:grid-cols-[28px_38px_minmax(0,1fr)_82px_18px]"
               >
                 <span className="font-mono text-sm font-semibold tabular-nums text-muted-foreground">
                   {stock.rank}
@@ -127,6 +130,9 @@ export function IndustrySignalPanel({
                   </span>
                   <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                     {stock.name}
+                  </span>
+                  <span className="mt-0.5 hidden text-xs leading-5 text-muted-foreground text-pretty 2xl:block">
+                    {stock.detail}
                   </span>
                 </span>
                 <span className="text-right">

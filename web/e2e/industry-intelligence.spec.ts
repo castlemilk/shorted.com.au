@@ -87,6 +87,9 @@ test.describe("Industry Intelligence", () => {
     await expect(
       page.getByText(/The next ASIC-backed industry sync will populate this page/i),
     ).toHaveCount(0);
+    await expect(page.getByText(/source-ready/i)).toHaveCount(0);
+    await expect(page.getByText("Policy Footprint")).toHaveCount(0);
+    await expect(page.getByText("Premium evidence pack")).toHaveCount(0);
     await expect(page.getByRole("link", { name: "View all top shorts" })).toHaveAttribute(
       "href",
       "/top",
@@ -147,7 +150,7 @@ test.describe("Industry Intelligence", () => {
     ).toBeVisible();
     await expect(
       page.locator('nav[aria-label="Industry intelligence story sections"] li'),
-    ).toHaveCount(6);
+    ).toHaveCount(4);
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
     ).toBe(true);
@@ -163,12 +166,12 @@ test.describe("Industry Intelligence", () => {
     expect(response?.status()).toBeLessThan(400);
     await expect(
       page.getByRole("heading", {
-        name: "Industry Intelligence turns sectors into evidence stories",
+        name: "Industry Intelligence connects sectors to stocks",
       }),
     ).toBeVisible();
-    await expect(page.getByText("Policy Footprint")).toBeVisible();
-    await expect(page.getByText("Public Money")).toBeVisible();
-    await expect(page.getByText("Trade Exposure")).toBeVisible();
+    await expect(page.getByText("Industry crowding")).toBeVisible();
+    await expect(page.getByText("Ranked companies")).toBeVisible();
+    await expect(page.getByText("Alert monitors")).toBeVisible();
     await expect(page.getByRole("link", { name: "Open Industry Intelligence" })).toHaveAttribute(
       "href",
       "/industry-intelligence",

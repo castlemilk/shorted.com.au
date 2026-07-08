@@ -5,6 +5,7 @@ import {
   getIndustryData,
   getIndustryStocks,
 } from "~/app/actions/industry/getIndustryData";
+import { getTopShortsData } from "~/app/actions/getTopShorts";
 
 jest.mock("~/@/components/layouts/dashboard-layout", () => ({
   DashboardLayout: ({ children }: { children: React.ReactNode }) => (
@@ -17,11 +18,18 @@ jest.mock("~/app/actions/industry/getIndustryData", () => ({
   getIndustryStocks: jest.fn(),
 }));
 
+jest.mock("~/app/actions/getTopShorts", () => ({
+  getTopShortsData: jest.fn(),
+}));
+
 const mockedGetIndustryData = getIndustryData as jest.MockedFunction<
   typeof getIndustryData
 >;
 const mockedGetIndustryStocks = getIndustryStocks as jest.MockedFunction<
   typeof getIndustryStocks
+>;
+const mockedGetTopShortsData = getTopShortsData as jest.MockedFunction<
+  typeof getTopShortsData
 >;
 
 describe("/industry-intelligence page", () => {
@@ -64,6 +72,25 @@ describe("/industry-intelligence page", () => {
         },
       ],
     });
+    mockedGetTopShortsData.mockResolvedValue({
+      timeSeries: [
+        {
+          productCode: "MIN",
+          name: "Mineral Resources Ltd",
+          latestShortPosition: 12.4,
+          points: [],
+          industry: "Materials",
+        },
+        {
+          productCode: "LTR",
+          name: "Liontown Resources Ltd",
+          latestShortPosition: 7.8,
+          points: [],
+          industry: "Materials",
+        },
+      ],
+      offset: 0,
+    } as Awaited<ReturnType<typeof getTopShortsData>>);
 
     const result = await Page({});
     render(result);
@@ -79,7 +106,7 @@ describe("/industry-intelligence page", () => {
         within(screen.getByTestId("industry-top-stocks-panel")).getByRole(
           "link",
           {
-            name: /MIN.*Mineral Resources/,
+            name: /MIN.*Mineral Resources Ltd/,
           },
         ),
       ).toHaveAttribute("href", "/shorts/MIN");
@@ -93,9 +120,10 @@ describe("/industry-intelligence page", () => {
         screen.getByRole("link", { name: "Open industry view" }),
       ).toHaveAttribute("href", "/industry/materials");
       expect(
-        screen.getAllByText("Policy Footprint").length,
-      ).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText("Primary-source live")).toBeInTheDocument();
+        screen.queryByText("Policy Footprint"),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText("Primary-source live")).not.toBeInTheDocument();
+      expect(screen.queryByText(/source-ready/i)).not.toBeInTheDocument();
     });
   });
 });

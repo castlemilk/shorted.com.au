@@ -42,25 +42,24 @@ describe("industry intelligence story model", () => {
       shortPercent: 12.4,
       status: "crowded",
       href: "/shorts/MIN",
+      detail: "Materials company",
     });
     expect(story.shortSignals.source.name).toBe("ASIC");
     expect(story.shortSignals.source.asAt).toBe("2026-07-08");
   });
 
-  it("marks non-live public-data channels as source-ready without invented values", () => {
+  it("does not expose planned public-data modules in the public story model", () => {
     const story = buildIndustryIntelligenceStory({
       industry: materialsIndustry,
       stocks: materialsStocks,
       asAt: "2026-07-08",
     });
 
-    expect(story.tradeExposure.status).toBe("source-ready");
-    expect(story.publicMoney.status).toBe("source-ready");
-    expect(story.taxEnvironment.status).toBe("source-ready");
-    expect(story.policyFootprint.status).toBe("source-ready");
-    expect(story.tradeExposure.value).toBeNull();
-    expect(story.publicMoney.value).toBeNull();
-    expect(story.policyFootprint.value).toBeNull();
+    expect(story).not.toHaveProperty("tradeExposure");
+    expect(story).not.toHaveProperty("publicMoney");
+    expect(story).not.toHaveProperty("taxEnvironment");
+    expect(story).not.toHaveProperty("policyFootprint");
+    expect(story.alerts.cadences).toEqual(["Daily", "Weekly"]);
   });
 
   it("builds multiple stories and keeps a deterministic fallback for empty stock lists", () => {
@@ -96,4 +95,3 @@ describe("industry intelligence story model", () => {
     expect(getStockCrowdingStatus(shortPercent)).toBe(status);
   });
 });
-

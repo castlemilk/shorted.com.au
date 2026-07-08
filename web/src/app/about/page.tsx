@@ -7,7 +7,7 @@ import { siteConfig } from "~/@/config/site";
 export const metadata: Metadata = {
   title: "About Shorted - ASX Short Position & Industry Intelligence",
   description:
-    "Learn about Shorted.com.au, Australia's short position intelligence platform for daily ASIC data, industry crowding signals, top stocks, evidence packs, and alerts.",
+    "Learn about Shorted.com.au, Australia's short position intelligence platform for daily ASIC data, industry crowding signals, top stocks, and alerts.",
   keywords: [
     "about Shorted",
     "ASX short selling data",

@@ -6,10 +6,6 @@ import Image from "next/image";
 import {
   AlertCircle,
   ArrowUpRight,
-  Files,
-  Landmark,
-  LogIn,
-  Sparkles,
   TrendingDown,
 } from "lucide-react";
 
@@ -19,10 +15,7 @@ import { Button } from "~/@/components/ui/button";
 import { CompanyLogo } from "~/@/components/ui/company-logo";
 import { getSectorImageAlt, getSectorImagePath } from "~/@/lib/sector-images";
 import { cn } from "~/@/lib/utils";
-import type {
-  IndustryIntelligenceStory,
-  SourceReadyModule,
-} from "~/@/lib/industry-intelligence";
+import type { IndustryIntelligenceStory } from "~/@/lib/industry-intelligence";
 
 function formatPercent(value: number): string {
   return `${value.toFixed(2)}%`;
@@ -31,108 +24,25 @@ function formatPercent(value: number): string {
 const narrativeSteps = [
   {
     label: "Crowding",
-    detail: "Live ASIC short-interest layer",
-    status: "Live",
+    detail: "Industry short-interest signal",
+    href: "#crowding",
   },
   {
     label: "Top Stocks",
-    detail: "Sector leaders linked to company pages",
-    status: "Live",
-  },
-  {
-    label: "Exposure",
-    detail: "Trade and industry dependency inputs",
-    status: "Source-ready",
-  },
-  {
-    label: "Public Money",
-    detail: "Grants and tender evidence pipeline",
-    status: "Source-ready",
-  },
-  {
-    label: "Policy Footprint",
-    detail: "Register and disclosure evidence pipeline",
-    status: "Source-ready",
+    detail: "Ranked companies and detail pages",
+    href: "#top-stocks",
   },
   {
     label: "Alerts",
-    detail: "Premium daily and weekly monitoring",
-    status: "Premium",
+    detail: "Create an industry monitor",
+    href: "#alerts",
+  },
+  {
+    label: "Stock Search",
+    detail: "Find companies across the market",
+    href: "/stocks",
   },
 ];
-
-function EvidenceMatrix({ modules }: { modules: SourceReadyModule[] }) {
-  return (
-    <section
-      id="source-ready-modules"
-      className="min-w-0 overflow-hidden rounded-lg border border-border/60 bg-card/80 shadow-amber-sm xl:col-start-1"
-      aria-labelledby="source-ready-modules-title"
-    >
-      <div className="grid gap-4 border-b border-border/60 bg-muted/20 p-5 md:grid-cols-[minmax(0,1fr)_minmax(220px,0.45fr)] md:items-end">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">
-            Evidence matrix
-          </p>
-          <h2
-            id="source-ready-modules-title"
-            className="mt-2 text-2xl font-semibold tracking-tight text-balance"
-          >
-            Planned public-data layers stay clearly labelled
-          </h2>
-          <p className="mt-2 max-w-[68ch] text-sm leading-6 text-muted-foreground text-pretty">
-            V1 publishes only the live ASIC-backed signal. Trade, public-money,
-            tax, and policy modules remain source-ready until imported,
-            reconciled, reviewed, and dated.
-          </p>
-        </div>
-        <div className="rounded-md border border-border/60 bg-background/70 p-3">
-          <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-            Published precision
-          </div>
-          <div className="mt-2 text-sm font-semibold">
-            No unsourced public-data values
-          </div>
-        </div>
-      </div>
-
-      <div className="divide-y divide-border/60">
-        {modules.map((module) => (
-          <div
-            key={module.label}
-            className="grid gap-3 p-4 md:grid-cols-[190px_minmax(0,1fr)_160px] md:items-center"
-          >
-            <div className="flex items-start justify-between gap-3 md:block">
-              <div>
-                <h3 className="font-semibold tracking-tight">{module.label}</h3>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  {module.source.name}
-                </p>
-              </div>
-              <Badge
-                variant="outline"
-                className="shrink-0 border-primary/25 bg-primary/10 text-primary md:mt-3"
-              >
-                Source-ready
-              </Badge>
-            </div>
-            <p className="text-sm leading-6 text-muted-foreground text-pretty">
-              Primary-source pipeline identified. Values publish only after
-              exact entity resolution and review.
-            </p>
-            <div className="rounded-md border border-border/60 bg-background/60 px-3 py-2 text-xs">
-              <div className="uppercase tracking-[0.14em] text-muted-foreground">
-                Cadence
-              </div>
-              <div className="mt-1 font-medium text-foreground">
-                {module.source.cadence}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
 
 export function IndustryIntelligenceClient({
   stories,
@@ -170,8 +80,8 @@ export function IndustryIntelligenceClient({
             Industry Intelligence
           </h1>
           <p className="mt-3 max-w-2xl text-muted-foreground text-pretty">
-            The next ASIC-backed industry sync will populate this page with live
-            sector crowding, top stocks, and source-ready evidence modules.
+            Industry data is syncing. You can still browse top shorts,
+            industries, and stock search while this view refreshes.
           </p>
         </div>
         <div className="flex flex-col gap-3 p-6 sm:flex-row">
@@ -195,13 +105,6 @@ export function IndustryIntelligenceClient({
     );
   }
 
-  const sourceModules = [
-    selectedStory.tradeExposure,
-    selectedStory.publicMoney,
-    selectedStory.taxEnvironment,
-    selectedStory.policyFootprint,
-  ];
-
   return (
     <div className="space-y-8" data-testid="industry-intelligence-story">
       <section className="relative isolate overflow-hidden rounded-lg border border-border/60 bg-card/80 shadow-amber-sm">
@@ -222,20 +125,13 @@ export function IndustryIntelligenceClient({
                 >
                   ASIC daily T+4
                 </Badge>
-                <Badge
-                  variant="outline"
-                  className="border-border/60 bg-background/70"
-                >
-                  Evidence packs planned
-                </Badge>
               </div>
               <h1 className="max-w-4xl break-words text-3xl font-bold leading-tight tracking-tight text-balance sm:text-4xl md:text-6xl">
                 Industry Intelligence
               </h1>
               <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground text-pretty md:text-lg">
-                A sector story built from live short-interest crowding, top
-                stocks, source-ready public data channels, and premium alert
-                workflows.
+                Compare industry short-interest, ranked companies, and alert
+                entry points from one clean sector view.
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <Button asChild className="min-h-11 w-full px-5 sm:w-auto">
@@ -259,18 +155,18 @@ export function IndustryIntelligenceClient({
             <div className="mt-8 grid gap-3 sm:grid-cols-3">
               <HeroProofPoint
                 icon={<TrendingDown className="h-4 w-4" aria-hidden="true" />}
-                label="Live now"
-                value="ASIC short interest"
+                label="Crowding"
+                value="Industry signal"
               />
               <HeroProofPoint
-                icon={<Files className="h-4 w-4" aria-hidden="true" />}
-                label="Next layer"
-                value="Public-source evidence"
+                icon={<ArrowUpRight className="h-4 w-4" aria-hidden="true" />}
+                label="Top stocks"
+                value="Company links"
               />
               <HeroProofPoint
                 icon={<AlertCircle className="h-4 w-4" aria-hidden="true" />}
-                label="Conversion path"
-                value="Premium alerts"
+                label="Alerts"
+                value="Daily monitor"
               />
             </div>
           </div>
@@ -282,7 +178,7 @@ export function IndustryIntelligenceClient({
       <section id="industry-explorer" className="space-y-5">
         <NarrativeStepper />
 
-        <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(380px,0.44fr)]">
+        <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.48fr)] 2xl:grid-cols-[minmax(0,1fr)_minmax(500px,0.42fr)]">
           <IndustrySelector
             stories={stories}
             selectedSlug={selectedStory.industry.slug}
@@ -293,10 +189,14 @@ export function IndustryIntelligenceClient({
           <IndustrySignalPanel
             story={selectedStory}
             stockLimit={8}
+            id="top-stocks"
             className="min-w-0 xl:sticky xl:top-24 xl:col-start-2 xl:row-span-4 xl:row-start-1 xl:self-start"
           />
 
-          <section className="min-w-0 overflow-hidden rounded-lg border border-border/60 bg-card/80 shadow-amber-sm xl:col-start-1">
+          <section
+            id="crowding"
+            className="min-w-0 overflow-hidden rounded-lg border border-border/60 bg-card/80 shadow-amber-sm xl:col-start-1"
+          >
             <div className="border-b border-border/60 p-5">
               <div className="mb-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
                 <div>
@@ -307,16 +207,15 @@ export function IndustryIntelligenceClient({
                     {selectedStory.industry.name} short-interest signal
                   </h2>
                   <p className="mt-2 max-w-[64ch] text-sm leading-6 text-muted-foreground text-pretty">
-                    The live layer uses official ASIC short-position data. Other
-                    public data layers stay labelled until primary-source
-                    imports are available.
+                    Ranks official ASIC short-position percentages by industry
+                    and company. Data updates with the T+4 reporting delay.
                   </p>
                 </div>
                 <Badge
                   variant="outline"
                   className="w-fit border-primary/25 bg-primary/10 text-primary"
                 >
-                  Primary-source live
+                  ASIC data
                 </Badge>
               </div>
 
@@ -341,33 +240,7 @@ export function IndustryIntelligenceClient({
             <CrowdingChart story={selectedStory} />
           </section>
 
-          <EvidenceMatrix modules={sourceModules} />
-
-          <EvidencePackPanel story={selectedStory} />
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-border/60 bg-card/80 p-5 shadow-amber-sm">
-        <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
-          <div>
-            <div className="mb-2 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-              <Files className="h-3.5 w-3.5" aria-hidden="true" />
-              Source posture
-            </div>
-            <h2 className="text-xl font-semibold tracking-tight">
-              Neutral, cited, and dated by design
-            </h2>
-            <p className="mt-2 max-w-[78ch] text-sm leading-6 text-muted-foreground text-pretty">
-              Industry Intelligence juxtaposes primary-source facts. It does not
-              infer intent, causation, or undisclosed relationships from public
-              records.
-            </p>
-          </div>
-          <Button asChild variant="outline" className="min-h-10">
-            <Link href="/methodology" prefetch={false}>
-              Read methodology
-            </Link>
-          </Button>
+          <AlertsPanel story={selectedStory} />
         </div>
       </section>
     </div>
@@ -393,7 +266,7 @@ function HeroSignalBoard({ story }: { story: IndustryIntelligenceStory }) {
             </span>
             <div className="min-w-0">
               <p className="text-xs font-medium uppercase tracking-[0.18em] text-amber-300">
-                Live industry board
+                Industry board
               </p>
               <h2 className="mt-2 max-w-[13ch] text-2xl font-semibold tracking-tight text-white">
                 {story.industry.name}
@@ -462,8 +335,8 @@ function HeroSignalBoard({ story }: { story: IndustryIntelligenceStory }) {
         </div>
 
         <div className="mt-auto pt-6 text-xs leading-5 text-zinc-400">
-          Source: ASIC short position reports. Other public-data channels remain
-          source-ready until imported.
+          Source: ASIC short position reports. Updated with the T+4 reporting
+          delay.
         </div>
       </div>
     </div>
@@ -476,38 +349,24 @@ function NarrativeStepper() {
       className="rounded-lg border border-border/60 bg-card/80 p-3 shadow-amber-sm"
       aria-label="Industry intelligence story sections"
     >
-      <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+      <ol className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {narrativeSteps.map((step, index) => (
           <li key={step.label} className="min-w-0">
             <a
-              href={index < 2 ? "#industry-explorer" : "#source-ready-modules"}
-              className="group grid h-full min-h-[108px] grid-cols-[24px_minmax(0,1fr)] gap-2 rounded-md border border-border/50 bg-background/55 px-3 py-3 text-left transition-colors hover:border-primary/25 hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              href={step.href}
+              className="group grid h-full min-h-[96px] grid-cols-[24px_minmax(0,1fr)] gap-2 rounded-md border border-border/50 bg-background/55 px-3 py-3 text-left transition-[background-color,border-color,transform] hover:border-primary/25 hover:bg-muted/60 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
               <span
                 className={cn(
                   "mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border font-mono text-[10px]",
-                  index < 2
-                    ? "border-primary/30 bg-primary/10 text-primary"
-                    : "border-border/70 text-muted-foreground",
+                  "border-primary/30 bg-primary/10 text-primary",
                 )}
               >
                 {index + 1}
               </span>
               <span className="min-w-0">
-                <span className="flex min-w-0 flex-wrap items-start gap-2">
-                  <span className="min-w-0 flex-1 break-words font-medium leading-5 text-foreground">
-                    {step.label}
-                  </span>
-                  <span
-                    className={cn(
-                      "max-w-full rounded border px-1.5 py-0.5 text-[10px] uppercase leading-4 tracking-[0.08em] break-words",
-                      step.status === "Live"
-                        ? "border-primary/25 bg-primary/10 text-primary"
-                        : "border-border/60 text-muted-foreground",
-                    )}
-                  >
-                    {step.status}
-                  </span>
+                <span className="block min-w-0 break-words font-medium leading-5 text-foreground">
+                  {step.label}
                 </span>
                 <span className="mt-2 block break-words text-xs leading-4 text-muted-foreground">
                   {step.detail}
@@ -672,60 +531,45 @@ function CrowdingChart({ story }: { story: IndustryIntelligenceStory }) {
   );
 }
 
-function EvidencePackPanel({ story }: { story: IndustryIntelligenceStory }) {
+function AlertsPanel({ story }: { story: IndustryIntelligenceStory }) {
   return (
-    <section className="min-w-0 overflow-hidden rounded-lg border border-primary/25 bg-primary/5 shadow-amber-sm xl:col-start-1">
-      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_320px]">
+    <section
+      id="alerts"
+      className="min-w-0 overflow-hidden rounded-lg border border-primary/25 bg-primary/5 shadow-amber-sm xl:col-start-1"
+    >
+      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_300px]">
         <div className="p-5">
           <div className="mb-2 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-primary">
-            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-            Premium evidence pack
+            <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+            Alerts
           </div>
           <h2 className="text-2xl font-semibold tracking-tight text-balance">
-            Unlock deeper evidence for {story.industry.name}
+            Track {story.industry.name} changes
           </h2>
           <p className="mt-2 max-w-[68ch] text-sm leading-6 text-muted-foreground text-pretty">
-            Premium adds cited evidence tables, daily or weekly alerts, change
-            timelines, and exportable summaries. API Access stays reserved for
-            bulk feeds and automation.
+            Create an industry monitor and return to the alerts workspace when
+            short interest moves across the sector.
           </p>
 
           <div className="mt-5 grid gap-2 sm:grid-cols-3">
-            <EntitlementPill label="Free" value="Live crowding" />
-            <EntitlementPill label="Premium" value="Alerts and packs" />
-            <EntitlementPill label="API Access" value="Bulk feeds" />
+            <MiniMetric
+              label="Cadence"
+              value={story.alerts.cadences.join(" / ")}
+            />
+            <MiniMetric
+              label="Tracked"
+              value={String(story.industry.stockCount)}
+            />
+            <MiniMetric
+              label="Lead ticker"
+              value={story.topShortedStocks[0]?.code ?? "N/A"}
+            />
           </div>
         </div>
 
         <div className="border-t border-primary/20 bg-background/75 p-5 lg:border-l lg:border-t-0">
-          <div className="rounded-md border border-border/60 bg-card p-3">
-            <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
-              Alert cadence
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {story.alerts.premiumCadences.map((cadence) => (
-                <span
-                  key={cadence}
-                  className="rounded-md border border-primary/25 bg-primary/10 px-3 py-2 text-center text-sm font-medium text-primary"
-                >
-                  {cadence}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-3 grid gap-2">
+          <div className="grid gap-2">
             <Button asChild className="min-h-10 justify-start">
-              <Link href="/pricing" prefetch={false}>
-                <LogIn className="mr-2 h-4 w-4" aria-hidden="true" />
-                Unlock evidence pack
-              </Link>
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              className="min-h-10 justify-start"
-            >
               <Link
                 href={`/alerts?industry=${story.industry.slug}`}
                 prefetch={false}
@@ -734,28 +578,16 @@ function EvidencePackPanel({ story }: { story: IndustryIntelligenceStory }) {
                 Create daily alert
               </Link>
             </Button>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-              <Button
-                asChild
-                variant="outline"
-                className="min-h-10 justify-start"
-              >
-                <Link href="/pricing" prefetch={false}>
-                  <Landmark className="mr-2 h-4 w-4" aria-hidden="true" />
-                  Track this industry
-                </Link>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                className="min-h-10 justify-start"
-              >
-                <Link href="/pricing" prefetch={false}>
-                  <Files className="mr-2 h-4 w-4" aria-hidden="true" />
-                  Export evidence summary
-                </Link>
-              </Button>
-            </div>
+            <Button
+              asChild
+              variant="outline"
+              className="min-h-10 justify-start"
+            >
+              <Link href={`/industry/${story.industry.slug}`} prefetch={false}>
+                Review industry
+                <ArrowUpRight className="ml-2 h-3.5 w-3.5" aria-hidden="true" />
+              </Link>
+            </Button>
           </div>
         </div>
       </div>
@@ -789,7 +621,7 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
       <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
         {label}
       </div>
-      <div className="mt-2 font-mono text-xl font-semibold tabular-nums">
+      <div className="mt-2 break-words font-mono text-lg font-semibold tabular-nums sm:text-xl">
         {value}
       </div>
     </div>
@@ -814,17 +646,6 @@ function DarkMetric({
         {value}
       </div>
       <div className="mt-1 text-xs text-zinc-500">{detail}</div>
-    </div>
-  );
-}
-
-function EntitlementPill({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-primary/20 bg-background/60 px-3 py-2">
-      <div className="text-[11px] uppercase tracking-[0.14em] text-primary">
-        {label}
-      </div>
-      <div className="mt-1 text-xs font-medium text-foreground">{value}</div>
     </div>
   );
 }

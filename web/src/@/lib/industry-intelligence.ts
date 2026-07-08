@@ -1,7 +1,5 @@
 export type StockCrowdingStatus = "crowded" | "elevated" | "watching";
 
-export type SourceModuleStatus = "live" | "source-ready";
-
 export interface IndustrySummary {
   name: string;
   slug: string;
@@ -32,6 +30,7 @@ export interface IndustryTopStock {
   rank: number;
   code: string;
   name: string;
+  detail: string;
   shortPercent: number;
   change: number;
   status: StockCrowdingStatus;
@@ -45,29 +44,13 @@ export interface ShortSignalModule {
   source: IntelligenceSource;
 }
 
-export interface SourceReadyModule {
-  label: "Trade Exposure" | "Public Money" | "Tax Environment" | "Policy Footprint";
-  status: SourceModuleStatus;
-  value: string | null;
-  source: IntelligenceSource;
-}
-
 export interface IndustryIntelligenceStory {
   industry: IndustrySummary;
   topShortedStocks: IndustryTopStock[];
   shortSignals: ShortSignalModule;
-  tradeExposure: SourceReadyModule;
-  publicMoney: SourceReadyModule;
-  taxEnvironment: SourceReadyModule;
-  policyFootprint: SourceReadyModule;
-  entitlement: {
-    free: true;
-    premiumRequiredForEvidencePack: true;
-    apiRequiredForBulkFeeds: true;
-  };
   alerts: {
     previewEnabled: true;
-    premiumCadences: ["Daily", "Weekly"];
+    cadences: ["Daily", "Weekly"];
   };
 }
 
@@ -75,22 +58,6 @@ export function getStockCrowdingStatus(shortPercent: number): StockCrowdingStatu
   if (shortPercent >= 10) return "crowded";
   if (shortPercent >= 5) return "elevated";
   return "watching";
-}
-
-function sourceReadyModule(
-  label: SourceReadyModule["label"],
-  sourceName: string,
-): SourceReadyModule {
-  return {
-    label,
-    status: "source-ready",
-    value: null,
-    source: {
-      name: sourceName,
-      asAt: null,
-      cadence: "Planned import",
-    },
-  };
 }
 
 export function buildIndustryIntelligenceStory({
@@ -108,11 +75,16 @@ export function buildIndustryIntelligenceStory({
     .slice(0, 10)
     .map((stock, index) => {
       const code = stock.code.toUpperCase();
+      const stockName = stock.name.trim() || code;
+      const hasCompanyName = stockName.toUpperCase() !== code;
 
       return {
         rank: index + 1,
         code,
-        name: stock.name || code,
+        name: stockName,
+        detail: hasCompanyName
+          ? `${industry.name} company`
+          : `${industry.name} short-interest leader`,
         shortPercent: stock.shortPercent,
         change: stock.change ?? 0,
         status: getStockCrowdingStatus(stock.shortPercent),
@@ -134,18 +106,9 @@ export function buildIndustryIntelligenceStory({
         cadence: "Daily, T+4",
       },
     },
-    tradeExposure: sourceReadyModule("Trade Exposure", "ABS, DFAT, UN Comtrade"),
-    publicMoney: sourceReadyModule("Public Money", "AusTender, GrantConnect"),
-    taxEnvironment: sourceReadyModule("Tax Environment", "ATO, NGER, NPI"),
-    policyFootprint: sourceReadyModule("Policy Footprint", "AEC, AGD, FITS, APH"),
-    entitlement: {
-      free: true,
-      premiumRequiredForEvidencePack: true,
-      apiRequiredForBulkFeeds: true,
-    },
     alerts: {
       previewEnabled: true,
-      premiumCadences: ["Daily", "Weekly"],
+      cadences: ["Daily", "Weekly"],
     },
   };
 }
@@ -167,4 +130,3 @@ export function buildIndustryIntelligenceStories({
     }),
   );
 }
-

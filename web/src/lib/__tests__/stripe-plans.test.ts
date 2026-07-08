@@ -7,7 +7,7 @@ describe("stripe checkout plan resolution", () => {
   it("defaults missing tier to the Premium price", () => {
     expect(
       resolveCheckoutPriceId(undefined, {
-        STRIPE_PRO_PRICE_ID: " price_premium ",
+        STRIPE_PREMIUM_PRICE_ID: " price_premium ",
       })
     ).toEqual({
       ok: true,
@@ -16,15 +16,28 @@ describe("stripe checkout plan resolution", () => {
     });
   });
 
-  it("keeps the legacy Premium env fallback for Premium only", () => {
+  it("falls back to the legacy Pro env for older Premium deployments", () => {
     expect(
       resolveCheckoutPriceId("premium", {
-        STRIPE_PREMIUM_PRICE_ID: "price_legacy_premium",
+        STRIPE_PRO_PRICE_ID: "price_legacy_premium",
       })
     ).toEqual({
       ok: true,
       tier: "premium",
       priceId: "price_legacy_premium",
+    });
+  });
+
+  it("prefers the dedicated Premium price over legacy Pro when both are set", () => {
+    expect(
+      resolveCheckoutPriceId("premium", {
+        STRIPE_PREMIUM_PRICE_ID: "price_premium",
+        STRIPE_PRO_PRICE_ID: "price_legacy_pro",
+      })
+    ).toEqual({
+      ok: true,
+      tier: "premium",
+      priceId: "price_premium",
     });
   });
 

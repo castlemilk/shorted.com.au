@@ -270,8 +270,7 @@ export default async function IndustryPage({ params }: PageProps) {
             </h2>
             <p className="mt-3 max-w-[68ch] text-sm text-muted-foreground text-pretty">
               Connect this sector table to the top-shorts leaderboard, stock
-              detail pages, source-ready public data modules, and premium alert
-              workflows.
+              detail pages, and alert workflows.
             </p>
             <Link
               href={`/industry-intelligence?industry=${slug}`}

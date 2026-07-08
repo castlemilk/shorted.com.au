@@ -135,7 +135,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
               Why Short Position Data Matters
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Short interest reveals what institutional investors are betting against—crucial 
+              Short interest reveals what institutional investors are betting against, giving
               intelligence for understanding market sentiment and potential price movements.
             </p>
           </div>
@@ -175,26 +175,25 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
             <div className="max-w-2xl">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs font-medium uppercase tracking-[0.16em] mb-5">
                 <Sparkles className="w-4 h-4" />
-                New evidence story
+                Industry Intelligence
               </div>
               <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-foreground text-balance">
-                Industry Intelligence turns sectors into evidence stories
+                Industry Intelligence connects sectors to stocks
               </h2>
               <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
-                Start with live ASIC short-interest crowding, then move through the
-                sector narrative: top stocks, source-ready public data channels,
-                cited methodology, premium evidence packs, and daily alerts.
+                Start with ASIC short-interest crowding, then jump into the
+                ranked companies, stock pages, and alert workflow for each sector.
               </p>
 
               <div className="mt-7 grid gap-3 sm:grid-cols-3">
-                {["Policy Footprint", "Public Money", "Trade Exposure"].map((label) => (
+                {["Industry crowding", "Ranked companies", "Alert monitors"].map((label) => (
                   <div
                     key={label}
                     className="rounded-lg border border-border/60 bg-card/70 px-4 py-3"
                   >
                     <div className="text-sm font-semibold text-foreground">{label}</div>
                     <div className="mt-1 text-xs text-muted-foreground">
-                      Source-ready module
+                      Built into the explorer
                     </div>
                   </div>
                 ))}
@@ -219,8 +218,8 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
               </div>
 
               <p className="mt-5 text-sm text-muted-foreground">
-                Public short-interest views stay free. Evidence packs, exports,
-                and alert cadences are the premium upgrade path.
+                Public short-interest views stay free. Alerts are available for
+                users who want ongoing monitoring.
               </p>
             </div>
 
@@ -228,7 +227,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
               <div className="flex items-start justify-between gap-4 border-b border-border/60 pb-4">
                 <div>
                   <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">
-                    Live industry board
+                    Industry board
                   </p>
                   <h3 className="mt-2 text-xl font-semibold tracking-tight text-foreground">
                     From sector signal to stock detail
@@ -257,13 +256,13 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
                 />
                 <IndustryStoryRow
                   icon={<FileText className="w-5 h-5" />}
-                  title="Evidence Pack"
-                  description="Keep planned public-data layers labelled until primary-source imports are reviewed."
+                  title="Stock Pages"
+                  description="Move from an industry signal into company-level short-interest detail."
                 />
                 <IndustryStoryRow
                   icon={<Bell className="w-5 h-5" />}
                   title="Alerts"
-                  description="Create daily or weekly premium alerts when a sector signal changes."
+                  description="Create daily or weekly alerts when a sector signal changes."
                 />
               </div>
             </div>
@@ -441,7 +440,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
                     or $100,000 (whichever is less), but the raw CSV files they publish are difficult
                     to work with. Shorted transforms this regulatory data into an intuitive platform
                     with historical charts, industry heatmaps, AI-powered analysis, and daily
-                    alerts — making institutional-grade short selling intelligence accessible to everyone.
+                    alerts, making institutional-grade short selling intelligence accessible to everyone.
                   </p>
                 </div>
 
@@ -513,7 +512,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
                 <TimelineItem
                   icon={<Bot className="w-4 h-4" />}
                   title="AI-Powered Chat (Gemini)"
-                  description="Launch of Shorted AI — a conversational assistant powered by Gemini LLM with 8 API tools for real-time stock analysis."
+                  description="Launch of Shorted AI, a conversational assistant powered by Gemini LLM with 8 API tools for real-time stock analysis."
                   period="2025"
                   align="left"
                 />
@@ -615,8 +614,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
               </h2>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10">
                 See where short interest is crowding, which stocks are driving the
-                move, and which cited evidence modules are ready to unlock as the
-                premium workflow grows.
+                move, and where alerts can help you keep watch.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -653,8 +651,8 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
               {/* Bottom accent */}
               <div className="mt-12 pt-8 border-t border-border/50">
                 <p className="text-sm text-muted-foreground">
-                  Public short-interest data remains free to browse. Premium adds
-                  evidence packs, alerts, and exportable summaries.
+                  Public short-interest data remains free to browse. Alerts help
+                  users monitor the industries they care about.
                 </p>
               </div>
             </div>
