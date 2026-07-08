@@ -25,7 +25,7 @@ jobs:
         run: sleep 300
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Smoke test critical routes
         env:
@@ -84,7 +84,7 @@ jobs:
           echo "OK: /api/stocks/search returned HTTP ${status}"
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "24"
           cache: npm
@@ -115,7 +115,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: post-deploy-smoke-playwright-report
           path: web/playwright-report

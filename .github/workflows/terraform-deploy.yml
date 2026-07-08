@@ -113,7 +113,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # NOTE: Prod-specific secrets for OAuth and Stripe are stored in GitHub Environments
       # (Settings -> Environments -> prod), not as repo-level secrets with _PROD suffix.
@@ -294,26 +294,26 @@ jobs:
             context: services/report-extractor
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
           service_account: ${{ needs.determine-environment.outputs.sa-email }}
 
       - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Configure Docker for Artifact Registry
         run: |
           gcloud auth configure-docker ${{ env.ARTIFACT_REGISTRY }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build and push ${{ matrix.service.name }}
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.service.context }}
           file: ${{ matrix.service.dockerfile }}
@@ -344,10 +344,10 @@ jobs:
             importpath: ./weekly-report-generator
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: services/go.mod
           cache-dependency-path: services/go.sum
@@ -358,7 +358,7 @@ jobs:
           version: v0.19.1
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
           service_account: ${{ needs.determine-environment.outputs.sa-email }}
@@ -394,16 +394,16 @@ jobs:
       plan-output: ${{ steps.plan.outputs.stdout }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
           service_account: ${{ needs.determine-environment.outputs.sa-email }}
@@ -551,16 +551,16 @@ jobs:
       enrichment-processor-url: ${{ steps.deploy.outputs.enrichment_processor_url }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
           service_account: ${{ needs.determine-environment.outputs.sa-email }}
@@ -912,16 +912,16 @@ jobs:
       market-data-url: ${{ steps.outputs.outputs.market_data_url }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
           service_account: ${{ needs.determine-environment.outputs.sa-email }}
@@ -1249,16 +1249,16 @@ jobs:
     environment: prod
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ needs.determine-environment.outputs.wip-provider }}
           service_account: ${{ needs.determine-environment.outputs.sa-email }}
 
       - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
+        uses: google-github-actions/setup-gcloud@v3
 
       - name: Resolve Service URLs
         id: resolve-urls
@@ -1405,7 +1405,7 @@ jobs:
           echo "preview-url=$preview_url" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node for release smoke
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -1455,10 +1455,10 @@ jobs:
     if: github.event_name != 'pull_request'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: |
@@ -1484,15 +1484,15 @@ jobs:
       DEV_SA_EMAIL: github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ env.DEV_WIP_PROVIDER }}
           service_account: ${{ env.DEV_SA_EMAIL }}

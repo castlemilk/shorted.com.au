@@ -71,7 +71,7 @@ test("post-deploy smoke uses trusted-test headers and full production release sm
   assert.match(workflow, /CURL_ARGS/);
   assert.match(workflow, /\[\s*"\$status"\s*-ge 400\s*\]/);
   assert.doesNotMatch(workflow, /\[\s*"\$status"\s*-ge 500\s*\]/);
-  assert.match(workflow, /actions\/checkout@v4/);
+  assert.match(workflow, /actions\/checkout@v5/);
   assert.match(workflow, /node-version:\s*"24"/);
   assert.match(workflow, /npm ci/);
   assert.match(workflow, /npx playwright install --with-deps chromium/);

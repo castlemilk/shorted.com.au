@@ -32,11 +32,11 @@ jobs:
 
       - name: Checkout
         if: steps.bench-guard.outputs.enabled == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup Node.js
         if: steps.bench-guard.outputs.enabled == 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "24"
           cache: "npm"
@@ -64,7 +64,7 @@ jobs:
 
       - name: Upload Playwright report
         if: steps.bench-guard.outputs.enabled == 'true' && always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: stripe-testbench-playwright-report
           path: |

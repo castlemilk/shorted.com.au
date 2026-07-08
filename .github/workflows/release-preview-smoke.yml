@@ -34,7 +34,7 @@ jobs:
       preview-url: ${{ steps.deploy.outputs.preview-url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.event.inputs.ref || github.ref }}
 
@@ -105,10 +105,10 @@ jobs:
     needs: deploy-preview
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "24"
           cache: npm
@@ -133,7 +133,7 @@ jobs:
 
       - name: Upload Playwright report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: release-smoke-playwright-report
           path: web/playwright-report

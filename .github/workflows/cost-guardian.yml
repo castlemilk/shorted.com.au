@@ -36,7 +36,7 @@ jobs:
             sa_email: github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com
     steps:
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ matrix.wip_provider }}
           service_account: ${{ matrix.sa_email }}
@@ -99,7 +99,7 @@ jobs:
       SA_EMAIL: github-actions-sa@shorted-dev-aba5688f.iam.gserviceaccount.com
     steps:
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ env.WIP_PROVIDER }}
           service_account: ${{ env.SA_EMAIL }}
@@ -175,7 +175,7 @@ jobs:
             sa_email: github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com
     steps:
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ matrix.wip_provider }}
           service_account: ${{ matrix.sa_email }}
@@ -290,7 +290,7 @@ jobs:
             sa_email: github-actions-sa@rosy-clover-477102-t5.iam.gserviceaccount.com
     steps:
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ matrix.wip_provider }}
           service_account: ${{ matrix.sa_email }}
