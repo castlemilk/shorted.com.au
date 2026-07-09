@@ -528,6 +528,15 @@ jest.mock("lucide-react", () => {
     Landmark: jest.fn(({ className }: any) => {
       return React.createElement("div", { className: `landmark ${className}` });
     }),
+    Lock: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `lock ${className}` });
+    }),
+    Download: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `download ${className}` });
+    }),
+    Flag: jest.fn(({ className }: any) => {
+      return React.createElement("div", { className: `flag ${className}` });
+    }),
     TrendingUp: jest.fn(({ className }: any) => {
       return React.createElement("div", { className: `trending-up ${className}` });
     }),

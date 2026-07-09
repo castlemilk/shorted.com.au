@@ -9,6 +9,28 @@ import { getVerifiedCompanyLogoUrls } from "~/app/actions/company-logo-availabil
 import { getIndustryIntelligence } from "~/app/actions/getIndustryIntelligence";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 
+jest.mock("~/@/components/industry/industry-charts", () => {
+  const charts = jest.requireActual(
+    "~/@/components/industry/charts/industry-crowding-chart",
+  ) as { IndustryCrowdingChart: unknown };
+  const dashboards = jest.requireActual(
+    "~/@/components/industry/industry-channel-dashboards",
+  ) as { IndustryChannelDashboards: unknown };
+  return {
+    IndustryCrowdingChart: charts.IndustryCrowdingChart,
+    IndustryChannelDashboards: dashboards.IndustryChannelDashboards,
+  };
+});
+
+jest.mock("~/@/hooks/use-subscription", () => ({
+  useSubscription: () => ({
+    isPremium: false,
+    isLoading: false,
+    tier: "free",
+    subscription: null,
+  }),
+}));
+
 jest.mock("~/@/components/layouts/dashboard-layout", () => ({
   DashboardLayout: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="dashboard-layout">{children}</div>
@@ -149,6 +171,47 @@ describe("/industry-intelligence page", () => {
       ],
       sourceAttribution: "ATO Corporate Tax Transparency",
       generatedAt: undefined,
+      timeBuckets: [
+        {
+          signalKind: "tax_environment",
+          sourceKey: "ato-corporate-tax-transparency",
+          metricKey: "tax_payable",
+          metricLabel: "Tax payable",
+          unit: "AUD",
+          bucketLabel: "2022-23",
+          bucketStart: "2022-07-01",
+          totalValue: 700_000_000,
+          recordCount: 8,
+          entityCount: 8,
+          zeroValueCount: 0,
+        },
+        {
+          signalKind: "tax_environment",
+          sourceKey: "ato-corporate-tax-transparency",
+          metricKey: "tax_payable",
+          metricLabel: "Tax payable",
+          unit: "AUD",
+          bucketLabel: "2023-24",
+          bucketStart: "2023-07-01",
+          totalValue: 900_000_000,
+          recordCount: 9,
+          entityCount: 9,
+          zeroValueCount: 0,
+        },
+      ],
+      entityTotals: [
+        {
+          signalKind: "tax_environment",
+          sourceKey: "ato-corporate-tax-transparency",
+          metricKey: "tax_payable",
+          stockCode: "MIN",
+          entityLabel: "Mineral Resources",
+          unit: "AUD",
+          totalValue: 1_600_000_000,
+          recordCount: 17,
+          latestAsOf: "2024-06-30",
+        },
+      ],
     } as Awaited<ReturnType<typeof getIndustryIntelligence>>);
 
     const result = await Page({});
@@ -178,14 +241,25 @@ describe("/industry-intelligence page", () => {
       expect(
         screen.getByRole("link", { name: "Open industry view" }),
       ).toHaveAttribute("href", "/industry/materials");
+      // No policy_footprint data in this fixture, so the channel must not render.
       expect(screen.queryByText("Policy Footprint")).not.toBeInTheDocument();
       expect(screen.queryByText("Primary-source live")).not.toBeInTheDocument();
       expect(screen.queryByText(/source-ready/i)).not.toBeInTheDocument();
       expect(
-        screen.getByRole("heading", { name: "Materials signals" }),
+        screen.getByRole("heading", {
+          name: "Materials public-source signals",
+        }),
       ).toBeInTheDocument();
       expect(
-        screen.getByText("ATO Corporate Tax Transparency"),
+        screen.getByRole("heading", { name: "Tax Environment" }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/ATO Corporate Tax Transparency — CC-BY-3.0-AU/),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", {
+          name: "Where these figures come from",
+        }),
       ).toBeInTheDocument();
     });
   });

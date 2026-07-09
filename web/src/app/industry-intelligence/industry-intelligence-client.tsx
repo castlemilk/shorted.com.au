@@ -6,11 +6,19 @@ import Image from "next/image";
 import {
   AlertCircle,
   ArrowUpRight,
-  Landmark,
   TrendingDown,
 } from "lucide-react";
 
 import { IndustrySignalPanel } from "~/@/components/industry/industry-signal-panel";
+import {
+  IndustryChannelDashboards,
+  IndustryCrowdingChart,
+} from "~/@/components/industry/industry-charts";
+import { IndustryMethodology } from "~/@/components/industry/industry-methodology";
+import {
+  IndustryNarrativeRail,
+  type NarrativeRailItem,
+} from "~/@/components/industry/industry-narrative-rail";
 import { Badge } from "~/@/components/ui/badge";
 import { Button } from "~/@/components/ui/button";
 import { getSectorImageAlt, getSectorImagePath } from "~/@/lib/sector-images";
@@ -19,22 +27,6 @@ import type { IndustryIntelligenceStory } from "~/@/lib/industry-intelligence";
 
 function formatPercent(value: number): string {
   return `${value.toFixed(2)}%`;
-}
-
-function formatEvidenceMetric(value: number | null, unit: string): string {
-  if (value === null) return "Reported";
-  if (unit === "AUD") {
-    return new Intl.NumberFormat("en-AU", {
-      style: "currency",
-      currency: "AUD",
-      notation: "compact",
-      maximumFractionDigits: 1,
-    }).format(value);
-  }
-  return new Intl.NumberFormat("en-AU", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(value);
 }
 
 export function IndustryIntelligenceClient({
@@ -59,6 +51,23 @@ export function IndustryIntelligenceClient({
     [initialStory, selectedSlug, stories],
   );
   const leadStock = selectedStory?.topShortedStocks[0] ?? null;
+  const asAt = selectedStory?.shortSignals.source.asAt ?? "";
+  const railItems = useMemo<NarrativeRailItem[]>(() => {
+    if (!selectedStory) return [];
+    const items: NarrativeRailItem[] = [
+      { id: "industry-explorer", label: "Overview" },
+    ];
+    if (selectedStory.crowding) {
+      items.push({ id: "crowding", label: "Crowding" });
+    }
+    items.push({ id: "top-shorts", label: "Top shorted" });
+    for (const channel of selectedStory.channels) {
+      items.push({ id: `channel-${channel.kind}`, label: channel.label });
+    }
+    items.push({ id: "alerts", label: "Alerts" });
+    items.push({ id: "methodology", label: "Sources" });
+    return items;
+  }, [selectedStory]);
 
   if (!selectedStory) {
     return (
@@ -175,33 +184,95 @@ export function IndustryIntelligenceClient({
         </div>
       </section>
 
-      <section id="industry-explorer" className="space-y-5">
-        <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.38fr)]">
-          <IndustrySelector
-            stories={stories}
-            selectedSlug={selectedStory.industry.slug}
-            onSelect={setSelectedSlug}
-            className="xl:col-span-2"
-          />
-
-          <IndustrySignalPanel
-            story={selectedStory}
-            stockLimit={10}
-            id="top-shorts"
-            className="min-w-0 xl:col-start-1"
-          />
-
-          {selectedStory.evidenceRecords.length > 0 ? (
-            <IndustryEvidencePanel
-              story={selectedStory}
-              className="xl:col-start-2"
-            />
-          ) : null}
-
-          <AlertsPanel story={selectedStory} className="xl:col-start-2" />
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[190px_minmax(0,1fr)]">
+        <div className="min-w-0 xl:sticky xl:top-20 xl:self-start">
+          <IndustryNarrativeRail items={railItems} />
         </div>
-      </section>
+
+        <div className="min-w-0 space-y-8">
+          <section id="industry-explorer" className="scroll-mt-24 space-y-5">
+            <IndustrySelector
+              stories={stories}
+              selectedSlug={selectedStory.industry.slug}
+              onSelect={setSelectedSlug}
+            />
+
+            {selectedStory.crowding ? (
+              <CrowdingCard story={selectedStory} />
+            ) : null}
+
+            <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.38fr)]">
+              <IndustrySignalPanel
+                story={selectedStory}
+                stockLimit={10}
+                id="top-shorts"
+                className="min-w-0"
+              />
+
+              <AlertsPanel story={selectedStory} />
+            </div>
+          </section>
+
+          <IndustryChannelDashboards
+            industryName={selectedStory.industry.name}
+            industrySlug={selectedStory.industry.slug}
+            channels={selectedStory.channels}
+          />
+
+          <IndustryMethodology channels={selectedStory.channels} asAt={asAt} />
+        </div>
+      </div>
     </div>
+  );
+}
+
+function CrowdingCard({ story }: { story: IndustryIntelligenceStory }) {
+  if (!story.crowding) return null;
+  const points = story.crowding.points;
+  const latest = points[points.length - 1]!;
+
+  return (
+    <section
+      id="crowding"
+      aria-labelledby="crowding-heading"
+      className="min-w-0 scroll-mt-24 overflow-hidden rounded-lg border border-border/60 bg-card/80 shadow-amber-sm"
+      data-testid="industry-crowding-card"
+    >
+      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border/60 p-5">
+        <div className="min-w-0">
+          <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">
+            Crowding
+          </p>
+          <h2
+            id="crowding-heading"
+            className="mt-1 text-xl font-semibold tracking-tight text-balance"
+          >
+            {story.industry.name} short-interest crowding
+          </h2>
+          <p className="mt-1 text-sm leading-6 text-muted-foreground text-pretty">
+            Weekly constituent average with the p10–p90 dispersion band.
+          </p>
+        </div>
+        <div className="rounded-md border border-border/60 bg-background/70 px-3 py-2 text-right">
+          <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+            Latest week
+          </div>
+          <div className="font-mono text-lg font-semibold tabular-nums">
+            {formatPercent(latest.avg)}
+          </div>
+        </div>
+      </div>
+      <div className="p-4" style={{ minHeight: 268 }}>
+        <IndustryCrowdingChart
+          points={points}
+          industryName={story.industry.name}
+        />
+      </div>
+      <div className="border-t border-border/60 bg-background/60 px-5 py-3 text-xs leading-5 text-muted-foreground">
+        Source: ASIC short position reports (daily, T+4). Weeks with fewer than
+        three reporting constituents are omitted.
+      </div>
+    </section>
   );
 }
 
@@ -374,97 +445,6 @@ function IndustrySelector({
             </button>
           );
         })}
-      </div>
-    </section>
-  );
-}
-
-function IndustryEvidencePanel({
-  story,
-  className,
-}: {
-  story: IndustryIntelligenceStory;
-  className?: string;
-}) {
-  const records = story.evidenceRecords.slice(0, 4);
-  const sourceNames = story.evidenceSources
-    .map((source) => source.displayName)
-    .filter(Boolean)
-    .join(" / ");
-
-  return (
-    <section
-      className={cn(
-        "min-w-0 overflow-hidden rounded-lg border border-border/60 bg-card/80 shadow-amber-sm",
-        className,
-      )}
-    >
-      <div className="border-b border-border/60 p-5">
-        <div className="mb-2 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-primary">
-          <Landmark className="h-3.5 w-3.5" aria-hidden="true" />
-          Industry context
-        </div>
-        <h2 className="text-2xl font-semibold tracking-tight text-balance">
-          {story.industry.name} signals
-        </h2>
-        {sourceNames ? (
-          <p className="mt-2 text-sm leading-6 text-muted-foreground text-pretty">
-            {sourceNames}
-          </p>
-        ) : null}
-      </div>
-
-      <div className="divide-y divide-border/60">
-        {records.map((record) => (
-          <article
-            key={`${record.sourceKey}:${record.stockCode}:${record.asOf}:${record.metricLabel}`}
-            className="grid min-w-0 gap-3 p-5"
-          >
-            <div className="flex min-w-0 items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="font-mono text-xl font-semibold tabular-nums">
-                  {formatEvidenceMetric(record.metricValue, record.unit)}
-                </div>
-                <div className="mt-1 text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                  {record.metricLabel}
-                </div>
-              </div>
-              {record.stockCode ? (
-                <Link
-                  href={`/shorts/${record.stockCode}`}
-                  prefetch={false}
-                  className="shrink-0 rounded-md border border-border/60 px-2 py-1 font-mono text-xs font-semibold transition-colors hover:border-primary/40 hover:text-primary"
-                >
-                  {record.stockCode}
-                </Link>
-              ) : null}
-            </div>
-
-            <div className="min-w-0">
-              <h3 className="line-clamp-2 break-words text-sm font-semibold leading-5">
-                {record.title}
-              </h3>
-              {record.summary ? (
-                <p className="mt-2 line-clamp-3 break-words text-sm leading-6 text-muted-foreground">
-                  {record.summary}
-                </p>
-              ) : null}
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-              <span>{record.asOf}</span>
-              <a
-                href={record.sourceUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-primary hover:underline"
-              >
-                Source
-                <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
-              </a>
-            </div>
-          </article>
-        ))}
       </div>
     </section>
   );

@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
+import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
+import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { siteConfig } from "~/@/config/site";
 import {
+  buildIndustryCrowdingSeries,
   buildIndustryIntelligenceStories,
+  type IndustryCrowdingSeries,
+  type IndustryEvidenceEntityTotalInput,
   type IndustryEvidenceRecordInput,
   type IndustryEvidenceSourceInput,
+  type IndustryEvidenceTimeBucketInput,
   type IndustrySummary,
   type IndustryStockInput,
 } from "~/@/lib/industry-intelligence";
@@ -49,6 +55,8 @@ interface PageProps {
 type IndustryEvidenceBundle = {
   sources: IndustryEvidenceSourceInput[];
   records: IndustryEvidenceRecordInput[];
+  timeBuckets: IndustryEvidenceTimeBucketInput[];
+  entityTotals: IndustryEvidenceEntityTotalInput[];
 };
 
 type TopShortsStock = NonNullable<
@@ -192,7 +200,7 @@ export default async function IndustryIntelligencePage({
     getVerifiedCompanyLogoUrls(storyStockCodes),
     Promise.all(
       selectedIndustries.map(async (industry) => {
-        const result = await getIndustryIntelligence(industry.name, 24);
+        const result = await getIndustryIntelligence(industry.name, 50);
         return [industry.slug, result] as const;
       }),
     ),
@@ -239,13 +247,57 @@ export default async function IndustryIntelligencePage({
         stockCode: record.stockCode,
         title: record.title,
         summary: record.summary,
+        metricKey: record.metricKey,
         metricLabel: record.metricLabel,
         metricValue: record.hasMetricValue ? record.metricValue : null,
         unit: record.unit,
         asOf: record.asOf,
         sourceUrl: record.sourceUrl,
       })),
+      timeBuckets: result.timeBuckets.map((bucket) => ({
+        signalKind: bucket.signalKind,
+        sourceKey: bucket.sourceKey,
+        metricKey: bucket.metricKey,
+        metricLabel: bucket.metricLabel,
+        unit: bucket.unit,
+        bucketLabel: bucket.bucketLabel,
+        bucketStart: bucket.bucketStart,
+        totalValue: bucket.totalValue,
+        recordCount: bucket.recordCount,
+        entityCount: bucket.entityCount,
+        zeroValueCount: bucket.zeroValueCount,
+      })),
+      entityTotals: result.entityTotals.map((total) => ({
+        signalKind: total.signalKind,
+        sourceKey: total.sourceKey,
+        metricKey: total.metricKey,
+        stockCode: total.stockCode,
+        entityLabel: total.entityLabel,
+        unit: total.unit,
+        totalValue: total.totalValue,
+        recordCount: total.recordCount,
+        latestAsOf: total.latestAsOf,
+      })),
     };
+    return acc;
+  }, {});
+  const crowdingByIndustry = selectedIndustries.reduce<
+    Record<string, IndustryCrowdingSeries | null>
+  >((acc, industry) => {
+    const stocks = topShortStocks
+      .filter(
+        (stock) => createSlug(industryNameForStock(stock)) === industry.slug,
+      )
+      .map((stock) => ({
+        code: stock.productCode,
+        points: (stock.points ?? [])
+          .map((point) => ({
+            date: timestampToIsoDate(point.timestamp),
+            value: point.shortPosition,
+          }))
+          .filter((point) => point.date !== ""),
+      }));
+    acc[industry.slug] = buildIndustryCrowdingSeries(stocks);
     return acc;
   }, {});
   const stories = buildIndustryIntelligenceStories({
@@ -253,14 +305,58 @@ export default async function IndustryIntelligencePage({
     stocksByIndustry,
     asAt: todayIsoDate(),
     evidenceByIndustry,
+    crowdingByIndustry,
   });
 
   return (
     <DashboardLayout>
+      <LLMMeta
+        title="Industry Intelligence"
+        description="ASX industry short-interest crowding with cited public-source evidence: ATO corporate tax, AusTender contracts, and NGER emissions for exact-matched entities."
+        keywords={[
+          "ASX short interest by industry",
+          "industry short selling",
+          "corporate tax transparency ASX",
+          "government contracts ASX companies",
+        ]}
+        url={`${siteConfig.url}/industry-intelligence`}
+        dataSource="ASIC short position reports; ATO Corporate Tax Transparency; AusTender; Clean Energy Regulator NGER"
+        dataFrequency="daily"
+        requiresAuth={false}
+      />
+      <BreadcrumbListSchema
+        items={[
+          { name: "Home", url: siteConfig.url },
+          {
+            name: "Industry Intelligence",
+            url: `${siteConfig.url}/industry-intelligence`,
+          },
+        ]}
+      />
       <IndustryIntelligenceClient
         stories={stories}
         initialSlug={selectedSlug}
       />
     </DashboardLayout>
   );
+}
+
+/**
+ * Time-series points arrive as ISO strings from the edge-read JSON path and as
+ * protobuf Timestamp objects from the Connect fallback — normalise both.
+ */
+function timestampToIsoDate(timestamp: unknown): string {
+  if (typeof timestamp === "string") return timestamp.slice(0, 10);
+  if (
+    timestamp &&
+    typeof timestamp === "object" &&
+    "seconds" in timestamp &&
+    timestamp.seconds != null
+  ) {
+    const seconds = Number((timestamp as { seconds: unknown }).seconds);
+    if (Number.isFinite(seconds) && seconds > 0) {
+      return new Date(seconds * 1000).toISOString().slice(0, 10);
+    }
+  }
+  return "";
 }
