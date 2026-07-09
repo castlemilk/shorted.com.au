@@ -12,6 +12,9 @@
 //	-mode tax-records     Publish exact-matched ATO facts into industry records.
 //	-mode emissions       Import CER NGER exact ABN-matched emissions records.
 //	-mode austender       Import AusTender exact ABN-matched contract records.
+//	-mode aec             Import AEC Transparency Register exact-matched returns.
+//	-mode lobbyists       Import lobbyist + FITS register exact-matched counts.
+//	-mode trade           Import ABS trade-in-goods industry-level records.
 //	-mode public-records  Publish already-ingested tax + external public records.
 //	-mode all    sources + tax + match + public-records.
 //
@@ -32,7 +35,7 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "tax", "tax | match | sources | source-registry | source-probe | tax-records | emissions | austender | public-records | all")
+	mode := flag.String("mode", "tax", "tax | match | sources | source-registry | source-probe | tax-records | emissions | austender | aec | lobbyists | trade | public-records | all")
 	sourceLimit := flag.Int("source-limit", defaultAusTenderResourceCap, "maximum downloadable resources per source for archive-backed collectors")
 	flag.Parse()
 
@@ -62,6 +65,9 @@ func main() {
 		if *mode == "all" {
 			runEmissionsMode(ctx, pool)
 			runAusTenderMode(ctx, pool, *sourceLimit)
+			runAECMode(ctx, pool, *sourceLimit)
+			runLobbyistsMode(ctx, pool)
+			runTradeMode(ctx, pool)
 		}
 	case "match":
 		runMatchMode(ctx, pool)
@@ -80,13 +86,25 @@ func main() {
 	case "austender":
 		runSourceRegistry(ctx, pool)
 		runAusTenderMode(ctx, pool, *sourceLimit)
+	case "aec":
+		runSourceRegistry(ctx, pool)
+		runAECMode(ctx, pool, *sourceLimit)
+	case "lobbyists":
+		runSourceRegistry(ctx, pool)
+		runLobbyistsMode(ctx, pool)
+	case "trade":
+		runSourceRegistry(ctx, pool)
+		runTradeMode(ctx, pool)
 	case "public-records":
 		runSourceRegistry(ctx, pool)
 		runTaxRecordsMode(ctx, pool)
 		runEmissionsMode(ctx, pool)
 		runAusTenderMode(ctx, pool, *sourceLimit)
+		runAECMode(ctx, pool, *sourceLimit)
+		runLobbyistsMode(ctx, pool)
+		runTradeMode(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|public-records|all)", *mode)
+		log.Fatalf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|aec|lobbyists|trade|public-records|all)", *mode)
 	}
 }
 
