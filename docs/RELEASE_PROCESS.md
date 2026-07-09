@@ -27,6 +27,18 @@ PROMOTE_TO_PROD=1 RELEASE_CONFIRM_PROMOTE=1 npm run release:web
 
 The local script removes `web/.next`, `.vercel/output`, and `web/.vercel/output` before building, runs `vercel build --target production`, then deploys the release candidate with `vercel deploy --prebuilt --target production --force --skip-domain`. Production aliases only move through `vercel promote` after the smoke suite passes.
 
+## Release Validation Gates
+
+The release path must fail before deploy if client auth or payments are misconfigured:
+
+- `npm --prefix web run firebase:preflight` validates required public Firebase config, normalizes escaped newline values, and checks the API key against `identitytoolkit.googleapis.com`.
+- `npm --prefix web run stripe:preflight` validates configured Stripe checkout price IDs against the active Stripe account.
+- `node e2e/release-smoke-ci.mjs` includes the Firebase Google sign-in bootstrap check. It opens `/signin`, clicks "Continue with Google", verifies Identity Toolkit returns 200 responses, rejects `API_KEY_INVALID`, rejects escaped newline API keys, and confirms Firebase can create a Google auth URI through the browser flow or direct Identity Toolkit probe.
+
+Do not remove these gates from `scripts/release-web.sh`, `.github/workflows/release-preview-smoke.yml`, or `.github/workflows/terraform-deploy.yml`. `node --test scripts/release-pipeline.test.mjs` asserts this wiring.
+
+Firebase auth details and triage commands live in `docs/FIREBASE_AUTH_VALIDATION.md`.
+
 Useful environment overrides:
 
 ```bash
@@ -111,6 +123,12 @@ The existing production path in `terraform-deploy.yml` also follows the same sha
 
 - `VERCEL_TOKEN`
 - `CLOUDFLARE_TESTING_BYPASS_SECRET`
+- `NEXT_PUBLIC_FIREBASE_API_KEY_PROD`
+- `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN_PROD`
+- `NEXT_PUBLIC_FIREBASE_PROJECT_ID_PROD`
+- `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET_PROD`
+- `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID_PROD`
+- `NEXT_PUBLIC_FIREBASE_APP_ID_PROD`
 - Optional `RELEASE_SHORTS_SERVICE_ENDPOINT`
 - Optional `RELEASE_MARKET_DATA_API_URL`
 

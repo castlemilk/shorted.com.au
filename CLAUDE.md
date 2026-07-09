@@ -690,9 +690,9 @@ async rewrites() {
 - Server-side: use full backend URL
 - This eliminates the need for CORS headers entirely
 
-### Vercel Environment Variables — Trailing Newlines
+### Vercel Environment Variables — Escaped Newlines
 
-Vercel project-level env vars can have trailing `\n` baked into JS bundles. Always `.trim()` client-side config values (e.g., Firebase config in `firebase-client.ts`). CI/CD `--build-env` flags pass clean values, masking the issue.
+Vercel project-level env vars can have literal escaped newline suffixes (`\n`) baked into JS bundles. `.trim()` is not enough for client-side Firebase config; use `normalizeFirebasePublicConfigValue` in `firebase-public-config.ts`. Production releases must run `npm --prefix web run firebase:preflight` before build and the Firebase Google sign-in bootstrap check in release smoke. The failure signature is `API_KEY_INVALID` from `identitytoolkit.googleapis.com` before `/api/auth` is reached. See `docs/FIREBASE_AUTH_VALIDATION.md`.
 
 ### Cloud Run — Always Add Health Probes in Terraform
 

@@ -6,7 +6,7 @@ export default defineConfig({
   workers: process.env.CI ? 2 : 4,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI
-    ? [["github"], ["html", { open: "never" }]]
+    ? [["github"], ["list"], ["html", { open: "never" }]]
     : "list",
   snapshotPathTemplate: "{testDir}/__screenshots__/{arg}{ext}",
   expect: {

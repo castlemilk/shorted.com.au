@@ -6,28 +6,30 @@ import { sb, mocked } from "storybook/test";
 // `beforeEach`. See src/@/mocks/STORY_GUIDE.md for the authoring contract.
 // Full mock (src/app/actions/__mocks__/getTopShorts.ts): the real module
 // imports kv-cache → ioredis (Node-only), which crashes the browser build.
-sb.mock(import("../src/app/actions/getTopShorts"));
+sb.mock(import("~/app/actions/getTopShorts"));
 // Full mock: getIndustryTreeMap imports kv-cache → ioredis (Node-only).
-sb.mock(import("../src/app/actions/getIndustryTreeMap"));
+sb.mock(import("~/app/actions/getIndustryTreeMap"));
 // Full mock: getTooltipData imports kv-cache → ioredis. Transitively imported
 // by every treemap story (widget → TreemapTooltip → getTooltipData), so the
 // mock is needed for the module graph to build, not just for hover behavior.
-sb.mock(import("../src/app/actions/tooltip/getTooltipData"));
-sb.mock(import("../src/app/actions/getStock"), { spy: true });
+sb.mock(import("~/app/actions/tooltip/getTooltipData"));
+sb.mock(import("~/app/actions/getStock"), { spy: true });
 // Spy mode is safe: getStockData has the same import profile as getStock
 // (connect-web + config + period-utils + withRetry — all browser-safe, no
 // kv-cache). TimeSeriesWidget fetches its series through it.
-sb.mock(import("../src/app/actions/getStockData"), { spy: true });
+sb.mock(import("~/app/actions/getStockData"), { spy: true });
 // Spy mode is safe here: searchStocks only imports connect-web + config +
 // retry (all browser-safe; same import set getStock already proves out).
 // MarketWatchlistWidget's add-stock autocomplete calls searchStocksClient.
-sb.mock(import("../src/app/actions/searchStocks"), { spy: true });
+sb.mock(import("~/app/actions/searchStocks"), { spy: true });
 // Spy mode is safe: screenStocks imports connect-web + gen pb + React cache +
 // config + withRetry (duck-typed retry, no kv-cache) — all browser-safe.
 // ScreenerWidget fetches its rows through it.
-sb.mock(import("../src/app/actions/screenStocks"), { spy: true });
-sb.mock(import("../src/@/lib/stock-data-service"), { spy: true });
-sb.mock(import("../src/@/lib/client-api"), { spy: true });
+sb.mock(import("~/app/actions/screenStocks"), { spy: true });
+sb.mock(import("~/@/lib/stock-data-service"), { spy: true });
+sb.mock(import("~/@/lib/client-api"), { spy: true });
+sb.mock(import("@/lib/stock-data-service"), { spy: true });
+sb.mock(import("@/lib/client-api"), { spy: true });
 
 import type { Preview, Decorator } from "@storybook/nextjs-vite";
 import React from "react";
@@ -38,19 +40,19 @@ import "../src/styles/globals.css";
 // Lazy imports resolved at runtime after mocks are registered.
 // Each key in this record maps to the spy-wrapped export name used in stories.
 // getTopShortsData is imported from the __mocks__ file (full mock mode).
-import { getTopShortsData } from "../src/app/actions/getTopShorts";
-import { getIndustryTreeMap } from "../src/app/actions/getIndustryTreeMap";
-import { getTooltipData } from "../src/app/actions/tooltip/getTooltipData";
+import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { getIndustryTreeMap } from "~/app/actions/getIndustryTreeMap";
+import { getTooltipData } from "~/app/actions/tooltip/getTooltipData";
 import {
   getStock,
   getStockOrNotFound,
-} from "../src/app/actions/getStock";
-import { getStockData } from "../src/app/actions/getStockData";
+} from "~/app/actions/getStock";
+import { getStockData } from "~/app/actions/getStockData";
 import {
   searchStocks as searchStocksAction,
   searchStocksClient,
-} from "../src/app/actions/searchStocks";
-import { screenStocks } from "../src/app/actions/screenStocks";
+} from "~/app/actions/searchStocks";
+import { screenStocks } from "~/app/actions/screenStocks";
 import {
   getMultipleStockQuotes,
   getHistoricalData,
@@ -60,11 +62,31 @@ import {
   getServiceStatus,
   searchStocks,
   searchStocksEnriched,
-} from "../src/@/lib/stock-data-service";
+} from "~/@/lib/stock-data-service";
 import {
+  fetchIndustryTreeMapClient,
+  fetchStockClient,
   fetchStockDetailsClient,
   fetchStockDataClient,
-} from "../src/@/lib/client-api";
+  fetchTopShortsClient,
+} from "~/@/lib/client-api";
+import {
+  fetchIndustryTreeMapClient as fetchIndustryTreeMapClientAt,
+  fetchStockClient as fetchStockClientAt,
+  fetchStockDataClient as fetchStockDataClientAt,
+  fetchStockDetailsClient as fetchStockDetailsClientAt,
+  fetchTopShortsClient as fetchTopShortsClientAt,
+} from "@/lib/client-api";
+import {
+  getCorrelationMatrix as getCorrelationMatrixAt,
+  getHistoricalData as getHistoricalDataAt,
+  getMultipleStockQuotes as getMultipleStockQuotesAt,
+  getSectorPerformance as getSectorPerformanceAt,
+  getServiceStatus as getServiceStatusAt,
+  getStockPrice as getStockPriceAt,
+  searchStocks as searchStocksAt,
+  searchStocksEnriched as searchStocksEnrichedAt,
+} from "@/lib/stock-data-service";
 
 /** Installs a throwing default so forgotten mocks surface an actionable error. */
 const unmocked =
@@ -131,8 +153,24 @@ const preview: Preview = {
     mocked(getServiceStatus).mockImplementation(unmocked("getServiceStatus"));
     mocked(searchStocks).mockImplementation(unmocked("searchStocks"));
     mocked(searchStocksEnriched).mockImplementation(unmocked("searchStocksEnriched"));
+    mocked(fetchIndustryTreeMapClient).mockImplementation(unmocked("fetchIndustryTreeMapClient"));
+    mocked(fetchStockClient).mockImplementation(unmocked("fetchStockClient"));
     mocked(fetchStockDetailsClient).mockImplementation(unmocked("fetchStockDetailsClient"));
     mocked(fetchStockDataClient).mockImplementation(unmocked("fetchStockDataClient"));
+    mocked(fetchTopShortsClient).mockImplementation(unmocked("fetchTopShortsClient"));
+    mocked(fetchIndustryTreeMapClientAt).mockImplementation(unmocked("fetchIndustryTreeMapClient"));
+    mocked(fetchStockClientAt).mockImplementation(unmocked("fetchStockClient"));
+    mocked(fetchStockDataClientAt).mockImplementation(unmocked("fetchStockDataClient"));
+    mocked(fetchStockDetailsClientAt).mockImplementation(unmocked("fetchStockDetailsClient"));
+    mocked(fetchTopShortsClientAt).mockImplementation(unmocked("fetchTopShortsClient"));
+    mocked(getCorrelationMatrixAt).mockImplementation(unmocked("getCorrelationMatrix"));
+    mocked(getHistoricalDataAt).mockImplementation(unmocked("getHistoricalData"));
+    mocked(getMultipleStockQuotesAt).mockImplementation(unmocked("getMultipleStockQuotes"));
+    mocked(getSectorPerformanceAt).mockImplementation(unmocked("getSectorPerformance"));
+    mocked(getServiceStatusAt).mockImplementation(unmocked("getServiceStatus"));
+    mocked(getStockPriceAt).mockImplementation(unmocked("getStockPrice"));
+    mocked(searchStocksAt).mockImplementation(unmocked("searchStocks"));
+    mocked(searchStocksEnrichedAt).mockImplementation(unmocked("searchStocksEnriched"));
   },
 };
 export default preview;

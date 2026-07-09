@@ -55,6 +55,23 @@ require_command vercel
 
 export_release_env
 
+stage "firebase-client-preflight"
+(
+  cd "$WEB_DIR"
+  npm run firebase:preflight
+)
+
+stage "stripe-price-preflight"
+if [ -n "${STRIPE_SECRET_KEY:-}" ] || [ "${REQUIRE_STRIPE_PRICE_PREFLIGHT:-0}" = "1" ]; then
+  (
+    cd "$WEB_DIR"
+    npm run stripe:preflight
+  )
+else
+  echo "Skipping Stripe price preflight because STRIPE_SECRET_KEY is not set locally."
+  echo "Set REQUIRE_STRIPE_PRICE_PREFLIGHT=1 to make this guard mandatory."
+fi
+
 stage "build"
 rm -rf "$WEB_DIR/.next" "$ROOT_DIR/.vercel/output" "$WEB_DIR/.vercel/output"
 (
@@ -108,6 +125,29 @@ append_endpoint_args "NEXT_PUBLIC_SHORTS_API_URL" "${RELEASE_SHORTS_SERVICE_ENDP
 append_endpoint_args "MARKET_DATA_API_URL" "${RELEASE_MARKET_DATA_API_URL:-}"
 append_endpoint_args "NEXT_PUBLIC_MARKET_DATA_API_URL" "${RELEASE_MARKET_DATA_API_URL:-}"
 append_endpoint_args "SHORTED_CLOUDFLARE_TESTING_BYPASS_SECRET" "${CLOUDFLARE_TESTING_BYPASS_SECRET:-}"
+append_endpoint_args "AUTH_GOOGLE_ID" "${AUTH_GOOGLE_ID:-}"
+append_endpoint_args "AUTH_GOOGLE_SECRET" "${AUTH_GOOGLE_SECRET:-}"
+append_endpoint_args "AUTH_FIREBASE_PROJECT_ID" "${AUTH_FIREBASE_PROJECT_ID:-}"
+append_endpoint_args "AUTH_FIREBASE_CLIENT_EMAIL" "${AUTH_FIREBASE_CLIENT_EMAIL:-}"
+append_endpoint_args "NEXTAUTH_SECRET" "${NEXTAUTH_SECRET:-}"
+append_endpoint_args "NEXT_PUBLIC_ALGOLIA_APP_ID" "${NEXT_PUBLIC_ALGOLIA_APP_ID:-}"
+append_endpoint_args "NEXT_PUBLIC_ALGOLIA_SEARCH_KEY" "${NEXT_PUBLIC_ALGOLIA_SEARCH_KEY:-}"
+append_endpoint_args "NEXT_PUBLIC_FIREBASE_API_KEY" "${NEXT_PUBLIC_FIREBASE_API_KEY:-}"
+append_endpoint_args "NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" "${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:-}"
+append_endpoint_args "NEXT_PUBLIC_FIREBASE_PROJECT_ID" "${NEXT_PUBLIC_FIREBASE_PROJECT_ID:-}"
+append_endpoint_args "NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET" "${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET:-}"
+append_endpoint_args "NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID" "${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID:-}"
+append_endpoint_args "NEXT_PUBLIC_FIREBASE_APP_ID" "${NEXT_PUBLIC_FIREBASE_APP_ID:-}"
+append_endpoint_args "NEXT_PUBLIC_CLOUDFLARE_JSD_MANUAL_ENABLED" "${NEXT_PUBLIC_CLOUDFLARE_JSD_MANUAL_ENABLED:-}"
+append_endpoint_args "ALGOLIA_INDEX" "${ALGOLIA_INDEX:-}"
+append_endpoint_args "NEXTAUTH_URL" "${NEXTAUTH_URL:-}"
+append_endpoint_args "ADMIN_EMAILS" "${ADMIN_EMAILS:-}"
+append_endpoint_args "STRIPE_SECRET_KEY" "${STRIPE_SECRET_KEY:-}"
+append_endpoint_args "STRIPE_PUBLISHABLE_KEY" "${STRIPE_PUBLISHABLE_KEY:-}"
+append_endpoint_args "STRIPE_WEBHOOK_SECRET" "${STRIPE_WEBHOOK_SECRET:-}"
+append_endpoint_args "STRIPE_PRO_PRICE_ID" "${STRIPE_PRO_PRICE_ID:-}"
+append_endpoint_args "STRIPE_API_ACCESS_PRICE_ID" "${STRIPE_API_ACCESS_PRICE_ID:-}"
+append_endpoint_args "INTERNAL_SERVICE_SECRET" "${INTERNAL_SERVICE_SECRET:-}"
 
 DEPLOY_LOG="$(mktemp)"
 (

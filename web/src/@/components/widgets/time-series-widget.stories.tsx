@@ -6,9 +6,8 @@
  * function exercising the widget's primary interaction.
  *
  * Data trace (verified against time-series-widget.tsx):
- * - getStockData(code, period) — app/actions/getStockData, one call per
- *   selected stock (Promise.all). Spy-mocked in preview.tsx (same
- *   browser-safe import profile as getStock).
+ * - fetchStockDataClient(code, period) — ~/@/lib/client-api, one call per
+ *   selected stock (Promise.all). Spy-mocked in preview.tsx.
  * - StockSelector (settings popover) calls searchStocksClient only when the
  *   user types a query; no story opens the selector, so no mock setup needed
  *   beyond the preview throwing default.
@@ -31,7 +30,7 @@ import {
   withGridCell,
 } from "~/@/mocks/widget-story-helpers";
 import { timeSeriesDataFixture } from "~/@/mocks/fixtures/short-data";
-import { getStockData } from "~/app/actions/getStockData";
+import { fetchStockDataClient } from "~/@/lib/client-api";
 
 const meta = {
   title: "Widgets/TimeSeries",
@@ -63,7 +62,7 @@ type Story = StoryObj<typeof meta>;
  */
 export const Default: Story = {
   beforeEach: () => {
-    mocked(getStockData).mockImplementation((code, period) =>
+    mocked(fetchStockDataClient).mockImplementation((code, period) =>
       Promise.resolve(timeSeriesDataFixture(code, period)),
     );
   },
@@ -112,7 +111,7 @@ export const Default: Story = {
  */
 export const Loading: Story = {
   beforeEach: () => {
-    mocked(getStockData).mockReturnValue(never());
+    mocked(fetchStockDataClient).mockReturnValue(never());
   },
   play: async ({ canvasElement }) => {
     await waitFor(() => {
@@ -126,7 +125,7 @@ export const Loading: Story = {
 };
 
 /**
- * KNOWN GAP: the widget has no dedicated error UI. A rejected getStockData
+ * KNOWN GAP: the widget has no dedicated error UI. A rejected fetchStockDataClient
  * is caught (console.error), loading ends with an empty data map, and the
  * widget renders the same "No Data Available" empty state a successful
  * fetch with zero points would produce — errors are indistinguishable from
@@ -138,7 +137,7 @@ export const Error: Story = {
   beforeEach: () => {
     // globalThis.Error: the exported story const shadows the Error
     // constructor inside this module.
-    mocked(getStockData).mockRejectedValue(
+    mocked(fetchStockDataClient).mockRejectedValue(
       new globalThis.Error("backend unavailable"),
     );
   },
@@ -194,7 +193,7 @@ export const Compact: Story = {
   },
   decorators: [withGridCell("small")],
   beforeEach: () => {
-    mocked(getStockData).mockImplementation((code, period) =>
+    mocked(fetchStockDataClient).mockImplementation((code, period) =>
       Promise.resolve(timeSeriesDataFixture(code, period)),
     );
   },
@@ -222,7 +221,7 @@ export const Mobile: Story = {
     }),
   },
   beforeEach: () => {
-    mocked(getStockData).mockImplementation((code, period) =>
+    mocked(fetchStockDataClient).mockImplementation((code, period) =>
       Promise.resolve(timeSeriesDataFixture(code, period)),
     );
   },

@@ -1399,6 +1399,10 @@ jobs:
           add_env_pair "NEXT_PUBLIC_MARKET_DATA_API_URL" "${MARKET_DATA_URL:-}"
           add_env_pair "MARKET_DATA_API_URL" "${MARKET_DATA_URL:-}"
 
+          npm --prefix web ci
+          npm --prefix web run firebase:preflight
+          npm --prefix web run stripe:preflight
+
           npx -p vercel@54.10.2 vercel build \
             --yes \
             --target production \

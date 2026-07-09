@@ -13,6 +13,10 @@ test("local web release script enforces build, preview deploy, smoke, and explic
   const script = read("scripts/release-web.sh");
 
   assert.match(script, /stage "build"/);
+  assert.match(script, /stage "firebase-client-preflight"/);
+  assert.match(script, /stage "stripe-price-preflight"/);
+  assert.match(script, /npm run firebase:preflight/);
+  assert.match(script, /npm run stripe:preflight/);
   assert.match(script, /stage "vercel-build"/);
   assert.match(script, /stage "deploy-preview"/);
   assert.match(script, /stage "smoke"/);
@@ -30,10 +34,14 @@ test("local web release script enforces build, preview deploy, smoke, and explic
   assert.match(script, /src\/app\/reports\/__tests__\/page-runtime\.test\.tsx/);
 
   const buildIndex = script.indexOf('stage "build"');
+  const firebasePreflightIndex = script.indexOf('stage "firebase-client-preflight"');
+  const stripePreflightIndex = script.indexOf('stage "stripe-price-preflight"');
   const vercelBuildIndex = script.indexOf('stage "vercel-build"');
   const previewIndex = script.indexOf('stage "deploy-preview"');
   const smokeIndex = script.indexOf('stage "smoke"');
   const promoteIndex = script.indexOf('stage "promote-prod"');
+  assert.ok(firebasePreflightIndex < buildIndex, "Firebase client preflight must run before build");
+  assert.ok(stripePreflightIndex < buildIndex, "Stripe price preflight must run before build");
   assert.ok(buildIndex < vercelBuildIndex, "local build must run before vercel build");
   assert.ok(vercelBuildIndex < previewIndex, "vercel build must run before preview deploy");
   assert.ok(previewIndex < smokeIndex, "preview deploy must run before smoke");
@@ -50,6 +58,11 @@ test("GitHub release workflow gates production promotion on preview smoke", () =
   assert.match(workflow, /needs:\s*\[deploy-preview, smoke-preview\]/);
   assert.match(workflow, /vercel deploy/);
   assert.match(workflow, /vercel build/);
+  assert.match(workflow, /STRIPE_PRO_PRICE_ID:\s*\$\{\{\s*secrets\.STRIPE_PRO_PRICE_ID\s*\}\}/);
+  assert.match(workflow, /NEXT_PUBLIC_FIREBASE_API_KEY:\s*\$\{\{\s*secrets\.NEXT_PUBLIC_FIREBASE_API_KEY_PROD\s*\}\}/);
+  assert.match(workflow, /npm --prefix web run firebase:preflight/);
+  assert.match(workflow, /npm --prefix web run stripe:preflight/);
+  assert.match(workflow, /add_env_pair "NEXT_PUBLIC_FIREBASE_API_KEY" "\$\{NEXT_PUBLIC_FIREBASE_API_KEY:-\}"/);
   assert.match(workflow, /--prebuilt/);
   assert.match(workflow, /--target\s+production/);
   assert.match(workflow, /--force/);
@@ -96,6 +109,8 @@ test("legacy terraform production web deploy also smokes a preview before promot
   assert.match(prodJob, /Deploy to Vercel \(Release Candidate Preview\)/);
   assert.doesNotMatch(prodJob, /Deploy to Vercel \(Production\)[\s\S]*--prod/);
   assert.match(prodJob, /vercel build/);
+  assert.match(prodJob, /npm --prefix web run firebase:preflight/);
+  assert.match(prodJob, /npm --prefix web run stripe:preflight/);
   assert.match(prodJob, /--prebuilt/);
   assert.match(prodJob, /--target\s+production/);
   assert.match(prodJob, /--force/);
@@ -108,6 +123,8 @@ test("legacy terraform production web deploy also smokes a preview before promot
   assert.match(prodJob, /vercel promote/);
   assert.match(workflow, /check_secret "GEMINI_API_KEY"/);
   assert.match(workflow, /check_optional_secret "STRIPE_API_ACCESS_PRICE_ID"/);
+  assert.match(workflow, /STRIPE_PRO_PRICE_ID:\s*\$\{\{\s*secrets\.STRIPE_PRO_PRICE_ID\s*\}\}/);
+  assert.match(workflow, /NEXT_PUBLIC_FIREBASE_API_KEY:\s*\$\{\{\s*secrets\.NEXT_PUBLIC_FIREBASE_API_KEY_PROD\s*\}\}/);
   assert.doesNotMatch(workflow, /check_secret "STRIPE_API_ACCESS_PRICE_ID"/);
   assert.match(workflow, /GEMINI_API_KEY:\s*\$\{\{\s*secrets\.GEMINI_API_KEY\s*\}\}/);
   assert.match(workflow, /ensure_secret "GEMINI_API_KEY_CHAT" "\$GEMINI_API_KEY"/);
@@ -133,6 +150,7 @@ test("legacy terraform production web deploy also smokes a preview before promot
 test("release smoke covers prior regression surfaces and Cloudflare API checks", () => {
   const spec = read("web/e2e/release-smoke.spec.ts");
   const helper = read("web/e2e/helpers/cloudflare-testing-bypass.ts");
+  const firebaseAuthHelper = read("web/e2e/helpers/firebase-google-auth-bootstrap.mjs");
 
   for (const path of [
     "/shorts/LOT",
@@ -153,6 +171,10 @@ test("release smoke covers prior regression surfaces and Cloudflare API checks",
   const ciRunner = read("web/e2e/release-smoke-ci.mjs");
   assert.match(ciRunner, /release smoke passed/);
   assert.match(ciRunner, /GetCompanyTaxProfile/);
+  assert.match(ciRunner, /checkFirebaseGoogleAuthBootstrap/);
+  assert.match(ciRunner, /check Firebase Google auth bootstrap/);
+  assert.match(spec, /checkFirebaseGoogleAuthBootstrap/);
+  assert.match(spec, /Firebase Google sign-in bootstrap creates an auth URI with valid API key/);
   assert.match(ciRunner, /cdn-cgi\/rum/);
   assert.match(spec, /GetCompanyTaxProfile/);
   assert.match(spec, /isIgnorableAppApiFailure/);
@@ -167,6 +189,13 @@ test("release smoke covers prior regression surfaces and Cloudflare API checks",
 
   assert.match(helper, /X-Shorted-Testing-Bypass/);
   assert.match(helper, /Shorted-E2E\/1\.0/);
+  assert.match(firebaseAuthHelper, /identityToolkitOk/);
+  assert.match(firebaseAuthHelper, /authUriCreated/);
+  assert.match(firebaseAuthHelper, /authUriProbeOk/);
+  assert.match(firebaseAuthHelper, /accounts:createAuthUri/);
+  assert.match(firebaseAuthHelper, /escapedNewlineKey/);
+  assert.match(firebaseAuthHelper, /apiKeyInvalid/);
+  assert.match(firebaseAuthHelper, /googleOAuthSeen/);
 });
 
 test("Playwright config applies Cloudflare trusted-test headers across browser projects", () => {
@@ -187,4 +216,22 @@ test("Playwright config applies Cloudflare trusted-test headers across browser p
   assert.match(helper, /TF_VAR_rate_limit_testing_bypass_secret/);
   assert.match(helper, /X-Shorted-Testing-Bypass/);
   assert.match(helper, /Shorted-E2E\/1\.0/);
+});
+
+test("release docs document Firebase auth validation gates", () => {
+  const releaseDocs = read("docs/RELEASE_PROCESS.md");
+  const productionDocs = read("docs/PRODUCTION_DEPLOYMENT.md");
+  const firebaseDocs = read("docs/FIREBASE_AUTH_VALIDATION.md");
+  const claude = read("CLAUDE.md");
+
+  for (const doc of [releaseDocs, productionDocs, firebaseDocs, claude]) {
+    assert.match(doc, /firebase:preflight/);
+    assert.match(doc, /Firebase Google sign-in bootstrap/);
+    assert.match(doc, /API_KEY_INVALID/);
+    assert.match(doc, /escaped newline/i);
+  }
+
+  assert.match(firebaseDocs, /identitytoolkit\.googleapis\.com/);
+  assert.match(firebaseDocs, /x-shorted-testing-bypass/);
+  assert.match(firebaseDocs, /NEXT_PUBLIC_FIREBASE_API_KEY_PROD/);
 });

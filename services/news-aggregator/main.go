@@ -19,6 +19,8 @@ import (
 )
 
 func main() {
+	log.SetOutput(os.Stdout)
+
 	portFlag := flag.String("port", "8080", "HTTP port for Cloud Run health checks")
 	limitFlag := flag.Int("limit", 100, "Max articles per source per run")
 	dryRun := flag.Bool("dry-run", false, "Fetch and parse but don't store")
@@ -263,7 +265,9 @@ func main() {
 	// For Cloud Run Jobs: process and exit
 	// For Cloud Run Services: serve health check and process on schedule
 	if os.Getenv("CLOUD_RUN_JOB") != "" {
-		runAggregation(ctx, fetcher, matcher, store, *limitFlag, *dryRun, *verbose)
+		if err := runAggregation(ctx, fetcher, matcher, store, *limitFlag, *dryRun, *verbose); err != nil {
+			log.Fatalf("Aggregation failed: %v", err)
+		}
 		return
 	}
 
@@ -278,7 +282,11 @@ func main() {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		go runAggregation(ctx, fetcher, matcher, store, *limitFlag, *dryRun, *verbose)
+		go func() {
+			if err := runAggregation(ctx, fetcher, matcher, store, *limitFlag, *dryRun, *verbose); err != nil {
+				log.Printf("WARN: aggregation failed: %v", err)
+			}
+		}()
 		w.WriteHeader(http.StatusAccepted)
 		_, _ = fmt.Fprintf(w, "aggregation started")
 	})
@@ -290,38 +298,36 @@ func main() {
 	}
 }
 
-func runAggregation(ctx context.Context, fetcher *RSSFetcher, matcher *StockMatcher, store *NewsStore, limit int, dryRun, verbose bool) {
-	startTime := time.Now()
-	syncAttrs := otelmetric.WithAttributes(attribute.String("sync_job", "news-aggregator"))
-	log.Println("Starting news aggregation run...")
+type sourceFetcher interface {
+	Fetch(context.Context, NewsSource, int) ([]*NewsArticleRaw, error)
+}
 
-	// Record this run in job_runs (skip dry-runs / local previews). Panic-safe:
-	// a crash still lands a 'failed' row before propagating.
-	var run *jobstatus.Run
-	if !dryRun {
-		run = jobstatus.Start(store.db, "news-aggregator", "")
-		defer func() {
-			if rec := recover(); rec != nil {
-				run.Fail(fmt.Errorf("panic: %v", rec))
-				panic(rec)
-			}
-		}()
-	}
+type articleStore interface {
+	StoreArticles(context.Context, []*NewsArticleRaw) (int, error)
+}
 
-	sources := GetDefaultSources()
-	totalFetched := 0
-	totalStored := 0
+type aggregationStats struct {
+	fetched        int
+	stored         int
+	sourceFailures int
+	storeFailures  int
+	sources        int
+}
+
+func aggregateSources(ctx context.Context, fetcher sourceFetcher, matcher *StockMatcher, store articleStore, sources []NewsSource, limit int, dryRun, verbose bool) (aggregationStats, error) {
+	stats := aggregationStats{sources: len(sources)}
 
 	for _, source := range sources {
 		log.Printf("Fetching from %s (%s)...", source.Name, source.URL)
 
 		articles, err := fetcher.Fetch(ctx, source, limit)
 		if err != nil {
-			log.Printf("  ERROR fetching %s: %v", source.Name, err)
+			stats.sourceFailures++
+			log.Printf("  WARN: fetching %s failed: %v", source.Name, err)
 			continue
 		}
 
-		totalFetched += len(articles)
+		stats.fetched += len(articles)
 		log.Printf("  Fetched %d articles from %s", len(articles), source.Name)
 
 		// Match articles to stock codes
@@ -343,13 +349,52 @@ func runAggregation(ctx context.Context, fetcher *RSSFetcher, matcher *StockMatc
 
 		stored, err := store.StoreArticles(ctx, articles)
 		if err != nil {
-			log.Printf("  ERROR storing articles from %s: %v", source.Name, err)
+			stats.storeFailures++
+			log.Printf("  WARN: storing articles from %s failed: %v", source.Name, err)
 			continue
 		}
-		totalStored += stored
+		stats.stored += stored
 		if verbose {
 			log.Printf("  Stored %d new articles from %s", stored, source.Name)
 		}
+	}
+
+	if stats.sources > 0 && stats.fetched == 0 && stats.sourceFailures == stats.sources {
+		return stats, fmt.Errorf("all %d news sources failed; fetched 0 articles", stats.sources)
+	}
+
+	return stats, nil
+}
+
+func runAggregation(ctx context.Context, fetcher *RSSFetcher, matcher *StockMatcher, store *NewsStore, limit int, dryRun, verbose bool) error {
+	startTime := time.Now()
+	syncAttrs := otelmetric.WithAttributes(attribute.String("sync_job", "news-aggregator"))
+	log.Println("Starting news aggregation run...")
+
+	// Record this run in job_runs (skip dry-runs / local previews). Panic-safe:
+	// a crash still lands a 'failed' row before propagating.
+	var run *jobstatus.Run
+	if !dryRun {
+		run = jobstatus.Start(store.db, "news-aggregator", "")
+		defer func() {
+			if rec := recover(); rec != nil {
+				run.Fail(fmt.Errorf("panic: %v", rec))
+				panic(rec)
+			}
+		}()
+	}
+
+	sources := GetDefaultSources()
+	stats, err := aggregateSources(ctx, fetcher, matcher, store, sources, limit, dryRun, verbose)
+	if err != nil {
+		if run != nil {
+			run.Fail(err)
+		}
+		shortedotel.SyncStatus.Add(ctx, 1, otelmetric.WithAttributes(
+			attribute.String("sync_job", "news-aggregator"),
+			attribute.String("status", "failed"),
+		))
+		return err
 	}
 
 	// Clean up old articles
@@ -387,21 +432,22 @@ func runAggregation(ctx context.Context, fetcher *RSSFetcher, matcher *StockMatc
 
 	duration := time.Since(startTime)
 	log.Printf("Aggregation complete! Fetched: %d, Stored: %d, Duration: %s",
-		totalFetched, totalStored, duration.Round(time.Millisecond))
+		stats.fetched, stats.stored, duration.Round(time.Millisecond))
 
 	if run != nil {
-		run.CompleteWith(totalStored, 0, map[string]any{
-			"fetched": totalFetched,
+		run.CompleteWith(stats.stored, 0, map[string]any{
+			"fetched": stats.fetched,
 			"sources": len(sources),
 		})
 	}
 
 	// Record sync metrics
 	shortedotel.SyncDuration.Record(ctx, duration.Seconds(), syncAttrs)
-	shortedotel.SyncRecordsProcessed.Add(ctx, int64(totalStored), syncAttrs)
+	shortedotel.SyncRecordsProcessed.Add(ctx, int64(stats.stored), syncAttrs)
 	shortedotel.SyncStatus.Add(ctx, 1, otelmetric.WithAttributes(
 		attribute.String("sync_job", "news-aggregator"),
 		attribute.String("status", "success"),
 	))
 	shortedotel.SyncLastSuccess.Record(ctx, time.Now().Unix(), syncAttrs)
+	return nil
 }

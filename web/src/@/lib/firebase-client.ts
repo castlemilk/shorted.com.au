@@ -1,14 +1,25 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
+import { normalizeFirebasePublicConfigValue } from "./firebase-public-config";
 
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.trim(),
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN?.trim(),
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim(),
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim(),
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID?.trim(),
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID?.trim(),
+  apiKey: normalizeFirebasePublicConfigValue(
+    process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  ),
+  authDomain: normalizeFirebasePublicConfigValue(
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  ),
+  projectId: normalizeFirebasePublicConfigValue(
+    process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  ),
+  storageBucket: normalizeFirebasePublicConfigValue(
+    process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  ),
+  messagingSenderId: normalizeFirebasePublicConfigValue(
+    process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  ),
+  appId: normalizeFirebasePublicConfigValue(process.env.NEXT_PUBLIC_FIREBASE_APP_ID),
 };
 
 let app: FirebaseApp | undefined;
