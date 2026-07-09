@@ -13,7 +13,7 @@ public interface GetHousingOverviewResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.HousingMetric metrics = 1 [json_name = "metrics"];</code>
    */
-  java.util.List<com.shorts.v1alpha1.HousingMetric>
+  java.util.List<com.shorts.v1alpha1.HousingMetric> 
       getMetricsList();
   /**
    * <code>repeated .shorts.v1alpha1.HousingMetric metrics = 1 [json_name = "metrics"];</code>
@@ -26,7 +26,7 @@ public interface GetHousingOverviewResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.HousingMetric metrics = 1 [json_name = "metrics"];</code>
    */
-  java.util.List<? extends com.shorts.v1alpha1.HousingMetricOrBuilder>
+  java.util.List<? extends com.shorts.v1alpha1.HousingMetricOrBuilder> 
       getMetricsOrBuilderList();
   /**
    * <code>repeated .shorts.v1alpha1.HousingMetric metrics = 1 [json_name = "metrics"];</code>

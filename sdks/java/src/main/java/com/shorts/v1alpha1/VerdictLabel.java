@@ -177,7 +177,7 @@ public enum VerdictLabel
   }
   public static com.google.protobuf.Descriptors.EnumDescriptor
       getDescriptor() {
-    return com.shorts.v1alpha1.ShortsProto.getDescriptor().getEnumType(10);
+    return com.shorts.v1alpha1.ShortsProto.getDescriptor().getEnumType(14);
   }
 
   private static final VerdictLabel[] VALUES = values();
@@ -202,3 +202,4 @@ public enum VerdictLabel
 
   // @@protoc_insertion_point(enum_scope:shorts.v1alpha1.VerdictLabel)
 }
+

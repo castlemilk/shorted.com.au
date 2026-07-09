@@ -63,7 +63,7 @@ private static final long serialVersionUID = 0L;
    * <code>repeated .shorts.v1alpha1.SuburbSummary suburbs = 1 [json_name = "suburbs"];</code>
    */
   @java.lang.Override
-  public java.util.List<? extends com.shorts.v1alpha1.SuburbSummaryOrBuilder>
+  public java.util.List<? extends com.shorts.v1alpha1.SuburbSummaryOrBuilder> 
       getSuburbsOrBuilderList() {
     return suburbs_;
   }
@@ -377,7 +377,7 @@ private static final long serialVersionUID = 0L;
             suburbsBuilder_ = null;
             suburbs_ = other.suburbs_;
             bitField0_ = (bitField0_ & ~0x00000001);
-            suburbsBuilder_ =
+            suburbsBuilder_ = 
               com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
                  internalGetSuburbsFieldBuilder() : null;
           } else {
@@ -636,7 +636,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.SuburbSummary suburbs = 1 [json_name = "suburbs"];</code>
      */
-    public java.util.List<? extends com.shorts.v1alpha1.SuburbSummaryOrBuilder>
+    public java.util.List<? extends com.shorts.v1alpha1.SuburbSummaryOrBuilder> 
          getSuburbsOrBuilderList() {
       if (suburbsBuilder_ != null) {
         return suburbsBuilder_.getMessageOrBuilderList();
@@ -662,12 +662,12 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.SuburbSummary suburbs = 1 [json_name = "suburbs"];</code>
      */
-    public java.util.List<com.shorts.v1alpha1.SuburbSummary.Builder>
+    public java.util.List<com.shorts.v1alpha1.SuburbSummary.Builder> 
          getSuburbsBuilderList() {
       return internalGetSuburbsFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilder<
-        com.shorts.v1alpha1.SuburbSummary, com.shorts.v1alpha1.SuburbSummary.Builder, com.shorts.v1alpha1.SuburbSummaryOrBuilder>
+        com.shorts.v1alpha1.SuburbSummary, com.shorts.v1alpha1.SuburbSummary.Builder, com.shorts.v1alpha1.SuburbSummaryOrBuilder> 
         internalGetSuburbsFieldBuilder() {
       if (suburbsBuilder_ == null) {
         suburbsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
@@ -731,3 +731,4 @@ private static final long serialVersionUID = 0L;
   }
 
 }
+

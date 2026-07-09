@@ -68,7 +68,7 @@ private static final long serialVersionUID = 0L;
    * <code>repeated .shorts.v1alpha1.GraphPerson people = 1 [json_name = "people"];</code>
    */
   @java.lang.Override
-  public java.util.List<? extends com.shorts.v1alpha1.GraphPersonOrBuilder>
+  public java.util.List<? extends com.shorts.v1alpha1.GraphPersonOrBuilder> 
       getPeopleOrBuilderList() {
     return people_;
   }
@@ -109,7 +109,7 @@ private static final long serialVersionUID = 0L;
    * <code>repeated .shorts.v1alpha1.GraphPeer similar_companies = 2 [json_name = "similarCompanies"];</code>
    */
   @java.lang.Override
-  public java.util.List<? extends com.shorts.v1alpha1.GraphPeerOrBuilder>
+  public java.util.List<? extends com.shorts.v1alpha1.GraphPeerOrBuilder> 
       getSimilarCompaniesOrBuilderList() {
     return similarCompanies_;
   }
@@ -461,7 +461,7 @@ private static final long serialVersionUID = 0L;
             peopleBuilder_ = null;
             people_ = other.people_;
             bitField0_ = (bitField0_ & ~0x00000001);
-            peopleBuilder_ =
+            peopleBuilder_ = 
               com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
                  internalGetPeopleFieldBuilder() : null;
           } else {
@@ -487,7 +487,7 @@ private static final long serialVersionUID = 0L;
             similarCompaniesBuilder_ = null;
             similarCompanies_ = other.similarCompanies_;
             bitField0_ = (bitField0_ & ~0x00000002);
-            similarCompaniesBuilder_ =
+            similarCompaniesBuilder_ = 
               com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
                  internalGetSimilarCompaniesFieldBuilder() : null;
           } else {
@@ -759,7 +759,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.GraphPerson people = 1 [json_name = "people"];</code>
      */
-    public java.util.List<? extends com.shorts.v1alpha1.GraphPersonOrBuilder>
+    public java.util.List<? extends com.shorts.v1alpha1.GraphPersonOrBuilder> 
          getPeopleOrBuilderList() {
       if (peopleBuilder_ != null) {
         return peopleBuilder_.getMessageOrBuilderList();
@@ -785,12 +785,12 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.GraphPerson people = 1 [json_name = "people"];</code>
      */
-    public java.util.List<com.shorts.v1alpha1.GraphPerson.Builder>
+    public java.util.List<com.shorts.v1alpha1.GraphPerson.Builder> 
          getPeopleBuilderList() {
       return internalGetPeopleFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilder<
-        com.shorts.v1alpha1.GraphPerson, com.shorts.v1alpha1.GraphPerson.Builder, com.shorts.v1alpha1.GraphPersonOrBuilder>
+        com.shorts.v1alpha1.GraphPerson, com.shorts.v1alpha1.GraphPerson.Builder, com.shorts.v1alpha1.GraphPersonOrBuilder> 
         internalGetPeopleFieldBuilder() {
       if (peopleBuilder_ == null) {
         peopleBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
@@ -999,7 +999,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.GraphPeer similar_companies = 2 [json_name = "similarCompanies"];</code>
      */
-    public java.util.List<? extends com.shorts.v1alpha1.GraphPeerOrBuilder>
+    public java.util.List<? extends com.shorts.v1alpha1.GraphPeerOrBuilder> 
          getSimilarCompaniesOrBuilderList() {
       if (similarCompaniesBuilder_ != null) {
         return similarCompaniesBuilder_.getMessageOrBuilderList();
@@ -1025,12 +1025,12 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.GraphPeer similar_companies = 2 [json_name = "similarCompanies"];</code>
      */
-    public java.util.List<com.shorts.v1alpha1.GraphPeer.Builder>
+    public java.util.List<com.shorts.v1alpha1.GraphPeer.Builder> 
          getSimilarCompaniesBuilderList() {
       return internalGetSimilarCompaniesFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilder<
-        com.shorts.v1alpha1.GraphPeer, com.shorts.v1alpha1.GraphPeer.Builder, com.shorts.v1alpha1.GraphPeerOrBuilder>
+        com.shorts.v1alpha1.GraphPeer, com.shorts.v1alpha1.GraphPeer.Builder, com.shorts.v1alpha1.GraphPeerOrBuilder> 
         internalGetSimilarCompaniesFieldBuilder() {
       if (similarCompaniesBuilder_ == null) {
         similarCompaniesBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
@@ -1094,3 +1094,4 @@ private static final long serialVersionUID = 0L;
   }
 
 }
+

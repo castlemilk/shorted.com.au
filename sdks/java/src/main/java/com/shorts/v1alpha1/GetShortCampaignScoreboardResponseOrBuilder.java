@@ -13,7 +13,7 @@ public interface GetShortCampaignScoreboardResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.ShortCampaign campaigns = 1 [json_name = "campaigns"];</code>
    */
-  java.util.List<com.shorts.v1alpha1.ShortCampaign>
+  java.util.List<com.shorts.v1alpha1.ShortCampaign> 
       getCampaignsList();
   /**
    * <code>repeated .shorts.v1alpha1.ShortCampaign campaigns = 1 [json_name = "campaigns"];</code>
@@ -26,7 +26,7 @@ public interface GetShortCampaignScoreboardResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.ShortCampaign campaigns = 1 [json_name = "campaigns"];</code>
    */
-  java.util.List<? extends com.shorts.v1alpha1.ShortCampaignOrBuilder>
+  java.util.List<? extends com.shorts.v1alpha1.ShortCampaignOrBuilder> 
       getCampaignsOrBuilderList();
   /**
    * <code>repeated .shorts.v1alpha1.ShortCampaign campaigns = 1 [json_name = "campaigns"];</code>

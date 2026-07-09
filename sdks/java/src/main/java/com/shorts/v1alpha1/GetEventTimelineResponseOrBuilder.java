@@ -13,7 +13,7 @@ public interface GetEventTimelineResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.TimelineEvent events = 1 [json_name = "events"];</code>
    */
-  java.util.List<com.shorts.v1alpha1.TimelineEvent>
+  java.util.List<com.shorts.v1alpha1.TimelineEvent> 
       getEventsList();
   /**
    * <code>repeated .shorts.v1alpha1.TimelineEvent events = 1 [json_name = "events"];</code>
@@ -26,7 +26,7 @@ public interface GetEventTimelineResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.TimelineEvent events = 1 [json_name = "events"];</code>
    */
-  java.util.List<? extends com.shorts.v1alpha1.TimelineEventOrBuilder>
+  java.util.List<? extends com.shorts.v1alpha1.TimelineEventOrBuilder> 
       getEventsOrBuilderList();
   /**
    * <code>repeated .shorts.v1alpha1.TimelineEvent events = 1 [json_name = "events"];</code>

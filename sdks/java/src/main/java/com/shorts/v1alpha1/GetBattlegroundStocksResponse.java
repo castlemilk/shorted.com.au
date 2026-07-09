@@ -67,7 +67,7 @@ private static final long serialVersionUID = 0L;
    * <code>repeated .shorts.v1alpha1.BattlegroundStock stocks = 1 [json_name = "stocks"];</code>
    */
   @java.lang.Override
-  public java.util.List<? extends com.shorts.v1alpha1.BattlegroundStockOrBuilder>
+  public java.util.List<? extends com.shorts.v1alpha1.BattlegroundStockOrBuilder> 
       getStocksOrBuilderList() {
     return stocks_;
   }
@@ -411,7 +411,7 @@ private static final long serialVersionUID = 0L;
             stocksBuilder_ = null;
             stocks_ = other.stocks_;
             bitField0_ = (bitField0_ & ~0x00000001);
-            stocksBuilder_ =
+            stocksBuilder_ = 
               com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
                  internalGetStocksFieldBuilder() : null;
           } else {
@@ -678,7 +678,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.BattlegroundStock stocks = 1 [json_name = "stocks"];</code>
      */
-    public java.util.List<? extends com.shorts.v1alpha1.BattlegroundStockOrBuilder>
+    public java.util.List<? extends com.shorts.v1alpha1.BattlegroundStockOrBuilder> 
          getStocksOrBuilderList() {
       if (stocksBuilder_ != null) {
         return stocksBuilder_.getMessageOrBuilderList();
@@ -704,12 +704,12 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.BattlegroundStock stocks = 1 [json_name = "stocks"];</code>
      */
-    public java.util.List<com.shorts.v1alpha1.BattlegroundStock.Builder>
+    public java.util.List<com.shorts.v1alpha1.BattlegroundStock.Builder> 
          getStocksBuilderList() {
       return internalGetStocksFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilder<
-        com.shorts.v1alpha1.BattlegroundStock, com.shorts.v1alpha1.BattlegroundStock.Builder, com.shorts.v1alpha1.BattlegroundStockOrBuilder>
+        com.shorts.v1alpha1.BattlegroundStock, com.shorts.v1alpha1.BattlegroundStock.Builder, com.shorts.v1alpha1.BattlegroundStockOrBuilder> 
         internalGetStocksFieldBuilder() {
       if (stocksBuilder_ == null) {
         stocksBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
@@ -805,3 +805,4 @@ private static final long serialVersionUID = 0L;
   }
 
 }
+

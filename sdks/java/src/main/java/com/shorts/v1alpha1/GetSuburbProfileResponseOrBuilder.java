@@ -89,7 +89,7 @@ public interface GetSuburbProfileResponseOrBuilder extends
    *
    * <code>repeated .shorts.v1alpha1.SimilarSuburb similar = 5 [json_name = "similar"];</code>
    */
-  java.util.List<com.shorts.v1alpha1.SimilarSuburb>
+  java.util.List<com.shorts.v1alpha1.SimilarSuburb> 
       getSimilarList();
   /**
    * <pre>
@@ -114,7 +114,7 @@ public interface GetSuburbProfileResponseOrBuilder extends
    *
    * <code>repeated .shorts.v1alpha1.SimilarSuburb similar = 5 [json_name = "similar"];</code>
    */
-  java.util.List<? extends com.shorts.v1alpha1.SimilarSuburbOrBuilder>
+  java.util.List<? extends com.shorts.v1alpha1.SimilarSuburbOrBuilder> 
       getSimilarOrBuilderList();
   /**
    * <pre>

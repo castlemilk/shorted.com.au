@@ -97,7 +97,7 @@ public interface GetHousePriceSeriesResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.HousePricePoint points = 8 [json_name = "points"];</code>
    */
-  java.util.List<com.shorts.v1alpha1.HousePricePoint>
+  java.util.List<com.shorts.v1alpha1.HousePricePoint> 
       getPointsList();
   /**
    * <code>repeated .shorts.v1alpha1.HousePricePoint points = 8 [json_name = "points"];</code>
@@ -110,7 +110,7 @@ public interface GetHousePriceSeriesResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.HousePricePoint points = 8 [json_name = "points"];</code>
    */
-  java.util.List<? extends com.shorts.v1alpha1.HousePricePointOrBuilder>
+  java.util.List<? extends com.shorts.v1alpha1.HousePricePointOrBuilder> 
       getPointsOrBuilderList();
   /**
    * <code>repeated .shorts.v1alpha1.HousePricePoint points = 8 [json_name = "points"];</code>

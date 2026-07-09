@@ -13,7 +13,7 @@ public interface ListHousingRegionsResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.HousingRegion regions = 1 [json_name = "regions"];</code>
    */
-  java.util.List<com.shorts.v1alpha1.HousingRegion>
+  java.util.List<com.shorts.v1alpha1.HousingRegion> 
       getRegionsList();
   /**
    * <code>repeated .shorts.v1alpha1.HousingRegion regions = 1 [json_name = "regions"];</code>
@@ -26,7 +26,7 @@ public interface ListHousingRegionsResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.HousingRegion regions = 1 [json_name = "regions"];</code>
    */
-  java.util.List<? extends com.shorts.v1alpha1.HousingRegionOrBuilder>
+  java.util.List<? extends com.shorts.v1alpha1.HousingRegionOrBuilder> 
       getRegionsOrBuilderList();
   /**
    * <code>repeated .shorts.v1alpha1.HousingRegion regions = 1 [json_name = "regions"];</code>

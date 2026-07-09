@@ -13,7 +13,7 @@ public interface GetStockSignalsResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.StockSignal adverse = 1 [json_name = "adverse"];</code>
    */
-  java.util.List<com.shorts.v1alpha1.StockSignal>
+  java.util.List<com.shorts.v1alpha1.StockSignal> 
       getAdverseList();
   /**
    * <code>repeated .shorts.v1alpha1.StockSignal adverse = 1 [json_name = "adverse"];</code>
@@ -26,7 +26,7 @@ public interface GetStockSignalsResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.StockSignal adverse = 1 [json_name = "adverse"];</code>
    */
-  java.util.List<? extends com.shorts.v1alpha1.StockSignalOrBuilder>
+  java.util.List<? extends com.shorts.v1alpha1.StockSignalOrBuilder> 
       getAdverseOrBuilderList();
   /**
    * <code>repeated .shorts.v1alpha1.StockSignal adverse = 1 [json_name = "adverse"];</code>
@@ -37,7 +37,7 @@ public interface GetStockSignalsResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.StockSignal positive = 2 [json_name = "positive"];</code>
    */
-  java.util.List<com.shorts.v1alpha1.StockSignal>
+  java.util.List<com.shorts.v1alpha1.StockSignal> 
       getPositiveList();
   /**
    * <code>repeated .shorts.v1alpha1.StockSignal positive = 2 [json_name = "positive"];</code>
@@ -50,7 +50,7 @@ public interface GetStockSignalsResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.StockSignal positive = 2 [json_name = "positive"];</code>
    */
-  java.util.List<? extends com.shorts.v1alpha1.StockSignalOrBuilder>
+  java.util.List<? extends com.shorts.v1alpha1.StockSignalOrBuilder> 
       getPositiveOrBuilderList();
   /**
    * <code>repeated .shorts.v1alpha1.StockSignal positive = 2 [json_name = "positive"];</code>

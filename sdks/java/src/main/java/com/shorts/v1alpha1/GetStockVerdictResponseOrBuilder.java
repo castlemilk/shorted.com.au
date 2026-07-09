@@ -46,7 +46,7 @@ public interface GetStockVerdictResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.VerdictComponent components = 4 [json_name = "components"];</code>
    */
-  java.util.List<com.shorts.v1alpha1.VerdictComponent>
+  java.util.List<com.shorts.v1alpha1.VerdictComponent> 
       getComponentsList();
   /**
    * <code>repeated .shorts.v1alpha1.VerdictComponent components = 4 [json_name = "components"];</code>
@@ -59,7 +59,7 @@ public interface GetStockVerdictResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.VerdictComponent components = 4 [json_name = "components"];</code>
    */
-  java.util.List<? extends com.shorts.v1alpha1.VerdictComponentOrBuilder>
+  java.util.List<? extends com.shorts.v1alpha1.VerdictComponentOrBuilder> 
       getComponentsOrBuilderList();
   /**
    * <code>repeated .shorts.v1alpha1.VerdictComponent components = 4 [json_name = "components"];</code>
