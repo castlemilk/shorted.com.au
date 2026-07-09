@@ -168,7 +168,9 @@ function ChartInner({
             scale={xScale}
             stroke={AXIS_LINE}
             hideTicks
-            numTicks={small ? 4 : data.length}
+            numTicks={
+              small ? 4 : Math.min(data.length, Math.floor(innerWidth / 72))
+            }
             tickLabelProps={() => ({
               fill: AXIS_TEXT,
               fontSize: 9.5,

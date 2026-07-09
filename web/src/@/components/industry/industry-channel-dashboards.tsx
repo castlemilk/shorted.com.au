@@ -167,12 +167,17 @@ function ChannelCard({ channel }: { channel: EvidenceChannel }) {
     series.find((s) => s.metricKey === metricKey) ?? series[0] ?? null;
   const noTax = noTaxPayableCount(channel);
 
-  const chartData: FyBucketDatum[] = (active?.buckets ?? []).map((bucket) => ({
-    label: bucket.bucketLabel,
-    value: bucket.totalValue,
-    recordCount: bucket.recordCount,
-    entityCount: bucket.entityCount,
-  }));
+  // Cap the chart to the most recent financial years so long registers (AEC
+  // reaches back to 1998-99) keep readable tick labels; the all-time tile
+  // still covers the full history.
+  const chartData: FyBucketDatum[] = (active?.buckets ?? [])
+    .slice(-16)
+    .map((bucket) => ({
+      label: bucket.bucketLabel,
+      value: bucket.totalValue,
+      recordCount: bucket.recordCount,
+      entityCount: bucket.entityCount,
+    }));
   const latest = active?.buckets.at(-1) ?? null;
   const allTimeTotal = (active?.buckets ?? []).reduce(
     (sum, bucket) => sum + bucket.totalValue,
@@ -226,10 +231,19 @@ function ChannelCard({ channel }: { channel: EvidenceChannel }) {
                 : "—"
             }
           />
-          <ChannelStat
-            label="Entities"
-            value={latest ? String(latest.entityCount) : "—"}
-          />
+          {latest && latest.entityCount === 0 ? (
+            // Industry-level channels (e.g. ABS trade) carry no entity claims.
+            <ChannelStat
+              label="Records"
+              value={String(latest.recordCount)}
+              detail="industry-level"
+            />
+          ) : (
+            <ChannelStat
+              label="Entities"
+              value={latest ? String(latest.entityCount) : "—"}
+            />
+          )}
           {noTax !== null ? (
             <ChannelStat
               label="No tax payable"
