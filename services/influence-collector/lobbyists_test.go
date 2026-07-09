@@ -79,7 +79,9 @@ func TestParseLobbyistClientRowsRejectsMissingColumns(t *testing.T) {
 func TestParseLobbyistRegisterXLSXFindsClientsSheet(t *testing.T) {
 	f := excelize.NewFile()
 	defer func() { _ = f.Close() }()
-	f.SetSheetName("Sheet1", "Dashboard")
+	if err := f.SetSheetName("Sheet1", "Dashboard"); err != nil {
+		t.Fatal(err)
+	}
 	if err := f.SetSheetRow("Dashboard", "A1", &[]any{"Information is current as at 09/07/2026"}); err != nil {
 		t.Fatal(err)
 	}
