@@ -33,11 +33,13 @@ const SNAPSHOT_TTL_SECONDS = 60 * 60; // evidence updates at most daily
 type GetIndustryIntelligenceAction = (
   industry: string,
   recordLimit?: number,
+  stockCode?: string,
 ) => Promise<GetIndustryIntelligenceResponse>;
 
 const fetchIndustryIntelligence: GetIndustryIntelligenceAction = async (
   industry,
   recordLimit = 50,
+  stockCode = "",
 ) => {
   const transport = createConnectTransport({
     fetch: serverFetchWithUserAgent,
@@ -47,6 +49,7 @@ const fetchIndustryIntelligence: GetIndustryIntelligenceAction = async (
   return await client.getIndustryIntelligence({
     industry,
     recordLimit,
+    stockCode,
   });
 };
 
@@ -114,14 +117,16 @@ export const getIndustryIntelligenceSnapshot = cache(
   async (
     industry: string,
     recordLimit = 50,
+    stockCode = "",
   ): Promise<IndustryIntelligenceSnapshot | null> => {
     try {
       return await getOrSetCached(
-        CACHE_KEYS.industryIntelligence(industry, recordLimit),
+        CACHE_KEYS.industryIntelligence(industry, recordLimit, stockCode),
         async () => {
           const response = await getIndustryIntelligence(
             industry,
             recordLimit,
+            stockCode,
           );
           if (!response) {
             throw new Error("industry intelligence unavailable");

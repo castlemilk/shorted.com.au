@@ -8897,6 +8897,7 @@ type GetIndustryIntelligenceRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Industry      string                 `protobuf:"bytes,1,opt,name=industry,proto3" json:"industry,omitempty"`                           // optional exact industry filter
 	RecordLimit   int32                  `protobuf:"varint,2,opt,name=record_limit,json=recordLimit,proto3" json:"record_limit,omitempty"` // default 50, maximum 200
+	StockCode     string                 `protobuf:"bytes,3,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`        // optional exact stock filter (per-stock evidence dossier)
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -8943,6 +8944,13 @@ func (x *GetIndustryIntelligenceRequest) GetRecordLimit() int32 {
 		return x.RecordLimit
 	}
 	return 0
+}
+
+func (x *GetIndustryIntelligenceRequest) GetStockCode() string {
+	if x != nil {
+		return x.StockCode
+	}
+	return ""
 }
 
 type IndustryIntelligenceSource struct {
@@ -13043,10 +13051,12 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"entityName\x12\x10\n" +
 	"\x03abn\x18\x02 \x01(\tR\x03abn\x125\n" +
 	"\x05years\x18\x03 \x03(\v2\x1f.shorts.v1alpha1.CompanyTaxYearR\x05years\x12-\n" +
-	"\x12source_attribution\x18\x04 \x01(\tR\x11sourceAttribution\"_\n" +
+	"\x12source_attribution\x18\x04 \x01(\tR\x11sourceAttribution\"~\n" +
 	"\x1eGetIndustryIntelligenceRequest\x12\x1a\n" +
 	"\bindustry\x18\x01 \x01(\tR\bindustry\x12!\n" +
-	"\frecord_limit\x18\x02 \x01(\x05R\vrecordLimit\"\xf0\x01\n" +
+	"\frecord_limit\x18\x02 \x01(\x05R\vrecordLimit\x12\x1d\n" +
+	"\n" +
+	"stock_code\x18\x03 \x01(\tR\tstockCode\"\xf0\x01\n" +
 	"\x1aIndustryIntelligenceSource\x12\x1d\n" +
 	"\n" +
 	"source_key\x18\x01 \x01(\tR\tsourceKey\x12!\n" +

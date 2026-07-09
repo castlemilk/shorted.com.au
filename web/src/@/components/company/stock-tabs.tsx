@@ -21,14 +21,18 @@ import { EventTimeline } from "./event-timeline";
 
 interface StockTabsProps {
   stockCode: string;
-  overviewContent?: ReactNode;
+  /** Main insight column of the overview tab (server-rendered slot). */
+  overviewMain?: ReactNode;
+  /** Compact profile rail of the overview tab (server-rendered slot). */
+  overviewRail?: ReactNode;
   financialsContent?: ReactNode;
   communityContent?: ReactNode;
 }
 
 export function StockTabs({
   stockCode,
-  overviewContent,
+  overviewMain,
+  overviewRail,
   financialsContent,
   communityContent,
 }: StockTabsProps) {
@@ -77,18 +81,17 @@ export function StockTabs({
       </TabsList>
 
       <TabsContent value="overview">
-        {overviewContent}
-        <div className="mt-4 md:mt-6">
-          <StockVerdict stockCode={stockCode} />
-        </div>
-        <div className="mt-4 md:mt-6">
-          <CompanyTaxCard stockCode={stockCode} />
-        </div>
-        <div className="mt-4 md:mt-6">
-          <StockSignals stockCode={stockCode} />
-        </div>
-        <div className="mt-4 md:mt-6">
-          <StockConnections stockCode={stockCode} />
+        <div className="grid min-w-0 grid-cols-1 items-start gap-4 md:gap-6 lg:grid-cols-[minmax(0,1fr)_310px]">
+          <div className="flex min-w-0 flex-col gap-4 md:gap-6">
+            {overviewMain}
+            <StockVerdict stockCode={stockCode} />
+            <CompanyTaxCard stockCode={stockCode} />
+            <StockSignals stockCode={stockCode} />
+            <StockConnections stockCode={stockCode} />
+          </div>
+          <div className="flex min-w-0 flex-col gap-4 md:gap-6">
+            {overviewRail}
+          </div>
         </div>
       </TabsContent>
 

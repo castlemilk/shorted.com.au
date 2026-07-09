@@ -23,12 +23,16 @@ func (s *ShortsServer) GetIndustryIntelligence(ctx context.Context, req *connect
 	if len(industry) > industryIntelligenceMaxIndustryLength {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("industry must be at most %d characters", industryIntelligenceMaxIndustryLength))
 	}
+	stockCode := strings.ToUpper(strings.TrimSpace(req.Msg.StockCode))
+	if len(stockCode) > 6 {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("stockCode must be at most 6 characters"))
+	}
 
 	limit := normalizeIndustryIntelligenceLimit(req.Msg.RecordLimit)
-	cacheKey := s.cache.GetIndustryIntelligenceKey(industry, limit)
+	cacheKey := s.cache.GetIndustryIntelligenceKey(industry, stockCode, limit)
 
 	cachedResponse, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
-		result, err := s.store.GetIndustryIntelligence(industry, limit)
+		result, err := s.store.GetIndustryIntelligence(industry, stockCode, limit)
 		if err != nil {
 			return nil, err
 		}

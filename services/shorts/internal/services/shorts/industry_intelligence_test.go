@@ -36,7 +36,7 @@ func TestGetIndustryIntelligence_HappyPath(t *testing.T) {
 
 	mockStore := mocks.NewMockShortsStore(ctrl)
 	mockStore.EXPECT().
-		GetIndustryIntelligence("Materials", int32(25)).
+		GetIndustryIntelligence("Materials", "", int32(25)).
 		Return(&shortsstore.IndustryIntelligenceResult{
 			Sources: []shortsstore.IndustryIntelligenceSourceRow{
 				{
@@ -120,7 +120,7 @@ func TestGetIndustryIntelligence_StoreErrorReturnsInternalWithoutLeaking(t *test
 
 	mockStore := mocks.NewMockShortsStore(ctrl)
 	mockStore.EXPECT().
-		GetIndustryIntelligence("Materials", int32(50)).
+		GetIndustryIntelligence("Materials", "", int32(50)).
 		Return(nil, errors.New("pq: password authentication failed for user internal"))
 
 	srv := newTestServer(t, mockStore)

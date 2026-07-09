@@ -379,18 +379,18 @@ func (mr *MockShortsStoreMockRecorder) GetHousingRegions(regionType, stateCode, 
 }
 
 // GetIndustryIntelligence mocks base method.
-func (m *MockShortsStore) GetIndustryIntelligence(industry string, recordLimit int32) (*shorts.IndustryIntelligenceResult, error) {
+func (m *MockShortsStore) GetIndustryIntelligence(industry string, stockCode string, recordLimit int32) (*shorts.IndustryIntelligenceResult, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetIndustryIntelligence", industry, recordLimit)
+	ret := m.ctrl.Call(m, "GetIndustryIntelligence", industry, stockCode, recordLimit)
 	ret0, _ := ret[0].(*shorts.IndustryIntelligenceResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetIndustryIntelligence indicates an expected call of GetIndustryIntelligence.
-func (mr *MockShortsStoreMockRecorder) GetIndustryIntelligence(industry, recordLimit any) *gomock.Call {
+func (mr *MockShortsStoreMockRecorder) GetIndustryIntelligence(industry, stockCode, recordLimit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIndustryIntelligence", reflect.TypeOf((*MockShortsStore)(nil).GetIndustryIntelligence), industry, recordLimit)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIndustryIntelligence", reflect.TypeOf((*MockShortsStore)(nil).GetIndustryIntelligence), industry, stockCode, recordLimit)
 }
 
 // GetIndustryTreeMap mocks base method.
@@ -1295,17 +1295,17 @@ func (mr *MockCacheMockRecorder) GetHousingRegionsKey(regionType, stateCode, que
 }
 
 // GetIndustryIntelligenceKey mocks base method.
-func (m *MockCache) GetIndustryIntelligenceKey(industry string, recordLimit int32) string {
+func (m *MockCache) GetIndustryIntelligenceKey(industry string, stockCode string, recordLimit int32) string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetIndustryIntelligenceKey", industry, recordLimit)
+	ret := m.ctrl.Call(m, "GetIndustryIntelligenceKey", industry, stockCode, recordLimit)
 	ret0, _ := ret[0].(string)
 	return ret0
 }
 
 // GetIndustryIntelligenceKey indicates an expected call of GetIndustryIntelligenceKey.
-func (mr *MockCacheMockRecorder) GetIndustryIntelligenceKey(industry, recordLimit any) *gomock.Call {
+func (mr *MockCacheMockRecorder) GetIndustryIntelligenceKey(industry, stockCode, recordLimit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIndustryIntelligenceKey", reflect.TypeOf((*MockCache)(nil).GetIndustryIntelligenceKey), industry, recordLimit)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetIndustryIntelligenceKey", reflect.TypeOf((*MockCache)(nil).GetIndustryIntelligenceKey), industry, stockCode, recordLimit)
 }
 
 // GetIndustryTreeMapKey mocks base method.

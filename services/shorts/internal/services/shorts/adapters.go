@@ -238,8 +238,8 @@ func (s *StoreAdapter) GetCompanyTaxProfile(productCode string) (*shorts.Company
 	return s.store.GetCompanyTaxProfile(productCode)
 }
 
-func (s *StoreAdapter) GetIndustryIntelligence(industry string, recordLimit int32) (*shorts.IndustryIntelligenceResult, error) {
-	return s.store.GetIndustryIntelligence(industry, recordLimit)
+func (s *StoreAdapter) GetIndustryIntelligence(industry string, stockCode string, recordLimit int32) (*shorts.IndustryIntelligenceResult, error) {
+	return s.store.GetIndustryIntelligence(industry, stockCode, recordLimit)
 }
 
 func (s *StoreAdapter) GetShortCampaignScoreboard(industry string, limit, offset int32) ([]*shorts.ShortCampaign, int, *shorts.ScoreboardStats, error) {

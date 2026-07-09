@@ -72,7 +72,7 @@ type IndustryIntelligenceRecordRow struct {
 	Confidence     float64
 }
 
-func (s *postgresStore) GetIndustryIntelligence(industry string, recordLimit int32) (*IndustryIntelligenceResult, error) {
+func (s *postgresStore) GetIndustryIntelligence(industry string, stockCode string, recordLimit int32) (*IndustryIntelligenceResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -97,9 +97,10 @@ func (s *postgresStore) GetIndustryIntelligence(industry string, recordLimit int
 		JOIN industry_intelligence_records r ON r.source_key = s.source_key
 		WHERE s.public_enabled
 		  AND ($1 = '' OR r.industry = $1)
+		  AND ($2 = '' OR r.stock_code = $2)
 		ORDER BY s.signal_kind, s.display_name`
 
-	sourceRows, err := s.db.Query(ctx, sourcesQuery, industry)
+	sourceRows, err := s.db.Query(ctx, sourcesQuery, industry, stockCode)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query industry intelligence sources: %w", err)
 	}
@@ -148,10 +149,11 @@ func (s *postgresStore) GetIndustryIntelligence(industry string, recordLimit int
 		JOIN industry_intelligence_sources s ON s.source_key = r.source_key
 		WHERE s.public_enabled
 		  AND ($1 = '' OR r.industry = $1)
+		  AND ($2 = '' OR r.stock_code = $2)
 		ORDER BY r.as_of DESC, r.signal_kind, r.source_key, r.metric_key
-		LIMIT $2`
+		LIMIT $3`
 
-	recordRows, err := s.db.Query(ctx, recordsQuery, industry, limit)
+	recordRows, err := s.db.Query(ctx, recordsQuery, industry, stockCode, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query industry intelligence records: %w", err)
 	}
@@ -205,11 +207,12 @@ func (s *postgresStore) GetIndustryIntelligence(industry string, recordLimit int
 		JOIN industry_intelligence_sources s ON s.source_key = r.source_key
 		WHERE s.public_enabled
 		  AND ($1 = '' OR r.industry = $1)
+		  AND ($2 = '' OR r.stock_code = $2)
 		  AND r.metric_value IS NOT NULL
 		GROUP BY r.signal_kind, r.source_key, r.metric_key, r.unit, fy_end
 		ORDER BY r.signal_kind, r.source_key, r.metric_key, fy_end`
 
-	bucketRows, err := s.db.Query(ctx, timeBucketsQuery, industry)
+	bucketRows, err := s.db.Query(ctx, timeBucketsQuery, industry, stockCode)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query industry intelligence time buckets: %w", err)
 	}
@@ -256,6 +259,7 @@ func (s *postgresStore) GetIndustryIntelligence(industry string, recordLimit int
 			JOIN industry_intelligence_sources s ON s.source_key = r.source_key
 			WHERE s.public_enabled
 			  AND ($1 = '' OR r.industry = $1)
+			  AND ($2 = '' OR r.stock_code = $2)
 			  AND r.metric_value IS NOT NULL
 			  AND COALESCE(r.stock_code, '') <> ''
 			GROUP BY r.signal_kind, r.source_key, r.metric_key, r.stock_code, r.unit
@@ -275,7 +279,7 @@ func (s *postgresStore) GetIndustryIntelligence(industry string, recordLimit int
 		WHERE t.rank <= 8
 		ORDER BY t.signal_kind, t.source_key, t.metric_key, t.total_value DESC`
 
-	entityRows, err := s.db.Query(ctx, entityTotalsQuery, industry)
+	entityRows, err := s.db.Query(ctx, entityTotalsQuery, industry, stockCode)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query industry intelligence entity totals: %w", err)
 	}

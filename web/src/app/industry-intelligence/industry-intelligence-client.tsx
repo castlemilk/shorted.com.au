@@ -39,9 +39,11 @@ const TAB_TRIGGER_CLASSES = cn(
 export function IndustryIntelligenceClient({
   stories,
   initialSlug,
+  initialView,
 }: {
   stories: IndustryIntelligenceStory[];
   initialSlug?: string;
+  initialView?: string;
 }) {
   const initialStory = useMemo(
     () =>
@@ -51,7 +53,17 @@ export function IndustryIntelligenceClient({
     [initialSlug, stories],
   );
   const [selectedSlug, setSelectedSlug] = useState(initialStory?.industry.slug);
-  const [view, setView] = useState("overview");
+  const [view, setView] = useState(() => {
+    if (!initialView || !initialStory) return "overview";
+    if (initialView === "overview" || initialView === "sources") {
+      return initialView;
+    }
+    return initialStory.channels.some(
+      (channel) => `channel-${channel.kind}` === initialView,
+    )
+      ? initialView
+      : "overview";
+  });
   const selectedStory = useMemo(
     () =>
       stories.find((story) => story.industry.slug === selectedSlug) ??

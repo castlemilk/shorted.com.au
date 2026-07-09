@@ -97,8 +97,8 @@ export const CACHE_KEYS = {
     `${HOMEPAGE_CACHE_PREFIX}top-shorts:${period}:${limit}:${offset}`,
   industryTreeMap: (period: string, limit: number, viewMode: string) =>
     `${HOMEPAGE_CACHE_PREFIX}treemap:${period}:${limit}:${viewMode}`,
-  industryIntelligence: (industry: string, recordLimit: number) =>
-    `${HOMEPAGE_CACHE_PREFIX}industry-intelligence:v1:${industry}:${recordLimit}`,
+  industryIntelligence: (industry: string, recordLimit: number, stockCode = "") =>
+    `${HOMEPAGE_CACHE_PREFIX}industry-intelligence:v1:${industry}:${recordLimit}:${stockCode}`,
   // Tooltip cache keys
   tooltipData: (productCode: string) =>
     `${TOOLTIP_CACHE_PREFIX}${productCode}`,

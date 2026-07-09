@@ -280,8 +280,8 @@ func (c *MemoryCache) GetCompanyTaxProfileKey(productCode string) string {
 }
 
 // GetIndustryIntelligenceKey builds a cache key for GetIndustryIntelligence responses.
-func (c *MemoryCache) GetIndustryIntelligenceKey(industry string, recordLimit int32) string {
-	return c.generateKey("industry_intelligence", industry, recordLimit)
+func (c *MemoryCache) GetIndustryIntelligenceKey(industry string, stockCode string, recordLimit int32) string {
+	return c.generateKey("industry_intelligence", industry, stockCode, recordLimit)
 }
 
 // GetShortCampaignScoreboardKey builds a cache key for GetShortCampaignScoreboard responses.

@@ -98,7 +98,7 @@ type ShortsStore interface {
 
 	// Corporate tax (influence layer) methods
 	GetCompanyTaxProfile(productCode string) (*shortsstore.CompanyTaxProfile, error)
-	GetIndustryIntelligence(industry string, recordLimit int32) (*shortsstore.IndustryIntelligenceResult, error)
+	GetIndustryIntelligence(industry string, stockCode string, recordLimit int32) (*shortsstore.IndustryIntelligenceResult, error)
 
 	// Short-seller scoreboard methods
 	GetShortCampaignScoreboard(industry string, limit, offset int32) ([]*shortsstore.ShortCampaign, int, *shortsstore.ScoreboardStats, error)
@@ -166,7 +166,7 @@ type Cache interface {
 	GetBattlegroundStocksKey(view shortsv1alpha1.BattlegroundView, limit, offset int32) string
 	GetStockVerdictKey(productCode string) string
 	GetCompanyTaxProfileKey(productCode string) string
-	GetIndustryIntelligenceKey(industry string, recordLimit int32) string
+	GetIndustryIntelligenceKey(industry string, stockCode string, recordLimit int32) string
 	GetShortCampaignScoreboardKey(industry string, limit, offset int32) string
 }
 

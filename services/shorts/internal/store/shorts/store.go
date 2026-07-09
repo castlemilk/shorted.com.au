@@ -164,7 +164,7 @@ type Store interface {
 
 	// Corporate tax (influence layer) methods
 	GetCompanyTaxProfile(productCode string) (*CompanyTaxProfile, error)
-	GetIndustryIntelligence(industry string, recordLimit int32) (*IndustryIntelligenceResult, error)
+	GetIndustryIntelligence(industry string, stockCode string, recordLimit int32) (*IndustryIntelligenceResult, error)
 
 	// Short-seller scoreboard methods
 	GetShortCampaignScoreboard(industry string, limit, offset int32) ([]*ShortCampaign, int, *ScoreboardStats, error)

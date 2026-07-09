@@ -50,6 +50,7 @@ export const metadata: Metadata = {
 
 interface IndustrySearchParams {
   industry?: string;
+  view?: string;
 }
 
 interface PageProps {
@@ -162,6 +163,7 @@ export default async function IndustryIntelligencePage({
 }: PageProps) {
   const params: IndustrySearchParams = searchParams ? await searchParams : {};
   const selectedSlug = params.industry;
+  const initialView = params.view;
   const [industries, topShorts] = await Promise.all([
     getIndustryData(),
     getTopShortsData("3m", 1000, 0).catch((error) => {
@@ -296,6 +298,7 @@ export default async function IndustryIntelligencePage({
       <IndustryIntelligenceClient
         stories={stories}
         initialSlug={selectedSlug}
+        initialView={initialView}
       />
     </DashboardLayout>
   );

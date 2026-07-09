@@ -39,4 +39,24 @@ public interface GetIndustryIntelligenceRequestOrBuilder extends
    * @return The recordLimit.
    */
   int getRecordLimit();
+
+  /**
+   * <pre>
+   * optional exact stock filter (per-stock evidence dossier)
+   * </pre>
+   *
+   * <code>string stock_code = 3 [json_name = "stockCode"];</code>
+   * @return The stockCode.
+   */
+  java.lang.String getStockCode();
+  /**
+   * <pre>
+   * optional exact stock filter (per-stock evidence dossier)
+   * </pre>
+   *
+   * <code>string stock_code = 3 [json_name = "stockCode"];</code>
+   * @return The bytes for stockCode.
+   */
+  com.google.protobuf.ByteString
+      getStockCodeBytes();
 }

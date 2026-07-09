@@ -1742,6 +1742,7 @@ message GetCompanyTaxProfileResponse {
 message GetIndustryIntelligenceRequest {
   string industry = 1;    // optional exact industry filter
   int32 record_limit = 2; // default 50, maximum 200
+  string stock_code = 3;  // optional exact stock filter (per-stock evidence dossier)
 }
 
 message IndustryIntelligenceSource {
