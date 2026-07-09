@@ -49,6 +49,16 @@ const INVALID_INDUSTRIES = new Set([
   "",
 ]);
 
+// SKIP_STATIC_GENERATION is set project-wide on Vercel so prerenders never
+// block builds — but it is present at RUNTIME too. Only skip data fetching
+// during the actual `next build` phase, never for live requests.
+function skipForBuild(): boolean {
+  return (
+    process.env.SKIP_STATIC_GENERATION === "1" &&
+    process.env.NEXT_PHASE === "phase-production-build"
+  );
+}
+
 // Create URL-friendly slug from industry name
 function createSlug(industry: string): string {
   return industry
@@ -59,7 +69,7 @@ function createSlug(industry: string): string {
 
 // Get aggregated industry statistics using IndustryTreeMap endpoint
 export const getIndustryData = cache(async (): Promise<IndustryStats[]> => {
-  if (process.env.SKIP_STATIC_GENERATION === "1") {
+  if (skipForBuild()) {
     return [];
   }
 
@@ -172,7 +182,7 @@ export const getIndustryData = cache(async (): Promise<IndustryStats[]> => {
 // Get stocks for a specific industry
 export const getIndustryStocks = cache(
   async (industrySlug: string): Promise<IndustryStocksResult> => {
-    if (process.env.SKIP_STATIC_GENERATION === "1") {
+    if (skipForBuild()) {
       return { industry: null, stocks: [] };
     }
 

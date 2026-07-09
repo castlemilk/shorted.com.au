@@ -49,17 +49,36 @@ describe("industry data cache loading", () => {
     }
   });
 
-  it("skips backend industry fetches during static generation bypass", async () => {
+  it("skips backend industry fetches during the production build phase only", async () => {
     process.env.SKIP_STATIC_GENERATION = "1";
+    process.env.NEXT_PHASE = "phase-production-build";
 
-    await expect(getIndustryData()).resolves.toEqual([]);
-    await expect(getIndustryStocks("materials")).resolves.toEqual({
-      industry: null,
-      stocks: [],
-    });
+    try {
+      await expect(getIndustryData()).resolves.toEqual([]);
+      await expect(getIndustryStocks("materials")).resolves.toEqual({
+        industry: null,
+        stocks: [],
+      });
 
-    expect(mockGetOrSetCached).not.toHaveBeenCalled();
-    expect(mockServerFetchWithUserAgent).not.toHaveBeenCalled();
+      expect(mockGetOrSetCached).not.toHaveBeenCalled();
+      expect(mockServerFetchWithUserAgent).not.toHaveBeenCalled();
+    } finally {
+      delete process.env.NEXT_PHASE;
+    }
+  });
+
+  it("still fetches at runtime when SKIP_STATIC_GENERATION is set without the build phase", async () => {
+    // Vercel sets SKIP_STATIC_GENERATION project-wide, so it is present at
+    // RUNTIME too — the bypass must not blank live pages.
+    process.env.SKIP_STATIC_GENERATION = "1";
+    mockTreemapResponse([
+      { productCode: "MIN", industry: "Materials", shortPosition: 12.4 },
+    ]);
+
+    const industries = await getIndustryData();
+    expect(industries).toHaveLength(1);
+    expect(industries[0]?.name).toBe("Materials");
+    expect(mockServerFetchWithUserAgent).toHaveBeenCalled();
   });
 
   it("fetches live industry data at runtime", async () => {
