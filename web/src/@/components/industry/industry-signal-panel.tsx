@@ -153,6 +153,7 @@ export function IndustrySignalPanel({
           ))}
         </div>
         <div
+          role="img"
           className="mt-3 flex h-2 overflow-hidden rounded-full bg-muted"
           aria-label="Short-interest status mix for ranked stocks"
         >

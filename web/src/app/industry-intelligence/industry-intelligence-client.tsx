@@ -567,13 +567,13 @@ function DarkMetric({
 }) {
   return (
     <div className="rounded-md border border-zinc-800 bg-white/[0.03] p-3">
-      <div className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">
+      <div className="text-[11px] uppercase tracking-[0.14em] text-zinc-400">
         {label}
       </div>
       <div className="mt-2 font-mono text-xl font-semibold tabular-nums text-white">
         {value}
       </div>
-      <div className="mt-1 text-xs text-zinc-500">{detail}</div>
+      <div className="mt-1 text-xs text-zinc-400">{detail}</div>
     </div>
   );
 }

@@ -93,7 +93,7 @@ export function IndustryMethodology({
           href={`mailto:${REPORT_ERROR_EMAIL}?subject=${encodeURIComponent(
             "Data error report: industry intelligence",
           )}`}
-          className="text-primary hover:underline"
+          className="text-primary underline underline-offset-2"
         >
           Report an error
         </a>{" "}
