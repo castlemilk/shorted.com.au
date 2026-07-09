@@ -30,6 +30,8 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:stripe-testmode": "playwright test --config playwright.stripe-testmode.config.ts",
+    "firebase:preflight": "tsx scripts/validate-firebase-client-config.ts",
+    "stripe:preflight": "tsx scripts/validate-stripe-checkout-prices.ts",
     "test:e2e:report": "playwright show-report",
     "test:storybook": "vitest run --project=storybook",
     "test:visual": "npm run storybook:build && playwright test -c playwright.visual.config.ts",

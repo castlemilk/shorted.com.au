@@ -1,5 +1,6 @@
 import {
   resolveCheckoutPriceId,
+  validateConfiguredCheckoutPrices,
   validateCheckoutPriceForTier,
 } from "../stripe-plans";
 
@@ -76,6 +77,81 @@ describe("stripe checkout plan resolution", () => {
       ok: false,
       errorType: "price_mismatch",
       message: "Premium pricing is misconfigured",
+    });
+  });
+
+  it("preflights the configured Premium Stripe price before release", async () => {
+    const retrievePrice = jest.fn().mockResolvedValue({
+      active: true,
+      unit_amount: 400,
+      currency: "aud",
+      recurring: { interval: "month" },
+    });
+
+    await expect(
+      validateConfiguredCheckoutPrices({
+        env: { STRIPE_PRO_PRICE_ID: "price_premium" },
+        retrievePrice,
+      })
+    ).resolves.toEqual([
+      {
+        ok: true,
+        tier: "premium",
+        priceId: "price_premium",
+        envName: "STRIPE_PRO_PRICE_ID",
+      },
+      {
+        ok: true,
+        tier: "api_access",
+        skipped: true,
+        reason: "price_not_configured",
+      },
+    ]);
+    expect(retrievePrice).toHaveBeenCalledWith("price_premium");
+  });
+
+  it("reports a misconfigured Premium Stripe price during preflight", async () => {
+    const retrievePrice = jest.fn().mockResolvedValue({
+      active: true,
+      unit_amount: 2000,
+      currency: "aud",
+      recurring: { interval: "month" },
+    });
+
+    await expect(
+      validateConfiguredCheckoutPrices({
+        env: { STRIPE_PRO_PRICE_ID: "price_premium" },
+        retrievePrice,
+      })
+    ).resolves.toEqual([
+      {
+        ok: false,
+        tier: "premium",
+        priceId: "price_premium",
+        envName: "STRIPE_PRO_PRICE_ID",
+        errorType: "price_mismatch",
+        message: "Premium pricing is misconfigured",
+      },
+      {
+        ok: true,
+        tier: "api_access",
+        skipped: true,
+        reason: "price_not_configured",
+      },
+    ]);
+  });
+
+  it("fails preflight when the required Premium price is missing", async () => {
+    await expect(
+      validateConfiguredCheckoutPrices({
+        env: {},
+        retrievePrice: jest.fn(),
+      })
+    ).resolves.toContainEqual({
+      ok: false,
+      tier: "premium",
+      errorType: "price_not_configured",
+      message: "Premium pricing is not configured",
     });
   });
 });

@@ -7,8 +7,8 @@
  *
  * Data calls traced (market-watchlist-widget.tsx):
  * - useWatchlistData (use-stock-queries.ts) →
- *   getMultipleStockQuotes + getHistoricalData (~/@/lib/stock-data-service)
- *   and getStock (~/app/actions/getStock) — all spy-mocked in preview.tsx.
+ *   getMultipleStockQuotes + getHistoricalData (@/lib/stock-data-service)
+ *   and fetchStockClient (@/lib/client-api) — all spy-mocked in preview.tsx.
  * - searchStocksClient (~/app/actions/searchStocks) — the add-stock
  *   autocomplete. Spy-mocked in preview.tsx (browser-safe module: connect-web
  *   + config + retry, same import set as getStock).
@@ -39,8 +39,8 @@ import {
 import {
   getHistoricalData,
   getMultipleStockQuotes,
-} from "~/@/lib/stock-data-service";
-import { getStock } from "~/app/actions/getStock";
+} from "@/lib/stock-data-service";
+import { fetchStockClient } from "@/lib/client-api";
 import { searchStocksClient } from "~/app/actions/searchStocks";
 
 /** Resolves every useWatchlistData dependency from the deterministic fixtures. */
@@ -51,7 +51,7 @@ function mockWatchlistData() {
   mocked(getHistoricalData).mockImplementation((code, period) =>
     Promise.resolve(historicalDataFixture(code, period)),
   );
-  mocked(getStock).mockImplementation((code) =>
+  mocked(fetchStockClient).mockImplementation((code) =>
     Promise.resolve(stockFixture(code)),
   );
 }
@@ -113,7 +113,7 @@ export const Default: Story = {
       maximumFractionDigits: 2,
     });
     expect(canvas.getByText(fmt.format(plsQuote.price))).toBeInTheDocument();
-    // Short position flowed through getStock ("19.40% shorted" for PLS).
+    // Short position flowed through fetchStockClient ("19.40% shorted" for PLS).
     expect(canvas.getByText("19.40% shorted")).toBeInTheDocument();
 
     // Primary interaction: search-and-add. The + toggle is the first
@@ -155,7 +155,7 @@ export const Loading: Story = {
   beforeEach: () => {
     mocked(getMultipleStockQuotes).mockReturnValue(never());
     mocked(getHistoricalData).mockReturnValue(never());
-    mocked(getStock).mockReturnValue(never());
+    mocked(fetchStockClient).mockReturnValue(never());
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -187,7 +187,7 @@ export const Error: Story = {
     mocked(getHistoricalData).mockRejectedValue(
       new globalThis.Error("backend unavailable"),
     );
-    mocked(getStock).mockRejectedValue(
+    mocked(fetchStockClient).mockRejectedValue(
       new globalThis.Error("backend unavailable"),
     );
   },

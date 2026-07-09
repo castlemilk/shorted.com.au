@@ -2,7 +2,9 @@ import { expect, test, type APIResponse, type Page } from "@playwright/test";
 import {
   cloudflareTestingBypassHeaders,
   cloudflareTestingDefaultUserAgent,
+  getCloudflareTestingBypassSecret,
 } from "./helpers/cloudflare-testing-bypass";
+import { checkFirebaseGoogleAuthBootstrap } from "./helpers/firebase-google-auth-bootstrap.mjs";
 
 test.setTimeout(90_000);
 
@@ -10,6 +12,7 @@ const apiBaseUrl =
   process.env.RELEASE_API_BASE_URL ||
   process.env.API_BASE_URL ||
   "https://api.shorted.com.au";
+const appBaseUrl = process.env.BASE_URL || "https://shorted.com.au";
 
 test.use({
   userAgent: cloudflareTestingDefaultUserAgent,
@@ -288,4 +291,15 @@ test("Cloudflare API edge returns data without bot challenges", async ({ request
   };
   expect(Array.isArray(topJson.timeSeries)).toBe(true);
   expect(topJson.timeSeries?.length ?? 0).toBeGreaterThan(0);
+});
+
+test("Firebase Google sign-in bootstrap creates an auth URI with valid API key", async ({
+  browser,
+}) => {
+  await checkFirebaseGoogleAuthBootstrap({
+    browser,
+    baseUrl: appBaseUrl,
+    bypassSecret: getCloudflareTestingBypassSecret(),
+    userAgent: cloudflareTestingDefaultUserAgent,
+  });
 });

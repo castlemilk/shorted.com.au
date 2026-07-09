@@ -26,7 +26,7 @@ import {
   withGridCell,
 } from "~/@/mocks/widget-story-helpers";
 import { topShortsResponseFixture } from "~/@/mocks/fixtures/short-data";
-import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { fetchTopShortsClient } from "@/lib/client-api";
 import { GetTopShortsResponseSchema } from "~/gen/shorts/v1alpha1/shorts_pb";
 
 const meta = {
@@ -57,7 +57,7 @@ type Story = StoryObj<typeof meta>;
  */
 export const Default: Story = {
   beforeEach: () => {
-    mocked(getTopShortsData).mockResolvedValue(topShortsResponseFixture());
+    mocked(fetchTopShortsClient).mockResolvedValue(topShortsResponseFixture());
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -95,7 +95,7 @@ export const Default: Story = {
  */
 export const Loading: Story = {
   beforeEach: () => {
-    mocked(getTopShortsData).mockReturnValue(never());
+    mocked(fetchTopShortsClient).mockReturnValue(never());
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -110,7 +110,7 @@ export const Error: Story = {
   beforeEach: () => {
     // globalThis.Error: the exported story const shadows the Error
     // constructor inside this module.
-    mocked(getTopShortsData).mockRejectedValue(
+    mocked(fetchTopShortsClient).mockRejectedValue(
       new globalThis.Error("backend unavailable"),
     );
   },
@@ -124,7 +124,7 @@ export const Error: Story = {
 
 export const Empty: Story = {
   beforeEach: () => {
-    mocked(getTopShortsData).mockResolvedValue(
+    mocked(fetchTopShortsClient).mockResolvedValue(
       create(GetTopShortsResponseSchema, { timeSeries: [] }),
     );
   },
@@ -145,7 +145,7 @@ export const Compact: Story = {
   args: { sizeVariant: "compact" },
   decorators: [withGridCell("small")],
   beforeEach: () => {
-    mocked(getTopShortsData).mockResolvedValue(topShortsResponseFixture());
+    mocked(fetchTopShortsClient).mockResolvedValue(topShortsResponseFixture());
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -163,7 +163,7 @@ export const Mobile: Story = {
   parameters: { viewport: { defaultViewport: "mobile1" } },
   decorators: [withGridCell("small")],
   beforeEach: () => {
-    mocked(getTopShortsData).mockResolvedValue(topShortsResponseFixture());
+    mocked(fetchTopShortsClient).mockResolvedValue(topShortsResponseFixture());
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

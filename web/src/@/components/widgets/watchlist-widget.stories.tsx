@@ -7,8 +7,8 @@
  *
  * Data calls traced (watchlist-widget.tsx):
  * - useWatchlistData (use-stock-queries.ts) →
- *   getMultipleStockQuotes + getHistoricalData (~/@/lib/stock-data-service)
- *   and getStock (~/app/actions/getStock) — all spy-mocked in preview.tsx.
+ *   getMultipleStockQuotes + getHistoricalData (@/lib/stock-data-service)
+ *   and fetchStockClient (@/lib/client-api) — all spy-mocked in preview.tsx.
  * - No search action: unlike MarketWatchlistWidget, adding a stock is a raw
  *   code input with no API call.
  *
@@ -41,8 +41,8 @@ import {
 import {
   getHistoricalData,
   getMultipleStockQuotes,
-} from "~/@/lib/stock-data-service";
-import { getStock } from "~/app/actions/getStock";
+} from "@/lib/stock-data-service";
+import { fetchStockClient } from "@/lib/client-api";
 
 /** Resolves every useWatchlistData dependency from the deterministic fixtures. */
 function mockWatchlistData() {
@@ -52,7 +52,7 @@ function mockWatchlistData() {
   mocked(getHistoricalData).mockImplementation((code, period) =>
     Promise.resolve(historicalDataFixture(code, period)),
   );
-  mocked(getStock).mockImplementation((code) =>
+  mocked(fetchStockClient).mockImplementation((code) =>
     Promise.resolve(stockFixture(code)),
   );
 }
@@ -111,7 +111,7 @@ export const Default: Story = {
     });
     await waitFor(() => {
       expect(canvas.getByText(fmt.format(plsQuote.price))).toBeInTheDocument();
-      // Short position flowed through getStock (PLS badge "19.40%").
+      // Short position flowed through fetchStockClient (PLS badge "19.40%").
       expect(canvas.getByText("19.40%")).toBeInTheDocument();
     });
 
@@ -147,7 +147,7 @@ export const Loading: Story = {
   beforeEach: () => {
     mocked(getMultipleStockQuotes).mockReturnValue(never());
     mocked(getHistoricalData).mockReturnValue(never());
-    mocked(getStock).mockReturnValue(never());
+    mocked(fetchStockClient).mockReturnValue(never());
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -179,7 +179,7 @@ export const Error: Story = {
     mocked(getHistoricalData).mockRejectedValue(
       new globalThis.Error("backend unavailable"),
     );
-    mocked(getStock).mockRejectedValue(
+    mocked(fetchStockClient).mockRejectedValue(
       new globalThis.Error("backend unavailable"),
     );
   },
