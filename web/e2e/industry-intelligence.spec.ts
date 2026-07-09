@@ -13,14 +13,13 @@ async function expectNoVisibleTextOverflow(page: Page) {
     Array.from(
       document.querySelectorAll(
         [
-          "#industry-explorer button",
+          '[data-testid="industry-sidenav"] button',
           '[data-testid="industry-top-stocks-panel"] a',
           '[data-testid="industry-short-status-mix"]',
-          "#industry-explorer h2",
-          "#industry-explorer p",
-          "#industry-explorer span",
-          '[data-testid="industry-narrative-rail"] a',
-          '[data-testid^="channel-"] h3',
+          '[role="tablist"] [role="tab"]',
+          '[data-testid="industry-intelligence-story"] h1',
+          '[data-testid="industry-intelligence-story"] h2',
+          '[data-testid^="channel-"] h2',
           '[data-testid^="channel-"] p',
           "#methodology dt",
         ].join(","),
@@ -126,57 +125,51 @@ test.describe("Industry Intelligence", () => {
     await expect(page.getByText(/source-ready/i)).toHaveCount(0);
     await expect(page.getByText("Premium evidence pack")).toHaveCount(0);
 
-    // Narrative rail is server-rendered and advertises only live sections —
-    // use it as the source of truth for which channels exist.
-    const rail = page.getByTestId("industry-narrative-rail");
-    await expect(rail).toBeVisible();
-    await expect(rail.getByRole("link", { name: "Overview" })).toBeVisible();
-    await expect(rail.getByRole("link", { name: "Alerts" })).toBeVisible();
-    for (const railLink of await rail.getByRole("link").all()) {
-      const href = await railLink.getAttribute("href");
-      expect(href).toMatch(/^#[a-z0-9_-]+$/i);
-    }
+    // Workspace navigation: industry sidenav + section tabs. Both render only
+    // what exists — tabs are the source of truth for live evidence channels.
+    const sidenav = page.getByTestId("industry-sidenav");
+    await expect(sidenav).toBeVisible();
+    await expect(
+      sidenav.locator('button[aria-pressed="true"]'),
+    ).toHaveCount(1);
+
+    const tablist = page.getByRole("tablist");
+    await expect(tablist).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Overview" })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Sources" })).toBeVisible();
 
     // No-fake-data contract: a channel label may only appear when its imported
     // channel exists (e.g. Policy Footprint requires AEC/register data).
-    const policyInRail = await rail
-      .getByRole("link", { name: "Policy Footprint" })
-      .count();
-    if (policyInRail === 0) {
+    const policyTab = page.getByRole("tab", { name: "Policy Footprint" });
+    if ((await policyTab.count()) === 0) {
       await expect(page.getByText("Policy Footprint")).toHaveCount(0);
-    } else {
-      // The dashboard hydrates client-side; the channel section must follow.
-      await expect(page.getByTestId("channel-policy_footprint")).toBeVisible({
-        timeout: 15_000,
-      });
     }
 
-    // When imported evidence exists the dashboard must be cited, dated, and
-    // carry the report-an-error path; the export convenience is premium-gated.
-    const liveChannelCount = await rail
-      .getByRole("link", {
-        name: /Tax Environment|Public Money|Emissions|Trade Exposure|Policy Footprint/,
-      })
-      .count();
-    const channelCards = page.locator('[data-testid^="channel-"]');
-    if (liveChannelCount > 0) {
-      await expect(channelCards.first()).toBeVisible({ timeout: 15_000 });
-      await expect(
-        page.getByRole("heading", { name: /public-source signals/ }),
-      ).toBeVisible();
-      const firstChannel = channelCards.first();
-      await expect(firstChannel.getByText(/as at \d{4}-\d{2}-\d{2}/)).toBeVisible();
-      await expect(
-        firstChannel.getByRole("link", { name: /Report an error/i }),
-      ).toBeVisible();
+    // When imported evidence exists the channel tab must open a cited, dated
+    // dossier with the report-an-error path; export is premium-gated.
+    const channelTabs = page.getByRole("tab", {
+      name: /Tax Environment|Public Money|Emissions|Trade Exposure|Policy Footprint/,
+    });
+    if ((await channelTabs.count()) > 0) {
       await expect(
         page
           .getByTestId("evidence-export-upgrade")
           .or(page.getByTestId("evidence-export-button")),
+      ).toBeVisible({ timeout: 15_000 });
+
+      await channelTabs.first().click();
+      const channel = page.locator('[data-testid^="channel-"]').first();
+      await expect(channel).toBeVisible({ timeout: 15_000 });
+      await expect(channel.getByText(/as at \d{4}-\d{2}-\d{2}/)).toBeVisible();
+      await expect(
+        channel.getByRole("link", { name: /Report an error/i }),
       ).toBeVisible();
+
+      await page.getByRole("tab", { name: "Sources" }).click();
       await expect(
         page.getByRole("heading", { name: "Where these figures come from" }),
       ).toBeVisible();
+      await page.getByRole("tab", { name: "Overview" }).click();
     }
     await expect(
       page.getByRole("link", { name: "View all top shorts" }),
@@ -239,13 +232,11 @@ test.describe("Industry Intelligence", () => {
       page.getByRole("heading", { name: "Industry Intelligence" }),
     ).toBeVisible();
 
-    // Rail anchors must still navigate without smooth-scroll animation.
-    const alertsLink = page
-      .getByTestId("industry-narrative-rail")
-      .getByRole("link", { name: "Alerts" });
-    await alertsLink.click();
-    expect(new URL(page.url()).hash).toBe("#alerts");
-    await expect(page.locator("#alerts")).toBeInViewport();
+    // Tab navigation must still work without animation.
+    await page.getByRole("tab", { name: "Sources" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Where these figures come from" }),
+    ).toBeVisible();
   });
 
   test("keeps explorer text contained at compressed desktop widths", async ({

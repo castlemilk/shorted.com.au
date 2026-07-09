@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { IndustryIntelligenceClient } from "../industry-intelligence-client";
 import {
   buildEvidenceChannels,
@@ -14,10 +15,11 @@ jest.mock("~/@/components/industry/industry-charts", () => {
   ) as { IndustryCrowdingChart: unknown };
   const dashboards = jest.requireActual(
     "~/@/components/industry/industry-channel-dashboards",
-  ) as { IndustryChannelDashboards: unknown };
+  ) as { ChannelDetail: unknown; EvidenceExportButton: unknown };
   return {
     IndustryCrowdingChart: charts.IndustryCrowdingChart,
-    IndustryChannelDashboards: dashboards.IndustryChannelDashboards,
+    ChannelDetail: dashboards.ChannelDetail,
+    EvidenceExportButton: dashboards.EvidenceExportButton,
   };
 });
 
@@ -94,7 +96,7 @@ describe("IndustryIntelligenceClient", () => {
     );
   });
 
-  it("updates the top-stocks panel when a different industry is selected", () => {
+  it("switches industries from the sidenav", () => {
     render(
       <IndustryIntelligenceClient
         stories={[
@@ -104,17 +106,24 @@ describe("IndustryIntelligenceClient", () => {
       />,
     );
 
+    const sidenav = within(screen.getByTestId("industry-sidenav"));
+    expect(sidenav.getByRole("button", { name: /Materials/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
     expect(
       within(screen.getByTestId("industry-top-stocks-panel")).getByRole(
         "link",
-        {
-          name: /MIN.*MIN Limited/,
-        },
+        { name: /MIN.*MIN Limited/ },
       ),
     ).toHaveAttribute("href", "/shorts/MIN");
 
-    fireEvent.click(screen.getByRole("button", { name: /Health Care/ }));
+    fireEvent.click(sidenav.getByRole("button", { name: /Health Care/ }));
 
+    expect(
+      sidenav.getByRole("button", { name: /Health Care/ }),
+    ).toHaveAttribute("aria-pressed", "true");
     const panel = within(screen.getByTestId("industry-top-stocks-panel"));
     expect(
       panel.getByRole("link", { name: /CSL.*CSL Limited/ }),
@@ -124,7 +133,7 @@ describe("IndustryIntelligenceClient", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("renders one detailed stock ranking table for the selected industry", () => {
+  it("renders the overview workspace without placeholder channels", () => {
     render(
       <IndustryIntelligenceClient
         stories={[
@@ -139,30 +148,23 @@ describe("IndustryIntelligenceClient", () => {
     expect(
       screen.getByRole("heading", { name: "Top Shorts In This Industry" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Rank")).toBeInTheDocument();
-    expect(screen.getByText("Company")).toBeInTheDocument();
-    expect(screen.getByText("Change")).toBeInTheDocument();
+
+    // Tabs: only Overview and Sources without imported evidence.
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.map((tab) => tab.textContent)).toEqual([
+      "Overview",
+      "Sources",
+    ]);
+    expect(
+      screen.queryByRole("tab", { name: "Policy Footprint" }),
+    ).not.toBeInTheDocument();
     expect(screen.queryByText(/source-ready/i)).not.toBeInTheDocument();
+    // No export CTA when there is nothing to export.
+    expect(screen.queryByTestId("evidence-export-upgrade")).toBeNull();
   });
 
-  it("renders only live sections in the narrative rail", () => {
-    render(
-      <IndustryIntelligenceClient
-        stories={[story("materials", "Materials", "MIN")]}
-      />,
-    );
-
-    const rail = within(screen.getByTestId("industry-narrative-rail"));
-    expect(rail.getByRole("link", { name: "Overview" })).toBeInTheDocument();
-    expect(rail.getByRole("link", { name: "Top shorted" })).toBeInTheDocument();
-    expect(rail.getByRole("link", { name: "Alerts" })).toBeInTheDocument();
-    // No imported evidence and no crowding series: those items must not render.
-    expect(rail.queryByRole("link", { name: "Crowding" })).toBeNull();
-    expect(rail.queryByRole("link", { name: "Tax Environment" })).toBeNull();
-    expect(rail.queryByRole("link", { name: "Policy Footprint" })).toBeNull();
-  });
-
-  it("renders the evidence dashboard when imported channel data exists", () => {
+  it("renders an evidence channel tab with cited dashboard content", async () => {
+    const user = userEvent.setup();
     const materials = story("materials", "Materials", "MIN");
     materials.evidenceSources = [
       {
@@ -252,11 +254,14 @@ describe("IndustryIntelligenceClient", () => {
 
     render(<IndustryIntelligenceClient stories={[materials]} />);
 
-    expect(
-      screen.getByRole("heading", {
-        name: "Materials public-source signals",
-      }),
-    ).toBeInTheDocument();
+    // Export CTA is in the command bar; non-premium users get the upgrade path.
+    expect(screen.getByTestId("evidence-export-upgrade")).toHaveAttribute(
+      "href",
+      "/pricing",
+    );
+
+    await user.click(screen.getByRole("tab", { name: "Tax Environment" }));
+
     const channel = within(screen.getByTestId("channel-tax_environment"));
     expect(
       channel.getByRole("heading", { name: "Tax Environment" }),
@@ -279,18 +284,9 @@ describe("IndustryIntelligenceClient", () => {
     expect(
       channel.getByRole("link", { name: /Report an error/i }),
     ).toBeInTheDocument();
-    // Non-premium users get the upgrade path on export.
-    expect(screen.getByTestId("evidence-export-upgrade")).toHaveAttribute(
-      "href",
-      "/pricing",
-    );
-    // The rail advertises the live channel.
-    expect(
-      within(screen.getByTestId("industry-narrative-rail")).getByRole("link", {
-        name: "Tax Environment",
-      }),
-    ).toBeInTheDocument();
-    // Methodology lists the source with its licence.
+
+    // Methodology lives behind the Sources tab.
+    await user.click(screen.getByRole("tab", { name: "Sources" }));
     expect(
       screen.getByRole("heading", { name: "Where these figures come from" }),
     ).toBeInTheDocument();

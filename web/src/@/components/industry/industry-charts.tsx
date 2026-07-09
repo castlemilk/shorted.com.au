@@ -28,10 +28,15 @@ export const IndustryCrowdingChart = dynamic(
   { ssr: false, loading: () => <ChartSkeleton height={260} /> },
 );
 
-export const IndustryChannelDashboards = dynamic(
+export const ChannelDetail = dynamic(
+  () => import("./industry-channel-dashboards").then((m) => m.ChannelDetail),
+  { ssr: false, loading: () => <ChartSkeleton height={360} /> },
+);
+
+export const EvidenceExportButton = dynamic(
   () =>
     import("./industry-channel-dashboards").then(
-      (m) => m.IndustryChannelDashboards,
+      (m) => m.EvidenceExportButton,
     ),
-  { ssr: false, loading: () => <ChartSkeleton height={420} /> },
+  { ssr: false, loading: () => null },
 );

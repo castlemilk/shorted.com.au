@@ -15,10 +15,11 @@ jest.mock("~/@/components/industry/industry-charts", () => {
   ) as { IndustryCrowdingChart: unknown };
   const dashboards = jest.requireActual(
     "~/@/components/industry/industry-channel-dashboards",
-  ) as { IndustryChannelDashboards: unknown };
+  ) as { ChannelDetail: unknown; EvidenceExportButton: unknown };
   return {
     IndustryCrowdingChart: charts.IndustryCrowdingChart,
-    IndustryChannelDashboards: dashboards.IndustryChannelDashboards,
+    ChannelDetail: dashboards.ChannelDetail,
+    EvidenceExportButton: dashboards.EvidenceExportButton,
   };
 });
 
@@ -241,22 +242,12 @@ describe("/industry-intelligence page", () => {
       expect(screen.queryByText("Policy Footprint")).not.toBeInTheDocument();
       expect(screen.queryByText("Primary-source live")).not.toBeInTheDocument();
       expect(screen.queryByText(/source-ready/i)).not.toBeInTheDocument();
+      // The evidence channel is navigable as a tab; content mounts on demand.
       expect(
-        screen.getByRole("heading", {
-          name: "Materials public-source signals",
-        }),
+        screen.getByRole("tab", { name: "Tax Environment" }),
       ).toBeInTheDocument();
-      expect(
-        screen.getByRole("heading", { name: "Tax Environment" }),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText(/ATO Corporate Tax Transparency — CC-BY-3.0-AU/),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByRole("heading", {
-          name: "Where these figures come from",
-        }),
-      ).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: "Sources" })).toBeInTheDocument();
+      expect(screen.getByTestId("industry-sidenav")).toBeInTheDocument();
     });
   });
 });

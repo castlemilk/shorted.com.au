@@ -105,9 +105,7 @@ function metricSeriesForChannel(channel: EvidenceChannel): MetricSeries[] {
 function noTaxPayableCount(channel: EvidenceChannel): number | null {
   if (channel.kind !== "tax_environment") return null;
   const latestFor = (metricKey: string) =>
-    channel.timeBuckets
-      .filter((b) => b.metricKey === metricKey)
-      .at(-1);
+    channel.timeBuckets.filter((b) => b.metricKey === metricKey).at(-1);
   const income = latestFor("total_income");
   const payable = latestFor("tax_payable");
   if (!income) return null;
@@ -118,58 +116,18 @@ function noTaxPayableCount(channel: EvidenceChannel): number | null {
   return Math.max(income.entityCount - payableEntities, 0);
 }
 
-export function IndustryChannelDashboards({
-  industryName,
-  industrySlug,
-  channels,
-}: {
-  industryName: string;
-  industrySlug: string;
-  channels: EvidenceChannel[];
-}) {
-  if (channels.length === 0) return null;
-
-  return (
-    <section className="min-w-0 space-y-5" data-testid="industry-evidence-dashboards">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">
-            Evidence dashboard
-          </p>
-          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-balance">
-            {industryName} public-source signals
-          </h2>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground text-pretty">
-            Imported, dated primary-source facts for exact-matched ASX entities.
-            Figures are shown beside their register and never imply causation.
-          </p>
-        </div>
-        <EvidenceExportButton
-          industryName={industryName}
-          industrySlug={industrySlug}
-          channels={channels}
-        />
-      </div>
-
-      <div className="grid min-w-0 gap-5 lg:grid-cols-2">
-        {channels.map((channel) => (
-          <ChannelCard key={channel.kind} channel={channel} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function ChannelCard({ channel }: { channel: EvidenceChannel }) {
+/**
+ * Full-width dossier view for one evidence channel: attribution header, FY
+ * chart with metric toggle, figures column, top entities, standing caveat.
+ * Flat by design — hairlines separate regions, nothing nests inside a card.
+ */
+export function ChannelDetail({ channel }: { channel: EvidenceChannel }) {
   const series = useMemo(() => metricSeriesForChannel(channel), [channel]);
   const [metricKey, setMetricKey] = useState(series[0]?.metricKey ?? "");
   const active =
     series.find((s) => s.metricKey === metricKey) ?? series[0] ?? null;
   const noTax = noTaxPayableCount(channel);
 
-  // Cap the chart to the most recent financial years so long registers (AEC
-  // reaches back to 1998-99) keep readable tick labels; the all-time tile
-  // still covers the full history.
   const chartData: FyBucketDatum[] = (active?.buckets ?? [])
     .slice(-16)
     .map((bucket) => ({
@@ -185,7 +143,7 @@ function ChannelCard({ channel }: { channel: EvidenceChannel }) {
   );
   const entityTotals = channel.entityTotals
     .filter((total) => !active || total.metricKey === active.metricKey)
-    .slice(0, 5);
+    .slice(0, 8);
   const maxEntityTotal = Math.max(
     ...entityTotals.map((total) => total.totalValue),
     1,
@@ -193,139 +151,148 @@ function ChannelCard({ channel }: { channel: EvidenceChannel }) {
 
   return (
     <section
-      id={`channel-${channel.kind}`}
       aria-labelledby={`channel-${channel.kind}-heading`}
-      className="flex min-w-0 scroll-mt-24 flex-col overflow-hidden rounded-lg border border-border/60 bg-card/80 shadow-amber-sm"
       data-testid={`channel-${channel.kind}`}
+      className="min-w-0"
     >
-      <div className="border-b border-border/60 p-5">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h3
+      <header className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-b border-border/60 pb-4">
+        <div className="min-w-0">
+          <h2
             id={`channel-${channel.kind}-heading`}
-            className="text-lg font-semibold tracking-tight text-balance"
+            className="text-xl font-semibold tracking-tight text-balance"
           >
             {channel.label}
-          </h3>
-          {channel.latestAsOf ? (
-            <span className="font-mono text-xs tabular-nums text-muted-foreground">
-              as at {channel.latestAsOf}
-            </span>
+          </h2>
+          {channel.sources.length > 0 ? (
+            <p className="mt-1 text-xs leading-5 text-muted-foreground">
+              {channel.sources
+                .map((source) => `${source.displayName} — ${source.licence}`)
+                .join(" · ")}
+            </p>
           ) : null}
         </div>
-        {channel.sources.length > 0 ? (
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            {channel.sources
-              .map((source) => `${source.displayName} — ${source.licence}`)
-              .join(" · ")}
-          </p>
+        {channel.latestAsOf ? (
+          <span className="font-mono text-xs tabular-nums text-muted-foreground">
+            as at {channel.latestAsOf}
+          </span>
         ) : null}
-      </div>
+      </header>
 
-      <div className="flex-1 space-y-4 p-5">
-        <div className="grid gap-2 sm:grid-cols-3">
-          <ChannelStat
-            label={latest ? `FY ${latest.bucketLabel}` : "Latest"}
-            value={
-              latest && active
-                ? formatMetricValue(latest.totalValue, active.unit)
-                : "—"
-            }
-          />
-          {latest && latest.entityCount === 0 ? (
-            // Industry-level channels (e.g. ABS trade) carry no entity claims.
-            <ChannelStat
-              label="Records"
-              value={String(latest.recordCount)}
-              detail="industry-level"
+      <div className="grid min-w-0 gap-x-10 gap-y-6 pt-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="min-w-0 space-y-4">
+          {series.length > 1 ? (
+            <SegmentedToggle
+              ariaLabel={`${channel.label} metric`}
+              value={active?.metricKey ?? ""}
+              onChange={setMetricKey}
+              options={series.map((s) => ({
+                value: s.metricKey,
+                label: toggleLabelFor(s),
+              }))}
             />
-          ) : (
-            <ChannelStat
-              label="Entities"
-              value={latest ? String(latest.entityCount) : "—"}
-            />
-          )}
-          {noTax !== null ? (
-            <ChannelStat
-              label="No tax payable"
-              value={String(noTax)}
-              detail="latest FY, per ATO"
-            />
-          ) : (
-            <ChannelStat
-              label="All-time"
-              value={
-                active ? formatMetricValue(allTimeTotal, active.unit) : "—"
-              }
-            />
-          )}
+          ) : null}
+
+          {chartData.length >= 2 && active ? (
+            <figure className="min-w-0">
+              <FyBucketBarChart
+                data={chartData}
+                format={formatForUnit(active.unit)}
+                ariaLabel={`${active.metricLabel} by financial year for ${channel.label}`}
+              />
+              <figcaption className="mt-1 text-xs text-muted-foreground">
+                {active.metricLabel} by Australian financial year
+                {chartData.length === 16 ? " (most recent 16 years)" : ""}.
+              </figcaption>
+            </figure>
+          ) : null}
+
+          {entityTotals.length > 0 ? (
+            <div className="pt-2">
+              <h3 className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                Top entities
+              </h3>
+              <ul className="mt-2">
+                {entityTotals.map((total) => (
+                  <li
+                    key={`${total.metricKey}:${total.stockCode}`}
+                    className="border-b border-border/40 last:border-b-0"
+                  >
+                    <Link
+                      href={`/shorts/${total.stockCode}`}
+                      prefetch={false}
+                      className="group flex min-h-10 items-center gap-4 py-1 transition-colors hover:bg-muted/50"
+                    >
+                      <span className="w-12 shrink-0 font-mono text-xs font-semibold group-hover:text-primary">
+                        {total.stockCode}
+                      </span>
+                      <span className="hidden min-w-0 flex-1 truncate text-xs text-muted-foreground sm:block">
+                        {total.entityLabel}
+                      </span>
+                      <span className="relative h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-muted sm:w-36">
+                        <span
+                          className="absolute inset-y-0 left-0 rounded-full bg-primary/80"
+                          style={{
+                            width: `${Math.max(
+                              (total.totalValue / maxEntityTotal) * 100,
+                              2,
+                            )}%`,
+                          }}
+                        />
+                      </span>
+                      <span className="w-20 shrink-0 text-right font-mono text-xs tabular-nums">
+                        {formatMetricValue(total.totalValue, total.unit)}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
 
-        {series.length > 1 ? (
-          <SegmentedToggle
-            ariaLabel={`${channel.label} metric`}
-            value={active?.metricKey ?? ""}
-            onChange={setMetricKey}
-            options={series.map((s) => ({
-              value: s.metricKey,
-              label: toggleLabelFor(s),
-            }))}
-          />
-        ) : null}
-
-        {chartData.length >= 2 && active ? (
-          <figure className="min-w-0">
-            <FyBucketBarChart
-              data={chartData}
-              format={formatForUnit(active.unit)}
-              ariaLabel={`${active.metricLabel} by financial year for ${channel.label}`}
+        <aside className="min-w-0 lg:border-l lg:border-border/60 lg:pl-8">
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-5 lg:grid-cols-1">
+            <ChannelFigure
+              label={latest ? `FY ${latest.bucketLabel}` : "Latest"}
+              value={
+                latest && active
+                  ? formatMetricValue(latest.totalValue, active.unit)
+                  : "—"
+              }
             />
-            <figcaption className="sr-only">
-              {active.metricLabel} totals by Australian financial year.
-            </figcaption>
-          </figure>
-        ) : null}
-
-        {entityTotals.length > 0 ? (
-          <div>
-            <h4 className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-              Top entities
-            </h4>
-            <ul className="mt-2 space-y-1.5">
-              {entityTotals.map((total) => (
-                <li key={`${total.metricKey}:${total.stockCode}`}>
-                  <Link
-                    href={`/shorts/${total.stockCode}`}
-                    prefetch={false}
-                    className="group flex min-h-10 items-center gap-3 rounded-md px-1.5 py-1 transition-colors hover:bg-muted/60"
-                  >
-                    <span className="w-12 shrink-0 font-mono text-xs font-semibold">
-                      {total.stockCode}
-                    </span>
-                    <span className="relative h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
-                      <span
-                        className="absolute inset-y-0 left-0 rounded-full bg-primary/80"
-                        style={{
-                          width: `${Math.max(
-                            (total.totalValue / maxEntityTotal) * 100,
-                            2,
-                          )}%`,
-                        }}
-                      />
-                    </span>
-                    <span className="w-20 shrink-0 text-right font-mono text-xs tabular-nums">
-                      {formatMetricValue(total.totalValue, total.unit)}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
+            {latest && latest.entityCount === 0 ? (
+              <ChannelFigure
+                label="Records"
+                value={String(latest.recordCount)}
+                detail="industry-level"
+              />
+            ) : (
+              <ChannelFigure
+                label="Entities"
+                value={latest ? String(latest.entityCount) : "—"}
+              />
+            )}
+            {noTax !== null ? (
+              <ChannelFigure
+                label="No tax payable"
+                value={String(noTax)}
+                detail="latest FY, per ATO"
+              />
+            ) : (
+              <ChannelFigure
+                label="All-time"
+                value={
+                  active ? formatMetricValue(allTimeTotal, active.unit) : "—"
+                }
+              />
+            )}
+          </dl>
+        </aside>
       </div>
 
-      <div className="border-t border-border/60 bg-background/60 px-5 py-3">
+      <footer className="mt-6 border-t border-border/60 pt-3">
         {channel.caveat ? (
-          <p className="text-xs leading-5 text-muted-foreground text-pretty">
+          <p className="max-w-3xl text-xs leading-5 text-muted-foreground text-pretty">
             {channel.caveat}
           </p>
         ) : null}
@@ -353,12 +320,12 @@ function ChannelCard({ channel }: { channel: EvidenceChannel }) {
             Report an error
           </a>
         </div>
-      </div>
+      </footer>
     </section>
   );
 }
 
-function ChannelStat({
+function ChannelFigure({
   label,
   value,
   detail,
@@ -368,21 +335,21 @@ function ChannelStat({
   detail?: string;
 }) {
   return (
-    <div className="min-w-0 rounded-md border border-border/60 bg-background/70 p-3">
-      <div className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+    <div className="min-w-0">
+      <dt className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
         {label}
-      </div>
-      <div className="mt-1.5 break-words font-mono text-lg font-semibold tabular-nums">
+      </dt>
+      <dd className="mt-1 break-words font-mono text-2xl font-semibold tabular-nums">
         {value}
-      </div>
+      </dd>
       {detail ? (
-        <div className="mt-0.5 text-[11px] text-muted-foreground">{detail}</div>
+        <dd className="mt-0.5 text-[11px] text-muted-foreground">{detail}</dd>
       ) : null}
     </div>
   );
 }
 
-function EvidenceExportButton({
+export function EvidenceExportButton({
   industryName,
   industrySlug,
   channels,
@@ -393,6 +360,8 @@ function EvidenceExportButton({
 }) {
   const { isPremium, isLoading } = useSubscription();
 
+  if (channels.length === 0) return null;
+
   if (!isPremium) {
     return (
       <Button asChild variant="outline" className="min-h-10">
@@ -402,7 +371,7 @@ function EvidenceExportButton({
           data-testid="evidence-export-upgrade"
         >
           <Lock className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
-          Export evidence summary
+          Export evidence
         </Link>
       </Button>
     );
@@ -434,7 +403,7 @@ function EvidenceExportButton({
       data-testid="evidence-export-button"
     >
       <Download className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
-      Export evidence summary
+      Export evidence
     </Button>
   );
 }
