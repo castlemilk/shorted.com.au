@@ -157,7 +157,11 @@ func upsertIndustrySourceDefinitions(ctx context.Context, pool *pgxpool.Pool, de
 			cadence = EXCLUDED.cadence,
 			collection_method = EXCLUDED.collection_method,
 			enabled = EXCLUDED.enabled,
-			public_enabled = EXCLUDED.public_enabled,
+			-- Never downgrade an earned public flip: markIndustrySourcePublic sets
+			-- public_enabled=TRUE after exact-matched records import, and a registry
+			-- refresh must not hide already-published records. Un-publishing a source
+			-- is a deliberate manual action, not a side effect of a definition sync.
+			public_enabled = industry_intelligence_sources.public_enabled OR EXCLUDED.public_enabled,
 			exact_entity_required = EXCLUDED.exact_entity_required,
 			notes = EXCLUDED.notes,
 			updated_at = now()`

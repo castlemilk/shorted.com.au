@@ -67,3 +67,47 @@ func TestParseAusTenderRowsRejectsMissingColumns(t *testing.T) {
 		t.Fatal("expected missing-column error")
 	}
 }
+
+func TestParseAusTenderDateLayouts(t *testing.T) {
+	cases := map[string]string{
+		"20/08/2019": "2019-08-20", // d/mm/yyyy CSV exports
+		"2019-08-20": "2019-08-20", // ISO
+		"08-20-19":   "2019-08-20", // excelize mm-dd-yy rendering of date-styled XLSX cells
+	}
+	for in, want := range cases {
+		got := parseAusTenderDate(in)
+		if got == nil {
+			t.Fatalf("parseAusTenderDate(%q) = nil, want %s", in, want)
+		}
+		if got.Format("2006-01-02") != want {
+			t.Fatalf("parseAusTenderDate(%q) = %s, want %s", in, got.Format("2006-01-02"), want)
+		}
+	}
+	if parseAusTenderDate("NULL") != nil || parseAusTenderDate("") != nil {
+		t.Fatal("empty/NULL dates must return nil")
+	}
+}
+
+func TestParseAusTenderRowsAcceptsValueHeaderVariant(t *testing.T) {
+	rows := [][]string{
+		{"Agency Name", "Contract ID", "Publish Date", "Start Date", "End Date", "Value", "Description", "UNSPSC Code", "UNSPSC Title", "Procurement Method", "Supplier Name", "Supplier ABN"},
+		{"Department of Defence", "CN1", "08-20-19", "05-01-19", "05-31-19", "16163.4", "Fitness Equipment", "49200000", "Fitness equipment", "Limited tender", "Acme Ltd", "51 004 085 616"},
+	}
+	parsed, err := parseAusTenderRows(rows, "https://example.test")
+	if err != nil {
+		t.Fatalf("parseAusTenderRows: %v", err)
+	}
+	if len(parsed) != 1 {
+		t.Fatalf("parsed %d rows, want 1", len(parsed))
+	}
+	row := parsed[0]
+	if row.ContractValue != 16163.4 {
+		t.Fatalf("value = %v", row.ContractValue)
+	}
+	if row.PublishDate == nil || row.PublishDate.Format("2006-01-02") != "2019-08-20" {
+		t.Fatalf("publish date = %v, want 2019-08-20", row.PublishDate)
+	}
+	if row.UNSPSC != "49200000" {
+		t.Fatalf("unspsc = %q", row.UNSPSC)
+	}
+}

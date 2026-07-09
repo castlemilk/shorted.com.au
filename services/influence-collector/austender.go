@@ -153,7 +153,7 @@ func parseAusTenderRows(rows [][]string, sourceURL string) ([]ContractNoticeRow,
 	headerIdx := -1
 	var headers []string
 	for i, row := range rows {
-		if columnIndex(row, "Supplier ABN") >= 0 && columnIndex(row, "Contract Value") >= 0 {
+		if columnIndex(row, "Supplier ABN") >= 0 && columnIndex(row, "Contract Value", "Value") >= 0 {
 			headerIdx = i
 			headers = row
 			break
@@ -185,10 +185,10 @@ func parseAusTenderRows(rows [][]string, sourceURL string) ([]ContractNoticeRow,
 		publish:    columnIndex(headers, "Publish Date"),
 		start:      columnIndex(headers, "Start Date"),
 		end:        columnIndex(headers, "End Date"),
-		value:      columnIndex(headers, "Contract Value"),
+		value:      columnIndex(headers, "Contract Value", "Value"),
 		amendValue: columnIndex(headers, "Amendments Value"),
 		desc:       columnIndex(headers, "Description"),
-		unspsc:     columnIndex(headers, "UNSPSC"),
+		unspsc:     columnIndex(headers, "UNSPSC", "UNSPSC Code"),
 		unspscName: columnIndex(headers, "UNSPSC Title"),
 		method:     columnIndex(headers, "Procurement Method"),
 		supplier:   columnIndex(headers, "Supplier Name"),
@@ -293,7 +293,9 @@ func parseAusTenderDate(s string) *time.Time {
 	if s == "" || strings.EqualFold(s, "NULL") {
 		return nil
 	}
-	for _, layout := range []string{"2/01/2006", "02/01/2006", "2006-01-02", "2/1/2006"} {
+	// "01-02-06" is excelize's default mm-dd-yy rendering of date-styled cells
+	// in the historical AusTender XLSX exports.
+	for _, layout := range []string{"2/01/2006", "02/01/2006", "2006-01-02", "2/1/2006", "01-02-06", "01-02-2006"} {
 		if t, err := time.ParseInLocation(layout, s, time.UTC); err == nil {
 			return &t
 		}
