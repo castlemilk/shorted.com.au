@@ -4,11 +4,12 @@ name: Storybook Tests
 #  - interaction tests (Storybook play functions via the Vitest browser runner)
 #  - visual regression (Playwright screenshots vs committed PNG baselines)
 #
-# The visual job MUST run in the same image the baselines were generated in
-# (node:24-bookworm-slim) — pixel output depends on the OS freetype/fontconfig
-# stack, so ubuntu-latest (Ubuntu 24.04) would diff against bookworm baselines.
-# If you intentionally change widget appearance, regenerate baselines in that
-# same image: see web/tests/visual/README.md.
+# The visual job MUST stay on Debian Bookworm because pixel output depends on
+# the OS freetype/fontconfig stack. Use node:22-bookworm-slim for now: with
+# @playwright/test 1.52.0, node:24-bookworm-slim can hang before test discovery
+# and time out with no Playwright output. If you intentionally change widget
+# appearance, regenerate baselines in that same image: see
+# web/tests/visual/README.md.
 
 on:
   pull_request:
@@ -56,10 +57,12 @@ jobs:
     name: Visual regression
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    # Render in the exact image the committed baselines were generated in, so
-    # screenshots are byte-comparable (font anti-aliasing is OS-specific).
+    # Render on the same Debian release the committed baselines were generated
+    # on, so screenshots are byte-comparable (font anti-aliasing is OS-specific).
+    # Node 22 avoids the Node 24 + Playwright 1.52 startup hang in this slim
+    # container while preserving the Bookworm rendering stack.
     container:
-      image: node:24-bookworm-slim
+      image: node:22-bookworm-slim
     defaults:
       run:
         working-directory: web

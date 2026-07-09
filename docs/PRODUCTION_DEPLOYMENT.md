@@ -48,6 +48,18 @@ Ensure these secrets are configured in GitHub repository settings:
 | `STRIPE_PRO_PRICE_ID` | Stripe Pro plan price ID | ✅ |
 | `STRIPE_API_ACCESS_PRICE_ID` | Dedicated API access plan price ID | ⚪ Optional |
 
+#### Firebase Browser Secrets (Production)
+| Secret | Description | Required |
+|--------|-------------|----------|
+| `NEXT_PUBLIC_FIREBASE_API_KEY_PROD` | Firebase browser API key for production auth | ✅ |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN_PROD` | Firebase auth domain | ✅ |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID_PROD` | Firebase browser project ID | ✅ |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET_PROD` | Firebase storage bucket | ✅ |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID_PROD` | Firebase messaging sender ID | ✅ |
+| `NEXT_PUBLIC_FIREBASE_APP_ID_PROD` | Firebase app ID | ✅ |
+
+Production release validation runs `npm --prefix web run firebase:preflight` before build and runs the Firebase Google sign-in bootstrap during release smoke. These gates catch malformed public config, including escaped newline API keys that produce `API_KEY_INVALID` from `identitytoolkit.googleapis.com`. See `docs/FIREBASE_AUTH_VALIDATION.md`.
+
 ### 2. GCP Project Setup
 
 Production GCP project: `rosy-clover-477102-t5`
@@ -110,6 +122,21 @@ git push origin v1.0.0
 4. Confirm and run
 
 ## Post-Deployment Verification
+
+Before checking service health manually, confirm the release gates passed:
+
+```bash
+npm --prefix web run firebase:preflight
+npm --prefix web run stripe:preflight
+set -a; source .env; set +a
+export CLOUDFLARE_TESTING_BYPASS_SECRET="${CLOUDFLARE_TESTING_BYPASS_SECRET:-$TF_VAR_rate_limit_testing_bypass_secret}"
+BASE_URL=https://shorted.com.au \
+RELEASE_API_BASE_URL=https://api.shorted.com.au \
+CLOUDFLARE_TESTING_BYPASS_SECRET="$CLOUDFLARE_TESTING_BYPASS_SECRET" \
+node web/e2e/release-smoke-ci.mjs
+```
+
+The smoke run includes the Firebase Google sign-in bootstrap check and must fail on `API_KEY_INVALID`, escaped newline Firebase keys, Identity Toolkit errors, or failure to create a Google auth URI through the browser flow or direct Identity Toolkit probe.
 
 ### 1. Check Service Status
 

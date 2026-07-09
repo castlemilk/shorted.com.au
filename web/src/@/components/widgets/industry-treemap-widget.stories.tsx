@@ -38,7 +38,7 @@ import {
   industryTreemapFixture,
   tooltipDataFixture,
 } from "~/@/mocks/fixtures/short-data";
-import { getIndustryTreeMap } from "~/app/actions/getIndustryTreeMap";
+import { fetchIndustryTreeMapClient } from "~/@/lib/client-api";
 import { getTooltipData } from "~/app/actions/tooltip/getTooltipData";
 import { IndustryTreeMapSchema } from "~/gen/stocks/v1alpha1/stocks_pb";
 
@@ -74,7 +74,7 @@ type Story = StoryObj<typeof meta>;
  */
 export const Default: Story = {
   beforeEach: () => {
-    mocked(getIndustryTreeMap).mockResolvedValue(industryTreemapFixture());
+    mocked(fetchIndustryTreeMapClient).mockResolvedValue(industryTreemapFixture());
     mocked(getTooltipData).mockImplementation((code) =>
       Promise.resolve(tooltipDataFixture(code)),
     );
@@ -129,7 +129,7 @@ export const Default: Story = {
  */
 export const Loading: Story = {
   beforeEach: () => {
-    mocked(getIndustryTreeMap).mockReturnValue(never());
+    mocked(fetchIndustryTreeMapClient).mockReturnValue(never());
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -151,7 +151,7 @@ export const Error: Story = {
   beforeEach: () => {
     // globalThis.Error: the exported story const shadows the Error
     // constructor inside this module.
-    mocked(getIndustryTreeMap).mockRejectedValue(
+    mocked(fetchIndustryTreeMapClient).mockRejectedValue(
       new globalThis.Error("backend unavailable"),
     );
   },
@@ -171,7 +171,7 @@ export const Error: Story = {
  */
 export const Empty: Story = {
   beforeEach: () => {
-    mocked(getIndustryTreeMap).mockResolvedValue(
+    mocked(fetchIndustryTreeMapClient).mockResolvedValue(
       create(IndustryTreeMapSchema, { industries: [], stocks: [] }),
     );
   },
@@ -196,7 +196,7 @@ export const Compact: Story = {
   args: { sizeVariant: "compact" },
   decorators: [withGridCell("small")],
   beforeEach: () => {
-    mocked(getIndustryTreeMap).mockResolvedValue(industryTreemapFixture());
+    mocked(fetchIndustryTreeMapClient).mockResolvedValue(industryTreemapFixture());
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -213,7 +213,7 @@ export const Mobile: Story = {
   parameters: { viewport: { defaultViewport: "mobile1" } },
   decorators: [withGridCell("small")],
   beforeEach: () => {
-    mocked(getIndustryTreeMap).mockResolvedValue(industryTreemapFixture());
+    mocked(fetchIndustryTreeMapClient).mockResolvedValue(industryTreemapFixture());
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

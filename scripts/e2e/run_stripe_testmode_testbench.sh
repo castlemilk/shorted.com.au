@@ -75,6 +75,12 @@ cd "${ROOT_DIR}/web"
 STRIPE_SECRET_KEY="$stripe_secret_key" \
 STRIPE_PRO_PRICE_ID="$stripe_pro_price_id" \
 STRIPE_PREMIUM_PRICE_ID="$stripe_pro_price_id" \
+STRIPE_API_ACCESS_PRICE_ID="${STRIPE_TEST_API_ACCESS_PRICE_ID:-${STRIPE_API_ACCESS_PRICE_ID:-}}" \
+npm run stripe:preflight
+
+STRIPE_SECRET_KEY="$stripe_secret_key" \
+STRIPE_PRO_PRICE_ID="$stripe_pro_price_id" \
+STRIPE_PREMIUM_PRICE_ID="$stripe_pro_price_id" \
 ALLOW_E2E_AUTH="${ALLOW_E2E_AUTH:-true}" \
 E2E_TEST_EMAIL="${E2E_TEST_EMAIL:-e2e-test@shorted.com.au}" \
 E2E_TEST_PASSWORD="${E2E_TEST_PASSWORD:-E2ETestPassword123!}" \

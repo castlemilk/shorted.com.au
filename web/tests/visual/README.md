@@ -28,23 +28,21 @@ Baselines live in `tests/visual/__screenshots__/` and **are committed to git**.
 Everything else Playwright produces (`test-results/`, `playwright-report/`,
 `blob-report/`) is gitignored.
 
-## Baselines MUST be Linux-generated
+## Baselines MUST be Bookworm-generated
 
-macOS renders fonts with different anti-aliasing than CI (ubuntu), so baselines
-generated locally on a Mac **will diff** on CI. Always (re)generate baselines
-inside the official Playwright Linux docker image whose tag matches the
-installed `@playwright/test` version. Find the version with:
+macOS renders fonts with different anti-aliasing than CI's Bookworm container,
+so baselines generated locally on a Mac **will diff** on CI. Always
+(re)generate baselines inside the same Debian Bookworm image used by the
+visual-regression workflow.
+The workflow currently uses Node 22 on Bookworm because Node 24 with
+`@playwright/test` 1.52.0 can hang before test discovery in the slim container.
 
-```bash
-node -e "console.log(require('@playwright/test/package.json').version)"
-```
-
-Then regenerate (run from `web/`):
+Regenerate (run from `web/`):
 
 ```bash
 docker run --rm -v "$PWD":/work -w /work \
-  mcr.microsoft.com/playwright:v<VERSION>-jammy \
-  bash -lc "npm ci && npm run test:visual:update"
+  node:22-bookworm-slim \
+  bash -lc "npm ci --legacy-peer-deps && npx playwright install --with-deps chromium && npm run test:visual:update"
 ```
 
 This builds Storybook and writes one PNG per non-tagged story into
@@ -55,8 +53,8 @@ To verify the suite is green against its own baselines, re-run **without**
 
 ```bash
 docker run --rm -v "$PWD":/work -w /work \
-  mcr.microsoft.com/playwright:v<VERSION>-jammy \
-  bash -lc "npm ci && npm run test:visual"
+  node:22-bookworm-slim \
+  bash -lc "npm ci --legacy-peer-deps && npx playwright install --with-deps chromium && npm run test:visual"
 ```
 
 ## The `no-visual` tag convention

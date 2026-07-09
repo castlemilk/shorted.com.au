@@ -9,11 +9,11 @@
  * Data trace (verified against stock-chart-widget.tsx):
  * - fetchStockDataClient(code, period) — ~/@/lib/client-api, per stock,
  *   only when dataTypes includes "shorts". Spy-mocked in preview.tsx.
- * - getStock(code) — app/actions/getStock, per stock alongside the shorts
+ * - fetchStockClient(code) — ~/@/lib/client-api, per stock alongside the shorts
  *   fetch (header name + "% shorted" badge). Spy-mocked in preview.tsx.
- * - getMultipleStockQuotes(stocks) — ~/@/lib/stock-data-service, one call
+ * - getMultipleStockQuotes(stocks) — @/lib/stock-data-service, one call
  *   per shorts fetch (header price badge + legend). Spy-mocked.
- * - getHistoricalData(code, period) — ~/@/lib/stock-data-service, per
+ * - getHistoricalData(code, period) — @/lib/stock-data-service, per
  *   stock, only when dataTypes includes "market". Spy-mocked.
  * - Transitive: StockSelector (settings popover) calls searchStocksClient
  *   only when the user types; IndicatorPanel and MultiSeriesChart are pure
@@ -49,12 +49,11 @@ import {
   stockQuotesFixture,
   timeSeriesDataFixture,
 } from "~/@/mocks/fixtures/short-data";
-import { fetchStockDataClient } from "~/@/lib/client-api";
-import { getStock } from "~/app/actions/getStock";
+import { fetchStockClient, fetchStockDataClient } from "~/@/lib/client-api";
 import {
   getHistoricalData,
   getMultipleStockQuotes,
-} from "~/@/lib/stock-data-service";
+} from "@/lib/stock-data-service";
 
 /** Mirrors the widget's formatPrice so quote assertions match exactly. */
 const formatPrice = (price: number) =>
@@ -70,7 +69,7 @@ const mockAllData = () => {
   mocked(fetchStockDataClient).mockImplementation((code, period) =>
     Promise.resolve(timeSeriesDataFixture(code, period)),
   );
-  mocked(getStock).mockImplementation((code) =>
+  mocked(fetchStockClient).mockImplementation((code) =>
     Promise.resolve(stockFixture(code)),
   );
   mocked(getMultipleStockQuotes).mockImplementation((codes) =>
@@ -173,7 +172,7 @@ export const Default: Story = {
 export const Loading: Story = {
   beforeEach: () => {
     mocked(fetchStockDataClient).mockReturnValue(never());
-    mocked(getStock).mockReturnValue(never());
+    mocked(fetchStockClient).mockReturnValue(never());
     mocked(getMultipleStockQuotes).mockReturnValue(never());
     mocked(getHistoricalData).mockReturnValue(never());
   },
@@ -205,7 +204,7 @@ export const Error: Story = {
     // constructor inside this module.
     const failure = new globalThis.Error("backend unavailable");
     mocked(fetchStockDataClient).mockRejectedValue(failure);
-    mocked(getStock).mockRejectedValue(failure);
+    mocked(fetchStockClient).mockRejectedValue(failure);
     mocked(getMultipleStockQuotes).mockRejectedValue(failure);
     mocked(getHistoricalData).mockRejectedValue(failure);
   },
@@ -244,7 +243,7 @@ export const Empty: Story = {
   },
   beforeEach: () => {
     mocked(fetchStockDataClient).mockResolvedValue(undefined);
-    mocked(getStock).mockImplementation((code) =>
+    mocked(fetchStockClient).mockImplementation((code) =>
       Promise.resolve(stockFixture(code)),
     );
     mocked(getMultipleStockQuotes).mockImplementation((codes) =>
@@ -290,7 +289,7 @@ export const Compact: Story = {
     mocked(fetchStockDataClient).mockImplementation((code, period) =>
       Promise.resolve(timeSeriesDataFixture(code, period)),
     );
-    mocked(getStock).mockImplementation((code) =>
+    mocked(fetchStockClient).mockImplementation((code) =>
       Promise.resolve(stockFixture(code)),
     );
     mocked(getMultipleStockQuotes).mockImplementation((codes) =>

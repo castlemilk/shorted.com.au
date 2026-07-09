@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { chromium, devices, request as playwrightRequest } from "@playwright/test";
+import { checkFirebaseGoogleAuthBootstrap } from "./helpers/firebase-google-auth-bootstrap.mjs";
 
 const baseUrl = process.env.BASE_URL || "https://shorted.com.au";
 const apiBaseUrl = process.env.RELEASE_API_BASE_URL || "https://api.shorted.com.au";
@@ -238,6 +239,16 @@ async function checkApiEdge() {
   }
 }
 
+async function checkAuthBootstrap(browser) {
+  console.log("check Firebase Google auth bootstrap");
+  await checkFirebaseGoogleAuthBootstrap({
+    browser,
+    baseUrl,
+    bypassSecret,
+    userAgent,
+  });
+}
+
 const browser = await chromium.launch();
 const context = await browser.newContext({
   ...devices["Desktop Chrome"],
@@ -252,6 +263,7 @@ try {
   }
   await checkNavigation(context);
   await checkApiEdge();
+  await checkAuthBootstrap(browser);
   console.log("release smoke passed");
 } finally {
   await context.close();
