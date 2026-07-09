@@ -223,9 +223,11 @@ func finishIndustryCollectionRun(ctx context.Context, pool *pgxpool.Pool, runID,
 }
 
 // syncIndustryTaxRecords promotes exact-matched ATO corporate-tax facts into the
-// industry intelligence fact table. It writes one current factual row per ABN/year
-// with the total-income metric; taxable income and tax payable remain available
-// as nullable metadata so the UI can preserve nil-vs-zero semantics.
+// industry intelligence fact table. It writes one row per ABN/year/metric so the
+// dashboard can aggregate income, taxable income, and tax payable independently.
+// A reported zero (notably tax payable) is a genuine value; a missing metric is
+// simply not emitted, preserving the ATO's nil-vs-zero semantics. total_income
+// keeps the legacy un-suffixed record id so re-runs update rather than duplicate.
 func syncIndustryTaxRecords(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
 	const q = `
 		WITH mapped_tax AS (
@@ -245,6 +247,21 @@ func syncIndustryTaxRecords(ctx context.Context, pool *pgxpool.Pool) (int64, err
 			LEFT JOIN "company-metadata" cm ON cm.stock_code = eam.stock_code
 			WHERE ct.total_income IS NOT NULL
 		),
+		metric_rows AS (
+			SELECT
+				mt.*,
+				m.metric_key,
+				m.metric_label,
+				m.metric_value,
+				m.id_suffix
+			FROM mapped_tax mt
+			CROSS JOIN LATERAL (VALUES
+				('total_income', 'Total income', mt.total_income, ''),
+				('taxable_income', 'Taxable income', mt.taxable_income, ':taxable_income'),
+				('tax_payable', 'Tax payable', mt.tax_payable, ':tax_payable')
+			) AS m(metric_key, metric_label, metric_value, id_suffix)
+			WHERE m.metric_value IS NOT NULL
+		),
 		upserted AS (
 			INSERT INTO industry_intelligence_records
 				(source_key, source_record_id, signal_kind, industry, stock_code, entity_abn,
@@ -252,21 +269,24 @@ func syncIndustryTaxRecords(ctx context.Context, pool *pgxpool.Pool) (int64, err
 				 title, summary, source_url, confidence, metadata)
 			SELECT
 				'ato-corporate-tax-transparency',
-				'ato-tax:' || abn || ':' || income_year::text,
+				'ato-tax:' || abn || ':' || income_year::text || id_suffix,
 				'tax_environment',
 				industry,
 				stock_code,
 				abn,
-				'total_income',
-				'Total income',
-				total_income,
+				metric_key,
+				metric_label,
+				metric_value,
 				'AUD',
 				make_date((income_year - 1)::int, 7, 1),
 				make_date(income_year::int, 6, 30),
 				make_date(income_year::int, 6, 30),
 				'ATO tax transparency: ' || company_name || ' ' || income_year::text,
-				'ATO reported total income for ' || company_name || ' in the ' ||
-					(income_year - 1)::text || '-' || right(income_year::text, 2) || ' income year.',
+				'ATO reported ' || lower(metric_label) || ' for ' || company_name || ' in the ' ||
+					(income_year - 1)::text || '-' || right(income_year::text, 2) || ' income year.' ||
+					CASE WHEN metric_key = 'tax_payable' AND metric_value = 0
+						THEN ' A zero amount is often the lawful result of deductions, offsets, or prior-year losses.'
+						ELSE '' END,
 				'https://data.gov.au/data/dataset/corporate-transparency',
 				confidence,
 				jsonb_build_object(
@@ -279,7 +299,7 @@ func syncIndustryTaxRecords(ctx context.Context, pool *pgxpool.Pool) (int64, err
 					'has_tax_payable', tax_payable IS NOT NULL,
 					'match_method', 'exact_entity_map'
 				)
-			FROM mapped_tax
+			FROM metric_rows
 			ON CONFLICT (source_key, source_record_id) DO UPDATE SET
 				signal_kind = EXCLUDED.signal_kind,
 				industry = EXCLUDED.industry,

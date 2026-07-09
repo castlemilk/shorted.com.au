@@ -7,8 +7,39 @@ import (
 )
 
 type IndustryIntelligenceResult struct {
-	Sources []IndustryIntelligenceSourceRow
-	Records []IndustryIntelligenceRecordRow
+	Sources      []IndustryIntelligenceSourceRow
+	Records      []IndustryIntelligenceRecordRow
+	TimeBuckets  []IndustryIntelligenceTimeBucketRow
+	EntityTotals []IndustryIntelligenceEntityTotalRow
+}
+
+// IndustryIntelligenceTimeBucketRow aggregates one metric of one source per
+// Australian financial year (bucketed on COALESCE(period_end, as_of)).
+type IndustryIntelligenceTimeBucketRow struct {
+	SignalKind     string
+	SourceKey      string
+	MetricKey      string
+	MetricLabel    string
+	Unit           string
+	FYEndYear      int
+	TotalValue     float64
+	RecordCount    int32
+	EntityCount    int32
+	ZeroValueCount int32
+}
+
+// IndustryIntelligenceEntityTotalRow is the per-entity total for one metric of
+// one source, restricted to the top entities by total value.
+type IndustryIntelligenceEntityTotalRow struct {
+	SignalKind  string
+	SourceKey   string
+	MetricKey   string
+	StockCode   string
+	EntityLabel string
+	Unit        string
+	TotalValue  float64
+	RecordCount int32
+	LatestAsOf  time.Time
 }
 
 type IndustryIntelligenceSourceRow struct {
@@ -153,6 +184,122 @@ func (s *postgresStore) GetIndustryIntelligence(industry string, recordLimit int
 	}
 	if err := recordRows.Err(); err != nil {
 		return nil, fmt.Errorf("failed iterating industry intelligence records: %w", err)
+	}
+
+	// Australian financial year bucketing: months >= July roll into the FY that
+	// ends the following June (period_end 2024-06-30 -> FY ending 2024).
+	const timeBucketsQuery = `
+		SELECT
+			r.signal_kind,
+			r.source_key,
+			r.metric_key,
+			MIN(r.metric_label),
+			r.unit,
+			(EXTRACT(YEAR FROM COALESCE(r.period_end, r.as_of))::int
+				+ CASE WHEN EXTRACT(MONTH FROM COALESCE(r.period_end, r.as_of)) >= 7 THEN 1 ELSE 0 END) AS fy_end,
+			SUM(r.metric_value)::double precision,
+			COUNT(*)::int,
+			COUNT(DISTINCT NULLIF(r.stock_code, ''))::int,
+			COUNT(*) FILTER (WHERE r.metric_value = 0)::int
+		FROM industry_intelligence_records r
+		JOIN industry_intelligence_sources s ON s.source_key = r.source_key
+		WHERE s.public_enabled
+		  AND ($1 = '' OR r.industry = $1)
+		  AND r.metric_value IS NOT NULL
+		GROUP BY r.signal_kind, r.source_key, r.metric_key, r.unit, fy_end
+		ORDER BY r.signal_kind, r.source_key, r.metric_key, fy_end`
+
+	bucketRows, err := s.db.Query(ctx, timeBucketsQuery, industry)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query industry intelligence time buckets: %w", err)
+	}
+	defer bucketRows.Close()
+
+	for bucketRows.Next() {
+		var row IndustryIntelligenceTimeBucketRow
+		if err := bucketRows.Scan(
+			&row.SignalKind,
+			&row.SourceKey,
+			&row.MetricKey,
+			&row.MetricLabel,
+			&row.Unit,
+			&row.FYEndYear,
+			&row.TotalValue,
+			&row.RecordCount,
+			&row.EntityCount,
+			&row.ZeroValueCount,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan industry intelligence time bucket: %w", err)
+		}
+		result.TimeBuckets = append(result.TimeBuckets, row)
+	}
+	if err := bucketRows.Err(); err != nil {
+		return nil, fmt.Errorf("failed iterating industry intelligence time buckets: %w", err)
+	}
+
+	const entityTotalsQuery = `
+		WITH totals AS (
+			SELECT
+				r.signal_kind,
+				r.source_key,
+				r.metric_key,
+				r.stock_code,
+				r.unit,
+				SUM(r.metric_value)::double precision AS total_value,
+				COUNT(*)::int AS record_count,
+				MAX(r.as_of) AS latest_as_of,
+				ROW_NUMBER() OVER (
+					PARTITION BY r.signal_kind, r.source_key, r.metric_key
+					ORDER BY SUM(r.metric_value) DESC
+				) AS rank
+			FROM industry_intelligence_records r
+			JOIN industry_intelligence_sources s ON s.source_key = r.source_key
+			WHERE s.public_enabled
+			  AND ($1 = '' OR r.industry = $1)
+			  AND r.metric_value IS NOT NULL
+			  AND COALESCE(r.stock_code, '') <> ''
+			GROUP BY r.signal_kind, r.source_key, r.metric_key, r.stock_code, r.unit
+		)
+		SELECT
+			t.signal_kind,
+			t.source_key,
+			t.metric_key,
+			t.stock_code,
+			COALESCE(NULLIF(cm.company_name, ''), t.stock_code),
+			t.unit,
+			t.total_value,
+			t.record_count,
+			t.latest_as_of
+		FROM totals t
+		LEFT JOIN "company-metadata" cm ON cm.stock_code = t.stock_code
+		WHERE t.rank <= 8
+		ORDER BY t.signal_kind, t.source_key, t.metric_key, t.total_value DESC`
+
+	entityRows, err := s.db.Query(ctx, entityTotalsQuery, industry)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query industry intelligence entity totals: %w", err)
+	}
+	defer entityRows.Close()
+
+	for entityRows.Next() {
+		var row IndustryIntelligenceEntityTotalRow
+		if err := entityRows.Scan(
+			&row.SignalKind,
+			&row.SourceKey,
+			&row.MetricKey,
+			&row.StockCode,
+			&row.EntityLabel,
+			&row.Unit,
+			&row.TotalValue,
+			&row.RecordCount,
+			&row.LatestAsOf,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan industry intelligence entity total: %w", err)
+		}
+		result.EntityTotals = append(result.EntityTotals, row)
+	}
+	if err := entityRows.Err(); err != nil {
+		return nil, fmt.Errorf("failed iterating industry intelligence entity totals: %w", err)
 	}
 
 	return result, nil

@@ -96,4 +96,52 @@ public interface GetIndustryIntelligenceResponseOrBuilder extends
    * <code>.google.protobuf.Timestamp generated_at = 5 [json_name = "generatedAt"];</code>
    */
   com.google.protobuf.TimestampOrBuilder getGeneratedAtOrBuilder();
+
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+   */
+  java.util.List<com.shorts.v1alpha1.IndustryIntelligenceTimeBucket> 
+      getTimeBucketsList();
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+   */
+  com.shorts.v1alpha1.IndustryIntelligenceTimeBucket getTimeBuckets(int index);
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+   */
+  int getTimeBucketsCount();
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+   */
+  java.util.List<? extends com.shorts.v1alpha1.IndustryIntelligenceTimeBucketOrBuilder> 
+      getTimeBucketsOrBuilderList();
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+   */
+  com.shorts.v1alpha1.IndustryIntelligenceTimeBucketOrBuilder getTimeBucketsOrBuilder(
+      int index);
+
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+   */
+  java.util.List<com.shorts.v1alpha1.IndustryIntelligenceEntityTotal> 
+      getEntityTotalsList();
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+   */
+  com.shorts.v1alpha1.IndustryIntelligenceEntityTotal getEntityTotals(int index);
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+   */
+  int getEntityTotalsCount();
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+   */
+  java.util.List<? extends com.shorts.v1alpha1.IndustryIntelligenceEntityTotalOrBuilder> 
+      getEntityTotalsOrBuilderList();
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+   */
+  com.shorts.v1alpha1.IndustryIntelligenceEntityTotalOrBuilder getEntityTotalsOrBuilder(
+      int index);
 }

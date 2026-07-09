@@ -1775,12 +1775,45 @@ message IndustryIntelligenceRecord {
   double confidence = 18;
 }
 
+// Aggregated evidence per Australian financial year for one metric of one
+// public-enabled source. Powers the industry intelligence dashboard charts
+// without shipping every underlying record.
+message IndustryIntelligenceTimeBucket {
+  string signal_kind = 1;
+  string source_key = 2;
+  string metric_key = 3;
+  string metric_label = 4;
+  string unit = 5;
+  string bucket_label = 6;      // e.g. "2023-24" (Australian financial year)
+  string bucket_start = 7;      // YYYY-MM-DD (1 July opening the financial year)
+  double total_value = 8;
+  int32 record_count = 9;
+  int32 entity_count = 10;      // distinct matched stock codes in the bucket
+  int32 zero_value_count = 11;  // records reporting a genuine zero value
+}
+
+// Total per matched entity for one metric of one public-enabled source,
+// ranked by total value (top entities only).
+message IndustryIntelligenceEntityTotal {
+  string signal_kind = 1;
+  string source_key = 2;
+  string metric_key = 3;
+  string stock_code = 4;
+  string entity_label = 5;
+  string unit = 6;
+  double total_value = 7;
+  int32 record_count = 8;
+  string latest_as_of = 9; // YYYY-MM-DD
+}
+
 message GetIndustryIntelligenceResponse {
   string industry = 1;
   repeated IndustryIntelligenceSource sources = 2;
   repeated IndustryIntelligenceRecord records = 3;
   string source_attribution = 4;
   google.protobuf.Timestamp generated_at = 5;
+  repeated IndustryIntelligenceTimeBucket time_buckets = 6;
+  repeated IndustryIntelligenceEntityTotal entity_totals = 7;
 }
 
 // ==================== Short Campaign Scoreboard Messages ====================

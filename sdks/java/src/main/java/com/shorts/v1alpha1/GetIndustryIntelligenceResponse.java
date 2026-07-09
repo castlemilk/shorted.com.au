@@ -32,6 +32,8 @@ private static final long serialVersionUID = 0L;
     sources_ = java.util.Collections.emptyList();
     records_ = java.util.Collections.emptyList();
     sourceAttribution_ = "";
+    timeBuckets_ = java.util.Collections.emptyList();
+    entityTotals_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -239,6 +241,88 @@ private static final long serialVersionUID = 0L;
     return generatedAt_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : generatedAt_;
   }
 
+  public static final int TIME_BUCKETS_FIELD_NUMBER = 6;
+  @SuppressWarnings("serial")
+  private java.util.List<com.shorts.v1alpha1.IndustryIntelligenceTimeBucket> timeBuckets_;
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<com.shorts.v1alpha1.IndustryIntelligenceTimeBucket> getTimeBucketsList() {
+    return timeBuckets_;
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends com.shorts.v1alpha1.IndustryIntelligenceTimeBucketOrBuilder> 
+      getTimeBucketsOrBuilderList() {
+    return timeBuckets_;
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+   */
+  @java.lang.Override
+  public int getTimeBucketsCount() {
+    return timeBuckets_.size();
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.IndustryIntelligenceTimeBucket getTimeBuckets(int index) {
+    return timeBuckets_.get(index);
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.IndustryIntelligenceTimeBucketOrBuilder getTimeBucketsOrBuilder(
+      int index) {
+    return timeBuckets_.get(index);
+  }
+
+  public static final int ENTITY_TOTALS_FIELD_NUMBER = 7;
+  @SuppressWarnings("serial")
+  private java.util.List<com.shorts.v1alpha1.IndustryIntelligenceEntityTotal> entityTotals_;
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<com.shorts.v1alpha1.IndustryIntelligenceEntityTotal> getEntityTotalsList() {
+    return entityTotals_;
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends com.shorts.v1alpha1.IndustryIntelligenceEntityTotalOrBuilder> 
+      getEntityTotalsOrBuilderList() {
+    return entityTotals_;
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+   */
+  @java.lang.Override
+  public int getEntityTotalsCount() {
+    return entityTotals_.size();
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.IndustryIntelligenceEntityTotal getEntityTotals(int index) {
+    return entityTotals_.get(index);
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.IndustryIntelligenceEntityTotalOrBuilder getEntityTotalsOrBuilder(
+      int index) {
+    return entityTotals_.get(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -267,6 +351,12 @@ private static final long serialVersionUID = 0L;
     }
     if (((bitField0_ & 0x00000001) != 0)) {
       output.writeMessage(5, getGeneratedAt());
+    }
+    for (int i = 0; i < timeBuckets_.size(); i++) {
+      output.writeMessage(6, timeBuckets_.get(i));
+    }
+    for (int i = 0; i < entityTotals_.size(); i++) {
+      output.writeMessage(7, entityTotals_.get(i));
     }
     getUnknownFields().writeTo(output);
   }
@@ -300,6 +390,24 @@ private static final long serialVersionUID = 0L;
       size += com.google.protobuf.CodedOutputStream
         .computeMessageSize(5, getGeneratedAt());
     }
+
+        {
+          final int count = timeBuckets_.size();
+          for (int i = 0; i < count; i++) {
+            size += com.google.protobuf.CodedOutputStream
+              .computeMessageSizeNoTag(timeBuckets_.get(i));
+          }
+          size += 1 * count;
+        }
+
+        {
+          final int count = entityTotals_.size();
+          for (int i = 0; i < count; i++) {
+            size += com.google.protobuf.CodedOutputStream
+              .computeMessageSizeNoTag(entityTotals_.get(i));
+          }
+          size += 1 * count;
+        }
     return size;
   }
   @java.lang.Override
@@ -337,6 +445,10 @@ private static final long serialVersionUID = 0L;
       if (!getGeneratedAt()
           .equals(other.getGeneratedAt())) return false;
     }
+    if (!getTimeBucketsList()
+        .equals(other.getTimeBucketsList())) return false;
+    if (!getEntityTotalsList()
+        .equals(other.getEntityTotalsList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -363,6 +475,14 @@ private static final long serialVersionUID = 0L;
     if (hasGeneratedAt()) {
       hash = (37 * hash) + GENERATED_AT_FIELD_NUMBER;
       hash = (53 * hash) + getGeneratedAt().hashCode();
+    }
+    if (getTimeBucketsCount() > 0) {
+      hash = (37 * hash) + TIME_BUCKETS_FIELD_NUMBER;
+      hash = (53 * hash) + getTimeBucketsList().hashCode();
+    }
+    if (getEntityTotalsCount() > 0) {
+      hash = (37 * hash) + ENTITY_TOTALS_FIELD_NUMBER;
+      hash = (53 * hash) + getEntityTotalsList().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -497,6 +617,8 @@ private static final long serialVersionUID = 0L;
         internalGetSourcesFieldBuilder();
         internalGetRecordsFieldBuilder();
         internalGetGeneratedAtFieldBuilder();
+        internalGetTimeBucketsFieldBuilder();
+        internalGetEntityTotalsFieldBuilder();
       }
     }
     @java.lang.Override
@@ -524,6 +646,20 @@ private static final long serialVersionUID = 0L;
         generatedAtBuilder_.dispose();
         generatedAtBuilder_ = null;
       }
+      if (timeBucketsBuilder_ == null) {
+        timeBuckets_ = java.util.Collections.emptyList();
+      } else {
+        timeBuckets_ = null;
+        timeBucketsBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00000020);
+      if (entityTotalsBuilder_ == null) {
+        entityTotals_ = java.util.Collections.emptyList();
+      } else {
+        entityTotals_ = null;
+        entityTotalsBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00000040);
       return this;
     }
 
@@ -574,6 +710,24 @@ private static final long serialVersionUID = 0L;
         result.records_ = records_;
       } else {
         result.records_ = recordsBuilder_.build();
+      }
+      if (timeBucketsBuilder_ == null) {
+        if (((bitField0_ & 0x00000020) != 0)) {
+          timeBuckets_ = java.util.Collections.unmodifiableList(timeBuckets_);
+          bitField0_ = (bitField0_ & ~0x00000020);
+        }
+        result.timeBuckets_ = timeBuckets_;
+      } else {
+        result.timeBuckets_ = timeBucketsBuilder_.build();
+      }
+      if (entityTotalsBuilder_ == null) {
+        if (((bitField0_ & 0x00000040) != 0)) {
+          entityTotals_ = java.util.Collections.unmodifiableList(entityTotals_);
+          bitField0_ = (bitField0_ & ~0x00000040);
+        }
+        result.entityTotals_ = entityTotals_;
+      } else {
+        result.entityTotals_ = entityTotalsBuilder_.build();
       }
     }
 
@@ -672,6 +826,58 @@ private static final long serialVersionUID = 0L;
       if (other.hasGeneratedAt()) {
         mergeGeneratedAt(other.getGeneratedAt());
       }
+      if (timeBucketsBuilder_ == null) {
+        if (!other.timeBuckets_.isEmpty()) {
+          if (timeBuckets_.isEmpty()) {
+            timeBuckets_ = other.timeBuckets_;
+            bitField0_ = (bitField0_ & ~0x00000020);
+          } else {
+            ensureTimeBucketsIsMutable();
+            timeBuckets_.addAll(other.timeBuckets_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.timeBuckets_.isEmpty()) {
+          if (timeBucketsBuilder_.isEmpty()) {
+            timeBucketsBuilder_.dispose();
+            timeBucketsBuilder_ = null;
+            timeBuckets_ = other.timeBuckets_;
+            bitField0_ = (bitField0_ & ~0x00000020);
+            timeBucketsBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetTimeBucketsFieldBuilder() : null;
+          } else {
+            timeBucketsBuilder_.addAllMessages(other.timeBuckets_);
+          }
+        }
+      }
+      if (entityTotalsBuilder_ == null) {
+        if (!other.entityTotals_.isEmpty()) {
+          if (entityTotals_.isEmpty()) {
+            entityTotals_ = other.entityTotals_;
+            bitField0_ = (bitField0_ & ~0x00000040);
+          } else {
+            ensureEntityTotalsIsMutable();
+            entityTotals_.addAll(other.entityTotals_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.entityTotals_.isEmpty()) {
+          if (entityTotalsBuilder_.isEmpty()) {
+            entityTotalsBuilder_.dispose();
+            entityTotalsBuilder_ = null;
+            entityTotals_ = other.entityTotals_;
+            bitField0_ = (bitField0_ & ~0x00000040);
+            entityTotalsBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetEntityTotalsFieldBuilder() : null;
+          } else {
+            entityTotalsBuilder_.addAllMessages(other.entityTotals_);
+          }
+        }
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -741,6 +947,32 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000010;
               break;
             } // case 42
+            case 50: {
+              com.shorts.v1alpha1.IndustryIntelligenceTimeBucket m =
+                  input.readMessage(
+                      com.shorts.v1alpha1.IndustryIntelligenceTimeBucket.parser(),
+                      extensionRegistry);
+              if (timeBucketsBuilder_ == null) {
+                ensureTimeBucketsIsMutable();
+                timeBuckets_.add(m);
+              } else {
+                timeBucketsBuilder_.addMessage(m);
+              }
+              break;
+            } // case 50
+            case 58: {
+              com.shorts.v1alpha1.IndustryIntelligenceEntityTotal m =
+                  input.readMessage(
+                      com.shorts.v1alpha1.IndustryIntelligenceEntityTotal.parser(),
+                      extensionRegistry);
+              if (entityTotalsBuilder_ == null) {
+                ensureEntityTotalsIsMutable();
+                entityTotals_.add(m);
+              } else {
+                entityTotalsBuilder_.addMessage(m);
+              }
+              break;
+            } // case 58
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -1501,6 +1733,486 @@ private static final long serialVersionUID = 0L;
         generatedAt_ = null;
       }
       return generatedAtBuilder_;
+    }
+
+    private java.util.List<com.shorts.v1alpha1.IndustryIntelligenceTimeBucket> timeBuckets_ =
+      java.util.Collections.emptyList();
+    private void ensureTimeBucketsIsMutable() {
+      if (!((bitField0_ & 0x00000020) != 0)) {
+        timeBuckets_ = new java.util.ArrayList<com.shorts.v1alpha1.IndustryIntelligenceTimeBucket>(timeBuckets_);
+        bitField0_ |= 0x00000020;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.IndustryIntelligenceTimeBucket, com.shorts.v1alpha1.IndustryIntelligenceTimeBucket.Builder, com.shorts.v1alpha1.IndustryIntelligenceTimeBucketOrBuilder> timeBucketsBuilder_;
+
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.IndustryIntelligenceTimeBucket> getTimeBucketsList() {
+      if (timeBucketsBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(timeBuckets_);
+      } else {
+        return timeBucketsBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+     */
+    public int getTimeBucketsCount() {
+      if (timeBucketsBuilder_ == null) {
+        return timeBuckets_.size();
+      } else {
+        return timeBucketsBuilder_.getCount();
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+     */
+    public com.shorts.v1alpha1.IndustryIntelligenceTimeBucket getTimeBuckets(int index) {
+      if (timeBucketsBuilder_ == null) {
+        return timeBuckets_.get(index);
+      } else {
+        return timeBucketsBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+     */
+    public Builder setTimeBuckets(
+        int index, com.shorts.v1alpha1.IndustryIntelligenceTimeBucket value) {
+      if (timeBucketsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureTimeBucketsIsMutable();
+        timeBuckets_.set(index, value);
+        onChanged();
+      } else {
+        timeBucketsBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+     */
+    public Builder setTimeBuckets(
+        int index, com.shorts.v1alpha1.IndustryIntelligenceTimeBucket.Builder builderForValue) {
+      if (timeBucketsBuilder_ == null) {
+        ensureTimeBucketsIsMutable();
+        timeBuckets_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        timeBucketsBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+     */
+    public Builder addTimeBuckets(com.shorts.v1alpha1.IndustryIntelligenceTimeBucket value) {
+      if (timeBucketsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureTimeBucketsIsMutable();
+        timeBuckets_.add(value);
+        onChanged();
+      } else {
+        timeBucketsBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+     */
+    public Builder addTimeBuckets(
+        int index, com.shorts.v1alpha1.IndustryIntelligenceTimeBucket value) {
+      if (timeBucketsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureTimeBucketsIsMutable();
+        timeBuckets_.add(index, value);
+        onChanged();
+      } else {
+        timeBucketsBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+     */
+    public Builder addTimeBuckets(
+        com.shorts.v1alpha1.IndustryIntelligenceTimeBucket.Builder builderForValue) {
+      if (timeBucketsBuilder_ == null) {
+        ensureTimeBucketsIsMutable();
+        timeBuckets_.add(builderForValue.build());
+        onChanged();
+      } else {
+        timeBucketsBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+     */
+    public Builder addTimeBuckets(
+        int index, com.shorts.v1alpha1.IndustryIntelligenceTimeBucket.Builder builderForValue) {
+      if (timeBucketsBuilder_ == null) {
+        ensureTimeBucketsIsMutable();
+        timeBuckets_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        timeBucketsBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+     */
+    public Builder addAllTimeBuckets(
+        java.lang.Iterable<? extends com.shorts.v1alpha1.IndustryIntelligenceTimeBucket> values) {
+      if (timeBucketsBuilder_ == null) {
+        ensureTimeBucketsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, timeBuckets_);
+        onChanged();
+      } else {
+        timeBucketsBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+     */
+    public Builder clearTimeBuckets() {
+      if (timeBucketsBuilder_ == null) {
+        timeBuckets_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000020);
+        onChanged();
+      } else {
+        timeBucketsBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+     */
+    public Builder removeTimeBuckets(int index) {
+      if (timeBucketsBuilder_ == null) {
+        ensureTimeBucketsIsMutable();
+        timeBuckets_.remove(index);
+        onChanged();
+      } else {
+        timeBucketsBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+     */
+    public com.shorts.v1alpha1.IndustryIntelligenceTimeBucket.Builder getTimeBucketsBuilder(
+        int index) {
+      return internalGetTimeBucketsFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+     */
+    public com.shorts.v1alpha1.IndustryIntelligenceTimeBucketOrBuilder getTimeBucketsOrBuilder(
+        int index) {
+      if (timeBucketsBuilder_ == null) {
+        return timeBuckets_.get(index);  } else {
+        return timeBucketsBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+     */
+    public java.util.List<? extends com.shorts.v1alpha1.IndustryIntelligenceTimeBucketOrBuilder> 
+         getTimeBucketsOrBuilderList() {
+      if (timeBucketsBuilder_ != null) {
+        return timeBucketsBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(timeBuckets_);
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+     */
+    public com.shorts.v1alpha1.IndustryIntelligenceTimeBucket.Builder addTimeBucketsBuilder() {
+      return internalGetTimeBucketsFieldBuilder().addBuilder(
+          com.shorts.v1alpha1.IndustryIntelligenceTimeBucket.getDefaultInstance());
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+     */
+    public com.shorts.v1alpha1.IndustryIntelligenceTimeBucket.Builder addTimeBucketsBuilder(
+        int index) {
+      return internalGetTimeBucketsFieldBuilder().addBuilder(
+          index, com.shorts.v1alpha1.IndustryIntelligenceTimeBucket.getDefaultInstance());
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceTimeBucket time_buckets = 6 [json_name = "timeBuckets"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.IndustryIntelligenceTimeBucket.Builder> 
+         getTimeBucketsBuilderList() {
+      return internalGetTimeBucketsFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.IndustryIntelligenceTimeBucket, com.shorts.v1alpha1.IndustryIntelligenceTimeBucket.Builder, com.shorts.v1alpha1.IndustryIntelligenceTimeBucketOrBuilder> 
+        internalGetTimeBucketsFieldBuilder() {
+      if (timeBucketsBuilder_ == null) {
+        timeBucketsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            com.shorts.v1alpha1.IndustryIntelligenceTimeBucket, com.shorts.v1alpha1.IndustryIntelligenceTimeBucket.Builder, com.shorts.v1alpha1.IndustryIntelligenceTimeBucketOrBuilder>(
+                timeBuckets_,
+                ((bitField0_ & 0x00000020) != 0),
+                getParentForChildren(),
+                isClean());
+        timeBuckets_ = null;
+      }
+      return timeBucketsBuilder_;
+    }
+
+    private java.util.List<com.shorts.v1alpha1.IndustryIntelligenceEntityTotal> entityTotals_ =
+      java.util.Collections.emptyList();
+    private void ensureEntityTotalsIsMutable() {
+      if (!((bitField0_ & 0x00000040) != 0)) {
+        entityTotals_ = new java.util.ArrayList<com.shorts.v1alpha1.IndustryIntelligenceEntityTotal>(entityTotals_);
+        bitField0_ |= 0x00000040;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.IndustryIntelligenceEntityTotal, com.shorts.v1alpha1.IndustryIntelligenceEntityTotal.Builder, com.shorts.v1alpha1.IndustryIntelligenceEntityTotalOrBuilder> entityTotalsBuilder_;
+
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.IndustryIntelligenceEntityTotal> getEntityTotalsList() {
+      if (entityTotalsBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(entityTotals_);
+      } else {
+        return entityTotalsBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+     */
+    public int getEntityTotalsCount() {
+      if (entityTotalsBuilder_ == null) {
+        return entityTotals_.size();
+      } else {
+        return entityTotalsBuilder_.getCount();
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+     */
+    public com.shorts.v1alpha1.IndustryIntelligenceEntityTotal getEntityTotals(int index) {
+      if (entityTotalsBuilder_ == null) {
+        return entityTotals_.get(index);
+      } else {
+        return entityTotalsBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+     */
+    public Builder setEntityTotals(
+        int index, com.shorts.v1alpha1.IndustryIntelligenceEntityTotal value) {
+      if (entityTotalsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureEntityTotalsIsMutable();
+        entityTotals_.set(index, value);
+        onChanged();
+      } else {
+        entityTotalsBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+     */
+    public Builder setEntityTotals(
+        int index, com.shorts.v1alpha1.IndustryIntelligenceEntityTotal.Builder builderForValue) {
+      if (entityTotalsBuilder_ == null) {
+        ensureEntityTotalsIsMutable();
+        entityTotals_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        entityTotalsBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+     */
+    public Builder addEntityTotals(com.shorts.v1alpha1.IndustryIntelligenceEntityTotal value) {
+      if (entityTotalsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureEntityTotalsIsMutable();
+        entityTotals_.add(value);
+        onChanged();
+      } else {
+        entityTotalsBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+     */
+    public Builder addEntityTotals(
+        int index, com.shorts.v1alpha1.IndustryIntelligenceEntityTotal value) {
+      if (entityTotalsBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureEntityTotalsIsMutable();
+        entityTotals_.add(index, value);
+        onChanged();
+      } else {
+        entityTotalsBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+     */
+    public Builder addEntityTotals(
+        com.shorts.v1alpha1.IndustryIntelligenceEntityTotal.Builder builderForValue) {
+      if (entityTotalsBuilder_ == null) {
+        ensureEntityTotalsIsMutable();
+        entityTotals_.add(builderForValue.build());
+        onChanged();
+      } else {
+        entityTotalsBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+     */
+    public Builder addEntityTotals(
+        int index, com.shorts.v1alpha1.IndustryIntelligenceEntityTotal.Builder builderForValue) {
+      if (entityTotalsBuilder_ == null) {
+        ensureEntityTotalsIsMutable();
+        entityTotals_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        entityTotalsBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+     */
+    public Builder addAllEntityTotals(
+        java.lang.Iterable<? extends com.shorts.v1alpha1.IndustryIntelligenceEntityTotal> values) {
+      if (entityTotalsBuilder_ == null) {
+        ensureEntityTotalsIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, entityTotals_);
+        onChanged();
+      } else {
+        entityTotalsBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+     */
+    public Builder clearEntityTotals() {
+      if (entityTotalsBuilder_ == null) {
+        entityTotals_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00000040);
+        onChanged();
+      } else {
+        entityTotalsBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+     */
+    public Builder removeEntityTotals(int index) {
+      if (entityTotalsBuilder_ == null) {
+        ensureEntityTotalsIsMutable();
+        entityTotals_.remove(index);
+        onChanged();
+      } else {
+        entityTotalsBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+     */
+    public com.shorts.v1alpha1.IndustryIntelligenceEntityTotal.Builder getEntityTotalsBuilder(
+        int index) {
+      return internalGetEntityTotalsFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+     */
+    public com.shorts.v1alpha1.IndustryIntelligenceEntityTotalOrBuilder getEntityTotalsOrBuilder(
+        int index) {
+      if (entityTotalsBuilder_ == null) {
+        return entityTotals_.get(index);  } else {
+        return entityTotalsBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+     */
+    public java.util.List<? extends com.shorts.v1alpha1.IndustryIntelligenceEntityTotalOrBuilder> 
+         getEntityTotalsOrBuilderList() {
+      if (entityTotalsBuilder_ != null) {
+        return entityTotalsBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(entityTotals_);
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+     */
+    public com.shorts.v1alpha1.IndustryIntelligenceEntityTotal.Builder addEntityTotalsBuilder() {
+      return internalGetEntityTotalsFieldBuilder().addBuilder(
+          com.shorts.v1alpha1.IndustryIntelligenceEntityTotal.getDefaultInstance());
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+     */
+    public com.shorts.v1alpha1.IndustryIntelligenceEntityTotal.Builder addEntityTotalsBuilder(
+        int index) {
+      return internalGetEntityTotalsFieldBuilder().addBuilder(
+          index, com.shorts.v1alpha1.IndustryIntelligenceEntityTotal.getDefaultInstance());
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.IndustryIntelligenceEntityTotal entity_totals = 7 [json_name = "entityTotals"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.IndustryIntelligenceEntityTotal.Builder> 
+         getEntityTotalsBuilderList() {
+      return internalGetEntityTotalsFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.IndustryIntelligenceEntityTotal, com.shorts.v1alpha1.IndustryIntelligenceEntityTotal.Builder, com.shorts.v1alpha1.IndustryIntelligenceEntityTotalOrBuilder> 
+        internalGetEntityTotalsFieldBuilder() {
+      if (entityTotalsBuilder_ == null) {
+        entityTotalsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            com.shorts.v1alpha1.IndustryIntelligenceEntityTotal, com.shorts.v1alpha1.IndustryIntelligenceEntityTotal.Builder, com.shorts.v1alpha1.IndustryIntelligenceEntityTotalOrBuilder>(
+                entityTotals_,
+                ((bitField0_ & 0x00000040) != 0),
+                getParentForChildren(),
+                isClean());
+        entityTotals_ = null;
+      }
+      return entityTotalsBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetIndustryIntelligenceResponse)

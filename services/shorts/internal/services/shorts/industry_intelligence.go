@@ -99,13 +99,56 @@ func buildIndustryIntelligenceResponse(industry string, result *shortsstore.Indu
 		records = append(records, pb)
 	}
 
+	timeBuckets := make([]*shortsv1alpha1.IndustryIntelligenceTimeBucket, 0, len(result.TimeBuckets))
+	for _, bucket := range result.TimeBuckets {
+		timeBuckets = append(timeBuckets, &shortsv1alpha1.IndustryIntelligenceTimeBucket{
+			SignalKind:     bucket.SignalKind,
+			SourceKey:      bucket.SourceKey,
+			MetricKey:      bucket.MetricKey,
+			MetricLabel:    bucket.MetricLabel,
+			Unit:           bucket.Unit,
+			BucketLabel:    formatFinancialYearLabel(bucket.FYEndYear),
+			BucketStart:    fmt.Sprintf("%04d-07-01", bucket.FYEndYear-1),
+			TotalValue:     bucket.TotalValue,
+			RecordCount:    bucket.RecordCount,
+			EntityCount:    bucket.EntityCount,
+			ZeroValueCount: bucket.ZeroValueCount,
+		})
+	}
+
+	entityTotals := make([]*shortsv1alpha1.IndustryIntelligenceEntityTotal, 0, len(result.EntityTotals))
+	for _, total := range result.EntityTotals {
+		entityTotals = append(entityTotals, &shortsv1alpha1.IndustryIntelligenceEntityTotal{
+			SignalKind:  total.SignalKind,
+			SourceKey:   total.SourceKey,
+			MetricKey:   total.MetricKey,
+			StockCode:   total.StockCode,
+			EntityLabel: total.EntityLabel,
+			Unit:        total.Unit,
+			TotalValue:  total.TotalValue,
+			RecordCount: total.RecordCount,
+			LatestAsOf:  formatDate(total.LatestAsOf),
+		})
+	}
+
 	return &shortsv1alpha1.GetIndustryIntelligenceResponse{
 		Industry:          industry,
 		Sources:           sources,
 		Records:           records,
 		SourceAttribution: strings.Join(sourceNames, "; "),
 		GeneratedAt:       timestamppb.Now(),
+		TimeBuckets:       timeBuckets,
+		EntityTotals:      entityTotals,
 	}
+}
+
+// formatFinancialYearLabel renders an Australian financial year by its ending
+// year: 2024 -> "2023-24".
+func formatFinancialYearLabel(fyEndYear int) string {
+	if fyEndYear <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d-%02d", fyEndYear-1, fyEndYear%100)
 }
 
 func formatDatePtr(t *time.Time) string {

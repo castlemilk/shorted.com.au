@@ -9217,20 +9217,259 @@ func (x *IndustryIntelligenceRecord) GetConfidence() float64 {
 	return 0
 }
 
+// Aggregated evidence per Australian financial year for one metric of one
+// public-enabled source. Powers the industry intelligence dashboard charts
+// without shipping every underlying record.
+type IndustryIntelligenceTimeBucket struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	SignalKind     string                 `protobuf:"bytes,1,opt,name=signal_kind,json=signalKind,proto3" json:"signal_kind,omitempty"`
+	SourceKey      string                 `protobuf:"bytes,2,opt,name=source_key,json=sourceKey,proto3" json:"source_key,omitempty"`
+	MetricKey      string                 `protobuf:"bytes,3,opt,name=metric_key,json=metricKey,proto3" json:"metric_key,omitempty"`
+	MetricLabel    string                 `protobuf:"bytes,4,opt,name=metric_label,json=metricLabel,proto3" json:"metric_label,omitempty"`
+	Unit           string                 `protobuf:"bytes,5,opt,name=unit,proto3" json:"unit,omitempty"`
+	BucketLabel    string                 `protobuf:"bytes,6,opt,name=bucket_label,json=bucketLabel,proto3" json:"bucket_label,omitempty"` // e.g. "2023-24" (Australian financial year)
+	BucketStart    string                 `protobuf:"bytes,7,opt,name=bucket_start,json=bucketStart,proto3" json:"bucket_start,omitempty"` // YYYY-MM-DD (1 July opening the financial year)
+	TotalValue     float64                `protobuf:"fixed64,8,opt,name=total_value,json=totalValue,proto3" json:"total_value,omitempty"`
+	RecordCount    int32                  `protobuf:"varint,9,opt,name=record_count,json=recordCount,proto3" json:"record_count,omitempty"`
+	EntityCount    int32                  `protobuf:"varint,10,opt,name=entity_count,json=entityCount,proto3" json:"entity_count,omitempty"`            // distinct matched stock codes in the bucket
+	ZeroValueCount int32                  `protobuf:"varint,11,opt,name=zero_value_count,json=zeroValueCount,proto3" json:"zero_value_count,omitempty"` // records reporting a genuine zero value
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *IndustryIntelligenceTimeBucket) Reset() {
+	*x = IndustryIntelligenceTimeBucket{}
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[119]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IndustryIntelligenceTimeBucket) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IndustryIntelligenceTimeBucket) ProtoMessage() {}
+
+func (x *IndustryIntelligenceTimeBucket) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[119]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IndustryIntelligenceTimeBucket.ProtoReflect.Descriptor instead.
+func (*IndustryIntelligenceTimeBucket) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{119}
+}
+
+func (x *IndustryIntelligenceTimeBucket) GetSignalKind() string {
+	if x != nil {
+		return x.SignalKind
+	}
+	return ""
+}
+
+func (x *IndustryIntelligenceTimeBucket) GetSourceKey() string {
+	if x != nil {
+		return x.SourceKey
+	}
+	return ""
+}
+
+func (x *IndustryIntelligenceTimeBucket) GetMetricKey() string {
+	if x != nil {
+		return x.MetricKey
+	}
+	return ""
+}
+
+func (x *IndustryIntelligenceTimeBucket) GetMetricLabel() string {
+	if x != nil {
+		return x.MetricLabel
+	}
+	return ""
+}
+
+func (x *IndustryIntelligenceTimeBucket) GetUnit() string {
+	if x != nil {
+		return x.Unit
+	}
+	return ""
+}
+
+func (x *IndustryIntelligenceTimeBucket) GetBucketLabel() string {
+	if x != nil {
+		return x.BucketLabel
+	}
+	return ""
+}
+
+func (x *IndustryIntelligenceTimeBucket) GetBucketStart() string {
+	if x != nil {
+		return x.BucketStart
+	}
+	return ""
+}
+
+func (x *IndustryIntelligenceTimeBucket) GetTotalValue() float64 {
+	if x != nil {
+		return x.TotalValue
+	}
+	return 0
+}
+
+func (x *IndustryIntelligenceTimeBucket) GetRecordCount() int32 {
+	if x != nil {
+		return x.RecordCount
+	}
+	return 0
+}
+
+func (x *IndustryIntelligenceTimeBucket) GetEntityCount() int32 {
+	if x != nil {
+		return x.EntityCount
+	}
+	return 0
+}
+
+func (x *IndustryIntelligenceTimeBucket) GetZeroValueCount() int32 {
+	if x != nil {
+		return x.ZeroValueCount
+	}
+	return 0
+}
+
+// Total per matched entity for one metric of one public-enabled source,
+// ranked by total value (top entities only).
+type IndustryIntelligenceEntityTotal struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SignalKind    string                 `protobuf:"bytes,1,opt,name=signal_kind,json=signalKind,proto3" json:"signal_kind,omitempty"`
+	SourceKey     string                 `protobuf:"bytes,2,opt,name=source_key,json=sourceKey,proto3" json:"source_key,omitempty"`
+	MetricKey     string                 `protobuf:"bytes,3,opt,name=metric_key,json=metricKey,proto3" json:"metric_key,omitempty"`
+	StockCode     string                 `protobuf:"bytes,4,opt,name=stock_code,json=stockCode,proto3" json:"stock_code,omitempty"`
+	EntityLabel   string                 `protobuf:"bytes,5,opt,name=entity_label,json=entityLabel,proto3" json:"entity_label,omitempty"`
+	Unit          string                 `protobuf:"bytes,6,opt,name=unit,proto3" json:"unit,omitempty"`
+	TotalValue    float64                `protobuf:"fixed64,7,opt,name=total_value,json=totalValue,proto3" json:"total_value,omitempty"`
+	RecordCount   int32                  `protobuf:"varint,8,opt,name=record_count,json=recordCount,proto3" json:"record_count,omitempty"`
+	LatestAsOf    string                 `protobuf:"bytes,9,opt,name=latest_as_of,json=latestAsOf,proto3" json:"latest_as_of,omitempty"` // YYYY-MM-DD
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IndustryIntelligenceEntityTotal) Reset() {
+	*x = IndustryIntelligenceEntityTotal{}
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[120]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IndustryIntelligenceEntityTotal) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IndustryIntelligenceEntityTotal) ProtoMessage() {}
+
+func (x *IndustryIntelligenceEntityTotal) ProtoReflect() protoreflect.Message {
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[120]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IndustryIntelligenceEntityTotal.ProtoReflect.Descriptor instead.
+func (*IndustryIntelligenceEntityTotal) Descriptor() ([]byte, []int) {
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{120}
+}
+
+func (x *IndustryIntelligenceEntityTotal) GetSignalKind() string {
+	if x != nil {
+		return x.SignalKind
+	}
+	return ""
+}
+
+func (x *IndustryIntelligenceEntityTotal) GetSourceKey() string {
+	if x != nil {
+		return x.SourceKey
+	}
+	return ""
+}
+
+func (x *IndustryIntelligenceEntityTotal) GetMetricKey() string {
+	if x != nil {
+		return x.MetricKey
+	}
+	return ""
+}
+
+func (x *IndustryIntelligenceEntityTotal) GetStockCode() string {
+	if x != nil {
+		return x.StockCode
+	}
+	return ""
+}
+
+func (x *IndustryIntelligenceEntityTotal) GetEntityLabel() string {
+	if x != nil {
+		return x.EntityLabel
+	}
+	return ""
+}
+
+func (x *IndustryIntelligenceEntityTotal) GetUnit() string {
+	if x != nil {
+		return x.Unit
+	}
+	return ""
+}
+
+func (x *IndustryIntelligenceEntityTotal) GetTotalValue() float64 {
+	if x != nil {
+		return x.TotalValue
+	}
+	return 0
+}
+
+func (x *IndustryIntelligenceEntityTotal) GetRecordCount() int32 {
+	if x != nil {
+		return x.RecordCount
+	}
+	return 0
+}
+
+func (x *IndustryIntelligenceEntityTotal) GetLatestAsOf() string {
+	if x != nil {
+		return x.LatestAsOf
+	}
+	return ""
+}
+
 type GetIndustryIntelligenceResponse struct {
-	state             protoimpl.MessageState        `protogen:"open.v1"`
-	Industry          string                        `protobuf:"bytes,1,opt,name=industry,proto3" json:"industry,omitempty"`
-	Sources           []*IndustryIntelligenceSource `protobuf:"bytes,2,rep,name=sources,proto3" json:"sources,omitempty"`
-	Records           []*IndustryIntelligenceRecord `protobuf:"bytes,3,rep,name=records,proto3" json:"records,omitempty"`
-	SourceAttribution string                        `protobuf:"bytes,4,opt,name=source_attribution,json=sourceAttribution,proto3" json:"source_attribution,omitempty"`
-	GeneratedAt       *timestamppb.Timestamp        `protobuf:"bytes,5,opt,name=generated_at,json=generatedAt,proto3" json:"generated_at,omitempty"`
+	state             protoimpl.MessageState             `protogen:"open.v1"`
+	Industry          string                             `protobuf:"bytes,1,opt,name=industry,proto3" json:"industry,omitempty"`
+	Sources           []*IndustryIntelligenceSource      `protobuf:"bytes,2,rep,name=sources,proto3" json:"sources,omitempty"`
+	Records           []*IndustryIntelligenceRecord      `protobuf:"bytes,3,rep,name=records,proto3" json:"records,omitempty"`
+	SourceAttribution string                             `protobuf:"bytes,4,opt,name=source_attribution,json=sourceAttribution,proto3" json:"source_attribution,omitempty"`
+	GeneratedAt       *timestamppb.Timestamp             `protobuf:"bytes,5,opt,name=generated_at,json=generatedAt,proto3" json:"generated_at,omitempty"`
+	TimeBuckets       []*IndustryIntelligenceTimeBucket  `protobuf:"bytes,6,rep,name=time_buckets,json=timeBuckets,proto3" json:"time_buckets,omitempty"`
+	EntityTotals      []*IndustryIntelligenceEntityTotal `protobuf:"bytes,7,rep,name=entity_totals,json=entityTotals,proto3" json:"entity_totals,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
 
 func (x *GetIndustryIntelligenceResponse) Reset() {
 	*x = GetIndustryIntelligenceResponse{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[119]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[121]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9242,7 +9481,7 @@ func (x *GetIndustryIntelligenceResponse) String() string {
 func (*GetIndustryIntelligenceResponse) ProtoMessage() {}
 
 func (x *GetIndustryIntelligenceResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[119]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[121]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9255,7 +9494,7 @@ func (x *GetIndustryIntelligenceResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetIndustryIntelligenceResponse.ProtoReflect.Descriptor instead.
 func (*GetIndustryIntelligenceResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{119}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{121}
 }
 
 func (x *GetIndustryIntelligenceResponse) GetIndustry() string {
@@ -9293,6 +9532,20 @@ func (x *GetIndustryIntelligenceResponse) GetGeneratedAt() *timestamppb.Timestam
 	return nil
 }
 
+func (x *GetIndustryIntelligenceResponse) GetTimeBuckets() []*IndustryIntelligenceTimeBucket {
+	if x != nil {
+		return x.TimeBuckets
+	}
+	return nil
+}
+
+func (x *GetIndustryIntelligenceResponse) GetEntityTotals() []*IndustryIntelligenceEntityTotal {
+	if x != nil {
+		return x.EntityTotals
+	}
+	return nil
+}
+
 // Request for GetShortCampaignScoreboard RPC
 type GetShortCampaignScoreboardRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -9305,7 +9558,7 @@ type GetShortCampaignScoreboardRequest struct {
 
 func (x *GetShortCampaignScoreboardRequest) Reset() {
 	*x = GetShortCampaignScoreboardRequest{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[120]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[122]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9317,7 +9570,7 @@ func (x *GetShortCampaignScoreboardRequest) String() string {
 func (*GetShortCampaignScoreboardRequest) ProtoMessage() {}
 
 func (x *GetShortCampaignScoreboardRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[120]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[122]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9330,7 +9583,7 @@ func (x *GetShortCampaignScoreboardRequest) ProtoReflect() protoreflect.Message 
 
 // Deprecated: Use GetShortCampaignScoreboardRequest.ProtoReflect.Descriptor instead.
 func (*GetShortCampaignScoreboardRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{120}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{122}
 }
 
 func (x *GetShortCampaignScoreboardRequest) GetLimit() int32 {
@@ -9380,7 +9633,7 @@ type ShortCampaign struct {
 
 func (x *ShortCampaign) Reset() {
 	*x = ShortCampaign{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[121]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[123]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9392,7 +9645,7 @@ func (x *ShortCampaign) String() string {
 func (*ShortCampaign) ProtoMessage() {}
 
 func (x *ShortCampaign) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[121]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[123]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9405,7 +9658,7 @@ func (x *ShortCampaign) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShortCampaign.ProtoReflect.Descriptor instead.
 func (*ShortCampaign) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{121}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{123}
 }
 
 func (x *ShortCampaign) GetStockCode() string {
@@ -9541,7 +9794,7 @@ type GetShortCampaignScoreboardResponse struct {
 
 func (x *GetShortCampaignScoreboardResponse) Reset() {
 	*x = GetShortCampaignScoreboardResponse{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[122]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[124]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9553,7 +9806,7 @@ func (x *GetShortCampaignScoreboardResponse) String() string {
 func (*GetShortCampaignScoreboardResponse) ProtoMessage() {}
 
 func (x *GetShortCampaignScoreboardResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[122]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[124]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9566,7 +9819,7 @@ func (x *GetShortCampaignScoreboardResponse) ProtoReflect() protoreflect.Message
 
 // Deprecated: Use GetShortCampaignScoreboardResponse.ProtoReflect.Descriptor instead.
 func (*GetShortCampaignScoreboardResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{122}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{124}
 }
 
 func (x *GetShortCampaignScoreboardResponse) GetCampaigns() []*ShortCampaign {
@@ -9615,7 +9868,7 @@ type GetStockGraphRequest struct {
 
 func (x *GetStockGraphRequest) Reset() {
 	*x = GetStockGraphRequest{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[123]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[125]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9627,7 +9880,7 @@ func (x *GetStockGraphRequest) String() string {
 func (*GetStockGraphRequest) ProtoMessage() {}
 
 func (x *GetStockGraphRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[123]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[125]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9640,7 +9893,7 @@ func (x *GetStockGraphRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockGraphRequest.ProtoReflect.Descriptor instead.
 func (*GetStockGraphRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{123}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{125}
 }
 
 func (x *GetStockGraphRequest) GetStockCode() string {
@@ -9668,7 +9921,7 @@ type GetStockGraphResponse struct {
 
 func (x *GetStockGraphResponse) Reset() {
 	*x = GetStockGraphResponse{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[124]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[126]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9680,7 +9933,7 @@ func (x *GetStockGraphResponse) String() string {
 func (*GetStockGraphResponse) ProtoMessage() {}
 
 func (x *GetStockGraphResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[124]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[126]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9693,7 +9946,7 @@ func (x *GetStockGraphResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockGraphResponse.ProtoReflect.Descriptor instead.
 func (*GetStockGraphResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{124}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{126}
 }
 
 func (x *GetStockGraphResponse) GetPeople() []*GraphPerson {
@@ -9724,7 +9977,7 @@ type GraphPerson struct {
 
 func (x *GraphPerson) Reset() {
 	*x = GraphPerson{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[125]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[127]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9736,7 +9989,7 @@ func (x *GraphPerson) String() string {
 func (*GraphPerson) ProtoMessage() {}
 
 func (x *GraphPerson) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[125]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[127]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9749,7 +10002,7 @@ func (x *GraphPerson) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GraphPerson.ProtoReflect.Descriptor instead.
 func (*GraphPerson) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{125}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{127}
 }
 
 func (x *GraphPerson) GetName() string {
@@ -9800,7 +10053,7 @@ type GraphPeer struct {
 
 func (x *GraphPeer) Reset() {
 	*x = GraphPeer{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[126]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[128]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9812,7 +10065,7 @@ func (x *GraphPeer) String() string {
 func (*GraphPeer) ProtoMessage() {}
 
 func (x *GraphPeer) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[126]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[128]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9825,7 +10078,7 @@ func (x *GraphPeer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GraphPeer.ProtoReflect.Descriptor instead.
 func (*GraphPeer) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{126}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{128}
 }
 
 func (x *GraphPeer) GetStockCode() string {
@@ -9868,7 +10121,7 @@ type GetEventTimelineRequest struct {
 
 func (x *GetEventTimelineRequest) Reset() {
 	*x = GetEventTimelineRequest{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[127]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[129]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9880,7 +10133,7 @@ func (x *GetEventTimelineRequest) String() string {
 func (*GetEventTimelineRequest) ProtoMessage() {}
 
 func (x *GetEventTimelineRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[127]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[129]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9893,7 +10146,7 @@ func (x *GetEventTimelineRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEventTimelineRequest.ProtoReflect.Descriptor instead.
 func (*GetEventTimelineRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{127}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{129}
 }
 
 func (x *GetEventTimelineRequest) GetStockCode() string {
@@ -9927,7 +10180,7 @@ type GetEventTimelineResponse struct {
 
 func (x *GetEventTimelineResponse) Reset() {
 	*x = GetEventTimelineResponse{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[128]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[130]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9939,7 +10192,7 @@ func (x *GetEventTimelineResponse) String() string {
 func (*GetEventTimelineResponse) ProtoMessage() {}
 
 func (x *GetEventTimelineResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[128]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[130]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -9952,7 +10205,7 @@ func (x *GetEventTimelineResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetEventTimelineResponse.ProtoReflect.Descriptor instead.
 func (*GetEventTimelineResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{128}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{130}
 }
 
 func (x *GetEventTimelineResponse) GetEvents() []*TimelineEvent {
@@ -9978,7 +10231,7 @@ type TimelineEvent struct {
 
 func (x *TimelineEvent) Reset() {
 	*x = TimelineEvent{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[129]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[131]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -9990,7 +10243,7 @@ func (x *TimelineEvent) String() string {
 func (*TimelineEvent) ProtoMessage() {}
 
 func (x *TimelineEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[129]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[131]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10003,7 +10256,7 @@ func (x *TimelineEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TimelineEvent.ProtoReflect.Descriptor instead.
 func (*TimelineEvent) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{129}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{131}
 }
 
 func (x *TimelineEvent) GetDate() string {
@@ -10065,7 +10318,7 @@ type GetStockSignalsRequest struct {
 
 func (x *GetStockSignalsRequest) Reset() {
 	*x = GetStockSignalsRequest{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[130]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[132]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10077,7 +10330,7 @@ func (x *GetStockSignalsRequest) String() string {
 func (*GetStockSignalsRequest) ProtoMessage() {}
 
 func (x *GetStockSignalsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[130]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[132]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10090,7 +10343,7 @@ func (x *GetStockSignalsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockSignalsRequest.ProtoReflect.Descriptor instead.
 func (*GetStockSignalsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{130}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{132}
 }
 
 func (x *GetStockSignalsRequest) GetStockCode() string {
@@ -10117,7 +10370,7 @@ type GetStockSignalsResponse struct {
 
 func (x *GetStockSignalsResponse) Reset() {
 	*x = GetStockSignalsResponse{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[131]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[133]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10129,7 +10382,7 @@ func (x *GetStockSignalsResponse) String() string {
 func (*GetStockSignalsResponse) ProtoMessage() {}
 
 func (x *GetStockSignalsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[131]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[133]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10142,7 +10395,7 @@ func (x *GetStockSignalsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetStockSignalsResponse.ProtoReflect.Descriptor instead.
 func (*GetStockSignalsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{131}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{133}
 }
 
 func (x *GetStockSignalsResponse) GetAdverse() []*StockSignal {
@@ -10176,7 +10429,7 @@ type StockSignal struct {
 
 func (x *StockSignal) Reset() {
 	*x = StockSignal{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[132]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[134]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10188,7 +10441,7 @@ func (x *StockSignal) String() string {
 func (*StockSignal) ProtoMessage() {}
 
 func (x *StockSignal) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[132]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[134]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10201,7 +10454,7 @@ func (x *StockSignal) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StockSignal.ProtoReflect.Descriptor instead.
 func (*StockSignal) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{132}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{134}
 }
 
 func (x *StockSignal) GetPolarity() string {
@@ -10270,7 +10523,7 @@ type GetHousingOverviewRequest struct {
 
 func (x *GetHousingOverviewRequest) Reset() {
 	*x = GetHousingOverviewRequest{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[133]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[135]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10282,7 +10535,7 @@ func (x *GetHousingOverviewRequest) String() string {
 func (*GetHousingOverviewRequest) ProtoMessage() {}
 
 func (x *GetHousingOverviewRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[133]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[135]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10295,7 +10548,7 @@ func (x *GetHousingOverviewRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetHousingOverviewRequest.ProtoReflect.Descriptor instead.
 func (*GetHousingOverviewRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{133}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{135}
 }
 
 func (x *GetHousingOverviewRequest) GetRegionType() string {
@@ -10326,7 +10579,7 @@ type HousingMetric struct {
 
 func (x *HousingMetric) Reset() {
 	*x = HousingMetric{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[134]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[136]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10338,7 +10591,7 @@ func (x *HousingMetric) String() string {
 func (*HousingMetric) ProtoMessage() {}
 
 func (x *HousingMetric) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[134]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[136]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10351,7 +10604,7 @@ func (x *HousingMetric) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HousingMetric.ProtoReflect.Descriptor instead.
 func (*HousingMetric) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{134}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{136}
 }
 
 func (x *HousingMetric) GetRegionCode() string {
@@ -10448,7 +10701,7 @@ type GetHousingOverviewResponse struct {
 
 func (x *GetHousingOverviewResponse) Reset() {
 	*x = GetHousingOverviewResponse{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[135]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[137]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10460,7 +10713,7 @@ func (x *GetHousingOverviewResponse) String() string {
 func (*GetHousingOverviewResponse) ProtoMessage() {}
 
 func (x *GetHousingOverviewResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[135]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[137]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10473,7 +10726,7 @@ func (x *GetHousingOverviewResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetHousingOverviewResponse.ProtoReflect.Descriptor instead.
 func (*GetHousingOverviewResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{135}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{137}
 }
 
 func (x *GetHousingOverviewResponse) GetMetrics() []*HousingMetric {
@@ -10501,7 +10754,7 @@ type GetHousePriceSeriesRequest struct {
 
 func (x *GetHousePriceSeriesRequest) Reset() {
 	*x = GetHousePriceSeriesRequest{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[136]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[138]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10513,7 +10766,7 @@ func (x *GetHousePriceSeriesRequest) String() string {
 func (*GetHousePriceSeriesRequest) ProtoMessage() {}
 
 func (x *GetHousePriceSeriesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[136]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[138]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10526,7 +10779,7 @@ func (x *GetHousePriceSeriesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetHousePriceSeriesRequest.ProtoReflect.Descriptor instead.
 func (*GetHousePriceSeriesRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{136}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{138}
 }
 
 func (x *GetHousePriceSeriesRequest) GetRegionCode() string {
@@ -10561,7 +10814,7 @@ type HousePricePoint struct {
 
 func (x *HousePricePoint) Reset() {
 	*x = HousePricePoint{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[137]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[139]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10573,7 +10826,7 @@ func (x *HousePricePoint) String() string {
 func (*HousePricePoint) ProtoMessage() {}
 
 func (x *HousePricePoint) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[137]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[139]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10586,7 +10839,7 @@ func (x *HousePricePoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HousePricePoint.ProtoReflect.Descriptor instead.
 func (*HousePricePoint) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{137}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{139}
 }
 
 func (x *HousePricePoint) GetPeriod() *timestamppb.Timestamp {
@@ -10626,7 +10879,7 @@ type GetHousePriceSeriesResponse struct {
 
 func (x *GetHousePriceSeriesResponse) Reset() {
 	*x = GetHousePriceSeriesResponse{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[138]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[140]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10638,7 +10891,7 @@ func (x *GetHousePriceSeriesResponse) String() string {
 func (*GetHousePriceSeriesResponse) ProtoMessage() {}
 
 func (x *GetHousePriceSeriesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[138]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[140]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10651,7 +10904,7 @@ func (x *GetHousePriceSeriesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetHousePriceSeriesResponse.ProtoReflect.Descriptor instead.
 func (*GetHousePriceSeriesResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{138}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{140}
 }
 
 func (x *GetHousePriceSeriesResponse) GetRegionCode() string {
@@ -10721,7 +10974,7 @@ type ListStateSuburbsRequest struct {
 
 func (x *ListStateSuburbsRequest) Reset() {
 	*x = ListStateSuburbsRequest{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[139]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[141]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10733,7 +10986,7 @@ func (x *ListStateSuburbsRequest) String() string {
 func (*ListStateSuburbsRequest) ProtoMessage() {}
 
 func (x *ListStateSuburbsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[139]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[141]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10746,7 +10999,7 @@ func (x *ListStateSuburbsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStateSuburbsRequest.ProtoReflect.Descriptor instead.
 func (*ListStateSuburbsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{139}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{141}
 }
 
 func (x *ListStateSuburbsRequest) GetStateCode() string {
@@ -10806,7 +11059,7 @@ type SuburbAmenities struct {
 
 func (x *SuburbAmenities) Reset() {
 	*x = SuburbAmenities{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[140]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[142]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -10818,7 +11071,7 @@ func (x *SuburbAmenities) String() string {
 func (*SuburbAmenities) ProtoMessage() {}
 
 func (x *SuburbAmenities) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[140]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[142]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -10831,7 +11084,7 @@ func (x *SuburbAmenities) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbAmenities.ProtoReflect.Descriptor instead.
 func (*SuburbAmenities) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{140}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{142}
 }
 
 func (x *SuburbAmenities) GetSchoolsTotal() int32 {
@@ -11034,7 +11287,7 @@ type SuburbSummary struct {
 
 func (x *SuburbSummary) Reset() {
 	*x = SuburbSummary{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[141]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[143]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11046,7 +11299,7 @@ func (x *SuburbSummary) String() string {
 func (*SuburbSummary) ProtoMessage() {}
 
 func (x *SuburbSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[141]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[143]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11059,7 +11312,7 @@ func (x *SuburbSummary) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbSummary.ProtoReflect.Descriptor instead.
 func (*SuburbSummary) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{141}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{143}
 }
 
 func (x *SuburbSummary) GetSalCode() string {
@@ -11260,7 +11513,7 @@ type ListStateSuburbsResponse struct {
 
 func (x *ListStateSuburbsResponse) Reset() {
 	*x = ListStateSuburbsResponse{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[142]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[144]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11272,7 +11525,7 @@ func (x *ListStateSuburbsResponse) String() string {
 func (*ListStateSuburbsResponse) ProtoMessage() {}
 
 func (x *ListStateSuburbsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[142]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[144]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11285,7 +11538,7 @@ func (x *ListStateSuburbsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListStateSuburbsResponse.ProtoReflect.Descriptor instead.
 func (*ListStateSuburbsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{142}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{144}
 }
 
 func (x *ListStateSuburbsResponse) GetSuburbs() []*SuburbSummary {
@@ -11304,7 +11557,7 @@ type GetSuburbProfileRequest struct {
 
 func (x *GetSuburbProfileRequest) Reset() {
 	*x = GetSuburbProfileRequest{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[143]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[145]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11316,7 +11569,7 @@ func (x *GetSuburbProfileRequest) String() string {
 func (*GetSuburbProfileRequest) ProtoMessage() {}
 
 func (x *GetSuburbProfileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[143]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[145]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11329,7 +11582,7 @@ func (x *GetSuburbProfileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSuburbProfileRequest.ProtoReflect.Descriptor instead.
 func (*GetSuburbProfileRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{143}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{145}
 }
 
 func (x *GetSuburbProfileRequest) GetSalCode() string {
@@ -11366,7 +11619,7 @@ type SuburbDemographics struct {
 
 func (x *SuburbDemographics) Reset() {
 	*x = SuburbDemographics{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[144]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[146]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11378,7 +11631,7 @@ func (x *SuburbDemographics) String() string {
 func (*SuburbDemographics) ProtoMessage() {}
 
 func (x *SuburbDemographics) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[144]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[146]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11391,7 +11644,7 @@ func (x *SuburbDemographics) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SuburbDemographics.ProtoReflect.Descriptor instead.
 func (*SuburbDemographics) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{144}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{146}
 }
 
 func (x *SuburbDemographics) GetPopulation() int32 {
@@ -11533,7 +11786,7 @@ type ComparisonBaselines struct {
 
 func (x *ComparisonBaselines) Reset() {
 	*x = ComparisonBaselines{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[145]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[147]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11545,7 +11798,7 @@ func (x *ComparisonBaselines) String() string {
 func (*ComparisonBaselines) ProtoMessage() {}
 
 func (x *ComparisonBaselines) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[145]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[147]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11558,7 +11811,7 @@ func (x *ComparisonBaselines) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ComparisonBaselines.ProtoReflect.Descriptor instead.
 func (*ComparisonBaselines) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{145}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{147}
 }
 
 func (x *ComparisonBaselines) GetStateMedianPrice() float64 {
@@ -11611,7 +11864,7 @@ type LgaInfo struct {
 
 func (x *LgaInfo) Reset() {
 	*x = LgaInfo{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[146]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[148]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11623,7 +11876,7 @@ func (x *LgaInfo) String() string {
 func (*LgaInfo) ProtoMessage() {}
 
 func (x *LgaInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[146]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[148]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11636,7 +11889,7 @@ func (x *LgaInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LgaInfo.ProtoReflect.Descriptor instead.
 func (*LgaInfo) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{146}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{148}
 }
 
 func (x *LgaInfo) GetLgaCode() string {
@@ -11738,7 +11991,7 @@ type SimilarSuburb struct {
 
 func (x *SimilarSuburb) Reset() {
 	*x = SimilarSuburb{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[147]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[149]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11750,7 +12003,7 @@ func (x *SimilarSuburb) String() string {
 func (*SimilarSuburb) ProtoMessage() {}
 
 func (x *SimilarSuburb) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[147]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[149]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11763,7 +12016,7 @@ func (x *SimilarSuburb) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SimilarSuburb.ProtoReflect.Descriptor instead.
 func (*SimilarSuburb) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{147}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{149}
 }
 
 func (x *SimilarSuburb) GetSalCode() string {
@@ -11821,7 +12074,7 @@ type GetSuburbProfileResponse struct {
 
 func (x *GetSuburbProfileResponse) Reset() {
 	*x = GetSuburbProfileResponse{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[148]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[150]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11833,7 +12086,7 @@ func (x *GetSuburbProfileResponse) String() string {
 func (*GetSuburbProfileResponse) ProtoMessage() {}
 
 func (x *GetSuburbProfileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[148]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[150]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11846,7 +12099,7 @@ func (x *GetSuburbProfileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSuburbProfileResponse.ProtoReflect.Descriptor instead.
 func (*GetSuburbProfileResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{148}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{150}
 }
 
 func (x *GetSuburbProfileResponse) GetSummary() *SuburbSummary {
@@ -11896,7 +12149,7 @@ type ListHousingRegionsRequest struct {
 
 func (x *ListHousingRegionsRequest) Reset() {
 	*x = ListHousingRegionsRequest{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[149]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[151]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11908,7 +12161,7 @@ func (x *ListHousingRegionsRequest) String() string {
 func (*ListHousingRegionsRequest) ProtoMessage() {}
 
 func (x *ListHousingRegionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[149]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[151]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11921,7 +12174,7 @@ func (x *ListHousingRegionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListHousingRegionsRequest.ProtoReflect.Descriptor instead.
 func (*ListHousingRegionsRequest) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{149}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{151}
 }
 
 func (x *ListHousingRegionsRequest) GetRegionType() string {
@@ -11968,7 +12221,7 @@ type HousingRegion struct {
 
 func (x *HousingRegion) Reset() {
 	*x = HousingRegion{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[150]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[152]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -11980,7 +12233,7 @@ func (x *HousingRegion) String() string {
 func (*HousingRegion) ProtoMessage() {}
 
 func (x *HousingRegion) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[150]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[152]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -11993,7 +12246,7 @@ func (x *HousingRegion) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HousingRegion.ProtoReflect.Descriptor instead.
 func (*HousingRegion) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{150}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{152}
 }
 
 func (x *HousingRegion) GetRegionCode() string {
@@ -12054,7 +12307,7 @@ type ListHousingRegionsResponse struct {
 
 func (x *ListHousingRegionsResponse) Reset() {
 	*x = ListHousingRegionsResponse{}
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[151]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[153]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -12066,7 +12319,7 @@ func (x *ListHousingRegionsResponse) String() string {
 func (*ListHousingRegionsResponse) ProtoMessage() {}
 
 func (x *ListHousingRegionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[151]
+	mi := &file_shorts_v1alpha1_shorts_proto_msgTypes[153]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -12079,7 +12332,7 @@ func (x *ListHousingRegionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListHousingRegionsResponse.ProtoReflect.Descriptor instead.
 func (*ListHousingRegionsResponse) Descriptor() ([]byte, []int) {
-	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{151}
+	return file_shorts_v1alpha1_shorts_proto_rawDescGZIP(), []int{153}
 }
 
 func (x *ListHousingRegionsResponse) GetRegions() []*HousingRegion {
@@ -12833,13 +13086,48 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"source_url\x18\x11 \x01(\tR\tsourceUrl\x12\x1e\n" +
 	"\n" +
 	"confidence\x18\x12 \x01(\x01R\n" +
-	"confidence\"\xb9\x02\n" +
+	"confidence\"\x8d\x03\n" +
+	"\x1eIndustryIntelligenceTimeBucket\x12\x1f\n" +
+	"\vsignal_kind\x18\x01 \x01(\tR\n" +
+	"signalKind\x12\x1d\n" +
+	"\n" +
+	"source_key\x18\x02 \x01(\tR\tsourceKey\x12\x1d\n" +
+	"\n" +
+	"metric_key\x18\x03 \x01(\tR\tmetricKey\x12!\n" +
+	"\fmetric_label\x18\x04 \x01(\tR\vmetricLabel\x12\x12\n" +
+	"\x04unit\x18\x05 \x01(\tR\x04unit\x12!\n" +
+	"\fbucket_label\x18\x06 \x01(\tR\vbucketLabel\x12!\n" +
+	"\fbucket_start\x18\a \x01(\tR\vbucketStart\x12\x1f\n" +
+	"\vtotal_value\x18\b \x01(\x01R\n" +
+	"totalValue\x12!\n" +
+	"\frecord_count\x18\t \x01(\x05R\vrecordCount\x12!\n" +
+	"\fentity_count\x18\n" +
+	" \x01(\x05R\ventityCount\x12(\n" +
+	"\x10zero_value_count\x18\v \x01(\x05R\x0ezeroValueCount\"\xbc\x02\n" +
+	"\x1fIndustryIntelligenceEntityTotal\x12\x1f\n" +
+	"\vsignal_kind\x18\x01 \x01(\tR\n" +
+	"signalKind\x12\x1d\n" +
+	"\n" +
+	"source_key\x18\x02 \x01(\tR\tsourceKey\x12\x1d\n" +
+	"\n" +
+	"metric_key\x18\x03 \x01(\tR\tmetricKey\x12\x1d\n" +
+	"\n" +
+	"stock_code\x18\x04 \x01(\tR\tstockCode\x12!\n" +
+	"\fentity_label\x18\x05 \x01(\tR\ventityLabel\x12\x12\n" +
+	"\x04unit\x18\x06 \x01(\tR\x04unit\x12\x1f\n" +
+	"\vtotal_value\x18\a \x01(\x01R\n" +
+	"totalValue\x12!\n" +
+	"\frecord_count\x18\b \x01(\x05R\vrecordCount\x12 \n" +
+	"\flatest_as_of\x18\t \x01(\tR\n" +
+	"latestAsOf\"\xe4\x03\n" +
 	"\x1fGetIndustryIntelligenceResponse\x12\x1a\n" +
 	"\bindustry\x18\x01 \x01(\tR\bindustry\x12E\n" +
 	"\asources\x18\x02 \x03(\v2+.shorts.v1alpha1.IndustryIntelligenceSourceR\asources\x12E\n" +
 	"\arecords\x18\x03 \x03(\v2+.shorts.v1alpha1.IndustryIntelligenceRecordR\arecords\x12-\n" +
 	"\x12source_attribution\x18\x04 \x01(\tR\x11sourceAttribution\x12=\n" +
-	"\fgenerated_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\vgeneratedAt\"m\n" +
+	"\fgenerated_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\vgeneratedAt\x12R\n" +
+	"\ftime_buckets\x18\x06 \x03(\v2/.shorts.v1alpha1.IndustryIntelligenceTimeBucketR\vtimeBuckets\x12U\n" +
+	"\rentity_totals\x18\a \x03(\v20.shorts.v1alpha1.IndustryIntelligenceEntityTotalR\fentityTotals\"m\n" +
 	"!GetShortCampaignScoreboardRequest\x12\x14\n" +
 	"\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x16\n" +
 	"\x06offset\x18\x02 \x01(\x05R\x06offset\x12\x1a\n" +
@@ -13339,7 +13627,7 @@ func file_shorts_v1alpha1_shorts_proto_rawDescGZIP() []byte {
 }
 
 var file_shorts_v1alpha1_shorts_proto_enumTypes = make([]protoimpl.EnumInfo, 15)
-var file_shorts_v1alpha1_shorts_proto_msgTypes = make([]protoimpl.MessageInfo, 154)
+var file_shorts_v1alpha1_shorts_proto_msgTypes = make([]protoimpl.MessageInfo, 156)
 var file_shorts_v1alpha1_shorts_proto_goTypes = []any{
 	(ViewMode)(0),                                   // 0: shorts.v1alpha1.ViewMode
 	(EnrichmentStatus)(0),                           // 1: shorts.v1alpha1.EnrichmentStatus
@@ -13475,100 +13763,102 @@ var file_shorts_v1alpha1_shorts_proto_goTypes = []any{
 	(*GetIndustryIntelligenceRequest)(nil),          // 131: shorts.v1alpha1.GetIndustryIntelligenceRequest
 	(*IndustryIntelligenceSource)(nil),              // 132: shorts.v1alpha1.IndustryIntelligenceSource
 	(*IndustryIntelligenceRecord)(nil),              // 133: shorts.v1alpha1.IndustryIntelligenceRecord
-	(*GetIndustryIntelligenceResponse)(nil),         // 134: shorts.v1alpha1.GetIndustryIntelligenceResponse
-	(*GetShortCampaignScoreboardRequest)(nil),       // 135: shorts.v1alpha1.GetShortCampaignScoreboardRequest
-	(*ShortCampaign)(nil),                           // 136: shorts.v1alpha1.ShortCampaign
-	(*GetShortCampaignScoreboardResponse)(nil),      // 137: shorts.v1alpha1.GetShortCampaignScoreboardResponse
-	(*GetStockGraphRequest)(nil),                    // 138: shorts.v1alpha1.GetStockGraphRequest
-	(*GetStockGraphResponse)(nil),                   // 139: shorts.v1alpha1.GetStockGraphResponse
-	(*GraphPerson)(nil),                             // 140: shorts.v1alpha1.GraphPerson
-	(*GraphPeer)(nil),                               // 141: shorts.v1alpha1.GraphPeer
-	(*GetEventTimelineRequest)(nil),                 // 142: shorts.v1alpha1.GetEventTimelineRequest
-	(*GetEventTimelineResponse)(nil),                // 143: shorts.v1alpha1.GetEventTimelineResponse
-	(*TimelineEvent)(nil),                           // 144: shorts.v1alpha1.TimelineEvent
-	(*GetStockSignalsRequest)(nil),                  // 145: shorts.v1alpha1.GetStockSignalsRequest
-	(*GetStockSignalsResponse)(nil),                 // 146: shorts.v1alpha1.GetStockSignalsResponse
-	(*StockSignal)(nil),                             // 147: shorts.v1alpha1.StockSignal
-	(*GetHousingOverviewRequest)(nil),               // 148: shorts.v1alpha1.GetHousingOverviewRequest
-	(*HousingMetric)(nil),                           // 149: shorts.v1alpha1.HousingMetric
-	(*GetHousingOverviewResponse)(nil),              // 150: shorts.v1alpha1.GetHousingOverviewResponse
-	(*GetHousePriceSeriesRequest)(nil),              // 151: shorts.v1alpha1.GetHousePriceSeriesRequest
-	(*HousePricePoint)(nil),                         // 152: shorts.v1alpha1.HousePricePoint
-	(*GetHousePriceSeriesResponse)(nil),             // 153: shorts.v1alpha1.GetHousePriceSeriesResponse
-	(*ListStateSuburbsRequest)(nil),                 // 154: shorts.v1alpha1.ListStateSuburbsRequest
-	(*SuburbAmenities)(nil),                         // 155: shorts.v1alpha1.SuburbAmenities
-	(*SuburbSummary)(nil),                           // 156: shorts.v1alpha1.SuburbSummary
-	(*ListStateSuburbsResponse)(nil),                // 157: shorts.v1alpha1.ListStateSuburbsResponse
-	(*GetSuburbProfileRequest)(nil),                 // 158: shorts.v1alpha1.GetSuburbProfileRequest
-	(*SuburbDemographics)(nil),                      // 159: shorts.v1alpha1.SuburbDemographics
-	(*ComparisonBaselines)(nil),                     // 160: shorts.v1alpha1.ComparisonBaselines
-	(*LgaInfo)(nil),                                 // 161: shorts.v1alpha1.LgaInfo
-	(*SimilarSuburb)(nil),                           // 162: shorts.v1alpha1.SimilarSuburb
-	(*GetSuburbProfileResponse)(nil),                // 163: shorts.v1alpha1.GetSuburbProfileResponse
-	(*ListHousingRegionsRequest)(nil),               // 164: shorts.v1alpha1.ListHousingRegionsRequest
-	(*HousingRegion)(nil),                           // 165: shorts.v1alpha1.HousingRegion
-	(*ListHousingRegionsResponse)(nil),              // 166: shorts.v1alpha1.ListHousingRegionsResponse
-	nil,                                             // 167: shorts.v1alpha1.GetStockFinancialHighlightsResponse.HighlightsEntry
-	nil,                                             // 168: shorts.v1alpha1.FinancialMetric.AttributesEntry
-	(*v1alpha1.TimeSeriesData)(nil),                 // 169: stocks.v1alpha1.TimeSeriesData
-	(*v1alpha1.Stock)(nil),                          // 170: stocks.v1alpha1.Stock
-	(*v1alpha1.CompanyPerson)(nil),                  // 171: stocks.v1alpha1.CompanyPerson
-	(*v1alpha1.FinancialReport)(nil),                // 172: stocks.v1alpha1.FinancialReport
-	(*v1alpha1.SocialMediaLinks)(nil),               // 173: stocks.v1alpha1.SocialMediaLinks
-	(*timestamppb.Timestamp)(nil),                   // 174: google.protobuf.Timestamp
-	(*v1alpha1.IndustryTreeMap)(nil),                // 175: stocks.v1alpha1.IndustryTreeMap
-	(*v1alpha1.StockDetails)(nil),                   // 176: stocks.v1alpha1.StockDetails
+	(*IndustryIntelligenceTimeBucket)(nil),          // 134: shorts.v1alpha1.IndustryIntelligenceTimeBucket
+	(*IndustryIntelligenceEntityTotal)(nil),         // 135: shorts.v1alpha1.IndustryIntelligenceEntityTotal
+	(*GetIndustryIntelligenceResponse)(nil),         // 136: shorts.v1alpha1.GetIndustryIntelligenceResponse
+	(*GetShortCampaignScoreboardRequest)(nil),       // 137: shorts.v1alpha1.GetShortCampaignScoreboardRequest
+	(*ShortCampaign)(nil),                           // 138: shorts.v1alpha1.ShortCampaign
+	(*GetShortCampaignScoreboardResponse)(nil),      // 139: shorts.v1alpha1.GetShortCampaignScoreboardResponse
+	(*GetStockGraphRequest)(nil),                    // 140: shorts.v1alpha1.GetStockGraphRequest
+	(*GetStockGraphResponse)(nil),                   // 141: shorts.v1alpha1.GetStockGraphResponse
+	(*GraphPerson)(nil),                             // 142: shorts.v1alpha1.GraphPerson
+	(*GraphPeer)(nil),                               // 143: shorts.v1alpha1.GraphPeer
+	(*GetEventTimelineRequest)(nil),                 // 144: shorts.v1alpha1.GetEventTimelineRequest
+	(*GetEventTimelineResponse)(nil),                // 145: shorts.v1alpha1.GetEventTimelineResponse
+	(*TimelineEvent)(nil),                           // 146: shorts.v1alpha1.TimelineEvent
+	(*GetStockSignalsRequest)(nil),                  // 147: shorts.v1alpha1.GetStockSignalsRequest
+	(*GetStockSignalsResponse)(nil),                 // 148: shorts.v1alpha1.GetStockSignalsResponse
+	(*StockSignal)(nil),                             // 149: shorts.v1alpha1.StockSignal
+	(*GetHousingOverviewRequest)(nil),               // 150: shorts.v1alpha1.GetHousingOverviewRequest
+	(*HousingMetric)(nil),                           // 151: shorts.v1alpha1.HousingMetric
+	(*GetHousingOverviewResponse)(nil),              // 152: shorts.v1alpha1.GetHousingOverviewResponse
+	(*GetHousePriceSeriesRequest)(nil),              // 153: shorts.v1alpha1.GetHousePriceSeriesRequest
+	(*HousePricePoint)(nil),                         // 154: shorts.v1alpha1.HousePricePoint
+	(*GetHousePriceSeriesResponse)(nil),             // 155: shorts.v1alpha1.GetHousePriceSeriesResponse
+	(*ListStateSuburbsRequest)(nil),                 // 156: shorts.v1alpha1.ListStateSuburbsRequest
+	(*SuburbAmenities)(nil),                         // 157: shorts.v1alpha1.SuburbAmenities
+	(*SuburbSummary)(nil),                           // 158: shorts.v1alpha1.SuburbSummary
+	(*ListStateSuburbsResponse)(nil),                // 159: shorts.v1alpha1.ListStateSuburbsResponse
+	(*GetSuburbProfileRequest)(nil),                 // 160: shorts.v1alpha1.GetSuburbProfileRequest
+	(*SuburbDemographics)(nil),                      // 161: shorts.v1alpha1.SuburbDemographics
+	(*ComparisonBaselines)(nil),                     // 162: shorts.v1alpha1.ComparisonBaselines
+	(*LgaInfo)(nil),                                 // 163: shorts.v1alpha1.LgaInfo
+	(*SimilarSuburb)(nil),                           // 164: shorts.v1alpha1.SimilarSuburb
+	(*GetSuburbProfileResponse)(nil),                // 165: shorts.v1alpha1.GetSuburbProfileResponse
+	(*ListHousingRegionsRequest)(nil),               // 166: shorts.v1alpha1.ListHousingRegionsRequest
+	(*HousingRegion)(nil),                           // 167: shorts.v1alpha1.HousingRegion
+	(*ListHousingRegionsResponse)(nil),              // 168: shorts.v1alpha1.ListHousingRegionsResponse
+	nil,                                             // 169: shorts.v1alpha1.GetStockFinancialHighlightsResponse.HighlightsEntry
+	nil,                                             // 170: shorts.v1alpha1.FinancialMetric.AttributesEntry
+	(*v1alpha1.TimeSeriesData)(nil),                 // 171: stocks.v1alpha1.TimeSeriesData
+	(*v1alpha1.Stock)(nil),                          // 172: stocks.v1alpha1.Stock
+	(*v1alpha1.CompanyPerson)(nil),                  // 173: stocks.v1alpha1.CompanyPerson
+	(*v1alpha1.FinancialReport)(nil),                // 174: stocks.v1alpha1.FinancialReport
+	(*v1alpha1.SocialMediaLinks)(nil),               // 175: stocks.v1alpha1.SocialMediaLinks
+	(*timestamppb.Timestamp)(nil),                   // 176: google.protobuf.Timestamp
+	(*v1alpha1.IndustryTreeMap)(nil),                // 177: stocks.v1alpha1.IndustryTreeMap
+	(*v1alpha1.StockDetails)(nil),                   // 178: stocks.v1alpha1.StockDetails
 }
 var file_shorts_v1alpha1_shorts_proto_depIdxs = []int32{
 	0,   // 0: shorts.v1alpha1.GetIndustryTreeMapRequest.view_mode:type_name -> shorts.v1alpha1.ViewMode
-	169, // 1: shorts.v1alpha1.GetTopShortsResponse.time_series:type_name -> stocks.v1alpha1.TimeSeriesData
-	170, // 2: shorts.v1alpha1.SearchStocksResponse.stocks:type_name -> stocks.v1alpha1.Stock
+	171, // 1: shorts.v1alpha1.GetTopShortsResponse.time_series:type_name -> stocks.v1alpha1.TimeSeriesData
+	172, // 2: shorts.v1alpha1.SearchStocksResponse.stocks:type_name -> stocks.v1alpha1.Stock
 	27,  // 3: shorts.v1alpha1.GetSyncStatusResponse.runs:type_name -> shorts.v1alpha1.SyncRun
 	30,  // 4: shorts.v1alpha1.SyncKeyMetricsResponse.results:type_name -> shorts.v1alpha1.StockSyncResult
 	31,  // 5: shorts.v1alpha1.StockSyncResult.metrics:type_name -> shorts.v1alpha1.KeyMetricsData
-	171, // 6: shorts.v1alpha1.EnrichmentData.key_people:type_name -> stocks.v1alpha1.CompanyPerson
-	172, // 7: shorts.v1alpha1.EnrichmentData.financial_reports:type_name -> stocks.v1alpha1.FinancialReport
-	173, // 8: shorts.v1alpha1.EnrichmentData.social_media_links:type_name -> stocks.v1alpha1.SocialMediaLinks
+	173, // 6: shorts.v1alpha1.EnrichmentData.key_people:type_name -> stocks.v1alpha1.CompanyPerson
+	174, // 7: shorts.v1alpha1.EnrichmentData.financial_reports:type_name -> stocks.v1alpha1.FinancialReport
+	175, // 8: shorts.v1alpha1.EnrichmentData.social_media_links:type_name -> stocks.v1alpha1.SocialMediaLinks
 	2,   // 9: shorts.v1alpha1.GetTopStocksForEnrichmentRequest.priority:type_name -> shorts.v1alpha1.EnrichmentPriority
 	38,  // 10: shorts.v1alpha1.GetTopStocksForEnrichmentResponse.stocks:type_name -> shorts.v1alpha1.StockEnrichmentCandidate
-	174, // 11: shorts.v1alpha1.StockEnrichmentCandidate.last_enriched:type_name -> google.protobuf.Timestamp
+	176, // 11: shorts.v1alpha1.StockEnrichmentCandidate.last_enriched:type_name -> google.protobuf.Timestamp
 	43,  // 12: shorts.v1alpha1.ListPendingEnrichmentsResponse.enrichments:type_name -> shorts.v1alpha1.PendingEnrichmentSummary
 	1,   // 13: shorts.v1alpha1.PendingEnrichmentSummary.status:type_name -> shorts.v1alpha1.EnrichmentStatus
-	174, // 14: shorts.v1alpha1.PendingEnrichmentSummary.created_at:type_name -> google.protobuf.Timestamp
+	176, // 14: shorts.v1alpha1.PendingEnrichmentSummary.created_at:type_name -> google.protobuf.Timestamp
 	35,  // 15: shorts.v1alpha1.PendingEnrichmentSummary.quality_score:type_name -> shorts.v1alpha1.QualityScore
 	46,  // 16: shorts.v1alpha1.GetPendingEnrichmentResponse.pending:type_name -> shorts.v1alpha1.PendingEnrichment
 	1,   // 17: shorts.v1alpha1.PendingEnrichment.status:type_name -> shorts.v1alpha1.EnrichmentStatus
 	34,  // 18: shorts.v1alpha1.PendingEnrichment.data:type_name -> shorts.v1alpha1.EnrichmentData
 	35,  // 19: shorts.v1alpha1.PendingEnrichment.quality_score:type_name -> shorts.v1alpha1.QualityScore
-	174, // 20: shorts.v1alpha1.PendingEnrichment.created_at:type_name -> google.protobuf.Timestamp
-	174, // 21: shorts.v1alpha1.PendingEnrichment.reviewed_at:type_name -> google.protobuf.Timestamp
+	176, // 20: shorts.v1alpha1.PendingEnrichment.created_at:type_name -> google.protobuf.Timestamp
+	176, // 21: shorts.v1alpha1.PendingEnrichment.reviewed_at:type_name -> google.protobuf.Timestamp
 	3,   // 22: shorts.v1alpha1.EnrichmentJob.status:type_name -> shorts.v1alpha1.EnrichmentJobStatus
-	174, // 23: shorts.v1alpha1.EnrichmentJob.created_at:type_name -> google.protobuf.Timestamp
-	174, // 24: shorts.v1alpha1.EnrichmentJob.started_at:type_name -> google.protobuf.Timestamp
-	174, // 25: shorts.v1alpha1.EnrichmentJob.completed_at:type_name -> google.protobuf.Timestamp
+	176, // 23: shorts.v1alpha1.EnrichmentJob.created_at:type_name -> google.protobuf.Timestamp
+	176, // 24: shorts.v1alpha1.EnrichmentJob.started_at:type_name -> google.protobuf.Timestamp
+	176, // 25: shorts.v1alpha1.EnrichmentJob.completed_at:type_name -> google.protobuf.Timestamp
 	47,  // 26: shorts.v1alpha1.GetEnrichmentJobStatusResponse.job:type_name -> shorts.v1alpha1.EnrichmentJob
 	3,   // 27: shorts.v1alpha1.ListEnrichmentJobsRequest.status:type_name -> shorts.v1alpha1.EnrichmentJobStatus
 	47,  // 28: shorts.v1alpha1.ListEnrichmentJobsResponse.jobs:type_name -> shorts.v1alpha1.EnrichmentJob
 	5,   // 29: shorts.v1alpha1.HandleStripeCheckoutCompletedRequest.tier:type_name -> shorts.v1alpha1.SubscriptionTier
 	4,   // 30: shorts.v1alpha1.HandleStripeSubscriptionUpdatedRequest.status:type_name -> shorts.v1alpha1.SubscriptionStatus
 	5,   // 31: shorts.v1alpha1.HandleStripeSubscriptionUpdatedRequest.tier:type_name -> shorts.v1alpha1.SubscriptionTier
-	174, // 32: shorts.v1alpha1.HandleStripeSubscriptionUpdatedRequest.current_period_start:type_name -> google.protobuf.Timestamp
-	174, // 33: shorts.v1alpha1.HandleStripeSubscriptionUpdatedRequest.current_period_end:type_name -> google.protobuf.Timestamp
+	176, // 32: shorts.v1alpha1.HandleStripeSubscriptionUpdatedRequest.current_period_start:type_name -> google.protobuf.Timestamp
+	176, // 33: shorts.v1alpha1.HandleStripeSubscriptionUpdatedRequest.current_period_end:type_name -> google.protobuf.Timestamp
 	4,   // 34: shorts.v1alpha1.GetMySubscriptionResponse.status:type_name -> shorts.v1alpha1.SubscriptionStatus
 	5,   // 35: shorts.v1alpha1.GetMySubscriptionResponse.tier:type_name -> shorts.v1alpha1.SubscriptionTier
-	174, // 36: shorts.v1alpha1.GetMySubscriptionResponse.current_period_end:type_name -> google.protobuf.Timestamp
+	176, // 36: shorts.v1alpha1.GetMySubscriptionResponse.current_period_end:type_name -> google.protobuf.Timestamp
 	6,   // 37: shorts.v1alpha1.AlertMonitor.scope:type_name -> shorts.v1alpha1.AlertMonitorScope
 	7,   // 38: shorts.v1alpha1.AlertMonitor.condition:type_name -> shorts.v1alpha1.AlertMonitorCondition
 	8,   // 39: shorts.v1alpha1.AlertMonitor.cadence:type_name -> shorts.v1alpha1.AlertMonitorCadence
 	9,   // 40: shorts.v1alpha1.AlertMonitor.status:type_name -> shorts.v1alpha1.AlertMonitorStatus
-	174, // 41: shorts.v1alpha1.AlertMonitor.created_at:type_name -> google.protobuf.Timestamp
-	174, // 42: shorts.v1alpha1.AlertMonitor.updated_at:type_name -> google.protobuf.Timestamp
+	176, // 41: shorts.v1alpha1.AlertMonitor.created_at:type_name -> google.protobuf.Timestamp
+	176, // 42: shorts.v1alpha1.AlertMonitor.updated_at:type_name -> google.protobuf.Timestamp
 	6,   // 43: shorts.v1alpha1.CreateAlertMonitorRequest.scope:type_name -> shorts.v1alpha1.AlertMonitorScope
 	7,   // 44: shorts.v1alpha1.CreateAlertMonitorRequest.condition:type_name -> shorts.v1alpha1.AlertMonitorCondition
 	8,   // 45: shorts.v1alpha1.CreateAlertMonitorRequest.cadence:type_name -> shorts.v1alpha1.AlertMonitorCadence
 	58,  // 46: shorts.v1alpha1.CreateAlertMonitorResponse.monitor:type_name -> shorts.v1alpha1.AlertMonitor
 	58,  // 47: shorts.v1alpha1.ListAlertMonitorsResponse.monitors:type_name -> shorts.v1alpha1.AlertMonitor
-	170, // 48: shorts.v1alpha1.GetMarketByDateResponse.stocks:type_name -> stocks.v1alpha1.Stock
+	172, // 48: shorts.v1alpha1.GetMarketByDateResponse.stocks:type_name -> stocks.v1alpha1.Stock
 	69,  // 49: shorts.v1alpha1.GetWeeklyReportResponse.narrative:type_name -> shorts.v1alpha1.WeeklyNarrative
 	70,  // 50: shorts.v1alpha1.GetWeeklyReportResponse.top_shorted:type_name -> shorts.v1alpha1.WeeklyReportStock
 	71,  // 51: shorts.v1alpha1.GetWeeklyReportResponse.risers:type_name -> shorts.v1alpha1.WeeklyReportMover
@@ -13577,18 +13867,18 @@ var file_shorts_v1alpha1_shorts_proto_depIdxs = []int32{
 	73,  // 54: shorts.v1alpha1.GetWeeklyReportResponse.market_stats:type_name -> shorts.v1alpha1.WeeklyMarketStats
 	74,  // 55: shorts.v1alpha1.GetWeeklyReportResponse.citations:type_name -> shorts.v1alpha1.WeeklyReportCitation
 	75,  // 56: shorts.v1alpha1.GetWeeklyReportResponse.trend_insights:type_name -> shorts.v1alpha1.WeeklyReportTrendInsight
-	167, // 57: shorts.v1alpha1.GetStockFinancialHighlightsResponse.highlights:type_name -> shorts.v1alpha1.GetStockFinancialHighlightsResponse.HighlightsEntry
+	169, // 57: shorts.v1alpha1.GetStockFinancialHighlightsResponse.highlights:type_name -> shorts.v1alpha1.GetStockFinancialHighlightsResponse.HighlightsEntry
 	79,  // 58: shorts.v1alpha1.StockFinancialHighlights.reports:type_name -> shorts.v1alpha1.FinancialReportHighlight
 	80,  // 59: shorts.v1alpha1.FinancialReportHighlight.metrics:type_name -> shorts.v1alpha1.FinancialMetric
-	168, // 60: shorts.v1alpha1.FinancialMetric.attributes:type_name -> shorts.v1alpha1.FinancialMetric.AttributesEntry
-	174, // 61: shorts.v1alpha1.NewsArticle.published_at:type_name -> google.protobuf.Timestamp
+	170, // 60: shorts.v1alpha1.FinancialMetric.attributes:type_name -> shorts.v1alpha1.FinancialMetric.AttributesEntry
+	176, // 61: shorts.v1alpha1.NewsArticle.published_at:type_name -> google.protobuf.Timestamp
 	81,  // 62: shorts.v1alpha1.GetStockNewsResponse.articles:type_name -> shorts.v1alpha1.NewsArticle
 	81,  // 63: shorts.v1alpha1.GetRelatedNewsResponse.articles:type_name -> shorts.v1alpha1.NewsArticle
 	81,  // 64: shorts.v1alpha1.GetMarketNewsResponse.articles:type_name -> shorts.v1alpha1.NewsArticle
-	174, // 65: shorts.v1alpha1.EditorialTake.published_at:type_name -> google.protobuf.Timestamp
-	174, // 66: shorts.v1alpha1.EditorialTake.created_at:type_name -> google.protobuf.Timestamp
+	176, // 65: shorts.v1alpha1.EditorialTake.published_at:type_name -> google.protobuf.Timestamp
+	176, // 66: shorts.v1alpha1.EditorialTake.created_at:type_name -> google.protobuf.Timestamp
 	90,  // 67: shorts.v1alpha1.EditorialTake.inline_images:type_name -> shorts.v1alpha1.InlineImage
-	174, // 68: shorts.v1alpha1.EditorialTake.tweet_published_at:type_name -> google.protobuf.Timestamp
+	176, // 68: shorts.v1alpha1.EditorialTake.tweet_published_at:type_name -> google.protobuf.Timestamp
 	89,  // 69: shorts.v1alpha1.EditorialTake.citations:type_name -> shorts.v1alpha1.TakeCitation
 	91,  // 70: shorts.v1alpha1.EditorialTake.layout_images:type_name -> shorts.v1alpha1.LayoutImage
 	88,  // 71: shorts.v1alpha1.GetEditorialTakeResponse.take:type_name -> shorts.v1alpha1.EditorialTake
@@ -13623,140 +13913,142 @@ var file_shorts_v1alpha1_shorts_proto_depIdxs = []int32{
 	129, // 100: shorts.v1alpha1.GetCompanyTaxProfileResponse.years:type_name -> shorts.v1alpha1.CompanyTaxYear
 	132, // 101: shorts.v1alpha1.GetIndustryIntelligenceResponse.sources:type_name -> shorts.v1alpha1.IndustryIntelligenceSource
 	133, // 102: shorts.v1alpha1.GetIndustryIntelligenceResponse.records:type_name -> shorts.v1alpha1.IndustryIntelligenceRecord
-	174, // 103: shorts.v1alpha1.GetIndustryIntelligenceResponse.generated_at:type_name -> google.protobuf.Timestamp
-	136, // 104: shorts.v1alpha1.GetShortCampaignScoreboardResponse.campaigns:type_name -> shorts.v1alpha1.ShortCampaign
-	140, // 105: shorts.v1alpha1.GetStockGraphResponse.people:type_name -> shorts.v1alpha1.GraphPerson
-	141, // 106: shorts.v1alpha1.GetStockGraphResponse.similar_companies:type_name -> shorts.v1alpha1.GraphPeer
-	144, // 107: shorts.v1alpha1.GetEventTimelineResponse.events:type_name -> shorts.v1alpha1.TimelineEvent
-	147, // 108: shorts.v1alpha1.GetStockSignalsResponse.adverse:type_name -> shorts.v1alpha1.StockSignal
-	147, // 109: shorts.v1alpha1.GetStockSignalsResponse.positive:type_name -> shorts.v1alpha1.StockSignal
-	174, // 110: shorts.v1alpha1.HousingMetric.period:type_name -> google.protobuf.Timestamp
-	149, // 111: shorts.v1alpha1.GetHousingOverviewResponse.metrics:type_name -> shorts.v1alpha1.HousingMetric
-	174, // 112: shorts.v1alpha1.GetHousingOverviewResponse.as_of:type_name -> google.protobuf.Timestamp
-	174, // 113: shorts.v1alpha1.HousePricePoint.period:type_name -> google.protobuf.Timestamp
-	152, // 114: shorts.v1alpha1.GetHousePriceSeriesResponse.points:type_name -> shorts.v1alpha1.HousePricePoint
-	174, // 115: shorts.v1alpha1.SuburbSummary.latest_period:type_name -> google.protobuf.Timestamp
-	155, // 116: shorts.v1alpha1.SuburbSummary.amenities:type_name -> shorts.v1alpha1.SuburbAmenities
-	156, // 117: shorts.v1alpha1.ListStateSuburbsResponse.suburbs:type_name -> shorts.v1alpha1.SuburbSummary
-	156, // 118: shorts.v1alpha1.GetSuburbProfileResponse.summary:type_name -> shorts.v1alpha1.SuburbSummary
-	159, // 119: shorts.v1alpha1.GetSuburbProfileResponse.demographics:type_name -> shorts.v1alpha1.SuburbDemographics
-	160, // 120: shorts.v1alpha1.GetSuburbProfileResponse.baselines:type_name -> shorts.v1alpha1.ComparisonBaselines
-	161, // 121: shorts.v1alpha1.GetSuburbProfileResponse.council:type_name -> shorts.v1alpha1.LgaInfo
-	162, // 122: shorts.v1alpha1.GetSuburbProfileResponse.similar:type_name -> shorts.v1alpha1.SimilarSuburb
-	174, // 123: shorts.v1alpha1.HousingRegion.latest_period:type_name -> google.protobuf.Timestamp
-	165, // 124: shorts.v1alpha1.ListHousingRegionsResponse.regions:type_name -> shorts.v1alpha1.HousingRegion
-	78,  // 125: shorts.v1alpha1.GetStockFinancialHighlightsResponse.HighlightsEntry.value:type_name -> shorts.v1alpha1.StockFinancialHighlights
-	17,  // 126: shorts.v1alpha1.ShortedStocksService.GetTopShorts:input_type -> shorts.v1alpha1.GetTopShortsRequest
-	18,  // 127: shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap:input_type -> shorts.v1alpha1.GetIndustryTreeMapRequest
-	20,  // 128: shorts.v1alpha1.ShortedStocksService.GetStock:input_type -> shorts.v1alpha1.GetStockRequest
-	21,  // 129: shorts.v1alpha1.ShortedStocksService.GetStockDetails:input_type -> shorts.v1alpha1.GetStockDetailsRequest
-	22,  // 130: shorts.v1alpha1.ShortedStocksService.GetStockData:input_type -> shorts.v1alpha1.GetStockDataRequest
-	63,  // 131: shorts.v1alpha1.ShortedStocksService.GetMarketByDate:input_type -> shorts.v1alpha1.GetMarketByDateRequest
-	65,  // 132: shorts.v1alpha1.ShortedStocksService.GetAvailableDates:input_type -> shorts.v1alpha1.GetAvailableDatesRequest
-	23,  // 133: shorts.v1alpha1.ShortedStocksService.SearchStocks:input_type -> shorts.v1alpha1.SearchStocksRequest
-	25,  // 134: shorts.v1alpha1.ShortedStocksService.GetSyncStatus:input_type -> shorts.v1alpha1.GetSyncStatusRequest
-	15,  // 135: shorts.v1alpha1.ShortedStocksService.MintToken:input_type -> shorts.v1alpha1.MintTokenRequest
-	28,  // 136: shorts.v1alpha1.ShortedStocksService.SyncKeyMetrics:input_type -> shorts.v1alpha1.SyncKeyMetricsRequest
-	32,  // 137: shorts.v1alpha1.ShortedStocksService.EnrichStock:input_type -> shorts.v1alpha1.EnrichStockRequest
-	36,  // 138: shorts.v1alpha1.ShortedStocksService.GetTopStocksForEnrichment:input_type -> shorts.v1alpha1.GetTopStocksForEnrichmentRequest
-	41,  // 139: shorts.v1alpha1.ShortedStocksService.ListPendingEnrichments:input_type -> shorts.v1alpha1.ListPendingEnrichmentsRequest
-	44,  // 140: shorts.v1alpha1.ShortedStocksService.GetPendingEnrichment:input_type -> shorts.v1alpha1.GetPendingEnrichmentRequest
-	39,  // 141: shorts.v1alpha1.ShortedStocksService.ReviewEnrichment:input_type -> shorts.v1alpha1.ReviewEnrichmentRequest
-	48,  // 142: shorts.v1alpha1.ShortedStocksService.GetEnrichmentJobStatus:input_type -> shorts.v1alpha1.GetEnrichmentJobStatusRequest
-	50,  // 143: shorts.v1alpha1.ShortedStocksService.ListEnrichmentJobs:input_type -> shorts.v1alpha1.ListEnrichmentJobsRequest
-	52,  // 144: shorts.v1alpha1.ShortedStocksService.HandleStripeCheckoutCompleted:input_type -> shorts.v1alpha1.HandleStripeCheckoutCompletedRequest
-	54,  // 145: shorts.v1alpha1.ShortedStocksService.HandleStripeSubscriptionUpdated:input_type -> shorts.v1alpha1.HandleStripeSubscriptionUpdatedRequest
-	56,  // 146: shorts.v1alpha1.ShortedStocksService.GetMySubscription:input_type -> shorts.v1alpha1.GetMySubscriptionRequest
-	59,  // 147: shorts.v1alpha1.ShortedStocksService.CreateAlertMonitor:input_type -> shorts.v1alpha1.CreateAlertMonitorRequest
-	61,  // 148: shorts.v1alpha1.ShortedStocksService.ListAlertMonitors:input_type -> shorts.v1alpha1.ListAlertMonitorsRequest
-	67,  // 149: shorts.v1alpha1.ShortedStocksService.GetWeeklyReport:input_type -> shorts.v1alpha1.GetWeeklyReportRequest
-	76,  // 150: shorts.v1alpha1.ShortedStocksService.GetStockFinancialHighlights:input_type -> shorts.v1alpha1.GetStockFinancialHighlightsRequest
-	82,  // 151: shorts.v1alpha1.ShortedStocksService.GetStockNews:input_type -> shorts.v1alpha1.GetStockNewsRequest
-	84,  // 152: shorts.v1alpha1.ShortedStocksService.GetRelatedNews:input_type -> shorts.v1alpha1.GetRelatedNewsRequest
-	86,  // 153: shorts.v1alpha1.ShortedStocksService.GetMarketNews:input_type -> shorts.v1alpha1.GetMarketNewsRequest
-	92,  // 154: shorts.v1alpha1.ShortedStocksService.GetEditorialTake:input_type -> shorts.v1alpha1.GetEditorialTakeRequest
-	94,  // 155: shorts.v1alpha1.ShortedStocksService.ListEditorialTakes:input_type -> shorts.v1alpha1.ListEditorialTakesRequest
-	96,  // 156: shorts.v1alpha1.ShortedStocksService.ListEditorialTakesAdmin:input_type -> shorts.v1alpha1.ListEditorialTakesAdminRequest
-	98,  // 157: shorts.v1alpha1.ShortedStocksService.PublishEditorialTake:input_type -> shorts.v1alpha1.PublishEditorialTakeRequest
-	100, // 158: shorts.v1alpha1.ShortedStocksService.UpdateEditorialTake:input_type -> shorts.v1alpha1.UpdateEditorialTakeRequest
-	102, // 159: shorts.v1alpha1.ShortedStocksService.DeleteEditorialTake:input_type -> shorts.v1alpha1.DeleteEditorialTakeRequest
-	104, // 160: shorts.v1alpha1.ShortedStocksService.MarkTakeTweetPublished:input_type -> shorts.v1alpha1.MarkTakeTweetPublishedRequest
-	106, // 161: shorts.v1alpha1.ShortedStocksService.ListTweetPublishQueue:input_type -> shorts.v1alpha1.ListTweetPublishQueueRequest
-	109, // 162: shorts.v1alpha1.ShortedStocksService.GetDirectorTrades:input_type -> shorts.v1alpha1.GetDirectorTradesRequest
-	112, // 163: shorts.v1alpha1.ShortedStocksService.GetDividendHistory:input_type -> shorts.v1alpha1.GetDividendHistoryRequest
-	115, // 164: shorts.v1alpha1.ShortedStocksService.GetPeerComparison:input_type -> shorts.v1alpha1.GetPeerComparisonRequest
-	119, // 165: shorts.v1alpha1.ShortedStocksService.ScreenStocks:input_type -> shorts.v1alpha1.ScreenStocksRequest
-	122, // 166: shorts.v1alpha1.ShortedStocksService.GetBattlegroundStocks:input_type -> shorts.v1alpha1.GetBattlegroundStocksRequest
-	125, // 167: shorts.v1alpha1.ShortedStocksService.GetStockVerdict:input_type -> shorts.v1alpha1.GetStockVerdictRequest
-	135, // 168: shorts.v1alpha1.ShortedStocksService.GetShortCampaignScoreboard:input_type -> shorts.v1alpha1.GetShortCampaignScoreboardRequest
-	138, // 169: shorts.v1alpha1.ShortedStocksService.GetStockGraph:input_type -> shorts.v1alpha1.GetStockGraphRequest
-	142, // 170: shorts.v1alpha1.ShortedStocksService.GetEventTimeline:input_type -> shorts.v1alpha1.GetEventTimelineRequest
-	145, // 171: shorts.v1alpha1.ShortedStocksService.GetStockSignals:input_type -> shorts.v1alpha1.GetStockSignalsRequest
-	148, // 172: shorts.v1alpha1.ShortedStocksService.GetHousingOverview:input_type -> shorts.v1alpha1.GetHousingOverviewRequest
-	151, // 173: shorts.v1alpha1.ShortedStocksService.GetHousePriceSeries:input_type -> shorts.v1alpha1.GetHousePriceSeriesRequest
-	154, // 174: shorts.v1alpha1.ShortedStocksService.ListStateSuburbs:input_type -> shorts.v1alpha1.ListStateSuburbsRequest
-	158, // 175: shorts.v1alpha1.ShortedStocksService.GetSuburbProfile:input_type -> shorts.v1alpha1.GetSuburbProfileRequest
-	164, // 176: shorts.v1alpha1.ShortedStocksService.ListHousingRegions:input_type -> shorts.v1alpha1.ListHousingRegionsRequest
-	128, // 177: shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile:input_type -> shorts.v1alpha1.GetCompanyTaxProfileRequest
-	131, // 178: shorts.v1alpha1.ShortedStocksService.GetIndustryIntelligence:input_type -> shorts.v1alpha1.GetIndustryIntelligenceRequest
-	19,  // 179: shorts.v1alpha1.ShortedStocksService.GetTopShorts:output_type -> shorts.v1alpha1.GetTopShortsResponse
-	175, // 180: shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap:output_type -> stocks.v1alpha1.IndustryTreeMap
-	170, // 181: shorts.v1alpha1.ShortedStocksService.GetStock:output_type -> stocks.v1alpha1.Stock
-	176, // 182: shorts.v1alpha1.ShortedStocksService.GetStockDetails:output_type -> stocks.v1alpha1.StockDetails
-	169, // 183: shorts.v1alpha1.ShortedStocksService.GetStockData:output_type -> stocks.v1alpha1.TimeSeriesData
-	64,  // 184: shorts.v1alpha1.ShortedStocksService.GetMarketByDate:output_type -> shorts.v1alpha1.GetMarketByDateResponse
-	66,  // 185: shorts.v1alpha1.ShortedStocksService.GetAvailableDates:output_type -> shorts.v1alpha1.GetAvailableDatesResponse
-	24,  // 186: shorts.v1alpha1.ShortedStocksService.SearchStocks:output_type -> shorts.v1alpha1.SearchStocksResponse
-	26,  // 187: shorts.v1alpha1.ShortedStocksService.GetSyncStatus:output_type -> shorts.v1alpha1.GetSyncStatusResponse
-	16,  // 188: shorts.v1alpha1.ShortedStocksService.MintToken:output_type -> shorts.v1alpha1.MintTokenResponse
-	29,  // 189: shorts.v1alpha1.ShortedStocksService.SyncKeyMetrics:output_type -> shorts.v1alpha1.SyncKeyMetricsResponse
-	33,  // 190: shorts.v1alpha1.ShortedStocksService.EnrichStock:output_type -> shorts.v1alpha1.EnrichStockResponse
-	37,  // 191: shorts.v1alpha1.ShortedStocksService.GetTopStocksForEnrichment:output_type -> shorts.v1alpha1.GetTopStocksForEnrichmentResponse
-	42,  // 192: shorts.v1alpha1.ShortedStocksService.ListPendingEnrichments:output_type -> shorts.v1alpha1.ListPendingEnrichmentsResponse
-	45,  // 193: shorts.v1alpha1.ShortedStocksService.GetPendingEnrichment:output_type -> shorts.v1alpha1.GetPendingEnrichmentResponse
-	40,  // 194: shorts.v1alpha1.ShortedStocksService.ReviewEnrichment:output_type -> shorts.v1alpha1.ReviewEnrichmentResponse
-	49,  // 195: shorts.v1alpha1.ShortedStocksService.GetEnrichmentJobStatus:output_type -> shorts.v1alpha1.GetEnrichmentJobStatusResponse
-	51,  // 196: shorts.v1alpha1.ShortedStocksService.ListEnrichmentJobs:output_type -> shorts.v1alpha1.ListEnrichmentJobsResponse
-	53,  // 197: shorts.v1alpha1.ShortedStocksService.HandleStripeCheckoutCompleted:output_type -> shorts.v1alpha1.HandleStripeCheckoutCompletedResponse
-	55,  // 198: shorts.v1alpha1.ShortedStocksService.HandleStripeSubscriptionUpdated:output_type -> shorts.v1alpha1.HandleStripeSubscriptionUpdatedResponse
-	57,  // 199: shorts.v1alpha1.ShortedStocksService.GetMySubscription:output_type -> shorts.v1alpha1.GetMySubscriptionResponse
-	60,  // 200: shorts.v1alpha1.ShortedStocksService.CreateAlertMonitor:output_type -> shorts.v1alpha1.CreateAlertMonitorResponse
-	62,  // 201: shorts.v1alpha1.ShortedStocksService.ListAlertMonitors:output_type -> shorts.v1alpha1.ListAlertMonitorsResponse
-	68,  // 202: shorts.v1alpha1.ShortedStocksService.GetWeeklyReport:output_type -> shorts.v1alpha1.GetWeeklyReportResponse
-	77,  // 203: shorts.v1alpha1.ShortedStocksService.GetStockFinancialHighlights:output_type -> shorts.v1alpha1.GetStockFinancialHighlightsResponse
-	83,  // 204: shorts.v1alpha1.ShortedStocksService.GetStockNews:output_type -> shorts.v1alpha1.GetStockNewsResponse
-	85,  // 205: shorts.v1alpha1.ShortedStocksService.GetRelatedNews:output_type -> shorts.v1alpha1.GetRelatedNewsResponse
-	87,  // 206: shorts.v1alpha1.ShortedStocksService.GetMarketNews:output_type -> shorts.v1alpha1.GetMarketNewsResponse
-	93,  // 207: shorts.v1alpha1.ShortedStocksService.GetEditorialTake:output_type -> shorts.v1alpha1.GetEditorialTakeResponse
-	95,  // 208: shorts.v1alpha1.ShortedStocksService.ListEditorialTakes:output_type -> shorts.v1alpha1.ListEditorialTakesResponse
-	97,  // 209: shorts.v1alpha1.ShortedStocksService.ListEditorialTakesAdmin:output_type -> shorts.v1alpha1.ListEditorialTakesAdminResponse
-	99,  // 210: shorts.v1alpha1.ShortedStocksService.PublishEditorialTake:output_type -> shorts.v1alpha1.PublishEditorialTakeResponse
-	101, // 211: shorts.v1alpha1.ShortedStocksService.UpdateEditorialTake:output_type -> shorts.v1alpha1.UpdateEditorialTakeResponse
-	103, // 212: shorts.v1alpha1.ShortedStocksService.DeleteEditorialTake:output_type -> shorts.v1alpha1.DeleteEditorialTakeResponse
-	105, // 213: shorts.v1alpha1.ShortedStocksService.MarkTakeTweetPublished:output_type -> shorts.v1alpha1.MarkTakeTweetPublishedResponse
-	107, // 214: shorts.v1alpha1.ShortedStocksService.ListTweetPublishQueue:output_type -> shorts.v1alpha1.ListTweetPublishQueueResponse
-	110, // 215: shorts.v1alpha1.ShortedStocksService.GetDirectorTrades:output_type -> shorts.v1alpha1.GetDirectorTradesResponse
-	113, // 216: shorts.v1alpha1.ShortedStocksService.GetDividendHistory:output_type -> shorts.v1alpha1.GetDividendHistoryResponse
-	116, // 217: shorts.v1alpha1.ShortedStocksService.GetPeerComparison:output_type -> shorts.v1alpha1.GetPeerComparisonResponse
-	121, // 218: shorts.v1alpha1.ShortedStocksService.ScreenStocks:output_type -> shorts.v1alpha1.ScreenStocksResponse
-	124, // 219: shorts.v1alpha1.ShortedStocksService.GetBattlegroundStocks:output_type -> shorts.v1alpha1.GetBattlegroundStocksResponse
-	127, // 220: shorts.v1alpha1.ShortedStocksService.GetStockVerdict:output_type -> shorts.v1alpha1.GetStockVerdictResponse
-	137, // 221: shorts.v1alpha1.ShortedStocksService.GetShortCampaignScoreboard:output_type -> shorts.v1alpha1.GetShortCampaignScoreboardResponse
-	139, // 222: shorts.v1alpha1.ShortedStocksService.GetStockGraph:output_type -> shorts.v1alpha1.GetStockGraphResponse
-	143, // 223: shorts.v1alpha1.ShortedStocksService.GetEventTimeline:output_type -> shorts.v1alpha1.GetEventTimelineResponse
-	146, // 224: shorts.v1alpha1.ShortedStocksService.GetStockSignals:output_type -> shorts.v1alpha1.GetStockSignalsResponse
-	150, // 225: shorts.v1alpha1.ShortedStocksService.GetHousingOverview:output_type -> shorts.v1alpha1.GetHousingOverviewResponse
-	153, // 226: shorts.v1alpha1.ShortedStocksService.GetHousePriceSeries:output_type -> shorts.v1alpha1.GetHousePriceSeriesResponse
-	157, // 227: shorts.v1alpha1.ShortedStocksService.ListStateSuburbs:output_type -> shorts.v1alpha1.ListStateSuburbsResponse
-	163, // 228: shorts.v1alpha1.ShortedStocksService.GetSuburbProfile:output_type -> shorts.v1alpha1.GetSuburbProfileResponse
-	166, // 229: shorts.v1alpha1.ShortedStocksService.ListHousingRegions:output_type -> shorts.v1alpha1.ListHousingRegionsResponse
-	130, // 230: shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile:output_type -> shorts.v1alpha1.GetCompanyTaxProfileResponse
-	134, // 231: shorts.v1alpha1.ShortedStocksService.GetIndustryIntelligence:output_type -> shorts.v1alpha1.GetIndustryIntelligenceResponse
-	179, // [179:232] is the sub-list for method output_type
-	126, // [126:179] is the sub-list for method input_type
-	126, // [126:126] is the sub-list for extension type_name
-	126, // [126:126] is the sub-list for extension extendee
-	0,   // [0:126] is the sub-list for field type_name
+	176, // 103: shorts.v1alpha1.GetIndustryIntelligenceResponse.generated_at:type_name -> google.protobuf.Timestamp
+	134, // 104: shorts.v1alpha1.GetIndustryIntelligenceResponse.time_buckets:type_name -> shorts.v1alpha1.IndustryIntelligenceTimeBucket
+	135, // 105: shorts.v1alpha1.GetIndustryIntelligenceResponse.entity_totals:type_name -> shorts.v1alpha1.IndustryIntelligenceEntityTotal
+	138, // 106: shorts.v1alpha1.GetShortCampaignScoreboardResponse.campaigns:type_name -> shorts.v1alpha1.ShortCampaign
+	142, // 107: shorts.v1alpha1.GetStockGraphResponse.people:type_name -> shorts.v1alpha1.GraphPerson
+	143, // 108: shorts.v1alpha1.GetStockGraphResponse.similar_companies:type_name -> shorts.v1alpha1.GraphPeer
+	146, // 109: shorts.v1alpha1.GetEventTimelineResponse.events:type_name -> shorts.v1alpha1.TimelineEvent
+	149, // 110: shorts.v1alpha1.GetStockSignalsResponse.adverse:type_name -> shorts.v1alpha1.StockSignal
+	149, // 111: shorts.v1alpha1.GetStockSignalsResponse.positive:type_name -> shorts.v1alpha1.StockSignal
+	176, // 112: shorts.v1alpha1.HousingMetric.period:type_name -> google.protobuf.Timestamp
+	151, // 113: shorts.v1alpha1.GetHousingOverviewResponse.metrics:type_name -> shorts.v1alpha1.HousingMetric
+	176, // 114: shorts.v1alpha1.GetHousingOverviewResponse.as_of:type_name -> google.protobuf.Timestamp
+	176, // 115: shorts.v1alpha1.HousePricePoint.period:type_name -> google.protobuf.Timestamp
+	154, // 116: shorts.v1alpha1.GetHousePriceSeriesResponse.points:type_name -> shorts.v1alpha1.HousePricePoint
+	176, // 117: shorts.v1alpha1.SuburbSummary.latest_period:type_name -> google.protobuf.Timestamp
+	157, // 118: shorts.v1alpha1.SuburbSummary.amenities:type_name -> shorts.v1alpha1.SuburbAmenities
+	158, // 119: shorts.v1alpha1.ListStateSuburbsResponse.suburbs:type_name -> shorts.v1alpha1.SuburbSummary
+	158, // 120: shorts.v1alpha1.GetSuburbProfileResponse.summary:type_name -> shorts.v1alpha1.SuburbSummary
+	161, // 121: shorts.v1alpha1.GetSuburbProfileResponse.demographics:type_name -> shorts.v1alpha1.SuburbDemographics
+	162, // 122: shorts.v1alpha1.GetSuburbProfileResponse.baselines:type_name -> shorts.v1alpha1.ComparisonBaselines
+	163, // 123: shorts.v1alpha1.GetSuburbProfileResponse.council:type_name -> shorts.v1alpha1.LgaInfo
+	164, // 124: shorts.v1alpha1.GetSuburbProfileResponse.similar:type_name -> shorts.v1alpha1.SimilarSuburb
+	176, // 125: shorts.v1alpha1.HousingRegion.latest_period:type_name -> google.protobuf.Timestamp
+	167, // 126: shorts.v1alpha1.ListHousingRegionsResponse.regions:type_name -> shorts.v1alpha1.HousingRegion
+	78,  // 127: shorts.v1alpha1.GetStockFinancialHighlightsResponse.HighlightsEntry.value:type_name -> shorts.v1alpha1.StockFinancialHighlights
+	17,  // 128: shorts.v1alpha1.ShortedStocksService.GetTopShorts:input_type -> shorts.v1alpha1.GetTopShortsRequest
+	18,  // 129: shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap:input_type -> shorts.v1alpha1.GetIndustryTreeMapRequest
+	20,  // 130: shorts.v1alpha1.ShortedStocksService.GetStock:input_type -> shorts.v1alpha1.GetStockRequest
+	21,  // 131: shorts.v1alpha1.ShortedStocksService.GetStockDetails:input_type -> shorts.v1alpha1.GetStockDetailsRequest
+	22,  // 132: shorts.v1alpha1.ShortedStocksService.GetStockData:input_type -> shorts.v1alpha1.GetStockDataRequest
+	63,  // 133: shorts.v1alpha1.ShortedStocksService.GetMarketByDate:input_type -> shorts.v1alpha1.GetMarketByDateRequest
+	65,  // 134: shorts.v1alpha1.ShortedStocksService.GetAvailableDates:input_type -> shorts.v1alpha1.GetAvailableDatesRequest
+	23,  // 135: shorts.v1alpha1.ShortedStocksService.SearchStocks:input_type -> shorts.v1alpha1.SearchStocksRequest
+	25,  // 136: shorts.v1alpha1.ShortedStocksService.GetSyncStatus:input_type -> shorts.v1alpha1.GetSyncStatusRequest
+	15,  // 137: shorts.v1alpha1.ShortedStocksService.MintToken:input_type -> shorts.v1alpha1.MintTokenRequest
+	28,  // 138: shorts.v1alpha1.ShortedStocksService.SyncKeyMetrics:input_type -> shorts.v1alpha1.SyncKeyMetricsRequest
+	32,  // 139: shorts.v1alpha1.ShortedStocksService.EnrichStock:input_type -> shorts.v1alpha1.EnrichStockRequest
+	36,  // 140: shorts.v1alpha1.ShortedStocksService.GetTopStocksForEnrichment:input_type -> shorts.v1alpha1.GetTopStocksForEnrichmentRequest
+	41,  // 141: shorts.v1alpha1.ShortedStocksService.ListPendingEnrichments:input_type -> shorts.v1alpha1.ListPendingEnrichmentsRequest
+	44,  // 142: shorts.v1alpha1.ShortedStocksService.GetPendingEnrichment:input_type -> shorts.v1alpha1.GetPendingEnrichmentRequest
+	39,  // 143: shorts.v1alpha1.ShortedStocksService.ReviewEnrichment:input_type -> shorts.v1alpha1.ReviewEnrichmentRequest
+	48,  // 144: shorts.v1alpha1.ShortedStocksService.GetEnrichmentJobStatus:input_type -> shorts.v1alpha1.GetEnrichmentJobStatusRequest
+	50,  // 145: shorts.v1alpha1.ShortedStocksService.ListEnrichmentJobs:input_type -> shorts.v1alpha1.ListEnrichmentJobsRequest
+	52,  // 146: shorts.v1alpha1.ShortedStocksService.HandleStripeCheckoutCompleted:input_type -> shorts.v1alpha1.HandleStripeCheckoutCompletedRequest
+	54,  // 147: shorts.v1alpha1.ShortedStocksService.HandleStripeSubscriptionUpdated:input_type -> shorts.v1alpha1.HandleStripeSubscriptionUpdatedRequest
+	56,  // 148: shorts.v1alpha1.ShortedStocksService.GetMySubscription:input_type -> shorts.v1alpha1.GetMySubscriptionRequest
+	59,  // 149: shorts.v1alpha1.ShortedStocksService.CreateAlertMonitor:input_type -> shorts.v1alpha1.CreateAlertMonitorRequest
+	61,  // 150: shorts.v1alpha1.ShortedStocksService.ListAlertMonitors:input_type -> shorts.v1alpha1.ListAlertMonitorsRequest
+	67,  // 151: shorts.v1alpha1.ShortedStocksService.GetWeeklyReport:input_type -> shorts.v1alpha1.GetWeeklyReportRequest
+	76,  // 152: shorts.v1alpha1.ShortedStocksService.GetStockFinancialHighlights:input_type -> shorts.v1alpha1.GetStockFinancialHighlightsRequest
+	82,  // 153: shorts.v1alpha1.ShortedStocksService.GetStockNews:input_type -> shorts.v1alpha1.GetStockNewsRequest
+	84,  // 154: shorts.v1alpha1.ShortedStocksService.GetRelatedNews:input_type -> shorts.v1alpha1.GetRelatedNewsRequest
+	86,  // 155: shorts.v1alpha1.ShortedStocksService.GetMarketNews:input_type -> shorts.v1alpha1.GetMarketNewsRequest
+	92,  // 156: shorts.v1alpha1.ShortedStocksService.GetEditorialTake:input_type -> shorts.v1alpha1.GetEditorialTakeRequest
+	94,  // 157: shorts.v1alpha1.ShortedStocksService.ListEditorialTakes:input_type -> shorts.v1alpha1.ListEditorialTakesRequest
+	96,  // 158: shorts.v1alpha1.ShortedStocksService.ListEditorialTakesAdmin:input_type -> shorts.v1alpha1.ListEditorialTakesAdminRequest
+	98,  // 159: shorts.v1alpha1.ShortedStocksService.PublishEditorialTake:input_type -> shorts.v1alpha1.PublishEditorialTakeRequest
+	100, // 160: shorts.v1alpha1.ShortedStocksService.UpdateEditorialTake:input_type -> shorts.v1alpha1.UpdateEditorialTakeRequest
+	102, // 161: shorts.v1alpha1.ShortedStocksService.DeleteEditorialTake:input_type -> shorts.v1alpha1.DeleteEditorialTakeRequest
+	104, // 162: shorts.v1alpha1.ShortedStocksService.MarkTakeTweetPublished:input_type -> shorts.v1alpha1.MarkTakeTweetPublishedRequest
+	106, // 163: shorts.v1alpha1.ShortedStocksService.ListTweetPublishQueue:input_type -> shorts.v1alpha1.ListTweetPublishQueueRequest
+	109, // 164: shorts.v1alpha1.ShortedStocksService.GetDirectorTrades:input_type -> shorts.v1alpha1.GetDirectorTradesRequest
+	112, // 165: shorts.v1alpha1.ShortedStocksService.GetDividendHistory:input_type -> shorts.v1alpha1.GetDividendHistoryRequest
+	115, // 166: shorts.v1alpha1.ShortedStocksService.GetPeerComparison:input_type -> shorts.v1alpha1.GetPeerComparisonRequest
+	119, // 167: shorts.v1alpha1.ShortedStocksService.ScreenStocks:input_type -> shorts.v1alpha1.ScreenStocksRequest
+	122, // 168: shorts.v1alpha1.ShortedStocksService.GetBattlegroundStocks:input_type -> shorts.v1alpha1.GetBattlegroundStocksRequest
+	125, // 169: shorts.v1alpha1.ShortedStocksService.GetStockVerdict:input_type -> shorts.v1alpha1.GetStockVerdictRequest
+	137, // 170: shorts.v1alpha1.ShortedStocksService.GetShortCampaignScoreboard:input_type -> shorts.v1alpha1.GetShortCampaignScoreboardRequest
+	140, // 171: shorts.v1alpha1.ShortedStocksService.GetStockGraph:input_type -> shorts.v1alpha1.GetStockGraphRequest
+	144, // 172: shorts.v1alpha1.ShortedStocksService.GetEventTimeline:input_type -> shorts.v1alpha1.GetEventTimelineRequest
+	147, // 173: shorts.v1alpha1.ShortedStocksService.GetStockSignals:input_type -> shorts.v1alpha1.GetStockSignalsRequest
+	150, // 174: shorts.v1alpha1.ShortedStocksService.GetHousingOverview:input_type -> shorts.v1alpha1.GetHousingOverviewRequest
+	153, // 175: shorts.v1alpha1.ShortedStocksService.GetHousePriceSeries:input_type -> shorts.v1alpha1.GetHousePriceSeriesRequest
+	156, // 176: shorts.v1alpha1.ShortedStocksService.ListStateSuburbs:input_type -> shorts.v1alpha1.ListStateSuburbsRequest
+	160, // 177: shorts.v1alpha1.ShortedStocksService.GetSuburbProfile:input_type -> shorts.v1alpha1.GetSuburbProfileRequest
+	166, // 178: shorts.v1alpha1.ShortedStocksService.ListHousingRegions:input_type -> shorts.v1alpha1.ListHousingRegionsRequest
+	128, // 179: shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile:input_type -> shorts.v1alpha1.GetCompanyTaxProfileRequest
+	131, // 180: shorts.v1alpha1.ShortedStocksService.GetIndustryIntelligence:input_type -> shorts.v1alpha1.GetIndustryIntelligenceRequest
+	19,  // 181: shorts.v1alpha1.ShortedStocksService.GetTopShorts:output_type -> shorts.v1alpha1.GetTopShortsResponse
+	177, // 182: shorts.v1alpha1.ShortedStocksService.GetIndustryTreeMap:output_type -> stocks.v1alpha1.IndustryTreeMap
+	172, // 183: shorts.v1alpha1.ShortedStocksService.GetStock:output_type -> stocks.v1alpha1.Stock
+	178, // 184: shorts.v1alpha1.ShortedStocksService.GetStockDetails:output_type -> stocks.v1alpha1.StockDetails
+	171, // 185: shorts.v1alpha1.ShortedStocksService.GetStockData:output_type -> stocks.v1alpha1.TimeSeriesData
+	64,  // 186: shorts.v1alpha1.ShortedStocksService.GetMarketByDate:output_type -> shorts.v1alpha1.GetMarketByDateResponse
+	66,  // 187: shorts.v1alpha1.ShortedStocksService.GetAvailableDates:output_type -> shorts.v1alpha1.GetAvailableDatesResponse
+	24,  // 188: shorts.v1alpha1.ShortedStocksService.SearchStocks:output_type -> shorts.v1alpha1.SearchStocksResponse
+	26,  // 189: shorts.v1alpha1.ShortedStocksService.GetSyncStatus:output_type -> shorts.v1alpha1.GetSyncStatusResponse
+	16,  // 190: shorts.v1alpha1.ShortedStocksService.MintToken:output_type -> shorts.v1alpha1.MintTokenResponse
+	29,  // 191: shorts.v1alpha1.ShortedStocksService.SyncKeyMetrics:output_type -> shorts.v1alpha1.SyncKeyMetricsResponse
+	33,  // 192: shorts.v1alpha1.ShortedStocksService.EnrichStock:output_type -> shorts.v1alpha1.EnrichStockResponse
+	37,  // 193: shorts.v1alpha1.ShortedStocksService.GetTopStocksForEnrichment:output_type -> shorts.v1alpha1.GetTopStocksForEnrichmentResponse
+	42,  // 194: shorts.v1alpha1.ShortedStocksService.ListPendingEnrichments:output_type -> shorts.v1alpha1.ListPendingEnrichmentsResponse
+	45,  // 195: shorts.v1alpha1.ShortedStocksService.GetPendingEnrichment:output_type -> shorts.v1alpha1.GetPendingEnrichmentResponse
+	40,  // 196: shorts.v1alpha1.ShortedStocksService.ReviewEnrichment:output_type -> shorts.v1alpha1.ReviewEnrichmentResponse
+	49,  // 197: shorts.v1alpha1.ShortedStocksService.GetEnrichmentJobStatus:output_type -> shorts.v1alpha1.GetEnrichmentJobStatusResponse
+	51,  // 198: shorts.v1alpha1.ShortedStocksService.ListEnrichmentJobs:output_type -> shorts.v1alpha1.ListEnrichmentJobsResponse
+	53,  // 199: shorts.v1alpha1.ShortedStocksService.HandleStripeCheckoutCompleted:output_type -> shorts.v1alpha1.HandleStripeCheckoutCompletedResponse
+	55,  // 200: shorts.v1alpha1.ShortedStocksService.HandleStripeSubscriptionUpdated:output_type -> shorts.v1alpha1.HandleStripeSubscriptionUpdatedResponse
+	57,  // 201: shorts.v1alpha1.ShortedStocksService.GetMySubscription:output_type -> shorts.v1alpha1.GetMySubscriptionResponse
+	60,  // 202: shorts.v1alpha1.ShortedStocksService.CreateAlertMonitor:output_type -> shorts.v1alpha1.CreateAlertMonitorResponse
+	62,  // 203: shorts.v1alpha1.ShortedStocksService.ListAlertMonitors:output_type -> shorts.v1alpha1.ListAlertMonitorsResponse
+	68,  // 204: shorts.v1alpha1.ShortedStocksService.GetWeeklyReport:output_type -> shorts.v1alpha1.GetWeeklyReportResponse
+	77,  // 205: shorts.v1alpha1.ShortedStocksService.GetStockFinancialHighlights:output_type -> shorts.v1alpha1.GetStockFinancialHighlightsResponse
+	83,  // 206: shorts.v1alpha1.ShortedStocksService.GetStockNews:output_type -> shorts.v1alpha1.GetStockNewsResponse
+	85,  // 207: shorts.v1alpha1.ShortedStocksService.GetRelatedNews:output_type -> shorts.v1alpha1.GetRelatedNewsResponse
+	87,  // 208: shorts.v1alpha1.ShortedStocksService.GetMarketNews:output_type -> shorts.v1alpha1.GetMarketNewsResponse
+	93,  // 209: shorts.v1alpha1.ShortedStocksService.GetEditorialTake:output_type -> shorts.v1alpha1.GetEditorialTakeResponse
+	95,  // 210: shorts.v1alpha1.ShortedStocksService.ListEditorialTakes:output_type -> shorts.v1alpha1.ListEditorialTakesResponse
+	97,  // 211: shorts.v1alpha1.ShortedStocksService.ListEditorialTakesAdmin:output_type -> shorts.v1alpha1.ListEditorialTakesAdminResponse
+	99,  // 212: shorts.v1alpha1.ShortedStocksService.PublishEditorialTake:output_type -> shorts.v1alpha1.PublishEditorialTakeResponse
+	101, // 213: shorts.v1alpha1.ShortedStocksService.UpdateEditorialTake:output_type -> shorts.v1alpha1.UpdateEditorialTakeResponse
+	103, // 214: shorts.v1alpha1.ShortedStocksService.DeleteEditorialTake:output_type -> shorts.v1alpha1.DeleteEditorialTakeResponse
+	105, // 215: shorts.v1alpha1.ShortedStocksService.MarkTakeTweetPublished:output_type -> shorts.v1alpha1.MarkTakeTweetPublishedResponse
+	107, // 216: shorts.v1alpha1.ShortedStocksService.ListTweetPublishQueue:output_type -> shorts.v1alpha1.ListTweetPublishQueueResponse
+	110, // 217: shorts.v1alpha1.ShortedStocksService.GetDirectorTrades:output_type -> shorts.v1alpha1.GetDirectorTradesResponse
+	113, // 218: shorts.v1alpha1.ShortedStocksService.GetDividendHistory:output_type -> shorts.v1alpha1.GetDividendHistoryResponse
+	116, // 219: shorts.v1alpha1.ShortedStocksService.GetPeerComparison:output_type -> shorts.v1alpha1.GetPeerComparisonResponse
+	121, // 220: shorts.v1alpha1.ShortedStocksService.ScreenStocks:output_type -> shorts.v1alpha1.ScreenStocksResponse
+	124, // 221: shorts.v1alpha1.ShortedStocksService.GetBattlegroundStocks:output_type -> shorts.v1alpha1.GetBattlegroundStocksResponse
+	127, // 222: shorts.v1alpha1.ShortedStocksService.GetStockVerdict:output_type -> shorts.v1alpha1.GetStockVerdictResponse
+	139, // 223: shorts.v1alpha1.ShortedStocksService.GetShortCampaignScoreboard:output_type -> shorts.v1alpha1.GetShortCampaignScoreboardResponse
+	141, // 224: shorts.v1alpha1.ShortedStocksService.GetStockGraph:output_type -> shorts.v1alpha1.GetStockGraphResponse
+	145, // 225: shorts.v1alpha1.ShortedStocksService.GetEventTimeline:output_type -> shorts.v1alpha1.GetEventTimelineResponse
+	148, // 226: shorts.v1alpha1.ShortedStocksService.GetStockSignals:output_type -> shorts.v1alpha1.GetStockSignalsResponse
+	152, // 227: shorts.v1alpha1.ShortedStocksService.GetHousingOverview:output_type -> shorts.v1alpha1.GetHousingOverviewResponse
+	155, // 228: shorts.v1alpha1.ShortedStocksService.GetHousePriceSeries:output_type -> shorts.v1alpha1.GetHousePriceSeriesResponse
+	159, // 229: shorts.v1alpha1.ShortedStocksService.ListStateSuburbs:output_type -> shorts.v1alpha1.ListStateSuburbsResponse
+	165, // 230: shorts.v1alpha1.ShortedStocksService.GetSuburbProfile:output_type -> shorts.v1alpha1.GetSuburbProfileResponse
+	168, // 231: shorts.v1alpha1.ShortedStocksService.ListHousingRegions:output_type -> shorts.v1alpha1.ListHousingRegionsResponse
+	130, // 232: shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile:output_type -> shorts.v1alpha1.GetCompanyTaxProfileResponse
+	136, // 233: shorts.v1alpha1.ShortedStocksService.GetIndustryIntelligence:output_type -> shorts.v1alpha1.GetIndustryIntelligenceResponse
+	181, // [181:234] is the sub-list for method output_type
+	128, // [128:181] is the sub-list for method input_type
+	128, // [128:128] is the sub-list for extension type_name
+	128, // [128:128] is the sub-list for extension extendee
+	0,   // [0:128] is the sub-list for field type_name
 }
 
 func init() { file_shorts_v1alpha1_shorts_proto_init() }
@@ -13770,7 +14062,7 @@ func file_shorts_v1alpha1_shorts_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shorts_v1alpha1_shorts_proto_rawDesc), len(file_shorts_v1alpha1_shorts_proto_rawDesc)),
 			NumEnums:      15,
-			NumMessages:   154,
+			NumMessages:   156,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
