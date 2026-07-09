@@ -17,7 +17,7 @@ public interface GetRelatedNewsResponseOrBuilder extends
    *
    * <code>repeated .shorts.v1alpha1.NewsArticle articles = 1 [json_name = "articles"];</code>
    */
-  java.util.List<com.shorts.v1alpha1.NewsArticle>
+  java.util.List<com.shorts.v1alpha1.NewsArticle> 
       getArticlesList();
   /**
    * <pre>
@@ -42,7 +42,7 @@ public interface GetRelatedNewsResponseOrBuilder extends
    *
    * <code>repeated .shorts.v1alpha1.NewsArticle articles = 1 [json_name = "articles"];</code>
    */
-  java.util.List<? extends com.shorts.v1alpha1.NewsArticleOrBuilder>
+  java.util.List<? extends com.shorts.v1alpha1.NewsArticleOrBuilder> 
       getArticlesOrBuilderList();
   /**
    * <pre>

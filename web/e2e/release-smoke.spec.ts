@@ -22,7 +22,8 @@ test.use({
 const appApiPattern =
   /\/(_next\/static\/|shorts\.v1alpha1\.|marketdata\.v1\.|chat\.v1\.|register\.v1\.|api\/)/;
 
-const expectManualCloudflareRum = process.env.EXPECT_MANUAL_CLOUDFLARE_RUM === "1";
+const expectManualCloudflareRum =
+  process.env.EXPECT_MANUAL_CLOUDFLARE_RUM === "1";
 
 const forbiddenPageText = [
   /Application error/i,
@@ -43,15 +44,24 @@ const pageScenarios = [
   },
   {
     path: "/housing",
-    requiredText: [/Australian house prices|Housing/i, /Sydney|Melbourne|Brisbane|Perth|Adelaide|Hobart|Canberra|Darwin/i],
+    requiredText: [
+      /Australian house prices|Housing/i,
+      /Sydney|Melbourne|Brisbane|Perth|Adelaide|Hobart|Canberra|Darwin/i,
+    ],
   },
   {
     path: "/news",
-    requiredText: [/News|Shorted Newsroom/i, /MOST SHORTED|FEATURED INVESTIGATION|Market/i],
+    requiredText: [
+      /News|Shorted Newsroom/i,
+      /MOST SHORTED|FEATURED INVESTIGATION|Market/i,
+    ],
   },
   {
     path: "/market/2024-08-21",
-    requiredText: [/ASX Short Positions|Market/i, /Top 50 Most Shorted Stocks|Stocks with Short Positions/i],
+    requiredText: [
+      /ASX Short Positions|Market/i,
+      /Top 50 Most Shorted Stocks|Stocks with Short Positions/i,
+    ],
   },
   {
     path: "/reports",
@@ -59,15 +69,36 @@ const pageScenarios = [
   },
   {
     path: "/reports/weekly/2026-W25",
-    requiredText: [/Top Shorted Stocks This Week/i, /Stocks Shorted/i, /Week 25, 2026/i],
+    requiredText: [
+      /Top Shorted Stocks This Week/i,
+      /Stocks Shorted/i,
+      /Week 25, 2026/i,
+    ],
   },
   {
     path: "/reports/monthly/2026-06",
-    requiredText: [/Top Shorted Stocks This Month/i, /Stocks Shorted/i, /June 2026/i],
+    requiredText: [
+      /Top Shorted Stocks This Month/i,
+      /Stocks Shorted/i,
+      /June 2026/i,
+    ],
   },
   {
     path: "/reports/yearly/2025",
-    requiredText: [/Year in Review/i, /ASX Short Selling/i, /Top Shorted Stocks/i],
+    requiredText: [
+      /Year in Review/i,
+      /ASX Short Selling/i,
+      /Top Shorted Stocks/i,
+    ],
+  },
+  {
+    path: "/industry-intelligence",
+    requiredText: [
+      /Industry Intelligence/i,
+      /Top Shorts In This Industry/i,
+      /Industry ranking/i,
+      /Create daily alert/i,
+    ],
   },
 ] as const;
 
@@ -93,17 +124,28 @@ function isIgnorableConsoleError(text: string, url = ""): boolean {
       text.includes("x-shorted-testing-bypass")) ||
     text === "Failed to load resource: net::ERR_FAILED" ||
     (url.includes("/cdn-cgi/rum") &&
-      text.includes("Failed to load resource: the server responded with a status of 404")) ||
-    (url.includes("/shorts.v1alpha1.ShortedStocksService/GetCompanyTaxProfile") &&
-      text.includes("Failed to load resource: the server responded with a status of 404"))
+      text.includes(
+        "Failed to load resource: the server responded with a status of 404",
+      )) ||
+    (url.includes(
+      "/shorts.v1alpha1.ShortedStocksService/GetCompanyTaxProfile",
+    ) &&
+      text.includes(
+        "Failed to load resource: the server responded with a status of 404",
+      ))
   );
 }
 
 function isIgnorableAppApiFailure(url: string, status: number): boolean {
-  return status === 404 && url.includes("/shorts.v1alpha1.ShortedStocksService/GetCompanyTaxProfile");
+  return (
+    status === 404 &&
+    url.includes("/shorts.v1alpha1.ShortedStocksService/GetCompanyTaxProfile")
+  );
 }
 
-async function assertNoCloudflareChallenge(response: APIResponse): Promise<string> {
+async function assertNoCloudflareChallenge(
+  response: APIResponse,
+): Promise<string> {
   expect(response.headers()["cf-mitigated"] ?? "").not.toBe("challenge");
   const text = await response.text();
   expect(text).not.toContain("Just a moment");
@@ -115,7 +157,10 @@ async function pageText(page: Page): Promise<string> {
   return page.locator("body").innerText({ timeout: 20_000 });
 }
 
-async function assertManualCloudflareRumBeacon(page: Page, path: string): Promise<void> {
+async function assertManualCloudflareRumBeacon(
+  page: Page,
+  path: string,
+): Promise<void> {
   if (!expectManualCloudflareRum) {
     return;
   }
@@ -123,24 +168,36 @@ async function assertManualCloudflareRumBeacon(page: Page, path: string): Promis
   const script = page.locator(
     'script[src="https://static.cloudflareinsights.com/beacon.min.js"][data-cf-beacon]',
   );
-  await expect(script, `${path} missing Cloudflare Web Analytics beacon`).toHaveCount(1);
+  await expect(
+    script,
+    `${path} missing Cloudflare Web Analytics beacon`,
+  ).toHaveCount(1);
 
-  const config = JSON.parse((await script.first().getAttribute("data-cf-beacon")) || "{}") as {
+  const config = JSON.parse(
+    (await script.first().getAttribute("data-cf-beacon")) || "{}",
+  ) as {
     send?: { to?: unknown };
     token?: string;
     spa?: unknown;
   };
-  expect(config.token, `${path} has invalid Cloudflare Web Analytics token`).toMatch(
-    /^[a-z0-9]{32}$/i,
-  );
-  expect(config.send?.to, `${path} should post RUM to the same-origin Cloudflare endpoint`).toBe(
-    "/cdn-cgi/rum",
-  );
-  expect(config.spa, `${path} should use Cloudflare's default SPA tracking`).toBeUndefined();
+  expect(
+    config.token,
+    `${path} has invalid Cloudflare Web Analytics token`,
+  ).toMatch(/^[a-z0-9]{32}$/i);
+  expect(
+    config.send?.to,
+    `${path} should post RUM to the same-origin Cloudflare endpoint`,
+  ).toBe("/cdn-cgi/rum");
+  expect(
+    config.spa,
+    `${path} should use Cloudflare's default SPA tracking`,
+  ).toBeUndefined();
 }
 
 for (const scenario of pageScenarios) {
-  test(`${scenario.path} renders real data without runtime/API regressions`, async ({ page }) => {
+  test(`${scenario.path} renders real data without runtime/API regressions`, async ({
+    page,
+  }) => {
     const apiFailures: string[] = [];
     const failedRequests: string[] = [];
     const consoleErrors: string[] = [];
@@ -150,7 +207,11 @@ for (const scenario of pageScenarios) {
     page.on("response", (response) => {
       const url = response.url();
       const status = response.status();
-      if (appApiPattern.test(url) && status >= 400 && !isIgnorableAppApiFailure(url, status)) {
+      if (
+        appApiPattern.test(url) &&
+        status >= 400 &&
+        !isIgnorableAppApiFailure(url, status)
+      ) {
         apiFailures.push(`${status} ${url}`);
       }
     });
@@ -177,25 +238,41 @@ for (const scenario of pageScenarios) {
       timeout: 45_000,
     });
 
-    expect(response?.status(), `${scenario.path} HTTP status`).toBeLessThan(400);
+    expect(response?.status(), `${scenario.path} HTTP status`).toBeLessThan(
+      400,
+    );
 
     const text = await pageText(page);
     for (const required of scenario.requiredText) {
-      expect(text, `${scenario.path} missing required text ${required}`).toMatch(required);
+      expect(
+        text,
+        `${scenario.path} missing required text ${required}`,
+      ).toMatch(required);
     }
     for (const forbidden of forbiddenPageText) {
-      expect(text, `${scenario.path} contains forbidden text ${forbidden}`).not.toMatch(forbidden);
+      expect(
+        text,
+        `${scenario.path} contains forbidden text ${forbidden}`,
+      ).not.toMatch(forbidden);
     }
 
     await assertManualCloudflareRumBeacon(page, scenario.path);
 
-    expect(apiFailures, `${scenario.path} had failing app API/RPC responses`).toEqual([]);
-    expect(failedRequests, `${scenario.path} had non-ignorable failed requests`).toEqual([]);
+    expect(
+      apiFailures,
+      `${scenario.path} had failing app API/RPC responses`,
+    ).toEqual([]);
+    expect(
+      failedRequests,
+      `${scenario.path} had non-ignorable failed requests`,
+    ).toEqual([]);
     expect(consoleErrors, `${scenario.path} had console errors`).toEqual([]);
   });
 }
 
-test("housing suburb navigation to top shorted does not load stale app chunks", async ({ page }) => {
+test("housing suburb navigation to top shorted does not load stale app chunks", async ({
+  page,
+}) => {
   const apiFailures: string[] = [];
   const failedRequests: string[] = [];
   const consoleErrors: string[] = [];
@@ -205,7 +282,11 @@ test("housing suburb navigation to top shorted does not load stale app chunks", 
   page.on("response", (response) => {
     const url = response.url();
     const status = response.status();
-    if (appApiPattern.test(url) && status >= 400 && !isIgnorableAppApiFailure(url, status)) {
+    if (
+      appApiPattern.test(url) &&
+      status >= 400 &&
+      !isIgnorableAppApiFailure(url, status)
+    ) {
       apiFailures.push(`${status} ${url}`);
     }
   });
@@ -232,22 +313,36 @@ test("housing suburb navigation to top shorted does not load stale app chunks", 
     timeout: 45_000,
   });
 
-  expect(response?.status(), "/housing/vic/balwyn HTTP status").toBeLessThan(400);
+  expect(response?.status(), "/housing/vic/balwyn HTTP status").toBeLessThan(
+    400,
+  );
 
-  await page.getByRole("link", { name: /top shorted/i }).first().click();
+  await page
+    .getByRole("link", { name: /top shorted/i })
+    .first()
+    .click();
   await page.waitForURL("**/top", { timeout: 30_000 });
 
   const text = await pageText(page);
-  expect(text, "/top missing top-shorted content after client navigation").toMatch(
-    /Top Shorted|Short Interest|Stocks/i,
-  );
+  expect(
+    text,
+    "/top missing top-shorted content after client navigation",
+  ).toMatch(/Top Shorted|Short Interest|Stocks/i);
 
-  expect(apiFailures, "client navigation had failing app API/RPC/static responses").toEqual([]);
-  expect(failedRequests, "client navigation had non-ignorable failed requests").toEqual([]);
+  expect(
+    apiFailures,
+    "client navigation had failing app API/RPC/static responses",
+  ).toEqual([]);
+  expect(
+    failedRequests,
+    "client navigation had non-ignorable failed requests",
+  ).toEqual([]);
   expect(consoleErrors, "client navigation had console errors").toEqual([]);
 });
 
-test("Cloudflare API edge returns data without bot challenges", async ({ request }) => {
+test("Cloudflare API edge returns data without bot challenges", async ({
+  request,
+}) => {
   const health = await request.get(`${apiBaseUrl}/health`, {
     headers: releaseHeaders(),
   });

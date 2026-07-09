@@ -573,7 +573,7 @@ private static final long serialVersionUID = 0L;
      * <code>.google.protobuf.Timestamp period = 1 [json_name = "period"];</code>
      */
     private com.google.protobuf.SingleFieldBuilder<
-        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder>
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> 
         internalGetPeriodFieldBuilder() {
       if (periodBuilder_ == null) {
         periodBuilder_ = new com.google.protobuf.SingleFieldBuilder<
@@ -700,3 +700,4 @@ private static final long serialVersionUID = 0L;
   }
 
 }
+

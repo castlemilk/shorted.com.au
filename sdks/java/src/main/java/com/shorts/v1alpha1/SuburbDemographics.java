@@ -218,7 +218,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       topReligion_ = s;
@@ -238,7 +238,7 @@ private static final long serialVersionUID = 0L;
       getTopReligionBytes() {
     java.lang.Object ref = topReligion_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       topReligion_ = b;
@@ -295,7 +295,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       topLanguage_ = s;
@@ -315,7 +315,7 @@ private static final long serialVersionUID = 0L;
       getTopLanguageBytes() {
     java.lang.Object ref = topLanguage_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       topLanguage_ = b;
@@ -1529,7 +1529,7 @@ private static final long serialVersionUID = 0L;
         getTopReligionBytes() {
       java.lang.Object ref = topReligion_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         topReligion_ = b;
@@ -1709,7 +1709,7 @@ private static final long serialVersionUID = 0L;
         getTopLanguageBytes() {
       java.lang.Object ref = topLanguage_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         topLanguage_ = b;
@@ -1862,3 +1862,4 @@ private static final long serialVersionUID = 0L;
   }
 
 }
+

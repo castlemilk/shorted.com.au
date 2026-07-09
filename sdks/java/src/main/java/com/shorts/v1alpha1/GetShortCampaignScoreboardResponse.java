@@ -67,7 +67,7 @@ private static final long serialVersionUID = 0L;
    * <code>repeated .shorts.v1alpha1.ShortCampaign campaigns = 1 [json_name = "campaigns"];</code>
    */
   @java.lang.Override
-  public java.util.List<? extends com.shorts.v1alpha1.ShortCampaignOrBuilder>
+  public java.util.List<? extends com.shorts.v1alpha1.ShortCampaignOrBuilder> 
       getCampaignsOrBuilderList() {
     return campaigns_;
   }
@@ -509,7 +509,7 @@ private static final long serialVersionUID = 0L;
             campaignsBuilder_ = null;
             campaigns_ = other.campaigns_;
             bitField0_ = (bitField0_ & ~0x00000001);
-            campaignsBuilder_ =
+            campaignsBuilder_ = 
               com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
                  internalGetCampaignsFieldBuilder() : null;
           } else {
@@ -800,7 +800,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.ShortCampaign campaigns = 1 [json_name = "campaigns"];</code>
      */
-    public java.util.List<? extends com.shorts.v1alpha1.ShortCampaignOrBuilder>
+    public java.util.List<? extends com.shorts.v1alpha1.ShortCampaignOrBuilder> 
          getCampaignsOrBuilderList() {
       if (campaignsBuilder_ != null) {
         return campaignsBuilder_.getMessageOrBuilderList();
@@ -826,12 +826,12 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.ShortCampaign campaigns = 1 [json_name = "campaigns"];</code>
      */
-    public java.util.List<com.shorts.v1alpha1.ShortCampaign.Builder>
+    public java.util.List<com.shorts.v1alpha1.ShortCampaign.Builder> 
          getCampaignsBuilderList() {
       return internalGetCampaignsFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilder<
-        com.shorts.v1alpha1.ShortCampaign, com.shorts.v1alpha1.ShortCampaign.Builder, com.shorts.v1alpha1.ShortCampaignOrBuilder>
+        com.shorts.v1alpha1.ShortCampaign, com.shorts.v1alpha1.ShortCampaign.Builder, com.shorts.v1alpha1.ShortCampaignOrBuilder> 
         internalGetCampaignsFieldBuilder() {
       if (campaignsBuilder_ == null) {
         campaignsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
@@ -1071,3 +1071,4 @@ private static final long serialVersionUID = 0L;
   }
 
 }
+

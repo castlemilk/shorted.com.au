@@ -40,7 +40,11 @@ type ckanPackageResponse struct {
 // fetchTaxResources returns the annual report resources for the corporate tax
 // transparency dataset via the CKAN package_show API.
 func fetchTaxResources(ctx context.Context) ([]ckanResource, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ckanPackageURL, nil)
+	return fetchCKANResources(ctx, ckanPackageURL)
+}
+
+func fetchCKANResources(ctx context.Context, packageURL string) ([]ckanResource, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, packageURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -54,7 +58,7 @@ func fetchTaxResources(ctx context.Context) ([]ckanResource, error) {
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return nil, fmt.Errorf("CKAN package_show: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil, fmt.Errorf("CKAN package_show %s: HTTP %d: %s", packageURL, resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
 	var pkg ckanPackageResponse

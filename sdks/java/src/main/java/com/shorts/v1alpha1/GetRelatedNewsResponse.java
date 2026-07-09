@@ -75,7 +75,7 @@ private static final long serialVersionUID = 0L;
    * <code>repeated .shorts.v1alpha1.NewsArticle articles = 1 [json_name = "articles"];</code>
    */
   @java.lang.Override
-  public java.util.List<? extends com.shorts.v1alpha1.NewsArticleOrBuilder>
+  public java.util.List<? extends com.shorts.v1alpha1.NewsArticleOrBuilder> 
       getArticlesOrBuilderList() {
     return articles_;
   }
@@ -405,7 +405,7 @@ private static final long serialVersionUID = 0L;
             articlesBuilder_ = null;
             articles_ = other.articles_;
             bitField0_ = (bitField0_ & ~0x00000001);
-            articlesBuilder_ =
+            articlesBuilder_ = 
               com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
                  internalGetArticlesFieldBuilder() : null;
           } else {
@@ -724,7 +724,7 @@ private static final long serialVersionUID = 0L;
      *
      * <code>repeated .shorts.v1alpha1.NewsArticle articles = 1 [json_name = "articles"];</code>
      */
-    public java.util.List<? extends com.shorts.v1alpha1.NewsArticleOrBuilder>
+    public java.util.List<? extends com.shorts.v1alpha1.NewsArticleOrBuilder> 
          getArticlesOrBuilderList() {
       if (articlesBuilder_ != null) {
         return articlesBuilder_.getMessageOrBuilderList();
@@ -762,12 +762,12 @@ private static final long serialVersionUID = 0L;
      *
      * <code>repeated .shorts.v1alpha1.NewsArticle articles = 1 [json_name = "articles"];</code>
      */
-    public java.util.List<com.shorts.v1alpha1.NewsArticle.Builder>
+    public java.util.List<com.shorts.v1alpha1.NewsArticle.Builder> 
          getArticlesBuilderList() {
       return internalGetArticlesFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilder<
-        com.shorts.v1alpha1.NewsArticle, com.shorts.v1alpha1.NewsArticle.Builder, com.shorts.v1alpha1.NewsArticleOrBuilder>
+        com.shorts.v1alpha1.NewsArticle, com.shorts.v1alpha1.NewsArticle.Builder, com.shorts.v1alpha1.NewsArticleOrBuilder> 
         internalGetArticlesFieldBuilder() {
       if (articlesBuilder_ == null) {
         articlesBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
@@ -831,3 +831,4 @@ private static final long serialVersionUID = 0L;
   }
 
 }
+

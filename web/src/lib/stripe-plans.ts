@@ -1,7 +1,7 @@
 export const CHECKOUT_PLAN_CONFIG = {
   premium: {
     displayName: "Premium",
-    priceEnvNames: ["STRIPE_PRO_PRICE_ID", "STRIPE_PREMIUM_PRICE_ID"],
+    priceEnvNames: ["STRIPE_PREMIUM_PRICE_ID", "STRIPE_PRO_PRICE_ID"],
     expectedUnitAmount: 400,
     expectedCurrency: "aud",
     expectedInterval: "month",

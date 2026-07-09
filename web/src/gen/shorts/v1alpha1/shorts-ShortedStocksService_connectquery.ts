@@ -153,6 +153,20 @@ export const handleStripeSubscriptionUpdated = ShortedStocksService.method.handl
 export const getMySubscription = ShortedStocksService.method.getMySubscription;
 
 /**
+ * Create a premium short-interest alert monitor for the current user.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.CreateAlertMonitor
+ */
+export const createAlertMonitor = ShortedStocksService.method.createAlertMonitor;
+
+/**
+ * List short-interest alert monitors for the current user.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListAlertMonitors
+ */
+export const listAlertMonitors = ShortedStocksService.method.listAlertMonitors;
+
+/**
  * Get a weekly short report with narrative analysis
  *
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetWeeklyReport
@@ -355,3 +369,10 @@ export const listHousingRegions = ShortedStocksService.method.listHousingRegions
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile
  */
 export const getCompanyTaxProfile = ShortedStocksService.method.getCompanyTaxProfile;
+
+/**
+ * Get imported, cited industry intelligence facts for an industry.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetIndustryIntelligence
+ */
+export const getIndustryIntelligence = ShortedStocksService.method.getIndustryIntelligence;

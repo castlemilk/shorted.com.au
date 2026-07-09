@@ -237,6 +237,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const industryRoutes = [
     {
+      url: `${baseUrl}/industry-intelligence`,
+      lastModified: latestDataDate,
+    },
+    {
       url: `${baseUrl}/industry`,
       lastModified: latestDataDate,
     },

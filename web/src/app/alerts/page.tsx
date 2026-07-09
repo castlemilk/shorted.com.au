@@ -6,6 +6,14 @@ export const metadata: Metadata = {
   description: "Set price and short position alerts for ASX stocks.",
 };
 
-export default function AlertsPage() {
-  return <AlertsContent />;
+export default function AlertsPage({
+  searchParams,
+}: {
+  searchParams?: { industry?: string | string[] };
+}) {
+  const industry = Array.isArray(searchParams?.industry)
+    ? searchParams.industry[0]
+    : searchParams?.industry;
+
+  return <AlertsContent initialIndustry={industry} />;
 }

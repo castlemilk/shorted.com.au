@@ -68,7 +68,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       productCode_ = s;
@@ -84,7 +84,7 @@ private static final long serialVersionUID = 0L;
       getProductCodeBytes() {
     java.lang.Object ref = productCode_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       productCode_ = b;
@@ -141,7 +141,7 @@ private static final long serialVersionUID = 0L;
    * <code>repeated .shorts.v1alpha1.VerdictComponent components = 4 [json_name = "components"];</code>
    */
   @java.lang.Override
-  public java.util.List<? extends com.shorts.v1alpha1.VerdictComponentOrBuilder>
+  public java.util.List<? extends com.shorts.v1alpha1.VerdictComponentOrBuilder> 
       getComponentsOrBuilderList() {
     return components_;
   }
@@ -515,7 +515,7 @@ private static final long serialVersionUID = 0L;
             componentsBuilder_ = null;
             components_ = other.components_;
             bitField0_ = (bitField0_ & ~0x00000008);
-            componentsBuilder_ =
+            componentsBuilder_ = 
               com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
                  internalGetComponentsFieldBuilder() : null;
           } else {
@@ -619,7 +619,7 @@ private static final long serialVersionUID = 0L;
         getProductCodeBytes() {
       java.lang.Object ref = productCode_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         productCode_ = b;
@@ -957,7 +957,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.VerdictComponent components = 4 [json_name = "components"];</code>
      */
-    public java.util.List<? extends com.shorts.v1alpha1.VerdictComponentOrBuilder>
+    public java.util.List<? extends com.shorts.v1alpha1.VerdictComponentOrBuilder> 
          getComponentsOrBuilderList() {
       if (componentsBuilder_ != null) {
         return componentsBuilder_.getMessageOrBuilderList();
@@ -983,12 +983,12 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.VerdictComponent components = 4 [json_name = "components"];</code>
      */
-    public java.util.List<com.shorts.v1alpha1.VerdictComponent.Builder>
+    public java.util.List<com.shorts.v1alpha1.VerdictComponent.Builder> 
          getComponentsBuilderList() {
       return internalGetComponentsFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilder<
-        com.shorts.v1alpha1.VerdictComponent, com.shorts.v1alpha1.VerdictComponent.Builder, com.shorts.v1alpha1.VerdictComponentOrBuilder>
+        com.shorts.v1alpha1.VerdictComponent, com.shorts.v1alpha1.VerdictComponent.Builder, com.shorts.v1alpha1.VerdictComponentOrBuilder> 
         internalGetComponentsFieldBuilder() {
       if (componentsBuilder_ == null) {
         componentsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
@@ -1052,3 +1052,4 @@ private static final long serialVersionUID = 0L;
   }
 
 }
+

@@ -35,22 +35,25 @@ test("production database migration step avoids golang-migrate and repairs schem
   assert.match(prodBlock, /psql "\$DB_URL_CLEAN"/);
   assert.match(prodBlock, /000070_add_short_campaigns_mv\.up\.sql/);
   assert.match(prodBlock, /000071_add_corporate_tax\.up\.sql/);
+  assert.match(prodBlock, /000074_add_alert_monitors\.up\.sql/);
+  assert.match(prodBlock, /000075_add_industry_intelligence_sources\.up\.sql/);
   assert.match(prodBlock, /CREATE TABLE IF NOT EXISTS schema_migrations/);
   assert.match(prodBlock, /DELETE FROM schema_migrations/);
-  assert.match(prodBlock, /VALUES \(71, false\)/);
+  assert.match(prodBlock, /VALUES \(75, false\)/);
   assert.doesNotMatch(prodBlock, /migrate\/migrate/);
 });
 
-test("production tax bootstrap only runs when corporate_tax is empty and ignores local go.work", () => {
+test("production tax bootstrap imports all sources when empty and refreshes public records otherwise", () => {
   const run = step("terraform-apply", "Run database migrations").run;
 
   assert.match(run, /SELECT COUNT\(\*\) FROM corporate_tax/);
   assert.match(run, /if \[ "\$\{TAX_ROWS:-0\}" = "0" \]; then/);
   assert.match(run, /go run \.\/influence-collector -mode all/);
+  assert.match(run, /corporate_tax already has \$\{TAX_ROWS\} rows; refreshing public industry intelligence records/);
+  assert.match(run, /go run \.\/influence-collector -mode public-records/);
   assert.match(run, /GOWORK=off/);
   assert.match(run, /GOPRIVATE=github\.com\/skunkworq\/\*/);
   assert.match(run, /GONOSUMDB=github\.com\/skunkworq\/\*/);
-  assert.match(run, /corporate_tax already has \$\{TAX_ROWS\} rows; skipping bootstrap/);
 });
 
 test("non-production environments still run the normal ordered migration chain", () => {

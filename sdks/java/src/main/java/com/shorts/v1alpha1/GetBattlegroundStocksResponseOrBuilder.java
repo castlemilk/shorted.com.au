@@ -13,7 +13,7 @@ public interface GetBattlegroundStocksResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.BattlegroundStock stocks = 1 [json_name = "stocks"];</code>
    */
-  java.util.List<com.shorts.v1alpha1.BattlegroundStock>
+  java.util.List<com.shorts.v1alpha1.BattlegroundStock> 
       getStocksList();
   /**
    * <code>repeated .shorts.v1alpha1.BattlegroundStock stocks = 1 [json_name = "stocks"];</code>
@@ -26,7 +26,7 @@ public interface GetBattlegroundStocksResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.BattlegroundStock stocks = 1 [json_name = "stocks"];</code>
    */
-  java.util.List<? extends com.shorts.v1alpha1.BattlegroundStockOrBuilder>
+  java.util.List<? extends com.shorts.v1alpha1.BattlegroundStockOrBuilder> 
       getStocksOrBuilderList();
   /**
    * <code>repeated .shorts.v1alpha1.BattlegroundStock stocks = 1 [json_name = "stocks"];</code>

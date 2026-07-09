@@ -68,26 +68,27 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
                 </h1>
                 <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto lg:mx-0 leading-relaxed">
                   Track short positions across the ASX with data sourced directly from ASIC. 
-                  Gain institutional-grade insights to inform smarter investment decisions.
+                  Follow daily crowding signals, sector context, and cited evidence surfaces
+                  without digging through raw regulatory files.
                 </p>
               </div>
 
               {/* CTA Buttons */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                <Link href="/">
+                <Link href="/top" prefetch={false}>
                   <Button
                     size="lg"
-                    className="text-base px-8 py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30"
+                    className="text-base px-8 py-6 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-colors"
                   >
                     Explore Short Positions
                     <ChevronRight className="w-5 h-5 ml-2" />
                   </Button>
                 </Link>
-                <Link href="/stocks">
+                <Link href="/stocks" prefetch={false}>
                   <Button
                     size="lg"
                     variant="outline"
-                    className="text-base px-8 py-6 border-2 hover:bg-muted/50 transition-all duration-300"
+                    className="text-base px-8 py-6 border-2 hover:bg-muted/50 transition-colors"
                   >
                     <Search className="w-5 h-5 mr-2" />
                     Search Stocks
@@ -134,7 +135,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
               Why Short Position Data Matters
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Short interest reveals what institutional investors are betting against—crucial 
+              Short interest reveals what institutional investors are betting against, giving
               intelligence for understanding market sentiment and potential price movements.
             </p>
           </div>
@@ -163,6 +164,108 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
               description="Monitor position changes daily as they're reported (T+4 delay). Spot trends early and stay ahead of market movements."
               gradient="from-primary to-accent"
             />
+          </div>
+        </div>
+      </section>
+
+      {/* Industry Intelligence Section */}
+      <section className="w-full py-20 md:py-28 relative z-10">
+        <div className="container px-4 md:px-6">
+          <div className="grid gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,1.05fr)] lg:items-start">
+            <div className="max-w-2xl">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-primary/10 border border-primary/20 text-primary text-xs font-medium uppercase tracking-[0.16em] mb-5">
+                <Sparkles className="w-4 h-4" />
+                Industry Intelligence
+              </div>
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-foreground text-balance">
+                Industry Intelligence connects sectors to stocks
+              </h2>
+              <p className="mt-5 text-lg text-muted-foreground leading-relaxed text-pretty">
+                Start with ASIC short-interest crowding, then jump into the
+                ranked companies, stock pages, and alert workflow for each sector.
+              </p>
+
+              <div className="mt-7 grid gap-3 sm:grid-cols-3">
+                {["Industry crowding", "Ranked companies", "Alert monitors"].map((label) => (
+                  <div
+                    key={label}
+                    className="rounded-lg border border-border/60 bg-card/70 px-4 py-3"
+                  >
+                    <div className="text-sm font-semibold text-foreground">{label}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      Built into the explorer
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8 flex flex-col sm:flex-row gap-3">
+                <Link href="/industry-intelligence" prefetch={false}>
+                  <Button size="lg" className="min-h-11 px-7">
+                    Open Industry Intelligence
+                    <ChevronRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </Link>
+                <Link href="/top" prefetch={false}>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="min-h-11 px-7 border-2 hover:bg-muted/50"
+                  >
+                    Compare top shorts
+                  </Button>
+                </Link>
+              </div>
+
+              <p className="mt-5 text-sm text-muted-foreground">
+                Public short-interest views stay free. Alerts are available for
+                users who want ongoing monitoring.
+              </p>
+            </div>
+
+            <div className="rounded-lg border border-border/60 bg-card/75 p-5 shadow-lg shadow-primary/5 backdrop-blur-sm">
+              <div className="flex items-start justify-between gap-4 border-b border-border/60 pb-4">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">
+                    Industry board
+                  </p>
+                  <h3 className="mt-2 text-xl font-semibold tracking-tight text-foreground">
+                    From sector signal to stock detail
+                  </h3>
+                </div>
+                <div className="rounded-md border border-primary/20 bg-primary/10 px-3 py-2 text-right">
+                  <div className="text-[11px] uppercase tracking-[0.14em] text-primary">
+                    Update
+                  </div>
+                  <div className="font-mono text-sm font-semibold text-foreground">
+                    Daily
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-3">
+                <IndustryStoryRow
+                  icon={<BarChart3 className="w-5 h-5" />}
+                  title="Crowding"
+                  description="Rank industries by average short interest and surface concentrated pressure."
+                />
+                <IndustryStoryRow
+                  icon={<TrendingDown className="w-5 h-5" />}
+                  title="Top Stocks"
+                  description="Jump from an industry view to the top shorted companies and detail pages."
+                />
+                <IndustryStoryRow
+                  icon={<FileText className="w-5 h-5" />}
+                  title="Stock Pages"
+                  description="Move from an industry signal into company-level short-interest detail."
+                />
+                <IndustryStoryRow
+                  icon={<Bell className="w-5 h-5" />}
+                  title="Alerts"
+                  description="Create daily or weekly alerts when a sector signal changes."
+                />
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -337,7 +440,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
                     or $100,000 (whichever is less), but the raw CSV files they publish are difficult
                     to work with. Shorted transforms this regulatory data into an intuitive platform
                     with historical charts, industry heatmaps, AI-powered analysis, and daily
-                    alerts — making institutional-grade short selling intelligence accessible to everyone.
+                    alerts, making institutional-grade short selling intelligence accessible to everyone.
                   </p>
                 </div>
 
@@ -409,7 +512,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
                 <TimelineItem
                   icon={<Bot className="w-4 h-4" />}
                   title="AI-Powered Chat (Gemini)"
-                  description="Launch of Shorted AI — a conversational assistant powered by Gemini LLM with 8 API tools for real-time stock analysis."
+                  description="Launch of Shorted AI, a conversational assistant powered by Gemini LLM with 8 API tools for real-time stock analysis."
                   period="2025"
                   align="left"
                 />
@@ -485,7 +588,7 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
                 description="Not permitted without written consent. Data may not be resold, republished, or redistributed in any form."
               />
               <div className="flex items-center justify-center p-8 rounded-2xl border border-dashed border-primary/30 bg-primary/5">
-                <Link href="/docs/api" className="text-center group">
+                <Link href="/docs/api" prefetch={false} className="text-center group">
                   <div className="text-primary font-semibold mb-2 group-hover:underline flex items-center justify-center gap-2">
                     View API Documentation
                     <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
@@ -504,33 +607,41 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
       <section className="w-full py-24 md:py-32 relative z-10">
         <div className="container px-4 md:px-6">
           <div className="relative max-w-4xl mx-auto">
-            {/* Decorative background */}
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10 rounded-3xl blur-xl" />
-            
-            <div className="relative bg-card/50 backdrop-blur-sm rounded-3xl border p-8 md:p-12 lg:p-16 text-center">
+            <div className="relative overflow-hidden bg-card/70 backdrop-blur-sm rounded-lg border border-border/60 p-8 md:p-12 lg:p-16 text-center shadow-lg shadow-primary/5">
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/60 to-transparent" />
               <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl text-foreground mb-6">
-                Ready to Gain the Edge?
+                Start with the industry story
               </h2>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-10">
-                Start tracking short positions on the ASX today. Discover which stocks institutional 
-                investors are betting against and use that intelligence to inform your decisions.
+                See where short interest is crowding, which stocks are driving the
+                move, and where alerts can help you keep watch.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link href="/">
+                <Link href="/industry-intelligence" prefetch={false}>
                   <Button
                     size="lg"
-                    className="text-base px-10 py-7 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:shadow-xl hover:shadow-primary/30"
+                    className="text-base px-10 py-7 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 transition-colors"
+                  >
+                    Explore Industry Intelligence
+                    <ChevronRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </Link>
+                <Link href="/top" prefetch={false}>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="text-base px-10 py-7 border-2 hover:bg-muted/50 transition-colors"
                   >
                     View Top Shorts
                     <ChevronRight className="w-5 h-5 ml-2" />
                   </Button>
                 </Link>
-                <Link href="/stocks">
+                <Link href="/stocks" prefetch={false}>
                   <Button
                     size="lg"
                     variant="outline"
-                    className="text-base px-10 py-7 border-2 hover:bg-muted/50 transition-all duration-300"
+                    className="text-base px-10 py-7 border-2 hover:bg-muted/50 transition-colors"
                   >
                     Search All Stocks
                   </Button>
@@ -540,7 +651,8 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
               {/* Bottom accent */}
               <div className="mt-12 pt-8 border-t border-border/50">
                 <p className="text-sm text-muted-foreground">
-                  Free to use. No sign-up required to explore short position data.
+                  Public short-interest data remains free to browse. Alerts help
+                  users monitor the industries they care about.
                 </p>
               </div>
             </div>
@@ -550,6 +662,29 @@ const AboutClient = ({ initialStatistics }: AboutClientProps) => {
     </div>
   );
 };
+
+// Industry story row component
+interface IndustryStoryRowProps {
+  icon: React.ReactNode;
+  title: string;
+  description: string;
+}
+
+function IndustryStoryRow({ icon, title, description }: IndustryStoryRowProps) {
+  return (
+    <div className="flex gap-4 rounded-lg border border-border/60 bg-background/60 p-4">
+      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+        {icon}
+      </div>
+      <div>
+        <h4 className="font-semibold text-foreground">{title}</h4>
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+          {description}
+        </p>
+      </div>
+    </div>
+  );
+}
 
 // Value Proposition Card Component
 interface ValueCardProps {
@@ -561,7 +696,7 @@ interface ValueCardProps {
 
 function ValueCard({ icon, title, description, gradient }: ValueCardProps) {
   return (
-    <div className="group relative bg-card rounded-2xl border p-8 transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
+    <div className="group relative bg-card rounded-xl border p-8 transition-[box-shadow,transform] duration-200 hover:shadow-xl hover:-translate-y-1">
       <div 
         className={cn(
           "w-16 h-16 rounded-2xl flex items-center justify-center mb-6 text-white bg-gradient-to-br",
@@ -598,7 +733,7 @@ const colorStyles = {
 
 function FeatureCard({ icon, title, description, color }: FeatureCardProps) {
   return (
-    <div className="group bg-card rounded-xl border p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5">
+    <div className="group bg-card rounded-xl border p-6 transition-[box-shadow,transform] duration-200 hover:shadow-lg hover:-translate-y-0.5">
       <div 
         className={cn(
           "w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-colors",
@@ -637,7 +772,7 @@ interface PolicyCardProps {
 
 function PolicyCard({ icon, title, description }: PolicyCardProps) {
   return (
-    <div className="bg-card rounded-2xl border p-6 transition-all duration-300 hover:shadow-lg">
+    <div className="bg-card rounded-xl border p-6 transition-shadow duration-200 hover:shadow-lg">
       <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-4">
         {icon}
       </div>
@@ -673,7 +808,7 @@ function TimelineItem({ icon, title, description, period, align }: TimelineItemP
         "ml-16 md:ml-0 md:w-1/2",
         align === "left" ? "md:pr-12 md:text-right" : "md:pl-12"
       )}>
-        <div className="bg-card rounded-xl border p-4 transition-all hover:shadow-md">
+        <div className="bg-card rounded-xl border p-4 transition-shadow hover:shadow-md">
           <span className="text-xs font-medium text-primary">{period}</span>
           <h4 className="text-base font-semibold text-foreground mt-1">{title}</h4>
           <p className="text-sm text-muted-foreground mt-1">{description}</p>

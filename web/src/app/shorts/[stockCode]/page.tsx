@@ -30,6 +30,7 @@ import { EnrichedCompanySection } from "~/@/components/company/enriched-company-
 import { FinancialDigest } from "~/@/components/company/financial-digest";
 import { CommunityOverviewTeaser } from "~/@/components/company/community/community-overview-teaser";
 import { CommunityTab } from "~/@/components/company/community/community-tab";
+import { StockEvidencePanel } from "~/@/components/company/stock-evidence-panel";
 
 // Dynamic import to avoid SSR issues — child components import @connectrpc/connect
 const StockTabs = nextDynamic(
@@ -43,14 +44,6 @@ import {
 } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta, StockLLMMeta } from "~/@/components/seo/llm-meta";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/@/components/ui/card";
-import { CandlestickChart } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { RelatedStocks } from "~/@/components/seo/related-stocks";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
@@ -59,7 +52,10 @@ import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { ShortInterestHistory } from "./short-interest-history";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { notFound } from "next/navigation";
-import { getStockFinancialHighlights } from "~/app/actions/reports/getReportData";
+import {
+  getStockFinancialHighlights,
+  type StockFinancialHighlight,
+} from "~/app/actions/reports/getReportData";
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;
@@ -201,7 +197,7 @@ const Page = async ({ params }: PageProps) => {
 
   // Financial highlights — fetched server-side, cached 24h, degrades gracefully
   const financialHighlightsMap = await getStockFinancialHighlights([stockCode]).catch(
-    (): Record<string, import("~/app/actions/reports/getReportData").StockFinancialHighlight[]> => ({}),
+    (): Record<string, StockFinancialHighlight[]> => ({}),
   );
   const financialHighlights = financialHighlightsMap?.[stockCode] ?? [];
 
@@ -411,80 +407,84 @@ const Page = async ({ params }: PageProps) => {
         </div>
       </div>
 
+      {/* Price & short interest — the page centrepiece, full width, flat. */}
+      <section aria-labelledby="stock-chart-heading" className="mb-6 min-w-0">
+        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+          <h2
+            id="stock-chart-heading"
+            className="text-lg font-semibold tracking-tight"
+          >
+            Price &amp; short interest
+          </h2>
+          <span className="text-xs text-muted-foreground">
+            Toggle series, zoom, and compare · ASIC daily, T+4
+          </span>
+        </div>
+        <StockChartPanel stockCode={stockCode} />
+      </section>
+
       {/* Tabbed content area */}
       <StockTabs
         stockCode={stockCode}
-        overviewContent={
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-start">
-            <div className="md:col-span-1 flex flex-col gap-4 md:gap-6">
-              <Suspense fallback={<CompanyInfoPlaceholder />}>
-                <CompanyInfo stockCode={stockCode} />
-              </Suspense>
+        overviewMain={
+          <>
+            {/* Per-stock public-source evidence with industry drill-up links */}
+            <Suspense fallback={null}>
+              <StockEvidencePanel
+                stockCode={stockCode}
+                industry={relatedData.industry}
+                industrySlug={relatedData.industrySlug}
+              />
+            </Suspense>
 
-              {/* Related stocks for internal linking */}
-              {relatedData.stocks.length > 0 && (
-                <RelatedStocks
-                  stocks={relatedData.stocks}
-                  currentStock={stockCode}
-                  industrySlug={relatedData.industrySlug}
-                  title={`More ${relatedData.industry} Stocks`}
-                  description="Other shorted stocks in this sector"
-                />
-              )}
-            </div>
+            {/* SSR short-interest history + FAQ — crawlable trend facts.
+                Native <details open> keeps the content in the DOM (crawlable)
+                whether expanded or collapsed. */}
+            {stock && (stock.percentageShorted ?? 0) > 0 && (
+              <details
+                open
+                className="group rounded-lg border bg-card [&_summary::-webkit-details-marker]:hidden"
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium">
+                  Short interest history &amp; FAQ
+                  <span className="text-muted-foreground transition-transform group-open:rotate-180">
+                    ▾
+                  </span>
+                </summary>
+                <div className="border-t px-4 py-3">
+                  <Suspense fallback={null}>
+                    <ShortInterestHistory
+                      stockCode={stockCode}
+                      companyName={stock.name || stockCode}
+                    />
+                  </Suspense>
+                </div>
+              </details>
+            )}
 
-            <div className="md:col-span-2 flex flex-col gap-4 md:gap-6">
-              {/* Price & Short Interest — consolidated dual-axis chart */}
-              <Card className="border-l-4 border-l-primary shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
-                <CardHeader className="pb-4 bg-gradient-to-r from-primary/5 to-transparent">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-primary/10 rounded-lg shadow-sm">
-                      <CandlestickChart className="h-6 w-6 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-xl">Price &amp; Short Interest</CardTitle>
-                      <CardDescription className="mt-1.5 text-sm">
-                        Price, short interest, and volume over time — toggle series, zoom, and compare
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-2">
-                  <StockChartPanel stockCode={stockCode} />
-                </CardContent>
-              </Card>
+            {/* Enriched Company Insights (reports shown in Financials tab) */}
+            <EnrichedCompanySection stockCode={stockCode} hideReports />
+          </>
+        }
+        overviewRail={
+          <>
+            <Suspense fallback={<CompanyInfoPlaceholder />}>
+              <CompanyInfo stockCode={stockCode} />
+            </Suspense>
 
-              {/* SSR short-interest history + FAQ — crawlable trend facts, moved
-                  here from above the breadcrumb. Native <details open> keeps the
-                  content in the DOM (crawlable) whether expanded or collapsed. */}
-              {stock && (stock.percentageShorted ?? 0) > 0 && (
-                <details
-                  open
-                  className="group rounded-lg border bg-card [&_summary::-webkit-details-marker]:hidden"
-                >
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium">
-                    Short interest history &amp; FAQ
-                    <span className="text-muted-foreground transition-transform group-open:rotate-180">
-                      ▾
-                    </span>
-                  </summary>
-                  <div className="border-t px-4 py-3">
-                    <Suspense fallback={null}>
-                      <ShortInterestHistory
-                        stockCode={stockCode}
-                        companyName={stock.name || stockCode}
-                      />
-                    </Suspense>
-                  </div>
-                </details>
-              )}
+            {/* Related stocks for internal linking */}
+            {relatedData.stocks.length > 0 && (
+              <RelatedStocks
+                stocks={relatedData.stocks}
+                currentStock={stockCode}
+                industrySlug={relatedData.industrySlug}
+                title={`More ${relatedData.industry} Stocks`}
+                description="Other shorted stocks in this sector"
+              />
+            )}
 
-              <CommunityOverviewTeaser stockCode={stockCode} />
-
-              {/* Enriched Company Insights (reports shown in Financials tab) */}
-              <EnrichedCompanySection stockCode={stockCode} hideReports />
-            </div>
-          </div>
+            <CommunityOverviewTeaser stockCode={stockCode} />
+          </>
         }
         financialsContent={
           <div className="flex flex-col gap-4 md:gap-6">

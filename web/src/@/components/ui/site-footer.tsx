@@ -16,6 +16,7 @@ interface FooterLink {
 
 const productLinks: FooterLink[] = [
   { title: "Top Shorted", href: "/top" },
+  { title: "Industry Intelligence", href: "/industry-intelligence" },
   { title: "Dashboard", href: "/dashboards", requiresAuth: true },
   { title: "Portfolio", href: "/portfolio", requiresAuth: true },
   { title: "Industry Heatmap", href: "/top#treemap" },
