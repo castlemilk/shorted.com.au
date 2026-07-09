@@ -19,6 +19,10 @@ async function expectNoVisibleTextOverflow(page: Page) {
           "#industry-explorer h2",
           "#industry-explorer p",
           "#industry-explorer span",
+          '[data-testid="industry-narrative-rail"] a',
+          '[data-testid^="channel-"] h3',
+          '[data-testid^="channel-"] p',
+          "#methodology dt",
         ].join(","),
       ),
     )
@@ -104,8 +108,46 @@ test.describe("Industry Intelligence", () => {
       ),
     ).toHaveCount(0);
     await expect(page.getByText(/source-ready/i)).toHaveCount(0);
-    await expect(page.getByText("Policy Footprint")).toHaveCount(0);
     await expect(page.getByText("Premium evidence pack")).toHaveCount(0);
+
+    // No-fake-data contract: a channel label may only appear when its imported
+    // channel section exists (e.g. Policy Footprint requires AEC/register data).
+    if ((await page.getByTestId("channel-policy_footprint").count()) === 0) {
+      await expect(page.getByText("Policy Footprint")).toHaveCount(0);
+    }
+
+    // Narrative rail advertises only live sections.
+    const rail = page.getByTestId("industry-narrative-rail");
+    await expect(rail).toBeVisible();
+    await expect(rail.getByRole("link", { name: "Overview" })).toBeVisible();
+    await expect(rail.getByRole("link", { name: "Alerts" })).toBeVisible();
+    for (const railLink of await rail.getByRole("link").all()) {
+      const href = await railLink.getAttribute("href");
+      expect(href).toMatch(/^#[a-z0-9_-]+$/i);
+      await expect(page.locator(href!)).toHaveCount(1);
+    }
+
+    // When imported evidence exists the dashboard must be cited, dated, and
+    // carry the report-an-error path; the export convenience is premium-gated.
+    const channelCards = page.locator('[data-testid^="channel-"]');
+    if ((await channelCards.count()) > 0) {
+      await expect(
+        page.getByRole("heading", { name: /public-source signals/ }),
+      ).toBeVisible();
+      const firstChannel = channelCards.first();
+      await expect(firstChannel.getByText(/as at \d{4}-\d{2}-\d{2}/)).toBeVisible();
+      await expect(
+        firstChannel.getByRole("link", { name: /Report an error/i }),
+      ).toBeVisible();
+      await expect(
+        page
+          .getByTestId("evidence-export-upgrade")
+          .or(page.getByTestId("evidence-export-button")),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Where these figures come from" }),
+      ).toBeVisible();
+    }
     await expect(
       page.getByRole("link", { name: "View all top shorts" }),
     ).toHaveAttribute("href", "/top");
@@ -152,6 +194,28 @@ test.describe("Industry Intelligence", () => {
         () => document.documentElement.scrollWidth <= window.innerWidth + 1,
       ),
     ).toBe(true);
+  });
+
+  test("stays functional under prefers-reduced-motion", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+
+    const response = await page.goto("/industry-intelligence", {
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
+    });
+
+    expect(response?.status()).toBeLessThan(400);
+    await expect(
+      page.getByRole("heading", { name: "Industry Intelligence" }),
+    ).toBeVisible();
+
+    // Rail anchors must still navigate without smooth-scroll animation.
+    const alertsLink = page
+      .getByTestId("industry-narrative-rail")
+      .getByRole("link", { name: "Alerts" });
+    await alertsLink.click();
+    expect(new URL(page.url()).hash).toBe("#alerts");
+    await expect(page.locator("#alerts")).toBeInViewport();
   });
 
   test("keeps explorer text contained at compressed desktop widths", async ({
