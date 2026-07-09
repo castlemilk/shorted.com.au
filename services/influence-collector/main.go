@@ -3,9 +3,17 @@
 // ASX codes on an ABN/name spine. Run-mode is selected with -mode.
 //
 //	-mode tax    Ingest the ATO Corporate Tax Transparency dataset (11 annual
-//	             reports) into corporate_tax, then rebuild the ASX name mapping.
+//	             reports) into corporate_tax, rebuild the ASX name mapping, and
+//	             publish exact-matched industry intelligence records.
 //	-mode match  Rebuild the corporate_tax → ASX name mapping only.
-//	-mode all    tax + match (same as tax).
+//	-mode sources        Upsert source registry definitions and probe reachability.
+//	-mode source-registry Upsert source registry definitions only.
+//	-mode source-probe    Probe source reachability only.
+//	-mode tax-records     Publish exact-matched ATO facts into industry records.
+//	-mode emissions       Import CER NGER exact ABN-matched emissions records.
+//	-mode austender       Import AusTender exact ABN-matched contract records.
+//	-mode public-records  Publish already-ingested tax + external public records.
+//	-mode all    sources + tax + match + public-records.
 //
 // Editorial gate: only exact-ABN or exact-normalized-name matches are ever
 // inserted into entity_asx_map (match_method='name_exact'); fuzzy matching is out
@@ -24,7 +32,8 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "tax", "tax | match | all")
+	mode := flag.String("mode", "tax", "tax | match | sources | source-registry | source-probe | tax-records | emissions | austender | public-records | all")
+	sourceLimit := flag.Int("source-limit", defaultAusTenderResourceCap, "maximum downloadable resources per source for archive-backed collectors")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -43,12 +52,41 @@ func main() {
 
 	switch *mode {
 	case "tax", "all":
+		runSourceRegistry(ctx, pool)
+		if *mode == "all" {
+			runSourceProbe(ctx, pool)
+		}
 		runTax(ctx, pool)
 		runMatchMode(ctx, pool)
+		runTaxRecordsMode(ctx, pool)
+		if *mode == "all" {
+			runEmissionsMode(ctx, pool)
+			runAusTenderMode(ctx, pool, *sourceLimit)
+		}
 	case "match":
 		runMatchMode(ctx, pool)
+	case "sources":
+		runSourceRegistry(ctx, pool)
+		runSourceProbe(ctx, pool)
+	case "source-registry":
+		runSourceRegistry(ctx, pool)
+	case "source-probe":
+		runSourceProbe(ctx, pool)
+	case "tax-records":
+		runTaxRecordsMode(ctx, pool)
+	case "emissions":
+		runSourceRegistry(ctx, pool)
+		runEmissionsMode(ctx, pool)
+	case "austender":
+		runSourceRegistry(ctx, pool)
+		runAusTenderMode(ctx, pool, *sourceLimit)
+	case "public-records":
+		runSourceRegistry(ctx, pool)
+		runTaxRecordsMode(ctx, pool)
+		runEmissionsMode(ctx, pool)
+		runAusTenderMode(ctx, pool, *sourceLimit)
 	default:
-		log.Fatalf("unknown -mode %q (want tax|match|all)", *mode)
+		log.Fatalf("unknown -mode %q (want tax|match|sources|source-registry|source-probe|tax-records|emissions|austender|public-records|all)", *mode)
 	}
 }
 
@@ -80,4 +118,147 @@ func runMatchMode(ctx context.Context, pool *pgxpool.Pool) {
 		log.Fatalf("[match] error: %v", err)
 	}
 	log.Printf("[match] inserted %d exact name_exact mappings (%d ambiguous entities skipped)", inserted, skipped)
+}
+
+func runSourceRegistry(ctx context.Context, pool *pgxpool.Pool) {
+	n, err := upsertIndustrySourceDefinitions(ctx, pool, industrySourceDefinitions)
+	if err != nil {
+		log.Fatalf("[sources] registry upsert error: %v", err)
+	}
+	log.Printf("[sources] upserted %d industry intelligence source definitions", n)
+}
+
+func runSourceProbe(ctx context.Context, pool *pgxpool.Pool) {
+	client := newProbeHTTPClient()
+	for _, source := range industrySourceDefinitions {
+		runID, err := insertIndustryCollectionRun(ctx, pool, source.SourceKey)
+		if err != nil {
+			log.Fatalf("[sources] start probe run for %s: %v", source.SourceKey, err)
+		}
+
+		statusCode, probeErr := probeIndustrySource(ctx, client, source)
+		status := classifyProbeStatus(probeErr)
+		errorMessage := compactError(probeErr)
+		recordsFailed := 0
+		if probeErr != nil {
+			recordsFailed = 1
+		}
+
+		metadata := map[string]any{
+			"probe_url":         probeURLForSource(source),
+			"probe_status_code": statusCode,
+			"collection_method": source.CollectionMethod,
+		}
+		if err := finishIndustryCollectionRun(ctx, pool, runID, status, 1, 0, recordsFailed, errorMessage, metadata); err != nil {
+			log.Fatalf("[sources] finish probe run for %s: %v", source.SourceKey, err)
+		}
+
+		if probeErr != nil {
+			log.Printf("[sources] %s probe failed: %v", source.SourceKey, probeErr)
+			continue
+		}
+		log.Printf("[sources] %s probe succeeded (HTTP %d)", source.SourceKey, statusCode)
+	}
+}
+
+func runTaxRecordsMode(ctx context.Context, pool *pgxpool.Pool) {
+	runID, err := insertIndustryCollectionRun(ctx, pool, taxSource)
+	if err != nil {
+		log.Fatalf("[tax-records] start collection run: %v", err)
+	}
+
+	inserted, err := syncIndustryTaxRecords(ctx, pool)
+	if err != nil {
+		finishErr := finishIndustryCollectionRun(ctx, pool, runID, "failed", 0, 0, 1, compactError(err), map[string]any{
+			"projection": "corporate_tax_to_industry_intelligence_records",
+		})
+		if finishErr != nil {
+			log.Printf("[tax-records] failed to finish collection run after error: %v", finishErr)
+		}
+		log.Fatalf("[tax-records] sync error: %v", err)
+	}
+
+	if err := finishIndustryCollectionRun(ctx, pool, runID, "succeeded", int(inserted), int(inserted), 0, "", map[string]any{
+		"projection": "corporate_tax_to_industry_intelligence_records",
+	}); err != nil {
+		log.Fatalf("[tax-records] finish collection run: %v", err)
+	}
+	log.Printf("[tax-records] upserted %d exact-matched ATO industry intelligence records", inserted)
+}
+
+func runEmissionsMode(ctx context.Context, pool *pgxpool.Pool) {
+	runID, err := insertIndustryCollectionRun(ctx, pool, emissionsSource)
+	if err != nil {
+		log.Fatalf("[emissions] start collection run: %v", err)
+	}
+	rows, err := ingestCEREmissions(ctx)
+	if err != nil {
+		finishCollectionRunAfterFailure(ctx, pool, runID, "[emissions]", err, map[string]any{
+			"source_url": cerLatestURL,
+		})
+		log.Fatalf("[emissions] ingest error: %v", err)
+	}
+	imported, skipped, err := syncIndustryEmissionRecords(ctx, pool, rows)
+	if err != nil {
+		finishCollectionRunAfterFailure(ctx, pool, runID, "[emissions]", err, map[string]any{
+			"source_url": cerLatestURL,
+		})
+		log.Fatalf("[emissions] sync error: %v", err)
+	}
+	status := "succeeded"
+	if imported == 0 && skipped > 0 {
+		status = "partial"
+	}
+	if err := finishIndustryCollectionRun(ctx, pool, runID, status, len(rows), imported, 0, "", map[string]any{
+		"source_url":       cerLatestURL,
+		"skipped_unmapped": skipped,
+	}); err != nil {
+		log.Fatalf("[emissions] finish collection run: %v", err)
+	}
+	log.Printf("[emissions] parsed %d CER rows, imported %d exact ABN-matched records (%d unmapped)", len(rows), imported, skipped)
+}
+
+func runAusTenderMode(ctx context.Context, pool *pgxpool.Pool, sourceLimit int) {
+	runID, err := insertIndustryCollectionRun(ctx, pool, austenderSource)
+	if err != nil {
+		log.Fatalf("[austender] start collection run: %v", err)
+	}
+	rows, resources, err := ingestAusTender(ctx, sourceLimit)
+	if err != nil {
+		finishCollectionRunAfterFailure(ctx, pool, runID, "[austender]", err, map[string]any{
+			"dataset_url":    austenderHistoricalDataset,
+			"package_url":    austenderHistoricalPackage,
+			"resource_limit": sourceLimit,
+		})
+		log.Fatalf("[austender] ingest error: %v", err)
+	}
+	imported, skipped, err := syncIndustryContractRecords(ctx, pool, rows)
+	if err != nil {
+		finishCollectionRunAfterFailure(ctx, pool, runID, "[austender]", err, map[string]any{
+			"dataset_url":    austenderHistoricalDataset,
+			"package_url":    austenderHistoricalPackage,
+			"resource_limit": sourceLimit,
+		})
+		log.Fatalf("[austender] sync error: %v", err)
+	}
+	status := "succeeded"
+	if imported == 0 && skipped > 0 {
+		status = "partial"
+	}
+	if err := finishIndustryCollectionRun(ctx, pool, runID, status, len(rows), imported, 0, "", map[string]any{
+		"dataset_url":      austenderHistoricalDataset,
+		"package_url":      austenderHistoricalPackage,
+		"resources_seen":   resources,
+		"resource_limit":   sourceLimit,
+		"skipped_unmapped": skipped,
+	}); err != nil {
+		log.Fatalf("[austender] finish collection run: %v", err)
+	}
+	log.Printf("[austender] parsed %d contract rows from %d resources, imported %d exact ABN-matched records (%d unmapped)", len(rows), resources, imported, skipped)
+}
+
+func finishCollectionRunAfterFailure(ctx context.Context, pool *pgxpool.Pool, runID, label string, err error, metadata map[string]any) {
+	if finishErr := finishIndustryCollectionRun(ctx, pool, runID, "failed", 0, 0, 1, compactError(err), metadata); finishErr != nil {
+		log.Printf("%s failed to finish collection run after error: %v", label, finishErr)
+	}
 }

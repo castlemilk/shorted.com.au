@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -138,4 +140,188 @@ func runMatch(ctx context.Context, pool *pgxpool.Pool) (int64, int64, error) {
 		return inserted, skipped, err
 	}
 	return inserted, skipped, nil
+}
+
+func upsertIndustrySourceDefinitions(ctx context.Context, pool *pgxpool.Pool, defs []IndustrySourceDefinition) (int, error) {
+	const q = `
+		INSERT INTO industry_intelligence_sources
+			(source_key, display_name, signal_kind, publisher, source_url, licence, cadence,
+			 collection_method, enabled, public_enabled, exact_entity_required, notes)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		ON CONFLICT (source_key) DO UPDATE SET
+			display_name = EXCLUDED.display_name,
+			signal_kind = EXCLUDED.signal_kind,
+			publisher = EXCLUDED.publisher,
+			source_url = EXCLUDED.source_url,
+			licence = EXCLUDED.licence,
+			cadence = EXCLUDED.cadence,
+			collection_method = EXCLUDED.collection_method,
+			enabled = EXCLUDED.enabled,
+			public_enabled = EXCLUDED.public_enabled,
+			exact_entity_required = EXCLUDED.exact_entity_required,
+			notes = EXCLUDED.notes,
+			updated_at = now()`
+
+	batch := &pgx.Batch{}
+	for _, d := range defs {
+		batch.Queue(q, d.SourceKey, d.DisplayName, d.SignalKind, d.Publisher, d.SourceURL,
+			d.Licence, d.Cadence, d.CollectionMethod, d.Enabled, d.PublicEnabled,
+			d.ExactEntityRequired, d.Notes)
+	}
+
+	br := pool.SendBatch(ctx, batch)
+	defer func() { _ = br.Close() }()
+
+	n := 0
+	for range defs {
+		if _, err := br.Exec(); err != nil {
+			return n, err
+		}
+		n++
+	}
+	return n, nil
+}
+
+func insertIndustryCollectionRun(ctx context.Context, pool *pgxpool.Pool, sourceKey string) (string, error) {
+	const q = `
+		INSERT INTO industry_intelligence_collection_runs (source_key, status)
+		VALUES ($1, 'running')
+		RETURNING id::text`
+	var id string
+	if err := pool.QueryRow(ctx, q, sourceKey).Scan(&id); err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+func finishIndustryCollectionRun(ctx context.Context, pool *pgxpool.Pool, runID, status string, recordsSeen, recordsImported, recordsFailed int, errorMessage string, metadata map[string]any) error {
+	metadataJSON := "{}"
+	if metadata != nil {
+		b, err := json.Marshal(metadata)
+		if err != nil {
+			return fmt.Errorf("marshal collection run metadata: %w", err)
+		}
+		metadataJSON = string(b)
+	}
+
+	const q = `
+		UPDATE industry_intelligence_collection_runs
+		SET status = $2,
+		    completed_at = now(),
+		    records_seen = $3,
+		    records_imported = $4,
+		    records_failed = $5,
+		    error_message = $6,
+		    metadata = $7::jsonb
+		WHERE id = $1::uuid`
+	_, err := pool.Exec(ctx, q, runID, status, recordsSeen, recordsImported, recordsFailed, errorMessage, metadataJSON)
+	return err
+}
+
+// syncIndustryTaxRecords promotes exact-matched ATO corporate-tax facts into the
+// industry intelligence fact table. It writes one current factual row per ABN/year
+// with the total-income metric; taxable income and tax payable remain available
+// as nullable metadata so the UI can preserve nil-vs-zero semantics.
+func syncIndustryTaxRecords(ctx context.Context, pool *pgxpool.Pool) (int64, error) {
+	const q = `
+		WITH mapped_tax AS (
+			SELECT
+				ct.abn,
+				ct.entity_name,
+				ct.income_year,
+				ct.total_income,
+				ct.taxable_income,
+				ct.tax_payable,
+				eam.stock_code,
+				eam.confidence,
+				COALESCE(NULLIF(cm.industry, ''), 'Unclassified') AS industry,
+				COALESCE(NULLIF(cm.company_name, ''), eam.entity_name, ct.entity_name, eam.stock_code) AS company_name
+			FROM corporate_tax ct
+			JOIN entity_asx_map eam ON eam.abn = ct.abn
+			LEFT JOIN "company-metadata" cm ON cm.stock_code = eam.stock_code
+			WHERE ct.total_income IS NOT NULL
+		),
+		upserted AS (
+			INSERT INTO industry_intelligence_records
+				(source_key, source_record_id, signal_kind, industry, stock_code, entity_abn,
+				 metric_key, metric_label, metric_value, unit, period_start, period_end, as_of,
+				 title, summary, source_url, confidence, metadata)
+			SELECT
+				'ato-corporate-tax-transparency',
+				'ato-tax:' || abn || ':' || income_year::text,
+				'tax_environment',
+				industry,
+				stock_code,
+				abn,
+				'total_income',
+				'Total income',
+				total_income,
+				'AUD',
+				make_date((income_year - 1)::int, 7, 1),
+				make_date(income_year::int, 6, 30),
+				make_date(income_year::int, 6, 30),
+				'ATO tax transparency: ' || company_name || ' ' || income_year::text,
+				'ATO reported total income for ' || company_name || ' in the ' ||
+					(income_year - 1)::text || '-' || right(income_year::text, 2) || ' income year.',
+				'https://data.gov.au/data/dataset/corporate-transparency',
+				confidence,
+				jsonb_build_object(
+					'entity_name', entity_name,
+					'company_name', company_name,
+					'income_year', income_year,
+					'taxable_income', taxable_income,
+					'has_taxable_income', taxable_income IS NOT NULL,
+					'tax_payable', tax_payable,
+					'has_tax_payable', tax_payable IS NOT NULL,
+					'match_method', 'exact_entity_map'
+				)
+			FROM mapped_tax
+			ON CONFLICT (source_key, source_record_id) DO UPDATE SET
+				signal_kind = EXCLUDED.signal_kind,
+				industry = EXCLUDED.industry,
+				stock_code = EXCLUDED.stock_code,
+				entity_abn = EXCLUDED.entity_abn,
+				metric_key = EXCLUDED.metric_key,
+				metric_label = EXCLUDED.metric_label,
+				metric_value = EXCLUDED.metric_value,
+				unit = EXCLUDED.unit,
+				period_start = EXCLUDED.period_start,
+				period_end = EXCLUDED.period_end,
+				as_of = EXCLUDED.as_of,
+				title = EXCLUDED.title,
+				summary = EXCLUDED.summary,
+				source_url = EXCLUDED.source_url,
+				confidence = EXCLUDED.confidence,
+				metadata = EXCLUDED.metadata,
+				updated_at = now()
+			RETURNING industry
+		),
+		source_enablement AS (
+			INSERT INTO industry_intelligence_industry_sources
+				(industry, source_key, enabled, public_enabled, reviewed_at, reviewed_by, notes)
+			SELECT DISTINCT
+				industry,
+				'ato-corporate-tax-transparency',
+				TRUE,
+				TRUE,
+				now(),
+				'influence-collector',
+				'ATO records exact-matched to the ASX entity map.'
+			FROM upserted
+			ON CONFLICT (industry, source_key) DO UPDATE SET
+				enabled = EXCLUDED.enabled,
+				public_enabled = EXCLUDED.public_enabled,
+				reviewed_at = EXCLUDED.reviewed_at,
+				reviewed_by = EXCLUDED.reviewed_by,
+				notes = EXCLUDED.notes,
+				updated_at = now()
+			RETURNING 1
+		)
+		SELECT COUNT(*) FROM upserted`
+
+	var count int64
+	if err := pool.QueryRow(ctx, q).Scan(&count); err != nil {
+		return 0, fmt.Errorf("sync industry tax records: %w", err)
+	}
+	return count, nil
 }
