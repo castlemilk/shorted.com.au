@@ -20,11 +20,15 @@ import {
   getIndustryStocks,
 } from "~/app/actions/industry/getIndustryData";
 import { getVerifiedCompanyLogoUrls } from "~/app/actions/company-logo-availability";
-import { getIndustryIntelligence } from "~/app/actions/getIndustryIntelligence";
+import { getIndustryIntelligenceSnapshot } from "~/app/actions/getIndustryIntelligence";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 import { IndustryIntelligenceClient } from "./industry-intelligence-client";
 
 export const revalidate = 3600;
+// Cold renders fan out to the shorts backend (top-shorts series + per-industry
+// evidence); a cold Cloud Run start must not push us past the default function
+// budget and 504.
+export const maxDuration = 60;
 
 export const metadata: Metadata = {
   title: "Industry Intelligence | Short Interest & Top Stocks",
@@ -200,7 +204,7 @@ export default async function IndustryIntelligencePage({
     getVerifiedCompanyLogoUrls(storyStockCodes),
     Promise.all(
       selectedIndustries.map(async (industry) => {
-        const result = await getIndustryIntelligence(industry.name, 50);
+        const result = await getIndustryIntelligenceSnapshot(industry.name, 50);
         return [industry.slug, result] as const;
       }),
     ),
@@ -225,60 +229,9 @@ export default async function IndustryIntelligencePage({
   }, {});
   const evidenceByIndustry = intelligenceResults.reduce<
     Record<string, IndustryEvidenceBundle>
-  >((acc, [slug, result]) => {
-    if (
-      !result ||
-      (result.sources.length === 0 && result.records.length === 0)
-    ) {
-      return acc;
-    }
-
-    acc[slug] = {
-      sources: result.sources.map((source) => ({
-        sourceKey: source.sourceKey,
-        displayName: source.displayName,
-        publisher: source.publisher,
-        sourceUrl: source.sourceUrl,
-        licence: source.licence,
-      })),
-      records: result.records.map((record) => ({
-        sourceKey: record.sourceKey,
-        signalKind: record.signalKind,
-        stockCode: record.stockCode,
-        title: record.title,
-        summary: record.summary,
-        metricKey: record.metricKey,
-        metricLabel: record.metricLabel,
-        metricValue: record.hasMetricValue ? record.metricValue : null,
-        unit: record.unit,
-        asOf: record.asOf,
-        sourceUrl: record.sourceUrl,
-      })),
-      timeBuckets: result.timeBuckets.map((bucket) => ({
-        signalKind: bucket.signalKind,
-        sourceKey: bucket.sourceKey,
-        metricKey: bucket.metricKey,
-        metricLabel: bucket.metricLabel,
-        unit: bucket.unit,
-        bucketLabel: bucket.bucketLabel,
-        bucketStart: bucket.bucketStart,
-        totalValue: bucket.totalValue,
-        recordCount: bucket.recordCount,
-        entityCount: bucket.entityCount,
-        zeroValueCount: bucket.zeroValueCount,
-      })),
-      entityTotals: result.entityTotals.map((total) => ({
-        signalKind: total.signalKind,
-        sourceKey: total.sourceKey,
-        metricKey: total.metricKey,
-        stockCode: total.stockCode,
-        entityLabel: total.entityLabel,
-        unit: total.unit,
-        totalValue: total.totalValue,
-        recordCount: total.recordCount,
-        latestAsOf: total.latestAsOf,
-      })),
-    };
+  >((acc, [slug, snapshot]) => {
+    if (!snapshot) return acc;
+    acc[slug] = snapshot;
     return acc;
   }, {});
   // GetTopShorts responses with points never carry the industry field, so the

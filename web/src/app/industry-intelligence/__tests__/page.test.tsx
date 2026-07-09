@@ -6,7 +6,7 @@ import {
   getIndustryStocks,
 } from "~/app/actions/industry/getIndustryData";
 import { getVerifiedCompanyLogoUrls } from "~/app/actions/company-logo-availability";
-import { getIndustryIntelligence } from "~/app/actions/getIndustryIntelligence";
+import { getIndustryIntelligenceSnapshot } from "~/app/actions/getIndustryIntelligence";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
 
 jest.mock("~/@/components/industry/industry-charts", () => {
@@ -51,7 +51,7 @@ jest.mock("~/app/actions/company-logo-availability", () => ({
 }));
 
 jest.mock("~/app/actions/getIndustryIntelligence", () => ({
-  getIndustryIntelligence: jest.fn(),
+  getIndustryIntelligenceSnapshot: jest.fn(),
 }));
 
 const mockedGetIndustryData = getIndustryData as jest.MockedFunction<
@@ -68,15 +68,15 @@ const mockedGetVerifiedCompanyLogoUrls =
     typeof getVerifiedCompanyLogoUrls
   >;
 const mockedGetIndustryIntelligence =
-  getIndustryIntelligence as jest.MockedFunction<
-    typeof getIndustryIntelligence
+  getIndustryIntelligenceSnapshot as jest.MockedFunction<
+    typeof getIndustryIntelligenceSnapshot
   >;
 
 describe("/industry-intelligence page", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockedGetVerifiedCompanyLogoUrls.mockResolvedValue(new Map());
-    mockedGetIndustryIntelligence.mockResolvedValue(undefined);
+    mockedGetIndustryIntelligence.mockResolvedValue(null);
   });
 
   it("renders the story route with live industry data and stock-surface links", async () => {
@@ -134,7 +134,6 @@ describe("/industry-intelligence page", () => {
       offset: 0,
     } as Awaited<ReturnType<typeof getTopShortsData>>);
     mockedGetIndustryIntelligence.mockResolvedValue({
-      industry: "Materials",
       sources: [
         {
           sourceKey: "ato-corporate-tax-transparency",
@@ -156,7 +155,6 @@ describe("/industry-intelligence page", () => {
           entityAbn: "49004028077",
           metricKey: "total_income",
           metricLabel: "Total income",
-          hasMetricValue: true,
           metricValue: 1_250_000_000,
           unit: "AUD",
           periodStart: "2023-07-01",
@@ -169,8 +167,6 @@ describe("/industry-intelligence page", () => {
           confidence: 1,
         },
       ],
-      sourceAttribution: "ATO Corporate Tax Transparency",
-      generatedAt: undefined,
       timeBuckets: [
         {
           signalKind: "tax_environment",
@@ -212,7 +208,7 @@ describe("/industry-intelligence page", () => {
           latestAsOf: "2024-06-30",
         },
       ],
-    } as Awaited<ReturnType<typeof getIndustryIntelligence>>);
+    } as Awaited<ReturnType<typeof getIndustryIntelligenceSnapshot>>);
 
     const result = await Page({});
     render(result);
