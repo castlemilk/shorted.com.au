@@ -1036,9 +1036,11 @@ jobs:
           if [ "$ENVIRONMENT" = "prod" ]; then
             run_psql \
               -f /migrations/000070_add_short_campaigns_mv.up.sql \
-              -f /migrations/000071_add_corporate_tax.up.sql
+              -f /migrations/000071_add_corporate_tax.up.sql \
+              -f /migrations/000074_add_alert_monitors.up.sql \
+              -f /migrations/000075_add_industry_intelligence_sources.up.sql
 
-            run_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL); DELETE FROM schema_migrations; INSERT INTO schema_migrations (version, dirty) VALUES (71, false);"
+            run_psql -c "CREATE TABLE IF NOT EXISTS schema_migrations (version bigint NOT NULL PRIMARY KEY, dirty boolean NOT NULL); DELETE FROM schema_migrations; INSERT INTO schema_migrations (version, dirty) VALUES (75, false);"
 
             TAX_ROWS=$(docker run --rm postgres:15-alpine psql "$DB_URL_CLEAN" -Atqc "SELECT COUNT(*) FROM corporate_tax")
             if [ "${TAX_ROWS:-0}" = "0" ]; then
@@ -1051,7 +1053,14 @@ jobs:
                 golang:1.26.0 \
                 sh -c 'if [ -n "$STEALTH_PAT" ]; then git config --global url."https://x-access-token:${STEALTH_PAT}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; fi; GOWORK=off GOPRIVATE=github.com/skunkworq/* GONOSUMDB=github.com/skunkworq/* go run ./influence-collector -mode all'
             else
-              echo "corporate_tax already has ${TAX_ROWS} rows; skipping bootstrap."
+              echo "corporate_tax already has ${TAX_ROWS} rows; refreshing public industry intelligence records."
+              docker run --rm \
+                -e DATABASE_URL="$DB_URL_CLEAN" \
+                -e STEALTH_PAT="${STEALTH_PAT:-}" \
+                -v "${PWD}/services:/app" \
+                -w /app \
+                golang:1.26.0 \
+                sh -c 'if [ -n "$STEALTH_PAT" ]; then git config --global url."https://x-access-token:${STEALTH_PAT}@github.com/skunkworq/".insteadOf "https://github.com/skunkworq/"; fi; GOWORK=off GOPRIVATE=github.com/skunkworq/* GONOSUMDB=github.com/skunkworq/* go run ./influence-collector -mode public-records'
             fi
             exit 0
           fi
