@@ -6,13 +6,13 @@ import Image from "next/image";
 import {
   AlertCircle,
   ArrowUpRight,
+  Landmark,
   TrendingDown,
 } from "lucide-react";
 
 import { IndustrySignalPanel } from "~/@/components/industry/industry-signal-panel";
 import { Badge } from "~/@/components/ui/badge";
 import { Button } from "~/@/components/ui/button";
-import { CompanyLogo } from "~/@/components/ui/company-logo";
 import { getSectorImageAlt, getSectorImagePath } from "~/@/lib/sector-images";
 import { cn } from "~/@/lib/utils";
 import type { IndustryIntelligenceStory } from "~/@/lib/industry-intelligence";
@@ -21,28 +21,21 @@ function formatPercent(value: number): string {
   return `${value.toFixed(2)}%`;
 }
 
-const narrativeSteps = [
-  {
-    label: "Crowding",
-    detail: "Industry short-interest signal",
-    href: "#crowding",
-  },
-  {
-    label: "Top Stocks",
-    detail: "Ranked companies and detail pages",
-    href: "#top-stocks",
-  },
-  {
-    label: "Alerts",
-    detail: "Create an industry monitor",
-    href: "#alerts",
-  },
-  {
-    label: "Stock Search",
-    detail: "Find companies across the market",
-    href: "/stocks",
-  },
-];
+function formatEvidenceMetric(value: number | null, unit: string): string {
+  if (value === null) return "Reported";
+  if (unit === "AUD") {
+    return new Intl.NumberFormat("en-AU", {
+      style: "currency",
+      currency: "AUD",
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(value);
+  }
+  return new Intl.NumberFormat("en-AU", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
+}
 
 export function IndustryIntelligenceClient({
   stories,
@@ -65,6 +58,7 @@ export function IndustryIntelligenceClient({
       initialStory,
     [initialStory, selectedSlug, stories],
   );
+  const leadStock = selectedStory?.topShortedStocks[0] ?? null;
 
   if (!selectedStory) {
     return (
@@ -155,18 +149,24 @@ export function IndustryIntelligenceClient({
             <div className="mt-8 grid gap-3 sm:grid-cols-3">
               <HeroProofPoint
                 icon={<TrendingDown className="h-4 w-4" aria-hidden="true" />}
-                label="Crowding"
-                value="Industry signal"
+                label="Average short"
+                value={formatPercent(
+                  selectedStory.shortSignals.averageShortPercent,
+                )}
               />
               <HeroProofPoint
                 icon={<ArrowUpRight className="h-4 w-4" aria-hidden="true" />}
-                label="Top stocks"
-                value="Company links"
+                label="Tracked stocks"
+                value={String(selectedStory.industry.stockCount)}
               />
               <HeroProofPoint
                 icon={<AlertCircle className="h-4 w-4" aria-hidden="true" />}
-                label="Alerts"
-                value="Daily monitor"
+                label="Lead short"
+                value={
+                  leadStock
+                    ? `${leadStock.code} ${formatPercent(leadStock.shortPercent)}`
+                    : "N/A"
+                }
               />
             </div>
           </div>
@@ -176,71 +176,29 @@ export function IndustryIntelligenceClient({
       </section>
 
       <section id="industry-explorer" className="space-y-5">
-        <NarrativeStepper />
-
-        <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.48fr)] 2xl:grid-cols-[minmax(0,1fr)_minmax(500px,0.42fr)]">
+        <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.38fr)]">
           <IndustrySelector
             stories={stories}
             selectedSlug={selectedStory.industry.slug}
             onSelect={setSelectedSlug}
-            className="xl:col-start-1"
+            className="xl:col-span-2"
           />
 
           <IndustrySignalPanel
             story={selectedStory}
-            stockLimit={8}
-            id="top-stocks"
-            className="min-w-0 xl:sticky xl:top-24 xl:col-start-2 xl:row-span-4 xl:row-start-1 xl:self-start"
+            stockLimit={10}
+            id="top-shorts"
+            className="min-w-0 xl:col-start-1"
           />
 
-          <section
-            id="crowding"
-            className="min-w-0 overflow-hidden rounded-lg border border-border/60 bg-card/80 shadow-amber-sm xl:col-start-1"
-          >
-            <div className="border-b border-border/60 p-5">
-              <div className="mb-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-start">
-                <div>
-                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-primary">
-                    Crowding
-                  </p>
-                  <h2 className="mt-2 text-2xl font-semibold tracking-tight text-balance">
-                    {selectedStory.industry.name} short-interest signal
-                  </h2>
-                  <p className="mt-2 max-w-[64ch] text-sm leading-6 text-muted-foreground text-pretty">
-                    Ranks official ASIC short-position percentages by industry
-                    and company. Data updates with the T+4 reporting delay.
-                  </p>
-                </div>
-                <Badge
-                  variant="outline"
-                  className="w-fit border-primary/25 bg-primary/10 text-primary"
-                >
-                  ASIC data
-                </Badge>
-              </div>
+          {selectedStory.evidenceRecords.length > 0 ? (
+            <IndustryEvidencePanel
+              story={selectedStory}
+              className="xl:col-start-2"
+            />
+          ) : null}
 
-              <div className="grid gap-3 sm:grid-cols-3">
-                <MiniMetric
-                  label="Average short"
-                  value={formatPercent(
-                    selectedStory.shortSignals.averageShortPercent,
-                  )}
-                />
-                <MiniMetric
-                  label="Stocks tracked"
-                  value={String(selectedStory.industry.stockCount)}
-                />
-                <MiniMetric
-                  label="Top ticker"
-                  value={selectedStory.topShortedStocks[0]?.code ?? "N/A"}
-                />
-              </div>
-            </div>
-
-            <CrowdingChart story={selectedStory} />
-          </section>
-
-          <AlertsPanel story={selectedStory} />
+          <AlertsPanel story={selectedStory} className="xl:col-start-2" />
         </div>
       </section>
     </div>
@@ -248,7 +206,7 @@ export function IndustryIntelligenceClient({
 }
 
 function HeroSignalBoard({ story }: { story: IndustryIntelligenceStory }) {
-  const topStocks = story.topShortedStocks.slice(0, 4);
+  const leader = story.topShortedStocks[0];
 
   return (
     <div className="min-w-0 border-t border-border/60 bg-zinc-950 p-5 text-zinc-100 lg:border-l lg:border-t-0 md:p-6">
@@ -301,37 +259,26 @@ function HeroSignalBoard({ story }: { story: IndustryIntelligenceStory }) {
           />
         </div>
 
-        <div className="mt-6 overflow-hidden rounded-md border border-zinc-800">
-          {topStocks.map((stock) => (
-            <Link
-              key={stock.code}
-              href={stock.href}
-              prefetch={false}
-              className="grid grid-cols-[38px_34px_minmax(0,1fr)_72px] items-center gap-3 border-b border-zinc-800 px-3 py-3 text-sm last:border-b-0 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/50"
-            >
-              <span className="font-mono text-xs text-zinc-500">
-                #{stock.rank}
-              </span>
-              <CompanyLogo
-                stockCode={stock.code}
-                companyName={stock.name}
-                size={28}
-                className="flex h-8 w-8 items-center justify-center rounded-md border border-zinc-800 bg-white/[0.03] p-1"
-                imageClassName="h-full w-full"
-              />
-              <span className="min-w-0">
-                <span className="block font-semibold text-white">
-                  {stock.code}
-                </span>
-                <span className="block truncate text-xs text-zinc-400">
-                  {stock.name}
-                </span>
-              </span>
-              <span className="text-right font-mono font-semibold tabular-nums text-amber-100">
-                {formatPercent(stock.shortPercent)}
-              </span>
-            </Link>
-          ))}
+        <div className="mt-6 rounded-md border border-zinc-800 bg-white/[0.03] p-4">
+          <div className="text-[11px] uppercase tracking-[0.14em] text-zinc-500">
+            Current focus
+          </div>
+          <div className="mt-2 text-sm leading-6 text-zinc-300 text-pretty">
+            Sector-level movement for the selected industry, with lead stock
+            context from the current ASIC short-position set.
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+            <DarkMetric
+              label="Lead ticker"
+              value={leader?.code ?? "N/A"}
+              detail={leader?.name ?? "No ranked stock"}
+            />
+            <DarkMetric
+              label="Lead short"
+              value={leader ? formatPercent(leader.shortPercent) : "N/A"}
+              detail="Highest ranked"
+            />
+          </div>
         </div>
 
         <div className="mt-auto pt-6 text-xs leading-5 text-zinc-400">
@@ -340,43 +287,6 @@ function HeroSignalBoard({ story }: { story: IndustryIntelligenceStory }) {
         </div>
       </div>
     </div>
-  );
-}
-
-function NarrativeStepper() {
-  return (
-    <nav
-      className="rounded-lg border border-border/60 bg-card/80 p-3 shadow-amber-sm"
-      aria-label="Industry intelligence story sections"
-    >
-      <ol className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-        {narrativeSteps.map((step, index) => (
-          <li key={step.label} className="min-w-0">
-            <a
-              href={step.href}
-              className="group grid h-full min-h-[96px] grid-cols-[24px_minmax(0,1fr)] gap-2 rounded-md border border-border/50 bg-background/55 px-3 py-3 text-left transition-[background-color,border-color,transform] hover:border-primary/25 hover:bg-muted/60 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              <span
-                className={cn(
-                  "mt-0.5 flex h-5 w-5 items-center justify-center rounded-full border font-mono text-[10px]",
-                  "border-primary/30 bg-primary/10 text-primary",
-                )}
-              >
-                {index + 1}
-              </span>
-              <span className="min-w-0">
-                <span className="block min-w-0 break-words font-medium leading-5 text-foreground">
-                  {step.label}
-                </span>
-                <span className="mt-2 block break-words text-xs leading-4 text-muted-foreground">
-                  {step.detail}
-                </span>
-              </span>
-            </a>
-          </li>
-        ))}
-      </ol>
-    </nav>
   );
 }
 
@@ -469,75 +379,113 @@ function IndustrySelector({
   );
 }
 
-function CrowdingChart({ story }: { story: IndustryIntelligenceStory }) {
-  const stocks = story.topShortedStocks.slice(0, 6);
-  const maxShort = Math.max(...stocks.map((stock) => stock.shortPercent), 1);
+function IndustryEvidencePanel({
+  story,
+  className,
+}: {
+  story: IndustryIntelligenceStory;
+  className?: string;
+}) {
+  const records = story.evidenceRecords.slice(0, 4);
+  const sourceNames = story.evidenceSources
+    .map((source) => source.displayName)
+    .filter(Boolean)
+    .join(" / ");
 
   return (
-    <div className="p-5" data-testid="industry-crowding-chart">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
-          <TrendingDown className="h-3.5 w-3.5" aria-hidden="true" />
-          Short crowding chart
+    <section
+      className={cn(
+        "min-w-0 overflow-hidden rounded-lg border border-border/60 bg-card/80 shadow-amber-sm",
+        className,
+      )}
+    >
+      <div className="border-b border-border/60 p-5">
+        <div className="mb-2 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-primary">
+          <Landmark className="h-3.5 w-3.5" aria-hidden="true" />
+          Industry context
         </div>
-        <span className="text-xs text-muted-foreground">
-          {story.shortSignals.source.name}, {story.shortSignals.source.cadence}
-        </span>
-      </div>
-      <div className="space-y-3">
-        {stocks.length > 0 ? (
-          stocks.map((stock) => (
-            <Link
-              key={stock.code}
-              href={stock.href}
-              prefetch={false}
-              className="grid grid-cols-[92px_minmax(0,1fr)_70px] items-center gap-3 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-            >
-              <span className="flex min-w-0 items-center gap-2">
-                <CompanyLogo
-                  stockCode={stock.code}
-                  companyName={stock.name}
-                  size={24}
-                  className="flex h-7 w-7 items-center justify-center rounded-md border border-border/60 bg-card p-1"
-                  imageClassName="h-full w-full"
-                />
-                <span className="truncate font-mono text-sm font-semibold text-foreground">
-                  {stock.code}
-                </span>
-              </span>
-              <span
-                className="h-3 overflow-hidden rounded-full bg-muted"
-                aria-hidden="true"
-              >
-                <span
-                  className="block h-full rounded-full bg-primary"
-                  style={{
-                    width: `${Math.max(8, (stock.shortPercent / maxShort) * 100)}%`,
-                  }}
-                />
-              </span>
-              <span className="text-right font-mono text-sm font-semibold tabular-nums">
-                {formatPercent(stock.shortPercent)}
-              </span>
-            </Link>
-          ))
-        ) : (
-          <p className="rounded-md border border-border/60 bg-background/60 p-4 text-sm text-muted-foreground">
-            No ranked stocks are available for this industry yet.
+        <h2 className="text-2xl font-semibold tracking-tight text-balance">
+          {story.industry.name} signals
+        </h2>
+        {sourceNames ? (
+          <p className="mt-2 text-sm leading-6 text-muted-foreground text-pretty">
+            {sourceNames}
           </p>
-        )}
+        ) : null}
       </div>
-    </div>
+
+      <div className="divide-y divide-border/60">
+        {records.map((record) => (
+          <article
+            key={`${record.sourceKey}:${record.stockCode}:${record.asOf}:${record.metricLabel}`}
+            className="grid min-w-0 gap-3 p-5"
+          >
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-mono text-xl font-semibold tabular-nums">
+                  {formatEvidenceMetric(record.metricValue, record.unit)}
+                </div>
+                <div className="mt-1 text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                  {record.metricLabel}
+                </div>
+              </div>
+              {record.stockCode ? (
+                <Link
+                  href={`/shorts/${record.stockCode}`}
+                  prefetch={false}
+                  className="shrink-0 rounded-md border border-border/60 px-2 py-1 font-mono text-xs font-semibold transition-colors hover:border-primary/40 hover:text-primary"
+                >
+                  {record.stockCode}
+                </Link>
+              ) : null}
+            </div>
+
+            <div className="min-w-0">
+              <h3 className="line-clamp-2 break-words text-sm font-semibold leading-5">
+                {record.title}
+              </h3>
+              {record.summary ? (
+                <p className="mt-2 line-clamp-3 break-words text-sm leading-6 text-muted-foreground">
+                  {record.summary}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span>{record.asOf}</span>
+              <a
+                href={record.sourceUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-primary hover:underline"
+              >
+                Source
+                <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+              </a>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
-function AlertsPanel({ story }: { story: IndustryIntelligenceStory }) {
+function AlertsPanel({
+  story,
+  className,
+}: {
+  story: IndustryIntelligenceStory;
+  className?: string;
+}) {
   return (
     <section
       id="alerts"
-      className="min-w-0 overflow-hidden rounded-lg border border-primary/25 bg-primary/5 shadow-amber-sm xl:col-start-1"
+      className={cn(
+        "min-w-0 overflow-hidden rounded-lg border border-primary/25 bg-primary/5 shadow-amber-sm",
+        className,
+      )}
     >
-      <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid gap-0">
         <div className="p-5">
           <div className="mb-2 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-primary">
             <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
@@ -546,12 +494,12 @@ function AlertsPanel({ story }: { story: IndustryIntelligenceStory }) {
           <h2 className="text-2xl font-semibold tracking-tight text-balance">
             Track {story.industry.name} changes
           </h2>
-          <p className="mt-2 max-w-[68ch] text-sm leading-6 text-muted-foreground text-pretty">
+          <p className="mt-2 max-w-[44ch] text-sm leading-6 text-muted-foreground text-pretty">
             Create an industry monitor and return to the alerts workspace when
             short interest moves across the sector.
           </p>
 
-          <div className="mt-5 grid gap-2 sm:grid-cols-3">
+          <div className="mt-5 grid gap-2 sm:grid-cols-3 xl:grid-cols-1">
             <MiniMetric
               label="Cadence"
               value={story.alerts.cadences.join(" / ")}
@@ -567,7 +515,7 @@ function AlertsPanel({ story }: { story: IndustryIntelligenceStory }) {
           </div>
         </div>
 
-        <div className="border-t border-primary/20 bg-background/75 p-5 lg:border-l lg:border-t-0">
+        <div className="border-t border-primary/20 bg-background/75 p-5">
           <div className="grid gap-2">
             <Button asChild className="min-h-10 justify-start">
               <Link

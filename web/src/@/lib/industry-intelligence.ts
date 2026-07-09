@@ -18,6 +18,28 @@ export interface IndustryStockInput {
   name: string;
   shortPercent: number;
   change?: number;
+  logoUrl?: string | null;
+}
+
+export interface IndustryEvidenceSourceInput {
+  sourceKey: string;
+  displayName: string;
+  publisher: string;
+  sourceUrl: string;
+  licence: string;
+}
+
+export interface IndustryEvidenceRecordInput {
+  sourceKey: string;
+  signalKind: string;
+  stockCode: string;
+  title: string;
+  summary: string;
+  metricLabel: string;
+  metricValue: number | null;
+  unit: string;
+  asOf: string;
+  sourceUrl: string;
 }
 
 export interface IntelligenceSource {
@@ -31,6 +53,7 @@ export interface IndustryTopStock {
   code: string;
   name: string;
   detail: string;
+  logoUrl: string | null;
   shortPercent: number;
   change: number;
   status: StockCrowdingStatus;
@@ -52,9 +75,13 @@ export interface IndustryIntelligenceStory {
     previewEnabled: true;
     cadences: ["Daily", "Weekly"];
   };
+  evidenceSources: IndustryEvidenceSourceInput[];
+  evidenceRecords: IndustryEvidenceRecordInput[];
 }
 
-export function getStockCrowdingStatus(shortPercent: number): StockCrowdingStatus {
+export function getStockCrowdingStatus(
+  shortPercent: number,
+): StockCrowdingStatus {
   if (shortPercent >= 10) return "crowded";
   if (shortPercent >= 5) return "elevated";
   return "watching";
@@ -64,10 +91,14 @@ export function buildIndustryIntelligenceStory({
   industry,
   stocks,
   asAt,
+  evidenceSources = [],
+  evidenceRecords = [],
 }: {
   industry: IndustrySummary;
   stocks: IndustryStockInput[];
   asAt: string;
+  evidenceSources?: IndustryEvidenceSourceInput[];
+  evidenceRecords?: IndustryEvidenceRecordInput[];
 }): IndustryIntelligenceStory {
   const topShortedStocks = [...stocks]
     .filter((stock) => stock.code.trim().length > 0)
@@ -85,6 +116,7 @@ export function buildIndustryIntelligenceStory({
         detail: hasCompanyName
           ? `${industry.name} company`
           : `${industry.name} short-interest leader`,
+        logoUrl: stock.logoUrl ?? null,
         shortPercent: stock.shortPercent,
         change: stock.change ?? 0,
         status: getStockCrowdingStatus(stock.shortPercent),
@@ -97,8 +129,9 @@ export function buildIndustryIntelligenceStory({
     topShortedStocks,
     shortSignals: {
       averageShortPercent: industry.avgShortPercent,
-      highlyShortedCount: topShortedStocks.filter((stock) => stock.shortPercent > 10)
-        .length,
+      highlyShortedCount: topShortedStocks.filter(
+        (stock) => stock.shortPercent > 10,
+      ).length,
       risingCount: topShortedStocks.filter((stock) => stock.change > 0).length,
       source: {
         name: "ASIC",
@@ -110,6 +143,8 @@ export function buildIndustryIntelligenceStory({
       previewEnabled: true,
       cadences: ["Daily", "Weekly"],
     },
+    evidenceSources,
+    evidenceRecords,
   };
 }
 
@@ -117,16 +152,26 @@ export function buildIndustryIntelligenceStories({
   industries,
   stocksByIndustry,
   asAt,
+  evidenceByIndustry = {},
 }: {
   industries: IndustrySummary[];
   stocksByIndustry: Record<string, IndustryStockInput[]>;
   asAt: string;
+  evidenceByIndustry?: Record<
+    string,
+    {
+      sources: IndustryEvidenceSourceInput[];
+      records: IndustryEvidenceRecordInput[];
+    }
+  >;
 }): IndustryIntelligenceStory[] {
   return industries.map((industry) =>
     buildIndustryIntelligenceStory({
       industry,
       stocks: stocksByIndustry[industry.slug] ?? [],
       asAt,
+      evidenceSources: evidenceByIndustry[industry.slug]?.sources ?? [],
+      evidenceRecords: evidenceByIndustry[industry.slug]?.records ?? [],
     }),
   );
 }

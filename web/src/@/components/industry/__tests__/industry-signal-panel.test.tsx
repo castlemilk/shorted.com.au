@@ -25,6 +25,8 @@ function makeStory(
         code: "MIN",
         name: "Mineral Resources",
         detail: "Materials company",
+        logoUrl:
+          "https://storage.googleapis.com/shorted-company-logos/logos-normalized/MIN.png?v=test",
         shortPercent: 12.4,
         change: 1.3,
         status: "crowded",
@@ -35,6 +37,7 @@ function makeStory(
         code: "LTR",
         name: "Liontown Resources",
         detail: "Materials company",
+        logoUrl: null,
         shortPercent: 9.1,
         change: 0,
         status: "elevated",
@@ -51,6 +54,8 @@ function makeStory(
       previewEnabled: true,
       cadences: ["Daily", "Weekly"],
     },
+    evidenceSources: [],
+    evidenceRecords: [],
     ...overrides,
   };
 }
@@ -60,12 +65,13 @@ describe("IndustrySignalPanel", () => {
     render(<IndustrySignalPanel story={makeStory()} />);
 
     expect(
-      screen.getByRole("heading", { name: "Top Stocks In This Industry" }),
+      screen.getByRole("heading", { name: "Top Shorts In This Industry" }),
     ).toBeInTheDocument();
+    expect(screen.getByTestId("industry-short-status-mix")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /MIN.*Mineral Resources/ }),
     ).toHaveAttribute("href", "/shorts/MIN");
-    expect(screen.getByText("Crowded")).toBeInTheDocument();
+    expect(screen.getAllByText("Crowded").length).toBeGreaterThan(0);
     expect(
       screen.getByRole("link", { name: "View all top shorts" }),
     ).toHaveAttribute("href", "/top");

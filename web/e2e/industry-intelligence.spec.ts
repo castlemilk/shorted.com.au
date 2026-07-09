@@ -1,14 +1,21 @@
 import { expect, type Page, test } from "@playwright/test";
 
+function titleFromSlug(slug: string) {
+  return slug
+    .split("-")
+    .filter(Boolean)
+    .map((word) => `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`)
+    .join(" ");
+}
+
 async function expectNoVisibleTextOverflow(page: Page) {
   const overflowIssues = await page.evaluate(() =>
     Array.from(
       document.querySelectorAll(
         [
-          'nav[aria-label="Industry intelligence story sections"] a',
           "#industry-explorer button",
           '[data-testid="industry-top-stocks-panel"] a',
-          '[data-testid="industry-crowding-chart"] a',
+          '[data-testid="industry-short-status-mix"]',
           "#industry-explorer h2",
           "#industry-explorer p",
           "#industry-explorer span",
@@ -74,42 +81,51 @@ test.describe("Industry Intelligence", () => {
       page.getByRole("heading", { name: "Industry Intelligence" }),
     ).toBeVisible();
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth + 1,
+      ),
     ).toBe(true);
 
     const body = await page.locator("body").innerText({ timeout: 15_000 });
-    expect(body).not.toMatch(/Application error|Element type is invalid|Page Not Found|\b500\b/i);
+    expect(body).not.toMatch(
+      /Application error|Element type is invalid|Page Not Found|\b500\b/i,
+    );
 
     const panel = page.getByRole("heading", {
-      name: "Top Stocks In This Industry",
+      name: "Top Shorts In This Industry",
     });
     await expect(panel).toBeVisible();
+    await expect(page.getByTestId("industry-top-stocks-panel")).toHaveCount(1);
+    await expect(page.getByTestId("industry-short-status-mix")).toBeVisible();
+    await expect(page.getByTestId("industry-crowding-summary")).toHaveCount(0);
     await expect(
-      page.getByText(/The next ASIC-backed industry sync will populate this page/i),
+      page.getByText(
+        /The next ASIC-backed industry sync will populate this page/i,
+      ),
     ).toHaveCount(0);
     await expect(page.getByText(/source-ready/i)).toHaveCount(0);
     await expect(page.getByText("Policy Footprint")).toHaveCount(0);
     await expect(page.getByText("Premium evidence pack")).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "View all top shorts" })).toHaveAttribute(
-      "href",
-      "/top",
-    );
-    await expect(page.getByRole("link", { name: "Find a stock" })).toHaveAttribute(
-      "href",
-      "/stocks",
-    );
-    await expect(page.getByRole("link", { name: "Open industry view" })).toHaveAttribute(
-      "href",
-      /\/industry\/[a-z0-9-]+/,
-    );
+    await expect(
+      page.getByRole("link", { name: "View all top shorts" }),
+    ).toHaveAttribute("href", "/top");
+    await expect(
+      page.getByRole("link", { name: "Find a stock" }),
+    ).toHaveAttribute("href", "/stocks");
+    await expect(
+      page.getByRole("link", { name: "Open industry view" }),
+    ).toHaveAttribute("href", /\/industry\/[a-z0-9-]+/);
 
     const stockLink = page.locator('a[href^="/shorts/"]').first();
     await expect(stockLink).toBeVisible();
 
-    const selectorButtons = page.locator('button[aria-pressed]');
+    const selectorButtons = page.locator("button[aria-pressed]");
     if ((await selectorButtons.count()) > 1) {
       await selectorButtons.nth(1).click();
-      await expect(selectorButtons.nth(1)).toHaveAttribute("aria-pressed", "true");
+      await expect(selectorButtons.nth(1)).toHaveAttribute(
+        "aria-pressed",
+        "true",
+      );
     }
 
     expect(consoleErrors).toEqual([]);
@@ -128,13 +144,17 @@ test.describe("Industry Intelligence", () => {
     ).toBeVisible();
 
     const body = await page.locator("body").innerText({ timeout: 15_000 });
-    expect(body).not.toMatch(/Application error|Element type is invalid|Page Not Found|\b500\b/i);
+    expect(body).not.toMatch(
+      /Application error|Element type is invalid|Page Not Found|\b500\b/i,
+    );
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth + 1,
+      ),
     ).toBe(true);
   });
 
-  test("keeps story rail and explorer text contained at compressed desktop widths", async ({
+  test("keeps explorer text contained at compressed desktop widths", async ({
     page,
   }) => {
     await page.setViewportSize({ width: 1024, height: 720 });
@@ -148,11 +168,10 @@ test.describe("Industry Intelligence", () => {
     await expect(
       page.getByRole("heading", { name: "Industry Intelligence" }),
     ).toBeVisible();
-    await expect(
-      page.locator('nav[aria-label="Industry intelligence story sections"] li'),
-    ).toHaveCount(4);
     expect(
-      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth + 1,
+      ),
     ).toBe(true);
     await expectNoVisibleTextOverflow(page);
   });
@@ -169,20 +188,65 @@ test.describe("Industry Intelligence", () => {
         name: "Industry Intelligence connects sectors to stocks",
       }),
     ).toBeVisible();
-    await expect(page.getByText("Industry crowding")).toBeVisible();
-    await expect(page.getByText("Ranked companies")).toBeVisible();
-    await expect(page.getByText("Alert monitors")).toBeVisible();
-    await expect(page.getByRole("link", { name: "Open Industry Intelligence" })).toHaveAttribute(
-      "href",
-      "/industry-intelligence",
+    await expect(
+      page.getByText("Industry crowding", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Ranked companies", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Alert monitors", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Open Industry Intelligence" }),
+    ).toHaveAttribute("href", "/industry-intelligence");
+    await expect(
+      page.getByRole("link", { name: "Compare top shorts" }),
+    ).toHaveAttribute("href", "/top");
+    await expect(
+      page.getByRole("link", { name: "View Top Shorts" }),
+    ).toHaveAttribute("href", "/top");
+  });
+
+  test("links industry alerts into the monitor builder", async ({ page }) => {
+    const response = await page.goto(
+      "/industry-intelligence?industry=materials",
+      {
+        waitUntil: "domcontentloaded",
+        timeout: 30_000,
+      },
     );
-    await expect(page.getByRole("link", { name: "Compare top shorts" })).toHaveAttribute(
+
+    expect(response?.status()).toBeLessThan(400);
+    const alertLink = page
+      .getByRole("link", { name: "Create daily alert" })
+      .first();
+    await expect(alertLink).toHaveAttribute(
       "href",
-      "/top",
+      /\/alerts\?industry=[a-z0-9-]+/,
     );
-    await expect(page.getByRole("link", { name: "View Top Shorts" })).toHaveAttribute(
-      "href",
-      "/top",
-    );
+
+    const alertHref = await alertLink.getAttribute("href");
+    expect(alertHref).toBeTruthy();
+    const selectedIndustry = new URL(
+      alertHref!,
+      "https://shorted.test",
+    ).searchParams.get("industry");
+    expect(selectedIndustry).toBeTruthy();
+
+    const alertsResponse = await page.goto(alertHref!, {
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
+    });
+
+    expect(alertsResponse?.status()).toBeLessThan(400);
+    await expect(
+      page.getByRole("heading", { name: "Short-interest monitors" }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(`${titleFromSlug(selectedIndustry!)} daily movement`),
+    ).toBeVisible();
+    await expect(page.getByText("Configure a monitor")).toBeVisible();
+    await expect(page.getByText(/coming soon/i)).toHaveCount(0);
   });
 });
