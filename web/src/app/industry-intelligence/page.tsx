@@ -281,22 +281,29 @@ export default async function IndustryIntelligencePage({
     };
     return acc;
   }, {});
+  // GetTopShorts responses with points never carry the industry field, so the
+  // crowding constituents come from the page's own industry->stocks mapping
+  // (the treemap join) and the per-stock points are looked up by code.
+  const pointsByCode = new Map(
+    topShortStocks.map((stock) => [
+      stock.productCode.toUpperCase(),
+      (stock.points ?? [])
+        .map((point) => ({
+          date: timestampToIsoDate(point.timestamp),
+          value: point.shortPosition,
+        }))
+        .filter((point) => point.date !== ""),
+    ]),
+  );
   const crowdingByIndustry = selectedIndustries.reduce<
     Record<string, IndustryCrowdingSeries | null>
   >((acc, industry) => {
-    const stocks = topShortStocks
-      .filter(
-        (stock) => createSlug(industryNameForStock(stock)) === industry.slug,
-      )
+    const stocks = (stocksByIndustry[industry.slug] ?? [])
       .map((stock) => ({
-        code: stock.productCode,
-        points: (stock.points ?? [])
-          .map((point) => ({
-            date: timestampToIsoDate(point.timestamp),
-            value: point.shortPosition,
-          }))
-          .filter((point) => point.date !== ""),
-      }));
+        code: stock.code.toUpperCase(),
+        points: pointsByCode.get(stock.code.toUpperCase()) ?? [],
+      }))
+      .filter((stock) => stock.points.length > 0);
     acc[industry.slug] = buildIndustryCrowdingSeries(stocks);
     return acc;
   }, {});

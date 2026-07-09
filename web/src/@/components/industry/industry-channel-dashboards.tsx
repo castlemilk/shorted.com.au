@@ -29,6 +29,25 @@ const PRIMARY_METRIC_BY_KIND: Record<string, string> = {
   policy_footprint: "declared_receipt_value",
 };
 
+/** Compact toggle labels; the full metric label stays in charts and tooltips. */
+const METRIC_TOGGLE_LABELS: Record<string, string> = {
+  tax_payable: "Tax payable",
+  taxable_income: "Taxable income",
+  total_income: "Total income",
+  export_value: "Exports",
+  import_value: "Imports",
+  declared_receipt_value: "Receipts",
+  declared_donation_value: "Donations",
+  registered_lobbyist_engagements: "Lobbyists",
+  registered_foreign_principals: "FITS",
+  contract_value: "Contracts",
+  scope_1_2_emissions: "Scope 1+2",
+};
+
+function toggleLabelFor(series: MetricSeries): string {
+  return METRIC_TOGGLE_LABELS[series.metricKey] ?? series.metricLabel;
+}
+
 function formatForUnit(unit: string): FyBucketFormat {
   if (unit === "AUD") return "aud";
   if (unit.toLowerCase().startsWith("t ")) return "tonnes";
@@ -234,7 +253,7 @@ function ChannelCard({ channel }: { channel: EvidenceChannel }) {
             onChange={setMetricKey}
             options={series.map((s) => ({
               value: s.metricKey,
-              label: s.metricLabel,
+              label: toggleLabelFor(s),
             }))}
           />
         ) : null}
