@@ -45,6 +45,14 @@ interface TreeMapDatum {
 const PADDING = 3;
 const HEADER_HEIGHT = 20; // Height reserved for sector labels + icons
 const TREEMAP_HEIGHT = 700;
+// Phones get a shorter map: 700px of dense tiles at ~390px wide is unreadable
+// and dominates the page.
+const TREEMAP_HEIGHT_MOBILE = 440;
+const MOBILE_WIDTH_BREAKPOINT = 520;
+const treemapHeightFor = (width: number) =>
+  width > 0 && width < MOBILE_WIDTH_BREAKPOINT
+    ? TREEMAP_HEIGHT_MOBILE
+    : TREEMAP_HEIGHT;
 
 const clamp = (min: number, v: number, max: number) =>
   Math.max(min, Math.min(max, v));
@@ -129,7 +137,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
           <CardTitle className="self-center m-5">Industry Tree Map</CardTitle>
         </div>
         <div className="p-2">
-          <Skeleton className="h-[700px] w-full rounded-xl" />
+          <Skeleton className="h-[440px] sm:h-[700px] w-full rounded-xl" />
         </div>
       </Card>
     );
@@ -174,24 +182,27 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
     (a, b) => (b.value ?? 0) - (a.value ?? 0),
   );
 
-  const handleMouseEnter = (event: React.MouseEvent, productCode: string) => {
-    // Clear any pending hide timeout
+  const stockByCode = new Map(
+    stocks.map((stock: TreemapStock) => [stock.productCode, stock]),
+  );
+
+  const clearHideTimeout = () => {
     if (hideTimeoutRef.current) {
       clearTimeout(hideTimeoutRef.current);
       hideTimeoutRef.current = null;
     }
+  };
 
-    if (!treeMapData) return;
-    type TreemapStock = IndustryTreeMap["stocks"][number];
-    const stocks: TreemapStock[] = treeMapData.stocks ?? [];
-    const stock = stocks.find(
-      (s: TreemapStock) => s.productCode === productCode,
-    );
+  const handleMouseEnter = (event: React.MouseEvent, productCode: string) => {
+    // Clear any pending hide timeout
+    clearHideTimeout();
+
+    const stock = stockByCode.get(productCode);
     if (!stock) return;
 
-    const svgRect = (event.target as SVGRectElement)
-      .closest("svg")!
-      .getBoundingClientRect();
+    const svg = (event.currentTarget as SVGGElement).closest("svg");
+    if (!svg) return;
+    const svgRect = svg.getBoundingClientRect();
 
     // Use mouse position directly (clientX/Y are viewport coordinates)
     setTooltipState({
@@ -207,11 +218,30 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
     });
   };
 
+  const handleMouseMove = (event: React.MouseEvent) => {
+    const svg = (event.currentTarget as SVGGElement).closest("svg");
+    if (!svg) return;
+    const svgRect = svg.getBoundingClientRect();
+
+    setTooltipState((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        x: event.clientX,
+        y: event.clientY,
+        containerWidth: svgRect.width,
+        containerHeight: svgRect.height,
+        containerX: svgRect.left,
+        containerY: svgRect.top,
+      };
+    });
+  };
+
   const handleMouseLeave = () => {
     // Add a small delay before hiding to prevent flickering
     hideTimeoutRef.current = setTimeout(() => {
       setTooltipState(null);
-    }, 100);
+    }, 250);
   };
 
   const handleRectClick = (stockCode: string) => {
@@ -220,10 +250,12 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
 
   return (
     <Card className={cn("m-2 w-full", className)}>
-      <div className="flex align-middle justify-between">
+      {/* flex-wrap + responsive select width: fixed-width controls otherwise
+          force horizontal page scroll on mobile viewports */}
+      <div className="flex flex-wrap items-center justify-between gap-x-2">
         <CardTitle className="self-center m-5">Industry Tree Map</CardTitle>
         <div className="flex flex-col sm:flex-row m-2 gap-2">
-          <div className="w-48">
+          <div className="w-36 sm:w-48">
             <Label htmlFor="viewMode">View Mode</Label>
             <Select
               onValueChange={(e) => setViewMode(parseInt(e, 10))}
@@ -243,7 +275,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
             </Select>
           </div>
           {viewMode === ViewMode.PERCENTAGE_CHANGE && (
-            <div className="w-48">
+            <div className="w-36 sm:w-48">
               <Label htmlFor="period">Time</Label>
               <Select onValueChange={(e) => setPeriod(e)} defaultValue={"max"}>
                 <SelectTrigger id="period">
@@ -265,7 +297,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
       <Suspense
         fallback={
           <div className="p-2">
-            <Skeleton className="h-[700px] w-full rounded-xl" />
+            <Skeleton className="h-[440px] sm:h-[700px] w-full rounded-xl" />
           </div>
         }
       >
@@ -279,11 +311,17 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
           <ParentSize>
             {({ width }) => (
               <div style={{ position: "relative" }}>
-                <svg width={width} height={TREEMAP_HEIGHT}>
+                <svg
+                  width={width}
+                  height={treemapHeightFor(width)}
+                  data-testid="treemap"
+                  role="img"
+                  aria-label="Industry short position heatmap"
+                >
                   <Treemap<typeof industryTreeMap>
                     top={0}
                     root={root}
-                    size={[width, TREEMAP_HEIGHT]}
+                    size={[width, treemapHeightFor(width)]}
                     tile={treemapSquarify}
                     round
                   >
@@ -332,6 +370,7 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                                 onMouseEnter={(e) =>
                                   handleMouseEnter(e, node.data?.id ?? "")
                                 }
+                                onMouseMove={handleMouseMove}
                                 onMouseLeave={handleMouseLeave}
                                 pointerEvents={"all"}
                                 onClick={() =>
@@ -460,6 +499,8 @@ export const IndustryTreeMapView: FC<TreeMapProps> = ({
                     containerHeight={tooltipState.containerHeight}
                     containerX={tooltipState.containerX}
                     containerY={tooltipState.containerY}
+                    onMouseEnter={clearHideTimeout}
+                    onMouseLeave={handleMouseLeave}
                   />
                 )}
               </div>

@@ -61,6 +61,7 @@
     "node_modules",
     "e2e",
     "scripts",
+    "storybook-static",
     "vitest.config.ts",
     "src/app/lib/firestore.ts",
     "src/gen/**/*",

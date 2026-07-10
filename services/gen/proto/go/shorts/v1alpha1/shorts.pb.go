@@ -6965,6 +6965,7 @@ type PeerStock struct {
 	PeRatio              float64                `protobuf:"fixed64,6,opt,name=pe_ratio,json=peRatio,proto3" json:"pe_ratio,omitempty"`
 	DividendYield        float64                `protobuf:"fixed64,7,opt,name=dividend_yield,json=dividendYield,proto3" json:"dividend_yield,omitempty"`
 	PriceChange_1M       float64                `protobuf:"fixed64,8,opt,name=price_change_1m,json=priceChange1m,proto3" json:"price_change_1m,omitempty"` // 1-month price change %
+	LogoUrl              string                 `protobuf:"bytes,9,opt,name=logo_url,json=logoUrl,proto3" json:"logo_url,omitempty"`                       // Company logo URL (GCS-hosted, may be empty)
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -7053,6 +7054,13 @@ func (x *PeerStock) GetPriceChange_1M() float64 {
 		return x.PriceChange_1M
 	}
 	return 0
+}
+
+func (x *PeerStock) GetLogoUrl() string {
+	if x != nil {
+		return x.LogoUrl
+	}
+	return ""
 }
 
 // Request for GetPeerComparison RPC
@@ -11672,7 +11680,7 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"\tdividends\x18\x01 \x03(\v2\x1f.shorts.v1alpha1.DividendRecordR\tdividends\x12\x1f\n" +
 	"\vtotal_count\x18\x02 \x01(\x05R\n" +
 	"totalCount\x12%\n" +
-	"\x0etrailing_yield\x18\x03 \x01(\x01R\rtrailingYield\"\xa8\x02\n" +
+	"\x0etrailing_yield\x18\x03 \x01(\x01R\rtrailingYield\"\xc3\x02\n" +
 	"\tPeerStock\x12\x1d\n" +
 	"\n" +
 	"stock_code\x18\x01 \x01(\tR\tstockCode\x12!\n" +
@@ -11683,7 +11691,8 @@ const file_shorts_v1alpha1_shorts_proto_rawDesc = "" +
 	"market_cap\x18\x05 \x01(\x01R\tmarketCap\x12\x19\n" +
 	"\bpe_ratio\x18\x06 \x01(\x01R\apeRatio\x12%\n" +
 	"\x0edividend_yield\x18\a \x01(\x01R\rdividendYield\x12&\n" +
-	"\x0fprice_change_1m\x18\b \x01(\x01R\rpriceChange1m\"O\n" +
+	"\x0fprice_change_1m\x18\b \x01(\x01R\rpriceChange1m\x12\x19\n" +
+	"\blogo_url\x18\t \x01(\tR\alogoUrl\"O\n" +
 	"\x18GetPeerComparisonRequest\x12\x1d\n" +
 	"\n" +
 	"stock_code\x18\x01 \x01(\tR\tstockCode\x12\x14\n" +

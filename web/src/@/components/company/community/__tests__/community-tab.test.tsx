@@ -35,6 +35,10 @@ jest.mock("../../stock-news-feed", () => ({
   StockNewsFeed: () => <div data-testid="stock-news-feed" />,
 }));
 
+jest.mock("../../stock-news-tab", () => ({
+  StockNewsTab: () => <div data-testid="stock-news-tab" />,
+}));
+
 jest.mock("../../related-news-rail", () => ({
   RelatedNewsRail: () => <div data-testid="related-news-rail" />,
 }));

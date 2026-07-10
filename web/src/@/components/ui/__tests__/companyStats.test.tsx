@@ -47,4 +47,22 @@ describe("CompanyStats", () => {
     expect(screen.getByText("12.34%")).toBeInTheDocument();
     expect(screen.getByText("1.2M")).toBeInTheDocument();
   });
+
+  it("renders the 'Short position' card title with all three stat labels", async () => {
+    const result = await CompanyStats({
+      stockCode: "LOT",
+      initialStock: {
+        percentageShorted: 12.34,
+        reportedShortPositions: 1234567,
+        totalProductInIssue: 987654321,
+      } as Parameters<typeof CompanyStats>[0]["initialStock"],
+    });
+
+    render(result);
+
+    expect(screen.getByText("Short position")).toBeInTheDocument();
+    expect(screen.getByText("short percentage")).toBeInTheDocument();
+    expect(screen.getByText("reported shorts")).toBeInTheDocument();
+    expect(screen.getByText("shares on issue")).toBeInTheDocument();
+  });
 });

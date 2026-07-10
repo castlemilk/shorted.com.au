@@ -31,7 +31,7 @@ export function FinancialReports({ reports, stockCode: _stockCode }: FinancialRe
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "N/A";
     try {
-      return new Date(dateString).toLocaleDateString("en-US", {
+      return new Date(dateString).toLocaleDateString("en-AU", {
         year: "numeric",
         month: "short",
         day: "numeric",
@@ -48,9 +48,9 @@ export function FinancialReports({ reports, stockCode: _stockCode }: FinancialRe
       case "quarterly_report":
         return "text-purple-600 bg-purple-50 dark:text-purple-400 dark:bg-purple-950/30";
       case "financial_report":
-        return "text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-950/30";
+        return "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/30";
       default:
-        return "text-gray-600 bg-gray-50 dark:text-gray-400 dark:bg-gray-950/30";
+        return "text-muted-foreground bg-muted";
     }
   };
 
@@ -63,30 +63,28 @@ export function FinancialReports({ reports, stockCode: _stockCode }: FinancialRe
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <FileText className="h-5 w-5" />
-          Financial Reports
+          Financial reports
         </CardTitle>
         <CardDescription>
           {linkableReports.length} report{linkableReports.length !== 1 ? "s" : ""} available
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-3">
+        <div className="space-y-1">
           {linkableReports.slice(0, 10).map((report, index) => {
             const href = getReportHref(report)!;
             return (
-              <div
+              <a
                 key={index}
-                className="flex items-start justify-between p-3 rounded-lg border hover:bg-accent transition-colors"
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-start justify-between gap-2 rounded-lg p-2 -mx-2 hover:bg-muted/50 transition-colors"
               >
                 <div className="flex-1 space-y-1 min-w-0">
-                  <a
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm font-medium truncate block hover:underline"
-                  >
+                  <span className="text-sm font-medium truncate block">
                     {report.title}
-                  </a>
+                  </span>
                   <div className="flex items-center gap-2 flex-wrap">
                     <span
                       className={`text-xs px-2 py-0.5 rounded-full ${getReportTypeColor(
@@ -107,16 +105,11 @@ export function FinancialReports({ reports, stockCode: _stockCode }: FinancialRe
                     )}
                   </div>
                 </div>
-                <a
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`Open ${report.title}`}
-                  className="ml-2 shrink-0 inline-flex items-center justify-center rounded-md p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              </div>
+                <ExternalLink
+                  aria-hidden="true"
+                  className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground"
+                />
+              </a>
             );
           })}
         </div>

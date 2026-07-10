@@ -26,7 +26,12 @@ import CompanyInfo, {
 import CompanyFinancials,{
   CompanyFinancialsPlaceholder,
 } from "~/@/components/ui/companyFinancials";
-import { EnrichedCompanySection } from "~/@/components/company/enriched-company-section";
+import {
+  EnrichedCompanySection,
+  FinancialReportsSection,
+  FinancialStatementsSection,
+} from "~/@/components/company/enriched-company-section";
+import { CompanyTaxCard } from "~/@/components/company/company-tax-card";
 import { FinancialDigest } from "~/@/components/company/financial-digest";
 import { CommunityOverviewTeaser } from "~/@/components/company/community/community-overview-teaser";
 import { CommunityTab } from "~/@/components/company/community/community-tab";
@@ -50,7 +55,7 @@ import {
   CardHeader,
   CardTitle,
 } from "~/@/components/ui/card";
-import { CandlestickChart } from "lucide-react";
+import { CandlestickChart, ChevronDown } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { RelatedStocks } from "~/@/components/seo/related-stocks";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
@@ -185,6 +190,13 @@ const Page = async ({ params }: PageProps) => {
   // but returns undefined for transient backend errors.
   let stock: Awaited<ReturnType<typeof getStockOrNotFound>> = undefined;
   let relatedData: Awaited<ReturnType<typeof getRelatedStocks>>;
+  // Financial highlights (Financials tab) fetched in the same parallel batch —
+  // cached 24h, degrades gracefully to an empty list.
+  const financialHighlightsPromise = getStockFinancialHighlights([
+    stockCode,
+  ]).catch(
+    (): Record<string, import("~/app/actions/reports/getReportData").StockFinancialHighlight[]> => ({}),
+  );
   try {
     [stock, relatedData] = await Promise.all([
       getStockOrNotFound(stockCode),
@@ -199,10 +211,7 @@ const Page = async ({ params }: PageProps) => {
     relatedData = { stocks: [], industry: null, industrySlug: null };
   }
 
-  // Financial highlights — fetched server-side, cached 24h, degrades gracefully
-  const financialHighlightsMap = await getStockFinancialHighlights([stockCode]).catch(
-    (): Record<string, import("~/app/actions/reports/getReportData").StockFinancialHighlight[]> => ({}),
-  );
+  const financialHighlightsMap = await financialHighlightsPromise;
   const financialHighlights = financialHighlightsMap?.[stockCode] ?? [];
 
   const breadcrumbItems = [
@@ -237,6 +246,13 @@ const Page = async ({ params }: PageProps) => {
           shortPercentage={stock.percentageShorted || undefined}
           currentShortPosition={stock.reportedShortPositions || undefined}
         />
+      )}
+
+      {/* Guaranteed page h1: the rich crawler summary below only renders when
+          stock data resolved — on transient backend errors the page would
+          otherwise ship with no h1 at all. */}
+      {!stock && (
+        <h1 className="sr-only">{stockCode} Short Interest</h1>
       )}
 
       {stock && (() => {
@@ -434,8 +450,9 @@ const Page = async ({ params }: PageProps) => {
             </div>
 
             <div className="md:col-span-2 flex flex-col gap-4 md:gap-6">
-              {/* Price & Short Interest — consolidated dual-axis chart */}
-              <Card className="border-l-4 border-l-primary shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+              {/* Price & Short Interest — consolidated dual-axis chart.
+                  No hover elevation: the card isn't clickable. */}
+              <Card className="border-l-4 border-l-primary shadow-lg overflow-hidden">
                 <CardHeader className="pb-4 bg-gradient-to-r from-primary/5 to-transparent">
                   <div className="flex items-center gap-3">
                     <div className="p-2.5 bg-primary/10 rounded-lg shadow-sm">
@@ -444,29 +461,30 @@ const Page = async ({ params }: PageProps) => {
                     <div className="flex-1">
                       <CardTitle className="text-xl">Price &amp; Short Interest</CardTitle>
                       <CardDescription className="mt-1.5 text-sm">
-                        Price, short interest, and volume over time — toggle series, zoom, and compare
+                        Price, short interest, and volume over time. Toggle series, zoom, and compare.
                       </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="pt-2">
+                {/* Slim horizontal padding on phones: every pixel here comes
+                    straight out of the plot width */}
+                <CardContent className="px-3 pt-2 sm:px-6">
                   <StockChartPanel stockCode={stockCode} />
                 </CardContent>
               </Card>
 
-              {/* SSR short-interest history + FAQ — crawlable trend facts, moved
-                  here from above the breadcrumb. Native <details open> keeps the
-                  content in the DOM (crawlable) whether expanded or collapsed. */}
+              {/* SSR short-interest history + FAQ — crawlable trend facts.
+                  Native <details> keeps the content in the DOM (crawlable)
+                  whether expanded or collapsed; defaults CLOSED so ~550px of
+                  FAQ prose doesn't sit mid-overview. */}
               {stock && (stock.percentageShorted ?? 0) > 0 && (
-                <details
-                  open
-                  className="group rounded-lg border bg-card [&_summary::-webkit-details-marker]:hidden"
-                >
+                <details className="group rounded-lg border bg-card [&_summary::-webkit-details-marker]:hidden">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium">
                     Short interest history &amp; FAQ
-                    <span className="text-muted-foreground transition-transform group-open:rotate-180">
-                      ▾
-                    </span>
+                    <ChevronDown
+                      aria-hidden
+                      className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180"
+                    />
                   </summary>
                   <div className="border-t px-4 py-3">
                     <Suspense fallback={null}>
@@ -479,10 +497,12 @@ const Page = async ({ params }: PageProps) => {
                 </details>
               )}
 
-              <CommunityOverviewTeaser stockCode={stockCode} />
+              {/* Consolidated company research card — the ONLY place the
+                  enriched prose renders (the Financials tab shows reports
+                  + metrics only, no duplicated company content). */}
+              <EnrichedCompanySection stockCode={stockCode} />
 
-              {/* Enriched Company Insights (reports shown in Financials tab) */}
-              <EnrichedCompanySection stockCode={stockCode} hideReports />
+              <CommunityOverviewTeaser stockCode={stockCode} />
             </div>
           </div>
         }
@@ -492,7 +512,9 @@ const Page = async ({ params }: PageProps) => {
             <Suspense fallback={<CompanyFinancialsPlaceholder />}>
               <CompanyFinancials stockCode={stockCode} />
             </Suspense>
-            <EnrichedCompanySection stockCode={stockCode} />
+            <FinancialStatementsSection stockCode={stockCode} />
+            <CompanyTaxCard stockCode={stockCode} />
+            <FinancialReportsSection stockCode={stockCode} />
           </div>
         }
         communityContent={

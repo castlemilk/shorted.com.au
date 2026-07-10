@@ -103,7 +103,11 @@ export function NewsFeedWidget({ config, sizeVariant = "standard" }: WidgetProps
                   </h4>
                   {!isCompact && (
                     <div className="flex items-center gap-1.5 mt-1">
-                      <NewsSourceBadge source={article.source} />
+                      {/* Row is already an <a>; badge must not nest an anchor */}
+                      <NewsSourceBadge
+                        source={article.source}
+                        interactive={false}
+                      />
                       <SentimentBadge sentiment={article.sentiment} />
                     </div>
                   )}

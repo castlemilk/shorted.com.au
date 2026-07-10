@@ -13,6 +13,12 @@ sb.mock(import("~/app/actions/getIndustryTreeMap"));
 // by every treemap story (widget → TreemapTooltip → getTooltipData), so the
 // mock is needed for the module graph to build, not just for hover behavior.
 sb.mock(import("~/app/actions/tooltip/getTooltipData"));
+// Full mock (src/app/actions/client/__mocks__/getTooltipData.ts): spy mode
+// crashes on this module's type-only re-exports ("SerializedStockDetails is
+// not defined"). TreemapTooltip fetches through this edge-read facade —
+// unmocked it 404s against the static Storybook server and the tooltip
+// sticks in its loading state (nondeterministic visual snapshots).
+sb.mock(import("~/app/actions/client/getTooltipData"));
 sb.mock(import("~/app/actions/getStock"), { spy: true });
 // Spy mode is safe: getStockData has the same import profile as getStock
 // (connect-web + config + period-utils + withRetry — all browser-safe, no

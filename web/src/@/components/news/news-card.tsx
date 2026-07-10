@@ -3,6 +3,7 @@ import { ExternalLink, Megaphone } from "lucide-react";
 import { NewsSourceBadge } from "~/@/components/ui/news-source-badge";
 import { SentimentBadge } from "~/@/components/ui/sentiment-badge";
 import { cn } from "~/@/lib/utils";
+import { formatRelativeTime } from "~/@/lib/relative-time";
 import { isValidStockCode } from "~/@/lib/stock-code";
 import { stockChipPalette } from "~/@/lib/stock-color";
 
@@ -39,21 +40,8 @@ const sentimentBorder = (sentiment?: string) => {
   }
 };
 
-const formatRelativeTime = (iso: string): string => {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const diffMs = Date.now() - d.getTime();
-  const mins = Math.round(diffMs / 60000);
-  if (mins < 60) return `${Math.max(1, mins)}m ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.round(hrs / 24);
-  if (days < 7) return `${days}d ago`;
-  return d.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
-};
-
 export function NewsCard({ article, variant = "default", showStockChip = true, className }: NewsCardProps) {
-  const time = formatRelativeTime(article.publishedAt);
+  const time = formatRelativeTime(new Date(article.publishedAt));
   const isHero = variant === "hero";
   const isCompact = variant === "compact";
   const syndicationLabel =

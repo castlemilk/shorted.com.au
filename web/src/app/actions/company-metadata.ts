@@ -1,8 +1,5 @@
 "use server";
 
-import { createClient } from "@connectrpc/connect";
-import { createConnectTransport } from "@connectrpc/connect-web";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import type {
   StockDetails,
   FinancialStatements as ProtoFinancialStatements,
@@ -19,63 +16,22 @@ import type {
   Person,
   SocialMediaLinks,
 } from "~/@/types/company-metadata";
-import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
-import { retryWithBackoff } from "@/lib/retry";
+import { getStockDetails } from "./getStockDetails";
 import { cache } from "react";
-import { unstable_cache } from "next/cache";
-import {
-  STOCK_PAGE_CACHE_SECONDS,
-  normalizeStockPageCacheCode,
-  stockPageCacheTags,
-  toNextDataCacheValue,
-} from "./stockPageCache";
 
-const RETRY_OPTIONS = {
-  maxRetries: 3,
-  initialDelayMs: 500,
-  maxDelayMs: 5000,
-};
-
-async function fetchEnrichedCompanyMetadata(
-  stockCode: string,
-): Promise<EnrichedCompanyMetadata | null> {
-  const transport = createConnectTransport({
-    fetch: serverFetchWithUserAgent,
-    baseUrl: SHORTS_API_URL,
-  });
-  const client = createClient(ShortedStocksService, transport);
-
-  const details = await retryWithBackoff(
-    () =>
-      client.getStockDetails({
-        productCode: stockCode,
-      }),
-    RETRY_OPTIONS,
-  );
-
-  if (!details.productCode) {
-    return null;
-  }
-
-  return mapStockDetailsToMetadata(details);
-}
-
+// This module previously issued its OWN GetStockDetails RPC under a second
+// unstable_cache identity (['company-metadata', code]) — the same heavy
+// payload was fetched and stored twice per cold render. It now reuses the
+// getStockDetails action (edge-read + ['stock-details', code] cache) and
+// only maps the result.
 export const getEnrichedCompanyMetadata = cache(
   async (stockCode: string): Promise<EnrichedCompanyMetadata | null> => {
-    const cacheCode = normalizeStockPageCacheCode(stockCode);
-
     try {
-      return await unstable_cache(
-        async () =>
-          toNextDataCacheValue(
-            await fetchEnrichedCompanyMetadata(cacheCode),
-          ) as EnrichedCompanyMetadata | null,
-        ["company-metadata", cacheCode],
-        {
-          tags: stockPageCacheTags("company-metadata", cacheCode),
-          revalidate: STOCK_PAGE_CACHE_SECONDS,
-        },
-      )();
+      const details = await getStockDetails(stockCode);
+      if (!details?.productCode) {
+        return null;
+      }
+      return mapStockDetailsToMetadata(details);
     } catch (error) {
       console.error("Error fetching enriched company metadata via API:", error);
       return null;
@@ -85,20 +41,8 @@ export const getEnrichedCompanyMetadata = cache(
 
 export async function hasEnrichedData(stockCode: string): Promise<boolean> {
   try {
-    const transport = createConnectTransport({
-      fetch: serverFetchWithUserAgent,
-      baseUrl: SHORTS_API_URL,
-    });
-    const client = createClient(ShortedStocksService, transport);
-
-    const response = await retryWithBackoff(
-      () =>
-        client.getStockDetails({
-          productCode: stockCode.toUpperCase(),
-        }),
-      RETRY_OPTIONS,
-    );
-    return response.enrichmentStatus === "completed";
+    const details = await getStockDetails(stockCode.toUpperCase());
+    return details?.enrichmentStatus === "completed";
   } catch (error) {
     console.error("Error checking enriched data:", error);
     return false;

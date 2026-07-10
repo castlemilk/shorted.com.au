@@ -31,7 +31,7 @@ const items: NavItemWithGroup[] = [
 const SiteHeader: FC = () => {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-xl saturate-150 supports-[backdrop-filter]:bg-background/60">
-      <div className="flex h-16 items-center w-full px-4 md:px-6">
+      <div className="flex h-16 items-center w-full px-3 sm:px-4 md:px-6">
         <MainNav items={items} modeToggle={<ModeToggle />} />
       </div>
     </header>

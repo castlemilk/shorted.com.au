@@ -40,6 +40,7 @@ import {
 } from "~/@/mocks/fixtures/short-data";
 import { fetchIndustryTreeMapClient } from "~/@/lib/client-api";
 import { getTooltipData } from "~/app/actions/tooltip/getTooltipData";
+import { getTooltipDataClient } from "~/app/actions/client/getTooltipData";
 import { IndustryTreeMapSchema } from "~/gen/stocks/v1alpha1/stocks_pb";
 
 const meta = {
@@ -76,6 +77,10 @@ export const Default: Story = {
   beforeEach: () => {
     mocked(fetchIndustryTreeMapClient).mockResolvedValue(industryTreemapFixture());
     mocked(getTooltipData).mockImplementation((code) =>
+      Promise.resolve(tooltipDataFixture(code)),
+    );
+    // TreemapTooltip fetches through the client edge-read facade now.
+    mocked(getTooltipDataClient).mockImplementation((code) =>
       Promise.resolve(tooltipDataFixture(code)),
     );
   },

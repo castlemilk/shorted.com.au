@@ -1446,6 +1446,7 @@ message PeerStock {
   double pe_ratio = 6;
   double dividend_yield = 7;
   double price_change_1m = 8;     // 1-month price change %
+  string logo_url = 9;            // Company logo URL (GCS-hosted, may be empty)
 }
 
 // Request for GetPeerComparison RPC

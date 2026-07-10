@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import {
   Card,
   CardContent,
@@ -38,12 +37,18 @@ function PersonAvatar({ person }: { person: Person }) {
 
   return (
     <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full border-2 border-border">
-      <Image
+      {/* Plain <img>: avatar hosts are arbitrary (LinkedIn, Wikipedia, …) and
+          any host missing from next.config images.remotePatterns would make
+          next/image throw and take down the whole page. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
         src={src}
         alt={person.name}
-        fill
-        sizes="48px"
-        className="object-cover"
+        width={48}
+        height={48}
+        loading="lazy"
+        decoding="async"
+        className="h-full w-full object-cover"
         onError={() => setImgError(true)}
       />
     </div>
@@ -58,6 +63,9 @@ function WikipediaIcon({ className }: { className?: string }) {
   );
 }
 
+// p-2 -m-2 grows each chip's hit area to ~36px without shifting layout.
+const SOURCE_LINK_HIT_AREA = "p-2 -m-2 box-content";
+
 function PersonSourceLink({ person }: { person: Person }) {
   // Priority 1: LinkedIn URL
   if (person.linkedin_url) {
@@ -66,10 +74,12 @@ function PersonSourceLink({ person }: { person: Person }) {
         href={person.linkedin_url}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label={`${person.name} on LinkedIn`}
-        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-[#0A66C2] text-white hover:bg-[#004182] transition-colors"
+        aria-label={`${person.name} on LinkedIn (opens in new tab)`}
+        className={`inline-flex shrink-0 ${SOURCE_LINK_HIT_AREA}`}
       >
-        <Linkedin className="h-3 w-3" />
+        <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-[#0A66C2] text-white hover:bg-[#004182] transition-colors">
+          <Linkedin className="h-3 w-3" aria-hidden />
+        </span>
       </a>
     );
   }
@@ -81,10 +91,12 @@ function PersonSourceLink({ person }: { person: Person }) {
         href={person.source_url}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label={`${person.name} on Wikipedia`}
-        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-zinc-700 text-white hover:bg-zinc-600 transition-colors"
+        aria-label={`${person.name} on Wikipedia (opens in new tab)`}
+        className={`inline-flex shrink-0 ${SOURCE_LINK_HIT_AREA}`}
       >
-        <WikipediaIcon className="h-3.5 w-3.5" />
+        <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-zinc-700 text-white hover:bg-zinc-600 transition-colors">
+          <WikipediaIcon className="h-3.5 w-3.5" />
+        </span>
       </a>
     );
   }
@@ -96,15 +108,48 @@ function PersonSourceLink({ person }: { person: Person }) {
         href={person.source_url}
         target="_blank"
         rel="noopener noreferrer"
-        aria-label={`${person.name} source`}
-        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded bg-zinc-700 text-white hover:bg-zinc-600 transition-colors"
+        aria-label={`${person.name} source (opens in new tab)`}
+        className={`inline-flex shrink-0 ${SOURCE_LINK_HIT_AREA}`}
       >
-        <Globe className="h-3 w-3" />
+        <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-zinc-700 text-white hover:bg-zinc-600 transition-colors">
+          <Globe className="h-3 w-3" aria-hidden />
+        </span>
       </a>
     );
   }
 
   return null;
+}
+
+/** Bare leadership rows — used standalone inside the Company insights accordion. */
+export function KeyPeopleList({ people }: { people: Person[] }) {
+  const validPeople = people?.filter((p) => p.name?.trim()) ?? [];
+
+  if (validPeople.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-6">
+      {validPeople.map((person, index) => (
+        <div key={index} className="flex gap-4">
+          <PersonAvatar person={person} />
+          <div className="flex-1 space-y-1">
+            <p className="font-semibold text-sm flex items-center gap-1.5">
+              {person.name}
+              <PersonSourceLink person={person} />
+            </p>
+            <p className="text-xs text-muted-foreground">{person.role}</p>
+            {person.bio && (
+              <p className="text-sm text-muted-foreground leading-relaxed pt-0.5">
+                {person.bio}
+              </p>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function KeyPeople({ people, companyName }: KeyPeopleProps) {
@@ -120,30 +165,12 @@ export function KeyPeople({ people, companyName }: KeyPeopleProps) {
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <Users className="h-5 w-5" />
-          Key People
+          Key people
         </CardTitle>
         <CardDescription>Leadership team at {companyName}</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="space-y-6">
-          {validPeople.map((person, index) => (
-            <div key={index} className="flex gap-4">
-              <PersonAvatar person={person} />
-              <div className="flex-1 space-y-1">
-                <p className="font-semibold text-sm flex items-center gap-1.5">
-                  {person.name}
-                  <PersonSourceLink person={person} />
-                </p>
-                <p className="text-xs text-muted-foreground">{person.role}</p>
-                {person.bio && (
-                  <p className="text-sm text-muted-foreground leading-relaxed pt-0.5">
-                    {person.bio}
-                  </p>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+        <KeyPeopleList people={validPeople} />
       </CardContent>
     </Card>
   );

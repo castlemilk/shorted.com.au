@@ -402,6 +402,7 @@ type PeerStock struct {
 	PERatio              float64
 	DividendYield        float64
 	PriceChange1M        float64
+	LogoUrl              string
 }
 
 // PeerComparisonResult holds the subject stock and its peers

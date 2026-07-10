@@ -10,7 +10,6 @@ import {
   CardHeader,
   CardTitle,
 } from "~/@/components/ui/card";
-import { Skeleton } from "~/@/components/ui/skeleton";
 import { Scale } from "lucide-react";
 import { cn } from "~/@/lib/utils";
 
@@ -128,7 +127,12 @@ function ContributionBar({ contribution }: { contribution: number }) {
 }
 
 function isStockVerdictEnabled() {
-  return process.env.NEXT_PUBLIC_STOCK_VERDICT_ENABLED === "1";
+  // Default ON: the composite verdict is the page's main synthesis widget and
+  // degrades to null when the RPC has no data. The env var is a kill switch
+  // (set NEXT_PUBLIC_STOCK_VERDICT_ENABLED=0 to disable) — previously this
+  // required opt-in ("1") but the flag was never set in any environment, so
+  // the gauge was dark everywhere.
+  return process.env.NEXT_PUBLIC_STOCK_VERDICT_ENABLED !== "0";
 }
 
 export function StockVerdict({ stockCode }: StockVerdictProps) {
@@ -144,21 +148,9 @@ export function StockVerdict({ stockCode }: StockVerdictProps) {
 
   if (!enabled) return null;
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Scale className="h-5 w-5" />
-            Bear vs Bull verdict
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-40 w-full" />
-        </CardContent>
-      </Card>
-    );
-  }
+  // Below the fold + frequently absent: render nothing while loading rather
+  // than flashing a skeleton card that may unmount to null.
+  if (isLoading) return null;
 
   // NotFound (stock not in screener data) or any other failure: render nothing
   if (isError || !data) return null;

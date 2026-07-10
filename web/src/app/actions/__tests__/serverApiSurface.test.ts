@@ -233,11 +233,13 @@ describe("server API surface", () => {
   });
 
   it("keeps per-stock page data in persistent caches rather than only per-render React cache", () => {
+    // company-metadata.ts intentionally absent: it now delegates to
+    // getStockDetails() and inherits its unstable_cache identity instead of
+    // double-fetching the same RPC under a second cache key.
     const files = [
       "src/app/actions/getStock.ts",
       "src/app/actions/getStockDetails.ts",
       "src/app/actions/getStockData.ts",
-      "src/app/actions/company-metadata.ts",
     ];
 
     for (const file of files) {
@@ -246,6 +248,14 @@ describe("server API surface", () => {
       expect(source).toContain("STOCK_PAGE_CACHE_SECONDS");
       expect(source).toContain("revalidate: STOCK_PAGE_CACHE_SECONDS");
     }
+
+    // The delegation itself must stay in place.
+    const companyMetadata = fs.readFileSync(
+      path.join(webRoot, "src/app/actions/company-metadata.ts"),
+      "utf8",
+    );
+    expect(companyMetadata).toContain('from "./getStockDetails"');
+    expect(companyMetadata).not.toContain("createConnectTransport");
   });
 
   it("does not prioritize NEXT_PUBLIC_API_URL before the direct service endpoint in server-side API callers", () => {

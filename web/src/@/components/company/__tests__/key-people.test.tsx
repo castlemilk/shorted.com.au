@@ -20,7 +20,7 @@ describe("KeyPeople", () => {
   it("should render key people section with all information", () => {
     render(<KeyPeople people={mockPeople} companyName="Wesfarmers" />);
 
-    expect(screen.getByText("Key People")).toBeInTheDocument();
+    expect(screen.getByText("Key people")).toBeInTheDocument();
     expect(screen.getByText(/Leadership team at Wesfarmers/i)).toBeInTheDocument();
 
     // Check CEO

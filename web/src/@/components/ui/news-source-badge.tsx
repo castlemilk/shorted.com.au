@@ -100,12 +100,18 @@ interface NewsSourceBadgeProps {
   source: string;
   showLogo?: boolean;
   className?: string;
+  /**
+   * When false, render the badge span only (no anchor). Use inside rows that
+   * are themselves links — nesting an <a> in an <a> is invalid HTML.
+   */
+  interactive?: boolean;
 }
 
 export function NewsSourceBadge({
   source,
   showLogo = true,
   className = "",
+  interactive = true,
 }: NewsSourceBadgeProps) {
   const config = NEWS_SOURCES[source] ?? DEFAULT_SOURCE;
   const displayName = config.name || source;
@@ -129,7 +135,7 @@ export function NewsSourceBadge({
     </span>
   );
 
-  if (config.url) {
+  if (interactive && config.url) {
     return (
       <a
         href={config.url}

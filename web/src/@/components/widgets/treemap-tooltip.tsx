@@ -5,10 +5,10 @@ import { Skeleton } from "~/@/components/ui/skeleton";
 import { Sparkline, type SparklineData } from "~/@/components/ui/sparkline";
 import Image from "next/image";
 import {
-  getTooltipData,
   type SerializedStockDetails,
   type SerializedTimeSeriesData,
-} from "~/app/actions/tooltip/getTooltipData";
+  getTooltipDataClient,
+} from "~/app/actions/client/getTooltipData";
 import { getSectorImagePath } from "~/@/lib/sector-images";
 
 interface TreemapTooltipProps {
@@ -21,6 +21,8 @@ interface TreemapTooltipProps {
   containerHeight: number;
   containerX: number;
   containerY: number;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
 export function TreemapTooltip({
@@ -29,6 +31,8 @@ export function TreemapTooltip({
   industry,
   x,
   y,
+  onMouseEnter,
+  onMouseLeave,
 }: TreemapTooltipProps) {
   const [stockDetails, setStockDetails] = useState<SerializedStockDetails | null>(null);
   const [timeSeriesData, setTimeSeriesData] = useState<SerializedTimeSeriesData | null>(null);
@@ -44,8 +48,8 @@ export function TreemapTooltip({
     const fetchData = async () => {
       setLoading(true);
 
-      // Fetch cached tooltip data via server action
-      const data = await getTooltipData(productCode);
+      // Fetch cached tooltip data through the Cloudflare edge-read facade.
+      const data = await getTooltipDataClient(productCode);
 
       if (isMounted) {
         setStockDetails(data.stockDetails);
@@ -113,13 +117,17 @@ export function TreemapTooltip({
 
   return (
     <div
-      className="fixed z-50 pointer-events-none"
+      role="tooltip"
+      data-testid="treemap-tooltip"
+      className="fixed z-50 pointer-events-auto"
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       style={{
         left: tooltipX,
         top: tooltipY,
       }}
     >
-      <div className="bg-popover border border-border rounded-lg shadow-xl p-4 w-[320px] pointer-events-none">
+      <div className="bg-popover border border-border rounded-lg shadow-xl p-4 w-[320px] pointer-events-auto">
         {loading ? (
           // Loading skeleton
           <div className="space-y-3">
@@ -274,7 +282,10 @@ export function TreemapTooltip({
 
             {/* Sparkline chart */}
             {sparklineData.length > 1 && (
-              <div className="pt-2 border-t border-border">
+              <div
+                className="pt-2 border-t border-border"
+                data-testid="treemap-tooltip-sparkline"
+              >
                 <p className="text-xs text-muted-foreground mb-2">
                   30 Day Trend
                 </p>

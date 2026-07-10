@@ -1,12 +1,15 @@
 # Vercel project root is configured as `web/`. Exclude unrelated monorepo
 # areas and local/generated artifacts from CLI uploads.
-services/
-terraform/
-sdks/
-docs/
-scripts/
-supabase/
-bin/
+# NOTE: unanchored dir patterns follow .gitignore semantics and match at ANY
+# depth — `scripts/` used to swallow web/scripts/ (bump-version.sh), breaking
+# CLI builds with exit 127. Keep repo-root-only excludes anchored with `/`.
+/services/
+/terraform/
+/sdks/
+/docs/
+/scripts/
+/supabase/
+/bin/
 node_modules/
 .next/
 .turbo/
@@ -20,6 +23,13 @@ test-results/
 .serena/
 .worktrees/
 2026-*.txt
+/analysis/
+/proto/
+/output/
+# Root-level review screenshots (anchored: web/public assets unaffected)
+/*.png
+/*.jpeg
+web/storybook-static/
 
 # Local/generated web app artifacts
 web/.next/

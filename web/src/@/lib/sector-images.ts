@@ -1,6 +1,6 @@
 /**
  * Maps industry names to sector image paths.
- * Images are 256x256 gold medallion-style icons stored in /assets/sectors/.
+ * Images are 256x256 transparent industry cutouts stored in /assets/sectors-v2/.
  *
  * IMPORTANT: This is an explicit map from every known GICS industry name
  * (as returned by the production API) to the image filename. If a new industry
@@ -55,6 +55,8 @@ const INDUSTRY_TO_IMAGE: Record<string, string> = {
   "":               "other",
 };
 
+const SECTOR_ASSET_BASE_PATH = "/assets/sectors-v2";
+
 /**
  * Resolve an industry name to its image filename.
  * Falls back to "other" if no match found.
@@ -68,14 +70,14 @@ function industryToFilename(industry: string): string {
  * Use with next/image for automatic avif/webp optimization.
  */
 export function getSectorImagePath(industry: string): string {
-  return `/assets/sectors/${industryToFilename(industry)}.webp`;
+  return `${SECTOR_ASSET_BASE_PATH}/${industryToFilename(industry)}.webp`;
 }
 
 /**
  * Get the PNG image path (for OG images where base64 encoding is needed).
  */
 export function getSectorImagePathPng(industry: string): string {
-  return `/assets/sectors/${industryToFilename(industry)}.png`;
+  return `${SECTOR_ASSET_BASE_PATH}/${industryToFilename(industry)}.png`;
 }
 
 /**

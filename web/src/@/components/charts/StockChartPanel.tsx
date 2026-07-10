@@ -13,9 +13,9 @@ const PERIODS = ["1m", "3m", "6m", "1y", "2y", "max"] as const;
 type Period = (typeof PERIODS)[number];
 
 const VIEWS = [
-  { id: "combined", label: "Combined" },
-  { id: "short", label: "Short Interest" },
-  { id: "price", label: "Price & Volume" },
+  { id: "combined", label: "Combined", shortLabel: "Combined" },
+  { id: "short", label: "Short Interest", shortLabel: "Short" },
+  { id: "price", label: "Price & Volume", shortLabel: "Price" },
 ] as const;
 type ViewId = (typeof VIEWS)[number]["id"];
 
@@ -163,7 +163,10 @@ export function StockChartPanel({
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Controls: view sub-tabs + period selector */}
+      {/* Controls: view sub-tabs + period selector. Both clusters wrap and
+          the view labels compact below sm — a non-wrapping cluster here gets
+          clipped by the card's overflow-hidden on mobile, leaving the longer
+          period buttons unreachable. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div
           className="flex items-center gap-0.5 rounded-md border p-0.5"
@@ -172,11 +175,12 @@ export function StockChartPanel({
         >
           {VIEWS.map((v) => (
             <SegButton key={v.id} active={view === v.id} onClick={() => setView(v.id)}>
-              {v.label}
+              <span className="hidden sm:inline">{v.label}</span>
+              <span className="sm:hidden">{v.shortLabel}</span>
             </SegButton>
           ))}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {view === "combined" && correlation != null && (
             <span
               className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground"

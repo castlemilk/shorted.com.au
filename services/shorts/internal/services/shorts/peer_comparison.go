@@ -57,6 +57,7 @@ func convertPeerStock(p *shortsstore.PeerStock) *shortsv1alpha1.PeerStock {
 		PeRatio:              p.PERatio,
 		DividendYield:        p.DividendYield,
 		PriceChange_1M:       p.PriceChange1M,
+		LogoUrl:              p.LogoUrl,
 	}
 }
 

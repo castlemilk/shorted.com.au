@@ -1,5 +1,6 @@
 import { getStockDetails } from "~/app/actions/getStockDetails";
 import { type StockDetails } from "~/gen/stocks/v1alpha1/stocks_pb";
+import { formatDividendYield } from "~/@/lib/format-dividend-yield";
 import { Card, CardHeader, CardTitle, CardContent } from "./card";
 import { Separator } from "./separator";
 import { Skeleton } from "./skeleton";
@@ -8,22 +9,17 @@ import { TrendingUp, DollarSign, Users } from "lucide-react";
 export const CompanyFinancialsPlaceholder = () => (
   <Card className="sm:col-span-4">
     <CardHeader className="pb-3">
-      <CardTitle className="flex items-center gap-2">
-        <TrendingUp className="h-4 w-4" />
-        Key Metrics
+      <CardTitle className="text-lg flex items-center gap-2">
+        <TrendingUp className="h-5 w-5" />
+        Key metrics
       </CardTitle>
-      <Separator />
-      <CardContent className="p-0 text-xs">
-        <div className="flex align-middle justify-between py-2">
-          <span className="flex justify-center uppercase font-semibold">
-            market cap
-          </span>
-          <span className="flex items-end">
-            <Skeleton className="w-[60px] h-[15px]" />
-          </span>
-        </div>
-      </CardContent>
     </CardHeader>
+    <CardContent className="text-xs">
+      <div className="flex items-center justify-between py-2">
+        <span className="uppercase font-semibold">market cap</span>
+        <Skeleton className="w-[60px] h-[15px]" />
+      </div>
+    </CardContent>
   </Card>
 );
 
@@ -95,13 +91,12 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
   return (
     <Card className="sm:col-span-4">
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2">
-          <TrendingUp className="h-4 w-4" />
-          Key Metrics
+        <CardTitle className="text-lg flex items-center gap-2">
+          <TrendingUp className="h-5 w-5" />
+          Key metrics
         </CardTitle>
-        <Separator />
-
-        <CardContent className="p-0 space-y-0">
+      </CardHeader>
+      <CardContent className="space-y-0">
           {/* Market Cap */}
           {(() => {
             if (!isValidValue(financialInfo.marketCap)) return null;
@@ -116,7 +111,7 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
                       market cap
                     </span>
                   </div>
-                  <span className="text-xs">{formatted}</span>
+                  <span className="text-xs tabular-nums">{formatted}</span>
                 </div>
                 <Separator />
               </>
@@ -132,7 +127,7 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
               <>
                 <div className="flex align-middle justify-between py-2">
                   <span className="uppercase font-semibold text-xs">price</span>
-                  <span className="text-xs">{formatted}</span>
+                  <span className="text-xs tabular-nums">{formatted}</span>
                 </div>
                 <Separator />
               </>
@@ -160,7 +155,7 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
                   <span className="uppercase font-semibold text-xs">
                     p/e ratio
                   </span>
-                  <span className="text-xs">{formatted}</span>
+                  <span className="text-xs tabular-nums">{formatted}</span>
                 </div>
                 <Separator />
               </>
@@ -176,35 +171,26 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
               <>
                 <div className="flex align-middle justify-between py-2">
                   <span className="uppercase font-semibold text-xs">eps</span>
-                  <span className="text-xs">{formatted}</span>
+                  <span className="text-xs tabular-nums">{formatted}</span>
                 </div>
                 <Separator />
               </>
             );
           })()}
 
-          {/* Dividend Yield */}
+          {/* Dividend Yield — stored units are unreliable (fraction, percent,
+              or double-scaled percent depending on ingestion era), so the
+              formatter normalizes and refuses to render >100% yields. */}
           {(() => {
-            if (!isValidValue(financialInfo.dividendYield)) return null;
-            const divYield = financialInfo.dividendYield;
-            const num =
-              typeof divYield === "number"
-                ? divYield
-                : parseFloat(String(divYield));
-            if (isNaN(num) || num === 0) return null;
-            const formatted =
-              typeof divYield === "number"
-                ? `${(divYield * 100).toFixed(2)}%`
-                : String(divYield);
-            // Double-check formatted value isn't "0000" or similar
-            if (/^0+\.?0*%?$/.test(formatted.replace(/%$/, ""))) return null;
+            const formatted = formatDividendYield(financialInfo.dividendYield);
+            if (!formatted) return null;
             return (
               <>
                 <div className="flex align-middle justify-between py-2">
                   <span className="uppercase font-semibold text-xs">
                     dividend yield
                   </span>
-                  <span className="text-xs">{formatted}</span>
+                  <span className="text-xs tabular-nums">{formatted}</span>
                 </div>
                 <Separator />
               </>
@@ -225,13 +211,12 @@ const CompanyFinancials = async ({ stockCode }: { stockCode: string }) => {
                       employees
                     </span>
                   </div>
-                  <span className="text-xs">{formatted}</span>
+                  <span className="text-xs tabular-nums">{formatted}</span>
                 </div>
               </>
             );
           })()}
-        </CardContent>
-      </CardHeader>
+      </CardContent>
     </Card>
   );
 };
