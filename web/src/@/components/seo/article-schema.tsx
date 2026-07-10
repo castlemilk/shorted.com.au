@@ -4,11 +4,18 @@ interface ArticleSchemaProps {
   datePublished: string;
   dateModified?: string;
   authorName: string;
+  /** Author profile slug under /authors/ — defaults to slugified authorName. */
+  authorSlug?: string;
   authorImage?: string;
   image?: string;
   url: string;
   keywords?: string[];
 }
+
+// Google's Article rich-result requirements expect fully-qualified image URLs;
+// relative paths can be dropped when the JSON-LD is consumed out of page context.
+const absoluteUrl = (u?: string): string | undefined =>
+  u && u.startsWith("/") ? `https://shorted.com.au${u}` : u;
 
 export function ArticleSchema({
   title,
@@ -16,6 +23,7 @@ export function ArticleSchema({
   datePublished,
   dateModified,
   authorName,
+  authorSlug,
   authorImage,
   image,
   url,
@@ -26,14 +34,15 @@ export function ArticleSchema({
     "@type": "Article",
     headline: title,
     description: description,
-    image: image ? [image] : [],
+    image: image ? [absoluteUrl(image)] : [],
     datePublished: datePublished,
     dateModified: dateModified ?? datePublished,
     author: {
       "@type": "Person",
       name: authorName,
-      image: authorImage,
-      url: `https://shorted.com.au/author/${authorName.toLowerCase().replace(/\s+/g, '-')}`,
+      image: absoluteUrl(authorImage),
+      // The author route is /authors/[slug] (plural).
+      url: `https://shorted.com.au/authors/${authorSlug ?? authorName.toLowerCase().replace(/\s+/g, "-")}`,
     },
     publisher: {
       "@type": "Organization",

@@ -54,7 +54,7 @@ export async function generateMetadata({
   const preset = typeof params.preset === "string" ? params.preset : undefined;
   const presetMeta = preset ? PRESET_META[preset] : undefined;
 
-  const title = presetMeta ? presetMeta.title : "Stock Screener";
+  const title = presetMeta ? presetMeta.title : "ASX Short Interest Screener — Free Stock Filters";
   const description =
     presetMeta?.description ??
     "Screen ASX stocks using short positions, price changes, fundamentals, director trades, and news sentiment. Pre-built presets for short squeeze candidates, dividend pressure, and more.";
@@ -173,7 +173,7 @@ export default function ScreenerPage() {
       />
       <div className="container mx-auto px-4 pt-6 pb-2 max-w-7xl">
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-          ASX Stock Screener
+          ASX Short Interest Screener
         </h1>
         <p className="text-muted-foreground mt-2 max-w-2xl text-sm leading-relaxed">
           Filter and screen ASX-listed stocks by short interest levels, price

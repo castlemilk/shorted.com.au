@@ -14,6 +14,7 @@ import {
   SHORTS_API_URL,
   buildApiUrl,
   serverFetchWithUserAgent,
+  skipForBuild,
 } from "~/app/actions/config";
 
 interface TopShortsTimeSeries {
@@ -34,7 +35,7 @@ interface TopShortsResponse {
 async function getAllStocksForDirectory(): Promise<
   Array<{ code: string; name: string; shortPercent: number }>
 > {
-  if (process.env.SKIP_STATIC_GENERATION === "1") {
+  if (skipForBuild()) {
     return [];
   }
 
@@ -95,7 +96,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return { title: "Not Found" };
   }
 
-  const title = `ASX Stocks Starting with ${upperLetter} | Stock Directory | ${siteConfig.name}`;
+  // NOTE: the root layout applies a `%s | Shorted` title template — do not
+  // append the brand here or titles render "… | Shorted | Shorted".
+  const title = `ASX Stocks Starting with ${upperLetter} | Stock Directory`;
   const description = `Browse all ASX listed companies starting with "${upperLetter}" with current short position data from official ASIC reports.`;
 
   return {

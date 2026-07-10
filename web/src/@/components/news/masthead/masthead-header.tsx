@@ -22,9 +22,14 @@ export function MastheadHeader() {
       <div className="border-t border-border" aria-hidden />
 
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-1 py-4">
-        <h1 className="font-serif text-3xl tracking-tight md:text-4xl">
-          Shorted <span className="italic text-primary">Newsroom</span>
-        </h1>
+        <div className="font-serif text-3xl tracking-tight md:text-4xl">
+          <h1 className="sr-only">
+            ASX Market News & Short Selling Analysis — Shorted Newsroom
+          </h1>
+          <span aria-hidden>
+            Shorted <span className="italic text-primary">Newsroom</span>
+          </span>
+        </div>
         <p className="pb-1 text-xs text-muted-foreground md:text-sm">
           {today}
         </p>

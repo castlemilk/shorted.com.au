@@ -3,6 +3,8 @@ import { type Metadata } from "next";
 import { getTopShortsData } from "../actions/getTopShorts";
 import { calculateMovers, type TimePeriod } from "~/@/lib/shorts-calculations";
 import { siteConfig } from "~/@/config/site";
+import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
+import { ShortsListFallback } from "~/@/components/shorts-list-fallback";
 
 // Dynamic import to avoid SSR issues — child imports @connectrpc/connect
 const TopShortsClient = nextDynamic(
@@ -11,9 +13,9 @@ const TopShortsClient = nextDynamic(
 );
 
 export const metadata: Metadata = {
-  title: "ASX Short Positions List | All Shorted Stocks",
+  title: "ASX Short Positions List & Short Interest Data",
   description:
-    "Complete list of all ASX short positions from official ASIC data. Browse short selling positions for every Australian stock with T+4 delay. Filter, sort and analyze short interest data.",
+    "Every ASX short position from official ASIC data in one sortable list. Track short interest for all Australian stocks, updated daily with T+4 delay.",
   keywords: [
     "ASX short positions list",
     "all shorted stocks ASX",
@@ -24,9 +26,9 @@ export const metadata: Metadata = {
     "ASX short selling list",
   ],
   openGraph: {
-    title: "ASX Short Positions List | All Shorted Stocks",
+    title: "ASX Short Positions List & Short Interest Data | Shorted",
     description:
-      "Complete list of all ASX short positions from official ASIC data. Updated daily with T+4 delay.",
+      "Every ASX short position from official ASIC data in one sortable list. Updated daily with T+4 delay.",
     url: `${siteConfig.url}/shorts`,
     siteName: siteConfig.name,
     type: "website",
@@ -34,9 +36,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "ASX Short Positions List | All Shorted Stocks",
+    title: "ASX Short Positions List & Short Interest Data",
     description:
-      "Complete list of all ASX short positions from official ASIC data.",
+      "Every ASX short position from official ASIC data in one sortable list. Updated daily with T+4 delay.",
   },
   alternates: {
     canonical: `${siteConfig.url}/shorts`,
@@ -52,11 +54,25 @@ export const dynamic = "force-dynamic";
 // Revalidate every 10 minutes for fresh data
 export const revalidate = 600;
 
+// Breadcrumbs for structured data
+const breadcrumbs = [
+  { name: "Home", url: siteConfig.url },
+  { name: "ASX Short Positions", url: `${siteConfig.url}/shorts` },
+];
+
 export default async function TopShortsPage() {
   // Fetch data on server — returns undefined if backend is unreachable (e.g. during build)
   const data = await getTopShortsData(DEFAULT_PERIOD, LOAD_CHUNK_SIZE, 0);
   const timeSeries = data?.timeSeries ?? [];
   const moversData = calculateMovers(timeSeries, DEFAULT_PERIOD);
+
+  // Server-rendered fallback rows so crawlers see real data (the interactive
+  // dashboard below is client-only via dynamic ssr:false).
+  const fallbackStocks = timeSeries.map((ts) => ({
+    code: ts.productCode,
+    name: ts.name || ts.productCode,
+    percent: ts.latestShortPosition,
+  }));
 
   // ItemList schema — declares this URL as the canonical index for the
   // top shorted ASX stocks so crawlers + AI Overviews can ingest the
@@ -85,10 +101,30 @@ export default async function TopShortsPage() {
 
   return (
     <>
+      <BreadcrumbListSchema items={breadcrumbs} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }}
       />
+
+      {/* Server-rendered header — the interactive dashboard below is
+          client-only (ssr:false), so this is the indexable page intro. */}
+      <header className="container mx-auto px-4 pt-6">
+        <h1 className="text-3xl font-bold tracking-tight">
+          ASX Short Positions — Full List
+        </h1>
+        <p className="mt-2 max-w-3xl text-muted-foreground">
+          Every short position reported to ASIC across the Australian
+          Securities Exchange, in one sortable list. Data comes from official
+          ASIC short-position reports, updated daily with a T+4 delay, and
+          covers every reported ASX stock. Use it to track short interest and
+          see where short sellers are most active.
+        </p>
+      </header>
+
+      {/* SSR fallback table (sr-only) so crawlers see real data rows */}
+      <ShortsListFallback stocks={fallbackStocks} />
+
       <TopShortsClient
         initialMoversData={moversData}
         initialPeriod={DEFAULT_PERIOD}

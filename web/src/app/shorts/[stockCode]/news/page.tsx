@@ -11,7 +11,8 @@ import {
 } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { getStockNews } from "~/app/actions/getStockNews";
-import { getStockOrNotFound } from "~/app/actions/getStock";
+import { getStock, getStockOrNotFound } from "~/app/actions/getStock";
+import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 
 export const revalidate = 600;
 
@@ -25,9 +26,29 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const title = `${code} News & Sentiment | Latest ASX Articles`;
   const description = `Latest news and sentiment analysis for ${code} on the ASX. Aggregated from Stockhead, Motley Fool, Small Caps, Kalkine and Google News, with AI-classified sentiment.`;
 
+  // Inherit the stock page's indexability gate: a noindexed thin stock must
+  // not leak an indexable /news subpage (fail open on transient fetch errors).
+  let shouldNoindex = false;
+  try {
+    const stock = await getStock(code);
+    if (stock) {
+      shouldNoindex = !isStockIndexable({
+        code,
+        name: stock.name,
+        industry: stock.industry,
+        percentShorted: stock.percentageShorted,
+      });
+    }
+  } catch {
+    // fail open — keep default robots
+  }
+
   return {
     title,
     description,
+    robots: shouldNoindex
+      ? { index: false, follow: true, googleBot: { index: false, follow: true } }
+      : undefined,
     keywords: [
       `${code} news`,
       `${code} ASX news`,

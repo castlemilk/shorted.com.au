@@ -31,17 +31,326 @@ const articlesData: Record<
     readTime: string;
     level: string;
     topics: string[];
+    /** ISO date the article was first published (E-E-A-T freshness signal). */
+    datePublished: string;
+    /** ISO date the article was last materially updated. */
+    dateModified: string;
     content: React.ReactNode;
     faqs: Array<{ question: string; answer: string }>;
     relatedArticles: string[];
   }
 > = {
+  "how-to-short-the-asx": {
+    title: "How to Short the ASX — Shorting Australian Stocks",
+    description:
+      "The complete guide to shorting the ASX: direct share borrowing, CFDs, put and XJO index options, and inverse ETFs like BEAR and BBOZ. Compare costs and risks, understand the legal requirements, and run the pre-trade checklist before shorting Australian stocks.",
+    readTime: "16 min read",
+    level: "Beginner",
+    datePublished: "2026-07-11",
+    dateModified: "2026-07-11",
+    topics: ["Shorting the ASX", "CFDs", "Options", "Inverse ETFs"],
+    relatedArticles: [
+      "covered-short-selling-australia",
+      "short-selling-vs-put-options",
+      "what-is-short-selling",
+    ],
+    faqs: [
+      {
+        question: "Can you short stocks on the ASX?",
+        answer:
+          "Yes. Retail investors can short ASX stocks four ways: borrowing and selling shares directly through brokers like Interactive Brokers, trading CFDs with providers like CMC Markets or IG, buying exchange-traded put options, or buying inverse ETFs such as BetaShares BEAR. Direct short sales must be covered — your broker has to arrange the share borrow before the sale executes.",
+      },
+      {
+        question: "How do I short the ASX 200?",
+        answer:
+          "The simplest route is an inverse ETF: BetaShares BEAR delivers roughly the opposite of the ASX 200's daily move, and BBOZ delivers a leveraged inverse exposure of about -2x to -2.75x per day. Alternatives are buying XJO index put options (European-style, cash-settled at A$10 per index point), selling SPI 200 futures, or shorting the index through a CFD. Leveraged inverse ETFs rebalance daily and decay in choppy markets, so they suit short holding periods only.",
+      },
+      {
+        question: "Is short selling legal in Australia?",
+        answer:
+          "Yes. Covered short selling — where the seller has arranged to borrow the shares before selling — is legal and regulated by ASIC. Naked short selling, where no borrow is arranged, is prohibited under section 1020B of the Corporations Act 2001. Net short positions above the reporting threshold must be reported to ASIC, which publishes aggregated data daily with a four-trading-day (T+4) delay.",
+      },
+      {
+        question: "How do I see how shorted an ASX stock is?",
+        answer:
+          "ASIC publishes daily net short positions for every ASX stock with a T+4 delay, and Shorted.com.au presents that data with charts, search, and full history. Check any stock's page (for example shorted.com.au/shorts/BHP), browse the top 100 most shorted stocks at shorted.com.au/top, or filter by short interest and days to cover in the screener at shorted.com.au/screener.",
+      },
+    ],
+    content: (
+      <article className="prose prose-slate dark:prose-invert max-w-none">
+        <h2>What &quot;shorting the ASX&quot; means</h2>
+        <p>
+          Shorting the ASX means positioning to profit when Australian share prices fall —
+          either a single stock you believe is overvalued, or the broader S&amp;P/ASX 200
+          index. There is no single &quot;short button&quot; on an Australian brokerage
+          account. Instead, investors have four practical routes, each with different
+          mechanics, costs, and risk profiles. This guide covers all four, the step-by-step
+          broker mechanics of a direct short sale, the legal rules that govern short selling
+          in Australia, and the checks worth running before you place the trade.
+        </p>
+
+        <h2>The four ways to short an ASX stock</h2>
+
+        <h3>1. Direct short selling through a broker</h3>
+        <p>
+          The classic approach: your broker borrows shares on your behalf, you sell them on
+          market, and you buy them back later — profiting if the price has fallen in the
+          meantime. Full-service brokers and margin platforms offer this facility.
+          Interactive Brokers provides the widest range of shortable ASX stocks for retail
+          clients thanks to its global securities lending network, with a real-time
+          availability checker built into its platform. CommSec offers a more limited
+          shortable list through its margin lending facility.
+        </p>
+        <p>
+          Direct shorting gives you clean, linear exposure with no expiry date. The
+          trade-offs: you need a margin account, you pay a borrow fee for as long as the
+          position is open, you owe any dividends to the share lender, and your loss is
+          theoretically unlimited if the stock rises. Our guide to{" "}
+          <a href="/learn/covered-short-selling-australia">
+            covered short selling and stock borrowing in Australia
+          </a>{" "}
+          covers the broker-by-broker detail.
+        </p>
+
+        <h3>2. CFDs — contracts for difference</h3>
+        <p>
+          CFD providers such as CMC Markets and IG let you open a short position without
+          borrowing any shares. A CFD is a derivative contract in which you exchange the
+          difference between a stock&apos;s entry and exit price with the provider — sell
+          the CFD short and you profit when the underlying falls.
+        </p>
+        <p>
+          CFDs are the most accessible route for retail traders: there is no locate process,
+          single-stock and index exposure sit in one account, and position sizes can be
+          small. The costs are real, though. Leverage magnifies losses as well as gains
+          (ASIC caps retail CFD leverage on individual shares at 5:1), overnight funding
+          charges accrue every day the position stays open, and you carry counterparty risk
+          against the provider rather than holding an exchange-traded instrument.
+        </p>
+
+        <h3>3. Exchange-traded options — puts and XJO index options</h3>
+        <p>
+          Buying a put option gives you the right to sell a stock at a fixed strike price
+          before expiry. If the stock falls below the strike, the put gains value; if it
+          does not, you lose only the premium paid. Exchange-traded options are quoted on
+          the larger ASX names, so puts work best for shorting liquid, big-cap stocks.
+        </p>
+        <p>
+          To short the whole market, XJO options over the S&amp;P/ASX 200 index are the
+          standard instrument. They are European-style (exercisable only at expiry) and
+          cash-settled at A$10 per index point — no shares change hands. Buying XJO puts is
+          a defined-risk way to position for a market fall or to hedge a long portfolio.
+        </p>
+        <p>
+          The structural cost of options is time decay: every day that passes without the
+          fall you expect erodes the premium, and an option that expires out of the money
+          is worth nothing. You need to be right on direction <em>and</em> timing. For a
+          full comparison, see{" "}
+          <a href="/learn/short-selling-vs-put-options">
+            short selling vs put options
+          </a>
+          .
+        </p>
+
+        <h3>4. Inverse ETFs — BEAR and BBOZ</h3>
+        <p>
+          Inverse ETFs are the only way to short the ASX from an ordinary, unleveraged
+          share trading account — you simply buy a fund that rises when the market falls.
+          BetaShares BEAR targets roughly the opposite of the ASX 200&apos;s daily move
+          (about -0.9x to -1.1x), while BBOZ is the leveraged version, targeting around
+          -2x to -2.75x of each day&apos;s move. Your maximum loss is what you paid for
+          the units, no margin account is required, and there are no borrow fees or margin
+          calls.
+        </p>
+        <p>
+          The critical caveat is <strong>daily-rebalance decay</strong>. These funds reset
+          their exposure every day, so over multiple days your return compounds
+          path-dependently rather than tracking the index&apos;s total move. In a choppy,
+          sideways market a leveraged inverse ETF like BBOZ can lose money even if the
+          index finishes exactly where it started, because each down-then-up round trip
+          erodes the fund&apos;s value. Inverse ETFs — especially leveraged ones — are
+          tools for short holding periods and tactical hedges, not long-term bearish
+          positions.
+        </p>
+
+        <h2>Step by step: how a direct short sale works</h2>
+        <ol>
+          <li>
+            <strong>Open a margin account:</strong> Short selling requires margin approval
+            with a broker that offers stock borrowing.
+          </li>
+          <li>
+            <strong>Locate the borrow:</strong> Before your order can execute, the broker
+            must confirm shares are available to borrow from its lending pool. If no
+            borrow exists, the order is rejected — Australian law does not allow the sale
+            to proceed uncovered.
+          </li>
+          <li>
+            <strong>Post margin:</strong> You lodge collateral, typically 25-50% of the
+            position value at Interactive Brokers and up to 100% or more for volatile
+            stocks at other brokers. If the stock rises, you will be asked for more.
+          </li>
+          <li>
+            <strong>Sell on market:</strong> The order executes flagged as a short sale,
+            as required by ASIC&apos;s transaction reporting rules.
+          </li>
+          <li>
+            <strong>Pay the borrow fee:</strong> Charged daily as an annualised rate on
+            the position&apos;s market value — roughly 0.25-1% p.a. for blue chips like
+            BHP or CBA, 1-5% for mid-caps, and anywhere from 5% to 50%+ for
+            hard-to-borrow, heavily shorted names. Any dividends paid while you are short
+            are owed to the lender.
+          </li>
+          <li>
+            <strong>Buy to cover:</strong> You close the position by buying the same
+            number of shares and returning them. The difference between your sale and
+            buyback prices, minus fees, is your profit or loss.
+          </li>
+        </ol>
+
+        <h2>Cost and risk comparison</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Method</th>
+              <th>Maximum loss</th>
+              <th>Ongoing costs</th>
+              <th>Best suited to</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Direct short sale</td>
+              <td>Unlimited — no ceiling on how far a stock can rise</td>
+              <td>Borrow fee (0.25-50%+ p.a.), dividends owed, margin interest</td>
+              <td>Longer-horizon, high-conviction positions in borrowable stocks</td>
+            </tr>
+            <tr>
+              <td>CFDs</td>
+              <td>Can exceed your deposit at 5:1 leverage before stop-outs</td>
+              <td>Overnight funding charges, spread, leverage risk</td>
+              <td>Short-term trades and index positions with small capital</td>
+            </tr>
+            <tr>
+              <td>Put options / XJO puts</td>
+              <td>Capped at the premium paid</td>
+              <td>Time decay — premium erodes daily toward expiry</td>
+              <td>Defined-risk bearish trades and portfolio hedges with a timeframe</td>
+            </tr>
+            <tr>
+              <td>Inverse ETFs (BEAR, BBOZ)</td>
+              <td>Capped at the amount invested</td>
+              <td>Management fees plus daily-rebalance decay in volatile markets</td>
+              <td>Tactical, short-duration market hedges from a standard account</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          The pattern to note: the routes with capped losses (options, inverse ETFs) charge
+          for that protection through decay, while the routes with linear payoff (direct
+          shorts, CFDs) expose you to unlimited or leveraged losses. There is no free
+          structure — you are choosing which cost you prefer to carry.
+        </p>
+
+        <h2>The legal layer: what Australian law requires</h2>
+        <ul>
+          <li>
+            <strong>Covered short selling only:</strong> Section 1020B of the Corporations
+            Act 2001 prohibits naked short selling. A borrow arrangement must be in place
+            before the sale — your broker enforces this at the locate step, and breaches
+            attract civil and criminal penalties.
+          </li>
+          <li>
+            <strong>Net short position reporting:</strong> Positions above the ASIC
+            reporting threshold — A$100,000 in value or 0.01% of the company&apos;s
+            issued capital, whichever is less — must be reported to ASIC by 9:00 AM
+            the next trading day.
+            Reporting sits with the position holder (institutions and larger traders);
+            retail-sized positions rarely reach the threshold.
+          </li>
+          <li>
+            <strong>T+4 publication:</strong> ASIC aggregates the reported positions per
+            stock and publishes the totals four trading days later. This is the dataset
+            behind every short interest figure on Shorted.com.au — always four trading
+            days behind the market.
+          </li>
+          <li>
+            <strong>CFD product intervention:</strong> ASIC caps retail CFD leverage
+            (5:1 on shares, 20:1 on major indices) and mandates negative balance
+            protection on retail CFD accounts.
+          </li>
+        </ul>
+
+        <h2>Pre-trade checklist: before you short anything</h2>
+        <ol>
+          <li>
+            <strong>Check the current short interest.</strong> Look up the stock on
+            Shorted.com.au — for example <a href="/shorts/BHP">BHP&apos;s short position
+            page</a> — to see what percentage of issued capital is already sold short and
+            how that has trended. A stock at 12% short is a very different proposition
+            from one at 1%.
+          </li>
+          <li>
+            <strong>Check days to cover.</strong> The{" "}
+            <a href="/screener">screener</a> lets you filter by short interest and days to
+            cover — how many days of average volume shorts would need to exit. High days
+            to cover means a crowded exit if the trade turns.
+          </li>
+          <li>
+            <strong>Gauge the crowding.</strong> Scan the{" "}
+            <a href="/top">top 100 most shorted ASX stocks</a>. If your target is already
+            near the top of the list, the bear case is well known, borrow will be
+            expensive, and squeeze risk is elevated.
+          </li>
+          <li>
+            <strong>Assess squeeze risk.</strong> Heavily shorted stocks with small free
+            floats and upcoming catalysts (earnings, drill results, takeover interest) can
+            rally violently as shorts rush to cover. If the shares are hard to borrow, a
+            recall can force you out at the worst possible moment.
+          </li>
+          <li>
+            <strong>Size the position and define the exit.</strong> Because short-side
+            losses grow as the trade moves against you, position sizing matters more than
+            on the long side. Decide before entry what price or event invalidates the
+            thesis, and cap the position at a level where being wrong is survivable.
+          </li>
+        </ol>
+
+        <h2>Key takeaways</h2>
+        <ul>
+          <li>
+            There are four ways to short the ASX: direct share borrowing, CFDs,
+            exchange-traded put options (including XJO index puts), and inverse ETFs like
+            BEAR and BBOZ
+          </li>
+          <li>
+            Capped-loss structures pay for the cap through decay; linear structures carry
+            unlimited or leveraged downside
+          </li>
+          <li>
+            Leveraged inverse ETFs rebalance daily and bleed value in choppy markets —
+            they are short-duration instruments
+          </li>
+          <li>
+            Only covered short selling is legal in Australia; ASIC publishes reported net
+            short positions daily with a T+4 delay
+          </li>
+          <li>
+            Always check current short interest, days to cover, and squeeze risk on
+            Shorted.com.au before opening a position
+          </li>
+        </ul>
+      </article>
+    ),
+  },
   "what-is-short-selling": {
     title: "What is Short Selling on the ASX?",
     description:
       "A beginner's guide to short selling on the Australian Securities Exchange. Understand how short selling works, why investors do it, and the risks involved.",
     readTime: "8 min read",
     level: "Beginner",
+    datePublished: "2024-01-01",
+    dateModified: "2026-07-11",
     topics: ["Short Selling", "ASX Basics", "Investment Strategy"],
     relatedArticles: ["understanding-t4-delay", "how-to-read-short-interest"],
     faqs: [
@@ -181,6 +490,8 @@ const articlesData: Record<
       "Learn why ASIC short position data is delayed by 4 trading days and how this affects your analysis. Includes tips for interpreting delayed data.",
     readTime: "5 min read",
     level: "Beginner",
+    datePublished: "2024-01-01",
+    dateModified: "2026-07-11",
     topics: ["ASIC", "Data Analysis", "T+4 Delay"],
     relatedArticles: ["what-is-short-selling", "how-to-read-short-interest"],
     faqs: [
@@ -297,6 +608,8 @@ const articlesData: Record<
       "Master the art of interpreting short interest percentages, changes over time, and what high or low short interest signals about market sentiment.",
     readTime: "10 min read",
     level: "Intermediate",
+    datePublished: "2024-01-01",
+    dateModified: "2026-07-11",
     topics: ["Short Interest", "Technical Analysis", "Market Sentiment"],
     relatedArticles: ["what-is-short-selling", "short-squeeze-mechanics"],
     faqs: [
@@ -376,6 +689,8 @@ const articlesData: Record<
       "Deep dive into how short squeezes occur, warning signs to watch for, and famous ASX short squeeze examples. Learn to identify potential squeeze candidates.",
     readTime: "12 min read",
     level: "Intermediate",
+    datePublished: "2024-01-01",
+    dateModified: "2026-07-11",
     topics: ["Short Squeeze", "Market Dynamics", "Trading Strategy"],
     relatedArticles: ["how-to-read-short-interest", "risk-management-shorted-stocks"],
     faqs: [
@@ -445,6 +760,8 @@ const articlesData: Record<
       "Strategies for managing risk when trading heavily shorted stocks. Includes position sizing, stop losses, and portfolio considerations.",
     readTime: "15 min read",
     level: "Advanced",
+    datePublished: "2024-01-01",
+    dateModified: "2026-07-11",
     topics: ["Risk Management", "Portfolio Strategy", "Trading"],
     relatedArticles: ["short-squeeze-mechanics", "how-to-read-short-interest"],
     faqs: [
@@ -504,6 +821,8 @@ const articlesData: Record<
       "Learn which ASX sectors attract the most short selling activity and why. Understand cyclical patterns, sector-specific risks, and how to analyze short interest by industry.",
     readTime: "10 min read",
     level: "Intermediate",
+    datePublished: "2024-01-01",
+    dateModified: "2026-07-11",
     topics: ["Sector Analysis", "Industry Trends", "Market Cycles"],
     relatedArticles: ["how-to-read-short-interest", "short-squeeze-mechanics"],
     faqs: [
@@ -587,6 +906,8 @@ const articlesData: Record<
       "How to create and maintain an effective watchlist of heavily shorted stocks. Learn filtering criteria, monitoring strategies, and when to act on short interest signals.",
     readTime: "8 min read",
     level: "Beginner",
+    datePublished: "2024-01-01",
+    dateModified: "2026-07-11",
     topics: ["Watchlists", "Stock Screening", "Monitoring"],
     relatedArticles: ["how-to-read-short-interest", "risk-management-shorted-stocks"],
     faqs: [
@@ -675,6 +996,8 @@ const articlesData: Record<
       "Explore the evolution of short selling regulation and notable events in Australian markets. From early regulations to modern ASIC reporting requirements.",
     readTime: "12 min read",
     level: "Beginner",
+    datePublished: "2024-01-01",
+    dateModified: "2026-07-11",
     topics: ["History", "Regulation", "Market Events"],
     relatedArticles: ["what-is-short-selling", "understanding-t4-delay"],
     faqs: [
@@ -754,6 +1077,8 @@ const articlesData: Record<
       "Understand how securities lending works and its role in short selling. Learn about lending fees, risks, and how institutional investors participate in the lending market.",
     readTime: "10 min read",
     level: "Intermediate",
+    datePublished: "2024-01-01",
+    dateModified: "2026-07-11",
     topics: ["Securities Lending", "Institutional Trading", "Borrowing Costs"],
     relatedArticles: ["what-is-short-selling", "risk-management-shorted-stocks"],
     faqs: [
@@ -846,6 +1171,8 @@ const articlesData: Record<
       "Compare short selling with put options as bearish strategies. Understand the pros, cons, and use cases for each approach when betting against stocks.",
     readTime: "11 min read",
     level: "Advanced",
+    datePublished: "2024-01-01",
+    dateModified: "2026-07-11",
     topics: ["Options", "Trading Strategies", "Derivatives"],
     relatedArticles: ["what-is-short-selling", "risk-management-shorted-stocks"],
     faqs: [
@@ -983,6 +1310,8 @@ const articlesData: Record<
       "Comprehensive guide to Australian short selling regulations including the Corporations Act 2001, ASIC Regulatory Guide 196, reporting thresholds, and the ASX short sales report. Covers covered vs naked short selling rules, net short position reporting, and daily publication of short selling data.",
     readTime: "14 min read",
     level: "Intermediate",
+    datePublished: "2024-01-01",
+    dateModified: "2026-07-11",
     topics: [
       "ASIC Regulations",
       "Corporations Act 2001",
@@ -1284,6 +1613,8 @@ const articlesData: Record<
       "Learn to analyze short interest trends and what rapid changes signal. Understand the difference between short covering, new short positions, and normal fluctuations.",
     readTime: "9 min read",
     level: "Intermediate",
+    datePublished: "2024-01-01",
+    dateModified: "2026-07-11",
     topics: ["Trend Analysis", "Short Covering", "Market Signals"],
     relatedArticles: ["how-to-read-short-interest", "short-squeeze-mechanics"],
     faqs: [
@@ -1381,6 +1712,8 @@ const articlesData: Record<
       "Step-by-step guide to finding and reading ASIC short position reports. Learn where to access daily short selling data on the ASIC website, ASX website, and through Shorted.com.au.",
     readTime: "10 min read",
     level: "Beginner",
+    datePublished: "2024-01-01",
+    dateModified: "2026-07-11",
     topics: [
       "ASIC Reports",
       "Short Position Data",
@@ -1605,6 +1938,8 @@ const articlesData: Record<
       "Understand how covered short selling works for retail investors in Australia. Learn about the stock locate process, broker requirements, borrowing fees, and which ASX stocks are available to short through brokers like CommSec and Interactive Brokers.",
     readTime: "12 min read",
     level: "Intermediate",
+    datePublished: "2024-01-01",
+    dateModified: "2026-07-11",
     topics: [
       "Covered Short Selling",
       "Stock Borrowing",
@@ -1965,7 +2300,8 @@ export default async function LearnArticlePage({ params }: PageProps) {
       <ArticleSchema
         title={article.title}
         description={article.description}
-        datePublished="2024-01-01"
+        datePublished={article.datePublished}
+        dateModified={article.dateModified}
         url={`${siteConfig.url}/learn/${slug}`}
         authorName={siteConfig.author}
         image={siteConfig.ogImage}

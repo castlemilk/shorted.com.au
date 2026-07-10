@@ -23,7 +23,7 @@ const DEFAULT_PERIOD: TimePeriod = "3m";
 const INITIAL_LOAD = 100;
 
 export const metadata: Metadata = {
-  title: "Top 100 Most Shorted ASX Stocks | Official ASIC Data",
+  title: "Top 100 Most Shorted ASX Stocks",
   description:
     "Live rankings of the top 100 most shorted stocks on the ASX. Official ASIC short position data updated daily with T+4 delay. Track short interest %, weekly changes, and historical trends.",
   keywords: [

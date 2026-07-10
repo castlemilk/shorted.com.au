@@ -23,6 +23,18 @@ function isVercelEnvironment(): boolean {
   return Boolean(process.env.VERCEL ?? process.env.VERCEL_ENV ?? process.env.VERCEL_REGION);
 }
 
+// SKIP_STATIC_GENERATION is set project-wide on Vercel so prerenders never
+// block builds — but it is present at RUNTIME too. Data fetching must only be
+// skipped during the actual `next build` phase, never for live requests or ISR
+// regenerations. Checking the raw env var alone permanently blanks ISR pages
+// (this exact bug emptied the sitemap, /directory and /market on prod).
+export function skipForBuild(): boolean {
+  return (
+    process.env.SKIP_STATIC_GENERATION === "1" &&
+    process.env.NEXT_PHASE === "phase-production-build"
+  );
+}
+
 export function buildApiUrl(baseUrl: string, path: string): string {
   const normalizedBase = normalizeApiBaseUrl(baseUrl);
   if (!normalizedBase) {

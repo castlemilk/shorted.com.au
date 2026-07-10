@@ -1,6 +1,6 @@
 "use server";
 
-import { SHORTS_API_URL, serverFetchWithUserAgent } from "../config";
+import { SHORTS_API_URL, serverFetchWithUserAgent, skipForBuild } from "../config";
 import { cache } from "react";
 import { getOrSetCached, CACHE_KEYS } from "~/@/lib/kv-cache";
 
@@ -49,15 +49,7 @@ const INVALID_INDUSTRIES = new Set([
   "",
 ]);
 
-// SKIP_STATIC_GENERATION is set project-wide on Vercel so prerenders never
-// block builds — but it is present at RUNTIME too. Only skip data fetching
-// during the actual `next build` phase, never for live requests.
-function skipForBuild(): boolean {
-  return (
-    process.env.SKIP_STATIC_GENERATION === "1" &&
-    process.env.NEXT_PHASE === "phase-production-build"
-  );
-}
+// Build-phase-only data-fetch skip — shared helper (see actions/config.ts).
 
 // Create URL-friendly slug from industry name
 function createSlug(industry: string): string {

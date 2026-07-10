@@ -182,11 +182,12 @@ export default async function Page() {
       {/* Page header with SEO-optimized content */}
       <header className="container mx-auto px-4 pt-8 pb-4">
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-          ASX Short Position Data from ASIC
+          Shorting the ASX: Official Short Position Data from ASIC
         </h1>
         <p className="text-muted-foreground mt-2 max-w-2xl">
-          Official ASIC short selling data updated daily with T+4 delay. Track the most
-          shorted ASX stocks, analyze historical trends, and explore industry heatmaps.
+          Everything you need to track shorting on the ASX — official ASIC short
+          selling data updated daily with T+4 delay. Follow the most shorted ASX
+          stocks, analyze short interest trends, and explore industry heatmaps.
         </p>
         {/* Extended description for SEO - visually hidden but accessible */}
         <p className="sr-only">
