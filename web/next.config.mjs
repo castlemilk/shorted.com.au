@@ -46,12 +46,22 @@ const firstNonEmpty = (...values) => {
   return undefined;
 };
 
+// Browser rewrites should flow through the public API hostname so client-side
+// reads hit the Cloudflare Worker cache. Server actions use direct origins via
+// src/app/actions/config.ts.
 const shortsApiUrl =
   firstNonEmpty(
-    process.env.SHORTS_SERVICE_ENDPOINT,
-    process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT,
     process.env.NEXT_PUBLIC_API_URL,
+    process.env.SHORTS_API_URL,
+    process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT,
+    process.env.SHORTS_SERVICE_ENDPOINT,
   ) ?? "http://localhost:9091";
+const edgeApiUrl =
+  firstNonEmpty(
+    process.env.NEXT_PUBLIC_EDGE_API_URL,
+    process.env.SHORTED_EDGE_API_URL,
+    process.env.SHORTS_EDGE_API_URL,
+  ) ?? "https://api.shorted.com.au";
 
 const config = {
   output: "standalone", // Enable standalone mode for Docker
@@ -255,6 +265,10 @@ const config = {
         // MCP server card (SEP-1649) for agent discovery
         source: "/.well-known/mcp/server-card.json",
         destination: "/api/agent/mcp-server-card",
+      },
+      {
+        source: "/edge/v1/:path*",
+        destination: `${edgeApiUrl}/edge/v1/:path*`,
       },
       {
         source: "/shorts.v1alpha1.ShortedStocksService/:path*",
