@@ -1,5 +1,41 @@
+import { gunzipSync, gzipSync } from "node:zlib";
+
 import { Redis as UpstashRedis } from "@upstash/redis";
 import Redis from "ioredis";
+
+// Large values are gzip+base64'd before SETEX. The biggest cached payloads
+// (top-shorts proto JSON) are megabytes of highly repetitive structure that
+// compress ~10:1 — uncompressed they filled the shared cache instance to its
+// maxmemory and every subsequent write was rejected with OOM. Values below
+// the threshold stay plain JSON; reads handle both forms, so old plain
+// entries keep working across a deploy (and old readers treat new compressed
+// entries as a cache miss, nothing worse).
+const COMPRESS_THRESHOLD_BYTES = 16 * 1024;
+const COMPRESSED_PREFIX = "gz64:";
+
+// BigInt replacer: protobuf Timestamp/int64 fields come back as BigInt and
+// default JSON.stringify throws on them. Stringify to a plain
+// number-as-string — read paths already coerce to Number or string.
+const bigintReplacer = (_key: string, value: unknown): unknown =>
+  typeof value === "bigint" ? value.toString() : value;
+
+export function serializeCacheValue(data: unknown): string {
+  const json = JSON.stringify(data, bigintReplacer);
+  if (json.length < COMPRESS_THRESHOLD_BYTES) return json;
+  return (
+    COMPRESSED_PREFIX + gzipSync(Buffer.from(json, "utf8")).toString("base64")
+  );
+}
+
+export function deserializeCacheValue<T>(raw: string): T {
+  if (raw.startsWith(COMPRESSED_PREFIX)) {
+    const json = gunzipSync(
+      Buffer.from(raw.slice(COMPRESSED_PREFIX.length), "base64"),
+    ).toString("utf8");
+    return JSON.parse(json) as T;
+  }
+  return JSON.parse(raw) as T;
+}
 
 // In-memory fallback for development when no Redis is configured
 class InMemoryCache {
@@ -116,7 +152,7 @@ export async function getCached<T>(key: string): Promise<T | null> {
     try {
       const value = await ioRedis.get(key);
       if (value === null) return null;
-      return JSON.parse(value) as T;
+      return deserializeCacheValue<T>(value);
     } catch (error) {
       console.error(`Cache get error for key ${key}:`, error);
       return null;
@@ -149,16 +185,11 @@ export async function setCached<T>(
   data: T,
   ttl: number = DEFAULT_TTL,
 ): Promise<boolean> {
-  // Standard Redis via ioredis
+  // Standard Redis via ioredis (compresses large values — see
+  // serializeCacheValue).
   if (ioRedis) {
     try {
-      // ioredis requires manual JSON serialization.
-      // BigInt replacer: protobuf Timestamp/int64 fields come back as BigInt
-      // and default JSON.stringify throws on them. Stringify to a plain
-      // number-as-string — read paths already coerce to Number or string.
-      const bigintReplacer = (_key: string, value: unknown): unknown =>
-        typeof value === "bigint" ? value.toString() : value;
-      await ioRedis.setex(key, Number(ttl), JSON.stringify(data, bigintReplacer));
+      await ioRedis.setex(key, Number(ttl), serializeCacheValue(data));
       return true;
     } catch (error) {
       console.error(`Cache set error for key ${key}:`, error);
