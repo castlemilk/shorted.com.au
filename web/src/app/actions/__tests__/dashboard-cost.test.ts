@@ -4,10 +4,10 @@ import {
   setDefaultDashboard,
 } from "../dashboard";
 import { auth } from "@/auth";
-import { adminDb } from "@/lib/firebase-admin";
+import { adminDb } from "@/lib/firebase-admin-db";
 import { WidgetType, type DashboardConfig } from "~/@/types/dashboard";
 
-jest.mock("@/lib/firebase-admin", () => ({
+jest.mock("@/lib/firebase-admin-db", () => ({
   adminDb: {
     batch: jest.fn(),
     collection: jest.fn(),

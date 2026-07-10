@@ -1,7 +1,10 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getAuth, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
 import { normalizeFirebasePublicConfigValue } from "./firebase-public-config";
+
+// No firebase/firestore here: nothing client-side reads Firestore directly
+// (community/portfolio go through server actions), and the import shipped
+// ~100KB gz of dead code on /signin and /signup.
 
 const firebaseConfig = {
   apiKey: normalizeFirebasePublicConfigValue(
@@ -24,7 +27,6 @@ const firebaseConfig = {
 
 let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
-let db: Firestore | undefined;
 
 if (typeof window !== "undefined") {
   try {
@@ -33,10 +35,9 @@ if (typeof window !== "undefined") {
     } else {
       app = getApps()[0];
     }
-    
+
     if (app) {
       auth = getAuth(app);
-      db = getFirestore(app);
       console.log("Firebase initialized successfully");
     }
   } catch (error) {
@@ -44,4 +45,4 @@ if (typeof window !== "undefined") {
   }
 }
 
-export { app, auth, db };
+export { app, auth };

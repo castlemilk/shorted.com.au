@@ -7,9 +7,9 @@ import {
   listCommunityPulseReplies,
   listCommunityThreads,
 } from "~/@/lib/community/firestore-community";
-import { adminDb } from "~/@/lib/firebase-admin";
+import { adminDb } from "~/@/lib/firebase-admin-db";
 
-jest.mock("~/@/lib/firebase-admin", () => ({
+jest.mock("~/@/lib/firebase-admin-db", () => ({
   adminDb: {
     collection: jest.fn(),
   },
