@@ -120,7 +120,7 @@ describe("industry data cache loading", () => {
     );
   });
 
-  it("uses a versioned cache key and live data for industry stock panels", async () => {
+  it("serves industry stock panels from one shared raw-treemap cache entry", async () => {
     mockTreemapResponse([
       { productCode: "MIN", industry: "Materials", shortPosition: 12.4 },
       { productCode: "LTR", industry: "Materials", shortPosition: 7.8 },
@@ -131,8 +131,10 @@ describe("industry data cache loading", () => {
 
     expect(result.stocks.map((stock) => stock.code)).toEqual(["MIN", "LTR"]);
     expect(result.industry?.slug).toBe("materials");
+    // Slug filtering happens in memory: the Redis entry is the raw treemap,
+    // shared by every industry (previously 8 duplicate per-slug copies).
     expect(mockGetOrSetCached).toHaveBeenCalledWith(
-      "cache:homepage:treemap:3m:50:current:industry:materials:v2",
+      "cache:homepage:treemap:3m:50:current:raw:v1",
       expect.any(Function),
       3600,
     );

@@ -28,7 +28,11 @@ export interface IndustryIntelligenceSnapshot {
   entityTotals: IndustryEvidenceEntityTotalInput[];
 }
 
-const SNAPSHOT_TTL_SECONDS = 60 * 60; // evidence updates at most daily
+// Evidence changes only when the influence-collector imports land (weekly /
+// on deploy). The key lives under the daily-flushed cache:homepage: prefix,
+// so the 24h ceiling matches its siblings (top-shorts/treemap) instead of
+// forcing ~23 extra per-industry re-fans per day at 1h.
+const SNAPSHOT_TTL_SECONDS = 86400;
 
 type GetIndustryIntelligenceAction = (
   industry: string,

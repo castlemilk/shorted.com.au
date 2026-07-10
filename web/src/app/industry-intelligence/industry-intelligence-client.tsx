@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
@@ -22,12 +23,38 @@ import {
   TabsTrigger,
 } from "~/@/components/ui/tabs";
 import { IntelLockCard } from "~/@/components/ui/intel-lock";
+import { SegmentedToggle } from "~/@/components/features/housing/charts/chart-ui";
 import { getSectorImageAlt, getSectorImagePath } from "~/@/lib/sector-images";
 import { cn } from "~/@/lib/utils";
-import type { IndustryIntelligenceStory } from "~/@/lib/industry-intelligence";
+import {
+  changeOverLag,
+  trailingSma,
+  trailingZScore,
+  type IndustryIntelligenceStory,
+} from "~/@/lib/industry-intelligence";
 
 function formatPercent(value: number): string {
   return `${value.toFixed(2)}%`;
+}
+
+/**
+ * Applies ?industry=&view= deep links after hydration. Lives behind its own
+ * Suspense boundary so useSearchParams never bails the page's static shell —
+ * the server render stays ISR-cacheable (reading searchParams server-side
+ * silently made every request re-run the whole data fan-out).
+ */
+function DeepLinkSync({
+  onApply,
+}: {
+  onApply: (industry: string | null, view: string | null) => void;
+}) {
+  const searchParams = useSearchParams();
+  const industry = searchParams.get("industry");
+  const view = searchParams.get("view");
+  useEffect(() => {
+    onApply(industry, view);
+  }, [industry, onApply, view]);
+  return null;
 }
 
 /** Terminal-style underline tab trigger (overrides the shadcn pill default). */
@@ -71,6 +98,26 @@ export function IndustryIntelligenceClient({
       stories.find((story) => story.industry.slug === selectedSlug) ??
       initialStory,
     [initialStory, selectedSlug, stories],
+  );
+
+  // Deep links land here post-hydration (the server render is param-free so
+  // the route stays ISR-cached). Invalid slugs/views fall back silently.
+  const applyDeepLink = useCallback(
+    (slugParam: string | null, viewParam: string | null) => {
+      const target = slugParam
+        ? stories.find((story) => story.industry.slug === slugParam)
+        : null;
+      if (target) setSelectedSlug(target.industry.slug);
+      if (!viewParam) return;
+      const scope = target ?? initialStory;
+      if (!scope) return;
+      const valid =
+        viewParam === "overview" ||
+        viewParam === "sources" ||
+        scope.channels.some((channel) => `channel-${channel.kind}` === viewParam);
+      if (valid) setView(viewParam);
+    },
+    [initialStory, stories],
   );
 
   const selectIndustry = (slug: string) => {
@@ -183,6 +230,9 @@ export function IndustryIntelligenceClient({
 
   return (
     <div className="min-w-0" data-testid="industry-intelligence-story">
+      <Suspense fallback={null}>
+        <DeepLinkSync onApply={applyDeepLink} />
+      </Suspense>
       {/* Command bar: one slim header instead of a marketing hero. */}
       <header className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 border-b border-border/60 pb-5">
         <div className="min-w-0">
@@ -440,10 +490,117 @@ function OverviewPanel({ story }: { story: IndustryIntelligenceStory }) {
   );
 }
 
+type CrowdingWindowKey = "3m" | "6m" | "1y" | "2y";
+type CrowdingViewKey = "level" | "momentum" | "zscore";
+type CrowdingCenterKey = "avg" | "median";
+type CrowdingBandKey = "p10p90" | "iqr" | "none";
+
+const CROWDING_WINDOW_DAYS: Record<CrowdingWindowKey, number> = {
+  "3m": 91,
+  "6m": 182,
+  "1y": 365,
+  "2y": 731,
+};
+const CROWDING_SMA_WEEKS = 4;
+const CROWDING_MOMENTUM_WEEKS = 4;
+const CROWDING_ZSCORE_WEEKS = 26;
+
+const CROWDING_VIEW_COPY: Record<
+  CrowdingViewKey,
+  (center: string, band: string | null) => string
+> = {
+  level: (center, band) =>
+    `Weekly constituent ${center}${band ? ` with the ${band} dispersion band` : ""}.`,
+  momentum: (center) =>
+    `${CROWDING_MOMENTUM_WEEKS}-week change in the weekly constituent ${center}, in percentage points.`,
+  zscore: (center) =>
+    `Weekly constituent ${center} scored against its trailing ${CROWDING_ZSCORE_WEEKS}-week distribution.`,
+};
+
 function CrowdingSection({ story }: { story: IndustryIntelligenceStory }) {
-  if (!story.crowding) return null;
-  const points = story.crowding.points;
-  const latest = points[points.length - 1]!;
+  const [windowKey, setWindowKey] = useState<CrowdingWindowKey>("3m");
+  const [view, setView] = useState<CrowdingViewKey>("level");
+  const [center, setCenter] = useState<CrowdingCenterKey>("avg");
+  const [band, setBand] = useState<CrowdingBandKey>("p10p90");
+  const [smooth, setSmooth] = useState(false);
+
+  const points = useMemo(
+    () => story.crowding?.points ?? [],
+    [story.crowding],
+  );
+  // Older ISR payloads predate the median/quartile fields — fall back to the
+  // mean-only chart until the next revalidation delivers them.
+  const hasExtendedStats = points.every(
+    (p) => p.median != null && p.p25 != null && p.p75 != null,
+  );
+
+  const chart = useMemo(() => {
+    if (points.length === 0) return null;
+    const useMedian = center === "median" && hasExtendedStats;
+    const centers = points.map((p) =>
+      useMedian ? p.median! : p.avg,
+    );
+    // Derive on the full series first so windowed views keep their history
+    // (an SMA/momentum/z-score left edge sliced after derivation, not before).
+    const overlay = smooth ? trailingSma(centers, CROWDING_SMA_WEEKS) : null;
+    const momentum = changeOverLag(centers, CROWDING_MOMENTUM_WEEKS);
+    const zscore = trailingZScore(centers, CROWDING_ZSCORE_WEEKS);
+
+    const lastDate = points[points.length - 1]!.date;
+    const cutoff = new Date(`${lastDate}T00:00:00Z`);
+    cutoff.setUTCDate(cutoff.getUTCDate() - CROWDING_WINDOW_DAYS[windowKey]);
+    const cutoffIso = cutoff.toISOString().slice(0, 10);
+
+    const rendered = points
+      .map((p, i) => ({
+        date: p.date,
+        value:
+          (view === "level"
+            ? centers[i]
+            : view === "momentum"
+              ? momentum[i]
+              : zscore[i]) ?? null,
+        bandLo:
+          view === "level" && band !== "none"
+            ? band === "iqr"
+              ? p.p25
+              : p.p10
+            : undefined,
+        bandHi:
+          view === "level" && band !== "none"
+            ? band === "iqr"
+              ? p.p75
+              : p.p90
+            : undefined,
+        overlay: view === "level" && overlay ? overlay[i] : undefined,
+        constituents: p.constituents,
+      }))
+      .filter((p) => p.date >= cutoffIso);
+
+    const latestValue = [...rendered]
+      .reverse()
+      .find((p) => p.value != null)?.value;
+
+    return { rendered, latestValue, useMedian };
+  }, [band, center, hasExtendedStats, points, smooth, view, windowKey]);
+
+  if (!story.crowding || !chart) return null;
+
+  const centerLabel = chart.useMedian ? "Median" : "Average";
+  const bandLabel =
+    view === "level" && band !== "none"
+      ? band === "iqr"
+        ? "p25–p75"
+        : "p10–p90"
+      : null;
+  const latestDisplay =
+    chart.latestValue == null
+      ? "—"
+      : view === "level"
+        ? formatPercent(chart.latestValue)
+        : view === "momentum"
+          ? `${chart.latestValue > 0 ? "+" : ""}${chart.latestValue.toFixed(2)}pp`
+          : `${chart.latestValue > 0 ? "+" : ""}${chart.latestValue.toFixed(2)}σ`;
 
   return (
     <section
@@ -461,22 +618,101 @@ function CrowdingSection({ story }: { story: IndustryIntelligenceStory }) {
             Short-interest crowding
           </h2>
           <p className="text-xs leading-5 text-muted-foreground">
-            Weekly constituent average with the p10–p90 dispersion band.
+            {CROWDING_VIEW_COPY[view](centerLabel.toLowerCase(), bandLabel)}
           </p>
         </div>
         <span className="font-mono text-sm tabular-nums">
           <span className="text-muted-foreground">latest week</span>{" "}
-          <span className="font-semibold">{formatPercent(latest.avg)}</span>
+          <span className="font-semibold">{latestDisplay}</span>
         </span>
       </div>
+
+      {/* Controls: one row above the chart; every cluster wraps on mobile. */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <SegmentedToggle<CrowdingViewKey>
+          ariaLabel="Statistic"
+          options={[
+            { value: "level", label: "Level" },
+            { value: "momentum", label: "Momentum" },
+            { value: "zscore", label: "Z-score" },
+          ]}
+          value={view}
+          onChange={setView}
+        />
+        {hasExtendedStats ? (
+          <SegmentedToggle<CrowdingCenterKey>
+            ariaLabel="Center line"
+            options={[
+              { value: "avg", label: "Mean" },
+              { value: "median", label: "Median" },
+            ]}
+            value={center}
+            onChange={setCenter}
+          />
+        ) : null}
+        {view === "level" ? (
+          <>
+            {hasExtendedStats ? (
+              <SegmentedToggle<CrowdingBandKey>
+                ariaLabel="Dispersion band"
+                options={[
+                  { value: "p10p90", label: "10–90" },
+                  { value: "iqr", label: "25–75" },
+                  { value: "none", label: "No band" },
+                ]}
+                value={band}
+                onChange={setBand}
+              />
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setSmooth((v) => !v)}
+              aria-pressed={smooth}
+              className={cn(
+                "inline-flex min-h-8 items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                smooth
+                  ? "bg-muted text-foreground"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+              )}
+            >
+              <span
+                aria-hidden="true"
+                className="inline-block h-0 w-4 border-t-2 border-dashed border-primary"
+              />
+              SMA {CROWDING_SMA_WEEKS}w
+            </button>
+          </>
+        ) : null}
+        <div className="ms-auto">
+          <SegmentedToggle<CrowdingWindowKey>
+            ariaLabel="Time window"
+            options={[
+              { value: "3m", label: "3M" },
+              { value: "6m", label: "6M" },
+              { value: "1y", label: "1Y" },
+              { value: "2y", label: "2Y" },
+            ]}
+            value={windowKey}
+            onChange={setWindowKey}
+          />
+        </div>
+      </div>
+
       <div className="mt-3" style={{ minHeight: 268 }}>
         <IndustryCrowdingChart
-          points={points}
+          points={chart.rendered}
           industryName={story.industry.name}
+          mode={view}
+          centerLabel={centerLabel}
+          bandLabel={bandLabel}
+          overlayLabel={smooth && view === "level" ? `SMA ${CROWDING_SMA_WEEKS}w` : null}
         />
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
         Weeks with fewer than three reporting constituents are omitted.
+        {view === "zscore"
+          ? " Dashed guides mark ±1σ."
+          : ""}
       </p>
     </section>
   );

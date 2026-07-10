@@ -803,3 +803,47 @@ test("builds queryable edge analytics fields for frontend API routes", () => {
   assert.equal(event.rpc_method, "");
   assert.equal(event.cacheable, false);
 });
+
+test("edge read /top-shorts honours backend's 1000 limit ceiling", async () => {
+  const { resolvePublicEdgeReadRoute } = await import("./worker.js");
+
+  const full = resolvePublicEdgeReadRoute(
+    new URL("https://api.shorted.com.au/edge/v1/top-shorts?period=2y&limit=1000"),
+  );
+  assert.equal(full.body.limit, 1000);
+  assert.equal(full.body.period, "2y");
+
+  const clamped = resolvePublicEdgeReadRoute(
+    new URL("https://api.shorted.com.au/edge/v1/top-shorts?limit=5000"),
+  );
+  assert.equal(clamped.body.limit, 1000);
+});
+
+test("GetIndustryIntelligence joins the daily-data cache tiers", async () => {
+  const { resolveShortsTtl, buildKvCacheKey } = await import("./worker.js");
+
+  const defaults = {
+    cacheTtlTopShorts: 300,
+    cacheTtlNews: 300,
+    cacheTtlStockData: 180,
+    cacheTtlDefault: 60,
+  };
+  assert.equal(
+    resolveShortsTtl(
+      "/shorts.v1alpha1.ShortedStocksService/GetIndustryIntelligence",
+      defaults,
+    ),
+    defaults.cacheTtlTopShorts,
+  );
+
+  const request = new Request("https://api.shorted.com.au/rpc", {
+    method: "POST",
+    body: JSON.stringify({ industry: "Energy", recordLimit: 50 }),
+  });
+  const key = await buildKvCacheKey(
+    request,
+    "/shorts.v1alpha1.ShortedStocksService/GetIndustryIntelligence",
+  );
+  assert.ok(key, "GetIndustryIntelligence should be KV-cacheable");
+  assert.match(key, /^prewarm:/);
+});
