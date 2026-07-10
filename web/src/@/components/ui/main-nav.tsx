@@ -38,7 +38,9 @@ export const MainNav = ({ items, modeToggle }: MainNavProps) => {
   const isSecondaryActive = secondaryItems.some((i) => i.href && pathname === i.href);
 
   return (
-    <div className="flex w-full min-w-0 items-center gap-3 lg:gap-5">
+    // gap-2 below sm: the header must fit hamburger + logo + sign-in +
+    // theme toggle inside a 320px viewport
+    <div className="flex w-full min-w-0 items-center gap-2 sm:gap-3 lg:gap-5">
       <MobileNav items={items} />
       <Link
         href="/"
@@ -127,7 +129,7 @@ export const MainNav = ({ items, modeToggle }: MainNavProps) => {
         </nav>
       ) : null}
 
-      <div className="ml-auto flex min-w-0 shrink-0 items-center gap-2 lg:gap-3">
+      <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2 lg:gap-3">
         {!pathname?.startsWith("/docs/api") && (
           <div className="hidden xl:block">
             <NavSearchInput />

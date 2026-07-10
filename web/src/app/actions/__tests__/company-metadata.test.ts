@@ -10,41 +10,26 @@ if (!globalThis.TextDecoder) {
   globalThis.TextDecoder = TextDecoder;
 }
 import { StockDetailsSchema } from "~/gen/stocks/v1alpha1/stocks_pb";
+
+// company-metadata delegates to the getStockDetails action (single persistent
+// cache identity) — mock the action, not the Connect client.
+jest.mock("../getStockDetails", () => ({
+  getStockDetails: jest.fn(),
+}));
+
 import {
   getEnrichedCompanyMetadata,
   hasEnrichedData,
 } from "../company-metadata";
+import { getStockDetails } from "../getStockDetails";
 
-jest.mock("@connectrpc/connect-web", () => ({
-  createConnectTransport: jest.fn(() => ({})),
-}));
-
-jest.mock("next/cache", () => ({
-  unstable_cache: jest.fn((loader: () => Promise<unknown>) => loader),
-}));
-
-jest.mock("@connectrpc/connect", () => {
-  const mockClient = {
-    getStockDetails: jest.fn(),
-  };
-  return {
-    createClient: jest.fn(() => mockClient),
-    MethodKind: {
-      Unary: "unary",
-    },
-    __mockClient: mockClient,
-  };
-});
-
-const { __mockClient: mockClient } = jest.requireMock("@connectrpc/connect") as {
-  __mockClient: {
-    getStockDetails: jest.Mock;
-  };
-};
+const mockGetStockDetails = getStockDetails as jest.MockedFunction<
+  typeof getStockDetails
+>;
 
 describe("company-metadata actions", () => {
   beforeEach(() => {
-    mockClient.getStockDetails.mockReset();
+    mockGetStockDetails.mockReset();
   });
 
   const buildStockDetails = () =>
@@ -98,7 +83,7 @@ describe("company-metadata actions", () => {
         seconds: BigInt(1_700_000_000),
         nanos: 0,
       };
-      mockClient.getStockDetails.mockResolvedValueOnce(response);
+      mockGetStockDetails.mockResolvedValueOnce(response);
 
       const result = await getEnrichedCompanyMetadata("WES");
 
@@ -123,13 +108,23 @@ describe("company-metadata actions", () => {
         url: "https://example.com/report.pdf",
         type: "annual_report",
       });
-      expect(mockClient.getStockDetails).toHaveBeenCalledWith({
-        productCode: "WES",
-      });
+      expect(mockGetStockDetails).toHaveBeenCalledWith("WES");
     });
 
-    it("returns null when backend throws", async () => {
-      mockClient.getStockDetails.mockRejectedValueOnce(
+    it("returns null when the action resolves undefined (transient failure)", async () => {
+      // getStockDetails wraps withRetryAndNotFound, which resolves undefined
+      // on failure rather than throwing.
+      mockGetStockDetails.mockResolvedValueOnce(
+        undefined as unknown as ReturnType<typeof buildStockDetails>,
+      );
+
+      const result = await getEnrichedCompanyMetadata("WES");
+
+      expect(result).toBeNull();
+    });
+
+    it("returns null when the action throws", async () => {
+      mockGetStockDetails.mockRejectedValueOnce(
         new Error("Upstream unavailable"),
       );
       const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
@@ -145,7 +140,7 @@ describe("company-metadata actions", () => {
   describe("hasEnrichedData", () => {
     it("returns true when enrichment_status is completed", async () => {
       const response = buildStockDetails();
-      mockClient.getStockDetails.mockResolvedValueOnce(response);
+      mockGetStockDetails.mockResolvedValueOnce(response);
 
       const result = await hasEnrichedData("WES");
 
@@ -155,17 +150,15 @@ describe("company-metadata actions", () => {
     it("returns false when enrichment_status is pending", async () => {
       const response = buildStockDetails();
       response.enrichmentStatus = "pending";
-      mockClient.getStockDetails.mockResolvedValueOnce(response);
+      mockGetStockDetails.mockResolvedValueOnce(response);
 
       const result = await hasEnrichedData("WES");
 
       expect(result).toBe(false);
     });
 
-    it("returns false when backend call fails", async () => {
-      mockClient.getStockDetails.mockRejectedValueOnce(
-        new Error("network failure"),
-      );
+    it("returns false when the action call fails", async () => {
+      mockGetStockDetails.mockRejectedValueOnce(new Error("network failure"));
       const consoleSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 
       const result = await hasEnrichedData("WES");

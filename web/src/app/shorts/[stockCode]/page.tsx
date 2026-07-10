@@ -26,11 +26,19 @@ import CompanyInfo, {
 import CompanyFinancials,{
   CompanyFinancialsPlaceholder,
 } from "~/@/components/ui/companyFinancials";
-import { EnrichedCompanySection } from "~/@/components/company/enriched-company-section";
+import {
+  EnrichedCompanySection,
+  FinancialReportsSection,
+  FinancialStatementsSection,
+} from "~/@/components/company/enriched-company-section";
+import { CompanyTaxCard } from "~/@/components/company/company-tax-card";
 import { FinancialDigest } from "~/@/components/company/financial-digest";
 import { CommunityOverviewTeaser } from "~/@/components/company/community/community-overview-teaser";
 import { CommunityTab } from "~/@/components/company/community/community-tab";
 import { StockEvidencePanel } from "~/@/components/company/stock-evidence-panel";
+import { IntelLockCard } from "~/@/components/ui/intel-lock";
+import { LoginPromptBanner } from "~/@/components/ui/login-prompt-banner";
+import { auth } from "~/server/auth";
 
 // Dynamic import to avoid SSR issues — child components import @connectrpc/connect
 const StockTabs = nextDynamic(
@@ -44,6 +52,7 @@ import {
 } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta, StockLLMMeta } from "~/@/components/seo/llm-meta";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
+import { ChevronDown } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { RelatedStocks } from "~/@/components/seo/related-stocks";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
@@ -176,11 +185,22 @@ const Page = async ({ params }: PageProps) => {
     notFound();
   }
 
+  // Page is force-dynamic, so a per-request session read is safe here. Used
+  // to lock the intelligence dossier for signed-out visitors.
+  const session = await auth().catch(() => null);
+
   // Fetch stock data for StockLLMMeta and related stocks in parallel
   // getStockOrNotFound throws NotFoundError when the stock doesn't exist,
   // but returns undefined for transient backend errors.
   let stock: Awaited<ReturnType<typeof getStockOrNotFound>> = undefined;
   let relatedData: Awaited<ReturnType<typeof getRelatedStocks>>;
+  // Financial highlights (Financials tab) fetched in the same parallel batch —
+  // cached 24h, degrades gracefully to an empty list.
+  const financialHighlightsPromise = getStockFinancialHighlights([
+    stockCode,
+  ]).catch(
+    (): Record<string, StockFinancialHighlight[]> => ({}),
+  );
   try {
     [stock, relatedData] = await Promise.all([
       getStockOrNotFound(stockCode),
@@ -195,10 +215,7 @@ const Page = async ({ params }: PageProps) => {
     relatedData = { stocks: [], industry: null, industrySlug: null };
   }
 
-  // Financial highlights — fetched server-side, cached 24h, degrades gracefully
-  const financialHighlightsMap = await getStockFinancialHighlights([stockCode]).catch(
-    (): Record<string, StockFinancialHighlight[]> => ({}),
-  );
+  const financialHighlightsMap = await financialHighlightsPromise;
   const financialHighlights = financialHighlightsMap?.[stockCode] ?? [];
 
   const breadcrumbItems = [
@@ -233,6 +250,13 @@ const Page = async ({ params }: PageProps) => {
           shortPercentage={stock.percentageShorted || undefined}
           currentShortPosition={stock.reportedShortPositions || undefined}
         />
+      )}
+
+      {/* Guaranteed page h1: the rich crawler summary below only renders when
+          stock data resolved — on transient backend errors the page would
+          otherwise ship with no h1 at all. */}
+      {!stock && (
+        <h1 className="sr-only">{stockCode} Short Interest</h1>
       )}
 
       {stock && (() => {
@@ -393,6 +417,13 @@ const Page = async ({ params }: PageProps) => {
         <Breadcrumbs items={breadcrumbItems} />
       </div>
 
+      {/* Signed-out breadcrumb to login — dismissible, above the fold */}
+      {!session && (
+        <div className="mb-4 overflow-hidden rounded-lg border border-primary/20">
+          <LoginPromptBanner />
+        </div>
+      )}
+
       {/* Header: Profile & Stats (always visible above tabs) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-start mb-6">
         <div className="md:col-span-2">
@@ -428,28 +459,44 @@ const Page = async ({ params }: PageProps) => {
         stockCode={stockCode}
         overviewMain={
           <>
-            {/* Per-stock public-source evidence with industry drill-up links */}
-            <Suspense fallback={null}>
-              <StockEvidencePanel
-                stockCode={stockCode}
-                industry={relatedData.industry}
-                industrySlug={relatedData.industrySlug}
+            {/* Per-stock public-source evidence with industry drill-up
+                links. Signed-out visitors see the lock with a yellow
+                sign-in CTA instead of the dossier. */}
+            {session ? (
+              <Suspense fallback={null}>
+                <StockEvidencePanel
+                  stockCode={stockCode}
+                  industry={relatedData.industry}
+                  industrySlug={relatedData.industrySlug}
+                />
+              </Suspense>
+            ) : (
+              <IntelLockCard
+                title={`${stockCode} intelligence dossier`}
+                description="Public-source evidence for this company, with industry drill-up links."
+                bullets={[
+                  "Tax paid and taxable income records",
+                  "Government contracts and public money",
+                  "Emissions and trade exposure",
+                  "Political donations and lobbying links",
+                ]}
+                callbackUrl={`/shorts/${stockCode}`}
+                ctaLabel="Sign in to unlock the dossier"
               />
-            </Suspense>
+            )}
 
             {/* SSR short-interest history + FAQ — crawlable trend facts.
-                Native <details open> keeps the content in the DOM (crawlable)
-                whether expanded or collapsed. */}
+                Native <details> keeps the content in the DOM (crawlable)
+                whether expanded or collapsed; defaults CLOSED so ~550px of
+                FAQ prose doesn't sit mid-overview. */}
             {stock && (stock.percentageShorted ?? 0) > 0 && (
-              <details
-                open
-                className="group rounded-lg border bg-card [&_summary::-webkit-details-marker]:hidden"
-              >
+              <details className="group rounded-lg border bg-card [&_summary::-webkit-details-marker]:hidden">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium">
                   Short interest history &amp; FAQ
-                  <span className="text-muted-foreground transition-transform group-open:rotate-180">
-                    ▾
-                  </span>
+                  <ChevronDown
+                    aria-hidden
+                    className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180"
+                  />
                 </summary>
                 <div className="border-t px-4 py-3">
                   <Suspense fallback={null}>
@@ -462,8 +509,10 @@ const Page = async ({ params }: PageProps) => {
               </details>
             )}
 
-            {/* Enriched Company Insights (reports shown in Financials tab) */}
-            <EnrichedCompanySection stockCode={stockCode} hideReports />
+            {/* Consolidated company research card — the ONLY place the
+                enriched prose renders (the Financials tab shows reports
+                + metrics only, no duplicated company content). */}
+            <EnrichedCompanySection stockCode={stockCode} />
           </>
         }
         overviewRail={
@@ -492,7 +541,9 @@ const Page = async ({ params }: PageProps) => {
             <Suspense fallback={<CompanyFinancialsPlaceholder />}>
               <CompanyFinancials stockCode={stockCode} />
             </Suspense>
-            <EnrichedCompanySection stockCode={stockCode} />
+            <FinancialStatementsSection stockCode={stockCode} />
+            <CompanyTaxCard stockCode={stockCode} />
+            <FinancialReportsSection stockCode={stockCode} />
           </div>
         }
         communityContent={

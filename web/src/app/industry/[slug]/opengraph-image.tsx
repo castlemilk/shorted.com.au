@@ -57,7 +57,7 @@ async function getLogoImage(): Promise<string> {
 import { getSectorImagePathPng } from "~/@/lib/sector-images";
 
 async function getSectorImage(industryName: string): Promise<string> {
-  // getSectorImagePathPng returns "/assets/sectors/foo.png" — prepend "public"
+  // getSectorImagePathPng returns a public asset path — prepend "public".
   const relPath = getSectorImagePathPng(industryName);
   const pngSrc = await getAssetBase64(`public${relPath}`);
   if (pngSrc) return pngSrc;

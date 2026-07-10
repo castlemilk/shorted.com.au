@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
@@ -12,7 +13,7 @@ import {
   CardTitle,
 } from "~/@/components/ui/card";
 import { Badge } from "~/@/components/ui/badge";
-import { Skeleton } from "~/@/components/ui/skeleton";
+import { Button } from "~/@/components/ui/button";
 import {
   ShieldAlert,
   Award,
@@ -50,9 +51,12 @@ function SignalItem({ s }: { s: SignalView }) {
   return (
     <div className="flex gap-3">
       <Icon
+        aria-hidden
         className={cn(
           "h-4 w-4 mt-0.5 shrink-0",
-          adverse ? "text-red-500" : "text-emerald-500",
+          adverse
+            ? "text-red-600 dark:text-red-400"
+            : "text-emerald-600 dark:text-emerald-400",
         )}
       />
       <div className="flex-1 min-w-0">
@@ -77,13 +81,15 @@ function SignalItem({ s }: { s: SignalView }) {
           <p className="text-xs text-muted-foreground mt-0.5 line-clamp-3">{s.detail}</p>
         )}
         {s.citations?.length > 0 && (
+          // py-2 -my-1 grows the only path to the evidence to a usable tap target
           <a
             href={s.citations[0]}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary mt-1 transition-colors"
+            aria-label={`Source for "${s.headline}" (opens in new tab)`}
+            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary mt-1 py-2 -my-1 pr-2 transition-colors"
           >
-            <ExternalLink className="h-3 w-3" />
+            <ExternalLink className="h-3 w-3" aria-hidden />
             source{s.citations.length > 1 ? ` (+${s.citations.length - 1})` : ""}
           </a>
         )}
@@ -92,7 +98,10 @@ function SignalItem({ s }: { s: SignalView }) {
   );
 }
 
+const COLLAPSED_SIGNAL_COUNT = 3;
+
 export function StockSignals({ stockCode, limit = 6 }: StockSignalsProps) {
+  const [showAll, setShowAll] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ["stock-signals", stockCode, limit],
     queryFn: async () => {
@@ -103,27 +112,23 @@ export function StockSignals({ stockCode, limit = 6 }: StockSignalsProps) {
     staleTime: 30 * 60 * 1000,
   });
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <ShieldAlert className="h-5 w-5" />
-            Risk & reputation signals
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-12 w-full" />
-          ))}
-        </CardContent>
-      </Card>
-    );
-  }
+  // Below the fold + frequently empty: render nothing while loading rather
+  // than flashing a skeleton card that may unmount to null.
+  if (isLoading) return null;
 
   const adverse = (data?.adverse ?? []) as unknown as SignalView[];
   const positive = (data?.positive ?? []) as unknown as SignalView[];
-  if (adverse.length === 0 && positive.length === 0) return null;
+  const total = adverse.length + positive.length;
+  if (total === 0) return null;
+
+  // Collapsed: adverse signals take priority, positives fill the remainder.
+  const visibleAdverse = showAll
+    ? adverse
+    : adverse.slice(0, COLLAPSED_SIGNAL_COUNT);
+  const visiblePositive = showAll
+    ? positive
+    : positive.slice(0, Math.max(0, COLLAPSED_SIGNAL_COUNT - adverse.length));
+  const hiddenCount = total - visibleAdverse.length - visiblePositive.length;
 
   return (
     <Card>
@@ -133,29 +138,39 @@ export function StockSignals({ stockCode, limit = 6 }: StockSignalsProps) {
           Risk &amp; reputation signals
         </CardTitle>
         <CardDescription>
-          Grounded web research — court matters, regulator actions, awards &amp; press
+          Grounded web research: court matters, regulator actions, awards &amp; press
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        {adverse.length > 0 && (
+        {visibleAdverse.length > 0 && (
           <div className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5">
-              <ShieldAlert className="h-3.5 w-3.5" /> Adverse
-            </h3>
-            {adverse.map((s, i) => (
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-red-600 dark:text-red-400 flex items-center gap-1.5">
+              <ShieldAlert className="h-3.5 w-3.5" aria-hidden /> Adverse
+            </h4>
+            {visibleAdverse.map((s, i) => (
               <SignalItem key={`a-${i}`} s={s} />
             ))}
           </div>
         )}
-        {positive.length > 0 && (
+        {visiblePositive.length > 0 && (
           <div className="space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-              <Award className="h-3.5 w-3.5" /> Positive
-            </h3>
-            {positive.map((s, i) => (
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+              <Award className="h-3.5 w-3.5" aria-hidden /> Positive
+            </h4>
+            {visiblePositive.map((s, i) => (
               <SignalItem key={`p-${i}`} s={s} />
             ))}
           </div>
+        )}
+        {hiddenCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-muted-foreground"
+            onClick={() => setShowAll(true)}
+          >
+            Show {hiddenCount} more signal{hiddenCount !== 1 ? "s" : ""}
+          </Button>
         )}
       </CardContent>
     </Card>

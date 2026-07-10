@@ -191,6 +191,7 @@ jest.mock("@bufbuild/protobuf", () => ({
   },
   // toPlainMessage is no longer needed in v2 - responses are already plain
   fromPlainMessage: jest.fn((schema, data) => data || {}),
+  fromJson: jest.fn((schema, data) => data || {}),
   create: jest.fn((schema, data) => data || {}),
 }));
 
@@ -445,6 +446,75 @@ jest.mock("@radix-ui/react-select", () => {
   };
 });
 
+// Behavioral accordion mock: the real package breaks under the
+// react-context/react-collection stubs below (createContextScope missing).
+jest.mock("@radix-ui/react-accordion", () => {
+  const React = require("react");
+  const RootCtx = React.createContext({
+    open: [] as string[],
+    toggle: (_: string) => undefined,
+  });
+  const ItemCtx = React.createContext("");
+
+  const Root = ({ children, type, defaultValue, ...props }: any) => {
+    const [open, setOpen] = React.useState(
+      defaultValue ?? (type === "multiple" ? [] : ""),
+    );
+    const toggle = (v: string) =>
+      setOpen((prev: any) =>
+        Array.isArray(prev)
+          ? prev.includes(v)
+            ? prev.filter((x: string) => x !== v)
+            : [...prev, v]
+          : prev === v
+            ? ""
+            : v,
+      );
+    delete props.collapsible;
+    return React.createElement(
+      RootCtx.Provider,
+      { value: { open, toggle } },
+      React.createElement("div", props, children),
+    );
+  };
+
+  const Item = React.forwardRef(({ children, value, ...props }: any, ref: any) =>
+    React.createElement(
+      ItemCtx.Provider,
+      { value },
+      React.createElement("div", { ref, ...props }, children),
+    ),
+  );
+  Item.displayName = "AccordionItem";
+
+  const Header = React.forwardRef(({ children, ...props }: any, ref: any) =>
+    React.createElement("h3", { ref, ...props }, children),
+  );
+  Header.displayName = "AccordionHeader";
+
+  const Trigger = React.forwardRef(({ children, ...props }: any, ref: any) => {
+    const { toggle } = React.useContext(RootCtx);
+    const value = React.useContext(ItemCtx);
+    return React.createElement(
+      "button",
+      { ref, type: "button", onClick: () => toggle(value), ...props },
+      children,
+    );
+  });
+  Trigger.displayName = "AccordionTrigger";
+
+  const Content = React.forwardRef(({ children, ...props }: any, ref: any) => {
+    const { open } = React.useContext(RootCtx);
+    const value = React.useContext(ItemCtx);
+    const isOpen = Array.isArray(open) ? open.includes(value) : open === value;
+    if (!isOpen) return null;
+    return React.createElement("div", { ref, ...props }, children);
+  });
+  Content.displayName = "AccordionContent";
+
+  return { Root, Item, Header, Trigger, Content };
+});
+
 jest.mock("@radix-ui/react-context", () => ({
   createContext: () => ({
     Provider: ({ children }: any) => {
@@ -492,99 +562,34 @@ jest.mock("@radix-ui/react-toggle-group", () => {
 
 jest.mock("lucide-react", () => {
   const React = require("react");
-  return {
-    AlertCircle: jest.fn(({ className }: any) => {
-      return React.createElement("div", {
-        className: `alert-circle ${className}`,
-      });
-    }),
-    RefreshCw: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `refresh-cw ${className}` });
-    }),
-    Plus: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `plus ${className}` });
-    }),
-    X: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `x ${className}` });
-    }),
-    ChevronRight: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `chevron-right ${className}` });
-    }),
-    Home: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `home ${className}` });
-    }),
-    TrendingDown: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `trending-down ${className}` });
-    }),
-    CandlestickChart: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `candlestick-chart ${className}` });
-    }),
-    Users: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `users ${className}` });
-    }),
-    Building2: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `building2 ${className}` });
-    }),
-    Landmark: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `landmark ${className}` });
-    }),
-    Lock: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `lock ${className}` });
-    }),
-    Download: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `download ${className}` });
-    }),
-    Flag: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `flag ${className}` });
-    }),
-    TrendingUp: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `trending-up ${className}` });
-    }),
-    AlertTriangle: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `alert-triangle ${className}` });
-    }),
-    Clock: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `clock ${className}` });
-    }),
-    LogIn: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `log-in ${className}` });
-    }),
-    Newspaper: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `newspaper ${className}` });
-    }),
-    MessagesSquare: jest.fn(({ className }: any) => {
-      return React.createElement("div", {
-        className: `messages-square ${className}`,
-      });
-    }),
-    Sparkles: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `sparkles ${className}` });
-    }),
-    Zap: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `zap ${className}` });
-    }),
-    ArrowUpRight: jest.fn(({ className }: any) => {
-      return React.createElement("div", {
-        className: `arrow-up-right ${className}`,
-      });
-    }),
-    Files: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `files ${className}` });
-    }),
-    MessageSquare: jest.fn(({ className }: any) => {
-      return React.createElement("div", {
-        className: `message-square ${className}`,
-      });
-    }),
-    Clock3: jest.fn(({ className }: any) => {
-      return React.createElement("div", { className: `clock-3 ${className}` });
-    }),
-    MessageCircle: jest.fn(({ className }: any) => {
-      return React.createElement("div", {
-        className: `message-circle ${className}`,
-      });
-    }),
-  };
+  // Proxy factory: any icon name resolves to a generic stub div carrying the
+  // kebab-cased icon name as a class (the convention the hand-written mocks
+  // used) — new icons never break tests with "Element type is invalid".
+  const kebab = (name: string) =>
+    name
+      .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+      .replace(/([A-Z])([A-Z][a-z])/g, "$1-$2")
+      .toLowerCase();
+  const cache: Record<string, unknown> = {};
+  return new Proxy(
+    { __esModule: true },
+    {
+      get(target: any, prop: string) {
+        if (prop in target) return target[prop];
+        if (typeof prop !== "string" || prop === "then") return undefined;
+        if (!cache[prop]) {
+          const Icon = jest.fn(({ className }: any) =>
+            React.createElement("div", {
+              className: `${kebab(prop)} ${className ?? ""}`.trim(),
+            }),
+          );
+          (Icon as any).displayName = prop;
+          cache[prop] = Icon;
+        }
+        return cache[prop];
+      },
+    },
+  );
 });
 
 // Mock Login Prompt Banner

@@ -111,17 +111,17 @@ describe("Stock Detail Page Runtime Imports", () => {
 
   it("should import child components used by EnrichedCompanySection", async () => {
     const [
-      CompanyOverviewModule,
+      CompanyInsightsModule,
       KeyPeopleModule,
       FinancialReportsModule,
     ] = await Promise.all([
-      import("~/@/components/company/company-overview"),
+      import("~/@/components/company/company-insights-card"),
       import("~/@/components/company/key-people"),
       import("~/@/components/company/financial-reports"),
     ]);
 
-    expect(CompanyOverviewModule.CompanyOverview).toBeDefined();
-    expect(typeof CompanyOverviewModule.CompanyOverview).toBe("function");
+    expect(CompanyInsightsModule.CompanyInsightsCard).toBeDefined();
+    expect(typeof CompanyInsightsModule.CompanyInsightsCard).toBe("function");
     
     expect(KeyPeopleModule.KeyPeople).toBeDefined();
     expect(typeof KeyPeopleModule.KeyPeople).toBe("function");

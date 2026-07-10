@@ -204,7 +204,10 @@ export const TopShorts: FC<TopShortsProps> = ({
   return (
     <Suspense fallback={loadingPlaceholder}>
       <Card className={cn("m-2 flex flex-col", className)}>
-        <div className="flex align-middle justify-between">
+        {/* flex-wrap + responsive select width: the fixed-width controls row
+            otherwise forces ~430px min-width and horizontal page scroll on
+            mobile viewports */}
+        <div className="flex flex-wrap items-center justify-between gap-x-2">
           <CardTitle className="self-center m-5">Top Shorts</CardTitle>
           <div className="flex items-end gap-2 m-2">
             <Button
@@ -218,7 +221,7 @@ export const TopShorts: FC<TopShortsProps> = ({
               <Download className="h-4 w-4 mr-1.5" />
               CSV
             </Button>
-            <div className="w-48">
+            <div className="w-36 sm:w-48">
               <Label htmlFor="area">Time</Label>
               <Select value={period} onValueChange={handlePeriodChange}>
                 <SelectTrigger id="area">

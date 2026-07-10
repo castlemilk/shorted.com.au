@@ -7,6 +7,17 @@ jest.mock("~/app/actions/client/getStockVerdictClient", () => ({
   getStockVerdictClient: jest.fn(),
 }));
 
+function renderVerdict() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <StockVerdict stockCode="LOT" />
+    </QueryClientProvider>,
+  );
+}
+
 describe("StockVerdict", () => {
   const originalFlag = process.env.NEXT_PUBLIC_STOCK_VERDICT_ENABLED;
 
@@ -19,17 +30,19 @@ describe("StockVerdict", () => {
     }
   });
 
-  it("does not call the verdict RPC when the production feature flag is disabled", () => {
+  it("is enabled by default (flag unset) and calls the verdict RPC", () => {
     delete process.env.NEXT_PUBLIC_STOCK_VERDICT_ENABLED;
-    const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false } },
-    });
+    (getStockVerdictClient as jest.Mock).mockResolvedValue(null);
 
-    const { container } = render(
-      <QueryClientProvider client={queryClient}>
-        <StockVerdict stockCode="LOT" />
-      </QueryClientProvider>,
-    );
+    renderVerdict();
+
+    expect(getStockVerdictClient).toHaveBeenCalledWith("LOT");
+  });
+
+  it("does not call the verdict RPC when the kill switch is set", () => {
+    process.env.NEXT_PUBLIC_STOCK_VERDICT_ENABLED = "0";
+
+    const { container } = renderVerdict();
 
     expect(container).toBeEmptyDOMElement();
     expect(getStockVerdictClient).not.toHaveBeenCalled();

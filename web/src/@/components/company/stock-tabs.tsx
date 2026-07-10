@@ -1,19 +1,24 @@
 "use client";
 
-import { type ReactNode, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "~/@/components/ui/tabs";
-import { StockNewsFeed } from "./stock-news-feed";
-import { RelatedNewsRail } from "./related-news-rail";
+import { StockNewsTab } from "./stock-news-tab";
 import { StockConnections } from "./stock-connections";
 import { StockSignals } from "./stock-signals";
 import { StockVerdict } from "./stock-verdict";
-import { CompanyTaxCard } from "./company-tax-card";
 import { DirectorTradesTable } from "./director-trades-table";
 import { DividendHistory } from "./dividend-history";
 import { PeerComparisonTable } from "./peer-comparison-table";
@@ -37,6 +42,8 @@ export function StockTabs({
   communityContent,
 }: StockTabsProps) {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const tabsListRef = useRef<HTMLDivElement>(null);
   const availableTabs = useMemo(
     () =>
       [
@@ -65,9 +72,51 @@ export function StockTabs({
     }
   }, [availableTabs, requestedTab]);
 
+  // Keep ?tab= in sync so tabs stay deep-linkable after client navigation.
+  // Shallow history API, NOT router.replace: this page is force-dynamic, so a
+  // router navigation would re-execute the entire server page (all stock RPCs)
+  // on every tab click just to update a query param.
+  const handleTabChange = useCallback(
+    (value: string) => {
+      setActiveTab(value);
+      const params = new URLSearchParams(searchParams.toString());
+      if (value === "overview") {
+        params.delete("tab");
+      } else {
+        params.set("tab", value);
+      }
+      const query = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        query ? `${pathname}?${query}` : pathname,
+      );
+    },
+    [pathname, searchParams],
+  );
+
+  // The 8-trigger TabsList overflows horizontally on mobile; when a tab is
+  // deep-linked (?tab=peers) make sure its trigger is scrolled into view.
+  useEffect(() => {
+    const list = tabsListRef.current;
+    if (!list) return;
+    const active = list.querySelector<HTMLElement>('[data-state="active"]');
+    if (!active) return;
+    if (
+      active.offsetLeft + active.offsetWidth >
+        list.scrollLeft + list.clientWidth ||
+      active.offsetLeft < list.scrollLeft
+    ) {
+      list.scrollTo({ left: active.offsetLeft - 16 });
+    }
+  }, [activeTab]);
+
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-      <TabsList className="w-full justify-start overflow-x-auto">
+    <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+      <TabsList
+        ref={tabsListRef}
+        className="w-full justify-start overflow-x-auto"
+      >
         <TabsTrigger value="overview">Overview</TabsTrigger>
         {communityContent ? (
           <TabsTrigger value="community">Community</TabsTrigger>
@@ -80,12 +129,14 @@ export function StockTabs({
         <TabsTrigger value="peers">Peers</TabsTrigger>
       </TabsList>
 
+      {/* gap columns: widgets that resolve to null (verdict flag off, no
+          signals/graph data) contribute no stray spacing. Tax card lives on
+          the Financials tab. */}
       <TabsContent value="overview">
         <div className="grid min-w-0 grid-cols-1 items-start gap-4 md:gap-6 lg:grid-cols-[minmax(0,1fr)_310px]">
           <div className="flex min-w-0 flex-col gap-4 md:gap-6">
             {overviewMain}
             <StockVerdict stockCode={stockCode} />
-            <CompanyTaxCard stockCode={stockCode} />
             <StockSignals stockCode={stockCode} />
             <StockConnections stockCode={stockCode} />
           </div>
@@ -102,10 +153,7 @@ export function StockTabs({
       ) : null}
 
       <TabsContent value="news">
-        <div className="space-y-4">
-          <StockNewsFeed stockCode={stockCode} limit={20} />
-          <RelatedNewsRail stockCode={stockCode} limit={6} />
-        </div>
+        <StockNewsTab stockCode={stockCode} />
       </TabsContent>
 
       <TabsContent value="timeline">

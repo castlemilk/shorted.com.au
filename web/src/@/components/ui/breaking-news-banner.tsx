@@ -43,7 +43,12 @@ export function BreakingNewsBanner() {
             className="flex items-center justify-between gap-2 group"
           >
             <div className="flex items-center gap-2 min-w-0">
-              <NewsSourceBadge source={article.source} showLogo={true} />
+              {/* Row is already an <a>; badge must not nest an anchor */}
+              <NewsSourceBadge
+                source={article.source}
+                showLogo={true}
+                interactive={false}
+              />
               {article.stockCode && article.stockCode !== "MARKET" && (
                 <Link
                   href={`/shorts/${article.stockCode}`}

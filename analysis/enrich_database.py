@@ -335,6 +335,28 @@ def fetch_annual_reports(company: pd.Series) -> List[Dict[str, str]]:
     return reports[:10]
 
 
+def normalize_dividend_yield(value: Any) -> Optional[float]:
+    """Normalize yfinance's `dividendYield` to percent units.
+
+    yfinance switched `dividendYield` from a fraction (CBA = 0.032) to a
+    percent (CBA = 3.2) in 2024-25. The previous unconditional `* 100` here
+    double-scaled the new percent values (3.2 -> 320), which the frontend
+    (assuming fractions) then rendered as 32000%.
+
+    Store percent: values <= 1 are treated as legacy fractions and scaled up;
+    values > 1 are already percent and passed through.
+    """
+    if not value:
+        return None
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    if v <= 0:
+        return None
+    return v * 100 if v <= 1 else v
+
+
 def fetch_yahoo_finance_data(stock_code: str) -> Dict[str, Any]:
     """Fetch comprehensive financial data from Yahoo Finance"""
     yahoo_symbol = f"{stock_code}.AX"
@@ -400,11 +422,7 @@ def fetch_yahoo_finance_data(stock_code: str) -> Dict[str, Any]:
             "current_price": info.get("currentPrice"),
             "pe_ratio": info.get("trailingPE"),
             "eps": info.get("trailingEps"),
-            "dividend_yield": (
-                info.get("dividendYield", 0) * 100
-                if info.get("dividendYield")
-                else None
-            ),
+            "dividend_yield": normalize_dividend_yield(info.get("dividendYield")),
             "beta": info.get("beta"),
             "week_52_high": info.get("fiftyTwoWeekHigh"),
             "week_52_low": info.get("fiftyTwoWeekLow"),

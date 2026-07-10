@@ -27,6 +27,9 @@ import { getEnhancedWeeklyReportData, getAvailableWeekSlugs } from "~/app/action
 import { BrowseByIndustry } from "./browse-by-industry";
 import { TrendingThisWeek } from "./trending-this-week";
 import { LatestFromBlog } from "./latest-from-blog";
+import { LatestMarketNews } from "./latest-market-news";
+import { FeaturedStory } from "~/@/components/news/masthead/featured-story";
+import { FEATURED } from "~/@/components/news/masthead/featured";
 
 // Event-driven ISR: serve the cached page instantly and hold it for up to 24h
 // as a safety net. The real refresh is on-demand — the daily ASIC sync busts
@@ -222,15 +225,28 @@ export default async function Page() {
         initialTreeMap={initialTreeMap}
       />
 
-      {/* Browse by Industry — server-rendered for SEO internal linking */}
+      {/* Market news — freshest cross-market coverage, directly under the
+          dashboard and ahead of everything editorial */}
       <Suspense fallback={null}>
-        <BrowseByIndustry />
+        <LatestMarketNews />
       </Suspense>
 
       {/* Trending This Week — biggest short position changes */}
       <Suspense fallback={null}>
         <TrendingThisWeek />
       </Suspense>
+
+      {/* Browse by Industry — server-rendered for SEO internal linking */}
+      <Suspense fallback={null}>
+        <BrowseByIndustry />
+      </Suspense>
+
+      {/* Featured investigation — flagship editorial long-read */}
+      {FEATURED[0] && (
+        <div className="container mx-auto px-4 py-6">
+          <FeaturedStory item={FEATURED[0]} />
+        </div>
+      )}
 
       {/* Latest from the blog — surfaces freshly published posts on the homepage */}
       <Suspense fallback={null}>

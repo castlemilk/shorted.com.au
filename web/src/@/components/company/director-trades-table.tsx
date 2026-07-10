@@ -57,7 +57,7 @@ export function DirectorTradesTable({
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Director Trades
+            Director trades
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -77,7 +77,7 @@ export function DirectorTradesTable({
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Director Trades
+            Director trades
           </CardTitle>
           <CardDescription>No director trades found</CardDescription>
         </CardHeader>
@@ -90,7 +90,7 @@ export function DirectorTradesTable({
       <CardHeader className="pb-3">
         <CardTitle className="text-lg flex items-center gap-2">
           <Users className="h-5 w-5" />
-          Director Trades
+          Director trades
         </CardTitle>
         <CardDescription>
           {data.totalCount} trade{data.totalCount !== 1 ? "s" : ""} recorded

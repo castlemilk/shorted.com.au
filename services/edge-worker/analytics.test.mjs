@@ -340,6 +340,65 @@ test("public GET edge read facade maps top shorts to cached Connect RPC with pub
   }
 });
 
+test("industry treemap Connect RPC uses the top-shorts cache TTL bucket", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalCaches = globalThis.caches;
+
+  globalThis.caches = {
+    default: {
+      async match() {
+        return undefined;
+      },
+      async put() {
+        return undefined;
+      },
+    },
+  };
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        industries: ["Materials"],
+        stocks: [{ industry: "Materials", productCode: "LOT", shortPosition: 12.3 }],
+      }),
+      {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      },
+    );
+
+  try {
+    const response = await worker.fetch(
+      new Request(
+        "https://api.shorted.com.au/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            period: "3m",
+            limit: 8,
+            view_mode: 0,
+          }),
+        },
+      ),
+      {
+        SHORTS_API_ORIGIN: "https://shorts-origin.test",
+        CACHE_TTL_DEFAULT: "60",
+        CACHE_TTL_TOP_SHORTS: "300",
+        EDGE_ANALYTICS_SAMPLE_RATE: "0",
+      },
+      { waitUntil() {} },
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("x-shorted-cache"), "MISS");
+    assert.match(response.headers.get("cache-control") || "", /s-maxage=300/);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalCaches === undefined) delete globalThis.caches;
+    else globalThis.caches = originalCaches;
+  }
+});
+
 test("public GET edge read facade reuses hot cache after first origin miss", async () => {
   const originalFetch = globalThis.fetch;
   const originalCaches = globalThis.caches;

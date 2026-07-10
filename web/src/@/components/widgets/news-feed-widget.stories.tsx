@@ -18,6 +18,8 @@
  *   renders the story in-viewport so the IO fires.
  * - Child badges (NewsSourceBadge, SentimentBadge) are pure UI; source logos
  *   are static /assets/ images loaded by the browser, not via fetch.
+ *   NewsSourceBadge renders with interactive={false} because each article row
+ *   is itself an <a> — the badge must not nest its own anchor (invalid HTML).
  * - The widget renders NO timestamps (publishedAt is unused), so stories are
  *   clock-independent — no `no-visual` tags needed.
  *
@@ -139,10 +141,18 @@ export const Default: Story = {
     // Source badges (fixture cycles sources; asx appears at indices 0 and 5)
     // and sentiment badges (positive at indices 0, 3, 6, 9).
     expect(canvas.getAllByText("ASX")).toHaveLength(2);
+    // Badges are non-interactive inside the whole-row <a> (a-in-a is invalid
+    // HTML): the badge's nearest anchor is the article row link itself, not
+    // the source's external site.
+    const asxBadge = canvas.getAllByText("ASX")[0]!;
+    expect(asxBadge.closest("a")).toHaveAttribute(
+      "href",
+      fixture.articles[0]!.url,
+    );
     expect(canvas.getAllByText("Stockhead")).toHaveLength(2);
-    expect(canvas.getAllByText("positive")).toHaveLength(4);
-    expect(canvas.getAllByText("negative")).toHaveLength(3);
-    expect(canvas.getAllByText("neutral")).toHaveLength(3);
+    expect(canvas.getAllByText("Positive")).toHaveLength(4);
+    expect(canvas.getAllByText("Negative")).toHaveLength(3);
+    expect(canvas.getAllByText("Neutral")).toHaveLength(3);
 
     // Primary interaction: stock-code navigation via next/link. The deterministic
     // navigation contract for a next/link is its href (asserted above) — clicking
@@ -228,7 +238,7 @@ export const Compact: Story = {
     const headline = canvas.getByText(fixture.articles[0]!.headline);
     expect(headline.className).toContain("line-clamp-1");
     // Badge row is hidden in compact mode.
-    expect(canvas.queryByText("positive")).not.toBeInTheDocument();
+    expect(canvas.queryByText("Positive")).not.toBeInTheDocument();
     expect(canvas.queryByText("ASX")).not.toBeInTheDocument();
     // Stock-code links survive compacting.
     expect(canvas.getByRole("link", { name: "PLS" })).toBeInTheDocument();

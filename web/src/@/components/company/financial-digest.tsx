@@ -28,28 +28,54 @@ function getReportTypeLabel(reportType: string): string {
   return reportType.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
 }
 
-/** Formats a metric value from the attributes map into a readable string. */
-function formatMetricValue(attributes: Record<string, string>): string | null {
-  // Prefer explicit formatted value if present
+// Metric types quoted per-share (cents or dollars) — these must never run
+// through the millions/billions ladder.
+const PER_SHARE_METRIC_TYPES = new Set(["eps", "dividend"]);
+
+function parseNumeric(value: string | undefined): number | null {
+  if (value === undefined || value.trim() === "") return null;
+  const num = parseFloat(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+/**
+ * Formats a metric value from the attributes map into a readable string.
+ *
+ * Attribute shape (see getReportData.ts / weekly-report-generator):
+ * - aggregate metrics (revenue, net_profit, …) carry `value_millions`
+ *   (occasionally `value_billions`) → "$624M" / "$1.54B"
+ * - per-share metrics (eps, dividend) carry `value_cents` (or a dollar
+ *   `value`) → "$2.35" / "$0.50"
+ *
+ * Returns null (metric omitted) when no parseable value is present.
+ */
+export function formatMetricValue(
+  metricType: string,
+  attributes: Record<string, string>,
+): string | null {
+  // Prefer explicit pre-formatted value if the backend ever supplies one
   if (attributes.formatted) return attributes.formatted;
 
-  const millions = attributes.value_millions
-    ? parseFloat(attributes.value_millions)
-    : null;
-  const billions = attributes.value_billions
-    ? parseFloat(attributes.value_billions)
-    : null;
-  const raw = attributes.value ? parseFloat(attributes.value) : null;
-
-  const num = billions ?? (millions !== null ? millions / 1000 : null) ?? raw;
-  if (num === null || isNaN(num)) return attributes.value ?? null;
-
-  if (Math.abs(num) >= 1) {
-    return `$${num.toFixed(2)}B`;
+  if (PER_SHARE_METRIC_TYPES.has(metricType)) {
+    const cents = parseNumeric(attributes.value_cents);
+    const dollars = cents !== null ? cents / 100 : parseNumeric(attributes.value);
+    if (dollars === null) return null;
+    return `${dollars < 0 ? "-" : ""}$${Math.abs(dollars).toFixed(2)}`;
   }
-  // sub-billion: re-express in millions
-  const inMil = (billions !== null ? billions * 1000 : null) ?? millions ?? (raw ?? 0);
-  return `$${inMil.toFixed(0)}M`;
+
+  // Aggregate metrics: value is reported in millions
+  const billions = parseNumeric(attributes.value_billions);
+  const millions =
+    parseNumeric(attributes.value_millions) ??
+    (billions !== null ? billions * 1000 : null);
+  if (millions === null) return null;
+
+  const sign = millions < 0 ? "-" : "";
+  const abs = Math.abs(millions);
+  if (abs >= 1000) {
+    return `${sign}$${(abs / 1000).toFixed(2)}B`;
+  }
+  return `${sign}$${abs.toFixed(0)}M`;
 }
 
 // Which metric types to surface in the compact row (in display order)
@@ -84,7 +110,7 @@ export function FinancialDigest({ highlights }: FinancialDigestProps) {
     .map((type) => {
       const metric = report.metrics.find((m) => m.metricType === type);
       if (!metric) return null;
-      const value = formatMetricValue(metric.attributes);
+      const value = formatMetricValue(type, metric.attributes);
       if (!value) return null;
       const period = metric.attributes.period ?? "";
       return { type, label: METRIC_LABELS[type] ?? type, value, period };

@@ -750,7 +750,7 @@ function isCacheableAnalyticsEvent(cacheStatus, cacheTtl) {
  * TTLs are safe and reduce unnecessary origin fetches.
  */
 function resolveShortsTtl(path, defaults) {
-  if (/GetTopShorts|GetShortsTreeMap|GetWeeklyReport|GetMarketByDate|GetAvailableDates/.test(path)) {
+  if (/GetTopShorts|GetIndustryTreeMap|GetShortsTreeMap|GetWeeklyReport|GetMarketByDate|GetAvailableDates/.test(path)) {
     return defaults.cacheTtlTopShorts; // 300s (5min) — safe for ASIC data
   }
   if (/GetNews|GetAnnouncement|GetMarketNews/.test(path)) {

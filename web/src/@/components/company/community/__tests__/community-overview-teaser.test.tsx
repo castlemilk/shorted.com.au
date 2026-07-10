@@ -1,4 +1,5 @@
-import { render, screen } from "@testing-library/react";
+import { render as rtlRender, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CommunityOverviewTeaser } from "../community-overview-teaser";
 
 jest.mock("next/link", () => ({
@@ -9,6 +10,16 @@ jest.mock("next/link", () => ({
     </a>
   ),
 }));
+
+// The teaser now fetches its summary through TanStack Query.
+function render(ui: React.ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return rtlRender(
+    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
+  );
+}
 
 describe("CommunityOverviewTeaser", () => {
   const originalFetch = global.fetch;
@@ -40,10 +51,11 @@ describe("CommunityOverviewTeaser", () => {
       />,
     );
 
-    expect(screen.getByText("Live on BHP")).toBeInTheDocument();
     expect(
       screen.getByText("The capex debate is tightening"),
     ).toBeInTheDocument();
+    // Compact strip shows the activity label
+    expect(screen.getByText(/last active/i)).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /open community/i }),
     ).toBeInTheDocument();
@@ -67,7 +79,7 @@ describe("CommunityOverviewTeaser", () => {
     expect(
       screen.getByText(/be the first to discuss bhp/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/start the research thread/i)).toBeInTheDocument();
+    expect(screen.getByText(/start a research thread/i)).toBeInTheDocument();
   });
 
   it("hydrates summary data from the community API", async () => {

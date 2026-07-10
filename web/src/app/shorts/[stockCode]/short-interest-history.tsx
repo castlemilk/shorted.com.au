@@ -149,16 +149,15 @@ export async function ShortInterestHistory({
 
   const heavily =
     latest.pct >= 10
-      ? `Yes — at ${latest.pct.toFixed(2)}%, ${stockCode} is one of the most heavily shorted stocks on the ASX`
+      ? `Yes. At ${latest.pct.toFixed(2)}%, ${stockCode} is one of the most heavily shorted stocks on the ASX`
       : latest.pct >= 5
         ? `${stockCode}'s short interest of ${latest.pct.toFixed(2)}% is elevated relative to the ASX average`
-        : `Not especially — ${latest.pct.toFixed(2)}% short interest is modest by ASX standards`;
+        : `Not especially: ${latest.pct.toFixed(2)}% short interest is modest by ASX standards`;
 
   return (
-    <section
-      aria-label={`${stockCode} short interest history`}
-      className="mb-6 rounded-lg border bg-card p-4 md:p-5"
-    >
+    // No card chrome of its own — the page wraps this in a <details> that
+    // already provides the border/background (double-boxing otherwise).
+    <section aria-label={`${stockCode} short interest history`}>
       <h2 className="text-lg md:text-xl font-semibold tracking-tight">
         {stockCode} Short Interest History
       </h2>
@@ -236,7 +235,7 @@ export async function ShortInterestHistory({
           <p className="mt-1 text-muted-foreground leading-relaxed">
             All figures are sourced from daily ASIC short position reports,
             published with a four trading-day (T+4) delay. Shorted aggregates
-            the full history since {firstYear} — see our{" "}
+            the full history since {firstYear}. See our{" "}
             <a href="/methodology" className="underline hover:no-underline">
               methodology
             </a>

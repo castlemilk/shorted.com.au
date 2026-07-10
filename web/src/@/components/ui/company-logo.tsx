@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { IdCardIcon } from "@radix-ui/react-icons";
 import { normalizedLogoUrl, rawLogoUrl } from "~/@/lib/logo";
 import { cn } from "~/@/lib/utils";
@@ -51,11 +50,19 @@ export function CompanyLogo({
 
   return (
     <div className={cn("flex-shrink-0", className ?? "mr-4")}>
-      <Image
+      {/* Plain <img>: the raw-stage URL can point at any host (LinkedIn CDN,
+          company sites, …) and next/image throws on hosts missing from
+          images.remotePatterns — which took down entire stock pages. A small
+          logo gains nothing from the optimizer. */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
         src={src}
         alt={`${companyName ?? stockCode} logo`}
         width={size}
         height={size}
+        loading="eager"
+        decoding="async"
+        style={{ height: size, width: size }}
         className={cn("object-contain", imageClassName)}
         onError={() => setStage((s) => (s === "normalized" ? "raw" : "icon"))}
       />

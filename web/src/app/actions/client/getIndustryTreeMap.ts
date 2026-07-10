@@ -1,9 +1,9 @@
-import { createConnectTransport } from "@connectrpc/connect-web";
-import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { type IndustryTreeMap } from "~/gen/stocks/v1alpha1/stocks_pb";
+import { fromJson, type JsonValue } from "@bufbuild/protobuf";
+import {
+  IndustryTreeMapSchema,
+  type IndustryTreeMap,
+} from "~/gen/stocks/v1alpha1/stocks_pb";
 import { type ViewMode } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { SHORTS_API_URL } from "../config";
 import { formatPeriodForAPI } from "~/lib/period-utils";
 import { retryWithBackoff } from "@/lib/retry";
 import { getSessionCached, setSessionCached } from "@/lib/session-cache";
@@ -14,9 +14,54 @@ const RETRY_OPTIONS = {
   maxDelayMs: 5000,
 };
 
+function buildIndustryTreeMapEdgeUrl(
+  period: string,
+  limit: number,
+  viewMode: ViewMode,
+): string {
+  const params = new URLSearchParams({
+    period: formatPeriodForAPI(period),
+    limit: String(limit),
+    viewMode: String(viewMode),
+  });
+  return `/edge/v1/industry-treemap?${params.toString()}`;
+}
+
+async function fetchIndustryTreeMapFromEdge(
+  period: string,
+  limit: number,
+  viewMode: ViewMode,
+  forceRefresh: boolean,
+): Promise<IndustryTreeMap> {
+  const response = await fetch(
+    buildIndustryTreeMapEdgeUrl(period, limit, viewMode),
+    {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+      cache: forceRefresh ? "reload" : "default",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch treemap data: ${response.status}`);
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().includes("application/json")) {
+    throw new Error("Failed to fetch treemap data: non-JSON response");
+  }
+
+  return fromJson(
+    IndustryTreeMapSchema,
+    (await response.json()) as JsonValue,
+  );
+}
+
 /**
  * Client-side version of getIndustryTreeMap
- * Calls the backend API directly from the browser
+ * Calls the Cloudflare Worker edge-read facade through a same-origin rewrite
  * Uses sessionStorage cache (5-min TTL) to avoid redundant fetches
  * Includes retry logic for transient failures
  */
@@ -33,19 +78,9 @@ export const getIndustryTreeMapClient = async (
     if (cached) return cached;
   }
 
-  // Use relative URL so requests go through Next.js rewrites (avoids CORS)
-  const transport = createConnectTransport({
-    baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL,
-  });
-  const client = createClient(ShortedStocksService, transport);
-
   const result = await retryWithBackoff(
     () =>
-      client.getIndustryTreeMap({
-        period: formatPeriodForAPI(period),
-        limit,
-        viewMode,
-      }),
+      fetchIndustryTreeMapFromEdge(period, limit, viewMode, forceRefresh),
     RETRY_OPTIONS,
   );
 

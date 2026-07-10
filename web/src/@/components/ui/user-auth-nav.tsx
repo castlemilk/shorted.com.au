@@ -26,7 +26,8 @@ export const UserAuthNav = () => {
   }
 
   if (!session) {
-    return <SignIn />;
+    // Compact padding below sm so the sign-in CTA fits 320px headers.
+    return <SignIn className="px-2.5 sm:px-4" />;
   }
 
   return (
