@@ -36,6 +36,9 @@ import { FinancialDigest } from "~/@/components/company/financial-digest";
 import { CommunityOverviewTeaser } from "~/@/components/company/community/community-overview-teaser";
 import { CommunityTab } from "~/@/components/company/community/community-tab";
 import { StockEvidencePanel } from "~/@/components/company/stock-evidence-panel";
+import { IntelLockCard } from "~/@/components/ui/intel-lock";
+import { LoginPromptBanner } from "~/@/components/ui/login-prompt-banner";
+import { auth } from "~/server/auth";
 
 // Dynamic import to avoid SSR issues — child components import @connectrpc/connect
 const StockTabs = nextDynamic(
@@ -182,6 +185,10 @@ const Page = async ({ params }: PageProps) => {
     notFound();
   }
 
+  // Page is force-dynamic, so a per-request session read is safe here. Used
+  // to lock the intelligence dossier for signed-out visitors.
+  const session = await auth().catch(() => null);
+
   // Fetch stock data for StockLLMMeta and related stocks in parallel
   // getStockOrNotFound throws NotFoundError when the stock doesn't exist,
   // but returns undefined for transient backend errors.
@@ -192,7 +199,7 @@ const Page = async ({ params }: PageProps) => {
   const financialHighlightsPromise = getStockFinancialHighlights([
     stockCode,
   ]).catch(
-    (): Record<string, import("~/app/actions/reports/getReportData").StockFinancialHighlight[]> => ({}),
+    (): Record<string, StockFinancialHighlight[]> => ({}),
   );
   try {
     [stock, relatedData] = await Promise.all([
@@ -410,6 +417,13 @@ const Page = async ({ params }: PageProps) => {
         <Breadcrumbs items={breadcrumbItems} />
       </div>
 
+      {/* Signed-out breadcrumb to login — dismissible, above the fold */}
+      {!session && (
+        <div className="mb-4 overflow-hidden rounded-lg border border-primary/20">
+          <LoginPromptBanner />
+        </div>
+      )}
+
       {/* Header: Profile & Stats (always visible above tabs) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-start mb-6">
         <div className="md:col-span-2">
@@ -445,14 +459,31 @@ const Page = async ({ params }: PageProps) => {
         stockCode={stockCode}
         overviewMain={
           <>
-            {/* Per-stock public-source evidence with industry drill-up links */}
-            <Suspense fallback={null}>
-              <StockEvidencePanel
-                stockCode={stockCode}
-                industry={relatedData.industry}
-                industrySlug={relatedData.industrySlug}
+            {/* Per-stock public-source evidence with industry drill-up
+                links. Signed-out visitors see the lock with a yellow
+                sign-in CTA instead of the dossier. */}
+            {session ? (
+              <Suspense fallback={null}>
+                <StockEvidencePanel
+                  stockCode={stockCode}
+                  industry={relatedData.industry}
+                  industrySlug={relatedData.industrySlug}
+                />
+              </Suspense>
+            ) : (
+              <IntelLockCard
+                title={`${stockCode} intelligence dossier`}
+                description="Public-source evidence for this company, with industry drill-up links."
+                bullets={[
+                  "Tax paid and taxable income records",
+                  "Government contracts and public money",
+                  "Emissions and trade exposure",
+                  "Political donations and lobbying links",
+                ]}
+                callbackUrl={`/shorts/${stockCode}`}
+                ctaLabel="Sign in to unlock the dossier"
               />
-            </Suspense>
+            )}
 
             {/* SSR short-interest history + FAQ — crawlable trend facts.
                 Native <details> keeps the content in the DOM (crawlable)

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
 import { AlertCircle, ArrowUpRight } from "lucide-react";
@@ -20,6 +21,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "~/@/components/ui/tabs";
+import { IntelLockCard } from "~/@/components/ui/intel-lock";
 import { getSectorImageAlt, getSectorImagePath } from "~/@/lib/sector-images";
 import { cn } from "~/@/lib/utils";
 import type { IndustryIntelligenceStory } from "~/@/lib/industry-intelligence";
@@ -90,6 +92,53 @@ export function IndustryIntelligenceClient({
       setView("overview");
     }
   };
+
+  const { status: sessionStatus } = useSession();
+
+  // Signed-out visitors get the story headline plus a locked teaser: the page
+  // stays indexable/ISR (gate is client-side) and the lock names what a free
+  // account unlocks.
+  if (sessionStatus === "unauthenticated") {
+    const industryNames = stories
+      .slice(0, 8)
+      .map((story) => story.industry.name);
+    return (
+      <div className="min-w-0" data-testid="industry-intelligence-locked">
+        <header className="border-b border-border/60 pb-5">
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-primary">
+            Industry story
+          </p>
+          <h1 className="mt-1 font-serif text-3xl font-bold tracking-tight text-balance sm:text-4xl">
+            Industry Intelligence
+          </h1>
+          <p className="mt-1.5 max-w-xl text-sm leading-6 text-muted-foreground text-pretty">
+            Short-interest crowding and cited public-source evidence for ASX
+            industries.
+          </p>
+        </header>
+        <div className="mt-6 flex flex-col gap-4">
+          <IntelLockCard
+            title="Industry intelligence is a signed-in workspace"
+            description="Create a free account to open the full evidence workspace."
+            bullets={[
+              "Short-interest crowding by industry, week by week",
+              "Tax, public money, emissions and trade evidence channels",
+              "Per-company drill-downs with cited primary sources",
+              "Alert monitors on the signals you care about",
+            ]}
+            callbackUrl="/industry-intelligence"
+            ctaLabel="Sign in to open the workspace"
+          />
+          {industryNames.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              Covers {industryNames.join(", ")}
+              {stories.length > industryNames.length ? " and more." : "."}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (!selectedStory) {
     return (
