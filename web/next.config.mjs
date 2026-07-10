@@ -62,6 +62,19 @@ const edgeApiUrl =
     process.env.SHORTED_EDGE_API_URL,
     process.env.SHORTS_EDGE_API_URL,
   ) ?? "https://api.shorted.com.au";
+// Firebase auth-helper origin for the same-origin sign-in popup. When
+// NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN is set to shorted.com.au, the SDK loads
+// /__/auth/* from OUR domain and this rewrite proxies it to the real helper
+// on <project>.firebaseapp.com — removing the cross-origin iframe handshake
+// (~0.5-2s) from signInWithPopup. Inert until the env var is flipped.
+// Prereqs before flipping: shorted.com.au in Firebase authorized domains AND
+// https://shorted.com.au/__/auth/handler added to the OAuth client's
+// redirect URIs.
+const firebaseAuthHelperOrigin = `https://${
+  (process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "rosy-clover-477102-t5")
+    .trim()
+    .replace(/\s+/g, "")
+}.firebaseapp.com`;
 
 const config = {
   output: "standalone", // Enable standalone mode for Docker
@@ -269,6 +282,16 @@ const config = {
       {
         source: "/edge/v1/:path*",
         destination: `${edgeApiUrl}/edge/v1/:path*`,
+      },
+      {
+        // Same-origin Firebase auth helper (see firebaseAuthHelperOrigin).
+        source: "/__/auth/:path*",
+        destination: `${firebaseAuthHelperOrigin}/__/auth/:path*`,
+      },
+      {
+        // The auth helper fetches its own SDK config from /__/firebase/.
+        source: "/__/firebase/:path*",
+        destination: `${firebaseAuthHelperOrigin}/__/firebase/:path*`,
       },
       {
         source: "/shorts.v1alpha1.ShortedStocksService/:path*",
