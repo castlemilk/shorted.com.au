@@ -38,9 +38,9 @@ export const MainNav = ({ items, modeToggle }: MainNavProps) => {
   const isSecondaryActive = secondaryItems.some((i) => i.href && pathname === i.href);
 
   return (
-    // gap-2 below sm: the header must fit hamburger + logo + search +
-    // sign-in + theme toggle inside a 320px viewport
-    <div className="flex items-center gap-2 sm:gap-4 md:gap-6 w-full">
+    // gap-2 below sm: the header must fit hamburger + logo + sign-in +
+    // theme toggle inside a 320px viewport
+    <div className="flex w-full min-w-0 items-center gap-2 sm:gap-3 lg:gap-5">
       <MobileNav items={items} />
       <Link
         href="/"
@@ -53,7 +53,7 @@ export const MainNav = ({ items, modeToggle }: MainNavProps) => {
       </Link>
 
       {items?.length ? (
-        <nav className="hidden md:flex items-center gap-0.5">
+        <nav className="hidden lg:flex min-w-0 items-center gap-0.5">
           {/* Primary items — always visible */}
           {primaryItems.map((item, index) => (
             <NavLink
@@ -129,8 +129,12 @@ export const MainNav = ({ items, modeToggle }: MainNavProps) => {
         </nav>
       ) : null}
 
-      <div className="ml-auto flex items-center gap-1.5 sm:gap-3">
-        {!pathname?.startsWith("/docs/api") && <NavSearchInput />}
+      <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2 lg:gap-3">
+        {!pathname?.startsWith("/docs/api") && (
+          <div className="hidden xl:block">
+            <NavSearchInput />
+          </div>
+        )}
         <UserAuthNav />
         {modeToggle}
       </div>

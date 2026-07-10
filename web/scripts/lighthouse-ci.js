@@ -19,7 +19,14 @@ const PORT = process.env.PORT || 3020;
 const BASE_URL = `http://localhost:${PORT}`;
 
 // Pages to test
-const PAGES = ["/", "/shorts", "/stocks", "/blog", "/about"];
+const PAGES = [
+  "/",
+  "/shorts",
+  "/stocks",
+  "/blog",
+  "/about",
+  "/industry-intelligence",
+];
 
 console.log("🚀 Starting Lighthouse CI...");
 console.log(`Testing against: ${BASE_URL}`);

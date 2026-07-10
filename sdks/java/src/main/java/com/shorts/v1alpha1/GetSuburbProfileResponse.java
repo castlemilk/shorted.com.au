@@ -188,7 +188,7 @@ private static final long serialVersionUID = 0L;
    * <code>repeated .shorts.v1alpha1.SimilarSuburb similar = 5 [json_name = "similar"];</code>
    */
   @java.lang.Override
-  public java.util.List<? extends com.shorts.v1alpha1.SimilarSuburbOrBuilder>
+  public java.util.List<? extends com.shorts.v1alpha1.SimilarSuburbOrBuilder> 
       getSimilarOrBuilderList() {
     return similar_;
   }
@@ -646,7 +646,7 @@ private static final long serialVersionUID = 0L;
             similarBuilder_ = null;
             similar_ = other.similar_;
             bitField0_ = (bitField0_ & ~0x00000010);
-            similarBuilder_ =
+            similarBuilder_ = 
               com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
                  internalGetSimilarFieldBuilder() : null;
           } else {
@@ -846,7 +846,7 @@ private static final long serialVersionUID = 0L;
      * <code>.shorts.v1alpha1.SuburbSummary summary = 1 [json_name = "summary"];</code>
      */
     private com.google.protobuf.SingleFieldBuilder<
-        com.shorts.v1alpha1.SuburbSummary, com.shorts.v1alpha1.SuburbSummary.Builder, com.shorts.v1alpha1.SuburbSummaryOrBuilder>
+        com.shorts.v1alpha1.SuburbSummary, com.shorts.v1alpha1.SuburbSummary.Builder, com.shorts.v1alpha1.SuburbSummaryOrBuilder> 
         internalGetSummaryFieldBuilder() {
       if (summaryBuilder_ == null) {
         summaryBuilder_ = new com.google.protobuf.SingleFieldBuilder<
@@ -967,7 +967,7 @@ private static final long serialVersionUID = 0L;
      * <code>.shorts.v1alpha1.SuburbDemographics demographics = 2 [json_name = "demographics"];</code>
      */
     private com.google.protobuf.SingleFieldBuilder<
-        com.shorts.v1alpha1.SuburbDemographics, com.shorts.v1alpha1.SuburbDemographics.Builder, com.shorts.v1alpha1.SuburbDemographicsOrBuilder>
+        com.shorts.v1alpha1.SuburbDemographics, com.shorts.v1alpha1.SuburbDemographics.Builder, com.shorts.v1alpha1.SuburbDemographicsOrBuilder> 
         internalGetDemographicsFieldBuilder() {
       if (demographicsBuilder_ == null) {
         demographicsBuilder_ = new com.google.protobuf.SingleFieldBuilder<
@@ -1088,7 +1088,7 @@ private static final long serialVersionUID = 0L;
      * <code>.shorts.v1alpha1.ComparisonBaselines baselines = 3 [json_name = "baselines"];</code>
      */
     private com.google.protobuf.SingleFieldBuilder<
-        com.shorts.v1alpha1.ComparisonBaselines, com.shorts.v1alpha1.ComparisonBaselines.Builder, com.shorts.v1alpha1.ComparisonBaselinesOrBuilder>
+        com.shorts.v1alpha1.ComparisonBaselines, com.shorts.v1alpha1.ComparisonBaselines.Builder, com.shorts.v1alpha1.ComparisonBaselinesOrBuilder> 
         internalGetBaselinesFieldBuilder() {
       if (baselinesBuilder_ == null) {
         baselinesBuilder_ = new com.google.protobuf.SingleFieldBuilder<
@@ -1245,7 +1245,7 @@ private static final long serialVersionUID = 0L;
      * <code>.shorts.v1alpha1.LgaInfo council = 4 [json_name = "council"];</code>
      */
     private com.google.protobuf.SingleFieldBuilder<
-        com.shorts.v1alpha1.LgaInfo, com.shorts.v1alpha1.LgaInfo.Builder, com.shorts.v1alpha1.LgaInfoOrBuilder>
+        com.shorts.v1alpha1.LgaInfo, com.shorts.v1alpha1.LgaInfo.Builder, com.shorts.v1alpha1.LgaInfoOrBuilder> 
         internalGetCouncilFieldBuilder() {
       if (councilBuilder_ == null) {
         councilBuilder_ = new com.google.protobuf.SingleFieldBuilder<
@@ -1513,7 +1513,7 @@ private static final long serialVersionUID = 0L;
      *
      * <code>repeated .shorts.v1alpha1.SimilarSuburb similar = 5 [json_name = "similar"];</code>
      */
-    public java.util.List<? extends com.shorts.v1alpha1.SimilarSuburbOrBuilder>
+    public java.util.List<? extends com.shorts.v1alpha1.SimilarSuburbOrBuilder> 
          getSimilarOrBuilderList() {
       if (similarBuilder_ != null) {
         return similarBuilder_.getMessageOrBuilderList();
@@ -1551,12 +1551,12 @@ private static final long serialVersionUID = 0L;
      *
      * <code>repeated .shorts.v1alpha1.SimilarSuburb similar = 5 [json_name = "similar"];</code>
      */
-    public java.util.List<com.shorts.v1alpha1.SimilarSuburb.Builder>
+    public java.util.List<com.shorts.v1alpha1.SimilarSuburb.Builder> 
          getSimilarBuilderList() {
       return internalGetSimilarFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilder<
-        com.shorts.v1alpha1.SimilarSuburb, com.shorts.v1alpha1.SimilarSuburb.Builder, com.shorts.v1alpha1.SimilarSuburbOrBuilder>
+        com.shorts.v1alpha1.SimilarSuburb, com.shorts.v1alpha1.SimilarSuburb.Builder, com.shorts.v1alpha1.SimilarSuburbOrBuilder> 
         internalGetSimilarFieldBuilder() {
       if (similarBuilder_ == null) {
         similarBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
@@ -1620,3 +1620,4 @@ private static final long serialVersionUID = 0L;
   }
 
 }
+

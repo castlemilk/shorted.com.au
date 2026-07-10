@@ -64,7 +64,7 @@ private static final long serialVersionUID = 0L;
    * <code>repeated .shorts.v1alpha1.StockSignal adverse = 1 [json_name = "adverse"];</code>
    */
   @java.lang.Override
-  public java.util.List<? extends com.shorts.v1alpha1.StockSignalOrBuilder>
+  public java.util.List<? extends com.shorts.v1alpha1.StockSignalOrBuilder> 
       getAdverseOrBuilderList() {
     return adverse_;
   }
@@ -105,7 +105,7 @@ private static final long serialVersionUID = 0L;
    * <code>repeated .shorts.v1alpha1.StockSignal positive = 2 [json_name = "positive"];</code>
    */
   @java.lang.Override
-  public java.util.List<? extends com.shorts.v1alpha1.StockSignalOrBuilder>
+  public java.util.List<? extends com.shorts.v1alpha1.StockSignalOrBuilder> 
       getPositiveOrBuilderList() {
     return positive_;
   }
@@ -453,7 +453,7 @@ private static final long serialVersionUID = 0L;
             adverseBuilder_ = null;
             adverse_ = other.adverse_;
             bitField0_ = (bitField0_ & ~0x00000001);
-            adverseBuilder_ =
+            adverseBuilder_ = 
               com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
                  internalGetAdverseFieldBuilder() : null;
           } else {
@@ -479,7 +479,7 @@ private static final long serialVersionUID = 0L;
             positiveBuilder_ = null;
             positive_ = other.positive_;
             bitField0_ = (bitField0_ & ~0x00000002);
-            positiveBuilder_ =
+            positiveBuilder_ = 
               com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
                  internalGetPositiveFieldBuilder() : null;
           } else {
@@ -751,7 +751,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.StockSignal adverse = 1 [json_name = "adverse"];</code>
      */
-    public java.util.List<? extends com.shorts.v1alpha1.StockSignalOrBuilder>
+    public java.util.List<? extends com.shorts.v1alpha1.StockSignalOrBuilder> 
          getAdverseOrBuilderList() {
       if (adverseBuilder_ != null) {
         return adverseBuilder_.getMessageOrBuilderList();
@@ -777,12 +777,12 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.StockSignal adverse = 1 [json_name = "adverse"];</code>
      */
-    public java.util.List<com.shorts.v1alpha1.StockSignal.Builder>
+    public java.util.List<com.shorts.v1alpha1.StockSignal.Builder> 
          getAdverseBuilderList() {
       return internalGetAdverseFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilder<
-        com.shorts.v1alpha1.StockSignal, com.shorts.v1alpha1.StockSignal.Builder, com.shorts.v1alpha1.StockSignalOrBuilder>
+        com.shorts.v1alpha1.StockSignal, com.shorts.v1alpha1.StockSignal.Builder, com.shorts.v1alpha1.StockSignalOrBuilder> 
         internalGetAdverseFieldBuilder() {
       if (adverseBuilder_ == null) {
         adverseBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
@@ -991,7 +991,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.StockSignal positive = 2 [json_name = "positive"];</code>
      */
-    public java.util.List<? extends com.shorts.v1alpha1.StockSignalOrBuilder>
+    public java.util.List<? extends com.shorts.v1alpha1.StockSignalOrBuilder> 
          getPositiveOrBuilderList() {
       if (positiveBuilder_ != null) {
         return positiveBuilder_.getMessageOrBuilderList();
@@ -1017,12 +1017,12 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.StockSignal positive = 2 [json_name = "positive"];</code>
      */
-    public java.util.List<com.shorts.v1alpha1.StockSignal.Builder>
+    public java.util.List<com.shorts.v1alpha1.StockSignal.Builder> 
          getPositiveBuilderList() {
       return internalGetPositiveFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilder<
-        com.shorts.v1alpha1.StockSignal, com.shorts.v1alpha1.StockSignal.Builder, com.shorts.v1alpha1.StockSignalOrBuilder>
+        com.shorts.v1alpha1.StockSignal, com.shorts.v1alpha1.StockSignal.Builder, com.shorts.v1alpha1.StockSignalOrBuilder> 
         internalGetPositiveFieldBuilder() {
       if (positiveBuilder_ == null) {
         positiveBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
@@ -1086,3 +1086,4 @@ private static final long serialVersionUID = 0L;
   }
 
 }
+

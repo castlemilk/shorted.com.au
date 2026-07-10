@@ -46,4 +46,11 @@ curl -f -s --max-time 30 "${HOME_URL}" > /dev/null || {
   echo "⚠️  Warning: Homepage cache warm failed (endpoint may not exist yet)"
 }
 
+# Warm the industry-intelligence data chain (industry index, top-shorts series,
+# per-industry evidence snapshots) so the first visitor never pays a cold
+# backend fan-out.
+curl -f -s --max-time 55 "${DEPLOYMENT_URL}/industry-intelligence" > /dev/null || {
+  echo "⚠️  Warning: Industry intelligence warm failed (this is OK if services aren't ready yet)"
+}
+
 echo "✅ Cache warming complete"

@@ -3,12 +3,16 @@
 import { useState } from "react";
 import { IdCardIcon } from "@radix-ui/react-icons";
 import { normalizedLogoUrl, rawLogoUrl } from "~/@/lib/logo";
+import { cn } from "~/@/lib/utils";
 
 interface CompanyLogoProps {
   /** Raw GCS URL (legacy callers). Ignored when stockCode is provided. */
   gcsUrl?: string;
   companyName?: string;
   stockCode: string;
+  size?: number;
+  className?: string;
+  imageClassName?: string;
 }
 
 /**
@@ -20,9 +24,14 @@ export function CompanyLogo({
   gcsUrl,
   companyName,
   stockCode,
+  size = 70,
+  className,
+  imageClassName,
 }: CompanyLogoProps) {
   // Try normalized → raw → icon, in that order.
-  const [stage, setStage] = useState<"normalized" | "raw" | "icon">("normalized");
+  const [stage, setStage] = useState<"normalized" | "raw" | "icon">(
+    "normalized",
+  );
 
   const src =
     stage === "normalized"
@@ -33,27 +42,28 @@ export function CompanyLogo({
 
   if (src === null) {
     return (
-      <div className="mr-4">
-        <IdCardIcon height={50} width={50} />
+      <div className={cn("flex-shrink-0", className ?? "mr-4")}>
+        <IdCardIcon height={size} width={size} />
       </div>
     );
   }
 
   return (
-    <div className="mr-4 flex-shrink-0">
+    <div className={cn("flex-shrink-0", className ?? "mr-4")}>
       {/* Plain <img>: the raw-stage URL can point at any host (LinkedIn CDN,
           company sites, …) and next/image throws on hosts missing from
-          images.remotePatterns — which took down entire stock pages. A 70px
+          images.remotePatterns — which took down entire stock pages. A small
           logo gains nothing from the optimizer. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}
         alt={`${companyName ?? stockCode} logo`}
-        width={70}
-        height={70}
+        width={size}
+        height={size}
         loading="eager"
         decoding="async"
-        className="h-[70px] w-[70px] object-contain"
+        style={{ height: size, width: size }}
+        className={cn("object-contain", imageClassName)}
         onError={() => setStage((s) => (s === "normalized" ? "raw" : "icon"))}
       />
     </div>

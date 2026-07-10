@@ -13,7 +13,7 @@ public interface ListStateSuburbsResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.SuburbSummary suburbs = 1 [json_name = "suburbs"];</code>
    */
-  java.util.List<com.shorts.v1alpha1.SuburbSummary>
+  java.util.List<com.shorts.v1alpha1.SuburbSummary> 
       getSuburbsList();
   /**
    * <code>repeated .shorts.v1alpha1.SuburbSummary suburbs = 1 [json_name = "suburbs"];</code>
@@ -26,7 +26,7 @@ public interface ListStateSuburbsResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.SuburbSummary suburbs = 1 [json_name = "suburbs"];</code>
    */
-  java.util.List<? extends com.shorts.v1alpha1.SuburbSummaryOrBuilder>
+  java.util.List<? extends com.shorts.v1alpha1.SuburbSummaryOrBuilder> 
       getSuburbsOrBuilderList();
   /**
    * <code>repeated .shorts.v1alpha1.SuburbSummary suburbs = 1 [json_name = "suburbs"];</code>

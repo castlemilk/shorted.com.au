@@ -13,7 +13,7 @@ public interface GetStockGraphResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.GraphPerson people = 1 [json_name = "people"];</code>
    */
-  java.util.List<com.shorts.v1alpha1.GraphPerson>
+  java.util.List<com.shorts.v1alpha1.GraphPerson> 
       getPeopleList();
   /**
    * <code>repeated .shorts.v1alpha1.GraphPerson people = 1 [json_name = "people"];</code>
@@ -26,7 +26,7 @@ public interface GetStockGraphResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.GraphPerson people = 1 [json_name = "people"];</code>
    */
-  java.util.List<? extends com.shorts.v1alpha1.GraphPersonOrBuilder>
+  java.util.List<? extends com.shorts.v1alpha1.GraphPersonOrBuilder> 
       getPeopleOrBuilderList();
   /**
    * <code>repeated .shorts.v1alpha1.GraphPerson people = 1 [json_name = "people"];</code>
@@ -37,7 +37,7 @@ public interface GetStockGraphResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.GraphPeer similar_companies = 2 [json_name = "similarCompanies"];</code>
    */
-  java.util.List<com.shorts.v1alpha1.GraphPeer>
+  java.util.List<com.shorts.v1alpha1.GraphPeer> 
       getSimilarCompaniesList();
   /**
    * <code>repeated .shorts.v1alpha1.GraphPeer similar_companies = 2 [json_name = "similarCompanies"];</code>
@@ -50,7 +50,7 @@ public interface GetStockGraphResponseOrBuilder extends
   /**
    * <code>repeated .shorts.v1alpha1.GraphPeer similar_companies = 2 [json_name = "similarCompanies"];</code>
    */
-  java.util.List<? extends com.shorts.v1alpha1.GraphPeerOrBuilder>
+  java.util.List<? extends com.shorts.v1alpha1.GraphPeerOrBuilder> 
       getSimilarCompaniesOrBuilderList();
   /**
    * <code>repeated .shorts.v1alpha1.GraphPeer similar_companies = 2 [json_name = "similarCompanies"];</code>

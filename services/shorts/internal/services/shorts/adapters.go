@@ -150,6 +150,14 @@ func (s *StoreAdapter) UpdateAPISubscriptionByCustomer(stripeCustomerID string, 
 	return s.store.UpdateAPISubscriptionByCustomer(stripeCustomerID, update)
 }
 
+func (s *StoreAdapter) CreateAlertMonitor(input shorts.CreateAlertMonitorInput) (*shorts.AlertMonitor, error) {
+	return s.store.CreateAlertMonitor(input)
+}
+
+func (s *StoreAdapter) ListAlertMonitors(userID string, limit, offset int32) ([]*shorts.AlertMonitor, int32, error) {
+	return s.store.ListAlertMonitors(userID, limit, offset)
+}
+
 func (s *StoreAdapter) GetWeeklyReport(weekSlug string) (*shorts.WeeklyReport, error) {
 	return s.store.GetWeeklyReport(weekSlug)
 }
@@ -228,6 +236,10 @@ func (s *StoreAdapter) GetStockVerdictInputs(productCode string) (*shorts.Verdic
 
 func (s *StoreAdapter) GetCompanyTaxProfile(productCode string) (*shorts.CompanyTaxProfile, error) {
 	return s.store.GetCompanyTaxProfile(productCode)
+}
+
+func (s *StoreAdapter) GetIndustryIntelligence(industry string, stockCode string, recordLimit int32) (*shorts.IndustryIntelligenceResult, error) {
+	return s.store.GetIndustryIntelligence(industry, stockCode, recordLimit)
 }
 
 func (s *StoreAdapter) GetShortCampaignScoreboard(industry string, limit, offset int32) ([]*shorts.ShortCampaign, int, *shorts.ScoreboardStats, error) {

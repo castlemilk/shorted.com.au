@@ -68,7 +68,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       regionCode_ = s;
@@ -88,7 +88,7 @@ private static final long serialVersionUID = 0L;
       getRegionCodeBytes() {
     java.lang.Object ref = regionCode_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       regionCode_ = b;
@@ -115,7 +115,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       measure_ = s;
@@ -135,7 +135,7 @@ private static final long serialVersionUID = 0L;
       getMeasureBytes() {
     java.lang.Object ref = measure_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       measure_ = b;
@@ -162,7 +162,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       dwellingType_ = s;
@@ -182,7 +182,7 @@ private static final long serialVersionUID = 0L;
       getDwellingTypeBytes() {
     java.lang.Object ref = dwellingType_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       dwellingType_ = b;
@@ -571,7 +571,7 @@ private static final long serialVersionUID = 0L;
         getRegionCodeBytes() {
       java.lang.Object ref = regionCode_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         regionCode_ = b;
@@ -663,7 +663,7 @@ private static final long serialVersionUID = 0L;
         getMeasureBytes() {
       java.lang.Object ref = measure_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         measure_ = b;
@@ -755,7 +755,7 @@ private static final long serialVersionUID = 0L;
         getDwellingTypeBytes() {
       java.lang.Object ref = dwellingType_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         dwellingType_ = b;
@@ -864,3 +864,4 @@ private static final long serialVersionUID = 0L;
   }
 
 }
+

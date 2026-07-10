@@ -63,7 +63,7 @@ private static final long serialVersionUID = 0L;
    * <code>repeated .shorts.v1alpha1.HousingRegion regions = 1 [json_name = "regions"];</code>
    */
   @java.lang.Override
-  public java.util.List<? extends com.shorts.v1alpha1.HousingRegionOrBuilder>
+  public java.util.List<? extends com.shorts.v1alpha1.HousingRegionOrBuilder> 
       getRegionsOrBuilderList() {
     return regions_;
   }
@@ -377,7 +377,7 @@ private static final long serialVersionUID = 0L;
             regionsBuilder_ = null;
             regions_ = other.regions_;
             bitField0_ = (bitField0_ & ~0x00000001);
-            regionsBuilder_ =
+            regionsBuilder_ = 
               com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
                  internalGetRegionsFieldBuilder() : null;
           } else {
@@ -636,7 +636,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.HousingRegion regions = 1 [json_name = "regions"];</code>
      */
-    public java.util.List<? extends com.shorts.v1alpha1.HousingRegionOrBuilder>
+    public java.util.List<? extends com.shorts.v1alpha1.HousingRegionOrBuilder> 
          getRegionsOrBuilderList() {
       if (regionsBuilder_ != null) {
         return regionsBuilder_.getMessageOrBuilderList();
@@ -662,12 +662,12 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.HousingRegion regions = 1 [json_name = "regions"];</code>
      */
-    public java.util.List<com.shorts.v1alpha1.HousingRegion.Builder>
+    public java.util.List<com.shorts.v1alpha1.HousingRegion.Builder> 
          getRegionsBuilderList() {
       return internalGetRegionsFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilder<
-        com.shorts.v1alpha1.HousingRegion, com.shorts.v1alpha1.HousingRegion.Builder, com.shorts.v1alpha1.HousingRegionOrBuilder>
+        com.shorts.v1alpha1.HousingRegion, com.shorts.v1alpha1.HousingRegion.Builder, com.shorts.v1alpha1.HousingRegionOrBuilder> 
         internalGetRegionsFieldBuilder() {
       if (regionsBuilder_ == null) {
         regionsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
@@ -731,3 +731,4 @@ private static final long serialVersionUID = 0L;
   }
 
 }
+

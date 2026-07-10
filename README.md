@@ -202,8 +202,8 @@ Notes:
 - This is a checkout smoke test only and does not submit card details or confirm payment.
 - It can create Stripe checkout sessions in your Stripe account.
 - The workflow [`.github/workflows/stripe-testbench.yml`](.github/workflows/stripe-testbench.yml) runs this in CI only when Stripe test secrets are configured.
-- Canonical price env is `STRIPE_PRO_PRICE_ID`; `STRIPE_PREMIUM_PRICE_ID` remains a temporary fallback.
-- Optional dedicated API docs checkout price env: `STRIPE_API_ACCESS_PRICE_ID` (falls back to `STRIPE_PRO_PRICE_ID`).
+- Canonical Premium price env is `STRIPE_PREMIUM_PRICE_ID`; `STRIPE_PRO_PRICE_ID` remains a legacy fallback.
+- Dedicated API Access checkout price env is `STRIPE_API_ACCESS_PRICE_ID`.
 
 ## Contributing
 

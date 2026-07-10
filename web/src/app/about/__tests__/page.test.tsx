@@ -161,6 +161,28 @@ describe("About Page", () => {
     });
   });
 
+  describe("Industry Intelligence Section", () => {
+    it("promotes the industry intelligence story with canonical route links", () => {
+      render(<AboutClient initialStatistics={mockStatistics} />);
+
+      expect(
+        screen.getByRole("heading", {
+          name: "Industry Intelligence connects sectors to stocks",
+        })
+      ).toBeInTheDocument();
+      expect(screen.getByText("Industry crowding")).toBeInTheDocument();
+      expect(screen.getByText("Ranked companies")).toBeInTheDocument();
+      expect(screen.getByText("Alert monitors")).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: /Open Industry Intelligence/i })
+      ).toHaveAttribute("href", "/industry-intelligence");
+      expect(screen.getByRole("link", { name: /Compare top shorts/i })).toHaveAttribute(
+        "href",
+        "/top"
+      );
+    });
+  });
+
   describe("Features Section", () => {
     it("renders the features section heading", () => {
       render(<AboutClient initialStatistics={mockStatistics} />);
@@ -215,12 +237,16 @@ describe("About Page", () => {
     it("renders the final CTA section", () => {
       render(<AboutClient initialStatistics={mockStatistics} />);
 
-      expect(screen.getByText("Ready to Gain the Edge?")).toBeInTheDocument();
+      expect(screen.getByText("Start with the industry story")).toBeInTheDocument();
     });
 
     it("renders CTA buttons", () => {
       render(<AboutClient initialStatistics={mockStatistics} />);
 
+      expect(screen.getByRole("link", { name: /Open Industry Intelligence/i })).toHaveAttribute(
+        "href",
+        "/industry-intelligence"
+      );
       expect(screen.getByText("View Top Shorts")).toBeInTheDocument();
       expect(screen.getByText("Search All Stocks")).toBeInTheDocument();
     });
@@ -229,7 +255,7 @@ describe("About Page", () => {
       render(<AboutClient initialStatistics={mockStatistics} />);
 
       expect(
-        screen.getByText(/Free to use. No sign-up required to explore short position data/i)
+        screen.getByText(/Public short-interest data remains free to browse/i)
       ).toBeInTheDocument();
     });
   });
@@ -255,9 +281,9 @@ describe("About Page", () => {
       const homeLinks = screen.getAllByRole("link", { name: /Explore Short Positions|View Top Shorts/i });
       expect(homeLinks.length).toBeGreaterThan(0);
 
-      // Check that links point to home
+      // Check that product CTAs point to the canonical top-shorts page
       homeLinks.forEach((link) => {
-        expect(link).toHaveAttribute("href", "/");
+        expect(link).toHaveAttribute("href", "/top");
       });
     });
 
@@ -278,9 +304,9 @@ describe("About Page", () => {
     it("renders with proper section structure", () => {
       const { container } = render(<AboutClient initialStatistics={mockStatistics} />);
 
-      // Check for 8 sections (hero, value prop, features, data trust, team, timeline, usage policy, cta)
+      // Check for 9 sections (hero, value prop, industry intelligence, features, data trust, team, timeline, usage policy, cta)
       const sections = container.querySelectorAll("section");
-      expect(sections.length).toBe(8);
+      expect(sections.length).toBe(9);
     });
 
     it("renders container with proper classes", () => {
@@ -325,4 +351,3 @@ describe("About Page", () => {
     });
   });
 });
-

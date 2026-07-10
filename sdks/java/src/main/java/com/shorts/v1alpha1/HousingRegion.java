@@ -75,7 +75,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       regionCode_ = s;
@@ -95,7 +95,7 @@ private static final long serialVersionUID = 0L;
       getRegionCodeBytes() {
     java.lang.Object ref = regionCode_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       regionCode_ = b;
@@ -118,7 +118,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       regionName_ = s;
@@ -134,7 +134,7 @@ private static final long serialVersionUID = 0L;
       getRegionNameBytes() {
     java.lang.Object ref = regionName_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       regionName_ = b;
@@ -161,7 +161,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       regionType_ = s;
@@ -181,7 +181,7 @@ private static final long serialVersionUID = 0L;
       getRegionTypeBytes() {
     java.lang.Object ref = regionType_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       regionType_ = b;
@@ -204,7 +204,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       stateCode_ = s;
@@ -220,7 +220,7 @@ private static final long serialVersionUID = 0L;
       getStateCodeBytes() {
     java.lang.Object ref = stateCode_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       stateCode_ = b;
@@ -243,7 +243,7 @@ private static final long serialVersionUID = 0L;
     if (ref instanceof java.lang.String) {
       return (java.lang.String) ref;
     } else {
-      com.google.protobuf.ByteString bs =
+      com.google.protobuf.ByteString bs = 
           (com.google.protobuf.ByteString) ref;
       java.lang.String s = bs.toStringUtf8();
       postcode_ = s;
@@ -259,7 +259,7 @@ private static final long serialVersionUID = 0L;
       getPostcodeBytes() {
     java.lang.Object ref = postcode_;
     if (ref instanceof java.lang.String) {
-      com.google.protobuf.ByteString b =
+      com.google.protobuf.ByteString b = 
           com.google.protobuf.ByteString.copyFromUtf8(
               (java.lang.String) ref);
       postcode_ = b;
@@ -811,7 +811,7 @@ private static final long serialVersionUID = 0L;
         getRegionCodeBytes() {
       java.lang.Object ref = regionCode_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         regionCode_ = b;
@@ -895,7 +895,7 @@ private static final long serialVersionUID = 0L;
         getRegionNameBytes() {
       java.lang.Object ref = regionName_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         regionName_ = b;
@@ -975,7 +975,7 @@ private static final long serialVersionUID = 0L;
         getRegionTypeBytes() {
       java.lang.Object ref = regionType_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         regionType_ = b;
@@ -1059,7 +1059,7 @@ private static final long serialVersionUID = 0L;
         getStateCodeBytes() {
       java.lang.Object ref = stateCode_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         stateCode_ = b;
@@ -1131,7 +1131,7 @@ private static final long serialVersionUID = 0L;
         getPostcodeBytes() {
       java.lang.Object ref = postcode_;
       if (ref instanceof String) {
-        com.google.protobuf.ByteString b =
+        com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         postcode_ = b;
@@ -1330,7 +1330,7 @@ private static final long serialVersionUID = 0L;
      * <code>.google.protobuf.Timestamp latest_period = 7 [json_name = "latestPeriod"];</code>
      */
     private com.google.protobuf.SingleFieldBuilder<
-        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder>
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> 
         internalGetLatestPeriodFieldBuilder() {
       if (latestPeriodBuilder_ == null) {
         latestPeriodBuilder_ = new com.google.protobuf.SingleFieldBuilder<
@@ -1393,3 +1393,4 @@ private static final long serialVersionUID = 0L;
   }
 
 }
+

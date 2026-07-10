@@ -97,6 +97,12 @@ const (
 	// ShortedStocksServiceGetMySubscriptionProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetMySubscription RPC.
 	ShortedStocksServiceGetMySubscriptionProcedure = "/shorts.v1alpha1.ShortedStocksService/GetMySubscription"
+	// ShortedStocksServiceCreateAlertMonitorProcedure is the fully-qualified name of the
+	// ShortedStocksService's CreateAlertMonitor RPC.
+	ShortedStocksServiceCreateAlertMonitorProcedure = "/shorts.v1alpha1.ShortedStocksService/CreateAlertMonitor"
+	// ShortedStocksServiceListAlertMonitorsProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListAlertMonitors RPC.
+	ShortedStocksServiceListAlertMonitorsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListAlertMonitors"
 	// ShortedStocksServiceGetWeeklyReportProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetWeeklyReport RPC.
 	ShortedStocksServiceGetWeeklyReportProcedure = "/shorts.v1alpha1.ShortedStocksService/GetWeeklyReport"
@@ -184,6 +190,9 @@ const (
 	// ShortedStocksServiceGetCompanyTaxProfileProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetCompanyTaxProfile RPC.
 	ShortedStocksServiceGetCompanyTaxProfileProcedure = "/shorts.v1alpha1.ShortedStocksService/GetCompanyTaxProfile"
+	// ShortedStocksServiceGetIndustryIntelligenceProcedure is the fully-qualified name of the
+	// ShortedStocksService's GetIndustryIntelligence RPC.
+	ShortedStocksServiceGetIndustryIntelligenceProcedure = "/shorts.v1alpha1.ShortedStocksService/GetIndustryIntelligence"
 )
 
 // These variables are the protoreflect.Descriptor objects for the RPCs defined in this package.
@@ -210,6 +219,8 @@ var (
 	shortedStocksServiceHandleStripeCheckoutCompletedMethodDescriptor   = shortedStocksServiceServiceDescriptor.Methods().ByName("HandleStripeCheckoutCompleted")
 	shortedStocksServiceHandleStripeSubscriptionUpdatedMethodDescriptor = shortedStocksServiceServiceDescriptor.Methods().ByName("HandleStripeSubscriptionUpdated")
 	shortedStocksServiceGetMySubscriptionMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("GetMySubscription")
+	shortedStocksServiceCreateAlertMonitorMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("CreateAlertMonitor")
+	shortedStocksServiceListAlertMonitorsMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("ListAlertMonitors")
 	shortedStocksServiceGetWeeklyReportMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("GetWeeklyReport")
 	shortedStocksServiceGetStockFinancialHighlightsMethodDescriptor     = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockFinancialHighlights")
 	shortedStocksServiceGetStockNewsMethodDescriptor                    = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockNews")
@@ -239,6 +250,7 @@ var (
 	shortedStocksServiceGetSuburbProfileMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("GetSuburbProfile")
 	shortedStocksServiceListHousingRegionsMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ListHousingRegions")
 	shortedStocksServiceGetCompanyTaxProfileMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetCompanyTaxProfile")
+	shortedStocksServiceGetIndustryIntelligenceMethodDescriptor         = shortedStocksServiceServiceDescriptor.Methods().ByName("GetIndustryIntelligence")
 )
 
 // ShortedStocksServiceClient is a client for the shorts.v1alpha1.ShortedStocksService service.
@@ -286,6 +298,10 @@ type ShortedStocksServiceClient interface {
 	HandleStripeSubscriptionUpdated(context.Context, *connect.Request[v1alpha1.HandleStripeSubscriptionUpdatedRequest]) (*connect.Response[v1alpha1.HandleStripeSubscriptionUpdatedResponse], error)
 	// Get the current user's subscription status. Requires authentication.
 	GetMySubscription(context.Context, *connect.Request[v1alpha1.GetMySubscriptionRequest]) (*connect.Response[v1alpha1.GetMySubscriptionResponse], error)
+	// Create a premium short-interest alert monitor for the current user.
+	CreateAlertMonitor(context.Context, *connect.Request[v1alpha1.CreateAlertMonitorRequest]) (*connect.Response[v1alpha1.CreateAlertMonitorResponse], error)
+	// List short-interest alert monitors for the current user.
+	ListAlertMonitors(context.Context, *connect.Request[v1alpha1.ListAlertMonitorsRequest]) (*connect.Response[v1alpha1.ListAlertMonitorsResponse], error)
 	// Get a weekly short report with narrative analysis
 	GetWeeklyReport(context.Context, *connect.Request[v1alpha1.GetWeeklyReportRequest]) (*connect.Response[v1alpha1.GetWeeklyReportResponse], error)
 	// Get extracted financial highlights for specific stocks
@@ -345,6 +361,8 @@ type ShortedStocksServiceClient interface {
 	ListHousingRegions(context.Context, *connect.Request[v1alpha1.ListHousingRegionsRequest]) (*connect.Response[v1alpha1.ListHousingRegionsResponse], error)
 	// Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
 	GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error)
+	// Get imported, cited industry intelligence facts for an industry.
+	GetIndustryIntelligence(context.Context, *connect.Request[v1alpha1.GetIndustryIntelligenceRequest]) (*connect.Response[v1alpha1.GetIndustryIntelligenceResponse], error)
 }
 
 // NewShortedStocksServiceClient constructs a client for the shorts.v1alpha1.ShortedStocksService
@@ -481,6 +499,18 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			httpClient,
 			baseURL+ShortedStocksServiceGetMySubscriptionProcedure,
 			connect.WithSchema(shortedStocksServiceGetMySubscriptionMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		createAlertMonitor: connect.NewClient[v1alpha1.CreateAlertMonitorRequest, v1alpha1.CreateAlertMonitorResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceCreateAlertMonitorProcedure,
+			connect.WithSchema(shortedStocksServiceCreateAlertMonitorMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listAlertMonitors: connect.NewClient[v1alpha1.ListAlertMonitorsRequest, v1alpha1.ListAlertMonitorsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListAlertMonitorsProcedure,
+			connect.WithSchema(shortedStocksServiceListAlertMonitorsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
 		getWeeklyReport: connect.NewClient[v1alpha1.GetWeeklyReportRequest, v1alpha1.GetWeeklyReportResponse](
@@ -657,6 +687,12 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceGetCompanyTaxProfileMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		getIndustryIntelligence: connect.NewClient[v1alpha1.GetIndustryIntelligenceRequest, v1alpha1.GetIndustryIntelligenceResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceGetIndustryIntelligenceProcedure,
+			connect.WithSchema(shortedStocksServiceGetIndustryIntelligenceMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -683,6 +719,8 @@ type shortedStocksServiceClient struct {
 	handleStripeCheckoutCompleted   *connect.Client[v1alpha1.HandleStripeCheckoutCompletedRequest, v1alpha1.HandleStripeCheckoutCompletedResponse]
 	handleStripeSubscriptionUpdated *connect.Client[v1alpha1.HandleStripeSubscriptionUpdatedRequest, v1alpha1.HandleStripeSubscriptionUpdatedResponse]
 	getMySubscription               *connect.Client[v1alpha1.GetMySubscriptionRequest, v1alpha1.GetMySubscriptionResponse]
+	createAlertMonitor              *connect.Client[v1alpha1.CreateAlertMonitorRequest, v1alpha1.CreateAlertMonitorResponse]
+	listAlertMonitors               *connect.Client[v1alpha1.ListAlertMonitorsRequest, v1alpha1.ListAlertMonitorsResponse]
 	getWeeklyReport                 *connect.Client[v1alpha1.GetWeeklyReportRequest, v1alpha1.GetWeeklyReportResponse]
 	getStockFinancialHighlights     *connect.Client[v1alpha1.GetStockFinancialHighlightsRequest, v1alpha1.GetStockFinancialHighlightsResponse]
 	getStockNews                    *connect.Client[v1alpha1.GetStockNewsRequest, v1alpha1.GetStockNewsResponse]
@@ -712,6 +750,7 @@ type shortedStocksServiceClient struct {
 	getSuburbProfile                *connect.Client[v1alpha1.GetSuburbProfileRequest, v1alpha1.GetSuburbProfileResponse]
 	listHousingRegions              *connect.Client[v1alpha1.ListHousingRegionsRequest, v1alpha1.ListHousingRegionsResponse]
 	getCompanyTaxProfile            *connect.Client[v1alpha1.GetCompanyTaxProfileRequest, v1alpha1.GetCompanyTaxProfileResponse]
+	getIndustryIntelligence         *connect.Client[v1alpha1.GetIndustryIntelligenceRequest, v1alpha1.GetIndustryIntelligenceResponse]
 }
 
 // GetTopShorts calls shorts.v1alpha1.ShortedStocksService.GetTopShorts.
@@ -819,6 +858,16 @@ func (c *shortedStocksServiceClient) HandleStripeSubscriptionUpdated(ctx context
 // GetMySubscription calls shorts.v1alpha1.ShortedStocksService.GetMySubscription.
 func (c *shortedStocksServiceClient) GetMySubscription(ctx context.Context, req *connect.Request[v1alpha1.GetMySubscriptionRequest]) (*connect.Response[v1alpha1.GetMySubscriptionResponse], error) {
 	return c.getMySubscription.CallUnary(ctx, req)
+}
+
+// CreateAlertMonitor calls shorts.v1alpha1.ShortedStocksService.CreateAlertMonitor.
+func (c *shortedStocksServiceClient) CreateAlertMonitor(ctx context.Context, req *connect.Request[v1alpha1.CreateAlertMonitorRequest]) (*connect.Response[v1alpha1.CreateAlertMonitorResponse], error) {
+	return c.createAlertMonitor.CallUnary(ctx, req)
+}
+
+// ListAlertMonitors calls shorts.v1alpha1.ShortedStocksService.ListAlertMonitors.
+func (c *shortedStocksServiceClient) ListAlertMonitors(ctx context.Context, req *connect.Request[v1alpha1.ListAlertMonitorsRequest]) (*connect.Response[v1alpha1.ListAlertMonitorsResponse], error) {
+	return c.listAlertMonitors.CallUnary(ctx, req)
 }
 
 // GetWeeklyReport calls shorts.v1alpha1.ShortedStocksService.GetWeeklyReport.
@@ -967,6 +1016,11 @@ func (c *shortedStocksServiceClient) GetCompanyTaxProfile(ctx context.Context, r
 	return c.getCompanyTaxProfile.CallUnary(ctx, req)
 }
 
+// GetIndustryIntelligence calls shorts.v1alpha1.ShortedStocksService.GetIndustryIntelligence.
+func (c *shortedStocksServiceClient) GetIndustryIntelligence(ctx context.Context, req *connect.Request[v1alpha1.GetIndustryIntelligenceRequest]) (*connect.Response[v1alpha1.GetIndustryIntelligenceResponse], error) {
+	return c.getIndustryIntelligence.CallUnary(ctx, req)
+}
+
 // ShortedStocksServiceHandler is an implementation of the shorts.v1alpha1.ShortedStocksService
 // service.
 type ShortedStocksServiceHandler interface {
@@ -1013,6 +1067,10 @@ type ShortedStocksServiceHandler interface {
 	HandleStripeSubscriptionUpdated(context.Context, *connect.Request[v1alpha1.HandleStripeSubscriptionUpdatedRequest]) (*connect.Response[v1alpha1.HandleStripeSubscriptionUpdatedResponse], error)
 	// Get the current user's subscription status. Requires authentication.
 	GetMySubscription(context.Context, *connect.Request[v1alpha1.GetMySubscriptionRequest]) (*connect.Response[v1alpha1.GetMySubscriptionResponse], error)
+	// Create a premium short-interest alert monitor for the current user.
+	CreateAlertMonitor(context.Context, *connect.Request[v1alpha1.CreateAlertMonitorRequest]) (*connect.Response[v1alpha1.CreateAlertMonitorResponse], error)
+	// List short-interest alert monitors for the current user.
+	ListAlertMonitors(context.Context, *connect.Request[v1alpha1.ListAlertMonitorsRequest]) (*connect.Response[v1alpha1.ListAlertMonitorsResponse], error)
 	// Get a weekly short report with narrative analysis
 	GetWeeklyReport(context.Context, *connect.Request[v1alpha1.GetWeeklyReportRequest]) (*connect.Response[v1alpha1.GetWeeklyReportResponse], error)
 	// Get extracted financial highlights for specific stocks
@@ -1072,6 +1130,8 @@ type ShortedStocksServiceHandler interface {
 	ListHousingRegions(context.Context, *connect.Request[v1alpha1.ListHousingRegionsRequest]) (*connect.Response[v1alpha1.ListHousingRegionsResponse], error)
 	// Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
 	GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error)
+	// Get imported, cited industry intelligence facts for an industry.
+	GetIndustryIntelligence(context.Context, *connect.Request[v1alpha1.GetIndustryIntelligenceRequest]) (*connect.Response[v1alpha1.GetIndustryIntelligenceResponse], error)
 }
 
 // NewShortedStocksServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -1204,6 +1264,18 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		ShortedStocksServiceGetMySubscriptionProcedure,
 		svc.GetMySubscription,
 		connect.WithSchema(shortedStocksServiceGetMySubscriptionMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceCreateAlertMonitorHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceCreateAlertMonitorProcedure,
+		svc.CreateAlertMonitor,
+		connect.WithSchema(shortedStocksServiceCreateAlertMonitorMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListAlertMonitorsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListAlertMonitorsProcedure,
+		svc.ListAlertMonitors,
+		connect.WithSchema(shortedStocksServiceListAlertMonitorsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetWeeklyReportHandler := connect.NewUnaryHandler(
@@ -1380,6 +1452,12 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceGetCompanyTaxProfileMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceGetIndustryIntelligenceHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceGetIndustryIntelligenceProcedure,
+		svc.GetIndustryIntelligence,
+		connect.WithSchema(shortedStocksServiceGetIndustryIntelligenceMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/shorts.v1alpha1.ShortedStocksService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ShortedStocksServiceGetTopShortsProcedure:
@@ -1424,6 +1502,10 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceHandleStripeSubscriptionUpdatedHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetMySubscriptionProcedure:
 			shortedStocksServiceGetMySubscriptionHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceCreateAlertMonitorProcedure:
+			shortedStocksServiceCreateAlertMonitorHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListAlertMonitorsProcedure:
+			shortedStocksServiceListAlertMonitorsHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetWeeklyReportProcedure:
 			shortedStocksServiceGetWeeklyReportHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetStockFinancialHighlightsProcedure:
@@ -1482,6 +1564,8 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceListHousingRegionsHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetCompanyTaxProfileProcedure:
 			shortedStocksServiceGetCompanyTaxProfileHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceGetIndustryIntelligenceProcedure:
+			shortedStocksServiceGetIndustryIntelligenceHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -1573,6 +1657,14 @@ func (UnimplementedShortedStocksServiceHandler) HandleStripeSubscriptionUpdated(
 
 func (UnimplementedShortedStocksServiceHandler) GetMySubscription(context.Context, *connect.Request[v1alpha1.GetMySubscriptionRequest]) (*connect.Response[v1alpha1.GetMySubscriptionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetMySubscription is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) CreateAlertMonitor(context.Context, *connect.Request[v1alpha1.CreateAlertMonitorRequest]) (*connect.Response[v1alpha1.CreateAlertMonitorResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.CreateAlertMonitor is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListAlertMonitors(context.Context, *connect.Request[v1alpha1.ListAlertMonitorsRequest]) (*connect.Response[v1alpha1.ListAlertMonitorsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListAlertMonitors is not implemented"))
 }
 
 func (UnimplementedShortedStocksServiceHandler) GetWeeklyReport(context.Context, *connect.Request[v1alpha1.GetWeeklyReportRequest]) (*connect.Response[v1alpha1.GetWeeklyReportResponse], error) {
@@ -1689,4 +1781,8 @@ func (UnimplementedShortedStocksServiceHandler) ListHousingRegions(context.Conte
 
 func (UnimplementedShortedStocksServiceHandler) GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) GetIndustryIntelligence(context.Context, *connect.Request[v1alpha1.GetIndustryIntelligenceRequest]) (*connect.Response[v1alpha1.GetIndustryIntelligenceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetIndustryIntelligence is not implemented"))
 }

@@ -26,14 +26,18 @@ import { EventTimeline } from "./event-timeline";
 
 interface StockTabsProps {
   stockCode: string;
-  overviewContent?: ReactNode;
+  /** Main insight column of the overview tab (server-rendered slot). */
+  overviewMain?: ReactNode;
+  /** Compact profile rail of the overview tab (server-rendered slot). */
+  overviewRail?: ReactNode;
   financialsContent?: ReactNode;
   communityContent?: ReactNode;
 }
 
 export function StockTabs({
   stockCode,
-  overviewContent,
+  overviewMain,
+  overviewRail,
   financialsContent,
   communityContent,
 }: StockTabsProps) {
@@ -125,13 +129,21 @@ export function StockTabs({
         <TabsTrigger value="peers">Peers</TabsTrigger>
       </TabsList>
 
-      {/* gap column: widgets that resolve to null (verdict flag off, no
-          signals/graph data) contribute no stray spacing */}
-      <TabsContent value="overview" className="flex flex-col gap-4 md:gap-6">
-        {overviewContent}
-        <StockVerdict stockCode={stockCode} />
-        <StockSignals stockCode={stockCode} />
-        <StockConnections stockCode={stockCode} />
+      {/* gap columns: widgets that resolve to null (verdict flag off, no
+          signals/graph data) contribute no stray spacing. Tax card lives on
+          the Financials tab. */}
+      <TabsContent value="overview">
+        <div className="grid min-w-0 grid-cols-1 items-start gap-4 md:gap-6 lg:grid-cols-[minmax(0,1fr)_310px]">
+          <div className="flex min-w-0 flex-col gap-4 md:gap-6">
+            {overviewMain}
+            <StockVerdict stockCode={stockCode} />
+            <StockSignals stockCode={stockCode} />
+            <StockConnections stockCode={stockCode} />
+          </div>
+          <div className="flex min-w-0 flex-col gap-4 md:gap-6">
+            {overviewRail}
+          </div>
+        </div>
       </TabsContent>
 
       {communityContent ? (

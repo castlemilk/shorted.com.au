@@ -126,7 +126,7 @@ public enum BattlegroundView
   }
   public static com.google.protobuf.Descriptors.EnumDescriptor
       getDescriptor() {
-    return com.shorts.v1alpha1.ShortsProto.getDescriptor().getEnumType(9);
+    return com.shorts.v1alpha1.ShortsProto.getDescriptor().getEnumType(13);
   }
 
   private static final BattlegroundView[] VALUES = values();
@@ -151,3 +151,4 @@ public enum BattlegroundView
 
   // @@protoc_insertion_point(enum_scope:shorts.v1alpha1.BattlegroundView)
 }
+

@@ -2,6 +2,7 @@ package shorts
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -110,6 +111,8 @@ type Store interface {
 	GetAPISubscriptionByCustomer(stripeCustomerID string) (*APISubscription, error)
 	UpsertAPISubscription(sub *APISubscription) error
 	UpdateAPISubscriptionByCustomer(stripeCustomerID string, update *APISubscriptionUpdate) error
+	CreateAlertMonitor(input CreateAlertMonitorInput) (*AlertMonitor, error)
+	ListAlertMonitors(userID string, limit, offset int32) ([]*AlertMonitor, int32, error)
 
 	// Weekly report methods
 	GetWeeklyReport(weekSlug string) (*WeeklyReport, error)
@@ -161,6 +164,7 @@ type Store interface {
 
 	// Corporate tax (influence layer) methods
 	GetCompanyTaxProfile(productCode string) (*CompanyTaxProfile, error)
+	GetIndustryIntelligence(industry string, stockCode string, recordLimit int32) (*IndustryIntelligenceResult, error)
 
 	// Short-seller scoreboard methods
 	GetShortCampaignScoreboard(industry string, limit, offset int32) ([]*ShortCampaign, int, *ScoreboardStats, error)
@@ -259,6 +263,35 @@ type APISubscriptionUpdate struct {
 	CurrentPeriodStart *string
 	CurrentPeriodEnd   *string
 	CancelAtPeriodEnd  *bool
+}
+
+// ErrAlertMonitorExists is returned when a user already has the same active monitor.
+var ErrAlertMonitorExists = errors.New("alert monitor already exists")
+
+// AlertMonitor represents a persisted short-interest monitor.
+type AlertMonitor struct {
+	ID        string
+	UserID    string
+	UserEmail string
+	Scope     string
+	Target    string
+	Condition string
+	Threshold *float64
+	Cadence   string
+	Status    string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// CreateAlertMonitorInput contains validated alert monitor fields.
+type CreateAlertMonitorInput struct {
+	UserID    string
+	UserEmail string
+	Scope     string
+	Target    string
+	Condition string
+	Threshold *float64
+	Cadence   string
 }
 
 // WeeklyReport represents a weekly short selling report stored in the database

@@ -35,6 +35,7 @@ import { CompanyTaxCard } from "~/@/components/company/company-tax-card";
 import { FinancialDigest } from "~/@/components/company/financial-digest";
 import { CommunityOverviewTeaser } from "~/@/components/company/community/community-overview-teaser";
 import { CommunityTab } from "~/@/components/company/community/community-tab";
+import { StockEvidencePanel } from "~/@/components/company/stock-evidence-panel";
 
 // Dynamic import to avoid SSR issues — child components import @connectrpc/connect
 const StockTabs = nextDynamic(
@@ -48,14 +49,7 @@ import {
 } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta, StockLLMMeta } from "~/@/components/seo/llm-meta";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "~/@/components/ui/card";
-import { CandlestickChart, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { RelatedStocks } from "~/@/components/seo/related-stocks";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
@@ -64,7 +58,10 @@ import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { ShortInterestHistory } from "./short-interest-history";
 import { NotFoundError } from "~/app/actions/withRetry";
 import { notFound } from "next/navigation";
-import { getStockFinancialHighlights } from "~/app/actions/reports/getReportData";
+import {
+  getStockFinancialHighlights,
+  type StockFinancialHighlight,
+} from "~/app/actions/reports/getReportData";
 
 interface PageProps {
   params: Promise<{ stockCode: string }>;
@@ -427,84 +424,85 @@ const Page = async ({ params }: PageProps) => {
         </div>
       </div>
 
+      {/* Price & short interest — the page centrepiece, full width, flat. */}
+      <section aria-labelledby="stock-chart-heading" className="mb-6 min-w-0">
+        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+          <h2
+            id="stock-chart-heading"
+            className="text-lg font-semibold tracking-tight"
+          >
+            Price &amp; short interest
+          </h2>
+          <span className="text-xs text-muted-foreground">
+            Toggle series, zoom, and compare · ASIC daily, T+4
+          </span>
+        </div>
+        <StockChartPanel stockCode={stockCode} />
+      </section>
+
       {/* Tabbed content area */}
       <StockTabs
         stockCode={stockCode}
-        overviewContent={
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-start">
-            <div className="md:col-span-1 flex flex-col gap-4 md:gap-6">
-              <Suspense fallback={<CompanyInfoPlaceholder />}>
-                <CompanyInfo stockCode={stockCode} />
-              </Suspense>
+        overviewMain={
+          <>
+            {/* Per-stock public-source evidence with industry drill-up links */}
+            <Suspense fallback={null}>
+              <StockEvidencePanel
+                stockCode={stockCode}
+                industry={relatedData.industry}
+                industrySlug={relatedData.industrySlug}
+              />
+            </Suspense>
 
-              {/* Related stocks for internal linking */}
-              {relatedData.stocks.length > 0 && (
-                <RelatedStocks
-                  stocks={relatedData.stocks}
-                  currentStock={stockCode}
-                  industrySlug={relatedData.industrySlug}
-                  title={`More ${relatedData.industry} Stocks`}
-                  description="Other shorted stocks in this sector"
-                />
-              )}
-            </div>
-
-            <div className="md:col-span-2 flex flex-col gap-4 md:gap-6">
-              {/* Price & Short Interest — consolidated dual-axis chart.
-                  No hover elevation: the card isn't clickable. */}
-              <Card className="border-l-4 border-l-primary shadow-lg overflow-hidden">
-                <CardHeader className="pb-4 bg-gradient-to-r from-primary/5 to-transparent">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-primary/10 rounded-lg shadow-sm">
-                      <CandlestickChart className="h-6 w-6 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <CardTitle className="text-xl">Price &amp; Short Interest</CardTitle>
-                      <CardDescription className="mt-1.5 text-sm">
-                        Price, short interest, and volume over time. Toggle series, zoom, and compare.
-                      </CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                {/* Slim horizontal padding on phones: every pixel here comes
-                    straight out of the plot width */}
-                <CardContent className="px-3 pt-2 sm:px-6">
-                  <StockChartPanel stockCode={stockCode} />
-                </CardContent>
-              </Card>
-
-              {/* SSR short-interest history + FAQ — crawlable trend facts.
-                  Native <details> keeps the content in the DOM (crawlable)
-                  whether expanded or collapsed; defaults CLOSED so ~550px of
-                  FAQ prose doesn't sit mid-overview. */}
-              {stock && (stock.percentageShorted ?? 0) > 0 && (
-                <details className="group rounded-lg border bg-card [&_summary::-webkit-details-marker]:hidden">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium">
-                    Short interest history &amp; FAQ
-                    <ChevronDown
-                      aria-hidden
-                      className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180"
+            {/* SSR short-interest history + FAQ — crawlable trend facts.
+                Native <details> keeps the content in the DOM (crawlable)
+                whether expanded or collapsed; defaults CLOSED so ~550px of
+                FAQ prose doesn't sit mid-overview. */}
+            {stock && (stock.percentageShorted ?? 0) > 0 && (
+              <details className="group rounded-lg border bg-card [&_summary::-webkit-details-marker]:hidden">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-medium">
+                  Short interest history &amp; FAQ
+                  <ChevronDown
+                    aria-hidden
+                    className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180"
+                  />
+                </summary>
+                <div className="border-t px-4 py-3">
+                  <Suspense fallback={null}>
+                    <ShortInterestHistory
+                      stockCode={stockCode}
+                      companyName={stock.name || stockCode}
                     />
-                  </summary>
-                  <div className="border-t px-4 py-3">
-                    <Suspense fallback={null}>
-                      <ShortInterestHistory
-                        stockCode={stockCode}
-                        companyName={stock.name || stockCode}
-                      />
-                    </Suspense>
-                  </div>
-                </details>
-              )}
+                  </Suspense>
+                </div>
+              </details>
+            )}
 
-              {/* Consolidated company research card — the ONLY place the
-                  enriched prose renders (the Financials tab shows reports
-                  + metrics only, no duplicated company content). */}
-              <EnrichedCompanySection stockCode={stockCode} />
+            {/* Consolidated company research card — the ONLY place the
+                enriched prose renders (the Financials tab shows reports
+                + metrics only, no duplicated company content). */}
+            <EnrichedCompanySection stockCode={stockCode} />
+          </>
+        }
+        overviewRail={
+          <>
+            <Suspense fallback={<CompanyInfoPlaceholder />}>
+              <CompanyInfo stockCode={stockCode} />
+            </Suspense>
 
-              <CommunityOverviewTeaser stockCode={stockCode} />
-            </div>
-          </div>
+            {/* Related stocks for internal linking */}
+            {relatedData.stocks.length > 0 && (
+              <RelatedStocks
+                stocks={relatedData.stocks}
+                currentStock={stockCode}
+                industrySlug={relatedData.industrySlug}
+                title={`More ${relatedData.industry} Stocks`}
+                description="Other shorted stocks in this sector"
+              />
+            )}
+
+            <CommunityOverviewTeaser stockCode={stockCode} />
+          </>
         }
         financialsContent={
           <div className="flex flex-col gap-4 md:gap-6">

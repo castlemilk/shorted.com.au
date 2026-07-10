@@ -372,6 +372,16 @@ service ShortedStocksService {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
   }
 
+  // Create a premium short-interest alert monitor for the current user.
+  rpc CreateAlertMonitor (CreateAlertMonitorRequest) returns (CreateAlertMonitorResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
+  // List short-interest alert monitors for the current user.
+  rpc ListAlertMonitors (ListAlertMonitorsRequest) returns (ListAlertMonitorsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PRIVATE;
+  }
+
   // Get a weekly short report with narrative analysis
   rpc GetWeeklyReport (GetWeeklyReportRequest) returns (GetWeeklyReportResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
@@ -649,6 +659,19 @@ service ShortedStocksService {
     option (gnostic.openapi.v3.operation) = {
       summary: "Get Company Tax Profile",
       description: "An ASX-listed entity's annual corporate-tax profile from the ATO Corporate Tax Transparency dataset (total income, taxable income, tax payable per income year). Entities are matched to ASX codes only on exact ABN or exact normalized-name mapping. Nil/absent taxable income or tax payable is meaningful and often legitimate (losses/offsets) — total income is always reported."
+    };
+  }
+
+  // Get imported, cited industry intelligence facts for an industry.
+  rpc GetIndustryIntelligence (GetIndustryIntelligenceRequest) returns (GetIndustryIntelligenceResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (google.api.http) = {
+      post: "/v1/industryIntelligence"
+      body: "*"
+    };
+    option (gnostic.openapi.v3.operation) = {
+      summary: "Get Industry Intelligence",
+      description: "Imported, cited industry intelligence records for a Shorted industry. Only public-enabled sources and exact-reviewed records are returned."
     };
   }
 }
@@ -1044,6 +1067,76 @@ message GetMySubscriptionResponse {
   google.protobuf.Timestamp current_period_end = 4;
   bool cancel_at_period_end = 5;
   string stripe_customer_id = 6;         // For portal access
+}
+
+// Alert monitor target type.
+enum AlertMonitorScope {
+  ALERT_MONITOR_SCOPE_UNSPECIFIED = 0;
+  ALERT_MONITOR_SCOPE_INDUSTRY = 1;
+  ALERT_MONITOR_SCOPE_STOCK = 2;
+}
+
+// Alert monitor trigger condition.
+enum AlertMonitorCondition {
+  ALERT_MONITOR_CONDITION_UNSPECIFIED = 0;
+  ALERT_MONITOR_CONDITION_SHORT_INTEREST_ABOVE = 1;
+  ALERT_MONITOR_CONDITION_SHORT_INTEREST_RISES = 2;
+  ALERT_MONITOR_CONDITION_NEW_TOP_TEN_ENTRY = 3;
+}
+
+// Alert delivery cadence.
+enum AlertMonitorCadence {
+  ALERT_MONITOR_CADENCE_UNSPECIFIED = 0;
+  ALERT_MONITOR_CADENCE_DAILY = 1;
+  ALERT_MONITOR_CADENCE_WEEKLY = 2;
+}
+
+// Alert monitor lifecycle status.
+enum AlertMonitorStatus {
+  ALERT_MONITOR_STATUS_UNSPECIFIED = 0;
+  ALERT_MONITOR_STATUS_ACTIVE = 1;
+  ALERT_MONITOR_STATUS_PAUSED = 2;
+}
+
+// A saved short-interest monitor owned by the current user.
+message AlertMonitor {
+  string id = 1;
+  AlertMonitorScope scope = 2;
+  string target = 3;
+  AlertMonitorCondition condition = 4;
+  double threshold = 5;
+  bool has_threshold = 6;
+  AlertMonitorCadence cadence = 7;
+  AlertMonitorStatus status = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+}
+
+// Request for CreateAlertMonitor RPC. Uses auth context for ownership.
+message CreateAlertMonitorRequest {
+  AlertMonitorScope scope = 1;
+  string target = 2;
+  AlertMonitorCondition condition = 3;
+  double threshold = 4;
+  bool has_threshold = 5;
+  AlertMonitorCadence cadence = 6;
+}
+
+// Response for CreateAlertMonitor RPC.
+message CreateAlertMonitorResponse {
+  AlertMonitor monitor = 1;
+}
+
+// Request for ListAlertMonitors RPC. Uses auth context for ownership.
+message ListAlertMonitorsRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+}
+
+// Response for ListAlertMonitors RPC.
+message ListAlertMonitorsResponse {
+  repeated AlertMonitor monitors = 1;
+  int32 total_count = 2;
 }
 
 // ==================== Market By Date Messages ====================
@@ -1643,6 +1736,86 @@ message GetCompanyTaxProfileResponse {
   string abn = 2;
   repeated CompanyTaxYear years = 3;
   string source_attribution = 4;
+}
+
+// ==================== Industry Intelligence Messages ====================
+
+message GetIndustryIntelligenceRequest {
+  string industry = 1;    // optional exact industry filter
+  int32 record_limit = 2; // default 50, maximum 200
+  string stock_code = 3;  // optional exact stock filter (per-stock evidence dossier)
+}
+
+message IndustryIntelligenceSource {
+  string source_key = 1;
+  string display_name = 2;
+  string signal_kind = 3;
+  string publisher = 4;
+  string source_url = 5;
+  string licence = 6;
+  string cadence = 7;
+}
+
+message IndustryIntelligenceRecord {
+  string source_key = 1;
+  string source_record_id = 2;
+  string signal_kind = 3;
+  string industry = 4;
+  string stock_code = 5;
+  string entity_abn = 6;
+  string metric_key = 7;
+  string metric_label = 8;
+  bool has_metric_value = 9;
+  double metric_value = 10;
+  string unit = 11;
+  string period_start = 12; // YYYY-MM-DD when present
+  string period_end = 13;   // YYYY-MM-DD when present
+  string as_of = 14;        // YYYY-MM-DD
+  string title = 15;
+  string summary = 16;
+  string source_url = 17;
+  double confidence = 18;
+}
+
+// Aggregated evidence per Australian financial year for one metric of one
+// public-enabled source. Powers the industry intelligence dashboard charts
+// without shipping every underlying record.
+message IndustryIntelligenceTimeBucket {
+  string signal_kind = 1;
+  string source_key = 2;
+  string metric_key = 3;
+  string metric_label = 4;
+  string unit = 5;
+  string bucket_label = 6;      // e.g. "2023-24" (Australian financial year)
+  string bucket_start = 7;      // YYYY-MM-DD (1 July opening the financial year)
+  double total_value = 8;
+  int32 record_count = 9;
+  int32 entity_count = 10;      // distinct matched stock codes in the bucket
+  int32 zero_value_count = 11;  // records reporting a genuine zero value
+}
+
+// Total per matched entity for one metric of one public-enabled source,
+// ranked by total value (top entities only).
+message IndustryIntelligenceEntityTotal {
+  string signal_kind = 1;
+  string source_key = 2;
+  string metric_key = 3;
+  string stock_code = 4;
+  string entity_label = 5;
+  string unit = 6;
+  double total_value = 7;
+  int32 record_count = 8;
+  string latest_as_of = 9; // YYYY-MM-DD
+}
+
+message GetIndustryIntelligenceResponse {
+  string industry = 1;
+  repeated IndustryIntelligenceSource sources = 2;
+  repeated IndustryIntelligenceRecord records = 3;
+  string source_attribution = 4;
+  google.protobuf.Timestamp generated_at = 5;
+  repeated IndustryIntelligenceTimeBucket time_buckets = 6;
+  repeated IndustryIntelligenceEntityTotal entity_totals = 7;
 }
 
 // ==================== Short Campaign Scoreboard Messages ====================

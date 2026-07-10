@@ -51,7 +51,8 @@ describe("/api/stripe/checkout", () => {
     process.env = {
       ...originalEnv,
       NEXTAUTH_URL: "https://shorted.com.au",
-      STRIPE_PRO_PRICE_ID: "price_premium",
+      STRIPE_PREMIUM_PRICE_ID: "price_premium",
+      STRIPE_PRO_PRICE_ID: "price_legacy_pro",
       STRIPE_API_ACCESS_PRICE_ID: "price_api_access",
     };
 

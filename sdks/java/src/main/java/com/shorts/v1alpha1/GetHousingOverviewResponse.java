@@ -64,7 +64,7 @@ private static final long serialVersionUID = 0L;
    * <code>repeated .shorts.v1alpha1.HousingMetric metrics = 1 [json_name = "metrics"];</code>
    */
   @java.lang.Override
-  public java.util.List<? extends com.shorts.v1alpha1.HousingMetricOrBuilder>
+  public java.util.List<? extends com.shorts.v1alpha1.HousingMetricOrBuilder> 
       getMetricsOrBuilderList() {
     return metrics_;
   }
@@ -440,7 +440,7 @@ private static final long serialVersionUID = 0L;
             metricsBuilder_ = null;
             metrics_ = other.metrics_;
             bitField0_ = (bitField0_ & ~0x00000001);
-            metricsBuilder_ =
+            metricsBuilder_ = 
               com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
                  internalGetMetricsFieldBuilder() : null;
           } else {
@@ -709,7 +709,7 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.HousingMetric metrics = 1 [json_name = "metrics"];</code>
      */
-    public java.util.List<? extends com.shorts.v1alpha1.HousingMetricOrBuilder>
+    public java.util.List<? extends com.shorts.v1alpha1.HousingMetricOrBuilder> 
          getMetricsOrBuilderList() {
       if (metricsBuilder_ != null) {
         return metricsBuilder_.getMessageOrBuilderList();
@@ -735,12 +735,12 @@ private static final long serialVersionUID = 0L;
     /**
      * <code>repeated .shorts.v1alpha1.HousingMetric metrics = 1 [json_name = "metrics"];</code>
      */
-    public java.util.List<com.shorts.v1alpha1.HousingMetric.Builder>
+    public java.util.List<com.shorts.v1alpha1.HousingMetric.Builder> 
          getMetricsBuilderList() {
       return internalGetMetricsFieldBuilder().getBuilderList();
     }
     private com.google.protobuf.RepeatedFieldBuilder<
-        com.shorts.v1alpha1.HousingMetric, com.shorts.v1alpha1.HousingMetric.Builder, com.shorts.v1alpha1.HousingMetricOrBuilder>
+        com.shorts.v1alpha1.HousingMetric, com.shorts.v1alpha1.HousingMetric.Builder, com.shorts.v1alpha1.HousingMetricOrBuilder> 
         internalGetMetricsFieldBuilder() {
       if (metricsBuilder_ == null) {
         metricsBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
@@ -862,7 +862,7 @@ private static final long serialVersionUID = 0L;
      * <code>.google.protobuf.Timestamp as_of = 2 [json_name = "asOf"];</code>
      */
     private com.google.protobuf.SingleFieldBuilder<
-        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder>
+        com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> 
         internalGetAsOfFieldBuilder() {
       if (asOfBuilder_ == null) {
         asOfBuilder_ = new com.google.protobuf.SingleFieldBuilder<
@@ -925,3 +925,4 @@ private static final long serialVersionUID = 0L;
   }
 
 }
+

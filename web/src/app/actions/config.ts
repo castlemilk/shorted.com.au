@@ -19,6 +19,10 @@ function firstNonEmpty(...values: Array<string | undefined>): string | undefined
   return undefined;
 }
 
+function isVercelEnvironment(): boolean {
+  return Boolean(process.env.VERCEL ?? process.env.VERCEL_ENV ?? process.env.VERCEL_REGION);
+}
+
 export function buildApiUrl(baseUrl: string, path: string): string {
   const normalizedBase = normalizeApiBaseUrl(baseUrl);
   if (!normalizedBase) {
@@ -48,7 +52,7 @@ export function getServerShortsApiUrl(): string {
       process.env.NEXT_PUBLIC_SHORTS_SERVICE_ENDPOINT,
       process.env.SHORTS_API_URL,
       process.env.NEXT_PUBLIC_API_URL,
-    ) ?? "http://localhost:9091"
+    ) ?? (isVercelEnvironment() ? "https://api.shorted.com.au" : "http://localhost:9091")
   );
 }
 
