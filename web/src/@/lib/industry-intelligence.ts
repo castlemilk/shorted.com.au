@@ -225,6 +225,14 @@ export interface CrowdingPoint {
   p90: number;
   /** Number of constituents contributing to the bucket. */
   constituents: number;
+  /** Median (50th percentile) of the constituents (%). */
+  median?: number;
+  /** 25th percentile of the constituents (%). */
+  p25?: number;
+  /** 75th percentile of the constituents (%). */
+  p75?: number;
+  /** Population standard deviation of the constituents (pp). */
+  stddev?: number;
 }
 
 export interface IndustryCrowdingSeries {
@@ -256,50 +264,145 @@ function isoWeekStart(dateIso: string): string | null {
 
 const round2 = (value: number): number => Math.round(value * 100) / 100;
 
+/** Advance an ISO week-start (Monday) date string by seven days. */
+function nextWeek(weekIso: string): string {
+  const date = new Date(`${weekIso}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + 7);
+  return date.toISOString().slice(0, 10);
+}
+
 /**
  * Aggregates per-stock short-interest time series into a weekly industry
- * crowding series (mean + p10-p90 dispersion band). Buckets with fewer than
- * `minConstituents` stocks are dropped; returns null when fewer than three
- * usable weekly buckets exist so callers simply skip the chart.
+ * crowding series (mean/median + p10-p90 and p25-p75 dispersion, stddev).
+ *
+ * Upstream series are decimated (~60 points per stock regardless of window),
+ * so over long windows a stock's observations skip weeks. Short interest is a
+ * step function — the last reported value holds until it changes — so each
+ * stock's last observation is carried forward through gap weeks, but only
+ * within its own observed range (first to last observation; never
+ * extrapolated), keeping the weekly cross-section stable instead of churning
+ * with decimation artifacts.
+ *
+ * Buckets with fewer than `minConstituents` stocks are dropped; returns null
+ * when fewer than three usable weekly buckets exist so callers simply skip
+ * the chart.
  */
 export function buildIndustryCrowdingSeries(
   stocks: CrowdingStockInput[],
   { minConstituents = 3 }: { minConstituents?: number } = {},
 ): IndustryCrowdingSeries | null {
-  const weekly = new Map<string, Map<string, number>>();
+  // Sparse weekly observations per stock (last observation per week wins —
+  // points arrive date-ascending).
+  const perStock = new Map<string, Map<string, number>>();
+  let firstWeek: string | null = null;
+  let lastWeek: string | null = null;
   for (const stock of stocks) {
     for (const point of stock.points) {
       if (!Number.isFinite(point.value)) continue;
       const week = isoWeekStart(point.date);
       if (!week) continue;
-      let bucket = weekly.get(week);
-      if (!bucket) {
-        bucket = new Map();
-        weekly.set(week, bucket);
+      let observed = perStock.get(stock.code);
+      if (!observed) {
+        observed = new Map();
+        perStock.set(stock.code, observed);
       }
-      // Last observation per stock per week wins (points arrive date-ascending).
-      bucket.set(stock.code, point.value);
+      observed.set(week, point.value);
+      if (!firstWeek || week < firstWeek) firstWeek = week;
+      if (!lastWeek || week > lastWeek) lastWeek = week;
     }
   }
+  if (!firstWeek || !lastWeek) return null;
 
+  // Walk every calendar week in range, carrying each stock's last value
+  // forward until its final observation.
+  const lastObservedWeek = new Map<string, string>();
+  for (const [code, observed] of perStock) {
+    let max = "";
+    for (const week of observed.keys()) if (week > max) max = week;
+    lastObservedWeek.set(code, max);
+  }
+
+  const carried = new Map<string, number>();
   const points: CrowdingPoint[] = [];
-  for (const [week, values] of [...weekly.entries()].sort(([a], [b]) =>
-    a.localeCompare(b),
-  )) {
-    if (values.size < minConstituents) continue;
-    const sorted = [...values.values()].sort((a, b) => a - b);
+  for (let week = firstWeek; week <= lastWeek; week = nextWeek(week)) {
+    const values: number[] = [];
+    for (const [code, observed] of perStock) {
+      const fresh = observed.get(week);
+      if (fresh !== undefined) carried.set(code, fresh);
+      const value = carried.get(code);
+      if (value !== undefined && week <= lastObservedWeek.get(code)!) {
+        values.push(value);
+      }
+    }
+    if (values.length < minConstituents) continue;
+    const sorted = values.sort((a, b) => a - b);
     const mean = sorted.reduce((sum, v) => sum + v, 0) / sorted.length;
+    const variance =
+      sorted.reduce((sum, v) => sum + (v - mean) * (v - mean), 0) /
+      sorted.length;
     points.push({
       date: week,
       avg: round2(mean),
       p10: round2(percentile(sorted, 0.1)),
       p90: round2(percentile(sorted, 0.9)),
-      constituents: values.size,
+      constituents: sorted.length,
+      median: round2(percentile(sorted, 0.5)),
+      p25: round2(percentile(sorted, 0.25)),
+      p75: round2(percentile(sorted, 0.75)),
+      stddev: round2(Math.sqrt(variance)),
     });
   }
 
   if (points.length < 3) return null;
   return { points };
+}
+
+/**
+ * Trailing simple moving average; indices with fewer than `period`
+ * observations yield null so chart lines simply start later.
+ */
+export function trailingSma(
+  values: number[],
+  period: number,
+): (number | null)[] {
+  return values.map((_, i) => {
+    if (i < period - 1) return null;
+    let sum = 0;
+    for (let j = i - period + 1; j <= i; j += 1) sum += values[j]!;
+    return round2(sum / period);
+  });
+}
+
+/** Change vs `lag` observations ago (percentage points for % inputs). */
+export function changeOverLag(
+  values: number[],
+  lag: number,
+): (number | null)[] {
+  return values.map((v, i) => (i < lag ? null : round2(v - values[i - lag]!)));
+}
+
+/**
+ * Z-score of each observation against its trailing `window` (inclusive).
+ * Needs at least `minObs` points of history; a near-zero deviation yields
+ * null rather than an exploding score.
+ */
+export function trailingZScore(
+  values: number[],
+  window: number,
+  minObs = 8,
+): (number | null)[] {
+  return values.map((v, i) => {
+    const start = Math.max(0, i - window + 1);
+    const slice = values.slice(start, i + 1);
+    if (slice.length < minObs) return null;
+    const mean = slice.reduce((sum, x) => sum + x, 0) / slice.length;
+    const sd = Math.sqrt(
+      slice.reduce((sum, x) => sum + (x - mean) * (x - mean), 0) /
+        slice.length,
+    );
+    if (sd < 1e-6) return null;
+    return round2((v - mean) / sd);
+  });
 }
 
 export interface IntelligenceSource {

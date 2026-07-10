@@ -48,15 +48,6 @@ export const metadata: Metadata = {
   },
 };
 
-interface IndustrySearchParams {
-  industry?: string;
-  view?: string;
-}
-
-interface PageProps {
-  searchParams?: Promise<IndustrySearchParams>;
-}
-
 type IndustryEvidenceBundle = {
   sources: IndustryEvidenceSourceInput[];
   records: IndustryEvidenceRecordInput[];
@@ -158,15 +149,17 @@ function buildIndustryStocksFromTopShorts(
     }));
 }
 
-export default async function IndustryIntelligencePage({
-  searchParams,
-}: PageProps) {
-  const params: IndustrySearchParams = searchParams ? await searchParams : {};
-  const selectedSlug = params.industry;
-  const initialView = params.view;
+export default async function IndustryIntelligencePage() {
+  // Deep-link params (?industry=&view=) are applied CLIENT-side after
+  // hydration (see IndustryIntelligenceClient): awaiting searchParams here
+  // would silently opt the whole route out of ISR and re-run this fan-out on
+  // every request.
   const [industries, topShorts] = await Promise.all([
     getIndustryData(),
-    getTopShortsData("3m", 1000, 0).catch((error) => {
+    // 2y base window: the store decimates each stock to ~60 points regardless
+    // of period, so this costs the same payload as 3m while giving the
+    // crowding chart's client-side window selector real history to slice.
+    getTopShortsData("2y", 1000, 0).catch((error) => {
       console.warn(
         "IndustryIntelligencePage: top-shorts name enrichment failed:",
         error,
@@ -188,6 +181,16 @@ export default async function IndustryIntelligencePage({
       ? industries
       : buildIndustryDataFromTopShorts(topShortStocks);
   const selectedIndustries = industrySource.slice(0, 8);
+  // Evidence snapshots only need industry NAMES — start them now, in
+  // parallel with the per-industry stock fetches, instead of gating them
+  // behind that whole phase (each serialized phase is seconds on a cold
+  // backend).
+  const intelligencePromise = Promise.all(
+    selectedIndustries.map(async (industry) => {
+      const result = await getIndustryIntelligenceSnapshot(industry.name, 50);
+      return [industry.slug, result] as const;
+    }),
+  );
   const stockResults = await Promise.all(
     selectedIndustries.map(async (industry) => {
       const result = await getIndustryStocks(industry.slug);
@@ -204,12 +207,7 @@ export default async function IndustryIntelligencePage({
   );
   const [logoUrlByCode, intelligenceResults] = await Promise.all([
     getVerifiedCompanyLogoUrls(storyStockCodes),
-    Promise.all(
-      selectedIndustries.map(async (industry) => {
-        const result = await getIndustryIntelligenceSnapshot(industry.name, 50);
-        return [industry.slug, result] as const;
-      }),
-    ),
+    intelligencePromise,
   ]);
   const stocksByIndustry = stockResults.reduce<
     Record<string, IndustryStockInput[]>
@@ -295,11 +293,7 @@ export default async function IndustryIntelligencePage({
           },
         ]}
       />
-      <IndustryIntelligenceClient
-        stories={stories}
-        initialSlug={selectedSlug}
-        initialView={initialView}
-      />
+      <IndustryIntelligenceClient stories={stories} />
     </DashboardLayout>
   );
 }

@@ -3,7 +3,9 @@
 import { useState, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useAuthPreconnect } from "@/hooks/use-auth-preconnect";
 import {
   signInWithEmailAndPassword,
   signInWithPopup,
@@ -48,12 +50,24 @@ function getFirebaseErrorMessage(code: string): string {
 
 function SignInForm() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useAuthPreconnect();
+
+  // Client navigation instead of the old full-document reload: getSession()
+  // refreshes the SessionProvider cache (and broadcasts to other tabs),
+  // router.refresh() re-renders server components with the new cookie —
+  // skipping a full app re-parse between "signed in" and "sees signed-in UI".
+  const completeSignIn = async () => {
+    await getSession();
+    router.push(callbackUrl);
+    router.refresh();
+  };
 
   const handleGoogleSignIn = async () => {
     if (!firebaseAuth) {
@@ -79,7 +93,7 @@ function SignInForm() {
         setError("Authentication failed. Please try again.");
         setIsGoogleLoading(false);
       } else if (result?.ok) {
-        window.location.href = callbackUrl;
+        await completeSignIn();
       }
     } catch (err: unknown) {
       const code = (err as { code?: string }).code;
@@ -130,7 +144,7 @@ function SignInForm() {
           setError("Authentication failed. Please try again.");
           setIsLoading(false);
         } else if (result?.ok) {
-          window.location.href = callbackUrl;
+          await completeSignIn();
         }
         return;
       } catch (err: unknown) {
@@ -156,7 +170,7 @@ function SignInForm() {
         );
         setIsLoading(false);
       } else if (result?.ok) {
-        window.location.href = callbackUrl;
+        await completeSignIn();
       }
     } catch {
       setError(

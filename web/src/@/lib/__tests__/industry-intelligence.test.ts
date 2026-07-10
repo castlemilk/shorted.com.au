@@ -3,7 +3,10 @@ import {
   buildIndustryCrowdingSeries,
   buildIndustryIntelligenceStory,
   buildIndustryIntelligenceStories,
+  changeOverLag,
   getStockCrowdingStatus,
+  trailingSma,
+  trailingZScore,
 } from "../industry-intelligence";
 
 const materialsIndustry = {
@@ -245,6 +248,90 @@ describe("buildIndustryCrowdingSeries", () => {
     expect(series!.points[0]!.p90).toBeCloseTo(9.2, 2);
   });
 
+  it("computes median, quartiles, and stddev per weekly bucket", () => {
+    const series = buildIndustryCrowdingSeries([
+      { code: "AAA", points: mkPoints([["2026-06-01", 2], ["2026-06-08", 2], ["2026-06-15", 2]]) },
+      { code: "BBB", points: mkPoints([["2026-06-01", 6], ["2026-06-08", 6], ["2026-06-15", 6]]) },
+      { code: "CCC", points: mkPoints([["2026-06-01", 10], ["2026-06-08", 10], ["2026-06-15", 10]]) },
+    ]);
+
+    expect(series).not.toBeNull();
+    const first = series!.points[0]!;
+    expect(first.median).toBe(6);
+    expect(first.p25).toBe(4);
+    expect(first.p75).toBe(8);
+    // population stddev of [2, 6, 10] = sqrt(32/3) ≈ 3.27
+    expect(first.stddev).toBeCloseTo(3.27, 2);
+  });
+
+  it("carries a stock's last value through gap weeks within its observed range", () => {
+    const series = buildIndustryCrowdingSeries(
+      [
+        // AAA reports every week; BBB skips 06-08 (decimation artifact) but
+        // reports again on 06-15 — its value 6 carries through the gap week.
+        {
+          code: "AAA",
+          points: mkPoints([
+            ["2026-06-01", 2],
+            ["2026-06-08", 3],
+            ["2026-06-15", 4],
+          ]),
+        },
+        {
+          code: "BBB",
+          points: mkPoints([
+            ["2026-06-01", 6],
+            ["2026-06-15", 8],
+          ]),
+        },
+      ],
+      { minConstituents: 2 },
+    );
+
+    expect(series).not.toBeNull();
+    expect(series!.points.map((p) => p.date)).toEqual([
+      "2026-06-01",
+      "2026-06-08",
+      "2026-06-15",
+    ]);
+    // Gap week: AAA fresh (3), BBB carried (6).
+    expect(series!.points[1]).toMatchObject({ avg: 4.5, constituents: 2 });
+  });
+
+  it("never extrapolates beyond a stock's last observation", () => {
+    const series = buildIndustryCrowdingSeries(
+      [
+        {
+          code: "AAA",
+          points: mkPoints([
+            ["2026-06-01", 2],
+            ["2026-06-08", 3],
+            ["2026-06-15", 4],
+            ["2026-06-22", 5],
+          ]),
+        },
+        {
+          code: "BBB",
+          points: mkPoints([
+            ["2026-06-01", 6],
+            ["2026-06-08", 7],
+            ["2026-06-15", 8],
+          ]),
+        },
+      ],
+      { minConstituents: 2 },
+    );
+
+    expect(series).not.toBeNull();
+    // 2026-06-22 would need BBB extrapolated past its last observation —
+    // it stays a 1-constituent week and is dropped.
+    expect(series!.points.map((p) => p.date)).toEqual([
+      "2026-06-01",
+      "2026-06-08",
+      "2026-06-15",
+    ]);
+  });
+
   it("returns null when there are too few usable weekly buckets", () => {
     const sparse = buildIndustryCrowdingSeries([
       { code: "AAA", points: mkPoints([["2026-06-01", 2]]) },
@@ -283,5 +370,29 @@ describe("buildIndustryCrowdingSeries", () => {
       "2026-06-08",
       "2026-06-15",
     ]);
+  });
+});
+
+describe("crowding view math helpers", () => {
+  it("trailingSma yields null until the period fills, then the window mean", () => {
+    expect(trailingSma([2, 4, 6, 8], 3)).toEqual([null, null, 4, 6]);
+  });
+
+  it("changeOverLag is the pp difference vs `lag` observations ago", () => {
+    expect(changeOverLag([5, 6, 6.5, 6], 2)).toEqual([null, null, 1.5, 0]);
+  });
+
+  it("trailingZScore needs minObs history and guards flat windows", () => {
+    const flat = trailingZScore([3, 3, 3, 3, 3], 4, 3);
+    expect(flat).toEqual([null, null, null, null, null]);
+
+    const values = [1, 2, 3, 4, 10];
+    const z = trailingZScore(values, 5, 3);
+    expect(z[0]).toBeNull();
+    expect(z[1]).toBeNull();
+    // window [1..3]: mean 2, sd sqrt(2/3)≈0.816 → z(3) ≈ 1.22
+    expect(z[2]).toBeCloseTo(1.22, 2);
+    // window [1,2,3,4,10]: mean 4, sd ≈ 3.16 → z(10) ≈ 1.9
+    expect(z[4]).toBeCloseTo(1.9, 2);
   });
 });

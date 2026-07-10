@@ -3,7 +3,9 @@
 import { useState, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { useAuthPreconnect } from "@/hooks/use-auth-preconnect";
 import {
   createUserWithEmailAndPassword,
   updateProfile,
@@ -47,6 +49,7 @@ function getFirebaseErrorMessage(code: string): string {
 
 function SignUpForm() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -55,6 +58,14 @@ function SignUpForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useAuthPreconnect();
+
+  // Client navigation instead of a full-document reload — see signin/page.tsx.
+  const completeSignIn = async () => {
+    await getSession();
+    router.push(callbackUrl);
+    router.refresh();
+  };
 
   const handleGoogleSignUp = async () => {
     if (!firebaseAuth) {
@@ -80,7 +91,7 @@ function SignUpForm() {
         setError("Authentication failed. Please try again.");
         setIsGoogleLoading(false);
       } else if (result?.ok) {
-        window.location.href = callbackUrl;
+        await completeSignIn();
       }
     } catch (err: unknown) {
       const code = (err as { code?: string }).code;
@@ -150,7 +161,7 @@ function SignUpForm() {
         setError("Account created but sign-in failed. Please try signing in.");
         setIsLoading(false);
       } else if (result?.ok) {
-        window.location.href = callbackUrl;
+        await completeSignIn();
       }
     } catch (err: unknown) {
       const firebaseError = err as { code?: string };

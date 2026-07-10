@@ -3,7 +3,7 @@
 import { auth } from "@/auth";
 import { type DashboardConfig } from "~/@/types/dashboard";
 import { FieldValue } from "firebase-admin/firestore";
-import { adminDb } from "@/lib/firebase-admin";
+import { adminDb } from "@/lib/firebase-admin-db";
 import {
   querySnapshotReadCount,
   withFirestoreCost,

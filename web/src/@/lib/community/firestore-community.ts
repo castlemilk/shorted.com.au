@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { adminDb } from "~/@/lib/firebase-admin";
+import { adminDb } from "~/@/lib/firebase-admin-db";
 import {
   querySnapshotReadCount,
   withFirestoreCost,

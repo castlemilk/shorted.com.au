@@ -2,7 +2,7 @@
 
 import { auth } from "@/auth";
 import { FieldValue } from "firebase-admin/firestore";
-import { adminDb } from "@/lib/firebase-admin";
+import { adminDb } from "@/lib/firebase-admin-db";
 import { withFirestoreCost } from "@/lib/firestore-cost";
 import {
   rememberLegacyEmailLookupMiss,

@@ -3,10 +3,10 @@ import {
   getWatchlist,
 } from "../portfolio";
 import { auth } from "@/auth";
-import { adminDb } from "@/lib/firebase-admin";
+import { adminDb } from "@/lib/firebase-admin-db";
 import { clearLegacyEmailLookupMissCacheForTests } from "@/lib/firestore-legacy-email-lookup-cache";
 
-jest.mock("@/lib/firebase-admin", () => ({
+jest.mock("@/lib/firebase-admin-db", () => ({
   adminDb: {
     collection: jest.fn(),
   },

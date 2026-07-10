@@ -3,7 +3,10 @@ package shorts
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 type IndustryIntelligenceResult struct {
@@ -72,6 +75,28 @@ type IndustryIntelligenceRecordRow struct {
 	Confidence     float64
 }
 
+// intelligenceFilter builds the shared WHERE clause conditionally: the old
+// ($1 = '' OR col = $1) OR-guards forced generic plans that could not use the
+// (industry, signal_kind, as_of DESC) index when a filter was present.
+type intelligenceFilter struct {
+	clause string
+	args   []any
+}
+
+func buildIntelligenceFilter(industry, stockCode string) intelligenceFilter {
+	conds := []string{"s.public_enabled"}
+	args := []any{}
+	if industry != "" {
+		args = append(args, industry)
+		conds = append(conds, fmt.Sprintf("r.industry = $%d", len(args)))
+	}
+	if stockCode != "" {
+		args = append(args, stockCode)
+		conds = append(conds, fmt.Sprintf("r.stock_code = $%d", len(args)))
+	}
+	return intelligenceFilter{clause: strings.Join(conds, " AND "), args: args}
+}
+
 func (s *postgresStore) GetIndustryIntelligence(industry string, stockCode string, recordLimit int32) (*IndustryIntelligenceResult, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -84,7 +109,55 @@ func (s *postgresStore) GetIndustryIntelligence(industry string, stockCode strin
 		limit = 200
 	}
 
-	const sourcesQuery = `
+	filter := buildIntelligenceFilter(industry, stockCode)
+	result := &IndustryIntelligenceResult{}
+
+	// The four result sets are independent; running them concurrently
+	// collapses ~4 sequential pooler round trips into one. Each goroutine
+	// acquires its own pooled connection (pgxpool is concurrency-safe;
+	// acquires beyond MaxConns queue rather than fail).
+	g, gCtx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		rows, err := s.queryIntelligenceSources(gCtx, filter)
+		if err != nil {
+			return err
+		}
+		result.Sources = rows
+		return nil
+	})
+	g.Go(func() error {
+		rows, err := s.queryIntelligenceRecords(gCtx, filter, limit)
+		if err != nil {
+			return err
+		}
+		result.Records = rows
+		return nil
+	})
+	g.Go(func() error {
+		rows, err := s.queryIntelligenceTimeBuckets(gCtx, filter)
+		if err != nil {
+			return err
+		}
+		result.TimeBuckets = rows
+		return nil
+	})
+	g.Go(func() error {
+		rows, err := s.queryIntelligenceEntityTotals(gCtx, filter)
+		if err != nil {
+			return err
+		}
+		result.EntityTotals = rows
+		return nil
+	})
+	if err := g.Wait(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (s *postgresStore) queryIntelligenceSources(ctx context.Context, filter intelligenceFilter) ([]IndustryIntelligenceSourceRow, error) {
+	query := fmt.Sprintf(`
 		SELECT DISTINCT
 			s.source_key,
 			s.display_name,
@@ -95,21 +168,19 @@ func (s *postgresStore) GetIndustryIntelligence(industry string, stockCode strin
 			s.cadence
 		FROM industry_intelligence_sources s
 		JOIN industry_intelligence_records r ON r.source_key = s.source_key
-		WHERE s.public_enabled
-		  AND ($1 = '' OR r.industry = $1)
-		  AND ($2 = '' OR r.stock_code = $2)
-		ORDER BY s.signal_kind, s.display_name`
+		WHERE %s
+		ORDER BY s.signal_kind, s.display_name`, filter.clause)
 
-	sourceRows, err := s.db.Query(ctx, sourcesQuery, industry, stockCode)
+	rows, err := s.db.Query(ctx, query, filter.args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query industry intelligence sources: %w", err)
 	}
-	defer sourceRows.Close()
+	defer rows.Close()
 
-	result := &IndustryIntelligenceResult{}
-	for sourceRows.Next() {
+	var out []IndustryIntelligenceSourceRow
+	for rows.Next() {
 		var row IndustryIntelligenceSourceRow
-		if err := sourceRows.Scan(
+		if err := rows.Scan(
 			&row.SourceKey,
 			&row.DisplayName,
 			&row.SignalKind,
@@ -120,13 +191,17 @@ func (s *postgresStore) GetIndustryIntelligence(industry string, stockCode strin
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan industry intelligence source: %w", err)
 		}
-		result.Sources = append(result.Sources, row)
+		out = append(out, row)
 	}
-	if err := sourceRows.Err(); err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("failed iterating industry intelligence sources: %w", err)
 	}
+	return out, nil
+}
 
-	const recordsQuery = `
+func (s *postgresStore) queryIntelligenceRecords(ctx context.Context, filter intelligenceFilter, limit int32) ([]IndustryIntelligenceRecordRow, error) {
+	args := append(append([]any{}, filter.args...), limit)
+	query := fmt.Sprintf(`
 		SELECT
 			r.source_key,
 			r.source_record_id,
@@ -147,21 +222,20 @@ func (s *postgresStore) GetIndustryIntelligence(industry string, stockCode strin
 			r.confidence
 		FROM industry_intelligence_records r
 		JOIN industry_intelligence_sources s ON s.source_key = r.source_key
-		WHERE s.public_enabled
-		  AND ($1 = '' OR r.industry = $1)
-		  AND ($2 = '' OR r.stock_code = $2)
+		WHERE %s
 		ORDER BY r.as_of DESC, r.signal_kind, r.source_key, r.metric_key
-		LIMIT $3`
+		LIMIT $%d`, filter.clause, len(args))
 
-	recordRows, err := s.db.Query(ctx, recordsQuery, industry, stockCode, limit)
+	rows, err := s.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query industry intelligence records: %w", err)
 	}
-	defer recordRows.Close()
+	defer rows.Close()
 
-	for recordRows.Next() {
+	var out []IndustryIntelligenceRecordRow
+	for rows.Next() {
 		var row IndustryIntelligenceRecordRow
-		if err := recordRows.Scan(
+		if err := rows.Scan(
 			&row.SourceKey,
 			&row.SourceRecordID,
 			&row.SignalKind,
@@ -182,15 +256,18 @@ func (s *postgresStore) GetIndustryIntelligence(industry string, stockCode strin
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan industry intelligence record: %w", err)
 		}
-		result.Records = append(result.Records, row)
+		out = append(out, row)
 	}
-	if err := recordRows.Err(); err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("failed iterating industry intelligence records: %w", err)
 	}
+	return out, nil
+}
 
+func (s *postgresStore) queryIntelligenceTimeBuckets(ctx context.Context, filter intelligenceFilter) ([]IndustryIntelligenceTimeBucketRow, error) {
 	// Australian financial year bucketing: months >= July roll into the FY that
 	// ends the following June (period_end 2024-06-30 -> FY ending 2024).
-	const timeBucketsQuery = `
+	query := fmt.Sprintf(`
 		SELECT
 			r.signal_kind,
 			r.source_key,
@@ -205,22 +282,21 @@ func (s *postgresStore) GetIndustryIntelligence(industry string, stockCode strin
 			COUNT(*) FILTER (WHERE r.metric_value = 0)::int
 		FROM industry_intelligence_records r
 		JOIN industry_intelligence_sources s ON s.source_key = r.source_key
-		WHERE s.public_enabled
-		  AND ($1 = '' OR r.industry = $1)
-		  AND ($2 = '' OR r.stock_code = $2)
+		WHERE %s
 		  AND r.metric_value IS NOT NULL
 		GROUP BY r.signal_kind, r.source_key, r.metric_key, r.unit, fy_end
-		ORDER BY r.signal_kind, r.source_key, r.metric_key, fy_end`
+		ORDER BY r.signal_kind, r.source_key, r.metric_key, fy_end`, filter.clause)
 
-	bucketRows, err := s.db.Query(ctx, timeBucketsQuery, industry, stockCode)
+	rows, err := s.db.Query(ctx, query, filter.args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query industry intelligence time buckets: %w", err)
 	}
-	defer bucketRows.Close()
+	defer rows.Close()
 
-	for bucketRows.Next() {
+	var out []IndustryIntelligenceTimeBucketRow
+	for rows.Next() {
 		var row IndustryIntelligenceTimeBucketRow
-		if err := bucketRows.Scan(
+		if err := rows.Scan(
 			&row.SignalKind,
 			&row.SourceKey,
 			&row.MetricKey,
@@ -234,13 +310,16 @@ func (s *postgresStore) GetIndustryIntelligence(industry string, stockCode strin
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan industry intelligence time bucket: %w", err)
 		}
-		result.TimeBuckets = append(result.TimeBuckets, row)
+		out = append(out, row)
 	}
-	if err := bucketRows.Err(); err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("failed iterating industry intelligence time buckets: %w", err)
 	}
+	return out, nil
+}
 
-	const entityTotalsQuery = `
+func (s *postgresStore) queryIntelligenceEntityTotals(ctx context.Context, filter intelligenceFilter) ([]IndustryIntelligenceEntityTotalRow, error) {
+	query := fmt.Sprintf(`
 		WITH totals AS (
 			SELECT
 				r.signal_kind,
@@ -257,9 +336,7 @@ func (s *postgresStore) GetIndustryIntelligence(industry string, stockCode strin
 				) AS rank
 			FROM industry_intelligence_records r
 			JOIN industry_intelligence_sources s ON s.source_key = r.source_key
-			WHERE s.public_enabled
-			  AND ($1 = '' OR r.industry = $1)
-			  AND ($2 = '' OR r.stock_code = $2)
+			WHERE %s
 			  AND r.metric_value IS NOT NULL
 			  AND COALESCE(r.stock_code, '') <> ''
 			GROUP BY r.signal_kind, r.source_key, r.metric_key, r.stock_code, r.unit
@@ -277,17 +354,18 @@ func (s *postgresStore) GetIndustryIntelligence(industry string, stockCode strin
 		FROM totals t
 		LEFT JOIN "company-metadata" cm ON cm.stock_code = t.stock_code
 		WHERE t.rank <= 8
-		ORDER BY t.signal_kind, t.source_key, t.metric_key, t.total_value DESC`
+		ORDER BY t.signal_kind, t.source_key, t.metric_key, t.total_value DESC`, filter.clause)
 
-	entityRows, err := s.db.Query(ctx, entityTotalsQuery, industry, stockCode)
+	rows, err := s.db.Query(ctx, query, filter.args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query industry intelligence entity totals: %w", err)
 	}
-	defer entityRows.Close()
+	defer rows.Close()
 
-	for entityRows.Next() {
+	var out []IndustryIntelligenceEntityTotalRow
+	for rows.Next() {
 		var row IndustryIntelligenceEntityTotalRow
-		if err := entityRows.Scan(
+		if err := rows.Scan(
 			&row.SignalKind,
 			&row.SourceKey,
 			&row.MetricKey,
@@ -300,11 +378,10 @@ func (s *postgresStore) GetIndustryIntelligence(industry string, stockCode strin
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan industry intelligence entity total: %w", err)
 		}
-		result.EntityTotals = append(result.EntityTotals, row)
+		out = append(out, row)
 	}
-	if err := entityRows.Err(); err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("failed iterating industry intelligence entity totals: %w", err)
 	}
-
-	return result, nil
+	return out, nil
 }

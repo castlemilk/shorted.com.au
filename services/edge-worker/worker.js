@@ -378,14 +378,16 @@ function promotePublicEdgeReadResponse(response, ttl, staleTtl) {
   }
 }
 
-function resolvePublicEdgeReadRoute(url) {
+export function resolvePublicEdgeReadRoute(url) {
   const path = url.pathname;
   const params = url.searchParams;
 
   if (path === `${EDGE_READ_PREFIX}/top-shorts`) {
     const body = {
       period: edgePeriod(params, "period", "3m"),
-      limit: edgeInt(params, "limit", 10, 1, 500),
+      // Backend validation allows limit <= 1000; a lower edge clamp silently
+      // dropped constituents 501-1000 from crowding aggregations.
+      limit: edgeInt(params, "limit", 10, 1, 1000),
     };
     const offset = edgeInt(params, "offset", 0, 0, 10000);
     if (offset > 0) body.offset = offset;
@@ -749,8 +751,8 @@ function isCacheableAnalyticsEvent(cacheStatus, cacheTtl) {
  * ASIC data changes daily (T+2 delay, weekly aggregate Fridays), so longer
  * TTLs are safe and reduce unnecessary origin fetches.
  */
-function resolveShortsTtl(path, defaults) {
-  if (/GetTopShorts|GetIndustryTreeMap|GetShortsTreeMap|GetWeeklyReport|GetMarketByDate|GetAvailableDates/.test(path)) {
+export function resolveShortsTtl(path, defaults) {
+  if (/GetTopShorts|GetIndustryTreeMap|GetIndustryIntelligence|GetShortsTreeMap|GetWeeklyReport|GetMarketByDate|GetAvailableDates/.test(path)) {
     return defaults.cacheTtlTopShorts; // 300s (5min) — safe for ASIC data
   }
   if (/GetNews|GetAnnouncement|GetMarketNews/.test(path)) {
@@ -942,8 +944,8 @@ function cacheableResponseHeaders(originResp, cacheTtl) {
  *                 GetAvailableDates, GetStock, GetNews, GetAnnouncement
  *   - Market Data: GetStockPrice, GetMultipleStockPrices, GetHistoricalPrices
  */
-async function buildKvCacheKey(request, path, cacheVersion = DEFAULT_CACHE_VERSION) {
-  if (!/GetTopShorts|GetIndustryTreeMap|GetShortsTreeMap|GetWeeklyReport|GetAvailableDates|GetMarketByDate|GetStock$|GetStockDetails|GetStockData|GetStockNews|GetStockFinancialHighlights|GetNews|GetAnnouncement|GetMarketNews|GetStockPrice|GetMultipleStockPrices|GetHistoricalPrices/.test(path)) {
+export async function buildKvCacheKey(request, path, cacheVersion = DEFAULT_CACHE_VERSION) {
+  if (!/GetTopShorts|GetIndustryTreeMap|GetIndustryIntelligence|GetShortsTreeMap|GetWeeklyReport|GetAvailableDates|GetMarketByDate|GetStock$|GetStockDetails|GetStockData|GetStockNews|GetStockFinancialHighlights|GetNews|GetAnnouncement|GetMarketNews|GetStockPrice|GetMultipleStockPrices|GetHistoricalPrices/.test(path)) {
     return null;
   }
   if (request.method === "POST") {

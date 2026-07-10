@@ -179,6 +179,46 @@ export const getIndustryData = cache(async (): Promise<IndustryStats[]> => {
   }
 });
 
+// One shared 3m treemap fetch: getIndustryStocks used to issue a byte-identical
+// GetIndustryTreeMap POST per slug (8 concurrent copies on a cold render) and
+// store 8 duplicate treemap responses in Redis under per-slug keys. React
+// cache() dedupes within a render; one Redis key serves every slug.
+const fetchTreeMap3m = cache(async (): Promise<TreeMapResponse> => {
+  const cacheKey = `${CACHE_KEYS.industryTreeMap("3m", 50, "current")}:raw:v1`;
+  return await getOrSetCached(
+    cacheKey,
+    async () => {
+      const fetchResponse = await serverFetchWithUserAgent(
+        `${SHORTS_API_URL}/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            period: "3m",
+            limit: 50,
+            viewMode: VIEW_MODE_CURRENT_CHANGE,
+          }),
+        },
+      );
+
+      if (!fetchResponse.ok) {
+        throw new Error(
+          `fetchTreeMap3m: API returned ${fetchResponse.status}`,
+        );
+      }
+
+      const response = (await fetchResponse.json()) as TreeMapResponse;
+      if (!response.stocks || response.stocks.length === 0) {
+        // Never cache emptiness — a degraded backend response would pin
+        // every industry empty for the TTL.
+        throw new Error("fetchTreeMap3m: API returned no stocks");
+      }
+      return response;
+    },
+    3600, // 1 hour cache
+  );
+});
+
 // Get stocks for a specific industry
 export const getIndustryStocks = cache(
   async (industrySlug: string): Promise<IndustryStocksResult> => {
@@ -186,96 +226,63 @@ export const getIndustryStocks = cache(
       return { industry: null, stocks: [] };
     }
 
-    const cacheKey = `${CACHE_KEYS.industryTreeMap("3m", 50, "current")}:industry:${industrySlug}:v2`;
-
     try {
-      return await getOrSetCached(
-        cacheKey,
-        async () => {
-          try {
-            const baseUrl = SHORTS_API_URL;
+      const response = await fetchTreeMap3m();
 
-            const fetchResponse = await serverFetchWithUserAgent(
-              `${baseUrl}/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap`,
-              {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  period: "3m",
-                  limit: 50,
-                  viewMode: VIEW_MODE_CURRENT_CHANGE,
-                }),
-              },
-            );
+      // Find stocks matching the industry slug
+      const matchingStocks: Array<{
+        code: string;
+        name: string;
+        shortPercent: number;
+        change: number;
+        industry: string;
+      }> = [];
 
-            if (!fetchResponse.ok) {
-              throw new Error(
-                `getIndustryStocks: API returned ${fetchResponse.status}`,
-              );
-            }
+      for (const stock of response.stocks) {
+        let industry = stock.industry?.trim() ?? "Other";
+        if (INVALID_INDUSTRIES.has(industry)) {
+          industry = "Other";
+        }
+        const slug = createSlug(industry);
 
-            const response = (await fetchResponse.json()) as TreeMapResponse;
+        if (slug === industrySlug) {
+          const shortPercent = stock.shortPosition ?? 0;
 
-            // Find stocks matching the industry slug
-            const matchingStocks: Array<{
-              code: string;
-              name: string;
-              shortPercent: number;
-              change: number;
-              industry: string;
-            }> = [];
+          matchingStocks.push({
+            code: stock.productCode ?? "",
+            name: stock.productCode ?? "",
+            shortPercent,
+            change: 0,
+            industry,
+          });
+        }
+      }
 
-            for (const stock of response.stocks) {
-              let industry = stock.industry?.trim() ?? "Other";
-              if (INVALID_INDUSTRIES.has(industry)) {
-                industry = "Other";
-              }
-              const slug = createSlug(industry);
+      matchingStocks.sort((a, b) => b.shortPercent - a.shortPercent);
 
-              if (slug === industrySlug) {
-                const shortPercent = stock.shortPosition ?? 0;
+      if (matchingStocks.length === 0) {
+        throw new Error(
+          `getIndustryStocks: no treemap rows for ${industrySlug}`,
+        );
+      }
 
-                matchingStocks.push({
-                  code: stock.productCode ?? "",
-                  name: stock.productCode ?? "",
-                  shortPercent,
-                  change: 0,
-                  industry,
-                });
-              }
-            }
-
-            matchingStocks.sort((a, b) => b.shortPercent - a.shortPercent);
-
-            if (matchingStocks.length === 0) {
-              throw new Error(
-                `getIndustryStocks: API returned no rows for ${industrySlug}`,
-              );
-            }
-
-            const industryName = matchingStocks[0]?.industry ?? "Unknown";
-            const totalPercent = matchingStocks.reduce(
-              (sum, s) => sum + s.shortPercent,
-              0,
-            );
-
-            return {
-              industry: {
-                name: industryName,
-                slug: industrySlug,
-                stockCount: matchingStocks.length,
-                avgShortPercent: totalPercent / matchingStocks.length,
-                totalShortPercent: totalPercent,
-                topStock: matchingStocks[0] ?? null,
-              },
-              stocks: matchingStocks,
-            };
-          } catch (error) {
-            throw error;
-          }
-        },
-        3600, // 1 hour cache
+      const industryName = matchingStocks[0]?.industry ?? "Unknown";
+      const totalPercent = matchingStocks.reduce(
+        (sum, s) => sum + s.shortPercent,
+        0,
       );
+
+      return {
+        industry: {
+          name: industryName,
+          slug: industrySlug,
+          stockCount: matchingStocks.length,
+          avgShortPercent: totalPercent / matchingStocks.length,
+          totalShortPercent: totalPercent,
+          topStock: matchingStocks[0] ?? null,
+        },
+        stocks: matchingStocks,
+      };
     } catch (error) {
       console.warn("getIndustryStocks: fetch failed, returning empty:", error);
       return { industry: null, stocks: [] };

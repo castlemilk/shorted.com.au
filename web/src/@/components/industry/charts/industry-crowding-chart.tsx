@@ -10,7 +10,6 @@ import { LinearGradient } from "@visx/gradient";
 import { localPoint } from "@visx/event";
 import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 
-import type { CrowdingPoint } from "~/@/lib/industry-intelligence";
 import {
   AMBER,
   AXIS_LINE,
@@ -21,8 +20,37 @@ import {
 const MARGIN = { top: 14, right: 12, bottom: 26, left: 40 };
 const HEIGHT = 260;
 
-function formatPercent(value: number): string {
+export type CrowdingChartMode = "level" | "momentum" | "zscore";
+
+/** One render-ready point in the active view's units. */
+export interface CrowdingChartPoint {
+  /** ISO date of the weekly bucket (Monday). */
+  date: string;
+  /** Center-line value; null when the view's math has no history yet. */
+  value: number | null;
+  /** Dispersion band (level view only). */
+  bandLo?: number;
+  bandHi?: number;
+  /** Smoothing overlay value (level view only). */
+  overlay?: number | null;
+  /** Number of constituents contributing to the bucket. */
+  constituents: number;
+}
+
+function signed(value: number, suffix: string): string {
+  return `${value > 0 ? "+" : ""}${value.toFixed(2)}${suffix}`;
+}
+
+function formatValue(mode: CrowdingChartMode, value: number): string {
+  if (mode === "momentum") return signed(value, "pp");
+  if (mode === "zscore") return signed(value, "σ");
   return `${value.toFixed(2)}%`;
+}
+
+function formatTick(mode: CrowdingChartMode, value: number): string {
+  if (mode === "momentum") return `${value > 0 ? "+" : ""}${value}pp`;
+  if (mode === "zscore") return `${value > 0 ? "+" : ""}${value}σ`;
+  return `${value}%`;
 }
 
 function formatTickDate(date: Date): string {
@@ -33,13 +61,21 @@ function ChartInner({
   width,
   points,
   industryName,
+  mode,
+  centerLabel,
+  bandLabel,
+  overlayLabel,
 }: {
   width: number;
-  points: CrowdingPoint[];
+  points: CrowdingChartPoint[];
   industryName: string;
+  mode: CrowdingChartMode;
+  centerLabel: string;
+  bandLabel: string | null;
+  overlayLabel: string | null;
 }) {
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
-    useTooltip<CrowdingPoint>();
+    useTooltip<CrowdingChartPoint>();
 
   const innerWidth = Math.max(width - MARGIN.left - MARGIN.right, 0);
   const innerHeight = HEIGHT - MARGIN.top - MARGIN.bottom;
@@ -59,15 +95,37 @@ function ChartInner({
     [dates, innerWidth],
   );
 
-  const yMax = useMemo(
-    () => Math.max(...points.map((p) => p.p90), 1) * 1.1,
-    [points],
-  );
+  const hasBand = mode === "level" && points.some((p) => p.bandHi != null);
+  const yDomain = useMemo<[number, number]>(() => {
+    if (mode === "level") {
+      const highs = points.map((p) =>
+        Math.max(p.bandHi ?? 0, p.value ?? 0, p.overlay ?? 0),
+      );
+      return [0, Math.max(...highs, 1) * 1.1];
+    }
+    // Momentum / z-score oscillate around zero: pad the extremes and always
+    // include the zero line in the domain.
+    const values = points
+      .map((p) => p.value)
+      .filter((v): v is number => v != null);
+    const lo = Math.min(0, ...values);
+    const hi = Math.max(0, ...values);
+    const pad = Math.max((hi - lo) * 0.12, 0.1);
+    return [lo - pad, hi + pad];
+  }, [mode, points]);
+
   const yScale = useMemo(
     () =>
-      scaleLinear({ domain: [0, yMax], range: [innerHeight, 0], nice: true }),
-    [innerHeight, yMax],
+      scaleLinear({ domain: yDomain, range: [innerHeight, 0], nice: true }),
+    [innerHeight, yDomain],
   );
+
+  // Zero line for oscillators; ±1σ guides for the z-score view.
+  const referenceLines = useMemo(() => {
+    if (mode === "momentum") return [0];
+    if (mode === "zscore") return [0, 1, -1];
+    return [];
+  }, [mode]);
 
   const handleMove = useCallback(
     (event: React.MouseEvent<SVGElement> | React.TouchEvent<SVGElement>) => {
@@ -87,24 +145,26 @@ function ChartInner({
       showTooltip({
         tooltipData: best,
         tooltipLeft: xScale(new Date(`${best.date}T00:00:00Z`)) + MARGIN.left,
-        tooltipTop: yScale(best.avg) + MARGIN.top,
+        tooltipTop:
+          yScale(best.value ?? (yDomain[0] + yDomain[1]) / 2) + MARGIN.top,
       });
     },
-    [dates, points, showTooltip, xScale, yScale],
+    [dates, points, showTooltip, xScale, yDomain, yScale],
   );
 
   if (innerWidth <= 0) return null;
 
-  const xOf = (d: CrowdingPoint) => xScale(new Date(`${d.date}T00:00:00Z`));
+  const xOf = (d: CrowdingChartPoint) => xScale(new Date(`${d.date}T00:00:00Z`));
+  const ariaLabel =
+    mode === "level"
+      ? `Weekly ${centerLabel.toLowerCase()} short interest for ${industryName}${bandLabel ? ` with a ${bandLabel} dispersion band` : ""}, from ${points[0]!.date} to ${points[points.length - 1]!.date}`
+      : mode === "momentum"
+        ? `Four-week change in ${industryName} short-interest ${centerLabel.toLowerCase()}, in percentage points`
+        : `${industryName} short-interest ${centerLabel.toLowerCase()} z-score against its trailing 26-week distribution`;
 
   return (
     <div className="relative" style={{ width, height: HEIGHT }}>
-      <svg
-        width={width}
-        height={HEIGHT}
-        role="img"
-        aria-label={`Weekly average short interest for ${industryName} with a 10th to 90th percentile dispersion band, from ${points[0]!.date} to ${points[points.length - 1]!.date}`}
-      >
+      <svg width={width} height={HEIGHT} role="img" aria-label={ariaLabel}>
         <LinearGradient
           id="crowding-band-grad"
           from={AMBER}
@@ -113,25 +173,57 @@ function ChartInner({
           toOpacity={0.04}
         />
         <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
-          {/* p10–p90 dispersion band */}
-          <AreaClosed<CrowdingPoint>
+          {hasBand ? (
+            <AreaClosed<CrowdingChartPoint>
+              data={points}
+              x={xOf}
+              y0={(d) => yScale(d.bandLo ?? 0)}
+              y1={(d) => yScale(d.bandHi ?? 0)}
+              defined={(d) => d.bandLo != null && d.bandHi != null}
+              yScale={yScale}
+              curve={curveMonotoneX}
+              fill="url(#crowding-band-grad)"
+            />
+          ) : null}
+
+          {referenceLines.map((ref) =>
+            ref >= yDomain[0] && ref <= yDomain[1] ? (
+              <Line
+                key={`ref-${ref}`}
+                from={{ x: 0, y: yScale(ref) }}
+                to={{ x: innerWidth, y: yScale(ref) }}
+                stroke={AXIS_LINE}
+                strokeWidth={1}
+                strokeDasharray={ref === 0 ? undefined : "3,3"}
+                opacity={ref === 0 ? 0.8 : 0.5}
+                pointerEvents="none"
+              />
+            ) : null,
+          )}
+
+          <LinePath<CrowdingChartPoint>
             data={points}
             x={xOf}
-            y0={(d) => yScale(d.p10)}
-            y1={(d) => yScale(d.p90)}
-            yScale={yScale}
-            curve={curveMonotoneX}
-            fill="url(#crowding-band-grad)"
-          />
-          {/* industry mean */}
-          <LinePath<CrowdingPoint>
-            data={points}
-            x={xOf}
-            y={(d) => yScale(d.avg)}
+            y={(d) => yScale(d.value ?? 0)}
+            defined={(d) => d.value != null}
             curve={curveMonotoneX}
             stroke={AMBER}
             strokeWidth={2}
           />
+
+          {mode === "level" && points.some((p) => p.overlay != null) ? (
+            <LinePath<CrowdingChartPoint>
+              data={points}
+              x={xOf}
+              y={(d) => yScale(d.overlay ?? 0)}
+              defined={(d) => d.overlay != null}
+              curve={curveMonotoneX}
+              stroke={AMBER}
+              strokeWidth={1.5}
+              strokeDasharray="5,4"
+              opacity={0.75}
+            />
+          ) : null}
 
           <AxisBottom
             top={innerHeight}
@@ -151,7 +243,7 @@ function ChartInner({
             numTicks={4}
             stroke={AXIS_LINE}
             hideTicks
-            tickFormat={(v) => `${Number(v)}%`}
+            tickFormat={(v) => formatTick(mode, Number(v))}
             tickLabelProps={() => ({
               fill: AXIS_TEXT,
               fontSize: 9,
@@ -171,13 +263,15 @@ function ChartInner({
                 opacity={0.4}
                 pointerEvents="none"
               />
-              <circle
-                cx={xOf(tooltipData)}
-                cy={yScale(tooltipData.avg)}
-                r={3.5}
-                fill={AMBER}
-                pointerEvents="none"
-              />
+              {tooltipData.value != null ? (
+                <circle
+                  cx={xOf(tooltipData)}
+                  cy={yScale(tooltipData.value)}
+                  r={3.5}
+                  fill={AMBER}
+                  pointerEvents="none"
+                />
+              ) : null}
             </>
           ) : null}
 
@@ -201,17 +295,30 @@ function ChartInner({
             Week of {tooltipData.date}
           </div>
           <div>
-            <span style={{ color: AMBER }}>Average</span>{" "}
+            <span style={{ color: AMBER }}>{centerLabel}</span>{" "}
             <span className="font-mono tabular-nums">
-              {formatPercent(tooltipData.avg)}
+              {tooltipData.value != null
+                ? formatValue(mode, tooltipData.value)
+                : "—"}
             </span>
           </div>
-          <div className="text-muted-foreground">
-            p10–p90{" "}
-            <span className="font-mono tabular-nums">
-              {formatPercent(tooltipData.p10)} – {formatPercent(tooltipData.p90)}
-            </span>
-          </div>
+          {mode === "level" && bandLabel && tooltipData.bandLo != null && tooltipData.bandHi != null ? (
+            <div className="text-muted-foreground">
+              {bandLabel}{" "}
+              <span className="font-mono tabular-nums">
+                {formatValue(mode, tooltipData.bandLo)} –{" "}
+                {formatValue(mode, tooltipData.bandHi)}
+              </span>
+            </div>
+          ) : null}
+          {mode === "level" && overlayLabel && tooltipData.overlay != null ? (
+            <div className="text-muted-foreground">
+              {overlayLabel}{" "}
+              <span className="font-mono tabular-nums">
+                {formatValue(mode, tooltipData.overlay)}
+              </span>
+            </div>
+          ) : null}
           <div className="text-muted-foreground">
             {tooltipData.constituents} stocks
           </div>
@@ -222,22 +329,41 @@ function ChartInner({
 }
 
 /**
- * Weekly short-interest crowding for one industry: the constituent mean with a
- * p10–p90 dispersion band, aggregated from ASIC daily short positions.
+ * Weekly short-interest crowding for one industry. Level view renders the
+ * chosen center (mean/median) with a dispersion band and optional SMA
+ * overlay; momentum and z-score views render oscillators around a zero
+ * reference. All statistics are precomputed by the caller — this component
+ * only draws.
  */
 export function IndustryCrowdingChart({
   points,
   industryName,
+  mode = "level",
+  centerLabel = "Average",
+  bandLabel = "p10–p90",
+  overlayLabel = null,
 }: {
-  points: CrowdingPoint[];
+  points: CrowdingChartPoint[];
   industryName: string;
+  mode?: CrowdingChartMode;
+  centerLabel?: string;
+  bandLabel?: string | null;
+  overlayLabel?: string | null;
 }) {
-  if (points.length < 3) return null;
+  if (points.filter((p) => p.value != null).length < 3) return null;
   return (
     <ParentSize className="min-w-0">
       {({ width }) =>
         width > 0 ? (
-          <ChartInner width={width} points={points} industryName={industryName} />
+          <ChartInner
+            width={width}
+            points={points}
+            industryName={industryName}
+            mode={mode}
+            centerLabel={centerLabel}
+            bandLabel={bandLabel}
+            overlayLabel={overlayLabel}
+          />
         ) : null
       }
     </ParentSize>
