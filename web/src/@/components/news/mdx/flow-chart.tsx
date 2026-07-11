@@ -73,7 +73,7 @@ const DATASETS: Record<string, FlowDataset> = {
       { source: 3, target: 7, value: 3.0, label: "3.0 mb/d crude", kind: "crude" },
       { source: 4, target: 7, value: 1.4, label: "1.4 mb/d crude", kind: "crude" },
       { source: 5, target: 7, value: 2.0, label: "≈10 Bcf/d LNG (~2.0 mb/d oil-equivalent)", kind: "lng" },
-      { source: 0, target: 6, value: 7.0, label: "East–West pipeline to Red Sea: ~7.0 mb/d capacity after March conversion", kind: "bypass" },
+      { source: 0, target: 6, value: 7.0, label: "East–West pipeline to Red Sea: up to ~7.0 mb/d capacity", kind: "bypass" },
       { source: 3, target: 6, value: 1.5, label: "Habshan–Fujairah: ~1.5 mb/d capacity", kind: "bypass" },
       { source: 1, target: 6, value: 1.6, label: "Kirkuk–Ceyhan: ~1.6 mb/d capacity", kind: "bypass" },
       { source: 7, target: 8, value: 6.2, label: "6.2 mb/d crude to China", kind: "crude" },

@@ -84,8 +84,8 @@ const DATASETS: Record<string, BarDataset> = {
     formatValue: (v) => (v > 0 && v < 1 ? "<1%" : `${v.toFixed(0)}%`),
     bars: [
       { label: "By 15 July", value: 0.5 },
-      { label: "By 31 July", value: 8.5 },
-      { label: "By 31 December", value: 83 },
+      { label: "By 31 July", value: 11 },
+      { label: "By 31 December", value: 65 },
     ],
     footnote:
       "Resolution: IMF PortWatch 7-day average of transit calls at or above 60/day. April, May and June contracts all resolved No.",
