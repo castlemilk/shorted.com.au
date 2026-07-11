@@ -19,13 +19,14 @@ import {
 } from "./actions/reports/getReportData";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 
-// Regenerate the sitemap hourly at runtime. Without this the sitemap is
-// frozen at build output — and because SKIP_STATIC_GENERATION=1 is set
-// project-wide on Vercel, the build-time sitemap only ever contained the
-// 20-stock fallback list (GSC "discovered - not indexed" regression,
-// July 2026). Runtime regeneration + the build-phase-only skip below
-// restore the full ~800-stock coverage.
-export const revalidate = 3600;
+// Render at request time, never from build output. The build runs with
+// SKIP_STATIC_GENERATION=1 so its prerender only ever contains the 20-stock
+// fallback (~350 URLs) — with ISR that degenerate copy would serve for up to
+// an hour after EVERY deploy (GSC "discovered - not indexed" regression,
+// July 2026). Freshness/cost is handled at the fetch layer instead: every
+// RPC below carries next.revalidate, so repeat renders are served from the
+// data cache and only the first request after a deploy pays the full fan-out.
+export const dynamic = "force-dynamic";
 
 // Regeneration fans out to ~15 RPCs (8 housing states + stocks + dates +
 // industries + takes); the default 15s Vercel function limit killed it.
