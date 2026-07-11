@@ -4,9 +4,8 @@ import { getAllPosts } from "~/@/lib/api";
 import { createConnectTransport } from "@connectrpc/connect-web";
 import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
-import { getAllIndustrySlugs } from "./actions/industry/getIndustryData";
 import { getAllTermSlugs } from "~/@/data/glossary-terms";
-import { getHousingStateSlugs, getHousingSuburbUrls } from "./actions/getHousingSitemap";
+import { getHousingStateSlugs } from "./actions/getHousingSitemap";
 import {
   buildApiUrl,
   getServerShortsApiUrl,
@@ -27,6 +26,21 @@ import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 // July 2026). Runtime regeneration + the build-phase-only skip below
 // restore the full ~800-stock coverage.
 export const revalidate = 3600;
+
+// Regeneration fans out to ~15 RPCs (8 housing states + stocks + dates +
+// industries + takes); the default 15s Vercel function limit killed it.
+export const maxDuration = 60;
+
+// ISR-safe fetch for every RPC made from this route: inside a
+// revalidate-cached route a no-store fetch throws "Dynamic server usage",
+// and serverFetchWithUserAgent forces no-store on POSTs at Vercel runtime
+// unless an explicit cache/next option is given. Pin all sitemap RPCs to
+// the data cache with the route's own revalidate window instead.
+const sitemapFetch: typeof fetch = (input, init) =>
+  serverFetchWithUserAgent(input, {
+    ...init,
+    next: { revalidate: 3600 },
+  } as RequestInit);
 
 // Educational articles for sitemap. Must cover every slug in articlesData
 // (web/src/app/learn/[slug]/page.tsx) — three real pages had silently drifted
@@ -96,7 +110,7 @@ async function getAllStockCodes(): Promise<string[]> {
     // Send Connect protocol + UA headers — the Cloudflare WAF 403s bare
     // server-side fetches to api.shorted.com.au (see CLAUDE.md / mcp-server),
     // which would otherwise silently fall back to FALLBACK_STOCK_CODES.
-    const response = await serverFetchWithUserAgent(
+    const response = await sitemapFetch(
       buildApiUrl(
         baseUrl,
         "/shorts.v1alpha1.ShortedStocksService/GetTopShorts",
@@ -160,14 +174,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Google ignores lastmod when it's demonstrably the build timestamp, so
   // pages whose content changes with the daily sync use the actual data
   // date, and static marketing pages omit lastModified entirely.
+  // One ISR-safe connect client for every RPC this route makes directly.
+  // The shared server actions (getEditorialTake, getHousing, getIndustryData)
+  // fetch without an explicit cache mode, which throws "Dynamic server usage"
+  // inside this ISR route on Vercel — so the sitemap calls the RPCs itself.
+  const transport = createConnectTransport({
+    fetch: sitemapFetch,
+    baseUrl: API_URL,
+  });
+  const client = createClient(ShortedStocksService, transport);
+
   let marketDates: string[] = [];
   if (!skipForBuild()) {
     try {
-      const transport = createConnectTransport({
-        fetch: serverFetchWithUserAgent,
-        baseUrl: API_URL,
-      });
-      const client = createClient(ShortedStocksService, transport);
       const response = await client.getAvailableDates({ limit: 90, before: "" });
       marketDates = response.dates;
     } catch (error) {
@@ -243,12 +262,43 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${baseUrl}/docs/api-reference` },
   ];
 
-  // Industry pages - index + individual industry pages
+  // Industry pages - index + individual industry pages. Fetched directly
+  // (not via getAllIndustrySlugs) so the fetch carries the ISR-safe cache
+  // mode; slug rules mirror actions/industry/getIndustryData.ts createSlug.
   let industrySlugs: string[] = [];
-  try {
-    industrySlugs = await getAllIndustrySlugs();
-  } catch (error) {
-    console.error("Failed to fetch industry slugs for sitemap:", error);
+  if (!skipForBuild()) {
+    try {
+      const resp = await sitemapFetch(
+        buildApiUrl(
+          API_URL,
+          "/shorts.v1alpha1.ShortedStocksService/GetIndustryTreeMap",
+        ),
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Connect-Protocol-Version": "1",
+          },
+          body: JSON.stringify({ period: "max", limit: 50, viewMode: 0 }),
+        },
+      );
+      if (resp.ok) {
+        const treemap = (await resp.json()) as {
+          stocks?: Array<{ industry?: string }>;
+        };
+        const invalid = new Set(["Class Pend", "Not Applic", "Not Applicable", ""]);
+        const names = new Set<string>();
+        for (const s of treemap.stocks ?? []) {
+          const industry = s.industry?.trim() ?? "Other";
+          names.add(invalid.has(industry) ? "Other" : industry);
+        }
+        industrySlugs = [...names].map((name) =>
+          name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
+        );
+      }
+    } catch (error) {
+      console.error("Failed to fetch industry slugs for sitemap:", error);
+    }
   }
 
   const industryRoutes = [
@@ -400,21 +450,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })),
   ];
 
-  // Shorted Take editorial pages (DB-backed). Soft-fail if the API is
-  // unavailable so a transient outage doesn't blank the sitemap.
+  // Shorted Take editorial pages (DB-backed). Called directly on the
+  // ISR-safe client (the shared action's fetch throws in ISR context).
+  // Soft-fail so a transient outage doesn't blank the sitemap.
   let takeRoutes: MetadataRoute.Sitemap = [];
-  try {
-    const { listEditorialTakes } = await import("./actions/getEditorialTake");
-    const takesResp = await listEditorialTakes(200, 0, "");
-    takeRoutes = (takesResp?.takes ?? []).map((t) => {
-      const lastMod =
-        t.publishedAt && typeof t.publishedAt.seconds === "bigint"
-          ? new Date(Number(t.publishedAt.seconds) * 1000).toISOString()
-          : currentDate;
-      return { url: `${baseUrl}/news/${t.slug}`, lastModified: lastMod };
-    });
-  } catch {
-    // ignore — Take pages will appear in the next regeneration
+  if (!skipForBuild()) {
+    try {
+      const takesResp = await client.listEditorialTakes({
+        limit: 200,
+        offset: 0,
+        stockCode: "",
+      });
+      takeRoutes = (takesResp?.takes ?? []).map((t) => {
+        const lastMod =
+          t.publishedAt && typeof t.publishedAt.seconds === "bigint"
+            ? new Date(Number(t.publishedAt.seconds) * 1000).toISOString()
+            : currentDate;
+        return { url: `${baseUrl}/news/${t.slug}`, lastModified: lastMod };
+      });
+    } catch {
+      // ignore — Take pages will appear in the next regeneration
+    }
   }
 
   // Insider-trading hub + per-stock director-trades pages.
@@ -432,10 +488,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   // Housing pages: state drilldowns + priced suburbs (thin pages excluded).
+  // Suburbs are fetched directly on the ISR-safe client, states in parallel
+  // (8 sequential RPCs through the shared action previously helped blow the
+  // function time limit). Slug shape mirrors actions/getHousingSitemap.ts.
   let housingStateSlugs: string[] = [];
-  let housingSuburbUrls: { state: string; suburb: string; sal: string }[] = [];
+  let housingSuburbUrls: { state: string; suburb: string }[] = [];
   try { housingStateSlugs = await getHousingStateSlugs(); } catch (e) { console.error("housing state slugs:", e); }
-  try { housingSuburbUrls = await getHousingSuburbUrls(); } catch (e) { console.error("housing suburb urls:", e); }
+  if (!skipForBuild()) {
+    const slugifySuburb = (name: string, postcode: string) =>
+      `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}-${postcode}`;
+    const { ALL_STATES, stateSlug } = await import("~/@/lib/housing/states");
+    const perState = await Promise.all(
+      ALL_STATES.map(async (st) => {
+        try {
+          const res = await client.listStateSuburbs({ stateCode: st, query: "", limit: 5000 });
+          return res.suburbs
+            .filter((s) => s.latestMedianPrice > 0) // only real price data (avoid thin pages)
+            .map((s) => ({ state: stateSlug(st), suburb: slugifySuburb(s.salName, s.postcode) }));
+        } catch (e) {
+          console.error(`housing suburb urls (${st}):`, e);
+          return [];
+        }
+      }),
+    );
+    housingSuburbUrls = perState.flat();
+  }
 
   const housingRoutes = [
     ...housingStateSlugs.map((slug) => ({ url: `${baseUrl}/housing/${slug}`, lastModified: latestDataDate })),

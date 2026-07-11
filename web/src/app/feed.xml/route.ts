@@ -1,9 +1,26 @@
 import { getAllPosts } from "~/@/lib/api";
 import { siteConfig } from "~/@/config/site";
 import { getAvailableWeekSlugs } from "~/app/actions/reports/getReportData";
-import { listEditorialTakes } from "~/app/actions/getEditorialTake";
+import { createConnectTransport } from "@connectrpc/connect-web";
+import { createClient } from "@connectrpc/connect";
+import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
+import {
+  getServerShortsApiUrl,
+  serverFetchWithUserAgent,
+} from "~/app/actions/config";
 
 export const revalidate = 3600;
+
+// ISR-safe fetch: inside a revalidate-cached route a no-store fetch throws
+// "Dynamic server usage", and serverFetchWithUserAgent forces no-store on
+// POSTs at Vercel runtime unless an explicit cache/next option is given.
+// (Same pattern as sitemap.ts — don't call the shared getEditorialTake
+// action from here, its fetch carries no cache mode.)
+const feedFetch: typeof fetch = (input, init) =>
+  serverFetchWithUserAgent(input, {
+    ...init,
+    next: { revalidate: 3600 },
+  } as RequestInit);
 
 function escapeXml(str: string): string {
   return str
@@ -86,7 +103,16 @@ export async function GET() {
   // Add editorial takes (/news/{slug}) to the feed
   let takeItems: FeedItem[] = [];
   try {
-    const takesResp = await listEditorialTakes(20, 0, "");
+    const transport = createConnectTransport({
+      fetch: feedFetch,
+      baseUrl: getServerShortsApiUrl(),
+    });
+    const client = createClient(ShortedStocksService, transport);
+    const takesResp = await client.listEditorialTakes({
+      limit: 20,
+      offset: 0,
+      stockCode: "",
+    });
     takeItems = (takesResp?.takes ?? []).flatMap((take): FeedItem[] => {
       // Only published takes carry a publishedAt — skip the rest
       const seconds = take.publishedAt?.seconds;
