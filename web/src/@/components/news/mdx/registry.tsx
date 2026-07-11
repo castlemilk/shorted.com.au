@@ -20,12 +20,27 @@ const ShortBasket = dynamic(
   () => import("./short-basket").then((m) => m.ShortBasket),
   { ssr: false },
 );
+const MultiSeriesChart = dynamic(
+  () => import("./multi-series-chart").then((m) => m.MultiSeriesChart),
+  { ssr: false },
+);
+const BarChart = dynamic(
+  () => import("./bar-chart").then((m) => m.BarChart),
+  { ssr: false },
+);
+const FlowChart = dynamic(
+  () => import("./flow-chart").then((m) => m.FlowChart),
+  { ssr: false },
+);
 
 export const MDX_COMPONENTS = {
   ShortInterestChart,
   PriceChart,
   BankShortBasket,
   ShortBasket,
+  MultiSeriesChart,
+  BarChart,
+  FlowChart,
   StatGroup,
   Stat,
   PullQuote,

@@ -456,6 +456,17 @@ Stock screener with server-side filtering (`services/shorts/internal/services/sh
 - **Frontend**: `/screener` page + `screener-widget.tsx` dashboard widget
 - **Days to Cover**: Added in migration 000028
 
+## Weekly/Monthly/Yearly Reports
+
+LLM-generated short-selling reports at `/reports` (weekly `2026-W23`, monthly `2026-05`, yearly `2025` — one `weekly_reports` table, slug shape disambiguates).
+
+- **Generator**: `services/weekly-report-generator/` (Cloud Run job + Fri/monthly schedulers, `terraform/modules/weekly-report-generator/`) — snapshot (movers/z-scores/streaks/industry breakdown) → two-pass multi-model synthesis (`prompts.go`) → quality gate → JSONB upsert
+- **Read path**: `services/shorts/.../weekly_report.go` (`GetWeeklyReport`) + `list_reports.go` (`ListReports`); logos hydrated at READ time, never stored
+- **Frontend**: `web/src/app/actions/reports/getReportData.ts` → `web/src/app/reports/`
+- **CRITICAL contract**: generator struct json tags must exactly match proto snake_case field names (the API `json.Unmarshal`s JSONB straight into proto structs) — enforced by `json_contract_test.go`; any proto field addition needs a matching generator tag + `buf generate`
+
+Operating manual (running, prompt iteration via `-print-prompt`/`-dry-run`, quality gates, landmines): use `$weekly-reports` skill (`.claude/skills/weekly-reports/SKILL.md`); service readme at `services/weekly-report-generator/README.md`.
+
 ## Housing (feature + price tracker + suburb explorer)
 
 The housing surface has three distinct deliverables that share a data layer and a chart system:

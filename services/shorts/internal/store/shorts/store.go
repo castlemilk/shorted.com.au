@@ -116,6 +116,10 @@ type Store interface {
 
 	// Weekly report methods
 	GetWeeklyReport(weekSlug string) (*WeeklyReport, error)
+	ListReports(reportType string, limit int) ([]*ReportListRow, error)
+
+	// Company branding (logo + industry) lookup for report hydration
+	GetCompanyBranding(codes []string) (map[string]CompanyBranding, error)
 
 	// Financial highlights from extracted reports
 	GetStockFinancialHighlights(stockCodes []string, maxPerStock int) (map[string][]FinancialReportHighlight, error)
@@ -316,6 +320,24 @@ type WeeklyReport struct {
 	RetryCount        int
 	CreatedAt         string
 	PublishedAt       *string
+}
+
+// CompanyBranding holds display branding for a stock, used to hydrate
+// report payloads at read time (logos are never stored in report JSONB).
+type CompanyBranding struct {
+	LogoURL  string
+	Industry string
+}
+
+// ReportListRow is a summary row from weekly_reports for archive/index pages.
+type ReportListRow struct {
+	Slug         string
+	Headline     string
+	Summary      string
+	ReportDate   string
+	QualityScore *float64
+	MarketStats  []byte // JSON (nullable)
+	TopShorted   []byte // JSON (nullable)
 }
 
 // NewsArticle represents a news article from the database

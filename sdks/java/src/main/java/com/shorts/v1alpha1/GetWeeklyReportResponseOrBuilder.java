@@ -265,4 +265,28 @@ public interface GetWeeklyReportResponseOrBuilder extends
    */
   com.shorts.v1alpha1.WeeklyReportTrendInsightOrBuilder getTrendInsightsOrBuilder(
       int index);
+
+  /**
+   * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+   */
+  java.util.List<com.shorts.v1alpha1.WeeklyIndustryStat> 
+      getIndustryBreakdownList();
+  /**
+   * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+   */
+  com.shorts.v1alpha1.WeeklyIndustryStat getIndustryBreakdown(int index);
+  /**
+   * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+   */
+  int getIndustryBreakdownCount();
+  /**
+   * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+   */
+  java.util.List<? extends com.shorts.v1alpha1.WeeklyIndustryStatOrBuilder> 
+      getIndustryBreakdownOrBuilderList();
+  /**
+   * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+   */
+  com.shorts.v1alpha1.WeeklyIndustryStatOrBuilder getIndustryBreakdownOrBuilder(
+      int index);
 }

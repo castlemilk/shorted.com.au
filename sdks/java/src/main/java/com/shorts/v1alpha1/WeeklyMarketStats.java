@@ -140,6 +140,77 @@ private static final long serialVersionUID = 0L;
     return wowAvgChange_;
   }
 
+  public static final int MEDIAN_SHORT_PCT_FIELD_NUMBER = 6;
+  private double medianShortPct_ = 0D;
+  /**
+   * <code>double median_short_pct = 6 [json_name = "medianShortPct"];</code>
+   * @return The medianShortPct.
+   */
+  @java.lang.Override
+  public double getMedianShortPct() {
+    return medianShortPct_;
+  }
+
+  public static final int STOCKS_ABOVE_10PCT_FIELD_NUMBER = 7;
+  private int stocksAbove10Pct_ = 0;
+  /**
+   * <pre>
+   * Count of stocks with short interest &gt;= 10%
+   * </pre>
+   *
+   * <code>int32 stocks_above_10pct = 7 [json_name = "stocksAbove10pct"];</code>
+   * @return The stocksAbove10pct.
+   */
+  @java.lang.Override
+  public int getStocksAbove10Pct() {
+    return stocksAbove10Pct_;
+  }
+
+  public static final int STOCKS_ABOVE_5PCT_FIELD_NUMBER = 8;
+  private int stocksAbove5Pct_ = 0;
+  /**
+   * <pre>
+   * Count of stocks with short interest &gt;= 5%
+   * </pre>
+   *
+   * <code>int32 stocks_above_5pct = 8 [json_name = "stocksAbove5pct"];</code>
+   * @return The stocksAbove5pct.
+   */
+  @java.lang.Override
+  public int getStocksAbove5Pct() {
+    return stocksAbove5Pct_;
+  }
+
+  public static final int RISER_COUNT_FIELD_NUMBER = 9;
+  private int riserCount_ = 0;
+  /**
+   * <pre>
+   * Market-wide count of stocks whose short % rose
+   * </pre>
+   *
+   * <code>int32 riser_count = 9 [json_name = "riserCount"];</code>
+   * @return The riserCount.
+   */
+  @java.lang.Override
+  public int getRiserCount() {
+    return riserCount_;
+  }
+
+  public static final int FALLER_COUNT_FIELD_NUMBER = 10;
+  private int fallerCount_ = 0;
+  /**
+   * <pre>
+   * Market-wide count of stocks whose short % fell
+   * </pre>
+   *
+   * <code>int32 faller_count = 10 [json_name = "fallerCount"];</code>
+   * @return The fallerCount.
+   */
+  @java.lang.Override
+  public int getFallerCount() {
+    return fallerCount_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -169,6 +240,21 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToRawLongBits(wowAvgChange_) != 0) {
       output.writeDouble(5, wowAvgChange_);
     }
+    if (java.lang.Double.doubleToRawLongBits(medianShortPct_) != 0) {
+      output.writeDouble(6, medianShortPct_);
+    }
+    if (stocksAbove10Pct_ != 0) {
+      output.writeInt32(7, stocksAbove10Pct_);
+    }
+    if (stocksAbove5Pct_ != 0) {
+      output.writeInt32(8, stocksAbove5Pct_);
+    }
+    if (riserCount_ != 0) {
+      output.writeInt32(9, riserCount_);
+    }
+    if (fallerCount_ != 0) {
+      output.writeInt32(10, fallerCount_);
+    }
     getUnknownFields().writeTo(output);
   }
   private int computeSerializedSize_0() {
@@ -191,6 +277,26 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToRawLongBits(wowAvgChange_) != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeDoubleSize(5, wowAvgChange_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(medianShortPct_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(6, medianShortPct_);
+    }
+    if (stocksAbove10Pct_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(7, stocksAbove10Pct_);
+    }
+    if (stocksAbove5Pct_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(8, stocksAbove5Pct_);
+    }
+    if (riserCount_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(9, riserCount_);
+    }
+    if (fallerCount_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(10, fallerCount_);
     }
     return size;
   }
@@ -229,6 +335,17 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToLongBits(getWowAvgChange())
         != java.lang.Double.doubleToLongBits(
             other.getWowAvgChange())) return false;
+    if (java.lang.Double.doubleToLongBits(getMedianShortPct())
+        != java.lang.Double.doubleToLongBits(
+            other.getMedianShortPct())) return false;
+    if (getStocksAbove10Pct()
+        != other.getStocksAbove10Pct()) return false;
+    if (getStocksAbove5Pct()
+        != other.getStocksAbove5Pct()) return false;
+    if (getRiserCount()
+        != other.getRiserCount()) return false;
+    if (getFallerCount()
+        != other.getFallerCount()) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -253,6 +370,17 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + WOW_AVG_CHANGE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getWowAvgChange()));
+    hash = (37 * hash) + MEDIAN_SHORT_PCT_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getMedianShortPct()));
+    hash = (37 * hash) + STOCKS_ABOVE_10PCT_FIELD_NUMBER;
+    hash = (53 * hash) + getStocksAbove10Pct();
+    hash = (37 * hash) + STOCKS_ABOVE_5PCT_FIELD_NUMBER;
+    hash = (53 * hash) + getStocksAbove5Pct();
+    hash = (37 * hash) + RISER_COUNT_FIELD_NUMBER;
+    hash = (53 * hash) + getRiserCount();
+    hash = (37 * hash) + FALLER_COUNT_FIELD_NUMBER;
+    hash = (53 * hash) + getFallerCount();
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -393,6 +521,11 @@ private static final long serialVersionUID = 0L;
       maxShortPct_ = 0D;
       maxShortCode_ = "";
       wowAvgChange_ = 0D;
+      medianShortPct_ = 0D;
+      stocksAbove10Pct_ = 0;
+      stocksAbove5Pct_ = 0;
+      riserCount_ = 0;
+      fallerCount_ = 0;
       return this;
     }
 
@@ -441,6 +574,21 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000010) != 0)) {
         result.wowAvgChange_ = wowAvgChange_;
       }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.medianShortPct_ = medianShortPct_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.stocksAbove10Pct_ = stocksAbove10Pct_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.stocksAbove5Pct_ = stocksAbove5Pct_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.riserCount_ = riserCount_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        result.fallerCount_ = fallerCount_;
+      }
     }
 
     @java.lang.Override
@@ -471,6 +619,21 @@ private static final long serialVersionUID = 0L;
       }
       if (java.lang.Double.doubleToRawLongBits(other.getWowAvgChange()) != 0) {
         setWowAvgChange(other.getWowAvgChange());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getMedianShortPct()) != 0) {
+        setMedianShortPct(other.getMedianShortPct());
+      }
+      if (other.getStocksAbove10Pct() != 0) {
+        setStocksAbove10Pct(other.getStocksAbove10Pct());
+      }
+      if (other.getStocksAbove5Pct() != 0) {
+        setStocksAbove5Pct(other.getStocksAbove5Pct());
+      }
+      if (other.getRiserCount() != 0) {
+        setRiserCount(other.getRiserCount());
+      }
+      if (other.getFallerCount() != 0) {
+        setFallerCount(other.getFallerCount());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -523,6 +686,31 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000010;
               break;
             } // case 41
+            case 49: {
+              medianShortPct_ = input.readDouble();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 49
+            case 56: {
+              stocksAbove10Pct_ = input.readInt32();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 56
+            case 64: {
+              stocksAbove5Pct_ = input.readInt32();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 64
+            case 72: {
+              riserCount_ = input.readInt32();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 72
+            case 80: {
+              fallerCount_ = input.readInt32();
+              bitField0_ |= 0x00000200;
+              break;
+            } // case 80
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -748,6 +936,214 @@ private static final long serialVersionUID = 0L;
     public Builder clearWowAvgChange() {
       bitField0_ = (bitField0_ & ~0x00000010);
       wowAvgChange_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double medianShortPct_ ;
+    /**
+     * <code>double median_short_pct = 6 [json_name = "medianShortPct"];</code>
+     * @return The medianShortPct.
+     */
+    @java.lang.Override
+    public double getMedianShortPct() {
+      return medianShortPct_;
+    }
+    /**
+     * <code>double median_short_pct = 6 [json_name = "medianShortPct"];</code>
+     * @param value The medianShortPct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setMedianShortPct(double value) {
+
+      medianShortPct_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <code>double median_short_pct = 6 [json_name = "medianShortPct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearMedianShortPct() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      medianShortPct_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private int stocksAbove10Pct_ ;
+    /**
+     * <pre>
+     * Count of stocks with short interest &gt;= 10%
+     * </pre>
+     *
+     * <code>int32 stocks_above_10pct = 7 [json_name = "stocksAbove10pct"];</code>
+     * @return The stocksAbove10pct.
+     */
+    @java.lang.Override
+    public int getStocksAbove10Pct() {
+      return stocksAbove10Pct_;
+    }
+    /**
+     * <pre>
+     * Count of stocks with short interest &gt;= 10%
+     * </pre>
+     *
+     * <code>int32 stocks_above_10pct = 7 [json_name = "stocksAbove10pct"];</code>
+     * @param value The stocksAbove10pct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStocksAbove10Pct(int value) {
+
+      stocksAbove10Pct_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Count of stocks with short interest &gt;= 10%
+     * </pre>
+     *
+     * <code>int32 stocks_above_10pct = 7 [json_name = "stocksAbove10pct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearStocksAbove10Pct() {
+      bitField0_ = (bitField0_ & ~0x00000040);
+      stocksAbove10Pct_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int stocksAbove5Pct_ ;
+    /**
+     * <pre>
+     * Count of stocks with short interest &gt;= 5%
+     * </pre>
+     *
+     * <code>int32 stocks_above_5pct = 8 [json_name = "stocksAbove5pct"];</code>
+     * @return The stocksAbove5pct.
+     */
+    @java.lang.Override
+    public int getStocksAbove5Pct() {
+      return stocksAbove5Pct_;
+    }
+    /**
+     * <pre>
+     * Count of stocks with short interest &gt;= 5%
+     * </pre>
+     *
+     * <code>int32 stocks_above_5pct = 8 [json_name = "stocksAbove5pct"];</code>
+     * @param value The stocksAbove5pct to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStocksAbove5Pct(int value) {
+
+      stocksAbove5Pct_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Count of stocks with short interest &gt;= 5%
+     * </pre>
+     *
+     * <code>int32 stocks_above_5pct = 8 [json_name = "stocksAbove5pct"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearStocksAbove5Pct() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      stocksAbove5Pct_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int riserCount_ ;
+    /**
+     * <pre>
+     * Market-wide count of stocks whose short % rose
+     * </pre>
+     *
+     * <code>int32 riser_count = 9 [json_name = "riserCount"];</code>
+     * @return The riserCount.
+     */
+    @java.lang.Override
+    public int getRiserCount() {
+      return riserCount_;
+    }
+    /**
+     * <pre>
+     * Market-wide count of stocks whose short % rose
+     * </pre>
+     *
+     * <code>int32 riser_count = 9 [json_name = "riserCount"];</code>
+     * @param value The riserCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setRiserCount(int value) {
+
+      riserCount_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Market-wide count of stocks whose short % rose
+     * </pre>
+     *
+     * <code>int32 riser_count = 9 [json_name = "riserCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearRiserCount() {
+      bitField0_ = (bitField0_ & ~0x00000100);
+      riserCount_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private int fallerCount_ ;
+    /**
+     * <pre>
+     * Market-wide count of stocks whose short % fell
+     * </pre>
+     *
+     * <code>int32 faller_count = 10 [json_name = "fallerCount"];</code>
+     * @return The fallerCount.
+     */
+    @java.lang.Override
+    public int getFallerCount() {
+      return fallerCount_;
+    }
+    /**
+     * <pre>
+     * Market-wide count of stocks whose short % fell
+     * </pre>
+     *
+     * <code>int32 faller_count = 10 [json_name = "fallerCount"];</code>
+     * @param value The fallerCount to set.
+     * @return This builder for chaining.
+     */
+    public Builder setFallerCount(int value) {
+
+      fallerCount_ = value;
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Market-wide count of stocks whose short % fell
+     * </pre>
+     *
+     * <code>int32 faller_count = 10 [json_name = "fallerCount"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearFallerCount() {
+      bitField0_ = (bitField0_ & ~0x00000200);
+      fallerCount_ = 0;
       onChanged();
       return this;
     }

@@ -106,6 +106,9 @@ const (
 	// ShortedStocksServiceGetWeeklyReportProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetWeeklyReport RPC.
 	ShortedStocksServiceGetWeeklyReportProcedure = "/shorts.v1alpha1.ShortedStocksService/GetWeeklyReport"
+	// ShortedStocksServiceListReportsProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListReports RPC.
+	ShortedStocksServiceListReportsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListReports"
 	// ShortedStocksServiceGetStockFinancialHighlightsProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetStockFinancialHighlights RPC.
 	ShortedStocksServiceGetStockFinancialHighlightsProcedure = "/shorts.v1alpha1.ShortedStocksService/GetStockFinancialHighlights"
@@ -222,6 +225,7 @@ var (
 	shortedStocksServiceCreateAlertMonitorMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("CreateAlertMonitor")
 	shortedStocksServiceListAlertMonitorsMethodDescriptor               = shortedStocksServiceServiceDescriptor.Methods().ByName("ListAlertMonitors")
 	shortedStocksServiceGetWeeklyReportMethodDescriptor                 = shortedStocksServiceServiceDescriptor.Methods().ByName("GetWeeklyReport")
+	shortedStocksServiceListReportsMethodDescriptor                     = shortedStocksServiceServiceDescriptor.Methods().ByName("ListReports")
 	shortedStocksServiceGetStockFinancialHighlightsMethodDescriptor     = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockFinancialHighlights")
 	shortedStocksServiceGetStockNewsMethodDescriptor                    = shortedStocksServiceServiceDescriptor.Methods().ByName("GetStockNews")
 	shortedStocksServiceGetRelatedNewsMethodDescriptor                  = shortedStocksServiceServiceDescriptor.Methods().ByName("GetRelatedNews")
@@ -304,6 +308,8 @@ type ShortedStocksServiceClient interface {
 	ListAlertMonitors(context.Context, *connect.Request[v1alpha1.ListAlertMonitorsRequest]) (*connect.Response[v1alpha1.ListAlertMonitorsResponse], error)
 	// Get a weekly short report with narrative analysis
 	GetWeeklyReport(context.Context, *connect.Request[v1alpha1.GetWeeklyReportRequest]) (*connect.Response[v1alpha1.GetWeeklyReportResponse], error)
+	// List published short selling reports (weekly, monthly, yearly)
+	ListReports(context.Context, *connect.Request[v1alpha1.ListReportsRequest]) (*connect.Response[v1alpha1.ListReportsResponse], error)
 	// Get extracted financial highlights for specific stocks
 	GetStockFinancialHighlights(context.Context, *connect.Request[v1alpha1.GetStockFinancialHighlightsRequest]) (*connect.Response[v1alpha1.GetStockFinancialHighlightsResponse], error)
 	// Get recent news articles for a specific stock
@@ -519,6 +525,12 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceGetWeeklyReportMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		listReports: connect.NewClient[v1alpha1.ListReportsRequest, v1alpha1.ListReportsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListReportsProcedure,
+			connect.WithSchema(shortedStocksServiceListReportsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		getStockFinancialHighlights: connect.NewClient[v1alpha1.GetStockFinancialHighlightsRequest, v1alpha1.GetStockFinancialHighlightsResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetStockFinancialHighlightsProcedure,
@@ -722,6 +734,7 @@ type shortedStocksServiceClient struct {
 	createAlertMonitor              *connect.Client[v1alpha1.CreateAlertMonitorRequest, v1alpha1.CreateAlertMonitorResponse]
 	listAlertMonitors               *connect.Client[v1alpha1.ListAlertMonitorsRequest, v1alpha1.ListAlertMonitorsResponse]
 	getWeeklyReport                 *connect.Client[v1alpha1.GetWeeklyReportRequest, v1alpha1.GetWeeklyReportResponse]
+	listReports                     *connect.Client[v1alpha1.ListReportsRequest, v1alpha1.ListReportsResponse]
 	getStockFinancialHighlights     *connect.Client[v1alpha1.GetStockFinancialHighlightsRequest, v1alpha1.GetStockFinancialHighlightsResponse]
 	getStockNews                    *connect.Client[v1alpha1.GetStockNewsRequest, v1alpha1.GetStockNewsResponse]
 	getRelatedNews                  *connect.Client[v1alpha1.GetRelatedNewsRequest, v1alpha1.GetRelatedNewsResponse]
@@ -873,6 +886,11 @@ func (c *shortedStocksServiceClient) ListAlertMonitors(ctx context.Context, req 
 // GetWeeklyReport calls shorts.v1alpha1.ShortedStocksService.GetWeeklyReport.
 func (c *shortedStocksServiceClient) GetWeeklyReport(ctx context.Context, req *connect.Request[v1alpha1.GetWeeklyReportRequest]) (*connect.Response[v1alpha1.GetWeeklyReportResponse], error) {
 	return c.getWeeklyReport.CallUnary(ctx, req)
+}
+
+// ListReports calls shorts.v1alpha1.ShortedStocksService.ListReports.
+func (c *shortedStocksServiceClient) ListReports(ctx context.Context, req *connect.Request[v1alpha1.ListReportsRequest]) (*connect.Response[v1alpha1.ListReportsResponse], error) {
+	return c.listReports.CallUnary(ctx, req)
 }
 
 // GetStockFinancialHighlights calls
@@ -1073,6 +1091,8 @@ type ShortedStocksServiceHandler interface {
 	ListAlertMonitors(context.Context, *connect.Request[v1alpha1.ListAlertMonitorsRequest]) (*connect.Response[v1alpha1.ListAlertMonitorsResponse], error)
 	// Get a weekly short report with narrative analysis
 	GetWeeklyReport(context.Context, *connect.Request[v1alpha1.GetWeeklyReportRequest]) (*connect.Response[v1alpha1.GetWeeklyReportResponse], error)
+	// List published short selling reports (weekly, monthly, yearly)
+	ListReports(context.Context, *connect.Request[v1alpha1.ListReportsRequest]) (*connect.Response[v1alpha1.ListReportsResponse], error)
 	// Get extracted financial highlights for specific stocks
 	GetStockFinancialHighlights(context.Context, *connect.Request[v1alpha1.GetStockFinancialHighlightsRequest]) (*connect.Response[v1alpha1.GetStockFinancialHighlightsResponse], error)
 	// Get recent news articles for a specific stock
@@ -1282,6 +1302,12 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		ShortedStocksServiceGetWeeklyReportProcedure,
 		svc.GetWeeklyReport,
 		connect.WithSchema(shortedStocksServiceGetWeeklyReportMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListReportsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListReportsProcedure,
+		svc.ListReports,
+		connect.WithSchema(shortedStocksServiceListReportsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
 	shortedStocksServiceGetStockFinancialHighlightsHandler := connect.NewUnaryHandler(
@@ -1508,6 +1534,8 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceListAlertMonitorsHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetWeeklyReportProcedure:
 			shortedStocksServiceGetWeeklyReportHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListReportsProcedure:
+			shortedStocksServiceListReportsHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetStockFinancialHighlightsProcedure:
 			shortedStocksServiceGetStockFinancialHighlightsHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetStockNewsProcedure:
@@ -1669,6 +1697,10 @@ func (UnimplementedShortedStocksServiceHandler) ListAlertMonitors(context.Contex
 
 func (UnimplementedShortedStocksServiceHandler) GetWeeklyReport(context.Context, *connect.Request[v1alpha1.GetWeeklyReportRequest]) (*connect.Response[v1alpha1.GetWeeklyReportResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.GetWeeklyReport is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListReports(context.Context, *connect.Request[v1alpha1.ListReportsRequest]) (*connect.Response[v1alpha1.ListReportsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListReports is not implemented"))
 }
 
 func (UnimplementedShortedStocksServiceHandler) GetStockFinancialHighlights(context.Context, *connect.Request[v1alpha1.GetStockFinancialHighlightsRequest]) (*connect.Response[v1alpha1.GetStockFinancialHighlightsResponse], error) {

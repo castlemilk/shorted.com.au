@@ -1,23 +1,23 @@
 import { type Metadata } from "next";
 import Link from "next/link";
-import { FileText, ChevronRight, Calendar } from "lucide-react";
+import { ChevronRight, Calendar } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
-import {
-  Card,
-  CardContent,
-} from "~/@/components/ui/card";
+import { Card, CardContent } from "~/@/components/ui/card";
 import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-data";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
+import { StockLogo } from "~/@/components/reports/stock-logo";
 import {
   getAvailableWeekSlugs,
   getAvailableMonthSlugs,
   getAvailableYearSlugs,
+  getReportsList,
+  type ReportListEntry,
 } from "~/app/actions/reports/getReportData";
 
 export const metadata: Metadata = {
-  title: "ASX Short Selling Reports | Weekly & Monthly Analysis",
+  title: "ASX Short Selling Reports — Weekly & Monthly",
   description:
     "Weekly and monthly reports on ASX short selling activity. See top movers, industry trends, and aggregate short interest from official ASIC data.",
   keywords: [
@@ -72,15 +72,266 @@ function formatMonthSlug(slug: string): string {
   return date.toLocaleDateString("en-AU", { month: "long", year: "numeric" });
 }
 
+function formatPeriod(report: ReportListEntry): string {
+  if (report.reportType === "weekly") return formatWeekSlug(report.slug);
+  if (report.reportType === "monthly") return formatMonthSlug(report.slug);
+  return `${report.slug} Year in Review`;
+}
+
+function reportHref(report: ReportListEntry): string {
+  return `/reports/${report.reportType}/${report.slug}`;
+}
+
+function formatReportDate(dateStr: string): string | null {
+  if (!dateStr) return null;
+  const date = new Date(dateStr + "T00:00:00");
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+// Citation markers ([ref-N]/[report-N]) from the grounding pipeline must not
+// leak into archive cards.
+function stripCitationMarkers(text: string): string {
+  return text
+    .replace(/\[(?:ref|report)-\d+\]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function LogoCluster({
+  report,
+  max = 3,
+}: {
+  report: ReportListEntry;
+  max?: number;
+}) {
+  const codes = report.topCodes.slice(0, max);
+  if (codes.length === 0) return null;
+  return (
+    <span className="flex -space-x-1.5">
+      {codes.map((code, i) => (
+        <StockLogo
+          key={code}
+          code={code}
+          logoUrl={report.topLogoUrls[i]}
+          size="sm"
+          className="rounded-full ring-2 ring-background"
+        />
+      ))}
+    </span>
+  );
+}
+
+function MaxShortChip({ report }: { report: ReportListEntry }) {
+  if (!report.maxShortCode || report.maxShortPct <= 0) return null;
+  return (
+    <span className="inline-flex items-baseline gap-1 text-xs text-muted-foreground">
+      <span
+        aria-hidden="true"
+        className="relative top-[-1px] inline-block h-1.5 w-1.5 rounded-full bg-red-500"
+      />
+      <span className="font-semibold tabular-nums text-foreground">
+        {report.maxShortPct.toFixed(1)}%
+      </span>
+      {report.maxShortCode}
+    </span>
+  );
+}
+
+function FeaturedReportCard({ report }: { report: ReportListEntry }) {
+  const summary = stripCitationMarkers(report.summary);
+  const date = formatReportDate(report.reportDate);
+  return (
+    <Link href={reportHref(report)} prefetch={false} className="group block">
+      <article className="rounded-lg border border-border/60 bg-card/50 p-6 transition-colors hover:border-primary/40 md:p-8">
+        <p className="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+          Latest weekly report · {formatPeriod(report)}
+          {date ? ` · ${date}` : ""}
+        </p>
+        <h2 className="max-w-3xl font-serif text-2xl font-semibold leading-[1.1] tracking-tight transition-colors group-hover:text-primary md:text-3xl">
+          {report.headline || `Weekly Short Selling Report — ${formatPeriod(report)}`}
+        </h2>
+        {summary && (
+          <p className="mt-3 line-clamp-3 max-w-3xl font-serif text-base leading-relaxed text-muted-foreground">
+            {summary}
+          </p>
+        )}
+        <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-3">
+          {report.topCodes.length > 0 && (
+            <span className="flex items-center gap-2">
+              <LogoCluster report={report} max={5} />
+              <span className="text-xs text-muted-foreground">
+                {report.topCodes.slice(0, 3).join(" · ")}
+              </span>
+            </span>
+          )}
+          <MaxShortChip report={report} />
+          {report.totalStocksShorted > 0 && (
+            <span className="text-xs text-muted-foreground">
+              <span className="font-semibold tabular-nums text-foreground">
+                {report.totalStocksShorted}
+              </span>{" "}
+              stocks shorted
+            </span>
+          )}
+          <span className="ml-auto hidden items-center gap-1 text-sm font-medium text-primary sm:inline-flex">
+            Read report
+            <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </span>
+        </div>
+      </article>
+    </Link>
+  );
+}
+
+function ReportCard({ report }: { report: ReportListEntry }) {
+  return (
+    <Link href={reportHref(report)} prefetch={false} className="group block h-full">
+      <article className="flex h-full flex-col rounded-lg border border-border/60 bg-card/50 p-4 transition-colors hover:border-primary/40">
+        <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+          {formatPeriod(report)}
+        </p>
+        <h3 className="mt-1.5 line-clamp-2 text-sm font-semibold leading-snug transition-colors group-hover:text-primary">
+          {report.headline || `${formatPeriod(report)} short selling report`}
+        </h3>
+        <div className="mt-auto flex items-center justify-between gap-3 pt-3">
+          <LogoCluster report={report} />
+          <MaxShortChip report={report} />
+        </div>
+      </article>
+    </Link>
+  );
+}
+
+function SlugCardGrid({
+  slugs,
+  hrefPrefix,
+  formatLabel,
+}: {
+  slugs: string[];
+  hrefPrefix: string;
+  formatLabel: (slug: string) => string;
+}) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+      {slugs.map((slug) => (
+        <Link key={slug} href={`${hrefPrefix}/${slug}`} prefetch={false} className="group">
+          <Card className="hover:border-primary/50 transition-colors h-full">
+            <CardContent className="pt-4 pb-4 flex items-center justify-between">
+              <p className="font-semibold group-hover:text-primary transition-colors">
+                {formatLabel(slug)}
+              </p>
+              <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            </CardContent>
+          </Card>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function ReportSection({
+  title,
+  reports,
+  fallbackSlugs,
+  hrefPrefix,
+  formatLabel,
+  maxItems,
+  footnote,
+}: {
+  title: string;
+  reports: ReportListEntry[];
+  fallbackSlugs: string[];
+  hrefPrefix: string;
+  formatLabel: (slug: string) => string;
+  maxItems: number;
+  footnote?: string;
+}) {
+  const items = reports.slice(0, maxItems);
+  const slugs = fallbackSlugs.slice(0, maxItems);
+  if (items.length === 0 && slugs.length === 0) return null;
+  return (
+    <section>
+      <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+        <Calendar className="h-5 w-5 text-primary" />
+        {title}
+      </h2>
+      {items.length > 0 ? (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+          {items.map((report) => (
+            <ReportCard key={`${report.reportType}-${report.slug}`} report={report} />
+          ))}
+        </div>
+      ) : (
+        <SlugCardGrid
+          slugs={slugs}
+          hrefPrefix={hrefPrefix}
+          formatLabel={formatLabel}
+        />
+      )}
+      {footnote && (
+        <p className="text-sm text-muted-foreground mt-3">{footnote}</p>
+      )}
+    </section>
+  );
+}
+
 export default async function ReportsIndexPage() {
-  const weekSlugs = await getAvailableWeekSlugs();
-  const monthSlugs = await getAvailableMonthSlugs();
-  const yearSlugs = await getAvailableYearSlugs();
+  const [reports, weekSlugs, monthSlugs, yearSlugs] = await Promise.all([
+    getReportsList("", 60),
+    getAvailableWeekSlugs(),
+    getAvailableMonthSlugs(),
+    getAvailableYearSlugs(),
+  ]);
+
+  const weekly = reports.filter((r) => r.reportType === "weekly");
+  const monthly = reports.filter((r) => r.reportType === "monthly");
+  const yearly = reports.filter((r) => r.reportType === "yearly");
+
+  const featured = weekly[0];
+  const remainingWeekly = featured ? weekly.slice(1) : weekly;
 
   const breadcrumbItems = [{ label: "Reports", href: "/reports" }];
 
   // ItemList + CollectionPage schema — gives Google the full inventory
   // of report URLs so the report archive is indexable as a series.
+  // Built from the real published-report list when available; falls back
+  // to date-derived slugs when the archive RPC is unavailable.
+  const itemListElement =
+    reports.length > 0
+      ? reports.slice(0, 40).map((report, i) => ({
+          "@type": "ListItem",
+          position: i + 1,
+          url: `https://shorted.com.au${reportHref(report)}`,
+          name:
+            report.headline ||
+            `${report.reportType.charAt(0).toUpperCase()}${report.reportType.slice(1)} Short Selling Report ${report.slug}`,
+        }))
+      : [
+          ...weekSlugs.slice(0, 20).map((slug, i) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            url: `https://shorted.com.au/reports/weekly/${slug}`,
+            name: `Weekly Short Selling Report ${slug}`,
+          })),
+          ...monthSlugs.slice(0, 12).map((slug, i) => ({
+            "@type": "ListItem",
+            position: 100 + i,
+            url: `https://shorted.com.au/reports/monthly/${slug}`,
+            name: `Monthly Short Selling Report ${slug}`,
+          })),
+          ...yearSlugs.slice(0, 10).map((slug, i) => ({
+            "@type": "ListItem",
+            position: 200 + i,
+            url: `https://shorted.com.au/reports/yearly/${slug}`,
+            name: `Annual Short Selling Report ${slug}`,
+          })),
+        ];
+
   const itemList = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
@@ -95,27 +346,11 @@ export default async function ReportsIndexPage() {
     },
     mainEntity: {
       "@type": "ItemList",
-      numberOfItems: weekSlugs.length + monthSlugs.length + yearSlugs.length,
-      itemListElement: [
-        ...weekSlugs.slice(0, 20).map((slug, i) => ({
-          "@type": "ListItem",
-          position: i + 1,
-          url: `https://shorted.com.au/reports/weekly/${slug}`,
-          name: `Weekly Short Selling Report ${slug}`,
-        })),
-        ...monthSlugs.slice(0, 12).map((slug, i) => ({
-          "@type": "ListItem",
-          position: 100 + i,
-          url: `https://shorted.com.au/reports/monthly/${slug}`,
-          name: `Monthly Short Selling Report ${slug}`,
-        })),
-        ...yearSlugs.slice(0, 10).map((slug, i) => ({
-          "@type": "ListItem",
-          position: 200 + i,
-          url: `https://shorted.com.au/reports/yearly/${slug}`,
-          name: `Annual Short Selling Report ${slug}`,
-        })),
-      ],
+      numberOfItems:
+        reports.length > 0
+          ? reports.length
+          : weekSlugs.length + monthSlugs.length + yearSlugs.length,
+      itemListElement,
     },
   };
 
@@ -146,102 +381,57 @@ export default async function ReportsIndexPage() {
 
         {/* Hero Section */}
         <section className="relative border-b border-border/40 pb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 bg-primary/10 rounded-lg">
-              <FileText className="h-8 w-8 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-                Short Selling Reports
-              </h1>
-              <p className="text-muted-foreground mt-1">
-                Weekly and monthly analysis of ASX short selling activity
-              </p>
-            </div>
-          </div>
+          <p className="mb-2 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            Reports
+          </p>
+          <h1 className="font-serif text-3xl font-semibold leading-[1.1] tracking-tight md:text-4xl">
+            ASX Short Selling Reports
+          </h1>
+          <p className="text-muted-foreground mt-2">
+            Weekly and monthly analysis of ASX short selling activity, from
+            official ASIC data.
+          </p>
         </section>
 
-        {/* Weekly Reports */}
-        <section>
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-primary" />
-            Weekly Reports
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {weekSlugs.slice(0, 12).map((slug) => (
-              <Link key={slug} href={`/reports/weekly/${slug}`} prefetch={false} className="group">
-                <Card className="hover:border-primary/50 transition-colors h-full">
-                  <CardContent className="pt-4 pb-4 flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold group-hover:text-primary transition-colors">
-                        {formatWeekSlug(slug)}
-                      </p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-          {weekSlugs.length > 12 && (
-            <p className="text-sm text-muted-foreground mt-3">
-              Showing latest 12 weeks. Older reports available via direct URL.
-            </p>
-          )}
-        </section>
+        {/* Featured latest weekly report */}
+        {featured && <FeaturedReportCard report={featured} />}
 
-        {/* Year in Review */}
-        <section>
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-primary" />
-            Year in Review
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {yearSlugs.map((slug) => (
-              <Link key={slug} href={`/reports/yearly/${slug}`} prefetch={false} className="group">
-                <Card className="hover:border-primary/50 transition-colors h-full">
-                  <CardContent className="pt-4 pb-4 flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold group-hover:text-primary transition-colors">
-                        {slug} Year in Review
-                      </p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        </section>
+        <ReportSection
+          title="Weekly Reports"
+          reports={remainingWeekly}
+          fallbackSlugs={weekSlugs}
+          hrefPrefix="/reports/weekly"
+          formatLabel={formatWeekSlug}
+          maxItems={12}
+          footnote={
+            remainingWeekly.length > 12 || weekSlugs.length > 12
+              ? "Showing latest 12 weeks. Older reports available via direct URL."
+              : undefined
+          }
+        />
 
-        {/* Monthly Reports */}
-        <section>
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-primary" />
-            Monthly Reports
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {monthSlugs.slice(0, 12).map((slug) => (
-              <Link key={slug} href={`/reports/monthly/${slug}`} prefetch={false} className="group">
-                <Card className="hover:border-primary/50 transition-colors h-full">
-                  <CardContent className="pt-4 pb-4 flex items-center justify-between">
-                    <div>
-                      <p className="font-semibold group-hover:text-primary transition-colors">
-                        {formatMonthSlug(slug)}
-                      </p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-          {monthSlugs.length > 12 && (
-            <p className="text-sm text-muted-foreground mt-3">
-              Showing latest 12 months. Older reports available via direct URL.
-            </p>
-          )}
-        </section>
+        <ReportSection
+          title="Year in Review"
+          reports={yearly}
+          fallbackSlugs={yearSlugs}
+          hrefPrefix="/reports/yearly"
+          formatLabel={(slug) => `${slug} Year in Review`}
+          maxItems={6}
+        />
+
+        <ReportSection
+          title="Monthly Reports"
+          reports={monthly}
+          fallbackSlugs={monthSlugs}
+          hrefPrefix="/reports/monthly"
+          formatLabel={formatMonthSlug}
+          maxItems={12}
+          footnote={
+            monthly.length > 12 || monthSlugs.length > 12
+              ? "Showing latest 12 months. Older reports available via direct URL."
+              : undefined
+          }
+        />
       </div>
     </DashboardLayout>
   );

@@ -26,6 +26,8 @@ func main() {
 	forceFlag := flag.Bool("force", false, "Re-generate even if report already exists")
 	maxRetries := flag.Int("max-retries", 1, "Maximum retry attempts on quality failure")
 	reportType := flag.String("report-type", "", "Report type hint: 'weekly', 'monthly', or 'yearly'. Used by Cloud Scheduler to disambiguate when no explicit slug is provided.")
+	printData := flag.Bool("print-data", false, "Collect data, dump the ReportData JSON to stdout, and exit (prompt-iteration workflow)")
+	printPrompt := flag.Bool("print-prompt", false, "Collect data, print the exact LLM user prompt, and exit (prompt-iteration workflow)")
 	flag.Parse()
 
 	ctx := context.Background()
@@ -140,8 +142,22 @@ func main() {
 		recordSyncResult(false)
 		log.Fatalf("Failed to collect data: %v", err)
 	}
-	log.Printf("Collected data: %d top stocks, %d risers, %d fallers",
-		len(data.TopShorted), len(data.Risers), len(data.Fallers))
+	log.Printf("Collected data: %d top stocks, %d risers, %d fallers, %d industries",
+		len(data.TopShorted), len(data.Risers), len(data.Fallers), len(data.IndustryBreakdown))
+
+	// Debug workflows: dump the collected data or the exact LLM user prompt, then exit.
+	if *printData {
+		out, err := json.MarshalIndent(data, "", "  ")
+		if err != nil {
+			log.Fatalf("Failed to marshal report data: %v", err)
+		}
+		fmt.Println(string(out))
+		return
+	}
+	if *printPrompt {
+		fmt.Println(buildUserPrompt(data, ""))
+		return
+	}
 
 	// Step 2: Generate narrative with LLM
 	log.Println("Step 2: Generating narrative...")
@@ -158,6 +174,10 @@ func main() {
 	}
 
 	generator := NewLLMGenerator(openaiKey, os.Getenv("GEMINI_API_KEY"))
+	// Per-model token usage/cost totals for the run — logged on every exit
+	// path past this point (LLM calls have been made by then). log.Fatalf
+	// paths skip it deliberately; the per-call cost_event lines still cover those.
+	defer logRunUsageSummary(slug)
 	narrative, err := generator.Generate(ctx, data)
 	if err != nil {
 		log.Printf("WARNING: LLM generation failed: %v", err)
@@ -329,8 +349,8 @@ func storeDataOnlyReport(ctx context.Context, db *pgxpool.Pool, weekSlug string,
 		INSERT INTO weekly_reports (
 			week_slug, report_date, previous_date, headline, summary,
 			narrative, top_shorted, risers, fallers, market_stats,
-			published_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+			industry_breakdown, published_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
 		ON CONFLICT (week_slug) DO UPDATE SET
 			report_date = EXCLUDED.report_date,
 			previous_date = EXCLUDED.previous_date,
@@ -340,14 +360,32 @@ func storeDataOnlyReport(ctx context.Context, db *pgxpool.Pool, weekSlug string,
 			risers = EXCLUDED.risers,
 			fallers = EXCLUDED.fallers,
 			market_stats = EXCLUDED.market_stats,
+			-- Enrichment is WARN-and-continue: a failed industry query yields a
+			-- NULL breakdown, which must never clobber a previously stored one.
+			industry_breakdown = COALESCE(EXCLUDED.industry_breakdown, weekly_reports.industry_breakdown),
 			published_at = NOW()
 	`
 
 	_, err := db.Exec(ctx, query,
 		weekSlug, data.ReportDate, data.PreviousDate, headline, summary,
 		string(`{}`), string(topJSON), string(risersJSON), string(fallersJSON), string(statsJSON),
+		marshalIndustryBreakdown(data),
 	)
 	return err
+}
+
+// marshalIndustryBreakdown returns the industry breakdown as a JSONB arg,
+// or nil (SQL NULL) when there is nothing to store.
+func marshalIndustryBreakdown(data *ReportData) interface{} {
+	if len(data.IndustryBreakdown) == 0 {
+		return nil
+	}
+	b, err := json.Marshal(data.IndustryBreakdown)
+	if err != nil {
+		log.Printf("WARNING: failed to marshal industry breakdown: %v", err)
+		return nil
+	}
+	return string(b)
 }
 
 func storeReport(ctx context.Context, db *pgxpool.Pool, weekSlug string, data *ReportData, narrative *NarrativeResult, quality *QualityResult) error {
@@ -381,8 +419,8 @@ func storeReport(ctx context.Context, db *pgxpool.Pool, weekSlug string, data *R
 			week_slug, report_date, previous_date, headline, summary,
 			narrative, top_shorted, risers, fallers, market_stats, faqs,
 			quality_score, llm_model, retry_count, published_at,
-			citations, trend_insights
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+			citations, trend_insights, industry_breakdown
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 		ON CONFLICT (week_slug) DO UPDATE SET
 			report_date = EXCLUDED.report_date,
 			previous_date = EXCLUDED.previous_date,
@@ -399,7 +437,10 @@ func storeReport(ctx context.Context, db *pgxpool.Pool, weekSlug string, data *R
 			retry_count = EXCLUDED.retry_count,
 			published_at = EXCLUDED.published_at,
 			citations = EXCLUDED.citations,
-			trend_insights = EXCLUDED.trend_insights
+			trend_insights = EXCLUDED.trend_insights,
+			-- Enrichment is WARN-and-continue: a failed industry query yields a
+			-- NULL breakdown, which must never clobber a previously stored one.
+			industry_breakdown = COALESCE(EXCLUDED.industry_breakdown, weekly_reports.industry_breakdown)
 	`
 
 	// Use nil for null JSONB columns
@@ -415,7 +456,7 @@ func storeReport(ctx context.Context, db *pgxpool.Pool, weekSlug string, data *R
 		weekSlug, data.ReportDate, data.PreviousDate, narrative.Headline, narrative.Summary,
 		string(narrativeJSON), string(topJSON), string(risersJSON), string(fallersJSON), string(statsJSON), string(faqsJSON),
 		quality.Score, narrative.Model, narrative.RetryCount, publishedAt,
-		citationsArg, trendInsightsArg,
+		citationsArg, trendInsightsArg, marshalIndustryBreakdown(data),
 	)
 	return err
 }

@@ -49,4 +49,50 @@ public interface WeeklyMarketStatsOrBuilder extends
    * @return The wowAvgChange.
    */
   double getWowAvgChange();
+
+  /**
+   * <code>double median_short_pct = 6 [json_name = "medianShortPct"];</code>
+   * @return The medianShortPct.
+   */
+  double getMedianShortPct();
+
+  /**
+   * <pre>
+   * Count of stocks with short interest &gt;= 10%
+   * </pre>
+   *
+   * <code>int32 stocks_above_10pct = 7 [json_name = "stocksAbove10pct"];</code>
+   * @return The stocksAbove10pct.
+   */
+  int getStocksAbove10Pct();
+
+  /**
+   * <pre>
+   * Count of stocks with short interest &gt;= 5%
+   * </pre>
+   *
+   * <code>int32 stocks_above_5pct = 8 [json_name = "stocksAbove5pct"];</code>
+   * @return The stocksAbove5pct.
+   */
+  int getStocksAbove5Pct();
+
+  /**
+   * <pre>
+   * Market-wide count of stocks whose short % rose
+   * </pre>
+   *
+   * <code>int32 riser_count = 9 [json_name = "riserCount"];</code>
+   * @return The riserCount.
+   */
+  int getRiserCount();
+
+  /**
+   * <pre>
+   * Market-wide count of stocks whose short % fell
+   * </pre>
+   *
+   * <code>int32 faller_count = 10 [json_name = "fallerCount"];</code>
+   * @return The fallerCount.
+   */
+  int getFallerCount();
 }

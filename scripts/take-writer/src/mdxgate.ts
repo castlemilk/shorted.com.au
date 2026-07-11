@@ -35,6 +35,20 @@ export const COMPONENT_SCHEMAS: Record<string, z.ZodTypeAny> = {
     mode: z.enum(["dollar", "percent"]).optional(),
     title: z.string().optional(),
   }),
+  MultiSeriesChart: z.object({
+    dataset: z.enum(["hormuz-benchmarks"]),
+  }),
+  BarChart: z.object({
+    dataset: z.enum([
+      "hormuz-oil-dependency",
+      "hormuz-gdp-revision",
+      "hormuz-shipping-costs",
+      "hormuz-market-volatility",
+    ]),
+  }),
+  FlowChart: z.object({
+    dataset: z.enum(["hormuz-oil-flows"]),
+  }),
   StatGroup: z.object({}),
   Stat: z.object({
     label: z.string().min(1),

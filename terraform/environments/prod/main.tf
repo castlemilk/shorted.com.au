@@ -281,7 +281,7 @@ module "weekly_report_generator" {
   scheduler_region     = "australia-southeast1" # Cloud Scheduler only available in southeast1
   environment          = "production"
   image_url            = var.weekly_report_generator_image
-  gemini_secret_exists = false # GEMINI_API_KEY not yet provisioned in prod
+  gemini_secret_exists = true # GEMINI_API_KEY exists in Secret Manager (latest rotated 2026-07-11)
 
   depends_on = [
     google_project_service.required_apis,

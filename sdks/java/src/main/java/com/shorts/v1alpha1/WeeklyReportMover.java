@@ -34,6 +34,9 @@ private static final long serialVersionUID = 0L;
   private WeeklyReportMover() {
     code_ = "";
     name_ = "";
+    industry_ = "";
+    history_ = emptyDoubleList();
+    logoUrl_ = "";
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -169,6 +172,202 @@ private static final long serialVersionUID = 0L;
     return change_;
   }
 
+  public static final int DAYS_TO_COVER_FIELD_NUMBER = 6;
+  private double daysToCover_ = 0D;
+  /**
+   * <pre>
+   * Reported short shares / 20-day average volume (0 = unknown)
+   * </pre>
+   *
+   * <code>double days_to_cover = 6 [json_name = "daysToCover"];</code>
+   * @return The daysToCover.
+   */
+  @java.lang.Override
+  public double getDaysToCover() {
+    return daysToCover_;
+  }
+
+  public static final int Z_SCORE_FIELD_NUMBER = 7;
+  private double zScore_ = 0D;
+  /**
+   * <pre>
+   * How unusual this move is vs the stock's own weekly-change history
+   * </pre>
+   *
+   * <code>double z_score = 7 [json_name = "zScore"];</code>
+   * @return The zScore.
+   */
+  @java.lang.Override
+  public double getZScore() {
+    return zScore_;
+  }
+
+  public static final int STREAK_WEEKS_FIELD_NUMBER = 8;
+  private int streakWeeks_ = 0;
+  /**
+   * <pre>
+   * Consecutive weeks moving in the same direction
+   * </pre>
+   *
+   * <code>int32 streak_weeks = 8 [json_name = "streakWeeks"];</code>
+   * @return The streakWeeks.
+   */
+  @java.lang.Override
+  public int getStreakWeeks() {
+    return streakWeeks_;
+  }
+
+  public static final int INDUSTRY_FIELD_NUMBER = 9;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object industry_ = "";
+  /**
+   * <pre>
+   * Company industry (hydrated at read time if absent in snapshot)
+   * </pre>
+   *
+   * <code>string industry = 9 [json_name = "industry"];</code>
+   * @return The industry.
+   */
+  @java.lang.Override
+  public java.lang.String getIndustry() {
+    java.lang.Object ref = industry_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      industry_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Company industry (hydrated at read time if absent in snapshot)
+   * </pre>
+   *
+   * <code>string industry = 9 [json_name = "industry"];</code>
+   * @return The bytes for industry.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getIndustryBytes() {
+    java.lang.Object ref = industry_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      industry_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int HISTORY_FIELD_NUMBER = 10;
+  @SuppressWarnings("serial")
+  private com.google.protobuf.Internal.DoubleList history_ =
+      emptyDoubleList();
+  /**
+   * <pre>
+   * Weekly short % history, oldest first (~13 points)
+   * </pre>
+   *
+   * <code>repeated double history = 10 [json_name = "history"];</code>
+   * @return A list containing the history.
+   */
+  @java.lang.Override
+  public java.util.List<java.lang.Double>
+      getHistoryList() {
+    return history_;
+  }
+  /**
+   * <pre>
+   * Weekly short % history, oldest first (~13 points)
+   * </pre>
+   *
+   * <code>repeated double history = 10 [json_name = "history"];</code>
+   * @return The count of history.
+   */
+  public int getHistoryCount() {
+    return history_.size();
+  }
+  /**
+   * <pre>
+   * Weekly short % history, oldest first (~13 points)
+   * </pre>
+   *
+   * <code>repeated double history = 10 [json_name = "history"];</code>
+   * @param index The index of the element to return.
+   * @return The history at the given index.
+   */
+  public double getHistory(int index) {
+    return history_.getDouble(index);
+  }
+  private int historyMemoizedSerializedSize = -1;
+
+  public static final int LOGO_URL_FIELD_NUMBER = 11;
+  @SuppressWarnings("serial")
+  private volatile java.lang.Object logoUrl_ = "";
+  /**
+   * <pre>
+   * Company logo icon URL (hydrated at read time)
+   * </pre>
+   *
+   * <code>string logo_url = 11 [json_name = "logoUrl"];</code>
+   * @return The logoUrl.
+   */
+  @java.lang.Override
+  public java.lang.String getLogoUrl() {
+    java.lang.Object ref = logoUrl_;
+    if (ref instanceof java.lang.String) {
+      return (java.lang.String) ref;
+    } else {
+      com.google.protobuf.ByteString bs = 
+          (com.google.protobuf.ByteString) ref;
+      java.lang.String s = bs.toStringUtf8();
+      logoUrl_ = s;
+      return s;
+    }
+  }
+  /**
+   * <pre>
+   * Company logo icon URL (hydrated at read time)
+   * </pre>
+   *
+   * <code>string logo_url = 11 [json_name = "logoUrl"];</code>
+   * @return The bytes for logoUrl.
+   */
+  @java.lang.Override
+  public com.google.protobuf.ByteString
+      getLogoUrlBytes() {
+    java.lang.Object ref = logoUrl_;
+    if (ref instanceof java.lang.String) {
+      com.google.protobuf.ByteString b = 
+          com.google.protobuf.ByteString.copyFromUtf8(
+              (java.lang.String) ref);
+      logoUrl_ = b;
+      return b;
+    } else {
+      return (com.google.protobuf.ByteString) ref;
+    }
+  }
+
+  public static final int SIGNIFICANCE_FIELD_NUMBER = 12;
+  private double significance_ = 0D;
+  /**
+   * <pre>
+   * Composite significance score used for ranking movers
+   * </pre>
+   *
+   * <code>double significance = 12 [json_name = "significance"];</code>
+   * @return The significance.
+   */
+  @java.lang.Override
+  public double getSignificance() {
+    return significance_;
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -183,6 +382,7 @@ private static final long serialVersionUID = 0L;
   @java.lang.Override
   public void writeTo(com.google.protobuf.CodedOutputStream output)
                       throws java.io.IOException {
+    getSerializedSize();
     if (!com.google.protobuf.GeneratedMessage.isStringEmpty(code_)) {
       com.google.protobuf.GeneratedMessage.writeString(output, 1, code_);
     }
@@ -197,6 +397,31 @@ private static final long serialVersionUID = 0L;
     }
     if (java.lang.Double.doubleToRawLongBits(change_) != 0) {
       output.writeDouble(5, change_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(daysToCover_) != 0) {
+      output.writeDouble(6, daysToCover_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(zScore_) != 0) {
+      output.writeDouble(7, zScore_);
+    }
+    if (streakWeeks_ != 0) {
+      output.writeInt32(8, streakWeeks_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(industry_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 9, industry_);
+    }
+    if (getHistoryList().size() > 0) {
+      output.writeUInt32NoTag(82);
+      output.writeUInt32NoTag(historyMemoizedSerializedSize);
+    }
+    for (int i = 0; i < history_.size(); i++) {
+      output.writeDoubleNoTag(history_.getDouble(i));
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(logoUrl_)) {
+      com.google.protobuf.GeneratedMessage.writeString(output, 11, logoUrl_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(significance_) != 0) {
+      output.writeDouble(12, significance_);
     }
     getUnknownFields().writeTo(output);
   }
@@ -219,6 +444,39 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToRawLongBits(change_) != 0) {
       size += com.google.protobuf.CodedOutputStream
         .computeDoubleSize(5, change_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(daysToCover_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(6, daysToCover_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(zScore_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(7, zScore_);
+    }
+    if (streakWeeks_ != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeInt32Size(8, streakWeeks_);
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(industry_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(9, industry_);
+    }
+    {
+      int dataSize = 0;
+      dataSize = 8 * getHistoryList().size();
+      size += dataSize;
+      if (!getHistoryList().isEmpty()) {
+        size += 1;
+        size += com.google.protobuf.CodedOutputStream
+            .computeInt32SizeNoTag(dataSize);
+      }
+      historyMemoizedSerializedSize = dataSize;
+    }
+    if (!com.google.protobuf.GeneratedMessage.isStringEmpty(logoUrl_)) {
+      size += com.google.protobuf.GeneratedMessage.computeStringSize(11, logoUrl_);
+    }
+    if (java.lang.Double.doubleToRawLongBits(significance_) != 0) {
+      size += com.google.protobuf.CodedOutputStream
+        .computeDoubleSize(12, significance_);
     }
     return size;
   }
@@ -257,6 +515,23 @@ private static final long serialVersionUID = 0L;
     if (java.lang.Double.doubleToLongBits(getChange())
         != java.lang.Double.doubleToLongBits(
             other.getChange())) return false;
+    if (java.lang.Double.doubleToLongBits(getDaysToCover())
+        != java.lang.Double.doubleToLongBits(
+            other.getDaysToCover())) return false;
+    if (java.lang.Double.doubleToLongBits(getZScore())
+        != java.lang.Double.doubleToLongBits(
+            other.getZScore())) return false;
+    if (getStreakWeeks()
+        != other.getStreakWeeks()) return false;
+    if (!getIndustry()
+        .equals(other.getIndustry())) return false;
+    if (!getHistoryList()
+        .equals(other.getHistoryList())) return false;
+    if (!getLogoUrl()
+        .equals(other.getLogoUrl())) return false;
+    if (java.lang.Double.doubleToLongBits(getSignificance())
+        != java.lang.Double.doubleToLongBits(
+            other.getSignificance())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -281,6 +556,25 @@ private static final long serialVersionUID = 0L;
     hash = (37 * hash) + CHANGE_FIELD_NUMBER;
     hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
         java.lang.Double.doubleToLongBits(getChange()));
+    hash = (37 * hash) + DAYS_TO_COVER_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getDaysToCover()));
+    hash = (37 * hash) + Z_SCORE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getZScore()));
+    hash = (37 * hash) + STREAK_WEEKS_FIELD_NUMBER;
+    hash = (53 * hash) + getStreakWeeks();
+    hash = (37 * hash) + INDUSTRY_FIELD_NUMBER;
+    hash = (53 * hash) + getIndustry().hashCode();
+    if (getHistoryCount() > 0) {
+      hash = (37 * hash) + HISTORY_FIELD_NUMBER;
+      hash = (53 * hash) + getHistoryList().hashCode();
+    }
+    hash = (37 * hash) + LOGO_URL_FIELD_NUMBER;
+    hash = (53 * hash) + getLogoUrl().hashCode();
+    hash = (37 * hash) + SIGNIFICANCE_FIELD_NUMBER;
+    hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+        java.lang.Double.doubleToLongBits(getSignificance()));
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
     return hash;
@@ -421,6 +715,13 @@ private static final long serialVersionUID = 0L;
       currentPct_ = 0D;
       previousPct_ = 0D;
       change_ = 0D;
+      daysToCover_ = 0D;
+      zScore_ = 0D;
+      streakWeeks_ = 0;
+      industry_ = "";
+      history_ = emptyDoubleList();
+      logoUrl_ = "";
+      significance_ = 0D;
       return this;
     }
 
@@ -469,6 +770,28 @@ private static final long serialVersionUID = 0L;
       if (((from_bitField0_ & 0x00000010) != 0)) {
         result.change_ = change_;
       }
+      if (((from_bitField0_ & 0x00000020) != 0)) {
+        result.daysToCover_ = daysToCover_;
+      }
+      if (((from_bitField0_ & 0x00000040) != 0)) {
+        result.zScore_ = zScore_;
+      }
+      if (((from_bitField0_ & 0x00000080) != 0)) {
+        result.streakWeeks_ = streakWeeks_;
+      }
+      if (((from_bitField0_ & 0x00000100) != 0)) {
+        result.industry_ = industry_;
+      }
+      if (((from_bitField0_ & 0x00000200) != 0)) {
+        history_.makeImmutable();
+        result.history_ = history_;
+      }
+      if (((from_bitField0_ & 0x00000400) != 0)) {
+        result.logoUrl_ = logoUrl_;
+      }
+      if (((from_bitField0_ & 0x00000800) != 0)) {
+        result.significance_ = significance_;
+      }
     }
 
     @java.lang.Override
@@ -501,6 +824,39 @@ private static final long serialVersionUID = 0L;
       }
       if (java.lang.Double.doubleToRawLongBits(other.getChange()) != 0) {
         setChange(other.getChange());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getDaysToCover()) != 0) {
+        setDaysToCover(other.getDaysToCover());
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getZScore()) != 0) {
+        setZScore(other.getZScore());
+      }
+      if (other.getStreakWeeks() != 0) {
+        setStreakWeeks(other.getStreakWeeks());
+      }
+      if (!other.getIndustry().isEmpty()) {
+        industry_ = other.industry_;
+        bitField0_ |= 0x00000100;
+        onChanged();
+      }
+      if (!other.history_.isEmpty()) {
+        if (history_.isEmpty()) {
+          history_ = other.history_;
+          history_.makeImmutable();
+          bitField0_ |= 0x00000200;
+        } else {
+          ensureHistoryIsMutable();
+          history_.addAll(other.history_);
+        }
+        onChanged();
+      }
+      if (!other.getLogoUrl().isEmpty()) {
+        logoUrl_ = other.logoUrl_;
+        bitField0_ |= 0x00000400;
+        onChanged();
+      }
+      if (java.lang.Double.doubleToRawLongBits(other.getSignificance()) != 0) {
+        setSignificance(other.getSignificance());
       }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
@@ -553,6 +909,53 @@ private static final long serialVersionUID = 0L;
               bitField0_ |= 0x00000010;
               break;
             } // case 41
+            case 49: {
+              daysToCover_ = input.readDouble();
+              bitField0_ |= 0x00000020;
+              break;
+            } // case 49
+            case 57: {
+              zScore_ = input.readDouble();
+              bitField0_ |= 0x00000040;
+              break;
+            } // case 57
+            case 64: {
+              streakWeeks_ = input.readInt32();
+              bitField0_ |= 0x00000080;
+              break;
+            } // case 64
+            case 74: {
+              industry_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000100;
+              break;
+            } // case 74
+            case 81: {
+              double v = input.readDouble();
+              ensureHistoryIsMutable();
+              history_.addDouble(v);
+              break;
+            } // case 81
+            case 82: {
+              int length = input.readRawVarint32();
+              int limit = input.pushLimit(length);
+              int alloc = length > 4096 ? 4096 : length;
+              ensureHistoryIsMutable(alloc / 8);
+              while (input.getBytesUntilLimit() > 0) {
+                history_.addDouble(input.readDouble());
+              }
+              input.popLimit(limit);
+              break;
+            } // case 82
+            case 90: {
+              logoUrl_ = input.readStringRequireUtf8();
+              bitField0_ |= 0x00000400;
+              break;
+            } // case 90
+            case 97: {
+              significance_ = input.readDouble();
+              bitField0_ |= 0x00000800;
+              break;
+            } // case 97
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -818,6 +1221,484 @@ private static final long serialVersionUID = 0L;
     public Builder clearChange() {
       bitField0_ = (bitField0_ & ~0x00000010);
       change_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double daysToCover_ ;
+    /**
+     * <pre>
+     * Reported short shares / 20-day average volume (0 = unknown)
+     * </pre>
+     *
+     * <code>double days_to_cover = 6 [json_name = "daysToCover"];</code>
+     * @return The daysToCover.
+     */
+    @java.lang.Override
+    public double getDaysToCover() {
+      return daysToCover_;
+    }
+    /**
+     * <pre>
+     * Reported short shares / 20-day average volume (0 = unknown)
+     * </pre>
+     *
+     * <code>double days_to_cover = 6 [json_name = "daysToCover"];</code>
+     * @param value The daysToCover to set.
+     * @return This builder for chaining.
+     */
+    public Builder setDaysToCover(double value) {
+
+      daysToCover_ = value;
+      bitField0_ |= 0x00000020;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Reported short shares / 20-day average volume (0 = unknown)
+     * </pre>
+     *
+     * <code>double days_to_cover = 6 [json_name = "daysToCover"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearDaysToCover() {
+      bitField0_ = (bitField0_ & ~0x00000020);
+      daysToCover_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private double zScore_ ;
+    /**
+     * <pre>
+     * How unusual this move is vs the stock's own weekly-change history
+     * </pre>
+     *
+     * <code>double z_score = 7 [json_name = "zScore"];</code>
+     * @return The zScore.
+     */
+    @java.lang.Override
+    public double getZScore() {
+      return zScore_;
+    }
+    /**
+     * <pre>
+     * How unusual this move is vs the stock's own weekly-change history
+     * </pre>
+     *
+     * <code>double z_score = 7 [json_name = "zScore"];</code>
+     * @param value The zScore to set.
+     * @return This builder for chaining.
+     */
+    public Builder setZScore(double value) {
+
+      zScore_ = value;
+      bitField0_ |= 0x00000040;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * How unusual this move is vs the stock's own weekly-change history
+     * </pre>
+     *
+     * <code>double z_score = 7 [json_name = "zScore"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearZScore() {
+      bitField0_ = (bitField0_ & ~0x00000040);
+      zScore_ = 0D;
+      onChanged();
+      return this;
+    }
+
+    private int streakWeeks_ ;
+    /**
+     * <pre>
+     * Consecutive weeks moving in the same direction
+     * </pre>
+     *
+     * <code>int32 streak_weeks = 8 [json_name = "streakWeeks"];</code>
+     * @return The streakWeeks.
+     */
+    @java.lang.Override
+    public int getStreakWeeks() {
+      return streakWeeks_;
+    }
+    /**
+     * <pre>
+     * Consecutive weeks moving in the same direction
+     * </pre>
+     *
+     * <code>int32 streak_weeks = 8 [json_name = "streakWeeks"];</code>
+     * @param value The streakWeeks to set.
+     * @return This builder for chaining.
+     */
+    public Builder setStreakWeeks(int value) {
+
+      streakWeeks_ = value;
+      bitField0_ |= 0x00000080;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Consecutive weeks moving in the same direction
+     * </pre>
+     *
+     * <code>int32 streak_weeks = 8 [json_name = "streakWeeks"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearStreakWeeks() {
+      bitField0_ = (bitField0_ & ~0x00000080);
+      streakWeeks_ = 0;
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object industry_ = "";
+    /**
+     * <pre>
+     * Company industry (hydrated at read time if absent in snapshot)
+     * </pre>
+     *
+     * <code>string industry = 9 [json_name = "industry"];</code>
+     * @return The industry.
+     */
+    public java.lang.String getIndustry() {
+      java.lang.Object ref = industry_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        industry_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Company industry (hydrated at read time if absent in snapshot)
+     * </pre>
+     *
+     * <code>string industry = 9 [json_name = "industry"];</code>
+     * @return The bytes for industry.
+     */
+    public com.google.protobuf.ByteString
+        getIndustryBytes() {
+      java.lang.Object ref = industry_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        industry_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Company industry (hydrated at read time if absent in snapshot)
+     * </pre>
+     *
+     * <code>string industry = 9 [json_name = "industry"];</code>
+     * @param value The industry to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIndustry(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      industry_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Company industry (hydrated at read time if absent in snapshot)
+     * </pre>
+     *
+     * <code>string industry = 9 [json_name = "industry"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearIndustry() {
+      industry_ = getDefaultInstance().getIndustry();
+      bitField0_ = (bitField0_ & ~0x00000100);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Company industry (hydrated at read time if absent in snapshot)
+     * </pre>
+     *
+     * <code>string industry = 9 [json_name = "industry"];</code>
+     * @param value The bytes for industry to set.
+     * @return This builder for chaining.
+     */
+    public Builder setIndustryBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      industry_ = value;
+      bitField0_ |= 0x00000100;
+      onChanged();
+      return this;
+    }
+
+    private com.google.protobuf.Internal.DoubleList history_ = emptyDoubleList();
+    private void ensureHistoryIsMutable() {
+      if (!history_.isModifiable()) {
+        history_ = makeMutableCopy(history_);
+      }
+      bitField0_ |= 0x00000200;
+    }
+    private void ensureHistoryIsMutable(int capacity) {
+      if (!history_.isModifiable()) {
+        history_ = makeMutableCopy(history_, capacity);
+      }
+      bitField0_ |= 0x00000200;
+    }
+    /**
+     * <pre>
+     * Weekly short % history, oldest first (~13 points)
+     * </pre>
+     *
+     * <code>repeated double history = 10 [json_name = "history"];</code>
+     * @return A list containing the history.
+     */
+    public java.util.List<java.lang.Double>
+        getHistoryList() {
+      history_.makeImmutable();
+      return history_;
+    }
+    /**
+     * <pre>
+     * Weekly short % history, oldest first (~13 points)
+     * </pre>
+     *
+     * <code>repeated double history = 10 [json_name = "history"];</code>
+     * @return The count of history.
+     */
+    public int getHistoryCount() {
+      return history_.size();
+    }
+    /**
+     * <pre>
+     * Weekly short % history, oldest first (~13 points)
+     * </pre>
+     *
+     * <code>repeated double history = 10 [json_name = "history"];</code>
+     * @param index The index of the element to return.
+     * @return The history at the given index.
+     */
+    public double getHistory(int index) {
+      return history_.getDouble(index);
+    }
+    /**
+     * <pre>
+     * Weekly short % history, oldest first (~13 points)
+     * </pre>
+     *
+     * <code>repeated double history = 10 [json_name = "history"];</code>
+     * @param index The index to set the value at.
+     * @param value The history to set.
+     * @return This builder for chaining.
+     */
+    public Builder setHistory(
+        int index, double value) {
+
+      ensureHistoryIsMutable();
+      history_.setDouble(index, value);
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Weekly short % history, oldest first (~13 points)
+     * </pre>
+     *
+     * <code>repeated double history = 10 [json_name = "history"];</code>
+     * @param value The history to add.
+     * @return This builder for chaining.
+     */
+    public Builder addHistory(double value) {
+
+      ensureHistoryIsMutable();
+      history_.addDouble(value);
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Weekly short % history, oldest first (~13 points)
+     * </pre>
+     *
+     * <code>repeated double history = 10 [json_name = "history"];</code>
+     * @param values The history to add.
+     * @return This builder for chaining.
+     */
+    public Builder addAllHistory(
+        java.lang.Iterable<? extends java.lang.Double> values) {
+      ensureHistoryIsMutable();
+      com.google.protobuf.AbstractMessageLite.Builder.addAll(
+          values, history_);
+      bitField0_ |= 0x00000200;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Weekly short % history, oldest first (~13 points)
+     * </pre>
+     *
+     * <code>repeated double history = 10 [json_name = "history"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearHistory() {
+      history_ = emptyDoubleList();
+      bitField0_ = (bitField0_ & ~0x00000200);
+      onChanged();
+      return this;
+    }
+
+    private java.lang.Object logoUrl_ = "";
+    /**
+     * <pre>
+     * Company logo icon URL (hydrated at read time)
+     * </pre>
+     *
+     * <code>string logo_url = 11 [json_name = "logoUrl"];</code>
+     * @return The logoUrl.
+     */
+    public java.lang.String getLogoUrl() {
+      java.lang.Object ref = logoUrl_;
+      if (!(ref instanceof java.lang.String)) {
+        com.google.protobuf.ByteString bs =
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        logoUrl_ = s;
+        return s;
+      } else {
+        return (java.lang.String) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Company logo icon URL (hydrated at read time)
+     * </pre>
+     *
+     * <code>string logo_url = 11 [json_name = "logoUrl"];</code>
+     * @return The bytes for logoUrl.
+     */
+    public com.google.protobuf.ByteString
+        getLogoUrlBytes() {
+      java.lang.Object ref = logoUrl_;
+      if (ref instanceof String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        logoUrl_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+    /**
+     * <pre>
+     * Company logo icon URL (hydrated at read time)
+     * </pre>
+     *
+     * <code>string logo_url = 11 [json_name = "logoUrl"];</code>
+     * @param value The logoUrl to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLogoUrl(
+        java.lang.String value) {
+      if (value == null) { throw new NullPointerException(); }
+      logoUrl_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Company logo icon URL (hydrated at read time)
+     * </pre>
+     *
+     * <code>string logo_url = 11 [json_name = "logoUrl"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearLogoUrl() {
+      logoUrl_ = getDefaultInstance().getLogoUrl();
+      bitField0_ = (bitField0_ & ~0x00000400);
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Company logo icon URL (hydrated at read time)
+     * </pre>
+     *
+     * <code>string logo_url = 11 [json_name = "logoUrl"];</code>
+     * @param value The bytes for logoUrl to set.
+     * @return This builder for chaining.
+     */
+    public Builder setLogoUrlBytes(
+        com.google.protobuf.ByteString value) {
+      if (value == null) { throw new NullPointerException(); }
+      checkByteStringIsUtf8(value);
+      logoUrl_ = value;
+      bitField0_ |= 0x00000400;
+      onChanged();
+      return this;
+    }
+
+    private double significance_ ;
+    /**
+     * <pre>
+     * Composite significance score used for ranking movers
+     * </pre>
+     *
+     * <code>double significance = 12 [json_name = "significance"];</code>
+     * @return The significance.
+     */
+    @java.lang.Override
+    public double getSignificance() {
+      return significance_;
+    }
+    /**
+     * <pre>
+     * Composite significance score used for ranking movers
+     * </pre>
+     *
+     * <code>double significance = 12 [json_name = "significance"];</code>
+     * @param value The significance to set.
+     * @return This builder for chaining.
+     */
+    public Builder setSignificance(double value) {
+
+      significance_ = value;
+      bitField0_ |= 0x00000800;
+      onChanged();
+      return this;
+    }
+    /**
+     * <pre>
+     * Composite significance score used for ranking movers
+     * </pre>
+     *
+     * <code>double significance = 12 [json_name = "significance"];</code>
+     * @return This builder for chaining.
+     */
+    public Builder clearSignificance() {
+      bitField0_ = (bitField0_ & ~0x00000800);
+      significance_ = 0D;
       onChanged();
       return this;
     }

@@ -36,10 +36,10 @@ func (s *ShortsServer) GetWeeklyReport(ctx context.Context, req *connect.Request
 
 	// Build response from DB model
 	response := &shortsv1alpha1.GetWeeklyReportResponse{
-		WeekSlug:   report.WeekSlug,
-		Headline:   report.Headline,
-		Summary:    report.Summary,
-		ReportDate: report.ReportDate,
+		WeekSlug:     report.WeekSlug,
+		Headline:     report.Headline,
+		Summary:      report.Summary,
+		ReportDate:   report.ReportDate,
 		PreviousDate: report.PreviousDate,
 	}
 
@@ -97,6 +97,16 @@ func (s *ShortsServer) GetWeeklyReport(ctx context.Context, req *connect.Request
 		}
 	}
 
+	// Parse industry_breakdown JSON
+	if len(report.IndustryBreakdown) > 0 {
+		var industryBreakdown []*shortsv1alpha1.WeeklyIndustryStat
+		if err := json.Unmarshal(report.IndustryBreakdown, &industryBreakdown); err != nil {
+			s.logger.Warnf("failed to parse industry_breakdown JSON for %s: %v", weekSlug, err)
+		} else {
+			response.IndustryBreakdown = industryBreakdown
+		}
+	}
+
 	// Parse market_stats JSON
 	if len(report.MarketStats) > 0 {
 		var stats shortsv1alpha1.WeeklyMarketStats
@@ -136,5 +146,55 @@ func (s *ShortsServer) GetWeeklyReport(ctx context.Context, req *connect.Request
 		}
 	}
 
+	// Hydrate logos + missing industries at read time (never stored in JSONB).
+	// Branding failure is non-fatal: the report is returned without logos.
+	s.hydrateWeeklyReportBranding(weekSlug, response)
+
 	return connect.NewResponse(response), nil
+}
+
+// hydrateWeeklyReportBranding sets logo_url on every stock/mover in the
+// response and backfills industry where the stored snapshot left it empty,
+// using a single company-metadata lookup across all codes.
+func (s *ShortsServer) hydrateWeeklyReportBranding(weekSlug string, response *shortsv1alpha1.GetWeeklyReportResponse) {
+	codeSet := make(map[string]struct{})
+	for _, stock := range response.TopShorted {
+		if stock.Code != "" {
+			codeSet[stock.Code] = struct{}{}
+		}
+	}
+	for _, mover := range append(append([]*shortsv1alpha1.WeeklyReportMover{}, response.Risers...), response.Fallers...) {
+		if mover.Code != "" {
+			codeSet[mover.Code] = struct{}{}
+		}
+	}
+	if len(codeSet) == 0 {
+		return
+	}
+
+	codes := make([]string, 0, len(codeSet))
+	for code := range codeSet {
+		codes = append(codes, code)
+	}
+
+	branding, err := s.store.GetCompanyBranding(codes)
+	if err != nil {
+		s.logger.Warnf("failed to hydrate branding for weekly report %s: %v", weekSlug, err)
+		return
+	}
+
+	for _, stock := range response.TopShorted {
+		b := branding[stock.Code]
+		stock.LogoUrl = b.LogoURL
+		if stock.Industry == "" {
+			stock.Industry = b.Industry
+		}
+	}
+	for _, mover := range append(append([]*shortsv1alpha1.WeeklyReportMover{}, response.Risers...), response.Fallers...) {
+		b := branding[mover.Code]
+		mover.LogoUrl = b.LogoURL
+		if mover.Industry == "" {
+			mover.Industry = b.Industry
+		}
+	}
 }

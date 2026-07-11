@@ -26,3 +26,23 @@ test("ShortBasket schema validates sector props", () => {
   expect(s.safeParse({ basket: "Banks" }).success).toBe(false); // uppercase
   expect(s.safeParse({ window: "2y" }).success).toBe(false);
 });
+
+test("MultiSeriesChart schema validates dataset", () => {
+  const s = MDX_COMPONENT_SCHEMAS.MultiSeriesChart;
+  expect(s.safeParse({ dataset: "hormuz-benchmarks" }).success).toBe(true);
+  expect(s.safeParse({ dataset: "unknown" }).success).toBe(false);
+  expect(s.safeParse({}).success).toBe(false);
+});
+
+test("BarChart schema validates dataset", () => {
+  const s = MDX_COMPONENT_SCHEMAS.BarChart;
+  expect(s.safeParse({ dataset: "hormuz-oil-dependency" }).success).toBe(true);
+  expect(s.safeParse({ dataset: "hormuz-gdp-revision" }).success).toBe(true);
+  expect(s.safeParse({ dataset: "unknown" }).success).toBe(false);
+});
+
+test("FlowChart schema validates dataset", () => {
+  const s = MDX_COMPONENT_SCHEMAS.FlowChart;
+  expect(s.safeParse({ dataset: "hormuz-oil-flows" }).success).toBe(true);
+  expect(s.safeParse({ dataset: "unknown" }).success).toBe(false);
+});

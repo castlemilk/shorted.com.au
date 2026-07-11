@@ -18,6 +18,46 @@ import (
 var percentRegex = regexp.MustCompile(`(\d+\.\d+)%`)
 var citationRefRegex = regexp.MustCompile(`\[ref-(\d+)\]`)
 
+// Ticker mentions only count in these two contexts — "(BHP)" or "$BHP" —
+// so bare uppercase words like ASX, ASIC, or CEO in prose are never flagged.
+// ASX codes are at least 3 characters, so 2-letter tokens like (PE), (EV) or
+// (US) are never candidate tickers.
+var parenTickerRegex = regexp.MustCompile(`\(([A-Z]{3,4})\)`)
+var cashtagTickerRegex = regexp.MustCompile(`\$([A-Z]{3,4})`)
+
+var urlRegex = regexp.MustCompile(`https?://[^\s"'<>)\]]+`)
+
+// tickerAllowlist covers common non-ticker uppercase tokens that can
+// legitimately appear in parentheses in financial prose — regulators
+// ("the regulator (ASIC)"), metric abbreviations ("earnings per share (EPS)"),
+// currencies, and geography. Codes present in the source data are always
+// checked first, so an allowlisted token that happens to collide with a real
+// reported ticker still passes.
+var tickerAllowlist = map[string]bool{
+	// Markets, regulators, institutions
+	"ASX": true, "ASIC": true, "RBA": true, "ATO": true, "APRA": true,
+	"ACCC": true, "AEMO": true, "FIRB": true, "FED": true,
+	// Corporate roles
+	"CEO": true, "CFO": true, "COO": true, "CTO": true, "CIO": true,
+	// Financial metrics & terms
+	"EPS": true, "DPS": true, "NPAT": true, "EBIT": true, "PBT": true,
+	"ROE": true, "ROA": true, "ROI": true, "FUM": true, "AUM": true,
+	"NTA": true, "NAV": true, "CAGR": true, "FCF": true, "TSR": true,
+	"WACC": true, "IPO": true, "ETF": true, "REIT": true, "LIC": true,
+	"AGM": true, "EGM": true, "SPP": true, "DRP": true,
+	// Macro & tax
+	"GDP": true, "CPI": true, "PPI": true, "GST": true, "CGT": true,
+	"YTD": true, "YOY": true, "QOQ": true, "PCP": true,
+	// Currencies
+	"AUD": true, "USD": true, "EUR": true, "GBP": true, "NZD": true,
+	"JPY": true, "CNY": true, "RMB": true, "HKD": true, "SGD": true,
+	// Geography
+	"NSW": true, "VIC": true, "QLD": true, "TAS": true, "ACT": true,
+	"USA": true,
+	// Misc
+	"FAQ": true, "ESG": true, "LNG": true, "GFC": true,
+}
+
 // QualityResult holds the quality check outcome
 type QualityResult struct {
 	Score        float64 `json:"score"`
@@ -82,7 +122,7 @@ func (q *QualityChecker) Check(ctx context.Context, data *ReportData, narrative 
 	maxIssues := 2
 	penaltyPerIssue := 0.15
 	if data.ReportType == "monthly" {
-		minScore = 0.1   // Allow low-quality monthly reports to publish (monthly data is thin)
+		minScore = 0.1 // Allow low-quality monthly reports to publish (monthly data is thin)
 		maxIssues = 10
 		penaltyPerIssue = 0.10
 	}
@@ -159,6 +199,15 @@ func (q *QualityChecker) programmaticCheck(data *ReportData, narrative *Narrativ
 		}
 	}
 
+	// Hallucinated-ticker check: any "(CODE)" or "$CODE" mention must be a code
+	// present in the source data. Bare uppercase words outside those two
+	// contexts are never flagged (avoids ASX/ASIC/CEO false positives).
+	issues = append(issues, checkHallucinatedTickers(data, fullText)...)
+
+	// Hallucinated-URL check: any http(s) URL in the narrative or citations
+	// must exist in the FinancialRefs source URLs.
+	issues = append(issues, checkHallucinatedURLs(data, narrative, fullText)...)
+
 	// Citation validation: check that defined citation IDs appear in narrative text,
 	// and that inline [ref-N] markers have matching citation definitions
 	if narrative.Citations != nil {
@@ -212,7 +261,7 @@ func (q *QualityChecker) geminiReview(ctx context.Context, data *ReportData, nar
 	}
 	defer func() { _ = client.Close() }()
 
-	model := client.GenerativeModel("gemini-3-pro-preview")
+	model := client.GenerativeModel("gemini-3.5-flash")
 	model.SetTemperature(0.0)
 
 	narrativeJSON, _ := json.Marshal(narrative)
@@ -242,7 +291,15 @@ Return ONLY valid JSON:
 
 	resp, err := model.GenerateContent(callCtx, genai.Text(prompt))
 	if err != nil {
+		recordLLMUsage(ctx, "gemini-3.5-flash", "quality_review", "error", 0, 0, 0, 0)
 		return nil, fmt.Errorf("gemini API call failed: %w", err)
+	}
+	if resp.UsageMetadata != nil {
+		recordLLMUsage(ctx, "gemini-3.5-flash", "quality_review", "success",
+			int64(resp.UsageMetadata.PromptTokenCount),
+			int64(resp.UsageMetadata.CachedContentTokenCount),
+			int64(resp.UsageMetadata.CandidatesTokenCount),
+			int64(resp.UsageMetadata.TotalTokenCount))
 	}
 
 	if len(resp.Candidates) == 0 {
@@ -276,6 +333,9 @@ func buildValidPercentageSet(data *ReportData) []float64 {
 		if s.WoWChange != 0 {
 			seen[s.WoWChange] = true
 		}
+		for _, h := range s.History {
+			seen[h] = true
+		}
 	}
 	for _, m := range data.Risers {
 		seen[m.CurrentPct] = true
@@ -283,6 +343,9 @@ func buildValidPercentageSet(data *ReportData) []float64 {
 		seen[math.Abs(m.Change)] = true
 		if m.Change != 0 {
 			seen[m.Change] = true
+		}
+		for _, h := range m.History {
+			seen[h] = true
 		}
 	}
 	for _, m := range data.Fallers {
@@ -292,9 +355,23 @@ func buildValidPercentageSet(data *ReportData) []float64 {
 		if m.Change != 0 {
 			seen[m.Change] = true
 		}
+		for _, h := range m.History {
+			seen[h] = true
+		}
+	}
+
+	// Industry aggregates are legitimate quotable figures
+	for _, ind := range data.IndustryBreakdown {
+		seen[ind.AvgShortPct] = true
+		seen[math.Abs(ind.WoWChange)] = true
+		if ind.WoWChange != 0 {
+			seen[ind.WoWChange] = true
+		}
+		seen[ind.TopStockPct] = true
 	}
 
 	seen[data.MarketStats.AvgShortPct] = true
+	seen[data.MarketStats.MedianShortPct] = true
 	seen[data.MarketStats.MaxShortPct] = true
 	seen[math.Abs(data.MarketStats.WoWAvgChange)] = true
 
@@ -311,6 +388,97 @@ func buildValidPercentageSet(data *ReportData) []float64 {
 		pcts = append(pcts, v)
 	}
 	return pcts
+}
+
+// validCodeSet collects every stock code present in the source data.
+func validCodeSet(data *ReportData) map[string]bool {
+	codes := make(map[string]bool)
+	for _, s := range data.TopShorted {
+		codes[s.Code] = true
+	}
+	for _, m := range data.Risers {
+		codes[m.Code] = true
+	}
+	for _, m := range data.Fallers {
+		codes[m.Code] = true
+	}
+	if data.MarketStats.MaxShortCode != "" {
+		codes[data.MarketStats.MaxShortCode] = true
+	}
+	for _, ind := range data.IndustryBreakdown {
+		if ind.TopStockCode != "" {
+			codes[ind.TopStockCode] = true
+		}
+	}
+	// Any code we fetched context for is legitimately in the data too
+	for code := range data.CompanyContext {
+		codes[code] = true
+	}
+	return codes
+}
+
+// checkHallucinatedTickers flags "(CODE)" / "$CODE" mentions of codes that are
+// not in the source data.
+func checkHallucinatedTickers(data *ReportData, fullText string) []string {
+	valid := validCodeSet(data)
+	flagged := make(map[string]bool)
+	var issues []string
+
+	check := func(code string) {
+		if valid[code] || tickerAllowlist[code] || flagged[code] {
+			return
+		}
+		flagged[code] = true
+		issues = append(issues, fmt.Sprintf("hallucinated ticker %s not present in source data", code))
+	}
+
+	for _, m := range parenTickerRegex.FindAllStringSubmatch(fullText, -1) {
+		check(m[1])
+	}
+	for _, m := range cashtagTickerRegex.FindAllStringSubmatch(fullText, -1) {
+		check(m[1])
+	}
+	return issues
+}
+
+// validURLSet collects every URL present in the source data (FinancialRefs).
+func validURLSet(data *ReportData) map[string]bool {
+	urls := make(map[string]bool)
+	for _, refs := range data.FinancialRefs {
+		for _, r := range refs {
+			if r.URL != "" {
+				urls[strings.TrimRight(r.URL, "/")] = true
+			}
+		}
+	}
+	return urls
+}
+
+// checkHallucinatedURLs flags any http(s) URL in the narrative text or the
+// citations that does not exist in the FinancialRefs source URLs.
+func checkHallucinatedURLs(data *ReportData, narrative *NarrativeResult, fullText string) []string {
+	valid := validURLSet(data)
+	flagged := make(map[string]bool)
+	var issues []string
+
+	check := func(raw string) {
+		url := strings.TrimRight(strings.TrimRight(raw, ".,;:"), "/")
+		if url == "" || valid[url] || flagged[url] {
+			return
+		}
+		flagged[url] = true
+		issues = append(issues, fmt.Sprintf("hallucinated URL %s not present in source data", url))
+	}
+
+	for _, u := range urlRegex.FindAllString(fullText, -1) {
+		check(u)
+	}
+	for _, c := range narrative.Citations {
+		if c.URL != "" {
+			check(c.URL)
+		}
+	}
+	return issues
 }
 
 // isPercentageInSet checks if a percentage value matches any value in the set within tolerance
