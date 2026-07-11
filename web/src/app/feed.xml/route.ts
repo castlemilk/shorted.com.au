@@ -1,10 +1,8 @@
 import { getAllPosts } from "~/@/lib/api";
 import { siteConfig } from "~/@/config/site";
 import { getAvailableWeekSlugs } from "~/app/actions/reports/getReportData";
-import { createConnectTransport } from "@connectrpc/connect-web";
-import { createClient } from "@connectrpc/connect";
-import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import {
+  buildApiUrl,
   getServerShortsApiUrl,
   serverFetchWithUserAgent,
 } from "~/app/actions/config";
@@ -14,13 +12,23 @@ export const revalidate = 3600;
 // ISR-safe fetch: inside a revalidate-cached route a no-store fetch throws
 // "Dynamic server usage", and serverFetchWithUserAgent forces no-store on
 // POSTs at Vercel runtime unless an explicit cache/next option is given.
-// (Same pattern as sitemap.ts — don't call the shared getEditorialTake
-// action from here, its fetch carries no cache mode.)
+// Must be a plain-JSON POST (string body), NOT the connect transport — Next
+// cannot build a data-cache key for connect's streamed request bodies
+// ("Failed to generate cache key" 500s the route).
 const feedFetch: typeof fetch = (input, init) =>
   serverFetchWithUserAgent(input, {
     ...init,
     next: { revalidate: 3600 },
   } as RequestInit);
+
+// Connect JSON encoding of the ListEditorialTakes response (Timestamps are
+// RFC3339 strings on this path, unlike the protobuf-es client's bigint).
+interface TakeJson {
+  slug?: string;
+  headline?: string;
+  bodyMd?: string;
+  publishedAt?: string;
+}
 
 function escapeXml(str: string): string {
   return str
@@ -103,27 +111,27 @@ export async function GET() {
   // Add editorial takes (/news/{slug}) to the feed
   let takeItems: FeedItem[] = [];
   try {
-    const transport = createConnectTransport({
-      fetch: feedFetch,
-      baseUrl: getServerShortsApiUrl(),
-    });
-    const client = createClient(ShortedStocksService, transport);
-    const takesResp = await client.listEditorialTakes({
-      limit: 20,
-      offset: 0,
-      stockCode: "",
-    });
-    takeItems = (takesResp?.takes ?? []).flatMap((take): FeedItem[] => {
+    const resp = await feedFetch(
+      buildApiUrl(
+        getServerShortsApiUrl(),
+        "/shorts.v1alpha1.ShortedStocksService/ListEditorialTakes",
+      ),
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Connect-Protocol-Version": "1",
+        },
+        body: JSON.stringify({ limit: 20, offset: 0, stockCode: "" }),
+      },
+    );
+    const takesResp = resp.ok
+      ? ((await resp.json()) as { takes?: TakeJson[] })
+      : { takes: [] };
+    takeItems = (takesResp.takes ?? []).flatMap((take): FeedItem[] => {
       // Only published takes carry a publishedAt — skip the rest
-      const seconds = take.publishedAt?.seconds;
-      const secNum =
-        typeof seconds === "bigint"
-          ? Number(seconds)
-          : typeof seconds === "number"
-            ? seconds
-            : 0;
-      if (!secNum) return [];
-      const date = new Date(secNum * 1000);
+      const date = take.publishedAt ? new Date(take.publishedAt) : null;
+      if (!date || Number.isNaN(date.getTime())) return [];
       const takeUrl = `${siteConfig.url}/news/${take.slug}`;
 
       return [
@@ -131,10 +139,10 @@ export async function GET() {
           date,
           xml: `
     <item>
-      <title>${escapeXml(take.headline)}</title>
+      <title>${escapeXml(take.headline ?? "")}</title>
       <link>${takeUrl}</link>
       <guid isPermaLink="true">${takeUrl}</guid>
-      <description>${escapeXml(takeDescription(take.bodyMd))}</description>
+      <description>${escapeXml(takeDescription(take.bodyMd ?? ""))}</description>
       <pubDate>${date.toUTCString()}</pubDate>
       <author>${escapeXml(siteConfig.author)}</author>
       <category>Shorted Take</category>
