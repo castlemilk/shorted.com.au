@@ -357,6 +357,15 @@ export default withBundleAnalyzer(
     staticPageGenerationTimeout: 180,
     experimental: {
       instrumentationHook: true,
+      // The sitemap (force-dynamic) and feed (ISR regeneration) read
+      // web/_blogs from the filesystem AT REQUEST TIME in the lambda —
+      // readdirSync isn't statically traced, so without this the directory
+      // is missing from the serverless bundle and the routes 500 with
+      // ENOENT /var/task/web/_blogs.
+      outputFileTracingIncludes: {
+        "/sitemap.xml": ["./_blogs/**/*"],
+        "/feed.xml": ["./_blogs/**/*"],
+      },
       // Externalize protobuf and connect packages to prevent SSR bundling issues
       serverComponentsExternalPackages: [
         "@bufbuild/protobuf",

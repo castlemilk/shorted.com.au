@@ -22,6 +22,11 @@ import {
 import { getVerifiedCompanyLogoUrls } from "~/app/actions/company-logo-availability";
 import { getIndustryIntelligenceSnapshot } from "~/app/actions/getIndustryIntelligence";
 import { getTopShortsData } from "~/app/actions/getTopShorts";
+import {
+  buildApiUrl,
+  getServerShortsApiUrl,
+  serverFetchWithUserAgent,
+} from "~/app/actions/config";
 import { IndustryIntelligenceClient } from "./industry-intelligence-client";
 
 export const revalidate = 3600;
@@ -77,14 +82,68 @@ function createSlug(value: string): string {
     .replace(/^-|-$/g, "");
 }
 
-function industryNameForStock(stock: TopShortsStock): string {
-  const industry = stock.industry.trim();
+function industryNameForStock(
+  stock: TopShortsStock,
+  industryByCode?: Map<string, string>,
+): string {
+  // Points-mode GetTopShorts responses never carry the industry field, so
+  // prefer the summary-mode lookup map when the caller provides one.
+  const industry = (
+    industryByCode?.get(stock.productCode.toUpperCase()) ??
+    stock.industry ??
+    ""
+  ).trim();
   if (invalidIndustries.has(industry)) return "Other";
   return industry;
 }
 
+// Fallback industry lookup for when getIndustryData() returns empty: a
+// summary-mode GetTopShorts (mv_top_shorts) DOES carry industry per stock.
+// Without this map the fallback grouping below put every stock in "Other"
+// (the July 2026 /industry-intelligence regression). ISR-safe cache mode is
+// required — a no-store POST throws inside this revalidate-cached route.
+async function fetchIndustryByCode(): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  try {
+    const resp = await serverFetchWithUserAgent(
+      buildApiUrl(
+        getServerShortsApiUrl(),
+        "/shorts.v1alpha1.ShortedStocksService/GetTopShorts",
+      ),
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Connect-Protocol-Version": "1",
+        },
+        body: JSON.stringify({
+          period: "1y",
+          limit: 1000,
+          offset: 0,
+          summaryOnly: true,
+        }),
+        next: { revalidate: 1800 },
+      },
+    );
+    if (resp.ok) {
+      const data = (await resp.json()) as {
+        timeSeries?: Array<{ productCode?: string; industry?: string }>;
+      };
+      for (const ts of data.timeSeries ?? []) {
+        if (ts.productCode && ts.industry) {
+          map.set(ts.productCode.toUpperCase(), ts.industry);
+        }
+      }
+    }
+  } catch (error) {
+    console.warn("IndustryIntelligencePage: industry lookup failed:", error);
+  }
+  return map;
+}
+
 function buildIndustryDataFromTopShorts(
   stocks: TopShortsStock[],
+  industryByCode: Map<string, string>,
 ): IndustrySummary[] {
   const grouped = new Map<
     string,
@@ -95,7 +154,7 @@ function buildIndustryDataFromTopShorts(
   >();
 
   for (const stock of stocks) {
-    const industry = industryNameForStock(stock);
+    const industry = industryNameForStock(stock, industryByCode);
     const group = grouped.get(industry) ?? {
       stocks: [],
       totalShortPercent: 0,
@@ -136,9 +195,14 @@ function buildIndustryDataFromTopShorts(
 function buildIndustryStocksFromTopShorts(
   stocks: TopShortsStock[],
   industrySlug: string,
+  industryByCode: Map<string, string>,
 ): IndustryStockInput[] {
   return stocks
-    .filter((stock) => createSlug(industryNameForStock(stock)) === industrySlug)
+    .filter(
+      (stock) =>
+        createSlug(industryNameForStock(stock, industryByCode)) ===
+        industrySlug,
+    )
     .sort((a, b) => b.latestShortPosition - a.latestShortPosition)
     .slice(0, 50)
     .map((stock) => ({
@@ -176,10 +240,14 @@ export default async function IndustryIntelligencePage() {
       )
       .filter(([code, name]) => code.length > 0 && name.length > 0),
   );
+  // Fallback path: only consulted when getIndustryData() came back empty.
+  // The lookup map is required because points-mode responses lack industry.
+  const industryByCode =
+    industries.length > 0 ? new Map<string, string>() : await fetchIndustryByCode();
   const industrySource =
     industries.length > 0
       ? industries
-      : buildIndustryDataFromTopShorts(topShortStocks);
+      : buildIndustryDataFromTopShorts(topShortStocks, industryByCode);
   const selectedIndustries = industrySource.slice(0, 8);
   // Evidence snapshots only need industry NAMES — start them now, in
   // parallel with the per-industry stock fetches, instead of gating them
@@ -198,7 +266,11 @@ export default async function IndustryIntelligencePage() {
         industry.slug,
         result.stocks.length > 0
           ? result.stocks
-          : buildIndustryStocksFromTopShorts(topShortStocks, industry.slug),
+          : buildIndustryStocksFromTopShorts(
+              topShortStocks,
+              industry.slug,
+              industryByCode,
+            ),
       ] as const;
     }),
   );

@@ -71,6 +71,17 @@ const pageScenarios = [
     path: "/reports/yearly/2025",
     requiredText: [/Year in Review/i, /ASX Short Selling/i, /Top Shorted Stocks/i],
   },
+  {
+    // Guards the July 2026 all-"Other" regression: when the industry data
+    // fetch silently degrades, the page renders ONLY an "Other" group and no
+    // real industry name appears. At least one of the perennially-largest
+    // industries must be present for the release to promote.
+    path: "/industry-intelligence",
+    requiredText: [
+      /Industry Intelligence/i,
+      /Materials|Financial Services|Energy|Health Care|Software|Pharmaceuticals|Capital Goods/i,
+    ],
+  },
 ];
 
 function isIgnorableFailedRequest(url, errorText) {
@@ -249,6 +260,33 @@ async function checkAuthBootstrap(browser) {
   });
 }
 
+// Guards the July 2026 sitemap regression: runtime data-fetch failures
+// (SKIP_STATIC_GENERATION at runtime, no-store fetches inside the ISR route)
+// silently collapsed the sitemap to a ~1.5k-URL fallback with only 20 stock
+// pages. The full sitemap carries ~800 /shorts/ URLs; require a healthy floor.
+async function checkSitemap() {
+  console.log("check sitemap coverage");
+  const api = await playwrightRequest.newContext({ extraHTTPHeaders: headers });
+  try {
+    // First hit after a deploy regenerates at runtime (~15s fan-out).
+    const resp = await api.get(`${baseUrl}/sitemap.xml`, { timeout: 60_000 });
+    assert.equal(resp.status(), 200, "sitemap.xml status");
+    const xml = await resp.text();
+    const urlCount = (xml.match(/<loc>/g) ?? []).length;
+    const stockCount = (xml.match(/\/shorts\/[A-Z0-9]+<\/loc>/g) ?? []).length;
+    assert(
+      urlCount >= 2500,
+      `sitemap.xml has ${urlCount} URLs (expected >= 2500 — runtime data fetches are failing)`,
+    );
+    assert(
+      stockCount >= 400,
+      `sitemap.xml has ${stockCount} stock URLs (expected >= 400 — stock list fell back to the hardcoded fallback)`,
+    );
+  } finally {
+    await api.dispose();
+  }
+}
+
 const browser = await chromium.launch();
 const context = await browser.newContext({
   ...devices["Desktop Chrome"],
@@ -263,6 +301,7 @@ try {
   }
   await checkNavigation(context);
   await checkApiEdge();
+  await checkSitemap();
   await checkAuthBootstrap(browser);
   console.log("release smoke passed");
 } finally {

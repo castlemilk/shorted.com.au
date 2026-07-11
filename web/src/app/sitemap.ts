@@ -19,23 +19,24 @@ import {
 } from "./actions/reports/getReportData";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 
-// Regenerate the sitemap hourly at runtime. Without this the sitemap is
-// frozen at build output — and because SKIP_STATIC_GENERATION=1 is set
-// project-wide on Vercel, the build-time sitemap only ever contained the
-// 20-stock fallback list (GSC "discovered - not indexed" regression,
-// July 2026). Runtime regeneration + the build-phase-only skip below
-// restore the full ~800-stock coverage.
-export const revalidate = 3600;
+// Render at request time, never from build output. The build runs with
+// SKIP_STATIC_GENERATION=1 so its prerender only ever contains the 20-stock
+// fallback (~350 URLs) — with ISR that degenerate copy would serve for up to
+// an hour after EVERY deploy (GSC "discovered - not indexed" regression,
+// July 2026). Freshness/cost is handled at the fetch layer instead: every
+// RPC below carries next.revalidate, so repeat renders are served from the
+// data cache and only the first request after a deploy pays the full fan-out.
+export const dynamic = "force-dynamic";
 
 // Regeneration fans out to ~15 RPCs (8 housing states + stocks + dates +
 // industries + takes); the default 15s Vercel function limit killed it.
 export const maxDuration = 60;
 
-// ISR-safe fetch for every RPC made from this route: inside a
-// revalidate-cached route a no-store fetch throws "Dynamic server usage",
-// and serverFetchWithUserAgent forces no-store on POSTs at Vercel runtime
-// unless an explicit cache/next option is given. Pin all sitemap RPCs to
-// the data cache with the route's own revalidate window instead.
+// Data-cached fetch for the plain-JSON RPCs below (string bodies hash into a
+// Next data-cache key, so repeat renders skip the network). Connect-transport
+// calls must NOT use this: their streamed request bodies make Next throw
+// "Failed to generate cache key" (500'd the whole route on Vercel) — they run
+// uncached instead, which is legal in this force-dynamic route.
 const sitemapFetch: typeof fetch = (input, init) =>
   serverFetchWithUserAgent(input, {
     ...init,
@@ -174,12 +175,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Google ignores lastmod when it's demonstrably the build timestamp, so
   // pages whose content changes with the daily sync use the actual data
   // date, and static marketing pages omit lastModified entirely.
-  // One ISR-safe connect client for every RPC this route makes directly.
-  // The shared server actions (getEditorialTake, getHousing, getIndustryData)
-  // fetch without an explicit cache mode, which throws "Dynamic server usage"
-  // inside this ISR route on Vercel — so the sitemap calls the RPCs itself.
+  // One connect client for every RPC this route makes directly. Uses the
+  // plain (uncached / no-store) fetch: connect streams its POST bodies, which
+  // the Next data cache cannot key — and in a force-dynamic route uncached
+  // fetches are fine. Only the JSON string-body fetches use sitemapFetch.
   const transport = createConnectTransport({
-    fetch: sitemapFetch,
+    fetch: serverFetchWithUserAgent,
     baseUrl: API_URL,
   });
   const client = createClient(ShortedStocksService, transport);
