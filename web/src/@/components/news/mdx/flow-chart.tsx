@@ -7,8 +7,10 @@ import { localPoint } from "@visx/event";
 import type { SankeyGraph, SankeyNodeMinimal, SankeyLinkMinimal } from "d3-sankey";
 import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 
-interface FlowNodeExtra { name: string; color: string }
-interface FlowLinkExtra { source: number; target: number; value: number; label?: string; dashed?: boolean }
+type FlowKind = "crude" | "lng" | "bypass";
+
+interface FlowNodeExtra { name: string; emphasis?: boolean }
+interface FlowLinkExtra { source: number; target: number; value: number; label?: string; kind: FlowKind }
 type FlowNode = SankeyNodeMinimal<FlowNodeExtra, FlowLinkExtra> & FlowNodeExtra;
 type FlowLink = SankeyLinkMinimal<FlowNodeExtra, FlowLinkExtra> & FlowLinkExtra;
 
@@ -20,45 +22,70 @@ type FlowDataset = {
 };
 
 const THEME_MUTED = "hsl(var(--muted-foreground))";
-const THEME_BORDER = "hsl(var(--border))";
 const POPOVER_BG = "hsl(var(--popover))";
 const POPOVER_FG = "hsl(var(--popover-foreground))";
 
+// Flow-type colors: identity is the KIND of flow, not the country — countries
+// are direct-labeled on every node. Amber/blue validated vs both surfaces;
+// bypass is deliberately neutral (dashed = the secondary encoding).
+const FLOW_COLORS: Record<FlowKind, string> = {
+  crude: "#d97706",
+  lng: "#2563eb",
+  bypass: "#78716c",
+};
+const FLOW_LABELS: Record<FlowKind, string> = {
+  crude: "Crude & products",
+  lng: "LNG",
+  bypass: "Pipeline bypass (avoids the strait)",
+};
+const NODE_FILL = "hsl(var(--muted-foreground))";
+const NODE_EMPHASIS = "hsl(var(--foreground))";
+
 const MARGIN = { top: 16, right: 16, bottom: 16, left: 16 };
 
+// Approximate pre-crisis flows assembled from EIA/IEA/Dallas Fed figures
+// (~20 mb/d oil + ~2 mb/d oil-equivalent LNG through the strait, ~80% to
+// Asia); bypass capacities per Al Jazeera 27 Mar 2026 (post-conversion).
 const DATASETS: Record<string, FlowDataset> = {
   "hormuz-oil-flows": {
-    title: "Strait of Hormuz oil flows by source and destination",
-    subtitle: "Millions of barrels per day (mb/d) — pre-crisis volumes",
+    title: "What flows through the strait — and what can route around it",
+    subtitle:
+      "Approximate pre-crisis flows, millions of barrels per day (LNG as oil-equivalent); dashed = bypass pipeline capacity",
     nodes: [
-      { name: "Saudi Arabia", color: "#f59e0b" },
-      { name: "Iraq", color: "#3b82f6" },
-      { name: "Kuwait", color: "#10b981" },
-      { name: "UAE", color: "#8b5cf6" },
-      { name: "Iran", color: "#ef4444" },
-      { name: "Qatar (LNG)", color: "#14b8a6" },
-      { name: "East-West Pipeline", color: "#78716c" },
-      { name: "Strait of Hormuz", color: "#dc2626" },
-      { name: "China", color: "#f59e0b" },
-      { name: "India", color: "#3b82f6" },
-      { name: "Japan", color: "#10b981" },
-      { name: "South Korea", color: "#8b5cf6" },
-      { name: "Europe / RoW", color: "#ec4899" },
+      { name: "Saudi Arabia" },
+      { name: "Iraq" },
+      { name: "Kuwait" },
+      { name: "UAE" },
+      { name: "Iran" },
+      { name: "Qatar (LNG)" },
+      { name: "Terminals beyond the strait" },
+      { name: "Strait of Hormuz", emphasis: true },
+      { name: "China" },
+      { name: "India" },
+      { name: "Japan" },
+      { name: "South Korea" },
+      { name: "Europe / rest of world" },
     ],
     links: [
-      { source: 0, target: 7, value: 6.5, label: "6.5" },
-      { source: 1, target: 7, value: 3.3, label: "3.3" },
-      { source: 2, target: 7, value: 2.5, label: "2.5" },
-      { source: 3, target: 7, value: 3.0, label: "3.0" },
-      { source: 4, target: 7, value: 1.5, label: "1.5" },
-      { source: 5, target: 7, value: 4.0, label: "4.0 (LNG)" },
-      { source: 0, target: 6, value: 5.0, label: "5.0 (pipeline)" },
-      { source: 3, target: 6, value: 1.5, label: "1.5 (pipeline)" },
-      { source: 7, target: 8, value: 6.8, label: "6.8 → China" },
-      { source: 7, target: 9, value: 3.2, label: "3.2 → India" },
-      { source: 7, target: 10, value: 2.3, label: "2.3 → Japan" },
-      { source: 7, target: 11, value: 2.5, label: "2.5 → S. Korea" },
-      { source: 7, target: 12, value: 5.2, label: "5.2 → Europe / RoW" },
+      { source: 0, target: 7, value: 6.3, label: "6.3 mb/d crude & products", kind: "crude" },
+      { source: 1, target: 7, value: 3.3, label: "3.3 mb/d crude", kind: "crude" },
+      { source: 2, target: 7, value: 2.5, label: "2.5 mb/d crude", kind: "crude" },
+      { source: 3, target: 7, value: 3.0, label: "3.0 mb/d crude", kind: "crude" },
+      { source: 4, target: 7, value: 1.4, label: "1.4 mb/d crude", kind: "crude" },
+      { source: 5, target: 7, value: 2.0, label: "≈10 Bcf/d LNG (~2.0 mb/d oil-equivalent)", kind: "lng" },
+      { source: 0, target: 6, value: 7.0, label: "East–West pipeline to Red Sea: up to ~7.0 mb/d capacity", kind: "bypass" },
+      { source: 3, target: 6, value: 1.5, label: "Habshan–Fujairah: ~1.5 mb/d capacity", kind: "bypass" },
+      { source: 1, target: 6, value: 1.6, label: "Kirkuk–Ceyhan: ~1.6 mb/d capacity", kind: "bypass" },
+      { source: 7, target: 8, value: 6.2, label: "6.2 mb/d crude to China", kind: "crude" },
+      { source: 7, target: 9, value: 2.4, label: "2.4 mb/d crude to India", kind: "crude" },
+      { source: 7, target: 10, value: 1.8, label: "1.8 mb/d crude to Japan", kind: "crude" },
+      { source: 7, target: 11, value: 2.2, label: "2.2 mb/d crude to South Korea", kind: "crude" },
+      { source: 7, target: 12, value: 3.9, label: "3.9 mb/d crude to Europe / RoW", kind: "crude" },
+      { source: 7, target: 8, value: 0.4, label: "LNG to China (~0.4 mb/d oe)", kind: "lng" },
+      { source: 7, target: 9, value: 0.5, label: "LNG to India (~0.5 mb/d oe)", kind: "lng" },
+      { source: 7, target: 10, value: 0.3, label: "LNG to Japan (~0.3 mb/d oe)", kind: "lng" },
+      { source: 7, target: 11, value: 0.2, label: "LNG to South Korea (~0.2 mb/d oe)", kind: "lng" },
+      { source: 7, target: 12, value: 0.6, label: "LNG to Europe / RoW (~0.6 mb/d oe)", kind: "lng" },
     ],
   },
 };
@@ -70,6 +97,8 @@ interface FlowChartProps {
 export function FlowChart({ dataset }: FlowChartProps) {
   const def = DATASETS[dataset];
   if (!def) return null;
+
+  const kindsUsed = [...new Set(def.links.map((l) => l.kind))];
 
   return (
     <figure className="my-8 overflow-hidden rounded-xl border border-border bg-card">
@@ -92,9 +121,19 @@ export function FlowChart({ dataset }: FlowChartProps) {
           }
         </ParentSize>
       </div>
-      <figcaption className="border-t border-border px-4 py-2 text-[11px] leading-relaxed text-muted-foreground">
-        Pipeline bypass capacity (East-West + Habshan-Fujairah) covers ~35% of
-        normal Strait throughput. Hover flows for details.
+      <figcaption className="flex flex-wrap gap-x-4 gap-y-1 border-t border-border px-4 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
+        {kindsUsed.map((k) => (
+          <span key={k} className="flex items-center gap-1.5">
+            <span
+              className="h-2 w-3 rounded-[2px]"
+              style={{
+                backgroundColor: k === "bypass" ? "transparent" : FLOW_COLORS[k],
+                border: k === "bypass" ? `1.5px dashed ${FLOW_COLORS.bypass}` : "none",
+              }}
+            />
+            <span className="font-semibold text-foreground">{FLOW_LABELS[k]}</span>
+          </span>
+        ))}
       </figcaption>
     </figure>
   );
@@ -108,7 +147,7 @@ interface CanvasProps {
 
 function FlowCanvas({ width, height, def }: CanvasProps) {
   const { tooltipData, tooltipLeft, tooltipTop, tooltipOpen, showTooltip, hideTooltip } =
-    useTooltip<{ label: string; value: number; source: string; target: string; sourceColor: string; targetColor: string }>();
+    useTooltip<{ label: string; source: string; target: string; kind: FlowKind }>();
 
   const [hovered, setHovered] = useState<number | null>(null);
 
@@ -139,7 +178,8 @@ function FlowCanvas({ width, height, def }: CanvasProps) {
             const isHovered = hovered === i;
             const src = link.source as FlowNode;
             const tgt = link.target as FlowNode;
-            const strokeColor = (link as FlowLink).dashed ? "#78716c" : src.color;
+            const kind = (link as FlowLink).kind;
+            const strokeColor = FLOW_COLORS[kind];
 
             return (
               <path
@@ -147,20 +187,18 @@ function FlowCanvas({ width, height, def }: CanvasProps) {
                 d={sankeyLinkHorizontal<FlowNodeExtra, FlowLinkExtra>()(link) ?? undefined}
                 fill="none"
                 stroke={strokeColor}
-                strokeOpacity={isHovered ? 0.85 : 0.35}
+                strokeOpacity={isHovered ? 0.85 : kind === "bypass" ? 0.3 : 0.4}
                 strokeWidth={Math.max(1, link.width ?? 1)}
-                strokeDasharray={(link as FlowLink).dashed ? "4 3" : undefined}
+                strokeDasharray={kind === "bypass" ? "4 3" : undefined}
                 onMouseMove={(event) => {
                   setHovered(i);
                   const point = localPoint(event);
                   showTooltip({
                     tooltipData: {
                       label: (link as FlowLink).label ?? `${link.value.toFixed(1)} mb/d`,
-                      value: link.value,
                       source: src.name,
                       target: tgt.name,
-                      sourceColor: src.color,
-                      targetColor: tgt.color,
+                      kind,
                     },
                     tooltipLeft: point ? point.x : 0,
                     tooltipTop: point ? point.y : 0,
@@ -191,16 +229,20 @@ function FlowCanvas({ width, height, def }: CanvasProps) {
                   y={n.y0}
                   width={n.x1! - n.x0!}
                   height={n.y1! - n.y0!}
-                  fill={n.color}
+                  fill={n.emphasis ? NODE_EMPHASIS : NODE_FILL}
+                  fillOpacity={n.emphasis ? 0.9 : 0.55}
                   rx={3}
                 />
-                {n.x0! > innerW * 0.4 ? (
+                {/* nodes in the left half label to the right of the rect;
+                    right half label to the left — labels stay on-canvas */}
+                {n.x0! < innerW * 0.5 ? (
                   <text
                     x={n.x1! + 6}
                     y={n.y0! + (n.y1! - n.y0!) / 2}
                     dominantBaseline="middle"
-                    fill={THEME_MUTED}
+                    fill={n.emphasis ? "hsl(var(--foreground))" : THEME_MUTED}
                     fontSize={10}
+                    fontWeight={n.emphasis ? 600 : 400}
                   >
                     {n.name}
                   </text>
@@ -210,8 +252,9 @@ function FlowCanvas({ width, height, def }: CanvasProps) {
                     y={n.y0! + (n.y1! - n.y0!) / 2}
                     textAnchor="end"
                     dominantBaseline="middle"
-                    fill={THEME_MUTED}
+                    fill={n.emphasis ? "hsl(var(--foreground))" : THEME_MUTED}
                     fontSize={10}
+                    fontWeight={n.emphasis ? 600 : 400}
                   >
                     {n.name}
                   </text>
@@ -237,10 +280,12 @@ function FlowCanvas({ width, height, def }: CanvasProps) {
           }}
         >
           <div className="mb-1 flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-[2px]" style={{ backgroundColor: tooltipData.sourceColor }} />
+            <span
+              className="h-2.5 w-2.5 rounded-[2px]"
+              style={{ backgroundColor: FLOW_COLORS[tooltipData.kind] }}
+            />
             <span className="font-semibold">{tooltipData.source}</span>
             <span className="text-muted-foreground">→</span>
-            <span className="h-2.5 w-2.5 rounded-[2px]" style={{ backgroundColor: tooltipData.targetColor }} />
             <span className="font-semibold">{tooltipData.target}</span>
           </div>
           <div className="font-mono text-foreground">

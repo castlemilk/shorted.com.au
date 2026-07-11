@@ -3,91 +3,109 @@
 import { useMemo, useState } from "react";
 import { ParentSize } from "@visx/responsive";
 import { scaleBand, scaleLinear } from "@visx/scale";
-import { Bar } from "@visx/shape";
 import { AxisBottom } from "@visx/axis";
 import { localPoint } from "@visx/event";
 import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
-import { format } from "date-fns";
 
-type BarDef = { label: string; value: number; color?: string };
+type BarDef = { label: string; value: number };
 
 type BarDataset = {
   title: string;
   subtitle?: string;
   formatValue: (v: number) => string;
   bars: BarDef[];
+  /** Values on both sides of a zero baseline (two-pole diverging colors). */
+  diverging?: boolean;
+  footnote?: string;
 };
 
 const THEME_AMBER = "hsl(var(--primary))";
 const THEME_MUTED = "hsl(var(--muted-foreground))";
 const THEME_BORDER = "hsl(var(--border))";
-const THEME_CARD = "hsl(var(--card))";
 const POPOVER_BG = "hsl(var(--popover))";
 const POPOVER_FG = "hsl(var(--popover-foreground))";
 
-const MARGIN = { top: 12, right: 16, bottom: 40, left: 100 };
+// Diverging poles (validated vs light #fdfcfa and dark #121212 surfaces):
+// negative = red, positive = blue, neutral zero baseline.
+const POLE_NEG = "#dc2626";
+const POLE_POS = "#2563eb";
 
-const PALETTE = [
-  "#f59e0b", "#3b82f6", "#10b981", "#ef4444",
-  "#8b5cf6", "#ec4899", "#14b8a6", "#f97316",
-];
+const MARGIN = { top: 12, right: 52, bottom: 40 };
+const MAX_BAR_THICKNESS = 24;
+const LABEL_CHAR_W = 6.4;
 
 const DATASETS: Record<string, BarDataset> = {
-  "hormuz-oil-dependency": {
-    title: "Oil imports via Strait of Hormuz by country",
-    subtitle: "% of total crude imports that transit the strait",
+  "hormuz-lng-dependence": {
+    title: "South Asia's LNG lifeline runs through the strait",
+    subtitle: "Qatar + UAE share of 2025 LNG imports (Wood Mackenzie)",
     formatValue: (v) => `${v.toFixed(0)}%`,
     bars: [
-      { label: "China", value: 32 },
-      { label: "India", value: 15 },
-      { label: "Japan", value: 11 },
-      { label: "South Korea", value: 12 },
-      { label: "EU / UK", value: 14 },
-      { label: "Australia", value: 9 },
-      { label: "Singapore", value: 18 },
-      { label: "Taiwan", value: 8 },
+      { label: "Pakistan", value: 99 },
+      { label: "Bangladesh", value: 63 },
+      { label: "India", value: 59 },
     ],
+    footnote:
+      "Pakistan sourced almost all of its 6.6 Mt of 2025 imports from Qatar. Roughly a fifth of globally traded LNG transited the strait before the closure.",
   },
   "hormuz-gdp-revision": {
-    title: "IMF 2026 GDP growth revisions",
-    subtitle: "Change from Oct 2025 forecast, percentage points",
-    formatValue: (v) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}pp`,
+    title: "IMF 2026 growth downgrades since the war began",
+    subtitle: "Percentage points vs pre-war forecasts (WEO April + July 2026 updates)",
+    formatValue: (v) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(1)}pp`,
+    diverging: true,
     bars: [
-      { label: "Qatar", value: -14.7, color: "#ef4444" },
-      { label: "Middle East", value: -3.2, color: "#ef4444" },
-      { label: "India", value: -0.8, color: "#f97316" },
-      { label: "China", value: -0.6, color: "#f97316" },
-      { label: "Euro area", value: -0.5, color: "#f97316" },
-      { label: "Global", value: -0.4, color: "#f97316" },
-      { label: "United States", value: -0.1, color: "#10b981" },
-      { label: "Australia", value: 0.3, color: "#10b981" },
+      { label: "Qatar", value: -14.7 },
+      { label: "MENA", value: -2.8 },
+      { label: "Mid-East & C. Asia", value: -1.7 },
+      { label: "Saudi Arabia", value: -1.4 },
+      { label: "United Kingdom", value: -0.5 },
+      { label: "Global", value: -0.3 },
+      { label: "Australia", value: -0.1 },
+      { label: "United States", value: 0.0 },
     ],
+    footnote:
+      "Qatar vs October 2025 WEO; others vs January 2026 update. Global reflects the July update (3.0%).",
   },
   "hormuz-shipping-costs": {
-    title: "Shipping cost surge since Feb 28",
-    subtitle: "Multiples of pre-crisis baseline",
-    formatValue: (v) => `${v.toFixed(0)}x`,
+    title: "What the crisis did to shipping costs",
+    subtitle: "Peak level as a multiple of the pre-crisis baseline",
+    formatValue: (v) => `${v.toFixed(1)}×`,
     bars: [
+      { label: "War-risk insurance", value: 20 },
       { label: "VLCC spot rate", value: 8.5 },
-      { label: "War risk insurance", value: 8.0 },
-      { label: "Container surcharges", value: 2.5 },
       { label: "Baltic Dirty Tanker", value: 2.5 },
-      { label: "Drewry WCI container", value: 1.5 },
+      { label: "Container rates (WCI)", value: 1.4 },
     ],
+    footnote:
+      "War-risk cover: ~0.25% of hull value pre-crisis to a ~5% market norm in July. VLCC: record $423,736/day on 2 March vs ~$50,000 baseline.",
   },
-  "hormuz-market-volatility": {
-    title: "Asset class volatility since Feb 28",
-    subtitle: "Current vs pre-crisis (multiples)",
-    formatValue: (v) => `${v.toFixed(1)}x`,
+  "hormuz-reopening-odds": {
+    title: "What prediction markets give a return to normal traffic",
+    subtitle: "Polymarket implied probability, 11 July 2026",
+    formatValue: (v) => (v > 0 && v < 1 ? "<1%" : `${v.toFixed(0)}%`),
     bars: [
-      { label: "OVX (oil volatility)", value: 2.0 },
-      { label: "Gold (GVZ)", value: 1.6 },
-      { label: "VIX (equities)", value: 1.4 },
-      { label: "MOVE (bonds)", value: 1.3 },
-      { label: "AUD/USD (FX vol)", value: 1.5 },
+      { label: "By 15 July", value: 0.5 },
+      { label: "By 31 July", value: 11 },
+      { label: "By 31 December", value: 65 },
     ],
+    footnote:
+      "Resolution: IMF PortWatch 7-day average of transit calls at or above 60/day. April, May and June contracts all resolved No.",
   },
 };
+
+/**
+ * Horizontal bar path: square at the baseline, 4px-rounded at the data end.
+ * `x` is the baseline edge, `w` extends right when positive, left when negative.
+ */
+function barPath(x: number, y: number, w: number, h: number, sign: 1 | -1): string {
+  const r = Math.min(4, Math.abs(w), h / 2);
+  if (Math.abs(w) < 0.5) return "";
+  if (sign > 0) {
+    const x1 = x + w;
+    return `M${x},${y} H${x1 - r} A${r},${r} 0 0 1 ${x1},${y + r} V${y + h - r} A${r},${r} 0 0 1 ${x1 - r},${y + h} H${x} Z`;
+  }
+  const x1 = x + w; // w negative → x1 left of x
+  return `M${x},${y} H${x1 + r} A${r},${r} 0 0 0 ${x1},${y + r} V${y + h - r} A${r},${r} 0 0 0 ${x1 + r},${y + h} H${x} Z`;
+}
 
 interface BarChartProps {
   dataset: string;
@@ -118,9 +136,11 @@ export function BarChart({ dataset }: BarChartProps) {
           }
         </ParentSize>
       </div>
-      <figcaption className="border-t border-border px-4 py-2 text-[11px] leading-relaxed text-muted-foreground">
-        Hover bars for exact values
-      </figcaption>
+      {def.footnote && (
+        <figcaption className="border-t border-border px-4 py-2 text-[11px] leading-relaxed text-muted-foreground">
+          {def.footnote}
+        </figcaption>
+      )}
     </figure>
   );
 }
@@ -137,23 +157,40 @@ function BarCanvas({ width, height, def }: CanvasProps) {
 
   const [hovered, setHovered] = useState<string | null>(null);
 
-  const innerW = Math.max(width - MARGIN.left - MARGIN.right, 0);
-  const innerH = Math.max(height - MARGIN.top - MARGIN.bottom, 0);
-
-  const sorted = useMemo(
-    () => [...def.bars].sort((a, b) => b.value - a.value),
+  // Left margin sized to the longest category label. When the plot is too
+  // narrow to give labels their own column (mobile), move them above the
+  // bars instead of truncating them.
+  const longestLabel = useMemo(
+    () => Math.max(...def.bars.map((b) => b.label.length)),
     [def.bars],
   );
+  const labelColW = longestLabel * LABEL_CHAR_W + 14;
+  const labelsAbove = labelColW > width * 0.42;
+  const marginLeft = labelsAbove ? 16 : Math.max(90, labelColW);
 
-  const xScale = useMemo(
+  const innerW = Math.max(width - marginLeft - MARGIN.right, 0);
+  const innerH = Math.max(height - MARGIN.top - MARGIN.bottom, 0);
+
+  // Diverging: most negative first (the downgrade is the story).
+  // Single-pole: largest first.
+  const sorted = useMemo(
     () =>
-      scaleLinear({
-        domain: [0, Math.max(...sorted.map((b) => b.value)) * 1.15],
-        range: [0, innerW],
-        nice: true,
-      }),
-    [sorted, innerW],
+      def.diverging
+        ? [...def.bars].sort((a, b) => a.value - b.value)
+        : [...def.bars].sort((a, b) => b.value - a.value),
+    [def.bars, def.diverging],
   );
+
+  const xScale = useMemo(() => {
+    const lo = Math.min(0, ...sorted.map((b) => b.value));
+    const hi = Math.max(0, ...sorted.map((b) => b.value));
+    const pad = (hi - lo) * 0.06 || 1;
+    return scaleLinear({
+      domain: [lo < 0 ? lo - pad : 0, hi > 0 ? hi + pad : 0],
+      range: [0, innerW],
+      nice: true,
+    });
+  }, [sorted, innerW]);
 
   const yScale = useMemo(
     () =>
@@ -167,29 +204,44 @@ function BarCanvas({ width, height, def }: CanvasProps) {
 
   if (innerW <= 0 || innerH <= 0) return null;
 
+  const zeroX = xScale(0);
+
   return (
     <div className="relative" style={{ width, height }}>
       <svg width={width} height={height} role="img" aria-label={def.title}>
-        <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
+        <g transform={`translate(${marginLeft},${MARGIN.top})`}>
           {sorted.map((bar) => {
-            const barW = xScale(bar.value);
-            const barY = yScale(bar.label) ?? 0;
-            const barH = yScale.bandwidth();
+            const sign: 1 | -1 = bar.value < 0 ? -1 : 1;
+            const barW = xScale(bar.value) - zeroX;
+            const bandH = yScale.bandwidth();
+            const labelH = labelsAbove ? 13 : 0;
+            const barH = Math.min(bandH - labelH, MAX_BAR_THICKNESS);
+            const barY =
+              (yScale(bar.label) ?? 0) + labelH + (bandH - labelH - barH) / 2;
             const isHovered = hovered === bar.label;
-            const color = bar.color ?? THEME_AMBER;
+            const color = def.diverging
+              ? sign < 0
+                ? POLE_NEG
+                : POLE_POS
+              : THEME_AMBER;
+            // Value label rides outside the data end; when the tip runs into
+            // the plot edge, move it just inside the bar instead (white ink).
+            const valueText = def.formatValue(bar.value);
+            const valueW = valueText.length * 6;
+            const tipEdge = zeroX + barW;
+            const overflows =
+              sign > 0 ? tipEdge + 6 + valueW > innerW : tipEdge - 6 - valueW < 0;
+            const inside = overflows && Math.abs(barW) > valueW + 16;
+            const tipX = inside ? tipEdge - sign * 6 : tipEdge + sign * 6;
+            const anchor: "start" | "end" =
+              (sign > 0) !== inside ? "start" : "end";
 
             return (
               <g key={bar.label}>
-                <Bar
-                  x={0}
-                  y={barY}
-                  width={barW}
-                  height={barH}
+                <path
+                  d={barPath(zeroX, barY, barW, barH, sign)}
                   fill={color}
-                  fillOpacity={isHovered ? 1 : 0.75}
-                  stroke={isHovered ? color : "none"}
-                  strokeWidth={1}
-                  rx={3}
+                  fillOpacity={isHovered ? 1 : 0.8}
                   onMouseMove={(event) => {
                     setHovered(bar.label);
                     const point = localPoint(event);
@@ -204,24 +256,60 @@ function BarCanvas({ width, height, def }: CanvasProps) {
                     hideTooltip();
                   }}
                 />
+                {/* category label — text token, never the series color */}
+                {labelsAbove ? (
+                  <text
+                    x={Math.min(zeroX, zeroX + barW)}
+                    y={barY - 4}
+                    textAnchor="start"
+                    fill={isHovered ? "hsl(var(--foreground))" : THEME_MUTED}
+                    fontSize={10.5}
+                    fontWeight={isHovered ? 600 : 400}
+                  >
+                    {bar.label}
+                  </text>
+                ) : (
+                  <text
+                    x={-6}
+                    y={barY + barH / 2}
+                    textAnchor="end"
+                    dominantBaseline="middle"
+                    fill={isHovered ? "hsl(var(--foreground))" : THEME_MUTED}
+                    fontSize={11}
+                    fontWeight={isHovered ? 600 : 400}
+                  >
+                    {bar.label}
+                  </text>
+                )}
+                {/* value at the data end */}
                 <text
-                  x={-6}
+                  x={tipX}
                   y={barY + barH / 2}
-                  textAnchor="end"
+                  textAnchor={anchor}
                   dominantBaseline="middle"
-                  fill={isHovered ? "hsl(var(--foreground))" : THEME_MUTED}
-                  fontSize={11}
-                  fontWeight={isHovered ? 600 : 400}
+                  fill={inside ? "#ffffff" : THEME_MUTED}
+                  fontSize={10}
+                  style={{ fontVariantNumeric: "tabular-nums" }}
+                  pointerEvents="none"
                 >
-                  {bar.label}
+                  {valueText}
                 </text>
               </g>
             );
           })}
+          {/* zero baseline */}
+          <line
+            x1={zeroX}
+            x2={zeroX}
+            y1={0}
+            y2={innerH}
+            stroke={THEME_BORDER}
+            strokeWidth={1}
+          />
           <AxisBottom
             top={innerH}
             scale={xScale}
-            numTicks={4}
+            numTicks={innerW < 300 ? 3 : 4}
             stroke={THEME_BORDER}
             hideTicks
             tickFormat={(v) => def.formatValue(Number(v))}

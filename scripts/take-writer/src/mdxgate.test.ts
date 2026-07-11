@@ -61,7 +61,7 @@ describe("validateMdx", () => {
   it("accepts MultiSeriesChart, BarChart, FlowChart with valid datasets", async () => {
     const r1 = await validateMdx(`<MultiSeriesChart dataset="hormuz-benchmarks" />`, OPTS);
     expect(r1.ok).toBe(true);
-    const r2 = await validateMdx(`<BarChart dataset="hormuz-oil-dependency" />`, OPTS);
+    const r2 = await validateMdx(`<BarChart dataset="hormuz-lng-dependence" />`, OPTS);
     expect(r2.ok).toBe(true);
     const r3 = await validateMdx(`<FlowChart dataset="hormuz-oil-flows" />`, OPTS);
     expect(r3.ok).toBe(true);

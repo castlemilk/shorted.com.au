@@ -40,10 +40,10 @@ export const COMPONENT_SCHEMAS: Record<string, z.ZodTypeAny> = {
   }),
   BarChart: z.object({
     dataset: z.enum([
-      "hormuz-oil-dependency",
+      "hormuz-lng-dependence",
       "hormuz-gdp-revision",
       "hormuz-shipping-costs",
-      "hormuz-market-volatility",
+      "hormuz-reopening-odds",
     ]),
   }),
   FlowChart: z.object({

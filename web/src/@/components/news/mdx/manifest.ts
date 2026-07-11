@@ -8,10 +8,10 @@ const CHART_DATASETS = [
 ] as const;
 
 const BAR_DATASETS = [
-  "hormuz-oil-dependency",
+  "hormuz-lng-dependence",
   "hormuz-gdp-revision",
   "hormuz-shipping-costs",
-  "hormuz-market-volatility",
+  "hormuz-reopening-odds",
 ] as const;
 
 const FLOW_DATASETS = [
@@ -53,8 +53,8 @@ export const MDX_PALETTE_DOC = `
 <PriceChart code="BHP" window="3m" /> — price/volume only; use when price action is the story.
 <BankShortBasket banks="CBA,WBC,NAB,ANZ" window="1y" mode="dollar" /> — interactive comparison of short positions across a BASKET of stocks, with a $/% toggle (stacked dollar value vs overlaid percent). Only for multi-stock/sector stories; window one of 3m|6m|1y. One per article.
 <ShortBasket basket="lithium" window="1y" mode="dollar" /> — same interactive $/% basket chart for a named SECTOR. basket one of: banks | lithium | ironore | rareearth. Use for sector/thematic stories; one per article.
-<MultiSeriesChart dataset="hormuz-benchmarks" /> — multi-line time series chart comparing up to 3 price series (Brent, TTF, WTI). dataset one of: hormuz-benchmarks. For commodity/energy comparison stories.
-<BarChart dataset="hormuz-oil-dependency" /> — horizontal bar chart for cross-sectional comparison. dataset one of: hormuz-oil-dependency | hormuz-gdp-revision | hormuz-shipping-costs | hormuz-market-volatility. For ranking/breakdown stories.
+<MultiSeriesChart dataset="hormuz-benchmarks" /> — multi-line time series chart comparing up to 3 price series (Brent, TTF, JKM), indexed to 100 pre-crisis. dataset one of: hormuz-benchmarks. For commodity/energy comparison stories.
+<BarChart dataset="hormuz-lng-dependence" /> — horizontal bar chart for cross-sectional comparison (negative values render as diverging bars). dataset one of: hormuz-lng-dependence | hormuz-gdp-revision | hormuz-shipping-costs | hormuz-reopening-odds. For ranking/breakdown stories.
 <FlowChart dataset="hormuz-oil-flows" /> — sankey flow diagram showing supply chain flows from source to destination. dataset one of: hormuz-oil-flows. For supply chain / trade flow stories.
 <StatGroup><Stat label="Short interest" value="12.4%" context="up 3.1pp in 90 days" cite="ref-2" /></StatGroup> — 2-4 key numbers, every value must appear in your sources or the provided data.
 <PullQuote>One striking sentence from your own prose.</PullQuote>
