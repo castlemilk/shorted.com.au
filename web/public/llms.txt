@@ -13,14 +13,17 @@ Shorted aggregates and visualises official ASIC (Australian Securities and Inves
 
 - [Top 100 Most Shorted ASX Stocks](https://shorted.com.au/top): Live rankings of the most shorted stocks on the Australian Securities Exchange, updated daily with ASIC data.
 - [Industry Treemap](https://shorted.com.au/industry): Visual breakdown of short positions by ASX industry sector.
+- [Industry Intelligence](https://shorted.com.au/industry-intelligence): FY-aggregated tax, government-contract, political-donation and lobbying evidence joined to ASX industries and short interest.
 - [Individual Stock Pages](https://shorted.com.au/shorts/BHP): Detailed short position analysis for each ASX-listed security with historical charts.
+- [Compare Stocks](https://shorted.com.au/compare): Side-by-side short interest comparisons across ASX stocks.
 - [Per-stock News Hub](https://shorted.com.au/shorts/BHP/news): Latest news articles tagged to each ASX stock with AI-classified sentiment.
-- [ASX News & Sentiment Hub](https://shorted.com.au/news): Aggregated news from Stockhead, Motley Fool AU, Small Caps, Kalkine Media, ABC, SMH, AFR and Google News with Gemini-classified sentiment.
-- [Weekly Short Selling Reports](https://shorted.com.au/reports): LLM-narrated weekly reports covering biggest movers, sector shifts, and short-position trends.
+- [ASX News & Editorial Hub](https://shorted.com.au/news): Original short-selling editorial (Shorted Takes) plus aggregated ASX news with AI-classified sentiment, sourced from Stockhead, Motley Fool AU, Small Caps, Kalkine Media, ABC, SMH, AFR and Google News.
+- [Short Selling Reports](https://shorted.com.au/reports): Weekly, monthly and yearly LLM-narrated reports covering biggest movers, sector shifts, and short-position trends.
 - [Stock Screener](https://shorted.com.au/screener): Filter ASX stocks by short %, days-to-cover, industry, and other criteria.
 - [Search ASX Stocks](https://shorted.com.au/search): Search ASX stocks by code or company name.
 - [Insider Trading & Director Trades](https://shorted.com.au/insider-trading): Per-stock director and insider trades sourced from ASX Appendix 3Y filings.
 - [Open Data Hub](https://shorted.com.au/data): Public dataset catalog with Dataset schema for Google Dataset Search.
+- [Australian House Prices Tracker](https://shorted.com.au/housing): ABS/RBA house-price tracker plus a national suburb explorer with census and electoral overlays.
 - [API Documentation](https://shorted.com.au/docs/api-reference): Developer API for accessing ASIC short position data programmatically.
 - [LLM Context Documentation](https://shorted.com.au/docs/llm-context): Detailed platform and data documentation optimised for AI/LLM consumption.
 
@@ -61,8 +64,8 @@ Shorted exposes a Model Context Protocol server with read-only tools over the sa
 
 ## Reports
 
-- [Weekly Reports](https://shorted.com.au/reports): Weekly and monthly analysis of ASX short selling activity with top movers, industry trends, and AI-generated market narratives.
-- [RSS Feed](https://shorted.com.au/feed.xml): Blog posts and weekly reports via RSS.
+- [Reports](https://shorted.com.au/reports): Weekly, monthly and yearly analysis of ASX short selling activity with top movers, industry trends, and AI-generated market narratives.
+- [RSS Feed](https://shorted.com.au/feed.xml): Blog posts, Shorted Takes editorial, and weekly reports via RSS.
 
 ## Blog (LLM-Optimised)
 

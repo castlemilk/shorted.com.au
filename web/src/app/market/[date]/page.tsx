@@ -30,7 +30,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { date } = await params;
   const formattedDate = formatDate(date);
 
-  const title = `ASX Short Positions on ${formattedDate} | Daily ASIC Report | ${siteConfig.name}`;
+  // Root layout applies a `%s | Shorted` title template — no brand suffix here.
+  const title = `ASX Short Positions on ${formattedDate} | Daily ASIC Report`;
   const description = `Complete snapshot of ASX short positions for ${formattedDate}. Top shorted stocks, industry breakdown, and market-wide short interest from official ASIC data.`;
 
   return {
@@ -115,7 +116,10 @@ export default async function MarketDatePage({ params }: PageProps) {
 
   const data = await getMarketByDate(date, 50, 0);
 
-  if (!data || data.stocks.length === 0) {
+  // The edge read returns 200 with the `stocks` key omitted entirely for dates
+  // with no data (proto3 JSON drops empty repeated fields) — guard with
+  // optional chaining so those dates 404 instead of throwing a 500.
+  if (!data?.stocks?.length) {
     notFound();
   }
 

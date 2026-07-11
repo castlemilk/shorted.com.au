@@ -156,7 +156,7 @@ export function TopPageClient({
             <div className="flex items-center gap-3 mb-4">
               <div className="h-10 w-1 bg-gradient-to-b from-red-500 to-orange-500 rounded-full" />
               <h1 id="hero-title" className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight">
-                Top 100 Most Shorted
+                Top 100 Most Shorted ASX Stocks
               </h1>
             </div>
             <p className="text-muted-foreground text-lg max-w-2xl mb-2">

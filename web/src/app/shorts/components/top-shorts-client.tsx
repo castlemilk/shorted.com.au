@@ -184,7 +184,7 @@ export function TopShortsClient({
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Top Shorts</h1>
+            <h2 className="text-3xl font-bold">Top Shorts</h2>
             <p className="text-muted-foreground mt-2">
               Biggest movers in short positions across different time periods
             </p>

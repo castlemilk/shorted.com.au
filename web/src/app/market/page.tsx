@@ -12,9 +12,10 @@ import {
 } from "~/@/components/seo/enhanced-structured-data";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
 import { getAvailableDates } from "~/app/actions/market/getMarketByDate";
+import { skipForBuild } from "~/app/actions/config";
 
 export const metadata: Metadata = {
-  title: "Daily ASX Short Position Snapshots | Historical ASIC Data",
+  title: "Daily ASX Short Position Snapshots",
   description:
     "Browse daily snapshots of ASX short positions from official ASIC data. See which stocks were most shorted on any trading day. Historical short selling data since 2010.",
   keywords: [
@@ -65,7 +66,7 @@ export default async function MarketIndexPage() {
   let latestDate = "";
   let earliestDate = "";
 
-  if (process.env.SKIP_STATIC_GENERATION !== "1") {
+  if (!skipForBuild()) {
     try {
       const response = await getAvailableDates(90);
       dates = response.dates;

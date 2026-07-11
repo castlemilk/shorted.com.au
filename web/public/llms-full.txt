@@ -19,7 +19,7 @@
 All data is sourced from **ASIC** (Australian Securities and Investments Commission), which mandates daily reporting of short positions for all ASX securities. Data is published with a T+4 trading day delay.
 
 - Website: https://shorted.com.au
-- Contact: contact@shorted.com.au
+- Contact: support@shorted.com.au
 - Data update frequency: Daily (after ASIC publishes, typically late afternoon AEST)
 - Historical data: Available from 2010 onwards
 
@@ -27,8 +27,15 @@ All data is sourced from **ASIC** (Australian Securities and Investments Commiss
 
 - [Top 100 Most Shorted ASX Stocks](https://shorted.com.au/top): Live rankings updated daily with ASIC data.
 - [Industry Treemap](https://shorted.com.au/industry): Visual breakdown of short positions by ASX industry sector.
+- [Industry Intelligence](https://shorted.com.au/industry-intelligence): FY-aggregated tax, government-contract, political-donation and lobbying evidence joined to ASX industries and short interest.
 - [Individual Stock Pages](https://shorted.com.au/shorts/BHP): Detailed analysis for each ASX-listed security.
-- [Weekly Reports](https://shorted.com.au/reports): AI-generated weekly market analysis with top movers and trends.
+- [Compare Stocks](https://shorted.com.au/compare): Side-by-side short interest comparisons across ASX stocks.
+- [ASX News & Editorial Hub](https://shorted.com.au/news): Original short-selling editorial (Shorted Takes) plus aggregated ASX news with AI-classified sentiment.
+- [Reports](https://shorted.com.au/reports): Weekly, monthly and yearly AI-generated market analysis with top movers and trends.
+- [Stock Screener](https://shorted.com.au/screener): Filter ASX stocks by short %, days-to-cover, industry, and other criteria.
+- [Insider Trading & Director Trades](https://shorted.com.au/insider-trading): Per-stock director and insider trades sourced from ASX Appendix 3Y filings.
+- [Open Data Hub](https://shorted.com.au/data): Public dataset catalog with Dataset schema for Google Dataset Search.
+- [Australian House Prices Tracker](https://shorted.com.au/housing): ABS/RBA house-price tracker plus a national suburb explorer with census and electoral overlays.
 - [Learn Hub](https://shorted.com.au/learn): 14+ educational articles from beginner to advanced.
 - [Glossary](https://shorted.com.au/glossary): Comprehensive short selling terminology.
 - [FAQ](https://shorted.com.au/faq): 30+ answered questions across 6 categories.
@@ -178,6 +185,15 @@ Rate limit headers are included in all API responses:
 - `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
 - `X-RateLimit-Monthly-Limit`, `X-RateLimit-Monthly-Used`, `X-RateLimit-Monthly-Reset`
 
+## MCP Server (for AI agents)
+
+Shorted exposes a Model Context Protocol server with read-only tools over the same ASIC data — no authentication required:
+
+- **Endpoint** (streamable HTTP): `https://shorted.com.au/api/mcp/mcp`
+- **Server card**: [https://shorted.com.au/.well-known/mcp/server-card.json](https://shorted.com.au/.well-known/mcp/server-card.json)
+- **Tools**: `get_top_shorts` (most shorted ASX stocks), `get_stock` (single ticker summary), `get_stock_history` (time series), `get_industry_treemap` (sector breakdown)
+- **API catalog** (RFC 9727): [https://shorted.com.au/.well-known/api-catalog](https://shorted.com.au/.well-known/api-catalog) · OpenAPI: [https://shorted.com.au/openapi.json](https://shorted.com.au/openapi.json) · Auth notes: [https://shorted.com.au/auth.md](https://shorted.com.au/auth.md)
+
 ## Interpreting Short Interest
 
 - **Below 5%**: Low (normal levels)
@@ -218,7 +234,7 @@ Calculated as: Total Short Interest / Average Daily Volume. A ratio above 10-15 
 
 1. **Financials** - Banks (CBA, NAB, WBC, ANZ), Insurers
 2. **Materials** - Mining (BHP, RIO, FMG), Resources
-3. **Healthcare** - CSL, REA, biotech companies
+3. **Healthcare** - CSL, RMD, biotech companies
 4. **Technology** - Emerging sector, software companies
 5. **Consumer** - Retail (WES, WOW, COL), discretionary
 6. **Energy** - Oil & gas (WDS), renewables
@@ -258,7 +274,7 @@ URL: https://shorted.com.au/shorts/[STOCK_CODE]
 
 ## Version & Updates
 
-- **Last Updated**: February 2026
+- **Last Updated**: July 2026
 - **API Version**: v1alpha1
 - **Data Coverage**: 2010 to present
 

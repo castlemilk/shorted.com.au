@@ -14,7 +14,7 @@ import "prismjs/themes/prism-tomorrow.css";
 import { siteConfig } from "~/@/config/site";
 
 export const metadata: Metadata = {
-  title: "Short Selling Insights & Analysis",
+  title: "ASX Short Selling Blog — Analysis & Insights",
   description:
     "Expert analysis and insights on ASX short selling. Learn about short squeezes, market trends, ASIC reporting, and strategies for tracking bearish sentiment in Australian stocks.",
   keywords: [

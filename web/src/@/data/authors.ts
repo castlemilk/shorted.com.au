@@ -41,6 +41,28 @@ export interface Author {
 }
 
 export const AUTHORS: Author[] = [
+  {
+    slug: "ben-ebsworth",
+    name: "Ben Ebsworth",
+    title: "Founder & Editor",
+    bio: "Ben Ebsworth is the founder of Shorted.com.au. A software engineer by background, he built Shorted to make ASIC's daily short-position reports genuinely usable — ingesting, cleaning and charting the raw regulatory data for every ASX stock since 2010. He writes about short-selling dynamics, crowded trades and what bearish positioning reveals about the Australian market.",
+    photoUrl: "/assets/blog/authors/ben.png",
+    expertise: [
+      "ASX short selling data",
+      "ASIC RG 196 reporting",
+      "Market data engineering",
+      "Australian equity markets",
+    ],
+    credentials: [
+      "Founder of Shorted.com.au — ASIC short-position data platform",
+      "Software engineer; builder of the Shorted data pipeline (2.1M+ ASIC records)",
+      "Independent — no broker relationships or paid coverage",
+    ],
+    sameAs: {
+      twitter: "https://x.com/shorted___",
+      github: "https://github.com/castlemilk",
+    },
+  },
   // ============================================================
   // PLACEHOLDER — replace this entry with your real author profile.
   // To remove the placeholder banner on the live page, set
@@ -61,7 +83,7 @@ export const AUTHORS: Author[] = [
       "Independent — no broker relationships or paid coverage",
     ],
     sameAs: {
-      twitter: "https://twitter.com/shorted",
+      twitter: "https://x.com/shorted___",
     },
   },
 ];

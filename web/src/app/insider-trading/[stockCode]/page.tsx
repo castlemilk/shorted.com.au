@@ -10,7 +10,8 @@ import {
 } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 import { getDirectorTrades } from "~/app/actions/getDirectorTrades";
-import { getStockOrNotFound } from "~/app/actions/getStock";
+import { getStock, getStockOrNotFound } from "~/app/actions/getStock";
+import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 import { cn } from "~/@/lib/utils";
 
 export const revalidate = 3600;
@@ -24,9 +25,30 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const code = stockCode.toUpperCase();
   const title = `${code} Director Trades & Insider Activity | ASX`;
   const description = `Director and insider trades for ${code} on the ASX, sourced from Appendix 3Y filings. Buy/sell/exercise history, share counts and disclosed prices.`;
+
+  // Inherit the stock page's indexability gate: a noindexed thin stock must
+  // not leak an indexable insider-trading subpage (fail open on fetch errors).
+  let shouldNoindex = false;
+  try {
+    const stock = await getStock(code);
+    if (stock) {
+      shouldNoindex = !isStockIndexable({
+        code,
+        name: stock.name,
+        industry: stock.industry,
+        percentShorted: stock.percentageShorted,
+      });
+    }
+  } catch {
+    // fail open — keep default robots
+  }
+
   return {
     title,
     description,
+    robots: shouldNoindex
+      ? { index: false, follow: true, googleBot: { index: false, follow: true } }
+      : undefined,
     keywords: [
       `${code} director trades`,
       `${code} insider trading`,

@@ -11,6 +11,7 @@ import {
   buildApiUrl,
   getServerShortsApiUrl,
   serverFetchWithUserAgent,
+  skipForBuild,
 } from "./actions/config";
 import {
   getAvailableWeekSlugs,
@@ -19,7 +20,18 @@ import {
 } from "./actions/reports/getReportData";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
 
-// Educational articles for sitemap
+// Regenerate the sitemap hourly at runtime. Without this the sitemap is
+// frozen at build output — and because SKIP_STATIC_GENERATION=1 is set
+// project-wide on Vercel, the build-time sitemap only ever contained the
+// 20-stock fallback list (GSC "discovered - not indexed" regression,
+// July 2026). Runtime regeneration + the build-phase-only skip below
+// restore the full ~800-stock coverage.
+export const revalidate = 3600;
+
+// Educational articles for sitemap. Must cover every slug in articlesData
+// (web/src/app/learn/[slug]/page.tsx) — three real pages had silently drifted
+// out of this list (asic-short-selling-regulations, how-to-view-asic-short-
+// positions, covered-short-selling-australia).
 const learnArticles = [
   "what-is-short-selling",
   "understanding-t4-delay",
@@ -32,6 +44,10 @@ const learnArticles = [
   "securities-lending-explained",
   "short-selling-vs-put-options",
   "reading-short-interest-changes",
+  "asic-short-selling-regulations",
+  "how-to-view-asic-short-positions",
+  "covered-short-selling-australia",
+  "how-to-short-the-asx",
 ];
 
 // API URL for sitemap generation during builds
@@ -69,7 +85,7 @@ const FALLBACK_STOCK_CODES = [
  * Falls back to popular stock codes if API is unavailable.
  */
 async function getAllStockCodes(): Promise<string[]> {
-  if (process.env.SKIP_STATIC_GENERATION === "1") {
+  if (skipForBuild()) {
     return FALLBACK_STOCK_CODES;
   }
 
@@ -145,7 +161,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // pages whose content changes with the daily sync use the actual data
   // date, and static marketing pages omit lastModified entirely.
   let marketDates: string[] = [];
-  if (process.env.SKIP_STATIC_GENERATION !== "1") {
+  if (!skipForBuild()) {
     try {
       const transport = createConnectTransport({
         fetch: serverFetchWithUserAgent,

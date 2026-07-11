@@ -182,27 +182,22 @@ export const getMonthlyReportData = cache(
   }, LIGHT_RETRY),
 );
 
-// Generate available week slugs (last 52 weeks, excluding the current and most recent week)
-// Reports are generated after the week ends with a processing delay, so we skip 2 weeks
+// Generate available week slugs (last 52 weeks, excluding the current in-progress week)
+// Reports are generated on the Friday of the same week, so last week's report already
+// exists — only the current week may still be missing one.
 export async function getAvailableWeekSlugs(): Promise<string[]> {
   const slugs: string[] = [];
   const now = new Date();
   const currentWeek = getISOWeek(now);
   const currentSlug = `${currentWeek.year}-W${String(currentWeek.week).padStart(2, "0")}`;
 
-  // Also compute last week's slug (may not have report generated yet)
-  const lastWeekDate = new Date(now);
-  lastWeekDate.setDate(lastWeekDate.getDate() - 7);
-  const lastWeek = getISOWeek(lastWeekDate);
-  const lastWeekSlug = `${lastWeek.year}-W${String(lastWeek.week).padStart(2, "0")}`;
-
   for (let i = 0; i < 52; i++) {
     const date = new Date(now);
     date.setDate(date.getDate() - i * 7);
     const { year, week } = getISOWeek(date);
     const slug = `${year}-W${String(week).padStart(2, "0")}`;
-    // Skip current week and last week (report likely not generated yet), and duplicates
-    if (slug !== currentSlug && slug !== lastWeekSlug && !slugs.includes(slug)) {
+    // Skip the current week (report generated Friday, may not exist yet) and duplicates
+    if (slug !== currentSlug && !slugs.includes(slug)) {
       slugs.push(slug);
     }
   }

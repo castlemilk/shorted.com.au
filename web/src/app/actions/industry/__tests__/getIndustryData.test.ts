@@ -18,6 +18,10 @@ jest.mock("../../config", () => ({
   SHORTS_API_URL: "https://api.shorted.com.au",
   serverFetchWithUserAgent: (...args: unknown[]) =>
     mockServerFetchWithUserAgent(...args),
+  // Mirror the real build-phase-only guard from actions/config.ts
+  skipForBuild: () =>
+    process.env.SKIP_STATIC_GENERATION === "1" &&
+    process.env.NEXT_PHASE === "phase-production-build",
 }));
 
 import { getIndustryData, getIndustryStocks } from "../getIndustryData";

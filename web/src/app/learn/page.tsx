@@ -15,7 +15,7 @@ import { BreadcrumbListSchema } from "~/@/components/seo/enhanced-structured-dat
 import { LLMMeta } from "~/@/components/seo/llm-meta";
 
 export const metadata: Metadata = {
-  title: "Learn Short Selling | Educational Guides & Tutorials",
+  title: "Learn Short Selling on the ASX — Free Guides",
   description:
     "Free educational guides on ASX short selling. Learn about ASIC reporting, T+4 delay, short squeezes, and how to read short interest data. Beginner to advanced tutorials.",
   keywords: [
@@ -64,6 +64,15 @@ const breadcrumbs = [
 
 // Educational articles
 const articles = [
+  {
+    slug: "how-to-short-the-asx",
+    title: "How to Short the ASX — Shorting Australian Stocks",
+    description:
+      "The complete guide to shorting the ASX: direct share borrowing, CFDs, put and XJO index options, and inverse ETFs like BEAR and BBOZ. Compare costs and risks, understand the legal requirements, and run the pre-trade checklist before shorting Australian stocks.",
+    readTime: "16 min read",
+    level: "Beginner",
+    topics: ["Shorting the ASX", "CFDs", "Options", "Inverse ETFs"],
+  },
   {
     slug: "what-is-short-selling",
     title: "What is Short Selling on the ASX?",
