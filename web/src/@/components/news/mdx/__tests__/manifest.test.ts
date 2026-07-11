@@ -36,7 +36,8 @@ test("MultiSeriesChart schema validates dataset", () => {
 
 test("BarChart schema validates dataset", () => {
   const s = MDX_COMPONENT_SCHEMAS.BarChart;
-  expect(s.safeParse({ dataset: "hormuz-oil-dependency" }).success).toBe(true);
+  expect(s.safeParse({ dataset: "hormuz-lng-dependence" }).success).toBe(true);
+  expect(s.safeParse({ dataset: "hormuz-reopening-odds" }).success).toBe(true);
   expect(s.safeParse({ dataset: "hormuz-gdp-revision" }).success).toBe(true);
   expect(s.safeParse({ dataset: "unknown" }).success).toBe(false);
 });
