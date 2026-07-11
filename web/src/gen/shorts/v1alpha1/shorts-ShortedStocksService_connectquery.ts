@@ -174,6 +174,13 @@ export const listAlertMonitors = ShortedStocksService.method.listAlertMonitors;
 export const getWeeklyReport = ShortedStocksService.method.getWeeklyReport;
 
 /**
+ * List published short selling reports (weekly, monthly, yearly)
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListReports
+ */
+export const listReports = ShortedStocksService.method.listReports;
+
+/**
  * Get extracted financial highlights for specific stocks
  *
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetStockFinancialHighlights

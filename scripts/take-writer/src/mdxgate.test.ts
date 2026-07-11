@@ -58,6 +58,24 @@ describe("validateMdx", () => {
     expect(r2.ok).toBe(true);
   });
 
+  it("accepts MultiSeriesChart, BarChart, FlowChart with valid datasets", async () => {
+    const r1 = await validateMdx(`<MultiSeriesChart dataset="hormuz-benchmarks" />`, OPTS);
+    expect(r1.ok).toBe(true);
+    const r2 = await validateMdx(`<BarChart dataset="hormuz-oil-dependency" />`, OPTS);
+    expect(r2.ok).toBe(true);
+    const r3 = await validateMdx(`<FlowChart dataset="hormuz-oil-flows" />`, OPTS);
+    expect(r3.ok).toBe(true);
+  });
+
+  it("rejects chart components with invalid datasets", async () => {
+    const r1 = await validateMdx(`<MultiSeriesChart dataset="unknown" />`, OPTS);
+    expect(r1.ok).toBe(false);
+    const r2 = await validateMdx(`<BarChart dataset="unknown" />`, OPTS);
+    expect(r2.ok).toBe(false);
+    const r3 = await validateMdx(`<FlowChart dataset="unknown" />`, OPTS);
+    expect(r3.ok).toBe(false);
+  });
+
   it("rejects BankShortBasket with an unknown code, window, or mode", async () => {
     const bad = await validateMdx(`<BankShortBasket banks="BHP,XYZ" />`, OPTS);
     expect(bad.ok).toBe(false);

@@ -43,6 +43,7 @@ private static final long serialVersionUID = 0L;
     faqs_ = java.util.Collections.emptyList();
     citations_ = java.util.Collections.emptyList();
     trendInsights_ = java.util.Collections.emptyList();
+    industryBreakdown_ = java.util.Collections.emptyList();
   }
 
   public static final com.google.protobuf.Descriptors.Descriptor
@@ -584,6 +585,47 @@ private static final long serialVersionUID = 0L;
     return trendInsights_.get(index);
   }
 
+  public static final int INDUSTRY_BREAKDOWN_FIELD_NUMBER = 15;
+  @SuppressWarnings("serial")
+  private java.util.List<com.shorts.v1alpha1.WeeklyIndustryStat> industryBreakdown_;
+  /**
+   * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<com.shorts.v1alpha1.WeeklyIndustryStat> getIndustryBreakdownList() {
+    return industryBreakdown_;
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+   */
+  @java.lang.Override
+  public java.util.List<? extends com.shorts.v1alpha1.WeeklyIndustryStatOrBuilder> 
+      getIndustryBreakdownOrBuilderList() {
+    return industryBreakdown_;
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+   */
+  @java.lang.Override
+  public int getIndustryBreakdownCount() {
+    return industryBreakdown_.size();
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.WeeklyIndustryStat getIndustryBreakdown(int index) {
+    return industryBreakdown_.get(index);
+  }
+  /**
+   * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+   */
+  @java.lang.Override
+  public com.shorts.v1alpha1.WeeklyIndustryStatOrBuilder getIndustryBreakdownOrBuilder(
+      int index) {
+    return industryBreakdown_.get(index);
+  }
+
   private byte memoizedIsInitialized = -1;
   @java.lang.Override
   public final boolean isInitialized() {
@@ -639,6 +681,9 @@ private static final long serialVersionUID = 0L;
     }
     for (int i = 0; i < trendInsights_.size(); i++) {
       output.writeMessage(14, trendInsights_.get(i));
+    }
+    for (int i = 0; i < industryBreakdown_.size(); i++) {
+      output.writeMessage(15, industryBreakdown_.get(i));
     }
     getUnknownFields().writeTo(output);
   }
@@ -725,6 +770,15 @@ private static final long serialVersionUID = 0L;
           }
           size += 1 * count;
         }
+
+        {
+          final int count = industryBreakdown_.size();
+          for (int i = 0; i < count; i++) {
+            size += com.google.protobuf.CodedOutputStream
+              .computeMessageSizeNoTag(industryBreakdown_.get(i));
+          }
+          size += 1 * count;
+        }
     return size;
   }
   @java.lang.Override
@@ -784,6 +838,8 @@ private static final long serialVersionUID = 0L;
         .equals(other.getCitationsList())) return false;
     if (!getTrendInsightsList()
         .equals(other.getTrendInsightsList())) return false;
+    if (!getIndustryBreakdownList()
+        .equals(other.getIndustryBreakdownList())) return false;
     if (!getUnknownFields().equals(other.getUnknownFields())) return false;
     return true;
   }
@@ -839,6 +895,10 @@ private static final long serialVersionUID = 0L;
     if (getTrendInsightsCount() > 0) {
       hash = (37 * hash) + TREND_INSIGHTS_FIELD_NUMBER;
       hash = (53 * hash) + getTrendInsightsList().hashCode();
+    }
+    if (getIndustryBreakdownCount() > 0) {
+      hash = (37 * hash) + INDUSTRY_BREAKDOWN_FIELD_NUMBER;
+      hash = (53 * hash) + getIndustryBreakdownList().hashCode();
     }
     hash = (29 * hash) + getUnknownFields().hashCode();
     memoizedHashCode = hash;
@@ -982,6 +1042,7 @@ private static final long serialVersionUID = 0L;
         internalGetMarketStatsFieldBuilder();
         internalGetCitationsFieldBuilder();
         internalGetTrendInsightsFieldBuilder();
+        internalGetIndustryBreakdownFieldBuilder();
       }
     }
     @java.lang.Override
@@ -1046,6 +1107,13 @@ private static final long serialVersionUID = 0L;
         trendInsightsBuilder_.clear();
       }
       bitField0_ = (bitField0_ & ~0x00002000);
+      if (industryBreakdownBuilder_ == null) {
+        industryBreakdown_ = java.util.Collections.emptyList();
+      } else {
+        industryBreakdown_ = null;
+        industryBreakdownBuilder_.clear();
+      }
+      bitField0_ = (bitField0_ & ~0x00004000);
       return this;
     }
 
@@ -1132,6 +1200,15 @@ private static final long serialVersionUID = 0L;
         result.trendInsights_ = trendInsights_;
       } else {
         result.trendInsights_ = trendInsightsBuilder_.build();
+      }
+      if (industryBreakdownBuilder_ == null) {
+        if (((bitField0_ & 0x00004000) != 0)) {
+          industryBreakdown_ = java.util.Collections.unmodifiableList(industryBreakdown_);
+          bitField0_ = (bitField0_ & ~0x00004000);
+        }
+        result.industryBreakdown_ = industryBreakdown_;
+      } else {
+        result.industryBreakdown_ = industryBreakdownBuilder_.build();
       }
     }
 
@@ -1373,6 +1450,32 @@ private static final long serialVersionUID = 0L;
           }
         }
       }
+      if (industryBreakdownBuilder_ == null) {
+        if (!other.industryBreakdown_.isEmpty()) {
+          if (industryBreakdown_.isEmpty()) {
+            industryBreakdown_ = other.industryBreakdown_;
+            bitField0_ = (bitField0_ & ~0x00004000);
+          } else {
+            ensureIndustryBreakdownIsMutable();
+            industryBreakdown_.addAll(other.industryBreakdown_);
+          }
+          onChanged();
+        }
+      } else {
+        if (!other.industryBreakdown_.isEmpty()) {
+          if (industryBreakdownBuilder_.isEmpty()) {
+            industryBreakdownBuilder_.dispose();
+            industryBreakdownBuilder_ = null;
+            industryBreakdown_ = other.industryBreakdown_;
+            bitField0_ = (bitField0_ & ~0x00004000);
+            industryBreakdownBuilder_ = 
+              com.google.protobuf.GeneratedMessage.alwaysUseFieldBuilders ?
+                 internalGetIndustryBreakdownFieldBuilder() : null;
+          } else {
+            industryBreakdownBuilder_.addAllMessages(other.industryBreakdown_);
+          }
+        }
+      }
       this.mergeUnknownFields(other.getUnknownFields());
       onChanged();
       return this;
@@ -1521,6 +1624,19 @@ private static final long serialVersionUID = 0L;
               }
               break;
             } // case 114
+            case 122: {
+              com.shorts.v1alpha1.WeeklyIndustryStat m =
+                  input.readMessage(
+                      com.shorts.v1alpha1.WeeklyIndustryStat.parser(),
+                      extensionRegistry);
+              if (industryBreakdownBuilder_ == null) {
+                ensureIndustryBreakdownIsMutable();
+                industryBreakdown_.add(m);
+              } else {
+                industryBreakdownBuilder_.addMessage(m);
+              }
+              break;
+            } // case 122
             default: {
               if (!super.parseUnknownField(input, extensionRegistry, tag)) {
                 done = true; // was an endgroup tag
@@ -3650,6 +3766,246 @@ private static final long serialVersionUID = 0L;
         trendInsights_ = null;
       }
       return trendInsightsBuilder_;
+    }
+
+    private java.util.List<com.shorts.v1alpha1.WeeklyIndustryStat> industryBreakdown_ =
+      java.util.Collections.emptyList();
+    private void ensureIndustryBreakdownIsMutable() {
+      if (!((bitField0_ & 0x00004000) != 0)) {
+        industryBreakdown_ = new java.util.ArrayList<com.shorts.v1alpha1.WeeklyIndustryStat>(industryBreakdown_);
+        bitField0_ |= 0x00004000;
+       }
+    }
+
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.WeeklyIndustryStat, com.shorts.v1alpha1.WeeklyIndustryStat.Builder, com.shorts.v1alpha1.WeeklyIndustryStatOrBuilder> industryBreakdownBuilder_;
+
+    /**
+     * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.WeeklyIndustryStat> getIndustryBreakdownList() {
+      if (industryBreakdownBuilder_ == null) {
+        return java.util.Collections.unmodifiableList(industryBreakdown_);
+      } else {
+        return industryBreakdownBuilder_.getMessageList();
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+     */
+    public int getIndustryBreakdownCount() {
+      if (industryBreakdownBuilder_ == null) {
+        return industryBreakdown_.size();
+      } else {
+        return industryBreakdownBuilder_.getCount();
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+     */
+    public com.shorts.v1alpha1.WeeklyIndustryStat getIndustryBreakdown(int index) {
+      if (industryBreakdownBuilder_ == null) {
+        return industryBreakdown_.get(index);
+      } else {
+        return industryBreakdownBuilder_.getMessage(index);
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+     */
+    public Builder setIndustryBreakdown(
+        int index, com.shorts.v1alpha1.WeeklyIndustryStat value) {
+      if (industryBreakdownBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureIndustryBreakdownIsMutable();
+        industryBreakdown_.set(index, value);
+        onChanged();
+      } else {
+        industryBreakdownBuilder_.setMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+     */
+    public Builder setIndustryBreakdown(
+        int index, com.shorts.v1alpha1.WeeklyIndustryStat.Builder builderForValue) {
+      if (industryBreakdownBuilder_ == null) {
+        ensureIndustryBreakdownIsMutable();
+        industryBreakdown_.set(index, builderForValue.build());
+        onChanged();
+      } else {
+        industryBreakdownBuilder_.setMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+     */
+    public Builder addIndustryBreakdown(com.shorts.v1alpha1.WeeklyIndustryStat value) {
+      if (industryBreakdownBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureIndustryBreakdownIsMutable();
+        industryBreakdown_.add(value);
+        onChanged();
+      } else {
+        industryBreakdownBuilder_.addMessage(value);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+     */
+    public Builder addIndustryBreakdown(
+        int index, com.shorts.v1alpha1.WeeklyIndustryStat value) {
+      if (industryBreakdownBuilder_ == null) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+        ensureIndustryBreakdownIsMutable();
+        industryBreakdown_.add(index, value);
+        onChanged();
+      } else {
+        industryBreakdownBuilder_.addMessage(index, value);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+     */
+    public Builder addIndustryBreakdown(
+        com.shorts.v1alpha1.WeeklyIndustryStat.Builder builderForValue) {
+      if (industryBreakdownBuilder_ == null) {
+        ensureIndustryBreakdownIsMutable();
+        industryBreakdown_.add(builderForValue.build());
+        onChanged();
+      } else {
+        industryBreakdownBuilder_.addMessage(builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+     */
+    public Builder addIndustryBreakdown(
+        int index, com.shorts.v1alpha1.WeeklyIndustryStat.Builder builderForValue) {
+      if (industryBreakdownBuilder_ == null) {
+        ensureIndustryBreakdownIsMutable();
+        industryBreakdown_.add(index, builderForValue.build());
+        onChanged();
+      } else {
+        industryBreakdownBuilder_.addMessage(index, builderForValue.build());
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+     */
+    public Builder addAllIndustryBreakdown(
+        java.lang.Iterable<? extends com.shorts.v1alpha1.WeeklyIndustryStat> values) {
+      if (industryBreakdownBuilder_ == null) {
+        ensureIndustryBreakdownIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, industryBreakdown_);
+        onChanged();
+      } else {
+        industryBreakdownBuilder_.addAllMessages(values);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+     */
+    public Builder clearIndustryBreakdown() {
+      if (industryBreakdownBuilder_ == null) {
+        industryBreakdown_ = java.util.Collections.emptyList();
+        bitField0_ = (bitField0_ & ~0x00004000);
+        onChanged();
+      } else {
+        industryBreakdownBuilder_.clear();
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+     */
+    public Builder removeIndustryBreakdown(int index) {
+      if (industryBreakdownBuilder_ == null) {
+        ensureIndustryBreakdownIsMutable();
+        industryBreakdown_.remove(index);
+        onChanged();
+      } else {
+        industryBreakdownBuilder_.remove(index);
+      }
+      return this;
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+     */
+    public com.shorts.v1alpha1.WeeklyIndustryStat.Builder getIndustryBreakdownBuilder(
+        int index) {
+      return internalGetIndustryBreakdownFieldBuilder().getBuilder(index);
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+     */
+    public com.shorts.v1alpha1.WeeklyIndustryStatOrBuilder getIndustryBreakdownOrBuilder(
+        int index) {
+      if (industryBreakdownBuilder_ == null) {
+        return industryBreakdown_.get(index);  } else {
+        return industryBreakdownBuilder_.getMessageOrBuilder(index);
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+     */
+    public java.util.List<? extends com.shorts.v1alpha1.WeeklyIndustryStatOrBuilder> 
+         getIndustryBreakdownOrBuilderList() {
+      if (industryBreakdownBuilder_ != null) {
+        return industryBreakdownBuilder_.getMessageOrBuilderList();
+      } else {
+        return java.util.Collections.unmodifiableList(industryBreakdown_);
+      }
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+     */
+    public com.shorts.v1alpha1.WeeklyIndustryStat.Builder addIndustryBreakdownBuilder() {
+      return internalGetIndustryBreakdownFieldBuilder().addBuilder(
+          com.shorts.v1alpha1.WeeklyIndustryStat.getDefaultInstance());
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+     */
+    public com.shorts.v1alpha1.WeeklyIndustryStat.Builder addIndustryBreakdownBuilder(
+        int index) {
+      return internalGetIndustryBreakdownFieldBuilder().addBuilder(
+          index, com.shorts.v1alpha1.WeeklyIndustryStat.getDefaultInstance());
+    }
+    /**
+     * <code>repeated .shorts.v1alpha1.WeeklyIndustryStat industry_breakdown = 15 [json_name = "industryBreakdown"];</code>
+     */
+    public java.util.List<com.shorts.v1alpha1.WeeklyIndustryStat.Builder> 
+         getIndustryBreakdownBuilderList() {
+      return internalGetIndustryBreakdownFieldBuilder().getBuilderList();
+    }
+    private com.google.protobuf.RepeatedFieldBuilder<
+        com.shorts.v1alpha1.WeeklyIndustryStat, com.shorts.v1alpha1.WeeklyIndustryStat.Builder, com.shorts.v1alpha1.WeeklyIndustryStatOrBuilder> 
+        internalGetIndustryBreakdownFieldBuilder() {
+      if (industryBreakdownBuilder_ == null) {
+        industryBreakdownBuilder_ = new com.google.protobuf.RepeatedFieldBuilder<
+            com.shorts.v1alpha1.WeeklyIndustryStat, com.shorts.v1alpha1.WeeklyIndustryStat.Builder, com.shorts.v1alpha1.WeeklyIndustryStatOrBuilder>(
+                industryBreakdown_,
+                ((bitField0_ & 0x00004000) != 0),
+                getParentForChildren(),
+                isClean());
+        industryBreakdown_ = null;
+      }
+      return industryBreakdownBuilder_;
     }
 
     // @@protoc_insertion_point(builder_scope:shorts.v1alpha1.GetWeeklyReportResponse)

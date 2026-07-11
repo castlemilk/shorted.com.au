@@ -213,6 +213,59 @@ export interface ReportCitation {
   type: string; // "financial_report", "announcement", "asic_data", "price_data"
 }
 
+// A stock row in the enhanced report top-shorted list.
+// New snapshot fields (daysToCover, isNewEntrant, industry, history, logoUrl)
+// are zero/empty for reports generated before the snapshot was extended —
+// consumers must degrade gracefully.
+export interface EnhancedReportStock {
+  rank: number;
+  code: string;
+  name: string;
+  shortPct: number;
+  wowChange: number;
+  /** Reported short shares / 20-day average volume (0 = unknown) */
+  daysToCover: number;
+  /** New to the top list this period */
+  isNewEntrant: boolean;
+  industry: string;
+  /** Weekly short % history, oldest first (~13 points; empty on old reports) */
+  history: number[];
+  /** Company logo icon URL (hydrated at read time; "" when unknown) */
+  logoUrl: string;
+}
+
+// A riser/faller in the enhanced report
+export interface EnhancedReportMover {
+  code: string;
+  name: string;
+  currentPct: number;
+  previousPct: number;
+  change: number;
+  /** Reported short shares / 20-day average volume (0 = unknown) */
+  daysToCover: number;
+  /** How unusual this move is vs the stock's own weekly-change history (0 = unknown) */
+  zScore: number;
+  /** Consecutive weeks moving in the same direction (0 = unknown) */
+  streakWeeks: number;
+  industry: string;
+  /** Weekly short % history, oldest first (~13 points; empty on old reports) */
+  history: number[];
+  /** Company logo icon URL (hydrated at read time; "" when unknown) */
+  logoUrl: string;
+  /** Composite significance score used for ranking movers */
+  significance: number;
+}
+
+// Aggregate short interest by industry for the report period
+export interface ReportIndustryStat {
+  industry: string;
+  avgShortPct: number;
+  wowChange: number;
+  stockCount: number;
+  topStockCode: string;
+  topStockPct: number;
+}
+
 // Enhanced weekly report data including LLM narrative (from weekly_reports table)
 export interface EnhancedWeeklyReportNarrative {
   headline: string;
@@ -224,38 +277,31 @@ export interface EnhancedWeeklyReportNarrative {
     industryAnalysis: string;
     outlook: string;
   };
-  topShorted: Array<{
-    rank: number;
-    code: string;
-    name: string;
-    shortPct: number;
-    wowChange: number;
-  }>;
-  risers: Array<{
-    code: string;
-    name: string;
-    currentPct: number;
-    previousPct: number;
-    change: number;
-  }>;
-  fallers: Array<{
-    code: string;
-    name: string;
-    currentPct: number;
-    previousPct: number;
-    change: number;
-  }>;
+  topShorted: EnhancedReportStock[];
+  risers: EnhancedReportMover[];
+  fallers: EnhancedReportMover[];
   faqs: Array<{
     question: string;
     answer: string;
   }>;
   citations: ReportCitation[];
+  industryBreakdown: ReportIndustryStat[];
   marketStats?: {
     totalStocksShorted: number;
     avgShortPct: number;
     maxShortPct: number;
     maxShortCode: string;
     wowAvgChange: number;
+    /** 0 when absent (old reports) */
+    medianShortPct: number;
+    /** Count of stocks with short interest >= 10% (0 when absent) */
+    stocksAbove10Pct: number;
+    /** Count of stocks with short interest >= 5% (0 when absent) */
+    stocksAbove5Pct: number;
+    /** Market-wide count of stocks whose short % rose (0 when absent) */
+    riserCount: number;
+    /** Market-wide count of stocks whose short % fell (0 when absent) */
+    fallerCount: number;
   };
   qualityScore: number;
 }
@@ -317,21 +363,14 @@ async function fetchEnhancedReport(weekSlug: string): Promise<EnhancedWeeklyRepo
       name: s.name,
       shortPct: s.shortPct,
       wowChange: s.wowChange,
+      daysToCover: s.daysToCover ?? 0,
+      isNewEntrant: s.isNewEntrant ?? false,
+      industry: s.industry ?? "",
+      history: s.history ?? [],
+      logoUrl: s.logoUrl ?? "",
     })),
-    risers: resp.risers.map((m) => ({
-      code: m.code,
-      name: m.name,
-      currentPct: m.currentPct,
-      previousPct: m.previousPct,
-      change: m.change,
-    })),
-    fallers: resp.fallers.map((m) => ({
-      code: m.code,
-      name: m.name,
-      currentPct: m.currentPct,
-      previousPct: m.previousPct,
-      change: m.change,
-    })),
+    risers: resp.risers.map(mapMover),
+    fallers: resp.fallers.map(mapMover),
     faqs: resp.faqs.map((f) => ({
       question: f.question,
       answer: f.answer,
@@ -343,6 +382,14 @@ async function fetchEnhancedReport(weekSlug: string): Promise<EnhancedWeeklyRepo
       url: c.url,
       type: c.type,
     })),
+    industryBreakdown: (resp.industryBreakdown ?? []).map((i) => ({
+      industry: i.industry,
+      avgShortPct: i.avgShortPct,
+      wowChange: i.wowChange,
+      stockCount: i.stockCount,
+      topStockCode: i.topStockCode,
+      topStockPct: i.topStockPct,
+    })),
     marketStats: resp.marketStats
       ? {
           totalStocksShorted: resp.marketStats.totalStocksShorted,
@@ -350,9 +397,46 @@ async function fetchEnhancedReport(weekSlug: string): Promise<EnhancedWeeklyRepo
           maxShortPct: resp.marketStats.maxShortPct,
           maxShortCode: resp.marketStats.maxShortCode,
           wowAvgChange: resp.marketStats.wowAvgChange,
+          medianShortPct: resp.marketStats.medianShortPct ?? 0,
+          stocksAbove10Pct: resp.marketStats.stocksAbove10pct ?? 0,
+          stocksAbove5Pct: resp.marketStats.stocksAbove5pct ?? 0,
+          riserCount: resp.marketStats.riserCount ?? 0,
+          fallerCount: resp.marketStats.fallerCount ?? 0,
         }
       : undefined,
     qualityScore: resp.qualityScore,
+  };
+}
+
+// Maps a generated proto mover to the plain narrative shape, defaulting the
+// snapshot fields that old reports lack.
+function mapMover(m: {
+  code: string;
+  name: string;
+  currentPct: number;
+  previousPct: number;
+  change: number;
+  daysToCover?: number;
+  zScore?: number;
+  streakWeeks?: number;
+  industry?: string;
+  history?: number[];
+  logoUrl?: string;
+  significance?: number;
+}): EnhancedReportMover {
+  return {
+    code: m.code,
+    name: m.name,
+    currentPct: m.currentPct,
+    previousPct: m.previousPct,
+    change: m.change,
+    daysToCover: m.daysToCover ?? 0,
+    zScore: m.zScore ?? 0,
+    streakWeeks: m.streakWeeks ?? 0,
+    industry: m.industry ?? "",
+    history: m.history ?? [],
+    logoUrl: m.logoUrl ?? "",
+    significance: m.significance ?? 0,
   };
 }
 
@@ -450,6 +534,67 @@ export const getStockFinancialHighlights = cache(
     )();
   },
 );
+
+// Summary of a published report for archive/index pages
+export interface ReportListEntry {
+  slug: string; // "2026-W06", "2026-01", or "2025"
+  reportType: string; // "weekly", "monthly", "yearly"
+  headline: string;
+  summary: string;
+  reportDate: string; // YYYY-MM-DD of latest trading day in the period
+  maxShortPct: number;
+  maxShortCode: string;
+  totalStocksShorted: number;
+  qualityScore: number;
+  /** Top shorted stock codes (up to 5) */
+  topCodes: string[];
+  /** Matching logo icon URLs (parallel to topCodes, "" when unknown) */
+  topLogoUrls: string[];
+}
+
+// Inner fetch for the published-reports archive
+async function fetchReportsList(
+  reportType: string,
+  limit: number,
+): Promise<ReportListEntry[]> {
+  return withSpan("report.fetch.list", { reportType, limit }, async () => {
+    const transport = getTransport();
+    const client = createClient(ShortedStocksService, transport);
+    const resp = await client.listReports({ reportType, limit });
+    return (resp.reports ?? []).map((r) => ({
+      slug: r.slug,
+      reportType: r.reportType,
+      headline: r.headline,
+      summary: r.summary,
+      reportDate: r.reportDate,
+      maxShortPct: r.maxShortPct,
+      maxShortCode: r.maxShortCode,
+      totalStocksShorted: r.totalStocksShorted,
+      qualityScore: r.qualityScore,
+      topCodes: r.topCodes ?? [],
+      topLogoUrls: r.topLogoUrls ?? [],
+    }));
+  });
+}
+
+// Fetch the published-reports archive — persistently cached across requests (1h).
+// Gracefully degrades to an empty array on any error so the /reports index can
+// fall back to its slug-generated card grid rather than 500ing.
+export async function getReportsList(
+  reportType = "",
+  limit = 24,
+): Promise<ReportListEntry[]> {
+  try {
+    return await unstable_cache(
+      () => fetchReportsList(reportType, limit),
+      [`reports-list-${reportType || "all"}-${limit}`],
+      { tags: ["reports-index"], revalidate: 3600 },
+    )();
+  } catch (err) {
+    console.error(`[getReportsList] Failed for type=${reportType}:`, err);
+    return [];
+  }
+}
 
 // Generate available year slugs (last 5 completed years, excluding the current year)
 export async function getAvailableYearSlugs(): Promise<string[]> {

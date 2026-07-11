@@ -2,16 +2,11 @@ import { type Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
-  FileText,
-  ChevronRight,
   TrendingDown,
   TrendingUp,
   BarChart3,
-  Building2,
   ArrowLeft,
   Calendar,
-  Percent,
-  ArrowUpDown,
 } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
@@ -22,11 +17,13 @@ import {
   DatasetStructuredData,
 } from "~/@/components/seo/enhanced-structured-data";
 import { Breadcrumbs } from "~/@/components/seo/breadcrumbs";
-import { cn } from "~/@/lib/utils";
 import { MoversTable } from "~/@/components/reports/movers-table";
 import { WeekNavigation } from "~/@/components/reports/week-navigation";
 import { CitationFootnotes } from "~/@/components/reports/citation-renderer";
 import { LinkifiedNarrative } from "~/@/components/reports/linkified-narrative";
+import { StatTile } from "~/@/components/reports/stat-tile";
+import { TopStocksTable } from "~/@/components/reports/top-stocks-table";
+import { IndustryBreakdown } from "~/@/components/reports/industry-breakdown";
 import {
   getWeeklyReportData,
   getEnhancedWeeklyReportData,
@@ -190,6 +187,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
     name: s.name,
     shortPct: s.shortPercent,
     wowChange: 0,
+    industry: s.industry,
   }));
 
   const risers = enhanced?.risers ?? [];
@@ -197,6 +195,7 @@ export default async function WeeklyReportPage({ params }: PageProps) {
   const faqs = enhanced?.faqs ?? [];
   const citations = enhanced?.citations ?? [];
   const marketStats = enhanced?.marketStats;
+  const industryBreakdown = enhanced?.industryBreakdown ?? [];
 
   // Article schema for SEO (when narrative exists)
     // Citation markers ([ref-N]/[report-N]) from the grounding pipeline must
@@ -281,21 +280,17 @@ export default async function WeeklyReportPage({ params }: PageProps) {
 
         {/* Hero */}
         <section className="border-b border-border/40 pb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-3 bg-primary/10 rounded-lg">
-              <FileText className="h-8 w-8 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-                {hasNarrative ? enhanced.headline : "Weekly Short Selling Report"}
-              </h1>
-              <p className="text-lg text-muted-foreground mt-1">
-                {weekTitle} ({formatDate(data.startDate)} — {formatDate(data.endDate)})
-              </p>
-            </div>
-          </div>
+          <p className="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            Weekly Report · {weekTitle}
+          </p>
+          <h1 className="font-serif text-3xl font-semibold leading-[1.1] tracking-tight md:text-4xl">
+            {hasNarrative ? enhanced.headline : "Weekly Short Selling Report"}
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {formatDate(data.startDate)} — {formatDate(data.endDate)}
+          </p>
           {hasNarrative && enhanced.summary && (
-            <p className="text-base text-muted-foreground max-w-3xl leading-relaxed">
+            <p className="mt-4 max-w-prose font-serif text-lg leading-relaxed text-muted-foreground">
               {enhanced.summary}
             </p>
           )}
@@ -319,71 +314,68 @@ export default async function WeeklyReportPage({ params }: PageProps) {
         </section>
 
         {/* Stats */}
-        <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          <div className="rounded-lg border bg-gradient-to-br from-blue-500/20 to-blue-500/5 border-blue-500/30 p-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-              <Building2 className="h-4 w-4" />
-              <span>Stocks Shorted</span>
-            </div>
-            <div className="text-2xl font-bold tabular-nums text-blue-500">
-              {marketStats?.totalStocksShorted ?? data.totalStocksShorted}
-            </div>
-          </div>
-          <div className="rounded-lg border bg-gradient-to-br from-red-500/20 to-red-500/5 border-red-500/30 p-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-              <TrendingDown className="h-4 w-4" />
-              <span>Most Shorted</span>
-            </div>
-            <div className="text-2xl font-bold tabular-nums text-red-500">
-              {topStock ? `${topStock.shortPercent.toFixed(2)}%` : "—"}
-            </div>
-            {topStock && <div className="text-xs text-muted-foreground mt-1">{topStock.code}</div>}
-          </div>
-          <div className="rounded-lg border bg-gradient-to-br from-purple-500/20 to-purple-500/5 border-purple-500/30 p-4">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-              <BarChart3 className="h-4 w-4" />
-              <span>Trading Days</span>
-            </div>
-            <div className="text-2xl font-bold tabular-nums text-purple-500">{data.dates.length}</div>
-          </div>
-          {marketStats && (
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <StatTile
+            label="Stocks Shorted"
+            value={String(marketStats?.totalStocksShorted ?? data.totalStocksShorted)}
+          />
+          <StatTile
+            label="Most Shorted"
+            value={
+              marketStats
+                ? `${marketStats.maxShortPct.toFixed(2)}%`
+                : topStock
+                  ? `${topStock.shortPercent.toFixed(2)}%`
+                  : "—"
+            }
+            sub={marketStats?.maxShortCode ?? topStock?.code}
+          />
+          {marketStats ? (
             <>
-              <div className="rounded-lg border bg-gradient-to-br from-amber-500/20 to-amber-500/5 border-amber-500/30 p-4">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                  <Percent className="h-4 w-4" />
-                  <span>Avg Short %</span>
-                </div>
-                <div className="text-2xl font-bold tabular-nums text-amber-500">
-                  {marketStats.avgShortPct.toFixed(2)}%
-                </div>
-              </div>
-              <div className="rounded-lg border bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border-emerald-500/30 p-4">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                  <ArrowUpDown className="h-4 w-4" />
-                  <span>WoW Change</span>
-                </div>
-                <div className={cn(
-                  "text-2xl font-bold tabular-nums",
-                  marketStats.wowAvgChange > 0 ? "text-red-500" :
-                  marketStats.wowAvgChange < 0 ? "text-green-500" :
-                  "text-emerald-500"
-                )}>
-                  {marketStats.wowAvgChange > 0 ? "+" : ""}{marketStats.wowAvgChange.toFixed(2)}%
-                </div>
-              </div>
+              <StatTile
+                label="Avg Short %"
+                value={`${marketStats.avgShortPct.toFixed(2)}%`}
+                delta={marketStats.wowAvgChange}
+                deltaSuffix="%"
+                sub={
+                  marketStats.riserCount > 0 || marketStats.fallerCount > 0
+                    ? `${marketStats.riserCount} up · ${marketStats.fallerCount} down`
+                    : undefined
+                }
+              />
+              {marketStats.medianShortPct > 0 && (
+                <StatTile
+                  label="Median Short %"
+                  value={`${marketStats.medianShortPct.toFixed(2)}%`}
+                />
+              )}
+              {marketStats.stocksAbove10Pct > 0 && (
+                <StatTile
+                  label="Above 10% Short"
+                  value={String(marketStats.stocksAbove10Pct)}
+                  sub={
+                    marketStats.stocksAbove5Pct > 0
+                      ? `${marketStats.stocksAbove5Pct} above 5%`
+                      : undefined
+                  }
+                />
+              )}
             </>
-          )}
+          ) : null}
+          <StatTile label="Trading Days" value={String(data.dates.length)} />
         </section>
 
         {/* Opening Analysis (LLM narrative) */}
         {hasNarrative && enhanced.narrative.openingHook && (
-          <section className="rounded-lg border border-primary/20 bg-primary/5 p-6">
-            <h2 className="text-lg font-semibold mb-3">This Week&apos;s Analysis</h2>
-            <p className="text-foreground/90 leading-relaxed">
+          <section className="border-l-2 border-border pl-5 md:pl-6">
+            <h2 className="mb-3 font-serif text-2xl font-semibold tracking-tight">
+              This Week&apos;s Analysis
+            </h2>
+            <p className="max-w-prose text-[15px] leading-7 text-foreground/90">
               <LinkifiedNarrative text={enhanced.narrative.openingHook} citations={citations} validCodes={topCodes} />
             </p>
             {enhanced.narrative.topAnalysis && (
-              <p className="text-foreground/80 leading-relaxed mt-3">
+              <p className="mt-4 max-w-prose text-[15px] leading-7 text-foreground/80">
                 <LinkifiedNarrative text={enhanced.narrative.topAnalysis} citations={citations} validCodes={topCodes} />
               </p>
             )}
@@ -409,76 +401,16 @@ export default async function WeeklyReportPage({ params }: PageProps) {
           </section>
         )}
 
-        {/* Top Stocks Table (enhanced with WoW change) */}
+        {/* Top Stocks Table (enhanced with logos, trend, days-to-cover, WoW) */}
         <section>
           <h2 className="text-xl font-semibold mb-4">
             Top Shorted Stocks This Week
           </h2>
-          <div className="rounded-lg border border-border/60 overflow-hidden bg-card/50">
-            <div className={cn(
-              "gap-4 px-4 py-3 bg-muted/50 border-b border-border/60 text-xs font-medium text-muted-foreground uppercase tracking-wider",
-              enhanced ? "grid grid-cols-[60px_1fr_100px_90px_48px]" : "grid grid-cols-[60px_1fr_100px_48px]",
-            )}>
-              <div className="text-center">Rank</div>
-              <div>Stock</div>
-              <div className="text-right">Short %</div>
-              {enhanced && <div className="text-right">WoW</div>}
-              <div></div>
-            </div>
-            <div className="divide-y divide-border/40">
-              {displayTopStocks.slice(0, 20).map((stock, index) => (
-                <Link
-                  key={stock.code}
-                  href={`/shorts/${stock.code}`}
-                  prefetch={false}
-                  className={cn(
-                    "gap-4 px-4 py-3 items-center hover:bg-muted/50 transition-colors group",
-                    enhanced ? "grid grid-cols-[60px_1fr_100px_90px_48px]" : "grid grid-cols-[60px_1fr_100px_48px]",
-                  )}
-                >
-                  <div className="text-center">
-                    <span className={cn(
-                      "text-lg font-bold tabular-nums",
-                      index < 3 && "text-red-500",
-                      index >= 3 && index < 10 && "text-orange-500",
-                      index >= 10 && "text-foreground/70"
-                    )}>
-                      {stock.rank}
-                    </span>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-semibold group-hover:text-primary transition-colors">{stock.code}</div>
-                    <div className="text-xs text-muted-foreground truncate">{stock.name}</div>
-                  </div>
-                  <div className="text-right">
-                    <span className={cn(
-                      "inline-block px-2 py-1 rounded text-sm font-semibold tabular-nums border",
-                      stock.shortPct >= 10 ? "bg-red-600 text-white border-red-700" :
-                      stock.shortPct >= 5 ? "bg-yellow-500 text-black border-yellow-600" :
-                      "bg-muted text-foreground border-border"
-                    )}>
-                      {stock.shortPct.toFixed(2)}%
-                    </span>
-                  </div>
-                  {enhanced && (
-                    <div className="text-right">
-                      <span className={cn(
-                        "text-sm font-medium tabular-nums",
-                        stock.wowChange > 0 && "text-red-500",
-                        stock.wowChange < 0 && "text-green-500",
-                        stock.wowChange === 0 && "text-muted-foreground",
-                      )}>
-                        {stock.wowChange > 0 ? "+" : ""}{stock.wowChange.toFixed(2)}%
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-end">
-                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
+          <TopStocksTable
+            stocks={displayTopStocks.slice(0, 20)}
+            changeLabel="WoW"
+            showChange={!!enhanced}
+          />
         </section>
 
         {/* Financial Snapshot */}
@@ -496,7 +428,10 @@ export default async function WeeklyReportPage({ params }: PageProps) {
                 const reports = financialHighlights[stock.code]!;
                 const report = reports[0]!;
                 const keyMetrics = report.metrics.filter((m) =>
-                  ["revenue", "net_profit", "npat", "eps", "ebitda", "dividend"].includes(m.metricType)
+                  ["revenue", "net_profit", "npat", "eps", "ebitda", "dividend"].includes(m.metricType) &&
+                  // Extractions can store empty placeholder metrics ({source_text: ""}) —
+                  // skip anything with no renderable value.
+                  (Boolean(m.attributes.value_millions) || Boolean(m.attributes.value_cents) || Boolean(m.attributes.value) || m.sourceText.trim() !== "")
                 ).slice(0, 4);
                 if (keyMetrics.length === 0) return null;
                 return (
@@ -568,27 +503,39 @@ export default async function WeeklyReportPage({ params }: PageProps) {
 
         {/* Movers Analysis (LLM narrative) */}
         {hasNarrative && enhanced.narrative.moversAnalysis && (
-          <section className="rounded-lg border border-border/40 bg-card/50 p-6">
-            <h2 className="text-lg font-semibold mb-3">Movers Analysis</h2>
-            <p className="text-foreground/80 leading-relaxed">
+          <section className="border-l-2 border-border pl-5 md:pl-6">
+            <h2 className="mb-3 font-serif text-2xl font-semibold tracking-tight">
+              Movers Analysis
+            </h2>
+            <p className="max-w-prose text-[15px] leading-7 text-foreground/80">
               <LinkifiedNarrative text={enhanced.narrative.moversAnalysis} citations={citations} validCodes={topCodes} />
             </p>
-            {enhanced.narrative.industryAnalysis && (
-              <>
-                <h3 className="text-base font-semibold mt-4 mb-2">Industry Trends</h3>
-                <p className="text-foreground/80 leading-relaxed">
-                  <LinkifiedNarrative text={enhanced.narrative.industryAnalysis} citations={citations} validCodes={topCodes} />
-                </p>
-              </>
+          </section>
+        )}
+
+        {/* Industry Positioning — data first, then LLM commentary */}
+        {(industryBreakdown.length > 0 ||
+          (hasNarrative && enhanced.narrative.industryAnalysis)) && (
+          <section>
+            <h2 className="text-xl font-semibold mb-4">Industry Positioning</h2>
+            {industryBreakdown.length > 0 && (
+              <IndustryBreakdown industries={industryBreakdown} changeLabel="WoW" />
+            )}
+            {hasNarrative && enhanced.narrative.industryAnalysis && (
+              <p className="mt-4 max-w-prose text-[15px] leading-7 text-foreground/80">
+                <LinkifiedNarrative text={enhanced.narrative.industryAnalysis} citations={citations} validCodes={topCodes} />
+              </p>
             )}
           </section>
         )}
 
         {/* Outlook (LLM narrative) */}
         {hasNarrative && enhanced.narrative.outlook && (
-          <section className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-6">
-            <h2 className="text-lg font-semibold mb-3">Outlook</h2>
-            <p className="text-foreground/80 leading-relaxed">
+          <section className="border-t border-border/40 pt-6">
+            <h2 className="mb-3 font-serif text-2xl font-semibold tracking-tight">
+              Outlook
+            </h2>
+            <p className="max-w-prose text-[15px] leading-7 text-foreground/80">
               <LinkifiedNarrative text={enhanced.narrative.outlook} citations={citations} validCodes={topCodes} />
             </p>
           </section>

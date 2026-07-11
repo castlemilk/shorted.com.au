@@ -79,4 +79,24 @@ public interface PeerStockOrBuilder extends
    * @return The priceChange1m.
    */
   double getPriceChange1M();
+
+  /**
+   * <pre>
+   * Company logo URL (GCS-hosted, may be empty)
+   * </pre>
+   *
+   * <code>string logo_url = 9 [json_name = "logoUrl"];</code>
+   * @return The logoUrl.
+   */
+  java.lang.String getLogoUrl();
+  /**
+   * <pre>
+   * Company logo URL (GCS-hosted, may be empty)
+   * </pre>
+   *
+   * <code>string logo_url = 9 [json_name = "logoUrl"];</code>
+   * @return The bytes for logoUrl.
+   */
+  com.google.protobuf.ByteString
+      getLogoUrlBytes();
 }

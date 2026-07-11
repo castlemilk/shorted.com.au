@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -35,21 +34,22 @@ type Announcement struct {
 
 // ReportData holds all collected data for a report (weekly, monthly, or yearly)
 type ReportData struct {
-	WeekSlug        string
-	ReportDate      string // Latest trading day in the period (YYYY-MM-DD)
-	PreviousDate    string // Latest trading day in the comparison period (YYYY-MM-DD)
-	TopShorted      []TopStock
-	Risers          []Mover
-	Fallers         []Mover
-	MarketStats     MarketStats
-	ReportType      string // "weekly", "monthly", "yearly"
-	ExtraContext    string // Optional extra context (e.g., quarterly snapshots for yearly)
-	CompanyContext       map[string]CompanyMeta             // stock_code → metadata for LLM context
-	FinancialRefs       map[string][]FinancialReportRef    // stock_code → financial report links
-	FinancialHighlights map[string][]FinancialHighlight    // stock_code → extracted financial metrics
-	PriceContext         map[string]StockPriceContext       // stock_code → price data
-	Announcements        map[string][]Announcement          // stock_code → recent announcements
-	TrendInsights        map[string]TrendInsight            // stock_code → trend insight
+	WeekSlug            string
+	ReportDate          string // Latest trading day in the period (YYYY-MM-DD)
+	PreviousDate        string // Latest trading day in the comparison period (YYYY-MM-DD)
+	TopShorted          []TopStock
+	Risers              []Mover
+	Fallers             []Mover
+	MarketStats         MarketStats
+	IndustryBreakdown   []IndustryStat                  // Aggregate short interest by industry (top 12 by avg short %)
+	ReportType          string                          // "weekly", "monthly", "yearly"
+	ExtraContext        string                          // Optional extra context (e.g., quarterly snapshots for yearly)
+	CompanyContext      map[string]CompanyMeta          // stock_code → metadata for LLM context
+	FinancialRefs       map[string][]FinancialReportRef // stock_code → financial report links
+	FinancialHighlights map[string][]FinancialHighlight // stock_code → extracted financial metrics
+	PriceContext        map[string]StockPriceContext    // stock_code → price data
+	Announcements       map[string][]Announcement       // stock_code → recent announcements
+	TrendInsights       map[string]TrendInsight         // stock_code → trend insight
 }
 
 // ParsedKeyMetrics holds parsed financial metrics from key_metrics JSONB
@@ -62,20 +62,20 @@ type ParsedKeyMetrics struct {
 
 // CompanyMeta holds company metadata for enriching LLM context
 type CompanyMeta struct {
-	Industry            string            `json:"industry"`
-	MarketCap           int64             `json:"market_cap"`
-	EnhancedSummary     string            `json:"enhanced_summary"`
-	RecentDevelopments  string            `json:"recent_developments"`
-	RiskFactors         string            `json:"risk_factors"`
-	KeyMetrics          string            `json:"key_metrics"` // raw JSONB string
-	ParsedMetrics       *ParsedKeyMetrics `json:"parsed_metrics,omitempty"`
+	Industry           string            `json:"industry"`
+	MarketCap          int64             `json:"market_cap"`
+	EnhancedSummary    string            `json:"enhanced_summary"`
+	RecentDevelopments string            `json:"recent_developments"`
+	RiskFactors        string            `json:"risk_factors"`
+	KeyMetrics         string            `json:"key_metrics"` // raw JSONB string
+	ParsedMetrics      *ParsedKeyMetrics `json:"parsed_metrics,omitempty"`
 }
 
 // FinancialReportRef represents a company's financial report link
 type FinancialReportRef struct {
-	Title  string `json:"title"`
-	URL    string `json:"url"`
-	Date   string `json:"date"`
+	Title string `json:"title"`
+	URL   string `json:"url"`
+	Date  string `json:"date"`
 }
 
 // FinancialHighlight holds extracted financial metrics from a company's reports
@@ -86,31 +86,63 @@ type FinancialHighlight struct {
 	Metrics     map[string][]map[string]string `json:"metrics"` // e.g. {"revenue": [{"value_millions": "5142", "period": "H1 FY2025"}]}
 }
 
-// TopStock represents a top shorted stock entry
+// TopStock represents a top shorted stock entry.
+// JSON tags MUST match the proto snake_case field names of WeeklyReportStock —
+// the shorts service json.Unmarshals these JSONB snapshots directly into
+// generated proto structs. Never add logo_url here (hydrated at read time).
 type TopStock struct {
-	Rank      int     `json:"rank"`
-	Code      string  `json:"code"`
-	Name      string  `json:"name"`
-	ShortPct  float64 `json:"short_pct"`
-	WoWChange float64 `json:"wow_change"`
+	Rank         int       `json:"rank"`
+	Code         string    `json:"code"`
+	Name         string    `json:"name"`
+	ShortPct     float64   `json:"short_pct"`
+	WoWChange    float64   `json:"wow_change"`
+	DaysToCover  float64   `json:"days_to_cover"`  // Short shares / 20-day avg volume (0 = unknown)
+	IsNewEntrant bool      `json:"is_new_entrant"` // New to the top 10 this period
+	Industry     string    `json:"industry"`
+	History      []float64 `json:"history,omitempty"` // Weekly short % history, oldest first (~13 points)
 }
 
-// Mover represents a stock that moved significantly in short interest
+// Mover represents a stock that moved significantly in short interest.
+// JSON tags MUST match the proto snake_case field names of WeeklyReportMover.
+// Never add logo_url here (hydrated at read time).
 type Mover struct {
-	Code        string  `json:"code"`
-	Name        string  `json:"name"`
-	CurrentPct  float64 `json:"current_pct"`
-	PreviousPct float64 `json:"previous_pct"`
-	Change      float64 `json:"change"`
+	Code         string    `json:"code"`
+	Name         string    `json:"name"`
+	CurrentPct   float64   `json:"current_pct"`
+	PreviousPct  float64   `json:"previous_pct"`
+	Change       float64   `json:"change"`
+	DaysToCover  float64   `json:"days_to_cover"` // Short shares / 20-day avg volume (0 = unknown)
+	ZScore       float64   `json:"z_score"`       // Change vs the stock's own weekly-delta history (0 = insufficient history)
+	StreakWeeks  int       `json:"streak_weeks"`  // Consecutive weeks moving in the same direction (incl. current)
+	Industry     string    `json:"industry"`
+	History      []float64 `json:"history,omitempty"` // Weekly short % history, oldest first (~13 points)
+	Significance float64   `json:"significance"`      // Composite score used to rank movers
 }
 
-// MarketStats contains aggregate market statistics
+// MarketStats contains aggregate market statistics.
+// JSON tags MUST match the proto snake_case field names of WeeklyMarketStats.
 type MarketStats struct {
 	TotalStocksShorted int     `json:"total_stocks_shorted"`
 	AvgShortPct        float64 `json:"avg_short_pct"`
 	MaxShortPct        float64 `json:"max_short_pct"`
 	MaxShortCode       string  `json:"max_short_code"`
 	WoWAvgChange       float64 `json:"wow_avg_change"`
+	MedianShortPct     float64 `json:"median_short_pct"`
+	StocksAbove10Pct   int     `json:"stocks_above_10pct"` // Count of stocks with short interest >= 10%
+	StocksAbove5Pct    int     `json:"stocks_above_5pct"`  // Count of stocks with short interest >= 5%
+	RiserCount         int     `json:"riser_count"`        // Market-wide count of stocks whose short % rose >0.01pp
+	FallerCount        int     `json:"faller_count"`       // Market-wide count of stocks whose short % fell >0.01pp
+}
+
+// IndustryStat aggregates short interest for one industry.
+// JSON tags MUST match the proto snake_case field names of WeeklyIndustryStat.
+type IndustryStat struct {
+	Industry     string  `json:"industry"`
+	AvgShortPct  float64 `json:"avg_short_pct"`
+	WoWChange    float64 `json:"wow_change"` // Change in the industry average vs the prior period
+	StockCount   int     `json:"stock_count"`
+	TopStockCode string  `json:"top_stock_code"`
+	TopStockPct  float64 `json:"top_stock_pct"`
 }
 
 // DataCollector queries the database for report data
@@ -168,94 +200,16 @@ func (c *DataCollector) Collect(ctx context.Context, weekSlug string) (*ReportDa
 		return nil, fmt.Errorf("failed to get previous stocks: %w", err)
 	}
 
-	// Build lookup map for previous week
-	prevMap := make(map[string]float64)
-	for _, s := range previousStocks {
-		prevMap[s.Code] = s.ShortPct
-	}
-
-	// Calculate WoW changes and build top 10
-	var topShorted []TopStock
-	for i, s := range currentStocks {
-		if i >= 10 {
-			break
-		}
-		var wowChange float64
-		if prev, ok := prevMap[s.Code]; ok {
-			wowChange = s.ShortPct - prev
-		}
-		topShorted = append(topShorted, TopStock{
-			Rank:      i + 1,
-			Code:      s.Code,
-			Name:      s.Name,
-			ShortPct:  s.ShortPct,
-			WoWChange: math.Round(wowChange*100) / 100,
-		})
-	}
-
-	// Calculate risers and fallers
-	type stockChange struct {
-		code        string
-		name        string
-		currentPct  float64
-		previousPct float64
-		change      float64
-	}
-	var changes []stockChange
-	for _, s := range currentStocks {
-		prev, ok := prevMap[s.Code]
-		if !ok {
-			continue
-		}
-		change := s.ShortPct - prev
-		if math.Abs(change) > 0.01 { // Only include meaningful changes
-			changes = append(changes, stockChange{
-				code:        s.Code,
-				name:        s.Name,
-				currentPct:  s.ShortPct,
-				previousPct: prev,
-				change:      math.Round(change*100) / 100,
-			})
-		}
-	}
-
-	// Sort by change magnitude
-	sort.Slice(changes, func(i, j int) bool {
-		return changes[i].change > changes[j].change
+	// Build top 10, movers v2, market stats, and industry breakdown with
+	// shared per-stock enrichment (history, days-to-cover, industry).
+	snapshot := c.buildSnapshot(ctx, reportDate, currentStocks, previousStocks, snapshotOpts{
+		MoverLimit: 6,
+		UseZScore:  true, // weekly change vs weekly-delta history is meaningful
 	})
-
-	// Top 5 risers (biggest increase in short %)
-	var risers []Mover
-	for i := 0; i < len(changes) && i < 5; i++ {
-		if changes[i].change <= 0 {
-			break
-		}
-		risers = append(risers, Mover{
-			Code:        changes[i].code,
-			Name:        changes[i].name,
-			CurrentPct:  changes[i].currentPct,
-			PreviousPct: changes[i].previousPct,
-			Change:      changes[i].change,
-		})
-	}
-
-	// Top 5 fallers (biggest decrease in short %)
-	var fallers []Mover
-	for i := len(changes) - 1; i >= 0 && len(fallers) < 5; i-- {
-		if changes[i].change >= 0 {
-			break
-		}
-		fallers = append(fallers, Mover{
-			Code:        changes[i].code,
-			Name:        changes[i].name,
-			CurrentPct:  changes[i].currentPct,
-			PreviousPct: changes[i].previousPct,
-			Change:      changes[i].change,
-		})
-	}
-
-	// Calculate market stats
-	stats := c.calculateStats(currentStocks, previousStocks)
+	topShorted := snapshot.TopShorted
+	risers := snapshot.Risers
+	fallers := snapshot.Fallers
+	stats := snapshot.Stats
 
 	// Collect company metadata, financial reports, extracted highlights, and price data for all mentioned stocks
 	mentionedCodes := collectMentionedCodes(topShorted, risers, fallers)
@@ -273,11 +227,12 @@ func (c *DataCollector) Collect(ctx context.Context, weekSlug string) (*ReportDa
 		Risers:              risers,
 		Fallers:             fallers,
 		MarketStats:         stats,
+		IndustryBreakdown:   snapshot.IndustryBreakdown,
 		ReportType:          "weekly",
-		CompanyContext:       companyCtx,
+		CompanyContext:      companyCtx,
 		FinancialRefs:       finRefs,
 		FinancialHighlights: finHighlights,
-		PriceContext:         priceCtx,
+		PriceContext:        priceCtx,
 		Announcements:       announcements,
 	}
 
@@ -289,9 +244,10 @@ func (c *DataCollector) Collect(ctx context.Context, weekSlug string) (*ReportDa
 }
 
 type stockRow struct {
-	Code     string
-	Name     string
-	ShortPct float64
+	Code        string
+	Name        string
+	ShortPct    float64
+	ShortShares float64 // REPORTED_SHORT_POSITIONS (number of shares short)
 }
 
 func (c *DataCollector) findLatestTradingDay(ctx context.Context, startDate, endDate string) (string, error) {
@@ -325,7 +281,8 @@ func (c *DataCollector) getStocksForDate(ctx context.Context, date string) ([]st
 		SELECT
 			s."PRODUCT_CODE",
 			COALESCE(s."PRODUCT", ''),
-			s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
+			s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS",
+			COALESCE(s."REPORTED_SHORT_POSITIONS", 0)
 		FROM shorts s
 		WHERE s."DATE" >= $1 AND s."DATE" <= $2
 		  AND s."PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
@@ -346,7 +303,7 @@ func (c *DataCollector) getStocksForDate(ctx context.Context, date string) ([]st
 	var stocks []stockRow
 	for rows.Next() {
 		var s stockRow
-		if err := rows.Scan(&s.Code, &s.Name, &s.ShortPct); err != nil {
+		if err := rows.Scan(&s.Code, &s.Name, &s.ShortPct, &s.ShortShares); err != nil {
 			return nil, err
 		}
 		stocks = append(stocks, s)
@@ -354,36 +311,143 @@ func (c *DataCollector) getStocksForDate(ctx context.Context, date string) ([]st
 	return stocks, rows.Err()
 }
 
-func (c *DataCollector) calculateStats(current, previous []stockRow) MarketStats {
-	stats := MarketStats{
-		TotalStocksShorted: len(current),
+// getShortHistory fetches ~13 weeks of short % history for the given codes in
+// ONE query, bucketed by ISO week in Go (latest value per week), producing
+// oldest-first series ending at the report week. WARNING-log-and-continue.
+func (c *DataCollector) getShortHistory(ctx context.Context, codes []string, reportDate string) map[string][]float64 {
+	if len(codes) == 0 {
+		return nil
+	}
+	rd, err := time.Parse("2006-01-02", reportDate)
+	if err != nil {
+		log.Printf("WARNING: invalid report date %q for history: %v", reportDate, err)
+		return nil
 	}
 
-	if len(current) == 0 {
-		return stats
+	queryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT
+			"PRODUCT_CODE",
+			"DATE"::date::text,
+			"PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS"
+		FROM shorts
+		WHERE "PRODUCT_CODE" = ANY($1)
+		  AND "DATE" >= ($2::date - INTERVAL '92 days')
+		  AND "DATE" <= ($2::text || ' 23:59:59')::timestamp
+		  AND "PERCENT_OF_TOTAL_PRODUCT_IN_ISSUE_REPORTED_AS_SHORT_POSITIONS" > 0
+		ORDER BY "PRODUCT_CODE", "DATE"
+	`
+
+	rows, err := c.db.Query(queryCtx, query, codes, reportDate)
+	if err != nil {
+		log.Printf("WARNING: short history query failed: %v", err)
+		return nil
+	}
+	defer rows.Close()
+
+	var hist []historyPoint
+	for rows.Next() {
+		var code, dateStr string
+		var pct float64
+		if err := rows.Scan(&code, &dateStr, &pct); err != nil {
+			log.Printf("WARNING: failed to scan history row: %v", err)
+			continue
+		}
+		d, err := time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			continue
+		}
+		hist = append(hist, historyPoint{Code: code, Date: d, Pct: pct})
 	}
 
-	var totalPct float64
-	for _, s := range current {
-		totalPct += s.ShortPct
-		if s.ShortPct > stats.MaxShortPct {
-			stats.MaxShortPct = s.ShortPct
-			stats.MaxShortCode = s.Code
+	result := bucketWeeklyHistory(hist, rd, maxHistoryPoints)
+	log.Printf("Fetched short history for %d/%d stocks", len(result), len(codes))
+	return result
+}
+
+// getAvgDailyVolumes fetches the average daily volume over the last 20 trading
+// days (as at reportDate) per code, in one grouped query. WARNING-log-and-continue.
+func (c *DataCollector) getAvgDailyVolumes(ctx context.Context, codes []string, reportDate string) map[string]float64 {
+	if len(codes) == 0 {
+		return nil
+	}
+
+	queryCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT stock_code, COALESCE(AVG(volume), 0)::float8
+		FROM (
+			SELECT stock_code, volume,
+			       ROW_NUMBER() OVER (PARTITION BY stock_code ORDER BY date DESC) AS rn
+			FROM stock_prices
+			WHERE stock_code = ANY($1) AND date <= $2 AND volume > 0
+		) t
+		WHERE rn <= 20
+		GROUP BY stock_code
+	`
+
+	rows, err := c.db.Query(queryCtx, query, codes, reportDate)
+	if err != nil {
+		log.Printf("WARNING: avg volume query failed: %v", err)
+		return nil
+	}
+	defer rows.Close()
+
+	result := make(map[string]float64)
+	for rows.Next() {
+		var code string
+		var avgVol float64
+		if err := rows.Scan(&code, &avgVol); err != nil {
+			log.Printf("WARNING: failed to scan avg volume row: %v", err)
+			continue
+		}
+		result[code] = avgVol
+	}
+
+	log.Printf("Fetched avg daily volume for %d/%d stocks", len(result), len(codes))
+	return result
+}
+
+// getIndustryMap fetches the industry for ALL given codes in one ANY($1) query.
+// WARNING-log-and-continue.
+func (c *DataCollector) getIndustryMap(ctx context.Context, codes []string) map[string]string {
+	if len(codes) == 0 {
+		return nil
+	}
+
+	queryCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
+	query := `
+		SELECT stock_code, COALESCE(industry, '')
+		FROM "company-metadata"
+		WHERE stock_code = ANY($1)
+	`
+
+	rows, err := c.db.Query(queryCtx, query, codes)
+	if err != nil {
+		log.Printf("WARNING: industry map query failed: %v", err)
+		return nil
+	}
+	defer rows.Close()
+
+	result := make(map[string]string)
+	for rows.Next() {
+		var code, industry string
+		if err := rows.Scan(&code, &industry); err != nil {
+			log.Printf("WARNING: failed to scan industry row: %v", err)
+			continue
+		}
+		if industry != "" {
+			result[code] = industry
 		}
 	}
-	stats.AvgShortPct = math.Round(totalPct/float64(len(current))*100) / 100
 
-	// Calculate previous average for WoW comparison
-	if len(previous) > 0 {
-		var prevTotalPct float64
-		for _, s := range previous {
-			prevTotalPct += s.ShortPct
-		}
-		prevAvg := prevTotalPct / float64(len(previous))
-		stats.WoWAvgChange = math.Round((stats.AvgShortPct-prevAvg)*100) / 100
-	}
-
-	return stats
+	log.Printf("Fetched industry for %d/%d stocks", len(result), len(codes))
+	return result
 }
 
 // parseWeekSlug parses "2026-W06" into year and week number
@@ -509,6 +573,17 @@ func parseKeyMetrics(raw string) *ParsedKeyMetrics {
 	pm := &ParsedKeyMetrics{}
 	hasAny := false
 
+	// finite rejects NaN/±Inf — enrichment JSONB contains literal "Infinity"
+	// strings (e.g. pe_ratio for zero-EPS companies) that ParseFloat accepts,
+	// and a non-finite value poisons both the LLM prompt and json.Marshal of
+	// the snapshot (encoding/json cannot encode ±Inf).
+	finite := func(v float64) *float64 {
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return nil
+		}
+		return &v
+	}
+
 	// Helper to extract a float from various shapes: number, string, or object with "value" key
 	extractFloat := func(key string) *float64 {
 		raw, ok := data[key]
@@ -518,14 +593,14 @@ func parseKeyMetrics(raw string) *ParsedKeyMetrics {
 		// Try direct number
 		var f float64
 		if err := json.Unmarshal(raw, &f); err == nil {
-			return &f
+			return finite(f)
 		}
 		// Try string
 		var s string
 		if err := json.Unmarshal(raw, &s); err == nil {
 			s = strings.TrimSpace(strings.TrimSuffix(strings.TrimSuffix(s, "%"), "x"))
 			if v, err := strconv.ParseFloat(s, 64); err == nil {
-				return &v
+				return finite(v)
 			}
 		}
 		// Try object with "value" key
@@ -534,7 +609,7 @@ func parseKeyMetrics(raw string) *ParsedKeyMetrics {
 			if valRaw, ok := obj["value"]; ok {
 				var v float64
 				if err := json.Unmarshal(valRaw, &v); err == nil {
-					return &v
+					return finite(v)
 				}
 			}
 		}
@@ -656,7 +731,7 @@ func (c *DataCollector) getStockPrices(ctx context.Context, codes []string, repo
 
 	// Get current price and change percentages from stock_price_changes VIEW (if it exists)
 	priceQuery := `
-		SELECT stock_code, close, COALESCE(weekly_change_pct, 0), COALESCE(monthly_change_pct, 0)
+		SELECT stock_code, current_price, COALESCE(weekly_change_pct, 0), COALESCE(monthly_change_pct, 0)
 		FROM stock_price_changes
 		WHERE stock_code = ANY($1) AND date = $2
 	`

@@ -55,4 +55,113 @@ public interface WeeklyReportMoverOrBuilder extends
    * @return The change.
    */
   double getChange();
+
+  /**
+   * <pre>
+   * Reported short shares / 20-day average volume (0 = unknown)
+   * </pre>
+   *
+   * <code>double days_to_cover = 6 [json_name = "daysToCover"];</code>
+   * @return The daysToCover.
+   */
+  double getDaysToCover();
+
+  /**
+   * <pre>
+   * How unusual this move is vs the stock's own weekly-change history
+   * </pre>
+   *
+   * <code>double z_score = 7 [json_name = "zScore"];</code>
+   * @return The zScore.
+   */
+  double getZScore();
+
+  /**
+   * <pre>
+   * Consecutive weeks moving in the same direction
+   * </pre>
+   *
+   * <code>int32 streak_weeks = 8 [json_name = "streakWeeks"];</code>
+   * @return The streakWeeks.
+   */
+  int getStreakWeeks();
+
+  /**
+   * <pre>
+   * Company industry (hydrated at read time if absent in snapshot)
+   * </pre>
+   *
+   * <code>string industry = 9 [json_name = "industry"];</code>
+   * @return The industry.
+   */
+  java.lang.String getIndustry();
+  /**
+   * <pre>
+   * Company industry (hydrated at read time if absent in snapshot)
+   * </pre>
+   *
+   * <code>string industry = 9 [json_name = "industry"];</code>
+   * @return The bytes for industry.
+   */
+  com.google.protobuf.ByteString
+      getIndustryBytes();
+
+  /**
+   * <pre>
+   * Weekly short % history, oldest first (~13 points)
+   * </pre>
+   *
+   * <code>repeated double history = 10 [json_name = "history"];</code>
+   * @return A list containing the history.
+   */
+  java.util.List<java.lang.Double> getHistoryList();
+  /**
+   * <pre>
+   * Weekly short % history, oldest first (~13 points)
+   * </pre>
+   *
+   * <code>repeated double history = 10 [json_name = "history"];</code>
+   * @return The count of history.
+   */
+  int getHistoryCount();
+  /**
+   * <pre>
+   * Weekly short % history, oldest first (~13 points)
+   * </pre>
+   *
+   * <code>repeated double history = 10 [json_name = "history"];</code>
+   * @param index The index of the element to return.
+   * @return The history at the given index.
+   */
+  double getHistory(int index);
+
+  /**
+   * <pre>
+   * Company logo icon URL (hydrated at read time)
+   * </pre>
+   *
+   * <code>string logo_url = 11 [json_name = "logoUrl"];</code>
+   * @return The logoUrl.
+   */
+  java.lang.String getLogoUrl();
+  /**
+   * <pre>
+   * Company logo icon URL (hydrated at read time)
+   * </pre>
+   *
+   * <code>string logo_url = 11 [json_name = "logoUrl"];</code>
+   * @return The bytes for logoUrl.
+   */
+  com.google.protobuf.ByteString
+      getLogoUrlBytes();
+
+  /**
+   * <pre>
+   * Composite significance score used for ranking movers
+   * </pre>
+   *
+   * <code>double significance = 12 [json_name = "significance"];</code>
+   * @return The significance.
+   */
+  double getSignificance();
 }

@@ -391,6 +391,15 @@ service ShortedStocksService {
     };
   }
 
+  // List published short selling reports (weekly, monthly, yearly)
+  rpc ListReports (ListReportsRequest) returns (ListReportsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Reports",
+      description: "List published short selling reports with headlines and summary stats, most recent first."
+    };
+  }
+
   // Get extracted financial highlights for specific stocks
   rpc GetStockFinancialHighlights (GetStockFinancialHighlightsRequest) returns (GetStockFinancialHighlightsResponse) {
     option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
@@ -1194,6 +1203,7 @@ message GetWeeklyReportResponse {
   WeeklyMarketStats market_stats = 12;
   repeated WeeklyReportCitation citations = 13;
   repeated WeeklyReportTrendInsight trend_insights = 14;
+  repeated WeeklyIndustryStat industry_breakdown = 15;
 }
 
 // Narrative sections of the weekly report
@@ -1212,6 +1222,11 @@ message WeeklyReportStock {
   string name = 3;
   double short_pct = 4;
   double wow_change = 5; // Week-on-week change in short percentage
+  double days_to_cover = 6;    // Reported short shares / 20-day average volume (0 = unknown)
+  bool is_new_entrant = 7;     // New to the top 10 this period
+  string industry = 8;         // Company industry (hydrated at read time if absent in snapshot)
+  repeated double history = 9; // Weekly short % history, oldest first (~13 points)
+  string logo_url = 10;        // Company logo icon URL (hydrated at read time)
 }
 
 // A mover (riser or faller) in the weekly report
@@ -1221,6 +1236,13 @@ message WeeklyReportMover {
   double current_pct = 3;
   double previous_pct = 4;
   double change = 5; // Absolute change in short percentage
+  double days_to_cover = 6;    // Reported short shares / 20-day average volume (0 = unknown)
+  double z_score = 7;          // How unusual this move is vs the stock's own weekly-change history
+  int32 streak_weeks = 8;      // Consecutive weeks moving in the same direction
+  string industry = 9;         // Company industry (hydrated at read time if absent in snapshot)
+  repeated double history = 10; // Weekly short % history, oldest first (~13 points)
+  string logo_url = 11;        // Company logo icon URL (hydrated at read time)
+  double significance = 12;    // Composite significance score used for ranking movers
 }
 
 // FAQ entry in the weekly report
@@ -1236,6 +1258,21 @@ message WeeklyMarketStats {
   double max_short_pct = 3;
   string max_short_code = 4;
   double wow_avg_change = 5; // Week-on-week change in average short %
+  double median_short_pct = 6;
+  int32 stocks_above_10pct = 7; // Count of stocks with short interest >= 10%
+  int32 stocks_above_5pct = 8;  // Count of stocks with short interest >= 5%
+  int32 riser_count = 9;        // Market-wide count of stocks whose short % rose
+  int32 faller_count = 10;      // Market-wide count of stocks whose short % fell
+}
+
+// Aggregate short interest by industry for the report period
+message WeeklyIndustryStat {
+  string industry = 1;
+  double avg_short_pct = 2;   // Average short % across stocks in the industry
+  double wow_change = 3;      // Change in the industry average vs the prior period
+  int32 stock_count = 4;      // Number of shorted stocks in the industry
+  string top_stock_code = 5;  // Most shorted stock in the industry
+  double top_stock_pct = 6;   // Its short %
 }
 
 // A citation referencing a data source in the weekly report narrative
@@ -1257,6 +1294,32 @@ message WeeklyReportTrendInsight {
   string composite_signal = 6;
   repeated string key_announcements = 7;
   repeated string financial_signals = 8;
+}
+
+// Request for ListReports RPC
+message ListReportsRequest {
+  string report_type = 1; // "weekly", "monthly", "yearly", or "" / "all" for all types
+  int32 limit = 2;        // Max reports to return (default 24, max 100)
+}
+
+// Response for ListReports RPC
+message ListReportsResponse {
+  repeated ReportListItem reports = 1;
+}
+
+// Summary of a published report for archive/index pages
+message ReportListItem {
+  string slug = 1;              // "2026-W06", "2026-01", or "2025"
+  string report_type = 2;       // "weekly", "monthly", "yearly"
+  string headline = 3;
+  string summary = 4;
+  string report_date = 5;       // YYYY-MM-DD of latest trading day in the period
+  double max_short_pct = 6;
+  string max_short_code = 7;
+  int32 total_stocks_shorted = 8;
+  double quality_score = 9;
+  repeated string top_codes = 10;     // Top shorted stock codes (up to 5)
+  repeated string top_logo_urls = 11; // Matching logo icon URLs (parallel to top_codes, "" when unknown)
 }
 
 // ==================== Financial Highlights Messages ====================

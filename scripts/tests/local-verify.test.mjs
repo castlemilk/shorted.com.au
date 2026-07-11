@@ -47,6 +47,16 @@ test("testcontainers integration targets force real uncached runs", () => {
 });
 
 test("static generation fetchers respect the local verifier skip flag", () => {
+  // The shared guard owns the env check — and must be build-phase-only:
+  // SKIP_STATIC_GENERATION=1 is set project-wide on Vercel AT RUNTIME, so a
+  // raw env check permanently blanks ISR pages (July 2026 sitemap/directory/
+  // market regression).
+  const config = read("web/src/app/actions/config.ts");
+  assert.match(config, /SKIP_STATIC_GENERATION/);
+  assert.match(config, /phase-production-build/);
+
+  // Every static-generation fetcher must consult the shared guard, not the
+  // raw env var.
   const files = [
     "web/src/app/sitemap.ts",
     "web/src/app/directory/[letter]/page.tsx",
@@ -55,7 +65,13 @@ test("static generation fetchers respect the local verifier skip flag", () => {
   ];
 
   for (const file of files) {
-    assert.match(read(file), /SKIP_STATIC_GENERATION/);
+    const source = read(file);
+    assert.match(source, /skipForBuild/);
+    assert.doesNotMatch(
+      source,
+      /process\.env\.SKIP_STATIC_GENERATION/,
+      `${file} must use skipForBuild() from actions/config.ts, not the raw env var`,
+    );
   }
 });
 

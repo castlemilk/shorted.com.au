@@ -162,6 +162,14 @@ func (s *StoreAdapter) GetWeeklyReport(weekSlug string) (*shorts.WeeklyReport, e
 	return s.store.GetWeeklyReport(weekSlug)
 }
 
+func (s *StoreAdapter) ListReports(reportType string, limit int) ([]*shorts.ReportListRow, error) {
+	return s.store.ListReports(reportType, limit)
+}
+
+func (s *StoreAdapter) GetCompanyBranding(codes []string) (map[string]shorts.CompanyBranding, error) {
+	return s.store.GetCompanyBranding(codes)
+}
+
 func (s *StoreAdapter) GetStockFinancialHighlights(stockCodes []string, maxPerStock int) (map[string][]shorts.FinancialReportHighlight, error) {
 	return s.store.GetStockFinancialHighlights(stockCodes, maxPerStock)
 }

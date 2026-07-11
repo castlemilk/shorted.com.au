@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -32,11 +31,11 @@ type FinancialReport = FinancialReportRef
 
 // QuarterSnapshot captures the top shorts and stats for a single quarter
 type QuarterSnapshot struct {
-	Quarter     string     `json:"quarter"` // "Q1", "Q2", "Q3", "Q4"
-	Date        string     `json:"date"`
-	TopStocks   []TopStock `json:"top_stocks"`
-	AvgShortPct float64    `json:"avg_short_pct"`
-	TotalShorted int       `json:"total_shorted"`
+	Quarter      string     `json:"quarter"` // "Q1", "Q2", "Q3", "Q4"
+	Date         string     `json:"date"`
+	TopStocks    []TopStock `json:"top_stocks"`
+	AvgShortPct  float64    `json:"avg_short_pct"`
+	TotalShorted int        `json:"total_shorted"`
 }
 
 // YearlyDataCollector queries the database for year-in-review report data
@@ -85,90 +84,18 @@ func (c *YearlyDataCollector) Collect(ctx context.Context, yearSlug string) (*Re
 		return nil, fmt.Errorf("failed to get year-start stocks: %w", err)
 	}
 
-	// Build lookup map for year start
-	startMap := make(map[string]float64)
-	for _, s := range startStocks {
-		startMap[s.Code] = s.ShortPct
-	}
-
-	// Top 10 at year end with year-over-year changes
-	var topShorted []TopStock
-	for i, s := range endStocks {
-		if i >= 10 {
-			break
-		}
-		var yoyChange float64
-		if prev, ok := startMap[s.Code]; ok {
-			yoyChange = s.ShortPct - prev
-		}
-		topShorted = append(topShorted, TopStock{
-			Rank:      i + 1,
-			Code:      s.Code,
-			Name:      s.Name,
-			ShortPct:  s.ShortPct,
-			WoWChange: math.Round(yoyChange*100) / 100, // reuse WoWChange for YoY
-		})
-	}
-
-	// Year-over-year risers and fallers
-	type stockChange struct {
-		code        string
-		name        string
-		currentPct  float64
-		previousPct float64
-		change      float64
-	}
-	var changes []stockChange
-	for _, s := range endStocks {
-		prev, ok := startMap[s.Code]
-		if !ok {
-			continue
-		}
-		change := s.ShortPct - prev
-		if math.Abs(change) > 0.1 { // Higher threshold for yearly
-			changes = append(changes, stockChange{
-				code:        s.Code,
-				name:        s.Name,
-				currentPct:  s.ShortPct,
-				previousPct: prev,
-				change:      math.Round(change*100) / 100,
-			})
-		}
-	}
-
-	sort.Slice(changes, func(i, j int) bool {
-		return changes[i].change > changes[j].change
+	// Shared snapshot: top 10 at year end with year-over-year changes
+	// (WoWChange reused for YoY), movers v2, stats, and industry breakdown.
+	// z-score is disabled: a yearly change compared against weekly-delta
+	// history is not meaningful. Yearly keeps a wider mover list (10).
+	snapshot := dc.buildSnapshot(ctx, reportDate, endStocks, startStocks, snapshotOpts{
+		MoverLimit: 10,
+		UseZScore:  false,
 	})
-
-	var risers []Mover
-	for i := 0; i < len(changes) && i < 10; i++ { // Top 10 for yearly
-		if changes[i].change <= 0 {
-			break
-		}
-		risers = append(risers, Mover{
-			Code:        changes[i].code,
-			Name:        changes[i].name,
-			CurrentPct:  changes[i].currentPct,
-			PreviousPct: changes[i].previousPct,
-			Change:      changes[i].change,
-		})
-	}
-
-	var fallers []Mover
-	for i := len(changes) - 1; i >= 0 && len(fallers) < 10; i-- { // Top 10 for yearly
-		if changes[i].change >= 0 {
-			break
-		}
-		fallers = append(fallers, Mover{
-			Code:        changes[i].code,
-			Name:        changes[i].name,
-			CurrentPct:  changes[i].currentPct,
-			PreviousPct: changes[i].previousPct,
-			Change:      changes[i].change,
-		})
-	}
-
-	stats := dc.calculateStats(endStocks, startStocks)
+	topShorted := snapshot.TopShorted
+	risers := snapshot.Risers
+	fallers := snapshot.Fallers
+	stats := snapshot.Stats
 
 	// Collect quarterly snapshots
 	quarterlySnapshots := c.collectQuarterlySnapshots(ctx, dc, year)
@@ -197,11 +124,12 @@ func (c *YearlyDataCollector) Collect(ctx context.Context, yearSlug string) (*Re
 		Risers:              risers,
 		Fallers:             fallers,
 		MarketStats:         stats,
+		IndustryBreakdown:   snapshot.IndustryBreakdown,
 		ReportType:          "yearly",
 		ExtraContext:        extraContext,
-		CompanyContext:       companyCtx,
+		CompanyContext:      companyCtx,
 		FinancialHighlights: finHighlights,
-		PriceContext:         priceCtx,
+		PriceContext:        priceCtx,
 		Announcements:       announcements,
 	}, nil
 }

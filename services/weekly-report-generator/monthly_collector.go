@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"math"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -80,90 +78,17 @@ func (c *MonthlyDataCollector) Collect(ctx context.Context, monthSlug string) (*
 		return nil, fmt.Errorf("failed to get previous stocks: %w", err)
 	}
 
-	// Build lookup map for previous month
-	prevMap := make(map[string]float64)
-	for _, s := range previousStocks {
-		prevMap[s.Code] = s.ShortPct
-	}
-
-	// Top 10 with month-on-month changes
-	var topShorted []TopStock
-	for i, s := range currentStocks {
-		if i >= 10 {
-			break
-		}
-		var momChange float64
-		if prev, ok := prevMap[s.Code]; ok {
-			momChange = s.ShortPct - prev
-		}
-		topShorted = append(topShorted, TopStock{
-			Rank:      i + 1,
-			Code:      s.Code,
-			Name:      s.Name,
-			ShortPct:  s.ShortPct,
-			WoWChange: math.Round(momChange*100) / 100, // reuse WoWChange field for MoM
-		})
-	}
-
-	// Risers and fallers (month-on-month)
-	type stockChange struct {
-		code        string
-		name        string
-		currentPct  float64
-		previousPct float64
-		change      float64
-	}
-	var changes []stockChange
-	for _, s := range currentStocks {
-		prev, ok := prevMap[s.Code]
-		if !ok {
-			continue
-		}
-		change := s.ShortPct - prev
-		if math.Abs(change) > 0.05 {
-			changes = append(changes, stockChange{
-				code:        s.Code,
-				name:        s.Name,
-				currentPct:  s.ShortPct,
-				previousPct: prev,
-				change:      math.Round(change*100) / 100,
-			})
-		}
-	}
-
-	sort.Slice(changes, func(i, j int) bool {
-		return changes[i].change > changes[j].change
+	// Shared snapshot: top 10 with month-on-month changes (WoWChange reused for
+	// MoM), movers v2, stats, and industry breakdown. z-score is disabled: a
+	// monthly change compared against weekly-delta history is not meaningful.
+	snapshot := dc.buildSnapshot(ctx, reportDate, currentStocks, previousStocks, snapshotOpts{
+		MoverLimit: 6,
+		UseZScore:  false,
 	})
-
-	var risers []Mover
-	for i := 0; i < len(changes) && i < 5; i++ {
-		if changes[i].change <= 0 {
-			break
-		}
-		risers = append(risers, Mover{
-			Code:        changes[i].code,
-			Name:        changes[i].name,
-			CurrentPct:  changes[i].currentPct,
-			PreviousPct: changes[i].previousPct,
-			Change:      changes[i].change,
-		})
-	}
-
-	var fallers []Mover
-	for i := len(changes) - 1; i >= 0 && len(fallers) < 5; i-- {
-		if changes[i].change >= 0 {
-			break
-		}
-		fallers = append(fallers, Mover{
-			Code:        changes[i].code,
-			Name:        changes[i].name,
-			CurrentPct:  changes[i].currentPct,
-			PreviousPct: changes[i].previousPct,
-			Change:      changes[i].change,
-		})
-	}
-
-	stats := dc.calculateStats(currentStocks, previousStocks)
+	topShorted := snapshot.TopShorted
+	risers := snapshot.Risers
+	fallers := snapshot.Fallers
+	stats := snapshot.Stats
 
 	// Collect company metadata, financial reports, extracted highlights, and price data for all mentioned stocks
 	mentionedCodes := collectMentionedCodes(topShorted, risers, fallers)
@@ -181,11 +106,12 @@ func (c *MonthlyDataCollector) Collect(ctx context.Context, monthSlug string) (*
 		Risers:              risers,
 		Fallers:             fallers,
 		MarketStats:         stats,
+		IndustryBreakdown:   snapshot.IndustryBreakdown,
 		ReportType:          "monthly",
-		CompanyContext:       companyCtx,
+		CompanyContext:      companyCtx,
 		FinancialRefs:       finRefs,
 		FinancialHighlights: finHighlights,
-		PriceContext:         priceCtx,
+		PriceContext:        priceCtx,
 		Announcements:       announcements,
 	}, nil
 }

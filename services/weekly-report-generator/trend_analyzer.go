@@ -8,14 +8,14 @@ import (
 
 // TrendInsight holds structured analysis for a single riser/faller
 type TrendInsight struct {
-	Code             string           `json:"code"`
-	Direction        string           `json:"direction"` // "riser" or "faller"
-	ShortChange      float64          `json:"short_change"`
+	Code             string            `json:"code"`
+	Direction        string            `json:"direction"` // "riser" or "faller"
+	ShortChange      float64           `json:"short_change"`
 	PriceCorrelation *PriceCorrelation `json:"price_correlation,omitempty"`
-	KeyAnnouncements []string         `json:"key_announcements,omitempty"`
-	FinancialSignals []string         `json:"financial_signals,omitempty"`
-	MetricSignals    []string         `json:"metric_signals,omitempty"`
-	CompositeSignal  string           `json:"composite_signal"`
+	KeyAnnouncements []string          `json:"key_announcements,omitempty"`
+	FinancialSignals []string          `json:"financial_signals,omitempty"`
+	MetricSignals    []string          `json:"metric_signals,omitempty"`
+	CompositeSignal  string            `json:"composite_signal"`
 }
 
 // PriceCorrelation holds short-vs-price pattern data
@@ -38,20 +38,21 @@ func (t *TrendAnalyzer) Analyze(data *ReportData) map[string]TrendInsight {
 	insights := make(map[string]TrendInsight)
 
 	for _, m := range data.Risers {
-		insights[m.Code] = t.buildInsight(m.Code, "riser", m.Change, data)
+		insights[m.Code] = t.buildInsight(m, "riser", data)
 	}
 	for _, m := range data.Fallers {
-		insights[m.Code] = t.buildInsight(m.Code, "faller", m.Change, data)
+		insights[m.Code] = t.buildInsight(m, "faller", data)
 	}
 
 	return insights
 }
 
-func (t *TrendAnalyzer) buildInsight(code, direction string, shortChange float64, data *ReportData) TrendInsight {
+func (t *TrendAnalyzer) buildInsight(m Mover, direction string, data *ReportData) TrendInsight {
+	code := m.Code
 	insight := TrendInsight{
 		Code:        code,
 		Direction:   direction,
-		ShortChange: shortChange,
+		ShortChange: m.Change,
 	}
 
 	// Price correlation
@@ -59,7 +60,7 @@ func (t *TrendAnalyzer) buildInsight(code, direction string, shortChange float64
 		pc := &PriceCorrelation{
 			WeeklyPriceChange:  price.WeeklyChangePct,
 			MonthlyPriceChange: price.MonthlyChangePct,
-			Pattern:            classifyPattern(shortChange, price.WeeklyChangePct),
+			Pattern:            classifyPattern(m.Change, price.WeeklyChangePct),
 		}
 		insight.PriceCorrelation = pc
 	}
@@ -123,8 +124,8 @@ func (t *TrendAnalyzer) buildInsight(code, direction string, shortChange float64
 		}
 	}
 
-	// Composite signal
-	insight.CompositeSignal = t.buildCompositeSignal(insight)
+	// Composite signal (incorporates streak + z-score from the mover)
+	insight.CompositeSignal = t.buildCompositeSignal(insight, m)
 
 	return insight
 }
@@ -167,8 +168,38 @@ func formatFinancialSignal(metricName string, attrs map[string]string, reportTit
 	return fmt.Sprintf("%s: %s (%s)", label, strings.Join(parts, ", "), reportTitle)
 }
 
-func (t *TrendAnalyzer) buildCompositeSignal(insight TrendInsight) string {
+// ordinal renders 1 → "1st", 2 → "2nd", 3 → "3rd", 4 → "4th", ...
+func ordinal(n int) string {
+	switch {
+	case n%100 >= 11 && n%100 <= 13:
+		return fmt.Sprintf("%dth", n)
+	case n%10 == 1:
+		return fmt.Sprintf("%dst", n)
+	case n%10 == 2:
+		return fmt.Sprintf("%dnd", n)
+	case n%10 == 3:
+		return fmt.Sprintf("%drd", n)
+	default:
+		return fmt.Sprintf("%dth", n)
+	}
+}
+
+func (t *TrendAnalyzer) buildCompositeSignal(insight TrendInsight, m Mover) string {
 	var parts []string
+
+	// Streak: consecutive weekly moves in the same direction (incl. current week)
+	if m.StreakWeeks >= 2 {
+		riseFall := "weekly rise"
+		if insight.ShortChange < 0 {
+			riseFall = "weekly fall"
+		}
+		parts = append(parts, fmt.Sprintf("%s consecutive %s", ordinal(m.StreakWeeks), riseFall))
+	}
+
+	// Statistical unusualness vs the stock's own 13-week weekly-delta history
+	if math.Abs(m.ZScore) >= 2 {
+		parts = append(parts, fmt.Sprintf("%.1f sigma vs its 13-week norm", m.ZScore))
+	}
 
 	// Pattern description
 	if insight.PriceCorrelation != nil {
@@ -180,7 +211,9 @@ func (t *TrendAnalyzer) buildCompositeSignal(insight TrendInsight) string {
 			"unwinding":  "positions unwinding despite price weakness",
 		}
 		desc := patternDesc[pc.Pattern]
-		parts = append(parts, fmt.Sprintf("%s (price %+.1f%% weekly)", desc, pc.WeeklyPriceChange))
+		// 2dp so any figure the model copies from this signal passes the
+		// quality checker's exact-value validation.
+		parts = append(parts, fmt.Sprintf("%s (price %+.2f%% weekly)", desc, pc.WeeklyPriceChange))
 	}
 
 	// Announcement count

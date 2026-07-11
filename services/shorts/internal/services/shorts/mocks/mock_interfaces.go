@@ -714,6 +714,36 @@ func (mr *MockShortsStoreMockRecorder) GetTopStocksForEnrichment(limit, priority
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTopStocksForEnrichment", reflect.TypeOf((*MockShortsStore)(nil).GetTopStocksForEnrichment), limit, priority)
 }
 
+// GetCompanyBranding mocks base method.
+func (m *MockShortsStore) GetCompanyBranding(codes []string) (map[string]shorts.CompanyBranding, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetCompanyBranding", codes)
+	ret0, _ := ret[0].(map[string]shorts.CompanyBranding)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetCompanyBranding indicates an expected call of GetCompanyBranding.
+func (mr *MockShortsStoreMockRecorder) GetCompanyBranding(codes any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetCompanyBranding", reflect.TypeOf((*MockShortsStore)(nil).GetCompanyBranding), codes)
+}
+
+// ListReports mocks base method.
+func (m *MockShortsStore) ListReports(reportType string, limit int) ([]*shorts.ReportListRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListReports", reportType, limit)
+	ret0, _ := ret[0].([]*shorts.ReportListRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListReports indicates an expected call of ListReports.
+func (mr *MockShortsStoreMockRecorder) ListReports(reportType, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListReports", reflect.TypeOf((*MockShortsStore)(nil).ListReports), reportType, limit)
+}
+
 // GetWeeklyReport mocks base method.
 func (m *MockShortsStore) GetWeeklyReport(weekSlug string) (*shorts.WeeklyReport, error) {
 	m.ctrl.T.Helper()

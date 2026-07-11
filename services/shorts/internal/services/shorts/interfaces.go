@@ -59,6 +59,10 @@ type ShortsStore interface {
 
 	// Weekly report methods
 	GetWeeklyReport(weekSlug string) (*shortsstore.WeeklyReport, error)
+	ListReports(reportType string, limit int) ([]*shortsstore.ReportListRow, error)
+
+	// Company branding (logo + industry) lookup for report hydration
+	GetCompanyBranding(codes []string) (map[string]shortsstore.CompanyBranding, error)
 
 	// Financial highlights
 	GetStockFinancialHighlights(stockCodes []string, maxPerStock int) (map[string][]shortsstore.FinancialReportHighlight, error)
