@@ -302,7 +302,7 @@ function MultiSeriesCanvas({ width, height, series, events, dateExtent }: Canvas
       const prev = placed[placed.length - 1];
       const collides =
         prev && x - halfW < prev.x + (prev.label.length * CHAR_W) / 2 + 6;
-      const tier = collides ? (prev!.tier === 0 ? 1 : 0) : 0;
+      const tier = collides ? (prev.tier === 0 ? 1 : 0) : 0;
       placed.push({ label: e.label, x, tier });
     }
     return placed;
