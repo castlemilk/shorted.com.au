@@ -84,6 +84,12 @@ export const getIndustryData = cache(async (): Promise<IndustryStats[]> => {
                 limit: 50,
                 viewMode: VIEW_MODE_CURRENT_CHANGE,
               }),
+              // Explicit cache mode: without it serverFetchWithUserAgent
+              // forces no-store on POSTs at Vercel runtime, which THROWS
+              // ("Dynamic server usage") inside ISR routes like
+              // /industry-intelligence — the catch below then returned []
+              // and the page degraded to an all-"Other" grouping.
+              next: { revalidate: 1800 },
             },
           );
 
@@ -190,6 +196,8 @@ const fetchTreeMap3m = cache(async (): Promise<TreeMapResponse> => {
             limit: 50,
             viewMode: VIEW_MODE_CURRENT_CHANGE,
           }),
+          // ISR-safe cache mode (see the max-window fetch above).
+          next: { revalidate: 1800 },
         },
       );
 
