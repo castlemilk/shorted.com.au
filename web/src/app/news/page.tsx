@@ -7,8 +7,12 @@ import {
   BreadcrumbStructuredData,
 } from "~/@/components/seo/breadcrumbs";
 import { LLMMeta } from "~/@/components/seo/llm-meta";
-import { getMarketNews } from "~/app/actions/getStockNews";
-import { listEditorialTakes } from "~/app/actions/getEditorialTake";
+import {
+  buildApiUrl,
+  getServerShortsApiUrl,
+  serverFetchWithUserAgent,
+} from "~/app/actions/config";
+import { type TakeLike } from "~/@/components/news/masthead/shared";
 import { isValidStockCode } from "~/@/lib/stock-code";
 import { MastheadHeader } from "~/@/components/news/masthead/masthead-header";
 import { MarketPulse } from "~/@/components/news/masthead/market-pulse";
@@ -59,8 +63,80 @@ export const metadata: Metadata = {
 };
 
 // Event-driven ISR: 24h safety net. News is busted on-demand when the aggregator
-// stores new articles / the sync runs (POST /api/revalidate?path=/news).
+// stores new articles / the sync runs / a take is published
+// (POST /api/revalidate?path=/news or ?tag=news-index).
 export const revalidate = 86400;
+
+// This route is ISR, so its RPCs must be plain-JSON POSTs (string bodies)
+// with an explicit data-cache option — the connect transport's streamed
+// bodies can't be data-cached ("Failed to generate cache key"), and its
+// runtime no-store fallback throws "Dynamic server usage" during ISR
+// regeneration, silently pinning the page to a stale copy (same landmine
+// as sitemap/feed, fixed the same way).
+const newsIndexFetch: typeof fetch = (input, init) =>
+  serverFetchWithUserAgent(input, {
+    ...init,
+    next: { revalidate: 300, tags: ["news-index"] },
+  } as RequestInit);
+
+async function rpcJson<T>(rpc: string, body: unknown): Promise<T | undefined> {
+  try {
+    const resp = await newsIndexFetch(
+      buildApiUrl(
+        getServerShortsApiUrl(),
+        `/shorts.v1alpha1.ShortedStocksService/${rpc}`,
+      ),
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Connect-Protocol-Version": "1",
+        },
+        body: JSON.stringify(body),
+      },
+    );
+    if (!resp.ok) return undefined;
+    return (await resp.json()) as T;
+  } catch {
+    return undefined;
+  }
+}
+
+// Connect JSON encoding of an editorial take (Timestamps are RFC3339 strings
+// on this path, unlike the protobuf-es client's bigint seconds).
+interface TakeJson {
+  id?: string;
+  slug?: string;
+  headline?: string;
+  standfirst?: string;
+  byline?: string;
+  sentiment?: string;
+  stockCode?: string;
+  heroImageUrl?: string;
+  heroCaption?: string;
+  heroCredit?: string;
+  publishedAt?: string;
+}
+
+const toTakeLike = (t: TakeJson): TakeLike | undefined => {
+  if (!t.slug || !t.headline) return undefined;
+  const ms = t.publishedAt ? Date.parse(t.publishedAt) : NaN;
+  return {
+    id: t.id ?? t.slug,
+    slug: t.slug,
+    headline: t.headline,
+    standfirst: t.standfirst,
+    byline: t.byline,
+    sentiment: t.sentiment,
+    stockCode: t.stockCode,
+    heroImageUrl: t.heroImageUrl,
+    heroCaption: t.heroCaption,
+    heroCredit: t.heroCredit,
+    publishedAt: Number.isNaN(ms)
+      ? undefined
+      : { seconds: Math.floor(ms / 1000) },
+  };
+};
 
 interface ApiArticle {
   id: string;
@@ -144,20 +220,29 @@ const groupByDay = (articles: NewsCardArticle[]) => {
 
 export default async function NewsIndexPage() {
   const [response, takesResp] = await Promise.all([
-    getMarketNews(60, false),
+    rpcJson<{ articles?: ApiArticle[] }>("GetMarketNews", {
+      limit: 60,
+      priceSensitiveOnly: false,
+    }),
     // Pull a generous batch so the lead + dedupe-by-stock story stack
     // still fills even when one ticker dominates recent coverage.
-    listEditorialTakes(24, 0, "").catch(() => undefined),
+    rpcJson<{ takes?: TakeJson[] }>("ListEditorialTakes", {
+      limit: 24,
+      offset: 0,
+      stockCode: "",
+    }),
   ]);
-  const articles: NewsCardArticle[] = (
-    (response?.articles ?? []) as unknown as ApiArticle[]
-  ).map(toCardArticle);
+  const articles: NewsCardArticle[] = (response?.articles ?? []).map(
+    toCardArticle,
+  );
 
   // Lead story: the newest published Take. Secondary stack: the next
   // takes, deduped by stock code (newest take wins per ticker —
   // mirrors take-card-grid's approach). Untickered takes are kept
   // individually since they don't share a slot.
-  const allTakes = takesResp?.takes ?? [];
+  const allTakes = (takesResp?.takes ?? [])
+    .map(toTakeLike)
+    .filter((t): t is TakeLike => t !== undefined);
   const leadTake = allTakes[0];
   const seenStocks = new Set<string>();
   if (leadTake) {
