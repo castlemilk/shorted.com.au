@@ -210,10 +210,7 @@ func runCrawl(ctx context.Context, pool *pgxpool.Pool) {
 
 	cr := &crawler{fetcher: fetcher, baselines: baselines, cfg: cfg}
 
-	targets := crawlTargets
-	if cfg.maxSuburbs >= 0 && cfg.maxSuburbs < len(targets) {
-		targets = targets[:cfg.maxSuburbs]
-	}
+	targets := selectTargets(crawlTargets, cfg)
 	log.Printf("[crawl] start: %d suburbs · %s · profile=%s · dryRun=%v", len(targets), crawlFetcherMode(cfg), cfg.profileDir, cfg.dryRun)
 
 	var obs []Observation
