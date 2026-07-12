@@ -187,6 +187,32 @@ func TestSelectTargets_OutOfRangeShardIsEmpty(t *testing.T) {
 	}
 }
 
+func TestCrawlTargets_WellFormed(t *testing.T) {
+	validCapitals := map[string]bool{
+		"1GSYD": true, "2GMEL": true, "3GBRI": true, "4GADE": true, "5GPER": true,
+	}
+	seen := map[string]bool{}
+	for _, tg := range crawlTargets {
+		if tg.Suburb == "" || tg.Display == "" || tg.Postcode == "" || tg.State == "" || tg.Capital == "" {
+			t.Fatalf("target %+v has an empty field", tg)
+		}
+		if tg.Suburb != strings.ToLower(tg.Suburb) {
+			t.Fatalf("Suburb slug %q must be lowercase", tg.Suburb)
+		}
+		if !validCapitals[tg.Capital] {
+			t.Fatalf("target %q has unknown GCCSA capital %q", tg.Display, tg.Capital)
+		}
+		key := tg.State + "-" + tg.Postcode + "-" + tg.Suburb
+		if seen[key] {
+			t.Fatalf("duplicate target %q", key)
+		}
+		seen[key] = true
+	}
+	if len(crawlTargets) < 20 {
+		t.Fatalf("expected the curated set to have >=20 suburbs, got %d", len(crawlTargets))
+	}
+}
+
 func TestNeedsRewarm(t *testing.T) {
 	cases := []struct {
 		name                            string
