@@ -97,6 +97,11 @@ type crawlConfig struct {
 	// Empty -> launch a self-contained persistent Chromium (native/launchd
 	// fallback). See newCDPFetcher / newPlaywrightFetcher.
 	cdpURL string
+	// Static sharding for multi-rig distribution: each residential Mac runs a
+	// disjoint modulo-slice of crawlTargets (shardIndex of shardCount). The
+	// partition stays balanced as the list grows. shardCount<=1 disables it.
+	shardIndex int
+	shardCount int
 }
 
 func loadCrawlConfig() crawlConfig {
@@ -104,8 +109,8 @@ func loadCrawlConfig() crawlConfig {
 		maxSuburbs: envInt("CRAWL_MAX_SUBURBS", len(crawlTargets)),
 		// HEAVIER pacing than the old stealth tier: a headed browser hitting a
 		// Kasada/Akamai-protected site must look human (20–45s between suburbs).
-		minDelay:        time.Duration(envInt("CRAWL_MIN_DELAY_MS", 20000)) * time.Millisecond,
-		maxDelay:        time.Duration(envInt("CRAWL_MAX_DELAY_MS", 45000)) * time.Millisecond,
+		minDelay: time.Duration(envInt("CRAWL_MIN_DELAY_MS", 20000)) * time.Millisecond,
+		maxDelay: time.Duration(envInt("CRAWL_MAX_DELAY_MS", 45000)) * time.Millisecond,
 		// Default to dry-run ON for this ToS-restricted tier: it only WRITES to
 		// house_prices when CRAWL_DRY_RUN is explicitly "false". An accidental
 		// `-mode crawl` is then a no-op harvest, never a silent persist of
@@ -116,7 +121,30 @@ func loadCrawlConfig() crawlConfig {
 		brandbrainURL:   os.Getenv("BRANDBRAIN_URL"), // "" -> brandbrainEndpoint() default
 		profileDir:      envStr("CRAWL_PROFILE_DIR", "/data/pw-profile"),
 		cdpURL:          os.Getenv("CRAWL_CDP_URL"), // e.g. http://host.docker.internal:9222
+		shardIndex:      envInt("CRAWL_SHARD_INDEX", 0),
+		shardCount:      envInt("CRAWL_SHARD_COUNT", 1),
 	}
+}
+
+// selectTargets applies static sharding then the maxSuburbs cap, deterministically.
+// With shardCount>1 each rig takes the targets whose index ≡ shardIndex (mod
+// shardCount) — disjoint across rigs and balanced as the list grows. An
+// out-of-range shardIndex yields an empty set (callers already log an empty run).
+func selectTargets(all []CrawlTarget, cfg crawlConfig) []CrawlTarget {
+	targets := all
+	if cfg.shardCount > 1 {
+		shard := make([]CrawlTarget, 0, len(all)/cfg.shardCount+1)
+		for i, t := range all {
+			if i%cfg.shardCount == cfg.shardIndex {
+				shard = append(shard, t)
+			}
+		}
+		targets = shard
+	}
+	if cfg.maxSuburbs >= 0 && cfg.maxSuburbs < len(targets) {
+		targets = targets[:cfg.maxSuburbs]
+	}
+	return targets
 }
 
 func envInt(key string, def int) int {
