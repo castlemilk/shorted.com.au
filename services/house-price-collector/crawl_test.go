@@ -186,3 +186,25 @@ func TestSelectTargets_OutOfRangeShardIsEmpty(t *testing.T) {
 		t.Fatalf("out-of-range shard len = %d, want 0", len(got))
 	}
 }
+
+func TestNeedsRewarm(t *testing.T) {
+	cases := []struct {
+		name                            string
+		maxConsec, reaBlocks, domBlocks int
+		want                            bool
+	}{
+		{"no blocks", 3, 0, 0, false},
+		{"rea tripped", 3, 3, 0, true},
+		{"domain tripped", 3, 1, 3, true},
+		{"both tripped", 3, 4, 5, true},
+		{"under threshold", 3, 2, 2, false},
+		{"breaker disabled", 0, 9, 9, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := needsRewarm(c.maxConsec, c.reaBlocks, c.domBlocks); got != c.want {
+				t.Fatalf("needsRewarm(%d,%d,%d) = %v, want %v", c.maxConsec, c.reaBlocks, c.domBlocks, got, c.want)
+			}
+		})
+	}
+}

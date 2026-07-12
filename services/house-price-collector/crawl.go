@@ -184,8 +184,9 @@ type crawler struct {
 	stats     crawlStats
 }
 
-// runCrawl is the -mode=crawl entry point.
-func runCrawl(ctx context.Context, pool *pgxpool.Pool) {
+// runCrawl is the -mode=crawl entry point. It returns true when the run detected
+// that the browser profile needs a human to re-warm its anti-bot clearance.
+func runCrawl(ctx context.Context, pool *pgxpool.Pool) bool {
 	cfg := loadCrawlConfig()
 
 	baselines, err := loadCapitalBaselines(ctx, pool)
@@ -204,7 +205,7 @@ func runCrawl(ctx context.Context, pool *pgxpool.Pool) {
 	if err != nil {
 		log.Printf("[crawl] crawl fetcher init failed (%v) — aborting crawl (non-fatal; official backbone unaffected)", err)
 		_ = updateRun(ctx, pool, "crawl", nil, 0, "error", "fetcher init: "+err.Error())
-		return
+		return false
 	}
 	defer fetcher.Close()
 
@@ -235,11 +236,20 @@ func runCrawl(ctx context.Context, pool *pgxpool.Pool) {
 			log.Printf("[crawl] upserted %d suburb observations", n)
 		}
 	}
+	rewarm := needsRewarm(cfg.maxConsecBlocks, cr.reaBlocks, cr.domBlocks)
+	if rewarm && status == "ok" {
+		status, detail = "needs_rewarm", "circuit breaker tripped — re-warm the crawl Chrome profile"
+	}
 	_ = updateRun(ctx, pool, "crawl", nil, len(obs), status, detail)
 
 	s := cr.stats
 	log.Printf("[crawl] done: attempted=%d accepted=%d blocked=%d rejected=%d diverged=%d",
 		s.attempted, s.accepted, s.blocked, s.rejected, s.diverged)
+	if rewarm {
+		log.Printf("[crawl] REWARM REQUIRED: circuit breaker tripped (rea=%d dom=%d ≥ %d) — the dedicated Chrome profile likely lost its Kasada/Akamai clearance; re-warm it by hand",
+			cr.reaBlocks, cr.domBlocks, cfg.maxConsecBlocks)
+	}
+	return rewarm
 }
 
 // crawlSuburb fetches both sources via the headed browser, hands each rendered
@@ -348,6 +358,18 @@ func (cr *crawler) crossCheck(t CrawlTarget, site string, html []byte, obs []Obs
 		log.Printf("[crawl] %s %s: brandbrain $%.0f vs page-harvest $%.0f diverge (>%.0f%%) — extraction-drift signal (value kept; capital-band gate passed)",
 			t.Display, site, bbHouse, raw, maxCrossSourceDivergence*100)
 	}
+}
+
+// needsRewarm reports whether a source's circuit breaker tripped — every recent
+// fetch to that source was blocked, the signature of an expired Kasada/Akamai
+// clearance that a human must re-warm on the dedicated Chrome profile. It drives
+// the re-warm alert (process exit code 3). A disabled breaker (maxConsec<=0) never
+// signals.
+func needsRewarm(maxConsecBlocks, reaBlocks, domBlocks int) bool {
+	if maxConsecBlocks <= 0 {
+		return false
+	}
+	return reaBlocks >= maxConsecBlocks || domBlocks >= maxConsecBlocks
 }
 
 func (cr *crawler) sleepJitter(ctx context.Context) {
