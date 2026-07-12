@@ -1,7 +1,24 @@
-import { type EditorialTake } from "~/gen/shorts/v1alpha1/shorts_pb";
-
-/** The shape the masthead components need from an editorial take. */
-export type TakeLike = EditorialTake;
+/**
+ * The shape the masthead components need from an editorial take. Structural
+ * rather than the protobuf EditorialTake so the /news page can feed it from
+ * a plain-JSON connect POST (whose Timestamps are RFC3339 strings, mapped to
+ * `{seconds}` by the caller) — the connect transport can't run inside ISR
+ * routes (streamed bodies can't data-cache; its no-store fallback throws
+ * "Dynamic server usage" during regeneration).
+ */
+export interface TakeLike {
+  id: string;
+  slug: string;
+  headline: string;
+  standfirst?: string;
+  byline?: string;
+  sentiment?: string;
+  stockCode?: string;
+  heroImageUrl?: string;
+  heroCaption?: string;
+  heroCredit?: string;
+  publishedAt?: { seconds?: bigint | number };
+}
 
 /** Format a protobuf Timestamp-ish value as an en-AU long date. */
 export function fmtTakeDate(

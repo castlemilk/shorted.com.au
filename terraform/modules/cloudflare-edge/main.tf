@@ -476,6 +476,7 @@ resource "cloudflare_ruleset" "app_api_security_skip" {
               or starts_with(http.request.uri.path, "/api/stocks/")
               or starts_with(http.request.uri.path, "/api/community/")
               or starts_with(http.request.uri.path, "/api/algolia/")
+              or starts_with(http.request.uri.path, "/api/revalidate")
             )
           )
         )

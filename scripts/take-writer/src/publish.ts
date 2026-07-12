@@ -268,9 +268,55 @@ export async function publishTake(opts: PublishOptions): Promise<void> {
     await pg2.end();
   }
 
-  // 5. Tweet (opt-in).
+  // 5. Bust the ISR caches so the take surfaces on the newsdesk immediately
+  // (/news is event-driven ISR with a 24h safety net — without this ping a
+  // fresh take waits for the next aggregator-driven bust to appear).
+  await revalidateNewsSurfaces(slug);
+
+  // 6. Tweet (opt-in).
   if (opts.tweet) await tweetTake(slug);
 
-  // 6. Links.
+  // 7. Links.
   printLinks(slug);
+}
+
+/**
+ * POST the web app's on-demand revalidation endpoint for the surfaces a
+ * newly published take appears on. Non-fatal: a failed ping only delays
+ * visibility until the next aggregator-driven bust.
+ *
+ * REVALIDATION_URL defaults to the Vercel origin (not shorted.com.au —
+ * Cloudflare's managed challenge blocks non-browser POSTs to the canonical
+ * host). REVALIDATION_SECRET comes from prod Secret Manager:
+ *   gcloud secrets versions access latest --secret=REVALIDATION_SECRET \
+ *     --project=rosy-clover-477102-t5
+ */
+async function revalidateNewsSurfaces(slug: string): Promise<void> {
+  const secret = process.env.REVALIDATION_SECRET;
+  const base =
+    process.env.REVALIDATION_URL ??
+    "https://shorted-com-au-document-analyser.vercel.app/api/revalidate";
+  if (!secret) {
+    console.warn(
+      "[publish] REVALIDATION_SECRET not set — /news may stay stale until the next aggregator run.\n" +
+        `  Manual: curl -X POST "${base}?secret=<REVALIDATION_SECRET>&tag=news-index&path=/news,/news/${slug},/"`,
+    );
+    return;
+  }
+  const url =
+    `${base}?secret=${encodeURIComponent(secret)}` +
+    `&tag=news-index&path=${encodeURIComponent(`/news,/news/${slug},/`)}`;
+  try {
+    const resp = await fetch(url, { method: "POST" });
+    const body = (await resp.json().catch(() => ({}))) as {
+      revalidated?: boolean;
+    };
+    if (resp.ok && body.revalidated) {
+      console.log(`[publish] revalidated /news, /news/${slug} and /`);
+    } else {
+      console.warn(`[publish] revalidation ping failed (HTTP ${resp.status})`);
+    }
+  } catch (e) {
+    console.warn(`[publish] revalidation ping failed: ${String(e)}`);
+  }
 }
