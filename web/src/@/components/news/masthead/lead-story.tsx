@@ -62,7 +62,7 @@ export function LeadStory({ take }: { take: TakeLike }) {
             </div>
           )}
 
-          {(take.heroCaption || take.heroCredit) && (
+          {(take.heroCaption ?? take.heroCredit) && (
             <figcaption className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
               {take.heroCaption ? (
                 <span className="text-xs text-muted-foreground">
