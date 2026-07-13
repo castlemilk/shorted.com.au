@@ -84,6 +84,32 @@ func TestBrandbrainAgentClient_SubmitHTTPError(t *testing.T) {
 	}
 }
 
+func TestBrandbrainAgentClient_Enqueue(t *testing.T) {
+	var body map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/agent/crawl-jobs" || r.Method != http.MethodPost {
+			t.Errorf("enqueue hit %s %s", r.Method, r.URL.Path)
+		}
+		b, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(b, &body)
+		_, _ = w.Write([]byte(`{"enqueued":2}`))
+	}))
+	defer srv.Close()
+
+	c := newBrandbrainAgentClient(agentConfig{brandbrainURL: srv.URL, token: "t", agentID: "a"})
+	n, err := c.enqueue(context.Background(), []crawlEnqueueInput{
+		{Kind: "housing", Suburb: "Chatswood", State: "NSW", Postcode: "2067", Source: "both", Tier: "listings"},
+		{Kind: "housing", Suburb: "Mosman", State: "NSW", Postcode: "2088", Source: "both", Tier: "listings"},
+	})
+	if err != nil || n != 2 {
+		t.Fatalf("enqueue = %d,%v want 2,nil", n, err)
+	}
+	jobs, ok := body["jobs"].([]any)
+	if !ok || len(jobs) != 2 {
+		t.Fatalf("enqueue body jobs = %v", body["jobs"])
+	}
+}
+
 func TestResolveCrawlTarget_FoundInCatalog(t *testing.T) {
 	// Chatswood is in the curated crawlTargets → the authoritative entry (with Capital).
 	job := &agentCrawlJob{Suburb: "Chatswood", State: "NSW", Postcode: "2067", Source: "both", Tier: "listings"}

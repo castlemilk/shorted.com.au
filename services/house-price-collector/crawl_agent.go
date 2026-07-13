@@ -135,6 +135,60 @@ func (c *brandbrainAgentClient) submit(ctx context.Context, jobID, status string
 	}, nil)
 }
 
+// crawlEnqueueInput is one suburb to enqueue on the brandbrain queue.
+type crawlEnqueueInput struct {
+	Kind     string `json:"kind"`
+	Suburb   string `json:"suburb"`
+	State    string `json:"state"`
+	Postcode string `json:"postcode"`
+	Source   string `json:"source"`
+	Tier     string `json:"tier"`
+	Priority int    `json:"priority,omitempty"`
+}
+
+// enqueue posts suburb jobs to the queue; brandbrain skips pending duplicates.
+// Returns the number actually inserted.
+func (c *brandbrainAgentClient) enqueue(ctx context.Context, jobs []crawlEnqueueInput) (int, error) {
+	var resp struct {
+		Enqueued int `json:"enqueued"`
+	}
+	if err := c.do(ctx, http.MethodPost, "/api/v1/agent/crawl-jobs", map[string]any{"jobs": jobs}, &resp); err != nil {
+		return 0, err
+	}
+	return resp.Enqueued, nil
+}
+
+// runEnqueue is the -mode=enqueue entry point: post the curated suburb catalog to
+// the brandbrain queue so pollers have work to claim. shorted stays the source of
+// truth for AU suburbs; brandbrain is a generic queue. Env: BRANDBRAIN_AGENT_URL +
+// BRANDBRAIN_AGENT_TOKEN, CRAWL_ENQUEUE_SOURCE (default both), CRAWL_ENQUEUE_TIER
+// (default listings).
+func runEnqueue(ctx context.Context, _ *pgxpool.Pool) {
+	acfg := loadAgentConfig()
+	if acfg.brandbrainURL == "" || acfg.token == "" {
+		log.Printf("[enqueue] BRANDBRAIN_AGENT_URL + BRANDBRAIN_AGENT_TOKEN required — nothing to do")
+		return
+	}
+	source := envStr("CRAWL_ENQUEUE_SOURCE", "both")
+	tier := envStr("CRAWL_ENQUEUE_TIER", "listings")
+
+	jobs := make([]crawlEnqueueInput, 0, len(crawlTargets))
+	for _, t := range crawlTargets {
+		jobs = append(jobs, crawlEnqueueInput{
+			Kind: "housing", Suburb: t.Display, State: t.State, Postcode: t.Postcode,
+			Source: source, Tier: tier,
+		})
+	}
+
+	client := newBrandbrainAgentClient(acfg)
+	n, err := client.enqueue(ctx, jobs)
+	if err != nil {
+		log.Printf("[enqueue] error: %v", err)
+		return
+	}
+	log.Printf("[enqueue] enqueued %d new job(s) of %d target(s) (source=%s tier=%s)", n, len(jobs), source, tier)
+}
+
 // resolveCrawlTarget maps a claimed job to a full CrawlTarget. It prefers the
 // authoritative entry in crawlTargets (which carries the Display slug + GCCSA
 // Capital), falling back to a best-effort construction (Capital unknown → the
