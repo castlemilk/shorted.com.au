@@ -170,8 +170,12 @@ func isBlockError(err error) bool {
 // access-denied interstitial (rather than a real suburb page). A rendered DOM
 // containing one of these — or a redirect to a challenge URL — is treated as a
 // block so the circuit breaker can back off.
+// NOTE: do NOT match the bare vendor name "kasada" — realestate.com.au (which USES
+// Kasada) references it in the SDK on EVERY legitimate page, so matching it
+// discarded every real REA page as a false "block". Match only actual
+// challenge/denied interstitial markers; a genuine block is also caught downstream
+// by "no listings/medians extracted".
 var blockMarkers = []string{
-	"kasada",
 	"px-captcha",
 	"/_incapsula_",
 	"access denied",

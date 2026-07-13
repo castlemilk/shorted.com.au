@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 
 	"connectrpc.com/connect"
 	"github.com/jackc/pgx/v5"
@@ -274,4 +276,83 @@ func (s *ShortsServer) ListHousingRegions(ctx context.Context, req *connect.Requ
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list housing regions"))
 	}
 	return connect.NewResponse(cached.(*shortsv1alpha1.ListHousingRegionsResponse)), nil
+}
+
+// ListSuburbPriceDrops ranks suburbs by recent for-sale asking-price reductions.
+// This is the DERIVED aggregate surface (mv_suburb_price_drops) — no addresses or
+// individual listings are returned, so it is always public.
+func (s *ShortsServer) ListSuburbPriceDrops(ctx context.Context, req *connect.Request[shortsv1alpha1.ListSuburbPriceDropsRequest]) (*connect.Response[shortsv1alpha1.ListSuburbPriceDropsResponse], error) {
+	m := req.Msg
+	cacheKey := s.cache.GetSuburbPriceDropsKey(m.StateCode, m.Sort, m.Limit)
+	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+		rows, err := s.store.ListSuburbPriceDrops(m.StateCode, m.Sort, m.Limit)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]*shortsv1alpha1.SuburbPriceDrop, 0, len(rows))
+		for _, r := range rows {
+			if r == nil {
+				continue
+			}
+			out = append(out, &shortsv1alpha1.SuburbPriceDrop{
+				RegionCode: r.RegionCode, SalCode: r.SALCode, SalName: r.SALName, StateCode: r.StateCode,
+				Postcode: r.Postcode, DroppedListingCount: r.DroppedListingCount, AvgDropPct: r.AvgDropPct,
+				MedianDropPct: r.MedianDropPct, MaxDropPct: r.MaxDropPct, MaxDropAbs: r.MaxDropAbs,
+				TotalActiveListings: r.TotalActiveListings, DroppedShare: r.DroppedShare,
+				ForSaleCount: r.ForSaleCount, AvgAsking: r.AvgAsking, MedianAsking: r.MedianAsking,
+				SoldCount: r.SoldCount, AvgSold: r.AvgSold, MedianSold: r.MedianSold,
+			})
+		}
+		return &shortsv1alpha1.ListSuburbPriceDropsResponse{Suburbs: out}, nil
+	})
+	if err != nil {
+		s.logger.Errorf("database error in ListSuburbPriceDrops: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list suburb price drops"))
+	}
+	return connect.NewResponse(cached.(*shortsv1alpha1.ListSuburbPriceDropsResponse)), nil
+}
+
+// dropListingsEnabled gates the per-listing deep-link drill-down. That path reads
+// ToS-restricted listing rows, so it is OFF by default and enabled only once the
+// operator has confirmed the publish posture (HOUSING_DROP_LISTINGS_ENABLED=true).
+func dropListingsEnabled() bool {
+	return strings.EqualFold(os.Getenv("HOUSING_DROP_LISTINGS_ENABLED"), "true")
+}
+
+// ListSuburbDropListings returns a suburb's recently-reduced listings, each
+// deep-linking OUT to the live portal page. Flag-gated: returns an empty list when
+// disabled so the UI degrades cleanly to the aggregate-only surface.
+func (s *ShortsServer) ListSuburbDropListings(ctx context.Context, req *connect.Request[shortsv1alpha1.ListSuburbDropListingsRequest]) (*connect.Response[shortsv1alpha1.ListSuburbDropListingsResponse], error) {
+	m := req.Msg
+	if m.SalCode == "" && m.RegionCode == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("sal_code or region_code is required"))
+	}
+	if !dropListingsEnabled() {
+		return connect.NewResponse(&shortsv1alpha1.ListSuburbDropListingsResponse{}), nil
+	}
+	cacheKey := s.cache.GetSuburbDropListingsKey(m.SalCode, m.RegionCode, m.WindowDays, m.Limit)
+	cached, err := s.cache.GetOrSet(cacheKey, func() (interface{}, error) {
+		rows, err := s.store.ListSuburbDropListings(m.SalCode, m.RegionCode, m.WindowDays, m.Limit)
+		if err != nil {
+			return nil, err
+		}
+		out := make([]*shortsv1alpha1.SuburbDropListing, 0, len(rows))
+		for _, r := range rows {
+			if r == nil {
+				continue
+			}
+			out = append(out, &shortsv1alpha1.SuburbDropListing{
+				Source: r.Source, ListingUrl: r.ListingURL, DisplayAddress: r.DisplayAddress,
+				PropertyType: r.PropertyType, Bedrooms: r.Bedrooms, Bathrooms: r.Bathrooms,
+				CarSpaces: r.CarSpaces, PrevPrice: r.PrevPrice, Price: r.Price,
+				DropPct: r.DropPct, DropAbs: r.DropAbs, ObservedAt: timestamppb.New(r.ObservedAt),
+			})
+		}
+		return &shortsv1alpha1.ListSuburbDropListingsResponse{Listings: out}, nil
+	})
+	if err != nil {
+		s.logger.Errorf("database error in ListSuburbDropListings: %v", err)
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list suburb drop listings"))
+	}
+	return connect.NewResponse(cached.(*shortsv1alpha1.ListSuburbDropListingsResponse)), nil
 }

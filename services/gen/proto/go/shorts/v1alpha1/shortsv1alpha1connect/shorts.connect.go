@@ -190,6 +190,12 @@ const (
 	// ShortedStocksServiceListHousingRegionsProcedure is the fully-qualified name of the
 	// ShortedStocksService's ListHousingRegions RPC.
 	ShortedStocksServiceListHousingRegionsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListHousingRegions"
+	// ShortedStocksServiceListSuburbPriceDropsProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListSuburbPriceDrops RPC.
+	ShortedStocksServiceListSuburbPriceDropsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListSuburbPriceDrops"
+	// ShortedStocksServiceListSuburbDropListingsProcedure is the fully-qualified name of the
+	// ShortedStocksService's ListSuburbDropListings RPC.
+	ShortedStocksServiceListSuburbDropListingsProcedure = "/shorts.v1alpha1.ShortedStocksService/ListSuburbDropListings"
 	// ShortedStocksServiceGetCompanyTaxProfileProcedure is the fully-qualified name of the
 	// ShortedStocksService's GetCompanyTaxProfile RPC.
 	ShortedStocksServiceGetCompanyTaxProfileProcedure = "/shorts.v1alpha1.ShortedStocksService/GetCompanyTaxProfile"
@@ -253,6 +259,8 @@ var (
 	shortedStocksServiceListStateSuburbsMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("ListStateSuburbs")
 	shortedStocksServiceGetSuburbProfileMethodDescriptor                = shortedStocksServiceServiceDescriptor.Methods().ByName("GetSuburbProfile")
 	shortedStocksServiceListHousingRegionsMethodDescriptor              = shortedStocksServiceServiceDescriptor.Methods().ByName("ListHousingRegions")
+	shortedStocksServiceListSuburbPriceDropsMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("ListSuburbPriceDrops")
+	shortedStocksServiceListSuburbDropListingsMethodDescriptor          = shortedStocksServiceServiceDescriptor.Methods().ByName("ListSuburbDropListings")
 	shortedStocksServiceGetCompanyTaxProfileMethodDescriptor            = shortedStocksServiceServiceDescriptor.Methods().ByName("GetCompanyTaxProfile")
 	shortedStocksServiceGetIndustryIntelligenceMethodDescriptor         = shortedStocksServiceServiceDescriptor.Methods().ByName("GetIndustryIntelligence")
 )
@@ -365,6 +373,10 @@ type ShortedStocksServiceClient interface {
 	GetSuburbProfile(context.Context, *connect.Request[v1alpha1.GetSuburbProfileRequest]) (*connect.Response[v1alpha1.GetSuburbProfileResponse], error)
 	// List house-price regions (suburbs/LGAs/etc) for the suburb explorer.
 	ListHousingRegions(context.Context, *connect.Request[v1alpha1.ListHousingRegionsRequest]) (*connect.Response[v1alpha1.ListHousingRegionsResponse], error)
+	// Suburbs ranked by recent for-sale asking-price drops.
+	ListSuburbPriceDrops(context.Context, *connect.Request[v1alpha1.ListSuburbPriceDropsRequest]) (*connect.Response[v1alpha1.ListSuburbPriceDropsResponse], error)
+	// Individual recently-reduced listings for a suburb, deep-linking to the portal.
+	ListSuburbDropListings(context.Context, *connect.Request[v1alpha1.ListSuburbDropListingsRequest]) (*connect.Response[v1alpha1.ListSuburbDropListingsResponse], error)
 	// Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
 	GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error)
 	// Get imported, cited industry intelligence facts for an industry.
@@ -693,6 +705,18 @@ func NewShortedStocksServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(shortedStocksServiceListHousingRegionsMethodDescriptor),
 			connect.WithClientOptions(opts...),
 		),
+		listSuburbPriceDrops: connect.NewClient[v1alpha1.ListSuburbPriceDropsRequest, v1alpha1.ListSuburbPriceDropsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListSuburbPriceDropsProcedure,
+			connect.WithSchema(shortedStocksServiceListSuburbPriceDropsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
+		listSuburbDropListings: connect.NewClient[v1alpha1.ListSuburbDropListingsRequest, v1alpha1.ListSuburbDropListingsResponse](
+			httpClient,
+			baseURL+ShortedStocksServiceListSuburbDropListingsProcedure,
+			connect.WithSchema(shortedStocksServiceListSuburbDropListingsMethodDescriptor),
+			connect.WithClientOptions(opts...),
+		),
 		getCompanyTaxProfile: connect.NewClient[v1alpha1.GetCompanyTaxProfileRequest, v1alpha1.GetCompanyTaxProfileResponse](
 			httpClient,
 			baseURL+ShortedStocksServiceGetCompanyTaxProfileProcedure,
@@ -762,6 +786,8 @@ type shortedStocksServiceClient struct {
 	listStateSuburbs                *connect.Client[v1alpha1.ListStateSuburbsRequest, v1alpha1.ListStateSuburbsResponse]
 	getSuburbProfile                *connect.Client[v1alpha1.GetSuburbProfileRequest, v1alpha1.GetSuburbProfileResponse]
 	listHousingRegions              *connect.Client[v1alpha1.ListHousingRegionsRequest, v1alpha1.ListHousingRegionsResponse]
+	listSuburbPriceDrops            *connect.Client[v1alpha1.ListSuburbPriceDropsRequest, v1alpha1.ListSuburbPriceDropsResponse]
+	listSuburbDropListings          *connect.Client[v1alpha1.ListSuburbDropListingsRequest, v1alpha1.ListSuburbDropListingsResponse]
 	getCompanyTaxProfile            *connect.Client[v1alpha1.GetCompanyTaxProfileRequest, v1alpha1.GetCompanyTaxProfileResponse]
 	getIndustryIntelligence         *connect.Client[v1alpha1.GetIndustryIntelligenceRequest, v1alpha1.GetIndustryIntelligenceResponse]
 }
@@ -1029,6 +1055,16 @@ func (c *shortedStocksServiceClient) ListHousingRegions(ctx context.Context, req
 	return c.listHousingRegions.CallUnary(ctx, req)
 }
 
+// ListSuburbPriceDrops calls shorts.v1alpha1.ShortedStocksService.ListSuburbPriceDrops.
+func (c *shortedStocksServiceClient) ListSuburbPriceDrops(ctx context.Context, req *connect.Request[v1alpha1.ListSuburbPriceDropsRequest]) (*connect.Response[v1alpha1.ListSuburbPriceDropsResponse], error) {
+	return c.listSuburbPriceDrops.CallUnary(ctx, req)
+}
+
+// ListSuburbDropListings calls shorts.v1alpha1.ShortedStocksService.ListSuburbDropListings.
+func (c *shortedStocksServiceClient) ListSuburbDropListings(ctx context.Context, req *connect.Request[v1alpha1.ListSuburbDropListingsRequest]) (*connect.Response[v1alpha1.ListSuburbDropListingsResponse], error) {
+	return c.listSuburbDropListings.CallUnary(ctx, req)
+}
+
 // GetCompanyTaxProfile calls shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile.
 func (c *shortedStocksServiceClient) GetCompanyTaxProfile(ctx context.Context, req *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error) {
 	return c.getCompanyTaxProfile.CallUnary(ctx, req)
@@ -1148,6 +1184,10 @@ type ShortedStocksServiceHandler interface {
 	GetSuburbProfile(context.Context, *connect.Request[v1alpha1.GetSuburbProfileRequest]) (*connect.Response[v1alpha1.GetSuburbProfileResponse], error)
 	// List house-price regions (suburbs/LGAs/etc) for the suburb explorer.
 	ListHousingRegions(context.Context, *connect.Request[v1alpha1.ListHousingRegionsRequest]) (*connect.Response[v1alpha1.ListHousingRegionsResponse], error)
+	// Suburbs ranked by recent for-sale asking-price drops.
+	ListSuburbPriceDrops(context.Context, *connect.Request[v1alpha1.ListSuburbPriceDropsRequest]) (*connect.Response[v1alpha1.ListSuburbPriceDropsResponse], error)
+	// Individual recently-reduced listings for a suburb, deep-linking to the portal.
+	ListSuburbDropListings(context.Context, *connect.Request[v1alpha1.ListSuburbDropListingsRequest]) (*connect.Response[v1alpha1.ListSuburbDropListingsResponse], error)
 	// Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
 	GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error)
 	// Get imported, cited industry intelligence facts for an industry.
@@ -1472,6 +1512,18 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 		connect.WithSchema(shortedStocksServiceListHousingRegionsMethodDescriptor),
 		connect.WithHandlerOptions(opts...),
 	)
+	shortedStocksServiceListSuburbPriceDropsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListSuburbPriceDropsProcedure,
+		svc.ListSuburbPriceDrops,
+		connect.WithSchema(shortedStocksServiceListSuburbPriceDropsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
+	shortedStocksServiceListSuburbDropListingsHandler := connect.NewUnaryHandler(
+		ShortedStocksServiceListSuburbDropListingsProcedure,
+		svc.ListSuburbDropListings,
+		connect.WithSchema(shortedStocksServiceListSuburbDropListingsMethodDescriptor),
+		connect.WithHandlerOptions(opts...),
+	)
 	shortedStocksServiceGetCompanyTaxProfileHandler := connect.NewUnaryHandler(
 		ShortedStocksServiceGetCompanyTaxProfileProcedure,
 		svc.GetCompanyTaxProfile,
@@ -1590,6 +1642,10 @@ func NewShortedStocksServiceHandler(svc ShortedStocksServiceHandler, opts ...con
 			shortedStocksServiceGetSuburbProfileHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceListHousingRegionsProcedure:
 			shortedStocksServiceListHousingRegionsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListSuburbPriceDropsProcedure:
+			shortedStocksServiceListSuburbPriceDropsHandler.ServeHTTP(w, r)
+		case ShortedStocksServiceListSuburbDropListingsProcedure:
+			shortedStocksServiceListSuburbDropListingsHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetCompanyTaxProfileProcedure:
 			shortedStocksServiceGetCompanyTaxProfileHandler.ServeHTTP(w, r)
 		case ShortedStocksServiceGetIndustryIntelligenceProcedure:
@@ -1809,6 +1865,14 @@ func (UnimplementedShortedStocksServiceHandler) GetSuburbProfile(context.Context
 
 func (UnimplementedShortedStocksServiceHandler) ListHousingRegions(context.Context, *connect.Request[v1alpha1.ListHousingRegionsRequest]) (*connect.Response[v1alpha1.ListHousingRegionsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListHousingRegions is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListSuburbPriceDrops(context.Context, *connect.Request[v1alpha1.ListSuburbPriceDropsRequest]) (*connect.Response[v1alpha1.ListSuburbPriceDropsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListSuburbPriceDrops is not implemented"))
+}
+
+func (UnimplementedShortedStocksServiceHandler) ListSuburbDropListings(context.Context, *connect.Request[v1alpha1.ListSuburbDropListingsRequest]) (*connect.Response[v1alpha1.ListSuburbDropListingsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("shorts.v1alpha1.ShortedStocksService.ListSuburbDropListings is not implemented"))
 }
 
 func (UnimplementedShortedStocksServiceHandler) GetCompanyTaxProfile(context.Context, *connect.Request[v1alpha1.GetCompanyTaxProfileRequest]) (*connect.Response[v1alpha1.GetCompanyTaxProfileResponse], error) {

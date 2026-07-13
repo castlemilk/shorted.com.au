@@ -1,0 +1,446 @@
+package main
+
+import (
+	"encoding/json"
+	"regexp"
+	"strconv"
+	"strings"
+
+	"github.com/PuerkitoBio/goquery"
+)
+
+// Per-listing extraction is schema-AGNOSTIC for the same reason the median
+// harvester is (crawl_extract.go): domain.com.au embeds its listing array in
+// __NEXT_DATA__, realestate.com.au in window.ArgonautExchange, both mutate their
+// key paths often, and Kasada serves bot-variant DOM. So we never bind a selector:
+// we walk every JSON blob on the page, treat any object that simultaneously
+// carries an id + a price + an address as a listing candidate, and harvest its
+// fields through case-insensitive alias lists (with a shallow nested fallback for
+// address/features/price/geo). Junk is dropped downstream by target-match +
+// price-band validation (crawl_listings_validate.go).
+
+// RawListing is one property listing as harvested from a search-results page,
+// before validation. Pointer fields are nil when absent.
+type RawListing struct {
+	Source       string
+	ListingID    string
+	ListingURL   string
+	DisplayAddr  string
+	Suburb       string
+	State        string
+	Postcode     string
+	Lat, Lng     *float64
+	PropertyType string
+	Bedrooms     *int16
+	Bathrooms    *int16
+	CarSpaces    *int16
+	LandSizeSqm  *float64
+	PriceDisplay string
+	PriceLow     *float64
+	PriceHigh    *float64
+	PriceKind    string
+	Status       string // normalized: for_sale|under_offer|sold|withdrawn
+}
+
+// extractListings walks every <script> JSON blob and returns the deduped
+// listings found. Dedup keeps the most-populated record per listing_id.
+func extractListings(doc *goquery.Document, source string) []RawListing {
+	seen := map[string]RawListing{}
+	doc.Find("script").Each(func(_ int, s *goquery.Selection) {
+		for _, blob := range jsonBlobs(s.Text()) {
+			var v any
+			if err := json.Unmarshal([]byte(blob), &v); err != nil {
+				continue
+			}
+			walkForListings(v, source, seen)
+		}
+	})
+	out := make([]RawListing, 0, len(seen))
+	for _, l := range seen {
+		out = append(out, l)
+	}
+	return out
+}
+
+func walkForListings(v any, source string, seen map[string]RawListing) {
+	walkForListingsDepth(v, source, seen, 0)
+}
+
+// walkForListingsDepth recurses through maps, arrays, AND stringified-JSON string
+// values. The latter is essential: REA double-stringifies its listing payload
+// (ArgonautExchange → urqlClientCache is a JSON string → each query's `data` is
+// another JSON string → the listings), and some sites embed escaped JSON blobs.
+// A depth cap guards against pathological nesting.
+func walkForListingsDepth(v any, source string, seen map[string]RawListing, depth int) {
+	if depth > 40 {
+		return
+	}
+	switch t := v.(type) {
+	case map[string]any:
+		lm := lowerKeys(t)
+		if isListingObject(lm) {
+			if l, ok := harvestListing(lm, source); ok {
+				if prev, exists := seen[l.ListingID]; !exists || fieldScore(l) > fieldScore(prev) {
+					seen[l.ListingID] = l
+				}
+			}
+		}
+		for _, child := range t {
+			walkForListingsDepth(child, source, seen, depth+1)
+		}
+	case []any:
+		for _, child := range t {
+			walkForListingsDepth(child, source, seen, depth+1)
+		}
+	case string:
+		if s := strings.TrimSpace(t); len(s) > 2 && (s[0] == '{' || s[0] == '[') {
+			var inner any
+			if json.Unmarshal([]byte(s), &inner) == nil {
+				walkForListingsDepth(inner, source, seen, depth+1)
+			}
+		}
+	}
+}
+
+// isListingObject reports whether a lowercased map looks like an individual
+// listing: it must carry a price signal, an address signal, AND something to
+// derive an identity from (an id field OR a url — Domain keys listings by the map
+// key, so the object itself has no id and we fall back to the url's trailing id).
+// Requiring price + address keeps agents/media/agency/project sub-objects out
+// (Domain "project" cards have an address but no price).
+func isListingObject(lm map[string]any) bool {
+	hasPrice := anyKey(lm, "price", "pricedisplay", "displayprice", "pricetext", "pricelabel", "pricedetails", "pricefrom")
+	hasAddr := childMap(lm, "address") != nil || anyKey(lm, "displayaddress", "streetaddress", "fulladdress")
+	hasIdentity := anyKey(lm, "id", "listingid", "advertid", "adid") ||
+		anyKey(lm, "listingurl", "url", "seourl", "canonicalurl", "href", "slug")
+	return hasPrice && hasAddr && hasIdentity
+}
+
+// trailingIDRe matches a portal listing id embedded in a URL (Domain/REA ids are
+// long numbers, e.g. .../bondi-nsw-2026-2020524930). ≥6 digits excludes postcodes.
+var trailingIDRe = regexp.MustCompile(`\d{6,}`)
+
+// listingIDFromURL recovers a stable listing id from the URL's trailing number —
+// the fallback when the object has no id field (Domain keys by the map key).
+func listingIDFromURL(u string) string {
+	ms := trailingIDRe.FindAllString(u, -1)
+	if len(ms) == 0 {
+		return ""
+	}
+	return ms[len(ms)-1]
+}
+
+func harvestListing(lm map[string]any, source string) (RawListing, bool) {
+	l := RawListing{Source: source}
+
+	// URL first — top-level aliases, or the REA _links.canonical.href shape.
+	l.ListingURL = getStr(lm, "listingurl", "url", "seourl", "canonicalurl", "href", "slug")
+	if l.ListingURL == "" {
+		if links := childMap(lm, "_links", "links"); links != nil {
+			if canon := childMap(links, "canonical", "self"); canon != nil {
+				l.ListingURL = getStr(canon, "href", "url")
+			}
+		}
+	}
+	l.ListingURL = absolutizeURL(l.ListingURL, source)
+
+	// Identity — an explicit id field, else the url's trailing id (Domain keys
+	// listings by the map key, so the object itself carries no id).
+	l.ListingID = getStr(lm, "id", "listingid", "advertid", "adid")
+	if l.ListingID == "" {
+		l.ListingID = listingIDFromURL(l.ListingURL)
+	}
+	if l.ListingID == "" {
+		return RawListing{}, false
+	}
+
+	// Address — nested "address" (with a possible "display" sub-object) or flat.
+	addr := childMap(lm, "address")
+	addrMaps := []map[string]any{lm}
+	if addr != nil {
+		addrMaps = append([]map[string]any{addr}, addrMaps...)
+		if disp := childMap(addr, "display"); disp != nil {
+			addrMaps = append([]map[string]any{disp}, addrMaps...)
+		}
+	}
+	l.DisplayAddr = firstStr(addrMaps, "displayaddress", "fulladdress", "streetaddress", "street", "shortaddress")
+	l.Suburb = firstStr(addrMaps, "suburb", "locality", "suburbname")
+	l.State = strings.ToUpper(firstStr(addrMaps, "state", "statecode"))
+	l.Postcode = firstStr(addrMaps, "postcode", "postalcode", "postcode4")
+
+	// Beds / baths / car — top-level or under a features sub-object; values may be
+	// bare numbers or REA-style {value: N} objects (toFloat handles both).
+	feat := childMap(lm, "features", "generalfeatures", "general", "propertyfeatures")
+	featMaps := []map[string]any{lm}
+	if feat != nil {
+		featMaps = append([]map[string]any{feat}, featMaps...)
+	}
+	l.Bedrooms = firstInt16(featMaps, 0, 60, "bedrooms", "beds", "bed", "numbedrooms")
+	l.Bathrooms = firstInt16(featMaps, 0, 60, "bathrooms", "baths", "bath", "numbathrooms")
+	l.CarSpaces = firstInt16(featMaps, 0, 60, "carspaces", "parking", "carspots", "car", "numcarspaces")
+	if v, ok := firstFloat(featMaps, "landsize", "landarea", "propertysize", "landsizesqm"); ok && v > 0 {
+		l.LandSizeSqm = f64p(v)
+	}
+
+	// Property type — top-level, a propertyTypes array, or under features
+	// (Domain's features.propertyType / propertyTypeFormatted).
+	l.PropertyType = strings.TrimSpace(firstStr(featMaps, "propertytypeformatted", "propertytype", "dwellingtype", "subtype"))
+	if l.PropertyType == "" {
+		if pts, ok := lm["propertytypes"].([]any); ok && len(pts) > 0 {
+			l.PropertyType = strings.TrimSpace(toStr(pts[0]))
+		}
+	}
+
+	// Geo — under a geo sub-object, the address (Domain), or flat; kept only inside
+	// the AU bounding box.
+	geoMaps := []map[string]any{lm}
+	if geo := childMap(lm, "geolocation", "location", "geo", "coordinates", "geocode"); geo != nil {
+		geoMaps = append(geoMaps, geo)
+	}
+	if addr != nil {
+		geoMaps = append(geoMaps, addr)
+	}
+	lat, latOK := firstFloat(geoMaps, "latitude", "lat")
+	lng, lngOK := firstFloat(geoMaps, "longitude", "lng", "lon", "long")
+	if latOK && lngOK && lat <= -9 && lat >= -45 && lng >= 110 && lng <= 156 {
+		l.Lat, l.Lng = f64p(lat), f64p(lng)
+	}
+
+	// Price.
+	l.PriceDisplay, l.PriceLow, l.PriceHigh, l.PriceKind = harvestPrice(lm)
+
+	// Status — a status field, overridden to "sold" when the card is tagged sold
+	// (Domain's UPVSoldListings mark sale via tags rather than a status field).
+	l.Status = listingStatus(getStr(lm, "status", "listingstatus", "salemode", "channel", "lifecycle", "liststatus"))
+	if tagsContainSold(lm["tags"]) {
+		l.Status = "sold"
+	}
+
+	return l, true
+}
+
+// tagsContainSold reports whether a listing's "tags" value marks it sold. Domain
+// tags are an object {tagText, tagClassName} or an array thereof.
+func tagsContainSold(tags any) bool {
+	return strings.Contains(strings.ToLower(flattenTagText(tags)), "sold")
+}
+
+func flattenTagText(v any) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case map[string]any:
+		var b strings.Builder
+		for _, val := range t {
+			b.WriteString(toStr(val))
+			b.WriteByte(' ')
+		}
+		return b.String()
+	case []any:
+		var b strings.Builder
+		for _, c := range t {
+			b.WriteString(flattenTagText(c))
+			b.WriteByte(' ')
+		}
+		return b.String()
+	}
+	return ""
+}
+
+// harvestPrice returns the display string + parsed bounds + kind. It prefers a
+// display string (auction/POA/range strings only survive there); if only a
+// numeric price is present it is treated as a fixed ask.
+func harvestPrice(lm map[string]any) (display string, low, high *float64, kind string) {
+	display = getStr(lm, "pricedisplay", "displayprice", "pricetext", "pricelabel", "pricefrom")
+	if display == "" {
+		if pm := childMap(lm, "price", "pricedetails"); pm != nil {
+			display = getStr(pm, "display", "displayprice", "label", "text")
+			if display == "" {
+				if v, ok := firstFloat([]map[string]any{pm}, "value", "amount", "from", "displayprice"); ok && v > 0 {
+					low = f64p(v)
+					return numericDisplay(v), low, nil, priceFixed
+				}
+			}
+		}
+	}
+	// A bare string "price" (very common on Domain).
+	if display == "" {
+		if s, ok := lm["price"].(string); ok {
+			display = s
+		}
+	}
+	if display == "" {
+		// Last resort: a numeric top-level "price".
+		if v, ok := firstFloat([]map[string]any{lm}, "price", "pricefrom"); ok && v > 0 {
+			return numericDisplay(v), f64p(v), nil, priceFixed
+		}
+		return "", nil, nil, priceUnknown
+	}
+	low, high, kind = parseAUPrice(display)
+	return display, low, high, kind
+}
+
+// listingStatus normalizes a portal status string to our enum.
+func listingStatus(raw string) string {
+	s := strings.ToLower(strings.TrimSpace(raw))
+	switch {
+	case s == "":
+		return "for_sale"
+	case strings.Contains(s, "sold"):
+		return "sold"
+	case strings.Contains(s, "under") || strings.Contains(s, "offer") || strings.Contains(s, "contract"):
+		return "under_offer"
+	case strings.Contains(s, "withdraw") || strings.Contains(s, "leased") || strings.Contains(s, "off"):
+		return "withdrawn"
+	default:
+		return "for_sale"
+	}
+}
+
+func fieldScore(l RawListing) int {
+	n := 0
+	for _, s := range []string{l.ListingURL, l.DisplayAddr, l.Suburb, l.State, l.Postcode, l.PropertyType, l.PriceDisplay} {
+		if s != "" {
+			n++
+		}
+	}
+	for _, p := range []*float64{l.PriceLow, l.PriceHigh, l.Lat, l.LandSizeSqm} {
+		if p != nil {
+			n++
+		}
+	}
+	for _, p := range []*int16{l.Bedrooms, l.Bathrooms, l.CarSpaces} {
+		if p != nil {
+			n++
+		}
+	}
+	return n
+}
+
+// --- generic JSON-map helpers (operate on lowercased-key maps) ---
+
+func lowerKeys(m map[string]any) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[strings.ToLower(k)] = v
+	}
+	return out
+}
+
+func anyKey(lm map[string]any, keys ...string) bool {
+	for _, k := range keys {
+		if _, ok := lm[k]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// childMap returns the first alias whose value is an object, lowercased.
+func childMap(lm map[string]any, aliases ...string) map[string]any {
+	for _, a := range aliases {
+		if v, ok := lm[a]; ok {
+			if m, ok := v.(map[string]any); ok {
+				return lowerKeys(m)
+			}
+		}
+	}
+	return nil
+}
+
+func getStr(lm map[string]any, aliases ...string) string {
+	for _, a := range aliases {
+		if v, ok := lm[a]; ok {
+			if s := strings.TrimSpace(toStr(v)); s != "" {
+				return s
+			}
+		}
+	}
+	return ""
+}
+
+func firstStr(maps []map[string]any, aliases ...string) string {
+	for _, m := range maps {
+		if s := getStr(m, aliases...); s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
+func firstFloat(maps []map[string]any, aliases ...string) (float64, bool) {
+	for _, m := range maps {
+		for _, a := range aliases {
+			if v, ok := m[a]; ok {
+				if f, ok := toFloat(v); ok {
+					return f, true
+				}
+			}
+		}
+	}
+	return 0, false
+}
+
+func firstInt16(maps []map[string]any, lo, hi int16, aliases ...string) *int16 {
+	if f, ok := firstFloat(maps, aliases...); ok {
+		n := int16(f + 0.5)
+		if n >= lo && n <= hi {
+			return &n
+		}
+	}
+	return nil
+}
+
+func toStr(v any) string {
+	switch t := v.(type) {
+	case string:
+		return t
+	case float64:
+		return strconv.FormatFloat(t, 'f', -1, 64)
+	case json.Number:
+		return t.String()
+	case bool:
+		return strconv.FormatBool(t)
+	}
+	return ""
+}
+
+// toFloat parses a number, a numeric string, or a {value: N} wrapper object.
+func toFloat(v any) (float64, bool) {
+	switch t := v.(type) {
+	case float64:
+		return t, true
+	case json.Number:
+		f, err := t.Float64()
+		return f, err == nil
+	case string:
+		f, err := strconv.ParseFloat(strings.ReplaceAll(strings.TrimSpace(t), ",", ""), 64)
+		return f, err == nil
+	case map[string]any:
+		lm := lowerKeys(t)
+		for _, k := range []string{"value", "amount"} {
+			if inner, ok := lm[k]; ok {
+				return toFloat(inner)
+			}
+		}
+	}
+	return 0, false
+}
+
+func numericDisplay(v float64) string {
+	return "$" + strconv.FormatFloat(v, 'f', 0, 64)
+}
+
+func absolutizeURL(u, source string) string {
+	u = strings.TrimSpace(u)
+	if u == "" {
+		return ""
+	}
+	if strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://") {
+		return u
+	}
+	if strings.HasPrefix(u, "/") {
+		return portalOrigin(source) + u
+	}
+	return portalOrigin(source) + "/" + u
+}

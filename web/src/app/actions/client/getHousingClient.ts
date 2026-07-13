@@ -6,6 +6,8 @@ import {
   type ListStateSuburbsResponse,
   type GetSuburbProfileResponse,
   type ListHousingRegionsResponse,
+  type ListSuburbPriceDropsResponse,
+  type ListSuburbDropListingsResponse,
 } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { SHORTS_API_URL } from "../config";
 import { retryWithBackoff } from "@/lib/retry";
@@ -100,6 +102,49 @@ export async function listHousingRegionsClient(
       () => client.listHousingRegions({ regionType, stateCode, query, limit }),
       RETRY_OPTIONS,
     );
+    setSessionCached(cacheKey, result);
+    return result;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Browser-side suburb price-drop ranking (derived aggregate — no addresses). */
+export async function listSuburbPriceDropsClient(
+  stateCode = "",
+  sort = "count",
+  limit = 50,
+): Promise<ListSuburbPriceDropsResponse | undefined> {
+  const cacheKey = `suburbPriceDrops:${stateCode}:${sort}:${limit}`;
+  const cached = getSessionCached<ListSuburbPriceDropsResponse>(cacheKey);
+  if (cached) return cached;
+  const transport = createConnectTransport({ baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL });
+  const client = createClient(ShortedStocksService, transport);
+  try {
+    const result = await retryWithBackoff(
+      () => client.listSuburbPriceDrops({ stateCode, sort, limit }), RETRY_OPTIONS);
+    setSessionCached(cacheKey, result);
+    return result;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Browser-side per-suburb reduced-listings drill-down (deep-links out; flag-gated server-side). */
+export async function listSuburbDropListingsClient(
+  salCode = "",
+  regionCode = "",
+  windowDays = 30,
+  limit = 30,
+): Promise<ListSuburbDropListingsResponse | undefined> {
+  const cacheKey = `suburbDropListings:${salCode}:${regionCode}:${windowDays}:${limit}`;
+  const cached = getSessionCached<ListSuburbDropListingsResponse>(cacheKey);
+  if (cached) return cached;
+  const transport = createConnectTransport({ baseUrl: typeof window !== "undefined" ? "" : SHORTS_API_URL });
+  const client = createClient(ShortedStocksService, transport);
+  try {
+    const result = await retryWithBackoff(
+      () => client.listSuburbDropListings({ salCode, regionCode, windowDays, limit }), RETRY_OPTIONS);
     setSessionCached(cacheKey, result);
     return result;
   } catch {

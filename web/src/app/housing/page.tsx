@@ -7,6 +7,7 @@ import { getHousingOverview } from "~/app/actions/getHousing";
 import { HousingTiles, type HousingTile } from "@/components/housing/housing-tiles";
 import { HousingSeriesChart } from "@/components/housing/housing-charts";
 import { HousingZoomMap } from "@/components/housing/housing-zoom-map-loader";
+import { SuburbPriceDropsPanel } from "@/components/housing/suburb-price-drops-panel-loader";
 import { GCCSA_TO_STATE } from "@/lib/housing/states";
 import type { StateStat } from "@/lib/housing/map-lod";
 import { LLMMeta } from "@/components/seo/llm-meta";
@@ -213,6 +214,8 @@ export default async function HousingPage() {
               </p>
               <HousingTiles tiles={capitalTiles} />
             </section>
+
+            <SuburbPriceDropsPanel title="Biggest price drops by suburb" limit={25} />
 
             <section>
               <Link

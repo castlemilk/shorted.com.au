@@ -6,6 +6,8 @@ import {
   type GetHousePriceSeriesResponse,
   type ListStateSuburbsResponse,
   type GetSuburbProfileResponse,
+  type ListSuburbPriceDropsResponse,
+  type ListSuburbDropListingsResponse,
 } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { cache } from "react";
 import { SERVER_SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
@@ -60,6 +62,26 @@ export const getSuburbProfile = cache(
     async (salCode: string): Promise<GetSuburbProfileResponse> => {
       const client = createHousingClient();
       return client.getSuburbProfile({ salCode });
+    },
+  ),
+);
+
+/** Suburbs ranked by recent for-sale asking-price drops (derived aggregate). */
+export const listSuburbPriceDrops = cache(
+  withRetryAndNotFound(
+    async (stateCode: string = "", sort: string = "count", limit: number = 50): Promise<ListSuburbPriceDropsResponse> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
+      const client = createHousingClient();
+      return client.listSuburbPriceDrops({ stateCode, sort, limit });
+    },
+  ),
+);
+
+/** Per-suburb recently-reduced listings (deep-links out; flag-gated server-side). */
+export const listSuburbDropListings = cache(
+  withRetryAndNotFound(
+    async (salCode: string = "", regionCode: string = "", windowDays: number = 30, limit: number = 30): Promise<ListSuburbDropListingsResponse> => { // eslint-disable-line @typescript-eslint/no-inferrable-types
+      const client = createHousingClient();
+      return client.listSuburbDropListings({ salCode, regionCode, windowDays, limit });
     },
   ),
 );

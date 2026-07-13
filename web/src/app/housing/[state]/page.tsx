@@ -5,6 +5,7 @@ import { DashboardLayout } from "~/@/components/layouts/dashboard-layout";
 import { LLMMeta } from "@/components/seo/llm-meta";
 import { HousingBreadcrumb } from "@/components/housing/housing-breadcrumb";
 import { StateSuburbExplorer } from "@/components/housing/state-suburb-explorer-loader";
+import { SuburbPriceDropsPanel } from "@/components/housing/suburb-price-drops-panel-loader";
 import { ALL_STATES, STATE_NAMES, slugToState, stateSlug } from "@/lib/housing/states";
 
 export const revalidate = 86400;
@@ -50,6 +51,7 @@ export default async function StatePage({ params }: PageProps) {
           <p className="mt-3 max-w-2xl text-muted-foreground">Suburbs shaded by their latest median house price where available, over an ABS Census base. Hover for demographics, click to open the full profile.</p>
         </header>
         <StateSuburbExplorer stateCode={code} />
+        <SuburbPriceDropsPanel stateCode={code} title={`${name} suburb prices & movers`} />
       </div>
     </DashboardLayout>
   );

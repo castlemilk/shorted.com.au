@@ -656,6 +656,24 @@ service ShortedStocksService {
     };
   }
 
+  // Suburbs ranked by recent for-sale asking-price drops.
+  rpc ListSuburbPriceDrops (ListSuburbPriceDropsRequest) returns (ListSuburbPriceDropsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Suburb Price Drops",
+      description: "Suburbs ranked by recent for-sale asking-price reductions over a rolling window — count of reduced listings plus the average, median and largest reduction. A derived aggregate over realestate.com.au / domain.com.au listing data; individual listings are not republished."
+    };
+  }
+
+  // Individual recently-reduced listings for a suburb, deep-linking to the portal.
+  rpc ListSuburbDropListings (ListSuburbDropListingsRequest) returns (ListSuburbDropListingsResponse) {
+    option (shortedapi.options.v1.visibility) = VISIBILITY_PUBLIC;
+    option (gnostic.openapi.v3.operation) = {
+      summary: "List Suburb Drop Listings",
+      description: "Recently price-reduced for-sale listings in a suburb, each deep-linking OUT to the live realestate.com.au / domain.com.au page. Factual price-change data only; the listing itself is not reproduced."
+    };
+  }
+
   // ==================== Corporate Tax (Influence layer) ====================
 
   // Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
@@ -2213,4 +2231,66 @@ message HousingRegion {
 
 message ListHousingRegionsResponse {
   repeated HousingRegion regions = 1;
+}
+
+message ListSuburbPriceDropsRequest {
+  string state_code = 1;   // optional filter, e.g. 'NSW'; '' = national
+  int32  window_days = 2;  // reserved; the aggregate uses a fixed rolling window
+  string sort = 3;         // optional: 'count' (default) | 'avg' | 'max'
+  int32  limit = 4;        // optional; default 50
+}
+
+// A suburb's aggregate price-drop signal over the rolling window (derived; the
+// underlying listings are ToS-restricted and never republished here).
+message SuburbPriceDrop {
+  string region_code = 1;
+  string sal_code = 2;                 // ABS SAL code (for the suburb page link), '' if unlinked
+  string sal_name = 3;
+  string state_code = 4;
+  int32  dropped_listing_count = 5;    // listings that cut their asking price
+  double avg_drop_pct = 6;             // 0..1 fraction (0.06 == a 6% average reduction)
+  double median_drop_pct = 7;
+  double max_drop_pct = 8;
+  double max_drop_abs = 9;             // largest single reduction, AUD
+  int32  total_active_listings = 10;
+  double dropped_share = 11;           // dropped_listing_count / total_active_listings
+  string postcode = 12;                // for the canonical suburb-page URL
+  // Per-suburb listing-price aggregates (mv_suburb_listing_stats).
+  int32  for_sale_count = 13;          // active for-sale listings
+  double avg_asking = 14;              // mean asking price of priced for-sale listings, AUD (0 if none)
+  double median_asking = 15;           // median asking price, AUD
+  int32  sold_count = 16;              // recent sold listings captured
+  double avg_sold = 17;                // mean sold price, AUD (0 if none)
+  double median_sold = 18;             // median sold price, AUD
+}
+
+message ListSuburbPriceDropsResponse {
+  repeated SuburbPriceDrop suburbs = 1;
+}
+
+message ListSuburbDropListingsRequest {
+  string sal_code = 1;     // one of sal_code or region_code is required
+  string region_code = 2;
+  int32  window_days = 3;  // optional; default 30
+  int32  limit = 4;        // optional; default 30
+}
+
+// One recently-reduced listing, deep-linking OUT to the live portal page.
+message SuburbDropListing {
+  string source = 1;               // 'rea' | 'domain'
+  string listing_url = 2;          // deep link to the live portal listing
+  string display_address = 3;
+  string property_type = 4;
+  int32  bedrooms = 5;
+  int32  bathrooms = 6;
+  int32  car_spaces = 7;
+  double prev_price = 8;           // AUD before the reduction
+  double price = 9;                // AUD current asking
+  double drop_pct = 10;            // 0..1 fraction
+  double drop_abs = 11;            // AUD reduction
+  google.protobuf.Timestamp observed_at = 12;  // when the reduction was detected
+}
+
+message ListSuburbDropListingsResponse {
+  repeated SuburbDropListing listings = 1;
 }
