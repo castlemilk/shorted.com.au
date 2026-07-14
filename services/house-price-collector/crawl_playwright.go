@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -155,6 +156,11 @@ func (f *playwrightFetcher) Close() {
 func isBlockError(err error) bool {
 	if err == nil {
 		return false
+	}
+	// A gateway-reported block/poison, and a lost warm-Chrome clearance, both
+	// back off the per-site circuit breaker (repeated needs_rewarm → exit-3 rewarm).
+	if errors.Is(err, errGatewayBlocked) || errors.Is(err, errGatewayNeedsRewarm) {
+		return true
 	}
 	msg := strings.ToLower(err.Error())
 	for _, s := range []string{"err_http_response_code_failure", "403", "429", "access denied", "net::err_blocked"} {

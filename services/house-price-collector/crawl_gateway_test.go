@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -163,5 +164,52 @@ func TestGatewayFetcher_SendsWaitMS(t *testing.T) {
 	}
 	if gotWaitMS != 1234 {
 		t.Errorf("server saw wait_ms=%d, want 1234", gotWaitMS)
+	}
+}
+
+// errOnlyFetcher is a minimal htmlFetcher stub that always returns a fixed
+// error and no HTML — used to exercise fetchAndClassify's error-classification
+// branch (crawl_listings.go) in isolation, without a real gateway/browser.
+type errOnlyFetcher struct{ err error }
+
+func (e *errOnlyFetcher) fetch(_ context.Context, _ string) ([]byte, string, error) {
+	return nil, "", e.err
+}
+
+func (e *errOnlyFetcher) Close() {}
+
+// TestIsBlockError_GatewaySentinels confirms isBlockError (crawl_playwright.go)
+// treats BOTH gateway sentinel errors as blocks — this is what trips the
+// per-site circuit breaker (reaBlocks/domBlocks -> needsRewarm -> exit-3) for
+// gateway-reported anti-bot signals, on top of the existing string-matched
+// browser-navigation heuristics.
+func TestIsBlockError_GatewaySentinels(t *testing.T) {
+	if !isBlockError(errGatewayBlocked) {
+		t.Errorf("isBlockError(errGatewayBlocked) = false, want true")
+	}
+	if !isBlockError(errGatewayNeedsRewarm) {
+		t.Errorf("isBlockError(errGatewayNeedsRewarm) = false, want true")
+	}
+	if isBlockError(errors.New("some transient timeout")) {
+		t.Errorf("isBlockError(transient) = true, want false")
+	}
+	if isBlockError(nil) {
+		t.Errorf("isBlockError(nil) = true, want false")
+	}
+	if !isBlockError(fmt.Errorf("wrapped: %w", errGatewayBlocked)) {
+		t.Errorf("isBlockError(wrapped errGatewayBlocked) = false, want true (errors.Is must unwrap)")
+	}
+}
+
+// TestFetchAndClassify_GatewaySentinelsBlock confirms the listings crawl path
+// (crawl_listings.go fetchAndClassify) maps both gateway sentinels to
+// outcomeBlocked via isBlockError — same classification the medians path
+// (crawl.go fetchPage) shares, since both call the one isBlockError function.
+func TestFetchAndClassify_GatewaySentinelsBlock(t *testing.T) {
+	for _, sentinel := range []error{errGatewayNeedsRewarm, errGatewayBlocked} {
+		_, _, outcome := fetchAndClassify(context.Background(), &errOnlyFetcher{err: sentinel}, "https://x")
+		if outcome != outcomeBlocked {
+			t.Errorf("fetchAndClassify(err=%v) outcome = %v, want outcomeBlocked", sentinel, outcome)
+		}
 	}
 }
