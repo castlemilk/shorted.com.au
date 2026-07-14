@@ -69,6 +69,8 @@ type listingsConfig struct {
 	// fixtureDir, when set, reads pages from saved HTML files instead of driving a
 	// browser — for offline testing/seeding against captured real pages.
 	fixtureDir string // CRAWL_LISTINGS_FIXTURE_DIR
+	// CRAWL_LISTINGS_SOURCES allowlist (default rea+domain)
+	sources map[string]bool
 }
 
 func loadListingsConfig() listingsConfig {
@@ -82,7 +84,52 @@ func loadListingsConfig() listingsConfig {
 		noisePct:     envFloat("CRAWL_LISTINGS_NOISE_PCT", 0.005),
 		delistGrace:  envInt("CRAWL_LISTINGS_DELIST_GRACE", 2),
 		fixtureDir:   os.Getenv("CRAWL_LISTINGS_FIXTURE_DIR"),
+		sources:      parseListingsSources(),
 	}
+}
+
+// parseListingsSources reads CRAWL_LISTINGS_SOURCES (comma-separated, case-
+// insensitive, trimmed) and returns the set of enabled listing sources. An
+// unset/empty var, or one with no valid tokens, defaults to BOTH sources
+// (rea+domain) — the crawl must never silently enable zero sources.
+func parseListingsSources() map[string]bool {
+	both := map[string]bool{"rea": true, "domain": true}
+
+	raw := os.Getenv("CRAWL_LISTINGS_SOURCES")
+	if strings.TrimSpace(raw) == "" {
+		return both
+	}
+
+	out := map[string]bool{}
+	for _, tok := range strings.Split(raw, ",") {
+		tok = strings.ToLower(strings.TrimSpace(tok))
+		if tok == "rea" || tok == "domain" {
+			out[tok] = true
+		}
+	}
+	if len(out) == 0 {
+		return both
+	}
+	return out
+}
+
+// sourceEnabled reports whether the given source ("rea" or "domain") is in
+// the active allowlist.
+func (c listingsConfig) sourceEnabled(src string) bool {
+	return c.sources[src]
+}
+
+// enabledSourceNames returns the enabled source names, sorted, for
+// deterministic startup logging.
+func enabledSourceNames(sources map[string]bool) []string {
+	names := make([]string, 0, len(sources))
+	for src, enabled := range sources {
+		if enabled {
+			names = append(names, src)
+		}
+	}
+	sort.Strings(names)
+	return names
 }
 
 // fileFetcher reads pages from saved HTML files (offline mode). A URL maps to a
@@ -187,7 +234,7 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 		}
 	}
 
-	log.Printf("[listings] start: %d suburbs · %s · maxPages=%d · dryRun=%v", len(targets), crawlFetcherMode(cfg.crawlConfig), cfg.maxPages, cfg.dryRun)
+	log.Printf("[listings] start: %d suburbs · %s · maxPages=%d · dryRun=%v · sources=%s", len(targets), crawlFetcherMode(cfg.crawlConfig), cfg.maxPages, cfg.dryRun, strings.Join(enabledSourceNames(cfg.sources), ","))
 
 	reaEvents, domEvents := 0, 0
 	for i, t := range targets {
@@ -195,8 +242,12 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 			jitterSleep(ctx, cfg.minDelay, cfg.maxDelay)
 		}
 		lc.stats.suburbs++
-		reaEvents += lc.crawlSuburbSource(ctx, pool, t, "rea", t.reaSearchURL, &lc.reaBlocks, runTs)
-		domEvents += lc.crawlSuburbSource(ctx, pool, t, "domain", t.domainSearchURL, &lc.domBlocks, runTs)
+		if cfg.sourceEnabled("rea") {
+			reaEvents += lc.crawlSuburbSource(ctx, pool, t, "rea", t.reaSearchURL, &lc.reaBlocks, runTs)
+		}
+		if cfg.sourceEnabled("domain") {
+			domEvents += lc.crawlSuburbSource(ctx, pool, t, "domain", t.domainSearchURL, &lc.domBlocks, runTs)
+		}
 	}
 
 	if cfg.dryRun {
