@@ -53,11 +53,29 @@ const (
 	// fetcherModeCDP connects over CDP to an already-running Chrome — in
 	// option (b), the HOST's macOS Chrome reached via host.docker.internal.
 	fetcherModeCDP
+	// fetcherModeGateway POSTs each URL to a brandbrain macOS-agent residential
+	// fetch gateway (CRAWL_GATEWAY_URL), which drives a warm host Chrome and
+	// returns HTML. No browser in this process; residential egress is the agent's.
+	fetcherModeGateway
 )
 
-// selectFetcherMode is the pure, testable selection rule: CRAWL_CDP_URL set ->
-// drive the host Chrome over CDP; empty -> self-launch a persistent Chromium.
+// selectFetcherMode is the pure, testable selection rule. CRAWL_FETCH_MODE, when
+// set, is an explicit override (gateway|cdp|playwright) and wins outright.
+// Otherwise the precedence is gateway > cdp > playwright: CRAWL_GATEWAY_URL set
+// -> POST to the brandbrain agent gateway; else CRAWL_CDP_URL set -> drive the
+// host Chrome over CDP; else self-launch a persistent Chromium.
 func selectFetcherMode(cfg crawlConfig) fetcherMode {
+	switch cfg.fetchModeOverride {
+	case "gateway":
+		return fetcherModeGateway
+	case "cdp":
+		return fetcherModeCDP
+	case "playwright":
+		return fetcherModePlaywright
+	}
+	if cfg.gatewayURL != "" {
+		return fetcherModeGateway
+	}
 	if cfg.cdpURL != "" {
 		return fetcherModeCDP
 	}
@@ -65,20 +83,28 @@ func selectFetcherMode(cfg crawlConfig) fetcherMode {
 }
 
 func crawlFetcherMode(cfg crawlConfig) string {
-	if selectFetcherMode(cfg) == fetcherModeCDP {
+	switch selectFetcherMode(cfg) {
+	case fetcherModeGateway:
+		return "gateway-residential"
+	case fetcherModeCDP:
 		return "cdp-host-chrome"
+	default:
+		return "headed-playwright"
 	}
-	return "headed-playwright"
 }
 
-// newCrawlFetcher constructs the browser-backed fetcher for the run, branching on
-// CRAWL_CDP_URL. Errors are returned (never panics) so runCrawl can fail
+// newCrawlFetcher constructs the fetcher for the run, branching on the selected
+// fetcherMode. Errors are returned (never panics) so runCrawl can fail
 // non-fatally — the official ABS/RBA backbone is unaffected either way.
 func newCrawlFetcher(cfg crawlConfig) (crawlFetcher, error) {
-	if selectFetcherMode(cfg) == fetcherModeCDP {
+	switch selectFetcherMode(cfg) {
+	case fetcherModeGateway:
+		return newGatewayFetcher(cfg)
+	case fetcherModeCDP:
 		return newCDPFetcher(cfg)
+	default:
+		return newPlaywrightFetcher(cfg)
 	}
-	return newPlaywrightFetcher(cfg)
 }
 
 type crawlConfig struct {
@@ -102,6 +128,17 @@ type crawlConfig struct {
 	// partition stays balanced as the list grows. shardCount<=1 disables it.
 	shardIndex int
 	shardCount int
+	// gatewayURL, when set, selects the gateway-residential execution model:
+	// each URL is POSTed to a brandbrain macOS-agent residential fetch gateway
+	// (a warm host Chrome living behind this HTTP endpoint) instead of this
+	// process driving a browser itself. See newGatewayFetcher.
+	gatewayURL    string // CRAWL_GATEWAY_URL  e.g. http://<mac-lan-ip>:7799
+	gatewayToken  string // CRAWL_GATEWAY_TOKEN
+	gatewayWaitMS int    // CRAWL_GATEWAY_WAIT_MS (challenge-settle budget)
+	// fetchModeOverride, when non-empty, forces a specific fetcherMode
+	// regardless of gatewayURL/cdpURL (gateway|cdp|playwright). See
+	// selectFetcherMode.
+	fetchModeOverride string // CRAWL_FETCH_MODE = gateway|cdp|playwright (optional)
 }
 
 func loadCrawlConfig() crawlConfig {
@@ -115,14 +152,18 @@ func loadCrawlConfig() crawlConfig {
 		// house_prices when CRAWL_DRY_RUN is explicitly "false". An accidental
 		// `-mode crawl` is then a no-op harvest, never a silent persist of
 		// proprietary REA/Domain medians.
-		dryRun:          os.Getenv("CRAWL_DRY_RUN") != "false",
-		maxConsecBlocks: envInt("CRAWL_MAX_CONSEC_BLOCKS", 3),
-		fetchTimeout:    time.Duration(envInt("CRAWL_FETCH_TIMEOUT_S", 60)) * time.Second,
-		brandbrainURL:   os.Getenv("BRANDBRAIN_URL"), // "" -> brandbrainEndpoint() default
-		profileDir:      envStr("CRAWL_PROFILE_DIR", "/data/pw-profile"),
-		cdpURL:          os.Getenv("CRAWL_CDP_URL"), // e.g. http://host.docker.internal:9222
-		shardIndex:      envInt("CRAWL_SHARD_INDEX", 0),
-		shardCount:      envInt("CRAWL_SHARD_COUNT", 1),
+		dryRun:            os.Getenv("CRAWL_DRY_RUN") != "false",
+		maxConsecBlocks:   envInt("CRAWL_MAX_CONSEC_BLOCKS", 3),
+		fetchTimeout:      time.Duration(envInt("CRAWL_FETCH_TIMEOUT_S", 60)) * time.Second,
+		brandbrainURL:     os.Getenv("BRANDBRAIN_URL"), // "" -> brandbrainEndpoint() default
+		profileDir:        envStr("CRAWL_PROFILE_DIR", "/data/pw-profile"),
+		cdpURL:            os.Getenv("CRAWL_CDP_URL"), // e.g. http://host.docker.internal:9222
+		shardIndex:        envInt("CRAWL_SHARD_INDEX", 0),
+		shardCount:        envInt("CRAWL_SHARD_COUNT", 1),
+		gatewayURL:        os.Getenv("CRAWL_GATEWAY_URL"),
+		gatewayToken:      os.Getenv("CRAWL_GATEWAY_TOKEN"),
+		gatewayWaitMS:     envInt("CRAWL_GATEWAY_WAIT_MS", 8000),
+		fetchModeOverride: os.Getenv("CRAWL_FETCH_MODE"),
 	}
 }
 
