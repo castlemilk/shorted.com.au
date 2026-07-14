@@ -13,8 +13,14 @@ import (
 )
 
 // errGatewayNeedsRewarm signals the agent's warm Chrome lost its anti-bot
-// clearance; callers map it to the existing exit-code-3 rewarm alert.
+// clearance. Callers map it to the exit-code-3 rewarm alert (wiring lands in
+// Task 3).
 var errGatewayNeedsRewarm = errors.New("gateway: warm chrome needs rewarm")
+
+// errGatewayBlocked signals the gateway detected an anti-bot block/poison for
+// this URL. Callers map it to a blocked outcome (feeds the per-site circuit
+// breaker). Caller wiring lands in Task 3.
+var errGatewayBlocked = errors.New("gateway: fetch blocked")
 
 // gatewayFetcher implements htmlFetcher by POSTing each URL to a brandbrain
 // macOS-agent residential fetch gateway. It owns no browser.
@@ -74,19 +80,32 @@ func (g *gatewayFetcher) fetch(ctx context.Context, url string) ([]byte, string,
 	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("gateway read body: %w", err)
 	}
 	var gr gatewayFetchResp
 	if err := json.Unmarshal(raw, &gr); err != nil {
 		return nil, "", fmt.Errorf("gateway decode (http %d): %w", resp.StatusCode, err)
 	}
 	if gr.Error != nil {
-		if gr.Error.Kind == "needs_rewarm" {
+		switch gr.Error.Kind {
+		case "needs_rewarm":
 			return nil, "", errGatewayNeedsRewarm
+		case "blocked":
+			return []byte(gr.HTML), gr.FinalURL, errGatewayBlocked
+		default:
+			return []byte(gr.HTML), gr.FinalURL, fmt.Errorf("gateway error [%s]: %s", gr.Error.Kind, gr.Error.Message)
 		}
-		return []byte(gr.HTML), gr.FinalURL, fmt.Errorf("gateway error [%s]: %s", gr.Error.Kind, gr.Error.Message)
+	}
+	if gr.Blocked {
+		return []byte(gr.HTML), gr.FinalURL, errGatewayBlocked
 	}
 	return []byte(gr.HTML), gr.FinalURL, nil
 }
 
 func (g *gatewayFetcher) Close() {}
+
+// compile-time assertions that gatewayFetcher satisfies both seams.
+var (
+	_ htmlFetcher  = (*gatewayFetcher)(nil)
+	_ crawlFetcher = (*gatewayFetcher)(nil)
+)
