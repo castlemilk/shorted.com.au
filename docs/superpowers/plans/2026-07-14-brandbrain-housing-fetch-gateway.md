@@ -1,5 +1,11 @@
 # Housing Crawl via brandbrain Residential Fetch Gateway — Implementation Plan
 
+> ⛔ **SUPERSEDED (2026-07-14) — do NOT build Phase 2/3.** The P0 spike (recorded in the spec) plus the `housing-residential-crawl` memory established that the gateway's differentiator does not hold: its **stealth chromedp engine loses to REA's Kasada** (429), whereas the collector's **existing `crawl_cdp.go`** — Playwright `ConnectOverCDP` to a **human-warmed** host Chrome + settle wait — is the *proven* residential REA+Domain fetcher (live 2026-06-24: REA 537 KB ArgonautExchange). So routing through a brandbrain gateway would be a **regression**, and it isn't needed.
+>
+> **Recommended path instead:** run the collector's existing `crawl_cdp.go` on the residential rig with a hand-warmed dedicated-profile Chrome (`CRAWL_CDP_URL=http://…:9222`) + the new **`CRAWL_LISTINGS_SOURCES`** filter (Domain-only when REA's warm session isn't available). No new gateway.
+>
+> **What stays from this plan:** Phase 0 (spike — done) and Phase 1 (the shorted `gatewayFetcher` + `CRAWL_LISTINGS_SOURCES`) are merged and inert/generic — the `gatewayFetcher` is harmless and can front any future fetch service, but is **not** on the recommended path. Phase 2 (brandbrain gateway) and Phase 3 (its e2e) are cancelled. The stealth `Session.DebuggerURL` plumbing (branch `feat/debugger-url-config`) is a clean generic capability, kept but unused here.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Let the shorted housing crawl fetch REA/Domain from the residential Mac by POSTing each URL to a new authenticated fetch endpoint on brandbrain's macOS agent, which drives a warm host Chrome over CDP and returns raw HTML; shorted does all extraction + storage.

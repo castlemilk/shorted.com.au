@@ -122,7 +122,10 @@ Ran a throwaway `engine.New("chromium", {DebuggerURL})` + `Do` against a **cold,
 2. **Domain is viable today** — ship Domain-first; the collector already extracts Domain `__NEXT_DATA__`.
 3. **REA** needs the high-level settle client and/or a human-warmed profile — re-test during the build before treating REA as unviable.
 
-**Verdict: conditional GO** — approach validated, Domain viable now, REA pending the settle-client path.
+**Verdict (updated after the settle-client re-test + memory review): the gateway is SUPERSEDED — do not build it.**
+- A follow-up re-test through the **high-level `stealth.Client.Navigate`** (challenge-settle + auto-solve, via the new `Session.DebuggerURL`) STILL got REA `429` + KPSDK on every attempt (homepage, SRP, retry); the stealth solver bailed ("no captcha detected" — Kasada KPSDK is JS proof-of-work, not a captcha). So the stealth chromedp engine — the client a brandbrain gateway would use — does **not** beat REA/Kasada.
+- The `housing-residential-crawl` memory documents (live, 2026-06-24, residential IP) that the collector's **existing `crawl_cdp.go`** — Playwright `ConnectOverCDP` to a **human-warmed** host Chrome + ~8s settle wait — DID beat REA (537 KB ArgonautExchange). That is the proven path; the gateway (stealth engine) would be a **regression** for REA and is unnecessary for Domain (which works cold).
+- **Recommended path:** collector `crawl_cdp.go` on the residential rig with a hand-warmed Chrome + the `CRAWL_LISTINGS_SOURCES` filter (Domain-only when REA isn't warmed). The shorted `gatewayFetcher` (Phase 1) stays as an inert/generic capability but is off this path; brandbrain Phase 2 is cancelled. See the plan doc's SUPERSEDED banner.
 
 ## PII / licence posture
 
