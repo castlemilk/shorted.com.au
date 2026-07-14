@@ -109,6 +109,21 @@ The fetch runs from the residential Mac's IP through a headed, warmed, persisten
 
 **Kasada/Akamai remain unproven in-repo.** Before building out coverage, a Phase-0 spike (below) fetches one REA + one Domain suburb page through the gateway with a warm Chrome and confirms real (non-poison) DOM. If it fails, we stop and reassess (the official ABS/RBA/VG backbone is unaffected regardless).
 
+### P0 spike result (2026-07-14, live)
+
+Ran a throwaway `engine.New("chromium", {DebuggerURL})` + `Do` against a **cold, isolated** headed Chrome (dedicated profile `~/.shorted-crawl-chrome`, residential IP) over CDP on a clean port:
+
+- **Plumbing: validated.** CDP-attach to a residential Chrome fetches real rendered DOM.
+- **Domain (Akamai): GO** — `200`, **1.7 MB** SRP with `__NEXT_DATA__` + `digitalData`, even cold. Immediately viable.
+- **REA (Kasada): blocked** — `429` + Kasada `KPSDK` / `ips.js?KP_UIDz=…` bootstrap. Two non-exclusive causes: (a) the **low-level** `engine.Do` does a single navigate with **no Kasada challenge-settle + retry** — the high-level `stealth.Client.Navigate` carries that FSM; (b) the profile was **cold** (no human-solved challenge).
+
+**Consequences for the build (refines Task 5):**
+1. The gateway MUST fetch via the **high-level `stealth.Client.Navigate`** (challenge-settle FSM), NOT the raw engine — which requires wiring `DebuggerURL` into `stealth.Config`/`SessionConfig` (a stealth-repo change, as anticipated). Now a confirmed requirement, not a maybe.
+2. **Domain is viable today** — ship Domain-first; the collector already extracts Domain `__NEXT_DATA__`.
+3. **REA** needs the high-level settle client and/or a human-warmed profile — re-test during the build before treating REA as unviable.
+
+**Verdict: conditional GO** — approach validated, Domain viable now, REA pending the settle-client path.
+
 ## PII / licence posture
 
 Raw HTML transits the gateway but is **never persisted, extracted, or logged as a body** there — brandbrain is a transparent pipe. shorted does all extraction + storage; raw listing rows keep `source_licence='proprietary-tos-restricted'` and only the derived `mv_suburb_price_drops` / `mv_suburb_listing_stats` are publishable. The per-listing drill-down stays flag-gated (`HOUSING_DROP_LISTINGS_ENABLED`).
