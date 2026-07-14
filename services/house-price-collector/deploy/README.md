@@ -15,12 +15,16 @@ design/plan in `docs/superpowers/{specs,plans}/2026-07-13-realestate-*`.
    ```bash
    cd services && go run github.com/playwright-community/playwright-go/cmd/playwright install chromium
    ```
-3. Launch the DEDICATED-profile Chrome (NEVER the personal profile) and warm it by
-   opening a Domain suburb page once by hand to clear the anti-bot challenge:
+3. Launch the DEDICATED-profile Chrome (NEVER the personal profile) with a **REA URL
+   as its startup page**. Chrome's own (non-automated) startup navigation clears REA's
+   Kasada challenge and sets a session cookie, so the crawl's Playwright REA fetches
+   work. A Playwright-driven warm, or warming Domain, does NOT clear Kasada — REA then
+   returns an ~870-byte KPSDK stub and the sweep is marked `blocked`. No manual clicking:
    ```bash
    /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
      --remote-debugging-port=9222 \
-     --user-data-dir="$HOME/.shorted-housing-crawl-chrome"
+     --user-data-dir="$HOME/.shorted-housing-crawl-chrome" \
+     "https://www.realestate.com.au/"
    ```
 4. Create `~/.shorted-housing-crawl.env` (chmod 600, NOT committed):
    ```bash

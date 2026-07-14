@@ -7,11 +7,16 @@
 # non-zero if the dedicated Chrome is unreachable (4) or the crawl reports it needs
 # a human to re-warm the anti-bot clearance (3).
 #
-# One-time host setup (per Mac), NEVER the personal Chrome profile:
+# One-time host setup (per Mac), NEVER the personal Chrome profile — pass a REA URL
+# as Chrome's STARTUP page so its own (non-automated) navigation clears REA's Kasada
+# challenge and sets a session cookie. Playwright-driven navigation is detected by
+# Kasada (returns an ~870B stub → the REA sweep is marked "blocked"); warming Domain
+# does NOT help REA. With this, the crawl's Playwright REA fetches sail through — no
+# manual clicking needed:
 #   /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
 #     --remote-debugging-port=9222 \
-#     --user-data-dir="$HOME/.shorted-housing-crawl-chrome"
-#   then open a Domain suburb page once by hand to clear the challenge (warm it).
+#     --user-data-dir="$HOME/.shorted-housing-crawl-chrome" \
+#     "https://www.realestate.com.au/"
 set -uo pipefail
 
 ENV_FILE="${HOUSING_CRAWL_ENV:-$HOME/.shorted-housing-crawl.env}"
