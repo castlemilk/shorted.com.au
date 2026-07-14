@@ -13,13 +13,13 @@ import (
 )
 
 // errGatewayNeedsRewarm signals the agent's warm Chrome lost its anti-bot
-// clearance. Callers map it to the exit-code-3 rewarm alert (wiring lands in
-// Task 3).
+// clearance. isBlockError maps it to a blocked outcome, so repeated occurrences
+// trip the per-site circuit breaker and the run exits 3 (re-warm required).
 var errGatewayNeedsRewarm = errors.New("gateway: warm chrome needs rewarm")
 
 // errGatewayBlocked signals the gateway detected an anti-bot block/poison for
-// this URL. Callers map it to a blocked outcome (feeds the per-site circuit
-// breaker). Caller wiring lands in Task 3.
+// this URL. isBlockError maps it to a blocked outcome (feeds the per-site
+// circuit breaker), exactly like the CDP/Playwright looksBlocked path.
 var errGatewayBlocked = errors.New("gateway: fetch blocked")
 
 // gatewayFetcher implements htmlFetcher by POSTing each URL to a brandbrain

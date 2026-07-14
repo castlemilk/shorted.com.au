@@ -97,6 +97,9 @@ func crawlFetcherMode(cfg crawlConfig) string {
 // fetcherMode. Errors are returned (never panics) so runCrawl can fail
 // non-fatally — the official ABS/RBA backbone is unaffected either way.
 func newCrawlFetcher(cfg crawlConfig) (crawlFetcher, error) {
+	if o := cfg.fetchModeOverride; o != "" && o != "gateway" && o != "cdp" && o != "playwright" {
+		log.Printf("[crawl] ignoring unrecognized CRAWL_FETCH_MODE=%q (want gateway|cdp|playwright) — auto-selecting %s", o, crawlFetcherMode(cfg))
+	}
 	switch selectFetcherMode(cfg) {
 	case fetcherModeGateway:
 		return newGatewayFetcher(cfg)
