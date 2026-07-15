@@ -7,7 +7,7 @@ import { Menu, Terminal, Code2, Home, Info, FileText, LayoutDashboard, Briefcase
 import { useSession } from "next-auth/react";
 
 import { siteConfig } from "~/@/config/site";
-import { cn } from "~/@/lib/utils";
+import { cn, isPlainLeftClick } from "~/@/lib/utils";
 import { Button } from "~/@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "~/@/components/ui/sheet";
 import { Icons } from "~/@/components/ui/icons";
@@ -81,7 +81,9 @@ export function MobileNav({ items }: MobileNavProps) {
                   )}
                   onClick={(e) => {
                     setOpen(false);
-                    if (isLocked) {
+                    // Plain left-clicks only: modified clicks keep native
+                    // open-in-new-tab on the real destination.
+                    if (isLocked && isPlainLeftClick(e)) {
                       e.preventDefault();
                       router.push(
                         `/signin?callbackUrl=${encodeURIComponent(item.href!)}`,

@@ -116,6 +116,17 @@ export async function middleware(request: NextRequest) {
     )}-${weeklyIso[1]}`;
     return NextResponse.redirect(url, 301);
   }
+  // Zero-padded week variant ("week-05-2026") → canonical unpadded form,
+  // so the padded spelling can't serve a duplicate 200.
+  const weeklyPadded =
+    /^\/reports\/weekly\/(10-most-shorted-asx-stocks-week-)0(\d)(-\d{4})$/.exec(
+      pathname,
+    );
+  if (weeklyPadded) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/reports/weekly/${weeklyPadded[1]}${weeklyPadded[2]}${weeklyPadded[3]}`;
+    return NextResponse.redirect(url, 301);
+  }
 
   // Check if this is a protected route
   const requiresApiAuth = AUTH_REQUIRED_API_PATHS.some(

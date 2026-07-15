@@ -9,7 +9,9 @@ import (
 
 const (
 	defaultReportListLimit = 24
-	maxReportListLimit     = 100
+	// High enough that the sitemap's per-type requests (weekly=200) aren't
+	// silently clamped as the archive grows past two years of weeklies.
+	maxReportListLimit = 500
 )
 
 // slug shape filters per report type. Weekly slugs look like "2026-W06",

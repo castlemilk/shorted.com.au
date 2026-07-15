@@ -31,6 +31,7 @@ import { IndustryBreakdown } from "~/@/components/reports/industry-breakdown";
 import {
   getWeeklyReportData,
   getEnhancedWeeklyReportData,
+  getEnhancedWeeklyReportDataStrict,
   getStockFinancialHighlights,
   type StockFinancialHighlight,
 } from "~/app/actions/reports/getReportData";
@@ -99,16 +100,24 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // swap in the not-found UI + a noindex meta tag (the soft-404 GSC flagged
   // on /reports/weekly/2026-W28, July 2026).
   //
-  // The guard passes when EITHER the published narrative exists OR market
-  // data exists. Guarding on market data alone 404'd every FRESH report:
-  // the week's Friday market data lags ~4-6 days behind publication (ASIC
-  // T+4), so the report was dead precisely while it was newest.
-  // Both fetches are deduped with the page body (react cache/unstable_cache).
-  const [enhanced, data] = await Promise.all([
-    getEnhancedWeeklyReportData(slug),
-    getWeeklyReportData(slug),
-  ]);
-  if (!enhanced && (!data || data.topStocks.length === 0)) {
+  // Hard-404 requires DEFINITIVE absence on both sources:
+  //  - narrative: strict fetch returned null (report genuinely unpublished),
+  //    NOT a transient failure (throw) — 404ing a published, sitemapped URL
+  //    because the backend blipped signals removal to Google;
+  //  - market data: the fetch succeeded with zero rows (data === undefined
+  //    means the fetch itself failed). Guarding on market data alone also
+  //    404'd every FRESH report: the week's Friday data lags ~4-6 days
+  //    behind publication (ASIC T+4).
+  // Transient failures render a degraded 200 instead.
+  let enhanced = null;
+  let enhancedUnavailable = false;
+  try {
+    enhanced = await getEnhancedWeeklyReportDataStrict(slug);
+  } catch {
+    enhancedUnavailable = true;
+  }
+  const data = await getWeeklyReportData(slug);
+  if (!enhanced && !enhancedUnavailable && data && data.topStocks.length === 0) {
     notFound();
   }
   const headline = enhanced?.headline;
@@ -206,13 +215,15 @@ export default async function WeeklyReportPage({ params }: PageProps) {
   const slug = resolved.dbSlug;
 
   // Both fetches are deduped with generateMetadata, which already ran the
-  // existence guard (404 only when BOTH narrative and market data are
-  // missing — see the note there).
+  // hard-404 existence guard. The body guard mirrors it with the lenient
+  // fetch: a transient narrative failure here (null) with definitively
+  // empty market data falls through to the degraded 200 render below —
+  // only definitive double-absence soft-404s.
   const [rawData, enhanced] = await Promise.all([
     getWeeklyReportData(slug),
     getEnhancedWeeklyReportData(slug),
   ]);
-  if (!enhanced && (!rawData || rawData.topStocks.length === 0)) {
+  if (!enhanced && rawData && rawData.topStocks.length === 0) {
     notFound();
   }
 

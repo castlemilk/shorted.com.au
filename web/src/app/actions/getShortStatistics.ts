@@ -8,7 +8,7 @@ import {
 } from "~/gen/shorts/v1alpha1/shorts_pb";
 import {
   SHORTS_API_URL,
-  serverFetchWithUserAgent,
+  serverFetchOutsideNextCache,
   skipForBuild,
 } from "./config";
 
@@ -65,7 +65,7 @@ const BANK_CODES = ["ANZ", "CBA", "NAB", "WBC"];
 
 async function fetchShortStatistics(): Promise<ShortStatistics> {
   const transport = createConnectTransport({
-    fetch: serverFetchWithUserAgent,
+    fetch: serverFetchOutsideNextCache,
     baseUrl: SHORTS_API_URL,
   });
   const client = createClient(ShortedStocksService, transport);
@@ -214,14 +214,20 @@ export async function getShortStatistics(): Promise<ShortStatistics | null> {
   // landmine in CLAUDE.md).
   if (skipForBuild()) return null;
   try {
-    const stats = await unstable_cache(
-      () => fetchShortStatistics(),
+    return await unstable_cache(
+      async () => {
+        const stats = await fetchShortStatistics();
+        // Never CACHE emptiness: a zero total means the screener MV came
+        // back empty — throwing makes it a cache miss so the next request
+        // retries, instead of pinning a "$0" shell for the full TTL.
+        if (stats.totalDollarsShorted <= 0) {
+          throw new Error("screener returned no rows");
+        }
+        return stats;
+      },
       ["short-statistics-v1"],
       { tags: ["short-statistics"], revalidate: 3600 },
     )();
-    // A zero total means the screener MV came back empty — treat as
-    // unavailable rather than publishing a citable "$0".
-    return stats.totalDollarsShorted > 0 ? stats : null;
   } catch (err) {
     console.error("[getShortStatistics] failed:", err);
     return null;

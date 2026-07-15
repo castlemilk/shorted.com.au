@@ -112,6 +112,55 @@ export const SHORTED_SSR_USER_AGENT =
 export const SHORTED_E2E_USER_AGENT = "Shorted-E2E/1.0";
 export const SHORTED_TESTING_BYPASS_HEADER = "X-Shorted-Testing-Bypass";
 
+// Next patches globalThis.fetch and stashes the original on the patched
+// function (patch-fetch.js: `patched._nextOriginalFetch = originFetch`).
+// Resolved lazily — the patch may land after this module evaluates.
+// Returns null when fetch IS patched but the private stash is missing
+// (a Next upgrade renamed it) so callers can fall back to the guarded
+// path instead of silently dispatching through the patch.
+let warnedMissingOriginalFetch = false;
+function getUnpatchedFetch(): typeof fetch | null {
+  const patched = globalThis.fetch as typeof fetch & {
+    __nextPatched?: boolean;
+    _nextOriginalFetch?: typeof fetch;
+  };
+  if (patched._nextOriginalFetch) return patched._nextOriginalFetch;
+  // Not patched at all (tests, plain node) — the global fetch IS original.
+  if (!patched.__nextPatched) return globalThis.fetch;
+  if (!warnedMissingOriginalFetch) {
+    warnedMissingOriginalFetch = true;
+    console.warn(
+      "[config] Next's patched fetch no longer exposes _nextOriginalFetch — " +
+        "connect transports fall back to the guarded path (ISR renders may " +
+        "degrade); update serverFetchOutsideNextCache for this Next version.",
+    );
+  }
+  return null;
+}
+
+/**
+ * Fetch for connect transports whose RESULTS are cached at the
+ * unstable_cache layer (getStock/getStockDetails/getStockData, stock
+ * headlines, industry-intelligence snapshot, statistics, scans).
+ *
+ * Next's patched fetch is pure hazard for these calls — there is no safe
+ * option for a streamed connect POST inside a statically-generated render:
+ *  - `cache: "no-store"` (what serverFetchWithUserAgent forces at Vercel
+ *    runtime) throws DynamicServerError during static/ISR generation, even
+ *    inside unstable_cache callbacks — this 500'd the on-demand ISR stock
+ *    pages until every transport moved off the patched fetch;
+ *  - default options make Next try to key the streamed POST body for the
+ *    data cache ("Failed to generate cache key").
+ * Bypassing the patch is correct because unstable_cache provides the
+ * caching; the network call itself must be plain and uninstrumented.
+ */
+export const serverFetchOutsideNextCache: typeof fetch = (input, init) =>
+  serverFetchWithUserAgent(input, {
+    ...init,
+    // Marker consumed below: route through the unpatched fetch.
+    __shortedBypassNextFetchPatch: true,
+  } as RequestInit);
+
 export const serverFetchWithUserAgent: typeof fetch = (input, init) => {
   const headers = new Headers();
   const copyHeaders = (source?: HeadersInit) => {
@@ -157,8 +206,30 @@ export const serverFetchWithUserAgent: typeof fetch = (input, init) => {
 
   const request = getFetchRequest(input, init);
   const initWithNext = init as
-    | (RequestInit & { next?: unknown })
+    | (RequestInit & {
+        next?: unknown;
+        __shortedBypassNextFetchPatch?: boolean;
+      })
     | undefined;
+
+  // serverFetchOutsideNextCache marker: skip Next's patched fetch entirely
+  // (see its doc comment). Strip the marker before dispatch. When the
+  // original fetch can't be resolved (Next internals changed), fall through
+  // to the guarded path below rather than dispatching an unguarded POST
+  // through the patch.
+  if (initWithNext?.__shortedBypassNextFetchPatch) {
+    const { __shortedBypassNextFetchPatch: _ignored, ...cleanInit } =
+      initWithNext;
+    const unpatched = getUnpatchedFetch();
+    if (unpatched) {
+      return unpatched(normalizeFetchInput(input), {
+        ...cleanInit,
+        headers,
+      });
+    }
+    init = cleanInit as RequestInit;
+  }
+
   const method =
     init?.method ??
     (typeof input === "object" &&

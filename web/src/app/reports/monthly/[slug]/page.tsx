@@ -22,6 +22,7 @@ import { IndustryBreakdown } from "~/@/components/reports/industry-breakdown";
 import {
   getMonthlyReportData,
   getEnhancedWeeklyReportData,
+  getEnhancedWeeklyReportDataStrict,
 } from "~/app/actions/reports/getReportData";
 
 interface PageProps {
@@ -50,14 +51,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
   const monthTitle = formatMonthTitle(slug);
 
-  // No-data guard lives in generateMetadata so notFound() commits a real
-  // HTTP 404 — the body's guard fires mid-stream and can only soft-404
-  // (see weekly/[slug]). Fetches dedupe with the page body via caching.
-  const [enhanced, data] = await Promise.all([
-    getEnhancedWeeklyReportData(slug),
-    getMonthlyReportData(slug),
-  ]);
-  if (!data) {
+  // Hard-404 guard (in generateMetadata so notFound() commits a real HTTP
+  // 404 — the body's guard fires mid-stream and can only soft-404). Only
+  // DEFINITIVE absence 404s: strict narrative fetch returned null (report
+  // genuinely unpublished, not a backend blip) AND market data succeeded
+  // with zero rows. Transient failures render a degraded 200 — never 404 a
+  // published URL because the backend blipped. Mirrors weekly/[slug].
+  let enhanced = null;
+  let enhancedUnavailable = false;
+  try {
+    enhanced = await getEnhancedWeeklyReportDataStrict(slug);
+  } catch {
+    enhancedUnavailable = true;
+  }
+  const data = await getMonthlyReportData(slug);
+  if (!enhanced && !enhancedUnavailable && data && data.topStocks.length === 0) {
     notFound();
   }
   const headline = enhanced?.headline;
@@ -120,14 +128,27 @@ export default async function MonthlyReportPage({ params }: PageProps) {
     notFound();
   }
 
-  const [data, enhanced] = await Promise.all([
+  const [rawData, enhanced] = await Promise.all([
     getMonthlyReportData(slug),
     getEnhancedWeeklyReportData(slug),
   ]);
 
-  if (!data) {
+  // Definitive double-absence soft-404s; transient failures render a
+  // degraded 200 with an envelope synthesized from the slug (mirrors
+  // weekly/[slug]) so the render below never dereferences undefined.
+  if (!enhanced && rawData && rawData.topStocks.length === 0) {
     notFound();
   }
+  const data = rawData ?? {
+    monthSlug: slug,
+    month: new Date(`${slug}-01T00:00:00`).toLocaleDateString("en-AU", {
+      month: "long",
+    }),
+    year: slug.slice(0, 4),
+    dates: [],
+    topStocks: [],
+    totalStocksShorted: 0,
+  };
 
   const monthTitle = formatMonthTitle(slug);
   const hasNarrative = !!enhanced?.narrative?.openingHook;

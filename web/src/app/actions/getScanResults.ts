@@ -4,7 +4,7 @@ import { unstable_cache } from "next/cache";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import {
   SHORTS_API_URL,
-  serverFetchWithUserAgent,
+  serverFetchOutsideNextCache,
   skipForBuild,
 } from "./config";
 import { getScan, type ScanRange } from "~/@/lib/scans/registry";
@@ -48,7 +48,7 @@ async function fetchScanResults(slug: string): Promise<ScanResults> {
   if (!scan) return { asOfDate: "", rows: [], totalCount: 0 };
 
   const transport = createConnectTransport({
-    fetch: serverFetchWithUserAgent,
+    fetch: serverFetchOutsideNextCache,
     baseUrl: SHORTS_API_URL,
   });
   const client = createClient(ShortedStocksService, transport);
@@ -94,12 +94,19 @@ async function fetchScanResults(slug: string): Promise<ScanResults> {
 export async function getScanResults(slug: string): Promise<ScanResults | null> {
   if (skipForBuild()) return null;
   try {
-    const results = await unstable_cache(
-      () => fetchScanResults(slug),
+    return await unstable_cache(
+      async () => {
+        const results = await fetchScanResults(slug);
+        // Never CACHE a data-less result — throwing makes it a cache miss
+        // so the next request retries instead of pinning an empty shell.
+        if (!results.asOfDate) {
+          throw new Error("scan returned no data date");
+        }
+        return results;
+      },
       [`scan-results-${slug}-v1`],
       { tags: ["scan-results", `scan-${slug}`], revalidate: 3600 },
     )();
-    return results.asOfDate ? results : null;
   } catch (err) {
     console.error(`[getScanResults] failed for ${slug}:`, err);
     return null;

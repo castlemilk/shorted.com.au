@@ -7,7 +7,7 @@ import { ChevronDown, Lock } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { siteConfig } from "~/@/config/site";
-import { cn } from "~/@/lib/utils";
+import { cn, isPlainLeftClick } from "~/@/lib/utils";
 import { Icons } from "~/@/components/ui/icons";
 import { UserAuthNav } from "~/@/components/ui/user-auth-nav";
 import { NavSearchInput } from "~/@/components/ui/nav-search-input";
@@ -116,7 +116,9 @@ export const MainNav = ({ items, modeToggle }: MainNavProps) => {
                         )}
                         onClick={(e) => {
                           setMoreOpen(false);
-                          if (isLocked) {
+                          // Plain left-clicks only: modified clicks keep
+                          // native open-in-new-tab on the real destination.
+                          if (isLocked && isPlainLeftClick(e)) {
                             e.preventDefault();
                             router.push(
                               `/signin?callbackUrl=${encodeURIComponent(item.href!)}`,
@@ -176,7 +178,9 @@ function NavLink({
       href={item.href}
       prefetch={false}
       onClick={(e) => {
-        if (isLocked) {
+        // Plain left-clicks only: modified clicks keep native
+        // open-in-new-tab on the real destination.
+        if (isLocked && isPlainLeftClick(e)) {
           e.preventDefault();
           router.push(`/signin?callbackUrl=${encodeURIComponent(item.href!)}`);
         }

@@ -7,7 +7,7 @@ import { useSession } from "next-auth/react";
 import { siteConfig } from "~/@/config/site";
 import { Badge } from "~/@/components/ui/badge";
 import { Icons } from "~/@/components/ui/icons";
-import { cn } from "~/@/lib/utils";
+import { cn, isPlainLeftClick } from "~/@/lib/utils";
 
 interface FooterLink {
   title: string;
@@ -65,7 +65,9 @@ function FooterLinkItem({
         href={link.href}
         prefetch={false}
         onClick={(e) => {
-          if (isLocked) {
+          // Plain left-clicks only: modified clicks keep native
+          // open-in-new-tab on the real destination.
+          if (isLocked && isPlainLeftClick(e)) {
             e.preventDefault();
             router.push(
               `/signin?callbackUrl=${encodeURIComponent(link.href)}`,

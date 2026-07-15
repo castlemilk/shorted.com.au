@@ -59,9 +59,11 @@ export const metadata: Metadata = {
   },
 };
 
-// Event-driven ISR: hourly safety net; the underlying unstable_cache is also
-// tagged for on-demand busting when the daily sync lands.
-export const revalidate = 3600;
+// ISR at 15min: every deploy prerenders the no-data shell (skipForBuild),
+// and the shell is served while the page entry is fresh — a short page TTL
+// caps that exposure window. The DATA layer stays cheap regardless (1h
+// unstable_cache, tagged for on-demand busting when the daily sync lands).
+export const revalidate = 900;
 
 const breadcrumbs = [
   { name: "Home", url: siteConfig.url },

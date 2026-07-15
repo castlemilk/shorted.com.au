@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileText, ChevronRight, X } from "lucide-react";
 import { Button } from "~/@/components/ui/button";
+import { weeklyReportPath } from "~/@/lib/reports/weekly-slug";
 
 export function ReportsBanner() {
   const [isVisible, setIsVisible] = useState(true);
@@ -18,13 +19,14 @@ export function ReportsBanner() {
     }
 
     // Prefetch the latest weekly report page for instant navigation
+    // (canonical path — the ISO form 301s).
     const now = new Date();
     const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
     d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
     const weekNum = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
     const slug = `${d.getUTCFullYear()}-W${String(weekNum).padStart(2, "0")}`;
-    router.prefetch(`/reports/weekly/${slug}`);
+    router.prefetch(weeklyReportPath(slug));
   }, [router]);
 
   const handleDismiss = (e: React.MouseEvent) => {
