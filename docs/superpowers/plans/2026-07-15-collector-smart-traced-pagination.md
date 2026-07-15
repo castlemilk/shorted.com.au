@@ -30,6 +30,29 @@ Blocking gate for Tasks 2-3. Must run AFTER the corpus crawl frees the warm Chro
 
 If a portal exposes no reliable count, Task 2 returns `pageMeta{ok:false}` for it and the sweep falls back to today's behaviour for that source (documented, not a failure).
 
+> **PHASE-0 RESULT (2026-07-15, confirmed against live New Farm SRPs):**
+> - **REA** — `ArgonautExchange` (triple-escaped `\"totalResultsCount\":969`, `pageSize:25`),
+>   also carries `surroundingSuburbs:true`.
+> - **Domain** — `__NEXT_DATA__` `"totalPages":30`, `"pageSize":20` (→ 600).
+> - **CRITICAL:** both totals are the **BROADENED** count (suburb **+ surrounding suburbs**) —
+>   New Farm's on-target inventory is only ~54 (REA) / ~65 (Domain). So the portal total is
+>   NOT the on-target page count; `wantPages = ceil(total/pageSize)` would over-fetch straight
+>   into the broadening the poison-gate rejects. **The total-count does NOT size the on-target
+>   sweep.** Revised design for Tasks 2-3:
+>   1. Still extract `pageMeta` (it's a useful signal + `surroundingSuburbs` flag), but do NOT
+>      use the broadened total to bound the loop.
+>   2. The real on-target stop remains the existing **broadening detection** (`sweepPoisonVerdict`,
+>      already shipped) + the new **yield-decay stop** (Task 4). Those, not total-count, size the
+>      sweep. Task 3 becomes: use `pageMeta` only to (a) mark a sweep `sweepComplete` when we
+>      stopped on broadening/yield-decay with `pages < ceil(total/pageSize)` (we saw all
+>      on-target before the surrounds began → delist-safe), and (b) never truncate a genuinely
+>      large on-target suburb below the yield-decay/broadening stop.
+>   3. **Higher-value follow-up (own task, gated on a spike):** find the REA/Domain URL param to
+>      set `surroundingSuburbs:false`. If it works, the total becomes on-target, broadening
+>      disappears, `wantPages` sizing works exactly, and data quality jumps. Spike: try a URL
+>      variant, confirm `surroundingSuburbs:false` + `totalResultsCount` drops to ~on-target.
+>      Do NOT block the other tasks on it.
+
 ---
 
 ### Task 2: `extractPageMeta` — parse per-page pagination metadata
