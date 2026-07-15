@@ -58,14 +58,15 @@ type suburbSweep struct {
 }
 
 type listingsConfig struct {
-	crawlConfig                // embeds cdpURL, minDelay/maxDelay, dryRun, maxConsecBlocks, fetchTimeout, profileDir, maxSuburbs
-	maxPages     int           // CRAWL_LISTINGS_MAX_PAGES      (default 5)
-	minPerPage   int           // CRAWL_LISTINGS_MIN_PER_PAGE   (default 5)
-	pageMinDelay time.Duration // CRAWL_LISTINGS_PAGE_MIN_MS   (default 8000)
-	pageMaxDelay time.Duration // CRAWL_LISTINGS_PAGE_MAX_MS   (default 20000)
-	noiseAbs     float64       // CRAWL_LISTINGS_NOISE_ABS      (default 5000)
-	noisePct     float64       // CRAWL_LISTINGS_NOISE_PCT      (default 0.005 == 0.5%)
-	delistGrace  int           // CRAWL_LISTINGS_DELIST_GRACE   (default 2)
+	crawlConfig                 // embeds cdpURL, minDelay/maxDelay, dryRun, maxConsecBlocks, fetchTimeout, profileDir, maxSuburbs
+	maxPages      int           // CRAWL_LISTINGS_MAX_PAGES      (default 5)
+	minPerPage    int           // CRAWL_LISTINGS_MIN_PER_PAGE   (default 5)
+	minNewPerPage int           // CRAWL_LISTINGS_MIN_NEW_PER_PAGE (default 1) — yield-decay floor
+	pageMinDelay  time.Duration // CRAWL_LISTINGS_PAGE_MIN_MS   (default 8000)
+	pageMaxDelay  time.Duration // CRAWL_LISTINGS_PAGE_MAX_MS   (default 20000)
+	noiseAbs      float64       // CRAWL_LISTINGS_NOISE_ABS      (default 5000)
+	noisePct      float64       // CRAWL_LISTINGS_NOISE_PCT      (default 0.005 == 0.5%)
+	delistGrace   int           // CRAWL_LISTINGS_DELIST_GRACE   (default 2)
 	// fixtureDir, when set, reads pages from saved HTML files instead of driving a
 	// browser — for offline testing/seeding against captured real pages.
 	fixtureDir string // CRAWL_LISTINGS_FIXTURE_DIR
@@ -75,16 +76,17 @@ type listingsConfig struct {
 
 func loadListingsConfig() listingsConfig {
 	return listingsConfig{
-		crawlConfig:  loadCrawlConfig(),
-		maxPages:     envInt("CRAWL_LISTINGS_MAX_PAGES", 5),
-		minPerPage:   envInt("CRAWL_LISTINGS_MIN_PER_PAGE", 5),
-		pageMinDelay: time.Duration(envInt("CRAWL_LISTINGS_PAGE_MIN_MS", 8000)) * time.Millisecond,
-		pageMaxDelay: time.Duration(envInt("CRAWL_LISTINGS_PAGE_MAX_MS", 20000)) * time.Millisecond,
-		noiseAbs:     envFloat("CRAWL_LISTINGS_NOISE_ABS", 5000),
-		noisePct:     envFloat("CRAWL_LISTINGS_NOISE_PCT", 0.005),
-		delistGrace:  envInt("CRAWL_LISTINGS_DELIST_GRACE", 2),
-		fixtureDir:   os.Getenv("CRAWL_LISTINGS_FIXTURE_DIR"),
-		sources:      parseListingsSources(),
+		crawlConfig:   loadCrawlConfig(),
+		maxPages:      envInt("CRAWL_LISTINGS_MAX_PAGES", 5),
+		minPerPage:    envInt("CRAWL_LISTINGS_MIN_PER_PAGE", 5),
+		minNewPerPage: envInt("CRAWL_LISTINGS_MIN_NEW_PER_PAGE", 1),
+		pageMinDelay:  time.Duration(envInt("CRAWL_LISTINGS_PAGE_MIN_MS", 8000)) * time.Millisecond,
+		pageMaxDelay:  time.Duration(envInt("CRAWL_LISTINGS_PAGE_MAX_MS", 20000)) * time.Millisecond,
+		noiseAbs:      envFloat("CRAWL_LISTINGS_NOISE_ABS", 5000),
+		noisePct:      envFloat("CRAWL_LISTINGS_NOISE_PCT", 0.005),
+		delistGrace:   envInt("CRAWL_LISTINGS_DELIST_GRACE", 2),
+		fixtureDir:    os.Getenv("CRAWL_LISTINGS_FIXTURE_DIR"),
+		sources:       parseListingsSources(),
 	}
 }
 
@@ -326,17 +328,19 @@ func (lc *listingsCrawler) crawlSuburbSource(ctx context.Context, pool *pgxpool.
 // always >= cfg.maxPages, so the clamp is a no-op (identical to today's
 // behaviour, no over-fetch risk); it only SHORTENS the walk for suburbs whose
 // portal-reported extent is smaller than the cap, saving a redundant fetch of
-// a page we'd learn nothing new from anyway. Two places additionally use
-// PageMeta to upgrade a natural-stop sweepPartial to the delist-safe
-// sweepComplete (see pageMetaCompleteStatus): (a) below, when the walk reaches
-// wantPages cleanly (a "capped-complete" sweep — we saw everything the portal
-// itself said existed); (b) when a later page hits the broadening/poison gate
-// or (Task 4) yield decay AFTER a healthy on-target set — pages < wantPages
-// there confirms we stopped well short of the portal's own reported extent,
-// i.e. we saw the whole on-target suburb before the surrounds began. When
-// PageMeta.OK is false (extraction failed / portal changed shape), wantPages
-// falls back to cfg.maxPages and every classification falls back to today's
-// behaviour exactly — nothing regresses.
+// a page we'd learn nothing new from anyway.
+//
+// Three natural-stop paths additionally use PageMeta to upgrade a sweepPartial
+// to the delist-safe sweepComplete (see upgradeIfPageMetaConfirms): (a) below,
+// when the walk reaches wantPages cleanly with no natural-end signal (a
+// "capped-complete" sweep — we saw everything the portal itself said
+// existed); (b) when a later page hits the broadening/poison gate; (c) when a
+// later page hits yield decay (near-zero NEW ids). For (b)/(c), pages <
+// wantPages confirms we stopped well short of the portal's own reported
+// extent, i.e. we saw the whole on-target suburb before the surrounds began.
+// When PageMeta.OK is false (extraction failed / portal changed shape),
+// wantPages falls back to cfg.maxPages and every classification falls back to
+// today's behaviour exactly — nothing regresses.
 func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget, source string, urlFor func(int) string, blockCounter *int) suburbSweep {
 	if *blockCounter >= lc.cfg.maxConsecBlocks {
 		return suburbSweep{status: sweepBlocked} // breaker open: stop hammering this source
@@ -421,10 +425,27 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 			return finishSweep(collected, pages, sweepComplete)
 		}
 
+		newThisPage := 0
 		for _, m := range matched {
 			if _, ok := collected[m.ListingID]; !ok {
 				collected[m.ListingID] = m
+				newThisPage++
 			}
+		}
+
+		// Yield decay: a later page rendered real, on-target-passing content, but
+		// contributed nothing we hadn't already collected (`collected` IS the
+		// running seen-all set — no separate index needed). That happens when a
+		// portal re-serves overlapping/reordered stock once real inventory runs
+		// out WITHOUT going through an exact duplicate page (same signature) or a
+		// wholly empty one — e.g. a partial repeat. It's at least as strong an
+		// exhaustion signal as those two, so it ends the sweep the same way, under
+		// the same PageMeta-confirmed delist-safety rule as the broadening branch
+		// above (conservative default: sweepPartial, upgraded to sweepComplete
+		// only when PageMeta confirms we stopped short of the portal's own
+		// reported extent).
+		if page > 1 && newThisPage < lc.cfg.minNewPerPage {
+			return finishSweep(collected, pages, upgradeIfPageMetaConfirms(metaOK && pages < wantPages, sweepPartial))
 		}
 	}
 
