@@ -360,6 +360,54 @@ func TestSweep_MismatchPoisonIsBlocked(t *testing.T) {
 	}
 }
 
+func TestSweepPoisonVerdict(t *testing.T) {
+	cases := []struct {
+		name      string
+		page      int
+		collected int
+		minPer    int
+		want      sweepStatus
+	}{
+		{"page1 poison", 1, 0, 5, sweepBlocked},
+		{"page2 thin prior collection", 2, 3, 5, sweepBlocked}, // conservative: no healthy set yet
+		{"page2 after full page1", 2, 5, 5, sweepPartial},      // broadened past a small suburb
+		{"page3 after healthy set", 3, 54, 5, sweepPartial},    // New Farm REA broadening
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := sweepPoisonVerdict(tc.page, tc.collected, tc.minPer); got != tc.want {
+				t.Fatalf("sweepPoisonVerdict(%d,%d,%d)=%s want %s", tc.page, tc.collected, tc.minPer, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestSweep_BroadenedLatePageIsPartial(t *testing.T) {
+	// A healthy on-target page 1, then a page 2 that is mostly nearby stock (the
+	// portal broadening past a small suburb's real inventory — New Farm 4005 →
+	// Newstead/Fortitude Valley). The late broadening must NOT discard the
+	// confirmed page-1 listings: it's a partial sweep (write events, delist
+	// nothing), not a poison block.
+	p1 := domainPageHTML([]string{"a", "b", "c", "d", "e"}, "2026") // 5 on-target
+	p2 := `<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"listings":[` +
+		`{"id":"f","listingUrl":"/p/f","price":"$1,200,000","address":{"suburb":"Bondi","postcode":"2026","displayAddress":"f"}},` +
+		`{"id":"g","listingUrl":"/p/g","price":"$1,200,000","address":{"suburb":"Tamarama","postcode":"2026x","displayAddress":"g"}},` +
+		`{"id":"h","listingUrl":"/p/h","price":"$1,200,000","address":{"suburb":"Bronte","postcode":"2024","displayAddress":"h"}},` +
+		`{"id":"i","listingUrl":"/p/i","price":"$1,200,000","address":{"suburb":"Waverley","postcode":"2024","displayAddress":"i"}},` +
+		`{"id":"j","listingUrl":"/p/j","price":"$1,200,000","address":{"suburb":"Clovelly","postcode":"2031","displayAddress":"j"}}` +
+		`]}}}</script></body></html>` // 1 on-target + 4 nearby -> 80% mismatch
+	sw := sweepWith(map[string]string{
+		bondi.domainSearchURL(1): p1,
+		bondi.domainSearchURL(2): p2,
+	})
+	if sw.status != sweepPartial {
+		t.Errorf("a broadened late page after a healthy set must be partial, got %s", sw.status)
+	}
+	if len(sw.listings) != 5 {
+		t.Errorf("must keep the 5 confirmed page-1 listings (drop the broadened page), got %d", len(sw.listings))
+	}
+}
+
 func TestSweep_PageCapIsPartial(t *testing.T) {
 	lc := testLC()
 	lc.cfg.maxPages = 2

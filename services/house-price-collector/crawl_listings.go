@@ -347,8 +347,20 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		}
 		matched, mismatch := partitionByTarget(extractListings(doc, source), t)
 
-		// Page-level poison gates → soft block through the SAME circuit breaker.
+		// Page-level poison gate. A high off-target ratio is the poison signal —
+		// BUT small suburbs legitimately run out of real inventory, after which
+		// REA/Domain broaden the SRP to nearby stock (e.g. New Farm 4005 → Newstead
+		// 4006 / Fortitude Valley 4006 / Kangaroo Point 4169). That broadening is
+		// not poison: partitionByTarget already dropped the off-target rows, and the
+		// suburb's real listings are already in `collected` from cleaner earlier
+		// pages. sweepPoisonVerdict treats a late high-mismatch page (after a healthy
+		// on-target set) as paging PAST the suburb — keep what we have (partial ⇒
+		// write events, delist nothing) — and only BLOCKS an early high-mismatch
+		// page (genuine page-1 poison / bot-variant), which still trips the breaker.
 		if mismatch > 0.30 {
+			if sweepPoisonVerdict(page, len(collected), lc.cfg.minPerPage) == sweepPartial {
+				return finishSweep(collected, pages, sweepPartial)
+			}
 			*blockCounter++
 			return finishSweep(collected, pages, sweepBlocked)
 		}
@@ -393,6 +405,20 @@ func finishSweep(collected map[string]RawListing, pages int, status sweepStatus)
 // (update, don't delist); nothing yet → blocked (touch nothing).
 func blockedOrPartial(collectedN int) sweepStatus {
 	if collectedN > 0 {
+		return sweepPartial
+	}
+	return sweepBlocked
+}
+
+// sweepPoisonVerdict classifies a page whose off-target ratio exceeded the poison
+// threshold. If it lands on a LATER page after a healthy on-target set is already
+// collected, the search simply broadened past a small suburb's real inventory —
+// return sweepPartial so the confirmed early-page listings are still diffed
+// (events written, nothing delisted). Otherwise (an early / among-the-first page,
+// before any healthy set exists) it is a genuine bot-variant / page-1 poison —
+// return sweepBlocked so the caller trips the circuit breaker and discards it.
+func sweepPoisonVerdict(page, collectedMatched, minPerPage int) sweepStatus {
+	if page > 1 && collectedMatched >= minPerPage {
 		return sweepPartial
 	}
 	return sweepBlocked
