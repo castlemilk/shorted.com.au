@@ -255,6 +255,7 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
 	anyRewarm := false
 	wroteAny := false
 	done := 0
+	consecBlocked := 0
 	for i := 0; i < acfg.maxJobs; i++ {
 		job, err := client.claim(ctx)
 		if err != nil {
@@ -278,6 +279,25 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
 		}
 		log.Printf("[agent] job %s %s/%s → %s: listings=%d events=%d blocked=%d", job.ID, job.Suburb, job.Tier, status, summary.Listings, summary.Events, summary.BlockedSweeps)
 		done++
+
+		// A job that wrote no events off a blocked/poisoned sweep means the browser
+		// session has gone cold — Kasada/Akamai serving stubs or poison, or an IP
+		// throttle after several heavy sweeps. The submit above already re-queued it
+		// (status "failed"). Two such jobs in a row ⇒ the session is degraded, so
+		// STOP claiming and flag a re-warm (exit 3) instead of burning the rest of
+		// the queue on a session that will keep returning blocked; those failed jobs
+		// stay queued for the next warm run. (Observed live: New Farm then Toowong
+		// both blocked back-to-back once the session throttled.)
+		if status == "failed" && summary.Events == 0 && summary.BlockedSweeps > 0 {
+			consecBlocked++
+			if consecBlocked >= 2 {
+				log.Printf("[agent] %d consecutive blocked sweeps — session degraded; stopping to re-warm before the queue is burned", consecBlocked)
+				anyRewarm = true
+				break
+			}
+		} else {
+			consecBlocked = 0
+		}
 	}
 
 	// Refresh MVs + sal-link once at the end of the run (not per job).
@@ -331,11 +351,30 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 		NeedsRewarm:   needsRewarm(cfg.maxConsecBlocks, lc.reaBlocks, lc.domBlocks),
 	}
 
-	// Nothing seen and something blocked ⇒ the suburb was blocked/poisoned: fail
-	// the job so it can be retried later (it wrote nothing).
-	if s.seen == 0 && s.blockedSweeps > 0 {
-		summary.Detail = "all sweeps blocked"
-		return summary, "failed", "all sweeps blocked", false
+	// A blocked/poisoned sweep is DISCARDED wholesale — crawlSuburbSource writes
+	// nothing for a blocked sweep even when earlier pages already collected real
+	// listings — so raw `seen` can be >0 while zero events were written. Gate the
+	// retry decision on EVENTS WRITTEN, not `seen`: a blocked sweep that produced
+	// no events got no usable data, so fail the job and let the queue re-serve it
+	// on a later warm/unthrottled run rather than banking a silent no-data
+	// "success". (Observed live: QLD suburbs collected page 1, hit a mid-sweep
+	// poison gate → seen=118, events=0, and were wrongly reported "succeeded".)
+	if agentJobOutcome(summary.Events, s.blockedSweeps) == "failed" {
+		summary.Detail = "blocked/poisoned sweep(s), no events written"
+		return summary, "failed", "blocked sweeps, no events written", false
 	}
 	return summary, "succeeded", "", !cfg.dryRun && s.seen > 0
+}
+
+// agentJobOutcome decides the terminal queue status for a completed suburb sweep
+// from its counts. Because a blocked/poisoned sweep is discarded wholesale (0
+// events written) even when raw `seen` is >0 from listings collected before the
+// block, the decision keys on events written: no events off a blocked sweep ⇒
+// "failed" (re-queue for a warm retry), anything else ⇒ "succeeded". A legitimate
+// no-change run (events==0, blockedSweeps==0) stays "succeeded".
+func agentJobOutcome(events, blockedSweeps int) string {
+	if events == 0 && blockedSweeps > 0 {
+		return "failed"
+	}
+	return "succeeded"
 }

@@ -133,3 +133,30 @@ func TestResolveCrawlTarget_ConstructedFallback(t *testing.T) {
 		t.Fatalf("constructed target = %+v", tgt)
 	}
 }
+
+func TestAgentJobOutcome(t *testing.T) {
+	cases := []struct {
+		name          string
+		events        int
+		blockedSweeps int
+		want          string
+	}{
+		// A clean full sweep (events written) → succeeded.
+		{"clean sweep", 242, 0, "succeeded"},
+		// The live regression: a blocked/poisoned sweep collected page-1 listings
+		// (seen>0) but wrote 0 events → must fail so the queue re-serves it, NOT
+		// bank a silent no-data success (New Farm/Toowong were wrongly "succeeded").
+		{"blocked no events", 0, 2, "failed"},
+		// A single source blocked but the other wrote events → still succeeded.
+		{"partial block with events", 110, 1, "succeeded"},
+		// A legitimate no-change run (nothing blocked, no price events) → succeeded.
+		{"legit no-change", 0, 0, "succeeded"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := agentJobOutcome(tc.events, tc.blockedSweeps); got != tc.want {
+				t.Fatalf("agentJobOutcome(%d, %d) = %q want %q", tc.events, tc.blockedSweeps, got, tc.want)
+			}
+		})
+	}
+}
