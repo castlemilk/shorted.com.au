@@ -82,10 +82,10 @@ func TestCrossSourceAgrees(t *testing.T) {
 
 func TestParseMoney(t *testing.T) {
 	cases := map[string]float64{
-		"$1.25m":     1_250_000,
-		"1,250,000":  1_250_000,
-		"$985k":      985_000,
-		"$1.2 M":     1_200_000,
+		"$1.25m":      1_250_000,
+		"1,250,000":   1_250_000,
+		"$985k":       985_000,
+		"$1.2 M":      1_200_000,
 		"not a price": 0,
 	}
 	for in, want := range cases {
@@ -135,5 +135,102 @@ func TestExtractSaleMedians_REAArgonaut(t *testing.T) {
 	got := extractSaleMedians(docFrom(html))
 	if len(got) != 1 || got[0] != 2_100_000 {
 		t.Errorf("expected [2100000], got %v", got)
+	}
+}
+
+func TestSelectTargets_ShardingDisjointAndBalanced(t *testing.T) {
+	all := []CrawlTarget{
+		{Suburb: "a"}, {Suburb: "b"}, {Suburb: "c"},
+		{Suburb: "d"}, {Suburb: "e"}, {Suburb: "f"}, {Suburb: "g"},
+	}
+	shard0 := selectTargets(all, crawlConfig{maxSuburbs: len(all), shardIndex: 0, shardCount: 2})
+	shard1 := selectTargets(all, crawlConfig{maxSuburbs: len(all), shardIndex: 1, shardCount: 2})
+
+	// Union == all, intersection == empty.
+	seen := map[string]int{}
+	for _, x := range append(append([]CrawlTarget{}, shard0...), shard1...) {
+		seen[x.Suburb]++
+	}
+	if len(seen) != len(all) {
+		t.Fatalf("union covered %d suburbs, want %d", len(seen), len(all))
+	}
+	for s, n := range seen {
+		if n != 1 {
+			t.Fatalf("suburb %q appeared %d times across shards, want exactly 1", s, n)
+		}
+	}
+	// Balanced: 7 items, 2 shards -> 4 and 3.
+	if len(shard0) != 4 || len(shard1) != 3 {
+		t.Fatalf("shard sizes = %d,%d, want 4,3", len(shard0), len(shard1))
+	}
+}
+
+func TestSelectTargets_NoShardingIsIdentityThenCap(t *testing.T) {
+	all := []CrawlTarget{{Suburb: "a"}, {Suburb: "b"}, {Suburb: "c"}}
+	// shardCount<=1 disables sharding.
+	got := selectTargets(all, crawlConfig{maxSuburbs: len(all), shardCount: 1})
+	if len(got) != 3 {
+		t.Fatalf("no-shard len = %d, want 3", len(got))
+	}
+	// maxSuburbs still caps (prefix) after sharding.
+	capped := selectTargets(all, crawlConfig{maxSuburbs: 2, shardCount: 1})
+	if len(capped) != 2 {
+		t.Fatalf("capped len = %d, want 2", len(capped))
+	}
+}
+
+func TestSelectTargets_OutOfRangeShardIsEmpty(t *testing.T) {
+	all := []CrawlTarget{{Suburb: "a"}, {Suburb: "b"}}
+	got := selectTargets(all, crawlConfig{maxSuburbs: len(all), shardIndex: 5, shardCount: 2})
+	if len(got) != 0 {
+		t.Fatalf("out-of-range shard len = %d, want 0", len(got))
+	}
+}
+
+func TestCrawlTargets_WellFormed(t *testing.T) {
+	validCapitals := map[string]bool{
+		"1GSYD": true, "2GMEL": true, "3GBRI": true, "4GADE": true, "5GPER": true,
+	}
+	seen := map[string]bool{}
+	for _, tg := range crawlTargets {
+		if tg.Suburb == "" || tg.Display == "" || tg.Postcode == "" || tg.State == "" || tg.Capital == "" {
+			t.Fatalf("target %+v has an empty field", tg)
+		}
+		if tg.Suburb != strings.ToLower(tg.Suburb) {
+			t.Fatalf("Suburb slug %q must be lowercase", tg.Suburb)
+		}
+		if !validCapitals[tg.Capital] {
+			t.Fatalf("target %q has unknown GCCSA capital %q", tg.Display, tg.Capital)
+		}
+		key := tg.State + "-" + tg.Postcode + "-" + tg.Suburb
+		if seen[key] {
+			t.Fatalf("duplicate target %q", key)
+		}
+		seen[key] = true
+	}
+	if len(crawlTargets) < 20 {
+		t.Fatalf("expected the curated set to have >=20 suburbs, got %d", len(crawlTargets))
+	}
+}
+
+func TestNeedsRewarm(t *testing.T) {
+	cases := []struct {
+		name                            string
+		maxConsec, reaBlocks, domBlocks int
+		want                            bool
+	}{
+		{"no blocks", 3, 0, 0, false},
+		{"rea tripped", 3, 3, 0, true},
+		{"domain tripped", 3, 1, 3, true},
+		{"both tripped", 3, 4, 5, true},
+		{"under threshold", 3, 2, 2, false},
+		{"breaker disabled", 0, 9, 9, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := needsRewarm(c.maxConsec, c.reaBlocks, c.domBlocks); got != c.want {
+				t.Fatalf("needsRewarm(%d,%d,%d) = %v, want %v", c.maxConsec, c.reaBlocks, c.domBlocks, got, c.want)
+			}
+		})
 	}
 }

@@ -53,7 +53,12 @@ func (s *postgresStore) GetHousingOverview(regionType string) ([]*HousingMetricR
 		       COALESCE(h.qoq_pct, 0), COALESCE(h.yoy_pct, 0)
 		FROM mv_housing_headline h
 		JOIN house_price_regions r ON r.region_code = h.region_code
-		WHERE ($1 = '' OR r.region_type = $1)
+		-- Unfiltered ("") = the /housing dashboard headline: national + gccsa +
+		-- state only. Exclude suburb rows (SA metro is the only region_type that
+		-- ingests quarterly, so mv_housing_headline carries ~350 Adelaide suburbs
+		-- the dashboard never renders — ~113KB / 82% of the response). Explicit
+		-- region_type filters still resolve suburbs for callers that ask.
+		WHERE (($1 <> '' AND r.region_type = $1) OR ($1 = '' AND r.region_type <> 'suburb'))
 		ORDER BY r.region_type, h.measure, h.value DESC`
 
 	rows, err := s.db.Query(ctx, query, regionType)
@@ -423,30 +428,39 @@ func (s *postgresStore) similarSuburbs(ctx context.Context, salCode string, limi
 			       LEAST(COALESCE(a.dist_to_coast_km,0),100) mc
 			FROM suburb_demographics d LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
 			WHERE d.sal_code = $1
+		),
+		ranked AS (
+			SELECT d.sal_code, d.sal_name, d.state_code,
+			       sqrt(
+			         COALESCE(pow((d.median_age - tgt.ma)/stats.sage,2),0) +
+			         COALESCE(pow((d.median_weekly_hhd_income - tgt.mi)/stats.sinc,2),0) +
+			         COALESCE(pow((d.pct_born_overseas - tgt.mb)/stats.sbo,2),0) +
+			         COALESCE(pow((COALESCE(a.amenity_density_score,0) - tgt.md)/stats.sden,2),0) +
+			         COALESCE(pow((ln(GREATEST(d.population,1)) - tgt.mp)/stats.spop,2),0) +
+			         COALESCE(pow((LEAST(COALESCE(a.dist_to_coast_km,0),100) - tgt.mc)/stats.scoast,2),0)
+			       ) AS dist
+			FROM suburb_demographics d
+			LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
+			CROSS JOIN tgt CROSS JOIN stats
+			WHERE d.sal_code <> $1 AND d.population > 200
+			  AND d.median_age IS NOT NULL AND d.median_weekly_hhd_income IS NOT NULL
+			ORDER BY dist ASC NULLS LAST
+			LIMIT $2
 		)
-		SELECT d.sal_code, d.sal_name, d.state_code, COALESCE(h.value,0), COALESCE(r.region_code,''),
-		       sqrt(
-		         COALESCE(pow((d.median_age - tgt.ma)/stats.sage,2),0) +
-		         COALESCE(pow((d.median_weekly_hhd_income - tgt.mi)/stats.sinc,2),0) +
-		         COALESCE(pow((d.pct_born_overseas - tgt.mb)/stats.sbo,2),0) +
-		         COALESCE(pow((COALESCE(a.amenity_density_score,0) - tgt.md)/stats.sden,2),0) +
-		         COALESCE(pow((ln(GREATEST(d.population,1)) - tgt.mp)/stats.spop,2),0) +
-		         COALESCE(pow((LEAST(COALESCE(a.dist_to_coast_km,0),100) - tgt.mc)/stats.scoast,2),0)
-		       ) AS dist
-		FROM suburb_demographics d
-		LEFT JOIN suburb_amenities a ON a.sal_code = d.sal_code
-		LEFT JOIN house_price_regions r ON r.sal_code = d.sal_code AND r.region_type = 'suburb'
+		-- Price is display-only (it never enters the distance), so defer the
+		-- per-candidate latest-median LATERAL probe until AFTER the top-k are
+		-- chosen: k probes instead of one per ~15k candidate suburbs.
+		SELECT ranked.sal_code, ranked.sal_name, ranked.state_code, COALESCE(h.value,0),
+		       COALESCE(r.region_code,''), ranked.dist
+		FROM ranked
+		LEFT JOIN house_price_regions r ON r.sal_code = ranked.sal_code AND r.region_type = 'suburb'
 		LEFT JOIN LATERAL (
 			SELECT hp.value FROM house_prices hp
 			WHERE hp.region_code = r.region_code AND hp.measure = 'median_price' AND hp.dwelling_type = 'house'
 			  AND hp.source_licence <> 'proprietary-tos-restricted'
 			ORDER BY hp.period DESC LIMIT 1
 		) h ON true
-		CROSS JOIN tgt CROSS JOIN stats
-		WHERE d.sal_code <> $1 AND d.population > 200
-		  AND d.median_age IS NOT NULL AND d.median_weekly_hhd_income IS NOT NULL
-		ORDER BY dist ASC NULLS LAST
-		LIMIT $2`
+		ORDER BY ranked.dist ASC NULLS LAST`
 	rows, err := s.db.Query(ctx, q, salCode, limit)
 	if err != nil {
 		return nil, err
@@ -527,6 +541,176 @@ func (s *postgresStore) GetHousingRegions(regionType, stateCode, query string, l
 			return nil, err
 		}
 		out = append(out, &r)
+	}
+	return out, rows.Err()
+}
+
+// SuburbPriceDropRow is one suburb's aggregate price-drop signal (from
+// mv_suburb_price_drops), joined to its region name/state for display.
+type SuburbPriceDropRow struct {
+	RegionCode          string
+	SALCode             string
+	SALName             string
+	StateCode           string
+	Postcode            string
+	DroppedListingCount int32
+	AvgDropPct          float64
+	MedianDropPct       float64
+	MaxDropPct          float64
+	MaxDropAbs          float64
+	TotalActiveListings int32
+	DroppedShare        float64
+	ForSaleCount        int32
+	AvgAsking           float64
+	MedianAsking        float64
+	SoldCount           int32
+	AvgSold             float64
+	MedianSold          float64
+}
+
+// ListSuburbPriceDrops returns the per-suburb listing board: asking/sold price
+// aggregates (mv_suburb_listing_stats) for every suburb with crawled listings,
+// LEFT-JOINed to the price-drop signal (mv_suburb_price_drops). Reads ONLY the
+// derived aggregates — never the raw, ToS-restricted listing rows.
+// sort ∈ {count,avg,max,asking,sold}; default count (most price cuts).
+func (s *postgresStore) ListSuburbPriceDrops(stateCode, sort string, limit int32) ([]*SuburbPriceDropRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if limit <= 0 || limit > 500 {
+		limit = 50
+	}
+	// Whitelist the sort column (never interpolate user input into SQL).
+	orderBy := "COALESCE(d.dropped_listing_count, 0)"
+	switch sort {
+	case "avg":
+		orderBy = "COALESCE(d.avg_drop_pct, 0)"
+	case "max":
+		orderBy = "COALESCE(d.max_drop_pct, 0)"
+	case "asking":
+		orderBy = "st.avg_asking"
+	case "sold":
+		orderBy = "st.avg_sold"
+	}
+
+	query := `
+		SELECT st.region_code, COALESCE(r.sal_code, ''),
+		       COALESCE(NULLIF(sd.sal_name, ''), r.region_name, '') AS sal_name,
+		       COALESCE(r.state_code, ''), COALESCE(r.postcode, ''),
+		       COALESCE(d.dropped_listing_count, 0), COALESCE(d.avg_drop_pct, 0),
+		       COALESCE(d.median_drop_pct, 0), COALESCE(d.max_drop_pct, 0),
+		       COALESCE(d.max_drop_abs, 0), COALESCE(d.total_active_listings, st.for_sale_count),
+		       COALESCE(d.dropped_share, 0),
+		       st.for_sale_count, COALESCE(st.avg_asking, 0), COALESCE(st.median_asking, 0),
+		       st.sold_count, COALESCE(st.avg_sold, 0), COALESCE(st.median_sold, 0)
+		FROM mv_suburb_listing_stats st
+		JOIN house_price_regions r ON r.region_code = st.region_code
+		LEFT JOIN suburb_demographics sd ON sd.sal_code = r.sal_code
+		LEFT JOIN mv_suburb_price_drops d ON d.region_code = st.region_code
+		WHERE ($1 = '' OR r.state_code = $1)
+		ORDER BY ` + orderBy + ` DESC NULLS LAST
+		LIMIT $2`
+
+	rows, err := s.db.Query(ctx, query, stateCode, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*SuburbPriceDropRow
+	for rows.Next() {
+		var d SuburbPriceDropRow
+		if err := rows.Scan(&d.RegionCode, &d.SALCode, &d.SALName, &d.StateCode, &d.Postcode,
+			&d.DroppedListingCount, &d.AvgDropPct, &d.MedianDropPct, &d.MaxDropPct,
+			&d.MaxDropAbs, &d.TotalActiveListings, &d.DroppedShare,
+			&d.ForSaleCount, &d.AvgAsking, &d.MedianAsking, &d.SoldCount, &d.AvgSold, &d.MedianSold); err != nil {
+			return nil, err
+		}
+		out = append(out, &d)
+	}
+	return out, rows.Err()
+}
+
+// SuburbDropListingRow is one recently-reduced listing for the per-suburb
+// drill-down (deep-links out to the live portal page).
+type SuburbDropListingRow struct {
+	Source         string
+	ListingURL     string
+	DisplayAddress string
+	PropertyType   string
+	Bedrooms       int32
+	Bathrooms      int32
+	CarSpaces      int32
+	PrevPrice      float64
+	Price          float64
+	DropPct        float64
+	DropAbs        float64
+	ObservedAt     time.Time
+}
+
+// ListSuburbDropListings returns the latest price-drop per active listing in a
+// suburb, deep-linking to the live portal page. It reads the raw
+// (proprietary-tos-restricted) listing rows — this is the flag-gated drill-down;
+// the handler enforces the feature flag. Stale listings (not seen in ~3 weeks) and
+// URL-less rows are filtered so we never surface a dead deep-link.
+func (s *postgresStore) ListSuburbDropListings(salCode, regionCode string, windowDays, limit int32) ([]*SuburbDropListingRow, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if windowDays <= 0 || windowDays > 365 {
+		windowDays = 30
+	}
+	if limit <= 0 || limit > 200 {
+		limit = 30
+	}
+
+	const query = `
+		SELECT t.source, t.listing_url, t.display_address, t.property_type,
+		       t.bedrooms, t.bathrooms, t.car_spaces,
+		       t.prev_price, t.price, t.drop_pct, t.drop_abs, t.observed_at
+		FROM (
+			SELECT DISTINCT ON (e.listing_pk)
+			       pl.source, pl.listing_url,
+			       COALESCE(pl.display_address, '') AS display_address,
+			       COALESCE(pl.property_type, '')   AS property_type,
+			       COALESCE(pl.bedrooms, 0)         AS bedrooms,
+			       COALESCE(pl.bathrooms, 0)        AS bathrooms,
+			       COALESCE(pl.car_spaces, 0)       AS car_spaces,
+			       COALESCE(e.prev_price, 0)        AS prev_price,
+			       COALESCE(e.price, 0)             AS price,
+			       COALESCE(e.drop_pct, 0)          AS drop_pct,
+			       COALESCE(e.drop_abs, 0)          AS drop_abs,
+			       e.observed_at, e.listing_pk
+			FROM property_price_events e
+			JOIN property_listings pl ON pl.id = e.listing_pk
+			JOIN house_price_regions r ON r.region_code = e.region_code
+			WHERE e.event_type = 'price_drop'
+			  AND e.observed_at >= now() - make_interval(days => $3)
+			  AND ($1 = '' OR r.sal_code = $1)
+			  AND ($2 = '' OR e.region_code = $2)
+			  AND pl.is_active
+			  AND pl.last_seen_at >= now() - interval '21 days'
+			  AND pl.listing_url <> ''
+			ORDER BY e.listing_pk, e.observed_at DESC
+		) t
+		ORDER BY t.drop_pct DESC
+		LIMIT $4`
+
+	rows, err := s.db.Query(ctx, query, salCode, regionCode, windowDays, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*SuburbDropListingRow
+	for rows.Next() {
+		var l SuburbDropListingRow
+		if err := rows.Scan(&l.Source, &l.ListingURL, &l.DisplayAddress, &l.PropertyType,
+			&l.Bedrooms, &l.Bathrooms, &l.CarSpaces, &l.PrevPrice, &l.Price,
+			&l.DropPct, &l.DropAbs, &l.ObservedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, &l)
 	}
 	return out, rows.Err()
 }

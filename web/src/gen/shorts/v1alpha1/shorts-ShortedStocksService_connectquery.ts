@@ -371,6 +371,20 @@ export const getSuburbProfile = ShortedStocksService.method.getSuburbProfile;
 export const listHousingRegions = ShortedStocksService.method.listHousingRegions;
 
 /**
+ * Suburbs ranked by recent for-sale asking-price drops.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListSuburbPriceDrops
+ */
+export const listSuburbPriceDrops = ShortedStocksService.method.listSuburbPriceDrops;
+
+/**
+ * Individual recently-reduced listings for a suburb, deep-linking to the portal.
+ *
+ * @generated from rpc shorts.v1alpha1.ShortedStocksService.ListSuburbDropListings
+ */
+export const listSuburbDropListings = ShortedStocksService.method.listSuburbDropListings;
+
+/**
  * Get an ASX-listed entity's annual corporate-tax profile (ATO transparency data).
  *
  * @generated from rpc shorts.v1alpha1.ShortedStocksService.GetCompanyTaxProfile

@@ -12,7 +12,7 @@ import (
 
 // ShortsStore defines the interface for shorts data operations
 type ShortsStore interface {
-	GetTopShorts(period string, limit int32, offset int32, summaryOnly bool) ([]*stocksv1alpha1.TimeSeriesData, int, error)
+	GetTopShorts(period string, limit int32, offset int32, summaryOnly bool, productCodes ...string) ([]*stocksv1alpha1.TimeSeriesData, int, error)
 	GetStock(productCode string) (*stocksv1alpha1.Stock, error)
 	GetStockData(productCode, period string) (*stocksv1alpha1.TimeSeriesData, error)
 	GetStockDetails(productCode string) (*stocksv1alpha1.StockDetails, error)
@@ -119,6 +119,8 @@ type ShortsStore interface {
 	ListStateSuburbs(stateCode, query string, limit int32) ([]*shortsstore.SuburbSummaryRow, error)
 	GetSuburbProfile(salCode string) (*shortsstore.SuburbProfileRow, error)
 	GetHousingRegions(regionType, stateCode, query string, limit int32) ([]*shortsstore.HousingRegionRow, error)
+	ListSuburbPriceDrops(stateCode, sort string, limit int32) ([]*shortsstore.SuburbPriceDropRow, error)
+	ListSuburbDropListings(salCode, regionCode string, windowDays, limit int32) ([]*shortsstore.SuburbDropListingRow, error)
 
 	// Event timeline methods
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shortsstore.TimelineEventRow, error)
@@ -162,6 +164,8 @@ type Cache interface {
 	GetStateSuburbsKey(stateCode, query string, limit int32) string
 	GetSuburbProfileKey(salCode string) string
 	GetHousingRegionsKey(regionType, stateCode, query string, limit int32) string
+	GetSuburbPriceDropsKey(stateCode, sort string, limit int32) string
+	GetSuburbDropListingsKey(salCode, regionCode string, windowDays, limit int32) string
 	GetEventTimelineKey(stockCode string, daysBack, limit int32) string
 	GetDirectorTradesKey(stockCode string, limit int32) string
 	GetDividendHistoryKey(stockCode string, years int32) string

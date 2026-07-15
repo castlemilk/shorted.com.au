@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.shorted.housing-crawl</string>
+
+  <!-- Replace __REPO__ with the absolute path to this checkout on the Mac. -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__REPO__/services/house-price-collector/deploy/run-housing-crawl.sh</string>
+  </array>
+
+  <!-- Per-Mac shard assignment. Mac 0 => INDEX 0, Mac 1 => INDEX 1; COUNT = number of Macs. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>CRAWL_SHARD_INDEX</key><string>0</string>
+    <key>CRAWL_SHARD_COUNT</key><string>2</string>
+  </dict>
+
+  <!-- Weekly: Tuesday 02:30 local. Drops/movers accrue as weekly re-crawls stack. -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key><integer>2</integer>
+    <key>Hour</key><integer>2</integer>
+    <key>Minute</key><integer>30</integer>
+  </dict>
+
+  <key>StandardOutPath</key><string>__HOME__/Library/Logs/shorted-housing-crawl.out.log</string>
+  <key>StandardErrorPath</key><string>__HOME__/Library/Logs/shorted-housing-crawl.err.log</string>
+  <key>RunAtLoad</key><false/>
+</dict>
+</plist>

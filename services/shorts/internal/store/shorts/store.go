@@ -58,7 +58,7 @@ type JobHealth struct {
 
 type Store interface {
 	GetStock(string) (*stockv1alpha1.Stock, error)
-	GetTopShorts(period string, limit, offset int32, summaryOnly bool) ([]*stockv1alpha1.TimeSeriesData, int, error)
+	GetTopShorts(period string, limit, offset int32, summaryOnly bool, productCodes ...string) ([]*stockv1alpha1.TimeSeriesData, int, error)
 	GetStockDetails(string) (*stockv1alpha1.StockDetails, error)
 	GetStockData(string, string) (*stockv1alpha1.TimeSeriesData, error)
 	GetIndustryTreeMap(int32, string, string) (*stockv1alpha1.IndustryTreeMap, error)
@@ -183,6 +183,8 @@ type Store interface {
 	ListStateSuburbs(stateCode, query string, limit int32) ([]*SuburbSummaryRow, error)
 	GetSuburbProfile(salCode string) (*SuburbProfileRow, error)
 	GetHousingRegions(regionType, stateCode, query string, limit int32) ([]*HousingRegionRow, error)
+	ListSuburbPriceDrops(stateCode, sort string, limit int32) ([]*SuburbPriceDropRow, error)
+	ListSuburbDropListings(salCode, regionCode string, windowDays, limit int32) ([]*SuburbDropListingRow, error)
 
 	// Event timeline methods
 	GetEventTimeline(stockCode string, daysBack, limit int32) ([]*TimelineEventRow, error)

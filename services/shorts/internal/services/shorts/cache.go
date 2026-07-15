@@ -243,6 +243,16 @@ func (c *MemoryCache) GetHousingRegionsKey(regionType, stateCode, query string, 
 	return c.generateKey("housing_regions", regionType, stateCode, query, limit)
 }
 
+// GetSuburbPriceDropsKey builds a cache key for ListSuburbPriceDrops responses.
+func (c *MemoryCache) GetSuburbPriceDropsKey(stateCode, sort string, limit int32) string {
+	return c.generateKey("suburb_price_drops", stateCode, sort, limit)
+}
+
+// GetSuburbDropListingsKey builds a cache key for ListSuburbDropListings responses.
+func (c *MemoryCache) GetSuburbDropListingsKey(salCode, regionCode string, windowDays, limit int32) string {
+	return c.generateKey("suburb_drop_listings", salCode, regionCode, windowDays, limit)
+}
+
 // GetEventTimelineKey builds a cache key for GetEventTimeline responses.
 func (c *MemoryCache) GetEventTimelineKey(stockCode string, daysBack, limit int32) string {
 	return c.generateKey("event_timeline", stockCode, daysBack, limit)

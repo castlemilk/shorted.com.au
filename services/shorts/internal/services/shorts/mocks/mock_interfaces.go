@@ -684,9 +684,13 @@ func (mr *MockShortsStoreMockRecorder) GetSyncStatus(filter any) *gomock.Call {
 }
 
 // GetTopShorts mocks base method.
-func (m *MockShortsStore) GetTopShorts(period string, limit, offset int32, summaryOnly bool) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
+func (m *MockShortsStore) GetTopShorts(period string, limit, offset int32, summaryOnly bool, productCodes ...string) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetTopShorts", period, limit, offset, summaryOnly)
+	varargs := []any{period, limit, offset, summaryOnly}
+	for _, a := range productCodes {
+		varargs = append(varargs, a)
+	}
+	ret := m.ctrl.Call(m, "GetTopShorts", varargs...)
 	ret0, _ := ret[0].([]*stocksv1alpha1.TimeSeriesData)
 	ret1, _ := ret[1].(int)
 	ret2, _ := ret[2].(error)
@@ -694,9 +698,10 @@ func (m *MockShortsStore) GetTopShorts(period string, limit, offset int32, summa
 }
 
 // GetTopShorts indicates an expected call of GetTopShorts.
-func (mr *MockShortsStoreMockRecorder) GetTopShorts(period, limit, offset, summaryOnly any) *gomock.Call {
+func (mr *MockShortsStoreMockRecorder) GetTopShorts(period, limit, offset, summaryOnly any, productCodes ...any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTopShorts", reflect.TypeOf((*MockShortsStore)(nil).GetTopShorts), period, limit, offset, summaryOnly)
+	varargs := append([]any{period, limit, offset, summaryOnly}, productCodes...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetTopShorts", reflect.TypeOf((*MockShortsStore)(nil).GetTopShorts), varargs...)
 }
 
 // GetTopStocksForEnrichment mocks base method.
@@ -881,6 +886,36 @@ func (m *MockShortsStore) ListStateSuburbs(stateCode, query string, limit int32)
 func (mr *MockShortsStoreMockRecorder) ListStateSuburbs(stateCode, query, limit any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListStateSuburbs", reflect.TypeOf((*MockShortsStore)(nil).ListStateSuburbs), stateCode, query, limit)
+}
+
+// ListSuburbPriceDrops mocks base method.
+func (m *MockShortsStore) ListSuburbPriceDrops(stateCode, sort string, limit int32) ([]*shorts.SuburbPriceDropRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListSuburbPriceDrops", stateCode, sort, limit)
+	ret0, _ := ret[0].([]*shorts.SuburbPriceDropRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListSuburbPriceDrops indicates an expected call of ListSuburbPriceDrops.
+func (mr *MockShortsStoreMockRecorder) ListSuburbPriceDrops(stateCode, sort, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSuburbPriceDrops", reflect.TypeOf((*MockShortsStore)(nil).ListSuburbPriceDrops), stateCode, sort, limit)
+}
+
+// ListSuburbDropListings mocks base method.
+func (m *MockShortsStore) ListSuburbDropListings(salCode, regionCode string, windowDays, limit int32) ([]*shorts.SuburbDropListingRow, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListSuburbDropListings", salCode, regionCode, windowDays, limit)
+	ret0, _ := ret[0].([]*shorts.SuburbDropListingRow)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListSuburbDropListings indicates an expected call of ListSuburbDropListings.
+func (mr *MockShortsStoreMockRecorder) ListSuburbDropListings(salCode, regionCode, windowDays, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSuburbDropListings", reflect.TypeOf((*MockShortsStore)(nil).ListSuburbDropListings), salCode, regionCode, windowDays, limit)
 }
 
 // ListTweetPublishQueue mocks base method.

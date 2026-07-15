@@ -53,11 +53,29 @@ const (
 	// fetcherModeCDP connects over CDP to an already-running Chrome — in
 	// option (b), the HOST's macOS Chrome reached via host.docker.internal.
 	fetcherModeCDP
+	// fetcherModeGateway POSTs each URL to a brandbrain macOS-agent residential
+	// fetch gateway (CRAWL_GATEWAY_URL), which drives a warm host Chrome and
+	// returns HTML. No browser in this process; residential egress is the agent's.
+	fetcherModeGateway
 )
 
-// selectFetcherMode is the pure, testable selection rule: CRAWL_CDP_URL set ->
-// drive the host Chrome over CDP; empty -> self-launch a persistent Chromium.
+// selectFetcherMode is the pure, testable selection rule. CRAWL_FETCH_MODE, when
+// set, is an explicit override (gateway|cdp|playwright) and wins outright.
+// Otherwise the precedence is gateway > cdp > playwright: CRAWL_GATEWAY_URL set
+// -> POST to the brandbrain agent gateway; else CRAWL_CDP_URL set -> drive the
+// host Chrome over CDP; else self-launch a persistent Chromium.
 func selectFetcherMode(cfg crawlConfig) fetcherMode {
+	switch cfg.fetchModeOverride {
+	case "gateway":
+		return fetcherModeGateway
+	case "cdp":
+		return fetcherModeCDP
+	case "playwright":
+		return fetcherModePlaywright
+	}
+	if cfg.gatewayURL != "" {
+		return fetcherModeGateway
+	}
 	if cfg.cdpURL != "" {
 		return fetcherModeCDP
 	}
@@ -65,20 +83,31 @@ func selectFetcherMode(cfg crawlConfig) fetcherMode {
 }
 
 func crawlFetcherMode(cfg crawlConfig) string {
-	if selectFetcherMode(cfg) == fetcherModeCDP {
+	switch selectFetcherMode(cfg) {
+	case fetcherModeGateway:
+		return "gateway-residential"
+	case fetcherModeCDP:
 		return "cdp-host-chrome"
+	default:
+		return "headed-playwright"
 	}
-	return "headed-playwright"
 }
 
-// newCrawlFetcher constructs the browser-backed fetcher for the run, branching on
-// CRAWL_CDP_URL. Errors are returned (never panics) so runCrawl can fail
+// newCrawlFetcher constructs the fetcher for the run, branching on the selected
+// fetcherMode. Errors are returned (never panics) so runCrawl can fail
 // non-fatally — the official ABS/RBA backbone is unaffected either way.
 func newCrawlFetcher(cfg crawlConfig) (crawlFetcher, error) {
-	if selectFetcherMode(cfg) == fetcherModeCDP {
-		return newCDPFetcher(cfg)
+	if o := cfg.fetchModeOverride; o != "" && o != "gateway" && o != "cdp" && o != "playwright" {
+		log.Printf("[crawl] ignoring unrecognized CRAWL_FETCH_MODE=%q (want gateway|cdp|playwright) — auto-selecting %s", o, crawlFetcherMode(cfg))
 	}
-	return newPlaywrightFetcher(cfg)
+	switch selectFetcherMode(cfg) {
+	case fetcherModeGateway:
+		return newGatewayFetcher(cfg)
+	case fetcherModeCDP:
+		return newCDPFetcher(cfg)
+	default:
+		return newPlaywrightFetcher(cfg)
+	}
 }
 
 type crawlConfig struct {
@@ -97,6 +126,22 @@ type crawlConfig struct {
 	// Empty -> launch a self-contained persistent Chromium (native/launchd
 	// fallback). See newCDPFetcher / newPlaywrightFetcher.
 	cdpURL string
+	// Static sharding for multi-rig distribution: each residential Mac runs a
+	// disjoint modulo-slice of crawlTargets (shardIndex of shardCount). The
+	// partition stays balanced as the list grows. shardCount<=1 disables it.
+	shardIndex int
+	shardCount int
+	// gatewayURL, when set, selects the gateway-residential execution model:
+	// each URL is POSTed to a brandbrain macOS-agent residential fetch gateway
+	// (a warm host Chrome living behind this HTTP endpoint) instead of this
+	// process driving a browser itself. See newGatewayFetcher.
+	gatewayURL    string // CRAWL_GATEWAY_URL  e.g. http://<mac-lan-ip>:7799
+	gatewayToken  string // CRAWL_GATEWAY_TOKEN
+	gatewayWaitMS int    // CRAWL_GATEWAY_WAIT_MS (challenge-settle budget)
+	// fetchModeOverride, when non-empty, forces a specific fetcherMode
+	// regardless of gatewayURL/cdpURL (gateway|cdp|playwright). See
+	// selectFetcherMode.
+	fetchModeOverride string // CRAWL_FETCH_MODE = gateway|cdp|playwright (optional)
 }
 
 func loadCrawlConfig() crawlConfig {
@@ -104,19 +149,46 @@ func loadCrawlConfig() crawlConfig {
 		maxSuburbs: envInt("CRAWL_MAX_SUBURBS", len(crawlTargets)),
 		// HEAVIER pacing than the old stealth tier: a headed browser hitting a
 		// Kasada/Akamai-protected site must look human (20–45s between suburbs).
-		minDelay:        time.Duration(envInt("CRAWL_MIN_DELAY_MS", 20000)) * time.Millisecond,
-		maxDelay:        time.Duration(envInt("CRAWL_MAX_DELAY_MS", 45000)) * time.Millisecond,
+		minDelay: time.Duration(envInt("CRAWL_MIN_DELAY_MS", 20000)) * time.Millisecond,
+		maxDelay: time.Duration(envInt("CRAWL_MAX_DELAY_MS", 45000)) * time.Millisecond,
 		// Default to dry-run ON for this ToS-restricted tier: it only WRITES to
 		// house_prices when CRAWL_DRY_RUN is explicitly "false". An accidental
 		// `-mode crawl` is then a no-op harvest, never a silent persist of
 		// proprietary REA/Domain medians.
-		dryRun:          os.Getenv("CRAWL_DRY_RUN") != "false",
-		maxConsecBlocks: envInt("CRAWL_MAX_CONSEC_BLOCKS", 3),
-		fetchTimeout:    time.Duration(envInt("CRAWL_FETCH_TIMEOUT_S", 60)) * time.Second,
-		brandbrainURL:   os.Getenv("BRANDBRAIN_URL"), // "" -> brandbrainEndpoint() default
-		profileDir:      envStr("CRAWL_PROFILE_DIR", "/data/pw-profile"),
-		cdpURL:          os.Getenv("CRAWL_CDP_URL"), // e.g. http://host.docker.internal:9222
+		dryRun:            os.Getenv("CRAWL_DRY_RUN") != "false",
+		maxConsecBlocks:   envInt("CRAWL_MAX_CONSEC_BLOCKS", 3),
+		fetchTimeout:      time.Duration(envInt("CRAWL_FETCH_TIMEOUT_S", 60)) * time.Second,
+		brandbrainURL:     os.Getenv("BRANDBRAIN_URL"), // "" -> brandbrainEndpoint() default
+		profileDir:        envStr("CRAWL_PROFILE_DIR", "/data/pw-profile"),
+		cdpURL:            os.Getenv("CRAWL_CDP_URL"), // e.g. http://host.docker.internal:9222
+		shardIndex:        envInt("CRAWL_SHARD_INDEX", 0),
+		shardCount:        envInt("CRAWL_SHARD_COUNT", 1),
+		gatewayURL:        os.Getenv("CRAWL_GATEWAY_URL"),
+		gatewayToken:      os.Getenv("CRAWL_GATEWAY_TOKEN"),
+		gatewayWaitMS:     envInt("CRAWL_GATEWAY_WAIT_MS", 8000),
+		fetchModeOverride: os.Getenv("CRAWL_FETCH_MODE"),
 	}
+}
+
+// selectTargets applies static sharding then the maxSuburbs cap, deterministically.
+// With shardCount>1 each rig takes the targets whose index ≡ shardIndex (mod
+// shardCount) — disjoint across rigs and balanced as the list grows. An
+// out-of-range shardIndex yields an empty set (callers already log an empty run).
+func selectTargets(all []CrawlTarget, cfg crawlConfig) []CrawlTarget {
+	targets := all
+	if cfg.shardCount > 1 {
+		shard := make([]CrawlTarget, 0, len(all)/cfg.shardCount+1)
+		for i, t := range all {
+			if i%cfg.shardCount == cfg.shardIndex {
+				shard = append(shard, t)
+			}
+		}
+		targets = shard
+	}
+	if cfg.maxSuburbs >= 0 && cfg.maxSuburbs < len(targets) {
+		targets = targets[:cfg.maxSuburbs]
+	}
+	return targets
 }
 
 func envInt(key string, def int) int {
@@ -156,8 +228,9 @@ type crawler struct {
 	stats     crawlStats
 }
 
-// runCrawl is the -mode=crawl entry point.
-func runCrawl(ctx context.Context, pool *pgxpool.Pool) {
+// runCrawl is the -mode=crawl entry point. It returns true when the run detected
+// that the browser profile needs a human to re-warm its anti-bot clearance.
+func runCrawl(ctx context.Context, pool *pgxpool.Pool) bool {
 	cfg := loadCrawlConfig()
 
 	baselines, err := loadCapitalBaselines(ctx, pool)
@@ -176,16 +249,13 @@ func runCrawl(ctx context.Context, pool *pgxpool.Pool) {
 	if err != nil {
 		log.Printf("[crawl] crawl fetcher init failed (%v) — aborting crawl (non-fatal; official backbone unaffected)", err)
 		_ = updateRun(ctx, pool, "crawl", nil, 0, "error", "fetcher init: "+err.Error())
-		return
+		return false
 	}
 	defer fetcher.Close()
 
 	cr := &crawler{fetcher: fetcher, baselines: baselines, cfg: cfg}
 
-	targets := crawlTargets
-	if cfg.maxSuburbs >= 0 && cfg.maxSuburbs < len(targets) {
-		targets = targets[:cfg.maxSuburbs]
-	}
+	targets := selectTargets(crawlTargets, cfg)
 	log.Printf("[crawl] start: %d suburbs · %s · profile=%s · dryRun=%v", len(targets), crawlFetcherMode(cfg), cfg.profileDir, cfg.dryRun)
 
 	var obs []Observation
@@ -210,11 +280,20 @@ func runCrawl(ctx context.Context, pool *pgxpool.Pool) {
 			log.Printf("[crawl] upserted %d suburb observations", n)
 		}
 	}
+	rewarm := needsRewarm(cfg.maxConsecBlocks, cr.reaBlocks, cr.domBlocks)
+	if rewarm && status == "ok" {
+		status, detail = "needs_rewarm", "circuit breaker tripped — re-warm the crawl Chrome profile"
+	}
 	_ = updateRun(ctx, pool, "crawl", nil, len(obs), status, detail)
 
 	s := cr.stats
 	log.Printf("[crawl] done: attempted=%d accepted=%d blocked=%d rejected=%d diverged=%d",
 		s.attempted, s.accepted, s.blocked, s.rejected, s.diverged)
+	if rewarm {
+		log.Printf("[crawl] REWARM REQUIRED: circuit breaker tripped (rea=%d dom=%d ≥ %d) — the dedicated Chrome profile likely lost its Kasada/Akamai clearance; re-warm it by hand",
+			cr.reaBlocks, cr.domBlocks, cfg.maxConsecBlocks)
+	}
+	return rewarm
 }
 
 // crawlSuburb fetches both sources via the headed browser, hands each rendered
@@ -323,6 +402,18 @@ func (cr *crawler) crossCheck(t CrawlTarget, site string, html []byte, obs []Obs
 		log.Printf("[crawl] %s %s: brandbrain $%.0f vs page-harvest $%.0f diverge (>%.0f%%) — extraction-drift signal (value kept; capital-band gate passed)",
 			t.Display, site, bbHouse, raw, maxCrossSourceDivergence*100)
 	}
+}
+
+// needsRewarm reports whether a source's circuit breaker tripped — every recent
+// fetch to that source was blocked, the signature of an expired Kasada/Akamai
+// clearance that a human must re-warm on the dedicated Chrome profile. It drives
+// the re-warm alert (process exit code 3). A disabled breaker (maxConsec<=0) never
+// signals.
+func needsRewarm(maxConsecBlocks, reaBlocks, domBlocks int) bool {
+	if maxConsecBlocks <= 0 {
+		return false
+	}
+	return reaBlocks >= maxConsecBlocks || domBlocks >= maxConsecBlocks
 }
 
 func (cr *crawler) sleepJitter(ctx context.Context) {

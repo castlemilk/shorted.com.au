@@ -113,6 +113,10 @@ const DEFAULT_TTL = 300; // 5 minutes
 export const HOMEPAGE_TTL = 86400; // 24h, flushed on data change
 export const TOOLTIP_TTL = 86400; // 24h, flushed on data change
 export const TOP_PAGE_TTL = 86400; // 24h, flushed on data change
+// House-price data updates quarterly (ABS/RBA) and is NOT part of the daily
+// shorts-data flush, so this key lives outside SHORTS_DATA_CACHE_PREFIXES and
+// relies purely on TTL expiry — 24h is far tighter than the quarterly cadence.
+export const HOUSING_TTL = 86400;
 
 // Prefixes covering all data derived from the `shorts` table — flushed together
 // when a sync writes new ASIC data.
@@ -135,6 +139,9 @@ export const CACHE_KEYS = {
     `${HOMEPAGE_CACHE_PREFIX}treemap:${period}:${limit}:${viewMode}`,
   industryIntelligence: (industry: string, recordLimit: number, stockCode = "") =>
     `${HOMEPAGE_CACHE_PREFIX}industry-intelligence:v1:${industry}:${recordLimit}:${stockCode}`,
+  // Housing overview — TTL-only (see HOUSING_TTL); not under the shorts flush.
+  housingOverview: (regionType: string) =>
+    `cache:housing:overview:${regionType || "all"}`,
   // Tooltip cache keys
   tooltipData: (productCode: string) =>
     `${TOOLTIP_CACHE_PREFIX}${productCode}`,

@@ -7,7 +7,7 @@ import {
 } from "~/app/actions/industry/getIndustryData";
 import { getVerifiedCompanyLogoUrls } from "~/app/actions/company-logo-availability";
 import { getIndustryIntelligenceSnapshot } from "~/app/actions/getIndustryIntelligence";
-import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { getTopShortsByCodes, getTopShortsSummary } from "~/app/actions/getTopShorts";
 
 jest.mock("~/@/components/industry/industry-charts", () => {
   const charts = jest.requireActual(
@@ -44,7 +44,8 @@ jest.mock("~/app/actions/industry/getIndustryData", () => ({
 }));
 
 jest.mock("~/app/actions/getTopShorts", () => ({
-  getTopShortsData: jest.fn(),
+  getTopShortsSummary: jest.fn(),
+  getTopShortsByCodes: jest.fn(),
 }));
 
 jest.mock("~/app/actions/company-logo-availability", () => ({
@@ -61,8 +62,11 @@ const mockedGetIndustryData = getIndustryData as jest.MockedFunction<
 const mockedGetIndustryStocks = getIndustryStocks as jest.MockedFunction<
   typeof getIndustryStocks
 >;
-const mockedGetTopShortsData = getTopShortsData as jest.MockedFunction<
-  typeof getTopShortsData
+const mockedGetTopShortsSummary = getTopShortsSummary as jest.MockedFunction<
+  typeof getTopShortsSummary
+>;
+const mockedGetTopShortsByCodes = getTopShortsByCodes as jest.MockedFunction<
+  typeof getTopShortsByCodes
 >;
 const mockedGetVerifiedCompanyLogoUrls =
   getVerifiedCompanyLogoUrls as jest.MockedFunction<
@@ -115,7 +119,8 @@ describe("/industry-intelligence page", () => {
         },
       ],
     });
-    mockedGetTopShortsData.mockResolvedValue({
+    // summary_only enrichment: names + industry, no points.
+    mockedGetTopShortsSummary.mockResolvedValue({
       timeSeries: [
         {
           productCode: "MIN",
@@ -133,7 +138,12 @@ describe("/industry-intelligence page", () => {
         },
       ],
       offset: 0,
-    } as Awaited<ReturnType<typeof getTopShortsData>>);
+    } as Awaited<ReturnType<typeof getTopShortsSummary>>);
+    // Code-scoped crowding points (empty here — crowding isn't asserted).
+    mockedGetTopShortsByCodes.mockResolvedValue({
+      timeSeries: [],
+      offset: 0,
+    } as Awaited<ReturnType<typeof getTopShortsByCodes>>);
     mockedGetIndustryIntelligence.mockResolvedValue({
       sources: [
         {

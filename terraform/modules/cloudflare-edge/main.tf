@@ -354,6 +354,43 @@ resource "cloudflare_ruleset" "cache_rules" {
     },
     {
       action      = "set_cache_settings"
+      expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and http.request.uri.path contains \"/geo/\""
+      description = "Cache /geo TopoJSON + boundary assets at edge (non-default extension — CF does not cache .topojson/.json by default, so the origin's s-maxage never took effect)"
+      enabled     = true
+      action_parameters = {
+        cache = true
+        edge_ttl = {
+          # 1 week, not 1yr: /geo files have STABLE names (no content hash), so
+          # a boundary rebuild must be able to propagate without a manual purge.
+          mode    = "override_origin"
+          default = 604800
+          status_code_ttl = [
+            {
+              status_code_range = {
+                from = 200
+                to   = 299
+              }
+              value = 604800
+            },
+            {
+              status_code_range = {
+                from = 300
+              }
+              value = 0
+            }
+          ]
+        }
+        browser_ttl = {
+          mode = "respect_origin"
+        }
+        cache_key = {
+          cache_by_device_type  = false
+          cache_deception_armor = true
+        }
+      }
+    },
+    {
+      action      = "set_cache_settings"
       expression  = "(http.host eq \"shorted.com.au\" or http.host eq \"www.shorted.com.au\") and starts_with(http.request.uri.path, \"/shorts/\") and not http.request.uri.path contains \"/news\" and not http.request.uri.path contains \"/community\" and not http.request.uri.path contains \".\""
       description = "Cache public stock detail HTML pages at edge"
       enabled     = true

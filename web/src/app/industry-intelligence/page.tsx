@@ -21,7 +21,7 @@ import {
 } from "~/app/actions/industry/getIndustryData";
 import { getVerifiedCompanyLogoUrls } from "~/app/actions/company-logo-availability";
 import { getIndustryIntelligenceSnapshot } from "~/app/actions/getIndustryIntelligence";
-import { getTopShortsData } from "~/app/actions/getTopShorts";
+import { getTopShortsByCodes, getTopShortsSummary } from "~/app/actions/getTopShorts";
 import {
   buildApiUrl,
   getServerShortsApiUrl,
@@ -61,7 +61,7 @@ type IndustryEvidenceBundle = {
 };
 
 type TopShortsStock = NonNullable<
-  Awaited<ReturnType<typeof getTopShortsData>>
+  Awaited<ReturnType<typeof getTopShortsSummary>>
 >["timeSeries"][number];
 
 const invalidIndustries = new Set([
@@ -220,10 +220,11 @@ export default async function IndustryIntelligencePage() {
   // every request.
   const [industries, topShorts] = await Promise.all([
     getIndustryData(),
-    // 2y base window: the store decimates each stock to ~60 points regardless
-    // of period, so this costs the same payload as 3m while giving the
-    // crowding chart's client-side window selector real history to slice.
-    getTopShortsData("2y", 1000, 0).catch((error) => {
+    // summary_only: names + industry + latest short position for the top 1000,
+    // WITHOUT time-series points (~102KB vs ~3.19MB for the full 2y×1000 fetch).
+    // The crowding points are fetched separately below, scoped to just the
+    // charted constituents — this call no longer carries 45k discarded points.
+    getTopShortsSummary("2y", 1000).catch((error) => {
       console.warn(
         "IndustryIntelligencePage: top-shorts name enrichment failed:",
         error,
@@ -277,10 +278,29 @@ export default async function IndustryIntelligencePage() {
   const storyStockCodes = stockResults.flatMap(([, stocks]) =>
     stocks.slice(0, 10).map((stock) => stock.code.toUpperCase()),
   );
-  const [logoUrlByCode, intelligenceResults] = await Promise.all([
+  // Every charted crowding constituent (all industries × their stocks). The
+  // points fetch is scoped to just these codes instead of pulling all ~1000
+  // top-shorts stocks' series (~1.6MB vs ~3.19MB), and runs in parallel with
+  // the logo + evidence fan-out rather than blocking wave 1.
+  const constituentCodes = Array.from(
+    new Set(
+      stockResults.flatMap(([, stocks]) =>
+        stocks.map((stock) => stock.code.toUpperCase()),
+      ),
+    ),
+  );
+  const [logoUrlByCode, intelligenceResults, crowdingPoints] = await Promise.all([
     getVerifiedCompanyLogoUrls(storyStockCodes),
     intelligencePromise,
+    getTopShortsByCodes("2y", constituentCodes).catch((error) => {
+      console.warn(
+        "IndustryIntelligencePage: crowding points fetch failed:",
+        error,
+      );
+      return null;
+    }),
   ]);
+  const crowdingStocks = crowdingPoints?.timeSeries ?? [];
   const stocksByIndustry = stockResults.reduce<
     Record<string, IndustryStockInput[]>
   >((acc, [slug, stocks]) => {
@@ -306,11 +326,11 @@ export default async function IndustryIntelligencePage() {
     acc[slug] = snapshot;
     return acc;
   }, {});
-  // GetTopShorts responses with points never carry the industry field, so the
-  // crowding constituents come from the page's own industry->stocks mapping
-  // (the treemap join) and the per-stock points are looked up by code.
+  // Crowding constituents come from the page's own industry->stocks mapping
+  // (the treemap join); their per-stock points come from the code-scoped
+  // GetTopShorts fetch above (points-mode responses never carry the industry).
   const pointsByCode = new Map(
-    topShortStocks.map((stock) => [
+    crowdingStocks.map((stock) => [
       stock.productCode.toUpperCase(),
       (stock.points ?? [])
         .map((point) => ({

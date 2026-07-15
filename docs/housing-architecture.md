@@ -5,7 +5,7 @@ The "housing" surface on Shorted is three products plus a speculative data tier,
 1. **The Widow-Maker editorial feature** (`/features/the-widow-maker`) — a hand-built investigative long-read with embedded interactive dashboards. Data is **baked** (curated research arrays). — §1
 2. **The House Prices Tracker** (`/housing`) — a **live** national/state/GCCSA price dashboard fed by a real ABS/RBA/Valuer-General ingest pipeline. — §4
 3. **The suburb explorer** (`/housing` national map → `/housing/[state]` → `/housing/[state]/[suburb]`) — a national → state → suburb **choropleth drilldown** over real ABS boundaries, with a "Colour by" toggle across house price, ABS Census demographics + culture (religion, language, born-overseas), and **electoral representation** (federal + state member/party + two-party-preferred). — §5
-4. **A Tier-3 stealth crawl** of REA/Domain suburb medians — present in the collector, **opt-in**, anti-poisoning, licence-gated, and **not yet actually scraping**. — §6
+4. **A Tier-3 residential real-estate crawl** of REA/Domain — **LIVE**: suburb medians (`-mode crawl`) and individual for-sale listings (`-mode listings`), distributed across residential Macs via a brandbrain-hosted job queue and a warm host-Chrome CDP fetch that clears REA's Kasada challenge; still anti-poisoning-gated and licence-gated. — §6
 
 Products 2 + 3 share one fact/dimension data model (`house_prices` + `house_price_regions` + `suburb_demographics`) and one collector (`house-price-collector`, `-mode official|census|electorates|amenities|crawl|refresh|all`).
 
@@ -245,11 +245,13 @@ To add a metric, demographic measure, or electoral source, see §9.
 
 ---
 
-## 6. The Tier-3 stealth crawl
+## 6. The residential real-estate crawl (Tier-3)
 
-`services/house-price-collector/crawl*.go` adds an **opt-in, supplementary** suburb-median crawl of realestate.com.au (Kasada) and domain.com.au (Akamai). It is fail-safe by design — it never blocks the ABS/RBA backbone and never stores an unvalidated value.
+`services/house-price-collector/crawl*.go` runs a **live, supplementary** crawl of realestate.com.au (Kasada) and domain.com.au (Akamai): suburb-aggregate medians (`-mode crawl`) and individual for-sale listings (`-mode listings`, which diffs asking prices across runs into price-drop events in `property_listings`/`property_price_events`). It is fail-safe by design — it never blocks the ABS/RBA backbone and never stores an unvalidated value — but unlike earlier iterations of this doc, it **does now actually scrape**: verified live, e.g. a South Yarra sweep returned 132 REA + 110 Domain listings with `blocked=0`.
 
-### Anti-poisoning trust model (the core invariant)
+Two things make that possible where the original stealth-engine attempt failed: (1) a real, user-profile Chrome driven over CDP is the only client empirically proven to survive Kasada/Akamai from a residential IP (§6.3), and (2) that Chrome's REA session has to be *warmed* in a specific way, which is now proven and self-healed rather than left to an operator to remember (§6.5 — the reliability mechanism this section leads with).
+
+### 6.1 Anti-poisoning trust model (the core invariant)
 
 Every crawled candidate must pass **four** independent gates before storage:
 1. **Absolute bounds** — floor `$100k`, ceiling `$50M`, reject NaN/Inf/≤0.
@@ -257,21 +259,63 @@ Every crawled candidate must pass **four** independent gates before storage:
 3. **Robust median outlier rejection** — extract all candidate medians from a page's JSON blobs, filter each through gates 1+2, return the **median of survivors**; if none survive → `(0, false)`, nothing stored.
 4. **Cross-source agreement** — if both REA and Domain return medians, require divergence `(hi-lo)/hi ≤ 0.30`; disagreement → reject **both**. Single source → stored `is_preliminary=true`; both agree → confirmed.
 
-Stored as `source='crawl_rea'|'crawl_domain'`, `source_licence='proprietary-tos-restricted'` (the republish gate — these rows must never reach commercial/republished surfaces; gate on `source_licence` in any new public query).
+Stored as `source='crawl_rea'|'crawl_domain'`, `source_licence='proprietary-tos-restricted'` (the republish gate — these rows must never reach commercial/republished surfaces; gate on `source_licence` in any new public query). The listings tier (`-mode listings`) reuses the same **capital-band gate** (1+2) per listing before writing a `property_price_events` row, and carries the same `source_licence` on `property_listings`.
 
-### Schema-agnostic extraction (`crawl_extract.go`)
+### 6.2 Schema-agnostic extraction (`crawl_extract.go` / `crawl_listings_extract.go`)
 
-REA uses `window.ArgonautExchange`, Domain uses `__NEXT_DATA__`, Kasada serves different DOM to bots — so **never bind to selectors**. Walk every `<script>` JSON blob (raw `{…}`/`[…]` and `x = {…}` assignment forms) with a balanced-brace parser that respects string literals, recursively harvest keys matching `(median|sold|sale)` + `price` (excluding `rent`), parse money strings (`$1.25m`, `1,250,000`, `$985k`). Hand the unconstrained candidate list to the validator.
+REA uses `window.ArgonautExchange`, Domain uses `__NEXT_DATA__`, Kasada serves different DOM to bots — so **never bind to selectors**. Walk every `<script>` JSON blob (raw `{…}`/`[…]` and `x = {…}` assignment forms) with a balanced-brace parser that respects string literals. The median-crawl extractor recursively harvests keys matching `(median|sold|sale)` + `price` (excluding `rent`) and parses money strings (`$1.25m`, `1,250,000`, `$985k`); the listings extractor walks the same blobs for individual listing records (REA's `ArgonautExchange → urqlClientCache` embeds each GraphQL query's `data` as a JSON *string*, requiring a second parse pass). Both hand their unconstrained candidate lists to the gates in §6.1.
 
-### Fetch engine (`crawl.go`)
+### 6.3 Fetch engine — a real host Chrome over CDP, not the stealth engine
 
-Native→Chromium **waterfall**: try the cheap native `stealthhttp` engine (TLS spoofing, realistic browser headers automatically — **do not hand-set a UA**), escalate to Chromium only on a hard block (403/429/401). Per-fetch retry with quadratic backoff (attempt² seconds) for transient failures; hard blocks return immediately. Jittered 5–15s sleep between suburbs. Per-site circuit breaker trips after `CRAWL_MAX_CONSEC_BLOCKS` (default 3).
+The tier originally tried the project's native `stealthhttp` engine (TLS spoofing, then Chromium escalation on a hard block) — that waterfall is **reliably detected and blocked/poisoned by Kasada/Akamai from a residential IP**, so it's no longer the operative path for REA/Domain. A brandbrain-hosted "residential fetch gateway" (POST each URL to a macOS agent, `fetcherModeGateway`/`CRAWL_GATEWAY_URL`) was also built and tried, then **superseded** in favour of the simpler option below (see `docs/superpowers/specs/2026-07-13-*` design docs) — the code path still exists but isn't the recommended one.
 
-Env: `CRAWL_MAX_SUBURBS`, `CRAWL_MIN_DELAY_MS`/`CRAWL_MAX_DELAY_MS`, `CRAWL_PROXY`, `CRAWL_DISABLE_CHROMIUM`, `CRAWL_DRY_RUN`, `CRAWL_MAX_CONSEC_BLOCKS`, `CRAWL_FETCH_RETRIES`, `CRAWL_FETCH_TIMEOUT_S`. Seed targets in `crawl_targets.go` (~10 suburbs).
+The production fetch is **Playwright's `ConnectOverCDP`** (`crawl_cdp.go`) attached to an already-running, **dedicated-profile** (never personal) host Chrome on the residential Mac doing the crawl — `browser.Contexts()[0]` is that Chrome's live, warm, persistent context, so the Kasada clearance cookie set on the host survives across runs without re-triggering the JS challenge every time. `newCrawlFetcher` selects this mode whenever `CRAWL_CDP_URL` is set (the default for the residential launcher); a self-launched persistent Chromium (`crawl_playwright.go`) remains as a native/launchd fallback when no CDP endpoint is configured.
 
-### Current reality
+Per-fetch retry with quadratic backoff (attempt² seconds) for transient failures; hard blocks return immediately. Jittered delay between suburbs (20–45s for the headed browser — heavier than the old stealth-tier pacing, to look human). Per-site circuit breaker trips after `CRAWL_MAX_CONSEC_BLOCKS` (default 3) and signals a re-warm is needed (see §6.5).
 
-REA (Kasada) actively serves **false** medians to suspected bots; Domain (Akamai) returns 403 to non-browsers. The defenses are rock-solid (DB will never be poisoned) but the crawl is **blind to active attacks** — to actually scrape you need a Kasada solver + residential proxy rotation (`CRAWL_PROXY` is already plumbed into both engines) or a Domain API agreement. See "Future extensions".
+Env: `CRAWL_MAX_SUBURBS`, `CRAWL_MIN_DELAY_MS`/`CRAWL_MAX_DELAY_MS`, `CRAWL_CDP_URL`, `CRAWL_FETCH_MODE` (`gateway|cdp|playwright` override), `CRAWL_DRY_RUN`, `CRAWL_MAX_CONSEC_BLOCKS`, `CRAWL_FETCH_TIMEOUT_S`, `CRAWL_LISTINGS_SOURCES` (allowlist, e.g. run Domain-only while REA is being re-warmed). Curated suburb catalog in `crawl_targets.go` (25 suburbs across 5 capitals).
+
+### 6.4 The brandbrain crawl-jobs queue (distributed residential agents)
+
+Rather than each residential Mac iterating a static, hand-partitioned suburb list, the collector fans work out through a **`crawl_jobs` queue owned by brandbrain** (`api.brandbrain.dev`) — merged and deployed, endpoints under `/api/v1/agent/crawl-jobs`: `POST` (enqueue), `POST …/claim`, `POST …/submit`, `GET` (list) plus a server-side GROUP-BY summary for the queue state. brandbrain owns **only** the queue + tracking; **no listing rows or PII ever cross to brandbrain** — jobs carry suburb/state/postcode/source/tier, and results carry a **counts-only** `result_summary` (`crawlJobSummary`: suburbs, listings, events, blocked_sweeps, needs_rewarm).
+
+- **`-mode enqueue`** (`runEnqueue`, `crawl_agent.go`) posts the curated suburb catalog (`crawlTargets`) to the queue as `listings`-tier jobs; brandbrain skips pending duplicates so re-running is idempotent.
+- **`-mode agent`** (`runAgent`) polls the queue on a residential Mac: `claim` one job at a time (brandbrain fans suburbs out across multiple pollers via `SELECT … FOR UPDATE SKIP LOCKED`), run the **same per-suburb listings sweep** as `-mode listings` (§6.1–6.3) against the claimed suburb, upsert `property_listings`/`property_price_events` + link `sal_code`, then `submit` the counts-only summary back to brandbrain. Up to `CRAWL_AGENT_MAX_JOBS` (default 20) per run; MV refresh + sal-code linking happen once at the end of the run, not per job. Requires `BRANDBRAIN_AGENT_URL` + `BRANDBRAIN_AGENT_TOKEN` (a scoped brandbrain agent token) — absent either, the mode is a safe no-op. The suburb-*median* tier (`-mode crawl`) is not yet wired into agent mode; a `medians`-tier job fails clearly rather than silently.
+
+The brandbrain **macOS agent app** (v1.6.0) surfaces this queue to a human operator as a **"Real-estate crawl"** card (queued/in-progress/done + recent suburbs) alongside its existing "Brand discovery" section, reading `/control/v1/status`. It is a **viewer only** — the shorted collector (`-mode agent`) does the actual fetching and writing; the app just shows brandbrain's GROUP-BY summary. Design docs: `docs/superpowers/specs/2026-07-13-brandbrain-native-crawl-queue-design.md` (queue design) and `2026-07-13-brandbrain-crawl-run-tracking-design.md` (visibility).
+
+### 6.5 Residential crawl reliability — the REA/Kasada warm mechanism
+
+This is the load-bearing fact the whole listings tier depends on, so it's encoded twice: once as a **preflight check** the collector can run standalone, and once as **self-healing behaviour** in the launcher that wraps every scheduled run.
+
+**The fact itself.** REA fronts Kasada, which fingerprints *how* a page was navigated to, not just what fetched it. A **Playwright-driven** navigation to a REA URL — even through a real, warm-profile Chrome — gets detected and served an ~870-byte KPSDK challenge **stub** (0 listings; the sweep silently reports "blocked"). But Chrome's own **native startup navigation** (the URL passed on the command line when the browser process launches, not a page opened by automation afterwards) passes the KPSDK proof-of-work and sets a session clearance cookie on the profile. Once that cookie exists, the *same* Playwright/CDP fetch path that was blocked now returns the real ~1.17MB `ArgonautExchange` listings page fine — Kasada only distrusts the navigation that set the cookie, not the client fetching afterwards. Warming **Domain** (Akamai) does not clear REA's Kasada cookie; Domain works cold regardless. No human clicking is required — only that the dedicated Chrome's *startup* URL is a REA page:
+
+```bash
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+  --remote-debugging-port=9222 \
+  --user-data-dir="$HOME/.shorted-housing-crawl-chrome" \
+  "https://www.realestate.com.au/"
+```
+
+**`-mode warmcheck`** (`crawl_warmcheck.go`) proves this rather than trusting an operator to remember it: it fetches one REA search page through the **exact fetcher a real crawl uses** (CDP to the host Chrome) and classifies the result — warm only if the response both exceeds a size floor (`reaWarmMinBytes = 5000`, well above the ~870B stub) **and** contains `ArgonautExchange`. It never touches the database.
+
+**The launcher** (`deploy/run-housing-crawl.sh`) is self-healing end to end, invoked by launchd before every scheduled run:
+1. **Chrome reachable?** If the dedicated Chrome's CDP port isn't up, auto-launch it with the REA startup URL above (`warm_chrome`), wait ~12s, re-check.
+2. **Session actually warm?** A reachable CDP port is *not* the same thing as a warm REA session (the profile's clearance cookie can simply have expired) — run `-mode warmcheck` as a preflight. If it reports cold, relaunch Chrome (`warm_chrome` again) and retry, **up to 2 re-warm attempts**.
+3. Only once warm does it run the real crawl (`-mode listings` then `-mode crawl`).
+
+**Exit codes** (mirrored by `main.go`, the launcher, and `deploy/README.md`):
+
+| Code | Meaning |
+|------|---------|
+| `0` | ok |
+| `3` | the crawl itself tripped its circuit breaker mid-run and needs a re-warm (fires a macOS notification) |
+| `4` | Chrome still unreachable even after the launcher's own auto-launch attempt |
+| `5` | `-mode warmcheck` still fails (REA still cold) after the launcher's 2 auto re-warm retries |
+
+### 6.6 Current status
+
+The suburb-median tier (`-mode crawl`, `crawl_targets.go`) and the listings tier (`-mode listings`, plus the queue-distributed `-mode agent`) are both live and share the fetch/reliability/anti-poisoning machinery above. Domain (Akamai) has always worked cold; REA (Kasada) now works reliably too, given the warm-Chrome mechanism in §6.5 — the earlier "REA actively serves false data to bots, defenses are rock-solid but blind to active attacks" characterization no longer holds now that the warm-session fact is understood and automated. Remaining scope-out items: the median tier isn't yet agent/queue-distributed (still a single static `crawlTargets` list per rig); the curated catalog is 25 suburbs across 5 capitals (scaling to the full ABS gazetteer is future work — see §9 recipe E).
 
 ---
 
@@ -293,9 +337,11 @@ Two tables hold the live data: **`house_prices`** (narrow EAV: one row per regio
 | **State parliaments** (via Wikipedia members tables) | state member + party (6 single-member states) | suburb (SAL) | LIVE (`-mode electorates`) | CC-BY-SA (attribute) | none |
 | BIS/FRED HPI | price_index (2010=100) | AUS/JPN/USA/CHN | BAKED (`series.ts`, never fetched) | public domain | none |
 | OECD / ABS Lending / ATO | price_to_income, investor_share, neg_geared_count | AUS | BAKED (`series.ts`) | open | none |
-| REA/Domain crawl | median_price | suburb | crawl (blocked) | proprietary-tos-restricted | **no republish** |
+| REA/Domain crawl (`-mode crawl`) | median_price | suburb | **LIVE** (brandbrain queue + warm-Chrome CDP) | proprietary-tos-restricted | **no republish** |
 
 `source_licence` is stored on every `house_prices` row for audit; `mv_housing_headline` and the public read paths **exclude `proprietary-tos-restricted`**. The feature's baked arrays (§1) are **not** in the DB — they live only in `series.ts`.
+
+The listings tier (`-mode listings` / `-mode agent`) is the same **LIVE** (brandbrain queue + warm-Chrome CDP) crawl but writes individual for-sale listings + price-drop events to a separate pair of tables (`property_listings`, `property_price_events`), not `house_prices` — see §6.
 
 ### `suburb_demographics` column inventory
 
@@ -383,8 +429,9 @@ See §2 "Recipe". Pick the closest of the five patterns, add baked data to `seri
 ### D. Add a **new RPC / new dashboard panel**
 Follow the project's 4-layer store pattern + Connect-RPC handler convention. Proto in `shorts.proto`, handler in `house_prices.go` (cache via `s.cache.GetXKey`), query in `postgres_house_prices.go`, SSR action in `getHousing.ts` (`cache()`+`withRetryAndNotFound`), client action in `getHousingClient.ts` (session cache + backoff), then a `web/src/@/components/housing/*` panel and an entry in `housing/page.tsx`'s `ChartCard` grid.
 
-### E. Make the **crawl actually scrape**
-The architecture is defensively complete; what's missing: (1) a **Kasada solver** for REA (integrate into the Chromium escalation; goes stale within weeks as Kasada updates); (2) **residential proxy rotation** — already plumbed via `CRAWL_PROXY` into both engines (`export CRAWL_PROXY="socks5://…"`); (3) a **Domain developer API** path as a legitimate alternative (`source='domain_api'`, trusted, skips the paranoia — `upsertObservations` handles any `source` string); (4) scale `crawl_targets.go` from ~10 seed suburbs to the full ABS gazetteer (8000+ → 5–10h at 5–15s jitter; parallelize per-state). The four validation gates stay intact regardless. Never relax the `source_licence='proprietary-tos-restricted'` republish gate.
+### E. Scale the **residential crawl** beyond the curated catalog
+
+The crawl is live (§6) — a real host Chrome over CDP, warmed via a native REA startup URL and kept warm by `-mode warmcheck` + the self-healing launcher. What's left is scale, not defenses: (1) grow `crawl_targets.go` from 25 curated suburbs across 5 capitals to the full ABS gazetteer (8000+) — enqueue in batches via `-mode enqueue`, let more `-mode agent` residential pollers (one per Mac, identified by `CRAWL_AGENT_ID`) drain the brandbrain queue concurrently (`SKIP LOCKED` already handles the fan-out safely); (2) wire the suburb-**median** tier (`-mode crawl`) into agent/queue mode — today only the listings tier is queue-distributed, medians still run off the static per-rig `crawlTargets`/`CRAWL_SHARD_INDEX`/`CRAWL_SHARD_COUNT` partition; (3) a **Domain developer API** path as a legitimate, trusted alternative (`source='domain_api'`, skips the paranoia — `upsertObservations` handles any `source` string) — Domain already works cold so this is a nice-to-have, not a blocker. The four validation gates (§6.1) stay intact regardless of scale. Never relax the `source_licence='proprietary-tos-restricted'` republish gate.
 
 ### F. Finish the **Terraform wiring**
 The module is built; to schedule the collector in prod:

@@ -19,8 +19,8 @@ func NewStoreAdapter(store shorts.Store) *StoreAdapter {
 	return &StoreAdapter{store: store}
 }
 
-func (s *StoreAdapter) GetTopShorts(period string, limit int32, offset int32, summaryOnly bool) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
-	return s.store.GetTopShorts(period, limit, offset, summaryOnly)
+func (s *StoreAdapter) GetTopShorts(period string, limit int32, offset int32, summaryOnly bool, productCodes ...string) ([]*stocksv1alpha1.TimeSeriesData, int, error) {
+	return s.store.GetTopShorts(period, limit, offset, summaryOnly, productCodes...)
 }
 
 func (s *StoreAdapter) GetStock(productCode string) (*stocksv1alpha1.Stock, error) {
@@ -280,6 +280,14 @@ func (s *StoreAdapter) GetSuburbProfile(salCode string) (*shorts.SuburbProfileRo
 
 func (s *StoreAdapter) GetHousingRegions(regionType, stateCode, query string, limit int32) ([]*shorts.HousingRegionRow, error) {
 	return s.store.GetHousingRegions(regionType, stateCode, query, limit)
+}
+
+func (s *StoreAdapter) ListSuburbPriceDrops(stateCode, sort string, limit int32) ([]*shorts.SuburbPriceDropRow, error) {
+	return s.store.ListSuburbPriceDrops(stateCode, sort, limit)
+}
+
+func (s *StoreAdapter) ListSuburbDropListings(salCode, regionCode string, windowDays, limit int32) ([]*shorts.SuburbDropListingRow, error) {
+	return s.store.ListSuburbDropListings(salCode, regionCode, windowDays, limit)
 }
 
 func (s *StoreAdapter) GetEventTimeline(stockCode string, daysBack, limit int32) ([]*shorts.TimelineEventRow, error) {

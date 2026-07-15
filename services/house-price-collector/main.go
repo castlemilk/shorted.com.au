@@ -15,7 +15,14 @@ import (
 )
 
 func main() {
-	mode := flag.String("mode", "all", "official | crawl | census | electorates | amenities | lga | connectivity | funding | council-financials | refresh | all")
+	os.Exit(run())
+}
+
+// run executes the selected mode and returns a process exit code: 0 = ok,
+// 3 = a crawl needs a human to re-warm the Chrome profile (Kasada/Akamai
+// clearance expired). Wrapping the body lets deferred cleanup run before exit.
+func run() int {
+	mode := flag.String("mode", "all", "official | crawl | listings | agent | enqueue | warmcheck | census | electorates | amenities | lga | connectivity | funding | council-financials | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -23,7 +30,9 @@ func main() {
 		log.Fatal("DATABASE_URL is required")
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	// Configurable overall deadline — a slow, paced live listings crawl needs longer
+	// than the 15-min default used by the quick official/refresh runs.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(envInt("CRAWL_TIMEOUT_MIN", 15))*time.Minute)
 	defer cancel()
 
 	pool, err := connect(ctx, dbURL)
@@ -41,8 +50,39 @@ func main() {
 		// scheduled run (it's slow, adversarial and licence-gated). Drives a HEADED,
 		// persistent-profile Playwright browser, so it runs ONLY on the residential
 		// cuttlefish rig under xvfb (see Dockerfile.crawl), never on Cloud Run.
-		runCrawl(ctx, pool)
+		rewarm := runCrawl(ctx, pool)
 		refresh(ctx, pool)
+		if rewarm {
+			return 3
+		}
+	case "listings":
+		// Supplementary property-LISTING crawl — opt-in only, never part of the
+		// scheduled run. Sweeps portal search-results pages for individual for-sale
+		// listings, diffs asking prices across runs into price-drop events, and
+		// refreshes mv_suburb_price_drops. Same residential-rig posture as -mode crawl
+		// (headed host-Chrome over CDP); dry-run defaults ON. Self-refreshes internally.
+		if runListings(ctx, pool) {
+			return 3
+		}
+	case "agent":
+		// Poll the brandbrain-native crawl queue for suburbs to crawl, run the
+		// existing per-suburb listings sweep (residential host-Chrome over CDP),
+		// and report a counts-only summary back. Residential-rig only; requires
+		// BRANDBRAIN_AGENT_URL + BRANDBRAIN_AGENT_TOKEN (no-op without them).
+		if runAgent(ctx, pool) {
+			return 3
+		}
+	case "enqueue":
+		// Post the curated suburb catalog to the brandbrain crawl queue so pollers
+		// (-mode agent) have work to claim. Requires BRANDBRAIN_AGENT_URL + _TOKEN.
+		runEnqueue(ctx, pool)
+	case "warmcheck":
+		// Preflight verifier: fetches one REA search page via the SAME fetcher a
+		// real crawl uses and reports whether the dedicated Chrome's Kasada
+		// clearance is actually warm, rather than trusting the operator to
+		// remember to launch Chrome with a REA startup URL. See
+		// crawl_warmcheck.go and deploy/run-housing-crawl.sh.
+		return runWarmCheck(ctx, pool)
 	case "census":
 		// ABS 2021 Census GCP SAL demographics — boundary-anchored suburb rows.
 		runCensus(ctx, pool)
@@ -68,8 +108,9 @@ func main() {
 	case "refresh":
 		refresh(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want official|crawl|census|electorates|amenities|lga|connectivity|funding|council-financials|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|crawl|listings|agent|enqueue|warmcheck|census|electorates|amenities|lga|connectivity|funding|council-financials|refresh|all)", *mode)
 	}
+	return 0
 }
 
 // runVICFinancials fetches the VIC LGPRF full council data set and attaches each
