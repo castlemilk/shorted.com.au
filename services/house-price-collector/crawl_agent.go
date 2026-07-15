@@ -282,12 +282,14 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
 
 		// A job that wrote no events off a blocked/poisoned sweep means the browser
 		// session has gone cold — Kasada/Akamai serving stubs or poison, or an IP
-		// throttle after several heavy sweeps. The submit above already re-queued it
-		// (status "failed"). Two such jobs in a row ⇒ the session is degraded, so
-		// STOP claiming and flag a re-warm (exit 3) instead of burning the rest of
-		// the queue on a session that will keep returning blocked; those failed jobs
-		// stay queued for the next warm run. (Observed live: New Farm then Toowong
-		// both blocked back-to-back once the session throttled.)
+		// throttle after several heavy sweeps. The submit above marked it failed
+		// (terminal). Two such jobs in a row ⇒ the session is degraded, so STOP
+		// claiming and flag a re-warm (exit 3) instead of burning the rest of the
+		// still-PENDING queue on a session that will keep returning blocked — those
+		// un-claimed suburbs stay pending for the next warm run (this break is what
+		// protects them; the two that already blocked are terminally failed and need
+		// a re-enqueue). (Observed live: New Farm then Toowong both blocked
+		// back-to-back once the session throttled.)
 		if status == "failed" && summary.Events == 0 && summary.BlockedSweeps > 0 {
 			consecBlocked++
 			if consecBlocked >= 2 {
@@ -354,11 +356,16 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 	// A blocked/poisoned sweep is DISCARDED wholesale — crawlSuburbSource writes
 	// nothing for a blocked sweep even when earlier pages already collected real
 	// listings — so raw `seen` can be >0 while zero events were written. Gate the
-	// retry decision on EVENTS WRITTEN, not `seen`: a blocked sweep that produced
-	// no events got no usable data, so fail the job and let the queue re-serve it
-	// on a later warm/unthrottled run rather than banking a silent no-data
-	// "success". (Observed live: QLD suburbs collected page 1, hit a mid-sweep
-	// poison gate → seen=118, events=0, and were wrongly reported "succeeded".)
+	// terminal status on EVENTS WRITTEN, not `seen`: a blocked sweep that produced
+	// no events got no usable data, so mark the job FAILED rather than banking a
+	// silent no-data "success". (Observed live: QLD suburbs collected page 1, hit a
+	// mid-sweep poison gate → seen=118, events=0, and were wrongly reported
+	// "succeeded".) NOTE: "failed" is terminal in the brandbrain queue — it does
+	// NOT auto-re-pend. The queue only auto-retries lease-EXPIRED (unsubmitted)
+	// jobs while attempts<max_attempts; a terminally-failed suburb is re-crawled by
+	// the next full `-mode enqueue` or a targeted re-enqueue. (A queue-side change
+	// to re-pend a submitted "failed" while attempts remain would give free
+	// warm-session retries — see the brandbrain crawl_jobs Submit handler.)
 	if agentJobOutcome(summary.Events, s.blockedSweeps) == "failed" {
 		summary.Detail = "blocked/poisoned sweep(s), no events written"
 		return summary, "failed", "blocked sweeps, no events written", false
