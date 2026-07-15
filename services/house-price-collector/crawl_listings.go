@@ -364,9 +364,20 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 	wantPages := softCap
 	metaOK := false
 
+	// Block-risk pacing signals: consecBlocksAtEntry is a MEDIUM-term signal
+	// (how many consecutive blocks this source already racked up entering this
+	// sweep — fixed for the whole sweep, since a block THIS sweep ends the
+	// function immediately, never leaving a nonzero *blockCounter to read
+	// mid-loop); lastMismatch is an IMMEDIATE, page-by-page signal (updated
+	// below after every page). See paceBounds.
+	consecBlocksAtEntry := *blockCounter
+	lastMismatch := 0.0
+	baseDelay := paceRange{lo: lc.cfg.pageMinDelay, hi: lc.cfg.pageMaxDelay}
+
 	for page := 1; page <= wantPages; page++ {
 		if page > 1 {
-			jitterSleep(ctx, lc.cfg.pageMinDelay, lc.cfg.pageMaxDelay)
+			delay := paceBounds(consecBlocksAtEntry, lastMismatch, baseDelay)
+			jitterSleep(ctx, delay.lo, delay.hi)
 		}
 		html, finalURL, outcome := fetchAndClassify(ctx, lc.fetcher, urlFor(page))
 		pages++
@@ -396,6 +407,7 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 		}
 
 		matched, mismatch := partitionByTarget(extractListings(doc, source), t)
+		lastMismatch = mismatch
 
 		// Page-level poison gate. A high off-target ratio is the poison signal —
 		// BUT small suburbs legitimately run out of real inventory, after which
@@ -585,6 +597,45 @@ func fetchAndClassify(ctx context.Context, f htmlFetcher, url string) ([]byte, s
 		return nil, "", outcomeBlocked
 	}
 	return html, finalURL, outcomeOK
+}
+
+// paceRange is a [lo,hi] jitter window for the page-to-page delay.
+type paceRange struct{ lo, hi time.Duration }
+
+const (
+	paceWidenPerConsecBlock = 0.5 // +50% pace per consecutive block already observed on this source, capped by paceWidenFactorMax
+	paceWidenOnMismatch     = 0.5 // +50% pace after a high-mismatch (>30%) page
+	paceWidenFactorMax      = 3.0 // never widen the pace bounds beyond 3x base
+)
+
+// paceBounds picks the [lo,hi] delay bounds for the NEXT page fetch from two
+// block-risk signals: consecBlocks (consecutive blocks this source has
+// already racked up — a medium-term risk signal) and lastMismatch (the
+// PREVIOUS page's target-mismatch ratio — an immediate freshness signal; a
+// high-mismatch page is often the first sign of a bot-variant/poisoned
+// response even before an outright block). Either signal widens the bounds so
+// a rate-limited/suspicious site gets more room to cool down before the next
+// request, instead of being hammered at the same pace that likely
+// contributed to the risk. A clean run (consecBlocks<=0 &&
+// lastMismatch<=0.30) returns `base` unchanged — today's flat pacing.
+func paceBounds(consecBlocks int, lastMismatch float64, base paceRange) paceRange {
+	factor := 1.0
+	if consecBlocks > 0 {
+		factor += float64(consecBlocks) * paceWidenPerConsecBlock
+	}
+	if lastMismatch > 0.30 {
+		factor += paceWidenOnMismatch
+	}
+	if factor > paceWidenFactorMax {
+		factor = paceWidenFactorMax
+	}
+	if factor <= 1.0 {
+		return base
+	}
+	return paceRange{
+		lo: time.Duration(float64(base.lo) * factor),
+		hi: time.Duration(float64(base.hi) * factor),
+	}
 }
 
 func jitterSleep(ctx context.Context, lo, hi time.Duration) {
