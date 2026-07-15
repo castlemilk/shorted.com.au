@@ -427,9 +427,11 @@ func (lc *listingsCrawler) sweepSuburbSource(ctx context.Context, t CrawlTarget,
 
 		newThisPage := 0
 		for _, m := range matched {
-			if _, ok := collected[m.ListingID]; !ok {
+			if prev, ok := collected[m.ListingID]; !ok {
 				collected[m.ListingID] = m
 				newThisPage++
+			} else {
+				collected[m.ListingID] = mergeListing(prev, m)
 			}
 		}
 
@@ -469,6 +471,19 @@ func upgradeIfPageMetaConfirms(confirmed bool, def sweepStatus) sweepStatus {
 		return sweepComplete
 	}
 	return def
+}
+
+// mergeListing keeps the richer of two same-id sightings of a listing, using
+// the SAME fieldScore rule extractListings/walkForListingsDepth already use to
+// dedupe candidates WITHIN a single page — applied here ACROSS pages too, so a
+// thin early sighting (e.g. a promo/teaser card carrying just a price) doesn't
+// shadow a richer later one (full address/beds/baths) for the same listing_id.
+// Ties keep `existing` (stable, no churn when both pages agree).
+func mergeListing(existing, incoming RawListing) RawListing {
+	if fieldScore(incoming) > fieldScore(existing) {
+		return incoming
+	}
+	return existing
 }
 
 func finishSweep(collected map[string]RawListing, pages int, status sweepStatus) suburbSweep {

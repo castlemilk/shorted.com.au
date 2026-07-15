@@ -552,3 +552,70 @@ func TestSweep_YieldDecayCompletesWhenPageMetaConfirms(t *testing.T) {
 		t.Errorf("expected 5 collected listings, got %d", len(sw.listings))
 	}
 }
+
+// --- cross-page dedup: fieldScore-max merge (Task 5) ---
+
+// TestSweep_CrossPageDedupKeepsRicherRecord: listing "z" appears thin (price +
+// address only, no beds/baths) on page 1, then richer (+ beds/baths) on page
+// 2 for the SAME id. The merged record must keep the richer page-2 fields, not
+// silently freeze on whichever page happened to see it first.
+func TestSweep_CrossPageDedupKeepsRicherRecord(t *testing.T) {
+	p1 := `<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"listings":[` +
+		`{"id":"z","listingUrl":"/p/z","price":"$1,200,000","address":{"suburb":"Bondi","postcode":"2026","displayAddress":"z Test St"}},` +
+		`{"id":"a","listingUrl":"/p/a","price":"$1,200,000","address":{"suburb":"Bondi","postcode":"2026","displayAddress":"a Test St"}},` +
+		`{"id":"b","listingUrl":"/p/b","price":"$1,200,000","address":{"suburb":"Bondi","postcode":"2026","displayAddress":"b Test St"}},` +
+		`{"id":"c","listingUrl":"/p/c","price":"$1,200,000","address":{"suburb":"Bondi","postcode":"2026","displayAddress":"c Test St"}},` +
+		`{"id":"d","listingUrl":"/p/d","price":"$1,200,000","address":{"suburb":"Bondi","postcode":"2026","displayAddress":"d Test St"}}` +
+		`]}}}</script></body></html>`
+	p2 := `<html><body><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"listings":[` +
+		`{"id":"z","listingUrl":"/p/z","price":"$1,200,000","bedrooms":3,"bathrooms":2,"address":{"suburb":"Bondi","postcode":"2026","displayAddress":"z Test St"}},` +
+		`{"id":"f","listingUrl":"/p/f","price":"$1,200,000","address":{"suburb":"Bondi","postcode":"2026","displayAddress":"f Test St"}}` +
+		`]}}}</script></body></html>` // "f" is genuinely new so this page isn't itself a yield-decay stop
+	sw := sweepWith(map[string]string{
+		bondi.domainSearchURL(1): p1,
+		bondi.domainSearchURL(2): p2,
+		// page 3 is the default empty page -> natural end -> complete
+	})
+	if sw.status == sweepBlocked {
+		t.Fatalf("must not block, got %s", sw.status)
+	}
+	if len(sw.listings) != 6 {
+		t.Fatalf("expected 6 distinct listings (z,a,b,c,d,f), got %d", len(sw.listings))
+	}
+	var z *RawListing
+	for i := range sw.listings {
+		if sw.listings[i].ListingID == "z" {
+			z = &sw.listings[i]
+		}
+	}
+	if z == nil {
+		t.Fatalf("listing z missing from the merged set")
+	}
+	if z.Bedrooms == nil || *z.Bedrooms != 3 {
+		t.Errorf("merged z should keep the richer page-2 bedrooms, got %v", z.Bedrooms)
+	}
+	if z.Bathrooms == nil || *z.Bathrooms != 2 {
+		t.Errorf("merged z should keep the richer page-2 bathrooms, got %v", z.Bathrooms)
+	}
+	if z.DisplayAddr != "z Test St" {
+		t.Errorf("merged z should still carry the address seen on both pages, got %q", z.DisplayAddr)
+	}
+}
+
+func TestMergeListing(t *testing.T) {
+	thin := RawListing{ListingID: "z", PriceDisplay: "$1.2m"}
+	rich := RawListing{ListingID: "z", PriceDisplay: "$1.2m", DisplayAddr: "1 Test St", Bedrooms: int16p(3)}
+	if got := mergeListing(thin, rich); got.Bedrooms == nil || *got.Bedrooms != 3 {
+		t.Errorf("mergeListing(thin, rich) should keep the richer incoming record, got %+v", got)
+	}
+	if got := mergeListing(rich, thin); got.Bedrooms == nil || *got.Bedrooms != 3 {
+		t.Errorf("mergeListing(rich, thin) should keep the richer existing record, got %+v", got)
+	}
+	// A tie keeps `existing` (no churn).
+	same := RawListing{ListingID: "z", PriceDisplay: "$1.2m"}
+	if got := mergeListing(thin, same); got.PriceDisplay != thin.PriceDisplay {
+		t.Errorf("a tie should keep existing, got %+v", got)
+	}
+}
+
+func int16p(v int16) *int16 { return &v }
