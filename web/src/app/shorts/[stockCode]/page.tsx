@@ -35,10 +35,9 @@ import { CompanyTaxCard } from "~/@/components/company/company-tax-card";
 import { FinancialDigest } from "~/@/components/company/financial-digest";
 import { CommunityOverviewTeaser } from "~/@/components/company/community/community-overview-teaser";
 import { CommunityTab } from "~/@/components/company/community/community-tab";
-import { StockEvidencePanel } from "~/@/components/company/stock-evidence-panel";
-import { IntelLockCard } from "~/@/components/ui/intel-lock";
+import { StockEvidencePanelClient } from "~/@/components/company/stock-evidence-panel-client";
 import { LoginPromptBanner } from "~/@/components/ui/login-prompt-banner";
-import { auth } from "~/server/auth";
+import { SignedOutOnly } from "~/@/components/ui/session-gates";
 
 // Dynamic import to avoid SSR issues — child components import @connectrpc/connect
 const StockTabs = nextDynamic(
@@ -56,7 +55,7 @@ import { ChevronDown } from "lucide-react";
 import { siteConfig } from "~/@/config/site";
 import { RelatedStocks } from "~/@/components/seo/related-stocks";
 import { getRelatedStocks } from "~/app/actions/getRelatedStocks";
-import { getStockNews } from "~/app/actions/getStockNews";
+import { getStockHeadlines } from "~/app/actions/getStockNews";
 import { getStockOrNotFound } from "~/app/actions/getStock";
 import Link from "next/link";
 import { isStockIndexable } from "~/@/lib/seo/stock-indexability";
@@ -186,12 +185,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-// Connect RPC calls use no-store fetches, which are incompatible with ISR for
-// uncached dynamicParams. Cloudflare caches public stock HTML at the edge for
-// 24h, so keep Next dynamic and let the edge absorb repeat traffic.
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// ISR: pages are generated on first request and cached for an hour (the
+// underlying per-stock data caches are 24h, tag-busted by the daily sync).
+// This required every server fetch in the render tree to be ISR-safe —
+// connect POSTs are forced no-store at Vercel runtime and bail the route to
+// dynamic inside a revalidating render, so they all run inside
+// unstable_cache (getStock, getStockDetails, getStockHeadlines, the
+// evidence snapshot) or carry an explicit next.revalidate. The per-request
+// auth() read (which forces dynamic) was replaced with client-side session
+// gates.
+export const revalidate = 3600;
 export const dynamicParams = true;
+
+// Present-but-empty on purpose: a dynamic segment is only statically
+// optimized (on-demand ISR) when generateStaticParams EXISTS — without it
+// every request is plain SSR and the revalidate export above is inert.
+// Empty because pre-rendering ~1,600 stock pages at build would blow the
+// build budget; each page generates and caches on first request instead.
+export function generateStaticParams(): Array<{ stockCode: string }> {
+  return [];
+}
 
 const Page = async ({ params }: PageProps) => {
   const { stockCode: rawStockCode } = await params;
@@ -202,10 +215,6 @@ const Page = async ({ params }: PageProps) => {
   if (!/^[A-Z0-9]{1,4}$/.test(stockCode)) {
     notFound();
   }
-
-  // Page is force-dynamic, so a per-request session read is safe here. Used
-  // to lock the intelligence dossier for signed-out visitors.
-  const session = await auth().catch(() => null);
 
   // Fetch stock data for StockLLMMeta and related stocks in parallel
   // getStockOrNotFound throws NotFoundError when the stock doesn't exist,
@@ -220,8 +229,8 @@ const Page = async ({ params }: PageProps) => {
     (): Record<string, StockFinancialHighlight[]> => ({}),
   );
   // Latest headlines for the crawlable research section below the tabs —
-  // degrades to an empty list (withRetryAndNotFound returns undefined).
-  const stockNewsPromise = getStockNews(stockCode, 5).catch(() => undefined);
+  // ISR-safe accessor, degrades to an empty list.
+  const stockNewsPromise = getStockHeadlines(stockCode, 5);
   try {
     [stock, relatedData] = await Promise.all([
       getStockOrNotFound(stockCode),
@@ -238,7 +247,7 @@ const Page = async ({ params }: PageProps) => {
 
   const financialHighlightsMap = await financialHighlightsPromise;
   const financialHighlights = financialHighlightsMap?.[stockCode] ?? [];
-  const newsArticles = (await stockNewsPromise)?.articles?.slice(0, 5) ?? [];
+  const newsArticles = await stockNewsPromise;
 
   const breadcrumbItems = [
     { label: "Stocks", href: "/stocks" },
@@ -434,12 +443,14 @@ const Page = async ({ params }: PageProps) => {
         <Breadcrumbs items={breadcrumbItems} />
       </div>
 
-      {/* Signed-out breadcrumb to login — dismissible, above the fold */}
-      {!session && (
+      {/* Signed-out breadcrumb to login — dismissible, above the fold.
+          Client-gated: the ISR HTML is shared across sessions, so the
+          banner appears once the session resolves as signed-out. */}
+      <SignedOutOnly>
         <div className="mb-4 overflow-hidden rounded-lg border border-primary/20">
           <LoginPromptBanner />
         </div>
-      )}
+      </SignedOutOnly>
 
       {/* Header: Profile & Stats (always visible above tabs) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 items-start mb-6">
@@ -478,29 +489,15 @@ const Page = async ({ params }: PageProps) => {
           <>
             {/* Per-stock public-source evidence with industry drill-up
                 links. Signed-out visitors see the lock with a yellow
-                sign-in CTA instead of the dossier. */}
-            {session ? (
-              <Suspense fallback={null}>
-                <StockEvidencePanel
-                  stockCode={stockCode}
-                  industry={relatedData.industry}
-                  industrySlug={relatedData.industrySlug}
-                />
-              </Suspense>
-            ) : (
-              <IntelLockCard
-                title={`${stockCode} intelligence dossier`}
-                description="Public-source evidence for this company, with industry drill-up links."
-                bullets={[
-                  "Tax paid and taxable income records",
-                  "Government contracts and public money",
-                  "Emissions and trade exposure",
-                  "Political donations and lobbying links",
-                ]}
-                callbackUrl={`/shorts/${stockCode}`}
-                ctaLabel="Sign in to unlock the dossier"
-              />
-            )}
+                sign-in CTA instead of the dossier. The ISR page HTML is
+                session-agnostic, so the dossier is fetched CLIENT-SIDE and
+                only after the session resolves as authenticated — gated
+                data never ships in the shared cached payload. */}
+            <StockEvidencePanelClient
+              stockCode={stockCode}
+              industry={relatedData.industry}
+              industrySlug={relatedData.industrySlug}
+            />
 
             {/* Consolidated company research card — the ONLY place the
                 enriched prose renders (the Financials tab shows reports
@@ -598,9 +595,9 @@ const Page = async ({ params }: PageProps) => {
                     </a>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {article.source}
-                      {article.publishedAt
+                      {article.publishedAtIso
                         ? ` · ${new Date(
-                            Number(article.publishedAt.seconds) * 1000,
+                            article.publishedAtIso,
                           ).toLocaleDateString("en-AU", {
                             day: "numeric",
                             month: "short",

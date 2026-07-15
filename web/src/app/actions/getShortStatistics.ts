@@ -8,7 +8,7 @@ import {
 } from "~/gen/shorts/v1alpha1/shorts_pb";
 import {
   SHORTS_API_URL,
-  serverFetchWithUserAgent,
+  serverFetchOutsideNextCache,
   skipForBuild,
 } from "./config";
 
@@ -65,7 +65,7 @@ const BANK_CODES = ["ANZ", "CBA", "NAB", "WBC"];
 
 async function fetchShortStatistics(): Promise<ShortStatistics> {
   const transport = createConnectTransport({
-    fetch: serverFetchWithUserAgent,
+    fetch: serverFetchOutsideNextCache,
     baseUrl: SHORTS_API_URL,
   });
   const client = createClient(ShortedStocksService, transport);

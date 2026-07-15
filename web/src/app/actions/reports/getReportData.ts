@@ -3,14 +3,14 @@ import { createClient } from "@connectrpc/connect";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
-import { SHORTS_API_URL, serverFetchWithUserAgent } from "../config";
+import { SHORTS_API_URL, serverFetchOutsideNextCache } from "../config";
 import { withRetryAndNotFound, type RetryOptions } from "../withRetry";
 import { withSpan } from "~/@/lib/tracing";
 
 // Shared transport instance — reused across all functions to avoid redundant HTTP/2 connection setup
 function getTransport() {
   return createConnectTransport({
-    fetch: serverFetchWithUserAgent,
+    fetch: serverFetchOutsideNextCache,
     baseUrl: SHORTS_API_URL,
   });
 }

@@ -80,13 +80,35 @@ describe("Stock Detail Page Runtime Imports", () => {
     expect(typeof PageModule.default).toBe("function");
   });
 
-  it("renders stock pages dynamically so uncached codes do not hit ISR no-store failures", async () => {
+  it("renders stock pages with ISR (every server fetch is unstable_cache-wrapped or revalidate-tagged)", async () => {
     const PageModule = await import("../page");
 
-    expect(PageModule.dynamic).toBe("force-dynamic");
-    expect(PageModule.revalidate).toBe(0);
+    // The page moved off force-dynamic (July 2026): all connect POSTs in the
+    // render tree run inside unstable_cache, so ISR is safe and ~1,600 pages
+    // stop re-rendering on every crawl hit.
+    expect(PageModule.dynamic).toBeUndefined();
+    expect(PageModule.revalidate).toBe(3600);
     expect(PageModule.fetchCache).toBeUndefined();
-    expect(PageModule.generateStaticParams).toBeUndefined();
+    // Present-but-empty generateStaticParams is REQUIRED: without it a
+    // dynamic segment is never statically optimized and revalidate is inert.
+    expect(PageModule.generateStaticParams).toBeDefined();
+    expect(PageModule.generateStaticParams()).toEqual([]);
+  });
+
+  it("keeps per-request session reads out of the ISR render path", () => {
+    const source = fs.readFileSync(
+      path.resolve(__dirname, "../page.tsx"),
+      "utf8",
+    );
+
+    // auth() reads cookies and silently forces the whole route dynamic —
+    // session-dependent UI must be client-gated instead. Gated DATA (the
+    // evidence dossier) is client-FETCHED post-auth so it never ships in
+    // the shared ISR payload.
+    expect(source).not.toContain("~/server/auth");
+    expect(source).not.toContain("await auth()");
+    expect(source).toContain("StockEvidencePanelClient");
+    expect(source).toContain("SignedOutOnly");
   });
 
   it("keeps volatile community data out of the stock page HTML cache path", () => {

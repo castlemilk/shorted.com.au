@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 
-import { getIndustryIntelligenceSnapshot } from "~/app/actions/getIndustryIntelligence";
 import {
   buildEvidenceChannels,
   type EvidenceChannel,
 } from "~/@/lib/industry-intelligence";
+import { type IndustryIntelligenceSnapshot } from "~/@/lib/industry-intelligence-snapshot";
 
 /** Preferred headline metric per channel (kept in sync with the industry view). */
 const PRIMARY_METRIC_BY_KIND: Record<string, string> = {
@@ -67,17 +67,21 @@ function headlineForChannel(channel: EvidenceChannel): ChannelHeadline | null {
  * channel (this stock's own records only — exact ABN/name matched), each
  * deep-linking into the industry intelligence workspace. Renders nothing when
  * no evidence exists for the stock (the no-fake-data contract).
+ *
+ * Pure presentational view — the SNAPSHOT is fetched by the caller. On the
+ * stock page that caller is StockEvidencePanelClient, which only fetches
+ * after the session resolves as authenticated, so dossier data never ships
+ * in the shared ISR page payload.
  */
-export async function StockEvidencePanel({
-  stockCode,
+export function StockEvidencePanelView({
+  snapshot,
   industry,
   industrySlug,
 }: {
-  stockCode: string;
+  snapshot: IndustryIntelligenceSnapshot | null;
   industry?: string | null;
   industrySlug?: string | null;
 }) {
-  const snapshot = await getIndustryIntelligenceSnapshot("", 50, stockCode);
   if (!snapshot) return null;
 
   const channels = buildEvidenceChannels(snapshot);

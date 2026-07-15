@@ -4,7 +4,7 @@ import { unstable_cache } from "next/cache";
 import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import {
   SHORTS_API_URL,
-  serverFetchWithUserAgent,
+  serverFetchOutsideNextCache,
   skipForBuild,
 } from "./config";
 import { getScan, type ScanRange } from "~/@/lib/scans/registry";
@@ -48,7 +48,7 @@ async function fetchScanResults(slug: string): Promise<ScanResults> {
   if (!scan) return { asOfDate: "", rows: [], totalCount: 0 };
 
   const transport = createConnectTransport({
-    fetch: serverFetchWithUserAgent,
+    fetch: serverFetchOutsideNextCache,
     baseUrl: SHORTS_API_URL,
   });
   const client = createClient(ShortedStocksService, transport);

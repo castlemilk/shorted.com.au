@@ -4,7 +4,7 @@ import { ShortedStocksService } from "~/gen/shorts/v1alpha1/shorts_pb";
 import { type TimeSeriesData } from "~/gen/stocks/v1alpha1/stocks_pb";
 import { cache } from "react";
 import { unstable_cache } from "next/cache";
-import { SHORTS_API_URL, serverFetchWithUserAgent } from "./config";
+import { SHORTS_API_URL, serverFetchOutsideNextCache } from "./config";
 import { fetchEdgeReadJson } from "./edgeRead";
 import { formatPeriodForAPI } from "~/lib/period-utils";
 import { withRetryAndNotFound } from "./withRetry";
@@ -26,7 +26,7 @@ async function fetchStockData(
   if (edgeResponse) return edgeResponse;
 
   const transport = createConnectTransport({
-    fetch: serverFetchWithUserAgent,
+    fetch: serverFetchOutsideNextCache,
     baseUrl: SHORTS_API_URL,
   });
   const client = createClient(ShortedStocksService, transport);
