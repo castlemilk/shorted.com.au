@@ -68,6 +68,12 @@ type listingsConfig struct {
 	noiseAbs      float64       // CRAWL_LISTINGS_NOISE_ABS      (default 5000)
 	noisePct      float64       // CRAWL_LISTINGS_NOISE_PCT      (default 0.005 == 0.5%)
 	delistGrace   int           // CRAWL_LISTINGS_DELIST_GRACE   (default 2)
+	// resumeWindow gates the checkpoint/resume cursor (crawl_resume.go): a
+	// (source,suburb) swept within this window of "now" is skipped. Defaults to
+	// 0 == DISABLED (today's behaviour: always sweep every selected target) —
+	// set CRAWL_LISTINGS_RESUME_WINDOW_H (a recommended value is 20, i.e. 20h)
+	// to opt in.
+	resumeWindow time.Duration // CRAWL_LISTINGS_RESUME_WINDOW_H (default 0/disabled)
 	// fixtureDir, when set, reads pages from saved HTML files instead of driving a
 	// browser — for offline testing/seeding against captured real pages.
 	fixtureDir string // CRAWL_LISTINGS_FIXTURE_DIR
@@ -88,6 +94,7 @@ func loadListingsConfig() listingsConfig {
 		noiseAbs:      envFloat("CRAWL_LISTINGS_NOISE_ABS", 5000),
 		noisePct:      envFloat("CRAWL_LISTINGS_NOISE_PCT", 0.005),
 		delistGrace:   envInt("CRAWL_LISTINGS_DELIST_GRACE", 2),
+		resumeWindow:  time.Duration(envInt("CRAWL_LISTINGS_RESUME_WINDOW_H", 0)) * time.Hour,
 		fixtureDir:    os.Getenv("CRAWL_LISTINGS_FIXTURE_DIR"),
 		sources:       parseListingsSources(),
 	}
@@ -241,6 +248,16 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 
 	log.Printf("[listings] start: %d suburbs · %s · maxPages=%d · dryRun=%v · sources=%s", len(targets), crawlFetcherMode(cfg.crawlConfig), cfg.maxPages, cfg.dryRun, strings.Join(enabledSourceNames(cfg.sources), ","))
 
+	// Checkpoint/resume: OFF unless CRAWL_LISTINGS_RESUME_WINDOW_H is set. When
+	// enabled, load the last-swept snapshot ONCE and skip any (source,suburb)
+	// swept within the window — never silently: every skip is logged.
+	rs, resumeErr := loadResumeSnapshot(ctx, pool, cfg.resumeWindow)
+	if resumeErr != nil {
+		log.Printf("[listings] resume snapshot load failed (%v) — resume disabled for this run", resumeErr)
+	} else if cfg.resumeWindow > 0 {
+		log.Printf("[listings] resume window=%s — %d (source,suburb) pair(s) loaded", cfg.resumeWindow, len(rs))
+	}
+
 	reaEvents, domEvents := 0, 0
 	for i, t := range targets {
 		if i > 0 {
@@ -248,10 +265,18 @@ func runListings(ctx context.Context, pool *pgxpool.Pool) bool {
 		}
 		lc.stats.suburbs++
 		if cfg.sourceEnabled("rea") {
-			reaEvents += lc.crawlSuburbSource(ctx, pool, t, "rea", t.reaSearchURL, &lc.reaBlocks, runTs)
+			if rs.shouldSkipTarget("rea", t, runTs, cfg.resumeWindow) {
+				log.Printf("[listings] %s rea: skipped (swept within the resume window)", t.Display)
+			} else {
+				reaEvents += lc.crawlSuburbSource(ctx, pool, t, "rea", t.reaSearchURL, &lc.reaBlocks, runTs)
+			}
 		}
 		if cfg.sourceEnabled("domain") {
-			domEvents += lc.crawlSuburbSource(ctx, pool, t, "domain", t.domainSearchURL, &lc.domBlocks, runTs)
+			if rs.shouldSkipTarget("domain", t, runTs, cfg.resumeWindow) {
+				log.Printf("[listings] %s domain: skipped (swept within the resume window)", t.Display)
+			} else {
+				domEvents += lc.crawlSuburbSource(ctx, pool, t, "domain", t.domainSearchURL, &lc.domBlocks, runTs)
+			}
 		}
 	}
 

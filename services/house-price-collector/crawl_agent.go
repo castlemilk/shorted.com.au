@@ -374,6 +374,15 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
 		log.Printf("[agent] token auto-refresh ENABLED via local agent control API — an expired token is re-fetched mid-run (no minted credential needed)")
 	}
 
+	// Checkpoint/resume (see crawl_resume.go): OFF unless
+	// CRAWL_LISTINGS_RESUME_WINDOW_H is set. Loaded once for the whole run.
+	rs, resumeErr := loadResumeSnapshot(ctx, pool, cfg.resumeWindow)
+	if resumeErr != nil {
+		log.Printf("[agent] resume snapshot load failed (%v) — resume disabled for this run", resumeErr)
+	} else if cfg.resumeWindow > 0 {
+		log.Printf("[agent] resume window=%s — %d (source,suburb) pair(s) loaded", cfg.resumeWindow, len(rs))
+	}
+
 	anyRewarm := false
 	wroteAny := false
 	done := 0
@@ -391,7 +400,7 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
 		if done > 0 {
 			jitterSleep(ctx, cfg.minDelay, cfg.maxDelay)
 		}
-		summary, status, errMsg, wrote := crawlAgentJob(ctx, pool, fetcher, cfg, job)
+		summary, status, errMsg, wrote := crawlAgentJob(ctx, pool, fetcher, cfg, job, rs)
 		wroteAny = wroteAny || wrote
 		if summary.NeedsRewarm {
 			anyRewarm = true
@@ -445,8 +454,11 @@ func runAgent(ctx context.Context, pool *pgxpool.Pool) bool {
 
 // crawlAgentJob runs one claimed suburb job (listings tier) and returns the
 // counts-only summary, the terminal status, an optional error, and whether it
-// wrote anything (to gate the end-of-run MV refresh).
-func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher, cfg listingsConfig, job *agentCrawlJob) (crawlJobSummary, string, string, bool) {
+// wrote anything (to gate the end-of-run MV refresh). rs is the (optional —
+// may be nil) resume snapshot loaded once for the whole -mode agent run; a
+// source within the resume window is skipped for this job (logged, never
+// silently) rather than swept again.
+func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher, cfg listingsConfig, job *agentCrawlJob, rs resumeSet) (crawlJobSummary, string, string, bool) {
 	// Medians-in-agent-mode is a follow-up; the standalone `-mode crawl` path
 	// still serves the median tier. Fail such a job clearly rather than silently.
 	if strings.EqualFold(job.Tier, "medians") {
@@ -463,8 +475,20 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 	}
 
 	lc := &listingsCrawler{fetcher: fetcher, cfg: cfg}
-	reaEvents := lc.crawlSuburbSource(ctx, pool, t, "rea", t.reaSearchURL, &lc.reaBlocks, runTs)
-	domEvents := lc.crawlSuburbSource(ctx, pool, t, "domain", t.domainSearchURL, &lc.domBlocks, runTs)
+	var reaEvents, domEvents int
+	var skippedRea, skippedDomain bool
+	if rs.shouldSkipTarget("rea", t, runTs, cfg.resumeWindow) {
+		skippedRea = true
+		log.Printf("[agent] %s rea: skipped (swept within the resume window)", t.Display)
+	} else {
+		reaEvents = lc.crawlSuburbSource(ctx, pool, t, "rea", t.reaSearchURL, &lc.reaBlocks, runTs)
+	}
+	if rs.shouldSkipTarget("domain", t, runTs, cfg.resumeWindow) {
+		skippedDomain = true
+		log.Printf("[agent] %s domain: skipped (swept within the resume window)", t.Display)
+	} else {
+		domEvents = lc.crawlSuburbSource(ctx, pool, t, "domain", t.domainSearchURL, &lc.domBlocks, runTs)
+	}
 
 	s := lc.stats
 	summary := crawlJobSummary{
@@ -473,6 +497,10 @@ func crawlAgentJob(ctx context.Context, pool *pgxpool.Pool, fetcher htmlFetcher,
 		Events:        reaEvents + domEvents,
 		BlockedSweeps: s.blockedSweeps,
 		NeedsRewarm:   needsRewarm(cfg.maxConsecBlocks, lc.reaBlocks, lc.domBlocks),
+	}
+	if skippedRea && skippedDomain {
+		summary.Detail = "both sources skipped (swept within the resume window)"
+		return summary, "succeeded", "", false
 	}
 
 	// A blocked/poisoned sweep is DISCARDED wholesale — crawlSuburbSource writes
