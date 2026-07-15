@@ -529,6 +529,33 @@ resource "cloudflare_ruleset" "app_api_security_skip" {
       }
     },
     {
+      # SBFM's static-resource bypass does not cover .xml, so /sitemap.xml and
+      # /feed.xml are managed-challenged for every non-verified client. RSS
+      # readers and de-verified AI crawlers (PerplexityBot lost Cloudflare
+      # verification Aug 2025) get 403s instead of the sitemap/feed. These are
+      # read-only XML documents with no abuse surface; the zone rate limiter is
+      # deliberately NOT skipped here (it only applies to the API host anyway).
+      action      = "skip"
+      expression  = <<-EOT
+        (
+          (http.host eq "shorted.com.au" or http.host eq "www.shorted.com.au")
+          and (
+            http.request.uri.path eq "/sitemap.xml"
+            or http.request.uri.path eq "/feed.xml"
+          )
+        )
+      EOT
+      description = "Allow non-verified feed readers and crawlers to fetch sitemap.xml and feed.xml through SBFM, BIC, and Security Level checks"
+      enabled     = true
+      action_parameters = {
+        phases   = ["http_request_sbfm"]
+        products = ["bic", "securityLevel"]
+      }
+      logging = {
+        enabled = false
+      }
+    },
+    {
       action      = "skip"
       expression  = <<-EOT
         (
@@ -668,6 +695,23 @@ resource "cloudflare_bot_management" "ai_crawl_control" {
   # Our app serves robots.txt (Content-Signals + explicit AI-allow groups);
   # Cloudflare's managed robots.txt would prepend conflicting Disallow rules.
   is_robots_txt_managed = false
+
+  # Super Bot Fight Mode — codified from live zone state (dashboard-set before
+  # July 2026, previously invisible to terraform plan). These settings are why
+  # all HTML/sitemap/feed responses managed-challenge non-verified clients:
+  #   - sbfm_definitely_automated = managed_challenge → non-verified automation
+  #     gets a challenge on every non-static path.
+  #   - sbfm_verified_bots = "allow" is the ONLY thing keeping Googlebot /
+  #     Bingbot / GPTBot / ClaudeBot (Cloudflare-verified bots) crawling the
+  #     site. A silent dashboard flip to "block" would de-index the site —
+  #     managing it here makes that drift visible in plan. NEVER set to block.
+  #   - sbfm_static_resource_protection = false → static extensions bypass
+  #     SBFM. NOTE: .xml is NOT on Cloudflare's static-extension list, so
+  #     /sitemap.xml + /feed.xml still need the explicit skip rule in
+  #     cloudflare_ruleset.app_api_security_skip below.
+  sbfm_definitely_automated       = "managed_challenge"
+  sbfm_verified_bots              = "allow"
+  sbfm_static_resource_protection = false
 }
 
 
