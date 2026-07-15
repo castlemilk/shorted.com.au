@@ -15,7 +15,8 @@ design/plan in `docs/superpowers/{specs,plans}/2026-07-13-realestate-*`.
    ```bash
    cd services && go run github.com/playwright-community/playwright-go/cmd/playwright install chromium
    ```
-3. Launch the DEDICATED-profile Chrome (NEVER the personal profile) with a **REA URL
+3. (Optional first warm-up — the launcher now does this itself, see below.)
+   Launch the DEDICATED-profile Chrome (NEVER the personal profile) with a **REA URL
    as its startup page**. Chrome's own (non-automated) startup navigation clears REA's
    Kasada challenge and sets a session cookie, so the crawl's Playwright REA fetches
    work. A Playwright-driven warm, or warming Domain, does NOT clear Kasada — REA then
@@ -56,4 +57,15 @@ CRAWL_DRY_RUN=true CRAWL_SHARD_INDEX=0 CRAWL_SHARD_COUNT=2 \
 launchctl start com.shorted.housing-crawl
 ```
 
-Exit codes: `0` ok · `3` re-warm the Chrome profile (notification fired) · `4` Chrome not reachable.
+Exit codes: `0` ok · `3` re-warm the Chrome profile (notification fired) · `4` Chrome not reachable (even after the launcher's own auto-launch attempt) · `5` REA warmcheck failed (could not clear Kasada, even after the launcher's auto re-warm retries).
+
+## Reliability: the launcher is now self-healing
+
+`run-housing-crawl.sh` no longer depends on an operator remembering to launch
+Chrome with a REA startup URL by hand. Before every run it: (1) auto-launches
+the dedicated Chrome if the CDP port isn't reachable, (2) runs the collector's
+`-mode warmcheck` preflight to PROVE the REA session actually cleared Kasada
+(a reachable CDP port is not the same thing as a warm REA session), relaunching
+Chrome + re-checking up to twice if it's cold, and (3) only then runs the real
+crawl. The manual launch command in step 3 above is still useful for a first
+warm-up / manual rehearsal, but the scheduled launchd run does it itself.

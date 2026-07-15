@@ -22,7 +22,7 @@ func main() {
 // 3 = a crawl needs a human to re-warm the Chrome profile (Kasada/Akamai
 // clearance expired). Wrapping the body lets deferred cleanup run before exit.
 func run() int {
-	mode := flag.String("mode", "all", "official | crawl | listings | agent | enqueue | census | electorates | amenities | lga | connectivity | funding | council-financials | refresh | all")
+	mode := flag.String("mode", "all", "official | crawl | listings | agent | enqueue | warmcheck | census | electorates | amenities | lga | connectivity | funding | council-financials | refresh | all")
 	flag.Parse()
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -76,6 +76,13 @@ func run() int {
 		// Post the curated suburb catalog to the brandbrain crawl queue so pollers
 		// (-mode agent) have work to claim. Requires BRANDBRAIN_AGENT_URL + _TOKEN.
 		runEnqueue(ctx, pool)
+	case "warmcheck":
+		// Preflight verifier: fetches one REA search page via the SAME fetcher a
+		// real crawl uses and reports whether the dedicated Chrome's Kasada
+		// clearance is actually warm, rather than trusting the operator to
+		// remember to launch Chrome with a REA startup URL. See
+		// crawl_warmcheck.go and deploy/run-housing-crawl.sh.
+		return runWarmCheck(ctx, pool)
 	case "census":
 		// ABS 2021 Census GCP SAL demographics — boundary-anchored suburb rows.
 		runCensus(ctx, pool)
@@ -101,7 +108,7 @@ func run() int {
 	case "refresh":
 		refresh(ctx, pool)
 	default:
-		log.Fatalf("unknown -mode %q (want official|crawl|listings|agent|enqueue|census|electorates|amenities|lga|connectivity|funding|council-financials|refresh|all)", *mode)
+		log.Fatalf("unknown -mode %q (want official|crawl|listings|agent|enqueue|warmcheck|census|electorates|amenities|lga|connectivity|funding|council-financials|refresh|all)", *mode)
 	}
 	return 0
 }
