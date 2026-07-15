@@ -457,6 +457,10 @@ export default async function StatisticsPage() {
               short squeeze candidates
             </Link>
             {" · "}
+            <Link href="/scans" className="text-primary hover:underline">
+              short interest scans
+            </Link>
+            {" · "}
             <Link href="/screener" className="text-primary hover:underline">
               screener
             </Link>

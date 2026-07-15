@@ -25,6 +25,7 @@ const items: NavItemWithGroup[] = [
   { title: "AI chat", href: "/chat", requiresAuth: true },
   { title: "reports", href: "/reports" },
   { title: "statistics", href: "/statistics" },
+  { title: "scans", href: "/scans" },
   { title: "news", href: "/news" },
   { title: "portfolio", href: "/portfolio", requiresAuth: true },
   { title: "about", href: "/about" },
