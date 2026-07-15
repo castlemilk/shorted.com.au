@@ -619,3 +619,62 @@ func TestMergeListing(t *testing.T) {
 }
 
 func int16p(v int16) *int16 { return &v }
+
+// --- adaptive page cap by suburb size (Task 6) ---
+
+func TestSoftPageCap(t *testing.T) {
+	const def = 5
+	if got := softPageCap(0, 20, def); got != def {
+		t.Errorf("unknown dwellings (0) should use the default cap, got %d want %d", got, def)
+	}
+	large := softPageCap(25_000, 20, def)
+	if large <= def {
+		t.Errorf("a large suburb should get a soft cap ABOVE the default, got %d", large)
+	}
+	if large > 20 {
+		t.Errorf("the soft cap must never exceed the hard ceiling, got %d", large)
+	}
+	tiny := softPageCap(1_000, 20, def)
+	if tiny >= def {
+		t.Errorf("a tiny suburb should get a soft cap BELOW the default, got %d", tiny)
+	}
+	if tiny < 1 {
+		t.Errorf("the soft cap must never go below 1, got %d", tiny)
+	}
+	// A low hard ceiling always wins, even for a huge suburb.
+	if got := softPageCap(1_000_000, 3, def); got != 3 {
+		t.Errorf("hard ceiling must always win, got %d want 3", got)
+	}
+	// hardCeiling<=0 is "no override" (defensive default for a caller that
+	// didn't set one), not an implicit re-widening.
+	if got := softPageCap(25_000, 0, def); got != def*2 {
+		t.Errorf("hardCeiling<=0 should not override the derived cap, got %d want %d", got, def*2)
+	}
+}
+
+// TestSweep_SoftPageCapSizesTheWalkWhenPageMetaUnusable proves softPageCap is
+// actually wired into the sweep loop, not just unit-tested in isolation: a
+// suburb tagged with a small Dwellings hint gets fewer pages than the
+// configured default when the portal's own PageMeta can't be read.
+func TestSweep_SoftPageCapSizesTheWalkWhenPageMetaUnusable(t *testing.T) {
+	tiny := bondi
+	tiny.Dwellings = 500 // < 2000 -> softCap = default(5) - 2 = 3
+
+	lc := testLC()
+	// Every page is full and clean -- with no cap, the walk would run to
+	// maxPages(5). With the Dwellings hint, it must stop at softCap(3).
+	pages := map[string]string{}
+	ids := []string{"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o"}
+	for i := 0; i < 3; i++ {
+		pages[tiny.domainSearchURL(i+1)] = domainPageHTML(ids[i*5:i*5+5], "2026")
+	}
+	lc.fetcher = &pagedFetcher{pages: pages}
+	blocks := 0
+	sw := lc.sweepSuburbSource(context.Background(), tiny, "domain", tiny.domainSearchURL, &blocks)
+	if sw.pages != 3 {
+		t.Fatalf("expected the Dwellings hint to cap the walk at 3 pages, got %d", sw.pages)
+	}
+	if sw.status != sweepPartial {
+		t.Fatalf("hitting the soft cap with no PageMeta confirmation must stay partial, got %s", sw.status)
+	}
+}
